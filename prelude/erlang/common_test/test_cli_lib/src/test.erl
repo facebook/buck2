@@ -30,7 +30,8 @@
 %% init
 -export([
     info/0,
-    ensure_initialized/0
+    ensure_initialized/0,
+    start_shell/0
 ]).
 
 -type run_spec() :: string() | non_neg_integer() | [#{name := string(), suite := string()}].
@@ -68,7 +69,7 @@ help() ->
     [
         print_help(F, A)
      || {F, A} <- ?MODULE:module_info(exports),
-        F =/= module_info andalso F =/= ensure_initialized andalso F =/= start
+        not lists:member(F, [module_info, ensure_initialized, start, start_shell])
     ],
     io:format("~n"),
     io:format("For more information, use the built in help, e.g. h(test, help)~n"),
@@ -372,4 +373,13 @@ do_plain_test_run(RegExOrId) ->
     case discover(RegExOrId) of
         [] -> {0, 0};
         ToRun -> do_plain_test_run(ToRun)
+    end.
+
+-spec start_shell() -> no_return().
+start_shell() ->
+    case string:to_integer(erlang:system_info(otp_release)) of
+        {Version, _} when Version >= 26 ->
+            shell:start_interactive();
+        _ ->
+            user_drv:start()
     end.

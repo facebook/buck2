@@ -23,6 +23,7 @@ use buck2_common::io::IoProvider;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_interpreter::file_type::StarlarkFileType;
+use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::paths::path::OwnedStarlarkPath;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -60,7 +61,7 @@ struct Cache<'a> {
     stderr: &'a mut (dyn Write + Send + Sync),
     // Our accumulated state
     oracle: HashMap<(CellName, StarlarkFileType), (Arc<dyn TypingOracle + Send + Sync>, Globals)>,
-    cache: HashMap<OwnedStarlarkPath, Interface>,
+    cache: HashMap<OwnedStarlarkModulePath, Interface>,
 }
 
 impl<'a> Cache<'a> {
@@ -86,11 +87,11 @@ impl<'a> Cache<'a> {
         }
     }
 
-    async fn get(&mut self, path: OwnedStarlarkPath) -> anyhow::Result<Interface> {
+    async fn get(&mut self, path: OwnedStarlarkModulePath) -> anyhow::Result<Interface> {
         match self.cache.get(&path) {
             Some(x) => Ok(x.dupe()),
             None => {
-                let res = self.run(path.clone()).await?;
+                let res = self.run(path.clone().into_starlark_path()).await?;
                 self.cache.insert(path, res.dupe());
                 Ok(res)
             }
@@ -120,7 +121,7 @@ impl<'a> Cache<'a> {
         let mut loads = HashMap::new();
         for x in ast.loads() {
             let y = interp.resolve_load(path_ref, x.module_id).await?;
-            let interface = self.get(y.into_starlark_path()).await?;
+            let interface = self.get(y).await?;
             loads.insert(x.module_id.to_owned(), interface);
         }
         let (oracle, globals) = self

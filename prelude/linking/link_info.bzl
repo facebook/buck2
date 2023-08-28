@@ -117,7 +117,7 @@ FrameworksLinkable = record(
 )
 
 SwiftmoduleLinkable = record(
-    tset = field("SwiftmodulePathsTSet"),
+    swiftmodule = field(Artifact),
     _type = field(LinkableType.type, LinkableType("swiftmodule")),
 )
 
@@ -221,12 +221,14 @@ def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
                 args.add(get_objects_as_library_args(linkable.linker_type, linkable.objects))
             else:
                 args.add(linkable.objects)
-    elif linkable._type == LinkableType("frameworks") or linkable._type == LinkableType("swiftmodule") or linkable._type == LinkableType("swift_runtime"):
+    elif linkable._type == LinkableType("frameworks") or linkable._type == LinkableType("swift_runtime"):
         # These flags are handled separately so they can be deduped.
         #
         # We've seen in apps with larger dependency graphs that failing
         # to dedupe these args results in linker.argsfile which are too big.
         pass
+    elif linkable._type == LinkableType("swiftmodule"):
+        args.add(cmd_args(linkable.swiftmodule, format = "-Wl,-add_ast_path,{}"))
     else:
         fail("Encountered unhandled linkable of type {}".format(linkable._type))
 
@@ -278,6 +280,8 @@ LinkedObject = record(
     output = field([Artifact, "promise"]),
     # The combined bitcode from this linked object and any static libraries
     bitcode_bundle = field([Artifact, None], None),
+    # the generated linked output before running stripping(and bolt).
+    unstripped_output = field(Artifact),
     # the generated linked output before running bolt, may be None if bolt is not used.
     prebolt_output = field([Artifact, None], None),
     # A linked object (binary/shared library) may have an associated dwp file with

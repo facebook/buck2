@@ -50,12 +50,7 @@ impl OracleStandard {
             }
         }
 
-        add::<crate::values::bool::StarlarkBool>(&mut fallback);
         add::<crate::values::enumeration::FrozenEnumType>(&mut fallback);
-        add::<crate::values::float::StarlarkFloat>(&mut fallback);
-        add::<crate::values::int::PointerI32>(&mut fallback);
-        add::<crate::values::none::NoneType>(&mut fallback);
-        add::<crate::values::range::Range>(&mut fallback);
         add::<crate::values::record::field::FrozenField>(&mut fallback);
         add::<crate::values::record::record_type::FrozenRecordType>(&mut fallback);
         add::<crate::values::regex::StarlarkRegex>(&mut fallback);
@@ -66,7 +61,6 @@ impl OracleStandard {
             &mut fallback,
         );
         add::<crate::values::structs::value::FrozenStruct>(&mut fallback);
-        add::<crate::values::tuple::value::FrozenTuple>(&mut fallback);
 
         Self { fallback }
     }
@@ -83,137 +77,21 @@ impl TypingOracle for OracleStandard {
         // We explicitly implement polymorphic functions (e.g. `dict.get`) so they can get much more precise types.
         Some(Ok(match ty {
             TyBasic::List(elem) => match attr {
-                TypingAttr::Slice => Ty::basic(ty.clone()),
-                TypingAttr::BinOp(TypingBinOp::Less) => {
-                    // This is a bit weak, beacuse it only looks at this oracle
-                    return self.attribute(ty, attr);
-                }
-
-                TypingAttr::Iter => (**elem).clone(),
-                TypingAttr::BinOp(TypingBinOp::In) => {
-                    Ty::function(vec![Param::pos_only((**elem).clone())], Ty::bool())
-                }
                 TypingAttr::Index => {
                     Ty::function(vec![Param::pos_only(Ty::int())], (**elem).clone())
                 }
-                TypingAttr::BinOp(TypingBinOp::Add) => {
-                    Ty::function(vec![Param::pos_only(Ty::any())], Ty::list(Ty::any()))
-                }
-                TypingAttr::BinOp(TypingBinOp::Mul) => {
-                    Ty::function(vec![Param::pos_only(Ty::int())], Ty::basic(ty.clone()))
-                }
-                TypingAttr::Regular("pop") => Ty::function(
-                    vec![Param::pos_only(Ty::int()).optional()],
-                    (**elem).clone(),
-                ),
-                TypingAttr::Regular("index") => Ty::function(
-                    vec![
-                        Param::pos_only((**elem).clone()),
-                        Param::pos_only(Ty::int()).optional(),
-                    ],
-                    Ty::int(),
-                ),
-                TypingAttr::Regular("remove") => {
-                    Ty::function(vec![Param::pos_only((**elem).clone())], Ty::none())
-                }
                 _ => return fallback(),
             },
-            TyBasic::Dict(tk_tv) => {
-                let (ref tk, ref tv) = **tk_tv;
-                match attr {
-                    TypingAttr::BinOp(TypingBinOp::In) => {
-                        Ty::function(vec![Param::pos_only(tk.clone())], Ty::bool())
-                    }
-                    TypingAttr::BinOp(TypingBinOp::BitOr) => Ty::function(
-                        vec![Param::pos_only(Ty::basic(ty.clone()))],
-                        Ty::basic(ty.clone()),
-                    ),
-                    TypingAttr::Iter => tk.clone(),
-                    TypingAttr::Index => {
-                        Ty::function(vec![Param::pos_only(tk.clone())], tv.clone())
-                    }
-                    TypingAttr::Regular("get") => Ty::union2(
-                        Ty::function(
-                            vec![Param::pos_only(tk.clone())],
-                            Ty::union2(tv.clone(), Ty::none()),
-                        ),
-                        // This second signature is a bit too lax, but get with a default is much rarer
-                        Ty::function(
-                            vec![Param::pos_only(tk.clone()), Param::pos_only(Ty::any())],
-                            Ty::any(),
-                        ),
-                    ),
-                    TypingAttr::Regular("keys") => Ty::function(vec![], Ty::list(tk.clone())),
-                    TypingAttr::Regular("values") => Ty::function(vec![], Ty::list(tv.clone())),
-                    TypingAttr::Regular("items") => {
-                        Ty::function(vec![], Ty::list(Ty::tuple(vec![tk.clone(), tv.clone()])))
-                    }
-                    TypingAttr::Regular("popitem") => {
-                        Ty::function(vec![], Ty::tuple(vec![tk.clone(), tv.clone()]))
-                    }
-                    _ => return fallback(),
-                }
-            }
-            TyBasic::StarlarkValue(x) if x.as_name() == "int" => match attr {
-                TypingAttr::BinOp(TypingBinOp::Less) => {
-                    Ty::function(vec![Param::pos_only(Ty::int())], Ty::bool())
-                }
-                TypingAttr::BinOp(TypingBinOp::Sub) => {
-                    Ty::function(vec![Param::pos_only(Ty::int())], Ty::int())
-                }
-                TypingAttr::BinOp(TypingBinOp::Add) => {
-                    Ty::function(vec![Param::pos_only(Ty::int())], Ty::int())
-                }
-                TypingAttr::BinOp(TypingBinOp::Div) => {
-                    Ty::function(vec![Param::pos_only(Ty::any())], Ty::float())
-                }
-                _ => return Some(Err(())),
-            },
-            TyBasic::StarlarkValue(x) if x.as_name() == "float" => match attr {
-                TypingAttr::BinOp(TypingBinOp::Less) => {
-                    Ty::function(vec![Param::pos_only(Ty::float())], Ty::bool())
-                }
-                TypingAttr::BinOp(TypingBinOp::Sub) => {
-                    Ty::function(vec![Param::pos_only(Ty::float())], Ty::float())
-                }
-                TypingAttr::BinOp(TypingBinOp::Add) => {
-                    Ty::function(vec![Param::pos_only(Ty::float())], Ty::float())
-                }
-                TypingAttr::BinOp(TypingBinOp::Div) => {
-                    Ty::function(vec![Param::pos_only(Ty::any())], Ty::float())
-                }
-                _ => return Some(Err(())),
-            },
-            TyBasic::StarlarkValue(x) if x.as_name() == "string" => match attr {
-                TypingAttr::BinOp(TypingBinOp::Less) => {
-                    Ty::function(vec![Param::pos_only(Ty::string())], Ty::bool())
-                }
-                TypingAttr::Index => Ty::function(vec![Param::pos_only(Ty::int())], Ty::string()),
+            TyBasic::Dict(tk, tv) => match attr {
                 TypingAttr::BinOp(TypingBinOp::In) => {
-                    Ty::function(vec![Param::pos_only(Ty::string())], Ty::bool())
+                    Ty::function(vec![Param::pos_only(tk.to_ty())], Ty::bool())
                 }
-                TypingAttr::BinOp(TypingBinOp::Add) => {
-                    Ty::function(vec![Param::pos_only(Ty::string())], Ty::string())
-                }
-                TypingAttr::BinOp(TypingBinOp::Mul) => {
-                    Ty::function(vec![Param::pos_only(Ty::int())], Ty::string())
-                }
-                TypingAttr::Slice => Ty::string(),
-                TypingAttr::BinOp(TypingBinOp::Percent) => {
-                    Ty::function(vec![Param::pos_only(Ty::any())], Ty::string())
-                }
-                TypingAttr::Regular(name) => match x.attr(name) {
-                    Ok(res) => res,
-                    Err(()) => return Some(Err(())),
-                },
+                TypingAttr::BinOp(TypingBinOp::BitOr) => Ty::function(
+                    vec![Param::pos_only(Ty::basic(ty.clone()))],
+                    Ty::basic(ty.clone()),
+                ),
+                TypingAttr::Index => Ty::function(vec![Param::pos_only(tk.to_ty())], tv.to_ty()),
                 _ => return fallback(),
-            },
-            TyBasic::Name(x) if x == "range" => match attr {
-                TypingAttr::Iter => Ty::int(),
-                TypingAttr::BinOp(TypingBinOp::In) => {
-                    Ty::function(vec![Param::pos_only(Ty::int())], Ty::bool())
-                }
-                _ => return Some(Err(())),
             },
             _ => {
                 let res = self.fallback.attribute(ty, attr);

@@ -6,6 +6,9 @@
 
 Code:
 def empty_tuple_fixed_name() -> (): return tuple()
-def empty_tuple_name_fixed() -> tuple.type: return ()
+def empty_tuple_name_fixed() -> tuple: return ()
 
+No errors.
+
+Compiler typechecker (eval):
 No errors.

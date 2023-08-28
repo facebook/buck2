@@ -144,7 +144,7 @@ RustCxxLinkGroupInfo = record(
     # symbol files args to ensure we export the required symbols
     symbol_files_info = field(LinkInfo.type),
     # targets to link against
-    filtered_targets = field(list["target_label"]),
+    filtered_targets = field(list[TargetLabel]),
     # information about the link groups
     link_group_info = field([LinkGroupInfo.type, None]),
     # shared libraries created from link groups

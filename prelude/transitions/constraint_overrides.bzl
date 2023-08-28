@@ -18,8 +18,8 @@ def _constr_eq(a, b):
 
 def _constraint_overrides_transition_impl(
         platform: PlatformInfo.type,
-        refs: struct.type,
-        attrs: struct.type) -> PlatformInfo.type:
+        refs: struct,
+        attrs: struct) -> PlatformInfo.type:
     # Extract actual constraint value objects.
     new_constraints = [
         getattr(refs, constraint)[ConstraintValueInfo]

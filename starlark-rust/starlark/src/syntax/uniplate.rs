@@ -273,6 +273,35 @@ impl<P: AstPayload> StmtP<P> {
         self.visit_stmt(f2);
         result
     }
+
+    /// Visit all type expressions in this statement and its children.
+    pub(crate) fn visit_type_expr_err_mut<E>(
+        &mut self,
+        f: &mut impl FnMut(&mut AstTypeExprP<P>) -> Result<(), E>,
+    ) -> Result<(), E> {
+        match self {
+            StmtP::Def(def) => {
+                for param in &mut def.params {
+                    if let (_, Some(ty), _) = param.split_mut() {
+                        f(ty)?;
+                    }
+                }
+                if let Some(ty) = &mut def.return_type {
+                    f(ty)?;
+                }
+            }
+            StmtP::Assign(assign) => {
+                if let Some(ty) = &mut assign.ty {
+                    f(ty)?;
+                }
+            }
+            _ => {}
+        }
+        self.visit_children_err_mut(|visit| match visit {
+            VisitMut::Stmt(stmt) => stmt.visit_type_expr_err_mut(f),
+            VisitMut::Expr(expr) => expr.visit_type_expr_err_mut(f),
+        })
+    }
 }
 
 impl<P: AstPayload> ParameterP<P> {
@@ -502,6 +531,23 @@ impl<P: AstPayload> ExprP<P> {
                 }
             }
         }
+    }
+
+    fn visit_type_expr_err_mut<E>(
+        &mut self,
+        f: &mut impl FnMut(&mut AstTypeExprP<P>) -> Result<(), E>,
+    ) -> Result<(), E> {
+        match self {
+            ExprP::Lambda(lambda) => {
+                for param in &mut lambda.params {
+                    if let (_, Some(ty), _) = param.split_mut() {
+                        f(ty)?;
+                    }
+                }
+            }
+            _ => {}
+        }
+        self.visit_expr_err_mut(|expr| expr.visit_type_expr_err_mut(f))
     }
 }
 

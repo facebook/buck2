@@ -14,11 +14,11 @@ use buck2_node::attrs::attr_type::dict::DictLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use starlark::typing::Ty;
 use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
 use starlark::values::Value;
 
+use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::attr_type::AttrTypeExt;
 use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
@@ -61,7 +61,10 @@ impl AttrTypeCoerce for DictAttrType {
         }
     }
 
-    fn starlark_type(&self) -> Ty {
-        Ty::dict(self.key.starlark_type(), self.value.starlark_type())
+    fn starlark_type(&self) -> TyMaybeSelect {
+        TyMaybeSelect::Dict(
+            Box::new(self.key.starlark_type()),
+            Box::new(self.value.starlark_type()),
+        )
     }
 }

@@ -70,3 +70,8 @@ PythonLibraryManifestsInterface = record(
     resource_artifacts = field(typing.Callable),
     resource_artifacts_with_paths = field(typing.Callable),
 )
+
+# Entry point for Python binaries. First component designates if the second
+# component is to be interpreted as a module or a function name.
+EntryPointKind = enum("module", "function")
+EntryPoint = (EntryPointKind.type, str)

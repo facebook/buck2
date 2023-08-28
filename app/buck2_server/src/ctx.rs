@@ -167,6 +167,8 @@ pub struct ServerCommandContext<'a> {
 
     /// The oncall specified by the client, if any. This gets injected into request metadata.
     pub oncall: Option<String>,
+    /// The client ID, if one was provided via --client-metadata.
+    pub client_id_from_client_metadata: Option<String>,
 
     host_platform_override: HostPlatformOverride,
     host_arch_override: HostArchOverride,
@@ -288,6 +290,12 @@ impl<'a> ServerCommandContext<'a> {
             Some(client_context.oncall.clone())
         };
 
+        let client_id_from_client_metadata = client_context
+            .client_metadata
+            .iter()
+            .find(|m| m.key == "id")
+            .map(|m| m.value.clone());
+
         let heartbeat_guard_handle =
             HeartbeatGuard::new(base_context.events.dupe(), snapshot_collector);
 
@@ -311,6 +319,7 @@ impl<'a> ServerCommandContext<'a> {
             host_arch_override: client_context.host_arch(),
             host_xcode_version_override: client_context.host_xcode_version.clone(),
             oncall,
+            client_id_from_client_metadata,
             _re_connection_handle: re_connection_handle,
             starlark_profiler_instrumentation_override,
             buck_out_dir: paths.buck_out_dir(),
@@ -556,6 +565,10 @@ impl DiceDataProvider for DiceCommandDataProvider {
             .unwrap_or_else(RolloutPercentage::always)
             .roll();
 
+        let log_configured_graph_size = root_config
+            .parse::<bool>("buck2", "log_configured_graph_size")?
+            .unwrap_or(false);
+
         let executor_global_knobs = ExecutorGlobalKnobs {
             enable_miniperf,
             log_action_keys,
@@ -589,12 +602,8 @@ impl DiceDataProvider for DiceCommandDataProvider {
             .parse::<bool>("buck2", "use_network_action_output_cache")?
             .unwrap_or(false);
 
-        run_action_knobs.enforce_re_timeouts = root_config
-            .parse::<bool>("buck2", "enforce_re_timeouts")?
-            .unwrap_or(true);
-
-        run_action_knobs.expose_action_scratch_path = root_config
-            .parse::<bool>("buck2", "expose_action_scratch_path")?
+        run_action_knobs.respect_exec_bit_on_re = root_config
+            .parse::<bool>("buck2", "respect_exec_bit_on_re")?
             .unwrap_or(false);
 
         let mut data = UserComputationData {
@@ -646,6 +655,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
         let tags = vec![
             format!("lazy-cycle-detector:{}", has_cycle_detector),
             format!("miniperf:{}", enable_miniperf),
+            format!("log-configured-graph-size:{}", log_configured_graph_size),
         ];
         self.events.instant_event(buck2_data::TagEvent { tags });
 
@@ -813,6 +823,10 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
 
         if let Some(oncall) = &self.oncall {
             metadata.insert("oncall".to_owned(), oncall.clone());
+        }
+
+        if let Some(client_id_from_client_metadata) = &self.client_id_from_client_metadata {
+            metadata.insert("client".to_owned(), client_id_from_client_metadata.clone());
         }
 
         metadata.insert(

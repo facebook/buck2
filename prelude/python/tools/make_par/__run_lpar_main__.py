@@ -15,7 +15,8 @@ def __invoke_main():
     import runpy
     import sys
 
-    module = os.getenv("FB_LPAR_MAIN_MODULE")
+    module = os.getenv("FB_PAR_MAIN_MODULE")
+    main_function = os.getenv("FB_PAR_MAIN_FUNCTION")
 
     # Allow users to decorate the main module. In normal Python invocations
     # this can be done by prefixing the arguments with `-m decoratingmodule`.
@@ -34,6 +35,18 @@ def __invoke_main():
     # pyre-fixme[6]: For 2nd argument expected `str` but got `Optional[str]`.
     sys.argv[0] = os.getenv("FB_LPAR_INVOKED_NAME")
     del sys.path[0]
+
+    if main_function:
+        assert module
+        from importlib import import_module
+
+        mod = import_module(module)
+        main = getattr(mod, main_function)
+        # This is normally done by `runpy._run_module_as_main`, and is
+        # important to make multiprocessing work
+        sys.modules["__main__"] = mod
+        main()
+        return
 
     del os
     del sys

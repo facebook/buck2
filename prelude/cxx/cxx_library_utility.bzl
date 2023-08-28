@@ -25,6 +25,7 @@ load(
     "CxxCompileOutput",  # @unused Used as a type
 )
 load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
+load(":cxx_toolchain_types.bzl", "ShlibInterfacesMode")
 load(
     ":headers.bzl",
     "cxx_attr_header_namespace",
@@ -154,7 +155,7 @@ def cxx_use_shlib_intfs(ctx: AnalysisContext) -> bool:
         return False
 
     linker_info = get_cxx_toolchain_info(ctx).linker_info
-    return linker_info.shlib_interfaces != "disabled"
+    return linker_info.shlib_interfaces != ShlibInterfacesMode("disabled")
 
 def cxx_platform_supported(ctx: AnalysisContext) -> bool:
     """

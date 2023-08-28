@@ -17,7 +17,7 @@ load(
     "ErlangToolchainInfo",
 )
 
-Tool = "cmd_args"
+Tool = cmd_args
 
 ToolsBinaries = record(
     erl = field(Artifact),

@@ -11,10 +11,11 @@
 //!
 
 use std::cell::RefCell;
+use std::cell::RefMut;
 use std::fmt::Display;
-use std::future::Future;
 use std::io::Write;
 use std::iter;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -68,6 +69,7 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
 use either::Either;
+use futures::FutureExt;
 use indexmap::IndexSet;
 use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
@@ -105,7 +107,7 @@ use crate::bxl::starlark_defs::context::output::EnsuredArtifactOrGroup;
 use crate::bxl::starlark_defs::context::output::OutputStream;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::cquery::StarlarkCQueryCtx;
-use crate::bxl::starlark_defs::event::to_starlark_user_event;
+use crate::bxl::starlark_defs::event::StarlarkUserEventParser;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 use crate::bxl::starlark_defs::target_expr::filter_incompatible;
 use crate::bxl::starlark_defs::target_expr::TargetExpr;
@@ -195,7 +197,7 @@ pub(crate) struct BxlContext<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
-    pub(crate) async_ctx: BxlSafeDiceComputations<'v>,
+    pub(crate) async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v>>>,
     pub(crate) data: BxlContextNoDice<'v>,
 }
 
@@ -240,6 +242,8 @@ impl<'v> BxlContext<'v> {
                 .path()
                 .as_project_relative_path(),
         );
+
+        let async_ctx = Rc::new(RefCell::new(async_ctx));
 
         let root_data = RootBxlContextData {
             cli_args,
@@ -294,7 +298,7 @@ impl<'v> BxlContext<'v> {
         artifact_fs: ArtifactFs,
         cell_resolver: CellResolver,
         cell_name: CellName,
-        async_ctx: BxlSafeDiceComputations<'v>,
+        async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v>>>,
         digest_config: DigestConfig,
         global_target_platform: Option<TargetLabel>,
         analysis_registry: AnalysisRegistry<'v>,
@@ -308,7 +312,7 @@ impl<'v> BxlContext<'v> {
         );
 
         Ok(Self {
-            async_ctx: async_ctx.clone(),
+            async_ctx,
             data: BxlContextNoDice {
                 current_bxl,
                 target_alias_resolver,
@@ -337,19 +341,18 @@ impl<'v> BxlContext<'v> {
     /// This should generally only be called at the top level functions in bxl.
     /// Within the lambdas, use the existing reference to Dice provided instead of calling nested
     /// via_dice, as that breaks borrow invariants of the dice computations.
-    pub fn via_dice<'a, 'b, 'c, Fut, T>(
-        &'b self,
-        f: impl FnOnce(&'a DiceComputations, &'c BxlContextNoDice<'v>) -> Fut,
+    pub fn via_dice<'a, 's, T>(
+        &'a self,
+        f: impl for<'x> FnOnce(
+            RefMut<'x, BxlSafeDiceComputations<'v>>,
+            &'a BxlContextNoDice<'v>,
+        ) -> anyhow::Result<T>,
     ) -> anyhow::Result<T>
     where
         'v: 'a,
-        'v: 'b,
-        'b: 'a,
-        'b: 'c,
-        Fut: Future<Output = anyhow::Result<T>> + 'a,
     {
         let data = &self.data;
-        self.async_ctx.via(move |dice| f(dice, data))
+        f(self.async_ctx.borrow_mut(), data)
     }
 
     pub(crate) fn project_root(&self) -> &ProjectRoot {
@@ -460,7 +463,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     base_deferred_key: &'v Arc<dyn BaseDeferredKeyDyn>,
     dynamic_lambda: &'v DynamicLambda,
     deferred_ctx: &'v mut dyn DeferredCtx,
-    dice_ctx: &'v DiceComputations,
+    dice_ctx: &'v mut DiceComputations,
 ) -> anyhow::Result<Vec<ActionKey>> {
     // TODO(wendyy) emit telemetry, support profiler
     let env = Module::new();
@@ -473,8 +476,6 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         toolchains: dynamic_key.0.toolchains.clone(),
     };
     let global_target_platform = key.global_target_platform().dupe();
-    let async_ctx: BxlSafeDiceComputations<'_> =
-        BxlSafeDiceComputations::new(dice_ctx.dupe(), liveness);
     let label = key.label();
     let cell_resolver = dice_ctx.get_cell_resolver().await?;
     let cell = label.bxl_path.cell();
@@ -492,14 +493,13 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         .project_root()
         .dupe();
 
+    let dispatcher = dice_ctx.per_transaction_data().get_dispatcher().dupe();
+    let print = EventDispatcherPrintHandler(dispatcher.dupe());
+
     // Note: because we use `block_in_place`, that will prevent the inner future from being polled
     // and yielded. So, for cancellation observers to work properly within the dice cancellable
     // future context, we need the future that it's attached to the cancellation context can
     // yield and be polled. To ensure that, we have to spawn the future that then enters block_in_place
-
-    let dispatcher = dice_ctx.per_transaction_data().get_dispatcher().dupe();
-    let print = EventDispatcherPrintHandler(dispatcher.dupe());
-
     let (_, futs) = unsafe {
         // SAFETY: as long as we don't `forget` the return object from `scope_and_collect`, it is safe
 
@@ -516,7 +516,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
                         dice_ctx,
                         &mut StarlarkProfilerOrInstrumentation::disabled(),
                         format!("bxl_dynamic:{}", "foo"),
-                        move |provider, _| {
+                        move |provider, dice_ctx| {
                             tokio::task::block_in_place(|| {
                                 let mut eval = provider.make(&env)?;
                                 eval.set_print_handler(&print);
@@ -527,6 +527,10 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
                                         deferred_ctx,
                                         &env,
                                     )?;
+
+                                    let async_ctx = Rc::new(RefCell::new(
+                                        BxlSafeDiceComputations::new(dice_ctx, liveness),
+                                    ));
 
                                     let bxl_dynamic_ctx = BxlContext::new_dynamic(
                                         env.heap(),
@@ -653,7 +657,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
             .context(BxlContextDynamicError::Unsupported("root".to_owned()))?;
         Ok(this
             .async_ctx
-            .0
+            .borrow()
             .global_data()
             .get_io_provider()
             .project_root()
@@ -705,44 +709,47 @@ fn context_methods(builder: &mut MethodsBuilder) {
             &this.data.global_target_platform,
         )?;
 
-        let res: anyhow::Result<Value<'v>> = this.via_dice(|ctx, this| {
-            async move {
-                let target_expr = TargetExpr::<'v, ConfiguredTargetNode>::unpack(
-                    labels,
-                    &target_platform,
-                    this,
-                    ctx,
-                    eval,
-                )
-                .await?;
+        let res: anyhow::Result<Value<'v>> = this.via_dice(|mut dice, this| {
+            dice.via(|ctx| {
+                async move {
+                    let target_expr = TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                        labels,
+                        &target_platform,
+                        this,
+                        ctx,
+                        eval,
+                    )
+                    .await?;
 
-                Ok(match target_expr {
-                    TargetExpr::Label(label) => {
-                        let set = filter_incompatible(
-                            iter::once(ctx.get_configured_target_node(&label).await?),
-                            this,
-                        )?;
+                    Ok(match target_expr {
+                        TargetExpr::Label(label) => {
+                            let set = filter_incompatible(
+                                iter::once(ctx.get_configured_target_node(&label).await?),
+                                this,
+                            )?;
 
-                        // When a target label is passed in, we should only get one target node.
-                        // filter_incompatible() returns a set, so lets assert the size
-                        assert!(set.len() <= 1);
+                            // When a target label is passed in, we should only get one target node.
+                            // filter_incompatible() returns a set, so lets assert the size
+                            assert!(set.len() <= 1);
 
-                        if let Some(node) = set.iter().next() {
-                            node.clone().alloc(eval.heap())
-                        } else {
-                            Value::new_none()
+                            if let Some(node) = set.iter().next() {
+                                node.clone().alloc(eval.heap())
+                            } else {
+                                Value::new_none()
+                            }
                         }
-                    }
 
-                    TargetExpr::Node(node) => node.alloc(eval.heap()),
-                    multi => eval
-                        .heap()
-                        .alloc(StarlarkTargetSet::from(filter_incompatible(
-                            multi.get(ctx).await?.into_iter(),
-                            this,
-                        )?)),
-                })
-            }
+                        TargetExpr::Node(node) => node.alloc(eval.heap()),
+                        multi => eval
+                            .heap()
+                            .alloc(StarlarkTargetSet::from(filter_incompatible(
+                                multi.get(ctx).await?.into_iter(),
+                                this,
+                            )?)),
+                    })
+                }
+                .boxed_local()
+            })
         });
 
         res
@@ -763,21 +770,26 @@ fn context_methods(builder: &mut MethodsBuilder) {
         labels: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let res: anyhow::Result<Value<'v>> = this.via_dice(|ctx, this| async move {
-            Ok(
-                match TargetExpr::<'v, TargetNode>::unpack(labels, this, ctx, eval).await? {
-                    TargetExpr::Label(label) => {
-                        let node = ctx.get_target_node(&label).await?;
+        let res: anyhow::Result<Value<'v>> = this.via_dice(|mut ctx, this| {
+            ctx.via(|ctx| {
+                async move {
+                    Ok(
+                        match TargetExpr::<'v, TargetNode>::unpack(labels, this, ctx, eval).await? {
+                            TargetExpr::Label(label) => {
+                                let node = ctx.get_target_node(&label).await?;
 
-                        node.alloc(eval.heap())
-                    }
+                                node.alloc(eval.heap())
+                            }
 
-                    TargetExpr::Node(node) => node.alloc(eval.heap()),
-                    multi => eval
-                        .heap()
-                        .alloc(StarlarkTargetSet::from(multi.get(ctx).await?.into_owned())),
-                },
-            )
+                            TargetExpr::Node(node) => node.alloc(eval.heap()),
+                            multi => eval
+                                .heap()
+                                .alloc(StarlarkTargetSet::from(multi.get(ctx).await?.into_owned())),
+                        },
+                    )
+                }
+                .boxed_local()
+            })
         });
 
         res
@@ -801,8 +813,9 @@ fn context_methods(builder: &mut MethodsBuilder) {
         labels: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let providers =
-            this.via_dice(|_, this| ProvidersExpr::<ProvidersLabel>::unpack(labels, this, eval))?;
+        let providers = this.via_dice(|mut dice, this| {
+            dice.via(|_| ProvidersExpr::<ProvidersLabel>::unpack(labels, this, eval).boxed_local())
+        })?;
 
         let res = match providers {
             ProvidersExpr::Literal(provider) => {
@@ -877,6 +890,10 @@ fn context_methods(builder: &mut MethodsBuilder) {
     /// and `toolchains` attributes on the `bxl_actions`, which both return a `dict` of unconfigured subtarget labels
     /// and their configured/resolved `dependency` objects.
     ///
+    /// Note that the keys of `exec_deps` and `toolchains` must be unconfigured subtarget labels (`StarlarkProvidersLabel`),
+    /// and not unconfigured target labels. You can use `ctx.unconfigured_sub_targets(...)` or `with_sub_target()` on
+    /// `target_label` to create the label.
+    ///
     /// ```python
     /// def _impl_run_action(ctx):
     ///    my_exec_dep = ctx.unconfigured_sub_targets("foo//bar:baz") # has some provider that you would use in the action
@@ -903,88 +920,98 @@ fn context_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneType)] exec_compatible_with: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<BxlActions<'v>> {
-        let target_platform = target_platform.parse_target_platforms(
-            &this.data.target_alias_resolver,
-            &this.data.cell_resolver,
-            this.data.cell_name,
-            &this.data.global_target_platform,
-        )?;
+        this.via_dice(|mut ctx, this| {
+            ctx.via(|ctx| {
+                async {
+                    let (exec_deps, toolchains) = match &this.context_type {
+                        BxlContextType::Root { .. } => {
+                            let target_platform = target_platform.parse_target_platforms(
+                                &this.target_alias_resolver,
+                                &this.cell_resolver,
+                                this.cell_name,
+                                &this.global_target_platform,
+                            )?;
+                            let exec_deps = if exec_deps.is_none() {
+                                Vec::new()
+                            } else {
+                                ProvidersExpr::<ProvidersLabel>::unpack(exec_deps, this, eval)
+                                    .await?
+                                    .labels()
+                                    .cloned()
+                                    .collect()
+                            };
 
-        this.via_dice(|ctx, this| async {
-            let (exec_deps, toolchains) = match &this.context_type {
-                BxlContextType::Root { .. } => {
-                    let exec_deps = if exec_deps.is_none() {
-                        Vec::new()
-                    } else {
-                        ProvidersExpr::<ProvidersLabel>::unpack(exec_deps, this, eval)
-                            .await?
-                            .labels()
-                            .cloned()
-                            .collect()
+                            let toolchains = if toolchains.is_none() {
+                                Vec::new()
+                            } else {
+                                ProvidersExpr::<ProvidersLabel>::unpack(toolchains, this, eval)
+                                    .await?
+                                    .labels()
+                                    .cloned()
+                                    .collect()
+                            };
+
+                            let exec_compatible_with = if exec_compatible_with.is_none() {
+                                Vec::new()
+                            } else {
+                                TargetExpr::<TargetNode>::unpack(
+                                    exec_compatible_with,
+                                    this,
+                                    ctx,
+                                    eval,
+                                )
+                                .await?
+                                .get(ctx)
+                                .await?
+                                .iter()
+                                .map(|n| n.label().dupe())
+                                .collect()
+                            };
+
+                            let execution_resolution = resolve_bxl_execution_platform(
+                                ctx,
+                                this.cell_name,
+                                exec_deps,
+                                toolchains,
+                                target_platform.clone(),
+                                exec_compatible_with.clone(),
+                                eval.module(),
+                            )
+                            .await?;
+
+                            validate_action_instantiation(this, &execution_resolution)?;
+
+                            (
+                                execution_resolution.exec_deps_configured,
+                                execution_resolution.toolchain_deps_configured,
+                            )
+                        }
+                        BxlContextType::Dynamic(data) => {
+                            if !exec_deps.is_none()
+                                || !toolchains.is_none()
+                                || !target_platform.is_none()
+                                || !exec_compatible_with.is_none()
+                            {
+                                return Err(
+                                    BxlContextDynamicError::RequireSameExecutionPlatformAsRoot
+                                        .into(),
+                                );
+                            }
+                            (data.exec_deps.clone(), data.toolchains.clone())
+                        }
                     };
 
-                    let toolchains = if toolchains.is_none() {
-                        Vec::new()
-                    } else {
-                        ProvidersExpr::<ProvidersLabel>::unpack(toolchains, this, eval)
-                            .await?
-                            .labels()
-                            .cloned()
-                            .collect()
-                    };
-
-                    let exec_compatible_with = if exec_compatible_with.is_none() {
-                        Vec::new()
-                    } else {
-                        TargetExpr::<TargetNode>::unpack(exec_compatible_with, this, ctx, eval)
-                            .await?
-                            .get(ctx)
-                            .await?
-                            .iter()
-                            .map(|n| n.label().dupe())
-                            .collect()
-                    };
-
-                    let execution_resolution = resolve_bxl_execution_platform(
+                    BxlActions::new(
+                        this.state,
+                        exec_deps.to_vec(),
+                        toolchains.to_vec(),
+                        eval,
                         ctx,
-                        this.cell_name,
-                        exec_deps,
-                        toolchains,
-                        target_platform.clone(),
-                        exec_compatible_with.clone(),
-                        eval.module(),
                     )
-                    .await?;
-
-                    validate_action_instantiation(this, &execution_resolution)?;
-
-                    (
-                        execution_resolution.exec_deps_configured,
-                        execution_resolution.toolchain_deps_configured,
-                    )
+                    .await
                 }
-                BxlContextType::Dynamic(data) => {
-                    if !exec_deps.is_none()
-                        || !toolchains.is_none()
-                        || target_platform.is_some()
-                        || !exec_compatible_with.is_none()
-                    {
-                        return Err(
-                            BxlContextDynamicError::RequireSameExecutionPlatformAsRoot.into()
-                        );
-                    }
-                    (data.exec_deps.clone(), data.toolchains.clone())
-                }
-            };
-
-            BxlActions::new(
-                this.state,
-                exec_deps.to_vec(),
-                toolchains.to_vec(),
-                eval,
-                ctx,
-            )
-            .await
+                .boxed_local()
+            })
         })
     }
 
@@ -1011,16 +1038,21 @@ fn context_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = true)] skip_incompatible: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let res: anyhow::Result<_> = this.via_dice(|dice, ctx| async {
-            let providers = ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
-                labels,
-                target_platform,
-                ctx,
-                dice,
-                eval,
-            )
-            .await?;
-            analysis::analysis(dice, ctx, providers, skip_incompatible).await
+        let res: anyhow::Result<_> = this.via_dice(|mut dice, ctx| {
+            dice.via(|dice| {
+                async {
+                    let providers = ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
+                        labels,
+                        target_platform,
+                        ctx,
+                        dice,
+                        eval,
+                    )
+                    .await?;
+                    analysis::analysis(dice, ctx, providers, skip_incompatible).await
+                }
+                .boxed_local()
+            })
         });
 
         Ok(match res? {
@@ -1113,15 +1145,20 @@ fn context_methods(builder: &mut MethodsBuilder) {
 
     /// Returns the [`StarlarkAuditCtx`] that holds all the audit functions.
     fn audit<'v>(this: &'v BxlContext<'v>) -> anyhow::Result<StarlarkAuditCtx<'v>> {
-        let (working_dir, cell_resolver) = this.via_dice(|ctx, this| async move {
-            Ok((
-                this.cell_resolver
-                    .get(this.cell_name)?
-                    .path()
-                    .as_project_relative_path()
-                    .to_buf(),
-                ctx.get_cell_resolver().await?,
-            ))
+        let (working_dir, cell_resolver) = this.via_dice(|mut ctx, this| {
+            ctx.via(|ctx| {
+                async move {
+                    Ok((
+                        this.cell_resolver
+                            .get(this.cell_name)?
+                            .path()
+                            .as_project_relative_path()
+                            .to_buf(),
+                        ctx.get_cell_resolver().await?,
+                    ))
+                }
+                .boxed_local()
+            })
         })?;
 
         StarlarkAuditCtx::new(
@@ -1158,8 +1195,12 @@ fn context_methods(builder: &mut MethodsBuilder) {
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Option<Value<'v>>> {
-        this.via_dice(|dice, this| {
-            action_factory.run_promises(dice, eval, format!("bxl$promises:{}", &this.current_bxl))
+        this.via_dice(|mut dice, this| {
+            dice.via(|dice| {
+                action_factory
+                    .run_promises(dice, eval, format!("bxl$promises:{}", &this.current_bxl))
+                    .boxed_local()
+            })
         })?;
         Ok(promise.get())
     }
@@ -1167,15 +1208,22 @@ fn context_methods(builder: &mut MethodsBuilder) {
     /// Emits a user-defined instant event, taking in a required string id and a metadata dictionary where the
     /// keys are strings, and values are either strings, bools, or ints. The id is user-supplied, and used to
     /// identify the instant events in the event logs more easily.
+    ///
+    /// You may pass in an ensured artifact as a value in the metadata. The resulting output would be the ensured
+    /// artifact's relative or absolute path as a string.
     fn instant_event<'v>(
-        this: &BxlContext<'v>,
+        this: &'v BxlContext<'v>,
         #[starlark(require = named)] id: &str,
         #[starlark(require = named)] metadata: Value<'v>,
     ) -> anyhow::Result<NoneType> {
-        let event = to_starlark_user_event(id, metadata)?;
+        let parser = StarlarkUserEventParser {
+            artifact_fs: &this.data.artifact_fs,
+            project_fs: &this.data.project_fs,
+        };
+        let event = parser.parse(id, metadata)?;
 
         this.async_ctx
-            .0
+            .borrow()
             .per_transaction_data()
             .get_dispatcher()
             .instant_event(event);

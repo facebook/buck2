@@ -57,6 +57,8 @@ You can specify the execution platform resolution by setting named parameters wh
 
 If you specify `exec_deps` or `toolchains`, you can access the resolved `dependency` objects on the `bxl_actions` object. The `bxl_actions` object will have `exec_deps` and `toolchains` attributes, which are `dict`s where the keys are the unconfigured subtarget labels, and the values are the configured/resolved `dependency` objects.
 
+Note that the keys of `exec_deps` and `toolchains` must be unconfigured subtarget labels (`StarlarkProvidersLabel`), and not unconfigured target labels. You can use `ctx.unconfigured_sub_targets(...)` or `with_sub_target()` on `target_label` to create the label.
+
 ```python
 def _impl_example(ctx):
     my_exec_dep = ctx.unconfigured_sub_targets("foo//bar:baz") # has some provider that you would use in the action

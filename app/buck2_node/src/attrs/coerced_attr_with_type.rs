@@ -79,7 +79,7 @@ pub enum CoercedAttrWithType<'a, 't> {
     AnyDict(&'a DictLiteral<CoercedAttr>),
 
     Bool(BoolLiteral, BoolAttrType),
-    Int(i32, IntAttrType),
+    Int(i64, IntAttrType),
     String(&'a StringLiteral, StringAttrType),
     EnumVariant(&'a StringLiteral, &'t EnumAttrType),
     List(&'a ListLiteral<CoercedAttr>, &'t ListAttrType),

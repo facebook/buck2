@@ -92,7 +92,11 @@ async fn run_dap_server(
 
                 let debugserver_req: dap::Request = serde_json::from_str(&request.dap_json)?;
                 debug!("received request {}", &serde_json::to_string_pretty(&debugserver_req)?);
+                let disconnect_requested = debugserver_req.command == "disconnect";
                 server_connection.0.send_request(debugserver_req)?;
+                if disconnect_requested {
+                     break buck2_cli_proto::DapResponse {};
+                }
             }
             message = to_client_recv.recv() => {
                 match message {

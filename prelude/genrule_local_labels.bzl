@@ -183,6 +183,12 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
 
     # uses ruby
     "uses_ruby",
+
+    # Produces an output symlink, and since Meta RE doesn't support returning
+    # output symlinks (yet?), and sometimes the output symlink also cannot be
+    # dereferenced anyway (e.g. because it violates security policies or simply
+    # points to something that does not exist).
+    "dangling_output_symlink",
 ]}
 
 def genrule_labels_require_local(labels):

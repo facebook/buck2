@@ -106,15 +106,17 @@ struct BeforeSubcommandOptions {
     /// How verbose buck should be while logging.
     /// Values:
     /// 0 = Quiet, errors only;
-    /// 1 = default;
+    /// 1 = Show status. If not set this is the default;
     /// 2 = more info about errors;
-    /// 3 = more info about everything
+    /// 3 = more info about everything;
+    /// 4 = more info about everything + stderr;
+    /// It can be combined with specific log items (stderr,full_failed_command,commands,actions,status,stats)
+    /// to fine-tune the verbosity of the log. Example usage "-v=1,stderr"
     #[clap(
         short = 'v',
         long = "verbose",
         default_value = "1",
         global = true,
-        value_name = "NUMBER",
         parse(try_from_str = Verbosity::try_from_cli)
     )]
     verbosity: Verbosity,

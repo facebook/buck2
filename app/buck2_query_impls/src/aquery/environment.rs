@@ -26,6 +26,7 @@ use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::async_depth_limited_traversal;
 use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
+use dice::DiceComputations;
 
 use crate::aquery::functions::AqueryFunctions;
 use crate::cquery::environment::CqueryDelegate;
@@ -35,6 +36,8 @@ use crate::uquery::environment::QueryLiterals;
 #[async_trait]
 pub trait AqueryDelegate: Send + Sync {
     fn cquery_delegate(&self) -> &dyn CqueryDelegate;
+
+    fn ctx(&self) -> &DiceComputations;
 
     async fn get_node(&self, key: &ActionKey) -> anyhow::Result<ActionQueryNode>;
 
@@ -99,7 +102,9 @@ impl<'c> QueryEnvironment for AqueryEnvironment<'c> {
     }
 
     async fn eval_literals(&self, literals: &[&str]) -> anyhow::Result<TargetSet<Self::Target>> {
-        self.literals.eval_literals(literals).await
+        self.literals
+            .eval_literals(literals, self.delegate.ctx())
+            .await
     }
 
     async fn eval_file_literal(&self, literal: &str) -> anyhow::Result<FileSet> {

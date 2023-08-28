@@ -35,6 +35,7 @@ use crate::coerce::coerce;
 use crate::coerce::Coerce;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
+use crate::typing::Ty;
 use crate::values::comparison::compare_slice;
 use crate::values::comparison::equals_slice;
 use crate::values::index::apply_slice;
@@ -238,17 +239,25 @@ where
         }
     }
 
-    fn mul(&self, other: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        let l = i32::unpack_param(other)?;
+    fn mul(&self, other: Value, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+        let l = i32::unpack_value(other)?;
         let mut result = Vec::new();
         for _i in 0..l {
             result.extend(self.content().iter().map(|e| e.to_value()));
         }
-        Ok(heap.alloc_tuple(&result))
+        Some(Ok(heap.alloc_tuple(&result)))
+    }
+
+    fn rmul(&self, lhs: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+        self.mul(lhs, heap)
     }
 
     fn collect_repr_cycle(&self, collector: &mut String) {
         collector.push_str("(...)");
+    }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(Ty::any_tuple())
     }
 }
 

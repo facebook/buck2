@@ -443,8 +443,9 @@ impl UploadCache for CacheUploader {
             false
         };
 
+        // Cache upload should only invoked for successful actions only. Double check here.
         let did_dep_file_cache_upload = match dep_file_entry {
-            Some(dep_file_entry) => {
+            Some(dep_file_entry) if res.was_success() => {
                 self.upload_dep_file_result(
                     info.target.dupe(),
                     res,
@@ -454,7 +455,7 @@ impl UploadCache for CacheUploader {
                 )
                 .await?
             }
-            None => {
+            _ => {
                 tracing::info!("Dep file cache upload for `{}` not attempted", action);
                 false
             }

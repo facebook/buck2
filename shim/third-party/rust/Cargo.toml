@@ -31,7 +31,7 @@ anymap = "0.12.1"
 arc-swap = "1.6.0"
 argfile = "0.1.0"
 assert_matches = "1.5"
-async-compression = { version = "0.3.8", features = ["tokio", "gzip", "zstd"] }
+async-compression = { version = "0.4.1", features = ["tokio", "gzip", "zstd"] }
 async-condvar-fair = { version = "0.2.2", features = ["parking_lot_0_11", "tokio"] }
 async-recursion = "1.0"
 async-scoped = { version = "0.7.1", features = ["use-tokio"] }
@@ -70,6 +70,7 @@ either = "1.8"
 enum-iterator = "1.4.1"
 enum-map = "0.6.3"
 env_logger = "0.9.0"
+equivalent = "1.0.0"
 erased-serde = "0.3.20"
 faccess = "0.2.3"
 fancy-regex = "0.10.0"
@@ -200,6 +201,7 @@ unicode-segmentation = "1.7"
 uuid = { version = "1.2", features = ["v4"] }
 walkdir = "2.3.2"
 which = "4.3.0"
+windows_x86_64_msvc = "=0.48.0"  # our fixup only works if we are on precisely 0.48.0
 winapi = { version = "0.3", features = ["everything"] }
 xattr = "0.2.2"
 zip = "0.5"

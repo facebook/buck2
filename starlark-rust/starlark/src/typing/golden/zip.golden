@@ -5,9 +5,13 @@
 # ```
 
 Code:
-x = zip([1,2], [True, False], ["a", "b"])
+def test():
+    x = zip([1,2], [True, False], ["a", "b"])
 
 No errors.
 
 Types:
 x: list[(int, bool, str)]
+
+Compiler typechecker (eval):
+No errors.

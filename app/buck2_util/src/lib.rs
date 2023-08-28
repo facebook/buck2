@@ -10,7 +10,7 @@
 #![feature(round_char_boundary)]
 
 pub mod arc_str;
-pub mod collections;
+
 pub mod commas;
 pub mod cycle_detector;
 pub mod indent;

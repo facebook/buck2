@@ -65,7 +65,7 @@ impl Deferred for FakeDeferred {
     async fn execute(
         &self,
         _ctx: &mut dyn DeferredCtx,
-        _dice: &DiceComputations,
+        _dice: &mut DiceComputations,
     ) -> anyhow::Result<DeferredValue<Self::Output>> {
         self.2.store(true, Ordering::SeqCst);
         Ok(DeferredValue::Ready(self.0))
@@ -161,7 +161,7 @@ async fn lookup_deferred_that_has_deferreds() -> anyhow::Result<()> {
         async fn execute(
             &self,
             ctx: &mut dyn DeferredCtx,
-            _dice: &DiceComputations,
+            _dice: &mut DiceComputations,
         ) -> anyhow::Result<DeferredValue<Self::Output>> {
             let data = ctx
                 .registry()

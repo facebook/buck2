@@ -12,6 +12,7 @@ gazebo = { workspace = true }
 dupe = { workspace = true }
 allocative = { workspace = true }
 lock_free_hashtable = { workspace = true }
+equivalent = { workspace = true }
 
 [features]
 # @oss-disable: default = ["gazebo_lint"]

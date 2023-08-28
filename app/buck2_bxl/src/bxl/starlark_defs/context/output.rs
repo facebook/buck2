@@ -11,6 +11,7 @@ use std::cell::RefCell;
 use std::fmt::Display;
 use std::io::Write;
 use std::ops::DerefMut;
+use std::rc::Rc;
 
 use allocative::Allocative;
 use anyhow::Context;
@@ -27,6 +28,7 @@ use buck2_execute::path::artifact_path::ArtifactPath;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
+use futures::FutureExt;
 use gazebo::prelude::SliceExt;
 use serde::ser::SerializeSeq;
 use serde::Serialize;
@@ -88,7 +90,7 @@ pub(crate) struct OutputStream<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
-    pub(crate) async_ctx: BxlSafeDiceComputations<'v>,
+    pub(crate) async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v>>>,
 }
 
 /// We can ensure either an `Artifact` or an `ArtifactGroup`. When we want to ensure a `CommandLineArgLike` object,
@@ -105,7 +107,7 @@ impl<'v> OutputStream<'v> {
         project_fs: ProjectRoot,
         artifact_fs: ArtifactFs,
         sink: RefCell<Box<dyn Write>>,
-        async_ctx: BxlSafeDiceComputations<'v>,
+        async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v>>>,
     ) -> Self {
         Self {
             sink,
@@ -177,19 +179,21 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                 )?;
                 write(&path)?;
             } else if let Some(ensured) = <&EnsuredArtifactGroup>::unpack_value(arg) {
-                this.async_ctx.via(|dice| {
-                    ensured.visit_artifact_path_without_associated_deduped(
-                        |artifact_path, abs| {
-                            let path = get_artifact_path_display(
-                                artifact_path,
-                                abs,
-                                &this.project_fs,
-                                &this.artifact_fs,
-                            )?;
-                            write(&path)
-                        },
-                        dice,
-                    )
+                this.async_ctx.borrow_mut().via(|dice| {
+                    ensured
+                        .visit_artifact_path_without_associated_deduped(
+                            |artifact_path, abs| {
+                                let path = get_artifact_path_display(
+                                    artifact_path,
+                                    abs,
+                                    &this.project_fs,
+                                    &this.artifact_fs,
+                                )?;
+                                write(&path)
+                            },
+                            dice,
+                        )
+                        .boxed_local()
                 })?;
             } else {
                 write(&arg.to_str())?;
@@ -226,7 +230,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
             value: Value<'v>,
             artifact_fs: &'a ArtifactFs,
             project_fs: &'a ProjectRoot,
-            async_ctx: &'v BxlSafeDiceComputations<'v>,
+            async_ctx: &'a Rc<RefCell<BxlSafeDiceComputations<'v>>>,
         }
 
         impl<'a, 'v> SerializeValue<'a, 'v> {
@@ -258,22 +262,25 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                     let mut seq_ser = serializer.serialize_seq(None)?;
 
                     self.async_ctx
+                        .borrow_mut()
                         .via(|dice| {
-                            ensured.visit_artifact_path_without_associated_deduped(
-                                |artifact_path, abs| {
-                                    let path = get_artifact_path_display(
-                                        artifact_path,
-                                        abs,
-                                        self.project_fs,
-                                        self.artifact_fs,
-                                    )?;
-                                    seq_ser
-                                        .serialize_element(&path)
-                                        .map_err(|err| anyhow::anyhow!(format!("{:#}", err)))?;
-                                    Ok(())
-                                },
-                                dice,
-                            )
+                            ensured
+                                .visit_artifact_path_without_associated_deduped(
+                                    |artifact_path, abs| {
+                                        let path = get_artifact_path_display(
+                                            artifact_path,
+                                            abs,
+                                            self.project_fs,
+                                            self.artifact_fs,
+                                        )?;
+                                        seq_ser
+                                            .serialize_element(&path)
+                                            .map_err(|err| anyhow::anyhow!(format!("{:#}", err)))?;
+                                        Ok(())
+                                    },
+                                    dice,
+                                )
+                                .boxed_local()
                         })
                         .map_err(|err| serde::ser::Error::custom(format!("{:#}", err)))?;
                     seq_ser.end()

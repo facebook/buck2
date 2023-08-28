@@ -69,10 +69,12 @@ fn capabilities() -> serde_json::Value {
         "supports_set_variable": true,
         "supports_step_in_targets_request": true,
         "supports_conditional_breakpoints": true,
-
+        "support_terminate_debuggee": false,
+        "support_suspend_debuggee": false,
         // This is different from starlark's `dap_capabilities`. The buck starlark debugger treats
         // each ongoing starlark Evaluation as a separate thread and handles requests appropriately.
         "supports_single_thread_execution_requests": true,
+
     })
 }
 

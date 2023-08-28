@@ -57,7 +57,7 @@ EXIT_CODE_SUCCESS = 0
 EXIT_CODE_TEST_FAILURE = 70
 
 
-class TestStatus(object):
+class TestStatus:
 
     ABORTED = "FAILURE"
     PASSED = "SUCCESS"
@@ -68,7 +68,7 @@ class TestStatus(object):
     EXCLUDED = "EXCLUDED"
 
 
-class PathMatcher(object):
+class PathMatcher:
     def __init__(self, include_patterns, omit_patterns):
         self.include_patterns = include_patterns
         self.omit_patterns = omit_patterns
@@ -88,7 +88,7 @@ class PathMatcher(object):
         return not self.omit(path)
 
 
-class DebugWipeFinder(object):
+class DebugWipeFinder:
     """
     PEP 302 finder that uses a DebugWipeLoader for all files which do not need
     coverage
@@ -155,7 +155,7 @@ def optimize_for_coverage(cov, include_patterns, omit_patterns):
         sys.meta_path.insert(0, DebugWipeFinder(matcher))
 
 
-class TeeStream(object):
+class TeeStream:
     def __init__(self, *streams):
         self._streams = streams
 
@@ -171,7 +171,7 @@ class TeeStream(object):
         return False
 
 
-class CallbackStream(object):
+class CallbackStream:
     def __init__(self, callback, bytes_callback=None, orig=None):
         self._callback = callback
         self._fileno = orig.fileno() if orig else None
@@ -444,7 +444,7 @@ class RegexTestLoader(unittest.TestLoader):
         return matched
 
 
-class Loader(object):
+class Loader:
     def __init__(self, modules, regex=None):
         self.modules = modules
         self.regex = regex
@@ -483,7 +483,7 @@ class Loader(object):
         return loader.suiteClass(suites)
 
 
-class MainProgram(object):
+class MainProgram:
     """
     This class implements the main program.  It can be subclassed by
     users who wish to customize some parts of the main program.

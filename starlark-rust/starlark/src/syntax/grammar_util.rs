@@ -21,7 +21,7 @@ use crate::codemap::CodeMap;
 use crate::codemap::Pos;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
-use crate::eval::compiler::EvalException;
+use crate::eval::compiler::eval_exception::EvalException;
 use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::AssignIdentP;
 use crate::syntax::ast::AssignOp;

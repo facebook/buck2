@@ -72,7 +72,7 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                     "bool", value
                 ))),
             },
-            AttrTypeInner::Int(_) => match value.unpack_i32() {
+            AttrTypeInner::Int(_) => match i64::unpack_value(value) {
                 Some(x) => Ok(AnonTargetAttr::Int(x)),
                 None => Err(anyhow::anyhow!(AnonTargetCoercionError::type_error(
                     "int", value
@@ -233,7 +233,7 @@ fn to_anon_target_any(value: Value, ctx: &AnonAttrCtx) -> anyhow::Result<AnonTar
         Ok(AnonTargetAttr::None)
     } else if let Some(x) = value.unpack_bool() {
         Ok(AnonTargetAttr::Bool(BoolLiteral(x)))
-    } else if let Some(x) = value.unpack_i32() {
+    } else if let Some(x) = i64::unpack_value(value) {
         Ok(AnonTargetAttr::Int(x))
     } else if let Some(x) = DictRef::from_value(value) {
         Ok(AnonTargetAttr::Dict(

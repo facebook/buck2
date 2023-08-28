@@ -28,6 +28,7 @@ use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::values::list::ListOf;
 use starlark::values::starlark_value;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
@@ -45,6 +46,7 @@ use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifactHelpers;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::artifact::ArtifactError;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
@@ -323,7 +325,8 @@ fn declared_artifact_methods(builder: &mut MethodsBuilder) {
         })
     }
 
-    // Returns a `StarlarkDeclaredArtifact` instance which is identical to the original artifact, except with no associated artifacts
+    /// Returns a `StarlarkDeclaredArtifact` instance which is identical to the original artifact,
+    /// except with no associated artifacts
     fn without_associated_artifacts(
         this: &StarlarkDeclaredArtifact,
     ) -> anyhow::Result<StarlarkDeclaredArtifact> {
@@ -331,6 +334,27 @@ fn declared_artifact_methods(builder: &mut MethodsBuilder) {
             declaration_location: this.declaration_location.dupe(),
             artifact: this.artifact.dupe(),
             associated_artifacts: AssociatedArtifacts::new(),
+        })
+    }
+
+    /// Returns a `StarlarkArtifact` instance which is identical to the original artifact, but with
+    /// potentially additional artifacts. The artifacts must be bound.
+    fn with_associated_artifacts<'v>(
+        this: &'v StarlarkDeclaredArtifact,
+        artifacts: ListOf<'v, ValueAsArtifactLike<'v>>,
+    ) -> anyhow::Result<StarlarkDeclaredArtifact> {
+        let artifacts = artifacts
+            .to_vec()
+            .iter()
+            .map(|a| a.0.get_artifact_group())
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let artifacts = AssociatedArtifacts::from(artifacts);
+
+        Ok(StarlarkDeclaredArtifact {
+            declaration_location: this.declaration_location.dupe(),
+            artifact: this.artifact.dupe(),
+            associated_artifacts: this.associated_artifacts.union(artifacts),
         })
     }
 }

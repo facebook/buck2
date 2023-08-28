@@ -64,7 +64,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
     /// in order to get the `TargetSet<ConfiguredTargetNode>`.
     pub(crate) async fn get(
         self,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
     ) -> anyhow::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
         match self {
             TargetExpr::Node(val) => Ok(vec![dice.get_configured_target_node(val.label()).await?]),
@@ -187,7 +187,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
         value: Value<'v>,
         target_platform: &Option<TargetLabel>,
         ctx: &BxlContextNoDice<'v>,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
         eval: &Evaluator<'v, 'c>,
     ) -> anyhow::Result<TargetExpr<'v, ConfiguredTargetNode>> {
         Ok(
@@ -209,7 +209,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
         value: Value<'v>,
         target_platform: &Option<TargetLabel>,
         ctx: &BxlContextNoDice<'_>,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
     ) -> anyhow::Result<Option<TargetExpr<'v, ConfiguredTargetNode>>> {
         if let Some(configured_target) = value.downcast_ref::<StarlarkConfiguredTargetNode>() {
             Ok(Some(Self::Node(configured_target.0.dupe())))
@@ -241,7 +241,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
                     let maybe_compatible = get_maybe_compatible_targets(
                         dice,
                         loaded_patterns.iter_loaded_targets_by_package(),
-                        target_platform.dupe(),
+                        target_platform.as_ref(),
                     )
                     .await?
                     .collect::<Result<Vec<_>, _>>()?;
@@ -265,7 +265,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
         value: Value<'v>,
         target_platform: &Option<TargetLabel>,
         ctx: &BxlContextNoDice<'_>,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
         eval: &Evaluator<'v, 'c>,
     ) -> anyhow::Result<Option<TargetExpr<'v, ConfiguredTargetNode>>> {
         if let Some(s) = value.downcast_ref::<StarlarkTargetSet<ConfiguredTargetNode>>() {
@@ -313,7 +313,7 @@ impl<'v> TargetExpr<'v, TargetNode> {
     pub(crate) async fn unpack<'c>(
         value: Value<'v>,
         ctx: &BxlContextNoDice<'_>,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
         eval: &Evaluator<'v, 'c>,
     ) -> anyhow::Result<TargetExpr<'v, TargetNode>> {
         Ok(
@@ -332,7 +332,7 @@ impl<'v> TargetExpr<'v, TargetNode> {
     async fn unpack_literal(
         value: Value<'v>,
         ctx: &BxlContextNoDice<'_>,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
     ) -> anyhow::Result<Option<TargetExpr<'v, TargetNode>>> {
         if let Some(target) = value.downcast_ref::<StarlarkTargetNode>() {
             Ok(Some(Self::Node(target.0.dupe())))
@@ -370,7 +370,7 @@ impl<'v> TargetExpr<'v, TargetNode> {
     async fn unpack_iterable<'c>(
         value: Value<'v>,
         ctx: &BxlContextNoDice<'_>,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
         eval: &Evaluator<'v, 'c>,
     ) -> anyhow::Result<Option<TargetExpr<'v, TargetNode>>> {
         if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {

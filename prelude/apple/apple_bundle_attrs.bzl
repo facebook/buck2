@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def is_open_source() -> bool:
-    # @oss-disable: return False 
-    return True # @oss-enable
+def get_apple_info_plist_build_system_identification_attrs():
+    return {
+        "info_plist_identify_build_system": attrs.option(attrs.bool(), default = None),
+        "_info_plist_identify_build_system_default": attrs.bool(default = False),
+    }

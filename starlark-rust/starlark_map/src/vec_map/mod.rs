@@ -24,8 +24,8 @@ use std::hash::Hasher;
 use std::mem;
 
 use allocative::Allocative;
+use equivalent::Equivalent;
 
-use crate::equivalent::Equivalent;
 use crate::hash_value::StarlarkHashValue;
 use crate::hashed::Hashed;
 pub(crate) use crate::vec2::Vec2;

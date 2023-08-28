@@ -19,7 +19,7 @@ use std::fmt::Display;
 
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
-use crate::eval::compiler::EvalException;
+use crate::eval::compiler::eval_exception::EvalException;
 
 /// Internal error, bug in the typechecker.
 #[derive(Debug)]
@@ -70,6 +70,11 @@ impl TypingError {
     #[cold]
     pub(crate) fn new(error: anyhow::Error, span: Span, codemap: &CodeMap) -> TypingError {
         TypingError(EvalException::new(error, span, codemap))
+    }
+
+    #[cold]
+    pub(crate) fn from_eval_exception(e: EvalException) -> TypingError {
+        TypingError(e)
     }
 
     #[cold]

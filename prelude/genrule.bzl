@@ -10,7 +10,7 @@
 load("@prelude//:cache_mode.bzl", "CacheModeInfo")
 load("@prelude//:genrule_local_labels.bzl", "genrule_labels_require_local")
 load("@prelude//:genrule_toolchain.bzl", "GenruleToolchainInfo")
-load("@prelude//:open_source.bzl", "is_open_source")
+load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
@@ -35,6 +35,7 @@ _BUILD_ROOT_LABELS = {label: True for label in [
     "redex_genrule",  # T148016945
     "pxl",  # T151533831
     "app_modules_genrule",  # produces JSON containing file paths that are read from the root dir.
+    "android_langpack_strings",  # produces JSON containing file paths that are read from the root dir.
 ]}
 
 # In Buck1 the SRCS environment variable is only set if the substring SRCS is on the command line.
@@ -59,7 +60,7 @@ def _requires_no_srcs_environment(ctx: AnalysisContext) -> bool:
     return _NO_SRCS_ENVIRONMENT_LABEL in ctx.attrs.labels
 
 # We don't want to use cache mode in open source because the config keys that drive it aren't wired up
-_USE_CACHE_MODE = not is_open_source()
+_USE_CACHE_MODE = is_full_meta_repo()
 
 # Extra attributes required by every genrule based on genrule_impl
 def genrule_attributes() -> dict[str, "attribute"]:
@@ -127,12 +128,10 @@ def process_genrule(
 
     # TODO(cjhopman): verify output paths are ".", "./", or forward-relative.
     if out_attr != None:
-        out_env = out_attr
         out_artifact = _declare_output(ctx, out_attr)
         named_outputs = {}
         default_outputs = [out_artifact]
     elif outs_attr != None:
-        out_env = ""
         out_artifact = ctx.actions.declare_output("out", dir = True)
 
         named_outputs = {
@@ -195,13 +194,10 @@ def process_genrule(
     srcs = cmd_args()
     for symlink in symlinks:
         srcs.add(cmd_args(srcs_artifact, format = path_sep.join([".", "{}", symlink.replace("/", path_sep)])))
-    out_fmt = path_sep.join([".", "{}", "..", "out"])
-    if out_env != "":
-        out_fmt += path_sep + out_env.replace("/", path_sep)
     env_vars = {
         "ASAN_OPTIONS": cmd_args("detect_leaks=0,detect_odr_violation=0"),
         "GEN_DIR": cmd_args("GEN_DIR_DEPRECATED"),  # ctx.relpath(ctx.output_root_dir(), srcs_path)
-        "OUT": cmd_args(srcs_artifact, format = out_fmt),
+        "OUT": cmd_args(out_artifact.as_output()),
         "SRCDIR": cmd_args(srcs_artifact, format = path_sep.join([".", "{}"])),
         "SRCS": srcs,
     } | {k: cmd_args(v) for k, v in getattr(ctx.attrs, "env", {}).items()}

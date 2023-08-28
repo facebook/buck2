@@ -12,7 +12,7 @@ def materialize(ctx, target):
     # Ensures the srcs folder will be present
     return ctx.output.ensure(sources).abs_path()
 
-def _process_target_config(ctx, target):
+def _process_target_config(ctx, target, in_workspace):
     # convert all source paths to absolute paths
     resolved_attrs = target.resolved_attrs_eager(ctx)
 
@@ -65,9 +65,10 @@ def _process_target_config(ctx, target):
     copy["source_folder"] = materialize(ctx, target)
     copy["label"] = target.label.raw_target()
     copy["kind"] = target.rule_type
+    copy["in_workspace"] = in_workspace
     return copy
 
-def cquery_inner(ctx, top_targets):
+def cquery_deps(ctx, top_targets, workspaces):
     # the set that we have at home.
     targets = [target for top_target in top_targets for target in ctx.cquery().deps(top_target)]
     outputs = ctx.cquery().kind("^(rust_binary|rust_library|rust_test)$", targets)
@@ -77,22 +78,14 @@ def cquery_inner(ctx, top_targets):
     ctx.analysis(outputs)
 
     for target in outputs:
-        out[target.label.raw_target()] = _process_target_config(ctx, target)
+        in_workspace = target.label.raw_target() in top_targets
+        for candidate_workspace in target.attrs_lazy().get("_workspaces").value():
+            if candidate_workspace.raw_target() in workspaces:
+                in_workspace = True
+        out[target.label.raw_target()] = _process_target_config(ctx, target, in_workspace)
     return out
 
-def cquery_impl(ctx):
-    # equivalent of `flat_map`ing
-    targets = [target for sublist in ctx.cli_args.targets for target in sublist]
-    ctx.output.print_json(cquery_inner(ctx, targets))
-
-query = bxl_main(
-    impl = cquery_impl,
-    cli_args = {
-        "targets": cli_args.list(cli_args.target_expr()),
-    },
-)
-
-def expand_proc_macros_inner(ctx, targets):
+def expand_proc_macros(ctx, targets):
     targets = ctx.cquery().deps(targets)
     outputs = ctx.cquery().kind("^(configured_alias)$", targets)
 
@@ -116,45 +109,48 @@ def expand_proc_macros_inner(ctx, targets):
 
     return macros
 
-def expand_proc_macros_impl(ctx):
-    # equivalent of `flat_map`ing
-    targets = [target for sublist in ctx.cli_args.targets for target in sublist]
-    ctx.output.print_json(expand_proc_macros_inner(ctx, targets))
-
-expand_proc_macros = bxl_main(
-    impl = expand_proc_macros_impl,
-    cli_args = {
-        "targets": cli_args.list(cli_args.target_expr()),
-    },
-)
-
-def expand_targets_inner(ctx, targets):
+# Returns a list of all the expanded targets including any workspaces, followed by just the workspaces
+def expand_targets(ctx, targets):
     kind_target_list = ctx.cquery().kind("^(rust_binary|rust_library|rust_test|alias)$", targets)
 
     # Allow targets to opt-in to being treated as rust-analyzer-compatible.
     # This is used for cross-compilation targets that apply Buck transitions to Rust rules.
     labeled_target_list = ctx.cquery().attrfilter("labels", "rust_analyzer_target", targets)
-    expanded_target_list = kind_target_list + labeled_target_list
-    return [target.label.raw_target() for target in expanded_target_list]
+    expanded_targets = {t.label.raw_target(): t for t in kind_target_list + labeled_target_list}
 
-def expand_targets_impl(ctx):
-    # equivalent of `flat_map`ing
-    targets = [target for sublist in ctx.cli_args.targets for target in sublist]
-    ctx.output.print_json(expand_targets_inner(ctx, targets))
+    # Map of potential workspaces to a list of the targets that name these as potential workspaces
+    possible_workspaces = {}
+    for label, t in expanded_targets.items():
+        for workspace in t.attrs_lazy().get("_workspaces").value():
+            possible_workspaces.setdefault(workspace.raw_target(), []).append(label)
 
-expand_targets = bxl_main(
-    impl = expand_targets_impl,
-    cli_args = {
-        "targets": cli_args.list(cli_args.target_expr()),
-    },
-)
+    active_workspaces = {}
+    for workspace, candidate_deps in possible_workspaces.items():
+        # FIXME: Using `cquery deps` here is not right. It will transparently look through
+        # dependency edges of all types, meaning that eg build tools written in Rust and built
+        # from source will show up too
+        workspace_deps = {d.label.raw_target(): () for d in ctx.cquery().deps(workspace)}
+        for d in candidate_deps:
+            if d in workspace_deps:
+                active_workspaces[workspace] = ()
+
+                # Remove the target from the expanded targets. This is correct because we know
+                # that the target will reappear later as a dep of the workspace. To understand why
+                # it's necessary, consider the case where the target is a proc macro: Later doing
+                # cquery deps(proc_macro + workspace) will result in the proc macro appearing twice,
+                # once in its exec configuration and once in its target configuration
+                # FIXME: Add a test for this. It's currently a bit hard to test because proc macros
+                # in the prelude are a bit hard in general
+                expanded_targets.pop(d, None)
+
+    return dedupe(sorted(expanded_targets.keys() + active_workspaces.keys())), sorted(active_workspaces.keys())
 
 def expand_and_resolve_impl(ctx):
     # equivalent of `flat_map`ing
     targets = [target for sublist in ctx.cli_args.targets for target in sublist]
-    expanded_targets = expand_targets_inner(ctx, targets)
-    queried_proc_macros = expand_proc_macros_inner(ctx, expanded_targets)
-    resolved_deps = cquery_inner(ctx, expanded_targets)
+    expanded_targets, workspaces = expand_targets(ctx, targets)
+    queried_proc_macros = expand_proc_macros(ctx, expanded_targets)
+    resolved_deps = cquery_deps(ctx, expanded_targets, workspaces)
 
     ctx.output.print_json({
         "expanded_targets": expanded_targets,

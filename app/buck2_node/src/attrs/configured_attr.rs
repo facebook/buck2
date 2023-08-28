@@ -17,10 +17,10 @@ use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_util::arc_str::ArcStr;
-use buck2_util::collections::ordered_map::OrderedMap;
 use dupe::Dupe;
 use serde::Serialize;
 use serde::Serializer;
+use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map;
 
 use super::attr_type::arg::ConfiguredStringWithMacros;
@@ -73,7 +73,7 @@ enum ConfiguredAttrError {
 #[derive(Eq, PartialEq, Hash, Clone, Allocative, Debug)]
 pub enum ConfiguredAttr {
     Bool(BoolLiteral),
-    Int(i32),
+    Int(i64),
     // Note we store `String`, not `Arc<str>` here, because we store full attributes
     // in unconfigured target node, but configured target node is basically a pair
     // (reference to unconfigured target node, configuration).

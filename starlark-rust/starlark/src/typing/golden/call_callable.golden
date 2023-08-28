@@ -9,3 +9,6 @@ def foo(x: "function"):
     x()
 
 No errors.
+
+Compiler typechecker (eval):
+No errors.

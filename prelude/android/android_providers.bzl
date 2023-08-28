@@ -96,6 +96,7 @@ AndroidApkUnderTestInfo = provider(
         "platforms",  # [str]
         "primary_platform",  # str
         "resource_infos",  # set_type("ResourceInfos")
+        "r_dot_java_packages",  # [str]
         "shared_libraries",  # set_type("SharedLibrary")
     ],
 )
@@ -107,7 +108,7 @@ AndroidInstrumentationApkInfo = provider(
 )
 
 PrebuiltNativeLibraryDir = record(
-    raw_target = "target_label",
+    raw_target = TargetLabel,
     dir = Artifact,  # contains subdirectories for different ABIs.
     for_primary_apk = bool,
     is_asset = bool,
@@ -123,12 +124,12 @@ PrebuiltNativeLibraryDirTSet = transitive_set()
 ResourceInfoTSet = transitive_set()
 
 DepsInfo = record(
-    name = "target_label",
-    deps = list["target_label"],
+    name = TargetLabel,
+    deps = list[TargetLabel],
 )
 
 ManifestInfo = record(
-    target_label = "target_label",
+    target_label = TargetLabel,
     manifest = Artifact,
 )
 
@@ -159,6 +160,8 @@ AndroidResourceInfo = provider(
         "assets",  # ["artifact", None]
         # manifest file used by the resources, if resources are present
         "manifest_file",  # ["artifact", None]
+        # the package specified by the android_resource rule itself
+        "specified_r_dot_java_package",  # [str, None]
         # package used for R.java, if resources are present
         "r_dot_java_package",  # ["artifact", None]
         # resources defined by this rule. May be empty
@@ -279,9 +282,9 @@ def merge_android_packageable_info(
 
 def _get_transitive_set(
         actions: AnalysisActions,
-        children: list["transitive_set"],
+        children: list[TransitiveSet],
         node: typing.Any,
-        transitive_set_definition: "transitive_set_definition") -> ["transitive_set", None]:
+        transitive_set_definition: TransitiveSetDefinition) -> [TransitiveSet, None]:
     kwargs = {}
     if children:
         kwargs["children"] = children

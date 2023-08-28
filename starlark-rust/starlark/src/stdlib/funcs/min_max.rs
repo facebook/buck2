@@ -105,7 +105,7 @@ pub(crate) fn register_min_max(globals: &mut GlobalsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn max<'v>(
-        #[starlark(args)] mut args: Vec<Value<'v>>,
+        #[starlark(args)] args: Vec<Value<'v>>,
         key: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
@@ -130,7 +130,7 @@ pub(crate) fn register_min_max(globals: &mut GlobalsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn min<'v>(
-        #[starlark(args)] mut args: Vec<Value<'v>>,
+        #[starlark(args)] args: Vec<Value<'v>>,
         key: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {

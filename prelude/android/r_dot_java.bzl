@@ -46,7 +46,8 @@ def generate_r_dot_javas(
         duplicate_resources_allowlist: [Artifact, None],
         union_package: [str, None],
         referenced_resources_lists: list[Artifact],
-        generate_strings_and_ids_separately: [bool, None] = True) -> list[JavaLibraryInfo.type]:
+        generate_strings_and_ids_separately: [bool, None] = True,
+        remove_classes: [list[str], None] = []) -> list[JavaLibraryInfo.type]:
     r_dot_java_source_code = _generate_r_dot_java_source_code(
         ctx,
         merge_android_resources_tool,
@@ -66,19 +67,20 @@ def generate_r_dot_javas(
         ctx,
         r_dot_java_source_code.r_dot_java_source_code_zipped,
         "main_r_dot_java",
+        remove_classes = remove_classes,
     )
     if generate_strings_and_ids_separately:
         strings_library_output = _generate_and_compile_r_dot_java(
             ctx,
             r_dot_java_source_code.strings_source_code_zipped,
             "strings_r_dot_java",
-            remove_classes = [".R$"],
+            remove_classes = remove_classes + [".R$"],
         )
         ids_library_output = _generate_and_compile_r_dot_java(
             ctx,
             r_dot_java_source_code.ids_source_code_zipped,
             "ids_r_dot_java",
-            remove_classes = [".R$"],
+            remove_classes = remove_classes + [".R$"],
         )
     else:
         strings_library_output = None

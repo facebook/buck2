@@ -5,11 +5,16 @@
 # ```
 
 Code:
-def foo(x: str.type) -> str.type:
+def foo(x: str) -> str:
     return x.removeprefix("test")
-y = hash(foo("magic"))
+
+def bar():
+    y = hash(foo("magic"))
 
 No errors.
 
 Types:
 y: int
+
+Compiler typechecker (eval):
+No errors.

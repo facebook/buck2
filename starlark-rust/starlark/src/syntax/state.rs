@@ -17,7 +17,7 @@
 
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
-use crate::eval::compiler::EvalException;
+use crate::eval::compiler::eval_exception::EvalException;
 use crate::syntax::Dialect;
 
 pub(crate) struct ParserState<'a> {

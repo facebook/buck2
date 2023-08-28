@@ -16,10 +16,12 @@ use allocative::Allocative;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::StarlarkHasher;
+use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -87,7 +89,7 @@ starlark_simple_value!(ArtifactTag);
 impl<'v> StarlarkValue<'v> for ArtifactTag {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(input_tag_methods)
+        RES.methods(artifact_tag_methods)
     }
 
     fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
@@ -104,7 +106,7 @@ impl<'v> StarlarkValue<'v> for ArtifactTag {
 }
 
 #[starlark_module]
-fn input_tag_methods(_: &mut MethodsBuilder) {
+fn artifact_tag_methods(_: &mut MethodsBuilder) {
     fn tag_artifacts<'v>(
         this: &ArtifactTag,
         inner: Value<'v>,
@@ -132,4 +134,9 @@ fn input_tag_methods(_: &mut MethodsBuilder) {
             heap.alloc(value)
         })
     }
+}
+
+#[starlark_module]
+pub(crate) fn register_artifact_tag(globals: &mut GlobalsBuilder) {
+    const ArtifactTag: StarlarkValueAsType<ArtifactTag> = StarlarkValueAsType::new();
 }

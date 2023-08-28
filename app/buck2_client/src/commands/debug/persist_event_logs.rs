@@ -57,7 +57,7 @@ impl PersistEventLogsCommand {
             let mut stdin = io::BufReader::new(ctx.stdin());
             self.write_and_upload(&mut stdin).await
         }) {
-            soft_error!("error_persisting_event_log", e)?;
+            soft_error!(categorize_error(&e), e)?;
         };
         ExitResult::success()
     }
@@ -202,4 +202,45 @@ async fn write_to_file(
     file.write_all(buf).await?;
     file.flush().await?;
     Ok(())
+}
+
+fn categorize_error(err: &anyhow::Error) -> &'static str {
+    // This is for internal error tracking in `logview buck2`
+    // Each category should point to 1 root cause
+    // In case any of this is to be changed, just give a heads up
+    // to anybody who may be actively tracking these errors
+    let err_msg = format!("{:#}", err);
+    if err_msg.contains("CertificateRequired") {
+        "persist_log_certificate_required"
+    } else if err_msg.contains("No space left on device") {
+        "persist_log_no_space_on_device"
+    } else if err_msg.contains("Timed out while making request") {
+        "persist_log_http_write_timeout"
+    } else if err_msg.contains("Input/output error") {
+        "persist_log_input_output_error"
+    } else if err_msg.contains("failed to lookup address information") {
+        "persist_log_dns_failed_lookup"
+    } else if err_msg.contains("BadCertificate") {
+        "persist_log_bad_certificate"
+    } else if err_msg.contains("connection reset") {
+        "persist_log_connection_reset"
+    } else if err_msg.contains("Broken pipe") {
+        "persist_log_broken_pipe"
+    } else {
+        "persist_log_other"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_categorize_error() {
+        let err = anyhow::anyhow!("CertificateRequired");
+        assert_eq!(categorize_error(&err), "persist_log_certificate_required");
+
+        let err = anyhow::anyhow!("Some other error");
+        assert_eq!(categorize_error(&err), "persist_log_other");
+    }
 }

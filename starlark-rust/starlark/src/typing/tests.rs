@@ -18,26 +18,25 @@
 use std::collections::HashMap;
 use std::fmt::Write;
 
+use dupe::Dupe;
 use once_cell::sync::Lazy;
 use starlark_derive::starlark_module;
 
 use crate as starlark;
 use crate::assert::Assert;
-use crate::environment::Globals;
+use crate::environment::FrozenModule;
 use crate::environment::GlobalsBuilder;
+use crate::environment::Module;
+use crate::eval::runtime::file_loader::ReturnOwnedFileLoader;
+use crate::eval::Evaluator;
 use crate::stdlib::LibraryExtension;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::tests::golden_test_template::golden_test_template;
-use crate::typing::basic::TyBasic;
-use crate::typing::function::Param;
+use crate::typing::interface::Interface;
 use crate::typing::oracle::traits::OracleNoAttributes;
 use crate::typing::oracle::traits::OracleSeq;
-use crate::typing::oracle::traits::TypingAttr;
-use crate::typing::Interface;
-use crate::typing::OracleDocs;
 use crate::typing::OracleStandard;
-use crate::typing::Ty;
 use crate::typing::TypingOracle;
 use crate::values::none::NoneType;
 use crate::values::typing::StarlarkIter;
@@ -53,26 +52,10 @@ fn mk_oracle() -> impl TypingOracle {
     &*ORACLE
 }
 
-#[test]
-fn test_oracle() {
-    let o = mk_oracle();
-
-    let mut b = OracleDocs::new();
-    b.add_module(&Globals::extended_internal().documentation());
-
-    assert_eq!(
-        o.attribute(&TyBasic::string(), TypingAttr::Regular("removeprefix")),
-        Some(Ok(Ty::function(
-            vec![Param::pos_only(Ty::string())],
-            Ty::string()
-        )))
-    );
-}
-
 #[derive(Default)]
 struct TypeCheck {
     expect_types: Vec<String>,
-    loads: HashMap<String, Interface>,
+    loads: HashMap<String, (Interface, FrozenModule)>,
 }
 
 #[starlark_module]
@@ -95,19 +78,36 @@ impl TypeCheck {
         self
     }
 
-    fn load(mut self, file: &str, interface: Interface) -> Self {
-        self.loads.insert(file.to_owned(), interface);
+    fn load(mut self, file: &str, interface: Interface, module: FrozenModule) -> Self {
+        self.loads.insert(file.to_owned(), (interface, module));
         self
     }
 
-    fn check(&self, test_name: &str, code: &str) -> Interface {
+    fn mk_file_loader(&self) -> ReturnOwnedFileLoader {
+        let modules = self
+            .loads
+            .iter()
+            .map(|(name, (_, module))| (name.clone(), module.dupe()))
+            .collect();
+        ReturnOwnedFileLoader { modules }
+    }
+
+    fn check(&self, test_name: &str, code: &str) -> (Interface, FrozenModule) {
         let globals = GlobalsBuilder::extended()
             .with(register_typecheck_globals)
             .build();
-        let (errors, typemap, interface, approximations) =
-            AstModule::parse("filename", code.to_owned(), &Dialect::Extended)
-                .unwrap()
-                .typecheck(&mk_oracle(), &globals, &self.loads);
+        // `AstModule` is not `Clone`. Parse twice.
+        let ast0 = AstModule::parse("filename", code.to_owned(), &Dialect::Extended).unwrap();
+        let ast1 = AstModule::parse("filename", code.to_owned(), &Dialect::Extended).unwrap();
+        let (errors, typemap, interface, approximations) = ast0.typecheck(
+            &mk_oracle(),
+            &globals,
+            &self
+                .loads
+                .iter()
+                .map(|(name, (intf, _))| (name.clone(), intf.clone()))
+                .collect(),
+        );
 
         let mut output = String::new();
         writeln!(output, "Code:").unwrap();
@@ -116,7 +116,7 @@ impl TypeCheck {
             writeln!(output).unwrap();
             writeln!(output, "No errors.").unwrap();
         } else {
-            for error in errors {
+            for error in &errors {
                 writeln!(output).unwrap();
                 writeln!(output, "Error:").unwrap();
                 // Note we are using `:#` here instead of `:?` because
@@ -147,9 +147,36 @@ impl TypeCheck {
             }
         }
 
+        let loader = self.mk_file_loader();
+        let module = {
+            writeln!(output).unwrap();
+            writeln!(output, "Compiler typechecker (eval):").unwrap();
+            let module = Module::new();
+            let mut eval = Evaluator::new(&module);
+
+            eval.set_loader(&loader);
+
+            eval.enable_static_typechecking(true);
+            let eval_result = eval.eval_module(ast1, &globals);
+            match &eval_result {
+                Ok(_) => writeln!(output, "No errors.").unwrap(),
+                Err(err) => writeln!(output, "{}", err).unwrap(),
+            }
+
+            if eval_result.is_ok() != errors.is_empty() {
+                writeln!(output).unwrap();
+                writeln!(output, "Compiler typechecker and eval results mismatch.").unwrap();
+            }
+
+            // Help borrow checker.
+            drop(eval);
+
+            module.freeze().unwrap()
+        };
+
         golden_test_template(&format!("src/typing/golden/{}.golden", test_name), &output);
 
-        interface
+        (interface, module)
     }
 }
 
@@ -158,34 +185,46 @@ fn test_success() {
     TypeCheck::default().ty("y").check(
         "success",
         r#"
-def foo(x: str.type) -> str.type:
+def foo(x: str) -> str:
     return x.removeprefix("test")
-y = hash(foo("magic"))
-   "#,
+
+def bar():
+    y = hash(foo("magic"))
+"#,
     );
 }
 
 #[test]
 fn test_failure() {
-    TypeCheck::new().check("failure", r#"hash(1)"#);
+    TypeCheck::new().check(
+        "failure",
+        r#"
+def test():
+    hash(1)
+"#,
+    );
 }
 
 #[test]
 fn test_load() {
-    let interface = TypeCheck::new().check(
+    let (interface, module) = TypeCheck::new().check(
         "load_0",
         r#"
 def foo(x: list[bool]) -> str:
     return "test"
    "#,
     );
-    TypeCheck::new().load("foo.bzl", interface).ty("res").check(
-        "load_1",
-        r#"
+    TypeCheck::new()
+        .load("foo.bzl", interface, module)
+        .ty("res")
+        .check(
+            "load_1",
+            r#"
 load("foo.bzl", "foo")
-res = [foo([])]
+def test():
+    res = [foo([])]
 "#,
-    );
+        );
 }
 
 /// Test things that have previous claimed incorrectly they were type errors
@@ -193,7 +232,10 @@ res = [foo([])]
 fn test_false_negative() {
     TypeCheck::new().check(
         "false_negative",
-        r#"fail("Expected variable expansion in string: `{}`".format("x"))"#,
+        r#"
+def test():
+    fail("Expected variable expansion in string: `{}`".format("x"))
+"#,
     );
 }
 
@@ -204,7 +246,9 @@ fn test_type_kwargs() {
         r#"
 def foo(**kwargs):
     pass
-foo(**{1: "x"})
+
+def bar():
+    foo(**{1: "x"})
 "#,
     );
 }
@@ -225,17 +269,21 @@ fn test_dot_type() {
     TypeCheck::new().check(
         "dot_type_0",
         r#"
-def foo(x: list.type) -> bool.type:
-    return type(x) == list.type
-foo([1,2,3])
+def foo(x: list) -> bool:
+    return type(x) == type(list)
+
+def bar():
+    foo([1,2,3])
 "#,
     );
     TypeCheck::new().check(
         "dot_type_1",
         r#"
-def foo(x: list.type) -> bool.type:
+def foo(x: list) -> bool:
     return type(x) == []
-foo(True)
+
+def bar():
+    foo(True)
 "#,
     );
 }
@@ -245,7 +293,8 @@ fn test_special_function_zip() {
     TypeCheck::new().ty("x").check(
         "zip",
         r#"
-x = zip([1,2], [True, False], ["a", "b"])
+def test():
+    x = zip([1,2], [True, False], ["a", "b"])
 "#,
     );
 }
@@ -255,7 +304,8 @@ fn test_special_function_struct() {
     TypeCheck::new().ty("x").check(
         "struct",
         r#"
-x = struct(a = 1, b = "test")
+def test():
+    x = struct(a = 1, b = "test")
 "#,
     );
 }
@@ -298,7 +348,7 @@ fn test_call_callable_or_not_callable() {
     TypeCheck::new().check(
         "call_callable_or_not_callable",
         r#"
-def foo(x: ["function", str.type], y: [str.type, "function"]):
+def foo(x: ["function", str], y: [str, "function"]):
     x()
     y()
 "#,
@@ -322,7 +372,7 @@ fn test_call_not_callable_or_unknown() {
     TypeCheck::new().check(
         "call_not_callable_or_unknown",
         r#"
-def foo(x: [str.type, "unknown"], y: ["unknown", str.type]):
+def foo(x: [str, "unknown"], y: ["unknown", str]):
     x()
     y()
 "#,
@@ -335,7 +385,7 @@ fn test_tuple() {
         "tuple",
         r#"
 def empty_tuple_fixed_name() -> (): return tuple()
-def empty_tuple_name_fixed() -> tuple.type: return ()
+def empty_tuple_name_fixed() -> tuple: return ()
 "#,
     );
 }
@@ -347,11 +397,12 @@ fn test_test_new_syntax_without_dot_type() {
         r#"
 def foo(x: str): pass
 
-# good
-foo("test")
+def bar():
+    # good
+    foo("test")
 
-# bad
-foo(1)
+    # bad
+    foo(1)
 "#,
     );
 }
@@ -363,11 +414,12 @@ fn test_calls() {
         r#"
 def f(y): pass
 
-# Extra parameter.
-f(1, 2)
+def g():
+    # Extra parameter.
+    f(1, 2)
 
-# Not enough parameters.
-f()
+    # Not enough parameters.
+    f()
 "#,
     );
 }
@@ -377,10 +429,11 @@ fn test_list_append() {
     TypeCheck::new().ty("x").check(
         "list_append",
         r#"
-# Type of `x` should be inferred as list of either `int` or `str`.
-x = []
-x.append(1)
-x.append("")
+def test():
+    # Type of `x` should be inferred as list of either `int` or `str`.
+    x = []
+    x.append(1)
+    x.append("")
 "#,
     );
 }
@@ -391,8 +444,9 @@ fn test_list_append_bug() {
     TypeCheck::new().ty("x").check(
         "list_append_bug",
         r#"
-x = []
-x.append(x)
+def test():
+    x = []
+    x.append(x)
 "#,
     );
 }
@@ -402,7 +456,32 @@ fn test_list_function() {
     TypeCheck::new().ty("x").check(
         "list_function",
         r#"
-x = list([1, 2])
+def test():
+    x = list([1, 2])
+"#,
+    );
+}
+
+#[test]
+fn test_list_less() {
+    TypeCheck::new().check(
+        "list_less",
+        r#"
+def test(x: list[str], y: list[str]) -> bool:
+    return x < y
+"#,
+    );
+}
+
+#[test]
+fn test_list_bin_op() {
+    TypeCheck::new().ty("x").ty("y").ty("z").check(
+        "list_bin_op",
+        r#"
+def test(a: list[str]):
+    x = a + a
+    y = a * 3
+    z = 3 * a
 "#,
     );
 }
@@ -412,7 +491,8 @@ fn test_accepts_iterable() {
     TypeCheck::new().check(
         "accepts_iterable",
         r#"
-accepts_iterable([1, ()])
+def test():
+    accepts_iterable([1, ()])
 "#,
     );
 
@@ -428,9 +508,24 @@ fn test_dict_bug() {
     TypeCheck::new().ty("y").check(
         "dict_bug",
         r#"
-x = {}
-x.setdefault(33, "x")
-y = x[44]
+def test():
+    x = {}
+    x.setdefault(33, "x")
+    y = x[44]
+"#,
+    );
+}
+
+#[test]
+fn test_dict_lookup_by_never() {
+    TypeCheck::new().check(
+        "dict_never_key",
+        r#"
+# We use `typing.Never` when expression is an error,
+# or it is a type parameter of empty list for example.
+# Dict lookup by never should not be an error.
+def test(d: dict[typing.Any, str], x: typing.Never):
+    y = d[x]
 "#,
     );
 }
@@ -443,8 +538,9 @@ fn test_new_list_dict_syntax() {
 def new_list_dict_syntax(d: dict[str, int]) -> list[str]:
     return list(d.keys())
 
-# Check type is properly parsed from the function return type.
-x = new_list_dict_syntax({"a": 1, "b": 2})
+def test():
+    # Check type is properly parsed from the function return type.
+    x = new_list_dict_syntax({"a": 1, "b": 2})
 "#,
     );
 }
@@ -455,8 +551,9 @@ fn test_new_list_dict_syntax_as_value() {
     TypeCheck::new().ty("x").ty("y").check(
         "new_list_dict_syntax_as_value",
         r#"
-x = list[str]
-y = dict[int, bool]
+def test():
+    x = list[str]
+    y = dict[int, bool]
 "#,
     );
 }
@@ -466,7 +563,31 @@ fn test_int_plus_float() {
     TypeCheck::new().ty("x").check(
         "int_plus_float",
         r#"
-x = 1 + 1.0
+def test():
+    x = 1 + 1.0
+"#,
+    );
+}
+
+#[test]
+fn test_int_bitor_float() {
+    TypeCheck::new().ty("x").check(
+        "int_bitor_float",
+        r#"
+def test():
+    x = 0x60000000000000000000000 | 1.0
+"#,
+    );
+}
+
+#[test]
+fn test_int_mul_list() {
+    // TODO(nga): fix.
+    TypeCheck::new().ty("x").check(
+        "int_mul_list",
+        r#"
+def test():
+    x = 1 * ["a"]
 "#,
     );
 }
@@ -476,12 +597,13 @@ fn test_un_op() {
     TypeCheck::new().ty("x").ty("y").ty("z").check(
         "un_op",
         r#"
-# Good.
-x = -1
-# Bad.
-y = ~True
-# Union good and bad.
-z = -(1 if True else "")
+def test():
+    # Good.
+    x = -1
+    # Bad.
+    y = ~True
+    # Union good and bad.
+    z = -(1 if True else "")
 "#,
     );
 }
@@ -498,6 +620,52 @@ def func_which_returns_union(p) -> str | int:
         return 1
     else:
         return []
+"#,
+    );
+}
+
+#[test]
+fn test_type_alias() {
+    TypeCheck::new().ty("x").check(
+        "type_alias",
+        r#"
+MyList = list[int]
+
+def f(x: MyList):
+    pass
+"#,
+    );
+}
+
+#[test]
+fn test_incorrect_type_dot() {
+    TypeCheck::new().check(
+        "incorrect_type_dot",
+        r#"
+def foo(x: list.foo.bar):
+    pass
+"#,
+    );
+}
+
+#[test]
+fn test_never_call_bug() {
+    TypeCheck::new().ty("y").check(
+        "never_call_bug",
+        r#"
+def foo(x: typing.Never):
+    y = x(1)
+"#,
+    );
+}
+
+#[test]
+fn test_methods_work_for_ty_starlark_value() {
+    TypeCheck::new().ty("x").check(
+        "methods_work_for_ty_starlark_value",
+        r#"
+def test(s: str):
+    x = s.startswith("a")
 "#,
     );
 }

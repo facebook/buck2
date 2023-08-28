@@ -48,7 +48,7 @@ async fn get_hg_info() -> anyhow::Result<CommandResult> {
         .await?;
     if result.status.success() {
         let output = from_utf8(result.stdout, "hg snapshot stdout")?;
-        return Ok(CommandResult::Ok(format!("HG snapshot ID: {}", output)));
+        return Ok(CommandResult::Ok(format!("hg snapshot update {}", output)));
     };
     let error = from_utf8(result.stderr, "hg snapshot stderr")?;
     if error.contains("is not inside a repository") {

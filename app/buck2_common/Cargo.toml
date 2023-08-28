@@ -60,6 +60,7 @@ gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
 cmp_any = { workspace = true }
 more_futures = { workspace = true }
+starlark_map = { workspace = true }
 
 buck2_core = { workspace = true }
 buck2_data = { workspace = true }

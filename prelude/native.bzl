@@ -21,10 +21,12 @@ load("@prelude//cxx:cxx_toolchain_macro_layer.bzl", "cxx_toolchain_macro_impl")
 load("@prelude//cxx:cxx_toolchain_types.bzl", _cxx = "cxx")
 load("@prelude//erlang:erlang.bzl", _erlang_application = "erlang_application", _erlang_tests = "erlang_tests")
 load("@prelude//python:toolchain.bzl", _python = "python")
+load("@prelude//rust:rust_common.bzl", "rust_common_macro_wrapper")
+load("@prelude//rust:with_workspace.bzl", "with_rust_workspace")
 load("@prelude//user:all.bzl", _user_rules = "rules")
 load("@prelude//utils:selects.bzl", "selects")
 load("@prelude//utils:utils.bzl", "expect")
-load(":open_source.bzl", "is_open_source")
+load(":is_full_meta_repo.bzl", "is_full_meta_repo")
 load(":paths.bzl", "paths")
 load(":rules.bzl", __rules__ = "rules")
 
@@ -278,16 +280,21 @@ def _configured_alias_macro_stub(
         # Whether to fallback to a unconfigured `alias` if `platform` is `None`.
         fallback_to_unconfigured_alias = False,
         **kwargs):
-    # `actual` needs to be a pair of target + platform, as that's the format
-    # expected by the `configured_dep()` field
+    pred = lambda platform: platform != None or not fallback_to_unconfigured_alias
     __rules__["configured_alias"](
         name = name,
+        # `actual` needs to be a pair of target + platform, as that's the format
+        # expected by the `configured_dep()` field
         # Use a select map to make this thing `None` if `platform` is `None`.
         configured_actual = selects.apply(
             platform,
-            lambda platform: (actual, platform) if platform != None or not fallback_to_unconfigured_alias else None,
+            lambda platform: (actual, platform) if pred(platform) else None,
         ),
-        fallback_actual = actual if fallback_to_unconfigured_alias else None,
+        # Make sure that exactly one of `configured_actual` or `fallback_actual` is set
+        fallback_actual = selects.apply(
+            platform,
+            lambda platform: None if pred(platform) else actual,
+        ),
         # Unused.
         actual = actual,
         platform = platform,
@@ -345,7 +352,7 @@ def _swift_toolchain_macro_stub(**kwargs):
 def _cxx_toolchain_macro_stub(inherit_target_platform = False, **kwargs):
     if inherit_target_platform:
         rule = cxx_toolchain_inheriting_target_platform
-        if not is_open_source():
+        if is_full_meta_repo():
             cache_links = kwargs.get("cache_links")
             kwargs["cache_links"] = select({
                 "DEFAULT": cache_links,
@@ -383,6 +390,18 @@ def _erlang_tests_macro_stub(**kwargs):
         **kwargs
     )
 
+def _rust_library_macro_stub(**kwargs):
+    rust_library = rust_common_macro_wrapper(__rules__["rust_library"])
+    rust_library(**kwargs)
+
+def _rust_binary_macro_stub(**kwargs):
+    rust_binary = rust_common_macro_wrapper(__rules__["rust_binary"])
+    rust_binary(**kwargs)
+
+def _rust_test_macro_stub(**kwargs):
+    rust_test = rust_common_macro_wrapper(__rules__["rust_test"])
+    rust_test(**kwargs)
+
 # TODO(cjhopman): These macro wrappers should be handled in prelude/rules.bzl+rule_impl.bzl.
 # Probably good if they were defined to take in the base rule that
 # they are wrapping and return the wrapped one.
@@ -403,6 +422,10 @@ __extra_rules__ = {
     "export_file": _export_file_macro_stub,
     "prebuilt_cxx_library": _prebuilt_cxx_library_macro_stub,
     "python_library": _python_library_macro_stub,
+    "rust_binary": _rust_binary_macro_stub,
+    "rust_library": _rust_library_macro_stub,
+    "rust_test": _rust_test_macro_stub,
+    "rust_with_workspace": with_rust_workspace,
     "swift_toolchain": _swift_toolchain_macro_stub,
     "versioned_alias": _versioned_alias_macro_stub,
 }

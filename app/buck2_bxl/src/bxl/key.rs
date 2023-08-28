@@ -26,9 +26,9 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_data::ToProtoMessage;
-use buck2_util::collections::ordered_map::OrderedMap;
 use cmp_any::PartialEqAny;
 use dupe::Dupe;
+use starlark_map::ordered_map::OrderedMap;
 
 use crate::bxl::starlark_defs::cli_args::CliArgValue;
 

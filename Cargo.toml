@@ -92,6 +92,7 @@ members = [
     "starlark-rust/starlark",
     "starlark-rust/starlark_derive",
     "starlark-rust/starlark_map",
+    "starlark-rust/starlark_syntax",
     "shed/internment_tweaks",
     "shed/lock_free_hashtable",
     "shed/lock_free_vec",
@@ -106,7 +107,7 @@ anymap = "0.12.1"
 arc-swap = "1.6.0"
 argfile = "0.1.0"
 assert_matches = "1.5"
-async-compression = { version = "0.3.8", features = ["tokio", "gzip", "zstd"] }
+async-compression = { version = "0.4.1", features = ["tokio", "gzip", "zstd"] }
 async-condvar-fair = { version = "0.2.2", features = ["parking_lot_0_11", "tokio"] }
 async-recursion = "1.0"
 async-scoped = { version = "0.7.1", features = ["use-tokio"] }
@@ -144,6 +145,7 @@ either = "1.8"
 enum-iterator = "1.4.1"
 enum-map = "0.6.3"
 env_logger = "0.9.0"
+equivalent = "1.0.0"
 erased-serde = "0.3.20"
 faccess = "0.2.3"
 fancy-regex = "0.10.0"
@@ -385,6 +387,7 @@ incremental = true
 debug = true
 panic = "abort"
 opt-level = 1
+lto = "off"
 
 [profile.test]
 incremental = true

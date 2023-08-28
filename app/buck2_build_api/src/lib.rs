@@ -21,6 +21,8 @@
 
 #[macro_use]
 extern crate starlark;
+#[macro_use]
+extern crate higher_order_closure;
 
 use std::sync::Once;
 

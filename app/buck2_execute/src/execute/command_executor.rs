@@ -74,8 +74,8 @@ struct CommandExecutorData {
     artifact_fs: ArtifactFs,
     options: CommandGenerationOptions,
     re_platform: RE::Platform,
-    enforce_re_timeouts: bool,
     cache_uploader: Arc<dyn UploadCache>,
+    respect_exec_bit_on_re: bool,
 }
 
 impl CommandExecutor {
@@ -86,7 +86,7 @@ impl CommandExecutor {
         artifact_fs: ArtifactFs,
         options: CommandGenerationOptions,
         re_platform: RE::Platform,
-        enforce_re_timeouts: bool,
+        respect_exec_bit_on_re: bool,
     ) -> Self {
         Self(Arc::new(CommandExecutorData {
             inner,
@@ -94,8 +94,8 @@ impl CommandExecutor {
             artifact_fs,
             options,
             re_platform,
-            enforce_re_timeouts,
             cache_uploader,
+            respect_exec_bit_on_re,
         }))
     }
 
@@ -177,16 +177,13 @@ impl CommandExecutor {
                 request.env(),
                 input_digest,
                 action_metadata_blobs,
-                if self.0.enforce_re_timeouts {
-                    request.timeout()
-                } else {
-                    None
-                },
+                request.timeout(),
                 self.0.re_platform.clone(),
                 false,
                 digest_config,
                 self.0.options.output_paths_behavior,
                 request.unique_input_inodes(),
+                self.0.respect_exec_bit_on_re,
             )?;
 
             anyhow::Ok(action)
@@ -207,6 +204,7 @@ fn re_create_action(
     digest_config: DigestConfig,
     output_paths_behavior: OutputPathsBehavior,
     unique_input_inodes: bool,
+    respect_exec_bit_on_re: bool,
 ) -> anyhow::Result<PreparedAction> {
     let mut command = RE::Command {
         arguments: args,
@@ -292,11 +290,18 @@ fn re_create_action(
         {
             action.copy_policy_resolver = RE::CopyPolicyResolver::SingleHardLinking.into();
         }
+    }
 
-        #[cfg(not(fbcode_build))]
+    if respect_exec_bit_on_re {
+        #[cfg(fbcode_build)]
         {
-            let _unused = &mut action;
+            action.respect_exec_bit = true;
         }
+    }
+
+    #[cfg(not(fbcode_build))]
+    {
+        let _unused = &mut action;
     }
 
     let action = prepared_blobs.add_protobuf_message(&action, digest_config);

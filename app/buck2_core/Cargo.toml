@@ -13,6 +13,7 @@ tempfile = { workspace = true }
 derive_more = { workspace = true }
 derivative = { workspace = true }
 dunce = { workspace = true }
+equivalent = { workspace = true }
 fnv = { workspace = true }
 futures = { workspace = true }
 hostname = { workspace = true }

@@ -18,22 +18,22 @@ load(":erlang_utils.bzl", "action_identifier", "to_term_args")
 # mapping
 #   from include base name and application (e.g. ("app1", "header.hrl")
 #   to symlinked include/ dir artifact
-IncludesMapping = {("string", "string"): "artifact"}
+IncludesMapping = dict[(str, str), Artifact]
 
 # mapping
 #   from include base name (e.g. "header.hrl"
 #   to artifact
-PathArtifactMapping = {"string": "artifact"}
+PathArtifactMapping = dict[str, Artifact]
 
 # mapping
 #   from module name
 #   to artifact
-ModuleArtifactMapping = {"string": "artifact"}
+ModuleArtifactMapping = dict[str, Artifact]
 
 # mapping
 #   from input base name
 #   path to input artifact from repo root
-InputArtifactMapping = {"string": "artifact"}
+InputArtifactMapping = dict[str, Artifact]
 
 BuildEnvironment = record(
     includes = field(IncludesMapping, {}),

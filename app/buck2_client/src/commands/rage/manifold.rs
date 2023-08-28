@@ -22,11 +22,11 @@ enum ManifoldError {
     OpenFileError(String),
 }
 
-pub(crate) fn manifold_url(bucket: &Bucket, filename: String) -> String {
-    format!(
-        "https://www.internalfb.com/manifold/explorer/{}/{}",
-        bucket.name, filename
-    )
+pub(crate) fn manifold_leads(bucket: &Bucket, filename: String) -> String {
+    let full_path = format!("{}/{}", bucket.name, filename);
+    let command = format!("manifold get {}", full_path);
+    let url = format!("https://interncache-all.fbcdn.net/manifold/{}", full_path);
+    format!("{}\n{}", command, url)
 }
 
 pub(crate) async fn file_to_manifold(
@@ -45,7 +45,7 @@ pub(crate) async fn file_to_manifold(
         .read_and_upload(bucket, &filename, Default::default(), &mut file)
         .await?;
 
-    Ok(manifold_url(&bucket, filename))
+    Ok(manifold_leads(&bucket, filename))
 }
 
 pub(crate) async fn buf_to_manifold(
@@ -60,5 +60,5 @@ pub(crate) async fn buf_to_manifold(
         .read_and_upload(bucket, &filename, Default::default(), &mut cursor)
         .await?;
 
-    Ok(manifold_url(&bucket, filename))
+    Ok(manifold_leads(&bucket, filename))
 }

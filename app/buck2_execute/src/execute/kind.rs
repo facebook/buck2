@@ -15,6 +15,7 @@ use remote_execution as RE;
 use sorted_vector_map::SortedVectorMap;
 
 use crate::execute::action_digest::ActionDigest;
+use crate::execute::dep_file_digest::DepFileDigest;
 use crate::re::convert::platform_to_proto;
 
 #[derive(Debug, Display, Clone)]
@@ -42,6 +43,11 @@ pub enum CommandExecutionKind {
     ActionCache {
         details: RemoteCommandExecutionDetails,
     },
+    /// This action was served by the action cache (remote dep file) and not executed.
+    #[display(fmt = "remote_dep_file_cache")]
+    RemoteDepFileCache {
+        details: RemoteCommandExecutionDetails,
+    },
     /// This action would have executed via a local worker but failed during worker initialization.
     #[display(fmt = "worker_init")]
     LocalWorkerInit {
@@ -67,6 +73,7 @@ impl CommandExecutionKind {
             }
             Self::Remote { .. } => buck2_data::ActionExecutionKind::Remote,
             Self::ActionCache { .. } => buck2_data::ActionExecutionKind::ActionCache,
+            Self::RemoteDepFileCache { .. } => buck2_data::ActionExecutionKind::RemoteDepFileCache,
         }
     }
 
@@ -110,6 +117,8 @@ impl CommandExecutionKind {
             } => buck2_data::RemoteCommand {
                 action_digest: details.action_digest.to_string(),
                 cache_hit: false,
+                cache_hit_type: buck2_data::CacheHitType::Executed.into(),
+                remote_dep_file_key: None,
                 queue_time: (*queue_time).try_into().ok(),
                 details: details.to_proto(omit_details),
             }
@@ -117,8 +126,19 @@ impl CommandExecutionKind {
             Self::ActionCache { details } => buck2_data::RemoteCommand {
                 action_digest: details.action_digest.to_string(),
                 cache_hit: true,
+                cache_hit_type: buck2_data::CacheHitType::ActionCache.into(),
                 queue_time: None,
                 details: details.to_proto(omit_details),
+                remote_dep_file_key: None,
+            }
+            .into(),
+            Self::RemoteDepFileCache { details } => buck2_data::RemoteCommand {
+                action_digest: details.action_digest.to_string(),
+                cache_hit: true,
+                cache_hit_type: buck2_data::CacheHitType::RemoteDepFileCache.into(),
+                queue_time: None,
+                details: details.to_proto(omit_details),
+                remote_dep_file_key: details.remote_dep_file_key.as_ref().map(|k| k.to_string()),
             }
             .into(),
             Self::LocalWorkerInit { command, env } => buck2_data::WorkerInitCommand {
@@ -158,6 +178,7 @@ impl CommandExecutionKind {
 #[derive(Debug, Clone)]
 pub struct RemoteCommandExecutionDetails {
     pub action_digest: ActionDigest,
+    pub remote_dep_file_key: Option<DepFileDigest>,
     pub session_id: Option<String>,
     pub use_case: RemoteExecutorUseCase,
     pub platform: RE::Platform,

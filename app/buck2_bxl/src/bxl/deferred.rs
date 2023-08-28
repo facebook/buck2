@@ -38,12 +38,12 @@ mod tests {
     use buck2_execute::digest_config::SetDigestConfig;
     use buck2_execute::execute::dice_data::set_fallback_executor_config;
     use buck2_interpreter::paths::bxl::BxlFilePath;
-    use buck2_util::collections::ordered_map::OrderedMap;
     use dice::testing::DiceBuilder;
     use dice::DiceComputations;
     use dice::UserComputationData;
     use dupe::Dupe;
     use indexmap::IndexSet;
+    use starlark_map::ordered_map::OrderedMap;
 
     use crate::bxl::calculation::testing::BxlComputeKey;
     use crate::bxl::eval::mk_stream_cache;
@@ -67,7 +67,7 @@ mod tests {
         async fn execute(
             &self,
             _ctx: &mut dyn DeferredCtx,
-            _dice: &DiceComputations,
+            _dice: &mut DiceComputations,
         ) -> anyhow::Result<DeferredValue<Self::Output>> {
             self.2.store(true, Ordering::SeqCst);
             Ok(DeferredValue::Ready(self.0))

@@ -31,12 +31,18 @@ use crate::typing::function::Arg;
 use crate::typing::function::Param;
 use crate::typing::function::ParamMode;
 use crate::typing::function::TyFunction;
+use crate::typing::mode::TypecheckMode;
+use crate::typing::starlark_value::TyStarlarkValue;
+use crate::typing::tuple::TyTuple;
 use crate::typing::Ty;
 use crate::typing::TyName;
 use crate::typing::TypingAttr;
 use crate::typing::TypingBinOp;
 use crate::typing::TypingOracle;
 use crate::typing::TypingUnOp;
+use crate::values::dict::value::MutableDict;
+use crate::values::list::value::List;
+use crate::values::tuple::value::Tuple;
 
 #[derive(Debug, thiserror::Error)]
 enum TypingOracleCtxError {
@@ -50,12 +56,10 @@ enum TypingOracleCtxError {
     UnexpectedNamedArgument { name: String },
     #[error("Too many positional arguments")]
     TooManyPositionalArguments,
-    #[error("Call arguments incompatible")]
-    CallArgumentsIncompatible,
-    #[error("Type `{ty}` does not have [] operator")]
-    MissingIndexOperator { ty: Ty },
-    #[error("Type `{array}` [] operator does not accept `{index}")]
-    IndexOperatorWrongArg { array: Ty, index: Ty },
+    #[error("Call arguments incompatible, fn type is `{fun}`")]
+    CallArgumentsIncompatible { fun: Ty },
+    #[error("Type `{ty}` does not have [] operator or [] cannot accept `{index}`")]
+    MissingIndexOperator { ty: Ty, index: Ty },
     #[error("Type `{ty}` does not have [::] operator")]
     MissingSliceOperator { ty: Ty },
     #[error("The attribute `{attr}` is not available on the type `{ty}`")]
@@ -79,40 +83,22 @@ enum TypingOracleCtxError {
 pub struct TypingOracleCtx<'a> {
     pub(crate) oracle: &'a dyn TypingOracle,
     pub(crate) codemap: &'a CodeMap,
-}
-
-impl<'a> TypingOracle for TypingOracleCtx<'a> {
-    fn attribute(&self, ty: &TyBasic, attr: TypingAttr) -> Option<Result<Ty, ()>> {
-        Some(Ok(match ty {
-            TyBasic::Tuple(tys) => match attr {
-                TypingAttr::BinOp(TypingBinOp::In) => {
-                    Ty::function(vec![Param::pos_only(Ty::unions(tys.clone()))], Ty::bool())
-                }
-                TypingAttr::Iter => Ty::unions(tys.clone()),
-                _ => return Some(Err(())),
-            },
-            TyBasic::StarlarkValue(x) if x.as_name() == "tuple" => match attr {
-                TypingAttr::Iter => Ty::any(),
-                TypingAttr::BinOp(TypingBinOp::In) => {
-                    Ty::function(vec![Param::pos_only(Ty::any())], Ty::bool())
-                }
-                _ => return Some(Err(())),
-            },
-            TyBasic::Custom(c) => return Some(c.0.attribute_dyn(attr)),
-            ty => return self.oracle.attribute(ty, attr),
-        }))
-    }
-
-    fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {
-        self.oracle.as_function(ty)
-    }
-
-    fn subtype(&self, require: &TyName, got: &TyName) -> bool {
-        self.oracle.subtype(require, got)
-    }
+    pub(crate) typecheck_mode: TypecheckMode,
 }
 
 impl<'a> TypingOracleCtx<'a> {
+    pub(crate) fn subtype(&self, require: &TyName, got: &TyName) -> bool {
+        match self.typecheck_mode {
+            TypecheckMode::Lint => self.oracle.subtype(require, got),
+            TypecheckMode::Compiler => {
+                // Compiler typechecker does not have oracle,
+                // so it does not know anything about opaque types.
+                // This code should go away when we get rid of `Ty::name`.
+                true
+            }
+        }
+    }
+
     pub(crate) fn mk_error(&self, span: Span, err: impl Into<anyhow::Error>) -> TypingError {
         TypingError::new(err.into(), span, self.codemap)
     }
@@ -129,33 +115,43 @@ impl<'a> TypingOracleCtx<'a> {
         TypingOrInternalError::Typing(TypingError::msg(msg, span, self.codemap))
     }
 
-    fn attribute_ty(&self, ty: &Ty, attr: TypingAttr) -> Result<Ty, ()> {
-        let mut results = Vec::new();
-        let mut errors = false;
-        for basic in ty.iter_union() {
-            match basic.attribute(attr, *self) {
-                Ok(res) => results.push(res),
-                Err(()) => errors = true,
-            }
-        }
-        if !results.is_empty() {
-            Ok(Ty::unions(results))
-        } else if errors {
-            Err(())
-        } else {
-            Ok(Ty::any())
+    /// If I do `self[i]` what will the resulting type be.
+    pub(crate) fn indexed_basic(&self, ty: &TyBasic, i: usize) -> Ty {
+        match ty {
+            TyBasic::Any => Ty::any(),
+            TyBasic::List(x) => x.to_ty(),
+            TyBasic::Tuple(xs) => xs.get(i).cloned().unwrap_or(Ty::never()),
+            // Not exactly sure what we should do here
+            _ => Ty::any(),
         }
     }
 
-    pub(crate) fn validate_type(
-        &self,
-        got: &Ty,
-        require: &Ty,
-        span: Span,
-    ) -> Result<(), TypingError> {
-        if !self.intersects(got, require) {
+    /// If I do `self[i]` what will the resulting type be.
+    pub(crate) fn indexed(&self, ty: &Ty, i: usize) -> Ty {
+        Ty::unions(
+            ty.iter_union()
+                .iter()
+                .map(|x| self.indexed_basic(x, i))
+                .collect(),
+        )
+    }
+
+    /// See what lies behind an attribute on a type
+    pub(crate) fn attribute_basic(&self, ty: &TyBasic, attr: TypingAttr) -> Result<Ty, ()> {
+        // There are some structural types which have to be handled in a specific way
+        match ty {
+            TyBasic::Any => Ok(Ty::any()),
+            _ => match self.oracle.attribute(ty, attr) {
+                Some(r) => r,
+                None => Ok(Ty::any()),
+            },
+        }
+    }
+
+    pub(crate) fn validate_type(&self, got: Spanned<&Ty>, require: &Ty) -> Result<(), TypingError> {
+        if !self.intersects(got.node, require) {
             Err(self.mk_error(
-                span,
+                got.span,
                 TypingOracleCtxError::IncompatibleType {
                     got: got.to_string(),
                     require: require.to_string(),
@@ -206,7 +202,7 @@ impl<'a> TypingOracleCtx<'a> {
                 Arg::Name(name, ty) => {
                     let mut success = false;
                     for (i, param) in params.iter().enumerate() {
-                        if param.name() == name || param.mode == ParamMode::Kwargs {
+                        if param.name() == *name || param.mode == ParamMode::Kwargs {
                             param_args[i].push(Spanned {
                                 span: arg.span,
                                 node: ty,
@@ -218,7 +214,9 @@ impl<'a> TypingOracleCtx<'a> {
                     if !success {
                         return Err(self.mk_error_as_maybe_internal(
                             arg.span,
-                            TypingOracleCtxError::UnexpectedNamedArgument { name: name.clone() },
+                            TypingOracleCtxError::UnexpectedNamedArgument {
+                                name: (*name).to_owned(),
+                            },
                         ));
                     }
                 }
@@ -254,13 +252,13 @@ impl<'a> TypingOracleCtx<'a> {
             }
             match param.mode {
                 ParamMode::PosOnly | ParamMode::PosOrName(_) | ParamMode::NameOnly(_) => {
-                    self.validate_type(args[0].node, &param.ty, args[0].span)?;
+                    self.validate_type(args[0], &param.ty)?;
                 }
                 ParamMode::Args => {
                     for ty in args {
                         // For an arg, we require the type annotation to be inner value,
                         // rather than the outer (which is always a tuple)
-                        self.validate_type(ty.node, &param.ty, ty.span)?;
+                        self.validate_type(ty, &param.ty)?;
                     }
                 }
                 ParamMode::Kwargs => {
@@ -269,14 +267,14 @@ impl<'a> TypingOracleCtx<'a> {
                         .iter_union()
                         .iter()
                         .filter_map(|x| match x {
-                            TyBasic::Dict(k_v) => Some(k_v.1.clone()),
+                            TyBasic::Dict(_k, v) => Some(v.to_ty()),
                             _ => None,
                         })
                         .collect();
                     if !val_types.is_empty() {
                         let require = Ty::unions(val_types);
                         for ty in args {
-                            self.validate_type(ty.node, &require, ty.span)?;
+                            self.validate_type(ty, &require)?;
                         }
                     }
                 }
@@ -292,7 +290,7 @@ impl<'a> TypingOracleCtx<'a> {
         args: &[Spanned<Arg>],
     ) -> Result<Ty, TypingOrInternalError> {
         self.validate_args(&fun.params, args, span)?;
-        Ok((*fun.result).clone())
+        Ok(fun.result.clone())
     }
 
     fn validate_call_for_type_name(
@@ -328,7 +326,7 @@ impl<'a> TypingOracleCtx<'a> {
                 span,
                 TypingOracleCtxError::CallToNonCallable { ty: t.to_string() },
             )),
-            TyBasic::List(_) | TyBasic::Dict(_) | TyBasic::Tuple(_) => Err(self
+            TyBasic::List(_) | TyBasic::Dict(..) | TyBasic::Tuple(_) => Err(self
                 .mk_error_as_maybe_internal(
                     span,
                     TypingOracleCtxError::CallToNonCallable {
@@ -339,6 +337,7 @@ impl<'a> TypingOracleCtx<'a> {
                 // Unknown type, may be callable.
                 Ok(Ty::any())
             }
+            TyBasic::Callable => Ok(Ty::any()),
             TyBasic::Custom(t) => t.0.validate_call_dyn(span, args, *self),
         }
     }
@@ -350,6 +349,10 @@ impl<'a> TypingOracleCtx<'a> {
         fun: &Ty,
         args: &[Spanned<Arg>],
     ) -> Result<Ty, TypingOrInternalError> {
+        if fun.is_any() || fun.is_never() {
+            return Ok(fun.dupe());
+        }
+
         let mut successful = Vec::new();
         let mut errors: Vec<TypingError> = Vec::new();
         for variant in fun.iter_union() {
@@ -369,7 +372,7 @@ impl<'a> TypingOracleCtx<'a> {
             } else {
                 Err(self.mk_error_as_maybe_internal(
                     span,
-                    TypingOracleCtxError::CallArgumentsIncompatible,
+                    TypingOracleCtxError::CallArgumentsIncompatible { fun: fun.dupe() },
                 ))
             }
         }
@@ -378,32 +381,26 @@ impl<'a> TypingOracleCtx<'a> {
     fn iter_item_basic(&self, ty: &TyBasic) -> Result<Ty, ()> {
         match ty {
             TyBasic::StarlarkValue(ty) => ty.iter_item(),
-            ty => ty.attribute(TypingAttr::Iter, *self),
+            TyBasic::List(item) => Ok((**item).dupe()),
+            TyBasic::Dict(k, _v) => Ok((**k).dupe()),
+            TyBasic::Tuple(tuple) => Ok(tuple.item_ty()),
+            ty => self
+                .oracle
+                .attribute(ty, TypingAttr::Iter)
+                .unwrap_or_else(|| Ok(Ty::any())),
         }
     }
 
     /// Item type of an iterable.
     pub(crate) fn iter_item(&self, iter: Spanned<&Ty>) -> Result<Ty, TypingError> {
-        if iter.is_any() || iter.is_never() {
-            return Ok(iter.node.clone());
-        }
-
-        let mut good = Vec::new();
-        for ty in iter.iter_union() {
-            if let Ok(x) = self.iter_item_basic(ty) {
-                good.push(x);
-            }
-        }
-
-        if good.is_empty() {
-            Err(self.mk_error(
+        match iter.typecheck_union_simple(|basic| self.iter_item_basic(basic)) {
+            Ok(ty) => Ok(ty),
+            Err(()) => Err(self.mk_error(
                 iter.span,
                 TypingOracleCtxError::NotIterable {
                     ty: iter.node.clone(),
                 },
-            ))
-        } else {
-            Ok(Ty::unions(good))
+            )),
         }
     }
 
@@ -412,47 +409,30 @@ impl<'a> TypingOracleCtx<'a> {
         span: Span,
         array: &TyBasic,
         index: Spanned<&TyBasic>,
-    ) -> Result<Ty, TypingOrInternalError> {
-        if let TyBasic::Tuple(xs) = array {
-            if !self.intersects_basic(index.node, &TyBasic::int()) {
-                return Err(self.mk_error_as_maybe_internal(
-                    span,
-                    TypingOracleCtxError::IndexOperatorWrongArg {
-                        array: Ty::basic(array.clone()),
-                        index: Ty::basic(index.node.clone()),
-                    },
-                ));
+    ) -> Result<Result<Ty, ()>, InternalError> {
+        match array {
+            TyBasic::Tuple(tuple) => {
+                if !self.intersects_basic(index.node, &TyBasic::int()) {
+                    return Ok(Err(()));
+                }
+                Ok(Ok(tuple.item_ty()))
             }
-            return Ok(Ty::unions(xs.clone()));
-        }
-
-        if let TyBasic::StarlarkValue(array) = array {
-            match array.index(index.node) {
-                Ok(x) => return Ok(x),
-                Err(()) => {
-                    return Err(self.mk_error_as_maybe_internal(
-                        span,
-                        TypingOracleCtxError::MissingIndexOperator {
-                            ty: Ty::basic(TyBasic::StarlarkValue(*array)),
-                        },
-                    ));
+            TyBasic::StarlarkValue(array) => Ok(array.index(index.node)),
+            TyBasic::Custom(c) => Ok(c.0.attribute_dyn(TypingAttr::Index)),
+            array => {
+                let f = match self.oracle.attribute(array, TypingAttr::Index) {
+                    None => return Ok(Ok(Ty::any())),
+                    Some(Ok(x)) => x,
+                    Some(Err(())) => return Ok(Err(())),
+                };
+                match self.validate_call(span, &f, &[index.map(|i| Arg::Pos(Ty::basic(i.clone())))])
+                {
+                    Ok(x) => Ok(Ok(x)),
+                    Err(TypingOrInternalError::Internal(e)) => Err(e),
+                    Err(TypingOrInternalError::Typing(_)) => Ok(Err(())),
                 }
             }
         }
-
-        let f = match self.attribute(array, TypingAttr::Index) {
-            None => return Ok(Ty::any()),
-            Some(Ok(x)) => x,
-            Some(Err(())) => {
-                return Err(self.mk_error_as_maybe_internal(
-                    span,
-                    TypingOracleCtxError::MissingIndexOperator {
-                        ty: Ty::basic(array.clone()),
-                    },
-                ));
-            }
-        };
-        self.validate_call(span, &f, &[index.map(|i| Arg::Pos(Ty::basic(i.clone())))])
     }
 
     pub(crate) fn expr_index(
@@ -461,22 +441,28 @@ impl<'a> TypingOracleCtx<'a> {
         array: Ty,
         index: Spanned<Ty>,
     ) -> Result<Ty, TypingOrInternalError> {
-        if array.is_any() || array.is_any() {
-            return Ok(Ty::any());
+        if array.is_any() || array.is_never() {
+            return Ok(array);
+        }
+        if index.is_never() {
+            return Ok(Ty::never());
         }
 
         let mut good = Vec::new();
         for array in array.iter_union() {
             for index_basic in index.node.iter_union() {
-                if let Ok(ty) = self.expr_index_ty(
+                match self.expr_index_ty(
                     span,
                     array,
                     Spanned {
                         span: index.span,
                         node: index_basic,
                     },
-                ) {
-                    good.push(ty);
+                )? {
+                    Ok(ty) => {
+                        good.push(ty);
+                    }
+                    Err(()) => {}
                 }
             }
         }
@@ -487,25 +473,88 @@ impl<'a> TypingOracleCtx<'a> {
             //   But we don't support that.
             Err(self.mk_error_as_maybe_internal(
                 span,
-                TypingOracleCtxError::MissingIndexOperator { ty: array },
+                TypingOracleCtxError::MissingIndexOperator {
+                    ty: array,
+                    index: index.node,
+                },
             ))
         } else {
             Ok(Ty::unions(good))
         }
     }
 
+    fn expr_slice_basic(&self, array: &TyBasic) -> Result<Ty, ()> {
+        if array.is_str() || array.is_tuple() || array.is_list() || array.as_name() == Some("range")
+        {
+            Ok(Ty::basic(array.dupe()))
+        } else {
+            Err(())
+        }
+    }
+
     pub(crate) fn expr_slice(&self, span: Span, array: Ty) -> Result<Ty, TypingError> {
-        match self.attribute_ty(&array, TypingAttr::Slice) {
-            Ok(x) => Ok(x),
+        match array.typecheck_union_simple(|basic| self.expr_slice_basic(basic)) {
+            Ok(ty) => Ok(ty),
             Err(()) => Err(self.mk_error(
                 span,
-                TypingOracleCtxError::MissingSliceOperator { ty: array.clone() },
+                TypingOracleCtxError::MissingSliceOperator { ty: array },
             )),
         }
     }
 
+    fn expr_dot_basic(&self, array: &TyBasic, attr: &str) -> Result<Ty, ()> {
+        match array {
+            TyBasic::StarlarkValue(s) => s.attr(attr),
+            TyBasic::List(elem) => match attr {
+                "pop" => Ok(Ty::function(
+                    vec![Param::pos_only(Ty::int()).optional()],
+                    (**elem).dupe(),
+                )),
+                "index" => Ok(Ty::function(
+                    vec![
+                        Param::pos_only((**elem).dupe()),
+                        Param::pos_only(Ty::int()).optional(),
+                    ],
+                    Ty::int(),
+                )),
+                "remove" => Ok(Ty::function(
+                    vec![Param::pos_only((**elem).dupe())],
+                    Ty::none(),
+                )),
+                attr => TyStarlarkValue::new::<List>().attr(attr),
+            },
+            TyBasic::Dict(tk, tv) => {
+                match attr {
+                    "get" => Ok(Ty::union2(
+                        Ty::function(
+                            vec![Param::pos_only(tk.to_ty())],
+                            Ty::union2(tv.to_ty(), Ty::none()),
+                        ),
+                        // This second signature is a bit too lax, but get with a default is much rarer
+                        Ty::function(
+                            vec![Param::pos_only(tk.to_ty()), Param::pos_only(Ty::any())],
+                            Ty::any(),
+                        ),
+                    )),
+                    "keys" => Ok(Ty::function(vec![], Ty::basic(TyBasic::List(tk.dupe())))),
+                    "values" => Ok(Ty::function(vec![], Ty::basic(TyBasic::List(tv.dupe())))),
+                    "items" => Ok(Ty::function(
+                        vec![],
+                        Ty::list(Ty::tuple(vec![tk.to_ty(), tv.to_ty()])),
+                    )),
+                    "popitem" => Ok(Ty::function(
+                        vec![],
+                        Ty::tuple(vec![tk.to_ty(), tv.to_ty()]),
+                    )),
+                    attr => TyStarlarkValue::new::<MutableDict>().attr(attr),
+                }
+            }
+            array => self.attribute_basic(array, TypingAttr::Regular(attr)),
+        }
+    }
+
     pub(crate) fn expr_dot(&self, span: Span, array: &Ty, attr: &str) -> Result<Ty, TypingError> {
-        match self.attribute_ty(array, TypingAttr::Regular(attr)) {
+        match array.typecheck_union_simple(|basic| self.expr_dot_basic(basic, attr)) {
             Ok(x) => Ok(x),
             Err(()) => Err(self.mk_error(
                 span,
@@ -517,34 +566,116 @@ impl<'a> TypingOracleCtx<'a> {
         }
     }
 
+    fn expr_un_op_basic(&self, ty: &TyBasic, un_op: TypingUnOp) -> Result<Ty, ()> {
+        match ty {
+            TyBasic::StarlarkValue(ty) => match ty.un_op(un_op) {
+                Ok(x) => Ok(Ty::basic(TyBasic::StarlarkValue(x))),
+                Err(()) => Err(()),
+            },
+            _ => Err(()),
+        }
+    }
+
     pub(crate) fn expr_un_op(
         &self,
         span: Span,
         ty: Ty,
         un_op: TypingUnOp,
     ) -> Result<Ty, TypingError> {
-        if ty.is_never() || ty.is_any() {
-            return Ok(ty);
-        }
-        let mut results = Vec::new();
-        for variant in ty.iter_union() {
-            match variant {
-                TyBasic::StarlarkValue(ty) => match ty.un_op(un_op) {
-                    Ok(x) => results.push(Ty::basic(TyBasic::StarlarkValue(x))),
-                    Err(()) => {}
-                },
-                _ => {
-                    // The rest do not support unary operators.
-                }
-            }
-        }
-        if results.is_empty() {
-            Err(self.mk_error(
+        match ty.typecheck_union_simple(|basic| self.expr_un_op_basic(basic, un_op)) {
+            Ok(ty) => Ok(ty),
+            Err(()) => Err(self.mk_error(
                 span,
                 TypingOracleCtxError::UnaryOperatorNotAvailable { ty, un_op },
-            ))
-        } else {
-            Ok(Ty::unions(results))
+            )),
+        }
+    }
+
+    fn expr_bin_op_ty_basic_lhs(
+        &self,
+        span: Span,
+        lhs: &TyBasic,
+        bin_op: TypingBinOp,
+        rhs: Spanned<&TyBasic>,
+    ) -> Result<Ty, ()> {
+        match lhs {
+            TyBasic::StarlarkValue(lhs) => lhs.bin_op(bin_op, rhs.node),
+            lhs @ TyBasic::List(elem) => match bin_op {
+                TypingBinOp::Less => {
+                    if self.intersects_basic(lhs, rhs.node) {
+                        Ok(Ty::bool())
+                    } else {
+                        Err(())
+                    }
+                }
+                TypingBinOp::In => {
+                    if self.intersects(elem, &Ty::basic(rhs.node.dupe())) {
+                        Ok(Ty::bool())
+                    } else {
+                        Err(())
+                    }
+                }
+                TypingBinOp::Add => {
+                    if self.intersects_basic(rhs.node, &TyBasic::any_list()) {
+                        Ok(Ty::list(Ty::union2(
+                            elem.to_ty(),
+                            self.iter_item_basic(rhs.node)?,
+                        )))
+                    } else {
+                        Err(())
+                    }
+                }
+                TypingBinOp::Mul => {
+                    if self.intersects_basic(rhs.node, &TyBasic::int()) {
+                        Ok(Ty::basic(lhs.dupe()))
+                    } else {
+                        Err(())
+                    }
+                }
+                _ => TyStarlarkValue::new::<List>().bin_op(bin_op, rhs.node),
+            },
+            lhs => {
+                let fun = match self.oracle.attribute(lhs, TypingAttr::BinOp(bin_op)) {
+                    Some(Ok(fun)) => fun,
+                    Some(Err(())) => return Err(()),
+                    None => return Ok(Ty::any()),
+                };
+                self.validate_call(span, &fun, &[rhs.map(|t| Arg::Pos(Ty::basic(t.clone())))])
+                    .map_err(|_| ())
+            }
+        }
+    }
+
+    fn expr_bin_op_ty_basic_rhs(
+        &self,
+        lhs: &TyBasic,
+        bin_op: TypingBinOp,
+        rhs: &TyBasic,
+    ) -> Result<Ty, ()> {
+        match rhs {
+            TyBasic::StarlarkValue(rhs) => rhs.rbin_op(bin_op, lhs),
+            rhs @ TyBasic::List(_) => match bin_op {
+                TypingBinOp::Mul => {
+                    if self.intersects_basic(lhs, &TyBasic::int()) {
+                        Ok(Ty::basic(rhs.clone()))
+                    } else {
+                        Err(())
+                    }
+                }
+                _ => TyStarlarkValue::new::<List>().rbin_op(bin_op, lhs),
+            },
+            TyBasic::Tuple(_) => match bin_op {
+                TypingBinOp::Mul => {
+                    if self.intersects_basic(lhs, &TyBasic::int()) {
+                        Ok(Ty::any_tuple())
+                    } else {
+                        Err(())
+                    }
+                }
+                _ => TyStarlarkValue::new::<Tuple>().rbin_op(bin_op, lhs),
+            },
+            TyBasic::Name(..) => Ok(Ty::any()),
+            _ => Err(()),
         }
     }
 
@@ -555,38 +686,25 @@ impl<'a> TypingOracleCtx<'a> {
         bin_op: TypingBinOp,
         rhs: Spanned<&TyBasic>,
     ) -> Result<Ty, TypingOrInternalError> {
-        if let TyBasic::StarlarkValue(lhs) = &lhs.node {
-            match lhs.bin_op(bin_op, rhs.node) {
-                Ok(x) => return Ok(x),
-                Err(()) => {
-                    // TODO(nga): check RHS too for radd.
-                    return Err(self.mk_error_as_maybe_internal(
-                        span,
-                        TypingOracleCtxError::BinaryOperatorNotAvailable {
-                            bin_op,
-                            left: Ty::basic(TyBasic::StarlarkValue(*lhs)),
-                            right: Ty::basic(rhs.node.clone()),
-                        },
-                    ));
-                }
-            }
+        if let TyBasic::Any = lhs.node {
+            return Ok(Ty::any());
         }
 
-        let fun = match self.oracle.attribute(&lhs.node, TypingAttr::BinOp(bin_op)) {
-            Some(Ok(fun)) => fun,
-            Some(Err(())) => {
-                return Err(self.mk_error_as_maybe_internal(
-                    span,
-                    TypingOracleCtxError::BinaryOperatorNotAvailable {
-                        bin_op,
-                        left: Ty::basic(lhs.node.clone()),
-                        right: Ty::basic(rhs.node.clone()),
-                    },
-                ));
-            }
-            None => return Ok(Ty::any()),
-        };
-        self.validate_call(span, &fun, &[rhs.map(|t| Arg::Pos(Ty::basic(t.clone())))])
+        if let Ok(r) = self.expr_bin_op_ty_basic_lhs(span, lhs.node, bin_op, rhs) {
+            return Ok(r);
+        }
+        if let Ok(r) = self.expr_bin_op_ty_basic_rhs(&lhs.node, bin_op, rhs.node) {
+            return Ok(r);
+        }
+
+        Err(self.mk_error_as_maybe_internal(
+            span,
+            TypingOracleCtxError::BinaryOperatorNotAvailable {
+                bin_op,
+                left: Ty::basic(lhs.node.clone()),
+                right: Ty::basic(rhs.node.clone()),
+            },
+        ))
     }
 
     pub(crate) fn expr_bin_op_ty(
@@ -667,7 +785,7 @@ impl<'a> TypingOracleCtx<'a> {
             }
             BinOp::Equal | BinOp::NotEqual => {
                 // It's not an error to compare two different types, but it is pointless
-                self.validate_type(&lhs, &rhs, span)?;
+                self.validate_type(rhs.as_ref(), &lhs)?;
                 Ok(bool_ret)
             }
             BinOp::In | BinOp::NotIn => {
@@ -730,12 +848,10 @@ impl<'a> TypingOracleCtx<'a> {
             (TyBasic::Any, _) => true,
             (TyBasic::Name(x), TyBasic::Name(y)) => self.intersects_name(x, y),
             (TyBasic::List(x), TyBasic::List(y)) => self.intersects(x, y),
-            (TyBasic::Dict(x), TyBasic::Dict(y)) => {
-                self.intersects(&x.0, &y.0) && self.intersects(&x.1, &y.1)
+            (TyBasic::Dict(x_k, x_v), TyBasic::Dict(y_k, y_v)) => {
+                self.intersects(x_k, y_k) && self.intersects(x_v, y_v)
             }
-            (TyBasic::Tuple(xs), TyBasic::Tuple(ys)) if xs.len() == ys.len() => {
-                std::iter::zip(xs, ys).all(|(x, y)| self.intersects(&x, y))
-            }
+            (TyBasic::Tuple(x), TyBasic::Tuple(y)) => TyTuple::intersects(x, y, self),
             (TyBasic::Tuple(_), t) => t.is_tuple(),
             (TyBasic::Iter(x), TyBasic::Iter(y)) => self.intersects(&x, y),
             (TyBasic::Iter(x), y) | (y, TyBasic::Iter(x)) => match self.iter_item_basic(y) {

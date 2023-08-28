@@ -12,6 +12,7 @@ load(
 )
 load("@prelude//utils:utils.bzl", "from_named_set", "value_or")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
+load(":interface.bzl", "EntryPointKind")
 load(":make_py_package.bzl", "PexProviders", "make_default_info")
 load(":python_binary.bzl", "python_executable")
 load(":python_library.bzl", "py_attr_resources", "qualify_srcs")
@@ -49,7 +50,7 @@ def python_test_executable(ctx: AnalysisContext) -> PexProviders.type:
 
     return python_executable(
         ctx,
-        main_module,
+        (EntryPointKind("module"), main_module),
         srcs,
         resources,
         compile = value_or(ctx.attrs.compile, False),

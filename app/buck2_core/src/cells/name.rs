@@ -13,8 +13,8 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
+use equivalent::Equivalent;
 use fnv::FnvHasher;
-use internment_tweaks::Equiv;
 use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
 
@@ -37,7 +37,7 @@ impl Hash for CellNameData {
 #[derive(Clone, Debug, Display, Hash, Eq, PartialEq)]
 struct CellNameDataRef<'a>(&'a str);
 
-impl<'a> Equiv<CellNameData> for CellNameDataRef<'a> {
+impl<'a> Equivalent<CellNameData> for CellNameDataRef<'a> {
     fn equivalent(&self, key: &CellNameData) -> bool {
         self.0 == &*key.0
     }

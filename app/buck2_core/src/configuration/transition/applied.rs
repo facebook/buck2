@@ -8,7 +8,7 @@
  */
 
 use allocative::Allocative;
-use buck2_util::collections::sorted_map::SortedMap;
+use starlark_map::sorted_map::SortedMap;
 
 use crate::configuration::data::ConfigurationData;
 

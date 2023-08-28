@@ -24,7 +24,6 @@ use buck2_core::fs::buck_out_path::BuckOutTestPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
-use buck2_util::collections::sorted_set::SortedSet;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
@@ -32,8 +31,10 @@ use host_sharing::host_sharing::HostSharingRequirements;
 use indexmap::IndexSet;
 use itertools::Itertools;
 use sorted_vector_map::SortedVectorMap;
+use starlark_map::sorted_set::SortedSet;
 use thiserror::Error;
 
+use super::dep_file_digest::DepFileDigest;
 use crate::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;
 use crate::digest_config::DigestConfig;
 use crate::directory::insert_entry;
@@ -268,8 +269,6 @@ pub struct CommandExecutionRequest {
     env: SortedVectorMap<String, String>,
     timeout: Option<Duration>,
     executor_preference: ExecutorPreference,
-    // Run with a custom $TMPDIR, or just the standard system one
-    scratch_path: Option<ProjectRelativePathBuf>,
     host_sharing_requirements: HostSharingRequirements,
     // Used to disable the low pass filter for concurrent local actions. Enabled by default
     low_pass_filter: bool,
@@ -294,6 +293,9 @@ pub struct CommandExecutionRequest {
     /// Whether the executor should guarantee that the inodes for all inputs are unique (i.e. avoid
     /// hardlinking identical input files, for example)
     unique_input_inodes: bool,
+    /// Remote dep file key, if the action has a dep file.
+    /// If this key is set and remote dep file caching is enabled, it will be used to query the cache.
+    pub remote_dep_file_key: Option<DepFileDigest>,
 }
 
 impl CommandExecutionRequest {
@@ -310,7 +312,6 @@ impl CommandExecutionRequest {
             env,
             timeout: None,
             executor_preference: ExecutorPreference::Default,
-            scratch_path: None,
             host_sharing_requirements: HostSharingRequirements::default(),
             low_pass_filter: true,
             working_directory: None,
@@ -322,6 +323,7 @@ impl CommandExecutionRequest {
             required_local_resources: SortedSet::new(),
             worker: None,
             unique_input_inodes: false,
+            remote_dep_file_key: None,
         }
     }
 
@@ -336,15 +338,6 @@ impl CommandExecutionRequest {
 
     pub fn with_executor_preference(mut self, executor_preference: ExecutorPreference) -> Self {
         self.executor_preference = executor_preference;
-        self
-    }
-
-    pub fn scratch_path(&self) -> Option<&ProjectRelativePath> {
-        self.scratch_path.as_deref()
-    }
-
-    pub fn with_scratch_path(mut self, scratch_path: ProjectRelativePathBuf) -> Self {
-        self.scratch_path = Some(scratch_path);
         self
     }
 
@@ -374,6 +367,15 @@ impl CommandExecutionRequest {
     pub fn with_outputs_cleanup(mut self, outputs_cleanup: bool) -> Self {
         self.outputs_cleanup = outputs_cleanup;
         self
+    }
+
+    pub fn with_remote_dep_file_key(mut self, remote_dep_file_key: &DepFileDigest) -> Self {
+        self.remote_dep_file_key = Some(remote_dep_file_key.dupe());
+        self
+    }
+
+    pub fn remote_dep_file_key(&self) -> &Option<DepFileDigest> {
+        &self.remote_dep_file_key
     }
 
     pub fn prefetch_lossy_stderr(&self) -> bool {

@@ -7,7 +7,7 @@
 
 load("@prelude//configurations:rules.bzl", _config_implemented_rules = "implemented_rules")
 load("@prelude//decls/common.bzl", "prelude_rule")
-load("@prelude//open_source.bzl", "is_open_source")
+load("@prelude//is_full_meta_repo.bzl", "is_full_meta_repo")
 
 # Combine the attributes we generate, we the custom implementations we have.
 load("@prelude//rules_impl.bzl", "extra_attributes", "extra_implemented_rules", "rule_decl_records", "toolchain_rule_names", "transitions")
@@ -38,7 +38,7 @@ def _mk_rule(rule_spec: typing.Any) -> "rule":
 
     # Fat platforms is an idea specific to our toolchains, so doesn't apply to
     # open source. Ideally this restriction would be done at the toolchain level.
-    if is_open_source():
+    if not is_full_meta_repo():
         fat_platform_compatible = True
 
     attributes = dict(attributes)

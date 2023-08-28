@@ -263,14 +263,28 @@ impl ProviderCodegen {
                 let field_types = [
                     #(#field_types),*
                 ];
-                buck2_interpreter::types::provider::callable::ProviderCallableLike::provider_callable_documentation(
-                    self,
+                Some(crate::interpreter::rule_defs::provider::doc::provider_callable_documentation(
                     Some(#create_func),
                     &docstring,
                     &field_names,
                     &field_docs,
                     &field_types,
-                )
+                ))
+            }
+        })
+    }
+
+    fn typechecker_ty_function(&self) -> syn::Result<syn::Item> {
+        let create_func = &self.args.creator_func;
+        Ok(syn::parse_quote_spanned! {
+            self.span=>
+            fn typechecker_ty(&self) -> Option<starlark::typing::Ty> {
+                static TY: once_cell::sync::Lazy<starlark::typing::Ty> = once_cell::sync::Lazy::new(|| {
+                    crate::interpreter::rule_defs::provider::builtin::ty::builtin_provider_typechecker_ty(
+                        #create_func
+                    )
+                });
+                Some(TY.clone())
             }
         })
     }
@@ -437,6 +451,7 @@ impl ProviderCodegen {
         let name_str = self.name_str()?;
         let callable_name = self.callable_name()?;
         let documentation_function = self.documentation_function()?;
+        let typechecker_ty_function = self.typechecker_ty_function()?;
         let create_func = &self.args.creator_func;
         let callable_name_snake_str = callable_name.to_string().to_case(Case::Snake);
 
@@ -478,6 +493,7 @@ impl ProviderCodegen {
                     }
 
                     #documentation_function
+                    #typechecker_ty_function
                 }
             },
         ])

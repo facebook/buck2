@@ -113,7 +113,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         )
         return output
 
-    def filter_debug_info(debug_info: "transitive_set_iterator") -> AppleSelectiveDebuggingFilteredDebugInfo.type:
+    def filter_debug_info(debug_info: TransitiveSetIterator) -> AppleSelectiveDebuggingFilteredDebugInfo.type:
         map = {}
         for infos in debug_info:
             for info in infos:

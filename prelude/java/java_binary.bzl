@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
-load("@prelude//java/utils:java_utils.bzl", "get_classpath_subtarget")
+load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info", "get_classpath_subtarget")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
 load("@prelude//utils:utils.bzl", "expect")
 load(
@@ -124,7 +124,7 @@ def _create_fat_jar(
     return outputs
 
 def _get_run_cmd(
-        attrs: struct.type,
+        attrs: struct,
         script_mode: bool,
         main_artifact: Artifact,
         java_toolchain: JavaToolchainInfo.type) -> cmd_args:
@@ -191,8 +191,15 @@ def java_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     sub_targets = get_classpath_subtarget(ctx.actions, packaging_info)
 
+    class_to_src_map, _ = get_class_to_source_map_info(
+        ctx,
+        outputs = None,
+        deps = ctx.attrs.deps,
+    )
+
     return [
         DefaultInfo(default_output = main_artifact, other_outputs = other_outputs, sub_targets = sub_targets),
         RunInfo(args = run_cmd),
         create_template_info(packaging_info, first_order_libs),
+        class_to_src_map,
     ]

@@ -40,8 +40,9 @@ use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::AstStmtP;
 use crate::syntax::ast::AstTypeExprP;
 use crate::syntax::payload_map::AstPayloadFunction;
+use crate::syntax::payload_map::StmtPExt;
 use crate::typing::error::InternalError;
-use crate::typing::Interface;
+use crate::typing::interface::Interface;
 use crate::typing::Ty;
 
 /// Compiler-specific AST payload.
@@ -66,8 +67,15 @@ impl AstPayload for CstPayload {
     /// When compilation starts, all payloads are `Some`.
     type IdentAssignPayload = Option<BindingId>;
     type DefPayload = ScopeId;
-    /// Populated before evaluation of top level statements.
-    type TypeExprPayload = Option<Ty>;
+    type TypeExprPayload = CstTypeExprPayload;
+}
+
+#[derive(Default, Debug, Clone)]
+pub(crate) struct CstTypeExprPayload {
+    /// Populated before evaluation of top level statements in normal evaluation.
+    pub(crate) compiler_ty: Option<Ty>,
+    /// Populated during lightweight evaluation for the lint type checker.
+    pub(crate) typechecker_ty: Option<Ty>,
 }
 
 struct CompilerAstMap<'a, 'f> {
@@ -95,13 +103,21 @@ impl AstPayloadFunction<AstNoPayload, CstPayload> for CompilerAstMap<'_, '_> {
         self.scope_data.new_scope().0
     }
 
-    fn map_type_expr(&mut self, (): ()) -> Option<Ty> {
-        None
+    fn map_type_expr(&mut self, (): ()) -> CstTypeExprPayload {
+        CstTypeExprPayload::default()
     }
 }
 
-impl CstStmt {
-    pub(crate) fn from_ast(
+pub(crate) trait CstStmtFromAst {
+    fn from_ast(
+        stmt: AstStmt,
+        scope_data: &mut ModuleScopeData,
+        loads: &HashMap<String, Interface>,
+    ) -> CstStmt;
+}
+
+impl CstStmtFromAst for CstStmt {
+    fn from_ast(
         stmt: AstStmt,
         scope_data: &mut ModuleScopeData,
         loads: &HashMap<String, Interface>,
@@ -110,11 +126,12 @@ impl CstStmt {
     }
 }
 
-impl CstAssignIdent {
-    pub(crate) fn resolved_binding_id(
-        &self,
-        codemap: &CodeMap,
-    ) -> Result<BindingId, InternalError> {
+pub(crate) trait CstAssignIdentExt {
+    fn resolved_binding_id(&self, codemap: &CodeMap) -> Result<BindingId, InternalError>;
+}
+
+impl CstAssignIdentExt for CstAssignIdent {
+    fn resolved_binding_id(&self, codemap: &CodeMap) -> Result<BindingId, InternalError> {
         match self.1 {
             Some(binding_id) => Ok(binding_id),
             None => Err(InternalError::msg(

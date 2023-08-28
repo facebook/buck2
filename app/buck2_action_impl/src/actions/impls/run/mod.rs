@@ -37,7 +37,6 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::Wor
 use buck2_core::category::Category;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 use buck2_execute::execute::request::ActionMetadataBlob;
@@ -75,7 +74,6 @@ use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use thiserror::Error;
 
-use crate::actions::impls::run::dep_files::check_local_dep_file_cache;
 use crate::actions::impls::run::dep_files::make_dep_file_bundle;
 use crate::actions::impls::run::dep_files::populate_dep_files;
 use crate::actions::impls::run::dep_files::DepFilesCommandLineVisitor;
@@ -400,17 +398,11 @@ impl RunAction {
 
         let scratch = ctx.target().scratch_path();
         let scratch_path = fs.buck_out_path_resolver().resolve_scratch(&scratch);
-
-        if ctx.run_action_knobs().expose_action_scratch_path {
-            extra_env.push((
-                "BUCK_SCRATCH_PATH".to_owned(),
-                cli_ctx
-                    .resolve_project_path(scratch_path.clone())?
-                    .into_string(),
-            ));
-
-            inputs.push(CommandExecutionInput::ScratchPath(scratch));
-        }
+        extra_env.push((
+            "BUCK_SCRATCH_PATH".to_owned(),
+            cli_ctx.resolve_project_path(scratch_path)?.into_string(),
+        ));
+        inputs.push(CommandExecutionInput::ScratchPath(scratch));
 
         let paths = CommandExecutionPaths::new(
             inputs,
@@ -430,7 +422,6 @@ impl RunAction {
             extra_env,
             paths,
             worker,
-            scratch_path,
         })
     }
 }
@@ -440,7 +431,6 @@ pub(crate) struct PreparedRunAction {
     extra_env: Vec<(String, String)>,
     paths: CommandExecutionPaths,
     worker: Option<WorkerSpec>,
-    scratch_path: ProjectRelativePathBuf,
 }
 
 impl PreparedRunAction {
@@ -450,16 +440,13 @@ impl PreparedRunAction {
             extra_env,
             paths,
             worker,
-            scratch_path,
         } = self;
 
         for (k, v) in extra_env {
             env.insert(k, v);
         }
 
-        CommandExecutionRequest::new(exe, args, paths, env)
-            .with_worker(worker)
-            .with_scratch_path(scratch_path)
+        CommandExecutionRequest::new(exe, args, paths, env).with_worker(worker)
     }
 }
 
@@ -602,39 +589,50 @@ impl IncrementalActionExecutable for RunAction {
             None
         };
 
-        // First prepare the action, check the action cache, check dep_files if needed, and execute the command
+        // First, check in the local dep file cache if an identical action can be found there.
+        // Do this before checking the action cache as we can avoid a potentially large download.
+        // Once the action cache lookup misses, we will do the full dep file cache look up.
+        let should_fully_check_dep_file_cache = if let Some(dep_file_bundle) = &dep_file_bundle {
+            let (outputs, should_fully_check_dep_file_cache) = dep_file_bundle
+                .check_local_dep_file_cache_for_identical_action(ctx, self.outputs.as_slice())
+                .await?;
+            if let Some(m) = outputs {
+                return Ok(m);
+            }
+            should_fully_check_dep_file_cache
+        } else {
+            false
+        };
+
+        // Prepare the action, check the action cache, fully check the local dep file cache if needed, then execute the command
         let prepared_action = ctx.prepare_action(&req)?;
         let manager = ctx.command_execution_manager();
-        let (mut result, mut dep_file_bundle) = match ctx
-            .action_cache(manager, &req, &prepared_action)
-            .await
-        {
-            ControlFlow::Break(res) => (res, dep_file_bundle),
-            ControlFlow::Continue(manager) => {
-                let dep_file_bundle = if let Some(dep_file_bundle) = dep_file_bundle {
-                    match check_local_dep_file_cache(ctx, self.outputs.as_slice(), &dep_file_bundle)
-                        .await?
-                    {
-                        Some(m) => {
-                            // We have a dep_file based match, return early
-                            return Ok(m);
-                        }
-                        None => Some(dep_file_bundle),
-                    }
-                } else {
-                    None
-                };
 
-                (
-                    ctx.exec_cmd(manager, &req, &prepared_action).await,
-                    dep_file_bundle,
-                )
-            }
-        };
+        let (mut result, mut dep_file_bundle) =
+            match ctx.action_cache(manager, &req, &prepared_action).await {
+                ControlFlow::Break(res) => (res, dep_file_bundle),
+                ControlFlow::Continue(manager) => {
+                    if let Some(dep_file_bundle) = &dep_file_bundle {
+                        if should_fully_check_dep_file_cache {
+                            let lookup = dep_file_bundle
+                                .check_local_dep_file_cache(ctx, self.outputs.as_slice())
+                                .await?;
+                            if let Some(m) = lookup {
+                                return Ok(m);
+                            }
+                        }
+                    };
+
+                    (
+                        ctx.exec_cmd(manager, &req, &prepared_action).await,
+                        dep_file_bundle,
+                    )
+                }
+            };
 
         // If there is a dep file entry AND if dep file cache upload is enabled, upload it
         let upload_dep_file = self.inner.allow_dep_file_cache_upload && dep_file_bundle.is_some();
-        if self.inner.allow_cache_upload || upload_dep_file {
+        if result.was_success() && (self.inner.allow_cache_upload || upload_dep_file) {
             let (dep_file_entry, dep_file_key) = match &mut dep_file_bundle {
                 Some(dep_file_bundle) if self.inner.allow_dep_file_cache_upload => {
                     let entry = dep_file_bundle.make_remote_dep_file_entry(ctx).await?;

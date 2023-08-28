@@ -634,6 +634,7 @@ def cxx_dist_link(
 
     return LinkedObject(
         output = final_output,
+        unstripped_output = final_output,
         prebolt_output = output,
         dwp = dwp_output,
         external_debug_info = external_debug_info,

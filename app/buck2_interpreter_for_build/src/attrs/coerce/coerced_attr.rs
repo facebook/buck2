@@ -160,8 +160,8 @@ mod tests {
     use buck2_node::attrs::fmt_context::AttrFmtContext;
     use buck2_util::arc_str::ArcSlice;
     use buck2_util::arc_str::ArcStr;
-    use buck2_util::collections::ordered_map::OrderedMap;
     use dupe::Dupe;
+    use starlark_map::ordered_map::OrderedMap;
 
     #[test]
     fn selector_equals_accounts_for_ordering() {

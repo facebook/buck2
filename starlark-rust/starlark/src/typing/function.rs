@@ -28,22 +28,23 @@ use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::TypingOrInternalError;
+use crate::typing::small_arc_vec_or_static::SmallArcVec1OrStatic;
 use crate::typing::Ty;
 use crate::typing::TypingAttr;
 use crate::typing::TypingBinOp;
 use crate::typing::TypingOracleCtx;
+use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
-use crate::values::typing::type_compiled::compiled::TypeCompiledImpl;
 use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
 use crate::values::Value;
 
 /// An argument being passed to a function
 #[derive(Debug)]
-pub enum Arg {
+pub enum Arg<'a> {
     /// A positional argument.
     Pos(Ty),
     /// A named argument.
-    Name(String, Ty),
+    Name(&'a str, Ty),
     /// A `*args`.
     Args(Ty),
     /// A `**kwargs`.
@@ -51,14 +52,14 @@ pub enum Arg {
 }
 
 /// The type of a parameter - can be positional, by name, `*args` or `**kwargs`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
-pub enum ParamMode {
+#[derive(Debug, Clone, Dupe, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
+pub(crate) enum ParamMode {
     /// Parameter can only be passed by position.
     PosOnly,
     /// Parameter can be passed by position or name.
-    PosOrName(String),
+    PosOrName(ArcStr),
     /// Parameter can only be passed by name.
-    NameOnly(String),
+    NameOnly(ArcStr),
     /// Parameter is `*args`.
     Args,
     /// Parameter is `**kwargs`.
@@ -69,15 +70,15 @@ pub enum ParamMode {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
 pub struct Param {
     /// The type of parameter
-    pub mode: ParamMode,
+    pub(crate) mode: ParamMode,
     /// Whether the parameter have a default value or is otherwise optional
-    pub optional: bool,
+    pub(crate) optional: bool,
     /// The type of the parameter
-    pub ty: Ty,
+    pub(crate) ty: Ty,
 }
 
 impl Param {
-    /// Create a [`ParamMode::PosOnly`] parameter.
+    /// Create a positional only parameter.
     pub fn pos_only(ty: Ty) -> Self {
         Self {
             mode: ParamMode::PosOnly,
@@ -86,19 +87,19 @@ impl Param {
         }
     }
 
-    /// Create a [`ParamMode::NameOnly`] parameter.
+    /// Create a named only parameter.
     pub fn name_only(name: &str, ty: Ty) -> Self {
         Self {
-            mode: ParamMode::NameOnly(name.to_owned()),
+            mode: ParamMode::NameOnly(ArcStr::from(name)),
             optional: false,
             ty,
         }
     }
 
-    /// Create a [`ParamMode::PosOrName`] parameter.
+    /// Create a positional or named parameter.
     pub fn pos_or_name(name: &str, ty: Ty) -> Self {
         Self {
-            mode: ParamMode::PosOrName(name.to_owned()),
+            mode: ParamMode::PosOrName(ArcStr::from(name)),
             optional: false,
             ty,
         }
@@ -112,10 +113,10 @@ impl Param {
         }
     }
 
-    /// Create a [`ParamMode::Args`] parameter.
+    /// Create a `*args` parameter.
     ///
     /// `ty` is a tuple item type.
-    pub fn args(ty: Ty) -> Self {
+    pub const fn args(ty: Ty) -> Self {
         Self {
             mode: ParamMode::Args,
             optional: true,
@@ -123,10 +124,10 @@ impl Param {
         }
     }
 
-    /// Create a [`ParamMode::Kwargs`] parameter.
+    /// Create a `**kwargs` parameter.
     ///
     /// `ty` is a dict value type.
-    pub fn kwargs(ty: Ty) -> Self {
+    pub const fn kwargs(ty: Ty) -> Self {
         Self {
             mode: ParamMode::Kwargs,
             optional: true,
@@ -220,16 +221,7 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
     }
 
     fn matcher<'v>(&self, factory: TypeCompiledFactory<'v>) -> TypeCompiled<Value<'v>> {
-        #[derive(Allocative, Eq, PartialEq, Hash, Clone, Copy, Dupe, Debug)]
-        struct FunctionMatcher;
-
-        impl TypeCompiledImpl for FunctionMatcher {
-            fn matches(&self, value: Value) -> bool {
-                value.vtable().starlark_value.HAS_invoke
-            }
-        }
-
-        factory.alloc(FunctionMatcher)
+        factory.callable()
     }
 }
 
@@ -237,20 +229,53 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
 pub struct TyFunction {
     /// The `.type` property of the function, often `""`.
-    pub type_attr: Option<Ty>,
+    pub(crate) type_attr: Option<Ty>,
     /// The parameters to the function.
-    pub params: Vec<Param>,
+    pub(crate) params: SmallArcVec1OrStatic<Param>,
     /// The result type of the function.
-    pub result: Box<Ty>,
+    pub(crate) result: Ty,
 }
 
 impl TyFunction {
-    /// Function type that accepts any arguments and returns any result.
-    pub(crate) fn any() -> TyFunction {
+    /// Constructor.
+    pub fn new_with_type_attr(params: Vec<Param>, result: Ty, type_attr: Ty) -> Self {
+        // TODO(nga): validate params are in correct order.
+        TyFunction {
+            type_attr: Some(type_attr),
+            params: Self::maybe_intern_params(params),
+            result,
+        }
+    }
+
+    /// Constructor.
+    pub fn new(params: Vec<Param>, result: Ty) -> Self {
         TyFunction {
             type_attr: None,
-            params: vec![Param::args(Ty::any()), Param::kwargs(Ty::any())],
-            result: Box::new(Ty::any()),
+            params: Self::maybe_intern_params(params),
+            result,
+        }
+    }
+
+    fn maybe_intern_params(params: Vec<Param>) -> SmallArcVec1OrStatic<Param> {
+        if params.as_slice() == Self::any_params() {
+            SmallArcVec1OrStatic::new_static(Self::any_params())
+        } else {
+            SmallArcVec1OrStatic::clone_from_slice(&params)
+        }
+    }
+
+    /// `*args`, `**kwargs` parameters.
+    fn any_params() -> &'static [Param] {
+        static ANY_PARAMS: [Param; 2] = [Param::args(Ty::any()), Param::kwargs(Ty::any())];
+        &ANY_PARAMS
+    }
+
+    /// Function type that accepts any arguments and returns any result.
+    pub(crate) fn _any() -> TyFunction {
+        TyFunction {
+            type_attr: None,
+            params: SmallArcVec1OrStatic::new_static(Self::any_params()),
+            result: Ty::any(),
         }
     }
 }
@@ -260,7 +285,7 @@ impl Display for TyFunction {
         let TyFunction { params, result, .. } = self;
         write!(f, "def(")?;
         let mut first = true;
-        for param in params {
+        for param in params.iter() {
             if !first {
                 write!(f, ", ")?;
                 first = false;

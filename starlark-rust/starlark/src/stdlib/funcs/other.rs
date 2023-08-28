@@ -277,7 +277,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     /// # "#, "not a valid number");
     /// # starlark::assert::fail(r#"
     /// float([])   # error
-    /// # "#, "Expected type");
+    /// # "#, "doesn't match, expected");
     /// ```
     #[starlark(as_type = StarlarkFloat, speculative_exec_safe)]
     fn float(

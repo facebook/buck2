@@ -15,6 +15,7 @@ use buck2_query::query::environment::LabeledNode;
 use display_container::fmt_container;
 use dupe::IterDupedExt;
 use fancy_regex::Regex;
+use fancy_regex::RegexBuilder;
 use indexmap::IndexSet;
 
 use crate::query::environment::QueryTarget;
@@ -210,8 +211,11 @@ pub trait TargetSetExt {
         self.attrfilter(attribute, &filter)
     }
 
+    /// Filter targets by fully qualified name using regex partial match.
     fn filter_name(&self, regex: &str) -> anyhow::Result<TargetSet<Self::T>> {
-        let re = Regex::new(regex)?;
+        let mut re = RegexBuilder::new(regex);
+        re.delegate_dfa_size_limit(100 << 20);
+        let re = re.build()?;
         self.filter(|node| Ok(re.is_match(&node.node_ref().to_string())?))
     }
 

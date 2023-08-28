@@ -40,4 +40,5 @@ pub mod starlark_value_as_type;
 pub mod string;
 pub mod structs;
 pub mod tuple;
+pub(crate) mod type_instance_id;
 pub(crate) mod unbound;

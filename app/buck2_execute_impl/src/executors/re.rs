@@ -162,6 +162,7 @@ impl ReExecutor {
             session_id: self.re_client.get_session_id().await.ok(),
             use_case: self.re_use_case,
             platform: platform.clone(),
+            remote_dep_file_key: None,
         };
 
         if response.error.code != TCode::OK {
@@ -290,6 +291,7 @@ impl PreparedCommandExecutor for ReExecutor {
                 session_id: self.re_client.get_session_id().await.ok(),
                 use_case: self.re_use_case,
                 platform: platform.clone(),
+                remote_dep_file_key: None,
             },
             &response,
             self.paranoid.as_ref(),

@@ -51,6 +51,7 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
 use crate::interpreter::rule_defs::provider::abstract_provider::AbstractProvider;
+use crate::interpreter::rule_defs::provider::doc::provider_callable_documentation;
 use crate::interpreter::rule_defs::provider::user::user_provider_creator;
 
 #[derive(Debug, thiserror::Error)]
@@ -259,13 +260,17 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
 
     fn documentation(&self) -> Option<DocItem> {
         let return_types = vec![Ty::any(); self.fields.len()];
-        self.provider_callable_documentation(
+        Some(provider_callable_documentation(
             None,
             &self.docs,
             &self.fields.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
             &self.field_docs,
             &return_types,
-        )
+        ))
+    }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(Self::get_type_starlark_repr())
     }
 }
 
@@ -351,13 +356,17 @@ impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
 
     fn documentation(&self) -> Option<DocItem> {
         let return_types = vec![Ty::any(); self.fields.len()];
-        self.provider_callable_documentation(
+        Some(provider_callable_documentation(
             None,
             &self.docs,
             &self.fields.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
             &self.field_docs,
             &return_types,
-        )
+        ))
+    }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(Self::get_type_starlark_repr())
     }
 
     fn eval_type(&self) -> Option<Ty> {

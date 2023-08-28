@@ -7,6 +7,10 @@
 
 load("@prelude//:paths.bzl", "paths")
 load(
+    "@prelude//apple:xcode.bzl",
+    "get_project_root_file",
+)
+load(
     "@prelude//cxx:compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
@@ -119,10 +123,13 @@ def _cgo(
 def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
     pkg_name = go_attr_pkg_name(ctx)
 
+    project_root_file = get_project_root_file(ctx)
+
     # Gather preprocessor inputs.
     (own_pre, _) = cxx_private_preprocessor_info(
         ctx,
         cxx_get_regular_cxx_headers_layout(ctx),
+        project_root_file = project_root_file,
     )
     inherited_pre = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
 
@@ -169,7 +176,6 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
         [own_pre, cgo_headers_pre],
         inherited_pre,
         [],
-        None,
         linkage,
     )
 

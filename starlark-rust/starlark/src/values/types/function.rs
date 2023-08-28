@@ -155,7 +155,7 @@ impl<T> NativeAttr for T where
 pub struct NativeCallableRawDocs {
     pub rust_docstring: Option<&'static str>,
     pub signature: ParametersSpec<FrozenValue>,
-    pub parameter_types: HashMap<usize, Ty>,
+    pub parameter_types: Vec<Ty>,
     pub return_type: Ty,
     pub as_type: Option<Ty>,
 }
@@ -186,7 +186,7 @@ pub struct NativeFunction {
     pub(crate) function: Box<dyn NativeFunc>,
     pub(crate) name: String,
     /// `.type` attribute and a type when this function is used in type expression.
-    pub(crate) typ: Option<Ty>,
+    pub(crate) type_attr: Option<Ty>,
     pub(crate) ty: Option<Ty>,
     /// Safe to evaluate speculatively.
     pub(crate) speculative_exec_safe: bool,
@@ -215,7 +215,7 @@ impl NativeFunction {
         NativeFunction {
             function: Box::new(function),
             name,
-            typ: None,
+            type_attr: None,
             ty: None,
             speculative_exec_safe: false,
             raw_docs: None,
@@ -262,7 +262,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
     }
 
     fn get_attr(&self, attribute: &str, heap: &'v Heap) -> Option<Value<'v>> {
-        if let Some(s) = self.typ.as_ref().map(|t| t.as_name()) {
+        if let Some(s) = self.type_attr.as_ref().map(|t| t.as_name()) {
             if attribute == "type" {
                 return Some(heap.alloc(s));
             }
@@ -272,7 +272,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
 
     #[allow(clippy::manual_map)]
     fn eval_type(&self) -> Option<Ty> {
-        self.typ.clone()
+        self.type_attr.clone()
     }
 
     fn has_attr(&self, _attribute: &str, _heap: &'v Heap) -> bool {
@@ -281,7 +281,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
     }
 
     fn dir_attr(&self) -> Vec<String> {
-        if self.typ.is_some() {
+        if self.type_attr.is_some() {
             vec!["type".to_owned()]
         } else {
             Vec::new()
@@ -294,7 +294,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
             .map(|raw_docs| DocItem::Function(raw_docs.documentation()))
     }
 
-    fn typechecker_ty(&self, _private: Private) -> Option<Ty> {
+    fn typechecker_ty(&self) -> Option<Ty> {
         self.ty.clone()
     }
 
@@ -334,6 +334,7 @@ pub(crate) struct NativeMethod {
     #[allocative(skip)]
     pub(crate) function: Box<dyn NativeMeth>,
     pub(crate) name: String,
+    pub(crate) ty: Ty,
     /// Safe to evaluate speculatively.
     pub(crate) speculative_exec_safe: bool,
     #[derivative(Debug = "ignore")]
@@ -356,6 +357,10 @@ impl<'v> StarlarkValue<'v> for NativeMethod {
 
     fn documentation(&self) -> Option<DocItem> {
         Some(DocItem::Function(self.raw_docs.documentation()))
+    }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(self.ty.clone())
     }
 }
 

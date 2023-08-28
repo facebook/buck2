@@ -96,9 +96,6 @@ pub enum TypingAttr<'a> {
     /// Apply binary operator.
     #[display(fmt = "binary {}", _0)]
     BinOp(TypingBinOp),
-    /// `x[a:b:c]`.
-    #[display(fmt = "[::]")]
-    Slice,
     /// Return iterable element type.
     #[display(fmt = "iter")]
     Iter,

@@ -334,14 +334,9 @@ fn returns_documentation() -> anyhow::Result<()> {
 
     // Grab the default parameters that are inserted into every rule.
     let empty_spec = AttributeSpec::from(vec![])?;
-    let mut params = empty_spec.signature("foo_binary".to_owned()).documentation(
-        empty_spec
-            .starlark_types()
-            .into_iter()
-            .enumerate()
-            .collect(),
-        empty_spec.docstrings(),
-    );
+    let mut params = empty_spec
+        .signature("foo_binary".to_owned())
+        .documentation(empty_spec.starlark_types(), empty_spec.docstrings());
     params.extend(vec![
         arg("any", Ty::any(), None),
         arg("arg", Ty::string(), Some("_")),

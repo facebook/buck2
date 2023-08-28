@@ -9,6 +9,8 @@ load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 
 LinkerType = ["gnu", "darwin", "windows"]
 
+ShlibInterfacesMode = enum("disabled", "enabled", "defined_only")
+
 # TODO(T110378149): Consider whether it makes sense to move these things to
 # configurations/constraints rather than part of the toolchain.
 LinkerInfo = provider(fields = [
@@ -39,7 +41,7 @@ LinkerInfo = provider(fields = [
     "mk_shlib_intf",
     # "o" on Unix, "obj" on Windows
     "object_file_extension",  # str
-    "shlib_interfaces",
+    "shlib_interfaces",  # ShlibInterfacesMode.type
     "shared_dep_runtime_ld_flags",
     # "lib{}.so" on Linux, "lib{}.dylib" on Mac, "{}.dll" on Windows
     "shared_library_name_format",  # str
@@ -56,6 +58,7 @@ LinkerInfo = provider(fields = [
     "use_archiver_flags",
     "force_full_hybrid_if_capable",
     "is_pdb_generated",  # bool
+    "produce_interface_from_stub_shared_library",  # bool
 ])
 
 BinaryUtilitiesInfo = provider(fields = [
@@ -169,6 +172,7 @@ CxxToolchainInfo = provider(fields = [
     "split_debug_mode",
     "bolt_enabled",
     "pic_behavior",
+    "dumpbin_toolchain_path",
 ])
 
 # Stores "platform"/flavor name used to resolve *platform_* arguments
@@ -216,7 +220,8 @@ def cxx_toolchain_infos(
         bolt_enabled = False,
         llvm_link = None,
         platform_deps_aliases = [],
-        pic_behavior = PicBehavior("supported")):
+        pic_behavior = PicBehavior("supported"),
+        dumpbin_toolchain_path = None):
     """
     Creates the collection of cxx-toolchain Infos for a cxx toolchain.
 
@@ -255,6 +260,7 @@ def cxx_toolchain_infos(
         split_debug_mode = split_debug_mode,
         bolt_enabled = bolt_enabled,
         pic_behavior = pic_behavior,
+        dumpbin_toolchain_path = dumpbin_toolchain_path,
     )
 
     # Provide placeholder mappings, used primarily by cxx_genrule.

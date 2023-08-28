@@ -13,7 +13,7 @@ load("@prelude//utils:utils.bzl", "expect")
 _UNSCRUBBED_JARS_DIR = "unscrubbed"
 
 ProguardOutput = record(
-    jars_to_owners = dict[Artifact, "target_label"],
+    jars_to_owners = dict[Artifact, TargetLabel],
     proguard_configuration_output_file = [Artifact, None],
     proguard_mapping_output_file = Artifact,
     proguard_artifacts = list[Artifact],
@@ -106,7 +106,7 @@ def run_proguard(
 # e.g. Redex might want to consume it) but we don't actually run the proguard command.
 def get_proguard_output(
         ctx: AnalysisContext,
-        input_jars: dict[Artifact, "target_label"],
+        input_jars: dict[Artifact, TargetLabel],
         java_packaging_deps: list["JavaPackagingDep"],
         aapt_generated_proguard_config: [Artifact, None],
         additional_library_jars: list[Artifact]) -> ProguardOutput.type:

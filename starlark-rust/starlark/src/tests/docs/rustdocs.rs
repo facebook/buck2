@@ -40,12 +40,12 @@ struct OutputTypeRepr;
 
 impl StarlarkTypeRepr for InputTypeRepr {
     fn starlark_type_repr() -> Ty {
-        Ty::name("input")
+        Ty::name_static("input")
     }
 }
 impl StarlarkTypeRepr for OutputTypeRepr {
     fn starlark_type_repr() -> Ty {
-        Ty::name("output")
+        Ty::name_static("output")
     }
 }
 
@@ -104,7 +104,7 @@ def custom_types(arg1: str, arg2: "input") -> "output": pass
 def default_arg(arg1 = "_", arg2: typing.Any = None) -> list[str]: pass
 def pos_named(arg1: int, *, arg2: int) -> int: pass
 def simple(arg_int: int, arg_bool: bool, arg_vec: list[str], arg_dict: dict[str, (bool, int)]) -> None: pass
-def with_arguments(*args, **kwargs) -> int.type: pass
+def with_arguments(*args, **kwargs) -> int: pass
 "#,
     );
 
@@ -123,7 +123,10 @@ def with_arguments(*args, **kwargs) -> int.type: pass
     }
 
     fn cleanup_types(x: &str) -> String {
-        x.replace("Some(Any)", "None").replace("\\\"_\\\"", "_")
+        x.replace("Some(Any)", "None")
+            .replace("\\\"_\\\"", "_")
+            // `ArcStr` debug differ. I don't know why this test exists.
+            .replace("(Static(", "(Arc(")
     }
 
     let expected = expected.documentation().members;

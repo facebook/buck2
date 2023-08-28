@@ -149,7 +149,7 @@ impl Deferred for DynamicAction {
     async fn execute(
         &self,
         ctx: &mut dyn DeferredCtx,
-        _dice: &DiceComputations,
+        _dice: &mut DiceComputations,
     ) -> anyhow::Result<DeferredValue<Self::Output>> {
         let id = match self.inputs.iter().into_singleton() {
             Some(DeferredInput::Deferred(x)) => x,
@@ -195,7 +195,7 @@ impl Deferred for DynamicLambda {
     async fn execute(
         &self,
         deferred_ctx: &mut dyn DeferredCtx,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
     ) -> anyhow::Result<DeferredValue<Self::Output>> {
         let output = if let BaseDeferredKey::BxlLabel(key) = &self.owner {
             eval_bxl_for_dynamic_output(key, self, deferred_ctx, dice).await
@@ -286,7 +286,7 @@ pub struct DynamicLambdaCtxData<'v> {
 /// Sets up the data needed to create the dynamic lambda ctx and evaluate the lambda.
 pub fn dynamic_lambda_ctx_data<'v>(
     dynamic_lambda: &'v DynamicLambda,
-    deferred_ctx: &'v mut dyn DeferredCtx,
+    deferred_ctx: &mut dyn DeferredCtx,
     env: &'v Module,
 ) -> anyhow::Result<DynamicLambdaCtxData<'v>> {
     let heap = env.heap();

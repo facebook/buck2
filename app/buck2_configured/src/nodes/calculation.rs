@@ -60,13 +60,14 @@ use buck2_node::nodes::configured_frontend::CONFIGURED_TARGET_NODE_CALCULATION;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::visibility::VisibilityError;
-use buck2_util::collections::ordered_map::OrderedMap;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use indexmap::IndexSet;
 use more_futures::cancellation::CancellationContext;
+use starlark_map::ordered_map::OrderedMap;
+use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use thiserror::Error;
 
@@ -199,7 +200,7 @@ impl ExecutionPlatformConstraints {
             gathered_deps
                 .exec_deps
                 .iter()
-                .map(|c| c.target().unconfigured().dupe())
+                .map(|c| c.0.target().unconfigured().dupe())
                 .collect(),
             gathered_deps
                 .toolchain_deps
@@ -564,22 +565,36 @@ fn check_compatible(
 /// Ideally, we would check this much earlier. However, that turns out to be a bit tricky to
 /// implement. Naively implementing this check on unconfigured nodes doesn't work because it results
 /// in dice cycles when there are cycles in the unconfigured graph.
-async fn check_plugin_deps_are_not_toolchains(
+async fn check_plugin_deps(
     ctx: &DiceComputations,
+    target_label: &ConfiguredTargetLabel,
     plugin_deps: &PluginLists,
 ) -> anyhow::Result<()> {
-    for (_, target, elem_kind) in plugin_deps.iter() {
+    for (_, dep_label, elem_kind) in plugin_deps.iter() {
         if *elem_kind == PluginListElemKind::Direct {
             let dep_node = ctx
-                .get_target_node(target)
+                .get_target_node(dep_label)
                 .await
-                .with_context(|| format!("looking up unconfigured target node `{}`", target))?;
+                .with_context(|| format!("looking up unconfigured target node `{}`", dep_label))?;
             if dep_node.is_toolchain_rule() {
-                return Err(PluginDepError::PluginDepIsToolchainRule(target.dupe()).into());
+                return Err(PluginDepError::PluginDepIsToolchainRule(dep_label.dupe()).into());
+            }
+            if !dep_node.is_visible_to(target_label.unconfigured())? {
+                return Err(VisibilityError::NotVisibleTo(
+                    dep_label.dupe(),
+                    target_label.unconfigured().dupe(),
+                )
+                .into());
             }
         }
     }
     Ok(())
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CheckVisibility {
+    Yes,
+    No,
 }
 
 #[derive(Default)]
@@ -593,15 +608,17 @@ impl ErrorsAndIncompatibilities {
         &mut self,
         target_label: &ConfiguredTargetLabel,
         result: anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>,
+        check_visibility: CheckVisibility,
         list: &mut Vec<ConfiguredTargetNode>,
     ) {
-        list.extend(self.unpack_dep(target_label, result));
+        list.extend(self.unpack_dep(target_label, result, check_visibility));
     }
 
     fn unpack_dep(
         &mut self,
         target_label: &ConfiguredTargetLabel,
         result: anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>,
+        check_visibility: CheckVisibility,
     ) -> Option<ConfiguredTargetNode> {
         match result {
             Err(e) => {
@@ -614,6 +631,9 @@ impl ErrorsAndIncompatibilities {
                 }));
             }
             Ok(MaybeCompatible::Compatible(dep)) => {
+                if CheckVisibility::No == check_visibility {
+                    return Some(dep);
+                }
                 match dep.is_visible_to(target_label.unconfigured()) {
                     Ok(true) => {
                         return Some(dep);
@@ -650,7 +670,7 @@ impl ErrorsAndIncompatibilities {
 #[derive(Default)]
 struct GatheredDeps {
     deps: Vec<ConfiguredTargetNode>,
-    exec_deps: SmallSet<ConfiguredProvidersLabel>,
+    exec_deps: SmallMap<ConfiguredProvidersLabel, CheckVisibility>,
     toolchain_deps: SmallSet<ConfiguredProvidersLabel>,
     plugin_lists: PluginLists,
 }
@@ -664,7 +684,7 @@ async fn gather_deps(
     #[derive(Default)]
     struct Traversal {
         deps: OrderedMap<ConfiguredProvidersLabel, SmallSet<PluginKindSet>>,
-        exec_deps: SmallSet<ConfiguredProvidersLabel>,
+        exec_deps: SmallMap<ConfiguredProvidersLabel, CheckVisibility>,
         toolchain_deps: SmallSet<ConfiguredProvidersLabel>,
         plugin_lists: PluginLists,
     }
@@ -688,7 +708,7 @@ async fn gather_deps(
         }
 
         fn exec_dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
-            self.exec_deps.insert(dep.clone());
+            self.exec_deps.insert(dep.clone(), CheckVisibility::Yes);
             Ok(())
         }
 
@@ -722,7 +742,8 @@ async fn gather_deps(
     let mut deps = Vec::new();
     let mut errors_and_incompats = ErrorsAndIncompatibilities::default();
     for (res, (_, plugin_kind_sets)) in dep_results.into_iter().zip(traversal.deps) {
-        let Some(dep) = errors_and_incompats.unpack_dep(target_label, res) else {
+        let Some(dep) = errors_and_incompats.unpack_dep(target_label, res, CheckVisibility::Yes)
+        else {
             continue;
         };
 
@@ -753,9 +774,11 @@ async fn gather_deps(
 
     let mut exec_deps = traversal.exec_deps;
     for kind in target_node.uses_plugins() {
-        exec_deps.extend(plugin_lists.iter_for_kind(kind).map(|(target, _)| {
+        for plugin_label in plugin_lists.iter_for_kind(kind).map(|(target, _)| {
             attr_cfg_ctx.configure_exec_target(&ProvidersLabel::default_for(target.dupe()))
-        }));
+        }) {
+            exec_deps.entry(plugin_label).or_insert(CheckVisibility::No);
+        }
     }
 
     Ok((
@@ -817,7 +840,7 @@ async fn compute_configured_target_node_no_transition(
     let (gathered_deps, mut errors_and_incompats) =
         gather_deps(target_label, &target_node, &attr_cfg_ctx, ctx).await?;
 
-    check_plugin_deps_are_not_toolchains(ctx, &gathered_deps.plugin_lists).await?;
+    check_plugin_deps(ctx, target_label, &gathered_deps.plugin_lists).await?;
 
     let execution_platform_resolution = if target_cfg.is_unbound() {
         // The unbound configuration is used when evaluation configuration nodes.
@@ -862,12 +885,17 @@ async fn compute_configured_target_node_no_transition(
     let exec_dep_futures = gathered_deps
         .exec_deps
         .iter()
-        .map(|v| {
-            v.target()
-                .unconfigured()
-                .configure_pair(execution_platform.cfg_pair().dupe())
+        .map(|(v, check_visibility)| {
+            (
+                v.target()
+                    .unconfigured()
+                    .configure_pair(execution_platform.cfg_pair().dupe()),
+                check_visibility,
+            )
         })
-        .map(|v| async move { ctx.get_configured_target_node(&v).await });
+        .map(|(v, check_visibility)| async move {
+            (ctx.get_configured_target_node(&v).await, check_visibility)
+        });
 
     let fut = futures::future::join(
         futures::future::join_all(toolchain_dep_futures),
@@ -880,10 +908,10 @@ async fn compute_configured_target_node_no_transition(
     let mut exec_deps = Vec::with_capacity(gathered_deps.exec_deps.len());
 
     for dep in toolchain_dep_results {
-        errors_and_incompats.unpack_dep_into(target_label, dep, &mut deps);
+        errors_and_incompats.unpack_dep_into(target_label, dep, CheckVisibility::Yes, &mut deps);
     }
-    for dep in exec_dep_results {
-        errors_and_incompats.unpack_dep_into(target_label, dep, &mut exec_deps);
+    for (dep, check_visibility) in exec_dep_results {
+        errors_and_incompats.unpack_dep_into(target_label, dep, *check_visibility, &mut exec_deps);
     }
 
     if let Some(ret) = errors_and_incompats.finalize() {

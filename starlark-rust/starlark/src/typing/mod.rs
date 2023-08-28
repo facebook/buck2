@@ -23,29 +23,33 @@
 
 //! Types required to support the [`typecheck`](crate::syntax::AstModule::typecheck) function.
 
+pub(crate) mod arc_ty;
 pub(crate) mod basic;
 pub(crate) mod bindings;
 pub(crate) mod ctx;
 pub(crate) mod custom;
 pub(crate) mod error;
+pub(crate) mod fill_types_for_lint;
 pub(crate) mod function;
+pub(crate) mod interface;
 pub(crate) mod mode;
 pub(crate) mod oracle;
+pub(crate) mod small_arc_vec;
+pub(crate) mod small_arc_vec_or_static;
 pub(crate) mod starlark_value;
 pub(crate) mod structs;
+pub(crate) mod tuple;
 pub(crate) mod ty;
 pub(crate) mod typecheck;
-pub(crate) mod unordered_map;
 
 #[cfg(test)]
 mod tests;
 
 pub use basic::TyBasic;
-pub use bindings::Interface;
 pub use function::Arg;
 pub use function::Param;
-pub use function::ParamMode;
 pub use function::TyFunction;
+pub use interface::Interface;
 pub use oracle::ctx::TypingOracleCtx;
 pub use oracle::docs::OracleDocs;
 pub use oracle::standard::OracleStandard;

@@ -318,7 +318,7 @@ impl<'v> AValueDyn<'v> {
     }
 
     pub(crate) fn typechecker_ty(self) -> Option<Ty> {
-        (self.vtable.starlark_value.typechecker_ty)(self.value, Private)
+        (self.vtable.starlark_value.typechecker_ty)(self.value)
     }
 
     pub(crate) fn eval_type(self) -> Option<Ty> {
@@ -460,7 +460,7 @@ impl<'v> AValueDyn<'v> {
     }
 
     #[inline]
-    pub(crate) fn mul(self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub(crate) fn mul(self, other: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
         (self.vtable.starlark_value.mul)(self.value, other, heap)
     }
 

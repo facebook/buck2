@@ -119,6 +119,7 @@ pub struct TargetInfo {
     pub features: Vec<String>,
     // The ensured folder containing symlinks to all sources
     pub source_folder: PathBuf,
+    pub in_workspace: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]

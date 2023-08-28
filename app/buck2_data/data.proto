@@ -661,8 +661,9 @@ message CommandStart {
 }
 
 // An event that marks that the command has start execution and synced it's
-// state. The period of time between CommandStart and CommandBegin is the time
-// spent synchronizing changes and waiting for concurrent commands to finish.
+// state. The period of time between CommandStart and CommandCriticalStart is
+// the time spent synchronizing changes and waiting for concurrent commands to
+// finish.
 message CommandCriticalStart {
   reserved 2;
 
@@ -773,7 +774,7 @@ message CommandEnd {
   repeated string error_messages = 3;
 }
 
-// Marks the exit of the `CommandBeginCritical` event, such that the command has
+// Marks the exit of the `CommandCriticalStart` event, such that the command has
 // left the critical section.
 message CommandCriticalEnd {
   // Metadata associated with this command. Values in this map have no
@@ -951,6 +952,9 @@ enum ActionExecutionKind {
   ACTION_EXECUTION_KIND_LOCAL_DEP_FILE = 7;
   // This action was executed locally via a worker.
   ACTION_EXECUTION_KIND_LOCAL_WORKER = 8;
+  // This action was served by a remote execution service's action cache based
+  // on a dep file based key.
+  ACTION_EXECUTION_KIND_REMOTE_DEP_FILE_CACHE = 9;
 }
 
 // A name for a particular action, suitable for offline analytics and user
@@ -1399,7 +1403,9 @@ message FileWatcherEnd {
   FileWatcherStats stats = 1;
 }
 
-message MatchDepFilesStart {}
+message MatchDepFilesStart {
+  bool checking_filtered_inputs = 1;
+}
 
 message MatchDepFilesEnd {}
 
@@ -1495,6 +1501,12 @@ message WorkerCommand {
   repeated string fallback_exe = 4;
 }
 
+enum CacheHitType {
+  ACTION_CACHE = 0;
+  REMOTE_DEP_FILE_CACHE = 1;
+  EXECUTED = 2; // not a cache hit
+}
+
 // A representation of a command we executed remotely.
 message RemoteCommand {
   string action_digest = 1;
@@ -1505,6 +1517,9 @@ message RemoteCommand {
 
   // Potentially more details about this command.
   optional RemoteCommandDetails details = 4;
+
+  CacheHitType cache_hit_type = 5;
+  optional string remote_dep_file_key = 6;
 }
 
 message RemoteCommandDetails {
@@ -1524,6 +1539,7 @@ message Invocation {
 message RecordEvent {
   oneof data {
     InvocationRecord invocation_record = 1;
+    BuildGraphStats build_graph_stats = 2;
   }
 }
 
@@ -1677,6 +1693,19 @@ message InvocationRecord {
   // Metadata provided by the client. Unlike TypedMetadata, this won't become
   // its own column in Scuba, all those entries will land in a NormVector.
   repeated ClientMetadata client_metadata = 76;
+}
+
+// Record event sent directly to scribe.
+message BuildGraphStats {
+  repeated BuildTarget build_targets = 1;
+}
+
+message BuildTarget {
+  string target = 1;
+  string configuration = 2;
+  // The dependency graph size for this target, if enabled and the target was
+  // not skipped.
+  optional uint64 configured_graph_size = 3;
 }
 
 message ClientMetadata {

@@ -105,6 +105,12 @@ impl ValueError {
         Self::unsupported_owned(V::TYPE, op, None)
     }
 
+    /// Helper to create an [`OperationNotSupported`](ValueError::OperationNotSupported) error.
+    #[cold]
+    pub(crate) fn unsupported_type<T>(left: Value, op: &str) -> anyhow::Result<T> {
+        Self::unsupported_owned(left.get_type(), op, None)
+    }
+
     /// Helper to create an [`OperationNotSupported`](ValueError::OperationNotSupportedBinary) error.
     #[cold]
     pub fn unsupported_with<'v, T, V: StarlarkValue<'v> + ?Sized>(

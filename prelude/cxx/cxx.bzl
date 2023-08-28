@@ -10,6 +10,10 @@ load(
     "merge_android_packageable_info",
 )
 load("@prelude//apple:resource_groups.bzl", "create_resource_graph")
+load(
+    "@prelude//apple:xcode.bzl",
+    "get_project_root_file",
+)
 load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
@@ -106,8 +110,11 @@ load(
 )
 load(
     ":linker.bzl",
+    "DUMPBIN_SUB_TARGET",
     "PDB_SUB_TARGET",
+    "get_dumpbin_providers",
     "get_link_whole_args",
+    "get_pdb_providers",
     "get_shared_library_name",
     "get_shared_library_name_for_param",
 )
@@ -132,7 +139,7 @@ load(
 
 def _get_shared_link_style_sub_targets_and_providers(
         link_style: LinkStyle.type,
-        _ctx: AnalysisContext,
+        ctx: AnalysisContext,
         output: [CxxLibraryOutput.type, None]) -> (dict[str, list[Provider]], list[Provider]):
     if link_style != LinkStyle("shared") or output == None:
         return ({}, [])
@@ -141,9 +148,14 @@ def _get_shared_link_style_sub_targets_and_providers(
     if output.dwp != None:
         sub_targets["dwp"] = [DefaultInfo(default_output = output.dwp)]
     if output.pdb != None:
-        sub_targets[PDB_SUB_TARGET] = [DefaultInfo(default_output = output.pdb)]
+        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(output.pdb)
+    cxx_toolchain = get_cxx_toolchain_info(ctx)
+    if cxx_toolchain.dumpbin_toolchain_path != None:
+        sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, output.default, cxx_toolchain.dumpbin_toolchain_path)
     if output.linker_map != None:
         sub_targets["linker-map"] = [DefaultInfo(default_output = output.linker_map.map, other_outputs = [output.linker_map.binary])]
+    if output.implib != None:
+        sub_targets["implib"] = [DefaultInfo(default_output = output.implib)]
     return (sub_targets, providers)
 
 def cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -316,9 +328,11 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     first_order_deps = ctx.attrs.deps
     exported_first_order_deps = cxx_attr_exported_deps(ctx)
 
+    project_root_file = get_project_root_file(ctx)
+
     # Exported preprocessor info.
     inherited_pp_infos = cxx_inherited_preprocessor_infos(exported_first_order_deps)
-    generic_exported_pre = cxx_exported_preprocessor_info(ctx, cxx_get_regular_cxx_headers_layout(ctx), [])
+    generic_exported_pre = cxx_exported_preprocessor_info(ctx, cxx_get_regular_cxx_headers_layout(ctx), project_root_file, [])
     args = []
     compiler_type = get_cxx_toolchain_info(ctx).cxx_compiler_info.compiler_type
     if header_dirs != None:
@@ -374,7 +388,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
             else:  # shared
                 # If no shared library was provided, link one from the static libraries.
                 if shared_lib != None:
-                    shared_lib = LinkedObject(output = shared_lib)
+                    shared_lib = LinkedObject(output = shared_lib, unstripped_output = shared_lib)
                 else:
                     lib = static_pic_lib or static_lib
                     if lib:
@@ -439,7 +453,10 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     sub_targets["soname-lib"] = [DefaultInfo(default_output = soname_lib)]
 
                     if shared_lib.pdb:
-                        sub_targets[PDB_SUB_TARGET] = [DefaultInfo(default_output = shared_lib.pdb)]
+                        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(shared_lib.pdb)
+                    dumpbin_toolchain_path = get_cxx_toolchain_info(ctx).dumpbin_toolchain_path
+                    if dumpbin_toolchain_path != None:
+                        sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, shared_lib.output, dumpbin_toolchain_path)
 
         # TODO(cjhopman): is it okay that we sometimes don't have a linkable?
         outputs[link_style] = out

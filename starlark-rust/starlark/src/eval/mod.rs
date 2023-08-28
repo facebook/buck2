@@ -26,6 +26,7 @@ use std::collections::HashMap;
 use std::mem;
 use std::time::Instant;
 
+use compiler::eval_exception::EvalException;
 use dupe::Dupe;
 pub use runtime::arguments::Arguments;
 pub use runtime::before_stmt::BeforeStmtFuncDyn;
@@ -45,9 +46,7 @@ use crate::environment::Globals;
 use crate::eval::compiler::def::DefInfo;
 use crate::eval::compiler::scope::ModuleScopes;
 use crate::eval::compiler::scope::ScopeId;
-use crate::eval::compiler::scope::TopLevelStmtIndex;
 use crate::eval::compiler::Compiler;
-use crate::eval::compiler::EvalException;
 use crate::eval::runtime::arguments::ArgNames;
 use crate::eval::runtime::arguments::ArgumentsFull;
 use crate::slice_vec_ext::SliceExt;
@@ -86,7 +85,6 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             module_slot_count,
             scope_data,
             top_level_stmt_count,
-            last_stmt_defining_type,
             ..
         } = ModuleScopes::check_module_err(
             self.module_env.mutable_names(),
@@ -129,8 +127,6 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             eval: self,
             check_types: dialect.enable_types == DialectTypes::Enable,
             top_level_stmt_count,
-            last_stmt_defining_type,
-            last_stmt_with_populated_types: TopLevelStmtIndex(0),
         };
 
         let res = compiler.eval_module(cst, local_names);

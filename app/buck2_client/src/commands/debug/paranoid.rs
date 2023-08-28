@@ -58,9 +58,18 @@ impl ParanoidCommand {
                 .encode_to_vec();
 
                 fs_util::write(&paranoid_info_path, data)?;
+                buck2_client_ctx::eprintln!(
+                    "Paranoid mode is now enabled, and will remain enabled for the next {}. \
+                    Buck will restart automatically.",
+                    enable.ttl,
+                )?;
             }
             Self::Disable(_) => {
                 fs_util::remove_all(&paranoid_info_path)?;
+                buck2_client_ctx::eprintln!(
+                    "Paranoid mode is now disabled. \
+                    Buck will restart automatically."
+                )?;
             }
         }
 

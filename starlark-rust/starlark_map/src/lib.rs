@@ -18,21 +18,28 @@
 //! Ordered map optimized for starlark-rust use cases.
 
 // Hints we disagree with
+#![allow(clippy::from_iter_instead_of_collect)]
 #![allow(clippy::missing_safety_doc)]
 #![deny(missing_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]
 #![cfg_attr(rust_nightly, feature(core_intrinsics))]
 #![cfg_attr(rust_nightly, feature(portable_simd))]
 
-mod equivalent;
 mod hash_value;
 mod hashed;
 mod hasher;
 mod iter;
 mod mix_u32;
+pub mod ordered_map;
+pub mod ordered_set;
 pub mod small_map;
 pub mod small_set;
+pub mod sorted_map;
+pub mod sorted_set;
+pub mod sorted_vec;
 pub(crate) mod sorting;
+pub mod unordered_map;
+pub mod unordered_set;
 pub mod vec2;
 pub(crate) mod vec_map;
 

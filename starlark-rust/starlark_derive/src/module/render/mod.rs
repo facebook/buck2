@@ -34,6 +34,12 @@ use crate::module::util::ident_string;
 
 pub(crate) fn render(x: StarModule) -> syn::Result<TokenStream> {
     let span = x.span();
+    let render = render_impl(x)?;
+    Ok(quote_spanned! { span => #render })
+}
+
+fn render_impl(x: StarModule) -> syn::Result<syn::ItemFn> {
+    let span = x.span();
     let StarModule {
         name,
         globals_builder,
@@ -50,7 +56,7 @@ pub(crate) fn render(x: StarModule) -> syn::Result<TokenStream> {
         .collect::<syn::Result<_>>()?;
     let set_docstring =
         docstring.map(|ds| quote_spanned!(span=> globals_builder.set_docstring(#ds);));
-    Ok(quote_spanned! {
+    Ok(syn::parse_quote_spanned! {
         span=>
         #( #attrs )*
         #visibility fn #name(globals_builder: #globals_builder) {
@@ -66,7 +72,7 @@ pub(crate) fn render(x: StarModule) -> syn::Result<TokenStream> {
     })
 }
 
-fn render_stmt(x: StarStmt) -> syn::Result<TokenStream> {
+fn render_stmt(x: StarStmt) -> syn::Result<syn::Stmt> {
     match x {
         StarStmt::Const(x) => Ok(render_const(x)),
         StarStmt::Attr(x) => Ok(render_attr(x)),
@@ -74,17 +80,17 @@ fn render_stmt(x: StarStmt) -> syn::Result<TokenStream> {
     }
 }
 
-fn render_const(x: StarConst) -> TokenStream {
+fn render_const(x: StarConst) -> syn::Stmt {
     let StarConst { name, ty, value } = x;
     let span = name.span();
     let name = ident_string(&name);
-    quote_spanned! {
+    syn::parse_quote_spanned! {
         span=>
         globals_builder.set::<#ty>(#name, #value);
     }
 }
 
-fn render_attr(x: StarAttr) -> TokenStream {
+fn render_attr(x: StarAttr) -> syn::Stmt {
     let span = x.span();
     let StarAttr {
         name,
@@ -111,36 +117,38 @@ fn render_attr(x: StarAttr) -> TokenStream {
 
     let return_type_str = render_starlark_type(span, &return_type_arg);
 
-    quote_spanned! {
+    syn::parse_quote_spanned! {
         span=>
-        #( #attrs )*
-        #[allow(non_snake_case)] // Starlark doesn't have this convention
-        fn #name<'v>(
-            #[allow(unused_variables)]
-            this: starlark::values::Value<'v>,
-            heap: &'v starlark::values::Heap,
-        ) -> anyhow::Result<starlark::values::Value<'v>> {
-             fn inner<'v>(
+        {
+            #( #attrs )*
+            #[allow(non_snake_case)] // Starlark doesn't have this convention
+            fn #name<'v>(
+                #[allow(unused_variables)]
                 this: starlark::values::Value<'v>,
-                #[allow(unused_variables)]
-                __heap: &'v starlark::values::Heap,
-            ) -> #return_type {
-                #[allow(unused_variables)]
-                let this: #arg = match starlark::values::UnpackValue::unpack_value(this) {
-                    None => return Err(starlark::values::ValueError::IncorrectParameterTypeNamedWithExpected(
-                        "this".to_owned(),
-                        <#arg as starlark::values::UnpackValue>::expected(),
-                        this.get_type().to_owned(),
-                    ).into()),
-                    Some(v) => v,
-                };
-                #let_heap
-                #body
+                heap: &'v starlark::values::Heap,
+            ) -> anyhow::Result<starlark::values::Value<'v>> {
+                 fn inner<'v>(
+                    this: starlark::values::Value<'v>,
+                    #[allow(unused_variables)]
+                    __heap: &'v starlark::values::Heap,
+                ) -> #return_type {
+                    #[allow(unused_variables)]
+                    let this: #arg = match starlark::values::UnpackValue::unpack_value(this) {
+                        None => return Err(starlark::values::ValueError::IncorrectParameterTypeNamedWithExpected(
+                            "this".to_owned(),
+                            <#arg as starlark::values::UnpackValue>::expected(),
+                            this.get_type().to_owned(),
+                        ).into()),
+                        Some(v) => v,
+                    };
+                    #let_heap
+                    #body
+                }
+                Ok(heap.alloc(inner(this, heap)?))
             }
-            Ok(heap.alloc(inner(this, heap)?))
-        }
 
-        globals_builder.set_attribute_fn(#name_str, #speculative_exec_safe, #docstring, #return_type_str, #name);
+            globals_builder.set_attribute_fn(#name_str, #speculative_exec_safe, #docstring, #return_type_str, #name);
+        }
     }
 }
 
@@ -207,9 +215,9 @@ fn get_lifetimes(span: proc_macro2::Span, typ: &syn::Type) -> TokenStream {
     }
 }
 
-pub(crate) fn render_starlark_type(span: proc_macro2::Span, typ: &syn::Type) -> TokenStream {
+pub(crate) fn render_starlark_type(span: proc_macro2::Span, typ: &syn::Type) -> syn::Expr {
     let lifetimes = get_lifetimes(span, typ);
-    quote_spanned! {span=>
+    syn::parse_quote_spanned! { span=>
         {
             #[allow(clippy::extra_unused_lifetimes)]
             fn get_type_string #lifetimes() -> starlark::typing::Ty {
@@ -220,9 +228,9 @@ pub(crate) fn render_starlark_type(span: proc_macro2::Span, typ: &syn::Type) -> 
     }
 }
 
-pub(crate) fn render_starlark_return_type(fun: &StarFun) -> TokenStream {
+pub(crate) fn render_starlark_return_type(fun: &StarFun) -> syn::Expr {
     let struct_name = fun.struct_name();
-    quote_spanned! {fun.span()=>
+    syn::parse_quote_spanned! { fun.span()=>
         #struct_name::return_type_starlark_type_repr()
     }
 }

@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::future::Future;
 use std::hash::Hash;
 use std::sync::Arc;
 
@@ -31,6 +32,7 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::pattern::ParsedPattern;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use dice::DiceComputations;
 use dupe::Dupe;
@@ -43,9 +45,11 @@ use gazebo::prelude::*;
 use itertools::Either;
 use itertools::Itertools;
 use thiserror::Error;
+use tokio::sync::oneshot;
 
 use crate::aquery::environment::AqueryDelegate;
 use crate::cquery::environment::CqueryDelegate;
+use crate::dice::DiceQueryData;
 use crate::dice::DiceQueryDelegate;
 use crate::uquery::environment::QueryLiterals;
 
@@ -58,11 +62,11 @@ enum ActionQueryError {
 }
 
 /// A simple concurrent map with a `get_or_compute()` function
-struct NodeCache<'c, K: Hash + Eq + PartialEq + Dupe, V: Dupe> {
-    map: DashMap<K, Shared<BoxFuture<'c, V>>>,
+struct NodeCache<K: Hash + Eq + PartialEq + Dupe, V: Dupe> {
+    map: DashMap<K, Shared<oneshot::Receiver<V>>>,
 }
 
-impl<'c, K: Hash + Eq + PartialEq + Dupe, V: Dupe> NodeCache<'c, K, V> {
+impl<K: Hash + Eq + PartialEq + Dupe, V: Dupe> NodeCache<K, V> {
     fn new() -> Self {
         Self {
             map: DashMap::new(),
@@ -72,16 +76,47 @@ impl<'c, K: Hash + Eq + PartialEq + Dupe, V: Dupe> NodeCache<'c, K, V> {
     /// Gets the value or computes it with the provided function. The function is called while holding
     /// a lock on the map and so should not do much work. The future returned by that function isn't
     /// polled until later so it's fine for it to do more work.
-    fn get_or_compute<F>(self: Arc<Self>, key: K, f: F) -> Shared<BoxFuture<'c, V>>
-    where
-        F: FnOnce(K) -> BoxFuture<'c, V>,
-    {
-        if let Some(v) = self.map.get(&key) {
-            return v.clone();
+    async fn get_or_compute<Fut: Future<Output = V> + Send, F: FnOnce(K) -> Fut>(
+        self: Arc<Self>,
+        key: K,
+        f: F,
+    ) -> V {
+        if let Some(v) = self.map.get(&key).map(|entry| entry.value().clone()) {
+            match v.await {
+                Ok(v) => return v,
+                Err(_) => {}
+            }
         }
 
-        let entry = self.map.entry(key.dupe());
-        entry.or_insert_with(move || f(key).shared()).clone()
+        loop {
+            // Loop until we get a successful result from polling the channel
+            // This is because only the original task that inserted the channel is responsible for
+            // completing the channel, and since tasks may be cancelled (which would result in a
+            // drop), the channel can return 'Err', indicating that no one will now complete the
+            // task. In this case, all threads race to insert a task themselves, and the rest
+            // will now await the new channel.
+            let entry = self.map.entry(key.dupe());
+            match entry {
+                Entry::Occupied(occ) => {
+                    let fut = occ.get().clone();
+                    drop(occ);
+                    match fut.await {
+                        Ok(v) => return v,
+                        Err(_) => {}
+                    }
+                }
+                Entry::Vacant(vacant) => {
+                    let (tx, rx) = oneshot::channel();
+                    let key = vacant.key().dupe();
+                    vacant.insert(rx.shared());
+
+                    let v = f(key).await;
+                    let _ignore = tx.send(v.dupe());
+
+                    return v;
+                }
+            }
+        }
     }
 }
 
@@ -89,12 +124,12 @@ impl<'c, K: Hash + Eq + PartialEq + Dupe, V: Dupe> NodeCache<'c, K, V> {
 /// QueryTarget::deps() requires that deps are synchronously available and so we need to
 /// be able to iterate the tset structure synchronously.
 #[derive(Clone, Dupe)]
-struct DiceAqueryNodesCache<'c> {
-    action_nodes: Arc<NodeCache<'c, ActionKey, SharedResult<ActionQueryNode>>>,
-    tset_nodes: Arc<NodeCache<'c, TransitiveSetProjectionKey, SharedResult<SetProjectionInputs>>>,
+struct DiceAqueryNodesCache {
+    action_nodes: Arc<NodeCache<ActionKey, SharedResult<ActionQueryNode>>>,
+    tset_nodes: Arc<NodeCache<TransitiveSetProjectionKey, SharedResult<SetProjectionInputs>>>,
 }
 
-impl<'c> DiceAqueryNodesCache<'c> {
+impl DiceAqueryNodesCache {
     fn new() -> Self {
         Self {
             action_nodes: Arc::new(NodeCache::new()),
@@ -105,8 +140,13 @@ impl<'c> DiceAqueryNodesCache<'c> {
 
 pub(crate) struct DiceAqueryDelegate<'c> {
     base_delegate: DiceQueryDelegate<'c>,
-    nodes_cache: DiceAqueryNodesCache<'c>,
+    query_data: Arc<AqueryData>,
+}
+
+pub(crate) struct AqueryData {
     artifact_fs: Arc<ArtifactFs>,
+    delegate_query_data: Arc<DiceQueryData>,
+    nodes_cache: DiceAqueryNodesCache,
 }
 
 /// Converts artifact inputs into aquery's ActionInput. This is mostly a matter of resolving the indirect
@@ -117,7 +157,7 @@ pub(crate) struct DiceAqueryDelegate<'c> {
 // traverse the tset graph rather than needing to asynchronously resolve a TransitiveSetKey.
 async fn convert_inputs<'c, 'a, Iter: IntoIterator<Item = &'a ArtifactGroup>>(
     ctx: &'c DiceComputations,
-    node_cache: DiceAqueryNodesCache<'c>,
+    node_cache: DiceAqueryNodesCache,
     inputs: Iter,
 ) -> anyhow::Result<Vec<ActionInput>> {
     let (artifacts, projections): (Vec<_>, Vec<_>) = Itertools::partition_map(
@@ -147,7 +187,7 @@ async fn convert_inputs<'c, 'a, Iter: IntoIterator<Item = &'a ArtifactGroup>>(
 }
 
 fn compute_tset_node<'c>(
-    node_cache: DiceAqueryNodesCache<'c>,
+    node_cache: DiceAqueryNodesCache,
     ctx: &'c DiceComputations,
     key: TransitiveSetProjectionKey,
 ) -> BoxFuture<'c, SharedResult<SetProjectionInputs>> {
@@ -174,7 +214,7 @@ fn compute_tset_node<'c>(
 }
 
 async fn get_tset_node<'c>(
-    node_cache: DiceAqueryNodesCache<'c>,
+    node_cache: DiceAqueryNodesCache,
     ctx: &'c DiceComputations,
     key: TransitiveSetProjectionKey,
 ) -> anyhow::Result<SetProjectionInputs> {
@@ -188,7 +228,7 @@ async fn get_tset_node<'c>(
 }
 
 fn compute_action_node<'c>(
-    node_cache: DiceAqueryNodesCache<'c>,
+    node_cache: DiceAqueryNodesCache,
     ctx: &'c DiceComputations,
     key: ActionKey,
     fs: Arc<ArtifactFs>,
@@ -202,7 +242,7 @@ fn compute_action_node<'c>(
 }
 
 async fn get_action_node<'c>(
-    node_cache: DiceAqueryNodesCache<'c>,
+    node_cache: DiceAqueryNodesCache,
     ctx: &'c DiceComputations,
     key: ActionKey,
     fs: Arc<ArtifactFs>,
@@ -221,19 +261,27 @@ impl<'c> DiceAqueryDelegate<'c> {
         base_delegate: DiceQueryDelegate<'c>,
     ) -> anyhow::Result<DiceAqueryDelegate<'c>> {
         let artifact_fs = Arc::new(base_delegate.ctx().get_artifact_fs().await?);
+        let query_data = Arc::new(AqueryData {
+            artifact_fs,
+            delegate_query_data: base_delegate.query_data().dupe(),
+            nodes_cache: DiceAqueryNodesCache::new(),
+        });
         Ok(DiceAqueryDelegate {
             base_delegate,
-            nodes_cache: DiceAqueryNodesCache::new(),
-            artifact_fs,
+            query_data,
         })
+    }
+
+    pub fn query_data(&self) -> &Arc<AqueryData> {
+        &self.query_data
     }
 
     pub async fn get_action_node(&self, key: &ActionKey) -> anyhow::Result<ActionQueryNode> {
         get_action_node(
-            self.nodes_cache.dupe(),
+            self.query_data.nodes_cache.dupe(),
             self.base_delegate.ctx(),
             key.dupe(),
-            self.artifact_fs.dupe(),
+            self.query_data.artifact_fs.dupe(),
         )
         .await
     }
@@ -245,6 +293,10 @@ impl<'c> AqueryDelegate for DiceAqueryDelegate<'c> {
         &self.base_delegate
     }
 
+    fn ctx(&self) -> &DiceComputations {
+        self.base_delegate.ctx()
+    }
+
     async fn get_node(&self, key: &ActionKey) -> anyhow::Result<ActionQueryNode> {
         self.get_action_node(key).await
     }
@@ -253,8 +305,12 @@ impl<'c> AqueryDelegate for DiceAqueryDelegate<'c> {
         &self,
         artifacts: &[ArtifactGroup],
     ) -> anyhow::Result<Vec<ActionQueryNode>> {
-        let inputs =
-            convert_inputs(self.base_delegate.ctx(), self.nodes_cache.dupe(), artifacts).await?;
+        let inputs = convert_inputs(
+            self.base_delegate.ctx(),
+            self.query_data.nodes_cache.dupe(),
+            artifacts,
+        )
+        .await?;
 
         let refs = iter_action_inputs(&inputs)
             .map(|i| i.require_action())
@@ -265,8 +321,12 @@ impl<'c> AqueryDelegate for DiceAqueryDelegate<'c> {
 }
 
 #[async_trait]
-impl<'c> QueryLiterals<ActionQueryNode> for DiceAqueryDelegate<'c> {
-    async fn eval_literals(&self, literals: &[&str]) -> anyhow::Result<TargetSet<ActionQueryNode>> {
+impl QueryLiterals<ActionQueryNode> for AqueryData {
+    async fn eval_literals(
+        &self,
+        literals: &[&str],
+        dice: &DiceComputations,
+    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
         // For literal evaluation, we resolve the providers pattern to the analysis result, pull out
         // the default outputs and look up the corresponding actions.
         // TODO(cjhopman): This is a common pattern and we should probably pull it out to a common
@@ -274,27 +334,20 @@ impl<'c> QueryLiterals<ActionQueryNode> for DiceAqueryDelegate<'c> {
         let mut result = TargetSet::new();
         for literal in literals {
             let label = self
-                .base_delegate
+                .delegate_query_data
                 .literal_parser()
                 .parse_providers_pattern(literal)?;
             match label {
                 ParsedPattern::Target(package, target_name, providers) => {
                     let label = providers.into_providers_label(package, target_name.as_ref());
-                    let configured_label = self
-                        .base_delegate
-                        .ctx()
+                    let configured_label = dice
                         .get_configured_provider_label(
                             &label,
-                            self.base_delegate.global_target_platform(),
+                            self.delegate_query_data.global_target_platform(),
                         )
                         .await?;
 
-                    match self
-                        .base_delegate
-                        .ctx()
-                        .get_analysis_result(configured_label.target())
-                        .await?
-                    {
+                    match dice.get_analysis_result(configured_label.target()).await? {
                         MaybeCompatible::Incompatible(_) => {
                             // ignored
                         }
@@ -307,7 +360,15 @@ impl<'c> QueryLiterals<ActionQueryNode> for DiceAqueryDelegate<'c> {
                                 .default_outputs()
                             {
                                 if let Some(action_key) = output.artifact().action_key() {
-                                    result.insert(self.get_action_node(action_key).await?);
+                                    result.insert(
+                                        get_action_node(
+                                            self.nodes_cache.dupe(),
+                                            dice,
+                                            action_key.dupe(),
+                                            self.artifact_fs.dupe(),
+                                        )
+                                        .await?,
+                                    );
                                 }
                             }
 
@@ -324,5 +385,43 @@ impl<'c> QueryLiterals<ActionQueryNode> for DiceAqueryDelegate<'c> {
             }
         }
         Ok(result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::task::Poll;
+
+    use assert_matches::assert_matches;
+    use dupe::Dupe;
+    use futures::pin_mut;
+    use futures::poll;
+
+    use crate::dice::aquery::NodeCache;
+
+    #[tokio::test]
+    async fn test_node_cache() {
+        let cache = Arc::new(NodeCache::new());
+
+        let fut1 = cache.dupe().get_or_compute(1, |k| async move {
+            tokio::task::yield_now().await;
+
+            k
+        });
+
+        let fut2 = cache
+            .dupe()
+            .get_or_compute(1, |_k| async move { panic!("shouldn't run") });
+
+        pin_mut!(fut1);
+        pin_mut!(fut2);
+
+        assert_matches!(poll!(&mut fut1), Poll::Pending);
+        assert_matches!(poll!(&mut fut2), Poll::Pending);
+        assert_matches!(poll!(&mut fut2), Poll::Pending);
+
+        assert_matches!(poll!(&mut fut1), Poll::Ready(1));
+        assert_matches!(poll!(&mut fut2), Poll::Ready(1));
     }
 }

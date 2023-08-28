@@ -42,6 +42,7 @@ use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query::traversal::ChildVisitor;
 use derive_more::Display;
+use dice::DiceComputations;
 use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
@@ -98,15 +99,21 @@ pub trait UqueryDelegate: Send + Sync {
     // This always includes the immediate enclosing package of the path but can also include
     // all parent packages if the package matches `project.package_boundary_exceptions` buckconfig.
     async fn get_enclosing_packages(&self, path: &CellPath) -> anyhow::Result<Vec<PackageLabel>>;
+
+    fn ctx(&self) -> &DiceComputations;
 }
 
 #[async_trait]
 pub trait QueryLiterals<T: QueryTarget>: Send + Sync {
-    async fn eval_literals(&self, literals: &[&str]) -> anyhow::Result<TargetSet<T>>;
+    async fn eval_literals(
+        &self,
+        literals: &[&str],
+        dice: &DiceComputations,
+    ) -> anyhow::Result<TargetSet<T>>;
 }
 
 pub struct UqueryEnvironment<'c> {
-    delegate: Arc<dyn UqueryDelegate + 'c>,
+    delegate: &'c dyn UqueryDelegate,
     literals: Arc<dyn QueryLiterals<TargetNode> + 'c>,
 }
 
@@ -119,10 +126,14 @@ impl<T: QueryTarget> PreresolvedQueryLiterals<T> {
         Self { resolved_literals }
     }
 
-    pub async fn pre_resolve(base: &dyn QueryLiterals<T>, literals: &[String]) -> Self {
+    pub async fn pre_resolve(
+        base: &dyn QueryLiterals<T>,
+        literals: &[String],
+        dice: &DiceComputations,
+    ) -> Self {
         let futs = literals
             .iter()
-            .map(|lit| async move { (lit.to_owned(), base.eval_literals(&[lit]).await) });
+            .map(|lit| async move { (lit.to_owned(), base.eval_literals(&[lit], dice).await) });
         let mut resolved_literals = HashMap::new();
         for (literal, result) in futures::future::join_all(futs).await {
             resolved_literals.insert(literal, result.shared_error());
@@ -142,7 +153,11 @@ impl<T: QueryTarget> PreresolvedQueryLiterals<T> {
 
 #[async_trait]
 impl<T: QueryTarget> QueryLiterals<T> for PreresolvedQueryLiterals<T> {
-    async fn eval_literals(&self, literals: &[&str]) -> anyhow::Result<TargetSet<T>> {
+    async fn eval_literals(
+        &self,
+        literals: &[&str],
+        _: &DiceComputations,
+    ) -> anyhow::Result<TargetSet<T>> {
         let mut targets = TargetSet::new();
         for lit in literals {
             let resolved = match self
@@ -161,7 +176,7 @@ impl<T: QueryTarget> QueryLiterals<T> for PreresolvedQueryLiterals<T> {
 
 impl<'c> UqueryEnvironment<'c> {
     pub fn new(
-        delegate: Arc<dyn UqueryDelegate + 'c>,
+        delegate: &'c dyn UqueryDelegate,
         literals: Arc<dyn QueryLiterals<TargetNode> + 'c>,
     ) -> Self {
         Self { delegate, literals }
@@ -204,7 +219,9 @@ impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
     }
 
     async fn eval_literals(&self, literals: &[&str]) -> anyhow::Result<TargetSet<TargetNode>> {
-        self.literals.eval_literals(literals).await
+        self.literals
+            .eval_literals(literals, self.delegate.ctx())
+            .await
     }
 
     async fn eval_file_literal(&self, literal: &str) -> anyhow::Result<FileSet> {
@@ -229,11 +246,11 @@ impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
     }
 
     async fn allbuildfiles(&self, universe: &TargetSet<Self::Target>) -> anyhow::Result<FileSet> {
-        return allbuildfiles(universe, &*self.delegate).await;
+        return allbuildfiles(universe, self.delegate).await;
     }
 
     async fn rbuildfiles(&self, universe: &FileSet, argset: &FileSet) -> anyhow::Result<FileSet> {
-        return rbuildfiles(universe, argset, &*self.delegate).await;
+        return rbuildfiles(universe, argset, self.delegate).await;
     }
 
     async fn owner(&self, paths: &FileSet) -> anyhow::Result<TargetSet<Self::Target>> {

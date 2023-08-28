@@ -7,7 +7,7 @@
 
 load("@prelude//:artifact_tset.bzl", "make_artifact_tset")
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//apple/swift:swift_compilation.bzl", "extract_swiftmodule_linkables", "get_swiftmodule_linker_flags", "merge_swiftmodule_linkables")
+load("@prelude//apple/swift:swift_compilation.bzl", "extract_swiftmodule_linkables", "get_swiftmodule_linker_flags")
 load("@prelude//apple/swift:swift_runtime.bzl", "extract_swift_runtime_linkables", "get_swift_runtime_linker_flags")
 load(
     "@prelude//linking:link_info.bzl",
@@ -193,7 +193,7 @@ def _link_info_from_linkables(
         swiftmodule_linkables: list[[SwiftmoduleLinkable.type, None]] = [],
         swift_runtime_linkables: list[[SwiftRuntimeLinkable.type, None]] = []) -> [LinkInfo.type, None]:
     framework_link_args = _get_apple_frameworks_linker_flags(ctx, merge_framework_linkables(framework_linkables))
-    swift_module_link_args = get_swiftmodule_linker_flags(merge_swiftmodule_linkables(ctx, swiftmodule_linkables))
+    swift_module_link_args = get_swiftmodule_linker_flags(swiftmodule_linkables)
     swift_runtime_link_args = get_swift_runtime_linker_flags(ctx, merge_swift_runtime_linkables(swift_runtime_linkables))
     return LinkInfo(
         pre_flags = [framework_link_args, swift_module_link_args, swift_runtime_link_args],

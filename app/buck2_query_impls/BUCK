@@ -8,6 +8,9 @@ rust_library(
     srcs = glob(
         ["src/**/*.rs"],
     ),
+    test_deps = [
+        "fbsource//third-party/rust:assert_matches",
+    ],
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-trait",

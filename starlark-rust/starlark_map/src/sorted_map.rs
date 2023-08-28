@@ -1,19 +1,29 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright 2019 The Starlark in Rust Authors.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under both the MIT license found in the
- * LICENSE-MIT file in the root directory of this source tree and the Apache
- * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
- * of this source tree.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
+
+//! `SmallMap` which asserts that its elements are sorted.
 
 use std::hash::Hash;
 
 use allocative::Allocative;
-use starlark_map::small_map;
-use starlark_map::Equivalent;
 
-use crate::collections::ordered_map::OrderedMap;
+use crate::ordered_map::OrderedMap;
+use crate::small_map;
+use crate::Equivalent;
 
 /// `IndexMap` but with keys sorted.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative)]
@@ -34,6 +44,7 @@ impl<K, V> SortedMap<K, V>
 where
     K: Ord + Hash,
 {
+    /// Construct an empty `SortedMap`.
     #[inline]
     pub fn new() -> SortedMap<K, V> {
         SortedMap {
@@ -41,41 +52,49 @@ where
         }
     }
 
+    /// Iterate over the entries.
     #[inline]
     pub fn iter(&self) -> impl ExactSizeIterator<Item = (&K, &V)> {
         self.map.iter()
     }
 
+    /// Iterate over the entries, with mutable values.
     #[inline]
     pub fn iter_mut(&mut self) -> impl ExactSizeIterator<Item = (&K, &mut V)> {
         self.map.iter_mut()
     }
 
+    /// Iterate over the keys.
     #[inline]
     pub fn keys(&self) -> impl ExactSizeIterator<Item = &K> {
         self.map.keys()
     }
 
+    /// Iterate over the values.
     #[inline]
     pub fn values(&self) -> impl ExactSizeIterator<Item = &V> {
         self.map.values()
     }
 
+    /// Iterate over the values mutably.
     #[inline]
     pub fn values_mut(&mut self) -> impl ExactSizeIterator<Item = &mut V> {
         self.map.values_mut()
     }
 
+    /// Return the number of elements in the map.
     #[inline]
     pub fn len(&self) -> usize {
         self.map.len()
     }
 
+    /// Check if the map is empty.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.map.is_empty()
     }
 
+    /// Get a reference to the value associated with the given key.
     #[inline]
     pub fn get<Q: ?Sized>(&self, key: &Q) -> Option<&V>
     where
@@ -84,6 +103,7 @@ where
         self.map.get(key)
     }
 
+    /// Get a mutable reference to the value associated with the given key.
     #[inline]
     pub fn get_mut<Q: ?Sized>(&mut self, key: &Q) -> Option<&mut V>
     where
@@ -92,6 +112,7 @@ where
         self.map.get_mut(key)
     }
 
+    /// Check if the map contains the given key.
     #[inline]
     pub fn contains_key<Q>(&self, k: &Q) -> bool
     where
@@ -149,9 +170,8 @@ impl<'a, K: Ord + Hash, V> IntoIterator for &'a mut SortedMap<K, V> {
 
 #[cfg(test)]
 mod tests {
-    use itertools::Itertools;
+    use crate::sorted_map::SortedMap;
 
-    use crate::collections::sorted_map::SortedMap;
     #[test]
     fn test_from_iter() {
         let map = SortedMap::from_iter([(1, 2), (5, 6), (3, 4)]);
@@ -164,10 +184,9 @@ mod tests {
     #[test]
     fn test_value_modification() {
         let mut map = SortedMap::from_iter([(1, vec![1, 2, 3]), (2, vec![4]), (3, vec![5])]);
-        assert_eq!(
-            map.keys().collect::<Vec<_>>(),
-            map.keys().sorted().collect::<Vec<_>>()
-        );
+        let mut keys = map.keys().collect::<Vec<_>>();
+        keys.sort();
+        assert_eq!(keys, map.keys().collect::<Vec<_>>(),);
         // Support insertion for existing keys
         map.get_mut(&1).unwrap().push(11);
         map.get_mut(&2).unwrap().push(22);
@@ -181,9 +200,8 @@ mod tests {
             ],
             map.iter().collect::<Vec<_>>()
         );
-        assert_eq!(
-            map.keys().collect::<Vec<_>>(),
-            map.keys().sorted().collect::<Vec<_>>()
-        );
+        let mut keys = map.keys().collect::<Vec<_>>();
+        keys.sort();
+        assert_eq!(map.keys().collect::<Vec<_>>(), keys,);
     }
 }

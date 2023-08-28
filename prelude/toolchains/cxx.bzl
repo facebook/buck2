@@ -14,6 +14,7 @@ load(
     "CxxToolchainInfo",
     "LinkerInfo",
     "PicBehavior",
+    "ShlibInterfacesMode",
 )
 load("@prelude//cxx:headers.bzl", "HeaderMode")
 load("@prelude//cxx:linker.bzl", "is_pdb_generated")
@@ -96,7 +97,7 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
                 static_pic_dep_runtime_ld_flags = [],
                 shared_dep_runtime_ld_flags = [],
                 independent_shlib_interface_linker_flags = [],
-                shlib_interfaces = "disabled",
+                shlib_interfaces = ShlibInterfacesMode("disabled"),
                 link_style = LinkStyle(ctx.attrs.link_style),
                 link_weight = 1,
                 binary_extension = binary_extension,
@@ -106,6 +107,7 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
                 static_library_extension = static_library_extension,
                 force_full_hybrid_if_capable = False,
                 is_pdb_generated = is_pdb_generated(linker_type, ctx.attrs.link_flags),
+                produce_interface_from_stub_shared_library = True,
             ),
             bolt_enabled = False,
             binary_utilities_info = BinaryUtilitiesInfo(

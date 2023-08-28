@@ -18,11 +18,11 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_util::arc_str::ArcS;
-use buck2_util::collections::sorted_set::SortedSet;
-use buck2_util::collections::sorted_vec::SortedVec;
 use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
+use starlark_map::sorted_set::SortedSet;
+use starlark_map::sorted_vec::SortedVec;
 use thiserror::Error;
 
 use crate::file_ops::FileOps;

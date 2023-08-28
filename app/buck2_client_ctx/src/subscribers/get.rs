@@ -19,6 +19,7 @@ use crate::client_ctx::ClientCommandContext;
 use crate::common::CommonDaemonCommandOptions;
 use crate::common::ConsoleType;
 use crate::streaming::StreamingCommand;
+use crate::subscribers::build_graph_stats::BuildGraphStats;
 use crate::subscribers::build_id_writer::BuildIdWriter;
 use crate::subscribers::event_log::subscriber::EventLog;
 use crate::subscribers::re_log::ReLog;
@@ -137,4 +138,26 @@ pub(crate) fn try_get_build_id_writer<'a>(
     } else {
         Ok(None)
     }
+}
+
+pub(crate) fn try_get_build_graph_stats<'a, T: StreamingCommand>(
+    cmd: &T,
+    ctx: &ClientCommandContext<'a>,
+) -> anyhow::Result<Option<Box<dyn EventSubscriber + 'a>>> {
+    if should_handle_build_graph_stats(cmd) {
+        Ok(Some(Box::new(BuildGraphStats::new(
+            ctx.fbinit(),
+            ctx.trace_id.dupe(),
+        ))))
+    } else {
+        Ok(None)
+    }
+}
+
+fn should_handle_build_graph_stats<T: StreamingCommand>(cmd: &T) -> bool {
+    // Currently, we only care about graph size info in BuildResponse which build command produces
+    cmd.common_opts()
+        .config_values
+        .contains(&"buck2.log_configured_graph_size=true".to_owned())
+        && cmd.logging_name() == "build"
 }

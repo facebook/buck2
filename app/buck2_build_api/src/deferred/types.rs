@@ -59,7 +59,7 @@ pub trait Deferred: Allocative + any::Provider {
     async fn execute(
         &self,
         ctx: &mut dyn DeferredCtx,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
     ) -> anyhow::Result<DeferredValue<Self::Output>>;
 
     /// An optional stage to wrap execution in.
@@ -223,7 +223,7 @@ impl DeferredAny for TrivialDeferredValue {
     async fn execute(
         &self,
         _ctx: &mut dyn DeferredCtx,
-        _dice: &DiceComputations,
+        _dice: &mut DiceComputations,
     ) -> anyhow::Result<DeferredValueAny> {
         Ok(DeferredValueAny::Ready(
             DeferredValueAnyReady::TrivialDeferred(self.0.dupe()),
@@ -271,7 +271,7 @@ impl DeferredAny for DeferredTableEntry {
     async fn execute(
         &self,
         ctx: &mut dyn DeferredCtx,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
     ) -> anyhow::Result<DeferredValueAny> {
         match self {
             Self::Trivial(v) => v.execute(ctx, dice).await,
@@ -505,7 +505,7 @@ impl DeferredRegistry {
             async fn execute(
                 &self,
                 ctx: &mut dyn DeferredCtx,
-                _dice: &DiceComputations,
+                _dice: &mut DiceComputations,
             ) -> anyhow::Result<DeferredValue<Self::Output>> {
                 let orig = match self.orig.iter().exactly_one() {
                     Ok(DeferredInput::Deferred(orig)) => orig,
@@ -764,7 +764,7 @@ pub trait DeferredAny: Allocative + any::Provider + Send + Sync {
     async fn execute(
         &self,
         ctx: &mut dyn DeferredCtx,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
     ) -> anyhow::Result<DeferredValueAny>;
 
     fn as_any(&self) -> &dyn Any;
@@ -801,7 +801,7 @@ where
     async fn execute(
         &self,
         ctx: &mut dyn DeferredCtx,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
     ) -> anyhow::Result<DeferredValueAny> {
         match self.execute(ctx, dice).await? {
             DeferredValue::Ready(t) => Ok(DeferredValueAny::ready(t)),
@@ -962,7 +962,7 @@ mod tests {
         async fn execute(
             &self,
             _ctx: &mut dyn DeferredCtx,
-            _dice: &DiceComputations,
+            _dice: &mut DiceComputations,
         ) -> anyhow::Result<DeferredValue<T>> {
             Ok(DeferredValue::Ready(self.val.clone()))
         }
@@ -999,7 +999,7 @@ mod tests {
         async fn execute(
             &self,
             ctx: &mut dyn DeferredCtx,
-            _dice: &DiceComputations,
+            _dice: &mut DiceComputations,
         ) -> anyhow::Result<DeferredValue<T>> {
             Ok(DeferredValue::Deferred(
                 ctx.registry().defer(self.defer.clone()),
@@ -1057,7 +1057,7 @@ mod tests {
             deferred_data.deferred_key().dupe(),
         )));
 
-        let dummy_dice_transaction = dummy_dice_transaction().await?;
+        let mut dummy_dice_transaction = dummy_dice_transaction().await?;
 
         CancellationContext::testing()
             .with_structured_cancellation(|observer| async move {
@@ -1076,7 +1076,7 @@ mod tests {
                                 DigestConfig::testing_default(),
                                 observer
                             ),
-                            &dummy_dice_transaction
+                            &mut dummy_dice_transaction
                         )
                         .await
                         .unwrap()
@@ -1117,7 +1117,7 @@ mod tests {
             deferred_data.deferred_key().dupe(),
         )));
 
-        let dummy_dice_transaction = dummy_dice_transaction().await?;
+        let mut dummy_dice_transaction = dummy_dice_transaction().await?;
 
         CancellationContext::testing()
             .with_structured_cancellation(|observer| async move {
@@ -1136,7 +1136,7 @@ mod tests {
 
                 assert_eq!(
                     *mapped_deferred
-                        .execute(&mut resolved, &dummy_dice_transaction)
+                        .execute(&mut resolved, &mut dummy_dice_transaction)
                         .await
                         .unwrap()
                         .assert_ready()
@@ -1177,7 +1177,7 @@ mod tests {
             deferring_deferred_data.deferred_key().dupe(),
         )));
 
-        let dummy_dice_transaction = dummy_dice_transaction().await?;
+        let mut dummy_dice_transaction = dummy_dice_transaction().await?;
 
         CancellationContext::testing()
             .with_structured_cancellation(|observer| async move {
@@ -1195,7 +1195,7 @@ mod tests {
                             DigestConfig::testing_default(),
                             observer.dupe(),
                         ),
-                        &dummy_dice_transaction,
+                        &mut dummy_dice_transaction,
                     )
                     .await
                     .unwrap();
@@ -1234,7 +1234,7 @@ mod tests {
                                 DigestConfig::testing_default(),
                                 observer,
                             ),
-                            &dummy_dice_transaction
+                            &mut dummy_dice_transaction
                         )
                         .await
                         .unwrap()
@@ -1274,7 +1274,7 @@ mod tests {
             deferred_data.deferred_key().dupe(),
         )));
 
-        let dummy_dice_transaction = dummy_dice_transaction().await?;
+        let mut dummy_dice_transaction = dummy_dice_transaction().await?;
 
         let key = deferred_data.deferred_key().dupe();
 
@@ -1295,7 +1295,7 @@ mod tests {
                                 DigestConfig::testing_default(),
                                 observer,
                             ),
-                            &dummy_dice_transaction,
+                            &mut dummy_dice_transaction,
                         )
                         .await
                         .unwrap()

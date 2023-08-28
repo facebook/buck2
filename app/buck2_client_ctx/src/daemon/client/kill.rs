@@ -59,6 +59,8 @@ pub async fn kill(
         .with_context(|| format!("Integer overflow converting pid {}", pid))?;
     let callers = get_callers_for_kill();
 
+    tracing::debug!("Killing daemon with PID {}", pid);
+
     let request_fut = client.kill(Request::new(KillRequest {
         reason: reason.to_owned(),
         timeout: Some(GRACEFUL_SHUTDOWN_TIMEOUT.try_into()?),

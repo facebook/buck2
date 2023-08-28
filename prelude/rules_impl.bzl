@@ -308,9 +308,26 @@ def _python_executable_attrs():
         "link_group_map": link_group_map_attr(),
         "link_group_min_binary_node_count": attrs.option(attrs.int(), default = None),
         "link_style": attrs.enum(LinkableDepType, default = "static"),
+        "main_function": attrs.option(
+            attrs.string(),
+            default = None,
+            doc = """
+            Fully qualified name of a Python function that will serve as the main entry point of the binary.
+
+            This should usually be a function defined within one of the
+            dependencies of this target. This attribute should be preferred over
+            `main_module` or `main`, and it is an error to specify more than one of these.
+        """,
+        ),
         "make_py_package": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         # entries for the generated __manifest__ python module
-        "manifest_module_entries": attrs.option(attrs.dict(key = attrs.string(), value = attrs.dict(key = attrs.string(), value = attrs.any())), default = None),
+        "manifest_module_entries": attrs.option(attrs.dict(
+            key = attrs.string(),
+            value = attrs.one_of(
+                attrs.dict(key = attrs.string(), value = attrs.option(attrs.any())),
+                attrs.list(attrs.string()),
+            ),
+        ), default = None),
         "native_link_strategy": attrs.option(attrs.enum(NativeLinkStrategy), default = None),
         "package_split_dwarf_dwp": attrs.bool(default = False),
         "par_style": attrs.option(attrs.string(), default = None),

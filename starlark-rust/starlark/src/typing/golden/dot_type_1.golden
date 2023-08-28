@@ -5,22 +5,32 @@
 # ```
 
 Code:
-def foo(x: list.type) -> bool.type:
+def foo(x: list) -> bool:
     return type(x) == []
-foo(True)
+
+def bar():
+    foo(True)
 
 Error:
 error: Expected type `list[typing.Any]` but got `bool`
- --> filename:4:5
+ --> filename:6:9
   |
-4 | foo(True)
-  |     ^^^^
+6 |     foo(True)
+  |         ^^^^
   |
 
 Error:
-error: Expected type `list[typing.Never]` but got `str`
- --> filename:3:12
+error: Expected type `str` but got `list[typing.Never]`
+ --> filename:3:23
   |
 3 |     return type(x) == []
-  |            ^^^^^^^^^^^^^
+  |                       ^^
+  |
+
+Compiler typechecker (eval):
+error: Expected type `list[typing.Any]` but got `bool`
+ --> filename:6:9
+  |
+6 |     foo(True)
+  |         ^^^^
   |

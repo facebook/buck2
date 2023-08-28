@@ -18,26 +18,20 @@
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::eval::compiler::constants::Constants;
-use crate::eval::compiler::scope::payload::CstExpr;
+use crate::eval::compiler::eval_exception::EvalException;
 use crate::eval::compiler::scope::payload::CstIdent;
-use crate::eval::compiler::scope::payload::CstParameter;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::payload::CstTypeExpr;
 use crate::eval::compiler::scope::ResolvedIdent;
 use crate::eval::compiler::scope::Slot;
-use crate::eval::compiler::scope::TopLevelStmtIndex;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::Compiler;
-use crate::eval::compiler::EvalException;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::slice_vec_ext::VecExt;
-use crate::syntax::ast::AssignP;
-use crate::syntax::ast::ExprP;
-use crate::syntax::ast::StmtP;
 use crate::syntax::type_expr::TypeExprUnpackP;
-use crate::syntax::uniplate::VisitMut;
+use crate::typing::Ty;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::FrozenValue;
 use crate::values::Value;
@@ -71,7 +65,7 @@ impl<'v> Compiler<'v, '_, '_> {
         }
         let expr = expr?;
         let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, expr.span));
-        let Some(ty) = &expr.payload else {
+        let Some(ty) = &expr.payload.compiler_ty else {
             // This is unreachable. But unfortunately we do not return error here.
             // Still make an error in panic to produce nice panic message.
             panic!(
@@ -199,8 +193,8 @@ impl<'v> Compiler<'v, '_, '_> {
                 Ok(TypeCompiled::type_any_of(xs, self.eval.heap()))
             }
             TypeExprUnpackP::Tuple(xs) => {
-                let xs = xs.into_try_map(|x| self.eval_expr_as_type(x))?;
-                Ok(TypeCompiled::type_tuple_of(xs, self.eval.heap()))
+                let xs = xs.into_try_map(|x| Ok(self.eval_expr_as_type(x)?.as_ty().clone()))?;
+                Ok(TypeCompiled::from_ty(&Ty::tuple(xs), self.eval.heap()))
             }
             TypeExprUnpackP::Literal(s) => Ok(TypeCompiled::from_str(s.node, self.eval.heap())),
         }
@@ -210,7 +204,7 @@ impl<'v> Compiler<'v, '_, '_> {
         &mut self,
         type_expr: &mut CstTypeExpr,
     ) -> Result<(), EvalException> {
-        if type_expr.payload.is_some() {
+        if type_expr.payload.compiler_ty.is_some() {
             return Err(EvalException::new(
                 TypesError::TypeAlreadySet.into(),
                 type_expr.span,
@@ -220,67 +214,14 @@ impl<'v> Compiler<'v, '_, '_> {
         // This should not fail because we validated it at parse time.
         let unpack = TypeExprUnpackP::unpack(&type_expr.expr, &self.codemap)?;
         let type_value = self.eval_expr_as_type(unpack)?;
-        type_expr.payload = Some(type_value.as_ty().clone());
+        type_expr.payload.compiler_ty = Some(type_value.as_ty().clone());
         Ok(())
     }
 
-    fn populate_types_in_params(
+    pub(crate) fn populate_types_in_stmt(
         &mut self,
-        params: &mut [CstParameter],
+        stmt: &mut CstStmt,
     ) -> Result<(), EvalException> {
-        for param in params {
-            let (_, ty, _) = param.split_mut();
-            if let Some(ty) = ty {
-                self.populate_types_in_type_expr(ty)?;
-            }
-        }
-        Ok(())
-    }
-
-    fn populate_types_in_expr(&mut self, expr: &mut CstExpr) -> Result<(), EvalException> {
-        match &mut expr.node {
-            ExprP::Lambda(lambda) => {
-                self.populate_types_in_params(&mut lambda.params)?;
-            }
-            _ => {}
-        }
-        expr.visit_expr_err_mut(|expr| self.populate_types_in_expr(expr))
-    }
-
-    #[allow(clippy::collapsible_match)]
-    fn populate_types_in_stmt(&mut self, stmt: &mut CstStmt) -> Result<(), EvalException> {
-        match &mut stmt.node {
-            StmtP::Assign(AssignP { ty, .. }) => {
-                if let Some(ty) = ty {
-                    self.populate_types_in_type_expr(ty)?;
-                }
-            }
-            StmtP::Def(def) => {
-                self.populate_types_in_params(&mut def.params)?;
-                if let Some(ret) = &mut def.return_type {
-                    self.populate_types_in_type_expr(ret)?;
-                }
-            }
-            _ => {}
-        }
-        stmt.visit_children_err_mut(|visit| match visit {
-            VisitMut::Stmt(stmt) => self.populate_types_in_stmt(stmt),
-            VisitMut::Expr(expr) => self.populate_types_in_expr(expr),
-        })
-    }
-
-    pub(crate) fn populate_types_in_stmts(
-        &mut self,
-        stmts: &mut [CstStmt],
-        up_to: TopLevelStmtIndex,
-    ) -> Result<(), EvalException> {
-        if self.last_stmt_with_populated_types >= up_to {
-            return Ok(());
-        }
-        for stmt in &mut stmts[self.last_stmt_with_populated_types.0..up_to.0] {
-            self.populate_types_in_stmt(stmt)?;
-        }
-        self.last_stmt_with_populated_types = up_to;
-        Ok(())
+        stmt.visit_type_expr_err_mut(&mut |type_expr| self.populate_types_in_type_expr(type_expr))
     }
 }

@@ -16,14 +16,14 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::metadata::MetadataMap;
-use buck2_util::collections::ordered_map::OrderedMap;
-use starlark::typing::Ty;
 use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Value;
+use starlark_map::ordered_map::OrderedMap;
 
+use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
 
@@ -77,7 +77,7 @@ impl AttrTypeCoerce for MetadataAttrType {
         Ok(CoercedAttr::Metadata(MetadataMap::new(map)))
     }
 
-    fn starlark_type(&self) -> Ty {
-        OpaqueMetadata::starlark_type_repr()
+    fn starlark_type(&self) -> TyMaybeSelect {
+        TyMaybeSelect::Basic(OpaqueMetadata::starlark_type_repr())
     }
 }

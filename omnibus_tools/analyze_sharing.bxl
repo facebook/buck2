@@ -15,7 +15,7 @@ load(
 )
 
 def _analyze_sharing_impl(ctx):
-    metadata = ctx.analysis(sub_target(ctx.cli_args.target, "omnibus")).providers()[OmnibusMetadataInfo]
+    metadata = ctx.analysis(ctx.cli_args.target.with_sub_target("omnibus")).providers()[OmnibusMetadataInfo]
     if metadata == None:
         fail("Metadata generation must be enabled")
 

@@ -151,7 +151,7 @@ impl Globals {
 
     /// Iterate over all the items in this environment.
     /// Note returned values are owned by this globals.
-    pub(crate) fn iter(&self) -> impl Iterator<Item = (&str, FrozenValue)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&str, FrozenValue)> {
         self.0.variables.iter().map(|(n, v)| (n.as_str(), *v))
     }
 
@@ -308,7 +308,7 @@ impl GlobalsBuilder {
         name: &str,
         speculative_exec_safe: bool,
         raw_docs: NativeCallableRawDocs,
-        typ: Option<Ty>,
+        type_attr: Option<Ty>,
         ty: Option<Ty>,
         special_builtin_function: Option<SpecialBuiltinFunction>,
         f: F,
@@ -321,7 +321,7 @@ impl GlobalsBuilder {
                 function: Box::new(f),
                 name: name.to_owned(),
                 speculative_exec_safe,
-                typ,
+                type_attr,
                 ty: Some(ty.unwrap_or_else(|| Ty::from_docs_function(&raw_docs.documentation()))),
                 raw_docs: Some(raw_docs),
                 special_builtin_function,
@@ -441,6 +441,8 @@ impl MethodsBuilder {
     ) where
         F: NativeMeth,
     {
+        let ty = Ty::from_docs_function(&raw_docs.documentation());
+
         self.members.insert(
             name,
             FrozenValueNotSpecial::new(self.heap.alloc(NativeMethod {
@@ -448,6 +450,7 @@ impl MethodsBuilder {
                 name: name.to_owned(),
                 speculative_exec_safe,
                 raw_docs,
+                ty,
             }))
             .unwrap(),
         );

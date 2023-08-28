@@ -25,8 +25,6 @@ _ArtifactTSet = transitive_set(
     },
 )
 
-ArtifactProjection = "transitive_set_args_projection"
-
 ArtifactTSet = record(
     _tset = field([_ArtifactTSet.type, None], None),
 )
@@ -68,7 +66,7 @@ def make_artifact_tset(
 
 def project_artifacts(
         actions: AnalysisActions,
-        tsets: list[ArtifactTSet.type] = []) -> list[ArtifactProjection]:
+        tsets: list[ArtifactTSet.type] = []) -> list[TransitiveSetArgsProjection]:
     """
     Helper to project a list of optional tsets.
     """

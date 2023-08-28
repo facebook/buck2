@@ -44,7 +44,7 @@ load(
     "post_order_traversal",
 )
 load("@prelude//utils:utils.bzl", "expect", "flatten", "value_or")
-load("@prelude//open_source.bzl", "is_open_source")
+load("@prelude//is_full_meta_repo.bzl", "is_full_meta_repo")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":link_types.bzl",
@@ -985,6 +985,6 @@ def omnibus_environment_attr():
         # In open source, we don't want to use omnibus
         "DEFAULT": "fbcode//buck2/platform/omnibus:omnibus_environment",
         "fbcode//buck2/platform/omnibus:do_not_inject_omnibus_environment": None,
-    }) if not is_open_source() else select({"DEFAULT": None})
+    }) if is_full_meta_repo() else select({"DEFAULT": None})
 
     return attrs.option(attrs.dep(), default = default)

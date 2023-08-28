@@ -13,6 +13,7 @@ rust_library(
         "fbsource//third-party/rust:serde_json",
     ],
     deps = [
+        "fbsource//third-party/rust:equivalent",
         "fbsource//third-party/rust:fnv",
         "fbsource//third-party/rust:hashbrown",
         "fbsource//third-party/rust:serde",

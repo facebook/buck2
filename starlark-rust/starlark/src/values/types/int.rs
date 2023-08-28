@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 
-//! The integer type. Currently limited to 32 bit.
+//! The integer type.
 //!
-//! Unlike most Starlark values, these aren't actually represented on the [`Heap`], but as special values.
-//! At some point in the future we plan to support arbitrary sized integers (as required by the
-//! [Starlark spec](https://github.com/bazelbuild/starlark/blob/master/spec.md#integers)), and those larger
-//! integer values will be stored on the heap.
+//! For small values, we try not to allocate on the [`Heap`], but instead use
+//! special values. If the value doesn't fit in the special representation,
+//! we use [`BigInt`].
 
 use std::cmp::Ordering;
 use std::fmt;
@@ -224,11 +223,10 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
             None => ValueError::unsupported_with(self, "-", other),
         }
     }
-    fn mul(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        match other.unpack_num() {
-            Some(other) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Small(self.get())) * other)),
-            None => other.mul(Value::new_int(self.get()), heap),
-        }
+    fn mul(&self, other: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+        Some(Ok(heap.alloc(
+            NumRef::Int(StarlarkIntRef::Small(self.get())) * other.unpack_num()?,
+        )))
     }
     fn div(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match other.unpack_num() {
@@ -314,6 +312,10 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
         // This is dead code, because canonical int type is `StarlarkBigInt`,
         // but keep for consistency.
         typecheck_num_bin_op(NumTy::Int, op, rhs)
+    }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(Ty::int())
     }
 }
 

@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::ops::Deref;
+
 use dice::DiceComputations;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
@@ -28,11 +30,11 @@ use crate::starlark_profiler::StarlarkProfilerOrInstrumentation;
 ///
 /// The provided closure will be invoked and passed an appropriate
 /// StarlarkEvaluatorProvider.
-pub async fn with_starlark_eval_provider<R>(
-    ctx: &DiceComputations,
+pub async fn with_starlark_eval_provider<D: Deref<Target = DiceComputations>, R>(
+    ctx: D,
     profiler_instrumentation: &mut StarlarkProfilerOrInstrumentation<'_>,
     description: String,
-    closure: impl FnOnce(&mut dyn StarlarkEvaluatorProvider, &DiceComputations) -> anyhow::Result<R>,
+    closure: impl FnOnce(&mut dyn StarlarkEvaluatorProvider, D) -> anyhow::Result<R>,
 ) -> anyhow::Result<R> {
     let debugger_handle = ctx.get_starlark_debugger_handle();
     let debugger = match debugger_handle {

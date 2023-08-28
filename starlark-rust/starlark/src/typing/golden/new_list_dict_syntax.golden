@@ -8,10 +8,14 @@ Code:
 def new_list_dict_syntax(d: dict[str, int]) -> list[str]:
     return list(d.keys())
 
-# Check type is properly parsed from the function return type.
-x = new_list_dict_syntax({"a": 1, "b": 2})
+def test():
+    # Check type is properly parsed from the function return type.
+    x = new_list_dict_syntax({"a": 1, "b": 2})
 
 No errors.
 
 Types:
 x: list[str]
+
+Compiler typechecker (eval):
+No errors.

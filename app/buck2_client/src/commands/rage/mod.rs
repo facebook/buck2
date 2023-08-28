@@ -52,7 +52,7 @@ use dupe::Dupe;
 use futures::future::FutureExt;
 use futures::future::LocalBoxFuture;
 use manifold::file_to_manifold;
-use manifold::manifold_url;
+use manifold::manifold_leads;
 use maplit::convert_args;
 use maplit::hashmap;
 use serde::Serialize;
@@ -110,7 +110,7 @@ where
     T: std::fmt::Display + 'a,
 {
     fn get<Fut>(
-        title: String,
+        title: &str,
         timeout: Duration,
         command: impl FnOnce() -> Fut,
     ) -> LocalBoxFuture<'a, Self>
@@ -118,6 +118,7 @@ where
         Fut: Future<Output = anyhow::Result<T>> + 'a,
     {
         let fut = command();
+        let title = title.to_owned();
         async move {
             let status = match tokio::time::timeout(timeout, fut).await {
                 Err(_) => CommandStatus::Timeout,
@@ -131,9 +132,21 @@ where
         .boxed_local()
     }
 
-    fn get_skipped(title: String) -> LocalBoxFuture<'a, Self> {
-        let status = CommandStatus::Skipped;
-        async { RageSection { title, status } }.boxed_local()
+    fn get_skippable<Fut>(
+        title: &str,
+        timeout: Duration,
+        command: Option<impl FnOnce() -> Fut>,
+    ) -> LocalBoxFuture<'a, Self>
+    where
+        Fut: Future<Output = anyhow::Result<T>> + 'a,
+    {
+        if let Some(command) = command {
+            Self::get(title, timeout, command)
+        } else {
+            let status = CommandStatus::Skipped;
+            let title = title.to_owned();
+            async { RageSection { title, status } }.boxed_local()
+        }
     }
 
     fn output(&self) -> String {
@@ -204,184 +217,167 @@ impl RageCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         buck2_core::facebook_only();
 
-        ctx.with_runtime(async move |mut ctx| {
-            let timeout = Duration::from_secs(self.timeout);
-            let paths = ctx.paths.as_ref().map_err(|e| e.dupe())?;
-            let daemon_dir = paths.daemon_dir()?;
-            let stderr_path = daemon_dir.buckd_stderr();
-            let re_logs_dir = ctx.paths()?.re_logs_dir();
-            let logdir = paths.log_dir();
-            let dice_dump_dir = paths.dice_dump_dir();
-
-            let client_ctx = ctx.empty_client_context("rage")?;
-
-            // Don't fail the rage if you can't figure out whether to do vpnless.
-            let manifold =
-                ManifoldClient::new(ctx.allow_vpnless_for_logging().unwrap_or_default())?;
-
-            let rage_id = TraceId::new();
-            let mut manifold_id = format!("{}", rage_id);
-            let sink = create_scribe_sink(&ctx)?;
-
-            buck2_client_ctx::eprintln!(
-                "Data collection will terminate after {} seconds (override with --timeout param)",
-                self.timeout
-            )?;
-
-            // If there is a daemon, start connecting.
-            let info = BuckdProcessInfo::load(&daemon_dir).shared_error();
-
-            let buckd = match &info {
-                Ok(info) => async {
-                    info.create_channel()
-                        .await
-                        .shared_error()?
-                        .upgrade()
-                        .await
-                        .shared_error()
-                }
-                .boxed(),
-                Err(e) => futures::future::ready(Err(e.dupe())).boxed(),
-            }
-            .shared();
-
-            let selected_invocation = maybe_select_invocation(ctx.stdin(), &logdir, &self).await?;
-            let invocation_id = get_trace_id(&selected_invocation).await?;
-            if let Some(ref invocation_id) = invocation_id {
-                manifold_id = format!("{}_{}", invocation_id, manifold_id);
-            }
-
-            buck2_client_ctx::eprintln!("Collecting debug info...")?;
-
-            let thread_dump = {
-                let title = "Thread dump".to_owned();
-                RageSection::get(title, timeout, || {
-                    thread_dump::upload_thread_dump(&info, &manifold, &manifold_id)
-                })
-            };
-            let build_info_command = {
-                let title = "Associated invocation info".to_owned();
-                match selected_invocation.as_ref() {
-                    None => RageSection::get_skipped(title),
-                    Some(invocation) => {
-                        RageSection::get(title, timeout, || build_info::get(invocation))
-                    }
-                }
-            };
-
-            let (thread_dump, build_info) = tokio::join!(
-                // Get thread dump before making any new connections to daemon (T159606309)
-                thread_dump,
-                // We need the RE session ID from here to upload RE logs
-                build_info_command
-            );
-
-            let system_info_command =
-                RageSection::get("System info".to_owned(), timeout, system_info::get);
-            let daemon_stderr_command =
-                RageSection::get("Daemon stderr".to_owned(), timeout, || {
-                    upload_daemon_stderr(stderr_path, &manifold, &manifold_id)
-                });
-            let hg_snapshot_id_command = RageSection::get(
-                "Source control".to_owned(),
-                timeout,
-                source_control::get_info,
-            );
-            let dice_dump_command = RageSection::get("Dice dump".to_owned(), timeout, || async {
-                dice::upload_dice_dump(buckd.clone().await?, dice_dump_dir, &manifold, &manifold_id)
-                    .await
-            });
-            let materializer_state =
-                RageSection::get("Materializer state".to_owned(), timeout, || {
-                    materializer::upload_materializer_data(
-                        buckd.clone(),
-                        &client_ctx,
-                        &manifold,
-                        &manifold_id,
-                        MaterializerRageUploadData::State,
-                    )
-                });
-            let materializer_fsck =
-                RageSection::get("Materializer fsck".to_owned(), timeout, || {
-                    materializer::upload_materializer_data(
-                        buckd.clone(),
-                        &client_ctx,
-                        &manifold,
-                        &manifold_id,
-                        MaterializerRageUploadData::Fsck,
-                    )
-                });
-            let event_log_command = {
-                let title = "Event log upload".to_owned();
-                match selected_invocation.as_ref() {
-                    None => RageSection::get_skipped(title),
-                    Some(path) => RageSection::get(title, timeout, || {
-                        upload_event_logs(path, &manifold, &manifold_id)
-                    }),
-                }
-            };
-            let re_logs_command = {
-                let title = "RE logs upload".to_owned();
-                let re_session_id = build_info.get_field(|o| o.re_session_id.clone());
-                match re_session_id {
-                    None => RageSection::get_skipped(title),
-                    Some(re_session_id) => RageSection::get(title, timeout, || {
-                        upload_re_logs_impl(&manifold, &re_logs_dir, re_session_id)
-                    }),
-                }
-            };
-
-            let (
-                system_info,
-                daemon_stderr_dump,
-                hg_snapshot_id,
-                dice_dump,
-                materializer_state,
-                materializer_fsck,
-                event_log_dump,
-                re_logs,
-            ) = tokio::join!(
-                system_info_command,
-                daemon_stderr_command,
-                hg_snapshot_id_command,
-                dice_dump_command,
-                materializer_state,
-                materializer_fsck,
-                event_log_command,
-                re_logs_command
-            );
-            let sections = vec![
-                system_info.to_string(),
-                daemon_stderr_dump.to_string(),
-                hg_snapshot_id.to_string(),
-                dice_dump.to_string(),
-                materializer_state.to_string(),
-                materializer_fsck.to_string(),
-                thread_dump.to_string(),
-                build_info.to_string(),
-                event_log_dump.to_string(),
-                re_logs.to_string(),
-            ];
-            output_rage(self.no_paste, &sections.join("")).await?;
-
-            self.send_to_scuba(
-                &rage_id,
-                sink,
-                invocation_id,
-                system_info,
-                daemon_stderr_dump,
-                hg_snapshot_id,
-                dice_dump,
-                materializer_state,
-                materializer_fsck,
-                thread_dump,
-                event_log_dump,
-                build_info,
-                re_logs,
-            )
-            .await?;
+        ctx.with_runtime(async move |ctx| {
+            self.exec_impl(ctx).await?;
             ExitResult::success()
         })
+    }
+
+    async fn exec_impl(self, mut ctx: ClientCommandContext<'_>) -> anyhow::Result<()> {
+        let paths = ctx.paths.as_ref().map_err(|e| e.dupe())?;
+        let daemon_dir = paths.daemon_dir()?;
+        let stderr_path = daemon_dir.buckd_stderr();
+        let re_logs_dir = ctx.paths()?.re_logs_dir();
+        let logdir = paths.log_dir();
+        let dice_dump_dir = paths.dice_dump_dir();
+
+        let client_ctx = ctx.empty_client_context("rage")?;
+
+        // Don't fail the rage if you can't figure out whether to do vpnless.
+        let manifold = ManifoldClient::new(ctx.allow_vpnless_for_logging().unwrap_or_default())?;
+
+        let rage_id = TraceId::new();
+        let mut manifold_id = format!("{}", rage_id);
+        let sink = create_scribe_sink(&ctx)?;
+
+        buck2_client_ctx::eprintln!(
+            "Data collection will terminate after {} seconds (override with --timeout param)",
+            self.timeout
+        )?;
+
+        // If there is a daemon, start connecting.
+        let info = BuckdProcessInfo::load(&daemon_dir).shared_error();
+
+        let buckd = match &info {
+            Ok(info) => async {
+                info.create_channel()
+                    .await
+                    .shared_error()?
+                    .upgrade()
+                    .await
+                    .shared_error()
+            }
+            .boxed(),
+            Err(e) => futures::future::ready(Err(e.dupe())).boxed(),
+        }
+        .shared();
+
+        let selected_invocation = maybe_select_invocation(ctx.stdin(), &logdir, &self).await?;
+        let invocation_id = get_trace_id(&selected_invocation).await?;
+        if let Some(ref invocation_id) = invocation_id {
+            manifold_id = format!("{}_{}", invocation_id, manifold_id);
+        }
+
+        buck2_client_ctx::eprintln!("Collecting debug info...")?;
+
+        let thread_dump = self.section("Thread dump", || {
+            thread_dump::upload_thread_dump(&info, &manifold, &manifold_id)
+        });
+        let build_info_command = self.skippable_section(
+            "Associated invocation info",
+            selected_invocation
+                .as_ref()
+                .map(|inv| || build_info::get(inv)),
+        );
+
+        let (thread_dump, build_info) = tokio::join!(
+            // Get thread dump before making any new connections to daemon (T159606309)
+            thread_dump,
+            // We need the RE session ID from here to upload RE logs
+            build_info_command
+        );
+
+        let system_info_command = self.section("System info", system_info::get);
+        let daemon_stderr_command = self.section("Daemon stderr", || {
+            upload_daemon_stderr(stderr_path, &manifold, &manifold_id)
+        });
+        let hg_snapshot_id_command = self.section("Source control", source_control::get_info);
+        let dice_dump_command = self.section("Dice dump", || async {
+            dice::upload_dice_dump(buckd.clone().await?, dice_dump_dir, &manifold, &manifold_id)
+                .await
+        });
+        let materializer_state = self.section("Materializer state", || {
+            materializer::upload_materializer_data(
+                buckd.clone(),
+                &client_ctx,
+                &manifold,
+                &manifold_id,
+                MaterializerRageUploadData::State,
+            )
+        });
+        let materializer_fsck = self.section("Materializer fsck", || {
+            materializer::upload_materializer_data(
+                buckd.clone(),
+                &client_ctx,
+                &manifold,
+                &manifold_id,
+                MaterializerRageUploadData::Fsck,
+            )
+        });
+        let event_log_command = self.skippable_section(
+            "Event log upload",
+            selected_invocation
+                .as_ref()
+                .map(|path| || upload_event_logs(path, &manifold, &manifold_id)),
+        );
+
+        let re_logs_command = self.skippable_section(
+            "RE logs upload",
+            build_info
+                .get_field(|o| o.re_session_id.clone())
+                .map(|id| || upload_re_logs_impl(&manifold, &re_logs_dir, id)),
+        );
+
+        let (
+            system_info,
+            daemon_stderr_dump,
+            hg_snapshot_id,
+            dice_dump,
+            materializer_state,
+            materializer_fsck,
+            event_log_dump,
+            re_logs,
+        ) = tokio::join!(
+            system_info_command,
+            daemon_stderr_command,
+            hg_snapshot_id_command,
+            dice_dump_command,
+            materializer_state,
+            materializer_fsck,
+            event_log_command,
+            re_logs_command
+        );
+        let sections = vec![
+            build_info.to_string(),
+            system_info.to_string(),
+            daemon_stderr_dump.to_string(),
+            hg_snapshot_id.to_string(),
+            dice_dump.to_string(),
+            materializer_state.to_string(),
+            materializer_fsck.to_string(),
+            thread_dump.to_string(),
+            event_log_dump.to_string(),
+            re_logs.to_string(),
+        ];
+        output_rage(self.no_paste, &sections.join("")).await?;
+
+        self.send_to_scuba(
+            &rage_id,
+            sink,
+            invocation_id,
+            system_info,
+            daemon_stderr_dump,
+            hg_snapshot_id,
+            dice_dump,
+            materializer_state,
+            materializer_fsck,
+            thread_dump,
+            event_log_dump,
+            build_info,
+            re_logs,
+        )
+        .await?;
+        Ok(())
     }
 
     async fn send_to_scuba(
@@ -454,6 +450,32 @@ impl RageCommand {
         .await
     }
 
+    fn section<'a, Fut, T>(
+        &'a self,
+        title: &'a str,
+        command: impl FnOnce() -> Fut,
+    ) -> LocalBoxFuture<RageSection<T>>
+    where
+        Fut: Future<Output = anyhow::Result<T>> + 'a,
+        T: std::fmt::Display + 'a,
+    {
+        let timeout = Duration::from_secs(self.timeout);
+        RageSection::get(title, timeout, command)
+    }
+
+    fn skippable_section<'a, Fut, T>(
+        &'a self,
+        title: &'a str,
+        command: Option<impl FnOnce() -> Fut>,
+    ) -> LocalBoxFuture<RageSection<T>>
+    where
+        Fut: Future<Output = anyhow::Result<T>> + 'a,
+        T: std::fmt::Display + 'a,
+    {
+        let timeout = Duration::from_secs(self.timeout);
+        RageSection::get_skippable(title, timeout, command)
+    }
+
     pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
         argv.no_need_to_sanitize()
     }
@@ -492,7 +514,7 @@ async fn upload_re_logs_impl(
     upload_re_logs::upload_re_logs(manifold, bucket, re_logs_dir, &re_session_id, &filename)
         .await?;
 
-    Ok(manifold_url(&bucket, filename))
+    Ok(manifold_leads(&bucket, filename))
 }
 
 async fn dispatch_result_event(

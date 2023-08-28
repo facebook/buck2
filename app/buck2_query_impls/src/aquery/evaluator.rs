@@ -18,6 +18,7 @@ use dice::DiceComputations;
 use dupe::Dupe;
 
 use crate::analysis::evaluator::eval_query;
+use crate::aquery::environment::AqueryDelegate;
 use crate::aquery::environment::AqueryEnvironment;
 use crate::aquery::functions::aquery_functions;
 use crate::dice::aquery::DiceAqueryDelegate;
@@ -37,8 +38,12 @@ impl AqueryEvaluator<'_> {
         let functions = aquery_functions();
 
         eval_query(&functions, query, query_args, async move |literals| {
-            let resolved_literals =
-                PreresolvedQueryLiterals::pre_resolve(&*self.dice_query_delegate, &literals).await;
+            let resolved_literals = PreresolvedQueryLiterals::pre_resolve(
+                &**self.dice_query_delegate.query_data(),
+                &literals,
+                self.dice_query_delegate.ctx(),
+            )
+            .await;
             Ok(AqueryEnvironment::new(
                 self.dice_query_delegate.dupe(),
                 Arc::new(resolved_literals),

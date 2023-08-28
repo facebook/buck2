@@ -43,6 +43,7 @@ use starlark::starlark_simple_value;
 use starlark::typing::Ty;
 use starlark::values::dict::DictOf;
 use starlark::values::starlark_value;
+use starlark::values::typing::StarlarkCallable;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
@@ -78,6 +79,8 @@ struct RuleCallable<'v> {
     implementation: Value<'v>,
     // Field Name -> Attribute
     attributes: AttributeSpec,
+    /// Type for the typechecker.
+    ty: Ty,
     /// When specified, this transition will be applied to the target before configuring it.
     cfg: Option<Arc<TransitionId>>,
     /// The plugins that are used by these targets
@@ -122,6 +125,93 @@ impl<'v> AllocValue<'v> for RuleCallable<'v> {
     }
 }
 
+impl<'v> RuleCallable<'v> {
+    fn new(
+        implementation: StarlarkCallable<'v>,
+        attrs: DictOf<'v, &'v str, &'v AttributeAsStarlarkValue>,
+        cfg: Option<Value>,
+        doc: &str,
+        is_configuration_rule: bool,
+        is_toolchain_rule: bool,
+        uses_plugins: Vec<Value<'v>>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<RuleCallable<'v>> {
+        // TODO(nmj): Add default attributes in here like 'name', 'visibility', etc
+        // TODO(nmj): Verify that names are valid. This is technically handled by the Params
+        //                 objects, but will blow up in a friendlier way here.
+
+        let build_context = BuildContext::from_context(eval)?;
+        let bzl_path: ImportPath = match &build_context.additional {
+            PerFileTypeContext::Bzl(bzl_path) => bzl_path.bzl_path.clone(),
+            _ => return Err(RuleError::RuleNonInBzl.into()),
+        };
+        let sorted_validated_attrs = attrs
+            .to_dict()
+            .into_iter()
+            .sorted_by(|(k1, _), (k2, _)| Ord::cmp(k1, k2))
+            .map(|(name, value)| {
+                if name == NAME_ATTRIBUTE_FIELD {
+                    Err(RuleError::InvalidParameterName(NAME_ATTRIBUTE_FIELD.to_owned()).into())
+                } else {
+                    Ok((name.to_owned(), value.clone_attribute()))
+                }
+            })
+            .collect::<anyhow::Result<Vec<(String, Attribute)>>>()?;
+
+        let cfg = cfg.try_map(transition_id_from_value)?;
+        let uses_plugins = uses_plugins
+            .into_iter()
+            .map(plugin_kind_from_value)
+            .collect::<anyhow::Result<_>>()?;
+
+        let rule_kind = match (is_configuration_rule, is_toolchain_rule) {
+            (false, false) => RuleKind::Normal,
+            (true, false) => RuleKind::Configuration,
+            (false, true) => RuleKind::Toolchain,
+            (true, true) => return Err(RuleError::IsConfigurationAndToolchain.into()),
+        };
+
+        let attributes = AttributeSpec::from(sorted_validated_attrs)?;
+        let ty = Ty::ty_function(attributes.ty_function());
+
+        Ok(RuleCallable {
+            import_path: bzl_path,
+            id: RefCell::new(None),
+            implementation: implementation.0,
+            attributes,
+            ty,
+            cfg,
+            rule_kind,
+            uses_plugins,
+            docs: Some(doc.to_owned()),
+            ignore_attrs_for_profiling: build_context.ignore_attrs_for_profiling,
+        })
+    }
+
+    fn documentation_impl(&self) -> DocItem {
+        let name = self
+            .id
+            .borrow()
+            .as_ref()
+            .map_or_else(|| "unbound_rule".to_owned(), |rt| rt.name.clone());
+        // TODO(nmj): These return 'None' for default values right now. It's going to take some
+        //            refactoring to get that pulled out of the attributespec
+        let parameters_spec = self.attributes.signature(name);
+
+        let parameter_types = self.attributes.starlark_types();
+        let parameter_docs = self.attributes.docstrings();
+        let function_docs = DocFunction::from_docstring(
+            DocStringKind::Starlark,
+            parameters_spec.documentation(parameter_types, parameter_docs),
+            Ty::none(),
+            self.docs.as_deref(),
+            None,
+        );
+
+        DocItem::Function(function_docs)
+    }
+}
+
 #[starlark_value(type = "rule")]
 impl<'v> StarlarkValue<'v> for RuleCallable<'v> {
     fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
@@ -141,31 +231,11 @@ impl<'v> StarlarkValue<'v> for RuleCallable<'v> {
     }
 
     fn documentation(&self) -> Option<DocItem> {
-        let name = self
-            .id
-            .borrow()
-            .as_ref()
-            .map_or_else(|| "unbound_rule".to_owned(), |rt| rt.name.clone());
-        // TODO(nmj): These return 'None' for default values right now. It's going to take some
-        //            refactoring to get that pulled out of the attributespec
-        let parameters_spec = self.attributes.signature(name);
+        Some(self.documentation_impl())
+    }
 
-        let parameter_types = self
-            .attributes
-            .starlark_types()
-            .into_iter()
-            .enumerate()
-            .collect();
-        let parameter_docs = self.attributes.docstrings();
-        let function_docs = DocFunction::from_docstring(
-            DocStringKind::Starlark,
-            parameters_spec.documentation(parameter_types, parameter_docs),
-            Ty::none(),
-            self.docs.as_deref(),
-            None,
-        );
-
-        Some(DocItem::Function(function_docs))
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(self.ty.clone())
     }
 }
 
@@ -173,7 +243,7 @@ impl<'v> Freeze for RuleCallable<'v> {
     type Frozen = FrozenRuleCallable;
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         let frozen_impl = self.implementation.freeze(freezer)?;
-        let rule_docs = self.documentation();
+        let rule_docs = self.documentation_impl();
         let id = match self.id.into_inner() {
             Some(x) => x,
             None => return Err(RuleError::RuleNotAssigned(self.import_path).into()),
@@ -194,6 +264,7 @@ impl<'v> Freeze for RuleCallable<'v> {
             implementation: frozen_impl,
             signature,
             rule_docs,
+            ty: self.ty,
             ignore_attrs_for_profiling: self.ignore_attrs_for_profiling,
         })
     }
@@ -207,7 +278,8 @@ pub struct FrozenRuleCallable {
     rule_type: Arc<StarlarkRuleType>,
     implementation: FrozenValue,
     signature: ParametersSpec<FrozenValue>,
-    rule_docs: Option<DocItem>,
+    rule_docs: DocItem,
+    ty: Ty,
     ignore_attrs_for_profiling: bool,
 }
 starlark_simple_value!(FrozenRuleCallable);
@@ -271,7 +343,11 @@ impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
     }
 
     fn documentation(&self) -> Option<DocItem> {
-        self.rule_docs.clone()
+        Some(self.rule_docs.clone())
+    }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(self.ty.clone())
     }
 }
 
@@ -290,7 +366,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
     /// })
     /// ```
     fn rule<'v>(
-        #[starlark(require = named)] r#impl: Value<'v>,
+        #[starlark(require = named)] r#impl: StarlarkCallable<'v>,
         #[starlark(require = named)] attrs: DictOf<'v, &'v str, &'v AttributeAsStarlarkValue>,
         #[starlark(require = named)] cfg: Option<Value>,
         #[starlark(require = named, default = "")] doc: &str,
@@ -299,53 +375,15 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
         #[starlark(require = named, default = Vec::new())] uses_plugins: Vec<Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<RuleCallable<'v>> {
-        // TODO(nmj): Add default attributes in here like 'name', 'visibility', etc
-        // TODO(nmj): Verify that names are valid. This is technically handled by the Params
-        //                 objects, but will blow up in a friendlier way here.
-
-        let implementation = r#impl;
-
-        let build_context = BuildContext::from_context(eval)?;
-        let bzl_path: ImportPath = match &build_context.additional {
-            PerFileTypeContext::Bzl(bzl_path) => bzl_path.bzl_path.clone(),
-            _ => return Err(RuleError::RuleNonInBzl.into()),
-        };
-        let sorted_validated_attrs = attrs
-            .to_dict()
-            .into_iter()
-            .sorted_by(|(k1, _), (k2, _)| Ord::cmp(k1, k2))
-            .map(|(name, value)| {
-                if name == NAME_ATTRIBUTE_FIELD {
-                    Err(RuleError::InvalidParameterName(NAME_ATTRIBUTE_FIELD.to_owned()).into())
-                } else {
-                    Ok((name.to_owned(), value.clone_attribute()))
-                }
-            })
-            .collect::<anyhow::Result<Vec<(String, Attribute)>>>()?;
-
-        let cfg = cfg.try_map(transition_id_from_value)?;
-        let uses_plugins = uses_plugins
-            .into_iter()
-            .map(plugin_kind_from_value)
-            .collect::<anyhow::Result<_>>()?;
-
-        let rule_kind = match (is_configuration_rule, is_toolchain_rule) {
-            (false, false) => RuleKind::Normal,
-            (true, false) => RuleKind::Configuration,
-            (false, true) => RuleKind::Toolchain,
-            (true, true) => return Err(RuleError::IsConfigurationAndToolchain.into()),
-        };
-
-        Ok(RuleCallable {
-            import_path: bzl_path,
-            id: RefCell::new(None),
-            implementation,
-            attributes: AttributeSpec::from(sorted_validated_attrs)?,
+        RuleCallable::new(
+            r#impl,
+            attrs,
             cfg,
-            rule_kind,
+            doc,
+            is_configuration_rule,
+            is_toolchain_rule,
             uses_plugins,
-            docs: Some(doc.to_owned()),
-            ignore_attrs_for_profiling: build_context.ignore_attrs_for_profiling,
-        })
+            eval,
+        )
     }
 }

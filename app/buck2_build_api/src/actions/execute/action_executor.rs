@@ -264,7 +264,7 @@ impl HasActionExecutor for DiceComputations {
                 artifact_fs,
                 executor_config.options,
                 platform,
-                run_action_knobs.enforce_re_timeouts,
+                run_action_knobs.respect_exec_bit_on_re,
             ),
             blocking_executor,
             materializer,
@@ -433,6 +433,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             did_dep_file_cache_upload,
             dep_file_key,
             eligible_for_full_hybrid,
+            dep_file_metadata: _,
         } = result;
         // TODO (@torozco): The execution kind should be made to come via the command reports too.
         let res = match &report.status {
@@ -711,7 +712,7 @@ mod tests {
     use buck2_execute::execute::clean_output_paths::cleanup_path;
     use buck2_execute::execute::command_executor::ActionExecutionTimingData;
     use buck2_execute::execute::command_executor::CommandExecutor;
-    use buck2_execute::execute::prepared::NoOpCommandExecutor;
+    use buck2_execute::execute::prepared::NoOpCommandOptionalExecutor;
     use buck2_execute::execute::request::CommandExecutionInput;
     use buck2_execute::execute::request::CommandExecutionOutput;
     use buck2_execute::execute::request::CommandExecutionPaths;
@@ -763,7 +764,7 @@ mod tests {
         let executor = BuckActionExecutor::new(
             CommandExecutor::new(
                 Arc::new(DryRunExecutor::new(tracker, artifact_fs.clone())),
-                Arc::new(NoOpCommandExecutor {}),
+                Arc::new(NoOpCommandOptionalExecutor {}),
                 Arc::new(NoOpCacheUploader {}),
                 artifact_fs,
                 CommandGenerationOptions {
@@ -771,7 +772,7 @@ mod tests {
                     output_paths_behavior: Default::default(),
                 },
                 Default::default(),
-                false,
+                Default::default(),
             ),
             Arc::new(DummyBlockingExecutor {
                 fs: project_fs.dupe(),

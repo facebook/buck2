@@ -16,11 +16,11 @@ use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use dupe::IterDupedExt;
 use gazebo::prelude::SliceExt;
-use starlark::typing::Ty;
 use starlark::values::list::ListRef;
 use starlark::values::tuple::TupleRef;
 use starlark::values::Value;
 
+use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::attr_type::AttrTypeExt;
 use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
@@ -64,7 +64,7 @@ impl AttrTypeCoerce for TupleAttrType {
         }
     }
 
-    fn starlark_type(&self) -> Ty {
-        Ty::tuple(self.xs.map(|x| x.starlark_type()))
+    fn starlark_type(&self) -> TyMaybeSelect {
+        TyMaybeSelect::Tuple(self.xs.map(|x| x.starlark_type()))
     }
 }

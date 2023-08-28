@@ -174,7 +174,7 @@
 //! use starlark::syntax::{AstModule, Dialect, DialectTypes};
 //!
 //! let content = r#"
-//! def takes_int(x: int.type):
+//! def takes_int(x: int):
 //!     pass
 //! takes_int("test")
 //! "#;
@@ -245,7 +245,7 @@
 //! }
 //!
 //! let ab = get_module("ab.star")?;
-//! assert_eq!(ab.get("ab").unwrap().unpack_int(), Some(42));
+//! assert_eq!(ab.get("ab").unwrap().unpack_i32(), Some(42));
 //! # Ok(())
 //! # }
 //! # fn main(){ run().unwrap(); }
@@ -388,12 +388,12 @@ mod macros;
 
 pub use starlark_derive::starlark_module;
 pub use starlark_derive::StarlarkDocs;
+pub use starlark_syntax::codemap;
 pub use stdlib::PrintHandler;
 
 pub mod analysis;
 pub mod any;
 pub mod assert;
-pub mod codemap;
 pub mod collections;
 pub mod debug;
 pub mod docs;

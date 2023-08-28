@@ -5,8 +5,9 @@
 # ```
 
 Code:
-x = []
-x.append(x)
+def test():
+    x = []
+    x.append(x)
 
 No errors.
 
@@ -15,3 +16,6 @@ Approximation: Fixed point didn't converge = "100"
 
 Types:
 x: list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[list[typing.Never]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+Compiler typechecker (eval):
+No errors.

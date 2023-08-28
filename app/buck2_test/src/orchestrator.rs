@@ -76,7 +76,7 @@ use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
-use buck2_execute::execute::prepared::NoOpCommandExecutor;
+use buck2_execute::execute::prepared::NoOpCommandOptionalExecutor;
 use buck2_execute::execute::prepared::PreparedCommand;
 use buck2_execute::execute::request::CommandExecutionInput;
 use buck2_execute::execute::request::CommandExecutionOutput;
@@ -598,6 +598,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             did_dep_file_cache_upload: _,
             dep_file_key: _,
             eligible_for_full_hybrid: _,
+            dep_file_metadata: _,
         } = match metadata {
             DisplayMetadata::Listing(listing) => {
                 let start = TestDiscoveryStart {
@@ -707,12 +708,12 @@ impl<'b> BuckTestOrchestrator<'b> {
         let executor = CommandExecutor::new(
             executor,
             // Caching is not enabled for tests yet. Use the NoOp
-            Arc::new(NoOpCommandExecutor {}),
+            Arc::new(NoOpCommandOptionalExecutor {}),
             Arc::new(NoOpCacheUploader {}),
             fs.clone(),
             executor_config.options,
             platform,
-            run_action_knobs.enforce_re_timeouts,
+            run_action_knobs.respect_exec_bit_on_re,
         );
         Ok(executor)
     }
@@ -734,12 +735,12 @@ impl<'b> BuckTestOrchestrator<'b> {
         let run_action_knobs = self.dice.per_transaction_data().get_run_action_knobs();
         let executor = CommandExecutor::new(
             executor,
-            Arc::new(NoOpCommandExecutor {}),
+            Arc::new(NoOpCommandOptionalExecutor {}),
             Arc::new(NoOpCacheUploader {}),
             fs.clone(),
             executor_config.options,
             platform,
-            run_action_knobs.enforce_re_timeouts,
+            run_action_knobs.respect_exec_bit_on_re,
         );
         Ok(executor)
     }
@@ -1047,6 +1048,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             did_dep_file_cache_upload: _,
             dep_file_key: _,
             eligible_for_full_hybrid: _,
+            dep_file_metadata: _,
         } = execution_result;
 
         let std_streams = std_streams

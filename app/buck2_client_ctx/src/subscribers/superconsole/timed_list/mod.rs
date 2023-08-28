@@ -401,7 +401,7 @@ mod tests {
         let mut state = SuperConsoleState::new(
             None,
             TraceId::null(),
-            Verbosity::Default,
+            Verbosity::default(),
             false,
             timed_list_state,
         )
@@ -579,7 +579,7 @@ mod tests {
         let mut state = SuperConsoleState::new(
             None,
             TraceId::null(),
-            Verbosity::Default,
+            Verbosity::default(),
             false,
             SuperConsoleConfig {
                 max_lines: 2,

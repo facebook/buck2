@@ -12,7 +12,6 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::bzl::ImportPath;
-use buck2_util::collections::ordered_map::OrderedMap;
 use derivative::Derivative;
 use dupe::Dupe;
 use either::Either;
@@ -21,6 +20,7 @@ use starlark::environment::FrozenModule;
 use starlark::eval::FileLoader;
 use starlark::values::structs::FrozenStructRef;
 use starlark::values::FrozenValue;
+use starlark_map::ordered_map::OrderedMap;
 
 use crate::paths::module::OwnedStarlarkModulePath;
 use crate::paths::module::StarlarkModulePath;

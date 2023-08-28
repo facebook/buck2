@@ -25,11 +25,8 @@ pub struct RunActionKnobs {
     /// builds.
     pub use_network_action_output_cache: bool,
 
-    /// Whether to enforce timeouts when running things on RE.
-    pub enforce_re_timeouts: bool,
-
-    /// Whether to expose a relative scratch path to actions.
-    pub expose_action_scratch_path: bool,
+    /// Whether to tell RE to respect executable bits on inputs.
+    pub respect_exec_bit_on_re: bool,
 }
 
 pub trait HasRunActionKnobs {

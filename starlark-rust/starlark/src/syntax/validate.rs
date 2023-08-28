@@ -22,7 +22,7 @@ use std::collections::HashSet;
 use thiserror::Error;
 
 use crate::codemap::CodeMap;
-use crate::eval::compiler::EvalException;
+use crate::eval::compiler::eval_exception::EvalException;
 use crate::syntax::ast::Argument;
 use crate::syntax::ast::AstArgument;
 use crate::syntax::ast::AstExpr;

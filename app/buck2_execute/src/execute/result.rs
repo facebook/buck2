@@ -14,6 +14,7 @@ use std::ops::FromResidual;
 use std::time::Duration;
 use std::time::SystemTime;
 
+use buck2_action_metadata_proto::RemoteDepFile;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use dupe::Dupe;
 use indexmap::IndexMap;
@@ -130,6 +131,10 @@ pub struct CommandExecutionResult {
     pub dep_file_key: Option<String>,
     /// Whether this command was eligible for hybrid execution.
     pub eligible_for_full_hybrid: bool,
+    /// Execution metadata used for remote dep file lookups.
+    /// This is picked up from the action result's auxiliary metadata and
+    /// is used to verify the dep file cache lookup result
+    pub dep_file_metadata: Option<RemoteDepFile>,
 }
 
 impl CommandExecutionResult {
@@ -139,6 +144,13 @@ impl CommandExecutionResult {
             .values()
             .map(|v| v.calc_output_count_and_bytes().bytes)
             .sum()
+    }
+
+    pub fn was_success(&self) -> bool {
+        match self.report.status {
+            CommandExecutionStatus::Success { .. } => true,
+            _ => false,
+        }
     }
 
     pub fn was_locally_executed(&self) -> bool {

@@ -23,7 +23,6 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_events::dispatch::span_async;
-use buck2_util::collections::ordered_set::OrderedSet;
 use dice::DiceTransactionUpdater;
 use dupe::Dupe;
 use notify::event::CreateKind;
@@ -33,6 +32,7 @@ use notify::event::RemoveKind;
 use notify::EventKind;
 use notify::RecommendedWatcher;
 use notify::Watcher;
+use starlark_map::ordered_set::OrderedSet;
 use tracing::info;
 
 use crate::file_watcher::FileWatcher;

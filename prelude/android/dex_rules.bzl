@@ -123,7 +123,7 @@ def get_single_primary_dex(
 def get_multi_dex(
         ctx: AnalysisContext,
         android_toolchain: AndroidToolchainInfo.type,
-        java_library_jars_to_owners: dict[Artifact, "target_label"],
+        java_library_jars_to_owners: dict[Artifact, TargetLabel],
         primary_dex_patterns: list[str],
         proguard_configuration_output_file: [Artifact, None] = None,
         proguard_mapping_output_file: [Artifact, None] = None,
@@ -235,7 +235,7 @@ def get_multi_dex(
 def _get_primary_dex_and_secondary_dex_jars(
         ctx: AnalysisContext,
         jars: list[Artifact],
-        java_library_jars_to_owners: dict[Artifact, "target_label"],
+        java_library_jars_to_owners: dict[Artifact, TargetLabel],
         primary_dex_patterns_file: Artifact,
         proguard_configuration_output_file: [Artifact, None],
         proguard_mapping_output_file: [Artifact, None],

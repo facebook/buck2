@@ -20,8 +20,10 @@ use starlark::typing::Ty;
 use starlark::values::dict::DictRef;
 use starlark::values::list::ListRef;
 use starlark::values::tuple::TupleRef;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 
+use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::AttrTypeCoerce;
 
 #[derive(Debug, thiserror::Error)]
@@ -35,7 +37,7 @@ fn to_literal(value: Value, ctx: &dyn AttrCoercionContext) -> anyhow::Result<Coe
         Ok(CoercedAttr::None)
     } else if let Some(x) = value.unpack_bool() {
         Ok(CoercedAttr::Bool(BoolLiteral(x)))
-    } else if let Some(x) = value.unpack_i32() {
+    } else if let Some(x) = i64::unpack_value(value) {
         Ok(CoercedAttr::Int(x))
     } else if let Some(x) = DictRef::from_value(value) {
         Ok(CoercedAttr::Dict(
@@ -82,7 +84,7 @@ impl AttrTypeCoerce for AnyAttrType {
         to_literal(value, ctx)
     }
 
-    fn starlark_type(&self) -> Ty {
-        Ty::any()
+    fn starlark_type(&self) -> TyMaybeSelect {
+        TyMaybeSelect::Basic(Ty::any())
     }
 }

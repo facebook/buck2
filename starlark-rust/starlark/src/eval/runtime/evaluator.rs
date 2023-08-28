@@ -45,7 +45,7 @@ use crate::eval::compiler::def::CopySlotFromParent;
 use crate::eval::compiler::def::Def;
 use crate::eval::compiler::def::DefInfo;
 use crate::eval::compiler::def::FrozenDef;
-use crate::eval::compiler::EvalException;
+use crate::eval::compiler::eval_exception::EvalException;
 use crate::eval::runtime::before_stmt::BeforeStmt;
 use crate::eval::runtime::before_stmt::BeforeStmtFunc;
 use crate::eval::runtime::call_stack::CheapCallStack;

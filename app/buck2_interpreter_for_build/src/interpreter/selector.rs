@@ -32,9 +32,10 @@ use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::StarlarkDocs;
 
 /// Representation of `select()` in Starlark.
-#[derive(Debug, ProvidesStaticType, NoSerialize, Allocative)] // TODO selector should probably support serializing
+#[derive(Debug, ProvidesStaticType, NoSerialize, StarlarkDocs, Allocative)] // TODO selector should probably support serializing
 #[repr(C)]
 pub enum StarlarkSelectorGen<ValueType> {
     Inner(ValueType),
@@ -77,18 +78,6 @@ impl<'v> StarlarkSelector<'v> {
         Ok(left.to_repr() == right.to_repr())
     }
 
-    /// Maps a selector.
-    ///
-    /// Each value within a selector map and on each side of an addition will be passed to the
-    /// mapping function. The returned selector will have the same structure as this one.
-    ///
-    /// Ex:
-    /// ```starlark
-    /// def increment_items(a):
-    ///     return [v + 1 for v in a]
-    ///
-    /// select_map([1, 2] + select({"c": [2]}}, increment_items) == [2, 3] + select({"c": [3]})
-    /// ```
     fn select_map<'a>(
         val: Value<'a>,
         eval: &mut Evaluator<'a, '_>,
@@ -126,17 +115,6 @@ impl<'v> StarlarkSelector<'v> {
         }
     }
 
-    /// Test values in the select expression using the given function.
-    ///
-    /// Returns True, if any value in the select passes, else False.
-    ///
-    /// Ex:
-    /// ```starlark
-    /// select_test([1] + select({"c": [1]}), lambda a: len(a) > 1) == False
-    /// select_test([1, 2] + select({"c": [1]}), lambda a: len(a) > 1) == True
-    /// select_test([1] + select({"c": [1, 2]}), lambda a: len(a) > 1) == True
-    /// ```
-    ///
     fn select_test<'a>(
         val: Value<'a>,
         eval: &mut Evaluator<'a, '_>,
@@ -255,7 +233,18 @@ pub fn register_select(globals: &mut GlobalsBuilder) {
         Ok(StarlarkSelector::new(d))
     }
 
-    /// Applies a mapping function to a selector. See [StarlarkSelector::select_map].
+    /// Maps a selector.
+    ///
+    /// Each value within a selector map and on each side of an addition will be passed to the
+    /// mapping function. The returned selector will have the same structure as this one.
+    ///
+    /// Ex:
+    /// ```starlark
+    /// def increment_items(a):
+    ///     return [v + 1 for v in a]
+    ///
+    /// select_map([1, 2] + select({"c": [2]}}, increment_items) == [2, 3] + select({"c": [3]})
+    /// ```
     fn select_map<'v>(
         #[starlark(require = pos)] d: Value<'v>,
         #[starlark(require = pos)] func: Value<'v>,
@@ -264,7 +253,16 @@ pub fn register_select(globals: &mut GlobalsBuilder) {
         StarlarkSelector::select_map(d, eval, func)
     }
 
-    /// Applies a test function to a selector. See [StarlarkSelector::select_test].
+    /// Test values in the select expression using the given function.
+    ///
+    /// Returns True, if any value in the select passes, else False.
+    ///
+    /// Ex:
+    /// ```starlark
+    /// select_test([1] + select({"c": [1]}), lambda a: len(a) > 1) == False
+    /// select_test([1, 2] + select({"c": [1]}), lambda a: len(a) > 1) == True
+    /// select_test([1] + select({"c": [1, 2]}), lambda a: len(a) > 1) == True
+    /// ```
     fn select_test<'v>(
         #[starlark(require = pos)] d: Value<'v>,
         #[starlark(require = pos)] func: Value<'v>,

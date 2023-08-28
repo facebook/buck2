@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CxxCompilerInfo", "CxxObjectFormat", "CxxPlatformInfo", "CxxToolchainInfo", "LinkerInfo", "LinkerType", "PicBehavior", "StripFlagsInfo", "cxx_toolchain_infos")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CxxCompilerInfo", "CxxObjectFormat", "CxxPlatformInfo", "CxxToolchainInfo", "LinkerInfo", "LinkerType", "PicBehavior", "ShlibInterfacesMode", "StripFlagsInfo", "cxx_toolchain_infos")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode")
 load("@prelude//cxx:linker.bzl", "is_pdb_generated")
@@ -89,7 +89,7 @@ def _cxx_toolchain_override(ctx):
         linker_flags = _pick(ctx.attrs.linker_flags, base_linker_info.linker_flags),
         lto_mode = LtoMode(value_or(ctx.attrs.lto_mode, base_linker_info.lto_mode.value)),
         object_file_extension = base_linker_info.object_file_extension,
-        shlib_interfaces = base_linker_info.shlib_interfaces,
+        shlib_interfaces = value_or(ctx.attrs.shared_library_interface_mode, base_linker_info.shlib_interfaces),
         mk_shlib_intf = _pick_dep(ctx.attrs.mk_shlib_intf, base_linker_info.mk_shlib_intf),
         requires_archives = base_linker_info.requires_archives,
         requires_objects = base_linker_info.requires_objects,
@@ -105,6 +105,7 @@ def _cxx_toolchain_override(ctx):
         use_archiver_flags = value_or(ctx.attrs.use_archiver_flags, base_linker_info.use_archiver_flags),
         force_full_hybrid_if_capable = value_or(ctx.attrs.force_full_hybrid_if_capable, base_linker_info.force_full_hybrid_if_capable),
         is_pdb_generated = pdb_expected,
+        produce_interface_from_stub_shared_library = value_or(ctx.attrs.produce_interface_from_stub_shared_library, base_linker_info.produce_interface_from_stub_shared_library),
     )
 
     base_binary_utilities_info = base_toolchain.binary_utilities_info
@@ -199,7 +200,9 @@ def _cxx_toolchain_override_inheriting_target_platform_attrs(is_toolchain_rule):
         "pic_behavior": attrs.enum(PicBehavior.values(), default = "supported"),
         "platform_deps_aliases": attrs.option(attrs.list(attrs.string()), default = None),
         "platform_name": attrs.option(attrs.string(), default = None),
+        "produce_interface_from_stub_shared_library": attrs.option(attrs.bool(), default = None),
         "ranlib": attrs.option(dep_type(providers = [RunInfo]), default = None),
+        "shared_library_interface_mode": attrs.option(attrs.enum(ShlibInterfacesMode.values()), default = None),
         "shared_library_name_format": attrs.option(attrs.string(), default = None),
         "shared_library_versioned_name_format": attrs.option(attrs.string(), default = None),
         "split_debug_mode": attrs.option(attrs.enum(SplitDebugMode.values()), default = None),

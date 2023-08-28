@@ -161,7 +161,7 @@ def _deserialize_link_args(
 def deserialize_anon_attrs(
         actions: AnalysisActions,
         label: Label,
-        attrs: "struct") -> (str, CxxLinkResultType.type, LinkOptions.type):
+        attrs: struct) -> (str, CxxLinkResultType.type, LinkOptions.type):
     opts = link_options(
         links = [_deserialize_link_args(actions, label, link) for link in attrs.links],
         import_library = attrs.import_library,

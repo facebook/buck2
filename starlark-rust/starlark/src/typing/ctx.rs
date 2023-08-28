@@ -18,9 +18,10 @@
 use std::cell::RefCell;
 use std::fmt::Debug;
 
+use starlark_map::unordered_map::UnorderedMap;
+
 use crate::codemap::Span;
 use crate::codemap::Spanned;
-use crate::docs::DocMember;
 use crate::eval::compiler::scope::payload::CstArgument;
 use crate::eval::compiler::scope::payload::CstAssign;
 use crate::eval::compiler::scope::payload::CstExpr;
@@ -48,7 +49,6 @@ use crate::typing::oracle::traits::TypingBinOp;
 use crate::typing::oracle::traits::TypingUnOp;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
-use crate::typing::unordered_map::UnorderedMap;
 
 pub(crate) struct TypingContext<'a> {
     pub(crate) oracle: TypingOracleCtx<'a>,
@@ -104,8 +104,8 @@ impl TypingContext<'_> {
         self.result_to_ty(self.oracle.iter_item(Spanned { node: ty, span }))
     }
 
-    pub(crate) fn validate_type(&self, got: &Ty, require: &Ty, span: Span) {
-        if let Err(e) = self.oracle.validate_type(got, require, span) {
+    pub(crate) fn validate_type(&self, got: Spanned<&Ty>, require: &Ty) {
+        if let Err(e) = self.oracle.validate_type(got, require) {
             self.errors.borrow_mut().push(e);
         }
     }
@@ -152,7 +152,7 @@ impl TypingContext<'_> {
     pub(crate) fn expression_bind_type(&self, x: &BindExpr) -> Result<Ty, InternalError> {
         match x {
             BindExpr::Expr(x) => self.expression_type(x),
-            BindExpr::GetIndex(i, x) => Ok(self.expression_bind_type(x)?.indexed(*i)),
+            BindExpr::GetIndex(i, x) => Ok(self.oracle.indexed(&self.expression_bind_type(x)?, *i)),
             BindExpr::Iter(x) => Ok(self.from_iterated(&self.expression_bind_type(x)?, x.span())),
             BindExpr::AssignModify(lhs, op, rhs) => {
                 let span = lhs.span;
@@ -176,22 +176,21 @@ impl TypingContext<'_> {
                 )
             }
             BindExpr::SetIndex(id, index, e) => {
-                let span = index.span;
-                let index = self.expression_type(index)?;
+                let index = self.expression_type_spanned(index)?;
                 let e = self.expression_bind_type(e)?;
                 let mut res = Vec::new();
                 // We know about list and dict, everything else we just ignore
                 if self.types[id].is_list() {
                     // If we know it MUST be a list, then the index must be an int
-                    self.validate_type(&index, &Ty::int(), span);
+                    self.validate_type(index.as_ref(), &Ty::int());
                 }
                 for ty in self.types[id].iter_union() {
                     match ty {
                         TyBasic::List(_) => {
                             res.push(Ty::list(e.clone()));
                         }
-                        TyBasic::Dict(_) => {
-                            res.push(Ty::dict(index.clone(), e.clone()));
+                        TyBasic::Dict(..) => {
+                            res.push(Ty::dict(index.node.clone(), e.clone()));
                         }
                         _ => {
                             // Either it's not something we can apply this to, in which case do nothing.
@@ -300,18 +299,16 @@ impl TypingContext<'_> {
                 span: x.span,
                 node: match &**x {
                     ArgumentP::Positional(x) => Arg::Pos(self.expression_type(x)?),
-                    ArgumentP::Named(name, x) => {
-                        Arg::Name((**name).clone(), self.expression_type(x)?)
-                    }
+                    ArgumentP::Named(name, x) => Arg::Name(name.as_str(), self.expression_type(x)?),
                     ArgumentP::Args(x) => {
                         let ty = self.expression_type(x)?;
                         self.from_iterated(&ty, x.span);
                         Arg::Args(ty)
                     }
                     ArgumentP::KwArgs(x) => {
-                        let ty = self.expression_type(x)?;
-                        self.validate_type(&ty, &Ty::dict(Ty::string(), Ty::any()), x.span);
-                        Arg::Kwargs(ty)
+                        let ty = self.expression_type_spanned(x)?;
+                        self.validate_type(ty.as_ref(), &Ty::dict(Ty::string(), Ty::any()));
+                        Arg::Kwargs(ty.node)
                     }
                 },
             })
@@ -331,7 +328,7 @@ impl TypingContext<'_> {
         stride: Option<&CstExpr>,
     ) -> Result<Ty, InternalError> {
         for e in [start, stop, stride].iter().copied().flatten() {
-            self.validate_type(&self.expression_type(e)?, &Ty::int(), e.span);
+            self.validate_type(self.expression_type_spanned(e)?.as_ref(), &Ty::int());
         }
         Ok(self.result_to_ty(self.oracle.expr_slice(span, self.expression_type(x)?)))
     }
@@ -347,13 +344,7 @@ impl TypingContext<'_> {
                     Ty::any()
                 }
             }
-            Some(ResolvedIdent::Global(g)) => {
-                if let Some(t) = g.to_value().get_ref().typechecker_ty() {
-                    t
-                } else {
-                    Ty::from_docs_member(&DocMember::from_value(g.to_value()))
-                }
-            }
+            Some(ResolvedIdent::Global(g)) => Ty::of_value(g.to_value()),
             None => {
                 // All identifiers must be resolved at this point,
                 // but we don't stop after scope resolution error,

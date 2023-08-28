@@ -14,9 +14,9 @@ use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_util::arc_str::ArcS;
-use buck2_util::collections::sorted_set::SortedSet;
-use buck2_util::collections::sorted_vec::SortedVec;
 use dupe::Dupe;
+use starlark_map::sorted_set::SortedSet;
+use starlark_map::sorted_vec::SortedVec;
 
 use crate::package_listing::file_listing::PackageFileListing;
 
@@ -104,8 +104,8 @@ impl PackageListing {
 pub mod testing {
     use buck2_core::fs::paths::file_name::FileNameBuf;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
-    use buck2_util::collections::sorted_set::SortedSet;
-    use buck2_util::collections::sorted_vec::SortedVec;
+    use starlark_map::sorted_set::SortedSet;
+    use starlark_map::sorted_vec::SortedVec;
 
     use crate::package_listing::listing::PackageListing;
 

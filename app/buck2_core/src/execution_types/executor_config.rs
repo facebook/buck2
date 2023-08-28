@@ -15,12 +15,12 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_util::collections::sorted_map::SortedMap;
 use derive_more::Display;
 use dupe::Dupe;
 use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
 use once_cell::sync::Lazy;
+use starlark_map::sorted_map::SortedMap;
 
 #[derive(Debug, Default, Eq, Hash, PartialEq, Clone, Dupe, Allocative)]
 pub struct LocalExecutorOptions {
@@ -33,11 +33,11 @@ pub struct RemoteExecutorUseCase(Intern<String>);
 impl RemoteExecutorUseCase {
     pub fn new(use_case: String) -> Self {
         static USE_CASE_INTERNER: StaticInterner<String> = StaticInterner::new();
-        Self(USE_CASE_INTERNER.intern(&use_case))
+        Self(USE_CASE_INTERNER.intern(use_case))
     }
 
     pub fn as_str(&self) -> &'static str {
-        self.0.deref_static().as_str()
+        self.0.deref_static()
     }
 
     /// The "buck2-default" use case. This is meant to be used when no use case is configured. It's

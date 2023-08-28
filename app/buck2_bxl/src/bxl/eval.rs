@@ -43,7 +43,6 @@ use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
-use buck2_util::collections::ordered_map::OrderedMap;
 use clap::ErrorKind;
 use dashmap::DashMap;
 use dice::DiceComputations;
@@ -57,6 +56,7 @@ use starlark::values::structs::AllocStruct;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
+use starlark_map::ordered_map::OrderedMap;
 use thiserror::Error;
 
 use crate::bxl::key::BxlKey;
@@ -66,7 +66,7 @@ use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::context::BxlContext;
 
 pub(crate) async fn eval(
-    ctx: &DiceComputations,
+    ctx: &mut DiceComputations,
     key: BxlKey,
     profile_mode_or_instrumentation: StarlarkProfileModeOrInstrumentation,
     liveness: CancellationObserver,
@@ -128,15 +128,22 @@ pub(crate) async fn eval(
                         .buck_out_path_resolver()
                         .resolve_gen(&output_stream);
 
-                    let file = RefCell::new(Box::new(project_fs.create_file(&file_path, false)?));
+                    let file = RefCell::new(Box::new(
+                        project_fs
+                            .create_file(&file_path, false)
+                            .context("Failed to create output cache for BXL")?,
+                    ));
 
                     let error_stream = mk_stream_cache("error", &key);
                     let error_file_path = artifact_fs
                         .buck_out_path_resolver()
                         .resolve_gen(&error_stream);
 
-                    let error_file =
-                        RefCell::new(Box::new(project_fs.create_file(&error_file_path, false)?));
+                    let error_file = RefCell::new(Box::new(
+                        project_fs
+                            .create_file(&error_file_path, false)
+                            .context("Failed to create error cache for BXL")?,
+                    ));
 
                     let print = EventDispatcherPrintHandler(dispatcher.clone());
 
@@ -169,6 +176,8 @@ pub(crate) async fn eval(
                             let frozen_callable = get_bxl_callable(key.label(), &bxl_module)?;
                             eval.set_print_handler(&print);
 
+                            let bxl_dice = BxlSafeDiceComputations::new(ctx, liveness);
+
                             let bxl_ctx = BxlContext::new(
                                 eval.heap(),
                                 key,
@@ -178,7 +187,7 @@ pub(crate) async fn eval(
                                 artifact_fs,
                                 cell_resolver,
                                 bxl_cell.name(),
-                                BxlSafeDiceComputations::new(ctx, liveness),
+                                bxl_dice,
                                 file,
                                 error_file,
                                 digest_config,

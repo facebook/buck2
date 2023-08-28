@@ -15,21 +15,8 @@
  * limitations under the License.
  */
 
-use std::borrow::Borrow;
+//! Starlark AST.
 
-/// Values are equivalent for hashmap: hashes are equal and values are logically equal.
-pub trait Equivalent<K: ?Sized> {
-    /// Returns true if the values are logically equivalent.
-    fn equivalent(&self, key: &K) -> bool;
-}
+#![allow(clippy::len_without_is_empty)]
 
-impl<Q: ?Sized, K: ?Sized> Equivalent<K> for Q
-where
-    Q: Eq,
-    K: Borrow<Q>,
-{
-    #[inline]
-    fn equivalent(&self, key: &K) -> bool {
-        *self == *key.borrow()
-    }
-}
+pub mod codemap;

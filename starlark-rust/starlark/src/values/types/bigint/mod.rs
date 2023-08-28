@@ -195,11 +195,10 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
         }
     }
 
-    fn mul(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        match other.unpack_num() {
-            Some(other) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Big(self)) * other)),
-            None => ValueError::unsupported_with(self, "*", other),
-        }
+    fn mul(&self, other: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+        Some(Ok(heap.alloc(
+            NumRef::Int(StarlarkIntRef::Big(self)) * other.unpack_num()?,
+        )))
     }
 
     fn div(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
@@ -274,6 +273,10 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
             .get_hash_64()
             .hash(hasher);
         Ok(())
+    }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(Ty::int())
     }
 }
 
@@ -493,11 +496,11 @@ mod tests {
         assert::fail_skip_typecheck("0x60000000000000000000000 & 1.0", "not supported");
         assert::fail_skip_typecheck("1.0 & 0x60000000000000000000000", "not supported");
         assert::fail(
-            "0x60000000000000000000000 & 1.0",
+            "def f(): 0x60000000000000000000000 & 1.0",
             "is not available on the types",
         );
         assert::fail(
-            "1.0 & 0x60000000000000000000000",
+            "def f(): 1.0 & 0x60000000000000000000000",
             "is not available on the types",
         );
     }
@@ -527,11 +530,11 @@ mod tests {
         assert::fail_skip_typecheck("0x60000000000000000000000 | 1.0", "not supported");
         assert::fail_skip_typecheck("1.0 | 0x60000000000000000000000", "not supported");
         assert::fail(
-            "0x60000000000000000000000 | 1.0",
+            "def f(): 0x60000000000000000000000 | 1.0",
             "is not available on the types",
         );
         assert::fail(
-            "1.0 | 0x60000000000000000000000",
+            "def f(): 1.0 | 0x60000000000000000000000",
             "is not available on the types",
         );
     }
@@ -561,11 +564,11 @@ mod tests {
         assert::fail_skip_typecheck("0x60000000000000000000000 ^ 1.0", "not supported");
         assert::fail_skip_typecheck("1.0 ^ 0x60000000000000000000000", "not supported");
         assert::fail(
-            "0x60000000000000000000000 ^ 1.0",
+            "def f(): 0x60000000000000000000000 ^ 1.0",
             "Binary operator `^` is not available",
         );
         assert::fail(
-            "1.0 ^ 0x60000000000000000000000",
+            "def f(): 1.0 ^ 0x60000000000000000000000",
             "Binary operator `^` is not available",
         );
     }
@@ -618,11 +621,11 @@ mod tests {
         assert::fail_skip_typecheck("0x10000000000000000000000000000000 << 1.0", "not supported");
         assert::fail_skip_typecheck("1.0 << 0x10000000000000000000000000000000", "not supported");
         assert::fail(
-            "0x10000000000000000000000000000000 << 1.0",
+            "def f(): 0x10000000000000000000000000000000 << 1.0",
             "is not available",
         );
         assert::fail(
-            "1.0 << 0x10000000000000000000000000000000",
+            "def f(): 1.0 << 0x10000000000000000000000000000000",
             "is not available",
         );
     }
@@ -666,11 +669,11 @@ mod tests {
         assert::fail_skip_typecheck("0x20000000000000000000000000000000 >> 1.0", "not supported");
         assert::fail_skip_typecheck("1.0 >> 0x20000000000000000000000000000000", "not supported");
         assert::fail(
-            "0x20000000000000000000000000000000 >> 1.0",
+            "def f(): 0x20000000000000000000000000000000 >> 1.0",
             "is not available",
         );
         assert::fail(
-            "1.0 >> 0x20000000000000000000000000000000",
+            "def f(): 1.0 >> 0x20000000000000000000000000000000",
             "is not available",
         );
     }

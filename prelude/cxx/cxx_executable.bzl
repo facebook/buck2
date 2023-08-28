@@ -25,7 +25,7 @@ load(
 )
 load(
     "@prelude//apple:xcode.bzl",
-    "apple_get_xcode_absolute_path_prefix",
+    "get_project_root_file",
 )
 load(
     "@prelude//cxx:cxx_bolt.bzl",
@@ -117,6 +117,7 @@ load(
     "LINK_GROUP_MAPPINGS_FILENAME_SUFFIX",
     "LINK_GROUP_MAPPINGS_SUB_TARGET",
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
+    "LinkGroupContext",
     "create_link_groups",
     "find_relevant_roots",
     "get_filtered_labels_to_links_map",
@@ -136,7 +137,10 @@ load(
 )
 load(
     ":linker.bzl",
+    "DUMPBIN_SUB_TARGET",
     "PDB_SUB_TARGET",
+    "get_dumpbin_providers",
+    "get_pdb_providers",
 )
 load(
     ":preprocessor.bzl",
@@ -146,6 +150,7 @@ load(
 
 CxxExecutableOutput = record(
     binary = Artifact,
+    unstripped_binary = Artifact,
     bitcode_bundle = field([Artifact, None], None),
     dwp = field([Artifact, None]),
     # Files that will likely need to be included as .hidden() arguments
@@ -165,18 +170,18 @@ CxxExecutableOutput = record(
 )
 
 def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.type, is_cxx_test: bool = False) -> CxxExecutableOutput.type:
-    absolute_path_prefix = apple_get_xcode_absolute_path_prefix()
+    project_root_file = get_project_root_file(ctx)
 
     # Gather preprocessor inputs.
     preprocessor_deps = cxx_attr_deps(ctx) + filter(None, [ctx.attrs.precompiled_header])
     (own_preprocessor_info, test_preprocessor_infos) = cxx_private_preprocessor_info(
         ctx,
         impl_params.headers_layout,
+        project_root_file = project_root_file,
         raw_headers = ctx.attrs.raw_headers,
         extra_preprocessors = impl_params.extra_preprocessors,
         non_exported_deps = preprocessor_deps,
         is_test = is_cxx_test,
-        absolute_path_prefix = absolute_path_prefix,
     )
     inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(preprocessor_deps) + impl_params.extra_preprocessors_info
 
@@ -191,18 +196,20 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.t
         impl_params,
         [own_preprocessor_info] + test_preprocessor_infos,
         inherited_preprocessor_infos,
-        absolute_path_prefix,
     )
     cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = link_style != LinkStyle("static"))
 
     sub_targets[ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.relative, "argsfiles")]
-    if absolute_path_prefix:
-        sub_targets[ABS_ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.absolute, "abs-argsfiles")]
+    sub_targets[ABS_ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.absolute, "abs-argsfiles")]
     sub_targets[OBJECTS_SUBTARGET] = [DefaultInfo(sub_targets = cxx_objects_sub_targets(cxx_outs))]
 
     # Compilation DB.
-    comp_db = create_compilation_database(ctx, compile_cmd_output.src_compile_cmds)
+    comp_db = create_compilation_database(ctx, compile_cmd_output.src_compile_cmds, "compilation-database")
     sub_targets["compilation-database"] = [comp_db]
+
+    # Compilation DB including headers.
+    comp_db = create_compilation_database(ctx, compile_cmd_output.comp_db_compile_cmds, "full-compilation-database")
+    sub_targets["full-compilation-database"] = [comp_db]
 
     # comp_db_compile_cmds can include header files being compiled as C++ which should not be exposed in the [compilation-database] subtarget
     comp_db_info = make_compilation_db_info(compile_cmd_output.comp_db_compile_cmds, get_cxx_toolchain_info(ctx), get_cxx_platform_info(ctx))
@@ -394,9 +401,15 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.t
             ),
         )
 
+        link_group_ctx = LinkGroupContext(
+            link_group_mappings = link_group_mappings,
+            link_group_libs = link_group_libs,
+            link_group_preferred_linkage = link_group_preferred_linkage,
+            labels_to_links_map = labels_to_links_map,
+        )
         for name, shared_lib in traverse_shared_library_info(shlib_info).items():
             label = shared_lib.label
-            if not gnu_use_link_groups or is_link_group_shlib(label, link_group_mappings, link_group_libs, link_group_preferred_linkage, labels_to_links_map):
+            if not gnu_use_link_groups or is_link_group_shlib(label, link_group_ctx):
                 shared_libs[name] = shared_lib.lib
 
     if gnu_use_link_groups:
@@ -421,7 +434,8 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.t
                     label = ctx.label,
                     artifacts = (
                         [out.object for out in cxx_outs if out.object_has_external_debug_info] +
-                        [out.external_debug_info for out in cxx_outs if out.external_debug_info != None]
+                        [out.external_debug_info for out in cxx_outs if out.external_debug_info != None] +
+                        (impl_params.extra_link_input if impl_params.extra_link_input_has_external_debug_info else [])
                     ),
                 ),
             ),
@@ -459,7 +473,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.t
         output = binary.output,
         populate_rule_specific_attributes_func = impl_params.cxx_populate_xcode_attributes_func,
         srcs = impl_params.srcs + impl_params.additional.srcs,
-        argsfiles = compile_cmd_output.argsfiles.absolute if absolute_path_prefix else compile_cmd_output.argsfiles.relative,
+        argsfiles = compile_cmd_output.argsfiles.absolute,
         product_name = get_cxx_executable_product_name(ctx),
     )
     sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info
@@ -551,7 +565,10 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.t
 
     if binary.pdb:
         # A `pdb` sub-target which generates the `.pdb` file for this binary.
-        sub_targets[PDB_SUB_TARGET] = [DefaultInfo(default_output = binary.pdb)]
+        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(binary.pdb)
+
+    if toolchain_info.dumpbin_toolchain_path:
+        sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, binary.output, toolchain_info.dumpbin_toolchain_path)
 
     # If bolt is not ran, binary.prebolt_output will be the same as binary.output. Only
     # expose binary.prebolt_output if cxx_use_bolt(ctx) is True to avoid confusion
@@ -575,7 +592,8 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.t
         actions = ctx.actions,
         children = (
             [binary.external_debug_info] +
-            [s.external_debug_info for s in shared_libs.values()]
+            [s.external_debug_info for s in shared_libs.values()] +
+            impl_params.additional.static_external_debug_info
         ),
     )
     materialize_external_debug_info = ctx.actions.write(
@@ -589,6 +607,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.t
 
     return CxxExecutableOutput(
         binary = binary.output,
+        unstripped_binary = binary.unstripped_output,
         dwp = binary.dwp,
         runtime_files = runtime_files,
         sub_targets = sub_targets,

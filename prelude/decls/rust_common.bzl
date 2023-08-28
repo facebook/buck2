@@ -110,6 +110,14 @@ def _toolchains_args():
         "_rust_toolchain": toolchains_common.rust(),
     }
 
+def _workspaces_arg():
+    return {
+        "_workspaces": attrs.list(attrs.label(), default = [], doc = """
+    Internal implementation detail of Rust workspaces. This should not be set manually and will be
+     replaced in favor of metadata in a future version of buck2.
+"""),
+    }
+
 rust_common = struct(
     deps_arg = _deps_arg,
     srcs_arg = _srcs_arg,
@@ -123,4 +131,5 @@ rust_common = struct(
     mapped_srcs_arg = _mapped_srcs_arg,
     named_deps_arg = _named_deps_arg,
     toolchains_args = _toolchains_args,
+    workspaces_arg = _workspaces_arg,
 )

@@ -113,7 +113,13 @@ enum Assigned {
 
 type AstStr<'a> = Spanned<&'a str>;
 
-impl<'a> AstStr<'a> {
+trait AstStrExt<'a> {
+    fn new(span: Span, str: &'a str) -> Self;
+    fn ident(x: &'a AstIdent) -> Self;
+    fn assign_ident(x: &'a AstAssignIdent) -> Self;
+}
+
+impl<'a> AstStrExt<'a> for AstStr<'a> {
     fn new(span: Span, str: &'a str) -> Self {
         Spanned { span, node: str }
     }

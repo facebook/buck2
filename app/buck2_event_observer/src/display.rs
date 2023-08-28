@@ -28,10 +28,10 @@ use buck2_data::ConfiguredTargetLabel;
 use buck2_data::TargetLabel;
 use buck2_events::BuckEvent;
 use buck2_test_api::data::TestStatus;
-use buck2_util::collections::ordered_set::OrderedSet;
 use buck2_util::commas::commas;
 use buck2_util::truncate::truncate;
 use dupe::Dupe;
+use starlark_map::ordered_set::OrderedSet;
 use superconsole::style::Stylize;
 use superconsole::Line;
 use superconsole::Lines;
@@ -254,7 +254,16 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
                 "Syncing file changes via {}",
                 display_file_watcher(x.provider)
             )),
-            Data::MatchDepFiles(buck2_data::MatchDepFilesStart {}) => Ok("dep_files".to_owned()),
+            Data::MatchDepFiles(buck2_data::MatchDepFilesStart {
+                checking_filtered_inputs,
+            }) => {
+                let detail = if *checking_filtered_inputs {
+                    "full"
+                } else {
+                    "partial"
+                };
+                Ok(format!("dep_files({})", detail))
+            }
             Data::SharedTask(..) => Ok("Waiting on task from another command".to_owned()),
             Data::CacheUpload(upload) => {
                 let reason = match buck2_data::CacheUploadReason::from_i32(upload.reason) {

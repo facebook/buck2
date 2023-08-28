@@ -5,8 +5,13 @@
 # ```
 
 Code:
-def foo(x: list.type) -> bool.type:
-    return type(x) == list.type
-foo([1,2,3])
+def foo(x: list) -> bool:
+    return type(x) == type(list)
 
+def bar():
+    foo([1,2,3])
+
+No errors.
+
+Compiler typechecker (eval):
 No errors.

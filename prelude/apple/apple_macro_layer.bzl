@@ -28,9 +28,9 @@ APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE = AppleBuckConfigAttributeOverride(
     skip_if_false = True,
 )
 
-APPLE_STRIPPED_OVERRIDE = AppleBuckConfigAttributeOverride(
-    name = "stripped",
-    key = "stripped_override",
+APPLE_STRIPPED_DEFAULT = AppleBuckConfigAttributeOverride(
+    name = "_stripped_default",
+    key = "stripped_default",
     skip_if_false = True,
 )
 
@@ -65,12 +65,12 @@ def apple_macro_layer_set_bool_override_attrs_from_config(overrides: list[AppleB
 
 def apple_library_macro_impl(apple_library_rule = None, **kwargs):
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config(_APPLE_LIBRARY_LOCAL_EXECUTION_OVERRIDES))
-    kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config([APPLE_STRIPPED_OVERRIDE]))
+    kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config([APPLE_STRIPPED_DEFAULT]))
     apple_library_rule(**kwargs)
 
 def apple_binary_macro_impl(apple_binary_rule = None, apple_universal_executable = None, **kwargs):
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config(_APPLE_BINARY_LOCAL_EXECUTION_OVERRIDES))
-    kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config([APPLE_STRIPPED_OVERRIDE]))
+    kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config([APPLE_STRIPPED_DEFAULT]))
 
     binary_name = kwargs.pop("name")
 

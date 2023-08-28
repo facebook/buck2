@@ -15,6 +15,7 @@ use buck2_core::target::name::TargetName;
 use buck2_node::attrs::attr::CoercedValue;
 use buck2_node::attrs::attr_type::string::StringLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
+use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::internal::attr_is_configurable;
 use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
@@ -27,7 +28,9 @@ use dupe::Dupe;
 use starlark::docs::DocString;
 use starlark::eval::ParametersParser;
 use starlark::eval::ParametersSpec;
+use starlark::typing::Param;
 use starlark::typing::Ty;
+use starlark::typing::TyFunction;
 use starlark::values::Value;
 
 use crate::attrs::AttributeCoerceExt;
@@ -50,6 +53,8 @@ pub trait AttributeSpecExt {
 
     /// Returns a starlark Parameters for the rule callable.
     fn signature(&self, rule_name: String) -> ParametersSpec<Value<'_>>;
+
+    fn ty_function(&self) -> TyFunction;
 
     fn starlark_types(&self) -> Vec<Ty>;
 
@@ -183,9 +188,26 @@ impl AttributeSpecExt for AttributeSpec {
         signature.finish()
     }
 
+    fn ty_function(&self) -> TyFunction {
+        let mut params = Vec::with_capacity(self.attr_specs().len());
+        for (name, _idx, attribute) in self.attr_specs() {
+            let ty = match attr_is_configurable(name) {
+                AttrIsConfigurable::Yes => attribute.starlark_type().to_ty_with_select(),
+                AttrIsConfigurable::No => attribute.starlark_type().to_ty(),
+            };
+            let param = Param::name_only(name, ty);
+            let param = match attribute.default() {
+                Some(_) => param.optional(),
+                None => param,
+            };
+            params.push(param);
+        }
+        TyFunction::new(params, Ty::none())
+    }
+
     fn starlark_types(&self) -> Vec<Ty> {
         self.attr_specs()
-            .map(|(_, _, a)| a.starlark_type())
+            .map(|(_, _, a)| a.starlark_type().to_ty())
             .collect()
     }
 

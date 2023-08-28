@@ -108,6 +108,8 @@ impl Debug for FrozenListData {
 /// Alias is used in `StarlarkDocs` derive.
 pub(crate) type FrozenList = ListGen<FrozenListData>;
 
+pub(crate) type List<'v> = ListGen<ListData<'v>>;
+
 pub(crate) static VALUE_EMPTY_FROZEN_LIST: AValueRepr<AValueImpl<Direct, ListGen<FrozenListData>>> =
     alloc_static(Direct, unsafe { ListGen(FrozenListData::new(0)) });
 
@@ -423,6 +425,8 @@ impl<'v, T: ListLike<'v> + 'v> StarlarkValue<'v> for ListGen<T>
 where
     Self: ProvidesStaticType<'v> + Display,
 {
+    type Canonical = FrozenList;
+
     fn is_special(_: Private) -> bool
     where
         Self: Sized,
@@ -519,18 +523,26 @@ where
             .map(|other| Ok(heap.alloc_list_concat(self.0.content(), other.content())))
     }
 
-    fn mul(&self, other: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        let l = i32::unpack_param(other)?;
+    fn mul(&self, other: Value, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+        let l = i32::unpack_value(other)?;
         let mut result = Vec::with_capacity(self.0.content().len() * cmp::max(0, l) as usize);
         for _ in 0..l {
             result.extend(self.0.content().iter());
         }
-        Ok(heap.alloc_list(&result))
+        Some(Ok(heap.alloc_list(&result)))
+    }
+
+    fn rmul(&self, lhs: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+        self.mul(lhs, heap)
     }
 
     fn set_at(&self, index: Value<'v>, alloc_value: Value<'v>) -> anyhow::Result<()> {
         let i = convert_index(index, self.0.content().len() as i32)? as usize;
         self.0.set_at(i, alloc_value)
+    }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(Ty::any_list())
     }
 }
 

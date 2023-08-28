@@ -5,7 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CudaCompilerInfo", "CxxCompilerInfo", "CxxObjectFormat", "DepTrackingMode", "DistLtoToolsInfo", "HipCompilerInfo", "LinkerInfo", "PicBehavior", "StripFlagsInfo", "cxx_toolchain_infos")
+load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CudaCompilerInfo", "CxxCompilerInfo", "CxxObjectFormat", "DepTrackingMode", "DistLtoToolsInfo", "HipCompilerInfo", "LinkerInfo", "PicBehavior", "ShlibInterfacesMode", "StripFlagsInfo", "cxx_toolchain_infos")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode")
 load("@prelude//cxx:linker.bzl", "LINKERS", "is_pdb_generated")
@@ -90,7 +91,7 @@ def cxx_toolchain_impl(ctx):
         lto_mode = lto_mode,
         mk_shlib_intf = ctx.attrs.shared_library_interface_producer,
         object_file_extension = ctx.attrs.object_file_extension or "o",
-        shlib_interfaces = "disabled",
+        shlib_interfaces = ShlibInterfacesMode(ctx.attrs.shared_library_interface_mode),
         independent_shlib_interface_linker_flags = ctx.attrs.shared_library_interface_flags,
         requires_archives = value_or(ctx.attrs.requires_archives, True),
         requires_objects = value_or(ctx.attrs.requires_objects, False),
@@ -103,6 +104,7 @@ def cxx_toolchain_impl(ctx):
         static_pic_dep_runtime_ld_flags = ctx.attrs.static_pic_dep_runtime_ld_flags,
         type = ctx.attrs.linker_type,
         use_archiver_flags = ctx.attrs.use_archiver_flags,
+        produce_interface_from_stub_shared_library = ctx.attrs.produce_interface_from_stub_shared_library,
     )
 
     utilities_info = BinaryUtilitiesInfo(
@@ -150,6 +152,7 @@ def cxx_toolchain_impl(ctx):
         clang_trace = value_or(ctx.attrs.clang_trace, False),
         cpp_dep_tracking_mode = DepTrackingMode(ctx.attrs.cpp_dep_tracking_mode),
         cuda_dep_tracking_mode = DepTrackingMode(ctx.attrs.cuda_dep_tracking_mode),
+        dumpbin_toolchain_path = ctx.attrs._dumpbin_toolchain_path[DefaultInfo].default_outputs[0] if ctx.attrs._dumpbin_toolchain_path else None,
     )
 
 def cxx_toolchain_extra_attributes(is_toolchain_rule):
@@ -186,9 +189,11 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         # Used for resolving any 'platform_*' attributes.
         "platform_name": attrs.option(attrs.string(), default = None),
         "private_headers_symlinks_enabled": attrs.bool(default = True),
+        "produce_interface_from_stub_shared_library": attrs.bool(default = True),
         "public_headers_symlinks_enabled": attrs.bool(default = True),
         "ranlib": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "requires_objects": attrs.bool(default = False),
+        "shared_library_interface_mode": attrs.enum(ShlibInterfacesMode.values(), default = "disabled"),
         "shared_library_interface_producer": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "split_debug_mode": attrs.enum(SplitDebugMode.values(), default = "none"),
         "strip": dep_type(providers = [RunInfo]),
@@ -197,6 +202,19 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "use_dep_files": attrs.option(attrs.bool(), default = None),
         "_dep_files_processor": dep_type(providers = [RunInfo], default = "prelude//cxx/tools:dep_file_processor"),
         "_dist_lto_tools": attrs.default_only(dep_type(providers = [DistLtoToolsInfo], default = "prelude//cxx/dist_lto/tools:dist_lto_tools")),
+        # TODO(scottcao): Figure out a slightly better way to integrate this. In theory, this is only needed for clang toolchain.
+        # If we were using msvc, we should be able to use dumpbin directly.
+        "_dumpbin_toolchain_path": attrs.default_only(attrs.option(dep_type(providers = [DefaultInfo]), default = select({
+            "DEFAULT": None,
+            "ovr_config//os:windows": select({
+                # Unfortunately, it seems like an unresolved select when resolve exec platforms causes the whole resolution
+                # to fail, so I need a DEFAULT here when some target without cpu constraint tries to configure against the
+                # windows exec platform.
+                "DEFAULT": None,
+                "ovr_config//cpu:x86_32": "fbsource//arvr/third-party/toolchains/visual_studio:14.28.29910-cl_32_and_tools",
+                "ovr_config//cpu:x86_64": "fbsource//arvr/third-party/toolchains/visual_studio:14.28.29910-cl_64_and_tools",
+            }),
+        }) if is_full_meta_repo() else None)),
         "_mk_comp_db": attrs.default_only(dep_type(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
         # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_mk_hmap": attrs.default_only(dep_type(providers = [RunInfo], default = "fbsource//xplat/buck2/tools/cxx:hmap_wrapper")),

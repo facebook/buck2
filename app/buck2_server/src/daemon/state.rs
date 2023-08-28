@@ -35,7 +35,6 @@ use buck2_core::fs::cwd::WorkingDirectory;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::rollout_percentage::RolloutPercentage;
-use buck2_core::soft_error;
 use buck2_core::tag_result;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::sink::scribe;
@@ -694,17 +693,25 @@ impl DaemonState {
 
     fn validate_cwd(&self) -> anyhow::Result<()> {
         if let Some(working_directory) = &self.working_directory {
-            if working_directory.is_stale()? {
-                // Let's track this for now before making it automated.
-                soft_error!(
-                    "stale_cwd",
-                    anyhow::anyhow!(
+            let res = working_directory.is_stale().and_then(|stale| {
+                if stale {
+                    Err(anyhow::anyhow!(
                         "Buck appears to be running in a stale working directory \
                          This will likely lead to failed or slow builds. \
                          To remediate, restart Buck2."
-                    )
-                )?;
-            }
+                    ))
+                } else {
+                    Ok(())
+                }
+            });
+
+            tag_result!(
+                "stale_cwd",
+                res,
+                quiet: true,
+                daemon_in_memory_state_is_corrupted: true,
+                task: false
+            )?;
         }
 
         Ok(())
@@ -714,6 +721,7 @@ impl DaemonState {
         #[cfg(any(fbcode_build, cargo_internal_build))]
         {
             use buck2_core::fs::fs_util;
+            use buck2_core::soft_error;
 
             let project_root = self.paths.project_root().root();
             if !detect_eden::is_eden(project_root.to_path_buf())? {

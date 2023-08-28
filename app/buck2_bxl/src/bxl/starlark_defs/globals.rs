@@ -17,7 +17,6 @@ use crate::bxl::starlark_defs::cli_args;
 use crate::bxl::starlark_defs::functions::register_artifact_function;
 use crate::bxl::starlark_defs::functions::register_error_handling_function;
 use crate::bxl::starlark_defs::functions::register_instant_function;
-use crate::bxl::starlark_defs::functions::register_label_function;
 use crate::bxl::starlark_defs::functions::register_target_function;
 use crate::bxl::starlark_defs::type_names::register_bxl_type_names;
 
@@ -25,7 +24,6 @@ fn bxl_namespace(g: &mut GlobalsBuilder) {
     g.struct_("cli_args", cli_args::register_cli_args_module);
     // TODO(nga): add `main` function here.
     register_artifact_function(g);
-    register_label_function(g);
     register_target_function(g);
     register_instant_function(g);
     register_error_handling_function(g);
@@ -39,7 +37,6 @@ pub(crate) fn init_bxl_specific_globals() {
         g.struct_("cli_args", cli_args::register_cli_args_module);
         register_bxl_function(g);
         register_artifact_function(g);
-        register_label_function(g);
         register_target_function(g);
         register_instant_function(g);
         register_error_handling_function(g);

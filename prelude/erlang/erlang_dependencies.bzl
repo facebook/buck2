@@ -12,7 +12,7 @@ load(
     "ErlangTestInfo",
 )
 
-ErlAppDependencies = {"string": Dependency}
+ErlAppDependencies = dict[str, Dependency]
 
 def check_dependencies(in_deps: list[Dependency], allowlist: list) -> list[Dependency]:
     """ filter valid dependencies

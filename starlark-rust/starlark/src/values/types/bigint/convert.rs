@@ -15,9 +15,12 @@
  * limitations under the License.
  */
 
+use num_bigint::BigInt;
+
 use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::int_or_big::StarlarkInt;
+use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -126,6 +129,25 @@ impl AllocFrozenValue for isize {
     }
 }
 
+impl StarlarkTypeRepr for BigInt {
+    fn starlark_type_repr() -> Ty {
+        i32::starlark_type_repr()
+    }
+}
+
+impl<'v> AllocValue<'v> for BigInt {
+    #[inline]
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        heap.alloc(StarlarkInt::from(self))
+    }
+}
+
+impl AllocFrozenValue for BigInt {
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        heap.alloc(StarlarkInt::from(self))
+    }
+}
+
 impl<'v> UnpackValue<'v> for u32 {
     fn unpack_value(value: Value<'v>) -> Option<u32> {
         value.unpack_integer()
@@ -153,5 +175,14 @@ impl<'v> UnpackValue<'v> for usize {
 impl<'v> UnpackValue<'v> for isize {
     fn unpack_value(value: Value<'v>) -> Option<isize> {
         value.unpack_integer()
+    }
+}
+
+impl<'v> UnpackValue<'v> for BigInt {
+    fn unpack_value(value: Value<'v>) -> Option<BigInt> {
+        match StarlarkIntRef::unpack_value(value)? {
+            StarlarkIntRef::Small(x) => Some(BigInt::from(x.to_i32())),
+            StarlarkIntRef::Big(x) => Some(x.get().to_owned()),
+        }
     }
 }

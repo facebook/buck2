@@ -275,7 +275,7 @@ def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> list[Provider]:
                 flatten_dict([ctx.attrs.shared_libs, ctx.attrs.provided_shared_libs]),
                 ctx.attrs.shared_link,
             )
-            solibs.update({n: LinkedObject(output = lib) for n, lib in ctx.attrs.shared_libs.items()})
+            solibs.update({n: LinkedObject(output = lib, unstripped_output = lib) for n, lib in ctx.attrs.shared_libs.items()})
         outputs[link_style] = outs
 
         # TODO(cjhopman): This is hiding static and shared libs in opaque

@@ -54,6 +54,15 @@ def get_versioned_target_triple(ctx: AnalysisContext) -> str:
     versioned_target_triple = target_triple_with_version_placeholder.replace(_VERSION_PLACEHOLDER, target_sdk_version)
     return "{}-{}".format(architecture, versioned_target_triple)
 
+def get_apple_stripped_attr_value_with_default_fallback(ctx: AnalysisContext) -> bool:
+    stripped = ctx.attrs.stripped
+    if stripped != None:
+        # `stripped` present on a target takes priority
+        return stripped
+
+    # Fallback to the default stripped override which is driven by buckconfig
+    return ctx.attrs._stripped_default
+
 def expand_relative_prefixed_sdk_path(
         sdk_path: cmd_args,
         swift_resource_dir: cmd_args,

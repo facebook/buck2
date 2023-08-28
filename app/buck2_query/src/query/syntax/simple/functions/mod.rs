@@ -313,6 +313,9 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
             .into())
     }
 
+    /// Filter using regex partial match.
+    /// Target are matched against their fully qualified name.
+    /// Files are matched against their repo path like `repo//foo/bar/baz.py`.
     async fn filter(&self, regex: String, set: QueryValueSet<Env::Target>) -> QueryFuncResult<Env> {
         match set {
             QueryValueSet::TargetSet(targets) => Ok(self
@@ -499,6 +502,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         .await
     }
 
+    /// Filter targets by fully qualified name using regex partial match.
     pub fn filter_target_set(
         &self,
         regex: &str,

@@ -43,6 +43,7 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
+use futures::FutureExt;
 use once_cell::sync::OnceCell;
 use serde::Serialize;
 use serde::Serializer;
@@ -240,11 +241,15 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<Value<'v>> {
         let configured_node = &this.0;
 
-        let dep_analysis: anyhow::Result<Vec<(&ConfiguredTargetLabel, AnalysisResult)>, _> =
-            ctx.via_dice(|dice_ctx, _| get_dep_analysis(configured_node, dice_ctx));
+        let dep_analysis: anyhow::Result<Vec<(&ConfiguredTargetLabel, AnalysisResult)>, _> = ctx
+            .async_ctx
+            .borrow_mut()
+            .via(|dice_ctx| get_dep_analysis(configured_node, dice_ctx).boxed_local());
 
-        let query_results =
-            ctx.via_dice(|dice_ctx, _| resolve_queries(dice_ctx, configured_node))?;
+        let query_results = ctx
+            .async_ctx
+            .borrow_mut()
+            .via(|dice_ctx| resolve_queries(dice_ctx, configured_node).boxed_local())?;
 
         let resolution_ctx = RuleAnalysisAttrResolutionContext {
             module: eval.module(),
@@ -331,6 +336,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         let path = Path::new(path);
         let fs = ctx
             .async_ctx
+            .borrow()
             .global_data()
             .get_io_provider()
             .project_root()
@@ -346,10 +352,9 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
             )?)
         };
 
-        let cell_path =
-            ctx.via_dice(
-                |ctx, _| async move { ctx.get_cell_resolver().await?.get_cell_path(&path) },
-            )?;
+        let cell_path = ctx.async_ctx.borrow_mut().via(|ctx| {
+            async move { ctx.get_cell_resolver().await?.get_cell_path(&path) }.boxed_local()
+        })?;
 
         struct SourceFinder {
             found: Option<StarlarkArtifact>,

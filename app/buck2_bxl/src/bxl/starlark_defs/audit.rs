@@ -19,6 +19,7 @@ use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
+use futures::FutureExt;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -127,29 +128,32 @@ fn audit_methods(builder: &mut MethodsBuilder) {
             &this.global_target_platform,
         )?;
 
-        this.ctx.via_dice(|ctx, _| async move {
-            audit_output(
-                output_path,
-                &this.working_dir,
-                &this.cell_resolver,
-                ctx,
-                target_platform,
-            )
-            .await?
-            .map(|result| {
-                anyhow::Ok(match result {
-                    AuditOutputResult::Match(action) => heap.alloc(StarlarkAction(
-                        action
-                            .action()
-                            .context("audit_output did not return an action")?
-                            .dupe(),
-                    )),
-                    AuditOutputResult::MaybeRelevant(label) => {
-                        heap.alloc(StarlarkTargetLabel::new(label))
-                    }
+        this.ctx.async_ctx.borrow_mut().via(|ctx| {
+            async move {
+                audit_output(
+                    output_path,
+                    &this.working_dir,
+                    &this.cell_resolver,
+                    ctx,
+                    target_platform,
+                )
+                .await?
+                .map(|result| {
+                    anyhow::Ok(match result {
+                        AuditOutputResult::Match(action) => heap.alloc(StarlarkAction(
+                            action
+                                .action()
+                                .context("audit_output did not return an action")?
+                                .dupe(),
+                        )),
+                        AuditOutputResult::MaybeRelevant(label) => {
+                            heap.alloc(StarlarkTargetLabel::new(label))
+                        }
+                    })
                 })
-            })
-            .transpose()
+                .transpose()
+            }
+            .boxed_local()
         })
     }
 

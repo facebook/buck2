@@ -29,6 +29,7 @@ use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::async_depth_limited_traversal;
 use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
+use dice::DiceComputations;
 use dupe::Dupe;
 use tracing::warn;
 
@@ -67,10 +68,12 @@ pub trait CqueryDelegate: Send + Sync {
         &self,
         target: &TargetLabel,
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>;
+
+    fn ctx(&self) -> &DiceComputations;
 }
 
 pub struct CqueryEnvironment<'c> {
-    delegate: Arc<dyn CqueryDelegate + 'c>,
+    delegate: &'c dyn CqueryDelegate,
     literals: Arc<dyn QueryLiterals<ConfiguredTargetNode> + 'c>,
     // TODO(nga): BXL `cquery` function does not provides us the universe.
     // TODO(nga): do not compute the universe when we don't need it, because it is not free.
@@ -84,7 +87,7 @@ pub struct CqueryEnvironment<'c> {
 
 impl<'c> CqueryEnvironment<'c> {
     pub fn new(
-        delegate: Arc<dyn CqueryDelegate + 'c>,
+        delegate: &'c dyn CqueryDelegate,
         literals: Arc<dyn QueryLiterals<ConfiguredTargetNode> + 'c>,
         universe: Option<CqueryUniverse>,
         owner_behavior: CqueryOwnerBehavior,
@@ -204,7 +207,9 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
     }
 
     async fn eval_literals(&self, literals: &[&str]) -> anyhow::Result<TargetSet<Self::Target>> {
-        self.literals.eval_literals(literals).await
+        self.literals
+            .eval_literals(literals, self.delegate.ctx())
+            .await
     }
 
     async fn eval_file_literal(&self, literal: &str) -> anyhow::Result<FileSet> {

@@ -23,8 +23,8 @@ use std::ops::Deref;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use equivalent::Equivalent;
 
-use crate::equivalent::Equivalent;
 use crate::hash_value::StarlarkHashValue;
 
 /// A key and its hash.

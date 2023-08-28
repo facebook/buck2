@@ -34,11 +34,11 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_util::arc_str::ArcStr;
-use buck2_util::collections::ordered_map::OrderedMap;
-use buck2_util::collections::unordered_map::UnorderedMap;
 use dupe::Dupe;
 use either::Either;
 use once_cell::sync::Lazy;
+use starlark_map::ordered_map::OrderedMap;
+use starlark_map::unordered_map::UnorderedMap;
 use starlark_map::Hashed;
 
 use crate::attrs::attr::Attribute;

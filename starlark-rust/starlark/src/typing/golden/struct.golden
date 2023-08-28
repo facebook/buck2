@@ -5,9 +5,13 @@
 # ```
 
 Code:
-x = struct(a = 1, b = "test")
+def test():
+    x = struct(a = 1, b = "test")
 
 No errors.
 
 Types:
 x: struct(a = int, b = str)
+
+Compiler typechecker (eval):
+No errors.

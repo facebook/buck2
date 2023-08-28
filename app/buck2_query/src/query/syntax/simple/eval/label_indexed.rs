@@ -10,9 +10,9 @@
 use std::hash::Hash;
 
 use allocative::Allocative;
-use buck2_util::collections::ordered_set::OrderedSet;
 use dupe::Clone_;
 use dupe::Dupe;
+use starlark_map::ordered_set::OrderedSet;
 use starlark_map::small_set;
 use starlark_map::Equivalent;
 

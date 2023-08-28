@@ -31,6 +31,7 @@ use starlark::starlark_complex_values;
 use starlark::starlark_module;
 use starlark::values::dict::DictOf;
 use starlark::values::starlark_value;
+use starlark::values::typing::StarlarkCallable;
 use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
@@ -168,13 +169,13 @@ impl TransitionValue for FrozenTransition {
 #[starlark_module]
 fn register_transition_function(builder: &mut GlobalsBuilder) {
     fn transition<'v>(
-        #[starlark(require = named)] r#impl: Value<'v>,
+        #[starlark(require = named)] r#impl: StarlarkCallable<'v>,
         #[starlark(require = named)] refs: DictOf<'v, StringValue<'v>, StringValue<'v>>,
         #[starlark(require = named)] attrs: Option<Vec<StringValue<'v>>>,
         #[starlark(require = named, default = false)] split: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Transition<'v>> {
-        let implementation = r#impl;
+        let implementation = r#impl.0;
 
         let refs = refs
             .collect_entries()

@@ -26,6 +26,7 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use futures::FutureExt;
 use once_cell::sync::OnceCell;
 use starlark::environment::Module;
 
@@ -48,8 +49,9 @@ impl<'v> LazyAttrResolutionContext<'v> {
     ) -> &anyhow::Result<HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>> {
         self.dep_analysis_results.get_or_init(|| {
             get_deps_from_analysis_results(
-                self.ctx
-                    .via_dice(|dice_ctx, _| get_dep_analysis(self.configured_node, dice_ctx))?,
+                self.ctx.async_ctx.borrow_mut().via(|dice_ctx| {
+                    get_dep_analysis(self.configured_node, dice_ctx).boxed_local()
+                })?,
             )
         })
     }
@@ -59,7 +61,9 @@ impl<'v> LazyAttrResolutionContext<'v> {
     ) -> &anyhow::Result<HashMap<String, Arc<AnalysisQueryResult>>> {
         self.query_results.get_or_init(|| {
             self.ctx
-                .via_dice(|dice_ctx, _| resolve_queries(dice_ctx, self.configured_node))
+                .async_ctx
+                .borrow_mut()
+                .via(|dice_ctx| resolve_queries(dice_ctx, self.configured_node).boxed_local())
         })
     }
 }

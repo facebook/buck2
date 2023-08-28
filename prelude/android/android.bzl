@@ -5,11 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS")
 load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
 load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version", "select_java_test_toolchain")
 load("@prelude//java:java_toolchain.bzl", "JavaPlatformInfo", "JavaTestToolchainInfo", "JavaToolchainInfo")
 load("@prelude//kotlin:kotlin_toolchain.bzl", "KotlinToolchainInfo")
-load("@prelude//zip_file:zip_file_toolchain.bzl", "ZipFileToolchainInfo")
 load("@prelude//decls/android_rules.bzl", "AaptMode", "DuplicateResourceBehaviour", "TargetCpuType")
 load("@prelude//genrule.bzl", "genrule_attributes")
 load(":android_aar.bzl", "android_aar_impl")
@@ -104,17 +104,17 @@ FORCE_SINGLE_DEFAULT_CPU = read_root_config("buck2", "android_force_single_defau
 extra_attributes = {
     "android_aar": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
+        "compress_asset_libraries": attrs.default_only(attrs.bool(default = False)),
+        "cpu_filters": attrs.list(attrs.enum(TargetCpuType), default = ALL_CPU_FILTERS),
+        "deps": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition), default = []),
+        "min_sdk_version": attrs.option(attrs.int(), default = None),
+        "package_asset_libraries": attrs.default_only(attrs.bool(default = True)),
         "resources_root": attrs.option(attrs.string(), default = None),
         "_android_toolchain": android_toolchain(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
+        "_is_force_single_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_CPU)),
+        "_is_force_single_default_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_DEFAULT_CPU)),
         "_java_toolchain": java_toolchain_for_android(),
-        "_zip_file_toolchain": attrs.default_only(attrs.exec_dep(
-            # FIXME: prelude// should be standalone (not refer to fbsource//)
-            default = "fbsource//xplat/buck2/platform/zip_file:zip_file",
-            providers = [
-                ZipFileToolchainInfo,
-            ],
-        )),
     },
     "android_app_modularity": {
         "_android_toolchain": android_toolchain(),

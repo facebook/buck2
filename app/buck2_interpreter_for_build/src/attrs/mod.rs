@@ -14,9 +14,9 @@ use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::docs::DocString;
 use starlark::docs::DocStringKind;
-use starlark::typing::Ty;
 use starlark::values::Value;
 
+use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::attr_type::AttrTypeExt;
 use crate::attrs::coerce::error::CoercionError;
 
@@ -41,7 +41,7 @@ pub trait AttributeCoerceExt {
 
     fn docstring(&self) -> Option<DocString>;
 
-    fn starlark_type(&self) -> Ty;
+    fn starlark_type(&self) -> TyMaybeSelect;
 }
 
 impl AttributeCoerceExt for Attribute {
@@ -82,7 +82,7 @@ impl AttributeCoerceExt for Attribute {
         DocString::from_docstring(DocStringKind::Starlark, self.doc())
     }
 
-    fn starlark_type(&self) -> Ty {
+    fn starlark_type(&self) -> TyMaybeSelect {
         self.coercer().starlark_type()
     }
 }

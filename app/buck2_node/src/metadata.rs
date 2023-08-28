@@ -13,7 +13,7 @@ use std::hash::Hasher;
 
 use allocative::Allocative;
 use buck2_core::metadata_key::MetadataKey;
-use buck2_util::collections::ordered_map::OrderedMap;
+use starlark_map::ordered_map::OrderedMap;
 
 use crate::attrs::attr_type::any_matches::AnyMatches;
 

@@ -11,6 +11,8 @@ def alias_impl(ctx: AnalysisContext) -> list[Provider]:
     return ctx.attrs.actual.providers
 
 def configured_alias_impl(ctx: AnalysisContext) -> list[Provider]:
+    if ctx.attrs.configured_actual != None and ctx.attrs.fallback_actual != None:
+        fail("cannot set both of `configured_actual` and `fallback_actual`")
     if ctx.attrs.configured_actual != None:
         return ctx.attrs.configured_actual.providers
     if ctx.attrs.fallback_actual != None:

@@ -5,9 +5,13 @@
 # ```
 
 Code:
-x = list([1, 2])
+def test():
+    x = list([1, 2])
 
 No errors.
 
 Types:
 x: list[int]
+
+Compiler typechecker (eval):
+No errors.

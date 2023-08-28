@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-mod artifact_tag;
+pub(crate) mod artifact_tag;
 mod tagged_command_line;
 mod tagged_value;
 mod tagged_visitor;

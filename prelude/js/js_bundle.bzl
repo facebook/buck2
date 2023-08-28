@@ -16,7 +16,7 @@ def _build_dependencies_file(
         ctx: AnalysisContext,
         transform_profile: str,
         flavors: list[str],
-        transitive_js_library_outputs: "transitive_set_args_projection") -> Artifact:
+        transitive_js_library_outputs: TransitiveSetArgsProjection) -> Artifact:
     dependencies_file = ctx.actions.declare_output("{}/dependencies_file", transform_profile)
 
     # ctx.attrs.extra_json can contain attrs.arg().
@@ -62,7 +62,7 @@ def _build_js_bundle(
         ram_bundle_command: str,
         transform_profile: str,
         flavors: list[str],
-        transitive_js_library_outputs: "transitive_set_args_projection",
+        transitive_js_library_outputs: TransitiveSetArgsProjection,
         dependencies_file: Artifact) -> JsBundleInfo.type:
     base_dir = "{}_{}".format(ram_bundle_name, transform_profile) if ram_bundle_name else transform_profile
     assets_dir = ctx.actions.declare_output("{}/assets_dir".format(base_dir))

@@ -42,15 +42,20 @@ impl ActionStats {
         // This allows us to have special meaning for 0% and 100%: complete cache-divergence
         // and fully cacheable builds.
         let total_actions = self.total_executed_and_cached_actions();
-        if total_actions == 0 || self.cached_actions == total_actions {
+        let total_cached_actions = self.total_cached_actions();
+        if total_actions == 0 || total_cached_actions == total_actions {
             100
         } else if self.cached_actions == 0 {
             0
         } else {
-            let hit_percent = ((self.cached_actions as f64) / (total_actions as f64)) * 100f64;
+            let hit_percent = ((total_cached_actions as f64) / (total_actions as f64)) * 100f64;
             let integral_percent = (hit_percent.round()) as u8;
             integral_percent.clamp(1, 99)
         }
+    }
+
+    pub fn total_cached_actions(&self) -> u64 {
+        self.cached_actions + self.remote_dep_file_cached_actions
     }
 
     pub fn total_executed_actions(&self) -> u64 {

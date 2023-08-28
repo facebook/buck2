@@ -10,3 +10,6 @@ def foo(x: ["function", "unknown"], y: ["unknown", "function"]):
     y()
 
 No errors.
+
+Compiler typechecker (eval):
+No errors.

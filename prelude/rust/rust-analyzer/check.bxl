@@ -15,7 +15,7 @@ def check_targets_impl(ctx):
 
     diag_kind = "clippy.json" if ctx.cli_args.use_clippy else "diag.json"
     build_result = ctx.build([
-        configured_sub_target(node.label, diag_kind)
+        node.label.with_sub_target(diag_kind)
         for node in nodes
     ])
 

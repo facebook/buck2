@@ -12,9 +12,9 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use gazebo::prelude::SliceExt;
-use starlark::typing::Ty;
 use starlark::values::Value;
 
+use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::attr_type::AttrTypeExt;
 use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
@@ -40,7 +40,7 @@ impl AttrTypeCoerce for OneOfAttrType {
         Err(CoercionError::one_of_many(errs))
     }
 
-    fn starlark_type(&self) -> Ty {
-        Ty::unions(self.xs.map(|x| x.starlark_type()))
+    fn starlark_type(&self) -> TyMaybeSelect {
+        TyMaybeSelect::Union(self.xs.map(|x| x.starlark_type()))
     }
 }

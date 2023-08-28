@@ -10,7 +10,6 @@ async-trait = { workspace = true }
 derivative = { workspace = true }
 derive_more = { workspace = true }
 either = { workspace = true }
-itertools = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
@@ -26,6 +25,7 @@ gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
 more_futures = { path = "../../shed/more_futures" }
+starlark_map = { workspace = true }
 starlark = { workspace = true }
 
 buck2_common = { workspace = true }

@@ -561,14 +561,18 @@ where
                         None => Cow::Borrowed(""),
                     };
 
+                    let remaining = match roots.len() {
+                        0 => String::new(),
+                        x => format!(", and {x} other actions"),
+                    };
                     echo!(
-                        "Waiting on {}{}, and {} other actions",
+                        "Waiting on {}{}{}",
                         display::display_event(
                             &sample_event.info().event,
                             TargetDisplayOptions::for_log()
                         )?,
                         child,
-                        roots.len()
+                        remaining
                     )?;
 
                     show_stats = self.verbosity.always_print_stats_in_status();

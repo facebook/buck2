@@ -88,7 +88,7 @@ impl CopyAction {
     ) -> anyhow::Result<Self> {
         // TODO: Exclude other variants once they become available here. For now, this is a noop.
         match inputs.iter().into_singleton() {
-            Some(ArtifactGroup::Artifact(..)) => {}
+            Some(ArtifactGroup::Artifact(..) | ArtifactGroup::Promise(..)) => {}
             Some(other) => {
                 return Err(CopyActionValidationError::UnsupportedInput(other.dupe()).into());
             }

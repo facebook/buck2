@@ -180,13 +180,13 @@ fn copy_file_impl<'v>(
 ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
     let src = src.0;
 
-    let artifact = src.get_bound_artifact()?;
+    let artifact = src.get_artifact_group()?;
     let associated_artifacts = src.get_associated_artifacts();
     let mut this = this.state();
     let (declaration, output_artifact) = this.get_or_declare_output(eval, dest, output_type)?;
 
     this.register_action(
-        indexset![ArtifactGroup::Artifact(artifact)],
+        indexset![artifact],
         indexset![output_artifact],
         UnregisteredCopyAction::new(copy),
         None,
@@ -594,11 +594,10 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     ///
     /// Actions also get exclusive access to a "scratch" path that is exposed via the environment
     /// variable `BUCK_SCRATCH_PATH`. This path is expressed as a path relative to the working
-    /// directory (i.e. relative to the project).
+    /// directory (i.e. relative to the project). This path is guaranteed to exist when the action
+    /// executes.
     ///
-    /// The scratch path is not guaranteed to exist when the action executes. If an action wants to
-    /// use the scratch path, the action should create that directory (Buck does guarantee that the
-    /// directory can be created).
+    /// When actions run locally, the scratch path is also used as the `TMPDIR`.
     fn run<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] arguments: Value<'v>,

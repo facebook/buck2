@@ -20,10 +20,11 @@ load(
     "LINK_GROUP_MAPPINGS_FILENAME_SUFFIX",
     "LINK_GROUP_MAPPINGS_SUB_TARGET",
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
+    "LinkGroupContext",
     "get_link_group_map_json",
     "is_link_group_shlib",
 )
-load("@prelude//cxx:linker.bzl", "PDB_SUB_TARGET")
+load("@prelude//cxx:linker.bzl", "DUMPBIN_SUB_TARGET", "PDB_SUB_TARGET", "get_dumpbin_providers", "get_pdb_providers")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
@@ -73,7 +74,7 @@ _CompileOutputs = record(
     args = field(ArgLike),
     extra_targets = field(list[(str, Artifact)]),
     runtime_files = field(list[ArgLike]),
-    sub_targets = field(dict[str, [DefaultInfo]]),
+    sub_targets = field(dict[str, list[DefaultInfo]]),
 )
 
 def _rust_binary_common(
@@ -88,6 +89,7 @@ def _rust_binary_common(
 
     styles = {}
     dwp_target = None
+    pdb = None
     style_param = {}  # style -> param
     sub_targets = {}
 
@@ -121,7 +123,7 @@ def _rust_binary_common(
 
         rust_cxx_link_group_info = None
         link_group_mappings = {}
-        link_group_libs = []
+        link_group_libs = {}
         link_group_preferred_linkage = {}
         labels_to_links_map = {}
         filtered_targets = []
@@ -146,9 +148,16 @@ def _rust_binary_common(
                 ctx.actions,
                 deps = inherited_non_rust_shared_libs(ctx),
             )
+
+            link_group_ctx = LinkGroupContext(
+                link_group_mappings = link_group_mappings,
+                link_group_libs = link_group_libs,
+                link_group_preferred_linkage = link_group_preferred_linkage,
+                labels_to_links_map = labels_to_links_map,
+            )
             for soname, shared_lib in traverse_shared_library_info(shlib_info).items():
                 label = shared_lib.label
-                if rust_cxx_link_group_info == None or is_link_group_shlib(label, link_group_mappings, link_group_libs, link_group_preferred_linkage, labels_to_links_map):
+                if rust_cxx_link_group_info == None or is_link_group_shlib(label, link_group_ctx):
                     shared_libs[soname] = shared_lib.lib
 
         if rust_cxx_link_group_info:
@@ -186,8 +195,6 @@ def _rust_binary_common(
 
         args = cmd_args(link.output).hidden(runtime_files)
         extra_targets = [("check", meta.output)] + meta.diag.items()
-        if link.pdb:
-            extra_targets.append((PDB_SUB_TARGET, link.pdb))
 
         # If we have some resources, write it to the resources JSON file and add
         # it and all resources to "runtime_files" so that we make to materialize
@@ -260,6 +267,8 @@ def _rust_binary_common(
 
         if link_style == specified_link_style and link.dwp_output:
             dwp_target = link.dwp_output
+        if link_style == specified_link_style and link.pdb:
+            pdb = link.pdb
 
     expand = rust_compile(
         ctx = ctx,
@@ -302,6 +311,13 @@ def _rust_binary_common(
                 default_output = dwp_target,
             ),
         ]
+
+    if pdb:
+        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb)
+
+    dupmbin_toolchain = compile_ctx.cxx_toolchain_info.dumpbin_toolchain_path
+    if dupmbin_toolchain:
+        sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, compiled_outputs.link, dupmbin_toolchain)
 
     providers = [
         DefaultInfo(

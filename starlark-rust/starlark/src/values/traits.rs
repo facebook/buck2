@@ -249,7 +249,7 @@ pub trait StarlarkValue<'v>:
     /// proc macro.
     fn get_type_starlark_repr() -> Ty {
         // TODO(nga): replace with `Ty::starlark_value::<Self>()`.
-        Ty::name(Self::TYPE)
+        Ty::name_static(Self::TYPE)
     }
 
     /// Please do not implement this method or `get_type`,
@@ -304,8 +304,9 @@ pub trait StarlarkValue<'v>:
 
     /// Type of this instance for typechecker.
     /// Note this can be more precise than generic type.
-    #[doc(hidden)]
-    fn typechecker_ty(&self, _private: Private) -> Option<Ty> {
+    fn typechecker_ty(&self) -> Option<Ty> {
+        // TODO(nga): replace with `Self::get_type_starlark_repr()`
+        //   when it gets implemented properly.
         None
     }
 
@@ -692,7 +693,15 @@ pub trait StarlarkValue<'v>:
         ValueError::unsupported_with(self, "-", other)
     }
 
+    /// Called on `rhs` of `lhs * rhs` when `lhs.mul` returns `None`.
+    fn rmul(&self, lhs: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+        let _ignore = (lhs, heap);
+        None
+    }
+
     /// Multiply the current value with `other`.
+    ///
+    /// When this function returns `None`, starlark-rust calls `rhs.rmul(lhs)`.
     ///
     /// # Examples
     ///
@@ -704,8 +713,8 @@ pub trait StarlarkValue<'v>:
     /// (1, 2, 3) * 3 == (1, 2, 3, 1, 2, 3, 1, 2, 3)
     /// # "#);
     /// ```
-    fn mul(&self, other: Value<'v>, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        ValueError::unsupported_with(self, "*", other)
+    fn mul(&self, _rhs: Value<'v>, _heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+        None
     }
 
     /// Divide the current value by `other`. Always results in a float value.
@@ -741,6 +750,7 @@ pub trait StarlarkValue<'v>:
     /// "a %s c" % 3 == "a 3 c"
     /// "Hello %s, your score is %d" % ("Bob", 75) == "Hello Bob, your score is 75"
     /// "%d %o %x" % (65, 65, 65) == "65 101 41"
+    /// "%d" % 12345678901234567890 == "12345678901234567890"
     /// "Hello %s, welcome" % "Bob" == "Hello Bob, welcome"
     /// "%s" % (1,) == "1"
     /// "%s" % ((1,),) == "(1,)"
@@ -816,12 +826,12 @@ pub trait StarlarkValue<'v>:
 
     /// Typecheck `this op rhs`.
     fn bin_op_ty(_op: TypingBinOp, _rhs: &TyBasic) -> Option<Ty> {
-        Some(Ty::any())
+        None
     }
 
     /// Typecheck `lhs op this`.
     fn rbin_op_ty(_lhs: &TyBasic, _op: TypingBinOp) -> Option<Ty> {
-        Some(Ty::any())
+        None
     }
 
     /// Called when exporting a value under a specific name,

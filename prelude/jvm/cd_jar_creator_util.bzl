@@ -136,7 +136,7 @@ def add_output_paths_to_cmd_args(cmd: cmd_args, output_paths: OutputPaths.type, 
     cmd.hidden(output_paths.scratch.as_output())
     return cmd
 
-def encode_output_paths(label: Label, paths: OutputPaths.type, target_type: TargetType.type) -> struct.type:
+def encode_output_paths(label: Label, paths: OutputPaths.type, target_type: TargetType.type) -> struct:
     paths = struct(
         classesDir = paths.classes.as_output(),
         outputJarDirPath = paths.jar_parent.as_output(),
@@ -153,7 +153,7 @@ def encode_output_paths(label: Label, paths: OutputPaths.type, target_type: Targ
         libraryTargetFullyQualifiedName = base_qualified_name(label),
     )
 
-def encode_jar_params(remove_classes: list[str], output_paths: OutputPaths.type) -> struct.type:
+def encode_jar_params(remove_classes: list[str], output_paths: OutputPaths.type) -> struct:
     return struct(
         jarPath = output_paths.jar.as_output(),
         removeEntryPredicate = struct(
@@ -217,7 +217,7 @@ def _get_source_only_abi_compiling_deps(compiling_deps_tset: [JavaCompilingDepsT
     return source_only_abi_compiling_deps
 
 # buildifier: disable=unused-variable
-def encode_ap_params(annotation_processor_properties: "AnnotationProcessorProperties", target_type: TargetType.type) -> [struct.type, None]:
+def encode_ap_params(annotation_processor_properties: "AnnotationProcessorProperties", target_type: TargetType.type) -> [struct, None]:
     # buck1 oddly only inspects annotation processors, not plugins for
     # abi/source-only abi related things, even though the plugin rules
     # support the flags. we apply it to both.
@@ -244,7 +244,7 @@ def encode_ap_params(annotation_processor_properties: "AnnotationProcessorProper
                 )
     return encoded_ap_params
 
-def encode_plugin_params(plugin_params: ["PluginParams", None]) -> [struct.type, None]:
+def encode_plugin_params(plugin_params: ["PluginParams", None]) -> [struct, None]:
     # TODO(cjhopman): We should change plugins to not be merged together just like APs.
     encoded_plugin_params = None
     if plugin_params:
@@ -279,7 +279,7 @@ def encode_base_jar_command(
         plugin_params: ["PluginParams", None],
         extra_arguments: cmd_args,
         source_only_abi_compiling_deps: list["JavaClasspathEntry"],
-        track_class_usage: bool) -> struct.type:
+        track_class_usage: bool) -> struct:
     library_jar_params = encode_jar_params(remove_classes, output_paths)
     qualified_name = get_qualified_name(label, target_type)
     if target_type == TargetType("source_only_abi"):
@@ -349,7 +349,7 @@ def setup_dep_files(
         cmd: cmd_args,
         classpath_jars_tag: "artifact_tag",
         used_classes_json_outputs: list[Artifact],
-        abi_to_abi_dir_map: ["transitive_set_args_projection", list[cmd_args], None],
+        abi_to_abi_dir_map: [TransitiveSetArgsProjection, list[cmd_args], None],
         hidden = ["artifact"]) -> cmd_args:
     dep_file = declare_prefixed_output(actions, actions_identifier, "dep_file.txt")
 
@@ -379,6 +379,8 @@ def setup_dep_files(
 
     return new_cmd
 
+FORCE_PERSISTENT_WORKERS = read_root_config("build", "require_persistent_workers", "false").lower() == "true"
+
 def prepare_cd_exe(
         qualified_name: str,
         java: RunInfo.type,
@@ -389,7 +391,7 @@ def prepare_cd_exe(
         debug_port: [int, None],
         debug_target: [Label, None],
         extra_jvm_args: list[str],
-        extra_jvm_args_target: [Label, None]) -> tuple.type:
+        extra_jvm_args_target: [Label, None]) -> tuple:
     local_only = False
     jvm_args = ["-XX:-MaxFDLimit"]
 
@@ -417,7 +419,7 @@ def prepare_cd_exe(
             # This is used for local execution if `build.use_persistent_workers=True`
             worker = worker,
         )
-        return worker_run_info, False
+        return worker_run_info, FORCE_PERSISTENT_WORKERS
 
 # If there's additional compiled srcs, we need to merge them in and if the
 # caller specified an output artifact we need to make sure the jar is in that
@@ -467,7 +469,7 @@ def generate_abi_jars(
         class_abi_jar: [Artifact, None],
         class_abi_output_dir: [Artifact, None],
         encode_abi_command: typing.Callable,
-        define_action: typing.Callable) -> tuple.type:
+        define_action: typing.Callable) -> tuple:
     class_abi = None
     source_abi = None
     source_only_abi = None

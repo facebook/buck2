@@ -75,13 +75,14 @@ extra_attributes = {
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "prefer_stripped_objects": attrs.bool(default = False),
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
-        "stripped": attrs.bool(default = False),
+        "stripped": attrs.option(attrs.bool(), default = None),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
         # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_omnibus_environment": omnibus_environment_attr(),
+        "_stripped_default": attrs.bool(default = False),
     },
     "apple_bundle": apple_bundle_extra_attrs(),
     "apple_library": {
@@ -92,7 +93,7 @@ extra_attributes = {
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "serialize_debugging_options": attrs.bool(default = True),
-        "stripped": attrs.bool(default = False),
+        "stripped": attrs.option(attrs.bool(), default = None),
         "supports_header_symlink_subtarget": attrs.bool(default = False),
         "supports_shlib_interfaces": attrs.bool(default = True),
         "use_archive": attrs.option(attrs.bool(), default = None),
@@ -102,6 +103,7 @@ extra_attributes = {
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_omnibus_environment": omnibus_environment_attr(),
+        "_stripped_default": attrs.bool(default = False),
         APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
     },
     "apple_package": {

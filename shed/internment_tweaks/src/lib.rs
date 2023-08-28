@@ -17,7 +17,6 @@
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 #![feature(offset_of)]
 
-use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::hash_map::DefaultHasher;
 use std::fmt;
@@ -33,6 +32,7 @@ use std::ptr;
 use allocative::Allocative;
 use allocative::Visitor;
 use dupe::Dupe;
+use equivalent::Equivalent;
 use lock_free_hashtable::sharded::ShardedLockFreeRawTable;
 
 pub struct StaticInterner<T: 'static, H = DefaultHasher> {
@@ -181,24 +181,6 @@ impl<T: Hash, H: Hasher + Default> Hashed<T, H> {
     }
 }
 
-/// `Self` is "equivalent" to `K` which means `Self` and `K` are logically "equal"
-/// and hashes of `Self` and `Q` are equal.
-pub trait Equiv<K: ?Sized> {
-    /// Compare `Self` and `K`.
-    fn equivalent(&self, key: &K) -> bool;
-}
-
-impl<Q: ?Sized, K: ?Sized> Equiv<K> for &Q
-where
-    Q: Eq,
-    K: Borrow<Q>,
-{
-    #[inline]
-    fn equivalent(&self, key: &K) -> bool {
-        *self == key.borrow()
-    }
-}
-
 impl<T: 'static, H> StaticInterner<T, H> {
     /// Create a new interner for given type.
     pub const fn new() -> StaticInterner<T, H> {
@@ -213,7 +195,7 @@ impl<T: 'static, H: Hasher + Default> StaticInterner<T, H> {
     /// Allocate a value, or return previously allocated one.
     pub fn intern<Q>(&'static self, value: Q) -> Intern<T>
     where
-        Q: Hash + Equiv<T> + Into<T>,
+        Q: Hash + Equivalent<T> + Into<T>,
         T: Eq + Hash,
     {
         let hashed = Hashed::<_, H>::new(value);
@@ -230,7 +212,7 @@ impl<T: 'static, H: Hasher + Default> StaticInterner<T, H> {
     #[cold]
     fn intern_slow<Q>(&'static self, hashed_value: Hashed<Q, H>) -> Intern<T>
     where
-        Q: Hash + Equiv<T> + Into<T>,
+        Q: Hash + Equivalent<T> + Into<T>,
         T: Eq + Hash,
     {
         let pointer = Box::new(InternedData {
@@ -252,7 +234,7 @@ impl<T: 'static, H: Hasher + Default> StaticInterner<T, H> {
     /// Get a value if it has been interned.
     pub fn get<Q>(&'static self, key: Q) -> Option<Intern<T>>
     where
-        Q: Hash + Equiv<T>,
+        Q: Hash + Equivalent<T>,
         T: Eq + Hash,
     {
         let hashed = Hashed::<_, H>::new(key);
@@ -289,24 +271,29 @@ impl<T: 'static, H> Iterator for Iter<T, H> {
 mod tests {
     use std::collections::BTreeSet;
 
+    use equivalent::Equivalent;
+
     use crate::Intern;
     use crate::StaticInterner;
 
     static STRING_INTERNER: StaticInterner<String> = StaticInterner::new();
 
+    #[derive(Hash, Eq, PartialEq)]
+    struct StrRef<'a>(&'a str);
+
     #[test]
     fn test_intern() {
         assert_eq!(
-            STRING_INTERNER.intern(&"hello".to_owned()),
-            STRING_INTERNER.intern(&"hello".to_owned())
+            STRING_INTERNER.intern("hello".to_owned()),
+            STRING_INTERNER.intern("hello".to_owned())
         );
         assert_eq!(
-            STRING_INTERNER.intern(&"hello".to_owned()),
-            STRING_INTERNER.intern("hello"),
+            STRING_INTERNER.intern("hello".to_owned()),
+            STRING_INTERNER.intern(StrRef("hello")),
         );
         assert_ne!(
-            STRING_INTERNER.intern(&"hello".to_owned()),
-            STRING_INTERNER.intern(&"world".to_owned())
+            STRING_INTERNER.intern("hello".to_owned()),
+            STRING_INTERNER.intern("world".to_owned())
         );
     }
 
@@ -316,14 +303,26 @@ mod tests {
         let mut interned_strings = Vec::new();
         for i in 0..100000 {
             let s = i.to_string();
-            let interned = STRING_INTERNER.intern(&s);
+            let interned = STRING_INTERNER.intern(s.clone());
             assert_eq!(&s, &*interned);
             interned_strings.push(interned);
         }
 
         for s in &interned_strings {
-            let interned = STRING_INTERNER.intern(&String::clone(s));
+            let interned = STRING_INTERNER.intern(String::clone(s));
             assert_eq!(*s, interned);
+        }
+    }
+
+    impl Equivalent<String> for StrRef<'_> {
+        fn equivalent(&self, key: &String) -> bool {
+            self.0 == key
+        }
+    }
+
+    impl From<StrRef<'_>> for String {
+        fn from(value: StrRef<'_>) -> Self {
+            value.0.to_owned()
         }
     }
 
@@ -331,13 +330,13 @@ mod tests {
     #[test]
     fn test_get() {
         let interner = &TEST_GET_INTERNER;
-        assert_eq!(interner.get("hello"), None);
-        assert_eq!(interner.get(&"hello".to_owned()), None);
+        assert_eq!(interner.get(StrRef("hello")), None);
+        assert_eq!(interner.get("hello".to_owned()), None);
 
-        let interned = interner.intern(&"hello".to_owned());
-        assert_eq!(interner.get("hello"), Some(interned));
-        assert_eq!(interner.get(&"hello".to_owned()), Some(interned));
-        assert_eq!(interner.get("world"), None);
+        let interned = interner.intern("hello".to_owned());
+        assert_eq!(interner.get(StrRef("hello")), Some(interned));
+        assert_eq!(interner.get("hello".to_owned()), Some(interned));
+        assert_eq!(interner.get(StrRef("world")), None);
     }
 
     static TEST_ITER_INTERNER: StaticInterner<&'static str> = StaticInterner::new();

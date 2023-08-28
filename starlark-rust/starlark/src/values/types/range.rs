@@ -30,6 +30,7 @@ use starlark_derive::StarlarkDocs;
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::starlark_simple_value;
+use crate::typing::Ty;
 use crate::values::index::convert_index;
 use crate::values::index::convert_slice_indices;
 use crate::values::Heap;
@@ -255,6 +256,10 @@ impl<'v> StarlarkValue<'v> for Range {
                     == 0,
             )
         }
+    }
+
+    fn get_type_starlark_repr() -> Ty {
+        Ty::starlark_value::<Range>()
     }
 }
 

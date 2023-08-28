@@ -17,29 +17,28 @@
 
 //! Compile and evaluate module top-level statements.
 
-use std::slice;
-
 use crate::codemap::Spanned;
 use crate::const_frozen_string;
 use crate::eval::bc::frame::alloca_frame;
 use crate::eval::compiler::add_span_to_expr_error;
+use crate::eval::compiler::eval_exception::EvalException;
 use crate::eval::compiler::expr_throw;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::scope::Slot;
-use crate::eval::compiler::scope::TopLevelStmtIndex;
 use crate::eval::compiler::Compiler;
-use crate::eval::compiler::EvalException;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::syntax::ast::LoadP;
 use crate::syntax::ast::StmtP;
+use crate::syntax::top_level_stmts::top_level_stmts_mut;
 use crate::typing::bindings::BindingsCollect;
 use crate::typing::error::InternalError;
 use crate::typing::mode::TypecheckMode;
 use crate::typing::oracle::traits::OracleAny;
 use crate::typing::typecheck::solve_bindings;
+use crate::typing::TypingOracleCtx;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
 use crate::values::Value;
@@ -128,15 +127,13 @@ impl<'v> Compiler<'v, '_, '_> {
         )
     }
 
+    #[allow(clippy::mut_mut)] // Another false positive.
     fn eval_top_level_stmt(
         &mut self,
         stmt: &mut CstStmt,
         local_names: FrozenRef<'static, [FrozenStringValue]>,
     ) -> Result<Value<'v>, EvalException> {
-        let stmts: &mut [CstStmt] = match &mut stmt.node {
-            StmtP::Statements(stmts) => stmts,
-            _ => slice::from_mut(stmt),
-        };
+        let mut stmts = top_level_stmts_mut(stmt);
 
         if stmts.len() != self.top_level_stmt_count {
             return Err(EvalException::new(
@@ -146,15 +143,9 @@ impl<'v> Compiler<'v, '_, '_> {
             ));
         }
 
-        if self.last_stmt_defining_type.is_none() {
-            self.typecheck(stmts)?;
-        }
-
         let mut last = Value::new_none();
-        for i in 0..stmts.len() {
-            self.populate_types_in_stmts(stmts, TopLevelStmtIndex(i + 1))?;
-
-            let stmt = &mut stmts[i];
+        for stmt in stmts.iter_mut() {
+            self.populate_types_in_stmt(stmt)?;
 
             match &mut stmt.node {
                 StmtP::Load(load) => {
@@ -166,26 +157,31 @@ impl<'v> Compiler<'v, '_, '_> {
                 }
                 _ => last = self.eval_regular_top_level_stmt(stmt, local_names)?,
             }
-
-            if Some(TopLevelStmtIndex(i)) == self.last_stmt_defining_type {
-                self.typecheck(stmts)?;
-            }
         }
+
+        self.typecheck(&mut stmts)?;
+
         Ok(last)
     }
 
-    fn typecheck(&mut self, stmts: &mut [CstStmt]) -> Result<(), EvalException> {
+    fn typecheck(&mut self, stmts: &mut [&mut CstStmt]) -> Result<(), EvalException> {
         if !self.eval.static_typechecking {
             return Ok(());
         }
 
-        self.populate_types_in_stmts(stmts, TopLevelStmtIndex(stmts.len()))?;
-
-        let BindingsCollect { bindings, .. } =
-            BindingsCollect::collect(stmts, TypecheckMode::Compiler, &self.codemap)
-                .map_err(InternalError::into_eval_exception)?;
-
-        let (errors, ..) = match solve_bindings(&OracleAny, bindings, &self.codemap) {
+        let oracle = TypingOracleCtx {
+            oracle: &OracleAny,
+            codemap: &self.codemap,
+            typecheck_mode: TypecheckMode::Compiler,
+        };
+        let BindingsCollect { bindings, .. } = BindingsCollect::collect(
+            stmts,
+            TypecheckMode::Compiler,
+            &self.codemap,
+            &mut Vec::new(),
+        )
+        .map_err(InternalError::into_eval_exception)?;
+        let (errors, ..) = match solve_bindings(bindings, oracle) {
             Ok(x) => x,
             Err(e) => return Err(e.into_eval_exception()),
         };

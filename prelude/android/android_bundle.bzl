@@ -53,6 +53,9 @@ def build_bundle(
         dex_files_info.primary_dex,
     ])
 
+    if android_toolchain.package_meta_inf_version_files:
+        bundle_builder_args.add("--package-meta-inf-version-files")
+
     root_module_asset_directories = native_library_info.root_module_native_lib_assets + dex_files_info.root_module_secondary_dex_dirs
     root_module_asset_directories_file = actions.write("root_module_asset_directories.txt", root_module_asset_directories)
     bundle_builder_args.hidden(root_module_asset_directories)

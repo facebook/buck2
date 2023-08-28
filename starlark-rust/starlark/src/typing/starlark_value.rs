@@ -27,7 +27,6 @@ use std::marker::PhantomData;
 use allocative::Allocative;
 use dupe::Dupe;
 
-use crate::docs::DocItem;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
@@ -95,9 +94,9 @@ impl Display for TyStarlarkValue {
 }
 
 impl PartialEq for TyStarlarkValue {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
-        // TODO(nga): compare type ids instead, here and below.
-        self.vtable.type_name == other.vtable.type_name
+        self.vtable.starlark_type_id == other.vtable.starlark_type_id
     }
 }
 
@@ -105,6 +104,8 @@ impl Eq for TyStarlarkValue {}
 
 impl Hash for TyStarlarkValue {
     fn hash<H: Hasher>(&self, state: &mut H) {
+        // Hash type name because type id is not stable.
+        // TODO(nga): store hash in vtable.
         self.vtable.type_name.hash(state);
     }
 }
@@ -160,9 +161,14 @@ impl TyStarlarkValue {
     }
 
     pub(crate) fn bin_op(self, op: TypingBinOp, rhs: &TyBasic) -> Result<Ty, ()> {
-        // TODO(nga): use `rbin_op_ty` too.
-        let _todo_use_rbin_op_ty_too = self.vtable.vtable.rbin_op_ty;
         match (self.vtable.vtable.bin_op_ty)(op, rhs) {
+            Some(ty) => Ok(ty),
+            None => Err(()),
+        }
+    }
+
+    pub(crate) fn rbin_op(self, op: TypingBinOp, lhs: &TyBasic) -> Result<Ty, ()> {
+        match (self.vtable.vtable.rbin_op_ty)(lhs, op) {
             Some(ty) => Ok(ty),
             None => Err(()),
         }
@@ -179,19 +185,7 @@ impl TyStarlarkValue {
     pub(crate) fn attr(self, name: &str) -> Result<Ty, ()> {
         if let Some(methods) = (self.vtable.vtable.get_methods)() {
             if let Some(method) = methods.get(name) {
-                if let Some(doc) = method.documentation() {
-                    match doc {
-                        DocItem::Function(method) => return Ok(Ty::from_docs_function(&method)),
-                        DocItem::Property(property) => {
-                            return Ok(Ty::from_docs_property(&property));
-                        }
-                        DocItem::Object(_) | DocItem::Module(_) => {
-                            // unreachable: only methods and properties are in `methods`.
-                        }
-                    }
-                } else {
-                    // unreachable: both methods and attributes have documentation.
-                }
+                return Ok(Ty::of_value(method));
             }
         }
         if let Some(ty) = (self.vtable.vtable.attr_ty)(name) {

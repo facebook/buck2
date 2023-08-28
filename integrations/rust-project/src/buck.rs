@@ -8,7 +8,6 @@
  */
 
 use std::collections::BTreeMap;
-use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::io;
 use std::path::Path;
@@ -50,12 +49,11 @@ pub fn to_json_project(
     let buck = Buck::new(mode);
 
     let ExpandedAndResolved {
-        expanded_targets: targets,
+        expanded_targets: _,
         queried_proc_macros: proc_macros,
         resolved_deps: target_map,
     } = expanded_and_resolved;
 
-    let targets: BTreeSet<_> = targets.into_iter().collect();
     let target_index = merge_unit_test_targets(target_map);
     let project_root = buck.resolve_project_root()?;
 
@@ -106,7 +104,7 @@ pub fn to_json_project(
             root_module,
             edition,
             deps,
-            is_workspace_member: targets.contains(target),
+            is_workspace_member: info.in_workspace,
             source: None,
             cfg,
             target: None,
@@ -337,7 +335,14 @@ impl Buck {
 
         command.args(["--use-clippy", &use_clippy.to_string()]);
 
-        let files = deserialize_output(command.output(), &command)?;
+        let output = command.output();
+        if let Ok(output) = &output {
+            if output.stdout.is_empty() {
+                return Ok(vec![]);
+            }
+        }
+
+        let files = deserialize_output(output, &command)?;
         Ok(files)
     }
 
@@ -366,6 +371,7 @@ impl Buck {
         &self,
         targets: &[Target],
     ) -> Result<BTreeMap<Target, AliasedTargetInfo>, anyhow::Error> {
+        // FIXME: Do this in bxl as well instead of manually writing a separate query
         let mut command = self.command();
 
         // Fetch all aliases used by transitive deps. This is so we
@@ -520,6 +526,7 @@ fn merge_tests_no_cycles() {
             proc_macro: None,
             features: vec![],
             source_folder: PathBuf::from("/tmp"),
+            in_workspace: false,
         },
     );
 
@@ -540,6 +547,7 @@ fn merge_tests_no_cycles() {
             proc_macro: None,
             features: vec![],
             source_folder: PathBuf::from("/tmp"),
+            in_workspace: false,
         },
     );
 
@@ -572,6 +580,7 @@ fn merge_target_multiple_tests_no_cycles() {
             proc_macro: None,
             features: vec![],
             source_folder: PathBuf::from("/tmp"),
+            in_workspace: false,
         },
     );
 
@@ -595,6 +604,7 @@ fn merge_target_multiple_tests_no_cycles() {
             proc_macro: None,
             features: vec![],
             source_folder: PathBuf::from("/tmp"),
+            in_workspace: false,
         },
     );
 
@@ -618,6 +628,7 @@ fn merge_target_multiple_tests_no_cycles() {
             proc_macro: None,
             features: vec![],
             source_folder: PathBuf::from("/tmp"),
+            in_workspace: false,
         },
     );
 
@@ -638,6 +649,7 @@ fn merge_target_multiple_tests_no_cycles() {
             proc_macro: None,
             features: vec![],
             source_folder: PathBuf::from("/tmp"),
+            in_workspace: false,
         },
     );
 

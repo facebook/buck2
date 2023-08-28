@@ -10,11 +10,11 @@
 use std::collections::BTreeMap;
 
 use allocative::Allocative;
-use buck2_util::collections::ordered_map::OrderedMap;
 use derive_more::Display;
 use dupe::Dupe;
 use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
+use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::Entry;
 
 use crate::cells::cell_path::CellPath;
@@ -51,7 +51,7 @@ impl PluginKind {
         // FIXME(JakobDegen): Interning is overkill here, this is never called with the same
         // arguments twice. However, we do want pointer equality and pre-hashing, is there an easier
         // way to get that?
-        Self(PLUGIN_KIND_INTERNER.intern(&PluginKindInner { name, cell }))
+        Self(PLUGIN_KIND_INTERNER.intern(PluginKindInner { name, cell }))
     }
 
     pub fn as_str(&self) -> &str {
@@ -74,13 +74,13 @@ pub struct PluginKindSet(*const ());
 enum PluginKindSetUnpacked {
     None,
     All,
-    Interned(Intern<Box<[(PluginKind, bool)]>>),
+    Interned(Intern<Vec<(PluginKind, bool)>>),
 }
 
 static_assertions::assert_eq_size!(PluginKindSet, usize);
 static_assertions::assert_eq_size!(PluginKindSetUnpacked, [usize; 2]);
 
-static PLUGIN_KIND_SET_INTERNER: StaticInterner<Box<[(PluginKind, bool)]>> = StaticInterner::new();
+static PLUGIN_KIND_SET_INTERNER: StaticInterner<Vec<(PluginKind, bool)>> = StaticInterner::new();
 
 impl PluginKindSet {
     pub const EMPTY: Self = Self::pack(PluginKindSetUnpacked::None);
@@ -101,7 +101,7 @@ impl PluginKindSet {
         let kinds = kinds.into_iter().collect::<Vec<_>>();
 
         Ok(Self::pack(PluginKindSetUnpacked::Interned(
-            PLUGIN_KIND_SET_INTERNER.intern(&kinds[..]),
+            PLUGIN_KIND_SET_INTERNER.intern(kinds),
         )))
     }
 

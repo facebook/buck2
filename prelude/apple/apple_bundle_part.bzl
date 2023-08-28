@@ -221,6 +221,10 @@ def _detect_codesign_type(ctx: AnalysisContext) -> CodeSignType.type:
     return CodeSignType("adhoc" if is_ad_hoc_sufficient else "distribution")
 
 def _entitlements_file(ctx: AnalysisContext) -> [Artifact, None]:
+    if hasattr(ctx.attrs, "entitlements_file"):
+        # Bundling `apple_test` which doesn't have a binary to provide the entitlements, so they are provided via `entitlements_file` attribute directly.
+        return ctx.attrs.entitlements_file
+
     if not ctx.attrs.binary:
         return None
 

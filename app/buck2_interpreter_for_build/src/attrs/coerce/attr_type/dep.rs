@@ -19,6 +19,7 @@ use starlark::values::string::STRING_TYPE;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 
+use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
 
@@ -38,8 +39,8 @@ impl AttrTypeCoerce for DepAttrType {
         Ok(CoercedAttr::Dep(label))
     }
 
-    fn starlark_type(&self) -> Ty {
-        Ty::string()
+    fn starlark_type(&self) -> TyMaybeSelect {
+        TyMaybeSelect::Basic(Ty::string())
     }
 }
 
@@ -77,7 +78,10 @@ impl AttrTypeCoerce for ExplicitConfiguredDepAttrType {
         )))
     }
 
-    fn starlark_type(&self) -> Ty {
-        Ty::tuple2(Ty::string(), Ty::string())
+    fn starlark_type(&self) -> TyMaybeSelect {
+        TyMaybeSelect::Tuple(vec![
+            TyMaybeSelect::Basic(Ty::string()),
+            TyMaybeSelect::Basic(Ty::string()),
+        ])
     }
 }

@@ -19,7 +19,7 @@ use std::collections::HashSet;
 
 use crate::codemap::CodeMap;
 use crate::codemap::Spanned;
-use crate::eval::compiler::EvalException;
+use crate::eval::compiler::eval_exception::EvalException;
 use crate::syntax::ast::AstAssignIdentP;
 use crate::syntax::ast::AstExprP;
 use crate::syntax::ast::AstParameterP;
