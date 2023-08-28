@@ -37,11 +37,9 @@ SDKDepTSet = transitive_set(args_projections = {
 })
 
 def is_sdk_modules_provided(toolchain: SwiftToolchainInfo.type) -> bool:
-    no_swift_modules = toolchain.uncompiled_swift_sdk_modules_deps == None or len(toolchain.uncompiled_swift_sdk_modules_deps) == 0
-    no_clang_modules = toolchain.uncompiled_clang_sdk_modules_deps == None or len(toolchain.uncompiled_clang_sdk_modules_deps) == 0
-    if no_swift_modules and no_clang_modules:
-        return False
-    return True
+    has_swift_modules = bool(toolchain.uncompiled_swift_sdk_modules_deps)
+    has_clang_modules = bool(toolchain.uncompiled_clang_sdk_modules_deps)
+    return has_swift_modules or has_clang_modules
 
 def get_compiled_sdk_deps_tset(ctx: AnalysisContext, deps_providers: list) -> SDKDepTSet.type:
     sdk_deps = [
