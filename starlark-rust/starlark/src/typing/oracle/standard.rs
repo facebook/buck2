@@ -115,55 +115,6 @@ impl TypingOracle for OracleStandard {
                 TypingAttr::Index => Ty::function(vec![Param::pos_only(tk.to_ty())], tv.to_ty()),
                 _ => return fallback(),
             },
-            TyBasic::StarlarkValue(x) if x.as_name() == "int" => match attr {
-                TypingAttr::BinOp(TypingBinOp::Less) => {
-                    Ty::function(vec![Param::pos_only(Ty::int())], Ty::bool())
-                }
-                TypingAttr::BinOp(TypingBinOp::Sub) => {
-                    Ty::function(vec![Param::pos_only(Ty::int())], Ty::int())
-                }
-                TypingAttr::BinOp(TypingBinOp::Add) => {
-                    Ty::function(vec![Param::pos_only(Ty::int())], Ty::int())
-                }
-                TypingAttr::BinOp(TypingBinOp::Div) => {
-                    Ty::function(vec![Param::pos_only(Ty::any())], Ty::float())
-                }
-                _ => return Some(Err(())),
-            },
-            TyBasic::StarlarkValue(x) if x.as_name() == "float" => match attr {
-                TypingAttr::BinOp(TypingBinOp::Less) => {
-                    Ty::function(vec![Param::pos_only(Ty::float())], Ty::bool())
-                }
-                TypingAttr::BinOp(TypingBinOp::Sub) => {
-                    Ty::function(vec![Param::pos_only(Ty::float())], Ty::float())
-                }
-                TypingAttr::BinOp(TypingBinOp::Add) => {
-                    Ty::function(vec![Param::pos_only(Ty::float())], Ty::float())
-                }
-                TypingAttr::BinOp(TypingBinOp::Div) => {
-                    Ty::function(vec![Param::pos_only(Ty::any())], Ty::float())
-                }
-                _ => return Some(Err(())),
-            },
-            TyBasic::StarlarkValue(x) if x.as_name() == "string" => match attr {
-                TypingAttr::BinOp(TypingBinOp::Less) => {
-                    Ty::function(vec![Param::pos_only(Ty::string())], Ty::bool())
-                }
-                TypingAttr::Index => Ty::function(vec![Param::pos_only(Ty::int())], Ty::string()),
-                TypingAttr::BinOp(TypingBinOp::In) => {
-                    Ty::function(vec![Param::pos_only(Ty::string())], Ty::bool())
-                }
-                TypingAttr::BinOp(TypingBinOp::Add) => {
-                    Ty::function(vec![Param::pos_only(Ty::string())], Ty::string())
-                }
-                TypingAttr::BinOp(TypingBinOp::Mul) => {
-                    Ty::function(vec![Param::pos_only(Ty::int())], Ty::string())
-                }
-                TypingAttr::BinOp(TypingBinOp::Percent) => {
-                    Ty::function(vec![Param::pos_only(Ty::any())], Ty::string())
-                }
-                _ => return fallback(),
-            },
             _ => {
                 let res = self.fallback.attribute(ty, attr);
                 if res.is_none() && self.fallback.known_object(ty.as_name().unwrap_or_default()) {
