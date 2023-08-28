@@ -263,13 +263,17 @@ def _get_xctest_framework_linker_flags(ctx: AnalysisContext) -> list[[cmd_args, 
     ]
 
 def _get_xctest_framework(ctx: AnalysisContext) -> list[AppleBundlePart.type]:
+    return [
+        _get_object_from_platform_path(ctx, "Developer/Library/Frameworks/XCTest.framework"),
+    ]
+
+def _get_object_from_platform_path(ctx: AnalysisContext, platform_relative_path: str) -> AppleBundlePart.type:
     toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo]
-    xctest_framework_platform_relative_path = "Developer/Library/Frameworks/XCTest.framework"
-    copied_xctest_framework = ctx.actions.declare_output(paths.basename(xctest_framework_platform_relative_path))
+    copied_framework = ctx.actions.declare_output(paths.basename(platform_relative_path))
 
     # We have to copy because:
     # 1) Platform path might be a string (e.g. for Xcode toolchains)
     # 2) It's not possible to project artifact which is not produced by different target (and platform path is a separate target for distributed toolchains).
-    ctx.actions.run(["cp", "-PR", cmd_args(toolchain.platform_path, xctest_framework_platform_relative_path, delimiter = "/"), copied_xctest_framework.as_output()], category = "extract_xctest_framework")
+    ctx.actions.run(["cp", "-PR", cmd_args(toolchain.platform_path, platform_relative_path, delimiter = "/"), copied_framework.as_output()], category = "extract_framework", identifier = platform_relative_path)
 
-    return [AppleBundlePart(source = copied_xctest_framework, destination = AppleBundleDestination("frameworks"), codesign_on_copy = True)]
+    return AppleBundlePart(source = copied_framework, destination = AppleBundleDestination("frameworks"), codesign_on_copy = True)
