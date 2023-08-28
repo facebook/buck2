@@ -118,6 +118,8 @@ pub(crate) struct FrozenDictData {
 /// Alias is used in `StarlarkDocs` derive.
 pub(crate) type FrozenDict = DictGen<FrozenDictData>;
 
+pub(crate) type MutableDict<'v> = DictGen<RefCell<Dict<'v>>>;
+
 pub(crate) static VALUE_EMPTY_FROZEN_DICT: AValueRepr<AValueImpl<Simple, DictGen<FrozenDictData>>> =
     alloc_static(
         Simple,
@@ -397,6 +399,8 @@ impl<'v, T: DictLike<'v> + 'v> StarlarkValue<'v> for DictGen<T>
 where
     Self: ProvidesStaticType<'v>,
 {
+    type Canonical = FrozenDict;
+
     fn get_methods() -> Option<&'static Methods> {
         dict_methods()
     }

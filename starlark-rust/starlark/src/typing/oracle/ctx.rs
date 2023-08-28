@@ -32,6 +32,7 @@ use crate::typing::function::Param;
 use crate::typing::function::ParamMode;
 use crate::typing::function::TyFunction;
 use crate::typing::mode::TypecheckMode;
+use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::tuple::TyTuple;
 use crate::typing::Ty;
 use crate::typing::TyName;
@@ -39,6 +40,8 @@ use crate::typing::TypingAttr;
 use crate::typing::TypingBinOp;
 use crate::typing::TypingOracle;
 use crate::typing::TypingUnOp;
+use crate::values::dict::value::MutableDict;
+use crate::values::list::value::List;
 
 #[derive(Debug, thiserror::Error)]
 enum TypingOracleCtxError {
@@ -515,6 +518,50 @@ impl<'a> TypingOracleCtx<'a> {
     fn expr_dot_basic(&self, array: &TyBasic, attr: &str) -> Result<Ty, ()> {
         match array {
             TyBasic::StarlarkValue(s) => s.attr(attr),
+            TyBasic::List(elem) => match attr {
+                "pop" => Ok(Ty::function(
+                    vec![Param::pos_only(Ty::int()).optional()],
+                    (**elem).dupe(),
+                )),
+                "index" => Ok(Ty::function(
+                    vec![
+                        Param::pos_only((**elem).dupe()),
+                        Param::pos_only(Ty::int()).optional(),
+                    ],
+                    Ty::int(),
+                )),
+                "remove" => Ok(Ty::function(
+                    vec![Param::pos_only((**elem).dupe())],
+                    Ty::none(),
+                )),
+                attr => TyStarlarkValue::new::<List>().attr(attr),
+            },
+            TyBasic::Dict(tk, tv) => {
+                match attr {
+                    "get" => Ok(Ty::union2(
+                        Ty::function(
+                            vec![Param::pos_only(tk.to_ty())],
+                            Ty::union2(tv.to_ty(), Ty::none()),
+                        ),
+                        // This second signature is a bit too lax, but get with a default is much rarer
+                        Ty::function(
+                            vec![Param::pos_only(tk.to_ty()), Param::pos_only(Ty::any())],
+                            Ty::any(),
+                        ),
+                    )),
+                    "keys" => Ok(Ty::function(vec![], Ty::basic(TyBasic::List(tk.dupe())))),
+                    "values" => Ok(Ty::function(vec![], Ty::basic(TyBasic::List(tv.dupe())))),
+                    "items" => Ok(Ty::function(
+                        vec![],
+                        Ty::list(Ty::tuple(vec![tk.to_ty(), tv.to_ty()])),
+                    )),
+                    "popitem" => Ok(Ty::function(
+                        vec![],
+                        Ty::tuple(vec![tk.to_ty(), tv.to_ty()]),
+                    )),
+                    attr => TyStarlarkValue::new::<MutableDict>().attr(attr),
+                }
+            }
             array => self.attribute_basic(array, TypingAttr::Regular(attr)),
         }
     }

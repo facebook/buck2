@@ -108,6 +108,8 @@ impl Debug for FrozenListData {
 /// Alias is used in `StarlarkDocs` derive.
 pub(crate) type FrozenList = ListGen<FrozenListData>;
 
+pub(crate) type List<'v> = ListGen<ListData<'v>>;
+
 pub(crate) static VALUE_EMPTY_FROZEN_LIST: AValueRepr<AValueImpl<Direct, ListGen<FrozenListData>>> =
     alloc_static(Direct, unsafe { ListGen(FrozenListData::new(0)) });
 
@@ -423,6 +425,8 @@ impl<'v, T: ListLike<'v> + 'v> StarlarkValue<'v> for ListGen<T>
 where
     Self: ProvidesStaticType<'v> + Display,
 {
+    type Canonical = FrozenList;
+
     fn is_special(_: Private) -> bool
     where
         Self: Sized,

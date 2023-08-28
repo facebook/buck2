@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-use dupe::Dupe;
-
 use crate::docs::Doc;
 use crate::docs::DocItem;
 use crate::environment::Globals;
@@ -103,61 +101,20 @@ impl TypingOracle for OracleStandard {
                 TypingAttr::BinOp(TypingBinOp::Mul) => {
                     Ty::function(vec![Param::pos_only(Ty::int())], Ty::basic(ty.clone()))
                 }
-                TypingAttr::Regular("pop") => Ty::function(
-                    vec![Param::pos_only(Ty::int()).optional()],
-                    (**elem).clone(),
-                ),
-                TypingAttr::Regular("index") => Ty::function(
-                    vec![
-                        Param::pos_only((**elem).clone()),
-                        Param::pos_only(Ty::int()).optional(),
-                    ],
-                    Ty::int(),
-                ),
-                TypingAttr::Regular("remove") => {
-                    Ty::function(vec![Param::pos_only((**elem).clone())], Ty::none())
-                }
                 _ => return fallback(),
             },
-            TyBasic::Dict(tk, tv) => {
-                match attr {
-                    TypingAttr::BinOp(TypingBinOp::In) => {
-                        Ty::function(vec![Param::pos_only(tk.to_ty())], Ty::bool())
-                    }
-                    TypingAttr::BinOp(TypingBinOp::BitOr) => Ty::function(
-                        vec![Param::pos_only(Ty::basic(ty.clone()))],
-                        Ty::basic(ty.clone()),
-                    ),
-                    TypingAttr::Iter => tk.to_ty(),
-                    TypingAttr::Index => {
-                        Ty::function(vec![Param::pos_only(tk.to_ty())], tv.to_ty())
-                    }
-                    TypingAttr::Regular("get") => Ty::union2(
-                        Ty::function(
-                            vec![Param::pos_only(tk.to_ty())],
-                            Ty::union2(tv.to_ty(), Ty::none()),
-                        ),
-                        // This second signature is a bit too lax, but get with a default is much rarer
-                        Ty::function(
-                            vec![Param::pos_only(tk.to_ty()), Param::pos_only(Ty::any())],
-                            Ty::any(),
-                        ),
-                    ),
-                    TypingAttr::Regular("keys") => {
-                        Ty::function(vec![], Ty::basic(TyBasic::List(tk.dupe())))
-                    }
-                    TypingAttr::Regular("values") => {
-                        Ty::function(vec![], Ty::basic(TyBasic::List(tv.dupe())))
-                    }
-                    TypingAttr::Regular("items") => {
-                        Ty::function(vec![], Ty::list(Ty::tuple(vec![tk.to_ty(), tv.to_ty()])))
-                    }
-                    TypingAttr::Regular("popitem") => {
-                        Ty::function(vec![], Ty::tuple(vec![tk.to_ty(), tv.to_ty()]))
-                    }
-                    _ => return fallback(),
+            TyBasic::Dict(tk, tv) => match attr {
+                TypingAttr::BinOp(TypingBinOp::In) => {
+                    Ty::function(vec![Param::pos_only(tk.to_ty())], Ty::bool())
                 }
-            }
+                TypingAttr::BinOp(TypingBinOp::BitOr) => Ty::function(
+                    vec![Param::pos_only(Ty::basic(ty.clone()))],
+                    Ty::basic(ty.clone()),
+                ),
+                TypingAttr::Iter => tk.to_ty(),
+                TypingAttr::Index => Ty::function(vec![Param::pos_only(tk.to_ty())], tv.to_ty()),
+                _ => return fallback(),
+            },
             TyBasic::StarlarkValue(x) if x.as_name() == "int" => match attr {
                 TypingAttr::BinOp(TypingBinOp::Less) => {
                     Ty::function(vec![Param::pos_only(Ty::int())], Ty::bool())
