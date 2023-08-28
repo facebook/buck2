@@ -646,6 +646,26 @@ impl<'a> TypingOracleCtx<'a> {
                 }
                 _ => TyStarlarkValue::new::<List>().bin_op(bin_op, rhs.node),
             },
+            TyBasic::Dict(k, v) => match bin_op {
+                TypingBinOp::BitOr => {
+                    if self.intersects_basic(rhs.node, &TyBasic::any_dict()) {
+                        Ok(Ty::union2(
+                            Ty::dict(k.to_ty(), v.to_ty()),
+                            Ty::basic(rhs.node.dupe()),
+                        ))
+                    } else {
+                        Err(())
+                    }
+                }
+                TypingBinOp::In => {
+                    if self.intersects(&Ty::basic(rhs.node.dupe()), k) {
+                        Ok(Ty::bool())
+                    } else {
+                        Err(())
+                    }
+                }
+                bin_op => TyStarlarkValue::new::<MutableDict>().bin_op(bin_op, rhs.node),
+            },
             lhs => {
                 let fun = match self.oracle.attribute(lhs, TypingAttr::BinOp(bin_op)) {
                     Some(Ok(fun)) => fun,

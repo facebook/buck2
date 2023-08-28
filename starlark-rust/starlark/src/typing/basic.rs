@@ -88,6 +88,10 @@ impl TyBasic {
         Self::list(Ty::any())
     }
 
+    pub(crate) fn any_dict() -> Self {
+        Self::dict(Ty::any(), Ty::any())
+    }
+
     /// Create a iterable type.
     pub(crate) fn iter(item: Ty) -> Self {
         TyBasic::Iter(ArcTy::new(item))

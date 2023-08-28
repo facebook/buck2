@@ -20,10 +20,8 @@ use crate::docs::DocItem;
 use crate::environment::Globals;
 use crate::stdlib::LibraryExtension;
 use crate::typing::basic::TyBasic;
-use crate::typing::function::Param;
 use crate::typing::oracle::docs::OracleDocs;
 use crate::typing::oracle::traits::TypingAttr;
-use crate::typing::oracle::traits::TypingBinOp;
 use crate::typing::oracle::traits::TypingOracle;
 use crate::typing::ty::Ty;
 use crate::typing::ty::TyName;
@@ -75,18 +73,9 @@ impl TypingOracle for OracleStandard {
         };
         // We have to explicitly implement operators (e.g. `__in__` since we don't generate documentation for them).
         // We explicitly implement polymorphic functions (e.g. `dict.get`) so they can get much more precise types.
-        Some(Ok(match ty {
+        match ty {
             TyBasic::List(..) => return fallback(),
-            TyBasic::Dict(tk, _tv) => match attr {
-                TypingAttr::BinOp(TypingBinOp::In) => {
-                    Ty::function(vec![Param::pos_only(tk.to_ty())], Ty::bool())
-                }
-                TypingAttr::BinOp(TypingBinOp::BitOr) => Ty::function(
-                    vec![Param::pos_only(Ty::basic(ty.clone()))],
-                    Ty::basic(ty.clone()),
-                ),
-                _ => return fallback(),
-            },
+            TyBasic::Dict(..) => return fallback(),
             _ => {
                 let res = self.fallback.attribute(ty, attr);
                 if res.is_none() && self.fallback.known_object(ty.as_name().unwrap_or_default()) {
@@ -95,7 +84,7 @@ impl TypingOracle for OracleStandard {
                     return res;
                 }
             }
-        }))
+        }
     }
 
     fn subtype(&self, _require: &TyName, _got: &TyName) -> bool {
