@@ -30,6 +30,7 @@ use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::dict::Dict;
 use starlark::values::dict::DictOf;
+use starlark::values::list::AllocList;
 use starlark::values::starlark_value;
 use starlark::values::AllocValue;
 use starlark::values::FrozenStringValue;
@@ -166,6 +167,64 @@ fn anon_target_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn promise<'v>(
         this: &StarlarkAnonTarget<'v>,
+    ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
+        Ok(this.promise)
+    }
+}
+
+#[derive(Debug, NoSerialize, ProvidesStaticType, Trace, Allocative, Clone)]
+struct StarlarkAnonTargets<'v> {
+    // Joined promise for all anon targets.
+    promise: ValueTyped<'v, StarlarkPromise<'v>>,
+    // All `StarlarkAnonTargets`
+    anon_targets: Vec<StarlarkAnonTarget<'v>>,
+    // Where the anon target were declared
+    declaration_location: Option<FileSpan>,
+}
+
+impl<'v> Display for StarlarkAnonTargets<'v> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "<anon targets")?;
+        if let Some(location) = &self.declaration_location {
+            write!(f, " declared at {}", location)?;
+        }
+        write!(f, ">")?;
+        Ok(())
+    }
+}
+
+#[starlark_value(type = "AnonTargets", StarlarkTypeRepr, UnpackValue)]
+impl<'v> StarlarkValue<'v> for StarlarkAnonTargets<'v> {
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(anon_targets_methods)
+    }
+}
+
+impl<'v> AllocValue<'v> for StarlarkAnonTargets<'v> {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        heap.alloc_complex_no_freeze(self)
+    }
+}
+
+/// Accessors to the all the anon targets created, as well as the joined promise of these targets.
+#[starlark_module]
+fn anon_targets_methods(builder: &mut MethodsBuilder) {
+    /// Returns a list of `StarlarkAnonTarget`s.
+    #[starlark(attribute)]
+    fn anon_targets<'v>(
+        this: &StarlarkAnonTargets<'v>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<Value<'v>> {
+        Ok(heap.alloc(AllocList(
+            this.anon_targets.iter().map(|a| heap.alloc(a.clone())),
+        )))
+    }
+
+    /// Returns the promise that maps to the result of the joined anon rules.
+    #[starlark(attribute)]
+    fn promise<'v>(
+        this: &StarlarkAnonTargets<'v>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
         Ok(this.promise)
     }
