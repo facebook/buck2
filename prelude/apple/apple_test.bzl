@@ -29,6 +29,10 @@ load(
     "@prelude//utils:dicts.bzl",
     "flatten_x",
 )
+load(
+    "@prelude//utils:utils.bzl",
+    "expect",
+)
 load(":apple_bundle.bzl", "AppleBundlePartListConstructorParams", "get_apple_bundle_part_list")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart", "SwiftStdlibArguments", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path", "get_bundle_dir_name")
@@ -94,6 +98,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], "promise"]:
                 force_link_group_linking = True,
             ),
             deps_providers,
+            is_test_target = True,
         )
 
         cxx_library_output = cxx_library_parameterized(ctx, constructor_params)
@@ -105,7 +110,14 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], "promise"]:
         binary_part = AppleBundlePart(source = test_binary, destination = AppleBundleDestination("executables"), new_name = ctx.attrs.name)
         part_list_output = get_apple_bundle_part_list(ctx, AppleBundlePartListConstructorParams(binaries = [binary_part]))
 
-        bundle_parts = part_list_output.parts + _get_xctest_framework(ctx)
+        xctest_swift_support_needed = None
+        for p in cxx_library_output.providers:
+            if hasattr(p, "_xctest_swift_support_marking_"):
+                xctest_swift_support_needed = p.support_needed
+                break
+        expect(xctest_swift_support_needed != None, "Expected `XCTestSwiftSupportInfo` provider to be present")
+
+        bundle_parts = part_list_output.parts + _get_xctest_framework(ctx, xctest_swift_support_needed)
 
         primary_binary_rel_path = get_apple_bundle_part_relative_destination_path(ctx, binary_part)
         swift_stdlib_args = SwiftStdlibArguments(primary_binary_rel_path = primary_binary_rel_path)
@@ -262,10 +274,13 @@ def _get_xctest_framework_linker_flags(ctx: AnalysisContext) -> list[[cmd_args, 
         xctest_framework_search_path,
     ]
 
-def _get_xctest_framework(ctx: AnalysisContext) -> list[AppleBundlePart.type]:
+def _get_xctest_framework(ctx: AnalysisContext, swift_support_needed: bool) -> list[AppleBundlePart.type]:
+    swift_support = [
+        _get_object_from_platform_path(ctx, "Developer/usr/lib/libXCTestSwiftSupport.dylib"),
+    ] if swift_support_needed else []
     return [
         _get_object_from_platform_path(ctx, "Developer/Library/Frameworks/XCTest.framework"),
-    ]
+    ] + swift_support
 
 def _get_object_from_platform_path(ctx: AnalysisContext, platform_relative_path: str) -> AppleBundlePart.type:
     toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo]

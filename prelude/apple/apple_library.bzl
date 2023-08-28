@@ -76,6 +76,7 @@ load(
 load(":modulemap.bzl", "preprocessor_info_for_modulemap")
 load(":resource_groups.bzl", "create_resource_graph")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
+load(":xctest_swift_support.bzl", "xctest_swift_support_info")
 
 AppleLibraryAdditionalParams = record(
     # Name of the top level rule utilizing the apple_library rule.
@@ -121,7 +122,7 @@ def apple_library_impl(ctx: AnalysisContext) -> ["promise", list[Provider]]:
     else:
         return get_apple_library_providers([])
 
-def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisContext, params: AppleLibraryAdditionalParams.type, deps_providers: list = []) -> CxxRuleConstructorParams.type:
+def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisContext, params: AppleLibraryAdditionalParams.type, deps_providers: list = [], is_test_target: bool = False) -> CxxRuleConstructorParams.type:
     cxx_srcs, swift_srcs = _filter_swift_srcs(ctx)
 
     # First create a modulemap if necessary. This is required for importing
@@ -184,6 +185,9 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         ],
     )
 
+    contains_swift_sources = bool(swift_srcs)
+    xctest_swift_support_provider = xctest_swift_support_info(ctx, contains_swift_sources, is_test_target)
+
     def additional_providers_factory(propagated_exported_preprocessor_info: [CPreprocessorInfo.type, None]) -> list[Provider]:
         # Expose `SwiftPCMUncompiledInfo` which represents the ObjC part of a target,
         # if a target also has a Swift part, the provider will expose the generated `-Swift.h` header.
@@ -195,6 +199,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         )
         providers = [swift_pcm_uncompile_info] if swift_pcm_uncompile_info else []
         providers.append(swift_dependency_info)
+        providers.append(xctest_swift_support_provider)
         return providers
 
     framework_search_path_pre = CPreprocessor(
