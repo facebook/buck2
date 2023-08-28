@@ -489,22 +489,26 @@ mod tests {
     async fn test_gather_output_timeout() -> anyhow::Result<()> {
         let now = Instant::now();
 
-        let mut cmd = if cfg!(windows) {
-            background_command("powershell")
+        let cmd = if cfg!(windows) {
+            let mut cmd = background_command("powershell");
+            cmd.args(["-c", "echo hello; sleep 10; echo bye"]);
+            cmd
         } else {
-            background_command("sh")
+            let mut cmd = background_command("sh");
+            cmd.args(["-c", "echo hello && sleep 10 && echo bye"]);
+            cmd
         };
-        cmd.args(["-c", "echo hello; sleep 10; echo bye"]);
 
         let timeout = if cfg!(windows) { 5 } else { 1 };
-        let (status, stdout, stderr) = gather_output(
+        let (status, stdout, _stderr) = gather_output(
             cmd,
             timeout_into_cancellation(Some(Duration::from_secs(timeout))),
         )
         .await?;
         assert!(matches!(status, GatherOutputStatus::TimedOut(..)));
         assert_eq!(str::from_utf8(&stdout)?.trim(), "hello");
-        assert_eq!(stderr, b"");
+        // Do not check stderr because stderr may contain a message like:
+        // sh: line 1: 41348 Killed: 9
 
         assert!(now.elapsed() < Duration::from_secs(9)); // Lots of leeway here.
 
