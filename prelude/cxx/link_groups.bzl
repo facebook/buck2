@@ -506,7 +506,7 @@ def get_filtered_links(
 def get_filtered_targets(labels_to_links_map: dict[Label, LinkGroupLinkInfo.type]):
     return [label.raw_target() for label in labels_to_links_map.keys()]
 
-def get_link_group_map_json(ctx: AnalysisContext, targets: list["target_label"]) -> DefaultInfo.type:
+def get_link_group_map_json(ctx: AnalysisContext, targets: list[TargetLabel]) -> DefaultInfo.type:
     json_map = ctx.actions.write_json(LINK_GROUP_MAP_DATABASE_FILENAME, sorted(targets))
     return DefaultInfo(default_output = json_map)
 

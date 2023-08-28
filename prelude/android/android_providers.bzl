@@ -108,7 +108,7 @@ AndroidInstrumentationApkInfo = provider(
 )
 
 PrebuiltNativeLibraryDir = record(
-    raw_target = "target_label",
+    raw_target = TargetLabel,
     dir = Artifact,  # contains subdirectories for different ABIs.
     for_primary_apk = bool,
     is_asset = bool,
@@ -124,12 +124,12 @@ PrebuiltNativeLibraryDirTSet = transitive_set()
 ResourceInfoTSet = transitive_set()
 
 DepsInfo = record(
-    name = "target_label",
-    deps = list["target_label"],
+    name = TargetLabel,
+    deps = list[TargetLabel],
 )
 
 ManifestInfo = record(
-    target_label = "target_label",
+    target_label = TargetLabel,
     manifest = Artifact,
 )
 

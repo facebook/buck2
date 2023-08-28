@@ -13,7 +13,7 @@ Only sanity check for source configuration is done.
 
 load("@prelude//utils:utils.bzl", "expect")
 
-def _os_and_sdk_unrelated_constraints(platform: PlatformInfo.type, refs: struct) -> dict["target_label", ConstraintValueInfo.type]:
+def _os_and_sdk_unrelated_constraints(platform: PlatformInfo.type, refs: struct) -> dict[TargetLabel, ConstraintValueInfo.type]:
     return {
         constraint_setting_label: constraint_setting_value
         for (constraint_setting_label, constraint_setting_value) in platform.configuration.constraints.items()

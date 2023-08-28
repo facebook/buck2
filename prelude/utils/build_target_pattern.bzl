@@ -70,7 +70,7 @@ def parse_build_target_pattern(pattern: str) -> BuildTargetPattern.type:
     expect(len(path) == 0 or path[-1:] != _PATH_SYMBOL, "Invalid build target pattern, path cannot end with `{}`: {}".format(_PATH_SYMBOL, pattern))
 
     # buildifier: disable=uninitialized - self is initialized
-    def matches(label: [Label, "target_label"]) -> bool:
+    def matches(label: [Label, TargetLabel]) -> bool:
         if self.cell and self.cell != label.cell:
             return False
 

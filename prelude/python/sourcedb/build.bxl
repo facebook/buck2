@@ -12,7 +12,7 @@ def _get_artifact(result: "bxl_build_result") -> Artifact:
         return artifact
     fail("Sourcedb rule must have at least one artifact")
 
-def _abort_on_build_failure(target_label: "target_label", result: "bxl_build_result") -> None:
+def _abort_on_build_failure(target_label: TargetLabel, result: "bxl_build_result") -> None:
     for failure in result.failures():
         error_message = "Target `{}` cannot be built by Buck\nreason: {}".format(target_label, failure)
         fail(error_message)
@@ -21,7 +21,7 @@ def _abort_on_build_failure(target_label: "target_label", result: "bxl_build_res
 # to the corresponding sourcedb JSON file location.
 def do_build(
         ctx: "bxl_ctx",
-        targets: list["configured_target_label"]) -> dict["target_label", Artifact]:
+        targets: list["configured_target_label"]) -> dict[TargetLabel, Artifact]:
     # Build sourcedbs of all targets
     configured_sub_targets = [
         target.with_sub_target(["source-db-no-deps"])
