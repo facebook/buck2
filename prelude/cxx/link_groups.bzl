@@ -557,7 +557,7 @@ def _create_link_group(
         link_group_libs: dict[str, ([Label, None], LinkInfos.type)] = {},
         prefer_stripped_objects: bool = False,
         category_suffix: [str, None] = None,
-        anonymous: bool = False) -> LinkedObject.type:
+        anonymous: bool = False) -> [LinkedObject.type, None]:
     """
     Link a link group library, described by a `LinkGroupLibSpec`.  This is
     intended to handle regular shared libs and e.g. Python extensions.
@@ -627,6 +627,10 @@ def _create_link_group(
         prefer_stripped = prefer_stripped_objects,
     )
     inputs.extend(get_filtered_links(filtered_labels_to_links_map, public_nodes))
+
+    if not filtered_labels_to_links_map:
+        # don't create empty shared libraries
+        return None
 
     # link the rule
     link_result = cxx_link_shared_library(
@@ -816,6 +820,10 @@ def create_link_groups(
             anonymous = anonymous,
         )
 
+        if link_group_lib == None:
+            # the link group did not match anything, don't create shlib interface
+            continue
+
         # On GNU, use shlib interfaces.
         if cxx_is_gnu(ctx):
             shlib_for_link = cxx_mk_shlib_intf(
@@ -856,7 +864,7 @@ def create_link_groups(
     # needed by these link groups are pulled in and exported to the dynamic
     # symbol table.
     symbol_ldflags = []
-    if specs:
+    if linked_link_groups:
         symbol_ldflags.extend(
             _symbol_flags_for_link_groups(
                 ctx = ctx,
