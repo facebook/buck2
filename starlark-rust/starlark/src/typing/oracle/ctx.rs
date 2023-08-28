@@ -417,6 +417,18 @@ impl<'a> TypingOracleCtx<'a> {
                 }
                 Ok(Ok(tuple.item_ty()))
             }
+            TyBasic::List(item) => {
+                if !self.intersects_basic(index.node, &TyBasic::int()) {
+                    return Ok(Err(()));
+                }
+                Ok(Ok((**item).dupe()))
+            }
+            TyBasic::Dict(k, v) => {
+                if !self.intersects(&Ty::basic(index.node.dupe()), k) {
+                    return Ok(Err(()));
+                }
+                Ok(Ok((**v).dupe()))
+            }
             TyBasic::StarlarkValue(array) => Ok(array.index(index.node)),
             TyBasic::Custom(c) => Ok(c.0.attribute_dyn(TypingAttr::Index)),
             array => {

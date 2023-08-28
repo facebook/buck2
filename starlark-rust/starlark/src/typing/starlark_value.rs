@@ -32,6 +32,7 @@ use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
 use crate::typing::TypingUnOp;
 use crate::values::bool::StarlarkBool;
+use crate::values::float::StarlarkFloat;
 use crate::values::none::NoneType;
 use crate::values::starlark_type_id::StarlarkTypeId;
 use crate::values::string::StarlarkStr;
@@ -148,6 +149,14 @@ impl TyStarlarkValue {
     pub(crate) fn as_name(self) -> &'static str {
         self.self_check();
         self.vtable.type_name
+    }
+
+    pub(crate) const fn int() -> TyStarlarkValue {
+        TyStarlarkValue::new::<StarlarkBigInt>()
+    }
+
+    pub(crate) const fn float() -> TyStarlarkValue {
+        TyStarlarkValue::new::<StarlarkFloat>()
     }
 
     /// Result of applying unary operator to this type.

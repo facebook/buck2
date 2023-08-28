@@ -76,13 +76,8 @@ impl TypingOracle for OracleStandard {
         // We have to explicitly implement operators (e.g. `__in__` since we don't generate documentation for them).
         // We explicitly implement polymorphic functions (e.g. `dict.get`) so they can get much more precise types.
         Some(Ok(match ty {
-            TyBasic::List(elem) => match attr {
-                TypingAttr::Index => {
-                    Ty::function(vec![Param::pos_only(Ty::int())], (**elem).clone())
-                }
-                _ => return fallback(),
-            },
-            TyBasic::Dict(tk, tv) => match attr {
+            TyBasic::List(..) => return fallback(),
+            TyBasic::Dict(tk, _tv) => match attr {
                 TypingAttr::BinOp(TypingBinOp::In) => {
                     Ty::function(vec![Param::pos_only(tk.to_ty())], Ty::bool())
                 }
@@ -90,7 +85,6 @@ impl TypingOracle for OracleStandard {
                     vec![Param::pos_only(Ty::basic(ty.clone()))],
                     Ty::basic(ty.clone()),
                 ),
-                TypingAttr::Index => Ty::function(vec![Param::pos_only(tk.to_ty())], tv.to_ty()),
                 _ => return fallback(),
             },
             _ => {

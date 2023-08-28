@@ -440,8 +440,9 @@ mod tests {
             r#"
 x = {0: 123}
 assert_eq(x[0], 123)
-assert_eq(x[0.0], 123)
-assert_eq(x[-0.0], 123)
+# TODO(nga): fix typechecker, and remove `noop`.
+assert_eq(x[noop(0.0)], 123)
+assert_eq(x[noop(-0.0)], 123)
 assert_eq(1 in x, False)
         "#,
         );

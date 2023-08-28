@@ -27,10 +27,8 @@ use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::tuple::TyTuple;
 use crate::typing::Ty;
 use crate::typing::TyName;
-use crate::values::float::StarlarkFloat;
 use crate::values::none::NoneType;
 use crate::values::string::StarlarkStr;
-use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::typing::any::TypingAny;
 use crate::values::StarlarkValue;
 
@@ -74,11 +72,11 @@ impl TyBasic {
     }
 
     pub(crate) const fn int() -> Self {
-        TyBasic::starlark_value::<StarlarkBigInt>()
+        TyBasic::StarlarkValue(TyStarlarkValue::int())
     }
 
     pub(crate) const fn float() -> Self {
-        TyBasic::starlark_value::<StarlarkFloat>()
+        TyBasic::StarlarkValue(TyStarlarkValue::float())
     }
 
     /// Create a list type.
