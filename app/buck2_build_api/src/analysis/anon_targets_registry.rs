@@ -7,17 +7,20 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use allocative::Allocative;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_util::late_binding::LateBinding;
 use starlark::any::AnyLifetime;
 use starlark::values::Trace;
 use starlark::values::Value;
 
 use crate::analysis::anon_promises_dyn::AnonPromisesDyn;
+use crate::artifact_groups::promise::PromiseArtifactId;
 
 pub static ANON_TARGET_REGISTRY_NEW: LateBinding<
     for<'v> fn(
@@ -31,6 +34,9 @@ pub trait AnonTargetsRegistryDyn<'v>:
 {
     fn as_any_mut(&mut self) -> &mut dyn AnyLifetime<'v>;
     fn take_promises(&mut self) -> Option<Box<dyn AnonPromisesDyn<'v>>>;
-    fn resolve_artifacts(&self) -> anyhow::Result<()>;
+    fn resolve_artifacts(
+        &self,
+        short_paths: &HashMap<PromiseArtifactId, ForwardRelativePathBuf>,
+    ) -> anyhow::Result<()>;
     fn assert_no_promises(&self) -> anyhow::Result<()>;
 }

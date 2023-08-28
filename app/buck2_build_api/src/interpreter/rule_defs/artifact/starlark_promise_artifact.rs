@@ -90,8 +90,8 @@ enum PromiseArtifactError {
     PartialEq
 )]
 pub struct StarlarkPromiseArtifact {
-    declaration_location: Option<FileSpan>,
-    artifact: PromiseArtifact,
+    pub declaration_location: Option<FileSpan>,
+    pub artifact: PromiseArtifact,
     short_path: Option<ForwardRelativePathBuf>,
 }
 

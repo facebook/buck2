@@ -26,6 +26,7 @@ use buck2_build_api::analysis::promise_artifacts::PromiseArtifactRegistry;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::artifact_groups::promise::PromiseArtifact;
+use buck2_build_api::artifact_groups::promise::PromiseArtifactId;
 use buck2_build_api::deferred::calculation::EVAL_ANON_TARGET;
 use buck2_build_api::deferred::types::DeferredTable;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
@@ -46,6 +47,7 @@ use buck2_core::configuration::pair::ConfigurationWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::lex_target_pattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
@@ -627,8 +629,12 @@ impl<'v> AnonTargetsRegistryDyn<'v> for AnonTargetsRegistry<'v> {
         self
     }
 
-    fn resolve_artifacts(&self) -> anyhow::Result<()> {
-        self.promise_artifact_registry.resolve_all()
+    fn resolve_artifacts(
+        &self,
+        short_paths: &HashMap<PromiseArtifactId, ForwardRelativePathBuf>,
+    ) -> anyhow::Result<()> {
+        self.promise_artifact_registry
+            .resolve_all(short_paths, false)
     }
 
     fn take_promises(&mut self) -> Option<Box<dyn AnonPromisesDyn<'v>>> {

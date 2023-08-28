@@ -96,7 +96,9 @@ impl<'v> AnalysisActions<'v> {
         }
 
         // Resolve promise artifacts after running the promises
-        self.state().resolve_artifacts()?;
+        let state = self.state();
+        let short_path_assertions = &state.short_path_assertions;
+        state.resolve_artifacts(short_path_assertions)?;
         Ok(())
     }
 }

@@ -45,6 +45,7 @@ use crate::analysis::anon_targets_registry::AnonTargetsRegistryDyn;
 use crate::analysis::anon_targets_registry::ANON_TARGET_REGISTRY_NEW;
 use crate::analysis::promise_artifacts::PromiseArtifactRegistry;
 use crate::artifact_groups::promise::PromiseArtifact;
+use crate::artifact_groups::promise::PromiseArtifactId;
 use crate::artifact_groups::registry::ArtifactGroupRegistry;
 use crate::artifact_groups::ArtifactGroup;
 use crate::deferred::types::BaseKey;
@@ -68,6 +69,7 @@ pub struct AnalysisRegistry<'v> {
     pub anon_targets: Box<dyn AnonTargetsRegistryDyn<'v>>,
     artifact_promises: PromiseArtifactRegistry<'v>,
     analysis_value_storage: AnalysisValueStorage<'v>,
+    pub short_path_assertions: HashMap<PromiseArtifactId, ForwardRelativePathBuf>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -101,6 +103,7 @@ impl<'v> AnalysisRegistry<'v> {
             anon_targets: (ANON_TARGET_REGISTRY_NEW.get()?)(PhantomData, execution_platform),
             analysis_value_storage: AnalysisValueStorage::new(),
             artifact_promises: PromiseArtifactRegistry::new(Some(owner)),
+            short_path_assertions: HashMap::new(),
         })
     }
 
@@ -258,8 +261,20 @@ impl<'v> AnalysisRegistry<'v> {
         self.anon_targets.take_promises()
     }
 
-    pub fn resolve_artifacts(&self) -> anyhow::Result<()> {
-        self.anon_targets.resolve_artifacts()
+    pub fn resolve_artifacts(
+        &self,
+        short_paths: &HashMap<PromiseArtifactId, ForwardRelativePathBuf>,
+    ) -> anyhow::Result<()> {
+        self.anon_targets.resolve_artifacts(short_paths)
+    }
+
+    pub fn record_short_path_assertion(
+        &mut self,
+        short_path: ForwardRelativePathBuf,
+        promise_artifact_id: PromiseArtifactId,
+    ) {
+        self.short_path_assertions
+            .insert(promise_artifact_id, short_path);
     }
 
     pub fn assert_no_promises(&self) -> anyhow::Result<()> {
@@ -293,8 +308,10 @@ impl<'v> AnalysisRegistry<'v> {
             anon_targets: _,
             analysis_value_storage,
             artifact_promises,
+            short_path_assertions: _,
         } = self;
-        artifact_promises.resolve_all()?;
+        // TODO(@wendyy) - this will be removed. Pass in an empty hashmap for assertions.
+        artifact_promises.resolve_all(&HashMap::new(), true)?;
 
         analysis_value_storage.write_to_module(env);
         Ok(move |env: Module| {

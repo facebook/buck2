@@ -16,6 +16,7 @@ use buck2_build_api::artifact_groups::promise::PromiseArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkPromiseArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::context::ANALYSIS_ACTIONS_METHODS_ANON_TARGET;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter_for_build::rule::FrozenArtifactPromiseMappings;
 use buck2_interpreter_for_build::rule::FrozenRuleCallable;
@@ -119,6 +120,9 @@ impl<'v> AllocValue<'v> for StarlarkAnonTarget<'v> {
 #[starlark_module]
 fn anon_target_methods(builder: &mut MethodsBuilder) {
     /// Returns a dict where the key is the promise artifact's name, and the value is the `StarlarkPromiseArtifact`.
+    ///
+    /// To get a promise artifact where the short path is accessible, call `ctx.actions.assert_short_path(...)` and
+    /// pass in the artifact retrieved from this dict.
     fn artifacts<'v>(
         this: &StarlarkAnonTarget<'v>,
         eval: &mut Evaluator<'v, '_>,
@@ -219,6 +223,29 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
 
         // TODO(@wendyy) support promise artifacts here
         Ok(res)
+    }
+
+    /// Generate a promise artifact that has short path accessible on it. The short path's correctness will
+    /// be asserted during analysis time.
+    ///
+    /// TODO - we would prefer the API to be `ctx.actions.anon_target(xxx).artifact("foo", short_path=yyy)`, but
+    /// we cannot support this until we can get access to the `AnalysisContext` without passing it into this method.
+    fn assert_short_path<'v>(
+        this: &AnalysisActions<'v>,
+        artifact: ValueTyped<'v, StarlarkPromiseArtifact>,
+        short_path: &'v str,
+    ) -> anyhow::Result<StarlarkPromiseArtifact> {
+        let mut this = this.state();
+        let promise = artifact.artifact.clone();
+
+        let short_path = ForwardRelativePathBuf::new(short_path.to_owned())?;
+        (*this).record_short_path_assertion(short_path.clone(), promise.id.as_ref().clone());
+
+        Ok(StarlarkPromiseArtifact::new(
+            artifact.declaration_location.clone(),
+            promise,
+            Some(short_path),
+        ))
     }
 }
 

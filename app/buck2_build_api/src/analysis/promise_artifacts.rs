@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
 
@@ -53,14 +54,26 @@ impl<'v> PromiseArtifactRegistry<'v> {
         }
     }
 
-    pub fn resolve_all(&self) -> anyhow::Result<()> {
+    pub fn resolve_all(
+        &self,
+        short_paths: &HashMap<PromiseArtifactId, ForwardRelativePathBuf>,
+        is_legacy: bool,
+    ) -> anyhow::Result<()> {
         for (promise, artifact_entry) in std::iter::zip(&self.promises, &self.artifacts) {
             match promise.get() {
                 Some(v) => match ValueAsArtifactLike::unpack_value(v) {
                     Some(v) => {
+                        // Temporary - will use the passed in short_paths moving forward
+                        let short_path = if let Some(short_path) =
+                            short_paths.get(artifact_entry.artifact.id())
+                        {
+                            Some(short_path.clone())
+                        } else {
+                            artifact_entry.short_path.clone()
+                        };
                         artifact_entry
                             .artifact
-                            .resolve(v.0, &artifact_entry.short_path)?;
+                            .resolve(v.0, &short_path, is_legacy)?;
                     }
                     None => {
                         return Err(PromiseArtifactResolveError::NotAnArtifact(
@@ -86,6 +99,7 @@ impl<'v> PromiseArtifactRegistry<'v> {
         &mut self,
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         location: Option<FileSpan>,
+        // TODO(@wendyy) - will eventually be deprecated for new promsie artifact API.
         short_path: Option<ForwardRelativePathBuf>,
         // TODO(@wendyy) - For new promise artifact API. Will eventually not be optional.
         owner: Option<BaseDeferredKey>,
