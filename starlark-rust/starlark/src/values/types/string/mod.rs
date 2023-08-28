@@ -25,15 +25,13 @@ use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::mem;
-use std::ops::Add;
 use std::ops::Deref;
-use std::ops::Sub;
 use std::slice;
 use std::str;
 use std::sync::atomic;
 
 use allocative::Allocative;
-use dupe::Dupe;
+use fast_string::CharIndex;
 use serde::Serialize;
 use starlark_derive::starlark_value;
 use starlark_derive::StarlarkDocs;
@@ -66,27 +64,6 @@ pub(crate) mod interpolation;
 pub(crate) mod iter;
 pub(crate) mod repr;
 pub(crate) mod simd;
-
-/// Index of a char in a string.
-/// This is different from string byte offset.
-#[derive(Eq, PartialEq, PartialOrd, Ord, Copy, Clone, Dupe, Debug)]
-pub(crate) struct CharIndex(pub(crate) usize);
-
-impl Sub for CharIndex {
-    type Output = CharIndex;
-
-    fn sub(self, rhs: CharIndex) -> CharIndex {
-        CharIndex(self.0 - rhs.0)
-    }
-}
-
-impl Add for CharIndex {
-    type Output = CharIndex;
-
-    fn add(self, rhs: CharIndex) -> CharIndex {
-        CharIndex(self.0 + rhs.0)
-    }
-}
 
 /// The result of calling `type()` on strings.
 pub const STRING_TYPE: &str = "string";

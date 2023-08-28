@@ -21,7 +21,7 @@ use std::fmt::Formatter;
 
 use crate::codemap::FileSpan;
 use crate::values::string::fast_string;
-use crate::values::string::CharIndex;
+use crate::values::types::string::fast_string::CharIndex;
 
 /// A frame of the call-stack.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]

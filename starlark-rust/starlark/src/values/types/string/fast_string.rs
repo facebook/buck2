@@ -20,11 +20,14 @@
 //! to make up some of the difference.
 
 use std::cmp::min;
+use std::ops::Add;
+use std::ops::Sub;
 use std::str;
+
+use dupe::Dupe;
 
 use crate::stdlib::util::convert_indices;
 use crate::values::types::none::NoneOr;
-use crate::values::types::string::CharIndex;
 
 #[inline(always)]
 fn is_1byte(x: u8) -> bool {
@@ -279,8 +282,8 @@ mod tests {
 
     use crate::values::string::fast_string::convert_str_indices;
     use crate::values::types::none::NoneOr;
+    use crate::values::types::string::fast_string::CharIndex;
     use crate::values::types::string::fast_string::StrIndices;
-    use crate::values::types::string::CharIndex;
 
     #[test]
     fn test_convert_str_indices() {
@@ -365,5 +368,26 @@ mod tests {
                 }
             }
         }
+    }
+}
+
+/// Index of a char in a string.
+/// This is different from string byte offset.
+#[derive(Eq, PartialEq, PartialOrd, Ord, Copy, Clone, Dupe, Debug)]
+pub(crate) struct CharIndex(pub(crate) usize);
+
+impl Sub for CharIndex {
+    type Output = CharIndex;
+
+    fn sub(self, rhs: CharIndex) -> CharIndex {
+        CharIndex(self.0 - rhs.0)
+    }
+}
+
+impl Add for CharIndex {
+    type Output = CharIndex;
+
+    fn add(self, rhs: CharIndex) -> CharIndex {
+        CharIndex(self.0 + rhs.0)
     }
 }
