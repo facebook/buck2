@@ -614,13 +614,40 @@ impl<'a> TypingOracleCtx<'a> {
     ) -> Result<Ty, ()> {
         match lhs {
             TyBasic::StarlarkValue(lhs) => lhs.bin_op(bin_op, rhs.node),
-            lhs @ TyBasic::List(..) if bin_op == TypingBinOp::Less => {
-                if self.intersects_basic(lhs, rhs.node) {
-                    Ok(Ty::bool())
-                } else {
-                    Err(())
+            lhs @ TyBasic::List(elem) => match bin_op {
+                TypingBinOp::Less => {
+                    if self.intersects_basic(lhs, rhs.node) {
+                        Ok(Ty::bool())
+                    } else {
+                        Err(())
+                    }
                 }
-            }
+                TypingBinOp::In => {
+                    if self.intersects(elem, &Ty::basic(rhs.node.dupe())) {
+                        Ok(Ty::bool())
+                    } else {
+                        Err(())
+                    }
+                }
+                TypingBinOp::Add => {
+                    if self.intersects_basic(rhs.node, &TyBasic::any_list()) {
+                        Ok(Ty::list(Ty::union2(
+                            elem.to_ty(),
+                            self.iter_item_basic(rhs.node)?,
+                        )))
+                    } else {
+                        Err(())
+                    }
+                }
+                TypingBinOp::Mul => {
+                    if self.intersects_basic(rhs.node, &TyBasic::int()) {
+                        Ok(Ty::basic(lhs.dupe()))
+                    } else {
+                        Err(())
+                    }
+                }
+                _ => TyStarlarkValue::new::<List>().bin_op(bin_op, rhs.node),
+            },
             lhs => {
                 let fun = match self.oracle.attribute(lhs, TypingAttr::BinOp(bin_op)) {
                     Some(Ok(fun)) => fun,

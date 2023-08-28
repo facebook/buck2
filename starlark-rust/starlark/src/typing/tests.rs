@@ -474,6 +474,19 @@ def test(x: list[str], y: list[str]) -> bool:
 }
 
 #[test]
+fn test_list_bin_op() {
+    TypeCheck::new().ty("x").ty("y").ty("z").check(
+        "list_bin_op",
+        r#"
+def test(a: list[str]):
+    x = a + a
+    y = a * 3
+    z = 3 * a
+"#,
+    );
+}
+
+#[test]
 fn test_accepts_iterable() {
     TypeCheck::new().check(
         "accepts_iterable",

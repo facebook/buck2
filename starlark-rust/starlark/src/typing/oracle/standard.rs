@@ -84,17 +84,8 @@ impl TypingOracle for OracleStandard {
         Some(Ok(match ty {
             TyBasic::List(elem) => match attr {
                 TypingAttr::Iter => (**elem).clone(),
-                TypingAttr::BinOp(TypingBinOp::In) => {
-                    Ty::function(vec![Param::pos_only((**elem).clone())], Ty::bool())
-                }
                 TypingAttr::Index => {
                     Ty::function(vec![Param::pos_only(Ty::int())], (**elem).clone())
-                }
-                TypingAttr::BinOp(TypingBinOp::Add) => {
-                    Ty::function(vec![Param::pos_only(Ty::any())], Ty::list(Ty::any()))
-                }
-                TypingAttr::BinOp(TypingBinOp::Mul) => {
-                    Ty::function(vec![Param::pos_only(Ty::int())], Ty::basic(ty.clone()))
                 }
                 _ => return fallback(),
             },
