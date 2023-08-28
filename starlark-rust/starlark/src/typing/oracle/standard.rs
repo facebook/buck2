@@ -50,12 +50,7 @@ impl OracleStandard {
             }
         }
 
-        add::<crate::values::bool::StarlarkBool>(&mut fallback);
         add::<crate::values::enumeration::FrozenEnumType>(&mut fallback);
-        add::<crate::values::float::StarlarkFloat>(&mut fallback);
-        add::<crate::values::int::PointerI32>(&mut fallback);
-        add::<crate::values::none::NoneType>(&mut fallback);
-        add::<crate::values::range::Range>(&mut fallback);
         add::<crate::values::record::field::FrozenField>(&mut fallback);
         add::<crate::values::record::record_type::FrozenRecordType>(&mut fallback);
         add::<crate::values::regex::StarlarkRegex>(&mut fallback);
@@ -66,7 +61,6 @@ impl OracleStandard {
             &mut fallback,
         );
         add::<crate::values::structs::value::FrozenStruct>(&mut fallback);
-        add::<crate::values::tuple::value::FrozenTuple>(&mut fallback);
 
         Self { fallback }
     }
