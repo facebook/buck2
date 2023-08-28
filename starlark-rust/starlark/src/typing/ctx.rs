@@ -29,6 +29,7 @@ use crate::eval::compiler::scope::payload::CstIdent;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::ResolvedIdent;
+use crate::eval::compiler::scope::Slot;
 use crate::slice_vec_ext::SliceExt;
 use crate::syntax::ast::ArgumentP;
 use crate::syntax::ast::AssignOp;
@@ -43,6 +44,7 @@ use crate::typing::bindings::BindExpr;
 use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;
 use crate::typing::error::TypingOrInternalError;
+use crate::typing::fill_types_for_lint::ModuleVarTypes;
 use crate::typing::function::Arg;
 use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::oracle::traits::TypingBinOp;
@@ -57,6 +59,7 @@ pub(crate) struct TypingContext<'a> {
     pub(crate) errors: RefCell<Vec<TypingError>>,
     pub(crate) approximoations: RefCell<Vec<Approximation>>,
     pub(crate) types: UnorderedMap<BindingId, Ty>,
+    pub(crate) module_var_types: &'a ModuleVarTypes,
 }
 
 impl TypingContext<'_> {
@@ -335,6 +338,12 @@ impl TypingContext<'_> {
 
     fn expr_ident(&self, x: &CstIdent) -> Ty {
         match &x.node.1 {
+            Some(ResolvedIdent::Slot(Slot::Module(module_slot_id), _)) => self
+                .module_var_types
+                .types
+                .get(module_slot_id)
+                .cloned()
+                .unwrap_or_else(Ty::any),
             Some(ResolvedIdent::Slot(_, i)) => {
                 if let Some(ty) = self.types.get(i) {
                     ty.clone()

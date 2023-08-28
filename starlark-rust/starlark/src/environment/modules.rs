@@ -360,6 +360,10 @@ impl Module {
             })
     }
 
+    pub(crate) fn values_by_slot_id<'v>(&'v self) -> Vec<(ModuleSlotId, Value<'v>)> {
+        self.slots().values_by_slot_id()
+    }
+
     /// Iterate through all the names defined in this module, including those that are private.
     pub fn names_and_visibilities(
         &self,

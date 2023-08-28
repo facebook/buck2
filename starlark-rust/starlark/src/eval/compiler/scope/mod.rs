@@ -101,7 +101,6 @@ pub(crate) struct ModuleScopes<'f> {
     pub(crate) scope_data: ModuleScopeData<'f>,
     pub(crate) module_slot_count: u32,
     pub(crate) cst: CstStmt,
-    pub(crate) module_bindings: SmallMap<FrozenStringValue, BindingId>,
     /// Number of top-level statements in the module.
     pub(crate) top_level_stmt_count: usize,
 }
@@ -403,13 +402,12 @@ impl<'f> ModuleScopes<'f> {
         );
         let top_level_stmt_count = scope.top_level_stmt_count;
         let errors = mem::take(&mut scope.errors);
-        let (module_slot_count, scope_data, module_bindings) = scope.exit_module();
+        let (module_slot_count, scope_data, _module_bindings) = scope.exit_module();
         (
             errors,
             ModuleScopes {
                 cst: stmt,
                 scope_data,
-                module_bindings,
                 module_slot_count,
                 top_level_stmt_count,
             },

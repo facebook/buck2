@@ -215,6 +215,10 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
                 // TODO(nga): result is type, but we don't have a type for type yet.
                 Ty::any(),
             ))
+        } else if attr == TypingAttr::Index {
+            // TODO(nga): this is hack for `enum` (type) which pretends to be a function.
+            //   Should be a custom type.
+            Ok(Ty::function(vec![Param::pos_only(Ty::int())], Ty::any()))
         } else {
             Err(())
         }

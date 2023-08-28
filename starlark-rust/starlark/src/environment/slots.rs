@@ -77,6 +77,15 @@ impl<'v> MutableSlots<'v> {
         }
     }
 
+    pub(crate) fn values_by_slot_id(&self) -> Vec<(ModuleSlotId, Value<'v>)> {
+        self.0
+            .borrow()
+            .iter()
+            .enumerate()
+            .filter_map(|(i, v)| v.map(|v| (ModuleSlotId::new(u32::try_from(i).unwrap()), v)))
+            .collect()
+    }
+
     pub(crate) fn freeze(self, freezer: &Freezer) -> anyhow::Result<FrozenSlots> {
         let slots = self.0.into_inner().freeze(freezer)?;
         Ok(FrozenSlots(slots))

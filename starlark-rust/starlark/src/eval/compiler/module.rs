@@ -35,9 +35,11 @@ use crate::syntax::ast::StmtP;
 use crate::syntax::top_level_stmts::top_level_stmts_mut;
 use crate::typing::bindings::BindingsCollect;
 use crate::typing::error::InternalError;
+use crate::typing::fill_types_for_lint::ModuleVarTypes;
 use crate::typing::mode::TypecheckMode;
 use crate::typing::oracle::traits::OracleAny;
 use crate::typing::typecheck::solve_bindings;
+use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
@@ -181,7 +183,8 @@ impl<'v> Compiler<'v, '_, '_> {
             &mut Vec::new(),
         )
         .map_err(InternalError::into_eval_exception)?;
-        let (errors, ..) = match solve_bindings(bindings, oracle) {
+        // TODO(nga): we don't pass types of globals here.
+        let (errors, ..) = match solve_bindings(bindings, oracle, &self.mk_module_var_types()) {
             Ok(x) => x,
             Err(e) => return Err(e.into_eval_exception()),
         };
@@ -191,6 +194,17 @@ impl<'v> Compiler<'v, '_, '_> {
         }
 
         Ok(())
+    }
+
+    fn mk_module_var_types(&self) -> ModuleVarTypes {
+        let types = self
+            .eval
+            .module_env
+            .values_by_slot_id()
+            .into_iter()
+            .map(|(module_slot_id, value)| (module_slot_id, Ty::of_value(value)))
+            .collect();
+        ModuleVarTypes { types }
     }
 
     pub(crate) fn eval_module(

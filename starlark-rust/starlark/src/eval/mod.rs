@@ -85,7 +85,6 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             module_slot_count,
             scope_data,
             top_level_stmt_count,
-            ..
         } = ModuleScopes::check_module_err(
             self.module_env.mutable_names(),
             self.module_env.frozen_heap(),

@@ -120,6 +120,16 @@ impl MutableNames {
             .collect()
     }
 
+    pub(crate) fn all_names_slots_and_visibilities(
+        &self,
+    ) -> Vec<(FrozenStringValue, ModuleSlotId, Visibility)> {
+        self.0
+            .borrow()
+            .iter()
+            .map(|(name, (slot, vis))| (*name, *slot, *vis))
+            .collect()
+    }
+
     pub(crate) fn freeze(self) -> FrozenNames {
         FrozenNames(self.0.into_inner())
     }

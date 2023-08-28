@@ -44,6 +44,7 @@ use crate::typing::ctx::TypingContext;
 use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;
 use crate::typing::fill_types_for_lint::fill_types_for_lint_typechecker;
+use crate::typing::fill_types_for_lint::ModuleVarTypes;
 use crate::typing::interface::Interface;
 use crate::typing::mode::TypecheckMode;
 use crate::typing::oracle::ctx::TypingOracleCtx;
@@ -56,6 +57,7 @@ use crate::values::FrozenHeap;
 pub(crate) fn solve_bindings(
     bindings: Bindings,
     oracle: TypingOracleCtx,
+    module_var_types: &ModuleVarTypes,
 ) -> Result<(Vec<TypingError>, HashMap<BindingId, Ty>, Vec<Approximation>), InternalError> {
     let mut types = bindings
         .expressions
@@ -72,6 +74,7 @@ pub(crate) fn solve_bindings(
         errors: RefCell::new(Vec::new()),
         approximoations: RefCell::new(Vec::new()),
         types,
+        module_var_types,
     };
     const ITERATIONS: usize = 100;
     for _iteration in 0..ITERATIONS {
@@ -179,7 +182,6 @@ impl AstModule {
             ModuleScopes {
                 mut cst,
                 scope_data,
-                module_bindings,
                 ..
             },
         ) = ModuleScopes::check_module(
@@ -202,7 +204,7 @@ impl AstModule {
         };
 
         let mut approximations = Vec::new();
-        let fill_types_errors = match fill_types_for_lint_typechecker(
+        let (fill_types_errors, module_var_types) = match fill_types_for_lint_typechecker(
             &mut cst,
             oracle,
             &scope_data,
@@ -242,7 +244,7 @@ impl AstModule {
             }
         };
         let (solve_errors, types, solve_approximations) =
-            match solve_bindings(bindings.bindings, oracle) {
+            match solve_bindings(bindings.bindings, oracle, &module_var_types) {
                 Ok(x) => x,
                 Err(e) => {
                     return (
@@ -281,9 +283,13 @@ impl AstModule {
             .collect();
 
         let mut res = HashMap::new();
-        for (name, vis) in names.all_names_and_visibilities() {
+        for (name, module_slot_id, vis) in names.all_names_slots_and_visibilities() {
             if vis == Visibility::Public {
-                let ty = types[module_bindings.get(name.as_str()).unwrap()].clone();
+                let ty = module_var_types
+                    .types
+                    .get(&module_slot_id)
+                    .cloned()
+                    .unwrap_or_else(Ty::any);
                 res.insert(name.as_str().to_owned(), ty);
             }
         }

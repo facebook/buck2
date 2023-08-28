@@ -266,7 +266,9 @@ impl<'a> Assert<'a> {
         self.print_handler = Some(handler);
     }
 
-    pub(crate) fn disable_static_typechecking(&mut self) {
+    /// Disable static typechecking for test. It is off by default in `Evaluator`,
+    /// but on by default in `Assert`.
+    pub fn disable_static_typechecking(&mut self) {
         self.static_typechecking = false;
     }
 

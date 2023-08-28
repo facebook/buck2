@@ -293,15 +293,7 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
                     // We do our own visit_children, with a different return type
                     return Ok(());
                 }
-                StmtP::Load(x) => {
-                    let mp = &x.payload;
-                    for (ident, _load) in &x.args {
-                        let ty = mp.get(ident.0.as_str()).cloned().unwrap_or_else(Ty::any);
-                        self.bindings
-                            .types
-                            .insert(ident.resolved_binding_id(codemap)?, ty);
-                    }
-                }
+                StmtP::Load(..) => {}
                 StmtP::Return(ret) => {
                     self.bindings
                         .check_type

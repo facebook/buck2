@@ -42,14 +42,18 @@ use crate::syntax::ast::AssignTargetP;
 use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::AstString;
 use crate::syntax::ast::BinOp;
+use crate::syntax::ast::DefP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::ForP;
 use crate::syntax::ast::LoadP;
 use crate::syntax::ast::StmtP;
+use crate::syntax::def::DefParamKind;
+use crate::syntax::def::DefParams;
 use crate::syntax::type_expr::TypeExprUnpackP;
 use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;
 use crate::typing::Approximation;
+use crate::typing::Param;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
 use crate::values::tuple::AllocTuple;
@@ -62,10 +66,11 @@ use crate::values::Value;
 struct GlobalValue<'v> {
     /// `None` means we don't know (or know it may have different value depending on condition).
     value: Option<Value<'v>>,
+    ty: Ty,
 }
 
 impl<'v> GlobalValue<'v> {
-    fn union2(_a: GlobalValue<'v>, _b: GlobalValue<'v>) -> GlobalValue<'v> {
+    fn union2(a: GlobalValue<'v>, b: GlobalValue<'v>) -> GlobalValue<'v> {
         // A variable was potentially assigned more than once, e.g.
         // ```
         // if cond:
@@ -76,17 +81,30 @@ impl<'v> GlobalValue<'v> {
         // So here we say that we don't know what is the value.
         // We could check if both values are equal, use that equal value,
         // but values referenced by the types should not be defined conditionally.
-        GlobalValue { value: None }
+        GlobalValue {
+            value: None,
+            ty: Ty::union2(a.ty, b.ty),
+        }
     }
 }
 
 impl<'v> GlobalValue<'v> {
     fn value(value: Value<'v>) -> GlobalValue<'v> {
-        GlobalValue { value: Some(value) }
+        GlobalValue {
+            value: Some(value),
+            ty: Ty::of_value(value),
+        }
     }
 
     fn any() -> GlobalValue<'v> {
-        GlobalValue { value: None }
+        GlobalValue {
+            value: None,
+            ty: Ty::any(),
+        }
+    }
+
+    fn ty(ty: Ty) -> GlobalValue<'v> {
+        GlobalValue { value: None, ty }
     }
 }
 
@@ -271,8 +289,9 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
     }
 
     fn load(&mut self, load: &LoadP<CstPayload>) -> Result<(), InternalError> {
-        for (var, _source) in &load.args {
-            self.assign_ident_value(var, GlobalValue::any())?;
+        for (var, source) in &load.args {
+            let ty = load.payload.get(source).cloned().unwrap_or_else(Ty::any);
+            self.assign_ident_value(var, GlobalValue::ty(ty))?;
         }
         Ok(())
     }
@@ -415,6 +434,39 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
         }
     }
 
+    fn top_level_def(&mut self, def: &DefP<CstPayload>) -> Result<(), InternalError> {
+        let def_params = DefParams::unpack(&def.params, self.ctx.codemap)
+            .map_err(InternalError::from_eval_exception)?;
+
+        let mut params = Vec::with_capacity(def_params.params.len());
+        for (i, param) in def_params.params.iter().enumerate() {
+            let ty = self.get_ty_expr_opt(param.ty)?;
+            match param.kind {
+                DefParamKind::Regular(default_value) => {
+                    let pos_only = i < def_params.num_positional as usize;
+                    let name = param.ident.0.as_str();
+                    let param = if pos_only {
+                        Param::pos_or_name(name, ty)
+                    } else {
+                        Param::name_only(name, ty)
+                    };
+                    let param = if default_value.is_some() {
+                        param.optional()
+                    } else {
+                        param
+                    };
+                    params.push(param);
+                }
+                DefParamKind::Args => params.push(Param::args(ty)),
+                DefParamKind::Kwargs => params.push(Param::kwargs(ty)),
+            }
+        }
+
+        let result = self.get_ty_expr_opt(def.return_type.as_deref())?;
+
+        self.assign_ident_value(&def.name, GlobalValue::ty(Ty::function(params, result)))
+    }
+
     fn eval_stmt(&mut self, stmt: &CstStmt) -> Result<(), InternalError> {
         let span = stmt.span;
         match &stmt.node {
@@ -436,10 +488,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
                 Ok(())
             }
             StmtP::For(for_stmt) => self.for_stmt_unset(for_stmt),
-            StmtP::Def(def) => {
-                // Def cannot be used in types.
-                self.assign_unset_ident(&def.name)
-            }
+            StmtP::Def(def) => self.top_level_def(def),
             StmtP::Load(load) => self.load(load),
         }
     }
@@ -579,6 +628,20 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
         self.from_type_expr_impl(&x)
     }
 
+    fn get_ty_expr(&self, expr: &CstTypeExpr) -> Result<Ty, InternalError> {
+        match &expr.payload.typechecker_ty {
+            Some(ty) => Ok(ty.clone()),
+            None => Err(self.internal_error(expr.span, "type not set")),
+        }
+    }
+
+    fn get_ty_expr_opt(&mut self, expr: Option<&CstTypeExpr>) -> Result<Ty, InternalError> {
+        match expr {
+            None => Ok(Ty::any()),
+            Some(expr) => self.get_ty_expr(expr),
+        }
+    }
+
     fn fill_types(&mut self, stmt: &mut CstStmt) -> Result<(), InternalError> {
         stmt.visit_type_expr_err_mut(&mut |type_expr| {
             if type_expr.payload.typechecker_ty.is_some() {
@@ -597,6 +660,12 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
     }
 }
 
+/// Types of module-level variables.
+#[derive(Default)]
+pub(crate) struct ModuleVarTypes {
+    pub(crate) types: UnorderedMap<ModuleSlotId, Ty>,
+}
+
 /// Populate `TypeExprP` type payload when running lint typechecker.
 /// (Compiler typechecked populates the payload after proper full evaluation.)
 pub(crate) fn fill_types_for_lint_typechecker(
@@ -604,7 +673,7 @@ pub(crate) fn fill_types_for_lint_typechecker(
     ctx: TypingOracleCtx,
     module_scope_data: &ModuleScopeData,
     approximations: &mut Vec<Approximation>,
-) -> Result<Vec<TypingError>, InternalError> {
+) -> Result<(Vec<TypingError>, ModuleVarTypes), InternalError> {
     let heap = Heap::new();
     let mut builder = GlobalTypesBuilder {
         heap: &heap,
@@ -617,6 +686,7 @@ pub(crate) fn fill_types_for_lint_typechecker(
     for stmt in module.iter_mut() {
         builder.top_level_stmt(stmt)?;
     }
-    let GlobalTypesBuilder { errors, .. } = builder;
-    Ok(errors)
+    let GlobalTypesBuilder { errors, values, .. } = builder;
+    let types = values.map_values(|v| v.ty);
+    Ok((errors, ModuleVarTypes { types }))
 }
