@@ -190,7 +190,8 @@ impl<'v> RuleCallable<'v> {
             (true, true) => return Err(RuleError::IsConfigurationAndToolchain.into()),
         };
 
-        let attributes = AttributeSpec::from(sorted_validated_attrs)?;
+        let attributes =
+            AttributeSpec::from(sorted_validated_attrs, artifact_promise_mappings.is_some())?;
         let ty = Ty::ty_function(attributes.ty_function());
 
         Ok(RuleCallable {

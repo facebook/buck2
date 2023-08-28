@@ -13,6 +13,7 @@ use once_cell::sync::Lazy;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map;
 
+use super::anon_target_attr_validation::AnonRuleAttrValidation;
 use crate::attrs::attr::Attribute;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
@@ -108,7 +109,7 @@ impl AttributeSpec {
         Ok(AttributeSpec { attributes })
     }
 
-    pub fn from(attributes: Vec<(String, Attribute)>) -> anyhow::Result<Self> {
+    pub fn from(attributes: Vec<(String, Attribute)>, is_anon: bool) -> anyhow::Result<Self> {
         let internal_attrs = internal_attrs();
 
         let mut instances: OrderedMap<String, Attribute> =
@@ -121,6 +122,9 @@ impl AttributeSpec {
         }
 
         for (name, instance) in attributes.into_iter() {
+            if is_anon {
+                instance.coercer().validate_for_anon_rule()?;
+            }
             if name == "metadata" {
                 soft_error!(
                     "metadata_attribute",
@@ -291,7 +295,7 @@ pub(crate) mod testing {
 
     impl AttributeSpec {
         pub(crate) fn testing_new(attributes: OrderedMap<String, Attribute>) -> AttributeSpec {
-            AttributeSpec::from(attributes.into_iter().collect()).unwrap()
+            AttributeSpec::from(attributes.into_iter().collect(), false).unwrap()
         }
     }
 }
