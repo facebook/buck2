@@ -33,7 +33,6 @@ use buck2_node::attrs::attr_type::tuple::TupleLiteral;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::attr_type::AttrTypeInner;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
-use buck2_node::attrs::configurable::AttrIsConfigurable;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use gazebo::prelude::SliceExt;
@@ -49,21 +48,11 @@ use crate::anon_target_attr::AnonTargetAttr;
 use crate::anon_targets::AnonAttrCtx;
 
 pub trait AnonTargetAttrTypeCoerce {
-    fn coerce_item(
-        &self,
-        configurable: AttrIsConfigurable,
-        ctx: &AnonAttrCtx,
-        value: Value,
-    ) -> anyhow::Result<AnonTargetAttr>;
+    fn coerce_item(&self, ctx: &AnonAttrCtx, value: Value) -> anyhow::Result<AnonTargetAttr>;
 }
 
 impl AnonTargetAttrTypeCoerce for AttrType {
-    fn coerce_item(
-        &self,
-        configurable: AttrIsConfigurable,
-        ctx: &AnonAttrCtx,
-        value: Value,
-    ) -> anyhow::Result<AnonTargetAttr> {
+    fn coerce_item(&self, ctx: &AnonAttrCtx, value: Value) -> anyhow::Result<AnonTargetAttr> {
         match self.0.as_ref() {
             AttrTypeInner::Any(_) => to_anon_target_any(value, ctx),
             AttrTypeInner::Bool(_) => match value.unpack_bool() {
@@ -78,15 +67,15 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                     "int", value
                 ))),
             },
-            AttrTypeInner::Dict(x) => to_anon_target_dict(x, configurable, ctx, value),
-            AttrTypeInner::List(x) => to_anon_target_list(x, configurable, ctx, value),
-            AttrTypeInner::Tuple(x) => to_anon_target_tuple(x, configurable, ctx, value),
-            AttrTypeInner::OneOf(x) => to_anon_target_one_of(x, configurable, ctx, value),
+            AttrTypeInner::Dict(x) => to_anon_target_dict(x, ctx, value),
+            AttrTypeInner::List(x) => to_anon_target_list(x, ctx, value),
+            AttrTypeInner::Tuple(x) => to_anon_target_tuple(x, ctx, value),
+            AttrTypeInner::OneOf(x) => to_anon_target_one_of(x, ctx, value),
             AttrTypeInner::Option(x) => {
                 if value.is_none() {
                     Ok(AnonTargetAttr::None)
                 } else {
-                    Ok(x.inner.coerce_item(configurable, ctx, value)?)
+                    Ok(x.inner.coerce_item(ctx, value)?)
                 }
             }
             AttrTypeInner::String(_) => match value.unpack_str() {
@@ -272,7 +261,7 @@ fn to_anon_target_any(value: Value, ctx: &AnonAttrCtx) -> anyhow::Result<AnonTar
 
 fn to_anon_target_dict(
     dict_attr_type: &DictAttrType,
-    configurable: AttrIsConfigurable,
+
     ctx: &AnonAttrCtx,
     value: Value,
 ) -> anyhow::Result<AnonTargetAttr> {
@@ -286,15 +275,15 @@ fn to_anon_target_dict(
 
             for (k, v) in items {
                 res.push((
-                    dict_attr_type.key.coerce_item(configurable, ctx, k)?,
-                    dict_attr_type.value.coerce_item(configurable, ctx, v)?,
+                    dict_attr_type.key.coerce_item(ctx, k)?,
+                    dict_attr_type.value.coerce_item(ctx, v)?,
                 ));
             }
         } else {
             for (k, v) in dict.iter() {
                 res.push((
-                    dict_attr_type.key.coerce_item(configurable, ctx, k)?,
-                    dict_attr_type.value.coerce_item(configurable, ctx, v)?,
+                    dict_attr_type.key.coerce_item(ctx, k)?,
+                    dict_attr_type.value.coerce_item(ctx, v)?,
                 ));
             }
         }
@@ -309,14 +298,14 @@ fn to_anon_target_dict(
 
 fn to_anon_target_one_of(
     one_of_attr_type: &OneOfAttrType,
-    configurable: AttrIsConfigurable,
+
     ctx: &AnonAttrCtx,
     value: Value,
 ) -> anyhow::Result<AnonTargetAttr> {
     let mut errs = Vec::new();
     // Bias towards the start of the list - try and use success/failure from first in preference
     for (i, x) in one_of_attr_type.xs.iter().enumerate() {
-        match x.coerce_item(configurable, ctx, value) {
+        match x.coerce_item(ctx, value) {
             Ok(v) => return Ok(AnonTargetAttr::OneOf(Box::new(v), i as u32)),
             Err(e) => {
                 // TODO(nga): anyhow error creation is expensive.
@@ -329,7 +318,7 @@ fn to_anon_target_one_of(
 
 fn to_anon_target_tuple(
     tuple_attr_type: &TupleAttrType,
-    configurable: AttrIsConfigurable,
+
     ctx: &AnonAttrCtx,
     value: Value,
 ) -> anyhow::Result<AnonTargetAttr> {
@@ -343,7 +332,7 @@ fn to_anon_target_tuple(
                 .iter()
                 .zip(items.iter().duped().chain(iter::repeat(Value::new_none())))
             {
-                res.push(c.coerce_item(configurable, ctx, v)?);
+                res.push(c.coerce_item(ctx, v)?);
             }
             // TODO(wendyy) intern attr
             Ok(AnonTargetAttr::Tuple(TupleLiteral(res.into())))
@@ -368,7 +357,7 @@ fn to_anon_target_tuple(
 
 fn to_anon_target_list(
     list_attr_type: &ListAttrType,
-    configurable: AttrIsConfigurable,
+
     ctx: &AnonAttrCtx,
     value: Value,
 ) -> anyhow::Result<AnonTargetAttr> {
@@ -376,14 +365,14 @@ fn to_anon_target_list(
         Ok(AnonTargetAttr::List(ListLiteral(
             // TODO(wendyy) intern attr
             list.content()
-                .try_map(|v| list_attr_type.inner.coerce_item(configurable, ctx, *v))?
+                .try_map(|v| list_attr_type.inner.coerce_item(ctx, *v))?
                 .into(),
         )))
     } else if let Some(list) = TupleRef::from_value(value) {
         Ok(AnonTargetAttr::List(ListLiteral(
             // TODO(wendyy) intern attr
             list.content()
-                .try_map(|v| list_attr_type.inner.coerce_item(configurable, ctx, *v))?
+                .try_map(|v| list_attr_type.inner.coerce_item(ctx, *v))?
                 .into(),
         )))
     } else {

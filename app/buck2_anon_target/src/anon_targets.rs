@@ -70,7 +70,6 @@ use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
-use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::internal::internal_attrs;
@@ -252,7 +251,7 @@ impl AnonTargetKey {
         x: Value,
         ctx: &AnonAttrCtx,
     ) -> anyhow::Result<AnonTargetAttr> {
-        attr.coerce_item(AttrIsConfigurable::No, ctx, x)
+        attr.coerce_item(ctx, x)
     }
 
     fn coerced_to_anon_target_attr(
