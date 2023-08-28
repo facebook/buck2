@@ -42,6 +42,7 @@ use crate::typing::TypingOracle;
 use crate::typing::TypingUnOp;
 use crate::values::dict::value::MutableDict;
 use crate::values::list::value::List;
+use crate::values::tuple::value::Tuple;
 
 #[derive(Debug, thiserror::Error)]
 enum TypingOracleCtxError {
@@ -638,22 +639,31 @@ impl<'a> TypingOracleCtx<'a> {
         bin_op: TypingBinOp,
         rhs: &TyBasic,
     ) -> Result<Ty, ()> {
-        if let TyBasic::StarlarkValue(rhs) = rhs {
-            return rhs.rbin_op(bin_op, lhs);
+        match rhs {
+            TyBasic::StarlarkValue(rhs) => rhs.rbin_op(bin_op, lhs),
+            rhs @ TyBasic::List(_) => match bin_op {
+                TypingBinOp::Mul => {
+                    if self.intersects_basic(lhs, &TyBasic::int()) {
+                        Ok(Ty::basic(rhs.clone()))
+                    } else {
+                        Err(())
+                    }
+                }
+                _ => TyStarlarkValue::new::<List>().rbin_op(bin_op, lhs),
+            },
+            TyBasic::Tuple(_) => match bin_op {
+                TypingBinOp::Mul => {
+                    if self.intersects_basic(lhs, &TyBasic::int()) {
+                        Ok(Ty::any_tuple())
+                    } else {
+                        Err(())
+                    }
+                }
+                _ => TyStarlarkValue::new::<Tuple>().rbin_op(bin_op, lhs),
+            },
+            TyBasic::Name(..) => Ok(Ty::any()),
+            _ => Err(()),
         }
-
-        if rhs.is_list() {
-            if self.intersects_basic(lhs, &TyBasic::int()) {
-                return Ok(Ty::basic(rhs.clone()));
-            }
-        }
-        if rhs.is_tuple() {
-            if self.intersects_basic(lhs, &TyBasic::int()) {
-                return Ok(Ty::any_tuple());
-            }
-        }
-
-        Err(())
     }
 
     fn expr_bin_op_ty_basic(
