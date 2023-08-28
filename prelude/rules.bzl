@@ -21,7 +21,7 @@ def _unimplemented_impl(name):
     # some features disabled.
     return partial(_unimplemented, name)
 
-def _mk_rule(rule_spec: typing.Any) -> "rule":
+def _mk_rule(rule_spec: typing.Any):
     name = rule_spec.name
     attributes = rule_spec.attrs
 
