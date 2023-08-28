@@ -1,0 +1,20 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+oncall("buck2")
+
+rust_library(
+    name = "starlark_syntax",
+    srcs = glob(["src/**/*.rs"]),
+    rustc_flags = [
+        "--cfg=rust_nightly",
+    ],
+    visibility = [
+        # Do not use this crate internally in Meta.
+        # `starlark` crate has public API.
+        # If you need some feature requiring working with syntax tree, like a linter,
+        # please implement it inside the `starlark` crate.
+        # For codemods, use libCST.
+        "//buck2/starlark-rust/...",
+    ],
+)

@@ -92,6 +92,7 @@ members = [
     "starlark-rust/starlark",
     "starlark-rust/starlark_derive",
     "starlark-rust/starlark_map",
+    "starlark-rust/starlark_syntax",
     "shed/internment_tweaks",
     "shed/lock_free_hashtable",
     "shed/lock_free_vec",
