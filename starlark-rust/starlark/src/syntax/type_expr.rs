@@ -17,7 +17,7 @@
 
 use crate::codemap::CodeMap;
 use crate::codemap::Spanned;
-use crate::eval::compiler::EvalException;
+use crate::eval::compiler::eval_exception::EvalException;
 use crate::slice_vec_ext::SliceExt;
 use crate::syntax::ast::AstExprP;
 use crate::syntax::ast::AstIdentP;

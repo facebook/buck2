@@ -31,7 +31,7 @@ use crate::eval::bc::opcode::BcOpcodeHandler;
 use crate::eval::bc::slow_arg::BcInstrEndArg;
 use crate::eval::bc::slow_arg::BcInstrSlowArg;
 use crate::eval::compiler::add_span_to_expr_error;
-use crate::eval::compiler::EvalException;
+use crate::eval::compiler::eval_exception::EvalException;
 use crate::eval::runtime::evaluator::EvaluationCallbacks;
 use crate::eval::Evaluator;
 use crate::values::Value;

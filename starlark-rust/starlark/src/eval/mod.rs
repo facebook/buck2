@@ -26,6 +26,7 @@ use std::collections::HashMap;
 use std::mem;
 use std::time::Instant;
 
+use compiler::eval_exception::EvalException;
 use dupe::Dupe;
 pub use runtime::arguments::Arguments;
 pub use runtime::before_stmt::BeforeStmtFuncDyn;
@@ -46,7 +47,6 @@ use crate::eval::compiler::def::DefInfo;
 use crate::eval::compiler::scope::ModuleScopes;
 use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::Compiler;
-use crate::eval::compiler::EvalException;
 use crate::eval::runtime::arguments::ArgNames;
 use crate::eval::runtime::arguments::ArgumentsFull;
 use crate::slice_vec_ext::SliceExt;

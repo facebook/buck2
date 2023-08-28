@@ -18,6 +18,7 @@
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::eval::compiler::constants::Constants;
+use crate::eval::compiler::eval_exception::EvalException;
 use crate::eval::compiler::scope::payload::CstIdent;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstStmt;
@@ -26,7 +27,6 @@ use crate::eval::compiler::scope::ResolvedIdent;
 use crate::eval::compiler::scope::Slot;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::Compiler;
-use crate::eval::compiler::EvalException;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::slice_vec_ext::VecExt;

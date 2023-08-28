@@ -50,6 +50,7 @@ use crate::eval::bc::bytecode::Bc;
 use crate::eval::bc::frame::alloca_frame;
 use crate::eval::compiler::def_inline::inline_def_body;
 use crate::eval::compiler::def_inline::InlineDefBody;
+use crate::eval::compiler::eval_exception::EvalException;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::opt_ctx::OptCtx;
 use crate::eval::compiler::scope::payload::CstAssignIdent;
@@ -64,7 +65,6 @@ use crate::eval::compiler::stmt::OptimizeOnFreezeContext;
 use crate::eval::compiler::stmt::StmtCompileContext;
 use crate::eval::compiler::stmt::StmtsCompiled;
 use crate::eval::compiler::Compiler;
-use crate::eval::compiler::EvalException;
 use crate::eval::runtime::arguments::ArgumentsImpl;
 use crate::eval::runtime::arguments::ResolvedArgName;
 use crate::eval::runtime::evaluator::Evaluator;
@@ -785,7 +785,7 @@ where
         }
         let res = eval.with_function_context(me, self.module.load_relaxed(), self.bc());
 
-        res.map_err(|EvalException(e)| e)
+        res.map_err(EvalException::into_anyhow)
     }
 
     pub(crate) fn resolve_arg_name(&self, name: Hashed<&str>) -> ResolvedArgName {

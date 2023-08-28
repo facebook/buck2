@@ -19,7 +19,7 @@ use std::fmt::Display;
 
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
-use crate::eval::compiler::EvalException;
+use crate::eval::compiler::eval_exception::EvalException;
 
 /// Internal error, bug in the typechecker.
 #[derive(Debug)]
