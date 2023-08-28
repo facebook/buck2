@@ -463,6 +463,17 @@ def test():
 }
 
 #[test]
+fn test_list_less() {
+    TypeCheck::new().check(
+        "list_less",
+        r#"
+def test(x: list[str], y: list[str]) -> bool:
+    return x < y
+"#,
+    );
+}
+
+#[test]
 fn test_accepts_iterable() {
     TypeCheck::new().check(
         "accepts_iterable",

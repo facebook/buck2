@@ -611,17 +611,25 @@ impl<'a> TypingOracleCtx<'a> {
         bin_op: TypingBinOp,
         rhs: Spanned<&TyBasic>,
     ) -> Result<Ty, ()> {
-        if let TyBasic::StarlarkValue(lhs) = lhs {
-            return lhs.bin_op(bin_op, rhs.node);
+        match lhs {
+            TyBasic::StarlarkValue(lhs) => lhs.bin_op(bin_op, rhs.node),
+            lhs @ TyBasic::List(..) if bin_op == TypingBinOp::Less => {
+                if self.intersects_basic(lhs, rhs.node) {
+                    Ok(Ty::bool())
+                } else {
+                    Err(())
+                }
+            }
+            lhs => {
+                let fun = match self.oracle.attribute(lhs, TypingAttr::BinOp(bin_op)) {
+                    Some(Ok(fun)) => fun,
+                    Some(Err(())) => return Err(()),
+                    None => return Ok(Ty::any()),
+                };
+                self.validate_call(span, &fun, &[rhs.map(|t| Arg::Pos(Ty::basic(t.clone())))])
+                    .map_err(|_| ())
+            }
         }
-
-        let fun = match self.oracle.attribute(lhs, TypingAttr::BinOp(bin_op)) {
-            Some(Ok(fun)) => fun,
-            Some(Err(())) => return Err(()),
-            None => return Ok(Ty::any()),
-        };
-        self.validate_call(span, &fun, &[rhs.map(|t| Arg::Pos(Ty::basic(t.clone())))])
-            .map_err(|_| ())
     }
 
     fn expr_bin_op_ty_basic_rhs(
