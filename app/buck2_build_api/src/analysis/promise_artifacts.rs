@@ -11,6 +11,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use anyhow::Context;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
@@ -40,10 +41,11 @@ struct PromiseArtifactEntry {
 pub struct PromiseArtifactRegistry<'v> {
     promises: Vec<ValueTyped<'v, StarlarkPromise<'v>>>,
     artifacts: Vec<PromiseArtifactEntry>,
-    owner: BaseDeferredKey,
+    // TODO(@wendyy) - owner can be deprecated after migration to new artifact promise API.
+    owner: Option<BaseDeferredKey>,
 }
 impl<'v> PromiseArtifactRegistry<'v> {
-    pub(crate) fn new(owner: BaseDeferredKey) -> Self {
+    pub fn new(owner: Option<BaseDeferredKey>) -> Self {
         Self {
             owner,
             promises: Vec::new(),
@@ -51,7 +53,7 @@ impl<'v> PromiseArtifactRegistry<'v> {
         }
     }
 
-    pub(crate) fn resolve_all(&self) -> anyhow::Result<()> {
+    pub fn resolve_all(&self) -> anyhow::Result<()> {
         for (promise, artifact_entry) in std::iter::zip(&self.promises, &self.artifacts) {
             match promise.get() {
                 Some(v) => match ValueAsArtifactLike::unpack_value(v) {
@@ -80,13 +82,21 @@ impl<'v> PromiseArtifactRegistry<'v> {
         Ok(())
     }
 
-    pub(crate) fn register(
+    pub fn register(
         &mut self,
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         location: Option<FileSpan>,
         short_path: Option<ForwardRelativePathBuf>,
+        // TODO(@wendyy) - For new promise artifact API. Will eventually not be optional.
+        owner: Option<BaseDeferredKey>,
     ) -> anyhow::Result<PromiseArtifact> {
-        let id = PromiseArtifactId::new(self.owner.dupe(), self.promises.len());
+        let key = match owner {
+            Some(owner) => owner,
+            None => self.owner.dupe().context(anyhow::anyhow!(
+                "owner should either come from anon targets, or consumer's analysis registry"
+            ))?,
+        };
+        let id = PromiseArtifactId::new(key, self.promises.len());
         let artifact = PromiseArtifact::new(Arc::new(OnceCell::new()), Arc::new(id));
 
         self.promises.push(promise);

@@ -165,7 +165,7 @@ impl<'v> StarlarkPromise<'v> {
         eval.eval_function(f, &[x], &[])
     }
 
-    fn map(
+    pub fn map(
         x: ValueTyped<'v, StarlarkPromise<'v>>,
         f: Value<'v>,
         eval: &mut Evaluator<'v, '_>,

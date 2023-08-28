@@ -94,6 +94,9 @@ impl<'v> AnalysisActions<'v> {
                 break;
             }
         }
+
+        // Resolve promise artifacts after running the promises
+        self.state().resolve_artifacts()?;
         Ok(())
     }
 }

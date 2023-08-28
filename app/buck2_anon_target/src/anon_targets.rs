@@ -22,8 +22,10 @@ use buck2_build_api::analysis::anon_promises_dyn::AnonPromisesDyn;
 use buck2_build_api::analysis::anon_targets_registry::AnonTargetsRegistryDyn;
 use buck2_build_api::analysis::anon_targets_registry::ANON_TARGET_REGISTRY_NEW;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
+use buck2_build_api::analysis::promise_artifacts::PromiseArtifactRegistry;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::analysis::AnalysisResult;
+use buck2_build_api::artifact_groups::promise::PromiseArtifact;
 use buck2_build_api::deferred::calculation::EVAL_ANON_TARGET;
 use buck2_build_api::deferred::types::DeferredTable;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
@@ -86,6 +88,7 @@ use gazebo::prelude::*;
 use more_futures::cancellation::CancellationContext;
 use starlark::any::AnyLifetime;
 use starlark::any::ProvidesStaticType;
+use starlark::codemap::FileSpan;
 use starlark::environment::Module;
 use starlark::values::dict::DictOf;
 use starlark::values::structs::AllocStruct;
@@ -107,6 +110,7 @@ pub struct AnonTargetsRegistry<'v> {
     // We inherit the execution platform of our parent
     execution_platform: ExecutionPlatformResolution,
     promises: AnonPromises<'v>,
+    promise_artifact_registry: PromiseArtifactRegistry<'v>,
 }
 
 #[derive(Debug, Error)]
@@ -132,7 +136,7 @@ pub enum AnonTargetsError {
 }
 
 #[derive(Hash, Eq, PartialEq, Clone, Dupe, Debug, Display, Trace, Allocative)]
-pub(crate) struct AnonTargetKey(Arc<AnonTarget>);
+pub(crate) struct AnonTargetKey(pub(crate) Arc<AnonTarget>);
 
 impl AnonTargetKey {
     fn downcast(key: Arc<dyn BaseDeferredKeyDyn>) -> anyhow::Result<Self> {
@@ -550,6 +554,7 @@ pub(crate) fn init_anon_target_registry_new() {
         Box::new(AnonTargetsRegistry {
             execution_platform,
             promises: AnonPromises::default(),
+            promise_artifact_registry: PromiseArtifactRegistry::new(None),
         })
     });
 }
@@ -604,11 +609,26 @@ impl<'v> AnonTargetsRegistry<'v> {
         self.promises.push_list(promise, keys);
         Ok(())
     }
+
+    pub(crate) fn register_artifact(
+        &mut self,
+        promise: ValueTyped<'v, StarlarkPromise<'v>>,
+        location: Option<FileSpan>,
+        anon_target_key: AnonTargetKey,
+    ) -> anyhow::Result<PromiseArtifact> {
+        let anon_target_key = BaseDeferredKey::AnonTarget(anon_target_key.0.dupe());
+        self.promise_artifact_registry
+            .register(promise, location, None, Some(anon_target_key))
+    }
 }
 
 impl<'v> AnonTargetsRegistryDyn<'v> for AnonTargetsRegistry<'v> {
     fn as_any_mut(&mut self) -> &mut dyn AnyLifetime<'v> {
         self
+    }
+
+    fn resolve_artifacts(&self) -> anyhow::Result<()> {
+        self.promise_artifact_registry.resolve_all()
     }
 
     fn take_promises(&mut self) -> Option<Box<dyn AnonPromisesDyn<'v>>> {

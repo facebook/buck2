@@ -100,7 +100,7 @@ impl<'v> AnalysisRegistry<'v> {
             dynamic: DynamicRegistry::new(owner.dupe()),
             anon_targets: (ANON_TARGET_REGISTRY_NEW.get()?)(PhantomData, execution_platform),
             analysis_value_storage: AnalysisValueStorage::new(),
-            artifact_promises: PromiseArtifactRegistry::new(owner),
+            artifact_promises: PromiseArtifactRegistry::new(Some(owner)),
         })
     }
 
@@ -258,17 +258,23 @@ impl<'v> AnalysisRegistry<'v> {
         self.anon_targets.take_promises()
     }
 
+    pub fn resolve_artifacts(&self) -> anyhow::Result<()> {
+        self.anon_targets.resolve_artifacts()
+    }
+
     pub fn assert_no_promises(&self) -> anyhow::Result<()> {
         self.anon_targets.assert_no_promises()
     }
 
+    // TODO(@wendyy) - deprecate after artifact promise API is implemented
     pub fn register_artifact_promise(
         &mut self,
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         location: Option<FileSpan>,
         option: Option<ForwardRelativePathBuf>,
     ) -> anyhow::Result<PromiseArtifact> {
-        self.artifact_promises.register(promise, location, option)
+        self.artifact_promises
+            .register(promise, location, option, None)
     }
 
     /// You MUST pass the same module to both the first function and the second one.

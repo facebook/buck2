@@ -17,6 +17,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::StarlarkPromiseArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::context::ANALYSIS_ACTIONS_METHODS_ANON_TARGET;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
+use buck2_interpreter_for_build::rule::FrozenArtifactPromiseMappings;
 use buck2_interpreter_for_build::rule::FrozenRuleCallable;
 use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
@@ -39,6 +40,7 @@ use starlark::values::ValueTyped;
 use starlark_map::small_map::SmallMap;
 use thiserror::Error;
 
+use crate::anon_targets::AnonTargetKey;
 use crate::anon_targets::AnonTargetsRegistry;
 
 #[derive(Debug, Error)]
@@ -55,6 +57,37 @@ struct StarlarkAnonTarget<'v> {
     artifacts: SmallMap<FrozenStringValue, PromiseArtifact>,
     // Where the anon target was declared
     declaration_location: Option<FileSpan>,
+}
+
+impl<'v> StarlarkAnonTarget<'v> {
+    fn new(
+        declaration_location: Option<FileSpan>,
+        res: ValueTyped<'v, StarlarkPromise<'v>>,
+        frozen_artifact_mappings: &Option<FrozenArtifactPromiseMappings>,
+        key: AnonTargetKey,
+        registry: &mut AnonTargetsRegistry<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StarlarkAnonTarget<'v>> {
+        let mut artifacts_map = SmallMap::new();
+        if let Some(artifacts) = frozen_artifact_mappings {
+            for (name, func) in artifacts.mappings.iter() {
+                let promise = StarlarkPromise::map(res, func.to_value(), eval)?;
+                let artifact = registry.register_artifact(
+                    promise,
+                    declaration_location.clone(),
+                    key.clone(),
+                )?;
+                artifacts_map.insert(*name, artifact);
+            }
+        }
+
+        let anon_target = StarlarkAnonTarget {
+            promise: res,
+            artifacts: artifacts_map,
+            declaration_location,
+        };
+        Ok(anon_target)
+    }
 }
 
 impl<'v> Display for StarlarkAnonTarget<'v> {
@@ -140,18 +173,35 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
     /// Two distinct rules might ask for the same anonymous target, sharing the work it performs.
     ///
     /// For more details see https://buck2.build/docs/rule_authors/anon_targets/
+    ///
+    /// `with_artifacts` is a temporary parameter used for migration purposes. Please do not use.
     fn anon_target<'v>(
         this: &AnalysisActions<'v>,
         rule: ValueTyped<'v, FrozenRuleCallable>,
         attrs: DictOf<'v, &'v str, Value<'v>>,
-        heap: &'v Heap,
-    ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
-        let res = heap.alloc_typed(StarlarkPromise::new_unresolved());
+        #[starlark(require = named, default = false)] with_artifacts: bool,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        let res = eval.heap().alloc_typed(StarlarkPromise::new_unresolved());
         let mut this = this.state();
         let registry = AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?;
         let key = registry.anon_target_key(rule, attrs)?;
-        registry.register_one(res, key)?;
-        Ok(res)
+        registry.register_one(res, key.clone())?;
+
+        let anon_target = StarlarkAnonTarget::new(
+            eval.call_stack_top_location(),
+            res,
+            rule.artifact_promise_mappings(),
+            key,
+            registry,
+            eval,
+        )?;
+
+        if with_artifacts {
+            Ok(eval.heap().alloc(anon_target))
+        } else {
+            Ok(anon_target.promise.to_value())
+        }
     }
 
     /// Generate a series of anonymous targets
@@ -166,6 +216,8 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         let res = heap.alloc_typed(StarlarkPromise::new_unresolved());
         let mut this = this.state();
         AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?.register_many(res, rules)?;
+
+        // TODO(@wendyy) support promise artifacts here
         Ok(res)
     }
 }
