@@ -243,10 +243,15 @@ pub(crate) fn percent(format: &str, value: Value) -> anyhow::Result<String> {
             Some(PercentSFormat::Oct) => {
                 let value = next_value()?;
                 match value.unpack_num() {
-                    Some(NumRef::Int(StarlarkIntRef::Small(v))) => match v.to_i32() {
-                        i32::MIN => write!(res, "{}", I32_MIN_OCTAL).unwrap(),
-                        v => write!(res, "{}{:o}", if v < 0 { "-" } else { "" }, v.abs()).unwrap(),
-                    },
+                    Some(NumRef::Int(StarlarkIntRef::Small(v))) => {
+                        let v = v.to_i32();
+                        match v.checked_abs() {
+                            Some(vp) => {
+                                write!(res, "{}{:o}", if v < 0 { "-" } else { "" }, vp).unwrap()
+                            }
+                            None => write!(res, "{}", I32_MIN_OCTAL).unwrap(),
+                        }
+                    }
                     Some(NumRef::Int(StarlarkIntRef::Big(v))) => {
                         let v = v.get();
                         write!(
@@ -265,10 +270,15 @@ pub(crate) fn percent(format: &str, value: Value) -> anyhow::Result<String> {
             Some(PercentSFormat::Hex) => {
                 let value = next_value()?;
                 match value.unpack_num() {
-                    Some(NumRef::Int(StarlarkIntRef::Small(v))) => match v.to_i32() {
-                        i32::MIN => write!(res, "{}", I32_MIN_HEX).unwrap(),
-                        v => write!(res, "{}{:x}", if v < 0 { "-" } else { "" }, v.abs()).unwrap(),
-                    },
+                    Some(NumRef::Int(StarlarkIntRef::Small(v))) => {
+                        let v = v.to_i32();
+                        match v.checked_abs() {
+                            Some(vp) => {
+                                write!(res, "{}{:x}", if v < 0 { "-" } else { "" }, vp).unwrap()
+                            }
+                            None => write!(res, "{}", I32_MIN_HEX).unwrap(),
+                        }
+                    }
                     Some(NumRef::Int(StarlarkIntRef::Big(v))) => {
                         let v = v.get();
                         write!(
@@ -287,10 +297,15 @@ pub(crate) fn percent(format: &str, value: Value) -> anyhow::Result<String> {
             Some(PercentSFormat::HexUpper) => {
                 let value = next_value()?;
                 match value.unpack_num() {
-                    Some(NumRef::Int(StarlarkIntRef::Small(v))) => match v.to_i32() {
-                        i32::MIN => write!(res, "{}", I32_MIN_HEX).unwrap(),
-                        v => write!(res, "{}{:X}", if v < 0 { "-" } else { "" }, v.abs()).unwrap(),
-                    },
+                    Some(NumRef::Int(StarlarkIntRef::Small(v))) => {
+                        let v = v.to_i32();
+                        match v.checked_abs() {
+                            Some(vp) => {
+                                write!(res, "{}{:X}", if v < 0 { "-" } else { "" }, vp).unwrap()
+                            }
+                            None => write!(res, "{}", I32_MIN_HEX).unwrap(),
+                        }
+                    }
                     Some(NumRef::Int(StarlarkIntRef::Big(v))) => {
                         let v = v.get();
                         write!(
