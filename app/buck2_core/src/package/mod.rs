@@ -46,8 +46,8 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
+use equivalent::Equivalent;
 use fnv::FnvHasher;
-use internment_tweaks::Equiv;
 use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
 use serde::Serialize;
@@ -106,7 +106,7 @@ impl Hash for PackageLabelData {
     }
 }
 
-impl<'a> Equiv<PackageLabelData> for PackageLabelDataRef<'a> {
+impl<'a> Equivalent<PackageLabelData> for PackageLabelDataRef<'a> {
     fn equivalent(&self, key: &PackageLabelData) -> bool {
         self == &key.as_ref()
     }

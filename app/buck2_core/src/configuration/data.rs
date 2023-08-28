@@ -15,7 +15,7 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use buck2_data::ToProtoMessage;
 use dupe::Dupe;
-use internment_tweaks::Equiv;
+use equivalent::Equivalent;
 use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
 use once_cell::sync::Lazy;
@@ -86,7 +86,7 @@ impl Dupe for ConfigurationData {}
 #[derive(Hash)]
 struct ConfigurationHashRef<'a>(&'a str);
 
-impl<'a> Equiv<HashedConfigurationPlatform> for ConfigurationHashRef<'a> {
+impl<'a> Equivalent<HashedConfigurationPlatform> for ConfigurationHashRef<'a> {
     fn equivalent(&self, key: &HashedConfigurationPlatform) -> bool {
         self.0 == key.output_hash.as_str()
     }
@@ -365,12 +365,6 @@ pub(crate) struct HashedConfigurationPlatform {
     full_name: String,
     /// A hash of the configuration data that is used for determining output paths.
     output_hash: ConfigurationHash,
-}
-
-impl Equiv<HashedConfigurationPlatform> for HashedConfigurationPlatform {
-    fn equivalent(&self, key: &HashedConfigurationPlatform) -> bool {
-        self == key
-    }
 }
 
 /// This will hash just the "output_hash" which should uniquely identify this data.

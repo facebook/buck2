@@ -8,6 +8,7 @@ rust_library(
     srcs = glob(["src/**/*.rs"]),
     crate_root = "src/lib.rs",
     deps = [
+        "fbsource//third-party/rust:equivalent",
         "//buck2/allocative/allocative:allocative",
         "//buck2/gazebo/dupe:dupe",
         "//buck2/shed/lock_free_hashtable:lock_free_hashtable",
