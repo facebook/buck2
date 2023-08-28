@@ -126,6 +126,11 @@ static PyObject* _exec_module(PyObject* self, PyObject* module) {
   Py_RETURN_NONE;
 }
 
+static PyObject* _get_source(PyObject* self, PyObject* /* module_name */) {
+  // TODO properly implement the function
+  Py_RETURN_NONE;
+}
+
 PyDoc_STRVAR(
     StaticExtensionLoader_doc,
     "static_extension_loader(name: str)\n\
@@ -139,6 +144,10 @@ static PyMethodDef StaticExtensionLoaderType_methods[] = {
      nullptr},
     {"exec_module",
      (PyCFunction)(void (*)(void))_exec_module,
+     METH_STATIC | METH_O,
+     nullptr},
+    {"get_source",
+     (PyCFunction)(void (*)(void))_get_source,
      METH_STATIC | METH_O,
      nullptr},
     {nullptr, nullptr}};
