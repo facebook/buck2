@@ -232,7 +232,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = pos, default = NoneOr::None)] start: NoneOr<i32>,
         #[starlark(require = pos, default = NoneOr::None)] end: NoneOr<i32>,
     ) -> anyhow::Result<i32> {
-        if let Some(StrIndices { haystack, .. }) = convert_str_indices(this, start, end) {
+        if let Some(StrIndices { haystack, .. }) =
+            convert_str_indices(this, start.into_option(), end.into_option())
+        {
             Ok(fast_string::count_matches(haystack, needle) as i32)
         } else {
             Ok(0)
@@ -290,7 +292,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = pos, default = NoneOr::None)] start: NoneOr<i32>,
         #[starlark(require = pos, default = NoneOr::None)] end: NoneOr<i32>,
     ) -> anyhow::Result<i32> {
-        if let Some(StrIndices { start, haystack }) = convert_str_indices(this, start, end) {
+        if let Some(StrIndices { start, haystack }) =
+            convert_str_indices(this, start.into_option(), end.into_option())
+        {
             if let Some(index) = haystack.find(needle) {
                 let index = fast_string::len(&haystack[..index]);
                 return Ok((start + index).0 as i32);
@@ -388,7 +392,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = pos, default = NoneOr::None)] start: NoneOr<i32>,
         #[starlark(require = pos, default = NoneOr::None)] end: NoneOr<i32>,
     ) -> anyhow::Result<i32> {
-        if let Some(StrIndices { start, haystack }) = convert_str_indices(this, start, end) {
+        if let Some(StrIndices { start, haystack }) =
+            convert_str_indices(this, start.into_option(), end.into_option())
+        {
             if let Some(index) = haystack.find(needle) {
                 let index = fast_string::len(&haystack[..index]);
                 return Ok((start + index).0 as i32);
@@ -833,7 +839,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = pos, default = NoneOr::None)] start: NoneOr<i32>,
         #[starlark(require = pos, default = NoneOr::None)] end: NoneOr<i32>,
     ) -> anyhow::Result<i32> {
-        if let Some(StrIndices { start, haystack }) = convert_str_indices(this, start, end) {
+        if let Some(StrIndices { start, haystack }) =
+            convert_str_indices(this, start.into_option(), end.into_option())
+        {
             if let Some(index) = haystack.rfind(needle) {
                 let index = fast_string::len(&haystack[..index]);
                 return Ok((start + index).0 as i32);
@@ -866,7 +874,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = pos, default = NoneOr::None)] start: NoneOr<i32>,
         #[starlark(require = pos, default = NoneOr::None)] end: NoneOr<i32>,
     ) -> anyhow::Result<i32> {
-        if let Some(StrIndices { start, haystack }) = convert_str_indices(this, start, end) {
+        if let Some(StrIndices { start, haystack }) =
+            convert_str_indices(this, start.into_option(), end.into_option())
+        {
             if let Some(index) = haystack.rfind(needle) {
                 let index = fast_string::len(&haystack[..index]);
                 return Ok((start + index).0 as i32);

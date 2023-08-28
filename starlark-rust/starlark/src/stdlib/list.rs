@@ -151,7 +151,8 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = pos, default = NoneOr::None)] start: NoneOr<i32>,
         #[starlark(require = pos, default = NoneOr::None)] end: NoneOr<i32>,
     ) -> anyhow::Result<i32> {
-        let (start, end) = convert_indices(this.len() as i32, start, end);
+        let (start, end) =
+            convert_indices(this.len() as i32, start.into_option(), end.into_option());
         if let Some(haystack) = this.get(start..end) {
             for (i, x) in haystack.iter().enumerate() {
                 if x.equals(needle)? {

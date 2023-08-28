@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-use crate::values::none::NoneOr;
-
 fn bound(val: i32, limit: i32) -> usize {
     if val <= 0 {
         0
@@ -27,9 +25,9 @@ fn bound(val: i32, limit: i32) -> usize {
     }
 }
 
-pub(crate) fn convert_indices(len: i32, start: NoneOr<i32>, end: NoneOr<i32>) -> (usize, usize) {
-    let start = start.into_option().unwrap_or(0);
-    let end = end.into_option().unwrap_or(len);
+pub(crate) fn convert_indices(len: i32, start: Option<i32>, end: Option<i32>) -> (usize, usize) {
+    let start = start.unwrap_or(0);
+    let end = end.unwrap_or(len);
     let end = if end < 0 { end + len } else { end };
     let start = if start < 0 { start + len } else { start };
     (bound(start, len), bound(end, len))

@@ -42,6 +42,7 @@ pub enum NoneOr<T> {
 
 impl<T> NoneOr<T> {
     /// Convert the [`NoneOr`] to a real Rust [`Option`].
+    #[inline]
     pub fn into_option(self) -> Option<T> {
         match self {
             Self::None => None,

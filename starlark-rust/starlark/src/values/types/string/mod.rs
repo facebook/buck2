@@ -324,7 +324,7 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
 
         let (start, stop) = (start_stop_to_none_or(start)?, start_stop_to_none_or(stop)?);
 
-        match fast_string::convert_str_indices(self, start, stop) {
+        match fast_string::convert_str_indices(self, start.into_option(), stop.into_option()) {
             Some(StrIndices { haystack, .. }) => Ok(heap.alloc_str(haystack).to_value()),
             None => Ok(heap.alloc_str("").to_value()),
         }

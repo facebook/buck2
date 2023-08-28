@@ -27,7 +27,6 @@ use std::str;
 use dupe::Dupe;
 
 use crate::stdlib::util::convert_indices;
-use crate::values::types::none::NoneOr;
 
 #[inline(always)]
 fn is_1byte(x: u8) -> bool {
@@ -174,19 +173,16 @@ fn split_at_end(x: &str, i: CharIndex) -> &str {
     }
 }
 
-fn convert_str_indices_slow(s: &str, start: NoneOr<i32>, end: NoneOr<i32>) -> Option<StrIndices> {
+fn convert_str_indices_slow(s: &str, start: Option<i32>, end: Option<i32>) -> Option<StrIndices> {
     // Slow version when we need to compute full string length
     // because at least one of the indices is negative.
-    debug_assert!(
-        matches!(start, NoneOr::Other(start) if start < 0)
-            || matches!(end, NoneOr::Other(end) if end < 0)
-    );
+    debug_assert!(matches!(start, Some(start) if start < 0) || matches!(end, Some(end) if end < 0));
     // If both indices are negative, we should have ruled `start > end` case before.
     debug_assert!(
-        matches!((start, end), (NoneOr::Other(start), NoneOr::Other(end))
+        matches!((start, end), (Some(start), Some(end))
                 if start >= 0 || end >= 0 || (start <= end))
-            || matches!(start, NoneOr::None)
-            || matches!(end, NoneOr::None)
+            || matches!(start, None)
+            || matches!(end, None)
     );
     let len = len(s);
     let (start, end) = convert_indices(len.0 as i32, start, end);
@@ -211,31 +207,31 @@ fn convert_str_indices_slow(s: &str, start: NoneOr<i32>, end: NoneOr<i32>) -> Op
 #[inline(always)]
 pub(crate) fn convert_str_indices(
     s: &str,
-    start: NoneOr<i32>,
-    end: NoneOr<i32>,
+    start: Option<i32>,
+    end: Option<i32>,
 ) -> Option<StrIndices> {
     match (start, end) {
         // Following cases but last optimize index computation
         // by avoiding computing the length of the string.
-        (NoneOr::None, NoneOr::None) => Some(StrIndices {
+        (None, None) => Some(StrIndices {
             start: CharIndex(0),
             haystack: s,
         }),
-        (NoneOr::Other(start), NoneOr::None) if start >= 0 => {
+        (Some(start), None) if start >= 0 => {
             let (_, s) = split_at(s, CharIndex(start as usize))?;
             Some(StrIndices {
                 start: CharIndex(start as usize),
                 haystack: s,
             })
         }
-        (NoneOr::None, NoneOr::Other(end)) if end >= 0 => {
+        (None, Some(end)) if end >= 0 => {
             let s = split_at_end(s, CharIndex(end as usize));
             Some(StrIndices {
                 start: CharIndex(0),
                 haystack: s,
             })
         }
-        (NoneOr::Other(start), NoneOr::Other(end)) if start >= 0 && end >= start => {
+        (Some(start), Some(end)) if start >= 0 && end >= start => {
             let (_, s) = split_at(s, CharIndex(start as usize))?;
             let s = split_at_end(s, CharIndex((end - start) as usize));
             Some(StrIndices {
@@ -243,11 +239,7 @@ pub(crate) fn convert_str_indices(
                 haystack: s,
             })
         }
-        (NoneOr::Other(start), NoneOr::Other(end))
-            if ((start >= 0) == (end >= 0)) && start > end =>
-        {
-            None
-        }
+        (Some(start), Some(end)) if ((start >= 0) == (end >= 0)) && start > end => None,
         (start, end) => convert_str_indices_slow(s, start, end),
     }
 }
@@ -281,7 +273,6 @@ mod tests {
     use std::iter;
 
     use crate::values::string::fast_string::convert_str_indices;
-    use crate::values::types::none::NoneOr;
     use crate::values::types::string::fast_string::CharIndex;
     use crate::values::types::string::fast_string::StrIndices;
 
@@ -292,40 +283,37 @@ mod tests {
                 start: CharIndex(0),
                 haystack: "abc",
             }),
-            convert_str_indices("abc", NoneOr::None, NoneOr::None)
+            convert_str_indices("abc", None, None)
         );
-        assert_eq!(
-            None,
-            convert_str_indices("abc", NoneOr::Other(2), NoneOr::Other(1))
-        );
+        assert_eq!(None, convert_str_indices("abc", Some(2), Some(1)));
 
         assert_eq!(
             Some(StrIndices {
                 start: CharIndex(0),
                 haystack: "abc",
             }),
-            convert_str_indices("abc", NoneOr::Other(-10), NoneOr::Other(10))
+            convert_str_indices("abc", Some(-10), Some(10))
         );
         assert_eq!(
             Some(StrIndices {
                 start: CharIndex(1),
                 haystack: "",
             }),
-            convert_str_indices("abc", NoneOr::Other(1), NoneOr::Other(1))
+            convert_str_indices("abc", Some(1), Some(1))
         );
         assert_eq!(
             Some(StrIndices {
                 start: CharIndex(0),
                 haystack: "ab",
             }),
-            convert_str_indices("abc", NoneOr::Other(-10), NoneOr::Other(2))
+            convert_str_indices("abc", Some(-10), Some(2))
         );
         assert_eq!(
             Some(StrIndices {
                 start: CharIndex(0),
                 haystack: "ab",
             }),
-            convert_str_indices("abc", NoneOr::Other(-10), NoneOr::Other(-1))
+            convert_str_indices("abc", Some(-10), Some(-1))
         );
 
         assert_eq!(
@@ -333,14 +321,14 @@ mod tests {
                 start: CharIndex(0),
                 haystack: "s",
             }),
-            convert_str_indices("short", NoneOr::Other(0), NoneOr::Other(-4))
+            convert_str_indices("short", Some(0), Some(-4))
         );
         assert_eq!(
             Some(StrIndices {
                 start: CharIndex(0),
                 haystack: "fish",
             }),
-            convert_str_indices("fish", NoneOr::None, NoneOr::Other(10))
+            convert_str_indices("fish", None, Some(10))
         );
     }
 
@@ -351,14 +339,14 @@ mod tests {
                 start: CharIndex(6),
                 haystack: "под",
             }),
-            convert_str_indices("Город под подошвой", NoneOr::Other(6), NoneOr::Other(9))
+            convert_str_indices("Город под подошвой", Some(6), Some(9))
         )
     }
 
     #[test]
     fn test_convert_str_indices_trigger_debug_assertions() {
-        fn none_ors() -> impl Iterator<Item = NoneOr<i32>> {
-            iter::once(NoneOr::None).chain((-30..30).map(NoneOr::Other))
+        fn none_ors() -> impl Iterator<Item = Option<i32>> {
+            iter::once(None).chain((-30..30).map(Some))
         }
 
         for s in &["", "a", "abcde", "Телемак"] {
