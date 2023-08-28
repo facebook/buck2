@@ -572,16 +572,21 @@ impl<'v> AnonTargetsRegistry<'v> {
         }
     }
 
+    pub(crate) fn anon_target_key(
+        &self,
+        rule: ValueTyped<'v, FrozenRuleCallable>,
+        attributes: DictOf<'v, &'v str, Value<'v>>,
+    ) -> anyhow::Result<AnonTargetKey> {
+        AnonTargetKey::new(&self.execution_platform, rule, attributes)
+    }
+
     pub(crate) fn register_one(
         &mut self,
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
-        rule: ValueTyped<'v, FrozenRuleCallable>,
-        attributes: DictOf<'v, &'v str, Value<'v>>,
+        key: AnonTargetKey,
     ) -> anyhow::Result<()> {
-        self.promises.push_one(
-            promise,
-            AnonTargetKey::new(&self.execution_platform, rule, attributes)?,
-        );
+        self.promises.push_one(promise, key);
+
         Ok(())
     }
 

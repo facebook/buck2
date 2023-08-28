@@ -35,8 +35,9 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
         let res = heap.alloc_typed(StarlarkPromise::new_unresolved());
         let mut this = this.state();
-        AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?
-            .register_one(res, rule, attrs)?;
+        let registry = AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?;
+        let key = registry.anon_target_key(rule, attrs)?;
+        registry.register_one(res, key)?;
         Ok(res)
     }
 
