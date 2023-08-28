@@ -19,7 +19,7 @@ use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetTrave
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
 
 #[starlark_module]
-pub(crate) fn register_transitive_set_types(globals: &mut GlobalsBuilder) {
+pub fn register_transitive_set_types(globals: &mut GlobalsBuilder) {
     const TransitiveSet: StarlarkValueAsType<TransitiveSetGen<FrozenValue>> =
         StarlarkValueAsType::new();
     const TransitiveSetArgsProjection: StarlarkValueAsType<

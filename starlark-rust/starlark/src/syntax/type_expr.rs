@@ -84,6 +84,21 @@ const BAN_REPLACE_TYPES: &[(&str, &str)] = &[
     ("artifact", "Artifact"),
     ("dependency", "Dependency"),
     ("provider", "Provider"),
+    ("transitive_set", "TransitiveSet"),
+    (
+        "transitive_set_args_projection",
+        "TransitiveSetArgsProjection",
+    ),
+    ("transitive_set_definition", "TransitiveSetDefinition"),
+    (
+        "transitive_set_json_projection",
+        "TransitiveSetJsonProjection",
+    ),
+    ("transitive_set_iterator", "TransitiveSetIterator"),
+    (
+        "transitive_set_args_projection_iterator",
+        "TransitiveSetArgsProjectionIterator",
+    ),
 ];
 
 impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {

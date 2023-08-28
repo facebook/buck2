@@ -8,6 +8,7 @@
  */
 
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
+use buck2_build_api::interpreter::rule_defs::transitive_set::globals::register_transitive_set_types;
 use buck2_build_api::interpreter::rule_defs::transitive_set::transitive_set_definition::register_transitive_set;
 use buck2_core::bzl::ImportPath;
 use buck2_interpreter_for_build::interpreter::testing::expect_error;
@@ -21,6 +22,7 @@ use crate::interpreter::transitive_set::testing::tset_factory;
 fn transitive_set_tester() -> Tester {
     let mut tester = Tester::new().unwrap();
     tester.additional_globals(register_transitive_set);
+    tester.additional_globals(register_transitive_set_types);
     tester.additional_globals(tset_factory);
     tester.additional_globals(artifactory);
     tester.additional_globals(command_line_stringifier);
@@ -602,7 +604,7 @@ fn test_type() -> anyhow::Result<()> {
         def wants_foo_set(f: FooSet.type):
             pass
 
-        def wants_transitive_set(f: "transitive_set"):
+        def wants_transitive_set(f: TransitiveSet):
             pass
 
         def test():

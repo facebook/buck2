@@ -9,7 +9,7 @@
 
 #![allow(clippy::module_inception)]
 
-pub(crate) mod globals;
+pub mod globals;
 mod transitive_set;
 mod transitive_set_args_projection;
 pub mod transitive_set_definition;
