@@ -634,3 +634,14 @@ def foo(x: typing.Never):
 "#,
     );
 }
+
+#[test]
+fn test_methods_work_for_ty_starlark_value() {
+    TypeCheck::new().ty("x").check(
+        "methods_work_for_ty_starlark_value",
+        r#"
+def test(s: str):
+    x = s.startswith("a")
+"#,
+    );
+}

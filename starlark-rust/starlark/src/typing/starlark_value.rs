@@ -27,7 +27,6 @@ use std::marker::PhantomData;
 use allocative::Allocative;
 use dupe::Dupe;
 
-use crate::docs::DocItem;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
@@ -186,19 +185,7 @@ impl TyStarlarkValue {
     pub(crate) fn attr(self, name: &str) -> Result<Ty, ()> {
         if let Some(methods) = (self.vtable.vtable.get_methods)() {
             if let Some(method) = methods.get(name) {
-                if let Some(doc) = method.documentation() {
-                    match doc {
-                        DocItem::Function(method) => return Ok(Ty::from_docs_function(&method)),
-                        DocItem::Property(property) => {
-                            return Ok(Ty::from_docs_property(&property));
-                        }
-                        DocItem::Object(_) | DocItem::Module(_) => {
-                            // unreachable: only methods and properties are in `methods`.
-                        }
-                    }
-                } else {
-                    // unreachable: both methods and attributes have documentation.
-                }
+                return Ok(Ty::of_value(method));
             }
         }
         if let Some(ty) = (self.vtable.vtable.attr_ty)(name) {
