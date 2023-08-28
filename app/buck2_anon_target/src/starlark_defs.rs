@@ -20,6 +20,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter_for_build::rule::FrozenArtifactPromiseMappings;
 use buck2_interpreter_for_build::rule::FrozenRuleCallable;
+use gazebo::prelude::VecExt;
 use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
 use starlark::environment::Methods;
@@ -219,7 +220,11 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
         let res = heap.alloc_typed(StarlarkPromise::new_unresolved());
         let mut this = this.state();
-        AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?.register_many(res, rules)?;
+        let registry = AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?;
+        let keys =
+            rules.into_try_map(|(rule, attributes)| registry.anon_target_key(rule, attributes))?;
+
+        registry.register_many(res, keys)?;
 
         // TODO(@wendyy) support promise artifacts here
         Ok(res)

@@ -86,7 +86,6 @@ use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::Future;
 use futures::FutureExt;
-use gazebo::prelude::*;
 use more_futures::cancellation::CancellationContext;
 use starlark::any::AnyLifetime;
 use starlark::any::ProvidesStaticType;
@@ -600,14 +599,8 @@ impl<'v> AnonTargetsRegistry<'v> {
     pub(crate) fn register_many(
         &mut self,
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
-        rules: Vec<(
-            ValueTyped<'v, FrozenRuleCallable>,
-            DictOf<'v, &'v str, Value<'v>>,
-        )>,
+        keys: Vec<AnonTargetKey>,
     ) -> anyhow::Result<()> {
-        let keys = rules.into_try_map(|(rule, attributes)| {
-            AnonTargetKey::new(&self.execution_platform, rule, attributes)
-        })?;
         self.promises.push_list(promise, keys);
         Ok(())
     }
