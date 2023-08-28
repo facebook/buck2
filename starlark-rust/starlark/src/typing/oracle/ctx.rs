@@ -52,8 +52,8 @@ enum TypingOracleCtxError {
     UnexpectedNamedArgument { name: String },
     #[error("Too many positional arguments")]
     TooManyPositionalArguments,
-    #[error("Call arguments incompatible")]
-    CallArgumentsIncompatible,
+    #[error("Call arguments incompatible, fn type is `{fun}`")]
+    CallArgumentsIncompatible { fun: Ty },
     #[error("Type `{ty}` does not have [] operator")]
     MissingIndexOperator { ty: Ty },
     #[error("Type `{array}` [] operator does not accept `{index}")]
@@ -114,21 +114,7 @@ impl<'a> TypingOracleCtx<'a> {
     }
 
     fn attribute_ty(&self, ty: &Ty, attr: TypingAttr) -> Result<Ty, ()> {
-        let mut results = Vec::new();
-        let mut errors = false;
-        for basic in ty.iter_union() {
-            match basic.attribute(attr, *self) {
-                Ok(res) => results.push(res),
-                Err(()) => errors = true,
-            }
-        }
-        if !results.is_empty() {
-            Ok(Ty::unions(results))
-        } else if errors {
-            Err(())
-        } else {
-            Ok(Ty::any())
-        }
+        ty.typecheck_union_simple(|basic| basic.attribute(attr, *self))
     }
 
     pub(crate) fn validate_type(&self, got: Spanned<&Ty>, require: &Ty) -> Result<(), TypingError> {
@@ -332,6 +318,10 @@ impl<'a> TypingOracleCtx<'a> {
         fun: &Ty,
         args: &[Spanned<Arg>],
     ) -> Result<Ty, TypingOrInternalError> {
+        if fun.is_any() || fun.is_never() {
+            return Ok(fun.dupe());
+        }
+
         let mut successful = Vec::new();
         let mut errors: Vec<TypingError> = Vec::new();
         for variant in fun.iter_union() {
@@ -351,7 +341,7 @@ impl<'a> TypingOracleCtx<'a> {
             } else {
                 Err(self.mk_error_as_maybe_internal(
                     span,
-                    TypingOracleCtxError::CallArgumentsIncompatible,
+                    TypingOracleCtxError::CallArgumentsIncompatible { fun: fun.dupe() },
                 ))
             }
         }
@@ -366,26 +356,14 @@ impl<'a> TypingOracleCtx<'a> {
 
     /// Item type of an iterable.
     pub(crate) fn iter_item(&self, iter: Spanned<&Ty>) -> Result<Ty, TypingError> {
-        if iter.is_any() || iter.is_never() {
-            return Ok(iter.node.clone());
-        }
-
-        let mut good = Vec::new();
-        for ty in iter.iter_union() {
-            if let Ok(x) = self.iter_item_basic(ty) {
-                good.push(x);
-            }
-        }
-
-        if good.is_empty() {
-            Err(self.mk_error(
+        match iter.typecheck_union_simple(|basic| self.iter_item_basic(basic)) {
+            Ok(ty) => Ok(ty),
+            Err(()) => Err(self.mk_error(
                 iter.span,
                 TypingOracleCtxError::NotIterable {
                     ty: iter.node.clone(),
                 },
-            ))
-        } else {
-            Ok(Ty::unions(good))
+            )),
         }
     }
 
@@ -496,21 +474,13 @@ impl<'a> TypingOracleCtx<'a> {
     }
 
     pub(crate) fn expr_slice(&self, span: Span, array: Ty) -> Result<Ty, TypingError> {
-        if array.is_any() || array.is_never() {
-            return Ok(array);
+        match array.typecheck_union_simple(|basic| self.expr_slice_basic(basic)) {
+            Ok(ty) => Ok(ty),
+            Err(()) => Err(self.mk_error(
+                span,
+                TypingOracleCtxError::MissingSliceOperator { ty: array },
+            )),
         }
-
-        for variant in array.iter_union() {
-            match self.expr_slice_basic(variant) {
-                Ok(x) => return Ok(x),
-                Err(()) => {}
-            }
-        }
-
-        Err(self.mk_error(
-            span,
-            TypingOracleCtxError::MissingSliceOperator { ty: array },
-        ))
     }
 
     pub(crate) fn expr_dot(&self, span: Span, array: &Ty, attr: &str) -> Result<Ty, TypingError> {
@@ -526,34 +496,28 @@ impl<'a> TypingOracleCtx<'a> {
         }
     }
 
+    fn expr_un_op_basic(&self, ty: &TyBasic, un_op: TypingUnOp) -> Result<Ty, ()> {
+        match ty {
+            TyBasic::StarlarkValue(ty) => match ty.un_op(un_op) {
+                Ok(x) => Ok(Ty::basic(TyBasic::StarlarkValue(x))),
+                Err(()) => Err(()),
+            },
+            _ => Err(()),
+        }
+    }
+
     pub(crate) fn expr_un_op(
         &self,
         span: Span,
         ty: Ty,
         un_op: TypingUnOp,
     ) -> Result<Ty, TypingError> {
-        if ty.is_never() || ty.is_any() {
-            return Ok(ty);
-        }
-        let mut results = Vec::new();
-        for variant in ty.iter_union() {
-            match variant {
-                TyBasic::StarlarkValue(ty) => match ty.un_op(un_op) {
-                    Ok(x) => results.push(Ty::basic(TyBasic::StarlarkValue(x))),
-                    Err(()) => {}
-                },
-                _ => {
-                    // The rest do not support unary operators.
-                }
-            }
-        }
-        if results.is_empty() {
-            Err(self.mk_error(
+        match ty.typecheck_union_simple(|basic| self.expr_un_op_basic(basic, un_op)) {
+            Ok(ty) => Ok(ty),
+            Err(()) => Err(self.mk_error(
                 span,
                 TypingOracleCtxError::UnaryOperatorNotAvailable { ty, un_op },
-            ))
-        } else {
-            Ok(Ty::unions(results))
+            )),
         }
     }
 

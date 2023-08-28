@@ -645,3 +645,14 @@ def foo(x: list.foo.bar):
 "#,
     );
 }
+
+#[test]
+fn test_never_call_bug() {
+    TypeCheck::new().ty("y").check(
+        "never_call_bug",
+        r#"
+def foo(x: typing.Never):
+    y = x(1)
+"#,
+    );
+}

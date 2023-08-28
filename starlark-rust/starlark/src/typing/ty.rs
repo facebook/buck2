@@ -407,6 +407,37 @@ impl Ty {
         &self.alternatives
     }
 
+    /// Apply typechecking operation for each alternative.
+    ///
+    /// If at least one was successful, return the union of all successful results.
+    pub(crate) fn typecheck_union_simple(
+        &self,
+        typecheck: impl Fn(&TyBasic) -> Result<Ty, ()>,
+    ) -> Result<Ty, ()> {
+        if self.is_any() || self.is_never() {
+            Ok(self.dupe())
+        } else {
+            match self.iter_union() {
+                // Optimize common case.
+                [x] => typecheck(x),
+                xs => {
+                    let mut good = Vec::with_capacity(self.alternatives.len());
+                    for basic in xs {
+                        match typecheck(basic) {
+                            Ok(ty) => good.push(ty),
+                            Err(()) => {}
+                        }
+                    }
+                    if good.is_empty() {
+                        Err(())
+                    } else {
+                        Ok(Ty::unions(good))
+                    }
+                }
+            }
+        }
+    }
+
     /// Create a union of two entries.
     pub fn union2(a: Self, b: Self) -> Self {
         // Handle fast cases first.
