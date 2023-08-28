@@ -12,3 +12,10 @@ authors = [
 ]
 keywords = ["starlark", "skylark", "bazel", "language", "interpreter"]
 categories = ["parser-implementations", "development-tools"]
+
+[dependencies]
+once_cell = "1.8"
+lsp-types = "0.94.1"
+
+allocative = { workspace = true }
+dupe = { workspace = true }

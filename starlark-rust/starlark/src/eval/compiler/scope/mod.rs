@@ -43,6 +43,7 @@ use crate::eval::compiler::scope::payload::CstIdent;
 use crate::eval::compiler::scope::payload::CstParameter;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstStmt;
+use crate::eval::compiler::scope::payload::CstStmtFromAst;
 use crate::eval::compiler::scope::payload::CstTypeExpr;
 use crate::eval::compiler::EvalException;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;

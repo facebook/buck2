@@ -388,12 +388,12 @@ mod macros;
 
 pub use starlark_derive::starlark_module;
 pub use starlark_derive::StarlarkDocs;
+pub use starlark_syntax::codemap;
 pub use stdlib::PrintHandler;
 
 pub mod analysis;
 pub mod any;
 pub mod assert;
-pub mod codemap;
 pub mod collections;
 pub mod debug;
 pub mod docs;

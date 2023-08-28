@@ -17,4 +17,10 @@ rust_library(
         # For codemods, use libCST.
         "//buck2/starlark-rust/...",
     ],
+    deps = [
+        "fbsource//third-party/rust:lsp-types",
+        "fbsource//third-party/rust:once_cell",
+        "//buck2/allocative/allocative:allocative",
+        "//buck2/gazebo/dupe:dupe",
+    ],
 )

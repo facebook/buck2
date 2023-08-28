@@ -372,9 +372,16 @@ impl<A: AstPayload> FStringP<A> {
 }
 
 macro_rules! ast_payload_map_stub {
-    ($ast_type:ident) => {
-        impl<A: AstPayload> Spanned<$ast_type<A>> {
-            pub(crate) fn into_map_payload<B: AstPayload>(
+    ($ast_type:ident, $ext:ident) => {
+        pub(crate) trait $ext<A: AstPayload> {
+            fn into_map_payload<B: AstPayload>(
+                self,
+                f: &mut impl AstPayloadFunction<A, B>,
+            ) -> Spanned<$ast_type<B>>;
+        }
+
+        impl<A: AstPayload> $ext<A> for Spanned<$ast_type<A>> {
+            fn into_map_payload<B: AstPayload>(
                 self,
                 f: &mut impl AstPayloadFunction<A, B>,
             ) -> Spanned<$ast_type<B>> {
@@ -388,12 +395,12 @@ macro_rules! ast_payload_map_stub {
     };
 }
 
-ast_payload_map_stub!(ExprP);
-ast_payload_map_stub!(TypeExprP);
-ast_payload_map_stub!(AssignTargetP);
-ast_payload_map_stub!(AssignIdentP);
-ast_payload_map_stub!(IdentP);
-ast_payload_map_stub!(ParameterP);
-ast_payload_map_stub!(ArgumentP);
-ast_payload_map_stub!(StmtP);
-ast_payload_map_stub!(FStringP);
+ast_payload_map_stub!(ExprP, ExprPExt);
+ast_payload_map_stub!(TypeExprP, TypeExprPExt);
+ast_payload_map_stub!(AssignTargetP, AssignTargetPExt);
+ast_payload_map_stub!(AssignIdentP, AssignIdentPExt);
+ast_payload_map_stub!(IdentP, IdentPExt);
+ast_payload_map_stub!(ParameterP, ParameterPExt);
+ast_payload_map_stub!(ArgumentP, ArgumentPExt);
+ast_payload_map_stub!(StmtP, StmtPExt);
+ast_payload_map_stub!(FStringP, FStringPExt);

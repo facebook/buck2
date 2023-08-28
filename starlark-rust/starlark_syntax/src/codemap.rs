@@ -97,12 +97,12 @@ impl Span {
         }
     }
 
-    pub(crate) fn merge_all(spans: impl Iterator<Item = Span>) -> Span {
+    pub fn merge_all(spans: impl Iterator<Item = Span>) -> Span {
         spans.reduce(Span::merge).unwrap_or_default()
     }
 
     /// Empty span in the end of this span.
-    pub(crate) fn end_span(self) -> Span {
+    pub fn end_span(self) -> Span {
         Span {
             begin: self.end,
             end: self.end,
@@ -120,7 +120,7 @@ impl Span {
 pub struct Spanned<T> {
     /// Data in the node.
     pub node: T,
-    pub(crate) span: Span,
+    pub span: Span,
 }
 
 impl<T> Spanned<T> {
@@ -132,7 +132,7 @@ impl<T> Spanned<T> {
         }
     }
 
-    pub(crate) fn as_ref(&self) -> Spanned<&T> {
+    pub fn as_ref(&self) -> Spanned<&T> {
         Spanned {
             node: &self.node,
             span: self.span,
@@ -158,10 +158,10 @@ impl<T> DerefMut for Spanned<T> {
 // somewhat delving into internal details.
 // Remains unique because we take a reference to the CodeMap.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Dupe)]
-pub(crate) struct CodeMapId(*const ());
+pub struct CodeMapId(*const ());
 
 impl CodeMapId {
-    pub(crate) const EMPTY: CodeMapId = CodeMapId(ptr::null());
+    pub const EMPTY: CodeMapId = CodeMapId(ptr::null());
 }
 
 #[derive(Clone, Dupe, Allocative)]
@@ -173,7 +173,7 @@ enum CodeMapImpl {
 
 /// A data structure recording a source code file for position lookup.
 #[derive(Clone, Dupe, Allocative)]
-pub(crate) struct CodeMap(CodeMapImpl);
+pub struct CodeMap(CodeMapImpl);
 
 /// A `CodeMap`'s record of a source file.
 #[derive(Allocative)]
@@ -187,7 +187,7 @@ struct CodeMapData {
 }
 
 /// "Codemap" for `.rs` files.
-pub(crate) struct NativeCodeMap {
+pub struct NativeCodeMap {
     filename: &'static str,
     start: LineCol,
 }
@@ -195,12 +195,12 @@ pub(crate) struct NativeCodeMap {
 impl NativeCodeMap {
     const SOURCE: &'static str = "<native>";
 
-    pub(crate) const FULL_SPAN: Span = Span {
+    pub const FULL_SPAN: Span = Span {
         begin: Pos::new(0),
         end: Pos::new(Self::SOURCE.len() as u32),
     };
 
-    pub(crate) const fn new(filename: &'static str, line: u32, column: u32) -> NativeCodeMap {
+    pub const fn new(filename: &'static str, line: u32, column: u32) -> NativeCodeMap {
         Self {
             filename,
             start: LineCol {
@@ -210,7 +210,7 @@ impl NativeCodeMap {
         }
     }
 
-    pub(crate) const fn to_codemap(&'static self) -> CodeMap {
+    pub const fn to_codemap(&'static self) -> CodeMap {
         CodeMap(CodeMapImpl::Native(self))
     }
 }
@@ -244,7 +244,7 @@ impl Hash for CodeMap {
 
 impl CodeMap {
     /// Creates an new `CodeMap`.
-    pub(crate) fn new(filename: String, source: String) -> CodeMap {
+    pub fn new(filename: String, source: String) -> CodeMap {
         let mut lines = vec![Pos(0)];
         lines.extend(source.match_indices('\n').map(|(p, _)| Pos(p as u32 + 1)));
 
@@ -255,20 +255,20 @@ impl CodeMap {
         })))
     }
 
-    pub(crate) fn empty_static() -> &'static CodeMap {
+    pub fn empty_static() -> &'static CodeMap {
         static EMPTY_CODEMAP: Lazy<CodeMap> = Lazy::new(CodeMap::default);
         &EMPTY_CODEMAP
     }
 
     /// Only used internally for profiling optimisations
-    pub(crate) fn id(&self) -> CodeMapId {
+    pub fn id(&self) -> CodeMapId {
         match &self.0 {
             CodeMapImpl::Real(data) => CodeMapId(Arc::as_ptr(data) as *const ()),
             CodeMapImpl::Native(data) => CodeMapId(*data as *const NativeCodeMap as *const ()),
         }
     }
 
-    pub(crate) fn full_span(&self) -> Span {
+    pub fn full_span(&self) -> Span {
         let source = self.source();
         Span {
             begin: Pos(0),
@@ -277,7 +277,7 @@ impl CodeMap {
     }
 
     /// Gets the file and its line and column ranges represented by a `Span`.
-    pub(crate) fn file_span(&self, span: Span) -> FileSpan {
+    pub fn file_span(&self, span: Span) -> FileSpan {
         FileSpan {
             file: self.dupe(),
             span,
@@ -297,7 +297,7 @@ impl CodeMap {
     /// The lines are 0-indexed (first line is numbered 0)
     ///
     /// Panics if `pos` is not within this file's span.
-    pub(crate) fn find_line(&self, pos: Pos) -> usize {
+    pub fn find_line(&self, pos: Pos) -> usize {
         assert!(pos <= self.full_span().end());
         match &self.0 {
             CodeMapImpl::Real(data) => match data.lines.binary_search(&pos) {
@@ -343,12 +343,12 @@ impl CodeMap {
     /// Gets the source text of a Span.
     ///
     /// Panics if `span` is not entirely within this file.
-    pub(crate) fn source_span(&self, span: Span) -> &str {
+    pub fn source_span(&self, span: Span) -> &str {
         &self.source()[(span.begin.0 as usize)..(span.end.0 as usize)]
     }
 
     /// Like `line_span_opt` but panics if the line number is out of range.
-    pub(crate) fn line_span(&self, line: usize) -> Span {
+    pub fn line_span(&self, line: usize) -> Span {
         self.line_span_opt(line)
             .unwrap_or_else(|| panic!("Line {} is out of range for {:?}", line, self))
     }
@@ -359,7 +359,7 @@ impl CodeMap {
     /// line terminator.
     ///
     /// Returns None if the number if out of range.
-    pub(crate) fn line_span_opt(&self, line: usize) -> Option<Span> {
+    pub fn line_span_opt(&self, line: usize) -> Option<Span> {
         match &self.0 {
             CodeMapImpl::Real(data) if line < data.lines.len() => Some(Span {
                 begin: data.lines[line],
@@ -373,7 +373,7 @@ impl CodeMap {
         }
     }
 
-    pub(crate) fn resolve_span(&self, span: Span) -> ResolvedSpan {
+    pub fn resolve_span(&self, span: Span) -> ResolvedSpan {
         let begin = self.find_line_col(span.begin);
         let end = self.find_line_col(span.end);
         ResolvedSpan::from_span(begin, end)
@@ -389,14 +389,14 @@ impl CodeMap {
             .trim_end_matches(&['\n', '\r'][..])
     }
 
-    pub(crate) fn source_line_at_pos(&self, pos: Pos) -> &str {
+    pub fn source_line_at_pos(&self, pos: Pos) -> &str {
         self.source_line(self.find_line(pos))
     }
 }
 
 /// A line and column.
 #[derive(Copy, Clone, Dupe, Hash, Eq, PartialEq, Debug)]
-pub(crate) struct LineCol {
+pub struct LineCol {
     /// The line number within the file (0-indexed).
     pub line: usize,
 
@@ -417,15 +417,15 @@ impl LineCol {
 /// A file, and a line and column range within it.
 #[derive(Clone, Copy, Dupe, Eq, PartialEq, Debug)]
 pub struct FileSpanRef<'a> {
-    pub(crate) file: &'a CodeMap,
-    pub(crate) span: Span,
+    pub file: &'a CodeMap,
+    pub span: Span,
 }
 
 /// A file, and a line and column range within it.
 #[derive(Clone, Dupe, Eq, PartialEq, Debug, Hash, Allocative)]
 pub struct FileSpan {
-    pub(crate) file: CodeMap,
-    pub(crate) span: Span,
+    pub file: CodeMap,
+    pub span: Span,
 }
 
 impl<'a> fmt::Display for FileSpanRef<'a> {
@@ -558,7 +558,7 @@ impl From<ResolvedSpan> for lsp_types::Range {
 impl ResolvedSpan {
     /// Check that the given position is contained within this span.
     /// Includes positions both at the beginning and the end of the range.
-    pub(crate) fn contains(&self, pos: LineCol) -> bool {
+    pub fn contains(&self, pos: LineCol) -> bool {
         (self.begin_line < pos.line
             || (self.begin_line == pos.line && self.begin_column <= pos.column))
             && (self.end_line > pos.line
@@ -768,14 +768,14 @@ mod tests {
             end_line: 4,
             end_column: 5,
         };
-        assert_eq!(span.contains(LineCol { line: 0, column: 7 }), false);
-        assert_eq!(span.contains(LineCol { line: 2, column: 2 }), false);
-        assert_eq!(span.contains(LineCol { line: 2, column: 3 }), true);
-        assert_eq!(span.contains(LineCol { line: 2, column: 9 }), true);
-        assert_eq!(span.contains(LineCol { line: 3, column: 1 }), true);
-        assert_eq!(span.contains(LineCol { line: 4, column: 4 }), true);
-        assert_eq!(span.contains(LineCol { line: 4, column: 5 }), true);
-        assert_eq!(span.contains(LineCol { line: 4, column: 6 }), false);
-        assert_eq!(span.contains(LineCol { line: 5, column: 0 }), false);
+        assert!(!span.contains(LineCol { line: 0, column: 7 }));
+        assert!(!span.contains(LineCol { line: 2, column: 2 }));
+        assert!(span.contains(LineCol { line: 2, column: 3 }));
+        assert!(span.contains(LineCol { line: 2, column: 9 }));
+        assert!(span.contains(LineCol { line: 3, column: 1 }));
+        assert!(span.contains(LineCol { line: 4, column: 4 }));
+        assert!(span.contains(LineCol { line: 4, column: 5 }));
+        assert!(!span.contains(LineCol { line: 4, column: 6 }));
+        assert!(!span.contains(LineCol { line: 5, column: 0 }));
     }
 }

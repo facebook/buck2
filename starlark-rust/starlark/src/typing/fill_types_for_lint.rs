@@ -27,6 +27,7 @@ use crate::environment::slots::ModuleSlotId;
 use crate::eval::compiler::constants::Constants;
 use crate::eval::compiler::scope::payload::CstArgument;
 use crate::eval::compiler::scope::payload::CstAssignIdent;
+use crate::eval::compiler::scope::payload::CstAssignIdentExt;
 use crate::eval::compiler::scope::payload::CstExpr;
 use crate::eval::compiler::scope::payload::CstIdent;
 use crate::eval::compiler::scope::payload::CstPayload;

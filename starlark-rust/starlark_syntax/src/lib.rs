@@ -16,3 +16,7 @@
  */
 
 //! Starlark AST.
+
+#![allow(clippy::len_without_is_empty)]
+
+pub mod codemap;

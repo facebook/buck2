@@ -23,6 +23,7 @@ use crate::codemap::CodeMap;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::eval::compiler::scope::payload::CstAssign;
+use crate::eval::compiler::scope::payload::CstAssignIdentExt;
 use crate::eval::compiler::scope::payload::CstExpr;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstStmt;

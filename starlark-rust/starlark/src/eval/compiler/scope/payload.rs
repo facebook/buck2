@@ -40,6 +40,7 @@ use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::AstStmtP;
 use crate::syntax::ast::AstTypeExprP;
 use crate::syntax::payload_map::AstPayloadFunction;
+use crate::syntax::payload_map::StmtPExt;
 use crate::typing::error::InternalError;
 use crate::typing::interface::Interface;
 use crate::typing::Ty;
@@ -107,8 +108,16 @@ impl AstPayloadFunction<AstNoPayload, CstPayload> for CompilerAstMap<'_, '_> {
     }
 }
 
-impl CstStmt {
-    pub(crate) fn from_ast(
+pub(crate) trait CstStmtFromAst {
+    fn from_ast(
+        stmt: AstStmt,
+        scope_data: &mut ModuleScopeData,
+        loads: &HashMap<String, Interface>,
+    ) -> CstStmt;
+}
+
+impl CstStmtFromAst for CstStmt {
+    fn from_ast(
         stmt: AstStmt,
         scope_data: &mut ModuleScopeData,
         loads: &HashMap<String, Interface>,
@@ -117,11 +126,12 @@ impl CstStmt {
     }
 }
 
-impl CstAssignIdent {
-    pub(crate) fn resolved_binding_id(
-        &self,
-        codemap: &CodeMap,
-    ) -> Result<BindingId, InternalError> {
+pub(crate) trait CstAssignIdentExt {
+    fn resolved_binding_id(&self, codemap: &CodeMap) -> Result<BindingId, InternalError>;
+}
+
+impl CstAssignIdentExt for CstAssignIdent {
+    fn resolved_binding_id(&self, codemap: &CodeMap) -> Result<BindingId, InternalError> {
         match self.1 {
             Some(binding_id) => Ok(binding_id),
             None => Err(InternalError::msg(

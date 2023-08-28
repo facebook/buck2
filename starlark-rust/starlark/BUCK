@@ -107,5 +107,6 @@ rust_library(
         "//buck2/gazebo/dupe:dupe",
         "//buck2/starlark-rust/starlark_derive:starlark_derive",
         "//buck2/starlark-rust/starlark_map:starlark_map",
+        "//buck2/starlark-rust/starlark_syntax:starlark_syntax",
     ],
 )
