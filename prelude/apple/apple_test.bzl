@@ -280,6 +280,12 @@ def _get_xctest_framework(ctx: AnalysisContext, swift_support_needed: bool) -> l
     ] if swift_support_needed else []
     return [
         _get_object_from_platform_path(ctx, "Developer/Library/Frameworks/XCTest.framework"),
+        _get_object_from_platform_path(ctx, "Developer/Library/PrivateFrameworks/XCTAutomationSupport.framework"),
+        _get_object_from_platform_path(ctx, "Developer/Library/PrivateFrameworks/XCTestCore.framework"),
+        _get_object_from_platform_path(ctx, "Developer/Library/PrivateFrameworks/XCTestSupport.framework"),
+        _get_object_from_platform_path(ctx, "Developer/Library/PrivateFrameworks/XCUIAutomation.framework"),
+        _get_object_from_platform_path(ctx, "Developer/Library/PrivateFrameworks/XCUnit.framework"),
+        _get_object_from_platform_path(ctx, "Developer/usr/lib/libXCTestBundleInject.dylib"),
     ] + swift_support
 
 def _get_object_from_platform_path(ctx: AnalysisContext, platform_relative_path: str) -> AppleBundlePart.type:
