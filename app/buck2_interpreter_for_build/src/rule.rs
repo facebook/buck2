@@ -47,12 +47,15 @@ use starlark::values::typing::StarlarkCallable;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
+use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
+use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark_map::small_map::SmallMap;
 
 use crate::attrs::attribute_as_starlark_value::AttributeAsStarlarkValue;
 use crate::interpreter::build_context::BuildContext;
@@ -91,6 +94,21 @@ struct RuleCallable<'v> {
     docs: Option<String>,
     /// When evaluating rule function, take only the `name` argument, ignore the others.
     ignore_attrs_for_profiling: bool,
+    /// Optional map of the promise artifact name to starlark function.
+    /// `None` for normal rules, `Some` for anon targets.
+    artifact_promise_mappings: Option<ArtifactPromiseMappings<'v>>,
+}
+
+/// Mappings of promise artifact name to the starlark function that will produce it, for anon targets.
+#[derive(Debug, ProvidesStaticType, Trace, NoSerialize, Allocative)]
+struct ArtifactPromiseMappings<'v> {
+    mappings: SmallMap<StringValue<'v>, Value<'v>>,
+}
+
+/// Mappings of frozen promise artifact name to the frozen starlark function that will produce it, for anon targets.
+#[derive(Debug, ProvidesStaticType, Trace, Allocative)]
+pub struct FrozenArtifactPromiseMappings {
+    pub mappings: SmallMap<FrozenStringValue, FrozenValue>,
 }
 
 impl<'v> Display for RuleCallable<'v> {
@@ -134,6 +152,7 @@ impl<'v> RuleCallable<'v> {
         is_configuration_rule: bool,
         is_toolchain_rule: bool,
         uses_plugins: Vec<Value<'v>>,
+        artifact_promise_mappings: Option<ArtifactPromiseMappings<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<RuleCallable<'v>> {
         // TODO(nmj): Add default attributes in here like 'name', 'visibility', etc
@@ -185,6 +204,7 @@ impl<'v> RuleCallable<'v> {
             uses_plugins,
             docs: Some(doc.to_owned()),
             ignore_attrs_for_profiling: build_context.ignore_attrs_for_profiling,
+            artifact_promise_mappings,
         })
     }
 
@@ -252,6 +272,17 @@ impl<'v> Freeze for RuleCallable<'v> {
         let rule_name = rule_type.name.to_owned();
         let signature = self.attributes.signature(rule_name).freeze(freezer)?;
 
+        let artifact_promise_mappings = match self.artifact_promise_mappings {
+            Some(artifacts) => {
+                let mut mappings = SmallMap::new();
+                for (name, implementation) in artifacts.mappings {
+                    mappings.insert(name.freeze(freezer)?, implementation.freeze(freezer)?);
+                }
+                Some(FrozenArtifactPromiseMappings { mappings })
+            }
+            None => None,
+        };
+
         Ok(FrozenRuleCallable {
             rule: Arc::new(Rule {
                 attributes: self.attributes,
@@ -266,6 +297,7 @@ impl<'v> Freeze for RuleCallable<'v> {
             rule_docs,
             ty: self.ty,
             ignore_attrs_for_profiling: self.ignore_attrs_for_profiling,
+            artifact_promise_mappings,
         })
     }
 }
@@ -281,6 +313,7 @@ pub struct FrozenRuleCallable {
     rule_docs: DocItem,
     ty: Ty,
     ignore_attrs_for_profiling: bool,
+    artifact_promise_mappings: Option<FrozenArtifactPromiseMappings>,
 }
 starlark_simple_value!(FrozenRuleCallable);
 
@@ -304,6 +337,10 @@ impl FrozenRuleCallable {
 
     pub fn attributes(&self) -> &AttributeSpec {
         &self.rule.attributes
+    }
+
+    pub fn artifact_promise_mappings(&self) -> &Option<FrozenArtifactPromiseMappings> {
+        &self.artifact_promise_mappings
     }
 }
 
@@ -383,6 +420,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
             is_configuration_rule,
             is_toolchain_rule,
             uses_plugins,
+            None,
             eval,
         )
     }
