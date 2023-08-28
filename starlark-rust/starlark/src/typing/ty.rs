@@ -359,6 +359,7 @@ impl Ty {
         fn next_skip_never<I: Iterator<Item = Ty>>(iter: &mut I) -> Option<Ty> {
             iter.find(|x| !x.is_never())
         }
+
         let mut xs = xs.into_iter();
         let Some(x0) = next_skip_never(&mut xs) else {
             return Ty::never();

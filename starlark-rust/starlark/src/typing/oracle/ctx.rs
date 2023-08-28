@@ -383,7 +383,13 @@ impl<'a> TypingOracleCtx<'a> {
     fn iter_item_basic(&self, ty: &TyBasic) -> Result<Ty, ()> {
         match ty {
             TyBasic::StarlarkValue(ty) => ty.iter_item(),
-            ty => self.attribute_basic(ty, TypingAttr::Iter),
+            TyBasic::List(item) => Ok((**item).dupe()),
+            TyBasic::Dict(k, _v) => Ok((**k).dupe()),
+            TyBasic::Tuple(tuple) => Ok(tuple.item_ty()),
+            ty => self
+                .oracle
+                .attribute(ty, TypingAttr::Iter)
+                .unwrap_or_else(|| Ok(Ty::any())),
         }
     }
 
