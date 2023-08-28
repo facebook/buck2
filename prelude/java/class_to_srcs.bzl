@@ -111,7 +111,7 @@ def merge_class_to_source_map_from_jar(
 def create_merged_debug_info(
         actions: AnalysisActions,
         java_toolchain: JavaToolchainInfo.type,
-        tset_debuginfo: "transitive_set",
+        tset_debuginfo: TransitiveSet,
         name: str):
     output = actions.declare_output(name)
     cmd = cmd_args(java_toolchain.gen_class_to_source_map_debuginfo[RunInfo])
