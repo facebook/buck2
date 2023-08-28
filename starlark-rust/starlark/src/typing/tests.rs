@@ -25,7 +25,6 @@ use starlark_derive::starlark_module;
 use crate as starlark;
 use crate::assert::Assert;
 use crate::environment::FrozenModule;
-use crate::environment::Globals;
 use crate::environment::GlobalsBuilder;
 use crate::environment::Module;
 use crate::eval::runtime::file_loader::ReturnOwnedFileLoader;
@@ -34,15 +33,10 @@ use crate::stdlib::LibraryExtension;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::tests::golden_test_template::golden_test_template;
-use crate::typing::basic::TyBasic;
-use crate::typing::function::Param;
 use crate::typing::interface::Interface;
 use crate::typing::oracle::traits::OracleNoAttributes;
 use crate::typing::oracle::traits::OracleSeq;
-use crate::typing::oracle::traits::TypingAttr;
-use crate::typing::OracleDocs;
 use crate::typing::OracleStandard;
-use crate::typing::Ty;
 use crate::typing::TypingOracle;
 use crate::values::none::NoneType;
 use crate::values::typing::StarlarkIter;
@@ -56,22 +50,6 @@ fn mk_oracle() -> impl TypingOracle {
             OracleSeq(vec![Box::new(standard), Box::new(OracleNoAttributes)])
         });
     &*ORACLE
-}
-
-#[test]
-fn test_oracle() {
-    let o = mk_oracle();
-
-    let mut b = OracleDocs::new();
-    b.add_module(&Globals::extended_internal().documentation());
-
-    assert_eq!(
-        o.attribute(&TyBasic::string(), TypingAttr::Regular("removeprefix")),
-        Some(Ok(Ty::function(
-            vec![Param::pos_only(Ty::string())],
-            Ty::string()
-        )))
-    );
 }
 
 #[derive(Default)]

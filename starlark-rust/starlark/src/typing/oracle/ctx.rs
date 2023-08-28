@@ -513,7 +513,10 @@ impl<'a> TypingOracleCtx<'a> {
     }
 
     fn expr_dot_basic(&self, array: &TyBasic, attr: &str) -> Result<Ty, ()> {
-        self.attribute_basic(array, TypingAttr::Regular(attr))
+        match array {
+            TyBasic::StarlarkValue(s) => s.attr(attr),
+            array => self.attribute_basic(array, TypingAttr::Regular(attr)),
+        }
     }
 
     pub(crate) fn expr_dot(&self, span: Span, array: &Ty, attr: &str) -> Result<Ty, TypingError> {

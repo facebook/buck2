@@ -205,10 +205,6 @@ impl TypingOracle for OracleStandard {
                 TypingAttr::BinOp(TypingBinOp::Percent) => {
                     Ty::function(vec![Param::pos_only(Ty::any())], Ty::string())
                 }
-                TypingAttr::Regular(name) => match x.attr(name) {
-                    Ok(res) => res,
-                    Err(()) => return Some(Err(())),
-                },
                 _ => return fallback(),
             },
             _ => {
