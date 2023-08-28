@@ -25,6 +25,7 @@ use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::typing::Ty;
 use starlark::values::list::ListOf;
 use starlark::values::starlark_value;
 use starlark::values::Demand;
@@ -42,6 +43,7 @@ use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifactHelpers;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;
 use crate::interpreter::rule_defs::artifact::ArtifactError;
+use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
@@ -219,6 +221,8 @@ impl CommandLineArgLike for StarlarkPromiseArtifact {
 
 #[starlark_value(type = "promise_artifact")]
 impl<'v> StarlarkValue<'v> for StarlarkPromiseArtifact {
+    type Canonical = StarlarkArtifact;
+
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(promise_artifact_methods)
@@ -238,6 +242,10 @@ impl<'v> StarlarkValue<'v> for StarlarkPromiseArtifact {
 
     fn matches_type(&self, ty: &str) -> bool {
         Self::TYPE == ty || ty == "artifact"
+    }
+
+    fn get_type_starlark_repr() -> Ty {
+        Ty::starlark_value::<Self>()
     }
 }
 

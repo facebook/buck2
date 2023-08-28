@@ -25,6 +25,7 @@ use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::typing::Ty;
 use starlark::values::list::ListOf;
 use starlark::values::starlark_value;
 use starlark::values::Demand;
@@ -236,6 +237,10 @@ impl<'v> StarlarkValue<'v> for StarlarkArtifact {
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
         demand.provide_value::<&dyn CommandLineArgLike>(self);
+    }
+
+    fn get_type_starlark_repr() -> Ty {
+        Ty::starlark_value::<Self>()
     }
 }
 
