@@ -60,8 +60,6 @@ enum TypingOracleCtxError {
     CallArgumentsIncompatible { fun: Ty },
     #[error("Type `{ty}` does not have [] operator")]
     MissingIndexOperator { ty: Ty },
-    #[error("Type `{array}` [] operator does not accept `{index}")]
-    IndexOperatorWrongArg { array: Ty, index: Ty },
     #[error("Type `{ty}` does not have [::] operator")]
     MissingSliceOperator { ty: Ty },
     #[error("The attribute `{attr}` is not available on the type `{ty}`")]
@@ -411,52 +409,28 @@ impl<'a> TypingOracleCtx<'a> {
         span: Span,
         array: &TyBasic,
         index: Spanned<&TyBasic>,
-    ) -> Result<Ty, TypingOrInternalError> {
+    ) -> Result<Result<Ty, ()>, InternalError> {
         match array {
             TyBasic::Tuple(tuple) => {
                 if !self.intersects_basic(index.node, &TyBasic::int()) {
-                    return Err(self.mk_error_as_maybe_internal(
-                        span,
-                        TypingOracleCtxError::IndexOperatorWrongArg {
-                            array: Ty::basic(array.clone()),
-                            index: Ty::basic(index.node.clone()),
-                        },
-                    ));
+                    return Ok(Err(()));
                 }
-                Ok(tuple.item_ty())
+                Ok(Ok(tuple.item_ty()))
             }
-            TyBasic::StarlarkValue(array) => match array.index(index.node) {
-                Ok(x) => Ok(x),
-                Err(()) => Err(self.mk_error_as_maybe_internal(
-                    span,
-                    TypingOracleCtxError::MissingIndexOperator {
-                        ty: Ty::basic(TyBasic::StarlarkValue(*array)),
-                    },
-                )),
-            },
-            TyBasic::Custom(c) => match c.0.attribute_dyn(TypingAttr::Index) {
-                Ok(x) => Ok(x),
-                Err(()) => Err(self.mk_error_as_maybe_internal(
-                    span,
-                    TypingOracleCtxError::MissingIndexOperator {
-                        ty: Ty::basic(TyBasic::Custom(c.clone())),
-                    },
-                )),
-            },
+            TyBasic::StarlarkValue(array) => Ok(array.index(index.node)),
+            TyBasic::Custom(c) => Ok(c.0.attribute_dyn(TypingAttr::Index)),
             array => {
                 let f = match self.oracle.attribute(array, TypingAttr::Index) {
-                    None => return Ok(Ty::any()),
+                    None => return Ok(Ok(Ty::any())),
                     Some(Ok(x)) => x,
-                    Some(Err(())) => {
-                        return Err(self.mk_error_as_maybe_internal(
-                            span,
-                            TypingOracleCtxError::MissingIndexOperator {
-                                ty: Ty::basic(array.clone()),
-                            },
-                        ));
-                    }
+                    Some(Err(())) => return Ok(Err(())),
                 };
-                self.validate_call(span, &f, &[index.map(|i| Arg::Pos(Ty::basic(i.clone())))])
+                match self.validate_call(span, &f, &[index.map(|i| Arg::Pos(Ty::basic(i.clone())))])
+                {
+                    Ok(x) => Ok(Ok(x)),
+                    Err(TypingOrInternalError::Internal(e)) => Err(e),
+                    Err(TypingOrInternalError::Typing(_)) => Ok(Err(())),
+                }
             }
         }
     }
@@ -477,15 +451,18 @@ impl<'a> TypingOracleCtx<'a> {
         let mut good = Vec::new();
         for array in array.iter_union() {
             for index_basic in index.node.iter_union() {
-                if let Ok(ty) = self.expr_index_ty(
+                match self.expr_index_ty(
                     span,
                     array,
                     Spanned {
                         span: index.span,
                         node: index_basic,
                     },
-                ) {
-                    good.push(ty);
+                )? {
+                    Ok(ty) => {
+                        good.push(ty);
+                    }
+                    Err(()) => {}
                 }
             }
         }
