@@ -36,6 +36,7 @@ use buck2_wrapper_common::BUCK_WRAPPER_UUID_ENV_VAR;
 use serde::Serialize;
 use thiserror::Error;
 
+use crate::commands::build::print_build_failed;
 use crate::commands::build::print_build_result;
 
 /// Build and run the selected target.
@@ -131,7 +132,7 @@ impl StreamingCommand for RunCommand {
             Err(_) => false,
         };
         if !success {
-            console.print_error("BUILD FAILED")?;
+            print_build_failed(&console)?;
         }
         let response = response??;
         print_build_result(&console, &response.error_messages)?;

@@ -286,7 +286,7 @@ impl StreamingCommand for BuildCommand {
                 console.print_success("BUILD SUCCEEDED")?;
             }
         } else {
-            console.print_error("BUILD FAILED")?;
+            print_build_failed(&console)?;
         }
 
         // Action errors will have already been printed, but any other type
@@ -364,6 +364,10 @@ impl StreamingCommand for BuildCommand {
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.common_opts.config_opts
     }
+}
+
+pub(crate) fn print_build_failed(console: &FinalConsole) -> anyhow::Result<()> {
+    console.print_error("BUILD FAILED")
 }
 
 #[derive(Debug, PartialEq)]
