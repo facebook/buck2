@@ -50,7 +50,6 @@ impl OracleStandard {
         add::<crate::values::enumeration::FrozenEnumType>(&mut fallback);
         add::<crate::values::record::field::FrozenField>(&mut fallback);
         add::<crate::values::record::record_type::FrozenRecordType>(&mut fallback);
-        add::<crate::values::regex::StarlarkRegex>(&mut fallback);
         add::<crate::values::dict::value::DictGen<crate::values::dict::value::FrozenDictData>>(
             &mut fallback,
         );
