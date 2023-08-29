@@ -23,6 +23,7 @@ use anyhow::Context;
 use derive_more::Display;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
+use starlark_syntax::diagnostic::Diagnostic;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -32,7 +33,6 @@ use crate::collections::SmallMap;
 use crate::environment::Globals;
 use crate::environment::GlobalsBuilder;
 use crate::environment::Module;
-use crate::errors::diagnostic::Diagnostic;
 use crate::eval::Evaluator;
 use crate::starlark_simple_value;
 use crate::syntax::AstModule;

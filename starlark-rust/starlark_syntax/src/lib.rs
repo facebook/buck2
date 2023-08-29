@@ -18,9 +18,11 @@
 //! Starlark AST.
 
 #![allow(clippy::len_without_is_empty)]
+#![allow(clippy::new_ret_no_self)]
 
 pub mod call_stack;
 pub mod codemap;
 pub mod convert_indices;
+pub mod diagnostic;
 pub mod fast_string;
 pub mod frame;

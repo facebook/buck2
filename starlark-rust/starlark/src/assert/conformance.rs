@@ -24,9 +24,9 @@
 #![allow(clippy::if_then_panic)]
 
 use itertools::Itertools;
+use starlark_syntax::diagnostic::Diagnostic;
 
 use crate::assert::assert::Assert;
-use crate::errors::diagnostic::Diagnostic;
 
 impl<'a> Assert<'a> {
     /// Run a conformance test, e.g. the Go Starlark tests

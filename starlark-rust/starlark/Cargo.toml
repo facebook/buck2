@@ -19,7 +19,6 @@ categories = ["parser-implementations", "development-tools"]
 lalrpop = "0.19.7"
 
 [dependencies]
-annotate-snippets = { version = "0.9.0", features = [] }
 anyhow = "1.0.65"
 derivative = "2.2"
 derive_more = "0.99"

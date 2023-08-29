@@ -70,7 +70,6 @@ rust_library(
         "OUT_DIR": "$(location :grammar)/src",
     },
     deps = [
-        "fbsource//third-party/rust:annotate-snippets",
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:bumpalo",
         "fbsource//third-party/rust:debugserver-types",

@@ -27,11 +27,12 @@ use annotate_snippets::snippet::AnnotationType;
 use annotate_snippets::snippet::Slice;
 use annotate_snippets::snippet::Snippet;
 use annotate_snippets::snippet::SourceAnnotation;
-use starlark_syntax::call_stack::CallStack;
-use starlark_syntax::codemap::CodeMap;
-use starlark_syntax::codemap::FileSpan;
-use starlark_syntax::codemap::Span;
-use starlark_syntax::fast_string;
+
+use crate::call_stack::CallStack;
+use crate::codemap::CodeMap;
+use crate::codemap::FileSpan;
+use crate::codemap::Span;
+use crate::fast_string;
 
 /// An error plus its origination location and call stack.
 ///
@@ -69,11 +70,7 @@ impl Diagnostic {
     /// Create a new [`Diagnostic`] containing an underlying error and span.
     /// If the given `message` is already a [`Diagnostic`] with a [`Span`],
     /// the new span will be ignored and the original `message` returned.
-    pub(crate) fn new(
-        message: impl Into<anyhow::Error>,
-        span: Span,
-        codemap: &CodeMap,
-    ) -> anyhow::Error {
+    pub fn new(message: impl Into<anyhow::Error>, span: Span, codemap: &CodeMap) -> anyhow::Error {
         Self::modify(message.into(), |d| d.set_span(span, codemap))
     }
 
@@ -81,7 +78,7 @@ impl Diagnostic {
     /// If given an [`anyhow::Error`] which is a [`Diagnostic`], it will add the information to the
     /// existing [`Diagnostic`]. If not, it will wrap the error in [`Diagnostic`].
     #[cold]
-    pub(crate) fn modify(mut err: anyhow::Error, f: impl FnOnce(&mut Diagnostic)) -> anyhow::Error {
+    pub fn modify(mut err: anyhow::Error, f: impl FnOnce(&mut Diagnostic)) -> anyhow::Error {
         match err.downcast_mut::<Diagnostic>() {
             Some(diag) => {
                 f(diag);
@@ -100,7 +97,7 @@ impl Diagnostic {
     }
 
     /// Set the [`Diagnostic::span`] field, unless it's already been set.
-    pub(crate) fn set_span(&mut self, span: Span, codemap: &CodeMap) {
+    pub fn set_span(&mut self, span: Span, codemap: &CodeMap) {
         if self.span.is_none() {
             // We want the best span, which is likely the first person to set it
             self.span = Some(codemap.file_span(span));
@@ -108,7 +105,7 @@ impl Diagnostic {
     }
 
     /// Set the [`Diagnostic::call_stack`] field, unless it's already been set.
-    pub(crate) fn set_call_stack(&mut self, call_stack: impl FnOnce() -> CallStack) {
+    pub fn set_call_stack(&mut self, call_stack: impl FnOnce() -> CallStack) {
         if self.call_stack.is_empty() {
             // We want the best call stack, which is likely the first person to set it
             self.call_stack = call_stack();
@@ -121,7 +118,7 @@ impl Diagnostic {
     /// Note that this function doesn't print any context information if the error is a
     /// [`Diagnostic`], so you might prefer to use `eprintln!("{:#}"), err)`
     /// if you suspect there is useful context (although you won't get pretty colors).
-    pub(crate) fn eprint(err: &anyhow::Error) {
+    pub fn eprint(err: &anyhow::Error) {
         match err.downcast_ref::<Diagnostic>() {
             None => eprintln!("{:#}", err),
             Some(diag) => diagnostic_stderr(diag),

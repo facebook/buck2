@@ -34,10 +34,10 @@ pub(crate) mod stmt;
 pub(crate) mod types;
 
 use eval_exception::EvalException;
+use starlark_syntax::diagnostic::Diagnostic;
 
 use crate::codemap::CodeMap;
 use crate::environment::Globals;
-use crate::errors::diagnostic::Diagnostic;
 use crate::eval::compiler::scope::ModuleScopeData;
 use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::scope::ScopeNames;

@@ -28,6 +28,7 @@ use dupe::Dupe;
 use maplit::hashmap;
 use once_cell::sync::Lazy;
 use starlark_derive::starlark_module;
+use starlark_syntax::diagnostic::Diagnostic;
 
 use crate as starlark;
 use crate::codemap::FileSpanRef;
@@ -35,7 +36,6 @@ use crate::environment::FrozenModule;
 use crate::environment::Globals;
 use crate::environment::GlobalsBuilder;
 use crate::environment::Module;
-use crate::errors::diagnostic::Diagnostic;
 use crate::eval::Evaluator;
 use crate::eval::ReturnFileLoader;
 use crate::stdlib::PrintHandler;

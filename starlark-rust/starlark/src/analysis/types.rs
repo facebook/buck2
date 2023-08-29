@@ -24,12 +24,12 @@ use lsp_types::DiagnosticSeverity;
 use lsp_types::NumberOrString;
 use lsp_types::Range;
 use serde::Serialize;
+use starlark_syntax::diagnostic::Diagnostic;
 
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
 use crate::codemap::ResolvedSpan;
 use crate::codemap::Span;
-use crate::errors::diagnostic::Diagnostic;
 
 pub(crate) trait LintWarning: Display {
     fn severity(&self) -> EvalSeverity;

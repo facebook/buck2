@@ -21,6 +21,7 @@ use std::mem::MaybeUninit;
 use std::path::Path;
 
 use dupe::Dupe;
+use starlark_syntax::diagnostic::Diagnostic;
 use starlark_syntax::frame::Frame;
 use thiserror::Error;
 
@@ -35,7 +36,6 @@ use crate::const_frozen_string;
 use crate::environment::slots::ModuleSlotId;
 use crate::environment::FrozenModuleData;
 use crate::environment::Module;
-use crate::errors::diagnostic::Diagnostic;
 use crate::eval::bc::addr::BcPtrAddr;
 use crate::eval::bc::bytecode::Bc;
 use crate::eval::bc::frame::BcFramePtr;
