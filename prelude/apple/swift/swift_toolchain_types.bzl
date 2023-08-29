@@ -44,7 +44,11 @@ SdkUncompiledModuleInfo = provider(fields = [
     "partial_cmd",  # Partial arguments, required to compile a particular SDK module.
     "input_relative_path",  # A relative prefixed path to a textual swiftinterface/modulemap file within an SDK.
     "deps",  # [Dependency]
+    "transitive_clang_deps",  # A SdkTransitiveDepsTset of all transitive SDK clang modules.
+    "transitive_swift_deps",  # A SdkTransitiveDepsTset of all transitive SDK swift modules.
 ])
+
+SdkTransitiveDepsTset = transitive_set()
 
 WrappedSdkCompiledModuleInfo = provider(fields = [
     "tset",  # A tset that contains SdkCompiledModuleInfo itself and its transitive deps
