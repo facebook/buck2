@@ -19,10 +19,9 @@ use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
 
-use starlark_syntax::fast_string;
-use starlark_syntax::fast_string::CharIndex;
-
 use crate::codemap::FileSpan;
+use crate::fast_string;
+use crate::fast_string::CharIndex;
 
 /// A frame of the call-stack.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -54,7 +53,7 @@ fn truncate_snippet(snippet: &str, max_len: usize) -> (&str, &str) {
 }
 
 impl Frame {
-    pub(crate) fn write_two_lines(
+    pub fn write_two_lines(
         &self,
         indent: &str,
         caller: &str,
@@ -87,7 +86,7 @@ impl Frame {
 
 #[cfg(test)]
 mod tests {
-    use crate::errors::frame::truncate_snippet;
+    use crate::frame::truncate_snippet;
 
     #[test]
     fn test_truncate_snippet() {

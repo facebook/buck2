@@ -17,12 +17,12 @@
 
 //! Error types used by Starlark, mostly [`Diagnostic`].
 
+pub use starlark_syntax::frame::Frame;
+
 pub use crate::analysis::EvalMessage;
 pub use crate::analysis::EvalSeverity;
 pub use crate::analysis::Lint;
 pub use crate::errors::diagnostic::Diagnostic;
-pub use crate::errors::frame::Frame;
 
 pub(crate) mod diagnostic;
 pub(crate) mod did_you_mean;
-pub(crate) mod frame;
