@@ -587,7 +587,6 @@ impl<'a> TypingOracleCtx<'a> {
 
     fn expr_bin_op_ty_basic_lhs(
         &self,
-        span: Span,
         lhs: &TyBasic,
         bin_op: TypingBinOp,
         rhs: Spanned<&TyBasic>,
@@ -653,11 +652,7 @@ impl<'a> TypingOracleCtx<'a> {
                 }
                 bin_op => TyStarlarkValue::new::<MutableDict>().bin_op(bin_op, rhs.node),
             },
-            TyBasic::Custom(lhs) => {
-                let fun = lhs.0.attribute_dyn(TypingAttr::BinOp(bin_op))?;
-                self.validate_call(span, &fun, &[rhs.map(|t| Arg::Pos(Ty::basic(t.dupe())))])
-                    .map_err(|_| ())
-            }
+            TyBasic::Custom(lhs) => lhs.0.bin_op_dyn(bin_op, rhs.node, self),
             TyBasic::Name(_) => Ok(Ty::any()),
         }
     }
@@ -706,7 +701,7 @@ impl<'a> TypingOracleCtx<'a> {
             return Ok(Ty::any());
         }
 
-        if let Ok(r) = self.expr_bin_op_ty_basic_lhs(span, lhs.node, bin_op, rhs) {
+        if let Ok(r) = self.expr_bin_op_ty_basic_lhs(lhs.node, bin_op, rhs) {
             return Ok(r);
         }
         if let Ok(r) = self.expr_bin_op_ty_basic_rhs(&lhs.node, bin_op, rhs.node) {
@@ -853,7 +848,7 @@ impl<'a> TypingOracleCtx<'a> {
         x == y || self.subtype(x, y) || self.subtype(y, x)
     }
 
-    fn intersects_basic(&self, x: &TyBasic, y: &TyBasic) -> bool {
+    pub(crate) fn intersects_basic(&self, x: &TyBasic, y: &TyBasic) -> bool {
         x == y || self.intersects_one_side(x, y) || self.intersects_one_side(y, x)
     }
 

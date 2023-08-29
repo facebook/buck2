@@ -23,6 +23,7 @@ use dupe::Dupe;
 
 use crate::typing::arc_ty::ArcTy;
 use crate::typing::custom::TyCustom;
+use crate::typing::custom::TyCustomImpl;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::tuple::TyTuple;
 use crate::typing::Ty;
@@ -100,6 +101,10 @@ impl TyBasic {
     /// Create a dictionary type.
     pub(crate) fn dict(key: Ty, value: Ty) -> Self {
         TyBasic::Dict(ArcTy::new(key), ArcTy::new(value))
+    }
+
+    pub(crate) fn custom(custom: impl TyCustomImpl) -> Self {
+        TyBasic::Custom(TyCustom::new(custom))
     }
 
     /// Turn a type back into a name, potentially erasing some structure.

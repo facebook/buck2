@@ -38,6 +38,7 @@ use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::Arg;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
+use crate::typing::TypingBinOp;
 use crate::typing::TypingOracleCtx;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
@@ -59,6 +60,10 @@ pub trait TyCustomImpl:
     /// Must override if implementing `validate_call`.
     fn is_callable(&self) -> bool {
         false
+    }
+    fn bin_op(&self, bin_op: TypingBinOp, rhs: &TyBasic, ctx: &TypingOracleCtx) -> Result<Ty, ()> {
+        let _unused = (bin_op, rhs, ctx);
+        Err(())
     }
     fn attribute(&self, attr: TypingAttr) -> Result<Ty, ()>;
     fn union2(x: Arc<Self>, other: Arc<Self>) -> Result<Arc<Self>, (Arc<Self>, Arc<Self>)> {
@@ -89,6 +94,12 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
     ) -> Result<Ty, TypingOrInternalError>;
     fn is_callable_dyn(&self) -> bool;
     fn attribute_dyn(&self, attr: TypingAttr) -> Result<Ty, ()>;
+    fn bin_op_dyn(
+        &self,
+        bin_op: TypingBinOp,
+        rhs: &TyBasic,
+        ctx: &TypingOracleCtx,
+    ) -> Result<Ty, ()>;
     fn union2_dyn(
         self: Arc<Self>,
         other: Arc<dyn TyCustomDyn>,
@@ -145,6 +156,15 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
         self.attribute(attr)
     }
 
+    fn bin_op_dyn(
+        &self,
+        bin_op: TypingBinOp,
+        rhs: &TyBasic,
+        ctx: &TypingOracleCtx,
+    ) -> Result<Ty, ()> {
+        self.bin_op(bin_op, rhs, ctx)
+    }
+
     fn union2_dyn(
         self: Arc<Self>,
         other: Arc<dyn TyCustomDyn>,
@@ -179,6 +199,10 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
 pub struct TyCustom(pub(crate) Arc<dyn TyCustomDyn>);
 
 impl TyCustom {
+    pub(crate) fn new<T: TyCustomImpl>(ty: T) -> Self {
+        Self(Arc::new(ty))
+    }
+
     pub(crate) fn as_name(&self) -> Option<&str> {
         self.0.as_name_dyn()
     }

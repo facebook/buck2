@@ -31,6 +31,7 @@ use crate::typing::error::TypingOrInternalError;
 use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::small_arc_vec_or_static::SmallArcVec1OrStatic;
 use crate::typing::Ty;
+use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
 use crate::typing::TypingOracleCtx;
 use crate::values::layout::heap::profile::arc_str::ArcStr;
@@ -209,16 +210,25 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
         true
     }
 
+    fn bin_op(
+        &self,
+        bin_op: TypingBinOp,
+        _rhs: &TyBasic,
+        _ctx: &TypingOracleCtx,
+    ) -> Result<Ty, ()> {
+        match bin_op {
+            // `str | list`.
+            TypingBinOp::BitOr if self.0.has_type_attr() => {
+                // TODO(nga): result is type, but we don't have a type for type yet.
+                Ok(Ty::any())
+            }
+            _ => Err(()),
+        }
+    }
+
     fn attribute(&self, attr: TypingAttr) -> Result<Ty, ()> {
         if attr == TypingAttr::Regular("type") && self.0.has_type_attr() {
             Ok(Ty::string())
-        } else if attr == TypingAttr::BinOp(TypingBinOp::BitOr) && self.0.has_type_attr() {
-            // `str | list`.
-            Ok(Ty::function(
-                vec![Param::pos_only(Ty::any())],
-                // TODO(nga): result is type, but we don't have a type for type yet.
-                Ty::any(),
-            ))
         } else if attr == TypingAttr::Index {
             // TODO(nga): this is hack for `enum` (type) which pretends to be a function.
             //   Should be a custom type.

@@ -26,9 +26,10 @@ use starlark_map::sorted_map::SortedMap;
 
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::oracle::traits::TypingAttr;
-use crate::typing::Param;
 use crate::typing::Ty;
+use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
+use crate::typing::TypingOracleCtx;
 use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::structs::StructRef;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
@@ -61,6 +62,20 @@ impl TyCustomImpl for TyStruct {
         Some("struct")
     }
 
+    fn bin_op(&self, bin_op: TypingBinOp, rhs: &TyBasic, ctx: &TypingOracleCtx) -> Result<Ty, ()> {
+        match bin_op {
+            TypingBinOp::Less => {
+                // TODO(nga): do not clone.
+                if ctx.intersects_basic(&TyBasic::custom(self.clone()), rhs) {
+                    Ok(Ty::bool())
+                } else {
+                    Err(())
+                }
+            }
+            _ => Err(()),
+        }
+    }
+
     fn attribute(&self, attr: TypingAttr) -> Result<Ty, ()> {
         match attr {
             TypingAttr::Regular(attr) => match self.fields.get(attr) {
@@ -68,10 +83,6 @@ impl TyCustomImpl for TyStruct {
                 None if self.extra => Ok(Ty::any()),
                 _ => Err(()),
             },
-            TypingAttr::BinOp(TypingBinOp::Less) => Ok(Ty::function(
-                vec![Param::pos_only(Ty::custom(TyStruct::any()))],
-                Ty::bool(),
-            )),
             _ => Err(()),
         }
     }

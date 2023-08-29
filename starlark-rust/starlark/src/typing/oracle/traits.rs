@@ -92,9 +92,6 @@ impl TypingBinOp {
 /// Attribute for [`TypingOracle::attribute`].
 #[derive(Copy, Clone, Dupe, Eq, PartialEq, derive_more::Display, Debug)]
 pub enum TypingAttr<'a> {
-    /// Apply binary operator.
-    #[display(fmt = "binary {}", _0)]
-    BinOp(TypingBinOp),
     /// Return iterable element type.
     #[display(fmt = "iter")]
     Iter,
