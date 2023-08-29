@@ -18,10 +18,11 @@
 use std::fmt::Write;
 use std::mem;
 
+use starlark_syntax::golden_test_template::golden_test_template;
+
 use crate::assert::Assert;
 use crate::eval::compiler::def::FrozenDef;
 use crate::syntax::Dialect;
-use crate::tests::golden_test_template::golden_test_template;
 
 fn test_function_bytecode(program: &str) -> String {
     let program = program.trim();

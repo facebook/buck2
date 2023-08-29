@@ -24,6 +24,7 @@ use derive_more::Display;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
 use starlark_syntax::diagnostic::Diagnostic;
+use starlark_syntax::golden_test_template::golden_test_template;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -37,7 +38,6 @@ use crate::eval::Evaluator;
 use crate::starlark_simple_value;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
-use crate::tests::golden_test_template::golden_test_template;
 use crate::values::none::NoneType;
 use crate::values::Freeze;
 use crate::values::Freezer;

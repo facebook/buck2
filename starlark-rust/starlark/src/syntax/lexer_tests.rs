@@ -18,6 +18,7 @@
 use std::fmt::Write;
 
 use dupe::Dupe;
+use starlark_syntax::golden_test_template::golden_test_template;
 
 use crate::assert;
 use crate::codemap::CodeMap;
@@ -27,7 +28,6 @@ use crate::syntax::lexer::Lexer;
 use crate::syntax::lexer::Token;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
-use crate::tests::golden_test_template::golden_test_template;
 
 /// Lex some text and return the tokens. Fails if the program does not parse.
 /// Only available inside the crate because the Token type is not exported.

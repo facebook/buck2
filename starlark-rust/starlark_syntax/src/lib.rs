@@ -28,3 +28,4 @@ pub mod dialect;
 pub mod eval_exception;
 pub mod fast_string;
 pub mod frame;
+pub mod golden_test_template;

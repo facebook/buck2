@@ -21,6 +21,7 @@ use std::fmt::Write;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
 use starlark_derive::starlark_module;
+use starlark_syntax::golden_test_template::golden_test_template;
 
 use crate as starlark;
 use crate::assert::Assert;
@@ -32,7 +33,6 @@ use crate::eval::Evaluator;
 use crate::stdlib::LibraryExtension;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
-use crate::tests::golden_test_template::golden_test_template;
 use crate::typing::interface::Interface;
 use crate::typing::oracle::traits::OracleNoAttributes;
 use crate::typing::oracle::traits::OracleSeq;

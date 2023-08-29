@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
+use starlark_syntax::golden_test_template::golden_test_template;
+
 use crate::docs::Doc;
 use crate::docs::DocItem;
 use crate::docs::MarkdownFlavor;
 use crate::docs::RenderMarkdown;
-use crate::tests::golden_test_template::golden_test_template;
 
 pub(crate) fn docs_golden_test(test_name: &str, doc: DocItem) -> String {
     let output = Doc::named_item("name".to_owned(), doc).render_markdown(MarkdownFlavor::DocFile);

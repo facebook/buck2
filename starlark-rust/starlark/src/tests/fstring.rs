@@ -105,10 +105,11 @@ f"{x}" == '("x",)'
 }
 
 mod fail {
+    use starlark_syntax::golden_test_template::golden_test_template;
+
     use crate::assert;
     use crate::assert::Assert;
     use crate::syntax::Dialect;
-    use crate::tests::golden_test_template::golden_test_template;
 
     fn fstring_golden_test(test_name: &str, text: &str) {
         let mut a = Assert::new();

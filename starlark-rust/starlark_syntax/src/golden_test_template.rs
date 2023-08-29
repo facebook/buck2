@@ -41,7 +41,7 @@ fn make_golden(output: &str) -> String {
 }
 
 /// Common code for golden tests.
-pub(crate) fn golden_test_template(golden_rel_path: &str, output: &str) {
+pub fn golden_test_template(golden_rel_path: &str, output: &str) {
     assert!(golden_rel_path.starts_with("src/"));
     assert!(golden_rel_path.contains(".golden"));
 
