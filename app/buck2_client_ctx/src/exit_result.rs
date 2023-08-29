@@ -17,6 +17,7 @@ use std::ops::FromResidual;
 use std::process::Command;
 
 use anyhow::Context;
+use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use gazebo::prelude::*;
 
 use crate::subscribers::observer::ErrorCause;
@@ -24,7 +25,7 @@ use crate::subscribers::observer::ErrorCause;
 pub struct ExecArgs {
     prog: String,
     argv: Vec<String>,
-    chdir: Option<String>,
+    chdir: Option<AbsPathBuf>,
     env: Vec<(String, String)>,
 }
 
@@ -98,7 +99,7 @@ impl ExitResult {
     pub fn exec(
         prog: String,
         argv: Vec<String>,
-        chdir: Option<String>,
+        chdir: Option<AbsPathBuf>,
         env: Vec<(String, String)>,
     ) -> Self {
         Self {

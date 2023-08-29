@@ -29,6 +29,7 @@ use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_wrapper_common::BUCK2_WRAPPER_ENV_VAR;
 use buck2_wrapper_common::BUCK_WRAPPER_UUID_ENV_VAR;
@@ -68,7 +69,7 @@ pub struct RunCommand {
         help = "Set the current working directory of the executable being run",
         group = "exec_options"
     )]
-    chdir: Option<String>,
+    chdir: Option<PathArg>,
 
     /// Instead of running the command, print out the command
     /// formatted for shell interpolation, use as: $(buck2 run --emit-shell ...)
@@ -186,10 +187,12 @@ impl StreamingCommand for RunCommand {
             }
         }
 
+        let chdir = self.chdir.map(|chdir| chdir.resolve(&ctx.working_dir));
+
         ExitResult::exec(
             run_args[0].clone(),
             run_args,
-            self.chdir,
+            chdir,
             vec![("BUCK_RUN_BUILD_ID".to_owned(), ctx.trace_id.to_string())],
         )
     }
