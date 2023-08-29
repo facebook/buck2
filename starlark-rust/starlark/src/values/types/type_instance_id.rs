@@ -20,10 +20,13 @@ use std::sync::atomic::AtomicU64;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use starlark_derive::Freeze;
+
+use crate as starlark;
 
 /// Globally unique identifier for a type, like record type or enum type.
 #[derive(
-    Debug, Copy, Clone, Dupe, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative
+    Debug, Copy, Clone, Dupe, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative, Freeze
 )]
 pub(crate) struct TypeInstanceId(u64);
 

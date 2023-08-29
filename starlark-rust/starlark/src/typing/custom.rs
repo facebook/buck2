@@ -65,6 +65,9 @@ pub trait TyCustomImpl:
         let _unused = (bin_op, rhs, ctx);
         Err(())
     }
+    fn iter_item(&self) -> Result<Ty, ()> {
+        Err(())
+    }
     fn attribute(&self, attr: TypingAttr) -> Result<Ty, ()>;
     fn union2(x: Arc<Self>, other: Arc<Self>) -> Result<Arc<Self>, (Arc<Self>, Arc<Self>)> {
         if x == other { Ok(x) } else { Err((x, other)) }
@@ -93,6 +96,7 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError>;
     fn is_callable_dyn(&self) -> bool;
+    fn iter_item_dyn(&self) -> Result<Ty, ()>;
     fn attribute_dyn(&self, attr: TypingAttr) -> Result<Ty, ()>;
     fn bin_op_dyn(
         &self,
@@ -154,6 +158,10 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
 
     fn attribute_dyn(&self, attr: TypingAttr) -> Result<Ty, ()> {
         self.attribute(attr)
+    }
+
+    fn iter_item_dyn(&self) -> Result<Ty, ()> {
+        self.iter_item()
     }
 
     fn bin_op_dyn(

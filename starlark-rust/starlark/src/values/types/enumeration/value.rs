@@ -20,6 +20,7 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use derivative::Derivative;
+use dupe::Dupe;
 use either::Either;
 use starlark_derive::starlark_value;
 use starlark_derive::Coerce;
@@ -32,9 +33,11 @@ use crate::__derive_refs::serde;
 use crate::any::ProvidesStaticType;
 use crate::starlark_complex_value;
 use crate::starlark_complex_values;
+use crate::typing::Ty;
 use crate::values::enumeration::enum_type::EnumType;
 use crate::values::enumeration::enum_type::FrozenEnumType;
-use crate::values::exported_name::ExportedName;
+use crate::values::enumeration::ty_enum_value::TyEnumValue;
+use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Value;
@@ -58,6 +61,7 @@ pub struct EnumValueGen<V> {
     pub(crate) typ: V, // Must be EnumType it points back to (so it can get the type)
     pub(crate) value: V,   // The value of this enumeration
     pub(crate) index: i32, // The index in the enumeration
+    pub(crate) id: TypeInstanceId,
 }
 
 impl<V: Display> Display for EnumValueGen<V> {
@@ -88,9 +92,13 @@ where
         if ty == EnumValue::TYPE {
             return true;
         }
-        match self.get_enum_type() {
-            Either::Left(x) => x.typ.equal_to(ty),
-            Either::Right(x) => x.typ.equal_to(ty),
+        let ty_enum_type = match self.get_enum_type() {
+            Either::Left(x) => x.ty_enum_type(),
+            Either::Right(x) => x.ty_enum_type(),
+        };
+        match ty_enum_type {
+            Some(ty_enum_type) => ty_enum_type.data.name == ty,
+            None => false,
         }
     }
 
@@ -115,6 +123,16 @@ where
 
     fn dir_attr(&self) -> Vec<String> {
         vec!["index".to_owned(), "value".to_owned()]
+    }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        let ty_enum_type = match self.get_enum_type() {
+            Either::Left(x) => x.ty_enum_type()?,
+            Either::Right(x) => x.ty_enum_type()?,
+        };
+        Some(Ty::custom(TyEnumValue {
+            enum_type: ty_enum_type.dupe(),
+        }))
     }
 }
 

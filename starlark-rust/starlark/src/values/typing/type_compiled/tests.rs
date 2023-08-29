@@ -57,12 +57,6 @@ def g():
 def f(v: bool) -> Foo:
     return Foo(value=1)"#,
     );
-    a.fails(
-        r#"Bar = enum("bar")
-def f(v: Bar):
-  pass"#,
-        &[r#"enum("bar")"#],
-    );
     // Type errors should be caught in return positions
     a.fail(
         "def f_return_runtime() -> bool:\n return noop(1)\nf_return_runtime()",

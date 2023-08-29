@@ -292,6 +292,11 @@ def get_filtered_labels_to_links_map(
     If no link group is provided, all unmatched link infos are returned.
     """
 
+    if False:
+        # TODO(nga): seems to be a bug there below at `link_style != Linkage("shared")`,
+        #   typechecker complains.
+        link_style = Linkage("shared")
+
     def get_traversed_deps(node: Label) -> list[Label]:
         linkable_node = linkable_graph_node_map[node]  # buildifier: disable=uninitialized
 
