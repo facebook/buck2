@@ -48,13 +48,6 @@ impl OracleStandard {
         }
 
         add::<crate::values::enumeration::FrozenEnumType>(&mut fallback);
-        add::<crate::values::record::record_type::FrozenRecordType>(&mut fallback);
-        add::<crate::values::dict::value::DictGen<crate::values::dict::value::FrozenDictData>>(
-            &mut fallback,
-        );
-        add::<crate::values::list::value::ListGen<crate::values::list::value::FrozenListData>>(
-            &mut fallback,
-        );
 
         Self { fallback }
     }
