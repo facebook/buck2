@@ -141,6 +141,7 @@ impl<'a> TypingOracleCtx<'a> {
         // There are some structural types which have to be handled in a specific way
         match ty {
             TyBasic::Any => Ok(Ty::any()),
+            TyBasic::Custom(custom) => custom.0.attribute_dyn(attr),
             _ => match self.oracle.attribute(ty, attr) {
                 Some(r) => r,
                 None => Ok(Ty::any()),

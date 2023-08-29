@@ -52,9 +52,14 @@ impl TyCustomImpl for TyRecord {
         Some(&self.record_type.data.name)
     }
 
-    fn attribute(&self, _attr: TypingAttr) -> Result<Ty, ()> {
-        // TODO(nga): more precise.
-        Ok(Ty::any())
+    fn attribute(&self, attr: TypingAttr) -> Result<Ty, ()> {
+        match attr {
+            TypingAttr::Regular(name) => match self.record_type.data.fields.get(name) {
+                Some(ty) => Ok(ty.dupe()),
+                None => Err(()),
+            },
+            _ => Err(()),
+        }
     }
 
     fn matcher<'v>(&self, factory: TypeCompiledFactory<'v>) -> TypeCompiled<Value<'v>> {

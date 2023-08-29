@@ -191,4 +191,31 @@ def foo() -> MyRec:
 "#,
         );
     }
+
+    #[test]
+    fn test_typecheck_field_pass() {
+        assert::pass(
+            r#"
+MyRec = record(x = int, y = int)
+
+def f(rec: MyRec) -> int:
+    return rec.x + rec.y
+
+assert_eq(f(MyRec(x = 1, y = 2)), 3)
+"#,
+        );
+    }
+
+    #[test]
+    fn test_typecheck_field_fail() {
+        assert::fail(
+            r#"
+MyRec = record(x = int, y = int)
+
+def f(rec: MyRec) -> int:
+    return rec.z
+"#,
+            r#"The attribute `z` is not available on the type `record(name = "MyRec"#,
+        );
+    }
 }
