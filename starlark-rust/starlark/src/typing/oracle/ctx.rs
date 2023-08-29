@@ -136,19 +136,6 @@ impl<'a> TypingOracleCtx<'a> {
         )
     }
 
-    /// See what lies behind an attribute on a type
-    pub(crate) fn attribute_regular(&self, ty: &TyBasic, attr: &str) -> Result<Ty, ()> {
-        // There are some structural types which have to be handled in a specific way
-        match ty {
-            TyBasic::Any => Ok(Ty::any()),
-            TyBasic::Custom(custom) => custom.0.attribute_dyn(TypingAttr::Regular(attr)),
-            _ => match self.oracle.attribute(ty, TypingAttr::Regular(attr)) {
-                Some(r) => r,
-                None => Ok(Ty::any()),
-            },
-        }
-    }
-
     pub(crate) fn validate_type(&self, got: Spanned<&Ty>, require: &Ty) -> Result<(), TypingError> {
         if !self.intersects(got.node, require) {
             Err(self.mk_error(
@@ -517,6 +504,7 @@ impl<'a> TypingOracleCtx<'a> {
 
     fn expr_dot_basic(&self, array: &TyBasic, attr: &str) -> Result<Ty, ()> {
         match array {
+            TyBasic::Any => Ok(Ty::any()),
             TyBasic::StarlarkValue(s) => s.attr(attr),
             TyBasic::List(elem) => match attr {
                 "pop" => Ok(Ty::function(
@@ -562,7 +550,11 @@ impl<'a> TypingOracleCtx<'a> {
                     attr => TyStarlarkValue::new::<MutableDict>().attr(attr),
                 }
             }
-            array => self.attribute_regular(array, attr),
+            TyBasic::Custom(custom) => custom.0.attribute_dyn(TypingAttr::Regular(attr)),
+            array => match self.oracle.attribute(array, TypingAttr::Regular(attr)) {
+                Some(r) => r,
+                None => Ok(Ty::any()),
+            },
         }
     }
 
