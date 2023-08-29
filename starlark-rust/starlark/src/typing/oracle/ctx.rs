@@ -509,8 +509,9 @@ impl<'a> TypingOracleCtx<'a> {
 
     fn expr_dot_basic(&self, array: &TyBasic, attr: &str) -> Result<Ty, ()> {
         match array {
-            TyBasic::Any => Ok(Ty::any()),
+            TyBasic::Any | TyBasic::Callable | TyBasic::Iter(_) => Ok(Ty::any()),
             TyBasic::StarlarkValue(s) => s.attr(attr),
+            TyBasic::Tuple(_) => Err(()),
             TyBasic::List(elem) => match attr {
                 "pop" => Ok(Ty::function(
                     vec![Param::pos_only(Ty::int()).optional()],
@@ -556,10 +557,12 @@ impl<'a> TypingOracleCtx<'a> {
                 }
             }
             TyBasic::Custom(custom) => custom.0.attribute_dyn(TypingAttr::Regular(attr)),
-            array => match self.oracle.attribute(array, TypingAttr::Regular(attr)) {
-                Some(r) => r,
-                None => Ok(Ty::any()),
-            },
+            array @ TyBasic::Name(_) => {
+                match self.oracle.attribute(array, TypingAttr::Regular(attr)) {
+                    Some(r) => r,
+                    None => Ok(Ty::any()),
+                }
+            }
         }
     }
 
