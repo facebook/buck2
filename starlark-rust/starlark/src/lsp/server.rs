@@ -87,7 +87,7 @@ use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
 
-use crate::codemap::LineCol;
+use crate::codemap::ResolvedPos;
 use crate::codemap::ResolvedSpan;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
@@ -1055,7 +1055,7 @@ impl<T: LspContext> Backend<T> {
                 find_symbols_at_location(
                     &document.ast.codemap,
                     &document.ast.statement,
-                    LineCol {
+                    ResolvedPos {
                         line: destination.begin_line,
                         column: destination.begin_column,
                     },

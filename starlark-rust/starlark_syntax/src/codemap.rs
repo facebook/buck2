@@ -189,7 +189,7 @@ struct CodeMapData {
 /// "Codemap" for `.rs` files.
 pub struct NativeCodeMap {
     filename: &'static str,
-    start: LineCol,
+    start: ResolvedPos,
 }
 
 impl NativeCodeMap {
@@ -203,7 +203,7 @@ impl NativeCodeMap {
     pub const fn new(filename: &'static str, line: u32, column: u32) -> NativeCodeMap {
         Self {
             filename,
-            start: LineCol {
+            start: ResolvedPos {
                 line: line as usize,
                 column: column as usize,
             },
@@ -312,7 +312,7 @@ impl CodeMap {
     ///
     /// Panics if `pos` is not with this file's span or
     /// if `pos` points to a byte in the middle of a UTF-8 character.
-    fn find_line_col(&self, pos: Pos) -> LineCol {
+    fn find_line_col(&self, pos: Pos) -> ResolvedPos {
         assert!(pos <= self.full_span().end());
         match &self.0 {
             CodeMapImpl::Real(_) => {
@@ -323,9 +323,9 @@ impl CodeMap {
                     .chars()
                     .count();
 
-                LineCol { line, column }
+                ResolvedPos { line, column }
             }
-            CodeMapImpl::Native(data) => LineCol {
+            CodeMapImpl::Native(data) => ResolvedPos {
                 line: data.start.line,
                 column: data.start.column + pos.0 as usize,
             },
@@ -394,9 +394,9 @@ impl CodeMap {
     }
 }
 
-/// A line and column.
+/// All are 0-based, but print out with 1-based.
 #[derive(Copy, Clone, Dupe, Hash, Eq, PartialEq, Debug)]
-pub struct LineCol {
+pub struct ResolvedPos {
     /// The line number within the file (0-indexed).
     pub line: usize,
 
@@ -404,10 +404,10 @@ pub struct LineCol {
     pub column: usize,
 }
 
-impl LineCol {
-    fn _testing_parse(line_col: &str) -> LineCol {
+impl ResolvedPos {
+    fn _testing_parse(line_col: &str) -> ResolvedPos {
         let (line, col) = line_col.split_once(':').unwrap();
-        LineCol {
+        ResolvedPos {
             line: line.parse::<usize>().unwrap().checked_sub(1).unwrap(),
             column: col.parse::<usize>().unwrap().checked_sub(1).unwrap(),
         }
@@ -558,14 +558,14 @@ impl From<ResolvedSpan> for lsp_types::Range {
 impl ResolvedSpan {
     /// Check that the given position is contained within this span.
     /// Includes positions both at the beginning and the end of the range.
-    pub fn contains(&self, pos: LineCol) -> bool {
+    pub fn contains(&self, pos: ResolvedPos) -> bool {
         (self.begin_line < pos.line
             || (self.begin_line == pos.line && self.begin_column <= pos.column))
             && (self.end_line > pos.line
                 || (self.end_line == pos.line && self.end_column >= pos.column))
     }
 
-    fn from_span(begin: LineCol, end: LineCol) -> Self {
+    fn from_span(begin: ResolvedPos, end: ResolvedPos) -> Self {
         Self {
             begin_line: begin.line,
             begin_column: begin.column,
@@ -577,19 +577,19 @@ impl ResolvedSpan {
     fn _testing_parse(span: &str) -> ResolvedSpan {
         match span.split_once('-') {
             None => {
-                let line_col = LineCol::_testing_parse(span);
+                let line_col = ResolvedPos::_testing_parse(span);
                 ResolvedSpan::from_span(line_col, line_col)
             }
             Some((begin, end)) => {
-                let begin = LineCol::_testing_parse(begin);
+                let begin = ResolvedPos::_testing_parse(begin);
                 if end.contains(':') {
-                    let end = LineCol::_testing_parse(end);
+                    let end = ResolvedPos::_testing_parse(end);
                     ResolvedSpan::from_span(begin, end)
                 } else {
                     let end_col = end.parse::<usize>().unwrap().checked_sub(1).unwrap();
                     ResolvedSpan::from_span(
                         begin,
-                        LineCol {
+                        ResolvedPos {
                             line: begin.line,
                             column: end_col,
                         },
@@ -639,18 +639,21 @@ mod tests {
         assert_eq!(codemap.filename(), "test1.rs");
 
         // Test .find_line_col()
-        assert_eq!(codemap.find_line_col(start), LineCol { line: 0, column: 0 });
+        assert_eq!(
+            codemap.find_line_col(start),
+            ResolvedPos { line: 0, column: 0 }
+        );
         assert_eq!(
             codemap.find_line_col(start + 4),
-            LineCol { line: 0, column: 4 }
+            ResolvedPos { line: 0, column: 4 }
         );
         assert_eq!(
             codemap.find_line_col(start + 5),
-            LineCol { line: 1, column: 0 }
+            ResolvedPos { line: 1, column: 0 }
         );
         assert_eq!(
             codemap.find_line_col(start + 16),
-            LineCol { line: 2, column: 4 }
+            ResolvedPos { line: 2, column: 4 }
         );
 
         // Test .source() and num lines.
@@ -676,11 +679,11 @@ mod tests {
             assert_eq!(codemap.find_line(end), line);
             assert_eq!(
                 codemap.find_line_col(line_span.begin),
-                LineCol { line, column: 0 }
+                ResolvedPos { line, column: 0 }
             );
             assert_eq!(
                 codemap.find_line_col(end),
-                LineCol {
+                ResolvedPos {
                     line,
                     column: line_span.len() as usize - 1
                 }
@@ -696,35 +699,35 @@ mod tests {
 
         assert_eq!(
             codemap.find_line_col(codemap.full_span().begin + 21),
-            LineCol {
+            ResolvedPos {
                 line: 0,
                 column: 15
             }
         );
         assert_eq!(
             codemap.find_line_col(codemap.full_span().begin + 28),
-            LineCol {
+            ResolvedPos {
                 line: 0,
                 column: 18
             }
         );
         assert_eq!(
             codemap.find_line_col(codemap.full_span().begin + 33),
-            LineCol { line: 1, column: 1 }
+            ResolvedPos { line: 1, column: 1 }
         );
     }
 
     #[test]
     fn test_line_col_span_display_point() {
-        let line_col = LineCol { line: 0, column: 0 };
+        let line_col = ResolvedPos { line: 0, column: 0 };
         let span = ResolvedSpan::from_span(line_col, line_col);
         assert_eq!(span.to_string(), "1:1");
     }
 
     #[test]
     fn test_line_col_span_display_single_line_span() {
-        let begin = LineCol { line: 0, column: 0 };
-        let end = LineCol {
+        let begin = ResolvedPos { line: 0, column: 0 };
+        let end = ResolvedPos {
             line: 0,
             column: 32,
         };
@@ -734,8 +737,8 @@ mod tests {
 
     #[test]
     fn test_line_col_span_display_multi_line_span() {
-        let begin = LineCol { line: 0, column: 0 };
-        let end = LineCol {
+        let begin = ResolvedPos { line: 0, column: 0 };
+        let end = ResolvedPos {
             line: 2,
             column: 32,
         };
@@ -768,14 +771,14 @@ mod tests {
             end_line: 4,
             end_column: 5,
         };
-        assert!(!span.contains(LineCol { line: 0, column: 7 }));
-        assert!(!span.contains(LineCol { line: 2, column: 2 }));
-        assert!(span.contains(LineCol { line: 2, column: 3 }));
-        assert!(span.contains(LineCol { line: 2, column: 9 }));
-        assert!(span.contains(LineCol { line: 3, column: 1 }));
-        assert!(span.contains(LineCol { line: 4, column: 4 }));
-        assert!(span.contains(LineCol { line: 4, column: 5 }));
-        assert!(!span.contains(LineCol { line: 4, column: 6 }));
-        assert!(!span.contains(LineCol { line: 5, column: 0 }));
+        assert!(!span.contains(ResolvedPos { line: 0, column: 7 }));
+        assert!(!span.contains(ResolvedPos { line: 2, column: 2 }));
+        assert!(span.contains(ResolvedPos { line: 2, column: 3 }));
+        assert!(span.contains(ResolvedPos { line: 2, column: 9 }));
+        assert!(span.contains(ResolvedPos { line: 3, column: 1 }));
+        assert!(span.contains(ResolvedPos { line: 4, column: 4 }));
+        assert!(span.contains(ResolvedPos { line: 4, column: 5 }));
+        assert!(!span.contains(ResolvedPos { line: 4, column: 6 }));
+        assert!(!span.contains(ResolvedPos { line: 5, column: 0 }));
     }
 }

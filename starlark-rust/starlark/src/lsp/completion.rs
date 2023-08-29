@@ -28,7 +28,7 @@ use lsp_types::MarkupContent;
 use lsp_types::MarkupKind;
 use lsp_types::TextEdit;
 
-use crate::codemap::LineCol;
+use crate::codemap::ResolvedPos;
 use crate::codemap::ResolvedSpan;
 use crate::docs::markdown::render_doc_item;
 use crate::docs::markdown::render_doc_param;
@@ -56,7 +56,7 @@ impl<T: LspContext> Backend<T> {
         character: u32,
         workspace_root: Option<&Path>,
     ) -> impl Iterator<Item = CompletionItem> + '_ {
-        let cursor_position = LineCol {
+        let cursor_position = ResolvedPos {
             line: line as usize,
             column: character as usize,
         };
@@ -224,7 +224,7 @@ impl<T: LspContext> Backend<T> {
                 find_symbols_at_location(
                     &document.ast.codemap,
                     &document.ast.statement,
-                    LineCol {
+                    ResolvedPos {
                         line: destination.begin_line,
                         column: destination.begin_column,
                     },

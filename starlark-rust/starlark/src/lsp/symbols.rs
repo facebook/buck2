@@ -20,7 +20,7 @@
 use std::collections::HashMap;
 
 use crate::codemap::CodeMap;
-use crate::codemap::LineCol;
+use crate::codemap::ResolvedPos;
 use crate::docs::DocItem;
 use crate::docs::DocParam;
 use crate::lsp::docs::get_doc_item_for_def;
@@ -51,13 +51,13 @@ pub(crate) struct Symbol {
 pub(crate) fn find_symbols_at_location<P: AstPayload>(
     codemap: &CodeMap,
     ast: &AstStmtP<P>,
-    cursor_position: LineCol,
+    cursor_position: ResolvedPos,
 ) -> HashMap<String, Symbol> {
     let mut symbols = HashMap::new();
     fn walk<P: AstPayload>(
         codemap: &CodeMap,
         ast: &AstStmtP<P>,
-        cursor_position: LineCol,
+        cursor_position: ResolvedPos,
         symbols: &mut HashMap<String, Symbol>,
     ) {
         match &ast.node {
@@ -164,7 +164,7 @@ mod tests {
     use super::find_symbols_at_location;
     use super::Symbol;
     use super::SymbolKind;
-    use crate::codemap::LineCol;
+    use crate::codemap::ResolvedPos;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
 
@@ -188,7 +188,7 @@ my_var = True
             find_symbols_at_location(
                 &ast_module.codemap,
                 &ast_module.statement,
-                LineCol { line: 6, column: 0 },
+                ResolvedPos { line: 6, column: 0 },
             ),
             HashMap::from([
                 (
@@ -255,7 +255,7 @@ my_var = True
             find_symbols_at_location(
                 &ast_module.codemap,
                 &ast_module.statement,
-                LineCol { line: 3, column: 4 },
+                ResolvedPos { line: 3, column: 4 },
             ),
             HashMap::from([
                 (
