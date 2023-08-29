@@ -858,6 +858,7 @@ impl<'a> TypingOracleCtx<'a> {
         match (x, y) {
             (TyBasic::Any, _) => true,
             (TyBasic::Name(x), TyBasic::Name(y)) => self.intersects_name(x, y),
+            (TyBasic::Name(x), y) => Some(x.as_str()) == y.as_name(),
             (TyBasic::List(x), TyBasic::List(y)) => self.intersects(x, y),
             (TyBasic::Dict(x_k, x_v), TyBasic::Dict(y_k, y_v)) => {
                 self.intersects(x_k, y_k) && self.intersects(x_v, y_v)
