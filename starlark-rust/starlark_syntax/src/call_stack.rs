@@ -28,7 +28,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 
-use crate::errors::Frame;
+use crate::frame::Frame;
 
 /// Owned call stack.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]

@@ -30,7 +30,6 @@ use compiler::eval_exception::EvalException;
 use dupe::Dupe;
 pub use runtime::arguments::Arguments;
 pub use runtime::before_stmt::BeforeStmtFuncDyn;
-pub use runtime::call_stack::CallStack;
 pub use runtime::evaluator::Evaluator;
 pub use runtime::file_loader::FileLoader;
 pub use runtime::file_loader::ReturnFileLoader;
@@ -39,6 +38,7 @@ pub use runtime::params::ParametersSpec;
 pub use runtime::params::ParametersSpecBuilder;
 pub use runtime::profile::data::ProfileData;
 pub use runtime::profile::ProfileMode;
+pub use starlark_syntax::call_stack::CallStack;
 
 use crate::collections::symbol_map::Symbol;
 use crate::docs::DocString;

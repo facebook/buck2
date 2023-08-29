@@ -17,7 +17,6 @@
 
 pub(crate) mod arguments;
 pub(crate) mod before_stmt;
-pub(crate) mod call_stack;
 pub(crate) mod cheap_call_stack;
 pub(crate) mod evaluator;
 pub(crate) mod file_loader;

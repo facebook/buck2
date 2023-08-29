@@ -27,12 +27,11 @@ use annotate_snippets::snippet::AnnotationType;
 use annotate_snippets::snippet::Slice;
 use annotate_snippets::snippet::Snippet;
 use annotate_snippets::snippet::SourceAnnotation;
+use starlark_syntax::call_stack::CallStack;
 use starlark_syntax::codemap::CodeMap;
 use starlark_syntax::codemap::FileSpan;
 use starlark_syntax::codemap::Span;
 use starlark_syntax::fast_string;
-
-use crate::eval::CallStack;
 
 /// An error plus its origination location and call stack.
 ///
