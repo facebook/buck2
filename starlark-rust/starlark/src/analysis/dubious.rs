@@ -32,7 +32,6 @@ use crate::syntax::ast::Expr;
 use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
 use crate::values::num::value::NumRef;
-use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::types::int_or_big::StarlarkInt;
 
 #[derive(Error, Debug)]
@@ -62,8 +61,7 @@ impl LintWarning for Dubious {
 fn duplicate_dictionary_key(module: &AstModule, res: &mut Vec<LintT<Dubious>>) {
     #[derive(PartialEq, Eq, Hash)]
     enum Key<'a> {
-        Int(i32),
-        BigInt(&'a StarlarkBigInt),
+        Int(StarlarkInt),
         Float(u64),
         String(&'a str),
         Identifier(&'a str),
@@ -72,15 +70,12 @@ fn duplicate_dictionary_key(module: &AstModule, res: &mut Vec<LintT<Dubious>>) {
     fn to_key<'a>(x: &'a AstExpr) -> Option<(Key<'a>, Span)> {
         match &**x {
             Expr::Literal(x) => match x {
-                AstLiteral::Int(x) => match &x.node.0 {
-                    StarlarkInt::Small(i) => Some((Key::Int(i.to_i32()), x.span)),
-                    StarlarkInt::Big(i) => Some((Key::BigInt(i), x.span)),
-                },
+                AstLiteral::Int(x) => Some((Key::Int(StarlarkInt::from(x.node.clone())), x.span)),
                 AstLiteral::Float(x) => {
                     let n = NumRef::from(x.node);
                     if let Some(i) = n.as_int() {
                         // make an integer float always collide with other ints
-                        Some((Key::Int(i), x.span))
+                        Some((Key::Int(StarlarkInt::from(i)), x.span))
                     } else {
                         // use bits representation of float to be able to always compare them for equality
                         // First normalise -0.0

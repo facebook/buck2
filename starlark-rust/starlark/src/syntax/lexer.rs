@@ -21,6 +21,8 @@ use std::fmt;
 use std::fmt::Display;
 
 use logos::Logos;
+use num_bigint::BigInt;
+use num_traits::Num;
 use starlark_syntax::dialect::Dialect;
 use starlark_syntax::eval_exception::EvalException;
 use thiserror::Error;
@@ -30,7 +32,6 @@ use crate::codemap::Pos;
 use crate::codemap::Span;
 use crate::syntax::cursors::CursorBytes;
 use crate::syntax::cursors::CursorChars;
-use crate::values::types::int_or_big::StarlarkInt;
 
 #[derive(Error, Debug)]
 pub(crate) enum LexemeError {
@@ -54,6 +55,8 @@ pub(crate) enum LexemeError {
     IntParse(String),
     #[error("Comment span is computed incorrectly (internal error)")]
     CommentSpanComputedIncorrectly,
+    #[error("Cannot parse `{0}` as an integer in base {1}")]
+    CannotParse(String, u32),
 }
 
 type LexemeT<T> = Result<(usize, T, usize), EvalException>;
@@ -422,8 +425,8 @@ impl<'a> Lexer<'a> {
 
     fn int(&self, s: &str, radix: u32) -> Lexeme {
         let span = self.lexer.span();
-        match StarlarkInt::from_str_radix(s, radix) {
-            Ok(i) => Ok((span.start, Token::Int(TokenInt(i)), span.end)),
+        match TokenInt::from_str_radix(s, radix) {
+            Ok(i) => Ok((span.start, Token::Int(i), span.end)),
             Err(_) => self.err_now(LexemeError::IntParse),
         }
     }
@@ -581,7 +584,24 @@ impl<'a> Lexer<'a> {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, derive_more::Display)]
-pub struct TokenInt(pub(crate) StarlarkInt);
+pub enum TokenInt {
+    I32(i32),
+    /// Only if larger than `i32`.
+    BigInt(BigInt),
+}
+
+impl TokenInt {
+    pub(crate) fn from_str_radix(s: &str, base: u32) -> anyhow::Result<TokenInt> {
+        if let Ok(i) = i32::from_str_radix(s, base) {
+            Ok(TokenInt::I32(i))
+        } else {
+            match BigInt::from_str_radix(s, base) {
+                Ok(i) => Ok(TokenInt::BigInt(i)),
+                Err(_) => Err(LexemeError::CannotParse(s.to_owned(), base).into()),
+            }
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TokenFString {

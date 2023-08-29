@@ -68,6 +68,7 @@ use crate::values::types::dict::Dict;
 use crate::values::types::ellipsis::Ellipsis;
 use crate::values::types::float::StarlarkFloat;
 use crate::values::types::inline_int::InlineInt;
+use crate::values::types::int_or_big::StarlarkInt;
 use crate::values::types::list::value::FrozenListData;
 use crate::values::types::list::value::ListData;
 use crate::values::types::range::Range;
@@ -1025,7 +1026,7 @@ fn try_eval_type_is(
 impl AstLiteral {
     fn compile(&self, heap: &FrozenHeap) -> FrozenValue {
         match self {
-            AstLiteral::Int(i) => heap.alloc(i.node.0.clone()),
+            AstLiteral::Int(i) => heap.alloc(StarlarkInt::from(i.node.clone())),
             AstLiteral::Float(f) => heap.alloc(f.node),
             AstLiteral::String(x) => heap.alloc(x.node.as_str()),
             AstLiteral::Ellipsis => heap.alloc(Ellipsis),

@@ -24,7 +24,6 @@ use std::ops::BitXor;
 use std::ops::Not;
 use std::ops::Rem;
 
-use anyhow::Context;
 use dupe::Dupe;
 use num_bigint::BigInt;
 use serde::Serialize;
@@ -177,11 +176,6 @@ impl InlineInt {
 
     pub(crate) fn to_bigint(self) -> BigInt {
         BigInt::from(self.0)
-    }
-
-    pub(crate) fn from_str_radix(s: &str, base: u32) -> anyhow::Result<InlineInt> {
-        let i = i32::from_str_radix(s, base)?;
-        InlineInt::try_from(i).ok().context("parse int overflow")
     }
 
     #[inline]

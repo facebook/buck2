@@ -31,11 +31,11 @@ use dupe::Dupe;
 use num_bigint::BigInt;
 use num_bigint::Sign;
 use num_traits::FromPrimitive;
-use num_traits::Num;
 use num_traits::Signed;
 use num_traits::ToPrimitive;
 use num_traits::Zero;
 
+use crate::syntax::lexer::TokenInt;
 use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::bigint::StarlarkBigInt;
@@ -51,8 +51,6 @@ use crate::values::ValueLike;
 
 #[derive(Debug, thiserror::Error)]
 enum StarlarkIntError {
-    #[error("Cannot parse `{0}` as an integer in base {1}")]
-    CannotParse(String, u32),
     #[error("Float `{0}` cannot be represented as exact integer")]
     CannotRepresentAsExact(f64),
     #[error("Floor division by zero: {0} // {1}")]
@@ -67,7 +65,7 @@ enum StarlarkIntError {
     RightShiftNegative,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, derive_more::Display)]
+#[derive(Debug, Clone, Eq, PartialEq, derive_more::Display, Hash)]
 pub(crate) enum StarlarkInt {
     Small(InlineInt),
     Big(StarlarkBigInt),
@@ -90,14 +88,7 @@ impl FromStr for StarlarkInt {
 
 impl StarlarkInt {
     pub(crate) fn from_str_radix(s: &str, base: u32) -> anyhow::Result<StarlarkInt> {
-        if let Ok(i) = InlineInt::from_str_radix(s, base) {
-            Ok(StarlarkInt::Small(i))
-        } else {
-            match BigInt::from_str_radix(s, base) {
-                Ok(i) => Ok(StarlarkInt::from(i)),
-                Err(_) => Err(StarlarkIntError::CannotParse(s.to_owned(), base).into()),
-            }
-        }
+        Ok(StarlarkInt::from(TokenInt::from_str_radix(s, base)?))
     }
 
     pub(crate) fn from_f64_exact(f: f64) -> anyhow::Result<StarlarkInt> {
@@ -430,6 +421,15 @@ impl From<BigInt> for StarlarkInt {
         match InlineInt::try_from(&value) {
             Ok(i) => StarlarkInt::Small(i),
             Err(_) => StarlarkInt::Big(StarlarkBigInt::unchecked_new(value)),
+        }
+    }
+}
+
+impl From<TokenInt> for StarlarkInt {
+    fn from(value: TokenInt) -> Self {
+        match value {
+            TokenInt::I32(i) => StarlarkInt::from(i),
+            TokenInt::BigInt(i) => StarlarkInt::from(i),
         }
     }
 }
