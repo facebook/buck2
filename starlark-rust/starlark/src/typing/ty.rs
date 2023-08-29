@@ -46,7 +46,6 @@ use crate::typing::structs::TyStruct;
 use crate::typing::tuple::TyTuple;
 use crate::values::bool::StarlarkBool;
 use crate::values::layout::heap::profile::arc_str::ArcStr;
-use crate::values::tuple::value::FrozenTuple;
 use crate::values::typing::never::TypingNever;
 use crate::values::StarlarkValue;
 use crate::values::Value;
@@ -180,8 +179,6 @@ impl Ty {
             "float" => Some(Self::float()),
             "string" => Some(Self::string()),
             "tuple" => Some(Self::any_tuple()),
-            // Note that "tuple" cannot be converted to Ty::Tuple
-            // since we don't know the length of the tuple.
             _ => None,
         }
     }
@@ -293,14 +290,12 @@ impl Ty {
 
     /// Create a tuple of given elements.
     pub fn tuple(elems: Vec<Ty>) -> Self {
-        Ty::basic(TyBasic::Tuple(TyTuple {
-            elems: elems.into(),
-        }))
+        Ty::basic(TyBasic::Tuple(TyTuple::Elems(elems.into())))
     }
 
     /// Tuple where elements are unknown.
     pub(crate) fn any_tuple() -> Self {
-        Ty::starlark_value::<FrozenTuple>()
+        Ty::basic(TyBasic::Tuple(TyTuple::any()))
     }
 
     /// Create a function type.

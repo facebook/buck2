@@ -27,6 +27,8 @@ use starlark_derive::ProvidesStaticType;
 
 use crate as starlark;
 use crate::slice_vec_ext::SliceExt;
+use crate::typing::arc_ty::ArcTy;
+use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
 use crate::values::tuple::value::Tuple;
@@ -37,55 +39,109 @@ use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
 use crate::values::Value;
 
 #[derive(Eq, PartialEq, Hash, Clone, Dupe, Debug, Ord, PartialOrd, Allocative)]
-pub struct TyTuple {
+pub enum TyTuple {
     /// `tuple[T0, T1, T2]`.
-    pub(crate) elems: Arc<[Ty]>,
+    Elems(Arc<[Ty]>),
+    /// `tuple[T, ...]`.
+    Of(ArcTy),
 }
 
 impl TyTuple {
+    /// `tuple`.
+    pub(crate) fn any() -> TyTuple {
+        TyTuple::Of(ArcTy::any())
+    }
+
     pub(crate) fn get(&self, i: usize) -> Option<&Ty> {
-        self.elems.get(i)
+        match self {
+            TyTuple::Elems(elems) => elems.get(i),
+            TyTuple::Of(t) => Some(t),
+        }
     }
 
     pub(crate) fn item_ty(&self) -> Ty {
-        Ty::unions(self.elems.to_vec())
+        match self {
+            TyTuple::Elems(elems) => Ty::unions(elems.to_vec()),
+            TyTuple::Of(t) => (**t).clone(),
+        }
     }
 
     pub(crate) fn intersects(this: &TyTuple, other: &TyTuple, ctx: &TypingOracleCtx) -> bool {
-        this.elems.len() == other.elems.len()
-            && iter::zip(&*this.elems, &*other.elems).all(|(x, y)| ctx.intersects(x, y))
+        match (this, other) {
+            (TyTuple::Elems(this), TyTuple::Elems(other)) => {
+                this.len() == other.len()
+                    && iter::zip(&**this, &**other).all(|(x, y)| ctx.intersects(x, y))
+            }
+            (TyTuple::Of(this), TyTuple::Of(other)) => ctx.intersects(this, other),
+            (TyTuple::Elems(elems), TyTuple::Of(item))
+            | (TyTuple::Of(item), TyTuple::Elems(elems)) => {
+                // For example `tuple[str, int]` does not intersect with `tuple[str, ...]`.
+                elems.iter().all(|x| ctx.intersects(x, item))
+            }
+        }
     }
 
     pub(crate) fn matcher<'v>(
         &self,
         type_compiled_factory: TypeCompiledFactory<'v>,
     ) -> TypeCompiled<Value<'v>> {
-        #[derive(Eq, PartialEq, Hash, Clone, Allocative, Debug, ProvidesStaticType)]
-        struct IsTupleOf(Vec<TypeCompiledBox>);
+        match self {
+            TyTuple::Elems(elems) => {
+                #[derive(Eq, PartialEq, Hash, Clone, Allocative, Debug, ProvidesStaticType)]
+                struct Elems(Vec<TypeCompiledBox>);
 
-        impl TypeCompiledImpl for IsTupleOf {
-            fn matches(&self, value: Value) -> bool {
-                match Tuple::from_value(value) {
-                    Some(v) if v.len() == self.0.len() => {
-                        v.iter().zip(self.0.iter()).all(|(v, t)| t.0.matches_dyn(v))
+                impl TypeCompiledImpl for Elems {
+                    fn matches(&self, value: Value) -> bool {
+                        match Tuple::from_value(value) {
+                            Some(v) if v.len() == self.0.len() => {
+                                v.iter().zip(self.0.iter()).all(|(v, t)| t.0.matches_dyn(v))
+                            }
+                            _ => false,
+                        }
                     }
-                    _ => false,
                 }
+
+                let elems = elems
+                    .map(|t| TypeCompiled::from_ty(t, type_compiled_factory.heap()).to_box_dyn());
+                type_compiled_factory.alloc(Elems(elems))
+            }
+            TyTuple::Of(item) if item.is_any() => {
+                TyStarlarkValue::new::<Tuple>().type_compiled(type_compiled_factory)
+            }
+            TyTuple::Of(item) => {
+                #[derive(Eq, PartialEq, Hash, Clone, Allocative, Debug, ProvidesStaticType)]
+                struct Of(TypeCompiledBox);
+
+                impl TypeCompiledImpl for Of {
+                    fn matches(&self, value: Value) -> bool {
+                        match Tuple::from_value(value) {
+                            Some(v) => v.iter().all(|v| self.0.0.matches_dyn(v)),
+                            _ => false,
+                        }
+                    }
+                }
+
+                let item = TypeCompiled::from_ty(item, type_compiled_factory.heap()).to_box_dyn();
+                type_compiled_factory.alloc(Of(item))
             }
         }
-
-        let elems = self
-            .elems
-            .map(|t| TypeCompiled::from_ty(t, type_compiled_factory.heap()).to_box_dyn());
-        type_compiled_factory.alloc(IsTupleOf(elems))
     }
 }
 
 impl Display for TyTuple {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match &*self.elems {
-            [x] => write!(f, "({},)", x),
-            xs => display_container::fmt_container(f, "(", ")", xs),
+        match self {
+            TyTuple::Elems(elems) => match &**elems {
+                [x] => write!(f, "({},)", x),
+                xs => display_container::fmt_container(f, "(", ")", xs),
+            },
+            TyTuple::Of(item) => {
+                if item.is_any() {
+                    write!(f, "tuple")
+                } else {
+                    write!(f, "tuple[{}, ...]", item)
+                }
+            }
         }
     }
 }

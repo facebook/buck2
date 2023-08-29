@@ -123,7 +123,7 @@ impl TyBasic {
 
     /// Type is a tuple, with specified or unspecified member types.
     pub(crate) fn is_tuple(&self) -> bool {
-        self.as_name() == Some("tuple")
+        matches!(self, TyBasic::Tuple(_))
     }
 
     /// Type is a list, with specified or unspecified member types.

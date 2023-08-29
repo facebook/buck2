@@ -43,11 +43,14 @@ use crate::syntax::ast::StmtP;
 use crate::syntax::def::DefParamKind;
 use crate::syntax::def::DefParams;
 use crate::syntax::uniplate::Visit;
+use crate::typing::arc_ty::ArcTy;
 use crate::typing::error::InternalError;
 use crate::typing::function::Param;
 use crate::typing::mode::TypecheckMode;
+use crate::typing::tuple::TyTuple;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
+use crate::typing::TyBasic;
 
 #[derive(Clone)]
 pub(crate) enum BindExpr<'a> {
@@ -232,9 +235,8 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
                 DefParamKind::Args => {
                     // There is the type we require people calling us use (usually any)
                     // and then separately the type we are when we are running (always tuple)
-                    // TODO(nga): currently there's no way to express the type `tuple[str, ...]`.
-                    params2.push(Param::args(ty));
-                    Some((name, Ty::any_tuple()))
+                    params2.push(Param::args(ty.clone()));
+                    Some((name, Ty::basic(TyBasic::Tuple(TyTuple::Of(ArcTy::new(ty))))))
                 }
                 DefParamKind::Kwargs => {
                     let var_ty = Ty::dict(Ty::string(), ty.clone());

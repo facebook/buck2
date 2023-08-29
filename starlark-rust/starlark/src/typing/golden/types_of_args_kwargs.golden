@@ -11,7 +11,7 @@ def foo(*args: str, **kwargs: int):
 No errors.
 
 Types:
-args: tuple
+args: tuple[str, ...]
 kwargs: dict[str, int]
 
 Compiler typechecker (eval):

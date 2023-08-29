@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-#![allow(dead_code)] // TODO(nga): used later in the stack.
-
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -71,9 +69,13 @@ impl Display for ArcTyInner {
 pub struct ArcTy(ArcTyInner);
 
 impl ArcTy {
+    pub(crate) fn any() -> ArcTy {
+        ArcTy(ArcTyInner::Any)
+    }
+
     pub(crate) fn new(ty: Ty) -> ArcTy {
         if ty.is_any() {
-            ArcTy(ArcTyInner::Any)
+            ArcTy::any()
         } else if ty.is_never() {
             ArcTy(ArcTyInner::Never)
         } else if ty == Ty::string() {

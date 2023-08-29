@@ -42,7 +42,7 @@ use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::types::not_type::NotType;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::typing::type_compiled::compiled::TypeCompiledImpl;
-use crate::values::Heap;
+use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 
@@ -217,7 +217,10 @@ impl TyStarlarkValue {
     }
 
     /// Convert to runtime type matcher.
-    pub(crate) fn type_compiled<'v>(self, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
+    pub(crate) fn type_compiled<'v>(
+        self,
+        type_compiled_factory: TypeCompiledFactory<'v>,
+    ) -> TypeCompiled<Value<'v>> {
         self.self_check();
 
         // First handle special cases that can match faster than default matcher.
@@ -242,13 +245,9 @@ impl TyStarlarkValue {
                 }
             }
 
-            TypeCompiled::alloc(
-                StarlarkTypeIdMatcher {
-                    starlark_type_id: self.vtable.starlark_type_id,
-                },
-                Ty::basic(TyBasic::StarlarkValue(self)),
-                heap,
-            )
+            type_compiled_factory.alloc(StarlarkTypeIdMatcher {
+                starlark_type_id: self.vtable.starlark_type_id,
+            })
         }
     }
 }
