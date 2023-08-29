@@ -472,7 +472,7 @@ def test7():
         let mut res = Vec::new();
         redundant(&m.codemap, &m.statement, &mut res);
         assert_eq!(
-            res.map(|x| x.location.resolve_span().begin_line),
+            res.map(|x| x.location.resolve_span().begin.line),
             &[3, 9, 19]
         );
     }
@@ -520,6 +520,6 @@ def foo():
             .collect::<Vec<_>>();
         let mut res = Vec::new();
         no_effect(&m.codemap, &m.statement, &mut res);
-        assert_eq!(res.map(|x| x.location.resolve_span().begin_line), bad);
+        assert_eq!(res.map(|x| x.location.resolve_span().begin.line), bad);
     }
 }

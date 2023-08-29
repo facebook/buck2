@@ -92,7 +92,7 @@ impl ConformanceTest {
             match err.downcast_ref::<Diagnostic>() {
                 Some(Diagnostic {
                     span: Some(span), ..
-                }) => Some(span.resolve_span().begin_line + 1),
+                }) => Some(span.resolve_span().begin.line + 1),
                 _ => None,
             }
         }

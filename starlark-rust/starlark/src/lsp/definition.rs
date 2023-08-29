@@ -526,8 +526,8 @@ impl LspModule {
             .and_then(|span| {
                 let resolved = self.ast.codemap.resolve_span(span);
                 self.find_definition_at_location(
-                    resolved.begin_line as u32,
-                    resolved.begin_column as u32,
+                    resolved.begin.line as u32,
+                    resolved.begin.column as u32,
                 )
                 .local_destination()
             })
@@ -607,6 +607,7 @@ pub(crate) mod helpers {
     use super::*;
     use crate::codemap::CodeMap;
     use crate::codemap::Pos;
+    use crate::codemap::ResolvedPos;
     use crate::codemap::ResolvedSpan;
     use crate::codemap::Span;
     use crate::syntax::AstModule;
@@ -706,14 +707,16 @@ pub(crate) mod helpers {
             self.ranges
                 .get(identifier)
                 .expect("identifier to be present")
-                .begin_line as u32
+                .begin
+                .line as u32
         }
 
         pub(crate) fn begin_column(&self, identifier: &str) -> u32 {
             self.ranges
                 .get(identifier)
                 .expect("identifier to be present")
-                .begin_column as u32
+                .begin
+                .column as u32
         }
 
         pub(crate) fn resolved_span(&self, identifier: &str) -> ResolvedSpan {
@@ -770,10 +773,14 @@ pub(crate) mod helpers {
         .into_iter()
         .map(|(id, begin_line, begin_column, end_line, end_column)| {
             let span = ResolvedSpan {
-                begin_line,
-                begin_column,
-                end_line,
-                end_column,
+                begin: ResolvedPos {
+                    line: begin_line,
+                    column: begin_column,
+                },
+                end: ResolvedPos {
+                    line: end_line,
+                    column: end_column,
+                },
             };
             (id.to_owned(), span)
         })

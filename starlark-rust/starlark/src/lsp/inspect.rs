@@ -91,8 +91,8 @@ impl AstModule {
             // Utility function to get the span of a string literal without the quotes.
             fn string_span_without_quotes(codemap: &CodeMap, span: Span) -> ResolvedSpan {
                 let mut span = codemap.resolve_span(span);
-                span.begin_column += 1;
-                span.end_column -= 1;
+                span.begin.column += 1;
+                span.end.column -= 1;
                 span
             }
 

@@ -42,8 +42,8 @@ impl LintMessage {
     pub fn new(x: EvalMessage) -> Self {
         Self {
             path: x.path,
-            line: x.span.map(|x| x.begin_line + 1),
-            char: x.span.map(|x| x.begin_column + 1),
+            line: x.span.map(|x| x.begin.line + 1),
+            char: x.span.map(|x| x.begin.column + 1),
             code: "STARLARK".to_owned(),
             severity: x.severity,
             name: x.name,

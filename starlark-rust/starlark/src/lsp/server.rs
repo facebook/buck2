@@ -926,8 +926,8 @@ impl<T: LspContext> Backend<T> {
 
                 TextEdit::new(
                     Range::new(
-                        Position::new(load_span.begin_line as u32, load_span.begin_column as u32),
-                        Position::new(load_span.end_line as u32, load_span.end_column as u32),
+                        Position::new(load_span.begin.line as u32, load_span.begin.column as u32),
+                        Position::new(load_span.end.line as u32, load_span.end.column as u32),
                     ),
                     format!(
                         "load(\"{module}\", {})",
@@ -950,8 +950,8 @@ impl<T: LspContext> Backend<T> {
                 TextEdit::new(
                     match last_load {
                         Some(span) => Range::new(
-                            Position::new(span.end_line as u32, span.end_column as u32),
-                            Position::new(span.end_line as u32, span.end_column as u32),
+                            Position::new(span.end.line as u32, span.end.column as u32),
+                            Position::new(span.end.line as u32, span.end.column as u32),
                         ),
                         None => Range::new(Position::new(0, 0), Position::new(0, 0)),
                     },
@@ -1056,8 +1056,8 @@ impl<T: LspContext> Backend<T> {
                     &document.ast.codemap,
                     &document.ast.statement,
                     ResolvedPos {
-                        line: destination.begin_line,
-                        column: destination.begin_column,
+                        line: destination.begin.line,
+                        column: destination.begin.column,
                     },
                 )
                 .remove(&name)
@@ -1938,7 +1938,7 @@ mod test {
         let bar_resolved_span = bar.resolved_span("bar");
         let bar_span_str = format!(
             "{}:{}",
-            bar_resolved_span.begin_column, bar_resolved_span.end_column
+            bar_resolved_span.begin.column, bar_resolved_span.end.column
         );
 
         let foo_contents = dedent(

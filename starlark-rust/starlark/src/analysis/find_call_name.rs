@@ -70,6 +70,7 @@ impl AstModule {
 #[cfg(test)]
 mod test {
 
+    use crate::codemap::ResolvedPos;
     use crate::codemap::ResolvedSpan;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
@@ -89,10 +90,8 @@ def x(name = "foo_name"):
 
         assert_eq!(
             Some(ResolvedSpan {
-                begin_line: 1,
-                begin_column: 0,
-                end_line: 1,
-                end_column: 3
+                begin: ResolvedPos { line: 1, column: 0 },
+                end: ResolvedPos { line: 1, column: 3 }
             }),
             module
                 .find_function_call_with_name("foo_name")

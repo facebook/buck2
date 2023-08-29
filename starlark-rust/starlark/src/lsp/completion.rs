@@ -179,8 +179,8 @@ impl<T: LspContext> Backend<T> {
         workspace_root: Option<&Path>,
     ) -> impl Iterator<Item = CompletionItem> {
         match document.find_definition_at_location(
-            function_name_span.begin_line as u32,
-            function_name_span.begin_column as u32,
+            function_name_span.begin.line as u32,
+            function_name_span.begin.column as u32,
         ) {
             Definition::Identifier(identifier) => self
                 .parameter_name_options_for_identifier_definition(
@@ -225,8 +225,8 @@ impl<T: LspContext> Backend<T> {
                     &document.ast.codemap,
                     &document.ast.statement,
                     ResolvedPos {
-                        line: destination.begin_line,
-                        column: destination.begin_column,
+                        line: destination.begin.line,
+                        column: destination.begin.column,
                     },
                 )
                 .remove(name)

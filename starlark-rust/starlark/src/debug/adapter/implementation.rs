@@ -242,10 +242,10 @@ fn convert_frame(id: usize, name: String, location: Option<FileSpan>) -> StackFr
     };
     if let Some(loc) = location {
         let span = loc.resolve_span();
-        s.line = span.begin_line as i64 + 1;
-        s.column = span.begin_column as i64 + 1;
-        s.end_line = Some(span.end_line as i64 + 1);
-        s.end_column = Some(span.end_column as i64 + 1);
+        s.line = span.begin.line as i64 + 1;
+        s.column = span.begin.column as i64 + 1;
+        s.end_line = Some(span.end.line as i64 + 1);
+        s.end_column = Some(span.end.column as i64 + 1);
         s.source = Some(Source {
             path: Some(loc.filename().to_owned()),
             ..Source::default()
@@ -400,7 +400,7 @@ pub(crate) fn resolve_breakpoints(
     let poss: HashMap<usize, FileSpan> = ast
         .stmt_locations()
         .iter()
-        .map(|span| (span.resolve_span().begin_line, span.dupe()))
+        .map(|span| (span.resolve_span().begin.line, span.dupe()))
         .collect();
     Ok(ResolvedBreakpoints(args.breakpoints.as_ref().map_or(
         Vec::new(),

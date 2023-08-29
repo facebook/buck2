@@ -395,13 +395,19 @@ impl CodeMap {
 }
 
 /// All are 0-based, but print out with 1-based.
-#[derive(Copy, Clone, Dupe, Hash, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Dupe, Hash, Eq, PartialEq, Debug, Default)]
 pub struct ResolvedPos {
     /// The line number within the file (0-indexed).
     pub line: usize,
 
     /// The column within the line (0-indexed in characters).
     pub column: usize,
+}
+
+impl Display for ResolvedPos {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{}", self.line + 1, self.column + 1)
+    }
 }
 
 impl ResolvedPos {
@@ -508,40 +514,23 @@ impl FileSpan {
 /// All are 0-based, but print out with 1-based.
 #[derive(Debug, Dupe, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct ResolvedSpan {
-    /// 0-based line number of the beginning of the span.
-    pub begin_line: usize,
-    /// 0-based character column number of the beginning of the span.
-    pub begin_column: usize,
-    /// 0-based line number of the end of the span.
-    pub end_line: usize,
-    /// 0-based character column number of the end of the span.
-    pub end_column: usize,
+    /// Beginning of the span.
+    pub begin: ResolvedPos,
+    /// End of the span.
+    pub end: ResolvedPos,
 }
 
 impl Display for ResolvedSpan {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let single_line = self.begin_line == self.end_line;
-        let is_empty = single_line && self.begin_column == self.end_column;
+        let single_line = self.begin.line == self.end.line;
+        let is_empty = single_line && self.begin.column == self.end.column;
 
         if is_empty {
-            write!(f, "{}:{}", self.begin_line + 1, self.begin_column + 1)
+            write!(f, "{}:{}", self.begin.line + 1, self.begin.column + 1)
         } else if single_line {
-            write!(
-                f,
-                "{}:{}-{}",
-                self.begin_line + 1,
-                self.begin_column + 1,
-                self.end_column + 1
-            )
+            write!(f, "{}-{}", self.begin, self.end.column + 1)
         } else {
-            write!(
-                f,
-                "{}:{}-{}:{}",
-                self.begin_line + 1,
-                self.begin_column + 1,
-                self.end_line + 1,
-                self.end_column + 1
-            )
+            write!(f, "{}-{}", self.begin, self.end,)
         }
     }
 }
@@ -549,8 +538,8 @@ impl Display for ResolvedSpan {
 impl From<ResolvedSpan> for lsp_types::Range {
     fn from(span: ResolvedSpan) -> Self {
         lsp_types::Range::new(
-            lsp_types::Position::new(span.begin_line as u32, span.begin_column as u32),
-            lsp_types::Position::new(span.end_line as u32, span.end_column as u32),
+            lsp_types::Position::new(span.begin.line as u32, span.begin.column as u32),
+            lsp_types::Position::new(span.end.line as u32, span.end.column as u32),
         )
     }
 }
@@ -559,19 +548,14 @@ impl ResolvedSpan {
     /// Check that the given position is contained within this span.
     /// Includes positions both at the beginning and the end of the range.
     pub fn contains(&self, pos: ResolvedPos) -> bool {
-        (self.begin_line < pos.line
-            || (self.begin_line == pos.line && self.begin_column <= pos.column))
-            && (self.end_line > pos.line
-                || (self.end_line == pos.line && self.end_column >= pos.column))
+        (self.begin.line < pos.line
+            || (self.begin.line == pos.line && self.begin.column <= pos.column))
+            && (self.end.line > pos.line
+                || (self.end.line == pos.line && self.end.column >= pos.column))
     }
 
     fn from_span(begin: ResolvedPos, end: ResolvedPos) -> Self {
-        Self {
-            begin_line: begin.line,
-            begin_column: begin.column,
-            end_line: end.line,
-            end_column: end.column,
-        }
+        ResolvedSpan { begin, end }
     }
 
     fn _testing_parse(span: &str) -> ResolvedSpan {
@@ -754,10 +738,14 @@ mod tests {
         assert_eq!(NativeCodeMap::SOURCE, CODEMAP.source_line(100));
         assert_eq!(
             ResolvedSpan {
-                begin_line: 100,
-                begin_column: 200,
-                end_line: 100,
-                end_column: 200 + NativeCodeMap::SOURCE.len(),
+                begin: ResolvedPos {
+                    line: 100,
+                    column: 200,
+                },
+                end: ResolvedPos {
+                    line: 100,
+                    column: 200 + NativeCodeMap::SOURCE.len(),
+                }
             },
             CODEMAP.resolve_span(CODEMAP.full_span())
         );
@@ -766,10 +754,8 @@ mod tests {
     #[test]
     fn test_resolved_span_contains() {
         let span = ResolvedSpan {
-            begin_line: 2,
-            begin_column: 3,
-            end_line: 4,
-            end_column: 5,
+            begin: ResolvedPos { line: 2, column: 3 },
+            end: ResolvedPos { line: 4, column: 5 },
         };
         assert!(!span.contains(ResolvedPos { line: 0, column: 7 }));
         assert!(!span.contains(ResolvedPos { line: 2, column: 2 }));
