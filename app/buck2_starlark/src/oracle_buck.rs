@@ -60,7 +60,7 @@ impl TypingOracle for CustomBuck {
 struct AddErrors(OracleDocs);
 
 impl TypingOracle for AddErrors {
-    fn attribute(&self, ty: &TyName, _attr: TypingAttr) -> Option<Result<Ty, ()>> {
+    fn attribute(&self, ty: &TyName, _attr: &str) -> Option<Result<Ty, ()>> {
         if self.0.known_object(ty.as_str()) {
             Some(Err(()))
         } else {

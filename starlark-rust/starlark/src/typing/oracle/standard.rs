@@ -20,7 +20,6 @@ use crate::docs::DocItem;
 use crate::environment::Globals;
 use crate::stdlib::LibraryExtension;
 use crate::typing::oracle::docs::OracleDocs;
-use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::oracle::traits::TypingOracle;
 use crate::typing::ty::Ty;
 use crate::typing::ty::TyName;
@@ -54,7 +53,7 @@ impl OracleStandard {
 }
 
 impl TypingOracle for OracleStandard {
-    fn attribute(&self, ty: &TyName, attr: TypingAttr) -> Option<Result<Ty, ()>> {
+    fn attribute(&self, ty: &TyName, attr: &str) -> Option<Result<Ty, ()>> {
         let res = self.fallback.attribute(ty, attr);
         if res.is_none() && self.fallback.known_object(ty.as_str()) {
             return Some(Err(()));

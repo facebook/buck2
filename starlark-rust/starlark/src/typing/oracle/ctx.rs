@@ -32,11 +32,11 @@ use crate::typing::function::Param;
 use crate::typing::function::ParamMode;
 use crate::typing::function::TyFunction;
 use crate::typing::mode::TypecheckMode;
+use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::tuple::TyTuple;
 use crate::typing::Ty;
 use crate::typing::TyName;
-use crate::typing::TypingAttr;
 use crate::typing::TypingBinOp;
 use crate::typing::TypingOracle;
 use crate::typing::TypingUnOp;
@@ -376,10 +376,7 @@ impl<'a> TypingOracleCtx<'a> {
             TyBasic::Callable => Ok(Ty::any()),
             TyBasic::Iter(ty) => Ok(ty.to_ty()),
             TyBasic::Custom(ty) => ty.0.attribute_dyn(TypingAttr::Iter),
-            TyBasic::Name(ty) => self
-                .oracle
-                .attribute(ty, TypingAttr::Iter)
-                .unwrap_or_else(|| Ok(Ty::any())),
+            TyBasic::Name(_) => Ok(Ty::any()),
         }
     }
 
@@ -398,7 +395,6 @@ impl<'a> TypingOracleCtx<'a> {
 
     fn expr_index_ty(
         &self,
-        span: Span,
         array: &TyBasic,
         index: Spanned<&TyBasic>,
     ) -> Result<Result<Ty, ()>, InternalError> {
@@ -424,19 +420,7 @@ impl<'a> TypingOracleCtx<'a> {
             }
             TyBasic::StarlarkValue(array) => Ok(array.index(index.node)),
             TyBasic::Custom(c) => Ok(c.0.attribute_dyn(TypingAttr::Index)),
-            TyBasic::Name(array) => {
-                let f = match self.oracle.attribute(array, TypingAttr::Index) {
-                    None => return Ok(Ok(Ty::any())),
-                    Some(Ok(x)) => x,
-                    Some(Err(())) => return Ok(Err(())),
-                };
-                match self.validate_call(span, &f, &[index.map(|i| Arg::Pos(Ty::basic(i.clone())))])
-                {
-                    Ok(x) => Ok(Ok(x)),
-                    Err(TypingOrInternalError::Internal(e)) => Err(e),
-                    Err(TypingOrInternalError::Typing(_)) => Ok(Err(())),
-                }
-            }
+            TyBasic::Name(_) => Ok(Ok(Ty::any())),
         }
     }
 
@@ -457,7 +441,6 @@ impl<'a> TypingOracleCtx<'a> {
         for array in array.iter_union() {
             for index_basic in index.node.iter_union() {
                 match self.expr_index_ty(
-                    span,
                     array,
                     Spanned {
                         span: index.span,
@@ -557,7 +540,7 @@ impl<'a> TypingOracleCtx<'a> {
                 }
             }
             TyBasic::Custom(custom) => custom.0.attribute_dyn(TypingAttr::Regular(attr)),
-            TyBasic::Name(array) => match self.oracle.attribute(array, TypingAttr::Regular(attr)) {
+            TyBasic::Name(array) => match self.oracle.attribute(array, attr) {
                 Some(r) => r,
                 None => Ok(Ty::any()),
             },
@@ -675,15 +658,7 @@ impl<'a> TypingOracleCtx<'a> {
                 self.validate_call(span, &fun, &[rhs.map(|t| Arg::Pos(Ty::basic(t.dupe())))])
                     .map_err(|_| ())
             }
-            TyBasic::Name(lhs) => {
-                let fun = match self.oracle.attribute(lhs, TypingAttr::BinOp(bin_op)) {
-                    Some(Ok(fun)) => fun,
-                    Some(Err(())) => return Err(()),
-                    None => return Ok(Ty::any()),
-                };
-                self.validate_call(span, &fun, &[rhs.map(|t| Arg::Pos(Ty::basic(t.clone())))])
-                    .map_err(|_| ())
-            }
+            TyBasic::Name(_) => Ok(Ty::any()),
         }
     }
 

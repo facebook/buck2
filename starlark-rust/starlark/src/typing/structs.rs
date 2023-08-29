@@ -25,9 +25,9 @@ use dupe::Dupe;
 use starlark_map::sorted_map::SortedMap;
 
 use crate::typing::custom::TyCustomImpl;
+use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::Param;
 use crate::typing::Ty;
-use crate::typing::TypingAttr;
 use crate::typing::TypingBinOp;
 use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::structs::StructRef;

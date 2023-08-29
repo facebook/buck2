@@ -54,7 +54,6 @@ pub use oracle::ctx::TypingOracleCtx;
 pub use oracle::docs::OracleDocs;
 pub use oracle::standard::OracleStandard;
 pub use oracle::traits::OracleSeq;
-pub use oracle::traits::TypingAttr;
 pub use oracle::traits::TypingBinOp;
 pub use oracle::traits::TypingOracle;
 pub use oracle::traits::TypingUnOp;

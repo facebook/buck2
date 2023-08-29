@@ -20,7 +20,6 @@ use starlark_map::unordered_map::UnorderedMap;
 use crate::docs::Doc;
 use crate::docs::DocItem;
 use crate::docs::DocModule;
-use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::Ty;
 use crate::typing::TyName;
 use crate::typing::TypingOracle;
@@ -87,16 +86,10 @@ impl OracleDocs {
 }
 
 impl TypingOracle for OracleDocs {
-    fn attribute(&self, ty: &TyName, attr: TypingAttr) -> Option<Result<Ty, ()>> {
-        match attr {
-            TypingAttr::Regular(attr) => match self.objects.get(ty.as_str())?.get(attr) {
-                None => Some(Err(())),
-                Some(res) => Some(Ok(res.clone())),
-            },
-            _ => {
-                // We don't record operator info in the docs, so it is always missing
-                return None;
-            }
+    fn attribute(&self, ty: &TyName, attr: &str) -> Option<Result<Ty, ()>> {
+        match self.objects.get(ty.as_str())?.get(attr) {
+            None => Some(Err(())),
+            Some(res) => Some(Ok(res.clone())),
         }
     }
 }

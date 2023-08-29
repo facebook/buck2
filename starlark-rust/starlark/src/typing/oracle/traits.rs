@@ -114,7 +114,7 @@ pub trait TypingOracle {
     /// Given a type and a `.` attribute, what is its type.
     /// Return [`Err`] to indicate we _know_ this isn't a valid attribute.
     /// Return [`None`] if we aren't sure.
-    fn attribute(&self, _ty: &TyName, _attr: TypingAttr) -> Option<Result<Ty, ()>> {
+    fn attribute(&self, _ty: &TyName, _attr: &str) -> Option<Result<Ty, ()>> {
         None
     }
 
@@ -136,7 +136,7 @@ pub(crate) struct OracleNoAttributes;
 
 #[cfg(test)]
 impl TypingOracle for OracleNoAttributes {
-    fn attribute(&self, _ty: &TyName, _attr: TypingAttr) -> Option<Result<Ty, ()>> {
+    fn attribute(&self, _ty: &TyName, _attr: &str) -> Option<Result<Ty, ()>> {
         Some(Err(()))
     }
 }
@@ -147,7 +147,7 @@ where
     T: TypingOracle;
 
 impl<T: TypingOracle> TypingOracle for OracleSeq<T> {
-    fn attribute(&self, ty: &TyName, attr: TypingAttr) -> Option<Result<Ty, ()>> {
+    fn attribute(&self, ty: &TyName, attr: &str) -> Option<Result<Ty, ()>> {
         self.0.iter().find_map(|oracle| oracle.attribute(ty, attr))
     }
 
@@ -167,7 +167,7 @@ impl TypingOracle for OracleAny {}
 // Forwarding traits
 
 impl<'a, T: TypingOracle + ?Sized> TypingOracle for &'a T {
-    fn attribute(&self, ty: &TyName, attr: TypingAttr) -> Option<Result<Ty, ()>> {
+    fn attribute(&self, ty: &TyName, attr: &str) -> Option<Result<Ty, ()>> {
         (*self).attribute(ty, attr)
     }
     fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {
@@ -179,7 +179,7 @@ impl<'a, T: TypingOracle + ?Sized> TypingOracle for &'a T {
 }
 
 impl<T: TypingOracle + ?Sized> TypingOracle for Box<T> {
-    fn attribute(&self, ty: &TyName, attr: TypingAttr) -> Option<Result<Ty, ()>> {
+    fn attribute(&self, ty: &TyName, attr: &str) -> Option<Result<Ty, ()>> {
         self.as_ref().attribute(ty, attr)
     }
     fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {

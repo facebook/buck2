@@ -19,8 +19,8 @@ use allocative::Allocative;
 use dupe::Dupe;
 
 use crate::typing::custom::TyCustomImpl;
+use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::Ty;
-use crate::typing::TypingAttr;
 use crate::values::record::ty_record_type::TyRecordType;
 use crate::values::record::Record;
 use crate::values::types::type_instance_id::TypeInstanceId;
