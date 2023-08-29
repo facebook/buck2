@@ -20,7 +20,6 @@ use std::fmt::Write;
 use dupe::Dupe;
 use starlark_syntax::golden_test_template::golden_test_template;
 
-use crate::assert;
 use crate::codemap::CodeMap;
 use crate::slice_vec_ext::SliceExt;
 use crate::slice_vec_ext::VecExt;
@@ -381,7 +380,6 @@ fn test_lexer_operators() {
 ///==/+-
 "#,
     );
-    assert::eq("1+------2", "3");
 }
 
 #[test]

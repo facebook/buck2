@@ -57,6 +57,11 @@ fn bitwise_test() {
 }
 
 #[test]
+fn test_operators() {
+    assert::eq("1+------2", "3");
+}
+
+#[test]
 fn test_equality() {
     assert::all_true(
         r#"
