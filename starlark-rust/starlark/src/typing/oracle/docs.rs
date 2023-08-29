@@ -20,9 +20,9 @@ use starlark_map::unordered_map::UnorderedMap;
 use crate::docs::Doc;
 use crate::docs::DocItem;
 use crate::docs::DocModule;
-use crate::typing::basic::TyBasic;
 use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::Ty;
+use crate::typing::TyName;
 use crate::typing::TypingOracle;
 
 /// A [`TypingOracle`] based on information from documentation.
@@ -87,9 +87,9 @@ impl OracleDocs {
 }
 
 impl TypingOracle for OracleDocs {
-    fn attribute(&self, ty: &TyBasic, attr: TypingAttr) -> Option<Result<Ty, ()>> {
+    fn attribute(&self, ty: &TyName, attr: TypingAttr) -> Option<Result<Ty, ()>> {
         match attr {
-            TypingAttr::Regular(attr) => match self.objects.get(ty.as_name()?)?.get(attr) {
+            TypingAttr::Regular(attr) => match self.objects.get(ty.as_str())?.get(attr) {
                 None => Some(Err(())),
                 Some(res) => Some(Ok(res.clone())),
             },

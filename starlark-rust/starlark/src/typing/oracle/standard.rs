@@ -19,7 +19,6 @@ use crate::docs::Doc;
 use crate::docs::DocItem;
 use crate::environment::Globals;
 use crate::stdlib::LibraryExtension;
-use crate::typing::basic::TyBasic;
 use crate::typing::oracle::docs::OracleDocs;
 use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::oracle::traits::TypingOracle;
@@ -65,25 +64,12 @@ impl OracleStandard {
 }
 
 impl TypingOracle for OracleStandard {
-    fn attribute(&self, ty: &TyBasic, attr: TypingAttr) -> Option<Result<Ty, ()>> {
-        let fallback = || match self.fallback.attribute(ty, attr) {
-            // We know we have full knowledge, so if we don't know, that must mean the attribute does not exist
-            None => Some(Err(())),
-            x => x,
-        };
-        // We have to explicitly implement operators (e.g. `__in__` since we don't generate documentation for them).
-        // We explicitly implement polymorphic functions (e.g. `dict.get`) so they can get much more precise types.
-        match ty {
-            TyBasic::List(..) => return fallback(),
-            TyBasic::Dict(..) => return fallback(),
-            _ => {
-                let res = self.fallback.attribute(ty, attr);
-                if res.is_none() && self.fallback.known_object(ty.as_name().unwrap_or_default()) {
-                    return Some(Err(()));
-                } else {
-                    return res;
-                }
-            }
+    fn attribute(&self, ty: &TyName, attr: TypingAttr) -> Option<Result<Ty, ()>> {
+        let res = self.fallback.attribute(ty, attr);
+        if res.is_none() && self.fallback.known_object(ty.as_str()) {
+            return Some(Err(()));
+        } else {
+            return res;
         }
     }
 
