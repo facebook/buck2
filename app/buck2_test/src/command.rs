@@ -606,7 +606,8 @@ pub(crate) struct TestDriverState<'a, 'e> {
 struct TestDriver<'a, 'e> {
     state: TestDriverState<'a, 'e>,
     work: FuturesUnordered<BoxFuture<'a, anyhow::Result<Vec<TestDriverTask>>>>,
-    labels_seen: HashSet<ConfiguredProvidersLabel>,
+    labels_configured: HashSet<(ProvidersLabel, bool)>,
+    labels_tested: HashSet<ConfiguredProvidersLabel>,
     build_errors: Vec<String>,
 }
 
@@ -615,7 +616,8 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         Self {
             state,
             work: FuturesUnordered::new(),
-            labels_seen: HashSet::new(),
+            labels_configured: HashSet::new(),
+            labels_tested: HashSet::new(),
             build_errors: Vec::new(),
         }
     }
@@ -703,6 +705,10 @@ impl<'a, 'e> TestDriver<'a, 'e> {
     }
 
     fn configure_target(&mut self, label: ProvidersLabel, skippable: bool) {
+        if !self.labels_configured.insert((label.clone(), skippable)) {
+            return;
+        }
+
         let state = self.state;
 
         let fut = async move {
@@ -759,7 +765,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
     }
 
     fn test_target(&mut self, label: ConfiguredProvidersLabel) {
-        if !self.labels_seen.insert(label.clone()) {
+        if !self.labels_tested.insert(label.clone()) {
             return;
         }
 
