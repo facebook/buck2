@@ -205,6 +205,10 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
         self.0.validate_call(span, args, oracle)
     }
 
+    fn is_callable(&self) -> bool {
+        true
+    }
+
     fn attribute(&self, attr: TypingAttr) -> Result<Ty, ()> {
         if attr == TypingAttr::Regular("type") && self.0.has_type_attr() {
             Ok(Ty::string())

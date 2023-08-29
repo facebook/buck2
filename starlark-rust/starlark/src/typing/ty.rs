@@ -26,7 +26,9 @@ use dupe::IterDupedExt;
 use either::Either;
 use serde::Serialize;
 use serde::Serializer;
+use starlark_derive::Trace;
 
+use crate as starlark;
 use crate::docs::DocFunction;
 use crate::docs::DocMember;
 use crate::docs::DocParam;
@@ -77,7 +79,9 @@ impl Display for Approximation {
 }
 
 /// A Starlark type.
-#[derive(Debug, Clone, Dupe, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
+#[derive(
+    Debug, Clone, Dupe, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative, Trace
+)]
 pub struct Ty {
     /// A series of alternative types.
     ///

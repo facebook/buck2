@@ -56,9 +56,17 @@ pub trait TyCustomImpl:
     ) -> Result<Ty, TypingOrInternalError> {
         Err(oracle.msg_error(span, format!("Value of type `{}` is not callable", self)))
     }
+    /// Must override if implementing `validate_call`.
+    fn is_callable(&self) -> bool {
+        false
+    }
     fn attribute(&self, attr: TypingAttr) -> Result<Ty, ()>;
     fn union2(x: Arc<Self>, other: Arc<Self>) -> Result<Arc<Self>, (Arc<Self>, Arc<Self>)> {
         if x == other { Ok(x) } else { Err((x, other)) }
+    }
+    fn intersects(x: &Self, y: &Self) -> bool {
+        let _ignore = (x, y);
+        true
     }
 
     /// Create runtime type matcher for values.
@@ -70,6 +78,7 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
     fn hash_code(&self) -> u64;
     fn cmp_token(&self) -> (OrdAny, &'static str);
     fn into_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
+    fn as_any(&self) -> &dyn Any;
 
     fn as_name_dyn(&self) -> Option<&str>;
     fn validate_call_dyn(
@@ -78,11 +87,13 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
         args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError>;
+    fn is_callable_dyn(&self) -> bool;
     fn attribute_dyn(&self, attr: TypingAttr) -> Result<Ty, ()>;
     fn union2_dyn(
         self: Arc<Self>,
         other: Arc<dyn TyCustomDyn>,
     ) -> Result<Arc<dyn TyCustomDyn>, (Arc<dyn TyCustomDyn>, Arc<dyn TyCustomDyn>)>;
+    fn intersects_dyn(&self, other: &dyn TyCustomDyn) -> bool;
 
     fn matcher_dyn<'v>(
         &self,
@@ -109,6 +120,10 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
         self
     }
 
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn as_name_dyn(&self) -> Option<&str> {
         self.as_name()
     }
@@ -120,6 +135,10 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
         self.validate_call(span, args, oracle)
+    }
+
+    fn is_callable_dyn(&self) -> bool {
+        self.is_callable()
     }
 
     fn attribute_dyn(&self, attr: TypingAttr) -> Result<Ty, ()> {
@@ -137,6 +156,14 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
                 .map_err::<(Arc<dyn TyCustomDyn>, Arc<dyn TyCustomDyn>), _>(|(x, y)| (x, y))
         } else {
             Err((self, other))
+        }
+    }
+
+    fn intersects_dyn(&self, other: &dyn TyCustomDyn) -> bool {
+        if let Some(other) = other.as_any().downcast_ref::<Self>() {
+            T::intersects(self, other)
+        } else {
+            false
         }
     }
 
@@ -162,20 +189,15 @@ impl TyCustom {
             .map_err(|(x, y)| (TyCustom(x), TyCustom(y)))
     }
 
-    #[allow(clippy::if_same_then_else, clippy::needless_bool)]
     pub(crate) fn intersects(x: &TyCustom, y: &TyCustom) -> bool {
-        if x.0.eq_token().type_id() == y.0.eq_token().type_id() {
-            // FIXME: Can probably be a bit more precise here
-            true
-        } else {
-            false
-        }
+        x.0.intersects_dyn(&*y.0)
     }
 
     pub(crate) fn intersects_with(&self, other: &TyBasic) -> bool {
         match other {
             TyBasic::Custom(other) => Self::intersects(self, other),
-            TyBasic::Callable => self.as_name() == Some("function"),
+            TyBasic::Name(name) => self.as_name() == Some(name.as_str()),
+            TyBasic::Callable => self.0.is_callable_dyn(),
             _ => false,
         }
     }

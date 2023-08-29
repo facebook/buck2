@@ -45,5 +45,7 @@ pub(crate) mod field;
 pub(crate) mod globals;
 pub(crate) mod instance;
 pub(crate) mod record_type;
+pub(crate) mod ty_record;
+pub(crate) mod ty_record_type;
 
 pub use crate::values::record::instance::Record;

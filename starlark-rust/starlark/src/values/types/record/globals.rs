@@ -143,7 +143,7 @@ rec_type(host="localhost", port=80, mask=255)
         assert::pass(
             r#"
 rec_type = record(host=str.type, port=int.type)
-def foo(x: rec_type.type) -> "rec_type":
+def foo(x: rec_type) -> rec_type:
     return x
 foo(rec_type(host="localhost", port=80))"#,
         );

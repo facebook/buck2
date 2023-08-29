@@ -22,7 +22,9 @@ use allocative::Allocative;
 use dupe::Dupe;
 
 /// Globally unique identifier for a type, like record type or enum type.
-#[derive(Debug, Copy, Clone, Dupe, Hash, Eq, PartialEq, Allocative)]
+#[derive(
+    Debug, Copy, Clone, Dupe, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative
+)]
 pub(crate) struct TypeInstanceId(u64);
 
 impl TypeInstanceId {

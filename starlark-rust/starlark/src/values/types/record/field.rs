@@ -32,6 +32,7 @@ use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::coerce::Coerce;
 use crate::starlark_complex_value;
+use crate::typing::Ty;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::StarlarkValue;
 use crate::values::ValueLike;
@@ -74,6 +75,12 @@ starlark_complex_value!(pub(crate) Field);
 impl<V> FieldGen<V> {
     pub(crate) fn new(typ: TypeCompiled<V>, default: Option<V>) -> Self {
         Self { typ, default }
+    }
+}
+
+impl<'v, V: ValueLike<'v>> FieldGen<V> {
+    pub(crate) fn ty(&self) -> Ty {
+        self.typ.as_ty().clone()
     }
 }
 

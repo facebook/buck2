@@ -32,12 +32,13 @@ use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::collections::StarlarkHasher;
 use crate::starlark_complex_value;
+use crate::typing::Ty;
 use crate::values::comparison::equals_slice;
 use crate::values::record::field::FieldGen;
 use crate::values::record::record_type::record_fields;
 use crate::values::record::record_type::FrozenRecordType;
 use crate::values::record::record_type::RecordType;
-use crate::values::types::exported_name::ExportedName;
+use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::Freeze;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
@@ -70,6 +71,13 @@ impl<'v, V: ValueLike<'v>> RecordGen<V> {
         RecordType::from_value(self.typ.to_value()).unwrap()
     }
 
+    pub(crate) fn record_type_id(&self) -> TypeInstanceId {
+        match self.get_record_type() {
+            Either::Left(x) => x.id,
+            Either::Right(x) => x.id,
+        }
+    }
+
     fn get_record_fields(&self) -> &'v SmallMap<String, FieldGen<Value<'v>>> {
         record_fields(self.get_record_type())
     }
@@ -96,8 +104,8 @@ where
             return true;
         }
         match self.get_record_type() {
-            Either::Left(x) => x.typ.equal_to(ty),
-            Either::Right(x) => x.typ.equal_to(ty),
+            Either::Left(x) => x.ty_record_type().map(|t| t.data.name.as_str()) == Some(ty),
+            Either::Right(x) => x.ty_record_type().map(|t| t.data.name.as_str()) == Some(ty),
         }
     }
 
@@ -129,6 +137,13 @@ where
 
     fn dir_attr(&self) -> Vec<String> {
         self.get_record_fields().keys().cloned().collect()
+    }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(
+            self.get_record_type()
+                .either(|r| r.instance_ty(), |r| r.instance_ty()),
+        )
     }
 }
 
