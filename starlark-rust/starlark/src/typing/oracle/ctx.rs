@@ -368,11 +368,15 @@ impl<'a> TypingOracleCtx<'a> {
 
     fn iter_item_basic(&self, ty: &TyBasic) -> Result<Ty, ()> {
         match ty {
+            TyBasic::Any => Ok(Ty::any()),
             TyBasic::StarlarkValue(ty) => ty.iter_item(),
             TyBasic::List(item) => Ok((**item).dupe()),
             TyBasic::Dict(k, _v) => Ok((**k).dupe()),
             TyBasic::Tuple(tuple) => Ok(tuple.item_ty()),
-            ty => self
+            TyBasic::Callable => Ok(Ty::any()),
+            TyBasic::Iter(ty) => Ok(ty.to_ty()),
+            TyBasic::Custom(ty) => ty.0.attribute_dyn(TypingAttr::Iter),
+            ty @ TyBasic::Name(_) => self
                 .oracle
                 .attribute(ty, TypingAttr::Iter)
                 .unwrap_or_else(|| Ok(Ty::any())),
