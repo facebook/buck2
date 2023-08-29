@@ -137,12 +137,12 @@ impl<'a> TypingOracleCtx<'a> {
     }
 
     /// See what lies behind an attribute on a type
-    pub(crate) fn attribute_basic(&self, ty: &TyBasic, attr: TypingAttr) -> Result<Ty, ()> {
+    pub(crate) fn attribute_regular(&self, ty: &TyBasic, attr: &str) -> Result<Ty, ()> {
         // There are some structural types which have to be handled in a specific way
         match ty {
             TyBasic::Any => Ok(Ty::any()),
-            TyBasic::Custom(custom) => custom.0.attribute_dyn(attr),
-            _ => match self.oracle.attribute(ty, attr) {
+            TyBasic::Custom(custom) => custom.0.attribute_dyn(TypingAttr::Regular(attr)),
+            _ => match self.oracle.attribute(ty, TypingAttr::Regular(attr)) {
                 Some(r) => r,
                 None => Ok(Ty::any()),
             },
@@ -562,7 +562,7 @@ impl<'a> TypingOracleCtx<'a> {
                     attr => TyStarlarkValue::new::<MutableDict>().attr(attr),
                 }
             }
-            array => self.attribute_basic(array, TypingAttr::Regular(attr)),
+            array => self.attribute_regular(array, attr),
         }
     }
 
