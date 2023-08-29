@@ -36,6 +36,7 @@
 //! ```
 
 pub(crate) mod enum_type;
+pub(crate) mod globals;
 pub(crate) mod value;
 
 pub use enum_type::EnumType;

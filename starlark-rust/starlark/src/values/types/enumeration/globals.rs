@@ -25,7 +25,7 @@ use crate::values::Heap;
 use crate::values::Value;
 
 #[starlark_module]
-pub fn global(builder: &mut GlobalsBuilder) {
+pub fn register_enum(builder: &mut GlobalsBuilder) {
     /// The `enum` type represents one value picked from a set of values.
     ///
     /// For example:

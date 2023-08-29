@@ -24,7 +24,6 @@ use crate::environment::GlobalsBuilder;
 
 pub(crate) mod breakpoint;
 pub(crate) mod dict;
-pub(crate) mod enumeration;
 pub(crate) mod extra;
 mod funcs;
 pub(crate) mod internal;
@@ -38,6 +37,7 @@ pub use extra::PrintHandler;
 
 use crate::stdlib::funcs::globals::register_globals;
 use crate::stdlib::internal::register_internal;
+use crate::values::enumeration::globals::register_enum;
 use crate::values::record::globals::register_record;
 use crate::values::typing;
 
@@ -119,7 +119,7 @@ impl LibraryExtension {
         match self {
             StructType => structs::global(builder),
             RecordType => register_record(builder),
-            EnumType => enumeration::global(builder),
+            EnumType => register_enum(builder),
             Map => extra::map(builder),
             Filter => extra::filter(builder),
             Partial => partial::partial(builder),
