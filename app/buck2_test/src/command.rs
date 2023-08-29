@@ -584,8 +584,8 @@ enum TestDriverTask {
         labels: Vec<ProvidersLabel>,
         skippable: bool,
     },
-    TestTargets {
-        labels: Vec<ConfiguredProvidersLabel>,
+    TestTarget {
+        label: ConfiguredProvidersLabel,
     },
 }
 
@@ -655,8 +655,8 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                             TestDriverTask::ConfigureTargets { labels, skippable } => {
                                 self.configure_targets(labels, skippable);
                             }
-                            TestDriverTask::TestTargets { labels } => {
-                                self.test_targets(labels);
+                            TestDriverTask::TestTarget { label } => {
+                                self.test_target(label);
                             }
                         }
                     }
@@ -721,14 +721,14 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                     MaybeCompatible::Compatible(node) => node,
                 };
 
+                // Test this: it's compatible.
+                let mut work = vec![TestDriverTask::TestTarget { label }];
+
                 // If this node is a forward, it'll get flattened when we do analysis and run the
                 // test later, but its `tests` attribute here will not be, and that means we'll
                 // just ignore it (since we don't traverse `tests` recursively). So ... just
                 // flatten it?
                 let node = node.forward_target().unwrap_or(&node);
-
-                // Test this, it's compatible.
-                let mut labels = vec![label];
 
                 // Look up `tests` in the the target we're testing, and if we find any tests, add them to the test backlog.
                 for test in node.tests() {
@@ -740,44 +740,41 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                                 state.global_target_platform.as_ref(),
                             )
                             .await?;
-                        labels.push(label);
+
+                        work.push(TestDriverTask::TestTarget { label });
                     } else {
-                        labels.push(test);
+                        work.push(TestDriverTask::TestTarget { label: test });
                     }
                 }
 
-                anyhow::Ok(vec![TestDriverTask::TestTargets { labels }])
+                anyhow::Ok(work)
             }
             .boxed()
         }));
     }
 
-    fn test_targets(&mut self, labels: Vec<ConfiguredProvidersLabel>) {
-        self.work.extend(labels.into_iter().filter_map(|label| {
-            if !self.labels_seen.insert(label.clone()) {
-                return None;
-            }
+    fn test_target(&mut self, label: ConfiguredProvidersLabel) {
+        if !self.labels_seen.insert(label.clone()) {
+            return;
+        }
 
-            let state = self.state;
+        let state = self.state;
+        let fut = async move {
+            test_target(
+                state.ctx,
+                label,
+                state.test_executor.dupe(),
+                state.session,
+                state.label_filtering.dupe(),
+                state.cell_resolver,
+                state.working_dir_cell,
+            )
+            .await?;
+            anyhow::Ok(vec![])
+        }
+        .boxed();
 
-            let fut = async move {
-                test_target(
-                    state.ctx,
-                    label,
-                    state.test_executor.dupe(),
-                    state.session,
-                    state.label_filtering.dupe(),
-                    state.cell_resolver,
-                    state.working_dir_cell,
-                )
-                .await?;
-
-                anyhow::Ok(vec![])
-            }
-            .boxed();
-
-            Some(fut)
-        }));
+        self.work.push(fut);
     }
 }
 
