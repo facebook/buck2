@@ -17,15 +17,14 @@
 
 //! The AST of Starlark as [`AstModule`], along with a [`parse`](AstModule::parse) function.
 
-pub use dialect::Dialect;
-pub use dialect::DialectTypes;
 pub use module::AstModule;
 pub use parser::AstLoad;
+pub use starlark_syntax::dialect::Dialect;
+pub use starlark_syntax::dialect::DialectTypes;
 
 pub(crate) mod ast;
 pub(crate) mod cursors;
 pub(crate) mod def;
-mod dialect;
 #[cfg(test)]
 mod grammar_tests;
 pub(crate) mod grammar_util;
