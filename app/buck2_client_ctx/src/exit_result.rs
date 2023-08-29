@@ -8,7 +8,6 @@
  */
 
 use std::convert::Infallible;
-use std::ffi::CString;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::io;
@@ -16,9 +15,7 @@ use std::io::Write;
 use std::ops::FromResidual;
 use std::process::Command;
 
-use anyhow::Context;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
-use gazebo::prelude::*;
 
 use crate::subscribers::observer::ErrorCause;
 
@@ -209,11 +206,8 @@ impl ExitResultVariant {
             Self::Buck2RunExec(args) => {
                 // Terminate by exec-ing a new process - usually because of `buck2 run`.
                 //
-                // execv does not return on successful operation, so it always returns an error.
-                match execv(args) {
-                    Ok(status) => status.report(),
-                    Err(e) => Self::Err(e).report(),
-                };
+                // execv does not return.
+                execv(args)
             }
             Self::Err(e) => {
                 match e.downcast_ref::<FailureExitCode>() {
@@ -299,44 +293,41 @@ pub enum FailureExitCode {
     ConnectError(anyhow::Error),
 }
 
-/// Invokes the given program with the given argv and replaces the program image with the new program. Does not return
-/// in the case of successful execution.
-fn execv(args: ExecArgs) -> anyhow::Result<ExitResult> {
+#[cfg(windows)]
+fn do_exec(command: &mut Command) -> anyhow::Error {
+    let status = match command.status() {
+        Ok(status) => status,
+        Err(e) => return e.into(),
+    };
+    let code = status.code().unwrap_or(1);
+    unsafe { libc::_exit(code as libc::c_int) }
+}
+
+#[cfg(unix)]
+fn do_exec(command: &mut Command) -> anyhow::Error {
+    use std::os::unix::process::CommandExt;
+
+    command.exec().into()
+}
+
+/// Invokes the given program with the given argv and replaces the program image with the new program.
+/// Does not return.
+fn execv(args: ExecArgs) -> ! {
+    let mut command = Command::new(&args.prog);
+    command.args(&args.argv[1..]);
     if let Some(dir) = args.chdir {
         // Note here we break `cwd::cwd_will_not_change` promise.
-        // This is OK because we immediately call execv after this
+        // This is OK because we don't return from this function
         // (otherwise this would be a really bad idea, even without the promise).
-        std::env::set_current_dir(dir)?;
+        command.current_dir(dir);
     }
-
     for (k, v) in args.env {
-        // Same as above
-        std::env::set_var(k, v);
+        // Same as above.
+        command.env(k, v);
     }
-
-    if cfg!(windows) {
-        let status = Command::new(&args.prog)
-            .args(&args.argv[1..])
-            .status()
-            .with_context(|| {
-                format!(
-                    "Failed to execute target process, running {:?} {:?}",
-                    args.prog, args.argv
-                )
-            })?;
-        let code = status.code().unwrap_or(1);
-        Ok(ExitResult::status(code.try_into().unwrap_or(1)))
-    } else {
-        let argv_cstrs: Vec<CString> = args.argv.try_map(|s| CString::new(s.clone()))?;
-        let mut argv_ptrs: Vec<_> = argv_cstrs.map(|cstr| cstr.as_ptr());
-        // By convention, execv's second argument is terminated by a null pointer.
-        argv_ptrs.push(std::ptr::null());
-        let prog_cstr = CString::new(args.prog).context("program name contained a null byte")?;
-        unsafe {
-            libc::execvp(prog_cstr.as_ptr(), argv_ptrs.as_ptr());
-        }
-
-        // `execv` never returns on success; on failure, it sets errno.
-        Err(io::Error::last_os_error().into())
-    }
+    let err = do_exec(&mut command).context(format!(
+        "Failed to execute target process, running {:?} {:?}",
+        args.prog, args.argv
+    ));
+    ExitResult::err(err).report()
 }
