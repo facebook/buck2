@@ -44,6 +44,7 @@ SdkUncompiledModuleInfo = provider(fields = [
     "partial_cmd",  # Partial arguments, required to compile a particular SDK module.
     "input_relative_path",  # A relative prefixed path to a textual swiftinterface/modulemap file within an SDK.
     "deps",  # [Dependency]
+    "target",  # A string of the compiler target triple to use for clang module deps, eg arm64-apple-ios16.4
     "transitive_clang_deps",  # A SdkTransitiveDepsTset of all transitive SDK clang modules.
     "transitive_swift_deps",  # A SdkTransitiveDepsTset of all transitive SDK swift modules.
 ])

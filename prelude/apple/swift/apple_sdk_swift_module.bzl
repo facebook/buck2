@@ -20,8 +20,6 @@ def apple_sdk_swift_module_impl(ctx: AnalysisContext) -> list[Provider]:
         "-suppress-warnings",
         "-module-name",
         module_name,
-        "-target",
-        ctx.attrs.target,
         "-Xcc",
         "-fno-implicit-modules",
         "-Xcc",
@@ -61,6 +59,7 @@ def apple_sdk_swift_module_impl(ctx: AnalysisContext) -> list[Provider]:
         partial_cmd = cmd,
         input_relative_path = ctx.attrs.swiftinterface_relative_path,
         deps = ctx.attrs.deps,
+        target = ctx.attrs.target,
         transitive_clang_deps = ctx.actions.tset(SdkTransitiveDepsTset, children = clang_dep_children),
         transitive_swift_deps = ctx.actions.tset(SdkTransitiveDepsTset, children = swift_dep_children),
     )

@@ -8,7 +8,7 @@
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "expand_relative_prefixed_sdk_path", "get_disable_pch_validation_flags")
 load(":apple_sdk_modules_utility.bzl", "SDKDepTSet", "get_compiled_sdk_deps_tset")
-load(":swift_toolchain_types.bzl", "SdkCompiledModuleInfo", "SdkUncompiledModuleInfo", "WrappedSdkCompiledModuleInfo")
+load(":swift_toolchain_types.bzl", "SdkCompiledModuleInfo", "SdkTransitiveDepsTset", "SdkUncompiledModuleInfo", "WrappedSdkCompiledModuleInfo")
 
 def get_shared_pcm_compilation_args(module_name: str) -> cmd_args:
     cmd = cmd_args()
@@ -82,16 +82,32 @@ def get_swift_sdk_pcm_anon_targets(
         ctx: AnalysisContext,
         uncompiled_sdk_deps: list[Dependency],
         swift_cxx_args: list[str]):
-    deps = [
-        {
-            "dep": uncompiled_sdk_dep,
+    # First collect the direct clang module deps.
+    clang_deps = [
+        d
+        for d in uncompiled_sdk_deps
+        if SdkUncompiledModuleInfo in d and not d[SdkUncompiledModuleInfo].is_swiftmodule
+    ]
+
+    # We need to collect the transitive clang module deps across _all_
+    # SDK deps, as we need to pass through clang deps of Swift SDK deps.
+    # These cannot be propagated through the Swift SDK deps as those
+    # use different swift_cxx_args when compiling their clang deps.
+    transitive_clang_dep_tset = ctx.actions.tset(SdkTransitiveDepsTset, children = [
+        uncompiled_sdk_dep[SdkUncompiledModuleInfo].transitive_clang_deps
+        for uncompiled_sdk_dep in uncompiled_sdk_deps
+        if SdkUncompiledModuleInfo in uncompiled_sdk_dep
+    ])
+    clang_deps += list(transitive_clang_dep_tset.traverse())
+
+    return [
+        (_swift_sdk_pcm_compilation, {
+            "dep": clang_module_dep,
             "swift_cxx_args": swift_cxx_args,
             "_apple_toolchain": ctx.attrs._apple_toolchain,
-        }
-        for uncompiled_sdk_dep in uncompiled_sdk_deps
-        if SdkUncompiledModuleInfo in uncompiled_sdk_dep and not uncompiled_sdk_dep[SdkUncompiledModuleInfo].is_swiftmodule
+        })
+        for clang_module_dep in clang_deps
     ]
-    return [(_swift_sdk_pcm_compilation, d) for d in deps]
 
 def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> ["promise", list[Provider]]:
     def k(sdk_pcm_deps_providers) -> list[Provider]:

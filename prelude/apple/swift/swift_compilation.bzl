@@ -137,7 +137,6 @@ def get_swift_anonymous_targets(ctx: AnalysisContext, get_apple_library_provider
     swift_interface_anon_targets = get_swift_interface_anon_targets(
         ctx,
         direct_uncompiled_sdk_deps,
-        swift_cxx_flags,
     )
     return ctx.actions.anon_targets(pcm_targets + sdk_pcm_targets + swift_interface_anon_targets).map(get_apple_library_providers)
 

@@ -182,7 +182,6 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> ["promise", list[Provid
     swift_interface_anon_targets = get_swift_interface_anon_targets(
         ctx,
         direct_uncompiled_sdk_deps,
-        ctx.attrs.swift_cxx_args,
     )
 
     # Recursively compile PCMs of transitevely visible exported_deps
