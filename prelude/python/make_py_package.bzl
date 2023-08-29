@@ -238,14 +238,8 @@ def _make_py_package_impl(
                 "Python toolchain does not provide make_py_package_standalone",
             )
 
-        # TODO: Other par_styles should migrate to using this manifest as well
-        if ctx.attrs.par_style != "pex":
-            # manifest generation is handled by make_py_package_standalone (make_par), except for pex
-            manifest_module = None
     else:
         symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(name), dir = True)
-    if make_py_package_cmd != None:
-        manifest_module = None  # manifest generation is handled by make_py_package_cmd
 
     modules_args = _pex_modules_args(
         ctx,
