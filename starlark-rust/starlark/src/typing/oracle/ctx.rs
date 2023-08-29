@@ -375,7 +375,7 @@ impl<'a> TypingOracleCtx<'a> {
             TyBasic::Tuple(tuple) => Ok(tuple.item_ty()),
             TyBasic::Callable => Ok(Ty::any()),
             TyBasic::Iter(ty) => Ok(ty.to_ty()),
-            TyBasic::Custom(ty) => ty.0.attribute_dyn(TypingAttr::Iter),
+            TyBasic::Custom(_) => Err(()),
             TyBasic::Name(_) => Ok(Ty::any()),
         }
     }

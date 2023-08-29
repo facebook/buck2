@@ -92,9 +92,6 @@ impl TypingBinOp {
 /// Attribute for [`TypingOracle::attribute`].
 #[derive(Copy, Clone, Dupe, Eq, PartialEq, derive_more::Display, Debug)]
 pub enum TypingAttr<'a> {
-    /// Return iterable element type.
-    #[display(fmt = "iter")]
-    Iter,
     /// `x[a]`, return the function.
     #[display(fmt = "[]")]
     Index,
