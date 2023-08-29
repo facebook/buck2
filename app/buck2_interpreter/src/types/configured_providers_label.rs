@@ -288,8 +288,11 @@ fn label_methods(builder: &mut MethodsBuilder) {
 
 #[starlark_module]
 pub fn register_providers_label(globals: &mut GlobalsBuilder) {
+    // TODO(nga): remove this alias.
     const Label: StarlarkValueAsType<StarlarkConfiguredProvidersLabel> = StarlarkValueAsType::new();
     const ProvidersLabel: StarlarkValueAsType<StarlarkProvidersLabel> = StarlarkValueAsType::new();
+    const ConfiguredProvidersLabel: StarlarkValueAsType<StarlarkConfiguredProvidersLabel> =
+        StarlarkValueAsType::new();
 }
 
 #[cfg(test)]
