@@ -866,7 +866,11 @@ impl Stmt {
                 result,
             ),
             StmtP::Load(load) => {
-                let vis = dialect.load_visibility();
+                // TODO(nga): visibility does not belong to AST.
+                let vis = match dialect.enable_load_reexport {
+                    true => Visibility::Public,
+                    false => Visibility::Private,
+                };
                 for (name, _) in &mut load.args {
                     let mut vis = vis;
                     if Module::default_visibility(&name.0) == Visibility::Private {

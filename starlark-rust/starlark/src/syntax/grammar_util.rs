@@ -45,10 +45,15 @@ use crate::syntax::ast::LambdaP;
 use crate::syntax::ast::Stmt;
 use crate::syntax::ast::StmtP;
 use crate::syntax::ast::ToAst;
+use crate::syntax::ast::TypeExpr;
+use crate::syntax::ast::TypeExprP;
 use crate::syntax::def::DefParams;
 use crate::syntax::lexer::lex_exactly_one_identifier;
 use crate::syntax::lexer::TokenFString;
 use crate::syntax::state::ParserState;
+use crate::syntax::type_expr::TypeExprUnpackP;
+use crate::syntax::Dialect;
+use crate::syntax::DialectTypes;
 use crate::values::types::string::dot_format::FormatParser;
 use crate::values::types::string::dot_format::FormatToken;
 
@@ -261,4 +266,77 @@ pub(crate) fn fstring(
         expressions,
     }
     .ast(begin, end)
+}
+
+#[derive(thiserror::Error, Debug)]
+enum DialectError {
+    #[error("`def` is not allowed in this dialect")]
+    Def,
+    #[error("`lambda` is not allowed in this dialect")]
+    Lambda,
+    #[error("* keyword-only-arguments is not allowed in this dialect")]
+    KeywordOnlyArguments,
+    #[error("type annotations are not allowed in this dialect")]
+    Types,
+}
+
+fn err<T>(codemap: &CodeMap, span: Span, err: DialectError) -> Result<T, EvalException> {
+    Err(EvalException::new(err.into(), span, codemap))
+}
+
+pub(crate) fn dialect_check_lambda<T>(
+    dialect: &Dialect,
+    codemap: &CodeMap,
+    x: Spanned<T>,
+) -> Result<Spanned<T>, EvalException> {
+    if dialect.enable_lambda {
+        Ok(x)
+    } else {
+        err(codemap, x.span, DialectError::Lambda)
+    }
+}
+
+pub(crate) fn dialect_check_def<T>(
+    dialect: &Dialect,
+    codemap: &CodeMap,
+    x: Spanned<T>,
+) -> Result<Spanned<T>, EvalException> {
+    if dialect.enable_def {
+        Ok(x)
+    } else {
+        err(codemap, x.span, DialectError::Def)
+    }
+}
+
+pub(crate) fn dialect_check_keyword_only_arguments<T>(
+    dialect: &Dialect,
+    codemap: &CodeMap,
+    begin: usize,
+    end: usize,
+    x: T,
+) -> Result<T, EvalException> {
+    let span = Span::new(Pos::new(begin as u32), Pos::new(end as u32));
+    if dialect.enable_keyword_only_arguments {
+        Ok(x)
+    } else {
+        err(codemap, span, DialectError::KeywordOnlyArguments)
+    }
+}
+
+pub(crate) fn dialect_check_type(
+    dialect: &Dialect,
+    codemap: &CodeMap,
+    x: Spanned<Expr>,
+) -> Result<Spanned<TypeExpr>, EvalException> {
+    let span = x.span;
+    if dialect.enable_types == DialectTypes::Disable {
+        return err(codemap, x.span, DialectError::Types);
+    }
+
+    TypeExprUnpackP::unpack(&x, codemap)?;
+
+    Ok(x.map(|node| TypeExprP {
+        expr: Spanned { node, span },
+        payload: (),
+    }))
 }

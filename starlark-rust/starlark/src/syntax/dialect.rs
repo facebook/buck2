@@ -16,30 +16,6 @@
  */
 
 use dupe::Dupe;
-use starlark_syntax::eval_exception::EvalException;
-use thiserror::Error;
-
-use crate::codemap::CodeMap;
-use crate::codemap::Pos;
-use crate::codemap::Span;
-use crate::codemap::Spanned;
-use crate::syntax::ast::Expr;
-use crate::syntax::ast::TypeExpr;
-use crate::syntax::ast::TypeExprP;
-use crate::syntax::ast::Visibility;
-use crate::syntax::type_expr::TypeExprUnpackP;
-
-#[derive(Error, Debug)]
-enum DialectError {
-    #[error("`def` is not allowed in this dialect")]
-    Def,
-    #[error("`lambda` is not allowed in this dialect")]
-    Lambda,
-    #[error("* keyword-only-arguments is not allowed in this dialect")]
-    KeywordOnlyArguments,
-    #[error("type annotations are not allowed in this dialect")]
-    Types,
-}
 
 /// How to handle type annotations in Starlark.
 #[derive(Debug, Clone, Copy, Dupe, Eq, PartialEq, Hash)]
@@ -123,75 +99,4 @@ impl Dialect {
         enable_f_strings: false,
         _non_exhaustive: (),
     };
-}
-
-fn err<T>(codemap: &CodeMap, span: Span, err: DialectError) -> Result<T, EvalException> {
-    Err(EvalException::new(err.into(), span, codemap))
-}
-
-impl Dialect {
-    pub(crate) fn check_lambda<T>(
-        &self,
-        codemap: &CodeMap,
-        x: Spanned<T>,
-    ) -> Result<Spanned<T>, EvalException> {
-        if self.enable_lambda {
-            Ok(x)
-        } else {
-            err(codemap, x.span, DialectError::Lambda)
-        }
-    }
-
-    pub(crate) fn check_def<T>(
-        &self,
-        codemap: &CodeMap,
-        x: Spanned<T>,
-    ) -> Result<Spanned<T>, EvalException> {
-        if self.enable_def {
-            Ok(x)
-        } else {
-            err(codemap, x.span, DialectError::Def)
-        }
-    }
-
-    pub(crate) fn check_keyword_only_arguments<T>(
-        &self,
-        codemap: &CodeMap,
-        begin: usize,
-        end: usize,
-        x: T,
-    ) -> Result<T, EvalException> {
-        let span = Span::new(Pos::new(begin as u32), Pos::new(end as u32));
-        if self.enable_keyword_only_arguments {
-            Ok(x)
-        } else {
-            err(codemap, span, DialectError::KeywordOnlyArguments)
-        }
-    }
-
-    pub(crate) fn check_type(
-        &self,
-        codemap: &CodeMap,
-        x: Spanned<Expr>,
-    ) -> Result<Spanned<TypeExpr>, EvalException> {
-        let span = x.span;
-        if self.enable_types == DialectTypes::Disable {
-            return err(codemap, x.span, DialectError::Types);
-        }
-
-        TypeExprUnpackP::unpack(&x, codemap)?;
-
-        Ok(x.map(|node| TypeExprP {
-            expr: Spanned { node, span },
-            payload: (),
-        }))
-    }
-
-    pub(crate) fn load_visibility(&self) -> Visibility {
-        if self.enable_load_reexport {
-            Visibility::Public
-        } else {
-            Visibility::Private
-        }
-    }
 }

@@ -74,7 +74,7 @@ COMMA<E>: Vec<E> =
 pub(crate) Starlark: AstStmt = "\n"* <l:@L> <s:(<Stmt> "\n"*)*> <r:@R>
     => grammar_util::statements(s, l, r);
 
-DefStmt: AstStmt = ASTS<DefStmt_> =>? Ok(state.dialect.check_def(state.codemap, <>)?);
+DefStmt: AstStmt = ASTS<DefStmt_> =>? Ok(grammar_util::dialect_check_def(state.dialect, state.codemap, <>)?);
 DefStmt_: Stmt =
   "def" <identifier> "(" <COMMA<ParameterTyped>> ")" <ReturnType> ":" <Suite>
       => grammar_util::check_def(<>, state);
@@ -89,7 +89,7 @@ Parameter_: Parameter = {
     <n:AssignIdent> "=" <e:Test> => Parameter::WithDefaultValue(n, None, Box::new(e)),
     <AssignIdent>                => Parameter::Normal(<>, None),
     "*" <AssignIdent>            => Parameter::Args(<>, None),
-    <l:@L> "*" <r:@R>                 =>? Ok(state.dialect.check_keyword_only_arguments(state.codemap, l, r, Parameter::NoArgs)?),
+    <l:@L> "*" <r:@R>                 =>? Ok(grammar_util::dialect_check_keyword_only_arguments(state.dialect, state.codemap, l, r, Parameter::NoArgs)?),
     "**" <AssignIdent>           => Parameter::KwArgs(<>, None),
 };
 
@@ -98,11 +98,11 @@ ParameterTyped_: Parameter = {
     <n:AssignIdent> <t:Type> "=" <e:Test> => Parameter::WithDefaultValue(n, t, Box::new(e)),
     <AssignIdent> <Type>                  => Parameter::Normal(<>),
     "*" <AssignIdent> <Type>              => Parameter::Args(<>),
-    <l:@L> "*" <r:@R>                          =>? Ok(state.dialect.check_keyword_only_arguments(state.codemap, l, r, Parameter::NoArgs)?),
+    <l:@L> "*" <r:@R>                          =>? Ok(grammar_util::dialect_check_keyword_only_arguments(state.dialect, state.codemap, l, r, Parameter::NoArgs)?),
     "**" <AssignIdent> <Type>             => Parameter::KwArgs(<>),
 };
 
-TypeExpr: AstTypeExpr = <Test> =>? Ok(state.dialect.check_type(state.codemap, <>)?);
+TypeExpr: AstTypeExpr = <Test> =>? Ok(grammar_util::dialect_check_type(state.dialect, state.codemap, <>)?);
 
 Type: Option<Box<AstTypeExpr>> = {
     ":" <TypeExpr> => Some(Box::new(<>)),
@@ -315,7 +315,7 @@ Test: AstExpr = {
 
 LambDef: AstExpr = {
     <l:@L> "lambda" <p:COMMA<Parameter>> ":" <e:Test> <r:@R>
-        =>? Ok(state.dialect.check_lambda(state.codemap, grammar_util::check_lambda(p, e, state).ast(l, r))?),
+        =>? Ok(grammar_util::dialect_check_lambda(state.dialect, state.codemap, grammar_util::check_lambda(p, e, state).ast(l, r))?),
 }
 
 // Binary operators
