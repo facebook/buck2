@@ -177,21 +177,25 @@ impl<'v> Compiler<'v, '_, '_> {
             codemap: &self.codemap,
             typecheck_mode: TypecheckMode::Compiler,
         };
-        let BindingsCollect { bindings, .. } = BindingsCollect::collect(
-            stmts,
-            TypecheckMode::Compiler,
-            &self.codemap,
-            &mut Vec::new(),
-        )
-        .map_err(InternalError::into_eval_exception)?;
-        // TODO(nga): we don't pass types of globals here.
-        let (errors, ..) = match solve_bindings(bindings, oracle, &self.mk_module_var_types()) {
-            Ok(x) => x,
-            Err(e) => return Err(e.into_eval_exception()),
-        };
+        let module_var_types = self.mk_module_var_types();
+        for top in stmts.iter_mut() {
+            if let StmtP::Def(_) = &mut top.node {
+                let BindingsCollect { bindings, .. } = BindingsCollect::collect_one(
+                    top,
+                    TypecheckMode::Compiler,
+                    &self.codemap,
+                    &mut Vec::new(),
+                )
+                .map_err(InternalError::into_eval_exception)?;
+                let (errors, ..) = match solve_bindings(bindings, oracle, &module_var_types) {
+                    Ok(x) => x,
+                    Err(e) => return Err(e.into_eval_exception()),
+                };
 
-        if let Some(error) = errors.into_iter().next() {
-            return Err(error.into_eval_exception());
+                if let Some(error) = errors.into_iter().next() {
+                    return Err(error.into_eval_exception());
+                }
+            }
         }
 
         Ok(())

@@ -28,9 +28,9 @@ error: Expected type `list[typing.Any]` but got `bool`
   |
 
 Compiler typechecker (eval):
-error: Expected type `list[typing.Any]` but got `bool`
- --> filename:6:9
+error: Expected type `str` but got `list[typing.Never]`
+ --> filename:3:23
   |
-6 |     foo(True)
-  |         ^^^^
+3 |     return type(x) == []
+  |                       ^^
   |

@@ -120,26 +120,6 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
         Ok(res)
     }
 
-    /// Collect all the assignments to variables.
-    ///
-    /// This function only fails on internal errors.
-    pub(crate) fn collect(
-        xs: &'a [&'a mut CstStmt],
-        typecheck_mode: TypecheckMode,
-        codemap: &CodeMap,
-        approximations: &'b mut Vec<Approximation>,
-    ) -> Result<Self, InternalError> {
-        let mut res = BindingsCollect {
-            bindings: Bindings::default(),
-            approximations,
-        };
-
-        for x in xs {
-            res.visit(Visit::Stmt(x), &Ty::any(), typecheck_mode, codemap)?;
-        }
-        Ok(res)
-    }
-
     fn assign(
         &mut self,
         lhs: &'a CstAssign,
