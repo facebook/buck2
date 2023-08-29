@@ -743,16 +743,15 @@ impl<'a, 'e> TestDriver<'a, 'e> {
             // Look up `tests` in the the target we're testing, and if we find any tests, add them to the test backlog.
             for test in node.tests() {
                 if state.resolve_tests_platform_independently {
-                    let label = state
-                        .ctx
-                        .get_configured_provider_label(
-                            &test.unconfigured(),
-                            state.global_target_platform.as_ref(),
-                        )
-                        .await?;
-
-                    work.push(TestDriverTask::TestTarget { label });
+                    work.push(TestDriverTask::ConfigureTarget {
+                        label: test.unconfigured(),
+                        // Historically `skippable: false` is what we enforced here, perhaps that
+                        // should change.
+                        skippable: false,
+                    });
                 } else {
+                    // TODO: This doesn't recursively handle the `tests` attribute, but this
+                    // configuration is deprecated anyway.
                     work.push(TestDriverTask::TestTarget { label: test });
                 }
             }
