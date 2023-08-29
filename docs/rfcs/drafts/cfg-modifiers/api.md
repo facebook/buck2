@@ -1,430 +1,443 @@
 # [RFC] Configuration Modifiers
 
-Target platform is Buck team's endorsed way of supporting custom build
-settings, and it's intended to replace the buckconfigs and modefiles of
-buckconfigs widely used today. Buckconfigs are bad because they are
-global flags, and changing them can cause invalidation of most if not
-all of Buck's state, whereas target platforms/configurations are
-per-target build settings and allow for scalable multi-configuration
-builds like building in multiple settings (ex. dev and opt) concurrently
-or modifying the configuration within the dependency graph. However,
-despite improvements to configurations in Buck2, buckconfigs continue to
-be the predominant way of representing build settings, and they are not
-losing popularity - almost all build settings in the repo today have
-some sort of buckconfig toggle. This means that users often hit
-invalidation overhead from buck2 when switching modefiles or
-buckconfigs.
+## Why do we need new configuration setup?
 
-When comparing buckconfigs and target platforms, the biggest usability
-problem with target platforms is that **they do not compose well**.
+A target usually needs to be built in multiple build settings.
+For example, there may be different OS (ex. linux, mac, windows),
+architectures (ex. x86, arm), and sanitizers
+(ex. asan, tsan, ubsan) to use for a single target. Buck has 2 main ways of supporting customizations today:
+1. Buckconfigs specified through `--config` or `-c` flags. They are global flags and are often aggregated in modefiles (`@<modefile>` on the command line).
+2. Target platforms specified through `default_target_platform` attribute or `--target-platforms` flag), which become a target's "configuration". `--target-platforms` flags are also commonly specified via modefiles.
 
-1. *Using target platforms require generating all possible permutations
-   of build settings*. As an example, say I want to customize targets
-   based on different OSes (linux, mac, or windows), sanitizers (asan,
-   tsan, or nosan), and link style (static or shared). With target
-   platforms, I need to first generate all possible permutations of
-   these settings as platform targets before I can use them. For this
-   example, I would need 18 different platforms: linux-asan-static,
-   linux-asan-shared, linux-tsan-static, linux-tsan-shared, so on and so
-   forth. The exponential nature of platform generation makes it
-   challenging to add a new constraint because you could double the
-   number of platforms. Buckconfigs don't have this problem because OS,
-   sanitizer, and link style can be separate buckconfigs and you do not
-   have to generate all possible combinations to use them.
+These methods are problematic for the following reasons.
 
-2. *Setting a default target platform is complex.* Setting a default
-   target platform for a target requires knowing the exact set of build
-   settings needed and the exact platform corresponding to those
-   settings. Because a lot of build defaults are defined in bzl files,
-   this often ends up getting handled by a set of fairly convoluted bzl
-   files many hundreds of lines long. For example, suppose python
-   library `root//:foo` prefers the default settings of mac, asan, and
-   static. The python library macros must gather those settings at once
-   and map them to the platform name `mac-asan-static`. Setting a
-   buckconfig as default is as easy as adding the buckconfig value to
-   .buckconfig file or a modefile.
+1. *We have too many modefiles*. A project that needs customizations often ends
+up adding its own set of modefiles, causing a continued rise in number of
+custom modefiles in the repo. Internally, the number of modefiles in our
+monorepo is currently on the order of **10,000s**.
 
-3. *You must specify a full target platform on the command line
-   for `--target-platforms` flag*. Despite all the convoluted macros
-   needed to set a `default_target_platform`, they become useless when
-   you don't want the default because you have to specify a **full**
-   target platform on the command line. Following the previous example,
-   suppose `repo//:foo` defaults to nosan but I want to
-   build `repo//:foo` with asan. For target platform, I have to know
-   what OS and link style to build `//:foo` with as well so I can
-   specify `buck2 build //:foo --target-platforms=:<os>-asan-<link style>`
-   to build `//:foo` with asan. It's impossible to specify "I just want
-   asan on top of the defaults" with `--target-platforms`. Buckconfigs
-   don't have this problem because they can compose on the command line
-   via the `--config` flag.
+1. *Changing buckconfigs invalidates Buck's state*. Changing buckconfigs or
+modefiles of buckconfigs invalidates global state, which adds non-trivial Buck
+overhead on every incremental build that changes state. This does not affect
+target platforms.
 
-4. *Target platforms are difficult to understand.*
-   Most users can easily grasp how buckconfigs work because it's easy to
-   set and read them. Very few understand how configurations work
-   because of how complex target platform resolution is. Instead, it
-   would be much simpler if constraints like OS and sanitizers can be
-   set directly on the command line, similar to how buckconfigs are set.
+1. *Different modefiles of buckconfigs cannot be used in same build*.
+Users that need to run multi-configuration builds today often work around this
+by writing scripts that wraps multiple buck build invocations of different
+modes. This is slow because Buck state keeps getting repeatedly invalidated.
+There is also no way to build a target in different modes (ex. dev and opt) at
+the same time, so users that need to do this always have to do this
+sequentially. This does not affect target platforms.
 
-This RFC proposes a new configuration API that is simpler and easier to
-use than target platforms. The API is composition-first and avoids the
-exponential permutation generation of platforms. The goal of this API is
-to enable the migration of buckconfigs to configurations and make build
-setting easy for users to use.
+1. *Target platform generation is exponential in number of build settings*.
+Suppose I want to customize targets based on 3 OSes, 2 architectures, and 3
+compilers. With target platforms, I need to first generate all 18 permutations
+of these settings as platform targets before using them. This is not scalable.
+
+1. *Target platform does not compose well on command line*. Suppose I want to
+use ASAN on top of some existing platform. It's not possible to say specify
+ASAN on top of an existing platform on the command line. Instead, I must create
+a new platform target with ASAN added to the existing platform before I can use
+it.
+
+1. *Poor user Experience*. When every project needs its own set of modes, it's
+onerous for users to track what modes are needed to build what targets. Users
+often don't realize when they are using the wrong or unnecessary command line
+flags.
+
+1. *Poor tooling integration*. Similar to user, it's just onerous for tooling
+to keep track of what modes are needed to build a target with. Buckconfigs are
+also bad for performance for tools like language servers because it's impossible
+to request the builds of two modes in parallel when two targets needs different
+modes.
+
+1. *Antithetical to Buck's principles*. Buck's main strength is the ability to abstract away builds of different languages and libraries under one common syntax for the user. The need for project-custom flags goes against this principle.
+
+The Modifier API introduces a unified way to specify build settings on a
+project, target, and command line level. Like target platforms, it constructs Buck configurations so it supports multi-configuration builds. It
+avoids modefile proliferation by allowing users to easily
+set project-specific build settings like compiler and toolchain versions in
+the repo rather than on the command line. It avoids scalability problems of
+platform generation by being composition-first. The goals of this project is to:
+
+1. *Make `buck build` work on any platform without the use of special flags*.
+Today, building a mac target on mac often requires a mac mode,
+and likewise for windows. Instead, `buck build` should always work
+out of the box on any platform so that there's no need to specify mac mode on
+macs or windows mode on windows.
+1. *Define a small constrained set of common modifiers that can be used to build any target
+in the repo*. This will include common options like mode (ex. dev, opt, release), OS (ex. linux, mac, iphoneos), and architecture (ex. x86, arm).
+1. *Unblock cross-building for the majority of targets*. `host_info()` is
+a hack to obtain information about the host machine that is the main blocker to
+Buck2 cross-building (ex. building a mac or windows
+target from linux) working everywhere. As an extension of "making `buck build`
+work on any platform", modifiers should make it possible to kill off most use cases of `host_info` in the repo.
+1. *Simplify building build tooling*. Because `buck build` works out of
+the box, tools like language servers can build targets they need without using
+project-specific modefiles or flags.
+1. *Delete most modefiles from the repo*.
+1. *Deprecate target platforms for modifiers as the sole way of configuring top-level
+targets in Buck*.
+
+## Configuration Background
+
+*Feel free to skip this if you already understand Buck configurations.*
+
+A configuration is a collection of `constraint_value` targets
+(commonly referred to as constraints).
+It defines the build settings used by a target.
+A constraint value is keyed by a `constraint_setting`, so there can only
+be one `constraint_value` of a `constraint_setting` in a configuration.
+
+For example, suppose `cfg//os:_` is a constraint setting with constraint
+values `cfg//os:linux`, `cfg//os:macos`, and `cfg//os:windows`. Then
+a configuration may contain either `cfg//os:linux`, `cfg//os:macos`,
+or `cfg//os:windows` to indicate which OS a target is built for.
+
+A constraint or a set of constraints can be selected on via `select()` to
+customize a target's behavior. For example, the following adds a linux only
+dep to a target.
+
+```python
+deps = select({
+   "cfg//os:linux": [":linux_only_dep"],
+   "DEFAULT": [],
+})
+```
+
+Before building a target on the command line (known as the top-level target),
+Buck needs to know its configuration in order to resolve selects. Modifiers
+are a new way to resolve a target's configuration for every top-level target.
 
 ## API
 
-A configuration is a collection of constraints.
+Every top-level target starts with an empty configuration, and Buck will apply
+a list of "modifiers" to obtain a configuration. A modifier is a modification
+of a constraint from the existing configuration to obtain a new
+ configuration.
 
-In this API, every top-level target starts with an empty configuration.
-To resolve the default target configuration, Buck will apply a list of
-"modifiers". A modifier is a modification on the existing configuration
-to obtain a new configuration.
+The simplest modifier is a constraint value, which inserts
+that value into the configuration for its respective constraint setting,
+replacing any existing constraint value for that setting.
+For example, specifying `cfg//os:linux` as a modifier will
+insert `cfg//os:linux` into the configuration,
+overriding any existing constraint value for the
+`cfg//os:_` constraint setting.
 
-A modifier can be applied on the command line, on a PACKAGE, or on a
-target. When resolving modifiers, Buck will collect all modifiers from
-command line, PACKAGE, and target and apply them in order until the
-target configuration is obtained.
+Another type of modifier is a `modifier_select()` of a constraint value.
+This can change the constraint value inserted based on the existing
+configuration. For example, a modifier like
+```python
+modifier_select({
+  "cfg//os:windows": "cfg//compiler:msvc",
+  "DEFAULT": "cfg//compiler:clang",
+})
+```
+will insert msvc constraint into the configuration if OS is windows or clang
+constraint otherwise.
+A `modifier_select()` behaves similarly to Buck's `select()` but can only
+be used in a modifier.
+A `modifier_select()` can only be used to modify a single constraint setting,
+so the following example is not valid.
+```python
+# This fails because a modifier cannot modify both compiler and OS.
+modifier_select({
+  "cfg//os:windows": "cfg//compiler:msvc",
+  "DEFAULT": "cfg//os:linux",
+})
+```
 
-A modifier can be specified as a `constraint_value`, a `config_setting`,
-`platform`, or a `cfg_override` target. If the modifier applied
-is a constraint value, that constraint value will be added to the
-configuration. Config setting and platform are both collections of
-constraints, so if the modifier is a config setting or a platform, then
-we loop over every constraint value and add it to the configuration
-(note that since modifiers only work with configuration and not
-buckconfigs, using a `config_setting` with a non-empty set of
-buckconfigs as a modifier will be an error).
-`cfg_override` rule applies a transition-like function
-that can arbitrarily insert or delete constraints
-from the existing configuration.
+A modifier can be specified in a PACKAGE file, on a target, or on the command
+line. This provides the flexibility needed to customize targets on a project,
+target, or cli level.
 
-### 1. Required Modifiers
+### PACKAGE Modifier
 
-Every top-level target starts with an empty configuration.
-Buck first applies "required modifiers", which is a list of modifiers
-provided by the user via the command line.
-The required modifiers are specified as
-`buck2 build <target>?<modifiers separated by commas>`,
-and the list of modifiers will be applied sequentially in that order.
+In a PACKAGE file, modifiers can be specified using the `cfg_modifiers`
+function and would apply to all targets covered under that PACKAGE. For
+example, modifiers specified in `repo/PACKAGE` would apply to any target under
+`repo//...`. Modifiers specified in `repo/foo/PACKAGE` would apply to any target under `repo//foo/...` (For resolution order, see "Modifier
+Resolution" section).
 
-For example,
+The `cfg_modifiers` function takes as input
+a dictionary of constraint setting to modifier for that setting.
+For example, the following is an example that sets modifiers for OS and compiler settings in the repo's top PACKAGE file for all targets in repo.
 
-- If the user requests `buck2 build //foo:bar`, `repo//foo:bar` will
-  have an empty configuration after resolving the required modifiers.
-- If the user requests
-  `buck2 build repo//foo:bar?config//build_mode/constraints:nosan`,
-  `repo//foo:bar` will have `config//build_mode/constraints:nosan`
-  in its configuration after resolving required modifiers.
-- `buck2 build repo//foo:bar?config//build_mode/constraints:nosan,config//build_mode/constraints:split-dwarf`
-  will add nosan and split-dwarf in that order to the empty
-  configuration.
-- If the user requests
-  `buck2 build repo//foo:bar?config//build_mode/constraints:nosan,config//build_mode/constraints:asan`
-  where both constraint values belong to the same constraint
-  `config//build_mode/constraints:san`,
-  then asan will replace nosan in `repo//foo:bar`'s configuration.
+```python
+# repo/PACKAGE
 
-To make constraints more convenient to type, you can use Buck's
-target alias feature to create an alias for a constraint.
-For example, you can add the following line to your .buckconfig
+cfg_modifiers({
+  "cfg//os:_": "cfg//:linux",
+  "cfg//compiler:_": modifier_select({
+    "DEFAULT": "cfg//compiler:clang",
+    "cfg//os:windows": "cfg//compiler:msvc",
+  })
+})
+```
+
+To make constraints easier to type, you can specify aliases for modifier targets
+via Buck's target aliases.
+
+For example, suppose the following aliases exist in `repo/.buckconfig`.
 
 ```ini
 [alias]
-  asan = config//build_mode/constraints:asan
-  nosan = config//build_mode/constraints:nosan
+  os = cfg//os:_
+  linux = cfg//os:linux
+  macos = cfg//os:macos
+  windows = cfg//os:windows
+  compiler = cfg//compiler:_
+  clang = cfg//compiler:clang
+  msvc = cfg//compiler:msvc
+```
+Then the same PACKAGE modifiers can be specified as follows.
+
+```python
+# repo/PACKAGE
+
+cfg_modifiers({
+  "os": "linux",
+  "compiler": modifier_select({
+    "DEFAULT": "clang",
+    "windows": "msvc",
+  })
+})
 ```
 
-to use `buck2 build repo//foo:bar?asan` and `buck2 build repo//foo:bar?nosan` as shorthand.
+### Target Modifier
 
-`buck2 build repo//foo/...?asan` and `buck2 build repo//foo:?asan`
-are both valid.
+On a target, modifiers can be specified on the `cfg_modifiers` attribute.
+For example, the following specifies modifiers for `repo//foo:bar`.
+```python
+# repo/foo/BUCK
 
-To specify modifiers to a list of target patterns on the command line,
-you can use the `--cfg=modifier` flag.
-For example, `buck2 build //foo:bar //foo:baz --cfg=asan`
-is equivalent to `buck2 build repo//foo:bar?asan //foo:baz?asan`.
+python_binary(
+  name = "bar",
+  # ...
+  cfg_modifiers = {
+    "cfg//os:_": "cfg//os:windows",
+    # Target modifiers can also use aliases
+    "compiler": "clang",
+  },
+)
+```
 
-`--cfg` flag can be specified multiple times to add multiple modifiers.
-For example, `buck2 build --cfg=release --cfg=windows repo//foo:bar`
-is equivalent to `buck2 build repo//foo:bar?release,windows`.
-This behavior is consistent with how flags are interpreted
-in other tools, and it is the most intuitive behavior, for example,
-* buckconfig `-c` flag adds to the one set of buckconfigs
-* build systems like CMake have flags like `-D` that can be specified
-  multiple times, and they are all added to one set of flags.
+### CLI Modifier
 
-It is prohibited to specify both `--cfg` flag and `?` in target pattern.
-`--cfg` flag exists for convenience, and to specify
-complex configuration setups (in scripts or in CI),
-users can always specify `?`.
-This restriction can be lifted in the future if there is a need.
+On the command line, modifiers are specified as
+`buck2 build <target>?<modifiers separated by commas>`.
 
+For example,
+`buck2 build repo//foo:bar?cfg//sanitizer:asan` applies asan
+modifier on the command line.
+`buck2 build repo//foo:bar?cfg//os:linux,cfg//sanitizer:asan`
+will apply linux and asan modifiers.
+Aliases can also be used on command line, so
+`buck2 build repo//foo:bar?asan` is valid.
+
+Command line modifiers cannot be selects, although this may
+be revisited if necessary.
+
+Modifiers can be specified for any target pattern, so
+`buck2 build repo//foo/...?asan` and
+`buck2 build repo//foo:?asan` are also valid.
 When specifying a subtarget and modifier with `?`,
 subtarget should go before modifier,
 ex. `buck2 build repo//foo:bar[comp-db]?asan`.
 
-The configuration after all required modifiers are resolved is known as
-required configuration, and all constraints within that configuration
-are immutable entries of the target configuration. They cannot be
-removed or overwritten. This guarantees that the configuration a target
-ends up with always include the modifiers user requested.
+To specify modifiers to a list of target patterns on the command line,
+you can use the `--modifier` or `-m` flag.
+For example, `buck2 build repo//foo:bar repo//foo:baz -m release`
+is equivalent to `buck2 build repo//foo:bar?release //foo:baz?release`.
 
-For example, if the user requests asan on the command line, the target
-configuration should always end up with an asan constraint value, not a
-nosan constraint value. If a later PACKAGE or per-target modifier
-specifies nosan as a constraint, nosan will not be added to the
-configuration because asan and nosan both belong to the same
-constraint `config//build_mode/constraints:sanitizer`, and asan is a
-required constraint.
+`--modifier` flag can be specified multiple times to add multiple modifier, so
+`buck2 build --modifier=linux --modifier=release repo//foo:bar`
+is equivalent to `buck2 build repo//foo:bar?linux,release`.
 
-### 2. (Legacy) Target platform
+It is prohibited to specify both `--modifier` flag and `?` in target pattern.
+This restriction can be lifted in the future if there is a need.
 
-If a target platform is specified on a target
-(either via the `default_target_platform` attribute
-or the `--target-platforms` flag), then that target platform
-gets applied as a modifier, where Buck loops over every constraint
-within the platform and add it to the target configuration
-unless that constraint conflicts with the required configuration.
+When two modifiers of the same constraint setting are specified, then the later one overrides the earlier one. For example,
+`buck2 build repo//foo:bar?dev,release` is equivalent to
+`buck2 build repo//foo:bar?release`.
 
-When required, PACKAGE, and target modifiers are empty,
-the target configuration is the target platform.
-This is designed to making the new API interop
-with target platform resolution so that the migration
-can be gradual.
+On command line, a `config_setting` target can be specified as a collection of
+modifiers after `--modifier` or `?`. This will be equivalent to specifying each
+constraint inside the `config_setting` as a separate modifier.
 
-### 3. Per-PACKAGE modifiers
+### Modifier Resolution
 
-Per-PACKAGE modifiers are applied after target platform is resolved.
+Modifiers are resolved in order of constraint setting, and for each constraint
+setting, modifiers for that setting are resolved in order of PACKAGE, target,
+and command line, with modifier from parent PACKAGE applied before child
+PACKAGE. The end of this section will describe how Buck determines the order
+of constraint setting to resolve.
 
-To define a per-PACKAGE modifier, you can use the
-`add_default_cfg(<modifier>)` function in a PACKAGE file.
-A modifier set through `add_default_cfg` will apply to
-all targets covered by that PACKAGE.
-
-The following example adds nosan and debug to the default target
-configurations of all targets in `repo//foo/...` unless the required
-configuration already has conflicting required constraints.
+Suppose modifiers for `repo//foo:bar` are specified as follows.
 
 ```python
-# foo/PACKAGE
+# repo/PACKAGE
 
-add_default_cfg("config//build_mode/constraints:nosan")
-add_default_cfg("config//build_mode/constraints:debug")
-```
+cfg_modifiers({
+  "cfg//os:_": "cfg//:linux",
+  "cfg//compiler:_": modifier_select({
+    "DEFAULT": "cfg//compiler:clang",
+    "cfg//os:windows": "cfg//compiler:msvc",
+  })
+})
 
-In this example, debug is applied after nosan.
+# repo/foo/PACKAGE
 
-If a sub-PACKAGE exists for a PACKAGE, that sub-PACKAGE
-will always inherit modifiers from its parent.
-This means that if there are multiple PACKAGE files in the path
-of a target, we apply their modifiers in order from the topmost PACKAGE.
+cfg_modifiers({
+  "cfg//os:_": "cfg//os:macos",
+})
 
-Suppose `repo/PACKAGE` and `repo/foo/PACKAGE` exist for
-target `repo//foo:bar`. In this case, modifiers in repo/PACKAGE apply
-first before modifiers in `repo/foo/PACKAGE`. PACKAGE inheritance of
-modifiers means that project-level modifiers can be easily set for all
-targets under a project without having to wire logic through the bzl
-wrapper of every rule type in that project.
-
-### 4. Per-Target Modifier
-
-Per-target modifier are applied after all per-PACKAGE modifier
-are resolved.
-
-Modifiers can be set on any target through the `default_cfg` attribute.
-The modifiers are specified as a list and will be applied
-in sequential order.
-
-For example,
-```python
-# repo/foo/TARGETS
+# repo/foo/BUCK
 
 python_binary(
   name = "bar",
-  # Some other attributes...
-  default_cfg = [
-    "config//build_mode/constraints:nosan",
-    "config//build_mode/constraints:debug",
-  ],
-)
-```
-adds nosan and debug constraints in that order to
-`repo//foo:bar`'s configuration.
-
-Once per-target modifiers are resolved, we end up
-with a target configuration used to configure a target.
-
-Note that that target's configuration can further change after modifiers
-are resolved if there are per-rule transitions applied on the target.
-
-### `cfg_override` rule
-
-A modifier can be defined as a `cfg_override` rule in addition
-to platform and constraint value. This rule applies a function
-that takes in the existing configuration as input, changes it,
-and returns a new configuration.
-
-This allows more complex logic like adding a constraint only if
-an existing constraint exists.
-
-The following example shows a way to express "use msvc on windows
-configuration but clang on other OSes".
-
-```python
-# repo/BUCK
-
-def _msvc_if_windows_else_clang_impl(
-  # `Configuration` is an opaque object that supports methods `contains`, `get`, `insert`, and `pop` similar to a dictionary.
-  cfg: "Configuration",
-  # `Refs` holds references to dependent constraints, platforms, and modifiers.
-  refs,
-) -> "Configuration":
-  if cfg.contains(refs.windows):
-    cfg.insert(refs.msvc)
-  else:
-    cfg.insert(refs.clang)
-  return cfg
-
-cfg_override(
-  name = "msvc_if_windows_else_clang",
-  impl = _msvc_if_windows_else_clang_impl,
-  refs = {
-    "clang": "config//compiler/constraints:clang",
-    "msvc": "config//compiler/constraints:msvc",
-    "windows": "config//os/constraints:windows",
-  },
-)
-
-# repo/PACKAGE
-add_default_cfg(":msvc_if_windows_else_clang")
-```
-
-Now a target will always have the msvc constraint added
-when targeting windows but the clang constraint otherwise.
-
-It's possible to make `cfg_override` significantly less verbose
-via a lambda. For example, the above example can be rewritten as
-```python
-# repo/BUCK
-
-cfg_override(
-  name = "msvc_if_windows_else_clang",
-  # `cfg.set` returns a `Configuration` object.
-  impl = lambda cfg, refs: cfg.set(
-    refs.msvc if cfg.contains(refs.windows) else refs.clang
-  ),
-  refs = {
-    "clang": "config//compiler/constraints:clang",
-    "msvc": "config//compiler/constraints:msvc",
-    "windows": "config//os/constraints:windows",
+  # ...
+  cfg_modifiers = {
+    "cfg//os:_": "cfg//os:windows",
   },
 )
 ```
 
-`cfg_override` target can only be specified for PACKAGE
-and per-target modifiers, not required modifiers
-(this restriction can be revisited later if needed).
+At the beginning, the configuration will be empty.
+When resolving modifiers, Buck will first resolve all modifiers for
+`cfg//os:_` before resolving all modifiers for `cfg//compiler:_`.
 
-`cfg_override` is only intended for complex cases needed
-to selectively insert constraints based on existing constraints.
-For the majority of use cases, specifying constraints directly
-as modifiers should be sufficient.
+For OS, the linux modifier from `repo/PACKAGE` will apply first, followed by
+macos modifier from `repo/foo/PACKAGE` and windows modifier from
+`repo//foo:bar`'s target modifiers, so `repo//foo:bar` will end up with
+`cfg//os:windows` for `cfg//os:_` in its configuration. Next, to resolve
+compiler modifier, the `modifier_select` from `repo/PACKAGE` will resolve to
+`cfg//compiler:msvc` since existing configuration is windows and apply that as
+the modifier. The target configuration for `repo//foo:bar` ends up with windows
+and msvc.
 
-Like other types of modifiers, `cfg_override` cannot override
-required constraints.
-To guarantee this, `insert` and `pop` methods of `Configuration` object
-will be no-ops if it is trying to overwrite a required constraint.
+However, suppose user invokes `repo//foo:bar?linux` on the command line. When
+resolving OS modifier, the linux modifier from cli will override any existing
+OS constraint and insert linux into the configuraiton. Then, when resolving the
+compiler modifier, the `modifier_select` will resolve to `cfg//compiler:clang`,
+giving clang and linux as the final configuration.
 
-For example, in the previous example, if the user supplies a requested
-configuration of windows and clang, then the target configuration
-will end up containing windows and clang, not windows and msvc.
+Because command line modifiers will apply at the end, they
+are also known as required modifiers. Any modifier specified on the command line
+will always override any modifier for the same constraint setting specified in
+the repo.
 
-To make it clear which constraints are required
-to the `cfg_override` function, the `Configuration` object
-supports a `required_cfg` function that returns
-a `RequiredConfiguration` object holding only the required constraints.
-A `RequiredConfiguration` is immutable and supports
-`contains` and `get` methods but not `insert`, `set`, or `pop`.
+The ordering of constraint setting to resolve modifiers is determined based on
+dependency order of constraints specified in the keys of the `modifier_select`
+specified. Because some modifiers select on other constraints, modifiers for
+those constraints must be resolved first. In the previous example, because
+compiler modifier selects on OS constraints, Buck will resolve all
+OS modifiers before resolving compiler modifiers.
+`modifier_select` that ends up with a cycle of selected constraints
+(ex. compiler modifier selects on sanitizer but sanitizer modifier also selects
+on compiler) will be an error.
 
-### Configuration Naming
+### Modifier-Specific Selects
 
-It's important for a configuration to have a representative name
-to indicate what important constraints were used.
-This is useful for debugging because often a build error
-is caused by a misconfiguration.
+Modifiers have 3 types of select operators that allow for powerful compositions.
+Each operation is a function that accepts a dictionary where the keys are
+conditionals and values are modifiers.
 
-To make this easy, this API adds a naming function to derive a useful
-name based on the existing configuration. The name function takes in a
-map of constraint settings to constraint values as input and returns a
-string for the name of the configuration. This name function will be
-defined globally for a repo.
+1. `modifier_select`. Introduced in the previous sections, this is capable of
+inserting constraints based on constraints in the existing configuration.
 
-An example is as follows.
+2. `rule_select`. This is capable of selecting based on the rule name (also
+known as rule type). The keys are regex patterns to match against the rule
+name or "DEFAULT". Partial matches are allowed.
+
+3. `host_select`. This selects based on the host configuration,
+whereas `modifier_select` selects based on the target configuration. This
+host configuration is constructed when resolving modifiers. `host_select` is
+important to making `buck build` work anywhere on any platform. For example,
+when the OS to configure is not specified, it's best to assume that the user
+wants to target the same OS as the host machine.
+
+An example using `rule_select` and `host_select` is as follows.
+
 ```python
-# Generated configuration follows the name <os>-<sanitizer>-<toolchain>.
-KEY_CONSTRAINT_SETTINGS = [
-  "config//os/constraints:os",
-  "config//build_mode/constraints:sanitizer",
-  "config//compiler/constraints:toolchain",
-]
+# root/PACKAGE
 
-def _name(
-  # Keys and values in `constraints_map` are fully qualified target label strings.
-  constraint_map,   # {str: str}
-) -> str:
-  name_builder = []
-  for constraint_setting in KEY_CONSTRAINT_SETTINGS:
-    constraint_value = constraint_map.get(constraint_setting)
-    if constraint_value is not None:
-      # Get the target name from full target label and add it to the generated name.
-      name_builder.append(constraint_value.split(":")[-1])
+# We want OS to target the host machine by default.
+# Ex. build linux on linux machine, build windows on windows machine,
+# and build mac on mac machine.
+# However, if the rule is apple or android specific, then we should
+# always be building for apple/android as OS, no matter the host
+# configuration.
 
-  return "-".join(name_builder)
+cfg_modifiers({
+  "cfg//os:_": rule_select({
+    "apple_.*": "cfg//os:iphone",
+    "android_.*": "cfg//os:android",
+    "DEFAULT": host_select({
+      "cfg//os:linux": "cfg//os:linux",
+      "cfg//os:macos": "cfg//os:macos",
+      "cfg//os:windows": "cfg//os:windows",
+    })
+  })
+})
 ```
+
+On select resolution, Buck's `select` currently requires unambiguous
+keys in the dictionary and resolves to the key with the most refined match.
+The select operators used in modifiers will diverge from this and implement
+a "first-match" behavior, where select resolves to the first condition that evalutes to true in the dictionary.
+
+### Legacy Target platform
+
+Target platform (`--target-platforms` flag or `default_target_platform`
+attribute) will be a deprecated way of specifying configuration and will be
+killed once all use cases migrate to modifiers. To maintain backwards compatibility
+with target platforms during the migration process, modifier resolution
+will take into account the target platform specified. This allows for an easy
+migration where modifiers can be introduced one at a time without reaching
+feature parity of target platform.
+
+If a target's modifiers resolve to an empty configuration, then Buck will reuse
+the target platform as the configuration. If modifiers resolve to a non-empty
+configuration, then Buck look for any constraint in the target platform not
+covered by a constraint setting from the modifier configuration and add those
+to the configuration.
+For example, suppose in the previous example, the target platform for `repo//
+foo:bar` includes `cfg//sanitizer:asan`, then this constraint will be inserted
+into the configuration since no modifier covered the sanitizer constraint
+setting.
 
 ## Debugging modifiers
 
 Because many layers of modifiers can be applied before obtaining
-a final configuration, it is important that modifiers are easy
-to debug for integrators. To show what modifiers are applied,
-we can add a `buck.modifiers` special attribute to every target
-that keeps track of all the required modifiers, legacy target platform,
-per-PACKAGE modifiers and per-target modifiers a target goes through
-in order. We can also add a `buck2 audit cfg-modifiers <TARGET>`
-command to show the configuration change after each modifier
-is applied as well as which PACKAGE/BUCK/TARGETS file
-each modifier is added.
+a final configuration, it is important that modifier resolution is easy
+to debug and understand. Here are some ways that modifier resolution
+can be interpreted.
+
+1. *`buck2 audit modifiers` command*. There will be a `buck2 audit modifiers`
+command to show all PACKAGE, target, and required modifiers for a target. It
+can also show configuration changes from modifier resolution process if
+requested by the user.
+
+2. *Starlark print statements or debugger*.
+Modifier resolution process will be implemented in Starlark in prelude.
+This means that any user can use any of the existing way to debug starlark
+(ex. print statements, Starlark debugger in VSCode) to debug the resolution
+process.
 
 ## How configuration modifiers differ from transitions
 
-Modifiers are largely inspired by configuration transitions,
-and there are a high amount of similarities in particular between
-the `cfg_override` rule and the transition rule.
+Modifiers are largely inspired by configuration transitions.
+The difference between modifier and transition is that a transition can change
+the configuration of any target in the graph, but a modifier can only change
+the configuration of a top-level target. In other words, if you have target A
+that depends on target B and you request a build of A, then A's target
+configuration would be resolved via modifiers and propagated down to B, but dep
+B would not do its own modifier resolution. When a top-level target goes through
+a per-rule transition, that transition is applied after modifiers are resolved.
 
-The major differences are:
-
-1. A transition can change the configuration of a target when depending
-   on a target, but a modifier can only change the configuration of a
-   top-level target. In other words, if you have target A that depends
-   on target B and you request a build of A, then A's target
-   configuration would be resolved via modifiers and propagated down to
-   B, but dep B would not do its own modifier resolution
-2. `cfg_override` functions see an opaque "Configuration" object, so it
-   cannot know every single constraint used in the configuration.
-   Transition functions can iterate and read every constraint in the
-   configuration. Transitions can use logic like "throw away the old
-   configuration entirely and use a new configuration" (which is what
-   fat platform transition currently does) whereas an override cannot.
-3. Transitions can accept an `attrs` parameter from the attributes
-   of the target if necessary whereas `cfg_override` does not
-   (if necessary, this can be revisited).
-4. `cfg_override` is specified as a target and transition is not.
-
-Ideally, we should unify all the API differences between `cfg_override`
-and `transition` and use `transition` directly instead,
-but that's out of the scope of this RFC for now.
-
-They have different use cases. For example,
+Below are some examples that show when to use modifier and when to use
+transition.
 
 1. *Python version* should be modeled as a transition and not modifier.
    Suppose we have `python_binary` A nested as a resource of
@@ -437,16 +450,5 @@ They have different use cases. For example,
    but a top-level C++ library target can still have its configuration
    changed via modifiers when requested from command line.
 
-## End Goal
-
-1. No more `default_target_platform`.
-
-2. No more `--target-platforms` flag.
-
-3. There shouldn't be a need to define `platform` targets
-   outside of exec platforms.
-
-4. Most use cases of `read_config` are killed.
-   Buckconfigs should be reserved for buck2 core features.
-
-5. Most build settings should only use configurations.
+In the future, we may add support for modifier transition, which can
+transition via modifiers, but that is out of the scope of this RFC.
