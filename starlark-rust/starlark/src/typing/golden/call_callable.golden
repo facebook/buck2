@@ -5,7 +5,7 @@
 # ```
 
 Code:
-def foo(x: "function"):
+def foo(x: typing.Callable):
     x()
 
 No errors.

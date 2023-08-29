@@ -5,7 +5,7 @@
 # ```
 
 Code:
-def foo(x: ["function", str], y: [str, "function"]):
+def foo(x: [typing.Callable, str], y: [str, typing.Callable]):
     x()
     y()
 

@@ -315,7 +315,7 @@ fn test_call_callable() {
     TypeCheck::new().check(
         "call_callable",
         r#"
-def foo(x: "function"):
+def foo(x: typing.Callable):
     x()
 "#,
     );
@@ -348,7 +348,7 @@ fn test_call_callable_or_not_callable() {
     TypeCheck::new().check(
         "call_callable_or_not_callable",
         r#"
-def foo(x: ["function", str], y: [str, "function"]):
+def foo(x: [typing.Callable, str], y: [str, typing.Callable]):
     x()
     y()
 "#,
@@ -360,7 +360,7 @@ fn test_call_callable_or_unknown() {
     TypeCheck::new().check(
         "call_callable_or_unknown",
         r#"
-def foo(x: ["function", "unknown"], y: ["unknown", "function"]):
+def foo(x: [typing.Callable, "unknown"], y: ["unknown", typing.Callable]):
     x()
     y()
 "#,

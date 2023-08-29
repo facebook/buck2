@@ -75,9 +75,7 @@ const BAN_REPLACE_TYPES: &[(&str, &str)] = &[
     ("struct", "struct"),
     ("NoneType", "None"),
     ("None", "None"),
-    // TODO(nga): ban `"function"` too.
-    // ("function", "typing.Callable"),
-
+    ("function", "typing.Callable"),
     // Following do not belong to starlark, but this code will go away
     // after we finish migration from string-based types.
     ("actions", "AnalysisActions"),
