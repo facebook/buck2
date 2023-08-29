@@ -467,15 +467,6 @@ async fn test_targets(
 
                 let server_handle = make_server(orchestrator, BuckTestDownwardApi);
 
-                let resolve_tests_platform_independently = ctx
-                    .parse_legacy_config_property(
-                        cell_resolver.root_cell(),
-                        "buck2",
-                        "independent_tests_platform_resolution",
-                    )
-                    .await?
-                    .unwrap_or(false);
-
                 let mut driver = TestDriver::new(TestDriverState {
                     ctx: &ctx,
                     label_filtering: &label_filtering,
@@ -484,7 +475,6 @@ async fn test_targets(
                     test_executor: &test_executor,
                     cell_resolver: &cell_resolver,
                     working_dir_cell,
-                    resolve_tests_platform_independently,
                     missing_target_behavior,
                 });
 
@@ -598,7 +588,6 @@ pub(crate) struct TestDriverState<'a, 'e> {
     test_executor: &'a Arc<dyn TestExecutor + 'e>,
     cell_resolver: &'a CellResolver,
     working_dir_cell: CellName,
-    resolve_tests_platform_independently: bool,
     missing_target_behavior: MissingTargetBehavior,
 }
 
@@ -742,18 +731,12 @@ impl<'a, 'e> TestDriver<'a, 'e> {
 
             // Look up `tests` in the the target we're testing, and if we find any tests, add them to the test backlog.
             for test in node.tests() {
-                if state.resolve_tests_platform_independently {
-                    work.push(TestDriverTask::ConfigureTarget {
-                        label: test.unconfigured(),
-                        // Historically `skippable: false` is what we enforced here, perhaps that
-                        // should change.
-                        skippable: false,
-                    });
-                } else {
-                    // TODO: This doesn't recursively handle the `tests` attribute, but this
-                    // configuration is deprecated anyway.
-                    work.push(TestDriverTask::TestTarget { label: test });
-                }
+                work.push(TestDriverTask::ConfigureTarget {
+                    label: test.unconfigured(),
+                    // Historically `skippable: false` is what we enforced here, perhaps that
+                    // should change.
+                    skippable: false,
+                });
             }
 
             anyhow::Ok(work)
