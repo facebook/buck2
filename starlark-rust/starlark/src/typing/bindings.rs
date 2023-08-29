@@ -105,6 +105,24 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
     /// Collect all the assignments to variables.
     ///
     /// This function only fails on internal errors.
+    pub(crate) fn collect_one(
+        x: &'a mut CstStmt,
+        typecheck_mode: TypecheckMode,
+        codemap: &CodeMap,
+        approximations: &'b mut Vec<Approximation>,
+    ) -> Result<Self, InternalError> {
+        let mut res = BindingsCollect {
+            bindings: Bindings::default(),
+            approximations,
+        };
+
+        res.visit(Visit::Stmt(x), &Ty::any(), typecheck_mode, codemap)?;
+        Ok(res)
+    }
+
+    /// Collect all the assignments to variables.
+    ///
+    /// This function only fails on internal errors.
     pub(crate) fn collect(
         xs: &'a [&'a mut CstStmt],
         typecheck_mode: TypecheckMode,

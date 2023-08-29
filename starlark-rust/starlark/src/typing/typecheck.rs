@@ -34,6 +34,7 @@ use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::BindingSource;
 use crate::eval::compiler::scope::ModuleScopes;
 use crate::slice_vec_ext::VecExt;
+use crate::syntax::ast::StmtP;
 use crate::syntax::ast::Visibility;
 use crate::syntax::top_level_stmts::top_level_stmts_mut;
 use crate::syntax::AstModule;
@@ -224,59 +225,67 @@ impl AstModule {
             }
         };
 
-        let bindings = match BindingsCollect::collect(
-            &cst,
-            TypecheckMode::Lint,
-            &codemap,
-            &mut approximations,
-        ) {
-            Ok(bindings) => bindings,
-            Err(e) => {
-                return (
-                    vec![InternalError::into_anyhow(e)],
-                    TypeMap {
-                        codemap,
-                        bindings: UnorderedMap::new(),
-                    },
-                    Interface::default(),
-                    Vec::new(),
-                );
-            }
-        };
-        let (solve_errors, types, solve_approximations) =
-            match solve_bindings(bindings.bindings, oracle, &module_var_types) {
-                Ok(x) => x,
-                Err(e) => {
-                    return (
-                        vec![e.into_anyhow()],
-                        TypeMap {
-                            codemap,
-                            bindings: UnorderedMap::new(),
-                        },
-                        Interface::default(),
-                        Vec::new(),
-                    );
+        let mut typemap = UnorderedMap::new();
+        let mut all_solve_errors = Vec::new();
+
+        for top in cst.iter_mut() {
+            if let StmtP::Def(_) = &mut top.node {
+                let bindings = match BindingsCollect::collect_one(
+                    top,
+                    TypecheckMode::Lint,
+                    &codemap,
+                    &mut approximations,
+                ) {
+                    Ok(bindings) => bindings,
+                    Err(e) => {
+                        return (
+                            vec![InternalError::into_anyhow(e)],
+                            TypeMap {
+                                codemap,
+                                bindings: UnorderedMap::new(),
+                            },
+                            Interface::default(),
+                            Vec::new(),
+                        );
+                    }
+                };
+                let (solve_errors, types, solve_approximations) =
+                    match solve_bindings(bindings.bindings, oracle, &module_var_types) {
+                        Ok(x) => x,
+                        Err(e) => {
+                            return (
+                                vec![e.into_anyhow()],
+                                TypeMap {
+                                    codemap,
+                                    bindings: UnorderedMap::new(),
+                                },
+                                Interface::default(),
+                                Vec::new(),
+                            );
+                        }
+                    };
+
+                all_solve_errors.extend(solve_errors);
+                approximations.extend(solve_approximations);
+
+                for (id, ty) in &types {
+                    let binding = scope_data.get_binding(*id);
+                    let name = binding.name.as_str().to_owned();
+                    let span = match binding.source {
+                        BindingSource::Source(span) => span,
+                        BindingSource::FromModule => Span::default(),
+                    };
+                    typemap.insert(*id, (name, span, ty.clone()));
                 }
-            };
-
-        approximations.extend(solve_approximations);
-
-        let mut typemap = UnorderedMap::with_capacity(types.len());
-        for (id, ty) in &types {
-            let binding = scope_data.get_binding(*id);
-            let name = binding.name.as_str().to_owned();
-            let span = match binding.source {
-                BindingSource::Source(span) => span,
-                BindingSource::FromModule => Span::default(),
-            };
-            typemap.insert(*id, (name, span, ty.clone()));
+            }
         }
+
         let typemap = TypeMap {
             bindings: typemap,
             codemap: codemap.dupe(),
         };
 
-        let errors = [scope_errors, fill_types_errors, solve_errors]
+        let errors = [scope_errors, fill_types_errors, all_solve_errors]
             .into_iter()
             .flatten()
             .map(TypingError::into_anyhow)
