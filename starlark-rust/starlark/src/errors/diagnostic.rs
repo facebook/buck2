@@ -30,9 +30,9 @@ use annotate_snippets::snippet::SourceAnnotation;
 use starlark_syntax::codemap::CodeMap;
 use starlark_syntax::codemap::FileSpan;
 use starlark_syntax::codemap::Span;
+use starlark_syntax::fast_string;
 
 use crate::eval::CallStack;
-use crate::values::string::fast_string;
 
 /// An error plus its origination location and call stack.
 ///

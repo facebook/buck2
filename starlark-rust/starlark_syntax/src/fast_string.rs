@@ -26,7 +26,7 @@ use std::str;
 
 use dupe::Dupe;
 
-use crate::stdlib::util::convert_indices;
+use crate::convert_indices::convert_indices;
 
 #[inline(always)]
 fn is_1byte(x: u8) -> bool {
@@ -91,14 +91,15 @@ fn skip_at_most_1byte(x: &str, n: usize) -> usize {
                 return p;
             }
         }
-        return p;
+        p
     }
 
     unsafe { f(x, n).offset_from(x.as_ptr()) as usize }
 }
 
 /// Find the character at position `i`.
-pub(crate) fn at(x: &str, i: CharIndex) -> Option<char> {
+#[inline]
+pub fn at(x: &str, i: CharIndex) -> Option<char> {
     if i.0 >= x.len() {
         // Important that skip_at_most_1byte gets called with all valid character.
         // If the index is outside the length even under the best assumptions,
@@ -112,7 +113,8 @@ pub(crate) fn at(x: &str, i: CharIndex) -> Option<char> {
 
 /// Find the length of the string in characters.
 /// If the length matches the length in bytes, the string must be 7bit ASCII.
-pub(crate) fn len(x: &str) -> CharIndex {
+#[inline]
+pub fn len(x: &str) -> CharIndex {
     let n = skip_at_most_1byte(x, x.len());
     if n == x.len() {
         CharIndex(n) // All 1 byte
@@ -124,11 +126,13 @@ pub(crate) fn len(x: &str) -> CharIndex {
 /// Find the number of times a `needle` byte occurs within a string.
 /// If the needle represents a complete character, this will be equivalent to doing
 /// search for that character in the string.
+#[inline]
 pub fn count_matches_byte(x: &str, needle: u8) -> usize {
     x.as_bytes().iter().filter(|x| **x == needle).count()
 }
 
 /// Find the number of times a `needle` occurs within a string, non-overlapping.
+#[inline]
 pub fn count_matches(x: &str, needle: &str) -> usize {
     if needle.len() == 1 {
         // If we are searching for a 1-byte string, we can provide a much faster path.
@@ -141,15 +145,16 @@ pub fn count_matches(x: &str, needle: &str) -> usize {
 
 /// Result of applying `start` and `end` to a string.
 #[derive(PartialEq, Debug)]
-pub(crate) struct StrIndices<'a> {
+pub struct StrIndices<'a> {
     /// Computed start char index.
-    pub(crate) start: CharIndex,
+    pub start: CharIndex,
     /// Substring after applying the `start` and `end` arguments.
-    pub(crate) haystack: &'a str,
+    pub haystack: &'a str,
 }
 
 /// Split the string at given char offset. `None` if offset is out of bounds.
-pub(crate) fn split_at(x: &str, i: CharIndex) -> Option<(&str, &str)> {
+#[inline]
+pub fn split_at(x: &str, i: CharIndex) -> Option<(&str, &str)> {
     if i.0 == 0 {
         return Some(("", x));
     }
@@ -205,11 +210,7 @@ fn convert_str_indices_slow(s: &str, start: Option<i32>, end: Option<i32>) -> Op
 
 /// Convert common `start` and `end` arguments of `str` functions like `str.find`.
 #[inline(always)]
-pub(crate) fn convert_str_indices(
-    s: &str,
-    start: Option<i32>,
-    end: Option<i32>,
-) -> Option<StrIndices> {
+pub fn convert_str_indices(s: &str, start: Option<i32>, end: Option<i32>) -> Option<StrIndices> {
     match (start, end) {
         // Following cases but last optimize index computation
         // by avoiding computing the length of the string.
@@ -244,7 +245,8 @@ pub(crate) fn convert_str_indices(
     }
 }
 
-pub(crate) fn contains(haystack: &str, needle: &str) -> bool {
+#[inline]
+pub fn contains(haystack: &str, needle: &str) -> bool {
     if needle.is_empty() {
         true
     } else if needle.len() == 1 {
@@ -268,13 +270,34 @@ pub(crate) fn contains(haystack: &str, needle: &str) -> bool {
     }
 }
 
+/// Index of a char in a string.
+/// This is different from string byte offset.
+#[derive(Eq, PartialEq, PartialOrd, Ord, Copy, Clone, Dupe, Debug)]
+pub struct CharIndex(pub usize);
+
+impl Sub for CharIndex {
+    type Output = CharIndex;
+
+    fn sub(self, rhs: CharIndex) -> CharIndex {
+        CharIndex(self.0 - rhs.0)
+    }
+}
+
+impl Add for CharIndex {
+    type Output = CharIndex;
+
+    fn add(self, rhs: CharIndex) -> CharIndex {
+        CharIndex(self.0 + rhs.0)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::iter;
 
-    use crate::values::string::fast_string::convert_str_indices;
-    use crate::values::types::string::fast_string::CharIndex;
-    use crate::values::types::string::fast_string::StrIndices;
+    use crate::fast_string::convert_str_indices;
+    use crate::fast_string::CharIndex;
+    use crate::fast_string::StrIndices;
 
     #[test]
     fn test_convert_str_indices() {
@@ -356,26 +379,5 @@ mod tests {
                 }
             }
         }
-    }
-}
-
-/// Index of a char in a string.
-/// This is different from string byte offset.
-#[derive(Eq, PartialEq, PartialOrd, Ord, Copy, Clone, Dupe, Debug)]
-pub(crate) struct CharIndex(pub(crate) usize);
-
-impl Sub for CharIndex {
-    type Output = CharIndex;
-
-    fn sub(self, rhs: CharIndex) -> CharIndex {
-        CharIndex(self.0 - rhs.0)
-    }
-}
-
-impl Add for CharIndex {
-    type Output = CharIndex;
-
-    fn add(self, rhs: CharIndex) -> CharIndex {
-        CharIndex(self.0 + rhs.0)
     }
 }

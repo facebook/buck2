@@ -87,7 +87,6 @@ rust_library(
         "fbsource//third-party/rust:lsp-server",
         "fbsource//third-party/rust:lsp-types",
         "fbsource//third-party/rust:maplit",
-        "fbsource//third-party/rust:memchr",
         "fbsource//third-party/rust:memoffset",
         "fbsource//third-party/rust:num-bigint",
         "fbsource//third-party/rust:num-traits",

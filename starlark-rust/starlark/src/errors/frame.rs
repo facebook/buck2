@@ -19,9 +19,10 @@ use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
 
+use starlark_syntax::fast_string;
+use starlark_syntax::fast_string::CharIndex;
+
 use crate::codemap::FileSpan;
-use crate::values::string::fast_string;
-use crate::values::types::string::fast_string::CharIndex;
 
 /// A frame of the call-stack.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]

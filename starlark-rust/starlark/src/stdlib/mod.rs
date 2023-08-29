@@ -33,7 +33,6 @@ pub(crate) mod list;
 pub(crate) mod partial;
 pub(crate) mod string;
 pub(crate) mod structs;
-pub(crate) mod util;
 
 pub use extra::PrintHandler;
 

@@ -19,6 +19,7 @@ rust_library(
     ],
     deps = [
         "fbsource//third-party/rust:lsp-types",
+        "fbsource//third-party/rust:memchr",
         "fbsource//third-party/rust:once_cell",
         "//buck2/allocative/allocative:allocative",
         "//buck2/gazebo/dupe:dupe",

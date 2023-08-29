@@ -18,11 +18,11 @@
 //! Methods for the `list` type.
 
 use starlark_derive::starlark_module;
+use starlark_syntax::convert_indices::convert_index;
+use starlark_syntax::convert_indices::convert_indices;
 
 use crate as starlark;
 use crate::environment::MethodsBuilder;
-use crate::stdlib::util::convert_index;
-use crate::stdlib::util::convert_indices;
 use crate::values::list::ListRef;
 use crate::values::none::NoneOr;
 use crate::values::none::NoneType;
