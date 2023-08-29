@@ -7,13 +7,15 @@
  * of this source tree.
  */
 
-#![allow(dead_code)]
-
 use std::sync::Arc;
 
+use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::result::SharedResult;
+use buck2_common::result::ToSharedResultExt;
+use buck2_common::result::ToUnsharedResultExt;
 use buck2_configured::configuration::cfg_constructor::CfgConstructorCalculationImpl;
 use buck2_configured::configuration::cfg_constructor::CfgConstructorImpl;
 use buck2_core::bzl::ImportPath;
@@ -22,7 +24,11 @@ use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::parse_import::RelativeImports;
+use derive_more::Display;
+use dice::CancellationContext;
 use dice::DiceComputations;
+use dice::Key;
+use dupe::Dupe;
 
 use crate::CfgConstructor;
 pub struct CfgConstructorCalculationInstance;
@@ -91,7 +97,34 @@ async fn load_cfg_constructor(
 }
 
 #[async_trait]
-impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {}
+impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
+    async fn get_cfg_constructor(
+        &self,
+        ctx: &DiceComputations,
+    ) -> anyhow::Result<Option<Arc<dyn CfgConstructorImpl>>> {
+        #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+        struct GetCfgConstructorKey;
+
+        #[async_trait]
+        impl Key for GetCfgConstructorKey {
+            type Value = SharedResult<Option<Arc<dyn CfgConstructorImpl>>>;
+
+            async fn compute(
+                &self,
+                ctx: &mut DiceComputations,
+                _cancellations: &CancellationContext,
+            ) -> Self::Value {
+                get_cfg_constructor_uncached(ctx).await.shared_error()
+            }
+
+            fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
+                false
+            }
+        }
+
+        ctx.compute(&GetCfgConstructorKey).await?.unshared_error()
+    }
+}
 
 #[derive(Debug, thiserror::Error)]
 enum CfgConstructorError {

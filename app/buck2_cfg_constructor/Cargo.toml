@@ -5,9 +5,12 @@ edition = "2021"
 description = "Implementation of configuration constructor for modifier feature"
 
 [dependencies]
+allocative = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+derive_more = { workspace = true }
 dice = { workspace = true }
+dupe = { workspace = true }
 futures = { workspace = true }
 starlark = { workspace = true }
 thiserror = { workspace = true }

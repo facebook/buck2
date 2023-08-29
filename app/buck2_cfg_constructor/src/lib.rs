@@ -7,14 +7,15 @@
  * of this source tree.
  */
 
-#![allow(dead_code)]
-
 pub(crate) mod calculation;
 
+use allocative::Allocative;
 use buck2_configured::configuration::cfg_constructor::CfgConstructorImpl;
 use buck2_configured::configuration::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
 use calculation::CfgConstructorCalculationInstance;
 use starlark::values::OwnedFrozenValue;
+
+#[derive(Allocative)]
 struct CfgConstructor {
     cfg_constructor_pre_constraint_analysis: OwnedFrozenValue,
     cfg_constructor_post_constraint_analysis: OwnedFrozenValue,
