@@ -97,4 +97,12 @@ where
         }
         Ok(())
     }
+
+    fn get_type_starlark_repr() -> Ty {
+        Ty::starlark_value::<Self>()
+    }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(Ty::starlark_value::<Self>())
+    }
 }
