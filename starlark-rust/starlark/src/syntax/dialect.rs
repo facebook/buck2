@@ -30,15 +30,11 @@ use crate::syntax::ast::Visibility;
 use crate::syntax::type_expr::TypeExprUnpackP;
 
 #[derive(Error, Debug)]
-pub(crate) enum DialectError {
+enum DialectError {
     #[error("`def` is not allowed in this dialect")]
     Def,
     #[error("`lambda` is not allowed in this dialect")]
     Lambda,
-    #[error("`...` is not allowed in this dialect")]
-    Ellipsis,
-    #[error("`load` is not allowed in this dialect")]
-    Load,
     #[error("* keyword-only-arguments is not allowed in this dialect")]
     KeywordOnlyArguments,
     #[error("type annotations are not allowed in this dialect")]

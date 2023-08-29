@@ -32,7 +32,6 @@ use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::ForP;
 use crate::syntax::ast::Stmt;
-use crate::syntax::dialect::DialectError;
 use crate::syntax::Dialect;
 use crate::syntax::DialectTypes;
 
@@ -50,6 +49,10 @@ enum ValidateError {
     NoTopLevelIf,
     #[error("`for` cannot be used outside `def` in this dialect")]
     NoTopLevelFor,
+    #[error("`load` is not allowed in this dialect")]
+    Load,
+    #[error("`...` is not allowed in this dialect")]
+    Ellipsis,
 }
 
 #[derive(Eq, PartialEq, PartialOrd, Ord)]
@@ -191,7 +194,7 @@ impl Stmt {
                         return err(ValidateError::LoadNotTop.into());
                     }
                     if !dialect.enable_load {
-                        return err(DialectError::Load.into());
+                        return err(ValidateError::Load.into());
                     }
                     Ok(())
                 }
@@ -205,7 +208,7 @@ impl Stmt {
             if let Expr::Literal(AstLiteral::Ellipsis) = &expr.node {
                 if dialect.enable_types == DialectTypes::Disable {
                     return Err(EvalException::new(
-                        DialectError::Ellipsis.into(),
+                        ValidateError::Ellipsis.into(),
                         expr.span,
                         codemap,
                     ));
