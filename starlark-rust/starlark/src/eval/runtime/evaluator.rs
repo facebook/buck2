@@ -22,6 +22,7 @@ use std::path::Path;
 
 use dupe::Dupe;
 use starlark_syntax::diagnostic::Diagnostic;
+use starlark_syntax::eval_exception::EvalException;
 use starlark_syntax::frame::Frame;
 use thiserror::Error;
 
@@ -45,7 +46,6 @@ use crate::eval::compiler::def::CopySlotFromParent;
 use crate::eval::compiler::def::Def;
 use crate::eval::compiler::def::DefInfo;
 use crate::eval::compiler::def::FrozenDef;
-use crate::eval::compiler::eval_exception::EvalException;
 use crate::eval::runtime::before_stmt::BeforeStmt;
 use crate::eval::runtime::before_stmt::BeforeStmtFunc;
 use crate::eval::runtime::cheap_call_stack::CheapCallStack;

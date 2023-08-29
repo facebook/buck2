@@ -17,11 +17,12 @@
 
 //! Compile and evaluate module top-level statements.
 
+use starlark_syntax::eval_exception::EvalException;
+
 use crate::codemap::Spanned;
 use crate::const_frozen_string;
 use crate::eval::bc::frame::alloca_frame;
 use crate::eval::compiler::add_span_to_expr_error;
-use crate::eval::compiler::eval_exception::EvalException;
 use crate::eval::compiler::expr_throw;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstStmt;

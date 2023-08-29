@@ -20,6 +20,7 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:annotate-snippets",
         "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:lsp-types",
         "fbsource//third-party/rust:memchr",
         "fbsource//third-party/rust:once_cell",

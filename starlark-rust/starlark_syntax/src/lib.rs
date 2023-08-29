@@ -24,5 +24,6 @@ pub mod call_stack;
 pub mod codemap;
 pub mod convert_indices;
 pub mod diagnostic;
+pub mod eval_exception;
 pub mod fast_string;
 pub mod frame;

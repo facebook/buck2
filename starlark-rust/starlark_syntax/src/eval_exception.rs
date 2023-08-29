@@ -15,14 +15,12 @@
  * limitations under the License.
  */
 
-use starlark_syntax::codemap::CodeMap;
-use starlark_syntax::codemap::Span;
-use starlark_syntax::diagnostic::Diagnostic;
+use crate::codemap::CodeMap;
+use crate::codemap::Span;
+use crate::diagnostic::Diagnostic;
 
 /// Error with location.
 #[derive(Debug, derive_more::Display)]
-// TODO(nga): lalrpop generates public members which require error type to be public too.
-#[doc(hidden)]
 pub struct EvalException(
     /// Error is `Diagnostic`, but stored as `anyhow::Error` for smaller size.
     anyhow::Error,
@@ -31,21 +29,21 @@ pub struct EvalException(
 impl EvalException {
     /// Error must be `Diagnostic`.
     #[cold]
-    pub(crate) fn unchecked_new(error: anyhow::Error) -> EvalException {
+    pub fn unchecked_new(error: anyhow::Error) -> EvalException {
         EvalException(error)
     }
 
     #[cold]
-    pub(crate) fn into_anyhow(self) -> anyhow::Error {
+    pub fn into_anyhow(self) -> anyhow::Error {
         self.0
     }
 
     #[cold]
-    pub(crate) fn new(error: anyhow::Error, span: Span, codemap: &CodeMap) -> EvalException {
+    pub fn new(error: anyhow::Error, span: Span, codemap: &CodeMap) -> EvalException {
         EvalException(Diagnostic::new(error, span, codemap))
     }
 
-    pub(crate) fn _testing_loc(mut err: &anyhow::Error) -> crate::codemap::ResolvedFileSpan {
+    pub fn _testing_loc(mut err: &anyhow::Error) -> crate::codemap::ResolvedFileSpan {
         if let Some(eval_exc) = err.downcast_ref::<EvalException>() {
             err = &eval_exc.0;
         }

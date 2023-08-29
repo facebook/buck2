@@ -17,11 +17,12 @@
 
 //! Code called by the parser to handle complex cases not handled by the grammar.
 
+use starlark_syntax::eval_exception::EvalException;
+
 use crate::codemap::CodeMap;
 use crate::codemap::Pos;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
-use crate::eval::compiler::eval_exception::EvalException;
 use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::AssignIdentP;
 use crate::syntax::ast::AssignOp;

@@ -23,12 +23,12 @@ use derivative::Derivative;
 use dupe::Dupe;
 use lalrpop_util as lu;
 use starlark_syntax::diagnostic::Diagnostic;
+use starlark_syntax::eval_exception::EvalException;
 
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
 use crate::codemap::Pos;
 use crate::codemap::Span;
-use crate::eval::compiler::eval_exception::EvalException;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::Stmt;
 use crate::syntax::grammar::StarlarkParser;

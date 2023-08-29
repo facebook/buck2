@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
+use starlark_syntax::eval_exception::EvalException;
+
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::eval::compiler::constants::Constants;
-use crate::eval::compiler::eval_exception::EvalException;
 use crate::eval::compiler::scope::payload::CstIdent;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstStmt;

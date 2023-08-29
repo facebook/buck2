@@ -21,12 +21,12 @@ use std::fmt;
 use std::fmt::Display;
 
 use logos::Logos;
+use starlark_syntax::eval_exception::EvalException;
 use thiserror::Error;
 
 use crate::codemap::CodeMap;
 use crate::codemap::Pos;
 use crate::codemap::Span;
-use crate::eval::compiler::eval_exception::EvalException;
 use crate::syntax::cursors::CursorBytes;
 use crate::syntax::cursors::CursorChars;
 use crate::syntax::dialect::Dialect;

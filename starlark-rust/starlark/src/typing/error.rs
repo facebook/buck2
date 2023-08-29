@@ -17,9 +17,10 @@
 
 use std::fmt::Display;
 
+use starlark_syntax::eval_exception::EvalException;
+
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
-use crate::eval::compiler::eval_exception::EvalException;
 
 /// Internal error, bug in the typechecker.
 #[derive(Debug)]

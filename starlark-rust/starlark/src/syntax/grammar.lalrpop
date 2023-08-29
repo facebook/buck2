@@ -419,7 +419,7 @@ FactorExpr: AstExpr = {
 
 extern {
     type Location = usize;
-    type Error = crate::eval::compiler::eval_exception::EvalException;
+    type Error = starlark_syntax::eval_exception::EvalException;
 
     enum lexer::Token {
       "INDENT" => lexer::Token::Indent,

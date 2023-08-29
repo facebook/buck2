@@ -26,7 +26,6 @@ use std::collections::HashMap;
 use std::mem;
 use std::time::Instant;
 
-use compiler::eval_exception::EvalException;
 use dupe::Dupe;
 pub use runtime::arguments::Arguments;
 pub use runtime::before_stmt::BeforeStmtFuncDyn;
@@ -39,6 +38,7 @@ pub use runtime::params::ParametersSpecBuilder;
 pub use runtime::profile::data::ProfileData;
 pub use runtime::profile::ProfileMode;
 pub use starlark_syntax::call_stack::CallStack;
+use starlark_syntax::eval_exception::EvalException;
 
 use crate::collections::symbol_map::Symbol;
 use crate::docs::DocString;

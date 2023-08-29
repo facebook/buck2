@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
+use starlark_syntax::eval_exception::EvalException;
+
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
-use crate::eval::compiler::eval_exception::EvalException;
 use crate::syntax::Dialect;
 
 pub(crate) struct ParserState<'a> {

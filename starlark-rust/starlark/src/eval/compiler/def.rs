@@ -33,6 +33,7 @@ use once_cell::sync::Lazy;
 use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
 use starlark_derive::VisitSpanMut;
+use starlark_syntax::eval_exception::EvalException;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -50,7 +51,6 @@ use crate::eval::bc::bytecode::Bc;
 use crate::eval::bc::frame::alloca_frame;
 use crate::eval::compiler::def_inline::inline_def_body;
 use crate::eval::compiler::def_inline::InlineDefBody;
-use crate::eval::compiler::eval_exception::EvalException;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::opt_ctx::OptCtx;
 use crate::eval::compiler::scope::payload::CstAssignIdent;

@@ -21,7 +21,6 @@ pub(crate) mod compr;
 pub(crate) mod constants;
 pub(crate) mod def;
 pub(crate) mod def_inline;
-pub(crate) mod eval_exception;
 pub(crate) mod expr;
 pub(crate) mod expr_bool;
 pub(crate) mod known;
@@ -33,8 +32,8 @@ pub(crate) mod span;
 pub(crate) mod stmt;
 pub(crate) mod types;
 
-use eval_exception::EvalException;
 use starlark_syntax::diagnostic::Diagnostic;
+use starlark_syntax::eval_exception::EvalException;
 
 use crate::codemap::CodeMap;
 use crate::environment::Globals;

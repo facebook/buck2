@@ -19,10 +19,10 @@
 
 use std::collections::HashSet;
 
+use starlark_syntax::eval_exception::EvalException;
 use thiserror::Error;
 
 use crate::codemap::CodeMap;
-use crate::eval::compiler::eval_exception::EvalException;
 use crate::syntax::ast::Argument;
 use crate::syntax::ast::AstArgument;
 use crate::syntax::ast::AstExpr;

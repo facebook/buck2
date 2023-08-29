@@ -27,6 +27,7 @@ use dupe::Dupe;
 use starlark_derive::VisitSpanMut;
 use starlark_map::small_map;
 use starlark_map::small_map::SmallMap;
+use starlark_syntax::eval_exception::EvalException;
 
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
@@ -36,7 +37,6 @@ use crate::environment::Globals;
 use crate::environment::Module;
 use crate::errors::did_you_mean::did_you_mean;
 use crate::eval::compiler::def::CopySlotFromParent;
-use crate::eval::compiler::eval_exception::EvalException;
 use crate::eval::compiler::scope::payload::CstAssign;
 use crate::eval::compiler::scope::payload::CstAssignIdent;
 use crate::eval::compiler::scope::payload::CstExpr;

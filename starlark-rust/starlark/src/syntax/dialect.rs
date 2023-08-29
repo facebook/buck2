@@ -16,13 +16,13 @@
  */
 
 use dupe::Dupe;
+use starlark_syntax::eval_exception::EvalException;
 use thiserror::Error;
 
 use crate::codemap::CodeMap;
 use crate::codemap::Pos;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
-use crate::eval::compiler::eval_exception::EvalException;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::TypeExpr;
 use crate::syntax::ast::TypeExprP;

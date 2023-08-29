@@ -22,6 +22,8 @@ use std::marker;
 use std::ptr;
 use std::time::Instant;
 
+use starlark_syntax::eval_exception::EvalException;
+
 use crate::coerce::coerce;
 use crate::collections::symbol_map::Symbol;
 use crate::collections::Hashed;
@@ -52,7 +54,6 @@ use crate::eval::compiler::def::Def;
 use crate::eval::compiler::def::FrozenDef;
 use crate::eval::compiler::def::ParameterCompiled;
 use crate::eval::compiler::def::ParametersCompiled;
-use crate::eval::compiler::eval_exception::EvalException;
 use crate::eval::compiler::expr::get_attr_hashed_bind;
 use crate::eval::compiler::expr::get_attr_hashed_raw;
 use crate::eval::compiler::expr::EvalError;
