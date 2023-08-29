@@ -10,12 +10,10 @@ load("@prelude//apple:apple_utility.bzl", "expand_relative_prefixed_sdk_path", "
 load(":apple_sdk_modules_utility.bzl", "SDKDepTSet", "get_compiled_sdk_deps_tset")
 load(":swift_toolchain_types.bzl", "SdkCompiledModuleInfo", "SdkUncompiledModuleInfo", "WrappedSdkCompiledModuleInfo")
 
-def get_shared_pcm_compilation_args(target: str, module_name: str) -> cmd_args:
+def get_shared_pcm_compilation_args(module_name: str) -> cmd_args:
     cmd = cmd_args()
     cmd.add([
         "-emit-pcm",
-        "-target",
-        target,
         "-module-name",
         module_name,
         "-Xfrontend",

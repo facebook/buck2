@@ -144,6 +144,11 @@ def get_swift_anonymous_targets(ctx: AnalysisContext, get_apple_library_provider
 def get_swift_cxx_flags(ctx: AnalysisContext) -> list[str]:
     """Iterates through `swift_compiler_flags` and returns a list of flags that might affect Clang compilation"""
     gather, next = ([], False)
+
+    # Each target needs to propagate the compilers target triple.
+    # This can vary depending on the deployment target of each library.
+    gather += ["-target", get_versioned_target_triple(ctx)]
+
     for f in ctx.attrs.swift_compiler_flags:
         if next:
             gather.append("-Xcc")

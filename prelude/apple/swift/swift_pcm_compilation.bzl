@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-load("@prelude//apple:apple_utility.bzl", "get_explicit_modules_env_var", "get_module_name", "get_versioned_target_triple")
+load("@prelude//apple:apple_utility.bzl", "get_explicit_modules_env_var", "get_module_name")
 load("@prelude//cxx:preprocessor.bzl", "cxx_inherited_preprocessor_infos", "cxx_merge_cpreprocessors")
 load(
     ":apple_sdk_modules_utility.bzl",
@@ -261,7 +261,7 @@ def _get_base_pcm_flags(
     swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
 
     cmd = cmd_args()
-    cmd.add(get_shared_pcm_compilation_args(get_versioned_target_triple(ctx), module_name))
+    cmd.add(get_shared_pcm_compilation_args(module_name))
     cmd.add(["-sdk", swift_toolchain.sdk_path])
     cmd.add(swift_toolchain.compiler_flags)
 
