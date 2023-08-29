@@ -356,6 +356,7 @@ def _cxx_toolchain_macro_stub(inherit_target_platform = False, **kwargs):
             cache_links = kwargs.get("cache_links")
             kwargs["cache_links"] = select({
                 "DEFAULT": cache_links,
+                "ovr_config//build_mode:fbcode-build-info-mode-disable": True,
                 "ovr_config//build_mode:fbcode-build-info-mode-full": False,
                 "ovr_config//build_mode:fbcode-build-info-mode-stable": True,
             })
