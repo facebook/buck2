@@ -30,6 +30,7 @@ use crate::environment::GlobalsBuilder;
 use crate::eval::Evaluator;
 use crate::values::bool::StarlarkBool;
 use crate::values::float::StarlarkFloat;
+use crate::values::function::SpecialBuiltinFunction;
 use crate::values::int::PointerI32;
 use crate::values::list::AllocList;
 use crate::values::none::NoneType;
@@ -812,7 +813,11 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     /// tuple([1,2,3]) == (1, 2, 3)
     /// # "#);
     /// ```
-    #[starlark(as_type = FrozenTuple, speculative_exec_safe)]
+    #[starlark(
+        as_type = FrozenTuple,
+        speculative_exec_safe,
+        special_builtin_function = SpecialBuiltinFunction::Tuple,
+    )]
     fn tuple<'v>(
         #[starlark(require = pos)] a: Option<ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>>,
         heap: &'v Heap,

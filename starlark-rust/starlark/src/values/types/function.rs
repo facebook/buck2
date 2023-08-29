@@ -41,8 +41,12 @@ use crate::eval::ParametersSpec;
 use crate::private::Private;
 use crate::starlark_complex_value;
 use crate::starlark_simple_value;
+use crate::typing::arc_ty::ArcTy;
+use crate::typing::tuple::TyTuple;
 use crate::typing::Ty;
+use crate::typing::TyBasic;
 use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::ellipsis::Ellipsis;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
@@ -56,6 +60,12 @@ use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::ValueLike;
+
+#[derive(Debug, thiserror::Error)]
+enum FunctionError {
+    #[error("`tuple[]` is implemented only for `tuple[T, ...]`")]
+    TupleOnlyEllipsis,
+}
 
 /// Return value of `type(any function)`.
 pub const FUNCTION_TYPE: &str = "function";
@@ -74,6 +84,7 @@ impl StarlarkTypeRepr for StarlarkFunction {
 pub enum SpecialBuiltinFunction {
     List,
     Dict,
+    Tuple,
 }
 
 /// A native function that can be evaluated.
@@ -320,6 +331,20 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
                 let index0 = TypeCompiled::new(index0, heap)?;
                 let index1 = TypeCompiled::new(index1, heap)?;
                 Ok(TypeCompiled::type_dict_of(index0, index1, heap).to_inner())
+            }
+            Some(SpecialBuiltinFunction::Tuple) => {
+                let item = TypeCompiled::new(index0, heap)?;
+                if index1.downcast_ref::<Ellipsis>().is_some() {
+                    Ok(TypeCompiled::from_ty(
+                        &Ty::basic(TyBasic::Tuple(TyTuple::Of(ArcTy::new(
+                            item.as_ty().clone(),
+                        )))),
+                        heap,
+                    )
+                    .to_inner())
+                } else {
+                    Err(FunctionError::TupleOnlyEllipsis.into())
+                }
             }
             _ => ValueError::unsupported(self, "[,]"),
         }

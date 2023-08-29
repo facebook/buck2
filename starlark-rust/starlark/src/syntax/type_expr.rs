@@ -55,6 +55,8 @@ pub(crate) enum TypeExprUnpackP<'a, P: AstPayload> {
         Box<Spanned<TypeExprUnpackP<'a, P>>>,
         Box<Spanned<TypeExprUnpackP<'a, P>>>,
     ),
+    /// `tuple[str, ...]`.
+    Index2Ellipsis(&'a AstIdentP<P>, Box<Spanned<TypeExprUnpackP<'a, P>>>),
     Union(Vec<Spanned<TypeExprUnpackP<'a, P>>>),
     Tuple(Vec<Spanned<TypeExprUnpackP<'a, P>>>),
     Literal(Spanned<&'a str>),
@@ -181,16 +183,22 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
             }
             ExprP::Index2(a_i0_i1) => {
                 let (a, i0, i1) = &**a_i0_i1;
-                match &a.node {
-                    ExprP::Identifier(ident) => {
-                        let i0 = TypeExprUnpackP::unpack(i0, codemap)?;
-                        let i1 = TypeExprUnpackP::unpack(i1, codemap)?;
-                        Ok(Spanned {
-                            span,
-                            node: TypeExprUnpackP::Index2(ident, Box::new(i0), Box::new(i1)),
-                        })
-                    }
-                    _ => err("array indirection 2 where array is not an identifier"),
+                let ExprP::Identifier(ident) = &a.node else {
+                    return err("array indirection 2 where array is not an identifier");
+                };
+                if let ExprP::Literal(AstLiteral::Ellipsis) = &i1.node {
+                    let i0 = TypeExprUnpackP::unpack(i0, codemap)?;
+                    Ok(Spanned {
+                        span,
+                        node: TypeExprUnpackP::Index2Ellipsis(ident, Box::new(i0)),
+                    })
+                } else {
+                    let i0 = TypeExprUnpackP::unpack(i0, codemap)?;
+                    let i1 = TypeExprUnpackP::unpack(i1, codemap)?;
+                    Ok(Spanned {
+                        span,
+                        node: TypeExprUnpackP::Index2(ident, Box::new(i0), Box::new(i1)),
+                    })
                 }
             }
             ExprP::Slice(..) => err("slice"),

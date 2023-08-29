@@ -46,9 +46,15 @@ pub(crate) static VALUE_ELLIPSIS: AValueRepr<AValueImpl<Basic, Ellipsis>> =
 #[starlark_value(type = "ellipsis")]
 impl<'v> StarlarkValue<'v> for Ellipsis {}
 
+impl Ellipsis {
+    pub(crate) fn new_value() -> FrozenValue {
+        FrozenValue::new_repr(&VALUE_ELLIPSIS)
+    }
+}
+
 impl AllocFrozenValue for Ellipsis {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
-        FrozenValue::new_repr(&VALUE_ELLIPSIS)
+        Ellipsis::new_value()
     }
 }
 

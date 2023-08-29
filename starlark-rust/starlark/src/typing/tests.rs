@@ -391,6 +391,24 @@ def empty_tuple_name_fixed() -> tuple: return ()
 }
 
 #[test]
+fn test_tuple_ellipsis() {
+    TypeCheck::new().check(
+        "tuple_ellipsis",
+        r#"
+def f(t: tuple[int, ...]) -> int:
+    return t[0]
+
+def g():
+    # Good.
+    f((1, 2, 3))
+
+    # Bad.
+    f((1, "x"))
+"#,
+    );
+}
+
+#[test]
 fn test_test_new_syntax_without_dot_type() {
     TypeCheck::new().check(
         "new_syntax_without_dot_type",

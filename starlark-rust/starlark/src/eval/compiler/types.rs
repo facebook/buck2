@@ -32,6 +32,7 @@ use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::slice_vec_ext::VecExt;
 use crate::syntax::type_expr::TypeExprUnpackP;
 use crate::typing::Ty;
+use crate::values::types::ellipsis::Ellipsis;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::FrozenValue;
 use crate::values::Value;
@@ -52,6 +53,8 @@ enum TypesError {
     TypeIndexOnNonList,
     #[error("[,] can only be applied to dict function in type expression")]
     TypeIndexOnNonDict,
+    #[error("[,...] can only be applied to tuple function in type expression")]
+    TypeIndexEllipsisOnNonTuple,
 }
 
 impl<'v> Compiler<'v, '_, '_> {
@@ -184,6 +187,27 @@ impl<'v> Compiler<'v, '_, '_> {
                 let t = a
                     .get_ref()
                     .at2(i0.to_inner(), i1.to_inner(), self.eval.heap())
+                    .map_err(|e| EvalException::new(e, expr.span, &self.codemap))?;
+                Ok(TypeCompiled::new(t, self.eval.heap())
+                    .map_err(|e| EvalException::new(e, expr.span, &self.codemap))?)
+            }
+            TypeExprUnpackP::Index2Ellipsis(a0, i) => {
+                let a = self.eval_ident_in_type_expr(a0)?;
+                if !a.ptr_eq(Constants::get().fn_tuple.0.to_value()) {
+                    return Err(EvalException::new(
+                        TypesError::TypeIndexEllipsisOnNonTuple.into(),
+                        expr.span,
+                        &self.codemap,
+                    ));
+                }
+                let i = self.eval_expr_as_type(*i)?;
+                let t = a
+                    .get_ref()
+                    .at2(
+                        i.to_inner(),
+                        Ellipsis::new_value().to_value(),
+                        self.eval.heap(),
+                    )
                     .map_err(|e| EvalException::new(e, expr.span, &self.codemap))?;
                 Ok(TypeCompiled::new(t, self.eval.heap())
                     .map_err(|e| EvalException::new(e, expr.span, &self.codemap))?)

@@ -300,4 +300,12 @@ str((1,)) == "(1,)"
         a.eq("l = []; t = (l,); l.append(t); repr(t)", "'([(...)],)'");
         a.eq("l = []; t = (l,); l.append(t); str(t)", "'([(...)],)'");
     }
+
+    #[test]
+    fn test_tuple_ellipsis_runtime() {
+        assert::is_true("isinstance((), tuple[int, ...])");
+        assert::is_true("isinstance((1, ), tuple[int, ...])");
+        assert::is_true("isinstance((1, 2), tuple[int, ...])");
+        assert::is_false("isinstance(('x', 2), tuple[int, ...])");
+    }
 }

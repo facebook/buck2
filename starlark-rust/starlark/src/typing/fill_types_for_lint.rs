@@ -57,6 +57,7 @@ use crate::typing::Param;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
 use crate::values::tuple::AllocTuple;
+use crate::values::types::ellipsis::Ellipsis;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::Heap;
 use crate::values::Value;
@@ -599,6 +600,39 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
                     let i0 = TypeCompiled::from_ty(&i0, self.heap);
                     let i1 = TypeCompiled::from_ty(&i1, self.heap);
                     match a.get_ref().at2(i0.to_inner(), i1.to_inner(), self.heap) {
+                        Ok(t) => match TypeCompiled::new(t, self.heap) {
+                            Ok(ty) => Ok(ty.as_ty().clone()),
+                            Err(_) => {
+                                self.approximations
+                                    .push(Approximation::new("TypeCompiled::new failed", x));
+                                Ok(Ty::any())
+                            }
+                        },
+                        Err(e) => {
+                            self.approximations
+                                .push(Approximation::new("Getitem2 failed", e));
+                            Ok(Ty::any())
+                        }
+                    }
+                } else {
+                    self.approximations
+                        .push(Approximation::new("Not global", x));
+                    Ok(Ty::any())
+                }
+            }
+            TypeExprUnpackP::Index2Ellipsis(a, i) => {
+                if let Some(a) = self.expr_ident(a)?.value {
+                    if !a.ptr_eq(Constants::get().fn_tuple.0.to_value()) {
+                        // TODO(nga): this should be an error.
+                        self.approximations.push(Approximation::new("Not tuple", x));
+                        return Ok(Ty::any());
+                    }
+                    let i = self.from_type_expr_impl(i)?;
+                    let i = TypeCompiled::from_ty(&i, self.heap);
+                    match a
+                        .get_ref()
+                        .at2(i.to_inner(), Ellipsis::new_value().to_value(), self.heap)
+                    {
                         Ok(t) => match TypeCompiled::new(t, self.heap) {
                             Ok(ty) => Ok(ty.as_ty().clone()),
                             Err(_) => {
