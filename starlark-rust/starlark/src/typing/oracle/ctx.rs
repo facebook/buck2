@@ -403,6 +403,7 @@ impl<'a> TypingOracleCtx<'a> {
         index: Spanned<&TyBasic>,
     ) -> Result<Result<Ty, ()>, InternalError> {
         match array {
+            TyBasic::Any | TyBasic::Callable | TyBasic::Iter(_) => Ok(Ok(Ty::any())),
             TyBasic::Tuple(tuple) => {
                 if !self.intersects_basic(index.node, &TyBasic::int()) {
                     return Ok(Err(()));
@@ -423,7 +424,7 @@ impl<'a> TypingOracleCtx<'a> {
             }
             TyBasic::StarlarkValue(array) => Ok(array.index(index.node)),
             TyBasic::Custom(c) => Ok(c.0.attribute_dyn(TypingAttr::Index)),
-            array => {
+            array @ TyBasic::Name(_) => {
                 let f = match self.oracle.attribute(array, TypingAttr::Index) {
                     None => return Ok(Ok(Ty::any())),
                     Some(Ok(x)) => x,
