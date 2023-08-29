@@ -29,6 +29,7 @@ use crate::syntax::ast::AssignOp;
 use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AssignTarget;
 use crate::syntax::ast::AssignTargetP;
+use crate::syntax::ast::AstAssignIdent;
 use crate::syntax::ast::AstAssignTarget;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstFString;
@@ -42,6 +43,7 @@ use crate::syntax::ast::ExprP;
 use crate::syntax::ast::FStringP;
 use crate::syntax::ast::IdentP;
 use crate::syntax::ast::LambdaP;
+use crate::syntax::ast::LoadP;
 use crate::syntax::ast::Stmt;
 use crate::syntax::ast::StmtP;
 use crate::syntax::ast::ToAst;
@@ -67,6 +69,8 @@ enum GrammarUtilError {
     TypeAnnotationOnAssignOp,
     #[error("type annotations not allowed on multiple assignments")]
     TypeAnnotationOnTupleAssign,
+    #[error("`load` statement requires at least two arguments")]
+    LoadRequiresAtLeastTwoArguments,
 }
 
 /// Ensure we produce normalised Statements, rather than singleton Statements
@@ -178,6 +182,26 @@ pub(crate) fn check_def(
         params,
         return_type,
         body: Box::new(stmts),
+        payload: (),
+    })
+}
+
+pub(crate) fn check_load(
+    module: AstString,
+    args: Vec<(AstAssignIdent, AstString)>,
+    parser_state: &mut ParserState,
+) -> Stmt {
+    if args.is_empty() {
+        parser_state.errors.push(EvalException::new(
+            GrammarUtilError::LoadRequiresAtLeastTwoArguments.into(),
+            module.span,
+            parser_state.codemap,
+        ));
+    }
+
+    Stmt::Load(LoadP {
+        module,
+        args,
         payload: (),
     })
 }

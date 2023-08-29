@@ -61,7 +61,6 @@ pub(crate) type Clause = ClauseP<AstNoPayload>;
 pub(crate) type ForClause = ForClauseP<AstNoPayload>;
 pub(crate) type Argument = ArgumentP<AstNoPayload>;
 pub(crate) type Parameter = ParameterP<AstNoPayload>;
-pub(crate) type Load = LoadP<AstNoPayload>;
 pub(crate) type Stmt = StmtP<AstNoPayload>;
 
 // Boxed types used for storing information from the parsing will be used
