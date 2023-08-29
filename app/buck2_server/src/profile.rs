@@ -8,7 +8,6 @@
  */
 
 use std::path::Path;
-use std::slice;
 use std::sync::Arc;
 
 use anyhow::Context as _;
@@ -44,6 +43,8 @@ use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
 use dupe::Dupe;
+use futures::future::FutureExt;
+use more_futures::spawn::spawn_cancellable;
 
 async fn generate_profile_analysis(
     ctx: DiceTransaction,
@@ -81,11 +82,11 @@ async fn generate_profile_analysis(
 }
 
 async fn generate_profile_loading(
-    ctx: DiceTransaction,
+    ctx: &DiceTransaction,
     package: PackageLabel,
     spec: PackageSpec<TargetPatternExtra>,
     profile_mode: &StarlarkProfilerConfiguration,
-) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
+) -> anyhow::Result<StarlarkProfileDataAndStats> {
     match spec {
         PackageSpec::Targets(..) => {
             return Err(anyhow::Error::msg("Must use a package"));
@@ -106,7 +107,7 @@ async fn generate_profile_loading(
         )
         .await?;
 
-    profiler.finish().map(Arc::new)
+    profiler.finish()
 }
 
 pub async fn profile_command(
@@ -147,10 +148,6 @@ impl ServerCommandTemplate for ProfileServerCommand {
             ProfileOpts::TargetProfile(opts) => {
                 let action = buck2_cli_proto::target_profile::Action::from_i32(opts.action)
                     .context("Invalid action")?;
-                let target_pattern = opts
-                    .target_pattern
-                    .as_ref()
-                    .context("Missing target pattern")?;
 
                 let context = self
                     .req
@@ -162,7 +159,7 @@ impl ServerCommandTemplate for ProfileServerCommand {
                     server_ctx,
                     ctx,
                     context,
-                    target_pattern,
+                    &opts.target_patterns,
                     action,
                     &profile_mode,
                 )
@@ -188,7 +185,7 @@ async fn generate_profile(
     server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,
     client_ctx: &ClientContext,
-    pattern: &buck2_data::TargetPattern,
+    target_patterns: &[buck2_data::TargetPattern],
     action: Action,
     profile_mode: &StarlarkProfilerConfiguration,
 ) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
@@ -199,23 +196,50 @@ async fn generate_profile(
 
     let parsed_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
         &mut ctx,
-        slice::from_ref(pattern),
+        target_patterns,
         server_ctx.working_dir(),
     )
     .await?;
 
-    let resolved_pattern =
-        resolve_target_patterns(&cells, &parsed_patterns, &ctx.file_ops()).await?;
-
-    let (package, spec) =
-        one(resolved_pattern.specs).context("Did not find exactly one pattern")?;
+    let resolved = resolve_target_patterns(&cells, &parsed_patterns, &ctx.file_ops()).await?;
 
     match action {
         Action::Analysis => {
+            let (package, spec) = one(resolved.specs)
+                .context("Error: profiling analysis requires exactly one target pattern")?;
             generate_profile_analysis(ctx, package, spec, global_target_platform, profile_mode)
                 .await
         }
-        Action::Loading => generate_profile_loading(ctx, package, spec, profile_mode).await,
+        Action::Loading => {
+            let ctx = &ctx;
+            let ctx_data = ctx.per_transaction_data();
+
+            let profiles =
+                futures::future::try_join_all(resolved.specs.into_iter().map(|(package, spec)| {
+                    let profile_mode = profile_mode.dupe();
+                    let ctx = ctx.dupe();
+                    spawn_cancellable(
+                        move |_cancel| {
+                            async move {
+                                generate_profile_loading(&ctx, package, spec, &profile_mode).await
+                            }
+                            .boxed()
+                        },
+                        &*ctx_data.spawner,
+                        ctx_data,
+                    )
+                    .into_drop_cancel()
+                }))
+                .await?;
+
+            // We expect that some profile modes cannot be merged here, so we only attempt to merge
+            // if > 1 profile.
+            if profiles.len() == 1 {
+                return Ok(Arc::new(profiles.into_iter().next().unwrap()));
+            }
+
+            StarlarkProfileDataAndStats::merge(profiles.iter()).map(Arc::new)
+        }
     }
 }
 

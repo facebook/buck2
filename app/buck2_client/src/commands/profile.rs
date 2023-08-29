@@ -32,6 +32,7 @@ use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::BuckSubcommand;
 use buck2_client_ctx::streaming::StreamingCommand;
 use dupe::Dupe;
+use gazebo::prelude::VecExt;
 
 use super::bxl::BxlCommandOptions;
 
@@ -124,8 +125,8 @@ pub struct BuckProfileOptions {
 
 #[derive(Debug, clap::Parser)]
 pub struct AnalysisLoadProfileOptions {
-    #[clap(value_name = "TARGET")]
-    target_pattern: String,
+    #[clap(value_name = "TARGET_PATTERNS")]
+    target_patterns: Vec<String>,
 
     /// In analysis profiling, capture the profile of the target and its dependencies,
     /// and output the merged profile.
@@ -200,9 +201,9 @@ impl StreamingCommand for ProfileSubcommand {
         let response = match self.opts {
             ProfileOptionsType::BuckProfileOptions { opts, action } => {
                 let target_opts = TargetProfile {
-                    target_pattern: Some(buck2_data::TargetPattern {
-                        value: opts.target_pattern,
-                    }),
+                    target_patterns: opts
+                        .target_patterns
+                        .into_map(|value| buck2_data::TargetPattern { value }),
                     recursive: opts.recursive,
                     action: action.into(),
                 };

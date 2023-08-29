@@ -726,7 +726,7 @@ message TargetProfile {
     LOADING = 1;
   }
 
-  buck.data.TargetPattern target_pattern = 1;
+  repeated buck.data.TargetPattern target_patterns = 1;
   bool recursive = 2;
   Action action = 3;
 }

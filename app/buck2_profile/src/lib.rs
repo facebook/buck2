@@ -46,7 +46,7 @@ pub fn starlark_profiler_configuration_from_request(
                 }
                 (buck2_cli_proto::target_profile::Action::Loading, true) => {
                     return Err(anyhow::anyhow!(
-                        "Recursive profiling is not supported for loading profiling"
+                        "Recursive profiling is not supported for loading profiling, but you can pass multiple target patterns."
                     ));
                 }
                 (buck2_cli_proto::target_profile::Action::Analysis, false) => {
