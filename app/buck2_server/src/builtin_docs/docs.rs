@@ -188,7 +188,6 @@ async fn get_docs_from_module(
                 name: import_path_string.clone(),
                 location: Some(starlark::docs::Location {
                     path: import_path_string.clone(),
-                    position: None,
                 }),
             },
             item: DocItem::Module(DocModule {
@@ -205,7 +204,6 @@ async fn get_docs_from_module(
                 name: symbol,
                 location: Some(Location {
                     path: import_path_string.clone(),
-                    position: None,
                 }),
             },
             item: d.to_doc_item(),

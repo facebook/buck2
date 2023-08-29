@@ -944,7 +944,6 @@ mod test {
                     name: "prelude_function".to_owned(),
                     location: Some(Location {
                         path: "//dir/prelude.bzl".to_owned(),
-                        position: None,
                     }),
                 },
                 item: DocItem::Function(DocFunction::default()),

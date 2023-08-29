@@ -332,22 +332,11 @@ impl DocString {
     }
 }
 
-/// Line / column for where in a file a symbol is.
-#[derive(Debug, Clone, PartialEq, Serialize, Default)]
-pub struct Pos {
-    /// Line number, zero based.
-    pub line: usize,
-    /// Column number, zero based.
-    pub column: usize,
-}
-
 /// The file a symbol resides in, and if available its location within that file.
 #[derive(Debug, Clone, PartialEq, Serialize, Default)]
 pub struct Location {
     /// `path` is a string that can be passed into `load()` statements.
     pub path: String,
-    /// Location of the symbol within the file.
-    pub position: Option<Pos>,
 }
 
 /// The main identifier for a symbol.
