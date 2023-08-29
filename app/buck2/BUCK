@@ -101,6 +101,7 @@ buck_rust_binary(
         "//buck2/app/buck2_build_info:buck2_build_info",
         "//buck2/app/buck2_build_signals_impl:buck2_build_signals_impl",
         "//buck2/app/buck2_bxl:buck2_bxl",
+        "//buck2/app/buck2_cfg_constructor:buck2_cfg_constructor",
         "//buck2/app/buck2_client_ctx:buck2_client_ctx",
         "//buck2/app/buck2_configured:buck2_configured",
         "//buck2/app/buck2_core:buck2_core",

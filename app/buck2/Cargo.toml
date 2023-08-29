@@ -46,6 +46,7 @@ buck2_build_info = { workspace = true }
 buck2_build_signals = { workspace = true }
 buck2_build_signals_impl = { workspace = true }
 buck2_bxl = { workspace = true }
+buck2_cfg_constructor = { workspace = true }
 buck2_configured = { workspace = true }
 buck2_core = { workspace = true }
 buck2_query = { workspace = true }

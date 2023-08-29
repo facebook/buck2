@@ -1,0 +1,18 @@
+[package]
+name = "buck2_cfg_constructor"
+version = "0.1.0"
+edition = "2021"
+description = "Implementation of configuration constructor for modifier feature"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+dice = { workspace = true }
+futures = { workspace = true }
+starlark = { workspace = true }
+thiserror = { workspace = true }
+
+buck2_common = { workspace = true }
+buck2_configured = { workspace = true }
+buck2_core = { workspace = true }
+buck2_interpreter = { workspace = true }

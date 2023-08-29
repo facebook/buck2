@@ -17,6 +17,7 @@ members = [
     "app/buck2_audit_server",
     "app/buck2_bxl",
     "app/buck2_build_info",
+    "app/buck2_cfg_constructor",
     "app/buck2_client",
     "app/buck2_client_ctx",
     "app/buck2_common",
@@ -311,6 +312,7 @@ buck2_analysis = { path = "app/buck2_analysis" }
 buck2_anon_target = { path = "app/buck2_anon_target" }
 buck2_bxl = { path = "app/buck2_bxl" }
 buck2_build_info = { path = "app/buck2_build_info" }
+buck2_cfg_constructor = { path = "app/buck2_cfg_constructor" }
 buck2_client_ctx = { path = "app/buck2_client_ctx" }
 buck2_common = { path = "app/buck2_common" }
 buck2_configured = { path = "app/buck2_configured" }
