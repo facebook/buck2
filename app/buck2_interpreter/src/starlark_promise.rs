@@ -21,8 +21,8 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::typing::Ty;
+use starlark::values::list::AllocList;
 use starlark::values::starlark_value;
-use starlark::values::tuple::AllocTuple;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -191,7 +191,7 @@ impl<'v> StarlarkPromise<'v> {
     ) -> ValueTyped<'v, StarlarkPromise<'v>> {
         let join = PromiseJoin::new(args);
         match join.get() {
-            Some(values) => heap.alloc_typed(Self::new_resolved(heap.alloc(AllocTuple(values)))),
+            Some(values) => heap.alloc_typed(Self::new_resolved(heap.alloc(AllocList(values)))),
             None => {
                 let promise = Self::new_unresolved();
                 let value = heap.alloc_typed(promise);
@@ -249,7 +249,7 @@ impl<'v> StarlarkPromise<'v> {
                     join.resolve_one();
                     if let Some(elems) = join.get() {
                         drop(borrow);
-                        d.resolve_rec(eval.heap().alloc(AllocTuple(elems)), eval)?;
+                        d.resolve_rec(eval.heap().alloc(AllocList(elems)), eval)?;
                     }
                 }
                 _ => panic!("Impossible to reach a downstream promise that is not a map or join"),
@@ -494,7 +494,7 @@ p1.join(p2, p3)
                 .get()
                 .unwrap()
                 .to_string(),
-            "(\"a\", \"b\", \"c\")"
+            "[\"a\", \"b\", \"c\"]"
         );
         let res = assert_promise(
             &modu,
@@ -512,7 +512,7 @@ p1.join(p2, p3)
                 .get()
                 .unwrap()
                 .to_string(),
-            "(\"a\", \"B\", \"C\")"
+            "[\"a\", \"B\", \"C\"]"
         );
     }
 }
