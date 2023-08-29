@@ -326,6 +326,10 @@ impl Ty {
         Ty::basic(TyBasic::Callable)
     }
 
+    pub(crate) fn any_struct() -> Self {
+        Ty::custom(TyStruct::any())
+    }
+
     /// Type from the implementation of [`StarlarkValue`].
     pub const fn starlark_value<'v, T: StarlarkValue<'v>>() -> Self {
         Ty::basic(TyBasic::starlark_value::<T>())

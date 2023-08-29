@@ -55,7 +55,6 @@ impl OracleStandard {
         add::<crate::values::list::value::ListGen<crate::values::list::value::FrozenListData>>(
             &mut fallback,
         );
-        add::<crate::values::structs::value::FrozenStruct>(&mut fallback);
 
         Self { fallback }
     }

@@ -204,6 +204,10 @@ where
         }))
     }
 
+    fn get_type_starlark_repr() -> Ty {
+        Ty::any_struct()
+    }
+
     fn typechecker_ty(&self) -> Option<Ty> {
         Some(Ty::custom(TyStruct {
             fields: self
