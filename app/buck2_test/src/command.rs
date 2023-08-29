@@ -587,7 +587,6 @@ enum TestDriverTask {
     TestTargets {
         labels: Vec<ConfiguredProvidersLabel>,
     },
-    Done,
 }
 
 #[derive(Copy, Clone, Dupe)]
@@ -606,7 +605,7 @@ pub(crate) struct TestDriverState<'a, 'e> {
 /// Maintains the state of an ongoing test execution.
 struct TestDriver<'a, 'e> {
     state: TestDriverState<'a, 'e>,
-    work: FuturesUnordered<BoxFuture<'a, anyhow::Result<TestDriverTask>>>,
+    work: FuturesUnordered<BoxFuture<'a, anyhow::Result<Vec<TestDriverTask>>>>,
     labels_seen: HashSet<ConfiguredProvidersLabel>,
     build_errors: Vec<String>,
 }
@@ -628,11 +627,11 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         skip_incompatible_targets: bool,
     ) {
         for (package, spec) in pattern.specs.into_iter() {
-            let fut = future::ready(anyhow::Ok(TestDriverTask::InterpretTarget {
+            let fut = future::ready(anyhow::Ok(vec![TestDriverTask::InterpretTarget {
                 package,
                 spec,
                 skip_incompatible_targets,
-            }))
+            }]))
             .boxed();
 
             self.work.push(fut);
@@ -641,29 +640,32 @@ impl<'a, 'e> TestDriver<'a, 'e> {
 
     /// Drive the test loop until all work is complete.
     async fn drive_to_completion(&mut self) {
-        while let Some(task) = self.work.next().await {
-            match task {
-                Ok(TestDriverTask::InterpretTarget {
-                    package,
-                    spec,
-                    skip_incompatible_targets,
-                }) => {
-                    self.interpret_targets(package, spec, skip_incompatible_targets);
-                }
-                Ok(TestDriverTask::ConfigureTargets { labels, skippable }) => {
-                    self.configure_targets(labels, skippable);
-                }
-                Ok(TestDriverTask::TestTargets { labels }) => {
-                    self.test_targets(labels);
-                }
-                Ok(TestDriverTask::Done) => {
-                    // Nothing to do here
+        while let Some(tasks) = self.work.next().await {
+            match tasks {
+                Ok(tasks) => {
+                    for task in tasks {
+                        match task {
+                            TestDriverTask::InterpretTarget {
+                                package,
+                                spec,
+                                skip_incompatible_targets,
+                            } => {
+                                self.interpret_targets(package, spec, skip_incompatible_targets);
+                            }
+                            TestDriverTask::ConfigureTargets { labels, skippable } => {
+                                self.configure_targets(labels, skippable);
+                            }
+                            TestDriverTask::TestTargets { labels } => {
+                                self.test_targets(labels);
+                            }
+                        }
+                    }
                 }
                 Err(e) => {
                     // TODO(brasselsprouts): filter out duplicate errors.
                     self.build_errors.push(format!("{:#}", e));
                 }
-            };
+            }
         }
     }
 
@@ -689,7 +691,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                     providers_pattern.into_providers_label(package.dupe(), target_name.as_ref())
                 });
 
-                anyhow::Ok(TestDriverTask::ConfigureTargets { labels, skippable })
+                anyhow::Ok(vec![TestDriverTask::ConfigureTargets { labels, skippable }])
             }
             .boxed(),
         );
@@ -711,7 +713,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                     MaybeCompatible::Incompatible(reason) => {
                         if skippable {
                             eprintln!("{}", reason.skipping_message(label.target()));
-                            return Ok(TestDriverTask::Done);
+                            return Ok(vec![]);
                         } else {
                             return Err(reason.to_err());
                         }
@@ -744,7 +746,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                     }
                 }
 
-                anyhow::Ok(TestDriverTask::TestTargets { labels })
+                anyhow::Ok(vec![TestDriverTask::TestTargets { labels }])
             }
             .boxed()
         }));
@@ -770,7 +772,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 )
                 .await?;
 
-                anyhow::Ok(TestDriverTask::Done)
+                anyhow::Ok(vec![])
             }
             .boxed();
 
