@@ -580,8 +580,8 @@ enum TestDriverTask {
         spec: PackageSpec<ProvidersPatternExtra>,
         skip_incompatible_targets: bool,
     },
-    ConfigureTargets {
-        labels: Vec<ProvidersLabel>,
+    ConfigureTarget {
+        label: ProvidersLabel,
         skippable: bool,
     },
     TestTarget {
@@ -652,8 +652,8 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                             } => {
                                 self.interpret_targets(package, spec, skip_incompatible_targets);
                             }
-                            TestDriverTask::ConfigureTargets { labels, skippable } => {
-                                self.configure_targets(labels, skippable);
+                            TestDriverTask::ConfigureTarget { label, skippable } => {
+                                self.configure_target(label, skippable);
                             }
                             TestDriverTask::TestTarget { label } => {
                                 self.test_target(label);
@@ -691,66 +691,71 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                     providers_pattern.into_providers_label(package.dupe(), target_name.as_ref())
                 });
 
-                anyhow::Ok(vec![TestDriverTask::ConfigureTargets { labels, skippable }])
+                let work = labels
+                    .into_iter()
+                    .map(|label| TestDriverTask::ConfigureTarget { label, skippable })
+                    .collect();
+
+                anyhow::Ok(work)
             }
             .boxed(),
         );
     }
 
-    fn configure_targets(&mut self, labels: Vec<ProvidersLabel>, skippable: bool) {
+    fn configure_target(&mut self, label: ProvidersLabel, skippable: bool) {
         let state = self.state;
 
-        self.work.extend(labels.into_iter().map(|label| {
-            async move {
-                let label = state
-                    .ctx
-                    .get_configured_provider_label(&label, state.global_target_platform.as_ref())
-                    .await?;
+        let fut = async move {
+            let label = state
+                .ctx
+                .get_configured_provider_label(&label, state.global_target_platform.as_ref())
+                .await?;
 
-                let node = state.ctx.get_configured_target_node(label.target()).await?;
+            let node = state.ctx.get_configured_target_node(label.target()).await?;
 
-                let node = match node {
-                    MaybeCompatible::Incompatible(reason) => {
-                        if skippable {
-                            eprintln!("{}", reason.skipping_message(label.target()));
-                            return Ok(vec![]);
-                        } else {
-                            return Err(reason.to_err());
-                        }
-                    }
-                    MaybeCompatible::Compatible(node) => node,
-                };
-
-                // Test this: it's compatible.
-                let mut work = vec![TestDriverTask::TestTarget { label }];
-
-                // If this node is a forward, it'll get flattened when we do analysis and run the
-                // test later, but its `tests` attribute here will not be, and that means we'll
-                // just ignore it (since we don't traverse `tests` recursively). So ... just
-                // flatten it?
-                let node = node.forward_target().unwrap_or(&node);
-
-                // Look up `tests` in the the target we're testing, and if we find any tests, add them to the test backlog.
-                for test in node.tests() {
-                    if state.resolve_tests_platform_independently {
-                        let label = state
-                            .ctx
-                            .get_configured_provider_label(
-                                &test.unconfigured(),
-                                state.global_target_platform.as_ref(),
-                            )
-                            .await?;
-
-                        work.push(TestDriverTask::TestTarget { label });
+            let node = match node {
+                MaybeCompatible::Incompatible(reason) => {
+                    if skippable {
+                        eprintln!("{}", reason.skipping_message(label.target()));
+                        return Ok(vec![]);
                     } else {
-                        work.push(TestDriverTask::TestTarget { label: test });
+                        return Err(reason.to_err());
                     }
                 }
+                MaybeCompatible::Compatible(node) => node,
+            };
 
-                anyhow::Ok(work)
+            // Test this: it's compatible.
+            let mut work = vec![TestDriverTask::TestTarget { label }];
+
+            // If this node is a forward, it'll get flattened when we do analysis and run the
+            // test later, but its `tests` attribute here will not be, and that means we'll
+            // just ignore it (since we don't traverse `tests` recursively). So ... just
+            // flatten it?
+            let node = node.forward_target().unwrap_or(&node);
+
+            // Look up `tests` in the the target we're testing, and if we find any tests, add them to the test backlog.
+            for test in node.tests() {
+                if state.resolve_tests_platform_independently {
+                    let label = state
+                        .ctx
+                        .get_configured_provider_label(
+                            &test.unconfigured(),
+                            state.global_target_platform.as_ref(),
+                        )
+                        .await?;
+
+                    work.push(TestDriverTask::TestTarget { label });
+                } else {
+                    work.push(TestDriverTask::TestTarget { label: test });
+                }
             }
-            .boxed()
-        }));
+
+            anyhow::Ok(work)
+        }
+        .boxed();
+
+        self.work.push(fut);
     }
 
     fn test_target(&mut self, label: ConfiguredProvidersLabel) {
