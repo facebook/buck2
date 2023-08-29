@@ -26,6 +26,7 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
+use buck2_interpreter::parse_import::RelativeImports;
 use buck2_interpreter::prelude_path::prelude_path;
 use buck2_interpreter_for_build::interpreter::build_defs::starlark_library_extensions_for_buck2;
 use buck2_interpreter_for_build::interpreter::global_interpreter_state::GlobalInterpreterState;
@@ -65,20 +66,15 @@ fn parse_import_paths(
     current_cell: BuildFileCell,
     symbol_patterns: &[String],
 ) -> anyhow::Result<HashSet<ImportPath>> {
-    const PARSE_OPTIONS: ParseImportOptions = ParseImportOptions {
+    let parse_options = ParseImportOptions {
         allow_missing_at_symbol: true,
-        allow_relative_imports: true,
+        relative_import_option: RelativeImports::Allow { current_dir },
     };
 
     symbol_patterns
         .iter()
         .map(|symbol_pattern| {
-            let path = parse_import_with_config(
-                cell_resolver,
-                current_dir,
-                symbol_pattern,
-                &PARSE_OPTIONS,
-            )?;
+            let path = parse_import_with_config(cell_resolver, symbol_pattern, &parse_options)?;
             ImportPath::new_with_build_file_cells(path, current_cell)
         })
         .collect()

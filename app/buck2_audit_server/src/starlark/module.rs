@@ -17,6 +17,7 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
+use buck2_interpreter::parse_import::RelativeImports;
 use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
@@ -40,10 +41,11 @@ pub(crate) async fn server_execute(
 
             let path = parse_import_with_config(
                 cell_alias_resolver,
-                &current_cell_path,
                 &command.import_path,
                 &ParseImportOptions {
-                    allow_relative_imports: true,
+                    relative_import_option: RelativeImports::Allow {
+                        current_dir: &current_cell_path,
+                    },
                     // Otherwise `@arg` is expanded as mode file.
                     allow_missing_at_symbol: true,
                 },

@@ -39,12 +39,17 @@ enum ImportParseError {
     NotAFileName(String),
 }
 
+pub enum RelativeImports<'a> {
+    Allow { current_dir: &'a CellPath },
+    Disallow,
+}
+
 /// Extra options for parsing a load() or load-like path into a `BuckPath`
-pub struct ParseImportOptions {
+pub struct ParseImportOptions<'a> {
     /// Whether '@' is required at the beginning of the import.
     pub allow_missing_at_symbol: bool,
     /// Whether relative imports (':bar.bzl') are allowed.
-    pub allow_relative_imports: bool,
+    pub relative_import_option: RelativeImports<'a>,
 }
 
 // Parses a string of the form `(@<cell>)//dir/name` to the corresponding
@@ -69,11 +74,13 @@ pub fn parse_import(
     current_path: &CellPath,
     import: &str,
 ) -> anyhow::Result<CellPath> {
-    const OPTS: ParseImportOptions = ParseImportOptions {
+    let opts: ParseImportOptions = ParseImportOptions {
         allow_missing_at_symbol: false,
-        allow_relative_imports: true,
+        relative_import_option: RelativeImports::Allow {
+            current_dir: current_path,
+        },
     };
-    parse_import_with_config(cell_resolver, current_path, import, &OPTS)
+    parse_import_with_config(cell_resolver, import, &opts)
 }
 
 /// Parse import string into a BuckPath, but potentially be more or less flexible with what is
@@ -86,7 +93,6 @@ pub fn parse_import(
 /// Strings for the `load()` statement in starlark files should use [`parse_import`]
 pub fn parse_import_with_config(
     cell_resolver: &CellAliasResolver,
-    current_dir: &CellPath,
     import: &str,
     opts: &ParseImportOptions,
 ) -> anyhow::Result<CellPath> {
@@ -96,7 +102,7 @@ pub fn parse_import_with_config(
 
             match parse_import_cell_path_parts(import, opts.allow_missing_at_symbol) {
                 None => {
-                    if opts.allow_relative_imports {
+                    if let RelativeImports::Allow { current_dir } = opts.relative_import_option {
                         let rel_path = ForwardRelativePath::new(import).map_err(|_e| {
                             ImportParseError::InvalidCurrentPathWhenFileRelativeImport(
                                 import.to_owned(),
@@ -129,7 +135,7 @@ pub fn parse_import_with_config(
                 .map_err(|_| ImportParseError::NotAFileName(import.to_owned()))?;
 
             if path.is_empty() {
-                if opts.allow_relative_imports {
+                if let RelativeImports::Allow { current_dir } = opts.relative_import_option {
                     Ok(current_dir.join(filename))
                 } else {
                     Err(anyhow::anyhow!(ImportParseError::ProhibitedRelativeImport(
@@ -308,11 +314,12 @@ mod tests {
             path("cell1", "package/path", "import.bzl"),
             parse_import_with_config(
                 &resolver(),
-                &CellPath::testing_new("root//"),
                 "cell1//package/path:import.bzl",
                 &ParseImportOptions {
                     allow_missing_at_symbol: true,
-                    allow_relative_imports: true
+                    relative_import_option: RelativeImports::Allow {
+                        current_dir: &CellPath::testing_new("root//")
+                    }
                 }
             )?,
         );
@@ -324,11 +331,10 @@ mod tests {
         let imported_file = ":bar.bzl";
         let res = parse_import_with_config(
             &resolver(),
-            &CellPath::testing_new("root//"),
             imported_file,
             &ParseImportOptions {
                 allow_missing_at_symbol: false,
-                allow_relative_imports: false,
+                relative_import_option: RelativeImports::Disallow,
             },
         );
         match res {

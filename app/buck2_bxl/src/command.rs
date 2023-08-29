@@ -45,6 +45,7 @@ use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
+use buck2_interpreter::parse_import::RelativeImports;
 use buck2_interpreter::paths::bxl::BxlFilePath;
 use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -362,12 +363,13 @@ pub(crate) fn parse_bxl_label_from_cli(
         .rsplit_once(':')
         .ok_or_else(|| BxlLabelError::Format(bxl_label.to_owned()))?;
 
-    const OPTS: ParseImportOptions = ParseImportOptions {
+    let opts: ParseImportOptions = ParseImportOptions {
         allow_missing_at_symbol: true,
-        allow_relative_imports: true,
+        relative_import_option: RelativeImports::Allow {
+            current_dir: &current_cell,
+        },
     };
-    let import_path =
-        parse_import_with_config(cell_alias_resolver, &current_cell, bxl_path, &OPTS)?;
+    let import_path = parse_import_with_config(cell_alias_resolver, bxl_path, &opts)?;
 
     let project_path = cell_resolver.resolve_path(import_path.as_ref())?;
     let reformed_path = cell_resolver.get_cell_path(&project_path)?;
