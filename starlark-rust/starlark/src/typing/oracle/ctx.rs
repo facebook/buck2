@@ -612,6 +612,7 @@ impl<'a> TypingOracleCtx<'a> {
         rhs: Spanned<&TyBasic>,
     ) -> Result<Ty, ()> {
         match lhs {
+            TyBasic::Any | TyBasic::Iter(_) | TyBasic::Callable => Ok(Ty::any()),
             TyBasic::StarlarkValue(lhs) => lhs.bin_op(bin_op, rhs.node),
             lhs @ TyBasic::List(elem) => match bin_op {
                 TypingBinOp::Less => {
@@ -647,6 +648,10 @@ impl<'a> TypingOracleCtx<'a> {
                 }
                 _ => TyStarlarkValue::new::<List>().bin_op(bin_op, rhs.node),
             },
+            TyBasic::Tuple(_) => {
+                // TODO(nga): can do better types.
+                TyStarlarkValue::new::<Tuple>().bin_op(bin_op, rhs.node)
+            }
             TyBasic::Dict(k, v) => match bin_op {
                 TypingBinOp::BitOr => {
                     if self.intersects_basic(rhs.node, &TyBasic::any_dict()) {
@@ -667,7 +672,12 @@ impl<'a> TypingOracleCtx<'a> {
                 }
                 bin_op => TyStarlarkValue::new::<MutableDict>().bin_op(bin_op, rhs.node),
             },
-            lhs => {
+            TyBasic::Custom(lhs) => {
+                let fun = lhs.0.attribute_dyn(TypingAttr::BinOp(bin_op))?;
+                self.validate_call(span, &fun, &[rhs.map(|t| Arg::Pos(Ty::basic(t.dupe())))])
+                    .map_err(|_| ())
+            }
+            lhs @ TyBasic::Name(_) => {
                 let fun = match self.oracle.attribute(lhs, TypingAttr::BinOp(bin_op)) {
                     Some(Ok(fun)) => fun,
                     Some(Err(())) => return Err(()),
