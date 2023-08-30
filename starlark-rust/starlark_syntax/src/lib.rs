@@ -17,16 +17,22 @@
 
 //! Starlark AST.
 
+#![allow(clippy::comparison_chain)]
 #![allow(clippy::len_without_is_empty)]
 #![allow(clippy::new_ret_no_self)]
+#![allow(clippy::should_implement_trait)]
 
 pub mod call_stack;
 pub mod codemap;
 pub mod convert_indices;
+pub(crate) mod cursors;
 pub mod diagnostic;
 pub mod dialect;
 pub mod eval_exception;
 pub mod fast_string;
 pub mod frame;
 pub mod golden_test_template;
+pub mod lexer;
+#[cfg(test)]
+mod lexer_tests;
 pub mod slice_vec_ext;

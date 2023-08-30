@@ -24,11 +24,11 @@ use std::fmt::Formatter;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use starlark_syntax::lexer::TokenInt;
 
 use crate::codemap::Pos;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
-use crate::syntax::lexer::TokenInt;
 
 /// Payload types attached to AST nodes.
 pub(crate) trait AstPayload: Debug {

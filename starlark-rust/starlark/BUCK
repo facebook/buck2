@@ -82,7 +82,6 @@ rust_library(
         "fbsource//third-party/rust:inventory",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:lalrpop-util",
-        "fbsource//third-party/rust:logos",
         "fbsource//third-party/rust:lsp-server",
         "fbsource//third-party/rust:lsp-types",
         "fbsource//third-party/rust:maplit",

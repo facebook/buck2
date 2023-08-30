@@ -18,7 +18,7 @@
 use std::slice;
 use std::str::Chars;
 
-pub(crate) struct CursorBytes<'a>(&'a str, slice::Iter<'a, u8>);
+pub struct CursorBytes<'a>(&'a str, slice::Iter<'a, u8>);
 
 impl<'a> CursorBytes<'a> {
     pub fn new(x: &'a str) -> Self {
@@ -39,7 +39,7 @@ impl<'a> CursorBytes<'a> {
     }
 }
 
-pub(crate) struct CursorChars<'a>(&'a str, Chars<'a>);
+pub struct CursorChars<'a>(&'a str, Chars<'a>);
 
 impl<'a> CursorChars<'a> {
     pub fn new_offset(x: &'a str, offset: usize) -> Self {

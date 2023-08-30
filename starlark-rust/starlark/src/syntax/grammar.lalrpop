@@ -13,9 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use starlark_syntax::lexer;
+
 use crate::codemap::Spanned;
 use crate::syntax::grammar_util;
-use crate::syntax::lexer;
 use crate::syntax::ast::*;
 use crate::syntax::state::ParserState;
 

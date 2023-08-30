@@ -18,14 +18,14 @@
 use std::fmt::Write;
 
 use dupe::Dupe;
-use starlark_syntax::golden_test_template::golden_test_template;
-use starlark_syntax::slice_vec_ext::SliceExt;
-use starlark_syntax::slice_vec_ext::VecExt;
 
 use crate::codemap::CodeMap;
-use crate::syntax::lexer::Lexer;
-use crate::syntax::lexer::Token;
-use crate::syntax::Dialect;
+use crate::dialect::Dialect;
+use crate::golden_test_template::golden_test_template;
+use crate::lexer::Lexer;
+use crate::lexer::Token;
+use crate::slice_vec_ext::SliceExt;
+use crate::slice_vec_ext::VecExt;
 
 /// Lex some text and return the tokens. Fails if the program does not parse.
 /// Only available inside the crate because the Token type is not exported.
@@ -98,7 +98,7 @@ fn lexer_golden_test(name: &str, program: &str) {
         writeln!(out, "{token:<max_width$}  # {source}").unwrap();
     }
 
-    golden_test_template(&format!("src/syntax/lexer_tests/{}.golden", name), &out);
+    golden_test_template(&format!("src/lexer_tests/{}.golden", name), &out);
 }
 
 fn lexer_fail_golden_test(name: &str, programs: &[&str]) {
@@ -126,10 +126,7 @@ fn lexer_fail_golden_test(name: &str, programs: &[&str]) {
         writeln!(out, "{}", e).unwrap();
     }
 
-    golden_test_template(
-        &format!("src/syntax/lexer_tests/{}.fail.golden", name),
-        &out,
-    );
+    golden_test_template(&format!("src/lexer_tests/{}.fail.golden", name), &out);
 }
 
 #[test]
@@ -314,7 +311,7 @@ cmd = """A \
 
 #[test]
 fn test_span() {
-    use crate::syntax::lexer::Token::*;
+    use crate::lexer::Token::*;
     let expected = vec![
         (0, Newline, 1),
         (1, Def, 4),

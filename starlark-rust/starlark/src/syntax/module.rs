@@ -24,6 +24,8 @@ use dupe::Dupe;
 use lalrpop_util as lu;
 use starlark_syntax::diagnostic::Diagnostic;
 use starlark_syntax::eval_exception::EvalException;
+use starlark_syntax::lexer::Lexer;
+use starlark_syntax::lexer::Token;
 
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
@@ -32,8 +34,6 @@ use crate::codemap::Span;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::Stmt;
 use crate::syntax::grammar::StarlarkParser;
-use crate::syntax::lexer::Lexer;
-use crate::syntax::lexer::Token;
 use crate::syntax::state::ParserState;
 use crate::syntax::AstLoad;
 use crate::syntax::Dialect;

@@ -34,8 +34,8 @@ use num_traits::FromPrimitive;
 use num_traits::Signed;
 use num_traits::ToPrimitive;
 use num_traits::Zero;
+use starlark_syntax::lexer::TokenInt;
 
-use crate::syntax::lexer::TokenInt;
 use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::bigint::StarlarkBigInt;

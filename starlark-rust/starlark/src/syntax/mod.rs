@@ -23,14 +23,10 @@ pub use starlark_syntax::dialect::Dialect;
 pub use starlark_syntax::dialect::DialectTypes;
 
 pub(crate) mod ast;
-pub(crate) mod cursors;
 pub(crate) mod def;
 #[cfg(test)]
 mod grammar_tests;
 pub(crate) mod grammar_util;
-pub(crate) mod lexer;
-#[cfg(test)]
-mod lexer_tests;
 pub(crate) mod module;
 pub(crate) mod parser;
 pub(crate) mod payload_map;

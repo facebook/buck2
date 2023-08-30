@@ -18,6 +18,8 @@
 //! Code called by the parser to handle complex cases not handled by the grammar.
 
 use starlark_syntax::eval_exception::EvalException;
+use starlark_syntax::lexer::lex_exactly_one_identifier;
+use starlark_syntax::lexer::TokenFString;
 use starlark_syntax::slice_vec_ext::VecExt;
 
 use crate::codemap::CodeMap;
@@ -50,8 +52,6 @@ use crate::syntax::ast::ToAst;
 use crate::syntax::ast::TypeExpr;
 use crate::syntax::ast::TypeExprP;
 use crate::syntax::def::DefParams;
-use crate::syntax::lexer::lex_exactly_one_identifier;
-use crate::syntax::lexer::TokenFString;
 use crate::syntax::state::ParserState;
 use crate::syntax::type_expr::TypeExprUnpackP;
 use crate::syntax::Dialect;
