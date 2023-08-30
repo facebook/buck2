@@ -193,6 +193,7 @@ android_binary = prelude_rule(
         {
             "aapt2_keep_raw_values": attrs.bool(default = False),
             "aapt2_locale_filtering": attrs.bool(default = False),
+            "aapt2_preferred_density": attrs.option(attrs.string(), default = None),
             "aapt_mode": attrs.enum(AaptMode, default = "aapt1"),
             "additional_aapt_params": attrs.list(attrs.string(), default = []),
             "allow_r_dot_java_in_secondary_dex": attrs.bool(default = False),
@@ -422,6 +423,7 @@ android_bundle = prelude_rule(
         {
             "aapt2_keep_raw_values": attrs.bool(default = False),
             "aapt2_locale_filtering": attrs.bool(default = False),
+            "aapt2_preferred_density": attrs.option(attrs.string(), default = None),
             "aapt_mode": attrs.enum(AaptMode, default = "aapt1"),
             "additional_aapt_params": attrs.list(attrs.string(), default = []),
             "allow_r_dot_java_in_secondary_dex": attrs.bool(default = False),
