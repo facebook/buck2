@@ -159,7 +159,7 @@ impl PointerI32 {
 
     #[inline]
     pub(crate) fn vtable() -> &'static AValueVTable {
-        &AValueVTable::new::<AValueImpl<Basic, PointerI32>>()
+        AValueVTable::new::<AValueImpl<Basic, PointerI32>>()
     }
 
     /// This operation is expensive, use only if you have to.

@@ -703,7 +703,7 @@ impl<'a> TypingOracleCtx<'a> {
         if let Ok(r) = self.expr_bin_op_ty_basic_lhs(lhs.node, bin_op, rhs) {
             return Ok(r);
         }
-        if let Ok(r) = self.expr_bin_op_ty_basic_rhs(&lhs.node, bin_op, rhs.node) {
+        if let Ok(r) = self.expr_bin_op_ty_basic_rhs(lhs.node, bin_op, rhs.node) {
             return Ok(r);
         }
 
@@ -864,7 +864,7 @@ impl<'a> TypingOracleCtx<'a> {
             }
             (TyBasic::Tuple(x), TyBasic::Tuple(y)) => TyTuple::intersects(x, y, self),
             (TyBasic::Tuple(_), t) => t.is_tuple(),
-            (TyBasic::Iter(x), TyBasic::Iter(y)) => self.intersects(&x, y),
+            (TyBasic::Iter(x), TyBasic::Iter(y)) => self.intersects(x, y),
             (TyBasic::Iter(x), y) | (y, TyBasic::Iter(x)) => match self.iter_item_basic(y) {
                 Ok(yy) => self.intersects(x, &yy),
                 Err(()) => false,
