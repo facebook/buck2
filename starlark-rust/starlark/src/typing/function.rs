@@ -161,7 +161,7 @@ impl Param {
 
 /// Custom function typechecker.
 pub trait TyCustomFunctionImpl:
-    Clone + Debug + Eq + Ord + Hash + Allocative + Send + Sync + 'static
+    Debug + Eq + Ord + Hash + Allocative + Send + Sync + 'static
 {
     fn has_type_attr(&self) -> bool {
         false
@@ -183,7 +183,6 @@ pub trait TyCustomFunctionImpl:
     Ord,
     PartialOrd,
     Debug,
-    Clone,
     derive_more::Display
 )]
 #[display(fmt = "\"function\"")]

@@ -47,9 +47,7 @@ use crate::values::typing::type_compiled::matcher::TypeMatcherBoxAlloc;
 use crate::values::Value;
 
 /// Custom type implementation. [`Display`] must implement the representation of the type.
-pub trait TyCustomImpl:
-    Debug + Display + Clone + Hash + Ord + Allocative + Send + Sync + 'static
-{
+pub trait TyCustomImpl: Debug + Display + Hash + Ord + Allocative + Send + Sync + 'static {
     fn as_name(&self) -> Option<&str>;
     fn validate_call(
         &self,
