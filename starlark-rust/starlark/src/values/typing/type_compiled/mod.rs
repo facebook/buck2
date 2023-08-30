@@ -15,7 +15,10 @@
  * limitations under the License.
  */
 
+pub(crate) mod alloc;
 pub(crate) mod compiled;
 pub(crate) mod factory;
 pub(crate) mod globals;
+pub(crate) mod matcher;
+pub(crate) mod matchers;
 pub(crate) mod tests;

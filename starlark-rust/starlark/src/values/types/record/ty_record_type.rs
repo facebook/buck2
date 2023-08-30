@@ -33,10 +33,8 @@ use crate::typing::TypingOracleCtx;
 use crate::values::record::record_type::RecordType;
 use crate::values::record::ty_record::TyRecord;
 use crate::values::types::type_instance_id::TypeInstanceId;
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
-use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
+use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 use crate::values::StarlarkValue;
-use crate::values::Value;
 
 #[derive(Allocative, Ord, PartialOrd, Debug)]
 pub(crate) struct TyRecordData {
@@ -118,7 +116,7 @@ impl TyCustomImpl for TyRecordType {
         true
     }
 
-    fn matcher<'v>(&self, factory: TypeCompiledFactory<'v>) -> TypeCompiled<Value<'v>> {
+    fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result {
         let _ignore = factory;
         // TODO(nga): replace panic with error.
         unreachable!("Cannot apprear in type expressions")

@@ -31,9 +31,8 @@ use crate::typing::TypingBinOp;
 use crate::typing::TypingOracleCtx;
 use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::structs::StructRef;
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
-use crate::values::typing::type_compiled::compiled::TypeCompiledImpl;
-use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
+use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
+use crate::values::typing::type_compiled::matcher::TypeMatcher;
 use crate::values::Value;
 
 /// Struct type.
@@ -102,11 +101,11 @@ impl TyCustomImpl for TyStruct {
         }
     }
 
-    fn matcher<'v>(&self, factory: TypeCompiledFactory<'v>) -> TypeCompiled<Value<'v>> {
+    fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result {
         #[derive(Allocative, Eq, PartialEq, Hash, Debug, Clone, Copy, Dupe)]
         struct StructMatcher;
 
-        impl TypeCompiledImpl for StructMatcher {
+        impl TypeMatcher for StructMatcher {
             fn matches(&self, value: Value) -> bool {
                 StructRef::is_instance(value)
             }

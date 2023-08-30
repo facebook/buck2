@@ -85,10 +85,12 @@ impl TyBasic {
         TyBasic::List(ArcTy::new(element))
     }
 
+    /// `list[typing.Any]`.
     pub(crate) fn any_list() -> Self {
-        Self::list(Ty::any())
+        TyBasic::List(ArcTy::any())
     }
 
+    /// `dict[typing.Any, typing.Any]`.
     pub(crate) fn any_dict() -> Self {
         Self::dict(Ty::any(), Ty::any())
     }

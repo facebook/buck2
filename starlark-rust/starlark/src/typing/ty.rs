@@ -44,11 +44,13 @@ use crate::typing::function::TyCustomFunction;
 use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::function::TyFunction;
 use crate::typing::small_arc_vec::SmallArcVec1;
+use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::structs::TyStruct;
 use crate::typing::tuple::TyTuple;
 use crate::values::bool::StarlarkBool;
 use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::typing::never::TypingNever;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 
@@ -172,6 +174,7 @@ impl Ty {
 
     fn try_name_special(name: &str) -> Option<Self> {
         match name {
+            name if TypeCompiled::is_wildcard(name) => Some(Self::any()),
             "list" => Some(Self::list(Ty::any())),
             "dict" => Some(Self::dict(Ty::any(), Ty::any())),
             "function" => Some(Self::any_function()),
@@ -218,6 +221,14 @@ impl Ty {
     pub fn as_name(&self) -> Option<&str> {
         match self.alternatives.as_slice() {
             [x] => x.as_name(),
+            _ => None,
+        }
+    }
+
+    /// This type is `TyStarlarkValue`.
+    pub(crate) fn is_starlark_value(&self) -> Option<TyStarlarkValue> {
+        match self.iter_union() {
+            [TyBasic::StarlarkValue(x)] => Some(*x),
             _ => None,
         }
     }

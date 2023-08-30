@@ -23,9 +23,8 @@ use crate::typing::Ty;
 use crate::values::record::ty_record_type::TyRecordType;
 use crate::values::record::Record;
 use crate::values::types::type_instance_id::TypeInstanceId;
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
-use crate::values::typing::type_compiled::compiled::TypeCompiledImpl;
-use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
+use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
+use crate::values::typing::type_compiled::matcher::TypeMatcher;
 use crate::values::Value;
 
 /// Type of record instance i. e. type of `record()()`.
@@ -58,13 +57,13 @@ impl TyCustomImpl for TyRecord {
         }
     }
 
-    fn matcher<'v>(&self, factory: TypeCompiledFactory<'v>) -> TypeCompiled<Value<'v>> {
+    fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result {
         #[derive(Hash, Debug, Eq, PartialEq, Clone, Dupe, Allocative)]
         struct RecordTypeMatcher {
             id: TypeInstanceId,
         }
 
-        impl TypeCompiledImpl for RecordTypeMatcher {
+        impl TypeMatcher for RecordTypeMatcher {
             fn matches(&self, value: Value) -> bool {
                 match Record::from_value(value) {
                     None => false,

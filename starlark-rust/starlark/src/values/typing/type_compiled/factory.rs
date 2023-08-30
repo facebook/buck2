@@ -15,45 +15,100 @@
  * limitations under the License.
  */
 
-use allocative::Allocative;
-use dupe::Dupe;
-
+use crate::typing::custom::TyCustom;
 use crate::typing::Ty;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::avalue::Basic;
+use crate::values::layout::heap::repr::AValueRepr;
+use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
-use crate::values::typing::type_compiled::compiled::TypeCompiledImpl;
+use crate::values::typing::type_compiled::compiled::TypeCompiledImplAsStarlarkValue;
+use crate::values::typing::type_compiled::matcher::TypeMatcher;
+use crate::values::typing::type_compiled::matchers::IsAny;
+use crate::values::typing::type_compiled::matchers::IsBool;
+use crate::values::typing::type_compiled::matchers::IsInt;
+use crate::values::typing::type_compiled::matchers::IsNone;
+use crate::values::typing::type_compiled::matchers::IsStr;
+use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Value;
 
-/// Convert `TypeCompiledImpl` into `TypeCompiled`.
-/// This is used to convert custom types to runtime types.
-pub struct TypeCompiledFactory<'v> {
+/// Allocate a `Ty` with a `TypeMatcher` in starlark heap as `TypeCompiled`.
+pub struct TypeCompiledFactory<'a, 'v> {
     heap: &'v Heap,
-    ty: Ty,
+    ty: &'a Ty,
 }
 
-impl<'v> TypeCompiledFactory<'v> {
-    pub(crate) fn new(ty: Ty, heap: &'v Heap) -> TypeCompiledFactory<'v> {
-        TypeCompiledFactory { heap, ty }
+impl<'a, 'v> TypeMatcherAlloc for TypeCompiledFactory<'a, 'v> {
+    type Result = TypeCompiled<Value<'v>>;
+
+    fn alloc<T: TypeMatcher>(self, matcher: T) -> Self::Result {
+        TypeCompiled::alloc(matcher, self.ty.clone(), self.heap)
     }
 
-    pub(crate) fn alloc(self, matcher: impl TypeCompiledImpl) -> TypeCompiled<Value<'v>> {
-        TypeCompiled::alloc(matcher, self.ty, self.heap)
+    fn custom(self, custom: &TyCustom) -> Self::Result {
+        custom.matcher_with_type_compiled_factory(self)
     }
 
-    pub(crate) fn heap(&self) -> &'v Heap {
-        self.heap
-    }
+    fn any(self) -> TypeCompiled<Value<'v>> {
+        if self.ty == &Ty::any() {
+            static ANYTHING: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsAny>>> =
+                TypeCompiledImplAsStarlarkValue::alloc_static(IsAny, Ty::any());
 
-    pub(crate) fn callable(self) -> TypeCompiled<Value<'v>> {
-        #[derive(Allocative, Eq, PartialEq, Hash, Clone, Copy, Dupe, Debug)]
-        struct FunctionMatcher;
-
-        impl TypeCompiledImpl for FunctionMatcher {
-            fn matches(&self, value: Value) -> bool {
-                value.vtable().starlark_value.HAS_invoke
-            }
+            TypeCompiled::unchecked_new(FrozenValue::new_repr(&ANYTHING).to_value())
+        } else {
+            self.alloc(IsAny)
         }
+    }
 
-        self.alloc(FunctionMatcher)
+    fn none(self) -> TypeCompiled<Value<'v>> {
+        if self.ty == &Ty::none() {
+            static IS_NONE: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsNone>>> =
+                TypeCompiledImplAsStarlarkValue::alloc_static(IsNone, Ty::none());
+
+            TypeCompiled::unchecked_new(FrozenValue::new_repr(&IS_NONE).to_value())
+        } else {
+            self.alloc(IsNone)
+        }
+    }
+
+    fn bool(self) -> TypeCompiled<Value<'v>> {
+        if self.ty == &Ty::bool() {
+            static IS_BOOL: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsBool>>> =
+                TypeCompiledImplAsStarlarkValue::alloc_static(IsBool, Ty::bool());
+
+            TypeCompiled::unchecked_new(FrozenValue::new_repr(&IS_BOOL).to_value())
+        } else {
+            self.alloc(IsBool)
+        }
+    }
+
+    fn int(self) -> TypeCompiled<Value<'v>> {
+        if self.ty == &Ty::int() {
+            static IS_INT: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsInt>>> =
+                TypeCompiledImplAsStarlarkValue::alloc_static(IsInt, Ty::int());
+
+            TypeCompiled::unchecked_new(FrozenValue::new_repr(&IS_INT).to_value())
+        } else {
+            self.alloc(IsInt)
+        }
+    }
+
+    fn str(self) -> TypeCompiled<Value<'v>> {
+        if self.ty == &Ty::string() {
+            static IS_STRING: AValueRepr<
+                AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsStr>>,
+            > = TypeCompiledImplAsStarlarkValue::alloc_static(IsStr, Ty::string());
+
+            TypeCompiled::unchecked_new(FrozenValue::new_repr(&IS_STRING).to_value())
+        } else {
+            self.alloc(IsStr)
+        }
+    }
+}
+
+impl<'a, 'v> TypeCompiledFactory<'a, 'v> {
+    pub(crate) fn alloc_ty(ty: &'a Ty, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
+        TypeCompiledFactory { heap, ty }.ty(ty)
     }
 }

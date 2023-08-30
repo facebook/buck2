@@ -39,8 +39,11 @@ use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
 use crate::typing::TypingOracleCtx;
+use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
+use crate::values::typing::type_compiled::matcher::TypeMatcherBox;
+use crate::values::typing::type_compiled::matcher::TypeMatcherBoxAlloc;
 use crate::values::Value;
 
 /// Custom type implementation. [`Display`] must implement the representation of the type.
@@ -81,7 +84,7 @@ pub trait TyCustomImpl:
     }
 
     /// Create runtime type matcher for values.
-    fn matcher<'v>(&self, factory: TypeCompiledFactory<'v>) -> TypeCompiled<Value<'v>>;
+    fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result;
 }
 
 pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'static {
@@ -114,10 +117,12 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
     ) -> Result<Arc<dyn TyCustomDyn>, (Arc<dyn TyCustomDyn>, Arc<dyn TyCustomDyn>)>;
     fn intersects_dyn(&self, other: &dyn TyCustomDyn) -> bool;
 
-    fn matcher_dyn<'v>(
+    fn matcher_with_type_compiled_factory_dyn<'v>(
         &self,
-        type_compiled_factory: TypeCompiledFactory<'v>,
+        type_compiled_factory: TypeCompiledFactory<'_, 'v>,
     ) -> TypeCompiled<Value<'v>>;
+
+    fn matcher_box_dyn(&self) -> TypeMatcherBox;
 }
 
 impl<T: TyCustomImpl> TyCustomDyn for T {
@@ -203,11 +208,15 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
         }
     }
 
-    fn matcher_dyn<'v>(
+    fn matcher_with_type_compiled_factory_dyn<'v>(
         &self,
-        type_compiled_factory: TypeCompiledFactory<'v>,
+        type_compiled_factory: TypeCompiledFactory<'_, 'v>,
     ) -> TypeCompiled<Value<'v>> {
         self.matcher(type_compiled_factory)
+    }
+
+    fn matcher_box_dyn(&self) -> TypeMatcherBox {
+        self.matcher(TypeMatcherBoxAlloc)
     }
 }
 
@@ -242,11 +251,16 @@ impl TyCustom {
         }
     }
 
-    pub(crate) fn matcher<'v>(
+    pub(crate) fn matcher_with_type_compiled_factory<'v>(
         &self,
-        type_compiled_factory: TypeCompiledFactory<'v>,
+        type_compiled_factory: TypeCompiledFactory<'_, 'v>,
     ) -> TypeCompiled<Value<'v>> {
-        self.0.matcher_dyn(type_compiled_factory)
+        self.0
+            .matcher_with_type_compiled_factory_dyn(type_compiled_factory)
+    }
+
+    pub(crate) fn matcher_with_box(&self) -> TypeMatcherBox {
+        self.0.matcher_box_dyn()
     }
 }
 

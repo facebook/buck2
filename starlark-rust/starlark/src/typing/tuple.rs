@@ -23,20 +23,19 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use starlark_derive::ProvidesStaticType;
-use starlark_syntax::slice_vec_ext::SliceExt;
 
-use crate as starlark;
 use crate::typing::arc_ty::ArcTy;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
-use crate::values::tuple::value::Tuple;
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
-use crate::values::typing::type_compiled::compiled::TypeCompiledBox;
-use crate::values::typing::type_compiled::compiled::TypeCompiledImpl;
-use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
-use crate::values::Value;
+use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
+use crate::values::typing::type_compiled::matcher::TypeMatcherBoxAlloc;
+use crate::values::typing::type_compiled::matchers::IsTupleElems;
+use crate::values::typing::type_compiled::matchers::IsTupleElems0;
+use crate::values::typing::type_compiled::matchers::IsTupleElems1;
+use crate::values::typing::type_compiled::matchers::IsTupleElems2;
+use crate::values::typing::type_compiled::matchers::IsTupleOf;
+use crate::values::typing::type_compiled::matchers::StarlarkTypeIdMatcher;
 
 #[derive(Eq, PartialEq, Hash, Clone, Dupe, Debug, Ord, PartialOrd, Allocative)]
 pub enum TyTuple {
@@ -81,48 +80,43 @@ impl TyTuple {
         }
     }
 
-    pub(crate) fn matcher<'v>(
-        &self,
-        type_compiled_factory: TypeCompiledFactory<'v>,
-    ) -> TypeCompiled<Value<'v>> {
+    pub(crate) fn matcher<T: TypeMatcherAlloc>(&self, type_compiled_factory: T) -> T::Result {
         match self {
-            TyTuple::Elems(elems) => {
-                #[derive(Eq, PartialEq, Hash, Clone, Allocative, Debug, ProvidesStaticType)]
-                struct Elems(Vec<TypeCompiledBox>);
-
-                impl TypeCompiledImpl for Elems {
-                    fn matches(&self, value: Value) -> bool {
-                        match Tuple::from_value(value) {
-                            Some(v) if v.len() == self.0.len() => {
-                                v.iter().zip(self.0.iter()).all(|(v, t)| t.0.matches_dyn(v))
-                            }
-                            _ => false,
-                        }
+            TyTuple::Elems(elems) => match &**elems {
+                [] => type_compiled_factory.alloc(IsTupleElems0),
+                [x0] => type_compiled_factory.alloc(IsTupleElems1(TypeMatcherBoxAlloc.ty(x0))),
+                [x0, x1] => {
+                    if let (Some(x0), Some(x1)) = (x0.is_starlark_value(), x1.is_starlark_value()) {
+                        type_compiled_factory.alloc(IsTupleElems2(
+                            StarlarkTypeIdMatcher::new(x0),
+                            StarlarkTypeIdMatcher::new(x1),
+                        ))
+                    } else {
+                        type_compiled_factory.alloc(IsTupleElems2(
+                            TypeMatcherBoxAlloc.ty(x0),
+                            TypeMatcherBoxAlloc.ty(x1),
+                        ))
                     }
                 }
-
-                let elems = elems
-                    .map(|t| TypeCompiled::from_ty(t, type_compiled_factory.heap()).to_box_dyn());
-                type_compiled_factory.alloc(Elems(elems))
-            }
+                xs => {
+                    let xs = xs
+                        .iter()
+                        .map(|x| TypeMatcherBoxAlloc.ty(x))
+                        .collect::<Vec<_>>();
+                    type_compiled_factory.alloc(IsTupleElems(xs))
+                }
+            },
             TyTuple::Of(item) if item.is_any() => {
-                TyStarlarkValue::new::<Tuple>().type_compiled(type_compiled_factory)
+                TyStarlarkValue::tuple().matcher(type_compiled_factory)
             }
             TyTuple::Of(item) => {
-                #[derive(Eq, PartialEq, Hash, Clone, Allocative, Debug, ProvidesStaticType)]
-                struct Of(TypeCompiledBox);
-
-                impl TypeCompiledImpl for Of {
-                    fn matches(&self, value: Value) -> bool {
-                        match Tuple::from_value(value) {
-                            Some(v) => v.iter().all(|v| self.0.0.matches_dyn(v)),
-                            _ => false,
-                        }
-                    }
+                if let Some(item) = item.is_starlark_value() {
+                    return type_compiled_factory
+                        .alloc(IsTupleOf(StarlarkTypeIdMatcher::new(item)));
+                } else {
+                    let item = TypeMatcherBoxAlloc.ty(item);
+                    type_compiled_factory.alloc(IsTupleOf(item))
                 }
-
-                let item = TypeCompiled::from_ty(item, type_compiled_factory.heap()).to_box_dyn();
-                type_compiled_factory.alloc(Of(item))
             }
         }
     }

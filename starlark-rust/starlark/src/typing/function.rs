@@ -34,9 +34,7 @@ use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
 use crate::typing::TypingOracleCtx;
 use crate::values::layout::heap::profile::arc_str::ArcStr;
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
-use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
-use crate::values::Value;
+use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 
 /// An argument being passed to a function
 #[derive(Debug)]
@@ -239,7 +237,7 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
         }
     }
 
-    fn matcher<'v>(&self, factory: TypeCompiledFactory<'v>) -> TypeCompiled<Value<'v>> {
+    fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result {
         factory.callable()
     }
 }

@@ -24,7 +24,6 @@ use std::hash::Hasher;
 
 use allocative::Allocative;
 use anyhow::Context;
-use cmp_any::PartialEqAny;
 use dupe::Dupe;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
@@ -40,9 +39,6 @@ use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
 use crate::private::Private;
-use crate::typing::basic::TyBasic;
-use crate::typing::custom::TyCustom;
-use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::Ty;
 use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
@@ -53,9 +49,10 @@ use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::list::ListRef;
 use crate::values::none::NoneType;
 use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::types::tuple::value::Tuple;
 use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
+use crate::values::typing::type_compiled::matcher::TypeMatcher;
+use crate::values::typing::type_compiled::matchers::IsDict;
 use crate::values::AllocValue;
 use crate::values::Demand;
 use crate::values::Freeze;
@@ -65,7 +62,6 @@ use crate::values::Heap;
 use crate::values::NoSerialize;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
-use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
 
@@ -85,31 +81,21 @@ enum TypingError {
     ValueDoesNotMatchType(String, &'static str, String),
 }
 
-pub(crate) trait TypeCompiledImpl:
-    Allocative + Debug + Clone + Eq + Hash + Sized + Send + Sync + 'static
-{
-    fn matches(&self, value: Value) -> bool;
-    fn is_wildcard(&self) -> bool {
-        false
-    }
-}
-
 pub(crate) trait TypeCompiledDyn: Debug + Allocative + Send + Sync + 'static {
     fn as_ty_dyn(&self) -> &Ty;
     fn matches_dyn(&self, value: Value) -> bool;
     fn is_runtime_wildcard_dyn(&self) -> bool;
     fn to_frozen_dyn(&self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue>;
-    fn patch_ty_dyn<'v>(&self, ty: Ty, heap: &'v Heap) -> TypeCompiled<Value<'v>>;
+}
 
-    fn eq_token(&self) -> PartialEqAny;
-    fn hash_code(&self) -> u64;
-
-    fn to_box(&self) -> TypeCompiledBox;
+// TODO(nga): derive.
+unsafe impl<'v> ProvidesStaticType<'v> for &'v dyn TypeCompiledDyn {
+    type StaticType = &'static dyn TypeCompiledDyn;
 }
 
 impl<T> TypeCompiledDyn for TypeCompiledImplAsStarlarkValue<T>
 where
-    T: TypeCompiledImpl,
+    T: TypeMatcher,
 {
     fn as_ty_dyn(&self) -> &Ty {
         &self.ty
@@ -123,49 +109,6 @@ where
     fn to_frozen_dyn(&self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
         TypeCompiled(heap.alloc_simple::<TypeCompiledImplAsStarlarkValue<T>>(Self::clone(self)))
     }
-    fn patch_ty_dyn<'v>(&self, ty: Ty, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
-        TypeCompiled::alloc(self.type_compiled_impl.clone(), ty, heap)
-    }
-
-    fn eq_token(&self) -> PartialEqAny {
-        PartialEqAny::new::<Self>(self)
-    }
-    fn hash_code(&self) -> u64 {
-        let mut hasher = StarlarkHasher::new();
-        self.type_compiled_impl.hash(&mut hasher);
-        hasher.finish()
-    }
-
-    fn to_box(&self) -> TypeCompiledBox {
-        TypeCompiledBox(Box::new(self.clone()))
-    }
-}
-
-#[derive(Allocative, Debug)]
-pub(crate) struct TypeCompiledBox(pub(crate) Box<dyn TypeCompiledDyn>);
-
-impl Clone for TypeCompiledBox {
-    fn clone(&self) -> Self {
-        self.0.to_box()
-    }
-}
-
-impl PartialEq for TypeCompiledBox {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.eq_token() == other.0.eq_token()
-    }
-}
-impl Eq for TypeCompiledBox {}
-
-impl Hash for TypeCompiledBox {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.hash_code().hash(state)
-    }
-}
-
-// TODO(nga): derive.
-unsafe impl<'v> ProvidesStaticType<'v> for &'v dyn TypeCompiledDyn {
-    type StaticType = &'static dyn TypeCompiledDyn;
 }
 
 #[derive(
@@ -177,7 +120,7 @@ unsafe impl<'v> ProvidesStaticType<'v> for &'v dyn TypeCompiledDyn {
     ProvidesStaticType,
     NoSerialize
 )]
-struct TypeCompiledImplAsStarlarkValue<T: 'static> {
+pub struct TypeCompiledImplAsStarlarkValue<T: 'static> {
     type_compiled_impl: T,
     ty: Ty,
 }
@@ -186,7 +129,7 @@ impl<T> TypeCompiledImplAsStarlarkValue<T>
 where
     TypeCompiledImplAsStarlarkValue<T>: StarlarkValue<'static>,
 {
-    const fn alloc_static(imp: T, ty: Ty) -> AValueRepr<AValueImpl<Basic, Self>> {
+    pub(crate) const fn alloc_static(imp: T, ty: Ty) -> AValueRepr<AValueImpl<Basic, Self>> {
         alloc_static(
             Basic,
             TypeCompiledImplAsStarlarkValue {
@@ -197,10 +140,11 @@ where
     }
 }
 
+#[doc(hidden)]
 #[derive(Hash, Eq, PartialEq, Debug, Clone, Allocative)]
-struct DummyTypeMatcher;
+pub struct DummyTypeMatcher;
 
-impl TypeCompiledImpl for DummyTypeMatcher {
+impl TypeMatcher for DummyTypeMatcher {
     fn matches(&self, _value: Value) -> bool {
         unreachable!()
     }
@@ -209,7 +153,7 @@ impl TypeCompiledImpl for DummyTypeMatcher {
 #[starlark_value(type = "eval_type")]
 impl<'v, T: 'static> StarlarkValue<'v> for TypeCompiledImplAsStarlarkValue<T>
 where
-    T: TypeCompiledImpl,
+    T: TypeMatcher,
 {
     type Canonical = TypeCompiledImplAsStarlarkValue<DummyTypeMatcher>;
 
@@ -222,7 +166,7 @@ where
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
-        Hash::hash(&self.type_compiled_impl, hasher);
+        Hash::hash(&self.ty, hasher);
         Ok(())
     }
 
@@ -230,7 +174,7 @@ where
         let Some(other) = other.downcast_ref::<Self>() else {
             return Ok(false);
         };
-        Ok(self.type_compiled_impl == other.type_compiled_impl)
+        Ok(self.ty == other.ty)
     }
 
     fn eval_type(&self) -> Option<Ty> {
@@ -249,7 +193,7 @@ where
     }
 }
 
-impl<T: TypeCompiledImpl> Display for TypeCompiledImplAsStarlarkValue<T> {
+impl<T: TypeMatcher> Display for TypeCompiledImplAsStarlarkValue<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.ty)
     }
@@ -319,6 +263,10 @@ impl<'v, V: ValueLike<'v>> AllocValue<'v> for TypeCompiled<V> {
 }
 
 impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
+    pub(crate) fn unchecked_new(value: V) -> Self {
+        TypeCompiled(value)
+    }
+
     fn downcast(self) -> anyhow::Result<&'v dyn TypeCompiledDyn> {
         self.to_value()
             .0
@@ -338,10 +286,6 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
     /// However, compile-time/lint typechecker may still check the type.
     pub(crate) fn is_runtime_wildcard(self) -> bool {
         self.downcast().unwrap().is_runtime_wildcard_dyn()
-    }
-
-    pub(crate) fn to_box_dyn(&self) -> TypeCompiledBox {
-        self.downcast().unwrap().to_box()
     }
 
     #[cold]
@@ -412,140 +356,6 @@ impl<'v, V: ValueLike<'v>> PartialEq for TypeCompiled<V> {
 impl<'v, V: ValueLike<'v>> Eq for TypeCompiled<V> {}
 
 impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
-    fn type_anything() -> TypeCompiled<V> {
-        #[derive(
-            Clone,
-            Copy,
-            Dupe,
-            Eq,
-            PartialEq,
-            Hash,
-            Allocative,
-            Debug,
-            ProvidesStaticType
-        )]
-        struct Anything;
-
-        impl TypeCompiledImpl for Anything {
-            fn matches(&self, _value: Value) -> bool {
-                true
-            }
-
-            fn is_wildcard(&self) -> bool {
-                true
-            }
-        }
-
-        static ANYTHING: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<Anything>>> =
-            TypeCompiledImplAsStarlarkValue::alloc_static(Anything, Ty::any());
-
-        TypeCompiled(V::from_frozen_value(FrozenValue::new_repr(&ANYTHING)))
-    }
-
-    pub(crate) fn type_none() -> TypeCompiled<V> {
-        #[derive(
-            Clone,
-            Copy,
-            Dupe,
-            Eq,
-            PartialEq,
-            Hash,
-            Allocative,
-            Debug,
-            ProvidesStaticType
-        )]
-        struct IsNone;
-
-        impl TypeCompiledImpl for IsNone {
-            fn matches(&self, value: Value) -> bool {
-                value.is_none()
-            }
-        }
-
-        static IS_NONE: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsNone>>> =
-            TypeCompiledImplAsStarlarkValue::alloc_static(IsNone, Ty::none());
-
-        TypeCompiled(V::from_frozen_value(FrozenValue::new_repr(&IS_NONE)))
-    }
-
-    pub(crate) fn type_string() -> TypeCompiled<V> {
-        #[derive(
-            Clone,
-            Copy,
-            Dupe,
-            Eq,
-            PartialEq,
-            Hash,
-            Allocative,
-            Debug,
-            ProvidesStaticType
-        )]
-        struct IsString;
-
-        impl TypeCompiledImpl for IsString {
-            fn matches(&self, value: Value) -> bool {
-                value.unpack_str().is_some()
-            }
-        }
-
-        static IS_STRING: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsString>>> =
-            TypeCompiledImplAsStarlarkValue::alloc_static(IsString, Ty::string());
-
-        TypeCompiled(V::from_frozen_value(FrozenValue::new_repr(&IS_STRING)))
-    }
-
-    pub(crate) fn type_int() -> TypeCompiled<V> {
-        #[derive(
-            Clone,
-            Copy,
-            Dupe,
-            Eq,
-            PartialEq,
-            Hash,
-            Allocative,
-            Debug,
-            ProvidesStaticType
-        )]
-        struct IsInt;
-
-        impl TypeCompiledImpl for IsInt {
-            fn matches(&self, value: Value) -> bool {
-                StarlarkIntRef::unpack_value(value).is_some()
-            }
-        }
-
-        static IS_INT: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsInt>>> =
-            TypeCompiledImplAsStarlarkValue::alloc_static(IsInt, Ty::int());
-
-        TypeCompiled(V::from_frozen_value(FrozenValue::new_repr(&IS_INT)))
-    }
-
-    pub(crate) fn type_bool() -> TypeCompiled<V> {
-        #[derive(
-            Clone,
-            Copy,
-            Dupe,
-            Eq,
-            PartialEq,
-            Hash,
-            Allocative,
-            Debug,
-            ProvidesStaticType
-        )]
-        struct IsBool;
-
-        impl TypeCompiledImpl for IsBool {
-            fn matches(&self, value: Value) -> bool {
-                value.unpack_bool().is_some()
-            }
-        }
-
-        static IS_BOOL: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsBool>>> =
-            TypeCompiledImplAsStarlarkValue::alloc_static(IsBool, Ty::bool());
-
-        TypeCompiled(V::from_frozen_value(FrozenValue::new_repr(&IS_BOOL)))
-    }
-
     pub(crate) fn to_frozen(self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
         if let Some(v) = self.0.to_value().unpack_frozen() {
             TypeCompiled(v)
@@ -559,7 +369,7 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
 // information in profiling about the origin of these closures
 impl<'v> TypeCompiled<Value<'v>> {
     pub(crate) fn alloc(
-        type_compiled_impl: impl TypeCompiledImpl,
+        type_compiled_impl: impl TypeMatcher,
         ty: Ty,
         heap: &'v Heap,
     ) -> TypeCompiled<Value<'v>> {
@@ -569,88 +379,7 @@ impl<'v> TypeCompiled<Value<'v>> {
         }))
     }
 
-    /// Replace `ty` field, keep the matcher.
-    fn patch_ty(self, ty: Ty, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
-        if self.as_ty() == &ty {
-            // Optimization, semantically identical to the branch below.
-            self.to_value()
-        } else {
-            self.downcast().unwrap().patch_ty_dyn(ty, heap)
-        }
-    }
-
-    fn type_concrete(t: &str, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
-        #[derive(
-            Eq,
-            PartialEq,
-            Hash,
-            Allocative,
-            Debug,
-            Trace,
-            Freeze,
-            ProvidesStaticType,
-            Clone
-        )]
-        struct IsConcrete(String);
-
-        impl TypeCompiledImpl for IsConcrete {
-            fn matches(&self, value: Value) -> bool {
-                value.get_ref().matches_type(&self.0)
-            }
-        }
-
-        let ty = Ty::name(t);
-        Self::alloc(IsConcrete(t.to_owned()), ty, heap)
-    }
-
-    fn ty_custom(ty_custom: &TyCustom, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
-        let ty = Ty::basic(TyBasic::Custom(ty_custom.clone()));
-        ty_custom.matcher(TypeCompiledFactory::new(ty, heap))
-    }
-
-    fn type_list(heap: &'v Heap) -> TypeCompiled<Value<'v>> {
-        #[derive(
-            Clone,
-            Copy,
-            Dupe,
-            Eq,
-            PartialEq,
-            Hash,
-            Allocative,
-            Debug,
-            ProvidesStaticType
-        )]
-        struct IsList;
-
-        impl TypeCompiledImpl for IsList {
-            fn matches(&self, value: Value) -> bool {
-                ListRef::from_value(value).is_some()
-            }
-        }
-
-        Self::alloc(IsList, Ty::any_list(), heap)
-    }
-
     fn type_dict(heap: &'v Heap) -> TypeCompiled<Value<'v>> {
-        #[derive(
-            Clone,
-            Copy,
-            Dupe,
-            Eq,
-            PartialEq,
-            Hash,
-            Allocative,
-            Debug,
-            ProvidesStaticType
-        )]
-        struct IsDict;
-
-        impl TypeCompiledImpl for IsDict {
-            fn matches(&self, value: Value) -> bool {
-                DictRef::from_value(value).is_some()
-            }
-        }
-
         Self::alloc(IsDict, Ty::any_dict(), heap)
     }
 
@@ -658,24 +387,7 @@ impl<'v> TypeCompiled<Value<'v>> {
         t: TypeCompiled<Value<'v>>,
         heap: &'v Heap,
     ) -> TypeCompiled<Value<'v>> {
-        let ty = Ty::list(t.as_ty().clone());
-        if t.is_runtime_wildcard() {
-            return TypeCompiled::<Value>::type_list(heap).patch_ty(ty, heap);
-        }
-
-        #[derive(Clone, Allocative, Eq, PartialEq, Hash, Debug, ProvidesStaticType)]
-        struct IsListOf(TypeCompiledBox);
-
-        impl TypeCompiledImpl for IsListOf {
-            fn matches(&self, value: Value) -> bool {
-                match ListRef::from_value(value) {
-                    None => false,
-                    Some(list) => list.iter().all(|v| self.0.0.matches_dyn(v)),
-                }
-            }
-        }
-
-        Self::alloc(IsListOf(t.to_box_dyn()), ty, heap)
+        TypeCompiledFactory::alloc_ty(&Ty::list(t.as_ty().clone()), heap)
     }
 
     pub(crate) fn type_any_of_two(
@@ -683,55 +395,16 @@ impl<'v> TypeCompiled<Value<'v>> {
         t1: TypeCompiled<Value<'v>>,
         heap: &'v Heap,
     ) -> TypeCompiled<Value<'v>> {
-        if t0.is_runtime_wildcard() || t1.is_runtime_wildcard() {
-            let ts = Ty::union2(t0.as_ty().clone(), t1.as_ty().clone());
-            return TypeCompiled::<Value>::type_anything().patch_ty(ts, heap);
-        }
-
-        #[derive(Eq, PartialEq, Hash, Clone, Allocative, Debug, ProvidesStaticType)]
-        struct IsAnyOfTwo(TypeCompiledBox, TypeCompiledBox);
-
-        impl TypeCompiledImpl for IsAnyOfTwo {
-            fn matches(&self, value: Value) -> bool {
-                self.0.0.matches_dyn(value) || self.1.0.matches_dyn(value)
-            }
-        }
-
-        Self::alloc(
-            IsAnyOfTwo(t0.to_box_dyn(), t1.to_box_dyn()),
-            Ty::union2(t0.as_ty().clone(), t1.as_ty().clone()),
-            heap,
-        )
+        let ty = Ty::union2(t0.as_ty().clone(), t1.as_ty().clone());
+        TypeCompiledFactory::alloc_ty(&ty, heap)
     }
 
     pub(crate) fn type_any_of(
         ts: Vec<TypeCompiled<Value<'v>>>,
         heap: &'v Heap,
     ) -> TypeCompiled<Value<'v>> {
-        if ts.iter().any(|t| t.is_runtime_wildcard()) {
-            let ts = Ty::unions(ts.map(|t| t.as_ty().clone()));
-            return TypeCompiled::<Value>::type_anything().patch_ty(ts, heap);
-        } else if ts.len() == 1 {
-            return ts.into_iter().next().unwrap();
-        } else if ts.len() == 2 {
-            let mut it = ts.into_iter();
-            let t0 = it.next().unwrap();
-            let t1 = it.next().unwrap();
-            assert!(it.next().is_none());
-            return Self::type_any_of_two(t0, t1, heap);
-        }
-
-        #[derive(Eq, PartialEq, Hash, Clone, Allocative, Debug, ProvidesStaticType)]
-        struct IsAnyOf(Vec<TypeCompiledBox>);
-
-        impl TypeCompiledImpl for IsAnyOf {
-            fn matches(&self, value: Value) -> bool {
-                self.0.iter().any(|t| t.0.matches_dyn(value))
-            }
-        }
-
-        let ty = Ty::unions(ts.map(|t| t.as_ty().clone()));
-        Self::alloc(IsAnyOf(ts.into_map(|t| t.to_box_dyn())), ty, heap)
+        let ty = Ty::unions(ts.into_map(|t| t.as_ty().clone()));
+        TypeCompiledFactory::alloc_ty(&ty, heap)
     }
 
     pub(crate) fn type_dict_of(
@@ -740,25 +413,7 @@ impl<'v> TypeCompiled<Value<'v>> {
         heap: &'v Heap,
     ) -> TypeCompiled<Value<'v>> {
         let ty = Ty::dict(kt.as_ty().clone(), vt.as_ty().clone());
-        if kt.is_runtime_wildcard() && vt.is_runtime_wildcard() {
-            return TypeCompiled::<Value>::type_dict(heap).patch_ty(ty, heap);
-        }
-
-        #[derive(Eq, PartialEq, Hash, Clone, Allocative, Debug, ProvidesStaticType)]
-        struct IsDictOf(TypeCompiledBox, TypeCompiledBox);
-
-        impl TypeCompiledImpl for IsDictOf {
-            fn matches(&self, value: Value) -> bool {
-                match DictRef::from_value(value) {
-                    None => false,
-                    Some(dict) => dict
-                        .iter()
-                        .all(|(k, v)| self.0.0.matches_dyn(k) && self.1.0.matches_dyn(v)),
-                }
-            }
-        }
-
-        Self::alloc(IsDictOf(kt.to_box_dyn(), vt.to_box_dyn()), ty, heap)
+        TypeCompiledFactory::alloc_ty(&ty, heap)
     }
 
     /// Types that are `""` or start with `"_"` are wildcard - they match everything.
@@ -772,19 +427,7 @@ impl<'v> TypeCompiled<Value<'v>> {
 
     /// For `p: "xxx"`, parse that `"xxx"` as type.
     pub(crate) fn from_str(t: &str, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
-        if TypeCompiled::is_wildcard(t) {
-            TypeCompiled::type_anything()
-        } else {
-            match t {
-                "string" => TypeCompiled::type_string(),
-                "int" => TypeCompiled::type_int(),
-                "bool" => TypeCompiled::type_bool(),
-                "NoneType" => TypeCompiled::type_none(),
-                "list" => TypeCompiled::type_list(heap),
-                "dict" => TypeCompiled::type_dict(heap),
-                t => TypeCompiled::type_concrete(t, heap),
-            }
-        }
+        TypeCompiledFactory::alloc_ty(&Ty::name(t), heap)
     }
 
     /// Parse `[t1, t2, ...]` as type.
@@ -824,58 +467,15 @@ impl<'v> TypeCompiled<Value<'v>> {
         }
     }
 
-    fn iter(item: &Ty, heap: &'v Heap) -> Self {
-        #[derive(Copy, Clone, Dupe, Debug, Hash, Eq, PartialEq, Allocative)]
-        struct IterableMatcher;
-
-        impl TypeCompiledImpl for IterableMatcher {
-            fn matches(&self, value: Value) -> bool {
-                TyStarlarkValue::is_iterable(&value.vtable().starlark_value)
-            }
-        }
-
-        TypeCompiled::alloc(IterableMatcher, Ty::iter(item.clone()), heap)
-    }
-
-    fn from_ty_basic(ty: &TyBasic, heap: &'v Heap) -> Self {
-        match ty {
-            TyBasic::Any => TypeCompiled::type_anything(),
-            TyBasic::Name(name) => TypeCompiled::from_str(name.as_str(), heap),
-            TyBasic::StarlarkValue(x) => x.type_compiled(TypeCompiledFactory::new(
-                Ty::basic(TyBasic::StarlarkValue(*x)),
-                heap,
-            )),
-            TyBasic::List(item) => {
-                let item = TypeCompiled::from_ty(item, heap);
-                TypeCompiled::type_list_of(item, heap)
-            }
-            TyBasic::Tuple(tuple) => {
-                tuple.matcher(TypeCompiledFactory::new(Ty::basic(ty.clone()), heap))
-            }
-            TyBasic::Dict(k, v) => {
-                let k = TypeCompiled::from_ty(k, heap);
-                let v = TypeCompiled::from_ty(v, heap);
-                TypeCompiled::type_dict_of(k, v, heap)
-            }
-            TyBasic::Iter(item) => TypeCompiled::iter(item, heap),
-            TyBasic::Callable => TypeCompiledFactory::new(Ty::basic(ty.clone()), heap).callable(),
-            TyBasic::Custom(custom) => TypeCompiled::ty_custom(custom, heap),
-        }
-    }
-
     pub(crate) fn from_ty(ty: &Ty, heap: &'v Heap) -> Self {
-        TypeCompiled::type_any_of(
-            ty.iter_union()
-                .map(|t| TypeCompiled::from_ty_basic(t, heap)),
-            heap,
-        )
+        TypeCompiledFactory::alloc_ty(ty, heap)
     }
 
     pub(crate) fn new(ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
         if let Some(s) = ty.unpack_str() {
             Ok(TypeCompiled::from_str(s, heap))
         } else if ty.is_none() {
-            Ok(TypeCompiled::type_none())
+            Ok(TypeCompiledFactory::alloc_ty(&Ty::none(), heap))
         } else if let Some(t) = Tuple::from_value(ty) {
             let elems = t
                 .content()

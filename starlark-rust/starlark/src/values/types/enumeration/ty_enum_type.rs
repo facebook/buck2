@@ -31,10 +31,8 @@ use crate::typing::TypingOracleCtx;
 use crate::values::enumeration::ty_enum_value::TyEnumValue;
 use crate::values::enumeration::EnumType;
 use crate::values::types::type_instance_id::TypeInstanceId;
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
-use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
+use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 use crate::values::StarlarkValue;
-use crate::values::Value;
 
 #[derive(Allocative, Ord, PartialOrd, Debug)]
 pub(crate) struct TyEnumData {
@@ -125,7 +123,7 @@ impl TyCustomImpl for TyEnumType {
         }))
     }
 
-    fn matcher<'v>(&self, factory: TypeCompiledFactory<'v>) -> TypeCompiled<Value<'v>> {
+    fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result {
         let _ignore = factory;
         // TODO(nga): replace panic with error.
         unreachable!("Cannot appear in type expressions")

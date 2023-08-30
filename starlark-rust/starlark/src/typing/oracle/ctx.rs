@@ -682,7 +682,7 @@ impl<'a> TypingOracleCtx<'a> {
                         Err(())
                     }
                 }
-                _ => TyStarlarkValue::new::<Tuple>().rbin_op(bin_op, lhs),
+                _ => TyStarlarkValue::tuple().rbin_op(bin_op, lhs),
             },
             TyBasic::Name(..) => Ok(Ty::any()),
             _ => Err(()),

@@ -38,12 +38,11 @@ use crate::values::starlark_type_id::StarlarkTypeId;
 use crate::values::string::StarlarkStr;
 use crate::values::traits::StarlarkValueVTable;
 use crate::values::traits::StarlarkValueVTableGet;
+use crate::values::tuple::value::Tuple;
 use crate::values::types::bigint::StarlarkBigInt;
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
-use crate::values::typing::type_compiled::compiled::TypeCompiledImpl;
-use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
+use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
+use crate::values::typing::type_compiled::matchers::StarlarkTypeIdMatcher;
 use crate::values::StarlarkValue;
-use crate::values::Value;
 
 // This is a bit suboptimal for binary size:
 // we have two vtable instances for each type: this one, and the one within `AValue` vtable.
@@ -129,6 +128,11 @@ impl TyStarlarkValue {
         }
     }
 
+    #[inline]
+    pub(crate) fn starlark_type_id(self) -> StarlarkTypeId {
+        self.vtable.starlark_type_id
+    }
+
     // Cannot have this check in constructor where it belongs because `new` is `const`.
     #[inline]
     fn self_check(self) {
@@ -150,6 +154,20 @@ impl TyStarlarkValue {
 
     pub(crate) const fn float() -> TyStarlarkValue {
         TyStarlarkValue::new::<StarlarkFloat>()
+    }
+
+    pub(crate) const fn tuple() -> TyStarlarkValue {
+        TyStarlarkValue::new::<Tuple>()
+    }
+
+    pub(crate) fn is_str(self) -> bool {
+        self.self_check();
+        self == TyStarlarkValue::new::<StarlarkStr>()
+    }
+
+    pub(crate) fn is_int(self) -> bool {
+        self.self_check();
+        self == TyStarlarkValue::new::<StarlarkBigInt>()
     }
 
     /// Result of applying unary operator to this type.
@@ -210,37 +228,21 @@ impl TyStarlarkValue {
     }
 
     /// Convert to runtime type matcher.
-    pub(crate) fn type_compiled<'v>(
-        self,
-        type_compiled_factory: TypeCompiledFactory<'v>,
-    ) -> TypeCompiled<Value<'v>> {
+    pub(crate) fn matcher<T: TypeMatcherAlloc>(self, matcher: T) -> T::Result {
         self.self_check();
 
         // First handle special cases that can match faster than default matcher.
         // These are optimizations.
         if self.vtable.starlark_type_id == StarlarkTypeId::of::<StarlarkBigInt>() {
-            TypeCompiled::type_int()
+            matcher.int()
         } else if self.vtable.starlark_type_id == StarlarkTypeId::of::<StarlarkBool>() {
-            TypeCompiled::type_bool()
+            matcher.bool()
         } else if self.vtable.starlark_type_id == StarlarkTypeId::of::<NoneType>() {
-            TypeCompiled::type_none()
+            matcher.none()
         } else if self.vtable.starlark_type_id == StarlarkTypeId::of::<StarlarkStr>() {
-            TypeCompiled::type_string()
+            matcher.str()
         } else {
-            #[derive(Hash, Eq, PartialEq, Allocative, Debug, Clone)]
-            struct StarlarkTypeIdMatcher {
-                starlark_type_id: StarlarkTypeId,
-            }
-
-            impl TypeCompiledImpl for StarlarkTypeIdMatcher {
-                fn matches(&self, value: Value) -> bool {
-                    value.starlark_type_id() == self.starlark_type_id
-                }
-            }
-
-            type_compiled_factory.alloc(StarlarkTypeIdMatcher {
-                starlark_type_id: self.vtable.starlark_type_id,
-            })
+            matcher.alloc(StarlarkTypeIdMatcher::new(self))
         }
     }
 }
