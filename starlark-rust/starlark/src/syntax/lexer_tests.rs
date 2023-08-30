@@ -25,7 +25,6 @@ use starlark_syntax::slice_vec_ext::VecExt;
 use crate::codemap::CodeMap;
 use crate::syntax::lexer::Lexer;
 use crate::syntax::lexer::Token;
-use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 
 /// Lex some text and return the tokens. Fails if the program does not parse.
@@ -112,7 +111,13 @@ fn lexer_fail_golden_test(name: &str, programs: &[&str]) {
 
         let program = program.trim();
 
-        let e = AstModule::parse("x", program.to_owned(), &Dialect::Extended).unwrap_err();
+        let e = Lexer::new(
+            program,
+            &Dialect::Extended,
+            CodeMap::new("x".to_owned(), program.to_owned()),
+        )
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap_err();
 
         writeln!(out, "Program:").unwrap();
         writeln!(out, "{}", program).unwrap();
@@ -391,7 +396,6 @@ fn test_lexer_error_messages() {
             "an 'incomplete string\nends",
             "an + 'invalid escape \\x3  character'",
             "leading_zero = 003 + 8",
-            "a + (test] + c",
             "reserved_word = raise + 1",
         ],
     );

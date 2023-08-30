@@ -54,18 +54,6 @@ error: Parse error: integer cannot have leading 0, got `003`
 
 
 Program:
-a + (test] + c
-
-Error:
-error: Parse error: unexpected symbol ']' here, expected one of "\n", ")", "," or ";"
- --> x:1:10
-  |
-1 | a + (test] + c
-  |          ^
-  |
-
-
-Program:
 reserved_word = raise + 1
 
 Error:
