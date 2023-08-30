@@ -86,6 +86,7 @@ const BAN_REPLACE_TYPES: &[(&str, &str)] = &[
     ("artifact", "Artifact"),
     ("dependency", "Dependency"),
     ("provider", "Provider"),
+    ("selector", "Select"),
     ("transitive_set", "TransitiveSet"),
     (
         "transitive_set_args_projection",
