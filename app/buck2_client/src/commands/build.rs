@@ -283,7 +283,7 @@ impl StreamingCommand for BuildCommand {
             if self.patterns.is_empty() {
                 console.print_warning("NO BUILD TARGET PATTERNS SPECIFIED")?;
             } else {
-                console.print_success("BUILD SUCCEEDED")?;
+                print_build_succeeded(&console)?;
             }
         } else {
             print_build_failed(&console)?;
@@ -364,6 +364,10 @@ impl StreamingCommand for BuildCommand {
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.common_opts.config_opts
     }
+}
+
+pub(crate) fn print_build_succeeded(console: &FinalConsole) -> anyhow::Result<()> {
+    console.print_success("BUILD SUCCEEDED")
 }
 
 pub(crate) fn print_build_failed(console: &FinalConsole) -> anyhow::Result<()> {

@@ -38,6 +38,7 @@ use thiserror::Error;
 
 use crate::commands::build::print_build_failed;
 use crate::commands::build::print_build_result;
+use crate::commands::build::print_build_succeeded;
 
 /// Build and run the selected target.
 ///
@@ -152,6 +153,8 @@ impl StreamingCommand for RunCommand {
         }
         let mut run_args = response.build_targets[0].run_args.clone();
         run_args.extend(self.extra_run_args);
+
+        print_build_succeeded(&console)?;
 
         // Special case for recursive invocations of buck; `BUCK2_WRAPPER` is set by wrapper scripts that execute
         // Buck2. We're not a wrapper script, so we unset it to prevent `run` from inheriting it.
