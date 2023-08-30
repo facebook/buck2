@@ -88,6 +88,8 @@ _CxxCompileCommand = record(
     argsfile = field(CompileArgsfile.type),
     headers_dep_files = field([_HeadersDepFiles.type, None]),
     compiler_type = field(str),
+    # The action category
+    category = field(str),
 )
 
 # Information about how to compile a source file.
@@ -200,6 +202,7 @@ def create_compile_cmds(
             toolchain = get_cxx_toolchain_info(ctx)
             compiler_info = _get_compiler_info(toolchain, ext)
             base_compile_cmd = _get_compile_base(compiler_info)
+            category = _get_category(ext)
 
             headers_dep_files = None
             dep_file_file_type_hint = _dep_file_type(ext)
@@ -222,6 +225,7 @@ def create_compile_cmds(
                 argsfile = argsfile_by_ext[ext.value],
                 headers_dep_files = headers_dep_files,
                 compiler_type = compiler_info.compiler_type,
+                category = category,
             )
 
         cxx_compile_cmd = cxx_compile_cmd_by_ext[ext]
@@ -347,7 +351,12 @@ def compile_cxx(
             )
             cmd.hidden(clang_trace.as_output())
 
-        ctx.actions.run(cmd, category = "cxx_compile", identifier = identifier, dep_files = action_dep_files)
+        ctx.actions.run(
+            cmd,
+            category = src_compile_cmd.cxx_compile_cmd.category,
+            identifier = identifier,
+            dep_files = action_dep_files,
+        )
 
         # If we're building with split debugging, where the debug info is in the
         # original object, then add the object as external debug info, *unless*
@@ -411,6 +420,25 @@ def _get_compiler_info(toolchain: CxxToolchainInfo.type, ext: CxxExtension.type)
         fail("Could not find compiler for extension `{ext}`".format(ext = ext.value))
 
     return compiler_info
+
+def _get_category(ext: CxxExtension.type) -> str:
+    if ext.value in (".cpp", ".cc", ".cxx", ".c++", ".h", ".hpp"):
+        return "cxx_compile"
+    if ext.value == ".c":
+        return "c_compile"
+    if ext.value == ".m":
+        return "objc_compile"
+    if ext.value == ".mm":
+        return "objcxx_compile"
+    elif ext.value in (".s", ".S", ".asm", ".asmpp"):
+        return "asm_compile"
+    elif ext.value == ".cu":
+        return "cuda_compile"
+    elif ext.value == ".hip":
+        return "hip_compile"
+    else:
+        # This should be unreachable as long as we handle all enum values
+        fail("Unknown extension: " + ext.value)
 
 def _get_compile_base(compiler_info: typing.Any) -> cmd_args:
     """
