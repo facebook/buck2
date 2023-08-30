@@ -223,6 +223,8 @@ where
     Value<'v>: Equivalent<V>,
     V: ValueLike<'v> + 'v + EnumCell,
 {
+    type Canonical = FrozenEnumType;
+
     fn invoke(
         &self,
         _me: Value<'v>,

@@ -95,7 +95,9 @@ pub struct StarlarkAny<T: Debug + Display + Send + Sync + 'static>(
 );
 
 #[starlark_value(type = "any")]
-impl<'v, T: Debug + Display + Send + Sync + 'static> StarlarkValue<'v> for StarlarkAny<T> {}
+impl<'v, T: Debug + Display + Send + Sync + 'static> StarlarkValue<'v> for StarlarkAny<T> {
+    type Canonical = Self;
+}
 
 impl<'v, T: Debug + Display + Send + Sync + 'static> AllocValue<'v> for StarlarkAny<T> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {

@@ -37,6 +37,7 @@ use crate::eval::Evaluator;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::values::any::StarlarkAny;
+use crate::values::exported_name::FrozenExportedName;
 use crate::values::none::NoneType;
 use crate::values::types::exported_name::ExportedName;
 use crate::values::types::exported_name::MutableExportedName;
@@ -78,6 +79,8 @@ fn test_export_as() {
     where
         Self: ProvidesStaticType<'v>,
     {
+        type Canonical = Exporter<FrozenExportedName>;
+
         fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
             self.named.try_export_as(variable_name);
         }

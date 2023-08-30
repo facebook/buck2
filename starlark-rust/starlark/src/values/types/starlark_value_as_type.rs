@@ -30,6 +30,7 @@ use crate::values::layout::avalue::alloc_static;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::Basic;
 use crate::values::layout::heap::repr::AValueRepr;
+use crate::values::string::StarlarkStr;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
@@ -96,6 +97,8 @@ impl<T: StarlarkValue<'static>> AllocFrozenValue for StarlarkValueAsType<T> {
 
 #[starlark_value(type = "type")]
 impl<'v, T: StarlarkValue<'static>> StarlarkValue<'v> for StarlarkValueAsType<T> {
+    type Canonical = StarlarkValueAsType<StarlarkStr>;
+
     fn eval_type(&self) -> Option<Ty> {
         Some(T::starlark_type_repr())
     }

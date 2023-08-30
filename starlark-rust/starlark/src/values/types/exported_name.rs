@@ -63,7 +63,7 @@ impl<'a> Eq for BorrowedExportedName<'a> {}
 /// ```
 /// use allocative::Allocative;
 /// use starlark::eval::Evaluator;
-/// use starlark::values::exported_name::ExportedName;
+/// use starlark::values::exported_name::{ExportedName, FrozenExportedName};
 /// use starlark::values::StarlarkValue;
 /// use starlark_derive::{NoSerialize, ProvidesStaticType, starlark_value};
 ///
@@ -75,6 +75,8 @@ impl<'a> Eq for BorrowedExportedName<'a> {}
 ///
 /// #[starlark_value(type = "MyStruct")]
 /// impl<'v, T: ExportedName> StarlarkValue<'v> for MyStruct<T> {
+///   type Canonical = MyStruct<FrozenExportedName>;
+///
 ///   fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
 ///        self.name.try_export_as(variable_name);
 ///    }

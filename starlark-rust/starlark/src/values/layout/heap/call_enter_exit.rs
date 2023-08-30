@@ -67,7 +67,9 @@ pub(crate) struct CallEnter<'v, D: MaybeDrop + 'static> {
 }
 
 #[starlark_value(type = "call_enter")]
-impl<'v, D: MaybeDrop + Trace<'v> + 'v> StarlarkValue<'v> for CallEnter<'v, D> {}
+impl<'v, D: MaybeDrop + Trace<'v> + 'v> StarlarkValue<'v> for CallEnter<'v, D> {
+    type Canonical = Self;
+}
 
 #[derive(
     Debug,
@@ -83,4 +85,6 @@ pub(crate) struct CallExit<D: MaybeDrop + 'static> {
 }
 
 #[starlark_value(type = "call_exit")]
-impl<'v, D: MaybeDrop> StarlarkValue<'v> for CallExit<D> {}
+impl<'v, D: MaybeDrop> StarlarkValue<'v> for CallExit<D> {
+    type Canonical = Self;
+}

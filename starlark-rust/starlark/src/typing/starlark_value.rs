@@ -39,7 +39,6 @@ use crate::values::string::StarlarkStr;
 use crate::values::traits::StarlarkValueVTable;
 use crate::values::traits::StarlarkValueVTableGet;
 use crate::values::types::bigint::StarlarkBigInt;
-use crate::values::types::not_type::NotType;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::typing::type_compiled::compiled::TypeCompiledImpl;
 use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
@@ -133,12 +132,6 @@ impl TyStarlarkValue {
     // Cannot have this check in constructor where it belongs because `new` is `const`.
     #[inline]
     fn self_check(self) {
-        debug_assert_ne!(
-            self.vtable.starlark_type_id,
-            StarlarkTypeId::of::<NotType>(),
-            "`Canonical` for `{}` is `NotType",
-            self.vtable.type_name
-        );
         debug_assert_eq!(
             self.vtable.starlark_type_id, self.vtable.starlark_type_id_check,
             "`Canonical` for `{}` is not canonical",

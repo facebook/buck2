@@ -141,6 +141,8 @@ impl<'v, V: ValueLike<'v> + 'v, S: StringValueLike<'v> + 'v> StarlarkValue<'v> f
 where
     Self: ProvidesStaticType<'v>,
 {
+    type Canonical = PartialGen<Value<'v>, StringValue<'v>>;
+
     fn name_for_call_stack(&self, _me: Value<'v>) -> String {
         "partial".to_owned()
     }

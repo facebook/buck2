@@ -81,7 +81,6 @@ pub use crate::values::types::function;
 pub use crate::values::types::int;
 pub use crate::values::types::list;
 pub use crate::values::types::none;
-pub use crate::values::types::not_type;
 pub use crate::values::types::range;
 pub use crate::values::types::record;
 pub use crate::values::types::regex;

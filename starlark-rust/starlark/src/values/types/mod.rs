@@ -32,7 +32,6 @@ pub(crate) mod int_or_big;
 pub(crate) mod known_methods;
 pub mod list;
 pub mod none;
-pub mod not_type;
 pub mod range;
 pub mod record;
 pub mod regex;

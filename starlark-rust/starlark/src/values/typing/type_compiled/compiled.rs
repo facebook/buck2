@@ -197,11 +197,22 @@ where
     }
 }
 
+#[derive(Hash, Eq, PartialEq, Debug, Clone, Allocative)]
+struct DummyTypeMatcher;
+
+impl TypeCompiledImpl for DummyTypeMatcher {
+    fn matches(&self, _value: Value) -> bool {
+        unreachable!()
+    }
+}
+
 #[starlark_value(type = "eval_type")]
 impl<'v, T: 'static> StarlarkValue<'v> for TypeCompiledImplAsStarlarkValue<T>
 where
     T: TypeCompiledImpl,
 {
+    type Canonical = TypeCompiledImplAsStarlarkValue<DummyTypeMatcher>;
+
     fn type_matches_value(&self, value: Value<'v>, _private: Private) -> bool {
         self.type_compiled_impl.matches(value)
     }

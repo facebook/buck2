@@ -201,6 +201,8 @@ where
     Self: ProvidesStaticType<'v>,
     FieldGen<V>: ProvidesStaticType<'v>,
 {
+    type Canonical = FrozenRecordType;
+
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
         for (name, typ) in &self.fields {
             name.hash(hasher);

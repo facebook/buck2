@@ -80,7 +80,9 @@ impl<T: Debug + 'static> Drop for AnyArray<T> {
 const _: () = assert!(mem::needs_drop::<AnyArray<String>>());
 
 #[starlark_value(type = "AnyArray")]
-impl<'v, T: Debug + 'static> StarlarkValue<'v> for AnyArray<T> {}
+impl<'v, T: Debug + 'static> StarlarkValue<'v> for AnyArray<T> {
+    type Canonical = Self;
+}
 
 #[cfg(test)]
 mod tests {
