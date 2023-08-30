@@ -99,6 +99,15 @@ pub fn to_json_project(
             root_module = relative_to(&root_module, &project_root);
         }
 
+        let mut env: BTreeMap<String, String> = BTreeMap::new();
+        if let Some(rel_cargo_manifest_dir) = info.env.get("CARGO_MANIFEST_DIR") {
+            let cargo_manifest_dir = info.source_folder.join(rel_cargo_manifest_dir);
+            env.insert(
+                "CARGO_MANIFEST_DIR".to_owned(),
+                cargo_manifest_dir.to_string_lossy().into_owned(),
+            );
+        }
+
         let crate_info = Crate {
             display_name: Some(info.name.clone()),
             root_module,
@@ -108,7 +117,7 @@ pub fn to_json_project(
             source: None,
             cfg,
             target: None,
-            env: BTreeMap::new(),
+            env,
             is_proc_macro: info.proc_macro.unwrap_or(false),
             proc_macro_dylib_path,
         };
@@ -525,6 +534,7 @@ fn merge_tests_no_cycles() {
             named_deps: BTreeMap::new(),
             proc_macro: None,
             features: vec![],
+            env: BTreeMap::new(),
             source_folder: PathBuf::from("/tmp"),
             in_workspace: false,
         },
@@ -546,6 +556,7 @@ fn merge_tests_no_cycles() {
             named_deps: BTreeMap::new(),
             proc_macro: None,
             features: vec![],
+            env: BTreeMap::new(),
             source_folder: PathBuf::from("/tmp"),
             in_workspace: false,
         },
@@ -579,6 +590,7 @@ fn merge_target_multiple_tests_no_cycles() {
             named_deps: BTreeMap::new(),
             proc_macro: None,
             features: vec![],
+            env: BTreeMap::new(),
             source_folder: PathBuf::from("/tmp"),
             in_workspace: false,
         },
@@ -603,6 +615,7 @@ fn merge_target_multiple_tests_no_cycles() {
             named_deps: BTreeMap::new(),
             proc_macro: None,
             features: vec![],
+            env: BTreeMap::new(),
             source_folder: PathBuf::from("/tmp"),
             in_workspace: false,
         },
@@ -627,6 +640,7 @@ fn merge_target_multiple_tests_no_cycles() {
             named_deps: BTreeMap::new(),
             proc_macro: None,
             features: vec![],
+            env: BTreeMap::new(),
             source_folder: PathBuf::from("/tmp"),
             in_workspace: false,
         },
@@ -648,6 +662,7 @@ fn merge_target_multiple_tests_no_cycles() {
             named_deps: BTreeMap::new(),
             proc_macro: None,
             features: vec![],
+            env: BTreeMap::new(),
             source_folder: PathBuf::from("/tmp"),
             in_workspace: false,
         },

@@ -117,6 +117,7 @@ pub struct TargetInfo {
     pub proc_macro: Option<bool>,
     // Set of features enabled for this crate.
     pub features: Vec<String>,
+    pub env: BTreeMap<String, String>,
     // The ensured folder containing symlinks to all sources
     pub source_folder: PathBuf,
     pub in_workspace: bool,
