@@ -30,13 +30,10 @@ use crate::environment::GlobalsBuilder;
 use crate::environment::Module;
 use crate::eval::runtime::file_loader::ReturnOwnedFileLoader;
 use crate::eval::Evaluator;
-use crate::stdlib::LibraryExtension;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::typing::interface::Interface;
 use crate::typing::oracle::traits::OracleNoAttributes;
-use crate::typing::oracle::traits::OracleSeq;
-use crate::typing::OracleStandard;
 use crate::typing::TypingOracle;
 use crate::values::none::NoneType;
 use crate::values::typing::StarlarkIter;
@@ -44,11 +41,8 @@ use crate::values::Value;
 use crate::values::ValueOfUnchecked;
 
 fn mk_oracle() -> impl TypingOracle {
-    static ORACLE: Lazy<OracleSeq<Box<dyn TypingOracle + Send + Sync + 'static>>> =
-        Lazy::new(|| {
-            let standard = OracleStandard::new(LibraryExtension::all());
-            OracleSeq(vec![Box::new(standard), Box::new(OracleNoAttributes)])
-        });
+    static ORACLE: Lazy<Box<dyn TypingOracle + Send + Sync + 'static>> =
+        Lazy::new(|| Box::new(OracleNoAttributes));
     &*ORACLE
 }
 

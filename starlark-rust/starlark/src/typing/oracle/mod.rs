@@ -17,5 +17,4 @@
 
 pub(crate) mod ctx;
 pub(crate) mod docs;
-pub(crate) mod standard;
 pub(crate) mod traits;
