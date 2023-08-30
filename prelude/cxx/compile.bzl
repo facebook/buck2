@@ -524,7 +524,7 @@ def _mk_argsfile(
     if use_absolute_paths:
         args.add(cmd_args(preprocessor.set.project_as_args("abs_file_prefix_args")))
     else:
-        args.add(cmd_args(preprocessor.set.project_as_args("file_prefix_args")))
+        args.add(headers_tag.tag_artifacts(cmd_args(preprocessor.set.project_as_args("file_prefix_args"))))
 
     shell_quoted_args = cmd_args(args, quote = "shell")
 
