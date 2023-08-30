@@ -51,6 +51,5 @@ apple_sdk_clang_module = rule(
         "module_name": attrs.string(),
         "modulemap_relative_path": attrs.string(),
         "overlays": attrs.dict(key = attrs.string(), value = attrs.list(attrs.string(), default = []), sorted = False, default = {}),
-        "target": attrs.string(),
     },
 )
