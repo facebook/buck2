@@ -228,10 +228,7 @@ impl StackFrame {
         let mut group_by_callee: SmallMap<&str, Vec<StackFrameWithContext>> = SmallMap::new();
         for frame in frames {
             for (name, callee) in frame.callees() {
-                group_by_callee
-                    .entry(name)
-                    .or_insert_with(Vec::new)
-                    .push(callee);
+                group_by_callee.entry(name).or_default().push(callee);
             }
         }
         group_by_callee
