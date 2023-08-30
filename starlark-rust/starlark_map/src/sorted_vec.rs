@@ -23,7 +23,9 @@ use std::vec;
 use allocative::Allocative;
 
 /// Type which enfoces that its elements are sorted. That's it.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Allocative)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Allocative, Default
+)]
 pub struct SortedVec<T> {
     vec: Vec<T>,
 }

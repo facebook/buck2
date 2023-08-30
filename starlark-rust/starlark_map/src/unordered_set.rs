@@ -25,7 +25,7 @@ use crate::unordered_map::UnorderedMap;
 use crate::Equivalent;
 
 /// `HashSet` that does not expose insertion order.
-#[derive(Clone, Allocative, Debug)]
+#[derive(Clone, Allocative, Debug, Default)]
 pub struct UnorderedSet<T> {
     map: UnorderedMap<T, ()>,
 }
