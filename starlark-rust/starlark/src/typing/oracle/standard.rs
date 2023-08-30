@@ -15,15 +15,12 @@
  * limitations under the License.
  */
 
-use crate::docs::Doc;
-use crate::docs::DocItem;
 use crate::environment::Globals;
 use crate::stdlib::LibraryExtension;
 use crate::typing::oracle::docs::OracleDocs;
 use crate::typing::oracle::traits::TypingOracle;
 use crate::typing::ty::Ty;
 use crate::typing::ty::TyName;
-use crate::values::StarlarkValue;
 
 /// A [`TypingOracle`] based on information from documentation.
 pub struct OracleStandard {
@@ -36,17 +33,6 @@ impl OracleStandard {
     pub fn new(extensions: &[LibraryExtension]) -> Self {
         let mut fallback = OracleDocs::new();
         fallback.add_module(&Globals::extended_by(extensions).documentation());
-
-        fn add<T: StarlarkValue<'static>>(fallback: &mut OracleDocs) {
-            if let Some(m) = T::get_methods() {
-                fallback.add_doc(&Doc::named_item(
-                    T::TYPE.to_owned(),
-                    DocItem::Object(m.documentation()),
-                ));
-            }
-        }
-
-        add::<crate::values::enumeration::FrozenEnumType>(&mut fallback);
 
         Self { fallback }
     }
