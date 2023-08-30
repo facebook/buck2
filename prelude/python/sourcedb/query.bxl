@@ -87,7 +87,7 @@ def do_query(
         ctx: "bxl_ctx",
         query: "cqueryctx",
         actions: AnalysisActions,
-        target_patterns: typing.Any) -> list["configured_target_label"]:
+        target_patterns: typing.Any) -> list[ConfiguredTargetLabel]:
     manifests_of_transitive_dependencies = get_python_library_manifests_tset_from_target_patterns(
         ctx,
         query,
