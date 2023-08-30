@@ -43,7 +43,8 @@ def _get_ipa_contents(ctx) -> Artifact:
 
     apple_bundle_info = bundle[AppleBundleInfo]
     if (not apple_bundle_info.skip_copying_swift_stdlib) and should_copy_swift_stdlib(app.extension):
-        contents["SwiftSupport"] = _get_swift_support_dir(ctx, app, apple_bundle_info)
+        swift_support_path = paths.join("SwiftSupport", get_apple_sdk_name(ctx))
+        contents[swift_support_path] = _get_swift_support_dir(ctx, app, apple_bundle_info)
 
     if apple_bundle_info.contains_watchapp:
         contents["Symbols"] = _build_symbols_dir(ctx)
