@@ -54,6 +54,7 @@ use lsp_types::Url;
 use lsp_types::VersionedTextDocumentIdentifier;
 use maplit::hashmap;
 use serde::de::DeserializeOwned;
+use starlark_syntax::slice_vec_ext::VecExt;
 
 use crate::codemap::Pos;
 use crate::codemap::Span;
@@ -73,7 +74,6 @@ use crate::lsp::server::LspEvalResult;
 use crate::lsp::server::LspServerSettings;
 use crate::lsp::server::LspUrl;
 use crate::lsp::server::StringLiteralResult;
-use crate::slice_vec_ext::VecExt;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 

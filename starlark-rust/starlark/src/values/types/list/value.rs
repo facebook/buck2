@@ -31,6 +31,8 @@ use serde::Serialize;
 use starlark_derive::starlark_value;
 use starlark_derive::StarlarkDocs;
 use starlark_derive::Trace;
+use starlark_syntax::slice_vec_ext::SliceExt;
+use starlark_syntax::slice_vec_ext::VecExt;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -40,8 +42,6 @@ use crate::environment::MethodsStatic;
 use crate::hint::likely;
 use crate::hint::unlikely;
 use crate::private::Private;
-use crate::slice_vec_ext::SliceExt;
-use crate::slice_vec_ext::VecExt;
 use crate::typing::Ty;
 use crate::values::array::Array;
 use crate::values::comparison::compare_slice;

@@ -22,6 +22,8 @@ use allocative::Allocative;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
+use starlark_syntax::slice_vec_ext::SliceExt;
+use starlark_syntax::slice_vec_ext::VecExt;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -34,8 +36,6 @@ use crate::eval::runtime::arguments::ArgumentsFull;
 use crate::eval::runtime::rust_loc::rust_loc;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
-use crate::slice_vec_ext::SliceExt;
-use crate::slice_vec_ext::VecExt;
 use crate::starlark_complex_values;
 use crate::values::dict::DictRef;
 use crate::values::function::FUNCTION_TYPE;

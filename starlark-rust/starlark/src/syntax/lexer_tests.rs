@@ -19,10 +19,10 @@ use std::fmt::Write;
 
 use dupe::Dupe;
 use starlark_syntax::golden_test_template::golden_test_template;
+use starlark_syntax::slice_vec_ext::SliceExt;
+use starlark_syntax::slice_vec_ext::VecExt;
 
 use crate::codemap::CodeMap;
-use crate::slice_vec_ext::SliceExt;
-use crate::slice_vec_ext::VecExt;
 use crate::syntax::lexer::Lexer;
 use crate::syntax::lexer::Token;
 use crate::syntax::AstModule;

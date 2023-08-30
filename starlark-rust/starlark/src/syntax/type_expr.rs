@@ -16,10 +16,10 @@
  */
 
 use starlark_syntax::eval_exception::EvalException;
+use starlark_syntax::slice_vec_ext::SliceExt;
 
 use crate::codemap::CodeMap;
 use crate::codemap::Spanned;
-use crate::slice_vec_ext::SliceExt;
 use crate::syntax::ast::AstExprP;
 use crate::syntax::ast::AstIdentP;
 use crate::syntax::ast::AstLiteral;

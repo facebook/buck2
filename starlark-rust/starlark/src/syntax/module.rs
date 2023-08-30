@@ -225,8 +225,9 @@ impl AstModule {
 
 #[cfg(test)]
 mod tests {
+    use starlark_syntax::slice_vec_ext::SliceExt;
+
     use crate::assert;
-    use crate::slice_vec_ext::SliceExt;
 
     #[test]
     fn test_locations() {

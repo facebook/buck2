@@ -558,8 +558,9 @@ pub(crate) fn lint(
 
 #[cfg(test)]
 mod tests {
+    use starlark_syntax::slice_vec_ext::SliceExt;
+
     use super::*;
-    use crate::slice_vec_ext::SliceExt;
     use crate::syntax::Dialect;
 
     impl NameWarning {

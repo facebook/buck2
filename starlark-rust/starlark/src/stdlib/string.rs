@@ -23,12 +23,12 @@ use starlark_derive::starlark_module;
 use starlark_syntax::fast_string;
 use starlark_syntax::fast_string::convert_str_indices;
 use starlark_syntax::fast_string::StrIndices;
+use starlark_syntax::slice_vec_ext::SliceExt;
 
 use crate as starlark;
 use crate::environment::MethodsBuilder;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
-use crate::slice_vec_ext::SliceExt;
 use crate::typing::Ty;
 use crate::values::list::ListOf;
 use crate::values::none::NoneOr;

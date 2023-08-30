@@ -339,11 +339,12 @@ pub(crate) fn scope(module: &AstModule) -> Scope {
 mod test {
     use std::iter;
 
+    use starlark_syntax::slice_vec_ext::SliceExt;
+    use starlark_syntax::slice_vec_ext::VecExt;
+
     use super::*;
     use crate::codemap::Pos;
     use crate::codemap::Span;
-    use crate::slice_vec_ext::SliceExt;
-    use crate::slice_vec_ext::VecExt;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
 

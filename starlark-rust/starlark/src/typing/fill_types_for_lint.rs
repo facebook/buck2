@@ -20,6 +20,7 @@ use std::iter;
 
 use starlark_map::unordered_map;
 use starlark_map::unordered_map::UnorderedMap;
+use starlark_syntax::slice_vec_ext::SliceExt;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
@@ -36,7 +37,6 @@ use crate::eval::compiler::scope::payload::CstTypeExpr;
 use crate::eval::compiler::scope::ModuleScopeData;
 use crate::eval::compiler::scope::ResolvedIdent;
 use crate::eval::compiler::scope::Slot;
-use crate::slice_vec_ext::SliceExt;
 use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AssignTargetP;
 use crate::syntax::ast::AstLiteral;

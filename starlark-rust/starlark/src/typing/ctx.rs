@@ -19,6 +19,7 @@ use std::cell::RefCell;
 use std::fmt::Debug;
 
 use starlark_map::unordered_map::UnorderedMap;
+use starlark_syntax::slice_vec_ext::SliceExt;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
@@ -30,7 +31,6 @@ use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::ResolvedIdent;
 use crate::eval::compiler::scope::Slot;
-use crate::slice_vec_ext::SliceExt;
 use crate::syntax::ast::ArgumentP;
 use crate::syntax::ast::AssignOp;
 use crate::syntax::ast::AssignTargetP;

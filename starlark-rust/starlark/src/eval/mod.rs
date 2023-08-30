@@ -39,6 +39,7 @@ pub use runtime::profile::data::ProfileData;
 pub use runtime::profile::ProfileMode;
 pub use starlark_syntax::call_stack::CallStack;
 use starlark_syntax::eval_exception::EvalException;
+use starlark_syntax::slice_vec_ext::SliceExt;
 
 use crate::collections::symbol_map::Symbol;
 use crate::docs::DocString;
@@ -49,7 +50,6 @@ use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::Compiler;
 use crate::eval::runtime::arguments::ArgNames;
 use crate::eval::runtime::arguments::ArgumentsFull;
-use crate::slice_vec_ext::SliceExt;
 use crate::syntax::module::AstModule;
 use crate::syntax::DialectTypes;
 use crate::values::Value;

@@ -22,6 +22,7 @@ use std::fmt::Display;
 
 use dupe::Dupe;
 use starlark_map::unordered_map::UnorderedMap;
+use starlark_syntax::slice_vec_ext::VecExt;
 
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpanRef;
@@ -33,7 +34,6 @@ use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::BindingSource;
 use crate::eval::compiler::scope::ModuleScopes;
-use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::StmtP;
 use crate::syntax::ast::Visibility;
 use crate::syntax::top_level_stmts::top_level_stmts_mut;

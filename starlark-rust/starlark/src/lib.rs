@@ -404,7 +404,6 @@ pub mod lsp;
 mod private;
 pub mod read_line;
 mod sealed;
-pub(crate) mod slice_vec_ext;
 pub mod typing;
 
 pub(crate) mod cast;

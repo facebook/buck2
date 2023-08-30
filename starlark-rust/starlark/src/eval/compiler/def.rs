@@ -34,6 +34,7 @@ use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
 use starlark_derive::VisitSpanMut;
 use starlark_syntax::eval_exception::EvalException;
+use starlark_syntax::slice_vec_ext::SliceExt;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -74,7 +75,6 @@ use crate::eval::runtime::params::ParametersSpec;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::eval::Arguments;
-use crate::slice_vec_ext::SliceExt;
 use crate::starlark_complex_values;
 use crate::syntax::def::DefParam;
 use crate::syntax::def::DefParamKind;

@@ -24,9 +24,9 @@ use std::sync::Arc;
 use allocative::Allocative;
 use dupe::Dupe;
 use starlark_derive::ProvidesStaticType;
+use starlark_syntax::slice_vec_ext::SliceExt;
 
 use crate as starlark;
-use crate::slice_vec_ext::SliceExt;
 use crate::typing::arc_ty::ArcTy;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::Ty;

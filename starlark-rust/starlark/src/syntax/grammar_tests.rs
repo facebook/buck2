@@ -18,10 +18,10 @@
 use std::fmt::Write;
 
 use starlark_syntax::golden_test_template::golden_test_template;
+use starlark_syntax::slice_vec_ext::SliceExt;
 
 use crate::assert;
 use crate::assert::Assert;
-use crate::slice_vec_ext::SliceExt;
 use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;

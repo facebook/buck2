@@ -17,6 +17,8 @@
 
 use std::iter;
 
+use starlark_syntax::slice_vec_ext::SliceExt;
+
 use crate::codemap::CodeMap;
 use crate::codemap::Pos;
 use crate::codemap::ResolvedSpan;
@@ -28,7 +30,6 @@ use crate::lsp::bind::Bind;
 use crate::lsp::bind::Scope;
 use crate::lsp::exported::Symbol;
 use crate::lsp::loaded::LoadedSymbol;
-use crate::slice_vec_ext::SliceExt;
 use crate::syntax::ast::ArgumentP;
 use crate::syntax::ast::AssignTargetP;
 use crate::syntax::ast::AstIdent;

@@ -39,7 +39,7 @@ fn collect_result<T, E>(mut it: impl ExactSizeIterator<Item = Result<T, E>>) -> 
 }
 
 /// Extension traits on slices/[`Vec`](Vec).
-pub(crate) trait SliceExt {
+pub trait SliceExt {
     type Item;
 
     /// A shorthand for `iter().map(f).collect::<Vec<_>>()`. For example:
@@ -72,7 +72,7 @@ impl<T> SliceExt for [T] {
 }
 
 /// Extension traits on [`Vec`](Vec).
-pub(crate) trait VecExt {
+pub trait VecExt {
     type Item;
 
     /// A shorthand for `into_iter().map(f).collect::<Vec<_>>()`. For example:

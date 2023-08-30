@@ -26,6 +26,7 @@
 use std::cmp;
 
 use starlark_derive::VisitSpanMut;
+use starlark_syntax::slice_vec_ext::SliceExt;
 use thiserror::Error;
 
 use crate::codemap::Span;
@@ -52,7 +53,6 @@ use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
-use crate::slice_vec_ext::SliceExt;
 use crate::syntax::ast::AssignOp;
 use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AssignTargetP;

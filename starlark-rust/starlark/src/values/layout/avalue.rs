@@ -26,6 +26,7 @@ use allocative::Allocative;
 use derive_more::Display;
 use serde::Serialize;
 use serde::Serializer;
+use starlark_syntax::slice_vec_ext::SliceExt;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -33,7 +34,6 @@ use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
 use crate::collections::StarlarkHashValue;
 use crate::eval::compiler::def::FrozenDef;
 use crate::private::Private;
-use crate::slice_vec_ext::SliceExt;
 use crate::values::array::VALUE_EMPTY_ARRAY;
 use crate::values::layout::aligned_size::AlignedSize;
 use crate::values::layout::heap::arena::MIN_ALLOC;

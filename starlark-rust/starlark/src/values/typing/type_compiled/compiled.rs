@@ -29,6 +29,8 @@ use dupe::Dupe;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
 use starlark_map::StarlarkHasher;
+use starlark_syntax::slice_vec_ext::SliceExt;
+use starlark_syntax::slice_vec_ext::VecExt;
 use thiserror::Error;
 
 use crate as starlark;
@@ -38,8 +40,6 @@ use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
 use crate::private::Private;
-use crate::slice_vec_ext::SliceExt;
-use crate::slice_vec_ext::VecExt;
 use crate::typing::basic::TyBasic;
 use crate::typing::custom::TyCustom;
 use crate::typing::starlark_value::TyStarlarkValue;

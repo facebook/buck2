@@ -144,8 +144,9 @@ pub(crate) fn lint(module: &AstModule) -> Vec<LintT<Dubious>> {
 
 #[cfg(test)]
 mod tests {
+    use starlark_syntax::slice_vec_ext::SliceExt;
+
     use super::*;
-    use crate::slice_vec_ext::SliceExt;
     use crate::syntax::Dialect;
 
     fn module(x: &str) -> AstModule {

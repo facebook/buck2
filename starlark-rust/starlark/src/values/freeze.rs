@@ -23,8 +23,8 @@ use std::marker::PhantomData;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use starlark_map::Hashed;
+use starlark_syntax::slice_vec_ext::VecExt;
 
-use crate::slice_vec_ext::VecExt;
 use crate::values::Freezer;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;

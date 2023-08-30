@@ -17,8 +17,9 @@
 
 //! Map AST payload.
 
+use starlark_syntax::slice_vec_ext::VecExt;
+
 use crate::codemap::Spanned;
-use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::ArgumentP;
 use crate::syntax::ast::AssignIdentP;
 use crate::syntax::ast::AssignP;
