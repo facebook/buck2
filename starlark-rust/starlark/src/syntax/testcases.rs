@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use crate::assert;
+use crate::syntax::grammar_tests;
 
 macro_rules! testcases_parse {
     ($($x:expr)*) => {
@@ -211,6 +211,6 @@ const TESTCASE_FILES: &[(&str, &str)] = testcases_parse!(
 fn parsing_testcases() {
     for (_, content) in TESTCASE_FILES {
         // Worth doing the lex and parse as lex checks for additional invariants
-        assert::parse(content);
+        grammar_tests::parse(content);
     }
 }

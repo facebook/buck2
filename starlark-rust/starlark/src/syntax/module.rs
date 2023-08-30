@@ -227,12 +227,12 @@ impl AstModule {
 mod tests {
     use starlark_syntax::slice_vec_ext::SliceExt;
 
-    use crate::assert;
+    use crate::syntax::grammar_tests;
 
     #[test]
     fn test_locations() {
         fn get(code: &str) -> String {
-            assert::parse_ast(code)
+            grammar_tests::parse_ast(code)
                 .stmt_locations()
                 .map(|x| x.resolve_span().to_string())
                 .join(" ")

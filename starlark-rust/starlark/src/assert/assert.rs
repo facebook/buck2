@@ -587,26 +587,6 @@ impl<'a> Assert<'a> {
             }
         })
     }
-
-    /// Parse some text and return the AST. Fails if the program does not parse.
-    pub fn parse_ast(&self, program: &str) -> AstModule {
-        match AstModule::parse("assert.bzl", program.to_owned(), &self.dialect) {
-            Ok(x) => x,
-            Err(e) => {
-                panic!(
-                    "starlark::assert::parse_ast, expected parse success but failed\nCode: {}\nError: {}",
-                    program, e
-                );
-            }
-        }
-    }
-
-    /// Parse some text and pretty-print it using enough brackets etc. to avoid
-    /// ambiguity. Fails if the program does not parse.
-    /// The precise form of the pretty-printed output is not stable over time.
-    pub fn parse(&self, program: &str) -> String {
-        self.parse_ast(program).statement.to_string()
-    }
 }
 
 /// See [`Assert::eq`].
@@ -671,14 +651,4 @@ pub fn pass(program: &str) -> OwnedFrozenValue {
 /// See [`Assert::pass_module`].
 pub fn pass_module(program: &str) -> FrozenModule {
     Assert::new().pass_module(program)
-}
-
-/// See [`Assert::parse`].
-pub fn parse(program: &str) -> String {
-    Assert::new().parse(program)
-}
-
-/// See [`Assert::parse_ast`].
-pub fn parse_ast(program: &str) -> AstModule {
-    Assert::new().parse_ast(program)
 }
