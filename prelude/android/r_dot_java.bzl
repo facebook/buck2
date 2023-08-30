@@ -47,7 +47,7 @@ def generate_r_dot_javas(
         union_package: [str, None],
         referenced_resources_lists: list[Artifact],
         generate_strings_and_ids_separately: [bool, None] = True,
-        remove_classes: [list[str], None] = []) -> list[JavaLibraryInfo.type]:
+        remove_classes: list[str] = []) -> list[JavaLibraryInfo.type]:
     r_dot_java_source_code = _generate_r_dot_java_source_code(
         ctx,
         merge_android_resources_tool,

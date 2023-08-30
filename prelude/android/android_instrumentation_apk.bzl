@@ -49,7 +49,7 @@ def android_instrumentation_apk_impl(ctx: AnalysisContext):
         referenced_resources_lists = [],
         manifest_entries = apk_under_test_info.manifest_entries,
         resource_infos_to_exclude = apk_under_test_info.resource_infos,
-        r_dot_java_packages_to_exclude = apk_under_test_info.r_dot_java_packages,
+        r_dot_java_packages_to_exclude = apk_under_test_info.r_dot_java_packages.list(),
     )
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     java_packaging_deps += [

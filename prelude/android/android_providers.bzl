@@ -96,7 +96,7 @@ AndroidApkUnderTestInfo = provider(
         "platforms",  # [str]
         "primary_platform",  # str
         "resource_infos",  # set_type("ResourceInfos")
-        "r_dot_java_packages",  # [str]
+        "r_dot_java_packages",  # set_type(str)
         "shared_libraries",  # set_type("SharedLibrary")
     ],
 )
