@@ -20,12 +20,9 @@ use dupe::Dupe;
 
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::Ty;
+use crate::values::record::matcher::RecordTypeMatcher;
 use crate::values::record::ty_record_type::TyRecordType;
-use crate::values::record::Record;
-use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
-use crate::values::typing::type_compiled::matcher::TypeMatcher;
-use crate::values::Value;
 
 /// Type of record instance i. e. type of `record()()`.
 #[derive(
@@ -58,20 +55,6 @@ impl TyCustomImpl for TyRecord {
     }
 
     fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result {
-        #[derive(Hash, Debug, Eq, PartialEq, Clone, Dupe, Allocative)]
-        struct RecordTypeMatcher {
-            id: TypeInstanceId,
-        }
-
-        impl TypeMatcher for RecordTypeMatcher {
-            fn matches(&self, value: Value) -> bool {
-                match Record::from_value(value) {
-                    None => false,
-                    Some(record) => record.record_type_id() == self.id,
-                }
-            }
-        }
-
         factory.alloc(RecordTypeMatcher {
             id: self.record_type.data.id,
         })
