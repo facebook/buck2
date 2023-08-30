@@ -83,7 +83,6 @@ impl TyCustomImpl for TyStruct {
                 None if self.extra => Ok(Ty::any()),
                 _ => Err(()),
             },
-            _ => Err(()),
         }
     }
 

@@ -226,13 +226,15 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
         }
     }
 
+    fn index(&self, _item: &TyBasic) -> Result<Ty, ()> {
+        // TODO(nga): this is hack for `enum` (type) which pretends to be a function.
+        //   Should be a custom type.
+        Ok(Ty::any())
+    }
+
     fn attribute(&self, attr: TypingAttr) -> Result<Ty, ()> {
         if attr == TypingAttr::Regular("type") && self.0.has_type_attr() {
             Ok(Ty::string())
-        } else if attr == TypingAttr::Index {
-            // TODO(nga): this is hack for `enum` (type) which pretends to be a function.
-            //   Should be a custom type.
-            Ok(Ty::function(vec![Param::pos_only(Ty::int())], Ty::any()))
         } else {
             Err(())
         }

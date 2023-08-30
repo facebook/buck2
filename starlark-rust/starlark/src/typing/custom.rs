@@ -68,6 +68,10 @@ pub trait TyCustomImpl:
     fn iter_item(&self) -> Result<Ty, ()> {
         Err(())
     }
+    fn index(&self, item: &TyBasic) -> Result<Ty, ()> {
+        let _unused = item;
+        Err(())
+    }
     fn attribute(&self, attr: TypingAttr) -> Result<Ty, ()>;
     fn union2(x: Arc<Self>, other: Arc<Self>) -> Result<Arc<Self>, (Arc<Self>, Arc<Self>)> {
         if x == other { Ok(x) } else { Err((x, other)) }
@@ -97,6 +101,7 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
     ) -> Result<Ty, TypingOrInternalError>;
     fn is_callable_dyn(&self) -> bool;
     fn iter_item_dyn(&self) -> Result<Ty, ()>;
+    fn index_dyn(&self, index: &TyBasic) -> Result<Ty, ()>;
     fn attribute_dyn(&self, attr: TypingAttr) -> Result<Ty, ()>;
     fn bin_op_dyn(
         &self,
@@ -162,6 +167,10 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
 
     fn iter_item_dyn(&self) -> Result<Ty, ()> {
         self.iter_item()
+    }
+
+    fn index_dyn(&self, index: &TyBasic) -> Result<Ty, ()> {
+        self.index(index)
     }
 
     fn bin_op_dyn(

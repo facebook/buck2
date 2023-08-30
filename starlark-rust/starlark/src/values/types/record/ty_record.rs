@@ -58,7 +58,6 @@ impl TyCustomImpl for TyRecord {
                 Some(ty) => Ok(ty.dupe()),
                 None => Err(()),
             },
-            _ => Err(()),
         }
     }
 

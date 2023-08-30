@@ -92,9 +92,6 @@ impl TypingBinOp {
 /// Attribute for [`TypingOracle::attribute`].
 #[derive(Copy, Clone, Dupe, Eq, PartialEq, derive_more::Display, Debug)]
 pub enum TypingAttr<'a> {
-    /// `x[a]`, return the function.
-    #[display(fmt = "[]")]
-    Index,
     /// Get a regular attribute.
     Regular(&'a str),
 }

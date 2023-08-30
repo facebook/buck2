@@ -27,6 +27,7 @@ use crate::typing::error::TypingOrInternalError;
 use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::Arg;
 use crate::typing::Ty;
+use crate::typing::TyBasic;
 use crate::typing::TypingOracleCtx;
 use crate::values::enumeration::ty_enum_value::TyEnumValue;
 use crate::values::enumeration::EnumType;
@@ -93,6 +94,11 @@ impl TyCustomImpl for TyEnumType {
         }))
     }
 
+    fn index(&self, _item: &TyBasic) -> Result<Ty, ()> {
+        // TODO(nga): more precise function type.
+        Ok(Ty::any_function())
+    }
+
     fn attribute(&self, attr: TypingAttr) -> Result<Ty, ()> {
         match attr {
             TypingAttr::Regular("type") => Ok(Ty::string()),
@@ -100,11 +106,7 @@ impl TyCustomImpl for TyEnumType {
                 // TODO(nga): more precise function type.
                 Ok(Ty::any_function())
             }
-            TypingAttr::Index => {
-                // TODO(nga): more precise function type.
-                Ok(Ty::any_function())
-            }
-            _ => Err(()),
+            TypingAttr::Regular(_) => Err(()),
         }
     }
 
