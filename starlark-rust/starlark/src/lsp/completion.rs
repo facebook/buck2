@@ -176,6 +176,7 @@ impl<T: LspContext> Backend<T> {
         function_name_span: &ResolvedSpan,
         document: &LspModule,
         document_uri: &LspUrl,
+        previously_used_named_parameters: &[String],
         workspace_root: Option<&Path>,
     ) -> impl Iterator<Item = CompletionItem> {
         match document.find_definition_at_location(
@@ -187,6 +188,7 @@ impl<T: LspContext> Backend<T> {
                     &identifier,
                     document,
                     document_uri,
+                    previously_used_named_parameters,
                     workspace_root,
                 )
                 .unwrap_or_default(),
@@ -198,6 +200,7 @@ impl<T: LspContext> Backend<T> {
                     &root_definition_location,
                     document,
                     document_uri,
+                    previously_used_named_parameters,
                     workspace_root,
                 )
                 .unwrap_or_default(),
@@ -211,6 +214,7 @@ impl<T: LspContext> Backend<T> {
         identifier_definition: &IdentifierDefinition,
         document: &LspModule,
         document_uri: &LspUrl,
+        previously_used_named_parameters: &[String],
         workspace_root: Option<&Path>,
     ) -> anyhow::Result<Option<Vec<CompletionItem>>> {
         Ok(match identifier_definition {
@@ -240,12 +244,14 @@ impl<T: LspContext> Backend<T> {
                             .params
                             .into_iter()
                             .filter_map(|param| match param {
-                                DocParam::Arg { name, .. } => Some(CompletionItem {
-                                    label: name,
-                                    kind: Some(CompletionItemKind::PROPERTY),
-                                    ..Default::default()
-                                }),
+                                DocParam::Arg { name, .. } => Some(name),
                                 _ => None,
+                            })
+                            .filter(|name| !previously_used_named_parameters.contains(name))
+                            .map(|name| CompletionItem {
+                                label: name,
+                                kind: Some(CompletionItemKind::PROPERTY),
+                                ..Default::default()
                             })
                             .collect(),
                     ),

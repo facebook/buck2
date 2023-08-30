@@ -406,6 +406,8 @@ impl<T: LspContext> Backend<T> {
                     "[".to_owned(),
                     // e.g. string literal (load path, target name)
                     "\"".to_owned(),
+                    // don't lose autocomplete when typing a space, e.g. after a comma
+                    " ".to_owned(),
                 ]),
                 ..Default::default()
             }),
@@ -763,12 +765,15 @@ impl<T: LspContext> Backend<T> {
                         workspace_root.as_deref(),
                     )),
                     Some(AutocompleteType::Parameter {
-                        function_name_span, ..
+                        function_name_span,
+                        previously_used_named_parameters,
+                        ..
                     }) => Some(
                         self.parameter_name_options(
                             function_name_span,
                             &document,
                             &uri,
+                            previously_used_named_parameters,
                             workspace_root.as_deref(),
                         )
                         .chain(self.default_completion_options(

@@ -21,6 +21,7 @@ use crate::codemap::ResolvedSpan;
 use crate::codemap::Span;
 use crate::syntax::ast::ArgumentP;
 use crate::syntax::ast::AssignP;
+use crate::syntax::ast::AstArgumentP;
 use crate::syntax::ast::AstExprP;
 use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::AstNoPayload;
@@ -60,6 +61,8 @@ pub enum AutocompleteType {
     Parameter {
         function_name: String,
         function_name_span: ResolvedSpan,
+        /// Those parameters that have already been used in this function call
+        previously_used_named_parameters: Vec<String>,
     },
     /// Offer completions of type names.
     Type,
@@ -218,6 +221,17 @@ impl AstModule {
                     if name.span.contains(position) {
                         return Some(AutocompleteType::Default);
                     }
+                    let get_previously_used_argument_names = || {
+                        args.iter()
+                            .filter_map(|arg| match arg {
+                                AstArgumentP {
+                                    node: ArgumentP::Named(name, _),
+                                    ..
+                                } => Some(name.node.clone()),
+                                _ => None,
+                            })
+                            .collect()
+                    };
                     for arg in args {
                         if !arg.span.contains(position) {
                             continue;
@@ -228,6 +242,8 @@ impl AstModule {
                                     return Some(AutocompleteType::Parameter {
                                         function_name: name.to_string(),
                                         function_name_span: codemap.resolve_span(name.span),
+                                        previously_used_named_parameters:
+                                            get_previously_used_argument_names(),
                                     });
                                 } else if value.span.contains(position) {
                                     return walk_and_find_completion_type(
@@ -247,6 +263,8 @@ impl AstModule {
                                         Some(AutocompleteType::Parameter {
                                             function_name: name.to_string(),
                                             function_name_span: codemap.resolve_span(name.span),
+                                            previously_used_named_parameters:
+                                                get_previously_used_argument_names(),
                                         })
                                     }
                                     _ => walk_and_find_completion_type(
@@ -268,13 +286,12 @@ impl AstModule {
                     // No matches? We might be in between empty braces (new function call),
                     // e.g. `foo(|)`. However, we don't want to offer completions for
                     // when the cursor is at the very end of the function call, e.g. `foo()|`.
-                    return Some(if args.is_empty() && span.end() != position {
+                    return Some(if span.end() != position {
                         AutocompleteType::Parameter {
                             function_name: name.to_string(),
                             function_name_span: codemap.resolve_span(name.span),
+                            previously_used_named_parameters: get_previously_used_argument_names(),
                         }
-                    } else if !args.is_empty() {
-                        AutocompleteType::Default
                     } else {
                         // Don't offer completions right after the function call.
                         AutocompleteType::None
