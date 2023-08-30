@@ -4,15 +4,6 @@ load(":defs.bzl?v2_only", "symlinked_buck2_and_tpx")
 
 oncall("buck2")
 
-# @oss-disable: _INCLUDE_EXECUTABLES = True 
-_INCLUDE_EXECUTABLES = False # @oss-enable
-
-# buildifier: disable=no-effect
-alias(
-    name = ".buck2",
-    actual = "fbsource//tools/buck2-versions:stable",
-) if _INCLUDE_EXECUTABLES else None
-
 alias(
     name = "buck2",
     actual = "//buck2/app/buck2:buck2-bin",
