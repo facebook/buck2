@@ -237,7 +237,7 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
             ExprP::Minus(..) => err("minus"),
             ExprP::Plus(..) => err("plus"),
             ExprP::BitNot(..) => err("bit not"),
-            ExprP::Op(a, op, b) if op == &BinOp::BitOr => {
+            ExprP::Op(a, BinOp::BitOr, b) => {
                 let a = TypeExprUnpackP::unpack(a, codemap)?;
                 let b = TypeExprUnpackP::unpack(b, codemap)?;
                 Ok(Spanned {
