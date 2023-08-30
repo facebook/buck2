@@ -24,7 +24,6 @@ use starlark_syntax::codemap::Spanned;
 
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::TypingOrInternalError;
-use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::Arg;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
@@ -99,14 +98,14 @@ impl TyCustomImpl for TyEnumType {
         Ok(Ty::any_function())
     }
 
-    fn attribute(&self, attr: TypingAttr) -> Result<Ty, ()> {
+    fn attribute(&self, attr: &str) -> Result<Ty, ()> {
         match attr {
-            TypingAttr::Regular("type") => Ok(Ty::string()),
-            TypingAttr::Regular("values") => {
+            "type" => Ok(Ty::string()),
+            "values" => {
                 // TODO(nga): more precise function type.
                 Ok(Ty::any_function())
             }
-            TypingAttr::Regular(_) => Err(()),
+            _ => Err(()),
         }
     }
 

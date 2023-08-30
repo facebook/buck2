@@ -27,7 +27,6 @@ use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::TypingOrInternalError;
-use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::Arg;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
@@ -98,9 +97,9 @@ impl TyCustomImpl for TyRecordType {
         Some(RecordType::TYPE)
     }
 
-    fn attribute(&self, attr: TypingAttr) -> Result<Ty, ()> {
+    fn attribute(&self, attr: &str) -> Result<Ty, ()> {
         match attr {
-            TypingAttr::Regular("type") => Ok(Ty::string()),
+            "type" => Ok(Ty::string()),
             _ => Err(()),
         }
     }

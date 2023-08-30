@@ -28,7 +28,6 @@ use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::TypingOrInternalError;
-use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::small_arc_vec_or_static::SmallArcVec1OrStatic;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
@@ -232,8 +231,8 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
         Ok(Ty::any())
     }
 
-    fn attribute(&self, attr: TypingAttr) -> Result<Ty, ()> {
-        if attr == TypingAttr::Regular("type") && self.0.has_type_attr() {
+    fn attribute(&self, attr: &str) -> Result<Ty, ()> {
+        if attr == "type" && self.0.has_type_attr() {
             Ok(Ty::string())
         } else {
             Err(())

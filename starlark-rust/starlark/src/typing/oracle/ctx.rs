@@ -32,7 +32,6 @@ use crate::typing::function::Param;
 use crate::typing::function::ParamMode;
 use crate::typing::function::TyFunction;
 use crate::typing::mode::TypecheckMode;
-use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::tuple::TyTuple;
 use crate::typing::Ty;
@@ -539,7 +538,7 @@ impl<'a> TypingOracleCtx<'a> {
                     attr => TyStarlarkValue::new::<MutableDict>().attr(attr),
                 }
             }
-            TyBasic::Custom(custom) => custom.0.attribute_dyn(TypingAttr::Regular(attr)),
+            TyBasic::Custom(custom) => custom.0.attribute_dyn(attr),
             TyBasic::Name(array) => match self.oracle.attribute(array, attr) {
                 Some(r) => r,
                 None => Ok(Ty::any()),

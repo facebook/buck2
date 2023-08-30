@@ -89,13 +89,6 @@ impl TypingBinOp {
     }
 }
 
-/// Attribute for [`TypingOracle::attribute`].
-#[derive(Copy, Clone, Dupe, Eq, PartialEq, derive_more::Display, Debug)]
-pub enum TypingAttr<'a> {
-    /// Get a regular attribute.
-    Regular(&'a str),
-}
-
 /// Callbacks which provide types when typechecking a module.
 ///
 /// The instance for slices/`Vec` allow composing a series of oracles

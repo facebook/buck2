@@ -19,7 +19,6 @@ use allocative::Allocative;
 use dupe::Dupe;
 
 use crate::typing::custom::TyCustomImpl;
-use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::Ty;
 use crate::values::enumeration::ty_enum_type::TyEnumType;
 use crate::values::enumeration::EnumValue;
@@ -52,7 +51,7 @@ impl TyCustomImpl for TyEnumValue {
         Some(&self.enum_type.data.name)
     }
 
-    fn attribute(&self, _attr: TypingAttr) -> Result<Ty, ()> {
+    fn attribute(&self, _attr: &str) -> Result<Ty, ()> {
         // TODO(nga): better types.
         Ok(Ty::any())
     }

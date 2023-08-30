@@ -25,7 +25,6 @@ use dupe::Dupe;
 use starlark_map::sorted_map::SortedMap;
 
 use crate::typing::custom::TyCustomImpl;
-use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
@@ -76,13 +75,11 @@ impl TyCustomImpl for TyStruct {
         }
     }
 
-    fn attribute(&self, attr: TypingAttr) -> Result<Ty, ()> {
-        match attr {
-            TypingAttr::Regular(attr) => match self.fields.get(attr) {
-                Some(ty) => Ok(ty.clone()),
-                None if self.extra => Ok(Ty::any()),
-                _ => Err(()),
-            },
+    fn attribute(&self, attr: &str) -> Result<Ty, ()> {
+        match self.fields.get(attr) {
+            Some(ty) => Ok(ty.clone()),
+            None if self.extra => Ok(Ty::any()),
+            _ => Err(()),
         }
     }
 

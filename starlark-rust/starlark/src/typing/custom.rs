@@ -34,7 +34,6 @@ use starlark_map::StarlarkHasher;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::typing::error::TypingOrInternalError;
-use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::Arg;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
@@ -72,7 +71,7 @@ pub trait TyCustomImpl:
         let _unused = item;
         Err(())
     }
-    fn attribute(&self, attr: TypingAttr) -> Result<Ty, ()>;
+    fn attribute(&self, attr: &str) -> Result<Ty, ()>;
     fn union2(x: Arc<Self>, other: Arc<Self>) -> Result<Arc<Self>, (Arc<Self>, Arc<Self>)> {
         if x == other { Ok(x) } else { Err((x, other)) }
     }
@@ -102,7 +101,7 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
     fn is_callable_dyn(&self) -> bool;
     fn iter_item_dyn(&self) -> Result<Ty, ()>;
     fn index_dyn(&self, index: &TyBasic) -> Result<Ty, ()>;
-    fn attribute_dyn(&self, attr: TypingAttr) -> Result<Ty, ()>;
+    fn attribute_dyn(&self, attr: &str) -> Result<Ty, ()>;
     fn bin_op_dyn(
         &self,
         bin_op: TypingBinOp,
@@ -161,7 +160,7 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
         self.is_callable()
     }
 
-    fn attribute_dyn(&self, attr: TypingAttr) -> Result<Ty, ()> {
+    fn attribute_dyn(&self, attr: &str) -> Result<Ty, ()> {
         self.attribute(attr)
     }
 

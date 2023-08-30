@@ -19,7 +19,6 @@ use allocative::Allocative;
 use dupe::Dupe;
 
 use crate::typing::custom::TyCustomImpl;
-use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::Ty;
 use crate::values::record::ty_record_type::TyRecordType;
 use crate::values::record::Record;
@@ -52,12 +51,10 @@ impl TyCustomImpl for TyRecord {
         Some(&self.record_type.data.name)
     }
 
-    fn attribute(&self, attr: TypingAttr) -> Result<Ty, ()> {
-        match attr {
-            TypingAttr::Regular(name) => match self.record_type.data.fields.get(name) {
-                Some(ty) => Ok(ty.dupe()),
-                None => Err(()),
-            },
+    fn attribute(&self, attr: &str) -> Result<Ty, ()> {
+        match self.record_type.data.fields.get(attr) {
+            Some(ty) => Ok(ty.dupe()),
+            None => Err(()),
         }
     }
 
