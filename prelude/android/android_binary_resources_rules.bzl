@@ -292,7 +292,7 @@ def _maybe_filter_resources(
 
     ctx.actions.run(
         filter_resources_cmd,
-        local_only = "run_post_filter_resources_cmd_locally" in ctx.attrs.labels,
+        local_only = post_filter_resources_cmd != None and "run_post_filter_resources_cmd_locally" in ctx.attrs.labels,
         category = "filter_resources",
     )
 
