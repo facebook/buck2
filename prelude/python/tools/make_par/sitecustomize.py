@@ -9,8 +9,11 @@
 import multiprocessing.util as mp_util
 import os
 import sys
+import threading
 from importlib.machinery import PathFinder
 from importlib.util import module_from_spec
+
+lock = threading.Lock()
 
 
 # pyre-fixme[3]: Return type must be annotated.
@@ -24,17 +27,18 @@ def __patch_spawn(var_names, saved_env):
     # pyre-fixme[3]: Return type must be annotated.
     # pyre-fixme[2]: Parameter must be annotated.
     def spawnv_passfds(path, args, passfds):
-        try:
-            for var in var_names:
-                val = os.environ.get(var, None)
-                if val is not None:
-                    os.environ["FB_SAVED_" + var] = val
-                saved_val = saved_env.get(var, None)
-                if saved_val is not None:
-                    os.environ[var] = saved_val
-            return std_spawn(path, args, passfds)
-        finally:
-            __clear_env(False)
+        with lock:
+            try:
+                for var in var_names:
+                    val = os.environ.get(var, None)
+                    if val is not None:
+                        os.environ["FB_SAVED_" + var] = val
+                    saved_val = saved_env.get(var, None)
+                    if saved_val is not None:
+                        os.environ[var] = saved_val
+                return std_spawn(path, args, passfds)
+            finally:
+                __clear_env(False)
 
     mp_util.spawnv_passfds = spawnv_passfds
 
