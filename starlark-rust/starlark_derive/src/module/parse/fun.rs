@@ -220,41 +220,41 @@ fn parse_fn_attrs(span: Span, xs: Vec<Attribute>) -> syn::Result<FnAttrs> {
     Ok(res)
 }
 
-/// Check if given type is `anyhow::Result<T>`, and if it is, return `T`.
-fn is_anyhow_result(t: &Type) -> Option<Type> {
+/// Check if given type is `anyhow::Result<T>`
+fn is_anyhow_result(t: &Type) -> bool {
     let path = match t {
         Type::Path(p) => p,
-        _ => return None,
+        _ => return false,
     };
     if path.qself.is_some() {
-        return None;
+        return false;
     }
     let mut segments = path.path.segments.iter();
     match segments.next() {
-        None => return None,
-        Some(s) if s.ident != "anyhow" => return None,
+        None => return false,
+        Some(s) if s.ident != "anyhow" => return false,
         _ => {}
     };
     let result = match segments.next() {
-        None => return None,
-        Some(s) if s.ident != "Result" => return None,
+        None => return false,
+        Some(s) if s.ident != "Result" => return false,
         Some(result) => result,
     };
     if segments.next().is_some() {
-        return None;
+        return false;
     }
     let result_arguments = match &result.arguments {
         PathArguments::AngleBracketed(args) => args,
-        _ => return None,
+        _ => return false,
     };
     let mut result_arguments = result_arguments.args.iter();
     let t = match result_arguments.next() {
-        None => return None,
+        None => return false,
         Some(t) => t,
     };
     match t {
-        GenericArgument::Type(t) => Some(t.clone()),
-        _ => None,
+        GenericArgument::Type(_) => true,
+        _ => false,
     }
 }
 
@@ -276,7 +276,7 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
 
     let has_v = parse_fn_generics(&func.sig.generics)?;
 
-    let (return_type, return_type_arg) = parse_fn_output(&func.sig.output, func.sig.span(), has_v)?;
+    let return_type = parse_fn_output(&func.sig.output, func.sig.span(), has_v)?;
 
     let mut eval = None;
     let mut heap = None;
@@ -354,7 +354,6 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
             heap,
             attrs,
             return_type,
-            return_type_arg,
             speculative_exec_safe,
             body: *func.block,
             docstring,
@@ -489,13 +488,13 @@ fn check_lifetimes_in_type(ty: &Type, has_v: bool) -> syn::Result<()> {
     visit.result
 }
 
-fn parse_fn_output(return_type: &ReturnType, span: Span, has_v: bool) -> syn::Result<(Type, Type)> {
+fn parse_fn_output(return_type: &ReturnType, span: Span, has_v: bool) -> syn::Result<Type> {
     check_lifetimes_in_return_type(return_type, has_v)?;
     match return_type {
         ReturnType::Default => Err(syn::Error::new(span, "Function must have a return type")),
         ReturnType::Type(_, x) => match is_anyhow_result(x) {
-            Some(return_arg_type) => Ok(((**x).clone(), return_arg_type)),
-            None => Err(syn::Error::new(
+            true => Ok((**x).clone()),
+            false => Err(syn::Error::new(
                 return_type.span(),
                 "Function return type must be precisely `anyhow::Result<...>`",
             )),

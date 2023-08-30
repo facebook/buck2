@@ -19,6 +19,7 @@ use starlark_derive::starlark_module;
 
 use crate as starlark;
 use crate::environment::GlobalsBuilder;
+use crate::environment::MethodsBuilder;
 use crate::values::AllocValue;
 use crate::values::Value;
 
@@ -26,5 +27,13 @@ use crate::values::Value;
 fn _test_return_impl_alloc_value(globals: &mut GlobalsBuilder) {
     fn func<'v>(v: Value<'v>) -> anyhow::Result<impl AllocValue<'v>> {
         Ok(v)
+    }
+}
+
+#[starlark_module]
+fn _test_return_impl_alloc_value_for_attr(methods: &mut MethodsBuilder) {
+    #[starlark(attribute)]
+    fn attr<'v>(this: Value<'v>) -> anyhow::Result<impl AllocValue<'v>> {
+        Ok(this)
     }
 }

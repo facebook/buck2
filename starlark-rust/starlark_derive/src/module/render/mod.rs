@@ -98,12 +98,12 @@ fn render_attr(x: StarAttr) -> syn::Stmt {
         heap,
         attrs,
         return_type,
-        return_type_arg,
         speculative_exec_safe,
         body,
         docstring,
     } = x;
     let name_str = ident_string(&name);
+    let name_inner = syn::Ident::new(&format!("{}__inner", name_str), name.span());
     let docstring = match docstring {
         Some(d) => quote_spanned!(span=> Some(#d.to_owned())),
         None => quote_spanned!(span=> None),
@@ -115,39 +115,45 @@ fn render_attr(x: StarAttr) -> syn::Stmt {
         None
     };
 
-    let return_type_str = render_starlark_type(span, &return_type_arg);
-
     syn::parse_quote_spanned! {
         span=>
         {
             #( #attrs )*
             #[allow(non_snake_case)] // Starlark doesn't have this convention
+            fn #name_inner<'v>(
+                this: starlark::values::Value<'v>,
+                #[allow(unused_variables)]
+                __heap: &'v starlark::values::Heap,
+            ) -> #return_type {
+                #[allow(unused_variables)]
+                let this: #arg = match starlark::values::UnpackValue::unpack_value(this) {
+                    None => return Err(starlark::values::ValueError::IncorrectParameterTypeNamedWithExpected(
+                        "this".to_owned(),
+                        <#arg as starlark::values::UnpackValue>::expected(),
+                        this.get_type().to_owned(),
+                    ).into()),
+                    Some(v) => v,
+                };
+                #let_heap
+                #body
+            }
+
+            #[allow(non_snake_case)]
             fn #name<'v>(
                 #[allow(unused_variables)]
                 this: starlark::values::Value<'v>,
                 heap: &'v starlark::values::Heap,
             ) -> anyhow::Result<starlark::values::Value<'v>> {
-                 fn inner<'v>(
-                    this: starlark::values::Value<'v>,
-                    #[allow(unused_variables)]
-                    __heap: &'v starlark::values::Heap,
-                ) -> #return_type {
-                    #[allow(unused_variables)]
-                    let this: #arg = match starlark::values::UnpackValue::unpack_value(this) {
-                        None => return Err(starlark::values::ValueError::IncorrectParameterTypeNamedWithExpected(
-                            "this".to_owned(),
-                            <#arg as starlark::values::UnpackValue>::expected(),
-                            this.get_type().to_owned(),
-                        ).into()),
-                        Some(v) => v,
-                    };
-                    #let_heap
-                    #body
-                }
-                Ok(heap.alloc(inner(this, heap)?))
+                Ok(heap.alloc(#name_inner(this, heap)?))
             }
 
-            globals_builder.set_attribute_fn(#name_str, #speculative_exec_safe, #docstring, #return_type_str, #name);
+            globals_builder.set_attribute_fn(
+                #name_str,
+                #speculative_exec_safe,
+                #docstring,
+                starlark::values::type_repr::type_repr_from_attr_impl(#name_inner),
+                #name
+            );
         }
     }
 }

@@ -151,8 +151,6 @@ pub(crate) struct StarAttr {
     pub attrs: Vec<Attribute>,
     /// `anyhow::Result<T>`.
     pub return_type: Type,
-    /// `T`.
-    pub return_type_arg: Type,
     pub speculative_exec_safe: bool,
     pub body: Block,
     pub docstring: Option<String>,
