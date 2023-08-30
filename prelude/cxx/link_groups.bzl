@@ -649,7 +649,8 @@ def _create_link_group(
             enable_distributed_thinlto = spec.group.attrs.enable_distributed_thinlto,
             link_execution_preference = LinkExecutionPreference("any"),
         ),
-        anonymous = anonymous,
+        # TODO: anonymous targets cannot be used with dynamic output yet
+        anonymous = False if spec.group.attrs.enable_distributed_thinlto else anonymous,
     )
     return link_result.linked_object
 
