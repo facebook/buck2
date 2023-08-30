@@ -500,6 +500,13 @@ impl InterpreterForCell {
             }),
             StarlarkModulePath::BxlFile(bxl) => PerFileTypeContext::Bxl(bxl.clone()),
         };
+        let typecheck = self.global_state.unstable_typecheck
+            || match self.global_state.configuror.prelude_import() {
+                Some(prelude_import) => {
+                    prelude_import.prelude_cell() == self.cell_names.resolve_self()
+                }
+                None => false,
+            };
         self.eval(
             &env,
             ast,
@@ -508,7 +515,7 @@ impl InterpreterForCell {
             loaded_modules,
             extra_context,
             eval_provider,
-            self.global_state.unstable_typecheck,
+            typecheck,
         )?;
         env.freeze()
     }

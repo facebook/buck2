@@ -10,6 +10,7 @@
 use allocative::Allocative;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellResolver;
 
@@ -20,6 +21,11 @@ impl PreludePath {
     #[inline]
     pub fn import_path(&self) -> &ImportPath {
         &self.0
+    }
+
+    #[inline]
+    pub fn prelude_cell(&self) -> CellName {
+        self.import_path().cell()
     }
 
     pub fn is_prelude_path(&self, import_path: &CellPath) -> bool {
