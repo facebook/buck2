@@ -114,6 +114,8 @@ def assemble_bundle(
             codesign_args.extend(identities_command_args)
         else:
             codesign_args.append("--ad-hoc")
+            if ctx.attrs.codesign_identity:
+                codesign_args.extend(["--ad-hoc-codesign-identity", ctx.attrs.codesign_identity])
 
         codesign_args += _get_entitlements_codesign_args(ctx, codesign_type)
 
