@@ -57,12 +57,20 @@ def create_compilation_database(
             other_outputs.append(cmd)
             entries[cdb_path] = entry
 
+    content = cmd_args()
+    for v in entries.values():
+        content.add(v)
+
+    argfile = ctx.actions.declare_output(paths.join(indentifier, "comp_db.argsfile"))
+    ctx.actions.write(argfile.as_output(), content)
+
     # Merge all entries into the actual compilation DB.
     db = ctx.actions.declare_output(paths.join(indentifier, "compile_commands.json"))
     cmd = cmd_args(mk_comp_db)
     cmd.add("merge")
     cmd.add(cmd_args(db.as_output(), format = "--output={}"))
-    cmd.add(entries.values())
+    cmd.add(cmd_args(argfile, format = "@{}"))
+    cmd.hidden(entries.values())
     ctx.actions.run(cmd, category = "cxx_compilation_database_merge", identifier = indentifier)
 
     return DefaultInfo(default_output = db, other_outputs = other_outputs)
