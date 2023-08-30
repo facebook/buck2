@@ -235,7 +235,7 @@ impl Hash for FrozenStringValue {
 
 impl<'v> PartialOrd for StringValue<'v> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.as_ref().partial_cmp(other.as_ref())
+        Some(self.cmp(other))
     }
 }
 
@@ -247,7 +247,7 @@ impl<'v> Ord for StringValue<'v> {
 
 impl PartialOrd for FrozenStringValue {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.as_ref().partial_cmp(other.as_ref())
+        Some(self.cmp(other))
     }
 }
 

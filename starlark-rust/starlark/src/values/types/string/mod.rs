@@ -108,7 +108,7 @@ impl Eq for StarlarkStr {}
 
 impl PartialOrd for StarlarkStr {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.as_str().partial_cmp(other.as_str())
+        Some(self.cmp(other))
     }
 }
 
