@@ -633,7 +633,7 @@ def _create_link_group(
     )
     inputs.extend(get_filtered_links(filtered_labels_to_links_map, public_nodes))
 
-    if not filtered_labels_to_links_map:
+    if not filtered_labels_to_links_map and not spec.root:
         # don't create empty shared libraries
         return None
 
