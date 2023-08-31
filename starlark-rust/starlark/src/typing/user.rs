@@ -22,10 +22,15 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use dupe::OptionDupedExt;
 use starlark_map::sorted_map::SortedMap;
+use starlark_syntax::codemap::Span;
+use starlark_syntax::codemap::Spanned;
 
 use crate::typing::custom::TyCustomImpl;
+use crate::typing::error::TypingOrInternalError;
 use crate::typing::starlark_value::TyStarlarkValue;
+use crate::typing::Arg;
 use crate::typing::Ty;
+use crate::typing::TypingOracleCtx;
 use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
@@ -80,6 +85,19 @@ impl TyCustomImpl for TyUser {
         } else {
             self.fields.get(attr).duped().ok_or(())
         }
+    }
+
+    fn is_callable(&self) -> bool {
+        self.base.is_callable()
+    }
+
+    fn validate_call(
+        &self,
+        span: Span,
+        _args: &[Spanned<Arg>],
+        oracle: TypingOracleCtx,
+    ) -> Result<Ty, TypingOrInternalError> {
+        Ok(self.base.validate_call(span, oracle)?)
     }
 
     fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result {

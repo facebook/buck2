@@ -26,10 +26,13 @@ use std::marker::PhantomData;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use starlark_syntax::codemap::Span;
 
+use crate::typing::error::TypingError;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
+use crate::typing::TypingOracleCtx;
 use crate::typing::TypingUnOp;
 use crate::values::bool::StarlarkBool;
 use crate::values::float::StarlarkFloat;
@@ -43,6 +46,12 @@ use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 use crate::values::typing::type_compiled::matchers::StarlarkTypeIdMatcher;
 use crate::values::StarlarkValue;
+
+#[derive(Debug, thiserror::Error)]
+enum TyStarlarkValueError {
+    #[error("Type `{0}` is not callable")]
+    NotCallable(TyStarlarkValue),
+}
 
 // This is a bit suboptimal for binary size:
 // we have two vtable instances for each type: this one, and the one within `AValue` vtable.
@@ -219,6 +228,22 @@ impl TyStarlarkValue {
             return Ok(ty);
         }
         Err(())
+    }
+
+    pub(crate) fn is_callable(self) -> bool {
+        self.vtable.vtable.HAS_invoke
+    }
+
+    pub(crate) fn validate_call(
+        self,
+        span: Span,
+        oracle: TypingOracleCtx,
+    ) -> Result<Ty, TypingError> {
+        if self.is_callable() {
+            Ok(Ty::any())
+        } else {
+            Err(oracle.mk_error(span, TyStarlarkValueError::NotCallable(self)))
+        }
     }
 
     #[inline]

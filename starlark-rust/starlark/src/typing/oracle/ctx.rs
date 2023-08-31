@@ -309,10 +309,7 @@ impl<'a> TypingOracleCtx<'a> {
         match fun {
             TyBasic::Any => Ok(Ty::any()),
             TyBasic::Name(n) => self.validate_call_for_type_name(span, n, args),
-            TyBasic::StarlarkValue(t) => Err(self.mk_error_as_maybe_internal(
-                span,
-                TypingOracleCtxError::CallToNonCallable { ty: t.to_string() },
-            )),
+            TyBasic::StarlarkValue(t) => Ok(t.validate_call(span, *self)?),
             TyBasic::List(_) | TyBasic::Dict(..) | TyBasic::Tuple(_) => Err(self
                 .mk_error_as_maybe_internal(
                     span,

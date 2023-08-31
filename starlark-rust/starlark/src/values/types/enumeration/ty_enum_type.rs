@@ -102,15 +102,16 @@ impl TyCustomImpl for TyEnumType {
     }
 
     fn is_callable(&self) -> bool {
-        true
+        TyStarlarkValue::new::<EnumType>().is_callable()
     }
 
     fn validate_call(
         &self,
-        _span: Span,
+        span: Span,
         _args: &[Spanned<Arg>],
-        _oracle: TypingOracleCtx,
+        oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
+        TyStarlarkValue::new::<EnumType>().validate_call(span, oracle)?;
         // TODO(nga): validate args.
         Ok(self.data.ty_enum_value.dupe())
     }

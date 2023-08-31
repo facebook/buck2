@@ -106,24 +106,22 @@ impl TyCustomImpl for TyRecordType {
     }
 
     fn attribute(&self, attr: &str) -> Result<Ty, ()> {
-        match attr {
-            "type" => Ok(Ty::string()),
-            _ => Err(()),
-        }
+        TyStarlarkValue::new::<RecordType>().attr(attr)
     }
 
     fn validate_call(
         &self,
-        _span: Span,
+        span: Span,
         _args: &[Spanned<Arg>],
-        _oracle: TypingOracleCtx,
+        oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
+        TyStarlarkValue::new::<RecordType>().validate_call(span, oracle)?;
         // TODO(nga): better checks.
         Ok(self.ty_record.dupe())
     }
 
     fn is_callable(&self) -> bool {
-        true
+        TyStarlarkValue::new::<RecordType>().is_callable()
     }
 
     fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result {
