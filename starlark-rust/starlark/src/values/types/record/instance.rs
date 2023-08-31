@@ -56,7 +56,8 @@ pub struct RecordGen<V> {
 
 impl<'v, V: ValueLike<'v>> Display for RecordGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt_keyed_container(f, "record(", ")", "=", self.iter())
+        let name = self.record_type_name().unwrap_or("anon");
+        fmt_keyed_container(f, &format!("record[{}](", name), ")", "=", self.iter())
     }
 }
 
@@ -69,6 +70,13 @@ impl<'v, V: ValueLike<'v>> RecordGen<V> {
     fn get_record_type(&self) -> Either<&'v RecordType<'v>, &'v FrozenRecordType> {
         // Safe to unwrap because we always ensure typ is RecordType
         RecordType::from_value(self.typ.to_value()).unwrap()
+    }
+
+    fn record_type_name(&self) -> Option<&'v str> {
+        match self.get_record_type() {
+            Either::Left(x) => Some(&x.ty_record_type.get()?.data.name),
+            Either::Right(x) => Some(&x.ty_record_type.as_ref()?.data.name),
+        }
     }
 
     pub(crate) fn record_type_id(&self) -> TypeInstanceId {

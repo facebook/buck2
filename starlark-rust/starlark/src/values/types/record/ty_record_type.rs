@@ -171,7 +171,7 @@ def foo(x: MyRec): pass
 
 foo(WrongRec(x = 1))
         "#,
-            r#"Value `record(x=1)` of type `record` does not match the type annotation `record(name = "MyRec","#,
+            r#"Value `record[WrongRec](x=1)` of type `record` does not match the type annotation `record(name = "MyRec","#,
         );
     }
 

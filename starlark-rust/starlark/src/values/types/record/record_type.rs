@@ -329,7 +329,7 @@ def f_fail_ct(x: RecFailCt1):
 f_fail_ct(RecFailCt2(a = 1, b = 2))
 ",
             // TODO(nga): this is runtime error, not compile time.
-            "Value `record(a=1, b=2)` of type `record` does not match",
+            "Value `record[RecFailCt2](a=1, b=2)` of type `record` does not match",
         );
     }
 
@@ -345,7 +345,7 @@ def f_fail_rt(x: RecFailRt1):
 
 noop(f_fail_rt)(RecFailRt2(a = 1, b = 2))
 ",
-            "Value `record(a=1, b=2)` of type `record` does not match the type annotation",
+            "Value `record[RecFailRt2](a=1, b=2)` of type `record` does not match the type annotation",
         );
     }
 
