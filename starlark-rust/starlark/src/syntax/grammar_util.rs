@@ -17,6 +17,8 @@
 
 //! Code called by the parser to handle complex cases not handled by the grammar.
 
+use starlark_syntax::dot_format_parser::FormatParser;
+use starlark_syntax::dot_format_parser::FormatToken;
 use starlark_syntax::eval_exception::EvalException;
 use starlark_syntax::lexer::lex_exactly_one_identifier;
 use starlark_syntax::lexer::TokenFString;
@@ -56,8 +58,6 @@ use crate::syntax::state::ParserState;
 use crate::syntax::type_expr::TypeExprUnpackP;
 use crate::syntax::Dialect;
 use crate::syntax::DialectTypes;
-use crate::values::types::string::dot_format::FormatParser;
-use crate::values::types::string::dot_format::FormatToken;
 
 #[derive(Debug, thiserror::Error)]
 enum GrammarUtilError {

@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-use std::mem;
-use std::ops::Deref;
 use std::str::FromStr;
 
 use anyhow::Context as _;
+use starlark_syntax::dot_format_parser::FormatParser;
+use starlark_syntax::dot_format_parser::FormatToken;
 
 use crate::collections::string_pool::StringPool;
 use crate::values::dict::Dict;
@@ -128,162 +128,6 @@ impl<'v, T: Iterator<Item = Value<'v>>> FormatArgs<'v, T> {
     }
 }
 
-/// Parser for `.format()` arguments.
-pub(crate) struct FormatParser<'a> {
-    view: StringView<'a>,
-}
-
-/// Token in the format string.
-#[derive(Debug, PartialEq)]
-pub(crate) enum FormatToken<'a> {
-    /// Text to copy verbatim to the output.
-    Text(&'a str),
-    Capture {
-        /// Format part inside curly braces.
-        capture: &'a str,
-        /// The position of this capture. This does not include the curly braces.
-        pos: usize,
-    },
-    Escape(EscapeCurlyBrace),
-}
-
-/// Emitted when processing an escape (`{{` or `}}`).
-#[derive(Debug, PartialEq)]
-pub(crate) enum EscapeCurlyBrace {
-    Open,
-    Close,
-}
-
-impl EscapeCurlyBrace {
-    /// Get what this represents.
-    pub(crate) fn as_str(&self) -> &'static str {
-        match self {
-            Self::Open => "{",
-            Self::Close => "}",
-        }
-    }
-
-    /// Get back the escaped form for this.
-    pub(crate) fn back_to_escape(&self) -> &'static str {
-        match self {
-            Self::Open => "{{",
-            Self::Close => "}}",
-        }
-    }
-}
-
-impl<'a> FormatParser<'a> {
-    pub(crate) fn new(s: &'a str) -> Self {
-        Self {
-            view: StringView::new(s),
-        }
-    }
-
-    /// Parse the next token from the format string.
-    pub(crate) fn next(&mut self) -> anyhow::Result<Option<FormatToken<'a>>> {
-        let mut i = 0;
-
-        while i < self.view.len() {
-            match self.view.as_bytes()[i] {
-                b'{' | b'}' if i != 0 => {
-                    let text = self.view.eat(i);
-                    return Ok(Some(FormatToken::Text(text)));
-                }
-                b'{' => {
-                    assert!(i == 0);
-                    if self.view.starts_with("{{") {
-                        self.view.eat(2);
-                        return Ok(Some(FormatToken::Escape(EscapeCurlyBrace::Open)));
-                    }
-                    i = 1;
-                    while i < self.view.len() {
-                        match self.view.as_bytes()[i] {
-                            b'}' => {
-                                let pos = self.view.pos();
-                                let capture = self.view.eat(i + 1); // Grab the closing brace.
-                                return Ok(Some(FormatToken::Capture {
-                                    capture: &capture[1..i],
-                                    pos: pos + 1,
-                                }));
-                            }
-                            b'{' => {
-                                break;
-                            }
-                            _ => i += 1,
-                        }
-                    }
-                    return Err(anyhow::anyhow!(
-                        "Unmatched '{{' in format string `{}`",
-                        self.view.original()
-                    ));
-                }
-                b'}' => {
-                    assert!(i == 0);
-                    if self.view.starts_with("}}") {
-                        self.view.eat(2);
-                        return Ok(Some(FormatToken::Escape(EscapeCurlyBrace::Close)));
-                    }
-                    return Err(anyhow::anyhow!(
-                        "Standalone '}}' in format string `{}`",
-                        self.view.original()
-                    ));
-                }
-                _ => i += 1,
-            }
-        }
-
-        if i == 0 {
-            Ok(None)
-        } else {
-            Ok(Some(FormatToken::Text(mem::take(&mut self.view).rem())))
-        }
-    }
-}
-
-/// A String and an index pointing into this string. This behaves as if you had just the part
-/// starting at this index, and you can use `eat(n)` to advance.
-#[derive(Default)]
-struct StringView<'a> {
-    /// The string we're viewing.
-    s: &'a str,
-    /// The current offset in bytes.
-    i: usize,
-}
-
-impl<'a> StringView<'a> {
-    fn new(s: &'a str) -> Self {
-        Self { s, i: 0 }
-    }
-
-    fn eat(&mut self, n: usize) -> &'a str {
-        let ret = &self.s[self.i..self.i + n];
-        self.i += n;
-        ret
-    }
-
-    fn pos(&self) -> usize {
-        self.i
-    }
-
-    /// Get the current string.
-    fn rem(&self) -> &'a str {
-        &self.s[self.i..]
-    }
-
-    /// Get the original string.
-    fn original(&self) -> &'a str {
-        self.s
-    }
-}
-
-impl<'a> Deref for StringView<'a> {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        self.rem()
-    }
-}
-
 pub(crate) fn format<'v>(
     this: &str,
     args: impl Iterator<Item = Value<'v>>,
@@ -373,8 +217,6 @@ mod tests {
     use crate::values::dict::Dict;
     use crate::values::string::dot_format::parse_format_one;
     use crate::values::string::dot_format::FormatArgs;
-    use crate::values::string::dot_format::FormatParser;
-    use crate::values::string::dot_format::FormatToken;
     use crate::values::Heap;
     use crate::values::Value;
 
@@ -447,29 +289,5 @@ mod tests {
         assert_eq!(None, parse_format_one("a{"));
         assert_eq!(None, parse_format_one("a{}{}"));
         assert_eq!(None, parse_format_one("{x}"));
-    }
-
-    #[test]
-    fn test_parser_position() {
-        let s = "foo{x}bar{yz}baz";
-        let mut parser = FormatParser::new(s);
-        assert_eq!(parser.next().unwrap(), Some(FormatToken::Text("foo")));
-        assert_eq!(
-            parser.next().unwrap(),
-            Some(FormatToken::Capture {
-                capture: "x",
-                pos: 4,
-            })
-        );
-        assert_eq!(parser.next().unwrap(), Some(FormatToken::Text("bar")));
-        assert_eq!(
-            parser.next().unwrap(),
-            Some(FormatToken::Capture {
-                capture: "yz",
-                pos: 10,
-            })
-        );
-        assert_eq!(parser.next().unwrap(), Some(FormatToken::Text("baz")));
-        assert_eq!(parser.next().unwrap(), None);
     }
 }

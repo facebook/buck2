@@ -28,6 +28,7 @@ pub mod convert_indices;
 pub(crate) mod cursors;
 pub mod diagnostic;
 pub mod dialect;
+pub mod dot_format_parser;
 pub mod eval_exception;
 pub mod fast_string;
 pub mod frame;
