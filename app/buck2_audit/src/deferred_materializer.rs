@@ -40,6 +40,7 @@ pub enum DeferredMaterializerSubcommand {
         #[clap(long, default_value = "1")]
         count: usize,
     },
+    FlushAccessTimes,
 }
 
 #[async_trait]

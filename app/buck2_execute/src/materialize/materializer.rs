@@ -671,6 +671,7 @@ pub trait DeferredMaterializerExtensions: Send + Sync {
     ) -> anyhow::Result<buck2_cli_proto::CleanStaleResponse>;
 
     async fn test_iter(&self, count: usize) -> anyhow::Result<String>;
+    async fn flush_all_access_times(&self) -> anyhow::Result<String>;
 
     /// Create a new DeferredMaterializerSubscription.
     async fn create_subscription(

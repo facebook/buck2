@@ -82,6 +82,14 @@ impl AuditSubcommand for DeferredMaterializerCommand {
 
                 write!(stdout, "{}", text)?;
             }
+            DeferredMaterializerSubcommand::FlushAccessTimes => {
+                let text = deferred_materializer
+                    .flush_all_access_times()
+                    .await
+                    .context("Failed to flush all access times")?;
+
+                write!(stdout, "{}", text)?;
+            }
         }
 
         anyhow::Ok(())

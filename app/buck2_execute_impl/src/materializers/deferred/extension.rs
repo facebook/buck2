@@ -36,6 +36,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::Sender;
 use tokio::task::JoinHandle;
+use tokio::time::Instant;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::materializers::deferred::clean_stale::CleanStaleArtifacts;
@@ -281,6 +282,33 @@ impl ExtensionCommand<DefaultIoHandler> for TestIter {
     }
 }
 
+#[derive(Derivative)]
+#[derivative(Debug)]
+struct FlushAccessTimes {
+    sender: Sender<String>,
+}
+
+impl ExtensionCommand<DefaultIoHandler> for FlushAccessTimes {
+    fn execute(
+        self: Box<Self>,
+        processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
+    ) {
+        let now = Instant::now();
+        let buffer_size = processor.access_times_buffer.len();
+
+        processor.flush_access_times(0);
+        let mut out = String::new();
+        writeln!(
+            &mut out,
+            "Finished flushing {} entries in {} ms",
+            buffer_size,
+            now.elapsed().as_millis()
+        )
+        .unwrap();
+        let _ignored = self.sender.send(out);
+    }
+}
+
 #[async_trait]
 impl DeferredMaterializerExtensions for DeferredMaterializer {
     fn iterate(
@@ -354,6 +382,15 @@ impl DeferredMaterializerExtensions for DeferredMaterializer {
         self.command_sender
             .send(MaterializerCommand::Extension(
                 Box::new(TestIter { sender, count }) as _,
+            ))?;
+        receiver.await.context("No response from materializer")
+    }
+
+    async fn flush_all_access_times(&self) -> anyhow::Result<String> {
+        let (sender, receiver) = oneshot::channel();
+        self.command_sender
+            .send(MaterializerCommand::Extension(
+                Box::new(FlushAccessTimes { sender }) as _,
             ))?;
         receiver.await.context("No response from materializer")
     }
