@@ -23,10 +23,11 @@ load(
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "LinkExecutionPreferenceInfo", "get_action_execution_attributes")
 load(
     "@prelude//linking:link_info.bzl",
+    "ArchiveLinkable",
     "LinkArgs",
     "LinkOrdering",
-    "LinkableType",
     "LinkedObject",
+    "ObjectsLinkable",
     "unpack_external_debug_info",
     "unpack_link_args",
 )
@@ -184,7 +185,7 @@ def cxx_link_into(
             continue
         for link_info in link_item.infos:
             for linkable in link_info.linkables:
-                if linkable._type == LinkableType("archive") or linkable._type == LinkableType("objects"):
+                if isinstance(linkable, ArchiveLinkable) or isinstance(linkable, ObjectsLinkable):
                     if linkable.bitcode_bundle != None:
                         bitcode_linkables.append(linkable.bitcode_bundle)
 
