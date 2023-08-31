@@ -640,5 +640,6 @@ def cxx_dist_link(
         external_debug_info = external_debug_info,
         linker_argsfile = linker_argsfile_out,
         linker_filelist = None,  # DistLTO unsupported for Darwin linkers
+        linker_command = None,  # DistLTO unsupported for debugging of command
         index_argsfile = index_argsfile_out,
     )

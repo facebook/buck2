@@ -72,6 +72,8 @@ load(
     "get_actual_link_style",
     "get_link_args",
     "get_link_styles_for_linkage",
+    "make_link_command_debug_output",
+    "make_link_command_debug_output_json_info",
     "process_link_style_for_pic_behavior",
     "unpack_link_args",
     "wrap_link_info",
@@ -986,9 +988,18 @@ def _form_library_outputs(
                     implib = shlib.import_library,
                 )
                 solibs[result.soname] = shlib
+
+                link_cmd_debug_output_file = None
+                link_cmd_debug_output = make_link_command_debug_output(shlib)
+                if link_cmd_debug_output != None:
+                    link_cmd_debug_output_file = make_link_command_debug_output_json_info(ctx, [link_cmd_debug_output])
+
                 sub_targets[link_style] = extra_linker_outputs | {
                     "linker.argsfile": [DefaultInfo(
                         default_output = shlib.linker_argsfile,
+                    )],
+                    "linker.command": [DefaultInfo(
+                        default_outputs = filter(None, [link_cmd_debug_output_file]),
                     )],
                     "linker.filelist": [DefaultInfo(
                         default_outputs = filter(None, [shlib.linker_filelist]),

@@ -49,6 +49,8 @@ load(
     "LinkStyle",
     "LinkedObject",  # @unused Used as a type
     "ObjectsLinkable",
+    "make_link_command_debug_output",
+    "make_link_command_debug_output_json_info",
     "merge_link_infos",
 )
 load(
@@ -584,6 +586,13 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     sub_targets["linker.filelist"] = [DefaultInfo(
         default_outputs = filter(None, [binary.linker_filelist]),
     )]
+
+    link_cmd_debug_output = make_link_command_debug_output(binary)
+    if link_cmd_debug_output != None:
+        link_cmd_debug_output_file = make_link_command_debug_output_json_info(ctx, [link_cmd_debug_output])
+        sub_targets["linker.command"] = [DefaultInfo(
+            default_outputs = filter(None, [link_cmd_debug_output_file]),
+        )]
 
     if linker_info.supports_distributed_thinlto and ctx.attrs.enable_distributed_thinlto:
         sub_targets["index.argsfile"] = [DefaultInfo(
