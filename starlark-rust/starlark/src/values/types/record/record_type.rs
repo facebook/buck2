@@ -26,6 +26,7 @@ use allocative::Allocative;
 use display_container::fmt_keyed_container;
 use dupe::Dupe;
 use either::Either;
+use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
 use starlark_derive::StarlarkDocs;
@@ -35,6 +36,9 @@ use starlark_map::StarlarkHasher;
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::coerce::coerce;
+use crate::environment::Methods;
+use crate::environment::MethodsBuilder;
+use crate::environment::MethodsStatic;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;
@@ -49,11 +53,11 @@ use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::Freeze;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
-use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueLike;
+use crate::values::ValueTypedComplex;
 
 #[doc(hidden)]
 pub trait RecordCell {
@@ -252,20 +256,12 @@ where
             })
     }
 
-    fn dir_attr(&self) -> Vec<String> {
-        vec!["type".to_owned()]
-    }
-
-    fn has_attr(&self, attribute: &str, _heap: &'v Heap) -> bool {
-        attribute == "type"
-    }
-
-    fn get_attr(&self, attribute: &str, heap: &'v Heap) -> Option<Value<'v>> {
-        if attribute == "type" {
-            Some(heap.alloc(self.ty_record_type().map_or(Record::TYPE, |s| &s.data.name)))
-        } else {
-            None
-        }
+    fn get_methods() -> Option<&'static Methods>
+    where
+        Self: Sized,
+    {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(record_type_methods)
     }
 
     fn eval_type(&self) -> Option<Ty> {
@@ -290,6 +286,18 @@ where
             let ty_record = Ty::custom(data.ty_record_as_ty_user());
             TyRecordType { data, ty_record }
         });
+    }
+}
+
+#[starlark_module]
+fn record_type_methods(methods: &mut MethodsBuilder) {
+    #[starlark(attribute)]
+    fn r#type<'v>(this: ValueTypedComplex<'v, RecordType<'v>>) -> anyhow::Result<&'v str> {
+        let ty_record_type = match this.unpack() {
+            Either::Left(x) => x.ty_record_type.get(),
+            Either::Right(x) => x.ty_record_type.as_ref(),
+        };
+        Ok(ty_record_type.map_or(Record::TYPE, |s| s.data.name.as_str()))
     }
 }
 
