@@ -49,7 +49,7 @@ use crate::interpreter::rule_defs::provider::ProviderLike;
 #[repr(C)]
 pub struct UserProviderGen<'v, V: ValueLike<'v>> {
     callable: FrozenRef<'static, UserProviderCallableData>,
-    attributes: Vec<V>,
+    attributes: Box<[V]>,
     _marker: PhantomData<&'v ()>,
 }
 
@@ -181,7 +181,7 @@ pub(crate) fn user_provider_creator<'v>(
         .fields
         .iter()
         .map(|field| param_parser.next(field))
-        .collect::<anyhow::Result<Vec<Value>>>()?;
+        .collect::<anyhow::Result<Box<[Value]>>>()?;
     Ok(heap.alloc(UserProvider {
         callable,
         attributes: values,
