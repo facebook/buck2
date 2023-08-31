@@ -72,7 +72,6 @@ use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use buck2_util::process::background_command;
-use chrono::DateTime;
 use chrono::NaiveDateTime;
 use chrono::Utc;
 use dice::DiceComputations;
@@ -302,14 +301,10 @@ fn get_random_tcp_port() -> anyhow::Result<u16> {
     Ok(tcp_port)
 }
 
-// `DateTime::from_utc` is deprecated in the latest version, it suggests
-// use `TimeZone::from_utc_datetime()` or `DateTime::from_naive_utc_and_offset`
-// but these are not yet available in fbsource third-parties.
-#[allow(deprecated)]
 fn get_timestamp_as_string() -> anyhow::Result<String> {
     let nt = NaiveDateTime::from_timestamp_opt(Utc::now().timestamp(), 0)
         .context(InstallError::NativeDateTime)?;
-    let dt: DateTime<Utc> = DateTime::from_utc(nt, Utc);
+    let dt = nt.and_utc();
     Ok(dt.format("%Y%m%d-%H%M%S").to_string())
 }
 

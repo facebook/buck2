@@ -122,7 +122,7 @@ bumpalo = "3.11.1"
 byteorder = "1.4.3"
 bytes = "1.0"
 bytesize = "1.1.0"
-chrono = "0.4.19"
+chrono = "0.4.28"
 clap = { version = "3.2.24", features = ["derive", "env"] }
 common-path = "1.0.0"
 compact_str = "0.6.1"
