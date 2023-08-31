@@ -11,7 +11,6 @@ load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkInfo",  # @unused Used as a type
-    "LinkableType",
     "SwiftRuntimeLinkable",
 )
 
@@ -35,12 +34,10 @@ def get_swift_runtime_linker_flags(ctx: AnalysisContext, linkable: [SwiftRuntime
     return args
 
 def extract_swift_runtime_linkables(link_infos: [list[LinkInfo.type], None]) -> list[SwiftRuntimeLinkable.type]:
-    swift_runtime_type = LinkableType("swift_runtime")
-
     linkables = []
     for info in link_infos:
         for linkable in info.linkables:
-            if linkable._type == swift_runtime_type:
+            if isinstance(linkable, SwiftRuntimeLinkable):
                 linkables.append(linkable)
 
     return linkables
