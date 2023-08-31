@@ -504,7 +504,7 @@ def build_java_library(
         additional_compiled_srcs: [Artifact, None] = None,
         generated_sources: list[Artifact] = [],
         override_abi_generation_mode: ["AbiGenerationMode", None] = None,
-        extra_sub_targets: dict = {}) -> JavaProviders.type:
+        extra_sub_targets: dict = {}) -> JavaProviders:
     expect(
         not getattr(ctx.attrs, "_build_only_native_code", False),
         "Shouldn't call build_java_library if we're only building native code!",

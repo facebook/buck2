@@ -44,7 +44,7 @@ base_command_params = struct(
 def create_jar_artifact_javacd(
         actions: AnalysisActions,
         actions_identifier: [str, None],
-        abi_generation_mode: [AbiGenerationMode.type, None],
+        abi_generation_mode: [AbiGenerationMode, None],
         java_toolchain: JavaToolchainInfo.type,
         label,
         output: [Artifact, None],
@@ -96,7 +96,7 @@ def create_jar_artifact_javacd(
     track_class_usage = javac_tool == None
 
     def encode_library_command(
-            output_paths: OutputPaths.type,
+            output_paths: OutputPaths,
             path_to_class_hashes: Artifact,
             classpath_jars_tag: "artifact_tag") -> struct:
         target_type = TargetType("library")
@@ -136,8 +136,8 @@ def create_jar_artifact_javacd(
         )
 
     def encode_abi_command(
-            output_paths: OutputPaths.type,
-            target_type: TargetType.type,
+            output_paths: OutputPaths,
+            target_type: TargetType,
             classpath_jars_tag: "artifact_tag",
             source_only_abi_compiling_deps: list["JavaClasspathEntry"] = []) -> struct:
         base_jar_command = encode_base_jar_command(
@@ -178,10 +178,10 @@ def create_jar_artifact_javacd(
             actions_identifier: [str, None],
             encoded_command: struct,
             qualified_name: str,
-            output_paths: OutputPaths.type,
+            output_paths: OutputPaths,
             classpath_jars_tag: "artifact_tag",
             abi_dir: [Artifact, None],
-            target_type: TargetType.type,
+            target_type: TargetType,
             path_to_class_hashes: [Artifact, None],
             is_creating_subtarget: bool = False,
             source_only_abi_compiling_deps: list["JavaClasspathEntry"] = []):

@@ -39,7 +39,7 @@ AnnotationProcessor = record(
 )
 
 AnnotationProcessorProperties = record(
-    annotation_processors = field(list[AnnotationProcessor.type]),
+    annotation_processors = field(list[AnnotationProcessor]),
     annotation_processor_params = field(list[str]),
 )
 
@@ -59,7 +59,7 @@ def create_annotation_processor_properties(
         plugins: list[Dependency],
         annotation_processor_names: list[str],
         annotation_processor_params: list[str],
-        annotation_processor_deps: list[Dependency]) -> AnnotationProcessorProperties.type:
+        annotation_processor_deps: list[Dependency]) -> AnnotationProcessorProperties:
     annotation_processors = []
 
     # Extend `ap_processor_deps` with java deps from `annotation_processor_deps`
@@ -96,7 +96,7 @@ def create_annotation_processor_properties(
         annotation_processor_params = annotation_processor_params,
     )
 
-def create_ksp_annotation_processor_properties(ctx: AnalysisContext, plugins: list[Dependency]) -> AnnotationProcessorProperties.type:
+def create_ksp_annotation_processor_properties(ctx: AnalysisContext, plugins: list[Dependency]) -> AnnotationProcessorProperties:
     ap_processors = []
     ap_processor_deps = []
 
@@ -123,7 +123,7 @@ def create_ksp_annotation_processor_properties(ctx: AnalysisContext, plugins: li
         annotation_processor_params = [],
     )
 
-def _get_processor_type(processor_class: str) -> JavaProcessorsType.type:
+def _get_processor_type(processor_class: str) -> JavaProcessorsType:
     if processor_class.startswith("KSP:"):
         return JavaProcessorsType("ksp_annotation_processor")
 

@@ -93,20 +93,20 @@ JavaClasspathEntry = record(
     required_for_source_only_abi = field(bool),
 )
 
-def _args_for_ast_dumper(entry: JavaClasspathEntry.type):
+def _args_for_ast_dumper(entry: JavaClasspathEntry):
     return [
         "--dependency",
         '"{}"'.format(entry.abi.owner),
         entry.abi,
     ]
 
-def _args_for_compiling(entry: JavaClasspathEntry.type):
+def _args_for_compiling(entry: JavaClasspathEntry):
     return entry.abi
 
 def _javacd_json(v):
     return v.abi
 
-def _abi_to_abi_dir(entry: JavaClasspathEntry.type):
+def _abi_to_abi_dir(entry: JavaClasspathEntry):
     if entry.abi_as_dir:
         return cmd_args([entry.abi, entry.abi_as_dir], delimiter = " ")
     return []
@@ -134,15 +134,15 @@ JavaPackagingDep = record(
     output_for_classpath_macro = Artifact,
 )
 
-def _full_jar_args(dep: JavaPackagingDep.type):
+def _full_jar_args(dep: JavaPackagingDep):
     if dep.jar:
         return cmd_args(dep.jar)
     return cmd_args()
 
-def _args_for_classpath_macro(dep: JavaPackagingDep.type):
+def _args_for_classpath_macro(dep: JavaPackagingDep):
     return dep.output_for_classpath_macro
 
-def _packaging_dep_javacd_json(dep: JavaPackagingDep.type):
+def _packaging_dep_javacd_json(dep: JavaPackagingDep):
     return dep.jar or ""
 
 JavaPackagingDepTSet = transitive_set(
@@ -203,7 +203,7 @@ JavaCompileOutputs = record(
     class_abi = [Artifact, None],
     source_abi = [Artifact, None],
     source_only_abi = [Artifact, None],
-    classpath_entry = JavaClasspathEntry.type,
+    classpath_entry = JavaClasspathEntry,
     annotation_processor_output = [Artifact, None],
 )
 
@@ -218,7 +218,7 @@ JavaProviders = record(
     class_to_src_map = [JavaClassToSourceMapInfo.type, None],
 )
 
-def to_list(java_providers: JavaProviders.type) -> list[Provider]:
+def to_list(java_providers: JavaProviders) -> list[Provider]:
     providers = [
         java_providers.java_library_info,
         java_providers.java_library_intellij_info,
@@ -242,7 +242,7 @@ def make_compile_outputs(
         classpath_abi: [Artifact, None] = None,
         classpath_abi_dir: [Artifact, None] = None,
         required_for_source_only_abi: bool = False,
-        annotation_processor_output: [Artifact, None] = None) -> JavaCompileOutputs.type:
+        annotation_processor_output: [Artifact, None] = None) -> JavaCompileOutputs:
     expect(classpath_abi != None or classpath_abi_dir == None, "A classpath_abi_dir should only be provided if a classpath_abi is provided!")
     return JavaCompileOutputs(
         full_library = full_library,
@@ -278,7 +278,7 @@ def create_abi(actions: AnalysisActions, class_abi_generator: Dependency, librar
 # Accumulate deps necessary for compilation, which consist of this library's output and compiling_deps of its exported deps
 def derive_compiling_deps(
         actions: AnalysisActions,
-        library_output: [JavaClasspathEntry.type, None],
+        library_output: [JavaClasspathEntry, None],
         children: list[Dependency]) -> ["JavaCompilingDepsTSet", None]:
     if children:
         filtered_children = filter(
@@ -344,7 +344,7 @@ def get_all_java_packaging_deps_from_packaging_infos(ctx: AnalysisContext, infos
 def get_all_java_packaging_deps_tset(
         ctx: AnalysisContext,
         java_packaging_infos: list[JavaPackagingInfo.type],
-        java_packaging_dep: [JavaPackagingDep.type, None] = None) -> [JavaPackagingDepTSet.type, None]:
+        java_packaging_dep: [JavaPackagingDep, None] = None) -> [JavaPackagingDepTSet.type, None]:
     packaging_deps_kwargs = {}
     if java_packaging_dep:
         packaging_deps_kwargs["value"] = java_packaging_dep
@@ -359,7 +359,7 @@ def get_all_java_packaging_deps_tset(
 def get_java_packaging_info(
         ctx: AnalysisContext,
         raw_deps: list[Dependency],
-        java_packaging_dep: [JavaPackagingDep.type, None] = None) -> JavaPackagingInfo.type:
+        java_packaging_dep: [JavaPackagingDep, None] = None) -> JavaPackagingInfo.type:
     java_packaging_infos = filter(None, [x.get(JavaPackagingInfo) for x in raw_deps])
     packaging_deps = get_all_java_packaging_deps_tset(ctx, java_packaging_infos, java_packaging_dep)
     return JavaPackagingInfo(packaging_deps = packaging_deps)
@@ -377,7 +377,7 @@ def create_native_providers(actions: AnalysisActions, label: Label, packaging_de
 
 def _create_non_template_providers(
         ctx: AnalysisContext,
-        library_output: [JavaClasspathEntry.type, None],
+        library_output: [JavaClasspathEntry, None],
         declared_deps: list[Dependency] = [],
         exported_deps: list[Dependency] = [],
         exported_provided_deps: list[Dependency] = [],
@@ -437,7 +437,7 @@ def create_template_info(packaging_info: JavaPackagingInfo.type, first_order_cla
 
 def create_java_library_providers(
         ctx: AnalysisContext,
-        library_output: [JavaClasspathEntry.type, None],
+        library_output: [JavaClasspathEntry, None],
         declared_deps: list[Dependency] = [],
         exported_deps: list[Dependency] = [],
         provided_deps: list[Dependency] = [],
