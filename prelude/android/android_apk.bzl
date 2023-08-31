@@ -9,7 +9,7 @@ load("@prelude//android:android_binary.bzl", "get_binary_info")
 load("@prelude//android:android_providers.bzl", "AndroidApkInfo", "AndroidApkUnderTestInfo", "AndroidBinaryNativeLibsInfo", "AndroidBinaryResourcesInfo", "DexFilesInfo", "ExopackageInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:java_providers.bzl", "KeystoreInfo")
-load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info", "get_path_separator")
+load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
 load("@prelude//utils:set.bzl", "set")
 
 def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -38,12 +38,6 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
         resources_info = resources_info.exopackage_info,
     )
 
-    class_to_srcs, class_to_srcs_subtargets = get_class_to_source_map_info(
-        ctx,
-        outputs = None,
-        deps = android_binary_info.deps_by_platform[android_binary_info.primary_platform],
-    )
-
     return [
         AndroidApkInfo(apk = output_apk, manifest = resources_info.manifest),
         AndroidApkUnderTestInfo(
@@ -57,7 +51,7 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
             r_dot_java_packages = set([info.specified_r_dot_java_package for info in resources_info.unfiltered_resource_infos if info.specified_r_dot_java_package]),
             shared_libraries = set([shared_lib.label.raw_target() for shared_lib in native_library_info.apk_under_test_shared_libraries]),
         ),
-        DefaultInfo(default_output = output_apk, other_outputs = _get_exopackage_outputs(exopackage_info), sub_targets = sub_targets | class_to_srcs_subtargets),
+        DefaultInfo(default_output = output_apk, other_outputs = _get_exopackage_outputs(exopackage_info), sub_targets = sub_targets),
         get_install_info(ctx, output_apk = output_apk, manifest = resources_info.manifest, exopackage_info = exopackage_info),
         TemplatePlaceholderInfo(
             keyed_variables = {
@@ -65,7 +59,6 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
                 "classpath_including_targets_with_no_output": cmd_args([dep.output_for_classpath_macro for dep in java_packaging_deps], delimiter = get_path_separator()),
             },
         ),
-        class_to_srcs,
     ]
 
 def build_apk(

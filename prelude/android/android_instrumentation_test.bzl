@@ -7,7 +7,6 @@
 
 load("@prelude//android:android_providers.bzl", "AndroidApkInfo", "AndroidInstrumentationApkInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
-load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
 load("@prelude//utils:utils.bzl", "expect")
@@ -106,7 +105,6 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
     )
     return inject_test_run_info(ctx, test_info) + [
         DefaultInfo(),
-        ctx.attrs.apk.get(JavaClassToSourceMapInfo),
     ]
 
 # replicating the logic in https://fburl.com/code/1fqowxu4 to match buck1's behavior
