@@ -20,7 +20,6 @@ use std::fmt::Write;
 use starlark_syntax::golden_test_template::golden_test_template;
 use starlark_syntax::slice_vec_ext::SliceExt;
 
-use crate::assert;
 use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
@@ -349,7 +348,8 @@ fn test_op_associativity() {
     assert_eq!(parse("1 * 2 * 3"), "((1 * 2) * 3)\n");
     // Comparisons are not associative
     // TODO - create a better error message for this case
-    assert::fail("0 <= 1 < 2", "Parse error");
+    let err = AstModule::parse("x", "0 <= 1 < 2".to_owned(), &Dialect::Extended).unwrap_err();
+    assert!(err.to_string().contains("Parse error"), "{}", err);
 }
 
 #[test]
