@@ -49,6 +49,10 @@ load(
     "CPreprocessor",
     "CPreprocessorArgs",
 )
+load(
+    "@prelude//linking:link_info.bzl",
+    "LinkCommandDebugOutputInfo",
+)
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:utils.bzl", "expect")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
@@ -168,6 +172,10 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], "promise"]:
         if cxx_output.linker_map_data:
             bundle_infos.append(AppleBundleLinkerMapInfo(linker_maps = [cxx_output.linker_map_data.map]))
 
+        link_command_providers = []
+        if cxx_output.link_command_debug_output:
+            link_command_providers.append(LinkCommandDebugOutputInfo(debug_outputs = [cxx_output.link_command_debug_output]))
+
         return [
             DefaultInfo(default_output = cxx_output.binary, sub_targets = cxx_output.sub_targets),
             RunInfo(args = cmd_args(cxx_output.binary).hidden(cxx_output.runtime_files)),
@@ -176,7 +184,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], "promise"]:
             cxx_output.xcode_data,
             cxx_output.compilation_db,
             merge_bundle_linker_maps_info(bundle_infos),
-        ] + [resource_graph] + min_version_providers
+        ] + [resource_graph] + min_version_providers + link_command_providers
 
     if uses_explicit_modules(ctx):
         return get_swift_anonymous_targets(ctx, get_apple_binary_providers)

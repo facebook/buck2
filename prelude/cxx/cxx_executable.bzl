@@ -44,6 +44,7 @@ load(
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
+    "LinkCommandDebugOutput",
     "LinkInfo",
     "LinkOrdering",  # @unused Used as a type
     "LinkStyle",
@@ -169,6 +170,7 @@ CxxExecutableOutput = record(
     compilation_db = CxxCompilationDbInfo.type,
     xcode_data = XcodeDataInfo.type,
     linker_map_data = [CxxLinkerMapData, None],
+    link_command_debug_output = field([LinkCommandDebugOutput, None], None),
 )
 
 def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, is_cxx_test: bool = False) -> CxxExecutableOutput:
@@ -630,6 +632,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         compilation_db = comp_db_info,
         xcode_data = xcode_data_info,
         linker_map_data = linker_map_data,
+        link_command_debug_output = link_cmd_debug_output,
     )
 
 _CxxLinkExecutableResult = record(

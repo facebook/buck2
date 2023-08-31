@@ -26,6 +26,11 @@ load(
     "LinkExecutionPreference",
     "LinkExecutionPreferenceInfo",
 )
+load(
+    "@prelude//linking:link_info.bzl",
+    "LinkCommandDebugOutputInfo",  # @unused Used as a type
+    "make_link_command_debug_output_json_info",
+)
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load(
     "@prelude//utils:set.bzl",
@@ -292,6 +297,9 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     linker_maps_directory, linker_map_info = _linker_maps_data(ctx)
     sub_targets["linker-maps"] = [DefaultInfo(default_output = linker_maps_directory)]
 
+    link_cmd_debug_file, link_cmd_debug_info = _link_command_debug_data(ctx)
+    sub_targets["linker.command"] = [DefaultInfo(default_outputs = filter(None, [link_cmd_debug_file]))]
+
     # dsyms
     unstripped_binary = _get_unstripped_binary(ctx)
     dsym_input_binary_arg = _get_unstripped_binary_path_arg(ctx, unstripped_binary) if unstripped_binary != None else primary_binary_path_arg
@@ -348,6 +356,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         linker_map_info,
         xcode_data_info,
         extra_output_provider,
+        link_cmd_debug_info,
     ]
 
 def _xcode_populate_attributes(ctx, processed_info_plist: Artifact) -> dict[str, typing.Any]:
@@ -376,6 +385,16 @@ def _linker_maps_data(ctx: AnalysisContext) -> (Artifact, AppleBundleLinkerMapIn
     )
     provider = AppleBundleLinkerMapInfo(linker_maps = all_maps.values())
     return (directory, provider)
+
+def _link_command_debug_data(ctx: AnalysisContext) -> (Artifact, LinkCommandDebugOutputInfo):
+    deps_with_binary = ctx.attrs.deps + get_flattened_binary_deps(ctx)
+    debug_output_infos = filter(
+        None,
+        [dep.get(LinkCommandDebugOutputInfo) for dep in deps_with_binary],
+    )
+    all_debug_infos = flatten([debug_info.debug_outputs for debug_info in debug_output_infos])
+    link_cmd_debug_output_file = make_link_command_debug_output_json_info(ctx, all_debug_infos)
+    return link_cmd_debug_output_file, LinkCommandDebugOutputInfo(debug_outputs = all_debug_infos)
 
 def _extra_output_provider(ctx: AnalysisContext) -> AppleBundleExtraOutputsInfo.type:
     # Collect the sub_targets for this bundle's binary that are extra_linker_outputs.

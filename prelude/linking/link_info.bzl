@@ -766,6 +766,13 @@ LinkCommandDebugOutput = record(
     filelist = [Artifact, None],
 )
 
+# NB: Debug output is _not_ transitive over deps, so tsets are not used here.
+LinkCommandDebugOutputInfo = provider(
+    fields = [
+        "debug_outputs",  # ["LinkCommandDebugOutput"]
+    ],
+)
+
 def make_link_command_debug_output(linked_object: LinkedObject) -> [LinkCommandDebugOutput, None]:
     if not linked_object.output or not linked_object.linker_command or not linked_object.linker_argsfile:
         return None

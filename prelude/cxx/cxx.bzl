@@ -25,6 +25,7 @@ load(
     "Archive",
     "ArchiveLinkable",
     "LinkArgs",
+    "LinkCommandDebugOutputInfo",
     "LinkInfo",
     "LinkInfos",
     "LinkStyle",
@@ -229,6 +230,10 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     output = cxx_executable(ctx, params)
 
+    extra_providers = []
+    if output.link_command_debug_output:
+        extra_providers.append(LinkCommandDebugOutputInfo(debug_outputs = [output.link_command_debug_output]))
+
     return [
         DefaultInfo(
             default_output = output.binary,
@@ -238,7 +243,7 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         RunInfo(args = cmd_args(output.binary).hidden(output.runtime_files)),
         output.compilation_db,
         output.xcode_data,
-    ]
+    ] + extra_providers
 
 def _prebuilt_item(
         ctx: AnalysisContext,

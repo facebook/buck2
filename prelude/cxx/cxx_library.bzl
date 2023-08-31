@@ -57,6 +57,7 @@ load(
     "ArchiveLinkable",
     "FrameworksLinkable",  # @unused Used as a type
     "LinkArgs",
+    "LinkCommandDebugOutputInfo",
     "LinkInfo",
     "LinkInfos",
     "LinkOrdering",
@@ -993,6 +994,7 @@ def _form_library_outputs(
                 link_cmd_debug_output = make_link_command_debug_output(shlib)
                 if link_cmd_debug_output != None:
                     link_cmd_debug_output_file = make_link_command_debug_output_json_info(ctx, [link_cmd_debug_output])
+                    providers.append(LinkCommandDebugOutputInfo(debug_outputs = [link_cmd_debug_output]))
 
                 sub_targets[link_style] = extra_linker_outputs | {
                     "linker.argsfile": [DefaultInfo(
