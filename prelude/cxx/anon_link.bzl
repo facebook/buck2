@@ -18,7 +18,6 @@ load(
     "ArchiveLinkable",
     "LinkArgs",
     "LinkInfo",  # @unused Used as a type
-    "LinkableType",
     "ObjectsLinkable",
     "SharedLibLinkable",
 )
@@ -30,7 +29,7 @@ load(
 )
 
 def _serialize_linkable(linkable):
-    if linkable._type == LinkableType("archive"):
+    if isinstance(linkable, ArchiveLinkable):
         return ("archive", (
             (linkable.archive.artifact, linkable.archive.external_objects),
             linkable.link_whole,
@@ -38,20 +37,20 @@ def _serialize_linkable(linkable):
             linkable.supports_lto,
         ))
 
-    if linkable._type == LinkableType("objects"):
+    if isinstance(linkable, ObjectsLinkable):
         return ("objects", (
             linkable.objects,
             linkable.link_whole,
             linkable.linker_type,
         ))
 
-    if linkable._type == LinkableType("shared"):
+    if isinstance(linkable, SharedLibLinkable):
         return ("shared", (
             linkable.lib,
             linkable.link_without_soname,
         ))
 
-    fail("cannot serialize linkable type \"{}\"".format(linkable._type))
+    fail("cannot serialize linkable \"{}\"".format(str(linkable)))
 
 def _serialize_link_info(info: LinkInfo):
     external_debug_info = []
