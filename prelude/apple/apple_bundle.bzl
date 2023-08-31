@@ -387,7 +387,7 @@ def _linker_maps_data(ctx: AnalysisContext) -> (Artifact, AppleBundleLinkerMapIn
     return (directory, provider)
 
 def _link_command_debug_data(ctx: AnalysisContext) -> (Artifact, LinkCommandDebugOutputInfo):
-    deps_with_binary = ctx.attrs.deps + get_flattened_binary_deps(ctx)
+    deps_with_binary = ctx.attrs.deps + get_flattened_binary_deps(ctx.attrs.binary)
     debug_output_infos = filter(
         None,
         [dep.get(LinkCommandDebugOutputInfo) for dep in deps_with_binary],
