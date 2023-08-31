@@ -703,15 +703,17 @@ impl<T: LspContext> Backend<T> {
                     // so it's simpler to do the lookup here, rather than threading a ton of
                     // information through.
                     Definition::Dotted(DottedDefinition {
-                        root_definition_location: IdentifierDefinition::Location { .. },
+                        root_definition_location: IdentifierDefinition::Location { destination, .. },
                         segments,
                         ..
                     }) => {
-                        let member_location = ast.find_exported_symbol_and_member(
-                            segments.first().expect("at least one segment").as_str(),
-                            segments.get(1).expect("at least two segments").as_str(),
-                        );
-                        Self::location_link(source, &uri, member_location.unwrap_or_default())?
+                        let member_location = ast
+                            .find_exported_symbol_and_member(
+                                segments.first().expect("at least one segment").as_str(),
+                                segments.get(1).expect("at least two segments").as_str(),
+                            )
+                            .unwrap_or(destination);
+                        Self::location_link(source, &uri, member_location)?
                     }
                     Definition::Dotted(definition) => self.resolve_definition_location(
                         definition.root_definition_location,
