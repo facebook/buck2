@@ -38,7 +38,7 @@ def merge_pkgs(pkgss: list[dict[str, typing.Any]]) -> dict[str, typing.Any]:
 
     return all_pkgs
 
-def pkg_artifacts(pkgs: dict[str, GoPkg.type], shared: bool = False) -> dict[str, Artifact]:
+def pkg_artifacts(pkgs: dict[str, GoPkg], shared: bool = False) -> dict[str, Artifact]:
     """
     Return a map package name to a `shared` or `static` package artifact.
     """

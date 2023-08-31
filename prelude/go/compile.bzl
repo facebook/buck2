@@ -17,7 +17,7 @@ load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_cmd_args")
 
 # Provider wrapping packages used for compiling.
 GoPkgCompileInfo = provider(fields = [
-    "pkgs",  # {str: GoPkg.type}
+    "pkgs",  # dict[str, GoPkg]
 ])
 
 # Provider for test targets that test a library. Contains information for

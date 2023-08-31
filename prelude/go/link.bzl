@@ -45,17 +45,17 @@ GoBuildMode = enum(
     "c_shared",
 )
 
-def _build_mode_param(mode: GoBuildMode.type) -> str:
+def _build_mode_param(mode: GoBuildMode) -> str:
     if mode == GoBuildMode("executable"):
         return "exe"
     if mode == GoBuildMode("c_shared"):
         return "c-shared"
     fail("unexpected: {}", mode)
 
-def get_inherited_link_pkgs(deps: list[Dependency]) -> dict[str, GoPkg.type]:
+def get_inherited_link_pkgs(deps: list[Dependency]) -> dict[str, GoPkg]:
     return merge_pkgs([d[GoPkgLinkInfo].pkgs for d in deps if GoPkgLinkInfo in d])
 
-def _process_shared_dependencies(ctx: AnalysisContext, artifact: Artifact, deps: list[Dependency], link_style: LinkStyle.type):
+def _process_shared_dependencies(ctx: AnalysisContext, artifact: Artifact, deps: list[Dependency], link_style: LinkStyle):
     """
     Provides files and linker args needed to for binaries with shared library linkage.
     - the runtime files needed to run binary linked with shared libraries
@@ -86,9 +86,9 @@ def link(
         main: Artifact,
         pkgs: dict[str, Artifact] = {},
         deps: list[Dependency] = [],
-        build_mode: GoBuildMode.type = GoBuildMode("executable"),
+        build_mode: GoBuildMode = GoBuildMode("executable"),
         link_mode: [str, None] = None,
-        link_style: LinkStyle.type = LinkStyle("static"),
+        link_style: LinkStyle = LinkStyle("static"),
         linker_flags: list[typing.Any] = [],
         shared: bool = False):
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
