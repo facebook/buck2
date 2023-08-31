@@ -20,12 +20,9 @@ use dupe::Dupe;
 
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::Ty;
+use crate::values::enumeration::matcher::EnumTypeMatcher;
 use crate::values::enumeration::ty_enum_type::TyEnumType;
-use crate::values::enumeration::EnumValue;
-use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
-use crate::values::typing::type_compiled::matcher::TypeMatcher;
-use crate::values::Value;
 
 /// Type of enum variant, i.e. type of `enum()[0]`.
 #[derive(
@@ -56,20 +53,6 @@ impl TyCustomImpl for TyEnumValue {
     }
 
     fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result {
-        #[derive(Hash, Debug, Eq, PartialEq, Clone, Dupe, Allocative)]
-        struct EnumTypeMatcher {
-            id: TypeInstanceId,
-        }
-
-        impl TypeMatcher for EnumTypeMatcher {
-            fn matches(&self, value: Value) -> bool {
-                match EnumValue::from_value(value) {
-                    None => false,
-                    Some(en) => en.id == self.id,
-                }
-            }
-        }
-
         factory.alloc(EnumTypeMatcher {
             id: self.enum_type.data.id,
         })
