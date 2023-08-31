@@ -22,9 +22,9 @@ load(":link_info.bzl", "CrateName")
 #
 def extern_arg(
         ctx: AnalysisContext,
-        compile_ctx: CompileContext.type,
+        compile_ctx: CompileContext,
         flags: list[str],
-        crate: CrateName.type,
+        crate: CrateName,
         lib: Artifact) -> cmd_args:
     if flags == []:
         flags = ""
@@ -70,8 +70,8 @@ def extern_arg(
 #
 def crate_map_arg(
         ctx: AnalysisContext,
-        compile_ctx: CompileContext.type,
-        crate: CrateName.type,
+        compile_ctx: CompileContext,
+        crate: CrateName,
         label: Label) -> cmd_args:
     if crate.dynamic:
         args = CrateMapArg(label = label)

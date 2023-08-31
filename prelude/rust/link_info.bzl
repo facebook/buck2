@@ -103,13 +103,13 @@ RustLinkStyleInfo = record(
     rlib = field(Artifact),
     # Transitive dependencies which are relevant to the consumer. For crate types which do not
     # propagate their deps (specifically proc macros), this set is empty
-    transitive_deps = field(dict[Artifact, CrateName.type]),
+    transitive_deps = field(dict[Artifact, CrateName]),
 
     # Path for library metadata (used for check or pipelining)
     rmeta = field(Artifact),
     # Transitive rmeta deps. This is the same dict as `transitive_deps`, except that it has the
     # rmeta and not the rlib artifact
-    transitive_rmeta_deps = field(dict[Artifact, CrateName.type]),
+    transitive_rmeta_deps = field(dict[Artifact, CrateName]),
 
     # Path to PDB file with Windows debug data.
     pdb = field([Artifact, None]),
@@ -117,13 +117,13 @@ RustLinkStyleInfo = record(
     external_debug_info = field(ArtifactTSet.type),
 )
 
-def _adjust_link_style_for_rust_dependencies(dep_link_style: LinkStyle.type) -> LinkStyle.type:
+def _adjust_link_style_for_rust_dependencies(dep_link_style: LinkStyle) -> LinkStyle:
     if FORCE_RLIB and dep_link_style == LinkStyle("shared"):
         return DEFAULT_STATIC_LINK_STYLE
     else:
         return dep_link_style
 
-def style_info(info: RustLinkInfo.type, dep_link_style: LinkStyle.type) -> RustLinkStyleInfo.type:
+def style_info(info: RustLinkInfo.type, dep_link_style: LinkStyle) -> RustLinkStyleInfo.type:
     rust_dep_link_style = _adjust_link_style_for_rust_dependencies(dep_link_style)
     return info.styles[rust_dep_link_style]
 
@@ -148,17 +148,17 @@ RustCxxLinkGroupInfo = record(
     # information about the link groups
     link_group_info = field([LinkGroupInfo.type, None]),
     # shared libraries created from link groups
-    link_group_libs = field(dict[str, [LinkGroupLib.type, None]]),
+    link_group_libs = field(dict[str, [LinkGroupLib, None]]),
     # mapping from target labels to the corresponding link group link_info
     labels_to_links_map = field(dict[Label, LinkGroupLinkInfo.type]),
     # prefrred linkage mode for link group libraries
-    link_group_preferred_linkage = field(dict[Label, Linkage.type]),
+    link_group_preferred_linkage = field(dict[Label, Linkage]),
 )
 
 def enable_link_groups(
         ctx: AnalysisContext,
-        link_style: [LinkStyle.type, None],
-        specified_link_style: LinkStyle.type,
+        link_style: [LinkStyle, None],
+        specified_link_style: LinkStyle,
         is_binary: bool):
     if not (cxx_is_gnu(ctx) and is_binary):
         # check minium requirements
@@ -174,7 +174,7 @@ def enable_link_groups(
 def _do_resolve_deps(
         deps: list[Dependency],
         named_deps: dict[str, Dependency],
-        flagged_deps: list[(Dependency, list[str])] = []) -> list[RustDependency.type]:
+        flagged_deps: list[(Dependency, list[str])] = []) -> list[RustDependency]:
     return [
         RustDependency(name = name, dep = dep, flags = flags)
         for name, dep, flags in [(None, dep, []) for dep in deps] +
@@ -184,7 +184,7 @@ def _do_resolve_deps(
 
 def resolve_deps(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False) -> list[RustDependency.type]:
+        include_doc_deps: bool = False) -> list[RustDependency]:
     # The `getattr`s are needed for when we're operating on
     # `prebuilt_rust_library` rules, which don't have those attrs.
     dependencies = _do_resolve_deps(
@@ -203,7 +203,7 @@ def resolve_deps(
 
 def _non_rust_linkable_graph(
         ctx: AnalysisContext,
-        deps: list[Dependency]) -> LinkableGraph.type:
+        deps: list[Dependency]) -> LinkableGraph:
     linkable_graph = create_linkable_graph(
         ctx,
         children = filter(None, (
@@ -284,7 +284,7 @@ def inherited_non_rust_exported_link_deps(ctx: AnalysisContext) -> list[Dependen
 def inherited_non_rust_link_group_info(
         ctx: AnalysisContext,
         include_doc_deps: bool = False,
-        link_style: [LinkStyle.type, None] = None) -> RustCxxLinkGroupInfo:
+        link_style: [LinkStyle, None] = None) -> RustCxxLinkGroupInfo:
     link_deps = _non_rust_link_deps(ctx, include_doc_deps) + inherited_non_rust_exported_link_deps(ctx)
 
     # Assume a rust executable wants to use link groups if a link group map
@@ -388,7 +388,7 @@ def inherited_non_rust_shared_libs(
 def inherited_external_debug_info(
         ctx: AnalysisContext,
         dwo_output_directory: [Artifact, None],
-        dep_link_style: LinkStyle.type) -> ArtifactTSet:
+        dep_link_style: LinkStyle) -> ArtifactTSet:
     rust_dep_link_style = _adjust_link_style_for_rust_dependencies(dep_link_style)
     non_rust_dep_link_style = dep_link_style
 
@@ -435,7 +435,7 @@ def attr_simple_crate_for_filenames(ctx: AnalysisContext) -> str:
     """
     return normalize_crate(ctx.attrs.crate or ctx.label.name)
 
-def attr_crate(ctx: AnalysisContext) -> CrateName.type:
+def attr_crate(ctx: AnalysisContext) -> CrateName:
     """
     The true user-facing name of the crate, which may only be known at build
     time, not during analysis.

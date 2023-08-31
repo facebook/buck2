@@ -79,7 +79,7 @@ _CompileOutputs = record(
 
 def _rust_binary_common(
         ctx: AnalysisContext,
-        compile_ctx: CompileContext.type,
+        compile_ctx: CompileContext,
         default_roots: list[str],
         extra_flags: list[str],
         allow_cache_upload: bool) -> (list[[DefaultInfo.type, RunInfo.type]], cmd_args):

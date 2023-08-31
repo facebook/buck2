@@ -23,7 +23,7 @@ RustFailureFilter = provider(fields = [
 # Either way it streams whatever stderr content there is to stream.
 def failure_filter(
         ctx: AnalysisContext,
-        compile_ctx: CompileContext.type,
+        compile_ctx: CompileContext,
         prefix: str,
         predecl_out: [Artifact, None],
         failprov: "RustFailureFilter",

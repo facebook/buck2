@@ -19,7 +19,7 @@ CommonArgsInfo = record(
     tempfile = field(str),
     short_cmd = field(str),
     is_check = field(bool),
-    crate_map = field(list[(CrateName.type, Label)]),
+    crate_map = field(list[(CrateName, Label)]),
 )
 
 ExternArg = record(
@@ -43,8 +43,8 @@ CompileContext = record(
     # Clippy wrapper (wrapping clippy-driver so it has the same CLI as rustc).
     clippy_wrapper = field(cmd_args),
     # Memoized common args for reuse.
-    common_args = field(dict[(CrateType.type, Emit.type, LinkStyle.type), CommonArgsInfo.type]),
-    flagfiles_for_extern = field(dict[ExternArg.type, Artifact]),
-    flagfiles_for_crate_map = field(dict[CrateMapArg.type, Artifact]),
+    common_args = field(dict[(CrateType, Emit, LinkStyle), CommonArgsInfo]),
+    flagfiles_for_extern = field(dict[ExternArg, Artifact]),
+    flagfiles_for_crate_map = field(dict[CrateMapArg, Artifact]),
     transitive_dependency_dirs = field(dict[Artifact, None]),
 )

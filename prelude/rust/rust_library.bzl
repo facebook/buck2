@@ -311,9 +311,9 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
 def _build_params_for_styles(
         ctx: AnalysisContext,
-        compile_ctx: CompileContext.type) -> (
-    dict[BuildParams.type, list[LinkageLang.type]],
-    dict[(LinkageLang.type, LinkStyle.type), BuildParams.type],
+        compile_ctx: CompileContext) -> (
+    dict[BuildParams, list[LinkageLang]],
+    dict[(LinkageLang, LinkStyle), BuildParams],
 ):
     """
     For a given rule, return two things:
@@ -358,8 +358,8 @@ def _build_params_for_styles(
 
 def _build_library_artifacts(
         ctx: AnalysisContext,
-        compile_ctx: CompileContext.type,
-        params: list[BuildParams.type]) -> dict[BuildParams.type, (RustcOutput.type, RustcOutput.type)]:
+        compile_ctx: CompileContext,
+        params: list[BuildParams]) -> dict[BuildParams, (RustcOutput, RustcOutput)]:
     """
     Generate the actual actions to build various output artifacts. Given the set
     parameters we need, return a mapping to the linkable and metadata artifacts.
@@ -387,9 +387,9 @@ def _build_library_artifacts(
 
 def _handle_rust_artifact(
         ctx: AnalysisContext,
-        params: BuildParams.type,
-        link: RustcOutput.type,
-        meta: RustcOutput.type) -> RustLinkStyleInfo.type:
+        params: BuildParams,
+        link: RustcOutput,
+        meta: RustcOutput) -> RustLinkStyleInfo.type:
     """
     Return the RustLinkInfo for a given set of artifacts. The main consideration
     is computing the right set of dependencies.
@@ -432,8 +432,8 @@ def _handle_rust_artifact(
 
 def _default_providers(
         ctx: AnalysisContext,
-        lang_style_param: dict[(LinkageLang.type, LinkStyle.type), BuildParams.type],
-        param_artifact: dict[BuildParams.type, RustLinkStyleInfo.type],
+        lang_style_param: dict[(LinkageLang, LinkStyle), BuildParams],
+        param_artifact: dict[BuildParams, RustLinkStyleInfo.type],
         rustdoc: Artifact,
         rustdoc_test: [cmd_args, None],
         check_artifacts: dict[str, Artifact],
@@ -494,8 +494,8 @@ def _default_providers(
 
 def _rust_providers(
         ctx: AnalysisContext,
-        lang_style_param: dict[(LinkageLang.type, LinkStyle.type), BuildParams.type],
-        param_artifact: dict[BuildParams.type, RustLinkStyleInfo.type]) -> list[Provider]:
+        lang_style_param: dict[(LinkageLang, LinkStyle), BuildParams],
+        param_artifact: dict[BuildParams, RustLinkStyleInfo.type]) -> list[Provider]:
     """
     Return the set of providers for Rust linkage.
     """
@@ -538,9 +538,9 @@ def _rust_providers(
 
 def _native_providers(
         ctx: AnalysisContext,
-        compile_ctx: CompileContext.type,
-        lang_style_param: dict[(LinkageLang.type, LinkStyle.type), BuildParams.type],
-        param_artifact: dict[BuildParams.type, RustcOutput.type]) -> list[Provider]:
+        compile_ctx: CompileContext,
+        lang_style_param: dict[(LinkageLang, LinkStyle), BuildParams],
+        param_artifact: dict[BuildParams, RustcOutput]) -> list[Provider]:
     """
     Return the set of providers needed to link Rust as a dependency for native
     (ie C/C++) code, along with relevant dependencies.
@@ -690,7 +690,7 @@ def _native_providers(
 # Compute transitive deps. Caller decides whether this is necessary.
 def _compute_transitive_deps(
         ctx: AnalysisContext,
-        dep_link_style: LinkStyle.type) -> (dict[Artifact, CrateName.type], dict[Artifact, CrateName.type], list[ArtifactTSet]):
+        dep_link_style: LinkStyle) -> (dict[Artifact, CrateName], dict[Artifact, CrateName], list[ArtifactTSet]):
     transitive_deps = {}
     transitive_rmeta_deps = {}
     external_debug_info = []
