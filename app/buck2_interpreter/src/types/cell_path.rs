@@ -11,10 +11,12 @@ use allocative::Allocative;
 use buck2_core::cells::cell_path::CellPath;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
+use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 
@@ -44,4 +46,9 @@ fn cell_path_methods(builder: &mut MethodsBuilder) {
     fn add(this: &StarlarkCellPath, arg: &str) -> anyhow::Result<StarlarkCellPath> {
         Ok(StarlarkCellPath((this).0.join_normalized(arg)?))
     }
+}
+
+#[starlark_module]
+pub fn register_cell_path(globals: &mut GlobalsBuilder) {
+    const CellPath: StarlarkValueAsType<StarlarkCellPath> = StarlarkValueAsType::new();
 }
