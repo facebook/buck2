@@ -30,11 +30,12 @@ def apple_universal_executable_impl(ctx: AnalysisContext) -> list[Provider]:
         dsym_bundle_name = dsym_name,
         split_arch_dsym = ctx.attrs.split_arch_dsym,
     )
+
     sub_targets = {}
     if ctx.attrs.split_arch_dsym:
-        sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_outputs = binary_outputs.debuggable_info.dsyms)]
+        dsyms = binary_outputs.debuggable_info.dsyms
     else:
-        bundle_binary_dsym_artifact = get_apple_dsym_ext(
+        dsyms = [get_apple_dsym_ext(
             ctx = ctx,
             executable = binary_outputs.binary,
             debug_info = project_artifacts(
@@ -43,8 +44,8 @@ def apple_universal_executable_impl(ctx: AnalysisContext) -> list[Provider]:
             ),
             action_identifier = ctx.attrs.name + "_dsym",
             output_path = dsym_name,
-        )
-        sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_outputs = [bundle_binary_dsym_artifact])]
+        )]
+    sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_outputs = dsyms)]
 
     return [
         DefaultInfo(default_output = binary_outputs.binary, sub_targets = sub_targets),
