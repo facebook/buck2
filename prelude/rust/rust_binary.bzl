@@ -105,6 +105,8 @@ def _rust_binary_common(
     ).values())
 
     for link_style in LinkStyle:
+        # Unlike for libraries, there's no possibility of different link styles
+        # resulting in the same build params, so no need to deduplicate.
         params = build_params(
             rule = RuleType("binary"),
             proc_macro = False,
