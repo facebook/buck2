@@ -56,7 +56,7 @@ def apple_universal_executable_impl(ctx: AnalysisContext) -> list[Provider]:
             executable = binary_outputs.binary,
             debug_info = project_artifacts(
                 actions = ctx.actions,
-                tsets = [],
+                tsets = [binary_outputs.debuggable_info.debug_info_tset],
             ),
             action_identifier = ctx.attrs.name + "_dsym",
             output_path = dsym_name,
