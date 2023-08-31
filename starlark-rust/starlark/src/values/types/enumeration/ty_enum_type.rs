@@ -97,14 +97,8 @@ impl TyCustomImpl for TyEnumType {
     }
 
     fn attribute(&self, attr: &str) -> Result<Ty, ()> {
-        match attr {
-            "type" => Ok(Ty::string()),
-            "values" => {
-                // TODO(nga): more precise function type.
-                Ok(Ty::any_function())
-            }
-            _ => Err(()),
-        }
+        // TODO(nga): more precise return type from `values`.
+        TyStarlarkValue::new::<EnumType>().attr(attr)
     }
 
     fn is_callable(&self) -> bool {
