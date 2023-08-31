@@ -40,7 +40,7 @@ buckPaths = struct(
 def create_jar_artifact_kotlincd(
         actions: AnalysisActions,
         actions_identifier: [str, None],
-        abi_generation_mode: [AbiGenerationMode.type, None],
+        abi_generation_mode: [AbiGenerationMode, None],
         java_toolchain: JavaToolchainInfo.type,
         kotlin_toolchain: KotlinToolchainInfo.type,
         javac_tool: [str, RunInfo.type, Artifact, None],
@@ -126,7 +126,7 @@ def create_jar_artifact_kotlincd(
     track_class_usage = javac_tool == None
 
     def encode_library_command(
-            output_paths: OutputPaths.type,
+            output_paths: OutputPaths,
             path_to_class_hashes: Artifact,
             classpath_jars_tag: "artifact_tag") -> struct:
         target_type = TargetType("library")
@@ -169,8 +169,8 @@ def create_jar_artifact_kotlincd(
         )
 
     def encode_abi_command(
-            output_paths: OutputPaths.type,
-            target_type: TargetType.type,
+            output_paths: OutputPaths,
+            target_type: TargetType,
             classpath_jars_tag: "artifact_tag",
             source_only_abi_compiling_deps: list["JavaClasspathEntry"] = []) -> struct:
         base_jar_command = encode_base_jar_command(
@@ -214,10 +214,10 @@ def create_jar_artifact_kotlincd(
             actions_identifier: [str, None],
             encoded_command: struct,
             qualified_name: str,
-            output_paths: OutputPaths.type,
+            output_paths: OutputPaths,
             classpath_jars_tag: "artifact_tag",
             abi_dir: [Artifact, None],
-            target_type: TargetType.type,
+            target_type: TargetType,
             path_to_class_hashes: [Artifact, None],
             source_only_abi_compiling_deps: list["JavaClasspathEntry"] = []):
         _unused = source_only_abi_compiling_deps
