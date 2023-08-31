@@ -29,7 +29,7 @@ alias = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "actual": attrs.dep(),
+            "actual": attrs.dep(pulls_and_pushes_plugins = plugins.All),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
