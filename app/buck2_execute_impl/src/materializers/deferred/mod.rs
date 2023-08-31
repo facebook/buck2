@@ -15,8 +15,8 @@ mod subscriptions;
 
 #[cfg(test)]
 mod tests;
-
 use std::borrow::Cow;
+use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::pin::Pin;
 use std::sync::atomic::AtomicU64;
@@ -168,6 +168,9 @@ pub struct DeferredMaterializerStats {
     declares_reused: AtomicU64,
 }
 
+static ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE: EnvHelper<usize> =
+    EnvHelper::new("BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE");
+
 pub struct DeferredMaterializerConfigs {
     pub materialize_final_artifacts: bool,
     pub defer_write_actions: bool,
@@ -273,6 +276,7 @@ struct DeferredMaterializerCommandProcessor<T: 'static> {
     ttl_refresh_instance: Option<oneshot::Receiver<(DateTime<Utc>, anyhow::Result<()>)>>,
     cancellations: &'static CancellationContext<'static>,
     stats: Arc<DeferredMaterializerStats>,
+    access_times_buffer: HashSet<ProjectRelativePathBuf>,
 }
 
 struct TtlRefreshHistoryEntry {
@@ -968,8 +972,13 @@ impl DeferredMaterializer {
                 ttl_refresh_instance: None,
                 cancellations,
                 stats,
+                access_times_buffer: HashSet::new(),
             }
         };
+
+        let access_time_update_max_buffer_size = ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE
+            .get_copied()?
+            .unwrap_or(256);
 
         let command_thread = std::thread::Builder::new()
             .name("buck2-dm".to_owned())
@@ -982,9 +991,11 @@ impl DeferredMaterializer {
 
                     let cancellations = CancellationContext::never_cancelled();
 
-                    rt.block_on(
-                        command_processor(cancellations).run(command_receiver, configs.ttl_refresh),
-                    );
+                    rt.block_on(command_processor(cancellations).run(
+                        command_receiver,
+                        configs.ttl_refresh,
+                        access_time_update_max_buffer_size,
+                    ));
                 }
             })
             .context("Cannot start materializer thread")?;
@@ -1037,12 +1048,14 @@ struct CommandStream<T: 'static> {
     high_priority: UnboundedReceiver<MaterializerCommand<T>>,
     low_priority: UnboundedReceiver<LowPriorityMaterializerCommand>,
     refresh_ttl_ticker: Option<Interval>,
+    io_buffer_ticker: Interval,
 }
 
 enum Op<T: 'static> {
     Command(MaterializerCommand<T>),
     LowPriorityCommand(LowPriorityMaterializerCommand),
     RefreshTtls,
+    Tick,
 }
 
 impl<T: 'static> Stream for CommandStream<T> {
@@ -1065,8 +1078,11 @@ impl<T: 'static> Stream for CommandStream<T> {
             }
         }
 
-        // We can never be done because we never drop the senders, so let's not bother.
+        if this.io_buffer_ticker.poll_tick(cx).is_ready() {
+            return Poll::Ready(Some(Op::Tick));
+        }
 
+        // We can never be done because we never drop the senders, so let's not bother.
         Poll::Pending
     }
 }
@@ -1079,6 +1095,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         mut self,
         commands: MaterializerReceiver<T>,
         ttl_refresh: TtlRefreshConfiguration,
+        access_time_update_max_buffer_size: usize,
     ) {
         let MaterializerReceiver {
             high_priority,
@@ -1095,11 +1112,16 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             None
         };
 
+        let io_buffer_ticker = tokio::time::interval(std::time::Duration::from_secs(5));
+
         let mut stream = CommandStream {
             high_priority,
             low_priority,
             refresh_ttl_ticker,
+            io_buffer_ticker,
         };
+
+        self.access_times_buffer = HashSet::new();
 
         while let Some(op) = stream.next().await {
             match op {
@@ -1107,6 +1129,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     self.log_buffer.push(format!("{:?}", command));
                     self.process_one_command(command);
                     counters.ack_received();
+                    self.flush_access_times(access_time_update_max_buffer_size);
                 }
                 Op::LowPriorityCommand(command) => {
                     self.log_buffer.push(format!("{:?}", command));
@@ -1149,6 +1172,10 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             }),
                         }
                     }
+                }
+                Op::Tick => {
+                    // Force a periodic flush.
+                    self.flush_access_times(0);
                 }
             }
         }
@@ -1274,6 +1301,28 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     data.stage,
                     ArtifactMaterializationStage::Materialized { .. }
                 )
+            }
+        }
+    }
+
+    fn flush_access_times(&mut self, max_buffer_size: usize) {
+        if self.access_times_buffer.len() <= max_buffer_size {
+            return;
+        }
+
+        let buffer = std::mem::take(&mut self.access_times_buffer);
+
+        if let Some(sqlite_db) = self.sqlite_db.as_mut() {
+            if let Err(e) = sqlite_db
+                .materializer_state_table()
+                .update_access_times(buffer.iter().collect::<Vec<_>>())
+            {
+                soft_error!(
+                    "materializer_materialize_error",
+                    e.context(self.log_buffer.clone()),
+                    quiet: true
+                )
+                .unwrap();
             }
         }
     }
@@ -1557,19 +1606,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     //     tracing::warn!(path = %path, "Expected artifact to be marked active by declare")
                     // }
 
-                    if let Some(sqlite_db) = self.sqlite_db.as_mut() {
-                        if let Err(e) = sqlite_db
-                            .materializer_state_table()
-                            .update_access_time(path, timestamp)
-                        {
-                            soft_error!(
-                                "materializer_materialize_error",
-                                e.context(self.log_buffer.clone()),
-                                quiet: true
-                            )
-                            .unwrap();
-                        }
-                    }
+                    self.access_times_buffer.insert(path.to_buf());
 
                     return None;
                 }

@@ -368,25 +368,24 @@ impl MaterializerStateSqliteTable {
         Ok(())
     }
 
-    pub(crate) fn update_access_time(
+    pub(crate) fn update_access_times(
         &self,
-        path: &ProjectRelativePath,
-        timestamp: DateTime<Utc>,
+        updates: Vec<&ProjectRelativePathBuf>,
     ) -> anyhow::Result<()> {
-        static SQL: Lazy<String> = Lazy::new(|| {
-            format!(
-                "UPDATE {} SET last_access_time = (?1) WHERE path = (?2)",
+        let mut conn = self.connection.lock();
+        let tx = conn.transaction()?;
+        for chunk in updates.chunks(100) {
+            let sql = format!(
+                "UPDATE {} SET last_access_time = {} WHERE path IN ({})",
                 STATE_TABLE_NAME,
-            )
-        });
-        tracing::trace!(sql = %*SQL, now = %timestamp, "updating last_access_time");
-        self.connection
-            .lock()
-            .execute(
-                &SQL,
-                rusqlite::params![timestamp.timestamp(), path.as_str()],
-            )
-            .with_context(|| format!("updating sqlite table {}", STATE_TABLE_NAME))?;
+                Utc::now().timestamp(),
+                itertools::repeat_n("?", chunk.len()).join(","),
+            );
+            tracing::trace!(sql = %sql, chunk = ?chunk, "updating last_access_times");
+            tx.execute(&sql, rusqlite::params_from_iter(chunk.map(|p| p.as_str())))
+                .with_context(|| format!("updating sqlite table {}", STATE_TABLE_NAME))?;
+        }
+        tx.commit()?;
         Ok(())
     }
 
