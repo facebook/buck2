@@ -217,6 +217,8 @@ impl Freeze for UserProviderCallable {
 
 #[starlark_value(type = "provider_callable")]
 impl<'v> StarlarkValue<'v> for UserProviderCallable {
+    type Canonical = FrozenUserProviderCallable;
+
     fn export_as(&self, variable_name: &str, eval: &mut Evaluator<'v, '_>) {
         // First export wins
         self.id.get_or_init(|| {
