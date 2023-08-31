@@ -27,12 +27,14 @@ use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::TypingOrInternalError;
+use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::user::TyUser;
 use crate::typing::Arg;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
 use crate::values::record::matcher::RecordTypeMatcher;
 use crate::values::record::record_type::RecordType;
+use crate::values::record::Record;
 use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
@@ -53,6 +55,7 @@ impl TyRecordData {
     pub(crate) fn ty_record_as_ty_user(&self) -> TyUser {
         TyUser {
             name: self.name.clone(),
+            base: TyStarlarkValue::new::<Record>(),
             matcher: TypeMatcherFactory::new(RecordTypeMatcher { id: self.id }),
             id: self.id,
             fields: self.fields.clone(),

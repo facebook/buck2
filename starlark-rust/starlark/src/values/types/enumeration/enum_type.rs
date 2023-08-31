@@ -33,6 +33,7 @@ use starlark_derive::NoSerialize;
 use starlark_derive::StarlarkDocs;
 use starlark_derive::Trace;
 use starlark_map::small_map::SmallMap;
+use starlark_map::sorted_map::SortedMap;
 use starlark_map::Equivalent;
 
 use crate as starlark;
@@ -42,15 +43,18 @@ use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
+use crate::typing::starlark_value::TyStarlarkValue;
+use crate::typing::user::TyUser;
 use crate::typing::Ty;
+use crate::values::enumeration::matcher::EnumTypeMatcher;
 use crate::values::enumeration::ty_enum_type::TyEnumData;
 use crate::values::enumeration::ty_enum_type::TyEnumType;
-use crate::values::enumeration::ty_enum_value::TyEnumValue;
 use crate::values::enumeration::value::EnumValueGen;
 use crate::values::enumeration::EnumValue;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::index::convert_index;
 use crate::values::types::type_instance_id::TypeInstanceId;
+use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
 use crate::values::Freeze;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
@@ -273,11 +277,7 @@ where
     }
 
     fn eval_type(&self) -> Option<Ty> {
-        self.ty_enum_type().map(|t| {
-            Ty::custom(TyEnumValue {
-                enum_type: t.dupe(),
-            })
-        })
+        self.ty_enum_type().map(|t| t.data.ty_enum_value.dupe())
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
@@ -285,21 +285,31 @@ where
     }
 
     fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
-        V::get_or_init_ty(&self.ty_enum_type, || TyEnumType {
-            data: Arc::new(TyEnumData {
+        V::get_or_init_ty(&self.ty_enum_type, || {
+            let ty_enum_value = Ty::custom(TyUser {
                 name: variable_name.to_owned(),
-                variants: self
-                    .elements()
-                    .iter()
-                    .map(|(_, enum_value)| {
-                        let enum_value: &EnumValueGen<_> =
-                            EnumValue::from_value(enum_value.to_value())
-                                .expect("known to be enum value");
-                        Ty::of_value(enum_value.value)
-                    })
-                    .collect(),
+                base: TyStarlarkValue::new::<EnumValue>(),
+                matcher: TypeMatcherFactory::new(EnumTypeMatcher { id: self.id }),
                 id: self.id,
-            }),
+                fields: SortedMap::new(),
+            });
+            TyEnumType {
+                data: Arc::new(TyEnumData {
+                    name: variable_name.to_owned(),
+                    variants: self
+                        .elements()
+                        .iter()
+                        .map(|(_, enum_value)| {
+                            let enum_value: &EnumValueGen<_> =
+                                EnumValue::from_value(enum_value.to_value())
+                                    .expect("known to be enum value");
+                            Ty::of_value(enum_value.value)
+                        })
+                        .collect(),
+                    id: self.id,
+                    ty_enum_value,
+                }),
+            }
         });
     }
 }
@@ -362,7 +372,7 @@ def g(x):
 
 g(Season[0])
 "#,
-            r#"Value `"SPRING"` of type `enum` does not match the type annotation `enum(name = "Color", ...)` for argument `x`"#,
+            r#"Value `"SPRING"` of type `enum` does not match the type annotation `Color` for argument `x`"#,
         );
     }
 
@@ -379,7 +389,7 @@ def f(x: Color):
 def g(x: Season):
     f(x)
 "#,
-            r#"Expected type `enum(name = "Color", ...)` but got `enum(name = "Season", ...)`"#,
+            r#"Expected type `Color` but got `Season`"#,
         );
     }
 
@@ -395,6 +405,40 @@ def foo(x: typing.Callable):
 def bar():
     foo(Color)
 "#,
+        );
+    }
+
+    #[test]
+    fn test_enum_value_index() {
+        // Test `.index` is available at both compile and runtime.
+        assert::pass(
+            r#"
+Color = enum("RED", "GREEN", "BLUE")
+
+def test():
+    for c in Color:
+        if c.index == 1:
+            pass
+
+test()
+"#,
+        );
+    }
+
+    #[test]
+    fn test_enum_value_index_correct_type() {
+        assert::fail(
+            r#"
+Fruit = enum("APPLE", "BANANA", "ORANGE")
+
+def expect_str(s: str):
+    pass
+
+def test():
+    for f in Fruit:
+        expect_str(f.index)
+"#,
+            "Expected type `str` but got `int`",
         );
     }
 }

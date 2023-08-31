@@ -40,7 +40,6 @@ use crate::starlark_complex_values;
 use crate::typing::Ty;
 use crate::values::enumeration::enum_type::EnumType;
 use crate::values::enumeration::enum_type::FrozenEnumType;
-use crate::values::enumeration::ty_enum_value::TyEnumValue;
 use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::StarlarkValue;
 use crate::values::Value;
@@ -129,9 +128,7 @@ where
             Either::Left(x) => x.ty_enum_type()?,
             Either::Right(x) => x.ty_enum_type()?,
         };
-        Some(Ty::custom(TyEnumValue {
-            enum_type: ty_enum_type.dupe(),
-        }))
+        Some(ty_enum_type.data.ty_enum_value.dupe())
     }
 }
 

@@ -28,7 +28,6 @@ use crate::typing::Arg;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingOracleCtx;
-use crate::values::enumeration::ty_enum_value::TyEnumValue;
 use crate::values::enumeration::EnumType;
 use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
@@ -43,6 +42,8 @@ pub(crate) struct TyEnumData {
     /// Globally unique id of the enum type.
     // Id must be last so `Ord` is deterministic.
     pub(crate) id: TypeInstanceId,
+    /// Type of enum variant.
+    pub(crate) ty_enum_value: Ty,
 }
 
 impl PartialEq for TyEnumData {
@@ -86,9 +87,7 @@ impl TyCustomImpl for TyEnumType {
     }
 
     fn iter_item(&self) -> Result<Ty, ()> {
-        Ok(Ty::custom(TyEnumValue {
-            enum_type: self.dupe(),
-        }))
+        Ok(self.data.ty_enum_value.dupe())
     }
 
     fn index(&self, _item: &TyBasic) -> Result<Ty, ()> {
@@ -118,9 +117,7 @@ impl TyCustomImpl for TyEnumType {
         _oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
         // TODO(nga): validate args.
-        Ok(Ty::custom(TyEnumValue {
-            enum_type: self.dupe(),
-        }))
+        Ok(self.data.ty_enum_value.dupe())
     }
 
     fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result {

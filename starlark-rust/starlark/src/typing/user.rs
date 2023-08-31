@@ -20,10 +20,11 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use allocative::Allocative;
-use dupe::Dupe;
+use dupe::OptionDupedExt;
 use starlark_map::sorted_map::SortedMap;
 
 use crate::typing::custom::TyCustomImpl;
+use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::Ty;
 use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
@@ -34,6 +35,8 @@ use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFacto
 #[display(fmt = "{}", name)]
 pub(crate) struct TyUser {
     pub(crate) name: String,
+    /// Base type for this custom type, e.g. generic record for record with known fields.
+    pub(crate) base: TyStarlarkValue,
     pub(crate) matcher: TypeMatcherFactory,
     pub(crate) id: TypeInstanceId,
     pub(crate) fields: SortedMap<String, Ty>,
@@ -72,9 +75,10 @@ impl TyCustomImpl for TyUser {
     }
 
     fn attribute(&self, attr: &str) -> Result<Ty, ()> {
-        match self.fields.get(attr) {
-            Some(ty) => Ok(ty.dupe()),
-            None => Err(()),
+        if let Ok(ty) = self.base.attr_from_methods(attr) {
+            Ok(ty)
+        } else {
+            self.fields.get(attr).duped().ok_or(())
         }
     }
 

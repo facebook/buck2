@@ -202,11 +202,18 @@ impl TyStarlarkValue {
         }
     }
 
-    pub(crate) fn attr(self, name: &str) -> Result<Ty, ()> {
+    pub(crate) fn attr_from_methods(self, name: &str) -> Result<Ty, ()> {
         if let Some(methods) = (self.vtable.vtable.get_methods)() {
             if let Some(method) = methods.get(name) {
                 return Ok(Ty::of_value(method));
             }
+        }
+        Err(())
+    }
+
+    pub(crate) fn attr(self, name: &str) -> Result<Ty, ()> {
+        if let Ok(ty) = self.attr_from_methods(name) {
+            return Ok(ty);
         }
         if let Some(ty) = (self.vtable.vtable.attr_ty)(name) {
             return Ok(ty);
