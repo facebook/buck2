@@ -78,8 +78,8 @@ TargetExtraInfo = record(
     source_map = field(list[list[str]], default = []),
     python = field([PythonInfo.type, None], default = None),
     clr = field([ClrInfo.type, None], default = None),
-    vscode = field([Custom.type, None], default = None),
-    custom = field([Custom.type, None], default = None),
+    vscode = field([Custom, None], default = None),
+    custom = field([Custom, None], default = None),
     java = field([JavaInfo.type, None], default = None),
 )
 
