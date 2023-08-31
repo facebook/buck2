@@ -26,6 +26,7 @@ use lsp_types::CompletionTextEdit;
 use lsp_types::Documentation;
 use lsp_types::MarkupContent;
 use lsp_types::MarkupKind;
+use lsp_types::Range;
 use lsp_types::TextEdit;
 
 use crate::codemap::ResolvedPos;
@@ -46,6 +47,28 @@ use crate::lsp::server::LspUrl;
 use crate::lsp::symbols::find_symbols_at_location;
 use crate::lsp::symbols::SymbolKind;
 use crate::syntax::ast::StmtP;
+
+/// The context in which to offer string completion options.
+#[derive(Debug, PartialEq)]
+pub enum StringCompletionType {
+    /// The first argument to a `load` statement.
+    LoadPath,
+    /// A string in another context.
+    String,
+}
+
+/// A possible result in auto-complete for a string context.
+#[derive(Debug, PartialEq)]
+pub struct StringCompletionResult {
+    /// The value to complete.
+    pub value: String,
+    /// The text to insert, if different from the value.
+    pub insert_text: Option<String>,
+    /// From where to start the insertion, compared to the start of the string.
+    pub insert_text_offset: usize,
+    /// The kind of result, e.g. a file vs a folder.
+    pub kind: CompletionItemKind,
+}
 
 impl<T: LspContext> Backend<T> {
     pub(crate) fn default_completion_options(
@@ -160,7 +183,6 @@ impl<T: LspContext> Backend<T> {
                     .filter(|symbol| !previously_loaded.iter().any(|s| s == &symbol.name))
                     .map(|symbol| {
                         let mut item: CompletionItem = symbol.into();
-                        item.insert_text = Some(item.label.clone());
                         item.text_edit = Some(CompletionTextEdit::Edit(TextEdit {
                             range: current_span.into(),
                             new_text: item.label.clone(),
@@ -310,6 +332,36 @@ impl<T: LspContext> Backend<T> {
             | IdentifierDefinition::StringLiteral { .. }
             | IdentifierDefinition::NotFound => None,
         })
+    }
+
+    pub(crate) fn string_completion_options(
+        &self,
+        document_uri: &LspUrl,
+        kind: StringCompletionType,
+        current_value: &str,
+        current_span: ResolvedSpan,
+        workspace_root: Option<&Path>,
+    ) -> anyhow::Result<Vec<CompletionItem>> {
+        Ok(self
+            .context
+            .get_string_completion_options(document_uri, kind, current_value, workspace_root)?
+            .into_iter()
+            .map(|result| {
+                let mut range: Range = current_span.into();
+                range.start.character += result.insert_text_offset as u32;
+
+                CompletionItem {
+                    label: result.value.clone(),
+                    kind: Some(result.kind),
+                    insert_text: result.insert_text.clone(),
+                    text_edit: Some(CompletionTextEdit::Edit(TextEdit {
+                        range,
+                        new_text: result.insert_text.unwrap_or(result.value),
+                    })),
+                    ..Default::default()
+                }
+            })
+            .collect())
     }
 
     pub(crate) fn type_completion_options() -> impl Iterator<Item = CompletionItem> {

@@ -96,6 +96,8 @@ use crate::docs::markdown::render_doc_member;
 use crate::docs::markdown::render_doc_param;
 use crate::docs::DocMember;
 use crate::docs::DocModule;
+use crate::lsp::completion::StringCompletionResult;
+use crate::lsp::completion::StringCompletionType;
 use crate::lsp::definition::Definition;
 use crate::lsp::definition::DottedDefinition;
 use crate::lsp::definition::IdentifierDefinition;
@@ -351,6 +353,20 @@ pub trait LspContext {
         current_file: &LspUrl,
         symbol: &str,
     ) -> anyhow::Result<Option<LspUrl>>;
+
+    /// Get valid completion options if possible, based on the kind of string
+    /// completion expected (e.g. any string literal, versus the path argument in
+    /// a load statement).
+    fn get_string_completion_options(
+        &self,
+        document_uri: &LspUrl,
+        kind: StringCompletionType,
+        current_value: &str,
+        workspace_root: Option<&Path>,
+    ) -> anyhow::Result<Vec<StringCompletionResult>> {
+        let _unused = (document_uri, kind, current_value, workspace_root);
+        Ok(Vec::new())
+    }
 }
 
 /// Errors when [`LspContext::resolve_load()`] cannot resolve a given path.
@@ -751,8 +767,24 @@ impl<T: LspContext> Backend<T> {
                         )
                         .collect(),
                     ),
-                    Some(AutocompleteType::LoadPath { .. })
-                    | Some(AutocompleteType::String { .. }) => None,
+                    Some(AutocompleteType::LoadPath {
+                        current_value,
+                        current_span,
+                    })
+                    | Some(AutocompleteType::String {
+                        current_value,
+                        current_span,
+                    }) => Some(self.string_completion_options(
+                        &uri,
+                        if matches!(&autocomplete_type, Some(AutocompleteType::LoadPath { .. })) {
+                            StringCompletionType::LoadPath
+                        } else {
+                            StringCompletionType::String
+                        },
+                        current_value,
+                        *current_span,
+                        workspace_root.as_deref(),
+                    )?),
                     Some(AutocompleteType::LoadSymbol {
                         path,
                         current_span,
@@ -930,10 +962,7 @@ impl<T: LspContext> Backend<T> {
                 load_args.sort_by(|(_, a), (_, b)| a.cmp(b));
 
                 TextEdit::new(
-                    Range::new(
-                        Position::new(load_span.begin.line as u32, load_span.begin.column as u32),
-                        Position::new(load_span.end.line as u32, load_span.end.column as u32),
-                    ),
+                    load_span.into(),
                     format!(
                         "load(\"{module}\", {})",
                         load_args

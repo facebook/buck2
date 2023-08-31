@@ -51,6 +51,7 @@ use walkdir::WalkDir;
 
 use crate::eval::ContextMode;
 
+mod bazel;
 mod dap;
 mod eval;
 
@@ -136,6 +137,12 @@ struct Args {
         conflicts_with_all = &["lsp", "dap"],
     )]
     files: Vec<PathBuf>,
+
+    #[arg(
+        long = "bazel",
+        help = "Run in Bazel mode (temporary, will be removed)"
+    )]
+    bazel: bool,
 }
 
 #[derive(ValueEnum, Copy, Clone, Dupe, Debug, PartialEq, Eq)]
@@ -262,14 +269,24 @@ fn main() -> anyhow::Result<()> {
             .extension
             .as_ref()
             .map_or("bzl", |x| x.strip_prefix('.').unwrap_or(x.as_str()));
+        let prelude = expand_dirs(ext, args.prelude).collect::<Vec<_>>();
+        let print_non_none = !args.evaluate.is_empty() || is_interactive;
+
+        // TODO: Remove this when extracting the Bazel binary to its own
+        // repository, after the LspContext interface stabilizes.
+        if args.bazel {
+            bazel::main(args.lsp, print_non_none, is_interactive, &prelude)?;
+            return Ok(());
+        }
+
         let mut ctx = Context::new(
             if args.check {
                 ContextMode::Check
             } else {
                 ContextMode::Run
             },
-            !args.evaluate.is_empty() || is_interactive,
-            &expand_dirs(ext, args.prelude).collect::<Vec<_>>(),
+            print_non_none,
+            &prelude,
             is_interactive,
         )?;
 

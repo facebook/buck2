@@ -36,7 +36,8 @@
                     ".star",
                     ".sky",
                     ".bxl",
-                    ".bzl"
+                    ".bzl",
+                    ".bazel"
                 ],
                 "filenames": [
                     "BUILD",
