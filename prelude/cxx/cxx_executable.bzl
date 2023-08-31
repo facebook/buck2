@@ -581,6 +581,9 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     sub_targets["linker.argsfile"] = [DefaultInfo(
         default_output = binary.linker_argsfile,
     )]
+    sub_targets["linker.filelist"] = [DefaultInfo(
+        default_outputs = filter(None, [binary.linker_filelist]),
+    )]
 
     if linker_info.supports_distributed_thinlto and ctx.attrs.enable_distributed_thinlto:
         sub_targets["index.argsfile"] = [DefaultInfo(

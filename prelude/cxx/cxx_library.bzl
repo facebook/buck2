@@ -990,6 +990,9 @@ def _form_library_outputs(
                     "linker.argsfile": [DefaultInfo(
                         default_output = shlib.linker_argsfile,
                     )],
+                    "linker.filelist": [DefaultInfo(
+                        default_outputs = filter(None, [shlib.linker_filelist]),
+                    )],
                 }
 
                 providers.append(result.link_result.link_execution_preference_info)

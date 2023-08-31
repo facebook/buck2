@@ -283,6 +283,7 @@ def cxx_link_into(
         dwp = dwp_artifact,
         external_debug_info = external_debug_info,
         linker_argsfile = argfile,
+        linker_filelist = link_args_output.filelist,
         import_library = opts.import_library,
         pdb = link_args_output.pdb_artifact,
         split_debug_output = split_debug_output,

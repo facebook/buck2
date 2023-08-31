@@ -59,6 +59,12 @@ LinkArgsOutput = record(
     link_args = ArgLike,
     hidden = list[typing.Any],
     pdb_artifact = [Artifact, None],
+    # The filelist artifact which contains the list of all object files.
+    # Only present for Darwin linkers. Note that object files referenced
+    # _inside_ the filelist are _not_ part of the `hidden` field above.
+    # That's by design - we do not want to materialise _all_ object files
+    # to inspect the filelist. Intended to be used for debugging.
+    filelist = [Artifact, None],
 )
 
 def make_link_args(
@@ -115,6 +121,7 @@ def make_link_args(
 
     filelists = filter(None, [unpack_link_args_filelist(link) for link in links])
     hidden.extend(filelists)
+    filelist_file = None
     if filelists:
         if linker_type == "gnu":
             fail("filelist populated for gnu linker")
@@ -123,6 +130,7 @@ def make_link_args(
             # of the position.
             path = ctx.actions.write("filelist%s.txt" % suffix, filelists)
             args.add(["-Xlinker", "-filelist", "-Xlinker", path])
+            filelist_file = path
         else:
             fail("Linker type {} not supported".format(linker_type))
 
@@ -130,6 +138,7 @@ def make_link_args(
         link_args = args,
         hidden = [args] + hidden,
         pdb_artifact = pdb_artifact,
+        filelist = filelist_file,
     )
 
 def shared_libs_symlink_tree_name(output: Artifact) -> str:

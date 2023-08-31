@@ -294,6 +294,11 @@ LinkedObject = record(
     # This argsfile is generated in the `cxx_link` step and contains a list of arguments
     # passed to the linker. It is being exposed as a sub-target for debugging purposes.
     linker_argsfile = field([Artifact, None], None),
+    # The filelist is generated in the `cxx_link` step and contains a list of
+    # object files (static libs or plain object files) passed to the linker.
+    # It is being exposed for debugging purposes. Only present when a Darwin
+    # linker is used.
+    linker_filelist = field([Artifact, None], None),
     # This sub-target is only available for distributed thinLTO builds.
     index_argsfile = field([Artifact, None], None),
     # Import library for linking with DLL on Windows.
