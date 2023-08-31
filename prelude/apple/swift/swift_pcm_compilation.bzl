@@ -11,13 +11,13 @@ load("@prelude//cxx:preprocessor.bzl", "cxx_inherited_preprocessor_infos", "cxx_
 load(
     ":apple_sdk_modules_utility.bzl",
     "SDKDepTSet",  # @unused Used as a type
-    "get_compiled_sdk_clang_deps_tset",
+    "get_compiled_sdk_deps_tset",
     "get_uncompiled_sdk_deps",
 )
 load(":swift_pcm_compilation_types.bzl", "SwiftPCMCompiledInfo", "SwiftPCMUncompiledInfo", "WrappedSwiftPCMCompiledInfo")
 load(":swift_sdk_pcm_compilation.bzl", "get_shared_pcm_compilation_args", "get_swift_sdk_pcm_anon_targets")
 load(":swift_sdk_swiftinterface_compilation.bzl", "get_swift_interface_anon_targets")
-load(":swift_toolchain_types.bzl", "SdkDependencyInfo")
+load(":swift_toolchain_types.bzl", "WrappedSdkCompiledModuleInfo")
 
 _REQUIRED_SDK_MODULES = ["Foundation"]
 
@@ -90,9 +90,9 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> ["promise", list[Provid
     def k(compiled_pcm_deps_providers) -> list[Provider]:
         uncompiled_pcm_info = ctx.attrs.dep[SwiftPCMUncompiledInfo]
 
-        # `compiled_pcm_deps_providers` will contain `SdkDependencyInfo` providers
+        # `compiled_pcm_deps_providers` will contain `WrappedSdkCompiledModuleInfo` providers
         # from direct SDK deps and transitive deps that export sdk deps.
-        sdk_deps_tset = get_compiled_sdk_clang_deps_tset(ctx, compiled_pcm_deps_providers)
+        sdk_deps_tset = get_compiled_sdk_deps_tset(ctx, compiled_pcm_deps_providers)
 
         # To compile a pcm we only use the exported_deps as those are the only
         # ones that should be transitively exported through public headers
@@ -107,8 +107,8 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> ["promise", list[Provid
                 WrappedSwiftPCMCompiledInfo(
                     tset = ctx.actions.tset(PcmDepTSet, children = [pcm_deps_tset]),
                 ),
-                SdkDependencyInfo(
-                    clang_deps = sdk_deps_tset,
+                WrappedSdkCompiledModuleInfo(
+                    tset = sdk_deps_tset,
                 ),
             ]
 
@@ -153,8 +153,8 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> ["promise", list[Provid
             WrappedSwiftPCMCompiledInfo(
                 tset = ctx.actions.tset(PcmDepTSet, value = compiled_pcm, children = [pcm_deps_tset]),
             ),
-            SdkDependencyInfo(
-                clang_deps = sdk_deps_tset,
+            WrappedSdkCompiledModuleInfo(
+                tset = sdk_deps_tset,
             ),
         ]
 
@@ -211,9 +211,9 @@ def compile_underlying_pcm(
         framework_search_path_flags: cmd_args) -> SwiftPCMCompiledInfo.type:
     module_name = get_module_name(ctx)
 
-    # `compiled_pcm_deps_providers` will contain `SdkDependencyInfo` providers
+    # `compiled_pcm_deps_providers` will contain `WrappedSdkCompiledModuleInfo` providers
     # from direct SDK deps and transitive deps that export sdk deps.
-    sdk_deps_tset = get_compiled_sdk_clang_deps_tset(ctx, compiled_pcm_deps_providers)
+    sdk_deps_tset = get_compiled_sdk_deps_tset(ctx, compiled_pcm_deps_providers)
 
     # To compile a pcm we only use the exported_deps as those are the only
     # ones that should be transitively exported through public headers

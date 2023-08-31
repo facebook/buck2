@@ -44,7 +44,7 @@ load(
     "SwiftmoduleLinkable",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
-load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_clang_deps_tset", "get_compiled_sdk_swift_deps_tset", "get_uncompiled_sdk_deps", "is_sdk_modules_provided")
+load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_deps_tset", "get_uncompiled_sdk_deps", "is_sdk_modules_provided")
 load(":swift_module_map.bzl", "write_swift_module_map_with_swift_deps")
 load(":swift_pcm_compilation.bzl", "PcmDepTSet", "compile_underlying_pcm", "get_compiled_pcm_deps_tset", "get_swift_pcm_anon_targets")
 load(
@@ -138,7 +138,6 @@ def get_swift_anonymous_targets(ctx: AnalysisContext, get_apple_library_provider
         ctx,
         direct_uncompiled_sdk_deps,
     )
-
     return ctx.actions.anon_targets(pcm_targets + sdk_pcm_targets + swift_interface_anon_targets).map(get_apple_library_providers)
 
 def get_swift_cxx_flags(ctx: AnalysisContext) -> list[str]:
@@ -482,12 +481,11 @@ def _get_shared_flags(
         ])
 
     pcm_deps_tset = get_compiled_pcm_deps_tset(ctx, deps_providers)
-    sdk_clang_deps_tset = get_compiled_sdk_clang_deps_tset(ctx, deps_providers)
-    sdk_swift_deps_tset = get_compiled_sdk_swift_deps_tset(ctx, deps_providers)
+    sdk_deps_tset = get_compiled_sdk_deps_tset(ctx, deps_providers)
 
     # Add flags required to import ObjC module dependencies
-    _add_clang_deps_flags(ctx, pcm_deps_tset, sdk_clang_deps_tset, cmd)
-    _add_swift_deps_flags(ctx, sdk_swift_deps_tset, cmd)
+    _add_clang_deps_flags(ctx, pcm_deps_tset, sdk_deps_tset, cmd)
+    _add_swift_deps_flags(ctx, sdk_deps_tset, cmd)
 
     # Add flags for importing the ObjC part of this library
     _add_mixed_library_flags_to_cmd(ctx, cmd, underlying_module, objc_headers, objc_modulemap_pp_info)

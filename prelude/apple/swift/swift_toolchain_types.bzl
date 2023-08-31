@@ -51,9 +51,8 @@ SdkUncompiledModuleInfo = provider(fields = [
 
 SdkTransitiveDepsTset = transitive_set()
 
-SdkDependencyInfo = provider(fields = [
-    "clang_deps",  # A tset of SdkCompiledModuleInfo clang modules
-    "swift_deps",  # A tset of SdkCompiledModuleInfo swift modules
+WrappedSdkCompiledModuleInfo = provider(fields = [
+    "tset",  # A tset that contains SdkCompiledModuleInfo itself and its transitive deps
 ])
 
 # A provider that represents an already-compiled SDK (Swift or Clang) module.

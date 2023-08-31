@@ -9,9 +9,9 @@ load("@prelude//utils:set.bzl", "set")
 load(
     ":swift_toolchain_types.bzl",
     "SdkCompiledModuleInfo",  # @unused Used as a type
-    "SdkDependencyInfo",
     "SdkSwiftOverlayInfo",
     "SwiftToolchainInfo",  # @unused Used as a type
+    "WrappedSdkCompiledModuleInfo",
 )
 
 def project_as_hidden(module_info: SdkCompiledModuleInfo.type):
@@ -41,21 +41,11 @@ def is_sdk_modules_provided(toolchain: SwiftToolchainInfo.type) -> bool:
     has_clang_modules = bool(toolchain.uncompiled_clang_sdk_modules_deps)
     return has_swift_modules or has_clang_modules
 
-def get_compiled_sdk_clang_deps_tset(ctx: AnalysisContext, deps_providers: list) -> SDKDepTSet.type:
+def get_compiled_sdk_deps_tset(ctx: AnalysisContext, deps_providers: list) -> SDKDepTSet.type:
     sdk_deps = [
-        deps_provider[SdkDependencyInfo].clang_deps
+        deps_provider[WrappedSdkCompiledModuleInfo].tset
         for deps_provider in deps_providers
-        if SdkDependencyInfo in deps_provider
-        if deps_provider[SdkDependencyInfo].clang_deps != None
-    ]
-    return ctx.actions.tset(SDKDepTSet, children = sdk_deps)
-
-def get_compiled_sdk_swift_deps_tset(ctx: AnalysisContext, deps_providers: list) -> SDKDepTSet.type:
-    sdk_deps = [
-        deps_provider[SdkDependencyInfo].swift_deps
-        for deps_provider in deps_providers
-        if SdkDependencyInfo in deps_provider
-        if deps_provider[SdkDependencyInfo].swift_deps != None
+        if WrappedSdkCompiledModuleInfo in deps_provider
     ]
     return ctx.actions.tset(SDKDepTSet, children = sdk_deps)
 
