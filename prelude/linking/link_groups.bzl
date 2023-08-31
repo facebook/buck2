@@ -20,21 +20,21 @@ LinkGroupLib = record(
     # The label of the owning target (if any).
     label = field([Label, None], None),
     # The shared libs to package for this link group.
-    shared_libs = field(dict[str, LinkedObject.type]),
+    shared_libs = field(dict[str, LinkedObject]),
     # The link info to link against this link group.
-    shared_link_infos = field(LinkInfos.type),
+    shared_link_infos = field(LinkInfos),
 )
 
 # Provider propagating info about transitive link group libs.
 LinkGroupLibInfo = provider(fields = [
     # A map of link group names to their shared libraries.
-    "libs",  # {str: LinkGroupLib.type}
+    "libs",  # dict[str, LinkGroupLib]
 ])
 
 def gather_link_group_libs(
-        libs: list[dict[str, LinkGroupLib.type]] = [],
+        libs: list[dict[str, LinkGroupLib]] = [],
         children: list[LinkGroupLibInfo.type] = [],
-        deps: list[Dependency] = []) -> dict[str, LinkGroupLib.type]:
+        deps: list[Dependency] = []) -> dict[str, LinkGroupLib]:
     """
     Return all link groups libs deps and top-level libs.
     """
@@ -48,8 +48,8 @@ def gather_link_group_libs(
 def merge_link_group_lib_info(
         label: [Label, None] = None,
         name: [str, None] = None,
-        shared_libs: [dict[str, LinkedObject.type], None] = None,
-        shared_link_infos: [LinkInfos.type, None] = None,
+        shared_libs: [dict[str, LinkedObject], None] = None,
+        shared_link_infos: [LinkInfos, None] = None,
         deps: list[Dependency] = []) -> LinkGroupLibInfo.type:
     """
     Merge and return link group info libs from deps and the current rule wrapped

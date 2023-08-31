@@ -25,11 +25,11 @@ load(
 # Potential omnibus roots must provide this so that omnibus can link them
 # here, in the context of the top-level packaging rule.
 LinkableRootInfo = provider(fields = [
-    "link_infos",  # LinkInfos.type
+    "link_infos",  # LinkInfos
     "name",  # [str, None]
     "deps",  # ["label"]
-    "shared_root",  # SharedOmnibusRoot.type, either this or no_shared_root_reason is set.
-    "no_shared_root_reason",  # OmnibusPrivateRootProductCause.type
+    "shared_root",  # SharedOmnibusRoot, either this or no_shared_root_reason is set.
+    "no_shared_root_reason",  # OmnibusPrivateRootProductCause
 ])
 
 # This annotation is added on an AnnotatedLinkableRoot to indicate what
@@ -42,7 +42,7 @@ LinkableRootAnnotation = record(
 
 AnnotatedLinkableRoot = record(
     root = field(LinkableRootInfo.type),
-    annotation = field([LinkableRootAnnotation.type, None], None),
+    annotation = field([LinkableRootAnnotation, None], None),
 )
 
 ###############################################################################
@@ -57,7 +57,7 @@ LinkableNode = record(
     # Attribute labels on the target.
     labels = field(list[str], []),
     # Preferred linkage for this target.
-    preferred_linkage = field(Linkage.type, Linkage("any")),
+    preferred_linkage = field(Linkage, Linkage("any")),
     # Linkable deps of this target.
     deps = field(list[Label], []),
     # Exported linkable deps of this target.
@@ -68,13 +68,13 @@ LinkableNode = record(
     # and produces more efficient libs (for example, DT_NEEDED stays a manageable size).
     exported_deps = field(list[Label], []),
     # Link infos for all supported link styles.
-    link_infos = field(dict[LinkStyle.type, LinkInfos.type], {}),
+    link_infos = field(dict[LinkStyle, LinkInfos], {}),
     # Shared libraries provided by this target.  Used if this target is
     # excluded.
-    shared_libs = field(dict[str, LinkedObject.type], {}),
+    shared_libs = field(dict[str, LinkedObject], {}),
 
     # Only allow constructing within this file.
-    _private = _DisallowConstruction.type,
+    _private = _DisallowConstruction,
 )
 
 LinkableGraphNode = record(
@@ -82,17 +82,17 @@ LinkableGraphNode = record(
     label = field(Label),
 
     # If this node has linkable output, it's linkable data
-    linkable = field([LinkableNode.type, None], None),
+    linkable = field([LinkableNode, None], None),
 
     # All potential root notes for an omnibus link (e.g. C++ libraries,
     # C++ Python extensions).
-    roots = field(dict[Label, AnnotatedLinkableRoot.type], {}),
+    roots = field(dict[Label, AnnotatedLinkableRoot], {}),
 
     # Exclusions this node adds to the Omnibus graph
     excluded = field(dict[Label, None], {}),
 
     # Only allow constructing within this file.
-    _private = _DisallowConstruction.type,
+    _private = _DisallowConstruction,
 )
 
 LinkableGraphTSet = transitive_set()
@@ -114,11 +114,11 @@ DlopenableLibraryInfo = provider(fields = [])
 
 def create_linkable_node(
         ctx: AnalysisContext,
-        preferred_linkage: Linkage.type = Linkage("any"),
+        preferred_linkage: Linkage = Linkage("any"),
         deps: list[Dependency] = [],
         exported_deps: list[Dependency] = [],
-        link_infos: dict[LinkStyle.type, LinkInfos.type] = {},
-        shared_libs: dict[str, LinkedObject.type] = {}) -> LinkableNode.type:
+        link_infos: dict[LinkStyle, LinkInfos] = {},
+        shared_libs: dict[str, LinkedObject] = {}) -> LinkableNode:
     for link_style in get_link_styles_for_linkage(preferred_linkage):
         expect(
             link_style in link_infos,
@@ -136,9 +136,9 @@ def create_linkable_node(
 
 def create_linkable_graph_node(
         ctx: AnalysisContext,
-        linkable_node: [LinkableNode.type, None] = None,
-        roots: dict[Label, AnnotatedLinkableRoot.type] = {},
-        excluded: dict[Label, None] = {}) -> LinkableGraphNode.type:
+        linkable_node: [LinkableNode, None] = None,
+        roots: dict[Label, AnnotatedLinkableRoot] = {},
+        excluded: dict[Label, None] = {}) -> LinkableGraphNode:
     return LinkableGraphNode(
         label = ctx.label,
         linkable = linkable_node,
@@ -149,9 +149,9 @@ def create_linkable_graph_node(
 
 def create_linkable_graph(
         ctx: AnalysisContext,
-        node: [LinkableGraphNode.type, None] = None,
+        node: [LinkableGraphNode, None] = None,
         deps: list[Dependency] = [],
-        children: list[LinkableGraph.type] = []) -> LinkableGraph.type:
+        children: list[LinkableGraph] = []) -> LinkableGraph:
     all_children_graphs = filter(None, [x.get(LinkableGraph) for x in deps]) + children
     kwargs = {
         "children": [child_node.nodes for child_node in all_children_graphs],
@@ -163,8 +163,8 @@ def create_linkable_graph(
         nodes = ctx.actions.tset(LinkableGraphTSet, **kwargs),
     )
 
-def get_linkable_graph_node_map_func(graph: LinkableGraph.type):
-    def get_linkable_graph_node_map() -> dict[Label, LinkableNode.type]:
+def get_linkable_graph_node_map_func(graph: LinkableGraph):
+    def get_linkable_graph_node_map() -> dict[Label, LinkableNode]:
         nodes = graph.nodes.traverse()
         linkable_nodes = {}
         for node in filter(None, nodes):
@@ -184,7 +184,7 @@ def linkable_deps(deps: list[Dependency]) -> list[Label]:
 
     return labels
 
-def linkable_graph(dep: Dependency) -> [LinkableGraph.type, None]:
+def linkable_graph(dep: Dependency) -> [LinkableGraph, None]:
     """
     Helper to extract `LinkableGraph` from a dependency which also
     provides `MergedLinkInfo`.
@@ -203,8 +203,8 @@ def linkable_graph(dep: Dependency) -> [LinkableGraph.type, None]:
     return dep[LinkableGraph]
 
 def get_link_info(
-        node: LinkableNode.type,
-        link_style: LinkStyle.type,
+        node: LinkableNode,
+        link_style: LinkStyle,
         prefer_stripped: bool = False) -> LinkInfo.type:
     info = _get_link_info(
         node.link_infos[link_style],
@@ -213,9 +213,9 @@ def get_link_info(
     return info
 
 def get_deps_for_link(
-        node: LinkableNode.type,
-        link_style: LinkStyle.type,
-        pic_behavior: PicBehavior.type) -> list[Label]:
+        node: LinkableNode,
+        link_style: LinkStyle,
+        pic_behavior: PicBehavior) -> list[Label]:
     """
     Return deps to follow when linking against this node with the given link
     style.

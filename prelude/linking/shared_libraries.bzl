@@ -13,7 +13,7 @@ load(
 load("@prelude//linking:strip.bzl", "strip_object")
 
 SharedLibrary = record(
-    lib = field(LinkedObject.type),
+    lib = field(LinkedObject),
     stripped_lib = field([Artifact, None]),
     can_be_asset = field(bool),
     for_primary_apk = field(bool),
@@ -25,7 +25,7 @@ SharedLibraries = record(
     # Since the SONAME is what the dynamic loader uses to uniquely identify
     # libraries, using this as the key allows easily detecting conflicts from
     # dependencies.
-    libraries = field(dict[str, SharedLibrary.type]),
+    libraries = field(dict[str, SharedLibrary]),
 )
 
 # T-set of SharedLibraries
@@ -34,7 +34,7 @@ SharedLibrariesTSet = transitive_set()
 # Shared libraries required by top-level packaging rules (e.g. shared libs
 # for Python binary, symlink trees of shared libs for C++ binaries)
 SharedLibraryInfo = provider(fields = [
-    "set",  # [SharedLibrariesTSet.type, None]
+    "set",  # SharedLibrariesTSet | None
 ])
 
 def _get_strip_non_global_flags(cxx_toolchain: CxxToolchainInfo.type) -> list:
@@ -45,7 +45,7 @@ def _get_strip_non_global_flags(cxx_toolchain: CxxToolchainInfo.type) -> list:
 
 def create_shared_libraries(
         ctx: AnalysisContext,
-        libraries: dict[str, LinkedObject.type]) -> SharedLibraries.type:
+        libraries: dict[str, LinkedObject]) -> SharedLibraries:
     """
     Take a mapping of dest -> src and turn it into a mapping that will be
     passed around in providers. Used for both srcs, and resources.
@@ -68,9 +68,9 @@ def create_shared_libraries(
 
 # We do a lot of merging library maps, so don't use O(n) type annotations
 def _merge_lib_map(
-        # {str: SharedLibrary.type}
+        # dict[str, SharedLibrary]
         dest_mapping,
-        # {str: SharedLibrary.type}
+        # [dict[str, SharedLibrary]
         mapping_to_merge) -> None:
     """
     Merges a mapping_to_merge into `dest_mapping`. Fails if different libraries
@@ -116,7 +116,7 @@ def merge_shared_libraries(
     return SharedLibraryInfo(set = set)
 
 def traverse_shared_library_info(
-        info: SharedLibraryInfo.type):  # -> {str: SharedLibrary.type}:
+        info: SharedLibraryInfo.type):  # -> dict[str, SharedLibrary]:
     libraries = {}
     if info.set:
         for libs in info.set.traverse():

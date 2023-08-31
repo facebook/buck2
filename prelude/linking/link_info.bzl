@@ -67,7 +67,7 @@ LinkableType = enum(
 # An archive.
 ArchiveLinkable = record(
     # Artifact in the .a format from ar
-    archive = field(Archive.type),
+    archive = field(Archive),
     # If a bitcode bundle was created for this artifact it will be present here
     bitcode_bundle = field([Artifact, None], None),
     linker_type = field(str),
@@ -76,14 +76,14 @@ ArchiveLinkable = record(
     # to e.g. tell dist LTO handling that a potentially expensive archive doesn't
     # need to be processed.
     supports_lto = field(bool, True),
-    _type = field(LinkableType.type, LinkableType("archive")),
+    _type = field(LinkableType, LinkableType("archive")),
 )
 
 # A shared lib.
 SharedLibLinkable = record(
     lib = field(Artifact),
     link_without_soname = field(bool, False),
-    _type = field(LinkableType.type, LinkableType("shared")),
+    _type = field(LinkableType, LinkableType("shared")),
 )
 
 # A list of objects.
@@ -93,7 +93,7 @@ ObjectsLinkable = record(
     bitcode_bundle = field([Artifact, None], None),
     linker_type = field(str),
     link_whole = field(bool, False),
-    _type = field(LinkableType.type, LinkableType("objects")),
+    _type = field(LinkableType, LinkableType("objects")),
 )
 
 # Framework + library information for Apple/Cxx targets.
@@ -113,12 +113,12 @@ FrameworksLinkable = record(
     unresolved_framework_paths = field(list[str], []),
     # A list of library names, used to construct `-l` args.
     library_names = field(list[str], []),
-    _type = field(LinkableType.type, LinkableType("frameworks")),
+    _type = field(LinkableType, LinkableType("frameworks")),
 )
 
 SwiftmoduleLinkable = record(
     swiftmodule = field(Artifact),
-    _type = field(LinkableType.type, LinkableType("swiftmodule")),
+    _type = field(LinkableType, LinkableType("swiftmodule")),
 )
 
 # Represents the Swift runtime as a linker input.
@@ -126,10 +126,10 @@ SwiftRuntimeLinkable = record(
     # Only store whether the runtime is required, so that linker flags
     # are only materialized _once_ (no duplicates) on the link line.
     runtime_required = field(bool, False),
-    _type = field(LinkableType.type, LinkableType("swift_runtime")),
+    _type = field(LinkableType, LinkableType("swift_runtime")),
 )
 
-LinkableTypes = [ArchiveLinkable.type, SharedLibLinkable.type, ObjectsLinkable.type, FrameworksLinkable.type, SwiftmoduleLinkable.type, SwiftRuntimeLinkable.type]
+LinkableTypes = [ArchiveLinkable, SharedLibLinkable, ObjectsLinkable, FrameworksLinkable, SwiftmoduleLinkable, SwiftRuntimeLinkable]
 
 # Contains the information required to add an item (often corresponding to a single library) to a link command line.
 LinkInfo = record(
@@ -157,7 +157,7 @@ LinkOrdering = enum(
 )
 
 def set_linkable_link_whole(
-        linkable: [ArchiveLinkable.type, ObjectsLinkable.type, SharedLibLinkable.type, FrameworksLinkable.type]) -> [ArchiveLinkable.type, ObjectsLinkable.type, SharedLibLinkable.type, FrameworksLinkable.type]:
+        linkable: [ArchiveLinkable, ObjectsLinkable, SharedLibLinkable, FrameworksLinkable]) -> [ArchiveLinkable, ObjectsLinkable, SharedLibLinkable, FrameworksLinkable]:
     if linkable._type == LinkableType("archive"):
         return ArchiveLinkable(
             archive = linkable.archive,
@@ -371,14 +371,14 @@ LinkInfosTSet = transitive_set(
 
 # A map of native linkable infos from transitive dependencies.
 MergedLinkInfo = provider(fields = [
-    "_infos",  # {LinkStyle.type: LinkInfosTSet.type}
-    "_external_debug_info",  # {LinkStyle.type: ArtifactTSet.type}
+    "_infos",  # dict[LinkStyle, LinkInfosTSet]
+    "_external_debug_info",  # dict[LinkStyle, ArtifactTSet]
     # Apple framework linker args must be deduped to avoid overflow in our argsfiles.
     #
     # To save on repeated computation of transitive LinkInfos, we store a dedupped
     # structure, based on the link-style.
-    "frameworks",  # {LinkStyle.type: [FrameworksLinkable.type, None]}
-    "swift_runtime",  # {LinkStyle.type: [SwiftRuntimeLinkable.type, None]}
+    "frameworks",  # dict[LinkStyle, FrameworksLinkable | None]
+    "swift_runtime",  # dict[LinkStyle, SwiftRuntimeLinkable | None]
 ])
 
 # A map of linkages to all possible link styles it supports.
@@ -390,9 +390,9 @@ _LINK_STYLE_FOR_LINKAGE = {
 
 # Helper to wrap a LinkInfos with additional pre/post-flags.
 def wrap_link_infos(
-        inner: LinkInfos.type,
+        inner: LinkInfos,
         pre_flags: list[typing.Any] = [],
-        post_flags: list[typing.Any] = []) -> LinkInfos.type:
+        post_flags: list[typing.Any] = []) -> LinkInfos:
     return LinkInfos(
         default = wrap_link_info(
             inner.default,
@@ -409,19 +409,19 @@ def wrap_link_infos(
 def create_merged_link_info(
         # Target context for which to create the link info.
         ctx: AnalysisContext,
-        pic_behavior: PicBehavior.type,
+        pic_behavior: PicBehavior,
         # The link infos provided by this rule, as a map from link style (as
         # used by dependents) to `LinkInfo`.
-        link_infos: dict[LinkStyle.type, LinkInfos.type] = {},
+        link_infos: dict[LinkStyle, LinkInfos] = {},
         # How the rule requests to be linked.  This will be used to determine
         # which actual link style to propagate for each "requested" link style.
-        preferred_linkage: Linkage.type = Linkage("any"),
+        preferred_linkage: Linkage = Linkage("any"),
         # Link info to propagate from non-exported deps for static link styles.
         deps: list[MergedLinkInfo.type] = [],
         # Link info to always propagate from exported deps.
         exported_deps: list[MergedLinkInfo.type] = [],
-        frameworks_linkable: [FrameworksLinkable.type, None] = None,
-        swift_runtime_linkable: [SwiftRuntimeLinkable.type, None] = None) -> MergedLinkInfo.type:
+        frameworks_linkable: [FrameworksLinkable, None] = None,
+        swift_runtime_linkable: [SwiftRuntimeLinkable, None] = None) -> MergedLinkInfo.type:
     """
     Create a `MergedLinkInfo` provider.
     """
@@ -517,7 +517,7 @@ def merge_link_infos(
     )
 
 def get_link_info(
-        infos: LinkInfos.type,
+        infos: LinkInfos,
         prefer_stripped: bool = False) -> LinkInfo.type:
     """
     Helper for getting a `LinkInfo` out of a `LinkInfos`.
@@ -549,7 +549,7 @@ LinkArgs = record(
     flags = field([ArgLike, None], None),
 )
 
-def unpack_link_args(args: LinkArgs.type, is_shared: [bool, None] = None, link_ordering: [LinkOrdering.type, None] = None) -> ArgLike:
+def unpack_link_args(args: LinkArgs, is_shared: [bool, None] = None, link_ordering: [LinkOrdering, None] = None) -> ArgLike:
     if args.tset != None:
         ordering = link_ordering.value if link_ordering else "preorder"
 
@@ -571,7 +571,7 @@ def unpack_link_args(args: LinkArgs.type, is_shared: [bool, None] = None, link_o
 
     fail("Unpacked invalid empty link args")
 
-def unpack_link_args_filelist(args: LinkArgs.type) -> [ArgLike, None]:
+def unpack_link_args_filelist(args: LinkArgs) -> [ArgLike, None]:
     if args.tset != None:
         tset = args.tset.infos
         stripped = args.tset.prefer_stripped
@@ -594,7 +594,7 @@ def unpack_link_args_filelist(args: LinkArgs.type) -> [ArgLike, None]:
 
     fail("Unpacked invalid empty link args")
 
-def unpack_external_debug_info(actions: AnalysisActions, args: LinkArgs.type) -> ArtifactTSet.type:
+def unpack_external_debug_info(actions: AnalysisActions, args: LinkArgs) -> ArtifactTSet.type:
     if args.tset != None:
         if args.tset.prefer_stripped:
             return ArtifactTSet()
@@ -611,7 +611,7 @@ def unpack_external_debug_info(actions: AnalysisActions, args: LinkArgs.type) ->
 
     fail("Unpacked invalid empty link args")
 
-def map_to_link_infos(links: list[LinkArgs.type]) -> list[LinkInfo.type]:
+def map_to_link_infos(links: list[LinkArgs]) -> list[LinkInfo.type]:
     res = []
 
     def append(v):
@@ -638,8 +638,8 @@ def map_to_link_infos(links: list[LinkArgs.type]) -> list[LinkInfo.type]:
 
 def get_link_args(
         merged: MergedLinkInfo.type,
-        link_style: LinkStyle.type,
-        prefer_stripped: bool = False) -> LinkArgs.type:
+        link_style: LinkStyle,
+        prefer_stripped: bool = False) -> LinkArgs:
     """
     Return `LinkArgs` for `MergedLinkInfo`  given a link style and a strip preference.
     """
@@ -653,9 +653,9 @@ def get_link_args(
     )
 
 def get_actual_link_style(
-        requested_link_style: LinkStyle.type,
-        preferred_linkage: Linkage.type,
-        pic_behavior: PicBehavior.type) -> LinkStyle.type:
+        requested_link_style: LinkStyle,
+        preferred_linkage: Linkage,
+        pic_behavior: PicBehavior) -> LinkStyle:
     """
     Return how we link a library for a requested link style and preferred linkage.
     -----------------------------------------------------------------------------------|
@@ -671,7 +671,7 @@ def get_actual_link_style(
     no_pic_style = _get_link_style_without_pic_behavior(requested_link_style, preferred_linkage)
     return process_link_style_for_pic_behavior(no_pic_style, pic_behavior)
 
-def _get_link_style_without_pic_behavior(requested_link_style: LinkStyle.type, preferred_linkage: Linkage.type) -> LinkStyle.type:
+def _get_link_style_without_pic_behavior(requested_link_style: LinkStyle, preferred_linkage: Linkage) -> LinkStyle:
     if preferred_linkage == Linkage("any"):
         return requested_link_style
     elif preferred_linkage == Linkage("shared"):
@@ -682,7 +682,7 @@ def _get_link_style_without_pic_behavior(requested_link_style: LinkStyle.type, p
         else:
             return LinkStyle("static_pic")
 
-def process_link_style_for_pic_behavior(link_style: LinkStyle.type, behavior: PicBehavior.type) -> LinkStyle.type:
+def process_link_style_for_pic_behavior(link_style: LinkStyle, behavior: PicBehavior) -> LinkStyle:
     """
     - For targets being built for x86_64, arm64, the fPIC flag isn't respected. Everything is fPIC.
     - For targets being built for Windows, nothing is fPIC. The flag is ignored.
@@ -700,19 +700,19 @@ def process_link_style_for_pic_behavior(link_style: LinkStyle.type, behavior: Pi
     else:
         fail("Unknown pic_behavior: {}".format(behavior))
 
-def get_link_styles_for_linkage(linkage: Linkage.type) -> list[LinkStyle.type]:
+def get_link_styles_for_linkage(linkage: Linkage) -> list[LinkStyle]:
     """
     Return all possible `LinkStyle`s that apply for the given `Linkage`.
     """
     return _LINK_STYLE_FOR_LINKAGE[linkage]
 
-def merge_swift_runtime_linkables(linkables: list[[SwiftRuntimeLinkable.type, None]]) -> SwiftRuntimeLinkable.type:
+def merge_swift_runtime_linkables(linkables: list[[SwiftRuntimeLinkable, None]]) -> SwiftRuntimeLinkable:
     for linkable in linkables:
         if linkable and linkable.runtime_required:
             return SwiftRuntimeLinkable(runtime_required = True)
     return SwiftRuntimeLinkable(runtime_required = False)
 
-def merge_framework_linkables(linkables: list[[FrameworksLinkable.type, None]]) -> FrameworksLinkable.type:
+def merge_framework_linkables(linkables: list[[FrameworksLinkable, None]]) -> FrameworksLinkable:
     unique_framework_names = {}
     unique_framework_paths = {}
     unique_library_names = {}

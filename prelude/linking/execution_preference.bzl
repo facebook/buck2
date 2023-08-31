@@ -47,7 +47,7 @@ def link_execution_preference_attr():
     The default is None, expressing that no preference has been set on the target itself.
     """)
 
-def get_link_execution_preference(ctx, links: list[Label]) -> LinkExecutionPreference.type:
+def get_link_execution_preference(ctx, links: list[Label]) -> LinkExecutionPreference:
     if not hasattr(ctx.attrs, "link_execution_preference"):
         fail("`get_link_execution_preference` called on a rule that does not support link_execution_preference!")
 
@@ -66,7 +66,7 @@ def get_link_execution_preference(ctx, links: list[Label]) -> LinkExecutionPrefe
     info = link_execution_preference[LinkExecutionPreferenceDeterminatorInfo]
     return info.preference_for_links(links, deps_preferences)
 
-def get_action_execution_attributes(preference: LinkExecutionPreference.type) -> _ActionExecutionAttributes.type:
+def get_action_execution_attributes(preference: LinkExecutionPreference) -> _ActionExecutionAttributes:
     if preference == LinkExecutionPreference("any"):
         return _ActionExecutionAttributes()
     elif preference == LinkExecutionPreference("full_hybrid"):
