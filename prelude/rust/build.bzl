@@ -250,7 +250,7 @@ def generate_rustdoc_test(
         extra_transitive_deps = library.transitive_deps,
     )
 
-    link_args, hidden, _pdb_artifact = make_link_args(
+    link_args_output = make_link_args(
         ctx,
         [
             LinkArgs(flags = extra_link_args),
@@ -262,11 +262,11 @@ def generate_rustdoc_test(
         "{}-{}".format(common_args.subdir, common_args.tempfile),
     )
 
-    link_args.add(ctx.attrs.doc_linker_flags or [])
+    link_args_output.link_args.add(ctx.attrs.doc_linker_flags or [])
 
     linker_argsfile, _ = ctx.actions.write(
         "{}/__{}_linker_args.txt".format(common_args.subdir, common_args.tempfile),
-        link_args,
+        link_args_output.link_args,
         allow_args = True,
     )
 
@@ -293,7 +293,7 @@ def generate_rustdoc_test(
         "--test-args=--color=always",
     )
 
-    rustdoc_cmd.hidden(compile_ctx.symlinked_srcs, hidden, runtime_files)
+    rustdoc_cmd.hidden(compile_ctx.symlinked_srcs, link_args_output.hidden, runtime_files)
 
     return _long_command(
         ctx = ctx,
@@ -430,7 +430,7 @@ def rust_compile(
                 dep_link_style,
             )
 
-        (link_args, hidden, pdb_artifact) = make_link_args(
+        link_args_output = make_link_args(
             ctx,
             [
                 LinkArgs(flags = extra_link_args),
@@ -441,13 +441,14 @@ def rust_compile(
         )
         linker_argsfile, _ = ctx.actions.write(
             "{}/__{}_linker_args.txt".format(subdir, tempfile),
-            link_args,
+            link_args_output.link_args,
             allow_args = True,
         )
 
-        dwp_inputs = [link_args]
+        pdb_artifact = link_args_output.pdb_artifact
+        dwp_inputs = [link_args_output.link_args]
         rustc_cmd.add(cmd_args(linker_argsfile, format = "-Clink-arg=@{}"))
-        rustc_cmd.hidden(hidden)
+        rustc_cmd.hidden(link_args_output.hidden)
 
     (diag, build_status) = _rustc_invoke(
         ctx = ctx,

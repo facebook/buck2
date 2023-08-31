@@ -55,13 +55,19 @@ def linker_map_args(ctx, linker_map) -> LinkArgs:
         fail("Linker type {} not supported".format(linker_type))
     return LinkArgs(flags = flags)
 
+LinkArgsOutput = record(
+    link_args = ArgLike,
+    hidden = list[typing.Any],
+    pdb_artifact = [Artifact, None],
+)
+
 def make_link_args(
         ctx: AnalysisContext,
         links: list["LinkArgs"],
         suffix = None,
         output_short_path: [str, None] = None,
         is_shared: [bool, None] = None,
-        link_ordering: ["LinkOrdering", None] = None) -> (ArgLike, list[typing.Any], [Artifact, None]):
+        link_ordering: ["LinkOrdering", None] = None) -> LinkArgsOutput:
     """
     Merges LinkArgs. Returns the args, files that must be present for those
     args to work when passed to a linker, and optionally an artifact where DWO
@@ -120,7 +126,11 @@ def make_link_args(
         else:
             fail("Linker type {} not supported".format(linker_type))
 
-    return (args, [args] + hidden, pdb_artifact)
+    return LinkArgsOutput(
+        link_args = args,
+        hidden = [args] + hidden,
+        pdb_artifact = pdb_artifact,
+    )
 
 def shared_libs_symlink_tree_name(output: Artifact) -> str:
     return "__{}__shared_libs_symlink_tree".format(output.short_path)

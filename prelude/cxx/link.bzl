@@ -164,7 +164,7 @@ def cxx_link_into(
         split_debug_output = split_debug_lto_info.output
     expect(not generates_split_debug(ctx) or split_debug_output != None)
 
-    (link_args, hidden, pdb_artifact) = make_link_args(
+    link_args_output = make_link_args(
         ctx,
         links_with_linker_map,
         suffix = opts.identifier,
@@ -176,7 +176,7 @@ def cxx_link_into(
             map_val(LinkOrdering, linker_info.link_ordering),
         ),
     )
-    all_link_args.add(link_args)
+    all_link_args.add(link_args_output.link_args)
 
     bitcode_linkables = []
     for link_item in opts.links:
@@ -197,7 +197,7 @@ def cxx_link_into(
         ctx = ctx,
         links = opts.links,
         split_debug_output = split_debug_output,
-        pdb = pdb_artifact,
+        pdb = link_args_output.pdb_artifact,
     )
 
     if linker_info.type == "windows":
@@ -213,7 +213,7 @@ def cxx_link_into(
 
     command = cmd_args(linker)
     command.add(cmd_args(argfile, format = "@{}"))
-    command.hidden(hidden)
+    command.hidden(link_args_output.hidden)
     command.hidden(shell_quoted_args)
     category = "cxx_link"
     if opts.category_suffix != None:
@@ -284,7 +284,7 @@ def cxx_link_into(
         external_debug_info = external_debug_info,
         linker_argsfile = argfile,
         import_library = opts.import_library,
-        pdb = pdb_artifact,
+        pdb = link_args_output.pdb_artifact,
         split_debug_output = split_debug_output,
     )
 
