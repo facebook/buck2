@@ -30,6 +30,8 @@ mod fbcode {
     pub struct RemoteExecutionStaticMetadata {
         pub cas_address: Option<String>,
         pub cas_connection_count: i32,
+        pub cas_shared_cache: Option<String>,
+        pub cas_shared_cache_mode: Option<String>,
         pub action_cache_address: Option<String>,
         pub action_cache_connection_count: i32,
         pub engine_address: Option<String>,
@@ -67,6 +69,10 @@ mod fbcode {
                 cas_connection_count: legacy_config
                     .parse(BUCK2_RE_CLIENT_CFG_SECTION, "cas_connection_count")?
                     .unwrap_or(16),
+                cas_shared_cache: legacy_config
+                    .parse(BUCK2_RE_CLIENT_CFG_SECTION, "cas_shared_cache")?,
+                cas_shared_cache_mode: legacy_config
+                    .parse(BUCK2_RE_CLIENT_CFG_SECTION, "cas_shared_cache_mode")?,
                 action_cache_address: legacy_config
                     .parse(BUCK2_RE_CLIENT_CFG_SECTION, "action_cache_address")?,
                 action_cache_connection_count: legacy_config

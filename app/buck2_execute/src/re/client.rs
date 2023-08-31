@@ -474,6 +474,37 @@ impl RemoteExecutionClientImpl {
                 // useful for both uploads and downloads
                 embedded_cas_daemon_config.cache_config.digest_cache_size = 100000;
 
+                // If a shared CAS cache directory is configured, we
+                // want to tell the RE client to rely on an external
+                // CAS daemon to manage the cache.
+                if let Some(shared_cache) = &static_metadata.cas_shared_cache {
+                    use remote_execution::RemoteCacheConfig;
+                    use remote_execution::RemoteCacheManagerMode;
+
+                    let mode = match static_metadata
+                        .cas_shared_cache_mode
+                        .as_deref()
+                        .unwrap_or("BIG_FILES")
+                        .to_uppercase()
+                        .as_str()
+                        .trim()
+                    {
+                        "BIG_FILES" => RemoteCacheManagerMode::BIG_FILES,
+                        "ALL_FILES" => RemoteCacheManagerMode::ALL_FILES,
+                        unknown => anyhow::bail!("Unknown RemoteCacheManagerMode: {}", unknown),
+                    };
+
+                    embedded_cas_daemon_config.remote_cache_config = Some(RemoteCacheConfig {
+                        mode,
+                        ..Default::default()
+                    });
+                    embedded_cas_daemon_config.cache_config.writable_cache = false;
+                    embedded_cas_daemon_config
+                        .cache_config
+                        .downloads_cache_config
+                        .dir_path = Some(shared_cache.to_owned());
+                }
+
                 // prevents downloading the same trees (dirs)
                 embedded_cas_daemon_config
                     .rich_client_config
