@@ -231,7 +231,7 @@ def _entitlements_file(ctx: AnalysisContext) -> [Artifact, None]:
         return None
 
     # The `binary` attribute can be either an apple_binary or a dynamic library from apple_library
-    binary_entitlement_info = get_default_binary_dep(ctx)[AppleEntitlementsInfo]
+    binary_entitlement_info = get_default_binary_dep(ctx.attrs.binary)[AppleEntitlementsInfo]
     if binary_entitlement_info and binary_entitlement_info.entitlements_file:
         return binary_entitlement_info.entitlements_file
 
