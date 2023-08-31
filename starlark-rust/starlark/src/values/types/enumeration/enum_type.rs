@@ -455,4 +455,20 @@ test()
 "#,
         );
     }
+
+    #[test]
+    fn test_enum_index_fail() {
+        assert::fail(
+            r#"
+Shape = enum("SQUARE", "CIRCLE")
+
+def accept_str(s: str):
+    pass
+
+def test():
+    accept_str(Shape[0])
+"#,
+            "Expected type `str` but got `Shape`",
+        );
+    }
 }

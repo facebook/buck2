@@ -92,8 +92,8 @@ impl TyCustomImpl for TyEnumType {
     }
 
     fn index(&self, item: &TyBasic) -> Result<Ty, ()> {
-        // TODO(nga): more precise function type.
-        TyStarlarkValue::new::<EnumType>().index(item)
+        TyStarlarkValue::new::<EnumType>().index(item)?;
+        Ok(self.data.ty_enum_value.dupe())
     }
 
     fn attribute(&self, attr: &str) -> Result<Ty, ()> {
