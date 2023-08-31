@@ -575,12 +575,9 @@ def _dependency_args(
         extra_transitive_deps: dict[Artifact, CrateName.type]) -> (cmd_args, list[(CrateName.type, Label)]):
     args = cmd_args()
     transitive_deps = {}
-    deps = []
     crate_targets = []
     for x in resolve_deps(ctx, include_doc_deps = is_rustdoc_test):
         dep = x.dep
-
-        deps.append(dep)
 
         # Rust dependency
         info = dep.get(RustLinkInfo)
