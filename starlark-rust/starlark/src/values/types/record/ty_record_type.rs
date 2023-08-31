@@ -56,7 +56,7 @@ impl TyRecordData {
         TyUser {
             name: self.name.clone(),
             base: TyStarlarkValue::new::<Record>(),
-            matcher: TypeMatcherFactory::new(RecordTypeMatcher { id: self.id }),
+            matcher: Some(TypeMatcherFactory::new(RecordTypeMatcher { id: self.id })),
             id: self.id,
             fields: self.fields.clone(),
         }

@@ -42,7 +42,7 @@ pub(crate) struct TyUser {
     pub(crate) name: String,
     /// Base type for this custom type, e.g. generic record for record with known fields.
     pub(crate) base: TyStarlarkValue,
-    pub(crate) matcher: TypeMatcherFactory,
+    pub(crate) matcher: Option<TypeMatcherFactory>,
     pub(crate) id: TypeInstanceId,
     pub(crate) fields: SortedMap<String, Ty>,
 }
@@ -101,7 +101,10 @@ impl TyCustomImpl for TyUser {
     }
 
     fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result {
-        factory.from_type_matcher_factory(&self.matcher)
+        match &self.matcher {
+            Some(matcher) => factory.from_type_matcher_factory(matcher),
+            None => factory.unreachable_cannot_appear_in_type_expr(),
+        }
     }
 
     fn intersects(x: &Self, y: &Self) -> bool {

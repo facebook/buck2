@@ -289,7 +289,7 @@ where
             let ty_enum_value = Ty::custom(TyUser {
                 name: variable_name.to_owned(),
                 base: TyStarlarkValue::new::<EnumValue>(),
-                matcher: TypeMatcherFactory::new(EnumTypeMatcher { id: self.id }),
+                matcher: Some(TypeMatcherFactory::new(EnumTypeMatcher { id: self.id })),
                 id: self.id,
                 fields: SortedMap::new(),
             });
