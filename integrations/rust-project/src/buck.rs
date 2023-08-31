@@ -507,7 +507,7 @@ pub fn select_mode(mode: Option<String>) -> Option<String> {
         Some("@//mode/win".to_owned())
     } else {
         // fallback to the platform default mode. This is likely slower than optimal, but
-        // `rust-project build` will work.
+        // `rust-project check` will work.
         None
     }
 }
