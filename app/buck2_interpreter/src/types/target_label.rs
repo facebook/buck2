@@ -29,6 +29,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::typing::Ty;
 use starlark::values::list::AllocList;
 use starlark::values::list::ListRef;
 use starlark::values::starlark_value;
@@ -102,6 +103,10 @@ impl<'v> StarlarkValue<'v> for StarlarkTargetLabel {
         } else {
             ValueError::unsupported_with(self, "compare", other)
         }
+    }
+
+    fn get_type_starlark_repr() -> Ty {
+        Ty::starlark_value::<Self>()
     }
 }
 
@@ -205,6 +210,10 @@ impl<'v> StarlarkValue<'v> for StarlarkConfiguredTargetLabel {
         } else {
             ValueError::unsupported_with(self, "compare", other)
         }
+    }
+
+    fn get_type_starlark_repr() -> Ty {
+        Ty::starlark_value::<Self>()
     }
 }
 
