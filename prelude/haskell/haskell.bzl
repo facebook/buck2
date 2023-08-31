@@ -109,8 +109,8 @@ HaskellToolchainInfo = provider(fields = [
 HaskellLinkInfo = provider(
     # Contains a list of HaskellLibraryInfo records.
     fields = [
-        "info",  # { LinkStyle.type : [HaskellLibraryInfo] } # TODO use a tset
-        "prof_info",  # { LinkStyle.type : [HaskellLibraryInfo] } # TODO use a tset
+        "info",  # dict[LinkStyle, list[HaskellLibraryInfo]] # TODO use a tset
+        "prof_info",  # dict[LinkStyle, list[HaskellLibraryInfo]] # TODO use a tset
     ],
 )
 
@@ -130,8 +130,8 @@ HaskellIndexInfo = provider(
 # indirect dependencies for the purposes of module visibility.
 HaskellLibraryProvider = provider(
     fields = [
-        "lib",  # { LinkStyle.type : HaskellLibraryInfo }
-        "prof_lib",  # { LinkStyle.type : HaskellLibraryInfo }
+        "lib",  # dict[LinkStyle, HaskellLibraryInfo]
+        "prof_lib",  # dict[LinkStyle, HaskellLibraryInfo]
     ],
 )
 
@@ -205,7 +205,7 @@ def _attr_deps_haskell_lib_infos(
         ])
     ]
 
-def _cxx_toolchain_link_style(ctx: AnalysisContext) -> LinkStyle.type:
+def _cxx_toolchain_link_style(ctx: AnalysisContext) -> LinkStyle:
     return ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info.link_style
 
 def _attr_link_style(ctx: AnalysisContext) -> LinkStyle.type:
@@ -214,7 +214,7 @@ def _attr_link_style(ctx: AnalysisContext) -> LinkStyle.type:
     else:
         return _cxx_toolchain_link_style(ctx)
 
-def _attr_preferred_linkage(ctx: AnalysisContext) -> Linkage.type:
+def _attr_preferred_linkage(ctx: AnalysisContext) -> Linkage:
     preferred_linkage = ctx.attrs.preferred_linkage
 
     # force_static is deprecated, but it has precedence over preferred_linkage
@@ -446,7 +446,7 @@ PackagesInfo = record(
 
 def get_packages_info(
         ctx: AnalysisContext,
-        link_style: LinkStyle.type,
+        link_style: LinkStyle,
         specify_pkg_version: bool,
         enable_profiling: bool) -> PackagesInfo.type:
     # Collect library dependencies. Note that these don't need to be in a
@@ -521,7 +521,7 @@ def _link_style_extensions(link_style: LinkStyle.type) -> (str, str):
     fail("unknown LinkStyle")
 
 def _output_extensions(
-        link_style: LinkStyle.type,
+        link_style: LinkStyle,
         profiled: bool) -> (str, str):
     osuf, hisuf = _link_style_extensions(link_style)
     if profiled:
@@ -551,7 +551,7 @@ def get_artifact_suffix(link_style: LinkStyle.type, enable_profiling: bool) -> s
 # Compile all the context's sources.
 def _compile(
         ctx: AnalysisContext,
-        link_style: LinkStyle.type,
+        link_style: LinkStyle,
         enable_profiling: bool,
         extra_args = []) -> CompileResultInfo.type:
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
@@ -758,8 +758,8 @@ def _make_package(
 
 HaskellLibBuildOutput = record(
     hlib = HaskellLibraryInfo.type,
-    solibs = dict[str, LinkedObject.type],
-    link_infos = LinkInfos.type,
+    solibs = dict[str, LinkedObject],
+    link_infos = LinkInfos,
     compiled = CompileResultInfo.type,
     libs = list[Artifact],
 )
@@ -772,7 +772,7 @@ def _build_haskell_lib(
         enable_profiling: bool,
         # The non-profiling artifacts are also needed to build the package for
         # profiling, so it should be passed when `enable_profiling` is True.
-        non_profiling_hlib: [HaskellLibBuildOutput, None] = None) -> HaskellLibBuildOutput.type:
+        non_profiling_hlib: [HaskellLibBuildOutput, None] = None) -> HaskellLibBuildOutput:
     linker_info = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info
     libname = repr(ctx.label.path).replace("//", "_").replace("/", "_") + "_" + ctx.label.name
     pkgname = libname.replace("_", "-")
@@ -1124,7 +1124,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
 def derive_indexing_tset(
         actions: AnalysisActions,
-        link_style: LinkStyle.type,
+        link_style: LinkStyle,
         value: [Artifact, None],
         children: list[Dependency]) -> "HaskellIndexingTSet":
     index_children = []

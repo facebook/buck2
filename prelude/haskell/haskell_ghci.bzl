@@ -76,7 +76,7 @@ HaskellOmnibusData = record(
 
 def _write_final_ghci_script(
         ctx: AnalysisContext,
-        omnibus_data: HaskellOmnibusData.type,
+        omnibus_data: HaskellOmnibusData,
         packages_info: PackagesInfo.type,
         packagedb_args: "cmd_args",
         prebuilt_packagedb_args: "cmd_args",
@@ -138,8 +138,7 @@ def _write_final_ghci_script(
 
     return final_ghci_script
 
-def _build_haskell_omnibus_so(
-        ctx: AnalysisContext) -> HaskellOmnibusData.type:
+def _build_haskell_omnibus_so(ctx: AnalysisContext) -> HaskellOmnibusData:
     link_style = LinkStyle("static_pic")
 
     # pic_behavior = PicBehavior("always_enabled")
