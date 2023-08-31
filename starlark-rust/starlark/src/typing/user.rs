@@ -39,12 +39,30 @@ use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFacto
 #[derive(Allocative, Debug, derive_more::Display)]
 #[display(fmt = "{}", name)]
 pub(crate) struct TyUser {
-    pub(crate) name: String,
+    name: String,
     /// Base type for this custom type, e.g. generic record for record with known fields.
-    pub(crate) base: TyStarlarkValue,
-    pub(crate) matcher: Option<TypeMatcherFactory>,
-    pub(crate) id: TypeInstanceId,
-    pub(crate) fields: SortedMap<String, Ty>,
+    base: TyStarlarkValue,
+    matcher: Option<TypeMatcherFactory>,
+    id: TypeInstanceId,
+    fields: SortedMap<String, Ty>,
+}
+
+impl TyUser {
+    pub(crate) fn new(
+        name: String,
+        base: TyStarlarkValue,
+        matcher: Option<TypeMatcherFactory>,
+        id: TypeInstanceId,
+        fields: SortedMap<String, Ty>,
+    ) -> TyUser {
+        TyUser {
+            name,
+            base,
+            matcher,
+            id,
+            fields,
+        }
+    }
 }
 
 impl PartialEq for TyUser {

@@ -286,13 +286,13 @@ where
 
     fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
         V::get_or_init_ty(&self.ty_enum_type, || {
-            let ty_enum_value = Ty::custom(TyUser {
-                name: variable_name.to_owned(),
-                base: TyStarlarkValue::new::<EnumValue>(),
-                matcher: Some(TypeMatcherFactory::new(EnumTypeMatcher { id: self.id })),
-                id: self.id,
-                fields: SortedMap::new(),
-            });
+            let ty_enum_value = Ty::custom(TyUser::new(
+                variable_name.to_owned(),
+                TyStarlarkValue::new::<EnumValue>(),
+                Some(TypeMatcherFactory::new(EnumTypeMatcher { id: self.id })),
+                self.id,
+                SortedMap::new(),
+            ));
             TyEnumType {
                 data: Arc::new(TyEnumData {
                     name: variable_name.to_owned(),

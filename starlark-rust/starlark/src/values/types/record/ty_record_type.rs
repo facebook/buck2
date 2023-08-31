@@ -53,13 +53,13 @@ pub(crate) struct TyRecordData {
 
 impl TyRecordData {
     pub(crate) fn ty_record_as_ty_user(&self) -> TyUser {
-        TyUser {
-            name: self.name.clone(),
-            base: TyStarlarkValue::new::<Record>(),
-            matcher: Some(TypeMatcherFactory::new(RecordTypeMatcher { id: self.id })),
-            id: self.id,
-            fields: self.fields.clone(),
-        }
+        TyUser::new(
+            self.name.clone(),
+            TyStarlarkValue::new::<Record>(),
+            Some(TypeMatcherFactory::new(RecordTypeMatcher { id: self.id })),
+            self.id,
+            self.fields.clone(),
+        )
     }
 }
 
