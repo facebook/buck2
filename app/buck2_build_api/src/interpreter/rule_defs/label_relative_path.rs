@@ -7,13 +7,13 @@
  * of this source tree.
  */
 
-use buck2_interpreter::types::label_relative_path::LabelRelativePath;
+use buck2_interpreter::types::cell_path::StarlarkCellPath;
 
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 
-impl CommandLineArgLike for LabelRelativePath {
+impl CommandLineArgLike for StarlarkCellPath {
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,

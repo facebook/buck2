@@ -41,10 +41,10 @@ use starlark::values::ValueError;
 use starlark::values::ValueLike;
 
 use crate::starlark::values::AllocValue;
+use crate::types::cell_path::StarlarkCellPath;
 use crate::types::configuration::StarlarkConfiguration;
 use crate::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use crate::types::configured_providers_label::StarlarkProvidersLabel;
-use crate::types::label_relative_path::LabelRelativePath;
 
 #[derive(
     Clone,
@@ -236,7 +236,7 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
 
     #[starlark(attribute)]
     fn path<'v>(this: &StarlarkConfiguredTargetLabel, heap: &Heap) -> anyhow::Result<Value<'v>> {
-        let path = LabelRelativePath(this.label.pkg().to_cell_path());
+        let path = StarlarkCellPath(this.label.pkg().to_cell_path());
         Ok(path.alloc_value(heap))
     }
 

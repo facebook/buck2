@@ -36,8 +36,8 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 
+use crate::types::cell_path::StarlarkCellPath;
 use crate::types::cell_root::CellRoot;
-use crate::types::label_relative_path::LabelRelativePath;
 use crate::types::project_root::ProjectRoot;
 use crate::types::target_label::StarlarkConfiguredTargetLabel;
 use crate::types::target_label::StarlarkTargetLabel;
@@ -150,8 +150,8 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
 
     /// For the label `fbcode//buck2/hello:world (ovr_config//platform/linux:x86_64-fbcode-46b26edb4b80a905)` this gives back `fbcode/buck2/hello`
     #[starlark(attribute)]
-    fn path<'v>(this: &StarlarkConfiguredProvidersLabel) -> anyhow::Result<LabelRelativePath> {
-        Ok(LabelRelativePath(this.label.target().pkg().to_cell_path()))
+    fn path<'v>(this: &StarlarkConfiguredProvidersLabel) -> anyhow::Result<StarlarkCellPath> {
+        Ok(StarlarkCellPath(this.label.target().pkg().to_cell_path()))
     }
 
     /// For the label `fbcode//buck2/hello:world (ovr_config//platform/linux:x86_64-fbcode-46b26edb4b80a905)` this gives back `fbcode`
@@ -279,7 +279,7 @@ fn label_methods(builder: &mut MethodsBuilder) {
 
     #[starlark(attribute)]
     fn path<'v>(this: &StarlarkProvidersLabel, heap: &Heap) -> anyhow::Result<Value<'v>> {
-        let path = LabelRelativePath(this.label.target().pkg().to_cell_path());
+        let path = StarlarkCellPath(this.label.target().pkg().to_cell_path());
         Ok(path.alloc_value(heap))
     }
 

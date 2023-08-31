@@ -7,9 +7,9 @@
  * of this source tree.
  */
 
+use buck2_interpreter::types::cell_path::StarlarkCellPath;
 use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
-use buck2_interpreter::types::label_relative_path::LabelRelativePath;
 use buck2_interpreter::types::project_root::ProjectRoot;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use starlark::values::Value;
@@ -61,7 +61,7 @@ impl<'v> ValueAsCommandLineLike<'v> for Value<'v> {
         //   so `impl StarlarkValue` cannot provide `CommandLineArgLike`
         check!(RunInfo);
         check!(FrozenRunInfo);
-        check!(LabelRelativePath);
+        check!(StarlarkCellPath);
         check!(StarlarkTargetLabel);
         check!(StarlarkConfiguredProvidersLabel);
         check!(CellRoot);

@@ -7,10 +7,10 @@
  * of this source tree.
  */
 
+pub mod cell_path;
 pub mod cell_root;
 pub mod configuration;
 pub mod configured_providers_label;
-pub mod label_relative_path;
 pub mod opaque_metadata;
 pub mod project_root;
 pub mod provider;

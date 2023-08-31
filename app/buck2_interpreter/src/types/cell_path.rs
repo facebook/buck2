@@ -27,21 +27,21 @@ use starlark::values::StarlarkValue;
     Allocative,
     StarlarkDocs
 )]
-pub struct LabelRelativePath(pub CellPath);
+pub struct StarlarkCellPath(pub CellPath);
 
-starlark_simple_value!(LabelRelativePath);
+starlark_simple_value!(StarlarkCellPath);
 
 #[starlark_value(type = "label_relative_path")]
-impl<'v> StarlarkValue<'v> for LabelRelativePath {
+impl<'v> StarlarkValue<'v> for StarlarkCellPath {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(label_relative_path_methods)
+        RES.methods(cell_path_methods)
     }
 }
 
 #[starlark_module]
-fn label_relative_path_methods(builder: &mut MethodsBuilder) {
-    fn add(this: &LabelRelativePath, arg: &str) -> anyhow::Result<LabelRelativePath> {
-        Ok(LabelRelativePath((this).0.join_normalized(arg)?))
+fn cell_path_methods(builder: &mut MethodsBuilder) {
+    fn add(this: &StarlarkCellPath, arg: &str) -> anyhow::Result<StarlarkCellPath> {
+        Ok(StarlarkCellPath((this).0.join_normalized(arg)?))
     }
 }
