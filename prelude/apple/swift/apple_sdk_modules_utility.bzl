@@ -14,6 +14,12 @@ load(
     "SwiftToolchainInfo",  # @unused Used as a type
 )
 
+def project_as_hidden(module_info: SdkCompiledModuleInfo.type):
+    # NOTE(cjhopman): This would probably be better done by projecting as normal args and the caller putting it in hidden.
+    args = cmd_args()
+    args.hidden(module_info.output_artifact)
+    return args
+
 def project_as_clang_deps(module_info: SdkCompiledModuleInfo.type):
     if module_info.is_swiftmodule:
         return []
@@ -27,6 +33,7 @@ def project_as_clang_deps(module_info: SdkCompiledModuleInfo.type):
 
 SDKDepTSet = transitive_set(args_projections = {
     "clang_deps": project_as_clang_deps,
+    "hidden": project_as_hidden,
 })
 
 def is_sdk_modules_provided(toolchain: SwiftToolchainInfo.type) -> bool:
