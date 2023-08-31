@@ -7,8 +7,8 @@
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "expand_relative_prefixed_sdk_path", "get_disable_pch_validation_flags")
-load(":apple_sdk_modules_utility.bzl", "SDKDepTSet", "get_compiled_sdk_deps_tset")
-load(":swift_toolchain_types.bzl", "SdkCompiledModuleInfo", "SdkTransitiveDepsTset", "SdkUncompiledModuleInfo", "WrappedSdkCompiledModuleInfo")
+load(":apple_sdk_modules_utility.bzl", "SDKDepTSet", "get_compiled_sdk_clang_deps_tset")
+load(":swift_toolchain_types.bzl", "SdkCompiledModuleInfo", "SdkDependencyInfo", "SdkTransitiveDepsTset", "SdkUncompiledModuleInfo")
 
 def get_shared_pcm_compilation_args(module_name: str) -> cmd_args:
     cmd = cmd_args()
@@ -126,7 +126,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> ["promise", list[Pr
                 swift_toolchain.resource_dir,
             ])
 
-        sdk_deps_tset = get_compiled_sdk_deps_tset(ctx, sdk_pcm_deps_providers)
+        sdk_deps_tset = get_compiled_sdk_clang_deps_tset(ctx, sdk_pcm_deps_providers)
         cmd.add(sdk_deps_tset.project_as_args("clang_deps"))
 
         expanded_modulemap_path_cmd = expand_relative_prefixed_sdk_path(
@@ -177,8 +177,8 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> ["promise", list[Pr
 
         return [
             DefaultInfo(),
-            WrappedSdkCompiledModuleInfo(
-                tset = ctx.actions.tset(SDKDepTSet, value = compiled_sdk, children = [sdk_deps_tset]),
+            SdkDependencyInfo(
+                clang_deps = ctx.actions.tset(SDKDepTSet, value = compiled_sdk, children = [sdk_deps_tset]),
             ),
         ]
 
