@@ -40,7 +40,6 @@ load(
 load(
     "@prelude//linking:link_info.bzl",
     "LinkInfo",  # @unused Used as a type
-    "LinkableType",
     "SwiftmoduleLinkable",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
@@ -678,12 +677,10 @@ def get_swiftmodule_linkable(swift_compile_output: [SwiftCompilationOutput.type,
     return SwiftmoduleLinkable(swiftmodule = swift_compile_output.swiftmodule) if swift_compile_output else None
 
 def extract_swiftmodule_linkables(link_infos: [list[LinkInfo.type], None]) -> list[SwiftmoduleLinkable.type]:
-    swift_module_type = LinkableType("swiftmodule")
-
     linkables = []
     for info in link_infos:
         for linkable in info.linkables:
-            if linkable._type == swift_module_type:
+            if isinstance(linkable, SwiftmoduleLinkable):
                 linkables.append(linkable)
 
     return linkables
