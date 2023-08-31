@@ -51,9 +51,6 @@ def _swift_interface_compilation_impl(ctx: AnalysisContext) -> ["promise", list[
             "-explicit-swift-module-map-file",
             swift_module_map_artifact,
         ])
-
-        # sdk_swiftinterface_compile should explicitly depend on its deps that go to swift_modulemap
-        cmd.hidden(swift_deps_tset.project_as_args("hidden"))
         cmd.add(clang_deps_tset.project_as_args("clang_deps"))
 
         swiftmodule_output = ctx.actions.declare_output(uncompiled_module_info_name + SWIFTMODULE_EXTENSION)
