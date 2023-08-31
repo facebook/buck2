@@ -24,6 +24,7 @@ use starlark_syntax::codemap::Spanned;
 
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::TypingOrInternalError;
+use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::Arg;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
@@ -90,9 +91,9 @@ impl TyCustomImpl for TyEnumType {
         Ok(self.data.ty_enum_value.dupe())
     }
 
-    fn index(&self, _item: &TyBasic) -> Result<Ty, ()> {
+    fn index(&self, item: &TyBasic) -> Result<Ty, ()> {
         // TODO(nga): more precise function type.
-        Ok(Ty::any_function())
+        TyStarlarkValue::new::<EnumType>().index(item)
     }
 
     fn attribute(&self, attr: &str) -> Result<Ty, ()> {

@@ -441,4 +441,18 @@ def test():
             "Expected type `str` but got `int`",
         );
     }
+
+    #[test]
+    fn test_enum_index() {
+        assert::pass(
+            r#"
+Mood = enum("HAPPY", "SAD")
+
+def test() -> Mood:
+    return Mood[0]
+
+test()
+"#,
+        );
+    }
 }
