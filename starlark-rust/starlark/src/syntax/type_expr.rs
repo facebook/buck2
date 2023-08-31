@@ -107,6 +107,10 @@ const BAN_REPLACE_TYPES: &[(&str, &str)] = &[
         "transitive_set_args_projection_iterator",
         "TransitiveSetArgsProjectionIterator",
     ),
+    ("target_label", "TargetLabel"),
+    ("configured_target_label", "ConfiguredTargetLabel"),
+    ("providers_label", "ProvidersLabel"),
+    ("label", "ConfiguredProvidersLabel"),
 ];
 
 impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
