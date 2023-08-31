@@ -22,6 +22,7 @@ use allocative::Allocative;
 use derivative::Derivative;
 use dupe::Dupe;
 use either::Either;
+use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
 use starlark_derive::Coerce;
 use starlark_derive::Freeze;
@@ -31,6 +32,9 @@ use starlark_map::StarlarkHasher;
 use crate as starlark;
 use crate::__derive_refs::serde;
 use crate::any::ProvidesStaticType;
+use crate::environment::Methods;
+use crate::environment::MethodsBuilder;
+use crate::environment::MethodsStatic;
 use crate::starlark_complex_value;
 use crate::starlark_complex_values;
 use crate::typing::Ty;
@@ -38,7 +42,6 @@ use crate::values::enumeration::enum_type::EnumType;
 use crate::values::enumeration::enum_type::FrozenEnumType;
 use crate::values::enumeration::ty_enum_value::TyEnumValue;
 use crate::values::types::type_instance_id::TypeInstanceId;
-use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 use crate::values::ValueLike;
@@ -113,16 +116,12 @@ where
         self.value.write_hash(hasher)
     }
 
-    fn get_attr(&self, attribute: &str, heap: &'v Heap) -> Option<Value<'v>> {
-        match attribute {
-            "index" => Some(heap.alloc(self.index)),
-            "value" => Some(self.value.to_value()),
-            _ => None,
-        }
-    }
-
-    fn dir_attr(&self) -> Vec<String> {
-        vec!["index".to_owned(), "value".to_owned()]
+    fn get_methods() -> Option<&'static Methods>
+    where
+        Self: Sized,
+    {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(enum_value_methods)
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
@@ -142,5 +141,18 @@ impl<'v, V: ValueLike<'v>> serde::Serialize for EnumValueGen<V> {
         S: serde::Serializer,
     {
         self.value.serialize(serializer)
+    }
+}
+
+#[starlark_module]
+fn enum_value_methods(methods: &mut MethodsBuilder) {
+    #[starlark(attribute)]
+    fn index(this: &EnumValue) -> anyhow::Result<i32> {
+        Ok(this.index)
+    }
+
+    #[starlark(attribute)]
+    fn value<'v>(this: &EnumValue<'v>) -> anyhow::Result<Value<'v>> {
+        Ok(this.value.to_value())
     }
 }
