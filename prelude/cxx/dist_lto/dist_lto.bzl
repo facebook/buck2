@@ -29,13 +29,12 @@ load(
 )
 load(
     "@prelude//linking:link_info.bzl",
-    "ArchiveLinkable",  # @unused Used as a type
+    "ArchiveLinkable",
     "FrameworksLinkable",  # @unused Used as a type
     "LinkArgs",
     "LinkInfo",
-    "LinkableType",
     "LinkedObject",
-    "ObjectsLinkable",  # @unused Used as a type
+    "ObjectsLinkable",
     "SharedLibLinkable",  # @unused Used as a type
     "append_linkable_args",
     "map_to_link_infos",
@@ -209,7 +208,7 @@ def cxx_dist_link(
         ))
 
         for linkable in link.linkables:
-            if linkable._type == LinkableType("objects"):
+            if isinstance(linkable, ObjectsLinkable):
                 add_linkable(idx, linkable)
                 for obj in linkable.objects:
                     name = name_for_obj(link_name, obj)
@@ -229,7 +228,7 @@ def cxx_dist_link(
                     )
                     index_link_data.append(data)
                     plan_outputs.extend([bc_output, plan_output])
-            elif linkable._type == LinkableType("archive") and linkable.supports_lto:
+            elif isinstance(linkable, ArchiveLinkable) and linkable.supports_lto:
                 # Our implementation of Distributed ThinLTO operates on individual objects, not archives. Since these
                 # archives might still contain LTO-able bitcode, we first extract the objects within the archive into
                 # another directory and write a "manifest" containing the list of objects that the archive contained.
@@ -559,7 +558,7 @@ def cxx_dist_link(
         for link in link_infos:
             link_args.add(link.pre_flags)
             for linkable in link.linkables:
-                if linkable._type == LinkableType("objects"):
+                if isinstance(linkable, ObjectsLinkable):
                     new_objs = []
                     for obj in linkable.objects:
                         if current_index in plan_index:
