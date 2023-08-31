@@ -250,7 +250,7 @@ def _get_default_use_dep_files(platform_name: str) -> bool:
             return True
     return False
 
-def _get_header_mode(ctx: AnalysisContext) -> HeaderMode.type:
+def _get_header_mode(ctx: AnalysisContext) -> HeaderMode:
     if ctx.attrs.use_header_map:
         if ctx.attrs.private_headers_symlinks_enabled or ctx.attrs.public_headers_symlinks_enabled:
             return HeaderMode("symlink_tree_with_header_map")

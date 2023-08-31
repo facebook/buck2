@@ -79,7 +79,7 @@ def _archive(ctx: AnalysisContext, name: str, args: cmd_args, thin: bool, prefer
     ctx.actions.run(command, category = category, identifier = name, prefer_local = prefer_local)
     return archive_output
 
-def _archive_locally(ctx: AnalysisContext, linker_info: LinkerInfo.type) -> bool:
+def _archive_locally(ctx: AnalysisContext, linker_info: LinkerInfo) -> bool:
     archive_locally = linker_info.archive_objects_locally
     if hasattr(ctx.attrs, "_archive_objects_locally_override"):
         return value_or(ctx.attrs._archive_objects_locally_override, archive_locally)
@@ -90,7 +90,7 @@ def make_archive(
         ctx: AnalysisContext,
         name: str,
         objects: list[Artifact],
-        args: [cmd_args, None] = None) -> Archive.type:
+        args: [cmd_args, None] = None) -> Archive:
     if len(objects) == 0:
         fail("no objects to archive")
 

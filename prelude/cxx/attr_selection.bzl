@@ -12,7 +12,7 @@ def cxx_by_language_ext(x: dict[typing.Any, typing.Any], ext: str) -> list[typin
     #
     # === Buck v1 Compatibility ===
     #
-    # `lang_compiler_flags` keys are coerced to CxxSource.Type,
+    # `lang_compiler_flags` keys are coerced to CxxSource,
     # so the allowable values are the lowercase versions of the enum values.
     #
     # The keys themselves should be the _output_ type of the language. For example,
@@ -21,7 +21,7 @@ def cxx_by_language_ext(x: dict[typing.Any, typing.Any], ext: str) -> list[typin
     # The actual lookup for `lang_compiler_flags` happens in
     # CxxSourceRuleFactory::getRuleCompileFlags().
     #
-    # `lang_preprocessor_flags` keys are also coerced to CxxSource.Type.
+    # `lang_preprocessor_flags` keys are also coerced to CxxSource.
     # The keys are the _input_ type of the language. For example, for Obj-C,
     # that would be OBJC.
     if ext == ".c":

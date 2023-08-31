@@ -16,8 +16,8 @@ load(
 
 def cxx_populate_xcode_attributes(
         ctx,
-        srcs: list[CxxSrcWithFlags.type],
-        argsfiles: dict[str, CompileArgsfile.type],
+        srcs: list[CxxSrcWithFlags],
+        argsfiles: dict[str, CompileArgsfile],
         product_name: str) -> dict[str, typing.Any]:
     converted_srcs = {}
     for src in srcs:

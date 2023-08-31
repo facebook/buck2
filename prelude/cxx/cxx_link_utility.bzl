@@ -35,7 +35,7 @@ def generates_split_debug(ctx: AnalysisContext):
 
     return True
 
-def linker_map_args(ctx, linker_map) -> LinkArgs.type:
+def linker_map_args(ctx, linker_map) -> LinkArgs:
     linker_type = get_cxx_toolchain_info(ctx).linker_info.type
     if linker_type == "darwin":
         flags = [

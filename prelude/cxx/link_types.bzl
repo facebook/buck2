@@ -18,10 +18,10 @@ CxxLinkResultType = enum(
 )
 
 LinkOptions = record(
-    links = list[LinkArgs.type],
-    link_execution_preference = LinkExecutionPreference.type,
+    links = list[LinkArgs],
+    link_execution_preference = LinkExecutionPreference,
     link_weight = int,
-    link_ordering = [LinkOrdering.type, None],
+    link_ordering = [LinkOrdering, None],
     enable_distributed_thinlto = bool,
     # A category suffix that will be added to the category of the link action that is generated.
     category_suffix = [str, None],
@@ -38,10 +38,10 @@ LinkOptions = record(
 )
 
 def link_options(
-        links: list[LinkArgs.type],
-        link_execution_preference: LinkExecutionPreference.type,
+        links: list[LinkArgs],
+        link_execution_preference: LinkExecutionPreference,
         link_weight: int = 1,
-        link_ordering: [LinkOrdering.type, None] = None,
+        link_ordering: [LinkOrdering, None] = None,
         enable_distributed_thinlto: bool = False,
         category_suffix: [str, None] = None,
         identifier: [str, None] = None,
@@ -75,10 +75,10 @@ _NOT_PROVIDED = _NotProvided()
 
 def merge_link_options(
         base: LinkOptions,
-        links: [list[LinkArgs.type], _NotProvided] = _NOT_PROVIDED,
-        link_execution_preference: [LinkExecutionPreference.type, _NotProvided] = _NOT_PROVIDED,
+        links: [list[LinkArgs], _NotProvided] = _NOT_PROVIDED,
+        link_execution_preference: [LinkExecutionPreference, _NotProvided] = _NOT_PROVIDED,
         link_weight: [int, _NotProvided] = _NOT_PROVIDED,
-        link_ordering: [LinkOrdering.type, None, _NotProvided] = _NOT_PROVIDED,
+        link_ordering: [LinkOrdering, None, _NotProvided] = _NOT_PROVIDED,
         enable_distributed_thinlto: [bool, _NotProvided] = _NOT_PROVIDED,
         category_suffix: [str, None, _NotProvided] = _NOT_PROVIDED,
         identifier: [str, None, _NotProvided] = _NOT_PROVIDED,

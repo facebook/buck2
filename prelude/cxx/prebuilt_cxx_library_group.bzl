@@ -50,7 +50,7 @@ load(
     "cxx_inherited_link_info",
 )
 
-def _linkage(ctx: AnalysisContext) -> Linkage.type:
+def _linkage(ctx: AnalysisContext) -> Linkage:
     """
     Construct the preferred linkage to use for the given prebuilt library.
     """
@@ -105,7 +105,7 @@ def _parse_macro(arg: str) -> [(str, str), None]:
 def _get_static_link_info(
         linker_type: str,
         libs: list[Artifact],
-        args: list[str]) -> LinkInfo.type:
+        args: list[str]) -> LinkInfo:
     """
     Format a pair of static link string args and static libs into args to be
     passed to the link, by resolving macro references to libraries.
@@ -154,7 +154,7 @@ def _get_static_link_info(
 
 def _get_shared_link_info(
         shared_libs: dict[str, Artifact],
-        args: list[str]) -> LinkInfo.type:
+        args: list[str]) -> LinkInfo:
     """
     Format a pair of shared link string args and shared libs into args to be
     passed to the link, by resolving macro references to libraries.

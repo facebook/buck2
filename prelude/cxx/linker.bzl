@@ -63,7 +63,7 @@ def _sanitize(s: str) -> str:
 
 # NOTE(agallagher): Does this belong in the native/shared_libraries.bzl?
 def get_shared_library_name(
-        linker_info: LinkerInfo.type,
+        linker_info: LinkerInfo,
         short_name: str,
         version: [str, None] = None):
     """
@@ -123,7 +123,7 @@ def get_default_shared_library_name(linker_info: LinkerInfo.type, label: Label):
     short_name = "{}_{}".format(_sanitize(label.package), _sanitize(label.name))
     return get_shared_library_name(linker_info, short_name)
 
-def get_shared_library_name_linker_flags(linker_type: str, soname: str, flag_overrides: [SharedLibraryFlagOverrides.type, None] = None) -> list[str]:
+def get_shared_library_name_linker_flags(linker_type: str, soname: str, flag_overrides: [SharedLibraryFlagOverrides, None] = None) -> list[str]:
     """
     Arguments to pass to the linker to set the given soname.
     """
@@ -137,7 +137,7 @@ def get_shared_library_name_linker_flags(linker_type: str, soname: str, flag_ove
         for f in shared_library_name_linker_flags_format
     ]
 
-def get_shared_library_flags(linker_type: str, flag_overrides: [SharedLibraryFlagOverrides.type, None] = None) -> list[str]:
+def get_shared_library_flags(linker_type: str, flag_overrides: [SharedLibraryFlagOverrides, None] = None) -> list[str]:
     """
     Arguments to pass to the linker to link a shared library.
     """

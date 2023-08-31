@@ -15,12 +15,12 @@ load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 # Provider that exposes the compilation database information
 CxxCompilationDbInfo = provider(fields = {
-    "info": "A map of the file (an \"artifact.type\") to its corresponding \"CxxSrcCompileCommand\"",
+    "info": "A map of the file (an `Artifact`) to its corresponding `CxxSrcCompileCommand`",
     "platform": "platform for this compilation database",
     "toolchain": "toolchain for this compilation database",
 })
 
-def make_compilation_db_info(src_compile_cmds: list[CxxSrcCompileCommand.type], toolchainInfo: CxxToolchainInfo.type, platformInfo: CxxPlatformInfo.type) -> CxxCompilationDbInfo.type:
+def make_compilation_db_info(src_compile_cmds: list[CxxSrcCompileCommand], toolchainInfo: CxxToolchainInfo.type, platformInfo: CxxPlatformInfo.type) -> CxxCompilationDbInfo.type:
     info = {}
     for src_compile_cmd in src_compile_cmds:
         info.update({src_compile_cmd.src: src_compile_cmd})
@@ -29,7 +29,7 @@ def make_compilation_db_info(src_compile_cmds: list[CxxSrcCompileCommand.type], 
 
 def create_compilation_database(
         ctx: AnalysisContext,
-        src_compile_cmds: list[CxxSrcCompileCommand.type],
+        src_compile_cmds: list[CxxSrcCompileCommand],
         indentifier: str) -> DefaultInfo.type:
     mk_comp_db = get_cxx_toolchain_info(ctx).mk_comp_db[RunInfo]
 

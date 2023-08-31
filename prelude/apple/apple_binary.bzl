@@ -136,7 +136,11 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], "promise"]:
             tsets = [cxx_output.external_debug_info],
         )
         if stripped:
-            expect(cxx_output.unstripped_binary != None, "Expect to save unstripped_binary when stripped is enabled")
+            unstripped_binary = cxx_output.unstripped_binary
+            if False:
+                # TODO(nga): `unstripped_binary` is never `None`.
+                unstripped_binary = None
+            expect(unstripped_binary != None, "Expect to save unstripped_binary when stripped is enabled")
             cxx_output.sub_targets["unstripped"] = [DefaultInfo(default_output = cxx_output.unstripped_binary)]
             dsym_input_binary = cxx_output.unstripped_binary
         else:

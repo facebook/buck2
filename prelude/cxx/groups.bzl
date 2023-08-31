@@ -45,13 +45,13 @@ FilterType = enum(
 )
 
 BuildTargetFilter = record(
-    pattern = field(BuildTargetPattern.type),
-    _type = field(FilterType.type, FilterType("pattern")),
+    pattern = field(BuildTargetPattern),
+    _type = field(FilterType, FilterType("pattern")),
 )
 
 LabelFilter = record(
     regex = field("regex"),
-    _type = field(FilterType.type, FilterType("label")),
+    _type = field(FilterType, FilterType("label")),
 )
 
 # Label for special group mapping which makes every target associated with it to be included in all groups
@@ -66,11 +66,11 @@ GroupMapping = record(
     # The root to apply this mapping to.
     root = field([Label, None], None),
     # The type of traversal to use.
-    traversal = field(Traversal.type, Traversal("tree")),
+    traversal = field(Traversal, Traversal("tree")),
     # Optional filter type to apply to the traversal.
-    filters = field(list[[BuildTargetFilter.type, LabelFilter.type]], []),
+    filters = field(list[[BuildTargetFilter, LabelFilter.type]], []),
     # Preferred linkage for this target when added to a link group.
-    preferred_linkage = field([Linkage.type, None], None),
+    preferred_linkage = field([Linkage, None], None),
 )
 
 _VALID_ATTRS = [
@@ -102,16 +102,16 @@ Group = record(
     # The name for this group.
     name = str,
     # The mappings that are part of this group.
-    mappings = list[GroupMapping.type],
-    attrs = GroupAttrs.type,
+    mappings = list[GroupMapping],
+    attrs = GroupAttrs,
 )
 
 # Creates a group from an existing group, overwriting any properties provided
 def create_group(
-        group: Group.type,
+        group: Group,
         name: [None, str] = None,
-        mappings: [None, list[GroupMapping.type]] = None,
-        attrs: [None, GroupAttrs.type] = None):
+        mappings: [None, list[GroupMapping]] = None,
+        attrs: [None, GroupAttrs] = None):
     return Group(
         name = value_or(name, group.name),
         mappings = value_or(mappings, group.mappings),
@@ -122,7 +122,7 @@ def parse_groups_definitions(
         map: list,
         # Function to parse a root label from the input type, allowing different
         # callers to have different top-level types for the `root`s.
-        parse_root: typing.Callable = lambda d: d) -> list[Group.type]:
+        parse_root: typing.Callable = lambda d: d) -> list[Group]:
     groups = []
     for map_entry in map:
         name = map_entry[0]
@@ -156,7 +156,7 @@ def parse_groups_definitions(
 
     return groups
 
-def _parse_traversal_from_mapping(entry: str) -> Traversal.type:
+def _parse_traversal_from_mapping(entry: str) -> Traversal:
     if entry == "tree":
         return Traversal("tree")
     elif entry == "node":
@@ -164,7 +164,7 @@ def _parse_traversal_from_mapping(entry: str) -> Traversal.type:
     else:
         fail("Unrecognized group traversal type: " + entry)
 
-def _parse_filter(entry: str) -> [BuildTargetFilter.type, LabelFilter.type]:
+def _parse_filter(entry: str) -> [BuildTargetFilter, LabelFilter]:
     for prefix in ("label:", "tag:"):
         label_regex = strip_prefix(prefix, entry)
         if label_regex != None:
@@ -183,14 +183,14 @@ def _parse_filter(entry: str) -> [BuildTargetFilter.type, LabelFilter.type]:
 
     fail("Invalid group mapping filter: {}\nFilter must begin with `label:`, `tag:`, or `pattern:`.".format(entry))
 
-def _parse_filter_from_mapping(entry: [list[str], str, None]) -> list[[BuildTargetFilter.type, LabelFilter.type]]:
+def _parse_filter_from_mapping(entry: [list[str], str, None]) -> list[[BuildTargetFilter, LabelFilter]]:
     if type(entry) == type([]):
         return [_parse_filter(e) for e in entry]
     if type(entry) == type(""):
         return [_parse_filter(entry)]
     return []
 
-def compute_mappings(groups: list[Group.type], graph_map: dict[Label, typing.Any]) -> dict[Label, str]:
+def compute_mappings(groups: list[Group], graph_map: dict[Label, typing.Any]) -> dict[Label, str]:
     """
     Returns the group mappings {target label -> group name} based on the provided groups and graph.
     """
@@ -213,7 +213,7 @@ def compute_mappings(groups: list[Group.type], graph_map: dict[Label, typing.Any
 
 def _find_targets_in_mapping(
         graph_map: dict[Label, typing.Any],
-        mapping: GroupMapping.type) -> list[Label]:
+        mapping: GroupMapping) -> list[Label]:
     # If we have no filtering, we don't need to do any traversal to find targets to include.
     if not mapping.filters:
         if mapping.root == None:
@@ -267,7 +267,7 @@ def _update_target_to_group_mapping(
         target_to_group_map,  #: {"label": str}
         node_traversed_targets,  #: {"label": None}
         group,  #  str,
-        mapping,  # GroupMapping.type,
+        mapping,  # GroupMapping
         target):  # Label
     def assign_target_to_group(
             target: Label,

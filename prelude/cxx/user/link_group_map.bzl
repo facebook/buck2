@@ -103,7 +103,7 @@ def link_group_map_attr():
         default = None,
     )
 
-def _make_json_info_for_build_target_pattern(build_target_pattern: BuildTargetPattern.type) -> dict[str, typing.Any]:
+def _make_json_info_for_build_target_pattern(build_target_pattern: BuildTargetPattern) -> dict[str, typing.Any]:
     # `BuildTargetPattern` contains lambdas which are not serializable, so
     # have to generate the JSON representation
     return {
@@ -113,7 +113,7 @@ def _make_json_info_for_build_target_pattern(build_target_pattern: BuildTargetPa
         "path": build_target_pattern.path,
     }
 
-def _make_json_info_for_group_mapping_filters(filters: list[[BuildTargetFilter.type, LabelFilter.type]]) -> list[dict[str, typing.Any]]:
+def _make_json_info_for_group_mapping_filters(filters: list[[BuildTargetFilter, LabelFilter]]) -> list[dict[str, typing.Any]]:
     json_filters = []
     for filter in filters:
         if filter._type == FilterType("label"):
@@ -124,7 +124,7 @@ def _make_json_info_for_group_mapping_filters(filters: list[[BuildTargetFilter.t
             fail("Unknown filter type: " + filter)
     return json_filters
 
-def _make_json_info_for_group_mapping(group_mapping: GroupMapping.type) -> dict[str, typing.Any]:
+def _make_json_info_for_group_mapping(group_mapping: GroupMapping) -> dict[str, typing.Any]:
     return {
         "filters": _make_json_info_for_group_mapping_filters(group_mapping.filters),
         "preferred_linkage": group_mapping.preferred_linkage,
@@ -132,14 +132,14 @@ def _make_json_info_for_group_mapping(group_mapping: GroupMapping.type) -> dict[
         "traversal": group_mapping.traversal,
     }
 
-def _make_json_info_for_group(group: Group.type) -> dict[str, typing.Any]:
+def _make_json_info_for_group(group: Group) -> dict[str, typing.Any]:
     return {
         "attrs": group.attrs,
         "mappings": [_make_json_info_for_group_mapping(mapping) for mapping in group.mappings],
         "name": group.name,
     }
 
-def _make_info_subtarget_providers(ctx: AnalysisContext, link_group_info: LinkGroupInfo.type) -> list[Provider]:
+def _make_info_subtarget_providers(ctx: AnalysisContext, link_group_info: LinkGroupInfo) -> list[Provider]:
     info_json = {
         "groups": {name: _make_json_info_for_group(group) for name, group in link_group_info.groups.items()},
         "mappings": link_group_info.mappings,

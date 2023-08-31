@@ -138,9 +138,9 @@ load(
 # Operations
 
 def _get_shared_link_style_sub_targets_and_providers(
-        link_style: LinkStyle.type,
+        link_style: LinkStyle,
         ctx: AnalysisContext,
-        output: [CxxLibraryOutput.type, None]) -> (dict[str, list[Provider]], list[Provider]):
+        output: [CxxLibraryOutput, None]) -> (dict[str, list[Provider]], list[Provider]):
     if link_style != LinkStyle("shared") or output == None:
         return ({}, [])
     sub_targets = {}
@@ -181,7 +181,7 @@ def cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     output = cxx_library_parameterized(ctx, params)
     return output.providers
 
-def _only_shared_mappings(group: Group.type) -> bool:
+def _only_shared_mappings(group: Group) -> bool:
     """
     Return whether this group only has explicit "shared" linkage mappings,
     which indicates a group that re-uses pre-linked libs.
@@ -191,7 +191,7 @@ def _only_shared_mappings(group: Group.type) -> bool:
             return False
     return True
 
-def create_shared_lib_link_group_specs(ctx: AnalysisContext, link_group_info: LinkGroupInfo.type) -> list[LinkGroupLibSpec.type]:
+def create_shared_lib_link_group_specs(ctx: AnalysisContext, link_group_info: LinkGroupInfo.type) -> list[LinkGroupLibSpec]:
     specs = []
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     for group in link_group_info.groups.values():
@@ -211,7 +211,7 @@ def create_shared_lib_link_group_specs(ctx: AnalysisContext, link_group_info: Li
         )
     return specs
 
-def get_auto_link_group_specs(ctx: AnalysisContext, link_group_info: [LinkGroupInfo.type, None]) -> [list[LinkGroupLibSpec.type], None]:
+def get_auto_link_group_specs(ctx: AnalysisContext, link_group_info: [LinkGroupInfo.type, None]) -> [list[LinkGroupLibSpec], None]:
     if link_group_info == None or not ctx.attrs.auto_link_groups:
         return None
     return create_shared_lib_link_group_specs(ctx, link_group_info)
@@ -262,7 +262,7 @@ def _prebuilt_item(
 
     return None
 
-def _prebuilt_linkage(ctx: AnalysisContext) -> Linkage.type:
+def _prebuilt_linkage(ctx: AnalysisContext) -> Linkage:
     """
     Construct the preferred linkage to use for the given prebuilt library.
     """
@@ -640,7 +640,7 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
         output.xcode_data,
     ]
 
-def _get_params_for_android_binary_cxx_library() -> (CxxRuleSubTargetParams.type, CxxRuleProviderParams.type):
+def _get_params_for_android_binary_cxx_library() -> (CxxRuleSubTargetParams, CxxRuleProviderParams):
     sub_target_params = CxxRuleSubTargetParams(
         argsfiles = False,
         compilation_database = False,

@@ -79,10 +79,10 @@ OmnibusEnvironment = provider(fields = [
 Disposition = enum("root", "excluded", "body", "omitted")
 
 OmnibusGraph = record(
-    nodes = field(dict[Label, LinkableNode.type]),
+    nodes = field(dict[Label, LinkableNode]),
     # All potential root notes for an omnibus link (e.g. C++ libraries,
     # C++ Python extensions).
-    roots = field(dict[Label, AnnotatedLinkableRoot.type]),
+    roots = field(dict[Label, AnnotatedLinkableRoot]),
     # All nodes that should be excluded from libomnibus.
     excluded = field(dict[Label, None]),
 )
@@ -91,11 +91,11 @@ OmnibusGraph = record(
 OmnibusSpec = record(
     body = field(dict[Label, None], {}),
     excluded = field(dict[Label, None], {}),
-    roots = field(dict[Label, AnnotatedLinkableRoot.type], {}),
+    roots = field(dict[Label, AnnotatedLinkableRoot], {}),
     exclusion_roots = field(list[Label]),
     # All link infos.
-    link_infos = field(dict[Label, LinkableNode.type], {}),
-    dispositions = field(dict[Label, Disposition.type]),
+    link_infos = field(dict[Label, LinkableNode], {}),
+    dispositions = field(dict[Label, Disposition]),
 )
 
 OmnibusPrivateRootProductCause = record(
@@ -103,25 +103,25 @@ OmnibusPrivateRootProductCause = record(
     # Miss-assigned label
     label = field([Label, None], default = None),
     # Its actual disposiiton
-    disposition = field([Disposition.type, None], default = None),
+    disposition = field([Disposition, None], default = None),
 )
 
 OmnibusRootProduct = record(
-    shared_library = field(LinkedObject.type),
+    shared_library = field(LinkedObject),
     undefined_syms = field(Artifact),
     global_syms = field(Artifact),
     # If set, this explains why we had to use a private root for this product.
     # If unset, this means the root was a shared root we reused.
-    private = field([OmnibusPrivateRootProductCause.type, None]),
+    private = field([OmnibusPrivateRootProductCause, None]),
 )
 
 AnnotatedOmnibusRootProduct = record(
-    product = field(OmnibusRootProduct.type),
-    annotation = field([LinkableRootAnnotation.type, None]),
+    product = field(OmnibusRootProduct),
+    annotation = field([LinkableRootAnnotation, None]),
 )
 
 SharedOmnibusRoot = record(
-    product = field(OmnibusRootProduct.type),
+    product = field(OmnibusRootProduct),
     linker_type = field(str),
     required_body = field(list[Label]),
     required_exclusions = field(list[Label]),
@@ -130,15 +130,15 @@ SharedOmnibusRoot = record(
 
 # The result of the omnibus link.
 OmnibusSharedLibraries = record(
-    omnibus = field([CxxLinkResult.type, None], None),
-    libraries = field(dict[str, LinkedObject.type], {}),
-    roots = field(dict[Label, AnnotatedOmnibusRootProduct.type], {}),
+    omnibus = field([CxxLinkResult, None], None),
+    libraries = field(dict[str, LinkedObject], {}),
+    roots = field(dict[Label, AnnotatedOmnibusRootProduct], {}),
     exclusion_roots = field(list[Label]),
     excluded = field(list[Label]),
-    dispositions = field(dict[Label, Disposition.type]),
+    dispositions = field(dict[Label, Disposition]),
 )
 
-def get_omnibus_graph(graph: LinkableGraph.type, roots: dict[Label, AnnotatedLinkableRoot.type], excluded: dict[Label, None]) -> OmnibusGraph.type:
+def get_omnibus_graph(graph: LinkableGraph, roots: dict[Label, AnnotatedLinkableRoot], excluded: dict[Label, None]) -> OmnibusGraph:
     graph_nodes = graph.nodes.traverse()
     nodes = {}
     for node in filter(None, graph_nodes):
@@ -159,7 +159,7 @@ def get_omnibus_graph(graph: LinkableGraph.type, roots: dict[Label, AnnotatedLin
 
     return OmnibusGraph(nodes = nodes, roots = roots, excluded = excluded)
 
-def get_roots(label: Label, deps: list[Dependency]) -> dict[Label, AnnotatedLinkableRoot.type]:
+def get_roots(label: Label, deps: list[Dependency]) -> dict[Label, AnnotatedLinkableRoot]:
     roots = {}
     for dep in deps:
         if LinkableRootInfo in dep:
@@ -179,8 +179,8 @@ def get_excluded(deps: list[Dependency] = []) -> dict[Label, None]:
 
 def create_linkable_root(
         ctx: AnalysisContext,
-        graph: LinkableGraph.type,
-        link_infos: LinkInfos.type,
+        graph: LinkableGraph,
+        link_infos: LinkInfos,
         name: [str, None] = None,
         deps: list[Dependency] = [],
         create_shared_root: bool = False) -> LinkableRootInfo.type:
@@ -316,7 +316,7 @@ def create_linkable_root(
         no_shared_root_reason = no_shared_root_reason,
     )
 
-def _exclusions_from_env(env: OmnibusEnvironment.type, graph: OmnibusGraph.type):
+def _exclusions_from_env(env: OmnibusEnvironment, graph: OmnibusGraph):
     excluded = [
         label
         for label, info in graph.nodes.items()
@@ -325,7 +325,7 @@ def _exclusions_from_env(env: OmnibusEnvironment.type, graph: OmnibusGraph.type)
 
     return {label: None for label in excluded}
 
-def _is_excluded_by_environment(label: Label, env: OmnibusEnvironment.type) -> bool:
+def _is_excluded_by_environment(label: Label, env: OmnibusEnvironment) -> bool:
     return label.raw_target() in env.exclusions
 
 def _omnibus_soname(ctx):
@@ -347,9 +347,9 @@ def create_dummy_omnibus(ctx: AnalysisContext, extra_ldflags: list[typing.Any] =
     return link_result.linked_object.output
 
 def _link_deps(
-        link_infos: dict[Label, LinkableNode.type],
+        link_infos: dict[Label, LinkableNode],
         deps: list[Label],
-        pic_behavior: PicBehavior.type) -> list[Label]:
+        pic_behavior: PicBehavior) -> list[Label]:
     """
     Return transitive deps required to link dynamically against the given deps.
     This will following through deps of statically linked inputs and exported
@@ -362,7 +362,7 @@ def _link_deps(
     return breadth_first_traversal_by(link_infos, deps, find_deps)
 
 def all_deps(
-        link_infos: dict[Label, LinkableNode.type],
+        link_infos: dict[Label, LinkableNode],
         roots: list[Label]) -> list[Label]:
     """
     Return all transitive deps from following the given nodes.
@@ -377,15 +377,15 @@ def all_deps(
 
 def _create_root(
         ctx: AnalysisContext,
-        spec: OmnibusSpec.type,
+        spec: OmnibusSpec,
         annotated_root_products,
         root: LinkableRootInfo.type,
         label: Label,
         link_deps: list[Label],
         omnibus: Artifact,
-        pic_behavior: PicBehavior.type,
+        pic_behavior: PicBehavior,
         extra_ldflags: list[typing.Any] = [],
-        prefer_stripped_objects: bool = False) -> OmnibusRootProduct.type:
+        prefer_stripped_objects: bool = False) -> OmnibusRootProduct:
     """
     Link a root omnibus node.
     """
@@ -511,10 +511,10 @@ def _create_root(
     )
 
 def _requires_private_root(
-        candidate: SharedOmnibusRoot.type,
+        candidate: SharedOmnibusRoot,
         linker_type: str,
         prefer_stripped_objects: bool,
-        spec: OmnibusSpec.type) -> [OmnibusPrivateRootProductCause.type, None]:
+        spec: OmnibusSpec) -> [OmnibusPrivateRootProductCause, None]:
     if candidate.linker_type != linker_type:
         return OmnibusPrivateRootProductCause(category = "linker_type")
 
@@ -588,7 +588,7 @@ def _extract_global_symbols_from_link_args(
 
 def _create_global_symbols_version_script(
         ctx: AnalysisContext,
-        roots: list[AnnotatedOmnibusRootProduct.type],
+        roots: list[AnnotatedOmnibusRootProduct],
         excluded: list[Artifact],
         link_args: list[[Artifact, "resolved_macro", cmd_args, str]]) -> Artifact:
     """
@@ -630,13 +630,13 @@ def _create_global_symbols_version_script(
         symbol_files = global_symbols_files,
     )
 
-def _is_static_only(info: LinkableNode.type) -> bool:
+def _is_static_only(info: LinkableNode) -> bool:
     """
     Return whether this can only be linked statically.
     """
     return info.preferred_linkage == Linkage("static")
 
-def _is_shared_only(info: LinkableNode.type) -> bool:
+def _is_shared_only(info: LinkableNode) -> bool:
     """
     Return whether this can only use shared linking
     """
@@ -644,11 +644,11 @@ def _is_shared_only(info: LinkableNode.type) -> bool:
 
 def _create_omnibus(
         ctx: AnalysisContext,
-        spec: OmnibusSpec.type,
+        spec: OmnibusSpec,
         annotated_root_products,
-        pic_behavior: PicBehavior.type,
+        pic_behavior: PicBehavior,
         extra_ldflags: list[typing.Any] = [],
-        prefer_stripped_objects: bool = False) -> CxxLinkResult.type:
+        prefer_stripped_objects: bool = False) -> CxxLinkResult:
     inputs = []
 
     # Undefined symbols roots...
@@ -770,7 +770,7 @@ def _create_omnibus(
 
 def _build_omnibus_spec(
         ctx: AnalysisContext,
-        graph: OmnibusGraph.type) -> OmnibusSpec.type:
+        graph: OmnibusGraph) -> OmnibusSpec:
     """
     Divide transitive deps into excluded, root, and body nodes, which we'll
     use to link the various parts of omnibus.
@@ -847,7 +847,7 @@ def _build_omnibus_spec(
         dispositions = dispositions,
     )
 
-def _implicit_exclusion_roots(ctx: AnalysisContext, graph: OmnibusGraph.type) -> list[Label]:
+def _implicit_exclusion_roots(ctx: AnalysisContext, graph: OmnibusGraph) -> list[Label]:
     env = ctx.attrs._omnibus_environment
     if not env:
         return []
@@ -860,8 +860,8 @@ def _implicit_exclusion_roots(ctx: AnalysisContext, graph: OmnibusGraph.type) ->
     ]
 
 def _ordered_roots(
-        spec: OmnibusSpec.type,
-        pic_behavior: PicBehavior.type) -> list[(Label, AnnotatedLinkableRoot.type, list[Label])]:
+        spec: OmnibusSpec,
+        pic_behavior: PicBehavior) -> list[(Label, AnnotatedLinkableRoot, list[Label])]:
     """
     Return information needed to link the roots nodes.
     """
@@ -890,9 +890,9 @@ def _ordered_roots(
 
 def create_omnibus_libraries(
         ctx: AnalysisContext,
-        graph: OmnibusGraph.type,
+        graph: OmnibusGraph,
         extra_ldflags: list[typing.Any] = [],
-        prefer_stripped_objects: bool = False) -> OmnibusSharedLibraries.type:
+        prefer_stripped_objects: bool = False) -> OmnibusSharedLibraries:
     spec = _build_omnibus_spec(ctx, graph)
     pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior
 

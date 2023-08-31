@@ -22,7 +22,7 @@ BitcodeBundleInfo = provider(fields = [
     "bitcode_bundle",
 ])
 
-def _bundle_locally(ctx: AnalysisContext, linker_info: LinkerInfo.type) -> bool:
+def _bundle_locally(ctx: AnalysisContext, linker_info: LinkerInfo) -> bool:
     archive_locally = linker_info.archive_objects_locally
     if hasattr(ctx.attrs, "_archive_objects_locally_override"):
         return value_or(ctx.attrs._archive_objects_locally_override, archive_locally)
@@ -53,7 +53,7 @@ def make_bitcode_bundle(
         name: str,
         objects: list[Artifact],
         ignore_native: bool = False,
-        override: bool = False) -> [BitcodeBundle.type, None]:
+        override: bool = False) -> [BitcodeBundle, None]:
     if len(objects) == 0:
         fail("no objects to archive")
 

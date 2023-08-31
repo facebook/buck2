@@ -71,8 +71,8 @@ _DataType = enum(
 )
 
 _IndexLinkData = record(
-    data_type = _DataType.type,
-    link_data = field([_BitcodeLinkData.type, _ArchiveLinkData.type]),
+    data_type = _DataType,
+    link_data = field([_BitcodeLinkData, _ArchiveLinkData]),
 )
 
 _PrePostFlags = record(
@@ -93,7 +93,7 @@ def cxx_dist_link(
         identifier: [str, None] = None,
         # This action will only happen if split_dwarf is enabled via the toolchain.
         generate_dwp: bool = True,
-        executable_link: bool = True) -> LinkedObject.type:
+        executable_link: bool = True) -> LinkedObject:
     """
     Perform a distributed thin-lto link into the supplied output
 
@@ -138,7 +138,7 @@ def cxx_dist_link(
 
     names = {}
 
-    def name_for_link(info: LinkInfo.type) -> str:
+    def name_for_link(info: LinkInfo) -> str:
         """ Creates a unique name for a LinkInfo that we are consuming """
         name = info.name or "unknown"
         if name not in names:
@@ -177,14 +177,14 @@ def cxx_dist_link(
     pre_post_flags = {}
 
     # buildifier: disable=uninitialized
-    def add_linkable(idx: int, linkable: [ArchiveLinkable.type, SharedLibLinkable.type, ObjectsLinkable.type, FrameworksLinkable.type]):
+    def add_linkable(idx: int, linkable: [ArchiveLinkable, SharedLibLinkable, ObjectsLinkable, FrameworksLinkable]):
         if idx not in linkables_index:
             linkables_index[idx] = [linkable]
         else:
             linkables_index[idx].append(linkable)
 
     # buildifier: disable=uninitialized
-    def add_pre_post_flags(idx: int, flags: _PrePostFlags.type):
+    def add_pre_post_flags(idx: int, flags: _PrePostFlags):
         if idx not in pre_post_flags:
             pre_post_flags[idx] = [flags]
         else:
@@ -403,7 +403,7 @@ def cxx_dist_link(
     link_plan_out = ctx.actions.declare_output(output.basename + ".link-plan.json")
     dynamic_plan(link_plan = link_plan_out, index_argsfile_out = index_argsfile_out, final_link_index = final_link_index)
 
-    def prepare_opt_flags(link_infos: list[LinkInfo.type]) -> cmd_args:
+    def prepare_opt_flags(link_infos: list[LinkInfo]) -> cmd_args:
         opt_args = cmd_args()
         opt_args.add(cxx_link_cmd(ctx))
 
@@ -464,7 +464,7 @@ def cxx_dist_link(
 
         ctx.actions.dynamic_output(dynamic = [plan], inputs = [], outputs = [opt_object], f = optimize_object)
 
-    def dynamic_optimize_archive(archive: _ArchiveLinkData.type):
+    def dynamic_optimize_archive(archive: _ArchiveLinkData):
         def optimize_archive(ctx, artifacts, outputs):
             plan_json = artifacts[archive.plan].read_json()
             if "objects" not in plan_json or not plan_json["objects"] or is_all(lambda e: not e["is_bc"], plan_json["objects"]):

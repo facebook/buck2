@@ -53,7 +53,7 @@ def _serialize_linkable(linkable):
 
     fail("cannot serialize linkable type \"{}\"".format(linkable._type))
 
-def _serialize_link_info(info: LinkInfo.type):
+def _serialize_link_info(info: LinkInfo):
     external_debug_info = []
     if info.external_debug_info._tset != None:
         for infos in info.external_debug_info._tset.traverse():
@@ -68,7 +68,7 @@ def _serialize_link_info(info: LinkInfo.type):
         [(str(info.label.raw_target()), info.artifacts) for info in external_debug_info],
     )
 
-def _serialize_link_args(link: LinkArgs.type):
+def _serialize_link_args(link: LinkArgs):
     if link.flags != None:
         return ("flags", link.flags)
 
@@ -77,13 +77,13 @@ def _serialize_link_args(link: LinkArgs.type):
 
     fail("cannot serialize link args")
 
-def _serialize_links(links: list[LinkArgs.type]):
+def _serialize_links(links: list[LinkArgs]):
     return [_serialize_link_args(link) for link in links]
 
 def serialize_anon_attrs(
         output: str,
-        result_type: CxxLinkResultType.type,
-        opts: LinkOptions.type) -> dict[str, typing.Any]:
+        result_type: CxxLinkResultType,
+        opts: LinkOptions) -> dict[str, typing.Any]:
     return dict(
         links = _serialize_links(opts.links),
         output = output,
@@ -128,7 +128,7 @@ def _deserialize_linkable(linkable: (str, typing.Any)) -> typing.Any:
 
     fail("Invalid linkable type: {}".format(typ))
 
-def _deserialize_link_info(actions: AnalysisActions, label: Label, info) -> LinkInfo.type:
+def _deserialize_link_info(actions: AnalysisActions, label: Label, info) -> LinkInfo:
     name, pre_flags, post_flags, linkables, external_debug_info = info
     return LinkInfo(
         name = name,
@@ -147,7 +147,7 @@ def _deserialize_link_info(actions: AnalysisActions, label: Label, info) -> Link
 def _deserialize_link_args(
         actions: AnalysisActions,
         label: Label,
-        link: (str, typing.Any)) -> LinkArgs.type:
+        link: (str, typing.Any)) -> LinkArgs:
     typ, payload = link
 
     if typ == "flags":
@@ -161,7 +161,7 @@ def _deserialize_link_args(
 def deserialize_anon_attrs(
         actions: AnalysisActions,
         label: Label,
-        attrs: struct) -> (str, CxxLinkResultType.type, LinkOptions.type):
+        attrs: struct) -> (str, CxxLinkResultType, LinkOptions):
     opts = link_options(
         links = [_deserialize_link_args(actions, label, link) for link in attrs.links],
         import_library = attrs.import_library,
@@ -192,7 +192,7 @@ ANON_ATTRS = {
             attrs.one_of(
                 attrs.list(attrs.one_of(attrs.string(), attrs.arg())),  # flags
                 attrs.list(
-                    # infos: [LinkInfo.type]
+                    # infos: [LinkInfo]
                     attrs.tuple(
                         # LinkInfo
                         attrs.option(attrs.string(), default = None),  # name

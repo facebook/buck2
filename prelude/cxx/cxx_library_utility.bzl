@@ -74,7 +74,7 @@ def cxx_attr_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
         flatten(cxx_by_platform(ctx, ctx.attrs.platform_linker_flags))
     )
 
-def cxx_attr_link_style(ctx: AnalysisContext) -> LinkStyle.type:
+def cxx_attr_link_style(ctx: AnalysisContext) -> LinkStyle:
     if ctx.attrs.link_style != None:
         return LinkStyle(ctx.attrs.link_style)
     if ctx.attrs.defaults != None:
@@ -86,7 +86,7 @@ def cxx_attr_link_style(ctx: AnalysisContext) -> LinkStyle.type:
                 return s
     return get_cxx_toolchain_info(ctx).linker_info.link_style
 
-def cxx_attr_preferred_linkage(ctx: AnalysisContext) -> Linkage.type:
+def cxx_attr_preferred_linkage(ctx: AnalysisContext) -> Linkage:
     preferred_linkage = ctx.attrs.preferred_linkage
 
     # force_static is deprecated, but it has precedence over preferred_linkage
@@ -171,7 +171,7 @@ def cxx_platform_supported(ctx: AnalysisContext) -> bool:
         get_cxx_platform_info(ctx).name,
     )
 
-def cxx_objects_sub_targets(outs: list[CxxCompileOutput.type]) -> dict[str, list[Provider]]:
+def cxx_objects_sub_targets(outs: list[CxxCompileOutput]) -> dict[str, list[Provider]]:
     objects_sub_targets = {}
     for obj in outs:
         sub_targets = {}

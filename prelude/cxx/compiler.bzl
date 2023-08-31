@@ -10,7 +10,7 @@ load(":cxx_toolchain_types.bzl", "DepTrackingMode")
 
 # TODO(T110378132): Added here for compat with v1, but this might make more
 # sense on the toolchain definition.
-def get_flags_for_reproducible_build(ctx: AnalysisContext, compiler_type: str) -> list[[str, cmd_args.type]]:
+def get_flags_for_reproducible_build(ctx: AnalysisContext, compiler_type: str) -> list[[str, cmd_args]]:
     """
     Return flags needed to make compilations reproducible (e.g. avoiding
     embedding the working directory into debug info.
@@ -47,7 +47,7 @@ def get_flags_for_colorful_output(compiler_type: str) -> list[str]:
 # wrapper_args -> the arguments used by the dep_file_processor to determine how to process the dep files
 # compiler_args -> args passed to the compiler when generating dependencies
 
-def cc_dep_files(actions: AnalysisActions, filename_base: str, _input_file: Artifact) -> (cmd_args.type, cmd_args.type):
+def cc_dep_files(actions: AnalysisActions, filename_base: str, _input_file: Artifact) -> (cmd_args, cmd_args):
     intermediary_dep_file = actions.declare_output(
         paths.join("__dep_files_intermediaries__", filename_base),
     ).as_output()
@@ -57,16 +57,16 @@ def cc_dep_files(actions: AnalysisActions, filename_base: str, _input_file: Arti
 def tree_style_cc_dep_files(
         _actions: AnalysisActions,
         _filename_base: str,
-        input_file: Artifact) -> (cmd_args.type, cmd_args.type):
+        input_file: Artifact) -> (cmd_args, cmd_args):
     return (cmd_args(input_file), cmd_args(["-H"]))
 
 def windows_cc_dep_files(
         _actions: AnalysisActions,
         _filename_base: str,
-        input_file: Artifact) -> (cmd_args.type, cmd_args.type):
+        input_file: Artifact) -> (cmd_args, cmd_args):
     return (cmd_args(input_file), cmd_args(["/showIncludes"]))
 
-def get_headers_dep_files_flags_factory(dep_tracking_mode: DepTrackingMode.type) -> [typing.Callable, None]:
+def get_headers_dep_files_flags_factory(dep_tracking_mode: DepTrackingMode) -> [typing.Callable, None]:
     if dep_tracking_mode.value == "makefile":
         return cc_dep_files
 

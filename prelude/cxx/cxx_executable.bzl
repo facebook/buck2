@@ -158,18 +158,18 @@ CxxExecutableOutput = record(
     runtime_files = list[ArgLike],
     sub_targets = dict[str, list[DefaultInfo.type]],
     # The LinkArgs used to create the final executable in 'binary'.
-    link_args = list[LinkArgs.type],
+    link_args = list[LinkArgs],
     # External components needed to debug the executable.
     external_debug_info = field(ArtifactTSet.type, ArtifactTSet()),
-    shared_libs = dict[str, LinkedObject.type],
+    shared_libs = dict[str, LinkedObject],
     # All link group links that were generated in the executable.
-    auto_link_groups = field(dict[str, LinkedObject.type], {}),
+    auto_link_groups = field(dict[str, LinkedObject], {}),
     compilation_db = CxxCompilationDbInfo.type,
     xcode_data = XcodeDataInfo.type,
-    linker_map_data = [CxxLinkerMapData.type, None],
+    linker_map_data = [CxxLinkerMapData, None],
 )
 
-def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.type, is_cxx_test: bool = False) -> CxxExecutableOutput.type:
+def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, is_cxx_test: bool = False) -> CxxExecutableOutput:
     project_root_file = get_project_root_file(ctx)
 
     # Gather preprocessor inputs.
@@ -622,19 +622,19 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.t
 
 _CxxLinkExecutableResult = record(
     # The resulting executable
-    exe = LinkedObject.type,
+    exe = LinkedObject,
     # List of files/directories that should be present for executable to be run successfully
     runtime_files = list[ArgLike],
     # Optional shared libs symlink tree symlinked_dir action
     shared_libs_symlink_tree = [Artifact, None],
-    linker_map_data = [CxxLinkerMapData.type, None],
+    linker_map_data = [CxxLinkerMapData, None],
 )
 
 def _link_into_executable(
         ctx: AnalysisContext,
-        shared_libs: dict[str, LinkedObject.type],
+        shared_libs: dict[str, LinkedObject],
         binary_extension: str,
-        opts: LinkOptions) -> _CxxLinkExecutableResult.type:
+        opts: LinkOptions) -> _CxxLinkExecutableResult:
     output = ctx.actions.declare_output("{}{}".format(get_cxx_executable_product_name(ctx), "." + binary_extension if binary_extension else ""))
     extra_args, runtime_files, shared_libs_symlink_tree = executable_shared_lib_arguments(
         ctx.actions,

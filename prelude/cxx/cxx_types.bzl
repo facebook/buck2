@@ -82,9 +82,9 @@ CxxRuleProviderParams = record(
 
 # Parameters to handle non-Clang sources, e.g Swift on Apple's platforms.
 CxxRuleAdditionalParams = record(
-    srcs = field(list[CxxSrcWithFlags.type], []),
+    srcs = field(list[CxxSrcWithFlags], []),
     # Additional argsfiles to include for this rule.
-    argsfiles = field(CompileArgsfiles.type, CompileArgsfiles()),
+    argsfiles = field(CompileArgsfiles, CompileArgsfiles()),
     # External debug info to be used when generated static output
     static_external_debug_info = field(list[ArtifactTSet.type], []),
     # External debug info to be used when generating shared objects
@@ -110,9 +110,9 @@ CxxRuleConstructorParams = record(
     # If the rule is a test.
     is_test = field(bool, False),
     # Header layout to use importing headers.
-    headers_layout = CxxHeadersLayout.type,
+    headers_layout = CxxHeadersLayout,
     # Additional information used to preprocess every unit of translation in the rule.
-    extra_preprocessors = field(list[CPreprocessor.type], []),
+    extra_preprocessors = field(list[CPreprocessor], []),
     extra_preprocessors_info = field(list[CPreprocessorInfo.type], []),
     # Additional preprocessor info to export to other rules.
     extra_exported_preprocessors = field(list[CPreprocessor.type], []),
@@ -128,21 +128,21 @@ CxxRuleConstructorParams = record(
     # If True the extra_link_input should be considered as external debug info.
     extra_link_input_has_external_debug_info = field(bool, False),
     # Additional args to be used to link the target.
-    extra_link_args = field(list[LinkArgs.type], []),
+    extra_link_args = field(list[LinkArgs], []),
     # The swift module linkable that should be included for linking,
     # used for link_groups and regular linking.
-    swiftmodule_linkable = field([SwiftmoduleLinkable.type, None], None),
+    swiftmodule_linkable = field([SwiftmoduleLinkable, None], None),
     # The source files to compile as part of this rule. This list can be generated
     # from ctx.attrs with the `get_srcs_with_flags` function.
-    srcs = field(list[CxxSrcWithFlags.type]),
-    additional = field(CxxRuleAdditionalParams.type, CxxRuleAdditionalParams()),
+    srcs = field(list[CxxSrcWithFlags]),
+    additional = field(CxxRuleAdditionalParams, CxxRuleAdditionalParams()),
     # A function which enables the caller to inject subtargets into the link_style provider
     # as well as create custom providers based on the link styles.
     link_style_sub_targets_and_providers_factory = field(typing.Callable, lambda _link_style, _context, _output: ({}, [])),
     # Linker flags that tell the linker to create shared libraries, overriding the default shared library flags.
     # e.g. when building Apple tests, we want to link with `-bundle` instead of `-shared` to allow
     # linking against the bundle loader.
-    shared_library_flags = field([SharedLibraryFlagOverrides.type, None], None),
+    shared_library_flags = field([SharedLibraryFlagOverrides, None], None),
     # Optional argument to override the default name of the shared object being produced.
     soname = field([str, None], None),
     # If passed to cxx_executable, this field will be used to determine
@@ -156,9 +156,9 @@ CxxRuleConstructorParams = record(
     # Function to use for setting Xcode attributes for the Xcode data sub target.
     cxx_populate_xcode_attributes_func = field(typing.Callable, cxx_populate_xcode_attributes),
     # Define which sub targets to generate.
-    generate_sub_targets = field(CxxRuleSubTargetParams.type, CxxRuleSubTargetParams()),
+    generate_sub_targets = field(CxxRuleSubTargetParams, CxxRuleSubTargetParams()),
     # Define which providers to generate.
-    generate_providers = field(CxxRuleProviderParams.type, CxxRuleProviderParams()),
+    generate_providers = field(CxxRuleProviderParams, CxxRuleProviderParams()),
     # Force this library to be a Python Omnibus root.
     is_omnibus_root = field(bool, False),
     # Emit an Omnibus shared root for this node even if it's not an Omnibus
@@ -167,15 +167,15 @@ CxxRuleConstructorParams = record(
     force_full_hybrid_if_capable = field(bool, False),
     # Whether shared libs for executables should generate a shared lib link tree.
     exe_shared_libs_link_tree = field(bool, True),
-    extra_link_deps = field(list[LinkableProviders.type], []),
+    extra_link_deps = field(list[LinkableProviders], []),
     # Additional link roots (e.g. dlopen-able libs in a native python link),
     # other than the main executable, which can influence the C++ executable
     # result (e.g. added to link group linking or needs to be searched for
     # shared libs to include in the symlink tree).
-    extra_link_roots = field(list[LinkableProviders.type], []),
+    extra_link_roots = field(list[LinkableProviders], []),
     # Additional shared libs to "package".
-    extra_shared_libs = field(dict[str, SharedLibrary.type], {}),
-    auto_link_group_specs = field([list[LinkGroupLibSpec.type], None], None),
+    extra_shared_libs = field(dict[str, SharedLibrary], {}),
+    auto_link_group_specs = field([list[LinkGroupLibSpec], None], None),
     link_group_info = field([LinkGroupInfo.type, None], None),
     # Whether to use pre-stripped objects when linking.
     prefer_stripped_objects = field(bool, False),
@@ -184,7 +184,7 @@ CxxRuleConstructorParams = record(
     # Whether link groups liking should make `preferred_linkage = "static"` libs
     # "follow" their dependents across link group boundaries.
     link_groups_force_static_follows_dependents = field(bool, True),
-    # The intended return type is: (["_arglike"], {str: [DefaultInfo.type]}).
+    # The intended return type is: (list[ArgLike], dict[str, list[DefaultInfo]]).
     extra_linker_outputs_factory = field(typing.Callable, lambda _context: ([], {})),
     # Whether to allow cache uploads for locally-linked executables.
     exe_allow_cache_upload = field(bool, False),

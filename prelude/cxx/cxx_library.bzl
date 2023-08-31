@@ -199,9 +199,9 @@ CxxLibraryOutput = record(
     # Note: It's possible that this can contain some of the artifacts which are
     # also present in object_files.
     other = field(list[Artifact], []),
-    bitcode_bundle = field([BitcodeBundle.type, None], None),
+    bitcode_bundle = field([BitcodeBundle, None], None),
     # Additional debug info which is not included in the library output.
-    external_debug_info = field(ArtifactTSet.type, ArtifactTSet()),
+    external_debug_info = field(ArtifactTSet, ArtifactTSet()),
     # A shared shared library may have an associated dwp file with
     # its corresponding DWARF debug info.
     # May be None when Split DWARF is disabled, for static/static-pic libraries,
@@ -212,21 +212,21 @@ CxxLibraryOutput = record(
     pdb = field([Artifact, None], None),
     # The import library is the linkable output of a Windows shared library build.
     implib = field([Artifact, None], None),
-    linker_map = field([CxxLinkerMapData.type, None], None),
+    linker_map = field([CxxLinkerMapData, None], None),
 )
 
 # The outputs of either archiving or linking the outputs of the library
 _CxxAllLibraryOutputs = record(
     # The outputs for each type of link style.
-    outputs = field(dict[LinkStyle.type, [CxxLibraryOutput.type, None]]),
+    outputs = field(dict[LinkStyle, [CxxLibraryOutput, None]]),
     # The link infos that are part of each output based on link style.
-    libraries = field(dict[LinkStyle.type, LinkInfos.type]),
+    libraries = field(dict[LinkStyle, LinkInfos]),
     # Extra sub targets to be returned as outputs of this rule, by link style.
-    sub_targets = field(dict[LinkStyle.type, dict[str, list[Provider]]], default = {}),
+    sub_targets = field(dict[LinkStyle, dict[str, list[Provider]]], default = {}),
     # Extra providers to be returned consumers of this rule.
     providers = field(list[Provider], default = []),
     # Shared object name to shared library mapping.
-    solibs = field(dict[str, LinkedObject.type]),
+    solibs = field(dict[str, LinkedObject]),
 )
 
 _CxxLibraryCompileOutput = record(
@@ -254,31 +254,31 @@ _CxxLibraryCompileOutput = record(
 # the commands use to compile them and all the object file variants.
 _CxxCompiledSourcesOutput = record(
     # Compile commands used to compile the source files or generate object files
-    compile_cmds = field(CxxCompileCommandOutput.type),
+    compile_cmds = field(CxxCompileCommandOutput),
     # PIC compile outputs
-    pic = field(_CxxLibraryCompileOutput.type),
+    pic = field(_CxxLibraryCompileOutput),
     # Non PIC compile outputs
-    non_pic = field([_CxxLibraryCompileOutput.type, None]),
+    non_pic = field([_CxxLibraryCompileOutput, None]),
 )
 
 # The outputs of a cxx_library_parameterized rule.
 _CxxLibraryParameterizedOutput = record(
     # The default output of a cxx library rule
-    default_output = field([CxxLibraryOutput.type, None], None),
+    default_output = field([CxxLibraryOutput, None], None),
     # The other outputs available
-    all_outputs = field([_CxxAllLibraryOutputs.type, None], None),
+    all_outputs = field([_CxxAllLibraryOutputs, None], None),
     # Any generated sub targets as requested by impl_params. Most of these will just be a
     # DefaultInfo to expose outputs to be consumed or built individually, but some (like "headers")
     # will have richer providers.
     sub_targets = field(dict[str, list[Provider]]),
     # A bundle of all bitcode files as a subtarget
-    bitcode_bundle = field([BitcodeBundle.type, None], None),
+    bitcode_bundle = field([BitcodeBundle, None], None),
 
     # Any generated providers as requested by impl_params.
     providers = field(list[Provider]),
     # XcodeDataInfo provider, returned separately as we cannot check
     # provider type from providers above
-    xcode_data_info = field([XcodeDataInfo.type, None], None),
+    xcode_data_info = field([XcodeDataInfo, None], None),
     # CxxCompilationDbInfo provider, returned separately as we cannot check
     # provider type from providers above
     cxx_compilationdb_info = field([CxxCompilationDbInfo.type, None], None),
@@ -286,7 +286,7 @@ _CxxLibraryParameterizedOutput = record(
     linkable_root = field([LinkableRootInfo.type, None], None),
 )
 
-def cxx_library_parameterized(ctx: AnalysisContext, impl_params: "CxxRuleConstructorParams") -> _CxxLibraryParameterizedOutput.type:
+def cxx_library_parameterized(ctx: AnalysisContext, impl_params: "CxxRuleConstructorParams") -> _CxxLibraryParameterizedOutput:
     """
     Defines the outputs for a cxx library, return the default output and any subtargets and providers based upon the requested params.
     """
@@ -760,6 +760,12 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: "CxxRuleConstru
         additional_providers.append(bc_provider)
 
     if impl_params.generate_providers.default:
+        if False:
+            # TODO(nga): `default_output.unstripped` is never `None`.
+            def unknown():
+                pass
+
+            default_output = unknown()
         if default_output != None and default_output.unstripped != None:
             sub_targets["unstripped"] = [DefaultInfo(
                 default_outputs = [default_output.unstripped],
@@ -803,7 +809,7 @@ def get_default_cxx_library_product_name(ctx, impl_params) -> str:
     else:
         return _soname(ctx, impl_params)
 
-def _get_library_compile_output(ctx, outs: list["CxxCompileOutput"], extra_link_input) -> _CxxLibraryCompileOutput.type:
+def _get_library_compile_output(ctx, outs: list["CxxCompileOutput"], extra_link_input) -> _CxxLibraryCompileOutput:
     objects = [out.object for out in outs]
     stripped_objects = _strip_objects(ctx, objects)
 
@@ -834,11 +840,11 @@ def _get_library_compile_output(ctx, outs: list["CxxCompileOutput"], extra_link_
 
 def cxx_compile_srcs(
         ctx: AnalysisContext,
-        impl_params: CxxRuleConstructorParams.type,
-        own_preprocessors: list[CPreprocessor.type],
+        impl_params: CxxRuleConstructorParams,
+        own_preprocessors: list[CPreprocessor],
         inherited_non_exported_preprocessor_infos: list[CPreprocessorInfo.type],
         inherited_exported_preprocessor_infos: list[CPreprocessorInfo.type],
-        preferred_linkage: Linkage.type) -> _CxxCompiledSourcesOutput.type:
+        preferred_linkage: Linkage) -> _CxxCompiledSourcesOutput:
     """
     Compile objects we'll need for archives and shared libraries.
     """
@@ -868,13 +874,13 @@ def cxx_compile_srcs(
 
 def _form_library_outputs(
         ctx: AnalysisContext,
-        impl_params: CxxRuleConstructorParams.type,
-        compiled_srcs: _CxxCompiledSourcesOutput.type,
-        preferred_linkage: Linkage.type,
-        shared_links: LinkArgs.type,
-        extra_static_linkables: list[[FrameworksLinkable.type, SwiftmoduleLinkable.type, SwiftRuntimeLinkable.type]],
+        impl_params: CxxRuleConstructorParams,
+        compiled_srcs: _CxxCompiledSourcesOutput,
+        preferred_linkage: Linkage,
+        shared_links: LinkArgs,
+        extra_static_linkables: list[[FrameworksLinkable, SwiftmoduleLinkable, SwiftRuntimeLinkable]],
         gnu_use_link_groups: bool,
-        link_execution_preference: LinkExecutionPreference.type) -> _CxxAllLibraryOutputs.type:
+        link_execution_preference: LinkExecutionPreference) -> _CxxAllLibraryOutputs:
     # Build static/shared libs and the link info we use to export them to dependents.
     outputs = {}
     libraries = {}
@@ -883,7 +889,7 @@ def _form_library_outputs(
     providers = []
 
     # Add in exported linker flags.
-    def ldflags(inner: LinkInfo.type) -> LinkInfo.type:
+    def ldflags(inner: LinkInfo) -> LinkInfo:
         return wrap_link_info(
             inner = inner,
             pre_flags = cxx_attr_exported_linker_flags(ctx),
@@ -1028,15 +1034,15 @@ def _get_shared_library_links(
         linkable_graph_node_map_func,
         link_group: [str, None],
         link_group_mappings: [dict[Label, str], None],
-        link_group_preferred_linkage: dict[Label, Linkage.type],
-        link_group_libs: dict[str, LinkGroupLib.type],
+        link_group_preferred_linkage: dict[Label, Linkage],
+        link_group_libs: dict[str, LinkGroupLib],
         exported_deps: list[Dependency],
         non_exported_deps: list[Dependency],
         force_link_group_linking,
-        frameworks_linkable: [FrameworksLinkable.type, None],
+        frameworks_linkable: [FrameworksLinkable, None],
         force_static_follows_dependents: bool = True,
-        swiftmodule_linkable: [SwiftmoduleLinkable.type, None] = None,
-        swift_runtime_linkable: [SwiftRuntimeLinkable.type, None] = None) -> ("LinkArgs", [DefaultInfo.type, None], LinkExecutionPreference.type):
+        swiftmodule_linkable: [SwiftmoduleLinkable, None] = None,
+        swift_runtime_linkable: [SwiftRuntimeLinkable, None] = None) -> ("LinkArgs", [DefaultInfo.type, None], LinkExecutionPreference):
     """
     Returns LinkArgs with the content to link, and a link group map json output if applicable.
 
@@ -1080,7 +1086,7 @@ def _get_shared_library_links(
             # fPIC behaves differently on various combinations of toolchains + platforms.
             # To get the link_style, we have to check the link_style against the toolchain's pic_behavior.
             #
-            # For more info, check the PicBehavior.type docs.
+            # For more info, check the `PicBehavior` docs.
             process_link_style_for_pic_behavior(LinkStyle(link_style_value), pic_behavior),
             swiftmodule_linkable = swiftmodule_linkable,
             swift_runtime_linkable = swift_runtime_linkable,
@@ -1120,7 +1126,7 @@ def _get_shared_library_links(
 
     return LinkArgs(infos = filtered_links), get_link_group_map_json(ctx, filtered_targets), link_execution_preference
 
-def _use_pic(link_style: LinkStyle.type) -> bool:
+def _use_pic(link_style: LinkStyle) -> bool:
     """
     Whether this link style requires PIC objects.
     """
@@ -1135,10 +1141,10 @@ def _static_library(
         objects: list[Artifact],
         pic: bool,
         stripped: bool,
-        extra_linkables: list[[FrameworksLinkable.type, SwiftmoduleLinkable.type, SwiftRuntimeLinkable.type]],
+        extra_linkables: list[[FrameworksLinkable, SwiftmoduleLinkable, SwiftRuntimeLinkable]],
         objects_have_external_debug_info: bool = False,
         external_debug_info: ArtifactTSet.type = ArtifactTSet(),
-        bitcode_objects: [list[Artifact], None] = None) -> (CxxLibraryOutput.type, LinkInfo.type):
+        bitcode_objects: [list[Artifact], None] = None) -> (CxxLibraryOutput, LinkInfo.type):
     if len(objects) == 0:
         fail("empty objects")
 
@@ -1156,6 +1162,12 @@ def _static_library(
     archive = make_archive(ctx, name, objects)
 
     bitcode_bundle = _bitcode_bundle(ctx, bitcode_objects, pic, stripped)
+    if False:
+        # TODO(nga): bitcode_bundle.artifact
+        def unknown():
+            pass
+
+        bitcode_bundle = unknown()
     if bitcode_bundle != None and bitcode_bundle.artifact != None:
         bitcode_artifact = bitcode_bundle.artifact
     else:
@@ -1228,7 +1240,7 @@ def _bitcode_bundle(
         objects: [list[Artifact], None],
         pic: bool = False,
         stripped: bool = False,
-        name_extra = "") -> [BitcodeBundle.type, None]:
+        name_extra = "") -> [BitcodeBundle, None]:
     if objects == None or len(objects) == 0:
         return None
 
@@ -1238,12 +1250,12 @@ def _bitcode_bundle(
 
 _CxxSharedLibraryResult = record(
     # Result from link, includes the shared lib, linker map data etc
-    link_result = CxxLinkResult.type,
+    link_result = CxxLinkResult,
     # Shared library name (e.g. SONAME)
     soname = str,
     objects_bitcode_bundle = [Artifact, None],
     # `LinkInfo` used to link against the shared library.
-    info = LinkInfo.type,
+    info = LinkInfo,
 )
 
 def _shared_library(
@@ -1251,11 +1263,11 @@ def _shared_library(
         impl_params: "CxxRuleConstructorParams",
         objects: list[Artifact],
         external_debug_info: ArtifactTSet.type,
-        dep_infos: LinkArgs.type,
+        dep_infos: LinkArgs,
         gnu_use_link_groups: bool,
         extra_linker_flags: list[ArgLike],
-        link_execution_preference: LinkExecutionPreference.type,
-        link_ordering: [LinkOrdering.type, None] = None) -> _CxxSharedLibraryResult.type:
+        link_execution_preference: LinkExecutionPreference,
+        link_ordering: [LinkOrdering, None] = None) -> _CxxSharedLibraryResult:
     """
     Generate a shared library and the associated native link info used by
     dependents to link against it.

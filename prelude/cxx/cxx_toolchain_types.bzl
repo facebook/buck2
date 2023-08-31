@@ -32,16 +32,16 @@ LinkerInfo = provider(fields = [
     # (e.g., large Apple frameworks), it's more efficient to link locally due
     # GiBs of object files (which can also lead to RE errors/timesouts etc).
     "link_libraries_locally",
-    "link_style",  # LinkStyle.type
+    "link_style",  # LinkStyle
     "link_weight",  # int
-    "link_ordering",  # LinkOrdering.type
+    "link_ordering",  # LinkOrdering
     "linker",
     "linker_flags",
     "lto_mode",
     "mk_shlib_intf",
     # "o" on Unix, "obj" on Windows
     "object_file_extension",  # str
-    "shlib_interfaces",  # ShlibInterfacesMode.type
+    "shlib_interfaces",  # ShlibInterfacesMode
     "shared_dep_runtime_ld_flags",
     # "lib{}.so" on Linux, "lib{}.dylib" on Mac, "{}.dll" on Windows
     "shared_library_name_format",  # str
@@ -189,7 +189,7 @@ def _validate_linker_info(info: LinkerInfo.type):
     if info.supports_distributed_thinlto and not info.requires_objects:
         fail("distributed thinlto requires enabling `requires_objects`")
 
-def is_bitcode_format(format: CxxObjectFormat.type) -> bool:
+def is_bitcode_format(format: CxxObjectFormat) -> bool:
     return format in [CxxObjectFormat("bitcode"), CxxObjectFormat("embedded-bitcode")]
 
 def cxx_toolchain_infos(
@@ -215,7 +215,7 @@ def cxx_toolchain_infos(
         cpp_dep_tracking_mode = DepTrackingMode("none"),
         cuda_dep_tracking_mode = DepTrackingMode("none"),
         strip_flags_info = None,
-        dist_lto_tools_info: [DistLtoToolsInfo.type, None] = None,
+        dist_lto_tools_info: [DistLtoToolsInfo, None] = None,
         split_debug_mode = SplitDebugMode("none"),
         bolt_enabled = False,
         llvm_link = None,

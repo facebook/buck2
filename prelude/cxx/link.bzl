@@ -69,14 +69,14 @@ CxxLinkerMapData = record(
 
 CxxLinkResult = record(
     # The resulting artifact from the link
-    linked_object = LinkedObject.type,
-    linker_map_data = [CxxLinkerMapData.type, None],
+    linked_object = LinkedObject,
+    linker_map_data = [CxxLinkerMapData, None],
     link_execution_preference_info = LinkExecutionPreferenceInfo.type,
 )
 
 def link_external_debug_info(
         ctx: AnalysisContext,
-        links: list[LinkArgs.type],
+        links: list[LinkArgs],
         split_debug_output: [Artifact, None] = None,
         pdb: [Artifact, None] = None) -> ArtifactTSet.type:
     external_debug_artifacts = []
@@ -108,8 +108,8 @@ def cxx_link_into(
         ctx: AnalysisContext,
         # The destination for the link output.
         output: Artifact,
-        result_type: CxxLinkResultType.type,
-        opts: LinkOptions.type) -> CxxLinkResult.type:
+        result_type: CxxLinkResultType,
+        opts: LinkOptions) -> CxxLinkResult:
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
 
@@ -295,7 +295,7 @@ def cxx_link_into(
     )
 
 _AnonLinkInfo = provider(fields = [
-    "result",  # CxxLinkResult.type
+    "result",  # CxxLinkResult
 ])
 
 def _anon_link_impl(ctx):
@@ -318,8 +318,8 @@ _anon_link_rule = rule(
 def _anon_cxx_link(
         ctx: AnalysisContext,
         output: str,
-        result_type: CxxLinkResultType.type,
-        opts: LinkOptions.type) -> CxxLinkResult.type:
+        result_type: CxxLinkResultType,
+        opts: LinkOptions) -> CxxLinkResult:
     anon_providers = ctx.actions.anon_target(
         _anon_link_rule,
         dict(
@@ -370,8 +370,8 @@ def _anon_cxx_link(
 def cxx_link(
         ctx: AnalysisContext,
         output: str,
-        result_type: CxxLinkResultType.type,
-        opts: LinkOptions.type,
+        result_type: CxxLinkResultType,
+        opts: LinkOptions,
         anonymous: bool = False):
     if anonymous:
         return _anon_cxx_link(
@@ -395,10 +395,10 @@ def cxx_link_shared_library(
         # Optional soname to link into shared library.
         name: [str, None] = None,
         # Overrides the default flags used to specify building shared libraries
-        shared_library_flags: [SharedLibraryFlagOverrides.type, None] = None,
-        anonymous: bool = False) -> CxxLinkResult.type:
-    # links: list[LinkArgs.type] = [],
-    # link_execution_preference: LinkExecutionPreference.type = LinkExecutionPreference("any"),
+        shared_library_flags: [SharedLibraryFlagOverrides, None] = None,
+        anonymous: bool = False) -> CxxLinkResult:
+    # links: list[LinkArgs] = [],
+    # link_execution_preference: LinkExecutionPreference = LinkExecutionPreference("any"),
 
     """
     Link a shared library into the supplied output.
