@@ -26,7 +26,6 @@ use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::BinOp;
 use crate::syntax::ast::ExprP;
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
 #[derive(Debug, thiserror::Error)]
 enum TypeExprUnpackError {
@@ -42,6 +41,12 @@ enum TypeExprUnpackError {
     StrBanReplace(&'static str, &'static str),
     #[error(r#"`{0}.type` is not allowed in type expression, use `{0}` instead"#)]
     DotTypeBan(&'static str),
+}
+
+/// Types that are `""` or start with `"_"` are wildcard - they match everything
+/// (also deprecated).
+pub(crate) fn type_str_literal_is_wildcard(s: &str) -> bool {
+    s == "" || s.starts_with('_')
 }
 
 /// This type should be used instead of `TypeExprP`, but a lot of code needs to be updated.
@@ -210,7 +215,7 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
             }),
             ExprP::Lambda(..) => err("lambda"),
             ExprP::Literal(AstLiteral::String(s)) => {
-                if TypeCompiled::is_wildcard(s) {
+                if type_str_literal_is_wildcard(s) {
                     return Err(EvalException::new(
                         TypeExprUnpackError::EmptyStrInType.into(),
                         expr.span,

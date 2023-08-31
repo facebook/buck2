@@ -39,6 +39,7 @@ use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
 use crate::private::Private;
+use crate::syntax::type_expr::type_str_literal_is_wildcard;
 use crate::typing::Ty;
 use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
@@ -416,13 +417,8 @@ impl<'v> TypeCompiled<Value<'v>> {
         TypeCompiledFactory::alloc_ty(&ty, heap)
     }
 
-    /// Types that are `""` or start with `"_"` are wildcard - they match everything.
-    pub(crate) fn is_wildcard(x: &str) -> bool {
-        x == "" || x.starts_with('_')
-    }
-
     pub(crate) fn is_wildcard_value(x: Value) -> bool {
-        x.unpack_str().map(TypeCompiled::is_wildcard) == Some(true)
+        x.unpack_str().map(type_str_literal_is_wildcard) == Some(true)
     }
 
     /// For `p: "xxx"`, parse that `"xxx"` as type.

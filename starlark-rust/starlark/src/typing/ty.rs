@@ -34,6 +34,7 @@ use crate::docs::DocMember;
 use crate::docs::DocParam;
 use crate::docs::DocProperty;
 use crate::eval::compiler::small_vec_1::SmallVec1;
+use crate::syntax::type_expr::type_str_literal_is_wildcard;
 use crate::typing::arc_ty::ArcTy;
 use crate::typing::basic::TyBasic;
 use crate::typing::custom::TyCustom;
@@ -50,7 +51,6 @@ use crate::typing::tuple::TyTuple;
 use crate::values::bool::StarlarkBool;
 use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::typing::never::TypingNever;
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 
@@ -174,7 +174,7 @@ impl Ty {
 
     fn try_name_special(name: &str) -> Option<Self> {
         match name {
-            name if TypeCompiled::is_wildcard(name) => Some(Self::any()),
+            name if type_str_literal_is_wildcard(name) => Some(Self::any()),
             "list" => Some(Self::list(Ty::any())),
             "dict" => Some(Self::dict(Ty::any(), Ty::any())),
             "function" => Some(Self::any_function()),
