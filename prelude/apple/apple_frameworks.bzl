@@ -17,7 +17,6 @@ load(
     "LinkInfo",
     "LinkInfos",
     "LinkInfosTSet",
-    "LinkableType",
     "MergedLinkInfo",
     "SwiftRuntimeLinkable",  # @unused Used as a type
     "SwiftmoduleLinkable",  # @unused Used as a type
@@ -177,12 +176,10 @@ def apple_get_link_info_by_deduping_link_infos(
     return _link_info_from_linkables(ctx, framework_linkables, swiftmodule_linkables, swift_runtime_linkables)
 
 def _extract_framework_linkables(link_infos: [list[LinkInfo.type], None]) -> list[FrameworksLinkable.type]:
-    frameworks_type = LinkableType("frameworks")
-
     linkables = []
     for merged in link_infos:
         for linkable in merged.linkables:
-            if linkable._type == frameworks_type:
+            if isinstance(linkable, FrameworksLinkable):
                 linkables.append(linkable)
 
     return linkables
