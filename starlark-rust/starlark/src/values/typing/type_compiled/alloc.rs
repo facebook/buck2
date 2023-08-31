@@ -40,6 +40,7 @@ use crate::values::typing::type_compiled::matchers::IsNever;
 use crate::values::typing::type_compiled::matchers::IsNone;
 use crate::values::typing::type_compiled::matchers::IsStr;
 use crate::values::typing::type_compiled::matchers::StarlarkTypeIdMatcher;
+use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
 
 /// Allocate runtime type matcher, either in starlark heap or in malloc.
 pub trait TypeMatcherAlloc: Sized {
@@ -48,6 +49,8 @@ pub trait TypeMatcherAlloc: Sized {
     fn alloc<T: TypeMatcher>(self, matcher: T) -> Self::Result;
 
     fn custom(self, custom: &TyCustom) -> Self::Result;
+
+    fn from_type_matcher_factory(self, factory: &TypeMatcherFactory) -> Self::Result;
 
     // Now the utilities.
 

@@ -21,6 +21,7 @@ use allocative::Allocative;
 
 use crate::typing::custom::TyCustom;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
+use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
 use crate::values::Value;
 
 /// Runtime type matcher. E.g. when `isinstance(1, int)` is called,
@@ -91,5 +92,9 @@ impl TypeMatcherAlloc for TypeMatcherBoxAlloc {
 
     fn custom(self, custom: &TyCustom) -> Self::Result {
         custom.matcher_with_box()
+    }
+
+    fn from_type_matcher_factory(self, factory: &TypeMatcherFactory) -> Self::Result {
+        factory.factory.matcher_box()
     }
 }

@@ -41,6 +41,7 @@ pub(crate) mod structs;
 pub(crate) mod tuple;
 pub(crate) mod ty;
 pub(crate) mod typecheck;
+pub(crate) mod user;
 
 #[cfg(test)]
 mod tests;

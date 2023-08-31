@@ -29,6 +29,7 @@ use crate::values::typing::type_compiled::matchers::IsBool;
 use crate::values::typing::type_compiled::matchers::IsInt;
 use crate::values::typing::type_compiled::matchers::IsNone;
 use crate::values::typing::type_compiled::matchers::IsStr;
+use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Value;
@@ -48,6 +49,10 @@ impl<'a, 'v> TypeMatcherAlloc for TypeCompiledFactory<'a, 'v> {
 
     fn custom(self, custom: &TyCustom) -> Self::Result {
         custom.matcher_with_type_compiled_factory(self)
+    }
+
+    fn from_type_matcher_factory(self, factory: &TypeMatcherFactory) -> Self::Result {
+        factory.factory.type_compiled(self)
     }
 
     fn any(self) -> TypeCompiled<Value<'v>> {

@@ -42,7 +42,6 @@ use crate::starlark_complex_values;
 use crate::typing::Ty;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::record::field::FieldGen;
-use crate::values::record::ty_record::TyRecord;
 use crate::values::record::ty_record_type::TyRecordData;
 use crate::values::record::ty_record_type::TyRecordType;
 use crate::values::record::Record;
@@ -186,12 +185,10 @@ where
     }
 
     pub(crate) fn instance_ty(&self) -> Ty {
-        Ty::custom(TyRecord {
-            record_type: self
-                .ty_record_type()
-                .expect("Instances can only be created if named are assigned")
-                .dupe(),
-        })
+        self.ty_record_type()
+            .expect("Instances can only be created if named are assigned")
+            .ty_record
+            .dupe()
     }
 }
 
@@ -272,11 +269,7 @@ where
     }
 
     fn eval_type(&self) -> Option<Ty> {
-        self.ty_record_type().map(|t| {
-            Ty::custom(TyRecord {
-                record_type: t.dupe(),
-            })
-        })
+        self.ty_record_type().map(|t| t.ty_record.dupe())
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
@@ -284,8 +277,8 @@ where
     }
 
     fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
-        V::get_or_init_ty(&self.ty_record_type, || TyRecordType {
-            data: Arc::new(TyRecordData {
+        V::get_or_init_ty(&self.ty_record_type, || {
+            let data = Arc::new(TyRecordData {
                 name: variable_name.to_owned(),
                 fields: self
                     .fields
@@ -293,7 +286,9 @@ where
                     .map(|(name, field)| (name.clone(), field.ty()))
                     .collect(),
                 id: self.id,
-            }),
+            });
+            let ty_record = Ty::custom(data.ty_record_as_ty_user());
+            TyRecordType { data, ty_record }
         });
     }
 }

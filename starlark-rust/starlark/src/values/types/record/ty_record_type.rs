@@ -27,13 +27,15 @@ use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::TypingOrInternalError;
+use crate::typing::user::TyUser;
 use crate::typing::Arg;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
+use crate::values::record::matcher::RecordTypeMatcher;
 use crate::values::record::record_type::RecordType;
-use crate::values::record::ty_record::TyRecord;
 use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
+use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
 use crate::values::StarlarkValue;
 
 #[derive(Allocative, Ord, PartialOrd, Debug)]
@@ -45,6 +47,17 @@ pub(crate) struct TyRecordData {
     /// Globally unique id of the record type.
     // Id must be last so `Ord` is deterministic.
     pub(crate) id: TypeInstanceId,
+}
+
+impl TyRecordData {
+    pub(crate) fn ty_record_as_ty_user(&self) -> TyUser {
+        TyUser {
+            name: self.name.clone(),
+            matcher: TypeMatcherFactory::new(RecordTypeMatcher { id: self.id }),
+            id: self.id,
+            fields: self.fields.clone(),
+        }
+    }
 }
 
 impl PartialEq for TyRecordData {
@@ -80,14 +93,8 @@ impl Hash for TyRecordData {
 pub struct TyRecordType {
     /// This is `Arc` so `TyRecord` could grab `TyRecordType`.
     pub(crate) data: Arc<TyRecordData>,
-}
-
-impl TyRecordType {
-    pub(crate) fn instance_ty(&self) -> Ty {
-        Ty::custom(TyRecord {
-            record_type: self.dupe(),
-        })
-    }
+    /// Type of record instance.
+    pub(crate) ty_record: Ty,
 }
 
 impl TyCustomImpl for TyRecordType {
@@ -109,7 +116,7 @@ impl TyCustomImpl for TyRecordType {
         _oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
         // TODO(nga): better checks.
-        Ok(self.instance_ty())
+        Ok(self.ty_record.dupe())
     }
 
     fn is_callable(&self) -> bool {
@@ -156,7 +163,7 @@ def foo(x: MyRec): pass
 def bar():
     foo(WrongRec(x = 1))
         "#,
-            r#"Expected type `record(name = "MyRec", ...)` but got `record(name = "WrongRec", ...)`"#,
+            r#"Expected type `MyRec` but got `WrongRec`"#,
         );
     }
 
@@ -171,7 +178,7 @@ def foo(x: MyRec): pass
 
 foo(WrongRec(x = 1))
         "#,
-            r#"Value `record[WrongRec](x=1)` of type `record` does not match the type annotation `record(name = "MyRec","#,
+            r#"Value `record[WrongRec](x=1)` of type `record` does not match the type annotation `MyRec`"#,
         );
     }
 
@@ -212,7 +219,7 @@ MyRec = record(x = int, y = int)
 def f(rec: MyRec) -> int:
     return rec.z
 "#,
-            r#"The attribute `z` is not available on the type `record(name = "MyRec"#,
+            r#"The attribute `z` is not available on the type `MyRec`"#,
         );
     }
 }

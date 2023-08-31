@@ -22,3 +22,4 @@ pub(crate) mod globals;
 pub(crate) mod matcher;
 pub(crate) mod matchers;
 pub(crate) mod tests;
+pub(crate) mod type_matcher_factory;
