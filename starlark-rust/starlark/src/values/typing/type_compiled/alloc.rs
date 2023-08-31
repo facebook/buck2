@@ -54,6 +54,11 @@ pub trait TypeMatcherAlloc: Sized {
 
     // Now the utilities.
 
+    fn unreachable_cannot_appear_in_type_expr(self) -> ! {
+        // TODO(nga): replace panic with error.
+        unreachable!("type cannot appear in type expressions")
+    }
+
     /// `typing.Any`.
     fn any(self) -> Self::Result {
         self.alloc(IsAny)

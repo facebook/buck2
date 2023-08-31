@@ -127,9 +127,7 @@ impl TyCustomImpl for TyRecordType {
     }
 
     fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result {
-        let _ignore = factory;
-        // TODO(nga): replace panic with error.
-        unreachable!("Cannot apprear in type expressions")
+        factory.unreachable_cannot_appear_in_type_expr()
     }
 
     fn intersects(x: &Self, y: &Self) -> bool {
