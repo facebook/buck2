@@ -33,6 +33,28 @@ use crate::values::Value;
 /// For example, this trait is implemented for `char`,
 /// but there's no Starlark type for `char`, this trait
 /// is implemented for `char` to construct Starlark `str`.
+///
+/// For types that implement [`crate::values::StarlarkValue`] a typical implementation
+/// will probably call either [`Heap::alloc_simple`] or [`Heap::alloc_complex`],
+/// e.g.
+///
+/// ```
+/// # use allocative::Allocative;
+/// # use starlark::any::ProvidesStaticType;
+/// # use starlark::values::{AllocValue, Heap, NoSerialize, starlark_value, StarlarkValue, Value};
+///
+/// #[derive(Debug, derive_more::Display, Allocative, NoSerialize, ProvidesStaticType)]
+/// struct MySimpleValue;
+///
+/// #[starlark_value(type = "MySimpleValue", UnpackValue, StarlarkTypeRepr)]
+/// impl<'v> StarlarkValue<'v> for MySimpleValue {}
+///
+/// impl<'v> AllocValue<'v> for MySimpleValue {
+///     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+///         heap.alloc_simple(self)
+///     }
+/// }
+/// ```
 pub trait AllocValue<'v>: StarlarkTypeRepr {
     /// Allocate the value on a heap and return a reference to the allocated value.
     ///
