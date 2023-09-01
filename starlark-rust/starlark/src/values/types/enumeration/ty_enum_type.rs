@@ -15,27 +15,14 @@
  * limitations under the License.
  */
 
-use std::sync::Arc;
-
 use allocative::Allocative;
-use dupe::Dupe;
-use starlark_syntax::codemap::Span;
-use starlark_syntax::codemap::Spanned;
 
-use crate::typing::custom::TyCustomImpl;
-use crate::typing::error::TypingOrInternalError;
-use crate::typing::starlark_value::TyStarlarkValue;
-use crate::typing::Arg;
 use crate::typing::Ty;
-use crate::typing::TyBasic;
-use crate::typing::TypingOracleCtx;
-use crate::values::enumeration::EnumType;
 use crate::values::types::type_instance_id::TypeInstanceId;
-use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
-use crate::values::StarlarkValue;
 
+#[doc(hidden)]
 #[derive(Allocative, Ord, PartialOrd, Debug)]
-pub(crate) struct TyEnumData {
+pub struct TyEnumData {
     /// Name of the enum type.
     pub(crate) name: String,
     /// Types of variants.
@@ -45,6 +32,8 @@ pub(crate) struct TyEnumData {
     pub(crate) id: TypeInstanceId,
     /// Type of enum variant.
     pub(crate) ty_enum_value: Ty,
+    /// Type of enum type value.
+    pub(crate) ty_enum_type: Ty,
 }
 
 impl PartialEq for TyEnumData {
@@ -60,63 +49,5 @@ impl std::hash::Hash for TyEnumData {
         // Do not hash `id` because hashing should be deterministic.
         self.name.hash(state);
         self.variants.hash(state);
-    }
-}
-
-/// Type of enum type, i.e. type of `enum()`.
-#[derive(
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    Clone,
-    Dupe,
-    Allocative,
-    derive_more::Display
-)]
-#[display(fmt = "enum[name = \"{}\"]", "self.data.name")]
-pub struct TyEnumType {
-    /// This is `Arc` so `TyEnum` could grab `TyEnumType`.
-    pub(crate) data: Arc<TyEnumData>,
-}
-
-impl TyCustomImpl for TyEnumType {
-    fn as_name(&self) -> Option<&str> {
-        Some(EnumType::TYPE)
-    }
-
-    fn iter_item(&self) -> Result<Ty, ()> {
-        Ok(self.data.ty_enum_value.dupe())
-    }
-
-    fn index(&self, item: &TyBasic, _ctx: &TypingOracleCtx) -> Result<Ty, ()> {
-        TyStarlarkValue::new::<EnumType>().index(item)?;
-        Ok(self.data.ty_enum_value.dupe())
-    }
-
-    fn attribute(&self, attr: &str) -> Result<Ty, ()> {
-        // TODO(nga): more precise return type from `values`.
-        TyStarlarkValue::new::<EnumType>().attr(attr)
-    }
-
-    fn is_callable(&self) -> bool {
-        TyStarlarkValue::new::<EnumType>().is_callable()
-    }
-
-    fn validate_call(
-        &self,
-        span: Span,
-        _args: &[Spanned<Arg>],
-        oracle: TypingOracleCtx,
-    ) -> Result<Ty, TypingOrInternalError> {
-        TyStarlarkValue::new::<EnumType>().validate_call(span, oracle)?;
-        // TODO(nga): validate args.
-        Ok(self.data.ty_enum_value.dupe())
-    }
-
-    fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result {
-        factory.unreachable_cannot_appear_in_type_expr()
     }
 }

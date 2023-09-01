@@ -94,12 +94,12 @@ where
         if ty == EnumValue::TYPE {
             return true;
         }
-        let ty_enum_type = match self.get_enum_type() {
-            Either::Left(x) => x.ty_enum_type(),
-            Either::Right(x) => x.ty_enum_type(),
+        let ty_enum_data = match self.get_enum_type() {
+            Either::Left(x) => x.ty_enum_data(),
+            Either::Right(x) => x.ty_enum_data(),
         };
-        match ty_enum_type {
-            Some(ty_enum_type) => ty_enum_type.data.name == ty,
+        match ty_enum_data {
+            Some(ty_enum_data) => ty_enum_data.name == ty,
             None => false,
         }
     }
@@ -125,10 +125,10 @@ where
 
     fn typechecker_ty(&self) -> Option<Ty> {
         let ty_enum_type = match self.get_enum_type() {
-            Either::Left(x) => x.ty_enum_type()?,
-            Either::Right(x) => x.ty_enum_type()?,
+            Either::Left(x) => x.ty_enum_data()?,
+            Either::Right(x) => x.ty_enum_data()?,
         };
-        Some(ty_enum_type.data.ty_enum_value.dupe())
+        Some(ty_enum_type.ty_enum_value.dupe())
     }
 }
 

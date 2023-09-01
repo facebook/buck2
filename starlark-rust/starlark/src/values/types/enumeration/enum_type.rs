@@ -45,10 +45,10 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::user::TyUser;
+use crate::typing::user::TyUserIndex;
 use crate::typing::Ty;
 use crate::values::enumeration::matcher::EnumTypeMatcher;
 use crate::values::enumeration::ty_enum_type::TyEnumData;
-use crate::values::enumeration::ty_enum_type::TyEnumType;
 use crate::values::enumeration::value::EnumValueGen;
 use crate::values::enumeration::EnumValue;
 use crate::values::function::FUNCTION_TYPE;
@@ -74,43 +74,43 @@ enum EnumError {
 
 #[doc(hidden)]
 pub trait EnumCell: Freeze {
-    type TyEnumTypeOpt: Debug;
+    type TyEnumDataOpt: Debug;
 
     fn get_or_init_ty(
-        ty: &Self::TyEnumTypeOpt,
-        f: impl FnOnce() -> anyhow::Result<TyEnumType>,
+        ty: &Self::TyEnumDataOpt,
+        f: impl FnOnce() -> anyhow::Result<Arc<TyEnumData>>,
     ) -> anyhow::Result<()>;
-    fn get_ty(ty: &Self::TyEnumTypeOpt) -> Option<&TyEnumType>;
+    fn get_ty(ty: &Self::TyEnumDataOpt) -> Option<&Arc<TyEnumData>>;
 }
 
 impl<'v> EnumCell for Value<'v> {
-    type TyEnumTypeOpt = OnceCell<TyEnumType>;
+    type TyEnumDataOpt = OnceCell<Arc<TyEnumData>>;
 
     fn get_or_init_ty(
-        ty: &Self::TyEnumTypeOpt,
-        f: impl FnOnce() -> anyhow::Result<TyEnumType>,
+        ty: &Self::TyEnumDataOpt,
+        f: impl FnOnce() -> anyhow::Result<Arc<TyEnumData>>,
     ) -> anyhow::Result<()> {
         ty.get_or_try_init(f)?;
         Ok(())
     }
 
-    fn get_ty(ty: &Self::TyEnumTypeOpt) -> Option<&TyEnumType> {
+    fn get_ty(ty: &Self::TyEnumDataOpt) -> Option<&Arc<TyEnumData>> {
         ty.get()
     }
 }
 
 impl EnumCell for FrozenValue {
-    type TyEnumTypeOpt = Option<TyEnumType>;
+    type TyEnumDataOpt = Option<Arc<TyEnumData>>;
 
     fn get_or_init_ty(
-        ty: &Self::TyEnumTypeOpt,
-        f: impl FnOnce() -> anyhow::Result<TyEnumType>,
+        ty: &Self::TyEnumDataOpt,
+        f: impl FnOnce() -> anyhow::Result<Arc<TyEnumData>>,
     ) -> anyhow::Result<()> {
         let _ignore = (ty, f);
         Ok(())
     }
 
-    fn get_ty(ty: &Self::TyEnumTypeOpt) -> Option<&TyEnumType> {
+    fn get_ty(ty: &Self::TyEnumDataOpt) -> Option<&Arc<TyEnumData>> {
         ty.as_ref()
     }
 }
@@ -134,7 +134,7 @@ pub struct EnumTypeGen<V: EnumCell> {
     #[allocative(skip)] // TODO(nga): do not skip.
     // TODO(nga): teach derive to do something like `#[trace(static)]`.
     #[trace(unsafe_ignore)]
-    pub(crate) ty_enum_type: V::TyEnumTypeOpt,
+    pub(crate) ty_enum_data: V::TyEnumDataOpt,
     // The key is the value of the enumeration
     // The value is a value of type EnumValue
     #[allocative(skip)] // TODO(nga): do not skip.
@@ -147,14 +147,14 @@ impl<'v> Freeze for EnumTypeGen<Value<'v>> {
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         let EnumTypeGen {
             id,
-            ty_enum_type,
+            ty_enum_data: ty_enum_type,
             elements,
         } = self;
         let ty_enum_type = ty_enum_type.into_inner();
         let elements = elements.freeze(freezer)?;
         Ok(EnumTypeGen {
             id,
-            ty_enum_type,
+            ty_enum_data: ty_enum_type,
             elements,
         })
     }
@@ -181,7 +181,7 @@ impl<'v> EnumType<'v> {
         let id = TypeInstanceId::gen();
         let typ = heap.alloc(EnumType {
             id,
-            ty_enum_type: OnceCell::new(),
+            ty_enum_data: OnceCell::new(),
             elements: UnsafeCell::new(SmallMap::new()),
         });
 
@@ -220,8 +220,8 @@ where
     Value<'v>: Equivalent<V>,
     V: ValueLike<'v> + 'v + EnumCell,
 {
-    pub(crate) fn ty_enum_type(&self) -> Option<&TyEnumType> {
-        V::get_ty(&self.ty_enum_type)
+    pub(crate) fn ty_enum_data(&self) -> Option<&Arc<TyEnumData>> {
+        V::get_ty(&self.ty_enum_data)
     }
 
     pub(crate) fn construct(&self, val: Value<'v>) -> anyhow::Result<V> {
@@ -289,15 +289,15 @@ where
     }
 
     fn eval_type(&self) -> Option<Ty> {
-        self.ty_enum_type().map(|t| t.data.ty_enum_value.dupe())
+        self.ty_enum_data().map(|t| t.ty_enum_value.dupe())
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
-        self.ty_enum_type().map(|t| Ty::custom(t.dupe()))
+        self.ty_enum_data().map(|t| t.ty_enum_type.dupe())
     }
 
     fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) -> anyhow::Result<()> {
-        V::get_or_init_ty(&self.ty_enum_type, || {
+        V::get_or_init_ty(&self.ty_enum_data, || {
             let ty_enum_value = Ty::custom(TyUser::new(
                 variable_name.to_owned(),
                 TyStarlarkValue::new::<EnumValue>(),
@@ -308,23 +308,35 @@ where
                 None,
                 None,
             )?);
-            Ok(TyEnumType {
-                data: Arc::new(TyEnumData {
-                    name: variable_name.to_owned(),
-                    variants: self
-                        .elements()
-                        .iter()
-                        .map(|(_, enum_value)| {
-                            let enum_value: &EnumValueGen<_> =
-                                EnumValue::from_value(enum_value.to_value())
-                                    .expect("known to be enum value");
-                            Ty::of_value(enum_value.value)
-                        })
-                        .collect(),
-                    id: self.id,
-                    ty_enum_value,
+            let ty_enum_type = Ty::custom(TyUser::new(
+                format!("enum[{}]", variable_name),
+                TyStarlarkValue::new::<EnumType>(),
+                None,
+                TypeInstanceId::gen(),
+                SortedMap::new(),
+                None,
+                Some(TyUserIndex {
+                    index: Ty::int(),
+                    result: ty_enum_value.dupe(),
                 }),
-            })
+                Some(ty_enum_value.dupe()),
+            )?);
+            Ok(Arc::new(TyEnumData {
+                name: variable_name.to_owned(),
+                variants: self
+                    .elements()
+                    .iter()
+                    .map(|(_, enum_value)| {
+                        let enum_value: &EnumValueGen<_> =
+                            EnumValue::from_value(enum_value.to_value())
+                                .expect("known to be enum value");
+                        Ty::of_value(enum_value.value)
+                    })
+                    .collect(),
+                id: self.id,
+                ty_enum_value,
+                ty_enum_type,
+            }))
         })
     }
 }
@@ -335,11 +347,11 @@ fn enum_type_methods(builder: &mut MethodsBuilder) {
     fn r#type<'v>(this: Value, heap: &Heap) -> anyhow::Result<Value<'v>> {
         let this = EnumType::from_value(this).unwrap();
         let ty_enum_type = match this {
-            Either::Left(x) => x.ty_enum_type(),
-            Either::Right(x) => x.ty_enum_type(),
+            Either::Left(x) => x.ty_enum_data(),
+            Either::Right(x) => x.ty_enum_data(),
         };
         match ty_enum_type {
-            Some(ty_enum_type) => Ok(heap.alloc(ty_enum_type.data.name.as_str())),
+            Some(ty_enum_type) => Ok(heap.alloc(ty_enum_type.name.as_str())),
             None => Ok(heap.alloc(EnumValue::TYPE)),
         }
     }
