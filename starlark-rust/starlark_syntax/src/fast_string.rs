@@ -186,8 +186,8 @@ fn convert_str_indices_slow(s: &str, start: Option<i32>, end: Option<i32>) -> Op
     debug_assert!(
         matches!((start, end), (Some(start), Some(end))
                 if start >= 0 || end >= 0 || (start <= end))
-            || matches!(start, None)
-            || matches!(end, None)
+            || start.is_none()
+            || end.is_none()
     );
     let len = len(s);
     let (start, end) = convert_indices(len.0 as i32, start, end);
