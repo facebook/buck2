@@ -46,12 +46,13 @@ use crate::eval::ParametersSpec;
 use crate::starlark_complex_values;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::user::TyUser;
+use crate::typing::Param;
 use crate::typing::Ty;
+use crate::typing::TyFunction;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::record::field::FieldGen;
 use crate::values::record::matcher::RecordTypeMatcher;
 use crate::values::record::ty_record_type::TyRecordData;
-use crate::values::record::ty_record_type::TyRecordType;
 use crate::values::record::Record;
 use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
@@ -66,42 +67,42 @@ use crate::values::ValueTypedComplex;
 
 #[doc(hidden)]
 pub trait RecordCell {
-    type TyRecordTypeOpt: Debug;
+    type TyRecordDataOpt: Debug;
 
     fn get_or_init_ty(
-        ty: &Self::TyRecordTypeOpt,
-        f: impl FnOnce() -> anyhow::Result<TyRecordType>,
+        ty: &Self::TyRecordDataOpt,
+        f: impl FnOnce() -> anyhow::Result<Arc<TyRecordData>>,
     ) -> anyhow::Result<()>;
-    fn get_ty(ty: &Self::TyRecordTypeOpt) -> Option<&TyRecordType>;
+    fn get_ty(ty: &Self::TyRecordDataOpt) -> Option<&Arc<TyRecordData>>;
 }
 
 impl<'v> RecordCell for Value<'v> {
-    type TyRecordTypeOpt = OnceCell<TyRecordType>;
+    type TyRecordDataOpt = OnceCell<Arc<TyRecordData>>;
 
     fn get_or_init_ty(
-        ty: &Self::TyRecordTypeOpt,
-        f: impl FnOnce() -> anyhow::Result<TyRecordType>,
+        ty: &Self::TyRecordDataOpt,
+        f: impl FnOnce() -> anyhow::Result<Arc<TyRecordData>>,
     ) -> anyhow::Result<()> {
         ty.get_or_try_init(f)?;
         Ok(())
     }
 
-    fn get_ty(ty: &Self::TyRecordTypeOpt) -> Option<&TyRecordType> {
+    fn get_ty(ty: &Self::TyRecordDataOpt) -> Option<&Arc<TyRecordData>> {
         ty.get()
     }
 }
 impl RecordCell for FrozenValue {
-    type TyRecordTypeOpt = Option<TyRecordType>;
+    type TyRecordDataOpt = Option<Arc<TyRecordData>>;
 
     fn get_or_init_ty(
-        ty: &Self::TyRecordTypeOpt,
-        f: impl FnOnce() -> anyhow::Result<TyRecordType>,
+        ty: &Self::TyRecordDataOpt,
+        f: impl FnOnce() -> anyhow::Result<Arc<TyRecordData>>,
     ) -> anyhow::Result<()> {
         let _ignore = (ty, f);
         Ok(())
     }
 
-    fn get_ty(ty: &Self::TyRecordTypeOpt) -> Option<&TyRecordType> {
+    fn get_ty(ty: &Self::TyRecordDataOpt) -> Option<&Arc<TyRecordData>> {
         ty.as_ref()
     }
 }
@@ -129,7 +130,7 @@ pub struct RecordTypeGen<V: RecordCell> {
     #[allocative(skip)] // TODO(nga): do not skip.
     // TODO(nga): teach derive to do something like `#[trace(static)]`.
     #[trace(unsafe_ignore)]
-    pub(crate) ty_record_type: V::TyRecordTypeOpt,
+    pub(crate) ty_record_data: V::TyRecordDataOpt,
     /// The V is the type the field must satisfy (e.g. `"string"`)
     fields: SmallMap<String, FieldGen<V>>,
     /// Creating these on every invoke is pretty expensive (profiling shows)
@@ -163,7 +164,7 @@ impl<'v> RecordType<'v> {
             id: TypeInstanceId::gen(),
             fields,
             parameter_spec,
-            ty_record_type: OnceCell::new(),
+            ty_record_data: OnceCell::new(),
         }
     }
 
@@ -190,7 +191,7 @@ impl<'v> Freeze for RecordType<'v> {
             id: self.id,
             fields: self.fields.freeze(freezer)?,
             parameter_spec: self.parameter_spec,
-            ty_record_type: self.ty_record_type.into_inner(),
+            ty_record_data: self.ty_record_data.into_inner(),
         })
     }
 }
@@ -200,14 +201,13 @@ where
     Self: ProvidesStaticType<'v>,
     FieldGen<V>: ProvidesStaticType<'v>,
 {
-    pub(crate) fn ty_record_type(&self) -> Option<&TyRecordType> {
-        V::get_ty(&self.ty_record_type)
+    pub(crate) fn ty_record_data(&self) -> Option<&Arc<TyRecordData>> {
+        V::get_ty(&self.ty_record_data)
     }
 
     pub(crate) fn instance_ty(&self) -> Ty {
-        self.ty_record_type()
+        self.ty_record_data()
             .expect("Instances can only be created if named are assigned")
-            .data
             .ty_record
             .dupe()
     }
@@ -236,7 +236,7 @@ where
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        if self.ty_record_type().is_none() {
+        if self.ty_record_data().is_none() {
             return Err(RecordTypeError::RecordTypeNotAssigned.into());
         }
 
@@ -282,15 +282,15 @@ where
     }
 
     fn eval_type(&self) -> Option<Ty> {
-        self.ty_record_type().map(|t| t.data.ty_record.dupe())
+        self.ty_record_data().map(|t| t.ty_record.dupe())
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
-        self.ty_record_type().map(|t| Ty::custom(t.dupe()))
+        self.ty_record_data().map(|t| t.ty_record_type.dupe())
     }
 
     fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) -> anyhow::Result<()> {
-        V::get_or_init_ty(&self.ty_record_type, || {
+        V::get_or_init_ty(&self.ty_record_data, || {
             let fields: SortedMap<String, Ty> = self
                 .fields
                 .iter()
@@ -302,17 +302,29 @@ where
                 TyStarlarkValue::new::<Record>(),
                 Some(TypeMatcherFactory::new(RecordTypeMatcher { id: self.id })),
                 self.id,
-                fields.clone(),
+                fields,
                 None,
             )?);
 
-            let data = Arc::new(TyRecordData {
+            let ty_record_type = Ty::custom(TyUser::new(
+                format!("record[{}]", variable_name),
+                TyStarlarkValue::new::<RecordType>(),
+                None,
+                TypeInstanceId::gen(),
+                SortedMap::new(),
+                Some(TyFunction::new(
+                    // TODO(nga): more precise parameter types.
+                    vec![Param::kwargs(Ty::any())],
+                    ty_record.dupe(),
+                )),
+            )?);
+
+            Ok(Arc::new(TyRecordData {
                 name: variable_name.to_owned(),
-                fields,
                 id: self.id,
                 ty_record,
-            });
-            Ok(TyRecordType { data })
+                ty_record_type,
+            }))
         })
     }
 }
@@ -322,10 +334,10 @@ fn record_type_methods(methods: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn r#type<'v>(this: ValueTypedComplex<'v, RecordType<'v>>) -> anyhow::Result<&'v str> {
         let ty_record_type = match this.unpack() {
-            Either::Left(x) => x.ty_record_type.get(),
-            Either::Right(x) => x.ty_record_type.as_ref(),
+            Either::Left(x) => x.ty_record_data.get(),
+            Either::Right(x) => x.ty_record_data.as_ref(),
         };
-        Ok(ty_record_type.map_or(Record::TYPE, |s| s.data.name.as_str()))
+        Ok(ty_record_type.map_or(Record::TYPE, |s| s.name.as_str()))
     }
 }
 

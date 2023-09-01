@@ -15,106 +15,22 @@
  * limitations under the License.
  */
 
-use std::hash::Hash;
-use std::hash::Hasher;
-use std::sync::Arc;
-
 use allocative::Allocative;
-use dupe::Dupe;
-use starlark_map::sorted_map::SortedMap;
 
-use crate::codemap::Span;
-use crate::codemap::Spanned;
-use crate::typing::custom::TyCustomImpl;
-use crate::typing::error::TypingOrInternalError;
-use crate::typing::starlark_value::TyStarlarkValue;
-use crate::typing::Arg;
 use crate::typing::Ty;
-use crate::typing::TypingOracleCtx;
-use crate::values::record::record_type::RecordType;
 use crate::values::types::type_instance_id::TypeInstanceId;
-use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
-use crate::values::StarlarkValue;
 
-#[derive(Allocative, Ord, PartialOrd, Debug)]
-pub(crate) struct TyRecordData {
+#[derive(Allocative, Debug)]
+#[doc(hidden)]
+pub struct TyRecordData {
     /// Name of the record type.
     pub(crate) name: String,
-    /// Types of fields.
-    pub(crate) fields: SortedMap<String, Ty>,
     /// Globally unique id of the record type.
-    // Id must be last so `Ord` is deterministic.
     pub(crate) id: TypeInstanceId,
     /// Type of record instance.
     pub(crate) ty_record: Ty,
-}
-
-impl PartialEq for TyRecordData {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
-impl Eq for TyRecordData {}
-
-impl Hash for TyRecordData {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        // Do not hash `id` because hashing should be deterministic.
-        self.name.hash(state);
-        self.fields.hash(state);
-    }
-}
-
-/// Type of record type instance, i.e. type of `record()`.
-#[derive(
-    Clone,
-    Dupe,
-    Allocative,
-    Ord,
-    PartialOrd,
-    Eq,
-    PartialEq,
-    Hash,
-    derive_more::Display,
-    Debug
-)]
-#[display(fmt = "record[name = \"{}\"]", "self.data.name")]
-pub struct TyRecordType {
-    /// This is `Arc` so `TyRecord` could grab `TyRecordType`.
-    pub(crate) data: Arc<TyRecordData>,
-}
-
-impl TyCustomImpl for TyRecordType {
-    fn as_name(&self) -> Option<&str> {
-        Some(RecordType::TYPE)
-    }
-
-    fn attribute(&self, attr: &str) -> Result<Ty, ()> {
-        TyStarlarkValue::new::<RecordType>().attr(attr)
-    }
-
-    fn validate_call(
-        &self,
-        span: Span,
-        _args: &[Spanned<Arg>],
-        oracle: TypingOracleCtx,
-    ) -> Result<Ty, TypingOrInternalError> {
-        TyStarlarkValue::new::<RecordType>().validate_call(span, oracle)?;
-        // TODO(nga): better checks.
-        Ok(self.data.ty_record.dupe())
-    }
-
-    fn is_callable(&self) -> bool {
-        TyStarlarkValue::new::<RecordType>().is_callable()
-    }
-
-    fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result {
-        factory.unreachable_cannot_appear_in_type_expr()
-    }
-
-    fn intersects(x: &Self, y: &Self) -> bool {
-        x == y
-    }
+    /// Type of record type.
+    pub(crate) ty_record_type: Ty,
 }
 
 #[cfg(test)]

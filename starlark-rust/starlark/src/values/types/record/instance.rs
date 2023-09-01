@@ -74,8 +74,8 @@ impl<'v, V: ValueLike<'v>> RecordGen<V> {
 
     fn record_type_name(&self) -> Option<&'v str> {
         match self.get_record_type() {
-            Either::Left(x) => Some(&x.ty_record_type.get()?.data.name),
-            Either::Right(x) => Some(&x.ty_record_type.as_ref()?.data.name),
+            Either::Left(x) => Some(&x.ty_record_data.get()?.name),
+            Either::Right(x) => Some(&x.ty_record_data.as_ref()?.name),
         }
     }
 
@@ -112,8 +112,8 @@ where
             return true;
         }
         match self.get_record_type() {
-            Either::Left(x) => x.ty_record_type().map(|t| t.data.name.as_str()) == Some(ty),
-            Either::Right(x) => x.ty_record_type().map(|t| t.data.name.as_str()) == Some(ty),
+            Either::Left(x) => x.ty_record_data().map(|t| t.name.as_str()) == Some(ty),
+            Either::Right(x) => x.ty_record_data().map(|t| t.name.as_str()) == Some(ty),
         }
     }
 
