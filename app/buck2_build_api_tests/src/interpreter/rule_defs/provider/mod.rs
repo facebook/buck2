@@ -10,5 +10,6 @@
 mod build_defs;
 mod builtin;
 mod collection;
+mod provider_symbol;
 pub(crate) mod testing;
 mod tests;

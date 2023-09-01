@@ -405,6 +405,10 @@ impl Tester {
             def assert_true(c):
                 if not c:
                     fail("assertion failed")
+
+            def assert_false(c):
+                if c:
+                    fail("assertion failed")
             "#
         );
 
