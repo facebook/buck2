@@ -28,16 +28,12 @@ use crate::codemap::Spanned;
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::TypingOrInternalError;
 use crate::typing::starlark_value::TyStarlarkValue;
-use crate::typing::user::TyUser;
 use crate::typing::Arg;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
-use crate::values::record::matcher::RecordTypeMatcher;
 use crate::values::record::record_type::RecordType;
-use crate::values::record::Record;
 use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
-use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
 use crate::values::StarlarkValue;
 
 #[derive(Allocative, Ord, PartialOrd, Debug)]
@@ -49,19 +45,8 @@ pub(crate) struct TyRecordData {
     /// Globally unique id of the record type.
     // Id must be last so `Ord` is deterministic.
     pub(crate) id: TypeInstanceId,
-}
-
-impl TyRecordData {
-    pub(crate) fn ty_record_as_ty_user(&self) -> anyhow::Result<TyUser> {
-        TyUser::new(
-            self.name.clone(),
-            TyStarlarkValue::new::<Record>(),
-            Some(TypeMatcherFactory::new(RecordTypeMatcher { id: self.id })),
-            self.id,
-            self.fields.clone(),
-            None,
-        )
-    }
+    /// Type of record instance.
+    pub(crate) ty_record: Ty,
 }
 
 impl PartialEq for TyRecordData {
@@ -97,8 +82,6 @@ impl Hash for TyRecordData {
 pub struct TyRecordType {
     /// This is `Arc` so `TyRecord` could grab `TyRecordType`.
     pub(crate) data: Arc<TyRecordData>,
-    /// Type of record instance.
-    pub(crate) ty_record: Ty,
 }
 
 impl TyCustomImpl for TyRecordType {
@@ -118,7 +101,7 @@ impl TyCustomImpl for TyRecordType {
     ) -> Result<Ty, TypingOrInternalError> {
         TyStarlarkValue::new::<RecordType>().validate_call(span, oracle)?;
         // TODO(nga): better checks.
-        Ok(self.ty_record.dupe())
+        Ok(self.data.ty_record.dupe())
     }
 
     fn is_callable(&self) -> bool {

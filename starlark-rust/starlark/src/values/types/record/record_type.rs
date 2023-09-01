@@ -31,6 +31,7 @@ use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
 use starlark_derive::StarlarkDocs;
 use starlark_map::small_map::SmallMap;
+use starlark_map::sorted_map::SortedMap;
 use starlark_map::StarlarkHasher;
 
 use crate as starlark;
@@ -43,13 +44,17 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;
 use crate::starlark_complex_values;
+use crate::typing::starlark_value::TyStarlarkValue;
+use crate::typing::user::TyUser;
 use crate::typing::Ty;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::record::field::FieldGen;
+use crate::values::record::matcher::RecordTypeMatcher;
 use crate::values::record::ty_record_type::TyRecordData;
 use crate::values::record::ty_record_type::TyRecordType;
 use crate::values::record::Record;
 use crate::values::types::type_instance_id::TypeInstanceId;
+use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
 use crate::values::Freeze;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
@@ -202,6 +207,7 @@ where
     pub(crate) fn instance_ty(&self) -> Ty {
         self.ty_record_type()
             .expect("Instances can only be created if named are assigned")
+            .data
             .ty_record
             .dupe()
     }
@@ -276,7 +282,7 @@ where
     }
 
     fn eval_type(&self) -> Option<Ty> {
-        self.ty_record_type().map(|t| t.ty_record.dupe())
+        self.ty_record_type().map(|t| t.data.ty_record.dupe())
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
@@ -285,17 +291,28 @@ where
 
     fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) -> anyhow::Result<()> {
         V::get_or_init_ty(&self.ty_record_type, || {
+            let fields: SortedMap<String, Ty> = self
+                .fields
+                .iter()
+                .map(|(name, field)| (name.clone(), field.ty()))
+                .collect();
+
+            let ty_record = Ty::custom(TyUser::new(
+                variable_name.to_owned(),
+                TyStarlarkValue::new::<Record>(),
+                Some(TypeMatcherFactory::new(RecordTypeMatcher { id: self.id })),
+                self.id,
+                fields.clone(),
+                None,
+            )?);
+
             let data = Arc::new(TyRecordData {
                 name: variable_name.to_owned(),
-                fields: self
-                    .fields
-                    .iter()
-                    .map(|(name, field)| (name.clone(), field.ty()))
-                    .collect(),
+                fields,
                 id: self.id,
+                ty_record,
             });
-            let ty_record = Ty::custom(data.ty_record_as_ty_user()?);
-            Ok(TyRecordType { data, ty_record })
+            Ok(TyRecordType { data })
         })
     }
 }
