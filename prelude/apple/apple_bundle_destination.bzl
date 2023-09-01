@@ -85,19 +85,19 @@ _MacOSFrameworkBundleDestinationPaths = AppleBundleDestinationPaths(
     modules = "Modules",
 )
 
-def _get_apple_bundle_destinations_for_sdk_name(name: str) -> AppleBundleDestinationPaths.type:
+def _get_apple_bundle_destinations_for_sdk_name(name: str) -> AppleBundleDestinationPaths:
     if name == "macosx" or name == "maccatalyst":
         return _MacOSBundleDestinationPaths
     else:
         return _IOSBundleDestinationPaths
 
-def _get_apple_framework_bundle_destinations_for_sdk_name(name: str) -> AppleBundleDestinationPaths.type:
+def _get_apple_framework_bundle_destinations_for_sdk_name(name: str) -> AppleBundleDestinationPaths:
     if name == "macosx" or name == "maccatalyst":
         return _MacOSFrameworkBundleDestinationPaths
     else:
         return _IOSFrameworkBundleDestinationPaths
 
-def bundle_relative_path_for_destination(destination: AppleBundleDestination.type, sdk_name: str, extension: str) -> str:
+def bundle_relative_path_for_destination(destination: AppleBundleDestination, sdk_name: str, extension: str) -> str:
     if extension == "framework":
         bundle_destinations = _get_apple_framework_bundle_destinations_for_sdk_name(sdk_name)
     else:

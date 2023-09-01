@@ -239,8 +239,8 @@ def _get_bundle_loader_flags(binary: [cmd_args, None]) -> list[typing.Any]:
 
 def _xcode_populate_attributes(
         ctx: AnalysisContext,
-        srcs: list[CxxSrcWithFlags.type],
-        argsfiles: dict[str, CompileArgsfile.type],
+        srcs: list[CxxSrcWithFlags],
+        argsfiles: dict[str, CompileArgsfile],
         xctest_bundle: Artifact,
         test_host_app_binary: [cmd_args, None],
         **_kwargs) -> dict[str, typing.Any]:
@@ -274,7 +274,7 @@ def _get_xctest_framework_linker_flags(ctx: AnalysisContext) -> list[[cmd_args, 
         xctest_framework_search_path,
     ]
 
-def _get_xctest_framework(ctx: AnalysisContext, swift_support_needed: bool) -> list[AppleBundlePart.type]:
+def _get_xctest_framework(ctx: AnalysisContext, swift_support_needed: bool) -> list[AppleBundlePart]:
     swift_support = [
         _get_object_from_platform_path(ctx, "Developer/usr/lib/libXCTestSwiftSupport.dylib"),
     ] if swift_support_needed else []
@@ -288,7 +288,7 @@ def _get_xctest_framework(ctx: AnalysisContext, swift_support_needed: bool) -> l
         _get_object_from_platform_path(ctx, "Developer/usr/lib/libXCTestBundleInject.dylib"),
     ] + swift_support
 
-def _get_object_from_platform_path(ctx: AnalysisContext, platform_relative_path: str) -> AppleBundlePart.type:
+def _get_object_from_platform_path(ctx: AnalysisContext, platform_relative_path: str) -> AppleBundlePart:
     toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo]
     copied_framework = ctx.actions.declare_output(paths.basename(platform_relative_path))
 

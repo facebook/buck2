@@ -25,9 +25,9 @@ load(
 )
 
 _SelectionCriteria = record(
-    include_build_target_patterns = field(list[BuildTargetPattern.type], []),
+    include_build_target_patterns = field(list[BuildTargetPattern], []),
     include_regular_expressions = field(list["regex"], []),
-    exclude_build_target_patterns = field(list[BuildTargetPattern.type], []),
+    exclude_build_target_patterns = field(list[BuildTargetPattern], []),
     exclude_regular_expressions = field(list["regex"], []),
 )
 
@@ -90,7 +90,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         exclude_regular_expressions = exclude_regular_expressions,
     )
 
-    def scrub_binary(inner_ctx, executable: Artifact, executable_link_execution_preference: LinkExecutionPreference.type, adhoc_codesign_tool: [RunInfo.type, None]) -> Artifact:
+    def scrub_binary(inner_ctx, executable: Artifact, executable_link_execution_preference: LinkExecutionPreference, adhoc_codesign_tool: [RunInfo.type, None]) -> Artifact:
         inner_cmd = cmd_args(cmd)
         output = inner_ctx.actions.declare_output("debug_scrubbed/{}".format(executable.short_path))
 
@@ -165,7 +165,7 @@ registration_spec = RuleRegistrationSpec(
     },
 )
 
-def _is_label_included(label: Label, selection_criteria: _SelectionCriteria.type) -> bool:
+def _is_label_included(label: Label, selection_criteria: _SelectionCriteria) -> bool:
     # If no include criteria are provided, we then include everything, as long as it is not excluded.
     if selection_criteria.include_build_target_patterns or selection_criteria.include_regular_expressions:
         if not _check_if_label_matches_patterns_or_expressions(label, selection_criteria.include_build_target_patterns, selection_criteria.include_regular_expressions):

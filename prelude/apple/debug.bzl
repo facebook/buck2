@@ -22,7 +22,7 @@ AppleDebuggableInfo = provider(fields = [
     # Tset containing ArtifactInfos with either
     # a. the owning library target to artifacts, or
     # b. the owning bundle target to filtered artifacts
-    "debug_info_tset",  # ArtifactTSet.type
+    "debug_info_tset",  # ArtifactTSet
     # In the case of b above, contians the map of library target to artifacts, else None
     "filtered_map",  # [{"label": ["artifact"]}, None]
 ])

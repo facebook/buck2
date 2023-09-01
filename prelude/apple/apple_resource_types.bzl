@@ -20,7 +20,7 @@ AppleResourceSpec = record(
     files = field(list[[Artifact, Dependency]], []),
     dirs = field(list[Artifact], []),
     content_dirs = field(list[Artifact], []),
-    destination = AppleResourceDestination.type,
+    destination = AppleResourceDestination,
     variant_files = field(list[Artifact], []),
     # Map from locale to list of files for that locale, e.g.
     # `{ "ru.lproj" : ["Localizable.strings"] }`

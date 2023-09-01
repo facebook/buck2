@@ -108,7 +108,7 @@ def _get_swift_support_dir(ctx, bundle_output: Artifact, bundle_info: AppleBundl
 
     return swift_support_dir
 
-def _get_scan_folder_args(dest: AppleBundleDestination.type, bundle_output: Artifact, sdk_name, extension) -> ArgLike:
+def _get_scan_folder_args(dest: AppleBundleDestination, bundle_output: Artifact, sdk_name, extension) -> ArgLike:
     return cmd_args(
         [
             "--scan-folder",
@@ -122,7 +122,7 @@ def _get_scan_folder_args(dest: AppleBundleDestination.type, bundle_output: Arti
         ],
     )
 
-def _compression_level_arg(compression_level: IpaCompressionLevel.type) -> str:
+def _compression_level_arg(compression_level: IpaCompressionLevel) -> str:
     if compression_level.value == "none":
         return "0"
     elif compression_level.value == "default":

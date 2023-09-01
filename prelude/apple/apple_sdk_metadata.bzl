@@ -91,7 +91,7 @@ _SDK_MAP = {
     MacOSXCatalystSdkMetadata.name: MacOSXCatalystSdkMetadata,
 }
 
-def get_apple_sdk_metadata_for_sdk_name(name: str) -> AppleSdkMetadata.type:
+def get_apple_sdk_metadata_for_sdk_name(name: str) -> AppleSdkMetadata:
     sdk = _SDK_MAP.get(name)
     if sdk == None:
         fail("unrecognized sdk name: `{}`".format(name))

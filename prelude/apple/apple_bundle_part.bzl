@@ -22,7 +22,7 @@ AppleBundlePart = record(
     source = field(Artifact),
     # Where the source should be copied, the actual destination directory
     # inside bundle depends on target platform
-    destination = AppleBundleDestination.type,
+    destination = AppleBundleDestination,
     # New file name if it should be renamed before copying.
     # Empty string value is applicable only when `source` is a directory,
     # in such case only content of the directory will be copied, as opposed to the directory itself.
@@ -44,9 +44,9 @@ def bundle_output(ctx: AnalysisContext) -> Artifact:
 def assemble_bundle(
         ctx: AnalysisContext,
         bundle: Artifact,
-        parts: list[AppleBundlePart.type],
-        info_plist_part: [AppleBundlePart.type, None],
-        swift_stdlib_args: [SwiftStdlibArguments.type, None]) -> dict[str, list[Provider]]:
+        parts: list[AppleBundlePart],
+        info_plist_part: [AppleBundlePart, None],
+        swift_stdlib_args: [SwiftStdlibArguments, None]) -> dict[str, list[Provider]]:
     """
     Returns extra subtargets related to bundling.
     """
@@ -191,13 +191,13 @@ def assemble_bundle(
 def get_bundle_dir_name(ctx: AnalysisContext) -> str:
     return paths.replace_extension(get_product_name(ctx), "." + get_extension_attr(ctx))
 
-def get_apple_bundle_part_relative_destination_path(ctx: AnalysisContext, part: AppleBundlePart.type) -> str:
+def get_apple_bundle_part_relative_destination_path(ctx: AnalysisContext, part: AppleBundlePart) -> str:
     bundle_relative_path = bundle_relative_path_for_destination(part.destination, get_apple_sdk_name(ctx), ctx.attrs.extension)
     destination_file_or_directory_name = part.new_name if part.new_name != None else paths.basename(part.source.short_path)
     return paths.join(bundle_relative_path, destination_file_or_directory_name)
 
 # Returns JSON to be passed into bundle assembling tool. It should contain a dictionary which maps bundle relative destination paths to source paths."
-def _bundle_spec_json(ctx: AnalysisContext, parts: list[AppleBundlePart.type]) -> Artifact:
+def _bundle_spec_json(ctx: AnalysisContext, parts: list[AppleBundlePart]) -> Artifact:
     specs = []
 
     for part in parts:
@@ -211,7 +211,7 @@ def _bundle_spec_json(ctx: AnalysisContext, parts: list[AppleBundlePart.type]) -
 
     return ctx.actions.write_json("bundle_spec.json", specs)
 
-def _detect_codesign_type(ctx: AnalysisContext) -> CodeSignType.type:
+def _detect_codesign_type(ctx: AnalysisContext) -> CodeSignType:
     if ctx.attrs.extension not in ["app", "appex", "xctest"]:
         # Only code sign application bundles, extensions and test bundles
         return CodeSignType("skip")
@@ -237,7 +237,7 @@ def _entitlements_file(ctx: AnalysisContext) -> [Artifact, None]:
 
     return ctx.attrs._codesign_entitlements
 
-def _should_include_entitlements(ctx: AnalysisContext, codesign_type: CodeSignType.type) -> bool:
+def _should_include_entitlements(ctx: AnalysisContext, codesign_type: CodeSignType) -> bool:
     if codesign_type.value == "distribution":
         return True
 
@@ -249,7 +249,7 @@ def _should_include_entitlements(ctx: AnalysisContext, codesign_type: CodeSignTy
 
     return False
 
-def _get_entitlements_codesign_args(ctx: AnalysisContext, codesign_type: CodeSignType.type) -> list[ArgLike]:
+def _get_entitlements_codesign_args(ctx: AnalysisContext, codesign_type: CodeSignType) -> list[ArgLike]:
     include_entitlements = _should_include_entitlements(ctx, codesign_type)
     maybe_entitlements = _entitlements_file(ctx) if include_entitlements else None
     entitlements_args = ["--entitlements", maybe_entitlements] if maybe_entitlements else []

@@ -11,5 +11,5 @@ load(
     "AppleResourceDestination",  # @unused Used as a type
 )
 
-def apple_bundle_destination_from_resource_destination(res_destination: AppleResourceDestination.type) -> AppleBundleDestination.type:
+def apple_bundle_destination_from_resource_destination(res_destination: AppleResourceDestination) -> AppleBundleDestination:
     return AppleBundleDestination(res_destination.value)

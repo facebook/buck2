@@ -16,10 +16,10 @@ AppleAssetCatalogSpec = record(
     # optional reference in a form of a name (extension omitted) of an .appiconset which
     # contains an image set representing an application icon.
     # This set should be contained in one of catalogs referenced by `dirs` attribute.
-    app_icon = field([StringWithSourceTarget.type, None]),
+    app_icon = field([StringWithSourceTarget, None]),
     dirs = field(list[Artifact]),
     # Same as `app_icon` but with an application launch image semantics.
-    launch_image = field([StringWithSourceTarget.type, None]),
+    launch_image = field([StringWithSourceTarget, None]),
 )
 
 AppleAssetCatalogResult = record(

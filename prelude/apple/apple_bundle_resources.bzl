@@ -48,12 +48,12 @@ load(
 
 AppleBundleResourcePartListOutput = record(
     # Resource parts to be copied into an Apple bundle, *excluding* binaries
-    resource_parts = field(list[AppleBundlePart.type]),
+    resource_parts = field(list[AppleBundlePart]),
     # Part that holds the info.plist
-    info_plist_part = field(AppleBundlePart.type),
+    info_plist_part = field(AppleBundlePart),
 )
 
-def get_apple_bundle_resource_part_list(ctx: AnalysisContext) -> AppleBundleResourcePartListOutput.type:
+def get_apple_bundle_resource_part_list(ctx: AnalysisContext) -> AppleBundleResourcePartListOutput:
     parts = []
 
     parts.extend(_create_pkg_info_if_needed(ctx))
@@ -123,14 +123,14 @@ def get_apple_bundle_resource_part_list(ctx: AnalysisContext) -> AppleBundleReso
     )
 
 # Same logic as in v1, see `buck_client/src/com/facebook/buck/apple/ApplePkgInfo.java`
-def _create_pkg_info_if_needed(ctx: AnalysisContext) -> list[AppleBundlePart.type]:
+def _create_pkg_info_if_needed(ctx: AnalysisContext) -> list[AppleBundlePart]:
     extension = get_extension_attr(ctx)
     if extension == "xpc" or extension == "qlgenerator":
         return []
     artifact = ctx.actions.write("PkgInfo", "APPLWRUN\n")
     return [AppleBundlePart(source = artifact, destination = AppleBundleDestination("metadata"))]
 
-def _select_resources(ctx: AnalysisContext) -> ((list[AppleResourceSpec.type], list[AppleAssetCatalogSpec.type], list[AppleCoreDataSpec.type], list[SceneKitAssetsSpec.type])):
+def _select_resources(ctx: AnalysisContext) -> ((list[AppleResourceSpec], list[AppleAssetCatalogSpec], list[AppleCoreDataSpec], list[SceneKitAssetsSpec])):
     resource_group_info = get_resource_group_info(ctx)
     if resource_group_info:
         resource_groups_deps = resource_group_info.implicit_deps
@@ -149,7 +149,7 @@ def _select_resources(ctx: AnalysisContext) -> ((list[AppleResourceSpec.type], l
     resource_graph_node_map_func = get_resource_graph_node_map_func(resource_graph)
     return get_filtered_resources(ctx.label, resource_graph_node_map_func, ctx.attrs.resource_group, resource_group_mappings)
 
-def _copy_resources(ctx: AnalysisContext, specs: list[AppleResourceSpec.type]) -> list[AppleBundlePart.type]:
+def _copy_resources(ctx: AnalysisContext, specs: list[AppleResourceSpec]) -> list[AppleBundlePart]:
     result = []
 
     for spec in specs:
@@ -181,11 +181,11 @@ def _extract_single_artifact(x: [Dependency, Artifact]) -> Artifact:
         )
         return info.default_outputs[0]
 
-def _copy_first_level_bundles(ctx: AnalysisContext) -> list[AppleBundlePart.type]:
+def _copy_first_level_bundles(ctx: AnalysisContext) -> list[AppleBundlePart]:
     first_level_bundle_infos = filter(None, [dep.get(AppleBundleInfo) for dep in ctx.attrs.deps])
     return filter(None, [_copied_bundle_spec(info) for info in first_level_bundle_infos])
 
-def _copied_bundle_spec(bundle_info: AppleBundleInfo.type) -> [None, AppleBundlePart.type]:
+def _copied_bundle_spec(bundle_info: AppleBundleInfo.type) -> [None, AppleBundlePart]:
     bundle = bundle_info.bundle
     bundle_extension = paths.split_extension(bundle.short_path)[1]
     if bundle_extension == ".framework":
@@ -212,14 +212,14 @@ def _copied_bundle_spec(bundle_info: AppleBundleInfo.type) -> [None, AppleBundle
         codesign_on_copy = codesign_on_copy,
     )
 
-def _bundle_parts_for_dirs(generated_dirs: list[Artifact], destination: AppleBundleDestination.type, copy_contents_only: bool) -> list[AppleBundlePart.type]:
+def _bundle_parts_for_dirs(generated_dirs: list[Artifact], destination: AppleBundleDestination, copy_contents_only: bool) -> list[AppleBundlePart]:
     return [AppleBundlePart(
         source = generated_dir,
         destination = destination,
         new_name = "" if copy_contents_only else None,
     ) for generated_dir in generated_dirs]
 
-def _bundle_parts_for_variant_files(ctx: AnalysisContext, spec: AppleResourceSpec.type) -> list[AppleBundlePart.type]:
+def _bundle_parts_for_variant_files(ctx: AnalysisContext, spec: AppleResourceSpec) -> list[AppleBundlePart]:
     result = []
 
     # By definition, all variant files go into the resources destination
@@ -332,9 +332,9 @@ def _link_ui_resource(
 def _process_apple_resource_file_if_needed(
         ctx: AnalysisContext,
         file: Artifact,
-        destination: AppleBundleDestination.type,
+        destination: AppleBundleDestination,
         destination_relative_path: [str, None],
-        codesign_on_copy: bool = False) -> AppleBundlePart.type:
+        codesign_on_copy: bool = False) -> AppleBundlePart:
     output_dir = "_ProcessedResources"
     basename = paths.basename(file.short_path)
     output_is_contents_dir = False

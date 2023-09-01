@@ -15,7 +15,7 @@ AppleAssetCatalogsCompilationOptions = record(
     extra_flags = field(list[str]),
 )
 
-def get_apple_asset_catalogs_compilation_options(ctx: AnalysisContext) -> AppleAssetCatalogsCompilationOptions.type:
+def get_apple_asset_catalogs_compilation_options(ctx: AnalysisContext) -> AppleAssetCatalogsCompilationOptions:
     options = ctx.attrs.asset_catalogs_compilation_options
 
     return AppleAssetCatalogsCompilationOptions(

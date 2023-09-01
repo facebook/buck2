@@ -88,13 +88,13 @@ AppleLibraryAdditionalParams = record(
     # Linker flags that tell the linker to create shared libraries, overriding the default shared library flags.
     # e.g. when building Apple tests, we want to link with `-bundle` instead of `-shared` to allow
     # linking against the bundle loader.
-    shared_library_flags = field([SharedLibraryFlagOverrides.type, None], None),
+    shared_library_flags = field([SharedLibraryFlagOverrides, None], None),
     # Function to use for setting Xcode attributes for the Xcode data sub target.
     populate_xcode_attributes_func = field(typing.Callable, apple_populate_xcode_attributes),
     # Define which sub targets to generate.
-    generate_sub_targets = field(CxxRuleSubTargetParams.type, CxxRuleSubTargetParams()),
+    generate_sub_targets = field(CxxRuleSubTargetParams, CxxRuleSubTargetParams()),
     # Define which providers to generate.
-    generate_providers = field(CxxRuleProviderParams.type, CxxRuleProviderParams()),
+    generate_providers = field(CxxRuleProviderParams, CxxRuleProviderParams()),
     # Forces link group linking logic, even when there's no mapping. Link group linking
     # without a mapping is equivalent to statically linking the whole transitive dep graph.
     force_link_group_linking = field(bool, False),
@@ -122,7 +122,7 @@ def apple_library_impl(ctx: AnalysisContext) -> ["promise", list[Provider]]:
     else:
         return get_apple_library_providers([])
 
-def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisContext, params: AppleLibraryAdditionalParams.type, deps_providers: list = [], is_test_target: bool = False) -> CxxRuleConstructorParams.type:
+def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisContext, params: AppleLibraryAdditionalParams, deps_providers: list = [], is_test_target: bool = False) -> CxxRuleConstructorParams.type:
     cxx_srcs, swift_srcs = _filter_swift_srcs(ctx)
 
     # First create a modulemap if necessary. This is required for importing
@@ -188,7 +188,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
     contains_swift_sources = bool(swift_srcs)
     xctest_swift_support_provider = xctest_swift_support_info(ctx, contains_swift_sources, is_test_target)
 
-    def additional_providers_factory(propagated_exported_preprocessor_info: [CPreprocessorInfo.type, None]) -> list[Provider]:
+    def additional_providers_factory(propagated_exported_preprocessor_info: [CPreprocessorInfo, None]) -> list[Provider]:
         # Expose `SwiftPCMUncompiledInfo` which represents the ObjC part of a target,
         # if a target also has a Swift part, the provider will expose the generated `-Swift.h` header.
         # This is used for Swift Explicit Modules, and allows compiling a PCM file out of the exported headers.
@@ -264,9 +264,9 @@ def _filter_swift_srcs(ctx: AnalysisContext) -> (list["CxxSrcWithFlags"], list["
     return cxx_srcs, swift_srcs
 
 def _get_link_style_sub_targets_and_providers(
-        link_style: LinkStyle.type,
+        link_style: LinkStyle,
         ctx: AnalysisContext,
-        output: [CxxLibraryOutput.type, None]) -> (dict[str, list[Provider]], list[Provider]):
+        output: [CxxLibraryOutput, None]) -> (dict[str, list[Provider]], list[Provider]):
     # We always propagate a resource graph regardless of link style or empty output
     resource_graph = create_resource_graph(
         ctx = ctx,
@@ -290,6 +290,12 @@ def _get_link_style_sub_targets_and_providers(
     )
 
     if get_apple_stripped_attr_value_with_default_fallback(ctx):
+        if False:
+            # TODO(nga): `output.unstripped` is never `None`.
+            def unknown():
+                pass
+
+            output = unknown()
         expect(output.unstripped != None, "Expecting unstripped output to be non-null when stripping is enabled.")
         dsym_executable = output.unstripped
     else:
@@ -321,7 +327,7 @@ def _get_linker_flags(ctx: AnalysisContext) -> cmd_args:
 def _xcode_populate_attributes(
         ctx,
         srcs: list["CxxSrcWithFlags"],
-        argsfiles: dict[str, CompileArgsfile.type],
+        argsfiles: dict[str, CompileArgsfile],
         populate_xcode_attributes_func: typing.Callable,
         **_kwargs) -> dict[str, typing.Any]:
     # Overwrite the product name

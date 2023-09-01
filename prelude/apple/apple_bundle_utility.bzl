@@ -67,7 +67,7 @@ def get_bundle_min_target_version(ctx: AnalysisContext, binary: [Dependency, Non
     # TODO(T110378109): support default value from SDK `Info.plist`
     fail("Could not determine min target sdk version for bundle: {}".format(ctx.label))
 
-def get_bundle_resource_processing_options(ctx: AnalysisContext) -> AppleResourceProcessingOptions.type:
+def get_bundle_resource_processing_options(ctx: AnalysisContext) -> AppleResourceProcessingOptions:
     compile_resources_locally = value_or(ctx.attrs._compile_resources_locally_override, ctx.attrs._apple_toolchain[AppleToolchainInfo].compile_resources_locally)
     return AppleResourceProcessingOptions(prefer_local = compile_resources_locally, allow_cache_upload = compile_resources_locally)
 

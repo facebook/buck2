@@ -26,7 +26,7 @@ _TARGET_TRIPLE_MAP = {
 def get_explicit_modules_env_var(uses_explicit_modules: bool) -> dict:
     return ({"EXPLICIT_MODULES_ENABLED": "TRUE"} if uses_explicit_modules else {})
 
-def get_apple_cxx_headers_layout(ctx: AnalysisContext) -> CxxHeadersLayout.type:
+def get_apple_cxx_headers_layout(ctx: AnalysisContext) -> CxxHeadersLayout:
     namespace = value_or(ctx.attrs.header_path_prefix, ctx.attrs.name)
     return CxxHeadersLayout(namespace = namespace, naming = CxxHeadersNaming("apple"))
 

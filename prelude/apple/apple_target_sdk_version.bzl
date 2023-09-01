@@ -69,7 +69,7 @@ def get_min_deployment_version_target_linker_flags(ctx: AnalysisContext) -> list
     min_version_flag = _get_min_deployment_version_target_flag(ctx)
     return [min_version_flag] if min_version_flag != None else []
 
-def get_min_deployment_version_target_preprocessor_flags(ctx: AnalysisContext) -> list[CPreprocessor.type]:
+def get_min_deployment_version_target_preprocessor_flags(ctx: AnalysisContext) -> list[CPreprocessor]:
     min_version_flag = _get_min_deployment_version_target_flag(ctx)
     if min_version_flag == None:
         return []

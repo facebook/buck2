@@ -21,8 +21,8 @@ load("@prelude//utils:utils.bzl", "expect")
 
 def apple_populate_xcode_attributes(
         ctx,
-        srcs: list[CxxSrcWithFlags.type],
-        argsfiles: dict[str, CompileArgsfile.type],
+        srcs: list[CxxSrcWithFlags],
+        argsfiles: dict[str, CompileArgsfile],
         product_name: str) -> dict[str, typing.Any]:
     data = cxx_populate_xcode_attributes(ctx = ctx, srcs = srcs, argsfiles = argsfiles, product_name = product_name)
 

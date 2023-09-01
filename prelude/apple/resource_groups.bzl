@@ -19,7 +19,7 @@ load(":apple_resource_types.bzl", "AppleResourceSpec")
 load(":scene_kit_assets_types.bzl", "SceneKitAssetsSpec")
 
 ResourceGroupInfo = provider(fields = [
-    "groups",  # [Group.type]
+    "groups",  # list[Group]
     "groups_hash",  # str
     "mappings",  # {"label": str}
     # Additional deps needed to cover labels referenced by the groups above.
@@ -40,13 +40,13 @@ ResourceGraphNode = record(
     # Exported deps of this target which might have resources transitively.
     exported_deps = field(list[Label], []),
     # Actual resource data, present when node corresponds to `apple_resource` target.
-    resource_spec = field([AppleResourceSpec.type, None], None),
+    resource_spec = field([AppleResourceSpec, None], None),
     # Actual asset catalog data, present when node corresponds to `apple_asset_catalog` target.
-    asset_catalog_spec = field([AppleAssetCatalogSpec.type, None], None),
+    asset_catalog_spec = field([AppleAssetCatalogSpec, None], None),
     # Actual core data, present when node corresponds to `core_data_model` target
-    core_data_spec = field([AppleCoreDataSpec.type, None], None),
+    core_data_spec = field([AppleCoreDataSpec, None], None),
     # Actual scene kit assets, present when node corresponds to `scene_kit_assets` target
-    scene_kit_assets_spec = field([SceneKitAssetsSpec.type, None], None),
+    scene_kit_assets_spec = field([SceneKitAssetsSpec, None], None),
 )
 
 ResourceGraphTSet = transitive_set()
@@ -63,10 +63,10 @@ def create_resource_graph(
         deps: list[Dependency],
         exported_deps: list[Dependency],
         bundle_binary: [Dependency, None] = None,
-        resource_spec: [AppleResourceSpec.type, None] = None,
-        asset_catalog_spec: [AppleAssetCatalogSpec.type, None] = None,
-        core_data_spec: [AppleCoreDataSpec.type, None] = None,
-        scene_kit_assets_spec: [SceneKitAssetsSpec.type, None] = None,
+        resource_spec: [AppleResourceSpec, None] = None,
+        asset_catalog_spec: [AppleAssetCatalogSpec, None] = None,
+        core_data_spec: [AppleCoreDataSpec, None] = None,
+        scene_kit_assets_spec: [SceneKitAssetsSpec, None] = None,
         should_propagate: bool = True) -> ResourceGraphInfo.type:
     # Collect deps and exported_deps with resources that should propagate.
     dep_labels, dep_graphs = _filtered_labels_and_graphs(deps)
@@ -100,7 +100,7 @@ def create_resource_graph(
     )
 
 def get_resource_graph_node_map_func(graph: ResourceGraphInfo.type):
-    def get_resource_graph_node_map() -> dict[Label, ResourceGraphNode.type]:
+    def get_resource_graph_node_map() -> dict[Label, ResourceGraphNode]:
         nodes = graph.nodes.traverse()
         return {node.label: node for node in filter(None, nodes)}
 
@@ -141,7 +141,7 @@ def get_filtered_resources(
         root: Label,
         resource_graph_node_map_func,
         resource_group: [str, None],
-        resource_group_mappings: [dict[Label, str], None]) -> (list[AppleResourceSpec.type], list[AppleAssetCatalogSpec.type], list[AppleCoreDataSpec.type], list[SceneKitAssetsSpec.type]):
+        resource_group_mappings: [dict[Label, str], None]) -> (list[AppleResourceSpec], list[AppleAssetCatalogSpec], list[AppleCoreDataSpec], list[SceneKitAssetsSpec]):
     """
     Walks the provided DAG and collects resources matching resource groups definition.
     """
