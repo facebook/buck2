@@ -75,15 +75,22 @@ enum EnumError {
 pub trait EnumCell: Freeze {
     type TyEnumTypeOpt: Debug;
 
-    fn get_or_init_ty(ty: &Self::TyEnumTypeOpt, f: impl FnOnce() -> TyEnumType);
+    fn get_or_init_ty(
+        ty: &Self::TyEnumTypeOpt,
+        f: impl FnOnce() -> anyhow::Result<TyEnumType>,
+    ) -> anyhow::Result<()>;
     fn get_ty(ty: &Self::TyEnumTypeOpt) -> Option<&TyEnumType>;
 }
 
 impl<'v> EnumCell for Value<'v> {
     type TyEnumTypeOpt = OnceCell<TyEnumType>;
 
-    fn get_or_init_ty(ty: &Self::TyEnumTypeOpt, f: impl FnOnce() -> TyEnumType) {
-        ty.get_or_init(f);
+    fn get_or_init_ty(
+        ty: &Self::TyEnumTypeOpt,
+        f: impl FnOnce() -> anyhow::Result<TyEnumType>,
+    ) -> anyhow::Result<()> {
+        ty.get_or_try_init(f)?;
+        Ok(())
     }
 
     fn get_ty(ty: &Self::TyEnumTypeOpt) -> Option<&TyEnumType> {
@@ -94,8 +101,12 @@ impl<'v> EnumCell for Value<'v> {
 impl EnumCell for FrozenValue {
     type TyEnumTypeOpt = Option<TyEnumType>;
 
-    fn get_or_init_ty(ty: &Self::TyEnumTypeOpt, f: impl FnOnce() -> TyEnumType) {
+    fn get_or_init_ty(
+        ty: &Self::TyEnumTypeOpt,
+        f: impl FnOnce() -> anyhow::Result<TyEnumType>,
+    ) -> anyhow::Result<()> {
         let _ignore = (ty, f);
+        Ok(())
     }
 
     fn get_ty(ty: &Self::TyEnumTypeOpt) -> Option<&TyEnumType> {
@@ -292,8 +303,9 @@ where
                 Some(TypeMatcherFactory::new(EnumTypeMatcher { id: self.id })),
                 self.id,
                 SortedMap::new(),
-            ));
-            TyEnumType {
+                None,
+            )?);
+            Ok(TyEnumType {
                 data: Arc::new(TyEnumData {
                     name: variable_name.to_owned(),
                     variants: self
@@ -309,9 +321,8 @@ where
                     id: self.id,
                     ty_enum_value,
                 }),
-            }
-        });
-        Ok(())
+            })
+        })
     }
 }
 

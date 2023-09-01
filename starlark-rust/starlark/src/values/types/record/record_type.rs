@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use std::cell::OnceCell;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -26,6 +25,7 @@ use allocative::Allocative;
 use display_container::fmt_keyed_container;
 use dupe::Dupe;
 use either::Either;
+use once_cell::unsync::OnceCell;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
@@ -63,15 +63,22 @@ use crate::values::ValueTypedComplex;
 pub trait RecordCell {
     type TyRecordTypeOpt: Debug;
 
-    fn get_or_init_ty(ty: &Self::TyRecordTypeOpt, f: impl FnOnce() -> TyRecordType);
+    fn get_or_init_ty(
+        ty: &Self::TyRecordTypeOpt,
+        f: impl FnOnce() -> anyhow::Result<TyRecordType>,
+    ) -> anyhow::Result<()>;
     fn get_ty(ty: &Self::TyRecordTypeOpt) -> Option<&TyRecordType>;
 }
 
 impl<'v> RecordCell for Value<'v> {
     type TyRecordTypeOpt = OnceCell<TyRecordType>;
 
-    fn get_or_init_ty(ty: &Self::TyRecordTypeOpt, f: impl FnOnce() -> TyRecordType) {
-        ty.get_or_init(f);
+    fn get_or_init_ty(
+        ty: &Self::TyRecordTypeOpt,
+        f: impl FnOnce() -> anyhow::Result<TyRecordType>,
+    ) -> anyhow::Result<()> {
+        ty.get_or_try_init(f)?;
+        Ok(())
     }
 
     fn get_ty(ty: &Self::TyRecordTypeOpt) -> Option<&TyRecordType> {
@@ -81,8 +88,12 @@ impl<'v> RecordCell for Value<'v> {
 impl RecordCell for FrozenValue {
     type TyRecordTypeOpt = Option<TyRecordType>;
 
-    fn get_or_init_ty(ty: &Self::TyRecordTypeOpt, f: impl FnOnce() -> TyRecordType) {
+    fn get_or_init_ty(
+        ty: &Self::TyRecordTypeOpt,
+        f: impl FnOnce() -> anyhow::Result<TyRecordType>,
+    ) -> anyhow::Result<()> {
         let _ignore = (ty, f);
+        Ok(())
     }
 
     fn get_ty(ty: &Self::TyRecordTypeOpt) -> Option<&TyRecordType> {
@@ -283,10 +294,9 @@ where
                     .collect(),
                 id: self.id,
             });
-            let ty_record = Ty::custom(data.ty_record_as_ty_user());
-            TyRecordType { data, ty_record }
-        });
-        Ok(())
+            let ty_record = Ty::custom(data.ty_record_as_ty_user()?);
+            Ok(TyRecordType { data, ty_record })
+        })
     }
 }
 

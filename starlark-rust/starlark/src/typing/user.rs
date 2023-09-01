@@ -27,13 +27,23 @@ use starlark_syntax::codemap::Spanned;
 
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::TypingOrInternalError;
+use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::Arg;
 use crate::typing::Ty;
+use crate::typing::TyFunction;
 use crate::typing::TypingOracleCtx;
 use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
+
+#[derive(Debug, thiserror::Error)]
+enum TyUserError {
+    #[error(
+        "Type `{0}` specifies custom callable, but underlying `StarlarkValue` is not callable"
+    )]
+    CallableNotCallable(String),
+}
 
 /// Type description for arbitrary type.
 #[derive(Allocative, Debug, derive_more::Display)]
@@ -45,6 +55,8 @@ pub(crate) struct TyUser {
     matcher: Option<TypeMatcherFactory>,
     id: TypeInstanceId,
     fields: SortedMap<String, Ty>,
+    /// Set if more precise callable signature is known than `base` provides.
+    callable: Option<TyFunction>,
 }
 
 impl TyUser {
@@ -54,14 +66,21 @@ impl TyUser {
         matcher: Option<TypeMatcherFactory>,
         id: TypeInstanceId,
         fields: SortedMap<String, Ty>,
-    ) -> TyUser {
-        TyUser {
+        callable: Option<TyFunction>,
+    ) -> anyhow::Result<TyUser> {
+        if callable.is_some() {
+            if !base.is_callable() {
+                return Err(TyUserError::CallableNotCallable(name).into());
+            }
+        }
+        Ok(TyUser {
             name,
             base,
             matcher,
             id,
             fields,
-        }
+            callable,
+        })
     }
 }
 
@@ -112,10 +131,14 @@ impl TyCustomImpl for TyUser {
     fn validate_call(
         &self,
         span: Span,
-        _args: &[Spanned<Arg>],
+        args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
-        Ok(self.base.validate_call(span, oracle)?)
+        if let Some(callable) = &self.callable {
+            callable.validate_call(span, args, oracle)
+        } else {
+            Ok(self.base.validate_call(span, oracle)?)
+        }
     }
 
     fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result {
