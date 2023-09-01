@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+mod build_defs;
 mod builtin;
 mod collection;
 pub(crate) mod testing;

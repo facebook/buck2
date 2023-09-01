@@ -7,6 +7,5 @@
  * of this source tree.
  */
 
-mod build_defs;
 pub(crate) mod rule_defs;
 pub(crate) mod transitive_set;
