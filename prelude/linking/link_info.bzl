@@ -52,18 +52,6 @@ Linkage = enum(
     "any",
 )
 
-# This is used to mark each of the linkable types with a type so we can have
-# different behavior for different types. Ideally, starlark records would
-# each have the appropriate type automatically.
-LinkableType = enum(
-    "archive",
-    "frameworks",
-    "shared",
-    "objects",
-    "swiftmodule",
-    "swift_runtime",
-)
-
 # An archive.
 ArchiveLinkable = record(
     # Artifact in the .a format from ar
@@ -76,14 +64,12 @@ ArchiveLinkable = record(
     # to e.g. tell dist LTO handling that a potentially expensive archive doesn't
     # need to be processed.
     supports_lto = field(bool, True),
-    _type = field(LinkableType, LinkableType("archive")),
 )
 
 # A shared lib.
 SharedLibLinkable = record(
     lib = field(Artifact),
     link_without_soname = field(bool, False),
-    _type = field(LinkableType, LinkableType("shared")),
 )
 
 # A list of objects.
@@ -93,7 +79,6 @@ ObjectsLinkable = record(
     bitcode_bundle = field([Artifact, None], None),
     linker_type = field(str),
     link_whole = field(bool, False),
-    _type = field(LinkableType, LinkableType("objects")),
 )
 
 # Framework + library information for Apple/Cxx targets.
@@ -113,12 +98,10 @@ FrameworksLinkable = record(
     unresolved_framework_paths = field(list[str], []),
     # A list of library names, used to construct `-l` args.
     library_names = field(list[str], []),
-    _type = field(LinkableType, LinkableType("frameworks")),
 )
 
 SwiftmoduleLinkable = record(
     swiftmodule = field(Artifact),
-    _type = field(LinkableType, LinkableType("swiftmodule")),
 )
 
 # Represents the Swift runtime as a linker input.
@@ -126,7 +109,6 @@ SwiftRuntimeLinkable = record(
     # Only store whether the runtime is required, so that linker flags
     # are only materialized _once_ (no duplicates) on the link line.
     runtime_required = field(bool, False),
-    _type = field(LinkableType, LinkableType("swift_runtime")),
 )
 
 LinkableTypes = [ArchiveLinkable, SharedLibLinkable, ObjectsLinkable, FrameworksLinkable, SwiftmoduleLinkable, SwiftRuntimeLinkable]
@@ -158,20 +140,18 @@ LinkOrdering = enum(
 
 def set_linkable_link_whole(
         linkable: [ArchiveLinkable, ObjectsLinkable, SharedLibLinkable, FrameworksLinkable]) -> [ArchiveLinkable, ObjectsLinkable, SharedLibLinkable, FrameworksLinkable]:
-    if linkable._type == LinkableType("archive"):
+    if isinstance(linkable, ArchiveLinkable):
         return ArchiveLinkable(
             archive = linkable.archive,
             linker_type = linkable.linker_type,
             link_whole = True,
             supports_lto = linkable.supports_lto,
-            _type = linkable._type,
         )
-    elif linkable._type == LinkableType("objects"):
+    elif isinstance(linkable, ObjectsLinkable):
         return ObjectsLinkable(
             objects = linkable.objects,
             linker_type = linkable.linker_type,
             link_whole = True,
-            _type = linkable._type,
         )
     return linkable
 
@@ -192,7 +172,7 @@ def wrap_link_info(
 
 # Adds appropriate args representing `linkable` to `args`
 def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
-    if linkable._type == LinkableType("archive"):
+    if isinstance(linkable, ArchiveLinkable):
         if linkable.link_whole:
             args.add(get_link_whole_args(linkable.linker_type, [linkable.archive.artifact]))
         elif linkable.linker_type == "darwin":
@@ -204,13 +184,13 @@ def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
         # to the link, so make sure track them as inputs so that they're
         # materialized/tracked properly.
         args.add(cmd_args().hidden(linkable.archive.external_objects))
-    elif linkable._type == LinkableType("shared"):
+    elif isinstance(linkable, SharedLibLinkable):
         if linkable.link_without_soname:
             args.add(cmd_args(linkable.lib, format = "-L{}").parent())
             args.add("-l" + linkable.lib.basename.removeprefix("lib").removesuffix(linkable.lib.extension))
         else:
             args.add(linkable.lib)
-    elif linkable._type == LinkableType("objects"):
+    elif isinstance(linkable, ObjectsLinkable):
         # We depend on just the filelist for darwin linker and don't add the normal args
         if linkable.linker_type != "darwin":
             # We need to export every symbol when link groups are used, but enabling
@@ -221,16 +201,16 @@ def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
                 args.add(get_objects_as_library_args(linkable.linker_type, linkable.objects))
             else:
                 args.add(linkable.objects)
-    elif linkable._type == LinkableType("frameworks") or linkable._type == LinkableType("swift_runtime"):
+    elif isinstance(linkable, FrameworksLinkable) or isinstance(linkable, SwiftRuntimeLinkable):
         # These flags are handled separately so they can be deduped.
         #
         # We've seen in apps with larger dependency graphs that failing
         # to dedupe these args results in linker.argsfile which are too big.
         pass
-    elif linkable._type == LinkableType("swiftmodule"):
+    elif isinstance(linkable, SwiftmoduleLinkable):
         args.add(cmd_args(linkable.swiftmodule, format = "-Wl,-add_ast_path,{}"))
     else:
-        fail("Encountered unhandled linkable of type {}".format(linkable._type))
+        fail("Encountered unhandled linkable {}".format(str(linkable)))
 
 def link_info_to_args(value: LinkInfo.type) -> cmd_args:
     args = cmd_args(value.pre_flags)
@@ -249,18 +229,18 @@ def link_info_to_args(value: LinkInfo.type) -> cmd_args:
 def link_info_filelist(value: LinkInfo.type) -> list[Artifact]:
     filelists = []
     for linkable in value.linkables:
-        if linkable._type == LinkableType("archive"):
+        if isinstance(linkable, ArchiveLinkable):
             if linkable.linker_type == "darwin" and not linkable.link_whole:
                 filelists.append(linkable.archive.artifact)
-        elif linkable._type == LinkableType("shared"):
+        elif isinstance(linkable, SharedLibLinkable):
             pass
-        elif linkable._type == LinkableType("objects"):
+        elif isinstance(linkable, ObjectsLinkable):
             if linkable.linker_type == "darwin":
                 filelists += linkable.objects
-        elif linkable._type == LinkableType("frameworks") or linkable._type == LinkableType("swiftmodule") or linkable._type == LinkableType("swift_runtime"):
+        elif isinstance(linkable, FrameworksLinkable) or isinstance(linkable, SwiftmoduleLinkable) or isinstance(linkable, SwiftRuntimeLinkable):
             pass
         else:
-            fail("Encountered unhandled linkable of type {}".format(linkable._type))
+            fail("Encountered unhandled linkable {}".format(str(linkable)))
     return filelists
 
 # Encapsulate all `LinkInfo`s provided by a given rule's link style.
