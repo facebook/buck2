@@ -153,8 +153,18 @@ fn udr_is_recorded() -> SharedResult<()> {
             },
         )
 
+        def hide_type(v): return v
+
         def test():
-            foo_binary(name="target1", mandatory="m1", optional="o1", dep=":bar", other_optional=None, src="file1.java")
+            foo_binary(
+                name="target1",
+                mandatory="m1",
+                optional="o1",
+                dep=":bar",
+                # TODO(nga): function type should accept `None` for optional parameters.
+                other_optional=hide_type(None),
+                src="file1.java",
+            )
             foo_binary(name="target2", mandatory="m2", other_optional="o1")
         "#
     );
@@ -219,19 +229,21 @@ fn udr_rejects_invalid_parameters() {
             impl=impl,
             attrs={"optional":string_attr, "mandatory": mandatory_string_attr},
         )
+        def hide_type(v): return v
 
         def test():
         "#
     );
 
-    let missing_name = r#"    foo_binary(mandatory="s")"#;
-    let invalid_name = r#"    foo_binary(name="bad name", mandatory="s")"#;
-    let missing_mandatory = r#"    foo_binary(name="t1")"#;
-    let wrong_type = r#"    foo_binary(name="t1", mandatory=1)"#;
-    let unknown_param = r#"    foo_binary(name="t1", mandatory="m1", unknown="")"#;
+    let missing_name = r#"    hide_type(foo_binary)(mandatory="s")"#;
+    let invalid_name = r#"    hide_type(foo_binary)(name="bad name", mandatory="s")"#;
+    let missing_mandatory = r#"    hide_type(foo_binary)(name="t1")"#;
+    let wrong_type = r#"    hide_type(foo_binary)(name="t1", mandatory=1)"#;
+    let unknown_param = r#"    hide_type(foo_binary)(name="t1", mandatory="m1", unknown="")"#;
     let duplicate_targets = format!(
         "    {}\n    {}",
-        r#"foo_binary(name="t1", mandatory="m1")"#, r#"foo_binary(name="t1", mandatory="m2")"#,
+        r#"hide_type(foo_binary)(name="t1", mandatory="m1")"#,
+        r#"hide_type(foo_binary)(name="t1", mandatory="m2")"#,
     );
 
     let run = |content: &str, msg: &str| {

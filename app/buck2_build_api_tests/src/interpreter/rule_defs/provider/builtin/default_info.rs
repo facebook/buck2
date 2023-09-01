@@ -72,9 +72,10 @@ fn default_info_validates_types() -> SharedResult<()> {
     tester.run_starlark_bzl_test_expecting_error(
         indoc!(
             r#"
+            def hide_type(v): return v
             def test():
                 default_defaults = DefaultInfo()
-                DefaultInfo(sub_targets={"foo": []}, default_outputs=1)
+                DefaultInfo(sub_targets={"foo": []}, default_outputs=hide_type(1))
             "#
         ),
         "Type of parameter",
@@ -83,9 +84,10 @@ fn default_info_validates_types() -> SharedResult<()> {
     tester.run_starlark_bzl_test_expecting_error(
         indoc!(
             r#"
+            def hide_type(v): return v
             def test():
                 default_defaults = DefaultInfo()
-                DefaultInfo(sub_targets=[], default_outputs=["foo"])
+                DefaultInfo(sub_targets=hide_type([]), default_outputs=["foo"])
             "#
         ),
         "Type of parameter",

@@ -493,6 +493,7 @@ impl<'c> DiceCalculationDelegate<'c> {
                             ast,
                             deps.get_loaded_modules(),
                             provider,
+                            false,
                         )
                         .with_context(|| {
                             DiceCalculationDelegateError::EvalBuildFileError(build_file_path)

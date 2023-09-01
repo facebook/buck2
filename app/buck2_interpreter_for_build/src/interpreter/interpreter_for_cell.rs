@@ -572,6 +572,7 @@ impl InterpreterForCell {
         ast: AstModule,
         loaded_modules: LoadedModules,
         eval_provider: &mut dyn StarlarkEvaluatorProvider,
+        unstable_typecheck: bool,
     ) -> anyhow::Result<EvaluationResult> {
         let (env, internals) = self.create_build_env(
             build_file,
@@ -589,7 +590,7 @@ impl InterpreterForCell {
                 loaded_modules,
                 PerFileTypeContext::Build(internals),
                 eval_provider,
-                false,
+                unstable_typecheck,
             )?
             .into_build()?;
 

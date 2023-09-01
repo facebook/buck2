@@ -129,8 +129,9 @@ mod tests {
         let invalid_fields = indoc!(
             r#"
             l = label("root//foo:bar[baz]")
+            def hide_type(v): return v
             def test():
-                l.invalid_field
+                hide_type(l).invalid_field
             "#
         );
         expect_error(

@@ -218,7 +218,7 @@ impl Tester {
                     }))),
                 )?,
                 false,
-                false,
+                true,
             )?),
             Arc::new(import_paths),
         )?))
@@ -318,6 +318,7 @@ impl Tester {
             ast,
             loaded_modules,
             &mut provider,
+            true,
         )?;
         Ok(eval_result)
     }
