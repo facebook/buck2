@@ -211,6 +211,10 @@ impl TyStarlarkValue {
         }
     }
 
+    pub(crate) fn is_indexable(self) -> bool {
+        self.vtable.vtable.HAS_at
+    }
+
     pub(crate) fn attr_from_methods(self, name: &str) -> Result<Ty, ()> {
         if let Some(methods) = (self.vtable.vtable.get_methods)() {
             if let Some(method) = methods.get(name) {

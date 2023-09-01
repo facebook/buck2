@@ -91,7 +91,7 @@ impl TyCustomImpl for TyEnumType {
         Ok(self.data.ty_enum_value.dupe())
     }
 
-    fn index(&self, item: &TyBasic) -> Result<Ty, ()> {
+    fn index(&self, item: &TyBasic, _ctx: &TypingOracleCtx) -> Result<Ty, ()> {
         TyStarlarkValue::new::<EnumType>().index(item)?;
         Ok(self.data.ty_enum_value.dupe())
     }

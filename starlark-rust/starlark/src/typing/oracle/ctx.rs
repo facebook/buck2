@@ -415,7 +415,7 @@ impl<'a> TypingOracleCtx<'a> {
                 Ok(Ok((**v).dupe()))
             }
             TyBasic::StarlarkValue(array) => Ok(array.index(index.node)),
-            TyBasic::Custom(c) => Ok(c.0.index_dyn(index.node)),
+            TyBasic::Custom(c) => Ok(c.0.index_dyn(index.node, self)),
             TyBasic::Name(_) => Ok(Ok(Ty::any())),
         }
     }

@@ -305,6 +305,7 @@ where
                 self.id,
                 SortedMap::new(),
                 None,
+                None,
             )?);
             Ok(TyEnumType {
                 data: Arc::new(TyEnumData {

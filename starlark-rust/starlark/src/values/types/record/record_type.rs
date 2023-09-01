@@ -304,6 +304,7 @@ where
                 self.id,
                 fields,
                 None,
+                None,
             )?);
 
             let ty_record_type = Ty::custom(TyUser::new(
@@ -317,6 +318,7 @@ where
                     vec![Param::kwargs(Ty::any())],
                     ty_record.dupe(),
                 )),
+                None,
             )?);
 
             Ok(Arc::new(TyRecordData {

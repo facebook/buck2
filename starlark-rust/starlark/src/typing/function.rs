@@ -222,7 +222,7 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
         }
     }
 
-    fn index(&self, _item: &TyBasic) -> Result<Ty, ()> {
+    fn index(&self, _item: &TyBasic, _ctx: &TypingOracleCtx) -> Result<Ty, ()> {
         // TODO(nga): this is hack for `enum` (type) which pretends to be a function.
         //   Should be a custom type.
         Ok(Ty::any())

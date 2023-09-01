@@ -20,6 +20,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use allocative::Allocative;
+use dupe::Dupe;
 use dupe::OptionDupedExt;
 use starlark_map::sorted_map::SortedMap;
 use starlark_syntax::codemap::Span;
@@ -31,6 +32,7 @@ use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::Arg;
 use crate::typing::Ty;
+use crate::typing::TyBasic;
 use crate::typing::TyFunction;
 use crate::typing::TypingOracleCtx;
 use crate::values::types::type_instance_id::TypeInstanceId;
@@ -43,6 +45,19 @@ enum TyUserError {
         "Type `{0}` specifies custom callable, but underlying `StarlarkValue` is not callable"
     )]
     CallableNotCallable(String),
+    #[error(
+        "Type `{0}` specifies custom indexable, but underlying `StarlarkValue` is not indexable"
+    )]
+    IndexableNotIndexable(String),
+}
+
+/// Types of `[]` operator.
+#[derive(Allocative, Debug)]
+pub(crate) struct TyUserIndex {
+    /// Type of index argument.
+    pub(crate) index: Ty,
+    /// Type of result.
+    pub(crate) result: Ty,
 }
 
 /// Type description for arbitrary type.
@@ -57,6 +72,8 @@ pub(crate) struct TyUser {
     fields: SortedMap<String, Ty>,
     /// Set if more precise callable signature is known than `base` provides.
     callable: Option<TyFunction>,
+    /// Set if more precise index signature is known than `base` provides.
+    index: Option<TyUserIndex>,
 }
 
 impl TyUser {
@@ -67,10 +84,16 @@ impl TyUser {
         id: TypeInstanceId,
         fields: SortedMap<String, Ty>,
         callable: Option<TyFunction>,
+        index: Option<TyUserIndex>,
     ) -> anyhow::Result<TyUser> {
         if callable.is_some() {
             if !base.is_callable() {
                 return Err(TyUserError::CallableNotCallable(name).into());
+            }
+        }
+        if index.is_some() {
+            if !base.is_indexable() {
+                return Err(TyUserError::IndexableNotIndexable(name).into());
             }
         }
         Ok(TyUser {
@@ -80,6 +103,7 @@ impl TyUser {
             id,
             fields,
             callable,
+            index,
         })
     }
 }
@@ -121,6 +145,17 @@ impl TyCustomImpl for TyUser {
             Ok(ty)
         } else {
             self.fields.get(attr).duped().ok_or(())
+        }
+    }
+
+    fn index(&self, item: &TyBasic, ctx: &TypingOracleCtx) -> Result<Ty, ()> {
+        if let Some(index) = &self.index {
+            if !ctx.intersects(&Ty::basic(item.dupe()), &index.index) {
+                return Err(());
+            }
+            Ok(index.result.dupe())
+        } else {
+            self.base.index(item)
         }
     }
 

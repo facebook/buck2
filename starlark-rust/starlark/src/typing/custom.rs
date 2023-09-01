@@ -68,8 +68,8 @@ pub trait TyCustomImpl: Debug + Display + Hash + Ord + Allocative + Send + Sync 
     fn iter_item(&self) -> Result<Ty, ()> {
         Err(())
     }
-    fn index(&self, item: &TyBasic) -> Result<Ty, ()> {
-        let _unused = item;
+    fn index(&self, item: &TyBasic, ctx: &TypingOracleCtx) -> Result<Ty, ()> {
+        let _unused = (item, ctx);
         Err(())
     }
     fn attribute(&self, attr: &str) -> Result<Ty, ()>;
@@ -101,7 +101,7 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
     ) -> Result<Ty, TypingOrInternalError>;
     fn is_callable_dyn(&self) -> bool;
     fn iter_item_dyn(&self) -> Result<Ty, ()>;
-    fn index_dyn(&self, index: &TyBasic) -> Result<Ty, ()>;
+    fn index_dyn(&self, index: &TyBasic, ctx: &TypingOracleCtx) -> Result<Ty, ()>;
     fn attribute_dyn(&self, attr: &str) -> Result<Ty, ()>;
     fn bin_op_dyn(
         &self,
@@ -171,8 +171,8 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
         self.iter_item()
     }
 
-    fn index_dyn(&self, index: &TyBasic) -> Result<Ty, ()> {
-        self.index(index)
+    fn index_dyn(&self, index: &TyBasic, ctx: &TypingOracleCtx) -> Result<Ty, ()> {
+        self.index(index, ctx)
     }
 
     fn bin_op_dyn(
