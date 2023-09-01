@@ -207,7 +207,7 @@ def _mk_ld(ctx: AnalysisContext, link_args: list[typing.Any], ld_sh_filename: ty
 # `build_mode`. It produces a script that forwards arguments to the ocaml
 # compiler (one of `ocamlopt.opt` vs `ocamlc.opt` consistent with the value of
 # `build_mode`) in the environment of a local 'bin' directory.
-def _mk_ocaml_compiler(ctx: AnalysisContext, env: dict[str, typing.Any], build_mode: BuildMode.type) -> cmd_args:
+def _mk_ocaml_compiler(ctx: AnalysisContext, env: dict[str, typing.Any], build_mode: BuildMode) -> cmd_args:
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
     compiler = ocaml_toolchain.ocaml_compiler if _is_native(build_mode) else ocaml_toolchain.ocaml_bytecode_compiler
     script_name = "ocamlopt" + build_mode.value + ".sh"
@@ -239,7 +239,7 @@ def _compiler_cmd(ctx: AnalysisContext, compiler: cmd_args, cc: cmd_args) -> cmd
     return cmd
 
 # The include paths for the immediate dependencies of the current target.
-def _include_paths_in_context(ctx: AnalysisContext, build_mode: BuildMode.type):
+def _include_paths_in_context(ctx: AnalysisContext, build_mode: BuildMode):
     ocaml_libs = merge_ocaml_link_infos(_attr_deps_ocaml_link_infos(ctx)).info
     includes = []
     for lib in ocaml_libs:
@@ -251,7 +251,7 @@ def _include_paths_in_context(ctx: AnalysisContext, build_mode: BuildMode.type):
 
     return includes
 
-def _compiler_flags(ctx: AnalysisContext, build_mode: BuildMode.type):
+def _compiler_flags(ctx: AnalysisContext, build_mode: BuildMode):
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
     mode_flags = ocaml_toolchain.ocamlopt_flags if _is_native(build_mode) else ocaml_toolchain.ocamlc_flags
 
@@ -259,7 +259,7 @@ def _compiler_flags(ctx: AnalysisContext, build_mode: BuildMode.type):
 
 # Configure a new compile command. Each source file (.mli, .ml) gets one of its
 # own.
-def _compile_cmd(ctx: AnalysisContext, compiler: cmd_args, build_mode: BuildMode.type, cc: cmd_args, includes: list[cmd_args]) -> cmd_args:
+def _compile_cmd(ctx: AnalysisContext, compiler: cmd_args, build_mode: BuildMode, cc: cmd_args, includes: list[cmd_args]) -> cmd_args:
     cmd = _compiler_cmd(ctx, compiler, cc)
     cmd.add("-bin-annot")  # TODO(sf, 2023-02-21): Move this to 'gen_modes.py'?
     cmd.add(_compiler_flags(ctx, build_mode))
@@ -268,7 +268,7 @@ def _compile_cmd(ctx: AnalysisContext, compiler: cmd_args, build_mode: BuildMode
     return cmd
 
 # Run any preprocessors, returning a list of ml/mli/c artifacts you can compile
-def _preprocess(ctx: AnalysisContext, srcs: list[Artifact], build_mode: BuildMode.type) -> list[Artifact]:
+def _preprocess(ctx: AnalysisContext, srcs: list[Artifact], build_mode: BuildMode) -> list[Artifact]:
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
     ocamllex = ocaml_toolchain.lex_compiler
     menhir = ocaml_toolchain.menhir_compiler  # We no longer use yacc_compiler, just menhir.
@@ -306,7 +306,7 @@ def _preprocess(ctx: AnalysisContext, srcs: list[Artifact], build_mode: BuildMod
     return result
 
 # Generate the dependencies
-def _depends(ctx: AnalysisContext, srcs: list[Artifact], build_mode: BuildMode.type) -> Artifact:
+def _depends(ctx: AnalysisContext, srcs: list[Artifact], build_mode: BuildMode) -> Artifact:
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
     ocamldep = ocaml_toolchain.dep_tool
 
@@ -336,7 +336,7 @@ def _depends(ctx: AnalysisContext, srcs: list[Artifact], build_mode: BuildMode.t
 # be empty in the returned tuple while 'cmos' will be non-empty. If compiling
 # native code, 'cmos' in the returned info will be empty while 'objs' & 'cmxs'
 # will be non-empty.
-def _compile(ctx: AnalysisContext, compiler: cmd_args, build_mode: BuildMode.type) -> CompileResultInfo.type:
+def _compile(ctx: AnalysisContext, compiler: cmd_args, build_mode: BuildMode) -> CompileResultInfo.type:
     opaque_enabled = "-opaque" in _compiler_flags(ctx, build_mode)
     is_native = _is_native(build_mode)
     is_bytecode = not is_native
@@ -555,7 +555,7 @@ def _compile(ctx: AnalysisContext, compiler: cmd_args, build_mode: BuildMode.typ
 
 # The include path directories a client will provide a compile command to use
 # the given artifacts.
-def _include_paths(cmis: list[Artifact], cmos: list[Artifact]) -> cmd_args.type:
+def _include_paths(cmis: list[Artifact], cmos: list[Artifact]) -> cmd_args:
     include_paths = []
     seen_dirs = {}
     for f in cmis:
