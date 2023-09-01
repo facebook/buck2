@@ -81,8 +81,13 @@ fn test_export_as() {
     {
         type Canonical = Exporter<FrozenExportedName>;
 
-        fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
+        fn export_as(
+            &self,
+            variable_name: &str,
+            _eval: &mut Evaluator<'v, '_>,
+        ) -> anyhow::Result<()> {
             self.named.try_export_as(variable_name);
+            Ok(())
         }
     }
 

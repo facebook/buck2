@@ -219,7 +219,7 @@ impl Freeze for UserProviderCallable {
 impl<'v> StarlarkValue<'v> for UserProviderCallable {
     type Canonical = FrozenUserProviderCallable;
 
-    fn export_as(&self, variable_name: &str, eval: &mut Evaluator<'v, '_>) {
+    fn export_as(&self, variable_name: &str, eval: &mut Evaluator<'v, '_>) -> anyhow::Result<()> {
         // First export wins
         self.id.get_or_init(|| {
             let new_id = Arc::new(ProviderId {
@@ -236,6 +236,7 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
             );
             new_id
         });
+        Ok(())
     }
 
     fn get_methods() -> Option<&'static Methods> {

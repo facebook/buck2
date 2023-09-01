@@ -77,8 +77,9 @@ impl<'a> Eq for BorrowedExportedName<'a> {}
 /// impl<'v, T: ExportedName> StarlarkValue<'v> for MyStruct<T> {
 ///   type Canonical = MyStruct<FrozenExportedName>;
 ///
-///   fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
+///   fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) -> anyhow::Result<()> {
 ///        self.name.try_export_as(variable_name);
+///        Ok(())
 ///    }
 /// }
 /// ```

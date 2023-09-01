@@ -602,7 +602,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         name: &str,
         value: Value<'v>,
     ) -> anyhow::Result<()> {
-        value.export_as(name, self);
+        value.export_as(name, self)?;
         self.module_env.set(name, value);
         Ok(())
     }

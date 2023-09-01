@@ -96,7 +96,7 @@ pub(crate) struct FrozenTransition {
 
 #[starlark_value(type = "transition")]
 impl<'v> StarlarkValue<'v> for Transition<'v> {
-    fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
+    fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) -> anyhow::Result<()> {
         let mut id = self.id.borrow_mut();
         // First export wins
         if id.is_none() {
@@ -105,6 +105,7 @@ impl<'v> StarlarkValue<'v> for Transition<'v> {
                 name: variable_name.to_owned(),
             }));
         }
+        Ok(())
     }
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {

@@ -61,15 +61,16 @@ pub struct StarlarkPluginKind(RefCell<InnerStarlarkPluginKind>);
 
 #[starlark_value(type = "PluginKind")]
 impl<'v> StarlarkValue<'v> for StarlarkPluginKind {
-    fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
+    fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) -> anyhow::Result<()> {
         let mut inner = self.0.borrow_mut();
         let InnerStarlarkPluginKind::Unbound(cell_path) = &*inner else {
             // Was already exported
-            return;
+            return Ok(());
         };
         let cell_path = cell_path.clone();
         let kind = PluginKind::new(variable_name.to_owned(), cell_path);
         *inner = InnerStarlarkPluginKind::Bound(kind);
+        Ok(())
     }
 }
 

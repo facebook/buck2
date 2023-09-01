@@ -208,7 +208,7 @@ impl<'v> AllocValue<'v> for TransitiveSetDefinition<'v> {
 impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
     type Canonical = FrozenTransitiveSetDefinition;
 
-    fn export_as(&self, variable_name: &str, _: &mut Evaluator<'v, '_>) {
+    fn export_as(&self, variable_name: &str, _: &mut Evaluator<'v, '_>) -> anyhow::Result<()> {
         // First export wins
         let mut id = self.id.borrow_mut();
         if id.is_none() {
@@ -218,6 +218,7 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
             });
             *id = Some(new_id.dupe());
         }
+        Ok(())
     }
 
     fn dir_attr(&self) -> Vec<String> {

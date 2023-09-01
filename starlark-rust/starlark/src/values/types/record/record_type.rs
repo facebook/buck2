@@ -272,7 +272,7 @@ where
         self.ty_record_type().map(|t| Ty::custom(t.dupe()))
     }
 
-    fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
+    fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) -> anyhow::Result<()> {
         V::get_or_init_ty(&self.ty_record_type, || {
             let data = Arc::new(TyRecordData {
                 name: variable_name.to_owned(),
@@ -286,6 +286,7 @@ where
             let ty_record = Ty::custom(data.ty_record_as_ty_user());
             TyRecordType { data, ty_record }
         });
+        Ok(())
     }
 }
 

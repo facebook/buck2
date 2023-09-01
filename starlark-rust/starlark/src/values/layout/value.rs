@@ -816,7 +816,11 @@ impl<'v> Value<'v> {
 
     /// Call `export_as` on the underlying value, but only if the type is mutable.
     /// Otherwise, does nothing.
-    pub fn export_as(self, variable_name: &str, eval: &mut Evaluator<'v, '_>) {
+    pub fn export_as(
+        self,
+        variable_name: &str,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<()> {
         self.get_ref().export_as(variable_name, eval)
     }
 

@@ -235,11 +235,12 @@ impl<'v> RuleCallable<'v> {
 
 #[starlark_value(type = "rule")]
 impl<'v> StarlarkValue<'v> for RuleCallable<'v> {
-    fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
+    fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) -> anyhow::Result<()> {
         *self.id.borrow_mut() = Some(StarlarkRuleType {
             import_path: self.import_path.clone(),
             name: variable_name.to_owned(),
         });
+        Ok(())
     }
 
     fn invoke(

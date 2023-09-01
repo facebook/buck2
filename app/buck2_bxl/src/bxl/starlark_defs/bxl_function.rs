@@ -135,11 +135,12 @@ impl<'v> AllocValue<'v> for BxlFunction<'v> {
 
 #[starlark_value(type = "bxl")]
 impl<'v> StarlarkValue<'v> for BxlFunction<'v> {
-    fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
+    fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) -> anyhow::Result<()> {
         *self.id.borrow_mut() = Some(BxlFunctionLabel {
             bxl_path: self.bxl_path.clone(),
             name: variable_name.to_owned(),
         });
+        Ok(())
     }
 }
 

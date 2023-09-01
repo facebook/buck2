@@ -835,9 +835,10 @@ pub trait StarlarkValue<'v>:
     }
 
     /// Called when exporting a value under a specific name,
-    fn export_as(&self, _variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
+    fn export_as(&self, _variable_name: &str, _eval: &mut Evaluator<'v, '_>) -> anyhow::Result<()> {
         // Most data types ignore how they are exported
         // but rules/providers like to use it as a helpful hint for users
+        Ok(())
     }
 
     /// Set the value at `index` with the new value.

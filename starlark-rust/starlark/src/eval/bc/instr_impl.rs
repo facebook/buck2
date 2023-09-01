@@ -262,7 +262,7 @@ impl InstrNoFlowImpl for InstrStoreModuleAndExportImpl {
         (source, slot, name): &(BcSlotIn, ModuleSlotId, String),
     ) -> anyhow::Result<()> {
         let v = frame.get_bc_slot(*source);
-        v.export_as(name.as_str(), eval);
+        v.export_as(name.as_str(), eval)?;
         eval.set_slot_module(*slot, v);
         Ok(())
     }

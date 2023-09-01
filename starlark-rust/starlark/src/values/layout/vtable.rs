@@ -535,7 +535,11 @@ impl<'v> AValueDyn<'v> {
     }
 
     #[inline]
-    pub(crate) fn export_as(self, variable_name: &str, eval: &mut Evaluator<'v, '_>) {
+    pub(crate) fn export_as(
+        self,
+        variable_name: &str,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<()> {
         (self.vtable.starlark_value.export_as)(self.value, variable_name, eval)
     }
 
