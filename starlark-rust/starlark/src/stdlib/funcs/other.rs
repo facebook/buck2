@@ -88,6 +88,21 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
         Err(anyhow::anyhow!("fail:{}", s))
     }
 
+    /// Take the absolute value of an int.
+    ///
+    /// ```
+    /// # starlark::assert::all_true(r#"
+    /// abs(0)   == 0
+    /// abs(-10) == 10
+    /// abs(10)  == 10
+    /// # "#);
+    /// ```
+    fn abs(#[starlark(require = pos)] x: i32) -> anyhow::Result<i32> {
+        // TODO(nga): handles integer overflow incorrectly.
+        // TODO(nga): does not handle float or bigint.
+        Ok(x.abs())
+    }
+
     /// [any](
     /// https://github.com/bazelbuild/starlark/blob/master/spec.md#any
     /// ): returns true if any value in the iterable object have a truth value
