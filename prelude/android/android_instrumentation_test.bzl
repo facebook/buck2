@@ -7,6 +7,7 @@
 
 load("@prelude//android:android_providers.bzl", "AndroidApkInfo", "AndroidInstrumentationApkInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
+load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
 load("@prelude//utils:utils.bzl", "expect")
@@ -103,9 +104,12 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
             "android_emulator": None,
         },
     )
+
+    classmap_source_info = [ctx.attrs.apk[JavaClassToSourceMapInfo]] if JavaClassToSourceMapInfo in ctx.attrs.apk else []
+
     return inject_test_run_info(ctx, test_info) + [
         DefaultInfo(),
-    ]
+    ] + classmap_source_info
 
 # replicating the logic in https://fburl.com/code/1fqowxu4 to match buck1's behavior
 def _compute_emulator_target(labels: list[str]) -> str:
