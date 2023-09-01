@@ -32,24 +32,24 @@ LinkableProvidersTSet = transitive_set()
 # Info required to link cxx_python_extensions into native python binaries
 CxxExtensionLinkInfo = provider(
     fields = [
-        "linkable_providers",  # LinkableProvidersTSet.type
-        "artifacts",  # {str: "_a"}
-        "python_module_names",  # {str: str}
-        "dlopen_deps",  # {"label": LinkableProviders.type}
+        "linkable_providers",  # LinkableProvidersTSet
+        "artifacts",  # dict[str, typing.Any]
+        "python_module_names",  # dict[str, str]
+        "dlopen_deps",  # dict[ConfiguredProvidersLabel, LinkableProviders]
         # Native python extensions that can't be linked into the main executable.
-        "unembeddable_extensions",  # {str: LinkableProviders.type}
+        "unembeddable_extensions",  # dict[str, LinkableProviders]
         # Native libraries that are only available as shared libs.
-        "shared_only_libs",  # {Label: LinkableProviders.type}
+        "shared_only_libs",  # dict[ConfiguredProvidersLabel, LinkableProviders]
     ],
 )
 
 def merge_cxx_extension_info(
         actions: AnalysisActions,
         deps: list[Dependency],
-        linkable_providers: [LinkableProviders.type, None] = None,
+        linkable_providers: [LinkableProviders, None] = None,
         artifacts: dict[str, typing.Any] = {},
         python_module_names: dict[str, str] = {},
-        unembeddable_extensions: dict[str, LinkableProviders.type] = {},
+        unembeddable_extensions: dict[str, LinkableProviders] = {},
         shared_deps: list[Dependency] = []) -> CxxExtensionLinkInfo.type:
     linkable_provider_children = []
     artifacts = dict(artifacts)
@@ -100,9 +100,9 @@ def rewrite_static_symbols(
         suffix: str,
         pic_objects: list[Artifact],
         non_pic_objects: list[Artifact],
-        libraries: dict[LinkStyle.type, LinkInfos.type],
+        libraries: dict[LinkStyle, LinkInfos],
         cxx_toolchain: CxxToolchainInfo.type,
-        suffix_all: bool = False) -> dict[LinkStyle.type, LinkInfos.type]:
+        suffix_all: bool = False) -> dict[LinkStyle, LinkInfos]:
     symbols_file = _write_syms_file(
         ctx = ctx,
         name = ctx.label.name + "_rename_syms",
@@ -232,7 +232,7 @@ def suffix_symbols(
         suffix: str,
         objects: list[Artifact],
         symbols_file: Artifact,
-        cxx_toolchain: CxxToolchainInfo.type) -> (ObjectsLinkable.type, ObjectsLinkable.type):
+        cxx_toolchain: CxxToolchainInfo.type) -> (ObjectsLinkable, ObjectsLinkable):
     """
     Take a list of objects and append a suffix to all  defined symbols.
     """

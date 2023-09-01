@@ -92,12 +92,12 @@ load(":toolchain.bzl", "NativeLinkStrategy", "PackageStyle", "PythonPlatformInfo
 
 OmnibusMetadataInfo = provider(fields = ["omnibus_libs", "omnibus_graph"])
 
-def _link_strategy(ctx: AnalysisContext) -> NativeLinkStrategy.type:
+def _link_strategy(ctx: AnalysisContext) -> NativeLinkStrategy:
     if ctx.attrs.native_link_strategy != None:
         return NativeLinkStrategy(ctx.attrs.native_link_strategy)
     return NativeLinkStrategy(ctx.attrs._python_toolchain[PythonToolchainInfo].native_link_strategy)
 
-def _package_style(ctx: AnalysisContext) -> PackageStyle.type:
+def _package_style(ctx: AnalysisContext) -> PackageStyle:
     if ctx.attrs.package_style != None:
         return PackageStyle(ctx.attrs.package_style.lower())
     return PackageStyle(ctx.attrs._python_toolchain[PythonToolchainInfo].package_style)
@@ -134,8 +134,8 @@ def _merge_extensions(
         extensions[extension_name] = (incoming_artifact, incoming_label)
 
 def _get_root_link_group_specs(
-        libs: list[LinkableProviders.type],
-        extensions: dict[str, LinkableProviders.type]) -> list[LinkGroupLibSpec.type]:
+        libs: list[LinkableProviders],
+        extensions: dict[str, LinkableProviders]) -> list[LinkGroupLibSpec]:
     """
     Walk the linkable graph finding dlopen-able C++ libs.
     """
@@ -193,7 +193,7 @@ def _get_root_link_group_specs(
 
     return specs
 
-def _get_shared_only_groups(shared_only_libs: list[LinkableProviders.type]) -> list[Group.type]:
+def _get_shared_only_groups(shared_only_libs: list[LinkableProviders]) -> list[Group]:
     """
     Create link group mappings for shared-only libs that'll force the link to
     link them dynamically.
@@ -225,10 +225,10 @@ def _get_shared_only_groups(shared_only_libs: list[LinkableProviders.type]) -> l
 
 def _get_link_group_info(
         ctx: AnalysisContext,
-        link_deps: list[LinkableProviders.type],
-        libs: list[LinkableProviders.type],
-        extensions: dict[str, LinkableProviders.type],
-        shared_only_libs: list[LinkableProviders.type]) -> (LinkGroupInfo.type, list[LinkGroupLibSpec.type]):
+        link_deps: list[LinkableProviders],
+        libs: list[LinkableProviders],
+        extensions: dict[str, LinkableProviders],
+        shared_only_libs: list[LinkableProviders]) -> (LinkGroupInfo, list[LinkGroupLibSpec]):
     """
     Return the `LinkGroupInfo` and link group lib specs to use for this binary.
     This will handle parsing the various user-specific parameters and automatic
@@ -291,7 +291,7 @@ def python_executable(
         srcs: dict[str, Artifact],
         resources: dict[str, (Artifact, list[ArgLike])],
         compile: bool,
-        allow_cache_upload: bool) -> PexProviders.type:
+        allow_cache_upload: bool) -> PexProviders:
     # Returns a three tuple: the Python binary, all its potential runtime files,
     # and a provider for its source DB.
 
@@ -383,11 +383,11 @@ def create_dep_report(
 def _convert_python_library_to_executable(
         ctx: AnalysisContext,
         main: EntryPoint,
-        library: PythonLibraryInterface.type,
+        library: PythonLibraryInterface,
         deps: list[Dependency],
         compile: bool,
         allow_cache_upload: bool,
-        dbg_source_db: [DefaultInfo.type, None]) -> PexProviders.type:
+        dbg_source_db: [DefaultInfo.type, None]) -> PexProviders:
     extra = {}
 
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]

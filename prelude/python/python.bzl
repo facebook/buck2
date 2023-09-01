@@ -19,73 +19,73 @@ PythonLibraryManifests = record(
     srcs = field([ManifestInfo.type, None]),
     src_types = field([ManifestInfo.type, None], None),
     resources = field([(ManifestInfo.type, list[ArgLike]), None]),
-    bytecode = field([dict[PycInvalidationMode.type, ManifestInfo.type], None]),
+    bytecode = field([dict[PycInvalidationMode, ManifestInfo.type], None]),
     dep_manifest = field([ManifestInfo.type, None]),
     extensions = field([dict[str, typing.Any], None]),
 )
 
-def _bytecode_artifacts(invalidation_mode: PycInvalidationMode.type):
+def _bytecode_artifacts(invalidation_mode: PycInvalidationMode):
     return lambda value: [] if value.bytecode == None else (
         [a for a, _ in value.bytecode[invalidation_mode].artifacts]
     )
 
-def _bytecode_manifests(invalidation_mode: PycInvalidationMode.type):
+def _bytecode_manifests(invalidation_mode: PycInvalidationMode):
     return lambda value: [] if value.bytecode == None else (
         value.bytecode[invalidation_mode].manifest
     )
 
-def _dep_manifests(value: PythonLibraryManifests.type):
+def _dep_manifests(value: PythonLibraryManifests):
     if value.dep_manifest == None:
         return []
     return cmd_args(value.dep_manifest.manifest, format = "--manifest={}")
 
-def _dep_artifacts(value: PythonLibraryManifests.type):
+def _dep_artifacts(value: PythonLibraryManifests):
     if value.dep_manifest == None:
         return []
     return value.dep_manifest.artifacts
 
-def _hidden_resources(value: PythonLibraryManifests.type):
+def _hidden_resources(value: PythonLibraryManifests):
     if value.resources == None:
         return []
     return value.resources[1]
 
-def _has_hidden_resources(children: list[bool], value: [PythonLibraryManifests.type, None]):
+def _has_hidden_resources(children: list[bool], value: [PythonLibraryManifests, None]):
     if value:
         if value.resources and len(value.resources[1]) > 0:
             return True
     return any(children)
 
-def _resource_manifests(value: PythonLibraryManifests.type):
+def _resource_manifests(value: PythonLibraryManifests):
     if value.resources == None:
         return []
     return value.resources[0].manifest
 
-def _resource_artifacts(value: PythonLibraryManifests.type):
+def _resource_artifacts(value: PythonLibraryManifests):
     if value.resources == None:
         return []
     return [a for a, _ in value.resources[0].artifacts]
 
-def _source_manifests(value: PythonLibraryManifests.type):
+def _source_manifests(value: PythonLibraryManifests):
     if value.srcs == None:
         return []
     return value.srcs.manifest
 
-def _source_artifacts(value: PythonLibraryManifests.type):
+def _source_artifacts(value: PythonLibraryManifests):
     if value.srcs == None:
         return []
     return [a for a, _ in value.srcs.artifacts]
 
-def _source_type_manifests(value: PythonLibraryManifests.type):
+def _source_type_manifests(value: PythonLibraryManifests):
     if value.src_types == None:
         return []
     return value.src_types.manifest
 
-def _source_type_manifest_jsons(value: PythonLibraryManifests.type):
+def _source_type_manifest_jsons(value: PythonLibraryManifests):
     if value.src_types == None:
         return None
     return (value.label.raw_target(), value.src_types.manifest)
 
-def _source_type_artifacts(value: PythonLibraryManifests.type):
+def _source_type_artifacts(value: PythonLibraryManifests):
     if value.src_types == None:
         return []
     return [a for a, _ in value.src_types.artifacts]
@@ -128,7 +128,7 @@ PythonLibraryInfo = provider(fields = [
     "shared_libraries",  # "SharedLibraryInfo"
 ])
 
-def info_to_interface(info: PythonLibraryInfo.type) -> PythonLibraryInterface.type:
+def info_to_interface(info: PythonLibraryInfo.type) -> PythonLibraryInterface:
     return PythonLibraryInterface(
         shared_libraries = lambda: traverse_shared_library_info(info.shared_libraries),
         iter_manifests = lambda: info.manifests.traverse(),
@@ -137,7 +137,7 @@ def info_to_interface(info: PythonLibraryInfo.type) -> PythonLibraryInterface.ty
         hidden_resources = lambda: [info.manifests.project_as_args("hidden_resources")],
     )
 
-def manifests_to_interface(manifests: PythonLibraryManifestsTSet.type) -> PythonLibraryManifestsInterface.type:
+def manifests_to_interface(manifests: PythonLibraryManifestsTSet.type) -> PythonLibraryManifestsInterface:
     return PythonLibraryManifestsInterface(
         src_manifests = lambda: [manifests.project_as_args("source_manifests")],
         src_artifacts = lambda: [manifests.project_as_args("source_artifacts")],

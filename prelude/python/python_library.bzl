@@ -104,10 +104,10 @@ def create_python_library_info(
         label: Label,
         srcs: [ManifestInfo.type, None] = None,
         src_types: [ManifestInfo.type, None] = None,
-        bytecode: [dict[PycInvalidationMode.type, ManifestInfo.type], None] = None,
+        bytecode: [dict[PycInvalidationMode, ManifestInfo.type], None] = None,
         dep_manifest: [ManifestInfo.type, None] = None,
         resources: [(ManifestInfo.type, list[ArgLike]), None] = None,
-        extensions: [dict[str, LinkedObject.type], None] = None,
+        extensions: [dict[str, LinkedObject], None] = None,
         deps: list[PythonLibraryInfo.type] = [],
         shared_libraries: list[SharedLibraryInfo.type] = []):
     """

@@ -74,4 +74,4 @@ PythonLibraryManifestsInterface = record(
 # Entry point for Python binaries. First component designates if the second
 # component is to be interpreted as a module or a function name.
 EntryPointKind = enum("module", "function")
-EntryPoint = (EntryPointKind.type, str)
+EntryPoint = (EntryPointKind, str)
