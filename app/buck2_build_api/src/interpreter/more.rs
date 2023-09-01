@@ -16,6 +16,7 @@ use crate::interpreter::rule_defs::cmd_args::register_cmd_args;
 use crate::interpreter::rule_defs::command_executor_config::register_command_executor_config;
 use crate::interpreter::rule_defs::context::register_analysis_context;
 use crate::interpreter::rule_defs::provider::callable::register_provider;
+use crate::interpreter::rule_defs::provider::collection::register_provider_collection;
 use crate::interpreter::rule_defs::provider::dependency::register_dependency;
 use crate::interpreter::rule_defs::provider::registration::register_builtin_providers;
 use crate::interpreter::rule_defs::register_rule_defs;
@@ -27,6 +28,7 @@ fn register_build_api_globals(globals: &mut GlobalsBuilder) {
     register_cmd_args(globals);
     register_command_executor_config(globals);
     register_provider(globals);
+    register_provider_collection(globals);
     register_rule_defs(globals);
     register_transitive_set(globals);
     register_transitive_set_types(globals);

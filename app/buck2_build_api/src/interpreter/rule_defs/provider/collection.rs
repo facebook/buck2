@@ -28,11 +28,13 @@ use serde::Serializer;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::collections::SmallMap;
+use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::values::list::ListRef;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenRef;
@@ -534,4 +536,10 @@ pub mod tester {
                 .provider_names())
         }
     }
+}
+
+#[starlark_module]
+pub(crate) fn register_provider_collection(globals: &mut GlobalsBuilder) {
+    const ProviderCollection: StarlarkValueAsType<ProviderCollectionGen<Value>> =
+        StarlarkValueAsType::new();
 }
