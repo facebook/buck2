@@ -47,6 +47,7 @@ def _apple_bundle_like_common_attrs():
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_bundling_cache_buster": attrs.option(attrs.string(), default = None),
         "_bundling_log_file_enabled": attrs.bool(default = False),
+        "_bundling_path_conflicts_check_enabled": attrs.bool(default = False),
         "_codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
         "_compile_resources_locally_override": attrs.option(attrs.bool(), default = None),
         "_dry_run_code_signing": attrs.bool(default = False),

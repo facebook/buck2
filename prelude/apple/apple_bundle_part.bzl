@@ -170,6 +170,9 @@ def assemble_bundle(
         command.add("--log-file", bundling_log_output.as_output())
         subtargets["bundling-log"] = [DefaultInfo(default_output = bundling_log_output)]
 
+    if ctx.attrs._bundling_path_conflicts_check_enabled:
+        command.add("--check-conflicts")
+
     command.add(codesign_configuration_args)
 
     env = {}
