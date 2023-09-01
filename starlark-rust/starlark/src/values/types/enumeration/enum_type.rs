@@ -53,6 +53,7 @@ use crate::values::enumeration::value::EnumValueGen;
 use crate::values::enumeration::EnumValue;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::index::convert_index;
+use crate::values::list::AllocList;
 use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
 use crate::values::Freeze;
@@ -341,11 +342,13 @@ fn enum_type_methods(builder: &mut MethodsBuilder) {
         }
     }
 
-    fn values<'v>(this: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn values<'v>(this: Value<'v>) -> anyhow::Result<AllocList<impl Iterator<Item = Value<'v>>>> {
         let this = EnumType::from_value(this).unwrap();
         match this {
-            Either::Left(x) => Ok(heap.alloc_list_iter(x.elements().keys().copied())),
-            Either::Right(x) => Ok(heap.alloc_list_iter(x.elements().keys().map(|x| x.to_value()))),
+            Either::Left(x) => Ok(AllocList(Either::Left(x.elements().keys().copied()))),
+            Either::Right(x) => Ok(AllocList(Either::Right(
+                x.elements().keys().map(|x| x.to_value()),
+            ))),
         }
     }
 }
