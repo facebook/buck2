@@ -305,6 +305,7 @@ where
                 fields,
                 None,
                 None,
+                None,
             )?);
 
             let ty_record_type = Ty::custom(TyUser::new(
@@ -318,6 +319,7 @@ where
                     vec![Param::kwargs(Ty::any())],
                     ty_record.dupe(),
                 )),
+                None,
                 None,
             )?);
 

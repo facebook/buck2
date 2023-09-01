@@ -49,6 +49,10 @@ enum TyUserError {
         "Type `{0}` specifies custom indexable, but underlying `StarlarkValue` is not indexable"
     )]
     IndexableNotIndexable(String),
+    #[error(
+        "Type `{0}` specifies custom iterable, but underlying `StarlarkValue` is not iterable"
+    )]
+    IterableNotIterable(String),
 }
 
 /// Types of `[]` operator.
@@ -74,6 +78,8 @@ pub(crate) struct TyUser {
     callable: Option<TyFunction>,
     /// Set if more precise index signature is known than `base` provides.
     index: Option<TyUserIndex>,
+    /// Set if more precise iter item is known than `base` provides.
+    iter_item: Option<Ty>,
 }
 
 impl TyUser {
@@ -85,6 +91,7 @@ impl TyUser {
         fields: SortedMap<String, Ty>,
         callable: Option<TyFunction>,
         index: Option<TyUserIndex>,
+        iter_item: Option<Ty>,
     ) -> anyhow::Result<TyUser> {
         if callable.is_some() {
             if !base.is_callable() {
@@ -96,6 +103,11 @@ impl TyUser {
                 return Err(TyUserError::IndexableNotIndexable(name).into());
             }
         }
+        if iter_item.is_some() {
+            if base.iter_item().is_err() {
+                return Err(TyUserError::IterableNotIterable(name).into());
+            }
+        }
         Ok(TyUser {
             name,
             base,
@@ -104,6 +116,7 @@ impl TyUser {
             fields,
             callable,
             index,
+            iter_item,
         })
     }
 }
@@ -156,6 +169,14 @@ impl TyCustomImpl for TyUser {
             Ok(index.result.dupe())
         } else {
             self.base.index(item)
+        }
+    }
+
+    fn iter_item(&self) -> Result<Ty, ()> {
+        if let Some(iter_item) = &self.iter_item {
+            Ok(iter_item.dupe())
+        } else {
+            self.base.iter_item()
         }
     }
 
