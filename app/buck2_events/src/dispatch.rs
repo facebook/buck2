@@ -25,6 +25,7 @@ use std::time::Instant;
 use std::time::SystemTime;
 
 use buck2_core::env_helper::EnvHelper;
+use buck2_core::soft_error;
 use buck2_data::buck_event;
 use buck2_data::instant_event::Data::HgInfo;
 use buck2_data::span_end_event;
@@ -120,6 +121,8 @@ impl EventDispatcher {
 
     // Logs mercurial data
     pub async fn instant_hg(&self) {
+        let _err =
+            soft_error!("instant_hg_usage", anyhow::anyhow!("Instant HG usage"), quiet: true);
         // TODO use tokio/tokio::process::Command instead of command (see D29824148)
         let committed = background_command("hg").arg("status").arg("-mard").output();
         let log_changes = if let Ok(status) = committed {
