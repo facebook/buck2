@@ -364,10 +364,10 @@ impl InterpreterForCell {
             let import_path = import.path();
 
             match import {
-                StarlarkPath::BuildFile(_) => return Some(prelude_import),
-                StarlarkPath::PackageFile(_)
-                | StarlarkPath::BxlFile(_)
-                | StarlarkPath::LoadFile(_) => {
+                StarlarkPath::BuildFile(_)
+                | StarlarkPath::PackageFile(_)
+                | StarlarkPath::BxlFile(_) => return Some(prelude_import),
+                StarlarkPath::LoadFile(_) => {
                     if !prelude_import.is_prelude_path(&import_path) {
                         return Some(prelude_import);
                     }
