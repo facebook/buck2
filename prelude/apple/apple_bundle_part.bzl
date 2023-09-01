@@ -168,6 +168,8 @@ def assemble_bundle(
     if ctx.attrs._bundling_log_file_enabled:
         bundling_log_output = ctx.actions.declare_output("bundling_log.txt")
         command.add("--log-file", bundling_log_output.as_output())
+        if ctx.attrs._bundling_log_file_level:
+            command.add("--log-level-file", ctx.attrs._bundling_log_file_level)
         subtargets["bundling-log"] = [DefaultInfo(default_output = bundling_log_output)]
 
     if ctx.attrs._bundling_path_conflicts_check_enabled:
