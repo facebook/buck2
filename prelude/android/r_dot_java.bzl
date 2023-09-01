@@ -104,7 +104,7 @@ def _generate_r_dot_java_source_code(
         override_symbols_paths: list[Artifact] = [],
         duplicate_resources_allowlist: [Artifact, None] = None,
         union_package: [str, None] = None,
-        referenced_resources_lists: list[Artifact] = []) -> RDotJavaSourceCode.type:
+        referenced_resources_lists: list[Artifact] = []) -> RDotJavaSourceCode:
     merge_resources_cmd = cmd_args(merge_android_resources_tool)
 
     r_dot_txt_info = cmd_args()
@@ -180,7 +180,7 @@ def _generate_and_compile_r_dot_java(
         ctx: AnalysisContext,
         r_dot_java_source_code_zipped: Artifact,
         identifier: str,
-        remove_classes: list[str] = []) -> JavaClasspathEntry.type:
+        remove_classes: list[str] = []) -> JavaClasspathEntry:
     r_dot_java_out = ctx.actions.declare_output("{}.jar".format(identifier))
 
     compile_to_jar(

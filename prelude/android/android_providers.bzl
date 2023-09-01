@@ -151,25 +151,25 @@ RESOURCE_PRIORITY_LOW = "low"
 AndroidResourceInfo = provider(
     fields = [
         # Target that produced this provider
-        "raw_target",  # "target_label",
+        "raw_target",  # TargetLabel
         # output of running `aapt2_compile` on the resources, if resources are present
-        "aapt2_compile_output",  # ["artifact", None]
+        "aapt2_compile_output",  # Artifact | None
         #  if False, then the "res" are not affected by the strings-as-assets resource filter
         "allow_strings_as_assets_resource_filtering",  # bool
         # assets defined by this rule. May be empty
-        "assets",  # ["artifact", None]
+        "assets",  # Artifact | None
         # manifest file used by the resources, if resources are present
-        "manifest_file",  # ["artifact", None]
+        "manifest_file",  # Artifact | None
         # the package specified by the android_resource rule itself
-        "specified_r_dot_java_package",  # [str, None]
+        "specified_r_dot_java_package",  # str | None
         # package used for R.java, if resources are present
-        "r_dot_java_package",  # ["artifact", None]
+        "r_dot_java_package",  # Artifact | None
         # resources defined by this rule. May be empty
-        "res",  # ["artifact", None]
+        "res",  # Artifact | None
         # priority of the resources, may be 'low' or 'normal'
-        "res_priority",  # str.type
+        "res_priority",  # str
         # symbols defined by the resources, if resources are present
-        "text_symbols",  # ["artifact", None]
+        "text_symbols",  # Artifact | None
     ],
 )
 
@@ -226,7 +226,7 @@ def merge_android_packageable_info(
         deps: list[Dependency],
         build_config_info: [AndroidBuildConfigInfo.type, None] = None,
         manifest: [Artifact, None] = None,
-        prebuilt_native_library_dir: [PrebuiltNativeLibraryDir.type, None] = None,
+        prebuilt_native_library_dir: [PrebuiltNativeLibraryDir, None] = None,
         resource_info: [AndroidResourceInfo.type, None] = None) -> AndroidPackageableInfo.type:
     android_packageable_deps = filter(None, [x.get(AndroidPackageableInfo) for x in deps])
 

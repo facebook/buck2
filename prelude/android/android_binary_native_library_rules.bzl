@@ -343,7 +343,7 @@ def _get_native_linkables(
         ctx: AnalysisContext,
         platform_to_native_linkables: dict[str, dict[str, "SharedLibrary"]],
         get_module_from_target: typing.Callable,
-        package_native_libs_as_assets_enabled: bool) -> _StrippedNativeLinkables.type:
+        package_native_libs_as_assets_enabled: bool) -> _StrippedNativeLinkables:
     stripped_native_linkables_srcs = {}
     stripped_native_linkables_always_in_primary_apk_srcs = {}
     stripped_native_linkable_assets_for_primary_apk_srcs = {}

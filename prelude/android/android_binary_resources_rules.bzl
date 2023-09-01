@@ -332,7 +332,7 @@ ResourcesFilter = record(
     downscale = bool,
 )
 
-def _get_resources_filter(resources_filter_strings: list[str]) -> [ResourcesFilter.type, None]:
+def _get_resources_filter(resources_filter_strings: list[str]) -> [ResourcesFilter, None]:
     if not resources_filter_strings:
         return None
 

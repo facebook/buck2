@@ -330,7 +330,7 @@ def _get_secondary_dex_jar_metadata_config(
         secondary_dex_path: str,
         module: str,
         module_to_canary_class_name_function: typing.Callable,
-        index: int) -> SecondaryDexMetadataConfig.type:
+        index: int) -> SecondaryDexMetadataConfig:
     secondary_dex_metadata_path = secondary_dex_path + ".meta"
     return SecondaryDexMetadataConfig(
         secondary_dex_compression = "jar",
@@ -344,7 +344,7 @@ def _get_secondary_dex_raw_metadata_config(
         actions: AnalysisActions,
         module: str,
         module_to_canary_class_name_function: typing.Callable,
-        index: int) -> SecondaryDexMetadataConfig.type:
+        index: int) -> SecondaryDexMetadataConfig:
     return SecondaryDexMetadataConfig(
         secondary_dex_compression = "raw",
         secondary_dex_metadata_path = None,
@@ -361,7 +361,7 @@ def _filter_pre_dexed_libs(
         android_toolchain: AndroidToolchainInfo.type,
         primary_dex_patterns_file: Artifact,
         pre_dexed_libs: list[DexLibraryInfo.type],
-        batch_number: int) -> DexInputsWithClassNamesAndWeightEstimatesFile.type:
+        batch_number: int) -> DexInputsWithClassNamesAndWeightEstimatesFile:
     weight_estimate_and_filtered_class_names_file = actions.declare_output("class_names_and_weight_estimates_for_batch_{}".format(batch_number))
 
     filter_dex_cmd = cmd_args([
@@ -383,8 +383,8 @@ def _filter_pre_dexed_libs(
 
 _SortedPreDexedInputs = record(
     module = str,
-    primary_dex_inputs = list[DexInputWithSpecifiedClasses.type],
-    secondary_dex_inputs = list[list[DexInputWithSpecifiedClasses.type]],
+    primary_dex_inputs = list[DexInputWithSpecifiedClasses],
+    secondary_dex_inputs = list[list[DexInputWithSpecifiedClasses]],
 )
 
 def merge_to_split_dex(
@@ -588,7 +588,7 @@ def _merge_dexes(
         pre_dexed_artifacts_file: Artifact,
         class_names_to_include: [Artifact, None] = None,
         secondary_output_dex_file: [Artifact, None] = None,
-        secondary_dex_metadata_config: [SecondaryDexMetadataConfig.type, None] = None):
+        secondary_dex_metadata_config: [SecondaryDexMetadataConfig, None] = None):
     d8_cmd = cmd_args(android_toolchain.d8_command[RunInfo])
     d8_cmd.add(["--output-dex-file", output_dex_file.as_output()])
 
@@ -624,7 +624,7 @@ def _sort_pre_dexed_files(
         pre_dexed_libs_with_class_names_and_weight_estimates_files: list["DexInputsWithClassNamesAndWeightEstimatesFile"],
         split_dex_merge_config: "SplitDexMergeConfig",
         get_module_from_target: typing.Callable,
-        module_to_canary_class_name_function: typing.Callable) -> list[_SortedPreDexedInputs.type]:
+        module_to_canary_class_name_function: typing.Callable) -> list[_SortedPreDexedInputs]:
     sorted_pre_dexed_inputs_map = {}
     current_secondary_dex_size_map = {}
     current_secondary_dex_inputs_map = {}
@@ -727,7 +727,7 @@ def _create_canary_class(
         index: int,
         module: str,
         module_to_canary_class_name_function: typing.Callable,
-        dex_toolchain: DexToolchainInfo.type) -> DexInputWithSpecifiedClasses.type:
+        dex_toolchain: DexToolchainInfo.type) -> DexInputWithSpecifiedClasses:
     prefix = module_to_canary_class_name_function(module)
     index_string = str(index)
     if len(index_string) == 1:

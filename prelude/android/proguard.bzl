@@ -109,7 +109,7 @@ def get_proguard_output(
         input_jars: dict[Artifact, TargetLabel],
         java_packaging_deps: list["JavaPackagingDep"],
         aapt_generated_proguard_config: [Artifact, None],
-        additional_library_jars: list[Artifact]) -> ProguardOutput.type:
+        additional_library_jars: list[Artifact]) -> ProguardOutput:
     proguard_configs = [packaging_dep.proguard_config for packaging_dep in java_packaging_deps if packaging_dep.proguard_config]
     if ctx.attrs.proguard_config:
         proguard_configs.append(ctx.attrs.proguard_config)
