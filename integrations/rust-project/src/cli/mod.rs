@@ -9,9 +9,11 @@
 
 mod check;
 mod develop;
+mod lsp;
 mod new;
 
 pub use check::Check;
 pub use develop::Develop;
+pub use lsp::Lsp;
 pub use new::New;
 pub use new::ProjectKind;

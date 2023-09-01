@@ -32,7 +32,7 @@ pub struct JsonProject {
     /// Must include all transitive dependencies as well as sysroot crate (libstd,
     /// libcore, etc.).
     pub crates: Vec<Crate>,
-    pub generated: &'static str,
+    pub generated: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]

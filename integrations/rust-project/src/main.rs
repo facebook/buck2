@@ -11,6 +11,7 @@ mod buck;
 mod cli;
 mod diagnostics;
 mod json_project;
+mod progress;
 mod sysroot;
 mod target;
 
@@ -22,7 +23,9 @@ use clap::Parser;
 use clap::Subcommand;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::reload;
 use tracing_subscriber::EnvFilter;
+use tracing_subscriber::Layer;
 
 use crate::cli::ProjectKind;
 use crate::json_project::Crate;
@@ -35,7 +38,7 @@ struct Opt {
 }
 
 #[derive(Subcommand, Debug, PartialEq)]
-enum Command {
+pub enum Command {
     /// Create a new Rust project
     New {
         /// Name of the project being created.
@@ -104,19 +107,23 @@ enum Command {
         /// The file saved by the user. `rust-project` will infer the owning target(s) of the saved file and build them.
         saved_file: PathBuf,
     },
+    /// Start an LSP server whose functionality is similar to [Command::Develop].
+    #[clap(hide = true)]
+    LspServer,
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> Result<(), anyhow::Error> {
     let filter = EnvFilter::builder()
         .with_default_directive(LevelFilter::INFO.into())
         .from_env()?;
-    let subscriber = tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::fmt::layer()
-                .with_ansi(io::stderr().is_terminal())
-                .with_writer(io::stderr),
-        )
-        .with(filter);
+
+    let fmt = tracing_subscriber::fmt::layer()
+        .with_ansi(io::stderr().is_terminal())
+        .with_writer(io::stderr);
+
+    let (layer, reload_handle) = reload::Layer::new(vec![fmt.with_filter(filter).boxed()]);
+
+    let subscriber = tracing_subscriber::registry().with(layer);
     tracing::subscriber::set_global_default(subscriber)?;
 
     let cli = Opt::parse();
@@ -128,6 +135,10 @@ fn main() -> anyhow::Result<()> {
             use_clippy,
             saved_file,
         } => cli::Check::new(mode, use_clippy, saved_file).run(),
-        c @ Command::Develop { .. } => cli::Develop::from(c).run(),
+        c @ Command::Develop { .. } => {
+            let (develop, out) = cli::Develop::from_command(c);
+            develop.run_as_cli(out)
+        }
+        Command::LspServer => cli::Lsp::start(reload_handle),
     }
 }

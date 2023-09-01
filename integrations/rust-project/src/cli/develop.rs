@@ -19,6 +19,7 @@ use crate::buck;
 use crate::buck::relative_to;
 use crate::buck::select_mode;
 use crate::buck::to_json_project;
+use crate::json_project::JsonProject;
 use crate::json_project::Sysroot;
 use crate::sysroot::resolve_buckconfig_sysroot;
 use crate::sysroot::resolve_rustup_sysroot;
@@ -27,15 +28,27 @@ use crate::target::Target;
 
 pub struct Develop {
     pub input: Input,
-    pub out: Output,
     pub sysroot: SysrootConfig,
-    pub pretty: bool,
     pub relative_paths: bool,
     pub mode: Option<String>,
 }
 
-impl From<crate::Command> for Develop {
-    fn from(command: crate::Command) -> Self {
+pub struct OutputCfg {
+    out: Output,
+    pretty: bool,
+}
+
+impl Develop {
+    pub fn new(paths: Vec<PathBuf>) -> Self {
+        Self {
+            input: Input::Files(paths),
+            sysroot: SysrootConfig::BuckConfig,
+            mode: None,
+            relative_paths: false,
+        }
+    }
+
+    pub fn from_command(command: crate::Command) -> (Develop, OutputCfg) {
         if let crate::Command::Develop {
             targets,
             files,
@@ -68,14 +81,15 @@ impl From<crate::Command> for Develop {
                 SysrootConfig::BuckConfig
             };
 
-            return Develop {
+            let develop = Develop {
                 input,
-                out,
                 sysroot,
-                pretty,
                 relative_paths,
                 mode,
             };
+            let out = OutputCfg { out, pretty };
+
+            return (develop, out);
         }
 
         unreachable!("No other subcommand is supported.")
@@ -94,12 +108,10 @@ pub enum Output {
 }
 
 impl Develop {
-    pub fn run(self) -> Result<(), anyhow::Error> {
+    pub fn run(self) -> Result<JsonProject, anyhow::Error> {
         let Develop {
             input,
-            out,
             sysroot,
-            pretty,
             relative_paths,
             mode,
         } = self;
@@ -117,10 +129,12 @@ impl Develop {
             bail!("No targets can be inferred for the provided file.");
         }
 
+        info!("building generated code");
         let expanded_and_resolved = buck.expand_and_resolve(&targets)?;
         let aliased_libraries =
             buck.query_aliased_libraries(&expanded_and_resolved.expanded_targets)?;
 
+        info!("fetching sysroot");
         let sysroot = match &sysroot {
             SysrootConfig::Sysroot(path) => {
                 let mut sysroot_path = expand_tilde(path)?.canonicalize()?;
@@ -143,8 +157,13 @@ impl Develop {
             aliased_libraries,
             relative_paths,
         )?;
+        Ok(rust_project)
+    }
 
-        let mut writer: BufWriter<Box<dyn Write>> = match out {
+    pub fn run_as_cli(self, cfg: OutputCfg) -> Result<(), anyhow::Error> {
+        let rust_project = self.run()?;
+
+        let mut writer: BufWriter<Box<dyn Write>> = match cfg.out {
             Output::Path(ref p) => {
                 let out = std::fs::File::create(p)?;
                 BufWriter::new(Box::new(out))
@@ -152,14 +171,14 @@ impl Develop {
             Output::Stdout => BufWriter::new(Box::new(std::io::stdout())),
         };
 
-        if pretty {
+        if cfg.pretty {
             serde_json::to_writer_pretty(&mut writer, &rust_project)?;
         } else {
             serde_json::to_writer(&mut writer, &rust_project)?;
         }
         writeln!(writer)?;
 
-        match out {
+        match cfg.out {
             Output::Path(p) => info!(file = ?p, "wrote rust-project.json"),
             Output::Stdout => info!("wrote rust-project.json to stdout"),
         }

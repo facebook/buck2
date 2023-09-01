@@ -129,7 +129,7 @@ pub fn to_json_project(
         crates,
         // needed to ignore the generated `rust-project.json` in diffs, but including the actual
         // string will mark this file as generated
-        generated: "\x40generated",
+        generated: String::from("\x40generated"),
     };
 
     Ok(jp)
@@ -402,7 +402,7 @@ impl Buck {
 
         if enabled!(Level::TRACE) {
             for (target, info) in &raw {
-                trace!(%target, ?info, "Parsed target from buck");
+                trace!(%target, ?info, "parsed target from buck");
             }
         }
         Ok(raw)
@@ -427,7 +427,7 @@ impl Buck {
         ]);
         command.args(&files);
 
-        info!(?files, "Querying buck to determine owner");
+        info!(?files, "querying buck to determine owner");
         let out = deserialize_output(command.output(), &command)?;
         Ok(out)
     }

@@ -2,12 +2,15 @@
 name = "rust-project"
 version = "0.0.0"
 edition = "2021"
-description = "Generate rust-project.json"
+description = "A Rust-centric companion tool to Buck for usage in IDEs."
 readme = "README.md"
 
 [dependencies]
 anyhow = { workspace = true }
 clap = { workspace = true }
+crossbeam = { workspace = true }
+lsp-server = { workspace = true }
+lsp-types = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
