@@ -122,7 +122,6 @@ pub(crate) fn register_base_natives(registry: &mut GlobalsBuilder) {
 
 pub fn starlark_library_extensions_for_buck2() -> &'static [LibraryExtension] {
     &[
-        LibraryExtension::Abs,
         LibraryExtension::Breakpoint,
         LibraryExtension::Debug,
         LibraryExtension::EnumType,
