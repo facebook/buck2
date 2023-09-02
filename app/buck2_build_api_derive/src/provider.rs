@@ -338,7 +338,7 @@ impl ProviderCodegen {
 
                         RES.methods(|x| {
                             crate::interpreter::rule_defs::provider::provider_methods(x);
-                            _register::#provider_methods_func_name(x);
+                            #provider_methods_func_name(x);
                         })
                     }
 
@@ -584,13 +584,8 @@ impl ProviderCodegen {
 
         Ok(vec![
             syn::parse_quote_spanned! { self.span=>
-            // workaround starlark requiring that GlobalsBuilder is unqualified
-            mod _register {
-                use super::*;
-                use starlark::environment::MethodsBuilder;
-
                 #[starlark::starlark_module]
-                pub(crate) fn #provider_methods_func_name(builder: &mut MethodsBuilder) {
+                fn #provider_methods_func_name(builder: &mut starlark::environment::MethodsBuilder) {
                     #(
                         #[starlark(attribute)]
                         fn #field_names<'v>(this: & #name) -> anyhow::Result<starlark::values::Value<'v>> {
@@ -598,7 +593,6 @@ impl ProviderCodegen {
                         }
                     )*
                 }
-            }
             },
             syn::parse_quote_spanned! { self.span=>
                 fn register_provider(builder: &mut starlark::environment::GlobalsBuilder) {
