@@ -33,7 +33,6 @@ thiserror = "1.0.36"
 starlark_derive = { version = "0.9.0", path = "../starlark_derive" }
 starlark_map = { version = "0.9.0", path = "../starlark_map" }
 starlark_syntax = { version = "0.9.0", path = "../starlark_syntax" }
-walkdir = "2.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 maplit = "1.0.2"
@@ -45,11 +44,9 @@ textwrap = "0.11"
 fancy-regex = "0.10.0"
 regex = "1.5.4"
 strsim = "0.10.0"
-argfile = "0.1.0"
 num-bigint = "0.4.3"
 num-traits = "0.2"
 inventory = "0.3.8"
-clap = { version = "4.0.7", features = ["derive", "wrap_help"] }
 
 allocative = { workspace = true, features = ["bumpalo", "num-bigint"] }
 cmp_any = { workspace = true }
@@ -59,7 +56,3 @@ rustyline = "11.0"
 
 [dev-dependencies]
 rand = { version = "0.8.4", features = ["small_rng"] }
-
-[[bin]]
-name = "starlark"
-path = "bin/main.rs"

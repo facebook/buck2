@@ -1,31 +1,12 @@
-load("@fbcode//buck2:buck_rust_binary.bzl", "buck_rust_binary")
-load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
+load("@fbcode_macros//build_defs:native_rules.bzl", "alias", "buck_filegroup")
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("buck2")
 
-buck_rust_binary(
+alias(
     name = "starlark-bin",
-    srcs = glob(
-        ["bin/**/*.rs"],
-    ),
-    crate_root = "bin/main.rs",
-    deps = [
-        "fbsource//third-party/rust:anyhow",
-        "fbsource//third-party/rust:argfile",
-        "fbsource//third-party/rust:clap",
-        "fbsource//third-party/rust:debugserver-types",
-        "fbsource//third-party/rust:either",
-        "fbsource//third-party/rust:itertools",
-        "fbsource//third-party/rust:lsp-types",
-        "fbsource//third-party/rust:serde",
-        "fbsource//third-party/rust:serde_json",
-        "fbsource//third-party/rust:thiserror",
-        "fbsource//third-party/rust:walkdir",
-        ":starlark",
-        "//buck2/gazebo/dupe:dupe",
-    ],
+    actual = "//buck2/starlark-rust/starlark_bin:starlark_bin",
 )
 
 buck_filegroup(

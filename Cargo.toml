@@ -91,6 +91,7 @@ members = [
     "remote_execution/oss/re_grpc",
     "remote_execution/oss/re_grpc_proto",
     "starlark-rust/starlark",
+    "starlark-rust/starlark_bin",
     "starlark-rust/starlark_derive",
     "starlark-rust/starlark_map",
     "starlark-rust/starlark_syntax",
