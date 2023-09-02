@@ -269,7 +269,7 @@ def encode_base_jar_command(
         remove_classes: list[str],
         label: Label,
         compiling_deps_tset: [JavaCompilingDepsTSet.type, None],
-        classpath_jars_tag: "artifact_tag",
+        classpath_jars_tag: ArtifactTag,
         bootclasspath_entries: list[Artifact],
         source_level: int,
         target_level: int,
@@ -348,7 +348,7 @@ def setup_dep_files(
         actions: AnalysisActions,
         actions_identifier: [str, None],
         cmd: cmd_args,
-        classpath_jars_tag: "artifact_tag",
+        classpath_jars_tag: ArtifactTag,
         used_classes_json_outputs: list[Artifact],
         abi_to_abi_dir_map: [TransitiveSetArgsProjection, list[cmd_args], None],
         hidden = ["artifact"]) -> cmd_args:

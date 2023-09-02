@@ -71,7 +71,7 @@ _HeadersDepFiles = record(
     # files into the format that Buck2 recognizes (i.e. one artifact per line).
     processor = field(cmd_args),
     # The tag that was added to headers.
-    tag = field("artifact_tag"),
+    tag = field(ArtifactTag),
     # A function that produces new cmd_args to append to the compile command to
     # get it to emit the dep file. This will receive the output dep file as an
     # input.
@@ -485,7 +485,7 @@ def _mk_argsfile(
         compiler_info: typing.Any,
         preprocessor: CPreprocessorInfo.type,
         ext: CxxExtension,
-        headers_tag: "artifact_tag",
+        headers_tag: ArtifactTag,
         use_absolute_paths: bool) -> CompileArgsfile:
     """
     Generate and return an {ext}.argsfile artifact and command args that utilize the argsfile.
