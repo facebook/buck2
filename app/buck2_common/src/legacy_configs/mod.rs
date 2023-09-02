@@ -19,6 +19,7 @@ pub mod view;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fmt;
+use std::fmt::Display;
 use std::fs;
 use std::io::prelude::*;
 use std::path::PathBuf;
@@ -998,6 +999,19 @@ pub struct LegacyBuckConfigValue<'a> {
 pub enum LegacyBuckConfigLocation<'a> {
     File(&'a str, usize),
     CommandLineArgument,
+}
+
+impl<'a> Display for LegacyBuckConfigLocation<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::File(file, line) => {
+                write!(f, "at {}:{}", file, line)
+            }
+            Self::CommandLineArgument => {
+                write!(f, "on the command line")
+            }
+        }
+    }
 }
 
 impl<'a> LegacyBuckConfigValue<'a> {

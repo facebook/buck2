@@ -34,15 +34,7 @@ fn print_location_string(
     location: &LegacyBuckConfigLocation,
     keyword: &str,
 ) -> anyhow::Result<()> {
-    match location {
-        LegacyBuckConfigLocation::File(file, line) => {
-            writeln!(writer, "  ({} at {}:{})", keyword, file, line)?;
-        }
-        LegacyBuckConfigLocation::CommandLineArgument => {
-            writeln!(writer, "  ({} on the command line)", keyword)?;
-        }
-    }
-
+    writeln!(writer, "  ({} {})", keyword, location)?;
     Ok(())
 }
 
