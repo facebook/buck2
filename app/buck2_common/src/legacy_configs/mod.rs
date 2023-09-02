@@ -67,10 +67,13 @@ pub(crate) enum ConfigError {
     ReferenceCycle(Vec<(String, String)>),
     #[error("Unable to resolve cell-relative path `{0}`")]
     UnableToResolveCellRelativePath(String),
-    #[error("Invalid value for buckconfig `{section}.{key}`: conversion to {ty} failed")]
+    #[error(
+        "Invalid value for buckconfig `{section}.{key}`: conversion to {ty} failed, value as `{value}`"
+    )]
     ParseFailed {
         section: String,
         key: String,
+        value: String,
         ty: &'static str,
     },
     #[error("Unknown cell: `{0}`")]
@@ -1230,6 +1233,7 @@ impl LegacyBuckConfig {
             .with_context(|| ConfigError::ParseFailed {
                 section: section.to_owned(),
                 key: key.to_owned(),
+                value: value.to_owned(),
                 ty: std::any::type_name::<T>(),
             })
     }
