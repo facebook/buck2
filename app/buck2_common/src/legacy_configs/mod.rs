@@ -1220,7 +1220,7 @@ impl LegacyBuckConfig {
         })
     }
 
-    pub fn parse_impl<T: FromStr>(section: &str, key: &str, value: &str) -> anyhow::Result<T>
+    fn parse_impl<T: FromStr>(section: &str, key: &str, value: &str) -> anyhow::Result<T>
     where
         anyhow::Error: From<<T as FromStr>::Err>,
     {
