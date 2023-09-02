@@ -219,6 +219,15 @@ enum Location {
     CommandLineArgument,
 }
 
+impl Location {
+    fn as_legacy_buck_config_location(&self) -> LegacyBuckConfigLocation {
+        match self {
+            Self::File(x) => LegacyBuckConfigLocation::File(&x.source_file.id, x.line),
+            Self::CommandLineArgument => LegacyBuckConfigLocation::CommandLineArgument,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 struct ConfigArgumentPair {
     section: String,
@@ -1216,12 +1225,12 @@ impl LegacyBuckConfig {
         parser.finish()
     }
 
+    fn get_config_value(&self, section: &str, key: &str) -> Option<&ConfigValue> {
+        self.0.values.get(section).and_then(|s| s.values.get(key))
+    }
+
     pub fn get(&self, section: &str, key: &str) -> Option<&str> {
-        self.0
-            .values
-            .get(section)
-            .and_then(|s| s.values.get(key))
-            .map(|s| s.as_str())
+        self.get_config_value(section, key).map(|s| s.as_str())
     }
 
     /// Iterate all entries.
@@ -1256,8 +1265,12 @@ impl LegacyBuckConfig {
     where
         anyhow::Error: From<<T as FromStr>::Err>,
     {
-        self.get(section, key)
-            .map(|s| Self::parse_impl(section, key, s))
+        self.get_config_value(section, key)
+            .map(|s| {
+                Self::parse_impl(section, key, s.as_str()).with_context(|| {
+                    format!("Defined {}", s.source.as_legacy_buck_config_location())
+                })
+            })
             .transpose()
     }
 
