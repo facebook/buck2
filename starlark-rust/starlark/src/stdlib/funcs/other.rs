@@ -42,6 +42,7 @@ use crate::values::tuple::value::FrozenTuple;
 use crate::values::tuple::AllocTuple;
 use crate::values::tuple::TupleRef;
 use crate::values::types::int_or_big::StarlarkInt;
+use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::typing::never::StarlarkNever;
 use crate::values::typing::StarlarkIter;
 use crate::values::value_of_unchecked::ValueOfUnchecked;
@@ -97,9 +98,8 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     /// abs(10)  == 10
     /// # "#);
     /// ```
-    fn abs(#[starlark(require = pos)] x: i32) -> anyhow::Result<i32> {
-        // TODO(nga): handles integer overflow incorrectly.
-        // TODO(nga): does not handle float or bigint.
+    fn abs(#[starlark(require = pos)] x: StarlarkIntRef) -> anyhow::Result<StarlarkInt> {
+        // TODO(nga): does not handle float.
         Ok(x.abs())
     }
 
@@ -872,6 +872,16 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
 mod tests {
     use crate::assert;
     use crate::assert::Assert;
+
+    #[test]
+    fn test_abs() {
+        assert::eq("1", "abs(1)");
+        assert::eq("1", "abs(-1)");
+        assert::eq("2147483647", "abs(2147483647)");
+        assert::eq("2147483648", "abs(-2147483648)");
+        assert::eq("2147483648000", "abs(2147483648000)");
+        assert::eq("2147483648000", "abs(-2147483648000)");
+    }
 
     #[test]
     fn test_constants() {

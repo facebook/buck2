@@ -367,6 +367,13 @@ impl<'v> StarlarkIntRef<'v> {
             StarlarkIntRef::Big(a) => Ok(StarlarkInt::from(a.get() >> other)),
         }
     }
+
+    pub(crate) fn abs(self) -> StarlarkInt {
+        match self {
+            StarlarkIntRef::Small(i) => i.abs(),
+            StarlarkIntRef::Big(i) => StarlarkInt::from(i.get().abs()),
+        }
+    }
 }
 
 impl StarlarkTypeRepr for StarlarkInt {

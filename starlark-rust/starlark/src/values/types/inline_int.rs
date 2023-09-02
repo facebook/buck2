@@ -26,12 +26,14 @@ use std::ops::Rem;
 
 use dupe::Dupe;
 use num_bigint::BigInt;
+use num_traits::Signed;
 use serde::Serialize;
 
 use crate::hint;
 use crate::typing::Ty;
 use crate::values::int::PointerI32;
 use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::int_or_big::StarlarkInt;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -176,6 +178,13 @@ impl InlineInt {
 
     pub(crate) fn to_bigint(self) -> BigInt {
         BigInt::from(self.0)
+    }
+
+    pub(crate) fn abs(self) -> StarlarkInt {
+        match self.0.checked_abs() {
+            Some(i) => StarlarkInt::from(i),
+            None => StarlarkInt::from(self.to_bigint().abs()),
+        }
     }
 
     #[inline]
