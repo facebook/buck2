@@ -26,6 +26,7 @@ use std::path::PathBuf;
 use itertools::Either;
 use lsp_types::Diagnostic;
 use lsp_types::Url;
+use starlark::analysis::AstModuleLint;
 use starlark::docs::get_registered_starlark_docs;
 use starlark::docs::render_docs_as_code;
 use starlark::docs::Doc;

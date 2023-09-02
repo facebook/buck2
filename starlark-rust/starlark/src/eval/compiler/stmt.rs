@@ -27,6 +27,12 @@ use std::cmp;
 
 use starlark_derive::VisitSpanMut;
 use starlark_syntax::slice_vec_ext::SliceExt;
+use starlark_syntax::syntax::ast::AssignOp;
+use starlark_syntax::syntax::ast::AssignP;
+use starlark_syntax::syntax::ast::AssignTargetP;
+use starlark_syntax::syntax::ast::DefP;
+use starlark_syntax::syntax::ast::ForP;
+use starlark_syntax::syntax::ast::StmtP;
 use thiserror::Error;
 
 use crate::codemap::Span;
@@ -53,12 +59,6 @@ use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
-use crate::syntax::ast::AssignOp;
-use crate::syntax::ast::AssignP;
-use crate::syntax::ast::AssignTargetP;
-use crate::syntax::ast::DefP;
-use crate::syntax::ast::ForP;
-use crate::syntax::ast::StmtP;
 use crate::values::dict::Dict;
 use crate::values::dict::DictMut;
 use crate::values::dict::DictRef;

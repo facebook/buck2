@@ -17,19 +17,19 @@
 
 use std::collections::HashSet;
 
+use starlark_syntax::syntax::ast::AssignP;
+use starlark_syntax::syntax::ast::AssignTarget;
+use starlark_syntax::syntax::ast::AstExpr;
+use starlark_syntax::syntax::ast::AstStmt;
+use starlark_syntax::syntax::ast::DefP;
+use starlark_syntax::syntax::ast::Expr;
+use starlark_syntax::syntax::ast::Stmt;
 use thiserror::Error;
 
 use crate::analysis::types::LintT;
 use crate::analysis::types::LintWarning;
 use crate::analysis::EvalSeverity;
 use crate::codemap::CodeMap;
-use crate::syntax::ast::AssignP;
-use crate::syntax::ast::AssignTarget;
-use crate::syntax::ast::AstExpr;
-use crate::syntax::ast::AstStmt;
-use crate::syntax::ast::DefP;
-use crate::syntax::ast::Expr;
-use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
 
 #[derive(Error, Debug)]

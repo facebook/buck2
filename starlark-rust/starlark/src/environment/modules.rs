@@ -29,6 +29,7 @@ use std::time::Instant;
 use allocative::Allocative;
 use dupe::Dupe;
 use itertools::Itertools;
+use starlark_syntax::syntax::ast::Visibility;
 
 use crate::cast::transmute;
 use crate::collections::Hashed;
@@ -46,7 +47,6 @@ use crate::environment::Globals;
 use crate::errors::did_you_mean::did_you_mean;
 use crate::eval::runtime::profile::heap::RetainedHeapProfileMode;
 use crate::eval::ProfileData;
-use crate::syntax::ast::Visibility;
 use crate::values::layout::heap::heap_type::HeapKind;
 use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
 use crate::values::layout::heap::profile::aggregated::RetainedHeapProfile;

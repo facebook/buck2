@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 The Starlark in Rust Authors.
+ * Copyright 2018 The Starlark in Rust Authors.
  * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,27 +15,22 @@
  * limitations under the License.
  */
 
-//! Starlark AST.
+use crate::codemap::CodeMap;
+use crate::codemap::Span;
+use crate::eval_exception::EvalException;
+use crate::syntax::Dialect;
 
-#![allow(clippy::comparison_chain)]
-#![allow(clippy::comparison_to_empty)]
-#![allow(clippy::len_without_is_empty)]
-#![allow(clippy::new_ret_no_self)]
-#![allow(clippy::should_implement_trait)]
+pub struct ParserState<'a> {
+    pub dialect: &'a Dialect,
+    pub codemap: &'a CodeMap,
+    /// Recoverable errors.
+    pub errors: &'a mut Vec<EvalException>,
+}
 
-pub mod call_stack;
-pub mod codemap;
-pub mod convert_indices;
-pub(crate) mod cursors;
-pub mod diagnostic;
-pub mod dialect;
-pub mod dot_format_parser;
-pub mod eval_exception;
-pub mod fast_string;
-pub mod frame;
-pub mod golden_test_template;
-pub mod lexer;
-#[cfg(test)]
-mod lexer_tests;
-pub mod slice_vec_ext;
-pub mod syntax;
+impl<'a> ParserState<'a> {
+    /// Add recoverable error.
+    pub fn error(&mut self, span: Span, error: impl Into<anyhow::Error>) {
+        self.errors
+            .push(EvalException::new(error.into(), span, self.codemap));
+    }
+}

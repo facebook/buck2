@@ -21,6 +21,11 @@ use std::collections::HashMap;
 use std::fmt::Write;
 
 use dupe::Dupe;
+use starlark_syntax::syntax::ast::DefP;
+use starlark_syntax::syntax::ast::ExprP;
+use starlark_syntax::syntax::ast::ForP;
+use starlark_syntax::syntax::ast::StmtP;
+use starlark_syntax::syntax::uniplate::Visit;
 
 use crate::environment::names::MutableNames;
 use crate::environment::Globals;
@@ -33,11 +38,6 @@ use crate::eval::compiler::scope::Captured;
 use crate::eval::compiler::scope::ModuleScopes;
 use crate::eval::compiler::scope::ResolvedIdent;
 use crate::eval::compiler::scope::Slot;
-use crate::syntax::ast::DefP;
-use crate::syntax::ast::ExprP;
-use crate::syntax::ast::ForP;
-use crate::syntax::ast::StmtP;
-use crate::syntax::uniplate::Visit;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::values::FrozenHeap;

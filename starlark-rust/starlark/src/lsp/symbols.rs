@@ -19,18 +19,19 @@
 
 use std::collections::HashMap;
 
+use starlark_syntax::syntax::ast::AssignP;
+use starlark_syntax::syntax::ast::AstPayload;
+use starlark_syntax::syntax::ast::AstStmtP;
+use starlark_syntax::syntax::ast::ExprP;
+use starlark_syntax::syntax::ast::ForP;
+use starlark_syntax::syntax::ast::ParameterP;
+use starlark_syntax::syntax::ast::StmtP;
+
 use crate::codemap::CodeMap;
 use crate::codemap::ResolvedPos;
 use crate::docs::DocItem;
 use crate::docs::DocParam;
 use crate::lsp::docs::get_doc_item_for_def;
-use crate::syntax::ast::AssignP;
-use crate::syntax::ast::AstPayload;
-use crate::syntax::ast::AstStmtP;
-use crate::syntax::ast::ExprP;
-use crate::syntax::ast::ForP;
-use crate::syntax::ast::ParameterP;
-use crate::syntax::ast::StmtP;
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum SymbolKind {

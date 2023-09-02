@@ -17,9 +17,8 @@
 
 //! Map AST payload.
 
-use starlark_syntax::slice_vec_ext::VecExt;
-
 use crate::codemap::Spanned;
+use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::ArgumentP;
 use crate::syntax::ast::AssignIdentP;
 use crate::syntax::ast::AssignP;
@@ -38,7 +37,7 @@ use crate::syntax::ast::ParameterP;
 use crate::syntax::ast::StmtP;
 use crate::syntax::ast::TypeExprP;
 
-pub(crate) trait AstPayloadFunction<A: AstPayload, B: AstPayload> {
+pub trait AstPayloadFunction<A: AstPayload, B: AstPayload> {
     fn map_load(&mut self, import_path: &str, a: A::LoadPayload) -> B::LoadPayload;
     fn map_ident(&mut self, a: A::IdentPayload) -> B::IdentPayload;
     fn map_ident_assign(&mut self, a: A::IdentAssignPayload) -> B::IdentAssignPayload;
@@ -47,7 +46,7 @@ pub(crate) trait AstPayloadFunction<A: AstPayload, B: AstPayload> {
 }
 
 impl<A: AstPayload> LoadP<A> {
-    pub(crate) fn into_map_payload<B: AstPayload>(
+    pub fn into_map_payload<B: AstPayload>(
         self,
         f: &mut impl AstPayloadFunction<A, B>,
     ) -> LoadP<B> {
@@ -66,7 +65,7 @@ impl<A: AstPayload> LoadP<A> {
 }
 
 impl<A: AstPayload> AssignP<A> {
-    pub(crate) fn into_map_payload<B: AstPayload>(
+    pub fn into_map_payload<B: AstPayload>(
         self,
         f: &mut impl AstPayloadFunction<A, B>,
     ) -> AssignP<B> {
@@ -80,10 +79,7 @@ impl<A: AstPayload> AssignP<A> {
 }
 
 impl<A: AstPayload> ForP<A> {
-    pub(crate) fn into_map_payload<B: AstPayload>(
-        self,
-        f: &mut impl AstPayloadFunction<A, B>,
-    ) -> ForP<B> {
+    pub fn into_map_payload<B: AstPayload>(self, f: &mut impl AstPayloadFunction<A, B>) -> ForP<B> {
         let ForP { var, over, body } = self;
         ForP {
             var: var.into_map_payload(f),
@@ -94,7 +90,7 @@ impl<A: AstPayload> ForP<A> {
 }
 
 impl<A: AstPayload> StmtP<A> {
-    pub(crate) fn into_map_payload<B: AstPayload>(
+    pub fn into_map_payload<B: AstPayload>(
         self,
         f: &mut impl AstPayloadFunction<A, B>,
     ) -> StmtP<B> {
@@ -148,7 +144,7 @@ impl<A: AstPayload> StmtP<A> {
 }
 
 impl<A: AstPayload> ExprP<A> {
-    pub(crate) fn into_map_payload<B: AstPayload>(
+    pub fn into_map_payload<B: AstPayload>(
         self,
         f: &mut impl AstPayloadFunction<A, B>,
     ) -> ExprP<B> {
@@ -231,7 +227,7 @@ impl<A: AstPayload> ExprP<A> {
 }
 
 impl<A: AstPayload> TypeExprP<A> {
-    pub(crate) fn into_map_payload<B: AstPayload>(
+    pub fn into_map_payload<B: AstPayload>(
         self,
         f: &mut impl AstPayloadFunction<A, B>,
     ) -> TypeExprP<B> {
@@ -244,7 +240,7 @@ impl<A: AstPayload> TypeExprP<A> {
 }
 
 impl<A: AstPayload> AssignTargetP<A> {
-    pub(crate) fn into_map_payload<B: AstPayload>(
+    pub fn into_map_payload<B: AstPayload>(
         self,
         f: &mut impl AstPayloadFunction<A, B>,
     ) -> AssignTargetP<B> {
@@ -270,7 +266,7 @@ impl<A: AstPayload> AssignTargetP<A> {
 }
 
 impl<A: AstPayload> AssignIdentP<A> {
-    pub(crate) fn into_map_payload<B: AstPayload>(
+    pub fn into_map_payload<B: AstPayload>(
         self,
         f: &mut impl AstPayloadFunction<A, B>,
     ) -> AssignIdentP<B> {
@@ -280,7 +276,7 @@ impl<A: AstPayload> AssignIdentP<A> {
 }
 
 impl<A: AstPayload> IdentP<A> {
-    pub(crate) fn into_map_payload<B: AstPayload>(
+    pub fn into_map_payload<B: AstPayload>(
         self,
         f: &mut impl AstPayloadFunction<A, B>,
     ) -> IdentP<B> {
@@ -290,7 +286,7 @@ impl<A: AstPayload> IdentP<A> {
 }
 
 impl<A: AstPayload> ParameterP<A> {
-    pub(crate) fn into_map_payload<B: AstPayload>(
+    pub fn into_map_payload<B: AstPayload>(
         self,
         f: &mut impl AstPayloadFunction<A, B>,
     ) -> ParameterP<B> {
@@ -318,7 +314,7 @@ impl<A: AstPayload> ParameterP<A> {
 }
 
 impl<A: AstPayload> ArgumentP<A> {
-    pub(crate) fn into_map_payload<B: AstPayload>(
+    pub fn into_map_payload<B: AstPayload>(
         self,
         f: &mut impl AstPayloadFunction<A, B>,
     ) -> ArgumentP<B> {
@@ -332,7 +328,7 @@ impl<A: AstPayload> ArgumentP<A> {
 }
 
 impl<A: AstPayload> ClauseP<A> {
-    pub(crate) fn into_map_payload<B: AstPayload>(
+    pub fn into_map_payload<B: AstPayload>(
         self,
         f: &mut impl AstPayloadFunction<A, B>,
     ) -> ClauseP<B> {
@@ -344,7 +340,7 @@ impl<A: AstPayload> ClauseP<A> {
 }
 
 impl<A: AstPayload> ForClauseP<A> {
-    pub(crate) fn into_map_payload<B: AstPayload>(
+    pub fn into_map_payload<B: AstPayload>(
         self,
         f: &mut impl AstPayloadFunction<A, B>,
     ) -> ForClauseP<B> {
@@ -356,7 +352,7 @@ impl<A: AstPayload> ForClauseP<A> {
 }
 
 impl<A: AstPayload> FStringP<A> {
-    pub(crate) fn into_map_payload<B: AstPayload>(
+    pub fn into_map_payload<B: AstPayload>(
         self,
         f: &mut impl AstPayloadFunction<A, B>,
     ) -> FStringP<B> {
@@ -374,7 +370,7 @@ impl<A: AstPayload> FStringP<A> {
 
 macro_rules! ast_payload_map_stub {
     ($ast_type:ident, $ext:ident) => {
-        pub(crate) trait $ext<A: AstPayload> {
+        pub trait $ext<A: AstPayload> {
             fn into_map_payload<B: AstPayload>(
                 self,
                 f: &mut impl AstPayloadFunction<A, B>,

@@ -22,15 +22,15 @@ use std::path::Path;
 use derivative::Derivative;
 use dupe::Dupe;
 use lalrpop_util as lu;
-use starlark_syntax::diagnostic::Diagnostic;
-use starlark_syntax::eval_exception::EvalException;
-use starlark_syntax::lexer::Lexer;
-use starlark_syntax::lexer::Token;
 
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
 use crate::codemap::Pos;
 use crate::codemap::Span;
+use crate::diagnostic::Diagnostic;
+use crate::eval_exception::EvalException;
+use crate::lexer::Lexer;
+use crate::lexer::Token;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::Stmt;
 use crate::syntax::grammar::StarlarkParser;
@@ -94,7 +94,7 @@ fn parse_error_add_span(
 /// A representation of a Starlark module abstract syntax tree.
 ///
 /// Created with either [`parse`](AstModule::parse) or [`parse_file`](AstModule::parse_file),
-/// and evaluated with [`eval_module`](crate::eval::Evaluator::eval_module).
+/// and evaluated with `Evaluator::eval_module`.
 ///
 /// The internal details (statements/expressions) are deliberately omitted, as they change
 /// more regularly. A few methods to obtain information about the AST are provided.
@@ -102,9 +102,9 @@ fn parse_error_add_span(
 #[derivative(Debug)]
 pub struct AstModule {
     #[derivative(Debug = "ignore")]
-    pub(crate) codemap: CodeMap,
-    pub(crate) statement: AstStmt,
-    pub(crate) dialect: Dialect,
+    pub codemap: CodeMap,
+    pub statement: AstStmt,
+    pub dialect: Dialect,
 }
 
 impl AstModule {
@@ -134,8 +134,8 @@ impl AstModule {
     /// Errors will be reported using the [`Diagnostic`] type. For example:
     ///
     /// ```
-    /// use starlark::syntax::{AstModule, Dialect};
-    /// use starlark::errors::Diagnostic;
+    /// use starlark_syntax::syntax::{AstModule, Dialect};
+    /// use starlark_syntax::diagnostic::Diagnostic;
     ///
     /// let err: anyhow::Error = AstModule::parse("filename", "\n(unmatched".to_owned(), &Dialect::Standard).unwrap_err();
     /// let err: Diagnostic = err.downcast::<Diagnostic>().unwrap();
@@ -200,7 +200,7 @@ impl AstModule {
     }
 
     /// Look up a [`Span`] contained in this module to a [`FileSpan`].
-    pub(crate) fn file_span(&self, x: Span) -> FileSpan {
+    pub fn file_span(&self, x: Span) -> FileSpan {
         self.codemap.file_span(x)
     }
 
@@ -225,8 +225,7 @@ impl AstModule {
 
 #[cfg(test)]
 mod tests {
-    use starlark_syntax::slice_vec_ext::SliceExt;
-
+    use crate::slice_vec_ext::SliceExt;
     use crate::syntax::grammar_tests;
 
     #[test]

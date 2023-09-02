@@ -28,6 +28,22 @@ use starlark_derive::VisitSpanMut;
 use starlark_map::small_map;
 use starlark_map::small_map::SmallMap;
 use starlark_syntax::eval_exception::EvalException;
+use starlark_syntax::syntax::ast::AssignIdent;
+use starlark_syntax::syntax::ast::AssignP;
+use starlark_syntax::syntax::ast::AssignTarget;
+use starlark_syntax::syntax::ast::AstAssignIdentP;
+use starlark_syntax::syntax::ast::AstStmt;
+use starlark_syntax::syntax::ast::ClauseP;
+use starlark_syntax::syntax::ast::DefP;
+use starlark_syntax::syntax::ast::ExprP;
+use starlark_syntax::syntax::ast::ForClauseP;
+use starlark_syntax::syntax::ast::ForP;
+use starlark_syntax::syntax::ast::LambdaP;
+use starlark_syntax::syntax::ast::Stmt;
+use starlark_syntax::syntax::ast::StmtP;
+use starlark_syntax::syntax::ast::Visibility;
+use starlark_syntax::syntax::top_level_stmts::top_level_stmts_mut;
+use starlark_syntax::syntax::uniplate::VisitMut;
 
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
@@ -47,22 +63,6 @@ use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::payload::CstStmtFromAst;
 use crate::eval::compiler::scope::payload::CstTypeExpr;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
-use crate::syntax::ast::AssignIdent;
-use crate::syntax::ast::AssignP;
-use crate::syntax::ast::AssignTarget;
-use crate::syntax::ast::AstAssignIdentP;
-use crate::syntax::ast::AstStmt;
-use crate::syntax::ast::ClauseP;
-use crate::syntax::ast::DefP;
-use crate::syntax::ast::ExprP;
-use crate::syntax::ast::ForClauseP;
-use crate::syntax::ast::ForP;
-use crate::syntax::ast::LambdaP;
-use crate::syntax::ast::Stmt;
-use crate::syntax::ast::StmtP;
-use crate::syntax::ast::Visibility;
-use crate::syntax::top_level_stmts::top_level_stmts_mut;
-use crate::syntax::uniplate::VisitMut;
 use crate::syntax::Dialect;
 use crate::typing::error::InternalError;
 use crate::typing::Interface;
@@ -826,11 +826,21 @@ enum InLoop {
     No,
 }
 
-impl Stmt {
+trait StmtCollectDefines {
+    fn collect_defines<'a>(
+        stmt: &'a mut CstStmt,
+        in_loop: InLoop,
+        scope_data: &mut ModuleScopeData,
+        frozen_heap: &FrozenHeap,
+        result: &mut SmallMap<FrozenStringValue, BindingId>,
+        dialect: &Dialect,
+    );
+}
+
+impl StmtCollectDefines for Stmt {
     // Collect all the variables that are defined in this scope
     fn collect_defines<'a>(
         stmt: &'a mut CstStmt,
-
         in_loop: InLoop,
         scope_data: &mut ModuleScopeData,
         frozen_heap: &FrozenHeap,
@@ -893,10 +903,20 @@ impl Stmt {
     }
 }
 
-impl AssignIdent {
+trait AssignIdentCollect {
     fn collect_assign_ident<'a>(
         assign: &'a mut CstAssignIdent,
+        in_loop: InLoop,
+        vis: Visibility,
+        scope_data: &mut ModuleScopeData,
+        frozen_heap: &FrozenHeap,
+        result: &mut SmallMap<FrozenStringValue, BindingId>,
+    );
+}
 
+impl AssignIdentCollect for AssignIdent {
+    fn collect_assign_ident<'a>(
+        assign: &'a mut CstAssignIdent,
         in_loop: InLoop,
         vis: Visibility,
         scope_data: &mut ModuleScopeData,
@@ -963,12 +983,21 @@ impl AssignIdent {
     }
 }
 
-impl AssignTarget {
+trait AssignTargetCollectDefinesLvalue {
+    fn collect_defines_lvalue<'a>(
+        expr: &'a mut CstAssign,
+        in_loop: InLoop,
+        scope_data: &mut ModuleScopeData,
+        frozen_heap: &FrozenHeap,
+        result: &mut SmallMap<FrozenStringValue, BindingId>,
+    );
+}
+
+impl AssignTargetCollectDefinesLvalue for AssignTarget {
     // Collect variables defined in an expression on the LHS of an assignment (or
     // for variable etc)
     fn collect_defines_lvalue<'a>(
         expr: &'a mut CstAssign,
-
         in_loop: InLoop,
         scope_data: &mut ModuleScopeData,
         frozen_heap: &FrozenHeap,

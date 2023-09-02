@@ -56,6 +56,7 @@ use maplit::hashmap;
 use serde::de::DeserializeOwned;
 use starlark_syntax::slice_vec_ext::VecExt;
 
+use crate::analysis::AstModuleLint;
 use crate::codemap::Pos;
 use crate::codemap::Span;
 use crate::docs::render_docs_as_code;

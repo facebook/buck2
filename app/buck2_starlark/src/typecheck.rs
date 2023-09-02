@@ -32,6 +32,7 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use starlark::environment::Globals;
+use starlark::typing::AstModuleTypecheck;
 use starlark::typing::Interface;
 use starlark::typing::TypingOracle;
 

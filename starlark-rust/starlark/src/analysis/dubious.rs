@@ -17,6 +17,11 @@
 
 use std::collections::HashMap;
 
+use starlark_syntax::syntax::ast::AstExpr;
+use starlark_syntax::syntax::ast::AstLiteral;
+use starlark_syntax::syntax::ast::AstStmt;
+use starlark_syntax::syntax::ast::Expr;
+use starlark_syntax::syntax::ast::Stmt;
 use thiserror::Error;
 
 use crate::analysis::types::LintT;
@@ -25,11 +30,6 @@ use crate::analysis::EvalSeverity;
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
 use crate::codemap::Span;
-use crate::syntax::ast::AstExpr;
-use crate::syntax::ast::AstLiteral;
-use crate::syntax::ast::AstStmt;
-use crate::syntax::ast::Expr;
-use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
 use crate::values::num::value::NumRef;
 use crate::values::types::int_or_big::StarlarkInt;

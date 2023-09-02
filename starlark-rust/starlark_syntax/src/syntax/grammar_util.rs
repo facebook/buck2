@@ -17,17 +17,16 @@
 
 //! Code called by the parser to handle complex cases not handled by the grammar.
 
-use starlark_syntax::dot_format_parser::FormatParser;
-use starlark_syntax::dot_format_parser::FormatToken;
-use starlark_syntax::eval_exception::EvalException;
-use starlark_syntax::lexer::lex_exactly_one_identifier;
-use starlark_syntax::lexer::TokenFString;
-use starlark_syntax::slice_vec_ext::VecExt;
-
 use crate::codemap::CodeMap;
 use crate::codemap::Pos;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
+use crate::dot_format_parser::FormatParser;
+use crate::dot_format_parser::FormatToken;
+use crate::eval_exception::EvalException;
+use crate::lexer::lex_exactly_one_identifier;
+use crate::lexer::TokenFString;
+use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::AssignIdentP;
 use crate::syntax::ast::AssignOp;
 use crate::syntax::ast::AssignP;
@@ -74,7 +73,7 @@ enum GrammarUtilError {
 }
 
 /// Ensure we produce normalised Statements, rather than singleton Statements
-pub(crate) fn statements(mut xs: Vec<AstStmt>, begin: usize, end: usize) -> AstStmt {
+pub fn statements(mut xs: Vec<AstStmt>, begin: usize, end: usize) -> AstStmt {
     if xs.len() == 1 {
         xs.pop().unwrap()
     } else {
@@ -82,10 +81,7 @@ pub(crate) fn statements(mut xs: Vec<AstStmt>, begin: usize, end: usize) -> AstS
     }
 }
 
-pub(crate) fn check_assign(
-    codemap: &CodeMap,
-    x: AstExpr,
-) -> Result<AstAssignTarget, EvalException> {
+pub fn check_assign(codemap: &CodeMap, x: AstExpr) -> Result<AstAssignTarget, EvalException> {
     Ok(Spanned {
         span: x.span,
         node: match x.node {
@@ -106,7 +102,7 @@ pub(crate) fn check_assign(
     })
 }
 
-pub(crate) fn check_assignment(
+pub fn check_assignment(
     codemap: &CodeMap,
     lhs: AstExpr,
     ty: Option<Box<AstTypeExpr>>,
@@ -155,7 +151,7 @@ fn check_parameters<'a>(parameters: &[AstParameter], parser_state: &mut ParserSt
     }
 }
 
-pub(crate) fn check_lambda(
+pub fn check_lambda(
     params: Vec<AstParameter>,
     body: AstExpr,
     parser_state: &mut ParserState,
@@ -168,7 +164,7 @@ pub(crate) fn check_lambda(
     })
 }
 
-pub(crate) fn check_def(
+pub fn check_def(
     name: AstString,
     params: Vec<AstParameter>,
     return_type: Option<Box<AstTypeExpr>>,
@@ -219,7 +215,7 @@ enum FStringError {
     NotEnabled,
 }
 
-pub(crate) fn fstring(
+pub fn fstring(
     fstring: TokenFString,
     begin: usize,
     end: usize,
@@ -308,7 +304,7 @@ fn err<T>(codemap: &CodeMap, span: Span, err: DialectError) -> Result<T, EvalExc
     Err(EvalException::new(err.into(), span, codemap))
 }
 
-pub(crate) fn dialect_check_lambda<T>(
+pub fn dialect_check_lambda<T>(
     dialect: &Dialect,
     codemap: &CodeMap,
     x: Spanned<T>,
@@ -320,7 +316,7 @@ pub(crate) fn dialect_check_lambda<T>(
     }
 }
 
-pub(crate) fn dialect_check_def<T>(
+pub fn dialect_check_def<T>(
     dialect: &Dialect,
     codemap: &CodeMap,
     x: Spanned<T>,
@@ -332,7 +328,7 @@ pub(crate) fn dialect_check_def<T>(
     }
 }
 
-pub(crate) fn dialect_check_keyword_only_arguments<T>(
+pub fn dialect_check_keyword_only_arguments<T>(
     dialect: &Dialect,
     codemap: &CodeMap,
     begin: usize,
@@ -347,7 +343,7 @@ pub(crate) fn dialect_check_keyword_only_arguments<T>(
     }
 }
 
-pub(crate) fn dialect_check_type(
+pub fn dialect_check_type(
     dialect: &Dialect,
     codemap: &CodeMap,
     x: Spanned<Expr>,

@@ -23,6 +23,9 @@ use std::fmt::Display;
 use dupe::Dupe;
 use starlark_map::unordered_map::UnorderedMap;
 use starlark_syntax::slice_vec_ext::VecExt;
+use starlark_syntax::syntax::ast::StmtP;
+use starlark_syntax::syntax::ast::Visibility;
+use starlark_syntax::syntax::top_level_stmts::top_level_stmts_mut;
 
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpanRef;
@@ -34,9 +37,6 @@ use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::BindingSource;
 use crate::eval::compiler::scope::ModuleScopes;
-use crate::syntax::ast::StmtP;
-use crate::syntax::ast::Visibility;
-use crate::syntax::top_level_stmts::top_level_stmts_mut;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::typing::bindings::Bindings;
@@ -167,9 +167,19 @@ impl TypeMap {
     }
 }
 
-impl AstModule {
-    /// Typecheck a module
-    pub fn typecheck(
+/// Typecheck a module.
+pub trait AstModuleTypecheck {
+    /// Typecheck a module.
+    fn typecheck(
+        self,
+        oracle: &dyn TypingOracle,
+        globals: &Globals,
+        loads: &HashMap<String, Interface>,
+    ) -> (Vec<anyhow::Error>, TypeMap, Interface, Vec<Approximation>);
+}
+
+impl AstModuleTypecheck for AstModule {
+    fn typecheck(
         self,
         oracle: &dyn TypingOracle,
         globals: &Globals,

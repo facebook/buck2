@@ -15,19 +15,20 @@
  * limitations under the License.
  */
 
+use starlark_syntax::syntax::ast::AstAssignTargetP;
+use starlark_syntax::syntax::ast::AstLiteral;
+use starlark_syntax::syntax::ast::AstPayload;
+use starlark_syntax::syntax::ast::AstStmtP;
+use starlark_syntax::syntax::ast::DefP;
+use starlark_syntax::syntax::ast::ExprP;
+use starlark_syntax::syntax::ast::ParameterP;
+use starlark_syntax::syntax::ast::StmtP;
+
 use crate::docs::DocFunction;
 use crate::docs::DocParam;
 use crate::docs::DocProperty;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
-use crate::syntax::ast::AstAssignTargetP;
-use crate::syntax::ast::AstLiteral;
-use crate::syntax::ast::AstPayload;
-use crate::syntax::ast::AstStmtP;
-use crate::syntax::ast::DefP;
-use crate::syntax::ast::ExprP;
-use crate::syntax::ast::ParameterP;
-use crate::syntax::ast::StmtP;
 use crate::typing::Ty;
 
 /// Given the AST node for a `def` statement, return a `DocFunction` if the

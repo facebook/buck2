@@ -86,6 +86,8 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use starlark_syntax::syntax::ast::AssignIdentP;
+use starlark_syntax::syntax::ast::AstPayload;
 
 use crate::codemap::ResolvedPos;
 use crate::codemap::ResolvedSpan;
@@ -102,11 +104,10 @@ use crate::lsp::definition::Definition;
 use crate::lsp::definition::DottedDefinition;
 use crate::lsp::definition::IdentifierDefinition;
 use crate::lsp::definition::LspModule;
+use crate::lsp::inspect::AstModuleInspect;
 use crate::lsp::inspect::AutocompleteType;
 use crate::lsp::server::LoadContentsError::WrongScheme;
 use crate::lsp::symbols::find_symbols_at_location;
-use crate::syntax::ast::AssignIdentP;
-use crate::syntax::ast::AstPayload;
 use crate::syntax::AstModule;
 
 /// The request to get the file contents for a starlark: URI

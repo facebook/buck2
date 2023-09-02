@@ -19,9 +19,10 @@
 
 use std::borrow::Cow;
 
+use starlark_syntax::syntax::ast::ExprP;
+
 use crate::codemap::Spanned;
 use crate::eval::compiler::scope::payload::CstExpr;
-use crate::syntax::ast::ExprP;
 
 /// Convert a list into a tuple. In many cases (iteration, `in`) these types
 /// behave the same, but a list has identity and mutability, so much better to

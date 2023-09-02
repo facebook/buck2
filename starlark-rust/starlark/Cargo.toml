@@ -15,9 +15,6 @@ build = "build.rs"
 keywords = ["starlark", "skylark", "bazel", "language", "interpreter"]
 categories = ["parser-implementations", "development-tools"]
 
-[build-dependencies]
-lalrpop = "0.19.7"
-
 [dependencies]
 anyhow = "1.0.65"
 derivative = "2.2"
@@ -25,7 +22,6 @@ derive_more = "0.99"
 display_container = { workspace = true }
 dupe = { workspace = true }
 erased-serde = "0.3.12"
-lalrpop-util = "0.19.7"
 itertools = "0.10"
 once_cell = "1.8"
 bumpalo = "3.8"

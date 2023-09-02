@@ -28,7 +28,7 @@ use crate::analysis::types::LintT;
 use crate::syntax::AstModule;
 
 mod dubious;
-mod find_call_name;
+pub mod find_call_name;
 mod flow;
 mod incompatible;
 mod lint_message;
@@ -37,11 +37,16 @@ mod performance;
 mod types;
 mod underscore;
 
-impl AstModule {
+/// Run the linter.
+pub trait AstModuleLint {
     /// Run a static linter over the module. If the complete set of global variables are known
     /// they can be passed as the `globals` argument, resulting in name-resolution lint errors.
     /// The precise checks run by the linter are not considered stable between versions.
-    pub fn lint(&self, globals: Option<&HashSet<String>>) -> Vec<Lint> {
+    fn lint(&self, globals: Option<&HashSet<String>>) -> Vec<Lint>;
+}
+
+impl AstModuleLint for AstModule {
+    fn lint(&self, globals: Option<&HashSet<String>>) -> Vec<Lint> {
         let mut res = Vec::new();
         res.extend(flow::lint(self).into_iter().map(LintT::erase));
         res.extend(incompatible::lint(self).into_iter().map(LintT::erase));

@@ -19,10 +19,10 @@
 
 use std::collections::HashSet;
 
-use starlark_syntax::eval_exception::EvalException;
 use thiserror::Error;
 
 use crate::codemap::CodeMap;
+use crate::eval_exception::EvalException;
 use crate::syntax::ast::Argument;
 use crate::syntax::ast::AstArgument;
 use crate::syntax::ast::AstExpr;
@@ -90,7 +90,7 @@ impl Expr {
     /// multiple **kwargs.
     ///
     /// We allow at most one **kwargs.
-    pub(crate) fn check_call(
+    pub fn check_call(
         f: AstExpr,
         args: Vec<AstArgument>,
         codemap: &CodeMap,
@@ -149,7 +149,7 @@ impl Expr {
 
 impl Stmt {
     /// Validate all statements only occur where they are allowed to.
-    pub(crate) fn validate(
+    pub fn validate(
         codemap: &CodeMap,
         stmt: &AstStmt,
         dialect: &Dialect,

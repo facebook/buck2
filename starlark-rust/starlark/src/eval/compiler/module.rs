@@ -18,6 +18,9 @@
 //! Compile and evaluate module top-level statements.
 
 use starlark_syntax::eval_exception::EvalException;
+use starlark_syntax::syntax::ast::LoadP;
+use starlark_syntax::syntax::ast::StmtP;
+use starlark_syntax::syntax::top_level_stmts::top_level_stmts_mut;
 
 use crate::codemap::Spanned;
 use crate::const_frozen_string;
@@ -31,9 +34,6 @@ use crate::eval::compiler::scope::Slot;
 use crate::eval::compiler::Compiler;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
-use crate::syntax::ast::LoadP;
-use crate::syntax::ast::StmtP;
-use crate::syntax::top_level_stmts::top_level_stmts_mut;
 use crate::typing::bindings::BindingsCollect;
 use crate::typing::error::InternalError;
 use crate::typing::fill_types_for_lint::ModuleVarTypes;

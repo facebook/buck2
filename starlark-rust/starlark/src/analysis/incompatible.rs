@@ -20,6 +20,14 @@ use std::collections::HashSet;
 
 use maplit::hashmap;
 use once_cell::sync::Lazy;
+use starlark_syntax::syntax::ast::AssignTarget;
+use starlark_syntax::syntax::ast::AstAssignIdent;
+use starlark_syntax::syntax::ast::AstExpr;
+use starlark_syntax::syntax::ast::AstStmt;
+use starlark_syntax::syntax::ast::BinOp;
+use starlark_syntax::syntax::ast::DefP;
+use starlark_syntax::syntax::ast::Expr;
+use starlark_syntax::syntax::ast::Stmt;
 use thiserror::Error;
 
 use crate::analysis::types::LintT;
@@ -28,14 +36,6 @@ use crate::analysis::EvalSeverity;
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
 use crate::codemap::Span;
-use crate::syntax::ast::AssignTarget;
-use crate::syntax::ast::AstAssignIdent;
-use crate::syntax::ast::AstExpr;
-use crate::syntax::ast::AstStmt;
-use crate::syntax::ast::BinOp;
-use crate::syntax::ast::DefP;
-use crate::syntax::ast::Expr;
-use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
 
 #[derive(Error, Debug)]

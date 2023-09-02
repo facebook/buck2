@@ -404,12 +404,12 @@ pub mod lsp;
 mod private;
 pub mod read_line;
 mod sealed;
+pub mod syntax;
 pub mod typing;
 
 pub(crate) mod cast;
 mod hint;
 mod stdlib;
-pub mod syntax;
 pub mod values;
 pub(crate) mod wasm;
 

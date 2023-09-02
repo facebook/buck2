@@ -15,16 +15,9 @@
  * limitations under the License.
  */
 
-use crate::codemap::FileSpan;
-use crate::collections::SmallMap;
+//! Public API for parser.
 
-/// A `load` statement loading zero or more symbols from another module.
-#[derive(Debug)]
-pub struct AstLoad<'a> {
-    /// Span where this load is written
-    pub span: FileSpan,
-    /// Module being loaded
-    pub module_id: &'a str,
-    /// Symbols loaded from that module (local ident -> source ident)
-    pub symbols: SmallMap<&'a str, &'a str>,
-}
+pub use starlark_syntax::dialect::Dialect;
+pub use starlark_syntax::dialect::DialectTypes;
+pub use starlark_syntax::syntax::AstLoad;
+pub use starlark_syntax::syntax::AstModule;

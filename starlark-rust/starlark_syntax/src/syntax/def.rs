@@ -17,10 +17,9 @@
 
 use std::collections::HashSet;
 
-use starlark_syntax::eval_exception::EvalException;
-
 use crate::codemap::CodeMap;
 use crate::codemap::Spanned;
+use crate::eval_exception::EvalException;
 use crate::syntax::ast::AstAssignIdentP;
 use crate::syntax::ast::AstExprP;
 use crate::syntax::ast::AstParameterP;
@@ -42,7 +41,7 @@ enum DefError {
     MultipleKwargs,
 }
 
-pub(crate) enum DefParamKind<'a, P: AstPayload> {
+pub enum DefParamKind<'a, P: AstPayload> {
     Regular(
         /// Default value.
         Option<&'a AstExprP<P>>,
@@ -51,21 +50,21 @@ pub(crate) enum DefParamKind<'a, P: AstPayload> {
     Kwargs,
 }
 
-pub(crate) struct DefParam<'a, P: AstPayload> {
-    pub(crate) ident: &'a AstAssignIdentP<P>,
-    pub(crate) kind: DefParamKind<'a, P>,
-    pub(crate) ty: Option<&'a AstTypeExprP<P>>,
+pub struct DefParam<'a, P: AstPayload> {
+    pub ident: &'a AstAssignIdentP<P>,
+    pub kind: DefParamKind<'a, P>,
+    pub ty: Option<&'a AstTypeExprP<P>>,
 }
 
 /// Post-processed AST for function parameters.
 ///
 /// * Validated
 /// * `*` parameter replaced with `num_positional` field
-pub(crate) struct DefParams<'a, P: AstPayload> {
-    pub(crate) params: Vec<Spanned<DefParam<'a, P>>>,
+pub struct DefParams<'a, P: AstPayload> {
+    pub params: Vec<Spanned<DefParam<'a, P>>>,
     /// Number of parameters which can be filled positionally.
     /// That is, number of parameters before first `*`, `*args` or `**kwargs`.
-    pub(crate) num_positional: u32,
+    pub num_positional: u32,
 }
 
 fn check_param_name<'a, P: AstPayload, T>(
@@ -85,7 +84,7 @@ fn check_param_name<'a, P: AstPayload, T>(
 }
 
 impl<'a, P: AstPayload> DefParams<'a, P> {
-    pub(crate) fn unpack(
+    pub fn unpack(
         ast_params: &'a [AstParameterP<P>],
         codemap: &CodeMap,
     ) -> Result<DefParams<'a, P>, EvalException> {

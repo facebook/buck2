@@ -61,4 +61,5 @@ pub use structs::TyStruct;
 pub use ty::Approximation;
 pub use ty::Ty;
 pub use ty::TyName;
+pub use typecheck::AstModuleTypecheck;
 pub use typecheck::TypeMap;

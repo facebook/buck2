@@ -15,23 +15,17 @@
  * limitations under the License.
  */
 
-use starlark_syntax::eval_exception::EvalException;
+use starlark_map::small_map::SmallMap;
 
-use crate::codemap::CodeMap;
-use crate::codemap::Span;
-use crate::syntax::Dialect;
+use crate::codemap::FileSpan;
 
-pub(crate) struct ParserState<'a> {
-    pub(crate) dialect: &'a Dialect,
-    pub(crate) codemap: &'a CodeMap,
-    /// Recoverable errors.
-    pub(crate) errors: &'a mut Vec<EvalException>,
-}
-
-impl<'a> ParserState<'a> {
-    /// Add recoverable error.
-    pub(crate) fn error(&mut self, span: Span, error: impl Into<anyhow::Error>) {
-        self.errors
-            .push(EvalException::new(error.into(), span, self.codemap));
-    }
+/// A `load` statement loading zero or more symbols from another module.
+#[derive(Debug)]
+pub struct AstLoad<'a> {
+    /// Span where this load is written
+    pub span: FileSpan,
+    /// Module being loaded
+    pub module_id: &'a str,
+    /// Symbols loaded from that module (local ident -> source ident)
+    pub symbols: SmallMap<&'a str, &'a str>,
 }

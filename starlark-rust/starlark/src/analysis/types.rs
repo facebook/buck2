@@ -45,7 +45,7 @@ pub(crate) struct LintT<T> {
     pub problem: T,
 }
 
-/// A lint produced by [`AstModule::lint`](crate::syntax::AstModule::lint).
+/// A lint produced by `AstModule::lint`.
 #[derive(Debug)]
 pub struct Lint {
     /// Which code location does this lint refer to.

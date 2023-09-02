@@ -29,6 +29,7 @@ use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use dice::DiceTransaction;
 use dupe::Dupe;
+use starlark::analysis::AstModuleLint;
 use starlark::codemap::FileSpan;
 use starlark::errors::Diagnostic;
 use starlark::errors::EvalSeverity;

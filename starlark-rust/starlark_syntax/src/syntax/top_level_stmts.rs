@@ -20,7 +20,7 @@ use crate::syntax::ast::AstStmtP;
 use crate::syntax::ast::StmtP;
 
 /// List the top-level statements in the AST.
-pub(crate) fn top_level_stmts<P: AstPayload>(top: &AstStmtP<P>) -> Vec<&AstStmtP<P>> {
+pub fn top_level_stmts<P: AstPayload>(top: &AstStmtP<P>) -> Vec<&AstStmtP<P>> {
     fn f<'a, P: AstPayload>(ast: &'a AstStmtP<P>, res: &mut Vec<&'a AstStmtP<P>>) {
         match &**ast {
             StmtP::Statements(xs) => {
@@ -38,7 +38,7 @@ pub(crate) fn top_level_stmts<P: AstPayload>(top: &AstStmtP<P>) -> Vec<&AstStmtP
 }
 
 /// List the top-level statements in the AST.
-pub(crate) fn top_level_stmts_mut<P: AstPayload>(top: &mut AstStmtP<P>) -> Vec<&mut AstStmtP<P>> {
+pub fn top_level_stmts_mut<P: AstPayload>(top: &mut AstStmtP<P>) -> Vec<&mut AstStmtP<P>> {
     fn f<'a, P: AstPayload>(ast: &'a mut AstStmtP<P>, res: &mut Vec<&'a mut AstStmtP<P>>) {
         match &mut **ast {
             StmtP::Statements(_) => {

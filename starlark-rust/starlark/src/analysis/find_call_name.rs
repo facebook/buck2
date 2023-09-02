@@ -15,21 +15,30 @@
  * limitations under the License.
  */
 
+//! Linter.
+
+use starlark_syntax::syntax::ast::Argument;
+use starlark_syntax::syntax::ast::AstExpr;
+use starlark_syntax::syntax::ast::AstLiteral;
+use starlark_syntax::syntax::ast::Expr;
+
 use crate::codemap::Span;
 use crate::codemap::Spanned;
-use crate::syntax::ast::Argument;
-use crate::syntax::ast::AstExpr;
-use crate::syntax::ast::AstLiteral;
-use crate::syntax::ast::Expr;
 use crate::syntax::AstModule;
 
-impl AstModule {
+/// Find the location of a top level function call that has a kwarg "name", and a string value
+/// matching `name`.
+pub trait AstModuleFindCallName {
     /// Find the location of a top level function call that has a kwarg "name", and a string value
     /// matching `name`.
     ///
     /// NOTE: If the AST is exposed in the future, this function may be removed and implemented
     ///       by specific programs instead.
-    pub fn find_function_call_with_name(&self, name: &str) -> Option<Span> {
+    fn find_function_call_with_name(&self, name: &str) -> Option<Span>;
+}
+
+impl AstModuleFindCallName for AstModule {
+    fn find_function_call_with_name(&self, name: &str) -> Option<Span> {
         let mut ret = None;
 
         fn visit_expr(ret: &mut Option<Span>, name: &str, node: &AstExpr) {
@@ -70,6 +79,7 @@ impl AstModule {
 #[cfg(test)]
 mod test {
 
+    use crate::analysis::find_call_name::AstModuleFindCallName;
     use crate::codemap::ResolvedPos;
     use crate::codemap::ResolvedSpan;
     use crate::syntax::AstModule;

@@ -20,6 +20,10 @@ use lsp_types::CompletionItemKind;
 use lsp_types::Documentation;
 use lsp_types::MarkupContent;
 use lsp_types::MarkupKind;
+use starlark_syntax::syntax::ast::AstAssignIdent;
+use starlark_syntax::syntax::ast::Expr;
+use starlark_syntax::syntax::ast::Stmt;
+use starlark_syntax::syntax::top_level_stmts::top_level_stmts;
 
 use crate::codemap::FileSpan;
 use crate::collections::SmallMap;
@@ -27,10 +31,6 @@ use crate::docs::markdown::render_doc_item;
 use crate::docs::DocItem;
 use crate::lsp::docs::get_doc_item_for_assign;
 use crate::lsp::docs::get_doc_item_for_def;
-use crate::syntax::ast::AstAssignIdent;
-use crate::syntax::ast::Expr;
-use crate::syntax::ast::Stmt;
-use crate::syntax::top_level_stmts::top_level_stmts;
 use crate::syntax::AstModule;
 
 /// The type of an exported symbol.
@@ -98,10 +98,14 @@ impl From<Symbol> for CompletionItem {
     }
 }
 
-impl AstModule {
+pub(crate) trait AstModuleExportedSymbols {
     /// Which symbols are exported by this module. These are the top-level assignments,
     /// including function definitions. Any symbols that start with `_` are not exported.
-    pub(crate) fn exported_symbols(&self) -> Vec<Symbol> {
+    fn exported_symbols(&self) -> Vec<Symbol>;
+}
+
+impl AstModuleExportedSymbols for AstModule {
+    fn exported_symbols(&self) -> Vec<Symbol> {
         // Map since we only want to store the first of each export
         // IndexMap since we want the order to match the order they were defined in
         let mut result: SmallMap<&str, _> = SmallMap::new();

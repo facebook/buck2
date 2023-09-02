@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-use starlark_syntax::eval_exception::EvalException;
-use starlark_syntax::slice_vec_ext::SliceExt;
-
 use crate::codemap::CodeMap;
 use crate::codemap::Spanned;
+use crate::eval_exception::EvalException;
+use crate::slice_vec_ext::SliceExt;
 use crate::syntax::ast::AstExprP;
 use crate::syntax::ast::AstIdentP;
 use crate::syntax::ast::AstLiteral;
@@ -45,13 +44,13 @@ enum TypeExprUnpackError {
 
 /// Types that are `""` or start with `"_"` are wildcard - they match everything
 /// (also deprecated).
-pub(crate) fn type_str_literal_is_wildcard(s: &str) -> bool {
+pub fn type_str_literal_is_wildcard(s: &str) -> bool {
     s == "" || s.starts_with('_')
 }
 
 /// This type should be used instead of `TypeExprP`, but a lot of code needs to be updated.
 #[derive(Debug)]
-pub(crate) enum TypeExprUnpackP<'a, P: AstPayload> {
+pub enum TypeExprUnpackP<'a, P: AstPayload> {
     Path(&'a AstIdentP<P>, Vec<Spanned<&'a str>>),
     /// `list[str]`.
     Index(&'a AstIdentP<P>, Box<Spanned<TypeExprUnpackP<'a, P>>>),
@@ -114,7 +113,7 @@ const BAN_REPLACE_TYPES: &[(&str, &str)] = &[
 ];
 
 impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
-    pub(crate) fn unpack(
+    pub fn unpack(
         expr: &'a AstExprP<P>,
         codemap: &CodeMap,
     ) -> Result<Spanned<TypeExprUnpackP<'a, P>>, EvalException> {

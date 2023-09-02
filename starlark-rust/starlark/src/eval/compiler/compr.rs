@@ -19,6 +19,8 @@
 
 use starlark_derive::VisitSpanMut;
 use starlark_syntax::slice_vec_ext::SliceExt;
+use starlark_syntax::syntax::ast::ClauseP;
+use starlark_syntax::syntax::ast::ForClauseP;
 
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::expr_bool::ExprCompiledBool;
@@ -29,8 +31,6 @@ use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::stmt::AssignCompiledValue;
 use crate::eval::compiler::Compiler;
-use crate::syntax::ast::ClauseP;
-use crate::syntax::ast::ForClauseP;
 
 impl Compiler<'_, '_, '_> {
     pub fn list_comprehension(

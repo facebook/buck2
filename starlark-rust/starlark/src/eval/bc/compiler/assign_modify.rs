@@ -17,6 +17,8 @@
 
 //! Write operators like `+=`.
 
+use starlark_syntax::syntax::ast::AssignOp;
+
 use crate::collections::symbol_map::Symbol;
 use crate::eval::bc::compiler::expr::write_n_exprs;
 use crate::eval::bc::instr_impl::InstrAddAssign;
@@ -44,9 +46,19 @@ use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::stmt::AssignModifyLhs;
 use crate::eval::runtime::frame_span::FrameSpan;
-use crate::syntax::ast::AssignOp;
 
-impl AssignOp {
+trait AssignOnWriteBc {
+    fn write_bc(
+        self,
+        v0: BcSlotIn,
+        v1: BcSlotIn,
+        target: BcSlotOut,
+        span: FrameSpan,
+        bc: &mut BcWriter,
+    );
+}
+
+impl AssignOnWriteBc for AssignOp {
     fn write_bc(
         self,
         v0: BcSlotIn,

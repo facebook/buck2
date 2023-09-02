@@ -17,9 +17,8 @@
 
 use std::fmt::Write;
 
-use starlark_syntax::golden_test_template::golden_test_template;
-use starlark_syntax::slice_vec_ext::SliceExt;
-
+use crate::golden_test_template::golden_test_template;
+use crate::slice_vec_ext::SliceExt;
 use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
@@ -373,11 +372,11 @@ fn test_test_list_in_index_expr() {
     parse_fail("list_in_index_expr", "x[1, 2] = 3");
 }
 
-pub(crate) fn parse(program: &str) -> String {
+pub fn parse(program: &str) -> String {
     parse_ast(program).statement.to_string()
 }
 
-pub(crate) fn parse_ast(program: &str) -> AstModule {
+pub fn parse_ast(program: &str) -> AstModule {
     parse_ast_with_dialect(program, &Dialect::Extended)
 }
 

@@ -27,6 +27,7 @@ use either::Either;
 use serde::Serialize;
 use serde::Serializer;
 use starlark_derive::Trace;
+use starlark_syntax::syntax::type_expr::type_str_literal_is_wildcard;
 
 use crate as starlark;
 use crate::docs::DocFunction;
@@ -34,7 +35,6 @@ use crate::docs::DocMember;
 use crate::docs::DocParam;
 use crate::docs::DocProperty;
 use crate::eval::compiler::small_vec_1::SmallVec1;
-use crate::syntax::type_expr::type_str_literal_is_wildcard;
 use crate::typing::arc_ty::ArcTy;
 use crate::typing::basic::TyBasic;
 use crate::typing::custom::TyCustom;

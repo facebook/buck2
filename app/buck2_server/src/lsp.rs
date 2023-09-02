@@ -57,6 +57,7 @@ use itertools::Itertools;
 use lsp_server::Connection;
 use lsp_server::Message;
 use lsp_types::Url;
+use starlark::analysis::find_call_name::AstModuleFindCallName;
 use starlark::codemap::Span;
 use starlark::docs::Doc;
 use starlark::docs::DocItem;

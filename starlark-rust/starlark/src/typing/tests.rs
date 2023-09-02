@@ -34,6 +34,7 @@ use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::typing::interface::Interface;
 use crate::typing::oracle::traits::OracleNoAttributes;
+use crate::typing::AstModuleTypecheck;
 use crate::typing::TypingOracle;
 use crate::values::none::NoneType;
 use crate::values::typing::StarlarkIter;

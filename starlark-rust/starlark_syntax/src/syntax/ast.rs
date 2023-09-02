@@ -24,14 +24,14 @@ use std::fmt::Formatter;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use starlark_syntax::lexer::TokenInt;
 
 use crate::codemap::Pos;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
+use crate::lexer::TokenInt;
 
 /// Payload types attached to AST nodes.
-pub(crate) trait AstPayload: Debug {
+pub trait AstPayload: Debug {
     // TODO(nga): we don't really need `Clone` for any payload.
     type LoadPayload: Debug + Clone;
     type IdentPayload: Debug + Clone;
@@ -43,7 +43,7 @@ pub(crate) trait AstPayload: Debug {
 /// Default implementation of payload, which attaches `()` to nodes.
 /// This payload is returned with AST by parser.
 #[derive(Debug, Copy, Clone, Dupe, Eq, PartialEq)]
-pub(crate) struct AstNoPayload;
+pub struct AstNoPayload;
 impl AstPayload for AstNoPayload {
     type LoadPayload = ();
     type IdentPayload = ();
@@ -52,44 +52,45 @@ impl AstPayload for AstNoPayload {
     type TypeExprPayload = ();
 }
 
-pub(crate) type Expr = ExprP<AstNoPayload>;
-pub(crate) type TypeExpr = TypeExprP<AstNoPayload>;
-pub(crate) type AssignTarget = AssignTargetP<AstNoPayload>;
-pub(crate) type AssignIdent = AssignIdentP<AstNoPayload>;
-pub(crate) type Ident = IdentP<AstNoPayload>;
-pub(crate) type Clause = ClauseP<AstNoPayload>;
-pub(crate) type ForClause = ForClauseP<AstNoPayload>;
-pub(crate) type Argument = ArgumentP<AstNoPayload>;
-pub(crate) type Parameter = ParameterP<AstNoPayload>;
-pub(crate) type Stmt = StmtP<AstNoPayload>;
+pub type Expr = ExprP<AstNoPayload>;
+pub type TypeExpr = TypeExprP<AstNoPayload>;
+pub type AssignTarget = AssignTargetP<AstNoPayload>;
+pub type AssignIdent = AssignIdentP<AstNoPayload>;
+pub type Ident = IdentP<AstNoPayload>;
+pub type Clause = ClauseP<AstNoPayload>;
+pub type ForClause = ForClauseP<AstNoPayload>;
+pub type Argument = ArgumentP<AstNoPayload>;
+pub type Parameter = ParameterP<AstNoPayload>;
+pub type Load = LoadP<AstNoPayload>;
+pub type Stmt = StmtP<AstNoPayload>;
 
 // Boxed types used for storing information from the parsing will be used
 // especially for the location of the AST item
-pub(crate) type AstExprP<P> = Spanned<ExprP<P>>;
-pub(crate) type AstTypeExprP<P> = Spanned<TypeExprP<P>>;
-pub(crate) type AstAssignTargetP<P> = Spanned<AssignTargetP<P>>;
-pub(crate) type AstAssignIdentP<P> = Spanned<AssignIdentP<P>>;
-pub(crate) type AstIdentP<P> = Spanned<IdentP<P>>;
-pub(crate) type AstArgumentP<P> = Spanned<ArgumentP<P>>;
-pub(crate) type AstParameterP<P> = Spanned<ParameterP<P>>;
-pub(crate) type AstStmtP<P> = Spanned<StmtP<P>>;
-pub(crate) type AstFStringP<P> = Spanned<FStringP<P>>;
+pub type AstExprP<P> = Spanned<ExprP<P>>;
+pub type AstTypeExprP<P> = Spanned<TypeExprP<P>>;
+pub type AstAssignTargetP<P> = Spanned<AssignTargetP<P>>;
+pub type AstAssignIdentP<P> = Spanned<AssignIdentP<P>>;
+pub type AstIdentP<P> = Spanned<IdentP<P>>;
+pub type AstArgumentP<P> = Spanned<ArgumentP<P>>;
+pub type AstParameterP<P> = Spanned<ParameterP<P>>;
+pub type AstStmtP<P> = Spanned<StmtP<P>>;
+pub type AstFStringP<P> = Spanned<FStringP<P>>;
 
-pub(crate) type AstExpr = AstExprP<AstNoPayload>;
-pub(crate) type AstTypeExpr = AstTypeExprP<AstNoPayload>;
-pub(crate) type AstAssignTarget = AstAssignTargetP<AstNoPayload>;
-pub(crate) type AstAssignIdent = AstAssignIdentP<AstNoPayload>;
-pub(crate) type AstIdent = AstIdentP<AstNoPayload>;
-pub(crate) type AstArgument = AstArgumentP<AstNoPayload>;
-pub(crate) type AstString = Spanned<String>;
-pub(crate) type AstParameter = AstParameterP<AstNoPayload>;
-pub(crate) type AstInt = Spanned<TokenInt>;
-pub(crate) type AstFloat = Spanned<f64>;
-pub(crate) type AstFString = AstFStringP<AstNoPayload>;
-pub(crate) type AstStmt = AstStmtP<AstNoPayload>;
+pub type AstExpr = AstExprP<AstNoPayload>;
+pub type AstTypeExpr = AstTypeExprP<AstNoPayload>;
+pub type AstAssignTarget = AstAssignTargetP<AstNoPayload>;
+pub type AstAssignIdent = AstAssignIdentP<AstNoPayload>;
+pub type AstIdent = AstIdentP<AstNoPayload>;
+pub type AstArgument = AstArgumentP<AstNoPayload>;
+pub type AstString = Spanned<String>;
+pub type AstParameter = AstParameterP<AstNoPayload>;
+pub type AstInt = Spanned<TokenInt>;
+pub type AstFloat = Spanned<f64>;
+pub type AstFString = AstFStringP<AstNoPayload>;
+pub type AstStmt = AstStmtP<AstNoPayload>;
 
 // A trait rather than a function to allow .ast() chaining in the parser.
-pub(crate) trait ToAst: Sized {
+pub trait ToAst: Sized {
     fn ast(self, begin: usize, end: usize) -> Spanned<Self> {
         Spanned {
             span: Span::new(Pos::new(begin as u32), Pos::new(end as u32)),
@@ -101,7 +102,7 @@ pub(crate) trait ToAst: Sized {
 impl<T> ToAst for T {}
 
 #[derive(Debug, Clone)]
-pub(crate) enum ArgumentP<P: AstPayload> {
+pub enum ArgumentP<P: AstPayload> {
     Positional(AstExprP<P>),
     Named(AstString, AstExprP<P>),
     Args(AstExprP<P>),
@@ -109,7 +110,7 @@ pub(crate) enum ArgumentP<P: AstPayload> {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) enum ParameterP<P: AstPayload> {
+pub enum ParameterP<P: AstPayload> {
     Normal(AstAssignIdentP<P>, Option<Box<AstTypeExprP<P>>>),
     WithDefaultValue(
         AstAssignIdentP<P>,
@@ -122,7 +123,7 @@ pub(crate) enum ParameterP<P: AstPayload> {
 }
 
 impl<P: AstPayload> ParameterP<P> {
-    pub(crate) fn ident(&self) -> Option<&AstAssignIdentP<P>> {
+    pub fn ident(&self) -> Option<&AstAssignIdentP<P>> {
         match self {
             ParameterP::Normal(x, _)
             | ParameterP::WithDefaultValue(x, _, _)
@@ -134,7 +135,7 @@ impl<P: AstPayload> ParameterP<P> {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) enum AstLiteral {
+pub enum AstLiteral {
     Int(AstInt),
     Float(AstFloat),
     String(AstString),
@@ -142,14 +143,14 @@ pub(crate) enum AstLiteral {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct LambdaP<P: AstPayload> {
-    pub(crate) params: Vec<AstParameterP<P>>,
-    pub(crate) body: Box<AstExprP<P>>,
-    pub(crate) payload: P::DefPayload,
+pub struct LambdaP<P: AstPayload> {
+    pub params: Vec<AstParameterP<P>>,
+    pub body: Box<AstExprP<P>>,
+    pub payload: P::DefPayload,
 }
 
 impl<P: AstPayload> LambdaP<P> {
-    pub(crate) fn signature_span(&self) -> Span {
+    pub fn signature_span(&self) -> Span {
         self.params
             .iter()
             .map(|p| p.span)
@@ -162,7 +163,7 @@ impl<P: AstPayload> LambdaP<P> {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) enum ExprP<P: AstPayload> {
+pub enum ExprP<P: AstPayload> {
     Tuple(Vec<AstExprP<P>>),
     Dot(Box<AstExprP<P>>, AstString),
     Call(Box<AstExprP<P>>, Vec<AstArgumentP<P>>),
@@ -196,17 +197,17 @@ pub(crate) enum ExprP<P: AstPayload> {
 
 /// Restricted expression at type position.
 #[derive(Debug, Clone)]
-pub(crate) struct TypeExprP<P: AstPayload> {
+pub struct TypeExprP<P: AstPayload> {
     /// Currently it is an expr.
     /// Planning to restrict it.
     /// [Context](https://fb.workplace.com/groups/buck2eng/posts/3196541547309990).
-    pub(crate) expr: AstExprP<P>,
-    pub(crate) payload: P::TypeExprPayload,
+    pub expr: AstExprP<P>,
+    pub payload: P::TypeExprPayload,
 }
 
 /// In some places e.g. AssignModify, the Tuple case is not allowed.
 #[derive(Debug, Clone)]
-pub(crate) enum AssignTargetP<P: AstPayload> {
+pub enum AssignTargetP<P: AstPayload> {
     // We use Tuple for both Tuple and List,
     // as these have the same semantics in Starlark.
     Tuple(Vec<AstAssignTargetP<P>>),
@@ -217,43 +218,43 @@ pub(crate) enum AssignTargetP<P: AstPayload> {
 
 /// `x: t = y`.
 #[derive(Debug, Clone)]
-pub(crate) struct AssignP<P: AstPayload> {
-    pub(crate) lhs: AstAssignTargetP<P>,
-    pub(crate) ty: Option<AstTypeExprP<P>>,
-    pub(crate) rhs: AstExprP<P>,
+pub struct AssignP<P: AstPayload> {
+    pub lhs: AstAssignTargetP<P>,
+    pub ty: Option<AstTypeExprP<P>>,
+    pub rhs: AstExprP<P>,
 }
 
 /// Identifier in assign position.
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub(crate) struct AssignIdentP<P: AstPayload>(pub String, pub P::IdentAssignPayload);
+pub struct AssignIdentP<P: AstPayload>(pub String, pub P::IdentAssignPayload);
 
 /// Identifier in read position, e. g. `foo` in `[foo.bar]`.
 /// `foo` in `foo = 1` or `bar.foo` are **not** represented by this type.
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub(crate) struct IdentP<P: AstPayload>(pub String, pub P::IdentPayload);
+pub struct IdentP<P: AstPayload>(pub String, pub P::IdentPayload);
 
 /// `load` statement.
 #[derive(Debug, Clone)]
-pub(crate) struct LoadP<P: AstPayload> {
-    pub(crate) module: AstString,
-    pub(crate) args: Vec<(AstAssignIdentP<P>, AstString)>,
-    pub(crate) payload: P::LoadPayload,
+pub struct LoadP<P: AstPayload> {
+    pub module: AstString,
+    pub args: Vec<(AstAssignIdentP<P>, AstString)>,
+    pub payload: P::LoadPayload,
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct ForClauseP<P: AstPayload> {
-    pub(crate) var: AstAssignTargetP<P>,
-    pub(crate) over: AstExprP<P>,
+pub struct ForClauseP<P: AstPayload> {
+    pub var: AstAssignTargetP<P>,
+    pub over: AstExprP<P>,
 }
 
 #[derive(Debug, Clone)]
-pub(crate) enum ClauseP<P: AstPayload> {
+pub enum ClauseP<P: AstPayload> {
     For(ForClauseP<P>),
     If(AstExprP<P>),
 }
 
 #[derive(Debug, Clone, Copy, Dupe, Eq, PartialEq)]
-pub(crate) enum BinOp {
+pub enum BinOp {
     Or,
     And,
     Equal,
@@ -278,7 +279,7 @@ pub(crate) enum BinOp {
 }
 
 #[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq)]
-pub(crate) enum AssignOp {
+pub enum AssignOp {
     Add,         // +=
     Subtract,    // -=
     Multiply,    // *=
@@ -299,16 +300,16 @@ pub enum Visibility {
 }
 
 #[derive(Debug)]
-pub(crate) struct DefP<P: AstPayload> {
-    pub(crate) name: AstAssignIdentP<P>,
-    pub(crate) params: Vec<AstParameterP<P>>,
-    pub(crate) return_type: Option<Box<AstTypeExprP<P>>>,
-    pub(crate) body: Box<AstStmtP<P>>,
-    pub(crate) payload: P::DefPayload,
+pub struct DefP<P: AstPayload> {
+    pub name: AstAssignIdentP<P>,
+    pub params: Vec<AstParameterP<P>>,
+    pub return_type: Option<Box<AstTypeExprP<P>>>,
+    pub body: Box<AstStmtP<P>>,
+    pub payload: P::DefPayload,
 }
 
 impl<P: AstPayload> DefP<P> {
-    pub(crate) fn signature_span(&self) -> Span {
+    pub fn signature_span(&self) -> Span {
         let mut span = self.name.span;
         for param in &self.params {
             span = span.merge(param.span);
@@ -321,22 +322,22 @@ impl<P: AstPayload> DefP<P> {
 }
 
 #[derive(Debug)]
-pub(crate) struct ForP<P: AstPayload> {
-    pub(crate) var: AstAssignTargetP<P>,
-    pub(crate) over: AstExprP<P>,
-    pub(crate) body: Box<AstStmtP<P>>,
+pub struct ForP<P: AstPayload> {
+    pub var: AstAssignTargetP<P>,
+    pub over: AstExprP<P>,
+    pub body: Box<AstStmtP<P>>,
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct FStringP<P: AstPayload> {
+pub struct FStringP<P: AstPayload> {
     /// A format string containing a `{}` marker for each expression to interpolate.
-    pub(crate) format: AstString,
+    pub format: AstString,
     /// The expressions to interpolate.
-    pub(crate) expressions: Vec<AstExprP<P>>,
+    pub expressions: Vec<AstExprP<P>>,
 }
 
 #[derive(Debug)]
-pub(crate) enum StmtP<P: AstPayload> {
+pub enum StmtP<P: AstPayload> {
     Break,
     Continue,
     Pass,
@@ -353,7 +354,7 @@ pub(crate) enum StmtP<P: AstPayload> {
 }
 
 impl<P: AstPayload> ArgumentP<P> {
-    pub(crate) fn expr(&self) -> &AstExprP<P> {
+    pub fn expr(&self) -> &AstExprP<P> {
         match self {
             ArgumentP::Positional(x) => x,
             ArgumentP::Named(_, x) => x,
@@ -362,7 +363,7 @@ impl<P: AstPayload> ArgumentP<P> {
         }
     }
 
-    pub(crate) fn expr_mut(&mut self) -> &mut AstExprP<P> {
+    pub fn expr_mut(&mut self) -> &mut AstExprP<P> {
         match self {
             ArgumentP::Positional(x) => x,
             ArgumentP::Named(_, x) => x,

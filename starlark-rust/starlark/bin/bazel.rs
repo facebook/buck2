@@ -37,6 +37,8 @@ use either::Either;
 use lsp_types::CompletionItemKind;
 use lsp_types::Diagnostic;
 use lsp_types::Url;
+use starlark::analysis::find_call_name::AstModuleFindCallName;
+use starlark::analysis::AstModuleLint;
 use starlark::docs::get_registered_starlark_docs;
 use starlark::docs::render_docs_as_code;
 use starlark::docs::Doc;

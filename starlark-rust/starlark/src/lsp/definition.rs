@@ -18,6 +18,18 @@
 use std::iter;
 
 use starlark_syntax::slice_vec_ext::SliceExt;
+use starlark_syntax::syntax::ast::ArgumentP;
+use starlark_syntax::syntax::ast::AssignTargetP;
+use starlark_syntax::syntax::ast::AstIdent;
+use starlark_syntax::syntax::ast::AstLiteral;
+use starlark_syntax::syntax::ast::AstNoPayload;
+use starlark_syntax::syntax::ast::AstString;
+use starlark_syntax::syntax::ast::Expr;
+use starlark_syntax::syntax::ast::ExprP;
+use starlark_syntax::syntax::ast::Stmt;
+use starlark_syntax::syntax::ast::StmtP;
+use starlark_syntax::syntax::top_level_stmts::top_level_stmts;
+use starlark_syntax::syntax::uniplate::Visit;
 
 use crate::codemap::CodeMap;
 use crate::codemap::Pos;
@@ -28,20 +40,10 @@ use crate::lsp::bind::scope;
 use crate::lsp::bind::Assigner;
 use crate::lsp::bind::Bind;
 use crate::lsp::bind::Scope;
+use crate::lsp::exported::AstModuleExportedSymbols;
 use crate::lsp::exported::Symbol;
+use crate::lsp::loaded::AstModuleLoadedSymbols;
 use crate::lsp::loaded::LoadedSymbol;
-use crate::syntax::ast::ArgumentP;
-use crate::syntax::ast::AssignTargetP;
-use crate::syntax::ast::AstIdent;
-use crate::syntax::ast::AstLiteral;
-use crate::syntax::ast::AstNoPayload;
-use crate::syntax::ast::AstString;
-use crate::syntax::ast::Expr;
-use crate::syntax::ast::ExprP;
-use crate::syntax::ast::Stmt;
-use crate::syntax::ast::StmtP;
-use crate::syntax::top_level_stmts::top_level_stmts;
-use crate::syntax::uniplate::Visit;
 use crate::syntax::AstModule;
 
 /// The location of a definition for a given identifier. See [`AstModule::find_definition_at_location`].

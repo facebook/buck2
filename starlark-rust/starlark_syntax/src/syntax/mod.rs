@@ -19,24 +19,25 @@
 
 pub use module::AstModule;
 pub use parser::AstLoad;
-pub use starlark_syntax::dialect::Dialect;
-pub use starlark_syntax::dialect::DialectTypes;
 
-pub(crate) mod ast;
-pub(crate) mod def;
+pub use crate::dialect::Dialect;
+pub use crate::dialect::DialectTypes;
+
+pub mod ast;
+pub mod def;
 #[cfg(test)]
 mod grammar_tests;
-pub(crate) mod grammar_util;
-pub(crate) mod module;
-pub(crate) mod parser;
-pub(crate) mod payload_map;
-pub(crate) mod state;
+pub mod grammar_util;
+pub mod module;
+pub mod parser;
+pub mod payload_map;
+pub mod state;
 #[cfg(test)]
 mod testcases;
-pub(crate) mod top_level_stmts;
-pub(crate) mod type_expr;
-pub(crate) mod uniplate;
-pub(crate) mod validate;
+pub mod top_level_stmts;
+pub mod type_expr;
+pub mod uniplate;
+pub mod validate;
 
 #[allow(clippy::all)]
 // Things we explicitly turn on need to be explicitly turned off

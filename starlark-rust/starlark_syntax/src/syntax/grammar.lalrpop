@@ -13,8 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use starlark_syntax::lexer;
-
+use crate::lexer;
 use crate::codemap::Spanned;
 use crate::syntax::grammar_util;
 use crate::syntax::ast::*;
@@ -413,7 +412,7 @@ FactorExpr: AstExpr = {
 
 extern {
     type Location = usize;
-    type Error = starlark_syntax::eval_exception::EvalException;
+    type Error = crate::eval_exception::EvalException;
 
     enum lexer::Token {
       "INDENT" => lexer::Token::Indent,

@@ -17,6 +17,7 @@
 
 use starlark_syntax::eval_exception::EvalException;
 use starlark_syntax::slice_vec_ext::VecExt;
+use starlark_syntax::syntax::type_expr::TypeExprUnpackP;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
@@ -31,7 +32,6 @@ use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::Compiler;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
-use crate::syntax::type_expr::TypeExprUnpackP;
 use crate::typing::Ty;
 use crate::values::types::ellipsis::Ellipsis;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;

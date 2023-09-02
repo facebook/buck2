@@ -15,21 +15,22 @@
  * limitations under the License.
  */
 
+use starlark_syntax::syntax::ast::ArgumentP;
+use starlark_syntax::syntax::ast::AssignP;
+use starlark_syntax::syntax::ast::AstArgumentP;
+use starlark_syntax::syntax::ast::AstExprP;
+use starlark_syntax::syntax::ast::AstLiteral;
+use starlark_syntax::syntax::ast::AstNoPayload;
+use starlark_syntax::syntax::ast::AstStmtP;
+use starlark_syntax::syntax::ast::ExprP;
+use starlark_syntax::syntax::ast::ParameterP;
+use starlark_syntax::syntax::ast::StmtP;
+use starlark_syntax::syntax::uniplate::Visit;
+
 use crate::codemap::CodeMap;
 use crate::codemap::Pos;
 use crate::codemap::ResolvedSpan;
 use crate::codemap::Span;
-use crate::syntax::ast::ArgumentP;
-use crate::syntax::ast::AssignP;
-use crate::syntax::ast::AstArgumentP;
-use crate::syntax::ast::AstExprP;
-use crate::syntax::ast::AstLiteral;
-use crate::syntax::ast::AstNoPayload;
-use crate::syntax::ast::AstStmtP;
-use crate::syntax::ast::ExprP;
-use crate::syntax::ast::ParameterP;
-use crate::syntax::ast::StmtP;
-use crate::syntax::uniplate::Visit;
 use crate::syntax::AstModule;
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
@@ -70,12 +71,16 @@ pub enum AutocompleteType {
     None,
 }
 
-impl AstModule {
+pub(crate) trait AstModuleInspect {
     /// Walks through the AST to find the type of the expression at the given position.
     /// Based on that, returns an enum that can be used to determine what kind of
     /// autocomplete should be performed. For example, path in a `load` statement versus
     /// a variable name.
-    pub fn get_auto_complete_type(&self, line: u32, col: u32) -> Option<AutocompleteType> {
+    fn get_auto_complete_type(&self, line: u32, col: u32) -> Option<AutocompleteType>;
+}
+
+impl AstModuleInspect for AstModule {
+    fn get_auto_complete_type(&self, line: u32, col: u32) -> Option<AutocompleteType> {
         let line_span = match self.codemap.line_span_opt(line as usize) {
             None => {
                 // The document got edited to add new lines, just bail out

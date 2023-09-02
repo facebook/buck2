@@ -17,26 +17,27 @@
 
 use std::collections::HashMap;
 
+use starlark_syntax::syntax::ast::AssignIdentP;
+use starlark_syntax::syntax::ast::AssignP;
+use starlark_syntax::syntax::ast::AstAssignIdent;
+use starlark_syntax::syntax::ast::AstAssignTarget;
+use starlark_syntax::syntax::ast::AstExpr;
+use starlark_syntax::syntax::ast::AstIdent;
+use starlark_syntax::syntax::ast::AstParameter;
+use starlark_syntax::syntax::ast::AstStmt;
+use starlark_syntax::syntax::ast::AstString;
+use starlark_syntax::syntax::ast::AstTypeExpr;
+use starlark_syntax::syntax::ast::Clause;
+use starlark_syntax::syntax::ast::DefP;
+use starlark_syntax::syntax::ast::Expr;
+use starlark_syntax::syntax::ast::ForClause;
+use starlark_syntax::syntax::ast::ForP;
+use starlark_syntax::syntax::ast::IdentP;
+use starlark_syntax::syntax::ast::LambdaP;
+use starlark_syntax::syntax::ast::Stmt;
+
 use crate::codemap::Pos;
 use crate::codemap::Span;
-use crate::syntax::ast::AssignIdentP;
-use crate::syntax::ast::AssignP;
-use crate::syntax::ast::AstAssignIdent;
-use crate::syntax::ast::AstAssignTarget;
-use crate::syntax::ast::AstExpr;
-use crate::syntax::ast::AstIdent;
-use crate::syntax::ast::AstParameter;
-use crate::syntax::ast::AstStmt;
-use crate::syntax::ast::AstString;
-use crate::syntax::ast::AstTypeExpr;
-use crate::syntax::ast::Clause;
-use crate::syntax::ast::DefP;
-use crate::syntax::ast::Expr;
-use crate::syntax::ast::ForClause;
-use crate::syntax::ast::ForP;
-use crate::syntax::ast::IdentP;
-use crate::syntax::ast::LambdaP;
-use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
 
 #[derive(Debug, Clone, Eq, PartialEq)]

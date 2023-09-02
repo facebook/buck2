@@ -18,11 +18,11 @@
 use std::fmt::Display;
 
 use dupe::Dupe;
+use starlark_syntax::syntax::ast::BinOp;
 
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
-use crate::syntax::ast::BinOp;
 use crate::typing::basic::TyBasic;
 use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;

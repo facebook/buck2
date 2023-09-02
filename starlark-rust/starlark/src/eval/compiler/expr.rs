@@ -23,6 +23,14 @@ use std::cmp::Ordering;
 use dupe::Dupe;
 use starlark_derive::VisitSpanMut;
 use starlark_syntax::slice_vec_ext::SliceExt;
+use starlark_syntax::syntax::ast::AstExprP;
+use starlark_syntax::syntax::ast::AstLiteral;
+use starlark_syntax::syntax::ast::AstPayload;
+use starlark_syntax::syntax::ast::BinOp;
+use starlark_syntax::syntax::ast::ExprP;
+use starlark_syntax::syntax::ast::FStringP;
+use starlark_syntax::syntax::ast::LambdaP;
+use starlark_syntax::syntax::ast::StmtP;
 use thiserror::Error;
 
 use crate::codemap::Spanned;
@@ -50,14 +58,6 @@ use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
-use crate::syntax::ast::AstExprP;
-use crate::syntax::ast::AstLiteral;
-use crate::syntax::ast::AstPayload;
-use crate::syntax::ast::BinOp;
-use crate::syntax::ast::ExprP;
-use crate::syntax::ast::FStringP;
-use crate::syntax::ast::LambdaP;
-use crate::syntax::ast::StmtP;
 use crate::values::function::BoundMethodGen;
 use crate::values::function::FrozenBoundMethod;
 use crate::values::layout::value_not_special::FrozenValueNotSpecial;
@@ -1023,7 +1023,11 @@ fn try_eval_type_is(
     }
 }
 
-impl AstLiteral {
+trait AstLiteralCompile {
+    fn compile(&self, heap: &FrozenHeap) -> FrozenValue;
+}
+
+impl AstLiteralCompile for AstLiteral {
     fn compile(&self, heap: &FrozenHeap) -> FrozenValue {
         match self {
             AstLiteral::Int(i) => heap.alloc(StarlarkInt::from(i.node.clone())),
@@ -1034,7 +1038,16 @@ impl AstLiteral {
     }
 }
 
-impl<P: AstPayload> ExprP<P> {
+trait CompilerExprUtil<P: AstPayload> {
+    fn unpack_string_literal(&self) -> Option<&str>;
+    fn reduces_to_string<'a>(
+        op: BinOp,
+        left: &'a AstExprP<P>,
+        right: &'a AstExprP<P>,
+    ) -> Option<String>;
+}
+
+impl<P: AstPayload> CompilerExprUtil<P> for ExprP<P> {
     fn unpack_string_literal(&self) -> Option<&str> {
         match self {
             ExprP::Literal(AstLiteral::String(i)) => Some(&i.node),

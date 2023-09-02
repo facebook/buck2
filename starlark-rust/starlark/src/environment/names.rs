@@ -18,11 +18,11 @@
 use std::cell::RefCell;
 
 use allocative::Allocative;
+use starlark_syntax::syntax::ast::Visibility;
 
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::environment::slots::ModuleSlotId;
-use crate::syntax::ast::Visibility;
 use crate::values::FrozenStringValue;
 
 /// MutableNames are how we allocate slots (index-based) to variables

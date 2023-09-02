@@ -28,6 +28,7 @@ use lsp_types::MarkupContent;
 use lsp_types::MarkupKind;
 use lsp_types::Range;
 use lsp_types::TextEdit;
+use starlark_syntax::syntax::ast::StmtP;
 
 use crate::codemap::ResolvedPos;
 use crate::codemap::ResolvedSpan;
@@ -46,7 +47,6 @@ use crate::lsp::server::LspContext;
 use crate::lsp::server::LspUrl;
 use crate::lsp::symbols::find_symbols_at_location;
 use crate::lsp::symbols::SymbolKind;
-use crate::syntax::ast::StmtP;
 
 /// The context in which to offer string completion options.
 #[derive(Debug, PartialEq)]
