@@ -80,9 +80,6 @@ pub enum LibraryExtension {
     Breakpoint,
     /// Add a function `json()` which will generate JSON for a module.
     Json,
-    /// Does nothing.
-    // TODO(nga): remove it.
-    Abs,
     /// `type_compiled()` function.
     Typing,
     /// Utilities exposing starlark-rust internals.
@@ -108,7 +105,6 @@ impl LibraryExtension {
             Pprint,
             Breakpoint,
             Json,
-            Abs,
             Typing,
             Internal,
         ]
@@ -130,7 +126,6 @@ impl LibraryExtension {
             Pprint => extra::pprint(builder),
             Breakpoint => breakpoint::global(builder),
             Json => json::json(builder),
-            Abs => {}
             Typing => typing::globals::register_typing(builder),
             Internal => register_internal(builder),
         }
