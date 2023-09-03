@@ -11,6 +11,7 @@ use allocative::Allocative;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
+use starlark::typing::Ty;
 use starlark::values::starlark_value;
 use starlark::values::Demand;
 use starlark::values::Freeze;
@@ -61,6 +62,10 @@ where
 {
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
         demand.provide_value::<&dyn CommandLineArgLike>(self);
+    }
+
+    fn get_type_starlark_repr() -> Ty {
+        Ty::starlark_value::<Self>()
     }
 }
 

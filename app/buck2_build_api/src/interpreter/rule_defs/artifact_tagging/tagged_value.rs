@@ -11,6 +11,7 @@ use allocative::Allocative;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
+use starlark::typing::Ty;
 use starlark::values::starlark_value;
 use starlark::values::Freeze;
 use starlark::values::NoSerialize;
@@ -66,9 +67,13 @@ impl<'v> TaggedValue<'v> {
 starlark_complex_value!(pub TaggedValue);
 
 #[starlark_value(type = "tagged_value")]
-impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for TaggedValueGen<V> where
-    Self: ProvidesStaticType<'v>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for TaggedValueGen<V>
+where
+    Self: ProvidesStaticType<'v>,
 {
+    fn get_type_starlark_repr() -> Ty {
+        Ty::starlark_value::<Self>()
+    }
 }
 
 impl<V> TaggedValueGen<V> {
