@@ -88,6 +88,7 @@ const BAN_REPLACE_TYPES: &[(&str, &str)] = &[
     ("actions", "AnalysisActions"),
     ("context", "AnalysisContext"),
     ("artifact", "Artifact"),
+    ("artifact_tag", "ArtifactTag"),
     ("dependency", "Dependency"),
     ("provider", "Provider"),
     ("selector", "Select"),
