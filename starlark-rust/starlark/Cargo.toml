@@ -36,7 +36,6 @@ starlark_syntax = { version = "0.9.0", path = "../starlark_syntax" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 maplit = "1.0.2"
-lsp-types = "0.94.1"
 debugserver-types = "0.5.0"
 hashbrown = { version = "0.12.3", features = ["raw"] }
 textwrap = "0.11"

@@ -35,7 +35,6 @@ use std::process::Command;
 
 use either::Either;
 use lsp_types::CompletionItemKind;
-use lsp_types::Diagnostic;
 use lsp_types::Url;
 use starlark::analysis::find_call_name::AstModuleFindCallName;
 use starlark::analysis::AstModuleLint;
@@ -51,6 +50,7 @@ use starlark::eval::Evaluator;
 use starlark::syntax::AstModule;
 use starlark_lsp::completion::StringCompletionResult;
 use starlark_lsp::completion::StringCompletionType;
+use starlark_lsp::error::eval_message_to_lsp_diagnostic;
 use starlark_lsp::server::LspContext;
 use starlark_lsp::server::LspEvalResult;
 use starlark_lsp::server::LspUrl;
@@ -645,7 +645,7 @@ impl LspContext for BazelContext {
                 let EvalResult { messages, ast } =
                     self.file_with_contents(&uri.to_string_lossy(), content);
                 LspEvalResult {
-                    diagnostics: messages.map(Diagnostic::from).collect(),
+                    diagnostics: messages.map(eval_message_to_lsp_diagnostic).collect(),
                     ast,
                 }
             }

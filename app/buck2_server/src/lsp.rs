@@ -66,6 +66,7 @@ use starlark::docs::Identifier;
 use starlark::docs::Location;
 use starlark::errors::EvalMessage;
 use starlark::syntax::AstModule;
+use starlark_lsp::error::eval_message_to_lsp_diagnostic;
 use starlark_lsp::server::server_with_connection;
 use starlark_lsp::server::LspContext;
 use starlark_lsp::server::LspEvalResult;
@@ -584,7 +585,7 @@ impl<'a> LspContext for BuckLspContext<'a> {
                             Err(e) => {
                                 let message = EvalMessage::from_anyhow(uri.path(), e.inner());
                                 LspEvalResult {
-                                    diagnostics: vec![message.into()],
+                                    diagnostics: vec![eval_message_to_lsp_diagnostic(message)],
                                     ast: None,
                                 }
                             }

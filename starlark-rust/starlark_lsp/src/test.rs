@@ -70,6 +70,7 @@ use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
 use starlark_syntax::slice_vec_ext::VecExt;
 
+use crate::error::eval_message_to_lsp_diagnostic;
 use crate::server::new_notification;
 use crate::server::server_with_connection;
 use crate::server::LspContext;
@@ -139,14 +140,18 @@ impl LspContext for TestServerContext {
             LspUrl::File(path) | LspUrl::Starlark(path) => {
                 match AstModule::parse(&path.to_string_lossy(), content, &Dialect::Extended) {
                     Ok(ast) => {
-                        let diagnostics = ast.lint(None).into_map(|l| EvalMessage::from(l).into());
+                        let diagnostics = ast
+                            .lint(None)
+                            .into_map(|l| eval_message_to_lsp_diagnostic(EvalMessage::from(l)));
                         LspEvalResult {
                             diagnostics,
                             ast: Some(ast),
                         }
                     }
                     Err(e) => {
-                        let diagnostics = vec![EvalMessage::from_anyhow(path, &e).into()];
+                        let diagnostics = vec![eval_message_to_lsp_diagnostic(
+                            EvalMessage::from_anyhow(path, &e),
+                        )];
                         LspEvalResult {
                             diagnostics,
                             ast: None,

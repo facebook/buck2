@@ -22,6 +22,7 @@ mod bind;
 pub mod completion;
 mod definition;
 pub(crate) mod docs;
+pub mod error;
 mod exported;
 pub(crate) mod inspect;
 pub(crate) mod loaded;

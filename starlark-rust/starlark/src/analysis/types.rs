@@ -20,9 +20,6 @@ use std::fmt::Display;
 use std::path::Path;
 
 use dupe::Dupe;
-use lsp_types::DiagnosticSeverity;
-use lsp_types::NumberOrString;
-use lsp_types::Range;
 use serde::Serialize;
 use starlark_syntax::diagnostic::Diagnostic;
 
@@ -119,17 +116,6 @@ impl Display for EvalSeverity {
     }
 }
 
-impl From<EvalSeverity> for DiagnosticSeverity {
-    fn from(s: EvalSeverity) -> Self {
-        match s {
-            EvalSeverity::Error => DiagnosticSeverity::ERROR,
-            EvalSeverity::Warning => DiagnosticSeverity::WARNING,
-            EvalSeverity::Advice => DiagnosticSeverity::HINT,
-            EvalSeverity::Disabled => DiagnosticSeverity::INFORMATION,
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 /// Potential problems that occurred while parsing a starlark program.
 pub struct EvalMessage {
@@ -206,23 +192,5 @@ impl From<Lint> for EvalMessage {
             full_error_with_span: None,
             original: Some(x.original),
         }
-    }
-}
-
-impl From<EvalMessage> for lsp_types::Diagnostic {
-    fn from(x: EvalMessage) -> Self {
-        let range = match x.span {
-            Some(s) => s.into(),
-            _ => Range::default(),
-        };
-        lsp_types::Diagnostic::new(
-            range,
-            Some(x.severity.into()),
-            Some(NumberOrString::String(x.name)),
-            None,
-            x.description,
-            None,
-            None,
-        )
     }
 }
