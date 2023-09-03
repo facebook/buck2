@@ -247,10 +247,7 @@ message UqueryRequest {
 }
 
 message UqueryResponse {
-  reserved 100;
-  // If present, errors to show the user. If any are present, the query command
-  // failed.
-  repeated string error_messages = 101;
+  reserved 100, 101;
 }
 
 message CqueryRequest {

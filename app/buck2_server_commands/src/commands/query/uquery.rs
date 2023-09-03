@@ -60,8 +60,8 @@ impl ServerCommandTemplate for UqueryServerCommand {
         .await
     }
 
-    fn is_success(&self, response: &Self::Response) -> bool {
-        response.error_messages.is_empty()
+    fn is_success(&self, _: &Self::Response) -> bool {
+        true
     }
 }
 
@@ -105,7 +105,7 @@ async fn uquery(
         )
         .await?;
 
-    let result = match query_result {
+    match query_result {
         QueryEvaluationResult::Single(targets) => {
             output_configuration
                 .print_single_output(
@@ -114,7 +114,7 @@ async fn uquery(
                     target_call_stacks,
                     ShouldPrintProviders::No,
                 )
-                .await
+                .await?
         }
         QueryEvaluationResult::Multiple(results) => {
             output_configuration
@@ -124,14 +124,9 @@ async fn uquery(
                     target_call_stacks,
                     ShouldPrintProviders::No,
                 )
-                .await
+                .await?
         }
     };
 
-    let error_messages = match result {
-        Ok(_) => vec![],
-        Err(e) => vec![format!("{:#}", e)],
-    };
-
-    Ok(UqueryResponse { error_messages })
+    Ok(UqueryResponse {})
 }
