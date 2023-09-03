@@ -1693,6 +1693,8 @@ message InvocationRecord {
   // Metadata provided by the client. Unlike TypedMetadata, this won't become
   // its own column in Scuba, all those entries will land in a NormVector.
   repeated ClientMetadata client_metadata = 76;
+  // The error messages that were shown to the user.
+  repeated string error_messages = 77;
 }
 
 // Record event sent directly to scribe.
