@@ -278,9 +278,7 @@ message CqueryRequest {
 }
 
 message CqueryResponse {
-  // If present, errors to show the user. If any are present, the query command
-  // failed.
-  repeated string error_messages = 101;
+  reserved 101;
 }
 
 message ConfigOverride {

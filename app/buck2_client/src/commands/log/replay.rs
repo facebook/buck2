@@ -114,7 +114,6 @@ impl TryFrom<buck2_cli_proto::command_result::Result> for ReplayResult {
             Result::Error(v) => v.messages,
             Result::BuildResponse(v) => v.error_messages,
             Result::TestResponse(v) => v.error_messages,
-            Result::CqueryResponse(v) => v.error_messages,
             Result::UqueryResponse(v) => v.error_messages,
             Result::AqueryResponse(v) => v.error_messages,
             Result::BxlResponse(v) => v.error_messages,

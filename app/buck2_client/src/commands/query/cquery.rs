@@ -9,6 +9,7 @@
 
 use async_trait::async_trait;
 use buck2_cli_proto::CqueryRequest;
+use buck2_cli_proto::CqueryResponse;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
@@ -113,7 +114,7 @@ impl StreamingCommand for CqueryCommand {
             }
         };
 
-        let response = buckd
+        let CqueryResponse {} = buckd
             .with_flushing()
             .cquery(
                 CqueryRequest {
@@ -132,15 +133,7 @@ impl StreamingCommand for CqueryCommand {
             )
             .await??;
 
-        for message in &response.error_messages {
-            buck2_client_ctx::eprintln!("{}", message)?;
-        }
-
-        if !response.error_messages.is_empty() {
-            ExitResult::failure()
-        } else {
-            ExitResult::success()
-        }
+        ExitResult::success()
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {

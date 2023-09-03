@@ -79,8 +79,8 @@ impl ServerCommandTemplate for CqueryServerCommand {
         .await
     }
 
-    fn is_success(&self, response: &Self::Response) -> bool {
-        response.error_messages.is_empty()
+    fn is_success(&self, _: &Self::Response) -> bool {
+        true
     }
 }
 
@@ -145,7 +145,7 @@ async fn cquery(
         ShouldPrintProviders::No
     };
 
-    let result = match query_result {
+    match query_result {
         QueryEvaluationResult::Single(targets) => {
             output_configuration
                 .print_single_output(
@@ -154,7 +154,7 @@ async fn cquery(
                     target_call_stacks,
                     should_print_providers,
                 )
-                .await
+                .await?
         }
         QueryEvaluationResult::Multiple(results) => {
             output_configuration
@@ -164,16 +164,11 @@ async fn cquery(
                     target_call_stacks,
                     should_print_providers,
                 )
-                .await
+                .await?
         }
     };
 
-    let error_messages = match result {
-        Ok(_) => vec![],
-        Err(e) => vec![format!("{:#}", e)],
-    };
-
-    Ok(CqueryResponse { error_messages })
+    Ok(CqueryResponse {})
 }
 
 #[async_trait]
