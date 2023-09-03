@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use either::Either;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::GlobalsBuilder;
@@ -24,7 +25,6 @@ use starlark::typing::Ty;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::Freeze;
-use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
@@ -115,28 +115,26 @@ fn artifact_tag_methods(_: &mut MethodsBuilder) {
     fn tag_artifacts<'v>(
         this: &ArtifactTag,
         inner: Value<'v>,
-        heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<Either<TaggedValue<'v>, TaggedCommandLine<'v>>> {
         let value = TaggedValue::new(inner, this.dupe());
 
         Ok(if inner.as_command_line().is_some() {
-            heap.alloc(TaggedCommandLine::new(value))
+            Either::Right(TaggedCommandLine::new(value))
         } else {
-            heap.alloc(value)
+            Either::Left(value)
         })
     }
 
     fn tag_inputs<'v>(
         this: &ArtifactTag,
         inner: Value<'v>,
-        heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<Either<TaggedValue<'v>, TaggedCommandLine<'v>>> {
         let value = TaggedValue::inputs_only(inner, this.dupe());
 
         Ok(if inner.as_command_line().is_some() {
-            heap.alloc(TaggedCommandLine::new(value))
+            Either::Right(TaggedCommandLine::new(value))
         } else {
-            heap.alloc(value)
+            Either::Left(value)
         })
     }
 }
