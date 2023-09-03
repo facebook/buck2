@@ -58,8 +58,8 @@ impl ServerCommandTemplate for AqueryServerCommand {
         .await
     }
 
-    fn is_success(&self, response: &Self::Response) -> bool {
-        response.error_messages.is_empty()
+    fn is_success(&self, _: &Self::Response) -> bool {
+        true
     }
 }
 
@@ -101,21 +101,17 @@ async fn aquery(
         )
         .await?;
 
-    let result = match query_result {
+    match query_result {
         QueryEvaluationResult::Single(targets) => {
             output_configuration
                 .print_single_output(&mut stdout, targets, false, ShouldPrintProviders::No)
-                .await
+                .await?
         }
         QueryEvaluationResult::Multiple(results) => {
             output_configuration
                 .print_multi_output(&mut stdout, results, false, ShouldPrintProviders::No)
-                .await
+                .await?
         }
     };
-    let error_messages = match result {
-        Ok(_) => vec![],
-        Err(e) => vec![format!("{:#}", e)],
-    };
-    Ok(buck2_cli_proto::AqueryResponse { error_messages })
+    Ok(buck2_cli_proto::AqueryResponse {})
 }
