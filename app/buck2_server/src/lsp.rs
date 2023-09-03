@@ -65,12 +65,12 @@ use starlark::docs::DocModule;
 use starlark::docs::Identifier;
 use starlark::docs::Location;
 use starlark::errors::EvalMessage;
-use starlark::lsp::server::server_with_connection;
-use starlark::lsp::server::LspContext;
-use starlark::lsp::server::LspEvalResult;
-use starlark::lsp::server::LspUrl;
-use starlark::lsp::server::StringLiteralResult;
 use starlark::syntax::AstModule;
+use starlark_lsp::server::server_with_connection;
+use starlark_lsp::server::LspContext;
+use starlark_lsp::server::LspEvalResult;
+use starlark_lsp::server::LspUrl;
+use starlark_lsp::server::StringLiteralResult;
 use tokio::runtime::Handle;
 use tokio::sync::Mutex;
 use tokio::sync::MutexGuard;
@@ -916,7 +916,7 @@ mod test {
     use starlark::docs::DocItem;
     use starlark::docs::Identifier;
     use starlark::docs::Location;
-    use starlark::lsp::server::LspUrl;
+    use starlark_lsp::server::LspUrl;
 
     use crate::lsp::DocsCache;
     use crate::lsp::DOCS_DIRECTORY_KEY;

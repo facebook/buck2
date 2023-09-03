@@ -86,29 +86,28 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use starlark::codemap::ResolvedSpan;
+use starlark::codemap::Span;
+use starlark::codemap::Spanned;
+use starlark::docs::markdown::render_doc_item;
+use starlark::docs::markdown::render_doc_member;
+use starlark::docs::markdown::render_doc_param;
+use starlark::docs::DocMember;
+use starlark::docs::DocModule;
+use starlark::syntax::AstModule;
+use starlark_syntax::codemap::ResolvedPos;
 use starlark_syntax::syntax::ast::AssignIdentP;
 use starlark_syntax::syntax::ast::AstPayload;
 
-use crate::codemap::ResolvedPos;
-use crate::codemap::ResolvedSpan;
-use crate::codemap::Span;
-use crate::codemap::Spanned;
-use crate::docs::markdown::render_doc_item;
-use crate::docs::markdown::render_doc_member;
-use crate::docs::markdown::render_doc_param;
-use crate::docs::DocMember;
-use crate::docs::DocModule;
-use crate::lsp::completion::StringCompletionResult;
-use crate::lsp::completion::StringCompletionType;
-use crate::lsp::definition::Definition;
-use crate::lsp::definition::DottedDefinition;
-use crate::lsp::definition::IdentifierDefinition;
-use crate::lsp::definition::LspModule;
-use crate::lsp::inspect::AstModuleInspect;
-use crate::lsp::inspect::AutocompleteType;
-use crate::lsp::server::LoadContentsError::WrongScheme;
-use crate::lsp::symbols::find_symbols_at_location;
-use crate::syntax::AstModule;
+use crate::completion::StringCompletionResult;
+use crate::completion::StringCompletionType;
+use crate::definition::Definition;
+use crate::definition::DottedDefinition;
+use crate::definition::IdentifierDefinition;
+use crate::definition::LspModule;
+use crate::inspect::AstModuleInspect;
+use crate::inspect::AutocompleteType;
+use crate::symbols::find_symbols_at_location;
 
 /// The request to get the file contents for a starlark: URI
 struct StarlarkFileContentsRequest {}
@@ -534,7 +533,7 @@ impl<T: LspContext> Backend<T> {
                 .context
                 .get_load_contents(&params.uri)
                 .map(|contents| StarlarkFileContentsResponse { contents }),
-            _ => Err(WrongScheme("starlark:".to_owned(), params.uri).into()),
+            _ => Err(LoadContentsError::WrongScheme("starlark:".to_owned(), params.uri).into()),
         };
         self.send_response(new_response(id, response));
     }
@@ -1402,17 +1401,17 @@ mod test {
     use lsp_types::TextDocumentIdentifier;
     use lsp_types::TextDocumentPositionParams;
     use lsp_types::Url;
+    use starlark::codemap::ResolvedSpan;
+    use starlark::wasm::is_wasm;
     use textwrap::dedent;
 
-    use crate::codemap::ResolvedSpan;
-    use crate::lsp::definition::helpers::FixtureWithRanges;
-    use crate::lsp::server::LspServerSettings;
-    use crate::lsp::server::LspUrl;
-    use crate::lsp::server::StarlarkFileContentsParams;
-    use crate::lsp::server::StarlarkFileContentsRequest;
-    use crate::lsp::server::StarlarkFileContentsResponse;
-    use crate::lsp::test::TestServer;
-    use crate::wasm::is_wasm;
+    use crate::definition::helpers::FixtureWithRanges;
+    use crate::server::LspServerSettings;
+    use crate::server::LspUrl;
+    use crate::server::StarlarkFileContentsParams;
+    use crate::server::StarlarkFileContentsRequest;
+    use crate::server::StarlarkFileContentsResponse;
+    use crate::test::TestServer;
 
     fn goto_definition_request(
         server: &mut TestServer,

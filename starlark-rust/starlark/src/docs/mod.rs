@@ -20,7 +20,7 @@
 // TODO(nga): document it
 #![allow(missing_docs)]
 
-pub(crate) mod markdown;
+pub mod markdown;
 
 use std::collections::HashMap;
 
@@ -463,7 +463,8 @@ impl DocFunction {
         format!("def {}{}{}:\n{}    pass", name, params, ret, docstring)
     }
 
-    pub(crate) fn find_param_with_name(&self, param_name: &str) -> Option<&DocParam> {
+    /// Used by LSP.
+    pub fn find_param_with_name(&self, param_name: &str) -> Option<&DocParam> {
         self.params.iter().find(|p| match p {
             DocParam::Arg { name, .. }
             | DocParam::Args { name, .. }

@@ -48,14 +48,13 @@ use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::errors::EvalMessage;
 use starlark::eval::Evaluator;
-use starlark::lsp;
-use starlark::lsp::completion::StringCompletionResult;
-use starlark::lsp::completion::StringCompletionType;
-use starlark::lsp::server::LspContext;
-use starlark::lsp::server::LspEvalResult;
-use starlark::lsp::server::LspUrl;
-use starlark::lsp::server::StringLiteralResult;
 use starlark::syntax::AstModule;
+use starlark_lsp::completion::StringCompletionResult;
+use starlark_lsp::completion::StringCompletionType;
+use starlark_lsp::server::LspContext;
+use starlark_lsp::server::LspEvalResult;
+use starlark_lsp::server::LspUrl;
+use starlark_lsp::server::StringLiteralResult;
 
 use crate::eval::dialect;
 use crate::eval::globals;
@@ -149,7 +148,7 @@ pub(crate) fn main(
     let mut ctx = BazelContext::new(ContextMode::Check, print_non_none, prelude, is_interactive)?;
 
     ctx.mode = ContextMode::Check;
-    lsp::server::stdio_server(ctx)?;
+    starlark_lsp::server::stdio_server(ctx)?;
 
     Ok(())
 }

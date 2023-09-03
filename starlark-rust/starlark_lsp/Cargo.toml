@@ -1,9 +1,9 @@
 [package]
-name = "starlark_bin"
+name = "starlark_lsp"
 edition = "2021"
 version = "0.9.0"
 license = "Apache-2.0"
-description = "starlark binary"
+description = "LSP bindings for starlark"
 documentation = "https://docs.rs/starlark"
 repository = "https://github.com/facebookexperimental/starlark-rust"
 authors = [
@@ -14,24 +14,21 @@ keywords = ["starlark", "skylark", "language", "interpreter"]
 categories = ["parser-implementations", "development-tools"]
 
 [dependencies]
-dupe = { workspace = true }
-
-starlark = { version = "0.9.0", path = "../starlark" }
-starlark_lsp = { version = "0.9.0", path = "../starlark_lsp" }
-starlark_map = { version = "0.9.0", path = "../starlark_map" }
-
 anyhow = "1.0.65"
-argfile = "0.1.0"
-clap = { version = "4.0.7", features = ["derive", "wrap_help"] }
-debugserver-types = "0.5.0"
-either = "1.8"
+derivative = "2.2"
+derive_more = "0.99"
+dupe = { workspace = true }
 itertools = "0.10"
-lsp-types = "0.94.1"
+thiserror = "1.0.36"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-thiserror = "1.0.36"
-walkdir = "2.3"
+lsp-server = "0.7.2"
+lsp-types = "0.94.1"
 
-[[bin]]
-name = "starlark"
-path = "bin/main.rs"
+starlark_syntax = { version = "0.9.0", path = "../starlark_syntax" }
+starlark = { version = "0.9.0", path = "../starlark" }
+
+[dev-dependencies]
+maplit = "1.0.2"
+regex = "1.5.4"
+textwrap = "0.11"

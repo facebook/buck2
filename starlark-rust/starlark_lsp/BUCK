@@ -1,0 +1,29 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+
+rust_library(
+    name = "starlark_lsp",
+    srcs = glob(["src/**/*.rs"]),
+    doctests = False,  # FIXME
+    rustc_flags = [
+        "--cfg=rust_nightly",
+    ],
+    test_deps = [
+        "fbsource//third-party/rust:maplit",
+        "fbsource//third-party/rust:regex",
+        "fbsource//third-party/rust:textwrap",
+    ],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:derivative",
+        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:itertools",
+        "fbsource//third-party/rust:lsp-server",
+        "fbsource//third-party/rust:lsp-types",
+        "fbsource//third-party/rust:serde",
+        "fbsource//third-party/rust:serde_json",
+        "fbsource//third-party/rust:thiserror",
+        "//buck2/gazebo/dupe:dupe",
+        "//buck2/starlark-rust/starlark:starlark",
+        "//buck2/starlark-rust/starlark_syntax:starlark_syntax",
+    ],
+)

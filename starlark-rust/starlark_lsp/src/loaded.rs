@@ -16,10 +16,9 @@
  */
 
 use dupe::Dupe;
+use starlark::syntax::AstModule;
 use starlark_syntax::syntax::ast::StmtP;
 use starlark_syntax::syntax::top_level_stmts::top_level_stmts;
-
-use crate::syntax::AstModule;
 
 /// A loaded symbol. Returned from [`AstModule::loaded_symbols`].
 #[derive(Debug, PartialEq, Eq, Clone, Dupe, Hash)]
@@ -57,10 +56,10 @@ impl AstModuleLoadedSymbols for AstModule {
 
 #[cfg(test)]
 mod tests {
+    use starlark::syntax::Dialect;
     use starlark_syntax::slice_vec_ext::SliceExt;
 
     use super::*;
-    use crate::syntax::Dialect;
 
     fn module(x: &str) -> AstModule {
         AstModule::parse("X", x.to_owned(), &Dialect::Extended).unwrap()

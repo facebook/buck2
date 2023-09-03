@@ -19,6 +19,10 @@
 
 use std::collections::HashMap;
 
+use starlark::codemap::CodeMap;
+use starlark::docs::DocItem;
+use starlark::docs::DocParam;
+use starlark_syntax::codemap::ResolvedPos;
 use starlark_syntax::syntax::ast::AssignP;
 use starlark_syntax::syntax::ast::AstPayload;
 use starlark_syntax::syntax::ast::AstStmtP;
@@ -27,11 +31,7 @@ use starlark_syntax::syntax::ast::ForP;
 use starlark_syntax::syntax::ast::ParameterP;
 use starlark_syntax::syntax::ast::StmtP;
 
-use crate::codemap::CodeMap;
-use crate::codemap::ResolvedPos;
-use crate::docs::DocItem;
-use crate::docs::DocParam;
-use crate::lsp::docs::get_doc_item_for_def;
+use crate::docs::get_doc_item_for_def;
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum SymbolKind {
@@ -162,12 +162,13 @@ pub(crate) fn find_symbols_at_location<P: AstPayload>(
 mod tests {
     use std::collections::HashMap;
 
+    use starlark::syntax::AstModule;
+    use starlark::syntax::Dialect;
+    use starlark_syntax::codemap::ResolvedPos;
+
     use super::find_symbols_at_location;
     use super::Symbol;
     use super::SymbolKind;
-    use crate::codemap::ResolvedPos;
-    use crate::syntax::AstModule;
-    use crate::syntax::Dialect;
 
     #[test]
     fn global_symbols() {

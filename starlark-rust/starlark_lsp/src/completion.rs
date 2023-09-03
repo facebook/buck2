@@ -28,25 +28,25 @@ use lsp_types::MarkupContent;
 use lsp_types::MarkupKind;
 use lsp_types::Range;
 use lsp_types::TextEdit;
+use starlark::codemap::ResolvedSpan;
+use starlark::docs::markdown::render_doc_item;
+use starlark::docs::markdown::render_doc_param;
+use starlark::docs::DocItem;
+use starlark::docs::DocMember;
+use starlark::docs::DocParam;
+use starlark_syntax::codemap::ResolvedPos;
 use starlark_syntax::syntax::ast::StmtP;
 
-use crate::codemap::ResolvedPos;
-use crate::codemap::ResolvedSpan;
-use crate::docs::markdown::render_doc_item;
-use crate::docs::markdown::render_doc_param;
-use crate::docs::DocItem;
-use crate::docs::DocMember;
-use crate::docs::DocParam;
-use crate::lsp::definition::Definition;
-use crate::lsp::definition::DottedDefinition;
-use crate::lsp::definition::IdentifierDefinition;
-use crate::lsp::definition::LspModule;
-use crate::lsp::exported::SymbolKind as ExportedSymbolKind;
-use crate::lsp::server::Backend;
-use crate::lsp::server::LspContext;
-use crate::lsp::server::LspUrl;
-use crate::lsp::symbols::find_symbols_at_location;
-use crate::lsp::symbols::SymbolKind;
+use crate::definition::Definition;
+use crate::definition::DottedDefinition;
+use crate::definition::IdentifierDefinition;
+use crate::definition::LspModule;
+use crate::exported::SymbolKind as ExportedSymbolKind;
+use crate::server::Backend;
+use crate::server::LspContext;
+use crate::server::LspUrl;
+use crate::symbols::find_symbols_at_location;
+use crate::symbols::SymbolKind;
 
 /// The context in which to offer string completion options.
 #[derive(Debug, PartialEq)]

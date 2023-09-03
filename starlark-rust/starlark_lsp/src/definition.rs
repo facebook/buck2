@@ -17,6 +17,12 @@
 
 use std::iter;
 
+use starlark::codemap::CodeMap;
+use starlark::codemap::Pos;
+use starlark::codemap::ResolvedSpan;
+use starlark::codemap::Span;
+use starlark::codemap::Spanned;
+use starlark::syntax::AstModule;
 use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::syntax::ast::ArgumentP;
 use starlark_syntax::syntax::ast::AssignTargetP;
@@ -31,20 +37,14 @@ use starlark_syntax::syntax::ast::StmtP;
 use starlark_syntax::syntax::top_level_stmts::top_level_stmts;
 use starlark_syntax::syntax::uniplate::Visit;
 
-use crate::codemap::CodeMap;
-use crate::codemap::Pos;
-use crate::codemap::ResolvedSpan;
-use crate::codemap::Span;
-use crate::codemap::Spanned;
-use crate::lsp::bind::scope;
-use crate::lsp::bind::Assigner;
-use crate::lsp::bind::Bind;
-use crate::lsp::bind::Scope;
-use crate::lsp::exported::AstModuleExportedSymbols;
-use crate::lsp::exported::Symbol;
-use crate::lsp::loaded::AstModuleLoadedSymbols;
-use crate::lsp::loaded::LoadedSymbol;
-use crate::syntax::AstModule;
+use crate::bind::scope;
+use crate::bind::Assigner;
+use crate::bind::Bind;
+use crate::bind::Scope;
+use crate::exported::AstModuleExportedSymbols;
+use crate::exported::Symbol;
+use crate::loaded::AstModuleLoadedSymbols;
+use crate::loaded::LoadedSymbol;
 
 /// The location of a definition for a given identifier. See [`AstModule::find_definition_at_location`].
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -605,16 +605,16 @@ pub(crate) mod helpers {
     use std::collections::hash_map::Entry;
     use std::collections::HashMap;
 
+    use starlark::codemap::CodeMap;
+    use starlark::codemap::Pos;
+    use starlark::codemap::ResolvedSpan;
+    use starlark::codemap::Span;
+    use starlark::syntax::AstModule;
+    use starlark::syntax::Dialect;
+    use starlark_syntax::codemap::ResolvedPos;
     use textwrap::dedent;
 
     use super::*;
-    use crate::codemap::CodeMap;
-    use crate::codemap::Pos;
-    use crate::codemap::ResolvedPos;
-    use crate::codemap::ResolvedSpan;
-    use crate::codemap::Span;
-    use crate::syntax::AstModule;
-    use crate::syntax::Dialect;
 
     /// Result of parsing a starlark fixture that has range markers in it. See `FixtureWithRanges::from_fixture`
     #[derive(Debug, Clone, PartialEq, Eq)]

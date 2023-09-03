@@ -20,18 +20,18 @@ use lsp_types::CompletionItemKind;
 use lsp_types::Documentation;
 use lsp_types::MarkupContent;
 use lsp_types::MarkupKind;
+use starlark::codemap::FileSpan;
+use starlark::collections::SmallMap;
+use starlark::docs::markdown::render_doc_item;
+use starlark::docs::DocItem;
+use starlark::syntax::AstModule;
 use starlark_syntax::syntax::ast::AstAssignIdent;
 use starlark_syntax::syntax::ast::Expr;
 use starlark_syntax::syntax::ast::Stmt;
 use starlark_syntax::syntax::top_level_stmts::top_level_stmts;
 
-use crate::codemap::FileSpan;
-use crate::collections::SmallMap;
-use crate::docs::markdown::render_doc_item;
-use crate::docs::DocItem;
-use crate::lsp::docs::get_doc_item_for_assign;
-use crate::lsp::docs::get_doc_item_for_def;
-use crate::syntax::AstModule;
+use crate::docs::get_doc_item_for_assign;
+use crate::docs::get_doc_item_for_def;
 
 /// The type of an exported symbol.
 /// If unknown, will use `Any`.
@@ -174,10 +174,10 @@ impl AstModuleExportedSymbols for AstModule {
 
 #[cfg(test)]
 mod tests {
+    use starlark::syntax::Dialect;
     use starlark_syntax::slice_vec_ext::SliceExt;
 
     use super::*;
-    use crate::syntax::Dialect;
 
     fn module(x: &str) -> AstModule {
         AstModule::parse("X", x.to_owned(), &Dialect::Extended).unwrap()

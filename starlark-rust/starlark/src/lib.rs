@@ -400,7 +400,6 @@ pub mod docs;
 pub mod environment;
 pub mod errors;
 pub mod eval;
-pub mod lsp;
 mod private;
 pub mod read_line;
 mod sealed;
@@ -411,7 +410,7 @@ pub(crate) mod cast;
 mod hint;
 mod stdlib;
 pub mod values;
-pub(crate) mod wasm;
+pub mod wasm;
 
 pub mod coerce;
 #[cfg(test)]

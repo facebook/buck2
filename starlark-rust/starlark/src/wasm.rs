@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 
-#[cfg(test)]
-pub(crate) fn is_wasm() -> bool {
+#![doc(hidden)]
+
+/// Are we on wasm?
+pub fn is_wasm() -> bool {
     cfg!(target_arch = "wasm32")
 }

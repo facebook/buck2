@@ -37,12 +37,12 @@ use starlark::environment::Globals;
 use starlark::environment::Module;
 use starlark::errors::EvalMessage;
 use starlark::eval::Evaluator;
-use starlark::lsp::server::LspContext;
-use starlark::lsp::server::LspEvalResult;
-use starlark::lsp::server::LspUrl;
-use starlark::lsp::server::StringLiteralResult;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
+use starlark_lsp::server::LspContext;
+use starlark_lsp::server::LspEvalResult;
+use starlark_lsp::server::LspUrl;
+use starlark_lsp::server::StringLiteralResult;
 
 #[derive(Debug)]
 pub(crate) enum ContextMode {

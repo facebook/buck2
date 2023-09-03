@@ -15,6 +15,11 @@
  * limitations under the License.
  */
 
+use starlark::codemap::CodeMap;
+use starlark::codemap::Pos;
+use starlark::codemap::ResolvedSpan;
+use starlark::codemap::Span;
+use starlark::syntax::AstModule;
 use starlark_syntax::syntax::ast::ArgumentP;
 use starlark_syntax::syntax::ast::AssignP;
 use starlark_syntax::syntax::ast::AstArgumentP;
@@ -26,12 +31,6 @@ use starlark_syntax::syntax::ast::ExprP;
 use starlark_syntax::syntax::ast::ParameterP;
 use starlark_syntax::syntax::ast::StmtP;
 use starlark_syntax::syntax::uniplate::Visit;
-
-use crate::codemap::CodeMap;
-use crate::codemap::Pos;
-use crate::codemap::ResolvedSpan;
-use crate::codemap::Span;
-use crate::syntax::AstModule;
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub enum AutocompleteType {

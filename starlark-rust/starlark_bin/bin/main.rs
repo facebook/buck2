@@ -45,7 +45,6 @@ use starlark::docs::RenderMarkdown;
 use starlark::environment::Globals;
 use starlark::errors::EvalMessage;
 use starlark::errors::EvalSeverity;
-use starlark::lsp;
 use starlark::read_line::ReadLine;
 use walkdir::WalkDir;
 
@@ -292,7 +291,7 @@ fn main() -> anyhow::Result<()> {
 
         if args.lsp {
             ctx.mode = ContextMode::Check;
-            lsp::server::stdio_server(ctx)?;
+            starlark_lsp::server::stdio_server(ctx)?;
         } else if let Some(docs) = args.docs {
             let mut builtin = get_registered_starlark_docs();
             builtin.push(Doc::named_item(

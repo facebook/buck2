@@ -93,6 +93,7 @@ members = [
     "starlark-rust/starlark",
     "starlark-rust/starlark_bin",
     "starlark-rust/starlark_derive",
+    "starlark-rust/starlark_lsp",
     "starlark-rust/starlark_map",
     "starlark-rust/starlark_syntax",
     "shed/internment_tweaks",
@@ -305,7 +306,9 @@ lock_free_hashtable = { path = "shed/lock_free_hashtable" }
 lock_free_vec = { path = "shed/lock_free_vec" }
 remote_execution = { path = "remote_execution/oss/re_grpc" }
 starlark = { version = "0.9.0", path = "starlark-rust/starlark" }
+starlark_lsp = { version = "0.9.0", path = "starlark-rust/starlark_lsp" }
 starlark_map = { version = "0.9.0", path = "starlark-rust/starlark_map" }
+starlark_syntax = { version = "0.9.0", path = "starlark-rust/starlark_syntax" }
 
 buck2_action_impl = { path = "app/buck2_action_impl" }
 buck2_action_metadata_proto = { path = "app/buck2_action_metadata_proto" }

@@ -17,6 +17,9 @@
 
 use std::collections::HashMap;
 
+use starlark::codemap::Pos;
+use starlark::codemap::Span;
+use starlark::syntax::AstModule;
 use starlark_syntax::syntax::ast::AssignIdentP;
 use starlark_syntax::syntax::ast::AssignP;
 use starlark_syntax::syntax::ast::AstAssignIdent;
@@ -35,10 +38,6 @@ use starlark_syntax::syntax::ast::ForP;
 use starlark_syntax::syntax::ast::IdentP;
 use starlark_syntax::syntax::ast::LambdaP;
 use starlark_syntax::syntax::ast::Stmt;
-
-use crate::codemap::Pos;
-use crate::codemap::Span;
-use crate::syntax::AstModule;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) enum Assigner {
@@ -340,14 +339,14 @@ pub(crate) fn scope(module: &AstModule) -> Scope {
 mod test {
     use std::iter;
 
+    use starlark::codemap::Pos;
+    use starlark::codemap::Span;
+    use starlark::syntax::AstModule;
+    use starlark::syntax::Dialect;
     use starlark_syntax::slice_vec_ext::SliceExt;
     use starlark_syntax::slice_vec_ext::VecExt;
 
     use super::*;
-    use crate::codemap::Pos;
-    use crate::codemap::Span;
-    use crate::syntax::AstModule;
-    use crate::syntax::Dialect;
 
     #[test]
     fn dotted_access_is_correct() -> anyhow::Result<()> {
