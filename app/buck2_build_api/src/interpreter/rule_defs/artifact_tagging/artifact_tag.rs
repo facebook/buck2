@@ -20,6 +20,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::typing::Ty;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::Freeze;
@@ -102,6 +103,10 @@ impl<'v> StarlarkValue<'v> for ArtifactTag {
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
         Hash::hash(self, hasher);
         Ok(())
+    }
+
+    fn get_type_starlark_repr() -> Ty {
+        Ty::starlark_value::<Self>()
     }
 }
 
