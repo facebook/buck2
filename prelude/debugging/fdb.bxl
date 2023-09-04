@@ -30,6 +30,7 @@ INSPECT_BY_RULE = {
     "prelude//rules.bzl:java_test": inspect_java_rule,
     "prelude//rules.bzl:kotlin_binary": inspect_java_rule,
     "prelude//rules.bzl:kotlin_test": inspect_java_rule,
+    "prelude//rules.bzl:robolectric_test": inspect_java_rule,
 }
 
 def inspect_rule_alias(ctx: "bxl_ctx", actions: AnalysisActions, target: "target_node", settings: ScriptSettings):
