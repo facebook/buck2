@@ -814,7 +814,9 @@ impl<'f> ModuleScopeBuilder<'f> {
                 if self.locals.len() > 1 {
                     binding.captured = Captured::Yes;
                 }
-                Some((binding.resolved_slot(&self.codemap).unwrap(), binding_id))
+                let slot = binding.resolved_slot(&self.codemap).unwrap();
+                assert!(matches!(slot, Slot::Module(_)));
+                Some((slot, binding_id))
             }
             None => None,
         }
