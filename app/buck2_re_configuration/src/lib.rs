@@ -32,6 +32,8 @@ mod fbcode {
         pub cas_connection_count: i32,
         pub cas_shared_cache: Option<String>,
         pub cas_shared_cache_mode: Option<String>,
+        pub cas_shared_cache_port: Option<i32>,
+        pub cas_shared_cache_tls: Option<bool>,
         pub action_cache_address: Option<String>,
         pub action_cache_connection_count: i32,
         pub engine_address: Option<String>,
@@ -73,6 +75,10 @@ mod fbcode {
                     .parse(BUCK2_RE_CLIENT_CFG_SECTION, "cas_shared_cache")?,
                 cas_shared_cache_mode: legacy_config
                     .parse(BUCK2_RE_CLIENT_CFG_SECTION, "cas_shared_cache_mode")?,
+                cas_shared_cache_port: legacy_config
+                    .parse(BUCK2_RE_CLIENT_CFG_SECTION, "cas_shared_cache_port")?,
+                cas_shared_cache_tls: legacy_config
+                    .parse(BUCK2_RE_CLIENT_CFG_SECTION, "cas_shared_cache_tls")?,
                 action_cache_address: legacy_config
                     .parse(BUCK2_RE_CLIENT_CFG_SECTION, "action_cache_address")?,
                 action_cache_connection_count: legacy_config

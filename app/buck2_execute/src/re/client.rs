@@ -493,11 +493,18 @@ impl RemoteExecutionClientImpl {
                         "ALL_FILES" => RemoteCacheManagerMode::ALL_FILES,
                         unknown => anyhow::bail!("Unknown RemoteCacheManagerMode: {}", unknown),
                     };
-
-                    embedded_cas_daemon_config.remote_cache_config = Some(RemoteCacheConfig {
-                        mode,
-                        ..Default::default()
-                    });
+                    let remote_cache_config = {
+                        let mut remote_cache_config = RemoteCacheConfig {
+                            mode,
+                            port: static_metadata.cas_shared_cache_port,
+                            ..Default::default()
+                        };
+                        if let Some(tls) = static_metadata.cas_shared_cache_tls {
+                            remote_cache_config.use_tls = tls;
+                        }
+                        remote_cache_config
+                    };
+                    embedded_cas_daemon_config.remote_cache_config = Some(remote_cache_config);
                     embedded_cas_daemon_config.cache_config.writable_cache = false;
                     embedded_cas_daemon_config
                         .cache_config
