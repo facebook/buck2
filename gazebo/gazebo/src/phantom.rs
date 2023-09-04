@@ -74,6 +74,6 @@ impl<T: ?Sized> PartialEq<PhantomDataInvariant<T>> for PhantomDataInvariant<T> {
 
 impl<T: ?Sized> PartialOrd<PhantomDataInvariant<T>> for PhantomDataInvariant<T> {
     fn partial_cmp(&self, other: &PhantomDataInvariant<T>) -> Option<std::cmp::Ordering> {
-        self.0.partial_cmp(&other.0)
+        Some(self.cmp(other))
     }
 }
