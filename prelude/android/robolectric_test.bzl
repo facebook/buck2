@@ -93,4 +93,5 @@ def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
         java_providers.java_packaging_info,
         java_providers.template_placeholder_info,
         java_providers.default_info,
+        java_providers.class_to_src_map,
     ]
