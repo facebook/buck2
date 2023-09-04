@@ -28,6 +28,7 @@ use starlark_syntax::syntax::ast::AstPayload;
 use starlark_syntax::syntax::ast::AstStmtP;
 use starlark_syntax::syntax::ast::ExprP;
 use starlark_syntax::syntax::ast::ForP;
+use starlark_syntax::syntax::ast::LoadArgP;
 use starlark_syntax::syntax::ast::ParameterP;
 use starlark_syntax::syntax::ast::StmtP;
 
@@ -136,20 +137,22 @@ pub(crate) fn find_symbols_at_location<P: AstPayload>(
                     walk(codemap, &def.body, cursor_position, symbols);
                 }
             }
-            StmtP::Load(load) => symbols.extend(load.args.iter().map(|(name, _)| {
-                (
-                    name.ident.clone(),
-                    Symbol {
-                        name: name.ident.clone(),
-                        detail: Some(format!("Loaded from {}", load.module.node)),
-                        // TODO: This should be dynamic based on the actual loaded value.
-                        kind: SymbolKind::Method,
-                        // TODO: Pull from the original file.
-                        doc: None,
-                        param: None,
-                    },
-                )
-            })),
+            StmtP::Load(load) => {
+                symbols.extend(load.args.iter().map(|LoadArgP { local, .. }| {
+                    (
+                        local.ident.clone(),
+                        Symbol {
+                            name: local.ident.clone(),
+                            detail: Some(format!("Loaded from {}", load.module.node)),
+                            // TODO: This should be dynamic based on the actual loaded value.
+                            kind: SymbolKind::Method,
+                            // TODO: Pull from the original file.
+                            doc: None,
+                            param: None,
+                        },
+                    )
+                }))
+            }
             stmt => stmt.visit_stmt(|x| walk(codemap, x, cursor_position, symbols)),
         }
     }

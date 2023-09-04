@@ -46,7 +46,7 @@ impl AstModuleLoadedSymbols for AstModule {
             })
             .flat_map(|l| {
                 l.args.iter().map(|symbol| LoadedSymbol {
-                    name: &symbol.1,
+                    name: &symbol.their,
                     loaded_from: &l.module,
                 })
             })

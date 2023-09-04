@@ -88,7 +88,6 @@ use serde::Serialize;
 use serde::Serializer;
 use starlark::codemap::ResolvedSpan;
 use starlark::codemap::Span;
-use starlark::codemap::Spanned;
 use starlark::docs::markdown::render_doc_item;
 use starlark::docs::markdown::render_doc_member;
 use starlark::docs::markdown::render_doc_param;
@@ -96,8 +95,8 @@ use starlark::docs::DocMember;
 use starlark::docs::DocModule;
 use starlark::syntax::AstModule;
 use starlark_syntax::codemap::ResolvedPos;
-use starlark_syntax::syntax::ast::AssignIdentP;
 use starlark_syntax::syntax::ast::AstPayload;
+use starlark_syntax::syntax::ast::LoadArgP;
 
 use crate::completion::StringCompletionResult;
 use crate::completion::StringCompletionType;
@@ -946,7 +945,7 @@ impl<T: LspContext> Backend<T> {
         symbol: &str,
         ast: &LspModule,
         last_load: Option<ResolvedSpan>,
-        existing_load: Option<&(Vec<(Spanned<AssignIdentP<P>>, Spanned<String>)>, Span)>,
+        existing_load: Option<&(Vec<LoadArgP<P>>, Span)>,
     ) -> TextEdit
     where
         P: AstPayload,
@@ -958,7 +957,7 @@ impl<T: LspContext> Backend<T> {
                 let load_span = ast.ast.codemap.resolve_span(*load_span);
                 let mut load_args: Vec<(&str, &str)> = previously_loaded_symbols
                     .iter()
-                    .map(|(assign, name)| (assign.ident.as_str(), name.node.as_str()))
+                    .map(|LoadArgP { local, their }| (local.ident.as_str(), their.node.as_str()))
                     .collect();
                 load_args.push((symbol, symbol));
                 load_args.sort_by(|(_, a), (_, b)| a.cmp(b));

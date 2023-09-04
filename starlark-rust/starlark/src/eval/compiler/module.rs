@@ -73,20 +73,19 @@ impl<'v> Compiler<'v, '_, '_> {
             Some(loader) => expr_throw(loader.load(name), span, self.eval)?,
         };
 
-        for (our_name, their_name) in &load.node.args {
+        for load_arg in &load.node.args {
             let (slot, _captured) = self
                 .scope_data
-                .get_assign_ident_slot(our_name, &self.codemap);
+                .get_assign_ident_slot(&load_arg.local, &self.codemap);
             let slot = match slot {
                 Slot::Local(..) => unreachable!("symbol need to be resolved to module"),
                 Slot::Module(slot) => slot,
             };
             let value = expr_throw(
-                self.eval.module_env.load_symbol(&loadenv, &their_name.node),
-                FrameSpan::new(FrozenFileSpan::new(
-                    self.codemap,
-                    our_name.span.merge(their_name.span),
-                )),
+                self.eval
+                    .module_env
+                    .load_symbol(&loadenv, &load_arg.their.node),
+                FrameSpan::new(FrozenFileSpan::new(self.codemap, load_arg.span())),
                 self.eval,
             )?;
             self.eval.set_slot_module(slot, value)

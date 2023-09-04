@@ -29,6 +29,7 @@ use starlark_syntax::syntax::ast::BinOp;
 use starlark_syntax::syntax::ast::DefP;
 use starlark_syntax::syntax::ast::ExprP;
 use starlark_syntax::syntax::ast::ForP;
+use starlark_syntax::syntax::ast::LoadArgP;
 use starlark_syntax::syntax::ast::LoadP;
 use starlark_syntax::syntax::ast::StmtP;
 use starlark_syntax::syntax::def::DefParamKind;
@@ -290,9 +291,9 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
     }
 
     fn load(&mut self, load: &LoadP<CstPayload>) -> Result<(), InternalError> {
-        for (var, source) in &load.args {
-            let ty = load.payload.get(source).cloned().unwrap_or_else(Ty::any);
-            self.assign_ident_value(var, GlobalValue::ty(ty))?;
+        for LoadArgP { local, their } in &load.args {
+            let ty = load.payload.get(their).cloned().unwrap_or_else(Ty::any);
+            self.assign_ident_value(local, GlobalValue::ty(ty))?;
         }
         Ok(())
     }

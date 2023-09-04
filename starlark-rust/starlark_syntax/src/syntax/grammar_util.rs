@@ -46,6 +46,7 @@ use crate::syntax::ast::ExprP;
 use crate::syntax::ast::FStringP;
 use crate::syntax::ast::IdentP;
 use crate::syntax::ast::LambdaP;
+use crate::syntax::ast::LoadArgP;
 use crate::syntax::ast::LoadP;
 use crate::syntax::ast::Stmt;
 use crate::syntax::ast::StmtP;
@@ -200,6 +201,8 @@ pub(crate) fn check_load(
             parser_state.codemap,
         ));
     }
+
+    let args = args.into_map(|(local, their)| LoadArgP { local, their });
 
     Stmt::Load(LoadP {
         module,

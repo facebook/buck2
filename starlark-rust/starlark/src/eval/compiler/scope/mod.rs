@@ -39,6 +39,7 @@ use starlark_syntax::syntax::ast::ExprP;
 use starlark_syntax::syntax::ast::ForClauseP;
 use starlark_syntax::syntax::ast::ForP;
 use starlark_syntax::syntax::ast::LambdaP;
+use starlark_syntax::syntax::ast::LoadArgP;
 use starlark_syntax::syntax::ast::Stmt;
 use starlark_syntax::syntax::ast::StmtP;
 use starlark_syntax::syntax::ast::Visibility;
@@ -887,13 +888,13 @@ impl StmtCollectDefines for Stmt {
                     true => Visibility::Public,
                     false => Visibility::Private,
                 };
-                for (name, _) in &mut load.args {
+                for LoadArgP { local, .. } in &mut load.args {
                     let mut vis = vis;
-                    if Module::default_visibility(&name.ident) == Visibility::Private {
+                    if Module::default_visibility(&local.ident) == Visibility::Private {
                         vis = Visibility::Private;
                     }
                     AssignIdent::collect_assign_ident(
-                        name,
+                        local,
                         in_loop,
                         vis,
                         scope_data,

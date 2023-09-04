@@ -27,6 +27,7 @@ use starlark_syntax::syntax::ast::AstStmt;
 use starlark_syntax::syntax::ast::BinOp;
 use starlark_syntax::syntax::ast::DefP;
 use starlark_syntax::syntax::ast::Expr;
+use starlark_syntax::syntax::ast::LoadArgP;
 use starlark_syntax::syntax::ast::Stmt;
 use thiserror::Error;
 
@@ -181,8 +182,8 @@ fn duplicate_top_level_assignment(module: &AstModule, res: &mut Vec<LintT<Incomp
             }
             Stmt::Def(DefP { name, .. }) => ident(name, false, codemap, defined, res),
             Stmt::Load(load) => {
-                for (name, _) in &load.args {
-                    ident(name, true, codemap, defined, res)
+                for LoadArgP { local, .. } in &load.args {
+                    ident(local, true, codemap, defined, res)
                 }
             }
             // Visit statements, but don't descend under def - only top-level statements are interesting

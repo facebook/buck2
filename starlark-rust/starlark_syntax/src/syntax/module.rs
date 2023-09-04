@@ -32,6 +32,7 @@ use crate::eval_exception::EvalException;
 use crate::lexer::Lexer;
 use crate::lexer::Token;
 use crate::syntax::ast::AstStmt;
+use crate::syntax::ast::LoadArgP;
 use crate::syntax::ast::Stmt;
 use crate::syntax::grammar::StarlarkParser;
 use crate::syntax::state::ParserState;
@@ -182,7 +183,9 @@ impl AstModule {
                     symbols: load
                         .args
                         .iter()
-                        .map(|(name, sym)| (name.node.ident.as_str(), sym.node.as_str()))
+                        .map(|LoadArgP { local, their }| {
+                            (local.node.ident.as_str(), their.node.as_str())
+                        })
                         .collect(),
                 }),
                 Stmt::Statements(stmts) => {

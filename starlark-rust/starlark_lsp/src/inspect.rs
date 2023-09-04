@@ -28,6 +28,7 @@ use starlark_syntax::syntax::ast::AstLiteral;
 use starlark_syntax::syntax::ast::AstNoPayload;
 use starlark_syntax::syntax::ast::AstStmtP;
 use starlark_syntax::syntax::ast::ExprP;
+use starlark_syntax::syntax::ast::LoadArgP;
 use starlark_syntax::syntax::ast::ParameterP;
 use starlark_syntax::syntax::ast::StmtP;
 use starlark_syntax::syntax::uniplate::Visit;
@@ -150,16 +151,16 @@ impl AstModuleInspect for AstModule {
                         });
                     }
 
-                    for (name, _) in &load.args {
-                        if name.span.contains(position) {
+                    for LoadArgP { local, .. } in &load.args {
+                        if local.span.contains(position) {
                             return Some(AutocompleteType::LoadSymbol {
                                 path: load.module.to_string(),
-                                current_span: string_span_without_quotes(codemap, name.span),
+                                current_span: string_span_without_quotes(codemap, local.span),
                                 previously_loaded: load
                                     .args
                                     .iter()
-                                    .filter(|(n, _)| n != name)
-                                    .map(|(n, _)| n.to_string())
+                                    .filter(|load_arg| &load_arg.local != local)
+                                    .map(|LoadArgP { local, .. }| local.to_string())
                                     .collect(),
                             });
                         }

@@ -41,6 +41,7 @@ use starlark_syntax::syntax::ast::Clause;
 use starlark_syntax::syntax::ast::Expr;
 use starlark_syntax::syntax::ast::ForClause;
 use starlark_syntax::syntax::ast::ForP;
+use starlark_syntax::syntax::ast::LoadArgP;
 use starlark_syntax::syntax::ast::Stmt;
 use thiserror::Error;
 
@@ -520,8 +521,8 @@ impl<'a> State<'a> {
             }
             // These were handled by collecting the scopes
             Stmt::Load(x) => {
-                for (ident, _) in &x.args {
-                    self.set_ident(ident, Kind::Load)
+                for LoadArgP { local, .. } in &x.args {
+                    self.set_ident(local, Kind::Load)
                 }
             }
             // These control flow operators can be ignored - either the code after is fine (no problem)

@@ -239,11 +239,26 @@ pub struct IdentP<P: AstPayload> {
     pub payload: P::IdentPayload,
 }
 
+/// Argument of `load` statement.
+#[derive(Debug, Clone)]
+pub struct LoadArgP<P: AstPayload> {
+    /// `x in `x="y"`.
+    pub local: AstAssignIdentP<P>,
+    /// `"y" in `x="y"`.
+    pub their: AstString,
+}
+
+impl<P: AstPayload> LoadArgP<P> {
+    pub fn span(&self) -> Span {
+        self.local.span.merge(self.their.span)
+    }
+}
+
 /// `load` statement.
 #[derive(Debug, Clone)]
 pub struct LoadP<P: AstPayload> {
     pub module: AstString,
-    pub args: Vec<(AstAssignIdentP<P>, AstString)>,
+    pub args: Vec<LoadArgP<P>>,
     pub payload: P::LoadPayload,
 }
 
@@ -715,8 +730,8 @@ impl Stmt {
                     f,
                     &load.args,
                     |x, f| {
-                        write!(f, "{} = ", x.0.node)?;
-                        fmt_string_literal(f, &(x.1.node))
+                        write!(f, "{} = ", x.local.node)?;
+                        fmt_string_literal(f, &(x.their.node))
                     },
                     false,
                 )?;

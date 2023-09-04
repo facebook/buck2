@@ -32,6 +32,7 @@ use crate::syntax::ast::ForClauseP;
 use crate::syntax::ast::ForP;
 use crate::syntax::ast::IdentP;
 use crate::syntax::ast::LambdaP;
+use crate::syntax::ast::LoadArgP;
 use crate::syntax::ast::LoadP;
 use crate::syntax::ast::ParameterP;
 use crate::syntax::ast::StmtP;
@@ -43,6 +44,22 @@ pub trait AstPayloadFunction<A: AstPayload, B: AstPayload> {
     fn map_ident_assign(&mut self, a: A::IdentAssignPayload) -> B::IdentAssignPayload;
     fn map_def(&mut self, a: A::DefPayload) -> B::DefPayload;
     fn map_type_expr(&mut self, a: A::TypeExprPayload) -> B::TypeExprPayload;
+}
+
+impl<A: AstPayload> LoadArgP<A> {
+    pub fn into_map_payload<B: AstPayload>(
+        self,
+        f: &mut impl AstPayloadFunction<A, B>,
+    ) -> LoadArgP<B> {
+        let LoadArgP {
+            local,
+            their: remote,
+        } = self;
+        LoadArgP {
+            local: local.into_map_payload(f),
+            their: remote,
+        }
+    }
 }
 
 impl<A: AstPayload> LoadP<A> {
@@ -58,7 +75,7 @@ impl<A: AstPayload> LoadP<A> {
         let payload = f.map_load(&module.node, payload);
         LoadP {
             module,
-            args: args.into_map(|(local, their)| (local.into_map_payload(f), their)),
+            args: args.into_map(|a| a.into_map_payload(f)),
             payload,
         }
     }

@@ -119,7 +119,7 @@ fn use_ignored(codemap: &CodeMap, x: &AstStmt, res: &mut Vec<LintT<UnderscoreWar
             }
             Stmt::Load(xs) => {
                 for x in &xs.args {
-                    res.insert(x.0.ident.as_str());
+                    res.insert(x.local.ident.as_str());
                 }
             }
             _ => x.visit_stmt(|x| root_definitions(x, res)),

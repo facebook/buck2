@@ -326,9 +326,9 @@ fn stmt(x: &AstStmt, res: &mut Vec<Bind>) {
                 res.push(Bind::Set(
                     Assigner::Load {
                         path: load.module.clone(),
-                        name: x.1.clone(),
+                        name: x.their.clone(),
                     },
-                    x.0.clone(),
+                    x.local.clone(),
                 ))
             }
         }

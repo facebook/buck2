@@ -32,6 +32,7 @@ use starlark_syntax::syntax::ast::AstNoPayload;
 use starlark_syntax::syntax::ast::AstString;
 use starlark_syntax::syntax::ast::Expr;
 use starlark_syntax::syntax::ast::ExprP;
+use starlark_syntax::syntax::ast::LoadArgP;
 use starlark_syntax::syntax::ast::Stmt;
 use starlark_syntax::syntax::ast::StmtP;
 use starlark_syntax::syntax::top_level_stmts::top_level_stmts;
@@ -572,13 +573,13 @@ impl LspModule {
                             path: load.module.node.to_owned(),
                         })
                     } else {
-                        load.args.iter().find_map(|(assign, name)| {
-                            if assign.span.contains(pos) || name.span.contains(pos) {
+                        load.args.iter().find_map(|LoadArgP { local, their }| {
+                            if local.span.contains(pos) || their.span.contains(pos) {
                                 Some(IdentifierDefinition::LoadedLocation {
-                                    source: codemap.resolve_span(name.span),
-                                    destination: codemap.resolve_span(name.span),
+                                    source: codemap.resolve_span(their.span),
+                                    destination: codemap.resolve_span(their.span),
                                     path: load.module.node.to_owned(),
-                                    name: name.node.to_owned(),
+                                    name: their.node.to_owned(),
                                 })
                             } else {
                                 None
