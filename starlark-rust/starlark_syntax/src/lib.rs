@@ -38,4 +38,5 @@ pub mod lexer;
 #[cfg(test)]
 mod lexer_tests;
 pub mod slice_vec_ext;
+pub(crate) mod span_display;
 pub mod syntax;

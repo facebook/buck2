@@ -468,6 +468,11 @@ impl<'a> FileSpanRef<'a> {
     pub fn resolve_span(&self) -> ResolvedSpan {
         self.file.resolve_span(self.span)
     }
+
+    /// Resolve the span.
+    pub fn source_span(self) -> &'a str {
+        self.file.source_span(self.span)
+    }
 }
 
 impl FileSpan {
@@ -485,7 +490,7 @@ impl FileSpan {
 
     /// Resolve the span.
     pub fn source_span(&self) -> &str {
-        self.file.source_span(self.span)
+        self.as_ref().source_span()
     }
 
     /// Cheap reference to the span.
