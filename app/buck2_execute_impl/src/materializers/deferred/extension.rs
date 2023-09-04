@@ -293,18 +293,27 @@ impl ExtensionCommand<DefaultIoHandler> for FlushAccessTimes {
         self: Box<Self>,
         processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
     ) {
-        let now = Instant::now();
-        let buffer_size = processor.access_times_buffer.len();
-
-        processor.flush_access_times(0);
         let mut out = String::new();
-        writeln!(
-            &mut out,
-            "Finished flushing {} entries in {} ms",
-            buffer_size,
-            now.elapsed().as_millis()
-        )
-        .unwrap();
+        if let Some(buffer) = &processor.access_times_buffer {
+            let now = Instant::now();
+            let buffer_size = buffer.len();
+
+            processor.flush_access_times(0);
+
+            writeln!(
+                &mut out,
+                "Finished flushing {} entries in {} ms",
+                buffer_size,
+                now.elapsed().as_millis()
+            )
+            .unwrap();
+        } else {
+            writeln!(
+                &mut out,
+                "Access time updates are disabled. Consider removing `update_access_times = false` from your .buckconfig",
+            )
+            .unwrap();
+        }
         let _ignored = self.sender.send(out);
     }
 }

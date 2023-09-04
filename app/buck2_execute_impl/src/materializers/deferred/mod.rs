@@ -277,7 +277,7 @@ struct DeferredMaterializerCommandProcessor<T: 'static> {
     ttl_refresh_instance: Option<oneshot::Receiver<(DateTime<Utc>, anyhow::Result<()>)>>,
     cancellations: &'static CancellationContext<'static>,
     stats: Arc<DeferredMaterializerStats>,
-    access_times_buffer: HashSet<ProjectRelativePathBuf>,
+    access_times_buffer: Option<HashSet<ProjectRelativePathBuf>>,
 }
 
 struct TtlRefreshHistoryEntry {
@@ -926,6 +926,7 @@ impl DeferredMaterializer {
         let materializer_state_info = buck2_data::MaterializerStateInfo {
             num_entries_from_sqlite,
         };
+        let access_times_buffer = configs.update_access_times.then(HashSet::new);
 
         let mut tree = ArtifactTree::new();
         if let Some(sqlite_state) = sqlite_state {
@@ -973,7 +974,7 @@ impl DeferredMaterializer {
                 ttl_refresh_instance: None,
                 cancellations,
                 stats,
-                access_times_buffer: HashSet::new(),
+                access_times_buffer,
             }
         };
 
@@ -1121,8 +1122,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             refresh_ttl_ticker,
             io_buffer_ticker,
         };
-
-        self.access_times_buffer = HashSet::new();
 
         while let Some(op) = stream.next().await {
             match op {
@@ -1307,23 +1306,25 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
     }
 
     fn flush_access_times(&mut self, max_buffer_size: usize) {
-        if self.access_times_buffer.len() <= max_buffer_size {
-            return;
-        }
+        if let Some(access_times_buffer) = self.access_times_buffer.as_mut() {
+            if access_times_buffer.len() <= max_buffer_size {
+                return;
+            }
 
-        let buffer = std::mem::take(&mut self.access_times_buffer);
+            let buffer = std::mem::take(access_times_buffer);
 
-        if let Some(sqlite_db) = self.sqlite_db.as_mut() {
-            if let Err(e) = sqlite_db
-                .materializer_state_table()
-                .update_access_times(buffer.iter().collect::<Vec<_>>())
-            {
-                soft_error!(
-                    "materializer_materialize_error",
-                    e.context(self.log_buffer.clone()),
-                    quiet: true
-                )
-                .unwrap();
+            if let Some(sqlite_db) = self.sqlite_db.as_mut() {
+                if let Err(e) = sqlite_db
+                    .materializer_state_table()
+                    .update_access_times(buffer.iter().collect::<Vec<_>>())
+                {
+                    soft_error!(
+                        "materializer_materialize_error",
+                        e.context(self.log_buffer.clone()),
+                        quiet: true
+                    )
+                    .unwrap();
+                }
             }
         }
     }
@@ -1591,23 +1592,24 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             } => match check_deps {
                 true => None,
                 false => {
-                    // TODO (torozco): Why is it legal for something to be Materialized + Cleaning?
-                    tracing::debug!(path = %path, "nothing to materialize, updating access time");
-                    let timestamp = Utc::now();
-                    *last_access_time = timestamp;
+                    if let Some(ref mut buffer) = self.access_times_buffer.as_mut() {
+                        // TODO (torozco): Why is it legal for something to be Materialized + Cleaning?
+                        tracing::debug!(path = %path, "nothing to materialize, updating access time");
+                        let timestamp = Utc::now();
+                        *last_access_time = timestamp;
 
-                    // NOTE (T142264535): We mostly expect that artifacts are always declared
-                    // before they are materialized, but there's one case where that doesn't
-                    // happen. In particular, when incremental actions execute, they will trigger
-                    // materialization of outputs from a previous run. The artifact isn't really
-                    // "active" (it's not an output that we'll use), but we do warn here (when we
-                    // probably shouldn't).
-                    //
-                    // if !active {
-                    //     tracing::warn!(path = %path, "Expected artifact to be marked active by declare")
-                    // }
-
-                    self.access_times_buffer.insert(path.to_buf());
+                        // NOTE (T142264535): We mostly expect that artifacts are always declared
+                        // before they are materialized, but there's one case where that doesn't
+                        // happen. In particular, when incremental actions execute, they will trigger
+                        // materialization of outputs from a previous run. The artifact isn't really
+                        // "active" (it's not an output that we'll use), but we do warn here (when we
+                        // probably shouldn't).
+                        //
+                        // if !active {
+                        //     tracing::warn!(path = %path, "Expected artifact to be marked active by declare")
+                        // }
+                        buffer.insert(path.to_buf());
+                    }
 
                     return None;
                 }
