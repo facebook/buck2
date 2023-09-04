@@ -328,6 +328,10 @@ impl DaemonState {
                     .unwrap_or_else(RolloutPercentage::never)
                     .roll();
 
+                let update_access_times = root_config
+                    .parse("buck2", "update_access_times")?
+                    .unwrap_or(true);
+
                 DeferredMaterializerConfigs {
                     materialize_final_artifacts: matches!(
                         materializations,
@@ -339,6 +343,7 @@ impl DaemonState {
                         min_ttl: chrono::Duration::seconds(ttl_refresh_min_ttl),
                         enabled: ttl_refresh_enabled,
                     },
+                    update_access_times,
                 }
             };
 

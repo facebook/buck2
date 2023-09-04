@@ -175,6 +175,7 @@ pub struct DeferredMaterializerConfigs {
     pub materialize_final_artifacts: bool,
     pub defer_write_actions: bool,
     pub ttl_refresh: TtlRefreshConfiguration,
+    pub update_access_times: bool,
 }
 
 pub struct TtlRefreshConfiguration {
