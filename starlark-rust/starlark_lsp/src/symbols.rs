@@ -63,8 +63,8 @@ pub(crate) fn find_symbols_at_location<P: AstPayload>(
     ) {
         match &ast.node {
             StmtP::Assign(AssignP { lhs, ty: _, rhs }) => lhs.visit_lvalue(|x| {
-                symbols.entry(x.0.clone()).or_insert_with(|| Symbol {
-                    name: x.0.clone(),
+                symbols.entry(x.ident.clone()).or_insert_with(|| Symbol {
+                    name: x.ident.clone(),
                     kind: (match rhs.node {
                         ExprP::Lambda(_) => SymbolKind::Method,
                         _ => SymbolKind::Variable,
@@ -75,8 +75,8 @@ pub(crate) fn find_symbols_at_location<P: AstPayload>(
                 });
             }),
             StmtP::AssignModify(dest, _, source) => dest.visit_lvalue(|x| {
-                symbols.entry(x.0.clone()).or_insert_with(|| Symbol {
-                    name: x.0.clone(),
+                symbols.entry(x.ident.clone()).or_insert_with(|| Symbol {
+                    name: x.ident.clone(),
                     kind: (match source.node {
                         ExprP::Lambda(_) => SymbolKind::Method,
                         _ => SymbolKind::Variable,
@@ -88,8 +88,8 @@ pub(crate) fn find_symbols_at_location<P: AstPayload>(
             }),
             StmtP::For(ForP { var, over: _, body }) => {
                 var.visit_lvalue(|x| {
-                    symbols.entry(x.0.clone()).or_insert_with(|| Symbol {
-                        name: x.0.clone(),
+                    symbols.entry(x.ident.clone()).or_insert_with(|| Symbol {
+                        name: x.ident.clone(),
                         kind: SymbolKind::Variable,
                         detail: None,
                         doc: None,
@@ -101,13 +101,15 @@ pub(crate) fn find_symbols_at_location<P: AstPayload>(
             StmtP::Def(def) => {
                 // Peek into the function definition to find the docstring.
                 let doc = get_doc_item_for_def(def);
-                symbols.entry(def.name.0.clone()).or_insert_with(|| Symbol {
-                    name: def.name.0.clone(),
-                    kind: SymbolKind::Method,
-                    detail: None,
-                    doc: doc.clone().map(DocItem::Function),
-                    param: None,
-                });
+                symbols
+                    .entry(def.name.ident.clone())
+                    .or_insert_with(|| Symbol {
+                        name: def.name.ident.clone(),
+                        kind: SymbolKind::Method,
+                        detail: None,
+                        doc: doc.clone().map(DocItem::Function),
+                        param: None,
+                    });
 
                 // Only recurse into method if the cursor is in it.
                 if codemap
@@ -116,20 +118,18 @@ pub(crate) fn find_symbols_at_location<P: AstPayload>(
                 {
                     symbols.extend(def.params.iter().filter_map(|param| match &param.node {
                         ParameterP::Normal(p, _) | ParameterP::WithDefaultValue(p, _, _) => {
-                            Some(
-                                (
-                                    p.0.clone(),
-                                    Symbol {
-                                        name: p.0.clone(),
-                                        kind: SymbolKind::Variable,
-                                        detail: None,
-                                        doc: None,
-                                        param: doc.as_ref().and_then(|doc| {
-                                            doc.find_param_with_name(&p.0).cloned()
-                                        }),
-                                    },
-                                ),
-                            )
+                            Some((
+                                p.ident.clone(),
+                                Symbol {
+                                    name: p.ident.clone(),
+                                    kind: SymbolKind::Variable,
+                                    detail: None,
+                                    doc: None,
+                                    param: doc.as_ref().and_then(|doc| {
+                                        doc.find_param_with_name(&p.ident).cloned()
+                                    }),
+                                },
+                            ))
                         }
                         _ => None,
                     }));
@@ -138,9 +138,9 @@ pub(crate) fn find_symbols_at_location<P: AstPayload>(
             }
             StmtP::Load(load) => symbols.extend(load.args.iter().map(|(name, _)| {
                 (
-                    name.0.clone(),
+                    name.ident.clone(),
                     Symbol {
-                        name: name.0.clone(),
+                        name: name.ident.clone(),
                         detail: Some(format!("Loaded from {}", load.module.node)),
                         // TODO: This should be dynamic based on the actual loaded value.
                         kind: SymbolKind::Method,

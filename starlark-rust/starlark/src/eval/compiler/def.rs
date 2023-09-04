@@ -387,10 +387,10 @@ pub(crate) struct DefCompiled {
 
 impl Compiler<'_, '_, '_> {
     fn parameter_name(&mut self, ident: &CstAssignIdent) -> ParameterName {
-        let binding_id = ident.1.expect("no binding for parameter");
+        let binding_id = ident.payload.expect("no binding for parameter");
         let binding = self.scope_data.get_binding(binding_id);
         ParameterName {
-            name: ident.node.0.clone(),
+            name: ident.node.ident.clone(),
             captured: binding.captured,
         }
     }

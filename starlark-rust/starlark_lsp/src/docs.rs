@@ -42,7 +42,7 @@ pub(crate) fn get_doc_item_for_def<P: AstPayload>(def: &DefP<P>) -> Option<DocFu
                 | ParameterP::WithDefaultValue(p, _, _)
                 | ParameterP::Args(p, _)
                 | ParameterP::KwArgs(p, _) => Some(DocParam::Arg {
-                    name: p.0.to_owned(),
+                    name: p.ident.to_owned(),
                     docs: None,
                     typ: Ty::any(),
                     default_value: None,

@@ -117,9 +117,9 @@ impl AstModuleExportedSymbols for AstModule {
             kind: SymbolKind,
             resolve_docs: impl FnOnce() -> Option<DocItem>,
         ) {
-            if !name.0.starts_with('_') {
-                result.entry(&name.0).or_insert(Symbol {
-                    name: name.0.clone(),
+            if !name.ident.starts_with('_') {
+                result.entry(&name.ident).or_insert(Symbol {
+                    name: name.ident.clone(),
                     span: me.file_span(name.span),
                     kind,
                     docs: resolve_docs(),

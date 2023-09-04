@@ -80,22 +80,22 @@ fn inappropriate_underscore(
 
     match &**x {
         Stmt::Def(DefP { name, body, .. }) => {
-            if !top && name.0.starts_with('_') {
+            if !top && name.ident.starts_with('_') {
                 res.push(LintT::new(
                     codemap,
                     name.span,
-                    UnderscoreWarning::UnderscoreDefinition(name.0.clone()),
+                    UnderscoreWarning::UnderscoreDefinition(name.ident.clone()),
                 ))
             }
             inappropriate_underscore(codemap, body, false, res)
         }
         Stmt::Assign(assign) if !top => {
             if let AssignTarget::Identifier(name) = &assign.lhs.node {
-                if name.0.starts_with('_') && !is_allowed(&assign.rhs) {
+                if name.ident.starts_with('_') && !is_allowed(&assign.rhs) {
                     res.push(LintT::new(
                         codemap,
                         name.span,
-                        UnderscoreWarning::UnderscoreDefinition(name.node.0.clone()),
+                        UnderscoreWarning::UnderscoreDefinition(name.node.ident.clone()),
                     ))
                 }
             }
@@ -111,15 +111,15 @@ fn use_ignored(codemap: &CodeMap, x: &AstStmt, res: &mut Vec<LintT<UnderscoreWar
         match &**x {
             Stmt::Assign(AssignP { lhs: x, .. }) | Stmt::AssignModify(x, _, _) => {
                 x.visit_lvalue(|x| {
-                    res.insert(x.0.as_str());
+                    res.insert(x.ident.as_str());
                 });
             }
             Stmt::Def(x) => {
-                res.insert(x.name.0.as_str());
+                res.insert(x.name.ident.as_str());
             }
             Stmt::Load(xs) => {
                 for x in &xs.args {
-                    res.insert(x.0.0.as_str());
+                    res.insert(x.0.ident.as_str());
                 }
             }
             _ => x.visit_stmt(|x| root_definitions(x, res)),
@@ -139,11 +139,11 @@ fn use_ignored(codemap: &CodeMap, x: &AstStmt, res: &mut Vec<LintT<UnderscoreWar
     ) {
         match &**x {
             Expr::Identifier(x) => {
-                if is_ignored(x.0.as_str()) && !roots.contains(x.0.as_str()) {
+                if is_ignored(x.ident.as_str()) && !roots.contains(x.ident.as_str()) {
                     res.push(LintT::new(
                         codemap,
                         x.span,
-                        UnderscoreWarning::UsingIgnored(x.node.0.clone()),
+                        UnderscoreWarning::UsingIgnored(x.node.ident.clone()),
                     ));
                 }
             }

@@ -59,12 +59,12 @@ identifier: AstString = <l:@L> <e:"IDENTIFIER"> <r:@R>
 
 Ident: AstIdent = <id:identifier> => Spanned {
     span: id.span,
-    node: IdentP(id.node, ()),
+    node: IdentP { ident: id.node, payload: () },
 };
 
 AssignIdent: AstAssignIdent = <id:identifier> => Spanned {
     span: id.span,
-    node: AssignIdentP(id.node, ()),
+    node: AssignIdentP { ident: id.node, payload: () },
 };
 
 COMMA<E>: Vec<E> =
@@ -192,7 +192,7 @@ ExprStmt: AstStmt = ASTS<ExprStmt_>;
 ExprStmt_: Stmt = <Test> => Stmt::Expression(<>);
 
 LoadStmt: AstStmt = ASTS<LoadStmt_>;
-LoadStmt_: Stmt = "load" "(" <module:string> <args:("," <LoadStmtSyms>)*> ","? ")" 
+LoadStmt_: Stmt = "load" "(" <module:string> <args:("," <LoadStmtSyms>)*> ","? ")"
         => grammar_util::check_load(<>, state);
 
 LoadStmtBindingName: AstString = <identifier> "=";
@@ -200,7 +200,7 @@ LoadStmtBindingName: AstString = <identifier> "=";
 LoadStmtSyms: (AstAssignIdent, AstString) = <id:LoadStmtBindingName?> <n:string> => {
     let id = id.unwrap_or(n.clone());
     (
-        Spanned { span: id.span, node: AssignIdentP(id.node, ()) },
+        Spanned { span: id.span, node: AssignIdentP { ident: id.node, payload: () } },
         n,
     )
 };

@@ -58,7 +58,7 @@ fn match_dict_copy(codemap: &CodeMap, x: &AstExpr, res: &mut Vec<LintT<Performan
     // If we see `dict(**x)` suggest `dict(x)`
     match &**x {
         Expr::Call(fun, args) if args.len() == 1 => match (&***fun, &*args[0]) {
-            (Expr::Identifier(f), Argument::KwArgs(arg)) if f.node.0 == "dict" => {
+            (Expr::Identifier(f), Argument::KwArgs(arg)) if f.node.ident == "dict" => {
                 res.push(LintT::new(
                     codemap,
                     x.span,
@@ -75,7 +75,7 @@ fn match_inefficient_bool_check(codemap: &CodeMap, x: &AstExpr, res: &mut Vec<Li
     match &**x {
         Expr::Call(fun, args) if args.len() == 1 => match (&***fun, &*args[0]) {
             (Expr::Identifier(f), Argument::Positional(arg))
-                if f.node.0 == "any" || f.node.0 == "all" =>
+                if f.node.ident == "any" || f.node.ident == "all" =>
             {
                 match &**arg {
                     // any([blah for blah in blahs])
@@ -83,19 +83,19 @@ fn match_inefficient_bool_check(codemap: &CodeMap, x: &AstExpr, res: &mut Vec<Li
                         .push(LintT::new(
                             codemap,
                             x.span,
-                            Performance::EagerAndInefficientBoolCheck(f.node.0.clone()),
+                            Performance::EagerAndInefficientBoolCheck(f.node.ident.clone()),
                         )),
                     // any(list(_get_some_dict()))
                     Expr::Call(any_call, _) => match &***any_call {
                         Expr::Identifier(any_id)
-                            if any_id.node.0 == "dict" || any_id.node.0 == "list" =>
+                            if any_id.node.ident == "dict" || any_id.node.ident == "list" =>
                         {
                             res.push(LintT::new(
                                 codemap,
                                 x.span,
                                 Performance::InefficientBoolCheck(
                                     x.to_string(),
-                                    any_id.node.0.clone(),
+                                    any_id.node.ident.clone(),
                                 ),
                             ))
                         }

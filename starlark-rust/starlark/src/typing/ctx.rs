@@ -131,7 +131,7 @@ impl TypingContext<'_> {
         // TODO(nga): push this code down to `OracleTypingCtx`.
         if array_ty.is_function() {
             if let ExprP::Identifier(v0) = &array.node {
-                if v0.0 == "list" {
+                if v0.ident == "list" {
                     // TODO: make this "eval_type" or something.
                     return Ok(Ty::any());
                 }
@@ -231,7 +231,7 @@ impl TypingContext<'_> {
             AssignTargetP::Index(a_b) => self.expr_index(x.span, &a_b.0, &a_b.1),
             AssignTargetP::Dot(_, _) => Ok(self.approximation("expression_assignment", x)),
             AssignTargetP::Identifier(x) => {
-                if let Some(i) = x.1 {
+                if let Some(i) = x.payload {
                     if let Some(ty) = self.types.get(&i) {
                         return Ok(ty.clone());
                     }
@@ -337,7 +337,7 @@ impl TypingContext<'_> {
     }
 
     fn expr_ident(&self, x: &CstIdent) -> Ty {
-        match &x.node.1 {
+        match &x.node.payload {
             Some(ResolvedIdent::Slot(Slot::Module(module_slot_id), _)) => self
                 .module_var_types
                 .types

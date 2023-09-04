@@ -109,14 +109,14 @@ impl Scope {
             match x {
                 Bind::Set(assigner, x) => {
                     bound
-                        .entry(x.0.clone())
+                        .entry(x.ident.clone())
                         .or_insert((assigner.clone(), x.span));
                 }
                 Bind::Get(x) => {
-                    free.entry(x.node.0.clone()).or_insert(x.span);
+                    free.entry(x.node.ident.clone()).or_insert(x.span);
                 }
                 Bind::GetDotted(x) => {
-                    free.entry(x.variable.node.0.clone())
+                    free.entry(x.variable.node.ident.clone())
                         .or_insert(x.variable.span);
                 }
                 Bind::Scope(scope) => scope.free.iter().for_each(|(k, v)| {
@@ -301,9 +301,15 @@ fn stmt(x: &AstStmt, res: &mut Vec<Bind>) {
             // 3. Assign to all variables in a.
             lhs.visit_expr(|x| expr(x, res));
             lhs.visit_lvalue(|x| {
-                res.push(Bind::Get(
-                    x.clone().map(|AssignIdentP(s, ())| IdentP(s, ())),
-                ))
+                res.push(Bind::Get(x.clone().map(
+                    |AssignIdentP {
+                         ident: s,
+                         payload: (),
+                     }| IdentP {
+                        ident: s,
+                        payload: (),
+                    },
+                )))
             });
             expr(rhs, res);
             expr_lvalue(lhs, res);
@@ -367,7 +373,7 @@ mod test {
             .inner
             .iter()
             .map(|b| match b {
-                Bind::GetDotted(get) => Ok(iter::once(get.variable.0.as_str())
+                Bind::GetDotted(get) => Ok(iter::once(get.variable.ident.as_str())
                     .chain(get.attributes.map(|a| a.node.as_str()))
                     .map(|s| s.to_owned())
                     .collect()),

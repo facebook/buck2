@@ -142,7 +142,11 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
             AssignTargetP::Index(array_index) => match &*array_index.0 {
                 ExprP::Identifier(Spanned {
                     span: _,
-                    node: IdentP(_name, Some(ResolvedIdent::Slot(_, ident))),
+                    node:
+                        IdentP {
+                            ident: _name,
+                            payload: Some(ResolvedIdent::Slot(_, ident)),
+                        },
                 }) => {
                     self.bindings
                         .expressions
@@ -220,9 +224,9 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
             let name_ty = match &p.node.kind {
                 DefParamKind::Regular(default_value) => {
                     let mut param = if i >= def_params.num_positional as usize {
-                        Param::name_only(&name.0, ty.clone())
+                        Param::name_only(&name.ident, ty.clone())
                     } else {
-                        Param::pos_or_name(&name.0, ty.clone())
+                        Param::pos_or_name(&name.ident, ty.clone())
                     };
                     if default_value.is_some() {
                         param = param.optional();
@@ -313,7 +317,8 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
                                     _ => None,
                                 };
                                 if let Some((extend, arg)) = res {
-                                    if let ResolvedIdent::Slot(_, id) = id.node.1.as_ref().unwrap()
+                                    if let ResolvedIdent::Slot(_, id) =
+                                        id.node.payload.as_ref().unwrap()
                                     {
                                         let bind = if extend {
                                             BindExpr::ListExtend(*id, args[arg].expr())

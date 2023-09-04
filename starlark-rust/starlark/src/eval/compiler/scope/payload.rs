@@ -132,7 +132,7 @@ pub(crate) trait CstAssignIdentExt {
 
 impl CstAssignIdentExt for CstAssignIdent {
     fn resolved_binding_id(&self, codemap: &CodeMap) -> Result<BindingId, InternalError> {
-        match self.1 {
+        match self.payload {
             Some(binding_id) => Ok(binding_id),
             None => Err(InternalError::msg(
                 "Binding id is not filled",

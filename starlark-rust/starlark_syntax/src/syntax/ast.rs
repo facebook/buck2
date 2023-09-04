@@ -226,12 +226,18 @@ pub struct AssignP<P: AstPayload> {
 
 /// Identifier in assign position.
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub struct AssignIdentP<P: AstPayload>(pub String, pub P::IdentAssignPayload);
+pub struct AssignIdentP<P: AstPayload> {
+    pub ident: String,
+    pub payload: P::IdentAssignPayload,
+}
 
 /// Identifier in read position, e. g. `foo` in `[foo.bar]`.
 /// `foo` in `foo = 1` or `bar.foo` are **not** represented by this type.
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub struct IdentP<P: AstPayload>(pub String, pub P::IdentPayload);
+pub struct IdentP<P: AstPayload> {
+    pub ident: String,
+    pub payload: P::IdentPayload,
+}
 
 /// `load` statement.
 #[derive(Debug, Clone)]
@@ -592,13 +598,13 @@ impl Display for AssignTarget {
 
 impl Display for AssignIdent {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.ident)
     }
 }
 
 impl Display for Ident {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.ident)
     }
 }
 

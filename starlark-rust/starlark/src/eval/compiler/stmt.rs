@@ -412,10 +412,10 @@ impl Compiler<'_, '_, '_> {
                 AssignCompiledValue::Tuple(v)
             }
             AssignTargetP::Identifier(ident) => {
-                let name = ident.node.0.as_str();
+                let name = ident.node.ident.as_str();
                 let binding_id = ident
                     .node
-                    .1
+                    .payload
                     .unwrap_or_else(|| panic!("unresolved binding: `{}`", name));
                 let binding = self.scope_data.get_binding(binding_id);
                 let slot = binding.resolved_slot(&self.codemap).unwrap();
@@ -719,7 +719,7 @@ impl Compiler<'_, '_, '_> {
                 } = def;
                 let rhs = IrSpanned {
                     node: self.function(
-                        &name.0,
+                        &name.ident,
                         signature_span,
                         *scope_id,
                         params,

@@ -263,7 +263,7 @@ impl LspModule {
                     &scope,
                     current_pos,
                 ),
-                segments: iter::once(def.variable.0.clone())
+                segments: iter::once(def.variable.ident.clone())
                     .chain(def.attributes.map(|s| s.node.to_owned()))
                     .collect(),
             }
@@ -304,7 +304,7 @@ impl LspModule {
         for bind in &scope.inner {
             match bind {
                 Bind::Get(g) if g.span.contains(pos) => {
-                    return resolve_get_in_scope(scope, g.node.0.as_str(), g.span).into();
+                    return resolve_get_in_scope(scope, g.node.ident.as_str(), g.span).into();
                 }
                 Bind::Scope(inner_scope) => {
                     match Self::find_definition_in_scope(inner_scope, pos) {
@@ -352,7 +352,7 @@ impl LspModule {
                         let root_identifier = &dotted.variable;
                         let root_definition_location = resolve_get_in_scope(
                             scope,
-                            root_identifier.node.0.as_str(),
+                            root_identifier.node.ident.as_str(),
                             root_identifier.span,
                         );
                         // If someone clicks on the "root" identifier, just treat it as a "get"
@@ -484,7 +484,7 @@ impl LspModule {
         'outer: for v in top_level_stmts(&self.ast.statement) {
             if let StmtP::Assign(assign) = &v.node {
                 let main_assign_span = match &assign.lhs.node {
-                    AssignTargetP::Identifier(main_assign_id) if main_assign_id.0 == name => {
+                    AssignTargetP::Identifier(main_assign_id) if main_assign_id.ident == name => {
                         main_assign_id.span
                     }
                     _ => {
@@ -499,7 +499,8 @@ impl LspModule {
                 // Look for a function call to `struct`.
                 if let ExprP::Call(function_name, args) = &assign.rhs.node {
                     match &function_name.node {
-                        ExprP::Identifier(function_name) if function_name.node.0 == "struct" => {}
+                        ExprP::Identifier(function_name)
+                            if function_name.node.ident == "struct" => {}
                         _ => {
                             continue 'outer;
                         }

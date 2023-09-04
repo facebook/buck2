@@ -435,7 +435,7 @@ impl<'f> ModuleScopeBuilder<'f> {
             .set_param_count(params.len().try_into().unwrap());
         let mut locals: SmallMap<FrozenStringValue, _> = SmallMap::new();
         for p in params {
-            let name = frozen_heap.alloc_str_intern(&p.0);
+            let name = frozen_heap.alloc_str_intern(&p.ident);
             // Subtle invariant: the slots for the params must be ordered and at the
             // beginning
             let binding_id = scope_data
@@ -446,7 +446,7 @@ impl<'f> ModuleScopeBuilder<'f> {
                     AssignCount::AtMostOnce,
                 )
                 .0;
-            p.1 = Some(binding_id);
+            p.payload = Some(binding_id);
             let old_local = locals.insert_hashed(name.get_hashed(), binding_id);
             assert!(old_local.is_none());
         }
@@ -648,13 +648,17 @@ impl<'f> ModuleScopeBuilder<'f> {
 
     fn variable_not_found_err(&self, ident: &CstIdent) -> EvalException {
         let variants = self.current_scope_all_visible_names_for_did_you_mean();
-        let better = did_you_mean(ident.node.0.as_str(), variants.iter().map(|s| s.as_str()));
+        let better = did_you_mean(
+            ident.node.ident.as_str(),
+            variants.iter().map(|s| s.as_str()),
+        );
         EvalException::new(
             match better {
-                Some(better) => {
-                    ScopeError::VariableNotFoundDidYouMean(ident.node.0.clone(), better.to_owned())
-                }
-                None => ScopeError::VariableNotFound(ident.node.0.clone()),
+                Some(better) => ScopeError::VariableNotFoundDidYouMean(
+                    ident.node.ident.clone(),
+                    better.to_owned(),
+                ),
+                None => ScopeError::VariableNotFound(ident.node.ident.clone()),
             }
             .into(),
             ident.span,
@@ -663,11 +667,11 @@ impl<'f> ModuleScopeBuilder<'f> {
     }
 
     fn resolve_ident(&mut self, scope: ResolveIdentScope, ident: &mut CstIdent) {
-        assert!(ident.node.1.is_none());
-        let resolved = match self.get_name(self.frozen_heap.alloc_str_intern(&ident.node.0)) {
+        assert!(ident.node.payload.is_none());
+        let resolved = match self.get_name(self.frozen_heap.alloc_str_intern(&ident.node.ident)) {
             None => {
                 // Must be a global, since we know all variables
-                match self.globals.get_frozen(&ident.node.0) {
+                match self.globals.get_frozen(&ident.node.ident) {
                     None => {
                         self.errors.push(self.variable_not_found_err(ident));
                         return;
@@ -682,7 +686,7 @@ impl<'f> ModuleScopeBuilder<'f> {
             ResolveIdentScope::GlobalForTypeExpression => match resolved {
                 ResolvedIdent::Slot(Slot::Local(_), _) => {
                     self.errors.push(EvalException::new(
-                        ScopeError::TypeExpressionGlobalOrBuiltin(ident.node.0.clone()).into(),
+                        ScopeError::TypeExpressionGlobalOrBuiltin(ident.node.ident.clone()).into(),
                         ident.span,
                         &self.codemap,
                     ));
@@ -692,7 +696,7 @@ impl<'f> ModuleScopeBuilder<'f> {
                 ResolvedIdent::Global(_) => {}
             },
         }
-        ident.node.1 = Some(resolved);
+        ident.node.payload = Some(resolved);
     }
 
     fn resolve_idents_in_compr(
@@ -883,7 +887,7 @@ impl StmtCollectDefines for Stmt {
                 };
                 for (name, _) in &mut load.args {
                     let mut vis = vis;
-                    if Module::default_visibility(&name.0) == Visibility::Private {
+                    if Module::default_visibility(&name.ident) == Visibility::Private {
                         vis = Visibility::Private;
                     }
                     AssignIdent::collect_assign_ident(
@@ -972,9 +976,9 @@ impl AssignIdentCollect for AssignIdent {
             };
         }
         assign_ident_impl(
-            frozen_heap.alloc_str_intern(&assign.node.0),
+            frozen_heap.alloc_str_intern(&assign.node.ident),
             assign.span,
-            &mut assign.node.1,
+            &mut assign.node.payload,
             in_loop,
             vis,
             scope_data,
@@ -1179,7 +1183,7 @@ impl<'f> ModuleScopeData<'f> {
         ident: &CstAssignIdent,
         codemap: &CodeMap,
     ) -> (Slot, Captured) {
-        let binding_id = ident.1.expect("binding not assigned for ident");
+        let binding_id = ident.payload.expect("binding not assigned for ident");
         let binding = self.get_binding(binding_id);
         let slot = binding.resolved_slot(codemap).unwrap();
         (slot, binding.captured)

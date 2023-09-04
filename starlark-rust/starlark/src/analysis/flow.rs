@@ -92,7 +92,7 @@ fn returns(x: &AstStmt) -> Vec<(Span, Option<&AstExpr>)> {
 fn is_fail(x: &AstExpr) -> bool {
     match &**x {
         Expr::Call(x, _) => match &***x {
-            Expr::Identifier(name) => name.node.0 == "fail",
+            Expr::Identifier(name) => name.node.ident == "fail",
             _ => false,
         },
         _ => false,
@@ -135,7 +135,7 @@ fn require_return_expression(ret_type: &Option<Box<AstTypeExpr>>) -> Option<Span
     match ret_type {
         None => None,
         Some(x) => match &x.node.expr.node {
-            Expr::Identifier(x) if x.node.0 == "None" => None,
+            Expr::Identifier(x) if x.node.ident == "None" => None,
             _ => Some(x.span),
         },
     }
@@ -162,7 +162,7 @@ fn check_stmt(codemap: &CodeMap, x: &AstStmt, res: &mut Vec<LintT<FlowIssue>>) {
                         x.span,
                         FlowIssue::MissingReturn(
                             // Statements often end with \n, so remove that to fit nicely
-                            name.node.0.trim_end().to_owned(),
+                            name.node.ident.trim_end().to_owned(),
                             codemap.file_span(reason).resolve(),
                         ),
                     ));
@@ -173,7 +173,7 @@ fn check_stmt(codemap: &CodeMap, x: &AstStmt, res: &mut Vec<LintT<FlowIssue>>) {
                             codemap,
                             span,
                             FlowIssue::MissingReturnExpression(
-                                name.0.clone(),
+                                name.ident.clone(),
                                 codemap.file_span(x.span).resolve(),
                                 codemap.file_span(reason).resolve(),
                             ),

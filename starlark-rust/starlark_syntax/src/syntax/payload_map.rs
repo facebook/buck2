@@ -270,8 +270,14 @@ impl<A: AstPayload> AssignIdentP<A> {
         self,
         f: &mut impl AstPayloadFunction<A, B>,
     ) -> AssignIdentP<B> {
-        let AssignIdentP(s, p) = self;
-        AssignIdentP(s, f.map_ident_assign(p))
+        let AssignIdentP {
+            ident: s,
+            payload: p,
+        } = self;
+        AssignIdentP {
+            ident: s,
+            payload: f.map_ident_assign(p),
+        }
     }
 }
 
@@ -280,8 +286,14 @@ impl<A: AstPayload> IdentP<A> {
         self,
         f: &mut impl AstPayloadFunction<A, B>,
     ) -> IdentP<B> {
-        let IdentP(s, p) = self;
-        IdentP(s, f.map_ident(p))
+        let IdentP {
+            ident: s,
+            payload: p,
+        } = self;
+        IdentP {
+            ident: s,
+            payload: f.map_ident(p),
+        }
     }
 }
 

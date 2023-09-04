@@ -139,7 +139,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
     }
 
     fn expr_ident(&self, ident: &CstIdent) -> Result<GlobalValue<'v>, InternalError> {
-        let Some(resolved_ident) = &ident.1 else {
+        let Some(resolved_ident) = &ident.payload else {
             return Err(self.internal_error(ident.span, "unresolved ident"));
         };
         match resolved_ident {
@@ -445,7 +445,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
             match param.kind {
                 DefParamKind::Regular(default_value) => {
                     let pos_only = i < def_params.num_positional as usize;
-                    let name = param.ident.0.as_str();
+                    let name = param.ident.ident.as_str();
                     let param = if pos_only {
                         Param::pos_or_name(name, ty)
                     } else {

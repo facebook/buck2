@@ -125,11 +125,11 @@ impl<'a> AstStrExt<'a> for AstStr<'a> {
     }
 
     fn ident(x: &'a AstIdent) -> Self {
-        Self::new(x.span, x.node.0.as_str())
+        Self::new(x.span, x.node.ident.as_str())
     }
 
     fn assign_ident(x: &'a AstAssignIdent) -> Self {
-        Self::new(x.span, x.node.0.as_str())
+        Self::new(x.span, x.node.ident.as_str())
     }
 }
 
@@ -148,7 +148,7 @@ enum Abort {
 fn is_fail(x: &AstExpr) -> bool {
     if let Expr::Call(x, _) = &**x {
         if let Expr::Identifier(x) = &***x {
-            return x.0.as_str() == "fail";
+            return x.ident.as_str() == "fail";
         }
     }
     false

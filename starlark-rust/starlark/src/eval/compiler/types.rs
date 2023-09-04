@@ -104,7 +104,7 @@ impl<'v> Compiler<'v, '_, '_> {
     }
 
     fn eval_ident_in_type_expr(&mut self, ident: &CstIdent) -> Result<Value<'v>, EvalException> {
-        let Some(ident_payload) = &ident.node.1 else {
+        let Some(ident_payload) = &ident.node.payload else {
             return Err(EvalException::new(
                 TypesError::UnresolvedIdentifier.into(),
                 ident.span,
@@ -121,7 +121,7 @@ impl<'v> Compiler<'v, '_, '_> {
                 match self.eval.module_env.slots().get_slot(*module_slot_id) {
                     Some(v) => Ok(v),
                     None => Err(EvalException::new(
-                        TypesError::ModuleVariableNotSet(ident.node.0.clone()).into(),
+                        TypesError::ModuleVariableNotSet(ident.node.ident.clone()).into(),
                         ident.span,
                         &self.codemap,
                     )),

@@ -90,7 +90,10 @@ pub fn check_assign(codemap: &CodeMap, x: AstExpr) -> Result<AstAssignTarget, Ev
             }
             Expr::Dot(a, b) => AssignTarget::Dot(a, b),
             Expr::Index(a_b) => AssignTarget::Index(a_b),
-            Expr::Identifier(x) => AssignTarget::Identifier(x.map(|s| AssignIdentP(s.0, ()))),
+            Expr::Identifier(x) => AssignTarget::Identifier(x.map(|s| AssignIdentP {
+                ident: s.ident,
+                payload: (),
+            })),
             _ => {
                 return Err(EvalException::new(
                     GrammarUtilError::InvalidLhs.into(),
@@ -172,7 +175,10 @@ pub fn check_def(
     parser_state: &mut ParserState,
 ) -> Stmt {
     check_parameters(&params, parser_state);
-    let name = name.map(|s| AssignIdentP(s, ()));
+    let name = name.map(|s| AssignIdentP {
+        ident: s,
+        payload: (),
+    });
     Stmt::Def(DefP {
         name,
         params,
@@ -263,8 +269,10 @@ pub fn fstring(
                     }
                 };
 
-                let expr = ExprP::Identifier(IdentP(ident, ()).ast(capture_begin, capture_end))
-                    .ast(capture_begin, capture_end);
+                let expr = ExprP::Identifier(
+                    IdentP { ident, payload: () }.ast(capture_begin, capture_end),
+                )
+                .ast(capture_begin, capture_end);
                 expressions.push(expr);
                 format.push_str("{}"); // Positional format.
             }

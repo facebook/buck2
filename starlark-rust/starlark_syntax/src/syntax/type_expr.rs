@@ -149,7 +149,7 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
                             if let [one] = rem.as_slice() {
                                 if one.node == "type" {
                                     for (_, symbol) in BAN_REPLACE_TYPES {
-                                        if i.node.0.as_str() == *symbol {
+                                        if i.node.ident.as_str() == *symbol {
                                             return Err(EvalException::new(
                                                 TypeExprUnpackError::DotTypeBan(symbol).into(),
                                                 current.span,

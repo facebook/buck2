@@ -77,7 +77,7 @@ fn match_bad_type_equality(
 ) {
     fn lookup_type<'a>(x: &AstExpr, types: &HashMap<&str, &'a str>) -> Option<&'a str> {
         match &**x {
-            Expr::Identifier(name) => types.get(name.node.0.as_str()).copied(),
+            Expr::Identifier(name) => types.get(name.node.ident.as_str()).copied(),
             _ => None,
         }
     }
@@ -86,7 +86,7 @@ fn match_bad_type_equality(
     fn is_type_call(x: &AstExpr) -> bool {
         match &**x {
             Expr::Call(fun, args) if args.len() == 1 => match &***fun {
-                Expr::Identifier(x) => x.node.0 == "type",
+                Expr::Identifier(x) => x.node.ident == "type",
                 _ => false,
             },
             _ => false,
@@ -143,14 +143,14 @@ fn duplicate_top_level_assignment(module: &AstModule, res: &mut Vec<LintT<Incomp
         defined: &mut HashMap<&'a str, (Span, bool)>,
         res: &mut Vec<LintT<Incompatibility>>,
     ) {
-        if let Some((old, _)) = defined.get(x.0.as_str()) {
+        if let Some((old, _)) = defined.get(x.ident.as_str()) {
             res.push(LintT::new(
                 codemap,
                 x.span,
-                Incompatibility::DuplicateTopLevelAssign(x.0.clone(), codemap.file_span(*old)),
+                Incompatibility::DuplicateTopLevelAssign(x.ident.clone(), codemap.file_span(*old)),
             ));
         } else {
-            defined.insert(&x.0, (x.span, is_load));
+            defined.insert(&x.ident, (x.span, is_load));
         }
     }
 
@@ -164,13 +164,13 @@ fn duplicate_top_level_assignment(module: &AstModule, res: &mut Vec<LintT<Incomp
         match &**x {
             Stmt::Assign(assign) => match (&assign.lhs.node, &assign.rhs.node) {
                 (AssignTarget::Identifier(x), Expr::Identifier(y))
-                    if x.node.0 == y.node.0
-                        && defined.get(x.node.0.as_str()).map_or(false, |x| x.1)
-                        && !exported.contains(x.node.0.as_str()) =>
+                    if x.node.ident == y.node.ident
+                        && defined.get(x.node.ident.as_str()).map_or(false, |x| x.1)
+                        && !exported.contains(x.node.ident.as_str()) =>
                 {
                     // Normally this would be an error, but if we load()'d it, this is how we'd reexport through Starlark.
                     // But only allow one export
-                    exported.insert(x.node.0.as_str());
+                    exported.insert(x.node.ident.as_str());
                 }
                 _ => assign
                     .lhs

@@ -88,11 +88,11 @@ fn test_with_module(program: &str, expected: &str, module: &MutableNames) {
     impl Visitor<'_> {
         fn visit_expr(&mut self, expr: &CstExpr) {
             if let ExprP::Identifier(ident) = &expr.node {
-                let resolved = match ident.node.1.as_ref().unwrap() {
+                let resolved = match ident.node.payload.as_ref().unwrap() {
                     ResolvedIdent::Slot(_slot, binding_id) => binding_id.0.to_string(),
                     ResolvedIdent::Global(_) => "G".to_owned(),
                 };
-                write!(&mut self.r, " {}:{}", ident.node.0, resolved).unwrap();
+                write!(&mut self.r, " {}:{}", ident.node.ident, resolved).unwrap();
             }
 
             expr.visit_expr(|expr| self.visit_expr(expr));
@@ -105,7 +105,7 @@ fn test_with_module(program: &str, expected: &str, module: &MutableNames) {
         }
 
         fn visit_lvalue(&mut self, ident: &CstAssignIdent) {
-            write!(&mut self.r, " {}:{}", ident.0, ident.1.unwrap().0).unwrap();
+            write!(&mut self.r, " {}:{}", ident.ident, ident.payload.unwrap().0).unwrap();
         }
 
         fn visit_stmt_children(&mut self, stmt: &CstStmt) {

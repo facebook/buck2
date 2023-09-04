@@ -1167,9 +1167,9 @@ impl<'v, 'a, 'e> Compiler<'v, 'a, 'e> {
     fn expr_ident(&mut self, ident: &CstIdent) -> ExprCompiled {
         let resolved_ident = ident
             .node
-            .1
+            .payload
             .as_ref()
-            .unwrap_or_else(|| panic!("variable not resolved: `{}`", ident.node.0));
+            .unwrap_or_else(|| panic!("variable not resolved: `{}`", ident.node.ident));
         match resolved_ident {
             ResolvedIdent::Slot(Slot::Local(slot), binding_id) => {
                 let binding = self.scope_data.get_binding(*binding_id);

@@ -182,7 +182,7 @@ impl AstModule {
                     symbols: load
                         .args
                         .iter()
-                        .map(|(name, sym)| (name.node.0.as_str(), sym.node.as_str()))
+                        .map(|(name, sym)| (name.node.ident.as_str(), sym.node.as_str()))
                         .collect(),
                 }),
                 Stmt::Statements(stmts) => {

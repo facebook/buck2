@@ -73,7 +73,7 @@ fn check_param_name<'a, P: AstPayload, T>(
     arg: &Spanned<T>,
     codemap: &CodeMap,
 ) -> Result<(), EvalException> {
-    if !argset.insert(n.node.0.as_str()) {
+    if !argset.insert(n.node.ident.as_str()) {
         return Err(EvalException::new(
             DefError::DuplicateParameterName.into(),
             arg.span,
