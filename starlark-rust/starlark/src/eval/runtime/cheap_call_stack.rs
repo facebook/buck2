@@ -82,17 +82,19 @@ enum CallStackError {
 #[derive(Debug)]
 pub(crate) struct CheapCallStack<'v> {
     count: usize,
-    stack: [CheapFrame<'v>; MAX_CALLSTACK_RECURSION],
+    stack: Box<[CheapFrame<'v>; MAX_CALLSTACK_RECURSION]>,
 }
 
 impl<'v> Default for CheapCallStack<'v> {
     fn default() -> Self {
         Self {
             count: 0,
-            stack: [CheapFrame {
-                function: Value::new_none(),
-                span: None,
-            }; MAX_CALLSTACK_RECURSION],
+            stack: Box::new(
+                [CheapFrame {
+                    function: Value::new_none(),
+                    span: None,
+                }; MAX_CALLSTACK_RECURSION],
+            ),
         }
     }
 }
