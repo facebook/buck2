@@ -102,7 +102,7 @@ ParameterTyped_: Parameter = {
     "**" <AssignIdent> <Type>             => Parameter::KwArgs(<>),
 };
 
-TypeExpr: AstTypeExpr = <Test> =>? Ok(grammar_util::dialect_check_type(state.dialect, state.codemap, <>)?);
+TypeExpr: AstTypeExpr = <Test> =>? Ok(grammar_util::dialect_check_type(state, <>)?);
 
 Type: Option<Box<AstTypeExpr>> = {
     ":" <TypeExpr> => Some(Box::new(<>)),

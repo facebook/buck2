@@ -332,6 +332,8 @@ fn test_call_unknown() {
     TypeCheck::new().check(
         "call_unknown",
         r#"
+# @starlark-rust: allow_string_literals_in_type_expr
+
 def foo(x: "unknown"):
     x()
 "#,
@@ -355,6 +357,8 @@ fn test_call_callable_or_unknown() {
     TypeCheck::new().check(
         "call_callable_or_unknown",
         r#"
+# @starlark-rust: allow_string_literals_in_type_expr
+
 def foo(x: [typing.Callable, "unknown"], y: ["unknown", typing.Callable]):
     x()
     y()
@@ -367,6 +371,8 @@ fn test_call_not_callable_or_unknown() {
     TypeCheck::new().check(
         "call_not_callable_or_unknown",
         r#"
+# @starlark-rust: allow_string_literals_in_type_expr
+
 def foo(x: [str, "unknown"], y: ["unknown", str]):
     x()
     y()

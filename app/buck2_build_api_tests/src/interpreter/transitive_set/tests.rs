@@ -618,6 +618,8 @@ fn test_type() -> anyhow::Result<()> {
         r#"
         FooSet = transitive_set()
 
+        # @starlark-rust: allow_string_literals_in_type_expr
+
         def wants_not_foo_set(f: "some"):
             pass
 

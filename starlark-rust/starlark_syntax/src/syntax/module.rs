@@ -106,6 +106,9 @@ pub struct AstModule {
     pub codemap: CodeMap,
     pub statement: AstStmt,
     pub dialect: Dialect,
+    /// Temporary option to allow string literals in type expressions.
+    /// Specified with `@starlark-rust: allow_string_literals_in_type_expr`.
+    pub allow_string_literals_in_type_expr: bool,
 }
 
 impl AstModule {
@@ -113,12 +116,14 @@ impl AstModule {
         codemap: CodeMap,
         statement: AstStmt,
         dialect: &Dialect,
+        allow_string_literals_in_type_expr: bool,
     ) -> anyhow::Result<AstModule> {
         Stmt::validate(&codemap, &statement, dialect).map_err(EvalException::into_anyhow)?;
         Ok(AstModule {
             codemap,
             statement,
             dialect: dialect.clone(),
+            allow_string_literals_in_type_expr,
         })
     }
 
@@ -143,6 +148,8 @@ impl AstModule {
     /// assert_eq!(err.span.unwrap().to_string(), "filename:2:11");
     /// ```
     pub fn parse(filename: &str, content: String, dialect: &Dialect) -> anyhow::Result<Self> {
+        let allow_string_literals_in_type_expr =
+            content.contains("@starlark-rust: allow_string_literals_in_type_expr");
         let codemap = CodeMap::new(filename.to_owned(), content);
         let lexer = Lexer::new(codemap.source(), dialect, codemap.dupe());
         let mut errors = Vec::new();
@@ -150,6 +157,7 @@ impl AstModule {
             &mut ParserState {
                 codemap: &codemap,
                 dialect,
+                allow_string_literals_in_type_expr,
                 errors: &mut errors,
             },
             lexer.filter(|t| match t {
@@ -161,7 +169,12 @@ impl AstModule {
                 if let Some(err) = errors.into_iter().next() {
                     return Err(err.into_anyhow());
                 }
-                Ok(AstModule::create(codemap, v, dialect)?)
+                Ok(AstModule::create(
+                    codemap,
+                    v,
+                    dialect,
+                    allow_string_literals_in_type_expr,
+                )?)
             }
             Err(p) => Err(parse_error_add_span(p, codemap.source().len(), &codemap)),
         }

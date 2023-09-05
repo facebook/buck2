@@ -90,6 +90,8 @@ enum_type("option3")"#,
         );
         assert::pass(
             r#"
+# @starlark-rust: allow_string_literals_in_type_expr
+
 enum_type = enum("option1","option2")
 def foo(x: enum_type.type) -> "enum_type":
     return x
@@ -97,6 +99,8 @@ foo(enum_type("option1"))"#,
         );
         assert::pass(
             r#"
+# @starlark-rust: allow_string_literals_in_type_expr
+
 v = [enum("option1","option2")]
 v_0 = v[0]
 def foo(y: v_0.type) -> "enum":

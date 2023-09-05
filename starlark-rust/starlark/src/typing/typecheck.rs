@@ -220,6 +220,7 @@ impl AstModuleTypecheck for AstModule {
             oracle,
             &scope_data,
             &mut approximations,
+            self.allow_string_literals_in_type_expr,
         ) {
             Ok(fill_types_errors) => fill_types_errors,
             Err(e) => {

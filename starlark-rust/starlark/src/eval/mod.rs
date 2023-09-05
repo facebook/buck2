@@ -64,6 +64,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             codemap,
             statement,
             dialect,
+            allow_string_literals_in_type_expr,
         } = ast;
 
         let codemap = self
@@ -126,6 +127,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             eval: self,
             check_types: dialect.enable_types == DialectTypes::Enable,
             top_level_stmt_count,
+            allow_string_literals_in_type_expr,
         };
 
         let res = compiler.eval_module(cst, local_names);

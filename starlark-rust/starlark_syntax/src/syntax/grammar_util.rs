@@ -378,16 +378,15 @@ pub fn dialect_check_keyword_only_arguments<T>(
 }
 
 pub fn dialect_check_type(
-    dialect: &Dialect,
-    codemap: &CodeMap,
+    state: &ParserState,
     x: Spanned<Expr>,
 ) -> Result<Spanned<TypeExpr>, EvalException> {
     let span = x.span;
-    if dialect.enable_types == DialectTypes::Disable {
-        return err(codemap, x.span, DialectError::Types);
+    if state.dialect.enable_types == DialectTypes::Disable {
+        return err(state.codemap, x.span, DialectError::Types);
     }
 
-    TypeExprUnpackP::unpack(&x, codemap)?;
+    TypeExprUnpackP::unpack(&x, state.codemap, state.allow_string_literals_in_type_expr)?;
 
     Ok(x.map(|node| TypeExprP {
         expr: Spanned { node, span },

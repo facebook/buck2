@@ -117,6 +117,7 @@ struct GlobalTypesBuilder<'a, 'v> {
     errors: Vec<TypingError>,
     module_scope_data: &'a ModuleScopeData<'a>,
     ctx: TypingOracleCtx<'a>,
+    allow_string_literals_in_type_expr: bool,
 }
 
 impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
@@ -658,8 +659,12 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
     }
 
     fn ty_expr(&mut self, expr: &CstTypeExpr) -> Result<Ty, InternalError> {
-        let x = TypeExprUnpackP::unpack(&expr.expr, self.ctx.codemap)
-            .map_err(InternalError::from_eval_exception)?;
+        let x = TypeExprUnpackP::unpack(
+            &expr.expr,
+            self.ctx.codemap,
+            self.allow_string_literals_in_type_expr,
+        )
+        .map_err(InternalError::from_eval_exception)?;
         self.from_type_expr_impl(&x)
     }
 
@@ -708,6 +713,7 @@ pub(crate) fn fill_types_for_lint_typechecker(
     ctx: TypingOracleCtx,
     module_scope_data: &ModuleScopeData,
     approximations: &mut Vec<Approximation>,
+    allow_string_literals_in_type_expr: bool,
 ) -> Result<(Vec<TypingError>, ModuleVarTypes), InternalError> {
     let heap = Heap::new();
     let mut builder = GlobalTypesBuilder {
@@ -717,6 +723,7 @@ pub(crate) fn fill_types_for_lint_typechecker(
         errors: Vec::new(),
         module_scope_data,
         approximations,
+        allow_string_literals_in_type_expr,
     };
     for stmt in module.iter_mut() {
         builder.top_level_stmt(stmt)?;

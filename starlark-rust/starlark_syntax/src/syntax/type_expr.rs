@@ -117,6 +117,7 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
     pub fn unpack(
         expr: &'a AstExprP<P>,
         codemap: &CodeMap,
+        allow_string_literals_in_type_expr: bool,
     ) -> Result<Spanned<TypeExprUnpackP<'a, P>>, EvalException> {
         let span = expr.span;
         let err = |t| {
@@ -129,7 +130,9 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
 
         match &expr.node {
             ExprP::Tuple(xs) => {
-                let xs = xs.try_map(|x| TypeExprUnpackP::unpack(x, codemap))?;
+                let xs = xs.try_map(|x| {
+                    TypeExprUnpackP::unpack(x, codemap, allow_string_literals_in_type_expr)
+                })?;
                 Ok(Spanned {
                     span,
                     node: TypeExprUnpackP::Tuple(xs),
@@ -183,7 +186,11 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
                 let (a, i) = &**a_i;
                 match &a.node {
                     ExprP::Identifier(ident) => {
-                        let i = TypeExprUnpackP::unpack(i, codemap)?;
+                        let i = TypeExprUnpackP::unpack(
+                            i,
+                            codemap,
+                            allow_string_literals_in_type_expr,
+                        )?;
                         Ok(Spanned {
                             span,
                             node: TypeExprUnpackP::Index(ident, Box::new(i)),
@@ -198,14 +205,17 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
                     return err("array indirection 2 where array is not an identifier");
                 };
                 if let ExprP::Literal(AstLiteral::Ellipsis) = &i1.node {
-                    let i0 = TypeExprUnpackP::unpack(i0, codemap)?;
+                    let i0 =
+                        TypeExprUnpackP::unpack(i0, codemap, allow_string_literals_in_type_expr)?;
                     Ok(Spanned {
                         span,
                         node: TypeExprUnpackP::Index2Ellipsis(ident, Box::new(i0)),
                     })
                 } else {
-                    let i0 = TypeExprUnpackP::unpack(i0, codemap)?;
-                    let i1 = TypeExprUnpackP::unpack(i1, codemap)?;
+                    let i0 =
+                        TypeExprUnpackP::unpack(i0, codemap, allow_string_literals_in_type_expr)?;
+                    let i1 =
+                        TypeExprUnpackP::unpack(i1, codemap, allow_string_literals_in_type_expr)?;
                     Ok(Spanned {
                         span,
                         node: TypeExprUnpackP::Index2(ident, Box::new(i0), Box::new(i1)),
@@ -219,6 +229,9 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
             }),
             ExprP::Lambda(..) => err("lambda"),
             ExprP::Literal(AstLiteral::String(s)) => {
+                if !allow_string_literals_in_type_expr {
+                    return err("string literal");
+                }
                 if type_str_literal_is_wildcard(s) {
                     return Err(EvalException::new(
                         TypeExprUnpackError::EmptyStrInType.into(),
@@ -248,8 +261,8 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
             ExprP::Plus(..) => err("plus"),
             ExprP::BitNot(..) => err("bit not"),
             ExprP::Op(a, BinOp::BitOr, b) => {
-                let a = TypeExprUnpackP::unpack(a, codemap)?;
-                let b = TypeExprUnpackP::unpack(b, codemap)?;
+                let a = TypeExprUnpackP::unpack(a, codemap, allow_string_literals_in_type_expr)?;
+                let b = TypeExprUnpackP::unpack(b, codemap, allow_string_literals_in_type_expr)?;
                 Ok(Spanned {
                     span,
                     node: TypeExprUnpackP::Union(vec![a, b]),
@@ -267,7 +280,9 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
                 } else if xs.len() == 1 {
                     err("list of 1 element")
                 } else {
-                    let xs = xs.try_map(|x| TypeExprUnpackP::unpack(x, codemap))?;
+                    let xs = xs.try_map(|x| {
+                        TypeExprUnpackP::unpack(x, codemap, allow_string_literals_in_type_expr)
+                    })?;
                     Ok(Spanned {
                         span,
                         node: TypeExprUnpackP::Union(xs),
