@@ -191,9 +191,15 @@ AssignStmt_: Stmt = <lhs:TestList> <ty:Type> <op:AssignOp> <rhs:TestList>
 ExprStmt: AstStmt = ASTS<ExprStmt_>;
 ExprStmt_: Stmt = <Test> => Stmt::Expression(<>);
 
+Comma: Spanned<Comma> = <@L> "," <@R> => Comma.ast(<>);
+
 LoadStmt: AstStmt = ASTS<LoadStmt_>;
-LoadStmt_: Stmt = "load" "(" <module:string> <args:("," <LoadStmtSyms>)*> ","? ")"
-        => grammar_util::check_load(<>, state);
+LoadStmt_: Stmt = {
+    "load" "(" <module:string> ")"
+        => grammar_util::check_load_0(<>, state),
+    "load" "(" <module:string> Comma <args:(<LoadStmtSyms> <Comma>)*> <last:(<LoadStmtSyms>)?> ")"
+        => grammar_util::check_load(<>, state)
+};
 
 LoadStmtBindingName: AstString = <identifier> "=";
 

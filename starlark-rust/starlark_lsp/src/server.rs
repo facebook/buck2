@@ -957,7 +957,9 @@ impl<T: LspContext> Backend<T> {
                 let load_span = ast.ast.codemap.resolve_span(*load_span);
                 let mut load_args: Vec<(&str, &str)> = previously_loaded_symbols
                     .iter()
-                    .map(|LoadArgP { local, their }| (local.ident.as_str(), their.node.as_str()))
+                    .map(|LoadArgP { local, their, .. }| {
+                        (local.ident.as_str(), their.node.as_str())
+                    })
                     .collect();
                 load_args.push((symbol, symbol));
                 load_args.sort_by(|(_, a), (_, b)| a.cmp(b));

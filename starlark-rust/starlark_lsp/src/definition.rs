@@ -573,7 +573,7 @@ impl LspModule {
                             path: load.module.node.to_owned(),
                         })
                     } else {
-                        load.args.iter().find_map(|LoadArgP { local, their }| {
+                        load.args.iter().find_map(|LoadArgP { local, their, .. }| {
                             if local.span.contains(pos) || their.span.contains(pos) {
                                 Some(IdentifierDefinition::LoadedLocation {
                                     source: codemap.resolve_span(their.span),

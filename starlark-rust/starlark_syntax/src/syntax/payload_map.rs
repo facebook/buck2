@@ -54,10 +54,12 @@ impl<A: AstPayload> LoadArgP<A> {
         let LoadArgP {
             local,
             their: remote,
+            comma,
         } = self;
         LoadArgP {
             local: local.into_map_payload(f),
             their: remote,
+            comma,
         }
     }
 }

@@ -183,7 +183,7 @@ impl AstModule {
                     symbols: load
                         .args
                         .iter()
-                        .map(|LoadArgP { local, their }| {
+                        .map(|LoadArgP { local, their, .. }| {
                             (local.node.ident.as_str(), their.node.as_str())
                         })
                         .collect(),

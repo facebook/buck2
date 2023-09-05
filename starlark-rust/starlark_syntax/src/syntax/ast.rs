@@ -52,6 +52,10 @@ impl AstPayload for AstNoPayload {
     type TypeExprPayload = ();
 }
 
+/// `,` token.
+#[derive(Copy, Clone, Dupe, Debug)]
+pub struct Comma;
+
 pub type Expr = ExprP<AstNoPayload>;
 pub type TypeExpr = TypeExprP<AstNoPayload>;
 pub type AssignTarget = AssignTargetP<AstNoPayload>;
@@ -246,6 +250,8 @@ pub struct LoadArgP<P: AstPayload> {
     pub local: AstAssignIdentP<P>,
     /// `"y" in `x="y"`.
     pub their: AstString,
+    /// Trailing comma.
+    pub comma: Option<Spanned<Comma>>,
 }
 
 impl<P: AstPayload> LoadArgP<P> {

@@ -291,7 +291,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
     }
 
     fn load(&mut self, load: &LoadP<CstPayload>) -> Result<(), InternalError> {
-        for LoadArgP { local, their } in &load.args {
+        for LoadArgP { local, their, .. } in &load.args {
             let ty = load.payload.get(their).cloned().unwrap_or_else(Ty::any);
             self.assign_ident_value(local, GlobalValue::ty(ty))?;
         }
