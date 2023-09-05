@@ -34,16 +34,23 @@ def strip_srcs_path(ctx: AnalysisContext) -> list[str]:
     name of the module folder. Then we can strip all the other source locs.
     """
     toml_main = ctx.attrs.project_toml.short_path.split("/")[0:-2]
+    necessary_prefix = ""
     toml_main_path = ""
     for p in toml_main:
         toml_main_path = toml_main_path + p + "/"
 
-    # If the toml file is in the current directory, then we need to account for that.
+    # If the toml file is in the current directory, then we need to account for
+    # that. Specifically, we have to tell the parser to look in the current
+    # directory, and we need to ensure the parser places the current module in
+    # its own folder (otherwise libs will clobber each other). The name of the
+    # folder doesn't matter, so long as it's unique. Using the rule name is a
+    # safe bet here, since each library rule name should be unique...
     if toml_main_path == "":
         toml_main_path = "./"
+        necessary_prefix = ctx.attrs.name + "/"
 
-    src_labels = [f.short_path.split(toml_main_path)[-1] for f in ctx.attrs.srcs]
-    src_labels += [ctx.attrs.project_toml.short_path.split(toml_main_path)[-1]]
+    src_labels = [necessary_prefix + f.short_path.split(toml_main_path)[-1] for f in ctx.attrs.srcs]
+    src_labels += [necessary_prefix + ctx.attrs.project_toml.short_path.split(toml_main_path)[-1]]
     return src_labels
 
 def julia_library_impl(ctx: AnalysisContext) -> list[Provider]:

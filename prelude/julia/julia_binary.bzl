@@ -9,8 +9,9 @@ load("@prelude//linking:shared_libraries.bzl", "merge_shared_libraries", "traver
 load("@prelude//utils:utils.bzl", "flatten")
 load(":julia_info.bzl", "JuliaLibraryInfo", "JuliaLibraryTSet", "JuliaToolchainInfo")
 
-def write_overrides_file(ctx: AnalysisContext):
-    """Compiles a JSON file containing all required info for jlls.
+def build_jll_shlibs_mapping(ctx: AnalysisContext, json_info_file: Artifact):
+    """
+    Builds a mapping of julia shared library names to their corresponding.so files
 
     We need to create a JSON file that contains all the relevant jlls, all the
     shlibs that that particular jll needs to link to, and the solib locations.
@@ -19,6 +20,8 @@ def write_overrides_file(ctx: AnalysisContext):
     the absolute path of the JSON file during runtime with a python script.
 
     We populate the JSON file with the following structure:
+
+    Generates a list with the following structure:
     [
        ("first_jll", "uuid",
           [
@@ -29,7 +32,6 @@ def write_overrides_file(ctx: AnalysisContext):
       ... etc
     ]
     """
-    json_info_file = ctx.actions.declare_output("artifacts/Overrides.json")
 
     # build a tree for the jlls
     deps = filter(None, [dep.get(JuliaLibraryInfo) for dep in ctx.attrs.deps])
@@ -67,7 +69,7 @@ def write_overrides_file(ctx: AnalysisContext):
             artifact_info.append((julia_name, symlink_dir, shlib_label_to_soname[label]))
         json_info.append((jll.name, jli.uuid, artifact_info))
 
-    return ctx.actions.write_json(json_info_file, json_info, with_inputs = True)
+    return json_info
 
 def build_load_path_symtree(ctx: AnalysisContext):
     """Builds symtree of all julia library files."""
@@ -96,64 +98,43 @@ def build_julia_command(ctx):
 
     https://docs.julialang.org/en/v1/manual/command-line-options/
     """
-    symlink_dir = build_load_path_symtree(ctx)
-    json_info_file = write_overrides_file(ctx)
-
     julia_toolchain = ctx.attrs._julia_toolchain[JuliaToolchainInfo]
 
     # python processor
-    cmd = cmd_args(julia_toolchain.cmd_processor)
+    cmd = cmd_args([julia_toolchain.cmd_processor])
 
-    # toolchain env variables
-    if len(julia_toolchain.env) > 0:
-        cmd.add("--env")
-
-        # We need to not only separate, by prepend our commands with our
-        # delimiter to "trick" argparse into allowing arguments containing "-"
-        # or "--" (this is mostly a problem on RE).
-        joined_args = '";;{}"'.format(";;".join(julia_toolchain.env))
-        cmd.add(joined_args)
-
-    # library load path
-    cmd.add("--lib-path")
-    cmd.add(symlink_dir)
-
-    # json path
-    cmd.add("--json-path")
-    cmd.add(json_info_file)
-
-    # julia binary
-    cmd.add("--julia-binary")
-    cmd.add(julia_toolchain.julia)
-
-    # add julia flags
-    if len(ctx.attrs.julia_flags) > 0:
-        cmd.add("--julia-flags")
-        joined_args = '\";;{}\"'.format(";;".join(ctx.attrs.julia_flags))
-        cmd.add(joined_args)
+    # build out the symlink tree for libs
+    symlink_dir = build_load_path_symtree(ctx)
+    cmd.hidden(symlink_dir)
 
     # build symdir for sources
     srcs_by_path = {f.short_path: f for f in ctx.attrs.srcs}
     srcs = ctx.actions.symlinked_dir("srcs_tree", srcs_by_path)
     if ctx.attrs.main not in srcs_by_path:
         fail("main should be in srcs!")
-
-    # add the main source file
-    cmd.add("--main")
-    cmd.add(srcs.project(ctx.attrs.main))
-
-    # add the command arguments
-    if len(ctx.attrs.julia_args) > 0:
-        cmd.add("--main-args")
-        joined_args = '";;{}"'.format(";;".join(ctx.attrs.julia_args))
-        cmd.add(joined_args)
-
-    # add all relevant source files
     cmd.hidden(srcs)
-    cmd.hidden(symlink_dir)  # julia lib srcs
 
-    return cmd
+    # prepare a json file to hold all the data the python preprocessor needs to
+    # execute the julia interpreter.
+    json_info_file = ctx.actions.declare_output("artifacts/Overrides.json")
+
+    json_info_dict = {
+        "env": julia_toolchain.env,
+        "jll_mapping": build_jll_shlibs_mapping(ctx, json_info_file),
+        "julia_args": ctx.attrs.julia_args,
+        "julia_binary": cmd_args(julia_toolchain.julia, delimiter = " ").relative_to(json_info_file),
+        "julia_flags": ctx.attrs.julia_flags,
+        "lib_path": cmd_args(symlink_dir, delimiter = " ").relative_to(json_info_file),
+        "main": cmd_args(srcs.project(ctx.attrs.main), delimiter = " ").relative_to(json_info_file),
+    }
+
+    json_file_loc = ctx.actions.write_json(json_info_file, json_info_dict, with_inputs = True)
+
+    # json path
+    cmd.add(["--json-path", json_file_loc])
+
+    return cmd, json_info_file
 
 def julia_binary_impl(ctx: AnalysisContext) -> list[Provider]:
-    cmd = build_julia_command(ctx)
-    return [DefaultInfo(), RunInfo(cmd)]
+    cmd, json_info_file = build_julia_command(ctx)
+    return [DefaultInfo(default_output = json_info_file, other_outputs = [cmd]), RunInfo(cmd)]

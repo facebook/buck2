@@ -14,15 +14,19 @@ import sys
 import tempfile
 
 
+def clean_relative_paths(parent_path: str, rel_path: str) -> pathlib.Path:
+    """Removes the extra upper dir level from a relative path and properly joins."""
+    return os.path.join(parent_path, pathlib.Path(*pathlib.Path(rel_path).parts[1:]))
+
+
 class jll_artifact:
     """Parses artifact info from json file and stores the relevant info."""
 
-    def __init__(self, artifact_entry, json_path):
+    def __init__(self, artifact_entry, json_file_dir):
         self.artifact_name = artifact_entry[0]
-        rel_path_to_json = pathlib.Path(*pathlib.Path(artifact_entry[1]).parts[1:])
         rel_path_of_binary = artifact_entry[2]
         self.artifacts_path = os.path.join(
-            json_path, rel_path_to_json, rel_path_of_binary
+            clean_relative_paths(json_file_dir, artifact_entry[1]), rel_path_of_binary
         )
 
     def form_artifact_dependency(self):
@@ -33,10 +37,10 @@ class jll_artifact:
 class jll_library:
     """Parses the provided json file and stores the relevant info."""
 
-    def __init__(self, json_entry, json_path):
+    def __init__(self, json_entry, json_file_dir):
         self.package_name = json_entry[0]
         self.uuid = json_entry[1]
-        self.jll_artifacts = [jll_artifact(a, json_path) for a in json_entry[2]]
+        self.jll_artifacts = [jll_artifact(a, json_file_dir) for a in json_entry[2]]
 
     def write_library(self, root_directory):
         """Creates and populates the library sources and directories"""
@@ -67,19 +71,13 @@ class jll_library:
             toml_file.close()
 
 
-def parse_json(args, lib_dir):
+def parse_jll_libs(json_data, json_file_dir, lib_dir):
     """Pulls jll library data from json file and writes library files."""
-    json_file = args.json_path
-    json_path = os.path.split(json_file)[0]
-
-    f = open(json_file)
-    data = json.load(f)
-    f.close()
 
     libs = []
-    for entry in data:
+    for entry in json_data:
         # parse the jll itself into our data structure
-        jll_lib = jll_library(entry, json_path)
+        jll_lib = jll_library(entry, json_file_dir)
         # use that structure to "create" a new library in a temp directory
         jll_lib.write_library(lib_dir)
         # store for later if needed.
@@ -88,48 +86,30 @@ def parse_json(args, lib_dir):
     return libs
 
 
-def parse_arg_string(arg_string):
-    parsed = (arg_string.replace('"', "")).split(";;")
-    # the first item is junk in order to trick python's argparse (*sigh*)
-    if parsed:
-        parsed = parsed[1:]
-    return parsed
-
-
-def build_command(args, lib_dir, depot_dir):
+def build_command(json_data, json_file_dir, lib_dir, depot_dir):
     """Builds the run command and env from the supplied args."""
+
+    lib_path = clean_relative_paths(json_file_dir, json_data["lib_path"])
 
     # Compose the environment variables to pass
     my_env = os.environ.copy()
-    my_env["JULIA_LOAD_PATH"] = "{}:{}::".format(args.lib_path, lib_dir)
-    my_env["JULIA_DEPOT_PATH"] = "{}:{}::".format(args.lib_path, depot_dir)
+    my_env["JULIA_LOAD_PATH"] = "{}:{}::".format(lib_path, lib_dir)
+    my_env["JULIA_DEPOT_PATH"] = "{}:{}::".format(lib_path, depot_dir)
 
     # For now, we hard code the path of the shlibs relative to the json file.
     my_env["LD_LIBRARY_PATH"] = "{}:{}".format(
-        pathlib.Path(args.lib_path) / "../__shared_libs_symlink_tree__",
+        os.path.join(lib_path, "../__shared_libs_symlink_tree__"),
         my_env.setdefault("LD_LIBRARY_PATH", ""),
     )
 
-    # Iterate through environment variables passed by argparse
-    if args.env != "":
-        parsed_env = parse_arg_string(args.env)
-        for varstring in parsed_env:
-            var, value = varstring.split("=")
-            my_env[var] = value
+    binary_path = clean_relative_paths(json_file_dir, json_data["julia_binary"])
+
+    main_file = clean_relative_paths(json_file_dir, json_data["main"])
 
     # Compose main julia command
-    my_command = [args.julia_binary]
-    print(my_command)
-
-    # Note that to properly pass a "list" of arguments via an argument, we
-    # needed to join it with a delimiter (;;) and pass it as a string first.
-    if args.julia_flags != "":
-        my_command += parse_arg_string(args.julia_flags)
-
-    my_command += [args.main]
-
-    if args.main_args != "":
-        my_command += parse_arg_string(args.main_args)
+    my_command = (
+        [binary_path] + json_data["julia_flags"] + [main_file] + json_data["julia_args"]
+    )
 
     return my_command, my_env
 
@@ -137,21 +117,23 @@ def build_command(args, lib_dir, depot_dir):
 def main() -> int:
     """Sets up the julia environment with appropriate library aliases."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env", default="")
-    parser.add_argument("--lib-path", default="")
     parser.add_argument("--json-path", default="")
-    parser.add_argument("--julia-binary")
-    parser.add_argument("--julia-flags", default="")
-    parser.add_argument("--main")
-    parser.add_argument("--main-args", default="")
     args = parser.parse_args()
+
+    # pull everything from json file
+    json_file = args.json_path
+    json_file_dir = os.path.split(json_file)[0]
+    with open(json_file) as f:
+        json_data = json.load(f)
 
     # create a temporary directory to store artifacts. Note that this temporary
     # directory will be deleted when the process exits.
     with tempfile.TemporaryDirectory() as lib_dir:
         with tempfile.TemporaryDirectory() as depot_dir:
-            parse_json(args, lib_dir)
-            my_command, my_env = build_command(args, lib_dir, depot_dir)
+            parse_jll_libs(json_data["jll_mapping"], json_file_dir, lib_dir)
+            my_command, my_env = build_command(
+                json_data, json_file_dir, lib_dir, depot_dir
+            )
             code = subprocess.call(my_command, env=my_env)
 
     sys.exit(code)

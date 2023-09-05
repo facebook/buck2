@@ -9,11 +9,11 @@ load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 load(":julia_binary.bzl", "build_julia_command")
 
 def julia_test_impl(ctx: AnalysisContext) -> list[Provider]:
-    cmd = build_julia_command(ctx)
+    cmd, json_info_file = build_julia_command(ctx)
     external_runner_test_info = ExternalRunnerTestInfo(
         type = "julia",
         command = [cmd],
         contacts = ctx.attrs.contacts,
     )
 
-    return inject_test_run_info(ctx, external_runner_test_info) + [DefaultInfo()]
+    return inject_test_run_info(ctx, external_runner_test_info) + [DefaultInfo(default_output = json_info_file)]
