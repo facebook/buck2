@@ -17,25 +17,44 @@
 
 //! Convert a value implementing [`StarlarkValue`] into a type usable in type expression.
 
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
 use std::marker::PhantomData;
 
 use allocative::Allocative;
 use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
-use starlark_derive::ProvidesStaticType;
 
 use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::typing::Ty;
 use crate::values::layout::avalue::alloc_static;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::Basic;
 use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::string::StarlarkStr;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::StarlarkValue;
+
+#[derive(Debug, NoSerialize, Allocative, ProvidesStaticType)]
+struct StarlarkValueAsTypeStarlarkValue(fn() -> Ty);
+
+#[starlark_value(type = "type")]
+impl<'v> StarlarkValue<'v> for StarlarkValueAsTypeStarlarkValue {
+    fn eval_type(&self) -> Option<Ty> {
+        Some((self.0)())
+    }
+}
+
+impl Display for StarlarkValueAsTypeStarlarkValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&(self.0)(), f)
+    }
+}
 
 /// Utility to declare a value usable in type expression.
 ///
@@ -63,44 +82,50 @@ use crate::values::StarlarkValue;
 ///     const Temperature: StarlarkValueAsType<Temperature> = StarlarkValueAsType::new();
 /// }
 /// ```
-#[derive(
-    Debug,
-    derive_more::Display,
-    Allocative,
-    ProvidesStaticType,
-    NoSerialize
-)]
-#[display(fmt = "{}", T::TYPE)]
-pub struct StarlarkValueAsType<T: StarlarkValue<'static> + 'static>(PhantomData<fn(&T)>);
+pub struct StarlarkValueAsType<T: StarlarkTypeRepr>(PhantomData<fn(&T)>);
 
-impl<T: StarlarkValue<'static>> StarlarkValueAsType<T> {
+impl<T: StarlarkTypeRepr> Debug for StarlarkValueAsType<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("StarlarkValueAsType")
+            .field(&T::starlark_type_repr())
+            .finish()
+    }
+}
+
+impl<T: StarlarkTypeRepr> Display for StarlarkValueAsType<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&T::starlark_type_repr(), f)
+    }
+}
+
+impl<T: StarlarkTypeRepr> StarlarkValueAsType<T> {
     /// Constructor.
     pub const fn new() -> Self {
         Self(PhantomData)
     }
 
-    const INSTANCE: AValueRepr<AValueImpl<Basic, StarlarkValueAsType<T>>> =
-        alloc_static(Basic, StarlarkValueAsType::<T>(PhantomData));
+    const INSTANCE: AValueRepr<AValueImpl<Basic, StarlarkValueAsTypeStarlarkValue>> = alloc_static(
+        Basic,
+        StarlarkValueAsTypeStarlarkValue(T::starlark_type_repr),
+    );
 }
 
-impl<T: StarlarkValue<'static>> Default for StarlarkValueAsType<T> {
+impl<T: StarlarkTypeRepr> Default for StarlarkValueAsType<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: StarlarkValue<'static>> AllocFrozenValue for StarlarkValueAsType<T> {
-    fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
-        FrozenValue::new_repr(&Self::INSTANCE)
+impl<T: StarlarkTypeRepr> StarlarkTypeRepr for StarlarkValueAsType<T> {
+    fn starlark_type_repr() -> Ty {
+        // TODO(nga): make it proper type.
+        Ty::name_static("type")
     }
 }
 
-#[starlark_value(type = "type")]
-impl<'v, T: StarlarkValue<'static>> StarlarkValue<'v> for StarlarkValueAsType<T> {
-    type Canonical = StarlarkValueAsType<StarlarkStr>;
-
-    fn eval_type(&self) -> Option<Ty> {
-        Some(T::starlark_type_repr())
+impl<T: StarlarkTypeRepr> AllocFrozenValue for StarlarkValueAsType<T> {
+    fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
+        FrozenValue::new_repr(&Self::INSTANCE)
     }
 }
 
