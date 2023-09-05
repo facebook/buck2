@@ -121,8 +121,10 @@ def expand_targets(ctx, targets):
     # Map of potential workspaces to a list of the targets that name these as potential workspaces
     possible_workspaces = {}
     for label, t in expanded_targets.items():
-        for workspace in t.attrs_lazy().get("_workspaces").value():
-            possible_workspaces.setdefault(workspace.raw_target(), []).append(label)
+        workspaces = t.attrs_lazy().get("_workspaces")
+        if workspaces:
+            for workspace in workspaces.value():
+                possible_workspaces.setdefault(workspace.raw_target(), []).append(label)
 
     active_workspaces = {}
     for workspace, candidate_deps in possible_workspaces.items():
