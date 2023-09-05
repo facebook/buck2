@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# @starlark-rust: allow_string_literals_in_type_expr
+
 load("@prelude//:resources.bzl", "gather_resources")
 load("@prelude//android:aapt2_link.bzl", "get_aapt2_link", "get_module_manifest_in_proto_format")
 load("@prelude//android:android_manifest.bzl", "generate_android_manifest")

@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# @starlark-rust: allow_string_literals_in_type_expr
+
 load("@prelude//android:android_binary_native_library_rules.bzl", "get_android_binary_native_library_info")
 load("@prelude//android:android_binary_resources_rules.bzl", "get_android_binary_resources_info")
 load("@prelude//android:android_build_config.bzl", "generate_android_build_config", "get_build_config_fields")

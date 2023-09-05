@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# @starlark-rust: allow_string_literals_in_type_expr
+
 load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerInfo")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:utils.bzl", "expect")

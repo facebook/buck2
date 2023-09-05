@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# @starlark-rust: allow_string_literals_in_type_expr
+
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "expand_relative_prefixed_sdk_path", "get_explicit_modules_env_var")
 load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION")

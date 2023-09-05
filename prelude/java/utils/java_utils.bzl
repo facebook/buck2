@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# @starlark-rust: allow_string_literals_in_type_expr
+
 load(
     "@prelude//java:class_to_srcs.bzl",
     "JavaClassToSourceMapInfo",  # @unused Used as a type

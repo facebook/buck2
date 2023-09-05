@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# @starlark-rust: allow_string_literals_in_type_expr
+
 # Implementation of the `genrule` build rule.
 
 load("@prelude//:cache_mode.bzl", "CacheModeInfo")

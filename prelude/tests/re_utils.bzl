@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# @starlark-rust: allow_string_literals_in_type_expr
+
 def get_re_executor_from_props(re_props: [dict[str, [dict[str, str], str, bool, None]], None]) -> ["command_executor_config", None]:
     """
     Convert the `remote_execution` properties param into a `CommandExecutorConfig`

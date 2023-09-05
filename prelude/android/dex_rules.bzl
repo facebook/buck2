@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# @starlark-rust: allow_string_literals_in_type_expr
+
 load("@prelude//android:android_providers.bzl", "DexFilesInfo", "ExopackageDexInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE", "get_apk_module_graph_info", "get_root_module_only_apk_module_graph_info", "is_root_module")
