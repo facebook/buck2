@@ -1432,6 +1432,7 @@ robolectric_test = prelude_rule(
             "resource_union_package": attrs.option(attrs.string(), default = None),
             "resources": attrs.list(attrs.source(), default = []),
             "resources_root": attrs.option(attrs.source(), default = None),
+            "resource_stable_ids": attrs.option(attrs.source(), default = None),
             "robolectric_runtime_dependencies": attrs.list(attrs.dep(), default = []),
             "run_test_separately": attrs.bool(default = False),
             "runtime_deps": attrs.list(attrs.dep(), default = []),
