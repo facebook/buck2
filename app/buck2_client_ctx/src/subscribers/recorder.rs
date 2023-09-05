@@ -133,6 +133,7 @@ mod imp {
         concurrent_command_ids: HashSet<String>,
         daemon_connection_failure: bool,
         client_metadata: Vec<buck2_data::ClientMetadata>,
+        error_messages: Vec<String>,
     }
 
     impl<'a> InvocationRecorder<'a> {
@@ -228,6 +229,7 @@ mod imp {
                 concurrent_command_ids: HashSet::new(),
                 daemon_connection_failure: false,
                 client_metadata,
+                error_messages: Vec::new(),
             }
         }
 
@@ -387,7 +389,7 @@ mod imp {
                     .collect(),
                 daemon_connection_failure: Some(self.daemon_connection_failure),
                 client_metadata: std::mem::take(&mut self.client_metadata),
-                error_messages: Vec::new(),
+                error_messages: std::mem::take(&mut self.error_messages),
             };
 
             let event = BuckEvent::new(
@@ -462,6 +464,8 @@ mod imp {
         ) -> anyhow::Result<()> {
             let mut command = command.clone();
             self.metadata.extend(std::mem::take(&mut command.metadata));
+            self.error_messages
+                .extend(std::mem::take(&mut command.error_messages));
 
             // Awkwardly unpacks the SpanEnd event so we can read its duration.
             let command_end = match event.data() {
