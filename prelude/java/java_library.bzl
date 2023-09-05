@@ -25,6 +25,7 @@ load("@prelude//java:javacd_jar_creator.bzl", "create_jar_artifact_javacd")
 load("@prelude//java/plugins:java_annotation_processor.bzl", "AnnotationProcessorProperties", "create_annotation_processor_properties")
 load("@prelude//java/plugins:java_plugin.bzl", "create_plugin_params")
 load("@prelude//java/utils:java_utils.bzl", "declare_prefixed_name", "derive_javac", "get_abi_generation_mode", "get_class_to_source_map_info", "get_default_info", "get_java_version_attributes", "get_path_separator", "to_java_version")
+load("@prelude//jvm:nullsafe.bzl", "get_nullsafe_info")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo")
 load("@prelude//utils:utils.bzl", "expect")
 
@@ -538,13 +539,11 @@ def build_java_library(
         ctx.attrs.annotation_processor_deps,
     ) if run_annotation_processors else None
     plugin_params = create_plugin_params(ctx, ctx.attrs.plugins) if run_annotation_processors else None
-    extra_arguments = cmd_args(ctx.attrs.extra_arguments)
     manifest_file = ctx.attrs.manifest_file
     source_level, target_level = get_java_version_attributes(ctx)
 
     outputs = None
     common_compile_kwargs = None
-    sub_targets = {}
     has_srcs = bool(srcs) or bool(additional_compiled_srcs)
     if has_srcs or resources or manifest_file:
         abi_generation_mode = override_abi_generation_mode or get_abi_generation_mode(ctx.attrs.abi_generation_mode)
@@ -571,7 +570,7 @@ def build_java_library(
         outputs = compile_to_jar(
             ctx,
             plugin_params = plugin_params,
-            extra_arguments = extra_arguments,
+            extra_arguments = cmd_args(ctx.attrs.extra_arguments),
             **common_compile_kwargs
         )
 
@@ -582,41 +581,20 @@ def build_java_library(
         not java_toolchain.is_bootstrap_toolchain and
         not ctx.attrs._is_building_android_binary
     ):
-        nullsafe_plugin = java_toolchain.nullsafe
-        nullsafe_signatures = java_toolchain.nullsafe_signatures
-        nullsafe_extra_args = java_toolchain.nullsafe_extra_args
-        if nullsafe_plugin:
-            nullsafe_output = ctx.actions.declare_output("reports", dir = True)
-            nullsafe_plugin_params = create_plugin_params(ctx, [nullsafe_plugin])
-
-            nullsafe_args = cmd_args(
-                "-XDcompilePolicy=simple",
-                "-Anullsafe.reportToJava=false",
-            )
-            nullsafe_args.add(cmd_args(
-                nullsafe_output.as_output(),
-                format = "-Anullsafe.writeJsonReportToDir={}",
-            ))
-            if nullsafe_signatures:
-                nullsafe_args.add(cmd_args(
-                    nullsafe_signatures,
-                    format = "-Anullsafe.signatures={}",
-                ))
-            if nullsafe_extra_args:
-                nullsafe_args.add(nullsafe_extra_args)
-
-            extra_arguments.add(nullsafe_args)
-
+        nullsafe_info = get_nullsafe_info(ctx)
+        if nullsafe_info:
             compile_to_jar(
                 ctx,
                 actions_identifier = "nullsafe",
-                plugin_params = nullsafe_plugin_params,
-                extra_arguments = extra_arguments,
+                plugin_params = nullsafe_info.plugin_params,
+                extra_arguments = nullsafe_info.extra_arguments,
                 is_creating_subtarget = True,
                 **common_compile_kwargs
             )
 
-            sub_targets["nullsafex-json"] = [DefaultInfo(default_output = nullsafe_output)]
+            extra_sub_targets = extra_sub_targets | {"nullsafex-json": [
+                DefaultInfo(default_output = nullsafe_info.output),
+            ]}
 
     all_generated_sources = list(generated_sources)
     if outputs and outputs.annotation_processor_output:
@@ -652,7 +630,7 @@ def build_java_library(
         java_toolchain,
         outputs,
         java_packaging_info,
-        sub_targets | extra_sub_targets,
+        extra_sub_targets,
     )
     return JavaProviders(
         java_library_info = java_library_info,
