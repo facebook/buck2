@@ -36,7 +36,6 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::Sender;
 use tokio::task::JoinHandle;
-use tokio::time::Instant;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::materializers::deferred::clean_stale::CleanStaleArtifacts;
@@ -294,26 +293,8 @@ impl ExtensionCommand<DefaultIoHandler> for FlushAccessTimes {
         processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
     ) {
         let mut out = String::new();
-        if let Some(buffer) = &processor.access_times_buffer {
-            let now = Instant::now();
-            let buffer_size = buffer.len();
 
-            processor.flush_access_times(0);
-
-            writeln!(
-                &mut out,
-                "Finished flushing {} entries in {} ms",
-                buffer_size,
-                now.elapsed().as_millis()
-            )
-            .unwrap();
-        } else {
-            writeln!(
-                &mut out,
-                "Access time updates are disabled. Consider removing `update_access_times = false` from your .buckconfig",
-            )
-            .unwrap();
-        }
+        writeln!(&mut out, "{}", processor.flush_access_times(0)).unwrap();
         let _ignored = self.sender.send(out);
     }
 }

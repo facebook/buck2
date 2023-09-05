@@ -94,6 +94,7 @@ use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::TryRecvError;
+use tokio::time::Instant;
 use tokio::time::Interval;
 use tracing::instrument;
 
@@ -1305,13 +1306,15 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         }
     }
 
-    fn flush_access_times(&mut self, max_buffer_size: usize) {
+    fn flush_access_times(&mut self, max_buffer_size: usize) -> String {
         if let Some(access_times_buffer) = self.access_times_buffer.as_mut() {
-            if access_times_buffer.len() <= max_buffer_size {
-                return;
+            let size = access_times_buffer.len();
+            if size < max_buffer_size {
+                return "Access times buffer is not full yet".to_owned();
             }
 
             let buffer = std::mem::take(access_times_buffer);
+            let now = Instant::now();
             tracing::debug!("Flushing access times buffer");
             if let Some(sqlite_db) = self.sqlite_db.as_mut() {
                 if let Err(e) = sqlite_db
@@ -1324,9 +1327,16 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         quiet: true
                     )
                     .unwrap();
+                    return "Found error while updating access times in sqlite db".to_owned();
                 }
             }
+            return format!(
+                "Finished flushing {} entries in {} ms",
+                size,
+                now.elapsed().as_millis(),
+            );
         }
+        "Access time updates are disabled. Consider removing `update_access_times = false` from your .buckconfig".to_owned()
     }
 
     fn materialize_many_artifacts(
