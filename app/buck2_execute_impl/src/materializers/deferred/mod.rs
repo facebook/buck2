@@ -1312,7 +1312,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             }
 
             let buffer = std::mem::take(access_times_buffer);
-
+            tracing::debug!("Flushing access times buffer");
             if let Some(sqlite_db) = self.sqlite_db.as_mut() {
                 if let Err(e) = sqlite_db
                     .materializer_state_table()
@@ -1594,7 +1594,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 false => {
                     if let Some(ref mut buffer) = self.access_times_buffer.as_mut() {
                         // TODO (torozco): Why is it legal for something to be Materialized + Cleaning?
-                        tracing::debug!(path = %path, "nothing to materialize, updating access time");
                         let timestamp = Utc::now();
                         *last_access_time = timestamp;
 
@@ -1608,7 +1607,11 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         // if !active {
                         //     tracing::warn!(path = %path, "Expected artifact to be marked active by declare")
                         // }
-                        buffer.insert(path.to_buf());
+                        if buffer.insert(path.to_buf()) {
+                            tracing::debug!(
+                                "nothing to materialize, adding to access times buffer"
+                            );
+                        }
                     }
 
                     return None;
