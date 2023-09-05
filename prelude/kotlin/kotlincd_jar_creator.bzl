@@ -56,14 +56,15 @@ def create_jar_artifact_kotlincd(
         deps: list[Dependency],
         required_for_source_only_abi: bool,
         source_only_abi_deps: list[Dependency],
-        extra_arguments: list[str],
+        extra_arguments: cmd_args,
         additional_classpath_entries: list[Artifact],
         bootclasspath_entries: list[Artifact],
         is_building_android_binary: bool,
         friend_paths: list[Dependency],
         kotlin_compiler_plugins: dict,
         extra_kotlinc_arguments: list[str],
-        extra_non_source_only_abi_kotlinc_arguments: list[str]) -> "JavaCompileOutputs":
+        extra_non_source_only_abi_kotlinc_arguments: list[str],
+        is_creating_subtarget: bool = False) -> "JavaCompileOutputs":
     resources_map = get_resources_map(
         java_toolchain = java_toolchain,
         package = label.package,
@@ -77,7 +78,7 @@ def create_jar_artifact_kotlincd(
     output_paths = define_output_paths(actions, actions_identifier, label)
     path_to_class_hashes_out = declare_prefixed_output(actions, actions_identifier, "classes.txt")
 
-    should_create_class_abi = actual_abi_generation_mode == AbiGenerationMode("class") or not is_building_android_binary
+    should_create_class_abi = not is_creating_subtarget and (actual_abi_generation_mode == AbiGenerationMode("class") or not is_building_android_binary)
     if should_create_class_abi:
         class_abi_jar = declare_prefixed_output(actions, actions_identifier, "class-abi.jar")
         class_abi_output_dir = declare_prefixed_output(actions, actions_identifier, "class_abi_dir", dir = True)
@@ -219,7 +220,8 @@ def create_jar_artifact_kotlincd(
             abi_dir: [Artifact, None],
             target_type: TargetType,
             path_to_class_hashes: [Artifact, None],
-            source_only_abi_compiling_deps: list["JavaClasspathEntry"] = []):
+            source_only_abi_compiling_deps: list["JavaClasspathEntry"] = [],
+            is_creating_subtarget: bool = False):
         _unused = source_only_abi_compiling_deps
 
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
@@ -272,7 +274,7 @@ def create_jar_artifact_kotlincd(
         event_pipe_out = declare_prefixed_output(actions, actions_identifier, "events.data")
 
         dep_files = {}
-        if srcs and (kotlin_toolchain.dep_files == DepFiles("per_jar") or kotlin_toolchain.dep_files == DepFiles("per_class")) and target_type == TargetType("library") and track_class_usage:
+        if not is_creating_subtarget and srcs and (kotlin_toolchain.dep_files == DepFiles("per_jar") or kotlin_toolchain.dep_files == DepFiles("per_class")) and target_type == TargetType("library") and track_class_usage:
             used_classes_json_outputs = [
                 output_paths.jar_parent.project("used-classes.json"),
                 output_paths.jar_parent.project("kotlin-used-classes.json"),
@@ -316,6 +318,7 @@ def create_jar_artifact_kotlincd(
         abi_dir = class_abi_output_dir if should_create_class_abi else None,
         target_type = TargetType("library"),
         path_to_class_hashes = path_to_class_hashes_out,
+        is_creating_subtarget = is_creating_subtarget,
     )
 
     final_jar = prepare_final_jar(
@@ -327,29 +330,36 @@ def create_jar_artifact_kotlincd(
         jar_builder = java_toolchain.jar_builder,
     )
 
-    # kotlincd does not support source abi
-    class_abi, _, source_only_abi, classpath_abi, classpath_abi_dir = generate_abi_jars(
-        actions = actions,
-        actions_identifier = actions_identifier,
-        label = label,
-        abi_generation_mode = actual_abi_generation_mode,
-        additional_compiled_srcs = None,
-        is_building_android_binary = is_building_android_binary,
-        class_abi_generator = java_toolchain.class_abi_generator,
-        final_jar = final_jar,
-        compiling_deps_tset = compiling_deps_tset,
-        source_only_abi_deps = source_only_abi_deps,
-        class_abi_jar = class_abi_jar,
-        class_abi_output_dir = class_abi_output_dir,
-        encode_abi_command = encode_abi_command,
-        define_action = define_kotlincd_action,
-    )
-    return make_compile_outputs(
-        full_library = final_jar,
-        class_abi = class_abi,
-        source_only_abi = source_only_abi,
-        classpath_abi = classpath_abi,
-        classpath_abi_dir = classpath_abi_dir,
-        required_for_source_only_abi = required_for_source_only_abi,
-        annotation_processor_output = output_paths.annotations,
-    )
+    if not is_creating_subtarget:
+        # kotlincd does not support source abi
+        class_abi, _, source_only_abi, classpath_abi, classpath_abi_dir = generate_abi_jars(
+            actions = actions,
+            actions_identifier = actions_identifier,
+            label = label,
+            abi_generation_mode = actual_abi_generation_mode,
+            additional_compiled_srcs = None,
+            is_building_android_binary = is_building_android_binary,
+            class_abi_generator = java_toolchain.class_abi_generator,
+            final_jar = final_jar,
+            compiling_deps_tset = compiling_deps_tset,
+            source_only_abi_deps = source_only_abi_deps,
+            class_abi_jar = class_abi_jar,
+            class_abi_output_dir = class_abi_output_dir,
+            encode_abi_command = encode_abi_command,
+            define_action = define_kotlincd_action,
+        )
+        return make_compile_outputs(
+            full_library = final_jar,
+            class_abi = class_abi,
+            source_only_abi = source_only_abi,
+            classpath_abi = classpath_abi,
+            classpath_abi_dir = classpath_abi_dir,
+            required_for_source_only_abi = required_for_source_only_abi,
+            annotation_processor_output = output_paths.annotations,
+        )
+    else:
+        return make_compile_outputs(
+            full_library = final_jar,
+            required_for_source_only_abi = required_for_source_only_abi,
+            annotation_processor_output = output_paths.annotations,
+        )

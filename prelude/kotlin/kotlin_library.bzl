@@ -30,6 +30,7 @@ load(
 load("@prelude//java/plugins:java_annotation_processor.bzl", "AnnotationProcessorProperties", "create_annotation_processor_properties", "create_ksp_annotation_processor_properties")
 load("@prelude//java/plugins:java_plugin.bzl", "create_plugin_params")
 load("@prelude//java/utils:java_utils.bzl", "derive_javac", "get_abi_generation_mode", "get_class_to_source_map_info", "get_default_info", "get_java_version_attributes", "get_path_separator")
+load("@prelude//jvm:nullsafe.bzl", "get_nullsafe_info")
 load(
     "@prelude//kotlin:kotlin_toolchain.bzl",
     "KotlinToolchainInfo",
@@ -326,36 +327,40 @@ def build_kotlin_library(
             return java_lib
         elif kotlin_toolchain.kotlinc_protocol == "kotlincd":
             source_level, target_level = get_java_version_attributes(ctx)
-            outputs = create_jar_artifact_kotlincd(
-                actions = ctx.actions,
-                actions_identifier = "",
-                abi_generation_mode = get_abi_generation_mode(ctx.attrs.abi_generation_mode),
-                java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo],
-                kotlin_toolchain = kotlin_toolchain,
-                javac_tool = derive_javac(ctx.attrs.javac) if ctx.attrs.javac else None,
-                label = ctx.label,
-                srcs = srcs,
-                remove_classes = ctx.attrs.remove_classes,
-                resources = ctx.attrs.resources,
-                resources_root = ctx.attrs.resources_root,
-                annotation_processor_properties = AnnotationProcessorProperties(
+            extra_arguments = cmd_args(ctx.attrs.extra_arguments)
+            common_kotlincd_kwargs = {
+                "abi_generation_mode": get_abi_generation_mode(ctx.attrs.abi_generation_mode),
+                "actions": ctx.actions,
+                "additional_classpath_entries": additional_classpath_entries,
+                "annotation_processor_properties": AnnotationProcessorProperties(
                     annotation_processors = annotation_processor_properties.annotation_processors + ksp_annotation_processor_properties.annotation_processors,
                     annotation_processor_params = annotation_processor_properties.annotation_processor_params + ksp_annotation_processor_properties.annotation_processor_params,
                 ),
+                "bootclasspath_entries": bootclasspath_entries,
+                "deps": deps,
+                "extra_kotlinc_arguments": ctx.attrs.extra_kotlinc_arguments,
+                "extra_non_source_only_abi_kotlinc_arguments": ctx.attrs.extra_non_source_only_abi_kotlinc_arguments,
+                "friend_paths": ctx.attrs.friend_paths,
+                "is_building_android_binary": ctx.attrs._is_building_android_binary,
+                "java_toolchain": ctx.attrs._java_toolchain[JavaToolchainInfo],
+                "javac_tool": derive_javac(ctx.attrs.javac) if ctx.attrs.javac else None,
+                "kotlin_compiler_plugins": ctx.attrs.kotlin_compiler_plugins,
+                "kotlin_toolchain": kotlin_toolchain,
+                "label": ctx.label,
+                "remove_classes": ctx.attrs.remove_classes,
+                "required_for_source_only_abi": ctx.attrs.required_for_source_only_abi,
+                "resources": ctx.attrs.resources,
+                "resources_root": ctx.attrs.resources_root,
+                "source_level": source_level,
+                "source_only_abi_deps": ctx.attrs.source_only_abi_deps,
+                "srcs": srcs,
+                "target_level": target_level,
+            }
+            outputs = create_jar_artifact_kotlincd(
                 plugin_params = create_plugin_params(ctx, ctx.attrs.plugins),
-                source_level = source_level,
-                target_level = target_level,
-                deps = deps,
-                required_for_source_only_abi = ctx.attrs.required_for_source_only_abi,
-                source_only_abi_deps = ctx.attrs.source_only_abi_deps,
-                extra_arguments = ctx.attrs.extra_arguments,
-                additional_classpath_entries = additional_classpath_entries,
-                bootclasspath_entries = bootclasspath_entries,
-                is_building_android_binary = ctx.attrs._is_building_android_binary,
-                friend_paths = ctx.attrs.friend_paths,
-                kotlin_compiler_plugins = ctx.attrs.kotlin_compiler_plugins,
-                extra_kotlinc_arguments = ctx.attrs.extra_kotlinc_arguments,
-                extra_non_source_only_abi_kotlinc_arguments = ctx.attrs.extra_non_source_only_abi_kotlinc_arguments,
+                extra_arguments = extra_arguments,
+                actions_identifier = "",
+                **common_kotlincd_kwargs
             )
 
             if outputs and outputs.annotation_processor_output:
@@ -365,6 +370,25 @@ def build_kotlin_library(
                 ]}
             else:
                 generated_sources = []
+
+            java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
+            if (
+                not java_toolchain.is_bootstrap_toolchain and
+                not ctx.attrs._is_building_android_binary
+            ):
+                nullsafe_info = get_nullsafe_info(ctx)
+                if nullsafe_info:
+                    create_jar_artifact_kotlincd(
+                        actions_identifier = "nullsafe",
+                        plugin_params = nullsafe_info.plugin_params,
+                        extra_arguments = nullsafe_info.extra_arguments,
+                        is_creating_subtarget = True,
+                        **common_kotlincd_kwargs
+                    )
+
+                    extra_sub_targets = extra_sub_targets | {"nullsafex-json": [
+                        DefaultInfo(default_output = nullsafe_info.output),
+                    ]}
 
             java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info, intellij_info = create_java_library_providers(
                 ctx,
