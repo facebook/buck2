@@ -64,7 +64,8 @@ def create_jar_artifact_kotlincd(
         kotlin_compiler_plugins: dict,
         extra_kotlinc_arguments: list[str],
         extra_non_source_only_abi_kotlinc_arguments: list[str],
-        is_creating_subtarget: bool = False) -> "JavaCompileOutputs":
+        is_creating_subtarget: bool = False,
+        optional_dirs: list["output_artifact"] = []) -> "JavaCompileOutputs":
     resources_map = get_resources_map(
         java_toolchain = java_toolchain,
         package = label.package,
@@ -267,6 +268,12 @@ def create_jar_artifact_kotlincd(
                 output_paths.jar.as_output(),
                 "--abi-output-dir",
                 abi_dir.as_output(),
+            )
+
+        if optional_dirs:
+            args.add(
+                "--optional-dirs",
+                optional_dirs,
             )
 
         args = add_output_paths_to_cmd_args(args, output_paths, path_to_class_hashes)

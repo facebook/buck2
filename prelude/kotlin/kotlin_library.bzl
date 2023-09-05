@@ -382,6 +382,8 @@ def build_kotlin_library(
                         actions_identifier = "nullsafe",
                         plugin_params = nullsafe_info.plugin_params,
                         extra_arguments = nullsafe_info.extra_arguments,
+                        # To make sure that even for pure Kotlin targets empty output dir is always present
+                        optional_dirs = [nullsafe_info.output.as_output()],
                         is_creating_subtarget = True,
                         **common_kotlincd_kwargs
                     )
