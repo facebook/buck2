@@ -45,7 +45,7 @@ use crate::eval::compiler::expr::ExprLogicalBinOp;
 use crate::eval::compiler::expr_bool::ExprCompiledBool;
 use crate::eval::compiler::known::list_to_tuple;
 use crate::eval::compiler::opt_ctx::OptCtx;
-use crate::eval::compiler::scope::payload::CstAssign;
+use crate::eval::compiler::scope::payload::CstAssignTarget;
 use crate::eval::compiler::scope::payload::CstExpr;
 use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::Captured;
@@ -393,7 +393,7 @@ impl IrSpanned<AssignCompiledValue> {
 }
 
 impl Compiler<'_, '_, '_> {
-    pub fn assign(&mut self, expr: &CstAssign) -> IrSpanned<AssignCompiledValue> {
+    pub fn assign_target(&mut self, expr: &CstAssignTarget) -> IrSpanned<AssignCompiledValue> {
         let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, expr.span));
         let assign = match &expr.node {
             AssignTargetP::Dot(e, s) => {
@@ -408,7 +408,7 @@ impl Compiler<'_, '_, '_> {
                 AssignCompiledValue::Index(e, idx)
             }
             AssignTargetP::Tuple(v) => {
-                let v = v.map(|x| self.assign(x));
+                let v = v.map(|x| self.assign_target(x));
                 AssignCompiledValue::Tuple(v)
             }
             AssignTargetP::Identifier(ident) => {
@@ -436,7 +436,7 @@ impl Compiler<'_, '_, '_> {
     fn assign_modify(
         &mut self,
         span_stmt: Span,
-        lhs: &CstAssign,
+        lhs: &CstAssignTarget,
         rhs: IrSpanned<ExprCompiled>,
         op: AssignOp,
     ) -> StmtsCompiled {
@@ -728,7 +728,7 @@ impl Compiler<'_, '_, '_> {
                     ),
                     span,
                 };
-                let lhs = self.assign(&Spanned {
+                let lhs = self.assign_target(&Spanned {
                     span: name.span,
                     node: AssignTargetP::Identifier(name.clone()),
                 });
@@ -739,7 +739,7 @@ impl Compiler<'_, '_, '_> {
             }
             StmtP::For(ForP { var, over, body }) => {
                 let over = list_to_tuple(over);
-                let var = self.assign(var);
+                let var = self.assign_target(var);
                 let over = self.expr(&over);
                 let st = self.stmt(body, false);
                 StmtsCompiled::for_stmt(span, var, over, st)
@@ -774,7 +774,7 @@ impl Compiler<'_, '_, '_> {
             StmtP::Assign(AssignP { lhs, ty, rhs }) => {
                 let rhs = self.expr(rhs);
                 let ty = self.expr_for_type(ty.as_ref());
-                let lhs = self.assign(lhs);
+                let lhs = self.assign_target(lhs);
                 StmtsCompiled::one(IrSpanned {
                     span,
                     node: StmtCompiled::Assign(lhs, ty, rhs),

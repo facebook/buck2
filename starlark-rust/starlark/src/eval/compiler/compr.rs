@@ -103,7 +103,7 @@ impl Compiler<'_, '_, '_> {
             match next_for {
                 None => {
                     let last = ClauseCompiled {
-                        var: self.assign(&for_.var),
+                        var: self.assign_target(&for_.var),
                         over,
                         ifs,
                     };
@@ -112,7 +112,7 @@ impl Compiler<'_, '_, '_> {
                 Some(f) => {
                     res.push(ClauseCompiled {
                         over: self.expr(&f.over),
-                        var: self.assign(&f.var),
+                        var: self.assign_target(&f.var),
                         ifs,
                     });
                 }

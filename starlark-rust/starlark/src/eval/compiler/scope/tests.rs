@@ -29,8 +29,8 @@ use starlark_syntax::syntax::uniplate::Visit;
 
 use crate::environment::names::MutableNames;
 use crate::environment::Globals;
-use crate::eval::compiler::scope::payload::CstAssign;
 use crate::eval::compiler::scope::payload::CstAssignIdent;
+use crate::eval::compiler::scope::payload::CstAssignTarget;
 use crate::eval::compiler::scope::payload::CstExpr;
 use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::AssignCount;
@@ -115,7 +115,7 @@ fn test_with_module(program: &str, expected: &str, module: &MutableNames) {
             });
         }
 
-        fn visit_assign(&mut self, assign: &CstAssign) {
+        fn visit_assign(&mut self, assign: &CstAssignTarget) {
             assign.visit_lvalue(|ident| self.visit_lvalue(ident));
         }
 

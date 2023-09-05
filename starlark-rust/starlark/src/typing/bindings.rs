@@ -35,8 +35,8 @@ use starlark_syntax::syntax::uniplate::Visit;
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
-use crate::eval::compiler::scope::payload::CstAssign;
 use crate::eval::compiler::scope::payload::CstAssignIdentExt;
+use crate::eval::compiler::scope::payload::CstAssignTarget;
 use crate::eval::compiler::scope::payload::CstExpr;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstStmt;
@@ -58,7 +58,7 @@ pub(crate) enum BindExpr<'a> {
     /// Get this position from the expression
     GetIndex(usize, Box<BindExpr<'a>>),
     Iter(Box<BindExpr<'a>>),
-    AssignModify(&'a CstAssign, AssignOp, &'a CstExpr),
+    AssignModify(&'a CstAssignTarget, AssignOp, &'a CstExpr),
     /// Set this index in the variable
     SetIndex(BindingId, &'a CstExpr, Box<BindExpr<'a>>),
     ListAppend(BindingId, &'a CstExpr),
@@ -122,7 +122,7 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
 
     fn assign(
         &mut self,
-        lhs: &'a CstAssign,
+        lhs: &'a CstAssignTarget,
         rhs: BindExpr<'a>,
         codemap: &CodeMap,
     ) -> Result<(), InternalError> {

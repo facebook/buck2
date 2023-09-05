@@ -54,8 +54,8 @@ use crate::environment::Globals;
 use crate::environment::Module;
 use crate::errors::did_you_mean::did_you_mean;
 use crate::eval::compiler::def::CopySlotFromParent;
-use crate::eval::compiler::scope::payload::CstAssign;
 use crate::eval::compiler::scope::payload::CstAssignIdent;
+use crate::eval::compiler::scope::payload::CstAssignTarget;
 use crate::eval::compiler::scope::payload::CstExpr;
 use crate::eval::compiler::scope::payload::CstIdent;
 use crate::eval::compiler::scope::payload::CstParameter;
@@ -570,7 +570,7 @@ impl<'f> ModuleScopeBuilder<'f> {
         }
     }
 
-    fn resolve_idents_in_assign(&mut self, assign: &mut CstAssign) {
+    fn resolve_idents_in_assign(&mut self, assign: &mut CstAssignTarget) {
         assign.visit_expr_mut(|expr| self.resolve_idents_in_expr(expr));
     }
 
@@ -762,7 +762,7 @@ impl<'f> ModuleScopeBuilder<'f> {
         self.unscopes.push(Unscope::default());
     }
 
-    fn add_compr<'x>(&mut self, var: impl IntoIterator<Item = &'x mut CstAssign>) {
+    fn add_compr<'x>(&mut self, var: impl IntoIterator<Item = &'x mut CstAssignTarget>) {
         let scope_id = self.top_scope_id();
         let mut locals = SmallMap::new();
         for var in var {
@@ -992,7 +992,7 @@ impl AssignIdentCollect for AssignIdent {
 
 trait AssignTargetCollectDefinesLvalue {
     fn collect_defines_lvalue<'a>(
-        expr: &'a mut CstAssign,
+        expr: &'a mut CstAssignTarget,
         in_loop: InLoop,
         scope_data: &mut ModuleScopeData,
         frozen_heap: &FrozenHeap,
@@ -1004,7 +1004,7 @@ impl AssignTargetCollectDefinesLvalue for AssignTarget {
     // Collect variables defined in an expression on the LHS of an assignment (or
     // for variable etc)
     fn collect_defines_lvalue<'a>(
-        expr: &'a mut CstAssign,
+        expr: &'a mut CstAssignTarget,
         in_loop: InLoop,
         scope_data: &mut ModuleScopeData,
         frozen_heap: &FrozenHeap,

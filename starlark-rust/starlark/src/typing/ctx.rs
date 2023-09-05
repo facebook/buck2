@@ -32,7 +32,7 @@ use starlark_syntax::syntax::ast::ForClauseP;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::eval::compiler::scope::payload::CstArgument;
-use crate::eval::compiler::scope::payload::CstAssign;
+use crate::eval::compiler::scope::payload::CstAssignTarget;
 use crate::eval::compiler::scope::payload::CstExpr;
 use crate::eval::compiler::scope::payload::CstIdent;
 use crate::eval::compiler::scope::payload::CstPayload;
@@ -225,7 +225,7 @@ impl TypingContext<'_> {
     }
 
     /// Used to get the type of an expression when used as part of a ModifyAssign operation
-    fn expression_assign(&self, x: &CstAssign) -> Result<Ty, InternalError> {
+    fn expression_assign(&self, x: &CstAssignTarget) -> Result<Ty, InternalError> {
         match &**x {
             AssignTargetP::Tuple(_) => Ok(self.approximation("expression_assignment", x)),
             AssignTargetP::Index(a_b) => self.expr_index(x.span, &a_b.0, &a_b.1),
@@ -245,7 +245,7 @@ impl TypingContext<'_> {
         }
     }
 
-    fn expression_assign_spanned(&self, x: &CstAssign) -> Result<Spanned<Ty>, InternalError> {
+    fn expression_assign_spanned(&self, x: &CstAssignTarget) -> Result<Spanned<Ty>, InternalError> {
         Ok(Spanned {
             span: x.span,
             node: self.expression_assign(x)?,

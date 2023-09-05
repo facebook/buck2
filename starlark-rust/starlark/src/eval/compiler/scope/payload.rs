@@ -145,7 +145,7 @@ impl CstAssignIdentExt for CstAssignIdent {
 
 pub(crate) type CstExpr = AstExprP<CstPayload>;
 pub(crate) type CstTypeExpr = AstTypeExprP<CstPayload>;
-pub(crate) type CstAssign = AstAssignTargetP<CstPayload>;
+pub(crate) type CstAssignTarget = AstAssignTargetP<CstPayload>;
 pub(crate) type CstAssignIdent = AstAssignIdentP<CstPayload>;
 pub(crate) type CstIdent = AstIdentP<CstPayload>;
 pub(crate) type CstArgument = AstArgumentP<CstPayload>;
