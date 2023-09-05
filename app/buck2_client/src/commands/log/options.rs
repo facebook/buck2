@@ -31,9 +31,7 @@ use rand::Rng;
 enum EventLogOptionsError {
     #[error("Manifold failed; stderr:\n{}", indent("  ", _0))]
     ManifoldFailed(String),
-    #[error(
-        "Log not found locally by trace id `{0}`; try `--allow-remote` to download from manifold"
-    )]
+    #[error("Log not found locally by trace id `{0}`")]
     LogNotFoundLocally(TraceId),
 }
 
@@ -48,9 +46,13 @@ pub(crate) struct EventLogOptions {
     #[clap(long, group = "event_log", value_name = "ID")]
     trace_id: Option<TraceId>,
 
-    /// Allow downloading the log from manifold if it's not found locally.
+    /// This option does nothing.
     #[clap(long, requires = "trace-id")]
     allow_remote: bool,
+
+    /// Do not allow downloading the log from manifold if it's not found locally.
+    #[clap(long, requires = "trace-id")]
+    no_remote: bool,
 
     /// A path to an event-log file to read from.
     #[clap(group = "event_log", value_name = "PATH")]
@@ -67,7 +69,7 @@ impl EventLogOptions {
         } else if let Some(id) = &self.trace_id {
             if let Some(log_path) = find_log_by_trace_id(&ctx.paths()?.log_dir(), id)? {
                 Ok(log_path)
-            } else if self.allow_remote {
+            } else if !self.no_remote {
                 EventLogPathBuf::infer(self.download_remote_id(id, ctx).await?)
             } else {
                 return Err(EventLogOptionsError::LogNotFoundLocally(id.dupe()).into());
