@@ -1,3 +1,4 @@
+# @starlark-rust: allow_string_literals_in_type_expr
 load("@prelude//http_archive/exec_deps.bzl", "HttpArchiveExecDeps")
 load(":releases.bzl", "releases")
 
