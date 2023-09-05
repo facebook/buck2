@@ -21,7 +21,6 @@ use std::hash::Hasher;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use dupe::OptionDupedExt;
 use starlark_map::sorted_map::SortedMap;
 use starlark_syntax::codemap::Span;
 use starlark_syntax::codemap::Spanned;
@@ -64,6 +63,25 @@ pub(crate) struct TyUserIndex {
     pub(crate) result: Ty,
 }
 
+/// Fields of the struct.
+#[derive(Allocative, Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
+pub(crate) struct TyUserFields {
+    /// Known fields.
+    pub(crate) known: SortedMap<String, Ty>,
+    /// Are there unknown fields?
+    /// Unknown fields are possible if this type represents an abstract type like a provider.
+    pub(crate) unknown: bool,
+}
+
+impl TyUserFields {
+    pub(crate) fn no_fields() -> TyUserFields {
+        TyUserFields {
+            known: SortedMap::new(),
+            unknown: false,
+        }
+    }
+}
+
 /// Type description for arbitrary type.
 #[derive(Allocative, Debug, derive_more::Display)]
 #[display(fmt = "{}", name)]
@@ -73,7 +91,7 @@ pub(crate) struct TyUser {
     base: TyStarlarkValue,
     matcher: Option<TypeMatcherFactory>,
     id: TypeInstanceId,
-    fields: SortedMap<String, Ty>,
+    fields: TyUserFields,
     /// Set if more precise callable signature is known than `base` provides.
     callable: Option<TyFunction>,
     /// Set if more precise index signature is known than `base` provides.
@@ -88,7 +106,7 @@ impl TyUser {
         base: TyStarlarkValue,
         matcher: Option<TypeMatcherFactory>,
         id: TypeInstanceId,
-        fields: SortedMap<String, Ty>,
+        fields: TyUserFields,
         callable: Option<TyFunction>,
         index: Option<TyUserIndex>,
         iter_item: Option<Ty>,
@@ -157,7 +175,16 @@ impl TyCustomImpl for TyUser {
         if let Ok(ty) = self.base.attr_from_methods(attr) {
             Ok(ty)
         } else {
-            self.fields.get(attr).duped().ok_or(())
+            match self.fields.known.get(attr) {
+                Some(ty) => Ok(ty.dupe()),
+                None => {
+                    if self.fields.unknown {
+                        Ok(Ty::any())
+                    } else {
+                        Err(())
+                    }
+                }
+            }
         }
     }
 

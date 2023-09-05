@@ -46,6 +46,7 @@ use crate::eval::ParametersSpec;
 use crate::starlark_complex_values;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::user::TyUser;
+use crate::typing::user::TyUserFields;
 use crate::typing::Param;
 use crate::typing::Ty;
 use crate::typing::TyFunction;
@@ -302,7 +303,10 @@ where
                 TyStarlarkValue::new::<Record>(),
                 Some(TypeMatcherFactory::new(RecordTypeMatcher { id: self.id })),
                 self.id,
-                fields,
+                TyUserFields {
+                    known: fields,
+                    unknown: false,
+                },
                 None,
                 None,
                 None,
@@ -313,7 +317,7 @@ where
                 TyStarlarkValue::new::<RecordType>(),
                 None,
                 TypeInstanceId::gen(),
-                SortedMap::new(),
+                TyUserFields::no_fields(),
                 Some(TyFunction::new(
                     // TODO(nga): more precise parameter types.
                     vec![Param::kwargs(Ty::any())],

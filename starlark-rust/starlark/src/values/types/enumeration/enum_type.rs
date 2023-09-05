@@ -33,7 +33,6 @@ use starlark_derive::NoSerialize;
 use starlark_derive::StarlarkDocs;
 use starlark_derive::Trace;
 use starlark_map::small_map::SmallMap;
-use starlark_map::sorted_map::SortedMap;
 use starlark_map::Equivalent;
 
 use crate as starlark;
@@ -45,6 +44,7 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::user::TyUser;
+use crate::typing::user::TyUserFields;
 use crate::typing::user::TyUserIndex;
 use crate::typing::Ty;
 use crate::values::enumeration::matcher::EnumTypeMatcher;
@@ -303,7 +303,7 @@ where
                 TyStarlarkValue::new::<EnumValue>(),
                 Some(TypeMatcherFactory::new(EnumTypeMatcher { id: self.id })),
                 self.id,
-                SortedMap::new(),
+                TyUserFields::no_fields(),
                 None,
                 None,
                 None,
@@ -313,7 +313,7 @@ where
                 TyStarlarkValue::new::<EnumType>(),
                 None,
                 TypeInstanceId::gen(),
-                SortedMap::new(),
+                TyUserFields::no_fields(),
                 None,
                 Some(TyUserIndex {
                     index: Ty::int(),
