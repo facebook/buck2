@@ -31,7 +31,6 @@ use crate::typing::function::Arg;
 use crate::typing::function::Param;
 use crate::typing::function::ParamMode;
 use crate::typing::function::TyFunction;
-use crate::typing::mode::TypecheckMode;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::tuple::TyTuple;
 use crate::typing::Ty;
@@ -82,22 +81,9 @@ enum TypingOracleCtxError {
 pub struct TypingOracleCtx<'a> {
     pub(crate) oracle: &'a dyn TypingOracle,
     pub(crate) codemap: &'a CodeMap,
-    pub(crate) typecheck_mode: TypecheckMode,
 }
 
 impl<'a> TypingOracleCtx<'a> {
-    pub(crate) fn subtype(&self, require: &TyName, got: &TyName) -> bool {
-        match self.typecheck_mode {
-            TypecheckMode::Lint => self.oracle.subtype(require, got),
-            TypecheckMode::Compiler => {
-                // Compiler typechecker does not have oracle,
-                // so it does not know anything about opaque types.
-                // This code should go away when we get rid of `Ty::name`.
-                true
-            }
-        }
-    }
-
     pub(crate) fn mk_error(&self, span: Span, err: impl Into<anyhow::Error>) -> TypingError {
         TypingError::new(err.into(), span, self.codemap)
     }
@@ -833,10 +819,6 @@ impl<'a> TypingOracleCtx<'a> {
         false
     }
 
-    fn intersects_name(&self, x: &TyName, y: &TyName) -> bool {
-        x == y || self.subtype(x, y) || self.subtype(y, x)
-    }
-
     pub(crate) fn intersects_basic(&self, x: &TyBasic, y: &TyBasic) -> bool {
         x == y || self.intersects_one_side(x, y) || self.intersects_one_side(y, x)
     }
@@ -846,7 +828,7 @@ impl<'a> TypingOracleCtx<'a> {
     fn intersects_one_side(&self, x: &TyBasic, y: &TyBasic) -> bool {
         match (x, y) {
             (TyBasic::Any, _) => true,
-            (TyBasic::Name(x), TyBasic::Name(y)) => self.intersects_name(x, y),
+            (TyBasic::Name(x), TyBasic::Name(y)) => x == y,
             (TyBasic::Name(_), TyBasic::Custom(_)) => true,
             (TyBasic::Name(_), TyBasic::StarlarkValue(_)) => true,
             (TyBasic::Name(x), y) => Some(x.as_str()) == y.as_name(),

@@ -100,12 +100,6 @@ pub trait TypingOracle {
     fn attribute(&self, _ty: &TyName, _attr: &str) -> Option<Result<Ty, ()>> {
         None
     }
-
-    /// If we require the first type, but got the second type, is that OK?
-    /// Usually its OK if the requirement is a subtype of the one we got.
-    fn subtype(&self, require: &TyName, got: &TyName) -> bool {
-        false
-    }
 }
 
 /// Declare that there are no attributes, usually used at the end of a [`Vec`].
@@ -128,10 +122,6 @@ impl<T: TypingOracle> TypingOracle for OracleSeq<T> {
     fn attribute(&self, ty: &TyName, attr: &str) -> Option<Result<Ty, ()>> {
         self.0.iter().find_map(|oracle| oracle.attribute(ty, attr))
     }
-
-    fn subtype(&self, require: &TyName, got: &TyName) -> bool {
-        self.0.iter().any(|oracle| oracle.subtype(require, got))
-    }
 }
 
 pub(crate) struct OracleAny;
@@ -144,18 +134,10 @@ impl<'a, T: TypingOracle + ?Sized> TypingOracle for &'a T {
     fn attribute(&self, ty: &TyName, attr: &str) -> Option<Result<Ty, ()>> {
         (*self).attribute(ty, attr)
     }
-
-    fn subtype(&self, require: &TyName, got: &TyName) -> bool {
-        (*self).subtype(require, got)
-    }
 }
 
 impl<T: TypingOracle + ?Sized> TypingOracle for Box<T> {
     fn attribute(&self, ty: &TyName, attr: &str) -> Option<Result<Ty, ()>> {
         self.as_ref().attribute(ty, attr)
-    }
-
-    fn subtype(&self, require: &TyName, got: &TyName) -> bool {
-        self.as_ref().subtype(require, got)
     }
 }

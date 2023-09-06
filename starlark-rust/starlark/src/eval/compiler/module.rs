@@ -174,7 +174,6 @@ impl<'v> Compiler<'v, '_, '_> {
         let oracle = TypingOracleCtx {
             oracle: &OracleAny,
             codemap: &self.codemap,
-            typecheck_mode: TypecheckMode::Compiler,
         };
         let module_var_types = self.mk_module_var_types();
         for top in stmts.iter_mut() {
