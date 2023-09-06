@@ -158,9 +158,14 @@ def _create_kotlin_sources(
         ksp_cmd = cmd_args(compile_kotlin_tool)
         ksp_cmd.add(zip_scrubber_args)
 
-        if ksp_annotation_processor_properties.annotation_processors.deps:
+        ksp_annotation_processor_classpath_tsets = filter(None, ([ap.deps for ap in ksp_annotation_processor_properties.annotation_processors]))
+        if ksp_annotation_processor_classpath_tsets:
+            ksp_annotation_processor_classpath = ctx.actions.tset(
+                JavaPackagingDepTSet,
+                children = ksp_annotation_processor_classpath_tsets,
+            ).project_as_args("full_jar_args")
             ksp_cmd.add(["--ksp_processor_jars"])
-            ksp_cmd.add(cmd_args(ksp_annotation_processor_properties.annotation_processors.deps.project_as_args("full_jar_args"), delimiter = ","))
+            ksp_cmd.add(cmd_args(ksp_annotation_processor_classpath, delimiter = ","))
 
         ksp_cmd.add(["--ksp_classpath", classpath_args])
         ksp_classes_and_resources_output = ctx.actions.declare_output("ksp_output_dir/ksp_classes_and_resources_output")
