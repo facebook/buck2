@@ -7,14 +7,47 @@
  * of this source tree.
  */
 
+use buck2_interpreter::types::provider::callable::ProviderCallableLike;
+use dupe::Dupe;
 use starlark::environment::GlobalsBuilder;
 use starlark::typing::Ty;
 use starlark::values::function::NativeFunction;
 use starlark::values::StarlarkValue;
 
-pub(crate) fn builtin_provider_typechecker_ty(
-    creator_func: for<'a> fn(&'a mut GlobalsBuilder),
-) -> Ty {
+use crate::interpreter::rule_defs::provider::ty::provider::ty_provider;
+use crate::interpreter::rule_defs::provider::ProviderLike;
+
+/// Types associated with builtin providers.
+pub(crate) struct BuiltinProviderTy {
+    callable: Ty,
+    instance: Ty,
+}
+
+impl BuiltinProviderTy {
+    #[allow(clippy::extra_unused_type_parameters)] // Used in the following diff.
+    pub(crate) fn new<
+        'v,
+        P: StarlarkValue<'v> + ProviderLike<'v>,
+        C: StarlarkValue<'v> + ProviderCallableLike,
+    >(
+        creator_func: for<'a> fn(&'a mut GlobalsBuilder),
+    ) -> BuiltinProviderTy {
+        BuiltinProviderTy {
+            instance: ty_provider(P::TYPE).unwrap(),
+            callable: builtin_provider_typechecker_ty(creator_func),
+        }
+    }
+
+    pub(crate) fn callable(&self) -> Ty {
+        self.callable.dupe()
+    }
+
+    pub(crate) fn instance(&self) -> Ty {
+        self.instance.dupe()
+    }
+}
+
+fn builtin_provider_typechecker_ty(creator_func: for<'a> fn(&'a mut GlobalsBuilder)) -> Ty {
     let globals = GlobalsBuilder::new().with(creator_func).build();
     let mut iter = globals.iter();
     let Some(first) = iter.next() else {

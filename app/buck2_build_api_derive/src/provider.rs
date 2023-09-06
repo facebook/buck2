@@ -274,17 +274,31 @@ impl ProviderCodegen {
         })
     }
 
+    fn builtin_provider_ty(&self) -> syn::Result<syn::Item> {
+        let creator_func = &self.args.creator_func;
+        let gen_name = &self.input.ident;
+        let callable_name = self.callable_name()?;
+        Ok(syn::parse_quote_spanned! { self.span =>
+            static BUILTIN_PROVIDER_TY: once_cell::sync::Lazy<
+                crate::interpreter::rule_defs::provider::builtin::ty::BuiltinProviderTy> =
+                    once_cell::sync::Lazy::new(
+            || {
+                crate::interpreter::rule_defs::provider::builtin::ty::BuiltinProviderTy::new::<
+                        #gen_name<starlark::values::Value>,
+                        #callable_name,
+                    >
+                (
+                    #creator_func
+                )
+            });
+        })
+    }
+
     fn typechecker_ty_function(&self) -> syn::Result<syn::Item> {
-        let create_func = &self.args.creator_func;
         Ok(syn::parse_quote_spanned! {
             self.span=>
             fn typechecker_ty(&self) -> Option<starlark::typing::Ty> {
-                static TY: once_cell::sync::Lazy<starlark::typing::Ty> = once_cell::sync::Lazy::new(|| {
-                    crate::interpreter::rule_defs::provider::builtin::ty::builtin_provider_typechecker_ty(
-                        #create_func
-                    )
-                });
-                Some(TY.clone())
+                Some(BUILTIN_PROVIDER_TY.callable())
             }
         })
     }
@@ -485,12 +499,7 @@ impl ProviderCodegen {
                     }
 
                     fn eval_type(&self) -> Option<starlark::typing::Ty> {
-                        static TY: once_cell::sync::Lazy<starlark::typing::Ty> = once_cell::sync::Lazy::new(|| {
-                            crate::interpreter::rule_defs::provider::ty::provider::ty_provider(
-                                #name_str
-                            ).unwrap()
-                        });
-                        Some(dupe::Dupe::dupe(&TY))
+                        Some(BUILTIN_PROVIDER_TY.instance())
                     }
 
                     #documentation_function
@@ -663,6 +672,7 @@ pub(crate) fn define_provider(
         #input
     };
     let gen: Vec<syn::Item> = [
+        vec![codegen.builtin_provider_ty()?],
         vec![input],
         vec![codegen.impl_display()?],
         codegen.impl_starlark_value()?,
