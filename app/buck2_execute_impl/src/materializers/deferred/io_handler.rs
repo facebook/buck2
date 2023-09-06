@@ -12,6 +12,7 @@ use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::file_ops::FileDigest;
@@ -66,6 +67,7 @@ use crate::materializers::deferred::WriteFile;
 use crate::materializers::io::materialize_files;
 use crate::materializers::io::MaterializeTreeStructure;
 
+#[derive(Allocative)]
 pub(super) struct DefaultIoHandler {
     pub(super) fs: ProjectRoot,
     pub(super) digest_config: DigestConfig,

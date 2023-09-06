@@ -144,10 +144,7 @@ pub struct DeferredMaterializer {
     materialize_final_artifacts: bool,
     defer_write_actions: bool,
 
-    /// To be removed, used to implement write for now.
-    fs: ProjectRoot,
-    io_executor: Arc<dyn BlockingExecutor>,
-    digest_config: DigestConfig,
+    io: Arc<DefaultIoHandler>,
 
     /// Tracked for logging purposes.
     materializer_state_info: buck2_data::MaterializerStateInfo,
@@ -742,9 +739,9 @@ impl Materializer for DeferredMaterializer {
     ) -> anyhow::Result<Vec<ArtifactValue>> {
         if !self.defer_write_actions {
             return immediate::write_to_disk(
-                &self.fs,
-                self.io_executor.as_ref(),
-                self.digest_config,
+                &self.io.fs,
+                self.io.io_executor.as_ref(),
+                self.io.digest_config,
                 gen,
             )
             .await;
@@ -762,8 +759,10 @@ impl Materializer for DeferredMaterializer {
             is_executable,
         } in contents
         {
-            let digest =
-                TrackedFileDigest::from_content(&content, self.digest_config.cas_digest_config());
+            let digest = TrackedFileDigest::from_content(
+                &content,
+                self.io.digest_config.cas_digest_config(),
+            );
 
             let meta = FileMetadata {
                 digest,
@@ -947,21 +946,22 @@ impl DeferredMaterializer {
             }
         }
 
+        let io = Arc::new(DefaultIoHandler {
+            fs,
+            digest_config,
+            buck_out_path,
+            re_client_manager,
+            io_executor,
+            http_client,
+        });
+
         let command_processor = {
             let command_sender = command_sender.dupe();
-            let io_executor = io_executor.dupe();
             let rt = Handle::current();
-            let fs = fs.dupe();
             let stats = stats.dupe();
+            let io = io.dupe();
             move |cancellations| DeferredMaterializerCommandProcessor {
-                io: Arc::new(DefaultIoHandler {
-                    fs,
-                    digest_config,
-                    buck_out_path,
-                    re_client_manager,
-                    io_executor,
-                    http_client,
-                }),
+                io,
                 digest_config,
                 sqlite_db,
                 rt,
@@ -1008,9 +1008,7 @@ impl DeferredMaterializer {
             command_sender,
             materialize_final_artifacts: configs.materialize_final_artifacts,
             defer_write_actions: configs.defer_write_actions,
-            fs,
-            io_executor,
-            digest_config,
+            io,
             materializer_state_info,
             stats,
         })
