@@ -73,6 +73,8 @@ enum TypingError {
     InvalidTypeAnnotation(String),
     #[error("`{{A: B}}` cannot be used as type, perhaps you meant `dict[A, B]`")]
     Dict,
+    #[error("`[X]` cannot be used as type, perhaps you meant `list[X]`")]
+    List,
     /// The given type annotation does not exist, but the user might have forgotten quotes around
     /// it
     #[error(r#"Found `{0}` instead of a valid type annotation. Perhaps you meant `"{1}"`?"#)]
@@ -420,12 +422,8 @@ impl<'v> TypeCompiled<Value<'v>> {
     /// Parse `[t1, t2, ...]` as type.
     fn from_list(t: &ListRef<'v>, heap: &'v Heap) -> anyhow::Result<TypeCompiled<Value<'v>>> {
         match t.content() {
-            [] => Err(TypingError::InvalidTypeAnnotation(t.to_string()).into()),
-            [t] => {
-                let t = TypeCompiled::new(*t, heap)?;
-                Ok(TypeCompiled::type_list_of(t, heap))
-            }
-            ts => {
+            [] | [_] => Err(TypingError::List.into()),
+            ts @ [_, _, ..] => {
                 // A union type, can match any
                 let ts = ts.try_map(|t| TypeCompiled::new(*t, heap))?;
                 Ok(TypeCompiled::type_any_of(ts, heap))
@@ -473,6 +471,8 @@ impl TypeCompiled<FrozenValue> {
 fn invalid_type_annotation<'v>(ty: Value<'v>, heap: &'v Heap) -> TypingError {
     if DictRef::from_value(ty).is_some() {
         TypingError::Dict
+    } else if ListRef::from_value(ty).is_some() {
+        TypingError::List
     } else if let Some(name) = ty
         .get_attr("type", heap)
         .ok()

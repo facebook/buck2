@@ -103,7 +103,7 @@ isinstance(None, None)
 isinstance(assert_type, "function")
 isinstance([], list[int])
 isinstance([], list[typing.Any])
-isinstance([1, 2, 3], [int])
+isinstance([1, 2, 3], list[int])
 isinstance(None, [None, int])
 isinstance('test', int | str)
 isinstance(('test', None), (str, None))
@@ -118,13 +118,13 @@ not isinstance({"test": 1, 8: 2}, dict[str, int])
 not isinstance({"test": 1, "more": None}, dict[str, int])
 
 isinstance(1, "")
-isinstance([1,2,"test"], ["_a"])
+isinstance([1,2,"test"], list["_a"])
 "#,
     );
 
     // Checking types fails for invalid types
     a.fail("isinstance(None, isinstance)", "not a valid type");
-    a.fail("isinstance(None, [])", "not a valid type");
+    a.fail("isinstance(None, [])", "cannot be used as type");
     a.fail(
         "isinstance(None, {'1': '', '2': ''})",
         "cannot be used as type",
@@ -180,7 +180,7 @@ fn test_type_compiled_display() {
 
     t("typing.Any", "\"\"");
     t("list[typing.Any]", "list");
-    t("list[typing.Any]", "[\"\"]");
+    t("list[typing.Any]", "list[\"\"]");
     t("None", "None");
     t("\"a\" | \"b\"", "[\"a\", \"b\"]");
 }
