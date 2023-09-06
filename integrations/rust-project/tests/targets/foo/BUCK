@@ -1,0 +1,26 @@
+load("@fbcode_macros//build_defs/rust_library.bzl", "rust_library")
+
+rust_library(
+    name = "a",
+    srcs = ["lib_a.rs"],
+    crate_root = "lib_a.rs",
+    deps = ["//buck2/integrations/rust-project/tests/targets/bar:c"],
+)
+
+rust_library(
+    name = "b",
+    srcs = ["lib_b.rs"],
+    crate_root = "lib_b.rs",
+    deps = ["//buck2/integrations/rust-project/tests/targets/bar:d"],
+)
+
+rust_library(
+    name = "e",
+    srcs = ["lib.rs"],
+    deps = [":f"],
+)
+
+rust_library(
+    name = "f",
+    srcs = ["lib.rs"],
+)
