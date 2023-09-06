@@ -599,21 +599,16 @@ fn pump_events(
         Result<buck2_cli_proto::CommandProgress, tonic::Status>,
     >,
 ) {
+    // This function returns the receiving channel back to `tonic` as a streaming response.
     while let Some(next_event) = events.receive() {
-        // Note that writes to `output_send` have their errors explicitly ignored here. There is only one reason
-        // for a write to a `mpsc::channel` to fail: the receiving end of the channel has already been closed.
-        //
-        // This function returns the receiving channel back to `tonic` as part of a streaming response. Tonic can
-        // drop the stream before it is fully resolved if, for example, the gRPC client disconnects during the
-        // command. In this case, we explicitly ignore write errors and let them float off into the void, since no
-        // client is listening.
-        //
-        // TODO(swgillespie) - We should handle client disconnects better.
+        // Ignoring errors from writing to `output_send` because they occur only when
+        // the receiving end of the channel is closed. This can happen, for example,
+        // if Tonic drops the streaming response due the client disconnecting.
+        // In these cases, ignoring the errors is intentional as no client is listening.
         match next_event {
             Event::Control(control_event) => {
-                // A control event. This event isn't going to be sent to gRPC, but we do need to react to it. In
-                // this case, the CommandResult event indicates that the spawned computation has produced a result
-                // and will not be producing any more events.
+                // The CommandResult event indicates that the spawned
+                // computation won't be producing any more events.
                 match control_event {
                     ControlEvent::CommandResult(result) => {
                         let _ignore = output_send.send(Ok(CommandProgress {
@@ -633,7 +628,6 @@ fn pump_events(
             Event::Buck(buck_event) => {
                 state.peek_event(&buck_event);
 
-                // A buck event. These events should be forwarded directly to gRPC.
                 let _ignore = output_send.send(Ok(CommandProgress {
                     progress: Some(command_progress::Progress::Event(buck_event.into())),
                 }));
@@ -659,11 +653,7 @@ fn streaming<
 where
     F: Send + 'static,
 {
-    // This function is responsible for receiving all events coming into an ChannelEventSource and reacting accordingly. There
-    // are two categories events that can be seen:
-    // 1. Control events, which are not to be sent across the gRPC boundary but instruct this function to do something.
-    // 2. Buck events, which are to be sent across the gRPC boundary.
-    //
+    // This function is responsible for receiving all events coming into an ChannelEventSource and reacting accordingly.
     // The function `func` is the computation that we are going to run. It communicates its success or failure using
     // control events; our first step is to spawn it.
 

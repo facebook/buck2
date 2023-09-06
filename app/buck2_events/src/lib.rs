@@ -191,8 +191,6 @@ impl TryFrom<Box<buck2_data::BuckEvent>> for BuckEvent {
     }
 }
 
-/// An event that can be produced by Buck2 that is not intended to be presented to the user, but rather is used to
-/// communicate with other parts of Buck2.
 #[derive(Clone, From)]
 pub enum ControlEvent {
     /// A command result, produced upon completion of a command.
@@ -201,15 +199,12 @@ pub enum ControlEvent {
     PartialResult(PartialResult),
 }
 
-/// The set of events that can flow out of an EventSource. Control events are not intended to be sent across the gRPC
-/// boundary, while Buck events are.
+/// The set of events that can flow out of an EventSource.
 #[derive(Clone, From, UnpackVariants)]
 #[allow(clippy::large_enum_variant)]
 pub enum Event {
-    /// A control event: events that are not to be exposed across gRPC, but inform stream consumers of important control
-    /// changes, such the CommandResult event, which implies that there will be no further events.
     Control(ControlEvent),
-    /// A buck event: events that are to be exposed across gRPC verbatim.
+    /// A regular buck event.
     Buck(BuckEvent),
 }
 
@@ -247,7 +242,7 @@ pub trait EventSink: Send + Sync {
     /// recovery; callers of EventSink are not expected to handle failures.
     fn send(&self, event: BuckEvent);
 
-    /// Sends a control event into this sink, to be consumed elsewhere. Control events are not sent to gRPC clients.
+    /// Sends a control event into this sink, to be consumed elsewhere.
     fn send_control(&self, control_event: ControlEvent);
 }
 
