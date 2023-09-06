@@ -40,6 +40,7 @@ use starlark::eval::Evaluator;
 use starlark::eval::ParametersSpec;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
+use starlark::typing::Param;
 use starlark::typing::Ty;
 use starlark::values::dict::DictOf;
 use starlark::values::starlark_value;
@@ -259,6 +260,10 @@ impl<'v> StarlarkValue<'v> for RuleCallable<'v> {
     fn typechecker_ty(&self) -> Option<Ty> {
         Some(self.ty.clone())
     }
+
+    fn get_type_starlark_repr() -> Ty {
+        Ty::function(vec![Param::kwargs(Ty::any())], Ty::none())
+    }
 }
 
 impl<'v> Freeze for RuleCallable<'v> {
@@ -387,6 +392,10 @@ impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
 
     fn typechecker_ty(&self) -> Option<Ty> {
         Some(self.ty.clone())
+    }
+
+    fn get_type_starlark_repr() -> Ty {
+        RuleCallable::get_type_starlark_repr()
     }
 }
 
