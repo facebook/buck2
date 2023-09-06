@@ -9,8 +9,6 @@
 
 use std::collections::HashMap;
 
-use buck2_core::env_helper::EnvHelper;
-use buck2_events::dispatch::instant_hg;
 use buck2_events::dispatch::span_async;
 use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -29,12 +27,6 @@ pub async fn server_audit_command(
         metadata: metadata.clone(),
         data: Some(buck2_data::AuditCommandStart {}.into()),
     };
-
-    // TODO pass in log setting thru ClientContext instead of env var (see D29824148)
-    static LOG_REPRODUCE: EnvHelper<bool> = EnvHelper::new("LOG_REPRODUCE");
-    if LOG_REPRODUCE.get_copied()?.unwrap_or(false) {
-        instant_hg().await;
-    }
 
     span_async(
         start_event,

@@ -17,7 +17,6 @@ use std::cell::UnsafeCell;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::pin::Pin;
-use std::process::Stdio;
 use std::sync::Arc;
 use std::task;
 use std::time::Duration;
@@ -25,15 +24,11 @@ use std::time::Instant;
 use std::time::SystemTime;
 
 use buck2_core::env_helper::EnvHelper;
-use buck2_core::soft_error;
 use buck2_data::buck_event;
-use buck2_data::instant_event::Data::HgInfo;
 use buck2_data::span_end_event;
 use buck2_data::span_start_event;
-use buck2_data::MercurialInfo;
 use buck2_data::SpanEndEvent;
 use buck2_data::SpanStartEvent;
-use buck2_util::process::background_command;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use futures::Future;
@@ -117,51 +112,6 @@ impl EventDispatcher {
 
     pub fn control_event<E: Into<ControlEvent>>(&self, data: E) {
         self.sink.send_control(data.into());
-    }
-
-    // Logs mercurial data
-    pub async fn instant_hg(&self) {
-        let _err =
-            soft_error!("instant_hg_usage", anyhow::anyhow!("Instant HG usage"), quiet: true);
-        // TODO use tokio/tokio::process::Command instead of command (see D29824148)
-        let committed = background_command("hg").arg("status").arg("-mard").output();
-        let log_changes = if let Ok(status) = committed {
-            !status.stdout.is_empty()
-        } else {
-            return;
-        };
-
-        // TODO use `hg debughiddencommit` instead of `hg id`, `hg diff`, and `pastry`
-        let hash = if let Ok(commit) = background_command("hg")
-            .arg("--debug")
-            .arg("id")
-            .arg("-i")
-            .output()
-        {
-            String::from_utf8_lossy(&commit.stdout).to_string()
-        } else {
-            return;
-        };
-        let mut pastry = "".to_owned();
-        if log_changes {
-            if let Ok(diff) = background_command("hg")
-                .arg("diff")
-                .arg("-r")
-                .arg("master")
-                .stdout(Stdio::piped())
-                .spawn()
-            {
-                if let Some(d) = diff.stdout {
-                    if let Ok(paste) = background_command("pastry").stdin(d).output() {
-                        pastry = String::from_utf8_lossy(&paste.stdout).to_string();
-                    }
-                }
-            }
-        }
-        self.instant_event(HgInfo(MercurialInfo {
-            commit: hash,
-            diff: pastry,
-        }));
     }
 
     /// Introduces a new span and immediately fires the given start event. When the given synchronous function returns,
@@ -477,11 +427,6 @@ pub fn instant_event<E: Into<buck2_data::instant_event::Data>>(data: E) {
 /// Send console message from the server.
 pub fn console_message(message: String) {
     get_dispatcher().console_message(message)
-}
-
-// Logs mercurial data
-pub async fn instant_hg() {
-    get_dispatcher().instant_hg().await
 }
 
 /// Introduces a new span and immediately fires the given start event. When the given future resolves,  the span is

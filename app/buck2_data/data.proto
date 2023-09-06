@@ -173,11 +173,10 @@ message CommandOptions {
 
 // An event that represents a single point in time.
 message InstantEvent {
-  reserved 8, 9, 13, 22, 24;
+  reserved 2, 8, 9, 13, 22, 24;
 
   oneof data {
     StructuredError structured_error = 1;
-    MercurialInfo hg_info = 2;
     ConsoleMessage console_message = 3;
     BuildGraphExecutionInfo build_graph_info = 4;
     RemoteExecutionSessionCreated re_session = 5;
@@ -348,15 +347,6 @@ message StructuredError {
   // Is this error indicative of the RE action cache returning corrupted
   // results?
   bool action_cache_is_corrupted = 10;
-}
-
-// An event capturing the input, output, and context during the execution of an
-// audit.
-message MercurialInfo {
-  // hg commit for repo
-  string commit = 1;
-  // hg diff for diff between current repo and mercurial hash as a pastry link
-  string diff = 2;
 }
 
 message CriticalPathEntry {
