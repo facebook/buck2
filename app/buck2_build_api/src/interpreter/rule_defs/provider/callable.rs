@@ -17,7 +17,6 @@ use buck2_core::provider::id::ProviderId;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::types::provider::callable::ProviderCallableLike;
 use dupe::Dupe;
-use either::Either;
 use itertools::Itertools;
 use once_cell::unsync;
 use starlark::any::ProvidesStaticType;
@@ -52,7 +51,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
-use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
 use crate::interpreter::rule_defs::provider::doc::provider_callable_documentation;
@@ -463,31 +461,19 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
     /// For providers that accumulate upwards a transitive set is often a good choice.
     fn provider(
         #[starlark(require=named, default = "")] doc: &str,
-        #[starlark(require=named)] fields: Either<Vec<String>, SmallMap<&str, &str>>,
+        #[starlark(require=named)] fields: Vec<String>,
         eval: &mut Evaluator,
     ) -> anyhow::Result<UserProviderCallable> {
         let docstring = DocString::from_docstring(DocStringKind::Starlark, doc);
         let path = starlark_path_from_build_context(eval)?.path();
 
-        let (field_names, field_docs) = match fields {
-            Either::Left(f) => {
-                let docs = vec![None; f.len()];
-                let field_names: SmallSet<String> = f.iter().cloned().collect();
-                if field_names.len() != f.len() {
-                    return Err(ProviderCallableError::NonUniqueFields(f).into());
-                }
-                (field_names, docs)
+        let (field_names, field_docs) = {
+            let docs = vec![None; fields.len()];
+            let field_names: SmallSet<String> = fields.iter().cloned().collect();
+            if field_names.len() != field_names.len() {
+                return Err(ProviderCallableError::NonUniqueFields(fields).into());
             }
-            Either::Right(fields_with_docs) => {
-                let mut field_names = SmallSet::with_capacity(fields_with_docs.len());
-                let mut field_docs = Vec::with_capacity(fields_with_docs.len());
-                for (name, docs) in fields_with_docs {
-                    let inserted = field_names.insert(name.to_owned());
-                    assert!(inserted);
-                    field_docs.push(DocString::from_docstring(DocStringKind::Starlark, docs));
-                }
-                (field_names, field_docs)
-            }
+            (field_names, docs)
         };
         Ok(UserProviderCallable::new(
             path.into_owned(),

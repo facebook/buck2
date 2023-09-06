@@ -19,7 +19,6 @@ fn test_provider() -> anyhow::Result<()> {
     tester.run_starlark_test(indoc!(
         r#"
             SomeInfo = provider(fields=["x", "y"])
-            SomeOtherInfo = provider(fields={"x": "docs for x", "y": "docs for y"})
             DocInfo = provider(doc="Some docs", fields=["x", "y"])
 
             def test():
@@ -27,11 +26,6 @@ fn test_provider() -> anyhow::Result<()> {
                 assert_eq(2, instance.x)
                 assert_eq(True, instance.y)
                 assert_eq(SomeInfo(x = 2, y = True), instance)
-
-                instance = SomeOtherInfo(x = 2, y = True)
-                assert_eq(2, instance.x)
-                assert_eq(True, instance.y)
-                assert_eq(SomeOtherInfo(x = 2, y = True), instance)
 
                 instance = DocInfo(x = 2, y = True)
                 assert_eq(2, instance.x)
