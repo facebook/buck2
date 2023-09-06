@@ -243,7 +243,7 @@ rust_library = prelude_rule(
             "doc_linker_flags": attrs.list(attrs.arg(), default = []),
             "doc_named_deps": attrs.dict(key = attrs.string(), value = rust_target_dep(is_binary = True), sorted = False, default = {}),
             "doctests": attrs.option(attrs.bool(), default = None),
-            "doctest_link_style": attrs.option(attrs.enum(LinkableDepType), default = None, doc = """
+            "doc_link_style": attrs.option(attrs.enum(LinkableDepType), default = None, doc = """
             Like `link_style` on binaries, but applies specifically to doctests.
             """),
             "proc_macro": attrs.bool(default = False),

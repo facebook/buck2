@@ -218,12 +218,12 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # cares about linkage. So if there is a required link style set for the
     # doctests, reuse those same dependency artifacts for the other build
     # outputs where static vs static_pic does not make a difference.
-    if ctx.attrs.doctest_link_style:
+    if ctx.attrs.doc_link_style:
         static_link_style = {
             "shared": DEFAULT_STATIC_LINK_STYLE,
             "static": LinkStyle("static"),
             "static_pic": LinkStyle("static_pic"),
-        }[ctx.attrs.doctest_link_style]
+        }[ctx.attrs.doc_link_style]
     else:
         static_link_style = DEFAULT_STATIC_LINK_STYLE
 
@@ -243,10 +243,10 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     rustdoc_test = None
     if doctests_enabled and toolchain_info.rustc_target_triple == targets.exec_triple(ctx):
-        if ctx.attrs.doctest_link_style:
-            doctest_link_style = LinkStyle(ctx.attrs.doctest_link_style)
+        if ctx.attrs.doc_link_style:
+            doc_link_style = LinkStyle(ctx.attrs.doc_link_style)
         else:
-            doctest_link_style = {
+            doc_link_style = {
                 "any": LinkStyle("shared"),
                 "shared": LinkStyle("shared"),
                 "static": DEFAULT_STATIC_LINK_STYLE,
@@ -254,7 +254,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         rustdoc_test_params = build_params(
             rule = RuleType("binary"),
             proc_macro = ctx.attrs.proc_macro,
-            link_style = doctest_link_style,
+            link_style = doc_link_style,
             preferred_linkage = Linkage(ctx.attrs.preferred_linkage),
             lang = LinkageLang("rust"),
             linker_type = compile_ctx.cxx_toolchain_info.linker_info.type,
