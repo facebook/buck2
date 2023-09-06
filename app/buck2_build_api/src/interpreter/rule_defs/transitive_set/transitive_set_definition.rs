@@ -29,7 +29,13 @@ use starlark::collections::SmallMap;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
+use starlark::typing::Ty;
+use starlark::typing::TyStarlarkValue;
+use starlark::typing::TyUser;
+use starlark::typing::TyUserFields;
 use starlark::values::starlark_value;
+use starlark::values::typing::TypeInstanceId;
+use starlark::values::typing::TypeMatcherFactory;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
@@ -40,6 +46,8 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
+use crate::interpreter::rule_defs::transitive_set::transitive_set::TransitiveSetMatcher;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
 
 #[derive(Debug, thiserror::Error)]
@@ -87,15 +95,19 @@ struct TransitiveSetId {
 }
 
 #[derive(Debug, Allocative)]
-struct TransitiveSetDefinitionExported {
+pub(crate) struct TransitiveSetDefinitionExported {
     /// The name of this transitive set. This is filed in by `export_as` when it's assigned to a
     /// top-level variable. This must be set before this is used.
     id: Arc<TransitiveSetId>,
+    /// Type of transitive set type.
+    set_ty: Ty,
+    /// Type id of transitive set type.
+    pub(crate) set_type_instance_id: TypeInstanceId,
 }
 
 #[derive(Debug, ProvidesStaticType, Allocative, Trace)]
 pub struct TransitiveSetDefinition<'v> {
-    exported: unsync::OnceCell<TransitiveSetDefinitionExported>,
+    pub(crate) exported: unsync::OnceCell<TransitiveSetDefinitionExported>,
 
     /// The module id where this `TransitiveSetDefinition` is created and assigned
     module_id: ImportPath,
@@ -212,7 +224,25 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
                 module_id: self.module_id.clone(),
                 name: variable_name.to_owned(),
             });
-            anyhow::Ok(TransitiveSetDefinitionExported { id })
+            let set_type_instance_id = TypeInstanceId::gen();
+            let set_ty = Ty::custom(TyUser::new(
+                variable_name.to_owned(),
+                TyStarlarkValue::new::<TransitiveSet>(),
+                Vec::new(),
+                Some(TypeMatcherFactory::new(TransitiveSetMatcher {
+                    type_instance_id: set_type_instance_id,
+                })),
+                set_type_instance_id,
+                TyUserFields::no_fields(),
+                None,
+                None,
+                None,
+            )?);
+            anyhow::Ok(TransitiveSetDefinitionExported {
+                id,
+                set_ty,
+                set_type_instance_id,
+            })
         })?;
         Ok(())
     }
@@ -248,13 +278,19 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
         Ok(())
     }
 
-    // TODO (torozco): extra_memory()?
+    fn get_type_starlark_repr() -> Ty {
+        Ty::starlark_value::<Self>()
+    }
+
+    fn eval_type(&self) -> Option<Ty> {
+        self.exported.get().map(|exported| exported.set_ty.dupe())
+    }
 }
 
 #[derive(Display, ProvidesStaticType, Allocative)]
 #[display(fmt = "{}", "exported.id")]
 pub struct FrozenTransitiveSetDefinition {
-    exported: TransitiveSetDefinitionExported,
+    pub(crate) exported: TransitiveSetDefinitionExported,
 
     operations: TransitiveSetOperationsGen<FrozenValue>,
 }
@@ -300,6 +336,10 @@ impl<'v> StarlarkValue<'v> for FrozenTransitiveSetDefinition {
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
         self.exported.id.hash(hasher);
         Ok(())
+    }
+
+    fn eval_type(&self) -> Option<Ty> {
+        Some(self.exported.set_ty.dupe())
     }
 }
 

@@ -36,6 +36,7 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInf
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_run_info::WorkerRunInfo;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
+use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSet;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetDefinition;
 use buck2_common::cas_digest::CasDigest;
 use buck2_core::category::Category;
@@ -920,7 +921,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         value: Option<Value<'v>>,
         children: Option<ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<ValueTyped<'v, TransitiveSet<'v>>> {
         let mut this = this.state();
         this.create_transitive_set(
             definition.to_value(),

@@ -16,6 +16,7 @@ use display_container::display_pair;
 use display_container::fmt_container;
 use display_container::iter_display_chain;
 use dupe::Dupe;
+use either::Either;
 use gazebo::prelude::*;
 use serde::ser::SerializeMap;
 use serde::Serialize;
@@ -26,8 +27,11 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
+use starlark::typing::Ty;
 use starlark::values::list::AllocList;
 use starlark::values::starlark_value;
+use starlark::values::typing::TypeInstanceId;
+use starlark::values::typing::TypeMatcher;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
@@ -37,6 +41,7 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
+use starlark::values::ValueTypedComplex;
 
 use crate::actions::impls::json::validate_json;
 use crate::actions::impls::json::visit_json_artifacts;
@@ -53,9 +58,38 @@ use crate::interpreter::rule_defs::transitive_set::PostorderTransitiveSetIterato
 use crate::interpreter::rule_defs::transitive_set::PreorderTransitiveSetIteratorGen;
 use crate::interpreter::rule_defs::transitive_set::TopologicalTransitiveSetIteratorGen;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetArgsProjection;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSetDefinition;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetIteratorLike;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetJsonProjection;
+
+#[derive(Clone, Debug, Allocative)]
+pub(crate) struct TransitiveSetMatcher {
+    pub(crate) type_instance_id: TypeInstanceId,
+}
+
+impl TypeMatcher for TransitiveSetMatcher {
+    fn matches(&self, value: Value) -> bool {
+        let Some(tset) = ValueTypedComplex::<TransitiveSet>::new(value) else {
+            return false;
+        };
+        let tset_definition: Value = match tset.unpack() {
+            Either::Left(tset) => tset.definition.to_value(),
+            Either::Right(tset) => tset.definition.to_value(),
+        };
+        let tset_definition = ValueTypedComplex::<TransitiveSetDefinition>::new(tset_definition)
+            .expect("wrong type of definition");
+        let exported = match tset_definition.unpack() {
+            Either::Left(definition) => match definition.exported.get() {
+                Some(definition) => definition,
+                None => return false,
+            },
+            Either::Right(definition) => &definition.exported,
+        };
+        // TODO(nga): suboptimal: we could just compare to the pointer of the definition.
+        exported.set_type_instance_id == self.type_instance_id
+    }
+}
 
 #[derive(Debug, Clone, Trace, ProvidesStaticType, Allocative)]
 #[repr(C)]
@@ -305,6 +339,10 @@ where
 
         transitive_set_definition_from_value(self.definition.to_value())
             .map_or(false, |d| d.matches_type(ty))
+    }
+
+    fn get_type_starlark_repr() -> Ty {
+        Ty::starlark_value::<Self>()
     }
 }
 

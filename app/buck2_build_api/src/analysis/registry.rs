@@ -54,6 +54,7 @@ use crate::dynamic::registry::DynamicRegistry;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
 #[derive(Derivative, Trace, Allocative)]
 #[derivative(Debug)]
@@ -225,7 +226,7 @@ impl<'v> AnalysisRegistry<'v> {
         value: Option<Value<'v>>,
         children: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<ValueTyped<'v, TransitiveSet<'v>>> {
         let set = self.artifact_groups.create_transitive_set(
             definition,
             value,
@@ -236,8 +237,9 @@ impl<'v> AnalysisRegistry<'v> {
 
         let key = set.key().deferred_key().id();
         let set = eval.heap().alloc_complex(set);
+        let set = ValueTyped::<TransitiveSet>::new_err(set)?;
 
-        self.analysis_value_storage.set_value(key, set);
+        self.analysis_value_storage.set_value(key, set.to_value());
 
         Ok(set)
     }

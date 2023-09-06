@@ -594,14 +594,14 @@ fn test_definition_type() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_type() -> anyhow::Result<()> {
+fn test_type_1() -> anyhow::Result<()> {
     let mut tester = transitive_set_tester();
 
     tester.run_starlark_bzl_test(indoc!(
         r#"
         FooSet = transitive_set()
 
-        def wants_foo_set(f: FooSet.type):
+        def wants_foo_set(f: FooSet):
             pass
 
         def wants_transitive_set(f: TransitiveSet):
@@ -613,7 +613,12 @@ fn test_type() -> anyhow::Result<()> {
             wants_transitive_set(s)
         "#
     ))?;
+    Ok(())
+}
 
+#[test]
+fn test_type_2() -> anyhow::Result<()> {
+    let mut tester = transitive_set_tester();
     let contents = indoc!(
         r#"
         FooSet = transitive_set()
