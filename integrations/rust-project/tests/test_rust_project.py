@@ -69,6 +69,21 @@ async def test_workspaces(buck: Buck) -> None:
     }
 
 
+@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
+async def test_alias(buck: Buck) -> None:
+    result = await buck.bxl(
+        "prelude//rust/rust-analyzer/resolve_deps.bxl:expand_and_resolve",
+        "--",
+        "--targets",
+        "fbcode//buck2/integrations/rust-project/tests/targets/alias/...",
+    )
+    result = json.loads(result.stdout)
+    assert result["expanded_targets"] == [
+        "fbcode//buck2/integrations/rust-project/tests/targets/alias:l",
+        "fbcode//buck2/integrations/rust-project/tests/targets/alias:l_alias",
+    ]
+
+
 # FIXME: Remove once actual tests work on mac and windows
 @buck_test(inplace=True)
 async def test_noop(buck: Buck) -> None:
