@@ -181,9 +181,9 @@ system_cxx_toolchain = rule(
         "link_flags": attrs.list(attrs.string(), default = []),
         "link_style": attrs.string(default = "shared"),
         "linker": attrs.string(default = "link.exe" if host_info().os.is_windows else "clang++"),
-        "linker_wrapper": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:linker_wrapper")),
-        "make_comp_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
-        "msvc_tools": attrs.default_only(attrs.dep(providers = [VisualStudio], default = "prelude//toolchains/msvc:msvc_tools")),
+        "linker_wrapper": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//cxx/tools:linker_wrapper")),
+        "make_comp_db": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
+        "msvc_tools": attrs.default_only(attrs.exec_dep(providers = [VisualStudio], default = "prelude//toolchains/msvc:msvc_tools")),
     },
     is_toolchain_rule = True,
 )
