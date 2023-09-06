@@ -175,6 +175,10 @@ def generate_rustdoc(
 
         for rust_dependency in resolve_deps(ctx):
             dep = rust_dependency.dep
+            info = dep.get(RustLinkInfo)
+            if info == None:
+                continue
+
             if dep.label.cell != ctx.label.cell:
                 # TODO: support a different extern_html_root_url_prefix per cell
                 continue
@@ -182,9 +186,6 @@ def generate_rustdoc(
             if rust_dependency.name:
                 name = normalize_crate(rust_dependency.name)
             else:
-                info = dep.get(RustLinkInfo)
-                if info == None:
-                    continue
                 name = info.crate
 
             rustdoc_cmd.add(
