@@ -11,13 +11,18 @@ load("@prelude//:paths.bzl", "paths")
 load(":erlang_build.bzl", "erlang_build")
 load(":erlang_dependencies.bzl", "check_dependencies", "flatten_dependencies")
 load(":erlang_info.bzl", "ErlangAppInfo")
-load(":erlang_toolchain.bzl", "get_primary", "select_toolchains")
+load(
+    ":erlang_toolchain.bzl",
+    "Toolchain",  # @unused Used as type
+    "get_primary",
+    "select_toolchains",
+)
 load(":erlang_utils.bzl", "action_identifier", "to_term_args")
 
 def create_escript(
         ctx: AnalysisContext,
         spec_file: Artifact,
-        toolchain: "Toolchain",
+        toolchain: Toolchain,
         files: list[Artifact],
         output: Artifact,
         escript_name: str) -> None:

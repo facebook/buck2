@@ -8,6 +8,10 @@
 # @starlark-rust: allow_string_literals_in_type_expr
 
 load("@prelude//:paths.bzl", "paths")
+load(
+    ":erlang_toolchain.bzl",
+    "Toolchain",  # @unused Used as type
+)
 
 def normalise_metadata(data: [str, list[str]]) -> [cmd_args, list[cmd_args]]:
     if type(data) == type([]):
@@ -120,6 +124,8 @@ def convert_bool(bl: bool) -> cmd_args:
     else:
         return cmd_args(["false"])
 
+# TODO(nga): string literals as type names are deprecated.
+#   But importing `BuildEnvironment` creates an import cycle.
 def multidict_projection(build_environments: dict[str, "BuildEnvironment"], field_name: str) -> dict:
     field = {}
     for name, env in build_environments.items():
@@ -133,7 +139,7 @@ def multidict_projection_key(build_environments: dict[str, "BuildEnvironment"], 
         field[name] = dict_val[key]
     return field
 
-def action_identifier(toolchain: "Toolchain", name: str) -> str:
+def action_identifier(toolchain: Toolchain, name: str) -> str:
     """builds an action identifier parameterized by the toolchain"""
     return "%s(%s)" % (name, toolchain.name)
 

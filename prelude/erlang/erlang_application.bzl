@@ -8,7 +8,11 @@
 # @starlark-rust: allow_string_literals_in_type_expr
 
 load("@prelude//:paths.bzl", "paths")
-load(":erlang_build.bzl", "erlang_build")
+load(
+    ":erlang_build.bzl",
+    "BuildEnvironment",  # @unused Used as type
+    "erlang_build",
+)
 load(
     ":erlang_dependencies.bzl",
     "ErlAppDependencies",
@@ -23,6 +27,7 @@ load(
 load(":erlang_shell.bzl", "erlang_shell")
 load(
     ":erlang_toolchain.bzl",
+    "Toolchain",  # @unused Used as type
     "get_primary",
     "select_toolchains",
 )
@@ -48,7 +53,7 @@ StartSpec = record(
     name = field(str),
     version = field(str),
     resolved = field(bool),
-    start_type = field("StartType"),
+    start_type = field(StartType),
 )
 
 def erlang_application_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -112,7 +117,7 @@ def build_application(ctx, toolchains, dependencies, build_fun) -> list[Provider
         app_info,
     ]
 
-def _build_erlang_application(ctx: AnalysisContext, toolchain: "Toolchain", dependencies: ErlAppDependencies) -> "BuildEnvironment":
+def _build_erlang_application(ctx: AnalysisContext, toolchain: Toolchain, dependencies: ErlAppDependencies) -> BuildEnvironment:
     name = ctx.attrs.name
 
     build_environment = erlang_build.prepare_build_environment(ctx, toolchain, dependencies)
@@ -196,8 +201,8 @@ def _build_erlang_application(ctx: AnalysisContext, toolchain: "Toolchain", depe
 
 def _generate_priv_dir(
         ctx: AnalysisContext,
-        toolchain: "Toolchain",
-        build_environment: "BuildEnvironment") -> "BuildEnvironment":
+        toolchain: Toolchain,
+        build_environment: BuildEnvironment) -> BuildEnvironment:
     """Generate the application's priv dir."""
     name = ctx.attrs.name
 
@@ -221,10 +226,10 @@ def _generate_priv_dir(
 
 def _generate_app_file(
         ctx: AnalysisContext,
-        toolchain: "Toolchain",
-        build_environment: "BuildEnvironment",
+        toolchain: Toolchain,
+        build_environment: BuildEnvironment,
         name: str,
-        srcs: list[Artifact]) -> "BuildEnvironment":
+        srcs: list[Artifact]) -> BuildEnvironment:
     """ rule for generating the .app files
 
     NOTE: We are using the .erl files as input to avoid dependencies on
@@ -266,7 +271,7 @@ def _generate_app_file(
 
 def _app_info_content(
         ctx: AnalysisContext,
-        toolchain: "Toolchain",
+        toolchain: Toolchain,
         name: str,
         srcs: list[Artifact],
         output: Artifact) -> Artifact:
@@ -306,7 +311,7 @@ def _app_info_content(
 def link_output(
         ctx: AnalysisContext,
         link_path: str,
-        build_environment: "BuildEnvironment") -> Artifact:
+        build_environment: BuildEnvironment) -> Artifact:
     """Link application output folder in working dir root folder."""
     name = ctx.attrs.name
 
@@ -356,7 +361,7 @@ def _link_srcs_folder(ctx: AnalysisContext) -> dict[str, Artifact]:
         srcs[paths.join("src", ctx.attrs.app_src.basename)] = ctx.attrs.app_src
     return srcs
 
-def _build_start_dependencies(ctx: AnalysisContext, toolchain: "Toolchain") -> list["StartDependencySet"]:
+def _build_start_dependencies(ctx: AnalysisContext, toolchain: Toolchain) -> list["StartDependencySet"]:
     return build_apps_start_dependencies(
         ctx,
         toolchain,
@@ -367,7 +372,7 @@ def _build_start_dependencies(ctx: AnalysisContext, toolchain: "Toolchain") -> l
         [(app, StartType("load")) for app in ctx.attrs.included_applications],
     )
 
-def build_apps_start_dependencies(ctx: AnalysisContext, toolchain: "Toolchain", apps: list[(Dependency, "StartType")]) -> list["StartDependencySet"]:
+def build_apps_start_dependencies(ctx: AnalysisContext, toolchain: Toolchain, apps: list[(Dependency, StartType)]) -> list["StartDependencySet"]:
     start_dependencies = []
     for app, start_type in apps[::-1]:
         app_spec = _build_start_spec(toolchain, app[ErlangAppInfo], start_type)
@@ -387,7 +392,7 @@ def build_apps_start_dependencies(ctx: AnalysisContext, toolchain: "Toolchain", 
 
     return start_dependencies
 
-def _build_start_spec(toolchain: "Toolchain", app_info: Provider, start_type: "StartType") -> "StartSpec":
+def _build_start_spec(toolchain: Toolchain, app_info: Provider, start_type: StartType) -> StartSpec:
     if app_info.version == "dynamic":
         version = app_info.version
     else:
@@ -416,7 +421,7 @@ def _build_default_info(dependencies: ErlAppDependencies, app_dir: Artifact) -> 
 def build_app_info(
         ctx: AnalysisContext,
         dependencies: ErlAppDependencies,
-        build_environments: dict[str, "BuildEnvironment"],
+        build_environments: dict[str, BuildEnvironment],
         app_folders: dict[str, Artifact],
         primary_app_folder: Artifact,
         start_dependencies: dict[str, list["StartDependencySet"]]) -> Provider:

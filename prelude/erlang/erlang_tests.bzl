@@ -338,7 +338,7 @@ def _build_resource_dir(ctx, resources: list, target_dir: str) -> Artifact:
 def link_output(
         ctx: AnalysisContext,
         test_suite: str,
-        build_environment: "BuildEnvironment",
+        build_environment: BuildEnvironment,
         data_dir: Artifact,
         property_dir: Artifact) -> Artifact:
     """Link the data_dirs and the test_suite beam in a single output folder."""

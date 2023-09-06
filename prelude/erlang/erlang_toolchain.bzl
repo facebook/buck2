@@ -32,7 +32,7 @@ Tools = record(
     erl = field(Tool),
     erlc = field(Tool),
     escript = field(Tool),
-    _tools_binaries = field("ToolsBinaries"),
+    _tools_binaries = field(ToolsBinaries),
 )
 
 Toolchain = record(
@@ -43,7 +43,7 @@ Toolchain = record(
     dependency_analyzer = field(Artifact),
     erlc_trampoline = field(Artifact),
     escript_builder = field(Artifact),
-    otp_binaries = field("Tools"),
+    otp_binaries = field(Tools),
     release_variables_builder = field(Artifact),
     include_erts = field(Artifact),
     core_parse_transforms = field(dict[str, (Artifact, Artifact)]),
@@ -70,17 +70,17 @@ ToolchainUtillInfo = provider(
     ],
 )
 
-def select_toolchains(ctx: AnalysisContext) -> dict[str, "Toolchain"]:
+def select_toolchains(ctx: AnalysisContext) -> dict[str, Toolchain]:
     """helper returning toolchains"""
     return ctx.attrs._toolchain[ErlangMultiVersionToolchainInfo].toolchains
 
 def get_primary(ctx: AnalysisContext) -> str:
     return ctx.attrs._toolchain[ErlangMultiVersionToolchainInfo].primary
 
-def get_primary_tools(ctx: AnalysisContext) -> "Tools":
+def get_primary_tools(ctx: AnalysisContext) -> Tools:
     return (get_primary_toolchain(ctx)).otp_binaries
 
-def get_primary_toolchain(ctx: AnalysisContext) -> "Toolchain":
+def get_primary_toolchain(ctx: AnalysisContext) -> Toolchain:
     return (select_toolchains(ctx)[get_primary(ctx)])
 
 def _multi_version_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
