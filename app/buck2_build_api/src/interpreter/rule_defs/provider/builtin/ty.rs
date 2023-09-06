@@ -11,8 +11,11 @@ use buck2_interpreter::types::provider::callable::ProviderCallableLike;
 use dupe::Dupe;
 use starlark::environment::GlobalsBuilder;
 use starlark::typing::Ty;
+use starlark::typing::TyStarlarkValue;
 use starlark::values::function::NativeFunction;
+use starlark::values::typing::TypeInstanceId;
 use starlark::values::StarlarkValue;
+use starlark_map::sorted_map::SortedMap;
 
 use crate::interpreter::rule_defs::provider::ty::provider::ty_provider;
 use crate::interpreter::rule_defs::provider::ty::provider_callable::ty_provider_callable;
@@ -33,7 +36,14 @@ impl BuiltinProviderTy {
         creator_func: for<'a> fn(&'a mut GlobalsBuilder),
     ) -> BuiltinProviderTy {
         BuiltinProviderTy {
-            instance: ty_provider(P::TYPE).unwrap(),
+            instance: ty_provider(
+                P::TYPE,
+                TypeInstanceId::gen(),
+                TyStarlarkValue::new::<P>(),
+                None,
+                SortedMap::new(),
+            )
+            .unwrap(),
             callable: builtin_provider_typechecker_ty::<C>(creator_func),
         }
     }

@@ -70,12 +70,15 @@ fn creates_providers() -> anyhow::Result<()> {
             r#"
     FooInfo = provider(fields=["bar", "baz"])
 
-    def test():
+    def test_compile_time():
         foo_1 = FooInfo(bar="bar1")
         foo_1.quz
+
+    def test():
+        pass
     "#
         ),
-        "Object of type `provider` has no attribute `quz`",
+        "The attribute `quz` is not available on the type `FooInfo`",
     );
 
     tester.run_starlark_test_expecting_error(

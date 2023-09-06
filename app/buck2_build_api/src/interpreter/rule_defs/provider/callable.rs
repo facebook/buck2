@@ -34,8 +34,12 @@ use starlark::eval::ParametersSpec;
 use starlark::typing::Param;
 use starlark::typing::Ty;
 use starlark::typing::TyFunction;
+use starlark::typing::TyStarlarkValue;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
+use starlark::values::typing::TypeInstanceId;
+use starlark::values::typing::TypeMatcher;
+use starlark::values::typing::TypeMatcherFactory;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
 use starlark::values::Freeze;
@@ -56,6 +60,7 @@ use crate::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProv
 use crate::interpreter::rule_defs::provider::ty::provider::ty_provider;
 use crate::interpreter::rule_defs::provider::ty::provider_callable::ty_provider_callable;
 use crate::interpreter::rule_defs::provider::user::user_provider_creator;
+use crate::interpreter::rule_defs::provider::user::UserProvider;
 
 #[derive(Debug, thiserror::Error)]
 enum ProviderCallableError {
@@ -88,6 +93,8 @@ fn create_callable_function_signature(
 #[derive(Debug, Allocative)]
 pub(crate) struct UserProviderCallableData {
     pub(crate) provider_id: Arc<ProviderId>,
+    /// Type id of provider callable instance.
+    pub(crate) ty_provider_type_instance_id: TypeInstanceId,
     pub(crate) fields: SmallSet<String>,
 }
 
@@ -214,6 +221,24 @@ impl Freeze for UserProviderCallable {
     }
 }
 
+#[derive(Debug, Clone, Allocative)]
+struct UserProviderMatcher {
+    type_instance_id: TypeInstanceId,
+}
+
+impl TypeMatcher for UserProviderMatcher {
+    fn matches(&self, value: Value) -> bool {
+        match UserProvider::from_value(value) {
+            Some(x) => {
+                // TODO(nga): this is a bit suboptimal:
+                //   instead we could compare just a pointer to the callable.
+                x.callable.ty_provider_type_instance_id == self.type_instance_id
+            }
+            None => false,
+        }
+    }
+}
+
 #[starlark_value(type = "provider_callable")]
 impl<'v> StarlarkValue<'v> for UserProviderCallable {
     type Canonical = FrozenUserProviderCallable;
@@ -226,7 +251,19 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
                 name: variable_name.to_owned(),
             });
             let signature = create_callable_function_signature(&provider_id.name, &self.fields);
-            let ty_provider = ty_provider(&provider_id.name)?;
+            let ty_provider_type_instance_id = TypeInstanceId::gen();
+            let ty_provider = ty_provider(
+                &provider_id.name,
+                ty_provider_type_instance_id,
+                TyStarlarkValue::new::<UserProvider>(),
+                Some(TypeMatcherFactory::new(UserProviderMatcher {
+                    type_instance_id: ty_provider_type_instance_id,
+                })),
+                self.fields
+                    .iter()
+                    .map(|name| (name.to_owned(), Ty::any()))
+                    .collect(),
+            )?;
             let params = self
                 .fields
                 .iter()
@@ -242,6 +279,7 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
                     .alloc_any_display_from_debug(UserProviderCallableData {
                         provider_id,
                         fields: self.fields.clone(),
+                        ty_provider_type_instance_id,
                     }),
                 ty_provider,
                 ty_callable,

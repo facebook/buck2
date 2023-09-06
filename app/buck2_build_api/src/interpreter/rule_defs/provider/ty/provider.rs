@@ -8,8 +8,37 @@
  */
 
 use starlark::typing::Ty;
+use starlark::typing::TyStarlarkValue;
+use starlark::typing::TyUser;
+use starlark::typing::TyUserFields;
+use starlark::values::type_repr::StarlarkTypeRepr;
+use starlark::values::typing::TypeInstanceId;
+use starlark::values::typing::TypeMatcherFactory;
+use starlark_map::sorted_map::SortedMap;
+
+use crate::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 
 /// Type of provider instance, builtin or user.
-pub(crate) fn ty_provider(name: &str) -> anyhow::Result<Ty> {
-    Ok(Ty::name_deprecated(name))
+pub(crate) fn ty_provider(
+    name: &str,
+    type_instance_id: TypeInstanceId,
+    base: TyStarlarkValue,
+    // Use default matcher from `StarlarkValue` if `None`.
+    matcher: Option<TypeMatcherFactory>,
+    fields: SortedMap<String, Ty>,
+) -> anyhow::Result<Ty> {
+    Ok(Ty::custom(TyUser::new(
+        name.to_owned(),
+        base,
+        AbstractProvider::starlark_type_repr().iter_union().to_vec(),
+        matcher,
+        type_instance_id,
+        TyUserFields {
+            known: fields,
+            unknown: false,
+        },
+        None,
+        None,
+        None,
+    )?))
 }

@@ -48,7 +48,7 @@ use crate::interpreter::rule_defs::provider::ProviderLike;
 #[derive(Debug, Clone, Coerce, Trace, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub struct UserProviderGen<'v, V: ValueLike<'v>> {
-    callable: FrozenRef<'static, UserProviderCallableData>,
+    pub(crate) callable: FrozenRef<'static, UserProviderCallableData>,
     attributes: Box<[V]>,
     _marker: PhantomData<&'v ()>,
 }

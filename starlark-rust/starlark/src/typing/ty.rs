@@ -429,7 +429,7 @@ impl Ty {
     }
 
     /// Iterate over the types within a union, pretending the type is a singleton union if not a union.
-    pub(crate) fn iter_union(&self) -> &[TyBasic] {
+    pub fn iter_union(&self) -> &[TyBasic] {
         &self.alternatives
     }
 
