@@ -284,19 +284,12 @@ impl<'a> TypingOracleCtx<'a> {
         &self,
         span: Span,
         ty: &TyName,
-        args: &[Spanned<Arg>],
+        _args: &[Spanned<Arg>],
     ) -> Result<Ty, TypingOrInternalError> {
-        match self.oracle.as_function(ty) {
-            None => {
-                // Unknown type, may be callable.
-                Ok(Ty::any())
-            }
-            Some(Ok(f)) => self.validate_fn_call(span, &f, args),
-            Some(Err(())) => Err(self.mk_error_as_maybe_internal(
-                span,
-                TypingOracleCtxError::CallToNonCallable { ty: ty.to_string() },
-            )),
-        }
+        Err(self.mk_error_as_maybe_internal(
+            span,
+            TypingOracleCtxError::CallToNonCallable { ty: ty.to_string() },
+        ))
     }
 
     #[allow(clippy::collapsible_else_if)]

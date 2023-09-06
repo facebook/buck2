@@ -20,7 +20,6 @@
 
 use dupe::Dupe;
 
-use crate::typing::function::TyFunction;
 use crate::typing::ty::Ty;
 use crate::typing::ty::TyName;
 
@@ -102,11 +101,6 @@ pub trait TypingOracle {
         None
     }
 
-    /// If type is callable, return it as function signature.
-    fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {
-        None
-    }
-
     /// If we require the first type, but got the second type, is that OK?
     /// Usually its OK if the requirement is a subtype of the one we got.
     fn subtype(&self, require: &TyName, got: &TyName) -> bool {
@@ -135,10 +129,6 @@ impl<T: TypingOracle> TypingOracle for OracleSeq<T> {
         self.0.iter().find_map(|oracle| oracle.attribute(ty, attr))
     }
 
-    fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {
-        self.0.iter().find_map(|oracle| oracle.as_function(ty))
-    }
-
     fn subtype(&self, require: &TyName, got: &TyName) -> bool {
         self.0.iter().any(|oracle| oracle.subtype(require, got))
     }
@@ -154,9 +144,7 @@ impl<'a, T: TypingOracle + ?Sized> TypingOracle for &'a T {
     fn attribute(&self, ty: &TyName, attr: &str) -> Option<Result<Ty, ()>> {
         (*self).attribute(ty, attr)
     }
-    fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {
-        (*self).as_function(ty)
-    }
+
     fn subtype(&self, require: &TyName, got: &TyName) -> bool {
         (*self).subtype(require, got)
     }
@@ -166,9 +154,7 @@ impl<T: TypingOracle + ?Sized> TypingOracle for Box<T> {
     fn attribute(&self, ty: &TyName, attr: &str) -> Option<Result<Ty, ()>> {
         self.as_ref().attribute(ty, attr)
     }
-    fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {
-        self.as_ref().as_function(ty)
-    }
+
     fn subtype(&self, require: &TyName, got: &TyName) -> bool {
         self.as_ref().subtype(require, got)
     }

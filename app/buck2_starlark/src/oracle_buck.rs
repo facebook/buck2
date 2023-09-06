@@ -50,7 +50,4 @@ impl TypingOracle for AddErrors {
             None
         }
     }
-    fn as_function(&self, _ty: &TyName) -> Option<Result<TyFunction, ()>> {
-        Some(Err(()))
-    }
 }
