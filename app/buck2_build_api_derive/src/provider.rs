@@ -328,10 +328,6 @@ impl ProviderCodegen {
                 where
                     Self: starlark::any::ProvidesStaticType<'v>,
                 {
-                    fn matches_type(&self, ty: &str) -> bool {
-                        ty == #name_str || ty == "provider"
-                    }
-
                     fn get_methods() -> Option<&'static starlark::environment::Methods> {
                         static RES: starlark::environment::MethodsStatic =
                             starlark::environment::MethodsStatic::new();

@@ -84,7 +84,7 @@ where
     Self: ProvidesStaticType<'v>,
 {
     fn matches_type(&self, ty: &str) -> bool {
-        ty == "provider" || ty == self.callable.provider_id.name
+        ty == self.callable.provider_id.name
     }
 
     fn dir_attr(&self) -> Vec<String> {
