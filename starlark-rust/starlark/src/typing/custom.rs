@@ -37,6 +37,7 @@ use crate::typing::error::TypingOrInternalError;
 use crate::typing::Arg;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
+use crate::typing::TyFunction;
 use crate::typing::TypingBinOp;
 use crate::typing::TypingOracleCtx;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
@@ -60,6 +61,9 @@ pub trait TyCustomImpl: Debug + Display + Hash + Ord + Allocative + Send + Sync 
     /// Must override if implementing `validate_call`.
     fn is_callable(&self) -> bool {
         false
+    }
+    fn as_function(&self) -> Option<&TyFunction> {
+        None
     }
     fn bin_op(&self, bin_op: TypingBinOp, rhs: &TyBasic, ctx: &TypingOracleCtx) -> Result<Ty, ()> {
         let _unused = (bin_op, rhs, ctx);
@@ -100,6 +104,7 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError>;
     fn is_callable_dyn(&self) -> bool;
+    fn as_function_dyn(&self) -> Option<&TyFunction>;
     fn iter_item_dyn(&self) -> Result<Ty, ()>;
     fn index_dyn(&self, index: &TyBasic, ctx: &TypingOracleCtx) -> Result<Ty, ()>;
     fn attribute_dyn(&self, attr: &str) -> Result<Ty, ()>;
@@ -161,6 +166,10 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
 
     fn is_callable_dyn(&self) -> bool {
         self.is_callable()
+    }
+
+    fn as_function_dyn(&self) -> Option<&TyFunction> {
+        self.as_function()
     }
 
     fn attribute_dyn(&self, attr: &str) -> Result<Ty, ()> {

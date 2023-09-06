@@ -173,6 +173,10 @@ pub trait TyCustomFunctionImpl:
         args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError>;
+
+    fn as_function(&self) -> Option<&TyFunction> {
+        None
+    }
 }
 
 #[derive(
@@ -204,6 +208,10 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
 
     fn is_callable(&self) -> bool {
         true
+    }
+
+    fn as_function(&self) -> Option<&TyFunction> {
+        self.0.as_function()
     }
 
     fn bin_op(
@@ -331,5 +339,9 @@ impl TyCustomFunctionImpl for TyFunction {
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
         oracle.validate_fn_call(span, self, args)
+    }
+
+    fn as_function(&self) -> Option<&TyFunction> {
+        Some(self)
     }
 }

@@ -362,6 +362,17 @@ impl Ty {
         self.as_name() == Some("function")
     }
 
+    /// If this type is function, return the function type.
+    ///
+    /// This is exposed for buck2 providers implementation,
+    /// probably it does not do what you think.
+    pub fn as_function(&self) -> Option<&TyFunction> {
+        match self.iter_union() {
+            [x] => x.as_function(),
+            _ => None,
+        }
+    }
+
     /// Create a unions type, which will be normalised before being created.
     pub fn unions(xs: Vec<Self>) -> Self {
         // Handle common cases first.

@@ -27,6 +27,7 @@ use crate::typing::custom::TyCustomImpl;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::tuple::TyTuple;
 use crate::typing::Ty;
+use crate::typing::TyFunction;
 use crate::typing::TyName;
 use crate::values::none::NoneType;
 use crate::values::string::StarlarkStr;
@@ -126,6 +127,14 @@ impl TyBasic {
 
     pub(crate) fn is_function(&self) -> bool {
         self.as_name() == Some("function")
+    }
+
+    /// If this type is function, return the function type.
+    pub(crate) fn as_function(&self) -> Option<&TyFunction> {
+        match self {
+            TyBasic::Custom(c) => c.0.as_function_dyn(),
+            _ => None,
+        }
     }
 
     /// Type is a tuple, with specified or unspecified member types.
