@@ -33,6 +33,7 @@ use crate::eval::compiler::scope::payload::CstAssignIdent;
 use crate::eval::compiler::scope::payload::CstAssignTarget;
 use crate::eval::compiler::scope::payload::CstExpr;
 use crate::eval::compiler::scope::payload::CstStmt;
+use crate::eval::compiler::scope::scope_resolver_globals::ScopeResolverGlobals;
 use crate::eval::compiler::scope::AssignCount;
 use crate::eval::compiler::scope::Captured;
 use crate::eval::compiler::scope::ModuleScopes;
@@ -54,7 +55,9 @@ fn test_with_module(program: &str, expected: &str, module: &MutableNames) {
         &frozen_heap,
         &HashMap::new(),
         ast.statement,
-        FrozenRef::new(Globals::empty()),
+        ScopeResolverGlobals {
+            globals: Some(FrozenRef::new(Globals::empty())),
+        },
         codemap,
         &Dialect::Extended,
     )

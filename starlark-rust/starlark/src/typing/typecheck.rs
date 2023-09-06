@@ -34,6 +34,7 @@ use crate::codemap::Spanned;
 use crate::environment::names::MutableNames;
 use crate::environment::Globals;
 use crate::eval::compiler::scope::payload::CstStmt;
+use crate::eval::compiler::scope::scope_resolver_globals::ScopeResolverGlobals;
 use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::BindingSource;
 use crate::eval::compiler::scope::ModuleScopes;
@@ -200,7 +201,9 @@ impl AstModuleTypecheck for AstModule {
             &frozen_heap,
             loads,
             self.statement,
-            frozen_heap.alloc_any_display_from_debug(globals.dupe()),
+            ScopeResolverGlobals {
+                globals: Some(frozen_heap.alloc_any_display_from_debug(globals.dupe())),
+            },
             frozen_heap.alloc_any_display_from_debug(self.codemap.dupe()),
             &Dialect::Extended,
         );

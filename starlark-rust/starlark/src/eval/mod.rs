@@ -46,6 +46,7 @@ use crate::collections::symbol_map::Symbol;
 use crate::docs::DocString;
 use crate::environment::Globals;
 use crate::eval::compiler::def::DefInfo;
+use crate::eval::compiler::scope::scope_resolver_globals::ScopeResolverGlobals;
 use crate::eval::compiler::scope::ModuleScopes;
 use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::Compiler;
@@ -91,7 +92,9 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             self.module_env.frozen_heap(),
             &HashMap::new(),
             statement,
-            globals,
+            ScopeResolverGlobals {
+                globals: Some(globals),
+            },
             codemap,
             &dialect,
         )?;

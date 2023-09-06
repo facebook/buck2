@@ -16,6 +16,7 @@
  */
 
 pub(crate) mod payload;
+pub(crate) mod scope_resolver_globals;
 mod tests;
 
 use std::collections::HashMap;
@@ -50,7 +51,6 @@ use crate::codemap::CodeMap;
 use crate::codemap::Span;
 use crate::environment::names::MutableNames;
 use crate::environment::slots::ModuleSlotId;
-use crate::environment::Globals;
 use crate::environment::Module;
 use crate::errors::did_you_mean::did_you_mean;
 use crate::eval::compiler::def::CopySlotFromParent;
@@ -63,6 +63,7 @@ use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::payload::CstStmtFromAst;
 use crate::eval::compiler::scope::payload::CstTypeExpr;
+use crate::eval::compiler::scope::scope_resolver_globals::ScopeResolverGlobals;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::syntax::Dialect;
 use crate::typing::error::InternalError;
@@ -93,7 +94,7 @@ struct ModuleScopeBuilder<'a> {
     locals: Vec<ScopeId>,
     unscopes: Vec<Unscope>,
     codemap: FrozenRef<'static, CodeMap>,
-    globals: FrozenRef<'static, Globals>,
+    globals: ScopeResolverGlobals,
     errors: Vec<EvalException>,
     top_level_stmt_count: usize,
 }
@@ -265,7 +266,7 @@ impl<'f> ModuleScopeBuilder<'f> {
         frozen_heap: &'f FrozenHeap,
         loads: &HashMap<String, Interface>,
         stmt: AstStmt,
-        globals: FrozenRef<'static, Globals>,
+        globals: ScopeResolverGlobals,
         codemap: FrozenRef<'static, CodeMap>,
         dialect: &Dialect,
     ) -> (CstStmt, ModuleScopeBuilder<'f>) {
@@ -371,7 +372,7 @@ impl<'f> ModuleScopes<'f> {
         frozen_heap: &'f FrozenHeap,
         loads: &HashMap<String, Interface>,
         stmt: AstStmt,
-        globals: FrozenRef<'static, Globals>,
+        globals: ScopeResolverGlobals,
         codemap: FrozenRef<'static, CodeMap>,
         dialect: &Dialect,
     ) -> anyhow::Result<ModuleScopes<'f>> {
@@ -388,7 +389,7 @@ impl<'f> ModuleScopes<'f> {
         frozen_heap: &'f FrozenHeap,
         loads: &HashMap<String, Interface>,
         stmt: AstStmt,
-        globals: FrozenRef<'static, Globals>,
+        globals: ScopeResolverGlobals,
         codemap: FrozenRef<'static, CodeMap>,
         dialect: &Dialect,
     ) -> (Vec<EvalException>, ModuleScopes<'f>) {
@@ -635,20 +636,23 @@ impl<'f> ModuleScopeBuilder<'f> {
         );
     }
 
-    fn current_scope_all_visible_names_for_did_you_mean(&self) -> Vec<FrozenStringValue> {
+    fn current_scope_all_visible_names_for_did_you_mean(&self) -> Option<Vec<String>> {
         // It is OK to return non-unique identifiers
-        let mut r: Vec<FrozenStringValue> = Vec::new();
+        let mut r: Vec<String> = Vec::new();
         for &scope_id in self.locals.iter().rev() {
             let scope = self.scope_data.get_scope(scope_id);
-            r.extend(scope.mp.keys().copied());
+            r.extend(scope.mp.keys().map(|s| s.as_str().to_owned()));
         }
-        r.extend(self.module_bindings.keys().copied());
-        r.extend(self.globals.names());
-        r
+        r.extend(self.module_bindings.keys().map(|s| s.as_str().to_owned()));
+        r.extend(self.globals.names()?);
+        Some(r)
     }
 
+    #[cold]
     fn variable_not_found_err(&self, ident: &CstIdent) -> EvalException {
-        let variants = self.current_scope_all_visible_names_for_did_you_mean();
+        let variants = self
+            .current_scope_all_visible_names_for_did_you_mean()
+            .unwrap_or(Vec::new());
         let better = did_you_mean(
             ident.node.ident.as_str(),
             variants.iter().map(|s| s.as_str()),
@@ -672,7 +676,7 @@ impl<'f> ModuleScopeBuilder<'f> {
         let resolved = match self.get_name(self.frozen_heap.alloc_str_intern(&ident.node.ident)) {
             None => {
                 // Must be a global, since we know all variables
-                match self.globals.get_frozen(&ident.node.ident) {
+                match self.globals.get_global(&ident.node.ident) {
                     None => {
                         self.errors.push(self.variable_not_found_err(ident));
                         return;
