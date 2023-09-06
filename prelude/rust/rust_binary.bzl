@@ -133,7 +133,6 @@ def _rust_binary_common(
         if enable_link_groups(ctx, link_style, specified_link_style, is_binary = True):
             rust_cxx_link_group_info = inherited_non_rust_link_group_info(
                 ctx,
-                include_doc_deps = False,
                 link_style = link_style,
             )
             link_group_mappings = rust_cxx_link_group_info.link_group_info.mappings

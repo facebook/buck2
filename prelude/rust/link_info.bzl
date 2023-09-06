@@ -26,7 +26,6 @@ load(
     "LinkGroupInfo",  # @unused Used as a type
     "LinkGroupLinkInfo",  # @unused Used as a type
     "create_link_groups",
-    "find_relevant_roots",
     "get_filtered_labels_to_links_map",
     "get_filtered_links",
     "get_filtered_targets",
@@ -331,9 +330,8 @@ def inherited_non_rust_exported_link_deps(ctx: AnalysisContext) -> list[Dependen
 
 def inherited_non_rust_link_group_info(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False,
         link_style: [LinkStyle, None] = None) -> RustCxxLinkGroupInfo:
-    link_deps = _non_rust_link_deps(ctx, include_doc_deps) + inherited_non_rust_exported_link_deps(ctx)
+    link_deps = inherited_non_rust_exported_link_deps(ctx)
 
     # Assume a rust executable wants to use link groups if a link group map
     # is present
@@ -373,18 +371,10 @@ def inherited_non_rust_link_group_info(
         if linked_link_group.library != None:
             link_group_libs[name] = linked_link_group.library
 
-    roots = ([d.label for d in link_deps] +
-             find_relevant_roots(
-                 link_group = link_group,
-                 linkable_graph_node_map = linkable_graph_node_map,
-                 link_group_mappings = link_group_mappings,
-                 roots = [],
-             ))
-
     # Some third-party dependencies are stored in the linkable_graph_node_map as
     # third-party-buck, but the non_rust_link_deps contain the unresolved third-party
     # path. Filter out the unresolved paths from the roots to avoid traversal error.
-    filtered_roots = [root for root in roots if root in linkable_graph_node_map]
+    filtered_roots = [d.label for d in link_deps if d.label in linkable_graph_node_map]
 
     labels_to_links_map = get_filtered_labels_to_links_map(
         linkable_graph_node_map,
