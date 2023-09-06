@@ -34,6 +34,10 @@ def inspect_alias_rule(ctx: "bxl_ctx", actions: AnalysisActions, target: "target
 
 INSPECT_BY_RULE = {
     "prelude//rules.bzl:alias": inspect_alias_rule,
+    "prelude//rules.bzl:android_binary": inspect_java_rule,
+    "prelude//rules.bzl:android_instrumentation_apk": inspect_java_rule,
+    "prelude//rules.bzl:android_instrumentation_test": inspect_java_rule,
+    "prelude//rules.bzl:android_library": inspect_java_rule,
     "prelude//rules.bzl:configured_alias": inspect_alias_rule,
     "prelude//rules.bzl:java_binary": inspect_java_rule,
     "prelude//rules.bzl:java_test": inspect_java_rule,
