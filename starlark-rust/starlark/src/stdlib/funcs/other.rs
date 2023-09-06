@@ -44,6 +44,7 @@ use crate::values::tuple::TupleRef;
 use crate::values::types::int_or_big::StarlarkInt;
 use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::typing::never::StarlarkNever;
+use crate::values::typing::ty::AbstractType;
 use crate::values::typing::StarlarkIter;
 use crate::values::value_of_unchecked::ValueOfUnchecked;
 use crate::values::AllocValue;
@@ -862,7 +863,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     /// type("hello")           == "string"
     /// # "#);
     /// ```
-    #[starlark(speculative_exec_safe)]
+    #[starlark(speculative_exec_safe, as_type = AbstractType)]
     fn r#type<'v>(#[starlark(require = pos)] a: Value) -> anyhow::Result<FrozenStringValue> {
         Ok(a.get_type_value())
     }

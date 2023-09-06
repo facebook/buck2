@@ -50,6 +50,8 @@ pub enum TyBasic {
     Iter(ArcTy),
     /// `typing.Callable`.
     Callable,
+    /// `type`.
+    Type,
     /// A list.
     List(ArcTy),
     /// A tuple. May be empty, to indicate the empty tuple.
@@ -120,6 +122,7 @@ impl TyBasic {
             TyBasic::List(_) => Some("list"),
             TyBasic::Tuple(_) => Some("tuple"),
             TyBasic::Dict(..) => Some("dict"),
+            TyBasic::Type => Some("type"),
             TyBasic::Custom(c) => c.as_name(),
             TyBasic::Any | TyBasic::Iter(_) | TyBasic::Callable => None,
         }
@@ -169,6 +172,7 @@ impl Display for TyBasic {
             TyBasic::List(x) => write!(f, "list[{}]", x),
             TyBasic::Tuple(tuple) => Display::fmt(tuple, f),
             TyBasic::Dict(k, v) => write!(f, "dict[{}, {}]", k, v),
+            TyBasic::Type => write!(f, "type"),
             TyBasic::Custom(c) => Display::fmt(c, f),
         }
     }

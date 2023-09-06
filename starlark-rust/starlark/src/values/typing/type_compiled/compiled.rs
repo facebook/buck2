@@ -152,7 +152,7 @@ impl TypeMatcher for DummyTypeMatcher {
     }
 }
 
-#[starlark_value(type = "eval_type")]
+#[starlark_value(type = "type")]
 impl<'v, T: 'static> StarlarkValue<'v> for TypeCompiledImplAsStarlarkValue<T>
 where
     T: TypeMatcher,
@@ -254,7 +254,7 @@ impl<'v, V: ValueLike<'v>> Display for TypeCompiled<V> {
 
 impl<V> StarlarkTypeRepr for TypeCompiled<V> {
     fn starlark_type_repr() -> Ty {
-        Ty::name_static("eval_type")
+        TypeCompiledImplAsStarlarkValue::<DummyTypeMatcher>::starlark_type_repr()
     }
 }
 

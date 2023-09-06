@@ -273,6 +273,17 @@ impl TyStarlarkValue {
         vtable.HAS_iterate || vtable.HAS_iterate_collect
     }
 
+    /// Instance of this type can be evaluated as a type.
+    #[inline]
+    pub(crate) fn is_type_from_vtable(vtable: &StarlarkValueVTable) -> bool {
+        vtable.HAS_eval_type
+    }
+
+    pub(crate) fn is_type(self) -> bool {
+        self.self_check();
+        Self::is_type_from_vtable(&self.vtable.vtable)
+    }
+
     pub(crate) fn iter_item(self) -> Result<Ty, ()> {
         if Self::is_iterable(&self.vtable.vtable) {
             Ok(Ty::any())

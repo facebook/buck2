@@ -296,7 +296,7 @@ impl<'a> TypingOracleCtx<'a> {
                         ty: fun.to_string(),
                     },
                 )),
-            TyBasic::Iter(_) => {
+            TyBasic::Iter(_) | TyBasic::Type => {
                 // Unknown type, may be callable.
                 Ok(Ty::any())
             }
@@ -349,6 +349,7 @@ impl<'a> TypingOracleCtx<'a> {
             TyBasic::Dict(k, _v) => Ok((**k).dupe()),
             TyBasic::Tuple(tuple) => Ok(tuple.item_ty()),
             TyBasic::Callable => Ok(Ty::any()),
+            TyBasic::Type => Ok(Ty::any()),
             TyBasic::Iter(ty) => Ok(ty.to_ty()),
             TyBasic::Custom(ty) => ty.0.iter_item_dyn(),
             TyBasic::Name(_) => Ok(Ty::any()),
@@ -374,7 +375,9 @@ impl<'a> TypingOracleCtx<'a> {
         index: Spanned<&TyBasic>,
     ) -> Result<Result<Ty, ()>, InternalError> {
         match array {
-            TyBasic::Any | TyBasic::Callable | TyBasic::Iter(_) => Ok(Ok(Ty::any())),
+            TyBasic::Any | TyBasic::Callable | TyBasic::Iter(_) | TyBasic::Type => {
+                Ok(Ok(Ty::any()))
+            }
             TyBasic::Tuple(tuple) => {
                 if !self.intersects_basic(index.node, &TyBasic::int()) {
                     return Ok(Err(()));
@@ -467,7 +470,7 @@ impl<'a> TypingOracleCtx<'a> {
 
     fn expr_dot_basic(&self, array: &TyBasic, attr: &str) -> Result<Ty, ()> {
         match array {
-            TyBasic::Any | TyBasic::Callable | TyBasic::Iter(_) => Ok(Ty::any()),
+            TyBasic::Any | TyBasic::Callable | TyBasic::Iter(_) | TyBasic::Type => Ok(Ty::any()),
             TyBasic::StarlarkValue(s) => s.attr(attr),
             TyBasic::Tuple(_) => Err(()),
             TyBasic::List(elem) => match attr {
@@ -567,7 +570,7 @@ impl<'a> TypingOracleCtx<'a> {
         rhs: Spanned<&TyBasic>,
     ) -> Result<Ty, ()> {
         match lhs {
-            TyBasic::Any | TyBasic::Iter(_) | TyBasic::Callable => Ok(Ty::any()),
+            TyBasic::Any | TyBasic::Iter(_) | TyBasic::Callable | TyBasic::Type => Ok(Ty::any()),
             TyBasic::StarlarkValue(lhs) => lhs.bin_op(bin_op, rhs.node),
             lhs @ TyBasic::List(elem) => match bin_op {
                 TypingBinOp::Less => {
@@ -846,6 +849,11 @@ impl<'a> TypingOracleCtx<'a> {
                 Err(()) => false,
             },
             (TyBasic::Custom(x), y) => x.intersects_with(y),
+            (TyBasic::Type, TyBasic::StarlarkValue(y)) => y.is_type(),
+            (TyBasic::Type, _) => {
+                // TODO(nga): more precise.
+                true
+            }
             (x, y) if x.is_function() && y.is_function() => true,
             // There are lots of other cases that overlap, but add them as we need them
             _ => false,

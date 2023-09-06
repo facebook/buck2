@@ -17,41 +17,59 @@
 
 use std::collections::HashMap;
 
+use allocative::Allocative;
 use starlark_derive::starlark_module;
+use starlark_derive::starlark_value;
+use starlark_derive::NoSerialize;
+use starlark_derive::ProvidesStaticType;
 use starlark_map::small_map::SmallMap;
 
 use crate as starlark;
-use crate::assert;
+use crate::assert::Assert;
 use crate::docs::DocItem;
 use crate::docs::DocMember;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
-use crate::typing::Ty;
 use crate::values::none::NoneType;
-use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::starlark_value_as_type::StarlarkValueAsType;
 use crate::values::Heap;
+use crate::values::StarlarkValue;
 use crate::values::StringValue;
 use crate::values::Value;
 use crate::values::ValueOfUnchecked;
 
+#[derive(
+    Debug,
+    derive_more::Display,
+    Allocative,
+    NoSerialize,
+    ProvidesStaticType
+)]
+#[display(fmt = "input")]
 struct InputTypeRepr;
+#[derive(
+    Debug,
+    derive_more::Display,
+    Allocative,
+    NoSerialize,
+    ProvidesStaticType
+)]
+#[display(fmt = "output")]
 struct OutputTypeRepr;
 
-impl StarlarkTypeRepr for InputTypeRepr {
-    fn starlark_type_repr() -> Ty {
-        Ty::name_static("input")
-    }
-}
-impl StarlarkTypeRepr for OutputTypeRepr {
-    fn starlark_type_repr() -> Ty {
-        Ty::name_static("output")
-    }
-}
+#[starlark_value(type = "input")]
+impl<'v> StarlarkValue<'v> for InputTypeRepr {}
+
+#[starlark_value(type = "output")]
+impl<'v> StarlarkValue<'v> for OutputTypeRepr {}
 
 #[starlark_module]
 #[allow(unused_variables)] // Since this is for a test
 fn globals(builder: &mut GlobalsBuilder) {
+    const Input: StarlarkValueAsType<InputTypeRepr> = StarlarkValueAsType::new();
+    const Output: StarlarkValueAsType<OutputTypeRepr> = StarlarkValueAsType::new();
+
     fn simple(
         arg_int: i32,
         arg_bool: bool,
@@ -97,18 +115,18 @@ fn globals(builder: &mut GlobalsBuilder) {
 #[test]
 fn test_rustdoc() {
     let got = GlobalsBuilder::new().with(globals).build();
-    let expected = assert::pass_module(
-        r#"
+    let mut a = Assert::new();
+    a.globals_add(globals);
+    let expected = a.pass_module(r#"
 # @starlark-rust: allow_string_literals_in_type_expr
 
 def args_kwargs(*args, **kwargs: typing.Any) -> None: pass
-def custom_types(arg1: str, arg2: "input") -> "output": pass
+def custom_types(arg1: str, arg2: Input) -> Output: pass
 def default_arg(arg1 = "_", arg2: typing.Any = None) -> list[str]: pass
 def pos_named(arg1: int, *, arg2: int) -> int: pass
 def simple(arg_int: int, arg_bool: bool, arg_vec: list[str], arg_dict: dict[str, (bool, int)]) -> None: pass
 def with_arguments(*args, **kwargs) -> int: pass
-"#,
-    );
+"#);
 
     fn unpack(x: DocItem) -> HashMap<String, DocItem> {
         match x {

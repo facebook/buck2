@@ -135,10 +135,6 @@ impl TyName {
         TyName(s.into())
     }
 
-    pub(crate) fn new_static(s: &'static str) -> TyName {
-        TyName(ArcStr::new_static(s))
-    }
-
     /// Get the underlying `str` for a `TyName`.
     pub fn as_str(&self) -> &str {
         &self.0
@@ -187,15 +183,6 @@ impl Ty {
             "string" => Some(Self::string()),
             "tuple" => Some(Self::any_tuple()),
             _ => None,
-        }
-    }
-
-    /// Create a [`Ty::Name`], or one of the standard functions.
-    pub(crate) fn name_static(name: &'static str) -> Self {
-        if let Some(x) = Self::try_name_special(name) {
-            x
-        } else {
-            Ty::basic(TyBasic::Name(TyName::new_static(name)))
         }
     }
 

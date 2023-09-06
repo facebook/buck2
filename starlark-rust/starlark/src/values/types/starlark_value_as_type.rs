@@ -35,6 +35,7 @@ use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::Basic;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::typing::ty::AbstractType;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
@@ -45,6 +46,8 @@ struct StarlarkValueAsTypeStarlarkValue(fn() -> Ty);
 
 #[starlark_value(type = "type")]
 impl<'v> StarlarkValue<'v> for StarlarkValueAsTypeStarlarkValue {
+    type Canonical = AbstractType;
+
     fn eval_type(&self) -> Option<Ty> {
         Some((self.0)())
     }
@@ -118,8 +121,7 @@ impl<T: StarlarkTypeRepr> Default for StarlarkValueAsType<T> {
 
 impl<T: StarlarkTypeRepr> StarlarkTypeRepr for StarlarkValueAsType<T> {
     fn starlark_type_repr() -> Ty {
-        // TODO(nga): make it proper type.
-        Ty::name_static("type")
+        AbstractType::starlark_type_repr()
     }
 }
 

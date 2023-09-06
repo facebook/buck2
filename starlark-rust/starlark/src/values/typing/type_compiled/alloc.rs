@@ -39,6 +39,7 @@ use crate::values::typing::type_compiled::matchers::IsName;
 use crate::values::typing::type_compiled::matchers::IsNever;
 use crate::values::typing::type_compiled::matchers::IsNone;
 use crate::values::typing::type_compiled::matchers::IsStr;
+use crate::values::typing::type_compiled::matchers::IsType;
 use crate::values::typing::type_compiled::matchers::StarlarkTypeIdMatcher;
 use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
 
@@ -147,6 +148,7 @@ pub trait TypeMatcherAlloc: Sized {
             TyBasic::Dict(k, v) => self.dict_of(k, v),
             TyBasic::Iter(_item) => self.alloc(IsIterable),
             TyBasic::Callable => self.alloc(IsCallable),
+            TyBasic::Type => self.alloc(IsType),
             TyBasic::Custom(custom) => self.custom(custom),
         }
     }

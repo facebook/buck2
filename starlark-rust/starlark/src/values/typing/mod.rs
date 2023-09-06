@@ -23,6 +23,7 @@ pub(crate) mod globals;
 pub(crate) mod iter;
 pub mod macro_refs;
 pub(crate) mod never;
+pub(crate) mod ty;
 pub(crate) mod type_compiled;
 
 pub use crate::values::types::type_instance_id::TypeInstanceId;

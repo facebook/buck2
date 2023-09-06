@@ -198,6 +198,15 @@ impl TypeMatcher for IsCallable {
     }
 }
 
+#[derive(Allocative, Clone, Copy, Dupe, Debug)]
+pub(crate) struct IsType;
+
+impl TypeMatcher for IsType {
+    fn matches(&self, value: Value) -> bool {
+        TyStarlarkValue::is_type_from_vtable(&value.vtable().starlark_value)
+    }
+}
+
 #[derive(Copy, Clone, Dupe, Debug, Allocative)]
 pub(crate) struct IsIterable;
 
