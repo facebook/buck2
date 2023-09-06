@@ -250,6 +250,11 @@ impl TyCustomImpl for TyUser {
     }
 
     fn intersects_with(&self, other: &TyBasic) -> bool {
+        if let TyBasic::StarlarkValue(other) = other {
+            if self.base == *other {
+                return true;
+            }
+        }
         self.supertypes.iter().any(|x| x == other)
     }
 }
@@ -353,8 +358,18 @@ mod tests {
         name: String,
     }
 
+    impl<'v> AllocValue<'v> for Fruit {
+        fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
+            unreachable!("not needed in test")
+        }
+    }
+
     #[starlark_value(type = "fruit")]
-    impl<'v> StarlarkValue<'v> for Fruit {}
+    impl<'v> StarlarkValue<'v> for Fruit {
+        fn get_type_starlark_repr() -> Ty {
+            Ty::starlark_value::<Fruit>()
+        }
+    }
 
     #[starlark_module]
     fn globals(globals: &mut GlobalsBuilder) {
@@ -390,11 +405,15 @@ mod tests {
             })
         }
 
+        fn mk_fruit() -> anyhow::Result<Fruit> {
+            panic!("not needed in test")
+        }
+
         const Plant: StarlarkValueAsType<AbstractPlant> = StarlarkValueAsType::new();
     }
 
     #[test]
-    fn test_intersect() {
+    fn test_intersect_with_abstract_type() {
         let mut a = Assert::new();
         a.globals_add(globals);
         a.pass(
@@ -406,6 +425,26 @@ def make_apple() -> Apple:
 
 def make_plant() -> Plant:
     return make_apple()
+"#,
+        );
+    }
+
+    #[test]
+    fn test_ty_user_intersects_with_base_starlark_value() {
+        let mut a = Assert::new();
+        a.globals_add(globals);
+        a.pass(
+            r#"
+Pear = fruit("pear")
+
+def takes_pear(x: Pear):
+    pass
+
+def test():
+    # `Pear` is `TyUser` with base `TyStarlarkValue::new::<Fruit>`.
+    # `mk_fruit()` is `TyStarlarkValue::new::<Fruit>()`.
+    # They should intersect.
+    takes_pear(mk_fruit())
 "#,
         );
     }
