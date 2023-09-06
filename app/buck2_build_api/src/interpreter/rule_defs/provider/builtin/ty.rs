@@ -18,13 +18,13 @@ pub(crate) fn builtin_provider_typechecker_ty(
     let globals = GlobalsBuilder::new().with(creator_func).build();
     let mut iter = globals.iter();
     let Some(first) = iter.next() else {
-        return Ty::any();
+        panic!("empty globals");
     };
     if iter.next().is_some() {
-        return Ty::any();
+        panic!("more then one global in creator func globals");
     }
     if first.1.to_value().get_type() != NativeFunction::TYPE {
-        return Ty::any();
+        panic!("creator func is not a function");
     }
     Ty::of_value(first.1.to_value())
 }
