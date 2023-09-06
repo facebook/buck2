@@ -50,7 +50,7 @@ impl KillCommand {
     }
 }
 
-pub(crate) async fn kill_command_impl(
+pub async fn kill_command_impl(
     lifecycle_lock: &BuckdLifecycleLock,
     reason: &str,
 ) -> anyhow::Result<()> {

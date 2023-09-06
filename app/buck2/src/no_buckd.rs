@@ -9,6 +9,11 @@
 
 use std::thread;
 
+use anyhow::Context;
+use buck2_client::commands::kill::kill_command_impl;
+use buck2_client_ctx::daemon::client::connect::buckd_startup_timeout;
+use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
+use buck2_client_ctx::startup_deadline::StartupDeadline;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::legacy_configs::init::DaemonStartupConfig;
 use buck2_core::logging::LogConfigurationReloadHandle;
@@ -22,7 +27,23 @@ pub(crate) fn start_in_process_daemon(
     daemon_startup_config: &DaemonStartupConfig,
     paths: InvocationPaths,
     daemon_opts: DaemonBeforeSubcommandOptions,
+    runtime: &tokio::runtime::Runtime,
 ) -> anyhow::Result<Option<Box<dyn FnOnce() -> anyhow::Result<()> + Send + Sync>>> {
+    let daemon_dir = paths.daemon_dir()?;
+    // Using --no-buckd must kill the existing daemon if there is one running.
+    // This adds a few extra prints to stderr for killing the daemon, but that should be
+    // OK given that --no-buckd should only be used for testing purposes.
+    runtime.block_on(async move {
+        let lifecycle_lock = BuckdLifecycleLock::lock_with_timeout(
+            daemon_dir,
+            StartupDeadline::duration_from_now(buckd_startup_timeout()?)?,
+        )
+        .await
+        .with_context(|| "Error locking buckd lifecycle.lock")?;
+
+        kill_command_impl(&lifecycle_lock, "A command with `--no-buckd` is invoked").await
+    })?;
+
     let daemon_startup_config = daemon_startup_config.clone();
     // Create a function which spawns an in-process daemon.
     Ok(Some(Box::new(move || {

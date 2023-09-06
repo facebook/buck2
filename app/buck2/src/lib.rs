@@ -334,6 +334,7 @@ impl CommandKind {
                 immediate_config.daemon_startup_config()?,
                 paths.clone()?,
                 common_opts.daemon,
+                &runtime,
             )?
         } else {
             None
