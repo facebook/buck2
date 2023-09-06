@@ -11,6 +11,10 @@ load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainIn
 load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
 load("@prelude//haskell:haskell.bzl", "HaskellPlatformInfo", "HaskellToolchainInfo")
 load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
+load(
+    "@prelude//java:java_toolchain.bzl",
+    "PrebuiltJarToolchainInfo",
+)
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "PythonToolchainInfo")
 load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapToolchainInfo")
 load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
@@ -33,6 +37,10 @@ def _haskell_toolchain():
 def _go_toolchain():
     return _toolchain("go", [GoToolchainInfo])
 
+def _prebuilt_jar_toolchain():
+    # Override is allowed for bootstrapping prebuilt jar toolchains
+    return _toolchain_with_override("prebuilt_jar", [PrebuiltJarToolchainInfo])
+
 def _python_toolchain():
     return _toolchain("python", [PythonToolchainInfo, PythonPlatformInfo])
 
@@ -47,6 +55,7 @@ toolchains_common = struct(
     dex = _dex_toolchain,
     haskell = _haskell_toolchain,
     go = _go_toolchain,
+    prebuilt_jar = _prebuilt_jar_toolchain,
     python = _python_toolchain,
     python_bootstrap = _python_bootstrap_toolchain,
     rust = _rust_toolchain,

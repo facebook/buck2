@@ -13,7 +13,6 @@ load(
     "JavaPlatformInfo",
     "JavaTestToolchainInfo",
     "JavaToolchainInfo",
-    "PrebuiltJarToolchainInfo",
 )
 load("@prelude//java/plugins:java_annotation_processor.bzl", "java_annotation_processor_impl")
 load("@prelude//java/plugins:java_plugin.bzl", "java_plugin_impl")
@@ -54,10 +53,6 @@ def dex_min_sdk_version():
 def select_java_test_toolchain():
     # FIXME: prelude// should be standalone (not refer to fbsource//)
     return "fbsource//xplat/buck2/platform/java:java_test"
-
-def select_prebuilt_jar_toolchain():
-    # FIXME: prelude// should be standalone (not refer to fbcode//)
-    return "fbcode//buck2/platform:prebuilt_jar"
 
 implemented_rules = {
     "jar_genrule": jar_genrule_impl,
@@ -149,11 +144,6 @@ extra_attributes = {
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
         "_dex_toolchain": toolchains_common.dex(),
-        "_prebuilt_jar_toolchain": attrs.exec_dep(
-            default = select_prebuilt_jar_toolchain(),
-            providers = [
-                PrebuiltJarToolchainInfo,
-            ],
-        ),
+        "_prebuilt_jar_toolchain": toolchains_common.prebuilt_jar(),
     },
 }
