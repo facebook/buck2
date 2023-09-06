@@ -7,8 +7,7 @@
 
 load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
 load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
-load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
-load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version", "select_dex_toolchain", "select_java_test_toolchain", "select_java_toolchain")
+load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version", "select_java_test_toolchain", "select_java_toolchain")
 load(
     "@prelude//java:java_toolchain.bzl",
     "JavaPlatformInfo",
@@ -19,6 +18,7 @@ load(
     "@prelude//kotlin:kotlin_toolchain.bzl",
     "KotlinToolchainInfo",
 )
+load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load(":kotlin_library.bzl", "kotlin_library_impl")
 load(":kotlin_test.bzl", "kotlin_test_impl")
 
@@ -38,11 +38,7 @@ extra_attributes = {
         "resources_root": attrs.option(attrs.string(), default = None),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
-        "_dex_toolchain": attrs.option(attrs.exec_dep(
-            providers = [
-                DexToolchainInfo,
-            ],
-        ), default = select_dex_toolchain()),
+        "_dex_toolchain": toolchains_common.dex(),
         "_is_building_android_binary": is_building_android_binary_attr(),
         "_java_toolchain": attrs.exec_dep(
             default = select_java_toolchain(),

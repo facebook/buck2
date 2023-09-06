@@ -8,7 +8,6 @@
 load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
 load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
 load("@prelude//android:min_sdk_version.bzl", "get_min_sdk_version_constraint_value_name", "get_min_sdk_version_range")
-load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
 load(
     "@prelude//java:java_toolchain.bzl",
     "JavaPlatformInfo",
@@ -18,6 +17,7 @@ load(
 )
 load("@prelude//java/plugins:java_annotation_processor.bzl", "java_annotation_processor_impl")
 load("@prelude//java/plugins:java_plugin.bzl", "java_plugin_impl")
+load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load("@prelude//genrule.bzl", "genrule_attributes")
 load(":jar_genrule.bzl", "jar_genrule_impl")
 load(":java_binary.bzl", "java_binary_impl")
@@ -40,16 +40,6 @@ def select_java_toolchain():
             "config//runtime:fbcode": "fbcode//buck2/platform:java_fbcode",
             # if target is for android (fbsource repo) then use .buckconfig from fbsource cell
             "config//toolchain/fb:android-ndk": "fbsource//xplat/buck2/platform/java:java",
-        },
-    )
-
-def select_dex_toolchain():
-    # FIXME: prelude// should be standalone (not refer to fbsource//)
-    return select(
-        {
-            # Only need a Dex toolchain for Android builds.
-            "DEFAULT": None,
-            "config//os/constraints:android": "fbsource//xplat/buck2/platform/java:dex",
         },
     )
 
@@ -112,11 +102,7 @@ extra_attributes = {
         "resources_root": attrs.option(attrs.string(), default = None),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
-        "_dex_toolchain": attrs.option(attrs.exec_dep(
-            providers = [
-                DexToolchainInfo,
-            ],
-        ), default = select_dex_toolchain()),
+        "_dex_toolchain": toolchains_common.dex(),
         "_is_building_android_binary": is_building_android_binary_attr(),
         "_java_toolchain": attrs.exec_dep(
             default = select_java_toolchain(),
@@ -162,11 +148,7 @@ extra_attributes = {
         "required_for_source_only_abi": attrs.bool(default = True),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
-        "_dex_toolchain": attrs.option(attrs.exec_dep(
-            providers = [
-                DexToolchainInfo,
-            ],
-        ), default = select_dex_toolchain()),
+        "_dex_toolchain": toolchains_common.dex(),
         "_prebuilt_jar_toolchain": attrs.exec_dep(
             default = select_prebuilt_jar_toolchain(),
             providers = [

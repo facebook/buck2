@@ -6,11 +6,11 @@
 # of this source tree.
 
 load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS")
-load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
 load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version", "select_java_test_toolchain")
 load("@prelude//java:java_toolchain.bzl", "JavaPlatformInfo", "JavaTestToolchainInfo", "JavaToolchainInfo")
 load("@prelude//kotlin:kotlin_toolchain.bzl", "KotlinToolchainInfo")
 load("@prelude//decls/android_rules.bzl", "AaptMode", "DuplicateResourceBehaviour", "TargetCpuType")
+load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load("@prelude//genrule.bzl", "genrule_attributes")
 load(":android_aar.bzl", "android_aar_impl")
 load(":android_apk.bzl", "android_apk_impl")
@@ -38,15 +38,6 @@ def android_toolchain():
         providers = [
             AndroidPlatformInfo,
             AndroidToolchainInfo,
-        ],
-    )
-
-def _dex_toolchain():
-    return attrs.toolchain_dep(
-        # FIXME: prelude// should be standalone (not refer to fbcode//)
-        default = "fbcode//buck2/platform/toolchain:dex_for_android",
-        providers = [
-            DexToolchainInfo,
         ],
     )
 
@@ -133,7 +124,7 @@ extra_attributes = {
         "min_sdk_version": attrs.option(attrs.int(), default = None),
         "module_manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "_android_toolchain": android_toolchain(),
-        "_dex_toolchain": _dex_toolchain(),
+        "_dex_toolchain": toolchains_common.dex(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
         "_is_force_single_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_CPU)),
         "_is_force_single_default_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_DEFAULT_CPU)),
@@ -157,7 +148,7 @@ extra_attributes = {
         "min_sdk_version": attrs.option(attrs.int(), default = None),
         "module_manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "_android_toolchain": android_toolchain(),
-        "_dex_toolchain": _dex_toolchain(),
+        "_dex_toolchain": toolchains_common.dex(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
         "_is_force_single_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_CPU)),
         "_is_force_single_default_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_DEFAULT_CPU)),
@@ -173,7 +164,7 @@ extra_attributes = {
         "manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "min_sdk_version": attrs.option(attrs.int(), default = None),
         "_android_toolchain": android_toolchain(),
-        "_dex_toolchain": _dex_toolchain(),
+        "_dex_toolchain": toolchains_common.dex(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
         "_is_force_single_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_CPU)),
         "_is_force_single_default_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_DEFAULT_CPU)),
@@ -189,7 +180,7 @@ extra_attributes = {
         "_android_toolchain": android_toolchain(),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_dex_min_sdk_version": attrs.default_only(attrs.option(attrs.int(), default = dex_min_sdk_version())),
-        "_dex_toolchain": _dex_toolchain(),
+        "_dex_toolchain": toolchains_common.dex(),
         "_is_building_android_binary": is_building_android_binary_attr(),
         "_java_toolchain": java_toolchain_for_android(),
         "_kotlin_toolchain": _kotlin_toolchain(),
@@ -205,7 +196,7 @@ extra_attributes = {
         "_android_toolchain": android_toolchain(),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_dex_min_sdk_version": attrs.default_only(attrs.option(attrs.int(), default = dex_min_sdk_version())),
-        "_dex_toolchain": _dex_toolchain(),
+        "_dex_toolchain": toolchains_common.dex(),
         "_java_toolchain": java_toolchain_for_android(),
     },
     "android_resource": {
