@@ -84,6 +84,14 @@ def _rust_common_attributes(is_binary: bool):
         "_target_os_type": buck.target_os_type_arg(),
     }
 
+def _rust_binary_attrs_group(prefix: str) -> dict[str, Attr]:
+    attrs = (rust_common.deps_arg(is_binary = True) |
+             rust_common.named_deps_arg(is_binary = True) |
+             rust_common.linker_flags_arg() |
+             rust_common.env_arg() |
+             native_common.link_style())
+    return {prefix + name: v for name, v in attrs.items()}
+
 _RUST_EXECUTABLE_ATTRIBUTES = {
     "anonymous_link_groups": attrs.bool(default = True),
     # Unlike cxx which supports pre-defined link groups, we only support
@@ -157,16 +165,12 @@ rust_binary = prelude_rule(
         # @unsorted-dict-items
         rust_common.srcs_arg() |
         rust_common.mapped_srcs_arg() |
-        rust_common.deps_arg(is_binary = True) |
-        rust_common.named_deps_arg(is_binary = True) |
         rust_common.edition_arg() |
         rust_common.features_arg() |
         rust_common.rustc_flags_arg() |
-        rust_common.linker_flags_arg() |
-        rust_common.env_arg() |
         rust_common.crate(crate_type = attrs.option(attrs.string(), default = None)) |
         rust_common.crate_root() |
-        native_common.link_style() |
+        _rust_binary_attrs_group(prefix = "") |
         _rust_common_attributes(is_binary = True) |
         _RUST_EXECUTABLE_ATTRIBUTES | {
             "framework": attrs.bool(default = False),
@@ -238,18 +242,12 @@ rust_library = prelude_rule(
         _rust_common_attributes(is_binary = False) |
         {
             "crate_dynamic": attrs.option(attrs.dep(), default = None),
-            "doc_deps": attrs.list(rust_target_dep(is_binary = True), default = []),
-            "doc_env": attrs.dict(key = attrs.string(), value = attrs.option(attrs.arg()), sorted = False, default = {}),
-            "doc_linker_flags": attrs.list(attrs.arg(), default = []),
-            "doc_named_deps": attrs.dict(key = attrs.string(), value = rust_target_dep(is_binary = True), sorted = False, default = {}),
             "doctests": attrs.option(attrs.bool(), default = None),
-            "doc_link_style": attrs.option(attrs.enum(LinkableDepType), default = None, doc = """
-            Like `link_style` on binaries, but applies specifically to doctests.
-            """),
             "proc_macro": attrs.bool(default = False),
             "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
             "_omnibus_environment": omnibus_environment_attr(),
         } |
+        _rust_binary_attrs_group(prefix = "doc_") |
         rust_common.toolchains_args() |
         rust_common.workspaces_arg()
     ),
@@ -313,16 +311,12 @@ rust_test = prelude_rule(
         } |
         rust_common.srcs_arg() |
         rust_common.mapped_srcs_arg() |
-        rust_common.deps_arg(is_binary = True) |
-        rust_common.named_deps_arg(is_binary = True) |
         rust_common.edition_arg() |
         rust_common.features_arg() |
         rust_common.rustc_flags_arg() |
-        rust_common.linker_flags_arg() |
-        rust_common.env_arg() |
         rust_common.crate(crate_type = attrs.option(attrs.string(), default = None)) |
         rust_common.crate_root() |
-        native_common.link_style() |
+        _rust_binary_attrs_group(prefix = "") |
         _rust_common_attributes(is_binary = True) |
         _RUST_EXECUTABLE_ATTRIBUTES |
         {
