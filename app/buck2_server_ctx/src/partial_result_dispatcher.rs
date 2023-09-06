@@ -36,7 +36,7 @@ where
     /// NOTE: This doesn't actually require &mut self but that's been reasonable to have for the
     /// predecessor to this (stdout) so keeping it this way.
     pub fn emit(&mut self, res: T) {
-        self.dispatcher.control_event(PartialResult {
+        self.dispatcher.partial_result(PartialResult {
             partial_result: Some(res.into()),
         });
     }

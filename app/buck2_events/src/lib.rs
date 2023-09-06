@@ -191,20 +191,15 @@ impl TryFrom<Box<buck2_data::BuckEvent>> for BuckEvent {
     }
 }
 
-#[derive(Clone, From)]
-pub enum ControlEvent {
-    /// A command result, produced upon completion of a command.
-    CommandResult(Box<CommandResult>),
-    /// A progress event from this command. Different commands have different types.
-    PartialResult(PartialResult),
-}
-
 /// The set of events that can flow out of an EventSource.
 #[derive(Clone, From, UnpackVariants)]
 #[allow(clippy::large_enum_variant)]
 pub enum Event {
-    Control(ControlEvent),
-    /// A regular buck event.
+    /// A command result, produced upon completion of a command.
+    CommandResult(Box<CommandResult>),
+    /// A progress event from this command. Different commands have different types.
+    PartialResult(PartialResult),
+    /// A regular buck event. Is the only type to end up in the Event Log
     Buck(BuckEvent),
 }
 
@@ -240,10 +235,7 @@ pub trait EventSink: Send + Sync {
     /// Sends an event into this sink, to be consumed elsewhere. Explicitly does not return a Result type; if sending
     /// an event does fail, implementations will handle the failure by panicking or performing some other graceful
     /// recovery; callers of EventSink are not expected to handle failures.
-    fn send(&self, event: BuckEvent);
-
-    /// Sends a control event into this sink, to be consumed elsewhere.
-    fn send_control(&self, control_event: ControlEvent);
+    fn send(&self, event: Event);
 }
 
 pub trait EventSinkWithStats: Send + Sync {
@@ -254,12 +246,8 @@ pub trait EventSinkWithStats: Send + Sync {
 }
 
 impl EventSink for Arc<dyn EventSink> {
-    fn send(&self, event: BuckEvent) {
+    fn send(&self, event: Event) {
         EventSink::send(self.as_ref(), event);
-    }
-
-    fn send_control(&self, control_event: ControlEvent) {
-        EventSink::send_control(self.as_ref(), control_event);
     }
 }
 

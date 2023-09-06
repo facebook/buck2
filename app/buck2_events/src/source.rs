@@ -38,6 +38,7 @@ mod tests {
     use super::ChannelEventSource;
     use crate::sink::channel::ChannelEventSink;
     use crate::BuckEvent;
+    use crate::Event;
     use crate::EventSink;
     use crate::TraceId;
 
@@ -46,7 +47,7 @@ mod tests {
         let (send, recv) = crossbeam_channel::unbounded();
         let sink = ChannelEventSink::new(send);
         let mut source = ChannelEventSource::new(recv);
-        sink.send(BuckEvent::new(
+        sink.send(Event::Buck(BuckEvent::new(
             SystemTime::now(),
             TraceId::new(),
             None,
@@ -61,7 +62,7 @@ mod tests {
                 ),
             }
             .into(),
-        ));
+        )));
         let event = source.receive().unwrap().unpack_buck().unwrap().clone();
         assert!(matches!(
             event.data(),

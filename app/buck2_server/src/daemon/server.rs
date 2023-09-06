@@ -45,7 +45,6 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::source::ChannelEventSource;
-use buck2_events::ControlEvent;
 use buck2_events::Event;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::materialize::materializer::MaterializationMethod;
@@ -453,9 +452,7 @@ impl BuckdServer {
 
                         func(&context, PartialResultDispatcher::new(dispatch.dupe()), req).await?
                     };
-
-                    let result: CommandResult = result_to_command_result(result);
-                    dispatch.control_event(ControlEvent::CommandResult(Box::new(result)));
+                    dispatch.command_result(result_to_command_result(result));
                 }
                 .boxed()
             },
@@ -606,24 +603,18 @@ fn pump_events(
         // if Tonic drops the streaming response due the client disconnecting.
         // In these cases, ignoring the errors is intentional as no client is listening.
         match next_event {
-            Event::Control(control_event) => {
-                // The CommandResult event indicates that the spawned
-                // computation won't be producing any more events.
-                match control_event {
-                    ControlEvent::CommandResult(result) => {
-                        let _ignore = output_send.send(Ok(CommandProgress {
-                            progress: Some(command_progress::Progress::Result(result)),
-                        }));
-                        return;
-                    }
-                    ControlEvent::PartialResult(result) => {
-                        let _ignore = output_send.send(Ok(CommandProgress {
-                            progress: Some(command_progress::Progress::PartialResult(Box::new(
-                                result,
-                            ))),
-                        }));
-                    }
-                }
+            // The CommandResult event indicates that the spawned
+            // computation won't be producing any more events.
+            Event::CommandResult(result) => {
+                let _ignore = output_send.send(Ok(CommandProgress {
+                    progress: Some(command_progress::Progress::Result(result)),
+                }));
+                return;
+            }
+            Event::PartialResult(result) => {
+                let _ignore = output_send.send(Ok(CommandProgress {
+                    progress: Some(command_progress::Progress::PartialResult(Box::new(result))),
+                }));
             }
             Event::Buck(buck_event) => {
                 state.peek_event(&buck_event);
@@ -1213,9 +1204,7 @@ impl DaemonApi for BuckdServer {
                         .await?;
                         AllocativeResponse {}
                     };
-
-                    let result: CommandResult = result_to_command_result(result);
-                    dispatcher.control_event(ControlEvent::CommandResult(Box::new(result)));
+                    dispatcher.command_result(result_to_command_result(result));
 
                     drop(guard);
                 }

@@ -7,10 +7,9 @@
  * of this source tree.
  */
 
+use buck2_core::soft_error;
 use dupe::Dupe;
 
-use crate::BuckEvent;
-use crate::ControlEvent;
 use crate::Event;
 use crate::EventSink;
 
@@ -26,13 +25,9 @@ impl ChannelEventSink {
 }
 
 impl EventSink for ChannelEventSink {
-    fn send(&self, event: BuckEvent) {
-        let _ignore = self.0.send(event.into());
-    }
-
-    fn send_control(&self, control_event: ControlEvent) {
-        if let Err(e) = self.0.send(control_event.into()) {
-            panic!("failed to send control event to ChannelEventSink: {}", e);
+    fn send(&self, event: Event) {
+        if let Err(e) = self.0.send(event) {
+            let _err = soft_error!("event_sink_send_error", e.into(), quiet: true);
         }
     }
 }
@@ -54,6 +49,7 @@ mod tests {
 
     use super::ChannelEventSink;
     use crate::BuckEvent;
+    use crate::Event;
     use crate::EventSink;
     use crate::TraceId;
 
@@ -61,7 +57,7 @@ mod tests {
     async fn sending_event_smoke() {
         let (send, recv) = crossbeam_channel::unbounded();
         let sink = ChannelEventSink::new(send);
-        sink.send(BuckEvent::new(
+        sink.send(Event::Buck(BuckEvent::new(
             SystemTime::now(),
             TraceId::new(),
             None,
@@ -76,7 +72,7 @@ mod tests {
                 ),
             }
             .into(),
-        ));
+        )));
         let event = recv.recv().unwrap().unpack_buck().unwrap().clone();
         assert!(matches!(
             event.data(),

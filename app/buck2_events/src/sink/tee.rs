@@ -7,8 +7,7 @@
  * of this source tree.
  */
 
-use crate::BuckEvent;
-use crate::ControlEvent;
+use crate::Event;
 use crate::EventSink;
 
 /// A Sink implementation that wraps two EventSinks and sends events to both of them.
@@ -21,13 +20,8 @@ impl<A, B> TeeSink<A, B> {
 }
 
 impl<A: EventSink, B: EventSink> EventSink for TeeSink<A, B> {
-    fn send(&self, event: BuckEvent) {
+    fn send(&self, event: Event) {
         self.0.send(event.clone());
         self.1.send(event);
-    }
-
-    fn send_control(&self, control_event: ControlEvent) {
-        self.0.send_control(control_event.clone());
-        self.1.send_control(control_event);
     }
 }

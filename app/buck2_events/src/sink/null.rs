@@ -7,8 +7,7 @@
  * of this source tree.
  */
 
-use crate::BuckEvent;
-use crate::ControlEvent;
+use crate::Event;
 use crate::EventSink;
 
 /// A null EventSink that discards all messages sent to it.
@@ -27,7 +26,5 @@ impl Default for NullEventSink {
 }
 
 impl EventSink for NullEventSink {
-    fn send(&self, _: BuckEvent) {}
-
-    fn send_control(&self, _: ControlEvent) {}
+    fn send(&self, _: Event) {}
 }

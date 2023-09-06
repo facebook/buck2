@@ -31,7 +31,7 @@ mod fbcode {
 
     use crate::metadata;
     use crate::BuckEvent;
-    use crate::ControlEvent;
+    use crate::Event;
     use crate::EventSink;
     use crate::EventSinkStats;
     use crate::EventSinkWithStats;
@@ -318,14 +318,17 @@ mod fbcode {
     }
 
     impl EventSink for ThriftScribeSink {
-        fn send(&self, event: BuckEvent) {
-            if !should_send_event(event.data()) {
-                return;
+        fn send(&self, event: Event) {
+            match event {
+                Event::Buck(event) => {
+                    if should_send_event(event.data()) {
+                        self.offer(event);
+                    }
+                }
+                Event::CommandResult(..) => {}
+                Event::PartialResult(..) => {}
             }
-            self.offer(event);
         }
-
-        fn send_control(&self, _control_event: ControlEvent) {}
     }
 
     impl EventSinkWithStats for ThriftScribeSink {
@@ -777,7 +780,7 @@ mod fbcode {
     use std::sync::Arc;
 
     use crate::BuckEvent;
-    use crate::ControlEvent;
+    use crate::Event;
     use crate::EventSink;
     use crate::EventSinkStats;
     use crate::EventSinkWithStats;
@@ -789,9 +792,7 @@ mod fbcode {
     }
 
     impl EventSink for ThriftScribeSink {
-        fn send(&self, _event: BuckEvent) {}
-
-        fn send_control(&self, _control_event: ControlEvent) {}
+        fn send(&self, _event: Event) {}
     }
 
     impl EventSinkWithStats for ThriftScribeSink {

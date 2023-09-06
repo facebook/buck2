@@ -38,7 +38,7 @@ use smallvec::SmallVec;
 use crate::sink::null::NullEventSink;
 use crate::span::SpanId;
 use crate::BuckEvent;
-use crate::ControlEvent;
+use crate::Event;
 use crate::EventSink;
 
 /// A type-erased and dupe-able container for EventSinks, containing some additional metadata useful for all events
@@ -82,7 +82,7 @@ impl EventDispatcher {
     }
 
     /// Emits an event annotated with the current trace ID.
-    pub fn event<E: Into<buck_event::Data>>(&self, data: E) {
+    pub fn buck_event(&self, data: buck_event::Data) {
         self.event_with_span_id(data, None, current_span());
     }
 
@@ -107,11 +107,15 @@ impl EventDispatcher {
         let now = SystemTime::now();
 
         let event = BuckEvent::new(now, self.trace_id.dupe(), span_id, parent_id, data.into());
-        self.sink.send(event);
+        self.sink.send(Event::Buck(event));
     }
 
-    pub fn control_event<E: Into<ControlEvent>>(&self, data: E) {
-        self.sink.send_control(data.into());
+    pub fn partial_result(&self, data: buck2_cli_proto::PartialResult) {
+        self.sink.send(Event::PartialResult(data));
+    }
+
+    pub fn command_result(&self, data: buck2_cli_proto::CommandResult) {
+        self.sink.send(Event::CommandResult(Box::new(data)));
     }
 
     /// Introduces a new span and immediately fires the given start event. When the given synchronous function returns,
@@ -603,9 +607,12 @@ mod tests {
         let (dispatcher, mut source, trace_id) = create_dispatcher();
         let (start, _) = create_start_end_events();
 
-        dispatcher.event(SpanStartEvent {
-            data: Some(start.into()),
-        });
+        dispatcher.buck_event(
+            SpanStartEvent {
+                data: Some(start.into()),
+            }
+            .into(),
+        );
 
         let event = next_event(&mut source).await;
         assert_eq!(event.trace_id().unwrap(), trace_id);
