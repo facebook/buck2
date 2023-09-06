@@ -402,6 +402,7 @@ impl ProviderCodegen {
         let callable_name = self.callable_name()?;
         Ok(syn::parse_quote_spanned! { self.span=>
             impl<'v, V: starlark::values::ValueLike<'v>> #gen_name<V> {
+                #[allow(dead_code)]
                 pub fn from_providers(
                     providers: &crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection,
                 ) -> Option<starlark::values::FrozenRef<#frozen_name>> {
