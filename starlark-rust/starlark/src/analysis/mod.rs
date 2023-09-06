@@ -23,6 +23,7 @@ pub use lint_message::LintMessage;
 pub use types::EvalMessage;
 pub use types::EvalSeverity;
 pub use types::Lint;
+pub use unused_loads::remove::remove_unused_loads;
 
 use crate::analysis::types::LintT;
 use crate::syntax::AstModule;
@@ -36,6 +37,7 @@ mod names;
 mod performance;
 mod types;
 mod underscore;
+mod unused_loads;
 
 /// Run the linter.
 pub trait AstModuleLint {

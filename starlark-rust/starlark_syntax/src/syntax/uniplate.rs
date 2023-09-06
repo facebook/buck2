@@ -25,6 +25,7 @@ use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AssignTargetP;
 use crate::syntax::ast::AstAssignIdentP;
 use crate::syntax::ast::AstExprP;
+use crate::syntax::ast::AstIdentP;
 use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::AstStmtP;
 use crate::syntax::ast::AstTypeExprP;
@@ -302,6 +303,14 @@ impl<P: AstPayload> StmtP<P> {
             VisitMut::Expr(expr) => expr.visit_type_expr_err_mut(f),
         })
     }
+
+    /// Visit all identifiers in read position recursively.
+    pub fn visit_ident<E>(
+        &self,
+        mut f: impl FnMut(&AstIdentP<P>) -> Result<(), E>,
+    ) -> Result<(), E> {
+        self.visit_expr_result(|expr| expr.visit_ident(&mut f))
+    }
 }
 
 impl<P: AstPayload> ParameterP<P> {
@@ -434,6 +443,7 @@ impl<P: AstPayload> ExprP<P> {
         }
     }
 
+    /// Visit children expressions.
     pub fn visit_expr_err<'a, E>(
         &'a self,
         mut f: impl FnMut(&'a AstExprP<P>) -> Result<(), E>,
@@ -548,6 +558,14 @@ impl<P: AstPayload> ExprP<P> {
             _ => {}
         }
         self.visit_expr_err_mut(|expr| expr.visit_type_expr_err_mut(f))
+    }
+
+    /// Visit all identifiers in read position recursively.
+    fn visit_ident<E>(&self, f: &mut impl FnMut(&AstIdentP<P>) -> Result<(), E>) -> Result<(), E> {
+        if let ExprP::Identifier(ident) = self {
+            f(ident)?;
+        }
+        self.visit_expr_err(|expr| expr.visit_ident(f))
     }
 }
 

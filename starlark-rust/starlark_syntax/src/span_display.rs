@@ -28,8 +28,8 @@ use annotate_snippets::snippet::SourceAnnotation;
 use crate::codemap::FileSpanRef;
 use crate::fast_string;
 
-/// Gets annotated snippets for a [`Diagnostic`].
-pub(crate) fn span_display<'a>(
+/// Gets annotated snippets.
+pub fn span_display<'a>(
     span: Option<FileSpanRef<'a>>,
     annotation_label: &'a str,
     color: bool,

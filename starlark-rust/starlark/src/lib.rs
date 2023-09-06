@@ -368,6 +368,7 @@
 #![allow(clippy::comparison_to_empty)]
 #![allow(clippy::enum_variant_names)]
 #![allow(clippy::float_cmp)]
+#![allow(clippy::if_same_then_else)]
 #![allow(clippy::len_without_is_empty)]
 #![allow(clippy::manual_range_contains)]
 #![allow(clippy::match_like_matches_macro)]

@@ -27,6 +27,7 @@ use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::ops::Add;
+use std::ops::AddAssign;
 use std::ops::Deref;
 use std::ops::DerefMut;
 use std::ptr;
@@ -47,12 +48,23 @@ impl Pos {
     pub const fn new(x: u32) -> Self {
         Self(x)
     }
+
+    /// Get the value.
+    pub const fn get(self) -> u32 {
+        self.0
+    }
 }
 
 impl Add<u32> for Pos {
     type Output = Pos;
     fn add(self, other: u32) -> Pos {
         Pos(self.0 + other)
+    }
+}
+
+impl AddAssign<u32> for Pos {
+    fn add_assign(&mut self, other: u32) {
+        self.0 += other;
     }
 }
 
@@ -290,6 +302,10 @@ impl CodeMap {
             CodeMapImpl::Real(data) => &data.filename,
             CodeMapImpl::Native(data) => data.filename,
         }
+    }
+
+    pub fn byte_at(&self, pos: Pos) -> u8 {
+        self.source().as_bytes()[pos.0 as usize]
     }
 
     /// Gets the line number of a Pos.

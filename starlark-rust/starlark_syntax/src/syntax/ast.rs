@@ -258,6 +258,14 @@ impl<P: AstPayload> LoadArgP<P> {
     pub fn span(&self) -> Span {
         self.local.span.merge(self.their.span)
     }
+
+    pub fn span_with_trailing_comma(&self) -> Span {
+        if let Some(comma) = &self.comma {
+            self.span().merge(comma.span)
+        } else {
+            self.span()
+        }
+    }
 }
 
 /// `load` statement.

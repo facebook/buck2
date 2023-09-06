@@ -26,6 +26,10 @@ pub(crate) struct ScopeResolverGlobals {
 }
 
 impl ScopeResolverGlobals {
+    pub(crate) fn unknown() -> ScopeResolverGlobals {
+        ScopeResolverGlobals { globals: None }
+    }
+
     pub(crate) fn get_global(&self, name: &str) -> Option<FrozenValue> {
         match self.globals {
             Some(globals) => globals.get_frozen(name),
