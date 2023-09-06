@@ -7,12 +7,15 @@
 
 # @starlark-rust: allow_string_literals_in_type_expr
 
-def get_re_executor_from_props(re_props: [dict[str, [dict[str, str], str, bool, None]], None]) -> ["command_executor_config", None]:
+load("@prelude//:build_mode.bzl", "BuildModeInfo")
+
+def get_re_executor_from_props(ctx: AnalysisContext) -> ["command_executor_config", None]:
     """
     Convert the `remote_execution` properties param into a `CommandExecutorConfig`
     to use with test providers.
     """
 
+    re_props = ctx.attrs.remote_execution
     if re_props == None:
         return None
 
@@ -24,10 +27,16 @@ def get_re_executor_from_props(re_props: [dict[str, [dict[str, str], str, bool, 
         unexpected_props = ", ".join(re_props_copy.keys())
         fail("found unexpected re props: " + unexpected_props)
 
+    remote_execution_action_key = None
+    build_mode_info = ctx.attrs.remote_execution_action_key_providers[BuildModeInfo]
+    if build_mode_info != None:
+        remote_execution_action_key = "{}={}".format(build_mode_info.cell, build_mode_info.mode)
+
     return CommandExecutorConfig(
         local_enabled = False,
         remote_enabled = True,
         remote_execution_properties = capabilities,
         remote_execution_use_case = use_case or "tpx-default",
         remote_cache_enabled = remote_cache_enabled,
+        remote_execution_action_key = remote_execution_action_key,
     )

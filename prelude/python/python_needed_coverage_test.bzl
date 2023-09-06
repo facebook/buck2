@@ -43,7 +43,7 @@ def python_needed_coverage_test_impl(ctx: AnalysisContext) -> list[Provider]:
     test_env["TEST_PILOT"] = "1"
 
     # Setup a RE executor based on the `remote_execution` param.
-    re_executor = get_re_executor_from_props(ctx.attrs.remote_execution)
+    re_executor = get_re_executor_from_props(ctx)
 
     return inject_test_run_info(
         ctx,

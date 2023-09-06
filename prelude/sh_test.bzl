@@ -42,7 +42,7 @@ def sh_test_impl(ctx: AnalysisContext) -> list[Provider]:
     command = [args] + ctx.attrs.args
 
     # Setup a RE executor based on the `remote_execution` param.
-    re_executor = get_re_executor_from_props(ctx.attrs.remote_execution)
+    re_executor = get_re_executor_from_props(ctx)
 
     # We implicitly make the target run from the project root if remote
     # excution options were specified

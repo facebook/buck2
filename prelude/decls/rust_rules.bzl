@@ -326,8 +326,8 @@ rust_test = prelude_rule(
         _RUST_EXECUTABLE_ATTRIBUTES |
         {
             "framework": attrs.bool(default = True),
-            "remote_execution": buck.re_opts_for_tests_arg(),
         } |
+        buck.re_test_args() |
         rust_common.toolchains_args() |
         rust_common.workspaces_arg()
     ),

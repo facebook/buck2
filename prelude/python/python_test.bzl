@@ -62,7 +62,7 @@ def python_test_impl(ctx: AnalysisContext) -> list[Provider]:
     test_cmd = pex.run_cmd
 
     # Setup a RE executor based on the `remote_execution` param.
-    re_executor = get_re_executor_from_props(ctx.attrs.remote_execution)
+    re_executor = get_re_executor_from_props(ctx)
 
     return inject_test_run_info(
         ctx,

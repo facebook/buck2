@@ -348,10 +348,8 @@ def _python_executable_attrs():
 
 def _python_test_attrs():
     test_attrs = _python_executable_attrs()
-    test_attrs.update({
-        "remote_execution": buck.re_opts_for_tests_arg(),
-        "_test_main": attrs.source(default = "prelude//python/tools:__test_main__.py"),
-    })
+    test_attrs["_test_main"] = attrs.source(default = "prelude//python/tools:__test_main__.py")
+    test_attrs.update(buck.re_test_args())
     return test_attrs
 
 def _cxx_binary_and_test_attrs():
@@ -435,10 +433,7 @@ inlined_extra_attributes = {
         "_omnibus_environment": omnibus_environment_attr(),
     },
     "cxx_python_extension": _cxx_python_extension_attrs(),
-    "cxx_test": dict(
-        remote_execution = buck.re_opts_for_tests_arg(),
-        **_cxx_binary_and_test_attrs()
-    ),
+    "cxx_test": buck.re_test_args() | _cxx_binary_and_test_attrs(),
     "cxx_toolchain": cxx_toolchain_extra_attributes(is_toolchain_rule = False),
 
     # Generic rule to build from a command
@@ -550,14 +545,14 @@ inlined_extra_attributes = {
         "_cxx_toolchain": toolchains_common.cxx(),
         "_python_toolchain": toolchains_common.python(),
     },
-    "python_needed_coverage_test": {
-        "contacts": attrs.list(attrs.string(), default = []),
-        "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
-        "labels": attrs.list(attrs.string(), default = []),
-        "needed_coverage": attrs.list(attrs.tuple(attrs.int(), attrs.dep(), attrs.option(attrs.string())), default = []),
-        "remote_execution": buck.re_opts_for_tests_arg(),
-        "test": attrs.dep(providers = [ExternalRunnerTestInfo]),
-    },
+    "python_needed_coverage_test": dict(
+        contacts = attrs.list(attrs.string(), default = []),
+        env = attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
+        labels = attrs.list(attrs.string(), default = []),
+        needed_coverage = attrs.list(attrs.tuple(attrs.int(), attrs.dep(), attrs.option(attrs.string())), default = []),
+        test = attrs.dep(providers = [ExternalRunnerTestInfo]),
+        **buck.re_test_args()
+    ),
     "python_test": _python_test_attrs(),
     "remote_file": {
         "sha1": attrs.option(attrs.string(), default = None),
