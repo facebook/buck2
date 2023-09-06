@@ -32,16 +32,6 @@ pub(crate) fn oracle_buck(globals: &Globals) -> Arc<dyn TypingOracle + Send + Sy
 struct CustomBuck;
 
 impl TypingOracle for CustomBuck {
-    fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {
-        match ty.as_str() {
-            "rule" => Some(Ok(TyFunction::new(
-                vec![Param::kwargs(Ty::any())],
-                Ty::none(),
-            ))),
-            _ => None,
-        }
-    }
-
     fn subtype(&self, require: &TyName, got: &TyName) -> bool {
         match require.as_str() {
             "provider" => got.as_str().ends_with("Info"),
