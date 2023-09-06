@@ -7,7 +7,9 @@
  * of this source tree.
  */
 
-//! Compile type typechecking for providers.
+use starlark::typing::Ty;
 
-pub(crate) mod abstract_provider;
-pub(crate) mod provider;
+/// Type of provider instance, builtin or user.
+pub(crate) fn ty_provider(name: &str) -> anyhow::Result<Ty> {
+    Ok(Ty::name_deprecated(name))
+}

@@ -485,7 +485,12 @@ impl ProviderCodegen {
                     }
 
                     fn eval_type(&self) -> Option<starlark::typing::Ty> {
-                        Some(starlark::typing::Ty::name_deprecated(self.id.name()))
+                        static TY: once_cell::sync::Lazy<starlark::typing::Ty> = once_cell::sync::Lazy::new(|| {
+                            crate::interpreter::rule_defs::provider::ty::provider::ty_provider(
+                                #name_str
+                            ).unwrap()
+                        });
+                        Some(dupe::Dupe::dupe(&TY))
                     }
 
                     #documentation_function

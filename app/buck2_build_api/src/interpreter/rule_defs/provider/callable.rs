@@ -51,6 +51,7 @@ use starlark_map::small_set::SmallSet;
 
 use crate::interpreter::rule_defs::provider::doc::provider_callable_documentation;
 use crate::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
+use crate::interpreter::rule_defs::provider::ty::provider::ty_provider;
 use crate::interpreter::rule_defs::provider::user::user_provider_creator;
 
 #[derive(Debug, thiserror::Error)]
@@ -96,6 +97,8 @@ struct UserProviderCallableNamed {
     signature: ParametersSpec<FrozenValue>,
     /// This field is shared with provider instances.
     data: FrozenRef<'static, UserProviderCallableData>,
+    /// Type of provider instance.
+    ty_provider: Ty,
 }
 
 impl UserProviderCallableNamed {
@@ -212,13 +215,14 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
 
     fn export_as(&self, variable_name: &str, eval: &mut Evaluator<'v, '_>) -> anyhow::Result<()> {
         // First export wins
-        self.callable.get_or_init(|| {
+        self.callable.get_or_try_init(|| {
             let provider_id = Arc::new(ProviderId {
                 path: Some(self.path.clone()),
                 name: variable_name.to_owned(),
             });
             let signature = create_callable_function_signature(&provider_id.name, &self.fields);
-            UserProviderCallableNamed {
+            let ty_provider = ty_provider(&provider_id.name)?;
+            anyhow::Ok(UserProviderCallableNamed {
                 id: provider_id.dupe(),
                 signature,
                 data: eval
@@ -227,8 +231,9 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
                         provider_id,
                         fields: self.fields.clone(),
                     }),
-            }
-        });
+                ty_provider,
+            })
+        })?;
         Ok(())
     }
 
@@ -254,9 +259,7 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
     }
 
     fn eval_type(&self) -> Option<Ty> {
-        self.callable
-            .get()
-            .map(|named| Ty::name_deprecated(named.id.name()))
+        self.callable.get().map(|named| named.ty_provider.dupe())
     }
 
     fn documentation(&self) -> Option<DocItem> {
@@ -366,7 +369,7 @@ impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
     }
 
     fn eval_type(&self) -> Option<Ty> {
-        Some(Ty::name_deprecated(self.callable.id.name()))
+        Some(self.callable.ty_provider.dupe())
     }
 }
 
