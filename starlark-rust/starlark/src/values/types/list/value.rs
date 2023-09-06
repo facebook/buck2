@@ -544,6 +544,10 @@ where
     fn typechecker_ty(&self) -> Option<Ty> {
         Some(Ty::any_list())
     }
+
+    fn get_type_starlark_repr() -> Ty {
+        Ty::any_list()
+    }
 }
 
 impl<'v, T: ListLike<'v>> Serialize for ListGen<T> {

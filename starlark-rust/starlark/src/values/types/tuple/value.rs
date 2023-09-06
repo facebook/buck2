@@ -259,6 +259,10 @@ where
     fn typechecker_ty(&self) -> Option<Ty> {
         Some(Ty::any_tuple())
     }
+
+    fn get_type_starlark_repr() -> Ty {
+        Ty::any_tuple()
+    }
 }
 
 impl<'v, V: ValueLike<'v>> Serialize for TupleGen<V> {

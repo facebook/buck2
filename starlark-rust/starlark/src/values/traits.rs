@@ -248,8 +248,7 @@ pub trait StarlarkValue<'v>:
     /// This can be only implemented by the [`#[starlark_value]`](crate::values::starlark_value)
     /// proc macro.
     fn get_type_starlark_repr() -> Ty {
-        // TODO(nga): replace with `Ty::starlark_value::<Self>()`.
-        Ty::name_static(Self::TYPE)
+        Ty::starlark_value::<Self>()
     }
 
     /// Please do not implement this method or `get_type`,

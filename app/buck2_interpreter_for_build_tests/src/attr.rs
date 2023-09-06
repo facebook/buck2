@@ -67,7 +67,7 @@ fn test_attr_module_registered() -> SharedResult<()> {
     tester.run_starlark_bzl_test(indoc!(
         r#"
         def test():
-            assert_eq(True, attrs.string != None)
+            assert_eq(True, getattr(attrs, "string") != None)
         "#
     ))
 }

@@ -497,6 +497,10 @@ where
     fn typechecker_ty(&self) -> Option<Ty> {
         Some(Ty::any_dict())
     }
+
+    fn get_type_starlark_repr() -> Ty {
+        Ty::any_dict()
+    }
 }
 
 impl<'v, T: DictLike<'v>> Serialize for DictGen<T> {

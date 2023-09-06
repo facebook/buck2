@@ -198,7 +198,7 @@ def g(x: CompilerArgs): pass
 def h():
     g([])
 "#,
-            r#"Expected type `"compiler_args"` but got"#,
+            r#"Expected type `compiler_args` but got"#,
         );
     }
 
