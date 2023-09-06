@@ -244,7 +244,6 @@ def generate_rustdoc_test(
         dep_link_style = params.dep_link_style,
         default_roots = default_roots,
         is_rustdoc_test = True,
-        extra_transitive_deps = library.transitive_deps,
     )
 
     link_args_output = make_link_args(
@@ -569,8 +568,7 @@ def _dependency_args(
         crate_type: CrateType,
         dep_link_style: LinkStyle,
         is_check: bool,
-        is_rustdoc_test: bool,
-        extra_transitive_deps: dict[Artifact, CrateName]) -> (cmd_args, list[(CrateName, Label)]):
+        is_rustdoc_test: bool) -> (cmd_args, list[(CrateName, Label)]):
     args = cmd_args()
     transitive_deps = {}
     crate_targets = []
@@ -597,10 +595,13 @@ def _dependency_args(
         args.add(extern_arg(ctx, compile_ctx, dep.flags, crate, artifact))
         crate_targets.append((crate, dep.label))
 
+        # Because deps of this *target* can also be transitive deps of this compiler
+        # invocation, pass the artifact through `-L` unconditionally for doc tests.
+        if is_rustdoc_test:
+            transitive_deps[artifact] = crate
+
         # Unwanted transitive_deps have already been excluded
         transitive_deps.update(transitive_artifacts)
-
-    transitive_deps.update(extra_transitive_deps)
 
     dynamic_artifacts = {}
     simple_artifacts = {}
@@ -700,8 +701,7 @@ def _compute_common_args(
         params: BuildParams,
         dep_link_style: LinkStyle,
         default_roots: list[str],
-        is_rustdoc_test: bool,
-        extra_transitive_deps: dict[Artifact, CrateName] = {}) -> CommonArgsInfo.type:
+        is_rustdoc_test: bool) -> CommonArgsInfo:
     crate_type = params.crate_type
 
     args_key = (crate_type, emit, dep_link_style, is_rustdoc_test)
@@ -737,7 +737,6 @@ def _compute_common_args(
         dep_link_style = dep_link_style,
         is_check = is_check,
         is_rustdoc_test = is_rustdoc_test,
-        extra_transitive_deps = extra_transitive_deps,
     )
 
     if crate_type == CrateType("proc-macro"):
