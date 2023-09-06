@@ -69,10 +69,6 @@ impl<'a> BuckdClientConnector<'a> {
         &self.client.constraints
     }
 
-    pub async fn kill(&mut self, reason: &str) -> anyhow::Result<kill::KillResponse> {
-        kill::kill(&mut self.client.client, &self.client.info, reason).await
-    }
-
     pub fn error_observers(&self) -> impl Iterator<Item = &dyn ErrorObserver> {
         self.client
             .events_ctx
@@ -158,7 +154,6 @@ impl Drop for BuckdLifecycleLock {
 pub struct BuckdClient<'a> {
     client: DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
     constraints: buck2_cli_proto::DaemonConstraints,
-    info: DaemonProcessInfo,
     daemon_dir: DaemonDir,
     // TODO(brasselsprouts): events_ctx should own tailers
     tailers: Option<FileTailers>,

@@ -497,7 +497,6 @@ impl BootstrapBuckdClient {
     ) -> BuckdClientConnector<'a> {
         BuckdClientConnector {
             client: BuckdClient {
-                info: self.info,
                 daemon_dir: self.daemon_dir,
                 client: self.client,
                 constraints: self.constraints,
