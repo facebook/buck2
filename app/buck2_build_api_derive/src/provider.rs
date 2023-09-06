@@ -15,7 +15,6 @@ use quote::format_ident;
 use quote::quote;
 use quote::ToTokens;
 use syn::parse::ParseStream;
-use syn::spanned::Spanned;
 use syn::Attribute;
 use syn::Fields;
 
@@ -32,14 +31,25 @@ impl syn::parse::Parse for InternalProviderArgs {
     }
 }
 
-/// Documentation information for a single field.
-struct FieldDoc {
+/// Provider field information.
+/// This does not include the `id` field.
+struct Field {
     /// The name of the field
     name: syn::Ident,
     /// The docstring for the field, if present
     docstring: syn::Expr,
-    /// The implementation to generate the field type documentation.
-    field_type: syn::Expr,
+    /// Field type as specified in the `#[provider(field_type = SomeType)]` attribute.
+    field_type: syn::Type,
+}
+
+impl Field {
+    /// Expression which produces `Ty` for the field.
+    fn field_type_ty(&self) -> syn::Expr {
+        let field_type = &self.field_type;
+        syn::parse_quote_spanned! { self.name.span() =>
+            <#field_type as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
+        }
+    }
 }
 
 struct ProviderCodegen {
@@ -123,19 +133,8 @@ impl ProviderCodegen {
         field.ident.as_ref().unwrap() == "id" && field.ty.to_token_stream().to_string() == "u64"
     }
 
-    fn field_names(&self) -> syn::Result<Vec<&syn::Ident>> {
-        match &self.input.fields {
-            syn::Fields::Named(fields) => Ok(fields
-                .named
-                .iter()
-                .filter(|f| !self.is_id_field(f))
-                .map(|v| v.ident.as_ref().expect("no field name in named fields?"))
-                .collect()),
-            _ => Err(syn::Error::new_spanned(
-                &self.input,
-                "providers only support named fields",
-            )),
-        }
+    fn field_names(&self) -> syn::Result<Vec<syn::Ident>> {
+        Ok(self.fields()?.into_iter().map(|f| f.name).collect())
     }
 
     /// Parse the "doc" attribute and return a tokenstream that is either None if "doc" is not
@@ -172,15 +171,13 @@ impl ProviderCodegen {
         }
     }
 
-    fn field_doc(&self, field: &syn::Field) -> syn::Result<FieldDoc> {
+    fn field(&self, field: &syn::Field) -> syn::Result<Field> {
         if self.is_id_field(field) {
             return Err(syn::Error::new_spanned(
                 field,
                 "id field should not be documented",
             ));
         }
-
-        let span = field.span();
 
         syn::custom_keyword!(field_type);
 
@@ -193,30 +190,41 @@ impl ProviderCodegen {
             ));
         };
 
-        let field_type: syn::Expr = field_type_attr.parse_args_with(
-                |input: ParseStream| -> syn::Result<syn::Expr> {
-                    if input.parse::<field_type>().is_ok() {
-                        input.parse::<syn::Token![=]>()?;
-                        let rust_type: syn::Type = input.parse::<syn::Type>()?;
-                        Ok(syn::parse_quote_spanned! { span =>
-                            <#rust_type as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
-                        })
-                    } else {
-                        Err(syn::Error::new_spanned(
-                            field_type_attr,
-                            "expected `field_type = SomeType`",
-                        ))
-                    }
-                },
-            )?;
+        let field_type: syn::Type =
+            field_type_attr.parse_args_with(|input: ParseStream| -> syn::Result<syn::Type> {
+                if input.parse::<field_type>().is_ok() {
+                    input.parse::<syn::Token![=]>()?;
+                    input.parse::<syn::Type>()
+                } else {
+                    Err(syn::Error::new_spanned(
+                        field_type_attr,
+                        "expected `field_type = SomeType`",
+                    ))
+                }
+            })?;
 
         let docstring = self.get_docstring_impl(&field.attrs);
 
-        Ok(FieldDoc {
+        Ok(Field {
             name,
             docstring,
             field_type,
         })
+    }
+
+    fn fields(&self) -> syn::Result<Vec<Field>> {
+        match &self.input.fields {
+            syn::Fields::Named(fields) => Ok(fields
+                .named
+                .iter()
+                .filter(|f| !self.is_id_field(f))
+                .map(|f| self.field(f))
+                .collect::<syn::Result<Vec<_>>>()?),
+            _ => Err(syn::Error::new_spanned(
+                &self.input,
+                "providers only support named fields",
+            )),
+        }
     }
 
     /// Grab the information for all fields on the struct, and create the
@@ -225,30 +233,19 @@ impl ProviderCodegen {
         let provider_docstring = self.get_docstring_impl(&self.input.attrs);
         let create_func = &self.args.creator_func;
 
-        let field_docs = match &self.input.fields {
-            syn::Fields::Named(fields) => Ok(fields
-                .named
-                .iter()
-                .filter(|f| !self.is_id_field(f))
-                .map(|f| self.field_doc(f))
-                .collect::<syn::Result<Vec<_>>>()?),
-            _ => Err(syn::Error::new_spanned(
-                &self.input,
-                "providers only support named fields",
-            )),
-        }?;
+        let field_docs = self.fields()?;
 
         let mut field_names = vec![];
         let mut field_docstrings = vec![];
         let mut field_types = vec![];
 
-        for doc in field_docs {
-            let name = doc.name;
+        for doc in &field_docs {
+            let name = &doc.name;
             let name = quote! { stringify!(#name) };
 
             field_names.push(name);
-            field_docstrings.push(doc.docstring);
-            field_types.push(doc.field_type);
+            field_docstrings.push(&doc.docstring);
+            field_types.push(doc.field_type_ty());
         }
 
         Ok(syn::parse_quote_spanned! {self.span=>
