@@ -172,9 +172,7 @@ rust_binary = prelude_rule(
         rust_common.crate_root() |
         _rust_binary_attrs_group(prefix = "") |
         _rust_common_attributes(is_binary = True) |
-        _RUST_EXECUTABLE_ATTRIBUTES | {
-            "framework": attrs.bool(default = False),
-        } |
+        _RUST_EXECUTABLE_ATTRIBUTES |
         rust_common.toolchains_args() |
         rust_common.workspaces_arg() |
         buck.allow_cache_upload_arg()
