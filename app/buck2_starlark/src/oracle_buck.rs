@@ -34,10 +34,6 @@ struct CustomBuck;
 impl TypingOracle for CustomBuck {
     fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {
         match ty.as_str() {
-            "provider_callable" => Some(Ok(TyFunction::new(
-                vec![Param::kwargs(Ty::any())],
-                Ty::any(),
-            ))),
             "rule" => Some(Ok(TyFunction::new(
                 vec![Param::kwargs(Ty::any())],
                 Ty::none(),
