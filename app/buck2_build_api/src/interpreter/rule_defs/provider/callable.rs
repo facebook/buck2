@@ -50,8 +50,8 @@ use starlark::values::ValueLike;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
-use crate::interpreter::rule_defs::provider::abstract_provider::AbstractProvider;
 use crate::interpreter::rule_defs::provider::doc::provider_callable_documentation;
+use crate::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 use crate::interpreter::rule_defs::provider::user::user_provider_creator;
 
 #[derive(Debug, thiserror::Error)]

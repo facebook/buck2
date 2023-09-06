@@ -68,7 +68,6 @@ use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoC
 use crate::interpreter::rule_defs::provider::builtin::default_info::FrozenDefaultInfo;
 use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 
-pub(crate) mod abstract_provider;
 pub mod builtin;
 pub mod callable;
 pub mod collection;
@@ -77,6 +76,7 @@ pub(crate) mod doc;
 pub mod execution_platform;
 pub mod registration;
 pub mod test_provider;
+pub(crate) mod ty;
 pub(crate) mod user;
 
 pub(crate) trait ProviderLike<'v>: Debug {
