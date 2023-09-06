@@ -30,7 +30,6 @@ use starlark_derive::starlark_value;
 use starlark_map::StarlarkHasher;
 use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::slice_vec_ext::VecExt;
-use starlark_syntax::syntax::type_expr::type_str_literal_is_wildcard;
 use thiserror::Error;
 
 use crate as starlark;
@@ -41,7 +40,6 @@ use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
 use crate::private::Private;
 use crate::typing::Ty;
-use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
 use crate::values::layout::avalue::alloc_static;
 use crate::values::layout::avalue::AValueImpl;
@@ -53,7 +51,6 @@ use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::tuple::value::Tuple;
 use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
 use crate::values::typing::type_compiled::matcher::TypeMatcher;
-use crate::values::typing::type_compiled::matchers::IsDict;
 use crate::values::AllocValue;
 use crate::values::Demand;
 use crate::values::Freeze;
@@ -74,6 +71,8 @@ enum TypingError {
     /// The given type annotation does not represent a type
     #[error("Type `{0}` is not a valid type annotation")]
     InvalidTypeAnnotation(String),
+    #[error("`{{A: B}}` cannot be used as type, perhaps you meant `dict[A, B]`")]
+    Dict,
     /// The given type annotation does not exist, but the user might have forgotten quotes around
     /// it
     #[error(r#"Found `{0}` instead of a valid type annotation. Perhaps you meant `"{1}"`?"#)]
@@ -380,10 +379,6 @@ impl<'v> TypeCompiled<Value<'v>> {
         }))
     }
 
-    fn type_dict(heap: &'v Heap) -> TypeCompiled<Value<'v>> {
-        Self::alloc(IsDict, Ty::any_dict(), heap)
-    }
-
     pub(crate) fn type_list_of(
         t: TypeCompiled<Value<'v>>,
         heap: &'v Heap,
@@ -417,10 +412,6 @@ impl<'v> TypeCompiled<Value<'v>> {
         TypeCompiledFactory::alloc_ty(&ty, heap)
     }
 
-    pub(crate) fn is_wildcard_value(x: Value) -> bool {
-        x.unpack_str().map(type_str_literal_is_wildcard) == Some(true)
-    }
-
     /// For `p: "xxx"`, parse that `"xxx"` as type.
     pub(crate) fn from_str(t: &str, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
         TypeCompiledFactory::alloc_ty(&Ty::name(t), heap)
@@ -442,27 +433,6 @@ impl<'v> TypeCompiled<Value<'v>> {
         }
     }
 
-    fn from_dict(t: DictRef<'v>, heap: &'v Heap) -> anyhow::Result<TypeCompiled<Value<'v>>> {
-        // Dictionary with a single element
-        fn unpack_singleton_dictionary<'v>(x: &Dict<'v>) -> Option<(Value<'v>, Value<'v>)> {
-            if x.len() == 1 { x.iter().next() } else { None }
-        }
-
-        if let Some((tk, tv)) = unpack_singleton_dictionary(&t) {
-            if TypeCompiled::is_wildcard_value(tk) && TypeCompiled::is_wildcard_value(tv) {
-                Ok(TypeCompiled::type_dict(heap))
-            } else {
-                // Dict of the form {k: v} must all match the k/v types
-                let tk = TypeCompiled::new(tk, heap)?;
-                let tv = TypeCompiled::new(tv, heap)?;
-                Ok(TypeCompiled::type_dict_of(tk, tv, heap))
-            }
-        } else {
-            // Dict type with zero or multiple fields is not allowed
-            Err(TypingError::InvalidTypeAnnotation(t.to_string()).into())
-        }
-    }
-
     pub(crate) fn from_ty(ty: &Ty, heap: &'v Heap) -> Self {
         TypeCompiledFactory::alloc_ty(ty, heap)
     }
@@ -479,8 +449,6 @@ impl<'v> TypeCompiled<Value<'v>> {
             Ok(TypeCompiled::from_ty(&Ty::tuple(elems), heap))
         } else if let Some(t) = ListRef::from_value(ty) {
             TypeCompiled::from_list(t, heap)
-        } else if let Some(t) = DictRef::from_value(ty) {
-            TypeCompiled::from_dict(t, heap)
         } else if ty.request_value::<&dyn TypeCompiledDyn>().is_some() {
             // This branch is optimization: `TypeCompiledAsStarlarkValue` implements `eval_type`,
             // but this branch avoids copying the type.
@@ -503,7 +471,9 @@ impl TypeCompiled<FrozenValue> {
 }
 
 fn invalid_type_annotation<'v>(ty: Value<'v>, heap: &'v Heap) -> TypingError {
-    if let Some(name) = ty
+    if DictRef::from_value(ty).is_some() {
+        TypingError::Dict
+    } else if let Some(name) = ty
         .get_attr("type", heap)
         .ok()
         .flatten()

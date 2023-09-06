@@ -125,10 +125,9 @@ isinstance([1,2,"test"], ["_a"])
     // Checking types fails for invalid types
     a.fail("isinstance(None, isinstance)", "not a valid type");
     a.fail("isinstance(None, [])", "not a valid type");
-    a.fail("isinstance(None, {'1': '', '2': ''})", "not a valid type");
     a.fail(
-        "isinstance({}, {1: 'string', 2: 'bool'})",
-        "not a valid type",
+        "isinstance(None, {'1': '', '2': ''})",
+        "cannot be used as type",
     );
 
     // Should check the type of default parameters that aren't used
