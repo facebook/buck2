@@ -237,7 +237,7 @@ impl TyCustomImpl for TyUser {
     fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result {
         match &self.matcher {
             Some(matcher) => factory.from_type_matcher_factory(matcher),
-            None => factory.unreachable_cannot_appear_in_type_expr(),
+            None => self.base.matcher(factory),
         }
     }
 
