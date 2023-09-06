@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::cell::RefCell;
 use std::fmt;
 use std::fmt::Display;
 use std::sync::Arc;
@@ -88,29 +87,26 @@ pub(crate) struct UserProviderCallableData {
     pub(crate) fields: SmallSet<String>,
 }
 
+/// Initialized after the name is assigned to the provider.
 #[derive(Debug, Trace, Allocative)]
-enum UserProviderCallableImpl {
-    Unbound,
-    Bound(
-        ParametersSpec<FrozenValue>,
-        FrozenRef<'static, UserProviderCallableData>,
-    ),
+struct UserProviderCallableNamed {
+    /// The name of this provider, filled in by `export_as()`. This must be set before this
+    /// object can be called and Providers created.
+    id: Arc<ProviderId>,
+    signature: ParametersSpec<FrozenValue>,
+    /// This field is shared with provider instances.
+    data: FrozenRef<'static, UserProviderCallableData>,
 }
 
-impl UserProviderCallableImpl {
+impl UserProviderCallableNamed {
     fn invoke<'v>(
         &self,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        match self {
-            UserProviderCallableImpl::Unbound => Err(ProviderCallableError::NotBound.into()),
-            UserProviderCallableImpl::Bound(signature, data) => {
-                signature.parser(args, eval, |parser, eval| {
-                    user_provider_creator(*data, eval, parser)
-                })
-            }
-        }
+        self.signature.parser(args, eval, |parser, eval| {
+            user_provider_creator(self.data, eval, parser)
+        })
     }
 }
 
@@ -122,9 +118,6 @@ impl UserProviderCallableImpl {
 /// Field values default to `None`
 #[derive(Debug, ProvidesStaticType, Trace, NoSerialize, Allocative)]
 pub struct UserProviderCallable {
-    /// The name of this provider, filled in by `export_as()`. This must be set before this
-    /// object can be called and Providers created.
-    id: unsync::OnceCell<Arc<ProviderId>>,
     /// The path where this `ProviderCallable` is created and assigned
     path: CellPath,
     /// The docstring for this provider
@@ -133,8 +126,8 @@ pub struct UserProviderCallable {
     field_docs: Vec<Option<DocString>>,
     /// The names of the fields used in `callable`
     fields: SmallSet<String>,
-    /// The actual callable that creates instances of `UserProvider`
-    callable: RefCell<UserProviderCallableImpl>,
+    /// Field is initialized after the provider is assigned to a variable.
+    callable: unsync::OnceCell<UserProviderCallableNamed>,
 }
 
 impl Display for UserProviderCallable {
@@ -170,19 +163,18 @@ impl UserProviderCallable {
             field_docs.len()
         );
         Self {
-            id: unsync::OnceCell::new(),
+            callable: unsync::OnceCell::new(),
             path,
             docs,
             field_docs,
             fields,
-            callable: RefCell::new(UserProviderCallableImpl::Unbound),
         }
     }
 }
 
 impl ProviderCallableLike for UserProviderCallable {
     fn id(&self) -> Option<&Arc<ProviderId>> {
-        self.id.get()
+        self.callable.get().map(|x| &x.id)
     }
 }
 
@@ -196,7 +188,7 @@ impl Freeze for UserProviderCallable {
     type Frozen = FrozenUserProviderCallable;
     fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         let callable = self.callable.into_inner();
-        let id = match self.id.into_inner() {
+        let callable = match callable {
             Some(x) => x,
             None => {
                 // Unfortunately we have no name or location for the provider at this point,
@@ -206,7 +198,6 @@ impl Freeze for UserProviderCallable {
         };
 
         Ok(FrozenUserProviderCallable::new(
-            id,
             self.docs,
             self.field_docs,
             self.fields,
@@ -221,20 +212,22 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
 
     fn export_as(&self, variable_name: &str, eval: &mut Evaluator<'v, '_>) -> anyhow::Result<()> {
         // First export wins
-        self.id.get_or_init(|| {
-            let new_id = Arc::new(ProviderId {
+        self.callable.get_or_init(|| {
+            let provider_id = Arc::new(ProviderId {
                 path: Some(self.path.clone()),
                 name: variable_name.to_owned(),
             });
-            *self.callable.borrow_mut() = UserProviderCallableImpl::Bound(
-                create_callable_function_signature(&new_id.name, &self.fields),
-                eval.frozen_heap()
+            let signature = create_callable_function_signature(&provider_id.name, &self.fields);
+            UserProviderCallableNamed {
+                id: provider_id.dupe(),
+                signature,
+                data: eval
+                    .frozen_heap()
                     .alloc_any_display_from_debug(UserProviderCallableData {
-                        provider_id: new_id.dupe(),
+                        provider_id,
                         fields: self.fields.clone(),
                     }),
-            );
-            new_id
+            }
         });
         Ok(())
     }
@@ -250,7 +243,10 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        self.callable.borrow().invoke(args, eval)
+        match self.callable.get() {
+            Some(callable) => callable.invoke(args, eval),
+            None => Err(ProviderCallableError::NotBound.into()),
+        }
     }
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
@@ -258,7 +254,9 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
     }
 
     fn eval_type(&self) -> Option<Ty> {
-        self.id.get().map(|id| Ty::name_deprecated(id.name()))
+        self.callable
+            .get()
+            .map(|named| Ty::name_deprecated(named.id.name()))
     }
 
     fn documentation(&self) -> Option<DocItem> {
@@ -279,9 +277,6 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
 
 #[derive(Debug, ProvidesStaticType, NoSerialize, Allocative)]
 pub struct FrozenUserProviderCallable {
-    /// The name of this provider, filled in by `export_as()`. This must be set before this
-    /// object can be called and Providers created.
-    id: Arc<ProviderId>,
     /// The docstring for this provider
     docs: Option<DocString>,
     /// The docstrings for each field. The length of must be identical to `fields`
@@ -289,13 +284,13 @@ pub struct FrozenUserProviderCallable {
     /// The names of the fields used in `callable`
     fields: SmallSet<String>,
     /// The actual callable that creates instances of `UserProvider`
-    callable: UserProviderCallableImpl,
+    callable: UserProviderCallableNamed,
 }
 starlark_simple_value!(FrozenUserProviderCallable);
 
 impl Display for FrozenUserProviderCallable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}(", self.id.name)?;
+        write!(f, "{}(", self.callable.id.name)?;
         for (i, x) in self.fields.iter().enumerate() {
             if i != 0 {
                 write!(f, ", ")?;
@@ -308,11 +303,10 @@ impl Display for FrozenUserProviderCallable {
 
 impl FrozenUserProviderCallable {
     fn new(
-        id: Arc<ProviderId>,
         docs: Option<DocString>,
         field_docs: Vec<Option<DocString>>,
         fields: SmallSet<String>,
-        callable: UserProviderCallableImpl,
+        callable: UserProviderCallableNamed,
     ) -> Self {
         assert_eq!(
             field_docs.len(),
@@ -322,7 +316,6 @@ impl FrozenUserProviderCallable {
             field_docs.len()
         );
         Self {
-            id,
             docs,
             field_docs,
             fields,
@@ -333,7 +326,7 @@ impl FrozenUserProviderCallable {
 
 impl ProviderCallableLike for FrozenUserProviderCallable {
     fn id(&self) -> Option<&Arc<ProviderId>> {
-        Some(&self.id)
+        Some(&self.callable.id)
     }
 }
 
@@ -373,7 +366,7 @@ impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
     }
 
     fn eval_type(&self) -> Option<Ty> {
-        Some(Ty::name_deprecated(self.id.name()))
+        Some(Ty::name_deprecated(self.callable.id.name()))
     }
 }
 
@@ -382,12 +375,12 @@ fn provider_callable_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn r#type<'v>(this: Value<'v>, heap: &Heap) -> anyhow::Result<Value<'v>> {
         if let Some(x) = this.downcast_ref::<UserProviderCallable>() {
-            match x.id.get() {
+            match x.callable.get() {
                 None => Err(ProviderCallableError::ProviderNotAssigned(x.fields.clone()).into()),
-                Some(id) => Ok(heap.alloc(id.name.as_str())),
+                Some(named) => Ok(heap.alloc(named.id.name.as_str())),
             }
         } else if let Some(x) = this.downcast_ref::<FrozenUserProviderCallable>() {
-            Ok(heap.alloc(x.id.name.as_str()))
+            Ok(heap.alloc(x.callable.id.name.as_str()))
         } else {
             unreachable!(
                 "This parameter must be one of the types, but got `{}`",
