@@ -13,6 +13,8 @@ load("@prelude//haskell:haskell.bzl", "HaskellPlatformInfo", "HaskellToolchainIn
 load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
 load(
     "@prelude//java:java_toolchain.bzl",
+    "JavaPlatformInfo",
+    "JavaToolchainInfo",
     "PrebuiltJarToolchainInfo",
 )
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "PythonToolchainInfo")
@@ -30,6 +32,9 @@ def _cxx_toolchain():
 
 def _dex_toolchain():
     return _toolchain_with_override("dex", [DexToolchainInfo])
+
+def _java_toolchain():
+    return _toolchain_with_override("java", [JavaToolchainInfo, JavaPlatformInfo])
 
 def _haskell_toolchain():
     return _toolchain("haskell", [HaskellToolchainInfo, HaskellPlatformInfo])
@@ -53,6 +58,7 @@ def _rust_toolchain():
 toolchains_common = struct(
     cxx = _cxx_toolchain,
     dex = _dex_toolchain,
+    java = _java_toolchain,
     haskell = _haskell_toolchain,
     go = _go_toolchain,
     prebuilt_jar = _prebuilt_jar_toolchain,
