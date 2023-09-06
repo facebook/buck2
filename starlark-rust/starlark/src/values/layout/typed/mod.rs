@@ -146,6 +146,13 @@ impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
         Some(ValueTyped(value, marker::PhantomData))
     }
 
+    /// Downcast.
+    #[inline]
+    pub fn new_err(value: Value<'v>) -> anyhow::Result<ValueTyped<'v, T>> {
+        value.downcast_ref_err::<T>()?;
+        Ok(ValueTyped(value, marker::PhantomData))
+    }
+
     /// Construct typed value without checking the value is of type `<T>`.
     #[inline]
     pub unsafe fn new_unchecked(value: Value<'v>) -> ValueTyped<'v, T> {

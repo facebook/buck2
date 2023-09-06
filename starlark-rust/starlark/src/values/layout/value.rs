@@ -119,6 +119,13 @@ use crate::values::UnpackValue;
 use crate::values::ValueError;
 use crate::values::ValueIdentity;
 
+// We already import another `ValueError`, hence the odd name.
+#[derive(Debug, thiserror::Error)]
+enum ValueValueError {
+    #[error("Value is of type `{0}` but `{1}` was expected")]
+    WrongType(&'static str, &'static str),
+}
+
 /// A Starlark value. The lifetime argument `'v` corresponds to the [`Heap`](crate::values::Heap) it is stored on.
 ///
 /// Many of the methods simply forward to the underlying [`StarlarkValue`](crate::values::StarlarkValue).
@@ -1168,6 +1175,15 @@ pub trait ValueLike<'v>:
     /// Get a reference to underlying data or [`None`]
     /// if contained object has different type than requested.
     fn downcast_ref<T: StarlarkValue<'v>>(self) -> Option<&'v T>;
+
+    /// Get a reference to underlying data or [`Err`]
+    /// if contained object has different type than requested.
+    fn downcast_ref_err<T: StarlarkValue<'v>>(self) -> anyhow::Result<&'v T> {
+        match self.downcast_ref() {
+            Some(v) => Ok(v),
+            None => Err(ValueValueError::WrongType(self.to_value().get_type(), T::TYPE).into()),
+        }
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
