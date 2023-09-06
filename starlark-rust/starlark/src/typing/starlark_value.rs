@@ -35,7 +35,9 @@ use crate::typing::TypingBinOp;
 use crate::typing::TypingOracleCtx;
 use crate::typing::TypingUnOp;
 use crate::values::bool::StarlarkBool;
+use crate::values::dict::value::FrozenDict;
 use crate::values::float::StarlarkFloat;
+use crate::values::list::value::FrozenList;
 use crate::values::none::NoneType;
 use crate::values::starlark_type_id::StarlarkTypeId;
 use crate::values::string::StarlarkStr;
@@ -178,6 +180,21 @@ impl TyStarlarkValue {
     pub(crate) fn is_int(self) -> bool {
         self.self_check();
         self == TyStarlarkValue::new::<StarlarkBigInt>()
+    }
+
+    pub(crate) fn is_list(self) -> bool {
+        self.self_check();
+        self == TyStarlarkValue::new::<FrozenList>()
+    }
+
+    pub(crate) fn is_dict(self) -> bool {
+        self.self_check();
+        self == TyStarlarkValue::new::<FrozenDict>()
+    }
+
+    pub(crate) fn is_tuple(self) -> bool {
+        self.self_check();
+        self == TyStarlarkValue::new::<Tuple>()
     }
 
     /// Result of applying unary operator to this type.

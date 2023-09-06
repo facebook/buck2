@@ -833,11 +833,13 @@ impl<'a> TypingOracleCtx<'a> {
             (TyBasic::Name(_), TyBasic::StarlarkValue(_)) => true,
             (TyBasic::Name(x), y) => Some(x.as_str()) == y.as_name(),
             (TyBasic::List(x), TyBasic::List(y)) => self.intersects(x, y),
+            (TyBasic::List(_), TyBasic::StarlarkValue(y)) => y.is_list(),
             (TyBasic::Dict(x_k, x_v), TyBasic::Dict(y_k, y_v)) => {
                 self.intersects(x_k, y_k) && self.intersects(x_v, y_v)
             }
+            (TyBasic::Dict(..), TyBasic::StarlarkValue(y)) => y.is_dict(),
             (TyBasic::Tuple(x), TyBasic::Tuple(y)) => TyTuple::intersects(x, y, self),
-            (TyBasic::Tuple(_), t) => t.is_tuple(),
+            (TyBasic::Tuple(_), TyBasic::StarlarkValue(y)) => y.is_tuple(),
             (TyBasic::Iter(x), TyBasic::Iter(y)) => self.intersects(x, y),
             (TyBasic::Iter(x), y) | (y, TyBasic::Iter(x)) => match self.iter_item_basic(y) {
                 Ok(yy) => self.intersects(x, &yy),
