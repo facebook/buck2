@@ -37,7 +37,6 @@ use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
-use starlark::values::Tracer;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
@@ -87,7 +86,7 @@ struct TransitiveSetId {
     name: String,
 }
 
-#[derive(Debug, ProvidesStaticType, Allocative)]
+#[derive(Debug, ProvidesStaticType, Allocative, Trace)]
 pub struct TransitiveSetDefinition<'v> {
     /// The name of this transitive set. This is filed in by `export_as` when it's assigned to a
     /// top-level variable. This must be set before this is used.
@@ -154,12 +153,6 @@ impl<V> TransitiveSetOperationsGen<V> {
         }
 
         Ok(index)
-    }
-}
-
-unsafe impl<'v> Trace<'v> for TransitiveSetDefinition<'v> {
-    fn trace(&mut self, tracer: &Tracer<'v>) {
-        self.operations.trace(tracer)
     }
 }
 
