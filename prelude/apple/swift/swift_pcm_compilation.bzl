@@ -12,14 +12,13 @@ load("@prelude//apple:apple_utility.bzl", "get_explicit_modules_env_var", "get_m
 load("@prelude//cxx:preprocessor.bzl", "cxx_inherited_preprocessor_infos", "cxx_merge_cpreprocessors")
 load(
     ":apple_sdk_modules_utility.bzl",
-    "SDKDepTSet",  # @unused Used as a type
     "get_compiled_sdk_deps_tset",
     "get_uncompiled_sdk_deps",
 )
 load(":swift_pcm_compilation_types.bzl", "SwiftPCMCompiledInfo", "SwiftPCMUncompiledInfo", "WrappedSwiftPCMCompiledInfo")
 load(":swift_sdk_pcm_compilation.bzl", "get_shared_pcm_compilation_args", "get_swift_sdk_pcm_anon_targets")
 load(":swift_sdk_swiftinterface_compilation.bzl", "get_swift_interface_anon_targets")
-load(":swift_toolchain_types.bzl", "WrappedSdkCompiledModuleInfo")
+load(":swift_toolchain_types.bzl", "SwiftCompiledModuleTset", "WrappedSdkCompiledModuleInfo")
 
 _REQUIRED_SDK_MODULES = ["Foundation"]
 
@@ -256,7 +255,7 @@ def _get_base_pcm_flags(
         ctx: AnalysisContext,
         module_name: str,
         uncompiled_pcm_info: SwiftPCMUncompiledInfo.type,
-        sdk_deps_tset: SDKDepTSet.type,
+        sdk_deps_tset: SwiftCompiledModuleTset.type,
         pcm_deps_tset: PcmDepTSet.type,
         swift_cxx_args: list[str]) -> (cmd_args, cmd_args, Artifact):
     swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info

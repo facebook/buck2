@@ -9,38 +9,23 @@ load("@prelude//utils:set.bzl", "set")
 load(
     ":swift_toolchain_types.bzl",
     "SdkSwiftOverlayInfo",
-    "SwiftCompiledModuleInfo",  # @unused Used as a type
+    "SwiftCompiledModuleTset",
     "SwiftToolchainInfo",  # @unused Used as a type
     "WrappedSdkCompiledModuleInfo",
 )
-
-def project_as_clang_deps(module_info: SwiftCompiledModuleInfo.type):
-    if module_info.is_swiftmodule:
-        return []
-    else:
-        return [
-            "-Xcc",
-            cmd_args(["-fmodule-file=", module_info.module_name, "=", module_info.output_artifact], delimiter = ""),
-            "-Xcc",
-            cmd_args(["-fmodule-map-file=", module_info.input_relative_path], delimiter = ""),
-        ]
-
-SDKDepTSet = transitive_set(args_projections = {
-    "clang_deps": project_as_clang_deps,
-})
 
 def is_sdk_modules_provided(toolchain: SwiftToolchainInfo.type) -> bool:
     has_swift_modules = bool(toolchain.uncompiled_swift_sdk_modules_deps)
     has_clang_modules = bool(toolchain.uncompiled_clang_sdk_modules_deps)
     return has_swift_modules or has_clang_modules
 
-def get_compiled_sdk_deps_tset(ctx: AnalysisContext, deps_providers: list) -> SDKDepTSet.type:
+def get_compiled_sdk_deps_tset(ctx: AnalysisContext, deps_providers: list) -> SwiftCompiledModuleTset.type:
     sdk_deps = [
         deps_provider[WrappedSdkCompiledModuleInfo].tset
         for deps_provider in deps_providers
         if WrappedSdkCompiledModuleInfo in deps_provider
     ]
-    return ctx.actions.tset(SDKDepTSet, children = sdk_deps)
+    return ctx.actions.tset(SwiftCompiledModuleTset, children = sdk_deps)
 
 def get_uncompiled_sdk_deps(
         sdk_modules: list[str],

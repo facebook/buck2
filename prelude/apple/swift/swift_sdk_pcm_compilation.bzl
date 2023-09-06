@@ -9,8 +9,8 @@
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "expand_relative_prefixed_sdk_path", "get_disable_pch_validation_flags")
-load(":apple_sdk_modules_utility.bzl", "SDKDepTSet", "get_compiled_sdk_deps_tset")
-load(":swift_toolchain_types.bzl", "SdkTransitiveDepsTset", "SdkUncompiledModuleInfo", "SwiftCompiledModuleInfo", "WrappedSdkCompiledModuleInfo")
+load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_deps_tset")
+load(":swift_toolchain_types.bzl", "SdkTransitiveDepsTset", "SdkUncompiledModuleInfo", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "WrappedSdkCompiledModuleInfo")
 
 def get_shared_pcm_compilation_args(module_name: str) -> cmd_args:
     cmd = cmd_args()
@@ -179,7 +179,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> ["promise", list[Pr
         return [
             DefaultInfo(),
             WrappedSdkCompiledModuleInfo(
-                tset = ctx.actions.tset(SDKDepTSet, value = compiled_sdk, children = [sdk_deps_tset]),
+                tset = ctx.actions.tset(SwiftCompiledModuleTset, value = compiled_sdk, children = [sdk_deps_tset]),
             ),
         ]
 

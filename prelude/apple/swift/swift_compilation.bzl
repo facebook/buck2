@@ -55,22 +55,13 @@ load(
 )
 load(":swift_sdk_pcm_compilation.bzl", "get_swift_sdk_pcm_anon_targets")
 load(":swift_sdk_swiftinterface_compilation.bzl", "get_swift_interface_anon_targets")
-load(":swift_toolchain_types.bzl", "SwiftCompiledModuleInfo", "SwiftObjectFormat")
-
-def _add_swiftmodule_search_path(module_info: SwiftCompiledModuleInfo.type):
-    # Value will contain a path to the artifact,
-    # while we need only the folder which contains the artifact.
-    return ["-I", cmd_args(module_info.output_artifact).parent()]
-
-SwiftmodulePathsTSet = transitive_set(args_projections = {
-    "module_search_path": _add_swiftmodule_search_path,
-})
+load(":swift_toolchain_types.bzl", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "SwiftObjectFormat")
 
 ExportedHeadersTSet = transitive_set()
 
 SwiftDependencyInfo = provider(fields = [
     "exported_headers",  # ExportedHeadersTSet of {"module_name": [exported_headers]}
-    "exported_swiftmodule_paths",  # SwiftmodulePathsTSet of artifact that includes only paths through exported_deps, used for compilation
+    "exported_swiftmodule_paths",  # SwiftCompiledModuleTset of artifact that includes only paths through exported_deps, used for compilation
     "debug_info_tset",  # ArtifactTSet
 ])
 
@@ -492,7 +483,7 @@ def _get_shared_flags(
 
 def _add_swift_deps_flags(
         ctx: AnalysisContext,
-        sdk_deps_tset: "SDKDepTSet",
+        sdk_deps_tset: "SwiftCompiledModuleTset",
         cmd: cmd_args):
     # If Explicit Modules are enabled, a few things must be provided to a compilation job:
     # 1. Direct and transitive SDK deps from `sdk_modules` attribute.
@@ -503,7 +494,7 @@ def _add_swift_deps_flags(
     if uses_explicit_modules(ctx):
         module_name = get_module_name(ctx)
         swift_deps_tset = ctx.actions.tset(
-            SwiftmodulePathsTSet,
+            SwiftCompiledModuleTset,
             children = _get_swift_paths_tsets(ctx.attrs.deps + ctx.attrs.exported_deps),
         )
         swift_module_map_artifact = write_swift_module_map_with_swift_deps(
@@ -525,13 +516,13 @@ def _add_swift_deps_flags(
             swift_module_map_artifact,
         ])
     else:
-        depset = ctx.actions.tset(SwiftmodulePathsTSet, children = _get_swift_paths_tsets(ctx.attrs.deps + ctx.attrs.exported_deps))
+        depset = ctx.actions.tset(SwiftCompiledModuleTset, children = _get_swift_paths_tsets(ctx.attrs.deps + ctx.attrs.exported_deps))
         cmd.add(depset.project_as_args("module_search_path"))
 
 def _add_clang_deps_flags(
         ctx: AnalysisContext,
         pcm_deps_tset: "PcmDepTSet",
-        sdk_deps_tset: "SDKDepTSet",
+        sdk_deps_tset: "SwiftCompiledModuleTset",
         cmd: cmd_args) -> None:
     # If a module uses Explicit Modules, all direct and
     # transitive Clang deps have to be explicitly added.
@@ -579,7 +570,7 @@ def _add_mixed_library_flags_to_cmd(
 
     cmd.add("-import-underlying-module")
 
-def _get_swift_paths_tsets(deps: list[Dependency]) -> list[SwiftmodulePathsTSet.type]:
+def _get_swift_paths_tsets(deps: list[Dependency]) -> list[SwiftCompiledModuleTset.type]:
     return [
         d[SwiftDependencyInfo].exported_swiftmodule_paths
         for d in deps
@@ -642,9 +633,9 @@ def get_swift_dependency_info(
             module_name = get_module_name(ctx),
             output_artifact = output_module,
         )
-        exported_swiftmodules = ctx.actions.tset(SwiftmodulePathsTSet, value = compiled_info, children = _get_swift_paths_tsets(exported_deps))
+        exported_swiftmodules = ctx.actions.tset(SwiftCompiledModuleTset, value = compiled_info, children = _get_swift_paths_tsets(exported_deps))
     else:
-        exported_swiftmodules = ctx.actions.tset(SwiftmodulePathsTSet, children = _get_swift_paths_tsets(exported_deps))
+        exported_swiftmodules = ctx.actions.tset(SwiftCompiledModuleTset, children = _get_swift_paths_tsets(exported_deps))
 
     debug_info_tset = make_artifact_tset(
         actions = ctx.actions,

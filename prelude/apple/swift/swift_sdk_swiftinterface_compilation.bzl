@@ -10,10 +10,9 @@
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "expand_relative_prefixed_sdk_path", "get_explicit_modules_env_var")
 load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION")
-load(":apple_sdk_modules_utility.bzl", "SDKDepTSet")
 load(":swift_module_map.bzl", "write_swift_module_map")
 load(":swift_sdk_pcm_compilation.bzl", "get_swift_sdk_pcm_anon_targets")
-load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftCompiledModuleInfo", "WrappedSdkCompiledModuleInfo")
+load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "WrappedSdkCompiledModuleInfo")
 
 def get_swift_interface_anon_targets(
         ctx: AnalysisContext,
@@ -55,8 +54,8 @@ def _swift_interface_compilation_impl(ctx: AnalysisContext) -> ["promise", list[
             else:
                 clang_dep_children.append(tset)
 
-        clang_deps_tset = ctx.actions.tset(SDKDepTSet, children = clang_dep_children)
-        swift_deps_tset = ctx.actions.tset(SDKDepTSet, children = swift_dep_children)
+        clang_deps_tset = ctx.actions.tset(SwiftCompiledModuleTset, children = clang_dep_children)
+        swift_deps_tset = ctx.actions.tset(SwiftCompiledModuleTset, children = swift_dep_children)
 
         # FIXME: - Get rid of slow traversal here, and unify with two projections below.
         swift_module_map_artifact = write_swift_module_map(ctx, uncompiled_module_info_name, list(swift_deps_tset.traverse()))
@@ -97,7 +96,7 @@ def _swift_interface_compilation_impl(ctx: AnalysisContext) -> ["promise", list[
         return [
             DefaultInfo(),
             WrappedSdkCompiledModuleInfo(
-                tset = ctx.actions.tset(SDKDepTSet, value = compiled_sdk, children = swift_dep_children),
+                tset = ctx.actions.tset(SwiftCompiledModuleTset, value = compiled_sdk, children = swift_dep_children),
             ),
         ]
 
