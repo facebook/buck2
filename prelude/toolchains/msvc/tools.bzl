@@ -104,7 +104,7 @@ def _find_msvc_tools_impl(ctx: AnalysisContext) -> list[Provider]:
 find_msvc_tools = rule(
     impl = _find_msvc_tools_impl,
     attrs = {
-        "run_msvc_tool": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//toolchains/msvc:run_msvc_tool")),
-        "vswhere": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//toolchains/msvc:vswhere")),
+        "run_msvc_tool": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//toolchains/msvc:run_msvc_tool")),
+        "vswhere": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//toolchains/msvc:vswhere")),
     },
 )
