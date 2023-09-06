@@ -81,7 +81,11 @@ def create_jar_artifact_javacd(
     bootclasspath_entries = add_java_7_8_bootclasspath(target_level, bootclasspath_entries, java_toolchain)
     abi_generation_mode = get_abi_generation_mode(abi_generation_mode, java_toolchain, srcs, annotation_processor_properties)
 
-    should_create_class_abi = not is_creating_subtarget and (abi_generation_mode == AbiGenerationMode("class") or not is_building_android_binary)
+    should_create_class_abi = (
+        not additional_compiled_srcs and
+        not is_creating_subtarget and
+        (abi_generation_mode == AbiGenerationMode("class") or not is_building_android_binary)
+    )
     if should_create_class_abi:
         class_abi_jar = declare_prefixed_output(actions, actions_identifier, "class-abi.jar")
         class_abi_output_dir = declare_prefixed_output(actions, actions_identifier, "class_abi_dir", dir = True)
