@@ -295,26 +295,24 @@ def get_filtered_labels_to_links_map(
     If no link group is provided, all unmatched link infos are returned.
     """
 
-    if False:
-        # TODO(nga): seems to be a bug there below at `link_style != Linkage("shared")`,
-        #   typechecker complains.
-        link_style = Linkage("shared")
-
-    def get_traversed_deps(node: Label) -> list[Label]:
+    def get_potential_linkables(node: Label) -> list[Label]:
         linkable_node = linkable_graph_node_map[node]  # buildifier: disable=uninitialized
 
         # Always link against exported deps
         node_linkables = list(linkable_node.exported_deps)
 
-        # If the preferred linkage is `static` or `any` with a link style that is
-        # not shared, we need to link against the deps too.
-        should_traverse = False
+        # If the preferred linkage is `static` or `any` we need to link against the deps too.
+        # TODO(cjhopman): This code originally was as commented out below and the comment indicated that the
+        # intent was to not traverse in the second case if link style was shared, but at this point idk which
+        # behavior we actually want.
+        should_traverse_private_deps = False
         if linkable_node.preferred_linkage == Linkage("static"):
-            should_traverse = True
+            should_traverse_private_deps = True
         elif linkable_node.preferred_linkage == Linkage("any"):
-            should_traverse = link_style != Linkage("shared")
+            should_traverse_private_deps = True
+            # should_traverse = link_style != Linkage("shared")
 
-        if should_traverse:
+        if should_traverse_private_deps:
             node_linkables += linkable_node.deps
 
         return node_linkables
@@ -323,7 +321,7 @@ def get_filtered_labels_to_links_map(
     linkables = breadth_first_traversal_by(
         linkable_graph_node_map,
         roots,
-        get_traversed_deps,
+        get_potential_linkables,
     )
 
     # An index of target to link group names, for all link group library nodes.
@@ -472,7 +470,7 @@ def get_public_link_group_nodes(
     # executable. We need to force export those symbols to avoid undefined symbls.
 
     # buildifier: disable=uninitialized
-    def get_traversed_deps(node: Label) -> list[Label]:
+    def discover_link_group_linkables(node: Label) -> list[Label]:
         exported_deps = []
         for exported_dep in linkable_graph_node_map[node].exported_deps:
             group = link_group_mappings.get(exported_dep)
@@ -485,7 +483,7 @@ def get_public_link_group_nodes(
         breadth_first_traversal_by(
             linkable_graph_node_map,
             external_link_group_nodes.list(),
-            get_traversed_deps,
+            discover_link_group_linkables,
         ),
     )
 
