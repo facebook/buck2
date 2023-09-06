@@ -695,13 +695,10 @@ where
         .spawn(move || {
             pump_events(events, state, output_send);
         });
-    let _merge_task = match merge_task {
-        Ok(merge_task) => merge_task,
-        Err(e) => {
-            return error_to_response_stream(
-                anyhow::Error::new(e).context("failed to spawn pump-events"),
-            );
-        }
+    if let Err(e) = merge_task {
+        return error_to_response_stream(
+            anyhow::Error::new(e).context("failed to spawn pump-events"),
+        );
     };
 
     let events = tokio_stream::wrappers::UnboundedReceiverStream::new(output_recv);
