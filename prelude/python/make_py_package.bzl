@@ -552,6 +552,16 @@ def generate_manifest_module(
     cmd.add(["--output", module.as_output()])
     ctx.actions.run(cmd, category = "par", identifier = "manifest-module")
 
-    src_manifest = ctx.actions.write_json("manifest/module_manifest.json", [["__manifest__.py", module, "foo"]], with_inputs = True)
+    json_entries_output = ctx.actions.declare_output("manifest/__manifest__.json")
+    ctx.actions.copy_file(json_entries_output.as_output(), entries_json)
+
+    src_manifest = ctx.actions.write_json(
+        "manifest/module_manifest.json",
+        [
+            ["__manifest__.py", module, "prelude//python:make_py_package.bzl"],
+            ["__manifest__.json", json_entries_output, "prelude//python:make_py_package.bzl"],
+        ],
+        with_inputs = True,
+    )
 
     return src_manifest
