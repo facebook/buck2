@@ -77,6 +77,8 @@ DEFAULT_STATIC_LINK_STYLE = LinkStyle("static_pic")
 # so default to v1 behaviour. (Should be controlled with the `rust.force_rlib` option)
 FORCE_RLIB = True
 
+RustProcMacroPlugin = plugins.kind()
+
 # Output of a Rust compilation
 RustLinkInfo = provider(fields = [
     # crate - crate name
