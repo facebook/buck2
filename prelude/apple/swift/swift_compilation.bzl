@@ -62,11 +62,7 @@ def _add_swiftmodule_search_path(module_info: SwiftCompiledModuleInfo.type):
     # while we need only the folder which contains the artifact.
     return ["-I", cmd_args(module_info.output_artifact).parent()]
 
-def _hidden_projection(module_info: SwiftCompiledModuleInfo.type):
-    return module_info.output_artifact
-
 SwiftmodulePathsTSet = transitive_set(args_projections = {
-    "hidden": _hidden_projection,
     "module_search_path": _add_swiftmodule_search_path,
 })
 
@@ -528,10 +524,6 @@ def _add_swift_deps_flags(
             "-Xfrontend",
             swift_module_map_artifact,
         ])
-
-        # Swift compilation should depend on transitive Swift modules from swift-module-map.
-        cmd.hidden(sdk_deps_tset.project_as_args("hidden"))
-        cmd.hidden(swift_deps_tset.project_as_args("hidden"))
     else:
         depset = ctx.actions.tset(SwiftmodulePathsTSet, children = _get_swift_paths_tsets(ctx.attrs.deps + ctx.attrs.exported_deps))
         cmd.add(depset.project_as_args("module_search_path"))
