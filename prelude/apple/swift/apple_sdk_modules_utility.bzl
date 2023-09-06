@@ -8,19 +8,19 @@
 load("@prelude//utils:set.bzl", "set")
 load(
     ":swift_toolchain_types.bzl",
-    "SdkCompiledModuleInfo",  # @unused Used as a type
     "SdkSwiftOverlayInfo",
+    "SwiftCompiledModuleInfo",  # @unused Used as a type
     "SwiftToolchainInfo",  # @unused Used as a type
     "WrappedSdkCompiledModuleInfo",
 )
 
-def project_as_hidden(module_info: SdkCompiledModuleInfo.type):
+def project_as_hidden(module_info: SwiftCompiledModuleInfo.type):
     # NOTE(cjhopman): This would probably be better done by projecting as normal args and the caller putting it in hidden.
     args = cmd_args()
     args.hidden(module_info.output_artifact)
     return args
 
-def project_as_clang_deps(module_info: SdkCompiledModuleInfo.type):
+def project_as_clang_deps(module_info: SwiftCompiledModuleInfo.type):
     if module_info.is_swiftmodule:
         return []
     else:

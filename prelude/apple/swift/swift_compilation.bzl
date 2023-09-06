@@ -55,18 +55,18 @@ load(
 )
 load(":swift_sdk_pcm_compilation.bzl", "get_swift_sdk_pcm_anon_targets")
 load(":swift_sdk_swiftinterface_compilation.bzl", "get_swift_interface_anon_targets")
-load(":swift_toolchain_types.bzl", "SwiftObjectFormat")
+load(":swift_toolchain_types.bzl", "SwiftCompiledModuleInfo", "SwiftObjectFormat")
 
-def _add_swiftmodule_search_path(swiftmodule_path: Artifact):
+def _add_swiftmodule_search_path(module_info: SwiftCompiledModuleInfo.type):
     # Value will contain a path to the artifact,
     # while we need only the folder which contains the artifact.
-    return ["-I", cmd_args(swiftmodule_path).parent()]
+    return ["-I", cmd_args(module_info.output_artifact).parent()]
 
-def _hidden_projection(swiftmodule_path: Artifact):
-    return swiftmodule_path
+def _hidden_projection(module_info: SwiftCompiledModuleInfo.type):
+    return module_info.output_artifact
 
-def _linker_args_projection(swiftmodule_path: Artifact):
-    return cmd_args(swiftmodule_path, format = "-Wl,-add_ast_path,{}")
+def _linker_args_projection(module_info: SwiftCompiledModuleInfo.type):
+    return cmd_args(module_info.output_artifact, format = "-Wl,-add_ast_path,{}")
 
 SwiftmodulePathsTSet = transitive_set(args_projections = {
     "hidden": _hidden_projection,
@@ -648,7 +648,13 @@ def get_swift_dependency_info(
     exported_headers += [header.name for header in exported_pre.headers] if exported_pre else []
 
     if output_module:
-        exported_swiftmodules = ctx.actions.tset(SwiftmodulePathsTSet, value = output_module, children = _get_swift_paths_tsets(exported_deps))
+        compiled_info = SwiftCompiledModuleInfo(
+            is_framework = False,
+            is_swiftmodule = True,
+            module_name = get_module_name(ctx),
+            output_artifact = output_module,
+        )
+        exported_swiftmodules = ctx.actions.tset(SwiftmodulePathsTSet, value = compiled_info, children = _get_swift_paths_tsets(exported_deps))
     else:
         exported_swiftmodules = ctx.actions.tset(SwiftmodulePathsTSet, children = _get_swift_paths_tsets(exported_deps))
 

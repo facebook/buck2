@@ -52,19 +52,17 @@ SdkUncompiledModuleInfo = provider(fields = [
 SdkTransitiveDepsTset = transitive_set()
 
 WrappedSdkCompiledModuleInfo = provider(fields = [
-    "tset",  # A tset that contains SdkCompiledModuleInfo itself and its transitive deps
-])
-
-# A provider that represents an already-compiled SDK (Swift or Clang) module.
-SdkCompiledModuleInfo = provider(fields = [
-    "name",  # A name of a module with `.swift`/`.clang` suffix.
-    "module_name",  # A real name of a module, without distinguishing suffixes.
-    "is_swiftmodule",  # If True then contains a compiled swiftmodule, otherwise Clang's pcm.
-    "is_framework",
-    "output_artifact",  # Compiled artifact either swiftmodule or pcm.
-    "input_relative_path",
+    "tset",  # A tset that contains SwiftCompiledModuleInfo itself and its transitive deps
 ])
 
 SdkSwiftOverlayInfo = provider(fields = [
     "overlays",  # {str: [str]} A mapping providing a list of overlay module names for each underlying module
+])
+
+SwiftCompiledModuleInfo = provider(fields = [
+    "input_relative_path",  # Path to modulemap file for pcm files.
+    "is_framework",
+    "is_swiftmodule",  # If True then contains a compiled swiftmodule, otherwise Clang's pcm.
+    "module_name",  # A real name of a module, without distinguishing suffixes.
+    "output_artifact",  # Compiled artifact either swiftmodule or pcm.
 ])

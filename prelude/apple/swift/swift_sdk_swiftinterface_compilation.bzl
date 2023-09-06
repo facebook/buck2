@@ -13,7 +13,7 @@ load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION")
 load(":apple_sdk_modules_utility.bzl", "SDKDepTSet")
 load(":swift_module_map.bzl", "write_swift_module_map")
 load(":swift_sdk_pcm_compilation.bzl", "get_swift_sdk_pcm_anon_targets")
-load(":swift_toolchain_types.bzl", "SdkCompiledModuleInfo", "SdkUncompiledModuleInfo", "WrappedSdkCompiledModuleInfo")
+load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftCompiledModuleInfo", "WrappedSdkCompiledModuleInfo")
 
 def get_swift_interface_anon_targets(
         ctx: AnalysisContext,
@@ -89,13 +89,12 @@ def _swift_interface_compilation_impl(ctx: AnalysisContext) -> ["promise", list[
             identifier = uncompiled_module_info_name,
         )
 
-        compiled_sdk = SdkCompiledModuleInfo(
-            name = uncompiled_sdk_module_info.name,
-            module_name = uncompiled_module_info_name,
+        compiled_sdk = SwiftCompiledModuleInfo(
+            input_relative_path = expanded_swiftinterface_cmd,
             is_framework = uncompiled_sdk_module_info.is_framework,
             is_swiftmodule = True,
+            module_name = uncompiled_module_info_name,
             output_artifact = swiftmodule_output,
-            input_relative_path = expanded_swiftinterface_cmd,
         )
 
         return [

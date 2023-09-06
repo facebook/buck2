@@ -10,7 +10,7 @@
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "expand_relative_prefixed_sdk_path", "get_disable_pch_validation_flags")
 load(":apple_sdk_modules_utility.bzl", "SDKDepTSet", "get_compiled_sdk_deps_tset")
-load(":swift_toolchain_types.bzl", "SdkCompiledModuleInfo", "SdkTransitiveDepsTset", "SdkUncompiledModuleInfo", "WrappedSdkCompiledModuleInfo")
+load(":swift_toolchain_types.bzl", "SdkTransitiveDepsTset", "SdkUncompiledModuleInfo", "SwiftCompiledModuleInfo", "WrappedSdkCompiledModuleInfo")
 
 def get_shared_pcm_compilation_args(module_name: str) -> cmd_args:
     cmd = cmd_args()
@@ -168,13 +168,12 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> ["promise", list[Pr
             unique_input_inodes = True,
         )
 
-        compiled_sdk = SdkCompiledModuleInfo(
-            name = uncompiled_sdk_module_info.name,
-            module_name = module_name,
-            is_framework = uncompiled_sdk_module_info.is_framework,
-            output_artifact = pcm_output,
-            is_swiftmodule = False,
+        compiled_sdk = SwiftCompiledModuleInfo(
             input_relative_path = expanded_modulemap_path_cmd,
+            is_framework = uncompiled_sdk_module_info.is_framework,
+            is_swiftmodule = False,
+            module_name = module_name,
+            output_artifact = pcm_output,
         )
 
         return [
