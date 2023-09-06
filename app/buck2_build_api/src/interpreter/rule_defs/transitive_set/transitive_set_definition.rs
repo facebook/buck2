@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::cell::RefCell;
 use std::fmt;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -20,6 +19,7 @@ use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::paths::path::StarlarkPath;
 use derive_more::Display;
 use dupe::Dupe;
+use once_cell::unsync;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
@@ -86,11 +86,16 @@ struct TransitiveSetId {
     name: String,
 }
 
-#[derive(Debug, ProvidesStaticType, Allocative, Trace)]
-pub struct TransitiveSetDefinition<'v> {
+#[derive(Debug, Allocative)]
+struct TransitiveSetDefinitionExported {
     /// The name of this transitive set. This is filed in by `export_as` when it's assigned to a
     /// top-level variable. This must be set before this is used.
-    id: RefCell<Option<Arc<TransitiveSetId>>>,
+    id: Arc<TransitiveSetId>,
+}
+
+#[derive(Debug, ProvidesStaticType, Allocative, Trace)]
+pub struct TransitiveSetDefinition<'v> {
+    exported: unsync::OnceCell<TransitiveSetDefinitionExported>,
 
     /// The module id where this `TransitiveSetDefinition` is created and assigned
     module_id: ImportPath,
@@ -158,12 +163,11 @@ impl<V> TransitiveSetOperationsGen<V> {
 
 impl<'v> Display for TransitiveSetDefinition<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.id.try_borrow() {
-            Ok(val) => match val.as_deref() {
-                Some(id) => write!(f, "{}", id),
-                None => write!(f, "unnamed transitive set"),
-            },
-            Err(..) => write!(f, "borrowed transitive set"),
+        match self.exported.get() {
+            Some(exported) => {
+                write!(f, "{}", exported.id)
+            }
+            None => write!(f, "unnamed transitive set"),
         }
     }
 }
@@ -180,14 +184,14 @@ impl<'v> Serialize for TransitiveSetDefinition<'v> {
 impl<'v> TransitiveSetDefinition<'v> {
     fn new(module_id: ImportPath, operations: TransitiveSetOperations<'v>) -> Self {
         Self {
-            id: RefCell::new(None),
+            exported: unsync::OnceCell::new(),
             module_id,
             operations,
         }
     }
 
     pub fn has_id(&self) -> bool {
-        self.id.borrow().is_some()
+        self.exported.get().is_some()
     }
 }
 
@@ -203,14 +207,13 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
 
     fn export_as(&self, variable_name: &str, _: &mut Evaluator<'v, '_>) -> anyhow::Result<()> {
         // First export wins
-        let mut id = self.id.borrow_mut();
-        if id.is_none() {
-            let new_id = Arc::new(TransitiveSetId {
+        self.exported.get_or_try_init(|| {
+            let id = Arc::new(TransitiveSetId {
                 module_id: self.module_id.clone(),
                 name: variable_name.to_owned(),
             });
-            *id = Some(new_id.dupe());
-        }
+            anyhow::Ok(TransitiveSetDefinitionExported { id })
+        })?;
         Ok(())
     }
 
@@ -224,10 +227,12 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
 
     fn get_attr(&self, attribute: &str, heap: &'v Heap) -> Option<Value<'v>> {
         if attribute == "type" {
-            let id = self.id.borrow();
-            let typ = id
-                .as_ref()
-                .map_or("transitive_set_definition", |id| id.name.as_str());
+            let typ = self
+                .exported
+                .get()
+                .map_or("transitive_set_definition", |exported| {
+                    exported.id.name.as_str()
+                });
             Some(heap.alloc(typ))
         } else {
             None
@@ -235,11 +240,11 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
-        let id = self.id.borrow();
-        let id = id
-            .as_deref()
+        let exported = self
+            .exported
+            .get()
             .context("cannot hash a transitive_set_definition without id")?;
-        id.hash(hasher);
+        exported.id.hash(hasher);
         Ok(())
     }
 
@@ -247,11 +252,9 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
 }
 
 #[derive(Display, ProvidesStaticType, Allocative)]
-#[display(fmt = "{}", id)]
+#[display(fmt = "{}", "exported.id")]
 pub struct FrozenTransitiveSetDefinition {
-    /// The name of this transitive set. This is filed in by `export_as` when it's assigned to a
-    /// top-level variable. This must be set before this is used.
-    id: Arc<TransitiveSetId>,
+    exported: TransitiveSetDefinitionExported,
 
     operations: TransitiveSetOperationsGen<FrozenValue>,
 }
@@ -261,7 +264,7 @@ impl fmt::Debug for FrozenTransitiveSetDefinition {
         write!(
             f,
             "TransitiveSetDefinition({} declared in {})",
-            self.id.name, self.id.module_id
+            self.exported.id.name, self.exported.id.module_id
         )
     }
 }
@@ -287,7 +290,7 @@ impl<'v> StarlarkValue<'v> for FrozenTransitiveSetDefinition {
 
     fn get_attr(&self, attribute: &str, heap: &'v Heap) -> Option<Value<'v>> {
         if attribute == "type" {
-            let typ = self.id.name.as_str();
+            let typ = self.exported.id.name.as_str();
             Some(heap.alloc(typ))
         } else {
             None
@@ -295,7 +298,7 @@ impl<'v> StarlarkValue<'v> for FrozenTransitiveSetDefinition {
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
-        self.id.hash(hasher);
+        self.exported.id.hash(hasher);
         Ok(())
     }
 }
@@ -307,12 +310,12 @@ impl<'v> Freeze for TransitiveSetDefinition<'v> {
 
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         let Self {
-            id,
+            exported,
             module_id: _,
             operations,
         } = self;
 
-        let id = match id.into_inner() {
+        let exported = match exported.into_inner() {
             Some(x) => x,
             None => {
                 // Unfortunately we have no name or location for the definition at this point.
@@ -322,7 +325,10 @@ impl<'v> Freeze for TransitiveSetDefinition<'v> {
 
         let operations = operations.freeze(freezer)?;
 
-        Ok(FrozenTransitiveSetDefinition { id, operations })
+        Ok(FrozenTransitiveSetDefinition {
+            exported,
+            operations,
+        })
     }
 }
 
@@ -358,7 +364,10 @@ impl<'v> TransitiveSetDefinitionLike<'v> for TransitiveSetDefinition<'v> {
     }
 
     fn matches_type(&self, ty: &str) -> bool {
-        self.id.borrow().as_ref().map_or(false, |id| id.name == ty)
+        self.exported
+            .get()
+            .as_ref()
+            .map_or(false, |exported| exported.id.name == ty)
     }
 
     fn operations(&self) -> &TransitiveSetOperations<'v> {
@@ -376,7 +385,7 @@ impl<'v> TransitiveSetDefinitionLike<'v> for FrozenTransitiveSetDefinition {
     }
 
     fn matches_type(&self, ty: &str) -> bool {
-        self.id.name == ty
+        self.exported.id.name == ty
     }
 
     fn operations(&self) -> &TransitiveSetOperations<'v> {
