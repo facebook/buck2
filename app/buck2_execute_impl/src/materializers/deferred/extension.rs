@@ -40,6 +40,7 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::materializers::deferred::clean_stale::CleanStaleArtifacts;
 use crate::materializers::deferred::io_handler::create_ttl_refresh;
+use crate::materializers::deferred::io_handler::IoHandler;
 use crate::materializers::deferred::subscriptions::MaterializerSubscriptionOperation;
 use crate::materializers::deferred::ArtifactMaterializationMethod;
 use crate::materializers::deferred::ArtifactMaterializationStage;
@@ -158,7 +159,7 @@ impl ExtensionCommand<DefaultIoHandler> for Fsck {
             // actual things are in flight.
 
             let path = ProjectRelativePathBuf::from(path);
-            let res = fs_util::symlink_metadata(processor.io.fs.resolve(&path));
+            let res = fs_util::symlink_metadata(processor.io.fs().resolve(&path));
             match res {
                 Ok(..) => {}
                 Err(e) => {
@@ -183,9 +184,9 @@ impl ExtensionCommand<DefaultIoHandler> for RefreshTtls {
     ) {
         let task = create_ttl_refresh(
             &processor.tree,
-            &processor.io.re_client_manager,
+            processor.io.re_client_manager(),
             Duration::seconds(self.min_ttl),
-            processor.digest_config,
+            processor.io.digest_config(),
         )
         .map(|f| processor.rt.spawn(f));
         let _ignored = self.sender.send(task);

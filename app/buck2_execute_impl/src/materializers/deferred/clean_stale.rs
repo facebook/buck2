@@ -21,7 +21,6 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
 use buck2_events::dispatch::EventDispatcher;
-use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use chrono::DateTime;
 use chrono::Utc;
@@ -35,6 +34,7 @@ use tokio::sync::oneshot::Sender;
 use tracing::error;
 
 use crate::materializers::deferred::extension::ExtensionCommand;
+use crate::materializers::deferred::io_handler::IoHandler;
 use crate::materializers::deferred::join_all_existing_futs;
 use crate::materializers::deferred::ArtifactMaterializationData;
 use crate::materializers::deferred::ArtifactMaterializationStage;
@@ -87,7 +87,6 @@ impl ExtensionCommand<DefaultIoHandler> for CleanStaleArtifacts {
                     self.tracked_only,
                     sqlite_db,
                     &processor.io,
-                    processor.digest_config,
                     processor.cancellations,
                     &self.dispatcher,
                 )
@@ -122,7 +121,6 @@ fn gather_clean_futures_for_stale_artifacts(
     tracked_only: bool,
     sqlite_db: &mut MaterializerStateSqliteDb,
     io: &Arc<DefaultIoHandler>,
-    digest: DigestConfig,
     cancellations: &'static CancellationContext,
     dispatcher: &EventDispatcher,
 ) -> anyhow::Result<(
@@ -130,9 +128,9 @@ fn gather_clean_futures_for_stale_artifacts(
     buck2_cli_proto::CleanStaleResponse,
 )> {
     let gen_path = io
-        .buck_out_path
+        .buck_out_path()
         .join(ProjectRelativePathBuf::unchecked_new("gen".to_owned()));
-    let gen_dir = io.fs.resolve(&gen_path);
+    let gen_dir = io.fs().resolve(&gen_path);
     if !fs_util::try_exists(&gen_dir)? {
         return skip_clean_response_with_message("Nothing to clean");
     }
@@ -160,7 +158,7 @@ fn gather_clean_futures_for_stale_artifacts(
         };
 
         StaleFinder {
-            fs: &io.fs,
+            fs: io.fs(),
             dispatcher,
             keep_since_time,
             stats: &mut stats,
@@ -174,7 +172,9 @@ fn gather_clean_futures_for_stale_artifacts(
     if stats.stale_artifact_count + stats.retained_artifact_count == 0 {
         // Just need to know if any entries exist, could be a simpler query.
         // Checking the db directly in case tree is somehow not in sync.
-        let materializer_state = sqlite_db.materializer_state_table().read_all(digest)?;
+        let materializer_state = sqlite_db
+            .materializer_state_table()
+            .read_all(io.digest_config())?;
 
         // Entries in the db should have been found in buck-out, return error and skip cleaning untracked artifacts.
         if !materializer_state.is_empty() {
@@ -207,7 +207,7 @@ fn gather_clean_futures_for_stale_artifacts(
             // Then actually delete them. Note that we kick off one CleanOutputPaths per path. We
             // do this to get parallelism.
             futures::future::try_join_all(paths_to_remove.into_iter().map(|path| {
-                io.io_executor.execute_io(
+                io.io_executor().execute_io(
                     Box::new(CleanOutputPaths { paths: vec![path] }),
                     cancellations,
                 )

@@ -68,14 +68,14 @@ use crate::materializers::io::materialize_files;
 use crate::materializers::io::MaterializeTreeStructure;
 
 #[derive(Allocative)]
-pub(super) struct DefaultIoHandler {
-    pub(super) fs: ProjectRoot,
-    pub(super) digest_config: DigestConfig,
-    pub(super) buck_out_path: ProjectRelativePathBuf,
-    pub(super) re_client_manager: Arc<ReConnectionManager>,
+pub struct DefaultIoHandler {
+    fs: ProjectRoot,
+    digest_config: DigestConfig,
+    buck_out_path: ProjectRelativePathBuf,
+    re_client_manager: Arc<ReConnectionManager>,
     /// Executor for blocking IO operations
-    pub(super) io_executor: Arc<dyn BlockingExecutor>,
-    pub(super) http_client: HttpClient,
+    io_executor: Arc<dyn BlockingExecutor>,
+    http_client: HttpClient,
 }
 
 struct MaterializationStat {
@@ -84,7 +84,7 @@ struct MaterializationStat {
 }
 
 #[async_trait]
-pub(super) trait IoHandler: Sized + Sync + Send + 'static {
+pub(crate) trait IoHandler: Sized + Sync + Send + 'static {
     fn write<'a>(
         self: &Arc<Self>,
         path: ProjectRelativePathBuf,
@@ -115,11 +115,33 @@ pub(super) trait IoHandler: Sized + Sync + Send + 'static {
         self: &Arc<Self>,
         tree: &ArtifactTree,
         min_ttl: Duration,
-        digest_config: DigestConfig,
     ) -> Option<BoxFuture<'static, anyhow::Result<()>>>;
+
+    fn buck_out_path(&self) -> &ProjectRelativePathBuf;
+    fn io_executor(&self) -> &dyn BlockingExecutor;
+    fn re_client_manager(&self) -> &Arc<ReConnectionManager>;
+    fn fs(&self) -> &ProjectRoot;
+    fn digest_config(&self) -> DigestConfig;
 }
 
 impl DefaultIoHandler {
+    pub fn new(
+        fs: ProjectRoot,
+        digest_config: DigestConfig,
+        buck_out_path: ProjectRelativePathBuf,
+        re_client_manager: Arc<ReConnectionManager>,
+        io_executor: Arc<dyn BlockingExecutor>,
+        http_client: HttpClient,
+    ) -> Self {
+        Self {
+            fs,
+            digest_config,
+            buck_out_path,
+            re_client_manager,
+            io_executor,
+            http_client,
+        }
+    }
     /// Materializes an `entry` at `path`, using the materialization `method`
     #[instrument(level = "debug", skip(self, stat, cancellations), fields(path = %path, method = %method, entry = %entry))]
     async fn materialize_entry_span(
@@ -367,9 +389,29 @@ impl IoHandler for DefaultIoHandler {
         self: &Arc<Self>,
         tree: &ArtifactTree,
         min_ttl: Duration,
-        digest_config: DigestConfig,
     ) -> Option<BoxFuture<'static, anyhow::Result<()>>> {
-        create_ttl_refresh(tree, &self.re_client_manager, min_ttl, digest_config).map(|f| f.boxed())
+        create_ttl_refresh(tree, &self.re_client_manager, min_ttl, self.digest_config)
+            .map(|f| f.boxed())
+    }
+
+    fn buck_out_path(&self) -> &ProjectRelativePathBuf {
+        &self.buck_out_path
+    }
+
+    fn io_executor(&self) -> &dyn BlockingExecutor {
+        self.io_executor.as_ref()
+    }
+
+    fn re_client_manager(&self) -> &Arc<ReConnectionManager> {
+        &self.re_client_manager
+    }
+
+    fn fs(&self) -> &ProjectRoot {
+        &self.fs
+    }
+
+    fn digest_config(&self) -> DigestConfig {
+        self.digest_config
     }
 }
 

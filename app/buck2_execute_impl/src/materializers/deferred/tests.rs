@@ -104,12 +104,12 @@ mod state_machine {
         Materialize,
     }
 
-    #[derive(Default)]
     struct StubIoHandler {
         log: Mutex<Vec<(Op, ProjectRelativePathBuf)>>,
         fail: Mutex<bool>,
         // If set, add a sleep when materializing to simulate a long materialization period
         materialization_config: HashMap<ProjectRelativePathBuf, TokioDuration>,
+        digest_config: DigestConfig,
     }
 
     impl StubIoHandler {
@@ -126,6 +126,7 @@ mod state_machine {
                 log: Default::default(),
                 fail: Default::default(),
                 materialization_config,
+                digest_config: DigestConfig::testing_default(),
             }
         }
     }
@@ -193,9 +194,28 @@ mod state_machine {
             self: &Arc<Self>,
             _tree: &ArtifactTree,
             _min_ttl: Duration,
-            _digest_config: DigestConfig,
         ) -> Option<BoxFuture<'static, anyhow::Result<()>>> {
             unimplemented!()
+        }
+
+        fn buck_out_path(&self) -> &ProjectRelativePathBuf {
+            unimplemented!()
+        }
+
+        fn io_executor(&self) -> &dyn BlockingExecutor {
+            unimplemented!()
+        }
+
+        fn re_client_manager(&self) -> &Arc<ReConnectionManager> {
+            unimplemented!()
+        }
+
+        fn fs(&self) -> &ProjectRoot {
+            unimplemented!()
+        }
+
+        fn digest_config(&self) -> DigestConfig {
+            self.digest_config
         }
     }
 
@@ -234,7 +254,6 @@ mod state_machine {
     }
 
     fn make_processor(
-        digest_config: DigestConfig,
         materialization_config: HashMap<ProjectRelativePathBuf, TokioDuration>,
     ) -> (
         DeferredMaterializerCommandProcessor<StubIoHandler>,
@@ -249,7 +268,6 @@ mod state_machine {
                 rt: Handle::current(),
                 defer_write_actions: true,
                 log_buffer: LogBuffer::new(1),
-                digest_config,
                 version_tracker: VersionTracker::new(),
                 command_sender,
                 tree: ArtifactTree::new(),
@@ -266,9 +284,8 @@ mod state_machine {
 
     #[tokio::test]
     async fn test_declare_reuse() -> anyhow::Result<()> {
-        let digest_config = DigestConfig::testing_default();
-
-        let (mut dm, _) = make_processor(digest_config, Default::default());
+        let (mut dm, _) = make_processor(Default::default());
+        let digest_config = dm.io.digest_config();
 
         let path = make_path("foo/bar");
         let value = ArtifactValue::file(digest_config.empty_file());
@@ -339,8 +356,6 @@ mod state_machine {
 
     #[tokio::test]
     async fn test_materialize_symlink_and_target() -> anyhow::Result<()> {
-        let digest_config = DigestConfig::testing_default();
-
         // Construct a tree with a symlink and its target, materialize both at once
         let symlink_path = make_path("foo/bar_symlink");
         let target_path = make_path("foo/bar_target");
@@ -351,7 +366,8 @@ mod state_machine {
         // await for symlink targets and the entry materialization
         materialization_config.insert(target_path.clone(), TokioDuration::from_millis(100));
 
-        let (mut dm, _) = make_processor(digest_config, materialization_config);
+        let (mut dm, _) = make_processor(materialization_config);
+        let digest_config = dm.io.digest_config();
 
         // Declare symlink target
         dm.declare(
@@ -402,8 +418,6 @@ mod state_machine {
 
     #[tokio::test]
     async fn test_materialize_symlink_first_then_target() -> anyhow::Result<()> {
-        let digest_config = DigestConfig::testing_default();
-
         // Materialize a symlink, then materialize the target. Test that we still
         // materialize deps if the main artifact has already been materialized.
         let symlink_path = make_path("foo/bar_symlink");
@@ -415,7 +429,8 @@ mod state_machine {
         // await for symlink targets and the entry materialization
         materialization_config.insert(target_path.clone(), TokioDuration::from_millis(100));
 
-        let (mut dm, _) = make_processor(digest_config, materialization_config);
+        let (mut dm, _) = make_processor(materialization_config);
+        let digest_config = dm.io.digest_config();
 
         // Declare symlink
         let symlink_value = make_artifact_value_with_symlink_dep(
@@ -472,9 +487,7 @@ mod state_machine {
 
     #[tokio::test]
     async fn test_subscription_create_destroy() {
-        let digest_config = DigestConfig::testing_default();
-
-        let (mut dm, mut channel) = make_processor(digest_config, Default::default());
+        let (mut dm, mut channel) = make_processor(Default::default());
 
         let handle = {
             let (sender, recv) = oneshot::channel();
@@ -495,10 +508,9 @@ mod state_machine {
 
     #[tokio::test]
     async fn test_subscription_notifications() {
-        let digest_config = DigestConfig::testing_default();
+        let (mut dm, mut channel) = make_processor(Default::default());
+        let digest_config = dm.io.digest_config();
         let value = ArtifactValue::file(digest_config.empty_file());
-
-        let (mut dm, mut channel) = make_processor(digest_config, Default::default());
 
         let mut handle = {
             let (sender, recv) = oneshot::channel();
@@ -532,11 +544,10 @@ mod state_machine {
 
     #[tokio::test]
     async fn test_subscription_unsubscribe() {
-        let digest_config = DigestConfig::testing_default();
+        let (mut dm, mut channel) = make_processor(Default::default());
+        let digest_config = dm.io.digest_config();
         let value1 = ArtifactValue::file(digest_config.empty_file());
         let value2 = ArtifactValue::dir(digest_config.empty_directory());
-
-        let (mut dm, mut channel) = make_processor(digest_config, Default::default());
 
         let mut handle = {
             let (sender, recv) = oneshot::channel();
@@ -571,9 +582,8 @@ mod state_machine {
 
     #[tokio::test]
     async fn test_invalidate_error() -> anyhow::Result<()> {
-        let digest_config = DigestConfig::testing_default();
-
-        let (mut dm, _) = make_processor(digest_config, Default::default());
+        let (mut dm, _) = make_processor(Default::default());
+        let digest_config = dm.io.digest_config();
 
         let path = make_path("test/invalidate/failure");
         let value1 = ArtifactValue::file(digest_config.empty_file());
@@ -604,9 +614,8 @@ mod state_machine {
 
     #[tokio::test]
     async fn test_retry() -> anyhow::Result<()> {
-        let digest_config = DigestConfig::testing_default();
-
-        let (mut dm, mut channel) = make_processor(digest_config, Default::default());
+        let (mut dm, mut channel) = make_processor(Default::default());
+        let digest_config = dm.io.digest_config();
 
         let path = make_path("test");
         let value1 = ArtifactValue::file(digest_config.empty_file());

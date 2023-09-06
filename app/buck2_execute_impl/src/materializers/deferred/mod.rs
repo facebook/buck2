@@ -212,7 +212,7 @@ impl MaterializerCounters {
 // because the materializer lives for the lifetime of the process anyway, so there's no value in
 // refcounting any of this (though we make many copies of it).
 #[derive(Clone_)]
-struct MaterializerSender<T: 'static> {
+pub struct MaterializerSender<T: 'static> {
     /// High priority commands are processed in order.
     high_priority: Cow<'static, mpsc::UnboundedSender<MaterializerCommand<T>>>,
     /// Low priority commands are processed in order relative to each other, but high priority
@@ -252,7 +252,6 @@ struct MaterializerReceiver<T: 'static> {
 
 struct DeferredMaterializerCommandProcessor<T: 'static> {
     io: Arc<T>,
-    digest_config: DigestConfig,
     sqlite_db: Option<MaterializerStateSqliteDb>,
     /// The runtime the deferred materializer will spawn futures on. This is normally the runtime
     /// used by the rest of Buck.
@@ -286,7 +285,7 @@ struct TtlRefreshHistoryEntry {
 // NOTE: This doesn't derive `Error` and that's on purpose.  We don't want to make it easy (or
 // possible, in fact) to add  `context` to this SharedProcessingError and lose the variant.
 #[derive(Debug, Clone, Dupe)]
-enum SharedMaterializingError {
+pub enum SharedMaterializingError {
     Error(SharedError),
     NotFound {
         info: Arc<CasDownloadInfo>,
@@ -295,7 +294,7 @@ enum SharedMaterializingError {
 }
 
 #[derive(Error, Debug)]
-enum MaterializeEntryError {
+pub enum MaterializeEntryError {
     #[error(transparent)]
     Error(#[from] anyhow::Error),
 
@@ -438,7 +437,7 @@ type ArtifactTree = FileTree<Box<ArtifactMaterializationData>>;
 /// The Version of a processing future associated with an artifact. We use this to know if we can
 /// clear the processing field when a callback is received, or if more work is expected.
 #[derive(Eq, PartialEq, Copy, Clone, Dupe, Debug, Ord, PartialOrd, Display)]
-struct Version(u64);
+pub struct Version(u64);
 
 #[derive(Debug)]
 struct VersionTracker(Version);
@@ -589,7 +588,7 @@ enum ArtifactMaterializationStage {
 /// Different ways to materialize the files of an artifact. Some artifacts need
 /// to be fetched from the CAS, others copied locally.
 #[derive(Debug, Display)]
-enum ArtifactMaterializationMethod {
+pub enum ArtifactMaterializationMethod {
     /// The files must be copied from a local path.
     ///
     /// The first argument is a map `[dest => src]`, meaning that a file at
@@ -739,9 +738,9 @@ impl Materializer for DeferredMaterializer {
     ) -> anyhow::Result<Vec<ArtifactValue>> {
         if !self.defer_write_actions {
             return immediate::write_to_disk(
-                &self.io.fs,
-                self.io.io_executor.as_ref(),
-                self.io.digest_config,
+                self.io.fs(),
+                self.io.io_executor(),
+                self.io.digest_config(),
                 gen,
             )
             .await;
@@ -761,7 +760,7 @@ impl Materializer for DeferredMaterializer {
         {
             let digest = TrackedFileDigest::from_content(
                 &content,
-                self.io.digest_config.cas_digest_config(),
+                self.io.digest_config().cas_digest_config(),
             );
 
             let meta = FileMetadata {
@@ -946,14 +945,14 @@ impl DeferredMaterializer {
             }
         }
 
-        let io = Arc::new(DefaultIoHandler {
+        let io = Arc::new(DefaultIoHandler::new(
             fs,
             digest_config,
             buck_out_path,
             re_client_manager,
             io_executor,
             http_client,
-        });
+        ));
 
         let command_processor = {
             let command_sender = command_sender.dupe();
@@ -962,7 +961,6 @@ impl DeferredMaterializer {
             let io = io.dupe();
             move |cancellations| DeferredMaterializerCommandProcessor {
                 io,
-                digest_config,
                 sqlite_db,
                 rt,
                 defer_write_actions: configs.defer_write_actions,
@@ -1147,7 +1145,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     if self.ttl_refresh_instance.is_none() {
                         let ttl_refresh = self
                             .io
-                            .create_ttl_refresh(&self.tree, ttl_refresh.min_ttl, self.digest_config)
+                            .create_ttl_refresh(&self.tree, ttl_refresh.min_ttl)
                             .map(|fut| {
                                 // We sue a channel here and not JoinHandle so we get blocking
                                 // `try_recv`.
@@ -1185,7 +1183,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             // Entry point for `get_materialized_file_paths` calls
             MaterializerCommand::GetMaterializedFilePaths(paths, result_sender) => {
                 let result =
-                    paths.into_map(|p| self.tree.file_contents_path(p, self.digest_config));
+                    paths.into_map(|p| self.tree.file_contents_path(p, self.io.digest_config()));
                 result_sender.send(result).ok();
             }
             MaterializerCommand::DeclareExisting(artifacts, ..) => {
