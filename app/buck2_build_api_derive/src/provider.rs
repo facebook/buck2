@@ -272,30 +272,23 @@ impl ProviderCodegen {
     }
 
     fn builtin_provider_ty(&self) -> syn::Result<syn::Item> {
-        let creator_func = &self.args.creator_func;
         let gen_name = &self.input.ident;
         let callable_name = self.callable_name()?;
         Ok(syn::parse_quote_spanned! { self.span =>
-            static BUILTIN_PROVIDER_TY: once_cell::sync::Lazy<
-                crate::interpreter::rule_defs::provider::builtin::ty::BuiltinProviderTy> =
-                    once_cell::sync::Lazy::new(
-            || {
-                crate::interpreter::rule_defs::provider::builtin::ty::BuiltinProviderTy::new::<
-                        #gen_name<starlark::values::Value>,
-                        #callable_name,
-                    >
-                (
-                    #creator_func
-                )
-            });
+            static BUILTIN_PROVIDER_TY: crate::interpreter::rule_defs::provider::builtin::ty::BuiltinProviderTy<
+                    #gen_name<starlark::values::Value>,
+                    #callable_name,
+            > =
+                crate::interpreter::rule_defs::provider::builtin::ty::BuiltinProviderTy::new();
         })
     }
 
     fn typechecker_ty_function(&self) -> syn::Result<syn::Item> {
+        let creator_func = &self.args.creator_func;
         Ok(syn::parse_quote_spanned! {
             self.span=>
             fn typechecker_ty(&self) -> Option<starlark::typing::Ty> {
-                Some(BUILTIN_PROVIDER_TY.callable())
+                Some(BUILTIN_PROVIDER_TY.callable(#creator_func))
             }
         })
     }
@@ -367,6 +360,10 @@ impl ProviderCodegen {
                             }
                         )*
                         Ok(true)
+                    }
+
+                    fn get_type_starlark_repr() -> starlark::typing::Ty {
+                        BUILTIN_PROVIDER_TY.instance()
                     }
 
                     // TODO(cjhopman): UserProvider implements more of the starlark functions. We should probably match them.

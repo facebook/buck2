@@ -7,8 +7,11 @@
  * of this source tree.
  */
 
+use std::marker::PhantomData;
+
 use buck2_interpreter::types::provider::callable::ProviderCallableLike;
 use dupe::Dupe;
+use once_cell::sync::OnceCell;
 use starlark::environment::GlobalsBuilder;
 use starlark::typing::Ty;
 use starlark::typing::TyStarlarkValue;
@@ -22,38 +25,54 @@ use crate::interpreter::rule_defs::provider::ty::provider_callable::ty_provider_
 use crate::interpreter::rule_defs::provider::ProviderLike;
 
 /// Types associated with builtin providers.
-pub(crate) struct BuiltinProviderTy {
-    callable: Ty,
-    instance: Ty,
+pub(crate) struct BuiltinProviderTy<
+    'v,
+    P: StarlarkValue<'v> + ProviderLike<'v>,
+    C: StarlarkValue<'v> + ProviderCallableLike,
+> {
+    callable: OnceCell<Ty>,
+    instance: OnceCell<Ty>,
+    phantom: PhantomData<&'v (P, C)>,
 }
 
-impl BuiltinProviderTy {
-    pub(crate) fn new<
-        'v,
-        P: StarlarkValue<'v> + ProviderLike<'v>,
-        C: StarlarkValue<'v> + ProviderCallableLike,
-    >(
-        creator_func: for<'a> fn(&'a mut GlobalsBuilder),
-    ) -> BuiltinProviderTy {
+unsafe impl<
+    'v,
+    P: StarlarkValue<'v> + ProviderLike<'v>,
+    C: StarlarkValue<'v> + ProviderCallableLike,
+> Sync for BuiltinProviderTy<'v, P, C>
+{
+}
+
+impl<'v, P: StarlarkValue<'v> + ProviderLike<'v>, C: StarlarkValue<'v> + ProviderCallableLike>
+    BuiltinProviderTy<'v, P, C>
+{
+    pub(crate) const fn new() -> BuiltinProviderTy<'v, P, C> {
         BuiltinProviderTy {
-            instance: ty_provider(
-                P::TYPE,
-                TypeInstanceId::gen(),
-                TyStarlarkValue::new::<P>(),
-                None,
-                SortedMap::new(),
-            )
-            .unwrap(),
-            callable: builtin_provider_typechecker_ty::<C>(creator_func),
+            callable: OnceCell::new(),
+            instance: OnceCell::new(),
+            phantom: PhantomData,
         }
     }
 
-    pub(crate) fn callable(&self) -> Ty {
-        self.callable.dupe()
+    pub(crate) fn callable(&self, creator_func: for<'a> fn(&'a mut GlobalsBuilder)) -> Ty {
+        self.callable
+            .get_or_init(|| builtin_provider_typechecker_ty::<C>(creator_func))
+            .dupe()
     }
 
     pub(crate) fn instance(&self) -> Ty {
-        self.instance.dupe()
+        self.instance
+            .get_or_init(|| {
+                ty_provider(
+                    P::TYPE,
+                    TypeInstanceId::gen(),
+                    TyStarlarkValue::new::<P>(),
+                    None,
+                    SortedMap::new(),
+                )
+                .unwrap()
+            })
+            .dupe()
     }
 }
 
