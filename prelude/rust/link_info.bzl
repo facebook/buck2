@@ -348,12 +348,20 @@ def inherited_non_rust_link_group_info(
     )
     linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
 
+    executable_deps = []
+    for d in link_deps:
+        if d.label in linkable_graph_node_map:
+            executable_deps.append(d.label)
+        else:
+            # handle labels that are mutated by version alias
+            executable_deps.append(d.get(LinkableGraph).nodes.value.label)
+
     linked_link_groups = create_link_groups(
         ctx = ctx,
         link_groups = link_groups,
         link_group_mappings = link_group_mappings,
         link_group_preferred_linkage = link_group_preferred_linkage,
-        executable_deps = [dep.label for dep in link_deps if dep.label in linkable_graph_node_map],
+        executable_deps = executable_deps,
         linker_flags = [],
         link_group_specs = auto_link_group_specs,
         root_link_group = link_group,
@@ -371,11 +379,6 @@ def inherited_non_rust_link_group_info(
         if linked_link_group.library != None:
             link_group_libs[name] = linked_link_group.library
 
-    # Some third-party dependencies are stored in the linkable_graph_node_map as
-    # third-party-buck, but the non_rust_link_deps contain the unresolved third-party
-    # path. Filter out the unresolved paths from the roots to avoid traversal error.
-    filtered_roots = [d.label for d in link_deps if d.label in linkable_graph_node_map]
-
     labels_to_links_map = get_filtered_labels_to_links_map(
         linkable_graph_node_map,
         link_group,
@@ -388,7 +391,7 @@ def inherited_non_rust_link_group_info(
             for name, lib in link_group_libs.items()
         },
         link_style = link_style,
-        roots = filtered_roots,
+        roots = executable_deps,
         is_executable_link = True,
         prefer_stripped = False,
         force_static_follows_dependents = True,
