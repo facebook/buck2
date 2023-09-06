@@ -301,6 +301,7 @@ where
             let ty_record = Ty::custom(TyUser::new(
                 variable_name.to_owned(),
                 TyStarlarkValue::new::<Record>(),
+                Vec::new(),
                 Some(TypeMatcherFactory::new(RecordTypeMatcher { id: self.id })),
                 self.id,
                 TyUserFields {
@@ -315,6 +316,7 @@ where
             let ty_record_type = Ty::custom(TyUser::new(
                 format!("record[{}]", variable_name),
                 TyStarlarkValue::new::<RecordType>(),
+                Vec::new(),
                 None,
                 TypeInstanceId::gen(),
                 TyUserFields::no_fields(),

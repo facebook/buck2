@@ -98,6 +98,8 @@ pub struct TyUser {
     name: String,
     /// Base type for this custom type, e.g. generic record for record with known fields.
     base: TyStarlarkValue,
+    /// Super types for this type (`base` is included in this list implicitly).
+    supertypes: Vec<TyBasic>,
     matcher: Option<TypeMatcherFactory>,
     id: TypeInstanceId,
     fields: TyUserFields,
@@ -114,6 +116,7 @@ impl TyUser {
     pub fn new(
         name: String,
         base: TyStarlarkValue,
+        supertypes: Vec<TyBasic>,
         matcher: Option<TypeMatcherFactory>,
         id: TypeInstanceId,
         fields: TyUserFields,
@@ -139,6 +142,7 @@ impl TyUser {
         Ok(TyUser {
             name,
             base,
+            supertypes,
             matcher,
             id,
             fields,
@@ -243,5 +247,166 @@ impl TyCustomImpl for TyUser {
 
     fn intersects(x: &Self, y: &Self) -> bool {
         x == y
+    }
+
+    fn intersects_with(&self, other: &TyBasic) -> bool {
+        self.supertypes.iter().any(|x| x == other)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use allocative::Allocative;
+    use dupe::Dupe;
+    use starlark_derive::starlark_module;
+    use starlark_derive::starlark_value;
+    use starlark_derive::NoSerialize;
+    use starlark_derive::ProvidesStaticType;
+
+    use crate as starlark;
+    use crate::assert::Assert;
+    use crate::environment::GlobalsBuilder;
+    use crate::eval::Arguments;
+    use crate::eval::Evaluator;
+    use crate::typing::Ty;
+    use crate::typing::TyFunction;
+    use crate::typing::TyStarlarkValue;
+    use crate::typing::TyUser;
+    use crate::typing::TyUserFields;
+    use crate::values::starlark_value_as_type::StarlarkValueAsType;
+    use crate::values::typing::TypeInstanceId;
+    use crate::values::AllocValue;
+    use crate::values::Heap;
+    use crate::values::StarlarkValue;
+    use crate::values::Value;
+
+    #[derive(
+        Debug,
+        derive_more::Display,
+        ProvidesStaticType,
+        Allocative,
+        NoSerialize
+    )]
+    #[display(fmt = "plant")]
+    #[allocative(skip)] // TODO(nga): derive.
+    enum AbstractPlant {}
+
+    #[starlark_value(type = "plant")]
+    impl<'v> StarlarkValue<'v> for AbstractPlant {
+        fn get_type_starlark_repr() -> Ty {
+            Ty::starlark_value::<Self>()
+        }
+    }
+
+    #[derive(
+        Debug,
+        derive_more::Display,
+        ProvidesStaticType,
+        Allocative,
+        NoSerialize
+    )]
+    #[display(fmt = "fruit_callable")]
+    struct FruitCallable {
+        name: String,
+        ty_fruit_callable: Ty,
+        ty_fruit: Ty,
+    }
+
+    impl<'v> AllocValue<'v> for FruitCallable {
+        fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+            heap.alloc_simple(self)
+        }
+    }
+
+    #[starlark_value(type = "fruit_callable")]
+    impl<'v> StarlarkValue<'v> for FruitCallable {
+        fn get_type_starlark_repr() -> Ty {
+            Ty::starlark_value::<Self>()
+        }
+
+        fn typechecker_ty(&self) -> Option<Ty> {
+            Some(self.ty_fruit_callable.dupe())
+        }
+
+        fn eval_type(&self) -> Option<Ty> {
+            Some(self.ty_fruit.dupe())
+        }
+
+        fn invoke(
+            &self,
+            _me: Value<'v>,
+            _args: &Arguments<'v, '_>,
+            _eval: &mut Evaluator<'v, '_>,
+        ) -> anyhow::Result<Value<'v>> {
+            unreachable!("not needed in tests, but typechecker requires it")
+        }
+    }
+
+    #[derive(
+        Debug,
+        derive_more::Display,
+        ProvidesStaticType,
+        Allocative,
+        NoSerialize
+    )]
+    struct Fruit {
+        name: String,
+    }
+
+    #[starlark_value(type = "fruit")]
+    impl<'v> StarlarkValue<'v> for Fruit {}
+
+    #[starlark_module]
+    fn globals(globals: &mut GlobalsBuilder) {
+        fn fruit(name: String) -> anyhow::Result<FruitCallable> {
+            let ty_fruit = Ty::custom(TyUser::new(
+                name.clone(),
+                TyStarlarkValue::new::<Fruit>(),
+                AbstractPlant::get_type_starlark_repr()
+                    .iter_union()
+                    .to_vec(),
+                None,
+                TypeInstanceId::gen(),
+                TyUserFields::no_fields(),
+                None,
+                None,
+                None,
+            )?);
+            let ty_fruit_callable = Ty::custom(TyUser::new(
+                format!("fruit[{}]", name),
+                TyStarlarkValue::new::<FruitCallable>(),
+                Vec::new(),
+                None,
+                TypeInstanceId::gen(),
+                TyUserFields::no_fields(),
+                Some(TyFunction::new(vec![], ty_fruit.clone())),
+                None,
+                None,
+            )?);
+            Ok(FruitCallable {
+                name,
+                ty_fruit,
+                ty_fruit_callable,
+            })
+        }
+
+        const Plant: StarlarkValueAsType<AbstractPlant> = StarlarkValueAsType::new();
+    }
+
+    #[test]
+    fn test_intersect() {
+        let mut a = Assert::new();
+        a.globals_add(globals);
+        a.pass(
+            r#"
+Apple = fruit("apple")
+
+def make_apple() -> Apple:
+    return Apple()
+
+def make_plant() -> Plant:
+    return make_apple()
+"#,
+        );
     }
 }

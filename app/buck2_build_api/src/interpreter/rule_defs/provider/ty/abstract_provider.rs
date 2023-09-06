@@ -39,6 +39,7 @@ fn mk_ty_provider() -> anyhow::Result<Ty> {
         UserProvider::TYPE.to_owned(),
         // Builtin providers behave like `UserProvider`.
         TyStarlarkValue::new::<UserProvider>(),
+        Vec::new(),
         Some(TypeMatcherFactory::new(ProviderMatcher)),
         TypeInstanceId::gen(),
         TyUserFields::unknown(),

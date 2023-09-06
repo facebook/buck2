@@ -301,6 +301,7 @@ where
             let ty_enum_value = Ty::custom(TyUser::new(
                 variable_name.to_owned(),
                 TyStarlarkValue::new::<EnumValue>(),
+                Vec::new(),
                 Some(TypeMatcherFactory::new(EnumTypeMatcher { id: self.id })),
                 self.id,
                 TyUserFields::no_fields(),
@@ -311,6 +312,7 @@ where
             let ty_enum_type = Ty::custom(TyUser::new(
                 format!("enum[{}]", variable_name),
                 TyStarlarkValue::new::<EnumType>(),
+                Vec::new(),
                 None,
                 TypeInstanceId::gen(),
                 TyUserFields::no_fields(),
