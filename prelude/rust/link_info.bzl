@@ -79,6 +79,12 @@ FORCE_RLIB = True
 
 RustProcMacroPlugin = plugins.kind()
 
+# This provider is used for proc macros in those places where `RustLinkInfo` would typically be used
+# for libraries. It represents a proc macro in the dependency graph, and contains as a field the
+# `target_label` of that proc macro. The actual providers will always be accessed later through
+# `ctx.plugins`
+RustProcMacroMarker = provider(fields = ["label"])
+
 # Output of a Rust compilation
 RustLinkInfo = provider(fields = [
     # crate - crate name
@@ -105,6 +111,7 @@ RustLinkStyleInfo = record(
     rlib = field(Artifact),
     # Transitive dependencies which are relevant to the consumer. For crate types which do not
     # propagate their deps (specifically proc macros), this set is empty
+    # This does not include the proc macros, which are passed separately in `RustLinkInfo`
     transitive_deps = field(dict[Artifact, CrateName]),
 
     # Path for library metadata (used for check or pipelining)
@@ -112,6 +119,7 @@ RustLinkStyleInfo = record(
     # Transitive rmeta deps. This is the same dict as `transitive_deps`, except that it has the
     # rmeta and not the rlib artifact
     transitive_rmeta_deps = field(dict[Artifact, CrateName]),
+    transitive_proc_macro_deps = field(dict[RustProcMacroMarker, ()]),
 
     # Path to PDB file with Windows debug data.
     pdb = field([Artifact, None]),
@@ -144,6 +152,7 @@ RustDependency = record(
     label = field("label"),
     name = field([None, str]),
     flags = field(list[str]),
+    proc_macro_marker = field([None, RustProcMacroMarker]),
 )
 
 # Information about cxx link groups that rust depends on
@@ -215,16 +224,31 @@ def resolve_rust_deps(
         include_doc_deps: bool = False) -> list[RustDependency.type]:
     all_deps = resolve_deps(ctx, include_doc_deps)
     rust_deps = []
+    available_proc_macros = get_available_proc_macros(ctx)
     for dep in all_deps:
-        info = dep.dep.get(RustLinkInfo)
-        if info != None:
-            rust_deps.append(RustDependency(
-                info = info,
-                label = dep.dep.label,
-                name = dep.name,
-                flags = dep.flags,
-            ))
+        proc_macro_marker = dep.dep.get(RustProcMacroMarker)
+        if proc_macro_marker != None:
+            # Confusingly, this is not `proc_macro_marker.label`, since that has type
+            # `target_label`, but this wants a `label`
+            label = available_proc_macros[proc_macro_marker.label].label
+            info = available_proc_macros[proc_macro_marker.label][RustLinkInfo]
+        else:
+            label = dep.dep.label
+            info = dep.dep.get(RustLinkInfo)
+            if info == None:
+                continue
+
+        rust_deps.append(RustDependency(
+            info = info,
+            label = label,
+            name = dep.name,
+            flags = dep.flags,
+            proc_macro_marker = proc_macro_marker,
+        ))
     return rust_deps
+
+def get_available_proc_macros(ctx: AnalysisContext) -> dict[TargetLabel, Dependency]:
+    return {x.label.raw_target(): x for x in ctx.plugins[RustProcMacroPlugin]}
 
 def _non_rust_linkable_graph(
         ctx: AnalysisContext,

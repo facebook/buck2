@@ -89,6 +89,7 @@ load(
     "DEFAULT_STATIC_LINK_STYLE",
     "RustLinkInfo",
     "RustLinkStyleInfo",
+    "RustProcMacroMarker",  # @unused Used as a type
     "attr_crate",
     "inherited_external_debug_info",
     "inherited_non_rust_exported_link_deps",
@@ -116,7 +117,7 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     styles = {}
     for style in LinkStyle:
         dep_link_style = style
-        tdeps, tmetadeps, external_debug_info = _compute_transitive_deps(ctx, dep_link_style)
+        tdeps, tmetadeps, external_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_link_style)
         external_debug_info = make_artifact_tset(
             actions = ctx.actions,
             children = external_debug_info,
@@ -126,6 +127,7 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             transitive_deps = tdeps,
             rmeta = ctx.attrs.rlib,
             transitive_rmeta_deps = tmetadeps,
+            transitive_proc_macro_deps = tprocmacrodeps,
             pdb = None,
             external_debug_info = external_debug_info,
         )
@@ -401,9 +403,9 @@ def _handle_rust_artifact(
     # If we're a crate where our consumers should care about transitive deps,
     # then compute them (specifically, not proc-macro).
     if crate_type_transitive_deps(params.crate_type):
-        tdeps, tmetadeps, external_debug_info = _compute_transitive_deps(ctx, dep_link_style)
+        tdeps, tmetadeps, external_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_link_style)
     else:
-        tdeps, tmetadeps, external_debug_info = {}, {}, []
+        tdeps, tmetadeps, external_debug_info, tprocmacrodeps = {}, {}, [], {}
 
     if not ctx.attrs.proc_macro:
         external_debug_info = make_artifact_tset(
@@ -417,6 +419,7 @@ def _handle_rust_artifact(
             transitive_deps = tdeps,
             rmeta = meta.output,
             transitive_rmeta_deps = tmetadeps,
+            transitive_proc_macro_deps = tprocmacrodeps,
             pdb = link.pdb,
             external_debug_info = external_debug_info,
         )
@@ -427,6 +430,7 @@ def _handle_rust_artifact(
             transitive_deps = tdeps,
             rmeta = link.output,
             transitive_rmeta_deps = tdeps,
+            transitive_proc_macro_deps = tprocmacrodeps,
             pdb = link.pdb,
             external_debug_info = ArtifactTSet(),
         )
@@ -691,12 +695,23 @@ def _native_providers(
 # Compute transitive deps. Caller decides whether this is necessary.
 def _compute_transitive_deps(
         ctx: AnalysisContext,
-        dep_link_style: LinkStyle) -> (dict[Artifact, CrateName], dict[Artifact, CrateName], list[ArtifactTSet]):
+        dep_link_style: LinkStyle) -> (
+    dict[Artifact, CrateName],
+    dict[Artifact, CrateName],
+    list[ArtifactTSet],
+    dict[RustProcMacroMarker, ()],
+):
     transitive_deps = {}
     transitive_rmeta_deps = {}
     external_debug_info = []
+    transitive_proc_macro_deps = {}
 
     for dep in resolve_rust_deps(ctx):
+        if dep.proc_macro_marker != None:
+            transitive_proc_macro_deps[dep.proc_macro_marker] = ()
+
+            # We don't want to propagate proc macros directly, and they have no transitive deps
+            continue
         style = style_info(dep.info, dep_link_style)
         transitive_deps[style.rlib] = dep.info.crate
         transitive_deps.update(style.transitive_deps)
@@ -706,4 +721,6 @@ def _compute_transitive_deps(
 
         external_debug_info.append(style.external_debug_info)
 
-    return transitive_deps, transitive_rmeta_deps, external_debug_info
+        transitive_proc_macro_deps.update(style.transitive_proc_macro_deps)
+
+    return transitive_deps, transitive_rmeta_deps, external_debug_info, transitive_proc_macro_deps

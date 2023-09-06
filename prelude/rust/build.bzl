@@ -62,9 +62,11 @@ load(
     ":link_info.bzl",
     "CrateName",  #@unused Used as a type
     "RustCxxLinkGroupInfo",  #@unused Used as a type
+    "RustLinkInfo",
     "RustLinkStyleInfo",
     "attr_crate",
     "attr_simple_crate_for_filenames",
+    "get_available_proc_macros",
     "inherited_external_debug_info",
     "inherited_non_rust_link_info",
     "inherited_non_rust_shared_libs",
@@ -572,6 +574,7 @@ def _dependency_args(
     args = cmd_args()
     transitive_deps = {}
     crate_targets = []
+    available_proc_macros = get_available_proc_macros(ctx)
     for dep in resolve_rust_deps(ctx, include_doc_deps = is_rustdoc_test):
         if dep.name:
             crate = CrateName(
@@ -583,14 +586,21 @@ def _dependency_args(
 
         style = style_info(dep.info, dep_link_style)
 
+        use_rmeta = is_check or (compile_ctx.toolchain_info.pipelined and not crate_type_codegen(crate_type) and not is_rustdoc_test)
+
         # Use rmeta dependencies whenever possible because they
         # should be cheaper to produce.
-        if is_check or (compile_ctx.toolchain_info.pipelined and not crate_type_codegen(crate_type) and not is_rustdoc_test):
+        if use_rmeta:
             artifact = style.rmeta
             transitive_artifacts = style.transitive_rmeta_deps
         else:
             artifact = style.rlib
             transitive_artifacts = style.transitive_deps
+
+        for marker in style.transitive_proc_macro_deps.keys():
+            info = available_proc_macros[marker.label][RustLinkInfo]
+            style = style_info(info, dep_link_style)
+            transitive_deps[style.rmeta if use_rmeta else style.rlib] = info.crate
 
         args.add(extern_arg(ctx, compile_ctx, dep.flags, crate, artifact))
         crate_targets.append((crate, dep.label))
