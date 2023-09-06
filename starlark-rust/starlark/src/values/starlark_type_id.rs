@@ -47,3 +47,33 @@ impl StarlarkTypeId {
         StarlarkTypeId(ConstTypeId::of::<T::StaticType>())
     }
 }
+
+/// We require alignment 8 for `StarlarkValue`.
+/// `TypeId` is 16 bytes aligned on Rust 1.72 on Apple Silicon.
+/// Use this struct to put `ConstTypeId` in a `StarlarkValue`.
+// TODO(nga): remove alignment requirement from `Heap`.
+#[repr(packed(8))]
+#[derive(Allocative, Eq, Clone, Copy, Dupe, Debug)]
+#[allocative(skip)] // There are no heap allocations in this struct.
+pub(crate) struct StarlarkTypeIdAligned {
+    starlark_type_id: StarlarkTypeId,
+}
+
+impl PartialEq for StarlarkTypeIdAligned {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.get() == other.get()
+    }
+}
+
+impl StarlarkTypeIdAligned {
+    #[inline]
+    pub(crate) const fn new(starlark_type_id: StarlarkTypeId) -> StarlarkTypeIdAligned {
+        StarlarkTypeIdAligned { starlark_type_id }
+    }
+
+    #[inline]
+    pub(crate) const fn get(&self) -> StarlarkTypeId {
+        self.starlark_type_id
+    }
+}

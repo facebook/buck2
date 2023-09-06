@@ -27,6 +27,7 @@ use crate::values::dict::DictRef;
 use crate::values::list::value::FrozenList;
 use crate::values::list::ListRef;
 use crate::values::starlark_type_id::StarlarkTypeId;
+use crate::values::starlark_type_id::StarlarkTypeIdAligned;
 use crate::values::tuple::value::Tuple;
 use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::typing::type_compiled::matcher::TypeMatcher;
@@ -245,20 +246,20 @@ impl TypeMatcher for IsNone {
 
 #[derive(Allocative, Debug, Clone)]
 pub(crate) struct StarlarkTypeIdMatcher {
-    starlark_type_id: StarlarkTypeId,
+    starlark_type_id: StarlarkTypeIdAligned,
 }
 
 impl StarlarkTypeIdMatcher {
     pub(crate) fn new(ty: TyStarlarkValue) -> StarlarkTypeIdMatcher {
         StarlarkTypeIdMatcher {
-            starlark_type_id: ty.starlark_type_id(),
+            starlark_type_id: StarlarkTypeIdAligned::new(ty.starlark_type_id()),
         }
     }
 }
 
 impl TypeMatcher for StarlarkTypeIdMatcher {
     fn matches(&self, value: Value) -> bool {
-        value.starlark_type_id() == self.starlark_type_id
+        value.starlark_type_id() == self.starlark_type_id.get()
     }
 }
 
