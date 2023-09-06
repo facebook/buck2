@@ -65,12 +65,8 @@ def _add_swiftmodule_search_path(module_info: SwiftCompiledModuleInfo.type):
 def _hidden_projection(module_info: SwiftCompiledModuleInfo.type):
     return module_info.output_artifact
 
-def _linker_args_projection(module_info: SwiftCompiledModuleInfo.type):
-    return cmd_args(module_info.output_artifact, format = "-Wl,-add_ast_path,{}")
-
 SwiftmodulePathsTSet = transitive_set(args_projections = {
     "hidden": _hidden_projection,
-    "linker_args": _linker_args_projection,
     "module_search_path": _add_swiftmodule_search_path,
 })
 
