@@ -421,6 +421,8 @@ impl<'v> StarlarkCmdArgs<'v> {
 
 #[starlark_value(type = "cmd_args")]
 impl<'v> StarlarkValue<'v> for StarlarkCmdArgs<'v> {
+    type Canonical = FrozenStarlarkCmdArgs;
+
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(cmd_args_methods)
