@@ -150,3 +150,22 @@ fn test_user_defined_provider_as_type() {
         ))
         .unwrap();
 }
+
+#[test]
+fn test_user_defined_provider_creator_typecheck() {
+    let mut tester = provider_tester();
+    tester.run_starlark_bzl_test_expecting_error(
+        indoc!(
+            r#"
+                Pkg = provider(fields = ["x"])
+
+                def create_pkg():
+                    return Pkg(y = 1)
+
+                def test():
+                    pass
+    "#
+        ),
+        "Unexpected parameter named `y`",
+    );
+}

@@ -227,8 +227,12 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
             });
             let signature = create_callable_function_signature(&provider_id.name, &self.fields);
             let ty_provider = ty_provider(&provider_id.name)?;
-            // TODO(nga): more precise creator func.
-            let creator_func = TyFunction::new(vec![Param::kwargs(Ty::any())], ty_provider.dupe());
+            let params = self
+                .fields
+                .iter()
+                .map(|f| Param::name_only(f, Ty::any()).optional())
+                .collect();
+            let creator_func = TyFunction::new(params, ty_provider.dupe());
             let ty_callable = ty_provider_callable::<UserProviderCallable>(creator_func)?;
             anyhow::Ok(UserProviderCallableNamed {
                 id: provider_id.dupe(),
