@@ -112,6 +112,10 @@ impl<'v> StarlarkValue<'v> for AnalysisActions<'v> {
             (ANALYSIS_ACTIONS_METHODS_ANON_TARGET.get().unwrap())(builder);
         })
     }
+
+    fn get_type_starlark_repr() -> Ty {
+        Ty::starlark_value::<Self>()
+    }
 }
 
 impl<'v> AllocValue<'v> for AnalysisActions<'v> {
@@ -209,6 +213,10 @@ impl<'v> StarlarkValue<'v> for AnalysisContext<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(analysis_context_methods)
+    }
+
+    fn get_type_starlark_repr() -> Ty {
+        Ty::starlark_value::<Self>()
     }
 }
 
