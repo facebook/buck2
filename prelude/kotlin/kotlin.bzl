@@ -7,7 +7,11 @@
 
 load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
 load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
-load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version")
+load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version", "select_java_test_toolchain")
+load(
+    "@prelude//java:java_toolchain.bzl",
+    "JavaTestToolchainInfo",
+)
 load(
     "@prelude//kotlin:kotlin_toolchain.bzl",
     "KotlinToolchainInfo",
@@ -49,7 +53,12 @@ extra_attributes = {
         "unbundled_resources_root": attrs.option(attrs.source(allow_directory = True), default = None),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = False)),
-        "_java_test_toolchain": toolchains_common.java_test(),
+        "_java_test_toolchain": attrs.exec_dep(
+            default = select_java_test_toolchain(),
+            providers = [
+                JavaTestToolchainInfo,
+            ],
+        ),
         "_java_toolchain": toolchains_common.java(),
         "_kotlin_toolchain": attrs.exec_dep(
             default = _select_kotlin_toolchain(),
