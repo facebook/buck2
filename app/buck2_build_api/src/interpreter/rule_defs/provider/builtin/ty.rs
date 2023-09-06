@@ -26,5 +26,7 @@ pub(crate) fn builtin_provider_typechecker_ty(
     if first.1.to_value().get_type() != NativeFunction::TYPE {
         panic!("creator func is not a function");
     }
-    Ty::of_value(first.1.to_value())
+    let ty = Ty::of_value(first.1.to_value());
+    ty.as_function().expect("creator func is not a function");
+    ty
 }
