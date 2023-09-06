@@ -490,7 +490,7 @@ def get_public_link_group_nodes(
 
 def get_filtered_links(
         labels_to_links_map: dict[Label, LinkGroupLinkInfo],
-        public_link_group_nodes: [set_record, None] = None):
+        public_link_group_nodes: [set_record, None] = None) -> list[LinkInfo]:
     if public_link_group_nodes == None:
         return [link_group_info.link_info for link_group_info in labels_to_links_map.values()]
     infos = []
