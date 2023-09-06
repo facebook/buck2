@@ -77,13 +77,6 @@ def _rust_common_attributes(is_binary: bool):
         "incremental_enabled": attrs.bool(default = False),
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
-        # linker_flags weren't supported for rust_library in Buck v1 but the
-        # fbcode macros pass them anyway. They're typically empty since the
-        # config-level flags don't get injected, but it doesn't hurt to accept
-        # them and it simplifies the implementation of Rust rules since they
-        # don't have to know whether we're building a rust_binary or a
-        # rust_library.
-        "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
         "rustdoc_flags": attrs.list(attrs.arg(), default = []),
         "version_universe": attrs.option(attrs.string(), default = None),
@@ -231,6 +224,13 @@ rust_library = prelude_rule(
         rust_common.edition_arg() |
         rust_common.features_arg() |
         rust_common.rustc_flags_arg() |
+        # linker_flags weren't supported for rust_library in Buck v1 but the
+        # fbcode macros pass them anyway. They're typically empty since the
+        # config-level flags don't get injected, but it doesn't hurt to accept
+        # them and it simplifies the implementation of Rust rules since they
+        # don't have to know whether we're building a rust_binary or a
+        # rust_library.
+        rust_common.linker_flags_arg() |
         rust_common.env_arg() |
         rust_common.crate(crate_type = attrs.option(attrs.string(), default = None)) |
         rust_common.crate_root() |
@@ -318,6 +318,7 @@ rust_test = prelude_rule(
         rust_common.edition_arg() |
         rust_common.features_arg() |
         rust_common.rustc_flags_arg() |
+        rust_common.linker_flags_arg() |
         rust_common.env_arg() |
         rust_common.crate(crate_type = attrs.option(attrs.string(), default = None)) |
         rust_common.crate_root() |

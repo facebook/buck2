@@ -65,7 +65,7 @@ def _rustc_flags_arg():
 
 def _linker_flags_arg():
     return {
-        "linker_flags": attrs.list(attrs.arg(), default = [], doc = """
+        "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = [], doc = """
     The set of additional flags to pass to the linker.
 """),
     }
