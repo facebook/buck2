@@ -302,13 +302,6 @@ rust_test = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
-        {
-            "framework": attrs.bool(default = False, doc = """
-                Use the standard test framework. If this is set to false, then the result is a normal
-                executable which requires a `main()`, etc. It is still expected to accept the
-                same command-line parameters and produce the same output as the test framework.
-            """),
-        } |
         rust_common.srcs_arg() |
         rust_common.mapped_srcs_arg() |
         rust_common.edition_arg() |
@@ -320,7 +313,11 @@ rust_test = prelude_rule(
         _rust_common_attributes(is_binary = True) |
         _RUST_EXECUTABLE_ATTRIBUTES |
         {
-            "framework": attrs.bool(default = True),
+            "framework": attrs.bool(default = True, doc = """
+                Use the standard test framework. If this is set to false, then the result is a normal
+                executable which requires a `main()`, etc. It is still expected to accept the
+                same command-line parameters and produce the same output as the test framework.
+            """),
         } |
         buck.re_test_args() |
         rust_common.toolchains_args() |
