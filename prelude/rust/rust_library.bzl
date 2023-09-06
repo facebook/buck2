@@ -99,6 +99,7 @@ load(
     "resolve_rust_deps",
     "style_info",
 )
+load(":proc_macro_alias.bzl", "rust_proc_macro_alias")
 load(":resources.bzl", "rust_attr_resources")
 load(":targets.bzl", "targets")
 
@@ -724,3 +725,26 @@ def _compute_transitive_deps(
         transitive_proc_macro_deps.update(style.transitive_proc_macro_deps)
 
     return transitive_deps, transitive_rmeta_deps, external_debug_info, transitive_proc_macro_deps
+
+def rust_library_macro_wrapper(rust_library: typing.Callable) -> typing.Callable:
+    def wrapper(**kwargs):
+        if not kwargs.pop("_use_legacy_proc_macros", False) and kwargs.get("proc_macro") == True:
+            name = kwargs["name"]
+            if kwargs.get("crate", None) == None and kwargs.get("crate_dynamic", None) == None:
+                kwargs["crate"] = name.replace("-", "_")
+
+            extra_attrs = {}
+            if "visibility" in kwargs:
+                extra_attrs["visibility"] = kwargs["visibility"]
+
+            rust_proc_macro_alias(
+                name = name,
+                actual_exec = ":_" + name,
+                actual_plugin = ":_" + name,
+                **extra_attrs
+            )
+            kwargs["name"] = "_" + name
+
+        rust_library(**kwargs)
+
+    return wrapper
