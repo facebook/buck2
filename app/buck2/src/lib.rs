@@ -14,8 +14,6 @@
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
-use std::thread;
-
 use anyhow::Context as _;
 use buck2_audit::AuditCommand;
 use buck2_client::args::expand_argfiles_with_context;
@@ -56,7 +54,6 @@ use buck2_common::invocation_roots::find_invocation_roots;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::file_name::FileNameBuf;
-use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_starlark::StarlarkCommand;
 use clap::AppSettings;
@@ -64,6 +61,7 @@ use clap::Parser;
 use dice::DetectCycles;
 use dice::WhichDice;
 use dupe::Dupe;
+use no_buckd::start_in_process_daemon;
 
 use crate::check_user_allowed::check_user_allowed;
 use crate::commands::daemon::DaemonCommand;
@@ -77,6 +75,7 @@ pub mod panic;
 mod check_user_allowed;
 
 pub mod commands;
+mod no_buckd;
 pub mod process_context;
 
 fn parse_isolation_dir(s: &str) -> anyhow::Result<FileNameBuf> {
@@ -329,51 +328,16 @@ impl CommandKind {
         let runtime = client_tokio_runtime()?;
         let async_cleanup = AsyncCleanupContextGuard::new(&runtime);
 
-        let start_in_process_daemon: Option<Box<dyn FnOnce() -> anyhow::Result<()> + Send + Sync>> =
-            if common_opts.no_buckd {
-                let daemon_startup_config = immediate_config.daemon_startup_config()?.clone();
-                let paths = paths.clone()?;
-                // Create a function which spawns an in-process daemon.
-                Some(Box::new(move || {
-                    let (tx, rx) = std::sync::mpsc::channel();
-                    // Spawn a thread which runs the daemon.
-                    thread::spawn(move || {
-                        let tx_clone = tx.clone();
-                        let result = DaemonCommand::new_in_process(daemon_startup_config).exec(
-                            process.init,
-                            <dyn LogConfigurationReloadHandle>::noop(),
-                            paths,
-                            common_opts.daemon,
-                            true,
-                            move || drop(tx_clone.send(Ok(()))),
-                        );
-                        // Since `tx` is unbounded, there's race here: it is possible
-                        // that error message will be lost in the channel and not reported anywhere.
-                        // Not an issue practically, because daemon does not usually error
-                        // after it started listening.
-                        if let Err(e) = tx.send(result) {
-                            match e.0 {
-                                Ok(()) => drop(buck2_client_ctx::eprintln!(
-                                    "In-process daemon gracefully stopped"
-                                )),
-                                Err(e) => drop(buck2_client_ctx::eprintln!(
-                                    "In-process daemon run failed: {:#}",
-                                    e
-                                )),
-                            }
-                        }
-                    });
-                    // Wait for listener to start (or to fail).
-                    match rx.recv() {
-                        Ok(r) => r,
-                        Err(_) => Err(anyhow::anyhow!(
-                            "In-process daemon failed to start and we don't know why"
-                        )),
-                    }
-                }))
-            } else {
-                None
-            };
+        let start_in_process_daemon = if common_opts.no_buckd {
+            start_in_process_daemon(
+                process.init,
+                immediate_config.daemon_startup_config()?,
+                paths.clone()?,
+                common_opts.daemon,
+            )?
+        } else {
+            None
+        };
 
         let command_ctx = ClientCommandContext {
             init: process.init,
