@@ -56,7 +56,7 @@ enum TyUserError {
 
 /// Types of `[]` operator.
 #[derive(Allocative, Debug)]
-pub(crate) struct TyUserIndex {
+pub struct TyUserIndex {
     /// Type of index argument.
     pub(crate) index: Ty,
     /// Type of result.
@@ -65,19 +65,28 @@ pub(crate) struct TyUserIndex {
 
 /// Fields of the struct.
 #[derive(Allocative, Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub(crate) struct TyUserFields {
+pub struct TyUserFields {
     /// Known fields.
-    pub(crate) known: SortedMap<String, Ty>,
+    pub known: SortedMap<String, Ty>,
     /// Are there unknown fields?
     /// Unknown fields are possible if this type represents an abstract type like a provider.
-    pub(crate) unknown: bool,
+    pub unknown: bool,
 }
 
 impl TyUserFields {
-    pub(crate) fn no_fields() -> TyUserFields {
+    /// No fields.
+    pub fn no_fields() -> TyUserFields {
         TyUserFields {
             known: SortedMap::new(),
             unknown: false,
+        }
+    }
+
+    /// All fields are not known.
+    pub fn unknown() -> TyUserFields {
+        TyUserFields {
+            known: SortedMap::new(),
+            unknown: true,
         }
     }
 }
@@ -85,7 +94,7 @@ impl TyUserFields {
 /// Type description for arbitrary type.
 #[derive(Allocative, Debug, derive_more::Display)]
 #[display(fmt = "{}", name)]
-pub(crate) struct TyUser {
+pub struct TyUser {
     name: String,
     /// Base type for this custom type, e.g. generic record for record with known fields.
     base: TyStarlarkValue,
@@ -101,7 +110,8 @@ pub(crate) struct TyUser {
 }
 
 impl TyUser {
-    pub(crate) fn new(
+    /// Constructor.
+    pub fn new(
         name: String,
         base: TyStarlarkValue,
         matcher: Option<TypeMatcherFactory>,

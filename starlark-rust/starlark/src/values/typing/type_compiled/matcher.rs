@@ -27,6 +27,7 @@ use crate::values::Value;
 /// Runtime type matcher. E.g. when `isinstance(1, int)` is called,
 /// implementation of `TypeMatcher` for `int` is used.
 pub trait TypeMatcher: Allocative + Debug + Clone + Sized + Send + Sync + 'static {
+    /// Check if the value matches the type.
     fn matches(&self, value: Value) -> bool;
     /// True if this matcher matches any value.
     fn is_wildcard(&self) -> bool {

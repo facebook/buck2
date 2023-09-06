@@ -131,7 +131,8 @@ impl Ord for TyStarlarkValue {
 }
 
 impl TyStarlarkValue {
-    pub(crate) const fn new<'v, T: StarlarkValue<'v>>() -> TyStarlarkValue {
+    /// Create a type instance from an implementation of `StarlarkValue`.
+    pub const fn new<'v, T: StarlarkValue<'v>>() -> TyStarlarkValue {
         TyStarlarkValue {
             vtable: &TyStarlarkValueVTableGet::<T::Canonical>::VTABLE,
         }

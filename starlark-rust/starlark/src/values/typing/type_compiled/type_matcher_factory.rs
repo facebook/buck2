@@ -56,7 +56,8 @@ pub struct TypeMatcherFactory {
 }
 
 impl TypeMatcherFactory {
-    pub(crate) fn new(matcher: impl TypeMatcher) -> TypeMatcherFactory {
+    /// Create a new `TypeMatcherFactory` from a `TypeMatcher`.
+    pub fn new(matcher: impl TypeMatcher) -> TypeMatcherFactory {
         TypeMatcherFactory {
             factory: Arc::new(TypeMatcherFactoryImpl { matcher }),
         }
