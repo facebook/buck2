@@ -22,6 +22,7 @@ prelude_rule = record(
     further = field([str, None], None),
     attrs = field(dict[str, "attribute"]),
     impl = field([typing.Callable, None], None),
+    uses_plugins = field([list["PluginKind"], None], None),
 )
 
 AbiGenerationMode = ["unknown", "class", "source", "migrating_to_source_only", "source_only", "unrecognized"]

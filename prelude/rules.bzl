@@ -79,6 +79,8 @@ def _mk_rule(rule_spec: typing.Any):
         impl = extra_impl
     if not impl:
         impl = _unimplemented_impl(name)
+    if rule_spec.uses_plugins != None:
+        extra_args["uses_plugins"] = rule_spec.uses_plugins
 
     return rule(
         impl = impl,
@@ -108,6 +110,7 @@ def _update_rules(rules: dict[str, typing.Any], extra_attributes: typing.Any):
                 docs = rules[k].docs,
                 examples = rules[k].examples,
                 further = rules[k].further,
+                uses_plugins = rules[k].uses_plugins,
             )
         else:
             rules[k] = prelude_rule(
@@ -117,6 +120,7 @@ def _update_rules(rules: dict[str, typing.Any], extra_attributes: typing.Any):
                 docs = None,
                 examples = None,
                 further = None,
+                uses_plugins = None,
             )
 
 _declared_rules = _flatten_decls()
