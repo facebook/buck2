@@ -31,7 +31,9 @@ use starlark::environment::MethodsStatic;
 use starlark::eval::Arguments;
 use starlark::eval::Evaluator;
 use starlark::eval::ParametersSpec;
+use starlark::typing::Param;
 use starlark::typing::Ty;
+use starlark::typing::TyFunction;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::AllocValue;
@@ -52,6 +54,7 @@ use starlark_map::small_set::SmallSet;
 use crate::interpreter::rule_defs::provider::doc::provider_callable_documentation;
 use crate::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 use crate::interpreter::rule_defs::provider::ty::provider::ty_provider;
+use crate::interpreter::rule_defs::provider::ty::provider_callable::ty_provider_callable;
 use crate::interpreter::rule_defs::provider::user::user_provider_creator;
 
 #[derive(Debug, thiserror::Error)]
@@ -99,6 +102,8 @@ struct UserProviderCallableNamed {
     data: FrozenRef<'static, UserProviderCallableData>,
     /// Type of provider instance.
     ty_provider: Ty,
+    /// Type of provider callable.
+    ty_callable: Ty,
 }
 
 impl UserProviderCallableNamed {
@@ -222,6 +227,9 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
             });
             let signature = create_callable_function_signature(&provider_id.name, &self.fields);
             let ty_provider = ty_provider(&provider_id.name)?;
+            // TODO(nga): more precise creator func.
+            let creator_func = TyFunction::new(vec![Param::kwargs(Ty::any())], ty_provider.dupe());
+            let ty_callable = ty_provider_callable::<UserProviderCallable>(creator_func)?;
             anyhow::Ok(UserProviderCallableNamed {
                 id: provider_id.dupe(),
                 signature,
@@ -232,6 +240,7 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
                         fields: self.fields.clone(),
                     }),
                 ty_provider,
+                ty_callable,
             })
         })?;
         Ok(())
@@ -274,7 +283,7 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
-        Some(Self::get_type_starlark_repr())
+        self.callable.get().map(|named| named.ty_callable.dupe())
     }
 }
 
@@ -365,7 +374,7 @@ impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
-        Some(Self::get_type_starlark_repr())
+        Some(self.callable.ty_callable.dupe())
     }
 
     fn eval_type(&self) -> Option<Ty> {

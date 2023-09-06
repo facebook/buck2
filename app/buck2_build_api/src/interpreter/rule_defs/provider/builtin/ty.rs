@@ -15,6 +15,7 @@ use starlark::values::function::NativeFunction;
 use starlark::values::StarlarkValue;
 
 use crate::interpreter::rule_defs::provider::ty::provider::ty_provider;
+use crate::interpreter::rule_defs::provider::ty::provider_callable::ty_provider_callable;
 use crate::interpreter::rule_defs::provider::ProviderLike;
 
 /// Types associated with builtin providers.
@@ -24,7 +25,6 @@ pub(crate) struct BuiltinProviderTy {
 }
 
 impl BuiltinProviderTy {
-    #[allow(clippy::extra_unused_type_parameters)] // Used in the following diff.
     pub(crate) fn new<
         'v,
         P: StarlarkValue<'v> + ProviderLike<'v>,
@@ -34,7 +34,7 @@ impl BuiltinProviderTy {
     ) -> BuiltinProviderTy {
         BuiltinProviderTy {
             instance: ty_provider(P::TYPE).unwrap(),
-            callable: builtin_provider_typechecker_ty(creator_func),
+            callable: builtin_provider_typechecker_ty::<C>(creator_func),
         }
     }
 
@@ -47,7 +47,9 @@ impl BuiltinProviderTy {
     }
 }
 
-fn builtin_provider_typechecker_ty(creator_func: for<'a> fn(&'a mut GlobalsBuilder)) -> Ty {
+fn builtin_provider_typechecker_ty<'v, C: StarlarkValue<'v> + ProviderCallableLike>(
+    creator_func: for<'a> fn(&'a mut GlobalsBuilder),
+) -> Ty {
     let globals = GlobalsBuilder::new().with(creator_func).build();
     let mut iter = globals.iter();
     let Some(first) = iter.next() else {
@@ -60,6 +62,9 @@ fn builtin_provider_typechecker_ty(creator_func: for<'a> fn(&'a mut GlobalsBuild
         panic!("creator func is not a function");
     }
     let ty = Ty::of_value(first.1.to_value());
-    ty.as_function().expect("creator func is not a function");
-    ty
+    let ty_function = ty
+        .as_function()
+        .expect("creator func is not a function")
+        .clone();
+    ty_provider_callable::<C>(ty_function).unwrap()
 }
