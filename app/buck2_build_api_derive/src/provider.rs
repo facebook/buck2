@@ -584,7 +584,11 @@ impl ProviderCodegen {
 
     fn register(&self) -> syn::Result<Vec<syn::Item>> {
         let provider_methods_func_name = self.provider_methods_func_name()?;
-        let field_names = self.field_names()?;
+        let (field_names, field_types): (Vec<_>, Vec<_>) = self
+            .fields()?
+            .into_iter()
+            .map(|f| (f.name, f.field_type))
+            .unzip();
         let name = self.name()?;
         let name_str = self.name_str()?;
         let callable_name = self.callable_name()?;
@@ -595,8 +599,10 @@ impl ProviderCodegen {
                 fn #provider_methods_func_name(builder: &mut starlark::environment::MethodsBuilder) {
                     #(
                         #[starlark(attribute)]
-                        fn #field_names<'v>(this: & #name) -> anyhow::Result<starlark::values::Value<'v>> {
-                            Ok(this.#field_names)
+                        fn #field_names<'v>(this: & #name)
+                                -> anyhow::Result<starlark::values::ValueOfUnchecked<'v, #field_types>>
+                        {
+                            Ok(starlark::values::ValueOfUnchecked::new(this.#field_names))
                         }
                     )*
                 }

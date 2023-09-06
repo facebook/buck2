@@ -47,7 +47,7 @@ pub struct ExecutionPlatformInfoGen<V> {
     #[provider(field_type = StarlarkTargetLabel)]
     label: V,
     /// The configuration of the execution platform
-    #[provider(field_type = ConfigurationInfo)]
+    #[provider(field_type = ConfigurationInfo<'v>)]
     configuration: V,
     /// The executor config
     #[provider(field_type = StarlarkCommandExecutorConfig)]

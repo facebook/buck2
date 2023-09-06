@@ -33,11 +33,11 @@ use crate::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 #[repr(C)]
 pub struct WorkerRunInfoGen<V> {
     // Configuration needed to spawn a new worker
-    #[provider(field_type = WorkerInfo)]
+    #[provider(field_type = WorkerInfo<'v>)]
     worker: V,
 
     // Command to execute without spawning a worker, when the build environment or configuration does not support workers
-    #[provider(field_type = StarlarkCmdArgs)]
+    #[provider(field_type = StarlarkCmdArgs<'v>)]
     exe: V,
 }
 

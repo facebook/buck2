@@ -30,7 +30,7 @@ use crate::interpreter::rule_defs::provider::builtin::configuration_info::Config
 pub struct PlatformInfoGen<V> {
     #[provider(field_type = String)]
     label: V,
-    #[provider(field_type = ConfigurationInfo)]
+    #[provider(field_type = ConfigurationInfo<'v>)]
     configuration: V,
 }
 

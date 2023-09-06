@@ -46,7 +46,7 @@ use crate::interpreter::rule_defs::provider::builtin::constraint_value_info::Con
 #[derive(Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub struct ConfigurationInfoGen<V> {
-    #[provider(field_type = DictType<StarlarkTargetLabel, ConstraintValueInfo>)]
+    #[provider(field_type = DictType<StarlarkTargetLabel, ConstraintValueInfo<'v>>)]
     constraints: V,
     #[provider(field_type = DictType<String, String>)]
     values: V,

@@ -81,9 +81,9 @@ enum TemplatePlaceholderInfoError {
 pub struct TemplatePlaceholderInfoGen<V> {
     // `Value` in both fields is command line arg.
     // TODO(nga): specify type more precisely.
-    #[provider(field_type = DictType<String, Value>)]
+    #[provider(field_type = DictType<String, Value<'v>>)]
     unkeyed_variables: V,
-    #[provider(field_type = DictType<String, Either<Value, DictType<String, Value>>>)]
+    #[provider(field_type = DictType<String, Either<Value<'v>, DictType<String, Value<'v>>>>)]
     keyed_variables: V,
 }
 
