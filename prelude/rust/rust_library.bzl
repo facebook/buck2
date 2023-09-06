@@ -95,6 +95,7 @@ load(
     "inherited_non_rust_link_info",
     "inherited_non_rust_shared_libs",
     "resolve_deps",
+    "resolve_rust_deps",
     "style_info",
 )
 load(":resources.bzl", "rust_attr_resources")
@@ -695,16 +696,12 @@ def _compute_transitive_deps(
     transitive_rmeta_deps = {}
     external_debug_info = []
 
-    for dep in resolve_deps(ctx):
-        info = dep.dep.get(RustLinkInfo)
-        if info == None:
-            continue
-
-        style = style_info(info, dep_link_style)
-        transitive_deps[style.rlib] = info.crate
+    for dep in resolve_rust_deps(ctx):
+        style = style_info(dep.info, dep_link_style)
+        transitive_deps[style.rlib] = dep.info.crate
         transitive_deps.update(style.transitive_deps)
 
-        transitive_rmeta_deps[style.rmeta] = info.crate
+        transitive_rmeta_deps[style.rmeta] = dep.info.crate
         transitive_rmeta_deps.update(style.transitive_rmeta_deps)
 
         external_debug_info.append(style.external_debug_info)

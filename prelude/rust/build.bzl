@@ -62,7 +62,6 @@ load(
     ":link_info.bzl",
     "CrateName",  #@unused Used as a type
     "RustCxxLinkGroupInfo",  #@unused Used as a type
-    "RustLinkInfo",
     "RustLinkStyleInfo",
     "attr_crate",
     "attr_simple_crate_for_filenames",
@@ -70,7 +69,7 @@ load(
     "inherited_non_rust_link_info",
     "inherited_non_rust_shared_libs",
     "normalize_crate",
-    "resolve_deps",
+    "resolve_rust_deps",
     "style_info",
 )
 load(":resources.bzl", "rust_attr_resources")
@@ -173,20 +172,15 @@ def generate_rustdoc(
         # Flag --extern-html-root-url used below is only supported on nightly.
         rustdoc_cmd.add("-Zunstable-options")
 
-        for rust_dependency in resolve_deps(ctx):
-            dep = rust_dependency.dep
-            info = dep.get(RustLinkInfo)
-            if info == None:
-                continue
-
+        for dep in resolve_rust_deps(ctx):
             if dep.label.cell != ctx.label.cell:
                 # TODO: support a different extern_html_root_url_prefix per cell
                 continue
 
-            if rust_dependency.name:
-                name = normalize_crate(rust_dependency.name)
+            if dep.name:
+                name = normalize_crate(dep.name)
             else:
-                name = info.crate
+                name = dep.info.crate
 
             rustdoc_cmd.add(
                 "--extern-html-root-url={}={}/{}:{}"
@@ -580,22 +574,16 @@ def _dependency_args(
     args = cmd_args()
     transitive_deps = {}
     crate_targets = []
-    for x in resolve_deps(ctx, include_doc_deps = is_rustdoc_test):
-        dep = x.dep
-
-        # Rust dependency
-        info = dep.get(RustLinkInfo)
-        if info == None:
-            continue
-        if x.name:
+    for dep in resolve_rust_deps(ctx, include_doc_deps = is_rustdoc_test):
+        if dep.name:
             crate = CrateName(
-                simple = normalize_crate(x.name),
+                simple = normalize_crate(dep.name),
                 dynamic = None,
             )
         else:
-            crate = info.crate
+            crate = dep.info.crate
 
-        style = style_info(info, dep_link_style)
+        style = style_info(dep.info, dep_link_style)
 
         # Use rmeta dependencies whenever possible because they
         # should be cheaper to produce.
@@ -606,7 +594,7 @@ def _dependency_args(
             artifact = style.rlib
             transitive_artifacts = style.transitive_deps
 
-        args.add(extern_arg(ctx, compile_ctx, x.flags, crate, artifact))
+        args.add(extern_arg(ctx, compile_ctx, dep.flags, crate, artifact))
         crate_targets.append((crate, dep.label))
 
         # Unwanted transitive_deps have already been excluded

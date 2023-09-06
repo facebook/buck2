@@ -129,13 +129,20 @@ def style_info(info: RustLinkInfo.type, dep_link_style: LinkStyle) -> RustLinkSt
     rust_dep_link_style = _adjust_link_style_for_rust_dependencies(dep_link_style)
     return info.styles[rust_dep_link_style]
 
-# A Rust dependency
-RustDependency = record(
+# Any dependency of a Rust crate
+RustOrNativeDependency = record(
     # The actual dependency
     dep = field(Dependency),
     # The local name, if any (for `named_deps`)
     name = field([None, str]),
     # Any flags for the dependency (`flagged_deps`), which are passed on to rustc.
+    flags = field(list[str]),
+)
+
+RustDependency = record(
+    info = field(RustLinkInfo),
+    label = field("label"),
+    name = field([None, str]),
     flags = field(list[str]),
 )
 
@@ -176,9 +183,9 @@ def enable_link_groups(
 def _do_resolve_deps(
         deps: list[Dependency],
         named_deps: dict[str, Dependency],
-        flagged_deps: list[(Dependency, list[str])] = []) -> list[RustDependency]:
+        flagged_deps: list[(Dependency, list[str])] = []) -> list[RustOrNativeDependency]:
     return [
-        RustDependency(name = name, dep = dep, flags = flags)
+        RustOrNativeDependency(name = name, dep = dep, flags = flags)
         for name, dep, flags in [(None, dep, []) for dep in deps] +
                                 [(name, dep, []) for name, dep in named_deps.items()] +
                                 [(None, dep, flags) for dep, flags in flagged_deps]
@@ -186,7 +193,7 @@ def _do_resolve_deps(
 
 def resolve_deps(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False) -> list[RustDependency]:
+        include_doc_deps: bool = False) -> list[RustOrNativeDependency]:
     # The `getattr`s are needed for when we're operating on
     # `prebuilt_rust_library` rules, which don't have those attrs.
     dependencies = _do_resolve_deps(
@@ -202,6 +209,22 @@ def resolve_deps(
         ))
 
     return dependencies
+
+def resolve_rust_deps(
+        ctx: AnalysisContext,
+        include_doc_deps: bool = False) -> list[RustDependency.type]:
+    all_deps = resolve_deps(ctx, include_doc_deps)
+    rust_deps = []
+    for dep in all_deps:
+        info = dep.dep.get(RustLinkInfo)
+        if info != None:
+            rust_deps.append(RustDependency(
+                info = info,
+                label = dep.dep.label,
+                name = dep.name,
+                flags = dep.flags,
+            ))
+    return rust_deps
 
 def _non_rust_linkable_graph(
         ctx: AnalysisContext,
@@ -268,8 +291,7 @@ def _non_rust_shared_lib_infos(
 def _rust_link_infos(
         ctx: AnalysisContext,
         include_doc_deps: bool = False) -> list[RustLinkInfo.type]:
-    first_order_deps = resolve_deps(ctx, include_doc_deps)
-    return filter(None, [d.dep.get(RustLinkInfo) for d in first_order_deps])
+    return [d.info for d in resolve_rust_deps(ctx, include_doc_deps)]
 
 def normalize_crate(label: str) -> str:
     return label.replace("-", "_")
