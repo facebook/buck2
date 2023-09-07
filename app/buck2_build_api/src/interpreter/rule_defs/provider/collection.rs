@@ -340,7 +340,7 @@ impl<'v> ProviderCollection<'v> {
 
 impl FrozenProviderCollection {
     pub fn default_info(&self) -> FrozenRef<'static, FrozenDefaultInfo> {
-        self.get_provider(DefaultInfoCallable::provider_id_t())
+        self.builtin_provider()
             .expect("DefaultInfo should always be set")
     }
 
