@@ -8,7 +8,11 @@
 def _lbl(*_args):
     return ""
 
+def _package(_values, overwrite = False):
+    _ = overwrite
+
 ci = struct(
+    package = _package,
     linux = _lbl,
     mac = _lbl,
     windows = _lbl,

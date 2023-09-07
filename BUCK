@@ -1,4 +1,4 @@
-load("@fbcode//target_determinator/macros:labels.bzl", "ci")
+load("@fbcode//target_determinator/macros:ci.bzl", "ci")
 load("@fbcode_macros//build_defs:native_rules.bzl", "alias")
 load("@fbsource//tools/build_defs/buck2:is_buck2.bzl", "is_buck2")
 load(":defs.bzl?v2_only", "symlinked_buck2_and_tpx")

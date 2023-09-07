@@ -5,13 +5,12 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@fbcode//target_determinator/macros:ci_package.bzl", "ci_package")
-load("@fbcode//target_determinator/macros:labels.bzl", "ci")
+load("@fbcode//target_determinator/macros:ci.bzl", "ci")
 
 # We want to test most things on all platforms we support, but for various reasons,
 # this PACKAGE should be treated as Linux-only.
 def ci_linux_only():
-    ci_package.set(
+    ci.package(
         [ci.linux()],
         overwrite = True,
     )
