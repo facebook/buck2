@@ -7,6 +7,12 @@
 
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 
+# For cases where our `ld` dependency provides more than an executable and
+# would like to give us flags too. We use this to place the flags in the proper
+# field (linker_flags), so that things that want ldflags without the linker
+# executable can access those.
+RichLinkerRunInfo = provider(fields = ["exe", "flags"])
+
 LinkerType = ["gnu", "darwin", "windows"]
 
 ShlibInterfacesMode = enum("disabled", "enabled", "defined_only")
