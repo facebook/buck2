@@ -36,7 +36,6 @@ use crate::typing::tuple::TyTuple;
 use crate::typing::Ty;
 use crate::typing::TyName;
 use crate::typing::TypingBinOp;
-use crate::typing::TypingOracle;
 use crate::typing::TypingUnOp;
 use crate::values::dict::value::MutableDict;
 use crate::values::list::value::List;
@@ -79,7 +78,6 @@ enum TypingOracleCtxError {
 /// This type is stateless.
 #[derive(Clone, Copy, Dupe)]
 pub struct TypingOracleCtx<'a> {
-    pub(crate) oracle: &'a dyn TypingOracle,
     pub(crate) codemap: &'a CodeMap,
 }
 
@@ -518,10 +516,7 @@ impl<'a> TypingOracleCtx<'a> {
                 }
             }
             TyBasic::Custom(custom) => custom.0.attribute_dyn(attr),
-            TyBasic::Name(array) => match self.oracle.attribute(array, attr) {
-                Some(r) => r,
-                None => Ok(Ty::any()),
-            },
+            TyBasic::Name(_) => Ok(Ty::any()),
         }
     }
 

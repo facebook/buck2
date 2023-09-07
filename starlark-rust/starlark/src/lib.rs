@@ -378,6 +378,7 @@
 #![allow(clippy::should_implement_trait)]
 #![allow(clippy::single_match)]
 #![allow(clippy::too_many_arguments)]
+#![allow(clippy::trivially_copy_pass_by_ref)]
 #![allow(clippy::tuple_array_conversions)]
 #![allow(clippy::type_complexity)]
 #![allow(clippy::wrong_self_convention)]

@@ -9,7 +9,6 @@
 
 use std::collections::HashMap;
 use std::io::Write;
-use std::sync::Arc;
 
 use anyhow::Context;
 use async_recursion::async_recursion;
@@ -34,9 +33,7 @@ use dupe::Dupe;
 use starlark::environment::Globals;
 use starlark::typing::AstModuleTypecheck;
 use starlark::typing::Interface;
-use starlark::typing::TypingOracle;
 
-use crate::oracle_buck::oracle_buck;
 use crate::util::environment::Environment;
 use crate::util::paths::starlark_files;
 use crate::StarlarkCommandCommonOptions;
@@ -61,7 +58,7 @@ struct Cache<'a> {
     stdout: &'a mut (dyn Write + Send + Sync),
     stderr: &'a mut (dyn Write + Send + Sync),
     // Our accumulated state
-    oracle: HashMap<(CellName, StarlarkFileType), (Arc<dyn TypingOracle + Send + Sync>, Globals)>,
+    oracle: HashMap<(CellName, StarlarkFileType), Globals>,
     cache: HashMap<OwnedStarlarkModulePath, Interface>,
 }
 
@@ -75,15 +72,13 @@ impl<'a> Cache<'a> {
         &mut self,
         cell: CellName,
         path_type: StarlarkFileType,
-    ) -> anyhow::Result<(Arc<dyn TypingOracle + Send + Sync>, Globals)> {
+    ) -> anyhow::Result<Globals> {
         match self.oracle.get(&(cell, path_type)) {
-            Some((o, g)) => Ok((o.dupe(), g.dupe())),
+            Some(g) => Ok(g.dupe()),
             None => {
                 let globals = Environment::new(cell, path_type, self.dice).await?.globals;
-                let res = oracle_buck(&globals);
-                self.oracle
-                    .insert((cell, path_type), (res.dupe(), globals.dupe()));
-                Ok((res, globals))
+                self.oracle.insert((cell, path_type), globals.dupe());
+                Ok(globals)
             }
         }
     }
@@ -125,11 +120,10 @@ impl<'a> Cache<'a> {
             let interface = self.get(y).await?;
             loads.insert(x.module_id.to_owned(), interface);
         }
-        let (oracle, globals) = self
+        let globals = self
             .get_oracle(path_ref.cell(), path_ref.file_type())
             .await?;
-        let (errors, bindings, interface, approxiomations) =
-            ast.typecheck(&*oracle, &globals, &loads);
+        let (errors, bindings, interface, approxiomations) = ast.typecheck(&globals, &loads);
 
         if !approxiomations.is_empty() {
             writeln!(self.stderr, "\n\nAPPROXIMATIONS:")?;

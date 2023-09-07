@@ -50,7 +50,6 @@ use crate::typing::fill_types_for_lint::ModuleVarTypes;
 use crate::typing::interface::Interface;
 use crate::typing::mode::TypecheckMode;
 use crate::typing::oracle::ctx::TypingOracleCtx;
-use crate::typing::oracle::traits::TypingOracle;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
 use crate::values::FrozenHeap;
@@ -173,7 +172,6 @@ pub trait AstModuleTypecheck {
     /// Typecheck a module.
     fn typecheck(
         self,
-        oracle: &dyn TypingOracle,
         globals: &Globals,
         loads: &HashMap<String, Interface>,
     ) -> (Vec<anyhow::Error>, TypeMap, Interface, Vec<Approximation>);
@@ -182,7 +180,6 @@ pub trait AstModuleTypecheck {
 impl AstModuleTypecheck for AstModule {
     fn typecheck(
         self,
-        oracle: &dyn TypingOracle,
         globals: &Globals,
         loads: &HashMap<String, Interface>,
     ) -> (Vec<anyhow::Error>, TypeMap, Interface, Vec<Approximation>) {
@@ -211,10 +208,7 @@ impl AstModuleTypecheck for AstModule {
         // We don't really need to properly unpack top-level statements,
         // but make it safe against future changes.
         let mut cst: Vec<&mut CstStmt> = top_level_stmts_mut(&mut cst);
-        let oracle = TypingOracleCtx {
-            codemap: &codemap,
-            oracle,
-        };
+        let oracle = TypingOracleCtx { codemap: &codemap };
 
         let mut approximations = Vec::new();
         let (fill_types_errors, module_var_types) = match fill_types_for_lint_typechecker(

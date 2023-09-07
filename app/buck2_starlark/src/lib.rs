@@ -33,7 +33,6 @@ use crate::typecheck::StarlarkTypecheckCommand;
 
 mod debug;
 mod lint;
-mod oracle_buck;
 pub mod server;
 mod typecheck;
 mod util;

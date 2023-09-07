@@ -33,7 +33,6 @@ use crate as starlark;
 use crate::docs::DocFunction;
 use crate::docs::DocMember;
 use crate::docs::DocParam;
-use crate::docs::DocProperty;
 use crate::eval::compiler::small_vec_1::SmallVec1;
 use crate::typing::arc_ty::ArcTy;
 use crate::typing::basic::TyBasic;
@@ -485,10 +484,6 @@ impl Ty {
         } else {
             Ty::from_docs_member(&DocMember::from_value(value))
         }
-    }
-
-    pub(crate) fn from_docs_property(property: &DocProperty) -> Self {
-        property.typ.clone()
     }
 
     pub(crate) fn from_docs_function(function: &DocFunction) -> Self {

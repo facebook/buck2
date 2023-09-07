@@ -19,7 +19,6 @@ use std::collections::HashMap;
 use std::fmt::Write;
 
 use dupe::Dupe;
-use once_cell::sync::Lazy;
 use starlark_derive::starlark_module;
 use starlark_syntax::golden_test_template::golden_test_template;
 
@@ -33,19 +32,11 @@ use crate::eval::Evaluator;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::typing::interface::Interface;
-use crate::typing::oracle::traits::OracleNoAttributes;
 use crate::typing::AstModuleTypecheck;
-use crate::typing::TypingOracle;
 use crate::values::none::NoneType;
 use crate::values::typing::StarlarkIter;
 use crate::values::Value;
 use crate::values::ValueOfUnchecked;
-
-fn mk_oracle() -> impl TypingOracle {
-    static ORACLE: Lazy<Box<dyn TypingOracle + Send + Sync + 'static>> =
-        Lazy::new(|| Box::new(OracleNoAttributes));
-    &*ORACLE
-}
 
 #[derive(Default)]
 struct TypeCheck {
@@ -95,7 +86,6 @@ impl TypeCheck {
         let ast0 = AstModule::parse("filename", code.to_owned(), &Dialect::Extended).unwrap();
         let ast1 = AstModule::parse("filename", code.to_owned(), &Dialect::Extended).unwrap();
         let (errors, typemap, interface, approximations) = ast0.typecheck(
-            &mk_oracle(),
             &globals,
             &self
                 .loads

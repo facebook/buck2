@@ -20,10 +20,7 @@
 
 use dupe::Dupe;
 
-use crate::typing::ty::Ty;
-use crate::typing::ty::TyName;
-
-/// Unary operator for [`TypingOracle::attribute`].
+/// Unary operator for typechecker.
 #[derive(Copy, Clone, Dupe, Eq, PartialEq, derive_more::Display, Debug)]
 pub enum TypingUnOp {
     /// `+`.
@@ -37,7 +34,7 @@ pub enum TypingUnOp {
     BitNot,
 }
 
-/// Binary operator for [`TypingOracle::attribute`].
+/// Binary operator for typechecker.
 #[derive(Copy, Clone, Dupe, Eq, PartialEq, derive_more::Display, Debug)]
 pub enum TypingBinOp {
     /// `+`.
@@ -85,59 +82,5 @@ impl TypingBinOp {
     /// Result type is always `bool`.
     pub(crate) fn always_bool(self) -> bool {
         matches!(self, TypingBinOp::In | TypingBinOp::Less)
-    }
-}
-
-/// Callbacks which provide types when typechecking a module.
-///
-/// The instance for slices/`Vec` allow composing a series of oracles
-/// which are tried in order until one succeeds.
-#[allow(unused_variables)] // Otherwise the types are bad in completions
-pub trait TypingOracle {
-    /// Given a type and a `.` attribute, what is its type.
-    /// Return [`Err`] to indicate we _know_ this isn't a valid attribute.
-    /// Return [`None`] if we aren't sure.
-    fn attribute(&self, _ty: &TyName, _attr: &str) -> Option<Result<Ty, ()>> {
-        None
-    }
-}
-
-/// Declare that there are no attributes, usually used at the end of a [`Vec`].
-#[cfg(test)]
-pub(crate) struct OracleNoAttributes;
-
-#[cfg(test)]
-impl TypingOracle for OracleNoAttributes {
-    fn attribute(&self, _ty: &TyName, _attr: &str) -> Option<Result<Ty, ()>> {
-        Some(Err(()))
-    }
-}
-
-/// Sequence of oracles, first one that returns [`Some`] wins.
-pub struct OracleSeq<T>(pub Vec<T>)
-where
-    T: TypingOracle;
-
-impl<T: TypingOracle> TypingOracle for OracleSeq<T> {
-    fn attribute(&self, ty: &TyName, attr: &str) -> Option<Result<Ty, ()>> {
-        self.0.iter().find_map(|oracle| oracle.attribute(ty, attr))
-    }
-}
-
-pub(crate) struct OracleAny;
-
-impl TypingOracle for OracleAny {}
-
-// Forwarding traits
-
-impl<'a, T: TypingOracle + ?Sized> TypingOracle for &'a T {
-    fn attribute(&self, ty: &TyName, attr: &str) -> Option<Result<Ty, ()>> {
-        (*self).attribute(ty, attr)
-    }
-}
-
-impl<T: TypingOracle + ?Sized> TypingOracle for Box<T> {
-    fn attribute(&self, ty: &TyName, attr: &str) -> Option<Result<Ty, ()>> {
-        self.as_ref().attribute(ty, attr)
     }
 }

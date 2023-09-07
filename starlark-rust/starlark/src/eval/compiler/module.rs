@@ -38,7 +38,6 @@ use crate::typing::bindings::BindingsCollect;
 use crate::typing::error::InternalError;
 use crate::typing::fill_types_for_lint::ModuleVarTypes;
 use crate::typing::mode::TypecheckMode;
-use crate::typing::oracle::traits::OracleAny;
 use crate::typing::typecheck::solve_bindings;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
@@ -172,7 +171,6 @@ impl<'v> Compiler<'v, '_, '_> {
         }
 
         let oracle = TypingOracleCtx {
-            oracle: &OracleAny,
             codemap: &self.codemap,
         };
         let module_var_types = self.mk_module_var_types();
