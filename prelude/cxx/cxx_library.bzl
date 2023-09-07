@@ -217,6 +217,9 @@ CxxLibraryOutput = record(
     # The import library is the linkable output of a Windows shared library build.
     implib = field([Artifact, None], None),
     linker_map = field([CxxLinkerMapData, None], None),
+
+    # Extra sub targets to be returned as outputs of this rule, by link style.
+    sub_targets = field(dict[str, list[DefaultInfo.type]]),
 )
 
 # The outputs of either archiving or linking the outputs of the library
@@ -225,8 +228,6 @@ _CxxAllLibraryOutputs = record(
     outputs = field(dict[LinkStyle, [CxxLibraryOutput, None]]),
     # The link infos that are part of each output based on link style.
     libraries = field(dict[LinkStyle, LinkInfos]),
-    # Extra sub targets to be returned as outputs of this rule, by link style.
-    sub_targets = field(dict[LinkStyle, dict[str, list[Provider]]], default = {}),
     # Extra providers to be returned consumers of this rule.
     providers = field(list[Provider], default = []),
     # Shared object name to shared library mapping.
@@ -470,10 +471,11 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         link_execution_preference = link_execution_preference,
     )
 
-    for _, link_style_sub_targets in library_outputs.sub_targets.items():
-        for key in link_style_sub_targets.keys():
-            expect(not key in sub_targets, "The subtarget `{}` already exists!".format(key))
-        sub_targets.update(link_style_sub_targets)
+    for _, link_style_output in library_outputs.outputs.items():
+        if link_style_output:
+            for key in link_style_output.sub_targets.keys():
+                expect(not key in sub_targets, "The subtarget `{}` already exists!".format(key))
+            sub_targets.update(link_style_output.sub_targets)
 
     providers.extend(library_outputs.providers)
 
@@ -491,8 +493,9 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                 output,
             )
 
-            # Add any subtargets for this link style.
-            link_style_sub_targets.update(library_outputs.sub_targets.get(link_style, {}))
+            if output:
+                # Add any subtargets for this link style.
+                link_style_sub_targets.update(output.sub_targets)
 
             if impl_params.generate_sub_targets.link_style_outputs:
                 sub_target_providers = []
@@ -889,7 +892,6 @@ def _form_library_outputs(
     outputs = {}
     libraries = {}
     solibs = {}
-    sub_targets = {}
     providers = []
 
     # Add in exported linker flags.
@@ -979,17 +981,6 @@ def _form_library_outputs(
                 )
                 shlib = result.link_result.linked_object
                 info = result.info
-                output = CxxLibraryOutput(
-                    default = shlib.output,
-                    unstripped = shlib.unstripped_output,
-                    object_files = compiled_srcs.pic.objects,
-                    external_debug_info = shlib.external_debug_info,
-                    dwp = shlib.dwp,
-                    linker_map = result.link_result.linker_map_data,
-                    pdb = shlib.pdb,
-                    implib = shlib.import_library,
-                )
-                solibs[result.soname] = shlib
 
                 link_cmd_debug_output_file = None
                 link_cmd_debug_output = make_link_command_debug_output(shlib)
@@ -997,17 +988,28 @@ def _form_library_outputs(
                     link_cmd_debug_output_file = make_link_command_debug_output_json_info(ctx, [link_cmd_debug_output])
                     providers.append(LinkCommandDebugOutputInfo(debug_outputs = [link_cmd_debug_output]))
 
-                sub_targets[link_style] = extra_linker_outputs | {
-                    "linker.argsfile": [DefaultInfo(
-                        default_output = shlib.linker_argsfile,
-                    )],
-                    "linker.command": [DefaultInfo(
-                        default_outputs = filter(None, [link_cmd_debug_output_file]),
-                    )],
-                    "linker.filelist": [DefaultInfo(
-                        default_outputs = filter(None, [shlib.linker_filelist]),
-                    )],
-                }
+                output = CxxLibraryOutput(
+                    default = shlib.output,
+                    unstripped = shlib.unstripped_output,
+                    object_files = compiled_srcs.pic.objects,
+                    external_debug_info = shlib.external_debug_info,
+                    dwp = shlib.dwp,
+                    linker_map = result.link_result.linker_map_data,
+                    sub_targets = extra_linker_outputs | {
+                        "linker.argsfile": [DefaultInfo(
+                            default_output = shlib.linker_argsfile,
+                        )],
+                        "linker.command": [DefaultInfo(
+                            default_outputs = filter(None, [link_cmd_debug_output_file]),
+                        )],
+                        "linker.filelist": [DefaultInfo(
+                            default_outputs = filter(None, [shlib.linker_filelist]),
+                        )],
+                    },
+                    pdb = shlib.pdb,
+                    implib = shlib.import_library,
+                )
+                solibs[result.soname] = shlib
 
                 providers.append(result.link_result.link_execution_preference_info)
 
@@ -1022,7 +1024,6 @@ def _form_library_outputs(
     return _CxxAllLibraryOutputs(
         outputs = outputs,
         libraries = libraries,
-        sub_targets = sub_targets,
         providers = providers,
         solibs = solibs,
     )
@@ -1235,6 +1236,7 @@ def _static_library(
             object_files = objects,
             bitcode_bundle = bitcode_bundle,
             other = archive.external_objects,
+            sub_targets = {},
         ),
         LinkInfo(
             name = name,
