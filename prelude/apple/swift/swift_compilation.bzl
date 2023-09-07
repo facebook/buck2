@@ -61,9 +61,9 @@ load(
 ExportedHeadersTSet = transitive_set()
 
 SwiftDependencyInfo = provider(fields = [
-    "exported_headers",  # ExportedHeadersTSet of {"module_name": [exported_headers]}, used for Swift header post processing
-    "exported_swiftmodule_paths",  # SwiftCompiledModuleTset of artifact that includes only paths through exported_deps, used for compilation
     "debug_info_tset",  # ArtifactTSet
+    "exported_headers",  # ExportedHeadersTSet of {"module_name": [exported_headers]}, used for Swift header post processing
+    "exported_swiftmodules",  # SwiftCompiledModuleTset that includes modules through exported_deps, used for compilation
 ])
 
 SwiftCompilationOutput = record(
@@ -570,7 +570,7 @@ def _add_mixed_library_flags_to_cmd(
 
 def _get_swift_paths_tsets(deps: list[Dependency]) -> list[SwiftCompiledModuleTset.type]:
     return [
-        d[SwiftDependencyInfo].exported_swiftmodule_paths
+        d[SwiftDependencyInfo].exported_swiftmodules
         for d in deps
         if SwiftDependencyInfo in d
     ]
@@ -644,7 +644,7 @@ def get_swift_dependency_info(
 
     return SwiftDependencyInfo(
         exported_headers = _get_exported_headers_tset(ctx, exported_headers),
-        exported_swiftmodule_paths = exported_swiftmodules,
+        exported_swiftmodules = exported_swiftmodules,
         debug_info_tset = debug_info_tset,
     )
 
