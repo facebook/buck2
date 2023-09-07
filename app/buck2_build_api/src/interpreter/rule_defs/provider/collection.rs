@@ -358,9 +358,11 @@ impl FrozenProviderCollection {
         &self,
         provider_id: &ProviderIdWithType<T>,
     ) -> Option<FrozenRef<'static, T>> {
-        self.providers
-            .get(provider_id.id())
-            .and_then(|v| v.downcast_frozen_ref::<T>())
+        let provider: FrozenValue = *self.providers.get(provider_id.id())?;
+        let provider = provider
+            .downcast_frozen_ref::<T>()
+            .expect("Incorrect provider type");
+        Some(provider)
     }
 
     pub fn get_provider_raw(&self, provider_id: &ProviderId) -> Option<&FrozenValue> {
