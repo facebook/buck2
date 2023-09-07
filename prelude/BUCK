@@ -1,6 +1,6 @@
-# Done to avoid triggering a lint rule that replaces glob with an fbcode macro
 load(":defs.bzl", "export_prelude")
 
+# Done to avoid triggering a lint rule that replaces glob with an fbcode macro
 globby = glob
 
 srcs = globby(
