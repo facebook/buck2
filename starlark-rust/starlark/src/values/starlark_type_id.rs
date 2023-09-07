@@ -42,8 +42,23 @@ impl StarlarkTypeId {
 
     #[inline]
     pub(crate) const fn of_canonical<'v, T: StarlarkValue<'v>>() -> StarlarkTypeId {
-        // We should check that `T::Canonical` is `T`,
-        // but we cannot do it until `TypeId::of` is const.
+        #[cfg(rust_nightly)]
+        {
+            // We should check type ids, but `TypeId` equality is not available even in nightly.
+            let type_name = std::any::type_name::<T>();
+            let type_name_of_canonical_again = std::any::type_name::<T::Canonical>();
+            if type_name.len() != type_name_of_canonical_again.len() {
+                panic!("Canonical type of already canonical type `T` is not `T`")
+            }
+            let mut i = 0;
+            while i != type_name.len() {
+                if type_name.as_bytes()[i] != type_name_of_canonical_again.as_bytes()[i] {
+                    panic!("Canonical type of already canonical type `T` is not `T`")
+                }
+                i += 1;
+            }
+        }
+
         StarlarkTypeId(ConstTypeId::of::<T::StaticType>())
     }
 }
