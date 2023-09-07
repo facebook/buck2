@@ -109,11 +109,11 @@ impl<'v, Node: NodeLike> StarlarkValue<'v> for StarlarkTargetSet<Node> {
     }
 
     fn sub(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        let other = other
-            .downcast_ref::<Self>()
-            .ok_or(ValueError::IncorrectParameterType)?;
-        let union = self.0.difference(&other.0)?;
-        Ok(heap.alloc(Self(union)))
+        let Some(other) = other.downcast_ref::<Self>() else {
+            return ValueError::unsupported_with(self, "-", other);
+        };
+        let difference = self.0.difference(&other.0)?;
+        Ok(heap.alloc(Self(difference)))
     }
 
     fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
@@ -124,9 +124,9 @@ impl<'v, Node: NodeLike> StarlarkValue<'v> for StarlarkTargetSet<Node> {
     }
 
     fn bit_and(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        let other = other
-            .downcast_ref::<Self>()
-            .ok_or(ValueError::IncorrectParameterType)?;
+        let Some(other) = other.downcast_ref::<Self>() else {
+            return ValueError::unsupported_with(self, "&", other);
+        };
         let intersect = self.0.intersect(&other.0)?;
         Ok(heap.alloc(Self(intersect)))
     }
