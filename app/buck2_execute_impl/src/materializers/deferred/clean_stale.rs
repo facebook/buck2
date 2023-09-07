@@ -39,7 +39,6 @@ use crate::materializers::deferred::join_all_existing_futs;
 use crate::materializers::deferred::ArtifactMaterializationData;
 use crate::materializers::deferred::ArtifactMaterializationStage;
 use crate::materializers::deferred::ArtifactTree;
-use crate::materializers::deferred::DefaultIoHandler;
 use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::sqlite::MaterializerStateSqliteDb;
 
@@ -69,11 +68,8 @@ fn skip_clean_response_with_message(
     ))
 }
 
-impl ExtensionCommand<DefaultIoHandler> for CleanStaleArtifacts {
-    fn execute(
-        self: Box<Self>,
-        processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
-    ) {
+impl<T: IoHandler> ExtensionCommand<T> for CleanStaleArtifacts {
+    fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
         let res = if let Some(sqlite_db) = processor.sqlite_db.as_mut() {
             if !processor.defer_write_actions {
                 skip_clean_response_with_message(
@@ -114,13 +110,13 @@ pub(crate) struct CleanStaleError {
     stats: buck2_data::CleanStaleStats,
 }
 
-fn gather_clean_futures_for_stale_artifacts(
+fn gather_clean_futures_for_stale_artifacts<T: IoHandler>(
     tree: &mut ArtifactTree,
     keep_since_time: DateTime<Utc>,
     dry_run: bool,
     tracked_only: bool,
     sqlite_db: &mut MaterializerStateSqliteDb,
-    io: &Arc<DefaultIoHandler>,
+    io: &Arc<T>,
     cancellations: &'static CancellationContext,
     dispatcher: &EventDispatcher,
 ) -> anyhow::Result<(

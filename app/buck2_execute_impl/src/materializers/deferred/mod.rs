@@ -129,10 +129,10 @@ use crate::materializers::sqlite::MaterializerStateSqliteDb;
 /// - file changes during a build are not properly supported by Buck and
 ///   treated as undefined behaviour, so there's no need to worry about them.
 #[derive(Allocative)]
-pub struct DeferredMaterializer {
+pub struct DeferredMaterializerAccessor<T: IoHandler + 'static> {
     /// Sender to emit commands to the command loop. See `MaterializerCommand`.
     #[allocative(skip)]
-    command_sender: MaterializerSender<DefaultIoHandler>,
+    command_sender: MaterializerSender<T>,
     /// Handle of the command loop thread. Aborted on Drop.
     /// This thread serves as a queue for declare/ensure requests, making
     /// sure only one executes at a time and in the order they came in.
@@ -144,7 +144,7 @@ pub struct DeferredMaterializer {
     materialize_final_artifacts: bool,
     defer_write_actions: bool,
 
-    io: Arc<DefaultIoHandler>,
+    io: Arc<T>,
 
     /// Tracked for logging purposes.
     materializer_state_info: buck2_data::MaterializerStateInfo,
@@ -152,7 +152,9 @@ pub struct DeferredMaterializer {
     stats: Arc<DeferredMaterializerStats>,
 }
 
-impl Drop for DeferredMaterializer {
+pub type DeferredMaterializer = DeferredMaterializerAccessor<DefaultIoHandler>;
+
+impl<T: IoHandler> Drop for DeferredMaterializerAccessor<T> {
     fn drop(&mut self) {
         // We don't try to stop the underlying thread, since in practice when we drop the
         // DeferredMaterializer we are about to just terminate the process.
@@ -463,7 +465,7 @@ impl VersionTracker {
     }
 }
 
-pub(crate) struct ArtifactMaterializationData {
+pub struct ArtifactMaterializationData {
     /// Taken from `deps` of `ArtifactValue`. Used to materialize deps of the artifact.
     deps: Option<ActionSharedDirectory>,
     stage: ArtifactMaterializationStage,
@@ -641,7 +643,7 @@ impl MaterializationMethodToProto for ArtifactMaterializationMethod {
 }
 
 #[async_trait]
-impl Materializer for DeferredMaterializer {
+impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T> {
     fn name(&self) -> &str {
         "deferred"
     }
@@ -887,7 +889,7 @@ impl Materializer for DeferredMaterializer {
     }
 }
 
-impl DeferredMaterializer {
+impl DeferredMaterializerAccessor<DefaultIoHandler> {
     /// Spawns two threads (`materialization_loop` and `command_loop`).
     /// Creates and returns a new `DeferredMaterializer` that aborts those
     /// threads when dropped.

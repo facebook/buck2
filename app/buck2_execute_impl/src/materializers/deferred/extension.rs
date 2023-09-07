@@ -44,8 +44,7 @@ use crate::materializers::deferred::io_handler::IoHandler;
 use crate::materializers::deferred::subscriptions::MaterializerSubscriptionOperation;
 use crate::materializers::deferred::ArtifactMaterializationMethod;
 use crate::materializers::deferred::ArtifactMaterializationStage;
-use crate::materializers::deferred::DefaultIoHandler;
-use crate::materializers::deferred::DeferredMaterializer;
+use crate::materializers::deferred::DeferredMaterializerAccessor;
 use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::deferred::MaterializerCommand;
 
@@ -88,11 +87,8 @@ struct Iterate {
     sender: UnboundedSender<(ProjectRelativePathBuf, Box<dyn DeferredMaterializerEntry>)>,
 }
 
-impl ExtensionCommand<DefaultIoHandler> for Iterate {
-    fn execute(
-        self: Box<Self>,
-        processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
-    ) {
+impl<T> ExtensionCommand<T> for Iterate {
+    fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
         for (path, data) in processor.tree.iter_with_paths() {
             let path_data = match &data.stage {
                 ArtifactMaterializationStage::Declared { method, .. } => {
@@ -141,11 +137,8 @@ struct Fsck {
     sender: UnboundedSender<(ProjectRelativePathBuf, anyhow::Error)>,
 }
 
-impl ExtensionCommand<DefaultIoHandler> for Fsck {
-    fn execute(
-        self: Box<Self>,
-        processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
-    ) {
+impl<T: IoHandler> ExtensionCommand<T> for Fsck {
+    fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
         for (path, data) in processor.tree.iter_with_paths() {
             match &data.stage {
                 ArtifactMaterializationStage::Declared { .. } => {
@@ -177,11 +170,8 @@ struct RefreshTtls {
     min_ttl: i64,
 }
 
-impl ExtensionCommand<DefaultIoHandler> for RefreshTtls {
-    fn execute(
-        self: Box<Self>,
-        processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
-    ) {
+impl<T: IoHandler> ExtensionCommand<T> for RefreshTtls {
+    fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
         let task = create_ttl_refresh(
             &processor.tree,
             processor.io.re_client_manager(),
@@ -199,11 +189,8 @@ struct GetTtlRefreshLog {
     sender: Sender<String>,
 }
 
-impl ExtensionCommand<DefaultIoHandler> for GetTtlRefreshLog {
-    fn execute(
-        self: Box<Self>,
-        processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
-    ) {
+impl<T: IoHandler> ExtensionCommand<T> for GetTtlRefreshLog {
+    fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
         // We normally poll this very lazily, so actually force it to happen here.
         processor.poll_current_ttl_refresh();
 
@@ -235,11 +222,8 @@ struct TestIter {
     count: usize,
 }
 
-impl ExtensionCommand<DefaultIoHandler> for TestIter {
-    fn execute(
-        self: Box<Self>,
-        processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
-    ) {
+impl<T> ExtensionCommand<T> for TestIter {
+    fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
         let mut out = String::new();
 
         let now = std::time::Instant::now();
@@ -288,11 +272,8 @@ struct FlushAccessTimes {
     sender: Sender<String>,
 }
 
-impl ExtensionCommand<DefaultIoHandler> for FlushAccessTimes {
-    fn execute(
-        self: Box<Self>,
-        processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
-    ) {
+impl<T: IoHandler> ExtensionCommand<T> for FlushAccessTimes {
+    fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
         let mut out = String::new();
 
         writeln!(&mut out, "{}", processor.flush_access_times(0)).unwrap();
@@ -301,7 +282,7 @@ impl ExtensionCommand<DefaultIoHandler> for FlushAccessTimes {
 }
 
 #[async_trait]
-impl DeferredMaterializerExtensions for DeferredMaterializer {
+impl<T: IoHandler> DeferredMaterializerExtensions for DeferredMaterializerAccessor<T> {
     fn iterate(
         &self,
     ) -> anyhow::Result<
