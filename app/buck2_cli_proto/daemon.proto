@@ -522,6 +522,17 @@ message GenericRequest {
 
 message GenericResponse {}
 
+message NewGenericRequestMessage {
+  ClientContext context = 1;
+  // `NewGenericRequest` serialized to JSON.
+  string new_generic_request = 2;
+}
+
+message NewGenericResponseMessage {
+  // `NewGenericResponse` serialized to JSON.
+  string new_generic_response = 1;
+}
+
 message UnstableCrashRequest {}
 
 message UnstableCrashResponse {}
@@ -577,7 +588,6 @@ message CommandResult {
     TargetsShowOutputsResponse targets_show_outputs_response = 12;
     InstallResponse install_response = 14;
     AqueryResponse aquery_response = 15;
-    MaterializeResponse materialize_response = 16;
     BxlResponse bxl_response = 17;
     LspResponse lsp_response = 18;
     AllocativeResponse allocative_response = 19;
@@ -587,6 +597,7 @@ message CommandResult {
     ConfiguredTargetsResponse configured_targets_response = 23;
     DapResponse dap_response = 24;
     GenericResponse generic_response = 100;
+    NewGenericResponseMessage new_generic_response_message = 101;
   }
 }
 
@@ -757,14 +768,6 @@ message AllocativeRequest {
 
 message AllocativeResponse {}
 
-message MaterializeRequest {
-  ClientContext context = 1;
-  // The paths we want to materialize
-  repeated string paths = 2;
-}
-
-message MaterializeResponse {}
-
 message CleanStaleRequest {
   ClientContext context = 1;
   int64 keep_since_time = 2;
@@ -861,10 +864,12 @@ service DaemonApi {
   rpc Starlark(GenericRequest) returns (stream MultiCommandProgress);
   rpc UnstableDocs(UnstableDocsRequest) returns (stream MultiCommandProgress);
   rpc Install(InstallRequest) returns (stream MultiCommandProgress);
-  rpc Materialize(MaterializeRequest) returns (stream MultiCommandProgress);
   rpc CleanStale(CleanStaleRequest) returns (stream MultiCommandProgress);
   rpc FileStatus(FileStatusRequest) returns (stream MultiCommandProgress);
   rpc Profile2(ProfileRequest) returns (stream MultiCommandProgress);
+
+  rpc NewGenericImpl(NewGenericRequestMessage)
+      returns (stream MultiCommandProgress);
 
   // Crashes the Buck daemon. Unless you are writing tests or checking Buck2's
   // panic behavior, you probably don't want this.

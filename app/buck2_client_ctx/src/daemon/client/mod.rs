@@ -14,6 +14,8 @@ use std::time::Duration;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::daemon_api_client::*;
+use buck2_cli_proto::new_generic::NewGenericRequest;
+use buck2_cli_proto::new_generic::NewGenericResponse;
 use buck2_cli_proto::*;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_core::fs::fs_util;
@@ -500,9 +502,9 @@ impl<'a, 'b> FlushingBuckdClient<'a, 'b> {
         buck2_cli_proto::StdoutBytes
     );
     stream_method!(
-        materialize,
-        MaterializeRequest,
-        MaterializeResponse,
+        new_generic_impl,
+        NewGenericRequestMessage,
+        NewGenericResponseMessage,
         NoPartialResult
     );
     stream_method!(
@@ -569,6 +571,30 @@ impl<'a, 'b> FlushingBuckdClient<'a, 'b> {
     wrap_method!(status(snapshot: bool), StatusResponse);
     wrap_method!(set_log_filter(log_filter: SetLogFilterRequest), ());
     stream_method!(trace_io, TraceIoRequest, TraceIoResponse, NoPartialResult);
+
+    pub async fn new_generic(
+        &mut self,
+        context: buck2_cli_proto::ClientContext,
+        req: NewGenericRequest,
+        stdin: Option<ConsoleInteractionStream<'_>>,
+    ) -> anyhow::Result<CommandOutcome<NewGenericResponse>> {
+        let req = serde_json::to_string(&req).context("Could not serialize `NewGenericRequest`")?;
+        let req = buck2_cli_proto::NewGenericRequestMessage {
+            context: Some(context),
+            new_generic_request: req,
+        };
+        let command_outcome: CommandOutcome<buck2_cli_proto::NewGenericResponseMessage> = self
+            .new_generic_impl(req, stdin, &mut NoPartialResultHandler)
+            .await?;
+        match command_outcome {
+            CommandOutcome::Success(resp) => {
+                let resp = serde_json::from_str(&resp.new_generic_response)
+                    .context("Could not deserialize `NewGenericResponse`")?;
+                Ok(CommandOutcome::Success(resp))
+            }
+            CommandOutcome::Failure(code) => Ok(CommandOutcome::Failure(code)),
+        }
+    }
 }
 
 /// Create a stream that is sent over as a parameter via GRPC to the daemon.

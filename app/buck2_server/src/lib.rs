@@ -24,6 +24,7 @@ mod jemalloc_stats;
 pub mod lsp;
 mod materialize;
 mod net_io;
+pub(crate) mod new_generic;
 pub mod profile;
 mod snapshot;
 mod subscription;

@@ -8,6 +8,8 @@
  */
 
 use anyhow::Context;
+use buck2_cli_proto::new_generic::MaterializeRequest;
+use buck2_cli_proto::new_generic::MaterializeResponse;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_events::dispatch::span_async;
 use buck2_server_ctx::command_end::command_end;
@@ -18,8 +20,8 @@ use crate::ctx::ServerCommandContext;
 
 pub(crate) async fn materialize_command(
     context: &ServerCommandContext<'_>,
-    req: buck2_cli_proto::MaterializeRequest,
-) -> anyhow::Result<buck2_cli_proto::MaterializeResponse> {
+    req: MaterializeRequest,
+) -> anyhow::Result<MaterializeResponse> {
     let metadata = context.request_metadata().await?;
     let start_event = buck2_data::CommandStart {
         metadata: metadata.clone(),
@@ -28,7 +30,7 @@ pub(crate) async fn materialize_command(
     span_async(start_event, async move {
         let result = materialize(&context.base_context, req.paths)
             .await
-            .map(|()| buck2_cli_proto::MaterializeResponse {})
+            .map(|()| MaterializeResponse {})
             .context("Failed to materialize paths");
         let end_event = command_end(metadata, &result, buck2_data::MaterializeCommandEnd {});
         (result, end_event)

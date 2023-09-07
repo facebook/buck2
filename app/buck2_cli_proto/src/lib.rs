@@ -14,6 +14,7 @@ use thiserror::Error;
 
 use crate::BuckDaemonProtoError::MissingClientContext;
 
+pub mod new_generic;
 pub mod protobuf_util;
 
 tonic::include_proto!("buck.daemon");
@@ -257,13 +258,13 @@ result_convert!(GenericResponse);
 result_convert!(UnstableDocsResponse);
 result_convert!(ProfileResponse);
 result_convert!(InstallResponse);
-result_convert!(MaterializeResponse);
 result_convert!(CleanStaleResponse);
 result_convert!(LspResponse);
 result_convert!(DapResponse);
 result_convert!(AllocativeResponse);
 result_convert!(SubscriptionCommandResponse);
 result_convert!(TraceIoResponse);
+result_convert!(NewGenericResponseMessage);
 
 partial_result_convert!(StdoutBytes);
 partial_result_convert!(LspMessage);
@@ -285,10 +286,10 @@ define_request!(TestRequest, has(context, build_options));
 define_request!(GenericRequest, has(context));
 define_request!(UnstableDocsRequest, has(context));
 define_request!(ProfileRequest, has(context));
-define_request!(MaterializeRequest, has(context));
 define_request!(AllocativeRequest, has(context));
 define_request!(CleanStaleRequest, has(context));
 define_request!(FileStatusRequest, has(context));
 define_request!(TraceIoRequest, has(context));
+define_request!(NewGenericRequestMessage, has(context));
 
 define_request!(InstallRequest, has(context, build_options));

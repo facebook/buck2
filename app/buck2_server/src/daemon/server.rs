@@ -97,7 +97,7 @@ use crate::daemon::server_allocative::spawn_allocative;
 use crate::daemon::state::DaemonState;
 use crate::file_status::file_status_command;
 use crate::lsp::run_lsp_server_command;
-use crate::materialize::materialize_command;
+use crate::new_generic::new_generic_command;
 use crate::snapshot;
 use crate::snapshot::SnapshotCollector;
 use crate::subscription::run_subscription_server_command;
@@ -1259,16 +1259,16 @@ impl DaemonApi for BuckdServer {
         .await
     }
 
-    type MaterializeStream = ResponseStream;
-    async fn materialize(
+    type NewGenericImplStream = ResponseStream;
+    async fn new_generic_impl(
         &self,
-        req: Request<MaterializeRequest>,
+        req: Request<NewGenericRequestMessage>,
     ) -> Result<Response<ResponseStream>, Status> {
         self.run_streaming(
             req,
             DefaultCommandOptions,
             |context, _: PartialResultDispatcher<NoPartialResult>, req| {
-                materialize_command(context, req).boxed()
+                new_generic_command(context, req).boxed()
             },
         )
         .await
