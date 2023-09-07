@@ -237,14 +237,8 @@ CxxLibraryOutput = record(
 
 # The outputs of either archiving or linking the outputs of the library
 _CxxAllLibraryOutputs = record(
-    # The outputs for each lib output style.
-    # For 'static'/'static_pic', these will be archives containing just this library's object files.
-    # For 'shared', the output as a shared library. That output will be built using either this library's link_style link strategy
-    # or via the link group strategy if this library has link group mapping.
-    # A header-only lib won't produce any outputs (but it may still provide LinkInfos below).
-    # TODO(cjhopman): make library-level link_group shared lib not put its output here
-    outputs = field(dict[LinkStyle, CxxLibraryOutput]),
-
+    # The outputs for each type of link style.
+    outputs = field(dict[LinkStyle, [CxxLibraryOutput, None]]),
     # The link infos for linking against this lib for each link style. It's possible for a library to
     # add link_infos even when it doesn't produce an output itself.
     link_infos = field(dict[LinkStyle, LinkInfos]),
@@ -544,8 +538,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             providers += actual_link_style_providers
 
     # Create the default output for the library rule given it's link style and preferred linkage
-    # It's possible for a library to not produce any output, for example, a header only library doesn't produce any archive or shared lib
-    default_output = library_outputs.outputs[actual_link_style] if actual_link_style in library_outputs.outputs else None
+    default_output = library_outputs.outputs[actual_link_style]
 
     if default_output and default_output.bitcode_bundle:
         sub_targets["bitcode"] = [DefaultInfo(default_output = default_output.bitcode_bundle.artifact)]
@@ -1038,8 +1031,7 @@ def _form_library_outputs(
 
         # you cannot link against header only libraries so create an empty link info
         info = info if info != None else LinkInfo()
-        if output:
-            outputs[link_style] = output
+        outputs[link_style] = output
         link_infos[link_style] = LinkInfos(
             default = ldflags(info),
             stripped = ldflags(stripped) if stripped != None else None,

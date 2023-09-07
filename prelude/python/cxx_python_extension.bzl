@@ -155,7 +155,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # For python_cxx_extensions we need to mangle the symbol names in order to avoid collisions
     # when linking into the main binary
-    embeddable = ctx.attrs.allow_embedding and LinkStyle("static") in libraries.outputs
+    embeddable = ctx.attrs.allow_embedding and libraries.outputs[LinkStyle("static")] != None
     if embeddable:
         if not ctx.attrs.allow_suffixing:
             pyinit_symbol = "PyInit_{}".format(module_name)
