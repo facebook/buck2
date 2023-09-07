@@ -12,6 +12,7 @@ use std::io::Write;
 use async_trait::async_trait;
 use buck2_audit::subtargets::AuditSubtargetsCommand;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
@@ -25,6 +26,7 @@ use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
+use buck2_server_ctx::stdout_partial_output::StdoutPartialOutput;
 use buck2_util::indent::indent;
 use dice::DiceTransaction;
 use dupe::Dupe;
@@ -113,19 +115,42 @@ async fn server_execute_with_dice(
 
     let mut stdout = stdout.as_writer();
     let mut stderr = server_ctx.stderr()?;
+    let recursive = !command.shallow;
 
     let mut at_least_one_evaluation_error = false;
     while let Some((target, result)) = futs.next().await {
         match result {
             Ok(v) => {
-                for subtarget in v
-                    .require_compatible()?
-                    .provider_collection()
-                    .default_info()
-                    .sub_targets()
-                    .keys()
-                {
-                    writeln!(&mut stdout, "{}[{}]", target.unconfigured(), subtarget)?;
+                if recursive {
+                    fn recursive_iterate(
+                        providers: &FrozenProviderCollection,
+                        stdout: &mut StdoutPartialOutput,
+                        buffer: &mut Vec<String>,
+                    ) -> anyhow::Result<()> {
+                        for (subtarget, providers) in providers.default_info().sub_targets().iter()
+                        {
+                            buffer.push(format!("[{subtarget}]"));
+                            writeln!(stdout, "{}", buffer.join(""))?;
+                            recursive_iterate(providers, stdout, buffer)?;
+                            buffer.pop();
+                        }
+                        Ok(())
+                    }
+                    recursive_iterate(
+                        v.require_compatible()?.provider_collection(),
+                        &mut stdout,
+                        &mut vec![target.unconfigured().to_string()],
+                    )?
+                } else {
+                    for subtarget in v
+                        .require_compatible()?
+                        .provider_collection()
+                        .default_info()
+                        .sub_targets()
+                        .keys()
+                    {
+                        writeln!(&mut stdout, "{}[{}]", target.unconfigured(), subtarget)?;
+                    }
                 }
             }
             Err(e) => {

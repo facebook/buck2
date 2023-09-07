@@ -22,6 +22,11 @@ pub struct AuditSubtargetsCommand {
     /// Patterns to analyze.
     #[clap(name = "TARGET_PATTERNS")]
     pub patterns: Vec<String>,
+
+    /// Do not recursively print all nested subtargets; print only
+    /// the first level. This is set to false by default.
+    #[clap(long)]
+    pub shallow: bool,
 }
 
 #[async_trait]
