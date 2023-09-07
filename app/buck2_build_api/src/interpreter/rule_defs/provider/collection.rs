@@ -344,13 +344,6 @@ impl FrozenProviderCollection {
             .expect("DefaultInfo should always be set")
     }
 
-    pub fn default_info_value(&self) -> FrozenValue {
-        *self
-            .providers
-            .get(DefaultInfoCallable::provider_id())
-            .expect("DefaultInfo should always be set")
-    }
-
     pub fn contains_provider(&self, provider_id: &ProviderId) -> bool {
         self.providers.contains_key(provider_id)
     }
