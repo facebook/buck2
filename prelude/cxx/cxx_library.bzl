@@ -232,8 +232,8 @@ _CxxAllLibraryOutputs = record(
     libraries = field(dict[LinkStyle, LinkInfos]),
     # Extra providers to be returned consumers of this rule.
     providers = field(list[Provider], default = []),
-    # Shared object name to shared library mapping.
-    solibs = field(dict[str, LinkedObject]),
+    # Shared object name to shared library mapping if this target produces a shared library.
+    solib = field([(str, LinkedObject), None]),
 )
 
 _CxxLibraryCompileOutput = record(
@@ -472,6 +472,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         gnu_use_link_groups = cxx_is_gnu(ctx) and bool(link_group_mappings),
         link_execution_preference = link_execution_preference,
     )
+    solib_as_dict = {library_outputs.solib[0]: library_outputs.solib[1]} if library_outputs.solib else {}
 
     for _, link_style_output in library_outputs.outputs.items():
         if link_style_output:
@@ -576,7 +577,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     if impl_params.generate_providers.shared_libraries:
         providers.append(merge_shared_libraries(
             ctx.actions,
-            create_shared_libraries(ctx, library_outputs.solibs),
+            create_shared_libraries(ctx, solib_as_dict),
             filter(None, [x.get(SharedLibraryInfo) for x in non_exported_deps]) +
             filter(None, [x.get(SharedLibraryInfo) for x in exported_deps]),
         ))
@@ -691,7 +692,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                     # If we don't have link input for this link style, we pass in `None` so
                     # that omnibus knows to avoid it.
                     link_infos = library_outputs.libraries,
-                    shared_libs = library_outputs.solibs,
+                    shared_libs = solib_as_dict,
                 ),
                 roots = roots,
                 excluded = {ctx.label: None} if not value_or(ctx.attrs.supports_merged_linking, True) else {},
@@ -793,8 +794,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             merge_link_group_lib_info(
                 label = ctx.label,
                 name = link_group,
-                shared_libs = library_outputs.solibs,
                 shared_link_infos = library_outputs.libraries.get(LinkStyle("shared")),
+                shared_libs = solib_as_dict,
                 deps = exported_deps + non_exported_deps,
             ),
         )
@@ -893,7 +894,7 @@ def _form_library_outputs(
     # Build static/shared libs and the link info we use to export them to dependents.
     outputs = {}
     libraries = {}
-    solibs = {}
+    solib = None
     providers = []
 
     # Add in exported linker flags.
@@ -1012,7 +1013,7 @@ def _form_library_outputs(
                     pdb = shlib.pdb,
                     implib = shlib.import_library,
                 )
-                solibs[result.soname] = shlib
+                solib = (result.soname, shlib)
 
                 providers.append(result.link_result.link_execution_preference_info)
 
@@ -1028,7 +1029,7 @@ def _form_library_outputs(
         outputs = outputs,
         libraries = libraries,
         providers = providers,
-        solibs = solibs,
+        solib = solib,
     )
 
 def _strip_objects(ctx: AnalysisContext, objects: list[Artifact]) -> list[Artifact]:

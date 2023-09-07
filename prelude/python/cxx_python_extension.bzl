@@ -127,9 +127,8 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
     libraries = cxx_library_info.all_outputs
     shared_output = libraries.outputs[LinkStyle("shared")]
 
-    shared_objects = libraries.solibs.values()
-    expect(len(shared_objects) == 1, "Expected exactly 1 so for cxx_python_extension: {}".format(ctx.label))
-    extension = shared_objects[0]
+    expect(libraries.solib != None, "Expected cxx_python_extension to produce a solib: {}".format(ctx.label))
+    extension = libraries.solib[1]
 
     sub_targets = cxx_library_info.sub_targets
     if extension.pdb:
