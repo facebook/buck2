@@ -54,47 +54,47 @@ impl<'c> HasPackageListingResolver<'c> for DiceComputations {
     }
 }
 
+#[derive(
+    Clone,
+    Dupe,
+    derive_more::Display,
+    Debug,
+    Eq,
+    Hash,
+    PartialEq,
+    Allocative
+)]
+struct PackageListingKey(PackageLabel);
+
+#[async_trait]
+impl Key for PackageListingKey {
+    type Value = SharedResult<PackageListing>;
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        let cell_resolver = ctx.get_cell_resolver().await?;
+        let file_ops = ctx.file_ops();
+        InterpreterPackageListingResolver::new(cell_resolver, Arc::new(file_ops))
+            .resolve(self.0.dupe())
+            .await
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        match (x, y) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Clone, Dupe)]
 pub struct DicePackageListingResolver<'compute>(&'compute DiceComputations);
 
 #[async_trait]
 impl<'c> PackageListingResolver for DicePackageListingResolver<'c> {
     async fn resolve(&self, package: PackageLabel) -> SharedResult<PackageListing> {
-        #[derive(
-            Clone,
-            Dupe,
-            derive_more::Display,
-            Debug,
-            Eq,
-            Hash,
-            PartialEq,
-            Allocative
-        )]
-        struct PackageListingKey(PackageLabel);
-
-        #[async_trait]
-        impl Key for PackageListingKey {
-            type Value = SharedResult<PackageListing>;
-            async fn compute(
-                &self,
-                ctx: &mut DiceComputations,
-                _cancellations: &CancellationContext,
-            ) -> Self::Value {
-                let cell_resolver = ctx.get_cell_resolver().await?;
-                let file_ops = ctx.file_ops();
-                InterpreterPackageListingResolver::new(cell_resolver, Arc::new(file_ops))
-                    .resolve(self.0.dupe())
-                    .await
-            }
-
-            fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-                match (x, y) {
-                    (Ok(x), Ok(y)) => x == y,
-                    _ => false,
-                }
-            }
-        }
-
         self.0.compute(&PackageListingKey(package.dupe())).await?
     }
 
