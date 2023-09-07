@@ -151,7 +151,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
     python_module_names = {}
     unembeddable_extensions = {}
 
-    link_infos = libraries.libraries
+    link_infos = libraries.link_infos
 
     # For python_cxx_extensions we need to mangle the symbol names in order to avoid collisions
     # when linking into the main binary
@@ -168,7 +168,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
                 suffix,
                 pic_objects = static_pic_output.object_files,
                 non_pic_objects = static_output.object_files,
-                libraries = libraries.libraries,
+                libraries = link_infos,
                 cxx_toolchain = cxx_toolchain,
                 suffix_all = ctx.attrs.suffix_all,
             )

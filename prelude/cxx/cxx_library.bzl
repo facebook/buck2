@@ -239,8 +239,9 @@ CxxLibraryOutput = record(
 _CxxAllLibraryOutputs = record(
     # The outputs for each type of link style.
     outputs = field(dict[LinkStyle, [CxxLibraryOutput, None]]),
-    # The link infos that are part of each output based on link style.
-    libraries = field(dict[LinkStyle, LinkInfos]),
+    # The link infos for linking against this lib for each link style. It's possible for a library to
+    # add link_infos even when it doesn't produce an output itself.
+    link_infos = field(dict[LinkStyle, LinkInfos]),
     # Extra providers to be returned consumers of this rule.
     providers = field(list[Provider], default = []),
     # Shared object name to shared library mapping if this target produces a shared library.
@@ -291,7 +292,6 @@ _CxxLibraryParameterizedOutput = record(
     sub_targets = field(dict[str, list[Provider]]),
     # A bundle of all bitcode files as a subtarget
     bitcode_bundle = field([BitcodeBundle, None], None),
-
     # Any generated providers as requested by impl_params.
     providers = field(list[Provider]),
     # XcodeDataInfo provider, returned separately as we cannot check
@@ -447,7 +447,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     frameworks_linkable = apple_create_frameworks_linkable(ctx)
     swiftmodule_linkable = impl_params.swiftmodule_linkable
     swift_runtime_linkable = create_swift_runtime_linkable(ctx)
-    shared_links, link_group_map, link_execution_preference = _get_shared_library_links(
+    dep_infos, link_group_map, link_execution_preference = _get_shared_library_links(
         ctx,
         get_linkable_graph_node_map_func(deps_linkable_graph),
         link_group,
@@ -478,7 +478,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         impl_params = impl_params,
         compiled_srcs = compiled_srcs,
         preferred_linkage = preferred_linkage,
-        shared_links = shared_links,
+        dep_infos = dep_infos,
         extra_static_linkables = extra_static_linkables,
         gnu_use_link_groups = cxx_is_gnu(ctx) and bool(link_group_mappings),
         link_execution_preference = link_execution_preference,
@@ -568,7 +568,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             ctx,
             pic_behavior,
             # Add link info for each link style,
-            library_outputs.libraries,
+            library_outputs.link_infos,
             preferred_linkage = preferred_linkage,
             # Export link info from non-exported deps (when necessary).
             deps = [inherited_non_exported_link],
@@ -702,7 +702,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                     exported_deps = exported_deps,
                     # If we don't have link input for this link style, we pass in `None` so
                     # that omnibus knows to avoid it.
-                    link_infos = library_outputs.libraries,
+                    link_infos = library_outputs.link_infos,
                     shared_libs = solib_as_dict,
                 ),
                 roots = roots,
@@ -805,8 +805,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             merge_link_group_lib_info(
                 label = ctx.label,
                 name = link_group,
-                shared_link_infos = library_outputs.libraries.get(LinkStyle("shared")),
                 shared_libs = solib_as_dict,
+                shared_link_infos = library_outputs.link_infos.get(LinkStyle("shared")),
                 deps = exported_deps + non_exported_deps,
             ),
         )
@@ -898,14 +898,14 @@ def _form_library_outputs(
         impl_params: CxxRuleConstructorParams,
         compiled_srcs: _CxxCompiledSourcesOutput,
         preferred_linkage: Linkage,
-        shared_links: LinkArgs,
+        dep_infos: LinkArgs,
         extra_static_linkables: list[[FrameworksLinkable, SwiftmoduleLinkable, SwiftRuntimeLinkable]],
         gnu_use_link_groups: bool,
         link_execution_preference: LinkExecutionPreference) -> _CxxAllLibraryOutputs:
     # Build static/shared libs and the link info we use to export them to dependents.
     outputs = {}
-    libraries = {}
     solib = None
+    link_infos = {}
     providers = []
 
     # Add in exported linker flags.
@@ -988,7 +988,7 @@ def _form_library_outputs(
                     impl_params,
                     compiled_srcs.pic.objects,
                     external_debug_info,
-                    shared_links,
+                    dep_infos,
                     gnu_use_link_groups,
                     extra_linker_flags = extra_linker_flags,
                     link_ordering = map_val(LinkOrdering, ctx.attrs.link_ordering),
@@ -1032,14 +1032,14 @@ def _form_library_outputs(
         # you cannot link against header only libraries so create an empty link info
         info = info if info != None else LinkInfo()
         outputs[link_style] = output
-        libraries[link_style] = LinkInfos(
+        link_infos[link_style] = LinkInfos(
             default = ldflags(info),
             stripped = ldflags(stripped) if stripped != None else None,
         )
 
     return _CxxAllLibraryOutputs(
         outputs = outputs,
-        libraries = libraries,
+        link_infos = link_infos,
         providers = providers,
         solib = solib,
     )
