@@ -502,4 +502,20 @@ def test():
             "Expected type `str` but got `Shape`",
         );
     }
+
+    #[test]
+    fn test_enum_call() {
+        // TODO(nga): should fail.
+        assert::pass(
+            r#"
+Currency = enum("GBP", "USD", "EUR")
+
+def accept_str(s: str):
+    pass
+
+def test():
+    accept_str(Currency("GBP"))
+"#,
+        );
+    }
 }
