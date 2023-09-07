@@ -44,16 +44,8 @@ async fn server_audit_command_inner(
     anyhow::Result<buck2_cli_proto::GenericResponse>,
     buck2_data::CommandEnd,
 ) {
-    let dir = context.working_dir().to_string();
     let result = parse_command_and_execute(context, partial_result_dispatcher, req).await;
-    let end_event = command_end(
-        metadata,
-        &result,
-        buck2_data::AuditCommandEnd {
-            status: if result.is_ok() { 0 } else { 1 },
-            dir,
-        },
-    );
+    let end_event = command_end(metadata, &result, buck2_data::AuditCommandEnd {});
 
     let result = result.map(|()| buck2_cli_proto::GenericResponse {});
 

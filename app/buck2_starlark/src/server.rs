@@ -43,18 +43,8 @@ async fn server_starlark_command_inner(
     anyhow::Result<buck2_cli_proto::GenericResponse>,
     buck2_data::CommandEnd,
 ) {
-    let args = req.serialized_opts.to_owned();
-    let dir = context.working_dir().to_string();
     let result = parse_command_and_execute(context, partial_result_dispatcher, req).await;
-    let end_event = command_end(
-        metadata,
-        &result,
-        buck2_data::StarlarkCommandEnd {
-            status: if result.is_ok() { 0 } else { 1 },
-            args,
-            dir,
-        },
-    );
+    let end_event = command_end(metadata, &result, buck2_data::StarlarkCommandEnd {});
 
     let result = result.map(|()| buck2_cli_proto::GenericResponse {});
 
