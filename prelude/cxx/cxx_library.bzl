@@ -190,38 +190,49 @@ load(
     "cxx_private_preprocessor_info",
 )
 
-# An output of a `cxx_library`, consisting of required `default` artifact and optional
-# `other` outputs that should also be materialized along with it.
+# A possible output of a `cxx_library`. This could be an archive or a shared library. Generally for an archive
+# it represents just the sources of the library target itself, while a shared library will bundle multiple libraries
+# together.
 CxxLibraryOutput = record(
     # The link style of this output.
     link_style = field(LinkStyle.type),
+
+    # The main output.
     default = field(Artifact),
     unstripped = field(Artifact),
-    # The object files used to create the artifact in `default`.
-    object_files = field(list[Artifact], []),
+
     # Additional outputs that are implicitly used along with the above output
     # (e.g. external object files referenced by a thin archive).
     #
     # Note: It's possible that this can contain some of the artifacts which are
     # also present in object_files.
     other = field(list[Artifact], []),
+    # The bitcode bundle. This only available for archive outputs.
+    # TODO(cjhopman): always available? when is it/is it not available?
     bitcode_bundle = field([BitcodeBundle, None], None),
-    # Additional debug info which is not included in the library output.
+    # Additional debug info which referenced by but not included in the library output.
     external_debug_info = field(ArtifactTSet, ArtifactTSet()),
     # A shared shared library may have an associated dwp file with
     # its corresponding DWARF debug info.
     # May be None when Split DWARF is disabled, for static/static-pic libraries,
     # for some types of synthetic link objects or for pre-built shared libraries.
     dwp = field([Artifact, None], None),
+
     # A shared shared library may have an associated PDB file with
     # its corresponding Windows debug info.
     pdb = field([Artifact, None], None),
     # The import library is the linkable output of a Windows shared library build.
     implib = field([Artifact, None], None),
+    # Data about the linker map, only available on shared libraries
+    # TODO(cjhopman): always available? when is it/is it not available?
     linker_map = field([CxxLinkerMapData, None], None),
 
     # Extra sub targets to be returned as outputs of this rule, by link style.
     sub_targets = field(dict[str, list[DefaultInfo.type]]),
+
+    # The object files used to create the artifact in `default`. This only includes the object files
+    # for this library itself, so it's not particularly meaningful for a shared lib output.
+    object_files = field(list[Artifact], []),
 )
 
 # The outputs of either archiving or linking the outputs of the library
@@ -955,7 +966,8 @@ def _form_library_outputs(
                     linkables = extra_static_linkables,
                 )
         else:  # shared
-            # We still generate a shared library with no source objects because it can still point to dependencies.
+            # If requested (by build_empty_so), we still generate a shared library even if there's no source objects.
+            # This could be useful because it can still point to dependencies.
             # i.e. a rust_python_extension is an empty .so depending on a rust shared object
             if compiled_srcs.pic.objects or impl_params.build_empty_so:
                 external_debug_artifacts = compiled_srcs.pic.external_debug_info
