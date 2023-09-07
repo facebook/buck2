@@ -168,8 +168,33 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> ["promise", list[Pr
             unique_input_inodes = True,
         )
 
+        # Construct the args needed to be passed to the clang importer
+        clang_importer_args = cmd_args()
+        clang_importer_args.add("-Xcc")
+        clang_importer_args.add(
+            cmd_args(
+                [
+                    "-fmodule-file=",
+                    module_name,
+                    "=",
+                    pcm_output,
+                ],
+                delimiter = "",
+            ),
+        )
+        clang_importer_args.add("-Xcc")
+        clang_importer_args.add(
+            cmd_args(
+                [
+                    "-fmodule-map-file=",
+                    expanded_modulemap_path_cmd,
+                ],
+                delimiter = "",
+            ),
+        )
+
         compiled_sdk = SwiftCompiledModuleInfo(
-            input_relative_path = expanded_modulemap_path_cmd,
+            clang_importer_args = clang_importer_args,
             is_framework = uncompiled_sdk_module_info.is_framework,
             is_swiftmodule = False,
             module_name = module_name,

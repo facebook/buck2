@@ -86,7 +86,6 @@ def _swift_interface_compilation_impl(ctx: AnalysisContext) -> ["promise", list[
         )
 
         compiled_sdk = SwiftCompiledModuleInfo(
-            input_relative_path = expanded_swiftinterface_cmd,
             is_framework = uncompiled_sdk_module_info.is_framework,
             is_swiftmodule = True,
             module_name = uncompiled_module_info_name,

@@ -60,7 +60,7 @@ SdkSwiftOverlayInfo = provider(fields = [
 ])
 
 SwiftCompiledModuleInfo = provider(fields = [
-    "input_relative_path",  # Path to modulemap file for pcm files.
+    "clang_importer_args",  # cmd_args of include flags for the clang importer.
     "is_framework",
     "is_swiftmodule",  # If True then contains a compiled swiftmodule, otherwise Clang's pcm.
     "module_name",  # A real name of a module, without distinguishing suffixes.
@@ -75,12 +75,7 @@ def _add_clang_import_flags(module_info: SwiftCompiledModuleInfo.type):
     if module_info.is_swiftmodule:
         return []
     else:
-        return [
-            "-Xcc",
-            cmd_args(["-fmodule-file=", module_info.module_name, "=", module_info.output_artifact], delimiter = ""),
-            "-Xcc",
-            cmd_args(["-fmodule-map-file=", module_info.input_relative_path], delimiter = ""),
-        ]
+        return [module_info.clang_importer_args]
 
 SwiftCompiledModuleTset = transitive_set(args_projections = {
     "clang_deps": _add_clang_import_flags,
