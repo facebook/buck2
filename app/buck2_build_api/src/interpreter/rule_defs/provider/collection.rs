@@ -13,7 +13,6 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::provider::id::ProviderId;
-use buck2_core::provider::id::ProviderIdWithType;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProviderName;
@@ -52,7 +51,6 @@ use crate::interpreter::rule_defs::provider::DefaultInfo;
 use crate::interpreter::rule_defs::provider::DefaultInfoCallable;
 use crate::interpreter::rule_defs::provider::FrozenBuiltinProviderLike;
 use crate::interpreter::rule_defs::provider::FrozenDefaultInfo;
-use crate::interpreter::rule_defs::provider::ProviderLike;
 use crate::interpreter::rule_defs::provider::ValueAsProviderLike;
 
 fn format_provider_keys_for_error(keys: &[String]) -> String {
@@ -348,19 +346,12 @@ impl FrozenProviderCollection {
         self.providers.contains_key(provider_id)
     }
 
-    fn get_provider<T: StarlarkValue<'static> + ProviderLike<'static>>(
-        &self,
-        provider_id: &ProviderIdWithType<T>,
-    ) -> Option<FrozenRef<'static, T>> {
-        let provider: FrozenValue = *self.providers.get(provider_id.id())?;
+    pub fn builtin_provider<T: FrozenBuiltinProviderLike>(&self) -> Option<FrozenRef<'static, T>> {
+        let provider: FrozenValue = *self.providers.get(T::builtin_provider_id())?;
         let provider = provider
             .downcast_frozen_ref::<T>()
             .expect("Incorrect provider type");
         Some(provider)
-    }
-
-    pub fn builtin_provider<T: FrozenBuiltinProviderLike>(&self) -> Option<FrozenRef<'static, T>> {
-        self.get_provider(ProviderIdWithType::new_ref(T::builtin_provider_id()))
     }
 
     pub fn get_provider_raw(&self, provider_id: &ProviderId) -> Option<&FrozenValue> {

@@ -42,7 +42,6 @@ impl Display for ProviderId {
     }
 }
 
-#[repr(C)]
 pub struct ProviderIdWithType<T> {
     id: Arc<ProviderId>,
     t: PhantomData<T>,
@@ -58,12 +57,6 @@ impl<T> ProviderIdWithType<T> {
             id: Arc::new(ProviderId { path, name }),
             t: Default::default(),
         }
-    }
-
-    #[inline]
-    pub fn new_ref(id: &Arc<ProviderId>) -> &Self {
-        // SAFETY: repr(C).
-        unsafe { &*(id as *const Arc<ProviderId> as *const Self) }
     }
 }
 
