@@ -67,10 +67,9 @@ impl Frame {
             let (line, ddd) = truncate_snippet(line, 80);
             writeln!(
                 write,
-                "{}* {}:{}, in {}",
+                "{}* {}, in {}",
                 indent,
-                location.file.filename(),
-                location.file.find_line(location.span.begin()) + 1,
+                location.resolve().begin_file_line(),
                 // Note we print caller function here as in Python, not callee,
                 // so in the stack trace, top frame is printed without executed function name.
                 caller,
