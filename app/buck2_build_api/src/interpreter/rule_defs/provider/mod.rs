@@ -79,7 +79,8 @@ pub mod test_provider;
 pub(crate) mod ty;
 pub(crate) mod user;
 
-pub(crate) trait ProviderLike<'v>: Debug {
+/// Implemented by providers (builtin or user defined).
+pub trait ProviderLike<'v>: Debug {
     /// The ID. Guaranteed to be set on the `ProviderCallable` before constructing this object
     fn id(&self) -> &Arc<ProviderId>;
     /// Gets the value for a given field.

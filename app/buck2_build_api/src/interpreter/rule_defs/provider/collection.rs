@@ -51,6 +51,7 @@ use starlark::values::ValueLike;
 use crate::interpreter::rule_defs::provider::DefaultInfo;
 use crate::interpreter::rule_defs::provider::DefaultInfoCallable;
 use crate::interpreter::rule_defs::provider::FrozenDefaultInfo;
+use crate::interpreter::rule_defs::provider::ProviderLike;
 use crate::interpreter::rule_defs::provider::ValueAsProviderLike;
 
 fn format_provider_keys_for_error(keys: &[String]) -> String {
@@ -353,7 +354,7 @@ impl FrozenProviderCollection {
         self.providers.contains_key(provider_id)
     }
 
-    pub fn get_provider<T: StarlarkValue<'static>>(
+    pub fn get_provider<T: StarlarkValue<'static> + ProviderLike<'static>>(
         &self,
         provider_id: &ProviderIdWithType<T>,
     ) -> Option<FrozenRef<'static, T>> {
