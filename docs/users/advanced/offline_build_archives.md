@@ -51,43 +51,62 @@ fbpkg.offline_builder(
 )
 ```
 
-The output of `//:my.service-offline` will be an Antlir container that itself can be packaged up in an fbpkg and shipped elsewhere.
+The output of `//:my.service-offline` will be an fbpkg containing an Antlir container with all inputs - both from the repo as well as from the network - necessary to build that fbpkg.
 
 ## Building inside the image
 
 The OS image will contain all input files necessary to produce the desired output artifact(s) in a no-network, low-dependency environment.
 
-To test out a build on your devserver and ensure you _can_ actually produce the output you expect, you can materialize the container in a separate location and enter with with `systemd-nspawn`:
+In every offline builder fbpkg, a simple tool called `offline_builder` is included. This is a simple python binary which makes it easier to work with offline build images.
 
+The `offline_builder` utility has three commands:
+1. `receive-image`: Unpacks the btrfs sendstream-v2 image that Antlir produces to an on-disk btrfs subvolume
+2. `enter-image`: Invokes `systemd-nspawn` to drop you into a shell inside the container image.
+3. `build-fbpkg`: Invokes `systemd-nspawn` with the appropriate command to build the fbpkg inside the container image.
+
+NOTE: All `offline_builder` commands must be run with root permissions (e.g. with `sudo`).
+
+The general process of working with an offline build image is the following:
 ```[bash]
-# Use Antlir's special `=container` rule to generate the container locally.
-$ buck2 run //my/service:my.service-offline=container -- --snapshot-into ~/local/my_service_offline
+# Fetch the offline builder fbpkg
+$ fbpkg fetch my.service-offline:$hash
 
-# Enter the container as the build user with no network, you will need root access
-$ sudo systemd-nspawn -D ~/local/my_service_offline --register=no --user facebook --private-network
+# Unpack the image on disk
+$ sudo ./offline_builder receive-image
+INFO:root:`btrfs receive`ing image '/tmp/offline/sendstream.v2' into '/tmp/offline/my.service-offline'
+INFO:root:Received image to /tmp/offline/my.service-offline/e5b93112027f479eb30b2c35f831b1aa
+INFO:root:Marking image '/tmp/offline/my.service-offline/e5b93112027f479eb30b2c35f831b1aa' as r/w
 
-[facebook@my_service_offline ~]$ ls -l
-total 0
-drwxr-xr-x 1 facebook users   16 Jul 20 10:13 dotslash_cache
-drwxr-xr-x 1 facebook users 2142 Jul 20 10:28 fbsource
+# Enter the image
+$ sudo ./offline_builder enter-image
+Spawning container e5b93112027f479eb30b2c35f831b1aa on /temp/offline/my.service-offline/e5b93112027f479eb30b2c35f831b1aa.
+Press ^] three times within 1s to kill container.
+[facebook@e5b93112027f479eb30b2c35f831b1aa ~]$
+
+# Alternatively, you can also build the fbpkg directly from the host machine
+$ sudo ./offline_builder build-fbpkg
+...
 ```
 
-This drops you into the container as the `facebook` service user. This user has various settings and configurations configured on login for buck2 and the new `fbpkg-build` entrypoint to work offline by default with no extra flags or configuration required.
+### Working inside the image
+`offline_builder enter-image` drops you into the container as the `facebook` service user. This user has various settings and configurations configured on login for buck2 and the new `fbpkg-build` entrypoint to work offline by default with no extra flags or configuration required.
 
 There's a "checkout" of fbsource at `/home/facebook` (not a real source code repository, but enough to get builds working), as well as a cached dotslash directory with prefetched executables.
 
 Inside the fbsource repository are one or more shell scripts to make it easier to perform offline builds:
 
 ```[bash]
-[facebook@my_service_offline fbsource]$ ls -l *.sh
--rwxr-xr-x 1 facebook users 167 Jul 20 10:07 build_fbpkg_my_service.sh
+[facebook@e5b93112027f479eb30b2c35f831b1aa fbsource]$ ls -l *.sh
+-rwxr-xr-x 1 facebook root 113 Aug 30 06:21 build_fbpkg.sh
+-rwxr-xr-x 1 facebook root 136 Aug 30 06:21 build_fbpkg_belljar.barservice_targets_mode-opt.sh
+-rwxr-xr-x 1 facebook root 930 Aug 30 05:48 build_fbpkg_impl.sh
 
-[facebook@my_service_offline fbsource]$ cat build_fbpkg_my_service.sh
+[facebook@e5b93112027f479eb30b2c35f831b1aa fbsource]$ cat build_fbpkg.sh
 #!/bin/sh
 
-exec fbpkg-build --offline --build-local --no-publish fbcode//my/service:my.service
+exec /home/facebook/fbsource/build_fbpkg_impl.sh fbcode//belljar/blanks/barservice:belljar.barservice
 
-[facebook@my_service_offline fbsource]$ ./build_fbpkg_my_service.sh
+[facebook@my_service_offline fbsource]$ ./build_fbpkg.sh
 2023-08-08T11:58:01.709968604-07:00  INFO registry_build_utils::build_utils: Using repo found at cwd: /home/facebook/fbsource
 Buck UI: https://www.internalfb.com/buck2/1dbe44a6-2089-46b5-b5fe-83ba82facf69
 Jobs completed: 78265. Time elapsed: 50.2s.
@@ -102,13 +121,24 @@ BUILD SUCCEEDED
 > NOTE: today, this only produces a tree of artifacts that represents **uncompressed** fbpkg contents. In the future, this will be updated to produce a fully compressed fbpkg that can be handed off to tupperware. The script above will print out the location of the built fbpkg
 
 ## Copy built package out of the container
-You can access the files inside the container, from your dev server, you can cp the generated fbpkg out as root. The path will be the image base path (the path you pass through --snapshot-into when built the image) + path inside container (the output of the build script), in our case it is shown below
+When invoking `offline_builder build-fbpkg`, a special `offline-out` directory is created in the root of the extracted fbpkg. This directory will be bind-mounted with read/write permissions inside the container, and once the fbpkg build inside the container is done, all build artifacts will be recursively copied to this directory.
+
 ```[bash]
-[yourunix@devvm4242.vll0 /]$ ls ~/local/my_service_offline/home/facebook/fbsource/buck-out/v2/gen/fbcode/29146bce1651974e/path/to/my_service_offline/__my_service_offline__/tree
-server.par
-[yourunix@devvm4242.vll0 /]$ sudo cp ~/local/my_service_offline/home/facebook/fbsource/buck-out/v2/gen/fbcode/29146bce1651974e/path/to/my_service_offline/__my_service_offline__/tree/server.par /tmp/your_test_dir
+$ sudo ./offline_builder build-fbpkg
+Spawning container e5b93112027f479eb30b2c35f831b1aa on /tmp/offline/my.service-offline/e5b93112027f479eb30b2c35f831b1aa.
+Press ^] three times within 1s to kill container.
+2023-08-30T09:20:14.962454825-07:00  INFO registry_build_utils::build_utils: Using repo found at cwd: /home/facebook/fbsource
+Buck UI: https://www.internalfb.com/buck2/1847d785-0ebf-44d9-8831-a695e6d6dae0
+Jobs completed: 76504. Time elapsed: 24:20.6s.
+Cache hits: 0%. Commands: 27640 (cached: 0, remote: 0, local: 27640)
+BUILD SUCCEEDED
+
+$ ls -l ./offline-out
+total 74M
+-rwxr-xr-x 1 1000 users 74M Aug 30 09:44 my_service*
 ```
 
+You can then copy these build artifacts elsewhere.
 
 ## Additional build modes
 
@@ -128,7 +158,7 @@ fbpkg.offline_builder(
 This results in a new shell script at the root of the container fbsource repository, one for each mode:
 ```[bash]
 [facebook@my_service_offline fbsource]$ ls -l *.sh
--rwxr-xr-x 1 facebook users 167 Jul 20 10:07 build_fbpkg_my_service.sh
+-rwxr-xr-x 1 facebook users 167 Jul 20 10:07 build_fbpkg.sh
 -rwxr-xr-x 1 facebook users 123 Jul 20 10:07 build_fbpkg_my_service_targets_mode-opt.sh
 -rwxr-xr-x 1 facebook users 123 Jul 20 10:07 build_fbpkg_my_service_targets_mode-dev.sh
 
