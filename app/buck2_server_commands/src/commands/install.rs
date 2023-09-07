@@ -28,7 +28,7 @@ use buck2_build_api::context::HasBuildContextData;
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::InstallInfoCallable;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::FrozenInstallInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::InstallRequest;
@@ -239,7 +239,7 @@ async fn install(
                 .await?
                 .require_compatible()?;
             let providers = frozen_providers.provider_collection();
-            match providers.get_provider(InstallInfoCallable::provider_id_t()) {
+            match providers.builtin_provider::<FrozenInstallInfo>() {
                 Some(install_info) => {
                     let install_id = format!("{}", providers_label.target());
                     let installer_label = install_info.get_installer()?;

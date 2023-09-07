@@ -16,7 +16,6 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::FrozenLocalResourceInfo;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::LocalResourceInfoCallable;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -116,7 +115,7 @@ async fn get_local_resource_info<'v>(
     Ok((
         target.target(),
         providers
-            .get_provider(LocalResourceInfoCallable::provider_id_t())
+            .builtin_provider::<FrozenLocalResourceInfo>()
             .context(format!(
                 "Target `{}` expected to contain `LocalResourceInfo` provider",
                 target

@@ -19,7 +19,6 @@ use futures::future::FutureExt;
 use itertools::Itertools;
 
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::ExternalRunnerTestInfoCallable;
 use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
 use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
@@ -98,9 +97,7 @@ impl dyn TestProvider {
     pub fn from_collection<'a>(
         providers: &'a FrozenProviderCollection,
     ) -> Option<&'a dyn TestProvider> {
-        if let Some(provider) =
-            providers.get_provider(ExternalRunnerTestInfoCallable::provider_id_t())
-        {
+        if let Some(provider) = providers.builtin_provider::<FrozenExternalRunnerTestInfo>() {
             return Some(provider.as_ref());
         }
 

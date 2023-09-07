@@ -29,7 +29,6 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::ExternalRunnerTestInfoCallable;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
 use buck2_common::dice::cells::HasCellResolver;
@@ -757,7 +756,7 @@ impl<'b> BuckTestOrchestrator<'b> {
 
         let providers = providers.provider_collection();
         providers
-            .get_provider(ExternalRunnerTestInfoCallable::provider_id_t())
+            .builtin_provider::<FrozenExternalRunnerTestInfo>()
             .context("Test executable only supports ExternalRunnerTestInfo providers")
     }
 

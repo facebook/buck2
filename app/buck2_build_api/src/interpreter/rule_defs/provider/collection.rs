@@ -348,7 +348,7 @@ impl FrozenProviderCollection {
         self.providers.contains_key(provider_id)
     }
 
-    pub fn get_provider<T: StarlarkValue<'static> + ProviderLike<'static>>(
+    fn get_provider<T: StarlarkValue<'static> + ProviderLike<'static>>(
         &self,
         provider_id: &ProviderIdWithType<T>,
     ) -> Option<FrozenRef<'static, T>> {
