@@ -22,9 +22,8 @@ pub(crate) async fn trace_io_command(
     context: &ServerCommandContext<'_>,
     req: buck2_cli_proto::TraceIoRequest,
 ) -> anyhow::Result<buck2_cli_proto::TraceIoResponse> {
-    let metadata = context.request_metadata().await?;
     let start_event = buck2_data::CommandStart {
-        metadata: metadata.clone(),
+        metadata: context.request_metadata().await?,
         data: Some(buck2_data::TraceIoCommandStart {}.into()),
     };
     span_async(start_event, async move {
@@ -57,7 +56,7 @@ pub(crate) async fn trace_io_command(
             }),
         };
 
-        let end_event = command_end(metadata, &result, buck2_data::TraceIoCommandEnd {});
+        let end_event = command_end(&result, buck2_data::TraceIoCommandEnd {});
         (result, end_event)
     })
     .await

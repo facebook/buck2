@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
-
 use buck2_events::dispatch::span_async;
 use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -22,21 +20,19 @@ pub async fn server_audit_command(
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: buck2_cli_proto::GenericRequest,
 ) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
-    let metadata = ctx.request_metadata().await?;
     let start_event = buck2_data::CommandStart {
-        metadata: metadata.clone(),
+        metadata: ctx.request_metadata().await?,
         data: Some(buck2_data::AuditCommandStart {}.into()),
     };
 
     span_async(
         start_event,
-        server_audit_command_inner(metadata, ctx, partial_result_dispatcher, req),
+        server_audit_command_inner(ctx, partial_result_dispatcher, req),
     )
     .await
 }
 
 async fn server_audit_command_inner(
-    metadata: HashMap<String, String>,
     context: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: buck2_cli_proto::GenericRequest,
@@ -45,7 +41,7 @@ async fn server_audit_command_inner(
     buck2_data::CommandEnd,
 ) {
     let result = parse_command_and_execute(context, partial_result_dispatcher, req).await;
-    let end_event = command_end(metadata, &result, buck2_data::AuditCommandEnd {});
+    let end_event = command_end(&result, buck2_data::AuditCommandEnd {});
 
     let result = result.map(|()| buck2_cli_proto::GenericResponse {});
 

@@ -22,9 +22,8 @@ pub(crate) async fn materialize_command(
     context: &ServerCommandContext<'_>,
     req: MaterializeRequest,
 ) -> anyhow::Result<MaterializeResponse> {
-    let metadata = context.request_metadata().await?;
     let start_event = buck2_data::CommandStart {
-        metadata: metadata.clone(),
+        metadata: context.request_metadata().await?,
         data: Some(buck2_data::MaterializeCommandStart {}.into()),
     };
     span_async(start_event, async move {
@@ -32,7 +31,7 @@ pub(crate) async fn materialize_command(
             .await
             .map(|()| MaterializeResponse {})
             .context("Failed to materialize paths");
-        let end_event = command_end(metadata, &result, buck2_data::MaterializeCommandEnd {});
+        let end_event = command_end(&result, buck2_data::MaterializeCommandEnd {});
         (result, end_event)
     })
     .await

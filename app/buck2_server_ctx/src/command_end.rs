@@ -7,22 +7,15 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
-
 /// Common code executed in the end of command to produce `CommandEnd`.
-pub fn command_end<R, D>(
-    metadata: HashMap<String, String>,
-    result: &anyhow::Result<R>,
-    data: D,
-) -> buck2_data::CommandEnd
+pub fn command_end<R, D>(result: &anyhow::Result<R>, data: D) -> buck2_data::CommandEnd
 where
     D: Into<buck2_data::command_end::Data>,
 {
-    command_end_ext(metadata, result, data.into(), |_| true)
+    command_end_ext(result, data.into(), |_| true)
 }
 
 pub fn command_end_ext<R, D, F>(
-    metadata: HashMap<String, String>,
     result: &anyhow::Result<R>,
     data: D,
     is_success: F,
@@ -38,7 +31,6 @@ where
     buck2_data::CommandEnd {
         is_success,
         error_messages,
-        metadata,
         data: Some(data.into()),
     }
 }

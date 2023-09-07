@@ -65,9 +65,8 @@ pub async fn run_server_command<T: ServerCommandTemplate>(
     server_ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<<T as ServerCommandTemplate>::PartialResult>,
 ) -> anyhow::Result<T::Response> {
-    let metadata = server_ctx.request_metadata().await?;
     let start_event = buck2_data::CommandStart {
-        metadata: metadata.clone(),
+        metadata: server_ctx.request_metadata().await?,
         data: Some(command.start_event().into()),
     };
 
@@ -81,7 +80,7 @@ pub async fn run_server_command<T: ServerCommandTemplate>(
                 command.exclusive_command_name(),
             )
             .await;
-        let end_event = command_end_ext(metadata, &result, command.end_event(&result), |result| {
+        let end_event = command_end_ext(&result, command.end_event(&result), |result| {
             command.is_success(result)
         });
         (result, end_event)

@@ -90,7 +90,6 @@ mod tests {
         };
         let end = CommandEnd {
             data: Default::default(),
-            metadata: Default::default(),
             is_success: true,
             error_messages: vec![],
         };

@@ -732,11 +732,6 @@ message FileStatusCommandStart {}
 message ProfileCommandStart {}
 
 message CommandEnd {
-  // Metadata associated with this build. Values in this map have no particular
-  // semantics and are useful for logging and telemetry only.
-  //
-  // The metadata cannot contain information from buckconfig or dice state
-  map<string, string> metadata = 1;
   oneof data {
     BuildCommandEnd build = 20;
     TargetsCommandEnd targets = 21;

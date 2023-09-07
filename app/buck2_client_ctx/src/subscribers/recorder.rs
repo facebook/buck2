@@ -448,7 +448,6 @@ mod imp {
             event: &BuckEvent,
         ) -> anyhow::Result<()> {
             let mut command = command.clone();
-            self.metadata.extend(std::mem::take(&mut command.metadata));
             self.error_messages
                 .extend(std::mem::take(&mut command.error_messages));
 

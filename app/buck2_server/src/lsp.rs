@@ -760,14 +760,13 @@ pub(crate) async fn run_lsp_server_command(
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::LspMessage>,
     req: StreamingRequestHandler<buck2_cli_proto::LspRequest>,
 ) -> anyhow::Result<buck2_cli_proto::LspResponse> {
-    let metadata = ctx.request_metadata().await?;
     let start_event = buck2_data::CommandStart {
-        metadata: metadata.clone(),
+        metadata: ctx.request_metadata().await?,
         data: Some(buck2_data::LspCommandStart {}.into()),
     };
     span_async(start_event, async move {
         let result = run_lsp_server(ctx, partial_result_dispatcher, req).await;
-        let end_event = command_end(metadata, &result, buck2_data::LspCommandEnd {});
+        let end_event = command_end(&result, buck2_data::LspCommandEnd {});
         (result, end_event)
     })
     .await

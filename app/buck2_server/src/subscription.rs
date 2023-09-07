@@ -28,9 +28,8 @@ pub(crate) async fn run_subscription_server_command(
     >,
     mut req: StreamingRequestHandler<buck2_cli_proto::SubscriptionRequestWrapper>,
 ) -> anyhow::Result<buck2_cli_proto::SubscriptionCommandResponse> {
-    let metadata = ctx.request_metadata().await?;
     let start_event = buck2_data::CommandStart {
-        metadata: metadata.clone(),
+        metadata: ctx.request_metadata().await?,
         data: Some(buck2_data::SubscriptionCommandStart {}.into()),
     };
     span_async(start_event, async move {
@@ -109,7 +108,7 @@ pub(crate) async fn run_subscription_server_command(
             buck2_cli_proto::SubscriptionCommandResponse {}
         };
 
-        let end_event = command_end(metadata, &result, buck2_data::SubscriptionCommandEnd {});
+        let end_event = command_end(&result, buck2_data::SubscriptionCommandEnd {});
         (result, end_event)
     })
     .await
