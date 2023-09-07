@@ -46,7 +46,9 @@ use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::user::TyUser;
 use crate::typing::user::TyUserFields;
 use crate::typing::user::TyUserIndex;
+use crate::typing::Param;
 use crate::typing::Ty;
+use crate::typing::TyFunction;
 use crate::values::enumeration::matcher::EnumTypeMatcher;
 use crate::values::enumeration::ty_enum_type::TyEnumData;
 use crate::values::enumeration::value::EnumValueGen;
@@ -316,7 +318,13 @@ where
                 None,
                 TypeInstanceId::gen(),
                 TyUserFields::no_fields(),
-                None,
+                Some(TyFunction::new(
+                    vec![Param::pos_only(
+                        // TODO(nga): we can do better parameter type.
+                        Ty::any(),
+                    )],
+                    ty_enum_value.dupe(),
+                )),
                 Some(TyUserIndex {
                     index: Ty::int(),
                     result: ty_enum_value.dupe(),
@@ -505,8 +513,7 @@ def test():
 
     #[test]
     fn test_enum_call() {
-        // TODO(nga): should fail.
-        assert::pass(
+        assert::fail(
             r#"
 Currency = enum("GBP", "USD", "EUR")
 
@@ -516,6 +523,7 @@ def accept_str(s: str):
 def test():
     accept_str(Currency("GBP"))
 "#,
+            "Expected type `str` but got `Currency`",
         );
     }
 }
