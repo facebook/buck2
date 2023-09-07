@@ -172,3 +172,19 @@ fn test_user_defined_provider_creator_typecheck() {
         "Unexpected parameter named `y`",
     );
 }
+
+#[test]
+fn test_provider_non_unique_fields() {
+    let mut tester = provider_tester();
+    tester.run_starlark_bzl_test_expecting_error(
+        indoc!(
+            r#"
+                Pkg = provider(fields = ["x", "x"])
+
+                def test():
+                    pass
+            "#
+        ),
+        "non-unique field names",
+    )
+}

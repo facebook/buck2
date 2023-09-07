@@ -472,7 +472,7 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
         let (field_names, field_docs) = {
             let docs = vec![None; fields.len()];
             let field_names: SmallSet<String> = fields.iter().cloned().collect();
-            if field_names.len() != field_names.len() {
+            if field_names.len() != fields.len() {
                 return Err(ProviderCallableError::NonUniqueFields(fields).into());
             }
             (field_names, docs)
