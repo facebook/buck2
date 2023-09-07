@@ -79,6 +79,12 @@ pub fn to_json_project(
         // Include "test" cfg so rust-analyzer picks up #[cfg(test)] code.
         cfg.push("test".to_owned());
 
+        #[cfg(fbcode_build)]
+        {
+            // FIXME(JakobDegen): This should be set via a configuration mechanism of some kind.
+            cfg.push("fbcode_build".to_owned());
+        }
+
         // the mapping here is inverted, which means we need to search through the keys for the Target.
         // thankfully, most projects don't have to many proc macros, which means the size of this list
         // remains in the two digit space.
