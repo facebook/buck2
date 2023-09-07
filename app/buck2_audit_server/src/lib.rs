@@ -34,6 +34,7 @@ mod prelude;
 mod providers;
 pub mod server;
 mod starlark;
+mod subtargets;
 mod visibility;
 
 /// `buck2 audit` subcommands have a somewhat unique approach to make it really easy to
@@ -86,6 +87,7 @@ impl AuditCommandExt for AuditCommand {
             AuditCommand::Includes(cmd) => cmd,
             AuditCommand::Prelude(cmd) => cmd,
             AuditCommand::Providers(cmd) => cmd,
+            AuditCommand::Subtargets(cmd) => cmd,
             AuditCommand::AnalysisQueries(cmd) => cmd,
             AuditCommand::ExecutionPlatformResolution(cmd) => cmd,
             AuditCommand::Starlark(cmd) => cmd,

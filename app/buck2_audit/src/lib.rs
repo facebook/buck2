@@ -38,6 +38,7 @@ use crate::package_values::PackageValuesCommand;
 use crate::prelude::AuditPreludeCommand;
 use crate::providers::AuditProvidersCommand;
 use crate::starlark::StarlarkCommand;
+use crate::subtargets::AuditSubtargetsCommand;
 use crate::visibility::AuditVisibilityCommand;
 
 pub mod analysis_queries;
@@ -54,6 +55,7 @@ pub mod package_values;
 pub mod prelude;
 pub mod providers;
 pub mod starlark;
+pub mod subtargets;
 pub mod visibility;
 
 #[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
@@ -66,6 +68,7 @@ pub enum AuditCommand {
     Includes(AuditIncludesCommand),
     Prelude(AuditPreludeCommand),
     Providers(AuditProvidersCommand),
+    Subtargets(AuditSubtargetsCommand),
     AnalysisQueries(AuditAnalysisQueriesCommand),
     ExecutionPlatformResolution(AuditExecutionPlatformResolutionCommand),
     Visibility(AuditVisibilityCommand),
@@ -101,6 +104,7 @@ impl AuditCommand {
             AuditCommand::Includes(cmd) => cmd,
             AuditCommand::Prelude(cmd) => cmd,
             AuditCommand::Providers(cmd) => cmd,
+            AuditCommand::Subtargets(cmd) => cmd,
             AuditCommand::AnalysisQueries(cmd) => cmd,
             AuditCommand::ExecutionPlatformResolution(cmd) => cmd,
             AuditCommand::Starlark(cmd) => cmd,
