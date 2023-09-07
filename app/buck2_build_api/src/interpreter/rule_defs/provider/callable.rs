@@ -77,15 +77,18 @@ enum ProviderCallableError {
 fn create_callable_function_signature(
     function_name: &str,
     fields: &SmallSet<String>,
-) -> ParametersSpec<FrozenValue> {
+    ret_ty: Ty,
+) -> (ParametersSpec<FrozenValue>, TyFunction) {
     let mut signature = ParametersSpec::with_capacity(function_name.to_owned(), fields.len());
+    let mut ty_params = Vec::with_capacity(fields.len());
     // TODO(nmj): Should double check we don't actually need positional args in-repo
     signature.no_more_positional_args();
     for field in fields {
         signature.defaulted(field, FrozenValue::new_none());
+        ty_params.push(Param::name_only(field, Ty::any()).optional());
     }
 
-    signature.finish()
+    (signature.finish(), TyFunction::new(ty_params, ret_ty))
 }
 
 #[derive(Debug, Allocative)]
@@ -232,7 +235,6 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
                 path: Some(self.path.clone()),
                 name: variable_name.to_owned(),
             });
-            let signature = create_callable_function_signature(&provider_id.name, &self.fields);
             let ty_provider_type_instance_id = TypeInstanceId::gen();
             let ty_provider = ty_provider(
                 &provider_id.name,
@@ -246,12 +248,11 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
                     .map(|name| (name.to_owned(), Ty::any()))
                     .collect(),
             )?;
-            let params = self
-                .fields
-                .iter()
-                .map(|f| Param::name_only(f, Ty::any()).optional())
-                .collect();
-            let creator_func = TyFunction::new(params, ty_provider.dupe());
+            let (signature, creator_func) = create_callable_function_signature(
+                &provider_id.name,
+                &self.fields,
+                ty_provider.clone(),
+            );
             let ty_callable = ty_provider_callable::<UserProviderCallable>(creator_func)?;
             anyhow::Ok(UserProviderCallableNamed {
                 id: provider_id.dupe(),
