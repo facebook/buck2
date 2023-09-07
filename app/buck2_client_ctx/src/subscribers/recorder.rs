@@ -65,8 +65,6 @@ mod imp {
         trace_id: TraceId,
         command_start: Option<buck2_data::CommandStart>,
         command_end: Option<buck2_data::CommandEnd>,
-        command_critical_start: Option<buck2_data::CommandCriticalStart>,
-        command_critical_end: Option<buck2_data::CommandCriticalEnd>,
         command_duration: Option<prost_types::Duration>,
         re_session_id: Option<String>,
         re_experiment_name: Option<String>,
@@ -160,8 +158,6 @@ mod imp {
                 trace_id,
                 command_start: None,
                 command_end: None,
-                command_critical_start: None,
-                command_critical_end: None,
                 command_duration: None,
                 re_session_id: None,
                 re_experiment_name: None,
@@ -291,8 +287,6 @@ mod imp {
                 command_name: Some(self.command_name.to_owned()),
                 command_start: self.command_start.take(),
                 command_end: self.command_end.take(),
-                command_critical_start: self.command_critical_start.take(),
-                command_critical_end: self.command_critical_end.take(),
                 command_duration: self.command_duration.take(),
                 client_walltime: self.start_time.elapsed().try_into().ok(),
                 re_session_id: self.re_session_id.take().unwrap_or_default(),
@@ -498,9 +492,7 @@ mod imp {
             command: &buck2_data::CommandCriticalStart,
             _event: &BuckEvent,
         ) -> anyhow::Result<()> {
-            let mut command = command.clone();
-            self.metadata.extend(std::mem::take(&mut command.metadata));
-            self.command_critical_start = Some(command);
+            self.metadata.extend(command.metadata.clone());
             self.time_to_command_critical_section = Some(self.start_time.elapsed());
             Ok(())
         }
@@ -509,9 +501,7 @@ mod imp {
             command: &buck2_data::CommandCriticalEnd,
             _event: &BuckEvent,
         ) -> anyhow::Result<()> {
-            let mut command = command.clone();
-            self.metadata.extend(std::mem::take(&mut command.metadata));
-            self.command_critical_end = Some(command);
+            self.metadata.extend(command.metadata.clone());
             Ok(())
         }
 
