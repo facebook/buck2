@@ -605,6 +605,16 @@ impl ResolvedSpan {
     }
 }
 
+/// File and line number.
+#[derive(Debug, PartialEq, Eq, Hash, Clone, derive_more::Display)]
+#[display(fmt = "{}:{}", file, "line + 1")]
+pub struct ResolvedFileLine {
+    /// File name.
+    pub file: String,
+    /// Line number is 0-based but displayed as 1-based.
+    pub line: usize,
+}
+
 /// File name and line and column pairs for a span.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct ResolvedFileSpan {
@@ -620,6 +630,14 @@ impl ResolvedFileSpan {
         ResolvedFileSpan {
             file: file.to_owned(),
             span: ResolvedSpan::_testing_parse(span),
+        }
+    }
+
+    /// File and line number of the beginning of the span.
+    pub fn begin_file_line(&self) -> ResolvedFileLine {
+        ResolvedFileLine {
+            file: self.file.clone(),
+            line: self.span.begin.line,
         }
     }
 }
@@ -787,5 +805,17 @@ mod tests {
         assert!(span.contains(ResolvedPos { line: 4, column: 5 }));
         assert!(!span.contains(ResolvedPos { line: 4, column: 6 }));
         assert!(!span.contains(ResolvedPos { line: 5, column: 0 }));
+    }
+
+    #[test]
+    fn test_resolved_file_span_to_begin_resolved_file_line() {
+        let span = ResolvedFileSpan {
+            file: "test.rs".to_owned(),
+            span: ResolvedSpan {
+                begin: ResolvedPos { line: 2, column: 3 },
+                end: ResolvedPos { line: 4, column: 5 },
+            },
+        };
+        assert_eq!("test.rs:3", span.begin_file_line().to_string());
     }
 }
