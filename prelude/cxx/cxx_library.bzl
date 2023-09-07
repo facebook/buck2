@@ -193,6 +193,8 @@ load(
 # An output of a `cxx_library`, consisting of required `default` artifact and optional
 # `other` outputs that should also be materialized along with it.
 CxxLibraryOutput = record(
+    # The link style of this output.
+    link_style = field(LinkStyle.type),
     default = field(Artifact),
     unstripped = field(Artifact),
     # The object files used to create the artifact in `default`.
@@ -989,6 +991,7 @@ def _form_library_outputs(
                     providers.append(LinkCommandDebugOutputInfo(debug_outputs = [link_cmd_debug_output]))
 
                 output = CxxLibraryOutput(
+                    link_style = LinkStyle("shared"),
                     default = shlib.output,
                     unstripped = shlib.unstripped_output,
                     object_files = compiled_srcs.pic.objects,
@@ -1231,6 +1234,7 @@ def _static_library(
 
     return (
         CxxLibraryOutput(
+            link_style = LinkStyle("static_pic") if pic else LinkStyle("static"),
             default = archive.artifact,
             unstripped = archive.artifact,
             object_files = objects,
