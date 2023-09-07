@@ -1544,10 +1544,8 @@ message TypedMetadata {
 
 // Record event sent directly to scribe.
 message InvocationRecord {
-  reserved 22, 27, 28, 36, 61, 66;
+  reserved 1, 22, 27, 28, 36, 61, 66;
 
-  // Optional - present if ever sent to client.
-  CommandStart command_start = 1;
   // Optional - present if ever sent to client.
   // Will be missing on a cancelled build.
   CommandEnd command_end = 2;

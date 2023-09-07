@@ -63,7 +63,6 @@ mod imp {
         async_cleanup_context: AsyncCleanupContext<'a>,
         build_count_manager: BuildCountManager,
         trace_id: TraceId,
-        command_start: Option<buck2_data::CommandStart>,
         command_end: Option<buck2_data::CommandEnd>,
         command_duration: Option<prost_types::Duration>,
         re_session_id: Option<String>,
@@ -156,7 +155,6 @@ mod imp {
                 async_cleanup_context,
                 build_count_manager,
                 trace_id,
-                command_start: None,
                 command_end: None,
                 command_duration: None,
                 re_session_id: None,
@@ -285,7 +283,6 @@ mod imp {
 
             let record = buck2_data::InvocationRecord {
                 command_name: Some(self.command_name.to_owned()),
-                command_start: self.command_start.take(),
                 command_end: self.command_end.take(),
                 command_duration: self.command_duration.take(),
                 client_walltime: self.start_time.elapsed().try_into().ok(),
@@ -440,9 +437,7 @@ mod imp {
             command: &buck2_data::CommandStart,
             _event: &BuckEvent,
         ) -> anyhow::Result<()> {
-            let mut command = command.clone();
-            self.metadata.extend(std::mem::take(&mut command.metadata));
-            self.command_start = Some(command);
+            self.metadata.extend(command.metadata.clone());
             self.time_to_command_start = Some(self.start_time.elapsed());
             Ok(())
         }
