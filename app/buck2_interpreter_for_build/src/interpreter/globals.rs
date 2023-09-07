@@ -10,6 +10,7 @@
 use buck2_interpreter::bxl::BXL_SPECIFIC_GLOBALS;
 use buck2_interpreter::functions::more::REGISTER_BUCK2_BUILD_API_GLOBALS;
 use buck2_interpreter::functions::transition::REGISTER_TRANSITION;
+use buck2_interpreter::starlark_promise::register_promise;
 use buck2_interpreter::types::cell_path::register_cell_path;
 use buck2_interpreter::types::configured_providers_label::register_providers_label;
 use buck2_interpreter::types::target_label::register_target_label;
@@ -57,6 +58,7 @@ pub fn register_universal_natives(builder: &mut GlobalsBuilder) {
     register_target_label(builder);
     register_path(builder);
     register_select(builder);
+    register_promise(builder);
     register_sha256(builder);
     register_dedupe(builder);
 }

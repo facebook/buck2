@@ -16,6 +16,7 @@ use allocative::Allocative;
 use derivative::Derivative;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
+use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
@@ -23,6 +24,7 @@ use starlark::eval::Evaluator;
 use starlark::typing::Ty;
 use starlark::values::list::AllocList;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -317,6 +319,11 @@ fn promise_methods(builder: &mut MethodsBuilder) {
         args.insert(0, this);
         Ok(StarlarkPromise::join(args, heap))
     }
+}
+
+#[starlark_module]
+pub fn register_promise(globals: &mut GlobalsBuilder) {
+    const Promise: StarlarkValueAsType<StarlarkPromise> = StarlarkValueAsType::new();
 }
 
 #[cfg(test)]
