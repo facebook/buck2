@@ -148,7 +148,7 @@ RustOrNativeDependency = record(
 
 RustDependency = record(
     info = field(RustLinkInfo),
-    label = field("label"),
+    label = field(ConfiguredProvidersLabel),
     name = field([None, str]),
     flags = field(list[str]),
     proc_macro_marker = field([None, RustProcMacroMarker]),
