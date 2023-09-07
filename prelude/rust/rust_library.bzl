@@ -733,15 +733,11 @@ def rust_library_macro_wrapper(rust_library: typing.Callable) -> typing.Callable
             if kwargs.get("crate", None) == None and kwargs.get("crate_dynamic", None) == None:
                 kwargs["crate"] = name.replace("-", "_")
 
-            extra_attrs = {}
-            if "visibility" in kwargs:
-                extra_attrs["visibility"] = kwargs["visibility"]
-
             rust_proc_macro_alias(
                 name = name,
                 actual_exec = ":_" + name,
                 actual_plugin = ":_" + name,
-                **extra_attrs
+                visibility = kwargs.pop("visibility", []),
             )
             kwargs["name"] = "_" + name
 
