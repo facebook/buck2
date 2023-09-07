@@ -57,6 +57,7 @@ pub struct BuildCommand {
 
     #[clap(
         long,
+        short = 'u',
         use_delimiter = true,
         help = "Comma separated list of targets at which to root the queryable universe.
                 This is useful since targets can exist in multiple configurations."
@@ -109,6 +110,7 @@ pub struct BuildCommand {
 
     #[clap(
         long = "materializations",
+        short = 'M',
         help = "Materialize (or skip) the final artifacts, bypassing buckconfig.",
         ignore_case = true,
         arg_enum
