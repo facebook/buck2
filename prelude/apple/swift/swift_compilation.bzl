@@ -16,10 +16,6 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "get_explicit_modules_env_var", "get_module_name", "get_versioned_target_triple")
 load("@prelude//apple:modulemap.bzl", "preprocessor_info_for_modulemap")
-load(
-    "@prelude//apple/swift:swift_toolchain_types.bzl",
-    "SwiftToolchainInfo",  # @unused Used as a type
-)
 load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION", "SWIFT_EXTENSION")
 load("@prelude//cxx:argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
 load(
@@ -47,20 +43,25 @@ load(
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_deps_tset", "get_uncompiled_sdk_deps", "is_sdk_modules_provided")
 load(":swift_module_map.bzl", "write_swift_module_map_with_swift_deps")
-load(":swift_pcm_compilation.bzl", "PcmDepTSet", "compile_underlying_pcm", "get_compiled_pcm_deps_tset", "get_swift_pcm_anon_targets")
+load(":swift_pcm_compilation.bzl", "compile_underlying_pcm", "get_compiled_pcm_deps_tset", "get_swift_pcm_anon_targets")
 load(
     ":swift_pcm_compilation_types.bzl",
-    "SwiftPCMCompiledInfo",  # @unused Used as a type
     "SwiftPCMUncompiledInfo",
 )
 load(":swift_sdk_pcm_compilation.bzl", "get_swift_sdk_pcm_anon_targets")
 load(":swift_sdk_swiftinterface_compilation.bzl", "get_swift_interface_anon_targets")
-load(":swift_toolchain_types.bzl", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "SwiftObjectFormat")
+load(
+    ":swift_toolchain_types.bzl",
+    "SwiftCompiledModuleInfo",
+    "SwiftCompiledModuleTset",
+    "SwiftObjectFormat",
+    "SwiftToolchainInfo",
+)
 
 ExportedHeadersTSet = transitive_set()
 
 SwiftDependencyInfo = provider(fields = [
-    "exported_headers",  # ExportedHeadersTSet of {"module_name": [exported_headers]}
+    "exported_headers",  # ExportedHeadersTSet of {"module_name": [exported_headers]}, used for Swift header post processing
     "exported_swiftmodule_paths",  # SwiftCompiledModuleTset of artifact that includes only paths through exported_deps, used for compilation
     "debug_info_tset",  # ArtifactTSet
 ])
@@ -376,7 +377,7 @@ def _get_shared_flags(
         ctx: AnalysisContext,
         deps_providers: list,
         parse_as_library: bool,
-        underlying_module: [SwiftPCMCompiledInfo, None],
+        underlying_module: [SwiftCompiledModuleInfo, None],
         module_name: str,
         objc_headers: list[CHeader],
         objc_modulemap_pp_info: [CPreprocessor, None],
@@ -521,8 +522,8 @@ def _add_swift_deps_flags(
 
 def _add_clang_deps_flags(
         ctx: AnalysisContext,
-        pcm_deps_tset: "PcmDepTSet",
-        sdk_deps_tset: "SwiftCompiledModuleTset",
+        pcm_deps_tset: SwiftCompiledModuleTset.type,
+        sdk_deps_tset: SwiftCompiledModuleTset.type,
         cmd: cmd_args) -> None:
     # If a module uses Explicit Modules, all direct and
     # transitive Clang deps have to be explicitly added.
@@ -541,15 +542,12 @@ def _add_clang_deps_flags(
 def _add_mixed_library_flags_to_cmd(
         ctx: AnalysisContext,
         cmd: cmd_args,
-        underlying_module: [SwiftPCMCompiledInfo.type, None],
+        underlying_module: [SwiftCompiledModuleInfo.type, None],
         objc_headers: list[CHeader],
         objc_modulemap_pp_info: [CPreprocessor, None]) -> None:
     if uses_explicit_modules(ctx):
         if underlying_module:
-            cmd.add(ctx.actions.tset(
-                PcmDepTSet,
-                value = underlying_module,
-            ).project_as_args("clang_deps"))
+            cmd.add(underlying_module.clang_importer_args)
             cmd.add("-import-underlying-module")
         return
 

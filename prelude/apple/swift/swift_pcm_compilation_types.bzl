@@ -16,11 +16,5 @@ SwiftPCMUncompiledInfo = provider(fields = [
 
 # A tset can't be returned from the rule, so we need to wrap it into a provider.
 WrappedSwiftPCMCompiledInfo = provider(fields = [
-    "tset",  # Tset of `SwiftPCMCompiledInfo`
-])
-
-SwiftPCMCompiledInfo = provider(fields = [
-    "name",
-    "pcm_output",  # artefact
-    "exported_preprocessor",  # CPreprocessor which we need to keep around to be able to access modulemap path.
+    "tset",  # Tset of `SwiftCompiledModuleInfo`
 ])
