@@ -15,12 +15,13 @@ load(
     "create_class_to_source_map_info",
 )
 load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "JavaToolchainInfo")
+load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:utils.bzl", "expect")
 
-def get_path_separator() -> str:
-    # TODO: msemko : replace with system-dependent path-separator character
-    # On UNIX systems, this character is ':'; on Microsoft Windows systems it is ';'.
-    return ":"
+def get_path_separator_for_exec_os(ctx: AnalysisContext) -> str:
+    expect(hasattr(ctx.attrs, "_exec_os_type"), "Expect ctx.attrs._exec_os_type is defined.")
+    is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+    return ";" if is_windows else ":"
 
 def derive_javac(javac_attribute: [str, Dependency, Artifact]) -> [str, RunInfo.type, Artifact]:
     javac_attr_type = type(javac_attribute)

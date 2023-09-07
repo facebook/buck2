@@ -10,6 +10,7 @@ load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version", "sel
 load("@prelude//java:java_toolchain.bzl", "JavaPlatformInfo", "JavaTestToolchainInfo", "JavaToolchainInfo")
 load("@prelude//kotlin:kotlin_toolchain.bzl", "KotlinToolchainInfo")
 load("@prelude//decls/android_rules.bzl", "AaptMode", "DuplicateResourceBehaviour", "TargetCpuType")
+load("@prelude//decls/common.bzl", "buck")
 load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load("@prelude//genrule.bzl", "genrule_attributes")
 load(":android_aar.bzl", "android_aar_impl")
@@ -125,6 +126,7 @@ extra_attributes = {
         "module_manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "_android_toolchain": android_toolchain(),
         "_dex_toolchain": toolchains_common.dex(),
+        "_exec_os_type": buck.exec_os_type_arg(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
         "_is_force_single_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_CPU)),
         "_is_force_single_default_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_DEFAULT_CPU)),
@@ -149,6 +151,7 @@ extra_attributes = {
         "module_manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "_android_toolchain": android_toolchain(),
         "_dex_toolchain": toolchains_common.dex(),
+        "_exec_os_type": buck.exec_os_type_arg(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
         "_is_force_single_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_CPU)),
         "_is_force_single_default_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_DEFAULT_CPU)),
@@ -172,6 +175,7 @@ extra_attributes = {
     },
     "android_instrumentation_test": {
         "_android_toolchain": android_toolchain(),
+        "_exec_os_type": buck.exec_os_type_arg(),
         "_java_toolchain": java_toolchain_for_android(),
     },
     "android_library": {
@@ -181,6 +185,7 @@ extra_attributes = {
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_dex_min_sdk_version": attrs.default_only(attrs.option(attrs.int(), default = dex_min_sdk_version())),
         "_dex_toolchain": toolchains_common.dex(),
+        "_exec_os_type": buck.exec_os_type_arg(),
         "_is_building_android_binary": is_building_android_binary_attr(),
         "_java_toolchain": java_toolchain_for_android(),
         "_kotlin_toolchain": _kotlin_toolchain(),
@@ -197,6 +202,7 @@ extra_attributes = {
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_dex_min_sdk_version": attrs.default_only(attrs.option(attrs.int(), default = dex_min_sdk_version())),
         "_dex_toolchain": toolchains_common.dex(),
+        "_exec_os_type": buck.exec_os_type_arg(),
         "_java_toolchain": java_toolchain_for_android(),
     },
     "android_resource": {
@@ -226,6 +232,7 @@ extra_attributes = {
         "unbundled_resources_root": attrs.option(attrs.source(allow_directory = True), default = None),
         "_android_toolchain": android_toolchain(),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
+        "_exec_os_type": buck.exec_os_type_arg(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = False)),
         "_java_test_toolchain": attrs.default_only(attrs.exec_dep(
             default = select_java_test_toolchain(),

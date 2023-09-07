@@ -15,7 +15,7 @@ load(
 load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
 load("@prelude//java:dex.bzl", "DexLibraryInfo", "get_dex_produced_from_java_library")
 load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
-load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
+load("@prelude//java/utils:java_utils.bzl", "get_path_separator_for_exec_os")
 load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibraryInfo",
@@ -430,11 +430,11 @@ def _create_non_template_providers(
         cxx_resource_info,
     )
 
-def create_template_info(packaging_info: JavaPackagingInfo.type, first_order_classpath_libs: list[Artifact]) -> TemplatePlaceholderInfo.type:
+def create_template_info(ctx: AnalysisContext, packaging_info: JavaPackagingInfo.type, first_order_classpath_libs: list[Artifact]) -> TemplatePlaceholderInfo.type:
     return TemplatePlaceholderInfo(keyed_variables = {
-        "classpath": cmd_args(packaging_info.packaging_deps.project_as_args("full_jar_args"), delimiter = get_path_separator()) if packaging_info.packaging_deps else cmd_args(),
-        "classpath_including_targets_with_no_output": cmd_args(packaging_info.packaging_deps.project_as_args("args_for_classpath_macro"), delimiter = get_path_separator()),
-        "first_order_classpath": cmd_args(first_order_classpath_libs, delimiter = get_path_separator()),
+        "classpath": cmd_args(packaging_info.packaging_deps.project_as_args("full_jar_args"), delimiter = get_path_separator_for_exec_os(ctx)) if packaging_info.packaging_deps else cmd_args(),
+        "classpath_including_targets_with_no_output": cmd_args(packaging_info.packaging_deps.project_as_args("args_for_classpath_macro"), delimiter = get_path_separator_for_exec_os(ctx)),
+        "first_order_classpath": cmd_args(first_order_classpath_libs, delimiter = get_path_separator_for_exec_os(ctx)),
     })
 
 def create_java_library_providers(
@@ -473,7 +473,7 @@ def create_java_library_providers(
     )
 
     first_order_libs = first_order_classpath_libs + [library_info.library_output.full_library] if library_info.library_output else first_order_classpath_libs
-    template_info = create_template_info(packaging_info, first_order_libs)
+    template_info = create_template_info(ctx, packaging_info, first_order_libs)
 
     intellij_info = JavaLibraryIntellijInfo(
         compiling_classpath = compiling_classpath,

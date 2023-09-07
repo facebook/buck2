@@ -7,7 +7,7 @@
 
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
-load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
+load("@prelude//java/utils:java_utils.bzl", "get_path_separator_for_exec_os")
 load("@prelude//utils:utils.bzl", "expect")
 
 def get_preprocessed_java_classes(ctx: AnalysisContext, input_jars = {"artifact": "target_label"}) -> dict[Artifact, TargetLabel]:
@@ -30,7 +30,7 @@ def get_preprocessed_java_classes(ctx: AnalysisContext, input_jars = {"artifact"
     env = {
         "ANDROID_BOOTCLASSPATH": cmd_args(
             ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath,
-            delimiter = get_path_separator(),
+            delimiter = get_path_separator_for_exec_os(ctx),
         ),
         "IN_JARS_DIR": cmd_args(input_dir),
         "OUT_JARS_DIR": output_dir.as_output(),

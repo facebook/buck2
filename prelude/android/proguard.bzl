@@ -11,7 +11,7 @@ load(
     "JavaPackagingDep",  # @unused Used as type
 )
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
-load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
+load("@prelude//java/utils:java_utils.bzl", "get_path_separator_for_exec_os")
 load("@prelude//utils:utils.bzl", "expect")
 
 _UNSCRUBBED_JARS_DIR = "unscrubbed"
@@ -59,7 +59,7 @@ def _get_proguard_command_line_args(
 
     library_jars = android_toolchain.android_bootclasspath + additional_library_jars
     cmd.add("-libraryjars")
-    cmd.add(cmd_args(library_jars, delimiter = get_path_separator()))
+    cmd.add(cmd_args(library_jars, delimiter = get_path_separator_for_exec_os(ctx)))
     hidden.extend(library_jars)
 
     cmd.add("-printmapping", mapping.as_output())

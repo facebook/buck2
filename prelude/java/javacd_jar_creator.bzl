@@ -44,7 +44,7 @@ base_command_params = struct(
 )
 
 def create_jar_artifact_javacd(
-        actions: AnalysisActions,
+        ctx: AnalysisContext,
         actions_identifier: [str, None],
         abi_generation_mode: [AbiGenerationMode, None],
         java_toolchain: JavaToolchainInfo.type,
@@ -73,6 +73,7 @@ def create_jar_artifact_javacd(
         # TODO(cjhopman): We can probably handle this better. I think we should be able to just use the non-javacd path.
         fail("cannot set explicit javac on library when using javacd")
 
+    actions = ctx.actions
     resources_map = get_resources_map(java_toolchain, label.package, resources, resources_root)
 
     # TODO(cjhopman): Handle manifest file.

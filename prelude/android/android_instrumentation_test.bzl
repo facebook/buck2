@@ -9,7 +9,7 @@ load("@prelude//android:android_providers.bzl", "AndroidApkInfo", "AndroidInstru
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
-load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
+load("@prelude//java/utils:java_utils.bzl", "get_path_separator_for_exec_os")
 load("@prelude//utils:utils.bzl", "expect")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 
@@ -24,7 +24,7 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
 
     classpath_args = cmd_args()
     classpath_args.add("-classpath")
-    classpath_args.add(cmd_args(classpath, delimiter = get_path_separator()))
+    classpath_args.add(cmd_args(classpath, delimiter = get_path_separator_for_exec_os(ctx)))
     classpath_args_file = ctx.actions.write("classpath_args_file", classpath_args)
     cmd.append(cmd_args(classpath_args_file, format = "@{}").hidden(classpath_args))
 

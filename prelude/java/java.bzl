@@ -16,6 +16,7 @@ load(
 )
 load("@prelude//java/plugins:java_annotation_processor.bzl", "java_annotation_processor_impl")
 load("@prelude//java/plugins:java_plugin.bzl", "java_plugin_impl")
+load("@prelude//decls/common.bzl", "buck")
 load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load("@prelude//genrule.bzl", "genrule_attributes")
 load(":jar_genrule.bzl", "jar_genrule_impl")
@@ -82,6 +83,7 @@ extra_attributes = {
         "java_args_for_run_info": attrs.list(attrs.string(), default = []),
         "meta_inf_directory": attrs.option(attrs.source(allow_directory = True), default = None),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
+        "_exec_os_type": buck.exec_os_type_arg(),
         "_is_building_android_binary": is_building_android_binary_attr(),
         "_java_toolchain": attrs.exec_dep(
             default = select_java_toolchain(),
@@ -98,6 +100,7 @@ extra_attributes = {
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
         "_dex_toolchain": toolchains_common.dex(),
+        "_exec_os_type": buck.exec_os_type_arg(),
         "_is_building_android_binary": is_building_android_binary_attr(),
         "_java_toolchain": attrs.exec_dep(
             default = select_java_toolchain(),
@@ -116,6 +119,7 @@ extra_attributes = {
         "resources_root": attrs.option(attrs.string(), default = None),
         "unbundled_resources_root": attrs.option(attrs.source(allow_directory = True), default = None),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
+        "_exec_os_type": buck.exec_os_type_arg(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = False)),
         "_java_test_toolchain": attrs.exec_dep(
             default = select_java_test_toolchain(),
@@ -144,6 +148,7 @@ extra_attributes = {
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
         "_dex_toolchain": toolchains_common.dex(),
+        "_exec_os_type": buck.exec_os_type_arg(),
         "_prebuilt_jar_toolchain": toolchains_common.prebuilt_jar(),
     },
 }

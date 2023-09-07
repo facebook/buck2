@@ -26,7 +26,7 @@ load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "JavaToolchainInf
 load("@prelude//java:javacd_jar_creator.bzl", "create_jar_artifact_javacd")
 load("@prelude//java/plugins:java_annotation_processor.bzl", "AnnotationProcessorProperties", "create_annotation_processor_properties")
 load("@prelude//java/plugins:java_plugin.bzl", "create_plugin_params")
-load("@prelude//java/utils:java_utils.bzl", "declare_prefixed_name", "derive_javac", "get_abi_generation_mode", "get_class_to_source_map_info", "get_default_info", "get_java_version_attributes", "get_path_separator", "to_java_version")
+load("@prelude//java/utils:java_utils.bzl", "declare_prefixed_name", "derive_javac", "get_abi_generation_mode", "get_class_to_source_map_info", "get_default_info", "get_java_version_attributes", "get_path_separator_for_exec_os", "to_java_version")
 load("@prelude//jvm:nullsafe.bzl", "get_nullsafe_info")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo")
 load("@prelude//utils:utils.bzl", "expect")
@@ -53,11 +53,11 @@ def _process_classpath(
     # add classpath args file to cmd
     cmd.add(option_name, classpath_args_file)
 
-def classpath_args(args):
-    return cmd_args(args, delimiter = get_path_separator())
+def classpath_args(ctx: AnalysisContext, args):
+    return cmd_args(args, delimiter = get_path_separator_for_exec_os(ctx))
 
 def _process_plugins(
-        actions: AnalysisActions,
+        ctx: AnalysisContext,
         actions_identifier: [str, None],
         annotation_processor_properties: "AnnotationProcessorProperties",
         plugin_params: ["PluginParams", None],
@@ -98,16 +98,16 @@ def _process_plugins(
             processors_classpath_tsets.append(plugin_params.deps)
 
     if len(processors_classpath_tsets) > 1:
-        processors_classpath_tset = actions.tset(JavaPackagingDepTSet, children = processors_classpath_tsets)
+        processors_classpath_tset = ctx.actions.tset(JavaPackagingDepTSet, children = processors_classpath_tsets)
     elif len(processors_classpath_tsets) == 1:
         processors_classpath_tset = processors_classpath_tsets[0]
     else:
         processors_classpath_tset = None
 
     if processors_classpath_tset:
-        processors_classpath = classpath_args(processors_classpath_tset.project_as_args("full_jar_args"))
+        processors_classpath = classpath_args(ctx, processors_classpath_tset.project_as_args("full_jar_args"))
         _process_classpath(
-            actions,
+            ctx.actions,
             processors_classpath,
             cmd,
             declare_prefixed_name("plugin_cp_args", actions_identifier),
@@ -138,7 +138,7 @@ def _build_bootclasspath(bootclasspath_entries: list[Artifact], source_level: in
     return bootclasspath_list
 
 def _append_javac_params(
-        actions: AnalysisActions,
+        ctx: AnalysisContext,
         actions_identifier: [str, None],
         java_toolchain: JavaToolchainInfo.type,
         srcs: list[Artifact],
@@ -162,11 +162,11 @@ def _append_javac_params(
     )
     javac_args.add(extra_arguments)
 
-    compiling_classpath = _build_classpath(actions, deps, additional_classpath_entries, "args_for_compiling")
+    compiling_classpath = _build_classpath(ctx.actions, deps, additional_classpath_entries, "args_for_compiling")
     if compiling_classpath:
         _process_classpath(
-            actions,
-            classpath_args(compiling_classpath),
+            ctx.actions,
+            classpath_args(ctx, compiling_classpath),
             cmd,
             declare_prefixed_name("classpath_args", actions_identifier),
             "--javac_classpath_file",
@@ -182,15 +182,15 @@ def _append_javac_params(
     bootclasspath_list = _build_bootclasspath(bootclasspath_entries, source_level, java_toolchain)
     if bootclasspath_list:
         _process_classpath(
-            actions,
-            classpath_args(bootclasspath_list),
+            ctx.actions,
+            classpath_args(ctx, bootclasspath_list),
             cmd,
             declare_prefixed_name("bootclasspath_args", actions_identifier),
             "--javac_bootclasspath_file",
         )
 
     _process_plugins(
-        actions,
+        ctx,
         actions_identifier,
         annotation_processor_properties,
         javac_plugin_params,
@@ -203,7 +203,7 @@ def _append_javac_params(
     zipped_sources, plain_sources = split_on_archives_and_plain_files(srcs, _JAVA_FILE_EXTENSION)
 
     javac_args.add(*plain_sources)
-    args_file, _ = actions.write(
+    args_file, _ = ctx.actions.write(
         declare_prefixed_name("javac_args", actions_identifier),
         javac_args,
         allow_args = True,
@@ -216,11 +216,11 @@ def _append_javac_params(
     cmd.add("--javac_args_file", args_file)
 
     if zipped_sources:
-        cmd.add("--zipped_sources_file", actions.write(declare_prefixed_name("zipped_source_args", actions_identifier), zipped_sources))
+        cmd.add("--zipped_sources_file", ctx.actions.write(declare_prefixed_name("zipped_source_args", actions_identifier), zipped_sources))
         cmd.hidden(zipped_sources)
 
     if remove_classes:
-        cmd.add("--remove_classes", actions.write(declare_prefixed_name("remove_classes_args", actions_identifier), remove_classes))
+        cmd.add("--remove_classes", ctx.actions.write(declare_prefixed_name("remove_classes_args", actions_identifier), remove_classes))
 
 def split_on_archives_and_plain_files(
         srcs: list[Artifact],
@@ -318,7 +318,7 @@ def compile_to_jar(
     is_building_android_binary = ctx.attrs._is_building_android_binary
 
     return _jar_creator(javac_tool, java_toolchain)(
-        ctx.actions,
+        ctx,
         actions_identifier,
         abi_generation_mode,
         java_toolchain,
@@ -346,7 +346,7 @@ def compile_to_jar(
     )
 
 def _create_jar_artifact(
-        actions: AnalysisActions,
+        ctx: AnalysisContext,
         actions_identifier: [str, None],
         abi_generation_mode: ["AbiGenerationMode", None],
         java_toolchain: JavaToolchainInfo.type,
@@ -377,7 +377,7 @@ def _create_jar_artifact(
     Returns a single artifacts that represents jar output file
     """
     javac_tool = javac_tool or derive_javac(java_toolchain.javac)
-    jar_out = output or actions.declare_output(paths.join(actions_identifier or "jar", "{}.jar".format(label.name)))
+    jar_out = output or ctx.actions.declare_output(paths.join(actions_identifier or "jar", "{}.jar".format(label.name)))
 
     args = [
         java_toolchain.compile_and_package[RunInfo],
@@ -394,7 +394,7 @@ def _create_jar_artifact(
         args += ["--javac_tool", javac_tool]
 
     if resources:
-        resource_dir = _copy_resources(actions, actions_identifier, java_toolchain, label.package, resources, resources_root)
+        resource_dir = _copy_resources(ctx.actions, actions_identifier, java_toolchain, label.package, resources, resources_root)
         args += ["--resources_dir", resource_dir]
 
     if manifest_file:
@@ -407,9 +407,9 @@ def _create_jar_artifact(
 
     generated_sources_dir = None
     if not skip_javac:
-        generated_sources_dir = actions.declare_output(declare_prefixed_name("generated_sources", actions_identifier), dir = True)
+        generated_sources_dir = ctx.actions.declare_output(declare_prefixed_name("generated_sources", actions_identifier), dir = True)
         _append_javac_params(
-            actions,
+            ctx,
             actions_identifier,
             java_toolchain,
             srcs,
@@ -426,9 +426,9 @@ def _create_jar_artifact(
             generated_sources_dir,
         )
 
-    actions.run(compile_and_package_cmd, category = "javac_and_jar", identifier = actions_identifier)
+    ctx.actions.run(compile_and_package_cmd, category = "javac_and_jar", identifier = actions_identifier)
 
-    abi = None if (not srcs and not additional_compiled_srcs) or abi_generation_mode == AbiGenerationMode("none") or java_toolchain.is_bootstrap_toolchain else create_abi(actions, java_toolchain.class_abi_generator, jar_out)
+    abi = None if (not srcs and not additional_compiled_srcs) or abi_generation_mode == AbiGenerationMode("none") or java_toolchain.is_bootstrap_toolchain else create_abi(ctx.actions, java_toolchain.class_abi_generator, jar_out)
 
     return make_compile_outputs(
         full_library = jar_out,

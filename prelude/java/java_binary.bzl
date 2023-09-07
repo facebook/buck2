@@ -202,6 +202,6 @@ def java_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(default_output = main_artifact, other_outputs = other_outputs, sub_targets = sub_targets),
         RunInfo(args = run_cmd),
-        create_template_info(packaging_info, first_order_libs),
+        create_template_info(ctx, packaging_info, first_order_libs),
         class_to_src_map,
     ]

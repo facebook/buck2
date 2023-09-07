@@ -13,7 +13,7 @@ load(
 load("@prelude//java:java_library.bzl", "build_java_library")
 load("@prelude//java:java_providers.bzl", "JavaLibraryInfo", "JavaPackagingInfo", "get_all_java_packaging_deps_tset")
 load("@prelude//java:java_toolchain.bzl", "JavaTestToolchainInfo", "JavaToolchainInfo")
-load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
+load("@prelude//java/utils:java_utils.bzl", "get_path_separator_for_exec_os")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
 load("@prelude//utils:utils.bzl", "expect")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
@@ -87,7 +87,7 @@ def build_junit_test(
         # Java 9+ supports argfiles, so just write the classpath to an argsfile. "FileClassPathRunner" will delegate
         # immediately to the junit test runner.
         classpath_args.add("-classpath")
-        classpath_args.add(cmd_args(classpath, delimiter = get_path_separator()))
+        classpath_args.add(cmd_args(classpath, delimiter = get_path_separator_for_exec_os(ctx)))
         classpath_args_file = ctx.actions.write("classpath_args_file", classpath_args)
         cmd.append(cmd_args(classpath_args_file, format = "@{}").hidden(classpath_args))
 
