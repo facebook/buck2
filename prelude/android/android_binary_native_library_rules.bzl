@@ -5,14 +5,24 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//android:android_providers.bzl", "AndroidBinaryNativeLibsInfo", "AndroidPackageableInfo", "ExopackageNativeInfo")
+load(
+    "@prelude//android:android_providers.bzl",
+    "AndroidBinaryNativeLibsInfo",
+    "AndroidPackageableInfo",
+    "ExopackageNativeInfo",
+    "PrebuiltNativeLibraryDir",  # @unused Used as a type
+)
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_PRIMARY_PLATFORM", "CPU_FILTER_TO_ABI_DIRECTORY")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module", "get_apk_module_graph_info", "is_root_module")
-load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
+load(
+    "@prelude//linking:shared_libraries.bzl",
+    "SharedLibrary",  # @unused Used as a type
+    "SharedLibraryInfo",
+    "merge_shared_libraries",
+    "traverse_shared_library_info",
+)
 load("@prelude//utils:set.bzl", "set_type")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "expect")
 
@@ -192,8 +202,8 @@ def _get_exopackage_info(
 def _get_native_libs_and_assets(
         ctx: AnalysisContext,
         get_module_from_target: typing.Callable,
-        all_prebuilt_native_library_dirs: list["PrebuiltNativeLibraryDir"],
-        platform_to_native_linkables: dict[str, dict[str, "SharedLibrary"]]) -> _NativeLibsAndAssetsInfo.type:
+        all_prebuilt_native_library_dirs: list[PrebuiltNativeLibraryDir],
+        platform_to_native_linkables: dict[str, dict[str, SharedLibrary]]) -> _NativeLibsAndAssetsInfo.type:
     is_packaging_native_libs_as_assets_supported = getattr(ctx.attrs, "package_asset_libraries", False)
 
     prebuilt_native_library_dirs = []
@@ -315,7 +325,7 @@ def _get_native_libs_and_assets(
 
 def _filter_prebuilt_native_library_dir(
         ctx: AnalysisContext,
-        native_libs: list["PrebuiltNativeLibraryDir"],
+        native_libs: list[PrebuiltNativeLibraryDir],
         identifier: str,
         package_as_assets: bool = False,
         module: str = ROOT_MODULE) -> Artifact:
@@ -343,7 +353,7 @@ _StrippedNativeLinkables = record(
 
 def _get_native_linkables(
         ctx: AnalysisContext,
-        platform_to_native_linkables: dict[str, dict[str, "SharedLibrary"]],
+        platform_to_native_linkables: dict[str, dict[str, SharedLibrary]],
         get_module_from_target: typing.Callable,
         package_native_libs_as_assets_enabled: bool) -> _StrippedNativeLinkables:
     stripped_native_linkables_srcs = {}

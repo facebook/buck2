@@ -5,12 +5,16 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//android:android_providers.bzl", "AndroidPackageableInfo", "merge_android_packageable_info")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:java_providers.bzl", "get_all_java_packaging_deps")
-load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
+load(
+    "@prelude//linking:shared_libraries.bzl",
+    "SharedLibrary",  # @unused Used as type
+    "SharedLibraryInfo",
+    "merge_shared_libraries",
+    "traverse_shared_library_info",
+)
 load("@prelude//utils:utils.bzl", "expect", "flatten")
 
 # "Voltron" gives us the ability to split our Android APKs into different "modules". These
@@ -138,7 +142,7 @@ def _get_base_cmd_and_output(
         actions: AnalysisActions,
         label: Label,
         android_packageable_infos: list[AndroidPackageableInfo.type],
-        shared_libraries: list["SharedLibrary"],
+        shared_libraries: list[SharedLibrary],
         android_toolchain: AndroidToolchainInfo.type,
         application_module_configs: dict[str, list[Dependency]],
         application_module_dependencies: [dict[str, list[str]], None],

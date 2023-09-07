@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//:resources.bzl", "gather_resources")
 load("@prelude//android:aapt2_link.bzl", "get_aapt2_link", "get_module_manifest_in_proto_format")
 load("@prelude//android:android_manifest.bzl", "generate_android_manifest")
@@ -15,6 +13,10 @@ load("@prelude//android:android_resource.bzl", "aapt2_compile")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:r_dot_java.bzl", "generate_r_dot_javas")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE", "get_apk_module_graph_info", "is_root_module")
+load(
+    "@prelude//java:java_providers.bzl",
+    "JavaPackagingDep",  # @unused Used as type
+)
 load("@prelude//utils:set.bzl", "set_type")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "expect")
 load("@prelude//decls/android_rules.bzl", "RType")
@@ -23,7 +25,7 @@ def get_android_binary_resources_info(
         ctx: AnalysisContext,
         deps: list[Dependency],
         android_packageable_info: AndroidPackageableInfo.type,
-        java_packaging_deps: list["JavaPackagingDep"],
+        java_packaging_deps: list[JavaPackagingDep],
         use_proto_format: bool,
         referenced_resources_lists: list[Artifact],
         apk_module_graph_file: [Artifact, None] = None,

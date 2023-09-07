@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//java:java_providers.bzl", "JavaLibraryInfo")
 
 Aapt2LinkInfo = record(
@@ -116,7 +114,12 @@ PrebuiltNativeLibraryDir = record(
     is_asset = bool,
 )
 
-def _artifacts(value: "ManifestInfo"):
+ManifestInfo = record(
+    target_label = TargetLabel,
+    manifest = Artifact,
+)
+
+def _artifacts(value: ManifestInfo):
     return value.manifest
 
 AndroidBuildConfigInfoTSet = transitive_set()
@@ -128,11 +131,6 @@ ResourceInfoTSet = transitive_set()
 DepsInfo = record(
     name = TargetLabel,
     deps = list[TargetLabel],
-)
-
-ManifestInfo = record(
-    target_label = TargetLabel,
-    manifest = Artifact,
 )
 
 AndroidPackageableInfo = provider(

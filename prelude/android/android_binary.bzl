@@ -5,12 +5,16 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//android:android_binary_native_library_rules.bzl", "get_android_binary_native_library_info")
 load("@prelude//android:android_binary_resources_rules.bzl", "get_android_binary_resources_info")
 load("@prelude//android:android_build_config.bzl", "generate_android_build_config", "get_build_config_fields")
-load("@prelude//android:android_providers.bzl", "BuildConfigField", "DexFilesInfo", "merge_android_packageable_info")
+load(
+    "@prelude//android:android_providers.bzl",
+    "AndroidBuildConfigInfo",  # @unused Used as type
+    "BuildConfigField",
+    "DexFilesInfo",
+    "merge_android_packageable_info",
+)
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:configuration.bzl", "get_deps_by_platform")
 load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_DEFAULT_PLATFORM", "CPU_FILTER_FOR_PRIMARY_PLATFORM")
@@ -171,7 +175,7 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
 
 def get_build_config_java_libraries(
         ctx: AnalysisContext,
-        build_config_infos: list["AndroidBuildConfigInfo"],
+        build_config_infos: list[AndroidBuildConfigInfo],
         package_type: str,
         exopackage_modes: list[str]) -> list[JavaPackagingInfo.type]:
     # BuildConfig deps should not be added for instrumented APKs because BuildConfig.class has

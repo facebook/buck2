@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//android:android_providers.bzl", "DexFilesInfo", "ExopackageDexInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE", "get_apk_module_graph_info", "get_root_module_only_apk_module_graph_info", "is_root_module")
@@ -81,7 +79,7 @@ def _get_dex_compression(ctx: AnalysisContext) -> str:
 
 def get_split_dex_merge_config(
         ctx: AnalysisContext,
-        android_toolchain: AndroidToolchainInfo.type) -> "SplitDexMergeConfig":
+        android_toolchain: AndroidToolchainInfo.type) -> SplitDexMergeConfig:
     secondary_dex_weight_limit = getattr(ctx.attrs, "secondary_dex_weight_limit", None) or android_toolchain.secondary_dex_weight_limit
     return SplitDexMergeConfig(
         dex_compression = _get_dex_compression(ctx),
@@ -393,7 +391,7 @@ def merge_to_split_dex(
         ctx: AnalysisContext,
         android_toolchain: AndroidToolchainInfo.type,
         pre_dexed_libs: list[DexLibraryInfo.type],
-        split_dex_merge_config: "SplitDexMergeConfig",
+        split_dex_merge_config: SplitDexMergeConfig,
         apk_module_graph_file: [Artifact, None] = None) -> DexFilesInfo.type:
     is_exopackage_enabled_for_secondary_dex = _is_exopackage_enabled_for_secondary_dex(ctx)
     if is_exopackage_enabled_for_secondary_dex:
@@ -623,8 +621,8 @@ def _merge_dexes(
 def _sort_pre_dexed_files(
         ctx: AnalysisContext,
         artifacts,
-        pre_dexed_libs_with_class_names_and_weight_estimates_files: list["DexInputsWithClassNamesAndWeightEstimatesFile"],
-        split_dex_merge_config: "SplitDexMergeConfig",
+        pre_dexed_libs_with_class_names_and_weight_estimates_files: list[DexInputsWithClassNamesAndWeightEstimatesFile],
+        split_dex_merge_config: SplitDexMergeConfig,
         get_module_from_target: typing.Callable,
         module_to_canary_class_name_function: typing.Callable) -> list[_SortedPreDexedInputs]:
     sorted_pre_dexed_inputs_map = {}

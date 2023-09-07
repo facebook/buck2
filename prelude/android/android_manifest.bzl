@@ -5,9 +5,12 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
-load("@prelude//android:android_providers.bzl", "AndroidManifestInfo", "merge_android_packageable_info")
+load(
+    "@prelude//android:android_providers.bzl",
+    "AndroidManifestInfo",
+    "ManifestTSet",  # @unused Used as type
+    "merge_android_packageable_info",
+)
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE")
 
@@ -31,7 +34,7 @@ def generate_android_manifest(
         generate_manifest: RunInfo.type,
         manifest_skeleton: Artifact,
         module_name: str,
-        manifests: ["ManifestTSet", list[Artifact], None],
+        manifests: [ManifestTSet, list[Artifact], None],
         placeholder_entries: dict) -> (Artifact, Artifact):
     generate_manifest_cmd = cmd_args(generate_manifest)
     generate_manifest_cmd.add([
@@ -71,7 +74,7 @@ def generate_android_manifest(
 
     return (output, merge_report)
 
-def _get_manifests_from_deps(ctx: AnalysisContext) -> ["ManifestTSet", None]:
+def _get_manifests_from_deps(ctx: AnalysisContext) -> [ManifestTSet, None]:
     if len(ctx.attrs.deps) == 0:
         return None
 

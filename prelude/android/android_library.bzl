@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load(
     "@prelude//android:android_providers.bzl",
     "AndroidLibraryIntellijInfo",
@@ -17,7 +15,12 @@ load(
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:r_dot_java.bzl", "get_dummy_r_dot_java")
 load("@prelude//java:java_library.bzl", "build_java_library")
-load("@prelude//java:java_providers.bzl", "create_native_providers", "to_list")
+load(
+    "@prelude//java:java_providers.bzl",
+    "JavaProviders",  # @unused Used as type
+    "create_native_providers",
+    "to_list",
+)
 load("@prelude//kotlin:kotlin_library.bzl", "build_kotlin_library")
 
 def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -47,7 +50,7 @@ def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
 def build_android_library(
         ctx: AnalysisContext,
-        r_dot_java: [Artifact, None] = None) -> ("JavaProviders", [AndroidLibraryIntellijInfo.type, None]):
+        r_dot_java: [Artifact, None] = None) -> (JavaProviders, [AndroidLibraryIntellijInfo.type, None]):
     bootclasspath_entries = [] + ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath
     additional_classpath_entries = []
 

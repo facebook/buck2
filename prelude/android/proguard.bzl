@@ -5,9 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
+load(
+    "@prelude//java:java_providers.bzl",
+    "JavaPackagingDep",  # @unused Used as type
+)
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
 load("@prelude//utils:utils.bzl", "expect")
@@ -109,7 +111,7 @@ def run_proguard(
 def get_proguard_output(
         ctx: AnalysisContext,
         input_jars: dict[Artifact, TargetLabel],
-        java_packaging_deps: list["JavaPackagingDep"],
+        java_packaging_deps: list[JavaPackagingDep],
         aapt_generated_proguard_config: [Artifact, None],
         additional_library_jars: list[Artifact]) -> ProguardOutput:
     proguard_configs = [packaging_dep.proguard_config for packaging_dep in java_packaging_deps if packaging_dep.proguard_config]
