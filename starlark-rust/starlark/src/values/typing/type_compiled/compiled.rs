@@ -51,6 +51,7 @@ use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::tuple::value::Tuple;
 use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
 use crate::values::typing::type_compiled::matcher::TypeMatcher;
+use crate::values::typing::type_compiled::matchers::IsAny;
 use crate::values::AllocValue;
 use crate::values::Demand;
 use crate::values::Freeze;
@@ -276,11 +277,13 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
             .context("Not TypeCompiledImpl (internal error)")
     }
 
-    pub(crate) fn matches(&self, value: Value<'v>) -> bool {
+    /// Check if given value matches this type.
+    pub fn matches(&self, value: Value<'v>) -> bool {
         self.0.to_value().get_ref().type_matches_value(value)
     }
 
-    pub(crate) fn as_ty(&self) -> &'v Ty {
+    /// Get the typechecker type for this runtime type.
+    pub fn as_ty(&self) -> &'v Ty {
         self.downcast().unwrap().as_ty_dyn()
     }
 
@@ -358,7 +361,8 @@ impl<'v, V: ValueLike<'v>> PartialEq for TypeCompiled<V> {
 impl<'v, V: ValueLike<'v>> Eq for TypeCompiled<V> {}
 
 impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
-    pub(crate) fn to_frozen(self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
+    /// Reallocate the type in a frozen heap.
+    pub fn to_frozen(self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
         if let Some(v) = self.0.to_value().unpack_frozen() {
             TypeCompiled(v)
         } else {
@@ -435,7 +439,8 @@ impl<'v> TypeCompiled<Value<'v>> {
         TypeCompiledFactory::alloc_ty(ty, heap)
     }
 
-    pub(crate) fn new(ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
+    /// Evaluate type annotation at runtime.
+    pub fn new(ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
         if let Some(s) = ty.unpack_str() {
             Ok(TypeCompiled::from_str(s, heap))
         } else if ty.is_none() {
@@ -460,11 +465,20 @@ impl<'v> TypeCompiled<Value<'v>> {
 }
 
 impl TypeCompiled<FrozenValue> {
+    /// Evaluate type annotation at runtime.
     pub(crate) fn new_frozen(ty: FrozenValue, frozen_heap: &FrozenHeap) -> anyhow::Result<Self> {
         // TODO(nga): trip to a heap is not free.
         let heap = Heap::new();
         let ty = TypeCompiled::new(ty.to_value(), &heap)?;
         Ok(ty.to_frozen(frozen_heap))
+    }
+
+    /// `typing.Any`.
+    pub fn any() -> TypeCompiled<FrozenValue> {
+        static ANYTHING: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsAny>>> =
+            TypeCompiledImplAsStarlarkValue::alloc_static(IsAny, Ty::any());
+
+        TypeCompiled::unchecked_new(FrozenValue::new_repr(&ANYTHING))
     }
 }
 

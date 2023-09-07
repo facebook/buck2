@@ -57,10 +57,7 @@ impl<'a, 'v> TypeMatcherAlloc for TypeCompiledFactory<'a, 'v> {
 
     fn any(self) -> TypeCompiled<Value<'v>> {
         if self.ty == &Ty::any() {
-            static ANYTHING: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsAny>>> =
-                TypeCompiledImplAsStarlarkValue::alloc_static(IsAny, Ty::any());
-
-            TypeCompiled::unchecked_new(FrozenValue::new_repr(&ANYTHING).to_value())
+            TypeCompiled::any().to_value()
         } else {
             self.alloc(IsAny)
         }

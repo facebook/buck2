@@ -30,5 +30,6 @@ pub use crate::values::types::type_instance_id::TypeInstanceId;
 pub use crate::values::typing::callable::StarlarkCallable;
 pub use crate::values::typing::iter::StarlarkIter;
 pub use crate::values::typing::never::StarlarkNever;
+pub use crate::values::typing::type_compiled::compiled::TypeCompiled;
 pub use crate::values::typing::type_compiled::matcher::TypeMatcher;
 pub use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
