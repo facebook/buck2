@@ -621,8 +621,12 @@ def get_swift_dependency_info(
     else:
         exported_deps = ctx.attrs.exported_deps
 
-    exported_headers = [_header_basename(header) for header in ctx.attrs.exported_headers]
-    exported_headers += [header.name for header in exported_pre.headers] if exported_pre else []
+    # We only need to pass up the exported_headers for Swift header post-processing.
+    # If the toolchain can emit textual imports already then we skip the extra work.
+    exported_headers = []
+    if not ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info.can_toolchain_emit_obj_c_header_textually:
+        exported_headers = [_header_basename(header) for header in ctx.attrs.exported_headers]
+        exported_headers += [header.name for header in exported_pre.headers] if exported_pre else []
 
     if output_module:
         compiled_info = SwiftCompiledModuleInfo(
