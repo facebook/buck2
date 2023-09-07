@@ -34,7 +34,6 @@ mod imp {
     use async_trait::async_trait;
     use buck2_common::convert::ProstDurationExt;
     use buck2_core::fs::fs_util;
-    use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::paths::abs_path::AbsPathBuf;
     use buck2_event_observer::action_stats;
     use buck2_event_observer::last_command_execution_kind;
@@ -86,9 +85,7 @@ mod imp {
         cache_upload_count: u64,
         cache_upload_attempt_count: u64,
         parsed_target_patterns: Option<buck2_data::ParsedTargetPatterns>,
-        #[allow(dead_code)]
-        invocation_root_path: AbsNormPathBuf,
-        filesystem: Option<String>,
+        filesystem: String,
         watchman_version: Option<String>,
         eden_version: Option<String>,
         test_info: Option<String>,
@@ -146,7 +143,7 @@ mod imp {
             trace_id: TraceId,
             isolation_dir: String,
             build_count_manager: BuildCountManager,
-            invocation_root_path: AbsNormPathBuf,
+            filesystem: String,
             restarted_trace_id: Option<TraceId>,
             log_size_counter_bytes: Option<Arc<AtomicU64>>,
             client_metadata: Vec<buck2_data::ClientMetadata>,
@@ -183,8 +180,7 @@ mod imp {
                 cache_upload_count: 0,
                 cache_upload_attempt_count: 0,
                 parsed_target_patterns: None,
-                invocation_root_path,
-                filesystem: None,
+                filesystem,
                 watchman_version: None,
                 eden_version: None,
                 test_info: None,
@@ -318,7 +314,7 @@ mod imp {
                 cache_upload_count: self.cache_upload_count,
                 cache_upload_attempt_count: self.cache_upload_attempt_count,
                 parsed_target_patterns: self.parsed_target_patterns.take(),
-                filesystem: self.filesystem.take().unwrap_or_default(),
+                filesystem: std::mem::take(&mut self.filesystem),
                 watchman_version: self.watchman_version.take(),
                 eden_version: self.eden_version.take(),
                 test_info: self.test_info.take(),
@@ -495,19 +491,6 @@ mod imp {
                     _ => 0,
                 };
             self.command_end = Some(command);
-            #[cfg(any(fbcode_build, cargo_internal_build))]
-            {
-                let root = std::path::Path::to_owned(self.invocation_root_path.as_ref());
-                if detect_eden::is_eden(root).unwrap_or(false) {
-                    self.filesystem = Some("eden".to_owned());
-                } else {
-                    self.filesystem = Some("default".to_owned());
-                }
-            }
-            #[cfg(not(any(fbcode_build, cargo_internal_build)))]
-            {
-                self.filesystem = Some("default".to_owned());
-            }
             Ok(())
         }
         fn handle_command_critical_start(
@@ -1136,6 +1119,21 @@ pub fn try_get_invocation_recorder<'a>(
         .as_ref()
         .map(|path| path.resolve(&ctx.working_dir));
 
+    let filesystem;
+    #[cfg(any(fbcode_build, cargo_internal_build))]
+    {
+        let root = std::path::Path::to_owned(ctx.paths()?.project_root().root().to_buf().as_ref());
+        if detect_eden::is_eden(root).unwrap_or(false) {
+            filesystem = "eden".to_owned();
+        } else {
+            filesystem = "default".to_owned();
+        }
+    }
+    #[cfg(not(any(fbcode_build, cargo_internal_build)))]
+    {
+        filesystem = "default".to_owned();
+    }
+
     let recorder = imp::InvocationRecorder::new(
         ctx.fbinit(),
         ctx.async_cleanup_context().dupe(),
@@ -1145,7 +1143,7 @@ pub fn try_get_invocation_recorder<'a>(
         ctx.trace_id.dupe(),
         ctx.paths()?.isolation.as_str().to_owned(),
         BuildCountManager::new(ctx.paths()?.build_count_dir()),
-        ctx.paths()?.project_root().root().to_buf(),
+        filesystem,
         ctx.restarted_trace_id.dupe(),
         log_size_counter_bytes,
         ctx.client_metadata
