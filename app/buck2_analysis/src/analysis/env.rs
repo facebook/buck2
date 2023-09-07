@@ -125,8 +125,9 @@ pub fn resolve_unkeyed_placeholder<'v>(
 ) -> Option<FrozenCommandLineArg> {
     // TODO(cjhopman): Make it an error if two deps provide a value for the placeholder.
     for providers in dep_analysis_results.values() {
-        if let Some(placeholder_info) =
-            FrozenTemplatePlaceholderInfo::from_providers(providers.provider_collection())
+        if let Some(placeholder_info) = providers
+            .provider_collection()
+            .builtin_provider::<FrozenTemplatePlaceholderInfo>()
         {
             if let Some(value) = placeholder_info.unkeyed_variables().get(name) {
                 // IMPORTANT: Anything given back to the user must be kept alive

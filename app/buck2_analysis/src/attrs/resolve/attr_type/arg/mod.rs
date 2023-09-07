@@ -125,9 +125,10 @@ fn resolve_configured_macro(
         }
         ConfiguredMacro::UserKeyedPlaceholder(box (name, label, arg)) => {
             let providers = ctx.get_dep(label)?;
-            let placeholder_info =
-                FrozenTemplatePlaceholderInfo::from_providers(providers.provider_collection())
-                    .ok_or_else(|| ResolveMacroError::KeyedPlaceholderInfoMissing(label.clone()))?;
+            let placeholder_info = providers
+                .provider_collection()
+                .builtin_provider::<FrozenTemplatePlaceholderInfo>()
+                .ok_or_else(|| ResolveMacroError::KeyedPlaceholderInfoMissing(label.clone()))?;
             let keyed_variables = placeholder_info.keyed_variables();
             let either_cmd_or_mapping = keyed_variables.get(&**name).ok_or_else(|| {
                 ResolveMacroError::KeyedPlaceholderMappingMissing(

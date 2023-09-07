@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;use starlark_map::small_map::SmallMap;
 use anyhow::Context;
-use async_trait::async_trait;
+use async_trait::async_trait;use buck2_build_api::interpreter::rule_defs::provider::builtin::platform_info::FrozenPlatformInfo;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::parse_config_section_and_key;
@@ -46,13 +46,10 @@ use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
 use more_futures::cancellation::CancellationContext;
-
 use thiserror::Error;
-
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::execution_platform_registration_info::ExecutionPlatformRegistrationInfo;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::execution_platform_registration_info::FrozenExecutionPlatformRegistrationInfo;
 
 #[derive(Debug, Error)]
 pub enum ConfigurationError {
@@ -140,7 +137,9 @@ async fn get_execution_platforms(
         .await?;
     let providers = analysis_result.providers();
 
-    let result = ExecutionPlatformRegistrationInfo::from_providers(providers.provider_collection())
+    let result = providers
+        .provider_collection()
+        .builtin_provider::<FrozenExecutionPlatformRegistrationInfo>()
         .ok_or_else(|| {
             anyhow::anyhow!(
                 ConfigurationError::MissingExecutionPlatformRegistrationInfo(
@@ -430,7 +429,10 @@ async fn compute_platform_configuration_no_label_check(
     target: &TargetLabel,
 ) -> anyhow::Result<ConfigurationData> {
     let result = ctx.get_configuration_analysis_result(target).await?;
-    let platform_info = PlatformInfo::from_providers(result.providers().provider_collection())
+    let platform_info = result
+        .providers()
+        .provider_collection()
+        .builtin_provider::<FrozenPlatformInfo>()
         .ok_or_else(|| ConfigurationError::MissingPlatformInfo(target.dupe()))?;
     platform_info.to_configuration()
 }
@@ -580,9 +582,10 @@ impl ConfigurationCalculation for DiceComputations {
                 let providers = analysis_result.providers();
 
                 // capture the result so the temporaries get dropped before analysis_result
-                let result = match FrozenConfigurationInfo::from_providers(
-                    providers.provider_collection(),
-                ) {
+                let result = match providers
+                    .provider_collection()
+                    .builtin_provider::<FrozenConfigurationInfo>()
+                {
                     Some(configuration_info) => configuration_info,
                     None => {
                         return Err::<_, anyhow::Error>(

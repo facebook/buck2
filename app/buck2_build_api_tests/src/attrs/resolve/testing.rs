@@ -227,8 +227,9 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
             name: &str,
         ) -> anyhow::Result<Option<FrozenCommandLineArg>> {
             for providers in self.deps.values() {
-                if let Some(placeholders) =
-                    FrozenTemplatePlaceholderInfo::from_providers(providers.provider_collection())
+                if let Some(placeholders) = providers
+                    .provider_collection()
+                    .builtin_provider::<FrozenTemplatePlaceholderInfo>()
                 {
                     if let Some(value) = placeholders.unkeyed_variables().get(name) {
                         return Ok(Some(*value));

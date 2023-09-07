@@ -50,7 +50,7 @@ use crate::build_signals::HasBuildSignals;
 use crate::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
+use crate::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::interpreter::rule_defs::provider::test_provider::TestProvider;
 
@@ -257,7 +257,10 @@ pub async fn build_configured_label<'a>(
             })?;
         }
         if providers_to_build.run {
-            if let Some(runinfo) = RunInfo::from_providers(providers.provider_collection()) {
+            if let Some(runinfo) = providers
+                .provider_collection()
+                .builtin_provider::<FrozenRunInfo>()
+            {
                 let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
                 runinfo.visit_artifacts(&mut artifact_visitor)?;
                 for input in artifact_visitor.inputs {

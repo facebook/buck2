@@ -60,6 +60,7 @@ use std::sync::Arc;
 use buck2_core::provider::id::ProviderId;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::MethodsBuilder;
+use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
@@ -88,6 +89,11 @@ pub trait ProviderLike<'v>: Debug {
     /// Returns a list of all the keys and values.
     // TODO(cjhopman): I'd rather return an iterator. I couldn't get that to work, though.
     fn items(&self) -> Vec<(&str, Value<'v>)>;
+}
+
+/// Implemented by frozen builtin providers.
+pub trait FrozenBuiltinProviderLike: ProviderLike<'static> + StarlarkValue<'static> {
+    fn builtin_provider_id() -> &'static Arc<ProviderId>;
 }
 
 unsafe impl<'v> ProvidesStaticType<'v> for &'v dyn ProviderLike<'v> {

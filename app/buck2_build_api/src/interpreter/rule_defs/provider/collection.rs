@@ -50,6 +50,7 @@ use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::provider::DefaultInfo;
 use crate::interpreter::rule_defs::provider::DefaultInfoCallable;
+use crate::interpreter::rule_defs::provider::FrozenBuiltinProviderLike;
 use crate::interpreter::rule_defs::provider::FrozenDefaultInfo;
 use crate::interpreter::rule_defs::provider::ProviderLike;
 use crate::interpreter::rule_defs::provider::ValueAsProviderLike;
@@ -363,6 +364,10 @@ impl FrozenProviderCollection {
             .downcast_frozen_ref::<T>()
             .expect("Incorrect provider type");
         Some(provider)
+    }
+
+    pub fn builtin_provider<T: FrozenBuiltinProviderLike>(&self) -> Option<FrozenRef<'static, T>> {
+        self.get_provider(ProviderIdWithType::new_ref(T::builtin_provider_id()))
     }
 
     pub fn get_provider_raw(&self, provider_id: &ProviderId) -> Option<&FrozenValue> {

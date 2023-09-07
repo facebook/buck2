@@ -396,22 +396,6 @@ impl ProviderCodegen {
         })
     }
 
-    fn from_providers(&self) -> syn::Result<syn::Item> {
-        let gen_name = &self.input.ident;
-        let frozen_name = self.frozen_name()?;
-        let callable_name = self.callable_name()?;
-        Ok(syn::parse_quote_spanned! { self.span=>
-            impl<'v, V: starlark::values::ValueLike<'v>> #gen_name<V> {
-                #[allow(dead_code)]
-                pub fn from_providers(
-                    providers: &crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection,
-                ) -> Option<starlark::values::FrozenRef<#frozen_name>> {
-                    providers.get_provider(#callable_name::provider_id_t())
-                }
-            }
-        })
-    }
-
     fn impl_provider_like(&self) -> syn::Result<syn::Item> {
         let gen_name = &self.input.ident;
         let field_names = self.field_names()?;
@@ -436,6 +420,18 @@ impl ProviderCodegen {
                     vec![
                         #((stringify!(#field_names), self.#field_names.to_value())),*
                     ]
+                }
+            }
+        })
+    }
+
+    fn impl_frozen_builtin_provider(&self) -> syn::Result<syn::Item> {
+        let frozen_name = self.frozen_name()?;
+        let callable_name = self.callable_name()?;
+        Ok(syn::parse_quote_spanned! { self.span=>
+            impl crate::interpreter::rule_defs::provider::FrozenBuiltinProviderLike for #frozen_name {
+                fn builtin_provider_id() -> &'static std::sync::Arc<buck2_core::provider::id::ProviderId> {
+                    #callable_name::provider_id()
                 }
             }
         })
@@ -678,8 +674,8 @@ pub(crate) fn define_provider(
         vec![codegen.impl_display()?],
         codegen.impl_starlark_value()?,
         vec![codegen.impl_serializable_value()?],
-        vec![codegen.from_providers()?],
         vec![codegen.impl_provider_like()?],
+        vec![codegen.impl_frozen_builtin_provider()?],
         codegen.callable()?,
         codegen.register()?,
         vec![codegen.inventory()?],

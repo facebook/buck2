@@ -29,7 +29,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::InstallInfoCallable;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::InstallRequest;
 use buck2_cli_proto::InstallResponse;
@@ -460,8 +460,9 @@ async fn build_launch_installer<'a>(
         .await?
         .require_compatible()?;
 
-    if let Some(installer_run_info) =
-        RunInfo::from_providers(frozen_providers.provider_collection())
+    if let Some(installer_run_info) = frozen_providers
+        .provider_collection()
+        .builtin_provider::<FrozenRunInfo>()
     {
         let (inputs, run_args) = {
             let artifact_fs = ctx.get_artifact_fs().await?;
