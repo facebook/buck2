@@ -767,7 +767,9 @@ fn test_label_assign() {
     struct FrozenWrapper;
 
     #[starlark_value(type = "wrapper")]
-    impl<'v> StarlarkValue<'v> for FrozenWrapper {}
+    impl<'v> StarlarkValue<'v> for FrozenWrapper {
+        type Canonical = Wrapper<'v>;
+    }
 
     impl<'v> Freeze for Wrapper<'v> {
         type Frozen = FrozenWrapper;

@@ -52,7 +52,9 @@ pub(crate) struct FrozenValueCaptured(Option<FrozenValue>);
 impl<'v> StarlarkValue<'v> for ValueCaptured<'v> {}
 
 #[starlark_value(type = "value_captured")]
-impl<'v> StarlarkValue<'v> for FrozenValueCaptured {}
+impl<'v> StarlarkValue<'v> for FrozenValueCaptured {
+    type Canonical = ValueCaptured<'v>;
+}
 
 impl<'v> ValueCaptured<'v> {
     pub(crate) fn new(payload: Option<Value<'v>>) -> ValueCaptured<'v> {

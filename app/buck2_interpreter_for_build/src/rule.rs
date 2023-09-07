@@ -71,7 +71,7 @@ pub static NAME_ATTRIBUTE_FIELD: &str = "name";
 /// The callable that's returned from a `rule()` call. Once frozen, and called, it adds targets'
 /// parameters to the context
 #[derive(Debug, ProvidesStaticType, Trace, NoSerialize, Allocative)]
-struct RuleCallable<'v> {
+pub struct RuleCallable<'v> {
     /// The import path that contains the rule() call; stored here so we can retrieve extra
     /// information during `export_as()`
     import_path: ImportPath,
@@ -353,6 +353,8 @@ impl FrozenRuleCallable {
 
 #[starlark_value(type = "rule")]
 impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
+    type Canonical = RuleCallable<'v>;
+
     fn invoke(
         &self,
         _me: Value<'v>,

@@ -384,6 +384,8 @@ impl ProviderCallableLike for FrozenUserProviderCallable {
 
 #[starlark_value(type = "provider_callable")]
 impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
+    type Canonical = Self;
+
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(provider_callable_methods)

@@ -316,6 +316,8 @@ impl Serialize for FrozenTransitiveSetDefinition {
 
 #[starlark_value(type = "transitive_set_definition")]
 impl<'v> StarlarkValue<'v> for FrozenTransitiveSetDefinition {
+    type Canonical = Self;
+
     fn dir_attr(&self) -> Vec<String> {
         vec!["type".to_owned()]
     }

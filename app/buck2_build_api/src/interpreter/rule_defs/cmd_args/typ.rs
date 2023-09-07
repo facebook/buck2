@@ -421,8 +421,6 @@ impl<'v> StarlarkCmdArgs<'v> {
 
 #[starlark_value(type = "cmd_args")]
 impl<'v> StarlarkValue<'v> for StarlarkCmdArgs<'v> {
-    type Canonical = FrozenStarlarkCmdArgs;
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(cmd_args_methods)
@@ -435,6 +433,8 @@ impl<'v> StarlarkValue<'v> for StarlarkCmdArgs<'v> {
 
 #[starlark_value(type = "cmd_args")]
 impl<'v> StarlarkValue<'v> for FrozenStarlarkCmdArgs {
+    type Canonical = StarlarkCmdArgs<'v>;
+
     fn get_methods() -> Option<&'static Methods> {
         // We return the same methods for frozen command lines, even though some of them fail,
         // so the methods remain consistent during freezing

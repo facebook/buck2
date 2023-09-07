@@ -175,7 +175,9 @@ pub(crate) struct FrozenBxlFunction {
 starlark_simple_value!(FrozenBxlFunction);
 
 #[starlark_value(type = "bxl")]
-impl<'v> StarlarkValue<'v> for FrozenBxlFunction {}
+impl<'v> StarlarkValue<'v> for FrozenBxlFunction {
+    type Canonical = BxlFunction<'v>;
+}
 
 impl FrozenBxlFunction {
     pub(crate) fn implementation(&self) -> FrozenValue {

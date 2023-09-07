@@ -109,7 +109,9 @@ pub struct FrozenStarlarkPluginKind(PluginKind);
 starlark_simple_value!(FrozenStarlarkPluginKind);
 
 #[starlark_value(type = "PluginKind")]
-impl<'v> StarlarkValue<'v> for FrozenStarlarkPluginKind {}
+impl<'v> StarlarkValue<'v> for FrozenStarlarkPluginKind {
+    type Canonical = StarlarkPluginKind;
+}
 
 impl Freeze for StarlarkPluginKind {
     type Frozen = FrozenStarlarkPluginKind;

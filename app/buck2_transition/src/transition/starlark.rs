@@ -115,6 +115,8 @@ impl<'v> StarlarkValue<'v> for Transition<'v> {
 
 #[starlark_value(type = "transition")]
 impl<'v> StarlarkValue<'v> for FrozenTransition {
+    type Canonical = Transition<'v>;
+
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
         demand.provide_value::<&dyn TransitionValue>(self);
     }

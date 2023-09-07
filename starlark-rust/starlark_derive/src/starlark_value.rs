@@ -427,6 +427,18 @@ impl ImplStarlarkValue {
                 "qualified self not supported",
             ));
         }
+
+        // If type name is `FrozenXxx`, it is likely that it should have `Canonical`
+        // pointing to `Xxx`. Make it an error and force user to specify it explicitly to be safe.
+        if let Some(last) = path.segments.last() {
+            if last.ident.to_string().starts_with("Frozen") {
+                return Err(syn::Error::new_spanned(
+                    last,
+                    "Type name starts with `Frozen`, please specify `Canonical` explicitly",
+                ));
+            }
+        }
+
         let mut path = path.clone();
 
         struct PatchTypesVisitor<'a> {
