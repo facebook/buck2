@@ -135,8 +135,6 @@ pub struct UserProviderCallable {
     path: CellPath,
     /// The docstring for this provider
     docs: Option<DocString>,
-    /// The docstrings for each field. The length of must be identical to `fields`
-    field_docs: Vec<Option<DocString>>,
     /// The names of the fields used in `callable`
     fields: SmallSet<String>,
     /// Field is initialized after the provider is assigned to a variable.
@@ -162,24 +160,11 @@ impl Display for UserProviderCallable {
 }
 
 impl UserProviderCallable {
-    fn new(
-        path: CellPath,
-        docs: Option<DocString>,
-        field_docs: Vec<Option<DocString>>,
-        fields: SmallSet<String>,
-    ) -> Self {
-        assert_eq!(
-            field_docs.len(),
-            fields.len(),
-            "Expected {} fields, but got docs for {} fields",
-            fields.len(),
-            field_docs.len()
-        );
+    fn new(path: CellPath, docs: Option<DocString>, fields: SmallSet<String>) -> Self {
         Self {
             callable: unsync::OnceCell::new(),
             path,
             docs,
-            field_docs,
             fields,
         }
     }
@@ -212,7 +197,6 @@ impl Freeze for UserProviderCallable {
 
         Ok(FrozenUserProviderCallable::new(
             self.docs,
-            self.field_docs,
             self.fields,
             callable,
         ))
@@ -317,7 +301,7 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
             None,
             &self.docs,
             &self.fields.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
-            &self.field_docs,
+            &vec![None; self.fields.len()],
             &return_types,
         ))
     }
@@ -331,8 +315,6 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
 pub struct FrozenUserProviderCallable {
     /// The docstring for this provider
     docs: Option<DocString>,
-    /// The docstrings for each field. The length of must be identical to `fields`
-    field_docs: Vec<Option<DocString>>,
     /// The names of the fields used in `callable`
     fields: SmallSet<String>,
     /// The actual callable that creates instances of `UserProvider`
@@ -356,20 +338,11 @@ impl Display for FrozenUserProviderCallable {
 impl FrozenUserProviderCallable {
     fn new(
         docs: Option<DocString>,
-        field_docs: Vec<Option<DocString>>,
         fields: SmallSet<String>,
         callable: UserProviderCallableNamed,
     ) -> Self {
-        assert_eq!(
-            field_docs.len(),
-            fields.len(),
-            "Expected {} fields, but got docs for {} fields",
-            fields.len(),
-            field_docs.len()
-        );
         Self {
             docs,
-            field_docs,
             fields,
             callable,
         }
@@ -410,7 +383,7 @@ impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
             None,
             &self.docs,
             &self.fields.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
-            &self.field_docs,
+            &vec![None; self.fields.len()],
             &return_types,
         ))
     }
@@ -469,18 +442,16 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
         let docstring = DocString::from_docstring(DocStringKind::Starlark, doc);
         let path = starlark_path_from_build_context(eval)?.path();
 
-        let (field_names, field_docs) = {
-            let docs = vec![None; fields.len()];
+        let field_names = {
             let field_names: SmallSet<String> = fields.iter().cloned().collect();
             if field_names.len() != fields.len() {
                 return Err(ProviderCallableError::NonUniqueFields(fields).into());
             }
-            (field_names, docs)
+            field_names
         };
         Ok(UserProviderCallable::new(
             path.into_owned(),
             docstring,
-            field_docs,
             field_names,
         ))
     }
