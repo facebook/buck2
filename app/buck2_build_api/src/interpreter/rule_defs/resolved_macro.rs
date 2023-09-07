@@ -17,7 +17,9 @@ use allocative::Allocative;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use buck2_util::arc_str::ArcStr;
 use starlark::any::ProvidesStaticType;
+use starlark::environment::GlobalsBuilder;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::Demand;
 use starlark::values::FrozenRef;
 use starlark::values::NoSerialize;
@@ -298,4 +300,10 @@ impl<'v> StarlarkValue<'v> for ResolvedStringWithMacros {
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
         demand.provide_value::<&dyn CommandLineArgLike>(self);
     }
+}
+
+#[starlark_module]
+pub(crate) fn register_string_with_macros(globals: &mut GlobalsBuilder) {
+    const ResolvedStringWithMacros: StarlarkValueAsType<ResolvedStringWithMacros> =
+        StarlarkValueAsType::new();
 }
