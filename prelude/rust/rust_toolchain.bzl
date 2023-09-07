@@ -41,6 +41,9 @@ _rust_toolchain_attrs = {
     "failure_filter": False,
     # The Rust compiler (rustc)
     "compiler": None,
+    # A Rust compiler that can be used "standalone", without special settings
+    # from Rust rules (e.g. this keeps the default sysroot).
+    "compiler_standalone": None,
     # Rust documentation extractor (rustdoc)
     "rustdoc": None,
     # Clippy (linter) version of the compiler

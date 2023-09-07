@@ -42,6 +42,7 @@ def _system_rust_toolchain_impl(ctx):
             clippy_driver = RunInfo(args = ["clippy-driver"]),
             clippy_toml = ctx.attrs.clippy_toml[DefaultInfo].default_outputs[0] if ctx.attrs.clippy_toml else None,
             compiler = RunInfo(args = ["rustc"]),
+            compiler_standalone = RunInfo(args = ["rustc"]),
             concat_tool = ctx.attrs.concat_tool[RunInfo],
             default_edition = ctx.attrs.default_edition,
             deny_lints = ctx.attrs.deny_lints,

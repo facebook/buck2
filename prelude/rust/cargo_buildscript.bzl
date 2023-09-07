@@ -47,7 +47,7 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
     env["CARGO_PKG_NAME"] = ctx.attrs.package_name
     env["CARGO_PKG_VERSION"] = ctx.attrs.version
     env["OUT_DIR"] = out_dir.as_output()
-    env["RUSTC"] = cmd_args(toolchain_info.compiler).relative_to(cwd)
+    env["RUSTC"] = cmd_args(toolchain_info.compiler_standalone).relative_to(cwd)
     env["RUSTC_LINKER"] = "/bin/false"
     env["RUST_BACKTRACE"] = "1"
     env["TARGET"] = toolchain_info.rustc_target_triple
