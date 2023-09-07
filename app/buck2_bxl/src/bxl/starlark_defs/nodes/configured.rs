@@ -68,6 +68,7 @@ use starlark::values::ValueLike;
 use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::BxlContext;
+use crate::bxl::starlark_defs::file_set::StarlarkFileNode;
 use crate::bxl::starlark_defs::nodes::configured::attr_resolution_ctx::LazyAttrResolutionContext;
 
 mod attr_resolution_ctx;
@@ -116,6 +117,19 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn label(this: &StarlarkConfiguredTargetNode) -> anyhow::Result<StarlarkConfiguredTargetLabel> {
         Ok(StarlarkConfiguredTargetLabel::new(this.0.label().dupe()))
+    }
+
+    /// Gets the buildfile path from the configured target node.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_label(ctx):
+    ///     target_node = ctx.cquery().eval("owner('path/to/file')")[0]
+    ///     ctx.output.print(target_node.buildfile_path)
+    /// ```
+    #[starlark(attribute)]
+    fn buildfile_path(this: &StarlarkConfiguredTargetNode) -> anyhow::Result<StarlarkFileNode> {
+        Ok(StarlarkFileNode(this.0.buildfile_path().path()))
     }
 
     /// Returns a struct of all the attributes of this target node. The structs fields are the
