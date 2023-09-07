@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load(
     "@prelude//:artifact_tset.bzl",
     "ArtifactTSet",  # @unused Used as a type
@@ -120,6 +118,7 @@ load(
 load(
     ":compile.bzl",
     "CxxCompileCommandOutput",
+    "CxxCompileOutput",  # @unused Used as a type
     "compile_cxx",
     "create_compile_cmds",
 )
@@ -291,7 +290,7 @@ _CxxLibraryParameterizedOutput = record(
     linkable_root = field([LinkableRootInfo.type, None], None),
 )
 
-def cxx_library_parameterized(ctx: AnalysisContext, impl_params: "CxxRuleConstructorParams") -> _CxxLibraryParameterizedOutput:
+def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams) -> _CxxLibraryParameterizedOutput:
     """
     Defines the outputs for a cxx library, return the default output and any subtargets and providers based upon the requested params.
     """
@@ -814,7 +813,7 @@ def get_default_cxx_library_product_name(ctx, impl_params) -> str:
     else:
         return _soname(ctx, impl_params)
 
-def _get_library_compile_output(ctx, outs: list["CxxCompileOutput"], extra_link_input) -> _CxxLibraryCompileOutput:
+def _get_library_compile_output(ctx, outs: list[CxxCompileOutput], extra_link_input) -> _CxxLibraryCompileOutput:
     objects = [out.object for out in outs]
     stripped_objects = _strip_objects(ctx, objects)
 
@@ -1060,7 +1059,7 @@ def _get_shared_library_links(
         frameworks_linkable: [FrameworksLinkable, None],
         force_static_follows_dependents: bool = True,
         swiftmodule_linkable: [SwiftmoduleLinkable, None] = None,
-        swift_runtime_linkable: [SwiftRuntimeLinkable, None] = None) -> ("LinkArgs", [DefaultInfo.type, None], LinkExecutionPreference):
+        swift_runtime_linkable: [SwiftRuntimeLinkable, None] = None) -> (LinkArgs, [DefaultInfo.type, None], LinkExecutionPreference):
     """
     Returns LinkArgs with the content to link, and a link group map json output if applicable.
 
@@ -1155,7 +1154,7 @@ def _use_pic(link_style: LinkStyle) -> bool:
 # style(s) it's used in and the `LinkInfo` to export to dependents.
 def _static_library(
         ctx: AnalysisContext,
-        impl_params: "CxxRuleConstructorParams",
+        impl_params: CxxRuleConstructorParams,
         objects: list[Artifact],
         pic: bool,
         stripped: bool,
@@ -1278,7 +1277,7 @@ _CxxSharedLibraryResult = record(
 
 def _shared_library(
         ctx: AnalysisContext,
-        impl_params: "CxxRuleConstructorParams",
+        impl_params: CxxRuleConstructorParams,
         objects: list[Artifact],
         external_debug_info: ArtifactTSet.type,
         dep_infos: LinkArgs,

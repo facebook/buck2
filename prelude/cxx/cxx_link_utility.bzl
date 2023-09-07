@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//:artifact_tset.bzl", "project_artifacts")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
@@ -15,6 +13,8 @@ load("@prelude//cxx:linker.bzl", "get_rpath_origin")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
+    "LinkOrdering",  # @unused Used as a type
+    "LinkedObject",  # @unused Used as a type
     "unpack_link_args",
     "unpack_link_args_filelist",
 )
@@ -71,11 +71,11 @@ LinkArgsOutput = record(
 
 def make_link_args(
         ctx: AnalysisContext,
-        links: list["LinkArgs"],
+        links: list[LinkArgs],
         suffix = None,
         output_short_path: [str, None] = None,
         is_shared: [bool, None] = None,
-        link_ordering: ["LinkOrdering", None] = None) -> LinkArgsOutput:
+        link_ordering: [LinkOrdering, None] = None) -> LinkArgsOutput:
     """
     Merges LinkArgs. Returns the args, files that must be present for those
     args to work when passed to a linker, and optionally an artifact where DWO
@@ -154,7 +154,7 @@ def executable_shared_lib_arguments(
         actions: AnalysisActions,
         cxx_toolchain: CxxToolchainInfo.type,
         output: Artifact,
-        shared_libs: dict[str, "LinkedObject"]) -> (list[typing.Any], list[ArgLike], [Artifact, None]):
+        shared_libs: dict[str, LinkedObject]) -> (list[typing.Any], list[ArgLike], [Artifact, None]):
     extra_args = []
     runtime_files = []
     shared_libs_symlink_tree = None

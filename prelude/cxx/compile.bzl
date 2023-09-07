@@ -142,6 +142,8 @@ CxxCompileOutput = record(
 
 def create_compile_cmds(
         ctx: AnalysisContext,
+        # TODO(nga): there's dependency cycle between `compile.bzl` (this file)
+        #   and `cxx_types.bzl` (where `CxxRuleConstructorParams` is defined).
         impl_params: "CxxRuleConstructorParams",
         own_preprocessors: list[CPreprocessor],
         inherited_preprocessor_infos: list[CPreprocessorInfo.type]) -> CxxCompileCommandOutput:

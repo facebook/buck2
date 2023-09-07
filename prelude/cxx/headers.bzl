@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//utils:utils.bzl", "expect", "from_named_set", "is_any", "map_val", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
@@ -142,7 +140,7 @@ def _headers_by_platform(ctx: AnalysisContext, xs: list[(str, typing.Any)]) -> t
 def as_raw_headers(
         ctx: AnalysisContext,
         headers: dict[str, Artifact],
-        mode: HeadersAsRawHeadersMode) -> [list["label_relative_path"], None]:
+        mode: HeadersAsRawHeadersMode) -> [list[CellPath], None]:
     """
     Return the include directories needed to treat the given headers as raw
     headers, depending on the given `HeadersAsRawHeadersMode` mode.
@@ -236,7 +234,7 @@ def _as_raw_headers(
         ctx: AnalysisContext,
         headers: dict[str, Artifact],
         # Return `None` instead of failing.
-        no_fail: bool = False) -> [list["label_relative_path"], None]:
+        no_fail: bool = False) -> [list[CellPath], None]:
     """
     Return the include directories needed to treat the given headers as raw
     headers.

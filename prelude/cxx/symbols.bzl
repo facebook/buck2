@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
@@ -118,7 +116,7 @@ def extract_symbol_names(
         ctx: AnalysisContext,
         name: str,
         anonymous: bool = False,
-        **kwargs) -> [Artifact, "promise_artifact"]:
+        **kwargs) -> Artifact:
     """
     Generate a file with a sorted list of symbol names extracted from the given
     native objects.
