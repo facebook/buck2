@@ -122,6 +122,14 @@ impl<'v, Node: NodeLike> StarlarkValue<'v> for StarlarkTargetSet<Node> {
             None => Ok(false),
         }
     }
+
+    fn bit_and(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+        let other = other
+            .downcast_ref::<Self>()
+            .ok_or(ValueError::IncorrectParameterType)?;
+        let intersect = self.0.intersect(&other.0)?;
+        Ok(heap.alloc(Self(intersect)))
+    }
 }
 
 impl<Node: QueryTarget> From<TargetSet<Node>> for StarlarkTargetSet<Node> {
