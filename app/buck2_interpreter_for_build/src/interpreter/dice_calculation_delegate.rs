@@ -215,9 +215,12 @@ impl<'c> DiceCalculationDelegate<'c> {
             futures::future::join_all(modules.iter().map(|(span, import)| async move {
                 self.eval_module(import.borrow()).await.with_context(|| {
                     format!(
-                        "From `load` at {}",
+                        "From load at {}",
                         span.as_ref()
-                            .map_or("implicit location".to_owned(), FileSpan::to_string)
+                            .map_or("implicit location".to_owned(), |file_span| file_span
+                                .resolve()
+                                .begin_file_line()
+                                .to_string())
                     )
                 })
             }))
