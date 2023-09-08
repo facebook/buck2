@@ -86,9 +86,9 @@ CxxRuleAdditionalParams = record(
     # Additional argsfiles to include for this rule.
     argsfiles = field(CompileArgsfiles, CompileArgsfiles()),
     # External debug info to be used when generated static output
-    static_external_debug_info = field(list[ArtifactTSet.type], []),
+    static_external_debug_info = field(list[ArtifactTSet], []),
     # External debug info to be used when generating shared objects
-    shared_external_debug_info = field(list[ArtifactTSet.type], []),
+    shared_external_debug_info = field(list[ArtifactTSet], []),
     subtargets = field(dict, {}),  # [str: ["provider"]]
     # Might be used to expose additional providers to cxx layer (e.g to support #headers subtarget for Swift)
     additional_providers_factory = field([typing.Callable, None], None),  # (["CPreprocessorInfo", None]) -> ["provider"]:
@@ -113,9 +113,9 @@ CxxRuleConstructorParams = record(
     headers_layout = CxxHeadersLayout,
     # Additional information used to preprocess every unit of translation in the rule.
     extra_preprocessors = field(list[CPreprocessor], []),
-    extra_preprocessors_info = field(list[CPreprocessorInfo.type], []),
+    extra_preprocessors_info = field(list[CPreprocessorInfo], []),
     # Additional preprocessor info to export to other rules.
-    extra_exported_preprocessors = field(list[CPreprocessor.type], []),
+    extra_exported_preprocessors = field(list[CPreprocessor], []),
     # Additional information used to link every object produced by the rule,
     # flags are _both_ exported and used to link the target itself.
     extra_exported_link_flags = field(list[typing.Any], []),
@@ -176,7 +176,7 @@ CxxRuleConstructorParams = record(
     # Additional shared libs to "package".
     extra_shared_libs = field(dict[str, SharedLibrary], {}),
     auto_link_group_specs = field([list[LinkGroupLibSpec], None], None),
-    link_group_info = field([LinkGroupInfo.type, None], None),
+    link_group_info = field([LinkGroupInfo, None], None),
     # Whether to use pre-stripped objects when linking.
     prefer_stripped_objects = field(bool, False),
     # The category suffix to use for executables actions (e.g. linking).

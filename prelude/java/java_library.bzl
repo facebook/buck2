@@ -126,7 +126,7 @@ def _build_classpath(actions: AnalysisActions, deps: list[Dependency], additiona
 
     return None
 
-def _build_bootclasspath(bootclasspath_entries: list[Artifact], source_level: int, java_toolchain: JavaToolchainInfo.type) -> list[Artifact]:
+def _build_bootclasspath(bootclasspath_entries: list[Artifact], source_level: int, java_toolchain: JavaToolchainInfo) -> list[Artifact]:
     bootclasspath_list = []
     if source_level in [7, 8]:
         if bootclasspath_entries:
@@ -140,7 +140,7 @@ def _build_bootclasspath(bootclasspath_entries: list[Artifact], source_level: in
 def _append_javac_params(
         ctx: AnalysisContext,
         actions_identifier: [str, None],
-        java_toolchain: JavaToolchainInfo.type,
+        java_toolchain: JavaToolchainInfo,
         srcs: list[Artifact],
         remove_classes: list[str],
         annotation_processor_properties: "AnnotationProcessorProperties",
@@ -248,7 +248,7 @@ def _is_supported_archive(src: Artifact) -> bool:
 def _copy_resources(
         actions: AnalysisActions,
         actions_identifier: [str, None],
-        java_toolchain: JavaToolchainInfo.type,
+        java_toolchain: JavaToolchainInfo,
         package: str,
         resources: list[Artifact],
         resources_root: [str, None]) -> Artifact:
@@ -258,7 +258,7 @@ def _copy_resources(
 
 def _jar_creator(
         javac_tool: [typing.Any, None],
-        java_toolchain: JavaToolchainInfo.type) -> typing.Callable:
+        java_toolchain: JavaToolchainInfo) -> typing.Callable:
     if javac_tool or java_toolchain.javac_protocol == "classic":
         return _create_jar_artifact
     elif java_toolchain.javac_protocol == "javacd":
@@ -349,7 +349,7 @@ def _create_jar_artifact(
         ctx: AnalysisContext,
         actions_identifier: [str, None],
         abi_generation_mode: ["AbiGenerationMode", None],
-        java_toolchain: JavaToolchainInfo.type,
+        java_toolchain: JavaToolchainInfo,
         label: Label,
         output: [Artifact, None],
         javac_tool: [typing.Any, None],

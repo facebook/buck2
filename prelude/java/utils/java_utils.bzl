@@ -23,7 +23,7 @@ def get_path_separator_for_exec_os(ctx: AnalysisContext) -> str:
     is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
     return ";" if is_windows else ":"
 
-def derive_javac(javac_attribute: [str, Dependency, Artifact]) -> [str, RunInfo.type, Artifact]:
+def derive_javac(javac_attribute: [str, Dependency, Artifact]) -> [str, RunInfo, Artifact]:
     javac_attr_type = type(javac_attribute)
     if isinstance(javac_attribute, Dependency):
         javac_run_info = javac_attribute.get(RunInfo)
@@ -86,10 +86,10 @@ def get_abi_generation_mode(abi_generation_mode):
 
 def get_default_info(
         actions: AnalysisActions,
-        java_toolchain: JavaToolchainInfo.type,
+        java_toolchain: JavaToolchainInfo,
         outputs: ["JavaCompileOutputs", None],
         packaging_info: "JavaPackagingInfo",
-        extra_sub_targets: dict = {}) -> DefaultInfo.type:
+        extra_sub_targets: dict = {}) -> DefaultInfo:
     sub_targets = get_classpath_subtarget(actions, packaging_info)
     default_info = DefaultInfo()
     if outputs:
@@ -120,7 +120,7 @@ def declare_prefixed_name(name: str, prefix: [str, None]) -> str:
 def get_class_to_source_map_info(
         ctx: AnalysisContext,
         outputs: ["JavaCompileOutputs", None],
-        deps: list[Dependency]) -> (JavaClassToSourceMapInfo.type, dict):
+        deps: list[Dependency]) -> (JavaClassToSourceMapInfo, dict):
     sub_targets = {}
     class_to_srcs = None
     class_to_srcs_debuginfo = None

@@ -13,8 +13,8 @@ ZIP_NOTHING_TO_DO_EXIT_CODE = 12
 
 def get_aapt2_link(
         ctx: AnalysisContext,
-        android_toolchain: AndroidToolchainInfo.type,
-        resource_infos: list[AndroidResourceInfo.type],
+        android_toolchain: AndroidToolchainInfo,
+        resource_infos: list[AndroidResourceInfo],
         android_manifest: Artifact,
         includes_vector_drawables: bool,
         no_auto_version: bool,
@@ -30,7 +30,7 @@ def get_aapt2_link(
         locales: list[str],
         compiled_resource_apks: list[Artifact],
         additional_aapt2_params: list[str],
-        extra_filtered_resources: list[str]) -> (Aapt2LinkInfo.type, Aapt2LinkInfo.type):
+        extra_filtered_resources: list[str]) -> (Aapt2LinkInfo, Aapt2LinkInfo):
     link_infos = []
     for use_proto_format in [False, True]:
         if use_proto_format:
@@ -139,7 +139,7 @@ def get_aapt2_link(
 
 def get_module_manifest_in_proto_format(
         ctx: AnalysisContext,
-        android_toolchain: AndroidToolchainInfo.type,
+        android_toolchain: AndroidToolchainInfo,
         android_manifest: Artifact,
         primary_resources_apk: Artifact,
         module_name: str) -> Artifact:

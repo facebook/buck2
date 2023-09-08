@@ -22,7 +22,7 @@ load(":swift_toolchain_types.bzl", "SwiftCompiledModuleInfo", "SwiftCompiledModu
 
 _REQUIRED_SDK_MODULES = ["Foundation"]
 
-def get_compiled_pcm_deps_tset(ctx: AnalysisContext, pcm_deps_providers: list) -> SwiftCompiledModuleTset.type:
+def get_compiled_pcm_deps_tset(ctx: AnalysisContext, pcm_deps_providers: list) -> SwiftCompiledModuleTset:
     pcm_deps = [
         pcm_deps_provider[WrappedSwiftPCMCompiledInfo].tset
         for pcm_deps_provider in pcm_deps_providers
@@ -77,7 +77,7 @@ def _compile_with_argsfile(
 def _compiled_module_info(
         module_name: str,
         pcm_output: Artifact,
-        pcm_info: SwiftPCMUncompiledInfo.type) -> SwiftCompiledModuleInfo.type:
+        pcm_info: SwiftPCMUncompiledInfo) -> SwiftCompiledModuleInfo:
     clang_importer_args = cmd_args()
     clang_importer_args.add("-Xcc")
     clang_importer_args.add(
@@ -227,10 +227,10 @@ _swift_pcm_compilation = rule(
 
 def compile_underlying_pcm(
         ctx: AnalysisContext,
-        uncompiled_pcm_info: SwiftPCMUncompiledInfo.type,
+        uncompiled_pcm_info: SwiftPCMUncompiledInfo,
         compiled_pcm_deps_providers,
         swift_cxx_args: list[str],
-        framework_search_path_flags: cmd_args) -> SwiftCompiledModuleInfo.type:
+        framework_search_path_flags: cmd_args) -> SwiftCompiledModuleInfo:
     module_name = get_module_name(ctx)
 
     # `compiled_pcm_deps_providers` will contain `WrappedSdkCompiledModuleInfo` providers
@@ -270,9 +270,9 @@ def compile_underlying_pcm(
 def _get_base_pcm_flags(
         ctx: AnalysisContext,
         module_name: str,
-        uncompiled_pcm_info: SwiftPCMUncompiledInfo.type,
-        sdk_deps_tset: SwiftCompiledModuleTset.type,
-        pcm_deps_tset: SwiftCompiledModuleTset.type,
+        uncompiled_pcm_info: SwiftPCMUncompiledInfo,
+        sdk_deps_tset: SwiftCompiledModuleTset,
+        pcm_deps_tset: SwiftCompiledModuleTset,
         swift_cxx_args: list[str]) -> (cmd_args, cmd_args, Artifact):
     swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
 

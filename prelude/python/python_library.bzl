@@ -93,7 +93,7 @@ def qualify_srcs(
 def create_python_needed_coverage_info(
         label: Label,
         base_module: [None, str],
-        srcs: list[str]) -> PythonNeededCoverageInfo.type:
+        srcs: list[str]) -> PythonNeededCoverageInfo:
     prefix = dest_prefix(label, base_module)
     return PythonNeededCoverageInfo(
         modules = {src: prefix + src for src in srcs},
@@ -102,14 +102,14 @@ def create_python_needed_coverage_info(
 def create_python_library_info(
         actions: AnalysisActions,
         label: Label,
-        srcs: [ManifestInfo.type, None] = None,
-        src_types: [ManifestInfo.type, None] = None,
-        bytecode: [dict[PycInvalidationMode, ManifestInfo.type], None] = None,
-        dep_manifest: [ManifestInfo.type, None] = None,
-        resources: [(ManifestInfo.type, list[ArgLike]), None] = None,
+        srcs: [ManifestInfo, None] = None,
+        src_types: [ManifestInfo, None] = None,
+        bytecode: [dict[PycInvalidationMode, ManifestInfo], None] = None,
+        dep_manifest: [ManifestInfo, None] = None,
+        resources: [(ManifestInfo, list[ArgLike]), None] = None,
         extensions: [dict[str, LinkedObject], None] = None,
-        deps: list[PythonLibraryInfo.type] = [],
-        shared_libraries: list[SharedLibraryInfo.type] = []):
+        deps: list[PythonLibraryInfo] = [],
+        shared_libraries: list[SharedLibraryInfo] = []):
     """
     Create a `PythonLibraryInfo` for a set of sources and deps
 
@@ -147,7 +147,7 @@ def create_python_library_info(
         shared_libraries = new_shared_libraries,
     )
 
-def gather_dep_libraries(raw_deps: list[list[Dependency]]) -> (list[PythonLibraryInfo.type], list[SharedLibraryInfo.type]):
+def gather_dep_libraries(raw_deps: list[list[Dependency]]) -> (list[PythonLibraryInfo], list[SharedLibraryInfo]):
     """
     Takes a list of raw dependencies, and partitions them into python_library / shared library providers.
     Fails if a dependency is not one of these.
@@ -216,7 +216,7 @@ def py_attr_resources(ctx: AnalysisContext) -> dict[str, (Artifact, list[ArgLike
 
 def py_resources(
         ctx: AnalysisContext,
-        resources: dict[str, (Artifact, list[ArgLike])]) -> (ManifestInfo.type, list[ArgLike]):
+        resources: dict[str, (Artifact, list[ArgLike])]) -> (ManifestInfo, list[ArgLike]):
     """
     Generate a manifest to wrap this rules resources.
     """

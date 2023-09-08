@@ -19,7 +19,7 @@ _BuildTargetPatternKind = enum(
 )
 
 BuildTargetPattern = record(
-    kind = field(_BuildTargetPatternKind.type),
+    kind = field(_BuildTargetPatternKind),
     cell = field([str, None], None),
     path = field(str),
     name = field([str, None], None),
@@ -27,7 +27,7 @@ BuildTargetPattern = record(
     as_string = field(typing.Callable),
 )
 
-def parse_build_target_pattern(pattern: str) -> BuildTargetPattern.type:
+def parse_build_target_pattern(pattern: str) -> BuildTargetPattern:
     expect(len(pattern) >= len(_ROOT_SYMBOL) + 1, "Invalid build target pattern, pattern too short: {}".format(pattern))
 
     root_position = pattern.find(_ROOT_SYMBOL)

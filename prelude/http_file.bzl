@@ -14,7 +14,7 @@ def http_file_shared(
         vpnless_url: [None, str],
         is_executable: bool,
         is_exploded_zip: bool,
-        unzip_tool: [RunInfo.type, None],
+        unzip_tool: [RunInfo, None],
         sha1: [None, str],
         sha256 = [None, str]) -> list[Provider]:
     output = actions.declare_output(name)

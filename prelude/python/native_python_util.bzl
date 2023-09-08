@@ -50,7 +50,7 @@ def merge_cxx_extension_info(
         artifacts: dict[str, typing.Any] = {},
         python_module_names: dict[str, str] = {},
         unembeddable_extensions: dict[str, LinkableProviders] = {},
-        shared_deps: list[Dependency] = []) -> CxxExtensionLinkInfo.type:
+        shared_deps: list[Dependency] = []) -> CxxExtensionLinkInfo:
     linkable_provider_children = []
     artifacts = dict(artifacts)
     python_module_names = dict(python_module_names)
@@ -101,7 +101,7 @@ def rewrite_static_symbols(
         pic_objects: list[Artifact],
         non_pic_objects: list[Artifact],
         libraries: dict[LinkStyle, LinkInfos],
-        cxx_toolchain: CxxToolchainInfo.type,
+        cxx_toolchain: CxxToolchainInfo,
         suffix_all: bool = False) -> dict[LinkStyle, LinkInfos]:
     symbols_file = _write_syms_file(
         ctx = ctx,
@@ -169,7 +169,7 @@ def _write_syms_file(
         name: str,
         objects: list[Artifact],
         suffix: str,
-        cxx_toolchain: CxxToolchainInfo.type,
+        cxx_toolchain: CxxToolchainInfo,
         suffix_all: bool = False) -> Artifact:
     """
     Take a list of objects and append a suffix to all  defined symbols.
@@ -232,7 +232,7 @@ def suffix_symbols(
         suffix: str,
         objects: list[Artifact],
         symbols_file: Artifact,
-        cxx_toolchain: CxxToolchainInfo.type) -> (ObjectsLinkable, ObjectsLinkable):
+        cxx_toolchain: CxxToolchainInfo) -> (ObjectsLinkable, ObjectsLinkable):
     """
     Take a list of objects and append a suffix to all  defined symbols.
     """

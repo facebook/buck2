@@ -67,7 +67,7 @@ def create_resource_graph(
         asset_catalog_spec: [AppleAssetCatalogSpec, None] = None,
         core_data_spec: [AppleCoreDataSpec, None] = None,
         scene_kit_assets_spec: [SceneKitAssetsSpec, None] = None,
-        should_propagate: bool = True) -> ResourceGraphInfo.type:
+        should_propagate: bool = True) -> ResourceGraphInfo:
     # Collect deps and exported_deps with resources that should propagate.
     dep_labels, dep_graphs = _filtered_labels_and_graphs(deps)
     exported_dep_labels, exported_dep_graphs = _filtered_labels_and_graphs(exported_deps)
@@ -99,14 +99,14 @@ def create_resource_graph(
         should_propagate = should_propagate,
     )
 
-def get_resource_graph_node_map_func(graph: ResourceGraphInfo.type):
+def get_resource_graph_node_map_func(graph: ResourceGraphInfo):
     def get_resource_graph_node_map() -> dict[Label, ResourceGraphNode]:
         nodes = graph.nodes.traverse()
         return {node.label: node for node in filter(None, nodes)}
 
     return get_resource_graph_node_map
 
-def _filtered_labels_and_graphs(deps: list[Dependency]) -> (list[Label], list[ResourceGraphInfo.type]):
+def _filtered_labels_and_graphs(deps: list[Dependency]) -> (list[Label], list[ResourceGraphInfo]):
     """
     Filters dependencies and returns only those which are relevant
     to working with resources i.e. those which contains resource graph provider
@@ -122,7 +122,7 @@ def _filtered_labels_and_graphs(deps: list[Dependency]) -> (list[Label], list[Re
 
     return resource_labels, resource_deps
 
-def get_resource_group_info(ctx: AnalysisContext) -> [ResourceGroupInfo.type, None]:
+def get_resource_group_info(ctx: AnalysisContext) -> [ResourceGroupInfo, None]:
     """
     Parses the currently analyzed context for any resource group definitions
     and returns a list of all resource groups with their mappings.

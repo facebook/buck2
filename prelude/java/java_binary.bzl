@@ -25,7 +25,7 @@ def _generate_script(generate_wrapper: bool, native_libs: dict[str, "SharedLibra
 
 def _create_fat_jar(
         ctx: AnalysisContext,
-        java_toolchain: JavaToolchainInfo.type,
+        java_toolchain: JavaToolchainInfo,
         jars: cmd_args,
         native_libs: dict[str, "SharedLibrary"],
         do_not_create_inner_jar: bool,
@@ -129,13 +129,13 @@ def _get_run_cmd(
         attrs: struct,
         script_mode: bool,
         main_artifact: Artifact,
-        java_toolchain: JavaToolchainInfo.type) -> cmd_args:
+        java_toolchain: JavaToolchainInfo) -> cmd_args:
     if script_mode:
         return cmd_args(["/usr/bin/env", "bash", main_artifact])
     else:
         return cmd_args([java_toolchain.java[RunInfo]] + attrs.java_args_for_run_info + ["-jar", main_artifact])
 
-def _get_java_tool_artifacts(java_toolchain: JavaToolchainInfo.type) -> list[Artifact]:
+def _get_java_tool_artifacts(java_toolchain: JavaToolchainInfo) -> list[Artifact]:
     default_info = java_toolchain.java[DefaultInfo]
     return default_info.default_outputs + default_info.other_outputs
 

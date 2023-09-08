@@ -123,7 +123,7 @@ RustLinkStyleInfo = record(
     # Path to PDB file with Windows debug data.
     pdb = field([Artifact, None]),
     # Debug info which is referenced -- but not included -- by the linkable rlib.
-    external_debug_info = field(ArtifactTSet.type),
+    external_debug_info = field(ArtifactTSet),
 )
 
 def _adjust_link_style_for_rust_dependencies(dep_link_style: LinkStyle) -> LinkStyle:
@@ -132,7 +132,7 @@ def _adjust_link_style_for_rust_dependencies(dep_link_style: LinkStyle) -> LinkS
     else:
         return dep_link_style
 
-def style_info(info: RustLinkInfo.type, dep_link_style: LinkStyle) -> RustLinkStyleInfo.type:
+def style_info(info: RustLinkInfo, dep_link_style: LinkStyle) -> RustLinkStyleInfo:
     rust_dep_link_style = _adjust_link_style_for_rust_dependencies(dep_link_style)
     return info.styles[rust_dep_link_style]
 
@@ -157,17 +157,17 @@ RustDependency = record(
 # Information about cxx link groups that rust depends on
 RustCxxLinkGroupInfo = record(
     # cxx link infos to link against
-    filtered_links = field(list[LinkInfo.type]),
+    filtered_links = field(list[LinkInfo]),
     # symbol files args to ensure we export the required symbols
-    symbol_files_info = field(LinkInfo.type),
+    symbol_files_info = field(LinkInfo),
     # targets to link against
     filtered_targets = field(list[TargetLabel]),
     # information about the link groups
-    link_group_info = field([LinkGroupInfo.type, None]),
+    link_group_info = field([LinkGroupInfo, None]),
     # shared libraries created from link groups
     link_group_libs = field(dict[str, [LinkGroupLib, None]]),
     # mapping from target labels to the corresponding link group link_info
-    labels_to_links_map = field(dict[Label, LinkGroupLinkInfo.type]),
+    labels_to_links_map = field(dict[Label, LinkGroupLinkInfo]),
     # prefrred linkage mode for link group libraries
     link_group_preferred_linkage = field(dict[Label, Linkage]),
 )
@@ -220,7 +220,7 @@ def resolve_deps(
 
 def resolve_rust_deps(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False) -> list[RustDependency.type]:
+        include_doc_deps: bool = False) -> list[RustDependency]:
     all_deps = resolve_deps(ctx, include_doc_deps)
     rust_deps = []
     available_proc_macros = get_available_proc_macros(ctx)
@@ -281,7 +281,7 @@ def _non_rust_link_deps(
 # Returns native link dependencies.
 def _non_rust_link_infos(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False) -> list[MergedLinkInfo.type]:
+        include_doc_deps: bool = False) -> list[MergedLinkInfo]:
     """
     Return all first-order native link infos of all transitive Rust libraries.
 
@@ -296,7 +296,7 @@ def _non_rust_link_infos(
 # Returns native link dependencies.
 def _non_rust_shared_lib_infos(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False) -> list[SharedLibraryInfo.type]:
+        include_doc_deps: bool = False) -> list[SharedLibraryInfo]:
     """
     Return all transitive shared libraries for non-Rust native linkabes.
 
@@ -313,7 +313,7 @@ def _non_rust_shared_lib_infos(
 # Returns native link dependencies.
 def _rust_link_infos(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False) -> list[RustLinkInfo.type]:
+        include_doc_deps: bool = False) -> list[RustLinkInfo]:
     return [d.info for d in resolve_rust_deps(ctx, include_doc_deps)]
 
 def normalize_crate(label: str) -> str:
@@ -412,7 +412,7 @@ def inherited_non_rust_link_group_info(
 
 def inherited_non_rust_link_info(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False) -> MergedLinkInfo.type:
+        include_doc_deps: bool = False) -> MergedLinkInfo:
     infos = []
     infos.extend(_non_rust_link_infos(ctx, include_doc_deps))
     infos.extend([d.non_rust_link_info for d in _rust_link_infos(ctx, include_doc_deps)])
@@ -420,7 +420,7 @@ def inherited_non_rust_link_info(
 
 def inherited_non_rust_shared_libs(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False) -> list[SharedLibraryInfo.type]:
+        include_doc_deps: bool = False) -> list[SharedLibraryInfo]:
     infos = []
     infos.extend(_non_rust_shared_lib_infos(ctx, include_doc_deps))
     infos.extend([d.non_rust_shared_libs for d in _rust_link_infos(ctx, include_doc_deps)])

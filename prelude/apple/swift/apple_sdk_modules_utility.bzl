@@ -14,12 +14,12 @@ load(
     "WrappedSdkCompiledModuleInfo",
 )
 
-def is_sdk_modules_provided(toolchain: SwiftToolchainInfo.type) -> bool:
+def is_sdk_modules_provided(toolchain: SwiftToolchainInfo) -> bool:
     has_swift_modules = bool(toolchain.uncompiled_swift_sdk_modules_deps)
     has_clang_modules = bool(toolchain.uncompiled_clang_sdk_modules_deps)
     return has_swift_modules or has_clang_modules
 
-def get_compiled_sdk_deps_tset(ctx: AnalysisContext, deps_providers: list) -> SwiftCompiledModuleTset.type:
+def get_compiled_sdk_deps_tset(ctx: AnalysisContext, deps_providers: list) -> SwiftCompiledModuleTset:
     sdk_deps = [
         deps_provider[WrappedSdkCompiledModuleInfo].tset
         for deps_provider in deps_providers
@@ -30,7 +30,7 @@ def get_compiled_sdk_deps_tset(ctx: AnalysisContext, deps_providers: list) -> Sw
 def get_uncompiled_sdk_deps(
         sdk_modules: list[str],
         required_modules: list[str],
-        toolchain: SwiftToolchainInfo.type) -> list[Dependency]:
+        toolchain: SwiftToolchainInfo) -> list[Dependency]:
     if not is_sdk_modules_provided(toolchain):
         fail("SDK deps are not set for swift_toolchain")
 

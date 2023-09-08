@@ -367,9 +367,9 @@ def python_executable(
 
 def create_dep_report(
         ctx: AnalysisContext,
-        python_toolchain: PythonToolchainInfo.type,
+        python_toolchain: PythonToolchainInfo,
         main: str,
-        library_info: PythonLibraryInfo.type) -> DefaultInfo.type:
+        library_info: PythonLibraryInfo) -> DefaultInfo:
     out = ctx.actions.declare_output("dep-report.json")
     cmd = cmd_args()
     cmd.add(python_toolchain.traverse_dep_manifest)
@@ -387,7 +387,7 @@ def _convert_python_library_to_executable(
         deps: list[Dependency],
         compile: bool,
         allow_cache_upload: bool,
-        dbg_source_db: [DefaultInfo.type, None]) -> PexProviders:
+        dbg_source_db: [DefaultInfo, None]) -> PexProviders:
     extra = {}
 
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]

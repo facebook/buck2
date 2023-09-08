@@ -40,7 +40,7 @@ AndroidBinaryResourcesInfo = record(
     # proguard config needed to retain used resources
     proguard_config_file = Artifact,
     # R.java jars containing all the linked resources
-    r_dot_javas = list[JavaLibraryInfo.type],
+    r_dot_javas = list[JavaLibraryInfo],
     # directory containing filtered string resources files
     string_source_map = [Artifact, None],
     # directory containing filtered string resources files for Voltron language packs
@@ -202,14 +202,14 @@ DexFilesInfo = record(
     primary_dex_class_names = [Artifact, None],
     root_module_secondary_dex_dirs = list[Artifact],
     non_root_module_secondary_dex_dirs = list[Artifact],
-    secondary_dex_exopackage_info = [ExopackageDexInfo.type, None],
+    secondary_dex_exopackage_info = [ExopackageDexInfo, None],
     proguard_text_files_path = [Artifact, None],
 )
 
 ExopackageInfo = record(
-    secondary_dex_info = [ExopackageDexInfo.type, None],
-    native_library_info = [ExopackageNativeInfo.type, None],
-    resources_info = [ExopackageResourcesInfo.type, None],
+    secondary_dex_info = [ExopackageDexInfo, None],
+    native_library_info = [ExopackageNativeInfo, None],
+    resources_info = [ExopackageResourcesInfo, None],
 )
 
 AndroidLibraryIntellijInfo = provider(
@@ -224,10 +224,10 @@ def merge_android_packageable_info(
         label: Label,
         actions: AnalysisActions,
         deps: list[Dependency],
-        build_config_info: [AndroidBuildConfigInfo.type, None] = None,
+        build_config_info: [AndroidBuildConfigInfo, None] = None,
         manifest: [Artifact, None] = None,
         prebuilt_native_library_dir: [PrebuiltNativeLibraryDir, None] = None,
-        resource_info: [AndroidResourceInfo.type, None] = None) -> AndroidPackageableInfo.type:
+        resource_info: [AndroidResourceInfo, None] = None) -> AndroidPackageableInfo:
     android_packageable_deps = filter(None, [x.get(AndroidPackageableInfo) for x in deps])
 
     build_config_infos = _get_transitive_set(
@@ -294,7 +294,7 @@ def _get_transitive_set(
     return actions.tset(transitive_set_definition, **kwargs) if kwargs else None
 
 def merge_exported_android_resource_info(
-        exported_deps: list[Dependency]) -> ExportedAndroidResourceInfo.type:
+        exported_deps: list[Dependency]) -> ExportedAndroidResourceInfo:
     exported_android_resource_infos = []
     for exported_dep in exported_deps:
         exported_resource_info = exported_dep.get(ExportedAndroidResourceInfo)

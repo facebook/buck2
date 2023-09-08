@@ -41,7 +41,7 @@ LinkableRootAnnotation = record(
 )
 
 AnnotatedLinkableRoot = record(
-    root = field(LinkableRootInfo.type),
+    root = field(LinkableRootInfo),
     annotation = field([LinkableRootAnnotation, None], None),
 )
 
@@ -205,7 +205,7 @@ def linkable_graph(dep: Dependency) -> [LinkableGraph, None]:
 def get_link_info(
         node: LinkableNode,
         link_style: LinkStyle,
-        prefer_stripped: bool = False) -> LinkInfo.type:
+        prefer_stripped: bool = False) -> LinkInfo:
     info = _get_link_info(
         node.link_infos[link_style],
         prefer_stripped = prefer_stripped,

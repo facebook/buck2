@@ -124,7 +124,7 @@ def apple_library_impl(ctx: AnalysisContext) -> ["promise", list[Provider]]:
     else:
         return get_apple_library_providers([])
 
-def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisContext, params: AppleLibraryAdditionalParams, deps_providers: list = [], is_test_target: bool = False) -> CxxRuleConstructorParams.type:
+def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisContext, params: AppleLibraryAdditionalParams, deps_providers: list = [], is_test_target: bool = False) -> CxxRuleConstructorParams:
     cxx_srcs, swift_srcs = _filter_swift_srcs(ctx)
 
     # First create a modulemap if necessary. This is required for importing
@@ -249,7 +249,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
     )
 
 def _get_extra_linker_flags_and_outputs(
-        ctx: AnalysisContext) -> (list[ArgLike], dict[str, list[DefaultInfo.type]]):
+        ctx: AnalysisContext) -> (list[ArgLike], dict[str, list[DefaultInfo]]):
     _ = ctx  # buildifier: disable=unused-variable
     # @oss-disable: return add_extra_linker_outputs(ctx) 
     return [], {} # @oss-enable

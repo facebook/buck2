@@ -41,9 +41,9 @@ for min_sdk in get_min_sdk_version_range():
     _REFS[constraint_value_name] = "prelude//android/constraints:{}".format(constraint_value_name)
 
 def _cpu_split_transition_impl(
-        platform: PlatformInfo.type,
+        platform: PlatformInfo,
         refs: struct,
-        attrs: struct) -> dict[str, PlatformInfo.type]:
+        attrs: struct) -> dict[str, PlatformInfo]:
     cpu_filters = attrs.cpu_filters or ALL_CPU_FILTERS
     if attrs._is_force_single_cpu:
         cpu_filters = [CPU_FILTER_FOR_PRIMARY_PLATFORM]
@@ -58,10 +58,10 @@ def _cpu_split_transition_impl(
     )
 
 def _cpu_split_transition(
-        platform: PlatformInfo.type,
+        platform: PlatformInfo,
         refs: struct,
         cpu_filters: list[str],
-        min_sdk_version: [int, None]) -> dict[str, PlatformInfo.type]:
+        min_sdk_version: [int, None]) -> dict[str, PlatformInfo]:
     cpu = refs.cpu
     x86 = refs.x86[ConstraintValueInfo]
     x86_64 = refs.x86_64[ConstraintValueInfo]
@@ -116,9 +116,9 @@ def _cpu_split_transition(
     return new_configs
 
 def _cpu_transition_impl(
-        platform: PlatformInfo.type,
+        platform: PlatformInfo,
         refs: struct,
-        attrs: struct) -> PlatformInfo.type:
+        attrs: struct) -> PlatformInfo:
     return _cpu_split_transition_impl(platform, refs, attrs).values()[0]
 
 cpu_split_transition = transition(
@@ -161,7 +161,7 @@ def get_deps_by_platform(ctx: AnalysisContext) -> dict[str, list[Dependency]]:
 
     return deps_by_platform
 
-def _get_min_sdk_constraint_value(min_sdk_version: int, refs: struct) -> ConstraintValueInfo.type:
+def _get_min_sdk_constraint_value(min_sdk_version: int, refs: struct) -> ConstraintValueInfo:
     constraint_name = get_min_sdk_version_constraint_value_name(min_sdk_version)
     constraint = getattr(refs, constraint_name, None)
     if not constraint:

@@ -50,7 +50,7 @@ def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
 def build_android_library(
         ctx: AnalysisContext,
-        r_dot_java: [Artifact, None] = None) -> (JavaProviders, [AndroidLibraryIntellijInfo.type, None]):
+        r_dot_java: [Artifact, None] = None) -> (JavaProviders, [AndroidLibraryIntellijInfo, None]):
     bootclasspath_entries = [] + ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath
     additional_classpath_entries = []
 
@@ -80,7 +80,7 @@ def build_android_library(
         ), android_library_intellij_info
 
 def _get_dummy_r_dot_java(
-        ctx: AnalysisContext) -> ([Artifact, None], [AndroidLibraryIntellijInfo.type, None]):
+        ctx: AnalysisContext) -> ([Artifact, None], [AndroidLibraryIntellijInfo, None]):
     android_resources = dedupe([resource for resource in filter(None, [
         x.get(AndroidResourceInfo)
         for x in ctx.attrs.deps + (ctx.attrs.deps_query or []) + ctx.attrs.provided_deps + (getattr(ctx.attrs, "provided_deps_query", []) or [])

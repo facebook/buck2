@@ -29,7 +29,7 @@ CompileArgsfiles = record(
     absolute = field(dict[str, CompileArgsfile], default = {}),
 )
 
-def get_argsfiles_output(ctx: AnalysisContext, argsfile_by_ext: dict[str, CompileArgsfile], summary_name: str) -> DefaultInfo.type:
+def get_argsfiles_output(ctx: AnalysisContext, argsfile_by_ext: dict[str, CompileArgsfile], summary_name: str) -> DefaultInfo:
     argsfiles = []
     argsfile_names = cmd_args()
     dependent_outputs = []

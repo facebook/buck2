@@ -159,16 +159,16 @@ CxxExecutableOutput = record(
     # Files that will likely need to be included as .hidden() arguments
     # when executing the executable (ex. RunInfo())
     runtime_files = list[ArgLike],
-    sub_targets = dict[str, list[DefaultInfo.type]],
+    sub_targets = dict[str, list[DefaultInfo]],
     # The LinkArgs used to create the final executable in 'binary'.
     link_args = list[LinkArgs],
     # External components needed to debug the executable.
-    external_debug_info = field(ArtifactTSet.type, ArtifactTSet()),
+    external_debug_info = field(ArtifactTSet, ArtifactTSet()),
     shared_libs = dict[str, LinkedObject],
     # All link group links that were generated in the executable.
     auto_link_groups = field(dict[str, LinkedObject], {}),
-    compilation_db = CxxCompilationDbInfo.type,
-    xcode_data = XcodeDataInfo.type,
+    compilation_db = CxxCompilationDbInfo,
+    xcode_data = XcodeDataInfo,
     linker_map_data = [CxxLinkerMapData, None],
     link_command_debug_output = field([LinkCommandDebugOutput, None], None),
 )

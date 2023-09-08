@@ -184,7 +184,7 @@ def attr_deps(ctx: AnalysisContext) -> list[Dependency]:
 # def _attr_deps_merged_link_infos(ctx: AnalysisContext) -> ["MergedLinkInfo"]:
 #     return filter(None, [d[MergedLinkInfo] for d in attr_deps(ctx)])
 
-def _attr_deps_haskell_link_infos(ctx: AnalysisContext) -> list[HaskellLinkInfo.type]:
+def _attr_deps_haskell_link_infos(ctx: AnalysisContext) -> list[HaskellLinkInfo]:
     return filter(
         None,
         [
@@ -195,8 +195,8 @@ def _attr_deps_haskell_link_infos(ctx: AnalysisContext) -> list[HaskellLinkInfo.
 
 def _attr_deps_haskell_lib_infos(
         ctx: AnalysisContext,
-        link_style: LinkStyle.type,
-        enable_profiling: bool) -> list[HaskellLibraryInfo.type]:
+        link_style: LinkStyle,
+        enable_profiling: bool) -> list[HaskellLibraryInfo]:
     if enable_profiling and link_style == LinkStyle("shared"):
         fail("Profiling isn't supported when using dynamic linking")
     return [
@@ -210,7 +210,7 @@ def _attr_deps_haskell_lib_infos(
 def _cxx_toolchain_link_style(ctx: AnalysisContext) -> LinkStyle:
     return ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info.link_style
 
-def _attr_link_style(ctx: AnalysisContext) -> LinkStyle.type:
+def _attr_link_style(ctx: AnalysisContext) -> LinkStyle:
     if ctx.attrs.link_style != None:
         return LinkStyle(ctx.attrs.link_style)
     else:
@@ -237,7 +237,7 @@ def _src_to_module_name(x: str) -> str:
 
 def _get_haskell_prebuilt_libs(
         ctx,
-        link_style: LinkStyle.type,
+        link_style: LinkStyle,
         enable_profiling: bool) -> list[Artifact]:
     if link_style == LinkStyle("shared"):
         if enable_profiling:
@@ -422,7 +422,7 @@ def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
         linkable_graph,
     ]
 
-def merge_haskell_link_infos(deps: list[HaskellLinkInfo.type]) -> HaskellLinkInfo.type:
+def merge_haskell_link_infos(deps: list[HaskellLinkInfo]) -> HaskellLinkInfo:
     merged = {}
     prof_merged = {}
     for link_style in LinkStyle:
@@ -443,14 +443,14 @@ def merge_haskell_link_infos(deps: list[HaskellLinkInfo.type]) -> HaskellLinkInf
 PackagesInfo = record(
     exposed_package_args = cmd_args,
     packagedb_args = cmd_args,
-    transitive_deps = field(list[HaskellLibraryInfo.type]),
+    transitive_deps = field(list[HaskellLibraryInfo]),
 )
 
 def get_packages_info(
         ctx: AnalysisContext,
         link_style: LinkStyle,
         specify_pkg_version: bool,
-        enable_profiling: bool) -> PackagesInfo.type:
+        enable_profiling: bool) -> PackagesInfo:
     # Collect library dependencies. Note that these don't need to be in a
     # particular order and we really want to remove duplicates (there
     # are a *lot* of duplicates).
@@ -513,7 +513,7 @@ CompileResultInfo = record(
     producing_indices = field(bool),
 )
 
-def _link_style_extensions(link_style: LinkStyle.type) -> (str, str):
+def _link_style_extensions(link_style: LinkStyle) -> (str, str):
     if link_style == LinkStyle("shared"):
         return ("dyn_o", "dyn_hi")
     elif link_style == LinkStyle("static_pic"):
@@ -544,7 +544,7 @@ def _srcs_to_objfiles(
 
 # Single place to build the suffix used in artifacts (e.g. package directories,
 # lib names) considering attributes like link style and profiling.
-def get_artifact_suffix(link_style: LinkStyle.type, enable_profiling: bool) -> str:
+def get_artifact_suffix(link_style: LinkStyle, enable_profiling: bool) -> str:
     artifact_suffix = link_style.value
     if enable_profiling:
         artifact_suffix += "-prof"
@@ -555,7 +555,7 @@ def _compile(
         ctx: AnalysisContext,
         link_style: LinkStyle,
         enable_profiling: bool,
-        extra_args = []) -> CompileResultInfo.type:
+        extra_args = []) -> CompileResultInfo:
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
     compile_cmd = cmd_args(haskell_toolchain.compiler)
     compile_cmd.add(haskell_toolchain.compiler_flags)
@@ -680,10 +680,10 @@ PKGCONF=$3
 #    which libraries and where.
 def _make_package(
         ctx: AnalysisContext,
-        link_style: LinkStyle.type,
+        link_style: LinkStyle,
         pkgname: str,
         libname: str,
-        hlis: list[HaskellLibraryInfo.type],
+        hlis: list[HaskellLibraryInfo],
         hi: dict[bool, Artifact],
         lib: dict[bool, Artifact],
         enable_profiling: bool) -> Artifact:
@@ -759,18 +759,18 @@ def _make_package(
     return db
 
 HaskellLibBuildOutput = record(
-    hlib = HaskellLibraryInfo.type,
+    hlib = HaskellLibraryInfo,
     solibs = dict[str, LinkedObject],
     link_infos = LinkInfos,
-    compiled = CompileResultInfo.type,
+    compiled = CompileResultInfo,
     libs = list[Artifact],
 )
 
 def _build_haskell_lib(
         ctx,
-        hlis: list[HaskellLinkInfo.type],  # haskell link infos from all deps
-        nlis: list[MergedLinkInfo.type],  # native link infos from all deps
-        link_style: LinkStyle.type,
+        hlis: list[HaskellLinkInfo],  # haskell link infos from all deps
+        nlis: list[MergedLinkInfo],  # native link infos from all deps
+        link_style: LinkStyle,
         enable_profiling: bool,
         # The non-profiling artifacts are also needed to build the package for
         # profiling, so it should be passed when `enable_profiling` is True.

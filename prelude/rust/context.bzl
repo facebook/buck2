@@ -34,8 +34,8 @@ CrateMapArg = record(
 # Compile info which is reusable between multiple compilation command performed
 # by the same rule.
 CompileContext = record(
-    toolchain_info = field(RustToolchainInfo.type),
-    cxx_toolchain_info = field(CxxToolchainInfo.type),
+    toolchain_info = field(RustToolchainInfo),
+    cxx_toolchain_info = field(CxxToolchainInfo),
     # Symlink root containing all sources.
     symlinked_srcs = field(Artifact),
     # Linker args to pass the linker wrapper to rustc.

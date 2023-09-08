@@ -63,7 +63,7 @@ def _build_symbols_dir(ctx) -> Artifact:
 
     return symbols_dir
 
-def _get_swift_support_dir(ctx, bundle_output: Artifact, bundle_info: AppleBundleInfo.type) -> Artifact:
+def _get_swift_support_dir(ctx, bundle_output: Artifact, bundle_info: AppleBundleInfo) -> Artifact:
     stdlib_tool = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info.swift_stdlib_tool
     sdk_name = get_apple_sdk_name(ctx)
 

@@ -28,7 +28,7 @@ JuliaLibrary = record(
     srcs = typing.Any,
     project_toml = typing.Any,
     label = field(Label),
-    jll = field([JllInfo.type, None]),
+    jll = field([JllInfo, None]),
 )
 
 def project_load_src_label(lib):
@@ -57,9 +57,9 @@ def create_julia_library_info(
         src_labels: typing.Any = [],
         project_toml: typing.Any = None,
         srcs: typing.Any = [],
-        deps: list[JuliaLibraryInfo.type] = [],
-        jll: [JllInfo.type, None] = None,
-        shlibs: list[SharedLibraryInfo.type] = []) -> JuliaLibraryInfo.type:
+        deps: list[JuliaLibraryInfo] = [],
+        jll: [JllInfo, None] = None,
+        shlibs: list[SharedLibraryInfo] = []) -> JuliaLibraryInfo:
     julia_tsets = JuliaLibrary(
         uuid = uuid,
         label = label,

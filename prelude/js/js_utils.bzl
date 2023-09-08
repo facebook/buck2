@@ -59,7 +59,7 @@ ASSET_EXTENSIONS = [
 # Matches the default value for resolver.platforms in metro-config
 ASSET_PLATFORMS = ["ios", "android", "windows", "web"]
 
-def get_apple_resource_providers_for_js_bundle(ctx: AnalysisContext, js_bundle_info: JsBundleInfo.type, platform: str, skip_resources: bool) -> list[ResourceGraphInfo.type]:
+def get_apple_resource_providers_for_js_bundle(ctx: AnalysisContext, js_bundle_info: JsBundleInfo, platform: str, skip_resources: bool) -> list[ResourceGraphInfo]:
     if platform != "ios":
         return []
 

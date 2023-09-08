@@ -393,7 +393,7 @@ def _handle_rust_artifact(
         ctx: AnalysisContext,
         params: BuildParams,
         link: RustcOutput,
-        meta: RustcOutput) -> RustLinkStyleInfo.type:
+        meta: RustcOutput) -> RustLinkStyleInfo:
     """
     Return the RustLinkInfo for a given set of artifacts. The main consideration
     is computing the right set of dependencies.
@@ -439,7 +439,7 @@ def _handle_rust_artifact(
 def _default_providers(
         ctx: AnalysisContext,
         lang_style_param: dict[(LinkageLang, LinkStyle), BuildParams],
-        param_artifact: dict[BuildParams, RustLinkStyleInfo.type],
+        param_artifact: dict[BuildParams, RustLinkStyleInfo],
         rustdoc: Artifact,
         rustdoc_test: [cmd_args, None],
         check_artifacts: dict[str, Artifact],
@@ -501,7 +501,7 @@ def _default_providers(
 def _rust_providers(
         ctx: AnalysisContext,
         lang_style_param: dict[(LinkageLang, LinkStyle), BuildParams],
-        param_artifact: dict[BuildParams, RustLinkStyleInfo.type]) -> list[Provider]:
+        param_artifact: dict[BuildParams, RustLinkStyleInfo]) -> list[Provider]:
     """
     Return the set of providers for Rust linkage.
     """

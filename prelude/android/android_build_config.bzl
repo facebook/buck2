@@ -47,7 +47,7 @@ def generate_android_build_config(
         java_package: str,
         use_constant_expressions: bool,
         default_values: list[BuildConfigField],
-        values_file: [Artifact, None]) -> (JavaLibraryInfo.type, JavaPackagingInfo.type):
+        values_file: [Artifact, None]) -> (JavaLibraryInfo, JavaPackagingInfo):
     build_config_dot_java = _generate_build_config_dot_java(ctx, source, java_package, use_constant_expressions, default_values, values_file)
 
     compiled_build_config_dot_java = _compile_and_package_build_config_dot_java(ctx, java_package, build_config_dot_java)

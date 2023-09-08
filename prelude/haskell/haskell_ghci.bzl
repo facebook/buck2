@@ -79,13 +79,13 @@ HaskellOmnibusData = record(
 def _write_final_ghci_script(
         ctx: AnalysisContext,
         omnibus_data: HaskellOmnibusData,
-        packages_info: PackagesInfo.type,
+        packages_info: PackagesInfo,
         packagedb_args: cmd_args,
         prebuilt_packagedb_args: cmd_args,
         iserv_script: Artifact,
         start_ghci_file: Artifact,
         ghci_bin: Artifact,
-        haskell_toolchain: HaskellToolchainInfo.type,
+        haskell_toolchain: HaskellToolchainInfo,
         ghci_script_template: Artifact,
         enable_profiling: bool) -> Artifact:
     srcs = " ".join(
@@ -310,7 +310,7 @@ def _build_haskell_omnibus_so(ctx: AnalysisContext) -> HaskellOmnibusData:
 def _replace_macros_in_script_template(
         ctx: AnalysisContext,
         script_template: Artifact,
-        haskell_toolchain: HaskellToolchainInfo.type,
+        haskell_toolchain: HaskellToolchainInfo,
         # Optional artifacts
         ghci_bin: [Artifact, None] = None,
         start_ghci: [Artifact, None] = None,
@@ -414,8 +414,8 @@ def _replace_macros_in_script_template(
 
 def _write_iserv_script(
         ctx: AnalysisContext,
-        preload_deps_info: GHCiPreloadDepsInfo.type,
-        haskell_toolchain: HaskellToolchainInfo.type,
+        preload_deps_info: GHCiPreloadDepsInfo,
+        haskell_toolchain: HaskellToolchainInfo,
         enable_profiling: bool) -> Artifact:
     ghci_iserv_template = haskell_toolchain.ghci_iserv_template
 
@@ -451,7 +451,7 @@ def _write_iserv_script(
 
 def _build_preload_deps_root(
         ctx: AnalysisContext,
-        haskell_toolchain: HaskellToolchainInfo.type) -> GHCiPreloadDepsInfo.type:
+        haskell_toolchain: HaskellToolchainInfo) -> GHCiPreloadDepsInfo:
     preload_deps = ctx.attrs.preload_deps
 
     preload_symlinks = {}
@@ -523,7 +523,7 @@ def _symlink_ghci_binary(ctx, ghci_bin: Artifact):
 
 def _first_order_haskell_deps(
         ctx: AnalysisContext,
-        enable_profiling: bool) -> list[HaskellLibraryInfo.type]:
+        enable_profiling: bool) -> list[HaskellLibraryInfo]:
     libs = []
     for dep in ctx.attrs.deps:
         if HaskellLibraryProvider in dep:

@@ -137,13 +137,13 @@ def _by_platform(ctx: AnalysisContext, xs: list[(str, list[typing.Any])]) -> lis
 def _attr_deps(ctx: AnalysisContext) -> list[Dependency]:
     return ctx.attrs.deps + _by_platform(ctx, ctx.attrs.platform_deps)
 
-def _attr_deps_merged_link_infos(ctx: AnalysisContext) -> list[MergedLinkInfo.type]:
+def _attr_deps_merged_link_infos(ctx: AnalysisContext) -> list[MergedLinkInfo]:
     return filter(None, [d.get(MergedLinkInfo) for d in _attr_deps(ctx)])
 
-def _attr_deps_ocaml_link_infos(ctx: AnalysisContext) -> list[OCamlLinkInfo.type]:
+def _attr_deps_ocaml_link_infos(ctx: AnalysisContext) -> list[OCamlLinkInfo]:
     return filter(None, [d.get(OCamlLinkInfo) for d in _attr_deps(ctx)])
 
-def _attr_deps_other_outputs_infos(ctx: AnalysisContext) -> list[OtherOutputsInfo.type]:
+def _attr_deps_other_outputs_infos(ctx: AnalysisContext) -> list[OtherOutputsInfo]:
     return filter(None, [d.get(OtherOutputsInfo) for d in _attr_deps(ctx)])
 
 # ---
@@ -338,7 +338,7 @@ def _depends(ctx: AnalysisContext, srcs: list[Artifact], build_mode: BuildMode) 
 # be empty in the returned tuple while 'cmos' will be non-empty. If compiling
 # native code, 'cmos' in the returned info will be empty while 'objs' & 'cmxs'
 # will be non-empty.
-def _compile(ctx: AnalysisContext, compiler: cmd_args, build_mode: BuildMode) -> CompileResultInfo.type:
+def _compile(ctx: AnalysisContext, compiler: cmd_args, build_mode: BuildMode) -> CompileResultInfo:
     opaque_enabled = "-opaque" in _compiler_flags(ctx, build_mode)
     is_native = _is_native(build_mode)
     is_bytecode = not is_native

@@ -31,12 +31,12 @@ AndroidBinaryInfo = record(
     java_packaging_deps = list["JavaPackagingDep"],
     deps_by_platform = dict,
     primary_platform = str,
-    dex_files_info = DexFilesInfo.type,
+    dex_files_info = DexFilesInfo,
     native_library_info = "AndroidBinaryNativeLibsInfo",
     resources_info = "AndroidBinaryResourcesInfo",
 )
 
-def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBinaryInfo.type:
+def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBinaryInfo:
     sub_targets = {}
 
     _verify_params(ctx)
@@ -177,7 +177,7 @@ def get_build_config_java_libraries(
         ctx: AnalysisContext,
         build_config_infos: list[AndroidBuildConfigInfo],
         package_type: str,
-        exopackage_modes: list[str]) -> list[JavaPackagingInfo.type]:
+        exopackage_modes: list[str]) -> list[JavaPackagingInfo]:
     # BuildConfig deps should not be added for instrumented APKs because BuildConfig.class has
     # already been added to the APK under test.
     if package_type == "instrumented":

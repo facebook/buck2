@@ -92,7 +92,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         exclude_regular_expressions = exclude_regular_expressions,
     )
 
-    def scrub_binary(inner_ctx, executable: Artifact, executable_link_execution_preference: LinkExecutionPreference, adhoc_codesign_tool: [RunInfo.type, None]) -> Artifact:
+    def scrub_binary(inner_ctx, executable: Artifact, executable_link_execution_preference: LinkExecutionPreference, adhoc_codesign_tool: [RunInfo, None]) -> Artifact:
         inner_cmd = cmd_args(cmd)
         output = inner_ctx.actions.declare_output("debug_scrubbed/{}".format(executable.short_path))
 
@@ -115,7 +115,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         )
         return output
 
-    def filter_debug_info(debug_info: TransitiveSetIterator) -> AppleSelectiveDebuggingFilteredDebugInfo.type:
+    def filter_debug_info(debug_info: TransitiveSetIterator) -> AppleSelectiveDebuggingFilteredDebugInfo:
         map = {}
         for infos in debug_info:
             for info in infos:
@@ -124,7 +124,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
         return AppleSelectiveDebuggingFilteredDebugInfo(map = map)
 
-    def preference_for_links(links: list[Label], deps_preferences: list[LinkExecutionPreferenceInfo.type]) -> LinkExecutionPreference.type:
+    def preference_for_links(links: list[Label], deps_preferences: list[LinkExecutionPreferenceInfo]) -> LinkExecutionPreference:
         # If any dependent links were run locally, prefer that the current link is also performed locally,
         # to avoid needing to upload the previous link.
         dep_prefered_local = is_any(lambda info: info.preference == LinkExecutionPreference("local"), deps_preferences)

@@ -76,11 +76,11 @@ TargetExtraInfo = record(
     # extra environment variables to pass to the debugger
     env = field(dict[str, str], default = {}),
     source_map = field(list[list[str]], default = []),
-    python = field([PythonInfo.type, None], default = None),
-    clr = field([ClrInfo.type, None], default = None),
+    python = field([PythonInfo, None], default = None),
+    clr = field([ClrInfo, None], default = None),
     vscode = field([Custom, None], default = None),
     custom = field([Custom, None], default = None),
-    java = field([JavaInfo.type, None], default = None),
+    java = field([JavaInfo, None], default = None),
 )
 
 # Full BXL response data structure understood by debugging tool

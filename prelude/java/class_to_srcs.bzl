@@ -36,7 +36,7 @@ def create_class_to_source_map_info(
         ctx: AnalysisContext,
         mapping: [Artifact, None] = None,
         mapping_debuginfo: [Artifact, None] = None,
-        deps = [Dependency]) -> JavaClassToSourceMapInfo.type:
+        deps = [Dependency]) -> JavaClassToSourceMapInfo:
     tset_debuginfo = ctx.actions.tset(
         JavaClassToSourceMapTset,
         value = mapping_debuginfo,
@@ -60,7 +60,7 @@ def create_class_to_source_map_info(
 def create_class_to_source_map_from_jar(
         actions: AnalysisActions,
         name: str,
-        java_toolchain: JavaToolchainInfo.type,
+        java_toolchain: JavaToolchainInfo,
         jar: Artifact,
         srcs: list[Artifact]) -> Artifact:
     output = actions.declare_output(name)
@@ -75,7 +75,7 @@ def create_class_to_source_map_from_jar(
 def create_class_to_source_map_debuginfo(
         actions: AnalysisActions,
         name: str,
-        java_toolchain: JavaToolchainInfo.type,
+        java_toolchain: JavaToolchainInfo,
         srcs: list[Artifact]) -> Artifact:
     output = actions.declare_output(name)
     cmd = cmd_args(java_toolchain.gen_class_to_source_map_debuginfo[RunInfo])
@@ -89,7 +89,7 @@ def create_class_to_source_map_debuginfo(
 def merge_class_to_source_map_from_jar(
         actions: AnalysisActions,
         name: str,
-        java_test_toolchain: JavaTestToolchainInfo.type,
+        java_test_toolchain: JavaTestToolchainInfo,
         mapping: [Artifact, None] = None,
         relative_to: ["cell_root", None] = None,
         deps = [JavaClassToSourceMapInfo.type]) -> Artifact:
@@ -112,7 +112,7 @@ def merge_class_to_source_map_from_jar(
 
 def create_merged_debug_info(
         actions: AnalysisActions,
-        java_toolchain: JavaToolchainInfo.type,
+        java_toolchain: JavaToolchainInfo,
         tset_debuginfo: TransitiveSet,
         name: str):
     output = actions.declare_output(name)

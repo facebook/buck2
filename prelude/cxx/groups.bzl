@@ -68,7 +68,7 @@ GroupMapping = record(
     # The type of traversal to use.
     traversal = field(Traversal, Traversal("tree")),
     # Optional filter type to apply to the traversal.
-    filters = field(list[[BuildTargetFilter, LabelFilter.type]], []),
+    filters = field(list[[BuildTargetFilter, LabelFilter]], []),
     # Preferred linkage for this target when added to a link group.
     preferred_linkage = field([Linkage, None], None),
 )

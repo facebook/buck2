@@ -20,7 +20,7 @@ load("@prelude//java/plugins:java_annotation_processor.bzl", "AnnotationProcesso
 load("@prelude//java/utils:java_utils.bzl", "declare_prefixed_name")
 load("@prelude//utils:utils.bzl", "expect")
 
-def add_java_7_8_bootclasspath(target_level: int, bootclasspath_entries: list[Artifact], java_toolchain: JavaToolchainInfo.type) -> list[Artifact]:
+def add_java_7_8_bootclasspath(target_level: int, bootclasspath_entries: list[Artifact], java_toolchain: JavaToolchainInfo) -> list[Artifact]:
     if target_level == 7:
         return bootclasspath_entries + java_toolchain.bootclasspath_7
     if target_level == 8:
@@ -44,7 +44,7 @@ def _resolve_abi_generation_mode(abi_generation_mode: [AbiGenerationMode, None],
 
 def get_abi_generation_mode(
         abi_generation_mode: [AbiGenerationMode, None],
-        java_toolchain: JavaToolchainInfo.type,
+        java_toolchain: JavaToolchainInfo,
         srcs: list[Artifact],
         annotation_processor_properties: AnnotationProcessorProperties) -> AbiGenerationMode:
     resolved_mode = AbiGenerationMode("none") if not srcs else _resolve_abi_generation_mode(abi_generation_mode, java_toolchain)
@@ -187,7 +187,7 @@ filesystem_params = struct(
 def get_compiling_deps_tset(
         actions: AnalysisActions,
         deps: list[Dependency],
-        additional_classpath_entries: list[Artifact]) -> [JavaCompilingDepsTSet.type, None]:
+        additional_classpath_entries: list[Artifact]) -> [JavaCompilingDepsTSet, None]:
     compiling_deps_tset = derive_compiling_deps(actions, None, deps)
     if additional_classpath_entries:
         children = [compiling_deps_tset] if compiling_deps_tset else []
@@ -202,7 +202,7 @@ def get_compiling_deps_tset(
 
     return compiling_deps_tset
 
-def _get_source_only_abi_compiling_deps(compiling_deps_tset: [JavaCompilingDepsTSet.type, None], source_only_abi_deps: list[Dependency]) -> list[JavaClasspathEntry]:
+def _get_source_only_abi_compiling_deps(compiling_deps_tset: [JavaCompilingDepsTSet, None], source_only_abi_deps: list[Dependency]) -> list[JavaClasspathEntry]:
     source_only_abi_compiling_deps = []
     if compiling_deps_tset:
         source_only_abi_deps_filter = {}
@@ -265,12 +265,12 @@ def encode_plugin_params(plugin_params: ["PluginParams", None]) -> [struct, None
     return encoded_plugin_params
 
 def encode_base_jar_command(
-        javac_tool: [str, RunInfo.type, Artifact, None],
+        javac_tool: [str, RunInfo, Artifact, None],
         target_type: TargetType,
         output_paths: OutputPaths,
         remove_classes: list[str],
         label: Label,
-        compiling_deps_tset: [JavaCompilingDepsTSet.type, None],
+        compiling_deps_tset: [JavaCompilingDepsTSet, None],
         classpath_jars_tag: ArtifactTag,
         bootclasspath_entries: list[Artifact],
         source_level: int,
@@ -386,11 +386,11 @@ FORCE_PERSISTENT_WORKERS = read_root_config("build", "require_persistent_workers
 
 def prepare_cd_exe(
         qualified_name: str,
-        java: RunInfo.type,
+        java: RunInfo,
         class_loader_bootstrapper: Artifact,
         compiler: Artifact,
         main_class: str,
-        worker: WorkerInfo.type,
+        worker: WorkerInfo,
         debug_port: [int, None],
         debug_target: [Label, None],
         extra_jvm_args: list[str],
@@ -433,7 +433,7 @@ def prepare_final_jar(
         output: [Artifact, None],
         output_paths: OutputPaths,
         additional_compiled_srcs: [Artifact, None],
-        jar_builder: RunInfo.type) -> Artifact:
+        jar_builder: RunInfo) -> Artifact:
     if not additional_compiled_srcs:
         if output:
             actions.copy_file(output.as_output(), output_paths.jar)
@@ -467,7 +467,7 @@ def generate_abi_jars(
         is_building_android_binary: bool,
         class_abi_generator: Dependency,
         final_jar: Artifact,
-        compiling_deps_tset: [JavaCompilingDepsTSet.type, None],
+        compiling_deps_tset: [JavaCompilingDepsTSet, None],
         source_only_abi_deps: list[Dependency],
         class_abi_jar: [Artifact, None],
         class_abi_output_dir: [Artifact, None],

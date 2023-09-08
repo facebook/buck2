@@ -41,7 +41,7 @@ SplitDebugLtoInfo = record(
     linker_flags = field(cmd_args),
 )
 
-def get_split_debug_lto_info(ctx: AnalysisContext, name: str) -> [SplitDebugLtoInfo.type, None]:
+def get_split_debug_lto_info(ctx: AnalysisContext, name: str) -> [SplitDebugLtoInfo, None]:
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain.linker_info
 

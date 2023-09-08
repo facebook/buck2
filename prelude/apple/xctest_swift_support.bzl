@@ -16,13 +16,13 @@ XCTestSwiftSupportInfo = provider(fields = [
     "_xctest_swift_support_marking_",
 ])
 
-def xctest_swift_support_info(ctx: AnalysisContext, contains_swift_sources: bool, is_test_target: bool) -> XCTestSwiftSupportInfo.type:
+def xctest_swift_support_info(ctx: AnalysisContext, contains_swift_sources: bool, is_test_target: bool) -> XCTestSwiftSupportInfo:
     if contains_swift_sources and (is_test_target or _depends_on_xctest(ctx)):
         return XCTestSwiftSupportInfo(support_needed = True)
     else:
         return _inherited_xctest_swift_support_info(ctx)
 
-def _inherited_xctest_swift_support_info(ctx: AnalysisContext) -> XCTestSwiftSupportInfo.type:
+def _inherited_xctest_swift_support_info(ctx: AnalysisContext) -> XCTestSwiftSupportInfo:
     all_deps = cxx_attr_deps(ctx) + cxx_attr_exported_deps(ctx)
     for dep in all_deps:
         if XCTestSwiftSupportInfo in dep:

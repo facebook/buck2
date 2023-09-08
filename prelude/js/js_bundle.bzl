@@ -63,7 +63,7 @@ def _build_js_bundle(
         transform_profile: str,
         flavors: list[str],
         transitive_js_library_outputs: TransitiveSetArgsProjection,
-        dependencies_file: Artifact) -> JsBundleInfo.type:
+        dependencies_file: Artifact) -> JsBundleInfo:
     base_dir = "{}_{}".format(ram_bundle_name, transform_profile) if ram_bundle_name else transform_profile
     assets_dir = ctx.actions.declare_output("{}/assets_dir".format(base_dir))
     bundle_dir_output = ctx.actions.declare_output("{}/js".format(base_dir), dir = True)
@@ -136,10 +136,10 @@ def _get_fallback_transform_profile(ctx: AnalysisContext) -> str:
 
     fail("Invalid fallback_transform_profile attribute {}!".format(ctx.attrs.fallback_transform_profile))
 
-def _get_default_providers(js_bundle_info: JsBundleInfo.type) -> list[Provider]:
+def _get_default_providers(js_bundle_info: JsBundleInfo) -> list[Provider]:
     return [DefaultInfo(default_output = js_bundle_info.built_js)]
 
-def _get_android_resource_info(ctx: AnalysisContext, js_bundle_info: JsBundleInfo.type, identifier: str) -> AndroidResourceInfo.type:
+def _get_android_resource_info(ctx: AnalysisContext, js_bundle_info: JsBundleInfo, identifier: str) -> AndroidResourceInfo:
     aapt2_compile_output = aapt2_compile(
         ctx,
         js_bundle_info.res,
@@ -160,7 +160,7 @@ def _get_android_resource_info(ctx: AnalysisContext, js_bundle_info: JsBundleInf
         text_symbols = get_text_symbols(ctx, js_bundle_info.res, [], identifier),
     )
 
-def _get_extra_providers(ctx: AnalysisContext, js_bundle_info: JsBundleInfo.type, identifier: str) -> list[Provider]:
+def _get_extra_providers(ctx: AnalysisContext, js_bundle_info: JsBundleInfo, identifier: str) -> list[Provider]:
     providers = [js_bundle_info]
     if ctx.attrs._platform == "android":
         resource_info = _get_android_resource_info(ctx, js_bundle_info, identifier)

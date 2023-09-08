@@ -26,7 +26,7 @@ def get_src_package(src_root_prefixes: list[str], src_root_elements: list[str], 
     return path
 
 def get_resources_map(
-        java_toolchain: JavaToolchainInfo.type,
+        java_toolchain: JavaToolchainInfo,
         package: str,
         resources: list[Artifact],
         resources_root: [str, None]) -> dict[str, Artifact]:

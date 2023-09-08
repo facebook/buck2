@@ -187,7 +187,7 @@ def _copy_first_level_bundles(ctx: AnalysisContext) -> list[AppleBundlePart]:
     first_level_bundle_infos = filter(None, [dep.get(AppleBundleInfo) for dep in ctx.attrs.deps])
     return filter(None, [_copied_bundle_spec(info) for info in first_level_bundle_infos])
 
-def _copied_bundle_spec(bundle_info: AppleBundleInfo.type) -> [None, AppleBundlePart]:
+def _copied_bundle_spec(bundle_info: AppleBundleInfo) -> [None, AppleBundlePart]:
     bundle = bundle_info.bundle
     bundle_extension = paths.split_extension(bundle.short_path)[1]
     if bundle_extension == ".framework":

@@ -188,7 +188,7 @@ CxxPlatformInfo = provider(fields = [
     "deps_aliases",
 ])
 
-def _validate_linker_info(info: LinkerInfo.type):
+def _validate_linker_info(info: LinkerInfo):
     if info.requires_archives and info.requires_objects:
         fail("only one of `requires_archives` and `requires_objects` can be enabled")
 

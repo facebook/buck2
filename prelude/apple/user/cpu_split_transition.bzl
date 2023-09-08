@@ -5,13 +5,13 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def _os_constraint_value(platform: PlatformInfo.type, refs: struct) -> [None, ConstraintValueInfo.type]:
+def _os_constraint_value(platform: PlatformInfo, refs: struct) -> [None, ConstraintValueInfo]:
     return platform.configuration.constraints.get(refs.os[ConstraintSettingInfo].label)
 
-def _sdk_constraint_value(platform: PlatformInfo.type, refs: struct) -> [None, ConstraintValueInfo.type]:
+def _sdk_constraint_value(platform: PlatformInfo, refs: struct) -> [None, ConstraintValueInfo]:
     return platform.configuration.constraints.get(refs.sdk[ConstraintSettingInfo].label)
 
-def _cpu_constraint_readable_value(platform: PlatformInfo.type, refs: struct) -> [None, str]:
+def _cpu_constraint_readable_value(platform: PlatformInfo, refs: struct) -> [None, str]:
     cpu = platform.configuration.constraints.get(refs.cpu[ConstraintSettingInfo].label)
     if cpu == None:
         return platform.label
@@ -23,14 +23,14 @@ def _cpu_constraint_readable_value(platform: PlatformInfo.type, refs: struct) ->
     else:
         return platform.label
 
-def _universal_constraint_value(platform: PlatformInfo.type, refs: struct) -> [None, bool]:
+def _universal_constraint_value(platform: PlatformInfo, refs: struct) -> [None, bool]:
     universal = platform.configuration.constraints.get(refs.universal[ConstraintSettingInfo].label)
     return universal.label == refs.universal_enabled[ConstraintValueInfo].label if universal != None else False
 
 def _cpu_split_transition_impl(
-        platform: PlatformInfo.type,
+        platform: PlatformInfo,
         refs: struct,
-        attrs: struct) -> dict[str, PlatformInfo.type]:
+        attrs: struct) -> dict[str, PlatformInfo]:
     universal = attrs.universal if attrs.universal != None else _universal_constraint_value(platform, refs)
     os = _os_constraint_value(platform, refs)
     if not universal or os == None:

@@ -7,7 +7,7 @@
 
 # Implementation of the `export_file` build rule.
 
-def export_file_impl(ctx: AnalysisContext) -> list[DefaultInfo.type]:
+def export_file_impl(ctx: AnalysisContext) -> list[DefaultInfo]:
     # mode is "copy" or "reference", defaulting to copy
     copy = ctx.attrs.mode != "reference"
 

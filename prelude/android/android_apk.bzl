@@ -71,11 +71,11 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
 def build_apk(
         label: Label,
         actions: AnalysisActions,
-        keystore: KeystoreInfo.type,
-        android_toolchain: AndroidToolchainInfo.type,
-        dex_files_info: DexFilesInfo.type,
-        native_library_info: AndroidBinaryNativeLibsInfo.type,
-        resources_info: AndroidBinaryResourcesInfo.type,
+        keystore: KeystoreInfo,
+        android_toolchain: AndroidToolchainInfo,
+        dex_files_info: DexFilesInfo,
+        native_library_info: AndroidBinaryNativeLibsInfo,
+        resources_info: AndroidBinaryResourcesInfo,
         compress_resources_dot_arsc: bool = False) -> Artifact:
     output_apk = actions.declare_output("{}.apk".format(label.name))
 
@@ -132,7 +132,7 @@ def build_apk(
 
     return output_apk
 
-def get_install_info(ctx: AnalysisContext, output_apk: Artifact, manifest: Artifact, exopackage_info: [ExopackageInfo.type, None]) -> InstallInfo.type:
+def get_install_info(ctx: AnalysisContext, output_apk: Artifact, manifest: Artifact, exopackage_info: [ExopackageInfo, None]) -> InstallInfo:
     files = {
         ctx.attrs.name: output_apk,
         "manifest": manifest,
@@ -175,7 +175,7 @@ def get_install_info(ctx: AnalysisContext, output_apk: Artifact, manifest: Artif
         files = files,
     )
 
-def _get_exopackage_outputs(exopackage_info: ExopackageInfo.type) -> list[Artifact]:
+def _get_exopackage_outputs(exopackage_info: ExopackageInfo) -> list[Artifact]:
     outputs = []
     secondary_dex_exopackage_info = exopackage_info.secondary_dex_info
     if secondary_dex_exopackage_info:

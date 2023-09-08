@@ -24,7 +24,7 @@ load("@prelude//decls/android_rules.bzl", "RType")
 def get_android_binary_resources_info(
         ctx: AnalysisContext,
         deps: list[Dependency],
-        android_packageable_info: AndroidPackageableInfo.type,
+        android_packageable_info: AndroidPackageableInfo,
         java_packaging_deps: list[JavaPackagingDep],
         use_proto_format: bool,
         referenced_resources_lists: list[Artifact],
@@ -34,7 +34,7 @@ def get_android_binary_resources_info(
         r_dot_java_packages_to_exclude: [list[str], None] = [],
         generate_strings_and_ids_separately: [bool, None] = True,
         aapt2_min_sdk: [str, None] = None,
-        aapt2_preferred_density: [str, None] = None) -> AndroidBinaryResourcesInfo.type:
+        aapt2_preferred_density: [str, None] = None) -> AndroidBinaryResourcesInfo:
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     unfiltered_resource_infos = [
         resource_info
@@ -184,8 +184,8 @@ def get_android_binary_resources_info(
 
 def _maybe_filter_resources(
         ctx: AnalysisContext,
-        resources: list[AndroidResourceInfo.type],
-        android_toolchain: AndroidToolchainInfo.type) -> (list[AndroidResourceInfo.type], [Artifact, None], [Artifact, None], list[Artifact]):
+        resources: list[AndroidResourceInfo],
+        android_toolchain: AndroidToolchainInfo) -> (list[AndroidResourceInfo], [Artifact, None], [Artifact, None], list[Artifact]):
     resources_filter_strings = getattr(ctx.attrs, "resource_filter", [])
     resources_filter = _get_resources_filter(resources_filter_strings)
     resource_compression_mode = getattr(ctx.attrs, "resource_compression", "disabled")
@@ -350,8 +350,8 @@ def _get_resources_filter(resources_filter_strings: list[str]) -> [ResourcesFilt
 def _maybe_generate_string_source_map(
         actions: AnalysisActions,
         should_build_source_string_map: bool,
-        resource_infos: list[AndroidResourceInfo.type],
-        android_toolchain: AndroidToolchainInfo.type,
+        resource_infos: list[AndroidResourceInfo],
+        android_toolchain: AndroidToolchainInfo,
         is_voltron_string_source_map: bool = False) -> [Artifact, None]:
     if not should_build_source_string_map or len(resource_infos) == 0:
         return None
@@ -380,7 +380,7 @@ def _maybe_package_strings_as_assets(
         string_files_list: [Artifact, None],
         string_files_res_dirs: list[Artifact],
         r_dot_txt: Artifact,
-        android_toolchain: AndroidToolchainInfo.type) -> [Artifact, None]:
+        android_toolchain: AndroidToolchainInfo) -> [Artifact, None]:
     resource_compression_mode = getattr(ctx.attrs, "resource_compression", "disabled")
     is_store_strings_as_assets = _is_store_strings_as_assets(resource_compression_mode)
     expect(is_store_strings_as_assets == (string_files_list != None))
@@ -417,7 +417,7 @@ def _maybe_package_strings_as_assets(
 
 def get_manifest(
         ctx: AnalysisContext,
-        android_packageable_info: AndroidPackageableInfo.type,
+        android_packageable_info: AndroidPackageableInfo,
         manifest_entries: dict) -> Artifact:
     robolectric_manifest = getattr(ctx.attrs, "robolectric_manifest", None)
     if robolectric_manifest:
@@ -465,7 +465,7 @@ def get_manifest(
 
 def _get_module_manifests(
         ctx: AnalysisContext,
-        android_packageable_info: AndroidPackageableInfo.type,
+        android_packageable_info: AndroidPackageableInfo,
         manifest_entries: dict,
         apk_module_graph_file: [Artifact, None],
         use_proto_format: bool,
@@ -537,7 +537,7 @@ def _merge_assets(
         ctx: AnalysisContext,
         is_exopackaged_enabled_for_resources: bool,
         base_apk: Artifact,
-        resource_infos: list[AndroidResourceInfo.type],
+        resource_infos: list[AndroidResourceInfo],
         cxx_resources: [Artifact, None]) -> (Artifact, [Artifact, None], [Artifact, None]):
     assets_dirs = [resource_info.assets for resource_info in resource_infos if resource_info.assets]
     if cxx_resources != None:

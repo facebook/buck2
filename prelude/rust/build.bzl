@@ -206,7 +206,7 @@ def generate_rustdoc_test(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
         link_style: LinkStyle,
-        library: RustLinkStyleInfo.type,
+        library: RustLinkStyleInfo,
         params: BuildParams,
         default_roots: list[str]) -> cmd_args:
     toolchain_info = compile_ctx.toolchain_info
@@ -851,7 +851,7 @@ def _compute_common_args(
 # specifically requested clippy diagnostics.
 def _clippy_wrapper(
         ctx: AnalysisContext,
-        toolchain_info: RustToolchainInfo.type) -> cmd_args:
+        toolchain_info: RustToolchainInfo) -> cmd_args:
     clippy_driver = cmd_args(toolchain_info.clippy_driver)
     rustc_print_sysroot = cmd_args(toolchain_info.compiler, "--print=sysroot", delimiter = " ")
     if toolchain_info.rustc_target_triple:
@@ -892,7 +892,7 @@ def _clippy_wrapper(
 # and add -Clinker=
 def _linker_args(
         ctx: AnalysisContext,
-        linker_info: LinkerInfo.type) -> cmd_args:
+        linker_info: LinkerInfo) -> cmd_args:
     linker = cmd_args(
         linker_info.linker,
         linker_info.linker_flags or [],
@@ -1095,7 +1095,7 @@ def _rustc_invoke(
 # length. This limit is particularly small on Windows.
 def _long_command(
         ctx: AnalysisContext,
-        exe: RunInfo.type,
+        exe: RunInfo,
         args: cmd_args,
         argfile_name: str) -> cmd_args:
     argfile, hidden = ctx.actions.write(argfile_name, args, allow_args = True)

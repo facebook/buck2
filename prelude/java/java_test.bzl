@@ -36,11 +36,11 @@ def java_test_impl(ctx: AnalysisContext) -> list[Provider]:
 
 def build_junit_test(
         ctx: AnalysisContext,
-        tests_java_library_info: JavaLibraryInfo.type,
-        tests_java_packaging_info: JavaPackagingInfo.type,
-        tests_class_to_source_info: [JavaClassToSourceMapInfo.type, None] = None,
+        tests_java_library_info: JavaLibraryInfo,
+        tests_java_packaging_info: JavaPackagingInfo,
+        tests_class_to_source_info: [JavaClassToSourceMapInfo, None] = None,
         extra_cmds: list = [],
-        extra_classpath_entries: list[Artifact] = []) -> ExternalRunnerTestInfo.type:
+        extra_classpath_entries: list[Artifact] = []) -> ExternalRunnerTestInfo:
     java_test_toolchain = ctx.attrs._java_test_toolchain[JavaTestToolchainInfo]
 
     java = ctx.attrs.java[RunInfo] if ctx.attrs.java else ctx.attrs._java_toolchain[JavaToolchainInfo].java_for_tests

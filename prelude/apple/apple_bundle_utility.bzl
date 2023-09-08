@@ -71,7 +71,7 @@ def get_bundle_resource_processing_options(ctx: AnalysisContext) -> AppleResourc
     compile_resources_locally = value_or(ctx.attrs._compile_resources_locally_override, ctx.attrs._apple_toolchain[AppleToolchainInfo].compile_resources_locally)
     return AppleResourceProcessingOptions(prefer_local = compile_resources_locally, allow_cache_upload = compile_resources_locally)
 
-def get_bundle_infos_from_graph(graph: ResourceGraphInfo.type) -> list[AppleBundleLinkerMapInfo.type]:
+def get_bundle_infos_from_graph(graph: ResourceGraphInfo) -> list[AppleBundleLinkerMapInfo]:
     bundle_infos = []
     for node in graph.nodes.traverse():
         if not node.resource_spec:
@@ -88,7 +88,7 @@ def get_bundle_infos_from_graph(graph: ResourceGraphInfo.type) -> list[AppleBund
 
     return bundle_infos
 
-def merge_bundle_linker_maps_info(infos: list[AppleBundleLinkerMapInfo.type]) -> AppleBundleLinkerMapInfo.type:
+def merge_bundle_linker_maps_info(infos: list[AppleBundleLinkerMapInfo]) -> AppleBundleLinkerMapInfo:
     return AppleBundleLinkerMapInfo(
         linker_maps = flatten([info.linker_maps for info in infos]),
     )

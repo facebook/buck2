@@ -81,7 +81,7 @@ def genrule_attributes() -> dict[str, "attribute"]:
 
     return attributes
 
-def _get_cache_mode(ctx: AnalysisContext) -> CacheModeInfo.type:
+def _get_cache_mode(ctx: AnalysisContext) -> CacheModeInfo:
     if _USE_CACHE_MODE:
         return ctx.attrs._cache_mode[CacheModeInfo]
     else:

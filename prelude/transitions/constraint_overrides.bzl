@@ -17,9 +17,9 @@ def _constr_eq(a, b):
     return a.label == b.label
 
 def _constraint_overrides_transition_impl(
-        platform: PlatformInfo.type,
+        platform: PlatformInfo,
         refs: struct,
-        attrs: struct) -> PlatformInfo.type:
+        attrs: struct) -> PlatformInfo:
     # Extract actual constraint value objects.
     new_constraints = [
         getattr(refs, constraint)[ConstraintValueInfo]

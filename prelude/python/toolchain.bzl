@@ -67,8 +67,8 @@ PythonPlatformInfo = provider(fields = [
 ])
 
 def get_platform_attr(
-        python_platform_info: PythonPlatformInfo.type,
-        cxx_platform_info: CxxPlatformInfo.type,
+        python_platform_info: PythonPlatformInfo,
+        cxx_platform_info: CxxPlatformInfo,
         xs: list[(str, typing.Any)]) -> list[typing.Any]:
     """
     Take a platform_* value, and the non-platform version, and concat into a list

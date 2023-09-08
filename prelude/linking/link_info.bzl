@@ -128,7 +128,7 @@ LinkInfo = record(
     # Debug info which is referenced -- but not included -- by linkables in the
     # link info.  For example, this may include `.dwo` files, or the original
     # `.o` files if they contain debug info that doesn't follow the link.
-    external_debug_info = field(ArtifactTSet.type, ArtifactTSet()),
+    external_debug_info = field(ArtifactTSet, ArtifactTSet()),
 )
 
 # The ordering to use when traversing linker libs transitive sets.
@@ -159,9 +159,9 @@ def set_linkable_link_whole(
 
 # Helper to wrap a LinkInfo with additional pre/post-flags.
 def wrap_link_info(
-        inner: LinkInfo.type,
+        inner: LinkInfo,
         pre_flags: list[typing.Any] = [],
-        post_flags: list[typing.Any] = []) -> LinkInfo.type:
+        post_flags: list[typing.Any] = []) -> LinkInfo:
     pre_flags = pre_flags + inner.pre_flags
     post_flags = inner.post_flags + post_flags
     return LinkInfo(
@@ -214,10 +214,16 @@ def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
     else:
         fail("Encountered unhandled linkable {}".format(str(linkable)))
 
-def link_info_to_args(value: LinkInfo.type) -> cmd_args:
+def link_info_to_args(value: LinkInfo) -> cmd_args:
     args = cmd_args(value.pre_flags)
     for linkable in value.linkables:
         append_linkable_args(args, linkable)
+    if False:
+        # TODO(nga): `post_flags` is never `None`.
+        def unknown():
+            pass
+
+        value = unknown()
     if value.post_flags != None:
         args.add(value.post_flags)
     return args
@@ -228,7 +234,7 @@ def link_info_to_args(value: LinkInfo.type) -> cmd_args:
 # platform-specific details from this level.
 # NOTE(agallagher): Using filelist out-of-band means objects/archives get
 # linked out of order of their corresponding flags.
-def link_info_filelist(value: LinkInfo.type) -> list[Artifact]:
+def link_info_filelist(value: LinkInfo) -> list[Artifact]:
     filelists = []
     for linkable in value.linkables:
         if isinstance(linkable, ArchiveLinkable):
@@ -252,9 +258,9 @@ def link_info_filelist(value: LinkInfo.type) -> list[Artifact]:
 # cheaper to consume the pre-stripped LinkInfo.
 LinkInfos = record(
     # Link info to use by default.
-    default = field(LinkInfo.type),
+    default = field(LinkInfo),
     # Link info stripped of debug symbols.
-    stripped = field([LinkInfo.type, None], None),
+    stripped = field([LinkInfo, None], None),
 )
 
 # The output of a native link (e.g. a shared library or an executable).
@@ -272,7 +278,7 @@ LinkedObject = record(
     dwp = field([Artifact, None], None),
     # Additional dirs or paths that contain debug info referenced by the linked
     # object (e.g. split dwarf files or PDB file).
-    external_debug_info = field(ArtifactTSet.type, ArtifactTSet()),
+    external_debug_info = field(ArtifactTSet, ArtifactTSet()),
     # This argsfile is generated in the `cxx_link` step and contains a list of arguments
     # passed to the linker. It is being exposed as a sub-target for debugging purposes.
     linker_argsfile = field([Artifact, None], None),
@@ -399,11 +405,11 @@ def create_merged_link_info(
         # which actual link style to propagate for each "requested" link style.
         preferred_linkage: Linkage = Linkage("any"),
         # Link info to propagate from non-exported deps for static link styles.
-        deps: list[MergedLinkInfo.type] = [],
+        deps: list[MergedLinkInfo] = [],
         # Link info to always propagate from exported deps.
-        exported_deps: list[MergedLinkInfo.type] = [],
+        exported_deps: list[MergedLinkInfo] = [],
         frameworks_linkable: [FrameworksLinkable, None] = None,
-        swift_runtime_linkable: [SwiftRuntimeLinkable, None] = None) -> MergedLinkInfo.type:
+        swift_runtime_linkable: [SwiftRuntimeLinkable, None] = None) -> MergedLinkInfo:
     """
     Create a `MergedLinkInfo` provider.
     """
@@ -474,7 +480,7 @@ def create_merged_link_info(
 
 def merge_link_infos(
         ctx: AnalysisContext,
-        xs: list[MergedLinkInfo.type]) -> MergedLinkInfo.type:
+        xs: list[MergedLinkInfo]) -> MergedLinkInfo:
     merged = {}
     merged_external_debug_info = {}
     frameworks = {}
@@ -500,7 +506,7 @@ def merge_link_infos(
 
 def get_link_info(
         infos: LinkInfos,
-        prefer_stripped: bool = False) -> LinkInfo.type:
+        prefer_stripped: bool = False) -> LinkInfo:
     """
     Helper for getting a `LinkInfo` out of a `LinkInfos`.
     """
@@ -512,8 +518,8 @@ def get_link_info(
     return infos.default
 
 LinkArgsTSet = record(
-    infos = field(LinkInfosTSet.type),
-    external_debug_info = field(ArtifactTSet.type, ArtifactTSet()),
+    infos = field(LinkInfosTSet),
+    external_debug_info = field(ArtifactTSet, ArtifactTSet()),
     prefer_stripped = field(bool, False),
 )
 
@@ -524,9 +530,9 @@ LinkArgsTSet = record(
 # raw arguments we want to include (used for e.g. per-target link flags).
 LinkArgs = record(
     # A LinkInfosTSet + a flag indicating if stripped is preferred.
-    tset = field([LinkArgsTSet.type, None], None),
+    tset = field([LinkArgsTSet, None], None),
     # A list of LinkInfos
-    infos = field([list[LinkInfo.type], None], None),
+    infos = field([list[LinkInfo], None], None),
     # A bunch of flags.
     flags = field([ArgLike, None], None),
 )
@@ -576,7 +582,7 @@ def unpack_link_args_filelist(args: LinkArgs) -> [ArgLike, None]:
 
     fail("Unpacked invalid empty link args")
 
-def unpack_external_debug_info(actions: AnalysisActions, args: LinkArgs) -> ArtifactTSet.type:
+def unpack_external_debug_info(actions: AnalysisActions, args: LinkArgs) -> ArtifactTSet:
     if args.tset != None:
         if args.tset.prefer_stripped:
             return ArtifactTSet()
@@ -593,7 +599,7 @@ def unpack_external_debug_info(actions: AnalysisActions, args: LinkArgs) -> Arti
 
     fail("Unpacked invalid empty link args")
 
-def map_to_link_infos(links: list[LinkArgs]) -> list[LinkInfo.type]:
+def map_to_link_infos(links: list[LinkArgs]) -> list[LinkInfo]:
     res = []
 
     def append(v):
@@ -619,7 +625,7 @@ def map_to_link_infos(links: list[LinkArgs]) -> list[LinkInfo.type]:
     return res
 
 def get_link_args(
-        merged: MergedLinkInfo.type,
+        merged: MergedLinkInfo,
         link_style: LinkStyle,
         prefer_stripped: bool = False) -> LinkArgs:
     """
@@ -717,7 +723,7 @@ def merge_framework_linkables(linkables: list[[FrameworksLinkable, None]]) -> Fr
         library_names = unique_library_names.keys(),
     )
 
-def wrap_with_no_as_needed_shared_libs_flags(linker_type: str, link_info: LinkInfo.type) -> LinkInfo.type:
+def wrap_with_no_as_needed_shared_libs_flags(linker_type: str, link_info: LinkInfo) -> LinkInfo:
     """
     Wrap link info in args used to prevent linkers from dropping unused shared
     library dependencies from the e.g. DT_NEEDED tags of the link.

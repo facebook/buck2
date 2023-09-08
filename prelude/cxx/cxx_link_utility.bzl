@@ -152,7 +152,7 @@ def shared_libs_symlink_tree_name(output: Artifact) -> str:
 # - optional shared libs symlink tree symlinked_dir action
 def executable_shared_lib_arguments(
         actions: AnalysisActions,
-        cxx_toolchain: CxxToolchainInfo.type,
+        cxx_toolchain: CxxToolchainInfo,
         output: Artifact,
         shared_libs: dict[str, LinkedObject]) -> (list[typing.Any], list[ArgLike], [Artifact, None]):
     extra_args = []

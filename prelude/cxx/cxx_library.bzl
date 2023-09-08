@@ -198,7 +198,7 @@ load(
 # together.
 CxxLibraryOutput = record(
     # The link style of this output.
-    link_style = field(LinkStyle.type),
+    link_style = field(LinkStyle),
 
     # The main output.
     default = field(Artifact),
@@ -231,7 +231,7 @@ CxxLibraryOutput = record(
     linker_map = field([CxxLinkerMapData, None], None),
 
     # Extra sub targets to be returned as outputs of this rule, by link style.
-    sub_targets = field(dict[str, list[DefaultInfo.type]]),
+    sub_targets = field(dict[str, list[DefaultInfo]]),
 
     # The object files used to create the artifact in `default`. This only includes the object files
     # for this library itself, so it's not particularly meaningful for a shared lib output.
@@ -269,7 +269,7 @@ _CxxLibraryCompileOutput = record(
     # Whether there is any debug info
     objects_have_external_debug_info = field(bool),
     # sub_target for each object
-    objects_sub_targets = field(dict[str, list[DefaultInfo.type]]),
+    objects_sub_targets = field(dict[str, list[DefaultInfo]]),
 )
 
 # The output of compiling all the source files in the library, containing
@@ -302,9 +302,9 @@ _CxxLibraryParameterizedOutput = record(
     xcode_data_info = field([XcodeDataInfo, None], None),
     # CxxCompilationDbInfo provider, returned separately as we cannot check
     # provider type from providers above
-    cxx_compilationdb_info = field([CxxCompilationDbInfo.type, None], None),
+    cxx_compilationdb_info = field([CxxCompilationDbInfo, None], None),
     # LinkableRootInfo provider, same as above.
-    linkable_root = field([LinkableRootInfo.type, None], None),
+    linkable_root = field([LinkableRootInfo, None], None),
 )
 
 def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams) -> _CxxLibraryParameterizedOutput:
@@ -866,8 +866,8 @@ def cxx_compile_srcs(
         ctx: AnalysisContext,
         impl_params: CxxRuleConstructorParams,
         own_preprocessors: list[CPreprocessor],
-        inherited_non_exported_preprocessor_infos: list[CPreprocessorInfo.type],
-        inherited_exported_preprocessor_infos: list[CPreprocessorInfo.type],
+        inherited_non_exported_preprocessor_infos: list[CPreprocessorInfo],
+        inherited_exported_preprocessor_infos: list[CPreprocessorInfo],
         preferred_linkage: Linkage) -> _CxxCompiledSourcesOutput:
     """
     Compile objects we'll need for archives and shared libraries.
@@ -1079,7 +1079,7 @@ def _get_shared_library_links(
         frameworks_linkable: [FrameworksLinkable, None],
         force_static_follows_dependents: bool = True,
         swiftmodule_linkable: [SwiftmoduleLinkable, None] = None,
-        swift_runtime_linkable: [SwiftRuntimeLinkable, None] = None) -> (LinkArgs, [DefaultInfo.type, None], LinkExecutionPreference):
+        swift_runtime_linkable: [SwiftRuntimeLinkable, None] = None) -> (LinkArgs, [DefaultInfo, None], LinkExecutionPreference):
     """
     Returns LinkArgs with the content to link, and a link group map json output if applicable.
 
@@ -1180,8 +1180,8 @@ def _static_library(
         stripped: bool,
         extra_linkables: list[[FrameworksLinkable, SwiftmoduleLinkable, SwiftRuntimeLinkable]],
         objects_have_external_debug_info: bool = False,
-        external_debug_info: ArtifactTSet.type = ArtifactTSet(),
-        bitcode_objects: [list[Artifact], None] = None) -> (CxxLibraryOutput, LinkInfo.type):
+        external_debug_info: ArtifactTSet = ArtifactTSet(),
+        bitcode_objects: [list[Artifact], None] = None) -> (CxxLibraryOutput, LinkInfo):
     if len(objects) == 0:
         fail("empty objects")
 
@@ -1301,7 +1301,7 @@ def _shared_library(
         ctx: AnalysisContext,
         impl_params: CxxRuleConstructorParams,
         objects: list[Artifact],
-        external_debug_info: ArtifactTSet.type,
+        external_debug_info: ArtifactTSet,
         dep_infos: LinkArgs,
         gnu_use_link_groups: bool,
         extra_linker_flags: list[ArgLike],

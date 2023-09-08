@@ -27,7 +27,7 @@ def cmd_script(
         ctx: AnalysisContext,
         name: str,
         cmd: cmd_args,
-        os: ScriptOs.type) -> cmd_args:
+        os: ScriptOs) -> cmd_args:
     shell_quoted = cmd_args(cmd, quote = "shell")
 
     if os == ScriptOs("unix"):

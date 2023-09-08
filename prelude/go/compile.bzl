@@ -31,7 +31,7 @@ GoTestInfo = provider(fields = [
 def _out_root(shared: bool = False):
     return "__shared__" if shared else "__static__"
 
-def get_inherited_compile_pkgs(deps: list[Dependency]) -> dict[str, GoPkg.type]:
+def get_inherited_compile_pkgs(deps: list[Dependency]) -> dict[str, GoPkg]:
     return merge_pkgs([d[GoPkgCompileInfo].pkgs for d in deps if GoPkgCompileInfo in d])
 
 def get_filtered_srcs(ctx: AnalysisContext, srcs: list[Artifact], tests: bool = False) -> cmd_args:

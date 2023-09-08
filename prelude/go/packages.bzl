@@ -47,7 +47,7 @@ def pkg_artifacts(pkgs: dict[str, GoPkg], shared: bool = False) -> dict[str, Art
         for name, pkg in pkgs.items()
     }
 
-def stdlib_pkg_artifacts(toolchain: GoToolchainInfo.type, shared: bool = False) -> dict[str, Artifact]:
+def stdlib_pkg_artifacts(toolchain: GoToolchainInfo, shared: bool = False) -> dict[str, Artifact]:
     """
     Return a map package name to a `shared` or `static` package artifact of stdlib.
     """

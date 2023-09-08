@@ -18,7 +18,7 @@ GroupedSource = record(
     additional_sources = list[Artifact],
 )
 
-def _get_grouped_srcs(ctx: AnalysisContext) -> list[GroupedSource.type]:
+def _get_grouped_srcs(ctx: AnalysisContext) -> list[GroupedSource]:
     grouped_srcs = {}
     for src in ctx.attrs.srcs:
         # TODO(ianc) also support sources with an "inner path".
@@ -49,7 +49,7 @@ def _build_js_files(
         ctx: AnalysisContext,
         transform_profile: str,
         flavors: list[str],
-        grouped_srcs: list[GroupedSource.type]) -> list[Artifact]:
+        grouped_srcs: list[GroupedSource]) -> list[Artifact]:
     if not grouped_srcs:
         return []
 

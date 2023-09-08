@@ -220,7 +220,7 @@ def get_undefined_symbols_args(
         symbol_files: list[Artifact],
         category: [str, None] = None,
         identifier: [str, None] = None,
-        prefer_local: bool = False) -> cmd_args.type:
+        prefer_local: bool = False) -> cmd_args:
     if get_cxx_toolchain_info(ctx).linker_info.type == "gnu":
         # linker script is only supported in gnu linkers
         linker_script = create_undefined_symbols_linker_script(

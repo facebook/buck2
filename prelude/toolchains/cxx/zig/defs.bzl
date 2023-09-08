@@ -131,7 +131,7 @@ ZigReleaseInfo = provider(fields = [
 
 def _get_zig_release(
         version: str,
-        platform: str) -> ZigReleaseInfo.type:
+        platform: str) -> ZigReleaseInfo:
     if not version in releases:
         fail("Unknown zig release version '{}'. Available versions: {}".format(
             version,

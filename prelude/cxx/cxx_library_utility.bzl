@@ -59,7 +59,7 @@ def cxx_attr_exported_post_linker_flags(ctx: AnalysisContext) -> list[typing.Any
         flatten(cxx_by_platform(ctx, ctx.attrs.exported_post_platform_linker_flags))
     )
 
-def cxx_inherited_link_info(ctx, first_order_deps: list[Dependency]) -> MergedLinkInfo.type:
+def cxx_inherited_link_info(ctx, first_order_deps: list[Dependency]) -> MergedLinkInfo:
     # We filter out nones because some non-cxx rule without such providers could be a dependency, for example
     # cxx_binary "fbcode//one_world/cli/util/process_wrapper:process_wrapper" depends on
     # python_library "fbcode//third-party-buck/$platform/build/glibc:__project__"

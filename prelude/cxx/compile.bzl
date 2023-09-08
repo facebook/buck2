@@ -146,7 +146,7 @@ def create_compile_cmds(
         #   and `cxx_types.bzl` (where `CxxRuleConstructorParams` is defined).
         impl_params: "CxxRuleConstructorParams",
         own_preprocessors: list[CPreprocessor],
-        inherited_preprocessor_infos: list[CPreprocessorInfo.type]) -> CxxCompileCommandOutput:
+        inherited_preprocessor_infos: list[CPreprocessorInfo]) -> CxxCompileCommandOutput:
     """
     Forms the CxxSrcCompileCommand to use for each source file based on it's extension
     and optional source file flags. Returns CxxCompileCommandOutput containing an array
@@ -402,7 +402,7 @@ def _validate_target_headers(ctx: AnalysisContext, preprocessor: list[CPreproces
         else:
             path_to_artifact[header_path] = header.artifact
 
-def _get_compiler_info(toolchain: CxxToolchainInfo.type, ext: CxxExtension) -> typing.Any:
+def _get_compiler_info(toolchain: CxxToolchainInfo, ext: CxxExtension) -> typing.Any:
     compiler_info = None
     if ext.value in (".cpp", ".cc", ".mm", ".cxx", ".c++", ".h", ".hpp"):
         compiler_info = toolchain.cxx_compiler_info
@@ -487,7 +487,7 @@ def _add_compiler_info_flags(ctx: AnalysisContext, compiler_info: typing.Any, ex
 def _mk_argsfile(
         ctx: AnalysisContext,
         compiler_info: typing.Any,
-        preprocessor: CPreprocessorInfo.type,
+        preprocessor: CPreprocessorInfo,
         ext: CxxExtension,
         headers_tag: ArtifactTag,
         use_absolute_paths: bool) -> CompileArgsfile:

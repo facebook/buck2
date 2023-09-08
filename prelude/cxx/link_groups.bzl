@@ -129,7 +129,7 @@ LinkGroupLibSpec = record(
     # this link group.  This is useful for linking e.g. standalone shared libs
     # which may require special private linker flags (like version scripts) to
     # link.
-    root = field([LinkableRootInfo.type, None], None),
+    root = field([LinkableRootInfo, None], None),
     # The link group to link.
     group = field(Group),
 )
@@ -179,7 +179,7 @@ def build_link_group_info(
 
 def get_link_group_info(
         ctx: AnalysisContext,
-        executable_deps: [list[LinkableGraph], None] = None) -> [LinkGroupInfo.type, None]:
+        executable_deps: [list[LinkableGraph], None] = None) -> [LinkGroupInfo, None]:
     """
     Parses the currently analyzed context for any link group definitions
     and returns a list of all link groups with their mappings.
@@ -515,10 +515,10 @@ def get_filtered_links(
             infos.append(info)
     return infos
 
-def get_filtered_targets(labels_to_links_map: dict[Label, LinkGroupLinkInfo.type]):
+def get_filtered_targets(labels_to_links_map: dict[Label, LinkGroupLinkInfo]):
     return [label.raw_target() for label in labels_to_links_map.keys()]
 
-def get_link_group_map_json(ctx: AnalysisContext, targets: list[TargetLabel]) -> DefaultInfo.type:
+def get_link_group_map_json(ctx: AnalysisContext, targets: list[TargetLabel]) -> DefaultInfo:
     json_map = ctx.actions.write_json(LINK_GROUP_MAP_DATABASE_FILENAME, sorted(targets))
     return DefaultInfo(default_output = json_map)
 
@@ -665,7 +665,7 @@ def _stub_library(
         ctx: AnalysisContext,
         name: str,
         extra_ldflags: list[typing.Any] = [],
-        anonymous: bool = False) -> LinkInfos.type:
+        anonymous: bool = False) -> LinkInfos:
     link_result = cxx_link_shared_library(
         ctx = ctx,
         output = name + ".stub",

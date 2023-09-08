@@ -141,9 +141,9 @@ def get_target_to_module_mapping(ctx: AnalysisContext, deps_by_platform: dict[st
 def _get_base_cmd_and_output(
         actions: AnalysisActions,
         label: Label,
-        android_packageable_infos: list[AndroidPackageableInfo.type],
+        android_packageable_infos: list[AndroidPackageableInfo],
         shared_libraries: list[SharedLibrary],
-        android_toolchain: AndroidToolchainInfo.type,
+        android_toolchain: AndroidToolchainInfo,
         application_module_configs: dict[str, list[Dependency]],
         application_module_dependencies: [dict[str, list[str]], None],
         application_module_blocklist: [list[list[Dependency]], None]) -> (cmd_args, Artifact):
@@ -213,7 +213,7 @@ APKModuleGraphInfo = record(
     module_to_module_deps_function = typing.Callable,
 )
 
-def get_root_module_only_apk_module_graph_info() -> APKModuleGraphInfo.type:
+def get_root_module_only_apk_module_graph_info() -> APKModuleGraphInfo:
     def root_module_canary_class_name(module: str):
         expect(is_root_module(module))
         return "secondary"
@@ -232,7 +232,7 @@ def get_root_module_only_apk_module_graph_info() -> APKModuleGraphInfo.type:
 def get_apk_module_graph_info(
         ctx: AnalysisContext,
         apk_module_graph_file: Artifact,
-        artifacts) -> APKModuleGraphInfo.type:
+        artifacts) -> APKModuleGraphInfo:
     apk_module_graph_lines = artifacts[apk_module_graph_file].read_string().split("\n")
     module_count = int(apk_module_graph_lines[0])
     module_infos = apk_module_graph_lines[1:module_count + 1]

@@ -31,7 +31,7 @@ def android_manifest_impl(ctx: AnalysisContext) -> list[Provider]:
 
 def generate_android_manifest(
         ctx: AnalysisContext,
-        generate_manifest: RunInfo.type,
+        generate_manifest: RunInfo,
         manifest_skeleton: Artifact,
         module_name: str,
         manifests: [ManifestTSet, list[Artifact], None],

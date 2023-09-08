@@ -39,7 +39,7 @@ SharedLibraryInfo = provider(fields = [
     "set",  # SharedLibrariesTSet | None
 ])
 
-def _get_strip_non_global_flags(cxx_toolchain: CxxToolchainInfo.type) -> list:
+def _get_strip_non_global_flags(cxx_toolchain: CxxToolchainInfo) -> list:
     if cxx_toolchain.strip_flags_info and cxx_toolchain.strip_flags_info.strip_non_global_flags:
         return cxx_toolchain.strip_flags_info.strip_non_global_flags
 
@@ -105,7 +105,7 @@ def _merge_lib_map(
 def merge_shared_libraries(
         actions: AnalysisActions,
         node: ["SharedLibraries", None] = None,
-        deps: list[SharedLibraryInfo.type] = []) -> SharedLibraryInfo.type:
+        deps: list[SharedLibraryInfo] = []) -> SharedLibraryInfo:
     kwargs = {}
 
     children = filter(None, [dep.set for dep in deps])
@@ -118,7 +118,7 @@ def merge_shared_libraries(
     return SharedLibraryInfo(set = set)
 
 def traverse_shared_library_info(
-        info: SharedLibraryInfo.type):  # -> dict[str, SharedLibrary]:
+        info: SharedLibraryInfo):  # -> dict[str, SharedLibrary]:
     libraries = {}
     if info.set:
         for libs in info.set.traverse():

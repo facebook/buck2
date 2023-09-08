@@ -20,7 +20,7 @@ CxxCompilationDbInfo = provider(fields = [
     "toolchain",  # toolchain for this compilation database
 ])
 
-def make_compilation_db_info(src_compile_cmds: list[CxxSrcCompileCommand], toolchainInfo: CxxToolchainInfo.type, platformInfo: CxxPlatformInfo.type) -> CxxCompilationDbInfo.type:
+def make_compilation_db_info(src_compile_cmds: list[CxxSrcCompileCommand], toolchainInfo: CxxToolchainInfo, platformInfo: CxxPlatformInfo) -> CxxCompilationDbInfo:
     info = {}
     for src_compile_cmd in src_compile_cmds:
         info.update({src_compile_cmd.src: src_compile_cmd})
@@ -30,7 +30,7 @@ def make_compilation_db_info(src_compile_cmds: list[CxxSrcCompileCommand], toolc
 def create_compilation_database(
         ctx: AnalysisContext,
         src_compile_cmds: list[CxxSrcCompileCommand],
-        indentifier: str) -> DefaultInfo.type:
+        indentifier: str) -> DefaultInfo:
     mk_comp_db = get_cxx_toolchain_info(ctx).mk_comp_db[RunInfo]
 
     # Generate the per-source compilation DB entries.

@@ -16,11 +16,11 @@ load(":toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
 
 PythonLibraryManifests = record(
     label = field(Label),
-    srcs = field([ManifestInfo.type, None]),
-    src_types = field([ManifestInfo.type, None], None),
-    resources = field([(ManifestInfo.type, list[ArgLike]), None]),
-    bytecode = field([dict[PycInvalidationMode, ManifestInfo.type], None]),
-    dep_manifest = field([ManifestInfo.type, None]),
+    srcs = field([ManifestInfo, None]),
+    src_types = field([ManifestInfo, None], None),
+    resources = field([(ManifestInfo, list[ArgLike]), None]),
+    bytecode = field([dict[PycInvalidationMode, ManifestInfo], None]),
+    dep_manifest = field([ManifestInfo, None]),
     extensions = field([dict[str, typing.Any], None]),
 )
 
@@ -128,7 +128,7 @@ PythonLibraryInfo = provider(fields = [
     "shared_libraries",  # "SharedLibraryInfo"
 ])
 
-def info_to_interface(info: PythonLibraryInfo.type) -> PythonLibraryInterface:
+def info_to_interface(info: PythonLibraryInfo) -> PythonLibraryInterface:
     return PythonLibraryInterface(
         shared_libraries = lambda: traverse_shared_library_info(info.shared_libraries),
         iter_manifests = lambda: info.manifests.traverse(),
@@ -137,7 +137,7 @@ def info_to_interface(info: PythonLibraryInfo.type) -> PythonLibraryInterface:
         hidden_resources = lambda: [info.manifests.project_as_args("hidden_resources")],
     )
 
-def manifests_to_interface(manifests: PythonLibraryManifestsTSet.type) -> PythonLibraryManifestsInterface:
+def manifests_to_interface(manifests: PythonLibraryManifestsTSet) -> PythonLibraryManifestsInterface:
     return PythonLibraryManifestsInterface(
         src_manifests = lambda: [manifests.project_as_args("source_manifests")],
         src_artifacts = lambda: [manifests.project_as_args("source_artifacts")],

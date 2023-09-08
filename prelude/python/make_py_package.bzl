@@ -28,8 +28,8 @@ load(":toolchain.bzl", "PackageStyle", "PythonToolchainInfo")
 # should also include bytecode from manifests.
 PexModules = record(
     manifests = field(PythonLibraryManifestsInterface),
-    extensions = field([ManifestInfo.type, None], None),
-    extra_manifests = field([ManifestInfo.type, None], None),
+    extensions = field([ManifestInfo, None], None),
+    extra_manifests = field([ManifestInfo, None], None),
     compile = field(bool, False),
 )
 
@@ -45,7 +45,7 @@ PexProviders = record(
 )
 
 def make_py_package_providers(
-        python_toolchain: PythonToolchainInfo.type,
+        python_toolchain: PythonToolchainInfo,
         pex: PexProviders) -> list[Provider]:
     providers = [
         make_default_info(pex),
@@ -87,7 +87,7 @@ def _srcs(srcs: list[typing.Any], format = "{}") -> cmd_args:
 
 def _fail_at_build_time(
         ctx: AnalysisContext,
-        python_toolchain: PythonToolchainInfo.type,
+        python_toolchain: PythonToolchainInfo,
         msg: str) -> PexProviders:
     error_message = ctx.actions.write("__error_message", msg)
     dummy_output = ctx.actions.declare_output("__dummy_output")
@@ -108,7 +108,7 @@ def _fail_at_build_time(
 
 def _fail(
         ctx: AnalysisContext,
-        python_toolchain: PythonToolchainInfo.type,
+        python_toolchain: PythonToolchainInfo,
         suffix: str,
         msg: str) -> PexProviders:
     if suffix:
@@ -124,9 +124,9 @@ def _fail(
 #                 script that invokes make_xar in a slightly different way.
 def make_py_package(
         ctx: AnalysisContext,
-        python_toolchain: PythonToolchainInfo.type,
+        python_toolchain: PythonToolchainInfo,
         # A rule-provided tool to use to build the PEX.
-        make_py_package_cmd: [RunInfo.type, None],
+        make_py_package_cmd: [RunInfo, None],
         package_style: PackageStyle,
         build_args: list[ArgLike],
         pex_modules: PexModules,
@@ -199,8 +199,8 @@ def make_py_package(
 
 def _make_py_package_impl(
         ctx: AnalysisContext,
-        python_toolchain: PythonToolchainInfo.type,
-        make_py_package_cmd: [RunInfo.type, None],
+        python_toolchain: PythonToolchainInfo,
+        make_py_package_cmd: [RunInfo, None],
         package_style: PackageStyle,
         build_args: list[ArgLike],
         shared_libraries: dict[str, (LinkedObject, bool)],
@@ -528,7 +528,7 @@ def _hidden_resources_error_message(current_target: Label, hidden_resources) -> 
 
 def generate_manifest_module(
         ctx: AnalysisContext,
-        python_toolchain: PythonToolchainInfo.type,
+        python_toolchain: PythonToolchainInfo,
         src_manifests: list[ArgLike]) -> [ArgLike, None]:
     """
     Generates a __manifest__.py module, and an extra entry to add to source manifests.

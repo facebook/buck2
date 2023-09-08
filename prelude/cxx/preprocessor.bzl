@@ -163,13 +163,13 @@ def cxx_attr_exported_preprocessor_flags(ctx: AnalysisContext) -> list[typing.An
         flatten(cxx_by_platform(ctx, _by_language_cxx(ctx.attrs.exported_lang_platform_preprocessor_flags)))
     )
 
-def cxx_inherited_preprocessor_infos(first_order_deps: list[Dependency]) -> list[CPreprocessorInfo.type]:
+def cxx_inherited_preprocessor_infos(first_order_deps: list[Dependency]) -> list[CPreprocessorInfo]:
     # We filter out nones because some non-cxx rule without such providers could be a dependency, for example
     # cxx_binary "fbcode//one_world/cli/util/process_wrapper:process_wrapper" depends on
     # python_library "fbcode//third-party-buck/$platform/build/glibc:__project__"
     return filter(None, [x.get(CPreprocessorInfo) for x in first_order_deps])
 
-def cxx_merge_cpreprocessors(ctx: AnalysisContext, own: list[CPreprocessor], xs: list[CPreprocessorInfo.type]) -> CPreprocessorInfo.type:
+def cxx_merge_cpreprocessors(ctx: AnalysisContext, own: list[CPreprocessor], xs: list[CPreprocessorInfo]) -> CPreprocessorInfo:
     kwargs = {"children": [x.set for x in xs]}
     if own:
         kwargs["value"] = own

@@ -47,7 +47,7 @@ def create_jar_artifact_javacd(
         ctx: AnalysisContext,
         actions_identifier: [str, None],
         abi_generation_mode: [AbiGenerationMode, None],
-        java_toolchain: JavaToolchainInfo.type,
+        java_toolchain: JavaToolchainInfo,
         label,
         output: [Artifact, None],
         javac_tool: [typing.Any, None],

@@ -185,7 +185,7 @@ def create_linkable_root(
         link_infos: LinkInfos,
         name: [str, None] = None,
         deps: list[Dependency] = [],
-        create_shared_root: bool = False) -> LinkableRootInfo.type:
+        create_shared_root: bool = False) -> LinkableRootInfo:
     # Only include dependencies that are linkable.
     deps = linkable_deps(deps)
 
@@ -381,7 +381,7 @@ def _create_root(
         ctx: AnalysisContext,
         spec: OmnibusSpec,
         annotated_root_products,
-        root: LinkableRootInfo.type,
+        root: LinkableRootInfo,
         label: Label,
         link_deps: list[Label],
         omnibus: Artifact,

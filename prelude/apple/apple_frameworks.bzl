@@ -128,12 +128,12 @@ def _non_sdk_unresolved_framework_directory(framework_path: str) -> [str, None]:
 
 def apple_build_link_args_with_deduped_flags(
         ctx: AnalysisContext,
-        merged: MergedLinkInfo.type,
+        merged: MergedLinkInfo,
         frameworks_linkable: [FrameworksLinkable, None],
         link_style: "LinkStyle",
         prefer_stripped: bool = False,
         swiftmodule_linkable: [SwiftmoduleLinkable, None] = None,
-        swift_runtime_linkable: [SwiftRuntimeLinkable, None] = None) -> LinkArgs.type:
+        swift_runtime_linkable: [SwiftRuntimeLinkable, None] = None) -> LinkArgs:
     link_info = _link_info_from_linkables(ctx, [merged.frameworks[link_style], frameworks_linkable], [swiftmodule_linkable], [merged.swift_runtime[link_style], swift_runtime_linkable])
     if not link_info:
         return get_link_args(merged, link_style, prefer_stripped)
@@ -156,10 +156,10 @@ def apple_build_link_args_with_deduped_flags(
 
 def apple_get_link_info_by_deduping_link_infos(
         ctx: AnalysisContext,
-        infos: list[[LinkInfo.type, None]],
+        infos: list[[LinkInfo, None]],
         framework_linkable: [FrameworksLinkable, None] = None,
         swiftmodule_linkable: [SwiftmoduleLinkable, None] = None,
-        swift_runtime_linkable: [SwiftRuntimeLinkable, None] = None) -> [LinkInfo.type, None]:
+        swift_runtime_linkable: [SwiftRuntimeLinkable, None] = None) -> [LinkInfo, None]:
     # When building a framework or executable, all frameworks used by the statically-linked
     # deps in the subtree need to be linked.
     #
@@ -177,7 +177,7 @@ def apple_get_link_info_by_deduping_link_infos(
 
     return _link_info_from_linkables(ctx, framework_linkables, swiftmodule_linkables, swift_runtime_linkables)
 
-def _extract_framework_linkables(link_infos: [list[LinkInfo.type], None]) -> list[FrameworksLinkable]:
+def _extract_framework_linkables(link_infos: [list[LinkInfo], None]) -> list[FrameworksLinkable]:
     linkables = []
     for merged in link_infos:
         for linkable in merged.linkables:
@@ -190,7 +190,7 @@ def _link_info_from_linkables(
         ctx: AnalysisContext,
         framework_linkables: list[[FrameworksLinkable, None]],
         swiftmodule_linkables: list[[SwiftmoduleLinkable, None]] = [],
-        swift_runtime_linkables: list[[SwiftRuntimeLinkable, None]] = []) -> [LinkInfo.type, None]:
+        swift_runtime_linkables: list[[SwiftRuntimeLinkable, None]] = []) -> [LinkInfo, None]:
     framework_link_args = _get_apple_frameworks_linker_flags(ctx, merge_framework_linkables(framework_linkables))
     swift_module_link_args = get_swiftmodule_linker_flags(swiftmodule_linkables)
     swift_runtime_link_args = get_swift_runtime_linker_flags(ctx, merge_swift_runtime_linkables(swift_runtime_linkables))

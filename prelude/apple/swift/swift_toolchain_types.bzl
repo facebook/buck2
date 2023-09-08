@@ -67,11 +67,11 @@ SwiftCompiledModuleInfo = provider(fields = [
     "output_artifact",  # Compiled artifact either swiftmodule or pcm.
 ])
 
-def _add_swiftmodule_search_path(module_info: SwiftCompiledModuleInfo.type):
+def _add_swiftmodule_search_path(module_info: SwiftCompiledModuleInfo):
     # We need to import the containing folder, not the file itself.
     return ["-I", cmd_args(module_info.output_artifact).parent()]
 
-def _add_clang_import_flags(module_info: SwiftCompiledModuleInfo.type):
+def _add_clang_import_flags(module_info: SwiftCompiledModuleInfo):
     if module_info.is_swiftmodule:
         return []
     else:
