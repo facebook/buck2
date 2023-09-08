@@ -170,6 +170,20 @@ exec buck2 build @fbsource//fbcode/mode/opt fbcode//my/service:my_service
 
 These shell scripts by default build all targets specified in the `fbpkg.builder` target, but you can also invoke the `buck2 build` command accordingly.
 
+## Recovering your service with an offline build image
+
+Offline build images are provided to be able to **build a fully hermetic, reproducible build in a completely isolated environment** with no external dependencies. The primary scenario in mind is the need to "fix-forward" when Remote Execution or CAS are unavailable.
+
+The expected process for working with and recovering services in an offline build image looks like the following:
+
+1. Follow steps in ["How to build an image"](#how-to-build-an-image)
+1. Enter the image with `sudo ./offline_builder enter-image`
+1. Edit any files that need to be edited
+1. Run your build with `./build_fbpkg_$name_targets_mode-opt.sh`
+1. ??? (TBD)
+
+NOTE: For faster incremental builds, **stay in the container**. Without this, the buck2 daemon will be killed on container exit, and it has to spend a ton of time rebuilding internal graph state.
+
 ## Implementation details
 
 Several environment variables must be set to perform fully-offline builds. These are all set in user-level `.bash_profile` scripts (which take effect on login):
