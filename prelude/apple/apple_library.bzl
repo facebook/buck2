@@ -102,7 +102,7 @@ AppleLibraryAdditionalParams = record(
     force_link_group_linking = field(bool, False),
 )
 
-def apple_library_impl(ctx: AnalysisContext) -> ["promise", list[Provider]]:
+def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
     def get_apple_library_providers(deps_providers) -> list[Provider]:
         constructor_params = apple_library_rule_constructor_params_and_swift_providers(
             ctx,

@@ -18,7 +18,7 @@ def _shared_library_interface(
         ctx: AnalysisContext,
         output: str,
         identifier: str,
-        shared_lib: [Artifact, "promise"]) -> Artifact:
+        shared_lib: [Artifact, Promise]) -> Artifact:
     """
     Convert the given shared library into an interface used for linking.
     """

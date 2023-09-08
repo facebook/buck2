@@ -49,7 +49,7 @@ load(
 load(":debug.bzl", "DEBUGINFO_SUBTARGET")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 
-def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], "promise"]:
+def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
     def get_apple_test_providers(deps_providers) -> list[Provider]:
         xctest_bundle = bundle_output(ctx)
 

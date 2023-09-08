@@ -113,7 +113,7 @@ def _compiled_module_info(
         output_artifact = pcm_output,
     )
 
-def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> ["promise", list[Provider]]:
+def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
     def k(compiled_pcm_deps_providers) -> list[Provider]:
         uncompiled_pcm_info = ctx.attrs.dep[SwiftPCMUncompiledInfo]
 

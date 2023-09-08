@@ -111,7 +111,7 @@ def get_swift_sdk_pcm_anon_targets(
         for clang_module_dep in clang_deps
     ]
 
-def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> ["promise", list[Provider]]:
+def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
     def k(sdk_pcm_deps_providers) -> list[Provider]:
         uncompiled_sdk_module_info = ctx.attrs.dep[SdkUncompiledModuleInfo]
         module_name = uncompiled_sdk_module_info.module_name

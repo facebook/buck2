@@ -90,7 +90,7 @@ SwiftDebugInfo = record(
 
 REQUIRED_SDK_MODULES = ["Swift", "SwiftOnoneSupport", "Darwin", "_Concurrency", "_StringProcessing"]
 
-def get_swift_anonymous_targets(ctx: AnalysisContext, get_apple_library_providers: typing.Callable) -> "promise":
+def get_swift_anonymous_targets(ctx: AnalysisContext, get_apple_library_providers: typing.Callable) -> Promise:
     swift_cxx_flags = get_swift_cxx_flags(ctx)
 
     # Get SDK deps from direct dependencies,
