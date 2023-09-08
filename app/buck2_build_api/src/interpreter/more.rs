@@ -11,6 +11,7 @@ use buck2_interpreter::functions::more::REGISTER_BUCK2_BUILD_API_GLOBALS;
 use starlark::environment::GlobalsBuilder;
 
 use crate::interpreter::rule_defs::artifact::artifact_type::register_artifact;
+use crate::interpreter::rule_defs::artifact::starlark_output_artifact::register_output_artifact;
 use crate::interpreter::rule_defs::artifact_tagging::artifact_tag::register_artifact_tag;
 use crate::interpreter::rule_defs::cmd_args::register_cmd_args;
 use crate::interpreter::rule_defs::command_executor_config::register_command_executor_config;
@@ -38,6 +39,7 @@ fn register_build_api_globals(globals: &mut GlobalsBuilder) {
     register_dependency(globals);
     register_artifact(globals);
     register_artifact_tag(globals);
+    register_output_artifact(globals);
 }
 
 pub(crate) fn init_register_build_api_globals() {

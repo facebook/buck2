@@ -14,7 +14,7 @@ mod starlark_artifact;
 pub mod starlark_artifact_like;
 mod starlark_artifact_value;
 mod starlark_declared_artifact;
-mod starlark_output_artifact;
+pub(crate) mod starlark_output_artifact;
 mod starlark_promise_artifact;
 
 use std::fmt::Debug;

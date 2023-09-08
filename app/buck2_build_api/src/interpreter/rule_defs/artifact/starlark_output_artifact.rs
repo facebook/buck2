@@ -16,8 +16,10 @@ use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use dupe::Dupe;
 use either::Either;
 use starlark::any::ProvidesStaticType;
+use starlark::environment::GlobalsBuilder;
 use starlark::typing::Ty;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Coerce;
 use starlark::values::Demand;
@@ -197,4 +199,9 @@ impl CommandLineArgLike for FrozenStarlarkOutputArtifact {
     ) -> anyhow::Result<()> {
         Ok(())
     }
+}
+
+#[starlark_module]
+pub(crate) fn register_output_artifact(globals: &mut GlobalsBuilder) {
+    const OutputArtifact: StarlarkValueAsType<StarlarkOutputArtifact> = StarlarkValueAsType::new();
 }
