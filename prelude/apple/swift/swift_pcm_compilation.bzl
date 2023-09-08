@@ -36,6 +36,7 @@ def get_swift_pcm_anon_targets(
     deps = [
         {
             "dep": uncompiled_dep,
+            "name": uncompiled_dep.label,
             "swift_cxx_args": swift_cxx_args,
             "_apple_toolchain": ctx.attrs._apple_toolchain,
         }

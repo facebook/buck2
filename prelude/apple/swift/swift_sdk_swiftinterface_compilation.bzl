@@ -23,6 +23,7 @@ def get_swift_interface_anon_targets(
             _swift_interface_compilation,
             {
                 "dep": d,
+                "name": d.label,
                 "_apple_toolchain": ctx.attrs._apple_toolchain,
             },
         )

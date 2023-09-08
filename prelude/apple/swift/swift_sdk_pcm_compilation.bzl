@@ -89,6 +89,7 @@ def get_swift_sdk_pcm_anon_targets(
     return [
         (_swift_sdk_pcm_compilation, {
             "dep": module_dep,
+            "name": module_dep.label,
             "swift_cxx_args": swift_cxx_args,
             "_apple_toolchain": ctx.attrs._apple_toolchain,
         })
