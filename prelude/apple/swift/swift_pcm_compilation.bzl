@@ -38,7 +38,6 @@ def get_swift_pcm_anon_targets(
         {
             "dep": uncompiled_dep,
             "swift_cxx_args": swift_cxx_args,
-            "target_sdk_version": ctx.attrs.target_sdk_version,
             "_apple_toolchain": ctx.attrs._apple_toolchain,
         }
         for uncompiled_dep in uncompiled_deps
@@ -218,7 +217,6 @@ _swift_pcm_compilation = rule(
     attrs = {
         "dep": attrs.dep(),
         "swift_cxx_args": attrs.list(attrs.string(), default = []),
-        "target_sdk_version": attrs.option(attrs.string(), default = None),
         "_apple_toolchain": attrs.dep(),
     },
 )
