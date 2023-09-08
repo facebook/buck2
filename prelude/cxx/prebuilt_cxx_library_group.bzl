@@ -48,6 +48,11 @@ load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":cxx_library_utility.bzl",
     "cxx_inherited_link_info",
+    "cxx_use_shlib_intfs",
+)
+load(
+    ":shared_library_interface.bzl",
+    "shared_library_interface",
 )
 
 def _linkage(ctx: AnalysisContext) -> Linkage:
@@ -153,8 +158,10 @@ def _get_static_link_info(
     )
 
 def _get_shared_link_info(
+        ctx: AnalysisContext,
         shared_libs: dict[str, Artifact],
-        args: list[str]) -> LinkInfo:
+        args: list[str],
+        shlib_intfs: bool = True) -> LinkInfo:
     """
     Format a pair of shared link string args and shared libs into args to be
     passed to the link, by resolving macro references to libraries.
@@ -177,6 +184,12 @@ def _get_shared_link_info(
             macro, lib_name = res
             expect(macro in ("lib", "rel-lib"))
             shared_lib = shared_libs[lib_name]
+            if shlib_intfs:
+                shared_lib = shared_library_interface(
+                    ctx = ctx,
+                    shared_lib = shared_lib,
+                    anonymous = True,
+                )
             if macro == "lib":
                 linkables.append(SharedLibLinkable(lib = shared_lib))
             elif macro == "rel-lib":
@@ -272,8 +285,10 @@ def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> list[Provider]:
         else:  # shared
             outs.extend(ctx.attrs.shared_libs.values())
             info = _get_shared_link_info(
-                flatten_dict([ctx.attrs.shared_libs, ctx.attrs.provided_shared_libs]),
-                ctx.attrs.shared_link,
+                ctx = ctx,
+                shared_libs = flatten_dict([ctx.attrs.shared_libs, ctx.attrs.provided_shared_libs]),
+                args = ctx.attrs.shared_link,
+                shlib_intfs = ctx.attrs.supports_shared_library_interface and cxx_use_shlib_intfs(ctx),
             )
             solibs.update({n: LinkedObject(output = lib, unstripped_output = lib) for n, lib in ctx.attrs.shared_libs.items()})
         outputs[link_style] = outs

@@ -1196,6 +1196,7 @@ prebuilt_cxx_library_group = prelude_rule(
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "supported_platforms_regex": attrs.option(attrs.regex(), default = None),
+            "supports_shared_library_interface": attrs.bool(default = False),
         }
     ),
 )
