@@ -178,6 +178,9 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
     # use local jar
     "uses_jar",
 
+    # uses local java
+    "uses_java",
+
     #use locally installed svnyum
     "uses_svnyum",
 
