@@ -10,7 +10,7 @@
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "expand_relative_prefixed_sdk_path", "get_disable_pch_validation_flags")
 load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_deps_tset")
-load(":swift_toolchain_types.bzl", "SdkTransitiveDepsTset", "SdkUncompiledModuleInfo", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "WrappedSdkCompiledModuleInfo")
+load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "WrappedSdkCompiledModuleInfo")
 
 def get_shared_pcm_compilation_args(module_name: str) -> cmd_args:
     cmd = cmd_args()
@@ -84,36 +84,37 @@ def get_swift_sdk_pcm_anon_targets(
         ctx: AnalysisContext,
         uncompiled_sdk_deps: list[Dependency],
         swift_cxx_args: list[str]):
-    # First collect the direct clang module deps.
-    clang_deps = [
+    # We include the Swift deps here too as we need
+    # to include their transitive clang deps.
+    all_sdk_deps = [
         d
         for d in uncompiled_sdk_deps
-        if SdkUncompiledModuleInfo in d and not d[SdkUncompiledModuleInfo].is_swiftmodule
+        if SdkUncompiledModuleInfo in d
     ]
-
-    # We need to collect the transitive clang module deps across _all_
-    # SDK deps, as we need to pass through clang deps of Swift SDK deps.
-    # These cannot be propagated through the Swift SDK deps as those
-    # use different swift_cxx_args when compiling their clang deps.
-    transitive_clang_dep_tset = ctx.actions.tset(SdkTransitiveDepsTset, children = [
-        uncompiled_sdk_dep[SdkUncompiledModuleInfo].transitive_clang_deps
-        for uncompiled_sdk_dep in uncompiled_sdk_deps
-        if SdkUncompiledModuleInfo in uncompiled_sdk_dep
-    ])
-    clang_deps += list(transitive_clang_dep_tset.traverse())
-
     return [
         (_swift_sdk_pcm_compilation, {
-            "dep": clang_module_dep,
+            "dep": module_dep,
             "swift_cxx_args": swift_cxx_args,
             "_apple_toolchain": ctx.attrs._apple_toolchain,
         })
-        for clang_module_dep in clang_deps
+        for module_dep in all_sdk_deps
     ]
 
 def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
     def k(sdk_pcm_deps_providers) -> list[Provider]:
         uncompiled_sdk_module_info = ctx.attrs.dep[SdkUncompiledModuleInfo]
+
+        # We pass in Swift and Clang SDK module deps to get the transitive
+        # Clang dependencies compiled with the correct Swift cxx args. For
+        # Swift modules we just want to pass up the clang deps.
+        if uncompiled_sdk_module_info.is_swiftmodule:
+            return [
+                DefaultInfo(),
+                WrappedSdkCompiledModuleInfo(
+                    tset = get_compiled_sdk_deps_tset(ctx, sdk_pcm_deps_providers),
+                ),
+            ]
+
         module_name = uncompiled_sdk_module_info.module_name
         apple_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo]
         swift_toolchain = apple_toolchain.swift_toolchain_info

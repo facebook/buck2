@@ -49,7 +49,7 @@ def _swift_interface_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Pr
         swift_dep_children = []
         for sdk_dep in sdk_deps_providers:
             tset = sdk_dep[WrappedSdkCompiledModuleInfo].tset
-            if tset.value.is_swiftmodule:
+            if tset.value and tset.value.is_swiftmodule:
                 swift_dep_children.append(tset)
             else:
                 clang_dep_children.append(tset)
