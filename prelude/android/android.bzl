@@ -21,7 +21,6 @@ load(":android_library.bzl", "android_library_impl")
 load(":android_manifest.bzl", "android_manifest_impl")
 load(":android_prebuilt_aar.bzl", "android_prebuilt_aar_impl")
 load(":android_resource.bzl", "android_resource_impl")
-load(":android_toolchain.bzl", "AndroidPlatformInfo", "AndroidToolchainInfo")
 load(":apk_genrule.bzl", "apk_genrule_impl")
 load(":build_only_native_code.bzl", "is_build_only_native_code")
 load(":configuration.bzl", "cpu_split_transition", "cpu_transition", "is_building_android_binary_attr")
@@ -29,16 +28,6 @@ load(":gen_aidl.bzl", "gen_aidl_impl")
 load(":prebuilt_native_library.bzl", "prebuilt_native_library_impl")
 load(":robolectric_test.bzl", "robolectric_test_impl")
 load(":voltron.bzl", "android_app_modularity_impl")
-
-def android_toolchain():
-    return attrs.toolchain_dep(
-        # FIXME: prelude// should be standalone (not refer to fbcode//)
-        default = "fbcode//buck2/platform/toolchain:android",
-        providers = [
-            AndroidPlatformInfo,
-            AndroidToolchainInfo,
-        ],
-    )
 
 implemented_rules = {
     "android_aar": android_aar_impl,
@@ -71,14 +60,14 @@ extra_attributes = {
         "min_sdk_version": attrs.option(attrs.int(), default = None),
         "package_asset_libraries": attrs.default_only(attrs.bool(default = True)),
         "resources_root": attrs.option(attrs.string(), default = None),
-        "_android_toolchain": android_toolchain(),
+        "_android_toolchain": toolchains_common.android(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
         "_is_force_single_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_CPU)),
         "_is_force_single_default_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_DEFAULT_CPU)),
         "_java_toolchain": toolchains_common.java_for_android(),
     },
     "android_app_modularity": {
-        "_android_toolchain": android_toolchain(),
+        "_android_toolchain": toolchains_common.android(),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
     },
     "android_binary": {
@@ -93,7 +82,7 @@ extra_attributes = {
         "manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "min_sdk_version": attrs.option(attrs.int(), default = None),
         "module_manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
-        "_android_toolchain": android_toolchain(),
+        "_android_toolchain": toolchains_common.android(),
         "_dex_toolchain": toolchains_common.dex(),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
@@ -102,7 +91,7 @@ extra_attributes = {
         "_java_toolchain": toolchains_common.java_for_android(),
     },
     "android_build_config": {
-        "_android_toolchain": android_toolchain(),
+        "_android_toolchain": toolchains_common.android(),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_is_building_android_binary": is_building_android_binary_attr(),
         "_java_toolchain": toolchains_common.java_for_android(),
@@ -118,7 +107,7 @@ extra_attributes = {
         "manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "min_sdk_version": attrs.option(attrs.int(), default = None),
         "module_manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
-        "_android_toolchain": android_toolchain(),
+        "_android_toolchain": toolchains_common.android(),
         "_dex_toolchain": toolchains_common.dex(),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
@@ -135,7 +124,7 @@ extra_attributes = {
         "manifest": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "min_sdk_version": attrs.option(attrs.int(), default = None),
-        "_android_toolchain": android_toolchain(),
+        "_android_toolchain": toolchains_common.android(),
         "_dex_toolchain": toolchains_common.dex(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
         "_is_force_single_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_CPU)),
@@ -143,14 +132,14 @@ extra_attributes = {
         "_java_toolchain": toolchains_common.java_for_android(),
     },
     "android_instrumentation_test": {
-        "_android_toolchain": android_toolchain(),
+        "_android_toolchain": toolchains_common.android(),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_java_toolchain": toolchains_common.java_for_android(),
     },
     "android_library": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),
-        "_android_toolchain": android_toolchain(),
+        "_android_toolchain": toolchains_common.android(),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_dex_min_sdk_version": attrs.default_only(attrs.option(attrs.int(), default = dex_min_sdk_version())),
         "_dex_toolchain": toolchains_common.dex(),
@@ -160,14 +149,14 @@ extra_attributes = {
         "_kotlin_toolchain": toolchains_common.kotlin(),
     },
     "android_manifest": {
-        "_android_toolchain": android_toolchain(),
+        "_android_toolchain": toolchains_common.android(),
     },
     "android_prebuilt_aar": {
         # Prebuilt jars are quick to build, and often contain third-party code, which in turn is
         # often a source of annotations and constants. To ease migration to ABI generation from
         # source without deps, we have them present during ABI gen by default.
         "required_for_source_only_abi": attrs.bool(default = True),
-        "_android_toolchain": android_toolchain(),
+        "_android_toolchain": toolchains_common.android(),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_dex_min_sdk_version": attrs.default_only(attrs.option(attrs.int(), default = dex_min_sdk_version())),
         "_dex_toolchain": toolchains_common.dex(),
@@ -179,16 +168,16 @@ extra_attributes = {
         "project_assets": attrs.option(attrs.source(allow_directory = True), default = None),
         "project_res": attrs.option(attrs.source(allow_directory = True), default = None),
         "res": attrs.option(attrs.one_of(attrs.source(allow_directory = True), attrs.dict(key = attrs.string(), value = attrs.source(), sorted = True)), default = None),
-        "_android_toolchain": android_toolchain(),
+        "_android_toolchain": toolchains_common.android(),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
     },
     "apk_genrule": genrule_attributes() | {
         "type": attrs.string(default = "apk"),
-        "_android_toolchain": android_toolchain(),
+        "_android_toolchain": toolchains_common.android(),
     },
     "gen_aidl": {
         "import_paths": attrs.list(attrs.arg(), default = []),
-        "_android_toolchain": android_toolchain(),
+        "_android_toolchain": toolchains_common.android(),
         "_java_toolchain": toolchains_common.java_for_android(),
     },
     "prebuilt_native_library": {
@@ -199,7 +188,7 @@ extra_attributes = {
         "resources_root": attrs.option(attrs.string(), default = None),
         "robolectric_runtime_dependencies": attrs.list(attrs.source(), default = []),
         "unbundled_resources_root": attrs.option(attrs.source(allow_directory = True), default = None),
-        "_android_toolchain": android_toolchain(),
+        "_android_toolchain": toolchains_common.android(),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = False)),

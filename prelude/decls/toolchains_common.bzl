@@ -7,6 +7,7 @@
 
 # @starlark-rust: allow_string_literals_in_type_expr
 
+load("@prelude//android:android_toolchain.bzl", "AndroidPlatformInfo", "AndroidToolchainInfo")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
 load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
 load("@prelude//haskell:haskell.bzl", "HaskellPlatformInfo", "HaskellToolchainInfo")
@@ -31,6 +32,9 @@ def _toolchain(lang: str, providers: list[typing.Any]) -> "attribute":
 
 def _toolchain_with_override(lang: str, providers: list[typing.Any]) -> "attribute":
     return attrs.toolchain_dep(default = "toolchains//:" + lang, providers = providers)
+
+def _android_toolchain():
+    return _toolchain("android", [AndroidToolchainInfo, AndroidPlatformInfo])
 
 def _cxx_toolchain():
     return _toolchain("cxx", [CxxToolchainInfo, CxxPlatformInfo])
@@ -73,6 +77,7 @@ def _rust_toolchain():
     return _toolchain("rust", [RustToolchainInfo])
 
 toolchains_common = struct(
+    android = _android_toolchain,
     cxx = _cxx_toolchain,
     dex = _dex_toolchain,
     go = _go_toolchain,
