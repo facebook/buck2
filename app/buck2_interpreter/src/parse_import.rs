@@ -9,6 +9,8 @@
 
 //! Parses imports for load_file() calls in build files.
 
+use buck2_core::bzl::ImportPath;
+use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
@@ -154,6 +156,16 @@ pub fn parse_import_with_config(
             }
         }
     }
+}
+
+pub fn parse_bzl_path_with_config(
+    cell_resolver: &CellAliasResolver,
+    import: &str,
+    opts: &ParseImportOptions,
+    build_cell_path: BuildFileCell,
+) -> anyhow::Result<ImportPath> {
+    let path = parse_import_with_config(cell_resolver, import, opts)?;
+    ImportPath::new_with_build_file_cells(path, build_cell_path)
 }
 
 #[cfg(test)]

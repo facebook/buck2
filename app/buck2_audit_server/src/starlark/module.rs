@@ -12,10 +12,9 @@ use std::io::Write;
 use buck2_audit::starlark::module::StarlarkModuleCommand;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_interpreter::load_module::InterpreterCalculation;
-use buck2_interpreter::parse_import::parse_import_with_config;
+use buck2_interpreter::parse_import::parse_bzl_path_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::parse_import::RelativeImports;
 use buck2_interpreter::paths::module::StarlarkModulePath;
@@ -39,7 +38,7 @@ pub(crate) async fn server_execute(
                 .get(current_cell_path.cell())?
                 .cell_alias_resolver();
 
-            let path = parse_import_with_config(
+            let import_path = parse_bzl_path_with_config(
                 cell_alias_resolver,
                 &command.import_path,
                 &ParseImportOptions {
@@ -49,9 +48,8 @@ pub(crate) async fn server_execute(
                     // Otherwise `@arg` is expanded as mode file.
                     allow_missing_at_symbol: true,
                 },
+                current_cell,
             )?;
-
-            let import_path = ImportPath::new_with_build_file_cells(path, current_cell)?;
 
             let loaded_module = dice_ctx
                 .get_loaded_module(StarlarkModulePath::LoadFile(&import_path))

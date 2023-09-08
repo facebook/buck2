@@ -24,7 +24,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_interpreter::load_module::InterpreterCalculation;
-use buck2_interpreter::parse_import::parse_import_with_config;
+use buck2_interpreter::parse_import::parse_bzl_path_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::parse_import::RelativeImports;
 use buck2_interpreter::prelude_path::prelude_path;
@@ -74,8 +74,7 @@ fn parse_import_paths(
     symbol_patterns
         .iter()
         .map(|symbol_pattern| {
-            let path = parse_import_with_config(cell_resolver, symbol_pattern, &parse_options)?;
-            ImportPath::new_with_build_file_cells(path, current_cell)
+            parse_bzl_path_with_config(cell_resolver, symbol_pattern, &parse_options, current_cell)
         })
         .collect()
 }
