@@ -165,10 +165,18 @@ def cxx_link_into(
         split_debug_output = split_debug_lto_info.output
     expect(not generates_split_debug(ctx) or split_debug_output != None)
 
+    link_args_suffix = None
+    if opts.identifier:
+        link_args_suffix = opts.identifier
+    if opts.category_suffix:
+        if link_args_suffix:
+            link_args_suffix += "-" + opts.category_suffix
+        else:
+            link_args_suffix = opts.category_suffix
     link_args_output = make_link_args(
         ctx,
         links_with_linker_map,
-        suffix = opts.identifier,
+        suffix = link_args_suffix,
         output_short_path = output.short_path,
         is_shared = result_type.value == "shared_library",
         link_ordering = value_or(
