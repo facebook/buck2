@@ -518,11 +518,14 @@ def create_merged_link_info(
         swift_runtime = swift_runtime,
     )
 
-# TODO(cjhopman): This is used for two distinct uses and just happens to work for both. I think it would be
-# good to separate those.
-def merge_link_infos(
+def create_merged_link_info_for_propagation(
         ctx: AnalysisContext,
         xs: list[MergedLinkInfo]) -> MergedLinkInfo:
+    """
+    Creates a MergedLinkInfo for a node that just propagates up its dependencies' MergedLinkInfo without contributing anything itself.
+
+    A node that contributes something itself would use create_merged_link_info.
+    """
     merged = {}
     merged_external_debug_info = {}
     frameworks = {}
@@ -666,18 +669,37 @@ def map_to_link_infos(links: list[LinkArgs]) -> list[LinkInfo]:
         fail("Unpacked invalid empty link args")
     return res
 
-def get_link_args(
-        merged: MergedLinkInfo,
+def get_link_args_for_strategy(
+        ctx: AnalysisContext,
+        deps_merged_link_infos: list[MergedLinkInfo],
         link_strategy: LinkStrategy,
-        prefer_stripped: bool = False) -> LinkArgs:
+        prefer_stripped: bool = False,
+        additional_link_info: [LinkInfo, None] = None) -> LinkArgs:
     """
-    Return `LinkArgs` for `MergedLinkInfo`  given a link style and a strip preference.
+    Derive the `LinkArgs` for a strategy and strip preference from a list of dependency's MergedLinkInfo.
     """
+
+    infos_kwargs = {}
+    if additional_link_info:
+        infos_kwargs = {"value": LinkInfos(default = additional_link_info, stripped = additional_link_info)}
+    infos = ctx.actions.tset(
+        LinkInfosTSet,
+        children = filter(None, [x._infos.get(link_strategy) for x in deps_merged_link_infos]),
+        **infos_kwargs
+    )
+    external_debug_info = make_artifact_tset(
+        actions = ctx.actions,
+        label = ctx.label,
+        children = filter(
+            None,
+            [x._external_debug_info.get(link_strategy) for x in deps_merged_link_infos] + ([additional_link_info.external_debug_info] if additional_link_info else []),
+        ),
+    )
 
     return LinkArgs(
         tset = LinkArgsTSet(
-            infos = merged._infos[link_strategy],
-            external_debug_info = merged._external_debug_info[link_strategy],
+            infos = infos,
+            external_debug_info = external_debug_info,
             prefer_stripped = prefer_stripped,
         ),
     )

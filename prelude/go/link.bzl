@@ -13,7 +13,7 @@ load(
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
-    "get_link_args",
+    "get_link_args_for_strategy",
     "to_link_strategy",
     "unpack_link_args",
 )
@@ -137,7 +137,7 @@ def link(
     runtime_files, extra_link_args = _process_shared_dependencies(ctx, output, deps, link_style)
 
     # Gather external link args from deps.
-    ext_links = get_link_args(cxx_inherited_link_info(ctx, deps), to_link_strategy(link_style))
+    ext_links = get_link_args_for_strategy(ctx, cxx_inherited_link_info(deps), to_link_strategy(link_style))
     ext_link_args = cmd_args(unpack_link_args(ext_links))
     ext_link_args.add(cmd_args(extra_link_args, quote = "shell"))
 

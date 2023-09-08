@@ -35,7 +35,7 @@ load(
     "LinkStyle",
     "Linkage",
     "MergedLinkInfo",
-    "merge_link_infos",
+    "create_merged_link_info_for_propagation",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -222,7 +222,7 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
             pkgs,
             get_inherited_link_pkgs(ctx.attrs.deps + ctx.attrs.exported_deps),
         ])),
-        merge_link_infos(ctx, filter(None, [d.get(MergedLinkInfo) for d in ctx.attrs.deps])),
+        create_merged_link_info_for_propagation(ctx, filter(None, [d.get(MergedLinkInfo) for d in ctx.attrs.deps])),
         merge_shared_libraries(
             ctx.actions,
             deps = filter(None, map_idx(SharedLibraryInfo, ctx.attrs.deps)),

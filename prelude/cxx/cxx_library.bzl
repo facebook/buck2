@@ -70,8 +70,9 @@ load(
     "SwiftRuntimeLinkable",  # @unused Used as a type
     "SwiftmoduleLinkable",  # @unused Used as a type
     "create_merged_link_info",
+    "create_merged_link_info_for_propagation",
     "get_lib_output_style",
-    "get_link_args",
+    "get_link_args_for_strategy",
     "get_output_styles_for_linkage",
     "make_link_command_debug_output",
     "make_link_command_debug_output_json_info",
@@ -571,8 +572,14 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     # Propagate link info provider.
     if impl_params.generate_providers.merged_native_link_info or impl_params.generate_providers.template_placeholders:
         # Gather link inputs.
-        inherited_non_exported_link = cxx_inherited_link_info(ctx, non_exported_deps)
-        inherited_exported_link = cxx_inherited_link_info(ctx, exported_deps)
+        inherited_non_exported_link = cxx_inherited_link_info(non_exported_deps)
+        inherited_exported_link = cxx_inherited_link_info(exported_deps)
+
+        # TODO(cjhopman): This is strange that we construct this intermediate MergedLinkInfo rather than just
+        # passing the full list of deps below, but I'm keeping it to preserve existing behavior with a refactor.
+        # I intend to change completely how MergedLinkInfo works, so this should go away then.
+        inherited_non_exported_link = create_merged_link_info_for_propagation(ctx, inherited_non_exported_link)
+        inherited_exported_link = create_merged_link_info_for_propagation(ctx, inherited_exported_link)
 
         merged_native_link_info = create_merged_link_info(
             ctx,
@@ -756,12 +763,16 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             args = cmd_args()
             linker_info = get_cxx_toolchain_info(ctx).linker_info
             args.add(linker_info.linker_flags or [])
-            args.add(unpack_link_args(
-                get_link_args(
-                    merged_native_link_info,
-                    link_strategy,
-                ),
-            ))
+
+            # Normally, we call get_link_args_for_strategy for getting the args for our own link from our
+            # deps. This case is a bit different as we are effectively trying to get the args for how this library
+            # would be represented on a dependent's link line and so it is appropriate to use our own merged_native_link_info.
+            link_args = get_link_args_for_strategy(
+                ctx,
+                [merged_native_link_info],
+                link_strategy,
+            )
+            args.add(unpack_link_args(link_args))
             templ_vars[name] = args
 
         # TODO(T110378127): To implement `$(ldflags-shared ...)` properly, we'd need
@@ -1106,7 +1117,7 @@ def _get_shared_library_links(
 
     # If we're not filtering for link groups, link against the shared dependencies
     if not link_group_mappings and not force_link_group_linking:
-        link = cxx_inherited_link_info(ctx, dedupe(flatten([non_exported_deps, exported_deps])))
+        deps_merged_link_infos = cxx_inherited_link_info(dedupe(flatten([non_exported_deps, exported_deps])))
 
         # Even though we're returning the shared library links, we must still
         # respect the `link_style` attribute of the target which controls how
@@ -1130,7 +1141,7 @@ def _get_shared_library_links(
 
         return apple_build_link_args_with_deduped_flags(
             ctx,
-            link,
+            deps_merged_link_infos,
             frameworks_linkable,
             # fPIC behaves differently on various combinations of toolchains + platforms.
             # To get the link_strategy, we have to check the link_strategy against the toolchain's pic_behavior.

@@ -74,8 +74,8 @@ load(
     "MergedLinkInfo",
     "ObjectsLinkable",
     "create_merged_link_info",
-    "get_link_args",
-    "merge_link_infos",
+    "create_merged_link_info_for_propagation",
+    "get_link_args_for_strategy",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
@@ -683,7 +683,7 @@ def ocaml_library_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(default_output = cmxa, sub_targets = sub_targets),
         merge_ocaml_link_infos(infos),
-        merge_link_infos(ctx, _attr_deps_merged_link_infos(ctx)),
+        create_merged_link_info_for_propagation(ctx, _attr_deps_merged_link_infos(ctx)),
         merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, _attr_deps(ctx))),
         merge_link_group_lib_info(deps = _attr_deps(ctx)),
         other_outputs_info,
@@ -700,11 +700,8 @@ def ocaml_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     ocamlopt = _mk_ocaml_compiler(ctx, env, BuildMode("native"))
     ocamlc = _mk_ocaml_compiler(ctx, env, BuildMode("bytecode"))
 
-    link_infos = merge_link_infos(
-        ctx,
-        _attr_deps_merged_link_infos(ctx) + filter(None, [ocaml_toolchain.libc]),
-    )
-    link_args_output = make_link_args(ctx, [get_link_args(link_infos, LinkStrategy("static_pic"))])
+    dep_link_infos = _attr_deps_merged_link_infos(ctx) + filter(None, [ocaml_toolchain.libc])
+    link_args_output = make_link_args(ctx, [get_link_args_for_strategy(ctx, dep_link_infos, LinkStrategy("static_pic"))])
     ld_nat = _mk_ld(ctx, [link_args_output.link_args], "ld_native.sh")
     ld_byt = _mk_ld(ctx, [link_args_output.link_args], "ld_bytecode.sh")
 
@@ -787,8 +784,8 @@ def ocaml_object_impl(ctx: AnalysisContext) -> list[Provider]:
 
     env = _mk_env(ctx)
     ocamlopt = _mk_ocaml_compiler(ctx, env, BuildMode("native"))
-    deps_link_info = merge_link_infos(ctx, _attr_deps_merged_link_infos(ctx))
-    link_args_output = make_link_args(ctx, [get_link_args(deps_link_info, LinkStrategy("static_pic"))])
+    dep_link_infos = _attr_deps_merged_link_infos(ctx)
+    link_args_output = make_link_args(ctx, [get_link_args_for_strategy(ctx, dep_link_infos, LinkStrategy("static_pic"))])
     ld = _mk_ld(ctx, [link_args_output.link_args], "ld.sh")
 
     cmxs_order, stbs, objs, cmis, _cmos, cmxs, cmts, cmtis, _, _ = _compile_result_to_tuple(_compile(ctx, ocamlopt, BuildMode("native")))
@@ -826,7 +823,7 @@ def ocaml_object_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx,
         pic_behavior = cxx_toolchain.pic_behavior,
         link_infos = link_infos,
-        exported_deps = [deps_link_info],
+        exported_deps = dep_link_infos,
     )
 
     other_outputs = {
@@ -878,11 +875,8 @@ def ocaml_shared_impl(ctx: AnalysisContext) -> list[Provider]:
     env = _mk_env(ctx)
     ocamlopt = _mk_ocaml_compiler(ctx, env, BuildMode("native"))
 
-    link_infos = merge_link_infos(
-        ctx,
-        _attr_deps_merged_link_infos(ctx) + filter(None, [ocaml_toolchain.libc]),
-    )
-    link_args_output = make_link_args(ctx, [get_link_args(link_infos, LinkStrategy("static_pic"))])
+    dep_link_infos = _attr_deps_merged_link_infos(ctx) + filter(None, [ocaml_toolchain.libc])
+    link_args_output = make_link_args(ctx, [get_link_args_for_strategy(ctx, dep_link_infos, LinkStrategy("static_pic"))])
 
     # 'ocamlopt.opt' with '-cc' fails to propagate '-shared' (and potentially
     # other required flags - see the darwin "dylib" specific block below) to the
@@ -995,7 +989,7 @@ def prebuilt_ocaml_library_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(),
         merge_ocaml_link_infos(ocaml_infos + [OCamlLinkInfo(info = [info])]),
-        merge_link_infos(ctx, native_infos),
+        create_merged_link_info_for_propagation(ctx, native_infos),
         merge_link_group_lib_info(deps = ctx.attrs.deps),
         merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, ctx.attrs.deps)),
         create_linkable_graph(

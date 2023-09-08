@@ -34,8 +34,9 @@ load(
     "LinkedObject",
     "SharedLibLinkable",
     "create_merged_link_info",
+    "create_merged_link_info_for_propagation",
     "get_lib_output_style",
-    "get_link_args",
+    "get_link_args_for_strategy",
     "get_output_styles_for_linkage",
     "subtarget_for_output_style",
     "to_link_strategy",
@@ -358,8 +359,8 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         inherited_pp_infos,
     ))
 
-    inherited_link = cxx_inherited_link_info(ctx, first_order_deps)
-    inherited_exported_link = cxx_inherited_link_info(ctx, exported_first_order_deps)
+    inherited_link = cxx_inherited_link_info(first_order_deps)
+    inherited_exported_link = cxx_inherited_link_info(exported_first_order_deps)
     exported_linker_flags = cxx_attr_exported_linker_flags(ctx)
     non_exported_linker_flags = ctx.attrs.linker_flags
 
@@ -418,7 +419,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                                     LinkArgs(flags = shlink_args),
                                     # TODO(T110378118): As per v1, we always link against "shared"
                                     # dependencies when building a shaerd library.
-                                    get_link_args(inherited_exported_link, LinkStrategy("shared")),
+                                    get_link_args_for_strategy(ctx, inherited_exported_link, LinkStrategy("shared")),
                                 ],
                                 link_execution_preference = LinkExecutionPreference("any"),
                             ),
@@ -495,6 +496,11 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         sub_targets = sub_targets,
     ))
 
+    # TODO(cjhopman): This is preserving existing behavior, but it doesn't make sense. These lists can be passed
+    # unmerged to create_merged_link_info below. Potentially that could change link order, so needs to be done more carefully.
+    merged_inherited_link = create_merged_link_info_for_propagation(ctx, inherited_link)
+    merged_inherited_exported_link = create_merged_link_info_for_propagation(ctx, inherited_exported_link)
+
     # Propagate link info provider.
     providers.append(create_merged_link_info(
         ctx,
@@ -503,9 +509,9 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         libraries,
         preferred_linkage = preferred_linkage,
         # Export link info from non-exported deps (when necessary).
-        deps = [inherited_link],
+        deps = [merged_inherited_link],
         # Export link info from out (exported) deps.
-        exported_deps = [inherited_exported_link],
+        exported_deps = [merged_inherited_exported_link],
     ))
 
     # Propagate shared libraries up the tree.
@@ -601,11 +607,11 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
 def cxx_precompiled_header_impl(ctx: AnalysisContext) -> list[Provider]:
     inherited_pp_infos = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
-    inherited_link = cxx_inherited_link_info(ctx, ctx.attrs.deps)
+    inherited_link = cxx_inherited_link_info(ctx.attrs.deps)
     return [
         DefaultInfo(default_output = ctx.attrs.src),
         cxx_merge_cpreprocessors(ctx, [], inherited_pp_infos),
-        inherited_link,
+        create_merged_link_info_for_propagation(ctx, inherited_link),
         CPrecompiledHeaderInfo(header = ctx.attrs.src),
     ]
 

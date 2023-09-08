@@ -45,9 +45,9 @@ load(
     "MergedLinkInfo",
     "SharedLibLinkable",
     "create_merged_link_info",
+    "create_merged_link_info_for_propagation",
     "get_lib_output_style",
     "legacy_output_style_to_link_style",
-    "merge_link_infos",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
@@ -139,7 +139,7 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             crate = crate,
             styles = styles,
             non_rust_exported_link_deps = inherited_non_rust_exported_link_deps(ctx),
-            non_rust_link_info = inherited_non_rust_link_info(ctx),
+            non_rust_link_info = create_merged_link_info_for_propagation(ctx, inherited_non_rust_link_info(ctx)),
             non_rust_shared_libs = merge_shared_libraries(
                 ctx.actions,
                 deps = inherited_non_rust_shared_libs(ctx),
@@ -524,7 +524,7 @@ def _rust_providers(
     else:
         # proc-macros are just used by the compiler and shouldn't propagate
         # their native deps to the link line of the target.
-        inherited_non_rust_link = merge_link_infos(ctx, [])
+        inherited_non_rust_link = []
         inherited_non_rust_shlibs = []
         inherited_non_rust_link_deps = []
 
@@ -534,7 +534,7 @@ def _rust_providers(
     providers.append(RustLinkInfo(
         crate = crate,
         styles = style_info,
-        non_rust_link_info = inherited_non_rust_link,
+        non_rust_link_info = create_merged_link_info_for_propagation(ctx, inherited_non_rust_link),
         non_rust_exported_link_deps = inherited_non_rust_link_deps,
         non_rust_shared_libs = merge_shared_libraries(
             ctx.actions,
@@ -611,12 +611,16 @@ def _native_providers(
 
     preferred_linkage = Linkage(ctx.attrs.preferred_linkage)
 
+    # TODO(cjhopman): This is preserving existing behavior, but it doesn't make sense. These lists can be passed
+    # unmerged to create_merged_link_info below. Potentially that could change link order, so needs to be done more carefully.
+    merged_inherited_non_rust_link = create_merged_link_info_for_propagation(ctx, inherited_non_rust_link)
+
     # Native link provider.
     providers.append(create_merged_link_info(
         ctx,
         compile_ctx.cxx_toolchain_info.pic_behavior,
         link_infos,
-        exported_deps = [inherited_non_rust_link],
+        exported_deps = [merged_inherited_non_rust_link],
         preferred_linkage = preferred_linkage,
     ))
 

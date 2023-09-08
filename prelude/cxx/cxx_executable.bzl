@@ -52,7 +52,6 @@ load(
     "ObjectsLinkable",
     "make_link_command_debug_output",
     "make_link_command_debug_output_json_info",
-    "merge_link_infos",
     "to_link_strategy",
 )
 load(
@@ -257,7 +256,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
 
     # ctx.attrs.binary_linker_flags should come after default link flags so it can be used to override default settings
     own_binary_link_flags = impl_params.extra_binary_link_flags + own_link_flags + ctx.attrs.binary_linker_flags
-    inherited_link = merge_link_infos(ctx, [d.merged_link_info for d in link_deps])
+    deps_merged_link_infos = [d.merged_link_info for d in link_deps]
     frameworks_linkable = apple_create_frameworks_linkable(ctx)
 
     # `apple_binary()` / `cxx_binary()` _itself_ cannot contain Swift, so it does not
@@ -277,7 +276,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
 
         dep_links = apple_build_link_args_with_deduped_flags(
             ctx,
-            inherited_link,
+            deps_merged_link_infos,
             frameworks_linkable,
             link_strategy,
             prefer_stripped = impl_params.prefer_stripped_objects,

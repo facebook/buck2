@@ -43,10 +43,9 @@ load(
     "create_merged_link_info",
     "default_output_style_for_link_strategy",
     "get_lib_output_style",
-    "get_link_args",
+    "get_link_args_for_strategy",
     "get_output_styles_for_linkage",
     "legacy_output_style_to_link_style",
-    "merge_link_infos",
     "to_link_strategy",
     "unpack_link_args",
 )
@@ -834,8 +833,9 @@ def _build_haskell_lib(
         link.add(objfiles)
         link.hidden(compiled.stubs)
 
-        infos = get_link_args(
-            merge_link_infos(ctx, nlis),
+        infos = get_link_args_for_strategy(
+            ctx,
+            nlis,
             to_link_strategy(link_style),
         )
         link.add(cmd_args(unpack_link_args(infos), prepend = "-optl"))
@@ -1110,6 +1110,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
     if indexing_tsets:
         providers.append(HaskellIndexInfo(info = indexing_tsets))
 
+    # TODO(cjhopman): This code is for templ_vars is duplicated from cxx_library
     templ_vars = {}
 
     # Add in ldflag macros.
@@ -1119,8 +1120,9 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
         linker_info = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info
         args.add(linker_info.linker_flags)
         args.add(unpack_link_args(
-            get_link_args(
-                merged_link_info,
+            get_link_args_for_strategy(
+                ctx,
+                [merged_link_info],
                 to_link_strategy(link_style),
             ),
         ))
@@ -1221,10 +1223,8 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
             indexing_tsets[link_style] = tset
 
     native_linfos = dep_prof_nlinfos if enable_profiling else dep_nlinfos
-    nlis = merge_link_infos(ctx, native_linfos)
 
-    infos = get_link_args(nlis, to_link_strategy(link_style))
-
+    infos = get_link_args_for_strategy(ctx, native_linfos, to_link_strategy(link_style))
     link.add(cmd_args(unpack_link_args(infos), prepend = "-optl"))
 
     ctx.actions.run(link, category = "haskell_link")

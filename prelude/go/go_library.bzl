@@ -12,7 +12,7 @@ load(
 load(
     "@prelude//linking:link_info.bzl",
     "MergedLinkInfo",
-    "merge_link_infos",
+    "create_merged_link_info_for_propagation",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -77,7 +77,7 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
             srcs = ctx.attrs.srcs,
             pkg_name = pkg_name,
         ),
-        merge_link_infos(ctx, filter(None, [d.get(MergedLinkInfo) for d in ctx.attrs.deps])),
+        create_merged_link_info_for_propagation(ctx, filter(None, [d.get(MergedLinkInfo) for d in ctx.attrs.deps])),
         merge_shared_libraries(
             ctx.actions,
             deps = filter(None, map_idx(SharedLibraryInfo, ctx.attrs.deps)),
