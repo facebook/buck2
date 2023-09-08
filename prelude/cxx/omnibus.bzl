@@ -17,6 +17,7 @@ load(
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
     "@prelude//linking:link_info.bzl",
+    "LibOutputStyle",
     "LinkArgs",
     "LinkInfo",
     "LinkInfos",
@@ -24,7 +25,7 @@ load(
     "Linkage",
     "LinkedObject",
     "SharedLibLinkable",
-    "get_actual_link_style",
+    "get_lib_output_style",
     "link_info_to_args",
     get_link_info_from_link_infos = "get_link_info",
 )
@@ -227,17 +228,17 @@ def create_linkable_root(
         for dep in _link_deps(omnibus_graph.nodes, deps, toolchain_info.pic_behavior):
             node = omnibus_graph.nodes[dep]
 
-            actual_link_style = get_actual_link_style(
+            output_style = get_lib_output_style(
                 LinkStyle("shared"),
                 node.preferred_linkage,
                 toolchain_info.pic_behavior,
             )
 
-            if actual_link_style != LinkStyle("shared"):
+            if output_style != LibOutputStyle("shared_lib"):
                 inputs.append(
                     get_link_info(
                         node,
-                        actual_link_style,
+                        output_style,
                         prefer_stripped = prefer_stripped_objects,
                     ),
                 )
@@ -247,7 +248,7 @@ def create_linkable_root(
             is_root = dep in omnibus_graph.roots
 
             if is_excluded or (_is_shared_only(node) and not is_root):
-                inputs.append(get_link_info(node, actual_link_style, prefer_stripped = prefer_stripped_objects))
+                inputs.append(get_link_info(node, output_style, prefer_stripped = prefer_stripped_objects))
                 required_exclusions.append(dep)
                 continue
 
@@ -437,17 +438,17 @@ def _create_root(
     # Add deps of the root to the link line.
     for dep in link_deps:
         node = spec.link_infos[dep]
-        actual_link_style = get_actual_link_style(
+        output_style = get_lib_output_style(
             LinkStyle("shared"),
             node.preferred_linkage,
             pic_behavior,
         )
 
         # If this dep needs to be linked statically, then link it directly.
-        if actual_link_style != LinkStyle("shared"):
+        if output_style != LibOutputStyle("shared_lib"):
             inputs.append(get_link_info(
                 node,
-                actual_link_style,
+                output_style,
                 prefer_stripped = prefer_stripped_objects,
             ))
             continue
@@ -468,8 +469,8 @@ def _create_root(
         expect(dep in spec.excluded, str(dep))
 
         # We should have already handled statically linked nodes above.
-        expect(actual_link_style == LinkStyle("shared"))
-        inputs.append(get_link_info(node, actual_link_style))
+        expect(output_style == LibOutputStyle("shared_lib"))
+        inputs.append(get_link_info(node, output_style))
 
     output = value_or(root.name, get_default_shared_library_name(
         linker_info,
@@ -684,15 +685,15 @@ def _create_omnibus(
         node = spec.link_infos[label]
 
         # Otherwise add in the static input for this node.
-        actual_link_style = get_actual_link_style(
+        output_style = get_lib_output_style(
             LinkStyle("static_pic"),
             node.preferred_linkage,
             pic_behavior,
         )
-        expect(actual_link_style == LinkStyle("static_pic"))
+        expect(output_style == LibOutputStyle("pic_archive"))
         body_input = get_link_info(
             node,
-            actual_link_style,
+            output_style,
             prefer_stripped = prefer_stripped_objects,
         )
         inputs.append(body_input)
@@ -709,14 +710,14 @@ def _create_omnibus(
     # Now add deps of omnibus to the link
     for label in _link_deps(spec.link_infos, deps.keys(), toolchain_info.pic_behavior):
         node = spec.link_infos[label]
-        actual_link_style = get_actual_link_style(
+        output_style = get_lib_output_style(
             LinkStyle("shared"),
             node.preferred_linkage,
             toolchain_info.pic_behavior,
         )
         inputs.append(get_link_info(
             node,
-            actual_link_style,
+            output_style,
             prefer_stripped = prefer_stripped_objects,
         ))
 

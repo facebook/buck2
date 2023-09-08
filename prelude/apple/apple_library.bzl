@@ -61,7 +61,7 @@ load(
 )
 load(
     "@prelude//linking:link_info.bzl",
-    "LinkStyle",
+    "LibOutputStyle",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:utils.bzl", "expect")
@@ -233,7 +233,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
             },
             additional_providers_factory = additional_providers_factory,
         ),
-        link_style_sub_targets_and_providers_factory = _get_link_style_sub_targets_and_providers,
+        output_style_sub_targets_and_providers_factory = _get_link_style_sub_targets_and_providers,
         shared_library_flags = params.shared_library_flags,
         # apple_library's 'stripped' arg only applies to shared subtargets, or,
         # targets with 'preferred_linkage = "shared"'
@@ -266,7 +266,7 @@ def _filter_swift_srcs(ctx: AnalysisContext) -> (list["CxxSrcWithFlags"], list["
     return cxx_srcs, swift_srcs
 
 def _get_link_style_sub_targets_and_providers(
-        link_style: LinkStyle,
+        output_style: LibOutputStyle,
         ctx: AnalysisContext,
         output: [CxxLibraryOutput, None]) -> (dict[str, list[Provider]], list[Provider]):
     # We always propagate a resource graph regardless of link style or empty output
@@ -277,10 +277,9 @@ def _get_link_style_sub_targets_and_providers(
         exported_deps = cxx_attr_exported_deps(ctx),
         # Shared libraries should not propagate their resources to rdeps,
         # they should only be contained in their frameworks apple_bundle.
-        should_propagate = link_style != LinkStyle("shared"),
+        should_propagate = output_style != LibOutputStyle("shared_lib"),
     )
-
-    if link_style != LinkStyle("shared") or output == None:
+    if output_style != LibOutputStyle("shared_lib") or output == None:
         return ({}, [resource_graph])
 
     min_version = get_min_deployment_version_for_node(ctx)

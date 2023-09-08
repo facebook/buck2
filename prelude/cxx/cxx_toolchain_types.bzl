@@ -134,6 +134,14 @@ CxxObjectFormat = enum(
     "swift",
 )
 
+# - For targets being built for x86_64, arm64, the fPIC flag isn't respected. Everything is fPIC.
+# - For targets being built for Windows, nothing is fPIC. The flag is ignored.
+# - There are many platforms (linux, etc.) where the fPIC flag is supported.
+#
+# As a result, we can end-up in a place where you pic + non-pic artifacts are requested
+# but the platform will produce the exact same output (despite the different files).
+#
+# The PicBehavior is applied to avoid using link or output styles that are unsupported by a toolchain.
 PicBehavior = enum(
     # Regardless of whether -fPIC is specified explicitly
     # every compiled artifact will have a position-independent representation.

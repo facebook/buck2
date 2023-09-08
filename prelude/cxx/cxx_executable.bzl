@@ -411,6 +411,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             link_group_preferred_linkage = link_group_preferred_linkage,
             labels_to_links_map = labels_to_links_map,
         )
+
         for name, shared_lib in traverse_shared_library_info(shlib_info).items():
             label = shared_lib.label
             if not gnu_use_link_groups or is_link_group_shlib(label, link_group_ctx):

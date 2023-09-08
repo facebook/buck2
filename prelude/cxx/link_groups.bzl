@@ -13,6 +13,7 @@ load(
 )
 load(
     "@prelude//linking:link_info.bzl",
+    "LibOutputStyle",
     "LinkArgs",
     "LinkInfo",
     "LinkInfos",
@@ -20,7 +21,7 @@ load(
     "Linkage",
     "LinkedObject",  # @unused Used as a type
     "SharedLibLinkable",
-    "get_actual_link_style",
+    "get_lib_output_style",
     "set_linkable_link_whole",
     "wrap_link_info",
     "wrap_with_no_as_needed_shared_libs_flags",
@@ -115,7 +116,7 @@ LinkGroupInfo = provider(fields = [
 
 LinkGroupLinkInfo = record(
     link_info = field(LinkInfo),
-    link_style = field(LinkStyle),
+    output_style = field(LibOutputStyle),
 )
 
 LinkGroupLibSpec = record(
@@ -239,7 +240,7 @@ def is_link_group_shlib(
     # if using link_groups, only materialize the link_group shlibs
     # buildifier: disable=uninitialized
     node_link = ctx.labels_to_links_map.get(label)
-    if node_link != None and node_link.link_style == LinkStyle("shared"):
+    if node_link != None and node_link.output_style == LibOutputStyle("shared_lib"):
         return True
 
     return False
@@ -259,8 +260,8 @@ def _transitively_update_shared_linkage(
         node = linkable_graph_node_map.get(target)
         if node == None:
             continue
-        actual_link_style = get_actual_link_style(link_style, link_group_preferred_linkage.get(target, node.preferred_linkage), pic_behavior)
-        if actual_link_style == LinkStyle("shared"):
+        output_style = get_lib_output_style(link_style, link_group_preferred_linkage.get(target, node.preferred_linkage), pic_behavior)
+        if output_style == LibOutputStyle("shared_lib"):
             target_link_group = link_group_roots.get(target)
             if target_link_group == None or target_link_group == link_group:
                 shared_lib_roots.append(target)
@@ -353,10 +354,10 @@ def get_filtered_labels_to_links_map(
     # for each of the possible multiple nodes that maps to it.
     link_group_added = {}
 
-    def add_link(target: Label, link_style: LinkStyle):
+    def add_link(target: Label, output_style: LibOutputStyle):
         linkable_map[target] = LinkGroupLinkInfo(
-            link_info = get_link_info(linkable_graph_node_map[target], link_style, prefer_stripped),
-            link_style = link_style,
+            link_info = get_link_info(linkable_graph_node_map[target], output_style, prefer_stripped),
+            output_style = output_style,
         )  # buildifier: disable=uninitialized
 
     def add_link_group(target: Label, target_group: str):
@@ -378,17 +379,17 @@ def get_filtered_labels_to_links_map(
         link_group_added[target_group] = None
         linkable_map[target] = LinkGroupLinkInfo(
             link_info = get_link_info_from_link_infos(shared_link_infos),
-            link_style = LinkStyle("shared"),
+            output_style = LibOutputStyle("shared_lib"),
         )  # buildifier: disable=uninitialized
 
     filtered_groups = [None, NO_MATCH_LABEL, MATCH_ALL_LABEL]
 
     for target in linkables:
         node = linkable_graph_node_map[target]
-        actual_link_style = get_actual_link_style(link_style, link_group_preferred_linkage.get(target, node.preferred_linkage), pic_behavior)
+        output_style = get_lib_output_style(link_style, link_group_preferred_linkage.get(target, node.preferred_linkage), pic_behavior)
 
         # Always link any shared dependencies
-        if actual_link_style == LinkStyle("shared"):
+        if output_style == LibOutputStyle("shared_lib"):
             # filter out any dependencies to be discarded
             group = link_groups.get(link_group_mappings.get(target))
             if group != None and group.attrs.discard_group:
@@ -401,22 +402,22 @@ def get_filtered_labels_to_links_map(
             if target_link_group != None and target_link_group != link_group:
                 add_link_group(target, target_link_group)
             else:
-                add_link(target, LinkStyle("shared"))
+                add_link(target, LibOutputStyle("shared_lib"))
         else:  # static or static_pic
             target_link_group = link_group_mappings.get(target)
 
             # Always add force-static libs to the link.
             if force_static_follows_dependents and node.preferred_linkage == Linkage("static"):
-                add_link(target, actual_link_style)
+                add_link(target, output_style)
             elif not target_link_group and not link_group:
                 # Ungrouped linkable targets belong to the unlabeled executable
-                add_link(target, actual_link_style)
+                add_link(target, output_style)
             elif is_executable_link and target_link_group == NO_MATCH_LABEL:
                 # Targets labeled NO_MATCH belong to the unlabeled executable
-                add_link(target, actual_link_style)
+                add_link(target, output_style)
             elif target_link_group == MATCH_ALL_LABEL or target_link_group == link_group:
                 # If this belongs to the match all link group or the group currently being evaluated
-                add_link(target, actual_link_style)
+                add_link(target, output_style)
             elif target_link_group not in filtered_groups:
                 add_link_group(target, target_link_group)
 

@@ -39,9 +39,9 @@ load(
 )
 load(
     "@prelude//linking:link_info.bzl",
+    "LibOutputStyle",
     "LinkInfo",
     "LinkInfos",
-    "LinkStyle",
     "Linkage",
     "create_merged_link_info",
     "wrap_link_infos",
@@ -125,7 +125,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
 
     cxx_library_info = cxx_library_parameterized(ctx, impl_params)
     libraries = cxx_library_info.all_outputs
-    shared_output = libraries.outputs[LinkStyle("shared")]
+    shared_output = libraries.outputs[LibOutputStyle("shared_lib")]
 
     expect(libraries.solib != None, "Expected cxx_python_extension to produce a solib: {}".format(ctx.label))
     extension = libraries.solib[1]
@@ -155,14 +155,14 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # For python_cxx_extensions we need to mangle the symbol names in order to avoid collisions
     # when linking into the main binary
-    embeddable = ctx.attrs.allow_embedding and LinkStyle("static") in libraries.outputs
+    embeddable = ctx.attrs.allow_embedding and LibOutputStyle("archive") in libraries.outputs
     if embeddable:
         if not ctx.attrs.allow_suffixing:
             pyinit_symbol = "PyInit_{}".format(module_name)
         else:
             suffix = base_module.replace("/", "$") + module_name
-            static_output = libraries.outputs[LinkStyle("static")]
-            static_pic_output = libraries.outputs[LinkStyle("static_pic")]
+            static_output = libraries.outputs[LibOutputStyle("archive")]
+            static_pic_output = libraries.outputs[LibOutputStyle("pic_archive")]
             link_infos = rewrite_static_symbols(
                 ctx,
                 suffix,
@@ -184,7 +184,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
     # Add a dummy shared link info to avoid marking this node as preferred
     # linkage being "static", which has a special meaning for various link
     # strategies
-    link_infos[LinkStyle("shared")] = LinkInfos(default = LinkInfo())
+    link_infos[LibOutputStyle("shared_lib")] = LinkInfos(default = LinkInfo())
 
     # Create linkable providers for the extension.
     link_deps = linkables(cxx_deps)
@@ -217,7 +217,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         linkable_root_info = create_linkable_root(
             ctx = ctx,
             link_infos = wrap_link_infos(
-                link_infos[LinkStyle("static_pic")],
+                link_infos[LibOutputStyle("pic_archive")],
                 pre_flags = ctx.attrs.linker_flags,
                 post_flags = ctx.attrs.post_linker_flags,
             ),

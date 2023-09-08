@@ -56,6 +56,7 @@ load(
     "@prelude//linking:link_info.bzl",
     "ArchiveLinkable",
     "FrameworksLinkable",  # @unused Used as a type
+    "LibOutputStyle",
     "LinkArgs",
     "LinkCommandDebugOutputInfo",
     "LinkInfo",
@@ -65,17 +66,17 @@ load(
     "Linkage",
     "LinkedObject",  # @unused Used as a type
     "ObjectsLinkable",
-    "STATIC_LINK_STYLES",
     "SharedLibLinkable",
     "SwiftRuntimeLinkable",  # @unused Used as a type
     "SwiftmoduleLinkable",  # @unused Used as a type
     "create_merged_link_info",
-    "get_actual_link_style",
+    "get_lib_output_style",
     "get_link_args",
-    "get_link_styles_for_linkage",
+    "get_output_styles_for_linkage",
     "make_link_command_debug_output",
     "make_link_command_debug_output_json_info",
     "process_link_style_for_pic_behavior",
+    "subtarget_for_output_style",
     "unpack_link_args",
     "wrap_link_info",
 )
@@ -197,8 +198,8 @@ load(
 # it represents just the sources of the library target itself, while a shared library will bundle multiple libraries
 # together.
 CxxLibraryOutput = record(
-    # The link style of this output.
-    link_style = field(LinkStyle),
+    # The output style of this output.
+    output_style = field(LibOutputStyle),
 
     # The main output.
     default = field(Artifact),
@@ -246,11 +247,12 @@ _CxxAllLibraryOutputs = record(
     # or via the link group strategy if this library has link group mapping.
     # A header-only lib won't produce any outputs (but it may still provide LinkInfos below).
     # TODO(cjhopman): make library-level link_group shared lib not put its output here
-    outputs = field(dict[LinkStyle, CxxLibraryOutput]),
+    outputs = field(dict[LibOutputStyle, CxxLibraryOutput]),
 
-    # The link infos for linking against this lib for each link style. It's possible for a library to
+    # The link infos for linking against this lib of each output style. It's possible for a library to
     # add link_infos even when it doesn't produce an output itself.
-    link_infos = field(dict[LinkStyle, LinkInfos]),
+    link_infos = field(dict[LibOutputStyle, LinkInfos]),
+
     # Extra providers to be returned consumers of this rule.
     providers = field(list[Provider], default = []),
     # Shared object name to shared library mapping if this target produces a shared library.
@@ -322,8 +324,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         sub_targets = {}
 
         # Needed to handle cases of the named output (e.g. [static-pic]) being called directly.
-        for link_style in get_link_styles_for_linkage(cxx_attr_preferred_linkage(ctx)):
-            sub_targets[link_style.value.replace("_", "-")] = [DefaultInfo(default_output = None)]
+        for output_style in get_output_styles_for_linkage(cxx_attr_preferred_linkage(ctx)):
+            sub_targets[subtarget_for_output_style(output_style)] = [DefaultInfo(default_output = None)]
 
         return _CxxLibraryParameterizedOutput(
             providers = [
@@ -502,53 +504,50 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     providers.extend(library_outputs.providers)
 
     pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior
-    actual_link_style = get_actual_link_style(cxx_attr_link_style(ctx), preferred_linkage, pic_behavior)
 
-    # Output sub-targets for all link-styles.
+    # This is the output style for the library's own link_style+preferred_linkage.
+    default_output_style = get_lib_output_style(cxx_attr_link_style(ctx), preferred_linkage, pic_behavior)
+
+    # Output sub-targets for all output-styles.
     if impl_params.generate_sub_targets.link_style_outputs or impl_params.generate_providers.link_style_outputs:
-        actual_link_style_providers = []
-
-        for link_style in get_link_styles_for_linkage(preferred_linkage):
-            output = library_outputs.outputs.get(link_style, None)
-            link_style_sub_targets, link_style_providers = impl_params.link_style_sub_targets_and_providers_factory(
-                link_style,
+        default_output_style_providers = []
+        for output_style in get_output_styles_for_linkage(preferred_linkage):
+            output = library_outputs.outputs.get(output_style, None)
+            output_style_sub_targets, output_style_providers = impl_params.output_style_sub_targets_and_providers_factory(
+                output_style,
                 ctx,
                 output,
             )
 
             if output:
-                # Add any subtargets for this link style.
-                link_style_sub_targets.update(output.sub_targets)
+                # Add any subtargets for this output style.
+                output_style_sub_targets.update(output.sub_targets)
 
             if impl_params.generate_sub_targets.link_style_outputs:
-                sub_target_providers = []
                 if output:
-                    sub_target_providers.append(DefaultInfo(
+                    sub_targets[subtarget_for_output_style(output_style)] = [DefaultInfo(
                         default_output = output.default,
                         other_outputs = output.other,
-                        sub_targets = link_style_sub_targets,
-                    ))
-                if link_style_providers:
-                    sub_target_providers.extend(link_style_providers)
+                        sub_targets = output_style_sub_targets,
+                    )] + (output_style_providers if output_style_providers else [])
 
-                sub_targets[link_style.value.replace("_", "-")] = sub_target_providers
-
-                if link_style == actual_link_style:
+                if output_style == default_output_style:
                     # If we have additional providers for the current link style,
                     # add them to the list of default providers
-                    actual_link_style_providers += link_style_providers
+                    # TODO(cjhopman): This looks like a bug, adding to providers probably shouldn't depend on generate_sub_target.link_style_outputs
+                    default_output_style_providers += output_style_providers
 
                     # In addition, ensure any subtargets for the active link style
                     # can be accessed as a default subtarget
-                    for link_style_sub_target_name, link_style_sub_target_providers in link_style_sub_targets.items():
-                        sub_targets[link_style_sub_target_name] = link_style_sub_target_providers
+                    for output_style_sub_target_name, output_style_sub_target_providers in output_style_sub_targets.items():
+                        sub_targets[output_style_sub_target_name] = output_style_sub_target_providers
 
         if impl_params.generate_providers.link_style_outputs:
-            providers += actual_link_style_providers
+            providers += default_output_style_providers
 
     # Create the default output for the library rule given it's link style and preferred linkage
     # It's possible for a library to not produce any output, for example, a header only library doesn't produce any archive or shared lib
-    default_output = library_outputs.outputs[actual_link_style] if actual_link_style in library_outputs.outputs else None
+    default_output = library_outputs.outputs[default_output_style] if default_output_style in library_outputs.outputs else None
 
     if default_output and default_output.bitcode_bundle:
         sub_targets["bitcode"] = [DefaultInfo(default_output = default_output.bitcode_bundle.artifact)]
@@ -816,7 +815,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                 label = ctx.label,
                 name = link_group,
                 shared_libs = solib_as_dict,
-                shared_link_infos = library_outputs.link_infos.get(LinkStyle("shared")),
+                shared_link_infos = library_outputs.link_infos.get(LibOutputStyle("shared_lib")),
                 deps = exported_deps + non_exported_deps,
             ),
         )
@@ -834,11 +833,11 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
 def get_default_cxx_library_product_name(ctx, impl_params) -> str:
     preferred_linkage = cxx_attr_preferred_linkage(ctx)
-    link_style = get_actual_link_style(cxx_attr_link_style(ctx), preferred_linkage, get_cxx_toolchain_info(ctx).pic_behavior)
-    if link_style in STATIC_LINK_STYLES:
-        return _base_static_library_name(ctx, False)
-    else:
+    output_style = get_lib_output_style(cxx_attr_link_style(ctx), preferred_linkage, get_cxx_toolchain_info(ctx).pic_behavior)
+    if output_style == LibOutputStyle("shared_lib"):
         return _soname(ctx, impl_params)
+    else:
+        return _base_static_library_name(ctx, False)
 
 def _get_library_compile_output(ctx, outs: list[CxxCompileOutput], extra_link_input) -> _CxxLibraryCompileOutput:
     objects = [out.object for out in outs]
@@ -927,20 +926,20 @@ def _form_library_outputs(
         )
 
     # We don't know which outputs consumers may want, so we define all the possibilities given our preferred linkage.
-    for link_style in get_link_styles_for_linkage(preferred_linkage):
+    for output_style in get_output_styles_for_linkage(preferred_linkage):
         output = None
         stripped = None
         info = None
 
         # Generate the necessary libraries and
         # add them to the exported link info.
-        if link_style in (LinkStyle("static"), LinkStyle("static_pic")):
-            pic = _use_pic(link_style)
+        if output_style != LibOutputStyle("shared_lib"):
+            pic = _use_pic(output_style)
             lib_compile_output = compiled_srcs.pic
             if not pic:
                 lib_compile_output = compiled_srcs.non_pic
                 if not lib_compile_output:
-                    fail("link_style {} requires non_pic compiled srcs, but didn't have any in {}".format(link_style, compiled_srcs))
+                    fail("output_style {} requires non_pic compiled srcs, but didn't have any in {}".format(output_style, compiled_srcs))
 
             # Only generate an archive if we have objects to include
             if lib_compile_output.objects:
@@ -1014,7 +1013,7 @@ def _form_library_outputs(
                     providers.append(LinkCommandDebugOutputInfo(debug_outputs = [link_cmd_debug_output]))
 
                 output = CxxLibraryOutput(
-                    link_style = LinkStyle("shared"),
+                    output_style = LibOutputStyle("shared_lib"),
                     default = shlib.output,
                     unstripped = shlib.unstripped_output,
                     object_files = compiled_srcs.pic.objects,
@@ -1042,8 +1041,8 @@ def _form_library_outputs(
         # you cannot link against header only libraries so create an empty link info
         info = info if info != None else LinkInfo()
         if output:
-            outputs[link_style] = output
-        link_infos[link_style] = LinkInfos(
+            outputs[output_style] = output
+        link_infos[output_style] = LinkInfos(
             default = ldflags(info),
             stripped = ldflags(stripped) if stripped != None else None,
         )
@@ -1173,11 +1172,11 @@ def _get_shared_library_links(
 
     return LinkArgs(infos = filtered_links), get_link_group_map_json(ctx, filtered_targets), link_execution_preference
 
-def _use_pic(link_style: LinkStyle) -> bool:
+def _use_pic(output_style: LibOutputStyle) -> bool:
     """
-    Whether this link style requires PIC objects.
+    Whether this output style requires PIC objects.
     """
-    return link_style != LinkStyle("static")
+    return output_style != LibOutputStyle("archive")
 
 # Create the objects/archive to use for static linking this rule.
 # Returns a tuple of objects/archive to use as the default output for the link
@@ -1260,7 +1259,7 @@ def _static_library(
 
     return (
         CxxLibraryOutput(
-            link_style = LinkStyle("static_pic") if pic else LinkStyle("static"),
+            output_style = LibOutputStyle("pic_archive") if pic else LibOutputStyle("archive"),
             default = archive.artifact,
             unstripped = archive.artifact,
             object_files = objects,

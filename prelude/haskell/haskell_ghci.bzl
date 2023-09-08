@@ -35,7 +35,7 @@ load(
     "LinkInfo",
     "LinkStyle",
     "Linkage",
-    "get_actual_link_style",
+    "get_lib_output_style",
     "set_linkable_link_whole",
 )
 load(
@@ -234,13 +234,13 @@ def _build_haskell_omnibus_so(ctx: AnalysisContext) -> HaskellOmnibusData:
             # Not skipping these leads to duplicate symbol errors
             continue
 
-        actual_link_style = get_actual_link_style(
+        output_style = get_lib_output_style(
             link_style,
             node.preferred_linkage,
             pic_behavior = pic_behavior,
         )
 
-        li = get_link_info(node, actual_link_style)
+        li = get_link_info(node, output_style)
         linkables = [
             # All symbols need to be included in the omnibus so, even if
             # they're not being referenced yet, so we should enable

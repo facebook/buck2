@@ -40,9 +40,11 @@ load(
     "MergedLinkInfo",
     "SharedLibLinkable",
     "create_merged_link_info",
-    "get_actual_link_style",
+    "default_output_style_for_link_style",
+    "get_lib_output_style",
     "get_link_args",
-    "get_link_styles_for_linkage",
+    "get_output_styles_for_linkage",
+    "legacy_output_style_to_link_style",
     "merge_link_infos",
     "unpack_link_args",
 )
@@ -368,7 +370,8 @@ def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
         # We don't have access to a CxxToolchain here (yet).
         # Give that it's already built, this doesn't mean much, use a sane default.
         pic_behavior = PicBehavior("supported"),
-        link_infos = link_infos,
+        # This conversion is non-standard, see TODO about link style below
+        link_infos = {default_output_style_for_link_style(s): v for s, v in link_infos.items()},
         exported_deps = native_infos,
     )
 
@@ -377,7 +380,8 @@ def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
         # We don't have access to a CxxToolchain here (yet).
         # Give that it's already built, this doesn't mean much, use a sane default.
         pic_behavior = PicBehavior("supported"),
-        link_infos = prof_link_infos,
+        # This conversion is non-standard, see TODO about link style below
+        link_infos = {default_output_style_for_link_style(s): v for s, v in prof_link_infos.items()},
         exported_deps = prof_native_infos,
     )
 
@@ -392,7 +396,7 @@ def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
             linkable_node = create_linkable_node(
                 ctx = ctx,
                 exported_deps = ctx.attrs.deps,
-                link_infos = link_infos,
+                link_infos = {default_output_style_for_link_style(s): v for s, v in link_infos.items()},
                 shared_libs = solibs,
             ),
         ),
@@ -956,7 +960,8 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # profiling enabled, so we need to keep track of it for each link style.
     non_profiling_hlib = {}
     for enable_profiling in [False, True]:
-        for link_style in get_link_styles_for_linkage(preferred_linkage):
+        for output_style in get_output_styles_for_linkage(preferred_linkage):
+            link_style = legacy_output_style_to_link_style(output_style)
             if link_style == LinkStyle("shared") and enable_profiling:
                 # Profiling isn't support with dynamic linking
                 continue
@@ -1005,11 +1010,18 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     pic_behavior = ctx.attrs._cxx_toolchain[CxxToolchainInfo].pic_behavior
     link_style = _cxx_toolchain_link_style(ctx)
-    actual_link_style = get_actual_link_style(
+    output_style = get_lib_output_style(
         link_style,
         preferred_linkage,
         pic_behavior,
     )
+
+    # TODO(cjhopman): this haskell implementation does not consistently handle LibOutputStyle
+    # and LinkStrategy as expected and it's hard to tell what the intent of the existing code is
+    # and so we currently just preserve its existing use of the legacy LinkStyle type and just
+    # naively convert it at the boundaries of other code. This needs to be cleaned up by someone
+    # who understands the intent of the code here.
+    actual_link_style = legacy_output_style_to_link_style(output_style)
 
     if preferred_linkage != Linkage("static"):
         # Profiling isn't support with dynamic linking, but `prof_link_infos`
@@ -1021,7 +1033,8 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
     merged_link_info = create_merged_link_info(
         ctx,
         pic_behavior = pic_behavior,
-        link_infos = link_infos,
+        # This conversion is non-standard, see TODO above
+        link_infos = {default_output_style_for_link_style(s): v for s, v in link_infos.items()},
         preferred_linkage = preferred_linkage,
         exported_deps = nlis,
     )
@@ -1029,7 +1042,8 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
     prof_merged_link_info = create_merged_link_info(
         ctx,
         pic_behavior = pic_behavior,
-        link_infos = prof_link_infos,
+        # This conversion is non-standard, see TODO above
+        link_infos = {default_output_style_for_link_style(s): v for s, v in prof_link_infos.items()},
         preferred_linkage = preferred_linkage,
         exported_deps = prof_nlis,
     )
@@ -1042,7 +1056,8 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 ctx = ctx,
                 preferred_linkage = preferred_linkage,
                 exported_deps = ctx.attrs.deps,
-                link_infos = link_infos,
+                # This conversion is non-standard, see TODO above
+                link_infos = {default_output_style_for_link_style(s): v for s, v in link_infos.items()},
                 shared_libs = solibs,
             ),
         ),

@@ -138,7 +138,7 @@ CxxRuleConstructorParams = record(
     additional = field(CxxRuleAdditionalParams, CxxRuleAdditionalParams()),
     # A function which enables the caller to inject subtargets into the link_style provider
     # as well as create custom providers based on the link styles.
-    link_style_sub_targets_and_providers_factory = field(typing.Callable, lambda _link_style, _context, _output: ({}, [])),
+    output_style_sub_targets_and_providers_factory = field(typing.Callable, lambda _link_style, _context, _output: ({}, [])),
     # Linker flags that tell the linker to create shared libraries, overriding the default shared library flags.
     # e.g. when building Apple tests, we want to link with `-bundle` instead of `-shared` to allow
     # linking against the bundle loader.

@@ -67,6 +67,7 @@ load(
 )
 load(
     "@prelude//linking:link_info.bzl",
+    "LibOutputStyle",
     "LinkInfo",
     "LinkInfos",
     "LinkStyle",
@@ -815,8 +816,8 @@ def ocaml_object_impl(ctx: AnalysisContext) -> list[Provider]:
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     linker_type = cxx_toolchain.linker_info.type
     link_infos = {}
-    for link_style in LinkStyle:
-        link_infos[link_style] = LinkInfos(default = LinkInfo(
+    for output_style in LibOutputStyle:
+        link_infos[output_style] = LinkInfos(default = LinkInfo(
             linkables = [
                 ObjectsLinkable(objects = [obj], linker_type = linker_type),
             ],

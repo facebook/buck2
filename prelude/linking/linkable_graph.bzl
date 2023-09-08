@@ -10,14 +10,15 @@ load("@prelude//python:python.bzl", "PythonLibraryInfo")
 load("@prelude//utils:utils.bzl", "expect")
 load(
     ":link_info.bzl",
+    "LibOutputStyle",
     "LinkInfo",  # @unused Used as a type
     "LinkInfos",
     "LinkStyle",
     "Linkage",
     "LinkedObject",
     "MergedLinkInfo",
-    "get_actual_link_style",
-    "get_link_styles_for_linkage",
+    "get_lib_output_style",
+    "get_output_styles_for_linkage",
     _get_link_info = "get_link_info",
 )
 
@@ -67,8 +68,9 @@ LinkableNode = record(
     # deps and their (transitive) exported deps. This helps keep link lines smaller
     # and produces more efficient libs (for example, DT_NEEDED stays a manageable size).
     exported_deps = field(list[Label], []),
-    # Link infos for all supported link styles.
-    link_infos = field(dict[LinkStyle, LinkInfos], {}),
+    # Link infos for all supported lib output styles supported by this node. This should have a value
+    # for every output_style supported by the preferred linkage.
+    link_infos = field(dict[LibOutputStyle, LinkInfos], {}),
     # Shared libraries provided by this target.  Used if this target is
     # excluded.
     shared_libs = field(dict[str, LinkedObject], {}),
@@ -117,12 +119,12 @@ def create_linkable_node(
         preferred_linkage: Linkage = Linkage("any"),
         deps: list[Dependency] = [],
         exported_deps: list[Dependency] = [],
-        link_infos: dict[LinkStyle, LinkInfos] = {},
+        link_infos: dict[LibOutputStyle, LinkInfos] = {},
         shared_libs: dict[str, LinkedObject] = {}) -> LinkableNode:
-    for link_style in get_link_styles_for_linkage(preferred_linkage):
+    for output_style in get_output_styles_for_linkage(preferred_linkage):
         expect(
-            link_style in link_infos,
-            "must have {} link info".format(link_style),
+            output_style in link_infos,
+            "must have {} link info".format(output_style),
         )
     return LinkableNode(
         labels = ctx.attrs.labels,
@@ -204,17 +206,17 @@ def linkable_graph(dep: Dependency) -> [LinkableGraph, None]:
 
 def get_link_info(
         node: LinkableNode,
-        link_style: LinkStyle,
+        output_style: LibOutputStyle,
         prefer_stripped: bool = False) -> LinkInfo:
     info = _get_link_info(
-        node.link_infos[link_style],
+        node.link_infos[output_style],
         prefer_stripped = prefer_stripped,
     )
     return info
 
 def get_deps_for_link(
         node: LinkableNode,
-        link_style: LinkStyle,
+        output_style: LinkStyle,
         pic_behavior: PicBehavior) -> list[Label]:
     """
     Return deps to follow when linking against this node with the given link
@@ -225,8 +227,8 @@ def get_deps_for_link(
     deps = node.exported_deps
 
     # If we're linking statically, include non-exported deps.
-    actual = get_actual_link_style(link_style, node.preferred_linkage, pic_behavior)
-    if actual != LinkStyle("shared") and node.deps:
+    output_style = get_lib_output_style(output_style, node.preferred_linkage, pic_behavior)
+    if output_style != LibOutputStyle("shared_lib") and node.deps:
         # Important that we don't mutate deps, but create a new list
         deps = deps + node.deps
 

@@ -24,9 +24,9 @@ load(
 )
 load(
     "@prelude//linking:link_info.bzl",
+    "LibOutputStyle",
     "LinkInfo",
     "LinkInfos",
-    "LinkStyle",
     "Linkage",
     "create_merged_link_info",
 )
@@ -81,7 +81,7 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> list[Provider]:
         providers.append(create_merged_link_info(
             ctx,
             get_cxx_toolchain_info(ctx).pic_behavior,
-            {link_style: LinkInfos(default = link) for link_style in LinkStyle},
+            {output_style: LinkInfos(default = link) for output_style in LibOutputStyle},
         ))
 
         # Create, augment and provide the linkable graph.
@@ -92,7 +92,7 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> list[Provider]:
                 linkable_node = create_linkable_node(
                     ctx,
                     preferred_linkage = Linkage("shared"),
-                    link_infos = {LinkStyle("shared"): LinkInfos(default = link)},
+                    link_infos = {LibOutputStyle("shared_lib"): LinkInfos(default = link)},
                 ),
                 excluded = {ctx.label: None},
             ),

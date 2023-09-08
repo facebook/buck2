@@ -35,16 +35,17 @@ load(
     "@prelude//linking:link_info.bzl",
     "Archive",
     "ArchiveLinkable",
+    "LibOutputStyle",
     "LinkInfo",
     "LinkInfos",
     "LinkStyle",
     "Linkage",
     "LinkedObject",
     "MergedLinkInfo",
-    "STATIC_LINK_STYLES",
     "SharedLibLinkable",
     "create_merged_link_info",
-    "get_actual_link_style",
+    "get_lib_output_style",
+    "legacy_output_style_to_link_style",
     "merge_link_infos",
 )
 load(
@@ -156,7 +157,7 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         create_merged_link_info(
             ctx,
             PicBehavior("supported"),
-            {link_style: LinkInfos(default = link) for link_style in LinkStyle},
+            {output_style: LinkInfos(default = link) for output_style in LibOutputStyle},
             exported_deps = [d[MergedLinkInfo] for d in ctx.attrs.deps],
             # TODO(agallagher): This matches v1 behavior, but some of these libs
             # have prebuilt DSOs which might be usable.
@@ -173,7 +174,7 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 ctx = ctx,
                 preferred_linkage = Linkage("static"),
                 exported_deps = ctx.attrs.deps,
-                link_infos = {link_style: LinkInfos(default = link) for link_style in LinkStyle},
+                link_infos = {output_style: LinkInfos(default = link) for output_style in LibOutputStyle},
             ),
         ),
         deps = ctx.attrs.deps,
@@ -332,7 +333,7 @@ def _build_params_for_styles(
     """
 
     param_lang = {}  # param -> linkage_lang
-    style_param = {}  # (linkage_lang, link_style) -> param
+    style_param = {}  # (linkage_lang, output_style) -> param
 
     target_os_type = ctx.attrs._target_os_type[OsLookup]
     linker_type = compile_ctx.cxx_toolchain_info.linker_info.type
@@ -567,35 +568,42 @@ def _native_providers(
         # Proc-macros never have a native form
         return providers
 
+    # TODO(cjhopman): This seems to be conflating the link strategy with the lib output style. I tried going through
+    # lang_style_param/BuildParams and make it actually be based on LibOutputStyle, but it goes on to use that for defining
+    # how to consume dependencies and it's used for rust_binary like its own link strategy and it's unclear what's the
+    # correct behavior. For now, this preserves existing behavior without clarifying what concepts its actually
+    # operating on.
     libraries = {}
-    external_debug_infos = {}
     link_infos = {}
-    for link_style in LinkStyle:
-        params = lang_style_param[(LinkageLang("c++"), link_style)]
+    external_debug_infos = {}
+    for output_style in LibOutputStyle:
+        legacy_link_style = legacy_output_style_to_link_style(output_style)
+        params = lang_style_param[(LinkageLang("c++"), legacy_link_style)]
         lib = param_artifact[params]
-        libraries[link_style] = lib
+        libraries[output_style] = lib
 
         external_debug_info = inherited_external_debug_info(
             ctx = ctx,
             dwo_output_directory = lib.dwo_output_directory,
             dep_link_style = params.dep_link_style,
         )
-        external_debug_infos[link_style] = external_debug_info
+        external_debug_infos[output_style] = external_debug_info
 
-        if link_style in STATIC_LINK_STYLES:
-            link_infos[link_style] = LinkInfos(
+        # DO NOT COMMIT: verify this change
+        if output_style == LibOutputStyle("shared_lib"):
+            link_infos[output_style] = LinkInfos(
+                default = LinkInfo(
+                    linkables = [SharedLibLinkable(lib = lib.output)],
+                    external_debug_info = external_debug_info,
+                ),
+            )
+        else:
+            link_infos[output_style] = LinkInfos(
                 default = LinkInfo(
                     linkables = [ArchiveLinkable(
                         archive = Archive(artifact = lib.output),
                         linker_type = linker_type,
                     )],
-                    external_debug_info = external_debug_info,
-                ),
-            )
-        else:
-            link_infos[link_style] = LinkInfos(
-                default = LinkInfo(
-                    linkables = [SharedLibLinkable(lib = lib.output)],
                     external_debug_info = external_debug_info,
                 ),
             )
@@ -618,11 +626,14 @@ def _native_providers(
     shlib_name = get_default_shared_library_name(linker_info, ctx.label)
 
     # Only add a shared library if we generated one.
-    if get_actual_link_style(LinkStyle("shared"), preferred_linkage, compile_ctx.cxx_toolchain_info.pic_behavior) == LinkStyle("shared"):
+    # TODO(cjhopman): This is strange. Normally (like in c++) the link_infos passed to create_merged_link_info above would only have
+    # a value for LibOutputStyle("shared_lib") if that were created and we could just check for that key. Given that I intend
+    # to remove the SharedLibraries provider, maybe just wait for that to resolve this.
+    if get_lib_output_style(LinkStyle("shared"), preferred_linkage, compile_ctx.cxx_toolchain_info.pic_behavior) == LibOutputStyle("shared_lib"):
         solibs[shlib_name] = LinkedObject(
-            output = libraries[LinkStyle("shared")].output,
-            unstripped_output = libraries[LinkStyle("shared")].output,
-            external_debug_info = external_debug_infos[LinkStyle("shared")],
+            output = libraries[LibOutputStyle("shared_lib")].output,
+            unstripped_output = libraries[LibOutputStyle("shared_lib")].output,
+            external_debug_info = external_debug_infos[LibOutputStyle("shared_lib")],
         )
 
     # Native shared library provider.
@@ -648,12 +659,12 @@ def _native_providers(
             default = LinkInfo(
                 linkables = [ArchiveLinkable(
                     archive = Archive(
-                        artifact = libraries[LinkStyle("static_pic")].output,
+                        artifact = libraries[LibOutputStyle("shared_lib")].output,
                     ),
                     linker_type = linker_type,
                     link_whole = True,
                 )],
-                external_debug_info = external_debug_infos[LinkStyle("static_pic")],
+                external_debug_info = external_debug_infos[LibOutputStyle("pic_archive")],
             ),
         ),
         deps = inherited_non_rust_link_deps,

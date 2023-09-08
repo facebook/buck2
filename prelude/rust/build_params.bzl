@@ -263,6 +263,12 @@ _INPUTS = {
     ("library", False, "static", "static", "c++"): _NATIVE_LINKABLE_STATIC_NON_PIC,
 }
 
+# Check types of _INPUTS, writing these out as types is too verbose, but let's make sure we don't have any typos.
+[
+    (RuleType(rule_type), LinkStyle(link_style), Linkage(preferred_linkage), LinkageLang(linkage_lang))
+    for (rule_type, _, link_style, preferred_linkage, linkage_lang), _ in _INPUTS.items()
+]
+
 def _get_flags(build_kind_key: int, target_os_type: OsLookup) -> (RustcFlags, RelocModel):
     flags = _BUILD_PARAMS[build_kind_key]
 

@@ -32,17 +32,35 @@ Archive = record(
     external_objects = field(list[Artifact], []),
 )
 
-# The different ways libraries can contribute towards a link.
+# The different strategies that are used to determine sharedlib/executable
+# link constituents.
+# These default link strategies will each traverse dependenciess and collect
+# all transitive dependencies that will link as archives until it reaches ones that will
+# link as shared libs. For each dependency, this link strategy and that dependency's
+# preferred_linkage will determine which LibOutputStyle will be used.
 LinkStyle = enum(
-    # Link using a static archive of non-PIC native objects.
+    # Prefers that dependencies be included in the link line as archives of native objects
     "static",
-    # Link using a static archive containing PIC native objects.
+    # Prefers that dependencies be included in the link line as archives of PIC native objects
     "static_pic",
-    # Link using a native shared library.
+    # Prefers that dependencies be included in the link line as shared libraries
     "shared",
 )
 
-STATIC_LINK_STYLES = [LinkStyle("static"), LinkStyle("static_pic")]
+# The different types of outputs of native library. Which specific output style to use for a library
+# will depend on the link_style that is being computed and the library's preferred_linkage.
+LibOutputStyle = enum(
+    "archive",
+    "pic_archive",
+    "shared_lib",
+)
+
+def default_output_style_for_link_style(link_style: LinkStyle.type) -> LibOutputStyle.type:
+    if link_style == LinkStyle("static"):
+        return LibOutputStyle("archive")
+    if link_style == LinkStyle("static_pic"):
+        return LibOutputStyle("pic_archive")
+    return LibOutputStyle("shared_lib")
 
 # Ways a library can request to be linked (e.g. usually specific via a rule
 # param like `preferred_linkage`.  The actual link style used for a library is
@@ -369,11 +387,11 @@ MergedLinkInfo = provider(fields = [
     "swift_runtime",  # dict[LinkStyle, SwiftRuntimeLinkable | None]
 ])
 
-# A map of linkages to all possible link styles it supports.
-_LINK_STYLE_FOR_LINKAGE = {
-    Linkage("any"): [LinkStyle("static"), LinkStyle("static_pic"), LinkStyle("shared")],
-    Linkage("static"): [LinkStyle("static"), LinkStyle("static_pic")],
-    Linkage("shared"): [LinkStyle("shared")],
+# A map of linkages to all possible output styles it supports.
+_LIB_OUTPUT_STYLES_FOR_LINKAGE = {
+    Linkage("any"): [LibOutputStyle("archive"), LibOutputStyle("pic_archive"), LibOutputStyle("shared_lib")],
+    Linkage("static"): [LibOutputStyle("archive"), LibOutputStyle("pic_archive")],
+    Linkage("shared"): [LibOutputStyle("shared_lib")],
 }
 
 # Helper to wrap a LinkInfos with additional pre/post-flags.
@@ -398,9 +416,9 @@ def create_merged_link_info(
         # Target context for which to create the link info.
         ctx: AnalysisContext,
         pic_behavior: PicBehavior,
-        # The link infos provided by this rule, as a map from link style (as
+        # The outputs available for this rule, as a map from LibOutputStyle (as
         # used by dependents) to `LinkInfo`.
-        link_infos: dict[LinkStyle, LinkInfos] = {},
+        link_infos: dict[LibOutputStyle, LinkInfos] = {},
         # How the rule requests to be linked.  This will be used to determine
         # which actual link style to propagate for each "requested" link style.
         preferred_linkage: Linkage = Linkage("any"),
@@ -423,7 +441,7 @@ def create_merged_link_info(
     # link info given the target's preferred linkage, to be consumed by the
     # ultimate linking target.
     for link_style in LinkStyle:
-        actual_link_style = get_actual_link_style(link_style, preferred_linkage, pic_behavior)
+        actual_output_style = get_lib_output_style(link_style, preferred_linkage, pic_behavior)
 
         children = []
         external_debug_info_children = []
@@ -433,7 +451,7 @@ def create_merged_link_info(
         # When we're being linked statically, we also need to export all private
         # linkable input (e.g. so that any unresolved symbols we have are
         # resolved properly when we're linked).
-        if actual_link_style != LinkStyle("shared"):
+        if actual_output_style != LibOutputStyle("shared_lib"):
             # We never want to propagate the linkables used to build a shared library.
             #
             # Doing so breaks the encapsulation of what is in linked in the library vs. the main executable.
@@ -456,17 +474,18 @@ def create_merged_link_info(
 
         frameworks[link_style] = merge_framework_linkables(framework_linkables)
         swift_runtime[link_style] = merge_swift_runtime_linkables(swift_runtime_linkables)
-        if actual_link_style in link_infos:
+        if actual_output_style in link_infos:
+            link_info = link_infos[actual_output_style]
             infos[link_style] = ctx.actions.tset(
                 LinkInfosTSet,
-                value = link_infos[actual_link_style],
+                value = link_info,
                 children = children,
             )
             external_debug_info[link_style] = make_artifact_tset(
                 actions = ctx.actions,
                 label = ctx.label,
                 children = (
-                    [link_infos[actual_link_style].default.external_debug_info] +
+                    [link_info.default.external_debug_info] +
                     external_debug_info_children
                 ),
             )
@@ -640,46 +659,45 @@ def get_link_args(
         ),
     )
 
-def get_actual_link_style(
+def get_lib_output_style(
         requested_link_style: LinkStyle,
         preferred_linkage: Linkage,
-        pic_behavior: PicBehavior) -> LinkStyle:
+        pic_behavior: PicBehavior) -> LibOutputStyle:
     """
-    Return how we link a library for a requested link style and preferred linkage.
-    -----------------------------------------------------------------------------------|
-    |                   |                    requested_link_style                      |
-    | preferred_linkage |--------------------------------------------------------------|
-    |                   |       static       |     static_pic     |       shared       |
-    -----------------------------------------------------------------------------------|
-    |      static       | check pic_behavior | check pic_behavior | check pic_behavior |
-    |      shared       |       shared       |       shared       |       shared       |
-    |       any         | check pic_behavior | check pic_behavior |       shared       |
-    ------------------------------------------------------------------------------------
-    """
-    no_pic_style = _get_link_style_without_pic_behavior(requested_link_style, preferred_linkage)
-    return process_link_style_for_pic_behavior(no_pic_style, pic_behavior)
+    Return what lib output style to use for a library for a requested link style and preferred linkage.
+    --------------------------------------------------------------
+    | preferred_linkage |                 link_style             |
+    |                   |----------------------------------------|
+    |                   | static   | static_pic   |   shared     |
+    -------------------------------------------------------------|
+    |      static       | *archive | *pic_archive | *pic_archive |
+    |      shared       | shared   |   shared     |   shared     |
+    |       any         | *archive | *pic_archive |   shared     |
+    --------------------------------------------------------------
 
-def _get_link_style_without_pic_behavior(requested_link_style: LinkStyle, preferred_linkage: Linkage) -> LinkStyle:
+    Either of *static or *static_pic may be changed to the other based on the pic_behavior
+    """
+    no_pic_style = _get_lib_output_style_without_pic_behavior(requested_link_style, preferred_linkage)
+    return process_output_style_for_pic_behavior(no_pic_style, pic_behavior)
+
+def _get_lib_output_style_without_pic_behavior(requested_link_style: LinkStyle, preferred_linkage: Linkage) -> LibOutputStyle:
     if preferred_linkage == Linkage("any"):
-        return requested_link_style
+        return default_output_style_for_link_style(requested_link_style)
     elif preferred_linkage == Linkage("shared"):
-        return LinkStyle("shared")
+        return LibOutputStyle("shared_lib")
     else:  # preferred_linkage = static
         if requested_link_style == LinkStyle("static"):
-            return requested_link_style
+            return LibOutputStyle("archive")
         else:
-            return LinkStyle("static_pic")
+            return LibOutputStyle("pic_archive")
 
 def process_link_style_for_pic_behavior(link_style: LinkStyle, behavior: PicBehavior) -> LinkStyle:
     """
-    - For targets being built for x86_64, arm64, the fPIC flag isn't respected. Everything is fPIC.
-    - For targets being built for Windows, nothing is fPIC. The flag is ignored.
-    - There are many platforms (linux, etc.) where the fPIC flag is supported.
-
-    As a result, we can end-up in a place where you pic + non-pic artifacts are requested
-    but the platform will produce the exact same output (despite the different files).
+    Converts static/static_pic link styles to the appropriate static form according to the pic behavior.
     """
-    if behavior == PicBehavior("supported") or link_style not in STATIC_LINK_STYLES:
+    if link_style == LinkStyle("shared"):
+        return link_style
+    elif behavior == PicBehavior("supported"):
         return link_style
     elif behavior == PicBehavior("not_supported"):
         return LinkStyle("static")
@@ -688,11 +706,48 @@ def process_link_style_for_pic_behavior(link_style: LinkStyle, behavior: PicBeha
     else:
         fail("Unknown pic_behavior: {}".format(behavior))
 
-def get_link_styles_for_linkage(linkage: Linkage) -> list[LinkStyle]:
+# TODO(cjhopman): I think we should be able to make it an error to request an output style that
+# violates the PicBehavior if we consistently translate LinkStyle and other top-level requests (i.e.
+# it seems like the need to translate output styles points to us missing a translation at some higher level).
+def process_output_style_for_pic_behavior(output_style: LibOutputStyle, behavior: PicBehavior) -> LibOutputStyle:
     """
-    Return all possible `LinkStyle`s that apply for the given `Linkage`.
+    Converts archive/archive_pic output styles to the appropriate output form according to the pic behavior.
     """
-    return _LINK_STYLE_FOR_LINKAGE[linkage]
+    if output_style == LibOutputStyle("shared_lib"):
+        return output_style
+    elif behavior == PicBehavior("supported"):
+        return output_style
+    elif behavior == PicBehavior("not_supported"):
+        return LibOutputStyle("archive")
+    elif behavior == PicBehavior("always_enabled"):
+        return LibOutputStyle("pic_archive")
+    else:
+        fail("Unknown pic_behavior: {}".format(behavior))
+
+def subtarget_for_output_style(output_style: LibOutputStyle.type) -> str:
+    # TODO(cjhopman): This preserves historical strings for these (when we used LinkStyle for both link strategies and
+    # output styles). It would be good to update that to match the LibOutputStyle.
+    return legacy_output_style_to_link_style(output_style).value.replace("_", "-")
+
+def get_output_styles_for_linkage(linkage: Linkage.type) -> list[LibOutputStyle.type]:
+    """
+    Return all possible `LibOutputStyle`s that apply for the given `Linkage`.
+    """
+    return _LIB_OUTPUT_STYLES_FOR_LINKAGE[linkage]
+
+def legacy_output_style_to_link_style(output_style: LibOutputStyle.type) -> LinkStyle.type:
+    """
+    We previously used LinkStyle to represent both the type of a library output and for the different default link strategies.
+
+    To support splitting those two concepts, some places are still using LinkStyle when they probably should be using LibOutputStyle.
+    """
+    if output_style == LibOutputStyle("shared_lib"):
+        return LinkStyle("shared")
+    elif output_style == LibOutputStyle("archive"):
+        return LinkStyle("static")
+    elif output_style == LibOutputStyle("pic_archive"):
+        return LinkStyle("static_pic")
+    fail("unrecognized output_style {}".format(output_style))
 
 def merge_swift_runtime_linkables(linkables: list[[SwiftRuntimeLinkable, None]]) -> SwiftRuntimeLinkable:
     for linkable in linkables:

@@ -9,9 +9,9 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@prelude//linking:link_info.bzl",
+    "LibOutputStyle",
     "LinkInfo",
     "LinkInfos",
-    "LinkStyle",
     "MergedLinkInfo",
     "ObjectsLinkable",
 )
@@ -100,9 +100,9 @@ def rewrite_static_symbols(
         suffix: str,
         pic_objects: list[Artifact],
         non_pic_objects: list[Artifact],
-        libraries: dict[LinkStyle, LinkInfos],
+        libraries: dict[LibOutputStyle, LinkInfos],
         cxx_toolchain: CxxToolchainInfo,
-        suffix_all: bool = False) -> dict[LinkStyle, LinkInfos]:
+        suffix_all: bool = False) -> dict[LibOutputStyle, LinkInfos]:
     symbols_file = _write_syms_file(
         ctx = ctx,
         name = ctx.label.name + "_rename_syms",
@@ -123,7 +123,7 @@ def rewrite_static_symbols(
     )
     static_pic_objects, stripped_static_pic_objects = suffix_symbols(ctx, suffix, pic_objects, symbols_file_pic, cxx_toolchain)
 
-    static_info = libraries[LinkStyle("static")].default
+    static_info = libraries[LibOutputStyle("archive")].default
     updated_static_info = LinkInfo(
         name = static_info.name,
         pre_flags = static_info.pre_flags,
@@ -132,7 +132,7 @@ def rewrite_static_symbols(
         external_debug_info = static_info.external_debug_info,
     )
     updated_stripped_static_info = None
-    static_info = libraries[LinkStyle("static")].stripped
+    static_info = libraries[LibOutputStyle("archive")].stripped
     if static_info != None:
         updated_stripped_static_info = LinkInfo(
             name = static_info.name,
@@ -141,7 +141,7 @@ def rewrite_static_symbols(
             linkables = [stripped_static_objects],
         )
 
-    static_pic_info = libraries[LinkStyle("static_pic")].default
+    static_pic_info = libraries[LibOutputStyle("pic_archive")].default
     updated_static_pic_info = LinkInfo(
         name = static_pic_info.name,
         pre_flags = static_pic_info.pre_flags,
@@ -150,7 +150,7 @@ def rewrite_static_symbols(
         external_debug_info = static_pic_info.external_debug_info,
     )
     updated_stripped_static_pic_info = None
-    static_pic_info = libraries[LinkStyle("static_pic")].stripped
+    static_pic_info = libraries[LibOutputStyle("pic_archive")].stripped
     if static_pic_info != None:
         updated_stripped_static_pic_info = LinkInfo(
             name = static_pic_info.name,
@@ -159,8 +159,8 @@ def rewrite_static_symbols(
             linkables = [stripped_static_pic_objects],
         )
     updated_libraries = {
-        LinkStyle("static"): LinkInfos(default = updated_static_info, stripped = updated_stripped_static_info),
-        LinkStyle("static_pic"): LinkInfos(default = updated_static_pic_info, stripped = updated_stripped_static_pic_info),
+        LibOutputStyle("archive"): LinkInfos(default = updated_static_info, stripped = updated_stripped_static_info),
+        LibOutputStyle("pic_archive"): LinkInfos(default = updated_static_pic_info, stripped = updated_stripped_static_pic_info),
     }
     return updated_libraries
 

@@ -21,6 +21,7 @@ load(
     "@prelude//linking:link_info.bzl",
     "Archive",
     "ArchiveLinkable",
+    "LibOutputStyle",
     "LinkInfo",
     "LinkInfos",
     "LinkStyle",
@@ -28,8 +29,8 @@ load(
     "LinkedObject",
     "SharedLibLinkable",
     "create_merged_link_info",
-    "get_actual_link_style",
-    "get_link_styles_for_linkage",
+    "get_lib_output_style",
+    "get_output_styles_for_linkage",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
@@ -266,16 +267,16 @@ def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> list[Provider]:
     outputs = {}
     libraries = {}
     solibs = {}
-    for link_style in get_link_styles_for_linkage(preferred_linkage):
+    for output_style in get_output_styles_for_linkage(preferred_linkage):
         outs = []
-        if link_style == LinkStyle("static"):
+        if output_style == LibOutputStyle("archive"):
             outs.extend(ctx.attrs.static_libs)
             info = _get_static_link_info(
                 linker_type,
                 ctx.attrs.static_libs,
                 ctx.attrs.static_link,
             )
-        elif link_style == LinkStyle("static_pic"):
+        elif output_style == LibOutputStyle("pic_archive"):
             outs.extend(ctx.attrs.static_pic_libs)
             info = _get_static_link_info(
                 linker_type,
@@ -291,22 +292,16 @@ def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> list[Provider]:
                 shlib_intfs = ctx.attrs.supports_shared_library_interface and cxx_use_shlib_intfs(ctx),
             )
             solibs.update({n: LinkedObject(output = lib, unstripped_output = lib) for n, lib in ctx.attrs.shared_libs.items()})
-        outputs[link_style] = outs
+        outputs[output_style] = outs
 
-        # TODO(cjhopman): This is hiding static and shared libs in opaque
-        # linker args, it should instead be constructing structured LinkInfo
-        # instances
-        libraries[link_style] = LinkInfos(default = info)
+        libraries[output_style] = LinkInfos(default = info)
 
     # This code is already compiled, so, the argument (probably) has little/no value.
     pic_behavior = PicBehavior("supported")
 
-    # Collect per-link-style default outputs.
-    default_outputs = {}
-    for link_style in LinkStyle:
-        actual_link_style = get_actual_link_style(link_style, preferred_linkage, pic_behavior)
-        default_outputs[link_style] = outputs[actual_link_style]
-    providers.append(DefaultInfo(default_outputs = default_outputs[LinkStyle("static")]))
+    # prebuilt_cxx_library_group default output is always the output used for the "static" link strategy.
+    static_output_style = get_lib_output_style(LinkStyle("static"), preferred_linkage, pic_behavior)
+    providers.append(DefaultInfo(default_outputs = outputs[static_output_style]))
 
     # Provider for native link.
     providers.append(create_merged_link_info(

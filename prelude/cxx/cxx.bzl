@@ -24,6 +24,7 @@ load(
     "@prelude//linking:link_info.bzl",
     "Archive",
     "ArchiveLinkable",
+    "LibOutputStyle",
     "LinkArgs",
     "LinkCommandDebugOutputInfo",
     "LinkInfo",
@@ -33,9 +34,10 @@ load(
     "LinkedObject",
     "SharedLibLinkable",
     "create_merged_link_info",
-    "get_actual_link_style",
+    "get_lib_output_style",
     "get_link_args",
-    "get_link_styles_for_linkage",
+    "get_output_styles_for_linkage",
+    "subtarget_for_output_style",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
@@ -142,10 +144,10 @@ load(
 # Operations
 
 def _get_shared_link_style_sub_targets_and_providers(
-        link_style: LinkStyle,
+        output_style: LibOutputStyle,
         ctx: AnalysisContext,
         output: [CxxLibraryOutput, None]) -> (dict[str, list[Provider]], list[Provider]):
-    if link_style != LinkStyle("shared") or output == None:
+    if output_style != LibOutputStyle("shared_lib") or output == None:
         return ({}, [])
     sub_targets = {}
     providers = []
@@ -176,7 +178,7 @@ def cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         rule_type = "cxx_library",
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
         srcs = get_srcs_with_flags(ctx),
-        link_style_sub_targets_and_providers_factory = _get_shared_link_style_sub_targets_and_providers,
+        output_style_sub_targets_and_providers_factory = _get_shared_link_style_sub_targets_and_providers,
         is_omnibus_root = is_known_omnibus_root(ctx),
         force_emit_omnibus_shared_root = ctx.attrs.force_emit_omnibus_shared_root,
         generate_sub_targets = sub_target_params,
@@ -365,7 +367,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     libraries = {}
     solibs = {}
     sub_targets = {}
-    for link_style in get_link_styles_for_linkage(preferred_linkage):
+    for output_style in get_output_styles_for_linkage(preferred_linkage):
         args = []
         out = None
 
@@ -384,11 +386,11 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     link_whole = ctx.attrs.link_whole,
                 )
 
-            if link_style == LinkStyle("static"):
+            if output_style == LibOutputStyle("archive"):
                 if static_lib:
                     out = static_lib
                     linkable = archive_linkable(static_lib)
-            elif link_style == LinkStyle("static_pic"):
+            elif output_style == LibOutputStyle("pic_archive"):
                 lib = static_pic_lib or static_lib
                 if lib:
                     out = lib
@@ -467,8 +469,8 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                         sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, shared_lib.output, dumpbin_toolchain_path)
 
         # TODO(cjhopman): is it okay that we sometimes don't have a linkable?
-        outputs[link_style] = out
-        libraries[link_style] = LinkInfos(
+        outputs[output_style] = out
+        libraries[output_style] = LinkInfos(
             default = LinkInfo(
                 name = ctx.attrs.name,
                 pre_flags = args,
@@ -477,16 +479,16 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
             ),
         )
 
-        sub_targets[link_style.value.replace("_", "-")] = [DefaultInfo(
-            default_output = outputs[link_style],
+        sub_targets[subtarget_for_output_style(output_style)] = [DefaultInfo(
+            default_output = outputs[output_style],
         )]
 
     # Create the default output for the library rule given it's link style and preferred linkage
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     pic_behavior = cxx_toolchain.pic_behavior
     link_style = cxx_toolchain.linker_info.link_style
-    actual_link_style = get_actual_link_style(link_style, preferred_linkage, pic_behavior)
-    output = outputs[actual_link_style]
+    actual_output_style = get_lib_output_style(link_style, preferred_linkage, pic_behavior)
+    output = outputs[actual_output_style]
     providers.append(DefaultInfo(
         default_output = output,
         sub_targets = sub_targets,
