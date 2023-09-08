@@ -26,8 +26,19 @@ impl ChannelEventSink {
 
 impl EventSink for ChannelEventSink {
     fn send(&self, event: Event) {
+        let should_panic = match &event {
+            // Sometimes daemon tries to send events after the clients disconnects
+            Event::Buck(..) => false,
+            Event::PartialResult(..) => true,
+            Event::CommandResult(..) => true,
+        };
         if let Err(e) = self.0.send(event) {
-            let _err = soft_error!("event_sink_send_error", e.into(), quiet: true);
+            if should_panic {
+                // TODO iguridi: this panic was here before. We probably should just ignore these errors
+                // but first, let's check how often this happens.
+                let _res = soft_error!("event_sink_send_panic", e.clone().into(), quiet: true);
+                panic!("failed to send control event to ChannelEventSink: {}", e);
+            }
         }
     }
 }
