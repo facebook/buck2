@@ -47,7 +47,7 @@ def _turn_http_archive_into_protoc_distribution(
         },
     )]
 
-def _download_protoc_distribution_impl(ctx: AnalysisContext) -> "promise":
+def _download_protoc_distribution_impl(ctx: AnalysisContext) -> Promise:
     protoc_filename = "bin/protoc" + ctx.attrs.exe_extension
 
     return ctx.actions.anon_target(native.http_archive, {
