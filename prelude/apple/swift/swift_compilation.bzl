@@ -41,7 +41,7 @@ load(
     "SwiftmoduleLinkable",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
-load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_deps_tset", "get_uncompiled_sdk_deps", "is_sdk_modules_provided")
+load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_clang_deps_tset", "get_compiled_sdk_swift_deps_tset", "get_uncompiled_sdk_deps", "is_sdk_modules_provided")
 load(":swift_module_map.bzl", "write_swift_module_map_with_swift_deps")
 load(":swift_pcm_compilation.bzl", "compile_underlying_pcm", "get_compiled_pcm_deps_tset", "get_swift_pcm_anon_targets")
 load(
@@ -246,7 +246,7 @@ def compile_swift(
         object_file = output_object,
         object_format = toolchain.object_format,
         swiftmodule = output_swiftmodule,
-        dependency_info = get_swift_dependency_info(ctx, exported_pp_info, output_swiftmodule),
+        dependency_info = get_swift_dependency_info(ctx, exported_pp_info, output_swiftmodule, deps_providers),
         pre = pre,
         exported_pre = exported_pp_info,
         argsfiles = argsfiles,
@@ -466,11 +466,12 @@ def _get_shared_flags(
         ])
 
     pcm_deps_tset = get_compiled_pcm_deps_tset(ctx, deps_providers)
-    sdk_deps_tset = get_compiled_sdk_deps_tset(ctx, deps_providers)
+    sdk_clang_deps_tset = get_compiled_sdk_clang_deps_tset(ctx, deps_providers)
+    sdk_swift_deps_tset = get_compiled_sdk_swift_deps_tset(ctx, deps_providers)
 
     # Add flags required to import ObjC module dependencies
-    _add_clang_deps_flags(ctx, pcm_deps_tset, sdk_deps_tset, cmd)
-    _add_swift_deps_flags(ctx, sdk_deps_tset, cmd)
+    _add_clang_deps_flags(ctx, pcm_deps_tset, sdk_clang_deps_tset, cmd)
+    _add_swift_deps_flags(ctx, sdk_swift_deps_tset, cmd)
 
     # Add flags for importing the ObjC part of this library
     _add_mixed_library_flags_to_cmd(ctx, cmd, underlying_module, objc_headers, objc_modulemap_pp_info)
@@ -614,7 +615,8 @@ def get_swift_pcm_uncompile_info(
 def get_swift_dependency_info(
         ctx: AnalysisContext,
         exported_pre: [CPreprocessor, None],
-        output_module: [Artifact, None]) -> SwiftDependencyInfo:
+        output_module: [Artifact, None],
+        deps_providers: list) -> SwiftDependencyInfo:
     all_deps = ctx.attrs.exported_deps + ctx.attrs.deps
     if ctx.attrs.reexport_all_header_dependencies:
         exported_deps = all_deps
@@ -628,6 +630,10 @@ def get_swift_dependency_info(
         exported_headers = [_header_basename(header) for header in ctx.attrs.exported_headers]
         exported_headers += [header.name for header in exported_pre.headers] if exported_pre else []
 
+    # We pass through the SDK swiftmodules here to match Buck 1 behaviour. This is
+    # pretty loose, but it matches Buck 1 behavior so cannot be improved until
+    # migration is complete.
+    transitive_swiftmodule_deps = _get_swift_paths_tsets(exported_deps) + [get_compiled_sdk_swift_deps_tset(ctx, deps_providers)]
     if output_module:
         compiled_info = SwiftCompiledModuleInfo(
             is_framework = False,
@@ -635,21 +641,21 @@ def get_swift_dependency_info(
             module_name = get_module_name(ctx),
             output_artifact = output_module,
         )
-        exported_swiftmodules = ctx.actions.tset(SwiftCompiledModuleTset, value = compiled_info, children = _get_swift_paths_tsets(exported_deps))
+        exported_swiftmodules = ctx.actions.tset(SwiftCompiledModuleTset, value = compiled_info, children = transitive_swiftmodule_deps)
     else:
-        exported_swiftmodules = ctx.actions.tset(SwiftCompiledModuleTset, children = _get_swift_paths_tsets(exported_deps))
+        exported_swiftmodules = ctx.actions.tset(SwiftCompiledModuleTset, children = transitive_swiftmodule_deps)
 
     debug_info_tset = make_artifact_tset(
         actions = ctx.actions,
-        label = ctx.label,
         artifacts = [output_module] if output_module != None else [],
         children = _get_external_debug_info_tsets(all_deps),
+        label = ctx.label,
     )
 
     return SwiftDependencyInfo(
+        debug_info_tset = debug_info_tset,
         exported_headers = _get_exported_headers_tset(ctx, exported_headers),
         exported_swiftmodules = exported_swiftmodules,
-        debug_info_tset = debug_info_tset,
     )
 
 def _header_basename(header: [Artifact, str]) -> str:

@@ -12,12 +12,11 @@ load("@prelude//apple:apple_utility.bzl", "get_explicit_modules_env_var", "get_m
 load("@prelude//cxx:preprocessor.bzl", "cxx_inherited_preprocessor_infos", "cxx_merge_cpreprocessors")
 load(
     ":apple_sdk_modules_utility.bzl",
-    "get_compiled_sdk_deps_tset",
+    "get_compiled_sdk_clang_deps_tset",
     "get_uncompiled_sdk_deps",
 )
 load(":swift_pcm_compilation_types.bzl", "SwiftPCMUncompiledInfo", "WrappedSwiftPCMCompiledInfo")
 load(":swift_sdk_pcm_compilation.bzl", "get_shared_pcm_compilation_args", "get_swift_sdk_pcm_anon_targets")
-load(":swift_sdk_swiftinterface_compilation.bzl", "get_swift_interface_anon_targets")
 load(":swift_toolchain_types.bzl", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "WrappedSdkCompiledModuleInfo")
 
 _REQUIRED_SDK_MODULES = ["Foundation"]
@@ -117,7 +116,7 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
 
         # `compiled_pcm_deps_providers` will contain `WrappedSdkCompiledModuleInfo` providers
         # from direct SDK deps and transitive deps that export sdk deps.
-        sdk_deps_tset = get_compiled_sdk_deps_tset(ctx, compiled_pcm_deps_providers)
+        sdk_deps_tset = get_compiled_sdk_clang_deps_tset(ctx, compiled_pcm_deps_providers)
 
         # To compile a pcm we only use the exported_deps as those are the only
         # ones that should be transitively exported through public headers
@@ -133,7 +132,7 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
                     tset = pcm_deps_tset,
                 ),
                 WrappedSdkCompiledModuleInfo(
-                    tset = sdk_deps_tset,
+                    clang_deps = sdk_deps_tset,
                 ),
             ]
 
@@ -174,13 +173,9 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
                 tset = ctx.actions.tset(SwiftCompiledModuleTset, value = pcm_info, children = [pcm_deps_tset]),
             ),
             WrappedSdkCompiledModuleInfo(
-                tset = sdk_deps_tset,
+                clang_deps = sdk_deps_tset,
             ),
         ]
-
-    # Skip deps compilations if run not on SdkUncompiledModuleInfo
-    if SwiftPCMUncompiledInfo not in ctx.attrs.dep:
-        return []
 
     direct_uncompiled_sdk_deps = get_uncompiled_sdk_deps(
         ctx.attrs.dep[SwiftPCMUncompiledInfo].uncompiled_sdk_modules,
@@ -195,22 +190,13 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
         ctx.attrs.swift_cxx_args,
     )
 
-    # Recursively compiling SDK's Swift dependencies
-    # We need to match BUCK1 behavior, which can't distinguish between Swift and Clang SDK modules,
-    # so we pass more SDK deps than is strictly necessary. When BUCK1 is deprecated, we can try to avoid doing that,
-    # by passing Clang and Swift deps up separately.
-    swift_interface_anon_targets = get_swift_interface_anon_targets(
-        ctx,
-        direct_uncompiled_sdk_deps,
-    )
-
     # Recursively compile PCMs of transitevely visible exported_deps
     swift_pcm_anon_targets = get_swift_pcm_anon_targets(
         ctx,
         ctx.attrs.dep[SwiftPCMUncompiledInfo].exported_deps,
         ctx.attrs.swift_cxx_args,
     )
-    return ctx.actions.anon_targets(sdk_pcm_deps_anon_targets + swift_pcm_anon_targets + swift_interface_anon_targets).map(k)
+    return ctx.actions.anon_targets(sdk_pcm_deps_anon_targets + swift_pcm_anon_targets).map(k)
 
 _swift_pcm_compilation = rule(
     impl = _swift_pcm_compilation_impl,
@@ -231,7 +217,7 @@ def compile_underlying_pcm(
 
     # `compiled_pcm_deps_providers` will contain `WrappedSdkCompiledModuleInfo` providers
     # from direct SDK deps and transitive deps that export sdk deps.
-    sdk_deps_tset = get_compiled_sdk_deps_tset(ctx, compiled_pcm_deps_providers)
+    sdk_deps_tset = get_compiled_sdk_clang_deps_tset(ctx, compiled_pcm_deps_providers)
 
     # To compile a pcm we only use the exported_deps as those are the only
     # ones that should be transitively exported through public headers

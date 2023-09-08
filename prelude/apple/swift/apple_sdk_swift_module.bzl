@@ -37,12 +37,12 @@ def apple_sdk_swift_module_impl(ctx: AnalysisContext) -> list[Provider]:
         overlays = [SdkSwiftOverlayInfo(overlays = ctx.attrs.overlays)]
 
     module_info = SdkUncompiledModuleInfo(
-        module_name = ctx.attrs.module_name,
+        deps = ctx.attrs.deps,
+        input_relative_path = ctx.attrs.swiftinterface_relative_path,
         is_framework = ctx.attrs.is_framework,
         is_swiftmodule = True,
+        module_name = ctx.attrs.module_name,
         partial_cmd = cmd,
-        input_relative_path = ctx.attrs.swiftinterface_relative_path,
-        deps = ctx.attrs.deps,
         target = ctx.attrs.target,
     )
 

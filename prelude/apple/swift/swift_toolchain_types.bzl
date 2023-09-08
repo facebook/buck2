@@ -47,7 +47,8 @@ SdkUncompiledModuleInfo = provider(fields = [
 ])
 
 WrappedSdkCompiledModuleInfo = provider(fields = [
-    "tset",  # A tset that contains SwiftCompiledModuleInfo itself and its transitive deps
+    "clang_deps",  # A SwiftCompiledModuleTset of SwiftCompiledModuleInfo of transitive clang deps
+    "swift_deps",  # A SwiftCompiledModuleTset of SwiftCompiledModuleInfo of transitive swift deps
 ])
 
 SdkSwiftOverlayInfo = provider(fields = [

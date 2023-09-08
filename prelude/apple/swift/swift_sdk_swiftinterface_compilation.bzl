@@ -10,6 +10,7 @@
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "expand_relative_prefixed_sdk_path", "get_explicit_modules_env_var")
 load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION")
+load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_clang_deps_tset", "get_compiled_sdk_swift_deps_tset")
 load(":swift_module_map.bzl", "write_swift_module_map")
 load(":swift_sdk_pcm_compilation.bzl", "get_swift_sdk_pcm_anon_targets")
 load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "WrappedSdkCompiledModuleInfo")
@@ -45,19 +46,8 @@ def _swift_interface_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Pr
                 swift_toolchain.resource_dir,
             ])
 
-        # `sdk_deps_providers` contains providers of clang and swift SDK deps.
-        # Keep them separated as we need to only pass up the swiftmodule deps.
-        clang_dep_children = []
-        swift_dep_children = []
-        for sdk_dep in sdk_deps_providers:
-            tset = sdk_dep[WrappedSdkCompiledModuleInfo].tset
-            if tset.value and tset.value.is_swiftmodule:
-                swift_dep_children.append(tset)
-            else:
-                clang_dep_children.append(tset)
-
-        clang_deps_tset = ctx.actions.tset(SwiftCompiledModuleTset, children = clang_dep_children)
-        swift_deps_tset = ctx.actions.tset(SwiftCompiledModuleTset, children = swift_dep_children)
+        clang_deps_tset = get_compiled_sdk_clang_deps_tset(ctx, sdk_deps_providers)
+        swift_deps_tset = get_compiled_sdk_swift_deps_tset(ctx, sdk_deps_providers)
 
         # FIXME: - Get rid of slow traversal here, and unify with two projections below.
         swift_module_map_artifact = write_swift_module_map(ctx, uncompiled_module_info_name, list(swift_deps_tset.traverse()))
@@ -97,7 +87,7 @@ def _swift_interface_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Pr
         return [
             DefaultInfo(),
             WrappedSdkCompiledModuleInfo(
-                tset = ctx.actions.tset(SwiftCompiledModuleTset, value = compiled_sdk, children = swift_dep_children),
+                swift_deps = ctx.actions.tset(SwiftCompiledModuleTset, value = compiled_sdk, children = [swift_deps_tset]),
             ),
         ]
 

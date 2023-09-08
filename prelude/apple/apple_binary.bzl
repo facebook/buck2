@@ -102,7 +102,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             relative_args = CPreprocessorArgs(args = [framework_search_path_flags]),
         )
 
-        swift_dependency_info = swift_compile.dependency_info if swift_compile else get_swift_dependency_info(ctx, None, None)
+        swift_dependency_info = swift_compile.dependency_info if swift_compile else get_swift_dependency_info(ctx, None, None, deps_providers)
         swiftmodule = swift_compile.swiftmodule if swift_compile else None
         swift_debug_info = get_swift_debug_infos(ctx, swiftmodule, swift_dependency_info)
 

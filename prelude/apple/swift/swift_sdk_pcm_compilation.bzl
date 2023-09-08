@@ -9,7 +9,7 @@
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "expand_relative_prefixed_sdk_path", "get_disable_pch_validation_flags")
-load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_deps_tset")
+load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_clang_deps_tset")
 load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "WrappedSdkCompiledModuleInfo")
 
 def get_shared_pcm_compilation_args(module_name: str) -> cmd_args:
@@ -98,6 +98,7 @@ def get_swift_sdk_pcm_anon_targets(
 def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
     def k(sdk_pcm_deps_providers) -> list[Provider]:
         uncompiled_sdk_module_info = ctx.attrs.dep[SdkUncompiledModuleInfo]
+        sdk_deps_tset = get_compiled_sdk_clang_deps_tset(ctx, sdk_pcm_deps_providers)
 
         # We pass in Swift and Clang SDK module deps to get the transitive
         # Clang dependencies compiled with the correct Swift cxx args. For
@@ -106,7 +107,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
             return [
                 DefaultInfo(),
                 WrappedSdkCompiledModuleInfo(
-                    tset = get_compiled_sdk_deps_tset(ctx, sdk_pcm_deps_providers),
+                    clang_deps = sdk_deps_tset,
                 ),
             ]
 
@@ -124,7 +125,6 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
                 swift_toolchain.resource_dir,
             ])
 
-        sdk_deps_tset = get_compiled_sdk_deps_tset(ctx, sdk_pcm_deps_providers)
         cmd.add(sdk_deps_tset.project_as_args("clang_deps"))
 
         expanded_modulemap_path_cmd = expand_relative_prefixed_sdk_path(
@@ -200,7 +200,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
         return [
             DefaultInfo(),
             WrappedSdkCompiledModuleInfo(
-                tset = ctx.actions.tset(SwiftCompiledModuleTset, value = compiled_sdk, children = [sdk_deps_tset]),
+                clang_deps = ctx.actions.tset(SwiftCompiledModuleTset, value = compiled_sdk, children = [sdk_deps_tset]),
             ),
         ]
 

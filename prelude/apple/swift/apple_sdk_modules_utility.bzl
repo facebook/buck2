@@ -19,11 +19,19 @@ def is_sdk_modules_provided(toolchain: SwiftToolchainInfo) -> bool:
     has_clang_modules = bool(toolchain.uncompiled_clang_sdk_modules_deps)
     return has_swift_modules or has_clang_modules
 
-def get_compiled_sdk_deps_tset(ctx: AnalysisContext, deps_providers: list) -> SwiftCompiledModuleTset:
+def get_compiled_sdk_clang_deps_tset(ctx: AnalysisContext, deps_providers: list) -> SwiftCompiledModuleTset:
     sdk_deps = [
-        deps_provider[WrappedSdkCompiledModuleInfo].tset
-        for deps_provider in deps_providers
-        if WrappedSdkCompiledModuleInfo in deps_provider
+        d[WrappedSdkCompiledModuleInfo].clang_deps
+        for d in deps_providers
+        if WrappedSdkCompiledModuleInfo in d and d[WrappedSdkCompiledModuleInfo].clang_deps != None
+    ]
+    return ctx.actions.tset(SwiftCompiledModuleTset, children = sdk_deps)
+
+def get_compiled_sdk_swift_deps_tset(ctx: AnalysisContext, deps_providers: list) -> SwiftCompiledModuleTset:
+    sdk_deps = [
+        d[WrappedSdkCompiledModuleInfo].swift_deps
+        for d in deps_providers
+        if WrappedSdkCompiledModuleInfo in d and d[WrappedSdkCompiledModuleInfo].swift_deps != None
     ]
     return ctx.actions.tset(SwiftCompiledModuleTset, children = sdk_deps)
 
