@@ -6,8 +6,7 @@
 # of this source tree.
 
 load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS")
-load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version", "select_java_test_toolchain")
-load("@prelude//java:java_toolchain.bzl", "JavaTestToolchainInfo")
+load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version")
 load("@prelude//kotlin:kotlin_toolchain.bzl", "KotlinToolchainInfo")
 load("@prelude//decls/android_rules.bzl", "AaptMode", "DuplicateResourceBehaviour", "TargetCpuType")
 load("@prelude//decls/common.bzl", "buck")
@@ -214,12 +213,7 @@ extra_attributes = {
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = False)),
-        "_java_test_toolchain": attrs.default_only(attrs.exec_dep(
-            default = select_java_test_toolchain(),
-            providers = [
-                JavaTestToolchainInfo,
-            ],
-        )),
+        "_java_test_toolchain": toolchains_common.java_test(),
         "_java_toolchain": toolchains_common.java_for_host_test(),
         "_kotlin_toolchain": _kotlin_toolchain(),
     },

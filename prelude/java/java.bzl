@@ -8,10 +8,6 @@
 load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
 load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
 load("@prelude//android:min_sdk_version.bzl", "get_min_sdk_version_constraint_value_name", "get_min_sdk_version_range")
-load(
-    "@prelude//java:java_toolchain.bzl",
-    "JavaTestToolchainInfo",
-)
 load("@prelude//java/plugins:java_annotation_processor.bzl", "java_annotation_processor_impl")
 load("@prelude//java/plugins:java_plugin.bzl", "java_plugin_impl")
 load("@prelude//decls/common.bzl", "buck")
@@ -33,10 +29,6 @@ def dex_min_sdk_version():
         min_sdk_version_dict[constraint] = min_sdk
 
     return select(min_sdk_version_dict)
-
-def select_java_test_toolchain():
-    # FIXME: prelude// should be standalone (not refer to fbsource//)
-    return "fbsource//xplat/buck2/platform/java:java_test"
 
 implemented_rules = {
     "jar_genrule": jar_genrule_impl,
@@ -86,12 +78,7 @@ extra_attributes = {
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = False)),
-        "_java_test_toolchain": attrs.exec_dep(
-            default = select_java_test_toolchain(),
-            providers = [
-                JavaTestToolchainInfo,
-            ],
-        ),
+        "_java_test_toolchain": toolchains_common.java_test(),
         "_java_toolchain": toolchains_common.java(),
     },
     "java_test_runner": {
