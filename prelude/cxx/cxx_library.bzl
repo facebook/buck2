@@ -1140,7 +1140,9 @@ def _get_shared_library_links(
     # Else get filtered link group links
     prefer_stripped = cxx_is_gnu(ctx) and ctx.attrs.prefer_stripped_objects
 
-    link_style = cxx_attr_link_style(ctx) if cxx_attr_link_style(ctx) != LinkStyle("static") else LinkStyle("static_pic")
+    link_style = cxx_attr_link_style(ctx)
+    if link_style == LinkStyle("static"):
+        link_style = LinkStyle("static_pic")
     link_style = process_link_style_for_pic_behavior(link_style, pic_behavior)
     filtered_labels_to_links_map = get_filtered_labels_to_links_map(
         linkable_graph_node_map_func(),
