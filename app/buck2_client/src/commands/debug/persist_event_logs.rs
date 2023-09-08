@@ -226,6 +226,8 @@ fn categorize_error(err: &anyhow::Error) -> &'static str {
         "persist_log_connection_reset"
     } else if err_msg.contains("Broken pipe") {
         "persist_log_broken_pipe"
+    } else if err_msg.contains("Error loading system root certificates") {
+        "persist_log_error_loading_system_root_certs"
     } else {
         "persist_log_other"
     }
