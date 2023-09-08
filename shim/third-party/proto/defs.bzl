@@ -10,7 +10,7 @@ ProtocReleaseInfo = provider(fields = [
 
 def _get_protoc_release(
         version: str,
-        platform: str) -> ProtocReleaseInfo.type:
+        platform: str) -> ProtocReleaseInfo:
     if not version in releases:
         fail("Unknown protoc release version '{}'. Available versions: {}".format(
             version,
