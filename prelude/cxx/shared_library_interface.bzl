@@ -7,12 +7,9 @@
 
 # @starlark-rust: allow_string_literals_in_type_expr
 
+load("@prelude//:paths.bzl", "paths")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":cxx_toolchain_types.bzl", "CxxToolchainInfo")
-load(
-    ":linker.bzl",
-    "get_shared_library_name",
-)
 
 def _shared_library_interface(
         ctx: AnalysisContext,
@@ -60,11 +57,9 @@ _anon_shared_library_interface = rule(
 
 def shared_library_interface(
         ctx: AnalysisContext,
-        name: str,
-        anonymous: bool = False,
-        **kwargs) -> [Artifact, "promise_artifact"]:
-    linker_info = get_cxx_toolchain_info(ctx).linker_info
-    output = get_shared_library_name(linker_info, name + "-interface")
+        shared_lib: Artifact,
+        anonymous: bool = False) -> [Artifact, "promise_artifact"]:
+    output = paths.join("__shlib_intfs__", shared_lib.short_path)
 
     if anonymous:
         anon_providers = ctx.actions.anon_target(
@@ -72,8 +67,8 @@ def shared_library_interface(
             dict(
                 _cxx_toolchain = ctx.attrs._cxx_toolchain,
                 output = output,
-                identifier = name,
-                **kwargs
+                shared_lib = shared_lib,
+                identifier = shared_lib.short_path,
             ),
         )
         return ctx.actions.artifact_promise(
@@ -84,6 +79,6 @@ def shared_library_interface(
         return _shared_library_interface(
             ctx = ctx,
             output = output,
-            identifier = name,
-            **kwargs
+            shared_lib = shared_lib,
+            identifier = shared_lib.short_path,
         )

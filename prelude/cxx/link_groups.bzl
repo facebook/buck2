@@ -841,7 +841,6 @@ def create_link_groups(
         if cxx_is_gnu(ctx):
             shlib_for_link = shared_library_interface(
                 ctx = ctx,
-                name = link_group_spec.name,
                 shared_lib = link_group_lib.output,
                 anonymous = anonymous,
             )

@@ -1401,7 +1401,6 @@ def _shared_library(
             # Convert the shared library into an interface.
             shlib_interface = shared_library_interface(
                 ctx = ctx,
-                name = ctx.label.name,
                 shared_lib = shlib_for_interface,
             )
 

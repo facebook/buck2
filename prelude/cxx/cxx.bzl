@@ -425,27 +425,27 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 if shared_lib:
                     out = shared_lib.output
 
-                    # Some prebuilt shared libs don't set a SONAME (e.g.
-                    # IntelComposerXE), so we can't link them via just the shared
-                    # lib (otherwise, we'll may embed build-time paths in `DT_NEEDED`
-                    # tags).
-                    if ctx.attrs.link_without_soname:
-                        if ctx.attrs.supports_shared_library_interface:
-                            fail("cannot use `link_without_soname` with shlib interfaces")
-                        linkable = SharedLibLinkable(
-                            lib = shared_lib.output,
-                            link_without_soname = True,
+                    shared_lib_for_linking = shared_lib.output
+
+                    # Generate a shared library interface if the rule supports it.
+                    if ctx.attrs.supports_shared_library_interface and cxx_use_shlib_intfs(ctx):
+                        shared_lib_for_linking = shared_library_interface(
+                            ctx = ctx,
+                            shared_lib = shared_lib.output,
                         )
-                    else:
-                        shared_lib_for_linking = shared_lib.output
+                    if ctx.attrs._target_os_type[OsLookup].platform == "windows":
+                        shared_lib_for_linking = ctx.attrs.import_lib
 
-                        # Generate a shared library interface if the rule supports it.
-                        if ctx.attrs.supports_shared_library_interface and cxx_use_shlib_intfs(ctx):
-                            shared_lib_for_linking = shared_library_interface(ctx, ctx.attrs.name, shared_lib.output)
-                        if ctx.attrs._target_os_type[OsLookup].platform == "windows":
-                            shared_lib_for_linking = ctx.attrs.import_lib
-
-                        linkable = SharedLibLinkable(lib = shared_lib_for_linking) if shared_lib_for_linking else None
+                    linkable = None
+                    if shared_lib_for_linking != None:
+                        linkable = SharedLibLinkable(
+                            lib = shared_lib_for_linking,
+                            # Some prebuilt shared libs don't set a SONAME (e.g.
+                            # IntelComposerXE), so we can't link them via just the shared
+                            # lib (otherwise, we may embed build-time paths in `DT_NEEDED`
+                            # tags).
+                            link_without_soname = ctx.attrs.link_without_soname,
+                        )
 
                     # Provided means something external to the build will provide
                     # the libraries, so we don't need to propagate anything.
