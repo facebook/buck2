@@ -86,18 +86,13 @@ def get_swift_sdk_pcm_anon_targets(
         swift_cxx_args: list[str]):
     # We include the Swift deps here too as we need
     # to include their transitive clang deps.
-    all_sdk_deps = [
-        d
-        for d in uncompiled_sdk_deps
-        if SdkUncompiledModuleInfo in d
-    ]
     return [
         (_swift_sdk_pcm_compilation, {
             "dep": module_dep,
             "swift_cxx_args": swift_cxx_args,
             "_apple_toolchain": ctx.attrs._apple_toolchain,
         })
-        for module_dep in all_sdk_deps
+        for module_dep in uncompiled_sdk_deps
     ]
 
 def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
@@ -210,12 +205,11 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
         ]
 
     # Compile the transitive clang module deps of this target.
-    clang_module_deps = [(_swift_sdk_pcm_compilation, {
-        "dep": d,
-        "swift_cxx_args": ctx.attrs.swift_cxx_args,
-        "_apple_toolchain": ctx.attrs._apple_toolchain,
-    }) for d in ctx.attrs.dep[SdkUncompiledModuleInfo].transitive_clang_deps.traverse()]
-
+    clang_module_deps = get_swift_sdk_pcm_anon_targets(
+        ctx,
+        ctx.attrs.dep[SdkUncompiledModuleInfo].deps,
+        ctx.attrs.swift_cxx_args,
+    )
     return ctx.actions.anon_targets(clang_module_deps).map(k)
 
 _swift_sdk_pcm_compilation = rule(

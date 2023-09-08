@@ -17,15 +17,17 @@ load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftCompiledModu
 def get_swift_interface_anon_targets(
         ctx: AnalysisContext,
         uncompiled_sdk_deps: list[Dependency]):
-    deps = [
-        {
-            "dep": uncompiled_sdk_dep,
-            "_apple_toolchain": ctx.attrs._apple_toolchain,
-        }
-        for uncompiled_sdk_dep in uncompiled_sdk_deps
-        if SdkUncompiledModuleInfo in uncompiled_sdk_dep and uncompiled_sdk_dep[SdkUncompiledModuleInfo].is_swiftmodule
+    return [
+        (
+            _swift_interface_compilation,
+            {
+                "dep": d,
+                "_apple_toolchain": ctx.attrs._apple_toolchain,
+            },
+        )
+        for d in uncompiled_sdk_deps
+        if d[SdkUncompiledModuleInfo].is_swiftmodule
     ]
-    return [(_swift_interface_compilation, d) for d in deps]
 
 def _swift_interface_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
     def k(sdk_deps_providers) -> list[Provider]:
@@ -108,10 +110,7 @@ def _swift_interface_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Pr
     )
 
     # Compile the transitive swiftmodule deps.
-    swift_module_deps = [(_swift_interface_compilation, {
-        "dep": d,
-        "_apple_toolchain": ctx.attrs._apple_toolchain,
-    }) for d in module_info.transitive_swift_deps.traverse()]
+    swift_module_deps = get_swift_interface_anon_targets(ctx, module_info.deps)
 
     return ctx.actions.anon_targets(clang_module_deps + swift_module_deps).map(k)
 

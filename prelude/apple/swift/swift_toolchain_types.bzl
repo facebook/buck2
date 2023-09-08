@@ -37,18 +37,14 @@ SwiftToolchainInfo = provider(fields = [
 # A provider that represents a non-yet-compiled SDK (Swift or Clang) module,
 # and doesn't contain any artifacts because Swift toolchain isn't resolved yet.
 SdkUncompiledModuleInfo = provider(fields = [
-    "module_name",  # A real name of a module, without distinguishing suffixes.
+    "deps",  # [Dependency]
+    "input_relative_path",  # A relative prefixed path to a textual swiftinterface/modulemap file within an SDK.
     "is_framework",  # This is mostly needed for the generated Swift module map file.
     "is_swiftmodule",  # If True then represents a swiftinterface, otherwise Clang's modulemap.
+    "module_name",  # A real name of a module, without distinguishing suffixes.
     "partial_cmd",  # Partial arguments, required to compile a particular SDK module.
-    "input_relative_path",  # A relative prefixed path to a textual swiftinterface/modulemap file within an SDK.
-    "deps",  # [Dependency]
     "target",  # A string of the compiler target triple to use for clang module deps, eg arm64-apple-ios16.4
-    "transitive_clang_deps",  # A SdkTransitiveDepsTset of all transitive SDK clang modules.
-    "transitive_swift_deps",  # A SdkTransitiveDepsTset of all transitive SDK swift modules.
 ])
-
-SdkTransitiveDepsTset = transitive_set()
 
 WrappedSdkCompiledModuleInfo = provider(fields = [
     "tset",  # A tset that contains SwiftCompiledModuleInfo itself and its transitive deps
