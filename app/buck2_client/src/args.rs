@@ -86,10 +86,6 @@ enum ArgFile {
 // TODO: This function should also return tracking information, so
 //       that we know where args come from. This would be useful
 //       in cases where the argfiles contain `--config` flags.
-//
-// TODO: It does _not_ support executable argfiles (e.g., Python)
-//       which are supported by Buck v1. See `BuckArgsMethods` in
-//       Buck v1 for reference.
 pub fn expand_argfiles_with_context(
     args: Vec<String>,
     context: &mut ImmediateConfigContext,
