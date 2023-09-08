@@ -240,8 +240,14 @@ CxxLibraryOutput = record(
 
 # The outputs of either archiving or linking the outputs of the library
 _CxxAllLibraryOutputs = record(
-    # The outputs for each type of link style.
-    outputs = field(dict[LinkStyle, [CxxLibraryOutput, None]]),
+    # The outputs for each lib output style.
+    # For 'static'/'static_pic', these will be archives containing just this library's object files.
+    # For 'shared', the output as a shared library. That output will be built using either this library's link_style link strategy
+    # or via the link group strategy if this library has link group mapping.
+    # A header-only lib won't produce any outputs (but it may still provide LinkInfos below).
+    # TODO(cjhopman): make library-level link_group shared lib not put its output here
+    outputs = field(dict[LinkStyle, CxxLibraryOutput]),
+
     # The link infos for linking against this lib for each link style. It's possible for a library to
     # add link_infos even when it doesn't produce an output itself.
     link_infos = field(dict[LinkStyle, LinkInfos]),
@@ -489,10 +495,9 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     solib_as_dict = {library_outputs.solib[0]: library_outputs.solib[1]} if library_outputs.solib else {}
 
     for _, link_style_output in library_outputs.outputs.items():
-        if link_style_output:
-            for key in link_style_output.sub_targets.keys():
-                expect(not key in sub_targets, "The subtarget `{}` already exists!".format(key))
-            sub_targets.update(link_style_output.sub_targets)
+        for key in link_style_output.sub_targets.keys():
+            expect(not key in sub_targets, "The subtarget `{}` already exists!".format(key))
+        sub_targets.update(link_style_output.sub_targets)
 
     providers.extend(library_outputs.providers)
 
@@ -503,7 +508,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     if impl_params.generate_sub_targets.link_style_outputs or impl_params.generate_providers.link_style_outputs:
         actual_link_style_providers = []
 
-        for link_style, output in library_outputs.outputs.items():
+        for link_style in get_link_styles_for_linkage(preferred_linkage):
+            output = library_outputs.outputs.get(link_style, None)
             link_style_sub_targets, link_style_providers = impl_params.link_style_sub_targets_and_providers_factory(
                 link_style,
                 ctx,
@@ -541,7 +547,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             providers += actual_link_style_providers
 
     # Create the default output for the library rule given it's link style and preferred linkage
-    default_output = library_outputs.outputs[actual_link_style]
+    # It's possible for a library to not produce any output, for example, a header only library doesn't produce any archive or shared lib
+    default_output = library_outputs.outputs[actual_link_style] if actual_link_style in library_outputs.outputs else None
 
     if default_output and default_output.bitcode_bundle:
         sub_targets["bitcode"] = [DefaultInfo(default_output = default_output.bitcode_bundle.artifact)]
@@ -1034,7 +1041,8 @@ def _form_library_outputs(
 
         # you cannot link against header only libraries so create an empty link info
         info = info if info != None else LinkInfo()
-        outputs[link_style] = output
+        if output:
+            outputs[link_style] = output
         link_infos[link_style] = LinkInfos(
             default = ldflags(info),
             stripped = ldflags(stripped) if stripped != None else None,
