@@ -199,7 +199,7 @@ impl TargetInfo {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Default)]
 pub struct ExpandedAndResolved {
     pub expanded_targets: Vec<Target>,
     pub queried_proc_macros: BTreeMap<Target, MacroOutput>,

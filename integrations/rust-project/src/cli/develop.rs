@@ -12,8 +12,8 @@ use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 
-use anyhow::bail;
 use tracing::info;
+use tracing::warn;
 
 use crate::buck;
 use crate::buck::relative_to;
@@ -126,7 +126,7 @@ impl Develop {
         };
 
         if targets.is_empty() {
-            bail!("No targets can be inferred for the provided file.");
+            warn!("Could not find any targets associated with the files specified.");
         }
 
         info!("building generated code");

@@ -363,6 +363,10 @@ impl Buck {
 
     #[instrument(skip_all)]
     pub fn expand_and_resolve(&self, targets: &[Target]) -> anyhow::Result<ExpandedAndResolved> {
+        if targets.is_empty() {
+            return Ok(ExpandedAndResolved::default());
+        }
+
         let mut command = self.command();
         command.args(["--isolation-dir", ".rust-analyzer"]);
         command.arg("bxl");
