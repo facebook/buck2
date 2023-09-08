@@ -7,7 +7,6 @@
 
 load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS")
 load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version")
-load("@prelude//kotlin:kotlin_toolchain.bzl", "KotlinToolchainInfo")
 load("@prelude//decls/android_rules.bzl", "AaptMode", "DuplicateResourceBehaviour", "TargetCpuType")
 load("@prelude//decls/common.bzl", "buck")
 load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
@@ -38,15 +37,6 @@ def android_toolchain():
         providers = [
             AndroidPlatformInfo,
             AndroidToolchainInfo,
-        ],
-    )
-
-def _kotlin_toolchain():
-    return attrs.toolchain_dep(
-        # FIXME: prelude// should be standalone (not refer to fbcode//)
-        default = "fbcode//buck2/platform/toolchain:kotlin",
-        providers = [
-            KotlinToolchainInfo,
         ],
     )
 
@@ -167,7 +157,7 @@ extra_attributes = {
         "_exec_os_type": buck.exec_os_type_arg(),
         "_is_building_android_binary": is_building_android_binary_attr(),
         "_java_toolchain": toolchains_common.java_for_android(),
-        "_kotlin_toolchain": _kotlin_toolchain(),
+        "_kotlin_toolchain": toolchains_common.kotlin(),
     },
     "android_manifest": {
         "_android_toolchain": android_toolchain(),
@@ -215,6 +205,6 @@ extra_attributes = {
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = False)),
         "_java_test_toolchain": toolchains_common.java_test(),
         "_java_toolchain": toolchains_common.java_for_host_test(),
-        "_kotlin_toolchain": _kotlin_toolchain(),
+        "_kotlin_toolchain": toolchains_common.kotlin(),
     },
 }

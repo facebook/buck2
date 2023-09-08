@@ -8,18 +8,10 @@
 load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
 load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
 load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version")
-load(
-    "@prelude//kotlin:kotlin_toolchain.bzl",
-    "KotlinToolchainInfo",
-)
 load("@prelude//decls/common.bzl", "buck")
 load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load(":kotlin_library.bzl", "kotlin_library_impl")
 load(":kotlin_test.bzl", "kotlin_test_impl")
-
-def _select_kotlin_toolchain():
-    # FIXME: prelude// should be standalone (not refer to fbsource//)
-    return "fbsource//xplat/buck2/platform/kotlin:kotlin"
 
 implemented_rules = {
     "kotlin_library": kotlin_library_impl,
@@ -37,12 +29,7 @@ extra_attributes = {
         "_exec_os_type": buck.exec_os_type_arg(),
         "_is_building_android_binary": is_building_android_binary_attr(),
         "_java_toolchain": toolchains_common.java(),
-        "_kotlin_toolchain": attrs.exec_dep(
-            default = _select_kotlin_toolchain(),
-            providers = [
-                KotlinToolchainInfo,
-            ],
-        ),
+        "_kotlin_toolchain": toolchains_common.kotlin(),
     },
     "kotlin_test": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
@@ -54,11 +41,6 @@ extra_attributes = {
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = False)),
         "_java_test_toolchain": toolchains_common.java_test(),
         "_java_toolchain": toolchains_common.java(),
-        "_kotlin_toolchain": attrs.exec_dep(
-            default = _select_kotlin_toolchain(),
-            providers = [
-                KotlinToolchainInfo,
-            ],
-        ),
+        "_kotlin_toolchain": toolchains_common.kotlin(),
     },
 }
