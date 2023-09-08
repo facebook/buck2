@@ -10,9 +10,7 @@ load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
 load("@prelude//android:min_sdk_version.bzl", "get_min_sdk_version_constraint_value_name", "get_min_sdk_version_range")
 load(
     "@prelude//java:java_toolchain.bzl",
-    "JavaPlatformInfo",
     "JavaTestToolchainInfo",
-    "JavaToolchainInfo",
 )
 load("@prelude//java/plugins:java_annotation_processor.bzl", "java_annotation_processor_impl")
 load("@prelude//java/plugins:java_plugin.bzl", "java_plugin_impl")
@@ -27,21 +25,6 @@ load(":keystore.bzl", "keystore_impl")
 load(":prebuilt_jar.bzl", "prebuilt_jar_impl")
 
 AbiGenerationMode = ["class", "source", "source_only", "none"]
-
-def select_java_toolchain():
-    # FIXME: prelude// should be standalone (not refer to fbcode//, fbsource//)
-    return select(
-        {
-            # By default use the fbsource toolchain
-            "DEFAULT": "fbsource//xplat/buck2/platform/java:java",
-            # if target is meant to run on host but with an android environment then use .buckconfig from fbsource cell
-            "config//runtime/constraints:android-host-test": "fbsource//xplat/buck2/platform/java:java-for-host-tests",
-            # if target is with fbcode constraint then use .buckconfig from fbcode cell
-            "config//runtime:fbcode": "fbcode//buck2/platform:java_fbcode",
-            # if target is for android (fbsource repo) then use .buckconfig from fbsource cell
-            "config//toolchain/fb:android-ndk": "fbsource//xplat/buck2/platform/java:java",
-        },
-    )
 
 def dex_min_sdk_version():
     min_sdk_version_dict = {"DEFAULT": None}
@@ -68,13 +51,7 @@ implemented_rules = {
 
 extra_attributes = {
     "jar_genrule": genrule_attributes() | {
-        # FIXME: prelude// should be standalone (not refer to fbsource//)
-        "_java_toolchain": attrs.exec_dep(
-            default = select_java_toolchain(),
-            providers = [
-                JavaToolchainInfo,
-            ],
-        ),
+        "_java_toolchain": toolchains_common.java(),
     },
     "java_annotation_processor": {
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
@@ -85,13 +62,7 @@ extra_attributes = {
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_is_building_android_binary": is_building_android_binary_attr(),
-        "_java_toolchain": attrs.exec_dep(
-            default = select_java_toolchain(),
-            providers = [
-                JavaPlatformInfo,
-                JavaToolchainInfo,
-            ],
-        ),
+        "_java_toolchain": toolchains_common.java(),
     },
     "java_library": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
@@ -102,13 +73,7 @@ extra_attributes = {
         "_dex_toolchain": toolchains_common.dex(),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_is_building_android_binary": is_building_android_binary_attr(),
-        "_java_toolchain": attrs.exec_dep(
-            default = select_java_toolchain(),
-            providers = [
-                JavaPlatformInfo,
-                JavaToolchainInfo,
-            ],
-        ),
+        "_java_toolchain": toolchains_common.java(),
     },
     "java_plugin": {
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
@@ -127,13 +92,7 @@ extra_attributes = {
                 JavaTestToolchainInfo,
             ],
         ),
-        "_java_toolchain": attrs.exec_dep(
-            default = select_java_toolchain(),
-            providers = [
-                JavaPlatformInfo,
-                JavaToolchainInfo,
-            ],
-        ),
+        "_java_toolchain": toolchains_common.java(),
     },
     "java_test_runner": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),

@@ -7,12 +7,10 @@
 
 load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
 load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
-load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version", "select_java_test_toolchain", "select_java_toolchain")
+load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version", "select_java_test_toolchain")
 load(
     "@prelude//java:java_toolchain.bzl",
-    "JavaPlatformInfo",
     "JavaTestToolchainInfo",
-    "JavaToolchainInfo",
 )
 load(
     "@prelude//kotlin:kotlin_toolchain.bzl",
@@ -42,13 +40,7 @@ extra_attributes = {
         "_dex_toolchain": toolchains_common.dex(),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_is_building_android_binary": is_building_android_binary_attr(),
-        "_java_toolchain": attrs.exec_dep(
-            default = select_java_toolchain(),
-            providers = [
-                JavaPlatformInfo,
-                JavaToolchainInfo,
-            ],
-        ),
+        "_java_toolchain": toolchains_common.java(),
         "_kotlin_toolchain": attrs.exec_dep(
             default = _select_kotlin_toolchain(),
             providers = [
@@ -70,13 +62,7 @@ extra_attributes = {
                 JavaTestToolchainInfo,
             ],
         ),
-        "_java_toolchain": attrs.exec_dep(
-            default = select_java_toolchain(),
-            providers = [
-                JavaPlatformInfo,
-                JavaToolchainInfo,
-            ],
-        ),
+        "_java_toolchain": toolchains_common.java(),
         "_kotlin_toolchain": attrs.exec_dep(
             default = _select_kotlin_toolchain(),
             providers = [
