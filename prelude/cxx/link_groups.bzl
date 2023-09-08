@@ -55,7 +55,6 @@ load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":cxx_library_utility.bzl",
     "cxx_is_gnu",
-    "cxx_mk_shlib_intf",
 )
 load(":cxx_toolchain_types.bzl", "PicBehavior")
 load(
@@ -77,6 +76,10 @@ load(
 load(
     ":linker.bzl",
     "get_ignore_undefined_symbols_flags",
+)
+load(
+    ":shared_library_interface.bzl",
+    "shared_library_interface",
 )
 load(
     ":symbols.bzl",
@@ -836,10 +839,11 @@ def create_link_groups(
 
         # On GNU, use shlib interfaces.
         if cxx_is_gnu(ctx):
-            shlib_for_link = cxx_mk_shlib_intf(
+            shlib_for_link = shared_library_interface(
                 ctx = ctx,
                 name = link_group_spec.name,
                 shared_lib = link_group_lib.output,
+                anonymous = anonymous,
             )
         else:
             shlib_for_link = link_group_lib.output

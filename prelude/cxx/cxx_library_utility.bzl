@@ -32,10 +32,6 @@ load(
     ":headers.bzl",
     "cxx_attr_header_namespace",
 )
-load(
-    ":linker.bzl",
-    "get_shared_library_name",
-)
 load(":platform.bzl", "cxx_by_platform")
 
 OBJECTS_SUBTARGET = "objects"
@@ -122,27 +118,6 @@ def cxx_attr_resources(ctx: AnalysisContext) -> dict[str, (Artifact, list[ArgLik
         resources[paths.join(namespace, name)] = (resource, other)
 
     return resources
-
-def cxx_mk_shlib_intf(
-        ctx: AnalysisContext,
-        name: str,
-        shared_lib: [Artifact, "promise"]) -> Artifact:
-    """
-    Convert the given shared library into an interface used for linking.
-    """
-    linker_info = get_cxx_toolchain_info(ctx).linker_info
-    args = cmd_args(linker_info.mk_shlib_intf[RunInfo])
-    args.add(shared_lib)
-    output = ctx.actions.declare_output(
-        get_shared_library_name(linker_info, name + "-interface"),
-    )
-    args.add(output.as_output())
-    ctx.actions.run(
-        args,
-        category = "generate_shared_library_interface",
-        identifier = name,
-    )
-    return output
 
 def cxx_is_gnu(ctx: AnalysisContext) -> bool:
     return get_cxx_toolchain_info(ctx).linker_info.type == "gnu"

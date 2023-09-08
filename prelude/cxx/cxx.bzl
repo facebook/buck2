@@ -74,7 +74,6 @@ load(
     "cxx_attr_exported_post_linker_flags",
     "cxx_attr_preferred_linkage",
     "cxx_inherited_link_info",
-    "cxx_mk_shlib_intf",
     "cxx_platform_supported",
     "cxx_use_shlib_intfs",
 )
@@ -133,6 +132,10 @@ load(
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
     "format_system_include_arg",
+)
+load(
+    ":shared_library_interface.bzl",
+    "shared_library_interface",
 )
 
 #####################################################################
@@ -438,7 +441,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
                         # Generate a shared library interface if the rule supports it.
                         if ctx.attrs.supports_shared_library_interface and cxx_use_shlib_intfs(ctx):
-                            shared_lib_for_linking = cxx_mk_shlib_intf(ctx, ctx.attrs.name, shared_lib.output)
+                            shared_lib_for_linking = shared_library_interface(ctx, ctx.attrs.name, shared_lib.output)
                         if ctx.attrs._target_os_type[OsLookup].platform == "windows":
                             shared_lib_for_linking = ctx.attrs.import_lib
 

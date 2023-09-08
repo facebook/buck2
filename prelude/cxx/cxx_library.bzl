@@ -136,7 +136,6 @@ load(
     "cxx_attr_resources",
     "cxx_inherited_link_info",
     "cxx_is_gnu",
-    "cxx_mk_shlib_intf",
     "cxx_objects_sub_targets",
     "cxx_platform_supported",
     "cxx_use_shlib_intfs",
@@ -188,6 +187,10 @@ load(
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
     "cxx_private_preprocessor_info",
+)
+load(
+    ":shared_library_interface.bzl",
+    "shared_library_interface",
 )
 
 # A possible output of a `cxx_library`. This could be an archive or a shared library. Generally for an archive
@@ -1396,7 +1399,11 @@ def _shared_library(
 
         if shlib_for_interface:
             # Convert the shared library into an interface.
-            shlib_interface = cxx_mk_shlib_intf(ctx, ctx.label.name, shlib_for_interface)
+            shlib_interface = shared_library_interface(
+                ctx = ctx,
+                name = ctx.label.name,
+                shared_lib = shlib_for_interface,
+            )
 
             exported_shlib = shlib_interface
 
