@@ -24,7 +24,6 @@ def apple_sdk_clang_module_impl(ctx: AnalysisContext) -> list[Provider]:
         )
 
     module_info = SdkUncompiledModuleInfo(
-        name = ctx.attrs.name,
         module_name = ctx.attrs.module_name,
         is_framework = ctx.attrs.is_framework,
         is_swiftmodule = False,

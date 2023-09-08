@@ -37,7 +37,6 @@ def get_swift_pcm_anon_targets(
     deps = [
         {
             "dep": uncompiled_dep,
-            "pcm_name": uncompiled_dep[SwiftPCMUncompiledInfo].name,
             "swift_cxx_args": swift_cxx_args,
             "target_sdk_version": ctx.attrs.target_sdk_version,
             "_apple_toolchain": ctx.attrs._apple_toolchain,
@@ -139,7 +138,7 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
                 ),
             ]
 
-        module_name = ctx.attrs.pcm_name
+        module_name = uncompiled_pcm_info.name
         cmd, additional_cmd, pcm_output = _get_base_pcm_flags(
             ctx,
             module_name,
@@ -218,7 +217,6 @@ _swift_pcm_compilation = rule(
     impl = _swift_pcm_compilation_impl,
     attrs = {
         "dep": attrs.dep(),
-        "pcm_name": attrs.string(),
         "swift_cxx_args": attrs.list(attrs.string(), default = []),
         "target_sdk_version": attrs.option(attrs.string(), default = None),
         "_apple_toolchain": attrs.dep(),
