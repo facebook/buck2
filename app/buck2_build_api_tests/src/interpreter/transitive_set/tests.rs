@@ -623,14 +623,15 @@ fn test_type_2() -> anyhow::Result<()> {
         r#"
         FooSet = transitive_set()
 
-        # @starlark-rust: allow_string_literals_in_type_expr
-
-        def wants_not_foo_set(f: "some"):
+        def wants_not_foo_set(f: str):
             pass
 
+        # Separate function to erase type and check runtime error instead of compile-time error.
+        def mk():
+            return make_tset(FooSet)
+
         def test():
-            s = make_tset(FooSet)
-            wants_not_foo_set(s)
+            wants_not_foo_set(mk())
         "#
     );
 
