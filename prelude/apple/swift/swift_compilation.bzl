@@ -485,7 +485,7 @@ def _get_shared_flags(
 
 def _add_swift_deps_flags(
         ctx: AnalysisContext,
-        sdk_deps_tset: "SwiftCompiledModuleTset",
+        sdk_deps_tset: SwiftCompiledModuleTset,
         cmd: cmd_args):
     # If Explicit Modules are enabled, a few things must be provided to a compilation job:
     # 1. Direct and transitive SDK deps from `sdk_modules` attribute.

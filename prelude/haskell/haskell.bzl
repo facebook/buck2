@@ -184,7 +184,7 @@ def attr_deps(ctx: AnalysisContext) -> list[Dependency]:
     return ctx.attrs.deps + _by_platform(ctx, ctx.attrs.platform_deps)
 
 # Disable until we have a need to call this.
-# def _attr_deps_merged_link_infos(ctx: AnalysisContext) -> ["MergedLinkInfo"]:
+# def _attr_deps_merged_link_infos(ctx: AnalysisContext) -> [MergedLinkInfo]:
 #     return filter(None, [d[MergedLinkInfo] for d in attr_deps(ctx)])
 
 # This conversion is non-standard, see TODO about link style below

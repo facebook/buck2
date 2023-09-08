@@ -47,8 +47,8 @@ def _create_kotlin_sources(
         ctx: AnalysisContext,
         srcs: list[Artifact],
         deps: list[Dependency],
-        annotation_processor_properties: "AnnotationProcessorProperties",
-        ksp_annotation_processor_properties: "AnnotationProcessorProperties",
+        annotation_processor_properties: AnnotationProcessorProperties,
+        ksp_annotation_processor_properties: AnnotationProcessorProperties,
         additional_classpath_entries: list[Artifact]) -> (Artifact, [Artifact, None], [Artifact, None]):
     """
     Runs kotlinc on the provided kotlin sources.
@@ -270,7 +270,7 @@ def build_kotlin_library(
         ctx: AnalysisContext,
         additional_classpath_entries: list[Artifact] = [],
         bootclasspath_entries: list[Artifact] = [],
-        extra_sub_targets: dict = {}) -> "JavaProviders":
+        extra_sub_targets: dict = {}) -> JavaProviders:
     srcs = ctx.attrs.srcs
     has_kotlin_srcs = is_any(lambda src: src.extension == ".kt" or src.basename.endswith(".src.zip") or src.basename.endswith("-sources.jar"), srcs)
 

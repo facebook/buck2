@@ -25,7 +25,7 @@ JavaProcessorsInfo = provider(
         "processors",  # ["string"]
 
         # Java dependencies exposed to dependent targets and supposed to be used during compilation.
-        "deps",  # ["JavaPackagingDepTSet", None]
+        "deps",  # [JavaPackagingDepTSet, None]
         "affects_abi",
         "supports_source_only_abi",
         "isolate_class_loader",
@@ -36,7 +36,7 @@ AnnotationProcessor = record(
     affects_abi = field(bool),
     supports_source_only_abi = field(bool),
     processors = field(list[str]),
-    deps = field(["JavaPackagingDepTSet", None]),
+    deps = field([JavaPackagingDepTSet, None]),
     isolate_class_loader = field(bool),
 )
 
@@ -46,7 +46,7 @@ AnnotationProcessorProperties = record(
 )
 
 # Every transitive java annotation processors dependency has to be included into processor classpath for AP/Java Plugin run
-def derive_transitive_deps(ctx: AnalysisContext, deps: list[Dependency]) -> ["JavaPackagingDepTSet", None]:
+def derive_transitive_deps(ctx: AnalysisContext, deps: list[Dependency]) -> [JavaPackagingDepTSet, None]:
     for dep in deps:
         if not dep[JavaLibraryInfo]:
             fail("Dependency must have a type of `java_library` or `prebuilt_jar`. Deps: {}".format(deps))

@@ -91,7 +91,7 @@ CxxRuleAdditionalParams = record(
     shared_external_debug_info = field(list[ArtifactTSet], []),
     subtargets = field(dict, {}),  # [str: ["provider"]]
     # Might be used to expose additional providers to cxx layer (e.g to support #headers subtarget for Swift)
-    additional_providers_factory = field([typing.Callable, None], None),  # (["CPreprocessorInfo", None]) -> ["provider"]:
+    additional_providers_factory = field([typing.Callable, None], None),  # ([CPreprocessorInfo, None]) -> ["provider"]:
 )
 
 # Parameters that allows to configure/extend generic implementation of C++ rules.

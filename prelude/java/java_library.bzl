@@ -59,7 +59,7 @@ def classpath_args(ctx: AnalysisContext, args):
 def _process_plugins(
         ctx: AnalysisContext,
         actions_identifier: [str, None],
-        annotation_processor_properties: "AnnotationProcessorProperties",
+        annotation_processor_properties: AnnotationProcessorProperties,
         plugin_params: ["PluginParams", None],
         javac_args: cmd_args,
         cmd: cmd_args):
@@ -143,7 +143,7 @@ def _append_javac_params(
         java_toolchain: JavaToolchainInfo,
         srcs: list[Artifact],
         remove_classes: list[str],
-        annotation_processor_properties: "AnnotationProcessorProperties",
+        annotation_processor_properties: AnnotationProcessorProperties,
         javac_plugin_params: ["PluginParams", None],
         source_level: int,
         target_level: int,
@@ -270,7 +270,7 @@ def compile_to_jar(
         ctx: AnalysisContext,
         srcs: list[Artifact],
         *,
-        abi_generation_mode: ["AbiGenerationMode", None] = None,
+        abi_generation_mode: [AbiGenerationMode, None] = None,
         output: [Artifact, None] = None,
         actions_identifier: [str, None] = None,
         javac_tool: [typing.Any, None] = None,
@@ -278,7 +278,7 @@ def compile_to_jar(
         resources_root: [str, None] = None,
         remove_classes: [list[str], None] = None,
         manifest_file: [Artifact, None] = None,
-        annotation_processor_properties: ["AnnotationProcessorProperties", None] = None,
+        annotation_processor_properties: [AnnotationProcessorProperties, None] = None,
         plugin_params: ["PluginParams", None] = None,
         source_level: [int, None] = None,
         target_level: [int, None] = None,
@@ -348,7 +348,7 @@ def compile_to_jar(
 def _create_jar_artifact(
         ctx: AnalysisContext,
         actions_identifier: [str, None],
-        abi_generation_mode: ["AbiGenerationMode", None],
+        abi_generation_mode: [AbiGenerationMode, None],
         java_toolchain: JavaToolchainInfo,
         label: Label,
         output: [Artifact, None],
@@ -358,7 +358,7 @@ def _create_jar_artifact(
         resources: list[Artifact],
         resources_root: [str, None],
         manifest_file: [Artifact, None],
-        annotation_processor_properties: "AnnotationProcessorProperties",
+        annotation_processor_properties: AnnotationProcessorProperties,
         plugin_params: ["PluginParams", None],
         source_level: int,
         target_level: int,
@@ -506,7 +506,7 @@ def build_java_library(
         bootclasspath_entries: list[Artifact] = [],
         additional_compiled_srcs: [Artifact, None] = None,
         generated_sources: list[Artifact] = [],
-        override_abi_generation_mode: ["AbiGenerationMode", None] = None,
+        override_abi_generation_mode: [AbiGenerationMode, None] = None,
         extra_sub_targets: dict = {}) -> JavaProviders:
     expect(
         not getattr(ctx.attrs, "_build_only_native_code", False),
