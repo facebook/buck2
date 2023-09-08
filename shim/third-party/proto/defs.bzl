@@ -1,4 +1,3 @@
-# @starlark-rust: allow_string_literals_in_type_expr
 load("@prelude//http_archive/exec_deps.bzl", "HttpArchiveExecDeps")
 load(":releases.bzl", "releases")
 
@@ -31,7 +30,7 @@ def _get_protoc_release(
     )
 
 def _turn_http_archive_into_protoc_distribution(
-        providers: "provider_collection",
+        providers: ProviderCollection,
         protoc_filename: str) -> list[Provider]:
     downloads = providers[DefaultInfo].sub_targets
     include = downloads["include"][DefaultInfo]

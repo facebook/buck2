@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//:genrule.bzl", "process_genrule")
 load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "merge_android_packageable_info")
 load("@prelude//js:js_providers.bzl", "JsBundleInfo")
@@ -77,7 +75,7 @@ def _build_js_bundle(
 def _get_extra_providers(
         ctx: AnalysisContext,
         skip_resources: bool,
-        initial_target: ["provider_collection", Dependency],
+        initial_target: [ProviderCollection, Dependency],
         js_bundle_out: JsBundleInfo) -> list[Provider]:
     providers = []
     android_resource_info = initial_target.get(AndroidResourceInfo)
