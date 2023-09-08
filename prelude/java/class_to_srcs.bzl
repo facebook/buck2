@@ -27,8 +27,9 @@ JavaClassToSourceMapTset = transitive_set(
 JavaClassToSourceMapInfo = provider(
     fields = [
         "tset",
-        "tset_debuginfo",
         "debuginfo",
+        # Used internally in this module to aid generation of `debuginfo`.
+        "_tset_debuginfo",
     ],
 )
 
@@ -37,24 +38,35 @@ def create_class_to_source_map_info(
         mapping: [Artifact, None] = None,
         mapping_debuginfo: [Artifact, None] = None,
         deps = [Dependency]) -> JavaClassToSourceMapInfo:
-    tset_debuginfo = ctx.actions.tset(
-        JavaClassToSourceMapTset,
-        value = mapping_debuginfo,
-        children = [d[JavaClassToSourceMapInfo].tset_debuginfo for d in deps if JavaClassToSourceMapInfo in d],
-    )
+    # Only generate debuginfo if the debug info tool is available.
+    java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
+    tset_debuginfo = None
+    debuginfo = None
+    if java_toolchain.gen_class_to_source_map_debuginfo != None:
+        tset_debuginfo = ctx.actions.tset(
+            JavaClassToSourceMapTset,
+            value = mapping_debuginfo,
+            children = [
+                d[JavaClassToSourceMapInfo]._tset_debuginfo
+                for d in deps
+                if JavaClassToSourceMapInfo in d and d[JavaClassToSourceMapInfo]._tset_debuginfo != None
+            ],
+        )
+        debuginfo = _create_merged_debug_info(
+            actions = ctx.actions,
+            java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo],
+            tset_debuginfo = tset_debuginfo,
+            name = ctx.attrs.name + ".debuginfo_merged.json",
+        )
+
     return JavaClassToSourceMapInfo(
+        _tset_debuginfo = tset_debuginfo,
         tset = ctx.actions.tset(
             JavaClassToSourceMapTset,
             value = mapping,
             children = [d[JavaClassToSourceMapInfo].tset for d in deps if JavaClassToSourceMapInfo in d],
         ),
-        tset_debuginfo = tset_debuginfo,
-        debuginfo = create_merged_debug_info(
-            actions = ctx.actions,
-            java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo],
-            tset_debuginfo = tset_debuginfo,
-            name = ctx.attrs.name + ".debuginfo_merged.json",
-        ),
+        debuginfo = debuginfo,
     )
 
 def create_class_to_source_map_from_jar(
@@ -72,11 +84,15 @@ def create_class_to_source_map_from_jar(
     actions.run(cmd, category = "class_to_srcs_map")
     return output
 
-def create_class_to_source_map_debuginfo(
+def maybe_create_class_to_source_map_debuginfo(
         actions: AnalysisActions,
         name: str,
         java_toolchain: JavaToolchainInfo,
-        srcs: list[Artifact]) -> Artifact:
+        srcs: list[Artifact]) -> [Artifact, None]:
+    # Only generate debuginfo if the debug info tool is available.
+    if java_toolchain.gen_class_to_source_map_debuginfo == None:
+        return None
+
     output = actions.declare_output(name)
     cmd = cmd_args(java_toolchain.gen_class_to_source_map_debuginfo[RunInfo])
     cmd.add("gen")
@@ -111,7 +127,7 @@ def merge_class_to_source_map_from_jar(
     actions.run(cmd, category = "merge_class_to_srcs_map")
     return output
 
-def create_merged_debug_info(
+def _create_merged_debug_info(
         actions: AnalysisActions,
         java_toolchain: JavaToolchainInfo,
         tset_debuginfo: TransitiveSet,

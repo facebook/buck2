@@ -10,9 +10,9 @@
 load(
     "@prelude//java:class_to_srcs.bzl",
     "JavaClassToSourceMapInfo",  # @unused Used as a type
-    "create_class_to_source_map_debuginfo",
     "create_class_to_source_map_from_jar",
     "create_class_to_source_map_info",
+    "maybe_create_class_to_source_map_debuginfo",
 )
 load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "JavaToolchainInfo")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
@@ -133,7 +133,7 @@ def get_class_to_source_map_info(
                 jar = outputs.classpath_entry.full_library,
                 srcs = ctx.attrs.srcs,
             )
-        class_to_srcs_debuginfo = create_class_to_source_map_debuginfo(
+        class_to_srcs_debuginfo = maybe_create_class_to_source_map_debuginfo(
             actions = ctx.actions,
             java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo],
             name = ctx.attrs.name + ".debuginfo.json",
