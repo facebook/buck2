@@ -67,7 +67,7 @@ pub fn log_relative_path_from_cell_root(requested_path: &str) -> anyhow::Result<
     Ok(())
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum ArgFile {
     PythonExecutable(AbsNormPathBuf, Option<String>),
     Path(AbsNormPathBuf),
