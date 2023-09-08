@@ -376,7 +376,7 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             strip_non_global_flags = ctx.attrs.strip_non_global_flags,
             strip_all_flags = ctx.attrs.strip_all_flags,
         ),
-        #dist_lto_tools_info: [DistLtoToolsInfo.type, None] = None,
+        #dist_lto_tools_info: [DistLtoToolsInfo, None] = None,
         #split_debug_mode = SplitDebugMode("none"),
         #bolt_enabled = False,
     )

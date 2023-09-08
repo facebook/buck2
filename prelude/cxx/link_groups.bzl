@@ -216,7 +216,7 @@ def get_link_group_preferred_linkage(link_groups: list[Group]) -> dict[Label, Li
 
 LinkGroupContext = record(
     link_group_mappings = field([dict[Label, str], None]),
-    # TODO(nga): before, `Any` was `_LinkedLinkGroup.type`,
+    # TODO(nga): before, `Any` was `_LinkedLinkGroup`,
     #   which was treated as `Any`, because name starts with underscore.
     #   Put proper type here.
     link_group_libs = field(dict[str, typing.Any]),

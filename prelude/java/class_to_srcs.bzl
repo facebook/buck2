@@ -92,6 +92,7 @@ def merge_class_to_source_map_from_jar(
         java_test_toolchain: JavaTestToolchainInfo,
         mapping: [Artifact, None] = None,
         relative_to: ["cell_root", None] = None,
+        # TODO(nga): I think this meant to be type, not default value.
         deps = [JavaClassToSourceMapInfo.type]) -> Artifact:
     output = actions.declare_output(name)
     cmd = cmd_args(java_test_toolchain.merge_class_to_source_maps[RunInfo])

@@ -37,7 +37,10 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
 
     genrule_providers = process_genrule(ctx, output_apk_name, None, env_vars)
 
-    expect(len(genrule_providers) == 1 and type(genrule_providers[0]) == DefaultInfo.type, "Expecting just a single DefaultInfo, but got {}".format(genrule_providers))
+    expect(
+        len(genrule_providers) == 1 and isinstance(genrule_providers[0], DefaultInfo),
+        "Expecting just a single DefaultInfo, but got {}".format(genrule_providers),
+    )
     output_apk = genrule_providers[0].default_outputs[0]
 
     install_info = get_install_info(

@@ -121,7 +121,7 @@ HaskellIndexingTSet = transitive_set()
 # A list of hie dirs
 HaskellIndexInfo = provider(
     fields = [
-        "info",  # { LinkStyle.type : HaskellIndexingTset }
+        "info",  # dict[LinkStyle, HaskellIndexingTset]
     ],
 )
 

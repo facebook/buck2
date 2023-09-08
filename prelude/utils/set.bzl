@@ -44,7 +44,7 @@ set_record = record(
 
 # For typing a set, you may use `set_type` or `set_record.type`, the former is
 # encouraged to avoid leaking the underlying implementation.
-set_type = set_record.type
+set_type = set_record
 
 def set(initial_entries: list[typing.Any] = []) -> set_type:
     def set_list():

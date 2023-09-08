@@ -34,7 +34,7 @@ _AppleDebugInfo = record(
 
 AggregatedAppleDebugInfo = record(
     debug_info = field(_AppleDebugInfo),
-    # debug_info_tset = field(ArtifactTSet.type),
+    # debug_info_tset = field(ArtifactTSet),
     sub_targets = field(dict[str, list[DefaultInfo]]),
 )
 
