@@ -9,14 +9,17 @@
 
 use std::fmt;
 use std::fmt::Display;
+use std::fmt::Formatter;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use anyhow::Context;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::provider::id::ProviderId;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::types::provider::callable::ProviderCallableLike;
 use dupe::Dupe;
+use either::Either;
 use itertools::Itertools;
 use once_cell::unsync;
 use starlark::any::ProvidesStaticType;
@@ -34,8 +37,13 @@ use starlark::typing::Param;
 use starlark::typing::Ty;
 use starlark::typing::TyFunction;
 use starlark::typing::TyStarlarkValue;
+use starlark::values::dict::AllocDict;
+use starlark::values::dict::DictRef;
+use starlark::values::list::AllocList;
+use starlark::values::list::ListRef;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
+use starlark::values::typing::TypeCompiled;
 use starlark::values::typing::TypeInstanceId;
 use starlark::values::typing::TypeMatcher;
 use starlark::values::typing::TypeMatcherFactory;
@@ -51,6 +59,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
 use crate::interpreter::rule_defs::provider::doc::provider_callable_documentation;
@@ -72,20 +81,29 @@ enum ProviderCallableError {
     ProviderNotAssigned(SmallSet<String>),
     #[error("non-unique field names: [{}]", .0.iter().map(|s| format!("`{}`", s)).join(", "))]
     NonUniqueFields(Vec<String>),
+    #[error("Field default value can be either frozen value or an empty list or dict")]
+    InvalidDefaultValue,
+    #[error("Default value `{0}` (type `{1}`) does not match field type `{1}`")]
+    InvalidDefaultValueType(String, &'static str, Ty),
 }
 
 fn create_callable_function_signature(
     function_name: &str,
-    fields: &SmallSet<String>,
+    fields: &SmallMap<String, UserProviderField>,
     ret_ty: Ty,
 ) -> (ParametersSpec<FrozenValue>, TyFunction) {
     let mut signature = ParametersSpec::with_capacity(function_name.to_owned(), fields.len());
     let mut ty_params = Vec::with_capacity(fields.len());
     // TODO(nmj): Should double check we don't actually need positional args in-repo
     signature.no_more_positional_args();
-    for field in fields {
-        signature.defaulted(field, FrozenValue::new_none());
-        ty_params.push(Param::name_only(field, Ty::any()).optional());
+    for (name, field) in fields {
+        if field.default.is_some() {
+            signature.optional(name);
+            ty_params.push(Param::name_only(name, field.ty.as_ty().dupe()).optional());
+        } else {
+            signature.required(name);
+            ty_params.push(Param::name_only(name, field.ty.as_ty().dupe()));
+        }
     }
 
     (signature.finish(), TyFunction::new(ty_params, ret_ty))
@@ -96,7 +114,7 @@ pub(crate) struct UserProviderCallableData {
     pub(crate) provider_id: Arc<ProviderId>,
     /// Type id of provider callable instance.
     pub(crate) ty_provider_type_instance_id: TypeInstanceId,
-    pub(crate) fields: SmallSet<String>,
+    pub(crate) fields: SmallMap<String, UserProviderField>,
 }
 
 /// Initialized after the name is assigned to the provider.
@@ -126,6 +144,44 @@ impl UserProviderCallableNamed {
     }
 }
 
+#[derive(Debug, Trace, Allocative, ProvidesStaticType, NoSerialize, Clone, Dupe)]
+pub(crate) struct UserProviderField {
+    /// Field type.
+    pub(crate) ty: TypeCompiled<FrozenValue>,
+    /// Default value. If `None`, the field is required.
+    pub(crate) default: Option<FrozenValue>,
+}
+
+impl<'v> AllocValue<'v> for UserProviderField {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        heap.alloc_simple(self)
+    }
+}
+
+impl Display for UserProviderField {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "ProviderField({}, ", self.ty)?;
+        if let Some(default) = &self.default {
+            write!(f, "default = {}", default)?;
+        } else {
+            write!(f, "required")?;
+        }
+        write!(f, ")")
+    }
+}
+
+impl UserProviderField {
+    pub(crate) fn default() -> UserProviderField {
+        UserProviderField {
+            ty: TypeCompiled::any(),
+            default: Some(FrozenValue::new_none()),
+        }
+    }
+}
+
+#[starlark_value(type = "ProviderField")]
+impl<'v> StarlarkValue<'v> for UserProviderField {}
+
 /// The result of calling `provider()`. This is a callable that accepts the fields
 /// provided in the `provider()` call, and generates a Starlark `UserProvider` object.
 ///
@@ -139,31 +195,47 @@ pub struct UserProviderCallable {
     /// The docstring for this provider
     docs: Option<DocString>,
     /// The names of the fields used in `callable`
-    fields: SmallSet<String>,
+    fields: SmallMap<String, UserProviderField>,
     /// Field is initialized after the provider is assigned to a variable.
     callable: unsync::OnceCell<UserProviderCallableNamed>,
 }
 
-impl Display for UserProviderCallable {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.id() {
-            None => write!(f, "unnamed provider"),
-            Some(id) => {
-                write!(f, "{}(", id.name)?;
-                for (i, x) in self.fields.iter().enumerate() {
-                    if i != 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{}", x)?;
-                }
-                write!(f, ")")
-            }
+fn user_provider_callable_display(
+    id: Option<&Arc<ProviderId>>,
+    fields: &SmallMap<String, UserProviderField>,
+    f: &mut Formatter,
+) -> fmt::Result {
+    write!(f, "provider")?;
+    if let Some(id) = id {
+        write!(f, "[{}]", id.name)?;
+    }
+    write!(f, "(fields={{")?;
+    for (i, (name, ty)) in fields.iter().enumerate() {
+        if i != 0 {
+            write!(f, ", ")?;
         }
+        write!(f, "\"{}\": provider_field({}", name, ty.ty)?;
+        if let Some(default) = ty.default {
+            write!(f, ", default={}", default)?;
+        }
+        write!(f, ")")?;
+    }
+    write!(f, "}})")?;
+    Ok(())
+}
+
+impl Display for UserProviderCallable {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        user_provider_callable_display(self.id(), &self.fields, f)
     }
 }
 
 impl UserProviderCallable {
-    fn new(path: CellPath, docs: Option<DocString>, fields: SmallSet<String>) -> Self {
+    fn new(
+        path: CellPath,
+        docs: Option<DocString>,
+        fields: SmallMap<String, UserProviderField>,
+    ) -> Self {
         Self {
             callable: unsync::OnceCell::new(),
             path,
@@ -194,7 +266,10 @@ impl Freeze for UserProviderCallable {
             None => {
                 // Unfortunately we have no name or location for the provider at this point,
                 // so reproduce the fields so that the provider can be identified.
-                return Err(ProviderCallableError::ProviderNotAssigned(self.fields).into());
+                return Err(ProviderCallableError::ProviderNotAssigned(
+                    self.fields.into_iter().map(|(name, _)| name).collect(),
+                )
+                .into());
             }
         };
 
@@ -245,7 +320,7 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
                 })),
                 self.fields
                     .iter()
-                    .map(|name| (name.to_owned(), Ty::any()))
+                    .map(|(name, field)| (name.to_owned(), field.ty.as_ty().dupe()))
                     .collect(),
             )?;
             let (signature, creator_func) = create_callable_function_signature(
@@ -301,7 +376,8 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
         Some(provider_callable_documentation(
             None,
             &self.docs,
-            &self.fields.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
+            &self.fields.keys().map(|x| x.as_str()).collect::<Vec<_>>(),
+            // TODO(nga): types.
             &vec![None; self.fields.len()],
             &return_types,
         ))
@@ -317,29 +393,22 @@ pub struct FrozenUserProviderCallable {
     /// The docstring for this provider
     docs: Option<DocString>,
     /// The names of the fields used in `callable`
-    fields: SmallSet<String>,
+    fields: SmallMap<String, UserProviderField>,
     /// The actual callable that creates instances of `UserProvider`
     callable: UserProviderCallableNamed,
 }
 starlark_simple_value!(FrozenUserProviderCallable);
 
 impl Display for FrozenUserProviderCallable {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}(", self.callable.id.name)?;
-        for (i, x) in self.fields.iter().enumerate() {
-            if i != 0 {
-                write!(f, ", ")?;
-            }
-            write!(f, "{}", x)?;
-        }
-        write!(f, ")")
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        user_provider_callable_display(Some(&self.callable.id), &self.fields, f)
     }
 }
 
 impl FrozenUserProviderCallable {
     fn new(
         docs: Option<DocString>,
-        fields: SmallSet<String>,
+        fields: SmallMap<String, UserProviderField>,
         callable: UserProviderCallableNamed,
     ) -> Self {
         Self {
@@ -383,7 +452,7 @@ impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
         Some(provider_callable_documentation(
             None,
             &self.docs,
-            &self.fields.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
+            &self.fields.keys().map(|x| x.as_str()).collect::<Vec<_>>(),
             &vec![None; self.fields.len()],
             &return_types,
         ))
@@ -404,7 +473,10 @@ fn provider_callable_methods(builder: &mut MethodsBuilder) {
     fn r#type<'v>(this: Value<'v>, heap: &Heap) -> anyhow::Result<Value<'v>> {
         if let Some(x) = this.downcast_ref::<UserProviderCallable>() {
             match x.callable.get() {
-                None => Err(ProviderCallableError::ProviderNotAssigned(x.fields.clone()).into()),
+                None => Err(ProviderCallableError::ProviderNotAssigned(
+                    x.fields.keys().cloned().collect(),
+                )
+                .into()),
                 Some(named) => Ok(heap.alloc(named.id.name.as_str())),
             }
         } else if let Some(x) = this.downcast_ref::<FrozenUserProviderCallable>() {
@@ -420,6 +492,41 @@ fn provider_callable_methods(builder: &mut MethodsBuilder) {
 
 #[starlark_module]
 pub fn register_provider(builder: &mut GlobalsBuilder) {
+    /// Create a field definition object which can be passed to `provider` type constructor.
+    fn provider_field<'v>(
+        #[starlark(require=pos)] ty: Value<'v>,
+        #[starlark(require=named)] default: Option<Value<'v>>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<UserProviderField> {
+        let ty = TypeCompiled::new(ty, eval.heap())?.to_frozen(eval.frozen_heap());
+        let default = match default {
+            None => None,
+            Some(x) => {
+                if let Some(x) = x.unpack_frozen() {
+                    Some(x)
+                } else if ListRef::from_value(x).map_or(false, |x| x.is_empty()) {
+                    Some(eval.frozen_heap().alloc(AllocList::EMPTY))
+                } else if DictRef::from_value(x).map_or(false, |x| x.is_empty()) {
+                    Some(eval.frozen_heap().alloc(AllocDict::EMPTY))
+                } else {
+                    // Dealing only with frozen values is much easier.
+                    return Err(ProviderCallableError::InvalidDefaultValue.into());
+                }
+            }
+        };
+        if let Some(default) = default {
+            if !ty.matches(default.to_value()) {
+                return Err(ProviderCallableError::InvalidDefaultValueType(
+                    default.to_string(),
+                    default.to_value().get_type(),
+                    ty.as_ty().dupe(),
+                )
+                .into());
+            }
+        }
+        Ok(UserProviderField { ty, default })
+    }
+
     /// Create a `"provider"` type that can be returned from `rule` implementations.
     /// Used to pass information from a rule to the things that depend on it.
     /// Typically named with an `Info` suffix.
@@ -435,25 +542,44 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
     /// which returns either `None` or a value of type `GroovyLibraryInfo`.
     ///
     /// For providers that accumulate upwards a transitive set is often a good choice.
-    fn provider(
+    fn provider<'v>(
         #[starlark(require=named, default = "")] doc: &str,
-        #[starlark(require=named)] fields: Vec<String>,
-        eval: &mut Evaluator,
+        #[starlark(require=named)] fields: Either<Vec<String>, SmallMap<String, Value<'v>>>,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<UserProviderCallable> {
         let docstring = DocString::from_docstring(DocStringKind::Starlark, doc);
         let path = starlark_path_from_build_context(eval)?.path();
 
-        let field_names = {
-            let field_names: SmallSet<String> = fields.iter().cloned().collect();
-            if field_names.len() != fields.len() {
-                return Err(ProviderCallableError::NonUniqueFields(fields).into());
+        let fields = match fields {
+            Either::Left(fields) => {
+                let new_fields: SmallMap<String, UserProviderField> = fields
+                    .iter()
+                    .map(|name| (name.clone(), UserProviderField::default()))
+                    .collect();
+                if new_fields.len() != fields.len() {
+                    return Err(ProviderCallableError::NonUniqueFields(fields).into());
+                }
+                new_fields
             }
-            field_names
+            Either::Right(fields) => {
+                let mut new_fields = SmallMap::with_capacity(fields.len());
+                for (name, field) in fields {
+                    if let Some(field) = field.downcast_ref::<UserProviderField>() {
+                        new_fields.insert(name, field.dupe());
+                    } else {
+                        let ty = TypeCompiled::new(field, eval.heap())
+                            .with_context(|| format!("Field `{name}` type `{field}` is not created with `provider_field`, and cannot be evaluated as a type"))?
+                            .to_frozen(eval.frozen_heap());
+                        new_fields.insert(name, UserProviderField { ty, default: None });
+                    }
+                }
+                new_fields
+            }
         };
         Ok(UserProviderCallable::new(
             path.into_owned(),
             docstring,
-            field_names,
+            fields,
         ))
     }
 

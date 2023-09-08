@@ -10,6 +10,7 @@
 mod build_defs;
 mod builtin;
 mod collection;
+mod field_types;
 mod provider_symbol;
 pub(crate) mod testing;
 mod tests;

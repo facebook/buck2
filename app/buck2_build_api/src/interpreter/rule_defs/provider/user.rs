@@ -17,6 +17,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::provider::id::ProviderId;
 use display_container::fmt_keyed_container;
+use dupe::Dupe;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::coerce;
@@ -27,6 +28,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::eval::ParametersParser;
+use starlark::typing::Ty;
 use starlark::values::starlark_value;
 use starlark::values::Demand;
 use starlark::values::Freeze;
@@ -41,10 +43,17 @@ use crate::interpreter::rule_defs::provider::callable::UserProviderCallableData;
 use crate::interpreter::rule_defs::provider::provider_methods;
 use crate::interpreter::rule_defs::provider::ProviderLike;
 
+#[derive(Debug, thiserror::Error)]
+enum UserProviderError {
+    #[error("Value for parameter `{0}` mismatches type `{1}`: `{2}`")]
+    MismatchedType(String, Ty, String),
+    #[error("Required parameter `{0}` is missing")]
+    MissingParameter(String),
+}
+
 /// The result of calling the output of `provider()`. This is just a simple data structure of
 /// either immediately available values or, later, `FutureValue` types that are resolved
 /// asynchronously
-
 #[derive(Debug, Clone, Coerce, Trace, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub struct UserProviderGen<'v, V: ValueLike<'v>> {
@@ -60,7 +69,7 @@ impl<'v, V: ValueLike<'v>> UserProviderGen<'v, V> {
         assert_eq!(self.callable.fields.len(), self.attributes.len());
         self.callable
             .fields
-            .iter()
+            .keys()
             .map(|s| s.as_str())
             .zip(self.attributes.iter().copied())
     }
@@ -88,7 +97,7 @@ where
     }
 
     fn dir_attr(&self) -> Vec<String> {
-        self.callable.fields.iter().cloned().collect()
+        self.callable.fields.keys().cloned().collect()
     }
 
     fn get_attr(&self, attribute: &str, heap: &'v Heap) -> Option<Value<'v>> {
@@ -180,7 +189,23 @@ pub(crate) fn user_provider_creator<'v>(
     let values = callable
         .fields
         .iter()
-        .map(|field| param_parser.next(field))
+        .map(|(name, field)| match param_parser.next_opt(name)? {
+            Some(value) => {
+                if !field.ty.matches(value) {
+                    return Err(UserProviderError::MismatchedType(
+                        name.to_owned(),
+                        field.ty.as_ty().dupe(),
+                        value.to_repr(),
+                    )
+                    .into());
+                }
+                Ok(value)
+            }
+            None => match field.default {
+                Some(default) => Ok(default.to_value()),
+                None => Err(UserProviderError::MissingParameter(name.to_owned()).into()),
+            },
+        })
         .collect::<anyhow::Result<Box<[Value]>>>()?;
     Ok(heap.alloc(UserProvider {
         callable,

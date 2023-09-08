@@ -34,14 +34,14 @@ fn creates_providers() -> anyhow::Result<()> {
     #frozen_foo_1 = FooInfo(bar="bar_f1", baz="baz_f1")
     #frozen_foo_2 = FooInfo(bar="bar_f2")
 
-    assert_eq("unnamed provider", repr(provider(fields=["f1"])))
-    assert_eq("FooInfo(bar, baz)", repr(FooInfo))
-    assert_eq("FooInfo(bar, baz)", repr(FooInfo2))
+    assert_eq('provider(fields={"f1": provider_field(typing.Any, default=None)})', repr(provider(fields=["f1"])))
+    assert_eq('provider[FooInfo](fields={"bar": provider_field(typing.Any, default=None), "baz": provider_field(typing.Any, default=None)})', repr(FooInfo))
+    assert_eq('provider[FooInfo](fields={"bar": provider_field(typing.Any, default=None), "baz": provider_field(typing.Any, default=None)})', repr(FooInfo2))
 
     def test():
         assert_eq(FooInfo.type, "FooInfo")
-        assert_eq("FooInfo(bar, baz)", repr(FooInfo))
-        assert_eq("FooInfo(bar, baz)", repr(FooInfo2))
+        assert_eq('provider[FooInfo](fields={"bar": provider_field(typing.Any, default=None), "baz": provider_field(typing.Any, default=None)})', repr(FooInfo))
+        assert_eq('provider[FooInfo](fields={"bar": provider_field(typing.Any, default=None), "baz": provider_field(typing.Any, default=None)})', repr(FooInfo2))
 
         #assert_eq("FooInfo(bar=\"bar_f1\", baz=\"baz_f1\")", repr(frozen_foo1))
         #assert_eq("bar_f1", frozen_foo1.bar)
@@ -53,7 +53,7 @@ fn creates_providers() -> anyhow::Result<()> {
         foo_1 = FooInfo(bar="bar_1", baz="baz_1")
         foo_2 = FooInfo(bar="bar_2")
 
-        assert_eq("FooInfo(bar, baz)", repr(FooInfo))
+        assert_eq('provider[FooInfo](fields={"bar": provider_field(typing.Any, default=None), "baz": provider_field(typing.Any, default=None)})', repr(FooInfo))
         assert_eq("FooInfo(bar=\"bar_1\", baz=\"baz_1\")", repr(foo_1))
         assert_eq("bar_1", foo_1.bar)
         assert_eq("baz_1", foo_1.baz)
