@@ -295,6 +295,7 @@ def _python_executable_attrs():
 
     # allow non-default value for the args below
     updated_attrs.update({
+        "add_multiprocessing_wrapper": attrs.bool(default = True),
         "anonymous_link_groups": attrs.bool(default = False),
         "binary_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
         "compiler_flags": attrs.list(attrs.arg(), default = []),
