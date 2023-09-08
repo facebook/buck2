@@ -22,6 +22,7 @@ use crate as starlark;
 use crate::environment::GlobalsBuilder;
 use crate::values::enumeration::EnumType;
 use crate::values::Heap;
+use crate::values::StringValue;
 use crate::values::Value;
 
 #[starlark_module]
@@ -46,7 +47,7 @@ pub fn register_enum(builder: &mut GlobalsBuilder) {
     ///
     /// Enumeration types store each value once, which are then efficiently referenced by enumeration values.
     fn r#enum<'v>(
-        #[starlark(args)] args: Vec<Value<'v>>,
+        #[starlark(args)] args: Vec<StringValue<'v>>,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         // Every Value must either be a field or a value (the type)
@@ -63,24 +64,24 @@ mod tests {
     fn test_enum() {
         assert::pass(
             r#"
-enum_type = enum("option1", "option2", True)
+enum_type = enum("option1", "option2", "option3")
 x = enum_type("option1")
 assert_eq(x.value, "option1")
-assert_eq(enum_type(True).value, True)
+assert_eq(enum_type("option3").value, "option3")
 assert_eq(enum_type.type, "enum_type")
 "#,
         );
         assert::fails(
             r#"
-enum_type = enum("option1", "option2", True)
+enum_type = enum("option1", "option2", "option3")
 enum_type(False)"#,
             &["Unknown enum element", "`False`", "option1"],
         );
         assert::fails(
             r#"
-enum_type = enum("option1", "option2", True)
-enum_type("option3")"#,
-            &["Unknown enum element", "`option3`"],
+enum_type = enum("option1", "option2", "option3")
+enum_type("option4")"#,
+            &["Unknown enum element", "`option4`"],
         );
         assert::fails(
             r#"
@@ -136,10 +137,10 @@ repr(enum_type) # Check it is finite
     fn test_enum_equality() {
         assert::pass(
             r#"
-enum_type = enum("option1", "option2", True)
+enum_type = enum("option1", "option2", "option3")
 assert_eq(enum_type("option1"), enum_type("option1"))
-assert_eq(enum_type(True), enum_type(True))
-assert_ne(enum_type("option1"), enum_type(True))
+assert_eq(enum_type("option3"), enum_type("option3"))
+assert_ne(enum_type("option1"), enum_type("option3"))
 "#,
         );
 
@@ -147,7 +148,7 @@ assert_ne(enum_type("option1"), enum_type(True))
         a.module(
             "m",
             r#"
-enum_type = enum("option1", "option2", True)
+enum_type = enum("option1", "option2", "option3")
 enum_val = enum_type("option1")
 "#,
         );
@@ -155,7 +156,7 @@ enum_val = enum_type("option1")
             r#"
 load('m', 'enum_type', 'enum_val')
 assert_eq(enum_val, enum_type("option1"))
-assert_ne(enum_val, enum_type(True))
+assert_ne(enum_val, enum_type("option3"))
 "#,
         );
 
@@ -163,24 +164,24 @@ assert_ne(enum_val, enum_type(True))
         a.module(
             "m1",
             r#"
-rt = enum(1)
+rt = enum("one")
 "#,
         );
         a.module(
             "m2",
             r#"
-rt = enum(1, 2)
+rt = enum("one", "two")
 "#,
         );
         a.pass(
             r#"
 load('m1', r1='rt')
 load('m2', r2='rt')
-rt = enum(1)
-diff = enum(1)
-assert_ne(r1(1), rt(1))
-assert_ne(rt(1), r2(1))
-assert_ne(rt(1), diff(1))
+rt = enum("one")
+diff = enum("one")
+assert_ne(r1("one"), rt("one"))
+assert_ne(rt("one"), r2("one"))
+assert_ne(rt("one"), diff("one"))
 "#,
         );
     }

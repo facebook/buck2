@@ -63,6 +63,7 @@ use crate::values::Freezer;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
+use crate::values::StringValue;
 use crate::values::Value;
 use crate::values::ValueLike;
 
@@ -177,7 +178,7 @@ pub type EnumType<'v> = EnumTypeGen<Value<'v>>;
 pub type FrozenEnumType = EnumTypeGen<FrozenValue>;
 
 impl<'v> EnumType<'v> {
-    pub(crate) fn new(elements: Vec<Value<'v>>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub(crate) fn new(elements: Vec<StringValue<'v>>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         // We are constructing the enum and all elements in one go.
         // They both point at each other, which adds to the complexity.
         let id = TypeInstanceId::gen();
@@ -193,9 +194,9 @@ impl<'v> EnumType<'v> {
                 id,
                 typ,
                 index: i as i32,
-                value: *x,
+                value: x.to_value(),
             });
-            if res.insert_hashed(x.get_hashed()?, v).is_some() {
+            if res.insert_hashed(x.to_value().get_hashed()?, v).is_some() {
                 return Err(EnumError::DuplicateEnumValue(x.to_string()).into());
             }
         }
