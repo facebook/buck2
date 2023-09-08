@@ -10,7 +10,6 @@
 use std::borrow::Cow;
 use std::convert::TryFrom;
 use std::fmt;
-use std::io::Write;
 use std::slice;
 use std::time::Instant;
 
@@ -69,11 +68,13 @@ enum WriteJsonActionValidationError {
 }
 
 #[derive(Allocative)]
-pub(crate) struct UnregisteredWriteJsonAction;
+pub(crate) struct UnregisteredWriteJsonAction {
+    pretty: bool,
+}
 
 impl UnregisteredWriteJsonAction {
-    pub(crate) fn new() -> Self {
-        Self
+    pub(crate) fn new(pretty: bool) -> Self {
+        Self { pretty }
     }
 
     pub(crate) fn cli<'v>(
@@ -92,7 +93,7 @@ impl UnregisteredAction for UnregisteredWriteJsonAction {
         starlark_data: Option<OwnedFrozenValue>,
     ) -> anyhow::Result<Box<dyn Action>> {
         let contents = starlark_data.expect("module data to be present");
-        let action = WriteJsonAction::new(contents, inputs, outputs)?;
+        let action = WriteJsonAction::new(contents, inputs, outputs, self.pretty)?;
         Ok(Box::new(action))
     }
 }
@@ -101,6 +102,7 @@ impl UnregisteredAction for UnregisteredWriteJsonAction {
 struct WriteJsonAction {
     contents: OwnedFrozenValue, // JSON value
     output: BuildArtifact,
+    pretty: bool,
 }
 
 impl WriteJsonAction {
@@ -108,6 +110,7 @@ impl WriteJsonAction {
         contents: OwnedFrozenValue,
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
+        pretty: bool,
     ) -> anyhow::Result<Self> {
         validate_json(contents.value())?;
 
@@ -125,17 +128,17 @@ impl WriteJsonAction {
             return Err(WriteJsonActionValidationError::TooManyInputs.into());
         }
 
-        Ok(WriteJsonAction { contents, output })
-    }
-
-    fn write(&self, fs: &ExecutorFs, writer: impl Write) -> anyhow::Result<()> {
-        json::write_json(self.contents.value(), Some(fs), writer)
+        Ok(WriteJsonAction {
+            contents,
+            output,
+            pretty,
+        })
     }
 
     fn get_contents(&self, fs: &ExecutorFs) -> anyhow::Result<Vec<u8>> {
-        let mut contents = Vec::new();
-        self.write(fs, &mut contents)?;
-        Ok(contents)
+        let mut writer = Vec::new();
+        json::write_json(self.contents.value(), Some(fs), &mut writer, self.pretty)?;
+        Ok(writer)
     }
 }
 

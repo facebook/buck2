@@ -257,11 +257,13 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     ///     * An artifact will be written as a string containing the path
     ///     * A command line will be written as a list of strings, unless `joined=True` is set, in which case it will be a string
     /// * If you pass `with_inputs = True`, you'll get back a `cmd_args` that expands to the JSON file but carries all the underlying inputs as dependencies (so you don't have to use, for example, `hidden` for them to be added to an action that already receives the JSON file)
+    /// * `pretty` (optional): write formatted JSON (defaults to `False`)
     fn write_json<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
         #[starlark(require = pos)] content: Value<'v>,
         #[starlark(require = named, default = false)] with_inputs: bool,
+        #[starlark(require = named, default = false)] pretty: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<impl AllocValue<'v>> {
         let mut this = this.state();
@@ -272,7 +274,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         this.register_action(
             IndexSet::new(),
             indexset![output_artifact],
-            UnregisteredWriteJsonAction::new(),
+            UnregisteredWriteJsonAction::new(pretty),
             Some(content),
         )?;
 

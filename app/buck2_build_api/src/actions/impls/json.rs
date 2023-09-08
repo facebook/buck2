@@ -243,12 +243,28 @@ fn is_singleton_cmdargs(x: Value) -> bool {
 }
 
 pub fn validate_json(x: Value) -> anyhow::Result<()> {
-    write_json(x, None, &mut sink())
+    write_json(x, None, &mut sink(), false)
 }
 
-pub fn write_json(x: Value, fs: Option<&ExecutorFs>, writer: impl Write) -> anyhow::Result<()> {
-    serde_json::ser::to_writer(writer, &SerializeValue { value: x, fs })
-        .context("Error converting to JSON for `write_json`")
+pub fn write_json(
+    x: Value,
+    fs: Option<&ExecutorFs>,
+    mut writer: &mut dyn Write,
+    pretty: bool,
+) -> anyhow::Result<()> {
+    let value = SerializeValue { value: x, fs };
+    (|| {
+        if pretty {
+            serde_json::to_writer_pretty(&mut writer, &value)?;
+            // serde_json does not add a trailing line, but we add it because
+            // "pretty" implies that this JSON is for people to read.
+            writer.write_all(b"\n")?;
+        } else {
+            serde_json::to_writer(&mut writer, &value)?;
+        }
+        anyhow::Ok(())
+    })()
+    .context("Error converting to JSON for `write_json`")
 }
 
 pub fn visit_json_artifacts(
