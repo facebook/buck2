@@ -1078,7 +1078,7 @@ prebuilt_cxx_library = prelude_rule(
             "platform_import_lib": attrs.option(attrs.list(attrs.tuple(attrs.regex(), attrs.source())), default = None),
             "provided": attrs.bool(default = False),
             "soname": attrs.option(attrs.string(), default = None),
-            "supports_shared_library_interface": attrs.bool(default = False),
+            "supports_shared_library_interface": attrs.bool(default = True),
             "versioned_exported_lang_platform_preprocessor_flags": attrs.versioned(attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False)),
             "versioned_exported_lang_preprocessor_flags": attrs.versioned(attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False)),
             "versioned_exported_platform_preprocessor_flags": attrs.versioned(attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())))),
