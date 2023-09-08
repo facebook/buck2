@@ -48,9 +48,7 @@ def _swift_interface_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Pr
 
         clang_deps_tset = get_compiled_sdk_clang_deps_tset(ctx, sdk_deps_providers)
         swift_deps_tset = get_compiled_sdk_swift_deps_tset(ctx, sdk_deps_providers)
-
-        # FIXME: - Get rid of slow traversal here, and unify with two projections below.
-        swift_module_map_artifact = write_swift_module_map(ctx, uncompiled_module_info_name, list(swift_deps_tset.traverse()))
+        swift_module_map_artifact = write_swift_module_map(ctx, uncompiled_module_info_name, swift_deps_tset)
         cmd.add([
             "-explicit-swift-module-map-file",
             swift_module_map_artifact,
@@ -83,7 +81,6 @@ def _swift_interface_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Pr
             module_name = uncompiled_module_info_name,
             output_artifact = swiftmodule_output,
         )
-
         return [
             DefaultInfo(),
             WrappedSdkCompiledModuleInfo(

@@ -65,7 +65,7 @@ SwiftCompiledModuleInfo = provider(fields = [
 
 def _add_swiftmodule_search_path(module_info: SwiftCompiledModuleInfo):
     # We need to import the containing folder, not the file itself.
-    return ["-I", cmd_args(module_info.output_artifact).parent()]
+    return ["-I", cmd_args(module_info.output_artifact).parent()] if module_info.is_swiftmodule else []
 
 def _add_clang_import_flags(module_info: SwiftCompiledModuleInfo):
     if module_info.is_swiftmodule:
@@ -73,7 +73,19 @@ def _add_clang_import_flags(module_info: SwiftCompiledModuleInfo):
     else:
         return [module_info.clang_importer_args]
 
-SwiftCompiledModuleTset = transitive_set(args_projections = {
-    "clang_deps": _add_clang_import_flags,
-    "module_search_path": _add_swiftmodule_search_path,
-})
+def _swift_module_map_struct(module_info: SwiftCompiledModuleInfo.type):
+    return struct(
+        isFramework = module_info.is_framework,
+        moduleName = module_info.module_name,
+        modulePath = module_info.output_artifact,
+    )
+
+SwiftCompiledModuleTset = transitive_set(
+    args_projections = {
+        "clang_deps": _add_clang_import_flags,
+        "module_search_path": _add_swiftmodule_search_path,
+    },
+    json_projections = {
+        "swift_module_map": _swift_module_map_struct,
+    },
+)

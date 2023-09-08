@@ -502,8 +502,8 @@ def _add_swift_deps_flags(
         swift_module_map_artifact = write_swift_module_map_with_swift_deps(
             ctx,
             module_name,
-            list(sdk_deps_tset.traverse()),
-            list(swift_deps_tset.traverse()),
+            sdk_deps_tset,
+            swift_deps_tset,
         )
         cmd.add([
             "-Xcc",
