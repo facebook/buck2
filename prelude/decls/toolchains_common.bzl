@@ -34,6 +34,12 @@ def _cxx_toolchain():
 def _dex_toolchain():
     return _toolchain_with_override("dex", [DexToolchainInfo])
 
+def _go_toolchain():
+    return _toolchain("go", [GoToolchainInfo])
+
+def _haskell_toolchain():
+    return _toolchain("haskell", [HaskellToolchainInfo, HaskellPlatformInfo])
+
 def _java_toolchain():
     return _toolchain_with_override("java", [JavaToolchainInfo, JavaPlatformInfo])
 
@@ -45,12 +51,6 @@ def _java_for_host_test_toolchain():
 
 def _java_test_toolchain():
     return _toolchain("java_test", [JavaTestToolchainInfo])
-
-def _haskell_toolchain():
-    return _toolchain("haskell", [HaskellToolchainInfo, HaskellPlatformInfo])
-
-def _go_toolchain():
-    return _toolchain("go", [GoToolchainInfo])
 
 def _prebuilt_jar_toolchain():
     # Override is allowed for bootstrapping prebuilt jar toolchains
@@ -68,12 +68,12 @@ def _rust_toolchain():
 toolchains_common = struct(
     cxx = _cxx_toolchain,
     dex = _dex_toolchain,
+    go = _go_toolchain,
+    haskell = _haskell_toolchain,
     java = _java_toolchain,
     java_for_android = _java_for_android_toolchain,
     java_for_host_test = _java_for_host_test_toolchain,
     java_test = _java_test_toolchain,
-    haskell = _haskell_toolchain,
-    go = _go_toolchain,
     prebuilt_jar = _prebuilt_jar_toolchain,
     python = _python_toolchain,
     python_bootstrap = _python_bootstrap_toolchain,
