@@ -71,7 +71,7 @@ def strip_debug_info(
             obj = obj,
         )
 
-def strip_object(ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo.type, unstripped: Artifact, strip_flags: cmd_args, category_suffix: [str, None] = None) -> Artifact:
+def strip_object(ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo, unstripped: Artifact, strip_flags: cmd_args, category_suffix: [str, None] = None) -> Artifact:
     """
     Strip unneeded information from binaries / shared libs.
     """

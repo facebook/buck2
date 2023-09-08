@@ -430,7 +430,7 @@ def _create_non_template_providers(
         cxx_resource_info,
     )
 
-def create_template_info(ctx: AnalysisContext, packaging_info: JavaPackagingInfo.type, first_order_classpath_libs: list[Artifact]) -> TemplatePlaceholderInfo.type:
+def create_template_info(ctx: AnalysisContext, packaging_info: JavaPackagingInfo, first_order_classpath_libs: list[Artifact]) -> TemplatePlaceholderInfo:
     return TemplatePlaceholderInfo(keyed_variables = {
         "classpath": cmd_args(packaging_info.packaging_deps.project_as_args("full_jar_args"), delimiter = get_path_separator_for_exec_os(ctx)) if packaging_info.packaging_deps else cmd_args(),
         "classpath_including_targets_with_no_output": cmd_args(packaging_info.packaging_deps.project_as_args("args_for_classpath_macro"), delimiter = get_path_separator_for_exec_os(ctx)),

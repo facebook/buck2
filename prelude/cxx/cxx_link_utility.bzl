@@ -185,7 +185,7 @@ def executable_shared_lib_arguments(
 
     return (extra_args, runtime_files, shared_libs_symlink_tree)
 
-def cxx_link_cmd_parts(ctx: AnalysisContext) -> ((RunInfo.type | cmd_args), cmd_args):
+def cxx_link_cmd_parts(ctx: AnalysisContext) -> ((RunInfo | cmd_args), cmd_args):
     toolchain = get_cxx_toolchain_info(ctx)
 
     # `toolchain_linker_flags` can either be a list of strings, `cmd_args` or `None`,
