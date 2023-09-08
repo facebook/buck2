@@ -206,7 +206,12 @@ def _write_syms_file(
     # Don't suffix asan symbols, as they shouldn't conflict, and suffixing
     # prevents deduplicating all the module constructors, which can be really
     # expensive to run.
-    script += ' | grep -v "^\\(__\\)\\?\\(a\\|t\\)san"'
+    # List of asan symbol suffixes we need to keep:
+    asan_prefixes = [
+        "__",
+        ".bss.__odr_",
+    ]
+    script += ' | grep -v "\\({}\\)\\?\\(a\\|t\\)san"'.format("\\|".join(asan_prefixes))
 
     script += (
         ' | awk \'{{print $1" "$1"_{suffix}"}}\' | sort -u > '.format(suffix = suffix) +
