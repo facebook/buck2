@@ -38,7 +38,7 @@ Archive = record(
 # all transitive dependencies that will link as archives until it reaches ones that will
 # link as shared libs. For each dependency, this link strategy and that dependency's
 # preferred_linkage will determine which LibOutputStyle will be used.
-LinkStyle = enum(
+LinkStrategy = enum(
     # Prefers that dependencies be included in the link line as archives of native objects
     "static",
     # Prefers that dependencies be included in the link line as archives of PIC native objects
@@ -47,18 +47,32 @@ LinkStyle = enum(
     "shared",
 )
 
+# A legacy type that was previously used to encode both LibOutputStyle and LinkStrategy. Uses should
+# be updated to use the appropriate new enum.
+LinkStyle = enum(
+    "static",
+    "static_pic",
+    "shared",
+)
+
+# We still read link_style (and some related) attrs to LinkStyle but then usually convert them
+# immediately to LinkStrategy.
+# TODO(cjhopman): We should migrate the attr name to `link_strategy`
+def to_link_strategy(link_style: LinkStyle.type) -> LinkStrategy.type:
+    return LinkStrategy(link_style.value)
+
 # The different types of outputs of native library. Which specific output style to use for a library
-# will depend on the link_style that is being computed and the library's preferred_linkage.
+# will depend on the link_strategy that is being computed and the library's preferred_linkage.
 LibOutputStyle = enum(
     "archive",
     "pic_archive",
     "shared_lib",
 )
 
-def default_output_style_for_link_style(link_style: LinkStyle.type) -> LibOutputStyle.type:
-    if link_style == LinkStyle("static"):
+def default_output_style_for_link_strategy(link_strategy: LinkStrategy.type) -> LibOutputStyle.type:
+    if link_strategy == LinkStrategy("static"):
         return LibOutputStyle("archive")
-    if link_style == LinkStyle("static_pic"):
+    if link_strategy == LinkStrategy("static_pic"):
         return LibOutputStyle("pic_archive")
     return LibOutputStyle("shared_lib")
 
@@ -375,16 +389,20 @@ LinkInfosTSet = transitive_set(
     },
 )
 
-# A map of native linkable infos from transitive dependencies.
+# A map of native linkable infos from transitive dependencies for each LinkStrategy.
+# This contains the information about how to link in a target for each link strategy.
+# This doesn't contain the information about things needed to package the linked result
+# (i.e. this doesn't contain the information needed to know what shared libs needed at runtime
+# for the final result).
 MergedLinkInfo = provider(fields = [
-    "_infos",  # dict[LinkStyle, LinkInfosTSet]
-    "_external_debug_info",  # dict[LinkStyle, ArtifactTSet]
+    "_infos",  # dict[LinkStrategy, LinkInfosTSet]
+    "_external_debug_info",  # dict[LinkStrategy, ArtifactTSet]
     # Apple framework linker args must be deduped to avoid overflow in our argsfiles.
     #
     # To save on repeated computation of transitive LinkInfos, we store a dedupped
     # structure, based on the link-style.
-    "frameworks",  # dict[LinkStyle, FrameworksLinkable | None]
-    "swift_runtime",  # dict[LinkStyle, SwiftRuntimeLinkable | None]
+    "frameworks",  # dict[LinkStrategy, FrameworksLinkable | None]
+    "swift_runtime",  # dict[LinkStrategy, SwiftRuntimeLinkable | None]
 ])
 
 # A map of linkages to all possible output styles it supports.
@@ -440,8 +458,8 @@ def create_merged_link_info(
     # We don't know how this target will be linked, so we generate the possible
     # link info given the target's preferred linkage, to be consumed by the
     # ultimate linking target.
-    for link_style in LinkStyle:
-        actual_output_style = get_lib_output_style(link_style, preferred_linkage, pic_behavior)
+    for link_strategy in LinkStrategy:
+        actual_output_style = get_lib_output_style(link_strategy, preferred_linkage, pic_behavior)
 
         children = []
         external_debug_info_children = []
@@ -456,32 +474,35 @@ def create_merged_link_info(
             #
             # Doing so breaks the encapsulation of what is in linked in the library vs. the main executable.
             framework_linkables.append(frameworks_linkable)
-            framework_linkables += [dep_info.frameworks[link_style] for dep_info in exported_deps]
+            framework_linkables += [dep_info.frameworks[link_strategy] for dep_info in exported_deps]
 
             swift_runtime_linkables.append(swift_runtime_linkable)
-            swift_runtime_linkables += [dep_info.swift_runtime[link_style] for dep_info in exported_deps]
+            swift_runtime_linkables += [dep_info.swift_runtime[link_strategy] for dep_info in exported_deps]
 
             for dep_info in deps:
-                children.append(dep_info._infos[link_style])
-                external_debug_info_children.append(dep_info._external_debug_info[link_style])
-                framework_linkables.append(dep_info.frameworks[link_style])
-                swift_runtime_linkables.append(dep_info.swift_runtime[link_style])
+                children.append(dep_info._infos[link_strategy])
+                external_debug_info_children.append(dep_info._external_debug_info[link_strategy])
+                framework_linkables.append(dep_info.frameworks[link_strategy])
+                swift_runtime_linkables.append(dep_info.swift_runtime[link_strategy])
 
         # We always export link info for exported deps.
         for dep_info in exported_deps:
-            children.append(dep_info._infos[link_style])
-            external_debug_info_children.append(dep_info._external_debug_info[link_style])
+            children.append(dep_info._infos[link_strategy])
+            external_debug_info_children.append(dep_info._external_debug_info[link_strategy])
 
-        frameworks[link_style] = merge_framework_linkables(framework_linkables)
-        swift_runtime[link_style] = merge_swift_runtime_linkables(swift_runtime_linkables)
+        frameworks[link_strategy] = merge_framework_linkables(framework_linkables)
+        swift_runtime[link_strategy] = merge_swift_runtime_linkables(swift_runtime_linkables)
         if actual_output_style in link_infos:
             link_info = link_infos[actual_output_style]
-            infos[link_style] = ctx.actions.tset(
+
+            # TODO(cjhopman): This seems like we won't propagate information about our children unless this target itself
+            # has an output for this strategy. Why is that correct?
+            infos[link_strategy] = ctx.actions.tset(
                 LinkInfosTSet,
                 value = link_info,
                 children = children,
             )
-            external_debug_info[link_style] = make_artifact_tset(
+            external_debug_info[link_strategy] = make_artifact_tset(
                 actions = ctx.actions,
                 label = ctx.label,
                 children = (
@@ -497,6 +518,8 @@ def create_merged_link_info(
         swift_runtime = swift_runtime,
     )
 
+# TODO(cjhopman): This is used for two distinct uses and just happens to work for both. I think it would be
+# good to separate those.
 def merge_link_infos(
         ctx: AnalysisContext,
         xs: list[MergedLinkInfo]) -> MergedLinkInfo:
@@ -504,18 +527,18 @@ def merge_link_infos(
     merged_external_debug_info = {}
     frameworks = {}
     swift_runtime = {}
-    for link_style in LinkStyle:
-        merged[link_style] = ctx.actions.tset(
+    for link_strategy in LinkStrategy:
+        merged[link_strategy] = ctx.actions.tset(
             LinkInfosTSet,
-            children = filter(None, [x._infos.get(link_style) for x in xs]),
+            children = filter(None, [x._infos.get(link_strategy) for x in xs]),
         )
-        merged_external_debug_info[link_style] = make_artifact_tset(
+        merged_external_debug_info[link_strategy] = make_artifact_tset(
             actions = ctx.actions,
             label = ctx.label,
-            children = filter(None, [x._external_debug_info.get(link_style) for x in xs]),
+            children = filter(None, [x._external_debug_info.get(link_strategy) for x in xs]),
         )
-        frameworks[link_style] = merge_framework_linkables([x.frameworks[link_style] for x in xs])
-        swift_runtime[link_style] = merge_swift_runtime_linkables([x.swift_runtime[link_style] for x in xs])
+        frameworks[link_strategy] = merge_framework_linkables([x.frameworks[link_strategy] for x in xs])
+        swift_runtime[link_strategy] = merge_swift_runtime_linkables([x.swift_runtime[link_strategy] for x in xs])
     return MergedLinkInfo(
         _infos = merged,
         _external_debug_info = merged_external_debug_info,
@@ -645,7 +668,7 @@ def map_to_link_infos(links: list[LinkArgs]) -> list[LinkInfo]:
 
 def get_link_args(
         merged: MergedLinkInfo,
-        link_style: LinkStyle,
+        link_strategy: LinkStrategy,
         prefer_stripped: bool = False) -> LinkArgs:
     """
     Return `LinkArgs` for `MergedLinkInfo`  given a link style and a strip preference.
@@ -653,20 +676,20 @@ def get_link_args(
 
     return LinkArgs(
         tset = LinkArgsTSet(
-            infos = merged._infos[link_style],
-            external_debug_info = merged._external_debug_info[link_style],
+            infos = merged._infos[link_strategy],
+            external_debug_info = merged._external_debug_info[link_strategy],
             prefer_stripped = prefer_stripped,
         ),
     )
 
 def get_lib_output_style(
-        requested_link_style: LinkStyle,
+        requested_link_strategy: LinkStrategy,
         preferred_linkage: Linkage,
         pic_behavior: PicBehavior) -> LibOutputStyle:
     """
     Return what lib output style to use for a library for a requested link style and preferred linkage.
     --------------------------------------------------------------
-    | preferred_linkage |                 link_style             |
+    | preferred_linkage |              link_strategy             |
     |                   |----------------------------------------|
     |                   | static   | static_pic   |   shared     |
     -------------------------------------------------------------|
@@ -677,32 +700,32 @@ def get_lib_output_style(
 
     Either of *static or *static_pic may be changed to the other based on the pic_behavior
     """
-    no_pic_style = _get_lib_output_style_without_pic_behavior(requested_link_style, preferred_linkage)
+    no_pic_style = _get_lib_output_style_without_pic_behavior(requested_link_strategy, preferred_linkage)
     return process_output_style_for_pic_behavior(no_pic_style, pic_behavior)
 
-def _get_lib_output_style_without_pic_behavior(requested_link_style: LinkStyle, preferred_linkage: Linkage) -> LibOutputStyle:
+def _get_lib_output_style_without_pic_behavior(requested_link_strategy: LinkStrategy, preferred_linkage: Linkage) -> LibOutputStyle:
     if preferred_linkage == Linkage("any"):
-        return default_output_style_for_link_style(requested_link_style)
+        return default_output_style_for_link_strategy(requested_link_strategy)
     elif preferred_linkage == Linkage("shared"):
         return LibOutputStyle("shared_lib")
     else:  # preferred_linkage = static
-        if requested_link_style == LinkStyle("static"):
+        if requested_link_strategy == LinkStrategy("static"):
             return LibOutputStyle("archive")
         else:
             return LibOutputStyle("pic_archive")
 
-def process_link_style_for_pic_behavior(link_style: LinkStyle, behavior: PicBehavior) -> LinkStyle:
+def process_link_strategy_for_pic_behavior(link_strategy: LinkStrategy, behavior: PicBehavior) -> LinkStrategy:
     """
     Converts static/static_pic link styles to the appropriate static form according to the pic behavior.
     """
-    if link_style == LinkStyle("shared"):
-        return link_style
+    if link_strategy == LinkStrategy("shared"):
+        return link_strategy
     elif behavior == PicBehavior("supported"):
-        return link_style
+        return link_strategy
     elif behavior == PicBehavior("not_supported"):
-        return LinkStyle("static")
+        return LinkStrategy("static")
     elif behavior == PicBehavior("always_enabled"):
-        return LinkStyle("static_pic")
+        return LinkStrategy("static_pic")
     else:
         fail("Unknown pic_behavior: {}".format(behavior))
 
@@ -724,18 +747,18 @@ def process_output_style_for_pic_behavior(output_style: LibOutputStyle, behavior
     else:
         fail("Unknown pic_behavior: {}".format(behavior))
 
-def subtarget_for_output_style(output_style: LibOutputStyle.type) -> str:
+def subtarget_for_output_style(output_style: LibOutputStyle) -> str:
     # TODO(cjhopman): This preserves historical strings for these (when we used LinkStyle for both link strategies and
     # output styles). It would be good to update that to match the LibOutputStyle.
     return legacy_output_style_to_link_style(output_style).value.replace("_", "-")
 
-def get_output_styles_for_linkage(linkage: Linkage.type) -> list[LibOutputStyle.type]:
+def get_output_styles_for_linkage(linkage: Linkage) -> list[LibOutputStyle]:
     """
     Return all possible `LibOutputStyle`s that apply for the given `Linkage`.
     """
     return _LIB_OUTPUT_STYLES_FOR_LINKAGE[linkage]
 
-def legacy_output_style_to_link_style(output_style: LibOutputStyle.type) -> LinkStyle.type:
+def legacy_output_style_to_link_style(output_style: LibOutputStyle) -> LinkStyle:
     """
     We previously used LinkStyle to represent both the type of a library output and for the different default link strategies.
 

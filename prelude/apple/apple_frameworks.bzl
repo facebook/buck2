@@ -19,6 +19,7 @@ load(
     "LinkInfo",
     "LinkInfos",
     "LinkInfosTSet",
+    "LinkStrategy",  # @unused Used as a type
     "MergedLinkInfo",
     "SwiftRuntimeLinkable",  # @unused Used as a type
     "SwiftmoduleLinkable",  # @unused Used as a type
@@ -130,25 +131,30 @@ def apple_build_link_args_with_deduped_flags(
         ctx: AnalysisContext,
         merged: MergedLinkInfo,
         frameworks_linkable: [FrameworksLinkable, None],
-        link_style: "LinkStyle",
+        link_strategy: LinkStrategy,
         prefer_stripped: bool = False,
         swiftmodule_linkable: [SwiftmoduleLinkable, None] = None,
         swift_runtime_linkable: [SwiftRuntimeLinkable, None] = None) -> LinkArgs:
-    link_info = _link_info_from_linkables(ctx, [merged.frameworks[link_style], frameworks_linkable], [swiftmodule_linkable], [merged.swift_runtime[link_style], swift_runtime_linkable])
+    link_info = _link_info_from_linkables(
+        ctx,
+        [merged.frameworks[link_strategy], frameworks_linkable],
+        [swiftmodule_linkable],
+        [merged.swift_runtime[link_strategy], swift_runtime_linkable],
+    )
     if not link_info:
-        return get_link_args(merged, link_style, prefer_stripped)
+        return get_link_args(merged, link_strategy, prefer_stripped)
 
     return LinkArgs(
         tset = LinkArgsTSet(
             infos = ctx.actions.tset(
                 LinkInfosTSet,
                 value = LinkInfos(default = link_info, stripped = link_info),
-                children = [merged._infos[link_style]],
+                children = [merged._infos[link_strategy]],
             ),
             external_debug_info = make_artifact_tset(
                 actions = ctx.actions,
                 label = ctx.label,
-                children = [link_info.external_debug_info, merged._external_debug_info[link_style]],
+                children = [link_info.external_debug_info, merged._external_debug_info[link_strategy]],
             ),
             prefer_stripped = prefer_stripped,
         ),

@@ -13,7 +13,7 @@ load(
     "LibOutputStyle",
     "LinkInfo",  # @unused Used as a type
     "LinkInfos",
-    "LinkStyle",
+    "LinkStrategy",
     "Linkage",
     "LinkedObject",
     "MergedLinkInfo",
@@ -216,7 +216,7 @@ def get_link_info(
 
 def get_deps_for_link(
         node: LinkableNode,
-        output_style: LinkStyle,
+        strategy: LinkStrategy.type,
         pic_behavior: PicBehavior) -> list[Label]:
     """
     Return deps to follow when linking against this node with the given link
@@ -227,7 +227,7 @@ def get_deps_for_link(
     deps = node.exported_deps
 
     # If we're linking statically, include non-exported deps.
-    output_style = get_lib_output_style(output_style, node.preferred_linkage, pic_behavior)
+    output_style = get_lib_output_style(strategy, node.preferred_linkage, pic_behavior)
     if output_style != LibOutputStyle("shared_lib") and node.deps:
         # Important that we don't mutate deps, but create a new list
         deps = deps + node.deps

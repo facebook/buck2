@@ -21,7 +21,7 @@ load(
     "LinkArgs",
     "LinkInfo",
     "LinkInfos",
-    "LinkStyle",
+    "LinkStrategy",
     "Linkage",
     "LinkedObject",
     "SharedLibLinkable",
@@ -229,7 +229,7 @@ def create_linkable_root(
             node = omnibus_graph.nodes[dep]
 
             output_style = get_lib_output_style(
-                LinkStyle("shared"),
+                LinkStrategy("shared"),
                 node.preferred_linkage,
                 toolchain_info.pic_behavior,
             )
@@ -360,7 +360,7 @@ def _link_deps(
     """
 
     def find_deps(node: Label):
-        return get_deps_for_link(link_infos[node], LinkStyle("shared"), pic_behavior)
+        return get_deps_for_link(link_infos[node], LinkStrategy("shared"), pic_behavior)
 
     return breadth_first_traversal_by(link_infos, deps, find_deps)
 
@@ -439,7 +439,7 @@ def _create_root(
     for dep in link_deps:
         node = spec.link_infos[dep]
         output_style = get_lib_output_style(
-            LinkStyle("shared"),
+            LinkStrategy("shared"),
             node.preferred_linkage,
             pic_behavior,
         )
@@ -686,7 +686,7 @@ def _create_omnibus(
 
         # Otherwise add in the static input for this node.
         output_style = get_lib_output_style(
-            LinkStyle("static_pic"),
+            LinkStrategy("static_pic"),
             node.preferred_linkage,
             pic_behavior,
         )
@@ -711,7 +711,7 @@ def _create_omnibus(
     for label in _link_deps(spec.link_infos, deps.keys(), toolchain_info.pic_behavior):
         node = spec.link_infos[label]
         output_style = get_lib_output_style(
-            LinkStyle("shared"),
+            LinkStrategy("shared"),
             node.preferred_linkage,
             toolchain_info.pic_behavior,
         )

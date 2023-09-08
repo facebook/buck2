@@ -29,7 +29,7 @@ load(
     "LinkCommandDebugOutputInfo",
     "LinkInfo",
     "LinkInfos",
-    "LinkStyle",
+    "LinkStrategy",
     "Linkage",
     "LinkedObject",
     "SharedLibLinkable",
@@ -38,6 +38,7 @@ load(
     "get_link_args",
     "get_output_styles_for_linkage",
     "subtarget_for_output_style",
+    "to_link_strategy",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
@@ -417,7 +418,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                                     LinkArgs(flags = shlink_args),
                                     # TODO(T110378118): As per v1, we always link against "shared"
                                     # dependencies when building a shaerd library.
-                                    get_link_args(inherited_exported_link, LinkStyle("shared")),
+                                    get_link_args(inherited_exported_link, LinkStrategy("shared")),
                                 ],
                                 link_execution_preference = LinkExecutionPreference("any"),
                             ),
@@ -486,8 +487,8 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # Create the default output for the library rule given it's link style and preferred linkage
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     pic_behavior = cxx_toolchain.pic_behavior
-    link_style = cxx_toolchain.linker_info.link_style
-    actual_output_style = get_lib_output_style(link_style, preferred_linkage, pic_behavior)
+    link_strategy = to_link_strategy(cxx_toolchain.linker_info.link_style)
+    actual_output_style = get_lib_output_style(link_strategy, preferred_linkage, pic_behavior)
     output = outputs[actual_output_style]
     providers.append(DefaultInfo(
         default_output = output,
@@ -523,7 +524,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # Omnibus root provider.
     known_omnibus_root = is_known_omnibus_root(ctx)
     linkable_root = None
-    if LinkStyle("static_pic") in libraries and (static_pic_lib or static_lib) and not ctx.attrs.header_only:
+    if LibOutputStyle("pic_archive") in libraries and (static_pic_lib or static_lib) and not ctx.attrs.header_only:
         # TODO(cjhopman): This doesn't support thin archives
         linkable_root = create_linkable_root(
             ctx,

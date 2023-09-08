@@ -31,6 +31,7 @@ load(
     "LinkArgs",
     "LinkStyle",
     "get_link_args",
+    "to_link_strategy",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -254,7 +255,8 @@ def generate_rustdoc_test(
             LinkArgs(flags = extra_link_args),
             get_link_args(
                 inherited_non_rust_link_info(ctx, include_doc_deps = True),
-                link_style,
+                # TODO(cjhopman): It's unclear how rust is using link_style. I'm not sure if it's intended to be a LibOutputStyle or a LinkStrategy.
+                to_link_strategy(link_style),
             ),
         ],
         "{}-{}".format(common_args.subdir, common_args.tempfile),
@@ -425,7 +427,8 @@ def rust_compile(
                     ctx,
                     include_doc_deps = False,
                 ),
-                dep_link_style,
+                # TODO(cjhopman): It's unclear how rust is using link_style. I'm not sure if it's intended to be a LibOutputStyle or a LinkStrategy.
+                to_link_strategy(dep_link_style),
             )
 
         link_args_output = make_link_args(

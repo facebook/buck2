@@ -24,7 +24,7 @@ load(
     "LibOutputStyle",
     "LinkInfo",
     "LinkInfos",
-    "LinkStyle",
+    "LinkStrategy",
     "Linkage",
     "LinkedObject",
     "SharedLibLinkable",
@@ -300,7 +300,7 @@ def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> list[Provider]:
     pic_behavior = PicBehavior("supported")
 
     # prebuilt_cxx_library_group default output is always the output used for the "static" link strategy.
-    static_output_style = get_lib_output_style(LinkStyle("static"), preferred_linkage, pic_behavior)
+    static_output_style = get_lib_output_style(LinkStrategy("static"), preferred_linkage, pic_behavior)
     providers.append(DefaultInfo(default_outputs = outputs[static_output_style]))
 
     # Provider for native link.

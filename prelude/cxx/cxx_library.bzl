@@ -62,7 +62,7 @@ load(
     "LinkInfo",
     "LinkInfos",
     "LinkOrdering",
-    "LinkStyle",
+    "LinkStrategy",
     "Linkage",
     "LinkedObject",  # @unused Used as a type
     "ObjectsLinkable",
@@ -75,8 +75,9 @@ load(
     "get_output_styles_for_linkage",
     "make_link_command_debug_output",
     "make_link_command_debug_output_json_info",
-    "process_link_style_for_pic_behavior",
+    "process_link_strategy_for_pic_behavior",
     "subtarget_for_output_style",
+    "to_link_strategy",
     "unpack_link_args",
     "wrap_link_info",
 )
@@ -243,7 +244,7 @@ CxxLibraryOutput = record(
 _CxxAllLibraryOutputs = record(
     # The outputs for each lib output style.
     # For 'static'/'static_pic', these will be archives containing just this library's object files.
-    # For 'shared', the output as a shared library. That output will be built using either this library's link_style link strategy
+    # For 'shared', the output as a shared library. That output will be built using either this library's link_strategy link strategy
     # or via the link group strategy if this library has link group mapping.
     # A header-only lib won't produce any outputs (but it may still provide LinkInfos below).
     # TODO(cjhopman): make library-level link_group shared lib not put its output here
@@ -505,8 +506,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
     pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior
 
-    # This is the output style for the library's own link_style+preferred_linkage.
-    default_output_style = get_lib_output_style(cxx_attr_link_style(ctx), preferred_linkage, pic_behavior)
+    # This is the output style for the library's own link_strategy+preferred_linkage.
+    default_output_style = get_lib_output_style(to_link_strategy(cxx_attr_link_style(ctx)), preferred_linkage, pic_behavior)
 
     # Output sub-targets for all output-styles.
     if impl_params.generate_sub_targets.link_style_outputs or impl_params.generate_providers.link_style_outputs:
@@ -750,15 +751,15 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         templ_vars["cppflags"] = c_preprocessor_flags
 
         # Add in ldflag macros.
-        for link_style in (LinkStyle("static"), LinkStyle("static_pic")):
-            name = "ldflags-" + link_style.value.replace("_", "-")
+        for link_strategy in (LinkStrategy("static"), LinkStrategy("static_pic")):
+            name = "ldflags-" + link_strategy.value.replace("_", "-")
             args = cmd_args()
             linker_info = get_cxx_toolchain_info(ctx).linker_info
             args.add(linker_info.linker_flags or [])
             args.add(unpack_link_args(
                 get_link_args(
                     merged_native_link_info,
-                    link_style,
+                    link_strategy,
                 ),
             ))
             templ_vars[name] = args
@@ -833,7 +834,11 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
 def get_default_cxx_library_product_name(ctx, impl_params) -> str:
     preferred_linkage = cxx_attr_preferred_linkage(ctx)
-    output_style = get_lib_output_style(cxx_attr_link_style(ctx), preferred_linkage, get_cxx_toolchain_info(ctx).pic_behavior)
+    output_style = get_lib_output_style(
+        to_link_strategy(cxx_attr_link_style(ctx)),
+        preferred_linkage,
+        get_cxx_toolchain_info(ctx).pic_behavior,
+    )
     if output_style == LibOutputStyle("shared_lib"):
         return _soname(ctx, impl_params)
     else:
@@ -1110,12 +1115,12 @@ def _get_shared_library_links(
         #
         # The fallback equivalent code in Buck v1 is in CxxLibraryFactor::createBuildRule()
         # where link style is determined using the `linkableDepType` variable.
-        link_style_value = ctx.attrs.link_style if ctx.attrs.link_style != None else "shared"
+        link_strategy_value = ctx.attrs.link_style if ctx.attrs.link_style != None else "shared"
 
         # Note if `static` link style is requested, we assume `static_pic`
         # instead, so that code in the shared library can be correctly
         # loaded in the address space of any process at any address.
-        link_style_value = "static_pic" if link_style_value == "static" else link_style_value
+        link_strategy_value = "static_pic" if link_strategy_value == "static" else link_strategy_value
 
         # We cannot support deriving link execution preference off the included links, as we've already
         # lost the information on what is in the link.
@@ -1128,10 +1133,10 @@ def _get_shared_library_links(
             link,
             frameworks_linkable,
             # fPIC behaves differently on various combinations of toolchains + platforms.
-            # To get the link_style, we have to check the link_style against the toolchain's pic_behavior.
+            # To get the link_strategy, we have to check the link_strategy against the toolchain's pic_behavior.
             #
-            # For more info, check the `PicBehavior` docs.
-            process_link_style_for_pic_behavior(LinkStyle(link_style_value), pic_behavior),
+            # For more info, check the PicBehavior docs.
+            process_link_strategy_for_pic_behavior(LinkStrategy(link_strategy_value), pic_behavior),
             swiftmodule_linkable = swiftmodule_linkable,
             swift_runtime_linkable = swift_runtime_linkable,
         ), None, link_execution_preference
@@ -1139,10 +1144,11 @@ def _get_shared_library_links(
     # Else get filtered link group links
     prefer_stripped = cxx_is_gnu(ctx) and ctx.attrs.prefer_stripped_objects
 
-    link_style = cxx_attr_link_style(ctx)
-    if link_style == LinkStyle("static"):
-        link_style = LinkStyle("static_pic")
-    link_style = process_link_style_for_pic_behavior(link_style, pic_behavior)
+    # TODO(cjhopman): Why is this different than where we compute just above for the non link-group case?
+    link_strategy = to_link_strategy(cxx_attr_link_style(ctx))
+    if link_strategy == LinkStrategy("static"):
+        link_strategy = LinkStrategy("static_pic")
+    link_strategy = process_link_strategy_for_pic_behavior(link_strategy, pic_behavior)
     filtered_labels_to_links_map = get_filtered_labels_to_links_map(
         linkable_graph_node_map_func(),
         link_group,
@@ -1153,7 +1159,7 @@ def _get_shared_library_links(
             name: (lib.label, lib.shared_link_infos)
             for name, lib in link_group_libs.items()
         },
-        link_style = link_style,
+        link_strategy = link_strategy,
         roots = linkable_deps(non_exported_deps + exported_deps),
         pic_behavior = pic_behavior,
         prefer_stripped = prefer_stripped,

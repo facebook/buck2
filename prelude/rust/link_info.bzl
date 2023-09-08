@@ -45,6 +45,7 @@ load(
     "MergedLinkInfo",
     "get_link_args",
     "merge_link_infos",
+    "to_link_strategy",
     "unpack_external_debug_info",
 )
 load(
@@ -390,7 +391,7 @@ def inherited_non_rust_link_group_info(
             name: (lib.label, lib.shared_link_infos)
             for name, lib in link_group_libs.items()
         },
-        link_style = link_style,
+        link_strategy = to_link_strategy(link_style),
         roots = executable_deps,
         is_executable_link = True,
         prefer_stripped = False,
@@ -444,7 +445,7 @@ def inherited_external_debug_info(
             inherited_non_rust_link_infos.append(d.dep[MergedLinkInfo])
 
     non_rust_merged_link_info = merge_link_infos(ctx, inherited_non_rust_link_infos)
-    link_args = get_link_args(non_rust_merged_link_info, non_rust_dep_link_style)
+    link_args = get_link_args(non_rust_merged_link_info, to_link_strategy(non_rust_dep_link_style))
     inherited_debug_infos.append(unpack_external_debug_info(ctx.actions, link_args))
 
     return make_artifact_tset(

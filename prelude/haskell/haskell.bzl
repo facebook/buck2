@@ -32,6 +32,7 @@ load(
     "@prelude//linking:link_info.bzl",
     "Archive",
     "ArchiveLinkable",
+    "LibOutputStyle",
     "LinkInfo",
     "LinkInfos",
     "LinkStyle",
@@ -40,12 +41,13 @@ load(
     "MergedLinkInfo",
     "SharedLibLinkable",
     "create_merged_link_info",
-    "default_output_style_for_link_style",
+    "default_output_style_for_link_strategy",
     "get_lib_output_style",
     "get_link_args",
     "get_output_styles_for_linkage",
     "legacy_output_style_to_link_style",
     "merge_link_infos",
+    "to_link_strategy",
     "unpack_link_args",
 )
 load(
@@ -185,6 +187,10 @@ def attr_deps(ctx: AnalysisContext) -> list[Dependency]:
 # Disable until we have a need to call this.
 # def _attr_deps_merged_link_infos(ctx: AnalysisContext) -> ["MergedLinkInfo"]:
 #     return filter(None, [d[MergedLinkInfo] for d in attr_deps(ctx)])
+
+# This conversion is non-standard, see TODO about link style below
+def _to_lib_output_style(link_style: LinkStyle) -> LibOutputStyle:
+    return default_output_style_for_link_strategy(to_link_strategy(link_style))
 
 def _attr_deps_haskell_link_infos(ctx: AnalysisContext) -> list[HaskellLinkInfo]:
     return filter(
@@ -370,8 +376,7 @@ def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
         # We don't have access to a CxxToolchain here (yet).
         # Give that it's already built, this doesn't mean much, use a sane default.
         pic_behavior = PicBehavior("supported"),
-        # This conversion is non-standard, see TODO about link style below
-        link_infos = {default_output_style_for_link_style(s): v for s, v in link_infos.items()},
+        link_infos = {_to_lib_output_style(s): v for s, v in link_infos.items()},
         exported_deps = native_infos,
     )
 
@@ -380,8 +385,7 @@ def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
         # We don't have access to a CxxToolchain here (yet).
         # Give that it's already built, this doesn't mean much, use a sane default.
         pic_behavior = PicBehavior("supported"),
-        # This conversion is non-standard, see TODO about link style below
-        link_infos = {default_output_style_for_link_style(s): v for s, v in prof_link_infos.items()},
+        link_infos = {_to_lib_output_style(s): v for s, v in prof_link_infos.items()},
         exported_deps = prof_native_infos,
     )
 
@@ -396,7 +400,7 @@ def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
             linkable_node = create_linkable_node(
                 ctx = ctx,
                 exported_deps = ctx.attrs.deps,
-                link_infos = {default_output_style_for_link_style(s): v for s, v in link_infos.items()},
+                link_infos = {_to_lib_output_style(s): v for s, v in link_infos.items()},
                 shared_libs = solibs,
             ),
         ),
@@ -832,7 +836,7 @@ def _build_haskell_lib(
 
         infos = get_link_args(
             merge_link_infos(ctx, nlis),
-            link_style,
+            to_link_strategy(link_style),
         )
         link.add(cmd_args(unpack_link_args(infos), prepend = "-optl"))
         ctx.actions.run(
@@ -1011,7 +1015,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
     pic_behavior = ctx.attrs._cxx_toolchain[CxxToolchainInfo].pic_behavior
     link_style = _cxx_toolchain_link_style(ctx)
     output_style = get_lib_output_style(
-        link_style,
+        to_link_strategy(link_style),
         preferred_linkage,
         pic_behavior,
     )
@@ -1033,8 +1037,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
     merged_link_info = create_merged_link_info(
         ctx,
         pic_behavior = pic_behavior,
-        # This conversion is non-standard, see TODO above
-        link_infos = {default_output_style_for_link_style(s): v for s, v in link_infos.items()},
+        link_infos = {_to_lib_output_style(s): v for s, v in link_infos.items()},
         preferred_linkage = preferred_linkage,
         exported_deps = nlis,
     )
@@ -1042,8 +1045,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
     prof_merged_link_info = create_merged_link_info(
         ctx,
         pic_behavior = pic_behavior,
-        # This conversion is non-standard, see TODO above
-        link_infos = {default_output_style_for_link_style(s): v for s, v in prof_link_infos.items()},
+        link_infos = {_to_lib_output_style(s): v for s, v in prof_link_infos.items()},
         preferred_linkage = preferred_linkage,
         exported_deps = prof_nlis,
     )
@@ -1056,8 +1058,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 ctx = ctx,
                 preferred_linkage = preferred_linkage,
                 exported_deps = ctx.attrs.deps,
-                # This conversion is non-standard, see TODO above
-                link_infos = {default_output_style_for_link_style(s): v for s, v in link_infos.items()},
+                link_infos = {_to_lib_output_style(s): v for s, v in link_infos.items()},
                 shared_libs = solibs,
             ),
         ),
@@ -1120,7 +1121,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
         args.add(unpack_link_args(
             get_link_args(
                 merged_link_info,
-                link_style,
+                to_link_strategy(link_style),
             ),
         ))
         templ_vars[name] = args
@@ -1139,6 +1140,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     return providers
 
+# TODO(cjhopman): should this be LibOutputType or LinkStrategy?
 def derive_indexing_tset(
         actions: AnalysisActions,
         link_style: LinkStyle,
@@ -1221,7 +1223,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     native_linfos = dep_prof_nlinfos if enable_profiling else dep_nlinfos
     nlis = merge_link_infos(ctx, native_linfos)
 
-    infos = get_link_args(nlis, link_style)
+    infos = get_link_args(nlis, to_link_strategy(link_style))
 
     link.add(cmd_args(unpack_link_args(infos), prepend = "-optl"))
 

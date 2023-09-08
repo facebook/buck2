@@ -38,6 +38,7 @@ load(
     "LibOutputStyle",
     "LinkInfo",
     "LinkInfos",
+    "LinkStrategy",
     "LinkStyle",
     "Linkage",
     "LinkedObject",
@@ -629,7 +630,7 @@ def _native_providers(
     # TODO(cjhopman): This is strange. Normally (like in c++) the link_infos passed to create_merged_link_info above would only have
     # a value for LibOutputStyle("shared_lib") if that were created and we could just check for that key. Given that I intend
     # to remove the SharedLibraries provider, maybe just wait for that to resolve this.
-    if get_lib_output_style(LinkStyle("shared"), preferred_linkage, compile_ctx.cxx_toolchain_info.pic_behavior) == LibOutputStyle("shared_lib"):
+    if get_lib_output_style(LinkStrategy("shared"), preferred_linkage, compile_ctx.cxx_toolchain_info.pic_behavior) == LibOutputStyle("shared_lib"):
         solibs[shlib_name] = LinkedObject(
             output = libraries[LibOutputStyle("shared_lib")].output,
             unstripped_output = libraries[LibOutputStyle("shared_lib")].output,

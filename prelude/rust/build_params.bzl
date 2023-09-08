@@ -84,6 +84,7 @@ def emit_needs_codegen(emit: Emit) -> bool:
 BuildParams = record(
     crate_type = field(CrateType),
     reloc_model = field(RelocModel),
+    # TODO(cjhopman): Is this a LibOutputStyle or a LinkStrategy?
     dep_link_style = field(LinkStyle),  # what link_style to use for dependencies
     # A prefix and suffix to use for the name of the produced artifact. Note that although we store
     # these in this type, they are in principle computable from the remaining fields and the OS.

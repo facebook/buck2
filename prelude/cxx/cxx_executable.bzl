@@ -47,12 +47,13 @@ load(
     "LinkCommandDebugOutput",
     "LinkInfo",
     "LinkOrdering",  # @unused Used as a type
-    "LinkStyle",
+    "LinkStrategy",
     "LinkedObject",  # @unused Used as a type
     "ObjectsLinkable",
     "make_link_command_debug_output",
     "make_link_command_debug_output_json_info",
     "merge_link_infos",
+    "to_link_strategy",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
@@ -190,7 +191,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(preprocessor_deps) + impl_params.extra_preprocessors_info
 
     # The link style to use.
-    link_style = cxx_attr_link_style(ctx)
+    link_strategy = to_link_strategy(cxx_attr_link_style(ctx))
 
     sub_targets = {}
 
@@ -201,7 +202,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         [own_preprocessor_info] + test_preprocessor_infos,
         inherited_preprocessor_infos,
     )
-    cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = link_style != LinkStyle("static"))
+    cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = link_strategy != LinkStrategy("static"))
 
     sub_targets[ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.relative, "argsfiles")]
     sub_targets[ABS_ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.absolute, "abs-argsfiles")]
@@ -278,7 +279,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             ctx,
             inherited_link,
             frameworks_linkable,
-            link_style,
+            link_strategy,
             prefer_stripped = impl_params.prefer_stripped_objects,
             swiftmodule_linkable = impl_params.swiftmodule_linkable,
             swift_runtime_linkable = swift_runtime_linkable,
@@ -341,7 +342,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                 name: (lib.label, lib.shared_link_infos)
                 for name, lib in link_group_libs.items()
             },
-            link_style = link_style,
+            link_strategy = link_strategy,
             roots = (
                 exec_dep_roots +
                 find_relevant_roots(
@@ -365,7 +366,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                 link_groups,
                 link_group_mappings,
                 link_group_preferred_linkage,
-                link_style,
+                link_strategy,
                 pic_behavior = pic_behavior,
                 roots = [d.linkable_graph.nodes.value.label for d in link_deps],
                 is_executable_link = True,
@@ -396,7 +397,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
 
     # Only setup a shared library symlink tree when shared linkage or link_groups is used
     gnu_use_link_groups = cxx_is_gnu(ctx) and link_group_mappings
-    if link_style == LinkStyle("shared") or gnu_use_link_groups:
+    if link_strategy == LinkStrategy("shared") or gnu_use_link_groups:
         shlib_info = merge_shared_libraries(
             ctx.actions,
             deps = (

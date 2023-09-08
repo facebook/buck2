@@ -17,7 +17,7 @@ load(
     "LinkArgs",
     "LinkInfo",
     "LinkInfos",
-    "LinkStyle",
+    "LinkStrategy",
     "Linkage",
     "LinkedObject",  # @unused Used as a type
     "SharedLibLinkable",
@@ -89,6 +89,11 @@ load(
     "extract_undefined_syms",
     "get_undefined_symbols_args",
 )
+
+# TODO(cjhopman): This deserves some high-level docs about the link group linking strategy.
+
+# TODO(cjhopman): I think it would be good to document/explain why link group linking
+# strategy also uses one of the default LinkStrategy.
 
 # Returns a list of targets that belong in the current link group. If using
 # auto_link_groups, this sub_target will only be available to use with the
@@ -248,7 +253,7 @@ def is_link_group_shlib(
 def _transitively_update_shared_linkage(
         linkable_graph_node_map: dict[Label, LinkableNode],
         link_group: [str, None],
-        link_style: LinkStyle,
+        link_strategy: LinkStrategy,
         link_group_preferred_linkage: dict[Label, Linkage],
         link_group_roots: dict[Label, str],
         pic_behavior: PicBehavior):
@@ -260,7 +265,7 @@ def _transitively_update_shared_linkage(
         node = linkable_graph_node_map.get(target)
         if node == None:
             continue
-        output_style = get_lib_output_style(link_style, link_group_preferred_linkage.get(target, node.preferred_linkage), pic_behavior)
+        output_style = get_lib_output_style(link_strategy, link_group_preferred_linkage.get(target, node.preferred_linkage), pic_behavior)
         if output_style == LibOutputStyle("shared_lib"):
             target_link_group = link_group_roots.get(target)
             if target_link_group == None or target_link_group == link_group:
@@ -271,7 +276,7 @@ def _transitively_update_shared_linkage(
         linkable_node = linkable_graph_node_map[node]
         if linkable_node.preferred_linkage == Linkage("any"):
             link_group_preferred_linkage[node] = Linkage("shared")
-        return get_deps_for_link(linkable_node, link_style, pic_behavior)
+        return get_deps_for_link(linkable_node, link_strategy, pic_behavior)
 
     breadth_first_traversal_by(
         linkable_graph_node_map,
@@ -285,7 +290,7 @@ def get_filtered_labels_to_links_map(
         link_groups: dict[str, Group],
         link_group_mappings: [dict[Label, str], None],
         link_group_preferred_linkage: dict[Label, Linkage],
-        link_style: LinkStyle,
+        link_strategy: LinkStrategy,
         roots: list[Label],
         pic_behavior: PicBehavior,
         link_group_libs: dict[str, ([Label, None], LinkInfos)] = {},
@@ -341,7 +346,7 @@ def get_filtered_labels_to_links_map(
     _transitively_update_shared_linkage(
         linkable_graph_node_map,
         link_group,
-        link_style,
+        link_strategy,
         link_group_preferred_linkage,
         link_group_roots,
         pic_behavior,
@@ -386,7 +391,7 @@ def get_filtered_labels_to_links_map(
 
     for target in linkables:
         node = linkable_graph_node_map[target]
-        output_style = get_lib_output_style(link_style, link_group_preferred_linkage.get(target, node.preferred_linkage), pic_behavior)
+        output_style = get_lib_output_style(link_strategy, link_group_preferred_linkage.get(target, node.preferred_linkage), pic_behavior)
 
         # Always link any shared dependencies
         if output_style == LibOutputStyle("shared_lib"):
@@ -566,7 +571,7 @@ def _create_link_group(
         link_groups: dict[str, Group] = {},
         link_group_mappings: dict[Label, str] = {},
         link_group_preferred_linkage: dict[Label, Linkage] = {},
-        link_style: LinkStyle = LinkStyle("static_pic"),
+        link_strategy: LinkStrategy = LinkStrategy("static_pic"),
         link_group_libs: dict[str, ([Label, None], LinkInfos)] = {},
         prefer_stripped_objects: bool = False,
         category_suffix: [str, None] = None,
@@ -634,7 +639,7 @@ def _create_link_group(
         link_group_preferred_linkage,
         pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior,
         link_group_libs = link_group_libs,
-        link_style = link_style,
+        link_strategy = link_strategy,
         roots = roots,
         is_executable_link = False,
         prefer_stripped = prefer_stripped_objects,

@@ -37,6 +37,7 @@ load(
     "Linkage",
     "get_lib_output_style",
     "set_linkable_link_whole",
+    "to_link_strategy",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
@@ -235,7 +236,7 @@ def _build_haskell_omnibus_so(ctx: AnalysisContext) -> HaskellOmnibusData:
             continue
 
         output_style = get_lib_output_style(
-            link_style,
+            to_link_strategy(link_style),
             node.preferred_linkage,
             pic_behavior = pic_behavior,
         )
