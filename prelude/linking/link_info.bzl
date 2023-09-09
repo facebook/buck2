@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load(
     "@prelude//:artifact_tset.bzl",
     "ArtifactTSet",
@@ -335,38 +333,38 @@ LinkedObject = record(
     split_debug_output = field([Artifact, None], None),
 )
 
-def _link_info_default_args(infos: "LinkInfos"):
+def _link_info_default_args(infos: LinkInfos):
     info = infos.default
     return link_info_to_args(info)
 
-def _link_info_default_shared_link_args(infos: "LinkInfos"):
+def _link_info_default_shared_link_args(infos: LinkInfos):
     info = infos.default
     return link_info_to_args(info)
 
-def _link_info_stripped_args(infos: "LinkInfos"):
+def _link_info_stripped_args(infos: LinkInfos):
     info = infos.stripped or infos.default
     return link_info_to_args(info)
 
-def _link_info_stripped_shared_link_args(infos: "LinkInfos"):
+def _link_info_stripped_shared_link_args(infos: LinkInfos):
     info = infos.stripped or infos.default
     return link_info_to_args(info)
 
-def _link_info_default_filelist(infos: "LinkInfos"):
+def _link_info_default_filelist(infos: LinkInfos):
     info = infos.default
     return link_info_filelist(info)
 
-def _link_info_stripped_filelist(infos: "LinkInfos"):
+def _link_info_stripped_filelist(infos: LinkInfos):
     info = infos.stripped or infos.default
     return link_info_filelist(info)
 
-def _link_info_has_default_filelist(children: list[bool], infos: ["LinkInfos", None]) -> bool:
+def _link_info_has_default_filelist(children: list[bool], infos: [LinkInfos, None]) -> bool:
     if infos:
         info = infos.default
         if link_info_filelist(info):
             return True
     return any(children)
 
-def _link_info_has_stripped_filelist(children: list[bool], infos: ["LinkInfos", None]) -> bool:
+def _link_info_has_stripped_filelist(children: list[bool], infos: [LinkInfos, None]) -> bool:
     if infos:
         info = infos.stripped or infos.default
         if link_info_filelist(info):

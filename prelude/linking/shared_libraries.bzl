@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@prelude//linking:link_info.bzl",
@@ -104,7 +102,7 @@ def _merge_lib_map(
 # all the inherited shared libraries for this target.
 def merge_shared_libraries(
         actions: AnalysisActions,
-        node: ["SharedLibraries", None] = None,
+        node: [SharedLibraries, None] = None,
         deps: list[SharedLibraryInfo] = []) -> SharedLibraryInfo:
     kwargs = {}
 

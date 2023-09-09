@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 
@@ -23,7 +21,7 @@ LtoMode = enum(
     "thin",
 )
 
-def lto_compiler_flags(lto_mode: "LtoMode") -> list[str]:
+def lto_compiler_flags(lto_mode: LtoMode) -> list[str]:
     if lto_mode == LtoMode("none"):
         return []
     elif lto_mode == LtoMode("fat") or lto_mode == LtoMode("monolithic"):
