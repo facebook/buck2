@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//:paths.bzl", "paths")
 load(
     ":erlang_build.bzl",
@@ -361,7 +359,7 @@ def _link_srcs_folder(ctx: AnalysisContext) -> dict[str, Artifact]:
         srcs[paths.join("src", ctx.attrs.app_src.basename)] = ctx.attrs.app_src
     return srcs
 
-def _build_start_dependencies(ctx: AnalysisContext, toolchain: Toolchain) -> list["StartDependencySet"]:
+def _build_start_dependencies(ctx: AnalysisContext, toolchain: Toolchain) -> list[StartDependencySet]:
     return build_apps_start_dependencies(
         ctx,
         toolchain,
@@ -372,7 +370,7 @@ def _build_start_dependencies(ctx: AnalysisContext, toolchain: Toolchain) -> lis
         [(app, StartType("load")) for app in ctx.attrs.included_applications],
     )
 
-def build_apps_start_dependencies(ctx: AnalysisContext, toolchain: Toolchain, apps: list[(Dependency, StartType)]) -> list["StartDependencySet"]:
+def build_apps_start_dependencies(ctx: AnalysisContext, toolchain: Toolchain, apps: list[(Dependency, StartType)]) -> list[StartDependencySet]:
     start_dependencies = []
     for app, start_type in apps[::-1]:
         app_spec = _build_start_spec(toolchain, app[ErlangAppInfo], start_type)
@@ -424,7 +422,7 @@ def build_app_info(
         build_environments: dict[str, BuildEnvironment],
         app_folders: dict[str, Artifact],
         primary_app_folder: Artifact,
-        start_dependencies: dict[str, list["StartDependencySet"]]) -> Provider:
+        start_dependencies: dict[str, list[StartDependencySet]]) -> Provider:
     name = ctx.attrs.name
 
     version = {

@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//:paths.bzl", "paths")
 load(
     ":erlang_toolchain.bzl",
@@ -124,15 +122,15 @@ def convert_bool(bl: bool) -> cmd_args:
     else:
         return cmd_args(["false"])
 
-# TODO(nga): string literals as type names are deprecated.
-#   But importing `BuildEnvironment` creates an import cycle.
-def multidict_projection(build_environments: dict[str, "BuildEnvironment"], field_name: str) -> dict:
+# `build_environments` is a `dict[str, BuildEnvironment]`.
+def multidict_projection(build_environments: dict[str, typing.Any], field_name: str) -> dict:
     field = {}
     for name, env in build_environments.items():
         field[name] = getattr(env, field_name)
     return field
 
-def multidict_projection_key(build_environments: dict[str, "BuildEnvironment"], field_name: str, key: str) -> dict:
+# `build_environments` is a `dict[str, BuildEnvironment]`.
+def multidict_projection_key(build_environments: dict[str, typing.Any], field_name: str, key: str) -> dict:
     field = {}
     for name, env in build_environments.items():
         dict_val = getattr(env, field_name)
