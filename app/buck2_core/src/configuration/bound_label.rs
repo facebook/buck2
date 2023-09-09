@@ -59,10 +59,7 @@ impl BoundConfigurationLabel {
             .chars()
             .any(|c| c.is_ascii_whitespace() || c == '(' || c == ')')
         {
-            soft_error!(
-                "space_parens_in_configuration_label",
-                BoundConfigurationLabelError::InvalidCharactersInLabel(label.clone()).into()
-            )?;
+            return Err(BoundConfigurationLabelError::InvalidCharactersInLabel(label).into());
         }
         if BuiltinPlatform::from_label(&label).is_some() {
             return Err(BoundConfigurationLabelError::Builtin(label).into());
