@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 # Implementation of the OCaml build rules.
 
 # IMPORTANT: Don't land your change without running these tests!
@@ -99,7 +97,7 @@ load(":ocaml_toolchain_types.bzl", "OCamlLibraryInfo", "OCamlLinkInfo", "OCamlTo
 BuildMode = enum("native", "bytecode", "expand")
 
 # Native vs. bytecode compiler.
-def _is_native(mode: "BuildMode") -> bool:
+def _is_native(mode: BuildMode) -> bool:
     return mode.value in ("native", "expand")
 
 # The type of the return value of the `_compile()` function.
