@@ -16,7 +16,6 @@ native_libs_dir = <NATIVE_LIBS_DIR>
 native_libs_preload_env_var = "<NATIVE_LIBS_PRELOAD_ENV_VAR>"
 native_libs_preload = <NATIVE_LIBS_PRELOAD>
 interpreter_flags = "<PYTHON_INTERPRETER_FLAGS>"
-mp_executable="<MP_EXECUTABLE>"
 
 import os
 import platform
@@ -77,7 +76,7 @@ def __run():
     # from a directory with a similarly named file, even if their code is properly
     # namespaced. e.g. if one has foo/bar/contextlib.py and while in foo/bar runs
     # `buck run foo/bar:bin`, runpy will fail as it tries to import
-    # foo/bar/contextlib.py. You're just out of luck if you have sys.py
+    # foo/bar/contextlib.py. You're just out of luck if you have sys.py or os.py
 
     # Set `argv[0]` to the executing script.
     assert sys.argv[0] == '-c'
@@ -89,13 +88,6 @@ def __run():
 
     import os
     import runpy
-
-    if <SHOULD_ADD_MULTIPROCESSING_WRAPPER> and sys.platform.startswith('linux'):
-        import multiprocessing
-        c1 = multiprocessing.get_context("spawn")
-        c1.set_executable({os.path.join(dirpath, mp_executable)!r})
-        c2 = multiprocessing.get_context("forkserver")
-        c2.set_executable({os.path.join(dirpath, mp_executable)!r})
 
     def setenv(var, val):
         if val is None:
