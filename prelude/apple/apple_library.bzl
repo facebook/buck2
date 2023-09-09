@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load(
     "@prelude//:artifact_tset.bzl",
     "project_artifacts",
@@ -29,6 +27,10 @@ load(
     "@prelude//cxx:argsfiles.bzl",
     "CompileArgsfile",  # @unused Used as a type
     "CompileArgsfiles",
+)
+load(
+    "@prelude//cxx:compile.bzl",
+    "CxxSrcWithFlags",  # @unused Used as a type
 )
 load(
     "@prelude//cxx:cxx_library.bzl",
@@ -254,7 +256,7 @@ def _get_extra_linker_flags_and_outputs(
     # @oss-disable: return add_extra_linker_outputs(ctx) 
     return [], {} # @oss-enable
 
-def _filter_swift_srcs(ctx: AnalysisContext) -> (list["CxxSrcWithFlags"], list["CxxSrcWithFlags"]):
+def _filter_swift_srcs(ctx: AnalysisContext) -> (list[CxxSrcWithFlags], list[CxxSrcWithFlags]):
     cxx_srcs = []
     swift_srcs = []
     for s in get_srcs_with_flags(ctx):
@@ -327,7 +329,7 @@ def _get_linker_flags(ctx: AnalysisContext) -> cmd_args:
 
 def _xcode_populate_attributes(
         ctx,
-        srcs: list["CxxSrcWithFlags"],
+        srcs: list[CxxSrcWithFlags],
         argsfiles: dict[str, CompileArgsfile],
         populate_xcode_attributes_func: typing.Callable,
         **_kwargs) -> dict[str, typing.Any]:

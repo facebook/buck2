@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load(
     "@prelude//:artifact_tset.bzl",
     "project_artifacts",
@@ -27,6 +25,10 @@ load("@prelude//apple/swift:swift_types.bzl", "SWIFT_EXTENSION")
 load(
     "@prelude//cxx:argsfiles.bzl",
     "CompileArgsfiles",
+)
+load(
+    "@prelude//cxx:compile.bzl",
+    "CxxSrcWithFlags",  # @unused Used as a type
 )
 load("@prelude//cxx:cxx_executable.bzl", "cxx_executable")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
@@ -214,7 +216,7 @@ def _entitlements_link_flags(ctx: AnalysisContext) -> list[typing.Any]:
         ctx.attrs.entitlements_file,
     ] if (ctx.attrs.entitlements_file and _needs_entitlements_in_binary(ctx)) else []
 
-def _filter_swift_srcs(ctx: AnalysisContext) -> (list["CxxSrcWithFlags"], list["CxxSrcWithFlags"]):
+def _filter_swift_srcs(ctx: AnalysisContext) -> (list[CxxSrcWithFlags], list[CxxSrcWithFlags]):
     cxx_srcs = []
     swift_srcs = []
     for s in get_srcs_with_flags(ctx):
