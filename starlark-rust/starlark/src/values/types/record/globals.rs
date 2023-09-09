@@ -153,7 +153,7 @@ foo(rec_type(host="localhost", port=80))"#,
 
 v = [record(host=str.type, port=int.type)]
 v_0 = v[0]
-def foo(y: v_0.type) -> "record":
+def foo(y: v_0) -> "record":
     # TODO(nga): fails at compile time.
     return noop(y)
 foo(v[0](host="localhost", port=80))"#,

@@ -39,7 +39,7 @@ enum TypeExprUnpackError {
     #[error(r#"`"{0}"` is not allowed in type expression, use `{1}` instead"#)]
     StrBanReplace(&'static str, &'static str),
     #[error(r#"`{0}.type` is not allowed in type expression, use `{0}` instead"#)]
-    DotTypeBan(&'static str),
+    DotTypeBan(String),
 }
 
 /// Types that are `""` or start with `"_"` are wildcard - they match everything
@@ -149,17 +149,19 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
                         }
                         ExprP::Identifier(i) => {
                             rem.reverse();
-                            if let [one] = rem.as_slice() {
-                                if one.node == "type" {
-                                    for (_, symbol) in BAN_REPLACE_TYPES {
-                                        if i.node.ident.as_str() == *symbol {
-                                            return Err(EvalException::new(
-                                                TypeExprUnpackError::DotTypeBan(symbol).into(),
-                                                current.span,
-                                                codemap,
-                                            ));
-                                        }
+                            if let Some((last, but_last)) = rem.split_last() {
+                                if last.node == "type" {
+                                    let mut full_path = i.node.ident.clone();
+                                    for elem in but_last {
+                                        full_path.push_str(&format!(".{}", elem.node));
                                     }
+                                    // TODO(nga): allow it after we prohibit
+                                    //   string constants as types.
+                                    return Err(EvalException::new(
+                                        TypeExprUnpackError::DotTypeBan(full_path).into(),
+                                        current.span,
+                                        codemap,
+                                    ));
                                 }
                             }
                             return Ok(Spanned {

@@ -94,7 +94,7 @@ enum_type("option3")"#,
 # @starlark-rust: allow_string_literals_in_type_expr
 
 enum_type = enum("option1","option2")
-def foo(x: enum_type.type) -> "enum_type":
+def foo(x: enum_type) -> "enum_type":
     return x
 foo(enum_type("option1"))"#,
         );
@@ -104,7 +104,7 @@ foo(enum_type("option1"))"#,
 
 v = [enum("option1","option2")]
 v_0 = v[0]
-def foo(y: v_0.type) -> "enum":
+def foo(y: v_0) -> "enum":
     # TODO(nga): fails at compile time.
     return noop(y)
 foo(v[0]("option1"))"#,
