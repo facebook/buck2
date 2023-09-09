@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load(":context.bzl", "CompileContext")
 
 # Inputs to the fail filter
@@ -28,7 +26,7 @@ def failure_filter(
         compile_ctx: CompileContext,
         prefix: str,
         predecl_out: [Artifact, None],
-        failprov: "RustFailureFilter",
+        failprov: RustFailureFilter,
         short_cmd: str) -> Artifact:
     toolchain_info = compile_ctx.toolchain_info
     failure_filter_action = toolchain_info.failure_filter_action
