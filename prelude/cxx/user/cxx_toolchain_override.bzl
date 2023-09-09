@@ -21,15 +21,17 @@ load("@prelude//utils:utils.bzl", "value_or")
 def _cxx_toolchain_override(ctx):
     base_toolchain = ctx.attrs.base[CxxToolchainInfo]
     base_as_info = base_toolchain.as_compiler_info
-    as_info = AsCompilerInfo(
-        compiler = _pick_bin(ctx.attrs.as_compiler, base_as_info.compiler),
-        compiler_type = base_as_info.compiler_type,
-        compiler_flags = _pick(ctx.attrs.as_compiler_flags, base_as_info.compiler_flags),
-        preprocessor = _pick_bin(ctx.attrs.as_compiler, base_as_info.preprocessor),
-        preprocessor_type = base_as_info.preprocessor_type,
-        preprocessor_flags = _pick(ctx.attrs.as_preprocessor_flags, base_as_info.preprocessor_flags),
-        dep_files_processor = base_as_info.dep_files_processor,
-    )
+    as_info = None
+    if base_as_info != None:
+        as_info = AsCompilerInfo(
+            compiler = _pick_bin(ctx.attrs.as_compiler, base_as_info.compiler),
+            compiler_type = base_as_info.compiler_type,
+            compiler_flags = _pick(ctx.attrs.as_compiler_flags, base_as_info.compiler_flags),
+            preprocessor = _pick_bin(ctx.attrs.as_compiler, base_as_info.preprocessor),
+            preprocessor_type = base_as_info.preprocessor_type,
+            preprocessor_flags = _pick(ctx.attrs.as_preprocessor_flags, base_as_info.preprocessor_flags),
+            dep_files_processor = base_as_info.dep_files_processor,
+        )
     asm_info = base_toolchain.asm_compiler_info
     if asm_info != None:
         asm_info = AsmCompilerInfo(
