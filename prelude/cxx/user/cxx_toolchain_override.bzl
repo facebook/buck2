@@ -16,7 +16,7 @@ load(
 load("@prelude//linking:lto.bzl", "LtoMode")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load("@prelude//utils:pick.bzl", _pick = "pick", _pick_and_add = "pick_and_add", _pick_bin = "pick_bin", _pick_dep = "pick_dep")
-load("@prelude//utils:utils.bzl", "value_or")
+load("@prelude//utils:utils.bzl", "value_or", "map_val")
 
 def _cxx_toolchain_override(ctx):
     base_toolchain = ctx.attrs.base[CxxToolchainInfo]
@@ -89,7 +89,7 @@ def _cxx_toolchain_override(ctx):
         link_ordering = base_linker_info.link_ordering,
         linker = _pick_bin(ctx.attrs.linker, base_linker_info.linker),
         linker_flags = _pick(ctx.attrs.linker_flags, base_linker_info.linker_flags),
-        lto_mode = LtoMode(value_or(ctx.attrs.lto_mode, base_linker_info.lto_mode.value)),
+        lto_mode = value_or(map_val(LtoMode, ctx.attrs.lto_mode), base_linker_info.lto_mode),
         object_file_extension = base_linker_info.object_file_extension,
         shlib_interfaces = value_or(ctx.attrs.shared_library_interface_mode, base_linker_info.shlib_interfaces),
         mk_shlib_intf = _pick_dep(ctx.attrs.mk_shlib_intf, base_linker_info.mk_shlib_intf),
