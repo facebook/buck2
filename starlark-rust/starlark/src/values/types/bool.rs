@@ -70,10 +70,10 @@ impl Display for StarlarkBool {
     }
 }
 
-pub(crate) static VALUE_FALSE: AValueRepr<AValueImpl<Basic, StarlarkBool>> =
-    alloc_static(Basic, StarlarkBool(false));
-pub(crate) static VALUE_TRUE: AValueRepr<AValueImpl<Basic, StarlarkBool>> =
-    alloc_static(Basic, StarlarkBool(true));
+pub(crate) static VALUE_FALSE_TRUE: [AValueRepr<AValueImpl<Basic, StarlarkBool>>; 2] = [
+    alloc_static(Basic, StarlarkBool(false)),
+    alloc_static(Basic, StarlarkBool(true)),
+];
 
 impl<'v> AllocValue<'v> for bool {
     fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {

@@ -65,8 +65,7 @@ use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;
 use crate::sealed::Sealed;
 use crate::typing::Ty;
-use crate::values::bool::VALUE_FALSE;
-use crate::values::bool::VALUE_TRUE;
+use crate::values::bool::VALUE_FALSE_TRUE;
 use crate::values::demand::request_value_impl;
 use crate::values::dict::FrozenDictRef;
 use crate::values::enumeration::EnumType;
@@ -919,11 +918,9 @@ impl FrozenValue {
     /// Create a new boolean in Starlark.
     #[inline]
     pub fn new_bool(x: bool) -> Self {
-        if x {
-            Self::new_repr(&VALUE_TRUE)
-        } else {
-            Self::new_repr(&VALUE_FALSE)
-        }
+        // Implemented by indexing into a static so that
+        // the compiler makes this function branchless.
+        Self::new_repr(&VALUE_FALSE_TRUE[x as usize])
     }
 
     /// Create a new int in Starlark.
