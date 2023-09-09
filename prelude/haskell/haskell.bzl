@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 # Implementation of the Haskell build rules.
 
 load("@prelude//:paths.bzl", "paths")
@@ -1147,7 +1145,7 @@ def derive_indexing_tset(
         actions: AnalysisActions,
         link_style: LinkStyle,
         value: [Artifact, None],
-        children: list[Dependency]) -> "HaskellIndexingTSet":
+        children: list[Dependency]) -> HaskellIndexingTSet:
     index_children = []
     for dep in children:
         li = dep.get(HaskellIndexInfo)
