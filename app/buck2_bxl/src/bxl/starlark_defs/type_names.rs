@@ -18,8 +18,17 @@ use crate::bxl::starlark_defs::context::BxlContext;
 
 #[starlark_module]
 pub(crate) fn register_bxl_type_names(globals: &mut GlobalsBuilder) {
+    // TODO(nga): remove these.
     const BxlContext: StarlarkValueAsType<BxlContext> = StarlarkValueAsType::new();
     const BxlActions: StarlarkValueAsType<BxlActions> = StarlarkValueAsType::new();
     const BxlFilesystem: StarlarkValueAsType<BxlFilesystem> = StarlarkValueAsType::new();
     const BxlBuildResult: StarlarkValueAsType<StarlarkBxlBuildResult> = StarlarkValueAsType::new();
+}
+
+#[starlark_module]
+pub(crate) fn register_bxl_type_names_in_bxl_namespace(globals: &mut GlobalsBuilder) {
+    const Context: StarlarkValueAsType<BxlContext> = StarlarkValueAsType::new();
+    const Actions: StarlarkValueAsType<BxlActions> = StarlarkValueAsType::new();
+    const Filesystem: StarlarkValueAsType<BxlFilesystem> = StarlarkValueAsType::new();
+    const BuildResult: StarlarkValueAsType<StarlarkBxlBuildResult> = StarlarkValueAsType::new();
 }
