@@ -67,7 +67,7 @@ def create_jar_artifact_kotlincd(
         extra_kotlinc_arguments: list[str],
         extra_non_source_only_abi_kotlinc_arguments: list[str],
         is_creating_subtarget: bool = False,
-        optional_dirs: list["output_artifact"] = []) -> "JavaCompileOutputs":
+        optional_dirs: list[OutputArtifact] = []) -> "JavaCompileOutputs":
     resources_map = get_resources_map(
         java_toolchain = java_toolchain,
         package = label.package,

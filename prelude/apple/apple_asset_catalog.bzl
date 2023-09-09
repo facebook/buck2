@@ -61,7 +61,7 @@ def _get_at_most_one_attribute(ctx: AnalysisContext, xs: list[typing.Any], attr_
 def _get_target(ctx: AnalysisContext) -> str:
     return ctx.label.package + ":" + ctx.label.name
 
-def _get_actool_command(ctx: AnalysisContext, info: AppleAssetCatalogSpec, catalog_output: "output_artifact", plist_output: "output_artifact", compilation_options: AppleAssetCatalogsCompilationOptions) -> cmd_args:
+def _get_actool_command(ctx: AnalysisContext, info: AppleAssetCatalogSpec, catalog_output: OutputArtifact, plist_output: OutputArtifact, compilation_options: AppleAssetCatalogsCompilationOptions) -> cmd_args:
     external_name = get_apple_sdk_name(ctx)
     sdk_metadata = get_apple_sdk_metadata_for_sdk_name(external_name)
     target_device = sdk_metadata.target_device_flags

@@ -74,7 +74,7 @@ def _plist_substitutions_as_json_file(ctx: AnalysisContext) -> [Artifact, None]:
     substitutions_json = ctx.actions.write_json("plist_substitutions.json", info_plist_substitutions)
     return substitutions_json
 
-def process_plist(ctx: AnalysisContext, input: Artifact, output: "output_artifact", override_input: [Artifact, None] = None, additional_keys: [Artifact, None] = None, override_keys: [Artifact, None] = None, action_id: [str, None] = None):
+def process_plist(ctx: AnalysisContext, input: Artifact, output: OutputArtifact, override_input: [Artifact, None] = None, additional_keys: [Artifact, None] = None, override_keys: [Artifact, None] = None, action_id: [str, None] = None):
     apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
     processor = apple_tools.info_plist_processor
     override_input_arguments = ["--override-input", override_input] if override_input != None else []

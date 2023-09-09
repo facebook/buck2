@@ -254,7 +254,7 @@ def _bundle_parts_for_variant_files(ctx: AnalysisContext, spec: AppleResourceSpe
 def _run_ibtool(
         ctx: AnalysisContext,
         raw_file: Artifact,
-        output: "output_artifact",
+        output: OutputArtifact,
         action_flags: list[str],
         target_device: [None, str],
         action_identifier: str,
@@ -302,7 +302,7 @@ def _run_ibtool(
 def _compile_ui_resource(
         ctx: AnalysisContext,
         raw_file: Artifact,
-        output: "output_artifact",
+        output: OutputArtifact,
         target_device: [None, str] = None,
         output_is_dir: bool = False) -> None:
     _run_ibtool(
@@ -318,7 +318,7 @@ def _compile_ui_resource(
 def _link_ui_resource(
         ctx: AnalysisContext,
         raw_file: Artifact,
-        output: "output_artifact",
+        output: OutputArtifact,
         target_device: [None, str] = None,
         output_is_dir: bool = False) -> None:
     _run_ibtool(
