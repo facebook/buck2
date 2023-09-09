@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple/swift:swift_compilation.bzl", "extract_swiftmodule_linkables", "get_swiftmodule_linker_flags")
 load("@prelude//apple/swift:swift_runtime.bzl", "extract_swift_runtime_linkables", "get_swift_runtime_linker_flags")
