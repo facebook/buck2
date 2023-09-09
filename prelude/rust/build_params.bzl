@@ -143,6 +143,7 @@ def _executable_prefix_suffix(linker_type: str, target_os_type: OsLookup) -> (st
         "darwin": ("", ""),
         "gnu": ("", ".exe") if target_os_type.platform == "windows" else ("", ""),
         "windows": ("", ".exe"),
+        "wasm": ("", ".wasm"),
     }[linker_type]
 
 def _library_prefix_suffix(linker_type: str, target_os_type: OsLookup) -> (str, str):
@@ -150,6 +151,7 @@ def _library_prefix_suffix(linker_type: str, target_os_type: OsLookup) -> (str, 
         "darwin": ("lib", ".dylib"),
         "gnu": ("", ".dll") if target_os_type.platform == "windows" else ("lib", ".so"),
         "windows": ("", ".dll"),
+        "wasm": ("", ".wasm"),
     }[linker_type]
 
 _BUILD_PARAMS = {

@@ -56,6 +56,14 @@ LINKERS = {
         shared_library_name_linker_flags_format = [],
         shared_library_flags = ["/DLL"],
     ),
+    "wasm": Linker(
+        default_shared_library_extension = "wasm",
+        default_shared_library_versioned_extension_format = "{}.wasm",
+        shared_library_name_linker_flags_format = [],
+        # lld supports this, at least.
+        # See https://github.com/WebAssembly/tool-conventions/blob/main/DynamicLinking.md#llvm-implementation
+        shared_library_flags = ["-shared"],
+    ),
 }
 
 PDB_SUB_TARGET = "pdb"
