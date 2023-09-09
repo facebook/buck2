@@ -12,6 +12,7 @@ use buck2_interpreter::functions::more::REGISTER_BUCK2_BUILD_API_GLOBALS;
 use buck2_interpreter::functions::transition::REGISTER_TRANSITION;
 use buck2_interpreter::starlark_promise::register_promise;
 use buck2_interpreter::types::cell_path::register_cell_path;
+use buck2_interpreter::types::cell_root::register_cell_root;
 use buck2_interpreter::types::configured_providers_label::register_providers_label;
 use buck2_interpreter::types::target_label::register_target_label;
 use starlark::environment::GlobalsBuilder;
@@ -55,6 +56,7 @@ pub fn register_universal_natives(builder: &mut GlobalsBuilder) {
     register_plugins(builder);
     register_providers_label(builder);
     register_cell_path(builder);
+    register_cell_root(builder);
     register_target_label(builder);
     register_path(builder);
     register_select(builder);

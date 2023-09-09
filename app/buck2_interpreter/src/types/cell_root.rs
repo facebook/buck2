@@ -14,7 +14,9 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
+use starlark::environment::GlobalsBuilder;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 
@@ -38,3 +40,8 @@ starlark_simple_value!(CellRoot);
 
 #[starlark_value(type = "cell_root")]
 impl<'v> StarlarkValue<'v> for CellRoot {}
+
+#[starlark_module]
+pub fn register_cell_root(globals: &mut GlobalsBuilder) {
+    const CellRoot: StarlarkValueAsType<CellRoot> = StarlarkValueAsType::new();
+}
