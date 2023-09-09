@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//:paths.bzl", "paths")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":cxx_toolchain_types.bzl", "CxxToolchainInfo")
@@ -58,7 +56,7 @@ _anon_shared_library_interface = rule(
 def shared_library_interface(
         ctx: AnalysisContext,
         shared_lib: Artifact,
-        anonymous: bool = False) -> [Artifact, "promise_artifact"]:
+        anonymous: bool = False) -> Artifact:
     output = paths.join("__shlib_intfs__", shared_lib.short_path)
 
     if anonymous:

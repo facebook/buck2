@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//linking:lto.bzl", "LtoMode")
@@ -142,9 +140,10 @@ CxxCompileOutput = record(
 
 def create_compile_cmds(
         ctx: AnalysisContext,
-        # TODO(nga): there's dependency cycle between `compile.bzl` (this file)
+        # TODO(nga): this is `CxxRuleConstructorParams`,
+        #    but there's dependency cycle between `compile.bzl` (this file)
         #   and `cxx_types.bzl` (where `CxxRuleConstructorParams` is defined).
-        impl_params: "CxxRuleConstructorParams",
+        impl_params: typing.Any,
         own_preprocessors: list[CPreprocessor],
         inherited_preprocessor_infos: list[CPreprocessorInfo]) -> CxxCompileCommandOutput:
     """
