@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load(
     "@prelude//java:java_providers.bzl",
     "JavaClasspathEntry",
@@ -17,6 +15,10 @@ load(
 )
 load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "JavaToolchainInfo")
 load("@prelude//java/plugins:java_annotation_processor.bzl", "AnnotationProcessorProperties")  # @unused Used as type
+load(
+    "@prelude//java/plugins:java_plugin.bzl",
+    "PluginParams",  # @unused Used as type
+)
 load("@prelude//java/utils:java_utils.bzl", "declare_prefixed_name")
 load("@prelude//utils:utils.bzl", "expect")
 
@@ -247,7 +249,7 @@ def encode_ap_params(annotation_processor_properties: AnnotationProcessorPropert
                 )
     return encoded_ap_params
 
-def encode_plugin_params(plugin_params: ["PluginParams", None]) -> [struct, None]:
+def encode_plugin_params(plugin_params: [PluginParams, None]) -> [struct, None]:
     # TODO(cjhopman): We should change plugins to not be merged together just like APs.
     encoded_plugin_params = None
     if plugin_params:
@@ -279,7 +281,7 @@ def encode_base_jar_command(
         srcs: list[Artifact],
         resources_map: dict[str, Artifact],
         annotation_processor_properties: AnnotationProcessorProperties,
-        plugin_params: ["PluginParams", None],
+        plugin_params: [PluginParams, None],
         extra_arguments: cmd_args,
         source_only_abi_compiling_deps: list[JavaClasspathEntry],
         track_class_usage: bool) -> struct:
