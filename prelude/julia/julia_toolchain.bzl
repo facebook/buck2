@@ -5,11 +5,9 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load(":julia_info.bzl", "JuliaToolchainInfo")
 
-def _toolchain(lang: str, providers: list[typing.Any]) -> "attribute":
+def _toolchain(lang: str, providers: list[typing.Any]) -> Attr:
     return attrs.default_only(attrs.toolchain_dep(default = "toolchains//:" + lang, providers = providers))
 
 def julia_toolchain():

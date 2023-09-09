@@ -8,7 +8,7 @@
 RuleRegistrationSpec = record(
     name = field(str),
     impl = field(typing.Callable),
-    attrs = field(dict[str, "attribute"]),
+    attrs = field(dict[str, Attr]),
     cfg = field([None, "transition"], None),
     is_toolchain_rule = field(bool, False),
     doc = field(str, ""),

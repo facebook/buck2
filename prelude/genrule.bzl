@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 # Implementation of the `genrule` build rule.
 
 load("@prelude//:cache_mode.bzl", "CacheModeInfo")
@@ -66,7 +64,7 @@ def _requires_no_srcs_environment(ctx: AnalysisContext) -> bool:
 _USE_CACHE_MODE = is_full_meta_repo()
 
 # Extra attributes required by every genrule based on genrule_impl
-def genrule_attributes() -> dict[str, "attribute"]:
+def genrule_attributes() -> dict[str, Attr]:
     attributes = {
         "metadata_env_var": attrs.option(attrs.string(), default = None),
         "metadata_path": attrs.option(attrs.string(), default = None),

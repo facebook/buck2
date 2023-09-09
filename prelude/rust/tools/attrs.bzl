@@ -5,9 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
-def _internal_tool(default: str) -> "attribute":
+def _internal_tool(default: str) -> Attr:
     return attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = default))
 
 # Factored out of prelude//toolchains/rust.bzl to keep only the user-facing

@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//android:android_toolchain.bzl", "AndroidPlatformInfo", "AndroidToolchainInfo")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
 load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
@@ -27,10 +25,10 @@ load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "PythonToolchainInf
 load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapToolchainInfo")
 load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
 
-def _toolchain(lang: str, providers: list[typing.Any]) -> "attribute":
+def _toolchain(lang: str, providers: list[typing.Any]) -> Attr:
     return attrs.default_only(attrs.toolchain_dep(default = "toolchains//:" + lang, providers = providers))
 
-def _toolchain_with_override(lang: str, providers: list[typing.Any]) -> "attribute":
+def _toolchain_with_override(lang: str, providers: list[typing.Any]) -> Attr:
     return attrs.toolchain_dep(default = "toolchains//:" + lang, providers = providers)
 
 def _android_toolchain():
