@@ -58,7 +58,7 @@ LinkStyle = enum(
 # We still read link_style (and some related) attrs to LinkStyle but then usually convert them
 # immediately to LinkStrategy.
 # TODO(cjhopman): We should migrate the attr name to `link_strategy`
-def to_link_strategy(link_style: LinkStyle.type) -> LinkStrategy.type:
+def to_link_strategy(link_style: LinkStyle) -> LinkStrategy:
     return LinkStrategy(link_style.value)
 
 # The different types of outputs of native library. Which specific output style to use for a library
@@ -69,7 +69,7 @@ LibOutputStyle = enum(
     "shared_lib",
 )
 
-def default_output_style_for_link_strategy(link_strategy: LinkStrategy.type) -> LibOutputStyle.type:
+def default_output_style_for_link_strategy(link_strategy: LinkStrategy) -> LibOutputStyle:
     if link_strategy == LinkStrategy("static"):
         return LibOutputStyle("archive")
     if link_strategy == LinkStrategy("static_pic"):

@@ -216,7 +216,7 @@ def get_link_info(
 
 def get_deps_for_link(
         node: LinkableNode,
-        strategy: LinkStrategy.type,
+        strategy: LinkStrategy,
         pic_behavior: PicBehavior) -> list[Label]:
     """
     Return deps to follow when linking against this node with the given link

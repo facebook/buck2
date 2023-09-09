@@ -73,7 +73,7 @@ def _add_clang_import_flags(module_info: SwiftCompiledModuleInfo):
     else:
         return [module_info.clang_importer_args]
 
-def _swift_module_map_struct(module_info: SwiftCompiledModuleInfo.type):
+def _swift_module_map_struct(module_info: SwiftCompiledModuleInfo):
     return struct(
         isFramework = module_info.is_framework,
         moduleName = module_info.module_name,
