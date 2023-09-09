@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//:local_only.bzl", "get_resolved_cxx_binary_link_execution_preference")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load(
@@ -545,7 +543,7 @@ def _requires_private_root(
 def _extract_global_symbols_from_link_args(
         ctx: AnalysisContext,
         name: str,
-        link_args: list[[Artifact, "resolved_macro", cmd_args, str]],
+        link_args: list[[Artifact, ResolvedStringWithMacros, cmd_args, str]],
         prefer_local: bool = False) -> Artifact:
     """
     Extract global symbols explicitly set in the given linker args (e.g.
@@ -593,7 +591,7 @@ def _create_global_symbols_version_script(
         ctx: AnalysisContext,
         roots: list[AnnotatedOmnibusRootProduct],
         excluded: list[Artifact],
-        link_args: list[[Artifact, "resolved_macro", cmd_args, str]]) -> Artifact:
+        link_args: list[[Artifact, ResolvedStringWithMacros, cmd_args, str]]) -> Artifact:
     """
     Generate a version script exporting symbols from from the given objects and
     link args.

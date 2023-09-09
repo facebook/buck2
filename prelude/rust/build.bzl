@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//:artifact_tset.bzl", "project_artifacts")
 load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
 load("@prelude//:paths.bzl", "paths")
@@ -314,7 +312,7 @@ def rust_compile_multi(
         default_roots: list[str],
         extra_link_args: list[typing.Any] = [],
         predeclared_outputs: dict[Emit, Artifact] = {},
-        extra_flags: list[[str, "resolved_macro"]] = [],
+        extra_flags: list[[str, ResolvedStringWithMacros]] = [],
         is_binary: bool = False,
         allow_cache_upload: bool = False,
         rust_cxx_link_group_info: [RustCxxLinkGroupInfo, None] = None) -> list[RustcOutput]:
@@ -351,7 +349,7 @@ def rust_compile(
         default_roots: list[str],
         extra_link_args: list[typing.Any] = [],
         predeclared_outputs: dict[Emit, Artifact] = {},
-        extra_flags: list[[str, "resolved_macro"]] = [],
+        extra_flags: list[[str, ResolvedStringWithMacros]] = [],
         is_binary: bool = False,
         allow_cache_upload: bool = False,
         rust_cxx_link_group_info: [RustCxxLinkGroupInfo, None] = None) -> RustcOutput:
@@ -675,7 +673,7 @@ def dynamic_symlinked_dirs(
     compile_ctx.transitive_dependency_dirs[transitive_dependency_dir] = None
     return cmd_args(transitive_dependency_dir, format = "@{}/dirs").hidden(artifacts.keys())
 
-def _lintify(flag: str, clippy: bool, lints: list["resolved_macro"]) -> cmd_args:
+def _lintify(flag: str, clippy: bool, lints: list[ResolvedStringWithMacros]) -> cmd_args:
     return cmd_args(
         [lint for lint in lints if str(lint).startswith("\"clippy::") == clippy],
         format = "-{}{{}}".format(flag),
@@ -698,7 +696,7 @@ def _lint_flags(compile_ctx: CompileContext) -> (cmd_args, cmd_args):
 
     return (plain, clippy)
 
-def _rustc_flags(flags: list[[str, "resolved_macro"]]) -> list[[str, "resolved_macro"]]:
+def _rustc_flags(flags: list[[str, ResolvedStringWithMacros]]) -> list[[str, ResolvedStringWithMacros]]:
     # Rustc's "-g" flag is documented as being exactly equivalent to
     # "-Cdebuginfo=2". Rustdoc supports the latter, it just doesn't have the
     # "-g" shorthand for it.
@@ -1025,7 +1023,7 @@ def _rustc_invoke(
         is_binary: bool,
         allow_cache_upload: bool,
         crate_map: list[(CrateName, Label)],
-        env: dict[str, ["resolved_macro", Artifact]] = {},
+        env: dict[str, [ResolvedStringWithMacros, Artifact]] = {},
         only_artifact: [None, str] = None) -> (dict[str, Artifact], [Artifact, None]):
     toolchain_info = compile_ctx.toolchain_info
 
@@ -1116,7 +1114,7 @@ def _long_command(
 # path and non-path content, but we'll burn that bridge when we get to it.)
 def _process_env(
         compile_ctx: CompileContext,
-        env: dict[str, ["resolved_macro", Artifact]]) -> (dict[str, cmd_args], dict[str, cmd_args]):
+        env: dict[str, [ResolvedStringWithMacros, Artifact]]) -> (dict[str, cmd_args], dict[str, cmd_args]):
     # Values with inputs (ie artifact references).
     path_env = {}
 

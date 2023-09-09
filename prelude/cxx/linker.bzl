@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerInfo")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:utils.bzl", "expect")
@@ -258,7 +256,7 @@ def get_rpath_origin(
 
 def is_pdb_generated(
         linker_type: str,
-        linker_flags: list[[str, "resolved_macro"]]) -> bool:
+        linker_flags: list[[str, ResolvedStringWithMacros]]) -> bool:
     if linker_type != "windows":
         return False
     for flag in reversed(linker_flags):

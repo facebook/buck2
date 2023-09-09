@@ -121,7 +121,7 @@ CxxCompileCommandOutput = record(
 # file specific flags to compile with.
 CxxSrcWithFlags = record(
     file = field(Artifact),
-    flags = field(list["resolved_macro"], []),
+    flags = field(list[ResolvedStringWithMacros], []),
     # If we have multiple source entries with same files but different flags,
     # specify an index so we can differentiate them. Otherwise, use None.
     index = field([int, None], None),
