@@ -176,23 +176,8 @@ impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
     /// Get the reference to the pointed value.
     #[inline]
     pub fn as_ref(self) -> &'v T {
-        if PointerI32::type_is_pointer_i32::<T>() {
-            unsafe {
-                transmute!(
-                    &PointerI32,
-                    &T,
-                    PointerI32::new(self.0.0.unpack_int_unchecked())
-                )
-            }
-        } else {
-            unsafe {
-                self.0
-                    .0
-                    .unpack_ptr_no_int_unchecked()
-                    .unpack_header_unchecked()
-                    .payload::<T>()
-            }
-        }
+        // SAFETY: type is checked in constructor.
+        unsafe { self.0.downcast_ref_unchecked() }
     }
 }
 
