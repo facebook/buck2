@@ -11,7 +11,7 @@ load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 # would like to give us flags too. We use this to place the flags in the proper
 # field (linker_flags), so that things that want ldflags without the linker
 # executable can access those.
-RichLinkerRunInfo = provider(fields = ["exe", "flags"])
+RichLinkerRunInfo = provider(fields = {"exe": provider_field(typing.Any, default = None), "flags": provider_field(typing.Any, default = None)})
 
 LinkerType = ["gnu", "darwin", "windows"]
 
@@ -19,68 +19,74 @@ ShlibInterfacesMode = enum("disabled", "enabled", "defined_only")
 
 # TODO(T110378149): Consider whether it makes sense to move these things to
 # configurations/constraints rather than part of the toolchain.
-LinkerInfo = provider(fields = [
-    "archiver",
-    "archiver_flags",
-    "archiver_supports_argfiles",
-    "archiver_type",
-    "archive_contents",
-    "archive_objects_locally",
-    # "archiver_platform",
-    # "" on Unix, "exe" on Windows
-    "binary_extension",  # str
-    "generate_linker_maps",  # bool
-    # Whether to run native links locally.  We support this for fbcode platforms
-    # to avoid issues with C++ static links (see comment in
-    # `platform/cxx_toolchains.bzl` for details).
-    "link_binaries_locally",
-    # Whether to run native shared library links locally. For certain use cases
-    # (e.g., large Apple frameworks), it's more efficient to link locally due
-    # GiBs of object files (which can also lead to RE errors/timesouts etc).
-    "link_libraries_locally",
-    "link_style",  # LinkStyle
-    "link_weight",  # int
-    "link_ordering",  # LinkOrdering
-    "linker",
-    "linker_flags",
-    "lto_mode",
-    "mk_shlib_intf",
-    # "o" on Unix, "obj" on Windows
-    "object_file_extension",  # str
-    "shlib_interfaces",  # ShlibInterfacesMode
-    "shared_dep_runtime_ld_flags",
-    # "lib{}.so" on Linux, "lib{}.dylib" on Mac, "{}.dll" on Windows
-    "shared_library_name_format",  # str
-    "shared_library_versioned_name_format",  # str
-    "static_dep_runtime_ld_flags",
-    # "a" on Unix, "lib" on Windows
-    "static_library_extension",  # str
-    "static_pic_dep_runtime_ld_flags",
-    "requires_archives",
-    "requires_objects",
-    "supports_distributed_thinlto",
-    "independent_shlib_interface_linker_flags",
-    "type",  # of "LinkerType" type
-    "use_archiver_flags",
-    "force_full_hybrid_if_capable",
-    "is_pdb_generated",  # bool
-    "produce_interface_from_stub_shared_library",  # bool
-])
+LinkerInfo = provider(
+    # @unsorted-dict-items
+    fields = {
+        "archiver": provider_field(typing.Any, default = None),
+        "archiver_flags": provider_field(typing.Any, default = None),
+        "archiver_supports_argfiles": provider_field(typing.Any, default = None),
+        "archiver_type": provider_field(typing.Any, default = None),
+        "archive_contents": provider_field(typing.Any, default = None),
+        "archive_objects_locally": provider_field(typing.Any, default = None),
+        # "archiver_platform",
+        # "" on Unix, "exe" on Windows
+        "binary_extension": provider_field(typing.Any, default = None),  # str
+        "generate_linker_maps": provider_field(typing.Any, default = None),  # bool
+        # Whether to run native links locally.  We support this for fbcode platforms
+        # to avoid issues with C++ static links (see comment in
+        # `platform/cxx_toolchains.bzl` for details).
+        "link_binaries_locally": provider_field(typing.Any, default = None),
+        # Whether to run native shared library links locally. For certain use cases
+        # (e.g., large Apple frameworks), it's more efficient to link locally due
+        # GiBs of object files (which can also lead to RE errors/timesouts etc).
+        "link_libraries_locally": provider_field(typing.Any, default = None),
+        "link_style": provider_field(typing.Any, default = None),  # LinkStyle
+        "link_weight": provider_field(typing.Any, default = None),  # int
+        "link_ordering": provider_field(typing.Any, default = None),  # LinkOrdering
+        "linker": provider_field(typing.Any, default = None),
+        "linker_flags": provider_field(typing.Any, default = None),
+        "lto_mode": provider_field(typing.Any, default = None),
+        "mk_shlib_intf": provider_field(typing.Any, default = None),
+        # "o" on Unix, "obj" on Windows
+        "object_file_extension": provider_field(typing.Any, default = None),  # str
+        "shlib_interfaces": provider_field(typing.Any, default = None),  # ShlibInterfacesMode
+        "shared_dep_runtime_ld_flags": provider_field(typing.Any, default = None),
+        # "lib{}.so" on Linux, "lib{}.dylib" on Mac, "{}.dll" on Windows
+        "shared_library_name_format": provider_field(typing.Any, default = None),  # str
+        "shared_library_versioned_name_format": provider_field(typing.Any, default = None),  # str
+        "static_dep_runtime_ld_flags": provider_field(typing.Any, default = None),
+        # "a" on Unix, "lib" on Windows
+        "static_library_extension": provider_field(typing.Any, default = None),  # str
+        "static_pic_dep_runtime_ld_flags": provider_field(typing.Any, default = None),
+        "requires_archives": provider_field(typing.Any, default = None),
+        "requires_objects": provider_field(typing.Any, default = None),
+        "supports_distributed_thinlto": provider_field(typing.Any, default = None),
+        "independent_shlib_interface_linker_flags": provider_field(typing.Any, default = None),
+        "type": provider_field(typing.Any, default = None),  # of "LinkerType" type
+        "use_archiver_flags": provider_field(typing.Any, default = None),
+        "force_full_hybrid_if_capable": provider_field(typing.Any, default = None),
+        "is_pdb_generated": provider_field(typing.Any, default = None),  # bool
+        "produce_interface_from_stub_shared_library": provider_field(typing.Any, default = None),  # bool
+    },
+)
 
-BinaryUtilitiesInfo = provider(fields = [
-    "bolt_msdk",
-    "dwp",
-    "nm",
-    "objcopy",
-    "ranlib",
-    "strip",
-])
+BinaryUtilitiesInfo = provider(fields = {
+    "bolt_msdk": provider_field(typing.Any, default = None),
+    "dwp": provider_field(typing.Any, default = None),
+    "nm": provider_field(typing.Any, default = None),
+    "objcopy": provider_field(typing.Any, default = None),
+    "ranlib": provider_field(typing.Any, default = None),
+    "strip": provider_field(typing.Any, default = None),
+})
 
-StripFlagsInfo = provider(fields = [
-    "strip_debug_flags",  # [["str"], None]
-    "strip_non_global_flags",  # [["str"], None]
-    "strip_all_flags",  # [["str"], None]
-])
+StripFlagsInfo = provider(
+    # @unsorted-dict-items
+    fields = {
+        "strip_debug_flags": provider_field(typing.Any, default = None),  # [["str"], None]
+        "strip_non_global_flags": provider_field(typing.Any, default = None),  # [["str"], None]
+        "strip_all_flags": provider_field(typing.Any, default = None),  # [["str"], None]
+    },
+)
 
 DepTrackingMode = enum(
     # MAKEFILE corresponds to `gcc -MD -MF depfile ...` on *nix
@@ -124,7 +130,8 @@ AsmCompilerInfo = provider(fields = _compiler_fields)
 AsCompilerInfo = provider(fields = _compiler_fields)
 
 DistLtoToolsInfo = provider(
-    fields = ["planner", "opt", "prepare", "copy"],
+    # @unsorted-dict-items
+    fields = {"planner": provider_field(typing.Any, default = None), "opt": provider_field(typing.Any, default = None), "prepare": provider_field(typing.Any, default = None), "copy": provider_field(typing.Any, default = None)},
 )
 
 CxxObjectFormat = enum(
@@ -159,42 +166,48 @@ PicBehavior = enum(
 # TODO(T110378145): Could we split up this Info so that each of the compilers
 # could be provided by different dependencies? That would allow a target to
 # only depend on the compilers it actually needs.
-CxxToolchainInfo = provider(fields = [
-    "conflicting_header_basename_allowlist",
-    "use_distributed_thinlto",
-    "header_mode",
-    "headers_as_raw_headers_mode",
-    "linker_info",
-    "object_format",
-    "binary_utilities_info",
-    "c_compiler_info",
-    "cxx_compiler_info",
-    "asm_compiler_info",
-    "as_compiler_info",
-    "hip_compiler_info",
-    "cuda_compiler_info",
-    "mk_comp_db",
-    "mk_hmap",
-    "llvm_link",
-    "dist_lto_tools_info",
-    "use_dep_files",
-    "clang_remarks",
-    "clang_trace",
-    "cpp_dep_tracking_mode",
-    "cuda_dep_tracking_mode",
-    "strip_flags_info",
-    "split_debug_mode",
-    "bolt_enabled",
-    "pic_behavior",
-    "dumpbin_toolchain_path",
-])
+CxxToolchainInfo = provider(
+    # @unsorted-dict-items
+    fields = {
+        "conflicting_header_basename_allowlist": provider_field(typing.Any, default = None),
+        "use_distributed_thinlto": provider_field(typing.Any, default = None),
+        "header_mode": provider_field(typing.Any, default = None),
+        "headers_as_raw_headers_mode": provider_field(typing.Any, default = None),
+        "linker_info": provider_field(typing.Any, default = None),
+        "object_format": provider_field(typing.Any, default = None),
+        "binary_utilities_info": provider_field(typing.Any, default = None),
+        "c_compiler_info": provider_field(typing.Any, default = None),
+        "cxx_compiler_info": provider_field(typing.Any, default = None),
+        "asm_compiler_info": provider_field(typing.Any, default = None),
+        "as_compiler_info": provider_field(typing.Any, default = None),
+        "hip_compiler_info": provider_field(typing.Any, default = None),
+        "cuda_compiler_info": provider_field(typing.Any, default = None),
+        "mk_comp_db": provider_field(typing.Any, default = None),
+        "mk_hmap": provider_field(typing.Any, default = None),
+        "llvm_link": provider_field(typing.Any, default = None),
+        "dist_lto_tools_info": provider_field(typing.Any, default = None),
+        "use_dep_files": provider_field(typing.Any, default = None),
+        "clang_remarks": provider_field(typing.Any, default = None),
+        "clang_trace": provider_field(typing.Any, default = None),
+        "cpp_dep_tracking_mode": provider_field(typing.Any, default = None),
+        "cuda_dep_tracking_mode": provider_field(typing.Any, default = None),
+        "strip_flags_info": provider_field(typing.Any, default = None),
+        "split_debug_mode": provider_field(typing.Any, default = None),
+        "bolt_enabled": provider_field(typing.Any, default = None),
+        "pic_behavior": provider_field(typing.Any, default = None),
+        "dumpbin_toolchain_path": provider_field(typing.Any, default = None),
+    },
+)
 
 # Stores "platform"/flavor name used to resolve *platform_* arguments
-CxxPlatformInfo = provider(fields = [
-    "name",
-    # List of aliases used to resolve platform_deps
-    "deps_aliases",
-])
+CxxPlatformInfo = provider(
+    # @unsorted-dict-items
+    fields = {
+        "name": provider_field(typing.Any, default = None),
+        # List of aliases used to resolve platform_deps
+        "deps_aliases": provider_field(typing.Any, default = None),
+    },
+)
 
 def _validate_linker_info(info: LinkerInfo):
     if info.requires_archives and info.requires_objects:

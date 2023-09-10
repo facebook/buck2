@@ -14,11 +14,11 @@ load(
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 # Provider that exposes the compilation database information
-CxxCompilationDbInfo = provider(fields = [
-    "info",  # A map of the file (an `Artifact`) to its corresponding `CxxSrcCompileCommand`
-    "platform",  # platform for this compilation database
-    "toolchain",  # toolchain for this compilation database
-])
+CxxCompilationDbInfo = provider(fields = {
+    "info": provider_field(typing.Any, default = None),  # A map of the file (an `Artifact`) to its corresponding `CxxSrcCompileCommand`
+    "platform": provider_field(typing.Any, default = None),  # platform for this compilation database
+    "toolchain": provider_field(typing.Any, default = None),  # toolchain for this compilation database
+})
 
 def make_compilation_db_info(src_compile_cmds: list[CxxSrcCompileCommand], toolchainInfo: CxxToolchainInfo, platformInfo: CxxPlatformInfo) -> CxxCompilationDbInfo:
     info = {}

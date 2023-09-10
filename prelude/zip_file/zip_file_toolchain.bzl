@@ -7,7 +7,7 @@
 
 ZipFileToolchainInfo = provider(
     doc = "ZipFile toolchain info",
-    fields = [
-        "create_zip",
-    ],
+    fields = {
+        "create_zip": provider_field(typing.Any, default = None),
+    },
 )

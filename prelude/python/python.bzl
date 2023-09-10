@@ -123,10 +123,10 @@ PythonLibraryManifestsTSet = transitive_set(
 
 # Information about a python library and its dependencies.
 # TODO(nmj): Resources in general, and mapping of resources to new paths too.
-PythonLibraryInfo = provider(fields = [
-    "manifests",  # PythonLibraryManifestsTSet
-    "shared_libraries",  # "SharedLibraryInfo"
-])
+PythonLibraryInfo = provider(fields = {
+    "manifests": provider_field(typing.Any, default = None),  # PythonLibraryManifestsTSet
+    "shared_libraries": provider_field(typing.Any, default = None),  # "SharedLibraryInfo"
+})
 
 def info_to_interface(info: PythonLibraryInfo) -> PythonLibraryInterface:
     return PythonLibraryInterface(

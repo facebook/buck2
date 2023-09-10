@@ -8,14 +8,14 @@
 load(":context.bzl", "CompileContext")
 
 # Inputs to the fail filter
-RustFailureFilter = provider(fields = [
+RustFailureFilter = provider(fields = {
     # Build status json
-    "buildstatus",
+    "buildstatus": provider_field(typing.Any, default = None),
     # Required files
-    "required",
+    "required": provider_field(typing.Any, default = None),
     # stderr
-    "stderr",
-])
+    "stderr": provider_field(typing.Any, default = None),
+})
 
 # This creates an action which takes a buildstatus json artifact as an input, and a list of other
 # artifacts. If all those artifacts are present in the buildstatus as successfully generated, then

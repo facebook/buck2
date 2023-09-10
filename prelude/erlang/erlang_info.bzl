@@ -64,90 +64,94 @@ ErlangAppInfo = provider(
 )
 
 ErlangReleaseInfo = provider(
-    fields = [
-        "name",
-    ],
+    fields = {
+        "name": provider_field(typing.Any, default = None),
+    },
 )
 
 # toolchain provider
 ErlangToolchainInfo = provider(
-    fields = [
-        "name",
+    # @unsorted-dict-items
+    fields = {
+        "name": provider_field(typing.Any, default = None),
         # command line erlc options used when compiling
-        "erl_opts",
+        "erl_opts": provider_field(typing.Any, default = None),
         # emulator flags used when calling erl
-        "emu_flags",
+        "emu_flags": provider_field(typing.Any, default = None),
         # struct containing the binaries erlc, escript, and erl
         # this is further split into local and RE
-        "otp_binaries",
+        "otp_binaries": provider_field(typing.Any, default = None),
         # utility scripts
         # building .app file
-        "app_file_script",
+        "app_file_script": provider_field(typing.Any, default = None),
         # building escripts
-        "escript_builder",
+        "escript_builder": provider_field(typing.Any, default = None),
         # analyzing .(h|e)rl dependencies
-        "dependency_analyzer",
+        "dependency_analyzer": provider_field(typing.Any, default = None),
         # trampoline rerouting stdout to stderr
-        "erlc_trampoline",
+        "erlc_trampoline": provider_field(typing.Any, default = None),
         # name to parse_transform artifacts mapping for core parse_transforms (that are always used) and
         # user defines ones
-        "core_parse_transforms",
-        "parse_transforms",
+        "core_parse_transforms": provider_field(typing.Any, default = None),
+        "parse_transforms": provider_field(typing.Any, default = None),
         # filter spec for parse transforms
-        "parse_transforms_filters",
+        "parse_transforms_filters": provider_field(typing.Any, default = None),
         # release boot script builder
-        "boot_script_builder",
+        "boot_script_builder": provider_field(typing.Any, default = None),
         # build release_variables
-        "release_variables_builder",
+        "release_variables_builder": provider_field(typing.Any, default = None),
         # copying erts
-        "include_erts",
+        "include_erts": provider_field(typing.Any, default = None),
         # edoc-generating escript
-        "edoc",
-        "edoc_options",
+        "edoc": provider_field(typing.Any, default = None),
+        "edoc_options": provider_field(typing.Any, default = None),
         # beams we need for various reasons
-        "utility_modules",
+        "utility_modules": provider_field(typing.Any, default = None),
         # env to be set for toolchain invocations
-        "env",
-    ],
+        "env": provider_field(typing.Any, default = None),
+    },
 )
 
 # multi-version toolchain
 ErlangMultiVersionToolchainInfo = provider(
-    fields = [
+    # @unsorted-dict-items
+    fields = {
         # toolchains
-        "toolchains",
+        "toolchains": provider_field(typing.Any, default = None),
         # primary toolchain
-        "primary",
-    ],
+        "primary": provider_field(typing.Any, default = None),
+    },
 )
 
 # OTP Binaries
 ErlangOTPBinariesInfo = provider(
-    fields = [
-        "erl",
-        "erlc",
-        "escript",
-    ],
+    fields = {
+        "erl": provider_field(typing.Any, default = None),
+        "erlc": provider_field(typing.Any, default = None),
+        "escript": provider_field(typing.Any, default = None),
+    },
 )
 
 # parse_transform
 ErlangParseTransformInfo = provider(
-    fields = [
+    # @unsorted-dict-items
+    fields = {
         # module implementing the parse_transform
-        "source",
+        "source": provider_field(typing.Any, default = None),
         # potential extra files placed in a resource folder
-        "extra_files",
-    ],
+        "extra_files": provider_field(typing.Any, default = None),
+    },
 )
 
 ErlangTestInfo = provider(
+    # @unsorted-dict-items
     fields =
-        [
+        {
             # The name of the suite
-            "name",
+            "name": provider_field(typing.Any, default = None),
             # mapping from name to dependency for all Erlang dependencies
-            "dependencies",
+            "dependencies": provider_field(typing.Any, default = None),
             # anchor to the output_dir
-            "output_dir",
-        ],
+            "output_dir": provider_field(typing.Any, default = None),
+        },
 )

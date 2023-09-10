@@ -130,21 +130,24 @@ CPreprocessorTSet = transitive_set(
     },
 )
 
-CPreprocessorInfo = provider(fields = [
-    "set",  # "CPreprocessorTSet"
-])
+CPreprocessorInfo = provider(fields = {
+    "set": provider_field(typing.Any, default = None),  # "CPreprocessorTSet"
+})
 
 # Defines the provider exposed by libraries to test targets,
 # so that tests can have access to the private headers of
 # the first order deps (for testing purposes).
-CPreprocessorForTestsInfo = provider(fields = [
-    # [str] - list of targets in "tests"
-    "test_names",  #
-    # CPreprocessor - the private preprocessor
-    # for the target which is _only_ exposed to any
-    # test targets defined in `test_names`
-    "own_non_exported_preprocessor",
-])
+CPreprocessorForTestsInfo = provider(
+    # @unsorted-dict-items
+    fields = {
+        # [str] - list of targets in "tests"
+        "test_names": provider_field(typing.Any, default = None),  #
+        # CPreprocessor - the private preprocessor
+        # for the target which is _only_ exposed to any
+        # test targets defined in `test_names`
+        "own_non_exported_preprocessor": provider_field(typing.Any, default = None),
+    },
+)
 
 # Preprocessor flags
 def cxx_attr_preprocessor_flags(ctx: AnalysisContext, ext: str) -> list[typing.Any]:

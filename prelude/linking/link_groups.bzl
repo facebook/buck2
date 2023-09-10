@@ -26,10 +26,10 @@ LinkGroupLib = record(
 )
 
 # Provider propagating info about transitive link group libs.
-LinkGroupLibInfo = provider(fields = [
+LinkGroupLibInfo = provider(fields = {
     # A map of link group names to their shared libraries.
-    "libs",  # dict[str, LinkGroupLib]
-])
+    "libs": provider_field(typing.Any, default = None),  # dict[str, LinkGroupLib]
+})
 
 def gather_link_group_libs(
         libs: list[dict[str, LinkGroupLib]] = [],

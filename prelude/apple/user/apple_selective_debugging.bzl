@@ -33,10 +33,13 @@ _SelectionCriteria = record(
     exclude_regular_expressions = field(list["regex"], []),
 )
 
-AppleSelectiveDebuggingInfo = provider(fields = [
-    "scrub_binary",  # function
-    "filter",  # function
-])
+AppleSelectiveDebuggingInfo = provider(
+    # @unsorted-dict-items
+    fields = {
+        "scrub_binary": provider_field(typing.Any, default = None),  # function
+        "filter": provider_field(typing.Any, default = None),  # function
+    },
+)
 
 AppleSelectiveDebuggingFilteredDebugInfo = record(
     map = field(dict[Label, list[Artifact]]),

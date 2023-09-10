@@ -5,10 +5,10 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-HttpArchiveExecDeps = provider(fields = [
-    "create_exclusion_list",
-    "exec_os_type",
-])
+HttpArchiveExecDeps = provider(fields = {
+    "create_exclusion_list": provider_field(typing.Any, default = None),
+    "exec_os_type": provider_field(typing.Any, default = None),
+})
 
 def _http_archive_exec_deps_impl(ctx: AnalysisContext) -> list[Provider]:
     return [

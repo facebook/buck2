@@ -123,11 +123,14 @@ load(
 
 DEFAULT_MAKE_COMP_DB = "prelude//cxx/tools:make_comp_db"
 
-ZigReleaseInfo = provider(fields = [
-    "version",
-    "url",
-    "sha256",
-])
+ZigReleaseInfo = provider(
+    # @unsorted-dict-items
+    fields = {
+        "version": provider_field(typing.Any, default = None),
+        "url": provider_field(typing.Any, default = None),
+        "sha256": provider_field(typing.Any, default = None),
+    },
+)
 
 def _get_zig_release(
         version: str,
@@ -150,11 +153,14 @@ def _get_zig_release(
         sha256 = zig_platform["shasum"],
     )
 
-ZigDistributionInfo = provider(fields = [
-    "version",
-    "arch",
-    "os",
-])
+ZigDistributionInfo = provider(
+    # @unsorted-dict-items
+    fields = {
+        "version": provider_field(typing.Any, default = None),
+        "arch": provider_field(typing.Any, default = None),
+        "os": provider_field(typing.Any, default = None),
+    },
+)
 
 def _zig_distribution_impl(ctx: AnalysisContext) -> list[Provider]:
     dst = ctx.actions.declare_output("zig")

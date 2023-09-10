@@ -37,9 +37,9 @@ load(
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_cmd_args")
 
 # Provider wrapping packages used for linking.
-GoPkgLinkInfo = provider(fields = [
-    "pkgs",  # {str: "artifact"}
-])
+GoPkgLinkInfo = provider(fields = {
+    "pkgs": provider_field(typing.Any, default = None),  # {str: "artifact"}
+})
 
 GoBuildMode = enum(
     "executable",

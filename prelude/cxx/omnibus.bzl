@@ -67,15 +67,18 @@ load(
     "get_undefined_symbols_args",
 )
 
-OmnibusEnvironment = provider(fields = [
-    "dummy_omnibus",
-    "exclusions",
-    "roots",
-    "enable_explicit_roots",
-    "prefer_stripped_objects",
-    "shared_root_ld_flags",
-    "force_hybrid_links",
-])
+OmnibusEnvironment = provider(
+    # @unsorted-dict-items
+    fields = {
+        "dummy_omnibus": provider_field(typing.Any, default = None),
+        "exclusions": provider_field(typing.Any, default = None),
+        "roots": provider_field(typing.Any, default = None),
+        "enable_explicit_roots": provider_field(typing.Any, default = None),
+        "prefer_stripped_objects": provider_field(typing.Any, default = None),
+        "shared_root_ld_flags": provider_field(typing.Any, default = None),
+        "force_hybrid_links": provider_field(typing.Any, default = None),
+    },
+)
 
 Disposition = enum("root", "excluded", "body", "omitted")
 

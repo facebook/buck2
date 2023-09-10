@@ -5,32 +5,35 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-GoToolchainInfo = provider(fields = [
-    "assembler",
-    "cgo",
-    "cgo_wrapper",
-    "compile_wrapper",
-    "compiler",
-    "compiler_flags_shared",
-    "compiler_flags_static",
-    "cover",
-    "cover_srcs",
-    "cxx_toolchain_for_linking",
-    "env_go_arch",
-    "env_go_os",
-    "env_go_arm",
-    "env_go_root",
-    "external_linker_flags",
-    "filter_srcs",
-    "go",
-    "linker",
-    "linker_flags_shared",
-    "linker_flags_static",
-    "packer",
-    "prebuilt_stdlib",
-    "prebuilt_stdlib_shared",
-    "tags",
-])
+GoToolchainInfo = provider(
+    # @unsorted-dict-items
+    fields = {
+        "assembler": provider_field(typing.Any, default = None),
+        "cgo": provider_field(typing.Any, default = None),
+        "cgo_wrapper": provider_field(typing.Any, default = None),
+        "compile_wrapper": provider_field(typing.Any, default = None),
+        "compiler": provider_field(typing.Any, default = None),
+        "compiler_flags_shared": provider_field(typing.Any, default = None),
+        "compiler_flags_static": provider_field(typing.Any, default = None),
+        "cover": provider_field(typing.Any, default = None),
+        "cover_srcs": provider_field(typing.Any, default = None),
+        "cxx_toolchain_for_linking": provider_field(typing.Any, default = None),
+        "env_go_arch": provider_field(typing.Any, default = None),
+        "env_go_os": provider_field(typing.Any, default = None),
+        "env_go_arm": provider_field(typing.Any, default = None),
+        "env_go_root": provider_field(typing.Any, default = None),
+        "external_linker_flags": provider_field(typing.Any, default = None),
+        "filter_srcs": provider_field(typing.Any, default = None),
+        "go": provider_field(typing.Any, default = None),
+        "linker": provider_field(typing.Any, default = None),
+        "linker_flags_shared": provider_field(typing.Any, default = None),
+        "linker_flags_static": provider_field(typing.Any, default = None),
+        "packer": provider_field(typing.Any, default = None),
+        "prebuilt_stdlib": provider_field(typing.Any, default = None),
+        "prebuilt_stdlib_shared": provider_field(typing.Any, default = None),
+        "tags": provider_field(typing.Any, default = None),
+    },
+)
 
 def get_toolchain_cmd_args(toolchain: GoToolchainInfo, go_root = True) -> cmd_args:
     cmd = cmd_args("env")

@@ -8,21 +8,22 @@
 load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
 
 DexLibraryInfo = provider(
-    fields = [
+    # @unsorted-dict-items
+    fields = {
         # the .dex.jar file. May be None if there were not any Java classes to dex. If None, the
         # remaining fields should be ignored.
-        "dex",  # ["artifact", None]
+        "dex": provider_field(typing.Any, default = None),  # ["artifact", None]
         # a unique string identifier for this DEX file
-        "identifier",  # [str, None]
+        "identifier": provider_field(typing.Any, default = None),  # [str, None]
         # the names of the .class files that went into the DEX file
-        "class_names",  # ["artifact", None]
+        "class_names": provider_field(typing.Any, default = None),  # ["artifact", None]
         # resources that are referenced by the classes in this DEX file
-        "referenced_resources",  # ["artifact", None]
+        "referenced_resources": provider_field(typing.Any, default = None),  # ["artifact", None]
         # a value that estimates how much space the code represented by this object will take up in
         # a DEX file. The units for this estimate are not important, as long as they are consistent
         # with those used when determining how secondary DEX files should be packed.
-        "weight_estimate",  # ["artifact", None]
-    ],
+        "weight_estimate": provider_field(typing.Any, default = None),  # ["artifact", None]
+    },
 )
 
 def get_dex_produced_from_java_library(

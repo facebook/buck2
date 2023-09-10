@@ -17,15 +17,18 @@ DEBUGINFO_DB_SUBTARGET = "debuginfo-db"
 AppleDebugInfo = TransitiveSetArgsProjection
 
 # Represents Apple debug info from both executables and bundles.
-AppleDebuggableInfo = provider(fields = [
-    "dsyms",  # ["artifact"]
-    # Tset containing ArtifactInfos with either
-    # a. the owning library target to artifacts, or
-    # b. the owning bundle target to filtered artifacts
-    "debug_info_tset",  # ArtifactTSet
-    # In the case of b above, contians the map of library target to artifacts, else None
-    "filtered_map",  # [{"label": ["artifact"]}, None]
-])
+AppleDebuggableInfo = provider(
+    # @unsorted-dict-items
+    fields = {
+        "dsyms": provider_field(typing.Any, default = None),  # ["artifact"]
+        # Tset containing ArtifactInfos with either
+        # a. the owning library target to artifacts, or
+        # b. the owning bundle target to filtered artifacts
+        "debug_info_tset": provider_field(typing.Any, default = None),  # ArtifactTSet
+        # In the case of b above, contians the map of library target to artifacts, else None
+        "filtered_map": provider_field(typing.Any, default = None),  # [{"label": ["artifact"]}, None]
+    },
+)
 
 _AppleDebugInfo = record(
     debug_info_tset = "ArtifactTSet",

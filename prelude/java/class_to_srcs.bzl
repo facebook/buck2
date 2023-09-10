@@ -25,12 +25,13 @@ JavaClassToSourceMapTset = transitive_set(
 )
 
 JavaClassToSourceMapInfo = provider(
-    fields = [
-        "tset",
-        "debuginfo",
+    # @unsorted-dict-items
+    fields = {
+        "tset": provider_field(typing.Any, default = None),
+        "debuginfo": provider_field(typing.Any, default = None),
         # Used internally in this module to aid generation of `debuginfo`.
-        "_tset_debuginfo",
-    ],
+        "_tset_debuginfo": provider_field(typing.Any, default = None),
+    },
 )
 
 def create_class_to_source_map_info(

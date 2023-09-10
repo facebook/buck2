@@ -159,45 +159,47 @@ JavaPackagingDepTSet = transitive_set(
 
 JavaLibraryInfo = provider(
     doc = "Information about a java library and its dependencies",
-    fields = [
+    fields = {
         # Java dependencies exposed to dependent targets and supposed to be used during compilation.
         # Consisting of this library's own output, and the "compiling_deps" of any exported_deps and exported_provided_deps.
         #
-        "compiling_deps",  # ["JavaCompilingDepsTSet", None]
+        "compiling_deps": provider_field(typing.Any, default = None),  # ["JavaCompilingDepsTSet", None]
 
         # An output of the library. If present then already included into `compiling_deps` field.
-        "library_output",  # ["JavaClasspathEntry", None]
+        "library_output": provider_field(typing.Any, default = None),  # ["JavaClasspathEntry", None]
 
         # An output that is used solely by the system to have an artifact bound to the target (that the core can then use to find
         # the right target from the given artifact).
-        "output_for_classpath_macro",  # "artifact"
-    ],
+        "output_for_classpath_macro": provider_field(typing.Any, default = None),  # "artifact"
+    },
 )
 
 JavaLibraryIntellijInfo = provider(
+    # @unsorted-dict-items
     doc = "Information about a java library that is required for Intellij project generation",
-    fields = [
-        # All the artifacts that were used in order to compile this library
-        "compiling_classpath",  # ["artifact"]
-        "generated_sources",  # ["artifact"]
+    fields = {
         # Directory containing external annotation jars
-        "annotation_jars_dir",  # ["artifact", None]
-    ],
+        "annotation_jars_dir": provider_field(typing.Any, default = None),  # ["artifact", None]
+        # All the artifacts that were used in order to compile this library
+        "compiling_classpath": provider_field(typing.Any, default = None),  # ["artifact"]
+        "generated_sources": provider_field(typing.Any, default = None),  # ["artifact"]
+    },
 )
 
 JavaPackagingInfo = provider(
-    fields = [
+    fields = {
         # Presents all java dependencies used to build this library and it's dependencies (all transitive deps except provided ones).
         # These deps must be included into the final artifact.
-        "packaging_deps",  # ["JavaPackagingDepTSet", None],
-    ],
+        "packaging_deps": provider_field(typing.Any, default = None),  # ["JavaPackagingDepTSet", None],
+    },
 )
 
 KeystoreInfo = provider(
-    fields = [
-        "store",  # artifact
-        "properties",  # artifact
-    ],
+    # @unsorted-dict-items
+    fields = {
+        "store": provider_field(typing.Any, default = None),  # artifact
+        "properties": provider_field(typing.Any, default = None),  # artifact
+    },
 )
 
 JavaCompileOutputs = record(

@@ -6,10 +6,10 @@
 # of this source tree.
 
 # Provider which exposes a field from `apple_binary` to `apple_bundle` as it might be used during code signing.
-AppleEntitlementsInfo = provider(fields = [
+AppleEntitlementsInfo = provider(fields = {
     # Optional "artifact"
-    "entitlements_file",
-])
+    "entitlements_file": provider_field(typing.Any, default = None),
+})
 
 CodeSignType = enum(
     "skip",

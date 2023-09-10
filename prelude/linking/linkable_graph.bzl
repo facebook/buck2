@@ -25,13 +25,16 @@ load(
 # A provider with information used to link a rule into a shared library.
 # Potential omnibus roots must provide this so that omnibus can link them
 # here, in the context of the top-level packaging rule.
-LinkableRootInfo = provider(fields = [
-    "link_infos",  # LinkInfos
-    "name",  # [str, None]
-    "deps",  # ["label"]
-    "shared_root",  # SharedOmnibusRoot, either this or no_shared_root_reason is set.
-    "no_shared_root_reason",  # OmnibusPrivateRootProductCause
-])
+LinkableRootInfo = provider(
+    # @unsorted-dict-items
+    fields = {
+        "link_infos": provider_field(typing.Any, default = None),  # LinkInfos
+        "name": provider_field(typing.Any, default = None),  # [str, None]
+        "deps": provider_field(typing.Any, default = None),  # ["label"]
+        "shared_root": provider_field(typing.Any, default = None),  # SharedOmnibusRoot, either this or no_shared_root_reason is set.
+        "no_shared_root_reason": provider_field(typing.Any, default = None),  # OmnibusPrivateRootProductCause
+    },
+)
 
 # This annotation is added on an AnnotatedLinkableRoot to indicate what
 # dependend resulted in it being discovered as an implicit root. For example,
@@ -104,15 +107,15 @@ LinkableGraphTSet = transitive_set()
 #
 # TODO(cjhopman): Rather than flattening this at each node, we should build up an actual
 # graph structure.
-LinkableGraph = provider(fields = [
+LinkableGraph = provider(fields = {
     # Target identifier of the graph.
-    "label",  # Label
-    "nodes",  # "LinkableGraphTSet"
-])
+    "label": provider_field(typing.Any, default = None),  # Label
+    "nodes": provider_field(typing.Any, default = None),  # "LinkableGraphTSet"
+})
 
 # Used to tag a rule as providing a shared native library that may be loaded
 # dynamically, at runtime (e.g. via `dlopen`).
-DlopenableLibraryInfo = provider(fields = [])
+DlopenableLibraryInfo = provider(fields = {})
 
 def create_linkable_node(
         ctx: AnalysisContext,

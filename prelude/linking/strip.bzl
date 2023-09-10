@@ -22,9 +22,9 @@ def _strip_debug_info(ctx: AnalysisContext, out: str, obj: Artifact) -> Artifact
     ctx.actions.run(cmd, category = "strip_debug", identifier = out)
     return output
 
-_InterfaceInfo = provider(fields = [
-    "artifact",  # "artifact"
-])
+_InterfaceInfo = provider(fields = {
+    "artifact": provider_field(typing.Any, default = None),  # "artifact"
+})
 
 def _anon_strip_debug_info_impl(ctx):
     output = _strip_debug_info(

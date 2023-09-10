@@ -14,9 +14,9 @@ load(":python.bzl", "PythonLibraryManifestsTSet")
 load(":toolchain.bzl", "PythonToolchainInfo")
 
 # Information about what modules a Python target contains for type checking purpose
-PythonSourceDBInfo = provider(fields = [
-    "manifests",  # PythonLibraryManifestsTSet
-])
+PythonSourceDBInfo = provider(fields = {
+    "manifests": provider_field(typing.Any, default = None),  # PythonLibraryManifestsTSet
+})
 
 def create_python_source_db_info(manifests: [PythonLibraryManifestsTSet, None]) -> PythonSourceDBInfo:
     return PythonSourceDBInfo(manifests = manifests)

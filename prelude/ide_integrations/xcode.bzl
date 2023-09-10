@@ -8,9 +8,9 @@
 XCODE_DATA_SUB_TARGET = "xcode-data"
 _XCODE_DATA_FILE_NAME = "xcode_data.json"
 
-XcodeDataInfo = provider(fields = [
-    "data",  # {str: _a}
-])
+XcodeDataInfo = provider(fields = {
+    "data": provider_field(typing.Any, default = None),  # {str: _a}
+})
 
 def generate_xcode_data(
         ctx: AnalysisContext,

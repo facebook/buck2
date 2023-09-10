@@ -8,9 +8,9 @@
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load(":android_toolchain.bzl", "AndroidToolchainInfo")
 
-_AidlSourceInfo = provider(fields = [
-    "srcs",
-])
+_AidlSourceInfo = provider(fields = {
+    "srcs": provider_field(typing.Any, default = None),
+})
 
 def gen_aidl_impl(ctx: AnalysisContext) -> list[Provider]:
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]

@@ -9,9 +9,9 @@ load("@prelude//utils:utils.bzl", "expect")
 
 # All modules owned by a library. This will be used by top-level tests to find
 # paths that corresponds to the library.
-PythonNeededCoverageInfo = provider(fields = [
-    "modules",  # {str: str}
-])
+PythonNeededCoverageInfo = provider(fields = {
+    "modules": provider_field(typing.Any, default = None),  # {str: str}
+})
 
 PythonNeededCoverage = record(
     # A value from 0.0 to 1.0 indicating the ratio of coveraged code in the

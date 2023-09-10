@@ -17,14 +17,14 @@ LinkExecutionPreferenceTypes = [
 
 LinkExecutionPreference = enum(*LinkExecutionPreferenceTypes)
 
-LinkExecutionPreferenceDeterminatorInfo = provider(fields = [
+LinkExecutionPreferenceDeterminatorInfo = provider(fields = {
     # function that takes a list of target labels and the LinkExecutionPreferenceInfo of deps, and returns a LinkExecutionPreference
-    "preference_for_links",
-])
+    "preference_for_links": provider_field(typing.Any, default = None),
+})
 
-LinkExecutionPreferenceInfo = provider(fields = [
-    "preference",  # LinkExecutionPreference
-])
+LinkExecutionPreferenceInfo = provider(fields = {
+    "preference": provider_field(typing.Any, default = None),  # LinkExecutionPreference
+})
 
 _ActionExecutionAttributes = record(
     full_hybrid = field(bool, default = False),

@@ -106,18 +106,21 @@ LINK_GROUP_MAP_DATABASE_FILENAME = "link_group_map_database.json"
 LINK_GROUP_MAPPINGS_SUB_TARGET = "link-group-mappings"
 LINK_GROUP_MAPPINGS_FILENAME_SUFFIX = ".link_group_map.json"
 
-LinkGroupInfo = provider(fields = [
-    "groups",  # dict[str, Group]
-    "groups_hash",  # str
-    "mappings",  # dict[ConfiguredProvidersLabel, str]
-    # Additional graphs needed to cover labels referenced by the groups above.
-    # This is useful in cases where the consumer of this provider won't already
-    # have deps covering these.
-    # NOTE(agallagher): We do this to maintain existing behavior w/ the
-    # standalone `link_group_map()` rule, but it's not clear if it's actually
-    # desirable behavior.
-    "graph",  # LinkableGraph
-])
+LinkGroupInfo = provider(
+    # @unsorted-dict-items
+    fields = {
+        "groups": provider_field(typing.Any, default = None),  # dict[str, Group]
+        "groups_hash": provider_field(typing.Any, default = None),  # str
+        "mappings": provider_field(typing.Any, default = None),  # dict[ConfiguredProvidersLabel, str]
+        # Additional graphs needed to cover labels referenced by the groups above.
+        # This is useful in cases where the consumer of this provider won't already
+        # have deps covering these.
+        # NOTE(agallagher): We do this to maintain existing behavior w/ the
+        # standalone `link_group_map()` rule, but it's not clear if it's actually
+        # desirable behavior.
+        "graph": provider_field(typing.Any, default = None),  # LinkableGraph
+    },
+)
 
 LinkGroupLinkInfo = record(
     link_info = field(LinkInfo),

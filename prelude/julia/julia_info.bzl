@@ -11,11 +11,14 @@ load(
     "merge_shared_libraries",
 )
 
-JuliaToolchainInfo = provider(fields = [
-    "julia",
-    "env",
-    "cmd_processor",
-])
+JuliaToolchainInfo = provider(
+    # @unsorted-dict-items
+    fields = {
+        "julia": provider_field(typing.Any, default = None),
+        "env": provider_field(typing.Any, default = None),
+        "cmd_processor": provider_field(typing.Any, default = None),
+    },
+)
 
 JllInfo = record(
     name = field(str),
@@ -45,10 +48,10 @@ JuliaLibraryTSet = transitive_set(
 )
 
 # Information about a julia library and its dependencies.
-JuliaLibraryInfo = provider(fields = [
-    "julia_tsets",  # JuliaLibraryTSet
-    "shared_library_info",  # SharedLibraryInfo
-])
+JuliaLibraryInfo = provider(fields = {
+    "julia_tsets": provider_field(typing.Any, default = None),  # JuliaLibraryTSet
+    "shared_library_info": provider_field(typing.Any, default = None),  # SharedLibraryInfo
+})
 
 def create_julia_library_info(
         actions: AnalysisActions,

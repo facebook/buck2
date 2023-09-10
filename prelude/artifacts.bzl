@@ -14,9 +14,9 @@ load(
 
 # A group of artifacts.
 ArtifactGroupInfo = provider(
-    fields = [
-        "artifacts",  # ["artifact"]
-    ],
+    fields = {
+        "artifacts": provider_field(typing.Any, default = None),  # ["artifact"]
+    },
 )
 
 def _from_default_info(dep: Dependency) -> (Artifact, list[ArgLike]):

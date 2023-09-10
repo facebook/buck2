@@ -9,12 +9,15 @@ load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exporte
 load(":apple_frameworks.bzl", "to_framework_name")
 
 # Provider which helps to propagate the info if XCTest Swift support is needed up the target graph.
-XCTestSwiftSupportInfo = provider(fields = [
-    # `bool`
-    "support_needed",
-    # Value is unused, needed only to detect a provider type
-    "_xctest_swift_support_marking_",
-])
+XCTestSwiftSupportInfo = provider(
+    # @unsorted-dict-items
+    fields = {
+        # `bool`
+        "support_needed": provider_field(typing.Any, default = None),
+        # Value is unused, needed only to detect a provider type
+        "_xctest_swift_support_marking_": provider_field(typing.Any, default = None),
+    },
+)
 
 def xctest_swift_support_info(ctx: AnalysisContext, contains_swift_sources: bool, is_test_target: bool) -> XCTestSwiftSupportInfo:
     if contains_swift_sources and (is_test_target or _depends_on_xctest(ctx)):

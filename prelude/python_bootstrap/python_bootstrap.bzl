@@ -5,9 +5,9 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-PythonBootstrapSources = provider(fields = ["srcs"])
+PythonBootstrapSources = provider(fields = {"srcs": provider_field(typing.Any, default = None)})
 
-PythonBootstrapToolchainInfo = provider(fields = ["interpreter"])
+PythonBootstrapToolchainInfo = provider(fields = {"interpreter": provider_field(typing.Any, default = None)})
 
 def python_bootstrap_library_impl(ctx: AnalysisContext) -> list[Provider]:
     tree = {src.short_path: src for src in ctx.attrs.srcs}

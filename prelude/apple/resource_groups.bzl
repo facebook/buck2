@@ -18,18 +18,21 @@ load(":apple_core_data_types.bzl", "AppleCoreDataSpec")
 load(":apple_resource_types.bzl", "AppleResourceSpec")
 load(":scene_kit_assets_types.bzl", "SceneKitAssetsSpec")
 
-ResourceGroupInfo = provider(fields = [
-    "groups",  # list[Group]
-    "groups_hash",  # str
-    "mappings",  # {"label": str}
-    # Additional deps needed to cover labels referenced by the groups above.
-    # This is useful in cases where the consumer of this provider won't already
-    # have deps covering these.
-    # NOTE(agallagher): We do this to maintain existing behavior w/ the
-    # standalone `resource_group_map()` rule, but it's not clear if it's
-    # actually desirable behavior.
-    "implicit_deps",  # [Dependency]
-])
+ResourceGroupInfo = provider(
+    # @unsorted-dict-items
+    fields = {
+        "groups": provider_field(typing.Any, default = None),  # list[Group]
+        "groups_hash": provider_field(typing.Any, default = None),  # str
+        "mappings": provider_field(typing.Any, default = None),  # {"label": str}
+        # Additional deps needed to cover labels referenced by the groups above.
+        # This is useful in cases where the consumer of this provider won't already
+        # have deps covering these.
+        # NOTE(agallagher): We do this to maintain existing behavior w/ the
+        # standalone `resource_group_map()` rule, but it's not clear if it's
+        # actually desirable behavior.
+        "implicit_deps": provider_field(typing.Any, default = None),  # [Dependency]
+    },
+)
 
 ResourceGraphNode = record(
     label = field(Label),
@@ -51,11 +54,11 @@ ResourceGraphNode = record(
 
 ResourceGraphTSet = transitive_set()
 
-ResourceGraphInfo = provider(fields = [
-    "label",  # "label"
-    "nodes",  # "ResourceGraphTSet"
-    "should_propagate",  # bool
-])
+ResourceGraphInfo = provider(fields = {
+    "label": provider_field(typing.Any, default = None),  # "label"
+    "nodes": provider_field(typing.Any, default = None),  # "ResourceGraphTSet"
+    "should_propagate": provider_field(typing.Any, default = None),  # bool
+})
 
 def create_resource_graph(
         ctx: AnalysisContext,

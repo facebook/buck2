@@ -9,8 +9,8 @@
 # Move out once we have overlays.
 DexToolchainInfo = provider(
     doc = "Dex toolchain info",
-    fields = [
-        "android_jar",
-        "d8_command",
-    ],
+    fields = {
+        "android_jar": provider_field(typing.Any, default = None),
+        "d8_command": provider_field(typing.Any, default = None),
+    },
 )

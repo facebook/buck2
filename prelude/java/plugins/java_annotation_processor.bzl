@@ -14,20 +14,21 @@ JavaProcessorsType = enum(
 )
 
 JavaProcessorsInfo = provider(
+    # @unsorted-dict-items
     doc = "Information about java annotation processor/ java compiler plugins and their dependencies",
-    fields = [
-        # Type of processor
-        "type",  # "JavaProcessorsType"
-
-        # Names of processors
-        "processors",  # ["string"]
+    fields = {
+        "affects_abi": provider_field(typing.Any, default = None),
 
         # Java dependencies exposed to dependent targets and supposed to be used during compilation.
-        "deps",  # [JavaPackagingDepTSet, None]
-        "affects_abi",
-        "supports_source_only_abi",
-        "isolate_class_loader",
-    ],
+        "deps": provider_field(typing.Any, default = None),  # [JavaPackagingDepTSet, None]
+        "isolate_class_loader": provider_field(typing.Any, default = None),
+
+        # Names of processors
+        "processors": provider_field(typing.Any, default = None),  # ["string"]
+        "supports_source_only_abi": provider_field(typing.Any, default = None),
+        # Type of processor
+        "type": provider_field(typing.Any, default = None),  # "JavaProcessorsType"
+    },
 )
 
 AnnotationProcessor = record(

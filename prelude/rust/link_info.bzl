@@ -82,22 +82,25 @@ RustProcMacroPlugin = plugins.kind()
 # for libraries. It represents a proc macro in the dependency graph, and contains as a field the
 # `target_label` of that proc macro. The actual providers will always be accessed later through
 # `ctx.plugins`
-RustProcMacroMarker = provider(fields = ["label"])
+RustProcMacroMarker = provider(fields = {"label": provider_field(typing.Any, default = None)})
 
 # Output of a Rust compilation
-RustLinkInfo = provider(fields = [
-    # crate - crate name
-    "crate",
-    # styles - information about each LinkStyle as RustLinkStyleInfo
-    # {LinkStyle: RustLinkStyleInfo}
-    "styles",
-    # Propagate non-rust native linkable dependencies through rust libraries.
-    "non_rust_exported_link_deps",
-    # Propagate non-rust native linkable info through rust libraries.
-    "non_rust_link_info",
-    # Propagate non-rust shared libraries through rust libraries.
-    "non_rust_shared_libs",
-])
+RustLinkInfo = provider(
+    # @unsorted-dict-items
+    fields = {
+        # crate - crate name
+        "crate": provider_field(typing.Any, default = None),
+        # styles - information about each LinkStyle as RustLinkStyleInfo
+        # {LinkStyle: RustLinkStyleInfo}
+        "styles": provider_field(typing.Any, default = None),
+        # Propagate non-rust native linkable dependencies through rust libraries.
+        "non_rust_exported_link_deps": provider_field(typing.Any, default = None),
+        # Propagate non-rust native linkable info through rust libraries.
+        "non_rust_link_info": provider_field(typing.Any, default = None),
+        # Propagate non-rust shared libraries through rust libraries.
+        "non_rust_shared_libs": provider_field(typing.Any, default = None),
+    },
+)
 
 CrateName = record(
     simple = field(str),

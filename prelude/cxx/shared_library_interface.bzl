@@ -29,9 +29,9 @@ def _shared_library_interface(
     )
     return output
 
-_InterfaceInfo = provider(fields = [
-    "artifact",  # "artifact"
-])
+_InterfaceInfo = provider(fields = {
+    "artifact": provider_field(typing.Any, default = None),  # "artifact"
+})
 
 def _anon_shared_library_interface_impl(ctx):
     output = _shared_library_interface(

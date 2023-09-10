@@ -76,9 +76,9 @@ def _extract_symbol_names(
     )
     return output
 
-_SymbolsInfo = provider(fields = [
-    "artifact",  # "artifact"
-])
+_SymbolsInfo = provider(fields = {
+    "artifact": provider_field(typing.Any, default = None),  # "artifact"
+})
 
 def _anon_extract_symbol_names_impl(ctx):
     output = _extract_symbol_names(

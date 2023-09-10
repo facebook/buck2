@@ -7,7 +7,7 @@
 
 GenruleToolchainInfo = provider(
     doc = "Genrule toolchain info",
-    fields = [
-        "zip_scrubber",
-    ],
+    fields = {
+        "zip_scrubber": provider_field(typing.Any, default = None),
+    },
 )

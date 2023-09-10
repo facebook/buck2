@@ -8,12 +8,12 @@
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 
 # Resources for transitive deps, shared by C++ and Rust.
-ResourceInfo = provider(fields = [
+ResourceInfo = provider(fields = {
     # A map containing all resources from transitive dependencies.  The keys
     # are rule labels and the values are maps of resource names (the name used
     # to lookup the resource at runtime) and the actual resource artifact.
-    "resources",  # {"label": {str: ("artifact", ["hidden"])}}
-])
+    "resources": provider_field(typing.Any, default = None),  # {"label": {str: ("artifact", ["hidden"])}}
+})
 
 def gather_resources(
         label: Label,

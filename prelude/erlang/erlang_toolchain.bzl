@@ -54,18 +54,19 @@ Toolchain = record(
 )
 
 ToolchainUtillInfo = provider(
-    fields = [
-        "app_src_script",
-        "boot_script_builder",
-        "core_parse_transforms",
-        "dependency_analyzer",
-        "edoc",
-        "erlc_trampoline",
-        "escript_builder",
-        "release_variables_builder",
-        "include_erts",
-        "utility_modules",
-    ],
+    # @unsorted-dict-items
+    fields = {
+        "app_src_script": provider_field(typing.Any, default = None),
+        "boot_script_builder": provider_field(typing.Any, default = None),
+        "core_parse_transforms": provider_field(typing.Any, default = None),
+        "dependency_analyzer": provider_field(typing.Any, default = None),
+        "edoc": provider_field(typing.Any, default = None),
+        "erlc_trampoline": provider_field(typing.Any, default = None),
+        "escript_builder": provider_field(typing.Any, default = None),
+        "release_variables_builder": provider_field(typing.Any, default = None),
+        "include_erts": provider_field(typing.Any, default = None),
+        "utility_modules": provider_field(typing.Any, default = None),
+    },
 )
 
 def select_toolchains(ctx: AnalysisContext) -> dict[str, Toolchain]:

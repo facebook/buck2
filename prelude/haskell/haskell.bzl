@@ -76,54 +76,57 @@ _HASKELL_EXTENSIONS = [
     ".y",
 ]
 
-HaskellPlatformInfo = provider(fields = [
-    "name",
-])
+HaskellPlatformInfo = provider(fields = {
+    "name": provider_field(typing.Any, default = None),
+})
 
-HaskellToolchainInfo = provider(fields = [
-    "compiler",
-    "compiler_flags",
-    "linker",
-    "linker_flags",
-    "haddock",
-    "compiler_major_version",
-    "package_name_prefix",
-    "packager",
-    "use_argsfile",
-    "support_expose_package",
-    "archive_contents",
-    "ghci_script_template",
-    "ghci_iserv_template",
-    "ide_script_template",
-    "ghci_binutils_path",
-    "ghci_lib_path",
-    "ghci_ghc_path",
-    "ghci_iserv_path",
-    "ghci_iserv_prof_path",
-    "ghci_cxx_path",
-    "ghci_cc_path",
-    "ghci_cpp_path",
-    "ghci_packager",
-    "cache_links",
-    "script_template_processor",
-])
+HaskellToolchainInfo = provider(
+    # @unsorted-dict-items
+    fields = {
+        "compiler": provider_field(typing.Any, default = None),
+        "compiler_flags": provider_field(typing.Any, default = None),
+        "linker": provider_field(typing.Any, default = None),
+        "linker_flags": provider_field(typing.Any, default = None),
+        "haddock": provider_field(typing.Any, default = None),
+        "compiler_major_version": provider_field(typing.Any, default = None),
+        "package_name_prefix": provider_field(typing.Any, default = None),
+        "packager": provider_field(typing.Any, default = None),
+        "use_argsfile": provider_field(typing.Any, default = None),
+        "support_expose_package": provider_field(typing.Any, default = None),
+        "archive_contents": provider_field(typing.Any, default = None),
+        "ghci_script_template": provider_field(typing.Any, default = None),
+        "ghci_iserv_template": provider_field(typing.Any, default = None),
+        "ide_script_template": provider_field(typing.Any, default = None),
+        "ghci_binutils_path": provider_field(typing.Any, default = None),
+        "ghci_lib_path": provider_field(typing.Any, default = None),
+        "ghci_ghc_path": provider_field(typing.Any, default = None),
+        "ghci_iserv_path": provider_field(typing.Any, default = None),
+        "ghci_iserv_prof_path": provider_field(typing.Any, default = None),
+        "ghci_cxx_path": provider_field(typing.Any, default = None),
+        "ghci_cc_path": provider_field(typing.Any, default = None),
+        "ghci_cpp_path": provider_field(typing.Any, default = None),
+        "ghci_packager": provider_field(typing.Any, default = None),
+        "cache_links": provider_field(typing.Any, default = None),
+        "script_template_processor": provider_field(typing.Any, default = None),
+    },
+)
 
 # A list of `HaskellLibraryInfo`s.
 HaskellLinkInfo = provider(
     # Contains a list of HaskellLibraryInfo records.
-    fields = [
-        "info",  # dict[LinkStyle, list[HaskellLibraryInfo]] # TODO use a tset
-        "prof_info",  # dict[LinkStyle, list[HaskellLibraryInfo]] # TODO use a tset
-    ],
+    fields = {
+        "info": provider_field(typing.Any, default = None),  # dict[LinkStyle, list[HaskellLibraryInfo]] # TODO use a tset
+        "prof_info": provider_field(typing.Any, default = None),  # dict[LinkStyle, list[HaskellLibraryInfo]] # TODO use a tset
+    },
 )
 
 HaskellIndexingTSet = transitive_set()
 
 # A list of hie dirs
 HaskellIndexInfo = provider(
-    fields = [
-        "info",  # dict[LinkStyle, HaskellIndexingTset]
-    ],
+    fields = {
+        "info": provider_field(typing.Any, default = None),  # dict[LinkStyle, HaskellIndexingTset]
+    },
 )
 
 # If the target is a haskell library, the HaskellLibraryProvider
@@ -132,19 +135,19 @@ HaskellIndexInfo = provider(
 # dependencies). Direct dependencies are treated differently from
 # indirect dependencies for the purposes of module visibility.
 HaskellLibraryProvider = provider(
-    fields = [
-        "lib",  # dict[LinkStyle, HaskellLibraryInfo]
-        "prof_lib",  # dict[LinkStyle, HaskellLibraryInfo]
-    ],
+    fields = {
+        "lib": provider_field(typing.Any, default = None),  # dict[LinkStyle, HaskellLibraryInfo]
+        "prof_lib": provider_field(typing.Any, default = None),  # dict[LinkStyle, HaskellLibraryInfo]
+    },
 )
 
 # HaskellProfLinkInfo exposes the MergedLinkInfo of a target and all of its
 # dependencies built for profiling. This allows top-level targets (e.g.
 # `haskell_binary`) to be defined with profiling enabled by default.
 HaskellProfLinkInfo = provider(
-    fields = [
-        "prof_infos",  # MergedLinkInfo
-    ],
+    fields = {
+        "prof_infos": provider_field(typing.Any, default = None),  # MergedLinkInfo
+    },
 )
 
 # A record of a Haskell library.

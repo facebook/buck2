@@ -59,52 +59,54 @@ BuildConfigField = record(
 )
 
 AndroidBuildConfigInfo = provider(
-    fields = [
-        "package",  # str
-        "build_config_fields",  # ["BuildConfigField"]
-    ],
+    # @unsorted-dict-items
+    fields = {
+        "package": provider_field(typing.Any, default = None),  # str
+        "build_config_fields": provider_field(typing.Any, default = None),  # ["BuildConfigField"]
+    },
 )
 
 # Information about an `android_manifest`
 AndroidManifestInfo = provider(
-    fields = [
-        "manifest",  # artifact
-        "merge_report",  # artifact
-    ],
+    fields = {
+        "manifest": provider_field(typing.Any, default = None),  # artifact
+        "merge_report": provider_field(typing.Any, default = None),  # artifact
+    },
 )
 
 AndroidApkInfo = provider(
-    fields = [
-        "apk",
-        "manifest",
-    ],
+    fields = {
+        "apk": provider_field(typing.Any, default = None),
+        "manifest": provider_field(typing.Any, default = None),
+    },
 )
 
 AndroidAabInfo = provider(
-    fields = [
-        "aab",
-        "manifest",
-    ],
+    fields = {
+        "aab": provider_field(typing.Any, default = None),
+        "manifest": provider_field(typing.Any, default = None),
+    },
 )
 
 AndroidApkUnderTestInfo = provider(
-    fields = [
-        "java_packaging_deps",  # set_type("JavaPackagingDep")
-        "keystore",  # "KeystoreInfo"
-        "manifest_entries",  # dict
-        "prebuilt_native_library_dirs",  # set_type("PrebuiltNativeLibraryDir")
-        "platforms",  # [str]
-        "primary_platform",  # str
-        "resource_infos",  # set_type("ResourceInfos")
-        "r_dot_java_packages",  # set_type(str)
-        "shared_libraries",  # set_type("SharedLibrary")
-    ],
+    # @unsorted-dict-items
+    fields = {
+        "java_packaging_deps": provider_field(typing.Any, default = None),  # set_type("JavaPackagingDep")
+        "keystore": provider_field(typing.Any, default = None),  # "KeystoreInfo"
+        "manifest_entries": provider_field(typing.Any, default = None),  # dict
+        "prebuilt_native_library_dirs": provider_field(typing.Any, default = None),  # set_type("PrebuiltNativeLibraryDir")
+        "platforms": provider_field(typing.Any, default = None),  # [str]
+        "primary_platform": provider_field(typing.Any, default = None),  # str
+        "resource_infos": provider_field(typing.Any, default = None),  # set_type("ResourceInfos")
+        "r_dot_java_packages": provider_field(typing.Any, default = None),  # set_type(str)
+        "shared_libraries": provider_field(typing.Any, default = None),  # set_type("SharedLibrary")
+    },
 )
 
 AndroidInstrumentationApkInfo = provider(
-    fields = [
-        "apk_under_test",  # "artifact"
-    ],
+    fields = {
+        "apk_under_test": provider_field(typing.Any, default = None),  # "artifact"
+    },
 )
 
 PrebuiltNativeLibraryDir = record(
@@ -134,14 +136,15 @@ DepsInfo = record(
 )
 
 AndroidPackageableInfo = provider(
-    fields = [
-        "target_label",  # "target_label"
-        "build_config_infos",  # ["AndroidBuildConfigInfoTSet", None]
-        "deps",  # ["AndroidDepsTSet", None]
-        "manifests",  # ["ManifestTSet", None]
-        "prebuilt_native_library_dirs",  # ["PrebuiltNativeLibraryDirTSet", None]
-        "resource_infos",  # ["AndroidResourceInfoTSet", None]
-    ],
+    # @unsorted-dict-items
+    fields = {
+        "target_label": provider_field(typing.Any, default = None),  # "target_label"
+        "build_config_infos": provider_field(typing.Any, default = None),  # ["AndroidBuildConfigInfoTSet", None]
+        "deps": provider_field(typing.Any, default = None),  # ["AndroidDepsTSet", None]
+        "manifests": provider_field(typing.Any, default = None),  # ["ManifestTSet", None]
+        "prebuilt_native_library_dirs": provider_field(typing.Any, default = None),  # ["PrebuiltNativeLibraryDirTSet", None]
+        "resource_infos": provider_field(typing.Any, default = None),  # ["AndroidResourceInfoTSet", None]
+    },
 )
 
 RESOURCE_PRIORITY_NORMAL = "normal"
@@ -149,35 +152,36 @@ RESOURCE_PRIORITY_LOW = "low"
 
 # Information about an `android_resource`
 AndroidResourceInfo = provider(
-    fields = [
+    # @unsorted-dict-items
+    fields = {
         # Target that produced this provider
-        "raw_target",  # TargetLabel
+        "raw_target": provider_field(typing.Any, default = None),  # TargetLabel
         # output of running `aapt2_compile` on the resources, if resources are present
-        "aapt2_compile_output",  # Artifact | None
+        "aapt2_compile_output": provider_field(typing.Any, default = None),  # Artifact | None
         #  if False, then the "res" are not affected by the strings-as-assets resource filter
-        "allow_strings_as_assets_resource_filtering",  # bool
+        "allow_strings_as_assets_resource_filtering": provider_field(typing.Any, default = None),  # bool
         # assets defined by this rule. May be empty
-        "assets",  # Artifact | None
+        "assets": provider_field(typing.Any, default = None),  # Artifact | None
         # manifest file used by the resources, if resources are present
-        "manifest_file",  # Artifact | None
+        "manifest_file": provider_field(typing.Any, default = None),  # Artifact | None
         # the package specified by the android_resource rule itself
-        "specified_r_dot_java_package",  # str | None
+        "specified_r_dot_java_package": provider_field(typing.Any, default = None),  # str | None
         # package used for R.java, if resources are present
-        "r_dot_java_package",  # Artifact | None
+        "r_dot_java_package": provider_field(typing.Any, default = None),  # Artifact | None
         # resources defined by this rule. May be empty
-        "res",  # Artifact | None
+        "res": provider_field(typing.Any, default = None),  # Artifact | None
         # priority of the resources, may be 'low' or 'normal'
-        "res_priority",  # str
+        "res_priority": provider_field(typing.Any, default = None),  # str
         # symbols defined by the resources, if resources are present
-        "text_symbols",  # Artifact | None
-    ],
+        "text_symbols": provider_field(typing.Any, default = None),  # Artifact | None
+    },
 )
 
 # `AndroidResourceInfos` that are exposed via `exported_deps`
 ExportedAndroidResourceInfo = provider(
-    fields = [
-        "resource_infos",  # ["AndroidResourceInfo"]
-    ],
+    fields = {
+        "resource_infos": provider_field(typing.Any, default = None),  # ["AndroidResourceInfo"]
+    },
 )
 
 ExopackageDexInfo = record(
@@ -213,11 +217,12 @@ ExopackageInfo = record(
 )
 
 AndroidLibraryIntellijInfo = provider(
+    # @unsorted-dict-items
     doc = "Information about android library that is required for Intellij project generation",
-    fields = [
-        "dummy_r_dot_java",  # ["artifact", None]
-        "android_resource_deps",  # ["AndroidResourceInfo"]
-    ],
+    fields = {
+        "android_resource_deps": provider_field(typing.Any, default = None),  # ["AndroidResourceInfo"]
+        "dummy_r_dot_java": provider_field(typing.Any, default = None),  # ["artifact", None]
+    },
 )
 
 def merge_android_packageable_info(

@@ -90,7 +90,10 @@ load(
 load(":source_db.bzl", "create_dbg_source_db", "create_python_source_db_info", "create_source_db", "create_source_db_no_deps")
 load(":toolchain.bzl", "NativeLinkStrategy", "PackageStyle", "PythonPlatformInfo", "PythonToolchainInfo", "get_platform_attr")
 
-OmnibusMetadataInfo = provider(fields = ["omnibus_libs", "omnibus_graph"])
+OmnibusMetadataInfo = provider(
+    # @unsorted-dict-items
+    fields = {"omnibus_libs": provider_field(typing.Any, default = None), "omnibus_graph": provider_field(typing.Any, default = None)},
+)
 
 def _link_strategy(ctx: AnalysisContext) -> NativeLinkStrategy:
     if ctx.attrs.native_link_strategy != None:

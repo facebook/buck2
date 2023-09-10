@@ -31,16 +31,17 @@ LinkableProvidersTSet = transitive_set()
 
 # Info required to link cxx_python_extensions into native python binaries
 CxxExtensionLinkInfo = provider(
-    fields = [
-        "linkable_providers",  # LinkableProvidersTSet
-        "artifacts",  # dict[str, typing.Any]
-        "python_module_names",  # dict[str, str]
-        "dlopen_deps",  # dict[ConfiguredProvidersLabel, LinkableProviders]
+    # @unsorted-dict-items
+    fields = {
+        "linkable_providers": provider_field(typing.Any, default = None),  # LinkableProvidersTSet
+        "artifacts": provider_field(typing.Any, default = None),  # dict[str, typing.Any]
+        "python_module_names": provider_field(typing.Any, default = None),  # dict[str, str]
+        "dlopen_deps": provider_field(typing.Any, default = None),  # dict[ConfiguredProvidersLabel, LinkableProviders]
         # Native python extensions that can't be linked into the main executable.
-        "unembeddable_extensions",  # dict[str, LinkableProviders]
+        "unembeddable_extensions": provider_field(typing.Any, default = None),  # dict[str, LinkableProviders]
         # Native libraries that are only available as shared libs.
-        "shared_only_libs",  # dict[ConfiguredProvidersLabel, LinkableProviders]
-    ],
+        "shared_only_libs": provider_field(typing.Any, default = None),  # dict[ConfiguredProvidersLabel, LinkableProviders]
+    },
 )
 
 def merge_cxx_extension_info(

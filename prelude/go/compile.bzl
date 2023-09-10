@@ -16,17 +16,20 @@ load(
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_cmd_args")
 
 # Provider wrapping packages used for compiling.
-GoPkgCompileInfo = provider(fields = [
-    "pkgs",  # dict[str, GoPkg]
-])
+GoPkgCompileInfo = provider(fields = {
+    "pkgs": provider_field(typing.Any, default = None),  # dict[str, GoPkg]
+})
 
 # Provider for test targets that test a library. Contains information for
 # compiling the test and library code together as expected by go.
-GoTestInfo = provider(fields = [
-    "deps",  # [Dependency]
-    "srcs",  # ["source"]
-    "pkg_name",  # str
-])
+GoTestInfo = provider(
+    # @unsorted-dict-items
+    fields = {
+        "deps": provider_field(typing.Any, default = None),  # [Dependency]
+        "srcs": provider_field(typing.Any, default = None),  # ["source"]
+        "pkg_name": provider_field(typing.Any, default = None),  # str
+    },
+)
 
 def _out_root(shared: bool = False):
     return "__shared__" if shared else "__static__"

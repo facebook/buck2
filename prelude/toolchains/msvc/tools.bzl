@@ -7,16 +7,19 @@
 
 load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
 
-VisualStudio = provider(fields = [
-    # cl.exe
-    "cl_exe",
-    # lib.exe
-    "lib_exe",
-    # ml64.exe
-    "ml64_exe",
-    # link.exe
-    "link_exe",
-])
+VisualStudio = provider(
+    # @unsorted-dict-items
+    fields = {
+        # cl.exe
+        "cl_exe": provider_field(typing.Any, default = None),
+        # lib.exe
+        "lib_exe": provider_field(typing.Any, default = None),
+        # ml64.exe
+        "ml64_exe": provider_field(typing.Any, default = None),
+        # link.exe
+        "link_exe": provider_field(typing.Any, default = None),
+    },
+)
 
 def _find_msvc_tools_impl(ctx: AnalysisContext) -> list[Provider]:
     cl_exe_json = ctx.actions.declare_output("cl.exe.json")

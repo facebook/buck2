@@ -305,9 +305,9 @@ def cxx_link_into(
         link_execution_preference_info = link_execution_preference_info,
     )
 
-_AnonLinkInfo = provider(fields = [
-    "result",  # CxxLinkResult
-])
+_AnonLinkInfo = provider(fields = {
+    "result": provider_field(typing.Any, default = None),  # CxxLinkResult
+})
 
 def _anon_link_impl(ctx):
     (output, result_type, opts) = deserialize_anon_attrs(ctx.actions, ctx.label, ctx.attrs)
