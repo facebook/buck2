@@ -101,8 +101,8 @@ CxxHeadersLayout = record(
 )
 
 CPrecompiledHeaderInfo = provider(fields = {
-    # Actual precompiled header ready to be used during compilation, "artifact"
-    "header": provider_field(typing.Any, default = None),
+    # Actual precompiled header ready to be used during compilation.
+    "header": Artifact,
 })
 
 def cxx_attr_header_namespace(ctx: AnalysisContext) -> str:
