@@ -227,13 +227,7 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
     #[inline]
     pub fn as_ref(self) -> &'v T {
         if PointerI32::type_is_pointer_i32::<T>() {
-            unsafe {
-                transmute!(
-                    &PointerI32,
-                    &T,
-                    PointerI32::new(self.0.0.unpack_int_unchecked())
-                )
-            }
+            unsafe { transmute!(&PointerI32, &T, self.0.0.unpack_pointer_i32_unchecked()) }
         } else if T::static_type_id() == StarlarkStr::static_type_id() {
             unsafe {
                 self.0

@@ -132,18 +132,13 @@ impl PointerI32 {
     };
 
     #[inline]
-    pub(crate) fn new(x: InlineInt) -> &'static Self {
-        // UB if the pointer isn't aligned, or it is zero
-        // Alignment is 1, so that's not an issue.
-        // And the pointer is not zero because it has `TAG_INT` bit set.
-        unsafe { Self::from_raw_pointer_unchecked(FrozenValue::new_int(x).ptr_value()) }
-    }
-
-    #[inline]
     pub(crate) unsafe fn from_raw_pointer_unchecked(
         raw_pointer: RawPointer,
     ) -> &'static PointerI32 {
         debug_assert!(raw_pointer.is_int());
+        // UB if the pointer isn't aligned, or it is zero.
+        // Alignment is 1, so that's not an issue.
+        // And the pointer is not zero because it has `TAG_INT` bit set.
         cast::usize_to_ptr(raw_pointer.ptr_value())
     }
 
@@ -361,7 +356,7 @@ mod tests {
     #[test]
     fn test_int_tag() {
         fn check(x: InlineInt) {
-            assert_eq!(x, PointerI32::new(x).get())
+            assert_eq!(x, FrozenValue::new_int(x).unpack_inline_int().unwrap());
         }
 
         for x in -10..10 {

@@ -112,6 +112,14 @@ impl RawPointer {
         }
     }
 
+    #[inline]
+    pub(crate) unsafe fn unpack_pointer_i32_unchecked(self) -> &'static PointerI32 {
+        debug_assert!(self.is_int());
+        debug_assert!(self.0.get() & !INT_DATA_MASK == TAG_INT);
+
+        PointerI32::from_raw_pointer_unchecked(self)
+    }
+
     /// Unpack integer when it is known to be not a pointer.
     #[inline]
     pub(crate) unsafe fn unpack_int_unchecked(self) -> InlineInt {
@@ -243,8 +251,8 @@ impl<'p> Pointer<'p> {
 
     /// Unpack integer when it is known to be not a pointer.
     #[inline]
-    pub(crate) unsafe fn unpack_int_unchecked(self) -> InlineInt {
-        self.ptr.unpack_int_unchecked()
+    pub(crate) unsafe fn unpack_pointer_i32_unchecked(self) -> &'static PointerI32 {
+        self.ptr.unpack_pointer_i32_unchecked()
     }
 
     #[inline]
@@ -324,8 +332,8 @@ impl<'p> FrozenPointer<'p> {
 
     /// Unpack integer when it is known to be not a pointer.
     #[inline]
-    pub(crate) unsafe fn unpack_int_unchecked(self) -> InlineInt {
-        self.ptr.unpack_int_unchecked()
+    pub(crate) unsafe fn unpack_pointer_i32_unchecked(self) -> &'static PointerI32 {
+        self.ptr.unpack_pointer_i32_unchecked()
     }
 
     /// Unpack pointer when it is known to be not an integer, not a string, and not frozen.

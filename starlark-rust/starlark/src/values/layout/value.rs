@@ -453,11 +453,7 @@ impl<'v> Value<'v> {
     pub(crate) unsafe fn downcast_ref_unchecked<T: StarlarkValue<'v>>(self) -> &'v T {
         debug_assert!(self.get_ref().downcast_ref::<T>().is_some());
         if PointerI32::type_is_pointer_i32::<T>() {
-            transmute!(
-                &PointerI32,
-                &T,
-                PointerI32::new(self.0.unpack_int_unchecked())
-            )
+            transmute!(&PointerI32, &T, self.0.unpack_pointer_i32_unchecked())
         } else {
             self.0
                 .unpack_ptr_no_int_unchecked()
