@@ -84,24 +84,6 @@ RustProcMacroPlugin = plugins.kind()
 # `ctx.plugins`
 RustProcMacroMarker = provider(fields = {"label": provider_field(typing.Any, default = None)})
 
-# Output of a Rust compilation
-RustLinkInfo = provider(
-    # @unsorted-dict-items
-    fields = {
-        # crate - crate name
-        "crate": provider_field(typing.Any, default = None),
-        # styles - information about each LinkStyle as RustLinkStyleInfo
-        # {LinkStyle: RustLinkStyleInfo}
-        "styles": provider_field(typing.Any, default = None),
-        # Propagate non-rust native linkable dependencies through rust libraries.
-        "non_rust_exported_link_deps": provider_field(typing.Any, default = None),
-        # Propagate non-rust native linkable info through rust libraries.
-        "non_rust_link_info": provider_field(typing.Any, default = None),
-        # Propagate non-rust shared libraries through rust libraries.
-        "non_rust_shared_libs": provider_field(typing.Any, default = None),
-    },
-)
-
 CrateName = record(
     simple = field(str),
     dynamic = field([Artifact, None]),
@@ -127,6 +109,23 @@ RustLinkStyleInfo = record(
     pdb = field([Artifact, None]),
     # Debug info which is referenced -- but not included -- by the linkable rlib.
     external_debug_info = field(ArtifactTSet),
+)
+
+# Output of a Rust compilation
+RustLinkInfo = provider(
+    # @unsorted-dict-items
+    fields = {
+        # crate - crate name
+        "crate": CrateName,
+        # styles - information about each LinkStyle as RustLinkStyleInfo
+        "styles": dict[LinkStyle, RustLinkStyleInfo],
+        # Propagate non-rust native linkable dependencies through rust libraries.
+        "non_rust_exported_link_deps": provider_field(typing.Any, default = None),
+        # Propagate non-rust native linkable info through rust libraries.
+        "non_rust_link_info": provider_field(typing.Any, default = None),
+        # Propagate non-rust shared libraries through rust libraries.
+        "non_rust_shared_libs": provider_field(typing.Any, default = None),
+    },
 )
 
 def _adjust_link_style_for_rust_dependencies(dep_link_style: LinkStyle) -> LinkStyle:
