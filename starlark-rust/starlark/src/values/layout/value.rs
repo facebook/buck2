@@ -794,7 +794,20 @@ impl<'v> Value<'v> {
     /// return [`false`]. It will only error if there is excessive recursion.
     #[inline]
     pub fn equals(self, other: Value<'v>) -> anyhow::Result<bool> {
-        ValueLike::equals(self, other)
+        if self.ptr_eq(other) {
+            Ok(true)
+        } else {
+            // Condition and then branch are cheap, but else branch is not.
+            // Split it so the compiler could inline this function
+            // without hitting the inlining limit.
+            self.equals_not_ptr_eq(other)
+        }
+    }
+
+    #[inline]
+    fn equals_not_ptr_eq(self, other: Value<'v>) -> anyhow::Result<bool> {
+        let _guard = stack_guard::stack_guard()?;
+        self.get_ref().equals(other)
     }
 
     /// How are two values comparable. For values of different types will return [`Err`].
@@ -1233,13 +1246,9 @@ impl<'v> ValueLike<'v> for Value<'v> {
         self.get_ref().write_hash(hasher)
     }
 
+    #[inline]
     fn equals(self, other: Value<'v>) -> anyhow::Result<bool> {
-        if self.ptr_eq(other) {
-            Ok(true)
-        } else {
-            let _guard = stack_guard::stack_guard()?;
-            self.get_ref().equals(other)
-        }
+        self.equals(other)
     }
 
     fn compare(self, other: Value<'v>) -> anyhow::Result<Ordering> {

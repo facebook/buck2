@@ -62,13 +62,22 @@ impl FrozenValueNotSpecial {
         }
     }
 
+    #[inline]
     pub(crate) fn equals(self, other: Value) -> anyhow::Result<bool> {
         if self.to_value().ptr_eq(other) {
             Ok(true)
         } else {
-            let _guard = stack_guard::stack_guard()?;
-            self.get_ref().equals(other)
+            // Condition and then branch are cheap, but else branch is not.
+            // Split it so the compiler could inline this function
+            // without hitting the inlining limit.
+            self.equals_not_ptr_eq(other)
         }
+    }
+
+    #[inline]
+    fn equals_not_ptr_eq(self, other: Value) -> anyhow::Result<bool> {
+        let _guard = stack_guard::stack_guard()?;
+        self.get_ref().equals(other)
     }
 
     pub(crate) fn invoke_method<'v>(
