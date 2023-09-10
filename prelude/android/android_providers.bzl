@@ -61,8 +61,8 @@ BuildConfigField = record(
 AndroidBuildConfigInfo = provider(
     # @unsorted-dict-items
     fields = {
-        "package": provider_field(typing.Any, default = None),  # str
-        "build_config_fields": provider_field(typing.Any, default = None),  # ["BuildConfigField"]
+        "package": str,
+        "build_config_fields": list[BuildConfigField],
     },
 )
 
