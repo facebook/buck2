@@ -37,6 +37,7 @@ use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ReConnectionHandle;
 use buck2_execute_impl::executors::action_cache::ActionCacheChecker;
+use buck2_execute_impl::executors::action_cache::RemoteDepFileCacheChecker;
 use buck2_execute_impl::executors::caching::CacheUploader;
 use buck2_execute_impl::executors::hybrid::HybridExecutor;
 use buck2_execute_impl::executors::local::LocalExecutor;
@@ -208,6 +209,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 re_action_key,
                 cache_upload_behavior,
                 remote_cache_enabled,
+                remote_dep_file_cache_enabled,
             } => {
                 // NOTE: While we now have a legit flag for this, we keep the env var. This has been used
                 // in remediating prod incidents in the past, and this is the kind of thing that can easily
@@ -219,12 +221,29 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     .get_copied()?
                     .unwrap_or(self.skip_cache_read);
 
-                let disable_caching = disable_caching || !remote_cache_enabled;
+                let disable_caching =
+                    disable_caching || (!remote_cache_enabled && !remote_dep_file_cache_enabled);
 
                 let cache_checker_new = || -> Arc<dyn PreparedCommandOptionalExecutor> {
                     if disable_caching {
                         return Arc::new(NoOpCommandOptionalExecutor {}) as _;
                     }
+
+                    let remote_dep_file_checker: Arc<dyn PreparedCommandOptionalExecutor> =
+                        if *remote_dep_file_cache_enabled {
+                            Arc::new(RemoteDepFileCacheChecker {
+                                artifact_fs: artifact_fs.clone(),
+                                materializer: self.materializer.dupe(),
+                                re_client: self.re_connection.get_client(),
+                                re_use_case: *re_use_case,
+                                re_action_key: re_action_key.clone(),
+                                upload_all_actions: self.upload_all_actions,
+                                knobs: self.executor_global_knobs.dupe(),
+                                paranoid: self.paranoid.dupe(),
+                            }) as _
+                        } else {
+                            Arc::new(NoOpCommandOptionalExecutor {}) as _
+                        };
 
                     Arc::new(ActionCacheChecker {
                         artifact_fs: artifact_fs.clone(),
@@ -235,6 +254,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         upload_all_actions: self.upload_all_actions,
                         knobs: self.executor_global_knobs.dupe(),
                         paranoid: self.paranoid.dupe(),
+                        remote_dep_file_checker,
                     }) as _
                 };
 
@@ -405,6 +425,7 @@ pub fn get_default_executor_config(host_platform: HostPlatformOverride) -> Comma
             re_action_key: None,
             cache_upload_behavior: CacheUploadBehavior::Disabled,
             remote_cache_enabled: true,
+            remote_dep_file_cache_enabled: false,
         }
     };
 

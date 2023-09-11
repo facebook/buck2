@@ -416,7 +416,12 @@ pub fn display_executor_stage(
 
     let label = match stage {
         Stage::Prepare(..) => "prepare",
-        Stage::CacheQuery(..) => "re_action_cache",
+        Stage::CacheQuery(cache_query) => {
+            match buck2_data::CacheType::from_i32(cache_query.cache_type).unwrap() {
+                buck2_data::CacheType::ActionCache => "re_action_cache",
+                buck2_data::CacheType::RemoteDepFileCache => "re_dep_file_cache",
+            }
+        }
         Stage::CacheHit(..) => "re_download",
         Stage::Re(re) => {
             use buck2_data::re_stage::Stage;

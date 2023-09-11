@@ -94,6 +94,7 @@ pub enum Executor {
         re_action_key: Option<String>,
         cache_upload_behavior: CacheUploadBehavior,
         remote_cache_enabled: bool,
+        remote_dep_file_cache_enabled: bool,
     },
 }
 
@@ -114,15 +115,20 @@ impl Display for Executor {
                 re_action_key: _,
                 cache_upload_behavior,
                 remote_cache_enabled,
+                remote_dep_file_cache_enabled,
             } => {
                 let cache = match remote_cache_enabled {
                     true => "enabled",
                     false => "disabled",
                 };
+                let dep_file_cache = match remote_dep_file_cache_enabled {
+                    true => "enabled",
+                    false => "disabled",
+                };
                 write!(
                     f,
-                    "RemoteEnabled + executor {} + remote cache {} + cache upload {}",
-                    executor, cache, cache_upload_behavior
+                    "RemoteEnabled + executor {} + remote cache {} + cache upload {} + remote dep file cache {}",
+                    executor, cache, cache_upload_behavior, dep_file_cache
                 )
             }
         }

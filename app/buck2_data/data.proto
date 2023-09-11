@@ -1203,8 +1203,14 @@ message ExecutorStageStart {
 
 message PrepareAction {}
 
+enum CacheType {
+  CACHE_TYPE_ACTION_CACHE = 0;
+  CACHE_TYPE_REMOTE_DEP_FILE_CACHE = 1;
+}
+
 message CacheQuery {
   string action_digest = 1;
+  CacheType cache_type = 2;
 }
 
 message CacheHit {

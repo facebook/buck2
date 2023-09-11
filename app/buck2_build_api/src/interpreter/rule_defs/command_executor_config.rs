@@ -87,6 +87,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         #[starlark(require = named)] local_enabled: bool,
         #[starlark(require = named)] remote_enabled: bool,
         #[starlark(default = NoneOr::None, require = named)] remote_cache_enabled: NoneOr<bool>,
+        #[starlark(default = false, require = named)] remote_dep_file_cache_enabled: bool,
         #[starlark(default = NoneType, require = named)] remote_execution_properties: Value<'v>,
         #[starlark(default = NoneType, require = named)] remote_execution_action_key: Value<'v>,
         #[starlark(default = NoneOr::None, require = named)]
@@ -242,18 +243,24 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                         re_action_key,
                         cache_upload_behavior,
                         remote_cache_enabled,
+                        remote_dep_file_cache_enabled,
                     }
                 }
-                (Some(local), None, true) => Executor::RemoteEnabled {
-                    executor: RemoteEnabledExecutor::Local(local),
-                    // FIXME: We need a migration flip the default for remote_cache_enabled to
-                    // remote_enabled first.
-                    re_properties: re_properties.unwrap_or_default(),
-                    re_use_case: re_use_case.unwrap_or_else(RemoteExecutorUseCase::buck2_default),
-                    re_action_key,
-                    cache_upload_behavior,
-                    remote_cache_enabled: true,
-                },
+                (Some(local), None, true) => {
+                    Executor::RemoteEnabled {
+                        executor: RemoteEnabledExecutor::Local(local),
+                        // FIXME: We need a migration flip the default for remote_cache_enabled to
+                        // remote_enabled first.
+                        re_properties: re_properties.unwrap_or_default(),
+                        re_use_case: re_use_case
+                            .unwrap_or_else(RemoteExecutorUseCase::buck2_default),
+                        re_action_key,
+                        cache_upload_behavior,
+                        remote_cache_enabled: true,
+                        remote_dep_file_cache_enabled,
+                    }
+                }
+                // If remote cache is disabled, also disable the remote dep file cache as well
                 (Some(local), None, false) => Executor::Local(local),
                 (None, None, _) => {
                     return Err(CommandExecutorConfigErrors::NoExecutor.into());

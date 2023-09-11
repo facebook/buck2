@@ -29,6 +29,8 @@ use crate::execute::result::CommandExecutionMetadata;
 use crate::re::manager::ManagedRemoteExecutionClient;
 use crate::re::streams::RemoteCommandStdStreams;
 
+pub struct RemoteDepFileResult(pub ActionResultResponse);
+
 pub trait RemoteActionResult: Send + Sync {
     fn output_files(&self) -> &[TFile];
     fn output_directories(&self) -> &[TDirectory2];
@@ -87,6 +89,37 @@ impl RemoteActionResult for ExecuteResponse {
     }
 }
 
+impl RemoteActionResult for Box<dyn RemoteActionResult> {
+    fn output_files(&self) -> &[TFile] {
+        self.as_ref().output_files()
+    }
+
+    fn output_directories(&self) -> &[TDirectory2] {
+        self.as_ref().output_directories()
+    }
+
+    fn execution_kind(&self, details: RemoteCommandExecutionDetails) -> CommandExecutionKind {
+        self.as_ref().execution_kind(details)
+    }
+
+    fn timing(&self) -> CommandExecutionMetadata {
+        self.as_ref().timing()
+    }
+
+    fn std_streams(
+        &self,
+        client: &ManagedRemoteExecutionClient,
+        use_case: RemoteExecutorUseCase,
+        digest_config: DigestConfig,
+    ) -> RemoteCommandStdStreams {
+        self.as_ref().std_streams(client, use_case, digest_config)
+    }
+
+    fn ttl(&self) -> i64 {
+        self.as_ref().ttl()
+    }
+}
+
 impl RemoteActionResult for ActionResultResponse {
     fn output_files(&self) -> &[TFile] {
         &self.action_result.output_files
@@ -118,6 +151,37 @@ impl RemoteActionResult for ActionResultResponse {
 
     fn ttl(&self) -> i64 {
         self.ttl
+    }
+}
+
+impl RemoteActionResult for RemoteDepFileResult {
+    fn output_files(&self) -> &[TFile] {
+        self.0.output_files()
+    }
+
+    fn output_directories(&self) -> &[TDirectory2] {
+        self.0.output_directories()
+    }
+
+    fn execution_kind(&self, details: RemoteCommandExecutionDetails) -> CommandExecutionKind {
+        CommandExecutionKind::RemoteDepFileCache { details }
+    }
+
+    fn timing(&self) -> CommandExecutionMetadata {
+        self.0.timing()
+    }
+
+    fn std_streams(
+        &self,
+        client: &ManagedRemoteExecutionClient,
+        use_case: RemoteExecutorUseCase,
+        digest_config: DigestConfig,
+    ) -> RemoteCommandStdStreams {
+        self.0.std_streams(client, use_case, digest_config)
+    }
+
+    fn ttl(&self) -> i64 {
+        self.0.ttl()
     }
 }
 
