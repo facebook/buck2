@@ -25,8 +25,12 @@ use tokio::io::AsyncReadExt;
 use tokio::io::AsyncSeekExt;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
+use tokio::time::sleep;
+use tokio::time::Duration;
+use tokio::time::Instant;
 
 static MANIFOLD_TTL_S: EnvHelper<u64> = EnvHelper::new("BUCK2_TEST_MANIFOLD_TTL_S");
+const MAX_WAIT: Duration = Duration::from_secs(5 * 60);
 
 #[derive(Debug, Error)]
 pub(crate) enum PersistLogError {
@@ -136,10 +140,28 @@ async fn upload_task(
     let manifold_path = format!("flat/{}", manifold_name);
     let mut uploader = Uploader::new(file_mutex, &manifold_path, &manifold_client)?;
 
-    while let Some(n) = rx.recv().await {
-        uploader.bump_total_bytes(n);
-        while uploader.can_fill_chunk()? {
-            uploader.upload_chunk().await?;
+    loop {
+        tokio::select! {
+            res = rx.recv() => {
+                match res {
+                    Some(n) => {
+                        uploader.bump_total_bytes(n);
+                        while uploader.can_fill_chunk()? {
+                            uploader.last_upload_attempt = Instant::now();
+                            uploader.upload_chunk().await?;
+                        }
+                    },
+                    // This indicates that we have finished writing to the log file
+                    None => break
+                }
+            }
+            _ = sleep(uploader.wait()) => {
+                // We have waited enough since the last upload
+                uploader.last_upload_attempt = Instant::now();
+                if uploader.something_to_upload() {
+                    uploader.upload_chunk().await?;
+                }
+            }
         }
     }
 
@@ -162,6 +184,7 @@ struct Uploader<'a> {
     manifold: ManifoldChunkedUploader<'a>,
     reader: ChunkReader,
     total_bytes: u64,
+    last_upload_attempt: Instant,
 }
 
 impl<'a> Uploader<'a> {
@@ -183,11 +206,11 @@ impl<'a> Uploader<'a> {
             manifold,
             reader: ChunkReader::new()?,
             total_bytes: 0,
+            last_upload_attempt: Instant::now(),
         })
     }
 
     /// Uploads at most 'chunk size' bytes to Manifold
-    /// Also updates total_bytes counter
     async fn upload_chunk(&mut self) -> anyhow::Result<()> {
         let mut file = self.file_mutex.lock().await;
         file.seek(io::SeekFrom::Start(self.manifold.position()))
@@ -210,6 +233,14 @@ impl<'a> Uploader<'a> {
             .checked_sub(self.manifold.position())
             .ok_or(PersistLogError::ReadBytesOverflow)?
             > self.reader.chunk_size())
+    }
+
+    fn something_to_upload(&self) -> bool {
+        self.total_bytes > self.manifold.position()
+    }
+
+    fn wait(&self) -> Duration {
+        MAX_WAIT.saturating_sub(Instant::now() - self.last_upload_attempt)
     }
 }
 
