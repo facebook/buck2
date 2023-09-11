@@ -35,6 +35,7 @@ use starlark_syntax::syntax::ast::ExprP;
 use starlark_syntax::syntax::ast::LoadArgP;
 use starlark_syntax::syntax::ast::Stmt;
 use starlark_syntax::syntax::ast::StmtP;
+use starlark_syntax::syntax::module::AstModuleFields;
 use starlark_syntax::syntax::top_level_stmts::top_level_stmts;
 use starlark_syntax::syntax::uniplate::Visit;
 
@@ -243,7 +244,7 @@ impl LspModule {
         //            LSPModule doesn't need to reparse anything.
 
         let scope = scope(&self.ast);
-        let line_span = match self.ast.codemap.line_span_opt(line as usize) {
+        let line_span = match self.ast.codemap().line_span_opt(line as usize) {
             None => {
                 // The document got edited to add new lines, just bail out
                 return Definition::Identifier(IdentifierDefinition::NotFound);
@@ -258,7 +259,7 @@ impl LspModule {
                 .get_definition_location(def, &scope, current_pos)
                 .into(),
             TempDefinition::Dotted(def) => DottedDefinition {
-                source: self.ast.codemap.resolve_span(def.source),
+                source: self.ast.codemap().resolve_span(def.source),
                 root_definition_location: self.get_definition_location(
                     def.root_definition_location,
                     &scope,
@@ -393,26 +394,26 @@ impl LspModule {
                 destination,
                 name,
             } => IdentifierDefinition::Location {
-                source: self.ast.codemap.resolve_span(source),
-                destination: self.ast.codemap.resolve_span(destination),
+                source: self.ast.codemap().resolve_span(source),
+                destination: self.ast.codemap().resolve_span(destination),
                 name: name.to_owned(),
             },
             TempIdentifierDefinition::Name { source, name } => match scope.bound.get(name) {
                 None => IdentifierDefinition::Unresolved {
-                    source: self.ast.codemap.resolve_span(source),
+                    source: self.ast.codemap().resolve_span(source),
                     name: name.to_owned(),
                 },
                 Some((Assigner::Load { path, name }, span)) => {
                     IdentifierDefinition::LoadedLocation {
-                        source: self.ast.codemap.resolve_span(source),
-                        destination: self.ast.codemap.resolve_span(*span),
+                        source: self.ast.codemap().resolve_span(source),
+                        destination: self.ast.codemap().resolve_span(*span),
                         path: path.node.clone(),
                         name: name.node.clone(),
                     }
                 }
                 Some((_, span)) => IdentifierDefinition::Location {
-                    source: self.ast.codemap.resolve_span(source),
-                    destination: self.ast.codemap.resolve_span(*span),
+                    source: self.ast.codemap().resolve_span(source),
+                    destination: self.ast.codemap().resolve_span(*span),
                     name: name.to_owned(),
                 },
             },
@@ -425,8 +426,8 @@ impl LspModule {
                 path,
                 name,
             } => IdentifierDefinition::LoadedLocation {
-                source: self.ast.codemap.resolve_span(source),
-                destination: self.ast.codemap.resolve_span(destination),
+                source: self.ast.codemap().resolve_span(source),
+                destination: self.ast.codemap().resolve_span(destination),
                 path: path.to_owned(),
                 name: name.to_owned(),
             },
@@ -482,7 +483,7 @@ impl LspModule {
         let mut identifier_span = None;
         let mut symbol_to_lookup = None;
 
-        'outer: for v in top_level_stmts(&self.ast.statement) {
+        'outer: for v in top_level_stmts(self.ast.statement()) {
             if let StmtP::Assign(assign) = &v.node {
                 let main_assign_span = match &assign.lhs.node {
                     AssignTargetP::Identifier(main_assign_id) if main_assign_id.ident == name => {
@@ -529,7 +530,7 @@ impl LspModule {
         // Try to find the symbol that is assigned, but if not, try to get to that "closest" span.
         symbol_to_lookup
             .and_then(|span| {
-                let resolved = self.ast.codemap.resolve_span(span);
+                let resolved = self.ast.codemap().resolve_span(span);
                 self.find_definition_at_location(
                     resolved.begin.line as u32,
                     resolved.begin.column as u32,
@@ -537,8 +538,8 @@ impl LspModule {
                 .local_destination()
             })
             .or_else(|| match (arg_span, identifier_span) {
-                (Some(span), _) => Some(self.ast.codemap.resolve_span(span)),
-                (None, Some(span)) => Some(self.ast.codemap.resolve_span(span)),
+                (Some(span), _) => Some(self.ast.codemap().resolve_span(span)),
+                (None, Some(span)) => Some(self.ast.codemap().resolve_span(span)),
                 (None, None) => None,
             })
     }
@@ -593,10 +594,10 @@ impl LspModule {
 
         let mut ret = None;
         visit_node(
-            &self.ast.codemap,
+            self.ast.codemap(),
             pos,
             &mut ret,
-            Visit::Stmt(&self.ast.statement),
+            Visit::Stmt(self.ast.statement()),
         );
         ret.unwrap_or(IdentifierDefinition::NotFound)
     }

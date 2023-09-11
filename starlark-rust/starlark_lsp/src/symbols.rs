@@ -168,6 +168,7 @@ mod tests {
     use starlark::syntax::AstModule;
     use starlark::syntax::Dialect;
     use starlark_syntax::codemap::ResolvedPos;
+    use starlark_syntax::syntax::module::AstModuleFields;
 
     use super::find_symbols_at_location;
     use super::Symbol;
@@ -191,8 +192,8 @@ my_var = True
 
         assert_eq!(
             find_symbols_at_location(
-                &ast_module.codemap,
-                &ast_module.statement,
+                ast_module.codemap(),
+                ast_module.statement(),
                 ResolvedPos { line: 6, column: 0 },
             ),
             HashMap::from([
@@ -258,8 +259,8 @@ my_var = True
 
         assert_eq!(
             find_symbols_at_location(
-                &ast_module.codemap,
-                &ast_module.statement,
+                ast_module.codemap(),
+                ast_module.statement(),
                 ResolvedPos { line: 3, column: 4 },
             ),
             HashMap::from([

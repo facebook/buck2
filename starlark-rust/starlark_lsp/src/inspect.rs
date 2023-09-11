@@ -31,6 +31,7 @@ use starlark_syntax::syntax::ast::ExprP;
 use starlark_syntax::syntax::ast::LoadArgP;
 use starlark_syntax::syntax::ast::ParameterP;
 use starlark_syntax::syntax::ast::StmtP;
+use starlark_syntax::syntax::module::AstModuleFields;
 use starlark_syntax::syntax::uniplate::Visit;
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
@@ -81,7 +82,7 @@ pub(crate) trait AstModuleInspect {
 
 impl AstModuleInspect for AstModule {
     fn get_auto_complete_type(&self, line: u32, col: u32) -> Option<AutocompleteType> {
-        let line_span = match self.codemap.line_span_opt(line as usize) {
+        let line_span = match self.codemap().line_span_opt(line as usize) {
             None => {
                 // The document got edited to add new lines, just bail out
                 return None;
@@ -336,7 +337,7 @@ impl AstModuleInspect for AstModule {
             None
         }
 
-        walk_and_find_completion_type(&self.codemap, current_pos, Visit::Stmt(&self.statement))
+        walk_and_find_completion_type(self.codemap(), current_pos, Visit::Stmt(self.statement()))
             .or(Some(AutocompleteType::Default))
     }
 }

@@ -24,6 +24,7 @@ use starlark_syntax::syntax::ast::AstStmt;
 use starlark_syntax::syntax::ast::DefP;
 use starlark_syntax::syntax::ast::Expr;
 use starlark_syntax::syntax::ast::Stmt;
+use starlark_syntax::syntax::module::AstModuleFields;
 use thiserror::Error;
 
 use crate::analysis::types::LintT;
@@ -55,8 +56,8 @@ impl LintWarning for UnderscoreWarning {
 
 pub(crate) fn lint(module: &AstModule) -> Vec<LintT<UnderscoreWarning>> {
     let mut res = Vec::new();
-    inappropriate_underscore(&module.codemap, &module.statement, true, &mut res);
-    use_ignored(&module.codemap, &module.statement, &mut res);
+    inappropriate_underscore(module.codemap(), module.statement(), true, &mut res);
+    use_ignored(module.codemap(), module.statement(), &mut res);
     res
 }
 
@@ -159,6 +160,7 @@ fn use_ignored(codemap: &CodeMap, x: &AstStmt, res: &mut Vec<LintT<UnderscoreWar
 #[cfg(test)]
 mod tests {
     use starlark_syntax::slice_vec_ext::SliceExt;
+    use starlark_syntax::syntax::module::AstModuleFields;
 
     use super::*;
     use crate::syntax::Dialect;
@@ -188,7 +190,7 @@ def _ok():
 "#,
         );
         let mut res = Vec::new();
-        inappropriate_underscore(&m.codemap, &m.statement, true, &mut res);
+        inappropriate_underscore(m.codemap(), m.statement(), true, &mut res);
         let mut res = res.map(|x| x.problem.about());
         res.sort();
         assert_eq!(res, &["_no1", "_no2", "_no3"])
@@ -218,7 +220,7 @@ def bar():
 "#,
         );
         let mut res = Vec::new();
-        use_ignored(&m.codemap, &m.statement, &mut res);
+        use_ignored(m.codemap(), m.statement(), &mut res);
         let mut res = res.map(|x| x.problem.about());
         res.sort();
         assert_eq!(res, &["_no1", "_no2", "_no3"])

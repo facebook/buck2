@@ -29,6 +29,7 @@ use starlark_syntax::syntax::ast::DefP;
 use starlark_syntax::syntax::ast::Expr;
 use starlark_syntax::syntax::ast::LoadArgP;
 use starlark_syntax::syntax::ast::Stmt;
+use starlark_syntax::syntax::module::AstModuleFields;
 use thiserror::Error;
 
 use crate::analysis::types::LintT;
@@ -126,8 +127,8 @@ fn bad_type_equality(module: &AstModule, res: &mut Vec<LintT<Incompatibility>>) 
         x.visit_expr(|x| check(codemap, x, types, res));
     }
     module
-        .statement
-        .visit_expr(|x| check(&module.codemap, x, types, res));
+        .statement()
+        .visit_expr(|x| check(module.codemap(), x, types, res));
 }
 
 // Go implementation of Starlark disallows duplicate top-level assignments,
@@ -192,8 +193,8 @@ fn duplicate_top_level_assignment(module: &AstModule, res: &mut Vec<LintT<Incomp
     }
 
     stmt(
-        &module.statement,
-        &module.codemap,
+        module.statement(),
+        module.codemap(),
         &mut defined,
         &mut exported,
         res,

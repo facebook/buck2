@@ -38,6 +38,7 @@ use starlark_syntax::syntax::ast::ForP;
 use starlark_syntax::syntax::ast::IdentP;
 use starlark_syntax::syntax::ast::LambdaP;
 use starlark_syntax::syntax::ast::Stmt;
+use starlark_syntax::syntax::module::AstModuleFields;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) enum Assigner {
@@ -337,7 +338,7 @@ fn stmt(x: &AstStmt, res: &mut Vec<Bind>) {
 
 pub(crate) fn scope(module: &AstModule) -> Scope {
     let mut res = Vec::new();
-    stmt(&module.statement, &mut res);
+    stmt(module.statement(), &mut res);
     Scope::new(res)
 }
 

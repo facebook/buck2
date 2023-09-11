@@ -43,6 +43,7 @@ use starlark_syntax::syntax::ast::ForClause;
 use starlark_syntax::syntax::ast::ForP;
 use starlark_syntax::syntax::ast::LoadArgP;
 use starlark_syntax::syntax::ast::Stmt;
+use starlark_syntax::syntax::module::AstModuleFields;
 use thiserror::Error;
 
 use crate::analysis::types::LintT;
@@ -536,7 +537,7 @@ impl<'a> State<'a> {
 
     fn module(&mut self, module: &'a AstModule) {
         self.enter_scope();
-        self.stmt(&module.statement);
+        self.stmt(module.statement());
         self.exit_scope();
     }
 }
@@ -546,7 +547,7 @@ pub(crate) fn lint(
     globals: Option<&HashSet<String>>,
 ) -> Vec<LintT<NameWarning>> {
     let mut state = State {
-        codemap: &module.codemap,
+        codemap: module.codemap(),
         globals,
         scopes: Vec::new(),
         warnings: Vec::new(),

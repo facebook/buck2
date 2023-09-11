@@ -21,6 +21,7 @@ use starlark_syntax::syntax::ast::Argument;
 use starlark_syntax::syntax::ast::AstExpr;
 use starlark_syntax::syntax::ast::AstLiteral;
 use starlark_syntax::syntax::ast::Expr;
+use starlark_syntax::syntax::module::AstModuleFields;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
@@ -71,13 +72,15 @@ impl AstModuleFindCallName for AstModule {
             }
         }
 
-        self.statement.visit_expr(|x| visit_expr(&mut ret, name, x));
+        self.statement()
+            .visit_expr(|x| visit_expr(&mut ret, name, x));
         ret
     }
 }
 
 #[cfg(test)]
 mod test {
+    use starlark_syntax::syntax::module::AstModuleFields;
 
     use crate::analysis::find_call_name::AstModuleFindCallName;
     use crate::codemap::ResolvedPos;
@@ -105,7 +108,7 @@ def x(name = "foo_name"):
             }),
             module
                 .find_function_call_with_name("foo_name")
-                .map(|span| module.codemap.resolve_span(span))
+                .map(|span| module.codemap().resolve_span(span))
         );
         assert_eq!(None, module.find_function_call_with_name("bar_name"));
         Ok(())

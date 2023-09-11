@@ -36,6 +36,7 @@ use starlark::docs::DocMember;
 use starlark::docs::DocParam;
 use starlark_syntax::codemap::ResolvedPos;
 use starlark_syntax::syntax::ast::StmtP;
+use starlark_syntax::syntax::module::AstModuleFields;
 
 use crate::definition::Definition;
 use crate::definition::DottedDefinition;
@@ -86,8 +87,8 @@ impl<T: LspContext> Backend<T> {
 
         // Scan through current document
         let mut symbols: HashMap<_, _> = find_symbols_at_location(
-            &document.ast.codemap,
-            &document.ast.statement,
+            document.ast.codemap(),
+            document.ast.statement(),
             cursor_position,
         )
         .into_iter()
@@ -129,13 +130,13 @@ impl<T: LspContext> Backend<T> {
             // Find the position of the last load in the current file.
             let mut last_load = None;
             let mut loads = HashMap::new();
-            document.ast.statement.visit_stmt(|node| {
+            document.ast.statement().visit_stmt(|node| {
                 if let StmtP::Load(load) = &node.node {
                     last_load = Some(node.span);
                     loads.insert(load.module.node.clone(), (load.args.clone(), node.span));
                 }
             });
-            let last_load = last_load.map(|span| document.ast.codemap.resolve_span(span));
+            let last_load = last_load.map(|span| document.ast.codemap().resolve_span(span));
 
             symbols.extend(
                 self.get_all_exported_symbols(
@@ -248,8 +249,8 @@ impl<T: LspContext> Backend<T> {
                 // holding the `Scope` including AST nodes, this indirection
                 // should be removed.
                 find_symbols_at_location(
-                    &document.ast.codemap,
-                    &document.ast.statement,
+                    document.ast.codemap(),
+                    document.ast.statement(),
                     ResolvedPos {
                         line: destination.begin.line,
                         column: destination.begin.column,

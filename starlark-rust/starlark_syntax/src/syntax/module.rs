@@ -103,12 +103,52 @@ fn parse_error_add_span(
 #[derivative(Debug)]
 pub struct AstModule {
     #[derivative(Debug = "ignore")]
-    pub codemap: CodeMap,
-    pub statement: AstStmt,
-    pub dialect: Dialect,
+    pub(crate) codemap: CodeMap,
+    pub(crate) statement: AstStmt,
+    pub(crate) dialect: Dialect,
     /// Temporary option to allow string literals in type expressions.
     /// Specified with `@starlark-rust: allow_string_literals_in_type_expr`.
-    pub allow_string_literals_in_type_expr: bool,
+    pub(crate) allow_string_literals_in_type_expr: bool,
+}
+
+/// This trait is not exported as public API of starlark.
+pub trait AstModuleFields: Sized {
+    fn codemap(&self) -> &CodeMap;
+
+    fn statement(&self) -> &AstStmt;
+
+    fn dialect(&self) -> &Dialect;
+
+    fn allow_string_literals_in_type_expr(&self) -> bool;
+
+    fn into_parts(self) -> (CodeMap, AstStmt, Dialect, bool);
+}
+
+impl AstModuleFields for AstModule {
+    fn codemap(&self) -> &CodeMap {
+        &self.codemap
+    }
+
+    fn statement(&self) -> &AstStmt {
+        &self.statement
+    }
+
+    fn dialect(&self) -> &Dialect {
+        &self.dialect
+    }
+
+    fn allow_string_literals_in_type_expr(&self) -> bool {
+        self.allow_string_literals_in_type_expr
+    }
+
+    fn into_parts(self) -> (CodeMap, AstStmt, Dialect, bool) {
+        (
+            self.codemap,
+            self.statement,
+            self.dialect,
+            self.allow_string_literals_in_type_expr,
+        )
+    }
 }
 
 impl AstModule {

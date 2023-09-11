@@ -18,6 +18,7 @@
 use starlark_syntax::syntax::ast::Argument;
 use starlark_syntax::syntax::ast::AstExpr;
 use starlark_syntax::syntax::ast::Expr;
+use starlark_syntax::syntax::module::AstModuleFields;
 use thiserror::Error;
 
 use crate::analysis::types::LintT;
@@ -117,8 +118,8 @@ fn check_call_expr(module: &AstModule, res: &mut Vec<LintT<Performance>>) {
         x.visit_expr(|x| check(codemap, x, res));
     }
     module
-        .statement
-        .visit_expr(|x| check(&module.codemap, x, res));
+        .statement()
+        .visit_expr(|x| check(module.codemap(), x, res));
 }
 
 pub(crate) fn lint(module: &AstModule) -> Vec<LintT<Performance>> {

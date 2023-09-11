@@ -23,6 +23,7 @@ use starlark_syntax::syntax::ast::DefP;
 use starlark_syntax::syntax::ast::Expr;
 use starlark_syntax::syntax::ast::ForP;
 use starlark_syntax::syntax::ast::Stmt;
+use starlark_syntax::syntax::module::AstModuleFields;
 use thiserror::Error;
 
 use crate::analysis::types::LintT;
@@ -317,11 +318,11 @@ fn no_effect(codemap: &CodeMap, x: &AstStmt, res: &mut Vec<LintT<FlowIssue>>) {
 
 pub(crate) fn lint(module: &AstModule) -> Vec<LintT<FlowIssue>> {
     let mut res = Vec::new();
-    stmt(&module.codemap, &module.statement, &mut res);
-    reachable(&module.codemap, &module.statement, &mut res);
-    redundant(&module.codemap, &module.statement, &mut res);
-    misplaced_load(&module.codemap, &module.statement, &mut res);
-    no_effect(&module.codemap, &module.statement, &mut res);
+    stmt(module.codemap(), module.statement(), &mut res);
+    reachable(module.codemap(), module.statement(), &mut res);
+    redundant(module.codemap(), module.statement(), &mut res);
+    misplaced_load(module.codemap(), module.statement(), &mut res);
+    no_effect(module.codemap(), module.statement(), &mut res);
     res
 }
 
@@ -381,7 +382,7 @@ def yes4() -> str:
 "#,
         );
         let mut res = Vec::new();
-        stmt(&m.codemap, &m.statement, &mut res);
+        stmt(m.codemap(), m.statement(), &mut res);
         assert_eq!(
             res.map(|x| x.problem.about()),
             &["no1", "no2", "no3", "no4"]
@@ -428,7 +429,7 @@ def f():
 "#,
         );
         let mut res = Vec::new();
-        reachable(&m.codemap, &m.statement, &mut res);
+        reachable(m.codemap(), m.statement(), &mut res);
         assert_eq!(
             res.map(|x| x.problem.about()),
             &["no1", "no2", "no3", "no4"]
@@ -471,7 +472,7 @@ def test7():
 "#,
         );
         let mut res = Vec::new();
-        redundant(&m.codemap, &m.statement, &mut res);
+        redundant(m.codemap(), m.statement(), &mut res);
         assert_eq!(
             res.map(|x| x.location.resolve_span().begin.line),
             &[3, 9, 19]
@@ -494,7 +495,7 @@ load("c", "b")
 "#,
         );
         let mut res = Vec::new();
-        misplaced_load(&m.codemap, &m.statement, &mut res);
+        misplaced_load(m.codemap(), m.statement(), &mut res);
         assert_eq!(res.len(), 1);
     }
 
@@ -520,7 +521,7 @@ def foo():
             .filter_map(|(i, x)| x.contains("## BAD").then_some(i))
             .collect::<Vec<_>>();
         let mut res = Vec::new();
-        no_effect(&m.codemap, &m.statement, &mut res);
+        no_effect(m.codemap(), m.statement(), &mut res);
         assert_eq!(res.map(|x| x.location.resolve_span().begin.line), bad);
     }
 }

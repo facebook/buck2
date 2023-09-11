@@ -26,6 +26,7 @@ use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::syntax::ast::LoadArgP;
 use starlark_syntax::syntax::ast::LoadP;
 use starlark_syntax::syntax::ast::StmtP;
+use starlark_syntax::syntax::module::AstModuleFields;
 use starlark_syntax::syntax::top_level_stmts::top_level_stmts;
 
 use crate::environment::names::MutableNames;
@@ -75,15 +76,16 @@ pub(crate) fn find_unused_loads(
     let module = AstModule::parse(name, program.to_owned(), &Dialect::Extended)?;
     let names = MutableNames::new();
     let heap = FrozenHeap::new();
-    let codemap = heap.alloc_any_display_from_type_name(module.codemap);
+    let (codemap, statement, dialect, ..) = module.into_parts();
+    let codemap = heap.alloc_any_display_from_type_name(codemap);
     let module_scopes = ModuleScopes::check_module_err(
         &names,
         &heap,
         &HashMap::new(),
-        module.statement,
+        statement,
         ScopeResolverGlobals::unknown(),
         codemap,
-        &module.dialect,
+        &dialect,
     )?;
 
     let mut loads = Vec::new();

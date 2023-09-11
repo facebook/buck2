@@ -97,6 +97,7 @@ use starlark::syntax::AstModule;
 use starlark_syntax::codemap::ResolvedPos;
 use starlark_syntax::syntax::ast::AstPayload;
 use starlark_syntax::syntax::ast::LoadArgP;
+use starlark_syntax::syntax::module::AstModuleFields;
 
 use crate::completion::StringCompletionResult;
 use crate::completion::StringCompletionType;
@@ -629,7 +630,7 @@ impl<T: LspContext> Backend<T> {
                             self.get_ast_or_load_from_disk(&url)
                                 .and_then(|ast| match ast {
                                     Some(module) => location_finder(&module.ast).map(|span| {
-                                        span.map(|span| module.ast.codemap.resolve_span(span))
+                                        span.map(|span| module.ast.codemap().resolve_span(span))
                                     }),
                                     None => Ok(None),
                                 });
@@ -954,7 +955,7 @@ impl<T: LspContext> Backend<T> {
             Some((previously_loaded_symbols, load_span)) => {
                 // We're already loading a symbol from this module path, construct
                 // a text edit that amends the existing load.
-                let load_span = ast.ast.codemap.resolve_span(*load_span);
+                let load_span = ast.ast.codemap().resolve_span(*load_span);
                 let mut load_args: Vec<(&str, &str)> = previously_loaded_symbols
                     .iter()
                     .map(|LoadArgP { local, their, .. }| {
@@ -1090,8 +1091,8 @@ impl<T: LspContext> Backend<T> {
                 // holding the `Scope` including AST nodes, this indirection
                 // should be removed.
                 find_symbols_at_location(
-                    &document.ast.codemap,
-                    &document.ast.statement,
+                    document.ast.codemap(),
+                    document.ast.statement(),
                     ResolvedPos {
                         line: destination.begin.line,
                         column: destination.begin.column,
@@ -1161,7 +1162,7 @@ impl<T: LspContext> Backend<T> {
                             contents: HoverContents::Array(vec![MarkedString::LanguageString(
                                 LanguageString {
                                     language: "python".to_owned(),
-                                    value: module.ast.codemap.source_span(location).to_owned(),
+                                    value: module.ast.codemap().source_span(location).to_owned(),
                                 },
                             )]),
                             range: Some(source.into()),

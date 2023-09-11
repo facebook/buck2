@@ -25,6 +25,7 @@ use starlark_map::unordered_map::UnorderedMap;
 use starlark_syntax::slice_vec_ext::VecExt;
 use starlark_syntax::syntax::ast::StmtP;
 use starlark_syntax::syntax::ast::Visibility;
+use starlark_syntax::syntax::module::AstModuleFields;
 use starlark_syntax::syntax::top_level_stmts::top_level_stmts_mut;
 
 use crate::codemap::CodeMap;
@@ -183,7 +184,7 @@ impl AstModuleTypecheck for AstModule {
         globals: &Globals,
         loads: &HashMap<String, Interface>,
     ) -> (Vec<anyhow::Error>, TypeMap, Interface, Vec<Approximation>) {
-        let codemap = self.codemap.dupe();
+        let (codemap, statement, _dialect, allow_string_literals_in_type_expr) = self.into_parts();
         let names = MutableNames::new();
         let frozen_heap = FrozenHeap::new();
         let (
@@ -197,11 +198,11 @@ impl AstModuleTypecheck for AstModule {
             &names,
             &frozen_heap,
             loads,
-            self.statement,
+            statement,
             ScopeResolverGlobals {
                 globals: Some(frozen_heap.alloc_any_display_from_debug(globals.dupe())),
             },
-            frozen_heap.alloc_any_display_from_debug(self.codemap.dupe()),
+            frozen_heap.alloc_any_display_from_debug(codemap.dupe()),
             &Dialect::Extended,
         );
         let scope_errors = scope_errors.into_map(TypingError::from_eval_exception);
@@ -216,7 +217,7 @@ impl AstModuleTypecheck for AstModule {
             oracle,
             &scope_data,
             &mut approximations,
-            self.allow_string_literals_in_type_expr,
+            allow_string_literals_in_type_expr,
         ) {
             Ok(fill_types_errors) => fill_types_errors,
             Err(e) => {

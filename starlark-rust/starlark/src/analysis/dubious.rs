@@ -22,6 +22,7 @@ use starlark_syntax::syntax::ast::AstLiteral;
 use starlark_syntax::syntax::ast::AstStmt;
 use starlark_syntax::syntax::ast::Expr;
 use starlark_syntax::syntax::ast::Stmt;
+use starlark_syntax::syntax::module::AstModuleFields;
 use thiserror::Error;
 
 use crate::analysis::types::LintT;
@@ -113,8 +114,8 @@ fn duplicate_dictionary_key(module: &AstModule, res: &mut Vec<LintT<Dubious>>) {
     }
 
     module
-        .statement
-        .visit_expr(|x| expr(x, &module.codemap, res))
+        .statement()
+        .visit_expr(|x| expr(x, module.codemap(), res))
 }
 
 fn identifier_as_statement(module: &AstModule, res: &mut Vec<LintT<Dubious>>) {
@@ -132,7 +133,7 @@ fn identifier_as_statement(module: &AstModule, res: &mut Vec<LintT<Dubious>>) {
         }
     }
 
-    stmt(&module.statement, &module.codemap, res)
+    stmt(module.statement(), module.codemap(), res)
 }
 
 pub(crate) fn lint(module: &AstModule) -> Vec<LintT<Dubious>> {

@@ -41,6 +41,7 @@ pub use starlark_syntax::call_stack::CallStack;
 use starlark_syntax::eval_exception::EvalException;
 use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::syntax::module::AstModule;
+use starlark_syntax::syntax::module::AstModuleFields;
 
 use crate::collections::symbol_map::Symbol;
 use crate::docs::DocString;
@@ -61,12 +62,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     pub fn eval_module(&mut self, ast: AstModule, globals: &Globals) -> anyhow::Result<Value<'v>> {
         let start = Instant::now();
 
-        let AstModule {
-            codemap,
-            statement,
-            dialect,
-            allow_string_literals_in_type_expr,
-        } = ast;
+        let (codemap, statement, dialect, allow_string_literals_in_type_expr) = ast.into_parts();
 
         let codemap = self
             .module_env

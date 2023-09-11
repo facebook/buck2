@@ -28,6 +28,7 @@ use starlark::syntax::AstModule;
 use starlark_syntax::syntax::ast::AstAssignIdent;
 use starlark_syntax::syntax::ast::Expr;
 use starlark_syntax::syntax::ast::Stmt;
+use starlark_syntax::syntax::module::AstModuleFields;
 use starlark_syntax::syntax::top_level_stmts::top_level_stmts;
 
 use crate::docs::get_doc_item_for_assign;
@@ -128,7 +129,7 @@ impl AstModuleExportedSymbols for AstModule {
         }
 
         let mut last_node = None;
-        for x in top_level_stmts(&self.statement) {
+        for x in top_level_stmts(self.statement()) {
             match &**x {
                 Stmt::Assign(assign) => {
                     assign.lhs.visit_lvalue(|name| {
