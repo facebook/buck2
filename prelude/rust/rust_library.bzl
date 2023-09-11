@@ -10,6 +10,7 @@ load(
     "ArtifactTSet",
     "make_artifact_tset",
 )
+load("@prelude//:paths.bzl", "paths")
 load("@prelude//:resources.bzl", "ResourceInfo", "gather_resources")
 load(
     "@prelude//android:android_providers.bzl",
@@ -615,6 +616,18 @@ def _native_providers(
                 default = LinkInfo(
                     linkables = [SharedLibLinkable(lib = lib.output)],
                     external_debug_info = external_debug_info,
+                ),
+                stripped = LinkInfo(
+                    linkables = [ArchiveLinkable(
+                        archive = Archive(
+                            artifact = strip_debug_info(
+                                ctx,
+                                paths.join(output_style.value, lib.output.short_path),
+                                lib.output,
+                            ),
+                        ),
+                        linker_type = linker_type,
+                    )],
                 ),
             )
         else:
