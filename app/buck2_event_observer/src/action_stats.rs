@@ -33,7 +33,7 @@ pub struct ActionStats {
 }
 
 impl ActionStats {
-    pub fn action_cache_hit_percentage(&self) -> u8 {
+    pub fn total_cache_hit_percentage(&self) -> u8 {
         // We want special semantics for the return value: the terminal values (0% and 100%)
         // should _only_ be used when there are exactly no cache hits and full cache hits.
         // So, even if we have 99.6% cache hits, we want to display 99% and conversely,
@@ -45,7 +45,7 @@ impl ActionStats {
         let total_cached_actions = self.total_cached_actions();
         if total_actions == 0 || total_cached_actions == total_actions {
             100
-        } else if self.cached_actions == 0 {
+        } else if total_cached_actions == 0 {
             0
         } else {
             let hit_percent = ((total_cached_actions as f64) / (total_actions as f64)) * 100f64;
@@ -99,9 +99,9 @@ impl fmt::Display for ActionStats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut action_stats_message = format!(
             "Cache hits: {}%. Commands: {} (cached: {}, remote: {}, local: {})",
-            self.action_cache_hit_percentage(),
+            self.total_cache_hit_percentage(),
             self.total_executed_and_cached_actions(),
-            self.cached_actions,
+            self.total_cached_actions(),
             self.remote_actions,
             self.local_actions
         );

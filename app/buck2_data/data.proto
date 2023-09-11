@@ -1386,6 +1386,8 @@ message FileWatcherEnd {
 
 message MatchDepFilesStart {
   bool checking_filtered_inputs = 1;
+  // True if the dep file entry was retrieved from the remote dep file cache
+  bool remote_cache = 2;
 }
 
 message MatchDepFilesEnd {}

@@ -153,6 +153,15 @@ impl CommandExecutionResult {
         }
     }
 
+    pub fn was_served_by_remote_dep_file_cache(&self) -> bool {
+        match self.report.status {
+            CommandExecutionStatus::Success {
+                execution_kind: CommandExecutionKind::RemoteDepFileCache { .. },
+            } => true,
+            _ => false,
+        }
+    }
+
     pub fn was_locally_executed(&self) -> bool {
         match self.report.status {
             CommandExecutionStatus::Success {

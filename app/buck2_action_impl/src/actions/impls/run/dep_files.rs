@@ -215,7 +215,6 @@ impl DepFileState {
     ) -> MappedMutexGuard<'a, StoredFingerprints> {
         // Now we need to know the signatures on the original action. Produce them if they're
         // missing. We're either storing input directories or outputs here.
-
         let mut guard = self.input_signatures.lock();
 
         if let DepFileStateInputSignatures::Deferred(ref mut directories) = *guard {
@@ -411,6 +410,7 @@ impl DepFileBundle {
         let (outputs, check_filterd_inputs) = span_async(
             buck2_data::MatchDepFilesStart {
                 checking_filtered_inputs: false,
+                remote_cache: false,
             },
             async {
                 let res: anyhow::Result<_> = try {
@@ -449,6 +449,7 @@ impl DepFileBundle {
         let matching_result = span_async(
             buck2_data::MatchDepFilesStart {
                 checking_filtered_inputs: true,
+                remote_cache: false,
             },
             async {
                 let res: anyhow::Result<_> = try {
@@ -479,6 +480,101 @@ impl DepFileBundle {
             )
         });
         Ok(matching_result)
+    }
+
+    pub async fn check_remote_dep_file_entry(
+        &self,
+        digest_config: DigestConfig,
+        fs: &ArtifactFs,
+        materializer: &dyn Materializer,
+        found: &RemoteDepFile,
+    ) -> anyhow::Result<bool> {
+        // Everything in the common digest structure is included in the remote dep file key,
+        // so they should be the same but it's good to double check.
+        let common = &self.common_digests;
+        if common.commandline_cli_digest.as_bytes().to_vec() != found.commandline_cli_digest {
+            tracing::debug!("Remote dep files miss: command cli digests are different");
+            return Ok(false);
+        }
+        if common.output_paths_digest.raw_digest().as_bytes().to_vec() != found.output_paths_digest
+        {
+            tracing::debug!("Remote dep files miss: output paths digest are different");
+            return Ok(false);
+        }
+        if common
+            .untagged_inputs_digest
+            .raw_digest()
+            .as_bytes()
+            .to_vec()
+            != found.untagged_inputs_digest
+        {
+            tracing::debug!("Remote dep files miss: untagged inputs digest are different");
+            return Ok(false);
+        }
+
+        // Ensure the declared dep files are the same
+        if self.declared_dep_files.tagged.len() != found.dep_file_inputs.len() {
+            tracing::debug!("Remote dep files miss: declared dep file counts are different");
+            return Ok(false);
+        }
+        let different_dep_files_count = self
+            .declared_dep_files
+            .tagged
+            .iter()
+            .zip(found.dep_file_inputs.iter())
+            .filter(|((_, d1), d2)| d1.output.get_path().to_string() != d2.dep_file_path)
+            .count();
+        if different_dep_files_count != 0 {
+            tracing::debug!("Remote dep files miss: declared dep files are different");
+            return Ok(false);
+        }
+
+        // Now we compare the filtered input digests.
+        // To do this,
+        // 1. Read the dep file contents, this should have been downloaded as part of the action cache lookup
+        // 2. Filter our inputs so that only the inputs mentioned in the dep files are retained
+        // 3. Compare that against the one we retrieved from the remote dep file cache: RemoteDepFile.dep_file_inputs
+        let dep_files = read_dep_files(
+            false,
+            // The declared dep files of this and the found action are the same
+            &self.declared_dep_files,
+            fs,
+            materializer,
+        )
+        .await
+        .context("Error reading dep files")?;
+
+        let dep_files = match dep_files {
+            Some(dep_files) => dep_files,
+            None => {
+                tracing::debug!("Remote dep files miss: Dep files cannot be materialized");
+                return Ok(false);
+            }
+        };
+
+        let computed_filtered_fingerprints = self
+            .shared_declared_inputs
+            .clone()
+            .unshare()
+            .filter(dep_files)
+            .fingerprint(digest_config);
+
+        let different_digest_count = computed_filtered_fingerprints
+            .tagged
+            .iter()
+            .zip(found.dep_file_inputs.iter())
+            .filter(|((_, f1), found)| {
+                f1.fingerprint().raw_digest().as_bytes().to_vec() != found.filtered_fingerprint
+            })
+            .count();
+
+        if different_digest_count != 0 {
+            tracing::debug!("Remote dep files miss: Filtered input digests are different");
+            return Ok(false);
+        }
+
+        // Everything matches! The action from cache can be used.
+        Ok(true)
     }
 }
 
@@ -811,7 +907,6 @@ async fn eagerly_compute_fingerprints(
     shared_declared_inputs: &PartitionedInputs<ActionSharedDirectory>,
     declared_dep_files: &DeclaredDepFiles,
 ) -> anyhow::Result<StoredFingerprints> {
-    //let directories = declared_inputs.to_directories(ctx)?;
     let dep_files = read_dep_files(false, declared_dep_files, artifact_fs, materializer)
         .await?
         .context("Dep file not found")?;

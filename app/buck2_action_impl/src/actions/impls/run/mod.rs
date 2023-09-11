@@ -37,8 +37,11 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::Wor
 use buck2_core::category::Category;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_events::dispatch::span_async;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
+use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::request::ActionMetadataBlob;
 use buck2_execute::execute::request::CommandExecutionInput;
 use buck2_execute::execute::request::CommandExecutionOutput;
@@ -47,6 +50,7 @@ use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::request::WorkerId;
 use buck2_execute::execute::request::WorkerSpec;
+use buck2_execute::execute::result::CommandExecutionResult;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::prelude::*;
@@ -74,6 +78,7 @@ use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use thiserror::Error;
 
+use self::dep_files::DepFileBundle;
 use crate::actions::impls::run::dep_files::make_dep_file_bundle;
 use crate::actions::impls::run::dep_files::populate_dep_files;
 use crate::actions::impls::run::dep_files::DepFilesCommandLineVisitor;
@@ -424,6 +429,64 @@ impl RunAction {
             worker,
         })
     }
+
+    pub async fn check_cache_result_is_useable(
+        &self,
+        ctx: &mut dyn ActionExecutionCtx,
+        request: &CommandExecutionRequest,
+        action_digest: &ActionDigest,
+        result: CommandExecutionResult,
+        dep_file_bundle: &Option<DepFileBundle>,
+    ) -> anyhow::Result<ControlFlow<CommandExecutionResult, CommandExecutionManager>> {
+        // If it's served by the regular action cache no need to verify anything here.
+        if !result.was_served_by_remote_dep_file_cache() {
+            return Ok(ControlFlow::Break(result));
+        }
+
+        if let Some(bundle) = dep_file_bundle {
+            if let Some(found_dep_file_entry) = &result.dep_file_metadata {
+                let can_use = span_async(
+                    buck2_data::MatchDepFilesStart {
+                        checking_filtered_inputs: true,
+                        remote_cache: true,
+                    },
+                    async {
+                        let res: anyhow::Result<_> = try {
+                            bundle
+                                .check_remote_dep_file_entry(
+                                    ctx.digest_config(),
+                                    ctx.fs(),
+                                    ctx.materializer(),
+                                    found_dep_file_entry,
+                                )
+                                .await?
+                        };
+
+                        (res, buck2_data::MatchDepFilesEnd {})
+                    },
+                )
+                .await?;
+
+                if can_use {
+                    tracing::info!(
+                        "Action result is cached via remote dep file cache, skipping execution of :\n```\n$ {}\n```\n for action `{}` with remote dep file key `{}`",
+                        request.all_args_str(),
+                        action_digest,
+                        bundle.remote_dep_file_key,
+                    );
+                    return Ok(ControlFlow::Break(result));
+                }
+            } else {
+                // This should not happen as we check for the metadata on the cache querier side.
+                tracing::debug!(
+                    "The remote dep file cache returned a hit for `{}`, but there is no metadata",
+                    bundle.remote_dep_file_key
+                );
+            }
+        }
+        // Continue through other options below
+        Ok(ControlFlow::Continue(ctx.command_execution_manager()))
+    }
 }
 
 pub(crate) struct PreparedRunAction {
@@ -578,15 +641,13 @@ impl IncrementalActionExecutable for RunAction {
             .with_force_full_hybrid_if_capable(self.inner.force_full_hybrid_if_capable)
             .with_unique_input_inodes(self.inner.unique_input_inodes);
 
-        let dep_file_bundle = if let Some(visitor) = dep_file_visitor {
-            Some(make_dep_file_bundle(
-                ctx,
-                visitor,
-                cmdline_digest,
-                req.paths(),
-            )?)
+        let (mut dep_file_bundle, req) = if let Some(visitor) = dep_file_visitor {
+            let bundle = make_dep_file_bundle(ctx, visitor, cmdline_digest, req.paths())?;
+            // Enable remote dep file cache lookup
+            let req = req.with_remote_dep_file_key(&bundle.remote_dep_file_key);
+            (Some(bundle), req)
         } else {
-            None
+            (None, req)
         };
 
         // First, check in the local dep file cache if an identical action can be found there.
@@ -608,27 +669,41 @@ impl IncrementalActionExecutable for RunAction {
         let prepared_action = ctx.prepare_action(&req)?;
         let manager = ctx.command_execution_manager();
 
-        let (mut result, mut dep_file_bundle) =
-            match ctx.action_cache(manager, &req, &prepared_action).await {
-                ControlFlow::Break(res) => (res, dep_file_bundle),
-                ControlFlow::Continue(manager) => {
-                    if let Some(dep_file_bundle) = &dep_file_bundle {
-                        if should_fully_check_dep_file_cache {
-                            let lookup = dep_file_bundle
-                                .check_local_dep_file_cache(ctx, self.outputs.as_slice())
-                                .await?;
-                            if let Some(m) = lookup {
-                                return Ok(m);
-                            }
-                        }
-                    };
+        let action_cache_result = ctx.action_cache(manager, &req, &prepared_action).await;
 
-                    (
-                        ctx.exec_cmd(manager, &req, &prepared_action).await,
-                        dep_file_bundle,
-                    )
-                }
-            };
+        // If the result was served by the remote dep file cache, we can't use the result just yet. We need to verify that
+        // the inputs tracked by a depfile that was actually used in the cache hit are indentical to the inputs we have for this action.
+        let result = if let ControlFlow::Break(res) = action_cache_result {
+            self.check_cache_result_is_useable(
+                ctx,
+                &req,
+                &prepared_action.action,
+                res,
+                &dep_file_bundle,
+            )
+            .await?
+        } else {
+            action_cache_result
+        };
+
+        // If the cache queries did not yield to a result, fallback to local dep file query (continuation), then execution.
+        let mut result = match result {
+            ControlFlow::Break(res) => res,
+            ControlFlow::Continue(manager) => {
+                if let Some(dep_file_bundle) = &dep_file_bundle {
+                    if should_fully_check_dep_file_cache {
+                        let lookup = dep_file_bundle
+                            .check_local_dep_file_cache(ctx, self.outputs.as_slice())
+                            .await?;
+                        if let Some(m) = lookup {
+                            return Ok(m);
+                        }
+                    }
+                };
+
+                ctx.exec_cmd(manager, &req, &prepared_action).await
+            }
+        };
 
         // If the action has a dep file, log the remote dep file key so we can look out for collisions
         if let Some(bundle) = &dep_file_bundle {

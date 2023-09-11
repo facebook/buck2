@@ -230,7 +230,7 @@ impl<'s> Component for CountComponent<'s> {
                         "Remaining: {}/{}. Cache hits: {}%. ",
                         remaining,
                         total,
-                        action_stats.action_cache_hit_percentage()
+                        action_stats.total_cache_hit_percentage()
                     );
                     if action_stats.fallback_actions > 0 {
                         actions_summary += format!(

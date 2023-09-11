@@ -256,13 +256,19 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
             )),
             Data::MatchDepFiles(buck2_data::MatchDepFilesStart {
                 checking_filtered_inputs,
+                remote_cache,
             }) => {
+                let location = if *remote_cache {
+                    "remote cache"
+                } else {
+                    "local"
+                };
                 let detail = if *checking_filtered_inputs {
                     "full"
                 } else {
                     "partial"
                 };
-                Ok(format!("dep_files({})", detail))
+                Ok(format!("dep_files({},{})", detail, location))
             }
             Data::SharedTask(..) => Ok("Waiting on task from another command".to_owned()),
             Data::CacheUpload(upload) => {

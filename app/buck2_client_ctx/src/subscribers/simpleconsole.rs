@@ -394,7 +394,7 @@ where
         let snapshots = self.observer().two_snapshots();
 
         if self.verbosity.print_status() && self.observer().action_stats().log_stats() {
-            let cache_hit_percentage = self.observer().action_stats().action_cache_hit_percentage();
+            let cache_hit_percentage = self.observer().action_stats().total_cache_hit_percentage();
             echo!("Cache hits: {}%", cache_hit_percentage)?;
             echo!(
                 "Commands: {} (cached: {}, remote: {}, local: {})",
