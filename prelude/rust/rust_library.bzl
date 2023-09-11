@@ -62,6 +62,7 @@ load(
     "create_shared_libraries",
     "merge_shared_libraries",
 )
+load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load(
     ":build.bzl",
@@ -148,17 +149,35 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     # Native link provier.
-    link = LinkInfo(
-        linkables = [ArchiveLinkable(
-            archive = Archive(artifact = ctx.attrs.rlib),
-            linker_type = "unknown",
-        )],
+    link = LinkInfos(
+        default = LinkInfo(
+            linkables = [
+                ArchiveLinkable(
+                    archive = Archive(artifact = ctx.attrs.rlib),
+                    linker_type = "unknown",
+                ),
+            ],
+        ),
+        stripped = LinkInfo(
+            linkables = [
+                ArchiveLinkable(
+                    archive = Archive(
+                        artifact = strip_debug_info(
+                            ctx = ctx,
+                            out = ctx.attrs.rlib.short_path,
+                            obj = ctx.attrs.rlib,
+                        ),
+                    ),
+                    linker_type = "unknown",
+                ),
+            ],
+        ),
     )
     providers.append(
         create_merged_link_info(
             ctx,
             PicBehavior("supported"),
-            {output_style: LinkInfos(default = link) for output_style in LibOutputStyle},
+            {output_style: link for output_style in LibOutputStyle},
             exported_deps = [d[MergedLinkInfo] for d in ctx.attrs.deps],
             # TODO(agallagher): This matches v1 behavior, but some of these libs
             # have prebuilt DSOs which might be usable.
@@ -175,7 +194,7 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 ctx = ctx,
                 preferred_linkage = Linkage("static"),
                 exported_deps = ctx.attrs.deps,
-                link_infos = {output_style: LinkInfos(default = link) for output_style in LibOutputStyle},
+                link_infos = {output_style: link for output_style in LibOutputStyle},
             ),
         ),
         deps = ctx.attrs.deps,
