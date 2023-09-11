@@ -266,7 +266,7 @@ watchdog() ->
         {nodedown, Node} ->
             io:format(
                 standard_error,
-                "The debugging session ended, termiating the test shell...~n",
+                "The debugging session ended, terminating the test shell...~n",
                 []
             ),
             erlang:halt()
