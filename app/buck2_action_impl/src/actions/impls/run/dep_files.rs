@@ -265,59 +265,41 @@ impl RunActionDepFiles {
     }
 }
 
-pub enum OutputPathsOrDigest<'a> {
-    Paths(&'a [(ProjectRelativePathBuf, OutputType)]),
-    Digest(DepFileDigest),
-}
-
-impl OutputPathsOrDigest<'_> {
-    fn get_digest(&mut self, digest_config: DigestConfig) -> &[u8] {
-        match self {
-            OutputPathsOrDigest::Paths(output_paths) => {
-                // Get a digest of the output paths
-                let mut digester = DepFileDigest::digester(digest_config.cas_digest_config());
-                digester.update(&output_paths.len().to_le_bytes());
-                for (output_path, output_type) in output_paths.iter() {
-                    digester.update(output_path.as_str().as_bytes());
-                    digester.update(&[*output_type as u8]);
-                }
-                let digest = digester.finalize();
-                *self = OutputPathsOrDigest::Digest(digest);
-            }
-            OutputPathsOrDigest::Digest(_) => (),
-        };
-        match self {
-            OutputPathsOrDigest::Digest(digest) => digest.raw_digest().as_bytes(),
-            OutputPathsOrDigest::Paths(..) => unreachable!(),
-        }
+fn get_output_path_digest(
+    digest_config: DigestConfig,
+    output_paths: &[(ProjectRelativePathBuf, OutputType)],
+) -> DepFileDigest {
+    let mut digester = DepFileDigest::digester(digest_config.cas_digest_config());
+    digester.update(&output_paths.len().to_le_bytes());
+    for (output_path, output_type) in output_paths.iter() {
+        digester.update(output_path.as_str().as_bytes());
+        digester.update(&[*output_type as u8]);
     }
+    digester.finalize()
 }
 
 // A utility struct to hold digests that are included in both remote depfile key and value
-pub struct CommonDigests<'a> {
+pub struct CommonDigests {
     commandline_cli_digest: ExpandedCommandLineDigest,
     // A digest of all output paths for this action
-    output_paths_digest: OutputPathsOrDigest<'a>,
+    output_paths_digest: DepFileDigest,
     // A digest of inputs that are untagged (not tied to a dep file)
     untagged_inputs_digest: TrackedFileDigest,
 }
-
-impl<'a> CommonDigests<'a> {
+impl CommonDigests {
     // Take the digest of everythig in the structure
-    fn fingerprint(&mut self, digest_config: DigestConfig) -> DepFileDigest {
+    fn fingerprint(&self, digest_config: DigestConfig) -> DepFileDigest {
         let mut digester = DepFileDigest::digester(digest_config.cas_digest_config());
 
-        let output_paths_digest = self.output_paths_digest.get_digest(digest_config);
-
-        digester.update(output_paths_digest);
+        digester.update(self.output_paths_digest.raw_digest().as_bytes());
         digester.update(self.commandline_cli_digest.as_bytes());
         digester.update(self.untagged_inputs_digest.raw_digest().as_bytes());
 
         digester.finalize()
     }
 
-    pub fn make_remote_dep_file_key(
-        &mut self,
+    fn make_remote_dep_file_key(
+        &self,
         digest_config: DigestConfig,
         mergebase: &Mergebase,
     ) -> DepFileDigest {
@@ -357,13 +339,12 @@ impl<'a> CommonDigests<'a> {
             .collect()
     }
 
-    fn make_remote_dep_file_entry(
-        &mut self,
-        digest_config: DigestConfig,
+    fn make_dep_file_entry_proto(
+        &self,
         declared_dep_files: &DeclaredDepFiles,
         filtered_input_fingerprints: &StoredFingerprints,
     ) -> RemoteDepFile {
-        let output_paths_digest = self.output_paths_digest.get_digest(digest_config).to_vec();
+        let output_paths_digest = self.output_paths_digest.raw_digest().as_bytes().to_vec();
         let commandline_cli_digest = self.commandline_cli_digest.as_bytes().to_vec();
         let untagged_inputs_digest = self.untagged_inputs_digest.raw_digest().as_bytes().to_vec();
         let dep_file_inputs =
@@ -378,16 +359,17 @@ impl<'a> CommonDigests<'a> {
     }
 }
 
-pub(crate) struct DepFileBundle<'a> {
+pub(crate) struct DepFileBundle {
     dep_files_key: DepFilesKey,
+    pub remote_dep_file_key: DepFileDigest,
     input_directory_digest: FileDigest,
     shared_declared_inputs: PartitionedInputs<ActionSharedDirectory>,
     declared_dep_files: DeclaredDepFiles,
     filtered_input_fingerprints: Option<StoredFingerprints>,
-    common_digests: CommonDigests<'a>,
+    common_digests: CommonDigests,
 }
 
-impl<'a> DepFileBundle<'a> {
+impl DepFileBundle {
     pub async fn make_remote_dep_file_entry(
         &mut self,
         ctx: &dyn ActionExecutionCtx,
@@ -407,16 +389,15 @@ impl<'a> DepFileBundle<'a> {
             );
         }
 
-        let entry = self.common_digests.make_remote_dep_file_entry(
-            digest_config,
+        let entry = self.common_digests.make_dep_file_entry_proto(
             &self.declared_dep_files,
             self.filtered_input_fingerprints.as_ref().unwrap(),
         );
 
-        let key = self
-            .common_digests
-            .make_remote_dep_file_key(digest_config, ctx.mergebase());
-        let res = DepFileEntry { key, entry };
+        let res = DepFileEntry {
+            key: self.remote_dep_file_key.dupe(),
+            entry,
+        };
 
         Ok(res)
     }
@@ -506,7 +487,7 @@ pub(crate) fn make_dep_file_bundle<'a>(
     visitor: DepFilesCommandLineVisitor<'_>,
     expanded_command_line_digest: ExpandedCommandLineDigest,
     execution_paths: &'a CommandExecutionPaths,
-) -> anyhow::Result<DepFileBundle<'a>> {
+) -> anyhow::Result<DepFileBundle> {
     let input_directory_digest = execution_paths
         .input_directory()
         .fingerprint()
@@ -542,11 +523,17 @@ pub(crate) fn make_dep_file_bundle<'a>(
     let common_digests = CommonDigests {
         commandline_cli_digest: expanded_command_line_digest,
         untagged_inputs_digest,
-        output_paths_digest: OutputPathsOrDigest::Paths(execution_paths.output_paths()),
+        output_paths_digest: get_output_path_digest(
+            ctx.digest_config(),
+            execution_paths.output_paths(),
+        ),
     };
+    let remote_dep_file_key =
+        common_digests.make_remote_dep_file_key(ctx.digest_config(), ctx.mergebase());
 
     Ok(DepFileBundle {
         dep_files_key,
+        remote_dep_file_key,
         input_directory_digest,
         shared_declared_inputs,
         declared_dep_files,
@@ -841,7 +828,7 @@ async fn eagerly_compute_fingerprints(
 /// Post-process the dep files produced by an action.
 pub(crate) async fn populate_dep_files(
     ctx: &dyn ActionExecutionCtx,
-    dep_file_bundle: DepFileBundle<'_>,
+    dep_file_bundle: DepFileBundle,
     result: &ActionOutputs,
 ) -> anyhow::Result<()> {
     let DepFileBundle {
@@ -851,6 +838,7 @@ pub(crate) async fn populate_dep_files(
         shared_declared_inputs,
         filtered_input_fingerprints,
         common_digests,
+        ..
     } = dep_file_bundle;
     let should_compute_fingerprints =
         declared_dep_files.is_empty() || ctx.run_action_knobs().eager_dep_files;

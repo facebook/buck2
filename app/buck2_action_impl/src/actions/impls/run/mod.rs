@@ -630,16 +630,20 @@ impl IncrementalActionExecutable for RunAction {
                 }
             };
 
+        // If the action has a dep file, log the remote dep file key so we can look out for collisions
+        if let Some(bundle) = &dep_file_bundle {
+            result.dep_file_key = Some(bundle.remote_dep_file_key.to_string())
+        }
+
         // If there is a dep file entry AND if dep file cache upload is enabled, upload it
         let upload_dep_file = self.inner.allow_dep_file_cache_upload && dep_file_bundle.is_some();
         if result.was_success() && (self.inner.allow_cache_upload || upload_dep_file) {
-            let (dep_file_entry, dep_file_key) = match &mut dep_file_bundle {
+            let dep_file_entry = match &mut dep_file_bundle {
                 Some(dep_file_bundle) if self.inner.allow_dep_file_cache_upload => {
                     let entry = dep_file_bundle.make_remote_dep_file_entry(ctx).await?;
-                    let key = entry.key.raw_digest().to_string();
-                    (Some(entry), Some(key))
+                    Some(entry)
                 }
-                _ => (None, None),
+                _ => None,
             };
             let upload_result = ctx
                 .cache_upload(prepared_action.action.dupe(), &result, dep_file_entry)
@@ -647,7 +651,6 @@ impl IncrementalActionExecutable for RunAction {
 
             result.did_cache_upload = upload_result.did_cache_upload;
             result.did_dep_file_cache_upload = upload_result.did_dep_file_cache_upload;
-            result.dep_file_key = dep_file_key;
         }
 
         let (outputs, metadata) = ctx.unpack_command_execution_result(
