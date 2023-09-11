@@ -93,6 +93,7 @@ def link(
         link_mode: [str, None] = None,
         link_style: LinkStyle = LinkStyle("static"),
         linker_flags: list[typing.Any] = [],
+        external_linker_flags: list[typing.Any] = [],
         shared: bool = False):
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     if go_toolchain.env_go_os == "windows":
@@ -140,6 +141,7 @@ def link(
     ext_links = get_link_args_for_strategy(ctx, cxx_inherited_link_info(deps), to_link_strategy(link_style))
     ext_link_args = cmd_args(unpack_link_args(ext_links))
     ext_link_args.add(cmd_args(extra_link_args, quote = "shell"))
+    ext_link_args.add(external_linker_flags)
 
     if link_mode == None:
         if go_toolchain.cxx_toolchain_for_linking != None:
