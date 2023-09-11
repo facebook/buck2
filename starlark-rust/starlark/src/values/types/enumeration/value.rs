@@ -104,13 +104,6 @@ where
         }
     }
 
-    fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
-        match EnumValue::from_value(other) {
-            Some(other) if self.typ.equals(other.typ)? => Ok(self.index == other.index),
-            _ => Ok(false),
-        }
-    }
-
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
         self.value.write_hash(hasher)
     }
