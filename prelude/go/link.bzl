@@ -23,6 +23,7 @@ load(
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
+load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load(
     "@prelude//utils:utils.bzl",
     "map_idx",
@@ -151,6 +152,8 @@ def link(
     cmd.add("-linkmode", link_mode)
 
     if link_mode == "external":
+        is_win = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+
         # Delegate to C++ linker...
         # TODO: It feels a bit inefficient to generate a wrapper file for every
         # link.  Is there some way to etract the first arg of `RunInfo`?  Or maybe
@@ -162,13 +165,13 @@ def link(
                 cxx_toolchain.linker_info.linker_flags,
                 go_toolchain.external_linker_flags,
                 ext_link_args,
-                "\"$@\"",
+                "%*" if is_win else "\"$@\"",
             ],
             delimiter = " ",
         )
         linker_wrapper, _ = ctx.actions.write(
-            "__{}_cxx_link_wrapper__.sh".format(ctx.label.name),
-            ["#!/bin/sh", cxx_link_cmd],
+            "__{}_cxx_link_wrapper__.{}".format(ctx.label.name, "bat" if is_win else "sh"),
+            ([] if is_win else ["#!/bin/sh"]) + [cxx_link_cmd],
             allow_args = True,
             is_executable = True,
         )
