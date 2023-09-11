@@ -45,6 +45,7 @@ load(
     "create_shared_libraries",
     "merge_shared_libraries",
 )
+load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//utils:utils.bzl", "expect", "flatten_dict")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
@@ -109,18 +110,32 @@ def _parse_macro(arg: str) -> [(str, str), None]:
 
     return macro, param
 
-def _get_static_link_info(
+def _get_static_link_infos(
+        ctx: AnalysisContext,
         linker_type: str,
         libs: list[Artifact],
-        args: list[str]) -> LinkInfo:
+        args: list[str]) -> LinkInfos:
     """
     Format a pair of static link string args and static libs into args to be
     passed to the link, by resolving macro references to libraries.
     """
 
+    def archive_linkable(artifact):
+        return ArchiveLinkable(
+            archive = Archive(artifact = artifact),
+            linker_type = linker_type,
+            # We assume prebuilt C/C++ libs don't contain LTO code and
+            # avoid potentially expensive processing of the to support
+            # dist LTO.  In additional, some prebuilt library groups
+            # use `--start-group`/`--end-group` which breaks with our
+            # dist LTO impl wrapping w/ `--start-lib`.
+            supports_lto = False,
+        )
+
     pre_flags = []
     post_flags = []
     linkables = []
+    linkables_stripped = []
 
     for arg in args:
         res = _parse_macro(arg)
@@ -134,18 +149,9 @@ def _get_static_link_info(
             # archives.
             macro, param = res
             expect(macro == "lib")
-            linkables.append(
-                ArchiveLinkable(
-                    archive = Archive(artifact = libs[int(param)]),
-                    linker_type = linker_type,
-                    # We assume prebuilt C/C++ libs don't contain LTO code and
-                    # avoid potentially expensive processing of the to support
-                    # dist LTO.  In additional, some prebuilt library groups
-                    # use `--start-group`/`--end-group` which breaks with our
-                    # dist LTO impl wrapping w/ `--start-lib`.
-                    supports_lto = False,
-                ),
-            )
+            lib = libs[int(param)]
+            linkables.append(archive_linkable(lib))
+            linkables_stripped.append(archive_linkable(strip_debug_info(ctx, lib.short_path, lib, anonymous = True)))
         elif linkables:
             # If we've already seen linkables, put remaining flags/args into
             # post-linker flags.
@@ -153,17 +159,24 @@ def _get_static_link_info(
         else:
             pre_flags.append(arg)
 
-    return LinkInfo(
-        pre_flags = pre_flags,
-        post_flags = post_flags,
-        linkables = linkables,
+    return LinkInfos(
+        default = LinkInfo(
+            pre_flags = pre_flags,
+            post_flags = post_flags,
+            linkables = linkables,
+        ),
+        stripped = LinkInfo(
+            pre_flags = pre_flags,
+            post_flags = post_flags,
+            linkables = linkables_stripped,
+        ),
     )
 
-def _get_shared_link_info(
+def _get_shared_link_infos(
         ctx: AnalysisContext,
         shared_libs: dict[str, Artifact],
         args: list[str],
-        shlib_intfs: bool = True) -> LinkInfo:
+        shlib_intfs: bool = True) -> LinkInfos:
     """
     Format a pair of shared link string args and shared libs into args to be
     passed to the link, by resolving macro references to libraries.
@@ -204,10 +217,12 @@ def _get_shared_link_info(
         else:
             pre_flags.append(arg)
 
-    return LinkInfo(
-        pre_flags = pre_flags,
-        post_flags = post_flags,
-        linkables = linkables,
+    return LinkInfos(
+        default = LinkInfo(
+            pre_flags = pre_flags,
+            post_flags = post_flags,
+            linkables = linkables,
+        ),
     )
 
 # The `prebuilt_cxx_library_group` rule is meant to provide fine user control for
@@ -272,21 +287,23 @@ def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> list[Provider]:
         outs = []
         if output_style == LibOutputStyle("archive"):
             outs.extend(ctx.attrs.static_libs)
-            info = _get_static_link_info(
+            infos = _get_static_link_infos(
+                ctx,
                 linker_type,
                 ctx.attrs.static_libs,
                 ctx.attrs.static_link,
             )
         elif output_style == LibOutputStyle("pic_archive"):
             outs.extend(ctx.attrs.static_pic_libs)
-            info = _get_static_link_info(
+            infos = _get_static_link_infos(
+                ctx,
                 linker_type,
                 ctx.attrs.static_pic_libs,
                 ctx.attrs.static_pic_link,
             )
         else:  # shared
             outs.extend(ctx.attrs.shared_libs.values())
-            info = _get_shared_link_info(
+            infos = _get_shared_link_infos(
                 ctx = ctx,
                 shared_libs = flatten_dict([ctx.attrs.shared_libs, ctx.attrs.provided_shared_libs]),
                 args = ctx.attrs.shared_link,
@@ -295,7 +312,7 @@ def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> list[Provider]:
             solibs.update({n: LinkedObject(output = lib, unstripped_output = lib) for n, lib in ctx.attrs.shared_libs.items()})
         outputs[output_style] = outs
 
-        libraries[output_style] = LinkInfos(default = info)
+        libraries[output_style] = infos
 
     # This code is already compiled, so, the argument (probably) has little/no value.
     pic_behavior = PicBehavior("supported")
