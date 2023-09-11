@@ -9,7 +9,9 @@
 
 use std::sync::Arc;
 
+use anyhow::Context;
 use async_trait::async_trait;
+use buck2_core::fs::async_fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_events::BuckEvent;
 
@@ -30,7 +32,9 @@ impl EventSubscriber for BuildIdWriter {
     async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> anyhow::Result<()> {
         for event in events {
             if event.command_start()?.is_some() {
-                tokio::fs::write(&self.path, event.trace_id()?.to_string()).await?;
+                async_fs_util::write(&self.path, event.trace_id()?.to_string())
+                    .await
+                    .context("Error writing build ID")?;
             }
         }
         Ok(())

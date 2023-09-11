@@ -19,3 +19,10 @@ pub async fn open<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<File> {
         .await
         .with_context(|| format!("open({})", path.as_ref().display()))
 }
+
+pub async fn write<P: AsRef<AbsPath>>(path: P, content: impl AsRef<[u8]>) -> anyhow::Result<()> {
+    let _guard = IoCounterKey::Write.guard();
+    tokio::fs::write(path.as_ref().as_maybe_relativized(), content.as_ref())
+        .await
+        .with_context(|| format!("write({})", path.as_ref().display()))
+}
