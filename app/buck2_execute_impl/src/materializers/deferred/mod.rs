@@ -188,6 +188,8 @@ pub struct TtlRefreshConfiguration {
 pub enum AccessTimesUpdates {
     /// Flushes when the buffer is full and periodically
     Full,
+    ///Flushes only when buffer is full
+    Partial,
     /// Does not flush at all
     Disabled,
 }
@@ -195,7 +197,7 @@ pub enum AccessTimesUpdates {
 #[derive(Debug, Error)]
 pub enum AccessTimesUpdatesError {
     #[error(
-        "Invalid value for buckconfig `[buck2] update_access_times`. Got `{0}`. Expected one of `full`, or `disabled`."
+        "Invalid value for buckconfig `[buck2] update_access_times`. Got `{0}`. Expected one of `full`, `partial`  or `disabled`."
     )]
     InvalidValueForConfig(String),
 }
@@ -204,6 +206,7 @@ impl AccessTimesUpdates {
     pub fn try_new_from_config_value(config_value: Option<&str>) -> anyhow::Result<Self> {
         match config_value {
             None | Some("") | Some("full") => Ok(AccessTimesUpdates::Full),
+            Some("partial") => Ok(AccessTimesUpdates::Partial),
             Some("disabled") => Ok(AccessTimesUpdates::Disabled),
             Some(v) => Err(AccessTimesUpdatesError::InvalidValueForConfig(v.to_owned()).into()),
         }
@@ -1026,6 +1029,7 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
                         command_receiver,
                         configs.ttl_refresh,
                         access_time_update_max_buffer_size,
+                        configs.update_access_times,
                     ));
                 }
             })
@@ -1125,6 +1129,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         commands: MaterializerReceiver<T>,
         ttl_refresh: TtlRefreshConfiguration,
         access_time_update_max_buffer_size: usize,
+        access_time_updates: AccessTimesUpdates,
     ) {
         let MaterializerReceiver {
             high_priority,
@@ -1201,8 +1206,10 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     }
                 }
                 Op::Tick => {
-                    // Force a periodic flush.
-                    self.flush_access_times(0);
+                    if matches!(access_time_updates, AccessTimesUpdates::Full) {
+                        // Force a periodic flush.
+                        self.flush_access_times(0);
+                    };
                 }
             }
         }
