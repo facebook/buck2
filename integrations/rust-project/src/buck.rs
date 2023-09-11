@@ -512,9 +512,9 @@ pub fn select_mode(mode: Option<String>) -> Option<String> {
     if let Some(mode) = mode {
         Some(mode)
     } else if cfg!(target_os = "macos") {
-        Some("@//mode/mac".to_owned())
+        Some("@fbcode//mode/mac".to_owned())
     } else if cfg!(target_os = "windows") {
-        Some("@//mode/win".to_owned())
+        Some("@fbcode//mode/win".to_owned())
     } else {
         // fallback to the platform default mode. This is likely slower than optimal, but
         // `rust-project check` will work.
