@@ -231,12 +231,12 @@ fn resolve_flagfile(path: &str, context: &mut ImmediateConfigContext) -> anyhow:
                     // doesn't exist, just report the original error back, and
                     // don't tip users off that they can use relative-to-cell paths.
                     // We want to deprecate that.
-                    match fs_util::canonicalize(cell_relative_path) {
-                        Ok(abs_path) => {
+                    match fs_util::try_exists(&cell_relative_path) {
+                        Ok(true) => {
                             log_relative_path_from_cell_root(path_part)?;
-                            Ok(abs_path)
+                            Ok(cell_relative_path)
                         }
-                        Err(_) => Err(ArgExpansionError::MissingFlagFileOnDisk {
+                        _ => Err(ArgExpansionError::MissingFlagFileOnDisk {
                             source: original_error,
                             path: p.to_string_lossy().into_owned(),
                         }),
