@@ -134,61 +134,83 @@ async fn upload_task(
 
     let manifold_client = ManifoldClient::new(allow_vpnless)?;
     let manifold_path = format!("flat/{}", manifold_name);
-    let ttl = MANIFOLD_TTL_S.get_copied()?.map(manifold::Ttl::from_secs);
-
-    let mut upload = manifold_client.start_chunked_upload(
-        manifold::Bucket::EVENT_LOGS,
-        &manifold_path,
-        ttl.unwrap_or_default(),
-    );
-
-    let reader = ChunkReader::new()?;
-    let mut total_bytes = 0_u64;
+    let mut uploader = Uploader::new(file_mutex, &manifold_path, &manifold_client)?;
 
     while let Some(n) = rx.recv().await {
-        total_bytes += n;
-        while should_upload_chunk(total_bytes, &upload, &reader).await? {
-            upload_chunk(&mut upload, file_mutex, &reader).await?;
+        uploader.bump_total_bytes(n);
+        while uploader.can_fill_chunk()? {
+            uploader.upload_chunk().await?;
         }
     }
 
     // When tx gets dropped, rx will return None
-    while should_upload_chunk(total_bytes, &upload, &reader).await? {
-        upload_chunk(&mut upload, file_mutex, &reader).await?;
+    while uploader.can_fill_chunk()? {
+        uploader.upload_chunk().await?;
     }
 
     // Last chunk to upload is smaller than &reader
-    upload_chunk(&mut upload, file_mutex, &reader).await?;
+    uploader.upload_chunk().await?;
 
     Ok(())
 }
 
-async fn should_upload_chunk(
+/// Provides methods to:
+/// - decide when to upload a chunk of the log file
+/// - do the actual upload, which is mostly managed by `ManifoldChunkedUploader`
+struct Uploader<'a> {
+    file_mutex: &'a Mutex<File>,
+    manifold: ManifoldChunkedUploader<'a>,
+    reader: ChunkReader,
     total_bytes: u64,
-    uploader: &ManifoldChunkedUploader<'_>,
-    reader: &ChunkReader,
-) -> anyhow::Result<bool> {
-    Ok(total_bytes
-        .checked_sub(uploader.position())
-        .ok_or(PersistLogError::ReadBytesOverflow)?
-        > reader.chunk_size())
 }
 
-async fn upload_chunk(
-    uploader: &mut ManifoldChunkedUploader<'_>,
-    file_mutex: &Mutex<File>,
-    reader: &ChunkReader,
-) -> anyhow::Result<()> {
-    let mut file = file_mutex.lock().await;
-    // Upload chunk
-    file.seek(io::SeekFrom::Start(uploader.position()))
-        .await
-        .context("Failed to seek log file")?;
-    let buf = reader.read(&mut *file).await?;
-    drop(file);
+impl<'a> Uploader<'a> {
+    fn new(
+        file_mutex: &'a Mutex<File>,
+        manifold_path: &'a str,
+        manifold_client: &'a ManifoldClient,
+    ) -> anyhow::Result<Self> {
+        let ttl = MANIFOLD_TTL_S.get_copied()?.map(manifold::Ttl::from_secs);
 
-    uploader.write(buf.into()).await?;
-    Ok(())
+        let manifold = manifold_client.start_chunked_upload(
+            manifold::Bucket::EVENT_LOGS,
+            manifold_path,
+            ttl.unwrap_or_default(),
+        );
+
+        Ok(Self {
+            file_mutex,
+            manifold,
+            reader: ChunkReader::new()?,
+            total_bytes: 0,
+        })
+    }
+
+    /// Uploads at most 'chunk size' bytes to Manifold
+    /// Also updates total_bytes counter
+    async fn upload_chunk(&mut self) -> anyhow::Result<()> {
+        let mut file = self.file_mutex.lock().await;
+        file.seek(io::SeekFrom::Start(self.manifold.position()))
+            .await
+            .context("Failed to seek log file")?;
+        let buf = self.reader.read(&mut *file).await?;
+        drop(file);
+
+        self.manifold.write(buf.into()).await?;
+        Ok(())
+    }
+
+    fn bump_total_bytes(&mut self, n: u64) {
+        self.total_bytes += n
+    }
+
+    fn can_fill_chunk(&mut self) -> anyhow::Result<bool> {
+        Ok(self
+            .total_bytes
+            .checked_sub(self.manifold.position())
+            .ok_or(PersistLogError::ReadBytesOverflow)?
+            > self.reader.chunk_size())
+    }
 }
 
 async fn write_to_file(
