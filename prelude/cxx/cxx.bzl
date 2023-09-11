@@ -51,6 +51,7 @@ load(
     "create_linkable_node",
 )
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "create_shared_libraries", "merge_shared_libraries")
+load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load(
     "@prelude//tests:re_utils.bzl",
@@ -331,6 +332,19 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     preferred_linkage = _prebuilt_linkage(ctx)
 
+    # Prepare the stripped static lib.
+    static_lib_stripped = None
+    if static_lib != None:
+        static_lib_stripped = strip_debug_info(ctx, static_lib.short_path, static_lib)
+
+    # Prepare the stripped static PIC lib.  If the static PIC lib is the same
+    # artifact as the static lib, then just re-use the stripped static lib.
+    static_pic_lib_stripped = None
+    if static_lib == static_pic_lib:
+        static_pic_lib_stripped = static_lib_stripped
+    elif static_pic_lib != None:
+        static_pic_lib_stripped = strip_debug_info(ctx, static_pic_lib.short_path, static_pic_lib)
+
     if ctx.attrs.soname != None:
         soname = get_shared_library_name_for_param(linker_info, ctx.attrs.soname)
     else:
@@ -377,6 +391,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         args.extend(cxx_attr_exported_linker_flags(ctx))
         post_link_flags = cxx_attr_exported_post_linker_flags(ctx)
         linkable = None
+        linkable_stripped = None
 
         # If we have sources to compile, generate the necessary libraries and
         # add them to the exported link info.
@@ -392,11 +407,13 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 if static_lib:
                     out = static_lib
                     linkable = archive_linkable(static_lib)
+                    linkable_stripped = archive_linkable(static_lib_stripped)
             elif output_style == LibOutputStyle("pic_archive"):
                 lib = static_pic_lib or static_lib
                 if lib:
                     out = lib
                     linkable = archive_linkable(lib)
+                    linkable_stripped = archive_linkable(static_pic_lib_stripped or static_lib_stripped)
             else:  # shared
                 # If no shared library was provided, link one from the static libraries.
                 if shared_lib != None:
@@ -478,6 +495,12 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 pre_flags = args,
                 post_flags = post_link_flags,
                 linkables = [linkable] if linkable else [],
+            ),
+            stripped = None if linkable_stripped == None else LinkInfo(
+                name = ctx.attrs.name,
+                pre_flags = args,
+                post_flags = post_link_flags,
+                linkables = [linkable_stripped],
             ),
         )
 
