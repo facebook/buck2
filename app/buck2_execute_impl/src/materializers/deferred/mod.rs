@@ -175,13 +175,39 @@ pub struct DeferredMaterializerConfigs {
     pub materialize_final_artifacts: bool,
     pub defer_write_actions: bool,
     pub ttl_refresh: TtlRefreshConfiguration,
-    pub update_access_times: bool,
+    pub update_access_times: AccessTimesUpdates,
 }
 
 pub struct TtlRefreshConfiguration {
     pub frequency: std::time::Duration,
     pub min_ttl: Duration,
     pub enabled: bool,
+}
+
+#[derive(Clone, Copy, Debug, Dupe, PartialEq)]
+pub enum AccessTimesUpdates {
+    /// Flushes when the buffer is full and periodically
+    Full,
+    /// Does not flush at all
+    Disabled,
+}
+
+#[derive(Debug, Error)]
+pub enum AccessTimesUpdatesError {
+    #[error(
+        "Invalid value for buckconfig `[buck2] update_access_times`. Got `{0}`. Expected one of `full`, or `disabled`."
+    )]
+    InvalidValueForConfig(String),
+}
+
+impl AccessTimesUpdates {
+    pub fn try_new_from_config_value(config_value: Option<&str>) -> anyhow::Result<Self> {
+        match config_value {
+            None | Some("") | Some("full") => Ok(AccessTimesUpdates::Full),
+            Some("disabled") => Ok(AccessTimesUpdates::Disabled),
+            Some(v) => Err(AccessTimesUpdatesError::InvalidValueForConfig(v.to_owned()).into()),
+        }
+    }
 }
 
 #[derive(Copy, Dupe, Clone)]
@@ -927,7 +953,9 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
         let materializer_state_info = buck2_data::MaterializerStateInfo {
             num_entries_from_sqlite,
         };
-        let access_times_buffer = configs.update_access_times.then(HashSet::new);
+        let access_times_buffer =
+            (!matches!(configs.update_access_times, AccessTimesUpdates::Disabled))
+                .then(HashSet::new);
 
         let mut tree = ArtifactTree::new();
         if let Some(sqlite_state) = sqlite_state {

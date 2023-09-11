@@ -47,6 +47,7 @@ use buck2_execute::execute::blocking::BuckBlockingExecutor;
 use buck2_execute::materialize::materializer::MaterializationMethod;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ReConnectionManager;
+use buck2_execute_impl::materializers::deferred::AccessTimesUpdates;
 use buck2_execute_impl::materializers::deferred::DeferredMaterializer;
 use buck2_execute_impl::materializers::deferred::DeferredMaterializerConfigs;
 use buck2_execute_impl::materializers::deferred::TtlRefreshConfiguration;
@@ -328,9 +329,9 @@ impl DaemonState {
                     .unwrap_or_else(RolloutPercentage::never)
                     .roll();
 
-                let update_access_times = root_config
-                    .parse("buck2", "update_access_times")?
-                    .unwrap_or(true);
+                let update_access_times = AccessTimesUpdates::try_new_from_config_value(
+                    root_config.get("buck2", "update_access_times"),
+                )?;
 
                 DeferredMaterializerConfigs {
                     materialize_final_artifacts: matches!(
