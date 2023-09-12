@@ -12,7 +12,7 @@ pub mod associated;
 pub mod output_artifact_like;
 mod starlark_artifact;
 pub mod starlark_artifact_like;
-mod starlark_artifact_value;
+pub(crate) mod starlark_artifact_value;
 mod starlark_declared_artifact;
 pub(crate) mod starlark_output_artifact;
 mod starlark_promise_artifact;

@@ -21,11 +21,13 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use gazebo::prelude::*;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
+use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::values::dict::Dict;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
@@ -110,6 +112,11 @@ fn artifact_value_methods(builder: &mut MethodsBuilder) {
             .with_context(|| format!("Error parsing JSON file `{}`", path))?;
         json_convert(value, heap)
     }
+}
+
+#[starlark_module]
+pub(crate) fn register_artifact_value(globals: &mut GlobalsBuilder) {
+    const ArtifactValue: StarlarkValueAsType<StarlarkArtifactValue> = StarlarkValueAsType::new();
 }
 
 #[cfg(test)]
