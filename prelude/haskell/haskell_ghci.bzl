@@ -168,7 +168,7 @@ def _build_haskell_omnibus_so(ctx: AnalysisContext) -> HaskellOmnibusData:
 
     # Map node label to its dependencies' labels
     dep_graph = {
-        nlabel: get_deps_for_link(n, link_style, pic_behavior)
+        nlabel: get_deps_for_link(n, to_link_strategy(link_style), pic_behavior)
         for nlabel, n in graph_nodes.items()
     }
 
