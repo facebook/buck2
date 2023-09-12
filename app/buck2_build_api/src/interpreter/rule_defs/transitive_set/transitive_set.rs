@@ -35,9 +35,9 @@ use starlark::values::typing::TypeMatcher;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
-use starlark::values::Heap;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
@@ -207,6 +207,12 @@ impl<'v, V: ValueLike<'v>> TransitiveSetGen<V> {
             key: self.key.dupe(),
             projection,
         }
+    }
+
+    pub(crate) fn definition(
+        &self,
+    ) -> anyhow::Result<ValueTypedComplex<'v, TransitiveSetDefinition<'v>>> {
+        ValueTypedComplex::unpack_value_err(self.definition.to_value()).context("(internal error)")
     }
 }
 
@@ -495,8 +501,7 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
         this: ValueOf<'v, &'v TransitiveSet<'v>>,
         projection: &str,
         #[starlark(require = named, default = "preorder")] ordering: &str,
-        heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<TransitiveSetJsonProjection<'v>> {
         let def = transitive_set_definition_from_value(this.typed.definition)
             .context("Invalid this.definition")?;
 
@@ -504,19 +509,18 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
             .operations()
             .get_index_of_projection(TransitiveSetProjectionKind::Json, projection)?;
 
-        Ok(heap.alloc(TransitiveSetJsonProjection {
+        Ok(TransitiveSetJsonProjection {
             transitive_set: this.value,
             projection: index,
             ordering: TransitiveSetOrdering::parse(ordering)?,
-        }))
+        })
     }
 
     fn project_as_args<'v>(
         this: ValueOf<'v, &'v TransitiveSet<'v>>,
         projection: &str,
         #[starlark(require = named, default = "preorder")] ordering: &str,
-        heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<TransitiveSetArgsProjection<'v>> {
         let def = transitive_set_definition_from_value(this.typed.definition)
             .context("Invalid this.definition")?;
 
@@ -524,11 +528,11 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
             .operations()
             .get_index_of_projection(TransitiveSetProjectionKind::Args, projection)?;
 
-        Ok(heap.alloc(TransitiveSetArgsProjection {
+        Ok(TransitiveSetArgsProjection {
             transitive_set: this.value,
             projection: index,
             ordering: TransitiveSetOrdering::parse(ordering)?,
-        }))
+        })
     }
 
     fn reduce<'v>(
@@ -563,18 +567,19 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
 
     fn traverse<'v>(
         this: ValueOf<'v, &'v TransitiveSet<'v>>,
-        heap: &'v Heap,
         #[starlark(require = named, default = "preorder")] ordering: &str,
-    ) -> anyhow::Result<Value<'v>> {
-        Ok(heap.alloc(TransitiveSetTraversal {
+    ) -> anyhow::Result<TransitiveSetTraversal<'v>> {
+        Ok(TransitiveSetTraversal {
             inner: this.value,
             ordering: TransitiveSetOrdering::parse(ordering)?,
-        }))
+        })
     }
 
     #[starlark(attribute)]
-    fn definition<'v>(this: ValueOf<'v, &'v TransitiveSet<'v>>) -> anyhow::Result<Value<'v>> {
-        Ok(this.typed.definition)
+    fn definition<'v>(
+        this: ValueOf<'v, &'v TransitiveSet<'v>>,
+    ) -> anyhow::Result<ValueTypedComplex<'v, TransitiveSetDefinition<'v>>> {
+        this.typed.definition()
     }
 
     #[starlark(attribute)]
