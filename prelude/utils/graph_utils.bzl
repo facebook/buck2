@@ -130,7 +130,7 @@ def breadth_first_traversal(
     return breadth_first_traversal_by(graph_nodes, roots, lookup)
 
 def breadth_first_traversal_by(
-        graph_nodes: dict[typing.Any, typing.Any],
+        graph_nodes: [dict[typing.Any, typing.Any], None],
         roots: list[typing.Any],
         get_nodes_to_traverse_func) -> list[typing.Any]:
     """
@@ -150,11 +150,12 @@ def breadth_first_traversal_by(
 
     queue = visited.keys()
 
-    for _ in range(len(graph_nodes)):
+    for _ in range(len(graph_nodes) if graph_nodes else 2000000000):
         if not queue:
             break
         node = queue.pop()
-        expect(node in graph_nodes, "Expected node {} in graph nodes", node)
+        if graph_nodes:
+            expect(node in graph_nodes, "Expected node {} in graph nodes", node)
         nodes_to_visit = get_nodes_to_traverse_func(node)
         for node in nodes_to_visit:
             if node not in visited:
