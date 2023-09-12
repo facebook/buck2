@@ -98,14 +98,14 @@ LinkableGraphNode = record(
     label = field(Label),
 
     # If this node has linkable output, it's linkable data
-    linkable = field([LinkableNode, None], None),
+    linkable = field([LinkableNode, None]),
 
     # All potential root notes for an omnibus link (e.g. C++ libraries,
     # C++ Python extensions).
-    roots = field(dict[Label, AnnotatedLinkableRoot], {}),
+    roots = field(dict[Label, AnnotatedLinkableRoot]),
 
     # Exclusions this node adds to the Omnibus graph
-    excluded = field(dict[Label, None], {}),
+    excluded = field(dict[Label, None]),
 
     # Only allow constructing within this file.
     _private = _DisallowConstruction,
