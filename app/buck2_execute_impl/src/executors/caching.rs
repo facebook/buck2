@@ -113,13 +113,18 @@ impl CacheUploader {
     /// and cache uploads must have been enabled for this action.
     async fn upload_dep_file_result(
         &self,
+        action_digest: &ActionDigest,
         target: &dyn CommandExecutionTarget,
         result: &CommandExecutionResult,
         digest_config: DigestConfig,
         dep_file_entry: DepFileEntry,
         error_on_cache_upload: bool,
     ) -> anyhow::Result<bool> {
-        tracing::debug!("Uploading dep file entry for `{}`", dep_file_entry.key);
+        tracing::debug!(
+            "Uploading dep file entry for action `{}` with dep file key `{}`",
+            action_digest,
+            dep_file_entry.key
+        );
         let digest_re = dep_file_entry.key.to_re();
         let dep_file_tany = TAny {
             type_url: REMOTE_DEP_FILE_KEY.to_owned(),
@@ -447,6 +452,7 @@ impl UploadCache for CacheUploader {
         let did_dep_file_cache_upload = match dep_file_entry {
             Some(dep_file_entry) if res.was_success() => {
                 self.upload_dep_file_result(
+                    action,
                     info.target.dupe(),
                     res,
                     info.digest_config,

@@ -224,6 +224,13 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 let disable_caching =
                     disable_caching || (!remote_cache_enabled && !remote_dep_file_cache_enabled);
 
+                // This is for test only as in real life, it would be silly to only use the remote dep file cache and not the regular cache
+                // This will only do anything if cache is not disabled and remote dep file cache is enabled
+                static ONLY_REMOTE_DEP_FILE_CACHE: EnvHelper<bool> =
+                    EnvHelper::new("BUCK2_TEST_ONLY_REMOTE_DEP_FILE_CACHE");
+                let only_remote_dep_file_cache =
+                    ONLY_REMOTE_DEP_FILE_CACHE.get_copied()?.unwrap_or(false);
+
                 let cache_checker_new = || -> Arc<dyn PreparedCommandOptionalExecutor> {
                     if disable_caching {
                         return Arc::new(NoOpCommandOptionalExecutor {}) as _;
@@ -245,17 +252,21 @@ impl HasCommandExecutor for CommandExecutorFactory {
                             Arc::new(NoOpCommandOptionalExecutor {}) as _
                         };
 
-                    Arc::new(ActionCacheChecker {
-                        artifact_fs: artifact_fs.clone(),
-                        materializer: self.materializer.dupe(),
-                        re_client: self.re_connection.get_client(),
-                        re_use_case: *re_use_case,
-                        re_action_key: re_action_key.clone(),
-                        upload_all_actions: self.upload_all_actions,
-                        knobs: self.executor_global_knobs.dupe(),
-                        paranoid: self.paranoid.dupe(),
-                        remote_dep_file_checker,
-                    }) as _
+                    if only_remote_dep_file_cache {
+                        remote_dep_file_checker
+                    } else {
+                        Arc::new(ActionCacheChecker {
+                            artifact_fs: artifact_fs.clone(),
+                            materializer: self.materializer.dupe(),
+                            re_client: self.re_connection.get_client(),
+                            re_use_case: *re_use_case,
+                            re_action_key: re_action_key.clone(),
+                            upload_all_actions: self.upload_all_actions,
+                            knobs: self.executor_global_knobs.dupe(),
+                            paranoid: self.paranoid.dupe(),
+                            remote_dep_file_checker,
+                        }) as _
+                    }
                 };
 
                 let executor: Option<Arc<dyn PreparedCommandExecutor>> = match &executor {
