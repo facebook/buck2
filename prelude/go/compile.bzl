@@ -9,9 +9,9 @@ load("@prelude//:paths.bzl", "paths")
 load(
     ":packages.bzl",
     "GoPkg",  # @Unused used as type
+    "make_importcfg",
     "merge_pkgs",
     "pkg_artifacts",
-    "stdlib_pkg_artifacts",
 )
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_cmd_args")
 
@@ -51,9 +51,9 @@ def get_filtered_srcs(ctx: AnalysisContext, srcs: list[Artifact], tests: bool = 
         "__srcs__",
         {src.short_path: src for src in srcs},
     )
-    filter_cmd = get_toolchain_cmd_args(go_toolchain, go_root = False)
+    filter_cmd = get_toolchain_cmd_args(go_toolchain.base, go_root = False)
     filter_cmd.add(go_toolchain.filter_srcs[RunInfo])
-    filter_cmd.add(cmd_args(go_toolchain.go, format = "--go={}"))
+    filter_cmd.add(cmd_args(go_toolchain.base.go, format = "--go={}"))
     if tests:
         filter_cmd.add("--tests")
     filter_cmd.add(cmd_args(",".join(go_toolchain.tags), format = "--tags={}"))
@@ -107,25 +107,10 @@ def _compile_cmd(
     all_pkgs = merge_pkgs([
         pkgs,
         pkg_artifacts(get_inherited_compile_pkgs(deps), shared = shared),
-        stdlib_pkg_artifacts(go_toolchain, shared = shared),
     ])
 
-    importcfg_content = []
-    for name_, pkg_ in all_pkgs.items():
-        # Hack: we use cmd_args get "artifact" valid path and write it to a file.
-        importcfg_content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = ""))
-
-        # Future work: support importmap in buck rules insted of hacking here.
-        if name_.startswith("third-party-source/go/"):
-            real_name_ = name_.removeprefix("third-party-source/go/")
-            importcfg_content.append(cmd_args("importmap ", real_name_, "=", name_, delimiter = ""))
-
-    root = _out_root(shared)
-    importcfg = ctx.actions.declare_output(root, paths.basename(pkg_name) + "-importcfg")
-    ctx.actions.write(importcfg.as_output(), importcfg_content)
-
+    importcfg = make_importcfg(ctx, all_pkgs, go_toolchain, shared, paths.basename(pkg_name), True)
     cmd.add("-importcfg", importcfg)
-    cmd.hidden(all_pkgs.values())
 
     return cmd
 
@@ -142,7 +127,7 @@ def compile(
     root = _out_root(shared)
     output = ctx.actions.declare_output(root, paths.basename(pkg_name) + ".a")
 
-    cmd = get_toolchain_cmd_args(go_toolchain)
+    cmd = get_toolchain_cmd_args(go_toolchain.base)
     cmd.add(go_toolchain.compile_wrapper[RunInfo])
     cmd.add(cmd_args(output.as_output(), format = "--output={}"))
     cmd.add(cmd_args(_compile_cmd(ctx, pkg_name, pkgs, deps, compile_flags, shared = shared), format = "--compiler={}"))

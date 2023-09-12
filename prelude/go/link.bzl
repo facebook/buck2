@@ -31,9 +31,9 @@ load(
 load(
     ":packages.bzl",
     "GoPkg",  # @Unused used as type
+    "make_importcfg",
     "merge_pkgs",
     "pkg_artifacts",
-    "stdlib_pkg_artifacts",
 )
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_cmd_args")
 
@@ -97,7 +97,7 @@ def link(
         external_linker_flags: list[typing.Any] = [],
         shared: bool = False):
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    if go_toolchain.env_go_os == "windows":
+    if go_toolchain.base.env_go_os == "windows":
         executable_extension = ".exe"
         shared_extension = ".dll"
     else:
@@ -106,7 +106,7 @@ def link(
     file_extension = shared_extension if build_mode == GoBuildMode("c_shared") else executable_extension
     output = ctx.actions.declare_output(ctx.label.name + file_extension)
 
-    cmd = get_toolchain_cmd_args(go_toolchain)
+    cmd = get_toolchain_cmd_args(go_toolchain.base)
 
     cmd.add(go_toolchain.linker)
     if shared:
@@ -122,7 +122,6 @@ def link(
     all_pkgs = merge_pkgs([
         pkgs,
         pkg_artifacts(get_inherited_link_pkgs(deps), shared = shared),
-        stdlib_pkg_artifacts(go_toolchain, shared = shared),
     ])
 
     importcfg_content = []
@@ -130,11 +129,8 @@ def link(
         # Hack: we use cmd_args get "artifact" valid path and write it to a file.
         importcfg_content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = ""))
 
-    importcfg = ctx.actions.declare_output("importcfg")
-    ctx.actions.write(importcfg.as_output(), importcfg_content)
-
+    importcfg = make_importcfg(ctx, all_pkgs, go_toolchain, shared, "link", False)
     cmd.add("-importcfg", importcfg)
-    cmd.hidden(all_pkgs.values())
 
     runtime_files, extra_link_args = _process_shared_dependencies(ctx, output, deps, link_style)
 

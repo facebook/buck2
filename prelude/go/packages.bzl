@@ -5,9 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:artifacts.bzl", "ArtifactGroupInfo")
-load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
 load("@prelude//utils:utils.bzl", "value_or")
+load(":toolchain.bzl", "GoToolchainInfo")
 
 GoPkg = record(
     # Built w/ `-shared`.
@@ -47,17 +46,43 @@ def pkg_artifacts(pkgs: dict[str, GoPkg], shared: bool = False) -> dict[str, Art
         for name, pkg in pkgs.items()
     }
 
-def stdlib_pkg_artifacts(toolchain: GoToolchainInfo, shared: bool = False) -> dict[str, Artifact]:
-    """
-    Return a map package name to a `shared` or `static` package artifact of stdlib.
-    """
+def make_importcfg(
+        ctx: AnalysisContext,
+        all_pkgs: dict[str, typing.Any],
+        toolchain: GoToolchainInfo,
+        shared: bool,
+        prefix: str,
+        with_importmap: bool) -> cmd_args:
+    if shared:
+        stdlib = toolchain.stdlib_shared
+        suffix = "shared"
+    else:
+        stdlib = toolchain.stdlib_static
+        suffix = "static"
 
-    prebuilt_stdlib = toolchain.prebuilt_stdlib_shared if shared else toolchain.prebuilt_stdlib
-    stdlib_pkgs = prebuilt_stdlib[ArtifactGroupInfo].artifacts
-    pkgs = {}
-    for pkg in stdlib_pkgs:
-        _, _, pkg_relpath = pkg.short_path.removeprefix("prebuilt_std/").partition("/")  # like net/http.a
-        name = pkg_relpath.removesuffix(".a")  # like net/http
-        pkgs[name] = pkg
+    content = []
+    for name_, pkg_ in all_pkgs.items():
+        # Hack: we use cmd_args get "artifact" valid path and write it to a file.
+        content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = ""))
 
-    return pkgs
+        # Future work: support importmap in buck rules insted of hacking here.
+        if with_importmap and name_.startswith("third-party-source/go/"):
+            real_name_ = name_.removeprefix("third-party-source/go/")
+            content.append(cmd_args("importmap ", real_name_, "=", name_, delimiter = ""))
+
+    importcfg_pks = ctx.actions.write("importcfg/{}_{}.all_pkgs".format(prefix, suffix), content)
+
+    importcfg = ctx.actions.declare_output("importcfg/{}_{}".format(prefix, suffix))
+    ctx.actions.run(
+        [
+            toolchain.concat_files,
+            "--output",
+            importcfg.as_output(),
+            stdlib.importcfg,
+            importcfg_pks,
+        ],
+        category = "concat_importcfgs",
+        identifier = "{}_{}".format(prefix, suffix),
+    )
+
+    return cmd_args(importcfg).hidden(stdlib.stdlib).hidden(all_pkgs.values())
