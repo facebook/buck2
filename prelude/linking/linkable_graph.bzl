@@ -16,6 +16,7 @@ load(
     "LinkStrategy",
     "Linkage",
     "LinkedObject",
+    "LinkerFlags",
     "MergedLinkInfo",
     "get_lib_output_style",
     "get_output_styles_for_linkage",
@@ -74,6 +75,12 @@ LinkableNode = record(
     # Link infos for all supported lib output styles supported by this node. This should have a value
     # for every output_style supported by the preferred linkage.
     link_infos = field(dict[LibOutputStyle, LinkInfos], {}),
+    # Contains the linker flags for this node.
+    # Note: The values in link_infos will already be adding in the exported_linker_flags
+    # TODO(cjhopman): We should probably make all use of linker_flags explicit, but that may need to wait
+    # for all link strategies to operate on the LinkableGraph.
+    linker_flags = field([LinkerFlags, None]),
+
     # Shared libraries provided by this target.  Used if this target is
     # excluded.
     shared_libs = field(dict[str, LinkedObject], {}),
@@ -128,7 +135,8 @@ def create_linkable_node(
         deps: list[Dependency] = [],
         exported_deps: list[Dependency] = [],
         link_infos: dict[LibOutputStyle, LinkInfos] = {},
-        shared_libs: dict[str, LinkedObject] = {}) -> LinkableNode:
+        shared_libs: dict[str, LinkedObject] = {},
+        linker_flags: [LinkerFlags, None] = None) -> LinkableNode:
     for output_style in get_output_styles_for_linkage(preferred_linkage):
         expect(
             output_style in link_infos,
@@ -142,6 +150,7 @@ def create_linkable_node(
         link_infos = link_infos,
         shared_libs = shared_libs,
         default_soname = default_soname,
+        linker_flags = linker_flags,
         _private = _DisallowConstruction(),
     )
 

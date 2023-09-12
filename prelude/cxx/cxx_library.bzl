@@ -720,6 +720,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                     # that omnibus knows to avoid it.
                     link_infos = library_outputs.link_infos,
                     shared_libs = solib_as_dict,
+                    linker_flags = linker_flags,
                 ),
                 roots = roots,
                 excluded = {ctx.label: None} if not value_or(ctx.attrs.supports_merged_linking, True) else {},

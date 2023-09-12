@@ -595,6 +595,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 # that omnibus knows to avoid it.
                 link_infos = libraries,
                 shared_libs = solibs,
+                linker_flags = linker_flags,
             ),
             roots = roots,
             excluded = {ctx.label: None} if not value_or(ctx.attrs.supports_merged_linking, True) else {},
