@@ -199,6 +199,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
                     deps = cxx_deps,
                     preferred_linkage = Linkage("any"),
                     link_infos = link_infos,
+                    default_soname = name,
                 ),
             ),
             deps = [d.linkable_graph for d in link_deps],

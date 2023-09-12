@@ -78,6 +78,10 @@ LinkableNode = record(
     # excluded.
     shared_libs = field(dict[str, LinkedObject], {}),
 
+    # The soname this node would use in default link strategies. May be used by non-default
+    # link strategies as a lib's soname.
+    default_soname = field(str | None),
+
     # Only allow constructing within this file.
     _private = _DisallowConstruction,
 )
@@ -119,6 +123,7 @@ DlopenableLibraryInfo = provider(fields = {})
 
 def create_linkable_node(
         ctx: AnalysisContext,
+        default_soname: str | None,
         preferred_linkage: Linkage = Linkage("any"),
         deps: list[Dependency] = [],
         exported_deps: list[Dependency] = [],
@@ -136,6 +141,7 @@ def create_linkable_node(
         exported_deps = linkable_deps(exported_deps),
         link_infos = link_infos,
         shared_libs = shared_libs,
+        default_soname = default_soname,
         _private = _DisallowConstruction(),
     )
 

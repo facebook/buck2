@@ -196,6 +196,8 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 preferred_linkage = Linkage("static"),
                 exported_deps = ctx.attrs.deps,
                 link_infos = {output_style: link for output_style in LibOutputStyle},
+                # TODO(cjhopman): this should be set to non-None
+                default_soname = None,
             ),
         ),
         deps = ctx.attrs.deps,
@@ -729,6 +731,8 @@ def _native_providers(
                 exported_deps = inherited_non_rust_link_deps,
                 link_infos = link_infos,
                 shared_libs = solibs,
+                # TODO(cjhopman): this should be set to non-None
+                default_soname = None,
             ),
             roots = roots,
         ),

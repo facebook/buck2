@@ -712,6 +712,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                 ctx,
                 linkable_node = create_linkable_node(
                     ctx = ctx,
+                    default_soname = _soname(ctx, impl_params),
                     preferred_linkage = preferred_linkage,
                     deps = non_exported_deps,
                     exported_deps = exported_deps,

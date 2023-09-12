@@ -588,6 +588,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
             ctx,
             linkable_node = create_linkable_node(
                 ctx = ctx,
+                default_soname = soname,
                 preferred_linkage = preferred_linkage,
                 exported_deps = exported_first_order_deps,
                 # If we don't have link input for this link style, we pass in `None` so

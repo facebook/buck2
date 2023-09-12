@@ -93,6 +93,8 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> list[Provider]:
                     ctx,
                     preferred_linkage = Linkage("shared"),
                     link_infos = {LibOutputStyle("shared_lib"): LinkInfos(default = link)},
+                    # TODO(cjhopman): this should be set to non-None
+                    default_soname = None,
                 ),
                 excluded = {ctx.label: None},
             ),

@@ -358,6 +358,8 @@ def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> list[Provider]:
                 preferred_linkage = preferred_linkage,
                 link_infos = libraries,
                 shared_libs = solibs,
+                # TODO(cjhopman): this should be set to non-None
+                default_soname = None,
             ),
         ),
         deps = deps + exported_deps,

@@ -402,6 +402,7 @@ def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 exported_deps = ctx.attrs.deps,
                 link_infos = {_to_lib_output_style(s): v for s, v in link_infos.items()},
                 shared_libs = solibs,
+                default_soname = None,
             ),
         ),
         deps = ctx.attrs.deps,
@@ -1061,6 +1062,8 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 exported_deps = ctx.attrs.deps,
                 link_infos = {_to_lib_output_style(s): v for s, v in link_infos.items()},
                 shared_libs = solibs,
+                # TODO(cjhopman): this should be set to non-None
+                default_soname = None,
             ),
         ),
         deps = ctx.attrs.deps,
