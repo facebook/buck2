@@ -22,7 +22,7 @@ load(
     "LinkedObject",  # @unused Used as a type
     "SharedLibLinkable",
     "get_lib_output_style",
-    "set_linkable_link_whole",
+    "set_link_info_link_whole",
     "wrap_link_info",
     "wrap_with_no_as_needed_shared_libs_flags",
     get_link_info_from_link_infos = "get_link_info",
@@ -510,16 +510,7 @@ def get_filtered_links(
     for label, link_group_info in labels_to_links_map.items():
         info = link_group_info.link_info
         if public_link_group_nodes.contains(label):
-            linkables = [set_linkable_link_whole(linkable) for linkable in info.linkables]
-            infos.append(
-                LinkInfo(
-                    name = info.name,
-                    pre_flags = info.pre_flags,
-                    post_flags = info.post_flags,
-                    linkables = linkables,
-                    external_debug_info = info.external_debug_info,
-                ),
-            )
+            infos.append(set_link_info_link_whole(info))
         else:
             infos.append(info)
     return infos

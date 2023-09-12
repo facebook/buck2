@@ -170,6 +170,16 @@ LinkOrdering = enum(
     "topological",
 )
 
+def set_link_info_link_whole(info: LinkInfo) -> LinkInfo:
+    linkables = [set_linkable_link_whole(linkable) for linkable in info.linkables]
+    return LinkInfo(
+        name = info.name,
+        pre_flags = info.pre_flags,
+        post_flags = info.post_flags,
+        linkables = linkables,
+        external_debug_info = info.external_debug_info,
+    )
+
 def set_linkable_link_whole(
         linkable: [ArchiveLinkable, ObjectsLinkable, SharedLibLinkable, FrameworksLinkable]) -> [ArchiveLinkable, ObjectsLinkable, SharedLibLinkable, FrameworksLinkable]:
     if isinstance(linkable, ArchiveLinkable):
@@ -392,19 +402,16 @@ LinkInfosTSet = transitive_set(
 # This doesn't contain the information about things needed to package the linked result
 # (i.e. this doesn't contain the information needed to know what shared libs needed at runtime
 # for the final result).
-MergedLinkInfo = provider(
-    # @unsorted-dict-items
-    fields = {
-        "_infos": provider_field(typing.Any, default = None),  # dict[LinkStrategy, LinkInfosTSet]
-        "_external_debug_info": provider_field(typing.Any, default = None),  # dict[LinkStrategy, ArtifactTSet]
-        # Apple framework linker args must be deduped to avoid overflow in our argsfiles.
-        #
-        # To save on repeated computation of transitive LinkInfos, we store a dedupped
-        # structure, based on the link-style.
-        "frameworks": provider_field(typing.Any, default = None),  # dict[LinkStrategy, FrameworksLinkable | None]
-        "swift_runtime": provider_field(typing.Any, default = None),  # dict[LinkStrategy, SwiftRuntimeLinkable | None]
-    },
-)
+MergedLinkInfo = provider(fields = [
+    "_infos",  # dict[LinkStrategy, LinkInfosTSet]
+    "_external_debug_info",  # dict[LinkStrategy, ArtifactTSet]
+    # Apple framework linker args must be deduped to avoid overflow in our argsfiles.
+    #
+    # To save on repeated computation of transitive LinkInfos, we store a dedupped
+    # structure, based on the link-style.
+    "frameworks",  # dict[LinkStrategy, FrameworksLinkable | None]
+    "swift_runtime",  # dict[LinkStrategy, SwiftRuntimeLinkable | None]
+])
 
 # A map of linkages to all possible output styles it supports.
 _LIB_OUTPUT_STYLES_FOR_LINKAGE = {
@@ -857,9 +864,9 @@ LinkCommandDebugOutput = record(
 
 # NB: Debug output is _not_ transitive over deps, so tsets are not used here.
 LinkCommandDebugOutputInfo = provider(
-    fields = {
-        "debug_outputs": provider_field(typing.Any, default = None),  # ["LinkCommandDebugOutput"]
-    },
+    fields = [
+        "debug_outputs",  # ["LinkCommandDebugOutput"]
+    ],
 )
 
 def make_link_command_debug_output(linked_object: LinkedObject) -> [LinkCommandDebugOutput, None]:
