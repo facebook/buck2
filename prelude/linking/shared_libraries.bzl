@@ -37,7 +37,7 @@ SharedLibraryInfo = provider(fields = {
     "set": provider_field(typing.Any, default = None),  # SharedLibrariesTSet | None
 })
 
-def _get_strip_non_global_flags(cxx_toolchain: CxxToolchainInfo) -> list:
+def get_strip_non_global_flags(cxx_toolchain: CxxToolchainInfo) -> list:
     if cxx_toolchain.strip_flags_info and cxx_toolchain.strip_flags_info.strip_non_global_flags:
         return cxx_toolchain.strip_flags_info.strip_non_global_flags
 
@@ -58,7 +58,7 @@ def create_shared_libraries(
                 ctx,
                 cxx_toolchain[CxxToolchainInfo],
                 shlib.output,
-                cmd_args(_get_strip_non_global_flags(cxx_toolchain[CxxToolchainInfo])),
+                cmd_args(get_strip_non_global_flags(cxx_toolchain[CxxToolchainInfo])),
             ) if cxx_toolchain != None else None,
             can_be_asset = getattr(ctx.attrs, "can_be_asset", False) or False,
             for_primary_apk = getattr(ctx.attrs, "used_by_wrap_script", False),
