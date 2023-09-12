@@ -290,13 +290,15 @@ def create_linkable_root(
                     shared_library = shared_library,
                     global_syms = extract_global_syms(
                         ctx,
-                        shared_library.output,
+                        cxx_toolchain = toolchain_info,
+                        output = shared_library.output,
                         category_prefix = "omnibus",
                         prefer_local = False,
                     ),
                     undefined_syms = extract_undefined_syms(
                         ctx,
-                        shared_library.output,
+                        cxx_toolchain = toolchain_info,
+                        output = shared_library.output,
                         category_prefix = "omnibus",
                         prefer_local = False,
                     ),
@@ -394,7 +396,8 @@ def _create_root(
     Link a root omnibus node.
     """
 
-    linker_info = get_cxx_toolchain_info(ctx).linker_info
+    toolchain_info = get_cxx_toolchain_info(ctx)
+    linker_info = toolchain_info.linker_info
     linker_type = linker_info.type
 
     if spec.body:
@@ -499,14 +502,16 @@ def _create_root(
         shared_library = shared_library,
         global_syms = extract_global_syms(
             ctx,
-            shared_library.output,
+            cxx_toolchain = toolchain_info,
+            output = shared_library.output,
             category_prefix = "omnibus",
             # Same as above.
             prefer_local = True,
         ),
         undefined_syms = extract_undefined_syms(
             ctx,
-            shared_library.output,
+            cxx_toolchain = toolchain_info,
+            output = shared_library.output,
             category_prefix = "omnibus",
             # Same as above.
             prefer_local = True,
@@ -613,6 +618,7 @@ def _create_global_symbols_version_script(
     if excluded:
         global_symbols_files.append(extract_symbol_names(
             ctx = ctx,
+            cxx_toolchain = get_cxx_toolchain_info(ctx),
             name = "__excluded_libs__.global_syms.txt",
             objects = excluded,
             dynamic = True,
@@ -665,6 +671,7 @@ def _create_omnibus(
         inputs.append(LinkInfo(pre_flags = [
             get_undefined_symbols_args(
                 ctx = ctx,
+                cxx_toolchain = get_cxx_toolchain_info(ctx),
                 name = "__undefined_symbols__.linker_script",
                 symbol_files = non_body_root_undefined_syms,
                 category = "omnibus_undefined_symbols",

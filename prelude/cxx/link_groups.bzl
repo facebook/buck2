@@ -715,6 +715,7 @@ def _symbol_files_for_link_group(
     # Extract undefined symbols.
     undefined_symfile = extract_undefined_syms(
         ctx = ctx,
+        cxx_toolchain = get_cxx_toolchain_info(ctx),
         output = lib.output,
         category_prefix = "link_groups",
         prefer_local = prefer_local,
@@ -724,6 +725,7 @@ def _symbol_files_for_link_group(
     # Extract global symbols.
     global_symfile = extract_global_syms(
         ctx = ctx,
+        cxx_toolchain = get_cxx_toolchain_info(ctx),
         output = lib.output,
         category_prefix = "link_groups",
         prefer_local = prefer_local,
@@ -749,6 +751,7 @@ def _symbol_flags_for_link_groups(
     sym_linker_flags.append(
         get_undefined_symbols_args(
             ctx = ctx,
+            cxx_toolchain = get_cxx_toolchain_info(ctx),
             name = "undefined_symbols.linker_script",
             symbol_files = undefined_symfiles,
             category = "link_groups_undefined_syms_script",

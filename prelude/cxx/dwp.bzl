@@ -6,18 +6,18 @@
 # of this source tree.
 
 load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
-load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":debug.bzl", "SplitDebugMode")
 
-def dwp_available(ctx: AnalysisContext):
-    toolchain = get_cxx_toolchain_info(ctx)
+def dwp_available(toolchain: CxxToolchainInfo):
     dwp = toolchain.binary_utilities_info.dwp
     split_debug_mode = toolchain.split_debug_mode
     return dwp != None and split_debug_mode != SplitDebugMode("none")
 
 def run_dwp_action(
         ctx: AnalysisContext,
+        toolchain: CxxToolchainInfo,
         obj: Artifact,
         identifier: [str, None],
         category_suffix: [str, None],
@@ -25,7 +25,7 @@ def run_dwp_action(
         dwp_output: Artifact,
         local_only: bool):
     args = cmd_args()
-    dwp = get_cxx_toolchain_info(ctx).binary_utilities_info.dwp
+    dwp = toolchain.binary_utilities_info.dwp
 
     # llvm trunk now supports 64-bit debug cu indedx, add --continue-on-cu-index-overflow by default
     # to suppress dwp file overflow warning
@@ -49,6 +49,7 @@ def run_dwp_action(
 
 def dwp(
         ctx: AnalysisContext,
+        toolchain: CxxToolchainInfo,
         # Executable/library to extra dwo paths from.
         obj: Artifact,
         # An identifier that will uniquely name this link action in the context of a category. Useful for
@@ -66,6 +67,7 @@ def dwp(
     output = ctx.actions.declare_output(obj.short_path + ".dwp")
     run_dwp_action(
         ctx,
+        toolchain,
         obj,
         identifier,
         category_suffix,

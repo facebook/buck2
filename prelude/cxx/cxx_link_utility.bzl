@@ -20,14 +20,11 @@ load(
 )
 load("@prelude//linking:lto.bzl", "LtoMode")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
-load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
-def generates_split_debug(ctx: AnalysisContext):
+def generates_split_debug(toolchain: CxxToolchainInfo):
     """
     Whether linking generates split debug outputs.
     """
-
-    toolchain = get_cxx_toolchain_info(ctx)
 
     if toolchain.split_debug_mode == SplitDebugMode("none"):
         return False
@@ -37,8 +34,8 @@ def generates_split_debug(ctx: AnalysisContext):
 
     return True
 
-def linker_map_args(ctx, linker_map) -> LinkArgs:
-    linker_type = get_cxx_toolchain_info(ctx).linker_info.type
+def linker_map_args(toolchain: CxxToolchainInfo, linker_map) -> LinkArgs:
+    linker_type = toolchain.linker_info.type
     if linker_type == "darwin":
         flags = [
             "-Xlinker",
@@ -70,7 +67,8 @@ LinkArgsOutput = record(
 )
 
 def make_link_args(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        cxx_toolchain_info: CxxToolchainInfo,
         links: list[LinkArgs],
         suffix = None,
         output_short_path: [str, None] = None,
@@ -85,7 +83,6 @@ def make_link_args(
     args = cmd_args()
     hidden = []
 
-    cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
     linker_type = linker_info.type
 
@@ -115,7 +112,7 @@ def make_link_args(
     pdb_artifact = None
     if linker_info.is_pdb_generated and output_short_path != None:
         pdb_filename = paths.replace_extension(output_short_path, ".pdb")
-        pdb_artifact = ctx.actions.declare_output(pdb_filename)
+        pdb_artifact = actions.declare_output(pdb_filename)
         hidden.append(pdb_artifact.as_output())
 
     for link in links:
@@ -130,7 +127,7 @@ def make_link_args(
         elif linker_type == "darwin":
             # On Darwin, filelist args _must_ come last as there's semantical difference
             # of the position.
-            path = ctx.actions.write("filelist%s.txt" % suffix, filelists)
+            path = actions.write("filelist%s.txt" % suffix, filelists)
             args.add(["-Xlinker", "-filelist", "-Xlinker", path])
             filelist_file = path
         else:
@@ -185,9 +182,7 @@ def executable_shared_lib_arguments(
 
     return (extra_args, runtime_files, shared_libs_symlink_tree)
 
-def cxx_link_cmd_parts(ctx: AnalysisContext) -> ((RunInfo | cmd_args), cmd_args):
-    toolchain = get_cxx_toolchain_info(ctx)
-
+def cxx_link_cmd_parts(toolchain: CxxToolchainInfo) -> ((RunInfo | cmd_args), cmd_args):
     # `toolchain_linker_flags` can either be a list of strings, `cmd_args` or `None`,
     # so we need to do a bit more work to satisfy the type checker
     toolchain_linker_flags = toolchain.linker_info.linker_flags
@@ -199,8 +194,8 @@ def cxx_link_cmd_parts(ctx: AnalysisContext) -> ((RunInfo | cmd_args), cmd_args)
     return toolchain.linker_info.linker, toolchain_linker_flags
 
 # The command line for linking with C++
-def cxx_link_cmd(ctx: AnalysisContext) -> cmd_args:
-    linker, toolchain_linker_flags = cxx_link_cmd_parts(ctx)
+def cxx_link_cmd(toolchain: CxxToolchainInfo) -> cmd_args:
+    linker, toolchain_linker_flags = cxx_link_cmd_parts(toolchain)
     command = cmd_args(linker)
     command.add(toolchain_linker_flags)
     return command

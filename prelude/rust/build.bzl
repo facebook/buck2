@@ -248,7 +248,8 @@ def generate_rustdoc_test(
     )
 
     link_args_output = make_link_args(
-        ctx,
+        ctx.actions,
+        compile_ctx.cxx_toolchain_info,
         [
             LinkArgs(flags = extra_link_args),
             get_link_args_for_strategy(
@@ -432,7 +433,8 @@ def rust_compile(
             )
 
         link_args_output = make_link_args(
-            ctx,
+            ctx.actions,
+            compile_ctx.cxx_toolchain_info,
             [
                 LinkArgs(flags = extra_link_args),
                 inherited_non_rust_link_args,
@@ -538,9 +540,10 @@ def rust_compile(
     else:
         dwo_output_directory = None
 
-    if is_binary and dwp_available(ctx):
+    if is_binary and dwp_available(compile_ctx.cxx_toolchain_info):
         dwp_output = dwp(
             ctx,
+            compile_ctx.cxx_toolchain_info,
             emit_output,
             identifier = "{}/__{}_{}_dwp".format(common_args.subdir, common_args.tempfile, str(emit)),
             category_suffix = "rust",

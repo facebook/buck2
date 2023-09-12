@@ -5,7 +5,9 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
+# @starlark-rust: allow_string_literals_in_type_expr
+
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 
 # Styles of LTO.
@@ -39,8 +41,7 @@ SplitDebugLtoInfo = record(
     linker_flags = field(cmd_args),
 )
 
-def get_split_debug_lto_info(ctx: AnalysisContext, name: str) -> [SplitDebugLtoInfo, None]:
-    cxx_toolchain = get_cxx_toolchain_info(ctx)
+def get_split_debug_lto_info(actions: AnalysisActions, cxx_toolchain: CxxToolchainInfo, name: str) -> [SplitDebugLtoInfo, None]:
     linker_info = cxx_toolchain.linker_info
 
     # We only generate these flags for LTO+DWO.
@@ -57,10 +58,10 @@ def get_split_debug_lto_info(ctx: AnalysisContext, name: str) -> [SplitDebugLtoI
         # for dSYM generation.
         if linker_info.lto_mode == LtoMode("thin"):
             # For thin LTO the path is a folder that will contain the various object files.
-            lto_object_path_artifact = ctx.actions.declare_output("lto_object_files", dir = True)
+            lto_object_path_artifact = actions.declare_output("lto_object_files", dir = True)
         else:
             # For monolithic LTO the path is a single object file.
-            lto_object_path_artifact = ctx.actions.declare_output("lto_object_file.o", dir = False)
+            lto_object_path_artifact = actions.declare_output("lto_object_file.o", dir = False)
 
         linker_args = cmd_args([
             # Use -Xlinker in case the path has a ,
@@ -76,7 +77,7 @@ def get_split_debug_lto_info(ctx: AnalysisContext, name: str) -> [SplitDebugLtoI
         )
 
     if linker_info.type == "gnu":
-        dwo_dir = ctx.actions.declare_output(name + ".dwo.d", dir = True)
+        dwo_dir = actions.declare_output(name + ".dwo.d", dir = True)
 
         linker_flags = cmd_args([
             "-Xlinker",

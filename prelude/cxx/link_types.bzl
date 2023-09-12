@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
     "@prelude//linking:link_info.bzl",
@@ -33,6 +34,7 @@ LinkOptions = record(
     strip_args_factory = [typing.Callable, None],
     import_library = [Artifact, None],
     allow_cache_upload = bool,
+    cxx_toolchain = [CxxToolchainInfo, None],
     # Force callers to use link_options() or merge_link_options() to create.
     __private_use_link_options_function_to_construct = None,
 )
@@ -48,7 +50,8 @@ def link_options(
         strip: bool = False,
         strip_args_factory = None,
         import_library: [Artifact, None] = None,
-        allow_cache_upload: bool = False) -> LinkOptions:
+        allow_cache_upload: bool = False,
+        cxx_toolchain: [CxxToolchainInfo, None] = None) -> LinkOptions:
     """
     A type-checked constructor for LinkOptions because by default record
     constructors aren't typed.
@@ -65,6 +68,7 @@ def link_options(
         strip_args_factory = strip_args_factory,
         import_library = import_library,
         allow_cache_upload = allow_cache_upload,
+        cxx_toolchain = cxx_toolchain,
         __private_use_link_options_function_to_construct = None,
     )
 
@@ -85,7 +89,8 @@ def merge_link_options(
         strip: [bool, _NotProvided] = _NOT_PROVIDED,
         strip_args_factory = _NOT_PROVIDED,
         import_library: [Artifact, None, _NotProvided] = _NOT_PROVIDED,
-        allow_cache_upload: [bool, _NotProvided] = _NOT_PROVIDED) -> LinkOptions:
+        allow_cache_upload: [bool, _NotProvided] = _NOT_PROVIDED,
+        cxx_toolchain: [CxxToolchainInfo, _NotProvided] = _NOT_PROVIDED) -> LinkOptions:
     """
     Also something we would ideally auto-generate as LinkOptions.merge in
     Starlark.
@@ -103,5 +108,6 @@ def merge_link_options(
         strip_args_factory = base.strip_args_factory if strip_args_factory == _NOT_PROVIDED else strip_args_factory,
         import_library = base.import_library if import_library == _NOT_PROVIDED else import_library,
         allow_cache_upload = base.allow_cache_upload if allow_cache_upload == _NOT_PROVIDED else allow_cache_upload,
+        cxx_toolchain = base.cxx_toolchain if cxx_toolchain == _NOT_PROVIDED else cxx_toolchain,
         __private_use_link_options_function_to_construct = None,
     )
