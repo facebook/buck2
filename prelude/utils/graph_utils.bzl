@@ -26,7 +26,8 @@ def topo_sort(graph: dict[typing.Any, list[typing.Any]]) -> list[typing.Any]:
     ordered = []
 
     for _ in range(len(in_degrees)):
-        expect(len(queue) != 0, "cycle in graph detected")
+        if len(queue) == 0:
+            fail_cycle(graph)
 
         node = queue.pop()
         ordered.append(node)
@@ -62,7 +63,8 @@ def post_order_traversal(graph: dict[typing.Any, list[typing.Any]]) -> list[typi
     ordered = []
 
     for _ in range(len(out_degrees)):
-        expect(len(queue) != 0, "cycle in graph detected")
+        if len(queue) == 0:
+            fail_cycle(graph)
 
         node = queue.pop()
         ordered.append(node)
@@ -76,6 +78,44 @@ def post_order_traversal(graph: dict[typing.Any, list[typing.Any]]) -> list[typi
     expect(len(ordered) == len(graph), "missing or duplicate nodes in sort")
 
     return ordered
+
+def fail_cycle(graph: dict[typing.Any, list[typing.Any]]) -> typing.Never:
+    cycle = find_cycle(graph)
+    if cycle:
+        fail(
+            "cycle in graph detected: {}".format(
+                " -> ".join(
+                    [str(c) for c in cycle],
+                ),
+            ),
+        )
+    fail("expected cycle, but found none")
+
+def find_cycle(graph: dict[typing.Any, list[typing.Any]]) -> list[typing.Any] | None:
+    visited = {}
+    OUTPUT = 1
+    VISIT = 2
+    current_parents = []
+    work = [(VISIT, n) for n in graph.keys()]
+    for _ in range(2000000000):
+        if not work:
+            break
+        kind, node = work.pop()
+        if kind == VISIT:
+            if node not in visited:
+                visited[node] = True
+                current_parents.append(node)
+
+                work.append((OUTPUT, node))
+                for dep in graph[node]:
+                    if dep in current_parents:
+                        return current_parents + [dep]
+                    if dep not in visited:
+                        work.append((VISIT, dep))
+        else:
+            current_parents.pop()
+
+    return None
 
 def breadth_first_traversal(
         graph_nodes: dict[typing.Any, list[typing.Any]],
