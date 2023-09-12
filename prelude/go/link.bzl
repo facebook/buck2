@@ -78,7 +78,7 @@ def _process_shared_dependencies(ctx: AnalysisContext, artifact: Artifact, deps:
 
     extra_link_args, runtime_files, _ = executable_shared_lib_arguments(
         ctx.actions,
-        ctx.attrs._go_toolchain[GoToolchainInfo].cxx_toolchain_for_linking,
+        ctx.attrs._go_toolchain[GoToolchainInfo].base.cxx_toolchain_for_linking,
         artifact,
         shared_libs,
     )
@@ -141,7 +141,7 @@ def link(
     ext_link_args.add(external_linker_flags)
 
     if link_mode == None:
-        if go_toolchain.cxx_toolchain_for_linking != None:
+        if go_toolchain.base.cxx_toolchain_for_linking != None:
             link_mode = "external"
         else:
             link_mode = "internal"
@@ -154,12 +154,12 @@ def link(
         # TODO: It feels a bit inefficient to generate a wrapper file for every
         # link.  Is there some way to etract the first arg of `RunInfo`?  Or maybe
         # we can generate te platform-specific stuff once and re-use?
-        cxx_toolchain = go_toolchain.cxx_toolchain_for_linking
+        cxx_toolchain = go_toolchain.base.cxx_toolchain_for_linking
         cxx_link_cmd = cmd_args(
             [
                 cxx_toolchain.linker_info.linker,
                 cxx_toolchain.linker_info.linker_flags,
-                go_toolchain.external_linker_flags,
+                go_toolchain.base.external_linker_flags,
                 ext_link_args,
                 "%*" if is_win else "\"$@\"",
             ],
