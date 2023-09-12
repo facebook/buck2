@@ -44,6 +44,7 @@
 #![cfg_attr(rust_nightly, feature(const_type_name))]
 #![cfg_attr(rust_nightly, feature(never_type))]
 #![deny(rustdoc::broken_intra_doc_links)]
+#![allow(clippy::empty_enum)]
 
 mod allocative_trait;
 mod flamegraph;

@@ -131,11 +131,22 @@ fn gen_visit_enum(input: &DataEnum) -> syn::Result<proc_macro2::TokenStream> {
         .iter()
         .map(gen_visit_enum_variant)
         .collect::<syn::Result<proc_macro2::TokenStream>>()?;
-    Ok(quote_spanned! {input.variants.span()=>
+    if cases.is_empty() {
+        // Rust does not understand
+        // ```
+        // match self {
+        // }
+        // ```
+        // for enums with no variants where `self` is `&Self`.
+        Ok(quote_spanned! {input.variants.span()=>
+        })
+    } else {
+        Ok(quote_spanned! {input.variants.span()=>
         match self {
-            #cases
-        }
-    })
+                #cases
+            }
+        })
+    }
 }
 
 fn allocative_key(s: &str) -> proc_macro2::TokenStream {

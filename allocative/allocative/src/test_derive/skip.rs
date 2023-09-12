@@ -31,6 +31,9 @@ enum TestSkipOnEnum {
 }
 
 #[derive(Allocative)]
+enum TestEmptyNoVariants {}
+
+#[derive(Allocative)]
 struct TestIgnoreInTupleStruct(#[allocative(skip)] Unsupported);
 
 #[derive(Allocative)]
