@@ -96,6 +96,7 @@ experimental_regex("abc|def|ghi").match("abc")
 not experimental_regex("abc|def|ghi").match("xyz")
 not experimental_regex("^((?!abc).)*$").match("abc")
 experimental_regex("^((?!abc).)*$").match("xyz")
+experimental_regex("").match("xyz")
 "#,
         );
     }
