@@ -28,6 +28,6 @@ In addition to symlinking the prelude directory [as described above](#add-in-pre
 **_NOTE:_** These commands are currently only supported on Linux and macOS.
 
 ```sh
-$BUCK2 build //...
+$BUCK2 build //ocaml/...
 $BUCK2 run //python/hello_world:main
 ```
