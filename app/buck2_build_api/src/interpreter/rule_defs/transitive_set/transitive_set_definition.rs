@@ -438,9 +438,9 @@ impl<'v> TransitiveSetDefinitionLike<'v> for FrozenTransitiveSetDefinition {
 #[starlark_module]
 pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
     fn transitive_set<'v>(
-        args_projections: Option<SmallMap<String, Value<'v>>>,
-        json_projections: Option<SmallMap<String, Value<'v>>>,
-        reductions: Option<SmallMap<String, Value<'v>>>,
+        #[starlark(require = named)] args_projections: Option<SmallMap<String, Value<'v>>>,
+        #[starlark(require = named)] json_projections: Option<SmallMap<String, Value<'v>>>,
+        #[starlark(require = named)] reductions: Option<SmallMap<String, Value<'v>>>,
         eval: &mut Evaluator,
     ) -> anyhow::Result<TransitiveSetDefinition<'v>> {
         // TODO(cjhopman): Reductions could do similar signature checking.
