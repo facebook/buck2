@@ -89,6 +89,14 @@ LinkableNode = record(
     # link strategies as a lib's soname.
     default_soname = field(str | None),
 
+    # Records Android's can_be_asset value for the node. This indicates whether the node can be bundled
+    # as an asset in android apks.
+    can_be_asset = field(bool),
+
+    # Whether the node should appear in the android mergemap (which provides information about the original
+    # soname->final merged lib mapping)
+    include_in_android_mergemap = field(bool),
+
     # Only allow constructing within this file.
     _private = _DisallowConstruction,
 )
@@ -136,6 +144,8 @@ def create_linkable_node(
         exported_deps: list[Dependency] = [],
         link_infos: dict[LibOutputStyle, LinkInfos] = {},
         shared_libs: dict[str, LinkedObject] = {},
+        can_be_asset: bool = True,
+        include_in_android_mergemap: bool = True,
         linker_flags: [LinkerFlags, None] = None) -> LinkableNode:
     for output_style in get_output_styles_for_linkage(preferred_linkage):
         expect(
@@ -149,6 +159,8 @@ def create_linkable_node(
         exported_deps = linkable_deps(exported_deps),
         link_infos = link_infos,
         shared_libs = shared_libs,
+        can_be_asset = can_be_asset,
+        include_in_android_mergemap = include_in_android_mergemap,
         default_soname = default_soname,
         linker_flags = linker_flags,
         _private = _DisallowConstruction(),

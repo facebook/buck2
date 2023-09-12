@@ -596,6 +596,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 link_infos = libraries,
                 shared_libs = solibs,
                 linker_flags = linker_flags,
+                can_be_asset = getattr(ctx.attrs, "can_be_asset", False) or False,
             ),
             roots = roots,
             excluded = {ctx.label: None} if not value_or(ctx.attrs.supports_merged_linking, True) else {},

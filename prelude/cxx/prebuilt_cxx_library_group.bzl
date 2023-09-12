@@ -358,6 +358,7 @@ def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> list[Provider]:
                 preferred_linkage = preferred_linkage,
                 link_infos = libraries,
                 shared_libs = solibs,
+                can_be_asset = getattr(ctx.attrs, "can_be_asset", False) or False,
                 # TODO(cjhopman): this should be set to non-None
                 default_soname = None,
             ),

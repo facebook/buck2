@@ -718,9 +718,11 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                     exported_deps = exported_deps,
                     # If we don't have link input for this link style, we pass in `None` so
                     # that omnibus knows to avoid it.
+                    include_in_android_mergemap = getattr(ctx.attrs, "include_in_android_merge_map_output", True),
                     link_infos = library_outputs.link_infos,
                     shared_libs = solib_as_dict,
                     linker_flags = linker_flags,
+                    can_be_asset = getattr(ctx.attrs, "can_be_asset", False) or False,
                 ),
                 roots = roots,
                 excluded = {ctx.label: None} if not value_or(ctx.attrs.supports_merged_linking, True) else {},
