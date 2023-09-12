@@ -598,7 +598,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
             roots = roots,
             excluded = {ctx.label: None} if not value_or(ctx.attrs.supports_merged_linking, True) else {},
         ),
-        children = [deps_linkable_graph],
+        deps = [deps_linkable_graph],
     )
 
     providers.append(linkable_graph)

@@ -152,7 +152,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
     # parses them as labels.
     linkable_graph = create_linkable_graph(
         ctx,
-        children = [
+        deps = [
             mapping[0][LinkableGraph]
             for entry in ctx.attrs.map
             for mapping in entry[1]

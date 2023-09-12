@@ -201,7 +201,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
                     link_infos = link_infos,
                 ),
             ),
-            children = [d.linkable_graph for d in link_deps],
+            deps = [d.linkable_graph for d in link_deps],
         ),
         merged_link_info = create_merged_link_info(
             ctx = ctx,

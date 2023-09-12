@@ -207,7 +207,7 @@ def get_link_group_info(
     link_groups = parse_groups_definitions(link_group_map)
     linkable_graph = create_linkable_graph(
         ctx,
-        children = executable_deps,
+        deps = executable_deps,
     )
     return build_link_group_info(
         graph = linkable_graph,

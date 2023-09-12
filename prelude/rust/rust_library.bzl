@@ -732,7 +732,7 @@ def _native_providers(
             ),
             roots = roots,
         ),
-        children = [deps_linkable_graph],
+        deps = [deps_linkable_graph],
     )
 
     providers.append(linkable_graph)

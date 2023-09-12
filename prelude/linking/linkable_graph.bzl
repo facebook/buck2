@@ -155,11 +155,20 @@ def create_linkable_graph_node(
 def create_linkable_graph(
         ctx: AnalysisContext,
         node: [LinkableGraphNode, None] = None,
-        deps: list[Dependency] = [],
-        children: list[LinkableGraph] = []) -> LinkableGraph:
-    all_children_graphs = filter(None, [x.get(LinkableGraph) for x in deps]) + children
+        deps: list[[LinkableGraph, Dependency]] = []) -> LinkableGraph:
+    graph_deps = []
+    for d in deps:
+        if eval_type(LinkableGraph.type).matches(d):
+            graph_deps.append(d)
+        else:
+            graph = d.get(LinkableGraph)
+            if graph:
+                graph_deps.append(graph)
+
+    children = [x.nodes for x in graph_deps]
+
     kwargs = {
-        "children": [child_node.nodes for child_node in all_children_graphs],
+        "children": children,
     }
     if node:
         kwargs["value"] = node

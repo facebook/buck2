@@ -450,8 +450,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     linkable_graph_deps = non_exported_deps + exported_deps
     deps_linkable_graph = create_linkable_graph(
         ctx,
-        deps = linkable_graph_deps,
-        children = link_group_deps,
+        deps = linkable_graph_deps + link_group_deps,
     )
 
     frameworks_linkable = apple_create_frameworks_linkable(ctx)
@@ -724,7 +723,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                 roots = roots,
                 excluded = {ctx.label: None} if not value_or(ctx.attrs.supports_merged_linking, True) else {},
             ),
-            children = [deps_linkable_graph],
+            deps = [deps_linkable_graph],
         )
         providers.append(merged_linkable_graph)
 

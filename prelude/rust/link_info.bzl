@@ -256,7 +256,7 @@ def _non_rust_linkable_graph(
         deps: list[Dependency]) -> LinkableGraph:
     linkable_graph = create_linkable_graph(
         ctx,
-        children = filter(None, (
+        deps = filter(None, (
             [d.linkable_graph for d in linkables(deps)]
         )),
     )

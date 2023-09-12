@@ -238,7 +238,8 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     # Create the linkable graph with the binary's deps and any link group deps.
     linkable_graph = create_linkable_graph(
         ctx,
-        children = filter(None, (
+        deps = filter(
+            None,
             # Some subtargets (like :Foo[headers]) do not have a linkable_graph.
             [d.linkable_graph for d in link_deps] +
             # We also need to include additional link roots, so that we find
@@ -247,8 +248,8 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             # For non-auto-link-group cases, also search the targets specified
             # in the link group mappings, as they won't be available in other
             # ways.
-            link_group_deps
-        )),
+            link_group_deps,
+        ),
     )
 
     # Gather link inputs.
