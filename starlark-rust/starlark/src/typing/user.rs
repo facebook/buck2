@@ -293,7 +293,6 @@ mod tests {
         NoSerialize
     )]
     #[display(fmt = "plant")]
-    #[allocative(skip)] // TODO(nga): derive.
     enum AbstractPlant {}
 
     #[starlark_value(type = "plant")]

@@ -34,7 +34,6 @@ use crate::values::StarlarkValue;
     NoSerialize
 )]
 #[display(fmt = "type")]
-#[allocative(skip)] // TODO(nga): derive.
 pub enum AbstractType {}
 
 #[starlark_value(type = "type")]
