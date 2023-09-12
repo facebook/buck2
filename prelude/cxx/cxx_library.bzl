@@ -131,10 +131,8 @@ load(
     "OBJECTS_SUBTARGET",
     "cxx_attr_deps",
     "cxx_attr_exported_deps",
-    "cxx_attr_exported_linker_flags",
-    "cxx_attr_exported_post_linker_flags",
     "cxx_attr_link_style",
-    "cxx_attr_linker_flags",
+    "cxx_attr_linker_flags_all",
     "cxx_attr_preferred_linkage",
     "cxx_attr_resources",
     "cxx_inherited_link_info",
@@ -180,7 +178,6 @@ load(
     ":omnibus.bzl",
     "create_linkable_root",
 )
-load(":platform.bzl", "cxx_by_platform")
 load(
     ":preprocessor.bzl",
     "CPreprocessor",  # @unused Used as a type
@@ -647,6 +644,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     for additional_subtarget, subtarget_providers in impl_params.additional.subtargets.items():
         sub_targets[additional_subtarget] = subtarget_providers
 
+    linker_flags = cxx_attr_linker_flags_all(ctx)
+
     # Omnibus root provider.
     linkable_root = None
     if impl_params.generate_providers.omnibus_root:
@@ -660,8 +659,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             name = soname,
             link_infos = LinkInfos(
                 default = LinkInfo(
-                    pre_flags = cxx_attr_linker_flags(ctx) + cxx_attr_exported_linker_flags(ctx),
-                    post_flags = _attr_post_linker_flags(ctx) + cxx_attr_exported_post_linker_flags(ctx),
+                    pre_flags = linker_flags.flags + linker_flags.exported_flags,
+                    post_flags = linker_flags.post_flags + linker_flags.exported_post_flags,
                     linkables = [ObjectsLinkable(
                         objects = compiled_srcs.pic.objects,
                         linker_type = linker_type,
@@ -678,8 +677,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                     ),
                 ),
                 stripped = LinkInfo(
-                    pre_flags = cxx_attr_linker_flags(ctx) + cxx_attr_exported_linker_flags(ctx),
-                    post_flags = _attr_post_linker_flags(ctx) + cxx_attr_exported_post_linker_flags(ctx),
+                    pre_flags = linker_flags.flags + linker_flags.exported_flags,
+                    post_flags = linker_flags.post_flags + linker_flags.exported_post_flags,
                     linkables = [ObjectsLinkable(
                         objects = compiled_srcs.pic.stripped_objects,
                         linker_type = linker_type,
@@ -933,12 +932,14 @@ def _form_library_outputs(
     link_infos = {}
     providers = []
 
+    linker_flags = cxx_attr_linker_flags_all(ctx)
+
     # Add in exported linker flags.
     def ldflags(inner: LinkInfo) -> LinkInfo:
         return wrap_link_info(
             inner = inner,
-            pre_flags = cxx_attr_exported_linker_flags(ctx),
-            post_flags = cxx_attr_exported_post_linker_flags(ctx),
+            pre_flags = linker_flags.exported_flags,
+            post_flags = linker_flags.exported_post_flags,
         )
 
     # We don't know which outputs consumers may want, so we define all the possibilities given our preferred linkage.
@@ -1348,10 +1349,10 @@ def _shared_library(
     # does, but the intent of exported link flags are to wrap the link output
     # that we propagate up the tree, rather than being used locally when
     # generating a link product.
+    linker_flags = cxx_attr_linker_flags_all(ctx)
     link_info = LinkInfo(
         pre_flags = (
-            cxx_attr_exported_linker_flags(ctx) +
-            cxx_attr_linker_flags(ctx)
+            linker_flags.flags + linker_flags.exported_flags
         ),
         linkables = [ObjectsLinkable(
             objects = objects,
@@ -1363,8 +1364,9 @@ def _shared_library(
             impl_params.extra_exported_link_flags +
             impl_params.extra_link_flags +
             extra_linker_flags +
-            _attr_post_linker_flags(ctx) +
+            linker_flags.post_flags +
             (linker_info.shared_dep_runtime_ld_flags or [])
+            # TODO(cjhopman): Why doesn't this add exported_linker_flags.post_flags?
         ),
         external_debug_info = external_debug_info,
     )
@@ -1494,9 +1496,3 @@ def use_archives(ctx: AnalysisContext) -> bool:
 
     # Otherwise, fallback to the rule-specific setting.
     return value_or(ctx.attrs.use_archive, True)
-
-def _attr_post_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
-    return (
-        ctx.attrs.post_linker_flags +
-        flatten(cxx_by_platform(ctx, ctx.attrs.post_platform_linker_flags))
-    )

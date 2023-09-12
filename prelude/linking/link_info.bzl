@@ -145,6 +145,13 @@ SwiftRuntimeLinkable = record(
 
 LinkableTypes = [ArchiveLinkable, SharedLibLinkable, ObjectsLinkable, FrameworksLinkable, SwiftmoduleLinkable, SwiftRuntimeLinkable]
 
+LinkerFlags = record(
+    flags = field(list[typing.Any], []),
+    post_flags = field(list[typing.Any], []),
+    exported_flags = field(list[typing.Any], []),
+    exported_post_flags = field(list[typing.Any], []),
+)
+
 # Contains the information required to add an item (often corresponding to a single library) to a link command line.
 LinkInfo = record(
     # An informative name for this LinkInfo. This may be used in user messages

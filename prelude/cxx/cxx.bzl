@@ -75,8 +75,7 @@ load(
     ":cxx_library_utility.bzl",
     "cxx_attr_deps",
     "cxx_attr_exported_deps",
-    "cxx_attr_exported_linker_flags",
-    "cxx_attr_exported_post_linker_flags",
+    "cxx_attr_linker_flags_all",
     "cxx_attr_preferred_linkage",
     "cxx_inherited_link_info",
     "cxx_platform_supported",
@@ -375,8 +374,8 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     inherited_link = cxx_inherited_link_info(first_order_deps)
     inherited_exported_link = cxx_inherited_link_info(exported_first_order_deps)
-    exported_linker_flags = cxx_attr_exported_linker_flags(ctx)
-    non_exported_linker_flags = ctx.attrs.linker_flags
+
+    linker_flags = cxx_attr_linker_flags_all(ctx)
 
     # Gather link infos, outputs, and shared libs for effective link style.
     outputs = {}
@@ -384,12 +383,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     solibs = {}
     sub_targets = {}
     for output_style in get_output_styles_for_linkage(preferred_linkage):
-        args = []
         out = None
-
-        # Add exported linker flags first.
-        args.extend(cxx_attr_exported_linker_flags(ctx))
-        post_link_flags = cxx_attr_exported_post_linker_flags(ctx)
         linkable = None
         linkable_stripped = None
 
@@ -424,8 +418,8 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                         shlink_args = []
 
                         # TODO(T110378143): Support post link flags properly.
-                        shlink_args.extend(exported_linker_flags)
-                        shlink_args.extend(non_exported_linker_flags)
+                        shlink_args.extend(linker_flags.exported_flags)
+                        shlink_args.extend(linker_flags.flags)
                         shlink_args.extend(get_link_whole_args(linker_type, [lib]))
                         link_result = cxx_link_shared_library(
                             ctx = ctx,
@@ -492,14 +486,14 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         libraries[output_style] = LinkInfos(
             default = LinkInfo(
                 name = ctx.attrs.name,
-                pre_flags = args,
-                post_flags = post_link_flags,
+                pre_flags = linker_flags.exported_flags,
+                post_flags = linker_flags.exported_post_flags,
                 linkables = [linkable] if linkable else [],
             ),
             stripped = None if linkable_stripped == None else LinkInfo(
                 name = ctx.attrs.name,
-                pre_flags = args,
-                post_flags = post_link_flags,
+                pre_flags = linker_flags.exported_flags,
+                post_flags = linker_flags.exported_post_flags,
                 linkables = [linkable_stripped],
             ),
         )
@@ -561,8 +555,8 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
             link_infos = LinkInfos(default = LinkInfo(
                 name = soname,
                 pre_flags = (
-                    cxx_attr_exported_linker_flags(ctx) +
-                    non_exported_linker_flags
+                    linker_flags.exported_flags +
+                    linker_flags.flags
                 ),
                 linkables = [ArchiveLinkable(
                     archive = Archive(
@@ -571,7 +565,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     linker_type = linker_type,
                     link_whole = True,
                 )],
-                post_flags = cxx_attr_exported_post_linker_flags(ctx),
+                post_flags = linker_flags.exported_post_flags,
             )),
             deps = exported_first_order_deps,
             graph = deps_linkable_graph,

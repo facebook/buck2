@@ -10,6 +10,7 @@ load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
     "Linkage",
+    "LinkerFlags",
     "MergedLinkInfo",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
@@ -44,16 +45,31 @@ def cxx_attr_deps(ctx: AnalysisContext) -> list[Dependency]:
 def cxx_attr_exported_deps(ctx: AnalysisContext) -> list[Dependency]:
     return ctx.attrs.exported_deps + flatten(cxx_by_platform(ctx, ctx.attrs.exported_platform_deps))
 
+def cxx_attr_linker_flags_all(ctx: AnalysisContext) -> LinkerFlags:
+    flags = cxx_attr_linker_flags(ctx)
+    post_flags = (
+        (ctx.attrs.post_linker_flags if hasattr(ctx.attrs, "post_linker_flags") else []) +
+        (flatten(cxx_by_platform(ctx, ctx.attrs.post_platform_linker_flags)) if hasattr(ctx.attrs, "post_platform_linker_flags") else [])
+    )
+    exported_flags = cxx_attr_exported_linker_flags(ctx)
+    exported_post_flags = cxx_attr_exported_post_linker_flags(ctx)
+    return LinkerFlags(
+        flags = flags,
+        post_flags = post_flags,
+        exported_flags = exported_flags,
+        exported_post_flags = exported_post_flags,
+    )
+
 def cxx_attr_exported_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
     return (
         ctx.attrs.exported_linker_flags +
-        flatten(cxx_by_platform(ctx, ctx.attrs.exported_platform_linker_flags))
+        (flatten(cxx_by_platform(ctx, ctx.attrs.exported_platform_linker_flags)) if hasattr(ctx.attrs, "exported_platform_linker_flags") else [])
     )
 
 def cxx_attr_exported_post_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
     return (
         ctx.attrs.exported_post_linker_flags +
-        flatten(cxx_by_platform(ctx, ctx.attrs.exported_post_platform_linker_flags))
+        (flatten(cxx_by_platform(ctx, ctx.attrs.exported_post_platform_linker_flags)) if hasattr(ctx.attrs, "exported_post_platform_linker_flags") else [])
     )
 
 def cxx_inherited_link_info(first_order_deps: list[Dependency]) -> list[MergedLinkInfo]:
@@ -70,7 +86,7 @@ def cxx_inherited_link_info(first_order_deps: list[Dependency]) -> list[MergedLi
 def cxx_attr_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
     return (
         ctx.attrs.linker_flags +
-        flatten(cxx_by_platform(ctx, ctx.attrs.platform_linker_flags))
+        (flatten(cxx_by_platform(ctx, ctx.attrs.platform_linker_flags)) if hasattr(ctx.attrs, "platform_linker_flags") else [])
     )
 
 def cxx_attr_link_style(ctx: AnalysisContext) -> LinkStyle:
