@@ -11,12 +11,23 @@ def _maybe_get_bool(config: str, default: [None, bool]) -> [None, bool]:
         return default
     return result.lower() == "true"
 
+def _get_bundling_path_conflicts_check_enabled():
+    check_enabled = _maybe_get_bool("bundling_path_conflicts_check_enabled", None)
+    if check_enabled != None:
+        return check_enabled
+
+    return select({
+        "DEFAULT": False,
+        "ovr_config//features/apple/constraints:bundling_path_conflicts_check_disabled": False,
+        "ovr_config//features/apple/constraints:bundling_path_conflicts_check_enabled": True,
+    })
+
 def apple_bundle_config() -> dict[str, typing.Any]:
     return {
         "_bundling_cache_buster": read_root_config("apple", "bundling_cache_buster", None),
         "_bundling_log_file_enabled": _maybe_get_bool("bundling_log_file_enabled", True),
         "_bundling_log_file_level": read_root_config("apple", "bundling_log_file_level", None),
-        "_bundling_path_conflicts_check_enabled": _maybe_get_bool("bundling_path_conflicts_check_enabled", False),
+        "_bundling_path_conflicts_check_enabled": _get_bundling_path_conflicts_check_enabled(),
         "_codesign_type": read_root_config("apple", "codesign_type_override", None),
         "_compile_resources_locally_override": _maybe_get_bool("compile_resources_locally_override", None),
         "_dry_run_code_signing": _maybe_get_bool("dry_run_code_signing", False),
