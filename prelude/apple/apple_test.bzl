@@ -34,7 +34,7 @@ load(
     "expect",
 )
 load(":apple_bundle.bzl", "AppleBundlePartListConstructorParams", "get_apple_bundle_part_list")
-load(":apple_bundle_destination.bzl", "AppleBundleDestination")
+load(":apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative_path_for_destination")
 load(":apple_bundle_part.bzl", "AppleBundlePart", "SwiftStdlibArguments", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path", "get_bundle_dir_name")
 load(":apple_bundle_types.bzl", "AppleBundleInfo")
 load(":apple_bundle_utility.bzl", "get_product_name")
@@ -224,10 +224,15 @@ def _get_test_host_app_bundle(ctx: AnalysisContext) -> [Artifact, None]:
 
 def _get_test_host_app_binary(ctx: AnalysisContext, test_host_app_bundle: [Artifact, None]) -> [cmd_args, None]:
     """ Reference to the binary with the test host app bundle, if one exists for this test. Captures the bundle as an artifact in the cmd_args. """
-    if ctx.attrs.test_host_app:
-        return cmd_args([test_host_app_bundle, ctx.attrs.test_host_app[AppleBundleInfo].binary_name], delimiter = "/")
+    if ctx.attrs.test_host_app == None:
+        return None
 
-    return None
+    parts = [test_host_app_bundle]
+    rel_path = bundle_relative_path_for_destination(AppleBundleDestination("executables"), get_apple_sdk_name(ctx), ctx.attrs.extension)
+    if len(rel_path) > 0:
+        parts.append(rel_path)
+    parts.append(ctx.attrs.test_host_app[AppleBundleInfo].binary_name)
+    return cmd_args(parts, delimiter = "/")
 
 def _get_bundle_loader_flags(binary: [cmd_args, None]) -> list[typing.Any]:
     if binary:
