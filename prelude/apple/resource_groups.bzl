@@ -7,6 +7,7 @@
 
 load(
     "@prelude//cxx:groups.bzl",
+    "Group",
     "MATCH_ALL_LABEL",
 )
 load(
@@ -21,16 +22,16 @@ load(":scene_kit_assets_types.bzl", "SceneKitAssetsSpec")
 ResourceGroupInfo = provider(
     # @unsorted-dict-items
     fields = {
-        "groups": provider_field(typing.Any, default = None),  # list[Group]
-        "groups_hash": provider_field(typing.Any, default = None),  # str
-        "mappings": provider_field(typing.Any, default = None),  # {"label": str}
+        "groups": provider_field(list[Group]),
+        "groups_hash": provider_field(int),
+        "mappings": provider_field(dict[Label, str]),
         # Additional deps needed to cover labels referenced by the groups above.
         # This is useful in cases where the consumer of this provider won't already
         # have deps covering these.
         # NOTE(agallagher): We do this to maintain existing behavior w/ the
         # standalone `resource_group_map()` rule, but it's not clear if it's
         # actually desirable behavior.
-        "implicit_deps": provider_field(typing.Any, default = None),  # [Dependency]
+        "implicit_deps": provider_field(list[Dependency]),
     },
 )
 
