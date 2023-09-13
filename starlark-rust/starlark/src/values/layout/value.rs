@@ -576,7 +576,7 @@ impl<'v> Value<'v> {
     pub fn mul(self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         if let Some(r) = self.get_ref().mul(other, heap) {
             r
-        } else if let Some(r) = other.get_ref().mul(self, heap) {
+        } else if let Some(r) = other.get_ref().rmul(self, heap) {
             r
         } else {
             ValueError::unsupported_owned(self.get_type(), "*", Some(other.get_type()))

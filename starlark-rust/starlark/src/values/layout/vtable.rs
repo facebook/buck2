@@ -465,6 +465,15 @@ impl<'v> AValueDyn<'v> {
     }
 
     #[inline]
+    pub(crate) fn rmul(
+        self,
+        other: Value<'v>,
+        heap: &'v Heap,
+    ) -> Option<anyhow::Result<Value<'v>>> {
+        (self.vtable.starlark_value.rmul)(self.value, other, heap)
+    }
+
+    #[inline]
     pub(crate) fn div(self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         (self.vtable.starlark_value.div)(self.value, other, heap)
     }
