@@ -534,12 +534,6 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         filter(None, [x.get(SharedLibraryInfo) for x in exported_first_order_deps]),
     ))
 
-    # Create, augment and provide the linkable graph.
-    deps_linkable_graph = create_linkable_graph(
-        ctx,
-        deps = exported_first_order_deps,
-    )
-
     # Omnibus root provider.
     if LibOutputStyle("pic_archive") in libraries and (static_pic_lib or static_lib) and not ctx.attrs.header_only:
         # TODO(cjhopman): This doesn't support thin archives
@@ -586,7 +580,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
             ),
             excluded = {ctx.label: None} if not value_or(ctx.attrs.supports_merged_linking, True) else {},
         ),
-        deps = [deps_linkable_graph],
+        deps = exported_first_order_deps,
     )
 
     providers.append(linkable_graph)

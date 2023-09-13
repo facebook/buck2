@@ -680,12 +680,6 @@ def _native_providers(
         inherited_non_rust_shlibs,
     ))
 
-    # Create, augment and provide the linkable graph.
-    deps_linkable_graph = create_linkable_graph(
-        ctx,
-        deps = inherited_non_rust_link_deps,
-    )
-
     # Omnibus root provider.
     linkable_root = create_linkable_root(
         name = get_default_shared_library_name(linker_info, ctx.label),
@@ -723,7 +717,7 @@ def _native_providers(
                 default_soname = None,
             ),
         ),
-        deps = [deps_linkable_graph],
+        deps = inherited_non_rust_link_deps,
     )
 
     providers.append(linkable_graph)

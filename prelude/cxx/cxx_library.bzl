@@ -446,10 +446,10 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     link_group_preferred_linkage = get_link_group_preferred_linkage(link_groups.values())
 
     # Create the linkable graph from the library's deps, exported deps and any link group deps.
-    linkable_graph_deps = non_exported_deps + exported_deps
+    linkable_graph_deps = non_exported_deps + exported_deps + link_group_deps
     deps_linkable_graph = create_linkable_graph(
         ctx,
-        deps = linkable_graph_deps + link_group_deps,
+        deps = linkable_graph_deps,
     )
 
     frameworks_linkable = apple_create_frameworks_linkable(ctx)
@@ -572,7 +572,10 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
         # TODO(cjhopman): This is strange that we construct this intermediate MergedLinkInfo rather than just
         # passing the full list of deps below, but I'm keeping it to preserve existing behavior with a refactor.
-        # I intend to change completely how MergedLinkInfo works, so this should go away then.
+        # I intend to change completely how MergedLinkInfo works, so this should go away then. We cannot just
+        # pass these to create_merged_link_info because the for_propagation one is used to filter out deps for
+        # individual link strategies where that dep doesn't provide a linkinfo (which may itself be a bug, but not
+        # sure).
         inherited_non_exported_link = create_merged_link_info_for_propagation(ctx, inherited_non_exported_link)
         inherited_exported_link = create_merged_link_info_for_propagation(ctx, inherited_exported_link)
 
@@ -713,7 +716,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                 ),
                 excluded = {ctx.label: None} if not value_or(ctx.attrs.supports_merged_linking, True) else {},
             ),
-            deps = [deps_linkable_graph],
+            deps = linkable_graph_deps,
         )
         providers.append(merged_linkable_graph)
 
