@@ -16,9 +16,35 @@ Aapt2LinkInfo = record(
     r_dot_txt = Artifact,
 )
 
+PrebuiltNativeLibraryDir = record(
+    raw_target = TargetLabel,
+    dir = Artifact,  # contains subdirectories for different ABIs.
+    for_primary_apk = bool,
+    is_asset = bool,
+)
+
+ExopackageDexInfo = record(
+    metadata = Artifact,
+    directory = Artifact,
+)
+
+ExopackageNativeInfo = record(
+    metadata = Artifact,
+    directory = Artifact,
+)
+
+ExopackageResourcesInfo = record(
+    assets = [Artifact, None],
+    assets_hash = [Artifact, None],
+    res = Artifact,
+    res_hash = Artifact,
+)
+
 AndroidBinaryNativeLibsInfo = record(
-    apk_under_test_prebuilt_native_library_dirs = list["PrebuiltNativeLibraryDir"],
-    apk_under_test_shared_libraries = list["SharedLibrary"],
+    apk_under_test_prebuilt_native_library_dirs = list[PrebuiltNativeLibraryDir.type],
+    # Indicates which shared lib producing targets are included in the binary. Used by instrumentation tests
+    # to exclude those from the test apk.
+    apk_under_test_shared_libraries = list["target_label"],
     exopackage_info = ["ExopackageNativeInfo", None],
     root_module_native_lib_assets = list[Artifact],
     non_root_module_native_lib_assets = list[Artifact],
@@ -27,7 +53,7 @@ AndroidBinaryNativeLibsInfo = record(
 
 AndroidBinaryResourcesInfo = record(
     # Optional information about resources that should be exopackaged
-    exopackage_info = ["ExopackageResourcesInfo", None],
+    exopackage_info = [ExopackageResourcesInfo.type, None],
     # manifest to be used by the APK
     manifest = Artifact,
     # per-module manifests (packaged as assets)
@@ -98,7 +124,7 @@ AndroidApkUnderTestInfo = provider(
         "primary_platform": provider_field(typing.Any, default = None),  # str
         "resource_infos": provider_field(typing.Any, default = None),  # set_type("ResourceInfos")
         "r_dot_java_packages": provider_field(typing.Any, default = None),  # set_type(str)
-        "shared_libraries": provider_field(typing.Any, default = None),  # set_type("SharedLibrary")
+        "shared_libraries": provider_field(typing.Any, default = None),  # set_type(raw_target)
     },
 )
 
@@ -106,13 +132,6 @@ AndroidInstrumentationApkInfo = provider(
     fields = {
         "apk_under_test": provider_field(typing.Any, default = None),  # "artifact"
     },
-)
-
-PrebuiltNativeLibraryDir = record(
-    raw_target = TargetLabel,
-    dir = Artifact,  # contains subdirectories for different ABIs.
-    for_primary_apk = bool,
-    is_asset = bool,
 )
 
 ManifestInfo = record(
@@ -181,23 +200,6 @@ ExportedAndroidResourceInfo = provider(
     fields = {
         "resource_infos": provider_field(typing.Any, default = None),  # ["AndroidResourceInfo"]
     },
-)
-
-ExopackageDexInfo = record(
-    metadata = Artifact,
-    directory = Artifact,
-)
-
-ExopackageNativeInfo = record(
-    metadata = Artifact,
-    directory = Artifact,
-)
-
-ExopackageResourcesInfo = record(
-    assets = [Artifact, None],
-    assets_hash = [Artifact, None],
-    res = Artifact,
-    res_hash = Artifact,
 )
 
 DexFilesInfo = record(
