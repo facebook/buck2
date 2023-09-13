@@ -34,6 +34,9 @@ def get_shared_pcm_compilation_args(module_name: str) -> cmd_args:
         "-Xclang",
         "-Xcc",
         "-fmodule-file-home-is-cwd",
+        # Unset the working directory to avoid serializing it as an absolute path.
+        "-Xcc",
+        "-working-directory=",
         # Once we have an empty working directory the compiler provided headers such as float.h
         # cannot be found, so add . to the header search paths.
         "-Xcc",
