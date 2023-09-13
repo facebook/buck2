@@ -501,6 +501,7 @@ impl InterpreterForCell {
             StarlarkModulePath::BxlFile(bxl) => PerFileTypeContext::Bxl(bxl.clone()),
         };
         let typecheck = self.global_state.unstable_typecheck
+            || matches!(starlark_path, StarlarkModulePath::BxlFile(..))
             || match self.global_state.configuror.prelude_import() {
                 Some(prelude_import) => {
                     prelude_import.prelude_cell() == self.cell_names.resolve_self()
