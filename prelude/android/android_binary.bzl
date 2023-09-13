@@ -64,6 +64,12 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
     if target_to_module_mapping_file:
         enhancement_ctx.debug_output("module.mapping", target_to_module_mapping_file)
 
+    native_library_info = get_android_binary_native_library_info(enhancement_ctx, android_packageable_info, deps_by_platform, apk_module_graph_file = target_to_module_mapping_file)
+    java_packaging_deps.extend([create_java_packaging_dep(
+        ctx,
+        lib.library_output.full_library,
+    ) for lib in native_library_info.generated_java_code])
+
     referenced_resources_lists = [java_packaging_dep.dex.referenced_resources for java_packaging_dep in java_packaging_deps if java_packaging_dep.dex] if ctx.attrs.trim_resource_ids and should_pre_dex else []
     resources_info = get_android_binary_resources_info(
         ctx,
@@ -145,7 +151,6 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
                 is_optimized = has_proguard_config,
             )
 
-    native_library_info = get_android_binary_native_library_info(enhancement_ctx, android_packageable_info, deps_by_platform, apk_module_graph_file = target_to_module_mapping_file)
     sub_targets = sub_targets | enhancement_ctx.get_sub_targets()
     if resources_info.string_source_map:
         sub_targets["generate_string_resources"] = [DefaultInfo(default_output = resources_info.string_source_map)]

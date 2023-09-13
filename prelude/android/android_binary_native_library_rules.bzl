@@ -168,6 +168,7 @@ def get_android_binary_native_library_info(
         exopackage_info = exopackage_info,
         root_module_native_lib_assets = [native_lib_assets_for_primary_apk, stripped_native_linkable_assets_for_primary_apk, root_module_metadata_assets, root_module_compressed_lib_assets],
         non_root_module_native_lib_assets = [non_root_module_metadata_assets, non_root_module_compressed_lib_assets],
+        generated_java_code = [],
     )
 
 # We could just return two artifacts of libs (one for the primary APK, one which can go
