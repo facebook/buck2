@@ -147,6 +147,13 @@ def _on_unused_dependencies():
 """),
     }
 
+def _k2():
+    return {
+        "k2": attrs.bool(default = False, doc = """
+    Enables the Kotlin K2 compiler.
+    """),
+    }
+
 jvm_common = struct(
     test_env = _test_env,
     resources_arg = _resources_arg,
@@ -158,4 +165,5 @@ jvm_common = struct(
     abi_generation_mode = _abi_generation_mode,
     required_for_source_only_abi = _required_for_source_only_abi,
     on_unused_dependencies = _on_unused_dependencies,
+    k2 = _k2,
 )

@@ -73,7 +73,7 @@ def create_jar_artifact_kotlincd(
         friend_paths: list[Dependency],
         kotlin_compiler_plugins: dict,
         extra_kotlinc_arguments: list[str],
-        extra_non_source_only_abi_kotlinc_arguments: list[str],
+        k2: bool,
         is_creating_subtarget: bool = False,
         optional_dirs: list[OutputArtifact] = []) -> JavaCompileOutputs:
     resources_map = get_resources_map(
@@ -125,7 +125,7 @@ def create_jar_artifact_kotlincd(
             shouldVerifySourceOnlyAbiConstraints = actual_abi_generation_mode == AbiGenerationMode("source_only"),
             shouldGenerateAnnotationProcessingStats = True,
             extraKotlincArguments = extra_kotlinc_arguments,
-            extraNonSourceOnlyAbiKotlincArguments = extra_non_source_only_abi_kotlinc_arguments,
+            extraNonSourceOnlyAbiKotlincArguments = ["-language-version=2.0"] if k2 else [],
             shouldRemoveKotlinCompilerFromClassPath = True,
             depTrackerPlugin = kotlin_toolchain.track_class_usage_plugin,
         )

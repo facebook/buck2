@@ -740,6 +740,7 @@ android_library = prelude_rule(
         jvm_common.abi_generation_mode() |
         jvm_common.source_only_abi_deps() |
         jvm_common.required_for_source_only_abi() |
+        jvm_common.k2() |
         {
             "remove_classes": attrs.list(attrs.regex(), default = [], doc = """
                 List of classes to remove from the output jar. It only removes classes from the target's own
@@ -1451,7 +1452,7 @@ robolectric_test = prelude_rule(
             "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
             "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
             "vm_args": attrs.list(attrs.arg(), default = []),
-        }
+        } | jvm_common.k2()
     ),
 )
 

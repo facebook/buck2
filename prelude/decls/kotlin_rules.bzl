@@ -167,6 +167,7 @@ kotlin_library = prelude_rule(
         jvm_common.exported_deps() |
         jvm_common.provided_deps() |
         jvm_common.exported_provided_deps() |
+        jvm_common.k2() |
         buck.labels_arg() |
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
@@ -253,6 +254,7 @@ kotlin_test = prelude_rule(
                 Runtime arguments to the JVM running the tests.
             """),
         } |
+        jvm_common.k2() |
         jvm_common.test_env() |
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
