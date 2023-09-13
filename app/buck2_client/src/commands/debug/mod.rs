@@ -24,6 +24,7 @@ use materialize::MaterializeCommand;
 
 use crate::commands::debug::allocative::AllocativeCommand;
 use crate::commands::debug::daemon_dir::DaemonDirCommand;
+use crate::commands::debug::eval::EvalCommand;
 use crate::commands::debug::exe::ExeCommand;
 use crate::commands::debug::log_perf::LogPerfCommand;
 use crate::commands::debug::paranoid::ParanoidCommand;
@@ -41,6 +42,7 @@ mod chrome_trace;
 mod crash;
 mod daemon_dir;
 mod dice_dump;
+mod eval;
 mod exe;
 mod file_status;
 mod flush_dep_files;
@@ -100,6 +102,7 @@ pub enum DebugCommand {
     PersistEventLogs(PersistEventLogsCommand),
     #[clap(subcommand)]
     Paranoid(ParanoidCommand),
+    Eval(EvalCommand),
 }
 
 impl DebugCommand {
@@ -127,6 +130,7 @@ impl DebugCommand {
             DebugCommand::TraceIo(cmd) => cmd.exec(matches, ctx),
             DebugCommand::PersistEventLogs(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Paranoid(cmd) => cmd.exec(matches, ctx),
+            DebugCommand::Eval(cmd) => cmd.exec(matches, ctx),
         }
     }
 

@@ -10,6 +10,7 @@
 use anyhow::Context;
 use buck2_cli_proto::new_generic::NewGenericRequest;
 use buck2_cli_proto::new_generic::NewGenericResponse;
+use buck2_server_ctx::other_server_commands::OTHER_SERVER_COMMANDS;
 
 use crate::ctx::ServerCommandContext;
 use crate::materialize::materialize_command;
@@ -25,6 +26,9 @@ pub(crate) async fn new_generic_command(
         NewGenericRequest::Materialize(m) => {
             NewGenericResponse::Materialize(materialize_command(context, m).await?)
         }
+        NewGenericRequest::DebugEval(e) => NewGenericResponse::DebugEval(
+            OTHER_SERVER_COMMANDS.get()?.debug_eval(context, e).await?,
+        ),
     };
     let resp = serde_json::to_string(&resp).context("Could not serialize `NewGenericResponse`")?;
     Ok(buck2_cli_proto::NewGenericResponseMessage {

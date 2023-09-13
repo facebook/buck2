@@ -13,11 +13,13 @@ use serde::Serialize;
 #[derive(Serialize, Deserialize)]
 pub enum NewGenericRequest {
     Materialize(MaterializeRequest),
+    DebugEval(DebugEvalRequest),
 }
 
 #[derive(Serialize, Deserialize)]
 pub enum NewGenericResponse {
     Materialize(MaterializeResponse),
+    DebugEval(DebugEvalResponse),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -28,3 +30,11 @@ pub struct MaterializeRequest {
 
 #[derive(Serialize, Deserialize)]
 pub struct MaterializeResponse {}
+
+#[derive(Serialize, Deserialize)]
+pub struct DebugEvalRequest {
+    pub paths: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct DebugEvalResponse {}

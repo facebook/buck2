@@ -8,6 +8,8 @@
  */
 
 use async_trait::async_trait;
+use buck2_cli_proto::new_generic::DebugEvalRequest;
+use buck2_cli_proto::new_generic::DebugEvalResponse;
 use buck2_util::late_binding::LateBinding;
 
 use crate::ctx::ServerCommandContextTrait;
@@ -64,6 +66,11 @@ pub trait OtherServerCommands: Send + Sync + 'static {
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::ConfiguredTargetsRequest,
     ) -> anyhow::Result<buck2_cli_proto::ConfiguredTargetsResponse>;
+    async fn debug_eval(
+        &self,
+        ctx: &dyn ServerCommandContextTrait,
+        req: DebugEvalRequest,
+    ) -> anyhow::Result<DebugEvalResponse>;
 }
 
 pub static OTHER_SERVER_COMMANDS: LateBinding<&'static dyn OtherServerCommands> =

@@ -8,6 +8,8 @@
  */
 
 use async_trait::async_trait;
+use buck2_cli_proto::new_generic::DebugEvalRequest;
+use buck2_cli_proto::new_generic::DebugEvalResponse;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::other_server_commands::OtherServerCommands;
 use buck2_server_ctx::other_server_commands::OTHER_SERVER_COMMANDS;
@@ -16,6 +18,7 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
 use crate::commands::build::build_command;
 use crate::commands::configured_targets::configured_targets_command;
+use crate::commands::debug_eval::debug_eval_command;
 use crate::commands::install::install_command;
 use crate::commands::query::aquery::aquery_command;
 use crate::commands::query::cquery::cquery_command;
@@ -90,6 +93,13 @@ impl OtherServerCommands for OtherServerCommandsInstance {
         req: buck2_cli_proto::ConfiguredTargetsRequest,
     ) -> anyhow::Result<buck2_cli_proto::ConfiguredTargetsResponse> {
         configured_targets_command(ctx, partial_result_dispatcher, req).await
+    }
+    async fn debug_eval(
+        &self,
+        ctx: &dyn ServerCommandContextTrait,
+        req: DebugEvalRequest,
+    ) -> anyhow::Result<DebugEvalResponse> {
+        debug_eval_command(ctx, req).await
     }
 }
 
