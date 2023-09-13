@@ -117,6 +117,52 @@ def find_cycle(graph: dict[typing.Any, list[typing.Any]]) -> list[typing.Any] | 
 
     return None
 
+def post_order_traversal_by(
+        roots: list[typing.Any],
+        get_nodes_to_traverse_func) -> list[typing.Any]:
+    """
+    Returns the post-order sorted list of the nodes in the traversal.
+
+    This implementation simply performs a dfs. We maintain a work stack here.
+    When visiting a node, we first add an item to the work stack to output that
+    node, and then add items to visit all the children. While a work item for a
+    child will not be added if it has already been visited, if there's an item in
+    the stack for that child it will still be added. When popping the visit, if
+    the node had been visited, it's ignored. This ensures that a node's children are
+    all visited before we output that node.
+    """
+    ordered = []
+    visited = {}
+    OUTPUT = 1
+    VISIT = 2
+    queue = [(VISIT, n) for n in roots]
+    for _ in range(2000000000):
+        if not queue:
+            break
+
+        kind, node = queue.pop()
+        if kind == VISIT:
+            if not node in visited:
+                queue.append((OUTPUT, node))
+                for dep in get_nodes_to_traverse_func(node):
+                    if dep not in visited:
+                        queue.append((VISIT, dep))
+        else:
+            visited[node] = True
+            ordered.append(node)
+    return ordered
+
+def topo_sort_by(
+        roots: list[typing.Any],
+        get_nodes_to_traverse_func) -> list[typing.Any]:
+    """
+    Returns a topological sorted list of the nodes in the traversal.
+
+    Note this gives a different order from topo_sort above (to simplify the implementation).
+    """
+    ordered = post_order_traversal_by(roots, get_nodes_to_traverse_func)
+    return ordered[::-1]
+
 def breadth_first_traversal(
         graph_nodes: dict[typing.Any, list[typing.Any]],
         roots: list[typing.Any]) -> list[typing.Any]:
