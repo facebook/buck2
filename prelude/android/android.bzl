@@ -85,6 +85,7 @@ extra_attributes = {
         "native_library_merge_code_generator": attrs.option(attrs.exec_dep(), default = None),
         "native_library_merge_glue": attrs.option(attrs.split_transition_dep(cfg = cpu_split_transition), default = None),
         "_android_toolchain": toolchains_common.android(),
+        "_cxx_toolchain": attrs.split_transition_dep(cfg = cpu_split_transition, default = "toolchains//:android-hack"),
         "_dex_toolchain": toolchains_common.dex(),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
