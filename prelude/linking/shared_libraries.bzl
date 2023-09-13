@@ -8,12 +8,21 @@
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@prelude//linking:link_info.bzl",
+    "LinkArgs",
     "LinkedObject",  # @unused Used as a type
 )
 load("@prelude//linking:strip.bzl", "strip_object")
 
 SharedLibrary = record(
     lib = field(LinkedObject),
+    # The LinkArgs used to produce this SharedLibrary. This can be useful for debugging or
+    # for downstream rules to reproduce the shared library with some modifications (for example
+    # android relinker will link again with an added version script argument).
+    # TODO(cjhopman): This is currently always available.
+    link_args = field(list[LinkArgs] | None),
+    # The sonames of the shared libraries that this links against.
+    # TODO(cjhopman): This is currently always available.
+    shlib_deps = field(list[str] | None),
     stripped_lib = field([Artifact, None]),
     can_be_asset = field(bool),
     for_primary_apk = field(bool),
@@ -61,6 +70,8 @@ def create_shared_libraries(
                 shlib.output,
                 cmd_args(get_strip_non_global_flags(cxx_toolchain[CxxToolchainInfo])),
             ) if cxx_toolchain != None else None,
+            link_args = shlib.link_args,
+            shlib_deps = None,  # TODO(cjhopman): we need this figured out.
             can_be_asset = getattr(ctx.attrs, "can_be_asset", False) or False,
             for_primary_apk = getattr(ctx.attrs, "used_by_wrap_script", False),
             label = ctx.label,
