@@ -36,8 +36,8 @@ _SelectionCriteria = record(
 AppleSelectiveDebuggingInfo = provider(
     # @unsorted-dict-items
     fields = {
-        "scrub_binary": provider_field(typing.Any, default = None),  # function
-        "filter": provider_field(typing.Any, default = None),  # function
+        "scrub_binary": provider_field(typing.Callable),
+        "filter": provider_field(typing.Callable),
     },
 )
 
