@@ -315,7 +315,7 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
         node = create_linkable_graph_node(
             ctx,
             # Add in any potential native root targets from our first-order deps.
-            roots = get_roots(ctx.label, deps),
+            roots = get_roots(deps),
             # Exclude preloaded deps from omnibus linking, to prevent preloading
             # the monolithic omnibus library.
             excluded = get_excluded(

@@ -159,11 +159,6 @@ CxxRuleConstructorParams = record(
     generate_sub_targets = field(CxxRuleSubTargetParams, CxxRuleSubTargetParams()),
     # Define which providers to generate.
     generate_providers = field(CxxRuleProviderParams, CxxRuleProviderParams()),
-    # Force this library to be a Python Omnibus root.
-    is_omnibus_root = field(bool, False),
-    # Emit an Omnibus shared root for this node even if it's not an Omnibus
-    # root. This only makes sense to use in tests.
-    force_emit_omnibus_shared_root = field(bool, False),
     force_full_hybrid_if_capable = field(bool, False),
     # Whether shared libs for executables should generate a shared lib link tree.
     exe_shared_libs_link_tree = field(bool, True),

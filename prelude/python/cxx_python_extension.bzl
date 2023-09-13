@@ -30,7 +30,6 @@ load("@prelude//cxx:linker.bzl", "DUMPBIN_SUB_TARGET", "PDB_SUB_TARGET", "get_du
 load(
     "@prelude//cxx:omnibus.bzl",
     "create_linkable_root",
-    "explicit_roots_enabled",
     "get_roots",
 )
 load(
@@ -48,7 +47,6 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "AnnotatedLinkableRoot",
     "create_linkable_graph",
     "create_linkable_graph_node",
     "create_linkable_node",
@@ -120,7 +118,6 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         use_soname = False,
         generate_providers = cxx_providers,
         generate_sub_targets = sub_targets,
-        is_omnibus_root = explicit_roots_enabled(ctx),
     )
 
     cxx_library_info = cxx_library_parameterized(ctx, impl_params)
@@ -216,15 +213,10 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
             deps = [d.shared_library_info for d in link_deps],
         ),
         linkable_root_info = create_linkable_root(
-            ctx = ctx,
             link_infos = wrap_link_infos(
                 link_infos[LibOutputStyle("pic_archive")],
                 pre_flags = ctx.attrs.linker_flags,
                 post_flags = ctx.attrs.post_linker_flags,
-            ),
-            graph = create_linkable_graph(
-                ctx,
-                deps = cxx_deps,
             ),
             deps = cxx_deps,
         ),
@@ -278,14 +270,13 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Handle the case where C++ Python extensions depend on other C++ Python
     # extensions, which should also be treated as roots.
-    roots = get_roots(ctx.label, [
+    roots = get_roots([
         dep
         for dep in flatten(raw_deps)
         # We only want to handle C++ Python extension deps, but not other native
         # linkable deps like C++ libraries.
         if PythonLibraryInfo in dep
     ])
-    roots[ctx.label] = AnnotatedLinkableRoot(root = cxx_library_info.linkable_root)
 
     linkable_graph = create_linkable_graph(
         ctx,

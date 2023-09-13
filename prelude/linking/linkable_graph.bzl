@@ -32,22 +32,7 @@ LinkableRootInfo = provider(
         "link_infos": provider_field(typing.Any, default = None),  # LinkInfos
         "name": provider_field(typing.Any, default = None),  # [str, None]
         "deps": provider_field(typing.Any, default = None),  # ["label"]
-        "shared_root": provider_field(typing.Any, default = None),  # SharedOmnibusRoot, either this or no_shared_root_reason is set.
-        "no_shared_root_reason": provider_field(typing.Any, default = None),  # OmnibusPrivateRootProductCause
     },
-)
-
-# This annotation is added on an AnnotatedLinkableRoot to indicate what
-# dependend resulted in it being discovered as an implicit root. For example,
-# if Python library A depends on C++ library B, then in the
-# AnnotatedLinkableRoot for B, we'll have A as the dependent.
-LinkableRootAnnotation = record(
-    dependent = field(typing.Any),
-)
-
-AnnotatedLinkableRoot = record(
-    root = field(LinkableRootInfo),
-    annotation = field([LinkableRootAnnotation, None], None),
 )
 
 ###############################################################################
@@ -110,7 +95,7 @@ LinkableGraphNode = record(
 
     # All potential root notes for an omnibus link (e.g. C++ libraries,
     # C++ Python extensions).
-    roots = field(dict[Label, AnnotatedLinkableRoot]),
+    roots = field(dict[Label, LinkableRootInfo]),
 
     # Exclusions this node adds to the Omnibus graph
     excluded = field(dict[Label, None]),
@@ -169,7 +154,7 @@ def create_linkable_node(
 def create_linkable_graph_node(
         ctx: AnalysisContext,
         linkable_node: [LinkableNode, None] = None,
-        roots: dict[Label, AnnotatedLinkableRoot] = {},
+        roots: dict[Label, LinkableRootInfo] = {},
         excluded: dict[Label, None] = {}) -> LinkableGraphNode:
     return LinkableGraphNode(
         label = ctx.label,

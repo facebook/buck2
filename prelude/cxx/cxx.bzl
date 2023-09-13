@@ -43,7 +43,6 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "AnnotatedLinkableRoot",
     "DlopenableLibraryInfo",
     "LinkableGraph",
     "create_linkable_graph",
@@ -125,7 +124,6 @@ load(
 load(
     ":omnibus.bzl",
     "create_linkable_root",
-    "is_known_omnibus_root",
 )
 load(":platform.bzl", "cxx_by_platform")
 load(
@@ -181,8 +179,6 @@ def cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
         srcs = get_srcs_with_flags(ctx),
         output_style_sub_targets_and_providers_factory = _get_shared_link_style_sub_targets_and_providers,
-        is_omnibus_root = is_known_omnibus_root(ctx),
-        force_emit_omnibus_shared_root = ctx.attrs.force_emit_omnibus_shared_root,
         generate_sub_targets = sub_target_params,
         generate_providers = provider_params,
     )
@@ -545,12 +541,9 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     # Omnibus root provider.
-    known_omnibus_root = is_known_omnibus_root(ctx)
-    linkable_root = None
     if LibOutputStyle("pic_archive") in libraries and (static_pic_lib or static_lib) and not ctx.attrs.header_only:
         # TODO(cjhopman): This doesn't support thin archives
         linkable_root = create_linkable_root(
-            ctx,
             name = soname,
             link_infos = LinkInfos(default = LinkInfo(
                 name = soname,
@@ -568,19 +561,12 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 post_flags = linker_flags.exported_post_flags,
             )),
             deps = exported_first_order_deps,
-            graph = deps_linkable_graph,
-            create_shared_root = known_omnibus_root,
         )
         providers.append(linkable_root)
 
         # Mark libraries that support `dlopen`.
         if ctx.attrs.supports_python_dlopen:
             providers.append(DlopenableLibraryInfo())
-
-    roots = {}
-
-    if linkable_root != None and known_omnibus_root:
-        roots[ctx.label] = AnnotatedLinkableRoot(root = linkable_root)
 
     linkable_graph = create_linkable_graph(
         ctx,
@@ -598,7 +584,6 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 linker_flags = linker_flags,
                 can_be_asset = getattr(ctx.attrs, "can_be_asset", False) or False,
             ),
-            roots = roots,
             excluded = {ctx.label: None} if not value_or(ctx.attrs.supports_merged_linking, True) else {},
         ),
         deps = [deps_linkable_graph],

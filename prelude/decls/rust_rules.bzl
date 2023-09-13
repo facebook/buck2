@@ -5,7 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//cxx:omnibus.bzl", "omnibus_environment_attr")
 load("@prelude//cxx/user:link_group_map.bzl", "link_group_map_attr")
 load("@prelude//rust:link_info.bzl", "RustProcMacroPlugin")
 load("@prelude//rust:rust_binary.bzl", "rust_binary_impl", "rust_test_impl")
@@ -243,7 +242,6 @@ rust_library = prelude_rule(
             "doctests": attrs.option(attrs.bool(), default = None),
             "proc_macro": attrs.bool(default = False),
             "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
-            "_omnibus_environment": omnibus_environment_attr(),
         } |
         _rust_binary_attrs_group(prefix = "doc_") |
         rust_common.toolchains_args() |

@@ -13,7 +13,6 @@ load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebugg
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
 load("@prelude//apple/user:resource_group_map.bzl", "resource_group_map_attr")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
-load("@prelude//cxx:omnibus.bzl", "omnibus_environment_attr")
 load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
 load("@prelude//linking:link_info.bzl", "LinkOrdering")
 load("@prelude//decls/common.bzl", "LinkableDepType", "Linkage")
@@ -91,7 +90,6 @@ def apple_test_extra_attrs():
         "_ios_booted_simulator": attrs.default_only(attrs.dep(default = "fbsource//xplat/buck2/platform/apple:ios_booted_simulator", providers = [LocalResourceInfo])),
         "_ios_unbooted_simulator": attrs.default_only(attrs.dep(default = "fbsource//xplat/buck2/platform/apple:ios_unbooted_simulator", providers = [LocalResourceInfo])),
         "_macos_idb_companion": attrs.default_only(attrs.dep(default = "fbsource//xplat/buck2/platform/apple:macos_idb_companion", providers = [LocalResourceInfo])),
-        "_omnibus_environment": omnibus_environment_attr(),
     }
     attribs.update(_apple_bundle_like_common_attrs())
     return attribs

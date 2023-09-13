@@ -55,7 +55,7 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx,
         node = create_linkable_graph_node(
             ctx,
-            roots = get_roots(ctx.label, ctx.attrs.deps),
+            roots = get_roots(ctx.attrs.deps),
             excluded = get_excluded(deps = ctx.attrs.deps if ctx.attrs.exclude_deps_from_merged_linking else []),
         ),
         deps = ctx.attrs.deps,

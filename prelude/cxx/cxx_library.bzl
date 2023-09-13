@@ -84,7 +84,6 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "AnnotatedLinkableRoot",
     "DlopenableLibraryInfo",
     "LinkableRootInfo",
     "create_linkable_graph",
@@ -654,7 +653,6 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             soname = None
         linker_type = get_cxx_toolchain_info(ctx).linker_info.type
         linkable_root = create_linkable_root(
-            ctx,
             name = soname,
             link_infos = LinkInfos(
                 default = LinkInfo(
@@ -686,15 +684,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                 ),
             ),
             deps = non_exported_deps + exported_deps,
-            graph = deps_linkable_graph,
-            create_shared_root = impl_params.is_omnibus_root or impl_params.force_emit_omnibus_shared_root,
         )
         providers.append(linkable_root)
-
-        if linkable_root.shared_root:
-            sub_targets["omnibus-shared-root"] = [DefaultInfo(
-                default_output = linkable_root.shared_root.product.shared_library.output,
-            )]
 
         # Mark libraries that support `dlopen`.
         if getattr(ctx.attrs, "supports_python_dlopen", False):
@@ -702,10 +693,6 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
     # Augment and provide the linkable graph.
     if impl_params.generate_providers.linkable_graph:
-        roots = {}
-        if linkable_root != None and impl_params.is_omnibus_root:
-            roots[ctx.label] = AnnotatedLinkableRoot(root = linkable_root)
-
         merged_linkable_graph = create_linkable_graph(
             ctx,
             node = create_linkable_graph_node(
@@ -724,7 +711,6 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                     linker_flags = linker_flags,
                     can_be_asset = getattr(ctx.attrs, "can_be_asset", False) or False,
                 ),
-                roots = roots,
                 excluded = {ctx.label: None} if not value_or(ctx.attrs.supports_merged_linking, True) else {},
             ),
             deps = [deps_linkable_graph],

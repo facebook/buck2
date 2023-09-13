@@ -26,7 +26,6 @@ load(
 load(
     "@prelude//cxx:omnibus.bzl",
     "create_linkable_root",
-    "is_known_omnibus_root",
 )
 load(
     "@prelude//linking:link_groups.bzl",
@@ -52,7 +51,6 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "AnnotatedLinkableRoot",
     "DlopenableLibraryInfo",
     "create_linkable_graph",
     "create_linkable_graph_node",
@@ -689,10 +687,7 @@ def _native_providers(
     )
 
     # Omnibus root provider.
-    known_omnibus_root = is_known_omnibus_root(ctx)
-
     linkable_root = create_linkable_root(
-        ctx,
         name = get_default_shared_library_name(linker_info, ctx.label),
         link_infos = LinkInfos(
             default = LinkInfo(
@@ -707,19 +702,12 @@ def _native_providers(
             ),
         ),
         deps = inherited_non_rust_link_deps,
-        graph = deps_linkable_graph,
-        create_shared_root = known_omnibus_root,
     )
     providers.append(linkable_root)
 
     # Mark libraries that support `dlopen`.
     if getattr(ctx.attrs, "supports_python_dlopen", False):
         providers.append(DlopenableLibraryInfo())
-
-    roots = {}
-
-    if known_omnibus_root:
-        roots[ctx.label] = AnnotatedLinkableRoot(root = linkable_root)
 
     linkable_graph = create_linkable_graph(
         ctx,
@@ -734,7 +722,6 @@ def _native_providers(
                 # TODO(cjhopman): this should be set to non-None
                 default_soname = None,
             ),
-            roots = roots,
         ),
         deps = [deps_linkable_graph],
     )

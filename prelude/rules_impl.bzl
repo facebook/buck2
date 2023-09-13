@@ -23,7 +23,6 @@ load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainIn
 
 # C++
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo", "HeaderMode")
-load("@prelude//cxx:omnibus.bzl", "omnibus_environment_attr")
 load("@prelude//cxx:prebuilt_cxx_library_group.bzl", "prebuilt_cxx_library_group_impl")
 load("@prelude//cxx/user:link_group_map.bzl", "link_group_map_attr")
 
@@ -273,7 +272,6 @@ def _cxx_python_extension_attrs():
         "support_shlib_interfaces": attrs.bool(default = True),
         "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
         "_cxx_toolchain": toolchains_common.cxx(),
-        "_omnibus_environment": omnibus_environment_attr(),
         # Copied from python_library.
         "_python_toolchain": toolchains_common.python(),
         "_target_os_type": buck.target_os_type_arg(),
@@ -340,7 +338,6 @@ def _python_executable_attrs():
         "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
         "_cxx_toolchain": toolchains_common.cxx(),
         "_exec_os_type": buck.exec_os_type_arg(),
-        "_omnibus_environment": omnibus_environment_attr(),
         "_python_toolchain": toolchains_common.python(),
         "_target_os_type": buck.target_os_type_arg(),
     })
@@ -415,7 +412,6 @@ inlined_extra_attributes = {
         "auto_link_groups": attrs.bool(default = False),
         "deps_query": attrs.option(attrs.query(), default = None),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
-        "force_emit_omnibus_shared_root": attrs.bool(default = False),
         "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
         "link_deps_query_whole": attrs.bool(default = False),
         "link_execution_preference": link_execution_preference_attr(),
@@ -431,7 +427,6 @@ inlined_extra_attributes = {
         "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
         "_cxx_toolchain": toolchains_common.cxx(),
         "_is_building_android_binary": is_building_android_binary_attr(),
-        "_omnibus_environment": omnibus_environment_attr(),
     },
     "cxx_python_extension": _cxx_python_extension_attrs(),
     "cxx_test": buck.re_test_args() | _cxx_binary_and_test_attrs(),
@@ -510,7 +505,6 @@ inlined_extra_attributes = {
         "supports_python_dlopen": attrs.bool(default = True),
         "versioned_header_dirs": attrs.option(attrs.versioned(attrs.list(attrs.source(allow_directory = True))), default = None),
         "_cxx_toolchain": toolchains_common.cxx(),
-        "_omnibus_environment": omnibus_environment_attr(),
         "_target_os_type": buck.target_os_type_arg(),
     },
     "prebuilt_cxx_library_group": {
