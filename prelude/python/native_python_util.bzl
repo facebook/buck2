@@ -206,13 +206,11 @@ def _write_syms_file(
 
     # Don't suffix asan symbols, as they shouldn't conflict, and suffixing
     # prevents deduplicating all the module constructors, which can be really
-    # expensive to run.
-    # List of asan symbol suffixes we need to keep:
-    asan_prefixes = [
-        "__",
-        ".bss.__odr_",
-    ]
-    script += ' | grep -v "\\({}\\)\\?\\(a\\|t\\)san"'.format("\\|".join(asan_prefixes))
+    # expensive to run.  We need to keep ODR guards but remove all sanitizer
+    # globals. This removes:
+    # __asan_*, ___asan_*, __tsan_*, ___tsan_*, __sanitizer_*, ___sanitizer_*,
+    # asan.module_ctor, asan.module_dtor, tsan.module_ctor, tsan.module_dtor
+    script += " | grep -v \"\\(\\(^_\\?__\\(\\(a\\|t\\)san\\|\\(sanitizer\\)\\)_\\)\\|\\(^\\(a\\|t\\)san.module_\\(c\\|d\\)tor\\)\\)\""
 
     script += (
         ' | awk \'{{print $1" "$1"_{suffix}"}}\' | sort -u > '.format(suffix = suffix) +
