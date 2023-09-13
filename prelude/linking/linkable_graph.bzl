@@ -173,6 +173,7 @@ def create_linkable_graph_node(
 def create_linkable_graph(
         ctx: AnalysisContext,
         node: [LinkableGraphNode, None] = None,
+        # This list of deps must include all deps referenced by the LinkableGraphNode.
         deps: list[[LinkableGraph, Dependency]] = []) -> LinkableGraph:
     graph_deps = []
     for d in deps:
@@ -182,6 +183,13 @@ def create_linkable_graph(
             graph = d.get(LinkableGraph)
             if graph:
                 graph_deps.append(graph)
+
+    deps_labels = {x.label: True for x in graph_deps}
+    if node and node.linkable:
+        for l in [node.linkable.deps, node.linkable.exported_deps]:
+            for d in l:
+                if not d in deps_labels:
+                    fail("LinkableNode had {} in its deps, but that label is missing from the node's linkable graph children (`{}`)".format(d, ", ".join(deps_labels)))
 
     children = [x.nodes for x in graph_deps]
 
