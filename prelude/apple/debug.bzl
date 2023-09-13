@@ -7,6 +7,7 @@
 
 load(
     "@prelude//:artifact_tset.bzl",
+    "ArtifactTSet",
     "make_artifact_tset",
     "project_artifacts",
 )
@@ -20,13 +21,13 @@ AppleDebugInfo = TransitiveSetArgsProjection
 AppleDebuggableInfo = provider(
     # @unsorted-dict-items
     fields = {
-        "dsyms": provider_field(typing.Any, default = None),  # ["artifact"]
+        "dsyms": provider_field(list[Artifact]),
         # Tset containing ArtifactInfos with either
         # a. the owning library target to artifacts, or
         # b. the owning bundle target to filtered artifacts
-        "debug_info_tset": provider_field(typing.Any, default = None),  # ArtifactTSet
+        "debug_info_tset": provider_field(ArtifactTSet),
         # In the case of b above, contians the map of library target to artifacts, else None
-        "filtered_map": provider_field(typing.Any, default = None),  # [{"label": ["artifact"]}, None]
+        "filtered_map": provider_field([dict[Label, list[Artifact]], None], default = None),
     },
 )
 
