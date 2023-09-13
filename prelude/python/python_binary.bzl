@@ -9,6 +9,10 @@ load("@prelude//cxx:compile.bzl", "CxxSrcWithFlags")
 load("@prelude//cxx:cxx.bzl", "create_shared_lib_link_group_specs")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//cxx:cxx_executable.bzl", "cxx_executable")
+load(
+    "@prelude//cxx:cxx_library_utility.bzl",
+    "cxx_is_gnu",
+)
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load(
     "@prelude//cxx:cxx_types.bzl",
@@ -60,6 +64,7 @@ load(
     "linkables",
 )
 load("@prelude//linking:shared_libraries.bzl", "merge_shared_libraries", "traverse_shared_library_info")
+load("@prelude//linking:strip.bzl", "strip_debug_with_gnu_debuglink")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
 load("@prelude//paths.bzl", "paths")
@@ -195,6 +200,15 @@ def _get_root_link_group_specs(
         )
 
     return specs
+
+def _split_debuginfo(ctx, data: dict[str, (LinkedObject, str | bool)]) -> (dict[str, (LinkedObject, str | bool)], dict[str, Artifact]):
+    debuginfo_artifacts = {}
+    transformed = {}
+    for name, (artifact, extra) in data.items():
+        stripped_binary, debuginfo = strip_debug_with_gnu_debuglink(ctx, name, artifact.unstripped_output)
+        transformed[name] = LinkedObject(output = stripped_binary, unstripped_output = artifact.unstripped_output), extra
+        debuginfo_artifacts[name + ".debuginfo"] = debuginfo
+    return transformed, debuginfo_artifacts
 
 def _get_shared_only_groups(shared_only_libs: list[LinkableProviders]) -> list[Group]:
     """
@@ -614,10 +628,28 @@ def _convert_python_library_to_executable(
         extra_artifacts["dbg-db.json"] = dbg_source_db.default_outputs[0]
     extra_manifests = create_manifest_for_source_map(ctx, "extra_manifests", extra_artifacts)
 
+    shared_libraries = {}
+    debuginfo_artifacts = None
+
+    # Create the map of native libraries to their artifacts and whether they
+    # need to be preloaded.  Note that we merge preload deps into regular deps
+    # above, before gathering up all native libraries, so we're guaranteed to
+    # have all preload libraries (and their transitive deps) here.
+    for name, lib in native_libs.items():
+        shared_libraries[name] = lib, name in preload_names
+
+    # Strip native libraries and extensions and update the .gnu_debuglink references if we are extracting
+    # debug symbols from the par
+    if ctx.attrs.strip_libpar == "extract" and package_style == PackageStyle("standalone") and cxx_is_gnu(ctx):
+        shared_libraries, library_debuginfo = _split_debuginfo(ctx, shared_libraries)
+        extensions, extension_debuginfo = _split_debuginfo(ctx, extensions)
+        debuginfo_artifacts = library_debuginfo | extension_debuginfo
+
     # Combine sources and extensions into a map of all modules.
     pex_modules = PexModules(
         manifests = library.manifests(),
         extra_manifests = extra_manifests,
+        debuginfo_manifest = create_manifest_for_source_map(ctx, "debuginfo", debuginfo_artifacts) if debuginfo_artifacts else None,
         compile = compile,
         extensions = create_manifest_for_extensions(
             ctx,
@@ -625,14 +657,6 @@ def _convert_python_library_to_executable(
             dwp = ctx.attrs.package_split_dwarf_dwp,
         ) if extensions else None,
     )
-
-    # Create the map of native libraries to their artifacts and whether they
-    # need to be preloaded.  Note that we merge preload deps into regular deps
-    # above, before gathering up all native libraries, so we're guaranteed to
-    # have all preload libraries (and their transitive deps) here.
-    shared_libraries = {}
-    for name, lib in native_libs.items():
-        shared_libraries[name] = lib, name in preload_names
 
     hidden_resources = library.hidden_resources() if library.has_hidden_resources() else None
 

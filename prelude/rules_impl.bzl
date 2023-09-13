@@ -334,6 +334,7 @@ def _python_executable_attrs():
         "standalone_build_args": attrs.list(attrs.arg(), default = []),
         "static_extension_finder": attrs.source(default = "prelude//python/tools:static_extension_finder.py"),
         "static_extension_utils": attrs.source(default = "prelude//python/tools:static_extension_utils.cpp"),
+        "strip_libpar": attrs.enum(StripLibparStrategy, default = "none"),
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
         "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
         "_cxx_toolchain": toolchains_common.cxx(),
@@ -374,6 +375,7 @@ def _cxx_binary_and_test_attrs():
     }
 
 NativeLinkStrategy = ["separate", "native", "merged"]
+StripLibparStrategy = ["full", "extract", "none"]
 
 def _package_python_binary_remotely():
     return select({

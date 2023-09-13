@@ -33,6 +33,15 @@ PackageStyle = enum(
     "inplace_lite",
 )
 
+StripLibparStrategy = enum(
+    # Strip all binaries and libraries
+    "full",
+    # Extract debug symbols into separate files
+    "extract",
+    # Leave debug symbols intact
+    "none",
+)
+
 PythonToolchainInfo = provider(
     # @unsorted-dict-items
     fields = {
@@ -49,6 +58,7 @@ PythonToolchainInfo = provider(
         "parse_imports": provider_field(typing.Any, default = None),
         "traverse_dep_manifest": provider_field(typing.Any, default = None),
         "package_style": provider_field(typing.Any, default = None),
+        "strip_libpar": provider_field(typing.Any, default = None),
         "make_source_db": provider_field(typing.Any, default = None),
         "make_source_db_no_deps": provider_field(typing.Any, default = None),
         "make_py_package_inplace": provider_field(typing.Any, default = None),

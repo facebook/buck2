@@ -88,3 +88,22 @@ def strip_object(ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo, unstripp
     ctx.actions.run(cmd, category = category, identifier = unstripped.short_path)
 
     return stripped_lib
+
+def strip_debug_with_gnu_debuglink(ctx: AnalysisContext, name: str, obj: Artifact) -> tuple:
+    """
+    Split a binary into a separate debuginfo binary and a stripped binary with a .gnu_debuglink reference
+    """
+    objcopy = get_cxx_toolchain_info(ctx).binary_utilities_info.objcopy
+
+    # We flatten the directory structure because .gnu_debuglink doesn't understand directories and we
+    # need to avoid name conflicts between different inputs
+    debuginfo_name = name.replace("/", ".")
+    debuginfo_output = ctx.actions.declare_output("__debuginfo__", debuginfo_name + ".debuginfo")
+    cmd = cmd_args([objcopy, "--only-keep-debug", obj, debuginfo_output.as_output()])
+    ctx.actions.run(cmd, category = "extract_debuginfo", identifier = name)
+
+    binary_output = ctx.actions.declare_output("__stripped_objects__", name)
+    cmd = cmd_args([objcopy, "--strip-debug", "--add-gnu-debuglink", debuginfo_output, obj, binary_output.as_output()])
+    ctx.actions.run(cmd, category = "strip_debug", identifier = name)
+
+    return binary_output, debuginfo_output

@@ -30,6 +30,7 @@ PexModules = record(
     manifests = field(PythonLibraryManifestsInterface),
     extensions = field([ManifestInfo, None], None),
     extra_manifests = field([ManifestInfo, None], None),
+    debuginfo_manifest = field([ManifestInfo, None], None),
     compile = field(bool, False),
 )
 
@@ -428,6 +429,16 @@ def _pex_modules_common_args(
     cmd.add(cmd_args(resource_manifest_args, format = "@{}"))
     cmd.add(cmd_args(native_library_srcs_args, format = "@{}"))
     cmd.add(cmd_args(native_library_dests_path, format = "@{}"))
+
+    if pex_modules.debuginfo_manifest:
+        debuginfo_files = pex_modules.debuginfo_manifest.artifacts
+        debuginfo_srcs_path = ctx.actions.write(
+            "__debuginfo___srcs.txt",
+            _srcs([src for src, _ in debuginfo_files], format = "--debuginfo-src={}"),
+        )
+        debuginfo_srcs_args = cmd_args(debuginfo_srcs_path)
+        cmd.add(cmd_args(debuginfo_srcs_args, format = "@{}"))
+        deps.extend(debuginfo_files)
 
     if ctx.attrs.package_split_dwarf_dwp:
         dwp = [(s.dwp, "{}.dwp".format(n)) for n, s in shared_libraries.items() if s.dwp != None]
