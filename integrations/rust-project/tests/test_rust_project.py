@@ -7,8 +7,8 @@
 
 import json
 
-from xplat.build_infra.buck_e2e.api.buck import Buck
-from xplat.build_infra.buck_e2e.buck_workspace import buck_test
+from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.buck_workspace import buck_test
 
 # Uses a dependency graph like this:
 #
