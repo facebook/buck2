@@ -83,7 +83,7 @@ enum ProviderCallableError {
     NonUniqueFields(Vec<String>),
     #[error("Field default value can be either frozen value or an empty list or dict")]
     InvalidDefaultValue,
-    #[error("Default value `{0}` (type `{1}`) does not match field type `{1}`")]
+    #[error("Default value `{0}` (type `{1}`) does not match field type `{2}`")]
     InvalidDefaultValueType(String, &'static str, Ty),
 }
 
