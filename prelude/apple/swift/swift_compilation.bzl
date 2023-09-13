@@ -56,12 +56,14 @@ load(
     "SwiftToolchainInfo",
 )
 
+# {"module_name": [exported_headers]}, used for Swift header post processing
 ExportedHeadersTSet = transitive_set()
 
 SwiftDependencyInfo = provider(fields = {
-    "debug_info_tset": provider_field(typing.Any, default = None),  # ArtifactTSet
-    "exported_headers": provider_field(typing.Any, default = None),  # ExportedHeadersTSet of {"module_name": [exported_headers]}, used for Swift header post processing
-    "exported_swiftmodules": provider_field(typing.Any, default = None),  # SwiftCompiledModuleTset that includes modules through exported_deps, used for compilation
+    "debug_info_tset": provider_field(ArtifactTSet),
+    "exported_headers": provider_field(ExportedHeadersTSet),
+    # Includes modules through exported_deps, used for compilation
+    "exported_swiftmodules": provider_field(SwiftCompiledModuleTset),
 })
 
 SwiftCompilationOutput = record(
