@@ -26,11 +26,12 @@ load("@prelude//kotlin:kotlin_library.bzl", "build_kotlin_library")
 def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
     packaging_deps = ctx.attrs.deps + (ctx.attrs.deps_query or []) + ctx.attrs.exported_deps + ctx.attrs.runtime_deps
     if ctx.attrs._build_only_native_code:
-        shared_library_info, cxx_resource_info = create_native_providers(ctx.actions, ctx.label, packaging_deps)
+        shared_library_info, cxx_resource_info, linkable_graph = create_native_providers(ctx, ctx.label, packaging_deps)
         return [
             merge_android_packageable_info(ctx.label, ctx.actions, packaging_deps),
             shared_library_info,
             cxx_resource_info,
+            linkable_graph,
             # Add an unused default output in case this target is used as an attr.source() anywhere.
             DefaultInfo(default_output = ctx.actions.write("{}/unused.jar".format(ctx.label.name), [])),
         ]

@@ -249,10 +249,11 @@ def kotlin_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # TODO(T107163344) this shouldn't be in kotlin_library itself, use overlays to remove it.
     android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, packaging_deps)
     if ctx.attrs._build_only_native_code:
-        shared_library_info, cxx_resource_info = create_native_providers(ctx.actions, ctx.label, packaging_deps)
+        shared_library_info, cxx_resource_info, linkable_graph = create_native_providers(ctx, ctx.label, packaging_deps)
         return [
             shared_library_info,
             cxx_resource_info,
+            linkable_graph,
             # Add an unused default output in case this target is used an an attr.source() anywhere.
             DefaultInfo(default_output = ctx.actions.write("{}/unused.jar".format(ctx.label.name), [])),
             TemplatePlaceholderInfo(keyed_variables = {
@@ -397,7 +398,7 @@ def build_kotlin_library(
                         DefaultInfo(default_output = nullsafe_info.output),
                     ]}
 
-            java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info, intellij_info = create_java_library_providers(
+            java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, linkable_graph, template_placeholder_info, intellij_info = create_java_library_providers(
                 ctx,
                 library_output = outputs.classpath_entry if outputs else None,
                 declared_deps = ctx.attrs.deps + deps_query,
@@ -430,6 +431,7 @@ def build_kotlin_library(
                 java_packaging_info = java_packaging_info,
                 shared_library_info = shared_library_info,
                 cxx_resource_info = cxx_resource_info,
+                linkable_graph = linkable_graph,
                 template_placeholder_info = template_placeholder_info,
                 default_info = default_info,
                 class_to_src_map = class_to_src_map,

@@ -51,7 +51,7 @@ def prebuilt_jar_impl(ctx: AnalysisContext) -> list[Provider]:
         required_for_source_only_abi = ctx.attrs.required_for_source_only_abi,
     )
 
-    java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info, _ = create_java_library_providers(
+    java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, linkable_graph, template_placeholder_info, _ = create_java_library_providers(
         ctx,
         library_output = library_output_classpath_entry,
         declared_deps = ctx.attrs.deps,
@@ -77,5 +77,6 @@ def prebuilt_jar_impl(ctx: AnalysisContext) -> list[Provider]:
         cxx_resource_info,
         android_packageable_info,
         template_placeholder_info,
+        linkable_graph,
         DefaultInfo(default_output = output, sub_targets = sub_targets),
     ]
