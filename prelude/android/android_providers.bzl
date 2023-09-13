@@ -23,7 +23,6 @@ AndroidBinaryNativeLibsInfo = record(
     root_module_native_lib_assets = list[Artifact],
     non_root_module_native_lib_assets = list[Artifact],
     native_libs_for_primary_apk = list[Artifact],
-    unstripped_libs = dict[Artifact, str],
 )
 
 AndroidBinaryResourcesInfo = record(

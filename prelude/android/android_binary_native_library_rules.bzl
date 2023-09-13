@@ -15,6 +15,7 @@ load(
 )
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_PRIMARY_PLATFORM", "CPU_FILTER_TO_ABI_DIRECTORY")
+load("@prelude//android:util.bzl", "EnhancementContext")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module", "get_apk_module_graph_info", "is_root_module")
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -53,12 +54,14 @@ load("@prelude//utils:utils.bzl", "expect")
 #    at `assets/<module_name>/libs.txt`.
 
 def get_android_binary_native_library_info(
-        ctx: AnalysisContext,
+        enhance_ctx: EnhancementContext,
         android_packageable_info: AndroidPackageableInfo,
         deps_by_platform: dict[str, list[Dependency]],
         apk_module_graph_file: [Artifact, None] = None,
         prebuilt_native_library_dirs_to_exclude: [set_type, None] = None,
         shared_libraries_to_exclude: [set_type, None] = None) -> AndroidBinaryNativeLibsInfo:
+    ctx = enhance_ctx.ctx
+
     traversed_prebuilt_native_library_dirs = android_packageable_info.prebuilt_native_library_dirs.traverse() if android_packageable_info.prebuilt_native_library_dirs else []
     all_prebuilt_native_library_dirs = [
         native_lib
@@ -86,6 +89,12 @@ def get_android_binary_native_library_info(
             unstripped_libs[shared_lib.lib.output] = platform
         platform_to_native_linkables[platform] = native_linkables
 
+    unstripped_native_libraries = ctx.actions.write("unstripped_native_libraries", unstripped_libs.keys())
+    unstripped_native_libraries_json = ctx.actions.write_json("unstripped_native_libraries_json", unstripped_libs)
+
+    enhance_ctx.debug_output("unstripped_native_libraries", unstripped_native_libraries, other_outputs = list(unstripped_libs.keys()))
+    enhance_ctx.debug_output("unstripped_native_libraries_json", unstripped_native_libraries_json, other_outputs = list(unstripped_libs.keys()))
+
     if apk_module_graph_file == None:
         native_libs_and_assets_info = _get_native_libs_and_assets(
             ctx,
@@ -110,7 +119,6 @@ def get_android_binary_native_library_info(
             apk_under_test_shared_libraries = all_shared_libraries,
             native_libs_for_primary_apk = native_libs_for_primary_apk,
             exopackage_info = exopackage_info,
-            unstripped_libs = unstripped_libs,
             root_module_native_lib_assets = root_module_native_lib_assets,
             non_root_module_native_lib_assets = [],
         )
@@ -167,7 +175,6 @@ def get_android_binary_native_library_info(
             apk_under_test_shared_libraries = all_shared_libraries,
             native_libs_for_primary_apk = native_libs_for_primary_apk,
             exopackage_info = exopackage_info,
-            unstripped_libs = unstripped_libs,
             root_module_native_lib_assets = [native_lib_assets_for_primary_apk, stripped_native_linkable_assets_for_primary_apk, root_module_metadata_assets, root_module_compressed_lib_assets],
             non_root_module_native_lib_assets = [non_root_module_metadata_assets, non_root_module_compressed_lib_assets],
         )

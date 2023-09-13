@@ -22,6 +22,7 @@ load("@prelude//android:dex_rules.bzl", "get_multi_dex", "get_single_primary_dex
 load("@prelude//android:exopackage.bzl", "get_exopackage_flags")
 load("@prelude//android:preprocess_java_classes.bzl", "get_preprocessed_java_classes")
 load("@prelude//android:proguard.bzl", "get_proguard_output")
+load("@prelude//android:util.bzl", "create_enhancement_context")
 load("@prelude//android:voltron.bzl", "get_target_to_module_mapping")
 load("@prelude//java:java_providers.bzl", "JavaPackagingInfo", "create_java_packaging_dep", "get_all_java_packaging_deps", "get_all_java_packaging_deps_from_packaging_infos")
 load("@prelude//utils:utils.bzl", "expect")
@@ -58,6 +59,10 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
 
     has_proguard_config = ctx.attrs.proguard_config != None or ctx.attrs.android_sdk_proguard_config == "default" or ctx.attrs.android_sdk_proguard_config == "optimized"
     should_pre_dex = not ctx.attrs.disable_pre_dex and not has_proguard_config and not ctx.attrs.preprocess_java_classes_bash
+
+    enhancement_ctx = create_enhancement_context(ctx)
+    if target_to_module_mapping_file:
+        enhancement_ctx.debug_output("module.mapping", target_to_module_mapping_file)
 
     referenced_resources_lists = [java_packaging_dep.dex.referenced_resources for java_packaging_dep in java_packaging_deps if java_packaging_dep.dex] if ctx.attrs.trim_resource_ids and should_pre_dex else []
     resources_info = get_android_binary_resources_info(
@@ -140,20 +145,8 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
                 is_optimized = has_proguard_config,
             )
 
-    native_library_info = get_android_binary_native_library_info(ctx, android_packageable_info, deps_by_platform, apk_module_graph_file = target_to_module_mapping_file)
-    unstripped_native_libs = native_library_info.unstripped_libs
-    sub_targets["unstripped_native_libraries"] = [
-        DefaultInfo(
-            default_output = ctx.actions.write("unstripped_native_libraries", unstripped_native_libs.keys()),
-            other_outputs = unstripped_native_libs.keys(),
-        ),
-    ]
-    sub_targets["unstripped_native_libraries_json"] = [
-        DefaultInfo(
-            default_output = ctx.actions.write_json("unstripped_native_libraries_json", unstripped_native_libs),
-            other_outputs = unstripped_native_libs.keys(),
-        ),
-    ]
+    native_library_info = get_android_binary_native_library_info(enhancement_ctx, android_packageable_info, deps_by_platform, apk_module_graph_file = target_to_module_mapping_file)
+    sub_targets = sub_targets | enhancement_ctx.get_sub_targets()
     if resources_info.string_source_map:
         sub_targets["generate_string_resources"] = [DefaultInfo(default_output = resources_info.string_source_map)]
 

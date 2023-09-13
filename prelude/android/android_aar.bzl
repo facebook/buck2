@@ -13,6 +13,7 @@ load("@prelude//android:android_resource.bzl", "get_text_symbols")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:configuration.bzl", "get_deps_by_platform")
 load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_DEFAULT_PLATFORM", "CPU_FILTER_FOR_PRIMARY_PLATFORM")
+load("@prelude//android:util.bzl", "create_enhancement_context")
 load("@prelude//java:java_providers.bzl", "get_all_java_packaging_deps", "get_all_java_packaging_deps_from_packaging_infos")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 
@@ -83,7 +84,8 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
     if cxx_resources:
         entries.append(cxx_resources)
 
-    android_binary_native_library_info = get_android_binary_native_library_info(ctx, android_packageable_info, deps_by_platform)
+    enhancement_ctx = create_enhancement_context(ctx)
+    android_binary_native_library_info = get_android_binary_native_library_info(enhancement_ctx, android_packageable_info, deps_by_platform)
     native_libs_file = ctx.actions.write("native_libs_entries.txt", android_binary_native_library_info.native_libs_for_primary_apk)
     native_libs_assets_file = ctx.actions.write("native_libs_assets_entries.txt", android_binary_native_library_info.root_module_native_lib_assets)
 
@@ -106,4 +108,4 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
 
     ctx.actions.run(create_aar_cmd, category = "create_aar")
 
-    return [DefaultInfo(default_outputs = [aar])]
+    return [DefaultInfo(default_outputs = [aar], sub_targets = enhancement_ctx.get_sub_targets())]
