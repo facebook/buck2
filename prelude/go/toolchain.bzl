@@ -5,13 +5,12 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
-
 GoToolchainInfo = provider(
     # @unsorted-dict-items
     fields = {
         "assembler": provider_field(typing.Any, default = None),
         "base": provider_field(typing.Any, default = None),  # BaseGoToolchainInfo
+        "cgo": provider_field(typing.Any, default = None),
         "cgo_wrapper": provider_field(typing.Any, default = None),
         "compile_wrapper": provider_field(typing.Any, default = None),
         "compiler": provider_field(typing.Any, default = None),
@@ -20,6 +19,7 @@ GoToolchainInfo = provider(
         "concat_files": provider_field(typing.Any, default = None),
         "cover": provider_field(typing.Any, default = None),
         "cover_srcs": provider_field(typing.Any, default = None),
+        "cxx_toolchain_for_linking": provider_field(typing.Any, default = None),
         "external_linker_flags": provider_field(typing.Any, default = None),
         "filter_srcs": provider_field(typing.Any, default = None),
         "linker": provider_field(typing.Any, default = None),
@@ -42,14 +42,12 @@ BaseGoToolchainInfo = record(
     env_go_os = str,
     env_go_arm = [str, None],
     env_go_root = cmd_args,
-    external_linker_flags = [list, None],
     go = RunInfo.type,
     go_wrapper = RunInfo.type,
     cgo = [RunInfo.type, None],
-    cxx_toolchain_for_linking = [CxxToolchainInfo.type, None],
 )
 
-def get_toolchain_cmd_args(base: BaseGoToolchainInfo, go_root = True) -> cmd_args:
+def get_toolchain_cmd_args(base: BaseGoToolchainInfo, go_root = True, cgo_enabled_default = False) -> cmd_args:
     cmd = cmd_args("env")
     cmd.add("GOARCH={}".format(base.env_go_arch))
     cmd.add("GOOS={}".format(base.env_go_os))
@@ -61,7 +59,7 @@ def get_toolchain_cmd_args(base: BaseGoToolchainInfo, go_root = True) -> cmd_arg
     # CGO is enabled by default for native compilation, but we need to set it
     # explicitly for cross-builds:
     # https://go-review.googlesource.com/c/go/+/12603/2/src/cmd/cgo/doc.go
-    if base.cgo != None:
+    if not cgo_enabled_default and base.cgo != None:
         cmd.add("CGO_ENABLED=1")
 
     return cmd
