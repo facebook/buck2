@@ -1,6 +1,6 @@
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
 
-oncall("buck2")
+oncall("build_infra")
 
 # This is a fuzzing target with no `main`, which we test at https://github.com/google/oss-fuzz.
 # We have this definition not to run the fuzzer, but just to make sure it continues to compile.

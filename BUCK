@@ -3,7 +3,7 @@ load("@fbcode_macros//build_defs:native_rules.bzl", "alias")
 load("@fbsource//tools/build_defs/buck2:is_buck2.bzl", "is_buck2")
 load(":defs.bzl?v2_only", "symlinked_buck2_and_tpx")
 
-oncall("buck2")
+oncall("build_infra")
 
 alias(
     name = "buck2",

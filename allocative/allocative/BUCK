@@ -2,7 +2,7 @@ load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
-oncall("buck2")
+oncall("build_infra")
 
 buck_filegroup(
     name = "testcases",

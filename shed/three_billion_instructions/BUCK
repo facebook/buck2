@@ -1,7 +1,7 @@
 load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
-oncall("buck2")
+oncall("build_infra")
 
 rust_binary(
     name = "three_billion_instructions",
