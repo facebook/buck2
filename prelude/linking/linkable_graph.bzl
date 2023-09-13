@@ -121,6 +121,12 @@ LinkableGraph = provider(fields = {
 # dynamically, at runtime (e.g. via `dlopen`).
 DlopenableLibraryInfo = provider(fields = {})
 
+def _get_required_outputs_for_linkage(linkage: Linkage) -> list[LibOutputStyle]:
+    if linkage == Linkage("shared"):
+        return [LibOutputStyle("shared_lib")]
+
+    return get_output_styles_for_linkage(linkage)
+
 def create_linkable_node(
         ctx: AnalysisContext,
         default_soname: str | None,
@@ -132,7 +138,7 @@ def create_linkable_node(
         can_be_asset: bool = True,
         include_in_android_mergemap: bool = True,
         linker_flags: [LinkerFlags, None] = None) -> LinkableNode:
-    for output_style in get_output_styles_for_linkage(preferred_linkage):
+    for output_style in _get_required_outputs_for_linkage(preferred_linkage):
         expect(
             output_style in link_infos,
             "must have {} link info".format(output_style),

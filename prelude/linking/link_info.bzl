@@ -424,7 +424,7 @@ MergedLinkInfo = provider(fields = [
 _LIB_OUTPUT_STYLES_FOR_LINKAGE = {
     Linkage("any"): [LibOutputStyle("archive"), LibOutputStyle("pic_archive"), LibOutputStyle("shared_lib")],
     Linkage("static"): [LibOutputStyle("archive"), LibOutputStyle("pic_archive")],
-    Linkage("shared"): [LibOutputStyle("shared_lib")],
+    Linkage("shared"): [LibOutputStyle("pic_archive"), LibOutputStyle("shared_lib")],
 }
 
 # Helper to wrap a LinkInfos with additional pre/post-flags.

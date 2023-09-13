@@ -1484,4 +1484,4 @@ def use_archives(ctx: AnalysisContext) -> bool:
         return False
 
     # Otherwise, fallback to the rule-specific setting.
-    return value_or(ctx.attrs.use_archive, True)
+    return value_or(getattr(ctx.attrs, "use_archive", True), True)
