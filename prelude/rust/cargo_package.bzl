@@ -52,6 +52,20 @@ DEFAULT_PLATFORM_TEMPLATES = {
             "config//abi:msvc": True,
         }),
     }),
+    "wasm32": select({
+        "DEFAULT": False,
+        "config//os:none": select({
+            "DEFAULT": False,
+            "config//cpu:wasm32": True,
+        }),
+    }),
+    "wasi": select({
+        "DEFAULT": False,
+        "config//os:wasi": select({
+            "DEFAULT": False,
+            "config//cpu:wasm32": True,
+        }),
+    }),
 }
 
 def apply_platform_attrs(
