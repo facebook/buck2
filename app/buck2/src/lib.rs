@@ -137,7 +137,10 @@ struct BeforeSubcommandOptions {
     /// running with the same isolation directory.
     ///
     /// This is an unsupported option used only for development work.
-    #[clap(long, global(true), hidden(true))]
+    #[clap(env("BUCK2_NO_BUCKD"), long, global(true), hidden(true))]
+    // Env var is BUCK2_NO_BUCKD instead of NO_BUCKD env var from buck1 because no buckd
+    // is not supported for production work for buck2 and lots of places already set
+    // NO_BUCKD=1 for buck1.
     no_buckd: bool,
 
     /// Print buck wrapper help.
