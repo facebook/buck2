@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::cell::OnceCell;
 use std::cell::RefCell;
 
 use crate::impls::common::DATA_NAME;
@@ -23,8 +24,19 @@ impl<T: Allocative> Allocative for RefCell<T> {
     }
 }
 
+impl<T: Allocative> Allocative for OnceCell<T> {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+        let mut visitor = visitor.enter_self_sized::<Self>();
+        if let Some(v) = self.get() {
+            visitor.visit_field::<T>(DATA_NAME, v);
+        }
+        visitor.exit();
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::cell::OnceCell;
     use std::cell::RefCell;
 
     use crate::golden::golden_test;
@@ -38,6 +50,13 @@ mod tests {
     fn test_borrowed() {
         let cell = RefCell::new("abc".to_owned());
         let _lock = cell.borrow_mut();
+        golden_test!(&cell)
+    }
+
+    #[test]
+    fn test_once_cell() {
+        let cell = OnceCell::new();
+        cell.set("abc".to_owned()).unwrap();
         golden_test!(&cell)
     }
 }
