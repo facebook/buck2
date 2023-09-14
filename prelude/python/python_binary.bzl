@@ -201,7 +201,7 @@ def _get_root_link_group_specs(
 
     return specs
 
-def _split_debuginfo(ctx, data: dict[str, (LinkedObject, str | bool)]) -> (dict[str, (LinkedObject, str | bool)], dict[str, Artifact]):
+def _split_debuginfo(ctx, data: dict[str, (typing.Any, Label | bool)]) -> (dict[str, (LinkedObject, Label | bool)], dict[str, Artifact]):
     debuginfo_artifacts = {}
     transformed = {}
     for name, (artifact, extra) in data.items():
