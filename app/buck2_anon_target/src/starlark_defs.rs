@@ -238,7 +238,9 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
     ///
     /// For more details see https://buck2.build/docs/rule_authors/anon_targets/
     ///
-    /// `with_artifacts` is a temporary parameter used for migration purposes. Please do not use.
+    /// `with_artifacts` is a temporary flag for migration purposes. If `with_artifacts` is false, the return type is just the
+    /// promise. If set to true, the return type will be an object containing a `promise` attribute with accessors to get the
+    /// promise artifacts. This will be the eventual return type after the migration.
     fn anon_target<'v>(
         this: &AnalysisActions<'v>,
         rule: ValueTyped<'v, FrozenRuleCallable>,
@@ -268,9 +270,11 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         }
     }
 
-    /// Generate a series of anonymous targets. Returns a list of `StarlarkAnonTargets`.
+    /// Generate a series of anonymous targets.
     ///
-    /// `with_artifacts` is a temporary parameter used for migration purposes. Please do not use.
+    /// `with_artifacts` is a temporary flag for migration purposes. If `with_artifacts` is false, the return type is just the
+    /// promise. If set to true, the return type will be an object containing a `promise` attribute with accessors to get the
+    /// promise artifacts. This will be the eventual return type after the migration.
     fn anon_targets<'v>(
         this: &AnalysisActions<'v>,
         rules: Vec<(
