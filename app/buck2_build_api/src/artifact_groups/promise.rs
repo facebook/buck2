@@ -25,29 +25,23 @@ use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 
 #[derive(Debug, Error)]
 pub(crate) enum PromiseArtifactResolveError {
-    // TODO(@wendyy) - after artifact promise API migration, update these error messages
     #[error(
-        "artifact_promise(){} resolved promise was not an artifact (was `{1}`)",
+        "Resolved promise of the artifact promise {} was not an artifact (was `{1}`)",
         maybe_declared_at(_0)
     )]
     NotAnArtifact(Option<FileSpan>, String),
-    #[error(
-        "artifact_promise(){1}{} promise wasn't resolved",
-        maybe_declared_at(_0)
-    )]
+    #[error("Artifact promise {1} {} wasn't resolved", maybe_declared_at(_0))]
     PromiseNotResolved(Option<FileSpan>, String),
-    #[error("artifact_promise() resolved multiple times")]
+    #[error("Artifact promise was resolved multiple times")]
     AlreadyResolved,
     #[error(
-        "artifact_promise(){0} is not yet resolved, this indicates it was used as an artifact during the analysis where it was declared"
+        "Artifact promise is not yet resolved, this indicates it was used as an artifact during the analysis where it was declared"
     )]
-    PromiseNotYetResolved(PromiseArtifact),
-    #[error(
-        "artifact_promise() resolved to artifact with associated artifacts, this isn't allowed"
-    )]
+    PromiseNotYetResolved,
+    #[error("Artifact promise resolved to artifact with associated artifacts, this isn't allowed")]
     HasAssociatedArtifacts,
     #[error(
-        "artifact_promise() resolved to a source artifact, this isn't allowed: an artifact_promise() must resolve to a build artifact"
+        "Artifact promise resolved to a source artifact, this isn't allowed: an artifact promise must resolve to a build artifact"
     )]
     SourceArtifact,
     #[error(
@@ -96,7 +90,7 @@ impl PromiseArtifact {
     pub fn get_err(&self) -> anyhow::Result<&Artifact> {
         match self.artifact.get() {
             Some(v) => Ok(v),
-            None => Err(PromiseArtifactResolveError::PromiseNotYetResolved(self.clone()).into()),
+            None => Err(PromiseArtifactResolveError::PromiseNotYetResolved.into()),
         }
     }
 
