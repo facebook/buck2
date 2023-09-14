@@ -29,6 +29,7 @@ load(
 load(
     "@prelude//linking:link_info.bzl",
     "LinkCommandDebugOutputInfo",  # @unused Used as a type
+    "UnstrippedLinkOutputInfo",
     "make_link_command_debug_output_json_info",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
@@ -189,14 +190,12 @@ def _get_dsym_input_binary_arg(ctx: AnalysisContext, primary_binary_path_arg: cm
 
     binary_dep = get_default_binary_dep(ctx.attrs.binary)
     default_binary = binary_dep[DefaultInfo].default_outputs[0]
-    if "unstripped" not in binary_dep[DefaultInfo].sub_targets:
-        return primary_binary_path_arg
 
-    unstripped_binary = binary_dep[DefaultInfo].sub_targets["unstripped"][DefaultInfo].default_outputs[0]
+    unstripped_binary = binary_dep.get(UnstrippedLinkOutputInfo).artifact if binary_dep.get(UnstrippedLinkOutputInfo) != None else None
 
     # We've already scrubbed the default binary, we only want to scrub the unstripped one if it's different than the
     # default.
-    if default_binary != unstripped_binary:
+    if unstripped_binary != None and default_binary != unstripped_binary:
         if ctx.attrs.selective_debugging != None:
             unstripped_binary = _scrub_binary(ctx, unstripped_binary, binary_dep.get(LinkExecutionPreferenceInfo))
         renamed_unstripped_binary = ctx.actions.copy_file(get_product_name(ctx), unstripped_binary)

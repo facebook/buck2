@@ -56,6 +56,7 @@ load(
 load(
     "@prelude//linking:link_info.bzl",
     "LinkCommandDebugOutputInfo",
+    "UnstrippedLinkOutputInfo",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:utils.bzl", "expect")
@@ -149,15 +150,15 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
                 # TODO(nga): `unstripped_binary` is never `None`.
                 unstripped_binary = None
             expect(unstripped_binary != None, "Expect to save unstripped_binary when stripped is enabled")
-            cxx_output.sub_targets["unstripped"] = [DefaultInfo(default_output = cxx_output.unstripped_binary)]
-            dsym_input_binary = cxx_output.unstripped_binary
+            unstripped_binary = cxx_output.unstripped_binary
+            cxx_output.sub_targets["unstripped"] = [DefaultInfo(default_output = unstripped_binary)]
         else:
-            dsym_input_binary = cxx_output.binary
+            unstripped_binary = cxx_output.binary
         dsym_artifact = get_apple_dsym(
             ctx = ctx,
-            executable = dsym_input_binary,
+            executable = unstripped_binary,
             debug_info = debug_info,
-            action_identifier = dsym_input_binary.short_path,
+            action_identifier = unstripped_binary.short_path,
         )
         cxx_output.sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_output = dsym_artifact)]
         cxx_output.sub_targets[DEBUGINFO_SUBTARGET] = [DefaultInfo(other_outputs = debug_info)]
@@ -188,6 +189,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             cxx_output.xcode_data,
             cxx_output.compilation_db,
             merge_bundle_linker_maps_info(bundle_infos),
+            UnstrippedLinkOutputInfo(artifact = unstripped_binary),
         ] + [resource_graph] + min_version_providers + link_command_providers
 
     if uses_explicit_modules(ctx):

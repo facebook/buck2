@@ -880,6 +880,10 @@ LinkCommandDebugOutputInfo = provider(
     ],
 )
 
+UnstrippedLinkOutputInfo = provider(fields = {
+    "artifact": Artifact,
+})
+
 def make_link_command_debug_output(linked_object: LinkedObject) -> [LinkCommandDebugOutput, None]:
     if not linked_object.output or not linked_object.linker_command or not linked_object.linker_argsfile:
         return None

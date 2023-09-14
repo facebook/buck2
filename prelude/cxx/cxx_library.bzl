@@ -69,6 +69,7 @@ load(
     "SharedLibLinkable",
     "SwiftRuntimeLinkable",  # @unused Used as a type
     "SwiftmoduleLinkable",  # @unused Used as a type
+    "UnstrippedLinkOutputInfo",
     "create_merged_link_info",
     "create_merged_link_info_for_propagation",
     "get_lib_output_style",
@@ -803,6 +804,9 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             sub_targets["unstripped"] = [DefaultInfo(
                 default_outputs = [default_output.unstripped],
             )]
+            providers.append(
+                UnstrippedLinkOutputInfo(artifact = default_output.unstripped),
+            )
         default_info = DefaultInfo(
             default_output = default_output.default if default_output != None else None,
             other_outputs = default_output.other if default_output != None else [],
