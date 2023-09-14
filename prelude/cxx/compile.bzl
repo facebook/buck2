@@ -359,6 +359,7 @@ def compile_cxx(
             category = src_compile_cmd.cxx_compile_cmd.category,
             identifier = identifier,
             dep_files = action_dep_files,
+            allow_dep_file_cache_upload = True,
         )
 
         # If we're building with split debugging, where the debug info is in the
