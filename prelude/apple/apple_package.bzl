@@ -29,6 +29,11 @@ def apple_package_impl(ctx: AnalysisContext) -> list[Provider]:
         "--compression-level",
         compression_level,
     ])
+    if ctx.attrs.validator != None:
+        process_ipa_cmd.add([
+            "--validator",
+            ctx.attrs.validator[RunInfo],
+        ])
     ctx.actions.run(process_ipa_cmd, category = "apple_package_make")
 
     return [DefaultInfo(default_output = package)]

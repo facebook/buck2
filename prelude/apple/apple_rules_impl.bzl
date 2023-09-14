@@ -105,6 +105,7 @@ extra_attributes = {
     },
     "apple_package": {
         "bundle": attrs.dep(providers = [AppleBundleInfo]),
+        "validator": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
         # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
