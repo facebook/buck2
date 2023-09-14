@@ -10,8 +10,8 @@
 pub(crate) mod calculation;
 
 use allocative::Allocative;
-use buck2_configured::configuration::cfg_constructor::CfgConstructorImpl;
-use buck2_configured::configuration::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
+use buck2_node::cfg_constructor::CfgConstructorImpl;
+use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
 use calculation::CfgConstructorCalculationInstance;
 use starlark::values::OwnedFrozenValue;
 

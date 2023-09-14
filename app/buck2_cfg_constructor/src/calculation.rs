@@ -16,14 +16,14 @@ use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
-use buck2_configured::configuration::cfg_constructor::CfgConstructorCalculationImpl;
-use buck2_configured::configuration::cfg_constructor::CfgConstructorImpl;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::parse_import::RelativeImports;
+use buck2_node::cfg_constructor::CfgConstructorCalculationImpl;
+use buck2_node::cfg_constructor::CfgConstructorImpl;
 use derive_more::Display;
 use dice::CancellationContext;
 use dice::DiceComputations;
@@ -31,6 +31,7 @@ use dice::Key;
 use dupe::Dupe;
 
 use crate::CfgConstructor;
+
 pub struct CfgConstructorCalculationInstance;
 
 async fn get_cfg_constructor_uncached(
