@@ -111,28 +111,10 @@ def _get_binary(ctx: AnalysisContext) -> AppleBundleBinaryOutput:
 
         return _maybe_scrub_binary(ctx, binary_dep)
 
-def _get_unstripped_binary(ctx: AnalysisContext) -> [Artifact, None]:
-    # No binary means we are building watchOS bundle. In v1 bundle binary is present, but its sources are empty.
-    if ctx.attrs.binary == None:
-        return _get_watch_kit_stub_artifact(ctx)
-
-    binary_dep = get_default_binary_dep(ctx.attrs.binary)
-    if "unstripped" in binary_dep[DefaultInfo].sub_targets:
-        return binary_dep[DefaultInfo].sub_targets["unstripped"][DefaultInfo].default_outputs[0]
-    else:
-        return None
-
 def _get_bundle_dsym_name(ctx: AnalysisContext) -> str:
     return paths.replace_extension(get_bundle_dir_name(ctx), ".dSYM")
 
-def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
-    binary = binary_dep[DefaultInfo].default_outputs[0]
-    debuggable_info = binary_dep.get(AppleDebuggableInfo)
-    if ctx.attrs.selective_debugging == None:
-        return AppleBundleBinaryOutput(binary = binary, debuggable_info = debuggable_info)
-
-    selective_debugging_info = ctx.attrs.selective_debugging[AppleSelectiveDebuggingInfo]
-
+def _scrub_binary(ctx, binary: Artifact, binary_execution_preference_info: None | LinkExecutionPreferenceInfo) -> Artifact:
     # If fast adhoc code signing is enabled, we need to resign the binary as it won't be signed later.
     if ctx.attrs._fast_adhoc_signing_enabled:
         apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
@@ -140,11 +122,17 @@ def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
     else:
         adhoc_codesign_tool = None
 
-    binary_execution_preference_info = binary_dep.get(LinkExecutionPreferenceInfo)
+    selective_debugging_info = ctx.attrs.selective_debugging[AppleSelectiveDebuggingInfo]
     preference = binary_execution_preference_info.preference if binary_execution_preference_info else LinkExecutionPreference("any")
+    return selective_debugging_info.scrub_binary(ctx, binary, preference, adhoc_codesign_tool)
 
-    binary = selective_debugging_info.scrub_binary(ctx, binary, preference, adhoc_codesign_tool)
+def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
+    binary = binary_dep[DefaultInfo].default_outputs[0]
+    debuggable_info = binary_dep.get(AppleDebuggableInfo)
+    if ctx.attrs.selective_debugging == None:
+        return AppleBundleBinaryOutput(binary = binary, debuggable_info = debuggable_info)
 
+    binary = _scrub_binary(ctx, binary, binary_dep.get(LinkExecutionPreferenceInfo))
     if not debuggable_info:
         return AppleBundleBinaryOutput(binary = binary)
 
@@ -153,6 +141,7 @@ def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
     dsym_artifact = _get_scrubbed_binary_dsym(ctx, binary, debug_info_tset)
 
     all_debug_info = debug_info_tset._tset.traverse()
+    selective_debugging_info = ctx.attrs.selective_debugging[AppleSelectiveDebuggingInfo]
     filtered_debug_info = selective_debugging_info.filter(all_debug_info)
 
     filtered_external_debug_info = make_artifact_tset(
@@ -193,9 +182,27 @@ def _get_binary_bundle_parts(ctx: AnalysisContext, binary_output: AppleBundleBin
 
     return result, primary_binary_part
 
-def _get_unstripped_binary_path_arg(ctx: AnalysisContext, unstripped_binary: Artifact) -> cmd_args:
-    renamed_unstripped_binary = ctx.actions.copy_file(get_product_name(ctx), unstripped_binary)
-    return cmd_args(renamed_unstripped_binary)
+def _get_dsym_input_binary_arg(ctx: AnalysisContext, primary_binary_path_arg: cmd_args) -> cmd_args:
+    # No binary means we are building watchOS bundle. In v1 bundle binary is present, but its sources are empty.
+    if ctx.attrs.binary == None:
+        return cmd_args(_get_watch_kit_stub_artifact(ctx))
+
+    binary_dep = get_default_binary_dep(ctx.attrs.binary)
+    default_binary = binary_dep[DefaultInfo].default_outputs[0]
+    if "unstripped" not in binary_dep[DefaultInfo].sub_targets:
+        return primary_binary_path_arg
+
+    unstripped_binary = binary_dep[DefaultInfo].sub_targets["unstripped"][DefaultInfo].default_outputs[0]
+
+    # We've already scrubbed the default binary, we only want to scrub the unstripped one if it's different than the
+    # default.
+    if default_binary != unstripped_binary:
+        if ctx.attrs.selective_debugging != None:
+            unstripped_binary = _scrub_binary(ctx, unstripped_binary, binary_dep.get(LinkExecutionPreferenceInfo))
+        renamed_unstripped_binary = ctx.actions.copy_file(get_product_name(ctx), unstripped_binary)
+        return cmd_args(renamed_unstripped_binary)
+    else:
+        return primary_binary_path_arg
 
 def _get_watch_kit_stub_artifact(ctx: AnalysisContext) -> Artifact:
     expect(ctx.attrs.binary == None, "Stub is useful only when binary is not set which means watchOS bundle is built.")
@@ -301,8 +308,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     sub_targets["linker.command"] = [DefaultInfo(default_outputs = filter(None, [link_cmd_debug_file]))]
 
     # dsyms
-    unstripped_binary = _get_unstripped_binary(ctx)
-    dsym_input_binary_arg = _get_unstripped_binary_path_arg(ctx, unstripped_binary) if unstripped_binary != None else primary_binary_path_arg
+    dsym_input_binary_arg = _get_dsym_input_binary_arg(ctx, primary_binary_path_arg)
     binary_dsym_artifacts = _get_bundle_binary_dsym_artifacts(ctx, binary_outputs, dsym_input_binary_arg)
     dep_dsym_artifacts = flatten([info.dsyms for info in deps_debuggable_infos])
 
