@@ -154,12 +154,20 @@ run_test(
 
     Args = build_run_args(OutputDir, Providers, Suite, TestSpecFile),
 
+    {ok, ProjectRoot} = file:get_cwd(),
+
     start_test_node(
         ErlCmd,
         CodePath,
         ConfigFiles,
         OutputDir,
-        [{args, Args}, {env, [{"ERL_EPMD_PORT", integer_to_list(PortEpmd)}]}]
+        [
+            {args, Args},
+            {env, [
+                {"ERL_EPMD_PORT", integer_to_list(PortEpmd)},
+                {"PROJECT_ROOT", ProjectRoot}
+            ]}
+        ]
     ).
 
 -spec build_common_args(

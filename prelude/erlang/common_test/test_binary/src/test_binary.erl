@@ -161,6 +161,10 @@ running(TestInfoFile, OutputDir, Tests) ->
 get_listing(TestInfo, OutputDir) ->
     code:add_paths(TestInfo#test_info.dependencies),
     {Suite, _Path} = load_suite(TestInfo#test_info.test_suite),
+
+    {ok, ProjectRoot} = file:get_cwd(),
+    true = os:putenv("PROJECT_ROOT", ProjectRoot),
+
     InitProviderState = #init_provider_state{output_dir = OutputDir, suite = Suite},
     Providers0 = [
         buck_ct_provider:do_init(Provider, InitProviderState)

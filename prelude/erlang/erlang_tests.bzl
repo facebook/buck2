@@ -257,7 +257,7 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
             labels = ["tpx-fb-test-type=16"] + ctx.attrs.labels,
             contacts = ctx.attrs.contacts,
             run_from_project_root = True,
-            # use_project_relative_paths = True,
+            use_project_relative_paths = True,
             default_executor = re_executor,
         ),
         ErlangTestInfo(
