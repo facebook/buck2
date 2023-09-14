@@ -248,6 +248,18 @@ impl<P: AstPayload> StmtP<P> {
         self.visit_children(|x| pick(x, &mut f))
     }
 
+    pub fn visit_expr_mut<'a>(&'a mut self, mut f: impl FnMut(&'a mut AstExprP<P>)) {
+        // Note the &mut impl on f, it's subtle, see
+        // https://stackoverflow.com/questions/54613966/error-reached-the-recursion-limit-while-instantiating-funcclosure
+        fn pick<'a, P: AstPayload>(x: VisitMut<'a, P>, f: &mut impl FnMut(&'a mut AstExprP<P>)) {
+            match x {
+                VisitMut::Stmt(x) => x.visit_children_mut(|x| pick(x, f)),
+                VisitMut::Expr(x) => f(x),
+            }
+        }
+        self.visit_children_mut(|x| pick(x, &mut f))
+    }
+
     pub fn visit_expr_result<'a, E>(
         &'a self,
         mut f: impl FnMut(&'a AstExprP<P>) -> Result<(), E>,
