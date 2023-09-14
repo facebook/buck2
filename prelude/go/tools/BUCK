@@ -13,12 +13,6 @@ prelude.python_bootstrap_binary(
 )
 
 prelude.python_bootstrap_binary(
-    name = "concat_files",
-    main = "concat_files.py",
-    visibility = ["PUBLIC"],
-)
-
-prelude.python_bootstrap_binary(
     name = "filter_srcs",
     main = "filter_srcs.py",
     visibility = ["PUBLIC"],
@@ -27,18 +21,6 @@ prelude.python_bootstrap_binary(
 prelude.python_bootstrap_binary(
     name = "cgo_wrapper",
     main = "cgo_wrapper.py",
-    visibility = ["PUBLIC"],
-)
-
-prelude.python_bootstrap_binary(
-    name = "go_wrapper",
-    main = "go_wrapper.py",
-    visibility = ["PUBLIC"],
-)
-
-prelude.python_bootstrap_binary(
-    name = "gen_stdlib_importcfg",
-    main = "gen_stdlib_importcfg.py",
     visibility = ["PUBLIC"],
 )
 
