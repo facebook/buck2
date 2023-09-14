@@ -393,5 +393,6 @@ pub async fn command_details(
             .input_materialization_duration
             .try_into()
             .ok(),
+        metadata: None,
     }
 }

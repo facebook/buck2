@@ -221,6 +221,22 @@ fn main() -> io::Result<()> {
             "buck.data.CommandExecutionKind.command",
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
         )
+        .field_attribute(
+            "buck.data.CommandExecutionMetadata.wall_time",
+            "#[serde(rename = \"wall_time_us\", with = \"crate::serialize_duration_as_micros\")]",
+        )
+        .field_attribute(
+            "buck.data.CommandExecutionMetadata.execution_time",
+            "#[serde(rename = \"execution_time_us\", with = \"crate::serialize_duration_as_micros\")]",
+        )
+        .field_attribute(
+            "buck.data.CommandExecutionMetadata.start_time",
+            "#[serde(with = \"crate::serialize_timestamp\")]",
+        )
+        .field_attribute(
+            "buck.data.CommandExecutionMetadata.input_materialization_duration",
+            "#[serde(rename = \"input_materialization_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+        )
         .boxed("RecordEvent.data.invocation_record")
         .boxed("SpanEndEvent.data.action_execution")
         .boxed("SpanEndEvent.data.cache_upload")

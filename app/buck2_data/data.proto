@@ -983,6 +983,9 @@ message CommandExecutionDetails {
     WorkerCommand worker_command = 12;
   }
 
+  CommandExecutionMetadata metadata = 13;
+
+  // TODO: remove the 2 fields below after migrating to CommandExecutionMetadata
   // We should probably get the some more fields from CommandExecutionMetadata
   // in there.
   optional CommandExecutionStats execution_stats = 10;
@@ -1013,6 +1016,23 @@ message CommandExecutionKind {
     // The command, if executed by a local worker.
     WorkerCommand worker_command = 5;
   }
+}
+
+// Serialization of CommandExecutionMetadata
+message CommandExecutionMetadata {
+  /// How long this command actually waited for this action to complete
+  google.protobuf.Duration wall_time = 1;
+
+  /// How long this command actually took to execute
+  google.protobuf.Duration execution_time = 2;
+
+  /// When execution started.
+  google.protobuf.Timestamp start_time = 3;
+
+  /// How long it took to materialize the action's inputs.
+  google.protobuf.Duration input_materialization_duration = 4;
+
+  CommandExecutionStats execution_stats = 5;
 }
 
 message CommandOutputsMissing {
