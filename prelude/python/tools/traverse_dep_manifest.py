@@ -24,15 +24,17 @@ def main() -> int:
     args = parser.parse_args()
 
     deps = {}
-    all_deps = {}
+    all_deps = set()
     module_to_targets = {}
     for manifest in args.manifest:
         with open(manifest, "r") as f:
             for dep_file, source, target in json.load(f):
                 # get the fully qualified module name from the output path
                 # e.g. foo/bar/baz.py -> foo.bar.baz
-                module = source[:-3].replace("/", ".")
-                all_deps[module] = source
+                trim = -3 if source.endswith(".py") else -4  # To account for .pyi files
+                module = source[:trim].replace("/", ".")
+
+                all_deps.add(module)
                 module_to_targets.setdefault(module, []).append(target)
                 root_module = source.split("/")[0]
                 if root_module in STDLIB_MODULES:
@@ -42,10 +44,10 @@ def main() -> int:
                     if name not in node:
                         node[name] = {}
                     node = node[name]
-                node[__DEPS_KEY] = (dep_file, module)
+                node.setdefault(__DEPS_KEY, []).append((dep_file, module))
 
-    included = set(all_deps.keys())
-    count, required, missing = ensure_deps(args.main, deps, all_deps)
+    included = all_deps
+    count, required, missing = ensure_deps(args.main, deps)
     extra = included - required
 
     target_to_modules = {}
@@ -80,15 +82,14 @@ def flatten_trie(trie: Dict[str, Any]):
     while to_search:
         node = to_search.pop()
         if __DEPS_KEY in node:
-            modules.append(node[__DEPS_KEY][1])
+            for item in node[__DEPS_KEY]:
+                modules.append(item[1])
         else:
             to_search.extend(node.values())
     return modules
 
 
-def ensure_deps(
-    module: str, deps: Dict[str, Any], all_deps: Dict[str, str]
-) -> Tuple[int, Set[str], Set[str]]:
+def ensure_deps(module: str, deps: Dict[str, Any]) -> Tuple[int, Set[str], Set[str]]:
     required_modules = set()
     missing = set()
     visited = set()
@@ -108,12 +109,13 @@ def ensure_deps(
             if name in node:
                 node = node[name]
                 if __DEPS_KEY in node:
-                    # means we are already in the module level. The rest of the module are just symbol name.
-                    deps_file = node[__DEPS_KEY][0]
-                    with open(deps_file, "r") as f:
-                        dep_info = json.load(f)
-                    to_search.extend(dep_info["modules"])
-                    required_modules.add(".".join(module_name_chunks))
+                    for item in node[__DEPS_KEY]:
+                        # means we are already in the module level. The rest of the module are just symbol name.
+                        deps_file = item[0]
+                        with open(deps_file, "r") as f:
+                            dep_info = json.load(f)
+                        to_search.extend(dep_info["modules"])
+                        required_modules.add(".".join(module_name_chunks))
                     break
             else:
                 missing.add(next_module)

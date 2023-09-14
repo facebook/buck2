@@ -256,6 +256,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("file", help="the python source file to be read")
     parser.add_argument("out", help="the file write data to")
+    parser.add_argument("--ignore-syntax-errors", action="store_true")
     args = parser.parse_args()
 
     with open(args.file, encoding="utf-8-sig") as f:
@@ -269,6 +270,13 @@ def main() -> int:
         except RecursionError:
             print(f"Recursion depth reached traversing ast: {args.file}")
             modules_list = []
+        except SyntaxError:
+            # TODO Add support for latest syntax: T161219415
+            print(f"Syntax error encountered while parsing: {args.file}")
+            if args.ignore_syntax_errors:
+                modules_list = []
+            else:
+                raise
 
     with open(args.out, "w") as f:
         f.write(json.dumps({"modules": modules_list}))

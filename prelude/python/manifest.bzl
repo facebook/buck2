@@ -29,11 +29,12 @@ def create_dep_manifest_for_source_map(
     artifacts = []
     for path, artifact in srcs.items():
         out_name = "__dep_manifests__/{}".format(path)
-        if not path.endswith(".py"):
+        if not (path.endswith(".py") or path.endswith(".pyi")):
             continue
 
         dep_manifest = ctx.actions.declare_output(out_name)
         cmd = cmd_args(python_toolchain.parse_imports)
+        cmd.add("--ignore-syntax-errors")
         cmd.add(cmd_args(artifact))
         cmd.add(cmd_args(dep_manifest.as_output()))
         ctx.actions.run(cmd, category = "generate_dep_manifest", identifier = out_name)
