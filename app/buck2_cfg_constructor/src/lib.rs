@@ -15,7 +15,7 @@ use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
 use calculation::CfgConstructorCalculationInstance;
 use starlark::values::OwnedFrozenValue;
 
-#[derive(Allocative)]
+#[derive(Allocative, Debug)]
 struct CfgConstructor {
     cfg_constructor_pre_constraint_analysis: OwnedFrozenValue,
     cfg_constructor_post_constraint_analysis: OwnedFrozenValue,

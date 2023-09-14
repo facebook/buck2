@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::fmt::Debug;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -19,7 +20,7 @@ use dice::DiceComputations;
 /// `buck2.cfg_constructor_pre_constraint_analysis` and
 /// `buck2.cfg_constructor_post_constraint_analysis`.
 /// The output of invoking these functions is a PlatformInfo
-pub trait CfgConstructorImpl: Send + Sync + Allocative {}
+pub trait CfgConstructorImpl: Send + Sync + Debug + Allocative {}
 
 pub static CFG_CONSTRUCTOR_CALCULATION_IMPL: LateBinding<
     &'static dyn CfgConstructorCalculationImpl,
