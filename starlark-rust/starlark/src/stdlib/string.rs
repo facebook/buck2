@@ -611,7 +611,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
 
     /// [string.lower](
     /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·lower
-    /// ): test if all letters of a string are lowercased.
+    /// ): convert a string to all lowercase.
     ///
     /// `S.lower()` returns a copy of the string S with letters converted to
     /// lowercase.
@@ -1199,7 +1199,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·title
     /// ): convert a string to title case.
     ///
-    /// `S.lower()` returns a copy of the string S with letters converted to
+    /// `S.title()` returns a copy of the string S with letters converted to
     /// titlecase.
     ///
     /// Letters are converted to uppercase at the start of words, lowercase
@@ -1234,8 +1234,8 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·upper
     /// ): convert a string to all uppercase.
     ///
-    /// `S.lower()` returns a copy of the string S with letters converted to
-    /// lowercase.
+    /// `S.upper()` returns a copy of the string S with letters converted to
+    /// uppercase.
     ///
     /// ```
     /// # starlark::assert::all_true(r#"
