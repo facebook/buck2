@@ -17,12 +17,12 @@ commands:
       - run:
           name: Init opam
           command: |
-            opam init --disable-sandboxing -y
+            opam init --compiler=5.0.0 --disable-sandboxing -y
             opam install menhir ppxlib -y
       - run:
           name: OCaml Configuration Info
           command: |
-            eval $(opam env --switch=default)
+            eval $(opam env --switch=5.0.0)
             env | grep OPAM_SWITCH_PREFIX
             ocamlopt.opt -config
 
