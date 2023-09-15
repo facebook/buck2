@@ -341,12 +341,7 @@ def _compile_with_argsfile(
     cmd = cmd_args(toolchain.compiler)
     cmd.add(additional_flags)
     cmd.add(cmd_form)
-
     cmd.add([s.file for s in srcs])
-
-    # Swift compilation on RE without explicit modules is impractically expensive
-    # because there's no shared module cache across different libraries.
-    prefer_local = not uses_explicit_modules(ctx)
 
     # If we prefer to execute locally (e.g., for perf reasons), ensure we upload to the cache,
     # so that CI builds populate caches used by developer machines.
@@ -358,8 +353,10 @@ def _compile_with_argsfile(
         cmd,
         env = get_explicit_modules_env_var(explicit_modules_enabled),
         category = category,
-        prefer_local = prefer_local,
-        allow_cache_upload = prefer_local,
+        # Swift compilation on RE without explicit modules is impractically expensive
+        # because there's no shared module cache across different libraries.
+        prefer_local = not explicit_modules_enabled,
+        allow_cache_upload = True,
     )
 
     relative_argsfile = CompileArgsfile(
