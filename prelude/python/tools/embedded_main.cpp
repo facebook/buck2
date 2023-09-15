@@ -55,11 +55,6 @@ int main(int argc, char* argv[]) {
   PyStatus status;
   PyConfig config;
 
-  struct timeval tv;
-  gettimeofday(&tv, nullptr);
-  double current_time = (double)tv.tv_usec / 1000000.0 + tv.tv_sec;
-  setenv("PAR_LAUNCH_TIMESTAMP", std::to_string(current_time).c_str(), true);
-
   PyConfig_InitPythonConfig(&config);
 
   status = PyConfig_SetBytesString(&config, &config.program_name, argv[0]);
