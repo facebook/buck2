@@ -225,4 +225,18 @@ def sum(a, b, *args, **kwargs):
             "(partial(sum))(1, 2, 3, third=None, **{'other': True})",
         );
     }
+
+    #[test]
+    fn test_typecheck_bug() {
+        // TODO(nga): fix.
+        assert::fail(
+            r#"
+def accept_callable(f: typing.Callable): pass
+
+def test():
+    accept_callable(partial(list, []))
+"#,
+            "Expected type `typing.Callable` but got `function`",
+        );
+    }
 }
