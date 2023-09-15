@@ -18,6 +18,9 @@
 use dupe::Dupe;
 
 /// How to handle type annotations in Starlark.
+///
+/// If you are enabling types, you will often want to use
+/// `LibraryExtension::Typing` when constructing a `Globals` environment.
 #[derive(Debug, Clone, Copy, Dupe, Eq, PartialEq, Hash)]
 pub enum DialectTypes {
     /// Prohibit types at parse time.

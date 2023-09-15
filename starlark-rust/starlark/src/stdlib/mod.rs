@@ -80,7 +80,9 @@ pub enum LibraryExtension {
     Breakpoint,
     /// Add a function `json()` which will generate JSON for a module.
     Json,
-    /// `type_compiled()` function.
+    /// Provides `typing.All`, `typing.Callable` etc.
+    /// Usually used in conjunction with
+    /// [`Dialect::enable_types`](crate::syntax::Dialect::enable_types).
     Typing,
     /// Utilities exposing starlark-rust internals.
     /// These are not for production use.
