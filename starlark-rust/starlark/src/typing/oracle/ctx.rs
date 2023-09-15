@@ -844,11 +844,13 @@ impl<'a> TypingOracleCtx<'a> {
                 Err(()) => false,
             },
             (TyBasic::Custom(x), y) => x.intersects_with(y),
+            (TyBasic::StarlarkValue(x), TyBasic::Callable) => x.is_callable(),
             (TyBasic::Type, TyBasic::StarlarkValue(y)) => y.is_type(),
             (TyBasic::Type, _) => {
                 // TODO(nga): more precise.
                 true
             }
+            // TODO(nga): remove this branch.
             (x, y) if x.is_function() && y.is_function() => true,
             // There are lots of other cases that overlap, but add them as we need them
             _ => false,

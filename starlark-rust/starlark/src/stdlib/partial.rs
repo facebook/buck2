@@ -228,15 +228,13 @@ def sum(a, b, *args, **kwargs):
 
     #[test]
     fn test_typecheck_bug() {
-        // TODO(nga): fix.
-        assert::fail(
+        assert::pass(
             r#"
 def accept_callable(f: typing.Callable): pass
 
 def test():
     accept_callable(partial(list, []))
 "#,
-            "Expected type `typing.Callable` but got `function`",
         );
     }
 }
