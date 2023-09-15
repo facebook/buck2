@@ -43,7 +43,7 @@ pub struct OccupiedError<'a, T> {
 impl<T> OrderedSet<T> {
     /// Create a new empty set.
     #[inline]
-    pub fn new() -> OrderedSet<T> {
+    pub const fn new() -> OrderedSet<T> {
         OrderedSet(SmallSet::new())
     }
 

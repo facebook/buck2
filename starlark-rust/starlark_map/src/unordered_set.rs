@@ -33,7 +33,7 @@ pub struct UnorderedSet<T> {
 impl<T> UnorderedSet<T> {
     /// Create a new empty set.
     #[inline]
-    pub fn new() -> UnorderedSet<T> {
+    pub const fn new() -> UnorderedSet<T> {
         UnorderedSet {
             map: UnorderedMap::new(),
         }

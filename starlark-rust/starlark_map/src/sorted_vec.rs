@@ -33,7 +33,7 @@ pub struct SortedVec<T> {
 impl<T> SortedVec<T> {
     /// Construct an empty `SortedVec`.
     #[inline]
-    pub fn new() -> SortedVec<T> {
+    pub const fn new() -> SortedVec<T> {
         SortedVec { vec: Vec::new() }
     }
 

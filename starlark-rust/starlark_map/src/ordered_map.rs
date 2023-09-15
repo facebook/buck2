@@ -35,7 +35,7 @@ pub struct OrderedMap<K, V>(SmallMap<K, V>);
 impl<K, V> OrderedMap<K, V> {
     /// Create a new empty map.
     #[inline]
-    pub fn new() -> OrderedMap<K, V> {
+    pub const fn new() -> OrderedMap<K, V> {
         OrderedMap(SmallMap::new())
     }
 

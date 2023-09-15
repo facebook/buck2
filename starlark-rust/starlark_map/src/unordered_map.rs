@@ -52,7 +52,7 @@ impl<K, V> Default for UnorderedMap<K, V> {
 impl<K, V> UnorderedMap<K, V> {
     /// Create a new empty map.
     #[inline]
-    pub fn new() -> UnorderedMap<K, V> {
+    pub const fn new() -> UnorderedMap<K, V> {
         UnorderedMap(RawTable::new())
     }
 

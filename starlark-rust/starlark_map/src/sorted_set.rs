@@ -39,7 +39,7 @@ where
 {
     /// Construct an empty `SortedSet`.
     #[inline]
-    pub fn new() -> SortedSet<T> {
+    pub const fn new() -> SortedSet<T> {
         SortedSet {
             inner: OrderedSet::new(),
         }

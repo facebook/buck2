@@ -46,7 +46,7 @@ where
 {
     /// Construct an empty `SortedMap`.
     #[inline]
-    pub fn new() -> SortedMap<K, V> {
+    pub const fn new() -> SortedMap<K, V> {
         SortedMap {
             map: OrderedMap::new(),
         }
