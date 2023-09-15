@@ -35,6 +35,12 @@ use crate::values::FrozenValueTyped;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 
+#[derive(Debug, thiserror::Error)]
+enum OwnedError {
+    #[error("Expected value of type `{0}` but got `{1}`")]
+    WrongType(&'static str, &'static str),
+}
+
 /// A [`FrozenValue`] along with a [`FrozenHeapRef`] that ensures it is kept alive.
 /// Obtained from [`FrozenModule::get`](crate::environment::FrozenModule::get) or
 /// [`OwnedFrozenValue::alloc`].
@@ -124,6 +130,18 @@ impl OwnedFrozenValue {
                 value: typed,
             }),
             None => Err(self),
+        }
+    }
+
+    /// `downcast`, but return an error for human instead of original value.
+    pub fn downcast_anyhow<T: StarlarkValue<'static>>(
+        self,
+    ) -> anyhow::Result<OwnedFrozenValueTyped<T>> {
+        match self.downcast() {
+            Ok(v) => Ok(v),
+            Err(this) => {
+                Err(OwnedError::WrongType(T::TYPE, this.value.to_value().get_type()).into())
+            }
         }
     }
 
