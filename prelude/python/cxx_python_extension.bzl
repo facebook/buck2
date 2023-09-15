@@ -62,7 +62,7 @@ load(
 )
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
-load("@prelude//utils:utils.bzl", "expect", "flatten", "value_or")
+load("@prelude//utils:utils.bzl", "expect", "value_or")
 load(":manifest.bzl", "create_manifest_for_source_map")
 load(
     ":native_python_util.bzl",
@@ -252,9 +252,9 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
     # Export library info.
     python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
     cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
-    raw_deps = (
-        [ctx.attrs.deps] +
-        get_platform_attr(python_platform, cxx_platform, ctx.attrs.platform_deps)
+    raw_deps = ctx.attrs.deps
+    raw_deps.extend(
+        get_platform_attr(python_platform, cxx_platform, ctx.attrs.platform_deps),
     )
     deps, shared_deps = gather_dep_libraries(raw_deps)
     providers.append(create_python_library_info(
@@ -272,7 +272,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
     # extensions, which should also be treated as roots.
     roots = get_roots([
         dep
-        for dep in flatten(raw_deps)
+        for dep in raw_deps
         # We only want to handle C++ Python extension deps, but not other native
         # linkable deps like C++ libraries.
         if PythonLibraryInfo in dep
@@ -284,7 +284,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
             ctx,
             roots = roots,
         ),
-        deps = flatten(raw_deps),
+        deps = raw_deps,
     )
     providers.append(linkable_graph)
     return providers

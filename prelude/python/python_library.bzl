@@ -147,27 +147,26 @@ def create_python_library_info(
         shared_libraries = new_shared_libraries,
     )
 
-def gather_dep_libraries(raw_deps: list[list[Dependency]]) -> (list[PythonLibraryInfo], list[SharedLibraryInfo]):
+def gather_dep_libraries(raw_deps: list[Dependency]) -> (list[PythonLibraryInfo], list[SharedLibraryInfo]):
     """
     Takes a list of raw dependencies, and partitions them into python_library / shared library providers.
     Fails if a dependency is not one of these.
     """
     deps = []
     shared_libraries = []
-    for raw in raw_deps:
-        for dep in raw:
-            if PythonLibraryInfo in dep:
-                deps.append(dep[PythonLibraryInfo])
-            elif SharedLibraryInfo in dep:
-                shared_libraries.append(dep[SharedLibraryInfo])
-            else:
-                # TODO(nmj): This is disabled for the moment because of:
-                #                 - the 'genrule-hack' rules that are added as deps
-                #                   on third-party whls. Not quite sure what's up
-                #                   there, but shouldn't be necessary on v2.
-                #                   (e.g. fbsource//third-party/pypi/zstandard:0.12.0-genrule-hack)
-                #fail("Dependency {} is neither a python_library, nor a prebuilt_python_library".format(dep.label))
-                pass
+    for dep in raw_deps:
+        if PythonLibraryInfo in dep:
+            deps.append(dep[PythonLibraryInfo])
+        elif SharedLibraryInfo in dep:
+            shared_libraries.append(dep[SharedLibraryInfo])
+        else:
+            # TODO(nmj): This is disabled for the moment because of:
+            #                 - the 'genrule-hack' rules that are added as deps
+            #                   on third-party whls. Not quite sure what's up
+            #                   there, but shouldn't be necessary on v2.
+            #                   (e.g. fbsource//third-party/pypi/zstandard:0.12.0-genrule-hack)
+            #fail("Dependency {} is neither a python_library, nor a prebuilt_python_library".format(dep.label))
+            pass
     return (deps, shared_libraries)
 
 def _exclude_deps_from_omnibus(
@@ -283,10 +282,10 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
             dep_manifest = create_dep_manifest_for_source_map(ctx, python_toolchain, qualified_srcs)
             sub_targets["dep-manifest"] = [DefaultInfo(default_output = dep_manifest.manifest, other_outputs = dep_manifest.artifacts)]
 
-    raw_deps = (
-        [ctx.attrs.deps] +
-        get_platform_attr(python_platform, cxx_platform, ctx.attrs.platform_deps)
-    )
+    raw_deps = ctx.attrs.deps
+    raw_deps.extend(flatten(
+        get_platform_attr(python_platform, cxx_platform, ctx.attrs.platform_deps),
+    ))
     deps, shared_libraries = gather_dep_libraries(raw_deps)
     library_info = create_python_library_info(
         ctx.actions,
@@ -309,7 +308,7 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     providers.append(DefaultInfo(sub_targets = sub_targets))
 
     # Create, augment and provide the linkable graph.
-    deps = flatten(raw_deps)
+    deps = raw_deps
     linkable_graph = create_linkable_graph(
         ctx,
         node = create_linkable_graph_node(
@@ -343,7 +342,7 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # C++ resources.
     providers.append(ResourceInfo(resources = gather_resources(
         label = ctx.label,
-        deps = flatten(raw_deps),
+        deps = raw_deps,
     )))
 
     return providers

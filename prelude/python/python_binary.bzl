@@ -317,15 +317,16 @@ def python_executable(
     python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
     cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
 
-    raw_deps = (
-        [ctx.attrs.deps] +
-        get_platform_attr(python_platform, cxx_platform, ctx.attrs.platform_deps)
-    )
+    raw_deps = ctx.attrs.deps
+
+    raw_deps.extend(flatten(
+        get_platform_attr(python_platform, cxx_platform, ctx.attrs.platform_deps),
+    ))
 
     # `preload_deps` is used later to configure `LD_PRELOAD` environment variable,
     # here we make the actual libraries to appear in the distribution.
     # TODO: make fully consistent with its usage later
-    raw_deps.append(ctx.attrs.preload_deps)
+    raw_deps.extend(ctx.attrs.preload_deps)
     python_deps, shared_deps = gather_dep_libraries(raw_deps)
 
     src_manifest = None
@@ -341,7 +342,7 @@ def python_executable(
 
     all_resources = {}
     all_resources.update(resources)
-    for cxx_resources in gather_resources(ctx.label, deps = flatten(raw_deps)).values():
+    for cxx_resources in gather_resources(ctx.label, deps = raw_deps).values():
         for name, resource in cxx_resources.items():
             all_resources[paths.join("__cxx_resources__", name)] = resource
 
@@ -365,7 +366,7 @@ def python_executable(
         ctx,
         main,
         info_to_interface(library_info),
-        flatten(raw_deps),
+        raw_deps,
         compile,
         allow_cache_upload,
         dbg_source_db,
