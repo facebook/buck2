@@ -64,17 +64,8 @@ impl ArtifactGroupRegistry {
                 .get(id)?
                 .with_context(|| format!("Key is missing in AnalysisValueFetcher: {:?}", id))?;
 
-            match set.downcast::<FrozenTransitiveSet>() {
-                Ok(set) => {
-                    registry.bind_trivial(key, DeferredTransitiveSetData(set));
-                }
-                Err(set) => {
-                    return Err(anyhow::anyhow!(
-                        "ArtifactGroupRegistry::ensure_bound found a value that was not a FrozenTransitiveSet: {:?}",
-                        set
-                    ));
-                }
-            }
+            let set = set.downcast_anyhow::<FrozenTransitiveSet>()?;
+            registry.bind_trivial(key, DeferredTransitiveSetData(set));
         }
 
         Ok(())

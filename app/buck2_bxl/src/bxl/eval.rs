@@ -342,9 +342,7 @@ pub(crate) fn get_bxl_callable<'a>(
 ) -> anyhow::Result<OwnedFrozenValueTyped<FrozenBxlFunction>> {
     let callable = bxl_module.env().get_any_visibility(&spec.name)?.0;
 
-    callable
-        .downcast::<FrozenBxlFunction>()
-        .map_err(|e| NotABxlFunction(spec.name.clone(), e.value().get_type()).into())
+    callable.downcast_anyhow::<FrozenBxlFunction>()
 }
 
 pub(crate) struct CliResolutionCtx<'a> {

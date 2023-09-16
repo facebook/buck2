@@ -10,6 +10,7 @@
 use async_trait::async_trait;
 use buck2_common::result::SharedError;
 use buck2_common::result::SharedResult;
+use buck2_common::result::ToSharedResultExt;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use dice::DiceComputations;
@@ -32,8 +33,6 @@ pub(crate) trait FetchTransition {
 enum FetchTransitionError {
     #[error("Transition object not found by id {:?}", _0)]
     NotFound(TransitionId),
-    #[error("Transition id {:?} is resolved to not transition object", _0)]
-    NotTransition(TransitionId),
 }
 
 #[async_trait]
@@ -50,8 +49,6 @@ impl FetchTransition for DiceComputations {
             .map_err(|_| SharedError::new(FetchTransitionError::NotFound(id.clone())))?
             .0;
 
-        Ok(transition
-            .downcast()
-            .map_err(|_| SharedError::new(FetchTransitionError::NotTransition(id.clone())))?)
+        transition.downcast_anyhow().shared_error()
     }
 }

@@ -38,7 +38,7 @@ impl TrivialDeferred for DeferredTransitiveSetData {
 
 impl DeferredTransitiveSetData {
     pub fn testing_new(value: OwnedFrozenValue) -> DeferredTransitiveSetData {
-        DeferredTransitiveSetData(value.downcast().unwrap())
+        DeferredTransitiveSetData(value.downcast_anyhow().unwrap())
     }
 
     pub fn as_transitive_set(&self) -> OwnedFrozenValueTyped<FrozenTransitiveSet> {

@@ -390,9 +390,7 @@ impl FrozenProviderCollectionValue {
 
     pub fn try_from_value(value: OwnedFrozenValue) -> anyhow::Result<Self> {
         Ok(Self {
-            value: value.downcast().map_err(|value| {
-                anyhow::anyhow!("{:?} was not a FrozenProviderCollection", value)
-            })?,
+            value: value.downcast_anyhow()?,
         })
     }
 

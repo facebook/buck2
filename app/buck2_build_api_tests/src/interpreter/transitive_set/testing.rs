@@ -77,9 +77,7 @@ pub(crate) fn new_transitive_set(
     let frozen = env.freeze().context("Freeze failed")?;
 
     let value = frozen.get("").context("Frozen tset was not found!")?;
-    value
-        .downcast()
-        .map_err(|v| anyhow::anyhow!("Value was not a TransitiveSet: {:?}", v))
+    value.downcast_anyhow()
 }
 
 #[test]
