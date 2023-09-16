@@ -215,6 +215,13 @@ impl<K: Eq + Ord, V: Eq + Ord> Ord for OrderedMap<K, V> {
     }
 }
 
+impl<K, V> From<SmallMap<K, V>> for OrderedMap<K, V> {
+    #[inline]
+    fn from(map: SmallMap<K, V>) -> OrderedMap<K, V> {
+        OrderedMap(map)
+    }
+}
+
 impl<K, V> FromIterator<(K, V)> for OrderedMap<K, V>
 where
     K: Hash + Eq,
@@ -222,6 +229,16 @@ where
     #[inline]
     fn from_iter<T: IntoIterator<Item = (K, V)>>(iter: T) -> OrderedMap<K, V> {
         OrderedMap(SmallMap::from_iter(iter))
+    }
+}
+
+impl<K, V> Extend<(K, V)> for OrderedMap<K, V>
+where
+    K: Hash + Eq,
+{
+    #[inline]
+    fn extend<T: IntoIterator<Item = (K, V)>>(&mut self, iter: T) {
+        self.0.extend(iter)
     }
 }
 
