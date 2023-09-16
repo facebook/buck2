@@ -30,7 +30,7 @@ commands:
     description: Setup env for Linux
     steps:
       - run: sudo apt-get update
-      - run: sudo apt-get install libssl-dev cmake clang lld opam
+      - run: sudo apt-get install libssl-dev cmake clang lld opam libzstd-dev
       - run:
           # the xlarge linux resource class has 8 CPUs, limit the number of jobs to 6 to avoid running out of resources
           name: "Set CARGO_BUILD_JOBS=6 to limit the number of CPUs used"
@@ -46,7 +46,7 @@ commands:
       - run:
           name: Brew install
           command: |
-            brew install cmake coreutils opam llvm protobuf
+            brew install cmake coreutils opam llvm protobuf zstd
             # TODO: Remove once non intel macos platform is supported on https://github.com/stepancheg/rust-protoc-bin-vendored/
             echo 'export BUCK2_BUILD_PROTOC=/opt/homebrew/opt/protobuf/bin/protoc' >> "$BASH_ENV"
             echo 'export BUCK2_BUILD_PROTOC_INCLUDE=/opt/homebrew/opt/protobuf/include' >> "$BASH_ENV"
