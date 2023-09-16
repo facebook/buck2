@@ -119,13 +119,18 @@ pub enum DocStringKind {
     /// blocks that are valid for rustdoc, but not useful for people using these
     /// functions via starlark. An example might be something like:
     ///
-    /// ```ignore
+    /// ```
+    /// # use starlark::starlark_module;
+    /// # use starlark::environment::MethodsBuilder;
+    /// # use starlark::values::Value;
+    ///
     /// /// These are where the module / object level docs go
     /// #[starlark_module]
-    /// fn add_some_value(builder: &mut GlobalsBuilder) {
+    /// fn add_some_value(builder: &mut MethodsBuilder) {
     ///     /// attr1 is an attribute that does nothing interesting.
-    ///     #[attribute]
-    ///     fn attr1(_this: Value<'v>) -> String {
+    ///     #[starlark(attribute)]
+    ///     fn attr1<'v>(this: Value<'v>) -> anyhow::Result<String> {
+    ///         let _ = this;
     ///         Ok("attr1".to_owned())
     ///     }
     ///     /// Copies a string
@@ -138,7 +143,8 @@ pub enum DocStringKind {
     ///     ///
     ///     /// # Returns
     ///     /// The a copy of the original string.
-    ///     fn copy_string(s: &str) -> String {
+    ///     fn copy_string<'v>(this: Value<'v>, s: &str) -> anyhow::Result<String> {
+    ///         let _ = this;
     ///         Ok(s.to_owned())
     ///     }
     /// }
