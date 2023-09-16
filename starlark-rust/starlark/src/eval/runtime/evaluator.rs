@@ -244,7 +244,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
 
     /// Enable static typechecking. For example:
     ///
-    /// ```ignore
+    /// ```python
     /// def foo() -> int: return "hello"
     /// ```
     ///

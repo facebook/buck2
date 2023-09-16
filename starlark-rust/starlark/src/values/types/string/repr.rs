@@ -136,7 +136,7 @@ pub(crate) fn string_repr(str: &str, buffer: &mut String) {
 
         /// Push the tail of the vec to the buffer overwriting previously written buffer content
         /// (with identical content due to how this function is used).
-        /// ```ignore
+        /// ```text
         /// buffer:   [       buffer.len         |  buffer rem capacity   ]
         /// vector:              [  overwriting  |  tail_len  ]
         /// ```

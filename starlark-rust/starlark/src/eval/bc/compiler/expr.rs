@@ -115,7 +115,7 @@ impl ExprCompiled {
     ///
     /// For example, when this expression if executed:
     ///
-    /// ```ignore
+    /// ```python
     /// t if c else f
     /// ```
     ///

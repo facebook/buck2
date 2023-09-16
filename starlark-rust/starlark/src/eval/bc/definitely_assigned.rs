@@ -21,7 +21,7 @@ use crate::eval::runtime::slots::LocalSlotId;
 ///
 /// For example, when compiling an program like:
 ///
-/// ```ignore
+/// ```python
 /// foo(x)
 /// bar(x)
 /// ```
@@ -54,7 +54,7 @@ impl BcDefinitelyAssigned {
     ///
     /// For example, after execution of:
     ///
-    /// ```ignore
+    /// ```python
     /// foo(x)
     /// ```
     ///

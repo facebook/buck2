@@ -60,7 +60,7 @@ impl LocalSlotId {
 ///
 /// E. g. in code:
 ///
-/// ```ignore
+/// ```python
 /// def f():
 ///   x = 1
 ///   return lambda: x
