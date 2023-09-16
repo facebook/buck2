@@ -13,7 +13,7 @@ load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 # executable can access those.
 RichLinkerRunInfo = provider(fields = {"exe": provider_field(typing.Any, default = None), "flags": provider_field(typing.Any, default = None)})
 
-LinkerType = ["gnu", "darwin", "windows"]
+LinkerType = ["gnu", "darwin", "windows", "wasm"]
 
 ShlibInterfacesMode = enum("disabled", "enabled", "defined_only")
 

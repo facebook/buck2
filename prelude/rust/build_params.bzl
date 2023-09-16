@@ -142,6 +142,7 @@ def _executable_prefix_suffix(linker_type: str, target_os_type: OsLookup) -> (st
     return {
         "darwin": ("", ""),
         "gnu": ("", ".exe") if target_os_type.platform == "windows" else ("", ""),
+        "wasm": ("", ".wasm"),
         "windows": ("", ".exe"),
     }[linker_type]
 
@@ -149,6 +150,7 @@ def _library_prefix_suffix(linker_type: str, target_os_type: OsLookup) -> (str, 
     return {
         "darwin": ("lib", ".dylib"),
         "gnu": ("", ".dll") if target_os_type.platform == "windows" else ("lib", ".so"),
+        "wasm": ("", ".wasm"),
         "windows": ("", ".dll"),
     }[linker_type]
 

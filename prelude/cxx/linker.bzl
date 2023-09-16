@@ -46,6 +46,14 @@ LINKERS = {
         shared_library_name_linker_flags_format = ["-Wl,-soname,{}"],
         shared_library_flags = ["-shared"],
     ),
+    "wasm": Linker(
+        default_shared_library_extension = "wasm",
+        default_shared_library_versioned_extension_format = "{}.wasm",
+        shared_library_name_linker_flags_format = [],
+        # lld supports this, at least.
+        # See https://github.com/WebAssembly/tool-conventions/blob/main/DynamicLinking.md#llvm-implementation
+        shared_library_flags = ["-shared"],
+    ),
     "windows": Linker(
         default_shared_library_extension = "dll",
         default_shared_library_versioned_extension_format = "dll",
