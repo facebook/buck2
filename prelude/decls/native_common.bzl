@@ -30,7 +30,16 @@ def _preferred_linkage(preferred_linkage_type):
         "preferred_linkage": preferred_linkage_type,
     }
 
+def _link_group_deps():
+    return {
+        "link_group_deps": attrs.list(attrs.dep(), default = [], doc = """
+    Additional targets to traverse when building link groups, but which should not
+     be direct dependencies of the main executable.
+"""),
+    }
+
 native_common = struct(
+    link_group_deps = _link_group_deps,
     link_style = _link_style,
     link_whole = _link_whole,
     preferred_linkage = _preferred_linkage,

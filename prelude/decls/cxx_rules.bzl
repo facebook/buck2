@@ -90,6 +90,7 @@ cxx_binary = prelude_rule(
         cxx_common.platform_linker_flags_arg() |
         cxx_common.precompiled_header_arg() |
         native_common.link_style() |
+        native_common.link_group_deps() |
         buck.deps_query_arg() |
         cxx_common.raw_headers_arg() |
         cxx_common.include_directories_arg() |
@@ -804,6 +805,7 @@ cxx_test = prelude_rule(
         } |
         buck.run_test_separately_arg(run_test_separately_type = attrs.option(attrs.bool(), default = None)) |
         buck.test_rule_timeout_ms() |
+        native_common.link_group_deps() |
         {
             "additional_coverage_targets": attrs.list(attrs.source(), default = []),
             "contacts": attrs.list(attrs.string(), default = []),

@@ -581,7 +581,8 @@ def _convert_python_library_to_executable(
             extra_link_roots = (
                 extension_info.unembeddable_extensions.values() +
                 extension_info.dlopen_deps.values() +
-                extension_info.shared_only_libs.values()
+                extension_info.shared_only_libs.values() +
+                linkables(ctx.attrs.link_group_deps)
             ),
             exe_allow_cache_upload = allow_cache_upload,
         )

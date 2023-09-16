@@ -7,6 +7,7 @@
 
 load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "LinkableDepType", "buck", "prelude_rule")
 load(":cxx_common.bzl", "cxx_common")
+load(":native_common.bzl", "native_common")
 load(":python_common.bzl", "python_common")
 
 NativeLinkStrategy = ["separate", "merged"]
@@ -249,6 +250,7 @@ python_binary = prelude_rule(
         python_common.package_style_arg() |
         python_common.linker_flags_arg() |
         python_common.deduplicate_merged_link_roots() |
+        native_common.link_group_deps() |
         {
             "build_args": attrs.list(attrs.arg(), default = []),
             "compile": attrs.option(attrs.bool(), default = None),
@@ -421,6 +423,7 @@ python_test = prelude_rule(
         python_common.preload_deps_arg() |
         python_common.linker_flags_arg() |
         python_common.deduplicate_merged_link_roots() |
+        native_common.link_group_deps() |
         {
             "additional_coverage_targets": attrs.list(attrs.dep(), default = []),
             "build_args": attrs.list(attrs.arg(), default = []),

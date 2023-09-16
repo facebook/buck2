@@ -49,6 +49,10 @@ load(
     "create_linkable_graph_node",
     "create_linkable_node",
 )
+load(
+    "@prelude//linking:linkables.bzl",
+    "linkables",
+)
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "create_shared_libraries", "merge_shared_libraries")
 load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
@@ -230,6 +234,7 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         auto_link_group_specs = get_auto_link_group_specs(ctx, link_group_info),
         prefer_stripped_objects = ctx.attrs.prefer_stripped_objects,
         exe_allow_cache_upload = ctx.attrs.allow_cache_upload,
+        extra_link_roots = linkables(ctx.attrs.link_group_deps),
     )
     output = cxx_executable(ctx, params)
 
@@ -625,6 +630,7 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
         link_group_info = link_group_info,
         auto_link_group_specs = get_auto_link_group_specs(ctx, link_group_info),
         prefer_stripped_objects = ctx.attrs.prefer_stripped_objects,
+        extra_link_roots = linkables(ctx.attrs.link_group_deps),
     )
     output = cxx_executable(ctx, params, is_cxx_test = True)
 
