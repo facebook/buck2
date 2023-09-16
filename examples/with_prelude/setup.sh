@@ -19,7 +19,7 @@ then
 fi
 
 # Bring the OCaml toolchain into scope.
-eval "$(opam env --switch=default --set-switch)"
+eval "$(opam env)"
 
 # Link 'third-party/ocaml/standard_library'.
 if [ ! -L third-party/ocaml/standard_library ]; then
