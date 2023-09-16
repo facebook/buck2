@@ -24,6 +24,7 @@ load(
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "PythonToolchainInfo")
 load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapToolchainInfo")
 load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
+load("@prelude//zip_file:zip_file_toolchain.bzl", "ZipFileToolchainInfo")
 
 def _toolchain(lang: str, providers: list[typing.Any]) -> Attr:
     return attrs.default_only(attrs.toolchain_dep(default = "toolchains//:" + lang, providers = providers))
@@ -74,6 +75,9 @@ def _python_bootstrap_toolchain():
 def _rust_toolchain():
     return _toolchain("rust", [RustToolchainInfo])
 
+def _zip_file_toolchain():
+    return _toolchain("zip_file", [ZipFileToolchainInfo])
+
 toolchains_common = struct(
     android = _android_toolchain,
     cxx = _cxx_toolchain,
@@ -89,4 +93,5 @@ toolchains_common = struct(
     python = _python_toolchain,
     python_bootstrap = _python_bootstrap_toolchain,
     rust = _rust_toolchain,
+    zip_file = _zip_file_toolchain,
 )

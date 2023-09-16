@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load(":zip_file_toolchain.bzl", "ZipFileToolchainInfo")
 
 def zip_file_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -62,21 +63,12 @@ def zip_file_impl(ctx: AnalysisContext) -> list[Provider]:
 
     return [DefaultInfo(default_output = output)]
 
-def _select_zip_file_toolchain():
-    # FIXME: prelude// should be standalone (not refer to fbsource//)
-    return "fbsource//xplat/buck2/platform/zip_file:zip_file"
-
 implemented_rules = {
     "zip_file": zip_file_impl,
 }
 
 extra_attributes = {
     "zip_file": {
-        "_zip_file_toolchain": attrs.default_only(attrs.exec_dep(
-            default = _select_zip_file_toolchain(),
-            providers = [
-                ZipFileToolchainInfo,
-            ],
-        )),
+        "_zip_file_toolchain": toolchains_common.zip_file(),
     },
 }
