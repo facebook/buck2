@@ -18,12 +18,14 @@ use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::CellAliasResolver;
+use buck2_core::configuration::data::ConfigurationData;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::parse_import::RelativeImports;
 use buck2_node::cfg_constructor::CfgConstructorCalculationImpl;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
+use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
 use derive_more::Display;
 use dice::CancellationContext;
 use dice::DiceComputations;
@@ -124,6 +126,58 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
         }
 
         ctx.compute(&GetCfgConstructorKey).await?.unshared_error()
+    }
+
+    async fn eval_cfg_constructor(
+        &self,
+        ctx: &DiceComputations,
+        cfg: ConfigurationData,
+    ) -> anyhow::Result<ConfigurationData> {
+        #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+        struct CfgConstructorInvocationKey {
+            cfg: ConfigurationData,
+        }
+
+        #[async_trait]
+        impl Key for CfgConstructorInvocationKey {
+            type Value = SharedResult<ConfigurationData>;
+
+            async fn compute(
+                &self,
+                ctx: &mut DiceComputations,
+                _cancellations: &CancellationContext,
+            ) -> Self::Value {
+                // Invoke eval fn from global instance of cfg constructors
+                match CFG_CONSTRUCTOR_CALCULATION_IMPL
+                    .get()?
+                    .get_cfg_constructor(ctx)
+                    .await?
+                {
+                    Some(cfg_constructor) => {
+                        cfg_constructor.eval(ctx, &self.cfg).await.shared_error()
+                    }
+                    // By this point we should have already confirmed that the global cfg constructor instance exists
+                    None => unreachable!("Global cfg constructor instance should exist."),
+                }
+            }
+
+            fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+                match (x, y) {
+                    (Ok(x), Ok(y)) => x == y,
+                    _ => false,
+                }
+            }
+        }
+
+        match self.get_cfg_constructor(ctx).await? {
+            Some(_) => {
+                let key = CfgConstructorInvocationKey { cfg };
+                Ok(ctx.compute(&key).await??)
+            }
+            // To facilitate rollout of modifiers, return original configuration if
+            // no cfg constructors are available.
+            None => Ok(cfg),
+        }
     }
 }
 

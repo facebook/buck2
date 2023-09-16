@@ -15,6 +15,7 @@ use buck2_common::result::SharedResult;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
+use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::RuleKind;
 use buck2_node::target_calculation::ConfiguredTargetCalculationImpl;
@@ -47,7 +48,7 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
         let node = ctx.get_target_node(target).await?;
 
         let get_platform_configuration = async || -> SharedResult<ConfigurationData> {
-            Ok(match global_target_platform {
+            let current_cfg = match global_target_platform {
                 Some(global_target_platform) => {
                     ctx.get_platform_configuration(global_target_platform)
                         .await?
@@ -56,7 +57,12 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
                     Some(target) => ctx.get_platform_configuration(target).await?,
                     None => ctx.get_default_platform(target).await?,
                 },
-            })
+            };
+
+            Ok(CFG_CONSTRUCTOR_CALCULATION_IMPL
+                .get()?
+                .eval_cfg_constructor(ctx, current_cfg)
+                .await?)
         };
 
         match node.rule_kind() {
