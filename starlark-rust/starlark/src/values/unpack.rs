@@ -39,15 +39,41 @@ use crate::values::ValueError;
 ///
 /// ```
 /// # use allocative::Allocative;
-/// # use starlark::values::StarlarkValue;
 /// # use starlark::any::ProvidesStaticType;
-/// # use starlark::values::{NoSerialize, starlark_value};
+/// # use starlark::values::{NoSerialize, StarlarkValue, starlark_value};
 ///
 /// #[derive(Debug, derive_more::Display, Allocative, NoSerialize, ProvidesStaticType)]
 /// struct MySimpleValue;
 ///
 /// #[starlark_value(type = "MySimpleValue", UnpackValue, StarlarkTypeRepr)]
 /// impl<'v> StarlarkValue<'v> for MySimpleValue {}
+/// ```
+///
+/// Whereas for types that aren't also [`StarlarkValue`](crate::values::StarlarkValue) you can define:
+///
+/// ```
+/// # use either::Either;
+/// # use starlark::typing::Ty;
+/// # use starlark::values::{UnpackValue, Value};
+/// # use starlark::values::type_repr::StarlarkTypeRepr;
+///
+/// struct BoolOrInt(i32);
+///
+/// impl StarlarkTypeRepr for BoolOrInt {
+///     fn starlark_type_repr() -> Ty {
+///         Either::<bool, i32>::starlark_type_repr()
+///     }
+/// }
+///
+/// impl<'v> UnpackValue<'v> for BoolOrInt {
+///     fn unpack_value(value: Value<'v>) -> Option<Self> {
+///         if let Some(x) = value.unpack_bool() {
+///             Some(BoolOrInt(x as i32))
+///         } else {
+///             value.unpack_i32().map(BoolOrInt)
+///         }
+///     }
+/// }
 /// ```
 pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
     /// Description of values acceptable by `unpack_value`, e. g. `list or str`.
