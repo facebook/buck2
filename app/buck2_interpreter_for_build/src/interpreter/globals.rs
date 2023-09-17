@@ -8,6 +8,7 @@
  */
 
 use buck2_interpreter::bxl::BXL_SPECIFIC_GLOBALS;
+use buck2_interpreter::cfg_constructor::REGISTER_SET_CFG_CONSTRUCTOR;
 use buck2_interpreter::functions::more::REGISTER_BUCK2_BUILD_API_GLOBALS;
 use buck2_interpreter::functions::transition::REGISTER_TRANSITION;
 use buck2_interpreter::starlark_promise::register_promise;
@@ -42,6 +43,7 @@ pub fn register_universal_natives(builder: &mut GlobalsBuilder) {
     (REGISTER_BUCK2_BUILD_API_GLOBALS.get().unwrap())(builder);
     (REGISTER_TRANSITION.get().unwrap())(builder);
     (BXL_SPECIFIC_GLOBALS.get().unwrap())(builder);
+    (REGISTER_SET_CFG_CONSTRUCTOR.get().unwrap())(builder);
     register_module_natives(builder);
     register_host_info(builder);
     register_read_config(builder);

@@ -50,7 +50,7 @@ enum BuildContextError {
 }
 
 #[derive(Debug)]
-pub(crate) enum PerFileTypeContext {
+pub enum PerFileTypeContext {
     /// Context for evaluating `BUCK` files.
     Build(ModuleInternals),
     /// Context for evaluating `PACKAGE` files.
@@ -129,7 +129,7 @@ pub struct BuildContext<'a> {
     ///
     /// For example of where this isn't used, it is not used for resolving
     /// `load()` statements.
-    cell_info: &'a InterpreterCellInfo,
+    pub cell_info: &'a InterpreterCellInfo,
 
     /// Current cell file buckconfig.
     pub(crate) buckconfig: LegacyBuckConfigForStarlark<'a>,
@@ -139,7 +139,7 @@ pub struct BuildContext<'a> {
     pub host_info: &'a HostInfo,
 
     /// Context specific to type type.
-    pub(crate) additional: PerFileTypeContext,
+    pub additional: PerFileTypeContext,
 
     /// When true, rule function is no-op.
     pub ignore_attrs_for_profiling: bool,

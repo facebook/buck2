@@ -48,6 +48,7 @@ use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::syntax::AstModule;
+use starlark::values::OwnedFrozenValueTyped;
 use starlark_map::small_map::SmallMap;
 use thiserror::Error;
 
@@ -57,6 +58,7 @@ use crate::interpreter::bzl_eval_ctx::BzlEvalCtx;
 use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::global_interpreter_state::GlobalInterpreterState;
 use crate::interpreter::module_internals::ModuleInternals;
+use crate::interpreter::package_file_extra::FrozenPackageFileExtra;
 use crate::super_package::eval_ctx::PackageFileEvalCtx;
 
 #[derive(Debug, Error)]
@@ -554,9 +556,19 @@ impl InterpreterForCell {
             false,
         )?;
 
+        let extra: Option<OwnedFrozenValueTyped<FrozenPackageFileExtra>> =
+            if env.extra_value().is_some() {
+                // Only freeze if there's extra, otherwise we will needlessly freeze globals.
+                // TODO(nga): add API to only freeze extra.
+                let env = env.freeze()?;
+                FrozenPackageFileExtra::get(&env)?
+            } else {
+                None
+            };
+
         let package_file_eval_ctx = per_file_context.into_package_file()?;
 
-        Ok(package_file_eval_ctx.build_super_package())
+        package_file_eval_ctx.build_super_package(extra)
     }
 
     /// Evaluates the AST for a parsed build file. Loaded modules must contain the

@@ -15,7 +15,7 @@ use buck2_core::cells::CellResolver;
 use dupe::Dupe;
 
 #[derive(Clone, Dupe, Debug, Allocative)]
-pub(crate) struct InterpreterCellInfo(Arc<Data>);
+pub struct InterpreterCellInfo(Arc<Data>);
 
 #[derive(Debug, Allocative)]
 struct Data {
@@ -38,7 +38,7 @@ impl InterpreterCellInfo {
         self.0.cell_name
     }
 
-    pub(crate) fn cell_resolver(&self) -> &CellResolver {
+    pub fn cell_resolver(&self) -> &CellResolver {
         &self.0.cell_resolver
     }
 }

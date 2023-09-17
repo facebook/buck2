@@ -17,9 +17,6 @@ use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 
 /// Trait for configuration constructor functions.
-/// Functions must be specified via buckconfigs
-/// `buck2.cfg_constructor_pre_constraint_analysis` and
-/// `buck2.cfg_constructor_post_constraint_analysis`.
 /// The output of invoking these functions is a PlatformInfo
 #[async_trait]
 pub trait CfgConstructorImpl: Send + Sync + Debug + Allocative {
@@ -36,9 +33,7 @@ pub static CFG_CONSTRUCTOR_CALCULATION_IMPL: LateBinding<
 
 #[async_trait]
 pub trait CfgConstructorCalculationImpl: Send + Sync + 'static {
-    /// Loads and returns cfg constructor functions from buckconfigs
-    /// `buck2.cfg_constructor_pre_constraint_analysis` and
-    /// `buck2.cfg_constructor_post_constraint_analysis`
+    /// Loads and returns cfg constructor functions.
     async fn get_cfg_constructor(
         &self,
         ctx: &DiceComputations,

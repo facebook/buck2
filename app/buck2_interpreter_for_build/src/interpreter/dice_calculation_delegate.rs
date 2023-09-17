@@ -342,7 +342,10 @@ impl<'c> DiceCalculationDelegate<'c> {
 
         let (ast, deps) = match ast_deps {
             Some(x) => x,
-            None => return Ok(parent),
+            None => {
+                // If there's no `PACKAGE` file, return parent.
+                return Ok(parent);
+            }
         };
 
         let buckconfig = self.get_legacy_buck_config_for_starlark().await?;
@@ -368,7 +371,10 @@ impl<'c> DiceCalculationDelegate<'c> {
         .await
     }
 
-    async fn eval_package_file(&self, path: &PackageFilePath) -> anyhow::Result<SuperPackage> {
+    pub(crate) async fn eval_package_file(
+        &self,
+        path: &PackageFilePath,
+    ) -> anyhow::Result<SuperPackage> {
         #[derive(Debug, Display, Clone, Allocative, Eq, PartialEq, Hash)]
         struct PackageFileKey(PackageFilePath);
 

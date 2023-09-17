@@ -11,6 +11,7 @@
 #![feature(async_fn_in_trait)]
 
 pub(crate) mod calculation;
+pub(crate) mod registration;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -29,10 +30,12 @@ use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 
+use crate::registration::init_registration;
+
 #[derive(Allocative, Debug)]
-struct CfgConstructor {
-    cfg_constructor_pre_constraint_analysis: OwnedFrozenValue,
-    cfg_constructor_post_constraint_analysis: OwnedFrozenValue,
+pub(crate) struct CfgConstructor {
+    pub(crate) cfg_constructor_pre_constraint_analysis: OwnedFrozenValue,
+    pub(crate) cfg_constructor_post_constraint_analysis: OwnedFrozenValue,
 }
 
 #[async_trait]
@@ -95,4 +98,5 @@ impl CfgConstructorImpl for CfgConstructor {
 
 pub fn init_late_bindings() {
     CFG_CONSTRUCTOR_CALCULATION_IMPL.init(&CfgConstructorCalculationInstance);
+    init_registration();
 }

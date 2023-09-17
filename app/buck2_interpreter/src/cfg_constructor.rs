@@ -7,9 +7,8 @@
  * of this source tree.
  */
 
-use buck2_core::bzl::ImportPath;
+use buck2_util::late_binding::LateBinding;
+use starlark::environment::GlobalsBuilder;
 
-#[derive(Debug)]
-pub struct BzlEvalCtx {
-    pub(crate) bzl_path: ImportPath,
-}
+pub static REGISTER_SET_CFG_CONSTRUCTOR: LateBinding<fn(&mut GlobalsBuilder)> =
+    LateBinding::new("REGISTER_SET_CFG_CONSTRUCTOR");

@@ -23,6 +23,7 @@ extern crate starlark;
 
 pub mod build_context;
 pub mod bxl;
+pub mod cfg_constructor;
 pub mod coerce;
 pub mod dice;
 pub mod extra;
