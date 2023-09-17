@@ -10,10 +10,26 @@
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:archive.bzl", "make_archive")
 load(
+    "@prelude//cxx:cxx.bzl",
+    "get_auto_link_group_specs",
+)
+load(
     "@prelude//cxx:cxx_toolchain_types.bzl",
     "CxxPlatformInfo",
     "CxxToolchainInfo",
     "PicBehavior",
+)
+load(
+    "@prelude//cxx:link_groups.bzl",
+    "LinkGroupContext",
+    "create_link_groups",
+    "find_relevant_roots",
+    "get_filtered_labels_to_links_map",
+    "get_filtered_links",
+    "get_link_group_info",
+    "get_link_group_preferred_linkage",
+    "get_transitive_deps_matching_labels",
+    "is_link_group_shlib",
 )
 load(
     "@prelude//cxx:preprocessor.bzl",
@@ -24,6 +40,7 @@ load(
 )
 load(
     "@prelude//linking:link_groups.bzl",
+    "gather_link_group_libs",
     "merge_link_group_lib_info",
 )
 load(
@@ -31,6 +48,7 @@ load(
     "Archive",
     "ArchiveLinkable",
     "LibOutputStyle",
+    "LinkArgs",
     "LinkInfo",
     "LinkInfos",
     "LinkStyle",
@@ -49,9 +67,15 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
+    "LinkableGraph",
     "create_linkable_graph",
     "create_linkable_graph_node",
     "create_linkable_node",
+    "get_linkable_graph_node_map_func",
+)
+load(
+    "@prelude//linking:linkables.bzl",
+    "linkables",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -65,7 +89,8 @@ load(
     "PythonLibraryInfo",
 )
 load("@prelude//utils:platform_flavors_util.bzl", "by_platform")
-load("@prelude//utils:utils.bzl", "flatten")
+load("@prelude//utils:set.bzl", "set")
+load("@prelude//utils:utils.bzl", "filter_and_map_idx", "flatten")
 
 _HASKELL_EXTENSIONS = [
     ".hs",
@@ -864,6 +889,7 @@ def _build_haskell_lib(
                     ArchiveLinkable(
                         archive = archive,
                         linker_type = linker_info.type,
+                        link_whole = ctx.attrs.link_whole,
                     ),
                 ],
             ),
@@ -1172,6 +1198,9 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     link_style = _attr_link_style(ctx)
 
+    # Link Groups
+    link_group_info = get_link_group_info(ctx, filter_and_map_idx(LinkableGraph, attr_deps(ctx)))
+
     # Profiling doesn't support shared libraries
     if enable_profiling and link_style == LinkStyle("shared"):
         link_style = LinkStyle("static")
@@ -1197,47 +1226,156 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     objfiles = _srcs_to_objfiles(ctx, compiled.objects, osuf)
     link.add(objfiles)
 
-    hlis = []
-    dep_nlinfos = []
-    dep_prof_nlinfos = []
-    sos = {}
     indexing_tsets = {}
+    if compiled.producing_indices:
+        tset = derive_indexing_tset(ctx.actions, link_style, compiled.hi, attr_deps(ctx))
+        indexing_tsets[link_style] = tset
+
+    slis = []
     for lib in attr_deps(ctx):
-        li = lib.get(HaskellLinkInfo)
-        if li != None:
-            linfos = li.prof_info if enable_profiling else li.info
-            hlis.extend(linfos[link_style])
-        li = lib.get(MergedLinkInfo)
-        if li != None:
-            dep_nlinfos.append(li)
-            if HaskellLinkInfo not in lib:
-                dep_prof_nlinfos.append(li)
-        li = lib.get(HaskellProfLinkInfo)
-        if li != None:
-            dep_prof_nlinfos.append(li.prof_infos)
         li = lib.get(SharedLibraryInfo)
         if li != None:
-            # TODO This should probably use merged_shared_libraries to check
-            # for soname conflicts.
-            for name, shared_lib in traverse_shared_library_info(li).items():
-                sos[name] = shared_lib.lib.output
+            slis.append(li)
+    shlib_info = merge_shared_libraries(
+        ctx.actions,
+        deps = slis,
+    )
 
-        if compiled.producing_indices:
-            tset = derive_indexing_tset(ctx.actions, link_style, compiled.hi, attr_deps(ctx))
-            indexing_tsets[link_style] = tset
+    sos = {}
 
-    native_linfos = dep_prof_nlinfos if enable_profiling else dep_nlinfos
+    if link_group_info != None:
+        own_binary_link_flags = []
+        auto_link_groups = {}
+        link_group_libs = {}
+        link_deps = linkables(attr_deps(ctx))
+        linkable_graph_node_map = get_linkable_graph_node_map_func(link_group_info.graph)()
+        link_group_preferred_linkage = get_link_group_preferred_linkage(link_group_info.groups.values())
 
-    infos = get_link_args_for_strategy(ctx, native_linfos, to_link_strategy(link_style))
+        # If we're using auto-link-groups, where we generate the link group links
+        # in the prelude, the link group map will give us the link group libs.
+        # Otherwise, pull them from the `LinkGroupLibInfo` provider from out deps.
+        auto_link_group_specs = get_auto_link_group_specs(ctx, link_group_info)
+        if auto_link_group_specs != None:
+            linked_link_groups = create_link_groups(
+                ctx = ctx,
+                link_group_mappings = link_group_info.mappings,
+                link_group_preferred_linkage = link_group_preferred_linkage,
+                executable_deps = [d.linkable_graph.nodes.value.label for d in link_deps if d.linkable_graph != None],
+                link_group_specs = auto_link_group_specs,
+                linkable_graph_node_map = linkable_graph_node_map,
+            )
+            for name, linked_link_group in linked_link_groups.libs.items():
+                auto_link_groups[name] = linked_link_group.artifact
+                if linked_link_group.library != None:
+                    link_group_libs[name] = linked_link_group.library
+            own_binary_link_flags += linked_link_groups.symbol_ldflags
+
+        else:
+            # NOTE(agallagher): We don't use version scripts and linker scripts
+            # for non-auto-link-group flow, as it's note clear it's useful (e.g.
+            # it's mainly for supporting dlopen-enabled libs and extensions).
+            link_group_libs = gather_link_group_libs(
+                children = [d.link_group_lib_info for d in link_deps],
+            )
+
+        link_group_relevant_roots = find_relevant_roots(
+            linkable_graph_node_map = linkable_graph_node_map,
+            link_group_mappings = link_group_info.mappings,
+            roots = [
+                mapping.root
+                for group in link_group_info.groups.values()
+                for mapping in group.mappings
+                if mapping.root != None
+            ],
+        )
+
+        labels_to_links_map = get_filtered_labels_to_links_map(
+            linkable_graph_node_map = linkable_graph_node_map,
+            link_group = None,
+            link_groups = link_group_info.groups,
+            link_group_mappings = link_group_info.mappings,
+            link_group_preferred_linkage = link_group_preferred_linkage,
+            link_group_libs = {
+                name: (lib.label, lib.shared_link_infos)
+                for name, lib in link_group_libs.items()
+            },
+            link_strategy = to_link_strategy(link_style),
+            roots = (
+                [
+                    d.linkable_graph.nodes.value.label
+                    for d in link_deps
+                    if d.linkable_graph != None
+                ] +
+                link_group_relevant_roots
+            ),
+            is_executable_link = True,
+            force_static_follows_dependents = True,
+            pic_behavior = PicBehavior("supported"),
+        )
+
+        # NOTE: Our Haskell DLL support impl currently links transitive haskell
+        # deps needed by DLLs which get linked into the main executable as link-
+        # whole.  To emulate this, we mark Haskell rules with a special label
+        # and traverse this to find all the nodes we need to link whole.
+        public_nodes = []
+        if ctx.attrs.link_group_public_deps_label != None:
+            public_nodes = get_transitive_deps_matching_labels(
+                linkable_graph_node_map = linkable_graph_node_map,
+                label = ctx.attrs.link_group_public_deps_label,
+                roots = link_group_relevant_roots,
+            )
+
+        link_infos = []
+        link_infos.append(
+            LinkInfo(
+                pre_flags = own_binary_link_flags,
+            ),
+        )
+        link_infos.extend(get_filtered_links(labels_to_links_map, set(public_nodes)))
+        infos = LinkArgs(infos = link_infos)
+
+        link_group_ctx = LinkGroupContext(
+            link_group_mappings = link_group_info.mappings,
+            link_group_libs = link_group_libs,
+            link_group_preferred_linkage = link_group_preferred_linkage,
+            labels_to_links_map = labels_to_links_map,
+        )
+
+        for name, shared_lib in traverse_shared_library_info(shlib_info).items():
+            label = shared_lib.label
+            if is_link_group_shlib(label, link_group_ctx):
+                sos[name] = shared_lib.lib
+
+        # When there are no matches for a pattern based link group,
+        # `link_group_mappings` will not have an entry associated with the lib.
+        for _name, link_group_lib in link_group_libs.items():
+            sos.update(link_group_lib.shared_libs)
+
+    else:
+        nlis = []
+        for lib in attr_deps(ctx):
+            if enable_profiling:
+                hli = lib.get(HaskellProfLinkInfo)
+                if hli != None:
+                    nlis.append(hli.prof_infos)
+                    continue
+            li = lib.get(MergedLinkInfo)
+            if li != None:
+                nlis.append(li)
+        for name, shared_lib in traverse_shared_library_info(shlib_info).items():
+            sos[name] = shared_lib.lib
+        infos = get_link_args_for_strategy(ctx, nlis, to_link_strategy(link_style))
+
     link.add(cmd_args(unpack_link_args(infos), prepend = "-optl"))
 
     ctx.actions.run(link, category = "haskell_link")
 
     run = cmd_args(output)
 
-    if link_style == LinkStyle("shared"):
-        link.add("-optl", "-Wl,-rpath", "-optl", "-Wl,$ORIGIN/sos")
-        symlink_dir = ctx.actions.symlinked_dir("sos", sos)
+    if link_style == LinkStyle("shared") or link_group_info != None:
+        sos_dir = "__{}__shared_libs_symlink_tree".format(ctx.attrs.name)
+        link.add("-optl", "-Wl,-rpath", "-optl", "-Wl,$ORIGIN/{}".format(sos_dir))
+        symlink_dir = ctx.actions.symlinked_dir(sos_dir, {n: o.output for n, o in sos.items()})
         run.hidden(symlink_dir)
 
     providers = [

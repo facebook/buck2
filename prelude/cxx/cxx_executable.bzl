@@ -69,6 +69,7 @@ load(
     "traverse_shared_library_info",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
+load("@prelude//utils:set.bzl", "set")
 load(
     "@prelude//utils:utils.bzl",
     "flatten_dict",
@@ -129,6 +130,7 @@ load(
     "get_link_group",
     "get_link_group_map_json",
     "get_link_group_preferred_linkage",
+    "get_transitive_deps_matching_labels",
     "is_link_group_shlib",
 )
 load(
@@ -373,7 +375,24 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                 prefer_stripped = impl_params.prefer_stripped_objects,
             )
 
-        filtered_links = get_filtered_links(labels_to_links_map)
+        # NOTE: Our Haskell DLL support impl currently links transitive haskell
+        # deps needed by DLLs which get linked into the main executable as link-
+        # whole.  To emulate this, we mark Haskell rules with a special label
+        # and traverse this to find all the nodes we need to link whole.
+        public_nodes = []
+        if ctx.attrs.link_group_public_deps_label != None:
+            public_nodes = get_transitive_deps_matching_labels(
+                linkable_graph_node_map = linkable_graph_node_map,
+                label = ctx.attrs.link_group_public_deps_label,
+                roots = [
+                    mapping.root
+                    for group in link_group_info.groups.values()
+                    for mapping in group.mappings
+                    if mapping.root != None
+                ],
+            )
+
+        filtered_links = get_filtered_links(labels_to_links_map, set(public_nodes))
         filtered_targets = get_filtered_targets(labels_to_links_map)
 
         link_execution_preference = get_resolved_cxx_binary_link_execution_preference(ctx, labels_to_links_map.keys(), impl_params.force_full_hybrid_if_capable)

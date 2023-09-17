@@ -7,6 +7,10 @@
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load("@prelude//python:python.bzl", "PythonLibraryInfo")
+load(
+    "@prelude//utils:graph_utils.bzl",
+    "breadth_first_traversal_by",
+)
 load("@prelude//utils:utils.bzl", "expect")
 load(
     ":link_info.bzl",
@@ -271,3 +275,17 @@ def get_deps_for_link(
         deps = deps + node.deps
 
     return deps
+
+def get_transitive_deps(
+        link_infos: dict[Label, LinkableNode],
+        roots: list[Label]) -> list[Label]:
+    """
+    Return all transitive deps from following the given nodes.
+    """
+
+    def find_transitive_deps(node: Label):
+        return link_infos[node].deps + link_infos[node].exported_deps
+
+    all_deps = breadth_first_traversal_by(link_infos, roots, find_transitive_deps)
+
+    return all_deps

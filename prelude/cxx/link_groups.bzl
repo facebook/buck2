@@ -36,6 +36,7 @@ load(
     "get_deps_for_link",
     "get_link_info",
     "get_linkable_graph_node_map_func",
+    "get_transitive_deps",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load(
@@ -773,7 +774,7 @@ def create_link_groups(
         link_group_specs: list[LinkGroupLibSpec] = [],
         executable_deps: list[Label] = [],
         other_roots: list[Label] = [],
-        root_link_group = [str, None],
+        root_link_group: [str, None] = None,
         linker_flags: list[typing.Any] = [],
         prefer_stripped_objects: bool = False,
         linkable_graph_node_map: dict[Label, LinkableNode] = {},
@@ -896,3 +897,19 @@ def create_link_groups(
         libs = linked_link_groups,
         symbol_ldflags = symbol_ldflags,
     )
+
+def get_transitive_deps_matching_labels(
+        linkable_graph_node_map: dict[Label, LinkableNode],
+        roots: list[Label],
+        label: str) -> list[Label]:
+    # NOTE: Our Haskell DLL support impl currently links transitive haskell
+    # deps needed by DLLs which get linked into the main executable as link-
+    # whole.  To emulate this, we mark Haskell rules with a special label
+    # and traverse this to find all the nodes we need to link whole.
+    nodes = []
+    for dep in get_transitive_deps(linkable_graph_node_map, roots):
+        linkable = linkable_graph_node_map[dep]
+        if label not in linkable.labels:
+            continue
+        nodes.append(dep)
+    return nodes

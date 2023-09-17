@@ -148,6 +148,7 @@ apple_binary = prelude_rule(
         cxx_common.exported_linker_flags_arg() |
         cxx_common.platform_linker_flags_arg() |
         native_common.link_style() |
+        native_common.link_group_public_deps_label() |
         apple_common.target_sdk_version() |
         apple_common.extra_xcode_sources() |
         apple_common.extra_xcode_files() |

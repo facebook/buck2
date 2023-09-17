@@ -34,6 +34,7 @@ load(
     "LinkableRootInfo",
     "get_deps_for_link",
     "get_link_info",
+    "get_transitive_deps",
     "linkable_deps",
     "linkable_graph",
 )
@@ -191,20 +192,6 @@ def _link_deps(
         return get_deps_for_link(link_infos[node], LinkStrategy("shared"), pic_behavior)
 
     return breadth_first_traversal_by(link_infos, deps, find_deps)
-
-def all_deps(
-        link_infos: dict[Label, LinkableNode],
-        roots: list[Label]) -> list[Label]:
-    """
-    Return all transitive deps from following the given nodes.
-    """
-
-    def find_transitive_deps(node: Label):
-        return link_infos[node].deps + link_infos[node].exported_deps
-
-    all_deps = breadth_first_traversal_by(link_infos, roots, find_transitive_deps)
-
-    return all_deps
 
 def _create_root(
         ctx: AnalysisContext,
@@ -580,7 +567,7 @@ def _build_omnibus_spec(
     # (any node that is excluded will exclude all it's transitive deps).
     excluded = {
         label: None
-        for label in all_deps(
+        for label in get_transitive_deps(
             graph.nodes,
             exclusion_roots,
         )
@@ -611,7 +598,7 @@ def _build_omnibus_spec(
     # need to be put on the link line).
     body = {
         label: None
-        for label in all_deps(graph.nodes, first_order_root_deps)
+        for label in get_transitive_deps(graph.nodes, first_order_root_deps)
         if label not in excluded
     }
 

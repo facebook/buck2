@@ -38,8 +38,17 @@ def _link_group_deps():
 """),
     }
 
+def _link_group_public_deps_label():
+    return {
+        "link_group_public_deps_label": attrs.option(attrs.string(), default = None, doc = """
+    Surface nodes with this label as "public" nodes in the main executable when
+     linking with with link groups.
+"""),
+    }
+
 native_common = struct(
     link_group_deps = _link_group_deps,
+    link_group_public_deps_label = _link_group_public_deps_label,
     link_style = _link_style,
     link_whole = _link_whole,
     preferred_linkage = _preferred_linkage,

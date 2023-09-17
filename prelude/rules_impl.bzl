@@ -470,6 +470,8 @@ inlined_extra_attributes = {
         "resources_root": attrs.option(attrs.string(), default = None),
     },
     "haskell_binary": {
+        "auto_link_groups": attrs.bool(default = False),
+        "link_group_map": link_group_map_attr(),
         "template_deps": attrs.list(attrs.exec_dep(providers = [HaskellLibraryProvider]), default = []),
         "_cxx_toolchain": toolchains_common.cxx(),
         "_haskell_toolchain": toolchains_common.haskell(),
