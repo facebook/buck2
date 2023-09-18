@@ -37,6 +37,20 @@ DEFAULT_PLATFORM_TEMPLATES = {
             "config//cpu:x86_64": True,
         }),
     }),
+    "wasi": select({
+        "DEFAULT": False,
+        "config//os:wasi": select({
+            "DEFAULT": False,
+            "config//cpu:wasm32": True,
+        }),
+    }),
+    "wasm32": select({
+        "DEFAULT": False,
+        "config//os:none": select({
+            "DEFAULT": False,
+            "config//cpu:wasm32": True,
+        }),
+    }),
     "windows-gnu": select({
         "DEFAULT": False,
         "config//os:windows": select({
