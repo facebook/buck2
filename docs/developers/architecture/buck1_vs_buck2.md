@@ -90,7 +90,7 @@ This means that:
 
 Non-determinism in a build affects Buck2 and Buck1 differently. One scenario that often works fine in Buck1 but can work catastrophically bad in Buck2 is a codegen step, driven by a Python binary.
 
-In certain configurations/modes, Python binaries are non-deterministic, because they are XARs and that is always non-deterministic, which is bad!
+In certain configurations/modes, Python binaries are non-deterministic, because they are (XARs)[https://engineering.fb.com/2018/07/13/data-infrastructure/xars-a-more-efficient-open-source-system-for-self-contained-executables/] (eXecutable ARchives) and that is always non-deterministic, which is bad!
 
 * In Buck1, that doesn’t really matter, because you can get a cache hit on the codegen output without ever visiting the XAR (as long as the input files haven’t changed).
 * In Buck2, you need the XAR to check the action cache for the codegen step.
