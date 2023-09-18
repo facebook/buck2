@@ -135,6 +135,8 @@ def generate_rustdoc(
         params: BuildParams,
         default_roots: list[str],
         document_private_items: bool) -> Artifact:
+    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+
     toolchain_info = compile_ctx.toolchain_info
 
     common_args = _compute_common_args(
@@ -152,7 +154,7 @@ def generate_rustdoc(
     subdir = common_args.subdir + "-rustdoc"
     output = ctx.actions.declare_output(subdir)
 
-    plain_env, path_env = _process_env(compile_ctx, ctx.attrs.env)
+    plain_env, path_env = _process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
 
     rustdoc_cmd = cmd_args(
         [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],
@@ -370,6 +372,7 @@ def rust_compile(
         is_rustdoc_test = False,
     )
 
+    path_sep = "\\" if exec_is_windows else "/"
     rustc_cmd = cmd_args(
         # Lints go first to allow other args to override them.
         lints,
@@ -377,7 +380,7 @@ def rust_compile(
         ["--json=unused-externs-silent", "-Wunused-crate-dependencies"] if toolchain_info.report_unused_deps else [],
         "--json=artifacts",  # only needed for pipeline but no harm in always leaving it enabled
         common_args.args,
-        cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, "/=", cmd_args(ctx.label.path).replace_regex("\\\\", "/") if exec_is_windows else ctx.label.path, "/", delimiter = ""),
+        cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, path_sep, "=", ctx.label.path, path_sep, delimiter = ""),
         compile_ctx.linker_args,
         extra_flags,
     )
@@ -718,6 +721,9 @@ def _compute_common_args(
         dep_link_style: LinkStyle,
         default_roots: list[str],
         is_rustdoc_test: bool) -> CommonArgsInfo:
+    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+    path_sep = "\\" if exec_is_windows else "/"
+
     crate_type = params.crate_type
 
     args_key = (crate_type, emit, dep_link_style, is_rustdoc_test)
@@ -742,6 +748,8 @@ def _compute_common_args(
     mapped_srcs = ctx.attrs.mapped_srcs
     all_srcs = map(lambda s: s.short_path, srcs) + mapped_srcs.values()
     crate_root = ctx.attrs.crate_root or _crate_root(ctx, all_srcs, default_roots)
+    if exec_is_windows:
+        crate_root = crate_root.replace("/", "\\")
 
     is_check = not emit_needs_codegen(emit)
 
@@ -819,7 +827,7 @@ def _compute_common_args(
     }[compile_ctx.cxx_toolchain_info.split_debug_mode or SplitDebugMode("none")]
 
     args = cmd_args(
-        cmd_args(compile_ctx.symlinked_srcs, "/", crate_root, delimiter = ""),
+        cmd_args(compile_ctx.symlinked_srcs, path_sep, crate_root, delimiter = ""),
         crate_name_arg,
         "--crate-type={}".format(crate_type.value),
         "-Crelocation-model={}".format(params.reloc_model.value),
@@ -1028,11 +1036,13 @@ def _rustc_invoke(
         crate_map: list[(CrateName, Label)],
         env: dict[str, [ResolvedStringWithMacros, Artifact]] = {},
         only_artifact: [None, str] = None) -> (dict[str, Artifact], [Artifact, None]):
+    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+
     toolchain_info = compile_ctx.toolchain_info
 
-    plain_env, path_env = _process_env(compile_ctx, ctx.attrs.env)
+    plain_env, path_env = _process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
 
-    more_plain_env, more_path_env = _process_env(compile_ctx, env)
+    more_plain_env, more_path_env = _process_env(compile_ctx, env, exec_is_windows)
     plain_env.update(more_plain_env)
     path_env.update(more_path_env)
 
@@ -1117,7 +1127,8 @@ def _long_command(
 # path and non-path content, but we'll burn that bridge when we get to it.)
 def _process_env(
         compile_ctx: CompileContext,
-        env: dict[str, [ResolvedStringWithMacros, Artifact]]) -> (dict[str, cmd_args], dict[str, cmd_args]):
+        env: dict[str, [ResolvedStringWithMacros, Artifact]],
+        exec_is_windows: bool) -> (dict[str, cmd_args], dict[str, cmd_args]):
     # Values with inputs (ie artifact references).
     path_env = {}
 
@@ -1174,7 +1185,7 @@ def _process_env(
     if cargo_manifest_dir:
         path_env["CARGO_MANIFEST_DIR"] = cmd_args(
             compile_ctx.symlinked_srcs,
-            "/",
+            "\\" if exec_is_windows else "/",
             cargo_manifest_dir,
             delimiter = "",
         )
