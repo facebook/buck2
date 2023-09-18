@@ -12,7 +12,6 @@ use std::sync::Arc;
 
 use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
-use buck2_node::metadata::key::MetadataKey;
 use buck2_node::super_package::SuperPackage;
 use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::WithinViewSpecification;
@@ -23,6 +22,7 @@ use starlark_map::small_map::SmallMap;
 
 use crate::interpreter::package_file_extra::FrozenPackageFileExtra;
 use crate::interpreter::package_file_extra::MAKE_CFG_CONSTRUCTOR;
+use crate::super_package::package_value::OwnedFrozenStarlarkPackageValue;
 use crate::super_package::package_value::SuperPackageValuesImpl;
 
 #[derive(Debug, Default)]
@@ -38,8 +38,6 @@ pub struct PackageFileEvalCtx {
     /// Parent file context.
     /// When evaluating root `PACKAGE` file, parent is still defined.
     pub(crate) parent: SuperPackage,
-    /// Package values set in this file. Does not include values from parent files.
-    pub(crate) package_values: RefCell<SmallMap<MetadataKey, serde_json::Value>>,
     pub(crate) visibility: RefCell<Option<PackageFileVisibilityFields>>,
 }
 
@@ -67,10 +65,23 @@ impl PackageFileEvalCtx {
     ) -> anyhow::Result<SuperPackage> {
         let cfg_constructor = Self::cfg_constructor(extra.as_ref())?;
 
-        let merged_package_values = SuperPackageValuesImpl::merge(
-            self.parent.package_values(),
-            self.package_values.into_inner(),
-        )?;
+        let package_values = match &extra {
+            None => SmallMap::new(),
+            Some(package_values) => {
+                let mut values = SmallMap::with_capacity(package_values.package_values.len());
+                for (name, value) in &package_values.package_values {
+                    let value = unsafe {
+                        // SAFETY: using the same heap.
+                        OwnedFrozenStarlarkPackageValue::new(package_values.owner().dupe(), *value)
+                    };
+                    values.insert(name.clone(), value);
+                }
+                values
+            }
+        };
+
+        let merged_package_values =
+            SuperPackageValuesImpl::merge(self.parent.package_values(), package_values)?;
 
         let PackageFileVisibilityFields {
             visibility,

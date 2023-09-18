@@ -217,7 +217,9 @@ impl TargetFormatter for JsonFormat {
                     target_info
                         .super_package
                         .package_values()
-                        .package_values()
+                        .package_values_json()
+                        // TODO(nga): return error.
+                        .unwrap()
                         .iter()
                         .map(|(k, v)| (k.as_str().to_owned(), v.clone()))
                         .collect(),

@@ -19,6 +19,8 @@ use crate::metadata::key::MetadataKeyRef;
 pub trait SuperPackageValues: Debug + Allocative + Any + Send + Sync + 'static {
     fn as_any(&self) -> &dyn Any;
     fn is_empty(&self) -> bool;
-    fn package_values(&self) -> &SmallMap<MetadataKey, serde_json::Value>;
+    /// Only error is internal error: all values must be serializable to JSON,
+    /// validated at construction time.
+    fn package_values_json(&self) -> anyhow::Result<SmallMap<MetadataKey, serde_json::Value>>;
     fn contains_key(&self, key: &MetadataKeyRef) -> bool;
 }

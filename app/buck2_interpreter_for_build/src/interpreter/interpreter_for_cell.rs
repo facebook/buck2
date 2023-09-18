@@ -49,7 +49,6 @@ use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::syntax::AstModule;
 use starlark::values::OwnedFrozenValueTyped;
-use starlark_map::small_map::SmallMap;
 use thiserror::Error;
 
 use crate::interpreter::build_context::BuildContext;
@@ -541,7 +540,6 @@ impl InterpreterForCell {
         let extra_context = PerFileTypeContext::Package(PackageFileEvalCtx {
             path: package_file_path.clone(),
             parent,
-            package_values: RefCell::new(SmallMap::new()),
             visibility: RefCell::new(None),
         });
 

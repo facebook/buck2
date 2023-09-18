@@ -8,11 +8,13 @@
  */
 
 use std::cell::OnceCell;
+use std::cell::RefCell;
 use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
+use buck2_node::metadata::key::MetadataKey;
 use buck2_util::late_binding::LateBinding;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::FrozenModule;
@@ -26,8 +28,13 @@ use starlark::values::OwnedFrozenValue;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
+use starlark::values::Tracer;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark_map::small_map::SmallMap;
+
+use crate::super_package::package_value::FrozenStarlarkPackageValue;
+use crate::super_package::package_value::StarlarkPackageValue;
 
 #[derive(Debug, thiserror::Error)]
 enum PackageFileExtraError {
@@ -40,7 +47,6 @@ enum PackageFileExtraError {
     Default,
     Debug,
     NoSerialize,
-    Trace,
     derive_more::Display,
     ProvidesStaticType,
     Allocative
@@ -48,6 +54,22 @@ enum PackageFileExtraError {
 #[display(fmt = "{:?}", "self")]
 pub struct PackageFileExtra<'v> {
     pub cfg_constructor: OnceCell<Value<'v>>,
+    pub(crate) package_values: RefCell<SmallMap<MetadataKey, StarlarkPackageValue<'v>>>,
+}
+
+unsafe impl<'v> Trace<'v> for PackageFileExtra<'v> {
+    fn trace(&mut self, tracer: &Tracer<'v>) {
+        let PackageFileExtra {
+            cfg_constructor,
+            package_values,
+        } = self;
+        cfg_constructor.trace(tracer);
+        for (k, v) in package_values.get_mut().iter_mut() {
+            fn assert_static<T: 'static>(_t: &T) {}
+            assert_static(k);
+            v.trace(tracer);
+        }
+    }
 }
 
 #[derive(
@@ -60,6 +82,7 @@ pub struct PackageFileExtra<'v> {
 #[display(fmt = "{:?}", "self")]
 pub struct FrozenPackageFileExtra {
     pub(crate) cfg_constructor: Option<FrozenValue>,
+    pub(crate) package_values: SmallMap<MetadataKey, FrozenStarlarkPackageValue>,
 }
 
 /// Resolve `FrozenPackageFileExtra.cfg_constructor` to a `CfgConstructorImpl`.
@@ -81,9 +104,25 @@ impl<'v> Freeze for PackageFileExtra<'v> {
     type Frozen = FrozenPackageFileExtra;
 
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
-        let PackageFileExtra { cfg_constructor } = self;
+        let PackageFileExtra {
+            cfg_constructor,
+            package_values,
+        } = self;
         let cfg_constructor = cfg_constructor.into_inner().freeze(freezer)?;
-        Ok(FrozenPackageFileExtra { cfg_constructor })
+        let package_values = package_values
+            .into_inner()
+            .into_iter_hashed()
+            .map(|(k, v)| {
+                let v = v
+                    .freeze(freezer)
+                    .with_context(|| format!("freezing `{k}`"))?;
+                Ok((k, v))
+            })
+            .collect::<anyhow::Result<SmallMap<MetadataKey, FrozenStarlarkPackageValue>>>()?;
+        Ok(FrozenPackageFileExtra {
+            cfg_constructor,
+            package_values,
+        })
     }
 }
 
