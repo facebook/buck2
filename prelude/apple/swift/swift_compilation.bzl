@@ -732,7 +732,11 @@ def _get_xctest_swiftmodule_search_path(ctx: AnalysisContext) -> cmd_args:
 
     return cmd_args()
 
-def get_swift_debug_infos(ctx: AnalysisContext, swiftmodule: [Artifact, None], swift_dependency_info: [SwiftDependencyInfo, None]) -> SwiftDebugInfo:
+def get_swift_debug_infos(
+        ctx: AnalysisContext,
+        swiftmodule: [Artifact, None],
+        swift_dependency_info: [SwiftDependencyInfo, None],
+        sdk_debug_tset: [ArtifactTSet, None]) -> SwiftDebugInfo:
     swift_static_debug_info = _get_swift_static_debug_info(ctx, swiftmodule) if swiftmodule else []
 
     # When determing the debug info for shared libraries, if the shared library is a link group, we rely on the link group links to
@@ -744,8 +748,8 @@ def get_swift_debug_infos(ctx: AnalysisContext, swiftmodule: [Artifact, None], s
         swift_shared_debug_info = _get_swift_shared_debug_info(swift_dependency_info) if swift_dependency_info else []
 
     return SwiftDebugInfo(
-        static = swift_static_debug_info,
-        shared = swift_shared_debug_info,
+        static = swift_static_debug_info + ([sdk_debug_tset] if sdk_debug_tset else []),
+        shared = swift_shared_debug_info + ([sdk_debug_tset] if sdk_debug_tset else []),
     )
 
 def _get_swift_static_debug_info(ctx: AnalysisContext, swiftmodule: Artifact) -> list[ArtifactTSet]:

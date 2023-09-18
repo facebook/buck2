@@ -108,7 +108,12 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
 
         swift_dependency_info = swift_compile.dependency_info if swift_compile else get_swift_dependency_info(ctx, None, None, deps_providers)
         swiftmodule = swift_compile.swiftmodule if swift_compile else None
-        swift_debug_info = get_swift_debug_infos(ctx, swiftmodule, swift_dependency_info)
+        swift_debug_info = get_swift_debug_infos(
+            ctx,
+            swiftmodule,
+            swift_dependency_info,
+            swift_compile.sdk_debug_info if swift_compile else None,
+        )
 
         swiftmodule_linkable = get_swiftmodule_linkable(swift_compile)
 
