@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
+load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//python:python.bzl", "PythonLibraryInfo")
 load(
     "@prelude//utils:graph_utils.bzl",
@@ -236,6 +237,10 @@ def linkable_graph(dep: Dependency) -> [LinkableGraph, None]:
 
     # We only care about "linkable" deps.
     if PythonLibraryInfo in dep or MergedLinkInfo not in dep or dep.label.sub_target == ["headers"]:
+        return None
+
+    if CPrecompiledHeaderInfo in dep:
+        # `cxx_precompiled_header()` does not contribute to the link, only to compile
         return None
 
     expect(
