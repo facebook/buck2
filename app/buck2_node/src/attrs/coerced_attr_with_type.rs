@@ -47,7 +47,7 @@ use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr::CoercedSelector;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::display::AttrDisplayWithContextExt;
-use crate::metadata::MetadataMap;
+use crate::metadata::map::MetadataMap;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 

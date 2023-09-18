@@ -43,7 +43,7 @@ use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::json::ToJsonWithContext;
 use crate::attrs::serialize::AttrSerializeWithContext;
-use crate::metadata::MetadataMap;
+use crate::metadata::map::MetadataMap;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 

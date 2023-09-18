@@ -22,7 +22,7 @@ use crate::attrs::attr_type::any::AnyAttrType;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configurable::AttrIsConfigurable;
-use crate::metadata::MetadataMap;
+use crate::metadata::map::MetadataMap;
 use crate::provider_id_set::ProviderIdSet;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;

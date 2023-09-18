@@ -15,7 +15,7 @@ use buck2_node::attrs::attr_type::metadata::MetadataAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use buck2_node::metadata::MetadataMap;
+use buck2_node::metadata::map::MetadataMap;
 use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
 use starlark::values::string::STRING_TYPE;
