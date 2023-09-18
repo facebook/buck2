@@ -22,8 +22,7 @@ commands:
       - run:
           name: OCaml Configuration Info
           command: |
-            eval $(opam env --switch=5.1.0)
-            env | grep OPAM_SWITCH_PREFIX
+            eval $(opam env)
             ocamlopt.opt -config
 
   setup_linux_env:

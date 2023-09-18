@@ -1,3 +1,4 @@
+#!/bin/bash
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 #
 # This source code is licensed under both the MIT license found in the
@@ -5,27 +6,40 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# The commands in this script are to be executed in the current shell
-# and so invoke it via the builtin 'source' command e.g. `source
-# setup.sh`. It assumes an opam installation. In addition to
-# symlinking the 'prelude' directory it activates the 'default' opam
-# switch and create symlinks in the 'third-party/opam' directory to
-# support building the example OCaml targets.
+# The commands in this script assume an activated opam switch. They create
+# symlinks in the 'third-party/opam' directory to support building the example
+# OCaml targets.
 
+set -euo pipefail
+
+# Check for opam.
 if ! command -v opam &> /dev/null
 then
-    echo "opam is not installed, which is a dependency for building targets in ocaml."
-    exit
+    echo "Failed to run 'opam'. An installation of 'opam' is a required dependency for building the example OCaml targets."
+    exit 1
 fi
 
-# Bring the OCaml toolchain into scope.
-eval "$(opam env)"
+# Check that an opam switch is active.
+set +u
+if [ -z "$OPAM_SWITCH_PREFIX" ]; then
+    echo "OPAM_SWITCH_PREFIX is undefined. First execute \`eval (\$opam env)\` and then try running $0 again."
+    exit 3
+fi
+set -u
+
+# Check for ocamlopt.opt.
+if ! command -v ocamlopt.opt &> /dev/null
+then
+    echo "Failed to run 'ocamlopt.opt'."
+    exit 1
+fi
 
 # Link 'third-party/ocaml/standard_library'.
 if [ ! -L third-party/ocaml/standard_library ]; then
   (cd third-party/ocaml && ln -s "$(ocamlopt.opt -config | grep standard_library: | awk '{ print $2 }' )" standard_library)
 else
     echo "Link 'third-party/ocaml/standard_library' exists. To overwrite it, first remove it and run $0 again"
+    exit 2
 fi
 
 # Link 'third-party/ocaml/opam'.
@@ -33,4 +47,5 @@ if [ ! -L third-party/ocaml/opam ]; then
   (cd third-party/ocaml && ln -s "$OPAM_SWITCH_PREFIX" opam)
 else
     echo "Link 'third-party/ocaml/opam' exists. To overwrite it, first remove it and run $0 again"
+    exit 2
 fi
