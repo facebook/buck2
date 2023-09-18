@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::path::Path;
 use std::time::SystemTime;
 
 use anyhow::Context as _;
@@ -72,6 +73,10 @@ impl<'a> ImmediateConfigContext<'a> {
             .map(|(cell_alias, cell_relative_path)| {
                 self.resolve_cell_path(cell_alias, cell_relative_path)
             })
+    }
+
+    pub fn canonicalize(&self, path: &Path) -> anyhow::Result<AbsNormPathBuf> {
+        fs_util::canonicalize(self.cwd.path().as_path().join(path))
     }
 
     /// Resolves a cell path (i.e., contains `//`) into an absolute path. The cell path must have

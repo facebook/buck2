@@ -222,7 +222,7 @@ fn resolve_flagfile(path: &str, context: &mut ImmediateConfigContext) -> anyhow:
     } else {
         let p = Path::new(path_part);
         if !p.is_absolute() {
-            match fs_util::canonicalize(p) {
+            match context.canonicalize(p) {
                 Ok(abs_path) => Ok(abs_path),
                 Err(original_error) => {
                     let cell_relative_path = context.resolve_cell_path("", path_part)?;
