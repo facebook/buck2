@@ -15,6 +15,7 @@ load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 load(
     "@prelude//apple/swift:swift_compilation.bzl",
     "compile_swift",
+    "get_sdk_swiftmodule_linkable",
     "get_swift_anonymous_targets",
     "get_swift_debug_infos",
     "get_swift_dependency_info",
@@ -137,6 +138,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             prefer_stripped_objects = ctx.attrs.prefer_stripped_objects,
             # Some apple rules rely on `static` libs *not* following dependents.
             link_groups_force_static_follows_dependents = False,
+            sdk_swiftmodule_linkable = get_sdk_swiftmodule_linkable(swift_compile),
         )
         cxx_output = cxx_executable(ctx, constructor_params)
 

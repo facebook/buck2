@@ -9,6 +9,7 @@ load(
     "@prelude//:artifact_tset.bzl",
     "ArtifactTSet",  # @unused Used as a type
     "make_artifact_tset",
+    "project_artifacts",
 )
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
@@ -36,6 +37,7 @@ load(
 load(
     "@prelude//linking:link_info.bzl",
     "LinkInfo",  # @unused Used as a type
+    "SdkSwiftmoduleLinkable",  # @unused Used as a type
     "SwiftmoduleLinkable",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
@@ -54,6 +56,7 @@ load(
     "SwiftCompiledModuleTset",
     "SwiftObjectFormat",
     "SwiftToolchainInfo",
+    "WrappedSdkCompiledModuleInfo",
 )
 
 # {"module_name": [exported_headers]}, used for Swift header post processing
@@ -81,6 +84,8 @@ SwiftCompilationOutput = record(
     exported_pre = field(CPreprocessor),
     # Argsfiles used to compile object files.
     argsfiles = field(CompileArgsfiles),
+    # A list of SDK swiftmodule artifacts required to compile Swift module.
+    sdk_debug_info = field(ArtifactTSet),
 )
 
 SwiftDebugInfo = record(
@@ -241,6 +246,18 @@ def compile_swift(
     )
     pre = CPreprocessor(headers = [swift_header])
 
+    sdk_swift_debug_tsets = [
+        d[WrappedSdkCompiledModuleInfo].debug_info
+        for d in deps_providers
+        if WrappedSdkCompiledModuleInfo in d and d[WrappedSdkCompiledModuleInfo].debug_info != None
+    ]
+
+    debug_info_tset = make_artifact_tset(
+        actions = ctx.actions,
+        label = ctx.label,
+        children = sdk_swift_debug_tsets,
+    )
+
     # Pass up the swiftmodule paths for this module and its exported_deps
     return SwiftCompilationOutput(
         object_file = output_object,
@@ -250,6 +267,7 @@ def compile_swift(
         pre = pre,
         exported_pre = exported_pp_info,
         argsfiles = argsfiles,
+        sdk_debug_info = debug_info_tset,
     )
 
 # Swift headers are postprocessed to make them compatible with Objective-C
@@ -668,6 +686,9 @@ def uses_explicit_modules(ctx: AnalysisContext) -> bool:
 def get_swiftmodule_linkable(swift_compile_output: [SwiftCompilationOutput, None]) -> [SwiftmoduleLinkable, None]:
     return SwiftmoduleLinkable(swiftmodule = swift_compile_output.swiftmodule) if swift_compile_output else None
 
+def get_sdk_swiftmodule_linkable(swift_compile_output: [SwiftCompilationOutput, None]) -> [SdkSwiftmoduleLinkable, None]:
+    return SdkSwiftmoduleLinkable(swiftmodules = swift_compile_output.sdk_debug_info) if swift_compile_output else None
+
 def extract_swiftmodule_linkables(link_infos: [list[LinkInfo], None]) -> list[SwiftmoduleLinkable]:
     linkables = []
     for info in link_infos:
@@ -677,8 +698,27 @@ def extract_swiftmodule_linkables(link_infos: [list[LinkInfo], None]) -> list[Sw
 
     return linkables
 
+def extract_sdk_swiftmodule_linkables(link_infos: [list[LinkInfo], None]) -> list[SdkSwiftmoduleLinkable]:
+    linkables = []
+    for info in link_infos:
+        for linkable in info.linkables:
+            if isinstance(linkable, SdkSwiftmoduleLinkable):
+                linkables.append(linkable)
+
+    return linkables
+
 def get_swiftmodule_linker_flags(swiftmodule_linkable: list[[SwiftmoduleLinkable, None]]) -> cmd_args:
     return cmd_args([cmd_args(linkable.swiftmodule, format = "-Wl,-add_ast_path,{}") for linkable in swiftmodule_linkable if linkable != None])
+
+def get_sdk_swiftmodule_linker_flags(ctx: AnalysisContext, sdk_swiftmodule_linkable: [SdkSwiftmoduleLinkable, None]) -> cmd_args:
+    if sdk_swiftmodule_linkable:
+        tset = sdk_swiftmodule_linkable.swiftmodules
+        artifacts = project_artifacts(
+            actions = ctx.actions,
+            tsets = [tset],
+        )
+        return cmd_args([cmd_args(swiftmodule, format = "-Wl,-add_ast_path,{}") for swiftmodule in artifacts])
+    return cmd_args()
 
 def _get_xctest_swiftmodule_search_path(ctx: AnalysisContext) -> cmd_args:
     # With explicit modules we don't need to search at all.

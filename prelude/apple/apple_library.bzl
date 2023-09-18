@@ -15,6 +15,7 @@ load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 load(
     "@prelude//apple/swift:swift_compilation.bzl",
     "compile_swift",
+    "get_sdk_swiftmodule_linkable",
     "get_swift_anonymous_targets",
     "get_swift_debug_infos",
     "get_swift_dependency_info",
@@ -248,6 +249,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         # Some apple rules rely on `static` libs *not* following dependents.
         link_groups_force_static_follows_dependents = False,
         extra_linker_outputs_factory = _get_extra_linker_flags_and_outputs,
+        sdk_swiftmodule_linkable = get_sdk_swiftmodule_linkable(swift_compile),
     )
 
 def _get_extra_linker_flags_and_outputs(

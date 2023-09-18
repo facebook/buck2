@@ -51,6 +51,7 @@ SdkUncompiledModuleInfo = provider(fields = {
 
 WrappedSdkCompiledModuleInfo = provider(fields = {
     "clang_deps": provider_field(typing.Any, default = None),  # A SwiftCompiledModuleTset of SwiftCompiledModuleInfo of transitive clang deps
+    "debug_info": provider_field(typing.Any, default = None),
     "swift_deps": provider_field(typing.Any, default = None),  # A SwiftCompiledModuleTset of SwiftCompiledModuleInfo of transitive swift deps
 })
 

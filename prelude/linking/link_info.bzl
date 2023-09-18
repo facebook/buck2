@@ -136,6 +136,10 @@ SwiftmoduleLinkable = record(
     swiftmodule = field(Artifact),
 )
 
+SdkSwiftmoduleLinkable = record(
+    swiftmodules = field(ArtifactTSet, ArtifactTSet()),
+)
+
 # Represents the Swift runtime as a linker input.
 SwiftRuntimeLinkable = record(
     # Only store whether the runtime is required, so that linker flags
@@ -143,7 +147,7 @@ SwiftRuntimeLinkable = record(
     runtime_required = field(bool, False),
 )
 
-LinkableTypes = [ArchiveLinkable, SharedLibLinkable, ObjectsLinkable, FrameworksLinkable, SwiftmoduleLinkable, SwiftRuntimeLinkable]
+LinkableTypes = [ArchiveLinkable, SharedLibLinkable, ObjectsLinkable, FrameworksLinkable, SwiftmoduleLinkable, SwiftRuntimeLinkable, SdkSwiftmoduleLinkable]
 
 LinkerFlags = record(
     flags = field(list[typing.Any], []),
@@ -250,7 +254,7 @@ def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
                 args.add(get_objects_as_library_args(linkable.linker_type, linkable.objects))
             else:
                 args.add(linkable.objects)
-    elif isinstance(linkable, FrameworksLinkable) or isinstance(linkable, SwiftRuntimeLinkable):
+    elif isinstance(linkable, FrameworksLinkable) or isinstance(linkable, SwiftRuntimeLinkable) or isinstance(linkable, SdkSwiftmoduleLinkable):
         # These flags are handled separately so they can be deduped.
         #
         # We've seen in apps with larger dependency graphs that failing
@@ -292,7 +296,7 @@ def link_info_filelist(value: LinkInfo) -> list[Artifact]:
         elif isinstance(linkable, ObjectsLinkable):
             if linkable.linker_type == "darwin":
                 filelists += linkable.objects
-        elif isinstance(linkable, FrameworksLinkable) or isinstance(linkable, SwiftmoduleLinkable) or isinstance(linkable, SwiftRuntimeLinkable):
+        elif isinstance(linkable, FrameworksLinkable) or isinstance(linkable, SwiftmoduleLinkable) or isinstance(linkable, SwiftRuntimeLinkable) or isinstance(linkable, SdkSwiftmoduleLinkable):
             pass
         else:
             fail("Encountered unhandled linkable {}".format(str(linkable)))
@@ -441,6 +445,7 @@ MergedLinkInfo = provider(fields = [
     # To save on repeated computation of transitive LinkInfos, we store a dedupped
     # structure, based on the link-style.
     "frameworks",  # dict[LinkStrategy, FrameworksLinkable | None]
+    "sdk_swiftmodules",  # dict[LinkStrategy, SdkSwiftmoduleLinkable | None]
     "swift_runtime",  # dict[LinkStrategy, SwiftRuntimeLinkable | None]
 ])
 
@@ -484,6 +489,7 @@ def create_merged_link_info(
         # Link info to always propagate from exported deps.
         exported_deps: list[MergedLinkInfo] = [],
         frameworks_linkable: [FrameworksLinkable, None] = None,
+        sdk_swiftmodule_linkable: [SdkSwiftmoduleLinkable, None] = None,
         swift_runtime_linkable: [SwiftRuntimeLinkable, None] = None) -> MergedLinkInfo:
     """
     Create a `MergedLinkInfo` provider.
@@ -493,6 +499,7 @@ def create_merged_link_info(
     external_debug_info = {}
     frameworks = {}
     swift_runtime = {}
+    sdk_swiftmodules = {}
 
     # We don't know how this target will be linked, so we generate the possible
     # link info given the target's preferred linkage, to be consumed by the
@@ -504,6 +511,7 @@ def create_merged_link_info(
         external_debug_info_children = []
         framework_linkables = []
         swift_runtime_linkables = []
+        sdk_swiftmodule_linkables = []
 
         # When we're being linked statically, we also need to export all private
         # linkable input (e.g. so that any unresolved symbols we have are
@@ -515,6 +523,9 @@ def create_merged_link_info(
             framework_linkables.append(frameworks_linkable)
             framework_linkables += [dep_info.frameworks[link_strategy] for dep_info in exported_deps]
 
+            sdk_swiftmodule_linkables.append(sdk_swiftmodule_linkable)
+            sdk_swiftmodule_linkables += [dep_info.sdk_swiftmodules[link_strategy] for dep_info in exported_deps]
+
             swift_runtime_linkables.append(swift_runtime_linkable)
             swift_runtime_linkables += [dep_info.swift_runtime[link_strategy] for dep_info in exported_deps]
 
@@ -522,6 +533,7 @@ def create_merged_link_info(
                 children.append(dep_info._infos[link_strategy])
                 external_debug_info_children.append(dep_info._external_debug_info[link_strategy])
                 framework_linkables.append(dep_info.frameworks[link_strategy])
+                sdk_swiftmodule_linkables.append(dep_info.sdk_swiftmodules[link_strategy])
                 swift_runtime_linkables.append(dep_info.swift_runtime[link_strategy])
 
         # We always export link info for exported deps.
@@ -531,6 +543,8 @@ def create_merged_link_info(
 
         frameworks[link_strategy] = merge_framework_linkables(framework_linkables)
         swift_runtime[link_strategy] = merge_swift_runtime_linkables(swift_runtime_linkables)
+        sdk_swiftmodules[link_strategy] = merge_sdk_swiftmodule_linkables(ctx, sdk_swiftmodule_linkables)
+
         if actual_output_style in link_infos:
             link_info = link_infos[actual_output_style]
 
@@ -555,6 +569,7 @@ def create_merged_link_info(
         _external_debug_info = external_debug_info,
         frameworks = frameworks,
         swift_runtime = swift_runtime,
+        sdk_swiftmodules = sdk_swiftmodules,
     )
 
 def create_merged_link_info_for_propagation(
@@ -569,6 +584,7 @@ def create_merged_link_info_for_propagation(
     merged_external_debug_info = {}
     frameworks = {}
     swift_runtime = {}
+    sdk_swiftmodules = {}
     for link_strategy in LinkStrategy:
         merged[link_strategy] = ctx.actions.tset(
             LinkInfosTSet,
@@ -581,11 +597,13 @@ def create_merged_link_info_for_propagation(
         )
         frameworks[link_strategy] = merge_framework_linkables([x.frameworks[link_strategy] for x in xs])
         swift_runtime[link_strategy] = merge_swift_runtime_linkables([x.swift_runtime[link_strategy] for x in xs])
+        sdk_swiftmodules[link_strategy] = merge_sdk_swiftmodule_linkables(ctx, [x.sdk_swiftmodules[link_strategy] for x in xs])
     return MergedLinkInfo(
         _infos = merged,
         _external_debug_info = merged_external_debug_info,
         frameworks = frameworks,
         swift_runtime = swift_runtime,
+        sdk_swiftmodules = sdk_swiftmodules,
     )
 
 def get_link_info(
@@ -841,6 +859,17 @@ def merge_framework_linkables(linkables: list[[FrameworksLinkable, None]]) -> Fr
         unresolved_framework_paths = unique_framework_paths.keys(),
         library_names = unique_library_names.keys(),
     )
+
+def merge_sdk_swiftmodule_linkables(ctx: AnalysisContext, linkables: list[[SdkSwiftmoduleLinkable, None]]) -> SdkSwiftmoduleLinkable:
+    return SdkSwiftmoduleLinkable(swiftmodules = make_artifact_tset(
+        actions = ctx.actions,
+        label = ctx.label,
+        children = [
+            linkable.swiftmodules
+            for linkable in linkables
+            if linkable != None
+        ],
+    ))
 
 def wrap_with_no_as_needed_shared_libs_flags(linker_type: str, link_info: LinkInfo) -> LinkInfo:
     """
