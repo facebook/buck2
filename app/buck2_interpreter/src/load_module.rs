@@ -10,11 +10,9 @@
 use async_trait::async_trait;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
-use buck2_core::metadata_key::MetadataKey;
 use buck2_core::package::PackageLabel;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
-use starlark::collections::SmallMap;
 use starlark::environment::Globals;
 
 use crate::file_loader::LoadedModule;
@@ -53,12 +51,6 @@ pub trait InterpreterCalculationImpl: Send + Sync + 'static {
     ) -> anyhow::Result<Globals>;
 
     async fn prelude_import(&self, ctx: &DiceComputations) -> anyhow::Result<Option<PreludePath>>;
-
-    async fn package_values(
-        &self,
-        ctx: &DiceComputations,
-        package: PackageLabel,
-    ) -> anyhow::Result<SmallMap<MetadataKey, serde_json::Value>>;
 }
 
 pub static INTERPRETER_CALCULATION_IMPL: LateBinding<&'static dyn InterpreterCalculationImpl> =

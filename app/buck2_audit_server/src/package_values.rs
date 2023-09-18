@@ -16,7 +16,7 @@ use buck2_core::metadata_key::MetadataKey;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::parse_package::parse_package;
 use buck2_events::dispatch::console_message;
-use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
+use buck2_node::package_values_calculation::PACKAGE_VALUES_CALCULATION;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -53,7 +53,7 @@ impl AuditSubcommand for PackageValuesCommand {
                     .try_map(|package| parse_package(package.dupe(), cell_alias_resolver))?;
 
                 let package_values_by_package = packages.into_map(|package| async {
-                    let package_values = INTERPRETER_CALCULATION_IMPL
+                    let package_values = PACKAGE_VALUES_CALCULATION
                         .get()?
                         .package_values(&dice_ctx, package.dupe())
                         .await?;

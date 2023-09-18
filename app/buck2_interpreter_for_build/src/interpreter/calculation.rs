@@ -40,6 +40,8 @@ use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculationImpl;
 use buck2_node::nodes::frontend::TARGET_GRAPH_CALCULATION_IMPL;
+use buck2_node::package_values_calculation::PackageValuesCalculation;
+use buck2_node::package_values_calculation::PACKAGE_VALUES_CALCULATION;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -134,9 +136,11 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
 }
 
 struct InterpreterCalculationInstance;
+struct PackageValuesCalculationInstance;
 
 pub(crate) fn init_interpreter_calculation_impl() {
     INTERPRETER_CALCULATION_IMPL.init(&InterpreterCalculationInstance);
+    PACKAGE_VALUES_CALCULATION.init(&PackageValuesCalculationInstance);
 }
 
 #[async_trait]
@@ -215,7 +219,10 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
             .prelude_import()
             .cloned())
     }
+}
 
+#[async_trait]
+impl PackageValuesCalculation for PackageValuesCalculationInstance {
     async fn package_values(
         &self,
         ctx: &DiceComputations,
