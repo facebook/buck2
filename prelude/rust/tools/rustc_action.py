@@ -365,4 +365,6 @@ async def main() -> int:
     return res
 
 
-sys.exit(asyncio.run(main()))
+# There is a bug with asyncio.run() on Windows:
+# https://bugs.python.org/issue39232
+sys.exit(asyncio.get_event_loop().run_until_complete(main()))
