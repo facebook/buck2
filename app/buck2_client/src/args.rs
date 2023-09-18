@@ -261,12 +261,13 @@ fn resolve_flagfile(path: &str, context: &mut ImmediateConfigContext) -> anyhow:
 
 #[cfg(test)]
 mod tests {
+    use buck2_client_ctx::immediate_config::ImmediateConfigContext;
     use buck2_core::fs::fs_util;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::paths::abs_path::AbsPath;
+    use buck2_core::fs::working_dir::WorkingDir;
 
-    use crate::args::expand_argfile_contents;
-    use crate::args::ArgFile;
+    use super::*;
 
     #[test]
     fn test_expand_argfile_content() {
@@ -280,5 +281,25 @@ mod tests {
         ))
         .unwrap();
         assert_eq!(vec!["a".to_owned(), "b".to_owned()], lines);
+    }
+
+    #[test]
+    fn test_relative_inclusion() {
+        // Currently all @-files both on the command line and in files are relative to the current directory.
+        // This matches gcc/clang, so write a test we don't inadvertantly change it.
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = AbsPath::new(tempdir.path()).unwrap();
+        fs_util::create_dir(root.join("foo")).unwrap();
+        fs_util::create_dir(root.join("foo/bar")).unwrap();
+        fs_util::write(root.join("foo/bar/arg1.txt"), "@bar/arg2.txt").unwrap();
+        fs_util::write(root.join("foo/bar/arg2.txt"), "--magic").unwrap();
+        fs_util::write(root.join(".buckconfig"), "[repositories]\nroot = .").unwrap();
+        let cwd = WorkingDir::unchecked_new(
+            AbsNormPathBuf::new(root.canonicalize().unwrap().join("foo")).unwrap(),
+        );
+        let mut context = ImmediateConfigContext::new(&cwd);
+        let res =
+            expand_argfiles_with_context(vec!["@bar/arg1.txt".to_owned()], &mut context).unwrap();
+        assert_eq!(res, vec!["--magic".to_owned()]);
     }
 }
