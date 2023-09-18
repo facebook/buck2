@@ -269,7 +269,13 @@ def _build_haskell_omnibus_so(ctx: AnalysisContext) -> HaskellOmnibusData:
     for node_label in prebuilt_so_deps.keys():
         node = graph_nodes[node_label]
 
-        shared_li = node.link_infos.get(LinkStyle("shared"), None)
+        output_style = get_lib_output_style(
+            to_link_strategy(LinkStyle("shared")),
+            node.preferred_linkage,
+            pic_behavior = pic_behavior,
+        )
+
+        shared_li = node.link_infos.get(output_style, None)
         if shared_li != None:
             tp_deps_shared_link_infos[node_label] = shared_li.default
         for libname, linkObject in node.shared_libs.items():
