@@ -449,6 +449,7 @@ def _convert_python_library_to_executable(
             omnibus_graph,
             python_toolchain.linker_flags + ctx.attrs.linker_flags,
             prefer_stripped_objects = ctx.attrs.prefer_stripped_native_objects,
+            allow_cache_upload = allow_cache_upload,
         )
 
         # Extract re-linked extensions.

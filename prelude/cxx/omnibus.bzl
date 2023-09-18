@@ -203,7 +203,8 @@ def _create_root(
         omnibus: Artifact,
         pic_behavior: PicBehavior,
         extra_ldflags: list[typing.Any] = [],
-        prefer_stripped_objects: bool = False) -> OmnibusRootProduct:
+        prefer_stripped_objects: bool = False,
+        allow_cache_upload: bool = False) -> OmnibusRootProduct:
     """
     Link a root omnibus node.
     """
@@ -290,6 +291,7 @@ def _create_root(
             # running simultaneously, so while their overall load is reasonable,
             # their peak execution load is very high.
             link_execution_preference = LinkExecutionPreference("local"),
+            allow_cache_upload = allow_cache_upload,
         ),
     )
     shared_library = link_result.linked_object
@@ -424,7 +426,8 @@ def _create_omnibus(
         root_products: dict[Label, OmnibusRootProduct],
         pic_behavior: PicBehavior,
         extra_ldflags: list[typing.Any] = [],
-        prefer_stripped_objects: bool = False) -> CxxLinkResult:
+        prefer_stripped_objects: bool = False,
+        allow_cache_upload: bool = False) -> CxxLinkResult:
     inputs = []
 
     # Undefined symbols roots...
@@ -542,6 +545,7 @@ def _create_omnibus(
             link_weight = linker_info.link_weight,
             enable_distributed_thinlto = ctx.attrs.enable_distributed_thinlto,
             identifier = soname,
+            allow_cache_upload = allow_cache_upload,
         ),
     )
 
@@ -665,7 +669,8 @@ def create_omnibus_libraries(
         ctx: AnalysisContext,
         graph: OmnibusGraph,
         extra_ldflags: list[typing.Any] = [],
-        prefer_stripped_objects: bool = False) -> OmnibusSharedLibraries:
+        prefer_stripped_objects: bool = False,
+        allow_cache_upload: bool = False) -> OmnibusSharedLibraries:
     spec = _build_omnibus_spec(ctx, graph)
     pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior
 
@@ -688,6 +693,7 @@ def create_omnibus_libraries(
             pic_behavior,
             extra_ldflags,
             prefer_stripped_objects,
+            allow_cache_upload = allow_cache_upload,
         )
         if root.name != None:
             libraries[root.name] = product.shared_library
@@ -703,6 +709,7 @@ def create_omnibus_libraries(
             pic_behavior,
             extra_ldflags,
             prefer_stripped_objects,
+            allow_cache_upload = allow_cache_upload,
         )
         libraries[_omnibus_soname(ctx)] = omnibus.linked_object
 
