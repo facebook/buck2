@@ -43,11 +43,15 @@ def _type(ctx: AnalysisContext) -> str:
         fail("unsupported archive type: {}".format(typ))
     return typ
 
+# Returns a two-element tuple:
+#
+# 1. The cmd_args with the unarchive command
+# 2. A bool indicating whether the prefix still needs to be stripped (in cases where the tool used to uncompress does not support this feature).
 def _unarchive_cmd(
         ext_type: str,
         exec_is_windows: bool,
         archive: Artifact,
-        strip_prefix: [str, None]) -> cmd_args:
+        strip_prefix: [str, None]) -> (cmd_args, bool):
     if exec_is_windows:
         # So many hacks.
         if ext_type == "tar.zst":
@@ -66,7 +70,7 @@ def _unarchive_cmd(
                 "-f",
                 "-",
                 _tar_strip_prefix_flags(strip_prefix),
-            )
+            ), False
         elif ext_type == "zip":
             # unzip and zip are not cli commands available on windows. however, the
             # bsdtar that ships with windows has builtin support for zip
@@ -76,7 +80,7 @@ def _unarchive_cmd(
                 "-f",
                 archive,
                 _tar_strip_prefix_flags(strip_prefix),
-            )
+            ), False
 
         # Else hope for the best
 
@@ -88,13 +92,10 @@ def _unarchive_cmd(
             "-f",
             archive,
             _tar_strip_prefix_flags(strip_prefix),
-        )
+        ), False
     elif ext_type == "zip":
-        if strip_prefix:
-            fail("`strip_prefix` for zip is only supported on windows")
-
         # gnutar does not intrinsically support zip
-        return cmd_args(archive, format = "unzip {}")
+        return cmd_args(archive, format = "unzip {}"), bool(strip_prefix)
     else:
         fail()
 
@@ -164,8 +165,6 @@ def http_archive_impl(ctx: AnalysisContext) -> list[Provider]:
         exclude_flags.append(cmd_args(exclusions, format = "--exclude-from={}"))
         exclude_hidden.append(exclusions)
 
-    output = ctx.actions.declare_output(value_or(ctx.attrs.out, ctx.label.name), dir = True)
-
     if exec_is_windows:
         ext = "bat"
         mkdir = "md {}"
@@ -175,23 +174,31 @@ def http_archive_impl(ctx: AnalysisContext) -> list[Provider]:
         mkdir = "mkdir -p {}"
         interpreter = ["/bin/sh"]
 
-    unarchive_cmd = _unarchive_cmd(ext_type, exec_is_windows, archive, ctx.attrs.strip_prefix)
+    unarchive_cmd, needs_strip_prefix = _unarchive_cmd(ext_type, exec_is_windows, archive, ctx.attrs.strip_prefix)
+
+    output_name = value_or(ctx.attrs.out, ctx.label.name)
+    output = ctx.actions.declare_output(output_name, dir = True)
+    script_output = ctx.actions.declare_output(output_name + "_tmp", dir = True) if needs_strip_prefix else output
+
     script, _ = ctx.actions.write(
         "unpack.{}".format(ext),
         [
-            cmd_args(output, format = mkdir),
-            cmd_args(output, format = "cd {}"),
-            cmd_args([unarchive_cmd] + exclude_flags, delimiter = " ").relative_to(output),
+            cmd_args(script_output, format = mkdir),
+            cmd_args(script_output, format = "cd {}"),
+            cmd_args([unarchive_cmd] + exclude_flags, delimiter = " ").relative_to(script_output),
         ],
         is_executable = True,
         allow_args = True,
     )
 
     ctx.actions.run(
-        cmd_args(interpreter + [script]).hidden(exclude_hidden + [archive, output.as_output()]),
+        cmd_args(interpreter + [script]).hidden(exclude_hidden + [archive, script_output.as_output()]),
         category = "http_archive",
         prefer_local = prefer_local,
     )
+
+    if needs_strip_prefix:
+        ctx.actions.copy_dir(output.as_output(), script_output.project(ctx.attrs.strip_prefix))
 
     return [DefaultInfo(
         default_output = output,
