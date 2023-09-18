@@ -526,11 +526,6 @@ def _mk_argsfile(
     # to avoid "argument too long" errors
     if use_absolute_paths:
         args.add(cmd_args(preprocessor.set.project_as_args("abs_file_prefix_args")))
-
-        # HACK: Replace Xcode clang incompatible flags with compatible ones.
-        # TODO: Refactor this to be a true Xcode argsfile generating flow.
-        args.replace_regex("-filter-error=.+", "-fcolor-diagnostics")
-        args.replace_regex("-filter-ignore=.+", "-fcolor-diagnostics")
     else:
         args.add(headers_tag.tag_artifacts(cmd_args(preprocessor.set.project_as_args("file_prefix_args"))))
 
