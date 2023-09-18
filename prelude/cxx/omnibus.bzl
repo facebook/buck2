@@ -305,6 +305,7 @@ def _create_root(
             category_prefix = "omnibus",
             # Same as above.
             prefer_local = True,
+            allow_cache_upload = allow_cache_upload,
         ),
         undefined_syms = extract_undefined_syms(
             ctx,
@@ -313,6 +314,7 @@ def _create_root(
             category_prefix = "omnibus",
             # Same as above.
             prefer_local = True,
+            allow_cache_upload = allow_cache_upload,
         ),
     )
 

@@ -19,7 +19,8 @@ def _extract_symbol_names(
         dynamic: bool = False,
         prefer_local: bool = False,
         local_only: bool = False,
-        global_only: bool = False) -> Artifact:
+        global_only: bool = False,
+        allow_cache_upload: bool = False) -> Artifact:
     """
     Generate a file with a sorted list of symbol names extracted from the given
     native objects.
@@ -72,6 +73,7 @@ def _extract_symbol_names(
         prefer_local = prefer_local,
         local_only = local_only,
         weight_percentage = 15,  # 10% + a little padding
+        allow_cache_upload = allow_cache_upload,
     )
     return output
 
@@ -92,6 +94,7 @@ def _anon_extract_symbol_names_impl(ctx):
         objects = ctx.attrs.objects,
         prefer_local = ctx.attrs.prefer_local,
         undefined_only = ctx.attrs.undefined_only,
+        allow_cache_upload = ctx.attrs.allow_cache_upload,
     )
     return [DefaultInfo(), _SymbolsInfo(artifact = output)]
 
@@ -99,6 +102,7 @@ def _anon_extract_symbol_names_impl(ctx):
 _anon_extract_symbol_names_impl_rule = rule(
     impl = _anon_extract_symbol_names_impl,
     attrs = {
+        "allow_cache_upload": attrs.bool(default = False),
         "category": attrs.string(),
         "dynamic": attrs.bool(default = False),
         "global_only": attrs.bool(default = False),
@@ -153,7 +157,8 @@ def extract_undefined_syms(
         output: Artifact,
         category_prefix: str,
         prefer_local: bool = False,
-        anonymous: bool = False) -> Artifact:
+        anonymous: bool = False,
+        allow_cache_upload: bool = False) -> Artifact:
     return extract_symbol_names(
         ctx = ctx,
         cxx_toolchain = cxx_toolchain,
@@ -166,6 +171,7 @@ def extract_undefined_syms(
         identifier = output.short_path,
         prefer_local = prefer_local,
         anonymous = anonymous,
+        allow_cache_upload = allow_cache_upload,
     )
 
 def extract_global_syms(
@@ -174,7 +180,8 @@ def extract_global_syms(
         output: Artifact,
         category_prefix: str,
         prefer_local: bool = False,
-        anonymous: bool = False) -> Artifact:
+        anonymous: bool = False,
+        allow_cache_upload: bool = False) -> Artifact:
     return extract_symbol_names(
         ctx = ctx,
         cxx_toolchain = cxx_toolchain,
@@ -186,6 +193,7 @@ def extract_global_syms(
         identifier = output.short_path,
         prefer_local = prefer_local,
         anonymous = anonymous,
+        allow_cache_upload = allow_cache_upload,
     )
 
 def _create_symbols_file_from_script(
