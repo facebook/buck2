@@ -49,6 +49,7 @@ use crate::interpreter::configuror::BuildInterpreterConfiguror;
 use crate::interpreter::global_interpreter_state::GlobalInterpreterState;
 use crate::interpreter::interpreter_for_cell::InterpreterForCell;
 use crate::interpreter::interpreter_for_cell::ParseResult;
+use crate::super_package::package_value::SuperPackageValuesImpl;
 
 /// Simple container that allows us to instrument things like imports
 #[derive(Debug)]
@@ -313,7 +314,7 @@ impl Tester {
             buckconfig,
             root_buckconfig,
             package_listing,
-            SuperPackage::default(),
+            SuperPackage::empty::<SuperPackageValuesImpl>(),
             false,
             ast,
             loaded_modules,

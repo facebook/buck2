@@ -7,15 +7,22 @@
  * of this source tree.
  */
 
+use std::any::Any;
+use std::sync::Arc;
+
+use allocative::Allocative;
 use anyhow::Context;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_node::metadata::key::MetadataKey;
 use buck2_node::metadata::key::MetadataKeyRef;
+use buck2_node::metadata::super_package_values::SuperPackageValues;
+use dupe::Dupe;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::none::NoneType;
 use starlark::values::Value;
+use starlark_map::small_map::SmallMap;
 
 use crate::interpreter::build_context::BuildContext;
 
@@ -25,6 +32,54 @@ enum PackageValueError {
     KeyAlreadySetInThisFile(MetadataKey),
     #[error("key set in parent `PACKAGE` file, and overwrite flag is not set: `{0}`")]
     KeySetInParentFile(MetadataKey),
+}
+
+#[derive(Debug, Default, Allocative)]
+pub struct SuperPackageValuesImpl {
+    pub(crate) values: SmallMap<MetadataKey, serde_json::Value>,
+}
+
+impl SuperPackageValuesImpl {
+    pub(crate) fn get(values: &dyn SuperPackageValues) -> anyhow::Result<&SuperPackageValuesImpl> {
+        values
+            .as_any()
+            .downcast_ref::<SuperPackageValuesImpl>()
+            .context("Expecting SuperPackageValuesImpl (internal error)")
+    }
+
+    pub(crate) fn merge(
+        parent: &Arc<dyn SuperPackageValues>,
+        package_values: SmallMap<MetadataKey, serde_json::Value>,
+    ) -> anyhow::Result<Arc<dyn SuperPackageValues>> {
+        if package_values.is_empty() {
+            Ok(parent.dupe())
+        } else {
+            let parent = Self::get(&**parent)?;
+            let mut merged_package_values = parent.values.clone();
+            merged_package_values.extend(package_values);
+            Ok(Arc::new(SuperPackageValuesImpl {
+                values: merged_package_values,
+            }))
+        }
+    }
+}
+
+impl SuperPackageValues for SuperPackageValuesImpl {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn is_empty(&self) -> bool {
+        self.values.is_empty()
+    }
+
+    fn package_values(&self) -> &SmallMap<MetadataKey, serde_json::Value> {
+        &self.values
+    }
+
+    fn contains_key(&self, key: &MetadataKeyRef) -> bool {
+        self.values.contains_key(key)
+    }
 }
 
 #[starlark_module]
@@ -96,7 +151,12 @@ pub fn register_read_package_value(globals: &mut GlobalsBuilder) {
                 }
             })?;
 
-        match build_ctx.super_package.package_values().get(key) {
+        match build_ctx
+            .super_package
+            .package_values()
+            .package_values()
+            .get(key)
+        {
             Some(value) => Ok(eval.heap().alloc(value)),
             None => Ok(Value::new_none()),
         }
@@ -117,7 +177,12 @@ pub fn register_read_package_value(globals: &mut GlobalsBuilder) {
             .additional
             .require_package_file("read_parent_package_value")?;
 
-        match package_ctx.parent.package_values().get(key) {
+        match package_ctx
+            .parent
+            .package_values()
+            .package_values()
+            .get(key)
+        {
             Some(value) => Ok(eval.heap().alloc(value)),
             None => Ok(Value::new_none()),
         }

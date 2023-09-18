@@ -237,7 +237,7 @@ impl PackageValuesCalculation for PackageValuesCalculationInstance {
             .await?
             .eval_package_file_for_build_file(package, &listing)
             .await?;
-        Ok(super_package.package_values().clone())
+        Ok(super_package.package_values().package_values().clone())
     }
 }
 

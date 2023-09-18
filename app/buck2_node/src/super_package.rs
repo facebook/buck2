@@ -11,16 +11,15 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use starlark_map::small_map::SmallMap;
 
 use crate::cfg_constructor::CfgConstructorImpl;
-use crate::metadata::key::MetadataKey;
+use crate::metadata::super_package_values::SuperPackageValues;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 
-#[derive(Default, Debug, Allocative)]
+#[derive(Debug, Allocative)]
 pub(crate) struct SuperPackageData {
-    package_values: SmallMap<MetadataKey, serde_json::Value>,
+    package_values: Arc<dyn SuperPackageValues>,
     visibility: VisibilitySpecification,
     within_view: WithinViewSpecification,
     /// Set only for the repo root package.
@@ -29,12 +28,12 @@ pub(crate) struct SuperPackageData {
 
 /// Contents of a `PACKAGE` file merged with contents of containing `PACKAGE` files.
 /// This object exists even for non-existent `PACKAGE` files.
-#[derive(Default, Debug, Allocative, Clone, Dupe)]
+#[derive(Debug, Allocative, Clone, Dupe)]
 pub struct SuperPackage(Arc<SuperPackageData>);
 
 impl SuperPackage {
     pub fn new(
-        package_values: SmallMap<MetadataKey, serde_json::Value>,
+        package_values: Arc<dyn SuperPackageValues>,
         visibility: VisibilitySpecification,
         within_view: WithinViewSpecification,
         cfg_constructor: Option<Arc<dyn CfgConstructorImpl>>,
@@ -47,7 +46,16 @@ impl SuperPackage {
         }))
     }
 
-    pub fn package_values(&self) -> &SmallMap<MetadataKey, serde_json::Value> {
+    pub fn empty<T: SuperPackageValues + Default>() -> SuperPackage {
+        SuperPackage::new(
+            Arc::new(T::default()),
+            VisibilitySpecification::default(),
+            WithinViewSpecification::default(),
+            None,
+        )
+    }
+
+    pub fn package_values(&self) -> &Arc<dyn SuperPackageValues> {
         &self.0.package_values
     }
 

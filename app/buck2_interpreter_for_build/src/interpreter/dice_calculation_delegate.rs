@@ -57,6 +57,7 @@ use crate::interpreter::dice_calculation_delegate::keys::EvalImportKey;
 use crate::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use crate::interpreter::interpreter_for_cell::InterpreterForCell;
 use crate::interpreter::interpreter_for_cell::ParseResult;
+use crate::super_package::package_value::SuperPackageValuesImpl;
 
 #[derive(Debug, thiserror::Error)]
 enum DiceCalculationDelegateError {
@@ -303,7 +304,7 @@ impl<'c> DiceCalculationDelegate<'c> {
         match file.parent_package_file() {
             None => {
                 // We are in the cell root, there's no parent.
-                Ok(SuperPackage::default())
+                Ok(SuperPackage::empty::<SuperPackageValuesImpl>())
             }
             Some(parent) => self.eval_package_file(&parent).await,
         }

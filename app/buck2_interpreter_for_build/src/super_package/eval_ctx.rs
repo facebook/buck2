@@ -23,6 +23,7 @@ use starlark_map::small_map::SmallMap;
 
 use crate::interpreter::package_file_extra::FrozenPackageFileExtra;
 use crate::interpreter::package_file_extra::MAKE_CFG_CONSTRUCTOR;
+use crate::super_package::package_value::SuperPackageValuesImpl;
 
 #[derive(Debug, Default)]
 pub(crate) struct PackageFileVisibilityFields {
@@ -66,8 +67,10 @@ impl PackageFileEvalCtx {
     ) -> anyhow::Result<SuperPackage> {
         let cfg_constructor = Self::cfg_constructor(extra.as_ref())?;
 
-        let mut merged_package_values = self.parent.package_values().clone();
-        merged_package_values.extend(self.package_values.into_inner());
+        let merged_package_values = SuperPackageValuesImpl::merge(
+            self.parent.package_values(),
+            self.package_values.into_inner(),
+        )?;
 
         let PackageFileVisibilityFields {
             visibility,

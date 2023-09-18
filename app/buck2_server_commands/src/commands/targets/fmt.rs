@@ -217,6 +217,7 @@ impl TargetFormatter for JsonFormat {
                     target_info
                         .super_package
                         .package_values()
+                        .package_values()
                         .iter()
                         .map(|(k, v)| (k.as_str().to_owned(), v.clone()))
                         .collect(),

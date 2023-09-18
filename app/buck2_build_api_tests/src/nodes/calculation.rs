@@ -23,6 +23,7 @@ use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetName;
 use buck2_execute::execute::dice_data::set_fallback_executor_config;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKey;
+use buck2_interpreter_for_build::super_package::package_value::SuperPackageValuesImpl;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
@@ -45,6 +46,7 @@ use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::provider_id_set::ProviderIdSet;
 use buck2_node::rule_type::RuleType;
 use buck2_node::rule_type::StarlarkRuleType;
+use buck2_node::super_package::SuperPackage;
 use buck2_util::arc_str::ArcSlice;
 use dice::testing::DiceBuilder;
 use dice::UserComputationData;
@@ -123,7 +125,7 @@ async fn test_get_node() -> anyhow::Result<()> {
             FileNameBuf::unchecked_new("BUCK"),
         )),
         Vec::new(),
-        Default::default(),
+        SuperPackage::empty::<SuperPackageValuesImpl>(),
         TargetsMap::from_iter([node1.dupe(), node2.dupe()]),
     );
 
