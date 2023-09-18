@@ -602,10 +602,6 @@ impl DiceDataProvider for DiceCommandDataProvider {
             .parse::<bool>("buck2", "use_network_action_output_cache")?
             .unwrap_or(false);
 
-        run_action_knobs.respect_exec_bit_on_re = root_config
-            .parse::<bool>("buck2", "respect_exec_bit_on_re")?
-            .unwrap_or(false);
-
         let mut data = UserComputationData {
             data,
             tracker: Arc::new(BuckDiceTracker::new(self.events.dupe())),
