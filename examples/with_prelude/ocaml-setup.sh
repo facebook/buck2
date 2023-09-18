@@ -22,7 +22,7 @@ fi
 # Check that an opam switch is active.
 set +u
 if [ -z "$OPAM_SWITCH_PREFIX" ]; then
-    echo "OPAM_SWITCH_PREFIX is undefined. First execute \`eval (\$opam env)\` and then try running $0 again."
+    echo "OPAM_SWITCH_PREFIX is undefined. First execute \`eval \$(opam env)\` and then try running $0 again."
     exit 3
 fi
 set -u
