@@ -102,6 +102,19 @@ pub struct CommandExecutionMetadata {
     pub input_materialization_duration: Duration,
 }
 
+impl CommandExecutionMetadata {
+    pub fn to_proto(&self) -> buck2_data::CommandExecutionMetadata {
+        let metadata = self.dupe();
+        buck2_data::CommandExecutionMetadata {
+            wall_time: metadata.wall_time.try_into().ok(),
+            execution_time: metadata.execution_time.try_into().ok(),
+            start_time: Some(metadata.start_time.into()),
+            input_materialization_duration: metadata.input_materialization_duration.try_into().ok(),
+            execution_stats: metadata.execution_stats,
+        }
+    }
+}
+
 impl Default for CommandExecutionMetadata {
     fn default() -> Self {
         Self {

@@ -387,12 +387,8 @@ pub async fn command_details(
         stderr,
         command: command_data,
         signed_exit_code,
-        execution_stats: command.timing.execution_stats,
-        input_materialization_duration: command
-            .timing
-            .input_materialization_duration
-            .try_into()
-            .ok(),
-        metadata: None,
+        execution_stats: None,
+        input_materialization_duration: None,
+        metadata: Some(command.timing.to_proto()),
     }
 }
