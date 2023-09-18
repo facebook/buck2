@@ -29,6 +29,7 @@ mod fstring;
 mod go;
 mod interop;
 mod opt;
+mod replace_binary;
 mod runtime;
 mod type_annot;
 mod uncategorized;

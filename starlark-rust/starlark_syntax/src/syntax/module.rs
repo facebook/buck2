@@ -15,8 +15,10 @@
  * limitations under the License.
  */
 
+use std::collections::HashMap;
 use std::fmt::Write;
 use std::fs;
+use std::mem;
 use std::path::Path;
 
 use derivative::Derivative;
@@ -27,11 +29,16 @@ use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
 use crate::codemap::Pos;
 use crate::codemap::Span;
+use crate::codemap::Spanned;
 use crate::diagnostic::Diagnostic;
 use crate::eval_exception::EvalException;
 use crate::lexer::Lexer;
 use crate::lexer::Token;
+use crate::syntax::ast::ArgumentP;
+use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstStmt;
+use crate::syntax::ast::ExprP;
+use crate::syntax::ast::IdentP;
 use crate::syntax::ast::LoadArgP;
 use crate::syntax::ast::Stmt;
 use crate::syntax::grammar::StarlarkParser;
@@ -276,6 +283,50 @@ impl AstModule {
         let mut res = Vec::new();
         go(&self.statement, &self.codemap, &mut res);
         res
+    }
+
+    /// Function to help people who want to write deeper AST transformations in Starlark.
+    /// Likely to break type checking and LSP support to some extent.
+    ///
+    /// Replacement must be a map from operator name (e.g. `+` or `==`) to a function name
+    /// (e.g. `my_plus` or `my_equals`).
+    pub fn replace_binary_operators(&mut self, replace: &HashMap<String, String>) {
+        fn f(x: &mut AstExpr, replace: &HashMap<String, String>) {
+            let mut temp = ExprP::Tuple(vec![]);
+            mem::swap(&mut x.node, &mut temp);
+            let mut res = match temp {
+                ExprP::Op(lhs, op, rhs) => match replace.get(op.to_string().trim()) {
+                    Some(func) => ExprP::Call(
+                        Box::new(Spanned {
+                            span: x.span,
+                            node: ExprP::Identifier(Spanned {
+                                span: x.span,
+                                node: IdentP {
+                                    ident: func.clone(),
+                                    payload: (),
+                                },
+                            }),
+                        }),
+                        vec![
+                            Spanned {
+                                span: lhs.span,
+                                node: ArgumentP::Positional(*lhs),
+                            },
+                            Spanned {
+                                span: rhs.span,
+                                node: ArgumentP::Positional(*rhs),
+                            },
+                        ],
+                    ),
+                    None => ExprP::Op(lhs, op, rhs),
+                },
+                _ => temp,
+            };
+            mem::swap(&mut x.node, &mut res);
+            x.visit_expr_mut(|x| f(x, replace));
+        }
+
+        self.statement.visit_expr_mut(|x| f(x, replace));
     }
 }
 
