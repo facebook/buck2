@@ -8,11 +8,12 @@
  */
 
 use async_trait::async_trait;
-use buck2_core::metadata_key::MetadataKey;
 use buck2_core::package::PackageLabel;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 use starlark_map::small_map::SmallMap;
+
+use crate::metadata::key::MetadataKey;
 
 #[async_trait]
 pub trait PackageValuesCalculation: Send + Sync + 'static {

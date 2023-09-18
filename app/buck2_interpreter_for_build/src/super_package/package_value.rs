@@ -8,9 +8,9 @@
  */
 
 use anyhow::Context;
-use buck2_core::metadata_key::MetadataKey;
-use buck2_core::metadata_key::MetadataKeyRef;
 use buck2_interpreter::file_type::StarlarkFileType;
+use buck2_node::metadata::key::MetadataKey;
+use buck2_node::metadata::key::MetadataKeyRef;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;

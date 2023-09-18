@@ -12,10 +12,10 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use allocative::Allocative;
-use buck2_core::metadata_key::MetadataKey;
 use starlark_map::ordered_map::OrderedMap;
 
 use crate::attrs::attr_type::any_matches::AnyMatches;
+use crate::metadata::key::MetadataKey;
 
 #[derive(Debug, Eq, PartialEq, Clone, Allocative, Default)]
 pub struct MetadataMap {

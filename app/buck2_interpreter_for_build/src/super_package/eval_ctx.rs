@@ -10,9 +10,9 @@
 use std::cell::RefCell;
 use std::sync::Arc;
 
-use buck2_core::metadata_key::MetadataKey;
 use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
+use buck2_node::metadata::key::MetadataKey;
 use buck2_node::super_package::SuperPackage;
 use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::WithinViewSpecification;

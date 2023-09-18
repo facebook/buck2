@@ -10,11 +10,11 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::metadata_key::MetadataKey;
 use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
 use crate::cfg_constructor::CfgConstructorImpl;
+use crate::metadata::key::MetadataKey;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 

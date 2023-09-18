@@ -51,7 +51,6 @@ pub mod execution_types;
 pub mod fs;
 pub mod io_counters;
 pub mod logging;
-pub mod metadata_key;
 pub mod package;
 pub mod pattern;
 pub mod plugins;

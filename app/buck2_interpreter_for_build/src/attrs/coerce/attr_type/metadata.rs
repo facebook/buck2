@@ -8,13 +8,13 @@
  */
 
 use anyhow::Context as _;
-use buck2_core::metadata_key::MetadataKey;
-use buck2_core::metadata_key::MetadataKeyRef;
 use buck2_interpreter::types::opaque_metadata::OpaqueMetadata;
 use buck2_node::attrs::attr_type::metadata::MetadataAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
+use buck2_node::metadata::key::MetadataKey;
+use buck2_node::metadata::key::MetadataKeyRef;
 use buck2_node::metadata::map::MetadataMap;
 use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
