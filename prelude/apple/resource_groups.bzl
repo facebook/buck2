@@ -56,9 +56,9 @@ ResourceGraphNode = record(
 ResourceGraphTSet = transitive_set()
 
 ResourceGraphInfo = provider(fields = {
-    "label": provider_field(typing.Any, default = None),  # "label"
-    "nodes": provider_field(typing.Any, default = None),  # "ResourceGraphTSet"
-    "should_propagate": provider_field(typing.Any, default = None),  # bool
+    "label": provider_field(Label),
+    "nodes": provider_field(ResourceGraphTSet),
+    "should_propagate": provider_field(bool),
 })
 
 def create_resource_graph(
