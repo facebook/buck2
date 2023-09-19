@@ -8,6 +8,6 @@ buck2_e2e_test(
     test_with_compiled_buck2 = False,
     test_with_deployed_buck2 = True,
     deps = [
-        "//buck2/tests/e2e:utils",
+        "//buck2/tests/e2e_util:utils",
     ],
 )
