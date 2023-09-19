@@ -73,6 +73,9 @@ PythonToolchainInfo = provider(
         "installer": provider_field(typing.Any, default = None),
         # A filegroup that gets added to all python executables
         "runtime_library": provider_field(Dependency | None, default = None),
+        # The fully qualified name of a function that handles invoking the
+        # executable's entry point
+        "main_runner": provider_field(str, default = "__par__.bootstrap.run_as_main"),
     },
 )
 

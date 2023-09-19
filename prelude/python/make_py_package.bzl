@@ -348,7 +348,7 @@ def _pex_bootstrap_args(
         output: Artifact,
         shared_libraries: dict[str, (LinkedObject, bool)],
         preload_libraries: cmd_args,
-        symlink_tree_path: [None, Artifact],
+        symlink_tree_path: Artifact | None,
         package_style: PackageStyle) -> cmd_args:
     cmd = cmd_args()
     cmd.add(preload_libraries)
@@ -364,6 +364,9 @@ def _pex_bootstrap_args(
         cmd.add(["--main-function", main[1]])
     if symlink_tree_path != None:
         cmd.add(cmd_args(["--modules-dir", symlink_tree_path]).ignore_artifacts())
+
+    if toolchain.main_runner:
+        cmd.add(["--main-runner", toolchain.main_runner])
 
     # Package style `inplace_lite` cannot be used with shared libraries
     if package_style == PackageStyle("inplace_lite") and not shared_libraries:

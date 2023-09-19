@@ -35,7 +35,6 @@ $ ./bin.pex
 """
 
 import argparse
-import errno
 import os
 import platform
 import stat
@@ -43,9 +42,6 @@ from pathlib import Path
 
 
 def parse_args() -> argparse.Namespace:
-    # TODO(nmj): Go back and verify all of the various flags that make_xar
-    #                 takes, and standardize on that so that the calling convention
-    #                 is the same regardless of the "make_X" binary that's used.
     parser = argparse.ArgumentParser(
         description=(
             "Create a python inplace binary, writing a symlink tree to a directory, "
@@ -100,6 +96,14 @@ def parse_args() -> argparse.Namespace:
             "Fully qualified name of the function that serves as the entry point."
             " Mutually exclusive with --entry-point."
         ),
+    )
+    parser.add_argument(
+        "--main-runner",
+        help=(
+            "Fully qualified name of a function that handles invoking the"
+            " executable's entry point."
+        ),
+        required=True,
     )
     parser.add_argument(
         "--modules-dir",
@@ -170,6 +174,10 @@ def write_bootstrapper(args: argparse.Namespace) -> None:
         main_module, main_function = args.main_function.rsplit(".", 1)
     new_data = new_data.replace("<MAIN_MODULE>", main_module)
     new_data = new_data.replace("<MAIN_FUNCTION>", main_function)
+
+    main_runner_module, main_runner_function = args.main_runner.rsplit(".", 1)
+    new_data = new_data.replace("<MAIN_RUNNER_MODULE>", main_runner_module)
+    new_data = new_data.replace("<MAIN_RUNNER_FUNCTION>", main_runner_function)
 
     if args.add_multiprocessing_executable:
         # Handle enabling multiprocessing for inplace par
