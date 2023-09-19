@@ -108,9 +108,9 @@ def _generate_r_dot_java_source_code(
     merge_resources_cmd = cmd_args(merge_android_resources_tool)
 
     r_dot_txt_info = cmd_args()
-    deduped_android_resources = set([(android_resource.text_symbols, android_resource.r_dot_java_package) for android_resource in android_resources])
-    for (text_symbols, r_dot_java_package) in deduped_android_resources.list():
-        r_dot_txt_info.add(cmd_args([text_symbols, r_dot_java_package, "_"], delimiter = " "))  # pass target name
+    deduped_android_resources = set([(android_resource.text_symbols, android_resource.r_dot_java_package, android_resource.raw_target) for android_resource in android_resources])
+    for (text_symbols, r_dot_java_package, raw_target) in deduped_android_resources.list():
+        r_dot_txt_info.add(cmd_args([text_symbols, r_dot_java_package, raw_target], delimiter = " "))
 
     r_dot_txt_info_file = ctx.actions.write("r_dot_txt_info_file_for_{}.txt".format(identifier), r_dot_txt_info)
     merge_resources_cmd.add(["--symbol-file-info", r_dot_txt_info_file])
