@@ -316,9 +316,14 @@ def _get_link_style_sub_targets_and_providers(
         debug_info = debug_info,
         action_identifier = dsym_executable.short_path,
     )
+    debug_info_artifacts_manifest = ctx.actions.write(
+        "debuginfo.artifacts",
+        debug_info,
+        with_inputs = True,
+    )
     subtargets = {
         DSYM_SUBTARGET: [DefaultInfo(default_output = dsym_artifact)],
-        DEBUGINFO_SUBTARGET: [DefaultInfo(other_outputs = debug_info)],
+        DEBUGINFO_SUBTARGET: [DefaultInfo(default_output = debug_info_artifacts_manifest)],
     }
     providers = [
         AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = output.external_debug_info),
