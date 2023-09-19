@@ -129,9 +129,6 @@ def list_starlark_files(git: bool):
         "tests/targets/lsp/query.bxl",
         "tests/targets/lsp/globals.bzl",
         "tests/targets/lsp/cell/sub/defs.bzl",
-        # TODO(nga): include back when D47823751 lands.
-        "tests/e2e/log/test.bxl",
-        "tests/e2e/build/test_plugins_data",  # FIXME(JakobDegen): Remove after bump
     ]
 
     if git:
