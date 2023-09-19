@@ -71,6 +71,8 @@ PythonToolchainInfo = provider(
         "fail_with_message": provider_field(typing.Any, default = None),
         "emit_dependency_metadata": provider_field(typing.Any, default = None),
         "installer": provider_field(typing.Any, default = None),
+        # A filegroup that gets added to all python executables
+        "runtime_library": provider_field(Dependency | None, default = None),
     },
 )
 

@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:artifacts.bzl", "ArtifactGroupInfo")
 load("@prelude//cxx:compile.bzl", "CxxSrcWithFlags")
 load("@prelude//cxx:cxx.bzl", "create_shared_lib_link_group_specs")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
@@ -331,12 +332,17 @@ def python_executable(
 
     src_manifest = None
     bytecode_manifest = None
+
+    python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
+    if python_toolchain.runtime_library and ArtifactGroupInfo in python_toolchain.runtime_library:
+        for artifact in python_toolchain.runtime_library[ArtifactGroupInfo].artifacts:
+            srcs[artifact.short_path] = artifact
+
     if srcs:
         src_manifest = create_manifest_for_source_map(ctx, "srcs", srcs)
         bytecode_manifest = compile_manifests(ctx, [src_manifest])
 
     dep_manifest = None
-    python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
     if python_toolchain.emit_dependency_metadata and srcs:
         dep_manifest = create_dep_manifest_for_source_map(ctx, python_toolchain, srcs)
 
