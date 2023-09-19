@@ -166,6 +166,8 @@ CxxExecutableOutput = record(
     link_args = list[LinkArgs],
     # External components needed to debug the executable.
     external_debug_info = field(ArtifactTSet, ArtifactTSet()),
+    # The projection of `external_debug_info`
+    external_debug_info_artifacts = list[TransitiveSetArgsProjection],
     shared_libs = dict[str, LinkedObject],
     # All link group links that were generated in the executable.
     auto_link_groups = field(dict[str, LinkedObject], {}),
@@ -633,9 +635,10 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             impl_params.additional.static_external_debug_info
         ),
     )
+    external_debug_info_artifacts = project_artifacts(ctx.actions, [external_debug_info])
     materialize_external_debug_info = ctx.actions.write(
         "debuginfo.artifacts",
-        project_artifacts(ctx.actions, [external_debug_info]),
+        external_debug_info_artifacts,
         with_inputs = True,
     )
     sub_targets["debuginfo"] = [DefaultInfo(
@@ -650,6 +653,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         sub_targets = sub_targets,
         link_args = links,
         external_debug_info = external_debug_info,
+        external_debug_info_artifacts = external_debug_info_artifacts,
         shared_libs = shared_libs,
         auto_link_groups = auto_link_groups,
         compilation_db = comp_db_info,

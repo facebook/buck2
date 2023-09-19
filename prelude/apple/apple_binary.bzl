@@ -5,10 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(
-    "@prelude//:artifact_tset.bzl",
-    "project_artifacts",
-)
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 # @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "add_extra_linker_outputs") 
@@ -147,10 +143,6 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         )
         cxx_output = cxx_executable(ctx, constructor_params)
 
-        debug_info = project_artifacts(
-            actions = ctx.actions,
-            tsets = [cxx_output.external_debug_info],
-        )
         if stripped:
             unstripped_binary = cxx_output.unstripped_binary
             if False:
@@ -164,11 +156,11 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         dsym_artifact = get_apple_dsym(
             ctx = ctx,
             executable = unstripped_binary,
-            debug_info = debug_info,
+            debug_info = cxx_output.external_debug_info_artifacts,
             action_identifier = unstripped_binary.short_path,
         )
         cxx_output.sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_output = dsym_artifact)]
-        cxx_output.sub_targets[DEBUGINFO_SUBTARGET] = [DefaultInfo(other_outputs = debug_info)]
+        cxx_output.sub_targets[DEBUGINFO_SUBTARGET] = [DefaultInfo(other_outputs = cxx_output.external_debug_info_artifacts)]
         cxx_output.sub_targets.update(extra_linker_output_providers)
 
         min_version = get_min_deployment_version_for_node(ctx)
