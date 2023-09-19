@@ -66,12 +66,14 @@ def get_aggregated_debug_info(ctx: AnalysisContext, debug_infos: list[AppleDebug
     )
     sub_targets = {}
     sub_targets[DEBUGINFO_SUBTARGET] = [
-        DefaultInfo(
-            other_outputs = project_artifacts(
+        DefaultInfo(default_output = ctx.actions.write(
+            "debuginfo.artifacts",
+            project_artifacts(
                 actions = ctx.actions,
                 tsets = [debug_info_tset],
             ),
-        ),
+            with_inputs = True,
+        )),
     ]
 
     full_debug_info_tset = make_artifact_tset(
