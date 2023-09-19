@@ -8,11 +8,13 @@
 from __future__ import annotations
 
 import os
+from typing import Callable, Sequence
 
 
 def run_as_main(
     main_module: str,
     main_function: str | None,
+    main_function_hooks: Sequence[Callable[[], None]] = (),
 ) -> None:
     """
     Run the specified module or function as the main program.
@@ -23,6 +25,10 @@ def run_as_main(
 
     This function supports overriding the main module when the `PAR_MAIN_OVERRIDE`
     env variable is set.
+
+    When `main_function_hooks` is set, the hooks are called in sequence after the
+    main module has been imported, just before the main function is invoked. This
+    parameter has no effect if `main_function` is `None`.
     """
 
     # Allow users to decorate the main module. In normal Python invocations this
@@ -55,4 +61,6 @@ def run_as_main(
     import sys
 
     sys.modules["__main__"] = mod
+    for hook in main_function_hooks:
+        hook()
     main()

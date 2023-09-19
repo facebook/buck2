@@ -1,5 +1,5 @@
 filegroup(
     name = "bootstrap_files",
-    srcs = ["__par__/bootstrap.py"],
+    srcs = glob(["__par__/**/*.py"]),
     visibility = ["PUBLIC"],
 )
