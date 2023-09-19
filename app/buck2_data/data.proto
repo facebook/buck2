@@ -245,6 +245,9 @@ message InstantEvent {
 
     // Concurrent active commands.
     ConcurrentCommands concurrent_commands = 32;
+
+    // Info coming from the `buck2 debug persist-event-log` subprocess
+    PersistSubprocess persist_subprocess = 33;
   }
 
   reserved 12; // Log
@@ -1878,6 +1881,10 @@ message IoProviderInfo {
 
 message ConcurrentCommands {
   repeated string trace_ids = 1;
+}
+
+message PersistSubprocess {
+  repeated string errors = 1;
 }
 
 message StarlarkFailNoStacktrace {

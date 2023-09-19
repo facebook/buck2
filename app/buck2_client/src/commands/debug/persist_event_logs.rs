@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::time::SystemTime;
+
 use anyhow::Context;
 use buck2_client_ctx::chunk_reader::ChunkReader;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -17,6 +19,13 @@ use buck2_client_ctx::manifold::ManifoldClient;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::soft_error;
+use buck2_data::instant_event::Data;
+use buck2_data::InstantEvent;
+use buck2_data::PersistSubprocess;
+use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
+use buck2_events::sink::scribe::ThriftScribeSink;
+use buck2_events::BuckEvent;
+use buck2_wrapper_common::invocation_id::TraceId;
 use thiserror::Error;
 use tokio::fs::File;
 use tokio::fs::OpenOptions;
@@ -33,7 +42,7 @@ static MANIFOLD_TTL_S: EnvHelper<u64> = EnvHelper::new("BUCK2_TEST_MANIFOLD_TTL_
 const MAX_WAIT: Duration = Duration::from_secs(5 * 60);
 
 #[derive(Debug, Error)]
-pub(crate) enum PersistLogError {
+pub(crate) enum PersistEventLogError {
     #[error("Read more bytes than are available")]
     ReadBytesOverflow,
 }
@@ -57,12 +66,21 @@ pub struct PersistEventLogsCommand {
 impl PersistEventLogsCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         buck2_core::facebook_only();
-        if let Err(e) = ctx.with_runtime(async move |mut ctx| {
+        let sink = create_scribe_sink(&ctx)?;
+        ctx.with_runtime(async move |mut ctx| {
             let mut stdin = io::BufReader::new(ctx.stdin());
-            self.write_and_upload(&mut stdin).await
-        }) {
-            soft_error!(categorize_error(&e), e)?;
-        };
+            if let Err(e) = self.write_and_upload(&mut stdin).await {
+                dispatch_event_to_scribe(
+                    sink.as_ref(),
+                    &ctx.trace_id,
+                    PersistSubprocess {
+                        errors: vec![e.to_string()],
+                    },
+                )
+                .await;
+                let _res = soft_error!(categorize_error(&e), e);
+            };
+        });
         ExitResult::success()
     }
 
@@ -231,7 +249,7 @@ impl<'a> Uploader<'a> {
         Ok(self
             .total_bytes
             .checked_sub(self.manifold.position())
-            .ok_or(PersistLogError::ReadBytesOverflow)?
+            .ok_or(PersistEventLogError::ReadBytesOverflow)?
             > self.reader.chunk_size())
     }
 
@@ -284,6 +302,37 @@ fn categorize_error(err: &anyhow::Error) -> &'static str {
     } else {
         "persist_log_other"
     }
+}
+
+async fn dispatch_event_to_scribe(
+    sink: Option<&ThriftScribeSink>,
+    invocation_id: &TraceId,
+    result: PersistSubprocess,
+) {
+    let data = Some(Data::PersistSubprocess(result));
+    let event = InstantEvent { data };
+    if let Some(sink) = sink {
+        sink.send_now(BuckEvent::new(
+            SystemTime::now(),
+            invocation_id.to_owned(),
+            None,
+            None,
+            event.into(),
+        ))
+        .await;
+    } else {
+        tracing::warn!("Couldn't send log upload result to scribe")
+    };
+}
+
+fn create_scribe_sink(ctx: &ClientCommandContext) -> anyhow::Result<Option<ThriftScribeSink>> {
+    new_thrift_scribe_sink_if_enabled(
+        ctx.fbinit(),
+        /* buffer size */ 100,
+        /* retry_backoff */ Duration::from_millis(500),
+        /* retry_attempts */ 5,
+        /* message_batch_size */ None,
+    )
 }
 
 #[cfg(test)]

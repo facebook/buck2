@@ -400,6 +400,7 @@ mod fbcode {
                     Some(Data::ReSession(..)) => true,
                     Some(Data::StructuredError(..)) => true,
                     Some(Data::TestResult(..)) => true,
+                    Some(Data::PersistSubprocess(..)) => true,
                     None => false,
                     _ => false,
                 }
