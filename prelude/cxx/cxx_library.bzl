@@ -1415,6 +1415,7 @@ def _shared_library(
                 output = get_shared_library_name(
                     linker_info,
                     ctx.label.name + "-for-interface",
+                    apply_default_prefix = True,
                 ),
                 opts = link_options(
                     category_suffix = "interface",

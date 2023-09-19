@@ -162,13 +162,13 @@ def create_linkable_root(
 
 def _omnibus_soname(ctx):
     linker_info = get_cxx_toolchain_info(ctx).linker_info
-    return get_shared_library_name(linker_info, "omnibus")
+    return get_shared_library_name(linker_info, "omnibus", apply_default_prefix = True)
 
 def create_dummy_omnibus(ctx: AnalysisContext, extra_ldflags: list[typing.Any] = []) -> Artifact:
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     link_result = cxx_link_shared_library(
         ctx = ctx,
-        output = get_shared_library_name(linker_info, "omnibus-dummy"),
+        output = get_shared_library_name(linker_info, "omnibus-dummy", apply_default_prefix = True),
         name = _omnibus_soname(ctx),
         opts = link_options(
             links = [LinkArgs(flags = extra_ldflags)],

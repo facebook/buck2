@@ -40,8 +40,9 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
     binary_extension = ""
     object_file_extension = "o"
     static_library_extension = "a"
-    shared_library_name_format = "lib{}.so"
-    shared_library_versioned_name_format = "lib{}.so.{}"
+    shared_library_name_default_prefix = "lib"
+    shared_library_name_format = "{}.so"
+    shared_library_versioned_name_format = "{}.so.{}"
     additional_linker_flags = []
     if host_info().os.is_macos:
         archiver_supports_argfiles = False
@@ -63,6 +64,7 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
         binary_extension = "exe"
         object_file_extension = "obj"
         static_library_extension = "lib"
+        shared_library_name_default_prefix = ""
         shared_library_name_format = "{}.dll"
         shared_library_versioned_name_format = "{}.dll"
         additional_linker_flags = ["msvcrt.lib"]
@@ -102,6 +104,7 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
                 link_weight = 1,
                 binary_extension = binary_extension,
                 object_file_extension = object_file_extension,
+                shared_library_name_default_prefix = shared_library_name_default_prefix,
                 shared_library_name_format = shared_library_name_format,
                 shared_library_versioned_name_format = shared_library_versioned_name_format,
                 static_library_extension = static_library_extension,

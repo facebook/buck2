@@ -73,14 +73,20 @@ def _sanitize(s: str) -> str:
 def get_shared_library_name(
         linker_info: LinkerInfo,
         short_name: str,
+        apply_default_prefix: bool,
         version: [str, None] = None):
     """
     Generate a platform-specific shared library name based for the given rule.
     """
     if version == None:
-        return linker_info.shared_library_name_format.format(short_name)
+        full_name = linker_info.shared_library_name_format.format(short_name)
     else:
-        return linker_info.shared_library_versioned_name_format.format(short_name, version)
+        full_name = linker_info.shared_library_versioned_name_format.format(short_name, version)
+
+    if apply_default_prefix:
+        full_name = linker_info.shared_library_name_default_prefix + full_name
+
+    return full_name
 
 def _parse_ext_macro(name: str) -> [(str, [str, None]), None]:
     """
@@ -115,7 +121,8 @@ def get_shared_library_name_for_param(linker_info: LinkerInfo, name: str):
         base, version = parsed
         name = get_shared_library_name(
             linker_info,
-            base.removeprefix("lib"),
+            base,
+            apply_default_prefix = False,
             version = version,
         )
     return name
@@ -129,7 +136,7 @@ def get_default_shared_library_name(linker_info: LinkerInfo, label: Label):
     # TODO(T110378119): v1 doesn't use the cell/repo name, so we don't here for
     # initial compatibility, but maybe we should?
     short_name = "{}_{}".format(_sanitize(label.package), _sanitize(label.name))
-    return get_shared_library_name(linker_info, short_name)
+    return get_shared_library_name(linker_info, short_name, apply_default_prefix = True)
 
 def get_shared_library_name_linker_flags(linker_type: str, soname: str, flag_overrides: [SharedLibraryFlagOverrides, None] = None) -> list[str]:
     """

@@ -97,6 +97,7 @@ def cxx_toolchain_impl(ctx):
         requires_objects = value_or(ctx.attrs.requires_objects, False),
         supports_distributed_thinlto = ctx.attrs.supports_distributed_thinlto,
         shared_dep_runtime_ld_flags = ctx.attrs.shared_dep_runtime_ld_flags,
+        shared_library_name_default_prefix = _get_shared_library_name_default_prefix(ctx),
         shared_library_name_format = _get_shared_library_name_format(ctx),
         shared_library_versioned_name_format = _get_shared_library_versioned_name_format(ctx),
         static_dep_runtime_ld_flags = ctx.attrs.static_dep_runtime_ld_flags,
@@ -259,21 +260,23 @@ def _get_header_mode(ctx: AnalysisContext) -> HeaderMode:
     else:
         return HeaderMode("symlink_tree_only")
 
+def _get_shared_library_name_default_prefix(ctx: AnalysisContext) -> str:
+    extension = ctx.attrs.shared_library_extension
+    return "" if extension == "dll" else "lib"
+
 def _get_shared_library_name_format(ctx: AnalysisContext) -> str:
     linker_type = ctx.attrs.linker_type
     extension = ctx.attrs.shared_library_extension
     if extension == "":
         extension = LINKERS[linker_type].default_shared_library_extension
-    prefix = "" if extension == "dll" else "lib"
-    return prefix + "{}." + extension
+    return "{}." + extension
 
 def _get_shared_library_versioned_name_format(ctx: AnalysisContext) -> str:
     linker_type = ctx.attrs.linker_type
     extension_format = ctx.attrs.shared_library_versioned_extension_format.replace("%s", "{}")
     if extension_format == "":
         extension_format = LINKERS[linker_type].default_shared_library_versioned_extension_format
-    prefix = "" if extension_format == "dll" else "lib"
-    return prefix + "{}." + extension_format
+    return "{}." + extension_format
 
 def _get_maybe_wrapped_msvc(compiler: RunInfo, compiler_type: str, msvc_hermetic_exec: RunInfo) -> RunInfo:
     if compiler_type == "windows":

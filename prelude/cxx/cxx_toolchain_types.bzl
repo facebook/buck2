@@ -51,7 +51,9 @@ LinkerInfo = provider(
         "object_file_extension": provider_field(typing.Any, default = None),  # str
         "shlib_interfaces": provider_field(typing.Any, default = None),  # ShlibInterfacesMode
         "shared_dep_runtime_ld_flags": provider_field(typing.Any, default = None),
-        # "lib{}.so" on Linux, "lib{}.dylib" on Mac, "{}.dll" on Windows
+        # "lib" on Linux/Mac/Android, "" on Windows.
+        "shared_library_name_default_prefix": provider_field(typing.Any, default = None),  # str
+        # "{}.so" on Linux, "{}.dylib" on Mac, "{}.dll" on Windows
         "shared_library_name_format": provider_field(typing.Any, default = None),  # str
         "shared_library_versioned_name_format": provider_field(typing.Any, default = None),  # str
         "static_dep_runtime_ld_flags": provider_field(typing.Any, default = None),

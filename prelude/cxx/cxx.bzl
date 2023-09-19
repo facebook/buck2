@@ -212,7 +212,7 @@ def create_shared_lib_link_group_specs(ctx: AnalysisContext, link_group_info: Li
             continue
         specs.append(
             LinkGroupLibSpec(
-                name = get_shared_library_name(linker_info, group.name),
+                name = get_shared_library_name(linker_info, group.name, apply_default_prefix = True),
                 is_shared_lib = True,
                 group = group,
             ),
@@ -348,7 +348,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs.soname != None:
         soname = get_shared_library_name_for_param(linker_info, ctx.attrs.soname)
     else:
-        soname = get_shared_library_name(linker_info, ctx.label.name)
+        soname = get_shared_library_name(linker_info, ctx.label.name, apply_default_prefix = True)
 
     # Use ctx.attrs.deps instead of cxx_attr_deps, since prebuilt rules don't have platform_deps.
     first_order_deps = ctx.attrs.deps
