@@ -6,6 +6,10 @@
 # of this source tree.
 
 load(
+    "@prelude//:artifacts.bzl",
+    "ArtifactGroupInfo",
+)
+load(
     "@prelude//python:toolchain.bzl",
     "PythonPlatformInfo",
     "PythonToolchainInfo",
@@ -64,6 +68,7 @@ def _system_python_toolchain_impl(ctx):
             compile = RunInfo(args = ["echo", "COMPILEINFO"]),
             package_style = "inplace",
             native_link_strategy = "separate",
+            runtime_library = ctx.attrs.runtime_library,
         ),
         PythonPlatformInfo(name = "x86_64"),
     ]
@@ -77,6 +82,7 @@ system_python_toolchain = rule(
         "make_py_package_modules": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//python/tools:make_py_package_modules")),
         "make_source_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//python/tools:make_source_db")),
         "make_source_db_no_deps": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//python/tools:make_source_db_no_deps")),
+        "runtime_library": attrs.default_only(attrs.dep(providers = [ArtifactGroupInfo], default = "prelude//python/runtime:bootstrap_files")),
     },
     is_toolchain_rule = True,
 )

@@ -164,12 +164,12 @@ def write_bootstrapper(args: argparse.Namespace) -> None:
     new_data = new_data.replace("<PYTHON_INTERPRETER_FLAGS>", "")
 
     new_data = new_data.replace("<MODULES_DIR>", str(relative_modules_dir))
-    new_data = new_data.replace(
-        "<MAIN_MODULE>", args.entry_point if args.entry_point else ""
-    )
-    new_data = new_data.replace(
-        "<MAIN_FUNCTION>", args.main_function if args.main_function else ""
-    )
+    main_module = args.entry_point
+    main_function = ""
+    if args.main_function:
+        main_module, main_function = args.main_function.rsplit(".", 1)
+    new_data = new_data.replace("<MAIN_MODULE>", main_module)
+    new_data = new_data.replace("<MAIN_FUNCTION>", main_function)
 
     if args.add_multiprocessing_executable:
         # Handle enabling multiprocessing for inplace par

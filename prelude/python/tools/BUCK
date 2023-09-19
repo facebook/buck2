@@ -48,8 +48,13 @@ prelude.export_file(
 
 prelude.command_alias(
     name = "make_py_package_inplace",
+    args = [
+        "--template",
+        "$(location :run_inplace.py.in)",
+        "--template-lite",
+        "$(location :run_inplace_lite.py.in)",
+    ],
     exe = ":make_py_package_inplace.py",
-    args = ["--template", "$(location :run_inplace.py.in)", "--template-lite", "$(location :run_inplace_lite.py.in)"],
     visibility = ["PUBLIC"],
 )
 
@@ -79,15 +84,15 @@ prelude.python_bootstrap_library(
 prelude.python_bootstrap_binary(
     name = "parse_imports",
     main = "parse_imports.py",
-    deps = [":py38stdlib"],
     visibility = ["PUBLIC"],
+    deps = [":py38stdlib"],
 )
 
 prelude.python_bootstrap_binary(
     name = "traverse_dep_manifest",
     main = "traverse_dep_manifest.py",
-    deps = [":py38stdlib"],
     visibility = ["PUBLIC"],
+    deps = [":py38stdlib"],
 )
 
 # Main file used for native python binaries

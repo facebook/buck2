@@ -17,7 +17,6 @@ modules_dir = "<MODULES_DIR>"
 def __run():
     import sys
     import os
-    import platform
 
     # We set the paths beforehand to have a minimal amount of imports before
     # nuking PWD from sys.path. Otherwise, there can be problems if someone runs
@@ -31,22 +30,8 @@ def __run():
     # Replace the working directory with location of the modules directory.
     sys.path[0] = os.path.join(dirpath, modules_dir)
 
-    import os
-    import runpy
-
-    if main_module:
-        runpy._run_module_as_main(main_module, False)
-        return
-
-    assert main_function
-    mod_name, fn_name = main_function.rsplit(".", 1)
-    from importlib import import_module
-    mod = import_module(mod_name)
-    main = getattr(mod, fn_name)
-    # This is normally done by `runpy._run_module_as_main`, and is
-    # important to make multiprocessing work
-    sys.modules["__main__"] = mod
-    main()
+    from __par__.bootstrap import run_as_main
+    run_as_main(main_module, main_function)
 
 
 __run()
