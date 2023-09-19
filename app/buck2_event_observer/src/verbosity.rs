@@ -19,7 +19,7 @@ enum VerbosityError {
     UnknownItem(String),
 }
 
-const VERBOSITY_ITEM_VARIANTS: usize = 6;
+const VERBOSITY_ITEM_VARIANTS: usize = 7;
 
 /// The logging verbosity to use in our various consoles.
 ///
@@ -62,6 +62,8 @@ pub enum VerbosityItem {
     /// on. Note that we'll still print them if we hit a condition where we think they are
     /// relevant, such as zero open spans
     Stats,
+    /// Some commands print a success message to stderr when they succeed
+    Success,
     // ** update VERBOSITY_ITEM_VARIANTS const if more items are added **
 }
 
@@ -69,7 +71,7 @@ impl VerbosityLevel {
     fn items(self) -> HashSet<VerbosityItem> {
         let items = match self {
             Self::Quiet => vec![],
-            Self::Default => vec![VerbosityItem::Status],
+            Self::Default => vec![VerbosityItem::Status, VerbosityItem::Success],
             Self::Verbose => vec![
                 VerbosityItem::FullFailedCommand,
                 VerbosityItem::Actions,
@@ -119,6 +121,7 @@ impl VerbosityItem {
             "actions" => Self::Actions,
             "status" => Self::Status,
             "stats" => Self::Stats,
+            "success" => Self::Success,
             _ => return Err(VerbosityError::UnknownItem(value.to_owned()).into()),
         };
         Ok(item)
@@ -196,6 +199,11 @@ impl Verbosity {
     pub fn always_print_stats_in_status(self) -> bool {
         self.has(VerbosityItem::Stats)
     }
+
+    /// For commands that might do this, whether a message should be printed when the command succeeds.
+    pub fn print_success_message(self) -> bool {
+        self.has(VerbosityItem::Success)
+    }
 }
 
 impl Default for Verbosity {
@@ -212,6 +220,7 @@ mod tests {
     fn test_quiet_with_items() {
         let verbosity = Verbosity::try_from_cli("stats,stderr").unwrap();
         assert!(!verbosity.print_status());
+        assert!(!verbosity.print_success_message());
         assert!(!verbosity.print_failure_full_command());
         assert!(verbosity.always_print_stats_in_status());
         assert!(!verbosity.print_all_actions());
@@ -223,6 +232,7 @@ mod tests {
     fn test_default_with_stderr() {
         let verbosity = Verbosity::try_from_cli("1,stderr").unwrap();
         assert!(verbosity.print_status());
+        assert!(verbosity.print_success_message());
         assert!(!verbosity.print_failure_full_command());
         assert!(!verbosity.always_print_stats_in_status());
         assert!(!verbosity.print_all_actions());
@@ -234,6 +244,7 @@ mod tests {
     fn test_verbose() {
         let verbosity = Verbosity::try_from_cli("2").unwrap();
         assert!(verbosity.print_status());
+        assert!(verbosity.print_success_message());
         assert!(verbosity.print_failure_full_command());
         assert!(verbosity.always_print_stats_in_status());
         assert!(verbosity.print_all_actions());
@@ -257,6 +268,7 @@ mod tests {
     fn test_default() {
         let verbosity = Verbosity::default();
         assert!(verbosity.print_status());
+        assert!(verbosity.print_success_message());
         assert!(!verbosity.print_failure_full_command());
         assert!(!verbosity.always_print_stats_in_status());
         assert!(!verbosity.print_all_actions());
