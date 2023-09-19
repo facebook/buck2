@@ -61,6 +61,7 @@ const manualSidebar = [
       'concepts/target_pattern',
       'concepts/visibility',
       'concepts/daemon',
+      'concepts/buckconfig',
       'concepts/glossary',
     ],
   },

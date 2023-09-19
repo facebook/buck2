@@ -6,7 +6,7 @@ toc_max_heading_level: 4
 
 #### .buckconfig
 
-The root of your [project](#project) must contain a configuration file named `.buckconfig`. Before executing, Buck2 reads this file to incorporate specified customizations. For more information, refer to the [Legacy docs](https://buck2.build/docs/legacy/files-and-directories/dot-buckconfig).
+The root of your [project](#project) must contain a configuration file named `.buckconfig`. Before executing, Buck2 reads this file to incorporate specified customizations. See [.buckconfig](buckconfig.md) for more info.
 
 #### Action
 
