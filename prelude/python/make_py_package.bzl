@@ -255,9 +255,7 @@ def _make_py_package_impl(
     output = ctx.actions.declare_output("{}{}".format(name, python_toolchain.pex_extension))
 
     bootstrap_args = _pex_bootstrap_args(
-        python_toolchain.interpreter,
-        None,
-        python_toolchain.host_interpreter,
+        python_toolchain,
         main,
         output,
         shared_libraries,
@@ -345,9 +343,7 @@ def _preload_libraries_args(ctx: AnalysisContext, shared_libraries: dict[str, (L
     return cmd_args(preload_libraries_path, format = "@{}")
 
 def _pex_bootstrap_args(
-        python_interpreter: ArgLike,
-        python_interpreter_flags: [None, str],
-        python_host_interpreter: ArgLike,
+        toolchain: PythonToolchainInfo,
         main: EntryPoint,
         output: Artifact,
         shared_libraries: dict[str, (LinkedObject, bool)],
@@ -358,16 +354,14 @@ def _pex_bootstrap_args(
     cmd.add(preload_libraries)
     cmd.add([
         "--python",
-        python_interpreter,
+        toolchain.interpreter,
         "--host-python",
-        python_host_interpreter,
+        toolchain.host_interpreter,
     ])
     if main[0] == EntryPointKind("module"):
         cmd.add(["--entry-point", main[1]])
     else:
         cmd.add(["--main-function", main[1]])
-    if python_interpreter_flags:
-        cmd.add("--python-interpreter-flags", python_interpreter_flags)
     if symlink_tree_path != None:
         cmd.add(cmd_args(["--modules-dir", symlink_tree_path]).ignore_artifacts())
 
