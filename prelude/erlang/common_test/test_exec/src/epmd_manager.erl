@@ -35,13 +35,19 @@ init([TestEnv]) ->
     {ok, #{}, {continue, {start_epmd, TestEnv}}}.
 
 handle_continue({start_epmd, #test_env{output_dir = OutputDir} = TestEnv}, _State) ->
-    EpmdOutPath = get_epmd_out_path(OutputDir),
-    case start_epmd(EpmdOutPath) of
-        {ok, Port, PortEpmd, LogHandle} ->
+    case application:get_env(text_exec, global_epmd_port) of
+        undefined ->
+            EpmdOutPath = get_epmd_out_path(OutputDir),
+            case start_epmd(EpmdOutPath) of
+                {ok, Port, PortEpmd, LogHandle} ->
+                    {ok, _Pid} = test_exec_sup:start_ct_runner(TestEnv, Port),
+                    {noreply, #{epmd_port => PortEpmd, log_handle => LogHandle, global_epmd => false}};
+                Error ->
+                    {stop, {epmd_start_failed, Error}, #{}}
+            end;
+        {ok, Port} ->
             {ok, _Pid} = test_exec_sup:start_ct_runner(TestEnv, Port),
-            {noreply, #{epmd_port => PortEpmd, log_handle => LogHandle}};
-        Error ->
-            {stop, {epmd_start_failed, Error}, #{}}
+            {noreply, #{epmd_port => Port, log_handle => undefined, global_epmd => true}}
     end.
 
 handle_cast(_Request, State) -> {ok, State}.
@@ -60,7 +66,7 @@ handle_info({PortEpmd, {data, Data}}, #{epmd_port := PortEpmd, log_handle := Log
 handle_info(_Info, State) ->
     {noreply, State}.
 
-terminate(_Reason, #{epmd_port := EpmdPort}) ->
+terminate(_Reason, #{epmd_port := EpmdPort, global_epmd := false}) ->
     test_exec:kill_process(EpmdPort);
 terminate(_Reason, _State) ->
     ok.
