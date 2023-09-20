@@ -27,7 +27,6 @@ use dupe::Dupe;
 use either::Either;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::Serialize;
 use serde::Serializer;
@@ -757,7 +756,7 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
         let options = this.borrow.options_mut();
         // Validate that regex is valid
-        Lazy::<anyhow::Error, regex::Regex>::new(Regex::new(pattern.as_str())?);
+        Regex::new(pattern.as_str())?;
         if let Some(replacements) = &mut options.replacements {
             replacements.push((pattern, replacement));
         } else {
