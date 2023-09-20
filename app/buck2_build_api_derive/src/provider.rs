@@ -11,6 +11,7 @@ use std::collections::HashMap;
 
 use convert_case::Case;
 use convert_case::Casing;
+use gazebo::prelude::*;
 use quote::format_ident;
 use quote::quote;
 use quote::ToTokens;
@@ -134,7 +135,7 @@ impl ProviderCodegen {
     }
 
     fn field_names(&self) -> syn::Result<Vec<syn::Ident>> {
-        Ok(self.fields()?.into_iter().map(|f| f.name).collect())
+        Ok(self.fields()?.into_map(|f| f.name))
     }
 
     /// Parse the "doc" attribute and return a tokenstream that is either None if "doc" is not
