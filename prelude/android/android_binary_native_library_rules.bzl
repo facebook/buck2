@@ -5,6 +5,9 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# no support for "regex" type
+# @starlark-rust: allow_string_literals_in_type_expr
+
 load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//android:android_providers.bzl",
@@ -17,15 +20,42 @@ load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_PRIMARY_PLATFORM", "CPU_FILTER_TO_ABI_DIRECTORY")
 load("@prelude//android:util.bzl", "EnhancementContext")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module", "get_apk_module_graph_info", "is_root_module")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load(
+    "@prelude//cxx:link.bzl",
+    "cxx_link_shared_library",
+)
+load("@prelude//cxx:link_types.bzl", "link_options")
+load("@prelude//java:java_library.bzl", "compile_to_jar")  # @unused
+load("@prelude//java:java_providers.bzl", "JavaClasspathEntry", "JavaLibraryInfo", "derive_compiling_deps")  # @unused
+load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
+load(
+    "@prelude//linking:link_info.bzl",
+    "LibOutputStyle",
+    "LinkArgs",
+    "LinkInfo",
+    "Linkage",
+    "SharedLibLinkable",
+    "set_link_info_link_whole",
+    "wrap_link_info",
+)
+load(
+    "@prelude//linking:linkable_graph.bzl",
+    "LinkableGraph",  # @unused Used as a type
+    "LinkableNode",  # @unused Used as a type
+)
 load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibrary",  # @unused Used as a type
-    "SharedLibraryInfo",
+    "SharedLibraryInfo",  # @unused Used as a type
+    "get_strip_non_global_flags",
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
+load("@prelude//linking:strip.bzl", "strip_object")
+load("@prelude//utils:graph_utils.bzl", "breadth_first_traversal_by", "post_order_traversal", "topo_sort", "topo_sort_by")
 load("@prelude//utils:set.bzl", "set_type")  # @unused Used as a type
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:utils.bzl", "dedupe_by_value", "expect")
 
 # Native libraries on Android are built for a particular Application Binary Interface (ABI). We
 # package native libraries for one (or more, for multi-arch builds) ABIs into an Android APK.
@@ -114,13 +144,109 @@ def get_android_binary_native_library_info(
     dynamic_inputs = [fake_input]
     if apk_module_graph_file:
         dynamic_inputs.append(apk_module_graph_file)
+    native_merge_debug = None
+    generated_java_code = []
+
+    glue_linkables = None
+    if getattr(ctx.attrs, "native_library_merge_glue", None):
+        glue_linkables = {}
+        for platform, glue in ctx.attrs.native_library_merge_glue.items():
+            glue_link_graph = glue.get(LinkableGraph)
+            expect(glue_link_graph != None, "native_library_merge_glue (`{}`) should be a linkable target", glue.label)
+            glue_linkable = glue_link_graph.nodes.value.linkable
+            expect(glue_linkable != None, "native_library_merge_glue (`{}`) should be a linkable target", glue.label)
+            expect(glue_linkable.preferred_linkage == Linkage("static"), "buck2 currently only supports preferred_linkage='static' native_library_merge_glue")
+            glue_linkables[platform] = (glue.label, glue_linkable.link_infos[LibOutputStyle("pic_archive")].default)
+
+    flattened_linkable_graphs_by_platform = {}
+    has_native_merging = getattr(ctx.attrs, "native_library_merge_map", False)
+    if has_native_merging:
+        native_merge_debug = ctx.actions.declare_output("native_merge.debug")
+        dynamic_outputs.append(native_merge_debug)
+        flattened_linkable_graphs_by_platform = {platform: {} for platform in platform_to_original_native_linkables.keys()}
+
+    mergemap_gencode_jar = None
+    if has_native_merging and ctx.attrs.native_library_merge_code_generator:
+        mergemap_gencode_jar = ctx.actions.declare_output("MergedLibraryMapping.jar")
+        dynamic_outputs.append(mergemap_gencode_jar)
+        library_output = JavaClasspathEntry(
+            full_library = mergemap_gencode_jar,
+            abi = mergemap_gencode_jar,
+            abi_as_dir = None,
+            required_for_source_only_abi = False,
+        )
+        generated_java_code.append(
+            JavaLibraryInfo(
+                compiling_deps = derive_compiling_deps(ctx.actions, library_output, []),
+                library_output = library_output,
+                output_for_classpath_macro = library_output.full_library,
+            ),
+        )
 
     def dynamic_native_libs_info(ctx: AnalysisContext, artifacts, outputs):
         get_module_from_target = all_targets_in_root_module
         if apk_module_graph_file:
             get_module_from_target = get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts).target_to_module_mapping_function
 
-        final_platform_to_native_linkables = platform_to_original_native_linkables
+        if has_native_merging:
+            native_library_merge_debug_outputs = {}
+
+            # When changing this dynamic_output, the workflow is a lot better if you compute the module graph once and
+            # then set it as the binary's precomputed_apk_module_graph attr.
+            if ctx.attrs.native_library_merge_sequence:
+                fail("unreachable, has_native_merging only checks merge map right now")
+            elif ctx.attrs.native_library_merge_map:
+                merge_map_by_platform = {}
+                for platform, linkable_nodes in flattened_linkable_graphs_by_platform.items():
+                    merge_map = merge_map_by_platform.setdefault(platform, {})
+                    for target, _node in linkable_nodes.items():
+                        raw_target = str(target.raw_target())
+                        merge_result = None
+                        for merge_lib, patterns in ctx.attrs.native_library_merge_map.items():
+                            if merge_result:
+                                break
+                            for pattern in patterns:
+                                if pattern.match(raw_target):
+                                    merge_result = merge_lib
+                                    break
+                        if merge_result:
+                            merge_map[str(target)] = merge_result
+                merge_map = ctx.actions.write_json("merge.map", merge_map_by_platform)
+                native_library_merge_debug_outputs["merge_map_output"] = merge_map
+            else:
+                fail("unreachable")
+
+            merged_linkables = _get_merged_linkables(
+                ctx,
+                {
+                    platform: LinkableMergeData(
+                        glue_linkable = glue_linkables[platform],
+                        default_shared_libs = platform_to_original_native_linkables[platform],
+                        linkable_nodes = flattened_linkable_graphs_by_platform[platform],
+                        merge_map = merge_map_by_platform[platform],
+                        apk_module_graph = get_module_from_target,
+                    )
+                    for platform in platform_to_original_native_linkables
+                },
+            )
+            debug_data_json = ctx.actions.write_json("native_merge_debug.json", merged_linkables.debug_info)
+            native_library_merge_debug_outputs["native_merge_debug.json"] = debug_data_json
+            if mergemap_gencode_jar:
+                merged_library_map = write_merged_library_map(ctx, merged_linkables)
+                mergemap_gencode = run_mergemap_codegen(ctx, merged_library_map)
+                compile_to_jar(ctx, [mergemap_gencode], output = outputs[mergemap_gencode_jar])
+                native_library_merge_debug_outputs["NativeLibraryMergeGeneratedCode.java"] = mergemap_gencode
+                native_library_merge_debug_outputs["merged_library_map.txt"] = merged_library_map
+                native_library_merge_debug_outputs["mergemap_gencode.jar"] = mergemap_gencode_jar
+
+            ctx.actions.symlinked_dir(outputs[native_merge_debug], native_library_merge_debug_outputs)
+
+            final_platform_to_native_linkables = {
+                platform: {soname: d.lib for soname, d in merged_shared_libs.items()}
+                for platform, merged_shared_libs in merged_linkables.shared_libs_by_platform.items()
+            }
+        else:
+            final_platform_to_native_linkables = platform_to_original_native_linkables
 
         unstripped_libs = {}
         for platform, libs in final_platform_to_native_linkables.items():
@@ -157,6 +283,9 @@ def get_android_binary_native_library_info(
     all_native_libs = ctx.actions.symlinked_dir("debug_all_native_libs", {"others": native_libs, "primary": native_libs_always_in_primary_apk})
 
     enhance_ctx.debug_output("debug_native_libs", all_native_libs)
+    if native_merge_debug:
+        enhance_ctx.debug_output("native_merge_debug", native_merge_debug)
+
     enhance_ctx.debug_output("unstripped_native_libraries", unstripped_native_libraries, other_outputs = [unstripped_native_libraries_files])
     enhance_ctx.debug_output("unstripped_native_libraries_json", unstripped_native_libraries_json, other_outputs = [unstripped_native_libraries_files])
 
@@ -168,7 +297,7 @@ def get_android_binary_native_library_info(
         exopackage_info = exopackage_info,
         root_module_native_lib_assets = [native_lib_assets_for_primary_apk, stripped_native_linkable_assets_for_primary_apk, root_module_metadata_assets, root_module_compressed_lib_assets],
         non_root_module_native_lib_assets = [non_root_module_metadata_assets, non_root_module_compressed_lib_assets],
-        generated_java_code = [],
+        generated_java_code = generated_java_code,
     )
 
 # We could just return two artifacts of libs (one for the primary APK, one which can go
@@ -469,3 +598,524 @@ def get_native_linkables_by_default(ctx: AnalysisContext, _platform: str, deps: 
         for so_name, shared_lib in traverse_shared_library_info(shared_library_info).items()
         if not (shared_libraries_to_exclude and shared_libraries_to_exclude.contains(shared_lib.label.raw_target()))
     }
+
+# Debugging info about the linkables merge process. All of this will be written in one of the outputs of
+# the `[native_merge_debug]` subtarget.
+MergedLinkablesDebugInfo = record(
+    unmerged_statics = list[str],
+    group_debug = dict[str, typing.Any],
+    with_default_soname = list[typing.Any],
+    missing_default_solibs = list[Label],
+)
+
+# As shared lib output of the linkables merge process. This is not necessarily an actually merged node (there
+# may be just one constituent)
+MergedSharedLibrary = record(
+    soname = str,
+    lib = SharedLibrary.type,
+    apk_module = str,
+    # this only includes solib constituents that are included in the android merge map
+    solib_constituents = list[str],
+    is_actually_merged = bool,
+)
+
+# Output of the linkables merge process, the list of shared libs for each platform and
+# debug information about the merge process itself.
+MergedLinkables = record(
+    # dict[platform, dict[final_soname, MergedSharedLibrary]]
+    shared_libs_by_platform = dict[str, dict[str, MergedSharedLibrary]],
+    debug_info = dict[str, MergedLinkablesDebugInfo.type],
+)
+
+# Input data to the linkables merge process
+LinkableMergeData = record(
+    glue_linkable = [(Label, LinkInfo), None],
+    default_shared_libs = dict[str, SharedLibrary],
+    linkable_nodes = dict[Label, LinkableNode],
+    merge_map = dict[str, [str, None]],
+    apk_module_graph = typing.Callable,
+)
+
+# information about a link group derived from the merge mapping
+LinkGroupData = record(
+    group_name = [str, Label],
+    constituents = list[Label],
+    apk_module = str,
+)
+
+# Represents a node in the final merged linkable map. Most of these will be shared libraries, either prebuilt shared libs or
+# libraries that are created below for a node in the link_groups_graph. The exception is for non-merged static-only nodes, in
+# that case this
+LinkGroupLinkableNode = record(
+    # The LinkInfo to add to the link line for a node that links against this.
+    link = LinkInfo,
+    deps = list[str],
+    exported_deps = list[str],
+    shared_lib = [SharedLibrary, None],
+
+    # linker flags to be exported by any node that links against this. This can only be non-None for non-merged static only nodes (as we don't
+    # propagate exported linker flags through transitive shared lib deps).
+    exported_linker_flags = [(list[typing.Any], list[typing.Any]), None],
+)
+
+def write_merged_library_map(ctx: AnalysisContext, merged_linkables: MergedLinkables) -> Artifact:
+    """
+    Writes the "merged library map". This is a map of original soname to final soname of the form:
+
+    ```
+    original_soname1 final_soname1
+    original_soname2 final_soname1
+    original_soname3 final_soname2
+    ...
+    ```
+    """
+    solib_map = None
+    for _, shared_libs in merged_linkables.shared_libs_by_platform.items():
+        platform_solib_map = {}
+
+        # we sort these just so that they will be deterministic when we compare across different platforms
+        for soname in sorted(shared_libs.keys()):
+            merged_shared_lib = shared_libs[soname]
+            if merged_shared_lib.is_actually_merged:
+                platform_solib_map[soname] = sorted(merged_shared_lib.solib_constituents)
+        if solib_map:
+            if solib_map != platform_solib_map:
+                fail("DO NOT COMMIT")
+        else:
+            solib_map = platform_solib_map
+
+    lines = []
+    for final_soname, sonames in solib_map.items():
+        for original_soname in sonames:
+            lines.append("{} {}".format(original_soname, final_soname))
+
+    # we wanted it sorted by original_soname
+    return ctx.actions.write("merged_library_map.txt", sorted(lines))
+
+def run_mergemap_codegen(ctx: AnalysisContext, merged_library_map: Artifact) -> Artifact:
+    mapping_java = ctx.actions.declare_output("MergedLibraryMapping.java")
+    args = cmd_args(ctx.attrs.native_library_merge_code_generator[RunInfo])
+    args.add([merged_library_map, mapping_java.as_output()])
+    ctx.actions.run(args, category = "mergemap_codegen")
+    return mapping_java
+
+def expect_dedupe(v):
+    # asserts that the input list is unique
+    o = dedupe_by_value(v)
+    expect(len(o) == len(v), "expected `{}` to be a list of unique items, but it wasn't. deduped list was `{}`.", v, o)
+    return v
+
+def _get_merged_linkables(
+        ctx: AnalysisContext,
+        merged_data_by_platform: dict[str, LinkableMergeData]) -> MergedLinkables:
+    """
+    This takes the merge mapping and constructs the resulting merged shared libraries.
+
+    This is similar to link_groups used by ios and cxx_binary, but is sufficiently different that it needs its
+    own implementation. Potentially we could find a generalization of them that covers both.
+
+    An overview of how this works:
+
+    The input includes a mapping of target -> link group. This mapping does not need to be comprehensive, a target
+    not in that mapping is assigned to its own link group. The input also contains a mapping of target -> apk module,
+    and this must have a mapping for every target. A link group cannot contain targets in different apk modules.
+
+    Once we have the mapping of link groups, we construct an analog of the LinkableGraph on the new link group graph.
+    This new graph consists of LinkGroupLinkableNodes (in some sense, the merged equivalent of LinkableNode).
+    We traverse this graph from the bottom up, producing link info for each node.
+
+    First, there are some special cases:
+
+    If a target is "not actually merged" (i.e. it's in a link group where it is the only constituent) then it may get
+    special handling if:
+        (1) it is lib with static preferred linkage or it contains no linkables (i.e. no code)
+        (2) a prebuild shared lib
+    For both these cases we will produce a LinkGroupLinkableNode that basically reuses their original information. For
+    every other case we will produce a node that represents a shared library that we define.
+
+    When constructing a LinkableNode for a link group, we will be traversing sort of a hybrid graph, as we will traverse
+    the primary constituents of the link group itself in the original LinkableGraph, but dependencies outside of the link
+    group will be mapped to the corresponding LinkGroupLinkableNode (and potentially then further traversing that node's
+    deps).
+
+    The merge mapping input determines the "primary constituents" of each link group. The "real constituents" of that link
+    group will include all those primary constituents, all of the transitive non-shared lib deps in the linkgroup linkable
+    graph, and then all the shared lib dependencies of all of them (that is describing a traversal similar to the
+    normal link strategies).
+
+    There are some subtle differences in the handling of primary constituents and the statically linked non-primary
+    constituents:
+    1. all primary constituents are public nodes, non primary ones are only public if they are transitively exported_deps
+    of a primary constituent. A public node is linked via "link whole".
+    2. linker_flags of primary constituents are included in the link, for non primary they are not
+    """
+    debug_info_by_platform = {}
+    shared_libs_by_platform = {}
+    for platform, merge_data in merged_data_by_platform.items():
+        debug_info = debug_info_by_platform.setdefault(platform, MergedLinkablesDebugInfo(
+            unmerged_statics = [],
+            group_debug = {},
+            with_default_soname = [],
+            missing_default_solibs = [],
+        ))
+        linkable_nodes = merge_data.linkable_nodes
+
+        linkable_nodes_graph = {k: dedupe(v.deps + v.exported_deps) for k, v in linkable_nodes.items()}
+        topo_sorted_targets = topo_sort(linkable_nodes_graph)
+
+        # first we collect basic information about each link group, this will populate the fields in LinkGroupData and
+        # map target labels to their link group name.
+        link_groups = {}
+        target_to_link_group = {}
+
+        for target in topo_sorted_targets:
+            expect(target not in target_to_link_group, "prelude internal error, target seen twice?")
+            target_apk_module = merge_data.apk_module_graph(str(target.raw_target()))
+
+            link_group = merge_data.merge_map[str(target)]
+            if not link_group:
+                link_group = str(target)
+                link_groups[link_group] = LinkGroupData(
+                    group_name = target,
+                    constituents = [target],
+                    apk_module = target_apk_module,
+                )
+            elif link_group in link_groups:
+                link_group_data = link_groups[link_group]
+
+                # TODO(cjhopman): buck1 provides a more useful error here in that it lists the module mappings for all
+                # constituents of the merge group (rather than just one conflict). That allows users to resolve all the
+                # issues at once. With merge sequence merging (the replacement for merge map), this error shouldn't ever be hit
+                # and so maybe it's not necessary to improve it.
+                expect(
+                    link_group_data.apk_module == target_apk_module,
+                    "Native library merge of {} has inconsistent application module mappings:\n{} is in module {}\n{} is in module {}",
+                    link_group_data.group_name,
+                    target,
+                    target_apk_module,
+                    link_group_data.constituents[0],
+                    link_group_data.apk_module,
+                )
+                link_groups[link_group].constituents.append(target)
+            else:
+                link_groups[link_group] = LinkGroupData(
+                    group_name = link_group,
+                    constituents = [target],
+                    apk_module = target_apk_module,
+                )
+
+            target_to_link_group[target] = link_group
+
+        # Now that all targets are assigned to a link group, build up the link group graph.
+        link_groups_graph_builder = {}
+        for target in topo_sorted_targets:
+            target_group = target_to_link_group[target]
+            group_deps = link_groups_graph_builder.setdefault(target_group, {})
+            for dep in linkable_nodes_graph[target]:
+                dep_group = target_to_link_group[dep]
+                if target_group != dep_group:
+                    group_deps[dep_group] = True
+        link_groups_graph = {k: list(v.keys()) for k, v in link_groups_graph_builder.items()}
+
+        archive_output_style = LibOutputStyle("pic_archive")
+        shlib_output_style = LibOutputStyle("shared_lib")
+
+        cxx_toolchain = ctx.attrs._cxx_toolchain[platform][CxxToolchainInfo]
+
+        link_group_linkable_nodes = {}
+        group_shared_libs = {}
+        included_default_solibs = {}
+
+        # Now we will traverse from the leaves up the graph (the link groups graph). As we traverse, we will produce
+        # a link group linkablenode for each group.
+        for group in post_order_traversal(link_groups_graph):
+            group_data = link_groups[group]
+            is_actually_merged = len(group_data.constituents) > 1
+            can_be_asset = True
+
+            if not is_actually_merged:
+                target = group_data.constituents[0]
+                node_data = linkable_nodes[target]
+                can_be_asset = node_data.can_be_asset
+
+                def has_linkable(node_data: LinkableNode) -> bool:
+                    for _, output in node_data.link_infos.items():
+                        if output.default.linkables:
+                            return True
+                    return False
+
+                if node_data.preferred_linkage == Linkage("static") or not has_linkable(node_data):
+                    debug_info.unmerged_statics.append(target)
+                    link_group_linkable_nodes[group] = LinkGroupLinkableNode(
+                        link = node_data.link_infos[archive_output_style].default,
+                        deps = dedupe_by_value([target_to_link_group[t] for t in node_data.deps]),
+                        exported_deps = dedupe_by_value([target_to_link_group[t] for t in node_data.exported_deps]),
+                        shared_lib = None,
+                        exported_linker_flags = (node_data.linker_flags.exported_flags, node_data.linker_flags.exported_post_flags),
+                    )
+                    continue
+
+                # We can't merge a prebuilt shared (that has no archive) and must use it's original info.
+                # Ideally this would probably be structured info on the linkablenode.
+                def is_prebuilt_shared(node_data: LinkableNode) -> bool:
+                    shared_link_info = node_data.link_infos.get(shlib_output_style, None)
+                    if not shared_link_info or not shared_link_info.default.linkables:
+                        return False
+                    pic_archive_info = node_data.link_infos.get(archive_output_style, None)
+                    if not pic_archive_info or not pic_archive_info.default.linkables:
+                        return True
+                    return False
+
+                if is_prebuilt_shared(node_data):
+                    expect(
+                        len(node_data.shared_libs) == 1,
+                        "unexpected shared_libs length for somerge of {} ({})".format(target, node_data.shared_libs),
+                    )
+                    expect(not node_data.deps, "prebuilt shared libs with deps not supported by somerge")
+                    expect(not node_data.exported_deps, "prebuilt shared libs with exported_deps not supported by somerge")
+                    soname, shlib = node_data.shared_libs.items()[0]
+                    shared_lib = SharedLibrary(
+                        lib = shlib,
+                        stripped_lib = strip_lib(ctx, cxx_toolchain, shlib.output),
+                        link_args = None,
+                        shlib_deps = None,
+                        can_be_asset = can_be_asset,
+                        for_primary_apk = False,
+                        soname = soname,
+                        label = target,
+                    )
+
+                    link_group_linkable_nodes[group] = LinkGroupLinkableNode(
+                        link = node_data.link_infos[shlib_output_style].default,
+                        deps = [],
+                        exported_deps = [],
+                        shared_lib = shared_lib,
+                        # exported linker flags for shared libs are in their linkinfo itself and are not exported from dependents
+                        exported_linker_flags = None,
+                    )
+                    group_shared_libs[soname] = MergedSharedLibrary(
+                        soname = soname,
+                        lib = shared_lib,
+                        apk_module = group_data.apk_module,
+                        solib_constituents = [],
+                        is_actually_merged = False,
+                    )
+                    continue
+
+            # Keys in the current group stay as a Label, deps get converted to the group key.
+            def convert_to_merged_graph_deps(deps: list[Label], curr_group: str) -> list[[Label, str]]:
+                converted = []
+                for dep in deps:
+                    dep_group = target_to_link_group[dep]
+                    if dep_group == curr_group:
+                        converted.append(dep)
+                    elif dep_group:
+                        converted.append(dep_group)
+                return dedupe_by_value(converted)
+
+            # For the current group, this will traverse the original linkable graph to find the LinkableNodes for
+            # the constituents of the group and traverses the link_group graph for non-constituent deps.
+            def get_merged_graph_traversal(curr_group: str, exported_only: bool) -> typing.Callable:
+                def traversal(key: [Label, str]) -> list[[Label, str]]:
+                    if eval_type(Label).matches(key):
+                        expect(target_to_link_group[key] == curr_group)
+                        node = linkable_nodes[key]
+                        if exported_only:
+                            return convert_to_merged_graph_deps(node.exported_deps, curr_group)
+                        return convert_to_merged_graph_deps(node.deps + node.exported_deps, curr_group)
+                    else:
+                        link_group_node = link_group_linkable_nodes[key]
+                        if exported_only:
+                            return link_group_node.exported_deps
+                        return dedupe_by_value(link_group_node.deps + link_group_node.exported_deps)
+
+                # It's easy for us to accidentally get this merged traversal wrong, so this provides one guardrail
+                def checked_traversal(key: [Label, str]) -> list[[Label, str]]:
+                    return expect_dedupe(traversal(key))
+
+                return checked_traversal
+
+            # note that this will possibly contain shared lib dependencies which aren't really public. that's handled below.
+            public_node_roots = group_data.constituents
+
+            # this is a hybrid of buck1 somerge behavior and what we do for link groups.
+            # like link groups, we expose link group by setting link_whole on its link infos (this matches buck1 for
+            # primary constituents, but not for other constituents).
+            # like buck1, we treat all primary constituents as public node roots (as opposed to link groups that only treats
+            # preferred_linkage=shared and edges with an outbound dep as public roots), and then traverse exported deps from
+            # those roots to find all public nodes.
+            # the main thing to note from this is that for non-primary constituents that are identified as public, we will
+            # use link_whole whereas buck1 will make dependents link against them directly
+            exported_public_nodes = {
+                d: True
+                for d in breadth_first_traversal_by(
+                    None,
+                    public_node_roots,
+                    get_merged_graph_traversal(group, True),
+                )
+            }
+
+            exported_linker_flags = []
+            exported_linker_post_flags = []
+            links = []
+            shared_lib_deps = []
+            real_constituents = []
+
+            if is_actually_merged and merge_data.glue_linkable:
+                real_constituents.append(merge_data.glue_linkable[0])
+                links.append(set_link_info_link_whole(merge_data.glue_linkable[1]))
+
+            solib_constituents = []
+            link_group_deps = []
+            ordered_group_constituents = topo_sort_by(group_data.constituents, get_merged_graph_traversal(group, False))
+            representative_label = ordered_group_constituents[0]
+            for key in ordered_group_constituents:
+                real_constituents.append(key)
+                if eval_type(Label).matches(key):
+                    # This is handling targets within this link group
+                    expect(target_to_link_group[key] == group)
+                    node = linkable_nodes[key]
+
+                    default_solibs = list(node.shared_libs.keys())
+                    for soname in default_solibs:
+                        included_default_solibs[soname] = True
+                        if node.include_in_android_mergemap:
+                            solib_constituents.append(soname)
+
+                    node = linkable_nodes[key]
+                    link_info = node.link_infos[archive_output_style].default
+
+                    # the propagated link info should already be wrapped with exported flags.
+                    link_info = wrap_link_info(
+                        link_info,
+                        pre_flags = node.linker_flags.flags,
+                        post_flags = node.linker_flags.post_flags,
+                    )
+                    exported_linker_flags.extend(node.linker_flags.exported_flags)
+                    exported_linker_post_flags.extend(node.linker_flags.exported_post_flags)
+                    if key in exported_public_nodes:
+                        link_info = set_link_info_link_whole(link_info)
+                else:
+                    # This is cross-link-group deps. We add information to the link line from the LinkGroupLinkableNode of the dep.
+                    link_group_node = link_group_linkable_nodes[key]
+                    link_info = link_group_node.link
+                    if link_group_node.shared_lib:
+                        shared_lib_deps.append(link_group_node.shared_lib.soname)
+                        link_group_deps.append(key)
+                    elif key in exported_public_nodes:
+                        link_info = set_link_info_link_whole(link_info)
+
+                        if link_group_node.exported_linker_flags:
+                            exported_linker_flags.extend(link_group_node.exported_linker_flags[0])
+                            exported_linker_post_flags.extend(link_group_node.exported_linker_flags[1])
+
+                links.append(link_info)
+
+            soname = group
+            if not is_actually_merged:
+                soname = linkable_nodes[group_data.constituents[0]].default_soname
+                debug_info.with_default_soname.append((soname, group_data.constituents[0]))
+
+            debug_info.group_debug.setdefault(
+                group,
+                struct(
+                    soname = soname,
+                    merged = is_actually_merged,
+                    constituents = real_constituents,
+                    shlib_deps = shared_lib_deps,
+                    exported_public_nodes = exported_public_nodes,
+                    exported_linker_flags = exported_linker_flags,
+                    exported_linker_post_flags = exported_linker_post_flags,
+                ),
+            )
+
+            output_path = soname
+            if len(merged_data_by_platform) > 1:
+                output_path = platform + "/" + output_path
+            link_args = [LinkArgs(infos = links)]
+
+            shared_lib = create_shared_lib(
+                ctx,
+                output_path = output_path,
+                soname = soname,
+                link_args = link_args,
+                cxx_toolchain = cxx_toolchain,
+                shared_lib_deps = shared_lib_deps,
+                label = representative_label,
+                can_be_asset = can_be_asset,
+            )
+
+            link_group_linkable_nodes[group] = LinkGroupLinkableNode(
+                link = LinkInfo(
+                    name = soname,
+                    pre_flags = exported_linker_flags,
+                    linkables = [SharedLibLinkable(
+                        lib = shared_lib.lib.output,
+                    )],
+                    post_flags = exported_linker_post_flags,
+                ),
+                deps = link_group_deps,
+                exported_deps = [],
+                shared_lib = shared_lib,
+                # exported linker flags for shared libs are in their linkinfo itself and are not exported from dependents
+                exported_linker_flags = None,
+            )
+            group_shared_libs[soname] = MergedSharedLibrary(
+                soname = soname,
+                lib = shared_lib,
+                apk_module = group_data.apk_module,
+                solib_constituents = solib_constituents,
+                is_actually_merged = is_actually_merged,
+            )
+
+        shared_libs_by_platform[platform] = group_shared_libs
+        debug_info.missing_default_solibs.extend([d for d in merge_data.default_shared_libs if d not in included_default_solibs])
+
+    return MergedLinkables(
+        shared_libs_by_platform = shared_libs_by_platform,
+        debug_info = debug_info_by_platform,
+    )
+
+def strip_lib(ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo, shlib: Artifact):
+    strip_flags = cmd_args(get_strip_non_global_flags(cxx_toolchain))
+    return strip_object(
+        ctx,
+        cxx_toolchain,
+        shlib,
+        strip_flags,
+    )
+
+def create_shared_lib(
+        ctx: AnalysisContext,
+        *,
+        output_path: str,
+        soname: str,
+        link_args: list[LinkArgs],
+        cxx_toolchain: CxxToolchainInfo,
+        shared_lib_deps: list[str],
+        label: Label,
+        can_be_asset: bool) -> SharedLibrary:
+    link_result = cxx_link_shared_library(
+        ctx = ctx,
+        output = output_path,
+        name = soname,
+        opts = link_options(
+            links = link_args,
+            link_execution_preference = LinkExecutionPreference("any"),
+            identifier = output_path,
+            strip = False,
+            cxx_toolchain = cxx_toolchain,
+        ),
+    )
+
+    shlib = link_result.linked_object
+    return SharedLibrary(
+        lib = shlib,
+        stripped_lib = strip_lib(ctx, cxx_toolchain, shlib.output),
+        shlib_deps = shared_lib_deps,
+        link_args = link_args,
+        can_be_asset = can_be_asset,
+        for_primary_apk = False,
+        soname = soname,
+        label = label,
+    )
