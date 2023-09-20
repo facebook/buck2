@@ -26,6 +26,7 @@ use buck2_util::thin_box::ThinBoxSlice;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::prelude::*;
+use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::Serialize;
 use serde::Serializer;
@@ -622,7 +623,7 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
             fn format(&self, mut arg: String) -> String {
                 for (pattern, replacement) in self.opts.replacements {
                     // We checked that regex is valid in replace_regex(), so unwrap is safe.
-                    let re = Regex::new(pattern.as_str()).unwrap();
+                    let re = Lazy::new(|| Regex::new(pattern.as_str()).unwrap());
                     match re.replace_all(&arg, replacement.as_str()) {
                         Cow::Borrowed(_) => {}
                         Cow::Owned(new) => arg = new,
