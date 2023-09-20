@@ -77,13 +77,6 @@ impl<'c> AqueryEnvironment<'c> {
 }
 
 #[async_trait]
-impl<'a> AsyncNodeLookup<ActionQueryNode> for AqueryEnvironment<'a> {
-    async fn get(&self, label: &ActionQueryNodeRef) -> anyhow::Result<ActionQueryNode> {
-        self.get_node(label).await
-    }
-}
-
-#[async_trait]
 impl<'c> QueryEnvironment for AqueryEnvironment<'c> {
     type Target = ActionQueryNode;
 
@@ -126,7 +119,15 @@ impl<'c> QueryEnvironment for AqueryEnvironment<'c> {
         // mixed graph of action nodes and tset nodes, we'd get closer to `O(n + e)` which in practice is much better
         // (hence the whole point of tsets). While we can't change the ActionQueryNode deps() function to not flatten
         // the tset, we aren't required to do these traversal's using that function.
-        async_depth_first_postorder_traversal(self, root.iter_names(), traversal_delegate).await
+        async_depth_first_postorder_traversal(
+            &AqueryNodeLookup {
+                roots: root,
+                env: self,
+            },
+            root.iter_names(),
+            traversal_delegate,
+        )
+        .await
     }
 
     async fn depth_limited_traversal(
@@ -136,10 +137,37 @@ impl<'c> QueryEnvironment for AqueryEnvironment<'c> {
         depth: u32,
     ) -> anyhow::Result<()> {
         // TODO(cjhopman): See above.
-        async_depth_limited_traversal(self, root.iter_names(), delegate, depth).await
+        async_depth_limited_traversal(
+            &AqueryNodeLookup {
+                roots: root,
+                env: self,
+            },
+            root.iter_names(),
+            delegate,
+            depth,
+        )
+        .await
     }
 
     async fn owner(&self, _paths: &FileSet) -> anyhow::Result<TargetSet<Self::Target>> {
         Err(QueryError::NotAvailableInContext("owner").into())
+    }
+}
+
+struct AqueryNodeLookup<'a, 'c> {
+    roots: &'a TargetSet<ActionQueryNode>,
+    env: &'a AqueryEnvironment<'c>,
+}
+
+#[async_trait]
+impl<'a, 'c> AsyncNodeLookup<ActionQueryNode> for AqueryNodeLookup<'a, 'c> {
+    async fn get(&self, label: &ActionQueryNodeRef) -> anyhow::Result<ActionQueryNode> {
+        // Lookup the node in `roots` first since `env.get_node` isn't capable of looking up
+        // analysis nodes, and while won't find new analysis nodes while doing a DFS, we might pass
+        // in roots that *are* analysis nodes.
+        if let Some(v) = self.roots.get(label) {
+            return Ok(v.clone());
+        }
+        self.env.get_node(label).await
     }
 }
