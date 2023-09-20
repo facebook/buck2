@@ -13,6 +13,7 @@ rust_protobuf_library(
     deps = [
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:serde",
+        "fbsource//third-party/rust:tonic",
         "//buck2/allocative/allocative:allocative",
     ],
 )

@@ -10,7 +10,6 @@ rust_protobuf_library(
     doctests = False,  # FIXME
     protos = glob(["proto/**/*.proto"]),
     deps = [
-        "fbsource//third-party/rust:prost",
         "fbsource//third-party/rust:prost-types",
         "fbsource//third-party/rust:tonic",
     ],

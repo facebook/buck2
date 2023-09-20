@@ -10,6 +10,9 @@ rust_protobuf_library(
     build_script = "build.rs",
     doctests = False,  # FIXME
     protos = ["worker.proto"],
+    deps = [
+        "fbsource//third-party/rust:tonic",
+    ],
 )
 
 grpc_library(

@@ -121,13 +121,12 @@ def rust_protobuf_library(
         srcs = srcs,
         doctests = doctests,
         env = {
-            # This is where tonic looks for generated .rs files
+            # This is where prost looks for generated .rs files
             "OUT_DIR": "$(location :{})".format(proto_name),
         },
         deps = [
             "fbsource//third-party/rust:prost",
             "fbsource//third-party/rust:prost-types",
-            "fbsource//third-party/rust:tonic",
         ] + (deps or []),
         test_deps = test_deps,
     )

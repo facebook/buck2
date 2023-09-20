@@ -15,6 +15,7 @@ rust_protobuf_library(
     deps = [
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:prost-types",
+        "fbsource//third-party/rust:tonic",
         "//buck2/app/buck2_data:buck2_data",
         "//buck2/gazebo/gazebo:gazebo",
     ],

@@ -14,6 +14,7 @@ rust_protobuf_library(
     protos = ["test.proto"],
     deps = [
         "fbsource//third-party/rust:prost-types",
+        "fbsource//third-party/rust:tonic",
         "//buck2/app/buck2_data:buck2_data",
     ],
 )

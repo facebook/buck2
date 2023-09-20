@@ -27,7 +27,7 @@ def rust_protobuf_library(
         srcs = [build_script],
         crate_root = build_script,
         deps = [
-            "//buck2/app/buck2_protoc_dev:buck2_protoc_dev",
+            "fbcode//buck2/app/buck2_protoc_dev:buck2_protoc_dev",
         ],
     )
 
@@ -54,12 +54,11 @@ def rust_protobuf_library(
         srcs = srcs,
         doctests = doctests,
         env = {
-            # This is where tonic looks for generated .rs files
+            # This is where prost looks for generated .rs files
             "OUT_DIR": "$(location :{})".format(proto_name),
         },
         deps = [
             "fbsource//third-party/rust:prost",
-            "fbsource//third-party/rust:tonic",
         ] + (deps or []),
         test_deps = test_deps,
     )
