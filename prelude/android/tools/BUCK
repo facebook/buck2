@@ -88,3 +88,10 @@ native.python_library(
     ],
     labels = ["buck2-only"],
 )
+
+native.python_binary(
+    name = "compute_merge_sequence",
+    main = "merge_sequence.py",
+    labels = ["buck2-only"],
+    visibility = ["PUBLIC"],
+)

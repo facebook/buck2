@@ -43,6 +43,7 @@ AndroidToolchainInfo = provider(
         "merge_android_resources": provider_field(typing.Any, default = None),
         "merge_android_resource_sources": provider_field(typing.Any, default = None),
         "merge_assets": provider_field(typing.Any, default = None),
+        "mergemap_tool": provider_field(typing.Any, default = None),
         "mini_aapt": provider_field(typing.Any, default = None),
         "native_libs_as_assets_metadata": provider_field(typing.Any, default = None),
         "optimized_proguard_config": provider_field(typing.Any, default = None),

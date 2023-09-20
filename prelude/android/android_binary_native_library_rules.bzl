@@ -43,6 +43,8 @@ load(
     "@prelude//linking:linkable_graph.bzl",
     "LinkableGraph",  # @unused Used as a type
     "LinkableNode",  # @unused Used as a type
+    "create_linkable_graph",
+    "get_linkable_graph_node_map_func",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -144,6 +146,8 @@ def get_android_binary_native_library_info(
     dynamic_inputs = [fake_input]
     if apk_module_graph_file:
         dynamic_inputs.append(apk_module_graph_file)
+    native_library_merge_map = None
+    native_library_merge_dir = None
     native_merge_debug = None
     generated_java_code = []
 
@@ -159,10 +163,40 @@ def get_android_binary_native_library_info(
             glue_linkables[platform] = (glue.label, glue_linkable.link_infos[LibOutputStyle("pic_archive")].default)
 
     flattened_linkable_graphs_by_platform = {}
-    has_native_merging = getattr(ctx.attrs, "native_library_merge_map", False)
+    native_library_merge_sequence = getattr(ctx.attrs, "native_library_merge_sequence", None)
+    has_native_merging = native_library_merge_sequence or getattr(ctx.attrs, "native_library_merge_map", None)
+
     if has_native_merging:
         native_merge_debug = ctx.actions.declare_output("native_merge.debug")
         dynamic_outputs.append(native_merge_debug)
+
+    if native_library_merge_sequence:
+        # We serialize info about the linkable graph and the apk module mapping and pass that to an
+        # external subcommand to apply a merge sequence algorithm and return us the merge mapping.
+        for platform, deps in deps_by_platform.items():
+            linkable_graph = create_linkable_graph(ctx, deps = deps)
+            graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
+            linkables_debug = ctx.actions.write("linkables." + platform, list(graph_node_map.keys()))
+            enhance_ctx.debug_output("linkables." + platform, linkables_debug)
+
+            flattened_linkable_graphs_by_platform[platform] = graph_node_map  # _get_flattened_linkable_graph(ctx, graph_node_map)
+        native_library_merge_input_file = ctx.actions.write_json("mergemap.input", {
+            "linkable_graphs_by_platform": encode_linkable_graph_for_mergemap(flattened_linkable_graphs_by_platform),
+            "native_library_merge_sequence": ctx.attrs.native_library_merge_sequence,
+            "native_library_merge_sequence_blocklist": ctx.attrs.native_library_merge_sequence_blocklist,
+        })
+        mergemap_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].mergemap_tool)
+        mergemap_cmd.add(cmd_args(native_library_merge_input_file, format = "--mergemap-input={}"))
+        if apk_module_graph_file:
+            mergemap_cmd.add(cmd_args(apk_module_graph_file, format = "--apk-module-graph={}"))
+        native_library_merge_dir = ctx.actions.declare_output("merge_sequence_output")
+        native_library_merge_map = native_library_merge_dir.project("merge.map")
+        mergemap_cmd.add(cmd_args(native_library_merge_dir.as_output(), format = "--output={}"))
+        ctx.actions.run(mergemap_cmd, category = "compute_mergemap")
+        enhance_ctx.debug_output("compute_merge_sequence", native_library_merge_dir)
+
+        dynamic_inputs.append(native_library_merge_map)
+    elif has_native_merging:
         flattened_linkable_graphs_by_platform = {platform: {} for platform in platform_to_original_native_linkables.keys()}
 
     mergemap_gencode_jar = None
@@ -194,7 +228,8 @@ def get_android_binary_native_library_info(
             # When changing this dynamic_output, the workflow is a lot better if you compute the module graph once and
             # then set it as the binary's precomputed_apk_module_graph attr.
             if ctx.attrs.native_library_merge_sequence:
-                fail("unreachable, has_native_merging only checks merge map right now")
+                merge_map_by_platform = artifacts[native_library_merge_map].read_json()
+                native_library_merge_debug_outputs["merge_sequence_output"] = native_library_merge_dir
             elif ctx.attrs.native_library_merge_map:
                 merge_map_by_platform = {}
                 for platform, linkable_nodes in flattened_linkable_graphs_by_platform.items():
@@ -597,6 +632,30 @@ def get_native_linkables_by_default(ctx: AnalysisContext, _platform: str, deps: 
         so_name: shared_lib
         for so_name, shared_lib in traverse_shared_library_info(shared_library_info).items()
         if not (shared_libraries_to_exclude and shared_libraries_to_exclude.contains(shared_lib.label.raw_target()))
+    }
+
+_LinkableSharedNode = record(
+    raw_target = field(str),
+    soname = field(str),
+    labels = field(list[str], []),
+    # Linkable deps of this target.
+    deps = field(list[Label], []),
+    can_be_asset = field(bool),
+)
+
+def encode_linkable_graph_for_mergemap(graph_node_map_by_platform: dict[str, dict[Label, LinkableNode]]) -> dict[str, dict[Label, _LinkableSharedNode]]:
+    return {
+        platform: {
+            target: _LinkableSharedNode(
+                raw_target = str(target.raw_target()),
+                soname = node.default_soname,
+                labels = node.labels,
+                deps = node.deps + node.exported_deps,
+                can_be_asset = node.can_be_asset,  # and not node.exclude_from_android_merge
+            )
+            for target, node in graph_node_map.items()
+        }
+        for platform, graph_node_map in graph_node_map_by_platform.items()
     }
 
 # Debugging info about the linkables merge process. All of this will be written in one of the outputs of
