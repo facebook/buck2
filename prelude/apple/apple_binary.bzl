@@ -11,7 +11,6 @@ load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 load(
     "@prelude//apple/swift:swift_compilation.bzl",
     "compile_swift",
-    "get_sdk_swiftmodule_linkable",
     "get_swift_anonymous_targets",
     "get_swift_debug_infos",
     "get_swift_dependency_info",
@@ -108,10 +107,8 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             ctx,
             swiftmodule,
             swift_dependency_info,
-            swift_compile.sdk_debug_info if swift_compile else None,
+            swift_compile.debug_info if swift_compile else None,
         )
-
-        swiftmodule_linkable = get_swiftmodule_linkable(swift_compile)
 
         stripped = get_apple_stripped_attr_value_with_default_fallback(ctx)
         constructor_params = CxxRuleConstructorParams(
@@ -128,7 +125,6 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
                 static_external_debug_info = swift_debug_info.static,
                 shared_external_debug_info = swift_debug_info.shared,
             ),
-            swiftmodule_linkable = swiftmodule_linkable,
             extra_link_input = swift_object_files,
             extra_link_input_has_external_debug_info = True,
             extra_preprocessors = get_min_deployment_version_target_preprocessor_flags(ctx) + [framework_search_path_pre] + swift_preprocessor,
@@ -139,7 +135,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             prefer_stripped_objects = ctx.attrs.prefer_stripped_objects,
             # Some apple rules rely on `static` libs *not* following dependents.
             link_groups_force_static_follows_dependents = False,
-            sdk_swiftmodule_linkable = get_sdk_swiftmodule_linkable(swift_compile),
+            swiftmodule_linkable = get_swiftmodule_linkable(swift_compile),
         )
         cxx_output = cxx_executable(ctx, constructor_params)
 

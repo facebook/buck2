@@ -15,7 +15,6 @@ load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 load(
     "@prelude//apple/swift:swift_compilation.bzl",
     "compile_swift",
-    "get_sdk_swiftmodule_linkable",
     "get_swift_anonymous_targets",
     "get_swift_debug_infos",
     "get_swift_dependency_info",
@@ -167,16 +166,13 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
     else:
         exported_pre = None
 
-    # When linking, we expect each linked object to provide the transitively required swiftmodule AST entries for linking.
-    swiftmodule_linkable = get_swiftmodule_linkable(swift_compile) if swift_compile else None
-
     swift_dependency_info = swift_compile.dependency_info if swift_compile else get_swift_dependency_info(ctx, None, None, deps_providers)
     swiftmodule = swift_compile.swiftmodule if swift_compile else None
     swift_debug_info = get_swift_debug_infos(
         ctx,
         swiftmodule,
         swift_dependency_info,
-        swift_compile.sdk_debug_info if swift_compile else None,
+        swift_compile.debug_info if swift_compile else None,
     )
 
     modular_pre = CPreprocessor(
@@ -222,7 +218,6 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         headers_layout = get_apple_cxx_headers_layout(ctx),
         extra_exported_link_flags = params.extra_exported_link_flags,
         extra_link_flags = [_get_linker_flags(ctx)],
-        swiftmodule_linkable = swiftmodule_linkable,
         extra_link_input = swift_object_files,
         extra_link_input_has_external_debug_info = True,
         extra_preprocessors = get_min_deployment_version_target_preprocessor_flags(ctx) + [swift_pre, modular_pre],
@@ -254,7 +249,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         # Some apple rules rely on `static` libs *not* following dependents.
         link_groups_force_static_follows_dependents = False,
         extra_linker_outputs_factory = _get_extra_linker_flags_and_outputs,
-        sdk_swiftmodule_linkable = get_sdk_swiftmodule_linkable(swift_compile),
+        swiftmodule_linkable = get_swiftmodule_linkable(swift_compile),
     )
 
 def _get_extra_linker_flags_and_outputs(

@@ -9,8 +9,7 @@ load("@prelude//:artifact_tset.bzl", "ArtifactTSet")  # @unused Used as a type
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
-    "SdkSwiftmoduleLinkable",
-    "SwiftmoduleLinkable",  # @unused Used as a type
+    "SwiftmoduleLinkable",
 )
 load(
     "@prelude//linking:linkables.bzl",
@@ -133,7 +132,6 @@ CxxRuleConstructorParams = record(
     # The swift module linkable that should be included for linking,
     # used for link_groups and regular linking.
     swiftmodule_linkable = field([SwiftmoduleLinkable, None], None),
-    sdk_swiftmodule_linkable = field([SdkSwiftmoduleLinkable, None], None),
     # The source files to compile as part of this rule. This list can be generated
     # from ctx.attrs with the `get_srcs_with_flags` function.
     srcs = field(list[CxxSrcWithFlags]),
