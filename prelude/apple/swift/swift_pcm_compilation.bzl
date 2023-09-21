@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-load("@prelude//apple:apple_utility.bzl", "get_explicit_modules_env_var", "get_module_name")
+load("@prelude//apple:apple_utility.bzl", "get_module_name")
 load("@prelude//cxx:preprocessor.bzl", "cxx_inherited_preprocessor_infos", "cxx_merge_cpreprocessors")
 load(
     ":apple_sdk_modules_utility.bzl",
@@ -63,7 +63,6 @@ def _compile_with_argsfile(
 
     ctx.actions.run(
         cmd,
-        env = get_explicit_modules_env_var(True),
         category = category,
         identifier = module_name,
         # Swift compiler requires unique inodes for all input files.

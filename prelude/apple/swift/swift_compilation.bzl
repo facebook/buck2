@@ -13,7 +13,7 @@ load(
 )
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
-load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "get_explicit_modules_env_var", "get_module_name", "get_versioned_target_triple")
+load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name", "get_versioned_target_triple")
 load("@prelude//apple:modulemap.bzl", "preprocessor_info_for_modulemap")
 load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION", "SWIFT_EXTENSION")
 load("@prelude//cxx:argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
@@ -370,7 +370,6 @@ def _compile_with_argsfile(
     category = category_prefix + ("_with_explicit_mods" if explicit_modules_enabled else "")
     ctx.actions.run(
         cmd,
-        env = get_explicit_modules_env_var(explicit_modules_enabled),
         category = category,
         # Swift compilation on RE without explicit modules is impractically expensive
         # because there's no shared module cache across different libraries.

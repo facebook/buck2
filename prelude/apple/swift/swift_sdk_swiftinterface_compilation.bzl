@@ -10,7 +10,7 @@ load(
     "make_artifact_tset",
 )
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-load("@prelude//apple:apple_utility.bzl", "expand_relative_prefixed_sdk_path", "get_explicit_modules_env_var")
+load("@prelude//apple:apple_utility.bzl", "expand_relative_prefixed_sdk_path")
 load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION")
 load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_clang_deps_tset", "get_compiled_sdk_swift_deps_tset")
 load(":swift_module_map.bzl", "write_swift_module_map")
@@ -73,7 +73,6 @@ def _swift_interface_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Pr
 
         ctx.actions.run(
             cmd,
-            env = get_explicit_modules_env_var(True),
             category = "sdk_swiftinterface_compile",
             identifier = uncompiled_module_info_name,
         )
