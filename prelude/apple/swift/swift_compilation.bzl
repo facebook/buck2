@@ -41,6 +41,10 @@ load(
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_clang_deps_tset", "get_compiled_sdk_swift_deps_tset", "get_uncompiled_sdk_deps", "is_sdk_modules_provided")
+load(
+    ":swift_debug_info_utils.bzl",
+    "extract_and_merge_debug_artifacts_tsets",
+)
 load(":swift_module_map.bzl", "write_swift_module_map_with_swift_deps")
 load(":swift_pcm_compilation.bzl", "compile_underlying_pcm", "get_compiled_pcm_deps_tset", "get_swift_pcm_anon_targets")
 load(
@@ -55,7 +59,6 @@ load(
     "SwiftCompiledModuleTset",
     "SwiftObjectFormat",
     "SwiftToolchainInfo",
-    "WrappedSdkCompiledModuleInfo",
 )
 
 # {"module_name": [exported_headers]}, used for Swift header post processing
@@ -246,19 +249,6 @@ def compile_swift(
     )
     pre = CPreprocessor(headers = [swift_header])
 
-    sdk_swift_debug_tsets = [
-        d[WrappedSdkCompiledModuleInfo].debug_info
-        for d in deps_providers
-        if WrappedSdkCompiledModuleInfo in d and d[WrappedSdkCompiledModuleInfo].debug_info != None
-    ]
-
-    debug_info_tset = make_artifact_tset(
-        actions = ctx.actions,
-        label = ctx.label,
-        artifacts = [output_swiftmodule],
-        children = sdk_swift_debug_tsets,
-    )
-
     # Pass up the swiftmodule paths for this module and its exported_deps
     return SwiftCompilationOutput(
         object_file = output_object,
@@ -268,7 +258,7 @@ def compile_swift(
         pre = pre,
         exported_pre = exported_pp_info,
         argsfiles = argsfiles,
-        debug_info = debug_info_tset,
+        debug_info = extract_and_merge_debug_artifacts_tsets(ctx, deps_providers, [output_swiftmodule]),
     )
 
 # Swift headers are postprocessed to make them compatible with Objective-C
@@ -728,9 +718,10 @@ def get_swift_debug_infos(
     else:
         swift_shared_debug_info = _get_swift_shared_debug_info(swift_dependency_info) if swift_dependency_info else []
 
+    sdk_debug_info = [sdk_debug_tset] if sdk_debug_tset else []
     return SwiftDebugInfo(
-        static = swift_static_debug_info + ([sdk_debug_tset] if sdk_debug_tset else []),
-        shared = swift_shared_debug_info + ([sdk_debug_tset] if sdk_debug_tset else []),
+        static = swift_static_debug_info + sdk_debug_info,
+        shared = swift_shared_debug_info + sdk_debug_info,
     )
 
 def _get_swift_static_debug_info(ctx: AnalysisContext, swiftmodule: Artifact) -> list[ArtifactTSet]:

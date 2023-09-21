@@ -5,14 +5,14 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(
-    "@prelude//:artifact_tset.bzl",
-    "make_artifact_tset",
-)
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "expand_relative_prefixed_sdk_path")
 load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION")
 load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_clang_deps_tset", "get_compiled_sdk_swift_deps_tset")
+load(
+    ":swift_debug_info_utils.bzl",
+    "extract_and_merge_debug_artifacts_tsets",
+)
 load(":swift_module_map.bzl", "write_swift_module_map")
 load(":swift_sdk_pcm_compilation.bzl", "get_swift_sdk_pcm_anon_targets")
 load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "WrappedSdkCompiledModuleInfo")
@@ -84,22 +84,11 @@ def _swift_interface_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Pr
             output_artifact = swiftmodule_output,
         )
 
-        sdk_swift_debug_tsets = [
-            d[WrappedSdkCompiledModuleInfo].debug_info
-            for d in sdk_deps_providers
-            if WrappedSdkCompiledModuleInfo in d and d[WrappedSdkCompiledModuleInfo].debug_info != None
-        ]
-
         return [
             DefaultInfo(),
             WrappedSdkCompiledModuleInfo(
                 swift_deps = ctx.actions.tset(SwiftCompiledModuleTset, value = compiled_sdk, children = [swift_deps_tset]),
-                debug_info = make_artifact_tset(
-                    actions = ctx.actions,
-                    label = ctx.label,
-                    artifacts = [swiftmodule_output],
-                    children = sdk_swift_debug_tsets,
-                ),
+                debug_info = extract_and_merge_debug_artifacts_tsets(ctx, sdk_deps_providers, [swiftmodule_output]),
             ),
         ]
 

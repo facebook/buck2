@@ -13,6 +13,10 @@ load(
     "get_compiled_sdk_clang_deps_tset",
     "get_uncompiled_sdk_deps",
 )
+load(
+    ":swift_debug_info_utils.bzl",
+    "extract_and_merge_debug_artifacts_tsets",
+)
 load(":swift_pcm_compilation_types.bzl", "SwiftPCMUncompiledInfo", "WrappedSwiftPCMCompiledInfo")
 load(":swift_sdk_pcm_compilation.bzl", "get_shared_pcm_compilation_args", "get_swift_sdk_pcm_anon_targets")
 load(":swift_toolchain_types.bzl", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "WrappedSdkCompiledModuleInfo")
@@ -131,6 +135,7 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
                 ),
                 WrappedSdkCompiledModuleInfo(
                     clang_deps = sdk_deps_tset,
+                    debug_info = extract_and_merge_debug_artifacts_tsets(ctx, compiled_pcm_deps_providers),
                 ),
             ]
 
@@ -172,6 +177,7 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
             ),
             WrappedSdkCompiledModuleInfo(
                 clang_deps = sdk_deps_tset,
+                debug_info = extract_and_merge_debug_artifacts_tsets(ctx, compiled_pcm_deps_providers, [pcm_info.output_artifact]),
             ),
         ]
 
