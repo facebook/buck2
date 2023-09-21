@@ -516,6 +516,10 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                 ctx,
                 output,
             )
+            if output != None and output.unstripped != None:
+                output_style_providers.append(
+                    UnstrippedLinkOutputInfo(artifact = output.unstripped),
+                )
 
             if output:
                 # Add any subtargets for this output style.
@@ -806,9 +810,6 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             sub_targets["unstripped"] = [DefaultInfo(
                 default_outputs = [default_output.unstripped],
             )]
-            providers.append(
-                UnstrippedLinkOutputInfo(artifact = default_output.unstripped),
-            )
         default_info = DefaultInfo(
             default_output = default_output.default if default_output != None else None,
             other_outputs = default_output.other if default_output != None else [],
