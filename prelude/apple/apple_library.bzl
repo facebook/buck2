@@ -167,12 +167,10 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         exported_pre = None
 
     swift_dependency_info = swift_compile.dependency_info if swift_compile else get_swift_dependency_info(ctx, None, None, deps_providers)
-    swiftmodule = swift_compile.swiftmodule if swift_compile else None
     swift_debug_info = get_swift_debug_infos(
         ctx,
-        swiftmodule,
         swift_dependency_info,
-        swift_compile.debug_info if swift_compile else None,
+        swift_compile,
     )
 
     modular_pre = CPreprocessor(

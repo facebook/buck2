@@ -43,7 +43,8 @@ load("@prelude//utils:arglike.bzl", "ArgLike")
 load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_clang_deps_tset", "get_compiled_sdk_swift_deps_tset", "get_uncompiled_sdk_deps", "is_sdk_modules_provided")
 load(
     ":swift_debug_info_utils.bzl",
-    "extract_and_merge_debug_artifacts_tsets",
+    "extract_and_merge_clang_debug_infos",
+    "extract_and_merge_swift_debug_infos",
 )
 load(":swift_module_map.bzl", "write_swift_module_map_with_swift_deps")
 load(":swift_pcm_compilation.bzl", "compile_underlying_pcm", "get_compiled_pcm_deps_tset", "get_swift_pcm_anon_targets")
@@ -86,9 +87,11 @@ SwiftCompilationOutput = record(
     exported_pre = field(CPreprocessor),
     # Argsfiles used to compile object files.
     argsfiles = field(CompileArgsfiles),
-    # A list of (SDK/first-party) swiftmodule artifacts required to be linked into binary.
+    # A tset of (SDK/first-party) swiftmodule artifacts required to be linked into binary.
     # Different outputs of Swift compilation actions might contain duplicates of SDK swiftmodule artifacts.
-    debug_info = field(ArtifactTSet),
+    swift_debug_info = field(ArtifactTSet),
+    # A tset of PCM artifacts used to compile a Swift module.
+    clang_debug_info = field(ArtifactTSet),
 )
 
 SwiftDebugInfo = record(
@@ -258,7 +261,8 @@ def compile_swift(
         pre = pre,
         exported_pre = exported_pp_info,
         argsfiles = argsfiles,
-        debug_info = extract_and_merge_debug_artifacts_tsets(ctx, deps_providers, [output_swiftmodule]),
+        swift_debug_info = extract_and_merge_swift_debug_infos(ctx, deps_providers, [output_swiftmodule]),
+        clang_debug_info = extract_and_merge_clang_debug_infos(ctx, deps_providers),
     )
 
 # Swift headers are postprocessed to make them compatible with Objective-C
@@ -670,7 +674,7 @@ def uses_explicit_modules(ctx: AnalysisContext) -> bool:
     return ctx.attrs.uses_explicit_modules and is_sdk_modules_provided(swift_toolchain)
 
 def get_swiftmodule_linkable(swift_compile_output: [SwiftCompilationOutput, None]) -> [SwiftmoduleLinkable, None]:
-    return SwiftmoduleLinkable(swiftmodules = swift_compile_output.debug_info) if swift_compile_output else None
+    return SwiftmoduleLinkable(swiftmodules = swift_compile_output.swift_debug_info) if swift_compile_output else None
 
 def extract_swiftmodule_linkables(link_infos: [list[LinkInfo], None]) -> list[SwiftmoduleLinkable]:
     linkables = []
@@ -705,31 +709,23 @@ def _get_xctest_swiftmodule_search_path(ctx: AnalysisContext) -> cmd_args:
 
 def get_swift_debug_infos(
         ctx: AnalysisContext,
-        swiftmodule: [Artifact, None],
         swift_dependency_info: [SwiftDependencyInfo, None],
-        sdk_debug_tset: [ArtifactTSet, None]) -> SwiftDebugInfo:
-    swift_static_debug_info = _get_swift_static_debug_info(ctx, swiftmodule) if swiftmodule else []
-
+        swift_output: [SwiftCompilationOutput, None]) -> SwiftDebugInfo:
     # When determing the debug info for shared libraries, if the shared library is a link group, we rely on the link group links to
     # obtain the debug info for linked libraries and only need to provide any swift debug info for this library itself. Otherwise
     # if linking standard shared, we need to obtain the transitive debug info.
     if get_link_group(ctx):
-        swift_shared_debug_info = swift_static_debug_info
+        swift_shared_debug_info = []
     else:
         swift_shared_debug_info = _get_swift_shared_debug_info(swift_dependency_info) if swift_dependency_info else []
 
-    sdk_debug_info = [sdk_debug_tset] if sdk_debug_tset else []
-    return SwiftDebugInfo(
-        static = swift_static_debug_info + sdk_debug_info,
-        shared = swift_shared_debug_info + sdk_debug_info,
-    )
+    clang_debug_info = [swift_output.clang_debug_info] if swift_output else []
+    swift_debug_info = [swift_output.swift_debug_info] if swift_output else []
 
-def _get_swift_static_debug_info(ctx: AnalysisContext, swiftmodule: Artifact) -> list[ArtifactTSet]:
-    return [make_artifact_tset(
-        actions = ctx.actions,
-        label = ctx.label,
-        artifacts = [swiftmodule],
-    )]
+    return SwiftDebugInfo(
+        static = clang_debug_info + swift_debug_info,
+        shared = swift_shared_debug_info + clang_debug_info + swift_debug_info,
+    )
 
 def _get_swift_shared_debug_info(swift_dependency_info: SwiftDependencyInfo) -> list[ArtifactTSet]:
     return [swift_dependency_info.debug_info_tset] if swift_dependency_info.debug_info_tset else []

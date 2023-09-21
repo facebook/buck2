@@ -10,7 +10,7 @@ load("@prelude//apple:apple_utility.bzl", "expand_relative_prefixed_sdk_path", "
 load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_clang_deps_tset")
 load(
     ":swift_debug_info_utils.bzl",
-    "extract_and_merge_debug_artifacts_tsets",
+    "extract_and_merge_clang_debug_infos",
 )
 load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "WrappedSdkCompiledModuleInfo")
 
@@ -114,7 +114,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
                 DefaultInfo(),
                 WrappedSdkCompiledModuleInfo(
                     clang_deps = sdk_deps_tset,
-                    debug_info = extract_and_merge_debug_artifacts_tsets(ctx, sdk_pcm_deps_providers),
+                    clang_debug_info = extract_and_merge_clang_debug_infos(ctx, sdk_pcm_deps_providers),
                 ),
             ]
 
@@ -208,7 +208,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
             DefaultInfo(),
             WrappedSdkCompiledModuleInfo(
                 clang_deps = ctx.actions.tset(SwiftCompiledModuleTset, value = compiled_sdk, children = [sdk_deps_tset]),
-                debug_info = extract_and_merge_debug_artifacts_tsets(ctx, sdk_pcm_deps_providers, [pcm_output]),
+                clang_debug_info = extract_and_merge_clang_debug_infos(ctx, sdk_pcm_deps_providers, [pcm_output]),
             ),
         ]
 
