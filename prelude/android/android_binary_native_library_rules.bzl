@@ -1036,6 +1036,9 @@ def _get_merged_linkables(
                     node = linkable_nodes[key]
 
                     default_solibs = list(node.shared_libs.keys())
+                    if not default_solibs and node.preferred_linkage == Linkage("static"):
+                        default_solibs = [node.default_soname]
+
                     for soname in default_solibs:
                         included_default_solibs[soname] = True
                         if node.include_in_android_mergemap:
