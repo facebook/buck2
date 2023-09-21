@@ -209,7 +209,9 @@ def get_install_config() -> dict[str, typing.Any]:
         "agent_port_base": read_root_config("adb", "agent_port_base", "2828"),
         "always_use_java_agent": read_root_config("adb", "always_use_java_agent", "false"),
         "is_zstd_compression_enabled": read_root_config("adb", "is_zstd_compression_enabled", "false"),
+        "max_retries": read_root_config("adb", "retries", "5"),
         "multi_install_mode": read_root_config("adb", "multi_install_mode", "false"),
+        "retry_delay_millis": read_root_config("adb", "retry_delay_millis", "500"),
         "skip_install_metadata": read_root_config("adb", "skip_install_metadata", "false"),
     }
 
