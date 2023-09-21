@@ -19,19 +19,47 @@ use rustls::ClientConfig;
 use rustls::PrivateKey;
 use rustls::RootCertStore;
 
-/// Load the system root certificates into rustls cert store.
-fn load_system_root_certs() -> anyhow::Result<RootCertStore> {
-    let mut roots = rustls::RootCertStore::empty();
+const MACOS_CORP_CERTS: &str = "/opt/facebook/certs/rc_digicert_ca.pem";
+
+/// Load the system root certificates using native frameworks.
+fn load_system_root_certs_native() -> anyhow::Result<Vec<Vec<u8>>> {
     let native_certs: Vec<_> = rustls_native_certs::load_native_certs()
         .context("Error loading system root certificates")?
         .into_map(|cert| cert.0);
+    Ok(native_certs)
+}
+
+/// Fallback path: load from disk (only implemented for specific platforms).
+fn load_system_root_certs_disk(path: &str) -> anyhow::Result<Vec<Vec<u8>>> {
+    let file = File::open(path).with_context(|| format!("Opening root certs at: {}", path))?;
+    let mut reader = BufReader::new(file);
+    let certs = rustls_pemfile::certs(&mut reader)
+        .with_context(|| format!("Loading root certs at: {}", path))?
+        .into_iter()
+        .collect();
+
+    Ok(certs)
+}
+
+fn load_system_root_certs() -> anyhow::Result<RootCertStore> {
+    let mut roots = RootCertStore::empty();
+    let root_certs = match load_system_root_certs_native() {
+        Ok(certs) => certs,
+        Err(_) if cfg!(target_os = "macos") && Path::new(MACOS_CORP_CERTS).exists() => {
+            load_system_root_certs_disk(MACOS_CORP_CERTS)
+                .context("Loading corp system certs from disk")?
+        }
+        Err(e) => {
+            anyhow::bail!(e.context("Error loading system root certificates"));
+        }
+    };
 
     // According to [`rustls` documentation](https://docs.rs/rustls/latest/rustls/struct.RootCertStore.html#method.add_parsable_certificates),
     // it's better to only add parseable certs when loading system certs because
     // there are typically many system certs and not all of them can be valid. This
     // is pertinent for e.g. macOS which may have a lot of old certificates that may
     // not parse correctly.
-    let (valid, invalid) = roots.add_parsable_certificates(native_certs.as_slice());
+    let (valid, invalid) = roots.add_parsable_certificates(root_certs.as_slice());
 
     // But make sure we get at least _one_ valid cert, otherwise we legitimately won't be
     // able to make any connections via https.
