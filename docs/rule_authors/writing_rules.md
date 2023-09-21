@@ -20,7 +20,7 @@ The built-in Buck2 rules are stored in `fbsource` in `fbcode/buck2/prelude`. To 
 2. Create a file at `prelude/pascal.bzl` that will contain your rule implementations. The details are explained later, but a dummy rule looks like the following:
 
     ```python
-    def pascal_binary_impl(_ctx: AnalysisContext) -> ["provider"]:
+    def pascal_binary_impl(_ctx: AnalysisContext) -> list[Provider]:
         return [DefaultInfo()]
     ```
 
@@ -43,10 +43,10 @@ A *rule* for a *target* uses *attributes* to declare *actions*, which produce *a
 For example, given:
 
 ```python
-def pascal_binary_impl(ctx: AnalysisContext) -> ["provider"]:
+def pascal_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     ...
     binary = ctx.actions.declare_output(ctx.attrs.out)
-    ctx.actions.run(["pascalc", args, "-o", binary.as_output()])
+    ctx.actions.run(["pascalc", ctx.attrs.srcs, "-o", binary.as_output()])
     return [
         DefaultInfo(default_output = binary),
     ]
