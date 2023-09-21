@@ -213,6 +213,7 @@ def get_install_config() -> dict[str, typing.Any]:
         "multi_install_mode": read_root_config("adb", "multi_install_mode", "false"),
         "retry_delay_millis": read_root_config("adb", "retry_delay_millis", "500"),
         "skip_install_metadata": read_root_config("adb", "skip_install_metadata", "false"),
+        "staged_install_mode": read_root_config("adb", "staged_install_mode", "false"),
     }
 
     adb_executable = read_root_config("android", "adb", None)

@@ -216,6 +216,14 @@ This specifies whether multi-install mode is enabled or disabled by default.
 [adb]multi_install_mode = false
 ```
 
+### staged_install_mode
+
+This specifies whether staged install mode is enabled or disabled by default.
+
+```
+[adb]staged_install_mode = false
+```
+
 ## [alias]
 
 This section contains definitions of [build target](https://buck.build/concept/build_target.html) aliases.
