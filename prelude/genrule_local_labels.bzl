@@ -192,6 +192,9 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
     # dereferenced anyway (e.g. because it violates security policies or simply
     # points to something that does not exist).
     "dangling_output_symlink",
+
+    # Uses xcrun which is not in RE (e.g. compile metalshaders)
+    "uses_xcrun",
 ]}
 
 def genrule_labels_require_local(labels):
