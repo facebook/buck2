@@ -18,6 +18,7 @@ use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetName;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexed;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
@@ -92,6 +93,29 @@ impl CqueryUniverse {
             );
         }
         targets
+    }
+
+    /// Used for BXL target universe lookup. BXL queries take in target expressions and convert them into `TargetSet<TargetNode>`.
+    /// We can use each `TargetNode`'s package and target name to lookup the configured nodes in the target universe.
+    #[allow(unused)]
+    pub fn get_from_targets(
+        &self,
+        targets: impl IntoIterator<Item = TargetLabel>,
+    ) -> TargetSet<ConfiguredTargetNode> {
+        let mut configured_nodes = TargetSet::new();
+        for label in targets {
+            let package = label.pkg();
+            let name = label.name();
+            let results = self
+                .targets
+                .get(&package)
+                .into_iter()
+                .flat_map(move |package_universe| package_universe.get(name).into_iter().flatten())
+                .map(|node| node.0.clone());
+
+            configured_nodes.extend(results);
+        }
+        configured_nodes
     }
 
     pub fn get_provider_labels<P: PatternType>(
