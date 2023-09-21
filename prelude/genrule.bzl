@@ -171,6 +171,8 @@ def process_genrule(
         cmd.replace_regex("\\$(SRCDIR\\b|\\{SRCDIR\\})", "%SRCDIR%")
         cmd.replace_regex("\\$(SRCS\\b|\\{SRCS\\})", "%SRCS%")
         cmd.replace_regex("\\$(TMP\\b|\\{TMP\\})", "%TMP%")
+        for extra_env_var in extra_env_vars:
+            cmd.replace_regex("\\$(%s\\b|\\{%s\\})" % (extra_env_var, extra_env_var), "%%%s%%" % extra_env_var)
 
     if _ignore_artifacts(ctx):
         cmd = cmd.ignore_artifacts()
