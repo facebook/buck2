@@ -113,8 +113,9 @@ def run_buildscript(buildscript: str, env: Dict[str, str], cwd: str) -> str:
         print(f"Failed to run {buildscript} because {ex}", file=sys.stderr)
         sys.exit(1)
     except subprocess.CalledProcessError as ex:
-        print(ex.stderr, file=sys.stderr)
+        sys.stderr.write(ex.stderr)
         sys.exit(ex.returncode)
+    sys.stderr.write(proc.stderr)
     return proc.stdout
 
 
