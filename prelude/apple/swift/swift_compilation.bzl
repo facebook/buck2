@@ -410,10 +410,6 @@ def _get_shared_flags(
         "-wmo",
         "-module-name",
         module_name,
-        # Disable Clang module breadcrumbs in the DWARF info. These will not be
-        # debug prefix mapped and are not shareable across machines.
-        "-Xfrontend",
-        "-no-clang-module-breadcrumbs",
         "-Xfrontend",
         "-enable-cross-import-overlays",
         # We set a -debug-prefix-map in the swift execution wrapper, in order to
