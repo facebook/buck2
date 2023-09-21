@@ -10,6 +10,7 @@
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 
+use allocative::Allocative;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::PackageLabel;
@@ -20,6 +21,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::name::TargetName;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexed;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use derivative::Derivative;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use either::Either;
@@ -31,6 +33,8 @@ use crate::nodes::configured_node_visit_all_deps::configured_node_visit_all_deps
 /// Subset of targets `cquery` command works with.
 ///
 /// Targets are resolved in the universe, and file owners are also resolved in the universe.
+#[derive(Allocative, Derivative, Clone)]
+#[derivative(Debug)]
 pub struct CqueryUniverse {
     targets:
         BTreeMap<PackageLabel, BTreeMap<TargetName, BTreeSet<LabelIndexed<ConfiguredTargetNode>>>>,

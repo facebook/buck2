@@ -8,6 +8,7 @@ description = "Target graph node"
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 derive_more = { workspace = true }
+derivative = { workspace = true }
 either = { workspace = true }
 fnv = { workspace = true }
 futures = { workspace = true }
