@@ -6,4 +6,4 @@
 @REM of this source tree.
 
 @echo off
-%* "/d1trimfile:%cd%\" "/d2trimfile:%cd%\"
+%* "/d1trimfile:%cd%\" "/d2trimfile:%cd%\" "/experimental:deterministic" "/pathmap:%cd%\="

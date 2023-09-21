@@ -19,7 +19,7 @@ def get_flags_for_reproducible_build(ctx: AnalysisContext, compiler_type: str) -
     flags = []
 
     if compiler_type in ["clang_cl", "windows"]:
-        flags.append("/Brepro")
+        flags.extend(["/Brepro", "/d2threads1"])
 
     if compiler_type in ["clang", "clang_windows", "clang_cl"]:
         flags.extend(["-Xclang", "-fdebug-compilation-dir", "-Xclang", cmd_args(ctx.label.project_root)])
