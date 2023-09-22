@@ -51,6 +51,10 @@ impl CqueryUniverse {
         CqueryUniverse { targets }
     }
 
+    pub fn len(&self) -> usize {
+        self.targets.values().map(|e| e.values().len()).sum()
+    }
+
     pub async fn build(
         universe: &TargetSet<ConfiguredTargetNode>,
     ) -> anyhow::Result<CqueryUniverse> {
@@ -97,7 +101,6 @@ impl CqueryUniverse {
 
     /// Used for BXL target universe lookup. BXL queries take in target expressions and convert them into `TargetSet<TargetNode>`.
     /// We can use each `TargetNode`'s package and target name to lookup the configured nodes in the target universe.
-    #[allow(unused)]
     pub fn get_from_targets(
         &self,
         targets: impl IntoIterator<Item = TargetLabel>,
