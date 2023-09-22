@@ -74,6 +74,7 @@ def _cxx_toolchain_override(ctx):
     # This shouldn't be a problem because to use windows linker after non-windows
     # linker flags should be changed as well.
     pdb_expected = linker_type == "windows" and pdb_expected
+    shlib_interfaces = ShlibInterfacesMode(ctx.attrs.shared_library_interface_mode) if ctx.attrs.shared_library_interface_mode else None
     linker_info = LinkerInfo(
         archiver = _pick_bin(ctx.attrs.archiver, base_linker_info.archiver),
         archiver_type = base_linker_info.archiver_type,
@@ -91,7 +92,7 @@ def _cxx_toolchain_override(ctx):
         linker_flags = _pick(ctx.attrs.linker_flags, base_linker_info.linker_flags),
         lto_mode = value_or(map_val(LtoMode, ctx.attrs.lto_mode), base_linker_info.lto_mode),
         object_file_extension = base_linker_info.object_file_extension,
-        shlib_interfaces = value_or(ctx.attrs.shared_library_interface_mode, base_linker_info.shlib_interfaces),
+        shlib_interfaces = value_or(shlib_interfaces, base_linker_info.shlib_interfaces),
         mk_shlib_intf = _pick_dep(ctx.attrs.mk_shlib_intf, base_linker_info.mk_shlib_intf),
         requires_archives = base_linker_info.requires_archives,
         requires_objects = base_linker_info.requires_objects,
