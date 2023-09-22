@@ -56,6 +56,7 @@ use remote_execution::TDigest;
 use remote_execution::TExecutionPolicy;
 use remote_execution::UploadRequest;
 use remote_execution::WriteActionResultRequest;
+use remote_execution::WriteActionResultResponse;
 use tokio::sync::Semaphore;
 
 use crate::digest::CasDigestToReExt;
@@ -352,7 +353,7 @@ impl RemoteExecutionClient {
         digest: TDigest,
         result: TActionResult2,
         use_case: RemoteExecutorUseCase,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<WriteActionResultResponse> {
         self.data
             .write_action_results
             .op(self
@@ -1124,7 +1125,7 @@ impl RemoteExecutionClientImpl {
         digest: TDigest,
         result: TActionResult2,
         use_case: RemoteExecutorUseCase,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<WriteActionResultResponse> {
         self.client()
             .get_action_cache_client()
             .write_action_result(
@@ -1135,9 +1136,7 @@ impl RemoteExecutionClientImpl {
                     ..Default::default()
                 },
             )
-            .await?;
-
-        Ok(())
+            .await
     }
 }
 

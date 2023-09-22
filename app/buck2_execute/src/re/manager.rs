@@ -39,6 +39,7 @@ use remote_execution::NamedDigest;
 use remote_execution::NamedDigestWithPermissions;
 use remote_execution::TActionResult2;
 use remote_execution::TDigest;
+use remote_execution::WriteActionResultResponse;
 
 use crate::digest_config::DigestConfig;
 use crate::directory::ActionImmutableDirectory;
@@ -471,7 +472,7 @@ impl ManagedRemoteExecutionClient {
         digest: TDigest,
         result: TActionResult2,
         use_case: RemoteExecutorUseCase,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<WriteActionResultResponse> {
         self.lock()?
             .get()
             .await?

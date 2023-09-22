@@ -116,8 +116,11 @@ pub struct ActionResultResponse {
     pub ttl: i64,
 }
 
-#[derive(Clone, Dupe, Default)]
-pub struct WriteActionResultResponse {}
+#[derive(Clone, Default)]
+pub struct WriteActionResultResponse {
+    pub actual_action_result: TActionResult2,
+    pub ttl_seconds: i64,
+}
 
 #[derive(Clone, Default)]
 pub struct DownloadResponse {
