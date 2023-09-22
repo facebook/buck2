@@ -27,7 +27,6 @@ pub(crate) mod nodes;
 pub(crate) mod providers_expr;
 mod query_util;
 pub(crate) mod target_expr;
-#[allow(unused)] // TODO(@wendyy) temporary
 pub(crate) mod target_universe;
 pub(crate) mod targetset;
 pub(crate) mod time;

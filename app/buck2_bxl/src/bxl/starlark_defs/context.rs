@@ -63,6 +63,7 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dashmap::DashMap;
 use derivative::Derivative;
 use derive_more::Display;
@@ -95,6 +96,7 @@ use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
 use thiserror::Error;
 
+use super::target_universe::StarlarkTargetUniverse;
 use crate::bxl::key::BxlDynamicKey;
 use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::alloc_node::AllocNode;
@@ -838,6 +840,62 @@ fn context_methods(builder: &mut MethodsBuilder) {
         };
 
         Ok(res)
+    }
+
+    /// Returns the [`StarlarkTargetUniverse`] that can lookup valid configured nodes in the universe.
+    ///
+    /// The given `labels` is a target expression, which is either:
+    ///     - a single string that is a `target pattern`.
+    ///     - a single target node or label, configured or unconfigured
+    ///     - a single subtarget label, configured or unconfigured
+    ///     - a list of the two options above.
+    ///
+    /// Also takes in an optional `target_platform` param to configure the nodes with.
+    fn target_universe<'v>(
+        this: &'v BxlContext<'v>,
+        labels: Value<'v>,
+        #[starlark(default = NoneType)] target_platform: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StarlarkTargetUniverse<'v>> {
+        let target_platform = target_platform.parse_target_platforms(
+            &this.data.target_alias_resolver,
+            &this.data.cell_resolver,
+            this.data.cell_name,
+            &this.data.global_target_platform,
+        )?;
+
+        this.via_dice(|mut ctx, this_no_dice: &BxlContextNoDice<'_>| {
+            ctx.via(|ctx| {
+                async move {
+                    let target_expr = TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                        labels,
+                        &target_platform,
+                        this_no_dice,
+                        ctx,
+                        eval,
+                    )
+                    .await?;
+
+                    let target_set = match target_expr {
+                        TargetExpr::Label(label) => filter_incompatible(
+                            iter::once(ctx.get_configured_target_node(&label).await?),
+                            this_no_dice,
+                        )?,
+                        TargetExpr::Node(node) => {
+                            let mut set = TargetSet::new();
+                            set.insert(node);
+                            set
+                        }
+                        multi => {
+                            filter_incompatible(multi.get(ctx).await?.into_iter(), this_no_dice)?
+                        }
+                    };
+
+                    StarlarkTargetUniverse::new(this, target_set).await
+                }
+                .boxed_local()
+            })
+        })
     }
 
     /// Returns the [`StarlarkUQueryCtx`] that holds all uquery functions.
