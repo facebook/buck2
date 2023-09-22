@@ -84,12 +84,15 @@ def _merge_lib_map(
         # dict[str, SharedLibrary]
         dest_mapping,
         # [dict[str, SharedLibrary]
-        mapping_to_merge) -> None:
+        mapping_to_merge,
+        filter_func) -> None:
     """
     Merges a mapping_to_merge into `dest_mapping`. Fails if different libraries
     map to the same name.
     """
     for (name, src) in mapping_to_merge.items():
+        if filter_func != None and not filter_func(name, src):
+            continue
         existing = dest_mapping.get(name)
         if existing != None and existing.lib != src.lib:
             error = (
@@ -129,9 +132,10 @@ def merge_shared_libraries(
     return SharedLibraryInfo(set = set)
 
 def traverse_shared_library_info(
-        info: SharedLibraryInfo):  # -> dict[str, SharedLibrary]:
+        info: SharedLibraryInfo,
+        filter_func = None):  # -> dict[str, SharedLibrary]:
     libraries = {}
     if info.set:
         for libs in info.set.traverse():
-            _merge_lib_map(libraries, libs.libraries)
+            _merge_lib_map(libraries, libs.libraries, filter_func)
     return libraries

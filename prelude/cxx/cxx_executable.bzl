@@ -435,10 +435,11 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             labels_to_links_map = labels_to_links_map,
         )
 
-        for name, shared_lib in traverse_shared_library_info(shlib_info).items():
-            label = shared_lib.label
-            if not gnu_use_link_groups or is_link_group_shlib(label, link_group_ctx):
-                shared_libs[name] = shared_lib.lib
+        def shlib_filter(_name, shared_lib):
+            return not gnu_use_link_groups or is_link_group_shlib(shared_lib.label, link_group_ctx)
+
+        for name, shared_lib in traverse_shared_library_info(shlib_info, filter_func = shlib_filter).items():
+            shared_libs[name] = shared_lib.lib
 
     if gnu_use_link_groups:
         # When there are no matches for a pattern based link group,
