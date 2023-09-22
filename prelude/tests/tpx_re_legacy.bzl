@@ -16,7 +16,7 @@ _RE_OPTS_KEYS = ["platform", "subplatform", "gpu_name"]
 def _parse_re_opts(labels: list[str]) -> [dict[str, str], None]:
     """
     Parse out JSON-embedded RE options like:
-    're_opts_capabilities={"platform": gpu-remote-execution, "gpu_name": "P100"}'
+    're_opts_capabilities={"platform": gpu-remote-execution, "gpu_name": "A100"}'
     """
 
     for label in labels:
