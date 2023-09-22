@@ -7,22 +7,29 @@
 
 PostConstraintAnalysisParams = record(
     legacy_platform = PlatformInfo | None,
+    cli_modifiers = list[str],
 )
 
 def cfg_constructor_pre_constraint_analysis(
         *,
-        legacy_platform: PlatformInfo | None) -> (list[str], PostConstraintAnalysisParams):
+        legacy_platform: PlatformInfo | None,
+        cli_modifiers: list[str]) -> (list[str], PostConstraintAnalysisParams):
     """
     First stage of cfg constructor for modifiers.
 
     Args:
         legacy_platform: PlatformInfo from legacy target platform resolution, if one is specified
+        cli_modifiers: modifiers specified from `--modifier` flag, `?modifier`, or BXL
 
     Returns `(refs, PostConstraintAnalysisParams)`, where `refs` is a list of fully qualified configuration
     targets we need providers for.
     """
 
-    return [], PostConstraintAnalysisParams(legacy_platform = legacy_platform)
+    refs = cli_modifiers
+    return refs, PostConstraintAnalysisParams(
+        legacy_platform = legacy_platform,
+        cli_modifiers = cli_modifiers,
+    )
 
 def cfg_constructor_post_constraint_analysis(
         *,
@@ -38,13 +45,37 @@ def cfg_constructor_post_constraint_analysis(
     Returns a PlatformInfo
     """
 
-    _unused = refs  # buildifier: disable=unused-variable
+    modifiers = params.cli_modifiers
 
-    return params.legacy_platform or PlatformInfo(
-        # Empty configuration if there is no modifier or legacy platform.
-        label = "",
+    if not modifiers:
+        # If there is no modifier and legacy platform is specified,
+        # then return the legacy platform as is without changing the label or
+        # configuration.
+        return params.legacy_platform or PlatformInfo(
+            # Empty configuration
+            label = "",
+            configuration = ConfigurationInfo(
+                constraints = {},
+                values = {},
+            ),
+        )
+
+    constraints = {}
+    for modifier in modifiers:
+        constraint_value = refs[modifier][ConstraintValueInfo]
+        constraints[constraint_value.setting.label] = constraint_value
+
+    if params.legacy_platform:
+        # For backwards compatibility with legacy target platform, any constraint setting
+        # from legacy target platform not covered by modifiers will be added to the configuration
+        for key, value in params.legacy_platform.configuration.constraints.items():
+            if key not in constraints:
+                constraints[key] = value
+
+    return PlatformInfo(
+        label = "cfg",
         configuration = ConfigurationInfo(
-            constraints = {},
+            constraints = constraints,
             values = {},
         ),
     )
