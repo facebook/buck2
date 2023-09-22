@@ -74,8 +74,7 @@ def genrule_attributes() -> dict[str, Attr]:
     }
 
     if _USE_CACHE_MODE:
-        # FIXME: prelude// should be standalone (not refer to fbsource//)
-        attributes["_cache_mode"] = attrs.dep(default = "fbsource//xplat/buck2/platform/cache_mode:cache_mode")
+        attributes["_cache_mode"] = attrs.dep(default = read_root_config("fb", "cache_mode"))
 
     return attributes
 
