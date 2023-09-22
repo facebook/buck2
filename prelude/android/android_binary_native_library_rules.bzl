@@ -26,6 +26,11 @@ load(
     "cxx_link_shared_library",
 )
 load("@prelude//cxx:link_types.bzl", "link_options")
+load(
+    "@prelude//cxx:symbols.bzl",
+    "extract_global_syms",
+    "extract_undefined_syms",
+)
 load("@prelude//java:java_library.bzl", "compile_to_jar")  # @unused
 load("@prelude//java:java_providers.bzl", "JavaClasspathEntry", "JavaLibraryInfo", "derive_compiling_deps")  # @unused
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
@@ -282,6 +287,9 @@ def get_android_binary_native_library_info(
             }
         else:
             final_platform_to_native_linkables = platform_to_original_native_linkables
+
+        if getattr(ctx.attrs, "enable_relinker", False):
+            final_platform_to_native_linkables = relink_libraries(ctx, final_platform_to_native_linkables)
 
         unstripped_libs = {}
         for platform, libs in final_platform_to_native_linkables.items():
@@ -1137,6 +1145,139 @@ def _get_merged_linkables(
         shared_libs_by_platform = shared_libs_by_platform,
         debug_info = debug_info_by_platform,
     )
+
+# When linking shared libraries, by default, all symbols are exported from the library. In a
+# particular application, though, many of those symbols may never be used. Ideally, in each apk,
+# each shared library would only export the minimal set of symbols that are used by other libraries
+# in the apk. This would allow the linker to remove any dead code within the library (the linker
+# can strip all code that is unreachable from the set of exported symbols).
+#
+# The native relinker tries to remedy the situation. When enabled for an apk, the native
+# relinker will take the set of libraries in the apk and relink them in reverse order telling the
+# linker to only export those symbols that are referenced by a higher library.
+#
+# The way this works is that the relinker does a topological traversal of the linked libraries (i.e.
+# top-down, visiting nodes before their dependencies, this is the opposite order of most things we do
+# in a build) and does:
+# 1. extract the set of global symbols by the original lib
+# 2. intersect that with the set of undefined symbols in all transitive dependents (i.e. higher in the graph) and
+#    rules for required symbols (Java_*, Jni_Onload, relinker blocklist)
+# 3. write a version script that says to make public only those symbols from (2)
+# 4. link the lib with the exact same link line + the version script. Note that this means that the relinked libraries each are
+#    actually linked against non-relinked ones. This does mean there's some risk of not detecting missing symbols (though mostly
+#    only if they are caused by the relinker changes themselves).
+# 5. extract the list of undefined symbols in the relinked libs (i.e. those symbols needed from dependencies and what had been
+#    used in (1) above from higher nodes).
+def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict[str, SharedLibrary]]) -> dict[str, dict[str, SharedLibrary]]:
+    relinked_libraries_by_platform = {}
+    for platform, shared_libraries in libraries_by_platform.items():
+        cxx_toolchain = ctx.attrs._cxx_toolchain[platform][CxxToolchainInfo]
+
+        relinked_libraries = relinked_libraries_by_platform.setdefault(platform, {})
+        unsupported_libs = {}
+        shlib_graph = {}
+        rev_shlib_graph = {}
+        for soname, solib in shared_libraries.items():
+            shlib_graph[soname] = []
+            rev_shlib_graph.setdefault(soname, [])
+            if solib.shlib_deps == None or solib.link_args == None:
+                unsupported_libs[soname] = True
+            else:
+                for dep in solib.shlib_deps:
+                    shlib_graph[soname].append(dep)
+                    rev_shlib_graph.setdefault(dep, []).append(soname)
+        needed_symbols_files = {}
+        for soname in topo_sort(shlib_graph):
+            if soname in unsupported_libs:
+                relinked_libraries[soname] = shared_libraries[soname]
+                continue
+
+            original_shared_library = shared_libraries[soname]
+            output_path = "xdso-dce-relinker-libs/{}/{}".format(platform, soname)
+
+            provided_symbols_file = extract_provided_symbols(ctx, cxx_toolchain, original_shared_library.lib.output)
+            needed_symbols_for_this = [needed_symbols_files.get(rdep) for rdep in rev_shlib_graph[soname]]
+            relinker_version_script = ctx.actions.declare_output(output_path + ".relinker.version_script")
+            create_relinker_version_script(
+                ctx.actions,
+                output = relinker_version_script,
+                relinker_blocklist = [experimental_regex(s) for s in ctx.attrs.relinker_whitelist],
+                provided_symbols = provided_symbols_file,
+                needed_symbols = needed_symbols_for_this,
+            )
+            relinker_link_args = original_shared_library.link_args + [LinkArgs(flags = [cmd_args(relinker_version_script, format = "-Wl,--version-script={}")])]
+
+            shared_lib = create_shared_lib(
+                ctx,
+                output_path = output_path,
+                soname = soname,
+                link_args = relinker_link_args,
+                cxx_toolchain = cxx_toolchain,
+                shared_lib_deps = original_shared_library.shlib_deps,
+                label = original_shared_library.label,
+                can_be_asset = original_shared_library.can_be_asset,
+            )
+            needed_symbols_from_this = extract_undefined_symbols(ctx, cxx_toolchain, shared_lib.lib.output)
+            unioned_needed_symbols_file = ctx.actions.declare_output(output_path + ".all_needed_symbols")
+            union_needed_symbols(ctx.actions, unioned_needed_symbols_file, needed_symbols_for_this + [needed_symbols_from_this])
+            needed_symbols_files[soname] = unioned_needed_symbols_file
+
+            relinked_libraries[soname] = shared_lib
+
+    return relinked_libraries_by_platform
+
+def extract_provided_symbols(ctx: AnalysisContext, toolchain: CxxToolchainInfo, lib: Artifact) -> Artifact:
+    return extract_global_syms(ctx, toolchain, lib, "relinker_extract_provided_symbols")
+
+def create_relinker_version_script(actions: AnalysisActions, relinker_blocklist: list["regex"], output: Artifact, provided_symbols: Artifact, needed_symbols: list[Artifact]):
+    def create_version_script(ctx, artifacts, outputs):
+        all_needed_symbols = {}
+        for symbols_file in needed_symbols:
+            for line in artifacts[symbols_file].read_string().strip().split("\n"):
+                all_needed_symbols[line] = True
+
+        symbols_to_keep = []
+        for symbol in artifacts[provided_symbols].read_string().strip().split("\n"):
+            keep_symbol = False
+            if symbol in all_needed_symbols:
+                keep_symbol = True
+            elif "JNI_OnLoad" in symbol:
+                keep_symbol = True
+            elif "Java_" in symbol:
+                keep_symbol = True
+            else:
+                for pattern in relinker_blocklist:
+                    if pattern.match(symbol):
+                        keep_symbol = True
+                        break
+
+            if keep_symbol:
+                symbols_to_keep.append(symbol)
+
+        version_script = "{\n"
+        if symbols_to_keep:
+            version_script += "global:\n"
+        for symbol in symbols_to_keep:
+            version_script += "  {};\n".format(symbol)
+        version_script += "local: *;\n"
+        version_script += "};\n"
+        ctx.actions.write(outputs[output], version_script)
+
+    actions.dynamic_output(dynamic = needed_symbols + [provided_symbols], inputs = [], outputs = [output], f = create_version_script)
+
+def extract_undefined_symbols(ctx: AnalysisContext, toolchain: CxxToolchainInfo, lib: Artifact) -> Artifact:
+    return extract_undefined_syms(ctx, toolchain, lib, "relinker_extract_undefined_symbols")
+
+def union_needed_symbols(actions: AnalysisActions, output: Artifact, needed_symbols: list[Artifact]):
+    def compute_union(ctx, artifacts, outputs):
+        unioned_symbols = {}
+        for symbols_file in needed_symbols:
+            for line in artifacts[symbols_file].read_string().strip().split("\n"):
+                unioned_symbols[line] = True
+        symbols = sorted(unioned_symbols.keys())
+        ctx.actions.write(outputs[output], symbols)
+
+    actions.dynamic_output(dynamic = needed_symbols, inputs = [], outputs = [output], f = compute_union)
 
 def strip_lib(ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo, shlib: Artifact):
     strip_flags = cmd_args(get_strip_non_global_flags(cxx_toolchain))
