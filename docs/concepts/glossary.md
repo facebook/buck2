@@ -126,6 +126,10 @@ The identifier for a [target](#target). Structured as `cellAlias//path/to/packag
 
 A string that resolves to a set of [targets](#target). They can be used as arguments to commands such as `buck2 build` and `buck2 uquery`. They can also be used in the [visibility](#visibility) argument of a [rule](#rule). For more information, see [Target pattern](./target_pattern.md).
 
+#### Target universe
+
+A set of configured targets and their transitive deps. In the context of cquery and build in the Buck2 CLI, any literals are resolved to all matching targets within the universe. Target universe can be passed explicitly on the Buck2 CLI via `--target-universe`. If omitted, the target universe will be inferred by constructing a universe using all the target literals (and their transitive deps) within the query string for cquery.
+
 #### Transition
 
 Allows the [configuration](#configuration) to change across a [dependency](#dependency) edge. That is, normally, if [target](#target) A depends on target B, then if the configuration for A is X, then B is configured using X too. By using a transition, you can produce X to configure B instead.
