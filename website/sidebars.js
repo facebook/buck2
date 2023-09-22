@@ -152,6 +152,7 @@ const manualSidebar = [
         items: [
           'developers/bxl_getting_started',
           'developers/bxl_how_tos',
+          'developers/target_universe',
           'developers/bxl_telemetry',
           'developers/anon_targets',
           'developers/dynamic_output',
