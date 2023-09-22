@@ -9,69 +9,95 @@
 # pyre-strict
 
 """
-Applies the merge sequence to the linkable_graph and module graph to produce merged libs.
+Applies the merge sequence to the linkable_graph and module graph to produce merged libraries.
 
-The merge sequence is a list of "merge entries". Each entry is a list of "merge specs" which is a name and a list of roots (a single entry
-list can appear as the value rather than a list). So something like:
+The merge sequence is a list of "merge entries". Each entry is a "merge spec", which is a name and a list of roots.
+For example:
 
 ```
 [
-    {"group1.so": [//group1:root1, //group2:root2]},
-     # TODO(cjhopman): We should consider requiring a "supergroup name" here to give to all of the subgroups so we don't need to try to
-     # produce a reasonable name (right now we produce an unreasonable name given that we just use the first group's name even if the
-     # group isn't a dependent of it).
-    [{"group2-foo.so": [//group2/foo:root]}, {"group2-bar.so": [//group2//bar:root]}
+    {"group1.so": [//group1:root1, //group1:root2]},
+    {"group2.so": [//group2:root]},
     ...
 ]
 ```
 
-We use this sequence to assign each target in the linkable graph to a "merge group". The list is processed in order and each entry defines a
-new merge group. That group consists of all the roots in the entry (for all specs in the entry) and all of the transitive dependencies of those
-roots, except for nodes that have already been assigned a merge group.
+We use this sequence to assign each target in the linkable graph to a "merge group". The list is processed in order and
+each entry defines a new merge group. That group consists of all the roots in the entry and all of the transitive
+dependencies of those roots, except for nodes that have already been assigned a merge group.
 
-We then need to split that merge group into "split groups" for four reasons: to respect module boundaries, to preserve the module dependencies
-of targets in the root module, to not merge excluded libs, and to preserve spec root deps (for merge groups with multiple specs). That is, we
-have these constraints:
-1. targets in a split group will all be in the same module.
-2. for split groups in the root module, all targets will have the same set of transitive module dependencies (including through
-dependencies in other merge groups). This is required because module loads are expensive and we don't want to merge a target into a final library
-that requires module loads that the target wouldn't otherwise need. For non-root modules, this is unnecessary because non-root modules can only be
-loaded if their dependencies have been loaded (and so whatever we do we can't cause unnecessary loads there).
-3. for a merge group with multiple specs, all targets within a split group will be transitive dependencies of the same set of merge spec roots.
-4. some targets are excluded from merging (due to the merge_sequence_blocklist, or targets that cannot be packaged as assets).
+We then need to split that merge group into "split groups" for three reasons: defining valid libraries, avoiding adding
+implicit module dependencies to targets, and excluding targets that shouldn't be merged. That imposes these constraints:
+1. Targets in a split group will all be in the same module. A library cannot span multiple modules.
+2. For split groups in the root module, all targets will have the same set of transitive module dependencies (including
+   through targets in other merge groups). A non-root module cannot be loaded without loading all of its module
+   dependencies, but if a JNI entry-point target is in the root module and has module dependencies, those dependencies
+   would have to be loaded explicitly in advance, or the library load for the target will fail. Making any such target
+   depend on *more* modules in merged-library builds would therefore risk merged-build-only runtime crashes.
+3. Some targets are excluded from merging (explicitly via a blocklist, or implicitly because they cannot be packaged as
+   assets). Non-asset targets are rare, often cause issues when merged, and complicate split-group "layering" as
+   described below, so it significantly simplifies merge sequence configuration and mechanics to exclude them.
 
+Finally, we need to prevent dependency cycles between merged libraries. This only requires additional effort at the
+split group level; there cannot be any cycles between merge groups because, by definition, any transitive dependency of
+a target in a previous merge group is already in a previous merge group.
 
-Once we have those split groups there's one final thing to resolve: target dependency cycles between the split groups of this merge group (we know
-that there cannot be any cycles involving previous merge groups becomes the definition of the merge groups ensures that there can be no edges from
-previous ones into the current one). We cannot have target dependency cycles between the split groups because neither the build time or runtime
-linker will accept that.
+To ensure there are no cycles, we further split the split groups into "layers" by how many times their dependents in the
+current merge group reenter the same split group. There cannot be a cycle between any pair of split group layers,
+regardless of whether the layers are from the same split group. If dependency chains exist in both directions between
+two split group layers:
+- The layers must share the same transitive module dependencies.
+- The layers must have different dependent reentry counts or be in different modules, or else they'd be the same layer.
+- If the layers are in the same module, there are dependency chains in both directions between different layers of the
+  same split group. But those layers have different dependent reentry counts into that split group, so this is
+  impossible. The layers are in different modules.
+- One layer must be in the root module, or else there would be a module dependency cycle. (As a special case, cycles
+  between the root module and non-root modules are allowed.)
+- Every target in the root-module layer in the dependency chain starting from the non-root module layer must be a
+  non-asset target, or else the module would have included each such target, since they're transitive dependencies and
+  no other non-root module includes them.
+- But we do not merge non-asset targets. There is no cycle.
 
-To ensure there are no cycles, we further split the groups into "layers". We do this by tracking the max "exit counts" each module along paths from a
-node to the leafs. A "module exit count" for a path is the number of times that the path leaves that module (i.e. has an edge where a node in the module
-depends on one outside the module). For the root module, we split into layers based on the exit counts for all modules, and for non-root modules only on
-the exit counts for the module itself (though we still track the counts for all modules, of course). Along with the fact that the apk module construction
-itself ensures that there are no cycles between modules, this ensures that there are no cycles in our split group layering.
-
-# TODO(cjhopman): There's a possibility that we can use just the self count for the root module as well
-
-Since excluded targets are all in their own split group of a
-single item, there's no need to track exit counts for their groups since they will only ever have the one layer.
+Further, the number of layers in a split group is the minimal number of libraries that can be merged from that split
+group without causing a cycle. There exists a dependency chain between each pair of layers in a split group that exits
+the split group at one layer and reenters it at the other, so any library merging two layers of the same split group
+transitively depends on itself.
 
 The split group layering determines the final library constituents.
 
-We perform both the split grouping and the split group layering in a single traversal.
+We perform a bottom-up traversal to identify transitive module dependencies, then a top-down traversal to assign split
+groups, compute dependent split-group reentry counts, and finalize split group layers. While we could avoid the second
+traversal by instead layering based on *dependency* reentry count, using *dependent* reentry count produces better
+target distribution between layers.
+- Optimal target distribution would maximize the number of targets in the largest layer. For a fixed number of
+  libraries, build size varies depending on how many symbols need to be exposed in order to facilitate linkage across
+  libraries, and so reducing the number of satellite targets will in general improve build size.
+- Split-group-reentrant dependency chains are rare, so targets without split-group-reentrant dependencies or dependents
+  are common. Similarly, short split-group-reentrant dependency chains are more common than longer ones.
+- So if we want to maximize the size of the largest layer, we want the targets without reentrant dependencies to merge
+  with the targets at the heads of reentrant dependency chains, the most common targets in such chains.
 
-Once we've done the split group layering, the split group and layer identify the "final lib" for each target. The one remaining thing to do at
-that point is to produce a name for each final lib. Ideally, each merge group will end up with a single library and the naming is simple. If it
-ends up having multiple libraries, we need to give each a unique name. If we need to add suffixes to the merge group name in order to uniquify
-the library names, we prefer that the higher level libraries have the least suffixed names (the idea here is that the name of the merge group
-spec tends to relate most closely with the spec's roots, rather than with its lower level libs and so the name should reflect that).
+Once we've done the split group layering, the split group and layer identify the "final library" for each target. The
+one remaining thing to do is to produce a name for each final library. Ideally, each merge group will end up with a
+single library and the naming is simple. If it ends up having multiple libraries, we give each a unique name by adding
+suffixes.
 
-So, the rules for suffixing are:
-1. things start with their merge group spec name (subgroups will get assigned one of their dependent group spec names)
-2. if a merge group is in multiple modules, each library in a non-root module will get that module name added to its name.
-3. we perform a topological traversal of the final library graph, maintaining a counter of times we've encountered
-a (possibly module-suffixed) name. Each encounter after the first will get suffixed with the count.
+We aim to minimize the suffixing of the largest, most central layers, so we apply the following rules:
+1. Library names start with the merge spec name.
+2. If a merge spec includes targets from multiple modules, each library in a non-root module will be suffixed with that
+   module name.
+3. We perform a topological traversal of the final library graph, maintaining counters of times we've encountered each
+   (possibly module-suffixed) library name. Each final library after the first encountered for its library name will be
+   further suffixed with that library name's counter value.
+
+# TODO(cjhopman): This file has PARTIAL, BROKEN logic handling merge entries that are a list of merge specs. This is
+# NOT currently supported or tested, and its interface should be considered non-final. Do not interact with this!
+
+# TODO(cjhopman): In multi-spec merge entries, split groups must be split by sets of specs in the current merge entry
+# whose roots are transitive dependents.
+
+# TODO(cjhopman): We should consider requiring a "supergroup name" in multi-spec merge entries. Right now, we produce
+# unreasonable library names by applying the first spec's name to libraries from all specs in the entry.
 """
 from __future__ import annotations
 
@@ -355,7 +381,9 @@ def get_native_linkables_by_merge_sequence(  # noqa: C901
             if x.search(raw_target):
                 return True
 
-        # TODO(cjhopman): implement the thing about wrap script, possibly by just having that mark it as can_be_asset=False
+        # TODO(cjhopman): This logic does not explicitly exclude targets that are used_by_wrap_script. D38377593
+        # enforces that such targets never can_be_asset and are therefore implicitly excluded, but D38845949 still
+        # explicitly excludes them for Buck 1.
         return False
 
     def get_children_without_merge_group(label: Label) -> list[Label]:
@@ -383,8 +411,9 @@ def get_native_linkables_by_merge_sequence(  # noqa: C901
             group_roots, get_children_without_merge_group
         )
 
-        # While most of the restrictions we enforce can be computed in a single bottom-up traversal, restriction (3) requires traversing down
-        # the graph to determine the set of transitive dependent spec roots, and so the computation of that is done first here.
+        # TODO(cjhopman): The restrictions on single-spec merge entries can be computed in two traversals, but
+        # multi-spec entries will require an additional top-down traversal to determine the set of transitive dependent
+        # spec roots, which will be an additional factor separating split groups in such merge groups.
         merge_subgroup_mapping = group_specs.compute_merge_subgroup_mapping(
             post_ordered_targets, graph_node_map
         )
