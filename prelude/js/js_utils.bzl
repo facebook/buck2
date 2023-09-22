@@ -57,10 +57,10 @@ ASSET_EXTENSIONS = [
 ]
 
 # Matches the default value for resolver.platforms in metro-config
-ASSET_PLATFORMS = ["ios", "android", "windows", "web"]
+ASSET_PLATFORMS = ["ios", "android", "windows", "macos", "web"]
 
 def get_apple_resource_providers_for_js_bundle(ctx: AnalysisContext, js_bundle_info: JsBundleInfo, platform: str, skip_resources: bool) -> list[ResourceGraphInfo]:
-    if platform != "ios":
+    if platform != "ios" and platform != "macos":
         return []
 
     # `skip_resources` controls whether the JS resources should be skipped, not whether
