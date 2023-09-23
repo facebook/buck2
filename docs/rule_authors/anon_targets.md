@@ -129,7 +129,7 @@ silly_binary = rule(
 
 ## Convert promise to artifact
 
-It can be challenging to pass around the promises from anon_target and structure functions to support that. If you only need an artifact (or multiple artifacts) from an anon_target, you can use `ctx.actions.promise_artifact()` to convert a promise to an artifact. This artifact can be passed to most things that expect artifacts, but until it is resolved (at the end of the current analysis) it can't be inspected with artifact functions like `.extension`, `.short_path`, etc. The promise must resolve to a build (not source) artifact with no associated artifacts.
+It can be challenging to pass around the promises from anon_target and structure functions to support that. If you only need an artifact (or multiple artifacts) from an anon_target, you can use `ctx.actions.artifact_promise()` to convert a promise to an artifact. This artifact can be passed to most things that expect artifacts, but until it is resolved (at the end of the current analysis) it can't be inspected with artifact functions like `.extension`, `.short_path`, etc. The promise must resolve to a build (not source) artifact with no associated artifacts.
 
 Example:
 

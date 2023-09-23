@@ -76,7 +76,7 @@ enum PromiseArtifactError {
 
 /// An artifact wrapper for a StarlarkPromise that will resolve to an artifact
 ///
-/// The `StarlarkPromiseArtifact` is created with `ctx.actions.promise_artifact()` and will
+/// The `StarlarkPromiseArtifact` is created with `ctx.actions.artifact_promise()` and will
 /// not have been bound until promises are resolved at the end of analysis.
 #[derive(
     Debug,

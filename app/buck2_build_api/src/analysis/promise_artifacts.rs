@@ -35,7 +35,7 @@ struct PromiseArtifactEntry {
     short_path: Option<ForwardRelativePathBuf>,
 }
 
-/// The PromiseArtifactRegistry stores promises registered with ctx.actions.promise_artifact() and their
+/// The PromiseArtifactRegistry stores promises registered with ctx.actions.artifact_promise() and their
 /// corresponding internal PromiseArtifact. At the end of analysis (after promises have been resolved),
 /// all PromiseArtifact will be updated to have the resolved artifact from the corresponding starlark promise.
 #[derive(Debug, Trace, Allocative)]
