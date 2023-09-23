@@ -42,6 +42,8 @@ OCamlToolchainInfo = provider(
         "ocaml_compiler_flags": provider_field(typing.Any, default = None),  # passed to both ocamlc and ocamlopt, like dune's (flags)
         "ocamlc_flags": provider_field(typing.Any, default = None),  # passed to ocamlc only, like dune's (ocamlc_flags)
         "ocamlopt_flags": provider_field(typing.Any, default = None),  # passed to ocamlopt only, like dune's (ocamlopt_flags)
+        "runtime_dep_link_flags": provider_field(typing.Any, default = None),  # `ocaml_object` uses this to satisfy OCaml runtimes C link dependencies
+        "runtime_dep_link_extras": provider_field(typing.Any, default = None),  # `ocaml_object` uses this to satisfy OCaml runtimes C link dependencies
     },
 )
 

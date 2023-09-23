@@ -819,6 +819,7 @@ def ocaml_object_impl(ctx: AnalysisContext) -> list[Provider]:
     ctx.actions.run(cmd, category = "ocaml_complete_obj_link", local_only = local_only)
 
     cxx_toolchain = get_cxx_toolchain_info(ctx)
+    ocaml_toolchain_runtime_deps = ocaml_toolchain.runtime_dep_link_extras
     linker_type = cxx_toolchain.linker_info.type
     link_infos = {}
     for output_style in LibOutputStyle:
@@ -826,12 +827,14 @@ def ocaml_object_impl(ctx: AnalysisContext) -> list[Provider]:
             linkables = [
                 ObjectsLinkable(objects = [obj], linker_type = linker_type),
             ],
+            post_flags = [cmd_args(f) for f in ocaml_toolchain.runtime_dep_link_flags],
         ))
+
     obj_link_info = create_merged_link_info(
         ctx,
         pic_behavior = cxx_toolchain.pic_behavior,
         link_infos = link_infos,
-        exported_deps = dep_link_infos,
+        exported_deps = dep_link_infos + [d.get(MergedLinkInfo) for d in ocaml_toolchain_runtime_deps],
     )
 
     other_outputs = {
@@ -861,14 +864,16 @@ def ocaml_object_impl(ctx: AnalysisContext) -> list[Provider]:
     ]
     sub_targets = {"bytecode": info_byt, "expand": info_expand, "ide": info_ide}
 
+    deps = _attr_deps(ctx) + ocaml_toolchain_runtime_deps
+
     return [
         DefaultInfo(default_output = obj, sub_targets = sub_targets),
         obj_link_info,
-        merge_link_group_lib_info(deps = _attr_deps(ctx)),
-        merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, _attr_deps(ctx))),
+        merge_link_group_lib_info(deps = deps),
+        merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, deps)),
         create_linkable_graph(
             ctx,
-            deps = ctx.attrs.deps,
+            deps = deps,
         ),
     ]
 
