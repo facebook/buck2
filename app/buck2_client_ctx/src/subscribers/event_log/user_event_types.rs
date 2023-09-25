@@ -126,17 +126,12 @@ pub(crate) fn try_get_user_event(buck_event: &BuckEvent) -> anyhow::Result<Optio
                     // Take the last command report's input materialization duration
                     if let Some(command) = action_execution.commands.last() {
                         if let Some(details) = &command.details {
-                            // TODO: remove this first if block
-                            if let Some(input_materialization_duration) =
-                                &details.input_materialization_duration
-                            {
-                                input_materialization_duration_millis =
-                                    input_materialization_duration
-                                        .try_into_duration()?
-                                        .as_millis() as u64;
-                            } else if let Some(metadata) = &details.metadata {
-                                input_materialization_duration_millis =
-                                metadata
+                            input_materialization_duration_millis = details
+                                .metadata
+                                .as_ref()
+                                .context(
+                                    SerializeUserEventError::MissingInputMaterializationDuration,
+                                )?
                                 .input_materialization_duration
                                 .as_ref()
                                 .context(
@@ -145,11 +140,6 @@ pub(crate) fn try_get_user_event(buck_event: &BuckEvent) -> anyhow::Result<Optio
                                 .try_into_duration()?
                                 .as_millis()
                                 as u64;
-                            } else {
-                                return Err(anyhow::anyhow!(
-                                    SerializeUserEventError::MissingInputMaterializationDuration,
-                                ));
-                            }
                         }
                     }
 

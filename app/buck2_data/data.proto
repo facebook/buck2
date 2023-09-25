@@ -968,7 +968,7 @@ message OmittedLocalCommand {
 }
 
 message CommandExecutionDetails {
-  reserved 6;
+  reserved 6, 10, 35;
 
   // Same as exit_code but allowing negative values
   optional sint32 signed_exit_code = 4;
@@ -987,19 +987,6 @@ message CommandExecutionDetails {
   }
 
   CommandExecutionMetadata metadata = 13;
-
-  // TODO: remove the 2 fields below after migrating to CommandExecutionMetadata
-  // We should probably get the some more fields from CommandExecutionMetadata
-  // in there.
-  optional CommandExecutionStats execution_stats = 10;
-
-  // Time to materialize inputs for this command.
-  google.protobuf.Duration input_materialization_duration = 35;
-
-  // TODO: it would be nice if the extra fields we add here would be in their
-  // own protobuf message, so that we could reuse them in test.proto, even if
-  // we don't want to reuse CommandExecutionDetails there (which we don't,
-  // because it returns exit code, stdout and stderr in a different format).
 }
 
 // This isn't used here yet, but ideally it would be (it's used in tests). It's

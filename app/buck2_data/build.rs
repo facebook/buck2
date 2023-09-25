@@ -83,10 +83,6 @@ fn main() -> io::Result<()> {
             "buck.data.CommandExecutionDetails.command",
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
         )
-        .field_attribute(
-            "buck.data.CommandExecutionDetails.input_materialization_duration",
-            "#[serde(rename = \"input_materialization_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
-        )
         .type_attribute(
             "buck.data.DynamicLambdaStart.owner",
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
