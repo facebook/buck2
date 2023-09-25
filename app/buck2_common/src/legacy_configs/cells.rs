@@ -360,6 +360,9 @@ impl BuckConfigBasedCells {
             if let Some(buildfiles) = Self::parse_buildfile_name(&config)? {
                 cells_aggregator.set_buildfiles(path.clone(), buildfiles);
             }
+            if let Some(buildfile) = config.parse::<String>("buildfile", "extra_for_test")? {
+                cells_aggregator.add_buildfile(path.clone(), FileNameBuf::try_from(buildfile)?);
+            }
 
             buckconfigs.insert(path, config);
         }
@@ -466,6 +469,7 @@ mod tests {
                                 third_party = ../third_party/
                             [buildfile]
                                 name = TARGETS
+                                extra_for_test = TARGETS.test
                         "#
                 ),
             ),
@@ -502,7 +506,7 @@ mod tests {
             root_instance.buildfiles().map(|n| n.as_str())
         );
         assert_eq!(
-            vec!["TARGETS.v2", "TARGETS"],
+            vec!["TARGETS.v2", "TARGETS", "TARGETS.test"],
             other_instance.buildfiles().map(|n| n.as_str())
         );
         assert_eq!(vec!["OKAY"], tp_instance.buildfiles().map(|n| n.as_str()));
