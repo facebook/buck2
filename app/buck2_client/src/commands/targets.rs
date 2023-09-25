@@ -167,10 +167,16 @@ pub struct TargetsCommand {
     #[clap(long, requires = "streaming")]
     imports: bool,
 
-    /// Show the package values. Produces an additional attribute representing the package values
+    /// Show the package values. Produces an additional attribute representing all the package values
     /// for the package containing the target.
-    #[clap(long)]
+    #[clap(long, conflicts_with = "package_values_regex")]
     package_values: bool,
+
+    /// Regular expressions to match package values. Produces an additional attribute representing package values
+    /// for the package containing the target. Regular expressions are used in "search" mode so,
+    /// for example, empty string matches all package values.
+    #[clap(long, value_name = "VALUES", conflicts_with = "package_values")]
+    package_values_regex: Vec<String>,
 
     /// File to put the output in, rather than sending to stdout.
     ///
@@ -202,7 +208,7 @@ impl TargetsCommand {
             Ok(OutputFormat::JsonLines)
         } else if !self.attributes.get()?.is_empty() {
             Ok(OutputFormat::Json)
-        } else if self.package_values {
+        } else if self.package_values || !self.package_values_regex.is_empty() {
             Ok(OutputFormat::Json)
         } else if self.stats {
             if self.json || self.json_lines {
@@ -211,6 +217,20 @@ impl TargetsCommand {
             Ok(OutputFormat::Stats)
         } else {
             Ok(OutputFormat::Text)
+        }
+    }
+
+    /// Return each of the strings that were supplied as arguments to `--package-values-regex` or,
+    /// if `--package-values` is used, return an empty string that effectively matches all package values.
+    fn package_values_as_regexes(&self) -> anyhow::Result<Vec<String>> {
+        if self.package_values {
+            if self.package_values_regex.is_empty() {
+                Ok(vec![String::new()])
+            } else {
+                Err(TargetsError::IncompatibleArguments.into())
+            }
+        } else {
+            Ok(self.package_values_regex.clone())
         }
     }
 }
@@ -243,6 +263,7 @@ impl StreamingCommand for TargetsCommand {
         };
 
         let output_attributes = self.attributes.get()?;
+        let package_values = self.package_values_as_regexes()?;
         let target_hash_graph_type =
             match (self.show_target_hash, self.show_unconfigured_target_hash) {
                 (true, true) => {
@@ -294,7 +315,7 @@ impl StreamingCommand for TargetsCommand {
                     streaming: self.streaming,
                     cached: !self.no_cache,
                     imports: self.imports,
-                    package_values: self.package_values,
+                    package_values,
                 })
             }),
             output: self

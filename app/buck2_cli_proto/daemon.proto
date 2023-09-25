@@ -154,7 +154,7 @@ message TargetsRequest {
   message ResolveAlias {}
 
   message Other {
-    reserved 4, 10;
+    reserved 4, 10, 17;
 
     repeated string output_attributes = 5;
 
@@ -169,7 +169,7 @@ message TargetsRequest {
     bool streaming = 14;
     bool cached = 15;
     bool imports = 16;
-    bool package_values = 17;
+    repeated string package_values = 18;
   }
 
   ClientContext context = 1;

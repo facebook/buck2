@@ -155,7 +155,7 @@ struct JsonFormat {
     attributes: Option<RegexSet>,
     attr_inspect_opts: AttrInspectOptions,
     target_call_stacks: bool,
-    package_values: bool,
+    package_values: Option<RegexSet>,
     writer: JsonWriter,
 }
 
@@ -211,7 +211,7 @@ impl TargetFormatter for JsonFormat {
             QuotedJson::quote_display(target_info.node.label().pkg())
         });
 
-        if self.package_values {
+        if let Some(filter) = &self.package_values {
             print_attr(self, buffer, &mut first, PACKAGE_VALUES, || {
                 let package_values = serde_json::Value::Object(
                     target_info
@@ -221,6 +221,7 @@ impl TargetFormatter for JsonFormat {
                         // TODO(nga): return error.
                         .unwrap()
                         .iter()
+                        .filter(|(k, _)| filter.is_match(k.as_str()))
                         .map(|(k, v)| (k.as_str().to_owned(), v.clone()))
                         .collect(),
                 );
@@ -409,7 +410,11 @@ pub(crate) fn create_formatter(
                 AttrInspectOptions::DefinedOnly
             },
             target_call_stacks,
-            package_values: other.package_values,
+            package_values: if other.package_values.is_empty() {
+                None
+            } else {
+                Some(RegexSet::new(&other.package_values)?)
+            },
             writer: JsonWriter {
                 json_lines: output_format == OutputFormat::JsonLines,
             },
