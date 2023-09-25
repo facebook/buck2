@@ -11,6 +11,7 @@ use std::fmt::Debug;
 
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_core::cells::build_file_cell::BuildFileCell;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellResolver;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::build_context::STARLARK_PATH_FROM_BUILD_CONTEXT;
@@ -47,6 +48,10 @@ enum BuildContextError {
     NotPackageFileNoFunction(StarlarkFileType),
     #[error("Package can only be fetched from a build file")]
     PackageOnlyFromBuildFile,
+    #[error(
+        "Base path is only defined for build file or PACKAGE file; current file context is {0:?}"
+    )]
+    BasePathOnlyDefinedForPackageOrBuildFile(StarlarkFileType),
 }
 
 #[derive(Debug)]
@@ -67,6 +72,23 @@ impl PerFileTypeContext {
             PerFileTypeContext::Package(package) => StarlarkPath::PackageFile(&package.path),
             PerFileTypeContext::Bzl(path) => StarlarkPath::LoadFile(&path.bzl_path),
             PerFileTypeContext::Bxl(path) => StarlarkPath::BxlFile(path),
+        }
+    }
+
+    /// Gets base path from buildfile or PACKAGE file context.
+    /// For example, for `foo//bar/PACKAGE` this returns `foo//bar`.
+    /// For `foo//bar/baz/BUCK` this returns `foo//bar/baz`.
+    /// Throws an error if it's used in any other context.
+    fn base_path(&self) -> anyhow::Result<CellPath> {
+        match self {
+            PerFileTypeContext::Build(module) => {
+                Ok(module.buildfile_path().package().to_cell_path())
+            }
+            PerFileTypeContext::Package(package) => Ok(package.path.dir().to_owned()),
+            _ => Err(BuildContextError::BasePathOnlyDefinedForPackageOrBuildFile(
+                self.starlark_path().file_type(),
+            )
+            .into()),
         }
     }
 
@@ -198,6 +220,10 @@ impl<'a> BuildContext<'a> {
 
     pub fn starlark_path(&self) -> StarlarkPath {
         self.additional.starlark_path()
+    }
+
+    pub(crate) fn base_path(&self) -> anyhow::Result<CellPath> {
+        self.additional.base_path()
     }
 }
 

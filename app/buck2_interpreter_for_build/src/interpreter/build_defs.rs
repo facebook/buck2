@@ -63,25 +63,27 @@ pub(crate) fn register_path(builder: &mut GlobalsBuilder) {
         Ok(ValueOfUnchecked::new(eval.heap().alloc(AllocList(res))))
     }
 
-    /// `package_name()` can only be called in `BUCK` files, and returns the name of the package.
+    /// `package_name()` can only be called in buildfiles (e.g. BUCK files) or PACKAGE files, and returns the name of the package.
     /// E.g. inside `foo//bar/baz/BUCK` the output will be `bar/baz`.
+    /// E.g. inside `foo//bar/PACKAGE` the output will be `bar`.
     fn package_name(eval: &mut Evaluator) -> anyhow::Result<String> {
         // An (IMO) unfortunate choice in the skylark api is that this just gives the cell-relative
         //  path of the package (which isn't a unique "name" for the package)
         Ok(BuildContext::from_context(eval)?
-            .require_package()?
-            .cell_relative_path()
+            .base_path()?
+            .path()
             .to_string())
     }
 
-    /// `get_base_path()` can only be called in `BUCK` files, and returns the name of the package.
+    /// `get_base_path()` can only be called in buildfiles (e.g. BUCK files) or PACKAGE files, and returns the name of the package.
     /// E.g. inside `foo//bar/baz/BUCK` the output will be `bar/baz`.
+    /// E.g. inside `foo//bar/PACKAGE` the output will be `bar`.
     ///
     /// This function is identical to `package_name`.
     fn get_base_path(eval: &mut Evaluator) -> anyhow::Result<String> {
         Ok(BuildContext::from_context(eval)?
-            .require_package()?
-            .cell_relative_path()
+            .base_path()?
+            .path()
             .to_string())
     }
 
