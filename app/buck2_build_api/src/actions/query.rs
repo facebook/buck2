@@ -16,6 +16,7 @@ use std::io::Write;
 use std::pin::Pin;
 use std::sync::Arc;
 
+use allocative::Allocative;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
@@ -94,11 +95,20 @@ pub enum ActionInput {
 
 /// Both the fields are enums here. Ideally they wouldn't be, but since the query interface wants a
 /// &NodeRef (and that is rather hard to change), we pull this out.
-#[derive(Debug, Clone, Dupe)]
+#[derive(Debug, Clone, Dupe, Allocative)]
 pub struct ActionQueryNode {
     key: ActionQueryNodeRef,
+    #[allocative(skip)] // TODO(@wendyy) we should derive allocative for action-related structs
     data: ActionQueryNodeData,
 }
+
+impl PartialEq for ActionQueryNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+    }
+}
+
+impl Eq for ActionQueryNode {}
 
 #[derive(Debug, Clone, Dupe)]
 pub enum ActionQueryNodeData {
@@ -204,7 +214,16 @@ impl ActionData {
     }
 }
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq, derive_more::Display, Dupe)]
+#[derive(
+    Debug,
+    Clone,
+    Hash,
+    Eq,
+    PartialEq,
+    derive_more::Display,
+    Dupe,
+    Allocative
+)]
 pub enum ActionQueryNodeRef {
     Analysis(Arc<ConfiguredProvidersLabel>),
     Action(ActionKey),
