@@ -51,7 +51,7 @@ def get_filtered_srcs(ctx: AnalysisContext, srcs: list[Artifact], tests: bool = 
         "__srcs__",
         {src.short_path: src for src in srcs},
     )
-    filter_cmd = get_toolchain_cmd_args(go_toolchain, go_root = False)
+    filter_cmd = get_toolchain_cmd_args(go_toolchain, go_root = True)
     filter_cmd.add(go_toolchain.filter_srcs[RunInfo])
     filter_cmd.add(cmd_args(go_toolchain.go, format = "--go={}"))
     if tests:

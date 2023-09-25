@@ -41,6 +41,11 @@ def main(argv):
     for root, _dirs, _files in os.walk(args.srcdir):
         roots.add(root)
 
+    # Compute absolute paths for GOROOT, to enable `go list` to use `compile/asm/etc`
+    goroot = os.environ.get("GOROOT", "")
+    if goroot:
+        goroot = os.path.realpath(goroot)
+
     # Run `go list` on all source dirs to filter input sources by build pragmas.
     for root in roots:
         with tempfile.TemporaryDirectory() as go_cache_dir:
@@ -48,6 +53,7 @@ def main(argv):
                 [
                     "env",
                     "-i",
+                    "GOROOT={}".format(goroot),
                     "GOARCH={}".format(os.environ.get("GOARCH", "")),
                     "GOOS={}".format(os.environ.get("GOOS", "")),
                     "CGO_ENABLED={}".format(os.environ.get("CGO_ENABLED", "0")),
