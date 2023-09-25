@@ -46,7 +46,7 @@ For `owner` query, the universe would be constructed with the unconfigured targe
 ```python
 def _impl:
     unconfigured_owners = ctx.uquery().owner("foobar")
-    target_universe = ctx.target_universe(unconfigured_owners).target_set
+    target_universe = ctx.target_universe(unconfigured_owners).target_set()
     owners = ctx.cquery().owner("foobar", target_universe)
 ```
 
@@ -55,7 +55,7 @@ For everything else, the universe would usually be constructed using all target 
 ```python
 def _impl:
     target_universe = ctx.target_universe("//example:foo")
-    inputs = target_universe.target_set
+    inputs = target_universe.target_set()
     deps = ctx.cquery().deps(inputs)
 ```
 
@@ -64,7 +64,7 @@ While the above guideline should work for `rdeps` as well, for `rdeps` the unive
 ```python
 def _impl:
     target_universe = ctx.target_universe("//example:foo") # narrowed down to the "to" literals in rdeps
-    universe_node = target_universe.target_set
+    universe_node = target_universe.target_set()
     from_node = target_universe.lookup("//example:bar")
     rdeps = ctx.cquery().rdeps(universe_node, from_node)
 ```
