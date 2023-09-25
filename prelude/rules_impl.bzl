@@ -15,6 +15,9 @@ load("@prelude//apple:apple_rules_impl.bzl", _apple_extra_attributes = "extra_at
 # Configuration
 load("@prelude//configurations:rules.bzl", _config_extra_attributes = "extra_attributes", _config_implemented_rules = "implemented_rules")
 
+# C#
+load("@prelude//csharp:csharp.bzl", "csharp_library_impl")
+
 # C++ - LLVM
 load("@prelude//cxx:bitcode.bzl", "llvm_link_bitcode_impl")
 load("@prelude//cxx:cxx.bzl", "cxx_binary_impl", "cxx_library_impl", "cxx_precompiled_header_impl", "cxx_test_impl", "prebuilt_cxx_library_impl")
@@ -181,6 +184,9 @@ extra_implemented_rules = struct(
     test_suite = test_suite_impl,
     versioned_alias = versioned_alias_impl,
     worker_tool = worker_tool,
+
+    #c#
+    csharp_library = csharp_library_impl,
 
     #c++
     cxx_binary = cxx_binary_impl,
@@ -405,6 +411,10 @@ inlined_extra_attributes = {
         "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "_cxx_toolchain": toolchains_common.cxx(),
         "_go_toolchain": toolchains_common.go(),
+    },
+    # csharp
+    "csharp_library": {
+        "_csharp_toolchain": toolchains_common.csharp(),
     },
     "cxx_binary": _cxx_binary_and_test_attrs(),
 
