@@ -1,5 +1,11 @@
 erlang_escript(
     name = "escript",
+    emu_args = [
+        "+A0",
+        "+S1:1",
+        "+sbtu",
+        "-mode minimal",
+    ],
     main_module = "test_binary",
     visibility = ["PUBLIC"],
     deps = [
