@@ -569,7 +569,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                 dice.via(|dice| {
                     async {
                         let targets = filter_incompatible(
-                            TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                            TargetExpr::<'v, ConfiguredTargetNode>::unpack_allow_unconfigured(
                                 targets,
                                 &this.target_platform,
                                 ctx,
