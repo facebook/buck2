@@ -23,6 +23,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -42,25 +43,26 @@ def main(argv):
 
     # Run `go list` on all source dirs to filter input sources by build pragmas.
     for root in roots:
-        out = subprocess.check_output(
-            [
-                "env",
-                "-i",
-                "GOARCH={}".format(os.environ.get("GOARCH", "")),
-                "GOOS={}".format(os.environ.get("GOOS", "")),
-                "CGO_ENABLED={}".format(os.environ.get("CGO_ENABLED", "0")),
-                "GO111MODULE=off",
-                "GOCACHE=/tmp",
-                args.go.resolve(),
-                "list",
-                "-e",
-                "-json",
-                "-tags",
-                args.tags,
-                ".",
-            ],
-            cwd=root,
-        ).decode("utf-8")
+        with tempfile.TemporaryDirectory() as go_cache_dir:
+            out = subprocess.check_output(
+                [
+                    "env",
+                    "-i",
+                    "GOARCH={}".format(os.environ.get("GOARCH", "")),
+                    "GOOS={}".format(os.environ.get("GOOS", "")),
+                    "CGO_ENABLED={}".format(os.environ.get("CGO_ENABLED", "0")),
+                    "GO111MODULE=off",
+                    "GOCACHE=" + go_cache_dir,
+                    args.go.resolve(),
+                    "list",
+                    "-e",
+                    "-json",
+                    "-tags",
+                    args.tags,
+                    ".",
+                ],
+                cwd=root,
+            ).decode("utf-8")
 
         # Parse JSON output and print out sources.
         idx = 0
@@ -81,6 +83,11 @@ def main(argv):
             for typ in types:
                 for src in obj.get(typ, []):
                     src = Path(obj["Dir"]) / src
+                    # Resolve the symlink
+                    src = Path(
+                        os.path.normpath(str(src.parent / os.readlink(str(src))))
+                    )
+                    # Relativize to the CWD.
                     src = src.relative_to(os.getcwd())
                     print(src, file=args.output)
 
