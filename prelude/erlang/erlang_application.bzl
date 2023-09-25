@@ -235,6 +235,8 @@ def _generate_app_file(
     """
     tools = toolchain.otp_binaries
 
+    _check_application_dependencies(ctx)
+
     app_file_name = build_paths.app_file(ctx)
     output = ctx.actions.declare_output(
         paths.join(
@@ -266,6 +268,21 @@ def _generate_app_file(
     build_environment.app_files[name] = output
 
     return build_environment
+
+def _check_application_dependencies(ctx: AnalysisContext) -> None:
+    """ there must not be duplicated applications within applications and included_applications
+    """
+    discovered = _check_applications_field(ctx.attrs.applications, "applications", {})
+    _check_applications_field(ctx.attrs.included_applications, "included_applications", discovered)
+
+def _check_applications_field(field: list[Dependency], tag: str, discovered: dict[str, str]) -> dict[str, str]:
+    for application in field:
+        name = application[ErlangAppInfo].name
+        if name in discovered:
+            fail("discovered {} in `{}`, but the application was already specified in `{}`. The `applications` and `included_applications` field must be unique.".format(name, tag, discovered[name]))
+        else:
+            discovered[name] = tag
+    return discovered
 
 def _app_info_content(
         ctx: AnalysisContext,
