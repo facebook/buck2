@@ -97,6 +97,9 @@ def main(argv):
                 asmhdr.touch()
                 compile_prefix.extend(["-asmhdr", asmhdr])
                 assemble_prefix.extend(["-I", asmhdr_dir.name])
+                assemble_prefix.extend(
+                    ["-I", os.path.join(os.environ["GOROOT"], "pkg", "include")]
+                )
                 assemble_prefix.extend(["-D", f"GOOS_{os.environ['GOOS']}"])
                 assemble_prefix.extend(["-D", f"GOARCH_{os.environ['GOARCH']}"])
                 if "GOAMD64" in os.environ and os.environ["GOARCH"] == "amd64":
