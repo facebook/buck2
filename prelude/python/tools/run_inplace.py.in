@@ -96,7 +96,7 @@ def __run():
 
     restoreenv({env_vals_to_restore!r})
 
-    from __par__.bootstrap import run_as_main
+    from <MAIN_RUNNER_MODULE> import <MAIN_RUNNER_FUNCTION> as run_as_main
     run_as_main({main_module!r}, {main_function!r})
 
 
