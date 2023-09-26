@@ -4,6 +4,14 @@
 
 BASE_DIR={base_dir}
 DIR={base_dir}
+# OSX is not Linux.  To get date to give nanoseconds, we must use gnu date
+if [[ $(uname) == "Darwin" ]]
+then
+    DATE_CMD="/opt/facebook/coreutils/date"
+else
+    DATE_CMD="date"
+fi
+export PAR_LAUNCH_TIMESTAMP=$(${{DATE_CMD}} +%s.%N)
 if [ -n "${{{lib_path_env}+SET}}" ]; then
     export FB_SAVED_{lib_path_env}=${lib_path_env}
 fi

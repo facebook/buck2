@@ -23,6 +23,9 @@ import platform
 import signal
 import subprocess
 import sys
+import time
+
+os.environ["PAR_LAUNCH_TIMESTAMP"] = str(time.time())
 
 dirpath = os.path.dirname(os.path.realpath(__file__))
 

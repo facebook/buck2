@@ -17,6 +17,9 @@ modules_dir = "<MODULES_DIR>"
 def __run():
     import sys
     import os
+    import time
+
+    os.environ["PAR_LAUNCH_TIMESTAMP"] = str(time.time())
 
     # We set the paths beforehand to have a minimal amount of imports before
     # nuking PWD from sys.path. Otherwise, there can be problems if someone runs
