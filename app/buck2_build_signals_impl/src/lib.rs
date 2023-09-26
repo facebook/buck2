@@ -37,6 +37,8 @@ use buck2_build_signals::CriticalPathBackendName;
 use buck2_build_signals::DeferredBuildSignals;
 use buck2_build_signals::FinishBuildSignals;
 use buck2_build_signals::NodeDuration;
+use buck2_common::package_listing::dice::PackageListingKey;
+use buck2_common::package_listing::dice::PackageListingKeyActivationData;
 use buck2_configured::nodes::calculation::ConfiguredTargetNodeKey;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -80,6 +82,7 @@ enum NodeKey {
     DeferredResolve(DeferredResolve),
     ConfiguredTargetNodeKey(ConfiguredTargetNodeKey),
     InterpreterResultsKey(InterpreterResultsKey),
+    PackageListingKey(PackageListingKey),
 
     // This one is not a DICE key.
     Materialization(BuildArtifact),
@@ -96,6 +99,7 @@ assert_eq_size!(DeferredCompute, [usize; 4]);
 assert_eq_size!(DeferredResolve, [usize; 4]);
 assert_eq_size!(ConfiguredTargetNodeKey, [usize; 2]);
 assert_eq_size!(InterpreterResultsKey, [usize; 1]);
+assert_eq_size!(PackageListingKey, [usize; 1]);
 assert_eq_size!(BuildArtifact, [usize; 6]);
 assert_eq_size!(NodeKey, [usize; 7]);
 
@@ -117,6 +121,8 @@ impl NodeKey {
             Self::ConfiguredTargetNodeKey(key.dupe())
         } else if let Some(key) = key.downcast_ref::<InterpreterResultsKey>() {
             Self::InterpreterResultsKey(key.dupe())
+        } else if let Some(key) = key.downcast_ref::<PackageListingKey>() {
+            Self::PackageListingKey(key.dupe())
         } else {
             return None;
         };
@@ -138,6 +144,7 @@ impl fmt::Display for NodeKey {
             Self::DeferredResolve(k) => write!(f, "DeferredResolve({})", k),
             Self::ConfiguredTargetNodeKey(k) => write!(f, "ConfiguredTargetNodeKey({})", k),
             Self::InterpreterResultsKey(k) => write!(f, "InterpreterResultsKey({})", k),
+            Self::PackageListingKey(k) => write!(f, "PackageListingKey({})", k),
             Self::Materialization(k) => write!(f, "Materialization({})", k),
         }
     }
@@ -283,6 +290,14 @@ impl ActivationTracker for BuildSignalSender {
                 };
 
                 signal.load_result = result.ok();
+                signal.spans = spans;
+            } else if let Some(PackageListingKeyActivationData { duration, spans }) =
+                downcast_and_take(&mut activation_data)
+            {
+                signal.duration = NodeDuration {
+                    user: duration,
+                    total: duration,
+                };
                 signal.spans = spans;
             }
         }
@@ -442,6 +457,10 @@ where
                         .into()
                     }
                     NodeKey::InterpreterResultsKey(key) => buck2_data::critical_path_entry2::Load {
+                        package: key.0.to_string(),
+                    }
+                    .into(),
+                    NodeKey::PackageListingKey(key) => buck2_data::critical_path_entry2::Listing {
                         package: key.0.to_string(),
                     }
                     .into(),

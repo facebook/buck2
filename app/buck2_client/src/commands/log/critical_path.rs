@@ -143,6 +143,10 @@ fn log_critical_path(critical_path: &buck2_data::BuildGraphExecutionInfo) -> any
                 kind = "load";
                 name = load.package.clone();
             }
+            Some(Entry::Listing(listing)) => {
+                kind = "listing";
+                name = listing.package.clone();
+            }
             None => continue,
         }
 

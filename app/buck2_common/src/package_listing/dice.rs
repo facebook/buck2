@@ -8,15 +8,20 @@
  */
 
 use std::sync::Arc;
+use std::time::Duration;
+use std::time::Instant;
 
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::package::PackageLabel;
+use buck2_events::dispatch::async_record_root_spans;
+use buck2_events::span::SpanId;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use more_futures::cancellation::CancellationContext;
+use smallvec::SmallVec;
 
 use crate::dice::cells::HasCellResolver;
 use crate::dice::file_ops::HasFileOps;
@@ -64,7 +69,12 @@ impl<'c> HasPackageListingResolver<'c> for DiceComputations {
     PartialEq,
     Allocative
 )]
-struct PackageListingKey(PackageLabel);
+pub struct PackageListingKey(pub PackageLabel);
+
+pub struct PackageListingKeyActivationData {
+    pub duration: Duration,
+    pub spans: SmallVec<[SpanId; 1]>,
+}
 
 #[async_trait]
 impl Key for PackageListingKey {
@@ -74,11 +84,22 @@ impl Key for PackageListingKey {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
+        let now = Instant::now();
+
         let cell_resolver = ctx.get_cell_resolver().await?;
         let file_ops = ctx.file_ops();
-        InterpreterPackageListingResolver::new(cell_resolver, Arc::new(file_ops))
-            .resolve(self.0.dupe())
-            .await
+        let (result, spans) = async_record_root_spans(
+            InterpreterPackageListingResolver::new(cell_resolver, Arc::new(file_ops))
+                .resolve(self.0.dupe()),
+        )
+        .await;
+
+        ctx.store_evaluation_data(PackageListingKeyActivationData {
+            duration: now.elapsed(),
+            spans,
+        })?;
+
+        result
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
