@@ -714,15 +714,14 @@ fn context_methods(builder: &mut MethodsBuilder) {
         let res: anyhow::Result<Value<'v>> = this.via_dice(|mut dice, this| {
             dice.via(|ctx| {
                 async move {
-                    let target_expr =
-                        TargetExpr::<'v, ConfiguredTargetNode>::unpack_allow_unconfigured(
-                            labels,
-                            &target_platform,
-                            this,
-                            ctx,
-                            eval,
-                        )
-                        .await?;
+                    let target_expr = TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                        labels,
+                        &target_platform,
+                        this,
+                        ctx,
+                        eval,
+                    )
+                    .await?;
 
                     Ok(match target_expr {
                         TargetExpr::Label(label) => {
@@ -868,15 +867,14 @@ fn context_methods(builder: &mut MethodsBuilder) {
         this.via_dice(|mut ctx, this_no_dice: &BxlContextNoDice<'_>| {
             ctx.via(|ctx| {
                 async move {
-                    let target_expr =
-                        TargetExpr::<'v, ConfiguredTargetNode>::unpack_allow_unconfigured(
-                            labels,
-                            &target_platform,
-                            this_no_dice,
-                            ctx,
-                            eval,
-                        )
-                        .await?;
+                    let target_expr = TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                        labels,
+                        &target_platform,
+                        this_no_dice,
+                        ctx,
+                        eval,
+                    )
+                    .await?;
 
                     let target_set = match target_expr {
                         TargetExpr::Label(label) => filter_incompatible(

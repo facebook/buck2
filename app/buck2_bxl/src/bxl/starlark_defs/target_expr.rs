@@ -16,7 +16,6 @@ use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::soft_error;
 use buck2_core::target::label::TargetLabel;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -181,10 +180,6 @@ pub(crate) enum TargetExprError {
         "Expected a single target like item, but was `{0}`. If you have passed in a `label`, make sure to call `configured_target()` to get the underlying configured target label."
     )]
     NotATarget(String),
-    #[error(
-        "Unconfigured target with label `{0}` was passed into cquery. Targets passed into cquery should be configured (recommendation is to use `ctx.target_universe()`)."
-    )]
-    UnconfiguredTargetInCquery(String),
 }
 
 impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
@@ -196,36 +191,10 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
         eval: &Evaluator<'v, 'c>,
     ) -> anyhow::Result<TargetExpr<'v, ConfiguredTargetNode>> {
         Ok(
-            if let Some(resolved) =
-                Self::unpack_literal(value, target_platform, ctx, dice, false).await?
-            {
+            if let Some(resolved) = Self::unpack_literal(value, target_platform, ctx, dice).await? {
                 resolved
             } else if let Some(resolved) =
-                Self::unpack_iterable(value, target_platform, ctx, dice, eval, false).await?
-            {
-                resolved
-            } else {
-                return Err(anyhow::anyhow!(TargetExprError::NotAListOfTargets(
-                    value.to_repr()
-                )));
-            },
-        )
-    }
-
-    pub(crate) async fn unpack_allow_unconfigured<'c>(
-        value: Value<'v>,
-        target_platform: &Option<TargetLabel>,
-        ctx: &BxlContextNoDice<'v>,
-        dice: &mut DiceComputations,
-        eval: &Evaluator<'v, 'c>,
-    ) -> anyhow::Result<TargetExpr<'v, ConfiguredTargetNode>> {
-        Ok(
-            if let Some(resolved) =
-                Self::unpack_literal(value, target_platform, ctx, dice, true).await?
-            {
-                resolved
-            } else if let Some(resolved) =
-                Self::unpack_iterable(value, target_platform, ctx, dice, eval, true).await?
+                Self::unpack_iterable(value, target_platform, ctx, dice, eval).await?
             {
                 resolved
             } else {
@@ -241,7 +210,6 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
         target_platform: &Option<TargetLabel>,
         ctx: &BxlContextNoDice<'_>,
         dice: &mut DiceComputations,
-        allow_unconfigured: bool,
     ) -> anyhow::Result<Option<TargetExpr<'v, ConfiguredTargetNode>>> {
         if let Some(configured_target) = value.downcast_ref::<StarlarkConfiguredTargetNode>() {
             Ok(Some(Self::Node(configured_target.0.dupe())))
@@ -249,69 +217,47 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
             value.downcast_ref::<StarlarkConfiguredTargetLabel>()
         {
             Ok(Some(Self::Label(Cow::Borrowed(configured_target.label()))))
-        } else {
-            // Handle the unconfigured case
-            let mut unconfigured_label = None;
-            let result = if let Some(s) = value.unpack_str() {
-                unconfigured_label = Some(s.to_owned());
-
-                match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
-                    &ctx.target_alias_resolver,
-                    // TODO(nga): Parse relaxed relative to cell root is incorrect.
-                    CellPathRef::new(ctx.cell_name, CellRelativePath::empty()),
-                    s,
-                    &ctx.cell_resolver,
-                )? {
-                    ParsedPattern::Target(pkg, name, TargetPatternExtra) => {
-                        Ok(Some(Self::Label(Cow::Owned(
-                            dice.get_configured_target(
-                                &TargetLabel::new(pkg, name.as_ref()),
-                                target_platform.as_ref(),
-                            )
-                            .await?,
-                        ))))
-                    }
-                    pattern => {
-                        let loaded_patterns =
-                            load_patterns(dice, vec![pattern], MissingTargetBehavior::Fail).await?;
-
-                        let maybe_compatible = get_maybe_compatible_targets(
-                            dice,
-                            loaded_patterns.iter_loaded_targets_by_package(),
+        } else if let Some(s) = value.unpack_str() {
+            match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
+                &ctx.target_alias_resolver,
+                // TODO(nga): Parse relaxed relative to cell root is incorrect.
+                CellPathRef::new(ctx.cell_name, CellRelativePath::empty()),
+                s,
+                &ctx.cell_resolver,
+            )? {
+                ParsedPattern::Target(pkg, name, TargetPatternExtra) => {
+                    Ok(Some(Self::Label(Cow::Owned(
+                        dice.get_configured_target(
+                            &TargetLabel::new(pkg, name.as_ref()),
                             target_platform.as_ref(),
                         )
-                        .await?
-                        .collect::<Result<Vec<_>, _>>()?;
-
-                        let result = filter_incompatible(maybe_compatible.into_iter(), ctx)?;
-                        Ok(Some(Self::TargetSet(Cow::Owned(result))))
-                    }
+                        .await?,
+                    ))))
                 }
-            } else {
-                match unpack_target_label(value) {
-                    None => Ok(None),
-                    Some(label) => {
-                        unconfigured_label = Some(label.to_string());
-                        Ok(Some(Self::Label(Cow::Owned(
-                            dice.get_configured_target(label, target_platform.as_ref())
-                                .await?,
-                        ))))
-                    }
-                }
-            };
+                pattern => {
+                    let loaded_patterns =
+                        load_patterns(dice, vec![pattern], MissingTargetBehavior::Fail).await?;
 
-            if !allow_unconfigured {
-                if let Some(unconfigured_label) = unconfigured_label {
-                    if target_platform.is_none() {
-                        soft_error!(
-                            "bxl_unconfigured_target_in_cquery",
-                            TargetExprError::UnconfiguredTargetInCquery(unconfigured_label).into()
-                        )?;
-                    }
+                    let maybe_compatible = get_maybe_compatible_targets(
+                        dice,
+                        loaded_patterns.iter_loaded_targets_by_package(),
+                        target_platform.as_ref(),
+                    )
+                    .await?
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                    let result = filter_incompatible(maybe_compatible.into_iter(), ctx)?;
+                    Ok(Some(Self::TargetSet(Cow::Owned(result))))
                 }
             }
-
-            result
+        } else {
+            match unpack_target_label(value) {
+                None => Ok(None),
+                Some(label) => Ok(Some(Self::Label(Cow::Owned(
+                    dice.get_configured_target(label, target_platform.as_ref())
+                        .await?,
+                )))),
+            }
         }
     }
 
@@ -321,7 +267,6 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
         ctx: &BxlContextNoDice<'_>,
         dice: &mut DiceComputations,
         eval: &Evaluator<'v, 'c>,
-        allow_unconfigured: bool,
     ) -> anyhow::Result<Option<TargetExpr<'v, ConfiguredTargetNode>>> {
         if let Some(s) = value.downcast_ref::<StarlarkTargetSet<ConfiguredTargetNode>>() {
             return Ok(Some(Self::TargetSet(Cow::Borrowed(s))));
@@ -340,8 +285,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
         let mut resolved = vec![];
 
         for item in items {
-            let unpacked =
-                Self::unpack_literal(item, target_platform, ctx, dice, allow_unconfigured).await?;
+            let unpacked = Self::unpack_literal(item, target_platform, ctx, dice).await?;
 
             match unpacked {
                 Some(TargetExpr::Node(node)) => resolved.push(Either::Left(node)),
