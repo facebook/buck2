@@ -377,7 +377,7 @@ pub async fn command_details(
         stderr = pair.stderr;
     };
 
-    let command_data = command
+    let command_kind = command
         .status
         .execution_kind()
         .map(|k| k.to_proto(omit_details));
@@ -385,8 +385,8 @@ pub async fn command_details(
     buck2_data::CommandExecutionDetails {
         stdout,
         stderr,
-        command: command_data,
-        command_kind: None,
+        command: None,
+        command_kind,
         signed_exit_code,
         metadata: Some(command.timing.to_proto()),
     }

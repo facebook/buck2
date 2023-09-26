@@ -502,7 +502,7 @@ async fn test_ensure_artifact_external_symlink() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_command_details_omission() {
-    use buck2_data::command_execution_details::Command;
+    use buck2_data::command_execution_kind::Command;
 
     let digest_config = DigestConfig::testing_default();
 
@@ -524,12 +524,14 @@ async fn test_command_details_omission() {
     };
 
     let proto = command_details(&report, false).await;
-    assert_matches!(proto.command, Some(Command::LocalCommand(..)));
+    let command_kind = proto.command_kind.unwrap();
+    assert_matches!(command_kind.command, Some(Command::LocalCommand(..)));
     assert_eq!(&proto.stdout, "stdout");
     assert_eq!(&proto.stderr, "stderr");
 
     let proto = command_details(&report, true).await;
-    assert_matches!(proto.command, Some(Command::OmittedLocalCommand(..)));
+    let command_kind = proto.command_kind.unwrap();
+    assert_matches!(command_kind.command, Some(Command::OmittedLocalCommand(..)));
     assert_eq!(&proto.stdout, "");
     assert_eq!(&proto.stderr, "stderr");
 
@@ -541,7 +543,8 @@ async fn test_command_details_omission() {
         },
     };
     let proto = command_details(&report, true).await;
-    assert_matches!(proto.command, Some(Command::LocalCommand(..)));
+    let command_kind = proto.command_kind.unwrap();
+    assert_matches!(command_kind.command, Some(Command::LocalCommand(..)));
     assert_eq!(&proto.stdout, "stdout");
     assert_eq!(&proto.stderr, "stderr");
 }

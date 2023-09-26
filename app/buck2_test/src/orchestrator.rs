@@ -324,9 +324,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             start_time: timing.start_time,
             execution_time: timing.execution_time,
             execution_details: ExecutionDetails {
-                execution_kind: execution_kind.map(|k| buck2_data::CommandExecutionKind {
-                    command: Some(k.to_proto(false)),
-                }),
+                execution_kind: execution_kind.map(|k| k.to_proto(false)),
             },
         })
     }

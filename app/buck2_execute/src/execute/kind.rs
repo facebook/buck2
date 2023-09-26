@@ -77,27 +77,21 @@ impl CommandExecutionKind {
         }
     }
 
-    pub fn to_proto<T>(&self, omit_details: bool) -> T
-    where
-        T: From<buck2_data::LocalCommand>
-            + From<buck2_data::RemoteCommand>
-            + From<buck2_data::OmittedLocalCommand>
-            + From<buck2_data::WorkerInitCommand>
-            + From<buck2_data::WorkerCommand>,
-    {
-        match self {
+    pub fn to_proto(&self, omit_details: bool) -> buck2_data::CommandExecutionKind {
+        use buck2_data::command_execution_kind::Command;
+
+        let command = Some(match self {
             Self::Local {
                 command,
                 env,
                 digest,
             } => {
                 if omit_details {
-                    buck2_data::OmittedLocalCommand {
+                    Command::OmittedLocalCommand(buck2_data::OmittedLocalCommand {
                         action_digest: digest.to_string(),
-                    }
-                    .into()
+                    })
                 } else {
-                    buck2_data::LocalCommand {
+                    Command::LocalCommand(buck2_data::LocalCommand {
                         action_digest: digest.to_string(),
                         argv: command.to_owned(),
                         env: env
@@ -107,57 +101,63 @@ impl CommandExecutionKind {
                                 value: value.clone(),
                             })
                             .collect(),
-                    }
-                    .into()
+                    })
                 }
             }
             Self::Remote {
                 details,
                 queue_time,
-            } => buck2_data::RemoteCommand {
+            } => Command::RemoteCommand(buck2_data::RemoteCommand {
                 action_digest: details.action_digest.to_string(),
                 cache_hit: false,
                 cache_hit_type: buck2_data::CacheHitType::Executed.into(),
                 remote_dep_file_key: None,
                 queue_time: (*queue_time).try_into().ok(),
                 details: details.to_proto(omit_details),
-            }
-            .into(),
-            Self::ActionCache { details } => buck2_data::RemoteCommand {
+            }),
+
+            Self::ActionCache { details } => Command::RemoteCommand(buck2_data::RemoteCommand {
                 action_digest: details.action_digest.to_string(),
                 cache_hit: true,
                 cache_hit_type: buck2_data::CacheHitType::ActionCache.into(),
                 queue_time: None,
                 details: details.to_proto(omit_details),
                 remote_dep_file_key: None,
+            }),
+
+            Self::RemoteDepFileCache { details } => {
+                Command::RemoteCommand(buck2_data::RemoteCommand {
+                    action_digest: details.action_digest.to_string(),
+                    cache_hit: true,
+                    cache_hit_type: buck2_data::CacheHitType::RemoteDepFileCache.into(),
+                    queue_time: None,
+                    details: details.to_proto(omit_details),
+                    remote_dep_file_key: details
+                        .remote_dep_file_key
+                        .as_ref()
+                        .map(|k| k.to_string()),
+                })
             }
-            .into(),
-            Self::RemoteDepFileCache { details } => buck2_data::RemoteCommand {
-                action_digest: details.action_digest.to_string(),
-                cache_hit: true,
-                cache_hit_type: buck2_data::CacheHitType::RemoteDepFileCache.into(),
-                queue_time: None,
-                details: details.to_proto(omit_details),
-                remote_dep_file_key: details.remote_dep_file_key.as_ref().map(|k| k.to_string()),
+
+            Self::LocalWorkerInit { command, env } => {
+                Command::WorkerInitCommand(buck2_data::WorkerInitCommand {
+                    argv: command.to_owned(),
+                    env: env
+                        .iter()
+                        .map(|(key, value)| buck2_data::EnvironmentEntry {
+                            key: key.clone(),
+                            value: value.clone(),
+                        })
+                        .collect(),
+                })
             }
-            .into(),
-            Self::LocalWorkerInit { command, env } => buck2_data::WorkerInitCommand {
-                argv: command.to_owned(),
-                env: env
-                    .iter()
-                    .map(|(key, value)| buck2_data::EnvironmentEntry {
-                        key: key.clone(),
-                        value: value.clone(),
-                    })
-                    .collect(),
-            }
-            .into(),
+
             Self::LocalWorker {
                 command,
                 env,
                 digest,
                 fallback_exe,
-            } => buck2_data::WorkerCommand {
+            } => Command::WorkerCommand(buck2_data::WorkerCommand {
                 action_digest: digest.to_string(),
                 argv: command.to_owned(),
                 env: env
@@ -168,9 +168,10 @@ impl CommandExecutionKind {
                     })
                     .collect(),
                 fallback_exe: fallback_exe.to_owned(),
-            }
-            .into(),
-        }
+            }),
+        });
+
+        buck2_data::CommandExecutionKind { command }
     }
 }
 

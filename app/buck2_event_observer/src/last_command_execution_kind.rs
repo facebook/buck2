@@ -22,7 +22,11 @@ pub enum LastCommandExecutionKind {
 pub fn get_last_command_execution_kind(
     action: &buck2_data::ActionExecutionEnd,
 ) -> LastCommandExecutionKind {
-    use buck2_data::command_execution_details::Command;
+    let last_command_kind = action
+        .commands
+        .last()
+        .and_then(|c| c.details.as_ref())
+        .and_then(|c| c.command_kind.as_ref());
 
     let last_command = action
         .commands
@@ -30,30 +34,62 @@ pub fn get_last_command_execution_kind(
         .and_then(|c| c.details.as_ref())
         .and_then(|c| c.command.as_ref());
 
-    match last_command {
-        Some(Command::LocalCommand(..)) | Some(Command::OmittedLocalCommand(..)) => {
-            LastCommandExecutionKind::Local
-        }
-        Some(Command::WorkerCommand(_)) | Some(Command::WorkerInitCommand(_)) => {
-            LastCommandExecutionKind::LocalWorker
-        }
-        Some(Command::RemoteCommand(buck2_data::RemoteCommand {
-            cache_hit: true,
-            cache_hit_type,
-            ..
-        })) => {
-            match buck2_data::CacheHitType::from_i32(*cache_hit_type).unwrap() {
-                // ActionCache is 0, so this should be backwards compatible
-                buck2_data::CacheHitType::ActionCache => LastCommandExecutionKind::Cached,
-                buck2_data::CacheHitType::RemoteDepFileCache => {
-                    LastCommandExecutionKind::RemoteDepFileCached
-                }
-                buck2_data::CacheHitType::Executed => LastCommandExecutionKind::Remote,
+    if let Some(command_kind) = last_command_kind {
+        use buck2_data::command_execution_kind::Command;
+        match command_kind.command.as_ref() {
+            Some(Command::LocalCommand(..)) | Some(Command::OmittedLocalCommand(..)) => {
+                LastCommandExecutionKind::Local
             }
+            Some(Command::WorkerCommand(_)) | Some(Command::WorkerInitCommand(_)) => {
+                LastCommandExecutionKind::LocalWorker
+            }
+            Some(Command::RemoteCommand(buck2_data::RemoteCommand {
+                cache_hit: true,
+                cache_hit_type,
+                ..
+            })) => {
+                match buck2_data::CacheHitType::from_i32(*cache_hit_type).unwrap() {
+                    // ActionCache is 0, so this should be backwards compatible
+                    buck2_data::CacheHitType::ActionCache => LastCommandExecutionKind::Cached,
+                    buck2_data::CacheHitType::RemoteDepFileCache => {
+                        LastCommandExecutionKind::RemoteDepFileCached
+                    }
+                    buck2_data::CacheHitType::Executed => LastCommandExecutionKind::Remote,
+                }
+            }
+            Some(Command::RemoteCommand(buck2_data::RemoteCommand {
+                cache_hit: false, ..
+            })) => LastCommandExecutionKind::Remote,
+            None => LastCommandExecutionKind::NoCommand,
         }
-        Some(Command::RemoteCommand(buck2_data::RemoteCommand {
-            cache_hit: false, ..
-        })) => LastCommandExecutionKind::Remote,
-        None => LastCommandExecutionKind::NoCommand,
+    } else {
+        // TODO: Old format. Remove this block once the new format gets well propagated.
+        use buck2_data::command_execution_details::Command;
+        match last_command {
+            Some(Command::LocalCommand(..)) | Some(Command::OmittedLocalCommand(..)) => {
+                LastCommandExecutionKind::Local
+            }
+            Some(Command::WorkerCommand(_)) | Some(Command::WorkerInitCommand(_)) => {
+                LastCommandExecutionKind::LocalWorker
+            }
+            Some(Command::RemoteCommand(buck2_data::RemoteCommand {
+                cache_hit: true,
+                cache_hit_type,
+                ..
+            })) => {
+                match buck2_data::CacheHitType::from_i32(*cache_hit_type).unwrap() {
+                    // ActionCache is 0, so this should be backwards compatible
+                    buck2_data::CacheHitType::ActionCache => LastCommandExecutionKind::Cached,
+                    buck2_data::CacheHitType::RemoteDepFileCache => {
+                        LastCommandExecutionKind::RemoteDepFileCached
+                    }
+                    buck2_data::CacheHitType::Executed => LastCommandExecutionKind::Remote,
+                }
+            }
+            Some(Command::RemoteCommand(buck2_data::RemoteCommand {
+                cache_hit: false, ..
+            })) => LastCommandExecutionKind::Remote,
+            None => LastCommandExecutionKind::NoCommand,
+        }
     }
 }

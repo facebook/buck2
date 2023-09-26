@@ -596,7 +596,6 @@ fn failure_reason_for_command_execution(
     use buck2_data::command_execution::Status;
     use buck2_data::command_execution::Success;
     use buck2_data::command_execution::Timeout;
-    use buck2_data::command_execution_details::Command;
 
     let command = command_execution
         .details
@@ -608,12 +607,25 @@ fn failure_reason_for_command_execution(
         .as_ref()
         .context("CommandExecution did not include a `status`")?;
 
-    let locality = match command.command {
-        Some(Command::RemoteCommand(..)) => "Remote ",
-        Some(Command::LocalCommand(..)) | Some(Command::OmittedLocalCommand(..)) => "Local ",
-        Some(Command::WorkerInitCommand(..)) => "Local Worker Initialization ",
-        Some(Command::WorkerCommand(..)) => "Local Worker ",
-        None => "",
+    let locality = if let Some(command_kind) = command.command_kind.as_ref() {
+        use buck2_data::command_execution_kind::Command;
+        match command_kind.command {
+            Some(Command::RemoteCommand(..)) => "Remote ",
+            Some(Command::LocalCommand(..)) | Some(Command::OmittedLocalCommand(..)) => "Local ",
+            Some(Command::WorkerInitCommand(..)) => "Local Worker Initialization ",
+            Some(Command::WorkerCommand(..)) => "Local Worker ",
+            None => "",
+        }
+    } else {
+        // TODO: Old format. Remove this block once the new format gets well propagated.
+        use buck2_data::command_execution_details::Command;
+        match command.command {
+            Some(Command::RemoteCommand(..)) => "Remote ",
+            Some(Command::LocalCommand(..)) | Some(Command::OmittedLocalCommand(..)) => "Local ",
+            Some(Command::WorkerInitCommand(..)) => "Local Worker Initialization ",
+            Some(Command::WorkerCommand(..)) => "Local Worker ",
+            None => "",
+        }
     };
 
     Ok(match status {
