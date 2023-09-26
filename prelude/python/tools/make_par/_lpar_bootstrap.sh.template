@@ -21,6 +21,8 @@ fi
 unset PYTHONHOME
 export FB_PAR_MAIN_MODULE="{main_module}"
 export FB_PAR_MAIN_FUNCTION="{main_function}"
+export FB_PAR_MAIN_RUNNER_MODULE="{main_runner_module}"
+export FB_PAR_MAIN_RUNNER_FUNCTION="{main_runner_function}"
 export FB_PAR_RUNTIME_FILES=$BASE_DIR
 : ${{FB_LPAR_INVOKED_NAME:="$0"}}
 export FB_LPAR_INVOKED_NAME
