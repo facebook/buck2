@@ -643,6 +643,10 @@ def _convert_python_library_to_executable(
 
     if dbg_source_db:
         extra_artifacts["dbg-db.json"] = dbg_source_db.default_outputs[0]
+
+    if python_toolchain.default_sitecustomize != None:
+        extra_artifacts["sitecustomize.py"] = python_toolchain.default_sitecustomize
+
     extra_manifests = create_manifest_for_source_map(ctx, "extra_manifests", extra_artifacts)
 
     shared_libraries = {}

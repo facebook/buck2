@@ -47,6 +47,7 @@ PythonToolchainInfo = provider(
     fields = {
         "build_standalone_binaries_locally": provider_field(typing.Any, default = None),
         "compile": provider_field(typing.Any, default = None),
+        "default_sitecustomize": provider_field(typing.Any, default = None),
         # The interpreter to use to compile bytecode.
         "host_interpreter": provider_field(typing.Any, default = None),
         "interpreter": provider_field(typing.Any, default = None),

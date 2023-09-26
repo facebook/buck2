@@ -279,6 +279,7 @@ def _make_py_package_impl(
         )
         cmd.add(modules_args)
         cmd.add(bootstrap_args)
+        cmd.add(cmd_args("--no-sitecustomize"))
         ctx.actions.run(
             cmd,
             prefer_local = prefer_local,
@@ -294,6 +295,7 @@ def _make_py_package_impl(
             cmd = cmd_args(make_py_package_cmd)
             cmd.add(modules_args)
             cmd.add(bootstrap_args)
+            cmd.add(cmd_args("--no-sitecustomize"))
             ctx.actions.run(cmd, category = "par", identifier = "inplace{}".format(output_suffix))
         else:
             modules = cmd_args(python_toolchain.make_py_package_modules)
