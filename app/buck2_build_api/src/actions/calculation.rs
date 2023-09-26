@@ -386,6 +386,7 @@ pub async fn command_details(
         stdout,
         stderr,
         command: command_data,
+        command_kind: None,
         signed_exit_code,
         metadata: Some(command.timing.to_proto()),
     }

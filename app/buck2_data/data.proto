@@ -986,6 +986,7 @@ message CommandExecutionDetails {
     WorkerCommand worker_command = 12;
   }
 
+  CommandExecutionKind command_kind = 5;
   CommandExecutionMetadata metadata = 13;
 }
 
