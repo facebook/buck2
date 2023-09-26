@@ -303,6 +303,11 @@ def _get_link_group_info(
 
     return (link_group_info, link_group_specs)
 
+def _qualify_entry_point(main: EntryPoint, base_module: str) -> EntryPoint:
+    qualname = main[1]
+    fqname = base_module + qualname if qualname.startswith(".") else qualname
+    return (main[0], fqname)
+
 def python_executable(
         ctx: AnalysisContext,
         main: EntryPoint,
@@ -370,7 +375,10 @@ def python_executable(
 
     exe = _convert_python_library_to_executable(
         ctx,
-        main,
+        _qualify_entry_point(
+            main,
+            ctx.attrs.base_module if ctx.attrs.base_module != None else ctx.label.package.replace("/", "."),
+        ),
         info_to_interface(library_info),
         raw_deps,
         compile,
@@ -697,12 +705,7 @@ def python_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     elif main_function != None and ctx.attrs.main != None:
         fail("Only one of main_function or main may be set. Prefer main_function.")
     elif ctx.attrs.main != None:
-        base_module = ctx.attrs.base_module
-        if base_module == None:
-            base_module = ctx.label.package.replace("/", ".")
-        if base_module != "":
-            base_module += "."
-        main_module = base_module + ctx.attrs.main.short_path.replace("/", ".")
+        main_module = "." + ctx.attrs.main.short_path.replace("/", ".")
         if main_module.endswith(".py"):
             main_module = main_module[:-3]
 
