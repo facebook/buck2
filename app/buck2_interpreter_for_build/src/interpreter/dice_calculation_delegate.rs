@@ -463,7 +463,7 @@ impl<'c> DiceCalculationDelegate<'c> {
         &self,
         package: PackageLabel,
         profiler_instrumentation: &mut StarlarkProfilerOrInstrumentation<'_>,
-    ) -> anyhow::Result<EvaluationResult> {
+    ) -> SharedResult<Arc<EvaluationResult>> {
         let listing = self.resolve_package_listing(package.dupe()).await?;
 
         let build_file_path = BuildFilePath::new(package.dupe(), listing.buildfile().to_owned());
@@ -522,6 +522,8 @@ impl<'c> DiceCalculationDelegate<'c> {
             },
         )
         .await
+        .map(Arc::new)
+        .shared_error()
     }
 }
 

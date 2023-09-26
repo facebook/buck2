@@ -17,7 +17,6 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::package_listing::dice::HasPackageListingResolver;
 use buck2_common::result::SharedResult;
-use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
@@ -72,21 +71,19 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
         &self,
         ctx: &DiceComputations,
         package: PackageLabel,
-    ) -> anyhow::Result<Arc<EvaluationResult>> {
+    ) -> SharedResult<Arc<EvaluationResult>> {
         let interpreter = ctx
             .get_interpreter_calculator(
                 package.cell_name(),
                 BuildFileCell::new(package.cell_name()),
             )
             .await?;
-        Ok(Arc::new(
-            interpreter
-                .eval_build_file(
-                    package.dupe(),
-                    &mut StarlarkProfilerOrInstrumentation::disabled(),
-                )
-                .await?,
-        ))
+        interpreter
+            .eval_build_file(
+                package.dupe(),
+                &mut StarlarkProfilerOrInstrumentation::disabled(),
+            )
+            .await
     }
 
     fn get_interpreter_results<'a>(
@@ -107,8 +104,6 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
                 let (result, spans) =
                     async_record_root_spans(ctx.get_interpreter_results_uncached(self.0.dupe()))
                         .await;
-
-                let result = result.shared_error();
 
                 ctx.store_evaluation_data(IntepreterResultsKeyActivationData {
                     duration: now.elapsed(),

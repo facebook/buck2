@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_common::result::SharedResult;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_util::late_binding::LateBinding;
@@ -29,7 +30,7 @@ pub trait TargetGraphCalculationImpl: Send + Sync + 'static {
         &self,
         ctx: &DiceComputations,
         package: PackageLabel,
-    ) -> anyhow::Result<Arc<EvaluationResult>>;
+    ) -> SharedResult<Arc<EvaluationResult>>;
 
     /// Returns the full interpreter evaluation result for a Package. This consists of the full set
     /// of `TargetNode`s of interpreting that build file.
@@ -49,7 +50,7 @@ pub trait TargetGraphCalculation {
     async fn get_interpreter_results_uncached(
         &self,
         package: PackageLabel,
-    ) -> anyhow::Result<Arc<EvaluationResult>>;
+    ) -> SharedResult<Arc<EvaluationResult>>;
 
     /// Returns the full interpreter evaluation result for a Package. This consists of the full set
     /// of `TargetNode`s of interpreting that build file.
@@ -72,7 +73,7 @@ impl TargetGraphCalculation for DiceComputations {
     async fn get_interpreter_results_uncached(
         &self,
         package: PackageLabel,
-    ) -> anyhow::Result<Arc<EvaluationResult>> {
+    ) -> SharedResult<Arc<EvaluationResult>> {
         TARGET_GRAPH_CALCULATION_IMPL
             .get()?
             .get_interpreter_results_uncached(self, package)
