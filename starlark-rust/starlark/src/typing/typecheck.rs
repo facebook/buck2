@@ -184,7 +184,8 @@ impl AstModuleTypecheck for AstModule {
         globals: &Globals,
         loads: &HashMap<String, Interface>,
     ) -> (Vec<anyhow::Error>, TypeMap, Interface, Vec<Approximation>) {
-        let (codemap, statement, _dialect, allow_string_literals_in_type_expr) = self.into_parts();
+        let (codemap, statement, _dialect, allow_string_literals_in_type_expr, _) =
+            self.into_parts();
         let names = MutableNames::new();
         let frozen_heap = FrozenHeap::new();
         let (

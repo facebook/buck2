@@ -166,7 +166,8 @@ impl<'v> Compiler<'v, '_, '_> {
     }
 
     fn typecheck(&mut self, stmts: &mut [&mut CstStmt]) -> Result<(), EvalException> {
-        if !self.eval.static_typechecking {
+        let typecheck = self.eval.static_typechecking || self.typecheck;
+        if !typecheck {
             return Ok(());
         }
 

@@ -85,6 +85,8 @@ pub(crate) struct Compiler<'v, 'a, 'e> {
     pub(crate) check_types: bool,
     pub(crate) top_level_stmt_count: usize,
     pub(crate) allow_string_literals_in_type_expr: bool,
+    /// Set with `@starlark-rust: typecheck`.
+    pub(crate) typecheck: bool,
 }
 
 impl Compiler<'_, '_, '_> {

@@ -84,3 +84,30 @@ def f():
         "Identifiers in type expressions can only refer globals or builtins: `x`",
     );
 }
+
+#[test]
+fn test_typecheck_opt_in_self_check() {
+    let mut a = Assert::new();
+    a.disable_static_typechecking();
+    a.pass(
+        r#"
+def f(x: int): pass
+def g(): f("")
+"#,
+    );
+}
+
+/// Test `@starlark-rust: typecheck` enables typechecking when `Evaluator` does not.
+#[test]
+fn test_typecheck_opt_in() {
+    let mut a = Assert::new();
+    a.disable_static_typechecking();
+    a.fail(
+        r#"
+# @starlark-rust: typecheck
+def f(x: int): pass
+def g(): f("")
+"#,
+        "Expected type `int` but got `str`",
+    );
+}
