@@ -1131,7 +1131,7 @@ worker_tool = prelude_rule(
         ```
 
 
-        $(worker //path/to:target)
+        $(exe //path/to:target)
 
         ```
     """,
@@ -1158,19 +1158,19 @@ worker_tool = prelude_rule(
         genrule(
           name = 'TransformA',
           out = 'OutputA.txt',
-          cmd = '$(worker :ExternalToolWorker) argA',
+          cmd = '$(exe :ExternalToolWorker) argA',
         )
 
         genrule(
           name = 'TransformB',
           out = 'OutputB.txt',
-          cmd = '$(worker :ExternalToolWorker) argB',
+          cmd = '$(exe :ExternalToolWorker) argB',
         )
 
         genrule(
           name = 'TransformC',
           out = 'OutputC.txt',
-          cmd = '$(worker :ExternalToolWorker) argC',
+          cmd = '$(exe :ExternalToolWorker) argC',
         )
         ```
 
