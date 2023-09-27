@@ -64,9 +64,6 @@ def worker_tool(ctx: AnalysisContext) -> list[Provider]:
         RunInfo(
             args = worker_tool_cmd,
         ),
-        TemplatePlaceholderInfo(keyed_variables = {
-            "worker": worker_tool_cmd,
-        }),
         WorkerToolInfo(
             command = worker_tool_cmd,
         ),
