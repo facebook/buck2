@@ -172,7 +172,7 @@ jobs:
             /tmp/artifacts/buck2 init
             cp -r ../../prelude prelude
             # Additional setup for ocaml
-            source ./setup.sh
+            source ./ocaml-setup.sh
             /tmp/artifacts/buck2 build //... -v 2
       - build_example_no_prelude
       - setup_reindeer
@@ -207,7 +207,7 @@ jobs:
             /tmp/artifacts/buck2 init
             cp -r ../../prelude prelude
             # Additional setup for ocaml
-            source ./setup.sh
+            source ./ocaml-setup.sh
             /tmp/artifacts/buck2 build //... -v 2
       - build_example_no_prelude
       - setup_reindeer
