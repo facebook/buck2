@@ -17,9 +17,9 @@ use std::str;
 use allocative::Allocative;
 use buck2_data::ToProtoMessage;
 use dupe::Dupe;
+use fnv::FnvHasher;
 use serde::Serialize;
 use serde::Serializer;
-use starlark_map::StarlarkHashValue;
 use triomphe::ThinArc;
 
 use crate::cells::name::CellName;
@@ -39,7 +39,7 @@ use crate::target::name::TargetNameRef;
 struct TargetLabelHeader {
     /// Hash of target label (not package, not name).
     /// Place hash first to make equality check faster.
-    hash: StarlarkHashValue,
+    hash: u32,
     pkg: PackageLabel,
     // TODO(nga): this struct has 4 bytes of padding.
 }
@@ -94,7 +94,13 @@ impl PartialOrd for TargetLabel {
 impl TargetLabel {
     pub fn new(pkg: PackageLabel, name: &TargetNameRef) -> Self {
         // TODO(nga): unnecessary to take `TargetName` by value.
-        let hash = StarlarkHashValue::new(&(pkg.dupe(), &name));
+
+        // Hash should be stable because it is used to generate the configuration hash.
+        let key = &(pkg.dupe(), &name);
+        let mut hasher = FnvHasher::default();
+        key.hash(&mut hasher);
+        let hash = hasher.finish() as u32;
+
         TargetLabel(ThinArc::from_header_and_slice(
             TargetLabelHeader { hash, pkg },
             name.as_str().as_bytes(),
