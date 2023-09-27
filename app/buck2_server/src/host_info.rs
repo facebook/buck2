@@ -36,8 +36,8 @@ pub fn get_host_info(
             _ => InterpreterHostPlatform::Unknown,
         },
     };
-    // This compiles in the target architecture, which should be sufficient, as
-    // we currently only run e.g. x86_64 on x86_64.
+    // TODO(nga): this checks binary architecture, not runtime architecture.
+    //   When x86_64 binary is running on aarch64, this will return x86_64.
     let interpreter_architecture = match host_arch {
         HostArchOverride::AArch64 => InterpreterHostArchitecture::AArch64,
         HostArchOverride::X8664 => InterpreterHostArchitecture::X86_64,
