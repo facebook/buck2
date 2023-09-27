@@ -16,6 +16,10 @@ load(
     "@prelude//android:android_providers.bzl",
     "merge_android_packageable_info",
 )
+load(
+    "@prelude//cxx:cxx_context.bzl",
+    "get_cxx_toolchain_info",
+)
 load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load(
     "@prelude//cxx:linker.bzl",
@@ -185,6 +189,7 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     # Native link graph setup.
+    linker_info = get_cxx_toolchain_info(ctx).linker_info
     linkable_graph = create_linkable_graph(
         ctx,
         node = create_linkable_graph_node(
@@ -194,8 +199,7 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 preferred_linkage = Linkage("static"),
                 exported_deps = ctx.attrs.deps,
                 link_infos = {output_style: link for output_style in LibOutputStyle},
-                # TODO(cjhopman): this should be set to non-None
-                default_soname = None,
+                default_soname = get_default_shared_library_name(linker_info, ctx.label),
             ),
         ),
         deps = ctx.attrs.deps,
@@ -682,7 +686,7 @@ def _native_providers(
 
     # Omnibus root provider.
     linkable_root = create_linkable_root(
-        name = get_default_shared_library_name(linker_info, ctx.label),
+        name = shlib_name,
         link_infos = LinkInfos(
             default = LinkInfo(
                 linkables = [ArchiveLinkable(
@@ -713,8 +717,7 @@ def _native_providers(
                 exported_deps = inherited_non_rust_link_deps,
                 link_infos = link_infos,
                 shared_libs = solibs,
-                # TODO(cjhopman): this should be set to non-None
-                default_soname = None,
+                default_soname = shlib_name,
             ),
         ),
         deps = inherited_non_rust_link_deps,
