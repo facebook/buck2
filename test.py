@@ -155,7 +155,8 @@ def list_starlark_files(git: bool):
         .stdout.strip()
         .splitlines()
     )
-    return starlark_files
+    # TODO(skarlage): Clean this up once we resolve weird Windows case-insensitive fs behavior.
+    return [f for f in starlark_files if "/targets/" not in f]
 
 
 def rustfmt(buck2_dir: Path, ci: bool, git: bool) -> None:
