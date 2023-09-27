@@ -194,13 +194,6 @@ impl Debug for ConfiguredTargetNodeData {
     }
 }
 
-/// The ConfiguredAttr and other derived information about it.
-#[derive(Debug, Eq, PartialEq, Hash)]
-struct ConfiguredNodeAttr {
-    attr: ConfiguredAttr,
-    has_queries: bool,
-}
-
 impl ConfiguredTargetNode {
     /// Creates a minimal ConfiguredTargetNode. Some operations may unexpectedly fail.
     pub fn testing_new(name: ConfiguredTargetLabel, rule_type: &str) -> Self {
