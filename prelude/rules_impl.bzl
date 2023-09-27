@@ -16,7 +16,7 @@ load("@prelude//apple:apple_rules_impl.bzl", _apple_extra_attributes = "extra_at
 load("@prelude//configurations:rules.bzl", _config_extra_attributes = "extra_attributes", _config_implemented_rules = "implemented_rules")
 
 # C#
-load("@prelude//csharp:csharp.bzl", "csharp_library_impl")
+load("@prelude//csharp:csharp.bzl", "csharp_library_impl", "prebuilt_dotnet_library_impl")
 
 # C++ - LLVM
 load("@prelude//cxx:bitcode.bzl", "llvm_link_bitcode_impl")
@@ -187,6 +187,7 @@ extra_implemented_rules = struct(
 
     #c#
     csharp_library = csharp_library_impl,
+    prebuilt_dotnet_library = prebuilt_dotnet_library_impl,
 
     #c++
     cxx_binary = cxx_binary_impl,

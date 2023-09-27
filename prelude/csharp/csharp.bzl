@@ -61,3 +61,13 @@ def csharp_library_impl(ctx: AnalysisContext) -> list[Provider]:
             object = library,
         ),
     ]
+
+def prebuilt_dotnet_library_impl(ctx: AnalysisContext) -> list[Provider]:
+    # Prebuilt libraries are just passed through since they are already built.
+    return [
+        DefaultInfo(default_output = ctx.attrs.assembly),
+        DotNetLibraryInfo(
+            name = ctx.attrs.name,
+            object = ctx.attrs.assembly,
+        ),
+    ]
