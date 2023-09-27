@@ -806,7 +806,8 @@ async fn compute_configured_target_node_no_transition(
             target_cell,
             target_node.get_configuration_deps(),
         )
-        .await?;
+        .await
+        .with_context(|| format!("Error resolving configuration deps of `{}`", target_label))?;
 
     // Must check for compatibility before evaluating non-compatibility attributes.
     if let MaybeCompatible::Incompatible(reason) =
