@@ -46,6 +46,7 @@ load(
 )
 load(":debug.bzl", "DEBUGINFO_SUBTARGET")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
+load(":xctest_swift_support.bzl", "XCTestSwiftSupportInfo")
 
 def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
     def get_apple_test_providers(deps_providers) -> list[Provider]:
@@ -112,7 +113,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
 
         xctest_swift_support_needed = None
         for p in cxx_library_output.providers:
-            if hasattr(p, "_xctest_swift_support_marking_"):
+            if isinstance(p, XCTestSwiftSupportInfo):
                 xctest_swift_support_needed = p.support_needed
                 break
         expect(xctest_swift_support_needed != None, "Expected `XCTestSwiftSupportInfo` provider to be present")

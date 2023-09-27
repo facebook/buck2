@@ -14,7 +14,6 @@ XCTestSwiftSupportInfo = provider(
     fields = {
         "support_needed": provider_field(bool),
         # Value is unused, needed only to detect a provider type
-        "_xctest_swift_support_marking_": provider_field(typing.Any, default = None),
     },
 )
 
