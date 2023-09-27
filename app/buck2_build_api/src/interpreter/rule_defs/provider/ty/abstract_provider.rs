@@ -15,6 +15,7 @@ use starlark::typing::Ty;
 use starlark::typing::TyStarlarkValue;
 use starlark::typing::TyUser;
 use starlark::typing::TyUserFields;
+use starlark::typing::TyUserParams;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::typing::TypeInstanceId;
 use starlark::values::typing::TypeMatcher;
@@ -39,13 +40,12 @@ fn mk_ty_provider() -> anyhow::Result<Ty> {
         UserProvider::TYPE.to_owned(),
         // Builtin providers behave like `UserProvider`.
         TyStarlarkValue::new::<UserProvider>(),
-        Vec::new(),
-        Some(TypeMatcherFactory::new(ProviderMatcher)),
         TypeInstanceId::gen(),
-        TyUserFields::unknown(),
-        None,
-        None,
-        None,
+        TyUserParams {
+            matcher: Some(TypeMatcherFactory::new(ProviderMatcher)),
+            fields: TyUserFields::unknown(),
+            ..TyUserParams::default()
+        },
     )?))
 }
 

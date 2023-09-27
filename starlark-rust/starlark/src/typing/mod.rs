@@ -64,3 +64,4 @@ pub use typecheck::TypeMap;
 pub use user::TyUser;
 pub use user::TyUserFields;
 pub use user::TyUserIndex;
+pub use user::TyUserParams;

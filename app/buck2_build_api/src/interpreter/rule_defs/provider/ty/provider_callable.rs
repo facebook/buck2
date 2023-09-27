@@ -12,7 +12,7 @@ use starlark::typing::Ty;
 use starlark::typing::TyFunction;
 use starlark::typing::TyStarlarkValue;
 use starlark::typing::TyUser;
-use starlark::typing::TyUserFields;
+use starlark::typing::TyUserParams;
 use starlark::values::typing::TypeInstanceId;
 use starlark::values::StarlarkValue;
 
@@ -22,12 +22,10 @@ pub(crate) fn ty_provider_callable<'v, C: StarlarkValue<'v> + ProviderCallableLi
     Ok(Ty::custom(TyUser::new(
         C::TYPE.to_owned(),
         TyStarlarkValue::new::<C>(),
-        Vec::new(),
-        None,
         TypeInstanceId::gen(),
-        TyUserFields::no_fields(),
-        Some(creator_func),
-        None,
-        None,
+        TyUserParams {
+            callable: Some(creator_func),
+            ..TyUserParams::default()
+        },
     )?))
 }

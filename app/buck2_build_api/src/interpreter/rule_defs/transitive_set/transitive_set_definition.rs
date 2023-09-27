@@ -32,7 +32,7 @@ use starlark::eval::Evaluator;
 use starlark::typing::Ty;
 use starlark::typing::TyStarlarkValue;
 use starlark::typing::TyUser;
-use starlark::typing::TyUserFields;
+use starlark::typing::TyUserParams;
 use starlark::values::starlark_value;
 use starlark::values::typing::TypeInstanceId;
 use starlark::values::typing::TypeMatcherFactory;
@@ -228,15 +228,14 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
             let set_ty = Ty::custom(TyUser::new(
                 variable_name.to_owned(),
                 TyStarlarkValue::new::<TransitiveSet>(),
-                Vec::new(),
-                Some(TypeMatcherFactory::new(TransitiveSetMatcher {
-                    type_instance_id: set_type_instance_id,
-                })),
                 set_type_instance_id,
-                TyUserFields::no_fields(),
-                None,
-                None,
-                None,
+                TyUserParams {
+                    matcher: Some(TypeMatcherFactory::new(TransitiveSetMatcher {
+                        type_instance_id: set_type_instance_id,
+                    })),
+
+                    ..TyUserParams::default()
+                },
             )?);
             anyhow::Ok(TransitiveSetDefinitionExported {
                 id,

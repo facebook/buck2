@@ -44,8 +44,8 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::user::TyUser;
-use crate::typing::user::TyUserFields;
 use crate::typing::user::TyUserIndex;
+use crate::typing::user::TyUserParams;
 use crate::typing::Param;
 use crate::typing::Ty;
 use crate::typing::TyFunction;
@@ -304,33 +304,31 @@ where
             let ty_enum_value = Ty::custom(TyUser::new(
                 variable_name.to_owned(),
                 TyStarlarkValue::new::<EnumValue>(),
-                Vec::new(),
-                Some(TypeMatcherFactory::new(EnumTypeMatcher { id: self.id })),
                 self.id,
-                TyUserFields::no_fields(),
-                None,
-                None,
-                None,
+                TyUserParams {
+                    matcher: Some(TypeMatcherFactory::new(EnumTypeMatcher { id: self.id })),
+                    ..TyUserParams::default()
+                },
             )?);
             let ty_enum_type = Ty::custom(TyUser::new(
                 format!("enum[{}]", variable_name),
                 TyStarlarkValue::new::<EnumType>(),
-                Vec::new(),
-                None,
                 TypeInstanceId::gen(),
-                TyUserFields::no_fields(),
-                Some(TyFunction::new(
-                    vec![Param::pos_only(
-                        // TODO(nga): we can do better parameter type.
-                        Ty::any(),
-                    )],
-                    ty_enum_value.dupe(),
-                )),
-                Some(TyUserIndex {
-                    index: Ty::int(),
-                    result: ty_enum_value.dupe(),
-                }),
-                Some(ty_enum_value.dupe()),
+                TyUserParams {
+                    index: Some(TyUserIndex {
+                        index: Ty::int(),
+                        result: ty_enum_value.dupe(),
+                    }),
+                    iter_item: Some(ty_enum_value.dupe()),
+                    callable: Some(TyFunction::new(
+                        vec![Param::pos_only(
+                            // TODO(nga): we can do better parameter type.
+                            Ty::any(),
+                        )],
+                        ty_enum_value.dupe(),
+                    )),
+                    ..TyUserParams::default()
+                },
             )?);
             Ok(Arc::new(TyEnumData {
                 name: variable_name.to_owned(),

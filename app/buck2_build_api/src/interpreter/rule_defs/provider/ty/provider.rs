@@ -11,6 +11,7 @@ use starlark::typing::Ty;
 use starlark::typing::TyStarlarkValue;
 use starlark::typing::TyUser;
 use starlark::typing::TyUserFields;
+use starlark::typing::TyUserParams;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::typing::TypeInstanceId;
 use starlark::values::typing::TypeMatcherFactory;
@@ -30,15 +31,15 @@ pub(crate) fn ty_provider(
     Ok(Ty::custom(TyUser::new(
         name.to_owned(),
         base,
-        AbstractProvider::starlark_type_repr().iter_union().to_vec(),
-        matcher,
         type_instance_id,
-        TyUserFields {
-            known: fields,
-            unknown: false,
+        TyUserParams {
+            supertypes: AbstractProvider::starlark_type_repr().iter_union().to_vec(),
+            matcher,
+            fields: TyUserFields {
+                known: fields,
+                unknown: false,
+            },
+            ..TyUserParams::default()
         },
-        None,
-        None,
-        None,
     )?))
 }

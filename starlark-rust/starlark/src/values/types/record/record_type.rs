@@ -47,6 +47,7 @@ use crate::starlark_complex_values;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::user::TyUser;
 use crate::typing::user::TyUserFields;
+use crate::typing::user::TyUserParams;
 use crate::typing::Param;
 use crate::typing::Ty;
 use crate::typing::TyFunction;
@@ -301,32 +302,29 @@ where
             let ty_record = Ty::custom(TyUser::new(
                 variable_name.to_owned(),
                 TyStarlarkValue::new::<Record>(),
-                Vec::new(),
-                Some(TypeMatcherFactory::new(RecordTypeMatcher { id: self.id })),
                 self.id,
-                TyUserFields {
-                    known: fields,
-                    unknown: false,
+                TyUserParams {
+                    matcher: Some(TypeMatcherFactory::new(RecordTypeMatcher { id: self.id })),
+                    fields: TyUserFields {
+                        known: fields,
+                        unknown: false,
+                    },
+                    ..TyUserParams::default()
                 },
-                None,
-                None,
-                None,
             )?);
 
             let ty_record_type = Ty::custom(TyUser::new(
                 format!("record[{}]", variable_name),
                 TyStarlarkValue::new::<RecordType>(),
-                Vec::new(),
-                None,
                 TypeInstanceId::gen(),
-                TyUserFields::no_fields(),
-                Some(TyFunction::new(
-                    // TODO(nga): more precise parameter types.
-                    vec![Param::kwargs(Ty::any())],
-                    ty_record.dupe(),
-                )),
-                None,
-                None,
+                TyUserParams {
+                    callable: Some(TyFunction::new(
+                        // TODO(nga): more precise parameter types.
+                        vec![Param::kwargs(Ty::any())],
+                        ty_record.dupe(),
+                    )),
+                    ..TyUserParams::default()
+                },
             )?);
 
             Ok(Arc::new(TyRecordData {

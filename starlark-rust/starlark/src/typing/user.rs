@@ -73,6 +73,14 @@ pub struct TyUserFields {
     pub unknown: bool,
 }
 
+impl Default for TyUserFields {
+    fn default() -> Self {
+        // Safe default: assuming the type is not abstract,
+        // so fields are provided by `TyStarlarkValue`.
+        Self::no_fields()
+    }
+}
+
 impl TyUserFields {
     /// No fields.
     pub fn no_fields() -> TyUserFields {
@@ -89,6 +97,26 @@ impl TyUserFields {
             unknown: true,
         }
     }
+}
+
+/// Optional parameters to [`TyUser::new`].
+#[derive(Default)]
+// This should be `#[non_exhaustive]`, but Rust does not allow initializing it with `..default()`.
+pub struct TyUserParams {
+    /// Super types for this type (`base` is included in this list implicitly).
+    pub supertypes: Vec<TyBasic>,
+    /// Runtime type matcher for this type (use `TyStarlarkValue` matcher if not specified).
+    pub matcher: Option<TypeMatcherFactory>,
+    /// Custom fields for this type (use `TyStarlarkValue` fields if not specified).
+    pub fields: TyUserFields,
+    /// Set if more precise callable signature is known than `base` provides.
+    pub callable: Option<TyFunction>,
+    /// Set if more precise index signature is known than `base` provides.
+    pub index: Option<TyUserIndex>,
+    /// Set if more precise iter item is known than `base` provides.
+    pub iter_item: Option<Ty>,
+    /// This struct should only be constructed with `..default()`.
+    pub _non_exhaustive: (),
 }
 
 /// Type description for arbitrary type.
@@ -116,14 +144,18 @@ impl TyUser {
     pub fn new(
         name: String,
         base: TyStarlarkValue,
-        supertypes: Vec<TyBasic>,
-        matcher: Option<TypeMatcherFactory>,
         id: TypeInstanceId,
-        fields: TyUserFields,
-        callable: Option<TyFunction>,
-        index: Option<TyUserIndex>,
-        iter_item: Option<Ty>,
+        params: TyUserParams,
     ) -> anyhow::Result<TyUser> {
+        let TyUserParams {
+            supertypes,
+            matcher,
+            fields,
+            callable,
+            index,
+            iter_item,
+            _non_exhaustive: (),
+        } = params;
         if callable.is_some() {
             if !base.is_callable() {
                 return Err(TyUserError::CallableNotCallable(name).into());
@@ -273,11 +305,11 @@ mod tests {
     use crate::environment::GlobalsBuilder;
     use crate::eval::Arguments;
     use crate::eval::Evaluator;
+    use crate::typing::user::TyUserParams;
     use crate::typing::Ty;
     use crate::typing::TyFunction;
     use crate::typing::TyStarlarkValue;
     use crate::typing::TyUser;
-    use crate::typing::TyUserFields;
     use crate::values::starlark_value_as_type::StarlarkValueAsType;
     use crate::values::typing::TypeInstanceId;
     use crate::values::AllocValue;
@@ -376,26 +408,23 @@ mod tests {
             let ty_fruit = Ty::custom(TyUser::new(
                 name.clone(),
                 TyStarlarkValue::new::<Fruit>(),
-                AbstractPlant::get_type_starlark_repr()
-                    .iter_union()
-                    .to_vec(),
-                None,
                 TypeInstanceId::gen(),
-                TyUserFields::no_fields(),
-                None,
-                None,
-                None,
+                TyUserParams {
+                    supertypes: AbstractPlant::get_type_starlark_repr()
+                        .iter_union()
+                        .to_vec(),
+                    ..TyUserParams::default()
+                },
             )?);
             let ty_fruit_callable = Ty::custom(TyUser::new(
                 format!("fruit[{}]", name),
                 TyStarlarkValue::new::<FruitCallable>(),
-                Vec::new(),
-                None,
                 TypeInstanceId::gen(),
-                TyUserFields::no_fields(),
-                Some(TyFunction::new(vec![], ty_fruit.clone())),
-                None,
-                None,
+                TyUserParams {
+                    callable: Some(TyFunction::new(vec![], ty_fruit.clone())),
+
+                    ..TyUserParams::default()
+                },
             )?);
             Ok(FruitCallable {
                 name,
