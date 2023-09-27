@@ -123,12 +123,19 @@ def list_starlark_files(git: bool):
         "**/TARGETS.v2",
     ]
     excludes = [
-        "starlark-rust/starlark/testcases",
+        "starlark-rust/starlark/testcases/",
         "tests/e2e/test_starlark_data/bad_warning.bzl",
         "tests/e2e/test_lsp_data/bad_syntax.bzl",
         "tests/e2e/test_lsp_data/query.bxl",
         "tests/e2e/test_lsp_data/globals.bzl",
         "tests/e2e/test_lsp_data/cell/sub/defs.bzl",
+        "**.rs",
+        "**.fixture",
+        "**.buckconfig",
+        "**.bcfg",
+        "**/targets/**",  # TODO(lmvasquezg) Exclude only non-starlark files here
+        "**/BUCK",  # TODO(lmvasquezg)  fix starlark linter to accept these
+        "**/BUCK.v2",
     ]
 
     if git:
@@ -155,8 +162,7 @@ def list_starlark_files(git: bool):
         .stdout.strip()
         .splitlines()
     )
-    # TODO(skarlage): Clean this up once we resolve weird Windows case-insensitive fs behavior.
-    return [f for f in starlark_files if "/targets/" not in f]
+    return starlark_files
 
 
 def rustfmt(buck2_dir: Path, ci: bool, git: bool) -> None:
