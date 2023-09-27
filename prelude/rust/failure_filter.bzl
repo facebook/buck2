@@ -10,11 +10,11 @@ load(":context.bzl", "CompileContext")
 # Inputs to the fail filter
 RustFailureFilter = provider(fields = {
     # Build status json
-    "buildstatus": provider_field(typing.Any, default = None),
+    "buildstatus": typing.Any,
     # Required files
-    "required": provider_field(typing.Any, default = None),
+    "required": typing.Any,
     # stderr
-    "stderr": provider_field(typing.Any, default = None),
+    "stderr": typing.Any,
 })
 
 # This creates an action which takes a buildstatus json artifact as an input, and a list of other
