@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::any::Demand;
-
 use allocative::Allocative;
 use buck2_artifact::deferred::data::DeferredData;
 use dupe::Dupe;
@@ -33,7 +31,7 @@ impl TrivialDeferred for DeferredTransitiveSetData {
         self
     }
 
-    fn provide<'a>(&'a self, _demand: &mut Demand<'a>) {}
+    fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
 }
 
 impl DeferredTransitiveSetData {

@@ -25,6 +25,7 @@ dice = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
 more_futures = { workspace = true }
+provider = { workspace = true }
 starlark = { workspace = true }
 
 buck2_artifact = { workspace = true }

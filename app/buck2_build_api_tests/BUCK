@@ -37,6 +37,7 @@ rust_library(
         "//buck2/dice/dice:dice",
         "//buck2/gazebo/dupe:dupe",
         "//buck2/gazebo/gazebo:gazebo",
+        "//buck2/shed/provider:provider",
         "//buck2/starlark-rust/starlark:starlark",
         "//buck2/starlark-rust/starlark_map:starlark_map",
         "//common/rust/shed/sorted_vector_map:sorted_vector_map",

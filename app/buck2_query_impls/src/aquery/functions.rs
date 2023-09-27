@@ -118,7 +118,7 @@ impl<'a> AqueryFunctions<'a> {
                 }
                 ActionQueryNodeData::Analysis(analysis) => {
                     for entry in analysis.analysis_result().iter_deferreds() {
-                        action_keys.extend(std::any::request_value::<ProvideActionKey>(
+                        action_keys.extend(provider::request_value::<ProvideActionKey>(
                             entry.as_complex(),
                         ));
                     }

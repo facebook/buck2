@@ -32,7 +32,6 @@ pub mod key;
 pub mod query;
 pub mod registry;
 
-use std::any::Demand;
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::ops::ControlFlow;
@@ -305,16 +304,15 @@ impl TrivialDeferred for Arc<RegisteredAction> {
         self
     }
 
-    fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
-        demand
-            .provide_value_with(|| {
-                ProvideOutputs(
-                    self.action
-                        .outputs()
-                        .map(|outputs| outputs.iter().cloned().collect()),
-                )
-            })
-            .provide_value_with(|| ProvideActionKey(self.key.dupe()));
+    fn provide<'a>(&'a self, demand: &mut provider::Demand<'a>) {
+        demand.provide_value_with(|| {
+            ProvideOutputs(
+                self.action
+                    .outputs()
+                    .map(|outputs| outputs.iter().cloned().collect()),
+            )
+        });
+        demand.provide_value_with(|| ProvideActionKey(self.key.dupe()));
     }
 }
 

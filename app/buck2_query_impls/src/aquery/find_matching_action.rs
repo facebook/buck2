@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::any;
-
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::artifact::provide_outputs::ProvideOutputs;
@@ -52,7 +50,7 @@ async fn find_matching_action(
         get_dice_aquery_delegate(ctx, working_dir, global_target_platform.clone()).await?;
 
     for entry in analysis.iter_deferreds() {
-        match any::request_value::<ProvideOutputs>(entry.as_complex()) {
+        match provider::request_value::<ProvideOutputs>(entry.as_complex()) {
             Some(outputs) => {
                 let outputs = outputs.0?;
                 for build_artifact in &outputs {

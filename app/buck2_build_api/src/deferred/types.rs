@@ -7,10 +7,8 @@
  * of this source tree.
  */
 
-use std::any;
 use std::any::type_name;
 use std::any::Any;
-use std::any::Demand;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Debug;
@@ -49,7 +47,7 @@ use thiserror::Error;
 ///
 /// `any::Provider` can be used to obtain data for introspection.
 #[async_trait]
-pub trait Deferred: Allocative + any::Provider {
+pub trait Deferred: Allocative + provider::Provider {
     type Output;
 
     /// the set of 'Deferred's that should be computed first before executing this 'Deferred'
@@ -201,14 +199,14 @@ pub trait TrivialDeferred: Allocative + AnyValue + Debug + Send + Sync {
     ///
     /// This function is copied from `any::Provider` trait, which cannot be implemented
     /// for `Arc<RegisteredAction>`.
-    fn provide<'a>(&'a self, demand: &mut Demand<'a>);
+    fn provide<'a>(&'a self, demand: &mut provider::Demand<'a>);
 }
 
 #[derive(Allocative)]
 pub struct TrivialDeferredValue(pub Arc<dyn TrivialDeferred>);
 
-impl any::Provider for TrivialDeferredValue {
-    fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
+impl provider::Provider for TrivialDeferredValue {
+    fn provide<'a>(&'a self, demand: &mut provider::Demand<'a>) {
         self.0.provide(demand)
     }
 }
@@ -250,8 +248,8 @@ pub enum DeferredTableEntry {
     Complex(Box<dyn DeferredAny>),
 }
 
-impl any::Provider for DeferredTableEntry {
-    fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
+impl provider::Provider for DeferredTableEntry {
+    fn provide<'a>(&'a self, demand: &mut provider::Demand<'a>) {
         match self {
             Self::Trivial(v) => v.provide(demand),
             Self::Complex(v) => v.provide(demand),
@@ -480,13 +478,13 @@ impl DeferredRegistry {
             p: PhantomData<(T, U)>,
         }
 
-        impl<T, U, F> any::Provider for Map<T, U, F>
+        impl<T, U, F> provider::Provider for Map<T, U, F>
         where
             T: Allocative + Send + Sync + 'static,
             F: Fn(&T, &mut dyn DeferredCtx) -> DeferredValue<U> + Send + Sync + 'static,
             U: Allocative + 'static,
         {
-            fn provide<'a>(&'a self, _demand: &mut Demand<'a>) {}
+            fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
         }
 
         #[async_trait]
@@ -756,7 +754,7 @@ impl dyn AnyValue {
 
 /// untyped deferred
 #[async_trait]
-pub trait DeferredAny: Allocative + any::Provider + Send + Sync {
+pub trait DeferredAny: Allocative + provider::Provider + Send + Sync {
     /// the set of 'Deferred's that should be computed first before executing this 'Deferred'
     fn inputs(&self) -> &IndexSet<DeferredInput>;
 
@@ -890,8 +888,7 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
-    use std::any;
-    use std::any::Demand;
+
     use std::fmt;
     use std::fmt::Debug;
     use std::fmt::Formatter;
@@ -947,8 +944,8 @@ mod tests {
         }
     }
 
-    impl<T: Clone> any::Provider for FakeDeferred<T> {
-        fn provide<'a>(&'a self, _demand: &mut Demand<'a>) {}
+    impl<T: Clone> provider::Provider for FakeDeferred<T> {
+        fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
     }
 
     #[async_trait]
@@ -973,7 +970,7 @@ mod tests {
             self
         }
 
-        fn provide<'a>(&'a self, _demand: &mut Demand<'a>) {}
+        fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
     }
 
     #[derive(Clone, Debug, PartialEq, Eq, Allocative)]
@@ -984,8 +981,10 @@ mod tests {
         defer: FakeDeferred<T>,
     }
 
-    impl<T: Clone + Debug + Allocative + Send + Sync + 'static> any::Provider for DeferringDeferred<T> {
-        fn provide<'a>(&'a self, _demand: &mut Demand<'a>) {}
+    impl<T: Clone + Debug + Allocative + Send + Sync + 'static> provider::Provider
+        for DeferringDeferred<T>
+    {
+        fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
     }
 
     #[async_trait]

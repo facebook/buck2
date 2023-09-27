@@ -23,6 +23,7 @@ dupe = { workspace = true }
 dice = { workspace = true }
 gazebo = { workspace = true }
 itertools = { workspace = true }
+provider = { workspace = true }
 starlark = { workspace = true }
 starlark_map = { workspace = true }
 

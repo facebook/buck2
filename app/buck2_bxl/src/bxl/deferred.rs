@@ -9,8 +9,7 @@
 
 #[cfg(test)]
 mod tests {
-    use std::any;
-    use std::any::Demand;
+
     use std::sync::atomic::AtomicBool;
     use std::sync::atomic::Ordering;
     use std::sync::Arc;
@@ -52,8 +51,8 @@ mod tests {
     #[derive(Allocative)]
     struct FakeDeferred(usize, IndexSet<DeferredInput>, Arc<AtomicBool>);
 
-    impl any::Provider for FakeDeferred {
-        fn provide<'a>(&'a self, _demand: &mut Demand<'a>) {}
+    impl provider::Provider for FakeDeferred {
+        fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
     }
 
     #[async_trait]

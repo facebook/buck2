@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::any;
-use std::any::Demand;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -50,8 +48,8 @@ use crate::interpreter::rule_defs::provider::testing::FrozenProviderCollectionVa
 #[derive(Allocative)]
 struct FakeDeferred(usize, IndexSet<DeferredInput>, Arc<AtomicBool>);
 
-impl any::Provider for FakeDeferred {
-    fn provide<'a>(&'a self, _demand: &mut Demand<'a>) {}
+impl provider::Provider for FakeDeferred {
+    fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
 }
 
 #[async_trait]
@@ -146,8 +144,8 @@ async fn lookup_deferred_that_has_deferreds() -> anyhow::Result<()> {
     #[derive(Allocative)]
     struct DeferringDeferred(usize, IndexSet<DeferredInput>, Arc<AtomicBool>);
 
-    impl any::Provider for DeferringDeferred {
-        fn provide<'a>(&'a self, _demand: &mut Demand<'a>) {}
+    impl provider::Provider for DeferringDeferred {
+        fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
     }
 
     #[async_trait]

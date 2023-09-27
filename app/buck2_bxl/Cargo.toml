@@ -57,5 +57,7 @@ buck2_util = { workspace = true }
 buck2_cli_proto = { workspace = true }
 
 [dev-dependencies]
+provider = { workspace = true }
+
 ctor = { workspace = true }
 maplit = { workspace = true }

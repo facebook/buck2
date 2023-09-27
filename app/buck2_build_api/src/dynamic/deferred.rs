@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::any;
-use std::any::Demand;
 use std::mem;
 use std::sync::Arc;
 
@@ -134,8 +132,8 @@ pub struct DynamicLambdaOutput {
     output: Vec<ActionKey>,
 }
 
-impl any::Provider for DynamicAction {
-    fn provide<'a>(&'a self, _demand: &mut Demand<'a>) {}
+impl provider::Provider for DynamicAction {
+    fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
 }
 
 #[async_trait]
@@ -178,8 +176,8 @@ enum DynamicLambdaError {
     AnonTargetIncompatible,
 }
 
-impl any::Provider for DynamicLambda {
-    fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
+impl provider::Provider for DynamicLambda {
+    fn provide<'a>(&'a self, demand: &mut provider::Demand<'a>) {
         demand.provide_value_with(|| ProvideOutputs(Ok(self.outputs.clone())));
     }
 }

@@ -47,6 +47,7 @@ gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
 more_futures = { workspace = true }
+provider = { workspace = true }
 sorted_vector_map = { workspace = true }
 starlark = { workspace = true }
 starlark_map = { workspace = true }

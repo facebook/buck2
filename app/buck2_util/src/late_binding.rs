@@ -79,8 +79,8 @@ use once_cell::sync::OnceCell;
 /// There are two alternatives to late binding, that can be used in similar situations.
 /// These are similar to trait downcasting, which is not supported natively in the Rust language.
 ///
-/// * [`std::any::Provider`](https://doc.rust-lang.org/std/any/trait.Provider.html)
-/// * Starlark's `StarlarkValue`/`Value` support similar API to `std::any::Provider`
+/// * `Provider` from `shed/provider` crate
+/// * Starlark's `StarlarkValue`/`Value` support similar API to `provider::Provider`
 ///
 /// # Drawbacks
 ///
