@@ -8,6 +8,7 @@
  */
 
 use http::HeaderMap;
+use http::HeaderValue;
 use http::Uri;
 use hyper_proxy::Proxy;
 
@@ -76,10 +77,10 @@ pub fn supports_vpnless() -> bool {
 /// non-vpnless url.
 #[derive(Debug, thiserror::Error)]
 pub enum X2PAgentError {
-    #[error("Host `{0}` is not authorized for vpnless access")]
-    ForbiddenHost(String),
-    #[error("Failed to connect to `{0}`; is it authorized for vpnless?")]
-    Connection(String),
+    #[error("Host `{host}` is not authorized for vpnless access: {message}")]
+    ForbiddenHost { host: String, message: String },
+    #[error("Failed to connect to `{host}`: {message}")]
+    Connection { host: String, message: String },
     #[error("Host `{host}` and path `{path}` is not authorized on vpnless")]
     AccessDenied { host: String, path: String },
     #[error(transparent)]
@@ -88,6 +89,10 @@ pub enum X2PAgentError {
 
 impl X2PAgentError {
     pub fn from_headers(uri: &Uri, headers: &HeaderMap) -> Option<Self> {
+        fn to_str(h: &HeaderValue) -> String {
+            String::from_utf8_lossy(h.as_bytes()).into_owned()
+        }
+
         let auth_decision = headers.get("x-fb-validated-x2pauth-decision");
         let error_type = headers.get("x-x2pagentd-error-type");
         let error_msg = headers.get("x-x2pagentd-error-msg");
@@ -98,11 +103,15 @@ impl X2PAgentError {
                 host,
                 path: uri.path().to_owned(),
             }),
-            (_, Some(typ), Some(_)) if typ == "FORBIDDEN_HOST" => Some(Self::ForbiddenHost(host)),
-            (_, Some(typ), Some(_)) if typ == "CONNECTION" => Some(Self::Connection(host)),
-            (_, _, Some(msg)) => Some(Self::Error(anyhow::anyhow!(
-                String::from_utf8_lossy(msg.as_bytes()).into_owned()
-            ))),
+            (_, Some(typ), Some(msg)) if typ == "FORBIDDEN_HOST" => Some(Self::ForbiddenHost {
+                host,
+                message: to_str(msg),
+            }),
+            (_, Some(typ), Some(msg)) if typ == "CONNECTION" => Some(Self::Connection {
+                host,
+                message: to_str(msg),
+            }),
+            (_, _, Some(message)) => Some(Self::Error(anyhow::anyhow!(to_str(message)))),
             _ => None,
         }
     }

@@ -677,7 +677,7 @@ mod tests {
         assert!(matches!(
             result,
             Err(HttpError::X2P {
-                source: X2PAgentError::ForbiddenHost(..),
+                source: X2PAgentError::ForbiddenHost { .. },
                 ..
             })
         ));
