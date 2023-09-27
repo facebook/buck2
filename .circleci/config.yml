@@ -49,6 +49,7 @@ commands:
             # TODO: Remove once non intel macos platform is supported on https://github.com/stepancheg/rust-protoc-bin-vendored/
             echo 'export BUCK2_BUILD_PROTOC=/opt/homebrew/opt/protobuf/bin/protoc' >> "$BASH_ENV"
             echo 'export BUCK2_BUILD_PROTOC_INCLUDE=/opt/homebrew/opt/protobuf/include' >> "$BASH_ENV"
+            echo 'export PATH=$(which zstd):"$PATH"' >> "$BASH_ENV"
       - run:
           # the xlarge linux resource class has 8 CPUs, limit the number of jobs to 6 to avoid running out of resources
           name: "Set CARGO_BUILD_JOBS=6 to limit the number of CPUs used"
@@ -172,7 +173,8 @@ jobs:
             /tmp/artifacts/buck2 init
             cp -r ../../prelude prelude
             # Additional setup for ocaml
-            source ./setup.sh
+            eval $(opam env)
+            source ./ocaml-setup.sh
             /tmp/artifacts/buck2 build //... -v 2
       - build_example_no_prelude
       - setup_reindeer
@@ -207,7 +209,8 @@ jobs:
             /tmp/artifacts/buck2 init
             cp -r ../../prelude prelude
             # Additional setup for ocaml
-            source ./setup.sh
+            eval $(opam env)
+            source ./ocaml-setup.sh
             /tmp/artifacts/buck2 build //... -v 2
       - build_example_no_prelude
       - setup_reindeer
