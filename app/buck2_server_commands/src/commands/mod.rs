@@ -8,7 +8,7 @@
  */
 
 pub mod build;
-pub mod configured_targets;
+pub mod ctargets;
 pub mod debug_eval;
 pub(crate) mod init_commands;
 pub mod install;

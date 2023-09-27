@@ -17,7 +17,7 @@ use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
 use crate::commands::build::build_command;
-use crate::commands::configured_targets::configured_targets_command;
+use crate::commands::ctargets::configured_targets_command;
 use crate::commands::debug_eval::debug_eval_command;
 use crate::commands::install::install_command;
 use crate::commands::query::aquery::aquery_command;
