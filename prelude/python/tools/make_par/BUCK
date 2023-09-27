@@ -1,19 +1,24 @@
-prelude = native
+# META INTERNAL NOTES:
+# If this file is changed open source it will probably not import correctly,
+# as it is the only `TARGETS` (not `TARGETS.v2`) in the prelude.
+# Configuring the tools to do it right seemed more dangerous than just having a caveat on this one file.
 
-prelude.export_file(
+oncall("build_infra")
+
+export_file(
     name = "__run_lpar_main__.py",
-    visibility = ["PUBLIC"],
     src = "__run_lpar_main__.py",
+    visibility = ["PUBLIC"],
 )
 
-prelude.export_file(
+export_file(
     name = "sitecustomize.py",
-    visibility = ["PUBLIC"],
     src = "sitecustomize.py",
+    visibility = ["PUBLIC"],
 )
 
-prelude.export_file(
+export_file(
     name = "_lpar_bootstrap.sh.template",
-    visibility = ["PUBLIC"],
     src = "_lpar_bootstrap.sh.template",
+    visibility = ["PUBLIC"],
 )

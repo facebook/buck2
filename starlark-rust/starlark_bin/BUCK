@@ -1,5 +1,7 @@
 load("@fbcode//buck2:buck_rust_binary.bzl", "buck_rust_binary")
 
+oncall("build_infra")
+
 buck_rust_binary(
     name = "starlark_bin",
     srcs = glob(

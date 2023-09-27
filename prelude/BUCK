@@ -1,5 +1,7 @@
 load(":native.bzl", prelude = "native")
 
+oncall("build_infra")
+
 # Done to avoid triggering a lint rule that replaces glob with an fbcode macro
 globby = glob
 

@@ -1,5 +1,7 @@
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
 
+oncall("build_infra")
+
 rust_library(
     name = "starlark_lsp",
     srcs = glob(["src/**/*.rs"]),
