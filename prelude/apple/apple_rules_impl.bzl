@@ -113,6 +113,8 @@ extra_attributes = {
     "apple_package": {
         "bundle": attrs.dep(providers = [AppleBundleInfo]),
         "ext": attrs.enum(ApplePackageExtension.values(), default = "ipa"),
+        "packager": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+        "packager_args": attrs.list(attrs.arg(), default = []),
         "validator": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
         # FIXME: prelude// should be standalone (not refer to fbsource//)

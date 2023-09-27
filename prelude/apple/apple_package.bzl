@@ -15,28 +15,55 @@ load(":apple_swift_stdlib.bzl", "should_copy_swift_stdlib")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 
 def apple_package_impl(ctx: AnalysisContext) -> list[Provider]:
-    apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
     unprocessed_ipa_contents = _get_ipa_contents(ctx)
     package = ctx.actions.declare_output("{}.{}".format(ctx.attrs.bundle.label.name, ctx.attrs.ext))
-    compression_level = _compression_level_arg(IpaCompressionLevel(ctx.attrs._ipa_compression_level))
 
+    if ctx.attrs.packager:
+        process_ipa_cmd = cmd_args([
+            ctx.attrs.packager[RunInfo],
+            "--contents-dir",
+            unprocessed_ipa_contents,
+            "--output-path",
+            package.as_output(),
+            ctx.attrs.packager_args,
+        ])
+        category = "apple_package_make_custom"
+
+        if ctx.attrs.validator:
+            fail(
+                "{} doesn't support a setting `packager` and `validator` at the same time.".format(ctx.attrs.name),
+            )
+
+    else:
+        process_ipa_cmd = _get_default_package_cmd(
+            ctx,
+            unprocessed_ipa_contents,
+            package.as_output(),
+        )
+        category = "apple_package_make"
+
+    ctx.actions.run(process_ipa_cmd, category = category)
+
+    return [DefaultInfo(default_output = package)]
+
+def _get_default_package_cmd(ctx: AnalysisContext, unprocessed_ipa_contents: Artifact, output: OutputArtifact) -> cmd_args:
+    apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
     process_ipa_cmd = cmd_args([
         apple_tools.ipa_package_maker,
         "--ipa-contents-dir",
         unprocessed_ipa_contents,
         "--ipa-output-path",
-        package.as_output(),
+        output,
         "--compression-level",
-        compression_level,
+        _compression_level_arg(IpaCompressionLevel(ctx.attrs._ipa_compression_level)),
     ])
     if ctx.attrs.validator != None:
         process_ipa_cmd.add([
             "--validator",
             ctx.attrs.validator[RunInfo],
         ])
-    ctx.actions.run(process_ipa_cmd, category = "apple_package_make")
 
-    return [DefaultInfo(default_output = package)]
+    return process_ipa_cmd
 
 def _get_ipa_contents(ctx) -> Artifact:
     bundle = ctx.attrs.bundle
