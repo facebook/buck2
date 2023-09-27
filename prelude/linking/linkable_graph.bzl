@@ -69,7 +69,7 @@ LinkableNode = record(
     # Note: The values in link_infos will already be adding in the exported_linker_flags
     # TODO(cjhopman): We should probably make all use of linker_flags explicit, but that may need to wait
     # for all link strategies to operate on the LinkableGraph.
-    linker_flags = field([LinkerFlags, None]),
+    linker_flags = field(LinkerFlags),
 
     # Shared libraries provided by this target.  Used if this target is
     # excluded.
@@ -148,6 +148,8 @@ def create_linkable_node(
             output_style in link_infos,
             "must have {} link info".format(output_style),
         )
+    if not linker_flags:
+        linker_flags = LinkerFlags()
     return LinkableNode(
         labels = ctx.attrs.labels,
         preferred_linkage = preferred_linkage,
