@@ -15,6 +15,8 @@ load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code"
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
 
+GENRULE_OUT_DIR = "out"
+
 # Currently, some rules require running from the project root, so provide an
 # opt-in list for those here.  Longer-term, these should be ported to actual
 # rule implementations in v2, rather then using `genrule`s.
@@ -96,11 +98,11 @@ def genrule_impl(ctx: AnalysisContext) -> list[Provider]:
 
 def _declare_output(ctx: AnalysisContext, path: str) -> Artifact:
     if path == ".":
-        return ctx.actions.declare_output("out", dir = True)
+        return ctx.actions.declare_output(GENRULE_OUT_DIR, dir = True)
     elif path.endswith("/"):
-        return ctx.actions.declare_output("out", path[:-1], dir = True)
+        return ctx.actions.declare_output(GENRULE_OUT_DIR, path[:-1], dir = True)
     else:
-        return ctx.actions.declare_output("out", path)
+        return ctx.actions.declare_output(GENRULE_OUT_DIR, path)
 
 def _project_output(out: Artifact, path: str) -> Artifact:
     if path == ".":
@@ -132,7 +134,7 @@ def process_genrule(
         named_outputs = {}
         default_outputs = [out_artifact]
     elif outs_attr != None:
-        out_artifact = ctx.actions.declare_output("out", dir = True)
+        out_artifact = ctx.actions.declare_output(GENRULE_OUT_DIR, dir = True)
 
         named_outputs = {
             name: [_project_output(out_artifact, path) for path in outputs]
