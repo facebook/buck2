@@ -17,7 +17,7 @@ load(":apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 def apple_package_impl(ctx: AnalysisContext) -> list[Provider]:
     apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
     unprocessed_ipa_contents = _get_ipa_contents(ctx)
-    package = ctx.actions.declare_output("{}.ipa".format(ctx.attrs.bundle.label.name))
+    package = ctx.actions.declare_output("{}.{}".format(ctx.attrs.bundle.label.name, ctx.attrs.ext))
     compression_level = _compression_level_arg(IpaCompressionLevel(ctx.attrs._ipa_compression_level))
 
     process_ipa_cmd = cmd_args([

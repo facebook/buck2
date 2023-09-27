@@ -60,6 +60,13 @@ implemented_rules = {
 
 _APPLE_TOOLCHAIN_ATTR = get_apple_toolchain_attr()
 
+ApplePackageExtension = enum(
+    "ipa",
+    "pkg",
+    "dmg",
+    "zip",
+)
+
 extra_attributes = {
     "apple_asset_catalog": {
         "dirs": attrs.list(attrs.source(allow_directory = True), default = []),
@@ -105,6 +112,7 @@ extra_attributes = {
     },
     "apple_package": {
         "bundle": attrs.dep(providers = [AppleBundleInfo]),
+        "ext": attrs.enum(ApplePackageExtension.values(), default = "ipa"),
         "validator": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
         # FIXME: prelude// should be standalone (not refer to fbsource//)
