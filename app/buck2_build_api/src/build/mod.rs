@@ -51,7 +51,6 @@ use crate::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
-use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::interpreter::rule_defs::provider::test_provider::TestProvider;
 
 mod graph_size;
@@ -68,7 +67,6 @@ pub enum BuildProviderType {
 #[derive(Clone, Debug, Allocative)]
 pub struct BuildTargetResultGen<T> {
     pub outputs: Vec<T>,
-    pub providers: FrozenProviderCollectionValue,
     pub run_args: Option<Vec<String>>,
     pub configured_graph_size: Option<SharedResult<MaybeCompatible<u64>>>,
 }
@@ -91,14 +89,10 @@ impl BuildTargetResult {
                 BuildEventVariant::SkippedIncompatible => {
                     res.entry((*label).clone()).or_insert(None);
                 }
-                BuildEventVariant::Prepared {
-                    providers,
-                    run_args,
-                } => {
+                BuildEventVariant::Prepared { run_args } => {
                     res.entry((*label).clone())
                         .or_insert(Some(BuildTargetResultGen {
                             outputs: Vec::new(),
-                            providers,
                             run_args,
                             configured_graph_size: None,
                         }));
@@ -137,7 +131,6 @@ impl BuildTargetResult {
                 let result = result.map(|result| {
                     let BuildTargetResultGen {
                         mut outputs,
-                        providers,
                         run_args,
                         configured_graph_size,
                     } = result;
@@ -155,7 +148,6 @@ impl BuildTargetResult {
                             .unique_by(|(index, _outputs)| *index)
                             .map(|(_index, outputs)| outputs)
                             .collect(),
-                        providers,
                         run_args,
                         configured_graph_size,
                     }
@@ -172,7 +164,6 @@ impl BuildTargetResult {
 enum BuildEventVariant {
     SkippedIncompatible,
     Prepared {
-        providers: FrozenProviderCollectionValue,
         run_args: Option<Vec<String>>,
     },
     Output {
@@ -208,7 +199,7 @@ pub async fn build_configured_label<'a>(
 
     let artifact_fs = ctx.get_artifact_fs().await?;
 
-    let (providers, outputs, run_args) = {
+    let (outputs, run_args) = {
         // A couple of these objects aren't Send and so scope them here so async transform doesn't get concerned.
         let providers = match ctx.get_providers(providers_label.as_ref()).await? {
             MaybeCompatible::Incompatible(reason) => {
@@ -289,7 +280,7 @@ pub async fn build_configured_label<'a>(
             }
         }
 
-        (providers, outputs, run_args)
+        (outputs, run_args)
     };
 
     if let Some(signals) = ctx.per_transaction_data().get_build_signals() {
@@ -338,10 +329,7 @@ pub async fn build_configured_label<'a>(
 
     let stream = futures::stream::once(futures::future::ready(BuildEvent {
         label: providers_label.dupe(),
-        variant: BuildEventVariant::Prepared {
-            providers,
-            run_args,
-        },
+        variant: BuildEventVariant::Prepared { run_args },
     }))
     .chain(outputs);
 
