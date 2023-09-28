@@ -305,7 +305,11 @@ def _get_link_group_info(
 
 def _qualify_entry_point(main: EntryPoint, base_module: str) -> EntryPoint:
     qualname = main[1]
-    fqname = base_module + qualname if qualname.startswith(".") else qualname
+    fqname = qualname
+    if qualname.startswith("."):
+        fqname = base_module + qualname
+        if fqname.startswith("."):
+            fqname = fqname[1:]
     return (main[0], fqname)
 
 def python_executable(
