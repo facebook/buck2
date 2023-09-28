@@ -472,11 +472,12 @@ impl ManagedRemoteExecutionClient {
         digest: TDigest,
         result: TActionResult2,
         use_case: RemoteExecutorUseCase,
+        platform: &RE::Platform,
     ) -> anyhow::Result<WriteActionResultResponse> {
         self.lock()?
             .get()
             .await?
-            .write_action_result(digest, result, use_case)
+            .write_action_result(digest, result, use_case, platform)
             .await
     }
 

@@ -337,6 +337,16 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     cache_checker_new()
                 };
 
+                let platform = RE::Platform {
+                    properties: re_properties
+                        .iter()
+                        .map(|(k, v)| RE::Property {
+                            name: k.clone(),
+                            value: v.clone(),
+                        })
+                        .collect(),
+                };
+
                 let cache_uploader = if disable_caching {
                     Arc::new(NoOpCacheUploader {}) as _
                 } else if let CacheUploadBehavior::Enabled { max_bytes } = cache_upload_behavior {
@@ -347,19 +357,10 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         re_use_case: *re_use_case,
                         knobs: self.executor_global_knobs.dupe(),
                         max_bytes: *max_bytes,
+                        platform: platform.clone(),
                     }) as _
                 } else {
                     Arc::new(NoOpCacheUploader {}) as _
-                };
-
-                let platform = RE::Platform {
-                    properties: re_properties
-                        .iter()
-                        .map(|(k, v)| RE::Property {
-                            name: k.clone(),
-                            value: v.clone(),
-                        })
-                        .collect(),
                 };
 
                 executor.map(|executor| CommandExecutorResponse {

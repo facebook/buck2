@@ -40,6 +40,7 @@ use dupe::Dupe;
 use futures::future;
 use futures::future::FutureExt;
 use prost::Message;
+use remote_execution as RE;
 use remote_execution::DigestWithStatus;
 use remote_execution::NamedDigest;
 use remote_execution::REClientError;
@@ -62,6 +63,7 @@ pub struct CacheUploader {
     pub materializer: Arc<dyn Materializer>,
     pub re_client: ManagedRemoteExecutionClient,
     pub re_use_case: RemoteExecutorUseCase,
+    pub platform: RE::Platform,
     pub knobs: ExecutorGlobalKnobs,
     pub max_bytes: Option<u64>,
 }
@@ -198,7 +200,7 @@ impl CacheUploader {
                     };
 
                     self.re_client
-                        .write_action_result(digest, result, self.re_use_case)
+                        .write_action_result(digest, result, self.re_use_case, &self.platform)
                         .await?;
 
                     Ok(CacheUploadOutcome::Success)

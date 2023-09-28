@@ -353,13 +353,14 @@ impl RemoteExecutionClient {
         digest: TDigest,
         result: TActionResult2,
         use_case: RemoteExecutorUseCase,
+        platform: &RE::Platform,
     ) -> anyhow::Result<WriteActionResultResponse> {
         self.data
             .write_action_results
             .op(self
                 .data
                 .client
-                .write_action_result(digest, result, use_case)
+                .write_action_result(digest, result, use_case, platform)
                 .map_err(|e| self.decorate_error(e)))
             .await
     }
@@ -1125,11 +1126,15 @@ impl RemoteExecutionClientImpl {
         digest: TDigest,
         result: TActionResult2,
         use_case: RemoteExecutorUseCase,
+        platform: &RE::Platform,
     ) -> anyhow::Result<WriteActionResultResponse> {
         self.client()
             .get_action_cache_client()
             .write_action_result(
-                use_case.metadata(),
+                RemoteExecutionMetadata {
+                    platform: Some(re_platform(platform)),
+                    ..use_case.metadata()
+                },
                 WriteActionResultRequest {
                     action_digest: digest,
                     action_result: result,
