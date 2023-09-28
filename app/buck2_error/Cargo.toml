@@ -10,6 +10,6 @@ Library providing an `anyhow` inspired error type for buck2
 anyhow = { workspace = true }
 derive_more = { workspace = true }
 ref-cast = { workspace = true }
-
-[dev-dependencies]
 thiserror = { workspace = true }
+
+buck2_error_derive = { workspace = true }
