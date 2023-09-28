@@ -511,7 +511,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     # - the symlink dir that's part of RPATH
     # - sub-sub-targets that reference shared library dependencies and their respective dwp
     # - [shared-libraries] - a json map that references the above rules.
-    if shared_libs_symlink_tree:
+    if isinstance(shared_libs_symlink_tree, Artifact):
         sub_targets["rpath-tree"] = [DefaultInfo(
             default_output = shared_libs_symlink_tree,
             other_outputs = [
@@ -668,7 +668,7 @@ _CxxLinkExecutableResult = record(
     # List of files/directories that should be present for executable to be run successfully
     runtime_files = list[ArgLike],
     # Optional shared libs symlink tree symlinked_dir action
-    shared_libs_symlink_tree = [Artifact, None],
+    shared_libs_symlink_tree = [list[Artifact], Artifact, None],
     linker_map_data = [CxxLinkerMapData, None],
 )
 

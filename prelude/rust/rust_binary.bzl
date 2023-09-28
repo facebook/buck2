@@ -233,7 +233,7 @@ def _rust_binary_common(
             },
         )]
 
-        if shared_libs_symlink_tree:
+        if isinstance(shared_libs_symlink_tree, Artifact):
             sub_targets_for_link_style["rpath-tree"] = [DefaultInfo(
                 default_output = shared_libs_symlink_tree,
                 other_outputs = [
