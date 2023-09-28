@@ -27,6 +27,7 @@ use buck2_core::target::label::TargetLabel;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::LabeledNode;
+use buck2_query::query::environment::NodeLabel;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
@@ -377,6 +378,8 @@ pub(crate) async fn rbuildfiles<'c>(
     #[repr(transparent)]
     struct NodeRef(ImportPath);
 
+    impl NodeLabel for NodeRef {}
+
     impl LabeledNode for Node {
         type NodeRef = NodeRef;
 
@@ -591,6 +594,8 @@ pub(crate) async fn get_transitive_loads<'c>(
     #[derive(Display, Debug, Hash, Eq, PartialEq, Clone, RefCast)]
     #[repr(transparent)]
     struct NodeRef(ImportPath);
+
+    impl NodeLabel for NodeRef {}
 
     impl LabeledNode for Node {
         type NodeRef = NodeRef;

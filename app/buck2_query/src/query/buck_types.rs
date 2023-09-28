@@ -11,6 +11,7 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 
 use crate::query::environment::ConfiguredOrUnconfiguredTargetLabel;
+use crate::query::environment::NodeLabel;
 
 impl ConfiguredOrUnconfiguredTargetLabel for TargetLabel {
     fn unconfigured_label(&self) -> &TargetLabel {
@@ -18,8 +19,12 @@ impl ConfiguredOrUnconfiguredTargetLabel for TargetLabel {
     }
 }
 
+impl NodeLabel for TargetLabel {}
+
 impl ConfiguredOrUnconfiguredTargetLabel for ConfiguredTargetLabel {
     fn unconfigured_label(&self) -> &TargetLabel {
         self.unconfigured()
     }
 }
+
+impl NodeLabel for ConfiguredTargetLabel {}

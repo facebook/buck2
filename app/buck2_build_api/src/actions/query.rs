@@ -28,6 +28,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_query::query::environment::LabeledNode;
+use buck2_query::query::environment::NodeLabel;
 use buck2_query::query::environment::QueryTarget;
 use buck2_util::late_binding::LateBinding;
 use derivative::Derivative;
@@ -228,6 +229,8 @@ pub enum ActionQueryNodeRef {
     Analysis(Arc<ConfiguredProvidersLabel>),
     Action(ActionKey),
 }
+
+impl NodeLabel for ActionQueryNodeRef {}
 
 impl ActionQueryNodeRef {
     pub fn require_action(&self) -> anyhow::Result<&ActionKey> {

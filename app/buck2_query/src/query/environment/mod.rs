@@ -56,7 +56,6 @@ impl QueryEnvironmentError {
 }
 
 pub trait NodeLabel: Clone + Hash + PartialEq + Eq + Debug + Display + Send + Sync {}
-impl<T: Clone + Hash + PartialEq + Eq + Debug + Display + Send + Sync> NodeLabel for T {}
 
 pub trait ConfiguredOrUnconfiguredTargetLabel: NodeLabel {
     fn unconfigured_label(&self) -> &TargetLabel;
