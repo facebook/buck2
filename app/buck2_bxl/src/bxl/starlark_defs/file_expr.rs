@@ -132,7 +132,7 @@ impl<'v> UnpackValue<'v> for FileExpr<'v> {
 
 impl<'v> StarlarkTypeRepr for FileExpr<'v> {
     fn starlark_type_repr() -> Ty {
-        Either::<String, StarlarkArtifact>::starlark_type_repr()
+        Either::<Either<String, &StarlarkFileNode>, StarlarkArtifact>::starlark_type_repr()
     }
 }
 
