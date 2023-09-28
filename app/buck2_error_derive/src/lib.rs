@@ -9,14 +9,14 @@
 
 use proc_macro::TokenStream;
 use syn::parse_macro_input;
+use syn::parse_quote;
 
-#[proc_macro_derive(Error, attributes(backtrace, error, from, source))]
-pub fn derive_error(input: TokenStream) -> TokenStream {
+fn derive_error_impl(input: TokenStream, krate: syn::Path) -> TokenStream {
     // For now, this is more or less just a stub that forwards to `thiserror`. It doesn't yet do
     // anything interesting.
     let input = parse_macro_input!(input as syn::DeriveInput);
 
-    // W need to generate an invocation of `thiserror::Derive`. This comes with two pieces of
+    // We need to generate an invocation of `thiserror::Derive`. This comes with two pieces of
     // complexity, each requiring some cleverness:
     //  1. We can't just generate a `#[derive(thiserror::Error)]`, because we cannot modify the
     //     input! The trick we use is to generate an exact copy of our input, prefixed with the two
@@ -37,14 +37,24 @@ pub fn derive_error(input: TokenStream) -> TokenStream {
         #[allow(non_snake_case)]
         #[allow(unused)]
         fn #name() {
-            use ::buck2_error::__for_macro::thiserror;
+            use #krate::__for_macro::thiserror;
 
             #[derive(thiserror::Error)]
-            #[::buck2_error::__for_macro::exterminate]
+            #[#krate::__for_macro::exterminate]
             #input
         }
     }
     .into()
+}
+
+#[proc_macro_derive(ErrorForReexport, attributes(backtrace, error, from, source))]
+pub fn derive_error_for_reexport(input: TokenStream) -> TokenStream {
+    derive_error_impl(input, parse_quote! { ::buck2_error })
+}
+
+#[proc_macro_derive(Error, attributes(backtrace, error, from, source))]
+pub fn derive_error(input: TokenStream) -> TokenStream {
+    derive_error_impl(input, parse_quote! { crate })
 }
 
 // Implementation detail of `derive_error`

@@ -39,7 +39,7 @@ pub type Result<T> = std::result::Result<T, crate::Error>;
 /// assert_eq!(&format!("{}", e), "My error type");
 /// ```
 #[doc(inline)]
-pub use buck2_error_derive::Error;
+pub use buck2_error_derive::ErrorForReexport as Error;
 
 #[doc(hidden)]
 pub mod __for_macro {
