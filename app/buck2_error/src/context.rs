@@ -32,9 +32,6 @@ impl crate::Error {
 /// in the near future, uses of `anyhow::Context` in `buck2/app` will be broadly replaced with use
 /// of this trait. Subsequently, additional APIs will be provided for annotating errors with
 /// structured context data.
-///
-/// The biggest distiction from `anyhow::Context` is that this trait is not implemented for
-/// `Option<T>`. This is an intentional design decision to force the use of proper error types.
 pub trait Context<T>: Sealed {
     fn context<C: std::fmt::Display + Send + Sync + 'static>(self, context: C)
     -> anyhow::Result<T>;
@@ -67,6 +64,40 @@ impl<T, E: AnyError> Context<T> for std::result::Result<T, E> {
         match self {
             Ok(x) => Ok(x),
             Err(e) => Err(crate::Error::new_anyhow_with_context(e, f())),
+        }
+    }
+}
+
+// FIXME(JakobDegen): This impl should not exist. We should make people write error types for these
+// conditions. Let's have it for now to ease migration though.
+
+// Can't use our derive macro because it creates reference to `::buck2_error`, which doesn't exist in this
+// crate
+#[derive(Debug, buck2_error_derive::Error)]
+#[error("NoneError")]
+struct NoneError;
+
+impl<T> Sealed for Option<T> {}
+
+impl<T> Context<T> for Option<T> {
+    fn context<C>(self, c: C) -> anyhow::Result<T>
+    where
+        C: std::fmt::Display + Send + Sync + 'static,
+    {
+        match self {
+            Some(x) => Ok(x),
+            None => Err(crate::Error::new_anyhow_with_context(NoneError, c)),
+        }
+    }
+
+    fn with_context<C, F>(self, f: F) -> anyhow::Result<T>
+    where
+        C: std::fmt::Display + Send + Sync + 'static,
+        F: FnOnce() -> C,
+    {
+        match self {
+            Some(x) => Ok(x),
+            None => Err(crate::Error::new_anyhow_with_context(NoneError, f())),
         }
     }
 }
