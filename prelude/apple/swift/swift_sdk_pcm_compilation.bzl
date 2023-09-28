@@ -33,7 +33,8 @@ def get_shared_pcm_compilation_args(module_name: str) -> cmd_args:
         "-Xclang",
         "-Xcc",
         "-fmodules-embed-all-files",
-        # Embed all files that were read during compilation into the generated PCM.
+        # Set the base directory of the pcm file to the working directory, which ensures
+        # all paths serialized in the PCM are relative.
         "-Xcc",
         "-Xclang",
         "-Xcc",
