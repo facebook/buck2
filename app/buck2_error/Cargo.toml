@@ -12,4 +12,6 @@ derive_more = { workspace = true }
 ref-cast = { workspace = true }
 thiserror = { workspace = true }
 
+dupe = { workspace = true }
+
 buck2_error_derive = { workspace = true }

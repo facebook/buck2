@@ -15,7 +15,7 @@ use std::sync::Arc;
 /// While this type has many of the features of `anyhow::Error`, in most places you should continue
 /// to use `anyhow`. This type is only expected to appear on a small number of APIs which require a
 /// clonable error.
-#[derive(Clone)]
+#[derive(Clone, dupe::Dupe)]
 pub struct Error(pub(crate) Arc<ErrorImpl>);
 
 /// The actual error representation.

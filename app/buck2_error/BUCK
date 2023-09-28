@@ -14,5 +14,6 @@ rust_library(
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:ref-cast",
         "fbsource//third-party/rust:thiserror",
+        "//buck2/gazebo/dupe:dupe",
     ],
 )
