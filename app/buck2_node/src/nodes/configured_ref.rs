@@ -36,7 +36,11 @@ use crate::nodes::configured::ConfiguredTargetNode;
 #[repr(C)]
 pub struct ConfiguredGraphNodeRef(pub ConfiguredTargetNode);
 
-impl NodeLabel for ConfiguredGraphNodeRef {}
+impl NodeLabel for ConfiguredGraphNodeRef {
+    fn label_for_filter(&self) -> String {
+        self.0.label().unconfigured().to_string()
+    }
+}
 
 impl ConfiguredGraphNodeRef {
     pub fn label(&self) -> &ConfiguredTargetLabel {
