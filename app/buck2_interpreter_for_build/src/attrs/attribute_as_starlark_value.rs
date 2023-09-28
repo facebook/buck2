@@ -24,7 +24,7 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 
 #[derive(Debug, thiserror::Error)]
-enum AttributeAsStarlarkValueError {
+enum StarlarkAttributeError {
     #[error("`attrs.default_only()` cannot be used in nested attributes")]
     DefaultOnlyInNested,
 }
@@ -36,14 +36,14 @@ enum AttributeAsStarlarkValueError {
     NoSerialize,
     Allocative
 )]
-pub(crate) struct AttributeAsStarlarkValue(Attribute);
+pub(crate) struct StarlarkAttribute(Attribute);
 
-starlark_simple_value!(AttributeAsStarlarkValue);
+starlark_simple_value!(StarlarkAttribute);
 
 #[starlark_value(type = "attribute")]
-impl<'v> StarlarkValue<'v> for AttributeAsStarlarkValue {}
+impl<'v> StarlarkValue<'v> for StarlarkAttribute {}
 
-impl AttributeAsStarlarkValue {
+impl StarlarkAttribute {
     pub fn new(attr: Attribute) -> Self {
         Self(attr)
     }
@@ -55,7 +55,7 @@ impl AttributeAsStarlarkValue {
     /// Coercer to put into higher lever coercer (e. g. for `attrs.list(xxx)`).
     pub fn coercer_for_inner(&self) -> anyhow::Result<AttrType> {
         if self.0.is_default_only() {
-            return Err(AttributeAsStarlarkValueError::DefaultOnlyInNested.into());
+            return Err(StarlarkAttributeError::DefaultOnlyInNested.into());
         }
         Ok(self.0.coercer().dupe())
     }
@@ -72,5 +72,5 @@ impl AttributeAsStarlarkValue {
 #[starlark_module]
 pub(crate) fn register_attr_type(globals: &mut GlobalsBuilder) {
     /// Starlark type of the attribute object (for example, returned from `attrs.string()`).
-    const Attr: StarlarkValueAsType<AttributeAsStarlarkValue> = StarlarkValueAsType::new();
+    const Attr: StarlarkValueAsType<StarlarkAttribute> = StarlarkValueAsType::new();
 }

@@ -58,7 +58,7 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark_map::small_map::SmallMap;
 
-use crate::attrs::attribute_as_starlark_value::AttributeAsStarlarkValue;
+use crate::attrs::attribute_as_starlark_value::StarlarkAttribute;
 use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::build_context::PerFileTypeContext;
 use crate::interpreter::module_internals::ModuleInternals;
@@ -147,7 +147,7 @@ impl<'v> AllocValue<'v> for RuleCallable<'v> {
 impl<'v> RuleCallable<'v> {
     fn new(
         implementation: StarlarkCallable<'v>,
-        attrs: DictOf<'v, &'v str, &'v AttributeAsStarlarkValue>,
+        attrs: DictOf<'v, &'v str, &'v StarlarkAttribute>,
         cfg: Option<Value>,
         doc: &str,
         is_configuration_rule: bool,
@@ -417,7 +417,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
     /// ```
     fn rule<'v>(
         #[starlark(require = named)] r#impl: StarlarkCallable<'v>,
-        #[starlark(require = named)] attrs: DictOf<'v, &'v str, &'v AttributeAsStarlarkValue>,
+        #[starlark(require = named)] attrs: DictOf<'v, &'v str, &'v StarlarkAttribute>,
         #[starlark(require = named)] cfg: Option<Value>,
         #[starlark(require = named, default = "")] doc: &str,
         #[starlark(require = named, default = false)] is_configuration_rule: bool,
@@ -443,7 +443,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
     /// the artifact. This is only intended to be used with anon targets.
     fn anon_rule<'v>(
         #[starlark(require = named)] r#impl: StarlarkCallable<'v>,
-        #[starlark(require = named)] attrs: DictOf<'v, &'v str, &'v AttributeAsStarlarkValue>,
+        #[starlark(require = named)] attrs: DictOf<'v, &'v str, &'v StarlarkAttribute>,
         #[starlark(require = named, default = "")] doc: &str,
         #[starlark(require = named)] artifact_promise_mappings: SmallMap<
             StringValue<'v>,
