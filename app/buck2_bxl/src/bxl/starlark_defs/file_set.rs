@@ -65,14 +65,6 @@ impl<'a> FileSetExpr<'a> {
         };
         Ok(set)
     }
-
-    // This will unpack a Value to a FileSetExpr, but doesn't accept as single string literal,
-    // only a FileSetExpr or a list of string literals.
-    fn unpack_set(value: Value<'a>) -> Option<Self> {
-        value
-            .downcast_ref::<StarlarkFileSet>()
-            .map(|s| FileSetExpr::FileSet(s))
-    }
 }
 
 impl<'v> StarlarkTypeRepr for FileSetExpr<'v> {
@@ -92,7 +84,9 @@ impl<'v> UnpackValue<'v> for FileSetExpr<'v> {
         } else if let Some(s) = <Vec<&'v str>>::unpack_value(value) {
             Some(FileSetExpr::Literals(s))
         } else {
-            FileSetExpr::unpack_set(value)
+            value
+                .downcast_ref::<StarlarkFileSet>()
+                .map(|s| FileSetExpr::FileSet(s))
         }
     }
 }
