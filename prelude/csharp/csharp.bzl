@@ -7,10 +7,59 @@
 
 load(":toolchain.bzl", "CSharpToolchainInfo")
 
-DotNetLibraryInfo = provider(fields = [
-    "name",  # The name of the library.
-    "object",  # The generated .dll artifact that will need to be linked into an .exe.
-])
+# Describes either a reference to a Buck .NET target or a .NET framework DLL.
+DllReference = record(
+    # `str` -> Path to a .NET framework DLL on the local machine.
+    # `Artifacft` -> Buck target dependency.
+    reference = field([Artifact, str]),
+)
+
+def _args_for_dll_reference(dllref: DllReference) -> cmd_args:
+    """Projects values in a `DllDepTSet` to csc.exe /reference arguments."""
+    return cmd_args(dllref.reference, format = "/reference:{}")
+
+# A transitive set of DLL references required to build a .NET library.
+#
+# The transitive set attribute `value` references the outputting assembly, and the children are a
+# list of the dependencies required to build it.
+DllDepTSet = transitive_set(
+    args_projections = {
+        # Projects "/reference:{}" arguments for `csc.exe`.
+        "reference": _args_for_dll_reference,
+    },
+)
+
+def generate_target_tset_children(deps: list[typing.Any], ctx: AnalysisContext) -> list[DllDepTSet]:
+    """Convert a target's dependencies list into an array of transitive dependencies."""
+
+    tset_children = []
+
+    if deps:
+        for dep in deps:
+            if isinstance(dep, str):
+                # Name of a .NET framework DLL (eg "System.Drawing.dll").
+                tset_children.append(
+                    ctx.actions.tset(DllDepTSet, value = DllReference(reference = dep)),
+                )
+            else:
+                # Buck target dependency (eg "//buck/path/to:foobar").
+                tset_children.append(dep.get(DotNetLibraryInfo).dll_deps)
+
+    return tset_children
+
+DotNetLibraryInfo = provider(
+    doc = "Information about a .NET library and its dependencies",
+    fields = {
+        # A tset of DLLs (System or Buck targets) this library depends on. The
+        # `.value` is a reference to the outputting assembly artifact, and the
+        # children are the dependencies required to build it.
+        "dll_deps": provider_field(DllDepTSet),
+        # The output file name of the library.
+        "name": provider_field(str),
+        # The generated .dll artifact that will need to be linked into an .exe.
+        "object": provider_field(Artifact),
+    },
+)
 
 def csharp_library_impl(ctx: AnalysisContext) -> list[Provider]:
     toolchain = ctx.attrs._csharp_toolchain[CSharpToolchainInfo]
@@ -35,17 +84,11 @@ def csharp_library_impl(ctx: AnalysisContext) -> list[Provider]:
         format = "/out:{}",
     ))
 
-    # Add dependencies to caller specified .NET dlls and Buck targets.
-    if ctx.attrs.deps:
-        for dep in ctx.attrs.deps:
-            if isinstance(dep, str):
-                # .NET DLL dependency (eg "System.dll").
-                dep_ref_arg = "/reference:{}".format(dep)
-            else:
-                # Buck target dependency.
-                dep_ref_arg = cmd_args(dep.get(DotNetLibraryInfo).object, format = "/reference:{}")
+    # Add a `/reference:{name}` argument for each dependency.
+    child_deps = generate_target_tset_children(ctx.attrs.deps, ctx)
+    deps_tset = ctx.actions.tset(DllDepTSet, children = child_deps)
 
-            cmd.add(dep_ref_arg)
+    cmd.add(deps_tset.project_as_args("reference"))
 
     # Specify the C# source code files that should be compiled into this target.
     # NOTE: This must happen after /out and /target!
@@ -59,6 +102,7 @@ def csharp_library_impl(ctx: AnalysisContext) -> list[Provider]:
         DotNetLibraryInfo(
             name = ctx.attrs.dll_name,
             object = library,
+            dll_deps = ctx.actions.tset(DllDepTSet, value = DllReference(reference = library), children = child_deps),
         ),
     ]
 
@@ -69,5 +113,6 @@ def prebuilt_dotnet_library_impl(ctx: AnalysisContext) -> list[Provider]:
         DotNetLibraryInfo(
             name = ctx.attrs.name,
             object = ctx.attrs.assembly,
+            dll_deps = ctx.actions.tset(DllDepTSet, value = DllReference(reference = ctx.attrs.assembly)),
         ),
     ]
