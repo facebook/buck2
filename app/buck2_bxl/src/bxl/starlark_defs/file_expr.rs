@@ -25,7 +25,6 @@ use buck2_core::pattern::maybe_split_cell_alias_and_relative_path;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
-use either::Either;
 use starlark::typing::Ty;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::UnpackValue;
@@ -57,11 +56,11 @@ impl<'v> UnpackValue<'v> for SourceArtifactUnpack {
 /// functions for arguments that should be files. It will accept either a
 /// literal (like `//path/to/some/file.txt`) or a `SourceArtifact` via `StarlarkArtifact`
 /// or a `StarlarkFileNode`
-#[derive(Debug, Display, Clone)]
-pub(crate) enum FileExpr<'a> {
-    Literal(&'a str),
+#[derive(Debug, Display, Clone, StarlarkTypeRepr, UnpackValue)]
+pub(crate) enum FileExpr<'v> {
+    Literal(&'v str),
     SourceArtifact(SourceArtifactUnpack),
-    StarlarkFileNode(&'a StarlarkFileNode),
+    StarlarkFileNode(&'v StarlarkFileNode),
 }
 
 fn parse_cell_path_as_file_expr_literal(
@@ -108,31 +107,6 @@ impl<'a> FileExpr<'a> {
             FileExpr::SourceArtifact(val) => Ok(val.artifact.get_path().to_cell_path()),
             FileExpr::StarlarkFileNode(val) => Ok(val.0.clone()),
         }
-    }
-}
-
-impl<'v> UnpackValue<'v> for FileExpr<'v> {
-    fn expected() -> String {
-        "literal, or source artifact, or file node".to_owned()
-    }
-
-    #[allow(clippy::manual_map, clippy::same_functions_in_if_condition)]
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        if let Some(s) = value.unpack_str() {
-            Some(FileExpr::Literal(s))
-        } else if let Some(v) = UnpackValue::unpack_value(value) {
-            Some(FileExpr::StarlarkFileNode(v))
-        } else if let Some(v) = UnpackValue::unpack_value(value) {
-            Some(FileExpr::SourceArtifact(v))
-        } else {
-            None
-        }
-    }
-}
-
-impl<'v> StarlarkTypeRepr for FileExpr<'v> {
-    fn starlark_type_repr() -> Ty {
-        Either::<Either<String, &StarlarkFileNode>, StarlarkArtifact>::starlark_type_repr()
     }
 }
 
