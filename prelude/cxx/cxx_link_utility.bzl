@@ -151,7 +151,7 @@ def executable_shared_lib_arguments(
         actions: AnalysisActions,
         cxx_toolchain: CxxToolchainInfo,
         output: Artifact,
-        shared_libs: dict[str, LinkedObject]) -> (list[typing.Any], list[ArgLike], [Artifact, None]):
+        shared_libs: dict[str, LinkedObject]) -> (list[typing.Any], list[ArgLike], [list[Artifact], Artifact, None]):
     extra_args = []
     runtime_files = []
     shared_libs_symlink_tree = None
@@ -167,18 +167,26 @@ def executable_shared_lib_arguments(
 
     linker_type = cxx_toolchain.linker_info.type
 
-    # Windows doesn't support rpath.
-    if len(shared_libs) > 0 and linker_type != "windows":
-        shared_libs_symlink_tree = actions.symlinked_dir(
-            shared_libs_symlink_tree_name(output),
-            {name: shlib.output for name, shlib in shared_libs.items()},
-        )
-        runtime_files.append(shared_libs_symlink_tree)
-        rpath_reference = get_rpath_origin(linker_type)
+    if len(shared_libs) > 0:
+        if linker_type == "windows":
+            shared_libs_symlink_tree = [actions.symlink_file(
+                shlib.output.basename,
+                shlib.output,
+            ) for _, shlib in shared_libs.items()]
+            runtime_files.extend(shared_libs_symlink_tree)
+            # Windows doesn't support rpath.
 
-        # We ignore_artifacts() here since we don't want the symlink tree to actually be there for the link.
-        rpath_arg = cmd_args(shared_libs_symlink_tree, format = "-Wl,-rpath,{}/{{}}".format(rpath_reference)).relative_to(output, parent = 1).ignore_artifacts()
-        extra_args.append(rpath_arg)
+        else:
+            shared_libs_symlink_tree = actions.symlinked_dir(
+                shared_libs_symlink_tree_name(output),
+                {name: shlib.output for name, shlib in shared_libs.items()},
+            )
+            runtime_files.append(shared_libs_symlink_tree)
+            rpath_reference = get_rpath_origin(linker_type)
+
+            # We ignore_artifacts() here since we don't want the symlink tree to actually be there for the link.
+            rpath_arg = cmd_args(shared_libs_symlink_tree, format = "-Wl,-rpath,{}/{{}}".format(rpath_reference)).relative_to(output, parent = 1).ignore_artifacts()
+            extra_args.append(rpath_arg)
 
     return (extra_args, runtime_files, shared_libs_symlink_tree)
 
