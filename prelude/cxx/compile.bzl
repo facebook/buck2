@@ -56,6 +56,8 @@ CxxExtension = enum(
     ".asmpp",
     ".h",
     ".hpp",
+    ".hh",
+    ".h++",
 )
 
 # File types for dep files
