@@ -751,8 +751,8 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
     /// Several replacements can be added by multiple replace_regex calls.
     fn replace_regex<'v>(
         mut this: StarlarkCommandLineMut<'v>,
-        pattern: StringValue<'v>,
-        replacement: StringValue<'v>,
+        #[starlark(require = pos)] pattern: StringValue<'v>,
+        #[starlark(require = pos)] replacement: StringValue<'v>,
     ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
         let options = this.borrow.options_mut();
         // Validate that regex is valid
