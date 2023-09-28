@@ -19,12 +19,10 @@ use buck2_query::query::syntax::simple::eval::file_set::FileNode;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use derive_more::Display;
 use display_container::fmt_container;
-use either::Either;
 use gazebo::prelude::VecExt;
 use indexmap::IndexSet;
 use starlark::any::ProvidesStaticType;
 use starlark::starlark_simple_value;
-use starlark::typing::Ty;
 use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Heap;
@@ -41,10 +39,11 @@ use crate::bxl::starlark_defs::context::BxlContextNoDice;
 /// functions for arguments that should be file sets. It will accept either a
 /// literal (like `//path/to/some/file.txt`) or a FileSet Value (from one of the
 /// bxl functions that return them).
-pub(crate) enum FileSetExpr<'a> {
-    Literal(&'a str),
-    Literals(Vec<&'a str>),
-    FileSet(&'a StarlarkFileSet),
+#[derive(StarlarkTypeRepr, UnpackValue)]
+pub(crate) enum FileSetExpr<'v> {
+    Literal(&'v str),
+    Literals(Vec<&'v str>),
+    FileSet(&'v StarlarkFileSet),
 }
 
 impl<'a> FileSetExpr<'a> {
@@ -63,31 +62,6 @@ impl<'a> FileSetExpr<'a> {
             FileSetExpr::FileSet(val) => Cow::Borrowed(&val.0),
         };
         Ok(set)
-    }
-}
-
-impl<'v> StarlarkTypeRepr for FileSetExpr<'v> {
-    fn starlark_type_repr() -> Ty {
-        Either::<Either<String, Vec<&str>>, StarlarkFileSet>::starlark_type_repr()
-    }
-}
-
-impl<'v> UnpackValue<'v> for FileSetExpr<'v> {
-    fn expected() -> String {
-        "literal or set of file names".to_owned()
-    }
-
-    #[allow(clippy::manual_map)]
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        if let Some(s) = value.unpack_str() {
-            Some(FileSetExpr::Literal(s))
-        } else if let Some(s) = <Vec<&'v str>>::unpack_value(value) {
-            Some(FileSetExpr::Literals(s))
-        } else if let Some(s) = UnpackValue::unpack_value(value) {
-            Some(FileSetExpr::FileSet(s))
-        } else {
-            None
-        }
     }
 }
 
