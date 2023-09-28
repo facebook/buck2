@@ -34,10 +34,12 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use thiserror::Error;
 
 use crate::interpreter::rule_defs::provider::execution_platform::StarlarkExecutionPlatformResolution;
+use crate::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 use crate::interpreter::rule_defs::provider::ProviderCollection;
 
 #[derive(Debug, Error)]
@@ -185,7 +187,10 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
         Ok(Dependency::new(heap, lbl, providers.to_value(), None))
     }
 
-    fn get<'v>(this: &Dependency<'v>, index: Value<'v>) -> anyhow::Result<Value<'v>> {
+    fn get<'v>(
+        this: &Dependency<'v>,
+        index: Value<'v>,
+    ) -> anyhow::Result<NoneOr<ValueOfUnchecked<'v, AbstractProvider>>> {
         this.provider_collection()?.get(index)
     }
 }

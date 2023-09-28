@@ -32,6 +32,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::values::list::ListRef;
+use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::Freeze;
@@ -46,7 +47,9 @@ use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::values::ValueOfUnchecked;
 
+use crate::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 use crate::interpreter::rule_defs::provider::DefaultInfo;
 use crate::interpreter::rule_defs::provider::DefaultInfoCallable;
 use crate::interpreter::rule_defs::provider::FrozenBuiltinProviderLike;
@@ -265,14 +268,23 @@ impl<'v, V: ValueLike<'v>> ProviderCollectionGen<V> {
     }
 
     /// `.get` function implementation.
-    pub(crate) fn get(&self, index: Value<'v>) -> anyhow::Result<Value<'v>> {
-        Ok(self.get_impl(index, GetOp::Get)?.left_or(Value::new_none()))
+    pub(crate) fn get(
+        &self,
+        index: Value<'v>,
+    ) -> anyhow::Result<NoneOr<ValueOfUnchecked<'v, AbstractProvider>>> {
+        match self.get_impl(index, GetOp::Get)? {
+            Either::Left(v) => Ok(NoneOr::Other(ValueOfUnchecked::new(v))),
+            Either::Right(_) => Ok(NoneOr::None),
+        }
     }
 }
 
 #[starlark_module]
 fn provider_collection_methods(builder: &mut MethodsBuilder) {
-    fn get<'v>(this: &ProviderCollection<'v>, index: Value<'v>) -> anyhow::Result<Value<'v>> {
+    fn get<'v>(
+        this: &ProviderCollection<'v>,
+        index: Value<'v>,
+    ) -> anyhow::Result<NoneOr<ValueOfUnchecked<'v, AbstractProvider>>> {
         this.get(index)
     }
 }
