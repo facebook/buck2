@@ -14,6 +14,7 @@ pub mod configured_providers_label;
 pub mod opaque_metadata;
 pub mod project_root;
 pub mod provider;
+pub mod regex;
 pub mod rule;
 pub mod target_label;
 pub mod transition;

@@ -11,6 +11,7 @@ use fancy_regex::Regex;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 
+// TODO(nga): drop it, and only use `regex` function.
 #[starlark_module]
 pub fn register_regex(builder: &mut GlobalsBuilder) {
     /// Test if a regular expression matches a string. Fails if the regular expression
