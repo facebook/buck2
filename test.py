@@ -198,9 +198,9 @@ def rustfmt(buck2_dir: Path, ci: bool, git: bool) -> None:
 
 
 CLIPPY_ALLOW = [
-    # "clippy::arc-with-non-send-sync",  # Needs triage, see 'dashmap_directory_interner.rs:39:20' (`DashMap` is not `Send` or `Sync`)
+    "clippy::arc-with-non-send-sync",  # Needs triage, see 'dashmap_directory_interner.rs:39:20' (`DashMap` is not `Send` or `Sync`)
     "clippy::useless_conversion",  # Removed all obvious but there are some reports I'm unclear how to fix
-    # "clippy::needless_raw_string_hashes",  # False positives
+    "clippy::needless_raw_string_hashes",  # False positives
     "clippy::disallowed_names",  # Not using foo, bar, baz in test data is silly
     "clippy::bool-to-int-with-if",  # Using if branches to return 1 or 0 is valid, but this complains that we should use `int::from`, which is arguably less clear
     "clippy::cognitive_complexity",  # This is an arbitrary linter
@@ -263,9 +263,9 @@ CLIPPY_DENY = [
     "clippy::verbose_file_reads",
     "clippy::wildcard_dependencies",
     "clippy::useless-vec",  # TBD if this should be CLIPPY_ALLOW
-    # "clippy::unnecessary-literal-unwrap",  # TBD if this should be CLIPPY_ALLOW
+    "clippy::unnecessary-literal-unwrap",  # TBD if this should be CLIPPY_ALLOW
     "clippy::needless_borrow",
-    # "clippy::tuple_array_conversions",
+    "clippy::tuple_array_conversions",
     "let_underscore_drop",
     "unused_extern_crates",
 ]
