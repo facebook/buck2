@@ -30,7 +30,6 @@ use starlark::typing::Ty;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueLike;
 
 use crate::bxl::starlark_defs::file_set::StarlarkFileNode;
 
@@ -62,7 +61,7 @@ impl<'v> UnpackValue<'v> for SourceArtifactUnpack {
 pub(crate) enum FileExpr<'a> {
     Literal(&'a str),
     SourceArtifact(SourceArtifactUnpack),
-    StarlarkFileNode(StarlarkFileNode),
+    StarlarkFileNode(&'a StarlarkFileNode),
 }
 
 fn parse_cell_path_as_file_expr_literal(
@@ -107,7 +106,7 @@ impl<'a> FileExpr<'a> {
                 }
             }
             FileExpr::SourceArtifact(val) => Ok(val.artifact.get_path().to_cell_path()),
-            FileExpr::StarlarkFileNode(val) => Ok(val.0),
+            FileExpr::StarlarkFileNode(val) => Ok(val.0.clone()),
         }
     }
 }
@@ -117,12 +116,12 @@ impl<'v> UnpackValue<'v> for FileExpr<'v> {
         "literal, or source artifact, or file node".to_owned()
     }
 
-    #[allow(clippy::manual_map)]
+    #[allow(clippy::manual_map, clippy::same_functions_in_if_condition)]
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         if let Some(s) = value.unpack_str() {
             Some(FileExpr::Literal(s))
-        } else if let Some(v) = value.downcast_ref::<StarlarkFileNode>() {
-            Some(FileExpr::StarlarkFileNode(v.to_owned()))
+        } else if let Some(v) = UnpackValue::unpack_value(value) {
+            Some(FileExpr::StarlarkFileNode(v))
         } else if let Some(v) = UnpackValue::unpack_value(value) {
             Some(FileExpr::SourceArtifact(v))
         } else {
