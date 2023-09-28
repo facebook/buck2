@@ -1,0 +1,15 @@
+[package]
+name = "buck2_error"
+version = "0.1.0"
+edition = "2021"
+description = """
+Library providing an `anyhow` inspired error type for buck2
+"""
+
+[dependencies]
+anyhow = { workspace = true }
+derive_more = { workspace = true }
+ref-cast = { workspace = true }
+
+[dev-dependencies]
+thiserror = { workspace = true }

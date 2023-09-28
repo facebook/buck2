@@ -26,6 +26,7 @@ members = [
     "app/buck2_cli_proto",
     "app/buck2_downward_api",
     "app/buck2_downward_api_proto",
+    "app/buck2_error",
     "app/buck2_event_observer",
     "app/buck2_events",
     "app/buck2_execute",
@@ -360,6 +361,7 @@ buck2_miniperf_proto = { path = "app/buck2_miniperf_proto" }
 buck2_node = { path = "app/buck2_node" }
 buck2_offline_archive = { path = "app/buck2_offline_archive" }
 buck2_artifact = { path = "app/buck2_artifact" }
+buck2_error = { path = "app/buck2_error" }
 buck2_execute = { path = "app/buck2_execute" }
 buck2_execute_impl = { path = "app/buck2_execute_impl" }
 buck2_server = { path = "app/buck2_server" }
