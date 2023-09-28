@@ -343,7 +343,7 @@ message CommonBuildOptions {
 }
 
 message BuildRequest {
-  reserved 5;
+  reserved 5, 4242001;
 
   ClientContext context = 1;
   repeated buck.data.TargetPattern target_patterns = 2;
@@ -383,8 +383,6 @@ message BuildRequest {
   }
   // Materialize final artifacts?
   Materializations final_artifact_materializations = 7;
-
-  bool unstable_print_providers = 4242001;
 }
 
 message TestSessionOptions {

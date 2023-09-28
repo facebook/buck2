@@ -67,7 +67,6 @@ use futures::stream::StreamExt;
 use itertools::Itertools;
 
 use crate::commands::build::results::build_report::BuildReportCollector;
-use crate::commands::build::results::providers::ProvidersPrinter;
 use crate::commands::build::results::result_report::ResultReporter;
 use crate::commands::build::results::result_report::ResultReporterOptions;
 use crate::commands::build::results::BuildOwner;
@@ -214,18 +213,9 @@ async fn build(
         None
     };
 
-    let mut providers_printer = if request.unstable_print_providers {
-        Some(ProvidersPrinter)
-    } else {
-        None
-    };
-
     let mut result_collectors = vec![
         Some(&mut result_collector as &mut dyn BuildResultCollector),
         build_report_collector
-            .as_mut()
-            .map(|v| v as &mut dyn BuildResultCollector),
-        providers_printer
             .as_mut()
             .map(|v| v as &mut dyn BuildResultCollector),
     ]

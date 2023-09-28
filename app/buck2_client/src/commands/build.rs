@@ -64,9 +64,6 @@ pub struct BuildCommand {
     )]
     target_universe: Vec<String>,
 
-    #[clap(long = "providers", help = "Print the providers of each target")]
-    print_providers: bool,
-
     /// This option does nothing. It is here to keep compatibility with Buck1 and ci
     #[clap(long = "deep")]
     #[allow(unused)] // for v1 compat
@@ -248,7 +245,6 @@ impl StreamingCommand for BuildCommand {
                     target_patterns: self
                         .patterns
                         .map(|p| buck2_data::TargetPattern { value: p.clone() }),
-                    unstable_print_providers: self.print_providers,
                     build_providers: Some(BuildProviders {
                         default_info: self.default_info() as i32,
                         run_info: self.run_info() as i32,

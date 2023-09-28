@@ -446,22 +446,3 @@ pub mod build_report {
         }
     }
 }
-
-pub mod providers {
-    use crate::commands::build::results::BuildOwner;
-    use crate::commands::build::results::BuildResultCollector;
-    use crate::commands::build::BuildTargetResult;
-
-    pub(crate) struct ProvidersPrinter;
-
-    impl BuildResultCollector for ProvidersPrinter {
-        fn collect_result(&mut self, _label: &BuildOwner, result: &BuildTargetResult) {
-            // TODO: should we print the label here?
-            let providers = result.providers.provider_collection();
-            for x in providers.provider_ids() {
-                let p = providers.get_provider_raw(x).unwrap();
-                eprintln!("    {} = {}", x.name(), p);
-            }
-        }
-    }
-}

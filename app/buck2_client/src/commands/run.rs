@@ -56,9 +56,6 @@ pub struct RunCommand {
     #[clap(flatten)]
     build_opts: CommonBuildOptions,
 
-    #[clap(long = "providers", help = "Print the providers of each target")]
-    print_providers: bool,
-
     #[clap(
         long = "command-args-file",
         help = "Write the command to a file instead of executing it.",
@@ -109,7 +106,6 @@ impl StreamingCommand for RunCommand {
                     target_patterns: vec![buck2_data::TargetPattern {
                         value: self.target.clone(),
                     }],
-                    unstable_print_providers: self.print_providers,
                     build_providers: Some(BuildProviders {
                         default_info: build_providers::Action::Skip as i32,
                         run_info: build_providers::Action::Build as i32,
