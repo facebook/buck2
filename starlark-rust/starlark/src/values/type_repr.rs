@@ -21,6 +21,7 @@
 use std::marker::PhantomData;
 
 use either::Either;
+pub use starlark_derive::StarlarkTypeRepr;
 
 use crate::typing::Ty;
 use crate::values::none::NoneType;

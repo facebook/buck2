@@ -35,8 +35,10 @@ mod for_each_field;
 mod freeze;
 mod module;
 mod serde;
+mod starlark_type_repr;
 mod starlark_value;
 mod trace;
+mod unpack_value;
 mod visit_span;
 mod vtable;
 
@@ -156,6 +158,18 @@ pub fn derive_freeze(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 #[proc_macro_derive(NoSerialize)]
 pub fn derive_no_serialize(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     serde::derive_no_serialize(input)
+}
+
+/// Derive the `StarlarkTypeRepr` trait.
+#[proc_macro_derive(StarlarkTypeRepr)]
+pub fn derive_starlark_type_repr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    starlark_type_repr::derive_starlark_type_repr(input)
+}
+
+/// Derive the `UnpackValue` trait.
+#[proc_macro_derive(UnpackValue, attributes(starlark))]
+pub fn derive_unpack_value(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    unpack_value::derive_unpack_value(input)
 }
 
 /// Derive accessor methods that are designed to be used from {has,get,dir}_attr

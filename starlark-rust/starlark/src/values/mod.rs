@@ -36,6 +36,7 @@ pub use starlark_derive::Freeze;
 pub use starlark_derive::NoSerialize;
 pub use starlark_derive::StarlarkAttrs;
 pub use starlark_derive::Trace;
+pub use starlark_derive::UnpackValue;
 
 pub use crate::any::AnyLifetime;
 pub use crate::any::ProvidesStaticType;
