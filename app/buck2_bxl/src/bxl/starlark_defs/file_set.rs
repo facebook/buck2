@@ -68,7 +68,7 @@ impl<'a> FileSetExpr<'a> {
 
 impl<'v> StarlarkTypeRepr for FileSetExpr<'v> {
     fn starlark_type_repr() -> Ty {
-        Either::<String, StarlarkFileSet>::starlark_type_repr()
+        Either::<Either<String, Vec<&str>>, StarlarkFileSet>::starlark_type_repr()
     }
 }
 
