@@ -18,7 +18,6 @@ use starlark::typing::Ty;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueLike;
 
 use crate::artifact_groups::promise::PromiseArtifactId;
 use crate::artifact_groups::ArtifactGroup;
@@ -89,34 +88,35 @@ pub trait StarlarkArtifactLike: Display {
     fn get_artifact_group(&self) -> anyhow::Result<ArtifactGroup>;
 }
 
+/// Helper type to unpack artifacts.
+#[derive(StarlarkTypeRepr, UnpackValue)]
+enum ValueAsArtifactLikeUnpack<'v> {
+    Artifact(&'v StarlarkArtifact),
+    DeclaredArtifact(&'v StarlarkDeclaredArtifact),
+    PromiseArtifact(&'v StarlarkPromiseArtifact),
+}
+
 pub struct ValueAsArtifactLike<'v>(pub &'v dyn StarlarkArtifactLike);
 
 impl<'v> StarlarkTypeRepr for ValueAsArtifactLike<'v> {
     fn starlark_type_repr() -> Ty {
-        Ty::unions(vec![
-            StarlarkArtifact::starlark_type_repr(),
-            StarlarkDeclaredArtifact::starlark_type_repr(),
-            StarlarkPromiseArtifact::starlark_type_repr(),
-        ])
+        ValueAsArtifactLikeUnpack::starlark_type_repr()
     }
 }
 
 impl<'v> UnpackValue<'v> for ValueAsArtifactLike<'v> {
     fn unpack_value(value: Value<'v>) -> Option<Self> {
-        value
-            .downcast_ref::<StarlarkArtifact>()
-            .map(|o| o as &dyn StarlarkArtifactLike)
-            .or_else(|| {
-                value
-                    .downcast_ref::<StarlarkDeclaredArtifact>()
-                    .map(|o| o as &dyn StarlarkArtifactLike)
-            })
-            .or_else(|| {
-                value
-                    .downcast_ref::<StarlarkPromiseArtifact>()
-                    .map(|o| o as &dyn StarlarkArtifactLike)
-            })
-            .map(ValueAsArtifactLike)
+        match ValueAsArtifactLikeUnpack::unpack_value(value)? {
+            ValueAsArtifactLikeUnpack::Artifact(a) => {
+                Some(ValueAsArtifactLike(a as &dyn StarlarkArtifactLike))
+            }
+            ValueAsArtifactLikeUnpack::DeclaredArtifact(a) => {
+                Some(ValueAsArtifactLike(a as &dyn StarlarkArtifactLike))
+            }
+            ValueAsArtifactLikeUnpack::PromiseArtifact(a) => {
+                Some(ValueAsArtifactLike(a as &dyn StarlarkArtifactLike))
+            }
+        }
     }
 }
 
