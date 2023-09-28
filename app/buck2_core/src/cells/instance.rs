@@ -57,11 +57,7 @@ impl CellInstance {
         nested_cells: NestedCells,
     ) -> anyhow::Result<CellInstance> {
         if name != aliases.current {
-            return Err(CellInstanceError::InconsistentCellName(
-                name,
-                aliases.current,
-            ))
-            .unwrap();
+            return Err(CellInstanceError::InconsistentCellName(name, aliases.current).into());
         }
         Ok(CellInstance(Arc::new(CellData {
             name,
