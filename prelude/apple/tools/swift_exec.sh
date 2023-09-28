@@ -9,7 +9,7 @@
 set -e
 
 if [ -n "$INSIDE_RE_WORKER" ]; then
-    # - Use $TMPDIR for the module cache location. This
+    # Use $TMPDIR for the module cache location. This
     # will be set to a unique location for each RE action
     # which will avoid sharing modules across RE actions.
     # This is necessary as the inputs to the modules will
@@ -24,9 +24,9 @@ else
     export CLANG_MODULE_CACHE_PATH="/tmp/buck-module-cache"
 fi
 
-# - Apply a debug prefix map for the current directory
+# Apply a debug prefix map for the current directory
 # to make debug info relocatable. To correctly make paths
 # relocatable, we must use that path at which the action
 # is run (be it locally or on RE) and this is not known
 # at the time of action definition.
-exec "$@" -debug-prefix-map "$PWD"=.
+exec "$@" -debug-prefix-map "$PWD"/= -file-compilation-dir .

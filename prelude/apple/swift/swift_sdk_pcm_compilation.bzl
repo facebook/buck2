@@ -38,11 +38,13 @@ def get_shared_pcm_compilation_args(module_name: str) -> cmd_args:
         "-Xclang",
         "-Xcc",
         "-fmodule-file-home-is-cwd",
-        # Unset the working directory to avoid serializing it as an absolute path.
+        # We cannot set an empty Swift working directory as that would end up serializing
+        # absolute header search paths in the PCM. Instead unset the clang working directory
+        # to avoid serializing it as an absolute path.
         "-Xcc",
         "-working-directory=",
-        # Once we have an empty working directory the compiler provided headers such as float.h
-        # cannot be found, so add . to the header search paths.
+        # Using a relative resource dir requires we add the working directory as a search
+        # path to be able to find the compiler generated includes.
         "-Xcc",
         "-I.",
     ])

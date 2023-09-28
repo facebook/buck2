@@ -394,7 +394,9 @@ def _get_shared_flags(
     toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
     cmd = cmd_args()
     cmd.add([
-        # This allows us to use a relative path for the compiler resource directory.
+        # Setting this to empty will get the driver to make all paths absolute when
+        # passed to the frontend. We later debug prefix these to ensure relative paths
+        # in the debug info.
         "-working-directory=",
         "-sdk",
         toolchain.sdk_path,
@@ -405,8 +407,6 @@ def _get_shared_flags(
         module_name,
         "-Xfrontend",
         "-enable-cross-import-overlays",
-        # We set a -debug-prefix-map in the swift execution wrapper, in order to
-        # capture the working directory in which the action is executed.
     ])
 
     if parse_as_library:
