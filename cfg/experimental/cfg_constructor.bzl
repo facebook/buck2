@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(":name.bzl", "cfg_name")
+
 PostConstraintAnalysisParams = record(
     legacy_platform = PlatformInfo | None,
     cli_modifiers = list[str],
@@ -72,10 +74,12 @@ def cfg_constructor_post_constraint_analysis(
             if key not in constraints:
                 constraints[key] = value
 
+    cfg = ConfigurationInfo(
+        constraints = constraints,
+        values = {},
+    )
+    name = cfg_name(cfg)
     return PlatformInfo(
-        label = "cfg",
-        configuration = ConfigurationInfo(
-            constraints = constraints,
-            values = {},
-        ),
+        label = name,
+        configuration = cfg,
     )
