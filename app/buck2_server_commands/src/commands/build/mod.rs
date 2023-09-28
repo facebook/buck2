@@ -389,7 +389,7 @@ fn build_targets_in_universe<'a>(
             async move {
                 let res = build::build_configured_label(
                     ctx,
-                    &materialization_context,
+                    materialization_context,
                     p,
                     &providers_to_build,
                     build::BuildConfiguredLabelOptions {
@@ -530,7 +530,7 @@ fn build_targets_for_spec<'a>(
                         ctx,
                         build_spec,
                         &providers_to_build,
-                        &materialization_context,
+                        materialization_context,
                     )
                     .await
                 }

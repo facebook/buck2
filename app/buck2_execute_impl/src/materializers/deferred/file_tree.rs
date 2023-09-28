@@ -429,7 +429,7 @@ mod tests {
         // and declare artifacts at a subdirectory of that leaf path.
         let mut tree = DataTree::<i32, String>::new();
         tree.insert(vec![1, 2, 3].into_iter(), "123".to_owned());
-        let key = vec![1, 2, 3, 4];
+        let key = [1, 2, 3, 4];
         let mut key_iter = key.iter();
         let removed = tree.remove(&mut key_iter);
         assert_matches!(removed, Some(DataTree::Data(val)) if val == *"123");
@@ -445,7 +445,7 @@ mod tests {
     fn test_suffix_remove() {
         let mut tree = DataTree::<i32, String>::new();
         tree.insert(vec![1, 2, 3].into_iter(), "123".to_owned());
-        tree.remove(vec![1, 2].iter());
+        tree.remove([1, 2].iter());
 
         assert_matches!(tree.iter::<CopyCollector<_>>().next(), None);
     }
@@ -454,7 +454,7 @@ mod tests {
     fn test_remove_empty_dirs() {
         let mut tree = DataTree::<i32, String>::new();
         tree.insert(vec![1, 2, 3].into_iter(), "123".to_owned());
-        tree.remove(vec![1, 2, 3].iter());
+        tree.remove([1, 2, 3].iter());
         assert_matches!(tree, DataTree::Tree(m) if m.is_empty());
     }
 }

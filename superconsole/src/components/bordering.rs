@@ -127,11 +127,11 @@ impl<C: Component> Component for Bordered<C> {
         }
         if let Some(top) = &self.border.top {
             let lines = construct_vertical_padding(top.clone(), output.max_line_length());
-            output.0.splice(0..0, lines.into_iter());
+            output.0.splice(0..0, lines);
         }
         if let Some(bottom) = &self.border.bottom {
             let lines = construct_vertical_padding(bottom.clone(), output.max_line_length());
-            output.0.extend(lines.into_iter());
+            output.0.extend(lines);
         }
 
         Ok(output)

@@ -525,7 +525,7 @@ mod tests {
 
         let mut state = BuckEventSpanTracker::new();
 
-        for e in vec![e1, e2, e3] {
+        for e in [e1, e2, e3] {
             state
                 .start_at(&Arc::new(e.clone()), fake_time(&tick, 1))
                 .unwrap();

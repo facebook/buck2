@@ -170,10 +170,7 @@ mod tests {
         );
         let joins = vec![poll1, poll2];
 
-        assert_eq!(
-            futures::future::join_all(joins.into_iter()).await,
-            ["Hello!", "World!"]
-        );
+        assert_eq!(futures::future::join_all(joins).await, ["Hello!", "World!"]);
 
         // Check that the events are received successfully from the correct event sources.
         let event = next_event(&mut events1).await;

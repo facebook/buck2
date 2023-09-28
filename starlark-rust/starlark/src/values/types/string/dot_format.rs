@@ -233,7 +233,7 @@ mod tests {
     #[test]
     fn test_format_capture() {
         let heap = Heap::new();
-        let original_args = vec![heap.alloc("1"), heap.alloc("2"), heap.alloc("3")];
+        let original_args = [heap.alloc("1"), heap.alloc("2"), heap.alloc("3")];
         let mut args = FormatArgs::new(original_args.iter().copied());
         let mut kwargs = SmallMap::new();
 

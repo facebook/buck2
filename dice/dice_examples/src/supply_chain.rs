@@ -176,8 +176,8 @@ impl Setup for DiceTransactionUpdater {
         // combine remote company list with local company list for reach resource
         let joined: Vec<_> = resources
             .into_iter()
-            .zip(companies.into_iter())
-            .zip(remote_resources.into_iter())
+            .zip(companies)
+            .zip(remote_resources)
             .map(|((resource, mut local_companies), remote_companies)| {
                 local_companies.append(&mut (*remote_companies?).clone());
 

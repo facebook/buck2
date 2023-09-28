@@ -133,9 +133,7 @@ impl Uploader {
 
         // Find the blobs that need to be uploaded
 
-        for (digest, (matching_digest, digest_ttl)) in
-            input_digests.into_iter().zip(digest_ttls.into_iter())
-        {
+        for (digest, (matching_digest, digest_ttl)) in input_digests.into_iter().zip(digest_ttls) {
             if *digest.data() != matching_digest {
                 return Err(anyhow::anyhow!("Invalid response from get_digests_ttl"));
             }
@@ -237,10 +235,7 @@ impl Uploader {
                 .get_materialized_file_paths(upload_file_paths)
                 .await?;
 
-            for (name, digest) in upload_file_paths
-                .into_iter()
-                .zip(upload_file_digests.into_iter())
-            {
+            for (name, digest) in upload_file_paths.into_iter().zip(upload_file_digests) {
                 match name {
                     Ok(name) => {
                         upload_files.push(NamedDigest {

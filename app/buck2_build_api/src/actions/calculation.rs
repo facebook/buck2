@@ -95,7 +95,7 @@ async fn build_action_no_redirect(
             tokio::task::unconstrained(keep_going::try_join_all(ctx, ensure_futs)).await?;
 
         let mut results = IndexMap::with_capacity(inputs.len());
-        for (artifact, ready) in zip(inputs.iter(), ready_inputs.into_iter()) {
+        for (artifact, ready) in zip(inputs.iter(), ready_inputs) {
             results.insert(artifact.clone(), ready.to_group_values(artifact)?);
         }
         results

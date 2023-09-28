@@ -60,7 +60,7 @@ impl<'s> Component for SessionInfoComponent<'s> {
         let lines = if max_len > dimensions.width {
             headers
                 .into_iter()
-                .zip(ids.into_iter())
+                .zip(ids)
                 .flat_map(|(header, id)| {
                     iter::once(header).chain(iter::once(Line::from_iter([id])))
                 })
@@ -68,7 +68,7 @@ impl<'s> Component for SessionInfoComponent<'s> {
         } else {
             headers
                 .iter_mut()
-                .zip(ids.into_iter())
+                .zip(ids)
                 .for_each(|(header, id)| header.push(id));
             headers
         };

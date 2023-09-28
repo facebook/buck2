@@ -586,10 +586,10 @@ mod tests {
 
     #[test]
     fn few_entries() {
-        let entries1 = vec![(0), (1)];
+        let entries1 = [(0), (1)];
         let m1 = entries1.iter().duped().collect::<SmallSet<_>>();
 
-        let entries2 = vec![(1), (0)];
+        let entries2 = [(1), (0)];
         let m2 = entries2.iter().duped().collect::<SmallSet<_>>();
         assert_eq!(m1.is_empty(), false);
         assert_eq!(m1.len(), 2);

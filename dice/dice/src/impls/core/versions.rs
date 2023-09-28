@@ -199,7 +199,7 @@ pub(crate) mod introspection {
                 .flat_map(|(v, cache)| {
                     cache.iter().map(|(k, state)| {
                         (
-                            key_map.get(&k).expect("key should exist").clone(),
+                            key_map.get(k).expect("key should exist").clone(),
                             VersionNumber(*v),
                             *state,
                         )

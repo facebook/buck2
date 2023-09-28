@@ -60,7 +60,7 @@ impl StringWithMacros<ConfiguredProvidersLabel> {
                     parts.push(StringWithMacrosPart::String(x));
                 }
                 Self::ManyParts(xs) => {
-                    parts.extend(xs.into_vec().into_iter());
+                    parts.extend(xs.into_vec());
                 }
             }
         }

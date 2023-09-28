@@ -110,21 +110,21 @@ mod tests {
             "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 1<<omitted>>"
         );
 
-        let vec = vec!["123", "456"];
+        let vec = ["123", "456"];
 
         assert_eq!(
             &truncate_container(vec.iter().copied(), 6),
             "123, 4<<omitted>>"
         );
 
-        let vec = vec!["1234567890", "456"];
+        let vec = ["1234567890", "456"];
 
         assert_eq!(
             &truncate_container(vec.iter().copied(), 6),
             "123456<<omitted>>"
         );
 
-        let vec = vec!["❤️🧡💛💚💙💜", "東京都"];
+        let vec = ["❤️🧡💛💚💙💜", "東京都"];
 
         assert_eq!(
             &truncate_container(vec.iter().copied(), 35),

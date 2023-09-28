@@ -466,7 +466,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             }
             _ => Err(CommandExecutionErrorMarker.into()),
         };
-        self.command_reports.extend(rejected_execution.into_iter());
+        self.command_reports.extend(rejected_execution);
         self.command_reports.push(report);
         res
     }

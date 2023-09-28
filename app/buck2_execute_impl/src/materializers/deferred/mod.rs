@@ -814,10 +814,8 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
             })));
         }
 
-        for (path, (value, method)) in std::iter::zip(
-            paths.into_iter(),
-            std::iter::zip(values.iter(), methods.into_iter()),
-        ) {
+        for (path, (value, method)) in std::iter::zip(paths, std::iter::zip(values.iter(), methods))
+        {
             self.command_sender.send(MaterializerCommand::Declare(
                 path,
                 value.dupe(),

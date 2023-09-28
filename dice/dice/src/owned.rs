@@ -81,7 +81,7 @@ mod tests {
         let reference = owner.as_ref();
         assert!(reference.maybe_access(|_x| ()).is_some());
 
-        let _inner = owner.unwrap_inner().unwrap();
+        owner.unwrap_inner().unwrap();
 
         assert!(
             reference

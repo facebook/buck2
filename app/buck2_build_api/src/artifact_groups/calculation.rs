@@ -420,7 +420,7 @@ impl Key for EnsureTransitiveSetProjectionKey {
             let mut values = SmallVec::<[_; 1]>::with_capacity(values_count);
             let mut children = Vec::with_capacity(sub_inputs.len() - values_count);
 
-            for (group, ready) in zip(sub_inputs.iter(), ready_inputs.into_iter()) {
+            for (group, ready) in zip(sub_inputs.iter(), ready_inputs) {
                 match group.assert_resolved() {
                     ResolvedArtifactGroup::Artifact(artifact) => {
                         values.push((artifact.dupe(), ready.unpack_single()?))

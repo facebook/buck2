@@ -189,7 +189,7 @@ mod tests {
             command
         };
         let mut child = command.spawn().unwrap();
-        let pid = child.id().try_into().unwrap();
+        let pid = child.id();
         for _ in 0..5 {
             assert!(process_exists(pid).unwrap());
         }

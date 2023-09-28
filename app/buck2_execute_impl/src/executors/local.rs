@@ -252,7 +252,7 @@ impl LocalExecutor {
                 .await;
 
                 let scratch_path = r1?;
-                let _: () = r2?;
+                r2?;
 
                 anyhow::Ok((scratch_path, start.elapsed()))
             },

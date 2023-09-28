@@ -315,7 +315,7 @@ impl Lines {
         // can't do arbitrary zip, so this'll have to do
         padded
             .reduce(|mut all, output| {
-                for (all_line, output_line) in all.iter_mut().zip(output.into_iter()) {
+                for (all_line, output_line) in all.iter_mut().zip(output) {
                     all_line.extend(output_line);
                 }
 

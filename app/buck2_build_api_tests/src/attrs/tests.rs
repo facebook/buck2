@@ -423,7 +423,7 @@ fn test_configured_deps() -> anyhow::Result<()> {
     let mut info = ConfiguredAttrInfo::new();
     configured.traverse(PackageLabel::testing(), &mut info)?;
 
-    let expected_deps = vec![
+    let expected_deps = [
         "root//some:target",
         "cell1//named:target[foo]",
         "cell1//:okay",
@@ -433,7 +433,9 @@ fn test_configured_deps() -> anyhow::Result<()> {
     ];
 
     assert_eq!(
-        expected_deps.map(|s| format!("{} ({})", s, ConfigurationData::testing_new())),
+        expected_deps
+            .to_vec()
+            .map(|s| format!("{} ({})", s, ConfigurationData::testing_new())),
         info.deps
             .iter()
             .map(ToString::to_string)
@@ -448,7 +450,9 @@ fn test_configured_deps() -> anyhow::Result<()> {
     configured_exec.traverse(PackageLabel::testing(), &mut info)?;
     eprintln!("{:?}", info);
     assert_eq!(
-        expected_deps.map(|s| format!("{} ({})", s, configuration_ctx().exec_cfg())),
+        expected_deps
+            .to_vec()
+            .map(|s| format!("{} ({})", s, configuration_ctx().exec_cfg())),
         info.execution_deps
             .iter()
             .map(ToString::to_string)

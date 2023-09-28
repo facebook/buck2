@@ -59,7 +59,7 @@ impl KeyValueSqliteTable {
             .lock()
             .execute(
                 &sql,
-                rusqlite::params_from_iter(map.into_iter().flat_map(|(k, v)| [k, v])),
+                rusqlite::params_from_iter(map.into_iter().flat_map(<[_; 2]>::from)),
             )
             .with_context(|| format!("inserting into sqlite table {}", self.table_name))?;
         Ok(())

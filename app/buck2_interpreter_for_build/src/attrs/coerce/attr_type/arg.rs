@@ -252,7 +252,7 @@ mod tests {
             let CoercedDepsCollector {
                 deps, exec_deps, ..
             } = visitor;
-            Ok(deps.into_iter().chain(exec_deps.into_iter()).collect())
+            Ok(deps.into_iter().chain(exec_deps).collect())
         }
     }
 
