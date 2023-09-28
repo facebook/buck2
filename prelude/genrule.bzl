@@ -75,7 +75,7 @@ def genrule_attributes() -> dict[str, Attr]:
         "_genrule_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:genrule", providers = [GenruleToolchainInfo])),
     }
 
-    if _USE_CACHE_MODE:
+    if _USE_CACHE_MODE and not read_root_config("fb", "cache_mode") == None:
         attributes["_cache_mode"] = attrs.dep(default = read_root_config("fb", "cache_mode"))
 
     return attributes
