@@ -27,8 +27,4 @@ impl ConfiguredOrUnconfiguredTargetLabel for ConfiguredTargetLabel {
     }
 }
 
-impl NodeLabel for ConfiguredTargetLabel {
-    fn label_for_filter(&self) -> String {
-        return self.unconfigured().to_string();
-    }
-}
+impl NodeLabel for ConfiguredTargetLabel {}

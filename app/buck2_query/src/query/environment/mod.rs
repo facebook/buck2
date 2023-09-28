@@ -55,12 +55,7 @@ impl QueryEnvironmentError {
     }
 }
 
-pub trait NodeLabel: Clone + Hash + PartialEq + Eq + Debug + Display + Send + Sync {
-    /// `filter()` function will use this.
-    fn label_for_filter(&self) -> String {
-        self.to_string()
-    }
-}
+pub trait NodeLabel: Clone + Hash + PartialEq + Eq + Debug + Display + Send + Sync {}
 
 pub trait ConfiguredOrUnconfiguredTargetLabel: NodeLabel {
     fn unconfigured_label(&self) -> &TargetLabel;
