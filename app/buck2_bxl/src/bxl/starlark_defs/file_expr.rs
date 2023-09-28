@@ -34,6 +34,26 @@ use starlark::values::ValueLike;
 
 use crate::bxl::starlark_defs::file_set::StarlarkFileNode;
 
+#[derive(Debug, Display, Clone)]
+pub(crate) struct SourceArtifactUnpack {
+    artifact: SourceArtifact,
+}
+
+impl StarlarkTypeRepr for SourceArtifactUnpack {
+    fn starlark_type_repr() -> Ty {
+        StarlarkArtifact::starlark_type_repr()
+    }
+}
+
+impl<'v> UnpackValue<'v> for SourceArtifactUnpack {
+    fn unpack_value(value: Value<'v>) -> Option<Self> {
+        let v = ValueAsArtifactLike::unpack_value(value)?;
+        Some(SourceArtifactUnpack {
+            artifact: v.0.get_bound_artifact().ok()?.get_source()?,
+        })
+    }
+}
+
 /// FileExpr is just a simple type that can be used in starlark_module
 /// functions for arguments that should be files. It will accept either a
 /// literal (like `//path/to/some/file.txt`) or a `SourceArtifact` via `StarlarkArtifact`
@@ -41,7 +61,7 @@ use crate::bxl::starlark_defs::file_set::StarlarkFileNode;
 #[derive(Debug, Display, Clone)]
 pub(crate) enum FileExpr<'a> {
     Literal(&'a str),
-    SourceArtifact(SourceArtifact),
+    SourceArtifact(SourceArtifactUnpack),
     StarlarkFileNode(StarlarkFileNode),
 }
 
@@ -86,7 +106,7 @@ impl<'a> FileExpr<'a> {
                     }
                 }
             }
-            FileExpr::SourceArtifact(val) => Ok(val.get_path().to_cell_path()),
+            FileExpr::SourceArtifact(val) => Ok(val.artifact.get_path().to_cell_path()),
             FileExpr::StarlarkFileNode(val) => Ok(val.0),
         }
     }
@@ -97,15 +117,14 @@ impl<'v> UnpackValue<'v> for FileExpr<'v> {
         "literal, or source artifact, or file node".to_owned()
     }
 
+    #[allow(clippy::manual_map)]
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         if let Some(s) = value.unpack_str() {
             Some(FileExpr::Literal(s))
         } else if let Some(v) = value.downcast_ref::<StarlarkFileNode>() {
             Some(FileExpr::StarlarkFileNode(v.to_owned()))
-        } else if let Some(v) = ValueAsArtifactLike::unpack_value(value) {
-            Some(FileExpr::SourceArtifact(
-                v.0.get_bound_artifact().ok()?.get_source()?,
-            ))
+        } else if let Some(v) = UnpackValue::unpack_value(value) {
+            Some(FileExpr::SourceArtifact(v))
         } else {
             None
         }
