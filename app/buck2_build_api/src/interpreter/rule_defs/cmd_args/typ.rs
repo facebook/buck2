@@ -67,6 +67,7 @@ use crate::interpreter::rule_defs::cmd_args::options::CommandLineOptionsTrait;
 use crate::interpreter::rule_defs::cmd_args::options::FrozenCommandLineOptions;
 use crate::interpreter::rule_defs::cmd_args::options::QuoteStyle;
 use crate::interpreter::rule_defs::cmd_args::options::RelativeOrigin;
+use crate::interpreter::rule_defs::cmd_args::regex::CmdArgsRegex;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineBuilder;
@@ -751,12 +752,17 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
     /// Several replacements can be added by multiple replace_regex calls.
     fn replace_regex<'v>(
         mut this: StarlarkCommandLineMut<'v>,
-        #[starlark(require = pos)] pattern: StringValue<'v>,
+        #[starlark(require = pos)] pattern: CmdArgsRegex<'v>,
         #[starlark(require = pos)] replacement: StringValue<'v>,
     ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
         let options = this.borrow.options_mut();
-        // Validate that regex is valid
-        Regex::new(pattern.as_str())?;
+        match &pattern {
+            CmdArgsRegex::Str(pattern) => {
+                // Validate that regex is valid
+                Regex::new(pattern.as_str())?;
+            }
+            CmdArgsRegex::Regex(_) => {}
+        }
         if let Some(replacements) = &mut options.replacements {
             replacements.push((pattern, replacement));
         } else {

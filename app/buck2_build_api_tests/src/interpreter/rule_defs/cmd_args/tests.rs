@@ -13,6 +13,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineInputs
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_common::result::SharedResult;
 use buck2_core::bzl::ImportPath;
+use buck2_interpreter::types::regex::register_buck_regex;
 use buck2_interpreter_for_build::interpreter::testing::expect_error;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use buck2_interpreter_for_build::label::testing::label_creator;
@@ -46,6 +47,7 @@ fn tester() -> anyhow::Result<Tester> {
     tester.additional_globals(artifactory);
     tester.additional_globals(label_creator);
     tester.additional_globals(register_rule_defs);
+    tester.additional_globals(register_buck_regex);
     Ok(tester)
 }
 
@@ -598,6 +600,26 @@ fn test_replace_regex() -> anyhow::Result<()> {
 
             args = cmd_args("\\n\n")
             args.replace_regex("\\\\n", "\\\n").replace_regex("\\n", "\\n")
+            assert_eq(["\\\\n\\n"], get_args(args))
+        "#
+    );
+    tester.run_starlark_bzl_test(contents)?;
+    Ok(())
+}
+
+#[test]
+fn test_replace_regex_regex() -> anyhow::Result<()> {
+    let mut tester = tester()?;
+    let contents = indoc!(
+        r#"
+        def test():
+            args = cmd_args("$OUT", "$OUTPUT", "$SRCS", format="$OUT: {}")
+            args.replace_regex(regex("\\$OUT\\b"), "%OUT%")
+            args.replace_regex(regex("\\$SRCS\\b"), "%SRCS%")
+            assert_eq(["$OUT: %OUT%", "$OUT: $OUTPUT", "$OUT: %SRCS%"], get_args(args))
+
+            args = cmd_args("\\n\n")
+            args.replace_regex(regex("\\\\n"), "\\\n").replace_regex("\\n", "\\n")
             assert_eq(["\\\\n\\n"], get_args(args))
         "#
     );

@@ -25,11 +25,11 @@ use buck2_util::commas::commas;
 use buck2_util::thin_box::ThinBoxSlice;
 use derive_more::Display;
 use dupe::Dupe;
+use either::Either;
 use gazebo::prelude::*;
 use regex::Regex;
 use serde::Serialize;
 use serde::Serializer;
-use starlark::coerce::coerce;
 use starlark::typing::Ty;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Freeze;
@@ -46,6 +46,8 @@ use static_assertions::assert_eq_size;
 
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
+use crate::interpreter::rule_defs::cmd_args::regex::CmdArgsRegex;
+use crate::interpreter::rule_defs::cmd_args::regex::FrozenCmdArgsRegex;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
@@ -109,7 +111,56 @@ pub(crate) struct CommandLineOptions<'v> {
     pub(crate) prepend: Option<StringValue<'v>>,
     pub(crate) quote: Option<QuoteStyle>,
     #[allow(clippy::box_collection)]
-    pub(crate) replacements: Option<Box<Vec<(StringValue<'v>, StringValue<'v>)>>>,
+    pub(crate) replacements: Option<Box<Vec<(CmdArgsRegex<'v>, StringValue<'v>)>>>,
+}
+
+pub(crate) enum OptionsReplacementsRef<'v, 'a> {
+    Unfrozen(&'a [(CmdArgsRegex<'v>, StringValue<'v>)]),
+    Frozen(&'a [(FrozenCmdArgsRegex, FrozenStringValue)]),
+}
+
+impl<'v, 'a> OptionsReplacementsRef<'v, 'a> {
+    pub(crate) fn is_empty(&self) -> bool {
+        match self {
+            Self::Unfrozen(v) => v.is_empty(),
+            Self::Frozen(v) => v.is_empty(),
+        }
+    }
+
+    pub(crate) fn iter(
+        &self,
+    ) -> impl ExactSizeIterator<Item = (CmdArgsRegex<'v>, StringValue<'v>)> + 'a {
+        match self {
+            Self::Unfrozen(v) => Either::Left(v.iter().copied()),
+            Self::Frozen(v) => Either::Right(v.iter().map(|(r, s)| {
+                (
+                    match r {
+                        FrozenCmdArgsRegex::Str(s) => CmdArgsRegex::Str(s.to_string_value()),
+                        FrozenCmdArgsRegex::Regex(s) => CmdArgsRegex::Regex(s.to_value_typed()),
+                    },
+                    s.to_string_value(),
+                )
+            })),
+        }
+    }
+}
+
+impl<'v, 'a> Default for OptionsReplacementsRef<'v, 'a> {
+    fn default() -> Self {
+        Self::Frozen(&[])
+    }
+}
+
+impl<'v, 'a> Serialize for OptionsReplacementsRef<'v, 'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            Self::Unfrozen(v) => v.serialize(serializer),
+            Self::Frozen(v) => v.serialize(serializer),
+        }
+    }
 }
 
 #[derive(Default, Serialize)]
@@ -125,7 +176,7 @@ pub(crate) struct CommandLineOptionsRef<'v, 'a> {
     pub(crate) format: Option<StringValue<'v>>,
     pub(crate) prepend: Option<StringValue<'v>>,
     pub(crate) quote: Option<QuoteStyle>,
-    pub(crate) replacements: &'a [(StringValue<'v>, StringValue<'v>)],
+    pub(crate) replacements: OptionsReplacementsRef<'v, 'a>,
 }
 
 impl<'v, 'a> CommandLineOptionsRef<'v, 'a> {
@@ -143,7 +194,7 @@ impl<'v, 'a> CommandLineOptionsRef<'v, 'a> {
             replacements: if self.replacements.is_empty() {
                 None
             } else {
-                Some(Box::new(self.replacements.to_vec()))
+                Some(Box::new(self.replacements.iter().collect()))
             },
         }
     }
@@ -170,8 +221,8 @@ impl<'v> CommandLineOptionsTrait<'v> for CommandLineOptions<'v> {
             prepend: self.prepend,
             quote: self.quote.dupe(),
             replacements: match &self.replacements {
-                None => &[],
-                Some(v) => v.as_slice(),
+                None => OptionsReplacementsRef::default(),
+                Some(v) => OptionsReplacementsRef::Unfrozen(v.as_slice()),
             },
         }
     }
@@ -189,7 +240,7 @@ enum FrozenCommandLineOption {
     Prepend(FrozenStringValue),
     Quote(QuoteStyle),
     #[allow(clippy::box_collection)]
-    Replacements(ThinBoxSlice<(FrozenStringValue, FrozenStringValue)>),
+    Replacements(ThinBoxSlice<(FrozenCmdArgsRegex, FrozenStringValue)>),
 }
 
 assert_eq_size!(FrozenCommandLineOption, [usize; 2]);
@@ -256,7 +307,7 @@ impl<'v> CommandLineOptionsTrait<'v> for FrozenCommandLineOptions {
                     options.quote = Some(value.dupe());
                 }
                 FrozenCommandLineOption::Replacements(value) => {
-                    options.replacements = coerce::<&[_], &[_]>(value);
+                    options.replacements = OptionsReplacementsRef::Frozen(value);
                 }
             }
         }
@@ -416,7 +467,7 @@ impl<'v, 'a> Display for CommandLineOptionsRef<'v, 'a> {
             comma(f)?;
             write!(f, "replacements = [")?;
             let mut vec_comma = commas();
-            for p in self.replacements {
+            for p in self.replacements.iter() {
                 vec_comma(f)?;
                 write!(f, "({:?}, {:?})", p.0, p.1)?;
             }
@@ -498,9 +549,9 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
                 format: None,
                 prepend: None,
                 quote: None,
-                replacements: &[],
+                replacements,
                 ignore_artifacts: _, // Doesn't impact the builder
-            } => false,
+            } if replacements.is_empty() => false,
             _ => true,
         }
     }
@@ -620,9 +671,16 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
             }
 
             fn format(&self, mut arg: String) -> String {
-                for (pattern, replacement) in self.opts.replacements {
-                    // We checked that regex is valid in replace_regex(), so unwrap is safe.
-                    let re = Regex::new(pattern.as_str()).unwrap();
+                for (pattern, replacement) in self.opts.replacements.iter() {
+                    let re;
+                    let re = match &pattern {
+                        CmdArgsRegex::Str(pattern) => {
+                            // We checked that regex is valid in replace_regex(), so unwrap is safe.
+                            re = Regex::new(pattern.as_str()).unwrap();
+                            &re
+                        }
+                        CmdArgsRegex::Regex(regex) => &regex.0,
+                    };
                     match re.replace_all(&arg, replacement.as_str()) {
                         Cow::Borrowed(_) => {}
                         Cow::Owned(new) => arg = new,
