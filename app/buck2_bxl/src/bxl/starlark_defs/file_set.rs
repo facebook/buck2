@@ -33,7 +33,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
-use starlark::values::ValueLike;
 use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
@@ -45,7 +44,7 @@ use crate::bxl::starlark_defs::context::BxlContextNoDice;
 pub(crate) enum FileSetExpr<'a> {
     Literal(&'a str),
     Literals(Vec<&'a str>),
-    FileSet(&'a FileSet),
+    FileSet(&'a StarlarkFileSet),
 }
 
 impl<'a> FileSetExpr<'a> {
@@ -61,7 +60,7 @@ impl<'a> FileSetExpr<'a> {
                 }
                 Cow::Owned(file_set)
             }
-            FileSetExpr::FileSet(val) => Cow::Borrowed(val),
+            FileSetExpr::FileSet(val) => Cow::Borrowed(&val.0),
         };
         Ok(set)
     }
@@ -78,15 +77,16 @@ impl<'v> UnpackValue<'v> for FileSetExpr<'v> {
         "literal or set of file names".to_owned()
     }
 
+    #[allow(clippy::manual_map)]
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         if let Some(s) = value.unpack_str() {
             Some(FileSetExpr::Literal(s))
         } else if let Some(s) = <Vec<&'v str>>::unpack_value(value) {
             Some(FileSetExpr::Literals(s))
+        } else if let Some(s) = UnpackValue::unpack_value(value) {
+            Some(FileSetExpr::FileSet(s))
         } else {
-            value
-                .downcast_ref::<StarlarkFileSet>()
-                .map(|s| FileSetExpr::FileSet(s))
+            None
         }
     }
 }
