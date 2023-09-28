@@ -20,6 +20,8 @@
 -module(artifact_annotations).
 -compile(warn_missing_spec).
 
+-include_lib("common/include/buck_ct_records.hrl").
+
 -type generic_blob() :: #{generic_blob := #{}}.
 -type generic_text_log() :: #{generic_text_log := #{}}.
 -type test_artifact_type() :: generic_blob() | generic_text_log().
@@ -28,36 +30,27 @@
     type := test_artifact_type(), description := binary()
 }.
 
+-type annotation_function() :: fun((file:filename()) -> test_result_artifact_annotations()).
+
 %% Public API
--export([serialize/1, create_artifact_annotation/1]).
+-export([serialize/1, create_artifact_annotation/2, default_annotation/1]).
+-export_type([annotation_function/0]).
 
 -spec serialize(test_result_artifact_annotations()) -> binary().
 serialize(ArtifactAnnotation) -> jsone:encode(ArtifactAnnotation).
 
--spec create_artifact_annotation(file:filename()) -> test_result_artifact_annotations().
-create_artifact_annotation(FileName) ->
+-spec create_artifact_annotation(file:filename(), #test_env{}) -> test_result_artifact_annotations().
+create_artifact_annotation(FileName, TestEnv) ->
+    (TestEnv#test_env.artifact_annotation_mfa)(FileName).
+
+-spec default_annotation(FileName :: file:filename()) -> test_result_artifact_annotations().
+default_annotation(FileName) ->
     Type =
         case lists:member(filename:extension(FileName), [".json", ".html", ".log", ".spec", ".txt"]) of
-            true ->
-                case filename:basename(FileName) of
-                    "test.log" -> aggregator_config();
-                    "service.log" -> aggregator_config();
-                    _ -> #{generic_text_log => #{}}
-                end;
-            _ ->
-                #{generic_blob => #{}}
+            true -> #{generic_text_log => #{}};
+            _ -> #{generic_blob => #{}}
         end,
     #{
         type => Type,
         description => list_to_binary(FileName)
-    }.
-
--spec aggregator_config() -> #{generic_text_log := #{log_aggregator_config := #{log_type := binary()}}}.
-aggregator_config() ->
-    #{
-        generic_text_log => #{
-            log_aggregator_config => #{
-                log_type => <<"WhatsApp Common Test Log">>
-            }
-        }
     }.

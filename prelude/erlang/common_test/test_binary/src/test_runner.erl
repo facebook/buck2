@@ -39,7 +39,8 @@ run_tests(Tests, #test_info{} = TestInfo, OutputDir, Listing) ->
                 config_files = TestInfo#test_info.config_files,
                 providers = TestInfo#test_info.providers,
                 ct_opts = TestInfo#test_info.ct_opts,
-                erl_cmd = TestInfo#test_info.erl_cmd
+                erl_cmd = TestInfo#test_info.erl_cmd,
+                artifact_annotation_mfa = TestInfo#test_info.artifact_annotation_mfa
             })
     end.
 
@@ -152,7 +153,7 @@ provide_output_file(
         tests = Tests,
         suite = Suite,
         output_format = OutputFormat
-    } = _TestEnv,
+    } = TestEnv,
     ResultExec,
     Status
 ) ->
@@ -227,9 +228,9 @@ provide_output_file(
         end,
     JsonLogs = execution_logs:create_dir_summary(OutputDir),
     file:write_file(filename:join(OutputDir, "logs.json"), jsone:encode(JsonLogs)),
-    test_artifact_directory:link_to_artifact_dir(test_logger:get_std_out(OutputDir, ct_executor), OutputDir),
-    test_artifact_directory:link_to_artifact_dir(test_logger:get_std_out(OutputDir, test_runner), OutputDir),
-    test_artifact_directory:prepare(OutputDir).
+    test_artifact_directory:link_to_artifact_dir(test_logger:get_std_out(OutputDir, ct_executor), OutputDir, TestEnv),
+    test_artifact_directory:link_to_artifact_dir(test_logger:get_std_out(OutputDir, test_runner), OutputDir, TestEnv),
+    test_artifact_directory:prepare(OutputDir, TestEnv).
 
 trimmed_content_file(File) ->
     case file:open(File, [read]) of

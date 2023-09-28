@@ -104,7 +104,8 @@ load_test_info(TestInfoFile) ->
             "providers" := Providers,
             "ct_opts" := CtOpts,
             "extra_ct_hooks" := ExtraCtHooks,
-            "erl_cmd" := ErlCmd
+            "erl_cmd" := ErlCmd,
+            "artifact_annotation_mfa" := ArtifactAnnotationMFA
         }
     ]} = file:consult(TestInfoFile),
     Providers1 = buck_ct_parser:parse_str(Providers),
@@ -117,9 +118,38 @@ load_test_info(TestInfoFile) ->
         test_suite = filename:join(filename:absname(TestDir), [SuiteName, ".beam"]),
         config_files = lists:map(fun(ConfigFile) -> filename:absname(ConfigFile) end, ConfigFiles),
         providers = Providers1,
+        artifact_annotation_mfa = parse_mfa(ArtifactAnnotationMFA),
         ct_opts = CtOpts1,
         erl_cmd = ErlCmd
     }.
+
+-spec parse_mfa(string()) -> {ok, artifact_annotations:annotation_function()} | {error, term()}.
+parse_mfa(MFA) ->
+    case erl_scan:string(MFA) of
+        {ok,
+            [
+                {'fun', _},
+                {atom, _, Module},
+                {':', _},
+                {atom, _, Function},
+                {'/', _},
+                {integer, _, 1}
+            ],
+            _} ->
+            fun Module:Function/1;
+        {ok,
+            [
+                {atom, _, Module},
+                {':', _},
+                {atom, _, Function},
+                {'/', _},
+                {integer, _, 1}
+            ],
+            _} ->
+            fun Module:Function/1;
+        Reason ->
+            {error, Reason}
+    end.
 
 -type ctopt() :: term().
 -type cth() :: module() | {module(), term()}.

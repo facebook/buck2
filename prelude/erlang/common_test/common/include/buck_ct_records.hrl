@@ -5,13 +5,16 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
+%% % @format
+
 -record(test_info, {
     dependencies :: [string()],
     test_suite :: string(),
     config_files :: [string()],
     providers :: [{atom(), [term()]}],
     ct_opts :: [term()],
-    erl_cmd :: string()
+    erl_cmd :: string(),
+    artifact_annotation_mfa :: artifact_annotations:annotation_function()
 }).
 
 -record(test_env, {
@@ -25,7 +28,8 @@
     config_files :: [file:filename_all()],
     providers :: [{module(), [term()]}],
     ct_opts :: [term()],
-    erl_cmd :: string()
+    erl_cmd :: string(),
+    artifact_annotation_mfa :: artifact_annotations:annotation_function()
 }).
 
 -record(run_specs, {

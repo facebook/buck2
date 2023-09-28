@@ -16,9 +16,10 @@
 -compile(warn_missing_spec).
 
 -include_lib("kernel/include/logger.hrl").
+-include_lib("common/include/buck_ct_records.hrl").
 
 %% Public API
--export([prepare/1, link_to_artifact_dir/2]).
+-export([prepare/2, link_to_artifact_dir/3]).
 
 -export_type([dir_path/0]).
 
@@ -63,8 +64,8 @@ with_artifact_annotation_dir(Func) ->
 
 % Collect, create and link the logs and other relevant files in
 % the artefacts directory.
--spec prepare(file:filename()) -> ok.
-prepare(ExecutionDir) ->
+-spec prepare(file:filename(), #test_env{}) -> ok.
+prepare(ExecutionDir, TestInfo) ->
     with_artifact_dir(
         fun(_ArtifactDir) ->
             link_tar_ball(ExecutionDir),
@@ -73,7 +74,7 @@ prepare(ExecutionDir) ->
                     ok;
                 LogPrivate ->
                     [
-                        link_to_artifact_dir(File, LogPrivate)
+                        link_to_artifact_dir(File, LogPrivate, TestInfo)
                      || File <- filelib:wildcard(filename:join(LogPrivate, "**/*.log")),
                         filelib:is_regular(File)
                     ]
@@ -82,8 +83,8 @@ prepare(ExecutionDir) ->
         end
     ).
 
--spec link_to_artifact_dir(file:filename(), file:filename()) -> ok.
-link_to_artifact_dir(File, Root) ->
+-spec link_to_artifact_dir(file:filename(), file:filename(), #test_env{}) -> ok.
+link_to_artifact_dir(File, Root, TestEnv) ->
     with_artifact_dir(
         fun(ArtifactDir) ->
             RelativePath =
@@ -102,7 +103,7 @@ link_to_artifact_dir(File, Root) ->
             case filelib:is_file(File) of
                 true ->
                     file:make_symlink(File, filename:join(ArtifactDir, FullFileName)),
-                    Annotation = artifact_annotations:create_artifact_annotation(FullFileName),
+                    Annotation = artifact_annotations:create_artifact_annotation(FullFileName, TestEnv),
                     dump_annotation(Annotation, FullFileName);
                 _ ->
                     ok

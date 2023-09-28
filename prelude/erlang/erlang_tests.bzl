@@ -78,6 +78,8 @@ def erlang_tests_macro(
     default_config_files = read_root_config("erlang", "erlang_tests_default_config", None) if use_default_configs else None
     trampoline = read_root_config("erlang", "erlang_tests_trampoline", None) if use_default_configs else None
     providers = read_root_config("erlang", "erlang_test_providers", "") if use_default_configs else ""
+    defaultAnnotationMFA = "artifact_annotations:default_annotation/1"
+    annotationsMFA = read_root_config("erlang", "test_artifacts_annotation_mfa", defaultAnnotationMFA) if use_default_configs else defaultAnnotationMFA
 
     if default_config_files:
         config_files += default_config_files.split()
@@ -125,6 +127,7 @@ def erlang_tests_macro(
             property_tests = property_tests,
             _trampoline = trampoline,
             _providers = providers,
+            _artifact_annotation_mfa = annotationsMFA,
             **common_attributes
         )
 
@@ -288,6 +291,7 @@ def _write_test_info_file(
         config_files: list[Artifact],
         erl_cmd: [cmd_args, Artifact]) -> Artifact:
     tests_info = {
+        "artifact_annotation_mfa": ctx.attrs._artifact_annotation_mfa,
         "config_files": config_files,
         "ct_opts": ctx.attrs._ct_opts,
         "dependencies": _list_code_paths(dependencies),
