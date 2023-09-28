@@ -58,7 +58,7 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark_map::small_map::SmallMap;
 
-use crate::attrs::attribute_as_starlark_value::StarlarkAttribute;
+use crate::attrs::starlark_attribute::StarlarkAttribute;
 use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::build_context::PerFileTypeContext;
 use crate::interpreter::module_internals::ModuleInternals;

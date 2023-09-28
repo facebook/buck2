@@ -44,10 +44,10 @@ use starlark::StarlarkDocs;
 use thiserror::Error;
 use tracing::error;
 
-use crate::attrs::attribute_as_starlark_value::register_attr_type;
-use crate::attrs::attribute_as_starlark_value::StarlarkAttribute;
 use crate::attrs::coerce::attr_type::AttrTypeExt;
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
+use crate::attrs::starlark_attribute::register_attr_type;
+use crate::attrs::starlark_attribute::StarlarkAttribute;
 use crate::interpreter::build_context::BuildContext;
 use crate::plugins::plugin_kind_from_value;
 use crate::plugins::AllPlugins;
