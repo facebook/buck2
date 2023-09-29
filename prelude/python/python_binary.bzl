@@ -395,6 +395,7 @@ def python_executable(
         exe.sub_targets["dep-manifest"] = [DefaultInfo(default_output = dep_manifest.manifest, other_outputs = dep_manifest.artifacts)]
     exe.sub_targets.update({
         "dbg-source-db": [dbg_source_db],
+        "library-info": [library_info],
         "source-db": [source_db],
         "source-db-no-deps": [source_db_no_deps, create_python_source_db_info(library_info.manifests)],
     })
