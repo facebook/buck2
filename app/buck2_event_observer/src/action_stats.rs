@@ -11,6 +11,7 @@ use std::fmt;
 
 use dupe::Dupe;
 
+use crate::cache_hit_rate::total_cache_hit_rate;
 use crate::last_command_execution_kind::get_last_command_execution_kind;
 use crate::last_command_execution_kind::LastCommandExecutionKind;
 
@@ -41,17 +42,19 @@ impl ActionStats {
         //
         // This allows us to have special meaning for 0% and 100%: complete cache-divergence
         // and fully cacheable builds.
-        let total_actions = self.total_executed_and_cached_actions();
-        let total_cached_actions = self.total_cached_actions();
-        if total_actions == 0 || total_cached_actions == total_actions {
-            100
-        } else if total_cached_actions == 0 {
-            0
+        let rate = total_cache_hit_rate(
+            self.local_actions,
+            self.remote_actions,
+            self.cached_actions,
+            self.remote_dep_file_cached_actions,
+        ) * 100f64;
+        let rate = if rate == 100.0 || rate == 0.0 {
+            rate
         } else {
-            let hit_percent = ((total_cached_actions as f64) / (total_actions as f64)) * 100f64;
-            let integral_percent = (hit_percent.round()) as u8;
-            integral_percent.clamp(1, 99)
-        }
+            let integral_percent = rate.round();
+            integral_percent.clamp(1.0, 99.0)
+        };
+        rate as u8
     }
 
     pub fn total_cached_actions(&self) -> u64 {
