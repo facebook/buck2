@@ -56,6 +56,7 @@ pub mod pattern;
 pub mod plugins;
 pub mod provider;
 pub mod rollout_percentage;
+pub mod sandcastle;
 pub mod target;
 pub mod target_aliases;
 pub mod unsafe_send_future;

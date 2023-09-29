@@ -13,6 +13,7 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use buck2_core::env_helper::EnvHelper;
+use buck2_core::sandcastle::is_sandcastle;
 use tokio::process::Child;
 use tokio::task::JoinHandle;
 
@@ -38,12 +39,10 @@ pub fn should_upload_log() -> anyhow::Result<bool> {
 }
 
 pub fn should_block_on_log_upload() -> anyhow::Result<bool> {
-    static SANDCASTLE: EnvHelper<String> = EnvHelper::new("SANDCASTLE");
-
     // Used by our tests.
     static TEST_BLOCK_ON_UPLOAD: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_BLOCK_ON_UPLOAD");
 
-    Ok(SANDCASTLE.get()?.is_some() || TEST_BLOCK_ON_UPLOAD.get_copied()?.unwrap_or_default())
+    Ok(is_sandcastle()? || TEST_BLOCK_ON_UPLOAD.get_copied()?.unwrap_or_default())
 }
 
 /// Wait for the child to finish. Assume its stderr was piped.

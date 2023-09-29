@@ -17,6 +17,7 @@ pub(crate) fn check_user_allowed() -> anyhow::Result<()> {
     use std::ptr;
 
     use anyhow::Context;
+    use buck2_core::sandcastle::is_sandcastle;
     use buck2_wrapper_common::winapi_handle::WinapiHandle;
     use winapi::ctypes::c_void;
     use winapi::shared::minwindef::DWORD;
@@ -74,8 +75,7 @@ pub(crate) fn check_user_allowed() -> anyhow::Result<()> {
         // certainly will not.
         //
         // Internally, CI should be setting SANDCASTLE env var.
-        let is_ci = env::var_os("CI").as_deref() == Some(OsStr::new("true"))
-            || env::var_os("SANDCASTLE").is_some();
+        let is_ci = env::var_os("CI").as_deref() == Some(OsStr::new("true")) || is_sandcastle()?;
 
         if !is_ci {
             tracing::warn!(
