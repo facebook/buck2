@@ -36,6 +36,7 @@ mod imp {
     use buck2_core::fs::fs_util;
     use buck2_core::fs::paths::abs_path::AbsPathBuf;
     use buck2_event_observer::action_stats;
+    use buck2_event_observer::cache_hit_rate::total_cache_hit_rate;
     use buck2_event_observer::last_command_execution_kind;
     use buck2_event_observer::last_command_execution_kind::LastCommandExecutionKind;
     use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
@@ -296,6 +297,12 @@ mod imp {
                 run_remote_count: self.run_remote_count,
                 run_action_cache_count: self.run_action_cache_count,
                 run_remote_dep_file_cache_count: self.run_remote_dep_file_cache_count,
+                cache_hit_rate: total_cache_hit_rate(
+                    self.run_local_count,
+                    self.run_remote_count,
+                    self.run_action_cache_count,
+                    self.run_remote_dep_file_cache_count,
+                ) as f32,
                 run_skipped_count: self.run_skipped_count,
                 run_fallback_count: Some(self.run_fallback_count),
                 local_actions_executed_via_worker: Some(self.local_actions_executed_via_worker),

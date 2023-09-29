@@ -1687,6 +1687,8 @@ message InvocationRecord {
   repeated ClientMetadata client_metadata = 76;
   // The error messages that were shown to the user.
   repeated string error_messages = 77;
+  // Cache hit rate as it appears in the console
+  float cache_hit_rate = 78;
 }
 
 // Record event sent directly to scribe.
