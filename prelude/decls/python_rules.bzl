@@ -79,6 +79,7 @@ cxx_python_extension = prelude_rule(
         } |
         cxx_common.linker_extra_outputs_arg() |
         cxx_common.linker_flags_arg() |
+        cxx_common.local_linker_flags_arg() |
         cxx_common.platform_linker_flags_arg() |
         {
             "contacts": attrs.list(attrs.string(), default = []),

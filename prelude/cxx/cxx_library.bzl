@@ -1351,7 +1351,9 @@ def _shared_library(
     linker_flags = cxx_attr_linker_flags_all(ctx)
     link_info = LinkInfo(
         pre_flags = (
-            linker_flags.flags + linker_flags.exported_flags
+            linker_flags.flags +
+            linker_flags.exported_flags +
+            getattr(ctx.attrs, "local_linker_flags", [])
         ),
         linkables = [ObjectsLinkable(
             objects = objects,

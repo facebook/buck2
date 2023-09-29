@@ -252,6 +252,16 @@ def _linker_flags_arg():
 """),
     }
 
+def _local_linker_flags_arg():
+    return {
+        "local_linker_flags": attrs.list(attrs.arg(), default = [], doc = """
+    Flags to add to the linker command line whenever the output from this
+     rule is used in a link operation *driven by this rule* (e.g. when this
+     rule links a shared library, but *not* when the output is linked into a
+     shared library by another rule's link group links).
+"""),
+    }
+
 def _platform_linker_flags_arg():
     return {
         "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg(anon_target_compatible = True))), default = [], doc = """
@@ -439,6 +449,7 @@ cxx_common = struct(
     lang_platform_compiler_flags_arg = _lang_platform_compiler_flags_arg,
     linker_extra_outputs_arg = _linker_extra_outputs_arg,
     linker_flags_arg = _linker_flags_arg,
+    local_linker_flags_arg = _local_linker_flags_arg,
     platform_linker_flags_arg = _platform_linker_flags_arg,
     exported_linker_flags_arg = _exported_linker_flags_arg,
     exported_post_linker_flags_arg = _exported_post_linker_flags_arg,

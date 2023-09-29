@@ -509,6 +509,7 @@ cxx_library = prelude_rule(
         cxx_common.lang_platform_compiler_flags_arg() |
         cxx_common.linker_extra_outputs_arg() |
         cxx_common.linker_flags_arg() |
+        cxx_common.local_linker_flags_arg() |
         cxx_common.platform_linker_flags_arg() |
         cxx_common.exported_linker_flags_arg() |
         cxx_common.exported_post_linker_flags_arg() |
@@ -1061,6 +1062,7 @@ prebuilt_cxx_library = prelude_rule(
         cxx_common.exported_deps_arg() |
         cxx_common.exported_platform_deps_arg() |
         cxx_common.supports_merged_linking() |
+        cxx_common.local_linker_flags_arg() |
         {
             "can_be_asset": attrs.bool(default = False),
             "contacts": attrs.list(attrs.string(), default = []),
