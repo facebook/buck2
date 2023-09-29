@@ -362,7 +362,6 @@ impl RageCommand {
         output_rage(self.no_paste, &sections.join("")).await?;
 
         self.send_to_scuba(
-            &rage_id,
             sink,
             invocation_id,
             system_info,
@@ -382,7 +381,6 @@ impl RageCommand {
 
     async fn send_to_scuba(
         &self,
-        rage_id: &TraceId,
         sink: Option<ThriftScribeSink>,
         invocation_id: Option<TraceId>,
         system_info: RageSection<system_info::SystemInfo>,
@@ -405,7 +403,7 @@ impl RageCommand {
                 "thread_dump" => thread_dump.output(),
                 "daemon_stderr_dump" => daemon_stderr_dump.output(),
                 "hg_snapshot_id" => hg_snapshot_id.output(),
-                "invocation_id" => invocation_id.map(|inv| inv.to_string()).unwrap_or_default(),
+                "invocation_id" => invocation_id.clone().map(|inv| inv.to_string()).unwrap_or_default(),
                 "event_log_dump" => event_log_dump.output(),
                 "re_logs" => re_logs.output(),
             )
@@ -437,17 +435,21 @@ impl RageCommand {
             })
         });
 
-        dispatch_result_event(
-            sink.as_ref(),
-            rage_id,
-            RageResult {
-                string_data,
-                int_data,
-                timestamp,
-                command_duration,
-            },
-        )
-        .await
+        // We store in Ent via Ingress that rage was run for specific invocation
+        if let Some(invocation_id) = invocation_id {
+            dispatch_result_event(
+                sink.as_ref(),
+                &invocation_id,
+                RageResult {
+                    string_data,
+                    int_data,
+                    timestamp,
+                    command_duration,
+                },
+            )
+            .await?;
+        }
+        Ok(())
     }
 
     fn section<'a, Fut, T>(
