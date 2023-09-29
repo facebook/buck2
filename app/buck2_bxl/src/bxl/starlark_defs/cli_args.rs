@@ -12,6 +12,7 @@
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::hash::Hash;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -34,10 +35,12 @@ use futures::FutureExt;
 use gazebo::variants::VariantName;
 use itertools::Itertools;
 use num_bigint::BigInt;
+use serde::Serialize;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
+use starlark::values::dict::Dict;
 use starlark::values::float::StarlarkFloat;
 use starlark::values::list::AllocList;
 use starlark::values::list::ListRef;
@@ -50,6 +53,8 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueLike;
+use starlark_map::ordered_map::OrderedMap;
+use starlark_map::small_map::SmallMap;
 use thiserror::Error;
 
 use crate::bxl::eval::CliResolutionCtx;
@@ -138,6 +143,91 @@ impl CliArgs {
     }
 }
 
+// Wrapper around `serde_json::Value`s, making sure that we keep the values ordered when working with
+// `serde_json::Object`s so that hashing is deterministic for BXL keys.
+#[derive(
+    derive_more::Display,
+    Debug,
+    Clone,
+    Eq,
+    PartialEq,
+    Hash,
+    Ord,
+    PartialOrd,
+    Allocative,
+    Serialize
+)]
+pub(crate) enum JsonCliArgValueData {
+    None,
+    Bool(bool),
+    // Preserve BigInts and floats as strings for eq/hash for BXL key
+    Float(String),
+    Int(String),
+    String(String),
+    #[display(fmt = "{}", "_0.iter().map(|v| v.to_string()).join(\",\")")]
+    List(Vec<JsonCliArgValueData>),
+    #[display(
+        fmt = "{}",
+        "_0.iter().map(|(k, v)| format!(\"(k={},v={})\", k, v.to_string())).join(\",\")"
+    )]
+    Object(OrderedMap<String, JsonCliArgValueData>),
+}
+
+impl JsonCliArgValueData {
+    fn from_serde_value(val: &serde_json::Value) -> Self {
+        match val {
+            serde_json::Value::Null => JsonCliArgValueData::None,
+            serde_json::Value::Bool(x) => JsonCliArgValueData::Bool(*x),
+            // serde_json::Number can be a u64, i64, or f64. Let's try i64 first, and if that doesn't
+            // work then we will default to f64.
+            serde_json::Value::Number(x) => {
+                if x.is_i64() {
+                    JsonCliArgValueData::Int(x.as_i64().unwrap().to_string())
+                } else {
+                    JsonCliArgValueData::Float(x.as_f64().unwrap().to_string())
+                }
+            }
+            serde_json::Value::String(x) => JsonCliArgValueData::String(x.clone()),
+            serde_json::Value::Array(xs) => {
+                let mut vec = Vec::with_capacity(xs.len());
+                for x in xs {
+                    vec.push(Self::from_serde_value(x))
+                }
+                JsonCliArgValueData::List(vec)
+            }
+            serde_json::Value::Object(mp) => {
+                let mut res = OrderedMap::new();
+                for (k, v) in mp.into_iter() {
+                    res.insert(k.clone(), Self::from_serde_value(v));
+                }
+                JsonCliArgValueData::Object(res)
+            }
+        }
+    }
+
+    pub(crate) fn as_starlark<'v>(&self, heap: &'v Heap) -> Value<'v> {
+        match self {
+            Self::Bool(b) => Value::new_bool(*b),
+            // Verified when we constructed these from the `serde_json::Value`s
+            Self::Float(i) => heap.alloc(i.parse::<f64>().expect("already verified")),
+            Self::Int(i) => heap.alloc(BigInt::from(i.parse::<i64>().expect("already verified"))),
+            Self::String(s) => heap.alloc(s),
+            Self::List(l) => heap.alloc(AllocList(l.iter().map(|v| v.as_starlark(heap)))),
+            Self::None => Value::new_none(),
+            Self::Object(mp) => {
+                let mut res = SmallMap::with_capacity(mp.len());
+                for (k, v) in mp.into_iter() {
+                    res.insert_hashed(
+                        heap.alloc_str(k).to_value().get_hashed().unwrap(),
+                        v.as_starlark(heap),
+                    );
+                }
+                heap.alloc(Dict::new(res))
+            }
+        }
+    }
+}
+
 #[derive(
     Debug,
     derive_more::Display,
@@ -165,6 +255,9 @@ pub(crate) enum CliArgValue {
     None,
     TargetLabel(TargetLabel),
     ProvidersLabel(ProvidersLabel),
+    // For json CLI arg, we do not allow defaults, and we only allow primitives that can be
+    // deserialized into a `serde_json::Value`.
+    Json(JsonCliArgValueData),
 }
 
 impl CliArgValue {
@@ -178,6 +271,7 @@ impl CliArgValue {
             CliArgValue::None => Value::new_none(),
             CliArgValue::TargetLabel(t) => heap.alloc(StarlarkTargetLabel::new(t.dupe())),
             CliArgValue::ProvidersLabel(p) => heap.alloc(StarlarkProvidersLabel::new(p.clone())),
+            CliArgValue::Json(j) => heap.alloc(j.as_starlark(heap)),
         }
     }
 }
@@ -196,6 +290,7 @@ pub(crate) enum CliArgType {
     TargetExpr,
     SubTarget,
     SubTargetExpr,
+    Json,
 }
 
 impl Display for CliArgType {
@@ -264,6 +359,10 @@ impl CliArgType {
     fn enumeration(vs: HashSet<String>) -> Self {
         CliArgType::Enumeration(Arc::new(vs))
     }
+
+    fn json() -> Self {
+        CliArgType::Json
+    }
 }
 
 #[derive(Debug, Error)]
@@ -280,6 +379,8 @@ pub(crate) enum CliArgError {
     DuplicateShort(char),
     #[error("An argument can be kebab-case OR snake-case, not both: `{0}`")]
     DefinedBothKebabAndSnakeCase(String),
+    #[error("Expecting json object. Got: `{0}`")]
+    NotAJsonObject(String),
 }
 
 impl CliArgType {
@@ -365,6 +466,11 @@ impl CliArgType {
                     CliArgType::SubTargetExpr
                 )));
             }
+            CliArgType::Json => {
+                return Err(anyhow::anyhow!(CliArgError::NoDefaultsAllowed(
+                    CliArgType::Json
+                )));
+            }
         })
     }
 
@@ -402,6 +508,7 @@ impl CliArgType {
             }),
             CliArgType::TargetExpr => clap.takes_value(true),
             CliArgType::SubTargetExpr => clap.takes_value(true),
+            CliArgType::Json => clap.takes_value(true),
         }
     }
 
@@ -531,6 +638,18 @@ impl CliArgType {
                             .collect::<SharedResult<Vec<_>>>()?,
                     ))
                 }
+                CliArgType::Json => match clap.value_of() {
+                    None => None,
+                    Some(value) => {
+                        let json: serde_json::Value = serde_json::from_str(value)?;
+                        let data = JsonCliArgValueData::from_serde_value(&json);
+                        if let JsonCliArgValueData::Object(_) = data {
+                            Some(CliArgValue::Json(data))
+                        } else {
+                            return Err(CliArgError::NotAJsonObject(json.to_string()).into());
+                        }
+                    }
+                },
             })
         }
         .boxed()
@@ -635,6 +754,13 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
     ) -> anyhow::Result<CliArgs> {
         CliArgs::new(None, doc, CliArgType::sub_target_expr(), short)
     }
+
+    fn json<'v>(
+        #[starlark(default = "")] doc: &str,
+        #[starlark(require = named)] short: Option<Value<'v>>,
+    ) -> anyhow::Result<CliArgs> {
+        CliArgs::new(None, doc, CliArgType::json(), short)
+    }
 }
 
 pub(crate) fn register_cli_args_module(registry: &mut GlobalsBuilder) {
@@ -653,9 +779,11 @@ mod tests {
     use num_bigint::BigInt;
     use starlark::values::Heap;
     use starlark::values::Value;
+    use starlark_map::ordered_map::OrderedMap;
 
     use crate::bxl::starlark_defs::cli_args::CliArgType;
     use crate::bxl::starlark_defs::cli_args::CliArgValue;
+    use crate::bxl::starlark_defs::cli_args::JsonCliArgValueData;
 
     #[test]
     fn print_cli_arg_list() -> anyhow::Result<()> {
@@ -668,6 +796,37 @@ mod tests {
         let cli_arg = CliArgValue::List(args);
         let printed = format!("{}", cli_arg);
         assert_eq!(printed, "true,test,1");
+
+        Ok(())
+    }
+
+    #[test]
+    fn print_cli_arg_json() -> anyhow::Result<()> {
+        let mut args = OrderedMap::new();
+        args.insert("my_bool".to_owned(), JsonCliArgValueData::Bool(true));
+        args.insert(
+            "my_string".to_owned(),
+            JsonCliArgValueData::String("test".to_owned()),
+        );
+        args.insert(
+            "my_array".to_owned(),
+            JsonCliArgValueData::List(vec![
+                JsonCliArgValueData::String("a".to_owned()),
+                JsonCliArgValueData::String("b".to_owned()),
+                JsonCliArgValueData::String("c".to_owned()),
+            ]),
+        );
+
+        args.insert(
+            "nested".to_owned(),
+            JsonCliArgValueData::Object(args.clone()),
+        );
+
+        let printed = format!("{}", JsonCliArgValueData::Object(args));
+        assert_eq!(
+            printed,
+            "(k=my_bool,v=true),(k=my_string,v=test),(k=my_array,v=a,b,c),(k=nested,v=(k=my_bool,v=true),(k=my_string,v=test),(k=my_array,v=a,b,c))"
+        );
 
         Ok(())
     }
