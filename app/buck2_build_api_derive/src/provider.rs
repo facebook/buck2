@@ -528,11 +528,11 @@ impl ProviderCodegen {
                 #vis fn provider_id_t() -> &'static std::sync::Arc<
                     buck2_core::provider::id::ProviderIdWithType<#frozen_name>,
                 > {
-                    static PROVIDER_ID_T: once_cell::sync::OnceCell<
+                    static PROVIDER_ID_T: std::sync::OnceLock<
                         std::sync::Arc<
                             buck2_core::provider::id::ProviderIdWithType<#frozen_name>,
                         >
-                    > = once_cell::sync::OnceCell::new();
+                    > = std::sync::OnceLock::new();
                     PROVIDER_ID_T.get_or_init(|| {
                         std::sync::Arc::new(
                             buck2_core::provider::id::ProviderIdWithType::new(

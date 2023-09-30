@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
@@ -25,7 +26,6 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use gazebo::prelude::*;
-use once_cell::unsync::OnceCell;
 
 use crate::legacy_configs::init::DaemonStartupConfig;
 use crate::legacy_configs::path::BuckConfigFile;

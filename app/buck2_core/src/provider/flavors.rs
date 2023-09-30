@@ -7,7 +7,8 @@
  * of this source tree.
  */
 
-use once_cell::sync::OnceCell;
+use std::sync::OnceLock;
+
 use regex::RegexSet;
 
 use crate::provider::label::NonDefaultProvidersName;
@@ -15,7 +16,7 @@ use crate::provider::label::ProviderName;
 use crate::provider::label::ProvidersName;
 use crate::soft_error;
 
-static PLATFORM_REGEX_SET: OnceCell<RegexSet> = OnceCell::new();
+static PLATFORM_REGEX_SET: OnceLock<RegexSet> = OnceLock::new();
 
 fn is_platform_flavor(flavor: &str) -> bool {
     let regex_set = PLATFORM_REGEX_SET.get_or_init(|| {

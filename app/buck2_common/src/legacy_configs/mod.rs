@@ -16,6 +16,7 @@ pub mod init;
 pub(crate) mod path;
 pub mod view;
 
+use std::cell::OnceCell;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fmt;
@@ -40,7 +41,6 @@ use gazebo::eq_chain;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
-use once_cell::unsync::OnceCell;
 use regex::Regex;
 use starlark_map::sorted_map::SortedMap;
 use thiserror::Error;

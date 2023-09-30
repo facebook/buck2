@@ -19,7 +19,6 @@ use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::paths::path::StarlarkPath;
 use derive_more::Display;
 use dupe::Dupe;
-use once_cell::unsync;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
@@ -107,7 +106,7 @@ pub(crate) struct TransitiveSetDefinitionExported {
 
 #[derive(Debug, ProvidesStaticType, Allocative, Trace)]
 pub struct TransitiveSetDefinition<'v> {
-    pub(crate) exported: unsync::OnceCell<TransitiveSetDefinitionExported>,
+    pub(crate) exported: std::cell::OnceCell<TransitiveSetDefinitionExported>,
 
     /// The module id where this `TransitiveSetDefinition` is created and assigned
     module_id: ImportPath,
@@ -196,7 +195,7 @@ impl<'v> Serialize for TransitiveSetDefinition<'v> {
 impl<'v> TransitiveSetDefinition<'v> {
     fn new(module_id: ImportPath, operations: TransitiveSetOperations<'v>) -> Self {
         Self {
-            exported: unsync::OnceCell::new(),
+            exported: std::cell::OnceCell::new(),
             module_id,
             operations,
         }

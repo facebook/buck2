@@ -8,6 +8,7 @@
  */
 
 use std::sync::Arc;
+use std::sync::OnceLock;
 
 use anyhow::Context as _;
 use buck2_cli_proto::client_context::HostPlatformOverride;
@@ -49,7 +50,6 @@ use buck2_execute_impl::re::paranoid_download::ParanoidDownloader;
 use buck2_forkserver::client::ForkserverClient;
 use dupe::Dupe;
 use host_sharing::HostSharingBroker;
-use once_cell::sync::OnceCell;
 use remote_execution as RE;
 use starlark_map::sorted_map::SortedMap;
 
@@ -150,7 +150,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
         };
 
         if !buck2_core::is_open_source() && !cfg!(fbcode_build) {
-            static WARN: OnceCell<()> = OnceCell::new();
+            static WARN: OnceLock<()> = OnceLock::new();
             WARN.get_or_init(|| {
                 tracing::warn!("Cargo build detected: disabling remote execution and caching!")
             });

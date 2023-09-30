@@ -10,6 +10,7 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
+use std::sync::OnceLock;
 
 use allocative::Allocative;
 use anyhow::Context;
@@ -17,7 +18,6 @@ use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use dupe::Dupe;
-use once_cell::sync::OnceCell;
 use starlark::codemap::FileSpan;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
@@ -111,7 +111,7 @@ impl<'v> PromiseArtifactRegistry<'v> {
             ))?,
         };
         let id = PromiseArtifactId::new(key, self.promises.len());
-        let artifact = PromiseArtifact::new(Arc::new(OnceCell::new()), Arc::new(id));
+        let artifact = PromiseArtifact::new(Arc::new(OnceLock::new()), Arc::new(id));
 
         self.promises.push(promise);
         self.artifacts.push(PromiseArtifactEntry {

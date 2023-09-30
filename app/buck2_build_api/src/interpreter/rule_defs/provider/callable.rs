@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::cell::OnceCell;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -21,7 +22,6 @@ use buck2_interpreter::types::provider::callable::ProviderCallableLike;
 use dupe::Dupe;
 use either::Either;
 use itertools::Itertools;
-use once_cell::unsync;
 use starlark::any::ProvidesStaticType;
 use starlark::docs::DocItem;
 use starlark::docs::DocString;
@@ -197,7 +197,7 @@ pub struct UserProviderCallable {
     /// The names of the fields used in `callable`
     fields: SmallMap<String, UserProviderField>,
     /// Field is initialized after the provider is assigned to a variable.
-    callable: unsync::OnceCell<UserProviderCallableNamed>,
+    callable: OnceCell<UserProviderCallableNamed>,
 }
 
 fn user_provider_callable_display(
@@ -237,7 +237,7 @@ impl UserProviderCallable {
         fields: SmallMap<String, UserProviderField>,
     ) -> Self {
         Self {
-            callable: unsync::OnceCell::new(),
+            callable: OnceCell::new(),
             path,
             docs,
             fields,

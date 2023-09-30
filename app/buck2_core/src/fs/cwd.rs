@@ -8,10 +8,10 @@
  */
 
 use std::path::Path;
+use std::sync::OnceLock;
 
 use allocative::Allocative;
 use anyhow::Context as _;
-use once_cell::sync::OnceCell;
 
 use crate::fs::fs_util;
 use crate::fs::paths::abs_norm_path::AbsNormPath;
@@ -121,7 +121,7 @@ enum CwdError {
     CwdAlreadySet(AbsPathBuf),
 }
 
-static CWD: OnceCell<AbsPathBuf> = OnceCell::new();
+static CWD: OnceLock<AbsPathBuf> = OnceLock::new();
 
 /// Promise the cwd will not change going forward. This should only be called once.
 fn cwd_will_not_change(cwd: &AbsNormPath) -> anyhow::Result<()> {
@@ -142,7 +142,7 @@ pub(crate) fn maybe_relativize(path: &Path) -> &Path {
     maybe_relativize_impl(path, &CWD)
 }
 
-fn maybe_relativize_impl<'a>(path: &'a Path, cell: &'_ OnceCell<AbsPathBuf>) -> &'a Path {
+fn maybe_relativize_impl<'a>(path: &'a Path, cell: &'_ OnceLock<AbsPathBuf>) -> &'a Path {
     if let Some(cwd) = cell.get() {
         if let Ok(path) = path.strip_prefix(cwd) {
             if path == Path::new("") {
@@ -159,7 +159,7 @@ pub(crate) fn maybe_relativize_str(path: &str) -> &str {
     maybe_relativize_str_impl(path, &CWD)
 }
 
-fn maybe_relativize_str_impl<'a>(path: &'a str, cell: &'_ OnceCell<AbsPathBuf>) -> &'a str {
+fn maybe_relativize_str_impl<'a>(path: &'a str, cell: &'_ OnceLock<AbsPathBuf>) -> &'a str {
     if let Some(path) = maybe_relativize_impl(Path::new(path), cell).to_str() {
         return path;
     }
@@ -181,7 +181,7 @@ mod tests {
 
     #[test]
     fn test_maybe_relativize() {
-        let cell = OnceCell::new();
+        let cell = OnceLock::new();
         let path = foo_bar().join("baz").into_path_buf();
         assert_eq!(maybe_relativize_impl(&path, &cell), path);
         cell.set(foo_bar()).unwrap();
@@ -191,7 +191,7 @@ mod tests {
 
     #[test]
     fn test_maybe_relativize_str() {
-        let cell = OnceCell::new();
+        let cell = OnceLock::new();
         let path = foo_bar().join("baz").to_str().unwrap().to_owned();
         assert_eq!(maybe_relativize_str_impl(&path, &cell), path);
         cell.set(foo_bar()).unwrap();

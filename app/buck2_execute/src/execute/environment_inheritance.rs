@@ -8,9 +8,9 @@
  */
 
 use std::ffi::OsString;
+use std::sync::OnceLock;
 
 use dupe::Dupe;
-use once_cell::sync::OnceCell;
 
 #[cfg(fbcode_build)]
 const ENV_ALLOW_LIST: &[&str] = test_env_allowlist::LEGACY_TESTPILOT_ALLOW_LIST;
@@ -72,7 +72,7 @@ impl EnvironmentInheritance {
 
         // We create this *once* since getenv is actually not cheap (being O(n) of the environment
         // size).
-        static TEST_CELL: OnceCell<Vec<(&'static str, OsString)>> = OnceCell::new();
+        static TEST_CELL: OnceLock<Vec<(&'static str, OsString)>> = OnceLock::new();
 
         let values = TEST_CELL.get_or_init(|| {
             let mut ret = Vec::new();

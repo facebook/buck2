@@ -7,14 +7,15 @@
  * of this source tree.
  */
 
+use std::sync::OnceLock;
+
 use allocative::Allocative;
 use futures::Future;
-use once_cell::sync::OnceCell;
 use tokio::sync::Mutex;
 
 #[derive(Allocative)]
 pub struct AsyncOnceCell<T> {
-    cell: OnceCell<T>,
+    cell: OnceLock<T>,
     #[allocative(skip)] // Mutex has allocations, but no simple way to measure it.
     initialized: Mutex<()>,
 }
@@ -22,7 +23,7 @@ pub struct AsyncOnceCell<T> {
 impl<T> AsyncOnceCell<T> {
     pub fn new() -> Self {
         Self {
-            cell: OnceCell::new(),
+            cell: OnceLock::new(),
             initialized: Mutex::new(()),
         }
     }
@@ -44,8 +45,8 @@ impl<T> AsyncOnceCell<T> {
 
         let val = fut.await;
 
-        match self.cell.try_insert(val) {
-            Ok(val) => val,
+        match self.cell.set(val) {
+            Ok(()) => self.cell.get().unwrap(),
             Err(_) => unreachable!(),
         }
     }

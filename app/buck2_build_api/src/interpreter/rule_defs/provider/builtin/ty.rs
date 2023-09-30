@@ -8,10 +8,10 @@
  */
 
 use std::marker::PhantomData;
+use std::sync::OnceLock;
 
 use buck2_interpreter::types::provider::callable::ProviderCallableLike;
 use dupe::Dupe;
-use once_cell::sync::OnceCell;
 use starlark::environment::GlobalsBuilder;
 use starlark::typing::Ty;
 use starlark::typing::TyStarlarkValue;
@@ -30,8 +30,8 @@ pub(crate) struct BuiltinProviderTy<
     P: StarlarkValue<'v> + ProviderLike<'v>,
     C: StarlarkValue<'v> + ProviderCallableLike,
 > {
-    callable: OnceCell<Ty>,
-    instance: OnceCell<Ty>,
+    callable: OnceLock<Ty>,
+    instance: OnceLock<Ty>,
     phantom: PhantomData<&'v (P, C)>,
 }
 
@@ -48,8 +48,8 @@ impl<'v, P: StarlarkValue<'v> + ProviderLike<'v>, C: StarlarkValue<'v> + Provide
 {
     pub(crate) const fn new() -> BuiltinProviderTy<'v, P, C> {
         BuiltinProviderTy {
-            callable: OnceCell::new(),
-            instance: OnceCell::new(),
+            callable: OnceLock::new(),
+            instance: OnceLock::new(),
             phantom: PhantomData,
         }
     }

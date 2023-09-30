@@ -8,9 +8,9 @@
  */
 
 use std::fs::File;
+use std::sync::OnceLock;
 
 use object::Object;
-use once_cell::sync::OnceCell;
 
 /// Provides information about this buck version.
 pub struct BuckVersion {
@@ -20,7 +20,7 @@ pub struct BuckVersion {
 
 impl BuckVersion {
     pub fn get() -> &'static BuckVersion {
-        static VERSION: OnceCell<BuckVersion> = OnceCell::new();
+        static VERSION: OnceLock<BuckVersion> = OnceLock::new();
         VERSION.get_or_init(Self::compute)
     }
 

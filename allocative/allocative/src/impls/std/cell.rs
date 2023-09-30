@@ -9,6 +9,7 @@
 
 use std::cell::OnceCell;
 use std::cell::RefCell;
+use std::sync::OnceLock;
 
 use crate::impls::common::DATA_NAME;
 use crate::Allocative;
@@ -25,6 +26,16 @@ impl<T: Allocative> Allocative for RefCell<T> {
 }
 
 impl<T: Allocative> Allocative for OnceCell<T> {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+        let mut visitor = visitor.enter_self_sized::<Self>();
+        if let Some(v) = self.get() {
+            visitor.visit_field::<T>(DATA_NAME, v);
+        }
+        visitor.exit();
+    }
+}
+
+impl<T: Allocative> Allocative for OnceLock<T> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
         if let Some(v) = self.get() {

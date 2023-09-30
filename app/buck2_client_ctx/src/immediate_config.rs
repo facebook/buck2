@@ -8,6 +8,7 @@
  */
 
 use std::path::Path;
+use std::sync::OnceLock;
 use std::time::SystemTime;
 
 use anyhow::Context as _;
@@ -22,7 +23,6 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::working_dir::WorkingDir;
-use once_cell::sync::OnceCell;
 use prost::Message;
 
 /// Lazy-computed immediate config data. This is produced by reading the root buckconfig (but not
@@ -34,12 +34,12 @@ struct ImmediateConfigContextData {
 }
 
 pub struct ImmediateConfigContext<'a> {
-    // Deliberately use `OnceCell` rather than `Lazy` because `Lazy` forces
+    // Deliberately use `OnceLock` rather than `Lazy` because `Lazy` forces
     // us to have a shared reference to the underlying `anyhow::Error` which
-    // we cannot use to correct chain the errors. Using `OnceCell` means
+    // we cannot use to correct chain the errors. Using `OnceLock` means
     // we don't get the result by a shared reference but instead as local
     // value which can be returned.
-    data: OnceCell<ImmediateConfigContextData>,
+    data: OnceLock<ImmediateConfigContextData>,
     cwd: &'a WorkingDir,
     trace: Vec<AbsNormPathBuf>,
 }
@@ -47,7 +47,7 @@ pub struct ImmediateConfigContext<'a> {
 impl<'a> ImmediateConfigContext<'a> {
     pub fn new(cwd: &'a WorkingDir) -> Self {
         Self {
-            data: OnceCell::new(),
+            data: OnceLock::new(),
             cwd,
             trace: Vec::new(),
         }
@@ -105,7 +105,7 @@ impl<'a> ImmediateConfigContext<'a> {
                 let roots = find_invocation_roots(self.cwd.path())?;
                 let paranoid_info_path = roots.paranoid_info_path()?;
 
-                // See comment in `ImmediateConfig` about why we use `OnceCell` rather than `Lazy`
+                // See comment in `ImmediateConfig` about why we use `OnceLock` rather than `Lazy`
                 let project_filesystem = roots.project_root;
                 let cfg = BuckConfigBasedCells::parse_immediate_config(&project_filesystem)?;
 

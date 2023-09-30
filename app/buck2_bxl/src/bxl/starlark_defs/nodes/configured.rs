@@ -11,6 +11,7 @@ use std::borrow::Cow;
 use std::fmt;
 use std::fmt::Display;
 use std::path::Path;
+use std::sync::OnceLock;
 
 use allocative::Allocative;
 use anyhow::Context;
@@ -44,7 +45,6 @@ use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::FutureExt;
-use once_cell::sync::OnceCell;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
@@ -591,8 +591,8 @@ impl<'v> StarlarkLazyResolvedAttrs<'v> {
             module,
             configured_node,
             ctx,
-            dep_analysis_results: OnceCell::new(),
-            query_results: OnceCell::new(),
+            dep_analysis_results: OnceLock::new(),
+            query_results: OnceLock::new(),
         };
 
         Self {

@@ -12,6 +12,8 @@
 //! Careful! The wrapper is not released as part of the regular buck version bumps,
 //! meaning code changes here are not "atomically" updated.
 
+#![feature(once_cell_try)]
+
 use std::collections::HashSet;
 use std::thread;
 use std::time::Duration;

@@ -15,12 +15,12 @@ use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::ops::Deref;
 use std::sync::Arc;
+use std::sync::OnceLock;
 use std::sync::Weak;
 
 use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
-use once_cell::sync::OnceCell;
 use parking_lot::lock_api::RawMutex as RawMutexApi;
 use parking_lot::Mutex;
 use parking_lot::RawMutex;
@@ -96,14 +96,14 @@ impl MinorVersionWeak {
 /// and only committed when this value is dropped.
 #[derive(Allocative)]
 pub(crate) struct VersionForWrites {
-    v: OnceCell<VersionWriteGuard>,
+    v: OnceLock<VersionWriteGuard>,
     version_tracker: Arc<VersionTracker>,
 }
 
 impl VersionForWrites {
     fn new(version_tracker: Arc<VersionTracker>) -> Self {
         Self {
-            v: OnceCell::new(),
+            v: OnceLock::new(),
             version_tracker,
         }
     }
@@ -127,7 +127,7 @@ impl VersionForWrites {
         lock.lock();
 
         Self {
-            v: OnceCell::from(VersionWriteGuard { lock, v }),
+            v: OnceLock::from(VersionWriteGuard { lock, v }),
             version_tracker: VersionTracker::new(Box::new(|_| {})),
         }
     }

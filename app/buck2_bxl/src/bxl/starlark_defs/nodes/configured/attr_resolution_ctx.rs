@@ -9,6 +9,7 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::OnceLock;
 
 use buck2_analysis::analysis::calculation::get_dep_analysis;
 use buck2_analysis::analysis::calculation::resolve_queries;
@@ -27,7 +28,6 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use futures::FutureExt;
-use once_cell::sync::OnceCell;
 use starlark::environment::Module;
 
 use crate::bxl::starlark_defs::context::BxlContext;
@@ -39,8 +39,8 @@ pub(crate) struct LazyAttrResolutionContext<'v> {
     pub(crate) configured_node: &'v ConfiguredTargetNode,
     pub(crate) ctx: &'v BxlContext<'v>,
     pub(crate) dep_analysis_results:
-        OnceCell<anyhow::Result<HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>>>,
-    pub(crate) query_results: OnceCell<anyhow::Result<HashMap<String, Arc<AnalysisQueryResult>>>>,
+        OnceLock<anyhow::Result<HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>>>,
+    pub(crate) query_results: OnceLock<anyhow::Result<HashMap<String, Arc<AnalysisQueryResult>>>>,
 }
 
 impl<'v> LazyAttrResolutionContext<'v> {

@@ -9,6 +9,7 @@
 
 #![feature(async_closure)]
 #![feature(try_blocks)]
+#![feature(once_cell_try)]
 
 pub mod active_commands;
 pub mod builtin_docs;

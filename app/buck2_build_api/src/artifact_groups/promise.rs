@@ -10,6 +10,7 @@
 use std::fmt::Display;
 use std::hash::Hash;
 use std::sync::Arc;
+use std::sync::OnceLock;
 
 use allocative::Allocative;
 use anyhow::Context;
@@ -17,7 +18,6 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use dupe::Dupe;
-use once_cell::sync::OnceCell;
 use starlark::codemap::FileSpan;
 use thiserror::Error;
 
@@ -67,7 +67,7 @@ fn maybe_declared_at(location: &Option<FileSpan>) -> String {
 /// have a reference to the fully resolved artifact.
 #[derive(Clone, Debug, Dupe, Allocative)]
 pub struct PromiseArtifact {
-    artifact: Arc<OnceCell<Artifact>>,
+    artifact: Arc<OnceLock<Artifact>>,
     pub id: Arc<PromiseArtifactId>,
 }
 
@@ -83,7 +83,7 @@ impl PromiseArtifactId {
 }
 
 impl PromiseArtifact {
-    pub fn new(artifact: Arc<OnceCell<Artifact>>, id: Arc<PromiseArtifactId>) -> Self {
+    pub fn new(artifact: Arc<OnceLock<Artifact>>, id: Arc<PromiseArtifactId>) -> Self {
         Self { artifact, id }
     }
 

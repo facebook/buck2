@@ -10,10 +10,10 @@
 //! Metadata collection, for telemetry purposes.
 use std::collections::HashMap;
 use std::env;
+use std::sync::OnceLock;
 
 use buck2_core::facebook_only;
 use buck2_wrapper_common::BUCK2_WRAPPER_ENV_VAR;
-use once_cell::sync::OnceCell;
 
 use crate::daemon_id::DAEMON_UUID;
 
@@ -110,7 +110,7 @@ fn os_type() -> String {
 }
 
 pub fn hostname() -> Option<String> {
-    static CELL: OnceCell<Option<String>> = OnceCell::new();
+    static CELL: OnceLock<Option<String>> = OnceLock::new();
 
     CELL.get_or_init(|| {
         hostname::get()

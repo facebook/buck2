@@ -17,13 +17,13 @@ use std::panic::PanicInfo;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::OnceLock;
 use std::time::Duration;
 use std::time::SystemTime;
 
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_core::env_helper::EnvHelper;
 use buck2_wrapper_common::invocation_id::TraceId;
-use once_cell::sync::OnceCell;
 
 use crate::daemon::dice_dump::tar_dice_dump;
 
@@ -70,7 +70,7 @@ pub fn initialize(daemon_state: Arc<dyn DaemonStatePanicDiceDump>) {
 /// If DICE panics while holding a write lock, that lock will be poisoned and
 /// the DICE dump will panic when it tries to acquire that lock.
 /// This cell prevents a circular set of panics if this happens.
-static ALREADY_DUMPED_DICE: OnceCell<()> = OnceCell::new();
+static ALREADY_DUMPED_DICE: OnceLock<()> = OnceLock::new();
 
 static DICE_DUMP_ON_PANIC: EnvHelper<bool> = EnvHelper::new("BUCK2_DICE_DUMP_ON_PANIC");
 

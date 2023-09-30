@@ -11,9 +11,9 @@ use std::env;
 use std::ffi::OsStr;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::OnceLock;
 
 use dupe::Dupe;
-use once_cell::sync::OnceCell;
 
 #[derive(Copy, Clone, Dupe)]
 pub enum WhoIsAsking {
@@ -34,7 +34,7 @@ pub(crate) fn is_buck2_exe(path: &Path, who_is_asking: WhoIsAsking) -> bool {
                 false
             }
             WhoIsAsking::Buck2 => {
-                static CURRENT_EXE: OnceCell<PathBuf> = OnceCell::new();
+                static CURRENT_EXE: OnceLock<PathBuf> = OnceLock::new();
                 if let Ok(current_exe) = CURRENT_EXE.get_or_try_init(env::current_exe) {
                     if let Some(current_exe_file_stem) = current_exe.file_stem() {
                         if current_exe_file_stem == file_stem {
