@@ -385,7 +385,6 @@ pub async fn command_details(
     buck2_data::CommandExecutionDetails {
         stdout,
         stderr,
-        command: None,
         command_kind,
         signed_exit_code,
         metadata: Some(command.timing.to_proto()),

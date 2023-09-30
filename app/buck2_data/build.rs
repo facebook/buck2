@@ -80,10 +80,6 @@ fn main() -> io::Result<()> {
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
         )
         .type_attribute(
-            "buck.data.CommandExecutionDetails.command",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
-        )
-        .type_attribute(
             "buck.data.DynamicLambdaStart.owner",
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
         )

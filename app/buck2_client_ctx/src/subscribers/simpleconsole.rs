@@ -141,40 +141,6 @@ fn eprint_command_details(
                 // Nothing to show in this case.
             }
         };
-    } else {
-        // TODO: Old format. Remove this block after new format gets well propagated.
-        use buck2_data::command_execution_details::Command;
-        match command_failed.command.as_ref() {
-            Some(Command::LocalCommand(local_command)) => {
-                echo!("Local command: {}", command_to_string(local_command))?;
-            }
-            Some(Command::WorkerCommand(worker_command)) => {
-                echo!(
-                    "Local worker command: {}",
-                    worker_command_as_fallback_to_string(worker_command)
-                )?;
-            }
-            Some(Command::WorkerInitCommand(worker_init_command)) => {
-                echo!(
-                    "Local worker initialization command: {}",
-                    command_to_string(worker_init_command)
-                )?;
-            }
-            Some(Command::RemoteCommand(remote_command)) => {
-                echo!(
-                    "Remote action{}, reproduce with: `frecli cas download-action {}`",
-                    if remote_command.cache_hit {
-                        " cache hit"
-                    } else {
-                        ""
-                    },
-                    remote_command.action_digest
-                )?;
-            }
-            Some(Command::OmittedLocalCommand(..)) | None => {
-                // Nothing to show in this case.
-            }
-        };
     }
 
     let (stdout, stderr) = if tty_mode == TtyMode::Disabled {

@@ -617,15 +617,7 @@ fn failure_reason_for_command_execution(
             None => "",
         }
     } else {
-        // TODO: Old format. Remove this block once the new format gets well propagated.
-        use buck2_data::command_execution_details::Command;
-        match command.command {
-            Some(Command::RemoteCommand(..)) => "Remote ",
-            Some(Command::LocalCommand(..)) | Some(Command::OmittedLocalCommand(..)) => "Local ",
-            Some(Command::WorkerInitCommand(..)) => "Local Worker Initialization ",
-            Some(Command::WorkerCommand(..)) => "Local Worker ",
-            None => "",
-        }
+        ""
     };
 
     Ok(match status {
