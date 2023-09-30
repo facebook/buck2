@@ -98,6 +98,39 @@ def create_cwd(path: Path, manifest_dir: Path) -> Path:
     return path
 
 
+# In some environments, invoking the rustc binary may actually invoke another
+# tool that fetches the binary from a remote location. This fetch may encounter
+# network errors. Ideally, build scripts that invoke rustc would reliably fail
+# when such a thing happens, but in practice they don't. To mitigate, we
+# manually invoke `rustc --version` and make sure that succeeds.
+def ensure_rustc_available(
+    env: Dict[str, str],
+    cwd: Path,
+) -> None:
+    rustc, target = env.get("RUSTC"), env.get("TARGET")
+    assert rustc is not None, "RUSTC env is missing"
+    assert target is not None, "TARGET env is missing"
+
+    if os.path.dirname(rustc) != "":
+        rustc = os.path.join(cwd, rustc)
+
+    # NOTE: `HOST` is optional.
+    host = env.get("HOST")
+
+    try:
+        subprocess.check_output([rustc, "--version"])
+        # A multiplexed sysroot may involve another fetch,
+        # so pass `--target` to check that too.
+        if host != target:
+            subprocess.check_output([rustc, f"--target={target}", "--version"])
+    except OSError as ex:
+        print(f"Failed to run {rustc} because {ex}", file=sys.stderr)
+        sys.exit(1)
+    except subprocess.CalledProcessError as ex:
+        print(f"Failed to run {ex.cmd}: {ex.stderr}", file=sys.stderr)
+        sys.exit(1)
+
+
 def run_buildscript(buildscript: str, env: Dict[str, str], cwd: str) -> str:
     try:
         proc = subprocess.run(
@@ -151,6 +184,9 @@ def main() -> None:  # noqa: C901
     env["CARGO_MANIFEST_DIR"] = os.path.abspath(cwd)
 
     env = dict(os.environ, **env)
+
+    ensure_rustc_available(env=env, cwd=cwd)
+
     script_output = run_buildscript(args.buildscript, env=env, cwd=cwd)
 
     cargo_rustc_cfg_pattern = re.compile("^cargo:rustc-cfg=(.*)")
