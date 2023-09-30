@@ -27,7 +27,7 @@ mod imp {
     pub fn write_heap_to_file(filename: &str) -> anyhow::Result<()> {
         if !memory::is_using_jemalloc() {
             return Err(anyhow::anyhow!(
-                "not using jemalloc; are you building with @mode/dev or @mode/dbgo?"
+                "not using jemalloc; are you building with @//mode/dev or @//mode/dbgo?"
             ));
         }
 
