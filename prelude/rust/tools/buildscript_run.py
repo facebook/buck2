@@ -131,14 +131,15 @@ def ensure_rustc_available(
         sys.exit(1)
 
 
-def run_buildscript(buildscript: str, env: Dict[str, str], cwd: str) -> str:
+def run_buildscript(
+    buildscript: str,
+    env: Dict[str, str],
+    cwd: Path,
+) -> str:
     try:
-        proc = subprocess.run(
+        return subprocess.check_output(
             os.path.abspath(buildscript),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
             encoding="utf-8",
-            check=True,
             env=env,
             cwd=cwd,
         )
@@ -146,10 +147,7 @@ def run_buildscript(buildscript: str, env: Dict[str, str], cwd: str) -> str:
         print(f"Failed to run {buildscript} because {ex}", file=sys.stderr)
         sys.exit(1)
     except subprocess.CalledProcessError as ex:
-        sys.stderr.write(ex.stderr)
         sys.exit(ex.returncode)
-    sys.stderr.write(proc.stderr)
-    return proc.stdout
 
 
 class Args(NamedTuple):
@@ -177,6 +175,7 @@ def main() -> None:  # noqa: C901
     env = cfg_env(args.rustc_cfg)
 
     out_dir = os.getenv("OUT_DIR")
+    assert out_dir is not None, "OUT_DIR env is missing"
     os.makedirs(out_dir, exist_ok=True)
     env["OUT_DIR"] = os.path.abspath(out_dir)
 
