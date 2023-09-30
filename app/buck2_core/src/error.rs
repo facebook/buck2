@@ -286,10 +286,10 @@ enum InvalidSoftError {
 /// A category must be a-z with no consecutive underscores. Or we raise an error.
 fn validate_category(category: &str) -> anyhow::Result<()> {
     let mut allow_underscore = false;
-    for x in category.chars() {
+    for &x in category.as_bytes() {
         if x.is_ascii_lowercase() {
             allow_underscore = true;
-        } else if allow_underscore && x == '_' {
+        } else if allow_underscore && x == b'_' {
             allow_underscore = false;
         } else {
             // Go to the shared error path
