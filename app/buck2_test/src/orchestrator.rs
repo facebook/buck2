@@ -598,24 +598,47 @@ impl<'b> BuckTestOrchestrator<'b> {
         } = match metadata {
             DisplayMetadata::Listing(listing) => {
                 let start = TestDiscoveryStart {
-                    suite_name: listing,
+                    suite_name: listing.clone(),
                 };
-                let end = TestDiscoveryEnd {};
                 self.events
-                    .span_async(start, async move { (command.await, end) })
+                    .span_async(start, async move {
+                        let result = command.await;
+                        let end = TestDiscoveryEnd {
+                            suite_name: listing,
+                            command_report: Some(
+                                result
+                                    .report
+                                    .to_command_execution_proto(true, true, false)
+                                    .await,
+                            ),
+                        };
+                        (result, end)
+                    })
                     .await
             }
             DisplayMetadata::Testing { suite, testcases } => {
+                let test_suite = Some(TestSuite {
+                    suite_name: suite,
+                    test_names: testcases,
+                    target_label: Some(test_target.target.as_proto()),
+                });
                 let start = TestRunStart {
-                    suite: Some(TestSuite {
-                        suite_name: suite,
-                        test_names: testcases,
-                        target_label: Some(test_target.target.as_proto()),
-                    }),
+                    suite: test_suite.clone(),
                 };
-                let end = TestRunEnd {};
                 self.events
-                    .span_async(start, async move { (command.await, end) })
+                    .span_async(start, async move {
+                        let result = command.await;
+                        let end = TestRunEnd {
+                            suite: test_suite,
+                            command_report: Some(
+                                result
+                                    .report
+                                    .to_command_execution_proto(true, true, false)
+                                    .await,
+                            ),
+                        };
+                        (result, end)
+                    })
                     .await
             }
         };

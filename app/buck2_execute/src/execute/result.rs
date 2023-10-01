@@ -206,6 +206,87 @@ pub struct CommandExecutionReport {
     pub exit_code: Option<i32>,
 }
 
+impl CommandExecutionReport {
+    pub async fn to_command_execution_proto(
+        &self,
+        omit_stdout: bool,
+        omit_stderr: bool,
+        omit_command_details: bool,
+    ) -> buck2_data::CommandExecution {
+        let details = self
+            .to_command_execution_details_proto(omit_stdout, omit_stderr, omit_command_details)
+            .await;
+
+        let status = match &self.status {
+            CommandExecutionStatus::Success { .. } => {
+                buck2_data::command_execution::Success {}.into()
+            }
+            CommandExecutionStatus::Cancelled => buck2_data::command_execution::Cancelled {}.into(),
+            CommandExecutionStatus::Failure { .. } => {
+                buck2_data::command_execution::Failure {}.into()
+            }
+            CommandExecutionStatus::TimedOut { duration, .. } => {
+                buck2_data::command_execution::Timeout {
+                    duration: (*duration).try_into().ok(),
+                }
+                .into()
+            }
+            CommandExecutionStatus::Error { stage, error } => {
+                buck2_data::command_execution::Error {
+                    stage: (*stage).to_owned(),
+                    error: format!("{:#}", error),
+                }
+                .into()
+            }
+        };
+
+        buck2_data::CommandExecution {
+            details: Some(details),
+            status: Some(status),
+        }
+    }
+
+    async fn to_command_execution_details_proto(
+        &self,
+        omit_stdout: bool,
+        omit_stderr: bool,
+        omit_command_details: bool,
+    ) -> buck2_data::CommandExecutionDetails {
+        // If the top-level command failed then we don't want to omit any details. If it succeeded and
+        // so did this command (it could succeed while not having a success here if we have rejected
+        // executions), then we'll strip non-relevant stuff.
+        let omit_stdout =
+            omit_stdout && matches!(self.status, CommandExecutionStatus::Success { .. });
+
+        let signed_exit_code = self.exit_code;
+
+        let std_pair = self.std_streams.to_lossy().await;
+        let mut stdout = std_pair.stdout;
+        let mut stderr = std_pair.stderr;
+
+        if omit_stdout {
+            stdout = "".to_owned();
+        }
+
+        if omit_stderr {
+            stderr = "".to_owned();
+        }
+
+        let command_kind = self
+            .status
+            .execution_kind()
+            .map(|k| k.to_proto(omit_command_details));
+
+        buck2_data::CommandExecutionDetails {
+            stdout,
+            stderr,
+            command_kind,
+            signed_exit_code,
+            metadata: Some(self.timing.to_proto()),
+        }
+    }
+}
+
 /// Implement FromResidual so that it's easier to refactor functions returning a CommandExecutionResult
 /// (it allows to easily factor out early returns into another function and then propagate them with `?`).
 impl FromResidual<ControlFlow<Self, Infallible>> for CommandExecutionResult {

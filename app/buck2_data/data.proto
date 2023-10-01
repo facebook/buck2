@@ -1323,13 +1323,19 @@ message TestDiscoveryStart {
   string suite_name = 1;
 }
 
-message TestDiscoveryEnd {}
+message TestDiscoveryEnd {
+  string suite_name = 1;
+  CommandExecution command_report = 2;
+}
 
 message TestRunStart {
   TestSuite suite = 1;
 }
 
-message TestRunEnd {}
+message TestRunEnd {
+  TestSuite suite = 1;
+  CommandExecution command_report = 2;
+}
 
 message FileWatcherStart {
   FileWatcherProvider provider = 1;
