@@ -679,7 +679,7 @@ MergedLinkablesDebugInfo = record(
 # may be just one constituent)
 MergedSharedLibrary = record(
     soname = str,
-    lib = SharedLibrary.type,
+    lib = SharedLibrary,
     apk_module = str,
     # this only includes solib constituents that are included in the android merge map
     solib_constituents = list[str],
@@ -691,7 +691,7 @@ MergedSharedLibrary = record(
 MergedLinkables = record(
     # dict[platform, dict[final_soname, MergedSharedLibrary]]
     shared_libs_by_platform = dict[str, dict[str, MergedSharedLibrary]],
-    debug_info = dict[str, MergedLinkablesDebugInfo.type],
+    debug_info = dict[str, MergedLinkablesDebugInfo],
 )
 
 # Input data to the linkables merge process

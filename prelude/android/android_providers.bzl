@@ -41,10 +41,10 @@ ExopackageResourcesInfo = record(
 )
 
 AndroidBinaryNativeLibsInfo = record(
-    apk_under_test_prebuilt_native_library_dirs = list[PrebuiltNativeLibraryDir.type],
+    apk_under_test_prebuilt_native_library_dirs = list[PrebuiltNativeLibraryDir],
     # Indicates which shared lib producing targets are included in the binary. Used by instrumentation tests
     # to exclude those from the test apk.
-    apk_under_test_shared_libraries = list["target_label"],
+    apk_under_test_shared_libraries = list[TargetLabel],
     exopackage_info = ["ExopackageNativeInfo", None],
     root_module_native_lib_assets = list[Artifact],
     non_root_module_native_lib_assets = list[Artifact],
@@ -54,7 +54,7 @@ AndroidBinaryNativeLibsInfo = record(
 
 AndroidBinaryResourcesInfo = record(
     # Optional information about resources that should be exopackaged
-    exopackage_info = [ExopackageResourcesInfo.type, None],
+    exopackage_info = [ExopackageResourcesInfo, None],
     # manifest to be used by the APK
     manifest = Artifact,
     # per-module manifests (packaged as assets)
