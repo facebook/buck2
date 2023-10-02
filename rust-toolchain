@@ -1,5 +1,10 @@
 [toolchain]
-# Rustc version is read by `app/buck2_core/build.rs`. Update it when updating the channel below.
+# When you update `channel` below you must:
+#
+# * Update the `rustc_version` directive (read by `app/buck2_core/build.rs`).
+# * Update `HACKING.md` (two instances).
+# * Update `docs/getting_started.md` (two instances).
+
 # @rustc_version: rustc 1.73.0-nightly (1065d876c 2023-07-09)
 channel = "nightly-2023-07-10"
 components = ["llvm-tools-preview","rustc-dev","rust-src"]
