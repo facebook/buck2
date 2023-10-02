@@ -137,8 +137,10 @@ fn initialize_buckconfig(repo_root: &AbsPath, prelude: bool, git: bool) -> anyho
         writeln!(buckconfig)?;
         writeln!(buckconfig, "[repository_aliases]")?;
         writeln!(buckconfig, "config = prelude")?;
+        writeln!(buckconfig, "ovr_config = prelude")?;
         writeln!(buckconfig, "fbcode = none")?;
         writeln!(buckconfig, "fbsource = none")?;
+        writeln!(buckconfig, "fbcode_macros = none")?;
         writeln!(buckconfig, "buck = none")?;
         writeln!(buckconfig)?;
         writeln!(buckconfig, "[parser]")?;
@@ -348,8 +350,10 @@ none = none
 
 [repository_aliases]
 config = prelude
+ovr_config = prelude
 fbcode = none
 fbsource = none
+fbcode_macros = none
 buck = none
 
 [parser]
