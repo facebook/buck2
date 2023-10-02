@@ -304,7 +304,6 @@ def _python_executable_attrs():
         "anonymous_link_groups": attrs.bool(default = False),
         "binary_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
         "bolt_flags": attrs.list(attrs.arg(), default = []),
-        "bolt_gdb_index": attrs.option(attrs.source(), default = None),
         "bolt_profile": attrs.option(attrs.source(), default = None),
         "compiler_flags": attrs.list(attrs.arg(), default = []),
         "constraint_overrides": attrs.list(attrs.string(), default = []),
@@ -370,7 +369,6 @@ def _cxx_binary_and_test_attrs():
         # top-level binary context.
         "binary_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
         "bolt_flags": attrs.list(attrs.arg(), default = []),
-        "bolt_gdb_index": attrs.option(attrs.source(), default = None),
         "bolt_profile": attrs.option(attrs.source(), default = None),
         "enable_distributed_thinlto": attrs.bool(default = False),
         "link_execution_preference": link_execution_preference_attr(),
