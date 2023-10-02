@@ -48,7 +48,7 @@ def _system_ocaml_toolchain_impl(_ctx):
             ocaml_compiler_flags = [],  # e.g. "-opaque"
             ocamlc_flags = [],
             ocamlopt_flags = [],
-            runtime_dep_link_flags = ["-ldl", "-lpthread", "-lzstd"],
+            runtime_dep_link_flags = ["-L/opt/homebrew/lib"] if host_info().os.is_macos else [] + ["-ldl", "-lpthread", "-lzstd"],
             runtime_dep_link_extras = [],
         ),
         OCamlPlatformInfo(name = "x86_64"),

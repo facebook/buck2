@@ -10,7 +10,6 @@ ocaml_object(
 cxx_binary(
     name = "fib-cpp",
     srcs = ["fib.cpp"],
-    linker_flags = ["-L/opt/homebrew/lib"] if host_info().os.is_macos else [],
     deps = [
         ":fib-ml",
         "//third-party/ocaml:ocaml-dev",
@@ -23,7 +22,6 @@ rust_binary(
     srcs = ["fib.rs"],
     crate_root = "fib.rs",
     link_style = "static",
-    linker_flags = ["-L/opt/homebrew/lib"] if host_info().os.is_macos else [],
     deps = [":fib-ml"],
 ) if not host_info().os.is_windows else None
 
