@@ -161,18 +161,17 @@ fn initialize_buckconfig(repo_root: &AbsPath, prelude: bool, git: bool) -> anyho
 }
 
 fn initialize_toolchains_buck(repo_root: &AbsPath) -> anyhow::Result<()> {
-    let mut buck = std::fs::File::create(repo_root.join("BUCK"))?;
+    std::fs::write(
+        repo_root.join("BUCK"),
+        r#"
+load("@prelude//toolchains:demo.bzl", "system_demo_toolchains")
 
-    writeln!(
-        buck,
-        "load(\"@prelude//toolchains:genrule.bzl\", \"system_genrule_toolchain\")",
+# All the default toolchains, suitable for a quick demo or early prototyping.
+# Most real projects should copy/paste the implementation to configure them.
+system_demo_toolchains()
+"#
+        .trim(),
     )?;
-    writeln!(buck)?;
-    writeln!(buck, "system_genrule_toolchain(")?;
-    writeln!(buck, "    name = \"genrule\",")?;
-    writeln!(buck, "    visibility = [\"PUBLIC\"],")?;
-    writeln!(buck, ")")?;
-
     Ok(())
 }
 
