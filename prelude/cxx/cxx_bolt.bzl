@@ -8,7 +8,6 @@
 # BOLT (Binary Optimization Layout Tool) is a post link profile guided optimizer used for
 # performance-critical services in fbcode: https://www.internalfb.com/intern/wiki/HHVM-BOLT/
 
-load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 def cxx_use_bolt(ctx: AnalysisContext) -> bool:
