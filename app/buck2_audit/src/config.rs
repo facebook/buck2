@@ -89,10 +89,10 @@ pub struct AuditConfigCommand {
     #[clap(long = "value", default_value = "resolved", possible_values=&["resolved", "raw", "both"])]
     pub value_style: ValueStyle,
 
-    #[clap(
-        name = "SPECS",
-        help = "config section/key specs of the form `section` or `section.key`. If any specs are provided, only values matching a spec will be printed (section headers will be printed only for sections with a key matching the spec)."
-    )]
+    /// config section/key specs of the form `section` or `section.key`.
+    /// If any specs are provided, only values matching a spec will be printed
+    /// (section headers will be printed only for sections with a key matching the spec).
+    #[clap(name = "SPECS")]
     pub specs: Vec<String>,
 }
 
