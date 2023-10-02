@@ -1,11 +1,19 @@
 load("//test_utils.bzl", "assert_output")
 
-rust_binary(
-    name = "main",
+rust_library(
+    name = "library",
     srcs = glob(
         ["src/**/*.rs"],
     ),
-    crate_root = "src/main.rs",
+)
+
+rust_binary(
+    name = "main",
+    srcs = glob(
+        ["bin/**/*.rs"],
+    ),
+    crate_root = "bin/main.rs",
+    deps = [":library"],
 )
 
 assert_output(
