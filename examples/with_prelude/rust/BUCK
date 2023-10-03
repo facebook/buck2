@@ -16,6 +16,14 @@ rust_binary(
     deps = [":library"],
 )
 
+rust_test(
+    name = "test",
+    srcs = glob(
+        ["test/**/*.rs"],
+    ),
+    deps = [":library"],
+)
+
 assert_output(
     name = "check_main",
     command = "$(exe_target :main)",
