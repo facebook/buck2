@@ -60,3 +60,4 @@ buck2_action_metadata_proto = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
+prost-types = { workspace = true }

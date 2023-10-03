@@ -297,3 +297,159 @@ impl FromResidual<ControlFlow<Self, Infallible>> for CommandExecutionResult {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use buck2_common::cas_digest::CasDigest;
+    use sorted_vector_map::SortedVectorMap;
+
+    use super::*;
+
+    fn make_simple_report() -> CommandExecutionReport {
+        // The field values correspond to what `make_simple_proto()` builds.
+        let status = CommandExecutionStatus::Success {
+            execution_kind: CommandExecutionKind::Local {
+                digest: CasDigest::new_blake3([0].repeat(32).as_slice().try_into().unwrap(), 123),
+                command: vec!["fake_buck2".to_owned()],
+                env: {
+                    let mut map = SortedVectorMap::new();
+                    map.insert("FAKE_ENV_VAR".to_owned(), "1".to_owned());
+                    map
+                },
+            },
+        };
+        let timing = CommandExecutionMetadata {
+            wall_time: Duration::from_secs(2),
+            execution_time: Duration::from_secs(3),
+            start_time: SystemTime::UNIX_EPOCH,
+            execution_stats: Some(buck2_data::CommandExecutionStats {
+                cpu_instructions_user: Some(4),
+                cpu_instructions_kernel: Some(5),
+            }),
+            input_materialization_duration: Duration::from_secs(6),
+        };
+        let std_streams = CommandStdStreams::Local {
+            stdout: [65, 66, 67].to_vec(), // ABC
+            stderr: [68, 69, 70].to_vec(), // DEF
+        };
+
+        CommandExecutionReport {
+            claim: None,
+            status,
+            timing,
+            std_streams,
+            exit_code: Some(456),
+        }
+    }
+
+    fn make_simple_proto() -> buck2_data::CommandExecution {
+        // The field values correspond to what `make_simple_report()` builds.
+        use prost_types::Duration;
+        use prost_types::Timestamp;
+
+        let command_execution_kind = buck2_data::CommandExecutionKind {
+            command: Some(buck2_data::command_execution_kind::Command::LocalCommand(
+                buck2_data::LocalCommand {
+                    argv: vec!["fake_buck2".to_owned()],
+                    env: vec![buck2_data::EnvironmentEntry {
+                        key: "FAKE_ENV_VAR".to_owned(),
+                        value: "1".to_owned(),
+                    }],
+                    action_digest: format!("{}:{}", "0".repeat(64), "123"),
+                },
+            )),
+        };
+        let command_execution_stats = buck2_data::CommandExecutionStats {
+            cpu_instructions_user: Some(4),
+            cpu_instructions_kernel: Some(5),
+        };
+        let command_execution_metadata = buck2_data::CommandExecutionMetadata {
+            wall_time: Some(Duration {
+                seconds: 2,
+                nanos: 0,
+            }),
+            execution_time: Some(Duration {
+                seconds: 3,
+                nanos: 0,
+            }),
+            start_time: Some(Timestamp {
+                seconds: 0, // UNIX_EPOCH
+                nanos: 0,
+            }),
+            input_materialization_duration: Some(Duration {
+                seconds: 6,
+                nanos: 0,
+            }),
+            execution_stats: Some(command_execution_stats),
+        };
+        let command_execution_details = buck2_data::CommandExecutionDetails {
+            signed_exit_code: Some(456),
+            stdout: "ABC".to_owned(),
+            stderr: "DEF".to_owned(),
+            command_kind: Some(command_execution_kind),
+            metadata: Some(command_execution_metadata),
+        };
+
+        buck2_data::CommandExecution {
+            details: Some(command_execution_details),
+            status: Some(buck2_data::command_execution::Status::Success(
+                buck2_data::command_execution::Success {},
+            )),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_to_command_execution_proto() {
+        let report = make_simple_report();
+        let proto = report.to_command_execution_proto(false, false, false).await;
+        let expected_proto = make_simple_proto();
+
+        assert_eq!(proto, expected_proto);
+    }
+
+    #[tokio::test]
+    async fn test_to_command_execution_proto_omit_stdout() {
+        let report = make_simple_report();
+        let proto = report.to_command_execution_proto(true, false, false).await;
+        let mut expected_proto = make_simple_proto();
+
+        expected_proto.details.as_mut().unwrap().stdout = "".to_owned();
+
+        assert_eq!(proto, expected_proto);
+    }
+
+    #[tokio::test]
+    async fn test_to_command_execution_proto_omit_stderr() {
+        let report = make_simple_report();
+        let proto = report.to_command_execution_proto(false, true, false).await;
+        let mut expected_proto = make_simple_proto();
+
+        expected_proto.details.as_mut().unwrap().stderr = "".to_owned();
+
+        assert_eq!(proto, expected_proto);
+    }
+
+    #[tokio::test]
+    async fn test_to_command_execution_proto_omit_command_details() {
+        let report = make_simple_report();
+        let proto = report.to_command_execution_proto(false, false, true).await;
+        let mut expected_proto = make_simple_proto();
+
+        expected_proto
+            .details
+            .as_mut()
+            .unwrap()
+            .command_kind
+            .as_mut()
+            .unwrap()
+            .command = Some(
+            buck2_data::command_execution_kind::Command::OmittedLocalCommand(
+                buck2_data::OmittedLocalCommand {
+                    action_digest: format!("{}:{}", "0".repeat(64), "123"),
+                },
+            ),
+        );
+
+        assert_eq!(proto, expected_proto);
+    }
+}
