@@ -17,12 +17,14 @@ use buck2_build_api::interpreter::rule_defs::artifact::StarlarkPromiseArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::context::ANALYSIS_ACTIONS_METHODS_ANON_TARGET;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_interpreter::anon_targets::REGISTER_ANON_TARGETS;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter_for_build::rule::FrozenArtifactPromiseMappings;
 use buck2_interpreter_for_build::rule::FrozenRuleCallable;
 use gazebo::prelude::VecExt;
 use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
+use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
@@ -32,6 +34,7 @@ use starlark::values::dict::Dict;
 use starlark::values::dict::DictOf;
 use starlark::values::list::AllocList;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::AllocValue;
 use starlark::values::FrozenStringValue;
 use starlark::values::Heap;
@@ -105,7 +108,7 @@ impl<'v> Display for StarlarkAnonTarget<'v> {
     }
 }
 
-#[starlark_value(type = "AnonTarget", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "anon_target", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkAnonTarget<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
@@ -194,7 +197,7 @@ impl<'v> Display for StarlarkAnonTargets<'v> {
     }
 }
 
-#[starlark_value(type = "AnonTargets", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "anon_targets", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkAnonTargets<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
@@ -229,6 +232,16 @@ fn anon_targets_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
         Ok(this.promise)
     }
+}
+
+#[starlark_module]
+pub(crate) fn register_anon_target_types(globals: &mut GlobalsBuilder) {
+    const AnonTarget: StarlarkValueAsType<StarlarkAnonTarget> = StarlarkValueAsType::new();
+    const AnonTargets: StarlarkValueAsType<StarlarkAnonTargets> = StarlarkValueAsType::new();
+}
+
+pub(crate) fn init_register_anon_target_types() {
+    REGISTER_ANON_TARGETS.init(register_anon_target_types);
 }
 
 #[starlark_module]

@@ -26,5 +26,6 @@ pub fn init_late_bindings() {
         anon_targets::init_anon_target_registry_new();
         anon_targets::init_eval_anon_target();
         starlark_defs::init_analysis_actions_methods_anon_target();
+        starlark_defs::init_register_anon_target_types();
     });
 }

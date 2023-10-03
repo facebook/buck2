@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_interpreter::anon_targets::REGISTER_ANON_TARGETS;
 use buck2_interpreter::bxl::BXL_SPECIFIC_GLOBALS;
 use buck2_interpreter::cfg_constructor::REGISTER_SET_CFG_CONSTRUCTOR;
 use buck2_interpreter::functions::more::REGISTER_BUCK2_BUILD_API_GLOBALS;
@@ -67,4 +68,5 @@ pub fn register_universal_natives(builder: &mut GlobalsBuilder) {
     register_promise(builder);
     register_sha256(builder);
     register_dedupe(builder);
+    (REGISTER_ANON_TARGETS.get().unwrap())(builder);
 }
