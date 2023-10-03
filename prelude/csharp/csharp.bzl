@@ -10,7 +10,7 @@ load(":toolchain.bzl", "CSharpToolchainInfo")
 # Describes either a reference to a Buck .NET target or a .NET framework DLL.
 DllReference = record(
     # `str` -> Path to a .NET framework DLL on the local machine.
-    # `Artifacft` -> Buck target dependency.
+    # `Artifact` -> Buck target dependency.
     reference = field([Artifact, str]),
 )
 
