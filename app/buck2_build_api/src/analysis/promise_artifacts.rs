@@ -101,8 +101,9 @@ impl<'v> PromiseArtifactRegistry<'v> {
         location: Option<FileSpan>,
         // TODO(@wendyy) - will eventually be deprecated for new promsie artifact API.
         short_path: Option<ForwardRelativePathBuf>,
-        // TODO(@wendyy) - For new promise artifact API. Will eventually not be optional.
+        // TODO(@wendyy) - These two are for new promise artifact API. Will eventually not be optional.
         owner: Option<BaseDeferredKey>,
+        id: Option<usize>,
     ) -> anyhow::Result<PromiseArtifact> {
         let key = match owner {
             Some(owner) => owner,
@@ -110,7 +111,12 @@ impl<'v> PromiseArtifactRegistry<'v> {
                 "owner should either come from anon targets, or consumer's analysis registry"
             ))?,
         };
-        let id = PromiseArtifactId::new(key, self.promises.len());
+        let id = if let Some(id) = id {
+            id
+        } else {
+            self.promises.len()
+        };
+        let id = PromiseArtifactId::new(key, id);
         let artifact = PromiseArtifact::new(Arc::new(OnceLock::new()), Arc::new(id));
 
         self.promises.push(promise);

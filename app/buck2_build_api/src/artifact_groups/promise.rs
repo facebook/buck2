@@ -76,6 +76,7 @@ pub struct PromiseArtifactId {
     owner: BaseDeferredKey,
     id: usize,
 }
+
 impl PromiseArtifactId {
     pub(crate) fn new(owner: BaseDeferredKey, id: usize) -> PromiseArtifactId {
         Self { owner, id }

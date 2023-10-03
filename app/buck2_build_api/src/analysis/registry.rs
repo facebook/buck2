@@ -291,7 +291,7 @@ impl<'v> AnalysisRegistry<'v> {
         option: Option<ForwardRelativePathBuf>,
     ) -> anyhow::Result<PromiseArtifact> {
         self.artifact_promises
-            .register(promise, location, option, None)
+            .register(promise, location, option, None, None)
     }
 
     /// You MUST pass the same module to both the first function and the second one.

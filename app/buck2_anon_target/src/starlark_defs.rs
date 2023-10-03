@@ -73,12 +73,13 @@ impl<'v> StarlarkAnonTarget<'v> {
     ) -> anyhow::Result<StarlarkAnonTarget<'v>> {
         let mut artifacts_map = SmallMap::new();
         if let Some(artifacts) = frozen_artifact_mappings {
-            for (name, func) in artifacts.mappings.iter() {
+            for (id, (name, func)) in artifacts.mappings.iter().enumerate() {
                 let promise = StarlarkPromise::map(res, func.to_value(), eval)?;
                 let artifact = registry.register_artifact(
                     promise,
                     declaration_location.clone(),
                     key.clone(),
+                    id,
                 )?;
                 artifacts_map.insert(*name, artifact);
             }

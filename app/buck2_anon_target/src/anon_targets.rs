@@ -601,10 +601,16 @@ impl<'v> AnonTargetsRegistry<'v> {
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         location: Option<FileSpan>,
         anon_target_key: AnonTargetKey,
+        id: usize,
     ) -> anyhow::Result<PromiseArtifact> {
         let anon_target_key = BaseDeferredKey::AnonTarget(anon_target_key.0.dupe());
-        self.promise_artifact_registry
-            .register(promise, location, None, Some(anon_target_key))
+        self.promise_artifact_registry.register(
+            promise,
+            location,
+            None,
+            Some(anon_target_key),
+            Some(id),
+        )
     }
 }
 
