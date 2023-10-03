@@ -98,8 +98,9 @@ def maybe_create_class_to_source_map_debuginfo(
     cmd = cmd_args(java_toolchain.gen_class_to_source_map_debuginfo[RunInfo])
     cmd.add("gen")
     cmd.add("-o", output.as_output())
-    for src in srcs:
-        cmd.add(cmd_args(src))
+    inputs_file = actions.write("sourcefiles.txt", srcs)
+    cmd.add(cmd_args(inputs_file, format = "@{}"))
+    cmd.hidden(srcs)
     actions.run(cmd, category = "class_to_srcs_map_debuginfo")
     return output
 
@@ -142,7 +143,9 @@ def _create_merged_debug_info(
         JavaClassToSourceMapTset,
         children = [tset_debuginfo],
     )
-    class_to_source_files = tset.project_as_args("class_to_src_map")
-    cmd.add(class_to_source_files)
+    input_files = tset.project_as_args("class_to_src_map")
+    input_list_file = actions.write("debuginfo_list.txt", input_files)
+    cmd.add(cmd_args(input_list_file, format = "@{}"))
+    cmd.hidden(input_files)
     actions.run(cmd, category = "merged_debuginfo")
     return output
