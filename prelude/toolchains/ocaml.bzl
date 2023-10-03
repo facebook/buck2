@@ -48,7 +48,10 @@ def _system_ocaml_toolchain_impl(_ctx):
             ocaml_compiler_flags = [],  # e.g. "-opaque"
             ocamlc_flags = [],
             ocamlopt_flags = [],
-            runtime_dep_link_flags = ["-ldl", "-lpthread", "-lzstd"],
+            # We don't expect /opt/homebrew/lib to exist on Linux but that's not
+            # a problem. On macOS (aarch64 at least) we expect zstd to live in
+            # /opt/homebrew/lib.
+            runtime_dep_link_flags = ["-ldl", "-lpthread", "-L/opt/homebrew/lib", "-lzstd"],
             runtime_dep_link_extras = [],
         ),
         OCamlPlatformInfo(name = "x86_64"),
