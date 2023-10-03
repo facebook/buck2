@@ -9,6 +9,7 @@
 
 use async_trait::async_trait;
 use buck2_events::dispatch::span_async;
+use buck2_execute::materialize::materializer::HasMaterializer;
 use dice::DiceTransaction;
 
 use crate::command_end::command_end_ext;
@@ -76,7 +77,13 @@ pub async fn run_server_command<T: ServerCommandTemplate>(
     span_async(start_event, async {
         let result = server_ctx
             .with_dice_ctx_maybe_exclusive(
-                |server_ctx, dice| command.command(server_ctx, partial_result_dispatcher, dice),
+                |server_ctx, ctx| {
+                    ctx.per_transaction_data()
+                        .get_materializer()
+                        .log_materializer_state(server_ctx.events());
+
+                    command.command(server_ctx, partial_result_dispatcher, ctx)
+                },
                 command.exclusive_command_name(),
             )
             .await;

@@ -42,7 +42,6 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::TargetLabel;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::span_async;
-use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::eval_result::EvaluationResult;
@@ -158,10 +157,6 @@ async fn build(
     let parsed_patterns: Vec<ParsedPattern<ConfiguredProvidersPatternExtra>> =
         parse_patterns_from_cli_args(&mut ctx, &request.target_patterns, cwd).await?;
     server_ctx.log_target_pattern(&parsed_patterns);
-
-    ctx.per_transaction_data()
-        .get_materializer()
-        .log_materializer_state(server_ctx.events());
 
     let resolved_pattern: ResolvedPattern<ConfiguredProvidersPatternExtra> =
         resolve_target_patterns(&cell_resolver, &parsed_patterns, &ctx.file_ops()).await?;

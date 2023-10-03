@@ -49,7 +49,6 @@ use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetName;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::with_dispatcher_async;
-use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::eval_result::EvaluationResult;
@@ -287,10 +286,6 @@ async fn test(
     let parsed_patterns =
         parse_patterns_from_cli_args(&mut ctx, &request.target_patterns, cwd).await?;
     server_ctx.log_target_pattern(&parsed_patterns);
-
-    ctx.per_transaction_data()
-        .get_materializer()
-        .log_materializer_state(server_ctx.events());
 
     let resolved_pattern =
         resolve_target_patterns(&cell_resolver, &parsed_patterns, &ctx.file_ops()).await?;

@@ -54,7 +54,6 @@ impl ServerCommandTemplate for CleanStaleServerCommand {
             .cancellation_context()
             .critical_section(async move || {
                 let deferred_materializer = server_ctx.materializer();
-                deferred_materializer.log_materializer_state(server_ctx.events());
 
                 let extension = deferred_materializer
                     .as_deferred_materializer_extension()
