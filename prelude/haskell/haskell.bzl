@@ -782,7 +782,7 @@ def _make_package(
             "-c",
             _REGISTER_PACKAGE,
             "",
-            haskell_toolchain.packager[RunInfo],
+            haskell_toolchain.packager,
             db.as_output(),
             pkg_conf,
         ]).hidden(hi.values()).hidden(lib.values()),  # needs hi, because ghc-pkg checks that the .hi files exist
