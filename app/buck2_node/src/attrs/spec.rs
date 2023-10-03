@@ -33,7 +33,7 @@ use crate::attrs::values::AttrValues;
 /// only for the values that are explicitly set. Default values need to be looked up through the AttributeSpec.
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
 pub struct AttributeSpec {
-    attributes: OrderedMap<String, Attribute>,
+    attributes: OrderedMap<Box<str>, Attribute>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -102,7 +102,7 @@ impl AttributeSpec {
         usize::from(id.index_in_attribute_spec) < *INTERNAL_ATTR_COUNT
     }
 
-    fn new(attributes: OrderedMap<String, Attribute>) -> anyhow::Result<AttributeSpec> {
+    fn new(attributes: OrderedMap<Box<str>, Attribute>) -> anyhow::Result<AttributeSpec> {
         if attributes.len() > AttributeId::MAX_INDEX as usize {
             return Err(AttributeSpecError::TooManyAttributes(attributes.len()).into());
         }
@@ -112,10 +112,10 @@ impl AttributeSpec {
     pub fn from(attributes: Vec<(String, Attribute)>, is_anon: bool) -> anyhow::Result<Self> {
         let internal_attrs = internal_attrs();
 
-        let mut instances: OrderedMap<String, Attribute> =
+        let mut instances: OrderedMap<Box<str>, Attribute> =
             OrderedMap::with_capacity(attributes.len());
         for (name, instance) in internal_attrs {
-            let prev = instances.insert((*name).to_owned(), instance.clone());
+            let prev = instances.insert((*name).into(), instance.clone());
             if prev.is_some() {
                 unreachable!("duplicate internal attr: '{}'", name);
             }
@@ -133,13 +133,13 @@ impl AttributeSpec {
                 )?;
             }
 
-            match instances.entry(name) {
+            match instances.entry(name.into_boxed_str()) {
                 small_map::Entry::Vacant(e) => {
                     e.insert(instance);
                 }
                 small_map::Entry::Occupied(e) => {
-                    let name = e.key();
-                    if internal_attrs.contains_key(name.as_str()) {
+                    let name: &str = e.key();
+                    if internal_attrs.contains_key(name) {
                         return Err(anyhow::anyhow!(
                             AttributeSpecError::InternalAttributeRedefined(name.to_owned())
                         ));
@@ -166,7 +166,7 @@ impl AttributeSpec {
             .enumerate()
             .map(|(index_in_attribute_spec, (name, attribute))| {
                 (
-                    name.as_str(),
+                    &**name,
                     AttributeId {
                         index_in_attribute_spec: index_in_attribute_spec as u16,
                     },
