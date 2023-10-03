@@ -11,6 +11,7 @@
 # well-formatted (and then delete this TODO)
 
 load("@prelude//:build_mode.bzl", "BuildModeInfo")
+load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 
 def validate_uri(_s):
     return True
@@ -235,7 +236,10 @@ def _re_opts_for_tests_arg() -> Attr:
     )
 
 def _re_action_key_provider_arg() -> Attr:
-    return attrs.dep(providers = [BuildModeInfo], default = "fbcode//buck2/platform/build_mode:build_mode")
+    if is_full_meta_repo():
+        return attrs.dep(providers = [BuildModeInfo], default = "fbcode//buck2/platform/build_mode:build_mode")
+    else:
+        return attrs.option(attrs.dep(providers = [BuildModeInfo]), default = None)
 
 def _re_test_args() -> dict[str, Attr]:
     return {
