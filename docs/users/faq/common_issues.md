@@ -11,9 +11,11 @@ To disable either use an env var: `BUCK_NO_INTERACTIVE_CONSOLE` or a flag: `--no
 
 ## Where is my output file?
 
-To find the location of output for a target, use `buck2 build mytarget --show-output`.
+To find the location of output for a target, use `buck2 build //foo:bar --show-output`. This will print the output corresponding to each built target, in this case `//foo:bar output_path`.
 
-The resultant path is relative to the root of the repo (such as `~/repo_root/...`).
+To only get the output path (without the target behorehand) you want to use `buck2 build //foo:bar --show-simple-output`.
+
+The resultant path is relative to the root of the repo (such as `~/repo_root/...`). For the full path use `--show-full-output` or `--show-full-simple-output`.
 
 Note: in Buck1, the path is  relative to the enclosing cell (such as `~/repo_root/cell/...`).
 
