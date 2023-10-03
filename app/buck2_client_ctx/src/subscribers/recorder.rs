@@ -45,6 +45,7 @@ mod imp {
     use dupe::Dupe;
     use fbinit::FacebookInit;
     use futures::FutureExt;
+    use gazebo::variants::VariantName;
     use termwiz::istty::IsTty;
 
     use crate::build_count::BuildCountManager;
@@ -230,20 +231,29 @@ mod imp {
 
         async fn build_count(
             &mut self,
-            target_patterns: &[buck2_data::TargetPattern],
+            is_success: bool,
+            command_name: &str,
         ) -> anyhow::Result<u64> {
             if let Some(stats) = &self.file_watcher_stats {
                 if let Some(merge_base) = &stats.branched_from_revision {
-                    return self
-                        .build_count_manager
-                        .min_build_count(
-                            merge_base,
-                            self.parsed_target_patterns
-                                .as_ref()
-                                .map_or(target_patterns, |d| &d.target_patterns[..]),
-                        )
-                        .await
-                        .context("Error recording build count");
+                    match &self.parsed_target_patterns {
+                        None => {
+                            if is_success {
+                                return Err(anyhow::anyhow!(
+                                    "successful {} commands should have resolved target patterns",
+                                    command_name
+                                ));
+                            }
+                            // fallthrough to 0 below
+                        }
+                        Some(v) => {
+                            return self
+                                .build_count_manager
+                                .min_build_count(merge_base, v, is_success)
+                                .await
+                                .context("Error recording build count");
+                        }
+                    };
                 }
             }
 
@@ -468,23 +478,17 @@ mod imp {
                 }
             };
             self.command_duration = command_end.duration;
-            self.min_build_count_since_rebase =
-                match command.data.as_ref().context("Missing command data")? {
-                    buck2_data::command_end::Data::Build(cmd) => {
-                        self.build_count(&cmd.unresolved_target_patterns).await?
-                    }
-                    buck2_data::command_end::Data::Test(cmd) => {
-                        self.build_count(&cmd.unresolved_target_patterns).await?
-                    }
-                    buck2_data::command_end::Data::Install(cmd) => {
-                        self.build_count(&cmd.unresolved_target_patterns).await?
-                    }
-                    buck2_data::command_end::Data::Targets(cmd) => {
-                        self.build_count(&cmd.unresolved_target_patterns).await?
-                    }
-                    // other events don't have target patterns
-                    _ => 0,
-                };
+            let command_data = command.data.as_ref().context("Missing command data")?;
+            self.min_build_count_since_rebase = match command_data {
+                buck2_data::command_end::Data::Build(..)
+                | buck2_data::command_end::Data::Test(..)
+                | buck2_data::command_end::Data::Install(..) => {
+                    self.build_count(command.is_success, command_data.variant_name())
+                        .await?
+                }
+                // other events don't count builds
+                _ => 0,
+            };
             self.command_end = Some(command);
             Ok(())
         }

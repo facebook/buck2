@@ -15,6 +15,7 @@ use anyhow::Context;
 use buck2_common::client_utils;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
+use buck2_data::ParsedTargetPatterns;
 use fs4::FileExt;
 use serde::Deserialize;
 use serde::Serialize;
@@ -25,8 +26,8 @@ use tokio::io::AsyncWriteExt;
 struct BuildCount(HashMap<String, u64>);
 
 impl BuildCount {
-    pub fn update(&mut self, target_patterns: &[buck2_data::TargetPattern]) {
-        for target in target_patterns.iter() {
+    pub fn increment(&mut self, patterns: &ParsedTargetPatterns) {
+        for target in patterns.target_patterns.iter() {
             match self.0.get_mut(&target.value) {
                 Some(counter) => {
                     *counter += 1;
@@ -38,12 +39,22 @@ impl BuildCount {
         }
     }
 
-    pub fn min_count(&self) -> u64 {
-        self.0.values().min().copied().unwrap_or_default()
+    pub fn min_count(&self, patterns: &ParsedTargetPatterns) -> u64 {
+        if patterns.target_patterns.is_empty() {
+            return 0;
+        }
+
+        // If the target has never been succesfully built it won't be in the map, in that case its count is 0.
+        return patterns
+            .target_patterns
+            .iter()
+            .map(|v| self.0.get(&v.value).copied().unwrap_or(0))
+            .min()
+            .unwrap(); // target_patterns is non-empty, so min() should return Some
     }
 }
 
-/// BuildCountManager keeps track of how many times each target has been built since rebase.
+/// BuildCountManager keeps track of how many times each target has been successfully built since rebase.
 /// This helps understand how much the performance differs between first and incremental builds.
 pub struct BuildCountManager {
     base_dir: AbsNormPathBuf,
@@ -104,17 +115,22 @@ impl BuildCountManager {
         Ok(FileLockGuard { file })
     }
 
+    /// Updates the build counts for set of targets (on success) and returns the min.
     pub async fn min_build_count(
         &mut self,
         merge_base: &str,
-        target_patterns: &[buck2_data::TargetPattern],
+        target_patterns: &ParsedTargetPatterns,
+        is_success: bool,
     ) -> anyhow::Result<u64> {
         let file_name = FileName::new(merge_base)?;
         let _guard = self.lock_with_timeout(Self::LOCK_TIMEOUT).await?;
         let mut build_count = self.read(file_name).await?;
-        build_count.update(target_patterns);
+
+        if is_success {
+            build_count.increment(target_patterns);
+        }
         self.write(&build_count, file_name).await?;
-        Ok(build_count.min_count())
+        Ok(build_count.min_count(target_patterns))
     }
 }
 
@@ -133,7 +149,17 @@ impl Drop for FileLockGuard {
 
 #[cfg(test)]
 mod tests {
+    use gazebo::prelude::VecExt;
+
     use super::*;
+
+    fn make_patterns(targets: Vec<&'static str>) -> ParsedTargetPatterns {
+        ParsedTargetPatterns {
+            target_patterns: targets.into_map(|v| buck2_data::TargetPattern {
+                value: v.to_owned(),
+            }),
+        }
+    }
 
     #[test]
     fn test_update_normal_input() -> anyhow::Result<()> {
@@ -141,15 +167,8 @@ mod tests {
         before.insert("//some:target".to_owned(), 1);
         before.insert("//some/other:target".to_owned(), 2);
         let mut bc = BuildCount(before);
-        let target_patterns = vec![
-            buck2_data::TargetPattern {
-                value: "//some/other:target".to_owned(),
-            },
-            buck2_data::TargetPattern {
-                value: "//yet/another:target".to_owned(),
-            },
-        ];
-        bc.update(&target_patterns);
+        let target_patterns = make_patterns(vec!["//some/other:target", "//yet/another:target"]);
+        bc.increment(&target_patterns);
         let mut expected = HashMap::new();
         expected.insert("//some:target".to_owned(), 1);
         expected.insert("//some/other:target".to_owned(), 3);
@@ -165,8 +184,8 @@ mod tests {
         before.insert("//some:target".to_owned(), 1);
         let expected = before.clone();
         let mut bc = BuildCount(before);
-        let target_patterns = vec![];
-        bc.update(&target_patterns);
+        let target_patterns = make_patterns(vec![]);
+        bc.increment(&target_patterns);
         assert_eq!(bc.0, expected);
 
         Ok(())
@@ -179,7 +198,21 @@ mod tests {
         data.insert("//some:target2".to_owned(), 4);
         data.insert("//some:target3".to_owned(), 5);
         let bc = BuildCount(data);
-        assert_eq!(bc.min_count(), 3);
+        let target_patterns = make_patterns(vec!["//some:target1", "//some:target2"]);
+        assert_eq!(bc.min_count(&target_patterns), 3);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_min_count_ignores_others() -> anyhow::Result<()> {
+        let mut data = HashMap::new();
+        data.insert("//some:target1".to_owned(), 3);
+        data.insert("//some:target2".to_owned(), 4);
+        data.insert("//some:target3".to_owned(), 5);
+        let bc = BuildCount(data);
+        let target_patterns = make_patterns(vec!["//some:target2"]);
+        assert_eq!(bc.min_count(&target_patterns), 4);
 
         Ok(())
     }
@@ -188,7 +221,7 @@ mod tests {
     fn test_min_count_empty_data() -> anyhow::Result<()> {
         let data = HashMap::new();
         let bc = BuildCount(data);
-        assert_eq!(bc.min_count(), 0);
+        assert_eq!(bc.min_count(&make_patterns(vec![])), 0);
 
         Ok(())
     }
@@ -270,16 +303,39 @@ mod tests {
         let temp_dir = tempfile::tempdir()?;
         let file_name = "some_file";
         tokio::fs::write(temp_dir.path().join(file_name), "{\"//some:target\":1}").await?;
-        let target_patterns = vec![
-            buck2_data::TargetPattern {
-                value: "//some:target".to_owned(),
-            },
-            buck2_data::TargetPattern {
-                value: "//some/other:target".to_owned(),
-            },
-        ];
+        let target_patterns = make_patterns(vec!["//some:target", "//some/other:target"]);
         let mut bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
-        assert_eq!(bcm.min_build_count(file_name, &target_patterns).await?, 1);
+        assert_eq!(
+            bcm.min_build_count(file_name, &target_patterns, true)
+                .await?,
+            1
+        );
+        assert_eq!(
+            bcm.min_build_count(file_name, &target_patterns, true)
+                .await?,
+            2
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_min_build_count_on_failure() -> anyhow::Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let file_name = "some_file";
+        tokio::fs::write(temp_dir.path().join(file_name), "{\"//some:target\":1}").await?;
+        let target_patterns = make_patterns(vec!["//some:target", "//some/other:target"]);
+        let mut bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
+        assert_eq!(
+            bcm.min_build_count(file_name, &target_patterns, true)
+                .await?,
+            1
+        );
+        assert_eq!(
+            bcm.min_build_count(file_name, &target_patterns, false)
+                .await?,
+            1
+        );
 
         Ok(())
     }
@@ -289,9 +345,13 @@ mod tests {
         let temp_dir = tempfile::tempdir()?;
         let file_name = "some_file";
         tokio::fs::write(temp_dir.path().join(file_name), "{}").await?;
-        let target_patterns = vec![];
+        let target_patterns = make_patterns(vec![]);
         let mut bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
-        assert_eq!(bcm.min_build_count(file_name, &target_patterns).await?, 0);
+        assert_eq!(
+            bcm.min_build_count(file_name, &target_patterns, true)
+                .await?,
+            0
+        );
 
         Ok(())
     }
