@@ -151,8 +151,18 @@ fn eprint_command_details(
     } else {
         (command_failed.stdout.clone(), command_failed.stderr.clone())
     };
-    echo!("Stdout: {}", stdout)?;
-    echo!("Stderr: {}", stderr)?;
+    print_stream("Stdout", &stdout)?;
+    print_stream("Stderr", &stderr)?;
+    Ok(())
+}
+
+fn print_stream(stream_name: &str, stream_contents: &str) -> anyhow::Result<()> {
+    if stream_contents.is_empty() {
+        echo!("{stream_name}: <empty>")?;
+        return Ok(());
+    }
+    echo!("{stream_name}:")?;
+    crate::eprintln!("{}", &stream_contents.trim())?;
     Ok(())
 }
 
