@@ -43,13 +43,16 @@ def _anon_shared_library_interface_impl(ctx):
     return [DefaultInfo(), _InterfaceInfo(artifact = output)]
 
 # Anonymous wrapper for `extract_symbol_names`.
-_anon_shared_library_interface = rule(
+_anon_shared_library_interface = anon_rule(
     impl = _anon_shared_library_interface_impl,
     attrs = {
         "identifier": attrs.option(attrs.string(), default = None),
         "output": attrs.string(),
         "shared_lib": attrs.source(),
         "_cxx_toolchain": attrs.dep(providers = [CxxToolchainInfo]),
+    },
+    artifact_promise_mappings = {
+        "shared_library_interface": lambda p: p[_InterfaceInfo].artifact,
     },
 )
 
@@ -60,7 +63,7 @@ def shared_library_interface(
     output = paths.join("__shlib_intfs__", shared_lib.short_path)
 
     if anonymous:
-        anon_providers = ctx.actions.anon_target(
+        shared_lib_interface_artifact = ctx.actions.anon_target(
             _anon_shared_library_interface,
             dict(
                 _cxx_toolchain = ctx.attrs._cxx_toolchain,
@@ -68,11 +71,9 @@ def shared_library_interface(
                 shared_lib = shared_lib,
                 identifier = shared_lib.short_path,
             ),
-        )
-        return ctx.actions.artifact_promise(
-            anon_providers.map(lambda p: p[_InterfaceInfo].artifact),
-            short_path = output,
-        )
+            with_artifacts = True,
+        ).artifact("shared_library_interface")
+        return ctx.actions.assert_short_path(shared_lib_interface_artifact, short_path = output)
     else:
         return _shared_library_interface(
             ctx = ctx,
