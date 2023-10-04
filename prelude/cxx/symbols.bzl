@@ -99,7 +99,7 @@ def _anon_extract_symbol_names_impl(ctx):
     return [DefaultInfo(), _SymbolsInfo(artifact = output)]
 
 # Anonymous wrapper for `extract_symbol_names`.
-_anon_extract_symbol_names_impl_rule = rule(
+_anon_extract_symbol_names_impl_rule = anon_rule(
     impl = _anon_extract_symbol_names_impl,
     attrs = {
         "allow_cache_upload": attrs.bool(default = False),
@@ -113,6 +113,9 @@ _anon_extract_symbol_names_impl_rule = rule(
         "prefer_local": attrs.bool(default = False),
         "undefined_only": attrs.bool(default = False),
         "_cxx_toolchain": attrs.dep(providers = [CxxToolchainInfo]),
+    },
+    artifact_promise_mappings = {
+        "symbols": lambda p: p[_SymbolsInfo].artifact,
     },
 )
 
@@ -131,18 +134,17 @@ def extract_symbol_names(
         cxx_toolchain_from_attrs = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
         if cxx_toolchain != cxx_toolchain_from_attrs:
             fail("anon symbol extraction requires that the cxx_toolchain be from the _cxx_toolchain attr")
-        anon_providers = ctx.actions.anon_target(
+        artifact = ctx.actions.anon_target(
             _anon_extract_symbol_names_impl_rule,
             dict(
                 _cxx_toolchain = ctx.attrs._cxx_toolchain,
                 output = name,
                 **kwargs
             ),
-        )
-        return ctx.actions.artifact_promise(
-            anon_providers.map(lambda p: p[_SymbolsInfo].artifact),
-            short_path = paths.join("__symbols__", name),
-        )
+            with_artifacts = True,
+        ).artifact("symbols")
+
+        return ctx.actions.assert_short_path(artifact, short_path = paths.join("__symbols__", name))
     else:
         return _extract_symbol_names(
             ctx = ctx,
