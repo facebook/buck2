@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+use std::time::Duration;
+use std::time::Instant;
+
 use anyhow::Context as _;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileDigestConfig;
@@ -26,13 +29,19 @@ use crate::directory::ActionDirectoryMember;
 pub fn build_entry_from_disk(
     mut path: AbsNormPathBuf,
     digest_config: FileDigestConfig,
-) -> anyhow::Result<Option<ActionDirectoryEntry<ActionDirectoryBuilder>>> {
+) -> anyhow::Result<(
+    Option<ActionDirectoryEntry<ActionDirectoryBuilder>>,
+    Duration,
+)> {
     // Get file metadata. If the file is missing, ignore it.
     let m = match std::fs::symlink_metadata(&path) {
         Ok(m) => m,
-        Err(ref err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(ref err) if err.kind() == std::io::ErrorKind::NotFound => {
+            return Ok((None, Duration::ZERO));
+        }
         Err(err) => return Err(err.into()),
     };
+    let hashing_start = Instant::now();
 
     let value = if m.file_type().is_symlink() {
         DirectoryEntry::Leaf(new_symlink(fs_util::read_link(&path)?)?)
@@ -49,7 +58,8 @@ pub fn build_entry_from_disk(
     } else {
         anyhow::bail!("Path {:?} is of an unknown file type.", path)
     };
-    Ok(Some(value))
+    let hashing_time = hashing_start.elapsed();
+    Ok((Some(value), hashing_time))
 }
 
 fn build_dir_from_disk(

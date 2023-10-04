@@ -540,7 +540,7 @@ impl LocalExecutor {
         for output in request.outputs() {
             let path = output.resolve(&self.artifact_fs).into_path();
             let abspath = self.root.join(&path);
-            let entry = build_entry_from_disk(
+            let (entry, _hashing_time) = build_entry_from_disk(
                 abspath,
                 FileDigestConfig::build(digest_config.cas_digest_config()),
             )

@@ -47,7 +47,7 @@ pub(crate) async fn declare_copy_from_offline_cache(
         .fs()
         .resolve_offline_output_cache_path(output.get_path());
 
-    let entry = ctx
+    let (value, _hashing_time) = ctx
         .blocking_executor()
         .execute_io_inline(|| {
             build_entry_from_disk(
@@ -55,7 +55,9 @@ pub(crate) async fn declare_copy_from_offline_cache(
                 FileDigestConfig::build(ctx.digest_config().cas_digest_config()),
             )
         })
-        .await?
+        .await?;
+
+    let entry = value
         .ok_or_else(|| anyhow::anyhow!("Missing offline cache entry: `{}`", offline_cache_path))?
         .map_dir(|dir| {
             dir.fingerprint(ctx.digest_config().as_directory_serializer())
