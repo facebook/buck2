@@ -200,7 +200,7 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
         ctx.attrs.dep[SwiftPCMUncompiledInfo].exported_deps,
         ctx.attrs.swift_cxx_args,
     )
-    return ctx.actions.anon_targets(sdk_pcm_deps_anon_targets + swift_pcm_anon_targets).map(k)
+    return ctx.actions.anon_targets(sdk_pcm_deps_anon_targets + swift_pcm_anon_targets, with_artifacts = True).promise.map(k)
 
 _swift_pcm_compilation = rule(
     impl = _swift_pcm_compilation_impl,
