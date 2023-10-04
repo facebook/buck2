@@ -207,7 +207,7 @@ def _split_debuginfo(ctx, data: dict[str, (typing.Any, Label | bool)]) -> (dict[
     transformed = {}
     for name, (artifact, extra) in data.items():
         stripped_binary, debuginfo = strip_debug_with_gnu_debuglink(ctx, name, artifact.unstripped_output)
-        transformed[name] = LinkedObject(output = stripped_binary, unstripped_output = artifact.unstripped_output), extra
+        transformed[name] = LinkedObject(output = stripped_binary, unstripped_output = artifact.unstripped_output, dwp = artifact.dwp), extra
         debuginfo_artifacts[name + ".debuginfo"] = debuginfo
     return transformed, debuginfo_artifacts
 
@@ -655,7 +655,7 @@ def _convert_python_library_to_executable(
     extra_manifests = create_manifest_for_source_map(ctx, "extra_manifests", extra_artifacts)
 
     shared_libraries = {}
-    debuginfo_artifacts = None
+    debuginfo_artifacts = {}
 
     # Create the map of native libraries to their artifacts and whether they
     # need to be preloaded.  Note that we merge preload deps into regular deps
