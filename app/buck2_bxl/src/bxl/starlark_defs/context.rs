@@ -1245,7 +1245,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
     ///         "true": True,
     ///     }
     ///
-    ///     promise = actions.anon_target(my_anon_targets_rule, attrs).map(my_map_function)
+    ///     promise = actions.anon_target(my_anon_targets_rule, attrs).promise.map(my_map_function)
     ///     providers_result = ctx.resolve(actions, promise) # result is `provider_collection` type, which is a collection of `provider`s
     ///     ctx.output.print(providers_result[0].my_field)
     /// ```

@@ -39,23 +39,27 @@ def impl(ctx):
     return ctx.actions.anon_target(upper, {
         name: "my//:greeting",
         message: "Hello World",
-    }).map(k)
+    })
+    .promise
+    .map(k)
 ```
 
 Notes:
 
-* An anonymous rule is defined using `rule`. These are normal rules, with the difference that they are not in a configuration, so `ctx.actions.label` won't show configuration information, but just `unspecified`.
+* An anonymous rule is defined using `rule` or `anon_rule`. For `rule`, these are normal rules, with the difference that they are not in a configuration, so `ctx.actions.label` won't show configuration information, but just `unspecified`. For `anon_rule`, the configuration restrictions also apply, and there is an `artifact_promise_mappings` field which you can specify a dict of artifact promise names to the map function, which would be applied to the anon target's promise during rule resolution.
 * An anonymous rule is used via `ctx.actions.anon_target`, passing in the rule and the attributes for the rule.
-* The return value is a `promise` type, which when evaluated returns the providers of the anonymous target. The `promise` type has a few special behaviors.
+* The return value is a `AnonTarget` type, which has a `promise` attribute, and `artifact()` and `artifacts()` functions.
+* The `promise` attribute returns the anon target's promise (type is `promise`), which when evaluated returns the providers of the anonymous target. The `promise` type has a few special behaviors.
   * It has a `map` function, which takes a function and applies it to the future, returning a new future.
   * If analysis returns a `promise` type, the outer Rust layer invokes the future to get at the analysis result. If that future then returns another future, Rust keeps going until it has a final result. It must eventually get to a list of providers.
 * Attribute resolution is handled differently from normal code:
   * String/Int/Bool happen as normal.
   * The name attribute is optional, but, if present, must be a syntactically valid target, but can refer to a cell/package that does not exist.
   * Deps attributes do not take strings, but dependencies, already in a configuration.
-  * Exec_deps are not available.
+  * Exec_deps are available if the passed in dep's execution platform matches that of the anon target's caller.
   * Transitions and more complex forms of attributes are banned.
   * Default `attr.deps` (as used for toolchains) are not permitted, as the default can't express a dependency. They must be passed forward from the caller.
+* The `artifact()` and `artifacts()` functions only return something if using `anon_rule`. `artifact()` takes in an artifact name, which should be found in the `artifact_promise_mappings` dict, and returns the artifact promise. `artifacts()` returns the dict of all promise artifact names to the artifact promise itself, as defined in `artifact_promise_mappings`. See [Convert promise to artifact](#convert-promise-to-artifact) below for more information about artifact promises.
 * The execution platform for an anon target is that of the inherited from the calling target, which is part of the hash. If that is too restrictive, you could use execution groups, where an anon target gets told which execution group to use.
 
 ## Longer example
@@ -129,11 +133,11 @@ silly_binary = rule(
 
 ## Convert promise to artifact
 
-It can be challenging to pass around the promises from anon_target and structure functions to support that. If you only need an artifact (or multiple artifacts) from an anon_target, you can use `ctx.actions.artifact_promise()` to convert a promise to an artifact. This artifact can be passed to most things that expect artifacts, but until it is resolved (at the end of the current analysis) it can't be inspected with artifact functions like `.extension`, `.short_path`, etc. The promise must resolve to a build (not source) artifact with no associated artifacts.
+It can be challenging to pass around the promises from anon_target and structure functions to support that. If you only need an artifact (or multiple artifacts) from an anon_target, you can use `artifacts()` function on the anon target to convert a promise to an artifact. This artifact can be passed to most things that expect artifacts, but until it is resolved (at the end of the current analysis) it can't be inspected with artifact functions like `.extension`, etc. `.short_path` is supported if `ctx.actions.assert_short_path()` was called, which produces an artifact type. The promise must resolve to a build (not source) artifact with no associated artifacts.
 
 Example:
 
-```
+```python
 HelloInfo = provider(fields = ["hello", "world"])
 
 def _anon_impl(ctx: AnalysisContext) -> ["provider"]:
@@ -141,14 +145,19 @@ def _anon_impl(ctx: AnalysisContext) -> ["provider"]:
     world = ctx.actions.write("world.out", "world")
     return [DefaultInfo(), HelloInfo(hello = hello, world = world)]
 
-_anon = rule(impl = _anon_impl, attrs = {})
+_anon = anon_rule(
+    impl = _anon_impl,
+    attrs = {},
+    artifact_promise_mappings = {
+        "hello": lambda x: x[HelloInfo].hello,
+        "world": lambda x: x[HelloInfo].world,
+    }
+)
 
 def _use_impl(ctx: AnalysisContext) -> ["provider"]:
-    promise = ctx.actions.anon_target(_anon, {})
-    hello_promise = promise.map(lambda x: x[HelloInfo].hello)
-    world_promise = promise.map(lambda x: x[HelloInfo].world)
-    hello_artifact = ctx.actions.artifact_promise(hello_promise)
-    world_artifact = ctx.actions.artifact_promise(world_promise)
+    anon = ctx.actions.anon_target(_anon, {})
+    hello_artifact = anon.artifact("hello")
+    world_artifact = anon.artifact("world")
 
     out = ctx.actions.declare_output("output")
     ctx.actions.run([

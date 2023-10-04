@@ -30,8 +30,8 @@ def _my_impl(ctx):
     bxl_actions = ctx.bxl_actions() # pass in relevant params to configure the execution platform resolution
     actions = ctx.bxl_actions().actions
 
-    promise1 = actions.anon_target(my_anon_rule1, my_attrs1)
-    promise2 = actions.anon_target(my_anon_rule2, my_attrs2).map(my_map_function)
+    promise1 = actions.anon_target(my_anon_rule1, my_attrs1).promise
+    promise2 = actions.anon_target(my_anon_rule2, my_attrs2).promise.map(my_map_function)
 
     joined = promise1.join(promise2)
 
@@ -100,7 +100,7 @@ def _anon_target_example(ctx):
     # Create an anonymous target by passing in "my_attrs" into "my_mirror_rule", and returns providers.
     # Specifically, it returns "DefaultInfo" and "MirrorInfo", as defined in "my_mirror_rule"
     # Then, we map the result to "my_function", which does some validation
-    promise = actions.anon_target(my_mirror_rule, my_attrs).map(my_function)
+    promise = actions.anon_target(my_mirror_rule, my_attrs, with_artifacts = True).promise.map(my_function)
 
     # Resolving the promise returns a "provider_collection", which was defined by "my_function" above.
     # `DefaultInfo` is at index 0, `StringInfo` is at index 1
