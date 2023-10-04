@@ -23,6 +23,7 @@
 #![feature(box_patterns)]
 #![feature(maybe_uninit_slice)]
 #![feature(impl_trait_in_assoc_type)]
+#![feature(once_cell_try)]
 #![cfg_attr(windows, feature(windows_file_type_ext))]
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]

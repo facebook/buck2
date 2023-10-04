@@ -7,8 +7,9 @@
  * of this source tree.
  */
 
+use std::sync::OnceLock;
+
 use anyhow::Context;
-use once_cell::sync::OnceCell;
 
 /// Value (typically a function pointer or a trait pointer) that is initialized at program start.
 ///
@@ -91,14 +92,14 @@ use once_cell::sync::OnceCell;
 pub struct LateBinding<T> {
     /// Name for diagnostic.
     name: &'static str,
-    symbol: OnceCell<T>,
+    symbol: OnceLock<T>,
 }
 
 impl<T> LateBinding<T> {
     pub const fn new(name: &'static str) -> LateBinding<T> {
         LateBinding {
             name,
-            symbol: OnceCell::new(),
+            symbol: OnceLock::new(),
         }
     }
 

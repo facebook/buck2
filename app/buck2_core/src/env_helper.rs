@@ -10,14 +10,14 @@
 use std::env;
 use std::env::VarError;
 use std::str::FromStr;
+use std::sync::OnceLock;
 
 use anyhow::Context;
-use once_cell::sync::OnceCell;
 
 pub struct EnvHelper<T> {
     convert: fn(&str) -> anyhow::Result<T>,
     var: &'static str,
-    cell: OnceCell<Option<T>>,
+    cell: OnceLock<Option<T>>,
 }
 
 impl<T> EnvHelper<T> {
@@ -25,7 +25,7 @@ impl<T> EnvHelper<T> {
         Self {
             convert,
             var,
-            cell: OnceCell::new(),
+            cell: OnceLock::new(),
         }
     }
 

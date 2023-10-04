@@ -12,10 +12,10 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::OnceLock;
 
 use anyhow::Context;
 use arc_swap::ArcSwapOption;
-use once_cell::sync::OnceCell;
 use starlark_map::small_set::SmallSet;
 use thiserror::Error;
 
@@ -29,7 +29,7 @@ type StructuredErrorHandler = Box<
         + 'static,
 >;
 
-static HANDLER: OnceCell<StructuredErrorHandler> = OnceCell::new();
+static HANDLER: OnceLock<StructuredErrorHandler> = OnceLock::new();
 
 pub static BUCK2_HARD_ERROR_ENV_VAR: EnvHelper<String> = EnvHelper::new("BUCK2_HARD_ERROR");
 
