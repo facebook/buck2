@@ -230,6 +230,12 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
             static_external_debug_info = swift_debug_info.static,
             shared_external_debug_info = swift_debug_info.shared,
             subtargets = {
+                "swift-compilation-database": [
+                    DefaultInfo(
+                        default_output = swift_compile.compilation_database.db if swift_compile else None,
+                        other_outputs = [swift_compile.compilation_database.other_outputs] if swift_compile else [],
+                    ),
+                ],
                 "swift-compile": [DefaultInfo(default_output = swift_compile.object_file if swift_compile else None)],
             },
             additional_providers_factory = additional_providers_factory,

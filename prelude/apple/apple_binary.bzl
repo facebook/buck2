@@ -122,6 +122,14 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
                 # follow.
                 static_external_debug_info = swift_debug_info.static,
                 shared_external_debug_info = swift_debug_info.shared,
+                subtargets = {
+                    "swift-compilation-database": [
+                        DefaultInfo(
+                            default_output = swift_compile.compilation_database.db if swift_compile else None,
+                            other_outputs = [swift_compile.compilation_database.other_outputs] if swift_compile else [],
+                        ),
+                    ],
+                },
             ),
             extra_link_input = swift_object_files,
             extra_link_input_has_external_debug_info = True,
