@@ -134,7 +134,7 @@ def get_swift_anonymous_targets(ctx: AnalysisContext, get_apple_library_provider
         ctx,
         direct_uncompiled_sdk_deps,
     )
-    return ctx.actions.anon_targets(pcm_targets + sdk_pcm_targets + swift_interface_anon_targets).map(get_apple_library_providers)
+    return ctx.actions.anon_targets(pcm_targets + sdk_pcm_targets + swift_interface_anon_targets, with_artifacts = True).promise.map(get_apple_library_providers)
 
 def _get_explicit_modules_forwards_warnings_as_errors() -> bool:
     return read_root_config("swift", "explicit_modules_forwards_warnings_as_errors", "false").lower() == "true"
