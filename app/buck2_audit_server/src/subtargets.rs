@@ -66,9 +66,10 @@ async fn server_execute_with_dice(
 
     let parsed_patterns = parse_patterns_from_cli_args::<ProvidersPatternExtra>(
         &mut ctx,
-        &command
+        command
             .patterns
-            .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
+            .map(|pat| buck2_data::TargetPattern { value: pat.clone() })
+            .as_slice(),
         server_ctx.working_dir(),
     )
     .await?;
