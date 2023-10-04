@@ -480,11 +480,19 @@ PackagesInfo = record(
     transitive_deps = field(list[HaskellLibraryInfo]),
 )
 
+def _package_flag(toolchain: HaskellToolchainInfo) -> str:
+    if toolchain.support_expose_package:
+        return "-expose-package"
+    else:
+        return "-package"
+
 def get_packages_info(
         ctx: AnalysisContext,
         link_style: LinkStyle,
         specify_pkg_version: bool,
         enable_profiling: bool) -> PackagesInfo:
+    haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
+
     # Collect library dependencies. Note that these don't need to be in a
     # particular order and we really want to remove duplicates (there
     # are a *lot* of duplicates).
@@ -498,7 +506,8 @@ def get_packages_info(
         libs[lib.db] = lib  # lib.db is a good enough unique key
 
     # base is special and gets exposed by default
-    exposed_package_args = cmd_args(["-expose-package", "base"])
+    package_flag = _package_flag(haskell_toolchain)
+    exposed_package_args = cmd_args([package_flag, "base"])
 
     packagedb_args = cmd_args()
 
@@ -531,7 +540,7 @@ def get_packages_info(
         if (specify_pkg_version):
             pkg_name += "-{}".format(lib.version)
 
-        exposed_package_args.add("-expose-package", pkg_name)
+        exposed_package_args.add(package_flag, pkg_name)
 
     return PackagesInfo(
         exposed_package_args = exposed_package_args,
@@ -635,7 +644,7 @@ def _compile(
         stubs.as_output(),
     )
 
-    # Add -package-db and -expose-package flags for each Haskell
+    # Add -package-db and -package/-expose-package flags for each Haskell
     # library dependency.
     packages_info = get_packages_info(
         ctx,
