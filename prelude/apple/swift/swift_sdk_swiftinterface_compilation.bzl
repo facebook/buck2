@@ -105,7 +105,7 @@ def _swift_interface_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Pr
     # Compile the transitive swiftmodule deps.
     swift_module_deps = get_swift_interface_anon_targets(ctx, module_info.deps)
 
-    return ctx.actions.anon_targets(clang_module_deps + swift_module_deps).map(k)
+    return ctx.actions.anon_targets(clang_module_deps + swift_module_deps, with_artifacts = True).promise.map(k)
 
 _swift_interface_compilation = rule(
     impl = _swift_interface_compilation_impl,
