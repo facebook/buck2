@@ -7,6 +7,7 @@
 
 load("@prelude//toolchains:cxx.bzl", "system_cxx_toolchain")
 load("@prelude//toolchains:genrule.bzl", "system_genrule_toolchain")
+load("@prelude//toolchains:haskell.bzl", "system_haskell_toolchain")
 load("@prelude//toolchains:ocaml.bzl", "system_ocaml_toolchain")
 load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain", "system_python_toolchain")
 load("@prelude//toolchains:rust.bzl", "system_rust_toolchain")
@@ -23,6 +24,11 @@ def system_demo_toolchains():
 
     system_genrule_toolchain(
         name = "genrule",
+        visibility = ["PUBLIC"],
+    )
+
+    system_haskell_toolchain(
+        name = "haskell",
         visibility = ["PUBLIC"],
     )
 
