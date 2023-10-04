@@ -71,5 +71,6 @@ def swift_toolchain_impl(ctx):
             runtime_run_paths = ctx.attrs.runtime_run_paths,
             supports_swift_cxx_interoperability_mode = ctx.attrs.supports_swift_cxx_interoperability_mode,
             supports_cxx_interop_requirement_at_import = ctx.attrs.supports_cxx_interop_requirement_at_import,
+            mk_swift_comp_db = ctx.attrs.make_swift_comp_db,
         ),
     ]

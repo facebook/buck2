@@ -196,6 +196,7 @@ extra_attributes = {
     },
     "swift_toolchain": {
         "architecture": attrs.option(attrs.string(), default = None),  # TODO(T115173356): Make field non-optional
+        "make_swift_comp_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//apple/tools:make_swift_comp_db")),
         "object_format": attrs.enum(SwiftObjectFormat.values(), default = "object"),
         # A placeholder tool that can be used to set up toolchain constraints.
         # Useful when fat and thin toolchahins share the same underlying tools via `command_alias()`,
