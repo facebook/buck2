@@ -447,7 +447,7 @@ impl LocalExecutor {
                     start_time,
                     execution_stats: None, // We fill this in later if available.
                     input_materialization_duration,
-                    hashing_duration: Duration::ZERO,
+                    hashing_duration: Duration::ZERO, // We fill this in later if available.
                 };
 
                 (timing, r)
@@ -467,15 +467,16 @@ impl LocalExecutor {
                 exit_code,
                 execution_stats,
             } => {
-                let outputs = match self
+                let (outputs, hashing_time) = match self
                     .calculate_and_declare_output_values(request, digest_config)
                     .await
                 {
-                    Ok(output_values) => output_values,
+                    Ok((output_values, hashing_time)) => (output_values, hashing_time),
                     Err(e) => return manager.error("calculate_output_values_failed", e),
                 };
 
                 timing.execution_stats = execution_stats;
+                timing.hashing_duration = hashing_time;
 
                 if exit_code == 0 {
                     manager.success(execution_kind, outputs, std_streams, timing)
@@ -532,19 +533,21 @@ impl LocalExecutor {
         &self,
         request: &CommandExecutionRequest,
         digest_config: DigestConfig,
-    ) -> anyhow::Result<IndexMap<CommandExecutionOutput, ArtifactValue>> {
+    ) -> anyhow::Result<(IndexMap<CommandExecutionOutput, ArtifactValue>, Duration)> {
         let mut builder = inputs_directory(request.inputs(), &self.artifact_fs)?;
 
         // Read outputs from disk and add them to the builder
         let mut entries = Vec::new();
+        let mut total_hashing_time = Duration::ZERO;
         for output in request.outputs() {
             let path = output.resolve(&self.artifact_fs).into_path();
             let abspath = self.root.join(&path);
-            let (entry, _hashing_time) = build_entry_from_disk(
+            let (entry, hashing_time) = build_entry_from_disk(
                 abspath,
                 FileDigestConfig::build(digest_config.cas_digest_config()),
             )
             .with_context(|| format!("collecting output {:?}", path))?;
+            total_hashing_time += hashing_time;
             if let Some(entry) = entry {
                 insert_entry(&mut builder, &path, entry)?;
                 entries.push((output.cloned(), path));
@@ -575,7 +578,7 @@ impl LocalExecutor {
 
         self.materializer.declare_existing(to_declare).await?;
 
-        Ok(mapped_outputs)
+        Ok((mapped_outputs, total_hashing_time))
     }
 
     async fn acquire_worker_permit(
