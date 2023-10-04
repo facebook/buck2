@@ -196,7 +196,7 @@ where
 )]
 pub struct RageCommand {
     /// Stop collecting information after `<timeout>` seconds
-    #[clap(long, default_value = "60")]
+    #[clap(long, default_value = "120")]
     timeout: u64,
     /// Use value 0 to select last invocation, 1 to select second to last and so on
     #[clap(long, group = "invocation")]
