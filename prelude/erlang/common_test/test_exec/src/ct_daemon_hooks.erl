@@ -119,19 +119,31 @@ handle_cast(_Request, _State) ->
 -spec initialize_hooks() -> state().
 initialize_hooks() ->
     ConfiguredHooks = get_hooks_config(),
-    NormalizedConfiguredHooks = [{get_hook_module(Hook), get_hook_opts(Hook)} || Hook <- ConfiguredHooks],
+    NormalizedConfiguredHooks = [
+        {get_hook_module(Hook), get_hook_opts(Hook), get_hook_priority(Hook)}
+     || Hook <- ConfiguredHooks
+    ],
     %% first we need the Id
-    HooksWithId = [{wrapped_id(Mod, Opts), Mod, Opts} || {Mod, Opts} <- NormalizedConfiguredHooks],
+    HooksWithId = [
+        case Prio of
+            undefined -> {0, wrapped_id(Mod, Opts), Mod, Opts, Prio};
+            _ -> {Prio, wrapped_id(Mod, Opts), Mod, Opts, Prio}
+        end
+     || {Mod, Opts, Prio} <- NormalizedConfiguredHooks
+    ],
     %% according to documentation, if two hooks have the same ID, the latter one get's dropped
-    PreInitHooks = lists:ukeysort(1, HooksWithId),
+    PreInitHooks0 = lists:ukeysort(2, HooksWithId),
+    %% now sort with configured prio the inits (default prio being 0)
+    PreInitHooks1 = lists:keysort(1, PreInitHooks0),
+
     %% now let's run the inits in order and build the state
     {States, HooksWithPriority} = lists:foldl(
-        fun({Id, Mod, Opts}, {StatesAcc, HooksAcc}) ->
-            {Priority, HookState} = wrapped_init({Mod, Id}, Opts),
+        fun({_InitPrio, Id, Mod, Opts, ConfiguredPrio}, {StatesAcc, HooksAcc}) ->
+            {Priority, HookState} = wrapped_init({Mod, Id}, Opts, ConfiguredPrio),
             {StatesAcc#{Id => HookState}, [{Priority, {Mod, Id}} | HooksAcc]}
         end,
         {#{}, []},
-        PreInitHooks
+        PreInitHooks1
     ),
 
     %% sort hooks according to priority
@@ -327,11 +339,21 @@ build_test_name(end_per_testcase, Path) ->
     [Test, Group | _] = lists:reverse(Path),
     {Group, Test}.
 
+-spec get_hook_module(module() | {module(), Options} | {module(), Options, Priority}) -> module() when
+    Options :: list(), Priority :: integer().
+get_hook_module({Mod, _, _}) -> Mod;
 get_hook_module({Mod, _}) -> Mod;
 get_hook_module(Mod) -> Mod.
-
+-spec get_hook_opts(module() | {module(), Options} | {module(), Options, Priority}) -> Options when
+    Options :: list(), Priority :: integer().
+get_hook_opts({_, Opts, _}) -> Opts;
 get_hook_opts({_, Opts}) -> Opts;
 get_hook_opts(_) -> [].
+
+-spec get_hook_priority(module() | {module(), Options} | {module(), Options, Priority}) -> Priority when
+    Options :: list(), Priority :: integer().
+get_hook_priority({_, _, Prio}) -> Prio;
+get_hook_priority(_) -> undefined.
 
 normalize_part(Part, Fun) ->
     SafeFun = get_safe_part(Part, Fun),
@@ -381,12 +403,17 @@ wrapped_id(Mod, Opts) ->
     end,
     call_if_exists(Mod, id, [Opts], make_ref()).
 
--spec wrapped_init(hook(), opts()) -> {non_neg_integer(), hook_state()}.
-wrapped_init({Mod, Id}, Opts) ->
-    case Mod:init(Id, Opts) of
-        {ok, State} -> {0, State};
-        {ok, State, Priority} -> {Priority, State};
-        Error -> error({hooks_init_error, Error})
+-spec wrapped_init(hook(), opts(), integer()) -> {integer(), hook_state()}.
+wrapped_init({Mod, Id}, Opts, ConfiguredPriority) ->
+    {InitPriority, InitState} =
+        case Mod:init(Id, Opts) of
+            {ok, State} -> {0, State};
+            {ok, State, Priority} -> {Priority, State};
+            Error -> error({hooks_init_error, Error})
+        end,
+    case ConfiguredPriority of
+        undefined -> {InitPriority, InitState};
+        _ -> {ConfiguredPriority, InitState}
     end.
 
 pre(init_per_suite) -> pre_init_per_suite;
