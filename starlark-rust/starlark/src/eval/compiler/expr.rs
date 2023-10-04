@@ -1147,17 +1147,8 @@ pub(crate) fn get_attr_hashed_bind<'v>(
     match aref.get_attr_hashed(attribute.as_str_hashed(), heap) {
         None => Err(get_attr_no_attr_error(x, attribute)),
         Some(x) => {
-            // Only `get_methods` is allowed to return unbound methods,
-            // so we assume the value is bound here.
-            // TODO(nga): if `NativeMethod` or `NativeAttribute` is returned from `get_attr`,
-            //   we get an inconsistency between handling of unbound objects
-            //   in various call sites in the crate.
-            //   However, `NativeMethod` and `NativeAttribute` are not actually useful
-            //   as Starlark values, and can be hidden from public API and can be made
-            //   to never appear as user-visible values.
-            //   Do that.
-            //   Alternatively, allow `NativeMethod` and `NativeAttribute` here,
-            //   but that would have negative performance implications.
+            // Only `get_methods` is allowed to return unbound methods or attributes.
+            // Both types are crate private, so we assume `get_attr` never returns them.
             Ok(x)
         }
     }
