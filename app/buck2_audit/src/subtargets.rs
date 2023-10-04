@@ -27,6 +27,10 @@ pub struct AuditSubtargetsCommand {
     /// the first level. This is set to false by default.
     #[clap(long)]
     pub shallow: bool,
+
+    /// Print subtargets as JSON.
+    #[clap(long)]
+    pub json: bool,
 }
 
 #[async_trait]

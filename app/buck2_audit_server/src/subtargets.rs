@@ -120,31 +120,57 @@ async fn server_execute_with_dice(
     let mut stdout = stdout.as_writer();
     let mut stderr = server_ctx.stderr()?;
     let recursive = !command.shallow;
+    let json_format = command.json;
+    let mut subtargets_map = serde_json::Map::new();
 
     let mut at_least_one_evaluation_error = false;
     while let Some((target, result)) = futs.next().await {
         match result {
             Ok(v) => {
                 if recursive {
-                    fn recursive_iterate(
-                        providers: &FrozenProviderCollection,
-                        stdout: &mut StdoutPartialOutput,
-                        label: &mut Subtarget,
-                    ) -> anyhow::Result<()> {
-                        for (subtarget, providers) in providers.default_info().sub_targets().iter()
-                        {
-                            label.push(subtarget.to_string());
-                            writeln!(stdout, "{}", label)?;
-                            recursive_iterate(providers, stdout, label)?;
-                            label.pop();
+                    if json_format {
+                        fn serialize_nested_subtargets(
+                            providers: &FrozenProviderCollection,
+                        ) -> serde_json::Value {
+                            let mut entries = serde_json::Map::new();
+                            for (subtarget, providers) in
+                                providers.default_info().sub_targets().iter()
+                            {
+                                entries.insert(
+                                    subtarget.to_string(),
+                                    serialize_nested_subtargets(providers),
+                                );
+                            }
+                            serde_json::Value::Object(entries)
                         }
-                        Ok(())
+                        subtargets_map.insert(
+                            target.to_string(),
+                            serialize_nested_subtargets(
+                                v.require_compatible()?.provider_collection(),
+                            ),
+                        );
+                    } else {
+                        fn recursive_iterate(
+                            providers: &FrozenProviderCollection,
+                            stdout: &mut StdoutPartialOutput,
+                            label: &mut Subtarget,
+                        ) -> anyhow::Result<()> {
+                            for (subtarget, providers) in
+                                providers.default_info().sub_targets().iter()
+                            {
+                                label.push(subtarget.to_string());
+                                writeln!(stdout, "{}", label)?;
+                                recursive_iterate(providers, stdout, label)?;
+                                label.pop();
+                            }
+                            Ok(())
+                        }
+                        recursive_iterate(
+                            v.require_compatible()?.provider_collection(),
+                            &mut stdout,
+                            &mut Subtarget::new(target),
+                        )?
                     }
-                    recursive_iterate(
-                        v.require_compatible()?.provider_collection(),
-                        &mut stdout,
-                        &mut Subtarget::new(target),
-                    )?
                 } else {
                     let mut label = Subtarget::new(target);
                     for sub in v
@@ -170,6 +196,14 @@ async fn server_execute_with_dice(
                 at_least_one_evaluation_error = true;
             }
         }
+    }
+
+    if json_format {
+        write!(
+            &mut stdout,
+            "{}",
+            serde_json::to_string_pretty(&subtargets_map)?
+        )?;
     }
 
     stdout.flush()?;
