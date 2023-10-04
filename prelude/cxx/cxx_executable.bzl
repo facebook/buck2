@@ -645,6 +645,9 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         default_output = materialize_external_debug_info,
     )]
 
+    for additional_subtarget, subtarget_providers in impl_params.additional.subtargets.items():
+        sub_targets[additional_subtarget] = subtarget_providers
+
     return CxxExecutableOutput(
         binary = binary.output,
         unstripped_binary = binary.unstripped_output,
