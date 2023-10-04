@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::fmt;
+use std::fmt::Display;
 use std::io::Write;
 
 use async_trait::async_trait;
@@ -18,6 +20,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
@@ -126,31 +129,34 @@ async fn server_execute_with_dice(
                     fn recursive_iterate(
                         providers: &FrozenProviderCollection,
                         stdout: &mut StdoutPartialOutput,
-                        buffer: &mut Vec<String>,
+                        label: &mut Subtarget,
                     ) -> anyhow::Result<()> {
                         for (subtarget, providers) in providers.default_info().sub_targets().iter()
                         {
-                            buffer.push(format!("[{subtarget}]"));
-                            writeln!(stdout, "{}", buffer.join(""))?;
-                            recursive_iterate(providers, stdout, buffer)?;
-                            buffer.pop();
+                            label.push(subtarget.to_string());
+                            writeln!(stdout, "{}", label)?;
+                            recursive_iterate(providers, stdout, label)?;
+                            label.pop();
                         }
                         Ok(())
                     }
                     recursive_iterate(
                         v.require_compatible()?.provider_collection(),
                         &mut stdout,
-                        &mut vec![target.unconfigured().to_string()],
+                        &mut Subtarget::new(target),
                     )?
                 } else {
-                    for subtarget in v
+                    let mut label = Subtarget::new(target);
+                    for sub in v
                         .require_compatible()?
                         .provider_collection()
                         .default_info()
                         .sub_targets()
                         .keys()
                     {
-                        writeln!(&mut stdout, "{}[{}]", target.unconfigured(), subtarget)?;
+                        label.push(sub.to_string());
+                        writeln!(&mut stdout, "{}", label)?;
+                        label.pop();
                     }
                 }
             }
@@ -158,7 +164,7 @@ async fn server_execute_with_dice(
                 write!(
                     &mut stderr,
                     "{}: failed:\n{}",
-                    target.unconfigured(),
+                    target,
                     indent("  ", &format!("{:?}", e))
                 )?;
                 at_least_one_evaluation_error = true;
@@ -174,6 +180,47 @@ async fn server_execute_with_dice(
             "Evaluation of at least one target provider failed"
         ))
     } else {
+        Ok(())
+    }
+}
+
+struct Subtarget {
+    target: ConfiguredProvidersLabel,
+    subtargets: Vec<String>,
+}
+
+impl Subtarget {
+    fn new(target: ConfiguredProvidersLabel) -> Self {
+        Self {
+            target,
+            subtargets: Vec::new(),
+        }
+    }
+
+    fn push(&mut self, subtarget: String) {
+        self.subtargets.push(subtarget);
+    }
+
+    fn pop(&mut self) {
+        self.subtargets.pop();
+    }
+}
+
+impl Display for Subtarget {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let subtargets = self
+            .subtargets
+            .iter()
+            .map(|s| format!("[{}]", s))
+            .collect::<Vec<_>>()
+            .join("");
+        write!(
+            f,
+            "{}{} ({})",
+            self.target.unconfigured(),
+            subtargets,
+            self.target.cfg()
+        )?;
         Ok(())
     }
 }
