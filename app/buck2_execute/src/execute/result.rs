@@ -100,6 +100,9 @@ pub struct CommandExecutionMetadata {
 
     /// How long it took to materialize the action's inputs.
     pub input_materialization_duration: Duration,
+
+    /// How long we spent hashing the action's inputs.
+    pub hashing_duration: Duration,
 }
 
 impl CommandExecutionMetadata {
@@ -111,6 +114,7 @@ impl CommandExecutionMetadata {
             start_time: Some(metadata.start_time.into()),
             input_materialization_duration: metadata.input_materialization_duration.try_into().ok(),
             execution_stats: metadata.execution_stats,
+            hashing_duration: metadata.hashing_duration.try_into().ok(),
         }
     }
 }
@@ -123,6 +127,7 @@ impl Default for CommandExecutionMetadata {
             start_time: SystemTime::now(),
             execution_stats: None,
             input_materialization_duration: Duration::default(),
+            hashing_duration: Duration::default(),
         }
     }
 }
@@ -327,6 +332,7 @@ mod tests {
                 cpu_instructions_kernel: Some(5),
             }),
             input_materialization_duration: Duration::from_secs(6),
+            hashing_duration: Duration::from_secs(7),
         };
         let std_streams = CommandStdStreams::Local {
             stdout: [65, 66, 67].to_vec(), // ABC
@@ -381,6 +387,10 @@ mod tests {
                 nanos: 0,
             }),
             execution_stats: Some(command_execution_stats),
+            hashing_duration: Some(Duration {
+                seconds: 7,
+                nanos: 0,
+            }),
         };
         let command_execution_details = buck2_data::CommandExecutionDetails {
             signed_exit_code: Some(456),

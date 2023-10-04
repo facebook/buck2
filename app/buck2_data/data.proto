@@ -1018,6 +1018,9 @@ message CommandExecutionMetadata {
   google.protobuf.Duration input_materialization_duration = 4;
 
   CommandExecutionStats execution_stats = 5;
+
+  /// How long it took to materialize the action's inputs.
+  google.protobuf.Duration hashing_duration = 6;
 }
 
 message CommandOutputsMissing {

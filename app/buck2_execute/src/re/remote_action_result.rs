@@ -213,6 +213,7 @@ fn timing_from_re_metadata(meta: &TExecutedActionMetadata) -> CommandExecutionMe
         start_time,
         execution_stats,
         input_materialization_duration: fetch_input_time,
+        hashing_duration: Duration::ZERO,
     }
 }
 

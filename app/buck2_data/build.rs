@@ -80,6 +80,10 @@ fn main() -> io::Result<()> {
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
         )
         .type_attribute(
+            "buck.data.CommandExecutionDetails.command",
+            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+        )
+        .type_attribute(
             "buck.data.DynamicLambdaStart.owner",
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
         )
@@ -228,6 +232,10 @@ fn main() -> io::Result<()> {
         .field_attribute(
             "buck.data.CommandExecutionMetadata.input_materialization_duration",
             "#[serde(rename = \"input_materialization_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+        )
+        .field_attribute(
+            "buck.data.CommandExecutionMetadata.hashing_duration",
+            "#[serde(rename = \"hashing_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
         )
         .boxed("RecordEvent.data.invocation_record")
         .boxed("SpanEndEvent.data.action_execution")
