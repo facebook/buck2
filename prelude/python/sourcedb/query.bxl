@@ -61,7 +61,7 @@ def _get_python_library_manifests_from_analysis_result(
     return python_source_db_info.manifests
 
 def _get_python_library_manifests_from_targets(
-        ctx: "bxl_ctx",
+        ctx: bxl.Context,
         targets: "target_set") -> list[PythonLibraryManifestsTSet]:
     return filter(None, [
         _get_python_library_manifests_from_analysis_result(analysis_result)
@@ -69,7 +69,7 @@ def _get_python_library_manifests_from_targets(
     ])
 
 def get_python_library_manifests_tset_from_targets(
-        ctx: "bxl_ctx",
+        ctx: bxl.Context,
         actions: AnalysisActions,
         root_targets: "target_set") -> PythonLibraryManifestsTSet:
     return actions.tset(
@@ -78,7 +78,7 @@ def get_python_library_manifests_tset_from_targets(
     )
 
 def get_python_library_manifests_tset_from_target_patterns(
-        ctx: "bxl_ctx",
+        ctx: bxl.Context,
         query: "cqueryctx",
         actions: AnalysisActions,
         target_patterns: typing.Any) -> PythonLibraryManifestsTSet:
@@ -86,7 +86,7 @@ def get_python_library_manifests_tset_from_target_patterns(
     return get_python_library_manifests_tset_from_targets(ctx, actions, root_targets)
 
 def do_query(
-        ctx: "bxl_ctx",
+        ctx: bxl.Context,
         query: "cqueryctx",
         actions: AnalysisActions,
         target_patterns: typing.Any) -> list[ConfiguredTargetLabel]:
@@ -102,7 +102,7 @@ def do_query(
         if manifest.src_types != None
     ]
 
-def _do_query_entry_point(ctx: "bxl_ctx") -> None:
+def _do_query_entry_point(ctx: bxl.Context) -> None:
     query = ctx.cquery()
     actions = ctx.bxl_actions().actions
     targets = do_query(ctx, query, actions, [query.eval(target) for target in ctx.cli_args.target])

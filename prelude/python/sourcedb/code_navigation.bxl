@@ -5,13 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load(":build.bxl", "do_build")
 load(":merge.bxl", "do_merge")
 load(":query.bxl", "do_query")
 
-def _build_entry_point(ctx: "bxl_ctx") -> None:
+def _build_entry_point(ctx: bxl.Context) -> None:
     bxl_actions = ctx.bxl_actions(
         exec_deps = "prelude//python/tools/sourcedb_merger:merge",
         target_platform = "prelude//platforms:default",

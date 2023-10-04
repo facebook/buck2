@@ -8,7 +8,7 @@
 # @starlark-rust: allow_string_literals_in_type_expr
 
 def do_merge(
-        ctx: "bxl_ctx",
+        ctx: bxl.Context,
         bxl_actions: "bxl_actions",
         built_sourcedbs: dict[TargetLabel, Artifact],
         command_category: str) -> "ensured_artifact":

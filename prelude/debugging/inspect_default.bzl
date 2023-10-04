@@ -12,7 +12,7 @@ load("@prelude//debugging/types.bzl", "ExecInfo", "ScriptSettings")
 
 # "inspect_default" is reused across "fdb.bxl" to provide a fallback default information
 # in case special handling for the rule type isn't implemented yet
-def inspect_default(_ctx: "bxl_ctx", _actions: AnalysisActions, _target: "target_node", settings: ScriptSettings) -> ExecInfo:
+def inspect_default(_ctx: bxl.Context, _actions: AnalysisActions, _target: "target_node", settings: ScriptSettings) -> ExecInfo:
     return ExecInfo(
         target_name = target_name(settings.target),
         target_info = create_target_info(settings.target),

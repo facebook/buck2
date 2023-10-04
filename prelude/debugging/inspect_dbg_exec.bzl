@@ -11,7 +11,7 @@ load("@prelude//debugging/common.bzl", "create_target_info", "target_name")
 load("@prelude//debugging/types.bzl", "JavaInfo", "ScriptSettings")
 load("@prelude//java/class_to_srcs.bzl", "JavaClassToSourceMapInfo")
 
-def inspect_dbg_exec(ctx: "bxl_ctx", actions: AnalysisActions, target: "target_node", settings: ScriptSettings):
+def inspect_dbg_exec(ctx: bxl.Context, actions: AnalysisActions, target: "target_node", settings: ScriptSettings):
     pointer_name = target_name(target)
     if not pointer_name.endswith("_fdb"):
         pointer_name = "{}_fdb".format(pointer_name)
