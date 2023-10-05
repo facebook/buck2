@@ -163,6 +163,9 @@ mod fbcode {
                         Some(Data::Command(ref mut command_end)) => {
                             Self::truncate_command_end(command_end, false);
                         }
+                        Some(Data::TestEnd(ref mut test_end)) => {
+                            Self::truncate_test_end(test_end);
+                        }
                         _ => {}
                     };
                 }
@@ -299,6 +302,23 @@ mod fbcode {
         fn truncate_test_result(test_result: &mut buck2_data::TestResult) {
             const TRUNCATED_DETAILS_LENGTH: usize = 512 * 1024; // 512Kb
             test_result.details = truncate(&test_result.details, TRUNCATED_DETAILS_LENGTH);
+        }
+
+        fn truncate_test_end(test_end: &mut buck2_data::TestRunEnd) {
+            const MAX_TEST_NAMES_BYTES: usize = 512 * 1024;
+            if let Some(ref mut suite) = test_end.suite {
+                let orig_len = suite.test_names.len();
+                let mut bytes: usize = 0;
+                for (index, test_name) in suite.test_names.iter().enumerate() {
+                    bytes += test_name.len();
+                    if bytes > MAX_TEST_NAMES_BYTES {
+                        suite.test_names.truncate(index);
+                        let warn = format!("<<Truncated (reported {} / {})>>", index, orig_len);
+                        suite.test_names.push(warn);
+                        break;
+                    }
+                }
+            }
         }
 
         fn truncate_target_patterns(target_patterns: &mut Vec<buck2_data::TargetPattern>) {
@@ -460,6 +480,13 @@ mod fbcode {
                 )),
                 ..Default::default()
             }
+        }
+
+        fn make_test_end(data: buck2_data::TestRunEnd) -> buck2_data::buck_event::Data {
+            buck2_data::buck_event::Data::SpanEnd(buck2_data::SpanEndEvent {
+                data: Some(buck2_data::span_end_event::Data::TestEnd(data)),
+                ..Default::default()
+            })
         }
 
         fn make_command_execution_with_stderr(stderr: String) -> buck2_data::CommandExecution {
@@ -768,6 +795,42 @@ mod fbcode {
 
             let mut event_data = make_invocation_record(record);
             let event_data_expected = event_data.clone();
+
+            ThriftScribeSink::smart_truncate_event(&mut event_data);
+
+            assert_eq!(event_data, event_data_expected);
+        }
+
+        #[test]
+        fn smart_truncate_test_end_long_test_names_truncated() {
+            let test_names = vec![
+                "0123456789".repeat(20 * 1024),
+                "0123456789".repeat(20 * 1024),
+                "0123456789".repeat(20 * 1024), // 600k in total; 88k-byte over
+            ];
+            let test_names_truncated = vec![
+                "0123456789".repeat(20 * 1024),
+                "0123456789".repeat(20 * 1024),
+                "<<Truncated (reported 2 / 3)>>".to_owned(),
+            ];
+
+            let test_end = buck2_data::TestRunEnd {
+                suite: Some(buck2_data::TestSuite {
+                    test_names,
+                    ..Default::default()
+                }),
+                ..Default::default()
+            };
+            let test_end_truncated = buck2_data::TestRunEnd {
+                suite: Some(buck2_data::TestSuite {
+                    test_names: test_names_truncated,
+                    ..Default::default()
+                }),
+                ..Default::default()
+            };
+
+            let mut event_data = make_test_end(test_end);
+            let event_data_expected = make_test_end(test_end_truncated);
 
             ThriftScribeSink::smart_truncate_event(&mut event_data);
 
