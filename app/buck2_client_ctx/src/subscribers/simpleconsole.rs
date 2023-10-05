@@ -156,13 +156,22 @@ fn eprint_command_details(
     Ok(())
 }
 
+fn strip_trailing_newline(stream_contents: &str) -> &str {
+    match stream_contents.strip_suffix('\n') {
+        None => stream_contents,
+        Some(s) => s.strip_suffix('\r').unwrap_or(s),
+    }
+}
+
 fn print_stream(stream_name: &str, stream_contents: &str) -> anyhow::Result<()> {
     if stream_contents.is_empty() {
         echo!("{stream_name}: <empty>")?;
         return Ok(());
     }
     echo!("{stream_name}:")?;
-    crate::eprintln!("{}", &stream_contents.trim())?;
+
+    let stream_contents = strip_trailing_newline(stream_contents);
+    crate::eprintln!("{}", &stream_contents)?;
     Ok(())
 }
 
@@ -670,5 +679,44 @@ mod tests {
         let sanitized = sanitize_output_colors(message.as_bytes());
 
         assert_eq!("Foo\tBar\nBaz\r\nQuz", sanitized);
+    }
+
+    mod strip_trailing_newline {
+        use super::*;
+
+        #[test]
+        fn strips_trailing_newline_character() {
+            let stream_contents = "test\n";
+            let res = strip_trailing_newline(stream_contents);
+            assert_eq!(res, "test");
+        }
+
+        #[test]
+        fn preserves_duplicate_newlines() {
+            let stream_contents = "test\n\n";
+            let res = strip_trailing_newline(stream_contents);
+            assert_eq!(res, "test\n");
+        }
+
+        #[test]
+        fn preserves_other_trailing_whitespace() {
+            let stream_contents = "test    \t";
+            let res = strip_trailing_newline(stream_contents);
+            assert_eq!(res, stream_contents);
+        }
+
+        #[test]
+        fn preserves_leading_whitespace() {
+            let stream_contents = "\n  test";
+            let res = strip_trailing_newline(stream_contents);
+            assert_eq!(res, stream_contents);
+        }
+
+        #[test]
+        fn correctly_handles_carriage_return() {
+            let stream_contents = "test\r\n";
+            let res = strip_trailing_newline(stream_contents);
+            assert_eq!(res, "test");
+        }
     }
 }
