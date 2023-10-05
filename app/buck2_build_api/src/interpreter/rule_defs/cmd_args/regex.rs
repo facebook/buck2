@@ -68,7 +68,7 @@ impl<'v> Serialize for CmdArgsRegex<'v> {
     {
         match self {
             Self::Str(s) => serializer.collect_str(s),
-            Self::Regex(r) => serializer.collect_str(r.as_ref().0.as_str()),
+            Self::Regex(r) => serializer.collect_str(r.as_ref().as_str()),
         }
     }
 }
@@ -80,7 +80,7 @@ impl Serialize for FrozenCmdArgsRegex {
     {
         match self {
             Self::Str(s) => serializer.collect_str(s),
-            Self::Regex(r) => serializer.collect_str(r.as_ref().0.as_str()),
+            Self::Regex(r) => serializer.collect_str(r.as_ref().as_str()),
         }
     }
 }

@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::borrow::Cow;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -24,11 +25,35 @@ use starlark::values::StarlarkValue;
 
 /// Wrapper for `regex::Regex`.
 #[derive(ProvidesStaticType, Debug, NoSerialize, StarlarkDocs, Allocative)]
-pub struct BuckStarlarkRegex(
+pub enum BuckStarlarkRegex {
     // TODO(nga): do not skip.
     //   And this is important because regex can have a lot of cache.
-    #[allocative(skip)] pub regex::Regex,
-);
+    Regular(#[allocative(skip)] regex::Regex),
+    Fancy(#[allocative(skip)] fancy_regex::Regex),
+}
+
+impl BuckStarlarkRegex {
+    pub fn as_str(&self) -> &str {
+        match self {
+            BuckStarlarkRegex::Regular(r) => r.as_str(),
+            BuckStarlarkRegex::Fancy(r) => r.as_str(),
+        }
+    }
+
+    fn is_match(&self, s: &str) -> anyhow::Result<bool> {
+        match self {
+            BuckStarlarkRegex::Regular(r) => Ok(r.is_match(s)),
+            BuckStarlarkRegex::Fancy(r) => Ok(r.is_match(s)?),
+        }
+    }
+
+    pub fn replace_all<'a>(&self, haystack: &'a str, rep: &str) -> Cow<'a, str> {
+        match self {
+            BuckStarlarkRegex::Regular(r) => r.replace_all(haystack, rep),
+            BuckStarlarkRegex::Fancy(r) => r.replace_all(haystack, rep),
+        }
+    }
+}
 
 #[starlark_value(type = "buck_regex")] // "regex" is used for "experimental_regex" in starlark-rust.
 impl<'v> StarlarkValue<'v> for BuckStarlarkRegex {
@@ -45,7 +70,7 @@ impl<'v> StarlarkValue<'v> for BuckStarlarkRegex {
 impl Display for BuckStarlarkRegex {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         // TODO(nga): should use starlark string repr.
-        write!(f, "regex({:?})", &self.0.as_str())
+        write!(f, "regex({:?})", self.as_str())
     }
 }
 
@@ -57,15 +82,21 @@ fn regex_methods(builder: &mut MethodsBuilder) {
         this: &BuckStarlarkRegex,
         #[starlark(require = pos)] str: &str,
     ) -> anyhow::Result<bool> {
-        Ok(this.0.is_match(str))
+        this.is_match(str)
     }
 }
 
 #[starlark_module]
 pub fn register_buck_regex(builder: &mut GlobalsBuilder) {
     #[starlark(as_type = BuckStarlarkRegex)]
-    fn regex<'v>(#[starlark(require = pos)] regex: &str) -> anyhow::Result<BuckStarlarkRegex> {
-        Ok(BuckStarlarkRegex(regex::Regex::new(regex)?))
+    fn regex<'v>(
+        #[starlark(require = pos)] regex: &str,
+        #[starlark(require = named, default = false)] fancy: bool,
+    ) -> anyhow::Result<BuckStarlarkRegex> {
+        match fancy {
+            false => Ok(BuckStarlarkRegex::Regular(regex::Regex::new(regex)?)),
+            true => Ok(BuckStarlarkRegex::Fancy(fancy_regex::Regex::new(regex)?)),
+        }
     }
 }
 
@@ -93,6 +124,17 @@ mod tests {
 str(regex("foo")) == 'regex("foo")'
 "#,
         );
+    }
+
+    #[test]
+    fn test_fancy() {
+        let mut a = Assert::new();
+        a.globals_add(register_buck_regex);
+
+        a.fail(r"regex('(?=x)')", "not supported");
+        a.pass(r"regex('(?=x)', fancy=True)");
+
+        a.is_true(r"regex('^(?=x)x$', fancy=True).match('x')");
     }
 
     #[test]

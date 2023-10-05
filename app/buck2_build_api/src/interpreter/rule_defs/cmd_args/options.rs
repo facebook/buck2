@@ -21,6 +21,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_interpreter::types::project_root::ProjectRoot;
+use buck2_interpreter::types::regex::BuckStarlarkRegex;
 use buck2_util::commas::commas;
 use buck2_util::thin_box::ThinBoxSlice;
 use derive_more::Display;
@@ -676,10 +677,10 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
                     let re = match &pattern {
                         CmdArgsRegex::Str(pattern) => {
                             // We checked that regex is valid in replace_regex(), so unwrap is safe.
-                            re = Regex::new(pattern.as_str()).unwrap();
+                            re = BuckStarlarkRegex::Regular(Regex::new(pattern.as_str()).unwrap());
                             &re
                         }
-                        CmdArgsRegex::Regex(regex) => &regex.0,
+                        CmdArgsRegex::Regex(regex) => regex,
                     };
                     match re.replace_all(&arg, replacement.as_str()) {
                         Cow::Borrowed(new) if new == arg => {}
