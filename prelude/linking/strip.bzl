@@ -35,12 +35,15 @@ def _anon_strip_debug_info_impl(ctx):
     return [DefaultInfo(), _InterfaceInfo(artifact = output)]
 
 # Anonymous wrapper for `extract_symbol_names`.
-_anon_strip_debug_info = rule(
+_anon_strip_debug_info = anon_rule(
     impl = _anon_strip_debug_info_impl,
     attrs = {
         "obj": attrs.source(),
         "out": attrs.string(),
         "_cxx_toolchain": attrs.dep(providers = [CxxToolchainInfo]),
+    },
+    artifact_promise_mappings = {
+        "strip_debug_info": lambda p: p[_InterfaceInfo].artifact,
     },
 )
 
@@ -50,18 +53,17 @@ def strip_debug_info(
         obj: Artifact,
         anonymous: bool = False) -> Artifact:
     if anonymous:
-        anon_providers = ctx.actions.anon_target(
+        strip_debug_info = ctx.actions.anon_target(
             _anon_strip_debug_info,
             dict(
                 _cxx_toolchain = ctx.attrs._cxx_toolchain,
                 out = out,
                 obj = obj,
             ),
-        )
-        return ctx.actions.artifact_promise(
-            anon_providers.map(lambda p: p[_InterfaceInfo].artifact),
-            short_path = out,
-        )
+            with_artifacts = True,
+        ).artifact("strip_debug_info")
+
+        return ctx.actions.assert_short_path(strip_debug_info, short_path = out)
     else:
         return _strip_debug_info(
             ctx = ctx,
