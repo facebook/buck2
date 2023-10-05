@@ -5,9 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# no support for "regex" type
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//android:android_providers.bzl",
@@ -1201,7 +1198,7 @@ def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict
             create_relinker_version_script(
                 ctx.actions,
                 output = relinker_version_script,
-                relinker_blocklist = [experimental_regex(s) for s in ctx.attrs.relinker_whitelist],
+                relinker_blocklist = [regex(s) for s in ctx.attrs.relinker_whitelist],
                 provided_symbols = provided_symbols_file,
                 needed_symbols = needed_symbols_for_this,
             )
@@ -1229,7 +1226,7 @@ def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict
 def extract_provided_symbols(ctx: AnalysisContext, toolchain: CxxToolchainInfo, lib: Artifact) -> Artifact:
     return extract_global_syms(ctx, toolchain, lib, "relinker_extract_provided_symbols")
 
-def create_relinker_version_script(actions: AnalysisActions, relinker_blocklist: list["regex"], output: Artifact, provided_symbols: Artifact, needed_symbols: list[Artifact]):
+def create_relinker_version_script(actions: AnalysisActions, relinker_blocklist: list[regex], output: Artifact, provided_symbols: Artifact, needed_symbols: list[Artifact]):
     def create_version_script(ctx, artifacts, outputs):
         all_needed_symbols = {}
         for symbols_file in needed_symbols:
