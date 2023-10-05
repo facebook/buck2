@@ -53,7 +53,7 @@ def cxx_by_language_ext(x: dict[typing.Any, typing.Any], ext: str) -> list[typin
     elif ext in (".asm", ".asmpp"):
         key_pp = "asm_with_cpp"
         key_compiler = "asm"
-    elif ext in (".h", ".hpp"):
+    elif ext in (".h", ".hpp", ".hh", ".hxx", ".h++"):
         fail("Not allowed to have header files in the `srcs` attribute - put them in `headers`")
     else:
         fail("Unexpected file extension: " + ext)
