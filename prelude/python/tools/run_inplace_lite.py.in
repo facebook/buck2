@@ -17,6 +17,7 @@ modules_dir = "<MODULES_DIR>"
 def __run():
     import sys
     import os
+    import site
     import time
 
     os.environ["PAR_LAUNCH_TIMESTAMP"] = str(time.time())
@@ -32,6 +33,8 @@ def __run():
 
     # Replace the working directory with location of the modules directory.
     sys.path[0] = os.path.join(dirpath, modules_dir)
+
+    site.execsitecustomize()
 
     from <MAIN_RUNNER_MODULE> import <MAIN_RUNNER_FUNCTION> as run_as_main
     run_as_main(main_module, main_function)
