@@ -152,9 +152,10 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
                 unstripped_binary = None
             expect(unstripped_binary != None, "Expect to save unstripped_binary when stripped is enabled")
             unstripped_binary = cxx_output.unstripped_binary
-            cxx_output.sub_targets["unstripped"] = [DefaultInfo(default_output = unstripped_binary)]
         else:
             unstripped_binary = cxx_output.binary
+        cxx_output.sub_targets["unstripped"] = [DefaultInfo(default_output = unstripped_binary)]
+
         dsym_artifact = get_apple_dsym(
             ctx = ctx,
             executable = unstripped_binary,
