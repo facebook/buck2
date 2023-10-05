@@ -682,8 +682,8 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
                         CmdArgsRegex::Regex(regex) => &regex.0,
                     };
                     match re.replace_all(&arg, replacement.as_str()) {
-                        Cow::Borrowed(_) => {}
-                        Cow::Owned(new) => arg = new,
+                        Cow::Borrowed(new) if new == arg => {}
+                        cow => arg = cow.into_owned(),
                     }
                 }
                 if let Some(format) = &self.opts.format {
