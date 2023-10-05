@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 def inject_test_run_info(ctx: AnalysisContext, test_info: ExternalRunnerTestInfo) -> list[Provider]:
     # Access this here so we get failures in CI if we forget to inject it
     # anywhere, regardless of whether an `env` is used.
@@ -28,7 +26,7 @@ def inject_test_run_info(ctx: AnalysisContext, test_info: ExternalRunnerTestInfo
 
     return [test_info, RunInfo(args = [inject_test_env, env_file, "--", test_info.command])]
 
-def _maybe_relativize_path(test_info: ExternalRunnerTestInfo, cell_root: "cell_root", arg: cmd_args) -> cmd_args:
+def _maybe_relativize_path(test_info: ExternalRunnerTestInfo, cell_root: CellRoot, arg: cmd_args) -> cmd_args:
     if test_info.run_from_project_root:
         return arg
     return arg.relative_to(cell_root)

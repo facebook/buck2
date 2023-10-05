@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load(
     "@prelude//java:java_toolchain.bzl",
     "JavaTestToolchainInfo",  # @unused Used as a type
@@ -109,7 +107,7 @@ def merge_class_to_source_map_from_jar(
         name: str,
         java_test_toolchain: JavaTestToolchainInfo,
         mapping: [Artifact, None] = None,
-        relative_to: ["cell_root", None] = None,
+        relative_to: [CellRoot, None] = None,
         # TODO(nga): I think this meant to be type, not default value.
         deps = [JavaClassToSourceMapInfo.type]) -> Artifact:
     output = actions.declare_output(name)
