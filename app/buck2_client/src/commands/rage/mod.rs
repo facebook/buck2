@@ -83,111 +83,6 @@ enum RageError {
     PastryCommandError(i32, String),
 }
 
-#[derive(Debug, PartialEq, Serialize)]
-struct RageSection<T> {
-    title: String,
-    status: CommandStatus<T>,
-}
-
-#[derive(Display)]
-pub enum MaterializerRageUploadData {
-    #[display(fmt = "state")]
-    State,
-    #[display(fmt = "fsck")]
-    Fsck,
-}
-
-#[derive(Debug, PartialEq, Serialize)]
-enum CommandStatus<T> {
-    Success { output: T },
-    Failure { error: String },
-    Timeout,
-    Skipped,
-}
-
-impl<'a, T> RageSection<T>
-where
-    T: std::fmt::Display + 'a,
-{
-    fn get<Fut>(
-        title: &str,
-        timeout: Duration,
-        command: impl FnOnce() -> Fut,
-    ) -> LocalBoxFuture<'a, Self>
-    where
-        Fut: Future<Output = anyhow::Result<T>> + 'a,
-    {
-        let fut = command();
-        let title = title.to_owned();
-        async move {
-            let status = match tokio::time::timeout(timeout, fut).await {
-                Err(_) => CommandStatus::Timeout,
-                Ok(Ok(output)) => CommandStatus::Success { output },
-                Ok(Err(e)) => CommandStatus::Failure {
-                    error: format!("Error: {:?}", e),
-                },
-            };
-            RageSection { title, status }
-        }
-        .boxed_local()
-    }
-
-    fn get_skippable<Fut>(
-        title: &str,
-        timeout: Duration,
-        command: Option<impl FnOnce() -> Fut>,
-    ) -> LocalBoxFuture<'a, Self>
-    where
-        Fut: Future<Output = anyhow::Result<T>> + 'a,
-    {
-        if let Some(command) = command {
-            Self::get(title, timeout, command)
-        } else {
-            let status = CommandStatus::Skipped;
-            let title = title.to_owned();
-            async { RageSection { title, status } }.boxed_local()
-        }
-    }
-
-    fn output(&self) -> String {
-        match &self.status {
-            CommandStatus::Success { output } => output.to_string(),
-            CommandStatus::Failure { error } => error.to_owned(),
-            CommandStatus::Timeout {} => "Timeout".to_owned(),
-            CommandStatus::Skipped {} => "Skipped".to_owned(),
-        }
-    }
-
-    fn get_field<D>(&self, extract_field: impl FnOnce(&T) -> Option<D>) -> Option<D> {
-        match &self.status {
-            CommandStatus::Success { output } => extract_field(output),
-            _ => None,
-        }
-    }
-
-    fn pretty_print_section(
-        &self,
-        f: &mut fmt::Formatter,
-        content: String,
-    ) -> Result<(), std::fmt::Error> {
-        let content_divider = "-".repeat(30);
-        write!(
-            f,
-            "{title}\n{content_divider}\n{content}\n\n\n",
-            title = self.title
-        )
-    }
-}
-
-impl<T> fmt::Display for RageSection<T>
-where
-    T: std::fmt::Display,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.pretty_print_section(f, self.output())
-    }
-}
-
 #[derive(Debug, clap::Parser)]
 #[clap(
     name = "rage",
@@ -480,6 +375,111 @@ impl RageCommand {
 
     pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
         argv.no_need_to_sanitize()
+    }
+}
+
+#[derive(Debug, PartialEq, Serialize)]
+struct RageSection<T> {
+    title: String,
+    status: CommandStatus<T>,
+}
+
+#[derive(Display)]
+pub enum MaterializerRageUploadData {
+    #[display(fmt = "state")]
+    State,
+    #[display(fmt = "fsck")]
+    Fsck,
+}
+
+#[derive(Debug, PartialEq, Serialize)]
+enum CommandStatus<T> {
+    Success { output: T },
+    Failure { error: String },
+    Timeout,
+    Skipped,
+}
+
+impl<'a, T> RageSection<T>
+where
+    T: std::fmt::Display + 'a,
+{
+    fn get<Fut>(
+        title: &str,
+        timeout: Duration,
+        command: impl FnOnce() -> Fut,
+    ) -> LocalBoxFuture<'a, Self>
+    where
+        Fut: Future<Output = anyhow::Result<T>> + 'a,
+    {
+        let fut = command();
+        let title = title.to_owned();
+        async move {
+            let status = match tokio::time::timeout(timeout, fut).await {
+                Err(_) => CommandStatus::Timeout,
+                Ok(Ok(output)) => CommandStatus::Success { output },
+                Ok(Err(e)) => CommandStatus::Failure {
+                    error: format!("Error: {:?}", e),
+                },
+            };
+            RageSection { title, status }
+        }
+        .boxed_local()
+    }
+
+    fn get_skippable<Fut>(
+        title: &str,
+        timeout: Duration,
+        command: Option<impl FnOnce() -> Fut>,
+    ) -> LocalBoxFuture<'a, Self>
+    where
+        Fut: Future<Output = anyhow::Result<T>> + 'a,
+    {
+        if let Some(command) = command {
+            Self::get(title, timeout, command)
+        } else {
+            let status = CommandStatus::Skipped;
+            let title = title.to_owned();
+            async { RageSection { title, status } }.boxed_local()
+        }
+    }
+
+    fn output(&self) -> String {
+        match &self.status {
+            CommandStatus::Success { output } => output.to_string(),
+            CommandStatus::Failure { error } => error.to_owned(),
+            CommandStatus::Timeout {} => "Timeout".to_owned(),
+            CommandStatus::Skipped {} => "Skipped".to_owned(),
+        }
+    }
+
+    fn get_field<D>(&self, extract_field: impl FnOnce(&T) -> Option<D>) -> Option<D> {
+        match &self.status {
+            CommandStatus::Success { output } => extract_field(output),
+            _ => None,
+        }
+    }
+
+    fn pretty_print_section(
+        &self,
+        f: &mut fmt::Formatter,
+        content: String,
+    ) -> Result<(), std::fmt::Error> {
+        let content_divider = "-".repeat(30);
+        write!(
+            f,
+            "{title}\n{content_divider}\n{content}\n\n\n",
+            title = self.title
+        )
+    }
+}
+
+impl<T> fmt::Display for RageSection<T>
+where
+    T: std::fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.pretty_print_section(f, self.output())
     }
 }
 
