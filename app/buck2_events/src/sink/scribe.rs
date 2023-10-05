@@ -407,6 +407,8 @@ mod fbcode {
                     Some(Data::Load(..)) => true,
                     Some(Data::CacheUpload(..)) => true,
                     Some(Data::Materialization(..)) => true,
+                    Some(Data::TestDiscovery(..)) => true,
+                    Some(Data::TestEnd(..)) => true,
                     None => false,
                     _ => false,
                 }
