@@ -312,6 +312,14 @@ _AnonLinkInfo = provider(fields = {
     "result": provider_field(typing.Any, default = None),  # CxxLinkResult
 })
 
+# dwp and split_debug_output are optional outputs, but promise artifacts require an actual artifact
+# when being resolved. Let's add some placeholders here so that we always generate an artifact when
+# applying the map functions.
+_AnonLinkInfoPlaceholder = provider(fields = {
+    "dwp": provider_field(typing.Any),
+    "split_debug_output": provider_field(typing.Any),
+})
+
 def _anon_link_impl(ctx):
     (output, result_type, opts) = deserialize_anon_attrs(ctx.actions, ctx.label, ctx.attrs)
 
@@ -322,12 +330,31 @@ def _anon_link_impl(ctx):
         opts = opts,
     )
 
-    return [DefaultInfo(), _AnonLinkInfo(result = link_result)]
+    dwp_placeholder = ctx.actions.write("placeholder_dwp", "")
+    split_debug_output_placeholder = ctx.actions.write("placeholder_split_debug_output", "")
 
-_anon_link_rule = rule(
+    return [
+        DefaultInfo(),
+        _AnonLinkInfo(result = link_result),
+        _AnonLinkInfoPlaceholder(dwp = dwp_placeholder, split_debug_output = split_debug_output_placeholder),
+    ]
+
+_anon_link_rule = anon_rule(
     impl = _anon_link_impl,
     attrs = ANON_ATTRS,
+    artifact_promise_mappings = {
+        "dwp": lambda p: _get_link_artifact(p, "dwp"),
+        "output": lambda p: p[_AnonLinkInfo].result.linked_object.output,
+        "split_debug_output": lambda p: _get_link_artifact(p, "split_debug_output"),
+    },
 )
+
+def _get_link_artifact(p: ProviderCollection, name: str) -> Artifact:
+    linked_object = p[_AnonLinkInfo].result.linked_object
+    if getattr(linked_object, name) != None:
+        return getattr(linked_object, name)
+    else:
+        return getattr(p[_AnonLinkInfoPlaceholder], name)
 
 def _anon_cxx_link(
         ctx: AnalysisContext,
@@ -337,7 +364,7 @@ def _anon_cxx_link(
     if opts.cxx_toolchain:
         fail("anon link requires getting toolchain from ctx.attrs._cxx_toolchain")
     cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
-    anon_providers = ctx.actions.anon_target(
+    anon_link_target = ctx.actions.anon_target(
         _anon_link_rule,
         dict(
             _cxx_toolchain = ctx.attrs._cxx_toolchain,
@@ -347,24 +374,19 @@ def _anon_cxx_link(
                 opts = opts,
             )
         ),
-    )
-
-    output = ctx.actions.artifact_promise(
-        anon_providers.map(lambda p: p[_AnonLinkInfo].result.linked_object.output),
-        short_path = output,
+        with_artifacts = True,
     )
 
     dwp = None
     if dwp_available(cxx_toolchain):
-        dwp = ctx.actions.artifact_promise(
-            anon_providers.map(lambda p: p[_AnonLinkInfo].result.linked_object.dwp),
-        )
+        dwp = anon_link_target.artifact("dwp")
 
     split_debug_output = None
     if generates_split_debug(cxx_toolchain):
-        split_debug_output = ctx.actions.artifact_promise(
-            anon_providers.map(lambda p: p[_AnonLinkInfo].result.linked_object.split_debug_output),
-        )
+        split_debug_output = anon_link_target.artifact("split_debug_output")
+
+    output = ctx.actions.assert_short_path(anon_link_target.artifact("output"), short_path = output)
+
     external_debug_info = link_external_debug_info(
         ctx = ctx,
         links = opts.links,
