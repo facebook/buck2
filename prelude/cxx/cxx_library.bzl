@@ -806,10 +806,6 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                 pass
 
             default_output = unknown()
-        if default_output != None and default_output.unstripped != None:
-            sub_targets["unstripped"] = [DefaultInfo(
-                default_outputs = [default_output.unstripped],
-            )]
         default_info = DefaultInfo(
             default_output = default_output.default if default_output != None else None,
             other_outputs = default_output.other if default_output != None else [],
@@ -1028,10 +1024,11 @@ def _form_library_outputs(
                     link_cmd_debug_output_file = make_link_command_debug_output_json_info(ctx, [link_cmd_debug_output])
                     providers.append(LinkCommandDebugOutputInfo(debug_outputs = [link_cmd_debug_output]))
 
+                unstripped = shlib.unstripped_output
                 output = CxxLibraryOutput(
                     output_style = LibOutputStyle("shared_lib"),
                     default = shlib.output,
-                    unstripped = shlib.unstripped_output,
+                    unstripped = unstripped,
                     object_files = compiled_srcs.pic.objects,
                     external_debug_info = shlib.external_debug_info,
                     dwp = shlib.dwp,
@@ -1045,6 +1042,9 @@ def _form_library_outputs(
                         )],
                         "linker.filelist": [DefaultInfo(
                             default_outputs = filter(None, [shlib.linker_filelist]),
+                        )],
+                        "unstripped": [DefaultInfo(
+                            default_output = unstripped,
                         )],
                     },
                     pdb = shlib.pdb,
