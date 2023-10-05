@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::unconfigured::TargetNode;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
@@ -15,6 +17,7 @@ use crate::bxl::starlark_defs::build_result::StarlarkBxlBuildResult;
 use crate::bxl::starlark_defs::context::actions::BxlActions;
 use crate::bxl::starlark_defs::context::fs::BxlFilesystem;
 use crate::bxl::starlark_defs::context::BxlContext;
+use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 
 #[starlark_module]
 pub(crate) fn register_bxl_type_names(globals: &mut GlobalsBuilder) {
@@ -31,4 +34,8 @@ pub(crate) fn register_bxl_type_names_in_bxl_namespace(globals: &mut GlobalsBuil
     const Actions: StarlarkValueAsType<BxlActions> = StarlarkValueAsType::new();
     const Filesystem: StarlarkValueAsType<BxlFilesystem> = StarlarkValueAsType::new();
     const BuildResult: StarlarkValueAsType<StarlarkBxlBuildResult> = StarlarkValueAsType::new();
+    const TargetSet: StarlarkValueAsType<StarlarkTargetSet<TargetNode>> =
+        StarlarkValueAsType::new();
+    const ConfiguredTargetSet: StarlarkValueAsType<StarlarkTargetSet<ConfiguredTargetNode>> =
+        StarlarkValueAsType::new();
 }
