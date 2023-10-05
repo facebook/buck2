@@ -282,8 +282,9 @@ def is_pdb_generated(
     return False
 
 def get_pdb_providers(
-        pdb: Artifact):
-    return [DefaultInfo(default_output = pdb)]
+        pdb: Artifact,
+        binary: Artifact):
+    return [DefaultInfo(default_output = pdb, other_outputs = [binary])]
 
 DUMPBIN_SUB_TARGET = "dumpbin"
 

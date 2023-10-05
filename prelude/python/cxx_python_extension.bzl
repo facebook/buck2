@@ -129,7 +129,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
 
     sub_targets = cxx_library_info.sub_targets
     if extension.pdb:
-        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(extension.pdb)
+        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = extension.pdb, binary = extension.output)
 
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     dumpbin_toolchain_path = cxx_toolchain.dumpbin_toolchain_path

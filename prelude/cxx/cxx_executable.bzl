@@ -594,7 +594,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
 
     if binary.pdb:
         # A `pdb` sub-target which generates the `.pdb` file for this binary.
-        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(binary.pdb)
+        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = binary.pdb, binary = binary.output)
 
     if toolchain_info.dumpbin_toolchain_path:
         sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, binary.output, toolchain_info.dumpbin_toolchain_path)

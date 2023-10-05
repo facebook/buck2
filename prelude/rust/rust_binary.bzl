@@ -314,7 +314,7 @@ def _rust_binary_common(
         ]
 
     if pdb:
-        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb)
+        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = pdb, binary = compiled_outputs.link)
 
     dupmbin_toolchain = compile_ctx.cxx_toolchain_info.dumpbin_toolchain_path
     if dupmbin_toolchain:

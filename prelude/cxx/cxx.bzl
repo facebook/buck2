@@ -158,7 +158,7 @@ def _get_shared_link_style_sub_targets_and_providers(
     if output.dwp != None:
         sub_targets["dwp"] = [DefaultInfo(default_output = output.dwp)]
     if output.pdb != None:
-        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(output.pdb)
+        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = output.pdb, binary = output.default)
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     if cxx_toolchain.dumpbin_toolchain_path != None:
         sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, output.default, cxx_toolchain.dumpbin_toolchain_path)
@@ -477,7 +477,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     sub_targets["soname-lib"] = [DefaultInfo(default_output = soname_lib)]
 
                     if shared_lib.pdb:
-                        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(shared_lib.pdb)
+                        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = shared_lib.pdb, binary = shared_lib.output)
                     dumpbin_toolchain_path = get_cxx_toolchain_info(ctx).dumpbin_toolchain_path
                     if dumpbin_toolchain_path != None:
                         sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, shared_lib.output, dumpbin_toolchain_path)
