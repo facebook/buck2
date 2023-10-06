@@ -555,7 +555,7 @@ pub(crate) fn init_anon_target_registry_new() {
         Box::new(AnonTargetsRegistry {
             execution_platform,
             promises: AnonPromises::default(),
-            promise_artifact_registry: PromiseArtifactRegistry::new(None),
+            promise_artifact_registry: PromiseArtifactRegistry::new(),
         })
     });
 }
@@ -604,13 +604,9 @@ impl<'v> AnonTargetsRegistry<'v> {
         id: usize,
     ) -> anyhow::Result<PromiseArtifact> {
         let anon_target_key = BaseDeferredKey::AnonTarget(anon_target_key.0.dupe());
-        self.promise_artifact_registry.register(
-            promise,
-            location,
-            None,
-            Some(anon_target_key),
-            Some(id),
-        )
+        let id = PromiseArtifactId::new(anon_target_key, id);
+        self.promise_artifact_registry
+            .register(promise, location, id)
     }
 }
 
@@ -623,8 +619,7 @@ impl<'v> AnonTargetsRegistryDyn<'v> for AnonTargetsRegistry<'v> {
         &self,
         short_paths: &HashMap<PromiseArtifactId, ForwardRelativePathBuf>,
     ) -> anyhow::Result<()> {
-        self.promise_artifact_registry
-            .resolve_all(short_paths, false)
+        self.promise_artifact_registry.resolve_all(short_paths)
     }
 
     fn take_promises(&mut self) -> Option<Box<dyn AnonPromisesDyn<'v>>> {

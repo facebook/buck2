@@ -13,8 +13,6 @@ use std::sync::Arc;
 use std::sync::OnceLock;
 
 use allocative::Allocative;
-use anyhow::Context;
-use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use dupe::Dupe;
@@ -32,23 +30,20 @@ use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 struct PromiseArtifactEntry {
     location: Option<FileSpan>,
     artifact: PromiseArtifact,
-    short_path: Option<ForwardRelativePathBuf>,
 }
 
-/// The PromiseArtifactRegistry stores promises registered with ctx.actions.artifact_promise() and their
+/// The PromiseArtifactRegistry stores promises registered with `artifact_promise_mappings` in `anon_rule()`, and their
 /// corresponding internal PromiseArtifact. At the end of analysis (after promises have been resolved),
 /// all PromiseArtifact will be updated to have the resolved artifact from the corresponding starlark promise.
 #[derive(Debug, Trace, Allocative)]
 pub struct PromiseArtifactRegistry<'v> {
     promises: Vec<ValueTyped<'v, StarlarkPromise<'v>>>,
     artifacts: Vec<PromiseArtifactEntry>,
-    // TODO(@wendyy) - owner can be deprecated after migration to new artifact promise API.
-    owner: Option<BaseDeferredKey>,
 }
+
 impl<'v> PromiseArtifactRegistry<'v> {
-    pub fn new(owner: Option<BaseDeferredKey>) -> Self {
+    pub fn new() -> Self {
         Self {
-            owner,
             promises: Vec::new(),
             artifacts: Vec::new(),
         }
@@ -57,23 +52,14 @@ impl<'v> PromiseArtifactRegistry<'v> {
     pub fn resolve_all(
         &self,
         short_paths: &HashMap<PromiseArtifactId, ForwardRelativePathBuf>,
-        is_legacy: bool,
     ) -> anyhow::Result<()> {
         for (promise, artifact_entry) in std::iter::zip(&self.promises, &self.artifacts) {
             match promise.get() {
                 Some(v) => match ValueAsArtifactLike::unpack_value(v) {
                     Some(v) => {
-                        // Temporary - will use the passed in short_paths moving forward
-                        let short_path = if let Some(short_path) =
-                            short_paths.get(artifact_entry.artifact.id())
-                        {
-                            Some(short_path.clone())
-                        } else {
-                            artifact_entry.short_path.clone()
-                        };
-                        artifact_entry
-                            .artifact
-                            .resolve(v.0, &short_path, is_legacy)?;
+                        let short_path = short_paths.get(artifact_entry.artifact.id()).cloned();
+
+                        artifact_entry.artifact.resolve(v.0, &short_path)?;
                     }
                     None => {
                         return Err(PromiseArtifactResolveError::NotAnArtifact(
@@ -99,31 +85,14 @@ impl<'v> PromiseArtifactRegistry<'v> {
         &mut self,
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         location: Option<FileSpan>,
-        // TODO(@wendyy) - will eventually be deprecated for new promsie artifact API.
-        short_path: Option<ForwardRelativePathBuf>,
-        // TODO(@wendyy) - These two are for new promise artifact API. Will eventually not be optional.
-        owner: Option<BaseDeferredKey>,
-        id: Option<usize>,
+        id: PromiseArtifactId,
     ) -> anyhow::Result<PromiseArtifact> {
-        let key = match owner {
-            Some(owner) => owner,
-            None => self.owner.dupe().context(anyhow::anyhow!(
-                "owner should either come from anon targets, or consumer's analysis registry"
-            ))?,
-        };
-        let id = if let Some(id) = id {
-            id
-        } else {
-            self.promises.len()
-        };
-        let id = PromiseArtifactId::new(key, id);
         let artifact = PromiseArtifact::new(Arc::new(OnceLock::new()), Arc::new(id));
 
         self.promises.push(promise);
         self.artifacts.push(PromiseArtifactEntry {
             location,
             artifact: artifact.dupe(),
-            short_path,
         });
         Ok(artifact)
     }

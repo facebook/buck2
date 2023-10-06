@@ -45,10 +45,6 @@ pub(crate) enum PromiseArtifactResolveError {
     )]
     SourceArtifact,
     #[error(
-        "artifact_promise() was called with `short_path = {0}`, but it did not match the artifact's actual short path: `{1}`"
-    )]
-    ShortPathMismatchLegacy(ForwardRelativePathBuf, String),
-    #[error(
         "assert_short_path() was called with `short_path = {0}`, but it did not match the artifact's actual short path: `{1}`"
     )]
     ShortPathMismatch(ForwardRelativePathBuf, String),
@@ -78,7 +74,7 @@ pub struct PromiseArtifactId {
 }
 
 impl PromiseArtifactId {
-    pub(crate) fn new(owner: BaseDeferredKey, id: usize) -> PromiseArtifactId {
+    pub fn new(owner: BaseDeferredKey, id: usize) -> PromiseArtifactId {
         Self { owner, id }
     }
 }
@@ -107,8 +103,6 @@ impl PromiseArtifact {
         &self,
         artifact: &dyn StarlarkArtifactLike,
         expected_short_path: &Option<ForwardRelativePathBuf>,
-        // temporary - which short path error to emit.
-        is_legacy: bool,
     ) -> anyhow::Result<()> {
         if let Some(v) = artifact.get_associated_artifacts() {
             if !v.is_empty() {
@@ -124,21 +118,12 @@ impl PromiseArtifact {
         if let Some(expected_short_path) = expected_short_path {
             bound.get_path().with_short_path(|artifact_short_path| {
                 if artifact_short_path != expected_short_path {
-                    if is_legacy {
-                        Err(anyhow::Error::new(
-                            PromiseArtifactResolveError::ShortPathMismatchLegacy(
-                                expected_short_path.clone(),
-                                artifact_short_path.to_string(),
-                            ),
-                        ))
-                    } else {
-                        Err(anyhow::Error::new(
-                            PromiseArtifactResolveError::ShortPathMismatch(
-                                expected_short_path.clone(),
-                                artifact_short_path.to_string(),
-                            ),
-                        ))
-                    }
+                    Err(anyhow::Error::new(
+                        PromiseArtifactResolveError::ShortPathMismatch(
+                            expected_short_path.clone(),
+                            artifact_short_path.to_string(),
+                        ),
+                    ))
                 } else {
                     Ok(())
                 }

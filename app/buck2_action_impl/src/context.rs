@@ -20,7 +20,6 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::V
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkOutputOrDeclaredArtifact;
-use buck2_build_api::interpreter::rule_defs::artifact::StarlarkPromiseArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -44,7 +43,6 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::materialize::http::Checksum;
-use buck2_interpreter::starlark_promise::StarlarkPromise;
 use chrono::TimeZone;
 use chrono::Utc;
 use dupe::Dupe;
@@ -67,7 +65,6 @@ use starlark::values::none::NoneType;
 use starlark::values::typing::StarlarkIter;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
-use starlark::values::StringValue;
 use starlark::values::Value;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
@@ -988,35 +985,6 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     fn artifact_tag<'v>(this: &AnalysisActions<'v>) -> anyhow::Result<ArtifactTag> {
         let _ = this;
         Ok(ArtifactTag::new())
-    }
-
-    /// Converts a promise to an artifact. If the promise later resolves to a non-artifact, it is an error. Takes
-    /// in an optional named parameter `short_path` that can be used to access the short path before the promise is
-    /// resolved. It will be validated that the provided short path matches the built artifact's short path after
-    /// analysis happens and the promise has been resolved.
-    ///
-    /// For more details see https://buck2.build/docs/rule_authors/anon_targets/.
-    fn artifact_promise<'v>(
-        this: &AnalysisActions<'v>,
-        promise: ValueTyped<'v, StarlarkPromise<'v>>,
-        #[starlark(require = named, default = NoneOr::None)] short_path: NoneOr<StringValue<'v>>,
-        eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<StarlarkPromiseArtifact> {
-        let short_path = if let Some(short_path) = short_path.into_option() {
-            Some(ForwardRelativePathBuf::new(short_path.as_str().to_owned())?)
-        } else {
-            None
-        };
-
-        let declaration_location = eval.call_stack_top_location();
-        let mut this = this.state();
-        let artifact = this.register_artifact_promise(
-            promise,
-            declaration_location.clone(),
-            short_path.clone(),
-        )?;
-        let res = StarlarkPromiseArtifact::new(declaration_location, artifact, short_path);
-        Ok(res)
     }
 
     /// Obtain this daemon's digest configuration. This allows rules to discover what digests the

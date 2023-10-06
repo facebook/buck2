@@ -23,7 +23,6 @@ use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_execute::execute::request::OutputType;
-use buck2_interpreter::starlark_promise::StarlarkPromise;
 use derivative::Derivative;
 use dupe::Dupe;
 use indexmap::IndexSet;
@@ -43,8 +42,6 @@ use crate::actions::UnregisteredAction;
 use crate::analysis::anon_promises_dyn::AnonPromisesDyn;
 use crate::analysis::anon_targets_registry::AnonTargetsRegistryDyn;
 use crate::analysis::anon_targets_registry::ANON_TARGET_REGISTRY_NEW;
-use crate::analysis::promise_artifacts::PromiseArtifactRegistry;
-use crate::artifact_groups::promise::PromiseArtifact;
 use crate::artifact_groups::promise::PromiseArtifactId;
 use crate::artifact_groups::registry::ArtifactGroupRegistry;
 use crate::artifact_groups::ArtifactGroup;
@@ -68,7 +65,6 @@ pub struct AnalysisRegistry<'v> {
     #[derivative(Debug = "ignore")]
     dynamic: DynamicRegistry,
     pub anon_targets: Box<dyn AnonTargetsRegistryDyn<'v>>,
-    artifact_promises: PromiseArtifactRegistry<'v>,
     analysis_value_storage: AnalysisValueStorage<'v>,
     pub short_path_assertions: HashMap<PromiseArtifactId, ForwardRelativePathBuf>,
 }
@@ -103,7 +99,6 @@ impl<'v> AnalysisRegistry<'v> {
             dynamic: DynamicRegistry::new(owner.dupe()),
             anon_targets: (ANON_TARGET_REGISTRY_NEW.get()?)(PhantomData, execution_platform),
             analysis_value_storage: AnalysisValueStorage::new(),
-            artifact_promises: PromiseArtifactRegistry::new(Some(owner)),
             short_path_assertions: HashMap::new(),
         })
     }
@@ -283,17 +278,6 @@ impl<'v> AnalysisRegistry<'v> {
         self.anon_targets.assert_no_promises()
     }
 
-    // TODO(@wendyy) - deprecate after artifact promise API is implemented
-    pub fn register_artifact_promise(
-        &mut self,
-        promise: ValueTyped<'v, StarlarkPromise<'v>>,
-        location: Option<FileSpan>,
-        option: Option<ForwardRelativePathBuf>,
-    ) -> anyhow::Result<PromiseArtifact> {
-        self.artifact_promises
-            .register(promise, location, option, None, None)
-    }
-
     /// You MUST pass the same module to both the first function and the second one.
     /// It requires both to get the lifetimes to line up.
     pub fn finalize(
@@ -309,11 +293,8 @@ impl<'v> AnalysisRegistry<'v> {
             artifact_groups,
             anon_targets: _,
             analysis_value_storage,
-            artifact_promises,
             short_path_assertions: _,
         } = self;
-        // TODO(@wendyy) - this will be removed. Pass in an empty hashmap for assertions.
-        artifact_promises.resolve_all(&HashMap::new(), true)?;
 
         analysis_value_storage.write_to_module(env);
         Ok(move |env: Module| {
