@@ -7,11 +7,13 @@
  * of this source tree.
  */
 
+use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use starlark::values::Heap;
 use starlark::values::Value;
 
+use super::nodes::action::StarlarkActionQueryNode;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 
@@ -29,5 +31,11 @@ impl AllocNode for TargetNode {
 impl AllocNode for ConfiguredTargetNode {
     fn alloc(self, heap: &Heap) -> Value {
         heap.alloc(StarlarkConfiguredTargetNode(self))
+    }
+}
+
+impl AllocNode for ActionQueryNode {
+    fn alloc(self, heap: &Heap) -> Value {
+        heap.alloc(StarlarkActionQueryNode(self))
     }
 }
