@@ -35,7 +35,7 @@ GoToolchainInfo = provider(
     },
 )
 
-def get_toolchain_cmd_args(toolchain: GoToolchainInfo, go_root = True) -> cmd_args:
+def get_toolchain_cmd_args(toolchain: GoToolchainInfo, go_root = True, force_disable_cgo = False) -> cmd_args:
     cmd = cmd_args("env")
     if toolchain.env_go_arch != None:
         cmd.add("GOARCH={}".format(toolchain.env_go_arch))
@@ -46,10 +46,13 @@ def get_toolchain_cmd_args(toolchain: GoToolchainInfo, go_root = True) -> cmd_ar
     if go_root and toolchain.env_go_root != None:
         cmd.add(cmd_args(toolchain.env_go_root, format = "GOROOT={}"))
 
-    # CGO is enabled by default for native compilation, but we need to set it
-    # explicitly for cross-builds:
-    # https://go-review.googlesource.com/c/go/+/12603/2/src/cmd/cgo/doc.go
-    if toolchain.cgo != None:
-        cmd.add("CGO_ENABLED=1")
+    if force_disable_cgo:
+        cmd.add("CGO_ENABLED=0")
+    else:
+        # CGO is enabled by default for native compilation, but we need to set it
+        # explicitly for cross-builds:
+        # https://go-review.googlesource.com/c/go/+/12603/2/src/cmd/cgo/doc.go
+        if toolchain.cgo != None:
+            cmd.add("CGO_ENABLED=1")
 
     return cmd

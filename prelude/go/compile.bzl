@@ -37,7 +37,7 @@ def _out_root(shared: bool = False):
 def get_inherited_compile_pkgs(deps: list[Dependency]) -> dict[str, GoPkg]:
     return merge_pkgs([d[GoPkgCompileInfo].pkgs for d in deps if GoPkgCompileInfo in d])
 
-def get_filtered_srcs(ctx: AnalysisContext, srcs: list[Artifact], tests: bool = False) -> cmd_args:
+def get_filtered_srcs(ctx: AnalysisContext, srcs: list[Artifact], tests: bool = False, force_disable_cgo: bool = False) -> cmd_args:
     """
     Filter the input sources based on build pragma
     """
@@ -51,7 +51,7 @@ def get_filtered_srcs(ctx: AnalysisContext, srcs: list[Artifact], tests: bool = 
         "__srcs__",
         {src.short_path: src for src in srcs},
     )
-    filter_cmd = get_toolchain_cmd_args(go_toolchain, go_root = True)
+    filter_cmd = get_toolchain_cmd_args(go_toolchain, go_root = True, force_disable_cgo = force_disable_cgo)
     filter_cmd.add(go_toolchain.filter_srcs[RunInfo])
     filter_cmd.add(cmd_args(go_toolchain.go, format = "--go={}"))
     if tests:
