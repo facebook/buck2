@@ -46,7 +46,12 @@ use crate::analysis::AnalysisResult;
 use crate::artifact_groups::TransitiveSetProjectionKey;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 
-#[derive(Debug, derive_more::Display, RefCast, Serialize)]
+#[derive(Debug, derive_more::Display, RefCast, Serialize, Allocative)]
+#[repr(transparent)]
+#[serde(transparent)]
+pub struct OwnedActionAttr(pub String);
+
+#[derive(Debug, derive_more::Display, RefCast, Serialize, Allocative)]
 #[repr(transparent)]
 #[serde(transparent)]
 pub struct ActionAttr(pub(crate) str);
@@ -54,6 +59,14 @@ pub struct ActionAttr(pub(crate) str);
 impl ActionAttr {
     pub(crate) fn new(x: &str) -> &Self {
         ActionAttr::ref_cast(x)
+    }
+
+    pub fn value(&self) -> &str {
+        &self.0
+    }
+
+    pub fn to_owned(&self) -> OwnedActionAttr {
+        OwnedActionAttr(self.0.to_owned())
     }
 }
 
