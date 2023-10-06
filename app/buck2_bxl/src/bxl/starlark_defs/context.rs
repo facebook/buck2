@@ -39,13 +39,17 @@ use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
+use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::query_file_literal::parse_query_file_literal;
+use buck2_core::pattern::ParsedPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
@@ -131,6 +135,10 @@ enum BxlContextDynamicError {
     #[error("Execution platform is inherited from the root BXL")]
     RequireSameExecutionPlatformAsRoot,
 }
+
+#[derive(Error, Debug)]
+#[error("Expected a single target as a string literal, not a target pattern")]
+struct NotATargetLabelString;
 
 /// Data object for `BxlContextType::Root`.
 #[derive(ProvidesStaticType, Trace, NoSerialize, Allocative, Debug, Derivative)]
@@ -1201,6 +1209,29 @@ fn context_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn fs<'v>(this: &BxlContext<'v>) -> anyhow::Result<BxlFilesystem<'v>> {
         Ok(BxlFilesystem::new(this))
+    }
+
+    /// Checks if a target label exists. Target label must be a string literal, and an exact target.
+    fn target_exists<'v>(this: &'v BxlContext<'v>, label: &'v str) -> anyhow::Result<bool> {
+        this.via_dice(|mut ctx, this_no_dice: &BxlContextNoDice<'_>| {
+            ctx.via(|ctx| {
+                async move {
+                    match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
+                        &this_no_dice.target_alias_resolver,
+                        CellPathRef::new(this_no_dice.cell_name, CellRelativePath::empty()),
+                        label,
+                        &this_no_dice.cell_resolver,
+                    )? {
+                        ParsedPattern::Target(pkg, name, TargetPatternExtra) => {
+                            let target_label = TargetLabel::new(pkg, name.as_ref());
+                            Ok(ctx.get_target_node(&target_label).await.ok().is_some())
+                        }
+                        _ => Err(anyhow::anyhow!(NotATargetLabelString)),
+                    }
+                }
+                .boxed_local()
+            })
+        })
     }
 
     /// Returns the [`StarlarkAuditCtx`] that holds all the audit functions.
