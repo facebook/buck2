@@ -39,7 +39,6 @@ use crate::bxl::starlark_defs::context::BxlContextNoDice;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
-use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 
 #[derive(Debug, Error)]
 enum ProviderExprError {
@@ -60,18 +59,11 @@ pub(crate) enum ProvidersExpr<P: ProvidersLabelMaybeConfigured> {
 impl ProvidersExpr<ConfiguredProvidersLabel> {
     pub(crate) async fn unpack<'v, 'c>(
         value: Value<'v>,
-        target_platform: Value<'v>,
+        target_platform: Option<TargetLabel>,
         ctx: &BxlContextNoDice<'_>,
         dice: &'c DiceComputations,
         eval: &Evaluator<'v, '_>,
     ) -> anyhow::Result<Self> {
-        let target_platform = target_platform.parse_target_platforms(
-            &ctx.target_alias_resolver,
-            &ctx.cell_resolver,
-            ctx.cell_name,
-            &ctx.global_target_platform,
-        )?;
-
         Ok(
             if let Some(resolved) = Self::unpack_literal(value, &target_platform, ctx, dice).await?
             {

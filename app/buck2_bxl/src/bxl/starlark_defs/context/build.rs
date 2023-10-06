@@ -54,6 +54,7 @@ use starlark_map::small_map::SmallMap;
 use crate::bxl::starlark_defs::build_result::StarlarkBxlBuildResult;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
+use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 
 #[derive(
     Debug,
@@ -183,6 +184,13 @@ pub(crate) fn build<'v>(
 ) -> anyhow::Result<SmallMap<Value<'v>, Value<'v>>> {
     let materializations =
         ConvertMaterializationContext::with_existing_map(materializations, materializations_map);
+
+    let target_platform = target_platform.parse_target_platforms(
+        &ctx.data.target_alias_resolver,
+        &ctx.data.cell_resolver,
+        ctx.data.cell_name,
+        &ctx.data.global_target_platform,
+    )?;
 
     let build_result = ctx.via_dice(
         |mut dice, ctx|

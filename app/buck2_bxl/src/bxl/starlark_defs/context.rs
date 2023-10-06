@@ -1106,6 +1106,13 @@ fn context_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = true)] skip_incompatible: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
+        let target_platform = target_platform.parse_target_platforms(
+            &this.data.target_alias_resolver,
+            &this.data.cell_resolver,
+            this.data.cell_name,
+            &this.data.global_target_platform,
+        )?;
+
         let res: anyhow::Result<_> = this.via_dice(|mut dice, ctx| {
             dice.via(|dice| {
                 async {
