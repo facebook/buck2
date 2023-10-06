@@ -262,6 +262,8 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] with_artifacts: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
+        // TODO - remove after migration
+        let _with_artifacts = with_artifacts;
         let res = eval.heap().alloc_typed(StarlarkPromise::new_unresolved());
         let mut this = this.state();
         let registry = AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?;
@@ -277,11 +279,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
             eval,
         )?;
 
-        if with_artifacts {
-            Ok(eval.heap().alloc(anon_target))
-        } else {
-            Ok(anon_target.promise.to_value())
-        }
+        Ok(eval.heap().alloc(anon_target))
     }
 
     /// Generate a series of anonymous targets.
@@ -298,6 +296,8 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] with_artifacts: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
+        // TODO - remove after migration
+        let _with_artifacts = with_artifacts;
         let mut this = this.state();
         let registry = AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?;
         let declaration_location = eval.call_stack_top_location();
@@ -331,11 +331,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
             declaration_location,
         };
 
-        if with_artifacts {
-            Ok(eval.heap().alloc(anon_targets))
-        } else {
-            Ok(anon_targets.promise.to_value())
-        }
+        Ok(eval.heap().alloc(anon_targets))
     }
 
     /// Generate a promise artifact that has short path accessible on it. The short path's correctness will
