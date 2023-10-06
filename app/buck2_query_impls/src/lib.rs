@@ -31,6 +31,7 @@ pub fn init_late_bindings() {
         description::init_query_environment_description_by_type();
         frontend::init_query_frontend();
         cquery::bxl::init_new_bxl_cquery_functions();
+        aquery::bxl::init_new_bxl_aquery_functions();
         uquery::bxl::init_new_bxl_uquery_functions();
     });
 }

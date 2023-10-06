@@ -24,6 +24,8 @@ use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 
+use crate::actions::query::ActionQueryNode;
+
 #[async_trait]
 pub trait BxlCqueryFunctions: Send {
     async fn allpaths(
@@ -110,6 +112,46 @@ pub trait BxlUqueryFunctions: Send {
     ) -> anyhow::Result<TargetSet<TargetNode>>;
 }
 
+#[async_trait]
+pub trait BxlAqueryFunctions: Send {
+    async fn allpaths(
+        &self,
+        dice: &mut DiceComputations,
+        from: &TargetSet<ActionQueryNode>,
+        to: &TargetSet<ActionQueryNode>,
+    ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
+    async fn somepath(
+        &self,
+        dice: &mut DiceComputations,
+        from: &TargetSet<ActionQueryNode>,
+        to: &TargetSet<ActionQueryNode>,
+    ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
+    async fn deps(
+        &self,
+        dice: &mut DiceComputations,
+        targets: &TargetSet<ActionQueryNode>,
+        deps: Option<i32>,
+        captured_expr: Option<&CapturedExpr>,
+    ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
+    async fn rdeps(
+        &self,
+        dice: &mut DiceComputations,
+        universe: &TargetSet<ActionQueryNode>,
+        targets: &TargetSet<ActionQueryNode>,
+        depth: Option<i32>,
+    ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
+    async fn testsof(
+        &self,
+        dice: &mut DiceComputations,
+        targets: &TargetSet<ActionQueryNode>,
+    ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
+    async fn owner(
+        &self,
+        dice: &mut DiceComputations,
+        file_set: &FileSet,
+    ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
+}
+
 pub static NEW_BXL_CQUERY_FUNCTIONS: LateBinding<
     fn(
         // Target platform
@@ -127,3 +169,13 @@ pub static NEW_BXL_UQUERY_FUNCTIONS: LateBinding<
         CellResolver,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<Box<dyn BxlUqueryFunctions>>>>>,
 > = LateBinding::new("NEW_BXL_UQUERY_FUNCTIONS");
+
+pub static NEW_BXL_AQUERY_FUNCTIONS: LateBinding<
+    fn(
+        // Target platform
+        Option<TargetLabel>,
+        ProjectRoot,
+        CellName,
+        CellResolver,
+    ) -> Pin<Box<dyn Future<Output = anyhow::Result<Box<dyn BxlAqueryFunctions>>>>>,
+> = LateBinding::new("NEW_BXL_AQUERY_FUNCTIONS");
