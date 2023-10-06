@@ -60,8 +60,13 @@ def stdlib_pkg_artifacts(toolchain: GoToolchainInfo, shared: bool = False) -> di
 
     pkgs = {}
     for pkg in stdlib_pkgs:
-        _, _, pkg_relpath = pkg.short_path.removeprefix("prebuilt_std/").partition("/")  # like net/http.a
-        name = pkg_relpath.removesuffix(".a")  # like net/http
+        # remove first directory like `pgk`
+        _, _, temp_path = pkg.short_path.partition("/")
+
+        # remove second directory like `darwin_amd64`
+        # now we have name like `net/http.a`
+        _, _, pkg_relpath = temp_path.partition("/")
+        name = pkg_relpath.removesuffix(".a")  # like `net/http`
         pkgs[name] = pkg
 
     return pkgs
