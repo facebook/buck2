@@ -22,6 +22,7 @@ use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::actions::query::ActionQueryNodeRef;
 use buck2_build_api::actions::query::SetProjectionInputs;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
+use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ResolvedArtifactGroup;
 use buck2_build_api::artifact_groups::TransitiveSetProjectionKey;
@@ -30,6 +31,7 @@ use buck2_common::result::SharedResult;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::pattern::ParsedPattern;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dashmap::mapref::entry::Entry;
@@ -320,6 +322,42 @@ impl<'c> AqueryDelegate for DiceAqueryDelegate<'c> {
     }
 }
 
+async fn get_target_set_from_analysis_inner(
+    query_data: &AqueryData,
+    configured_label: &ConfiguredProvidersLabel,
+    analysis: AnalysisResult,
+    dice: &DiceComputations,
+) -> anyhow::Result<TargetSet<ActionQueryNode>> {
+    let mut result = TargetSet::new();
+
+    let providers = analysis.lookup_inner(configured_label)?;
+
+    for output in providers
+        .provider_collection()
+        .default_info()
+        .default_outputs()
+    {
+        if let Some(action_key) = output.artifact().action_key() {
+            result.insert(
+                get_action_node(
+                    query_data.nodes_cache.dupe(),
+                    dice,
+                    action_key.dupe(),
+                    query_data.artifact_fs.dupe(),
+                )
+                .await?,
+            );
+        }
+    }
+
+    result.insert(ActionQueryNode::new_analysis(
+        configured_label.clone(),
+        analysis,
+    ));
+
+    Ok(result)
+}
+
 #[async_trait]
 impl QueryLiterals<ActionQueryNode> for AqueryData {
     async fn eval_literals(
@@ -352,28 +390,14 @@ impl QueryLiterals<ActionQueryNode> for AqueryData {
                             // ignored
                         }
                         MaybeCompatible::Compatible(analysis) => {
-                            let providers = analysis.lookup_inner(&configured_label)?;
-
-                            for output in providers
-                                .provider_collection()
-                                .default_info()
-                                .default_outputs()
-                            {
-                                if let Some(action_key) = output.artifact().action_key() {
-                                    result.insert(
-                                        get_action_node(
-                                            self.nodes_cache.dupe(),
-                                            dice,
-                                            action_key.dupe(),
-                                            self.artifact_fs.dupe(),
-                                        )
-                                        .await?,
-                                    );
-                                }
-                            }
-
-                            result
-                                .insert(ActionQueryNode::new_analysis(configured_label, analysis));
+                            let target_set = get_target_set_from_analysis_inner(
+                                self,
+                                &configured_label,
+                                analysis,
+                                dice,
+                            )
+                            .await?;
+                            result.extend(&target_set);
                         }
                     }
                 }
