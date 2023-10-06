@@ -22,13 +22,17 @@ def main(argv):
     parser.add_argument("--cgo", action="append", default=[])
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--cpp", action="append", default=[])
+    parser.add_argument("--env-cc", action="append", default=[])
+    parser.add_argument("--env-ldflags", action="append", default=[])
     parser.add_argument("srcs", type=Path, nargs="*")
     args = parser.parse_args(argv[1:])
 
     output = args.output.resolve(strict=False)
     os.makedirs(output, exist_ok=True)
 
-    os.environ["CC"] = args.cpp[0]
+    env = os.environ.copy()
+    env["CC"] = " ".join(args.env_cc)
+    env["CGO_LDFLAGS"] = " ".join(args.env_ldflags)
 
     cmd = []
     cmd.extend(args.cgo)
@@ -40,13 +44,13 @@ def main(argv):
     # cmd.append(cxxCompilerFlags)
 
     with tempfile.NamedTemporaryFile("w", delete=False) as argsfile:
-        for arg in args.cpp[1:]:
+        for arg in args.cpp:
             print(pipes.quote(arg), file=argsfile)
             argsfile.flush()
     cmd.append("@" + argsfile.name)
 
     cmd.extend(args.srcs)
-    return subprocess.call(cmd)
+    return subprocess.call(cmd, env=env)
 
 
 sys.exit(main(sys.argv))
