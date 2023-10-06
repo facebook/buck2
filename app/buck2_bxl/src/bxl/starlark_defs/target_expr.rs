@@ -188,6 +188,26 @@ pub(crate) enum TargetExprError {
 }
 
 impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
+    pub(crate) async fn unpack_opt<'c>(
+        value: Value<'v>,
+        target_platform: &Option<TargetLabel>,
+        ctx: &BxlContextNoDice<'v>,
+        dice: &mut DiceComputations,
+        eval: &Evaluator<'v, 'c>,
+        allow_unconfigured: bool,
+    ) -> anyhow::Result<Option<TargetExpr<'v, ConfiguredTargetNode>>> {
+        Ok(
+            if let Some(resolved) =
+                Self::unpack_literal(value, target_platform, ctx, dice, allow_unconfigured).await?
+            {
+                Some(resolved)
+            } else {
+                Self::unpack_iterable(value, target_platform, ctx, dice, eval, allow_unconfigured)
+                    .await?
+            },
+        )
+    }
+
     pub(crate) async fn unpack<'c>(
         value: Value<'v>,
         target_platform: &Option<TargetLabel>,
@@ -197,11 +217,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
     ) -> anyhow::Result<TargetExpr<'v, ConfiguredTargetNode>> {
         Ok(
             if let Some(resolved) =
-                Self::unpack_literal(value, target_platform, ctx, dice, false).await?
-            {
-                resolved
-            } else if let Some(resolved) =
-                Self::unpack_iterable(value, target_platform, ctx, dice, eval, false).await?
+                Self::unpack_opt(value, target_platform, ctx, dice, eval, false).await?
             {
                 resolved
             } else {
@@ -221,11 +237,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
     ) -> anyhow::Result<TargetExpr<'v, ConfiguredTargetNode>> {
         Ok(
             if let Some(resolved) =
-                Self::unpack_literal(value, target_platform, ctx, dice, true).await?
-            {
-                resolved
-            } else if let Some(resolved) =
-                Self::unpack_iterable(value, target_platform, ctx, dice, eval, true).await?
+                Self::unpack_opt(value, target_platform, ctx, dice, eval, true).await?
             {
                 resolved
             } else {
