@@ -164,6 +164,10 @@ impl ActionQueryNode {
     pub fn data(&self) -> &ActionQueryNodeData {
         &self.data
     }
+
+    pub fn key(&self) -> &ActionQueryNodeRef {
+        &self.key
+    }
 }
 
 impl LabeledNode for ActionQueryNode {
@@ -189,6 +193,10 @@ impl AnalysisData {
 
     pub fn analysis_result(&self) -> &AnalysisResult {
         &self.analysis
+    }
+
+    pub fn target(&self) -> &Arc<ConfiguredProvidersLabel> {
+        &self.target
     }
 }
 
