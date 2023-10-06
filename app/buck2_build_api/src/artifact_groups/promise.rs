@@ -24,7 +24,7 @@ use thiserror::Error;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 
 #[derive(Debug, Error)]
-pub(crate) enum PromiseArtifactResolveError {
+pub enum PromiseArtifactResolveError {
     #[error(
         "Resolved promise of the artifact promise {} was not an artifact (was `{1}`)",
         maybe_declared_at(_0)
@@ -99,7 +99,7 @@ impl PromiseArtifact {
         self.artifact.get()
     }
 
-    pub(crate) fn resolve(
+    pub fn resolve(
         &self,
         artifact: &dyn StarlarkArtifactLike,
         expected_short_path: &Option<ForwardRelativePathBuf>,
@@ -135,7 +135,7 @@ impl PromiseArtifact {
         }
     }
 
-    pub(crate) fn id(&self) -> &PromiseArtifactId {
+    pub fn id(&self) -> &PromiseArtifactId {
         self.id.as_ref()
     }
 }

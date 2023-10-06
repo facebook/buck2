@@ -22,7 +22,6 @@ use buck2_build_api::analysis::anon_promises_dyn::AnonPromisesDyn;
 use buck2_build_api::analysis::anon_targets_registry::AnonTargetsRegistryDyn;
 use buck2_build_api::analysis::anon_targets_registry::ANON_TARGET_REGISTRY_NEW;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
-use buck2_build_api::analysis::promise_artifacts::PromiseArtifactRegistry;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::artifact_groups::promise::PromiseArtifact;
@@ -105,6 +104,7 @@ use crate::anon_target_attr::AnonTargetAttr;
 use crate::anon_target_attr_coerce::AnonTargetAttrTypeCoerce;
 use crate::anon_target_attr_resolve::AnonTargetAttrExt;
 use crate::anon_target_node::AnonTarget;
+use crate::promise_artifacts::PromiseArtifactRegistry;
 
 #[derive(Debug, Trace, Allocative, ProvidesStaticType)]
 pub struct AnonTargetsRegistry<'v> {

@@ -23,7 +23,7 @@ use buck2_core::base_deferred_key::BaseDeferredKey;
 
 pub use self::starlark_artifact::StarlarkArtifact;
 pub(crate) use self::starlark_artifact_like::StarlarkArtifactLike;
-pub(crate) use self::starlark_artifact_like::ValueAsArtifactLike;
+pub use self::starlark_artifact_like::ValueAsArtifactLike;
 pub use self::starlark_artifact_value::StarlarkArtifactValue;
 pub use self::starlark_declared_artifact::StarlarkDeclaredArtifact;
 pub use self::starlark_output_artifact::FrozenStarlarkOutputArtifact;

@@ -13,6 +13,10 @@ use std::sync::Arc;
 use std::sync::OnceLock;
 
 use allocative::Allocative;
+use buck2_build_api::artifact_groups::promise::PromiseArtifact;
+use buck2_build_api::artifact_groups::promise::PromiseArtifactId;
+use buck2_build_api::artifact_groups::promise::PromiseArtifactResolveError;
+use buck2_build_api::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use dupe::Dupe;
@@ -20,11 +24,6 @@ use starlark::codemap::FileSpan;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::ValueTyped;
-
-use crate::artifact_groups::promise::PromiseArtifact;
-use crate::artifact_groups::promise::PromiseArtifactId;
-use crate::artifact_groups::promise::PromiseArtifactResolveError;
-use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 
 #[derive(Debug, Trace, Allocative)]
 struct PromiseArtifactEntry {
@@ -36,20 +35,20 @@ struct PromiseArtifactEntry {
 /// corresponding internal PromiseArtifact. At the end of analysis (after promises have been resolved),
 /// all PromiseArtifact will be updated to have the resolved artifact from the corresponding starlark promise.
 #[derive(Debug, Trace, Allocative)]
-pub struct PromiseArtifactRegistry<'v> {
+pub(crate) struct PromiseArtifactRegistry<'v> {
     promises: Vec<ValueTyped<'v, StarlarkPromise<'v>>>,
     artifacts: Vec<PromiseArtifactEntry>,
 }
 
 impl<'v> PromiseArtifactRegistry<'v> {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             promises: Vec::new(),
             artifacts: Vec::new(),
         }
     }
 
-    pub fn resolve_all(
+    pub(crate) fn resolve_all(
         &self,
         short_paths: &HashMap<PromiseArtifactId, ForwardRelativePathBuf>,
     ) -> anyhow::Result<()> {
@@ -81,7 +80,7 @@ impl<'v> PromiseArtifactRegistry<'v> {
         Ok(())
     }
 
-    pub fn register(
+    pub(crate) fn register(
         &mut self,
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         location: Option<FileSpan>,

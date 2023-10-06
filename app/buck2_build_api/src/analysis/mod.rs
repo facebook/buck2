@@ -22,8 +22,6 @@ pub mod anon_promises_dyn;
 // TODO(@wendyy) move into `buck2_interpreter_for_build`
 pub mod anon_targets_registry;
 pub mod calculation;
-// TODO(@wendyy) this can be moved into `buck2_anon_target` after artifact promise API is migrated
-pub mod promise_artifacts;
 pub mod registry;
 
 use allocative::Allocative;
