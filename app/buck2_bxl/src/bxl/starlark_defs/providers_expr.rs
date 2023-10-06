@@ -57,6 +57,26 @@ pub(crate) enum ProvidersExpr<P: ProvidersLabelMaybeConfigured> {
 }
 
 impl ProvidersExpr<ConfiguredProvidersLabel> {
+    pub(crate) async fn unpack_opt<'v, 'c>(
+        value: Value<'v>,
+        target_platform: Option<TargetLabel>,
+        ctx: &BxlContextNoDice<'_>,
+        dice: &'c DiceComputations,
+        eval: &Evaluator<'v, '_>,
+    ) -> anyhow::Result<Option<Self>> {
+        Ok(
+            if let Some(resolved) = Self::unpack_literal(value, &target_platform, ctx, dice).await?
+            {
+                Some(resolved)
+            } else {
+                Self::unpack_iterable(value, ctx, eval, |v, ctx| {
+                    Self::unpack_literal(v, &target_platform, ctx, dice)
+                })
+                .await?
+            },
+        )
+    }
+
     pub(crate) async fn unpack<'v, 'c>(
         value: Value<'v>,
         target_platform: Option<TargetLabel>,
@@ -65,13 +85,8 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
         eval: &Evaluator<'v, '_>,
     ) -> anyhow::Result<Self> {
         Ok(
-            if let Some(resolved) = Self::unpack_literal(value, &target_platform, ctx, dice).await?
-            {
-                resolved
-            } else if let Some(resolved) = Self::unpack_iterable(value, ctx, eval, |v, ctx| {
-                Self::unpack_literal(v, &target_platform, ctx, dice)
-            })
-            .await?
+            if let Some(resolved) =
+                Self::unpack_opt(value, target_platform, ctx, dice, eval).await?
             {
                 resolved
             } else {
