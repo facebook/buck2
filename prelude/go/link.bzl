@@ -9,13 +9,13 @@ load("@prelude//cxx:cxx_library_utility.bzl", "cxx_inherited_link_info")
 load(
     "@prelude//cxx:cxx_link_utility.bzl",
     "executable_shared_lib_arguments",
+    "make_link_args",
 )
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
     "get_link_args_for_strategy",
     "to_link_strategy",
-    "unpack_link_args",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -138,12 +138,6 @@ def link(
 
     runtime_files, extra_link_args = _process_shared_dependencies(ctx, output, deps, link_style)
 
-    # Gather external link args from deps.
-    ext_links = get_link_args_for_strategy(ctx, cxx_inherited_link_info(deps), to_link_strategy(link_style))
-    ext_link_args = cmd_args(unpack_link_args(ext_links))
-    ext_link_args.add(cmd_args(extra_link_args, quote = "shell"))
-    ext_link_args.add(external_linker_flags)
-
     if link_mode == None:
         if go_toolchain.cxx_toolchain_for_linking != None:
             link_mode = "external"
@@ -153,12 +147,25 @@ def link(
 
     if link_mode == "external":
         is_win = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+        cxx_toolchain = go_toolchain.cxx_toolchain_for_linking
+
+        # Gather external link args from deps.
+        ext_links = get_link_args_for_strategy(ctx, cxx_inherited_link_info(deps), to_link_strategy(link_style))
+        ext_link_args_output = make_link_args(
+            ctx.actions,
+            cxx_toolchain,
+            [ext_links],
+        )
+        ext_link_args = cmd_args()
+        ext_link_args.add(cmd_args(extra_link_args, quote = "shell"))
+        ext_link_args.add(external_linker_flags)
+        ext_link_args.add(ext_link_args_output.link_args)
+        ext_link_args.hidden(ext_link_args_output.hidden)
 
         # Delegate to C++ linker...
         # TODO: It feels a bit inefficient to generate a wrapper file for every
         # link.  Is there some way to etract the first arg of `RunInfo`?  Or maybe
         # we can generate te platform-specific stuff once and re-use?
-        cxx_toolchain = go_toolchain.cxx_toolchain_for_linking
         cxx_link_cmd = cmd_args(
             [
                 cxx_toolchain.linker_info.linker,
