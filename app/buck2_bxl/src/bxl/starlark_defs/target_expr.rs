@@ -189,7 +189,6 @@ pub(crate) enum TargetExprError {
 }
 
 impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
-    #[allow(unused)] // TODO(@wendyy) temporary
     pub(crate) fn as_provider_labels(&self) -> Vec<ConfiguredProvidersLabel> {
         match &self {
             TargetExpr::Iterable(i) => i
