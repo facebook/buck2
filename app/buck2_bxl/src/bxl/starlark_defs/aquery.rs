@@ -8,8 +8,11 @@
  */
 
 use allocative::Allocative;
+use anyhow::Context;
 use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::query::bxl::BxlAqueryFunctions;
+use buck2_build_api::query::bxl::NEW_BXL_AQUERY_FUNCTIONS;
+use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -17,15 +20,24 @@ use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
+use dupe::Dupe;
+use futures::FutureExt;
 use starlark::any::ProvidesStaticType;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
+use starlark::starlark_module;
+use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueError;
 use starlark::values::ValueLike;
 use starlark::StarlarkDocs;
 use thiserror::Error;
@@ -33,8 +45,10 @@ use thiserror::Error;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
+use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
 use crate::bxl::starlark_defs::target_expr::TargetExpr;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
+use crate::bxl::starlark_defs::uquery::unpack_unconfigured_query_args;
 use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 
 #[derive(
@@ -59,7 +73,12 @@ pub(crate) struct StarlarkAQueryCtx<'v> {
 }
 
 #[starlark_value(type = "aqueryctx", StarlarkTypeRepr, UnpackValue)]
-impl<'v> StarlarkValue<'v> for StarlarkAQueryCtx<'v> {}
+impl<'v> StarlarkValue<'v> for StarlarkAQueryCtx<'v> {
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(aquery_methods)
+    }
+}
 
 impl<'v> AllocValue<'v> for StarlarkAQueryCtx<'v> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
@@ -85,6 +104,19 @@ impl<'v> StarlarkAQueryCtx<'v> {
             target_platform,
         })
     }
+}
+
+pub(crate) async fn get_aquery_env(
+    ctx: &BxlContextNoDice<'_>,
+    target_platform: Option<TargetLabel>,
+) -> anyhow::Result<Box<dyn BxlAqueryFunctions>> {
+    (NEW_BXL_AQUERY_FUNCTIONS.get()?)(
+        target_platform,
+        ctx.project_root().dupe(),
+        ctx.cell_name,
+        ctx.cell_resolver.dupe(),
+    )
+    .await
 }
 
 #[derive(Debug, Error)]
@@ -135,4 +167,67 @@ async fn unpack_action_nodes<'v>(
 
     let result = aquery_env.get_target_set(dice, providers).await?;
     Ok(result)
+}
+
+/// The context for performing `aquery` operations in bxl. The functions offered on this ctx are
+/// the same behaviour as the query functions available within aquery command.
+///
+/// Query results are `[StarlarkTargetSet]`s of `[ActionQueryNode]`s, which supports iteration,
+/// indexing, `len()`, set addition/subtraction, and `equals()`.
+#[starlark_module]
+fn aquery_methods(builder: &mut MethodsBuilder) {
+    /// Evaluates some general query string. `query_args` can be a target set of unconfigured nodes,
+    /// or a list of strings.
+    fn eval<'v>(
+        this: &StarlarkAQueryCtx<'v>,
+        query: &'v str,
+        #[starlark(default = NoneOr::None)] query_args: NoneOr<Value<'v>>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        let query_args = if query_args.is_none() {
+            Vec::new()
+        } else {
+            let unwrapped_query_args = query_args.into_option().unwrap();
+            if let Some(query_args) = unpack_unconfigured_query_args(unwrapped_query_args)? {
+                query_args
+            } else {
+                // TODO(@wendyy) - we probably also want to support subtargets here
+                let err = Err(ValueError::IncorrectParameterTypeWithExpected(
+                    "list of strings, or a target_set of unconfigured nodes".to_owned(),
+                    query_args.into_option().unwrap().get_type().to_owned(),
+                )
+                .into());
+
+                if <&StarlarkTargetSet<ConfiguredTargetNode>>::unpack_value(unwrapped_query_args)
+                    .is_some()
+                {
+                    return err
+                        .context("target_set with configured nodes are currently not supported");
+                }
+
+                return err;
+            }
+        };
+
+        this.ctx.via_dice(|mut dice, ctx| {
+            dice.via(|dice| {
+                async {
+                    parse_query_evaluation_result(
+                        QUERY_FRONTEND
+                            .get()?
+                            .eval_aquery(
+                                dice,
+                                &ctx.working_dir()?,
+                                query,
+                                &query_args,
+                                this.target_platform.dupe(),
+                            )
+                            .await?,
+                        eval,
+                    )
+                }
+                .boxed_local()
+            })
+        })
+    }
 }
