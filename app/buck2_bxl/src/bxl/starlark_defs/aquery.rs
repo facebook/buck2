@@ -225,6 +225,79 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
             .map(StarlarkTargetSet::from)
     }
 
+    /// Obtain all the actions declared within the analysis of a given target.
+    ///
+    /// This operation only makes sense on a target literal (it is a simple passthrough when passed
+    /// an action).
+    fn all_actions<'v>(
+        this: &StarlarkAQueryCtx<'v>,
+        targets: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StarlarkTargetSet<ActionQueryNode>> {
+        this.ctx
+            .via_dice(|mut dice, ctx| {
+                dice.via(|dice| {
+                    async {
+                        let aquery_env = get_aquery_env(ctx, this.target_platform.dupe()).await?;
+
+                        let targets = unpack_action_nodes(
+                            targets,
+                            &this.target_platform,
+                            ctx,
+                            dice,
+                            aquery_env.as_ref(),
+                            eval,
+                        )
+                        .await?;
+
+                        get_aquery_env(ctx, this.target_platform.dupe())
+                            .await?
+                            .all_actions(dice, &targets)
+                            .await
+                    }
+                    .boxed_local()
+                })
+            })
+            .map(StarlarkTargetSet::from)
+    }
+
+    /// Obtain the actions for all the outputs provided by the `DefaultInfo` for the targets passed
+    /// as input. This includes both the `default_outputs` and `other_outputs`.
+    ///
+    /// This operation only makes sense on a target literal (it does nothing if passed something
+    /// else).
+    fn all_outputs<'v>(
+        this: &StarlarkAQueryCtx<'v>,
+        targets: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StarlarkTargetSet<ActionQueryNode>> {
+        this.ctx
+            .via_dice(|mut dice, ctx| {
+                dice.via(|dice| {
+                    async {
+                        let aquery_env = get_aquery_env(ctx, this.target_platform.dupe()).await?;
+
+                        let targets = unpack_action_nodes(
+                            targets,
+                            &this.target_platform,
+                            ctx,
+                            dice,
+                            aquery_env.as_ref(),
+                            eval,
+                        )
+                        .await?;
+
+                        get_aquery_env(ctx, this.target_platform.dupe())
+                            .await?
+                            .all_outputs(dice, &targets)
+                            .await
+                    }
+                    .boxed_local()
+                })
+            })
+            .map(StarlarkTargetSet::from)
+    }
+
     /// The attrfilter query for rule attribute filtering.
     fn attrfilter<'v>(
         this: &StarlarkAQueryCtx<'v>,
