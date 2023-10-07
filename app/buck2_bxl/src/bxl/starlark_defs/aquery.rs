@@ -17,11 +17,13 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
 use futures::FutureExt;
+use gazebo::prelude::OptionExt;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -176,8 +178,54 @@ async fn unpack_action_nodes<'v>(
 /// indexing, `len()`, set addition/subtraction, and `equals()`.
 #[starlark_module]
 fn aquery_methods(builder: &mut MethodsBuilder) {
-    /// Evaluates some general query string. `query_args` can be a target set of unconfigured nodes,
-    /// or a list of strings.
+    /// The deps query for finding the transitive closure of dependencies.
+    fn deps<'v>(
+        this: &StarlarkAQueryCtx<'v>,
+        universe: Value<'v>,
+        #[starlark(default = NoneOr::None)] depth: NoneOr<i32>,
+        #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StarlarkTargetSet<ActionQueryNode>> {
+        this.ctx
+            .via_dice(|mut dice, ctx| {
+                dice.via(|dice| {
+                    async {
+                        let aquery_env = get_aquery_env(ctx, this.target_platform.dupe()).await?;
+
+                        let filter = filter
+                            .into_option()
+                            .try_map(buck2_query_parser::parse_expr)?;
+
+                        let universe = unpack_action_nodes(
+                            universe,
+                            &this.target_platform,
+                            ctx,
+                            dice,
+                            aquery_env.as_ref(),
+                            eval,
+                        )
+                        .await?;
+
+                        aquery_env
+                            .deps(
+                                dice,
+                                &universe,
+                                depth.into_option(),
+                                filter
+                                    .as_ref()
+                                    .map(|span| CapturedExpr { expr: span })
+                                    .as_ref(),
+                            )
+                            .await
+                    }
+                    .boxed_local()
+                })
+            })
+            .map(StarlarkTargetSet::from)
+    }
+
+    /// Evaluates some general query string. `query_args` can be a target_set of unconfigured nodes, or
+    /// a list of strings.
     fn eval<'v>(
         this: &StarlarkAQueryCtx<'v>,
         query: &'v str,
