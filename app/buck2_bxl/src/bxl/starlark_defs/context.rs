@@ -104,6 +104,7 @@ use super::target_universe::StarlarkTargetUniverse;
 use crate::bxl::key::BxlDynamicKey;
 use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::alloc_node::AllocNode;
+use crate::bxl::starlark_defs::aquery::StarlarkAQueryCtx;
 use crate::bxl::starlark_defs::audit::StarlarkAuditCtx;
 use crate::bxl::starlark_defs::context::actions::resolve_bxl_execution_platform;
 use crate::bxl::starlark_defs::context::actions::validate_action_instantiation;
@@ -924,6 +925,18 @@ fn context_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = NoneType)] target_platform: Value<'v>,
     ) -> anyhow::Result<StarlarkCQueryCtx<'v>> {
         StarlarkCQueryCtx::new(this, target_platform, &this.data.global_target_platform)
+    }
+
+    /// Returns the [`StarlarkAQueryCtx`] that holds all the aquery functions.
+    /// This function takes an optional parameter `target_platform`, which is the target platform
+    /// configuration used to configured any unconfigured target nodes.
+    ///
+    /// The `target_platform` is a target label, or a string that is a target label.
+    fn aquery<'v>(
+        this: &'v BxlContext<'v>,
+        #[starlark(default = NoneType)] target_platform: Value<'v>,
+    ) -> anyhow::Result<StarlarkAQueryCtx<'v>> {
+        StarlarkAQueryCtx::new(this, target_platform, &this.data.global_target_platform)
     }
 
     /// Returns the bxl actions to create and register actions for this
