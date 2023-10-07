@@ -65,7 +65,7 @@ pub fn aquery_functions<'a>() -> impl QueryFunctions<Env = AqueryEnvironment<'a>
 }
 
 #[derive(Debug)]
-pub(super) struct AqueryFunctions<'a>(PhantomData<&'a ()>);
+pub(crate) struct AqueryFunctions<'a>(pub(crate) PhantomData<&'a ()>);
 
 #[query_module(AqueryEnvironment<'a>)]
 impl<'a> AqueryFunctions<'a> {
@@ -74,7 +74,7 @@ impl<'a> AqueryFunctions<'a> {
     ///
     /// This operation only makes sense on a target literal (it does nothing if passed something
     /// else).
-    async fn all_outputs(
+    pub(crate) async fn all_outputs(
         &self,
         env: &AqueryEnvironment<'a>,
         targets: TargetSet<ActionQueryNode>,
@@ -103,7 +103,7 @@ impl<'a> AqueryFunctions<'a> {
     ///
     /// This operation only makes sense on a target literal (it is a simple passthrough when passed
     /// an action).
-    async fn all_actions(
+    pub(crate) async fn all_actions(
         &self,
         env: &AqueryEnvironment<'a>,
         targets: TargetSet<ActionQueryNode>,

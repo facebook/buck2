@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -24,6 +25,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use buck2_query::query::syntax::simple::eval::values::QueryValue;
 use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctions;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
@@ -32,12 +34,17 @@ use dupe::Dupe;
 
 use crate::aquery::environment::AqueryDelegate;
 use crate::aquery::environment::AqueryEnvironment;
+use crate::aquery::functions::AqueryFunctions;
 use crate::dice::aquery::DiceAqueryDelegate;
 use crate::dice::DiceQueryData;
 use crate::dice::DiceQueryDelegate;
 
 fn aquery_functions<'v>() -> DefaultQueryFunctions<AqueryEnvironment<'v>> {
     DefaultQueryFunctions::new()
+}
+
+fn special_aquery_functions<'v>() -> AqueryFunctions<'v> {
+    AqueryFunctions(PhantomData)
 }
 
 struct BxlAqueryFunctionsImpl {
@@ -205,6 +212,42 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         let mut result = TargetSet::new();
         target_sets.into_iter().for_each(|t| result.extend(&t));
         Ok(result)
+    }
+
+    async fn all_outputs(
+        &self,
+        dice: &mut DiceComputations,
+        targets: &TargetSet<ActionQueryNode>,
+    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
+        let query_val = special_aquery_functions()
+            .all_outputs(
+                &self.aquery_env(&self.aquery_delegate(dice).await?).await?,
+                targets.clone(),
+            )
+            .await?;
+
+        match &query_val {
+            QueryValue::TargetSet(s) => Ok(s.clone()),
+            _ => unreachable!("all_outputs should always return target set"),
+        }
+    }
+
+    async fn all_actions(
+        &self,
+        dice: &mut DiceComputations,
+        targets: &TargetSet<ActionQueryNode>,
+    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
+        let query_val = special_aquery_functions()
+            .all_actions(
+                &self.aquery_env(&self.aquery_delegate(dice).await?).await?,
+                targets.clone(),
+            )
+            .await?;
+
+        match &query_val {
+            QueryValue::TargetSet(s) => Ok(s.clone()),
+            _ => unreachable!("all_actions should always return target set"),
+        }
     }
 }
 

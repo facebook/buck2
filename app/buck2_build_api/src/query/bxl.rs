@@ -156,6 +156,16 @@ pub trait BxlAqueryFunctions: Send {
         dice: &mut DiceComputations,
         configured_labels: Vec<ConfiguredProvidersLabel>,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
+    async fn all_outputs(
+        &self,
+        dice: &mut DiceComputations,
+        targets: &TargetSet<ActionQueryNode>,
+    ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
+    async fn all_actions(
+        &self,
+        dice: &mut DiceComputations,
+        targets: &TargetSet<ActionQueryNode>,
+    ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
 }
 
 pub static NEW_BXL_CQUERY_FUNCTIONS: LateBinding<
