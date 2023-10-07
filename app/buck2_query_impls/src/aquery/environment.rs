@@ -13,8 +13,10 @@ use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::actions::query::ActionQueryNodeRef;
+use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_core::configuration::compatibility::MaybeCompatible;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
@@ -45,6 +47,12 @@ pub trait AqueryDelegate: Send + Sync {
         &self,
         artifacts: &[ArtifactGroup],
     ) -> anyhow::Result<Vec<ActionQueryNode>>;
+
+    async fn get_target_set_from_analysis(
+        &self,
+        configured_label: &ConfiguredProvidersLabel,
+        analysis: AnalysisResult,
+    ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
 }
 
 pub struct AqueryEnvironment<'c> {

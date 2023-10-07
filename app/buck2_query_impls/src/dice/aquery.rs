@@ -320,6 +320,20 @@ impl<'c> AqueryDelegate for DiceAqueryDelegate<'c> {
 
         futures::future::try_join_all(refs.iter().map(|n| self.get_node(n))).await
     }
+
+    async fn get_target_set_from_analysis(
+        &self,
+        configured_label: &ConfiguredProvidersLabel,
+        analysis: AnalysisResult,
+    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
+        get_target_set_from_analysis_inner(
+            self.query_data().as_ref(),
+            configured_label,
+            analysis,
+            self.ctx(),
+        )
+        .await
+    }
 }
 
 async fn get_target_set_from_analysis_inner(

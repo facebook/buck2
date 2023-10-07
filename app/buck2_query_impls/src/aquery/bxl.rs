@@ -11,13 +11,16 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_build_api::actions::query::ActionQueryNode;
+use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::query::bxl::BxlAqueryFunctions;
 use buck2_build_api::query::bxl::NEW_BXL_AQUERY_FUNCTIONS;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::target_aliases::HasTargetAliasResolver;
+use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
@@ -27,6 +30,7 @@ use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use dice::DiceComputations;
 use dupe::Dupe;
 
+use crate::aquery::environment::AqueryDelegate;
 use crate::aquery::environment::AqueryEnvironment;
 use crate::dice::aquery::DiceAqueryDelegate;
 use crate::dice::DiceQueryData;
@@ -162,6 +166,45 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
                 file_set,
             )
             .await?)
+    }
+
+    async fn get_target_set(
+        &self,
+        dice: &mut DiceComputations,
+        configured_labels: Vec<ConfiguredProvidersLabel>,
+    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
+        let delegate = &self.aquery_delegate(dice).await?;
+        let dice = delegate.ctx();
+        let target_sets = futures::future::join_all(configured_labels.iter().map(
+            async move |label: &ConfiguredProvidersLabel| {
+                let maybe_result = dice.get_analysis_result(label.target()).await?;
+
+                match maybe_result {
+                    MaybeCompatible::Incompatible(_) => {
+                        // Aquery skips incompatible targets by default on the CLI
+                        // TODO(@wendyy) emit messages for skipping incompatible targets to stderr
+                        Ok(None)
+                    }
+                    MaybeCompatible::Compatible(result) => {
+                        let target_set = delegate
+                            .get_target_set_from_analysis(label, result.clone())
+                            .await?;
+                        Ok(Some(target_set))
+                    }
+                }
+            },
+        ))
+        .await
+        .into_iter()
+        .filter_map(|r| match r {
+            Ok(r) => r.map(Ok),
+            Err(e) => Some(Err(e)),
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+
+        let mut result = TargetSet::new();
+        target_sets.into_iter().for_each(|t| result.extend(&t));
+        Ok(result)
     }
 }
 
