@@ -13,6 +13,7 @@ use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::query::bxl::BxlAqueryFunctions;
 use buck2_build_api::query::bxl::NEW_BXL_AQUERY_FUNCTIONS;
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
+use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -168,7 +169,14 @@ async fn unpack_action_nodes<'v>(
         )));
     };
 
-    let result = aquery_env.get_target_set(dice, providers).await?;
+    let (incompatible_targets, result) = aquery_env.get_target_set(dice, providers).await?;
+
+    if !incompatible_targets.is_empty() {
+        ctx.print_to_error_stream(IncompatiblePlatformReason::skipping_message_for_multiple(
+            incompatible_targets.iter(),
+        ))?;
+    }
+
     Ok(result)
 }
 

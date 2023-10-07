@@ -11,7 +11,6 @@
 
 pub(crate) mod alloc_node;
 pub(crate) mod analysis_result;
-#[allow(unused)] // TODO(@wendyy) temporary
 pub(crate) mod aquery;
 pub(crate) mod artifacts;
 pub(crate) mod audit;

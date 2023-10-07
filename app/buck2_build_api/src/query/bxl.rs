@@ -16,6 +16,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
@@ -155,7 +156,7 @@ pub trait BxlAqueryFunctions: Send {
         &self,
         dice: &mut DiceComputations,
         configured_labels: Vec<ConfiguredProvidersLabel>,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
+    ) -> anyhow::Result<(Vec<ConfiguredTargetLabel>, TargetSet<ActionQueryNode>)>;
     async fn all_outputs(
         &self,
         dice: &mut DiceComputations,

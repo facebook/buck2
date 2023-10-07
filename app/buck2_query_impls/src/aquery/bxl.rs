@@ -22,6 +22,7 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
@@ -31,6 +32,7 @@ use buck2_query::query::syntax::simple::functions::DefaultQueryFunctions;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use dice::DiceComputations;
 use dupe::Dupe;
+use itertools::Either;
 
 use crate::aquery::environment::AqueryDelegate;
 use crate::aquery::environment::AqueryEnvironment;
@@ -179,7 +181,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         &self,
         dice: &mut DiceComputations,
         configured_labels: Vec<ConfiguredProvidersLabel>,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
+    ) -> anyhow::Result<(Vec<ConfiguredTargetLabel>, TargetSet<ActionQueryNode>)> {
         let delegate = &self.aquery_delegate(dice).await?;
         let dice = delegate.ctx();
         let target_sets = futures::future::join_all(configured_labels.iter().map(
@@ -187,31 +189,36 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
                 let maybe_result = dice.get_analysis_result(label.target()).await?;
 
                 match maybe_result {
-                    MaybeCompatible::Incompatible(_) => {
-                        // Aquery skips incompatible targets by default on the CLI
-                        // TODO(@wendyy) emit messages for skipping incompatible targets to stderr
-                        Ok(None)
+                    MaybeCompatible::Incompatible(reason) => {
+                        // Aquery skips incompatible targets by default on the CLI, but let's at least
+                        // log the error messages to BXL's stderr
+                        Ok(Either::Left(reason.target.dupe()))
                     }
                     MaybeCompatible::Compatible(result) => {
                         let target_set = delegate
                             .get_target_set_from_analysis(label, result.clone())
                             .await?;
-                        Ok(Some(target_set))
+                        Ok(Either::Right(target_set))
                     }
                 }
             },
         ))
         .await
         .into_iter()
-        .filter_map(|r| match r {
-            Ok(r) => r.map(Ok),
-            Err(e) => Some(Err(e)),
+        .map(|r| match r {
+            Ok(r) => Ok(r),
+            Err(e) => Err(e),
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
 
         let mut result = TargetSet::new();
-        target_sets.into_iter().for_each(|t| result.extend(&t));
-        Ok(result)
+        let mut incompatible_targets = Vec::new();
+        target_sets.into_iter().for_each(|t| match t {
+            Either::Left(incompatible) => incompatible_targets.push(incompatible),
+            Either::Right(compatible) => result.extend(&compatible),
+        });
+
+        Ok((incompatible_targets, result))
     }
 
     async fn all_outputs(
