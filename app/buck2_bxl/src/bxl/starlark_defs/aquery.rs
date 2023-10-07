@@ -17,6 +17,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use buck2_query::query::syntax::simple::eval::set::TargetSetExt;
 use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
 use derivative::Derivative;
 use derive_more::Display;
@@ -222,6 +223,38 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
                 })
             })
             .map(StarlarkTargetSet::from)
+    }
+
+    /// The attrfilter query for rule attribute filtering.
+    fn attrfilter<'v>(
+        this: &StarlarkAQueryCtx<'v>,
+        attr: &str,
+        value: &str,
+        targets: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StarlarkTargetSet<ActionQueryNode>> {
+        this.ctx.via_dice(|mut dice, ctx| {
+            dice.via(|dice| {
+                async {
+                    let aquery_env = get_aquery_env(ctx, this.target_platform.dupe()).await?;
+
+                    let targets = unpack_action_nodes(
+                        targets,
+                        &this.target_platform,
+                        ctx,
+                        dice,
+                        aquery_env.as_ref(),
+                        eval,
+                    )
+                    .await?;
+
+                    targets
+                        .attrfilter(attr, &|v| Ok(v == value))
+                        .map(StarlarkTargetSet::from)
+                }
+                .boxed_local()
+            })
+        })
     }
 
     /// Evaluates some general query string. `query_args` can be a target_set of unconfigured nodes, or
