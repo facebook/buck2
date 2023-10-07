@@ -16,6 +16,7 @@ use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::label::TargetLabel;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
@@ -188,6 +189,29 @@ pub(crate) enum TargetExprError {
 }
 
 impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
+    #[allow(unused)] // TODO(@wendyy) temporary
+    pub(crate) fn as_provider_labels(&self) -> Vec<ConfiguredProvidersLabel> {
+        match &self {
+            TargetExpr::Iterable(i) => i
+                .iter()
+                .map(|e| match e {
+                    Either::Left(node) => {
+                        ConfiguredProvidersLabel::default_for(node.label().dupe())
+                    }
+                    Either::Right(label) => {
+                        ConfiguredProvidersLabel::default_for(label.as_ref().clone())
+                    }
+                })
+                .collect(),
+            TargetExpr::Label(l) => vec![ConfiguredProvidersLabel::default_for(l.as_ref().clone())],
+            TargetExpr::Node(n) => vec![ConfiguredProvidersLabel::default_for(n.label().dupe())],
+            TargetExpr::TargetSet(t) => t
+                .iter()
+                .map(|n| ConfiguredProvidersLabel::default_for(n.label().dupe()))
+                .collect(),
+        }
+    }
+
     pub(crate) async fn unpack_opt<'c>(
         value: Value<'v>,
         target_platform: &Option<TargetLabel>,
