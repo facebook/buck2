@@ -469,7 +469,6 @@ def _convert_python_library_to_executable(
             python_toolchain.linker_flags + ctx.attrs.linker_flags,
             prefer_stripped_objects = ctx.attrs.prefer_stripped_native_objects,
             allow_cache_upload = allow_cache_upload,
-            anonymous = ctx.attrs.deduplicate_merged_link_roots,
         )
 
         # Extract re-linked extensions.

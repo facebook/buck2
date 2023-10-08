@@ -164,10 +164,7 @@ def _omnibus_soname(ctx):
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     return get_shared_library_name(linker_info, "omnibus", apply_default_prefix = True)
 
-def create_dummy_omnibus(
-        ctx: AnalysisContext,
-        extra_ldflags: list[typing.Any] = [],
-        anonymous: bool = False) -> Artifact:
+def create_dummy_omnibus(ctx: AnalysisContext, extra_ldflags: list[typing.Any] = []) -> Artifact:
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     link_result = cxx_link_shared_library(
         ctx = ctx,
@@ -178,7 +175,6 @@ def create_dummy_omnibus(
             category_suffix = "dummy_omnibus",
             link_execution_preference = LinkExecutionPreference("any"),
         ),
-        anonymous = anonymous,
     )
     return link_result.linked_object.output
 
@@ -208,8 +204,7 @@ def _create_root(
         pic_behavior: PicBehavior,
         extra_ldflags: list[typing.Any] = [],
         prefer_stripped_objects: bool = False,
-        allow_cache_upload: bool = False,
-        anonymous: bool = False) -> OmnibusRootProduct:
+        allow_cache_upload: bool = False) -> OmnibusRootProduct:
     """
     Link a root omnibus node.
     """
@@ -264,7 +259,7 @@ def _create_root(
             other_root = root_products[dep]
 
             # TODO(cjhopman): This should be passing structured linkables
-            inputs.append(LinkInfo(linkables = [SharedLibLinkable(lib = other_root.shared_library.output)]))
+            inputs.append(LinkInfo(pre_flags = [cmd_args(other_root.shared_library.output)]))
             continue
 
         # If this node is in omnibus, just add that to the link line.
@@ -298,7 +293,6 @@ def _create_root(
             link_execution_preference = LinkExecutionPreference("local"),
             allow_cache_upload = allow_cache_upload,
         ),
-        anonymous = anonymous,
     )
     shared_library = link_result.linked_object
 
@@ -310,9 +304,8 @@ def _create_root(
             output = shared_library.output,
             category_prefix = "omnibus",
             # Same as above.
-            prefer_local = not anonymous,
+            prefer_local = True,
             allow_cache_upload = allow_cache_upload,
-            anonymous = anonymous,
         ),
         undefined_syms = extract_undefined_syms(
             ctx,
@@ -320,9 +313,8 @@ def _create_root(
             output = shared_library.output,
             category_prefix = "omnibus",
             # Same as above.
-            prefer_local = not anonymous,
+            prefer_local = True,
             allow_cache_upload = allow_cache_upload,
-            anonymous = anonymous,
         ),
     )
 
@@ -680,13 +672,12 @@ def create_omnibus_libraries(
         graph: OmnibusGraph,
         extra_ldflags: list[typing.Any] = [],
         prefer_stripped_objects: bool = False,
-        allow_cache_upload: bool = False,
-        anonymous: bool = False) -> OmnibusSharedLibraries:
+        allow_cache_upload: bool = False) -> OmnibusSharedLibraries:
     spec = _build_omnibus_spec(ctx, graph)
     pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior
 
     # Create dummy omnibus
-    dummy_omnibus = create_dummy_omnibus(ctx, extra_ldflags, anonymous = anonymous)
+    dummy_omnibus = create_dummy_omnibus(ctx, extra_ldflags)
 
     libraries = {}
     root_products = {}
@@ -705,7 +696,6 @@ def create_omnibus_libraries(
             extra_ldflags,
             prefer_stripped_objects,
             allow_cache_upload = allow_cache_upload,
-            anonymous = anonymous,
         )
         if root.name != None:
             libraries[root.name] = product.shared_library

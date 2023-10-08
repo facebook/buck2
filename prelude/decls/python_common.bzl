@@ -112,7 +112,7 @@ def _exclude_deps_from_merged_linking_arg():
 
 def _deduplicate_merged_link_roots():
     return {
-        "deduplicate_merged_link_roots": attrs.bool(default = True, doc = """
+        "deduplicate_merged_link_roots": attrs.option(attrs.bool(), default = None, doc = """
     When linking multiple top-level binaries with the `merged` ``.buckconfig``,
      coalesce root link rules which are identical across independent merged links.
 """),
