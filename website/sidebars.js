@@ -119,7 +119,6 @@ const manualSidebar = [
     label: 'Rule Authors',
     items: [
       'rule_authors/writing_rules',
-      'rule_authors/rule_api',
       'rule_authors/transitive_sets',
       'rule_authors/configurations',
       'rule_authors/configuration_transitions',

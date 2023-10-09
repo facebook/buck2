@@ -31,7 +31,7 @@ The following sub-sections contain a list of links to key points in the Buck2 Do
 ### For people writing rules
 
 * [Writing Rules](rule_authors/writing_rules.md) - how to write rules to support new languages.
-* [Rule APIs](rule_authors/rule_api.md) - gives the API available when writing rules.
+* [Build APIs](api/build/globals) - documentation for the APIs available when writing rules.
 * [Starlark Types](https://github.com/facebookexperimental/starlark-rust/blob/main/docs/types.md) - rules are written in Starlark (which is approximately Python), but our version adds types.
 
 <FbInternalOnly>

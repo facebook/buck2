@@ -5,7 +5,7 @@ title: Writing Rules
 
 This page describes how to write rules for Buck2 and explains the flow for implementing rules that are already defined in Buck1.
 
-For a list of the API functions available, see [Rule APIs](rule_api.md).
+For a list of the API functions available, see the [Build APIs](../../api/build/globals).
 
 :::note
 Rules such as `@fbcode_macros//build_defs:native_rules.bzl buck_genrule` are not actually rules, they are _macros_ (Starlark functions that eventually call out the underlying `genrule` _rule_). Macros in Buck2 are mostly compatible with Buck1 and should be written in the same way.
