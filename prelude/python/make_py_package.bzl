@@ -269,12 +269,17 @@ def _make_py_package_impl(
         package_style,
     )
     bootstrap_args.add(build_args)
-    if package_style == PackageStyle("standalone"):
+    if standalone:
         bootstrap_args.add(ctx.attrs.standalone_build_args)
     else:
         bootstrap_args.add(ctx.attrs.inplace_build_args)
 
-    if standalone:
+        # For inplace builds add local artifacts to outputs so they get properly materialized
+        runtime_files.extend(dep_artifacts)
+        runtime_files.append((symlink_tree_path, symlink_tree_path.short_path))
+
+    # For standalone builds, or builds setting make_py_package we generate args for calling make_par.py
+    if standalone or make_py_package_cmd != None:
         # We support building _standalone_ packages locally to e.g. support fbcode's
         # current style of build info stamping (e.g. T10696178).
         prefer_local = package_python_locally(ctx, python_toolchain)
@@ -284,40 +289,38 @@ def _make_py_package_impl(
         )
         cmd.add(modules_args)
         cmd.add(bootstrap_args)
+        if ctx.attrs.runtime_env:
+            for k, v in ctx.attrs.runtime_env.items():
+                cmd.add(cmd_args(["--passthrough", "--runtime_env={}={}".format(k, v)]))
         cmd.add(cmd_args("--no-sitecustomize"))
+        identifier_prefix = "standalone{}" if standalone else "inplace{}"
         ctx.actions.run(
             cmd,
             prefer_local = prefer_local,
             category = "par",
-            identifier = "standalone{}".format(output_suffix),
+            identifier = identifier_prefix.format(output_suffix),
             allow_cache_upload = allow_cache_upload,
         )
 
     else:
-        runtime_files.extend(dep_artifacts)
-        runtime_files.append((symlink_tree_path, symlink_tree_path.short_path))
-        if make_py_package_cmd != None:
-            cmd = cmd_args(make_py_package_cmd)
-            cmd.add(modules_args)
-            cmd.add(bootstrap_args)
-            cmd.add(cmd_args("--no-sitecustomize"))
-            ctx.actions.run(cmd, category = "par", identifier = "inplace{}".format(output_suffix))
-        else:
-            modules = cmd_args(python_toolchain.make_py_package_modules)
-            modules.add(modules_args)
-            ctx.actions.run(modules, category = "par", identifier = "modules{}".format(output_suffix))
+        modules = cmd_args(python_toolchain.make_py_package_modules)
+        modules.add(modules_args)
+        ctx.actions.run(modules, category = "par", identifier = "modules{}".format(output_suffix))
 
-            bootstrap = cmd_args(python_toolchain.make_py_package_inplace)
-            bootstrap.add(bootstrap_args)
+        bootstrap = cmd_args(python_toolchain.make_py_package_inplace)
+        bootstrap.add(bootstrap_args)
+        if ctx.attrs.runtime_env:
+            for k, v in ctx.attrs.runtime_env.items():
+                bootstrap.add(cmd_args(["--runtime_env", "{}={}".format(k, v)]))
 
-            if ctx.attrs.add_multiprocessing_wrapper and ctx.attrs._exec_os_type[OsLookup].platform == "linux":
-                # This script will add the preload/library path vars as well as the pythonpath vars to the
-                # subprocess interpreter so that the spawned process will be able to find the inplace par
-                # link tree, native libs, and the modules under the link tree.
-                mp_executable = ctx.actions.declare_output("mp_exec_{}.sh".format(name))
-                runtime_files.append((mp_executable, mp_executable.short_path))
-                bootstrap.add(["--add-multiprocessing-executable", mp_executable.as_output()])
-            ctx.actions.run(bootstrap, category = "par", identifier = "bootstrap{}".format(output_suffix))
+        if ctx.attrs.add_multiprocessing_wrapper and ctx.attrs._exec_os_type[OsLookup].platform == "linux":
+            # This script will add the preload/library path vars as well as the pythonpath vars to the
+            # subprocess interpreter so that the spawned process will be able to find the inplace par
+            # link tree, native libs, and the modules under the link tree.
+            mp_executable = ctx.actions.declare_output("mp_exec_{}.sh".format(name))
+            runtime_files.append((mp_executable, mp_executable.short_path))
+            bootstrap.add(["--add-multiprocessing-executable", mp_executable.as_output()])
+        ctx.actions.run(bootstrap, category = "par", identifier = "bootstrap{}".format(output_suffix))
 
     run_args = []
 

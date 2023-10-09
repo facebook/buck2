@@ -133,6 +133,13 @@ def parse_args() -> argparse.Namespace:
         ),
         help="The dynamic loader env used to find native library deps",
     )
+    parser.add_argument(
+        "-e",
+        "--runtime_env",
+        action="append",
+        default=[],
+        help="environment variables to set before launching the runtime. (e.g. -e FOO=BAR BAZ=QUX)",
+    )
     # Compatibility with existing make_par scripts
     parser.add_argument("--passthrough", action="append", default=[])
 
@@ -142,7 +149,11 @@ def parse_args() -> argparse.Namespace:
 def write_bootstrapper(args: argparse.Namespace) -> None:
     """Write the .pex bootstrapper script using a template"""
 
-    template = args.template_lite if args.use_lite else args.template
+    template = (
+        args.template_lite
+        if (args.use_lite and not args.runtime_env)
+        else args.template
+    )
     with open(template, "r", encoding="utf8") as fin:
         data = fin.read()
 
@@ -205,6 +216,13 @@ def write_bootstrapper(args: argparse.Namespace) -> None:
     new_data = new_data.replace("<NATIVE_LIBS_DIR>", repr(relative_modules_dir))
     new_data = new_data.replace("<NATIVE_LIBS_PRELOAD_ENV_VAR>", "LD_PRELOAD")
     new_data = new_data.replace("<NATIVE_LIBS_PRELOAD>", ld_preload)
+
+    if args.runtime_env:
+        runtime_env = dict(e.split("=", maxsplit=1) for e in args.runtime_env)
+        env = f"os.environ.update({runtime_env!r})"
+    else:
+        env = ""
+    new_data = new_data.replace("<ENV>", env)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with open(args.output, "w", encoding="utf8") as fout:

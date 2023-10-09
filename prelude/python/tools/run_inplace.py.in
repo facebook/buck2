@@ -49,6 +49,8 @@ if native_libs_preload is not None:
         for l in native_libs_preload.split(":")
     )
 
+<ENV>
+
 # Note: this full block of code will be included as the argument to Python,
 # and will be the first thing that shows up in the process arguments as displayed
 # by programs like ps and top.
