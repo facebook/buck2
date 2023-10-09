@@ -141,6 +141,11 @@ CxxCompileOutput = record(
     clang_trace = field([Artifact, None], None),
 )
 
+_ABSOLUTE_ARGSFILE_SUBSTITUTIONS = [
+    (regex("-filter-error=.+"), "-fcolor-diagnostics"),
+    (regex("-filter-ignore=.+"), "-fcolor-diagnostics"),
+]
+
 def create_compile_cmds(
         ctx: AnalysisContext,
         # TODO(nga): this is `CxxRuleConstructorParams`,
@@ -529,6 +534,11 @@ def _mk_argsfile(
     # to avoid "argument too long" errors
     if use_absolute_paths:
         args.add(cmd_args(preprocessor.set.project_as_args("abs_file_prefix_args")))
+
+        # HACK: Replace Xcode clang incompatible flags with compatible ones.
+        # TODO: Refactor this to be a true Xcode argsfile generating flow.
+        for re, sub in _ABSOLUTE_ARGSFILE_SUBSTITUTIONS:
+            args.replace_regex(re, sub)
     else:
         args.add(headers_tag.tag_artifacts(cmd_args(preprocessor.set.project_as_args("file_prefix_args"))))
 
