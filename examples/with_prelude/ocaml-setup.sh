@@ -27,21 +27,6 @@ if [ -z "$OPAM_SWITCH_PREFIX" ]; then
 fi
 set -u
 
-# Check for ocamlopt.opt.
-if ! command -v ocamlopt.opt &> /dev/null
-then
-    echo "Failed to run 'ocamlopt.opt'."
-    exit 1
-fi
-
-# Link 'third-party/ocaml/standard_library'.
-if [ ! -L third-party/ocaml/standard_library ]; then
-  (cd third-party/ocaml && ln -s "$(ocamlopt.opt -config | grep standard_library: | awk '{ print $2 }' )" standard_library)
-else
-    echo "Link 'third-party/ocaml/standard_library' exists. To overwrite it, first remove it and run $0 again"
-    exit 2
-fi
-
 # Link 'third-party/ocaml/opam'.
 if [ ! -L third-party/ocaml/opam ]; then
   (cd third-party/ocaml && ln -s "$OPAM_SWITCH_PREFIX" opam)
