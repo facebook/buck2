@@ -1117,6 +1117,9 @@ def _long_command(
     argfile, hidden = ctx.actions.write(argfile_name, args, allow_args = True)
     return cmd_args(exe, cmd_args(argfile, format = "@{}")).hidden(args, hidden)
 
+_DOUBLE_ESCAPED_NEWLINE_RE = regex("\\\\n")
+_ESCAPED_NEWLINE_RE = regex("\\n")
+
 # Separate env settings into "plain" and "with path". Path env vars are often
 # used in Rust `include!()` and similar directives, which always interpret the
 # path relative to the source file containing the directive. Since paths in env
@@ -1144,7 +1147,7 @@ def _process_env(
             # Will be unescaped in rustc_action.
             # Variable may have "\\n" as well.
             # Example: \\n\n -> \\\n\n -> \\\\n\\n
-            plain_env[k] = v.replace_regex("\\\\n", "\\\n").replace_regex("\\n", "\\n")
+            plain_env[k] = v.replace_regex(_DOUBLE_ESCAPED_NEWLINE_RE, "\\\n").replace_regex(_ESCAPED_NEWLINE_RE, "\\n")
 
     # If CARGO_MANIFEST_DIR is not already expressed in terms of $(location ...)
     # of some target, then interpret it as a relative path inside of the crate's
