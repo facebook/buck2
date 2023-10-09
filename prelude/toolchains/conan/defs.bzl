@@ -228,7 +228,7 @@ ConanPackageInfo = provider(fields = ["reference", "package_id", "cache_out", "p
 ConanProfileInfo = provider(fields = ["config", "inputs"])
 ConanToolchainInfo = provider(fields = ["conan"])
 
-def _project_conan_package_dep(value: (str.type, "artifact")) -> "cmd_args":
+def _project_conan_package_dep(value: (str, Artifact)) -> cmd_args:
     """Generate dependency flags for conan_package.py"""
     return cmd_args(["--dep-reference", value[0], "--dep-cache-out", value[1]])
 
@@ -238,7 +238,7 @@ ConanPackageCacheTSet = transitive_set(
     },
 )
 
-def _conan_package_extract_impl(ctx: "context") -> ["provider"]:
+def _conan_package_extract_impl(ctx: AnalysisContext) -> list[Provider]:
     conan_package_extract = ctx.attrs._conan_package_extract[RunInfo]
 
     cmd = cmd_args([conan_package_extract])
@@ -282,17 +282,17 @@ _conan_package_extract = rule(
 )
 
 def conan_component(
-        name: "string",
-        defines: ["string"],
-        cflags: ["string"],
-        cppflags: ["string"],
-        include_paths: ["string"],
-        libs: ["string"],
-        static_libs: {"string": ["string"]},
-        shared_libs: {"string": ["string"]},
-        system_libs: ["string"],
-        deps: ["string"],
-        package: "string"):
+        name: str,
+        defines: list[str],
+        cflags: list[str],
+        cppflags: list[str],
+        include_paths: list[str],
+        libs: list[str],
+        static_libs: dict[str, list[str]],
+        shared_libs: dict[str, list[str]],
+        system_libs: list[str],
+        deps: list[str],
+        package: str):
     """Import a Conan package component.
 
     Extracts the relevant files from the Conan package directory and exposes
@@ -380,7 +380,7 @@ def conan_component(
         #"supported_platforms_regex": attrs.option(attrs.regex(), default = None),
         #"within_view": attrs.option(attrs.list(attrs.string())),
 
-def _conan_cxx_libraries_impl(ctx: "context") -> ["provider"]:
+def _conan_cxx_libraries_impl(ctx: AnalysisContext) -> list[Provider]:
     default_info = DefaultInfo(
         default_outputs = ctx.attrs.main[DefaultInfo].default_outputs + flatten([c[DefaultInfo].default_outputs for c in ctx.attrs.components.values()]),
         sub_targets = { n: c.providers for n, c in ctx.attrs.components.items() },
@@ -398,7 +398,7 @@ _conan_cxx_libraries = rule(
     doc = "Helper rule to bundle Conan package components into a single target.",
 )
 
-def conan_dep(name: "string", components: {"string": "string"}, **kwargs):
+def conan_dep(name: str, components: dict[str, str], **kwargs):
     """Bundle Conan package components into a single target.
 
     The target itself represents the entire Conan package, including its
@@ -417,7 +417,7 @@ def conan_dep(name: "string", components: {"string": "string"}, **kwargs):
         **kwargs
     )
 
-def _conan_generate_impl(ctx: "context") -> ["provider"]:
+def _conan_generate_impl(ctx: AnalysisContext) -> list[Provider]:
     conan_toolchain = ctx.attrs._conan_toolchain[ConanToolchainInfo]
     conan_init = ctx.attrs._conan_init[ConanInitInfo]
     conan_generate = ctx.attrs._conan_generate[RunInfo]
@@ -474,7 +474,7 @@ conan_generate = rule(
     doc = "Generate Buck2 import targets for Conan packages using the Buckler generator.",
 )
 
-def _conan_init_impl(ctx: "context") -> ["provider"]:
+def _conan_init_impl(ctx: AnalysisContext) -> list[Provider]:
     conan_toolchain = ctx.attrs._conan_toolchain[ConanToolchainInfo]
     conan_init = ctx.attrs._conan_init[RunInfo]
 
@@ -512,7 +512,7 @@ conan_init = rule(
     doc = "Generate a Conan user-home directory.",
 )
 
-def _conan_lock_impl(ctx: "context") -> ["provider"]:
+def _conan_lock_impl(ctx: AnalysisContext) -> list[Provider]:
     conan_toolchain = ctx.attrs._conan_toolchain[ConanToolchainInfo]
     conan_init = ctx.attrs._conan_init[ConanInitInfo]
     conan_lock = ctx.attrs._conan_lock[RunInfo]
@@ -556,7 +556,7 @@ conan_lock = rule(
     doc = "Generate a Conan lock-file.",
 )
 
-def _conan_package_impl(ctx: "context") -> ["provider"]:
+def _conan_package_impl(ctx: AnalysisContext) -> list[Provider]:
     conan_toolchain = ctx.attrs._conan_toolchain[ConanToolchainInfo]
     conan_init = ctx.attrs._conan_init[ConanInitInfo]
     conan_package = ctx.attrs._conan_package[RunInfo]
@@ -671,7 +671,7 @@ def _profile_env_tool(ctx, name, tool):
     wrapper, inputs = _make_wrapper_script(ctx, name, tool)
     return _profile_env_var(name, wrapper).hidden(tool).hidden(inputs)
 
-def _conan_profile_impl(ctx: "context") -> ["provider"]:
+def _conan_profile_impl(ctx: AnalysisContext) -> list[Provider]:
     cxx = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
 
     content = cmd_args()
@@ -733,7 +733,7 @@ conan_profile = rule(
     doc = "Defines a Conan profile.",
 )
 
-def _conan_update_impl(ctx: "context") -> ["provider"]:
+def _conan_update_impl(ctx: AnalysisContext) -> list[Provider]:
     conan_update = ctx.attrs._conan_update[RunInfo]
 
     cmd = cmd_args([conan_update])
@@ -764,7 +764,7 @@ conan_update = rule(
     doc = "Defines a runnable target that will update the Conan lockfile and import targets.",
 )
 
-def _lock_generate_impl(ctx: "context") -> ["provider"]:
+def _lock_generate_impl(ctx: AnalysisContext) -> list[Provider]:
     lock_generate = ctx.attrs._lock_generate[RunInfo]
 
     targets_out = ctx.actions.declare_output(ctx.label.name + ".bzl")
@@ -790,7 +790,7 @@ lock_generate = rule(
     doc = "Generate targets to build individual Conan packages in dependency order based on a Conan lock-file.",
 )
 
-def _system_conan_toolchain_impl(ctx: "context") -> ["provider"]:
+def _system_conan_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(),
         ConanToolchainInfo(
