@@ -1,5 +1,5 @@
 # @generated
-# Update using `buck2 run root//cpp/conan:update`
+# Update using `buck2 run self//cpp/conan:update`
 
 load(
     "@prelude//toolchains/conan:defs.bzl",
@@ -10,7 +10,7 @@ load(
 
 conan_package(
     name = '_package_zlib',
-    lockfile = 'root//cpp/conan:lock',
+    lockfile = 'self//cpp/conan:lock',
     reference = 'zlib/1.2.13',
     package_id = 'c10a1a185befd155ccf9af892387d3946f445cf6',
     deps = [],
