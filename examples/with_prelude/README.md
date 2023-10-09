@@ -17,7 +17,7 @@ Now all targets aside from OCaml related ones are ready to be built.
 
 The information in this section is (at this time) Linux and macOS specific.
 
-The commands in `setup.sh` assume an activated [opam](https://opam.ocaml.org/) installation. Their effect is to create symlinks in the 'third-party/opam' directory. These symlinks support building the example OCaml targets. If any of the symlinks are found to already exist, they will not be overwritten.
+The commands in `ocaml-setup.sh` assume an activated [opam](https://opam.ocaml.org/) installation. Their effect is to create a symlink in the 'third-party/opam' directory. This symlink supports building the example OCaml targets. If the symlink is found to already exist, it will not be overwritten.
 
 ## Sample commands
 

@@ -1,7 +1,7 @@
 # buildifier: disable=no-effect
 prebuilt_cxx_library(
     name = "ocaml-dev",
-    header_dirs = ["standard_library"],
+    header_dirs = ["opam/lib/ocaml"],
     header_only = True,
     visibility = ["PUBLIC"],
 ) if not host_info().os.is_windows else None
@@ -27,9 +27,9 @@ prebuilt_ocaml_library(
 # buildifier: disable=no-effect
 prebuilt_ocaml_library(
     name = "ocaml.compiler-libs.common",
-    bytecode_lib = "standard_library/compiler-libs/ocamlcommon.cma",
-    include_dir = "standard_library/compiler-libs",
-    native_lib = "standard_library/compiler-libs/ocamlcommon.cmxa",
+    bytecode_lib = "opam/lib/ocaml/compiler-libs/ocamlcommon.cma",
+    include_dir = "opam/lib/ocaml/compiler-libs",
+    native_lib = "opam/lib/ocaml/compiler-libs/ocamlcommon.cmxa",
     visibility = ["PUBLIC"],
     deps = [],
 ) if not host_info().os.is_windows else None
