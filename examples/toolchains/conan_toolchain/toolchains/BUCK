@@ -18,8 +18,18 @@ conan_profile(
 )
 
 conan_profile(
-    name = "conan-profile-macos",
+    name = "conan-profile-macos-x86_64",
     arch = "x86_64",
+    os = "Macos" ,
+    build_type = "Release",
+    compiler = "clang",
+    compiler_version = "15",
+    compiler_libcxx = "libc++",
+)
+
+conan_profile(
+    name = "conan-profile-macos-arm64",
+    arch = "armv8",
     os = "Macos" ,
     build_type = "Release",
     compiler = "clang",
@@ -41,7 +51,10 @@ alias(
     name = "conan-profile",
     actual = select({
         "prelude//os:linux": ":conan-profile-linux",
-        "prelude//os:macos": ":conan-profile-macos",
+        "prelude//os:macos": select({
+            "prelude//cpu:x86_64": ":conan-profile-macos-x86_64",
+            "prelude//cpu:arm64": ":conan-profile-macos-arm64",
+        }),
         "prelude//os:windows": ":conan-profile-windows",
     }),
 )
