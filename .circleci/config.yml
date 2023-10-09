@@ -154,6 +154,8 @@ commands:
       - run:
           name:
             cd examples/toolchains/conan_toolchain
+            /tmp/artifacts/buck2 init
+            cp -r ../../prelude prelude
             # Generate Conan imports. TODO[AH] Make that unnecessary.
             PATH="/tmp/artifacts:$PATH" /tmp/artifacts/buck2 run //cpp/conan:update -v 2
             /tmp/artifacts/buck2 build //... -v 2
