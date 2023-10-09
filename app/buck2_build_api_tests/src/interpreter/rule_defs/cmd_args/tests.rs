@@ -104,11 +104,12 @@ fn displays_correctly() -> SharedResult<()> {
     tester.run_starlark_bzl_test(indoc!(
         r#"
         def test():
-            cli = cmd_args()
+            cli = cmd_args(format="x{}y", quote="shell")
             cli.add("foo")
             cli.hidden("bar")
-            assert_eq('cmd_args("foo", hidden=["bar"])', str(cli))
-            assert_eq('cmd_args(\n  "foo",\n  hidden=[ "bar" ]\n)', pprint_str(cli))
+            # TODO(nga): fix options formatting.
+            assert_eq('cmd_args("foo", hidden=["bar"], options=format = ValueTyped(Value("x{}y")), quote = "shell")', str(cli))
+            assert_eq('cmd_args(\n  "foo",\n  hidden=[ "bar" ],\n  options=format = ValueTyped(Value("x{}y")), quote = "shell"\n)', pprint_str(cli))
         "#
     ))?;
 
