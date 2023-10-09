@@ -64,8 +64,7 @@ def _cmd_arg():
 
      The output file or directory for the `genrule()`.
      This variable will have whatever value is specified by
-     the `out` argument if not using\302\240
-     named outputs
+     the `out` argument if not using named outputs. If
      using named outputs, this variable will be the output directory.
 
 
