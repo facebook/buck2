@@ -197,20 +197,22 @@ fn copy_file_impl<'v>(
     ))
 }
 
-/// Functions to allow users to interact with the Actions registry.
-/// Accessed via `ctx.actions.<function>`.
+/// Functions to allow users to interact with the Actions registry. Accessed via
+/// `ctx.actions.<function>`.
 ///
-/// Actions take inputs and produce outputs, mostly using the `artifact` type.
-/// Most output filenames can either be artifacts created with `declare_output` or strings that are implicitly converted to output artifacts.
+/// Actions take inputs and produce outputs, mostly using the `artifact` type. Most output filenames
+/// can either be artifacts created with `declare_output` or strings that are implicitly converted
+/// to output artifacts.
 #[starlark_module]
 fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
-    /// Returns an unbound `artifact` which must be bound before analysis terminates. The usual way of binding an artifact is
-    /// with `ctx.actions.run`.
+    /// Returns an unbound `artifact` which must be bound before analysis terminates. The usual way
+    /// of binding an artifact is with `ctx.actions.run`.
     ///
-    /// To construct an artifact with the name `foo`, call `ctx.actions.declare_output("foo")`. Artifacts from a single target may not
-    /// have the same name, so if you then want a second artifact also named `foo` you need to supply a prefix, e.g.
-    /// `ctx.actions.declare_output("directory", "foo")`. The artifact will still report it has name `foo`, but will be located at
-    /// `directory/foo`.
+    /// To construct an artifact with the name `foo`, call `ctx.actions.declare_output("foo")`.
+    /// Artifacts from a single target may not have the same name, so if you then want a second
+    /// artifact also named `foo` you need to supply a prefix, e.g.
+    /// `ctx.actions.declare_output("directory", "foo")`. The artifact will still report it has name
+    /// `foo`, but will be located at `directory/foo`.
     ///
     /// The `dir` argument should be set to `True` if the binding will be a directory.
     fn declare_output<'v>(
@@ -250,10 +252,14 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     /// Returns an `artifact` whose contents are content written as a JSON value.
     ///
     /// * `filename`: can be a string, or an existing artifact created with `declare_output`
-    /// * `content`:  must be composed of the basic json types (boolean, number, string, list/tuple, dictionary) plus artifacts and command lines
+    /// * `content`:  must be composed of the basic json types (boolean, number, string, list/tuple,
+    ///   dictionary) plus artifacts and command lines
     ///     * An artifact will be written as a string containing the path
-    ///     * A command line will be written as a list of strings, unless `joined=True` is set, in which case it will be a string
-    /// * If you pass `with_inputs = True`, you'll get back a `cmd_args` that expands to the JSON file but carries all the underlying inputs as dependencies (so you don't have to use, for example, `hidden` for them to be added to an action that already receives the JSON file)
+    ///     * A command line will be written as a list of strings, unless `joined=True` is set, in
+    ///       which case it will be a string
+    /// * If you pass `with_inputs = True`, you'll get back a `cmd_args` that expands to the JSON
+    ///   file but carries all the underlying inputs as dependencies (so you don't have to use, for
+    ///   example, `hidden` for them to be added to an action that already receives the JSON file)
     /// * `pretty` (optional): write formatted JSON (defaults to `False`)
     fn write_json<'v>(
         this: &AnalysisActions<'v>,
@@ -292,9 +298,13 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
 
     /// Returns an `artifact` whose contents are content
     ///
-    /// * `is_executable` (optional): indicates whether the resulting file should be marked with executable permissions
-    /// * `allow_args` (optional): must be set to `True` if you want to write parameter arguments to the file (in particular, macros that write to file)
-    ///     * If it is true, the result will be a pair of the `artifact` containing content and a list of artifact values that were written by macros, which should be used in hidden fields or similar
+    /// * `is_executable` (optional): indicates whether the resulting file should be marked with
+    ///   executable permissions
+    /// * `allow_args` (optional): must be set to `True` if you want to write parameter arguments to
+    ///   the file (in particular, macros that write to file)
+    ///     * If it is true, the result will be a pair of the `artifact` containing content and a
+    ///       list of artifact values that were written by macros, which should be used in hidden
+    ///       fields or similar
     /// * `absolute` (optional): if set, this action will produce absolute paths in its output when
     ///   rendering artifact paths. You generally shouldn't use this if you plan to use this action
     ///   as the input for anything else, as this would effectively result in losing all shared
@@ -478,15 +488,17 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         }
     }
 
-    /// Copies the source `artifact` to the destination (which can be a string representing a filename or an output `artifact`) and returns the output `artifact`.
-    /// The copy works for files or directories.
+    /// Copies the source `artifact` to the destination (which can be a string representing a
+    /// filename or an output `artifact`) and returns the output `artifact`. The copy works for
+    /// files or directories.
     fn copy_file<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] dest: OutputArtifactArg<'v>,
         #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
-        // `copy_file` can copy either a file or a directory, even though its name has the word `file` in it
+        // `copy_file` can copy either a file or a directory, even though its name has the word
+        // `file` in it
         copy_file_impl(
             eval,
             this,
@@ -497,15 +509,17 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         )
     }
 
-    /// Creates a symlink to the source `artifact` at the destination (which can be a string representing a filename or an output `artifact`) and returns the output `artifact`.
-    /// The symlink works for files or directories.
+    /// Creates a symlink to the source `artifact` at the destination (which can be a string
+    /// representing a filename or an output `artifact`) and returns the output `artifact`. The
+    /// symlink works for files or directories.
     fn symlink_file<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] dest: OutputArtifactArg<'v>,
         #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
-        // `copy_file` can copy either a file or a directory, even though its name has the word `file` in it
+        // `copy_file` can copy either a file or a directory, even though its name has the word
+        // `file` in it
         copy_file_impl(
             eval,
             this,
@@ -567,22 +581,35 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
 
     /// Runs a command
     ///
-    /// * `arguments`: must be of type `cmd_args`, or a type convertible to such (such as a list of strings and artifacts) and must contain at least one `.as_output()` artifact
-    /// * `category`: category and identifier - when used together, identify the action in Buck2's event stream, and must be unique for a given target
-    /// * `weight`: used to note how heavy the command is and will typically be set to a higher value to indicate that less such commands should be run in parallel (if running locally)
-    /// * `no_outputs_cleanup`: if this flag is set then Buck2 won't clean the outputs of a previous build that might be present on a disk; in which case, command from arguments should be responsible for the cleanup (that is useful, for example, when an action is supporting incremental mode and its outputs are based on result from a previous build)
+    /// * `arguments`: must be of type `cmd_args`, or a type convertible to such (such as a list of
+    ///   strings and artifacts) and must contain at least one `.as_output()` artifact
+    /// * `category`: category and identifier - when used together, identify the action in Buck2's
+    ///   event stream, and must be unique for a given target
+    /// * `weight`: used to note how heavy the command is and will typically be set to a higher
+    ///   value to indicate that less such commands should be run in parallel (if running locally)
+    /// * `no_outputs_cleanup`: if this flag is set then Buck2 won't clean the outputs of a previous
+    ///   build that might be present on a disk; in which case, command from arguments should be
+    ///   responsible for the cleanup (that is useful, for example, when an action is supporting
+    ///   incremental mode and its outputs are based on result from a previous build)
     /// * `metadata_env_var` and `meadata_path` should be used together: both set or both unset
-    ///     * `metadata_path`: defines a path relative to the result directory for a file with action metadata, which will be created right before the command will be run.
-    ///     * Metadata contains the path relative to the Buck2 project root and hash digest for every action input (this excludes symlinks as they could be resolved by a user script if needed). The resolved path relative to the Buck2 project for the metadata file will be passed to command from arguments, via the environment variable, with its name set by `metadata_env_var`
-    ///     * Both `metadata_env_var` and `metadata_path` are useful when making actions behave in an incremental manner (for details, see [Incremental Actions](https://buck2.build/docs/rule_authors/incremental_actions/))
+    ///     * `metadata_path`: defines a path relative to the result directory for a file with
+    ///       action metadata, which will be created right before the command will be run.
+    ///     * Metadata contains the path relative to the Buck2 project root and hash digest for
+    ///       every action input (this excludes symlinks as they could be resolved by a user script
+    ///       if needed). The resolved path relative to the Buck2 project for the metadata file will
+    ///       be passed to command from arguments, via the environment variable, with its name set
+    ///       by `metadata_env_var`
+    ///     * Both `metadata_env_var` and `metadata_path` are useful when making actions behave in
+    ///       an incremental manner (for details, see [Incremental
+    ///       Actions](https://buck2.build/docs/rule_authors/incremental_actions/))
     /// * The `prefer_local`, `prefer_remote` and `local_only` options allow selecting where the
     /// action should run if the executor selected for this target is a hybrid executor.
     ///     * All those options disable concurrent execution: the action will run on the preferred
     ///     platform first (concurrent execution only happens with a "full" hybrid executor).
     ///     * Execution may be retried on the "non-preferred" platform if it fails due to a
     ///     transient error, except for `local_only`, which does not allow this.
-    ///     * If the executor selected is a remote-only executor and you use `local_only`, that's
-    ///     an error. The other options will not raise errors.
+    ///     * If the executor selected is a remote-only executor and you use `local_only`, that's an
+    ///     error. The other options will not raise errors.
     ///     * Setting more than one of those options is an error.
     ///     * Those flags behave the same way as the equivalent `--prefer-remote`, `--prefer-local`
     ///     and `--local-only` CLI flags. The CLI flags take precedence.
@@ -811,10 +838,11 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         Ok(NoneType)
     }
 
-    /// Downloads a URL to an output (filename as string or output artifact).
-    /// The file at the URL must have the given sha1 or the command will fail.
-    /// The optional parameter is_executable indicates whether the resulting file should be marked with executable permissions.
-    /// (Meta-internal) The optional parameter vpnless_url indicates a url from which this resource can be downloaded off VPN; this has the same restrictions as `url` above.
+    /// Downloads a URL to an output (filename as string or output artifact). The file at the URL
+    /// must have the given sha1 or the command will fail. The optional parameter is_executable
+    /// indicates whether the resulting file should be marked with executable permissions.
+    /// (Meta-internal) The optional parameter vpnless_url indicates a url from which this resource
+    /// can be downloaded off VPN; this has the same restrictions as `url` above.
     fn download_file<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
@@ -860,8 +888,11 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     ///
     /// * `digest`: must look like `SHA1:SIZE`
     /// * `use_case`: your RE use case
-    /// * `expires_after_timestamp`: must be a UNIX timestamp. Your digest's TTL must exceed this timestamp. Your build will break once the digest expires, so make sure the expiry is long enough (preferably, in years).
-    /// * `is_executable` (optional): indicates the resulting file should be marked with executable permissions
+    /// * `expires_after_timestamp`: must be a UNIX timestamp. Your digest's TTL must exceed this
+    ///   timestamp. Your build will break once the digest expires, so make sure the expiry is long
+    ///   enough (preferably, in years).
+    /// * `is_executable` (optional): indicates the resulting file should be marked with executable
+    ///   permissions
     fn cas_artifact<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
@@ -930,25 +961,42 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         )
     }
 
-    /// `dynamic_output` allows a rule to use information that was not available when the rule was first run at analysis time.
-    /// Examples include things like Distributed ThinLTO (where the index file is created by another action) or OCaml builds
-    /// (where the dependencies are created by `ocamldeps`).
+    /// `dynamic_output` allows a rule to use information that was not available when the rule was
+    /// first run at analysis time. Examples include things like Distributed ThinLTO (where the
+    /// index file is created by another action) or OCaml builds (where the dependencies are created
+    /// by `ocamldeps`).
     ///
     /// The arguments are:
     ///
-    /// * `dynamic` - a list of artifacts whose values will be available in the function. These will be built before the function is run.
+    /// * `dynamic` - a list of artifacts whose values will be available in the function. These will
+    ///   be built before the function is run.
     /// * `inputs` - a container of artifacts (`cmd_args`, list of artifacts, and so on).
-    ///   * These inputs must include all the inputs that are referenced by the body of the function argument, apart from those listed in `dynamic` and `outputs`: extra inputs may be passed that are not used.
-    ///   * The inputs are used for `buck2 aquery` functionality, but do not cause speculative building. In fact, these inputs may form a cycle with other `dynamic_output` actions if they were all required.
-    ///   * In the future, it may be possible to not pass all the inputs if the repo is set to permissive mode, allowing a more powerful form of dynamic dependencies.
-    /// * `outputs` - a list of unbound artifacts (created with `declare_artifact`) which will be bound by the function.
+    ///   * These inputs must include all the inputs that are referenced by the body of the function
+    ///     argument, apart from those listed in `dynamic` and `outputs`: extra inputs may be passed
+    ///     that are not used.
+    ///   * The inputs are used for `buck2 aquery` functionality, but do not cause speculative
+    ///     building. In fact, these inputs may form a cycle with other `dynamic_output` actions if
+    ///     they were all required.
+    ///   * In the future, it may be possible to not pass all the inputs if the repo is set to
+    ///     permissive mode, allowing a more powerful form of dynamic dependencies.
+    /// * `outputs` - a list of unbound artifacts (created with `declare_artifact`) which will be
+    ///   bound by the function.
     /// * The function argument is given 3 arguments:
     ///   * `ctx` (context) - which is the same as that passed to the initial rule analysis.
-    ///   * `artifacts` - using one of the artifacts from `dynamic` (example usage: `artifacts[artifact_from_dynamic])` gives an artifact value containing the methods `read_string`, `read_lines`, and `read_json` to obtain the values from the disk in various formats.  Anything too complex should be piped through a Python script for transformation to JSON.
-    ///   * `outputs` - using one of the artifacts from the `dynamic_output`'s `outputs` (example usage: `outputs[artifact_from_dynamic_output_outputs]`) gives an unbounded artifact. The function argument must use its `outputs` argument to bind output artifacts, rather than reusing artifacts from the outputs passed into `dynamic_output` directly.
-    /// * The function must call `ctx.actions` (probably `ctx.actions.run`) to bind all outputs. It can examine the values of the dynamic variables and depends on the inputs.
-    ///   * The function will usually be a `def`, as `lambda` in Starlark does not allow statements, making it quite underpowered.
-    /// For full details see https://buck2.build/docs/rule_authors/dynamic_dependencies/.
+    ///   * `artifacts` - using one of the artifacts from `dynamic` (example usage:
+    ///     `artifacts[artifact_from_dynamic])` gives an artifact value containing the methods
+    ///     `read_string`, `read_lines`, and `read_json` to obtain the values from the disk in
+    ///     various formats.  Anything too complex should be piped through a Python script for
+    ///     transformation to JSON.
+    ///   * `outputs` - using one of the artifacts from the `dynamic_output`'s `outputs` (example
+    ///     usage: `outputs[artifact_from_dynamic_output_outputs]`) gives an unbounded artifact. The
+    ///     function argument must use its `outputs` argument to bind output artifacts, rather than
+    ///     reusing artifacts from the outputs passed into `dynamic_output` directly.
+    /// * The function must call `ctx.actions` (probably `ctx.actions.run`) to bind all outputs. It
+    ///   can examine the values of the dynamic variables and depends on the inputs.
+    ///   * The function will usually be a `def`, as `lambda` in Starlark does not allow statements,
+    /// making it quite underpowered. For full details see
+    /// https://buck2.build/docs/rule_authors/dynamic_dependencies/.
     fn dynamic_output<'v>(
         this: &'v AnalysisActions<'v>,
         #[starlark(require = named)] dynamic: Vec<StarlarkArtifact>,
