@@ -37,7 +37,7 @@ conan_update(
     conan_generate = ":conan-generate",
     conanfile = "conanfile.txt",
     lockfile_name = "conan.lock",
-    targets_name = "import/BUILD",
+    targets_name = "import/BUCK",
 )
 
 cxx_binary(
