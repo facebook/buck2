@@ -53,7 +53,7 @@ commands:
             # Avoid: "Error: The `brew link` step did not complete
             # successfully" (for llvm dependency 'six').
             rm -f '/usr/local/lib/python3.9/site-packages/six.py'
-            brew install cmake coreutils opam llvm protobuf zstd
+            brew install cmake conan coreutils opam llvm protobuf zstd
             # TODO: Remove once non intel macos platform is supported on https://github.com/stepancheg/rust-protoc-bin-vendored/
             echo 'export BUCK2_BUILD_PROTOC=/opt/homebrew/opt/protobuf/bin/protoc' >> "$BASH_ENV"
             echo 'export BUCK2_BUILD_PROTOC_INCLUDE=/opt/homebrew/opt/protobuf/include' >> "$BASH_ENV"
