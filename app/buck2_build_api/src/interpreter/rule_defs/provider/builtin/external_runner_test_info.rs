@@ -74,11 +74,11 @@ pub struct ExternalRunnerTestInfoGen<V> {
     contacts: V,
 
     /// Whether this test should use relative paths
-    #[provider(field_type = Vec<bool>)]
+    #[provider(field_type = bool)]
     use_project_relative_paths: V,
 
     /// Whether this test should run from the project root, as opposed to the cell root
-    #[provider(field_type = Vec<bool>)]
+    #[provider(field_type = bool)]
     run_from_project_root: V,
 
     /// Default executor to use to run tests. If none is
