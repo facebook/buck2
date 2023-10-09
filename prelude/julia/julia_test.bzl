@@ -14,6 +14,8 @@ def julia_test_impl(ctx: AnalysisContext) -> list[Provider]:
         type = "julia",
         command = [cmd],
         contacts = ctx.attrs.contacts,
+        # FIXME: Consider setting to true
+        run_from_project_root = False,
     )
 
     return inject_test_run_info(ctx, external_runner_test_info) + [DefaultInfo(default_output = json_info_file)]

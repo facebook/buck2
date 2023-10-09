@@ -109,5 +109,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
             env = ctx.attrs.env,
             labels = ctx.attrs.labels,
             contacts = ctx.attrs.contacts,
+            # FIXME: Consider setting to true
+            run_from_project_root = False,
         ),
     ) + [DefaultInfo(default_output = bin, other_outputs = [gen_main] + runtime_files)]
