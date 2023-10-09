@@ -16,7 +16,11 @@ import json
 import os
 import shutil
 import sys
-from typing import IO, List, NamedTuple, Optional, Tuple
+from typing import Any, IO, List, NamedTuple, Optional, Tuple
+
+
+def eprint(*args: Any, **kwargs: Any) -> None:
+    print(*args, end="\n", file=sys.stderr, flush=True, **kwargs)
 
 
 class Args(NamedTuple):
@@ -69,10 +73,7 @@ def main() -> int:
                     # Fall back to real copy if that doesn't work
                     shutil.copy(inp, out)
             else:
-                print(
-                    f"Missing required input file {short} ({inp})",
-                    file=sys.stderr,
-                )
+                eprint(f"Missing required input file {short} ({inp})")
                 return build_status["status"]
 
     # If all the required files were present, then success regardless of

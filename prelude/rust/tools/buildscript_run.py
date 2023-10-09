@@ -15,10 +15,14 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, IO, NamedTuple
+from typing import Any, Dict, IO, NamedTuple
 
 
 IS_WINDOWS: bool = os.name == "nt"
+
+
+def eprint(*args: Any, **kwargs: Any) -> None:
+    print(*args, end="\n", file=sys.stderr, flush=True, **kwargs)
 
 
 def cfg_env(rustc_cfg: Path) -> Dict[str, str]:
@@ -142,13 +146,13 @@ def ensure_rustc_available(
                 shell=IS_WINDOWS,
             )
     except OSError as ex:
-        print(f"Failed to run {rustc} because {ex}", file=sys.stderr)
+        eprint(f"Failed to run {rustc} because {ex}")
         sys.exit(1)
     except subprocess.CalledProcessError as ex:
-        print(f"Command failed with exit code {ex.returncode}", file=sys.stderr)
-        print(f"Command: {ex.cmd}", file=sys.stderr)
+        eprint(f"Command failed with exit code {ex.returncode}")
+        eprint(f"Command: {ex.cmd}")
         if ex.stdout:
-            print(f"Stdout: {ex.stdout}", file=sys.stderr)
+            eprint(f"Stdout: {ex.stdout}")
         sys.exit(1)
 
 
@@ -216,7 +220,7 @@ def main() -> None:  # noqa: C901
         if cargo_rustc_cfg_match:
             flags += "--cfg={}\n".format(cargo_rustc_cfg_match.group(1))
         else:
-            print(line)
+            print(line, end="\n")
     args.outfile.write(flags)
 
 
