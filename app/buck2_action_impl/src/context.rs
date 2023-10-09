@@ -296,7 +296,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         }
     }
 
-    /// Returns an `artifact` whose contents are content
+    /// Returns an `artifact` whose contents are `content`
     ///
     /// * `is_executable` (optional): indicates whether the resulting file should be marked with
     ///   executable permissions
@@ -309,6 +309,10 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     ///   rendering artifact paths. You generally shouldn't use this if you plan to use this action
     ///   as the input for anything else, as this would effectively result in losing all shared
     ///   caching.
+    ///
+    /// The content is often a string, but can be any `ArgLike` value. This is occasionally useful
+    /// for generating scripts to run as a part of another action. `cmd_args` in the content are
+    /// newline separated unless another delimiter is explicitly specified.
     fn write<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
