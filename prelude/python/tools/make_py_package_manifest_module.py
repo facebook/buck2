@@ -13,7 +13,7 @@ Generate a __manifest__.py module containing build metadata for a Python package
 import argparse
 import json
 from pathlib import Path
-from typing import Optional, Set
+from typing import Dict, Optional
 
 
 def parse_args() -> argparse.Namespace:
@@ -44,9 +44,9 @@ def parse_args() -> argparse.Namespace:
 
 
 def path_to_module(path: str) -> Optional[str]:
-    if not path.endswith(".py"):
-        return None
-    return path[:-3].replace("/", ".")
+    for suffix in (".py", ".so", ".pyd"):
+        if path.endswith(suffix):
+            return path[: -len(suffix)].replace("/", ".").replace("\\", ".")
 
 
 def main() -> None:
@@ -57,16 +57,22 @@ def main() -> None:
             f"Output path '{output}' already exists, refusing to overwrite."
         )
 
-    modules: Set[str] = set()
+    modules: Dict[str, str] = {}
     for module_manifest_file in args.module_manifests:
         with open(module_manifest_file) as f:
-            for pkg_path, *_ in json.load(f):
-                modules.add(pkg_path)
+            for pkg_path, _, origin_desc in json.load(f):
+                module = path_to_module(pkg_path)
+                if module:
+                    modules[module] = origin_desc
                 # Add artificial __init__.py files like in make_py_package_modules.py
                 for parent in Path(pkg_path).parents:
                     if parent == Path("") or parent == Path("."):
                         continue
-                    modules.add(str(parent / "__init__.py"))
+                    path = str(parent / "__init__.py")
+                    module = path_to_module(path)
+                    if module and module not in modules:
+                        modules[module] = origin_desc
+
     entries = {}
     if args.manifest_entries:
         with open(args.manifest_entries) as f:
@@ -77,7 +83,9 @@ def main() -> None:
         )
     if "modules" in entries:
         raise ValueError("'modules' can't be a key in manifest entries")
-    entries["modules"] = sorted(filter(None, (path_to_module(m) for m in modules)))
+    sorted_modules = sorted(modules.items())
+    entries["modules"] = [m[0] for m in sorted_modules]
+    entries["origins"] = tuple(m[1] for m in sorted_modules)
     output.write_text(
         "\n".join((f"{key} = {repr(value)}" for key, value in entries.items()))
     )

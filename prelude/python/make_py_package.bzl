@@ -151,9 +151,14 @@ def make_py_package(
           resulting binary.
         - hidden_resources: extra resources the binary depends on.
     """
+    srcs = []
+    srcs.extend(pex_modules.manifests.src_manifests())
+
+    if pex_modules.extensions:
+        srcs.append(pex_modules.extensions.manifest)
 
     preload_libraries = _preload_libraries_args(ctx, shared_libraries)
-    manifest_module = generate_manifest_module(ctx, python_toolchain, pex_modules.manifests.src_manifests())
+    manifest_module = generate_manifest_module(ctx, python_toolchain, srcs)
     common_modules_args, dep_artifacts = _pex_modules_common_args(
         ctx,
         pex_modules,
