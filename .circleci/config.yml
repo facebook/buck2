@@ -152,7 +152,8 @@ commands:
     description: Buile examples/toolchains/conan_toolchain
     steps:
       - run:
-          name:
+          name: Build examples/toolchains/conan_toolchain
+          command: |
             cd examples/toolchains/conan_toolchain
             /tmp/artifacts/buck2 init
             cp -r ../../prelude prelude
