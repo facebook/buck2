@@ -120,6 +120,7 @@ pub struct TargetInfo {
     pub env: BTreeMap<String, String>,
     // The ensured folder containing symlinks to all sources
     pub source_folder: PathBuf,
+    pub project_relative_buildfile: PathBuf,
     pub in_workspace: bool,
 }
 

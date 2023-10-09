@@ -35,12 +35,20 @@ pub struct JsonProject {
     pub generated: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq, Eq)]
 pub struct Crate {
     /// Optional crate name used for display purposes; has no semantic significance.
     pub display_name: Option<String>,
     /// The path to the root module of the crate.
     pub root_module: PathBuf,
+    /// Path corresponding to the BUCK/TARGETS file of
+    /// the crate.
+    ///
+    /// This is a non-standard extension to the
+    /// `rust-project.json` format, but this is needed in order
+    /// to add support for reloading `rust-analyzer` when
+    /// a `TARGETS` file is changed.
+    pub build_file: PathBuf,
     pub edition: Edition,
     pub deps: Vec<Dep>,
     /// Should this crate be treated as a member of
@@ -90,13 +98,14 @@ pub struct Crate {
     pub proc_macro_dylib_path: Option<PathBuf>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
 #[serde(rename = "edition")]
 pub enum Edition {
     #[serde(rename = "2015")]
     Edition2015,
     #[serde(rename = "2018")]
     Edition2018,
+    #[default]
     #[serde(rename = "2021")]
     Edition2021,
 }

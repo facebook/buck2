@@ -47,6 +47,7 @@ pub fn to_json_project(
 ) -> Result<JsonProject, anyhow::Error> {
     let mode = select_mode(None);
     let buck = Buck::new(mode);
+    let project_root = buck.resolve_project_root()?;
 
     let ExpandedAndResolved {
         expanded_targets: _,
@@ -55,10 +56,9 @@ pub fn to_json_project(
     } = expanded_and_resolved;
 
     let target_index = merge_unit_test_targets(target_map);
-    let project_root = buck.resolve_project_root()?;
 
     let mut crates: Vec<Crate> = Vec::with_capacity(target_index.len());
-    for (target, TargetInfoEntry { info, index: _ }) in &target_index {
+    for (target, TargetInfoEntry { info, .. }) in &target_index {
         let mut deps = resolve_dependencies_aliases(info, &target_index, &aliases, &proc_macros);
         resolve_renamed_dependencies(info, &target_index, &mut deps);
 
@@ -96,6 +96,9 @@ pub fn to_json_project(
             trace!(?target, ?dylib, "target is a proc macro");
         }
 
+        // corresponds to the BUCK/TARGETS file of a target.
+        let mut build_file = info.project_relative_buildfile.clone();
+
         // We don't need to push the source folder as rust-analyzer by default will use the root-module parent().
         // info.root_module() will output either the fbcode source file or the symlinked one based on if it's a mapped source or not
         let mut root_module = info.root_module();
@@ -103,6 +106,9 @@ pub fn to_json_project(
         if relative_paths {
             proc_macro_dylib_path = proc_macro_dylib_path.map(|p| relative_to(&p, &project_root));
             root_module = relative_to(&root_module, &project_root);
+        } else {
+            let path = project_root.join(build_file);
+            build_file = path;
         }
 
         let mut env: BTreeMap<String, String> = BTreeMap::new();
@@ -117,15 +123,15 @@ pub fn to_json_project(
         let crate_info = Crate {
             display_name: Some(info.name.clone()),
             root_module,
+            build_file: build_file.to_owned(),
             edition,
             deps,
             is_workspace_member: info.in_workspace,
-            source: None,
             cfg,
-            target: None,
             env,
             is_proc_macro: info.proc_macro.unwrap_or(false),
             proc_macro_dylib_path,
+            ..Default::default()
         };
         crates.push(crate_info);
     }
@@ -546,6 +552,7 @@ fn merge_tests_no_cycles() {
             features: vec![],
             env: BTreeMap::new(),
             source_folder: PathBuf::from("/tmp"),
+            project_relative_buildfile: PathBuf::from("foo/BUCK"),
             in_workspace: false,
         },
     );
@@ -568,6 +575,7 @@ fn merge_tests_no_cycles() {
             features: vec![],
             env: BTreeMap::new(),
             source_folder: PathBuf::from("/tmp"),
+            project_relative_buildfile: PathBuf::from("foo-unittest/BUCK"),
             in_workspace: false,
         },
     );
@@ -602,6 +610,7 @@ fn merge_target_multiple_tests_no_cycles() {
             features: vec![],
             env: BTreeMap::new(),
             source_folder: PathBuf::from("/tmp"),
+            project_relative_buildfile: PathBuf::from("foo/BUCK"),
             in_workspace: false,
         },
     );
@@ -627,6 +636,7 @@ fn merge_target_multiple_tests_no_cycles() {
             features: vec![],
             env: BTreeMap::new(),
             source_folder: PathBuf::from("/tmp"),
+            project_relative_buildfile: PathBuf::from("foo/BUCK"),
             in_workspace: false,
         },
     );
@@ -652,6 +662,7 @@ fn merge_target_multiple_tests_no_cycles() {
             features: vec![],
             env: BTreeMap::new(),
             source_folder: PathBuf::from("/tmp"),
+            project_relative_buildfile: PathBuf::from("foo_test/BUCK"),
             in_workspace: false,
         },
     );
@@ -674,6 +685,7 @@ fn merge_target_multiple_tests_no_cycles() {
             features: vec![],
             env: BTreeMap::new(),
             source_folder: PathBuf::from("/tmp"),
+            project_relative_buildfile: PathBuf::from("foo/BUCK"),
             in_workspace: false,
         },
     );

@@ -64,6 +64,7 @@ def _process_target_config(ctx, target, in_workspace):
     # Always generate the source folder. Let rust-project resolve whether or not to use it
     copy["source_folder"] = materialize(ctx, target)
     copy["label"] = target.label.raw_target()
+    copy["project_relative_buildfile"] = ctx.fs.project_rel_path(target.buildfile_path)
     copy["kind"] = target.rule_type
     copy["in_workspace"] = in_workspace
     return copy
