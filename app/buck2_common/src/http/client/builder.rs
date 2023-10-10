@@ -88,7 +88,7 @@ impl HttpClientBuilder {
             tracing::debug!("Using vpnless client");
             let proxy = x2p::find_proxy()?.context("Expected unix domain socket or http proxy port for x2p client but did not find either")?;
             builder.with_x2p_proxy(proxy);
-        } else if let Ok(Some(cert_path)) = tls::find_internal_cert() {
+        } else if let Some(cert_path) = tls::find_internal_cert() {
             tracing::debug!("Using internal https client");
             builder.with_client_auth_cert(cert_path)?;
         } else {

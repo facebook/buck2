@@ -127,12 +127,12 @@ pub fn tls_config_with_single_cert<P: AsRef<Path>>(
 
 /// Find TLS certs.
 ///
-/// Return `None` in Cargo or open source builds.
-/// Return `Err` if certificates cannot be found in internal buck2 builds.
-pub fn find_internal_cert() -> anyhow::Result<Option<OsString>> {
+/// Return `None` in Cargo or open source builds; we do not support internal certs
+/// in these builds.
+pub fn find_internal_cert() -> Option<OsString> {
     #[cfg(fbcode_build)]
-    return find_certs::find_tls_cert().map(Some);
+    return find_certs::find_tls_cert();
 
     #[cfg(not(fbcode_build))]
-    return Ok(None);
+    return None;
 }
