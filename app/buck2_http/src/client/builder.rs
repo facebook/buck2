@@ -12,9 +12,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context;
-use buck2_common::legacy_configs::init::DaemonStartupConfig;
-use buck2_common::legacy_configs::init::Timeout;
-use buck2_core::is_open_source;
 use hyper::client::HttpConnector;
 use hyper::service::Service;
 use hyper::Body;
@@ -36,14 +33,8 @@ use crate::stats::HttpNetworkStats;
 use crate::tls;
 use crate::x2p;
 
-/// Support following up to 10 redirects, after which a redirected request will
-/// error out.
-const DEFAULT_MAX_REDIRECTS: usize = 10;
-const DEFAULT_CONNECT_TIMEOUT_MS: u64 = 5000;
-const DEFAULT_READ_TIMEOUT_MS: u64 = 10000;
-
 #[derive(Clone, Debug, Default, PartialEq)]
-struct TimeoutConfig {
+pub struct TimeoutConfig {
     connect_timeout: Option<Duration>,
     read_timeout: Option<Duration>,
     write_timeout: Option<Duration>,
@@ -74,17 +65,18 @@ pub struct HttpClientBuilder {
 }
 
 impl HttpClientBuilder {
-    /// General-purpose builder to get a regular HTTP client for use throughout the
-    /// buck2 codebase.
-    ///
-    /// This should work for internal and OSS use cases.
-    /// TODO(skarlage): Remove `allow_vpnless` when vpnless becomes default.
-    pub fn with_sensible_defaults(allow_vpnless: bool) -> anyhow::Result<Self> {
+    /// Builds an http client compatible with OSS usage.
+    pub fn oss() -> anyhow::Result<Self> {
+        tracing::debug!("Using OSS client");
         let mut builder = Self::https_with_system_roots()?;
-        if is_open_source() {
-            tracing::debug!("Using OSS client");
-            builder.with_proxy_from_env()?;
-        } else if allow_vpnless && x2p::supports_vpnless() {
+        builder.with_proxy_from_env()?;
+        Ok(builder)
+    }
+
+    /// Builds an http client compatible with internal Meta usage.
+    pub fn internal(allow_vpnless: bool) -> anyhow::Result<Self> {
+        let mut builder = Self::https_with_system_roots()?;
+        if allow_vpnless && x2p::supports_vpnless() {
             tracing::debug!("Using vpnless client");
             let proxy = x2p::find_proxy()?.context("Expected unix domain socket or http proxy port for x2p client but did not find either")?;
             builder.with_x2p_proxy(proxy);
@@ -110,39 +102,6 @@ impl HttpClientBuilder {
         })
     }
 
-    /// Customize an http client based on http.* legacy buckconfigs.
-    pub fn from_startup_config(config: &DaemonStartupConfig) -> anyhow::Result<Self> {
-        let mut builder = Self::with_sensible_defaults(config.allow_vpnless)?;
-        builder.with_max_redirects(config.http.max_redirects.unwrap_or(DEFAULT_MAX_REDIRECTS));
-        match config.http.connect_timeout() {
-            Timeout::Value(d) => {
-                builder.with_connect_timeout(Some(d));
-            }
-            Timeout::Default => {
-                builder
-                    .with_connect_timeout(Some(Duration::from_millis(DEFAULT_CONNECT_TIMEOUT_MS)));
-            }
-            _ => {}
-        }
-        match config.http.read_timeout() {
-            Timeout::Value(d) => {
-                builder.with_read_timeout(Some(d));
-            }
-            Timeout::Default => {
-                builder.with_read_timeout(Some(Duration::from_millis(DEFAULT_READ_TIMEOUT_MS)));
-            }
-            _ => {}
-        }
-        match config.http.write_timeout() {
-            Timeout::Value(d) => {
-                builder.with_write_timeout(Some(d));
-            }
-            _ => {}
-        }
-
-        Ok(builder)
-    }
-
     pub fn with_tls_config(&mut self, tls_config: ClientConfig) -> &mut Self {
         self.tls_config = tls_config;
         self
@@ -159,7 +118,7 @@ impl HttpClientBuilder {
     }
 
     pub fn with_x2p_proxy(&mut self, proxy: Proxy) -> &mut Self {
-        self.with_proxy(proxy).supports_vpnless();
+        self.with_proxy(proxy).with_supports_vpnless();
         self
     }
 
@@ -186,6 +145,10 @@ impl HttpClientBuilder {
         self
     }
 
+    pub fn connect_timeout(&self) -> Option<Duration> {
+        self.timeout_config.as_ref().and_then(|c| c.connect_timeout)
+    }
+
     pub fn with_read_timeout(&mut self, read_timeout: Option<Duration>) -> &mut Self {
         if let Some(timeout_config) = &mut self.timeout_config {
             timeout_config.read_timeout = read_timeout;
@@ -197,6 +160,10 @@ impl HttpClientBuilder {
             });
         }
         self
+    }
+
+    pub fn read_timeout(&self) -> Option<Duration> {
+        self.timeout_config.as_ref().and_then(|c| c.read_timeout)
     }
 
     pub fn with_write_timeout(&mut self, write_timeout: Option<Duration>) -> &mut Self {
@@ -212,14 +179,26 @@ impl HttpClientBuilder {
         self
     }
 
+    pub fn write_timeout(&self) -> Option<Duration> {
+        self.timeout_config.as_ref().and_then(|c| c.write_timeout)
+    }
+
     pub fn with_max_redirects(&mut self, max_redirects: usize) -> &mut Self {
         self.max_redirects = Some(max_redirects);
         self
     }
 
-    fn supports_vpnless(&mut self) -> &mut Self {
+    pub fn max_redirects(&self) -> Option<usize> {
+        self.max_redirects
+    }
+
+    pub fn with_supports_vpnless(&mut self) -> &mut Self {
         self.supports_vpnless = true;
         self
+    }
+
+    pub fn supports_vpnless(&self) -> bool {
+        self.supports_vpnless
     }
 
     fn build_inner(&self) -> Arc<dyn RequestClient> {
@@ -342,9 +321,7 @@ fn find_unix_proxy(proxies: &[Proxy]) -> Option<&Proxy> {
 
 #[cfg(test)]
 mod tests {
-    use buck2_common::legacy_configs::testing::parse;
     use hyper_proxy::Intercept;
-    use indoc::indoc;
 
     use super::*;
 
@@ -361,7 +338,7 @@ mod tests {
     #[test]
     fn test_supports_vpnless_set_true() -> anyhow::Result<()> {
         let mut builder = HttpClientBuilder::https_with_system_roots()?;
-        builder.supports_vpnless();
+        builder.with_supports_vpnless();
 
         assert!(builder.supports_vpnless);
         Ok(())
@@ -418,83 +395,6 @@ mod tests {
             }),
             builder.timeout_config,
         );
-        Ok(())
-    }
-
-    #[test]
-    fn test_from_startup_config_defaults_internal() -> anyhow::Result<()> {
-        let builder =
-            HttpClientBuilder::from_startup_config(&DaemonStartupConfig::testing_empty())?;
-        assert_eq!(DEFAULT_MAX_REDIRECTS, builder.max_redirects.unwrap());
-        assert!(!builder.supports_vpnless);
-        assert_eq!(
-            Some(TimeoutConfig {
-                connect_timeout: Some(Duration::from_millis(DEFAULT_CONNECT_TIMEOUT_MS)),
-                read_timeout: Some(Duration::from_millis(DEFAULT_READ_TIMEOUT_MS)),
-                write_timeout: None,
-            }),
-            builder.timeout_config
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_from_startup_config_overrides() -> anyhow::Result<()> {
-        let config = parse(
-            &[(
-                "/config",
-                indoc!(
-                    r#"
-                    [http]
-                    max_redirects = 5
-                    connect_timeout_ms = 10
-                    write_timeout_ms = 5
-                    "#
-                ),
-            )],
-            "/config",
-        )?;
-        let startup_config = DaemonStartupConfig::new(&config)?;
-        let builder = HttpClientBuilder::from_startup_config(&startup_config)?;
-        assert_eq!(5, builder.max_redirects.unwrap());
-        assert_eq!(
-            Some(TimeoutConfig {
-                connect_timeout: Some(Duration::from_millis(10)),
-                read_timeout: Some(Duration::from_millis(DEFAULT_READ_TIMEOUT_MS)),
-                write_timeout: Some(Duration::from_millis(5)),
-            }),
-            builder.timeout_config
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_from_startup_config_zero_for_unset() -> anyhow::Result<()> {
-        let config = parse(
-            &[(
-                "/config",
-                indoc!(
-                    r#"
-                    [http]
-                    connect_timeout_ms = 0
-                    "#,
-                ),
-            )],
-            "/config",
-        )?;
-        let startup_config = DaemonStartupConfig::new(&config)?;
-        let builder = HttpClientBuilder::from_startup_config(&startup_config)?;
-        assert_eq!(
-            Some(TimeoutConfig {
-                connect_timeout: None,
-                read_timeout: Some(Duration::from_millis(DEFAULT_READ_TIMEOUT_MS)),
-                write_timeout: None,
-            }),
-            builder.timeout_config
-        );
-
         Ok(())
     }
 }

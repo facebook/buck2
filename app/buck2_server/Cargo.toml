@@ -86,3 +86,4 @@ psutil = { workspace = true }
 assert_matches = { workspace = true }
 maplit = { workspace = true }
 buck2_util = { workspace = true }
+indoc = { workspace = true }

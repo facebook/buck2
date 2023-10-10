@@ -24,6 +24,8 @@ use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
+use buck2_common::legacy_configs::init::DaemonStartupConfig;
+use buck2_common::legacy_configs::init::Timeout;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::cells::name::CellName;
@@ -32,6 +34,7 @@ use buck2_core::facebook_only;
 use buck2_core::fs::cwd::WorkingDirectory;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::is_open_source;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_core::tag_result;
 use buck2_events::dispatch::EventDispatcher;
@@ -375,10 +378,9 @@ impl DaemonState {
             )
             .await?;
 
-            let http_client =
-                HttpClientBuilder::from_startup_config(&init_ctx.daemon_startup_config)
-                    .context("Error creating HTTP client")?
-                    .build();
+            let http_client = http_client_from_startup_config(&init_ctx.daemon_startup_config)
+                .context("Error creating HTTP client")?
+                .build();
 
             let materializer_state_identity =
                 materializer_db.as_ref().map(|d| d.identity().clone());
@@ -799,4 +801,130 @@ fn convert_algorithm_kind(kind: DigestAlgorithmKind) -> anyhow::Result<DigestAlg
             }
         }
     })
+}
+
+/// Sensible defaults for http client when building from a DaemonStartupConfig.
+const DEFAULT_MAX_REDIRECTS: usize = 10;
+const DEFAULT_CONNECT_TIMEOUT_MS: u64 = 5000;
+const DEFAULT_READ_TIMEOUT_MS: u64 = 10000;
+
+/// Customize an http client based on http.* legacy buckconfigs.
+fn http_client_from_startup_config(
+    config: &DaemonStartupConfig,
+) -> anyhow::Result<HttpClientBuilder> {
+    let mut builder = if is_open_source() {
+        HttpClientBuilder::oss()?
+    } else {
+        HttpClientBuilder::internal(config.allow_vpnless)?
+    };
+    builder.with_max_redirects(config.http.max_redirects.unwrap_or(DEFAULT_MAX_REDIRECTS));
+    match config.http.connect_timeout() {
+        Timeout::Value(d) => {
+            builder.with_connect_timeout(Some(d));
+        }
+        Timeout::Default => {
+            builder.with_connect_timeout(Some(Duration::from_millis(DEFAULT_CONNECT_TIMEOUT_MS)));
+        }
+        _ => {}
+    }
+    match config.http.read_timeout() {
+        Timeout::Value(d) => {
+            builder.with_read_timeout(Some(d));
+        }
+        Timeout::Default => {
+            builder.with_read_timeout(Some(Duration::from_millis(DEFAULT_READ_TIMEOUT_MS)));
+        }
+        _ => {}
+    }
+    match config.http.write_timeout() {
+        Timeout::Value(d) => {
+            builder.with_write_timeout(Some(d));
+        }
+        _ => {}
+    }
+
+    Ok(builder)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use buck2_common::legacy_configs::testing::parse;
+    use indoc::indoc;
+
+    use super::*;
+
+    #[test]
+    fn test_from_startup_config_defaults_internal() -> anyhow::Result<()> {
+        let builder = http_client_from_startup_config(&DaemonStartupConfig::testing_empty())?;
+        assert_eq!(DEFAULT_MAX_REDIRECTS, builder.max_redirects().unwrap());
+        assert!(!builder.supports_vpnless());
+        assert_eq!(
+            Some(Duration::from_millis(DEFAULT_CONNECT_TIMEOUT_MS)),
+            builder.connect_timeout()
+        );
+        assert_eq!(
+            Some(Duration::from_millis(DEFAULT_READ_TIMEOUT_MS)),
+            builder.read_timeout()
+        );
+        assert_eq!(None, builder.write_timeout());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_from_startup_config_overrides() -> anyhow::Result<()> {
+        let config = parse(
+            &[(
+                "/config",
+                indoc!(
+                    r#"
+                    [http]
+                    max_redirects = 5
+                    connect_timeout_ms = 10
+                    write_timeout_ms = 5
+                    "#
+                ),
+            )],
+            "/config",
+        )?;
+        let startup_config = DaemonStartupConfig::new(&config)?;
+        let builder = http_client_from_startup_config(&startup_config)?;
+        assert_eq!(5, builder.max_redirects().unwrap());
+        assert_eq!(Some(Duration::from_millis(10)), builder.connect_timeout());
+        assert_eq!(
+            Some(Duration::from_millis(DEFAULT_READ_TIMEOUT_MS)),
+            builder.read_timeout()
+        );
+        assert_eq!(Some(Duration::from_millis(5)), builder.write_timeout());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_from_startup_config_zero_for_unset() -> anyhow::Result<()> {
+        let config = parse(
+            &[(
+                "/config",
+                indoc!(
+                    r#"
+                    [http]
+                    connect_timeout_ms = 0
+                    "#,
+                ),
+            )],
+            "/config",
+        )?;
+        let startup_config = DaemonStartupConfig::new(&config)?;
+        let builder = http_client_from_startup_config(&startup_config)?;
+        assert_eq!(None, builder.connect_timeout());
+        assert_eq!(
+            Some(Duration::from_millis(DEFAULT_READ_TIMEOUT_MS)),
+            builder.read_timeout()
+        );
+        assert_eq!(None, builder.write_timeout());
+
+        Ok(())
+    }
 }

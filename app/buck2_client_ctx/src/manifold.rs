@@ -153,7 +153,7 @@ pub struct ManifoldClient {
 
 impl ManifoldClient {
     pub fn new(allow_vpnless: bool) -> anyhow::Result<Self> {
-        let client = HttpClientBuilder::with_sensible_defaults(allow_vpnless)?.build();
+        let client = HttpClientBuilder::internal(allow_vpnless)?.build();
         let manifold_url = log_upload_url(client.supports_vpnless()).map(|s| s.to_owned());
 
         Ok(Self {
