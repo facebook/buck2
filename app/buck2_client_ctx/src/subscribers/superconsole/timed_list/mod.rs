@@ -420,7 +420,7 @@ mod tests {
         let label = Arc::new(BuckEvent::new(
             UNIX_EPOCH,
             TraceId::new(),
-            Some(SpanId::new()),
+            Some(SpanId::next()),
             None,
             buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
                 data: Some(buck2_data::span_start_event::Data::Fake(FakeStart {
@@ -432,7 +432,7 @@ mod tests {
         let module = Arc::new(BuckEvent::new(
             UNIX_EPOCH,
             TraceId::new(),
-            Some(SpanId::new()),
+            Some(SpanId::next()),
             None,
             buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
                 data: Some(buck2_data::span_start_event::Data::Fake(FakeStart {
@@ -490,7 +490,7 @@ mod tests {
         let e1 = BuckEvent::new(
             UNIX_EPOCH,
             TraceId::new(),
-            Some(SpanId::new()),
+            Some(SpanId::next()),
             None,
             buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
                 data: Some(buck2_data::span_start_event::Data::Fake(FakeStart {
@@ -502,7 +502,7 @@ mod tests {
         let e2 = BuckEvent::new(
             UNIX_EPOCH,
             TraceId::new(),
-            Some(SpanId::new()),
+            Some(SpanId::next()),
             None,
             buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
                 data: Some(buck2_data::span_start_event::Data::Fake(FakeStart {
@@ -514,7 +514,7 @@ mod tests {
         let e3 = BuckEvent::new(
             UNIX_EPOCH,
             TraceId::new(),
-            Some(SpanId::new()),
+            Some(SpanId::next()),
             None,
             buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
                 data: Some(buck2_data::span_start_event::Data::Fake(FakeStart {
@@ -595,7 +595,7 @@ mod tests {
             &Arc::new(BuckEvent::new(
                 UNIX_EPOCH,
                 TraceId::new(),
-                Some(SpanId::new()),
+                Some(SpanId::next()),
                 None,
                 SpanStartEvent {
                     data: Some(
@@ -708,7 +708,7 @@ mod tests {
     fn test_children() -> anyhow::Result<()> {
         let tick = Tick::now();
 
-        let parent = SpanId::new();
+        let parent = SpanId::next();
 
         let action = Arc::new(BuckEvent::new(
             UNIX_EPOCH,
@@ -749,7 +749,7 @@ mod tests {
         let prepare = Arc::new(BuckEvent::new(
             UNIX_EPOCH,
             TraceId::new(),
-            Some(SpanId::new()),
+            Some(SpanId::next()),
             Some(parent),
             SpanStartEvent {
                 data: Some(
@@ -813,7 +813,7 @@ mod tests {
         let re_download = Arc::new(BuckEvent::new(
             UNIX_EPOCH,
             TraceId::new(),
-            Some(SpanId::new()),
+            Some(SpanId::next()),
             Some(parent),
             SpanStartEvent {
                 data: Some(

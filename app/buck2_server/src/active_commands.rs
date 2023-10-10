@@ -284,8 +284,8 @@ mod tests {
         let mut writer =
             ActiveCommandStateWriter::new(Arc::new(ActiveCommandState::new(Vec::new())));
 
-        let root = SpanId::new();
-        let child = SpanId::new();
+        let root = SpanId::next();
+        let child = SpanId::next();
         let trace = TraceId::new();
 
         writer.peek_event(&BuckEvent::new(

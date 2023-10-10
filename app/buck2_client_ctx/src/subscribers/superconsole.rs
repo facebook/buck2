@@ -872,7 +872,7 @@ mod tests {
         .unwrap();
 
         // start a new event.
-        let id = SpanId::new();
+        let id = SpanId::next();
         let event = Arc::new(BuckEvent::new(
             SystemTime::now(),
             trace_id,
@@ -939,7 +939,7 @@ mod tests {
             .handle_event(&Arc::new(BuckEvent::new(
                 now,
                 trace_id.dupe(),
-                Some(SpanId::new()),
+                Some(SpanId::next()),
                 None,
                 buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
                     data: Some(
@@ -976,7 +976,7 @@ mod tests {
             .handle_event(&Arc::new(BuckEvent::new(
                 now,
                 trace_id.dupe(),
-                Some(SpanId::new()),
+                Some(SpanId::next()),
                 None,
                 SpanStartEvent {
                     data: Some(

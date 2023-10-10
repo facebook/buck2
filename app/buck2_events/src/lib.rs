@@ -284,8 +284,8 @@ mod tests {
         let test = BuckEvent::new(
             SystemTime::now(),
             TraceId::new(),
-            Some(SpanId::new()),
-            Some(SpanId::new()),
+            Some(SpanId::next()),
+            Some(SpanId::next()),
             SpanStartEvent {
                 data: Some(
                     CommandStart {

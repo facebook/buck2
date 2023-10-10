@@ -644,7 +644,7 @@ mod tests {
         BuckEvent::new(
             SystemTime::now(),
             TraceId::new(),
-            Some(SpanId::new()),
+            Some(SpanId::next()),
             None,
             buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
                 data: Some(buck2_data::span_start_event::Data::Load(

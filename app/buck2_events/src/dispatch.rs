@@ -232,7 +232,7 @@ impl Span {
     where
         D: Into<span_start_event::Data>,
     {
-        let span_id = SpanId::new();
+        let span_id = SpanId::next();
         let start_instant = Instant::now();
 
         dispatcher.event_with_span_id(

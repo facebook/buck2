@@ -34,7 +34,7 @@ pub struct SpanId(pub(crate) NonZeroU64);
 impl SpanId {
     /// Generates a new SpanId, suitable for identifying a particular span within the context of a trace. Span IDs are
     /// increasing nonzero 64-bit integers.
-    pub fn new() -> SpanId {
+    pub fn next() -> SpanId {
         static NEXT_ID: AtomicU64 = AtomicU64::new(1);
         loop {
             let next_id = NEXT_ID.fetch_add(1, Ordering::AcqRel);

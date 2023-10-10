@@ -373,8 +373,8 @@ mod tests {
         let event = BuckEvent::new(
             SystemTime::now(),
             TraceId::from_str("7b797fa8-62f1-4123-85f9-875cd74b0a63")?,
-            Some(SpanId::new()),
-            Some(SpanId::new()),
+            Some(SpanId::next()),
+            Some(SpanId::next()),
             SpanStartEvent {
                 data: Some(
                     CommandStart {
