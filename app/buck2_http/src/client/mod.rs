@@ -10,6 +10,7 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
+use anyhow::Context;
 use bytes::Bytes;
 use dupe::Dupe;
 use futures::stream::BoxStream;
@@ -140,7 +141,7 @@ impl HttpClient {
     }
 
     /// Send a generic request.
-    async fn request(
+    pub async fn request(
         &self,
         request: Request<Bytes>,
     ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
@@ -222,6 +223,20 @@ async fn read_truncated_error_response(
         |e| format!("Error decoding response: {:?}", e),
         |_| String::from_utf8_lossy(buf.as_ref()).into_owned(),
     )
+}
+
+/// Helper function to consume a response stream and convert it to a Bytes container.
+/// Warning: This does no length checking (like hyper::body::to_bytes). Should
+/// only be used for trusted endpoints.
+pub async fn to_bytes(body: BoxStream<'_, hyper::Result<Bytes>>) -> anyhow::Result<Bytes> {
+    let mut reader =
+        StreamReader::new(body.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)));
+    let mut buf = Vec::new();
+    reader
+        .read_to_end(&mut buf)
+        .await
+        .context("Reading response body")?;
+    Ok(buf.into())
 }
 
 /// x2pagent proxies only speak plain HTTP, so we need to mutate requests prior

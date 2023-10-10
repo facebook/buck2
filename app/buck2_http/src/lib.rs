@@ -22,6 +22,7 @@ mod stats;
 pub mod tls;
 mod x2p;
 
+pub use client::to_bytes;
 pub use client::HttpClient;
 pub use client::HttpClientBuilder;
 
