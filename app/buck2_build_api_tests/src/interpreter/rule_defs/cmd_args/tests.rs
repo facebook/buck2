@@ -117,6 +117,19 @@ fn displays_correctly() -> SharedResult<()> {
 }
 
 #[test]
+fn displays_correctly_replace_regex() {
+    let mut tester = tester().unwrap();
+    tester.run_starlark_bzl_test(indoc!(
+        r#"
+        def test():
+            cli = cmd_args()
+            cli.replace_regex(regex("foo"), "bar")
+            assert_eq('cmd_args(options=replacements = [(Regex(ValueTyped(Value(Regular(Regex("foo"))))), ValueTyped(Value("bar")))])', str(cli))
+        "#
+    )).unwrap();
+}
+
+#[test]
 fn command_line_builder() -> SharedResult<()> {
     let mut tester = tester()?;
     let content = indoc!(
