@@ -33,6 +33,7 @@ use regex::Regex;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::typing::Ty;
+use starlark::values::string::StarlarkStr;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
@@ -132,7 +133,7 @@ impl<'v, 'a> Display for OptionsReplacementsRef<'v, 'a> {
                 struct D<'v>(CmdArgsRegex<'v>, StringValue<'v>);
                 impl<'v> Display for D<'v> {
                     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                        write!(f, "({:?}, {:?})", self.0, self.1)
+                        write!(f, "({}, {})", StarlarkStr::repr(self.0.as_str()), self.1)
                     }
                 }
                 D(r, s)

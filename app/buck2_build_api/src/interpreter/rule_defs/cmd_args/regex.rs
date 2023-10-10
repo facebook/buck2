@@ -47,6 +47,15 @@ pub(crate) enum FrozenCmdArgsRegex {
     Regex(FrozenValueTyped<'static, BuckStarlarkRegex>),
 }
 
+impl<'v> CmdArgsRegex<'v> {
+    pub(crate) fn as_str(&self) -> &str {
+        match self {
+            Self::Str(s) => s.as_str(),
+            Self::Regex(r) => r.as_ref().as_str(),
+        }
+    }
+}
+
 impl<'v> Freeze for CmdArgsRegex<'v> {
     type Frozen = FrozenCmdArgsRegex;
 
