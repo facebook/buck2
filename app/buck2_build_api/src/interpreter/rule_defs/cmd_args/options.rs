@@ -11,7 +11,6 @@ use std::borrow::Cow;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
-use std::fmt::Formatter;
 
 use allocative::Allocative;
 use buck2_core::fs::paths::RelativePath;
@@ -88,7 +87,7 @@ impl QuoteStyle {
     }
 }
 
-pub(crate) trait CommandLineOptionsTrait<'v>: Display {
+pub(crate) trait CommandLineOptionsTrait<'v> {
     fn ignore_artifacts(&self) -> bool;
     fn delimiter(&self) -> Option<StringValue<'v>>;
 
@@ -331,18 +330,6 @@ impl Serialize for FrozenCommandLineOptions {
         S: Serializer,
     {
         self.to_command_line_options().serialize(serializer)
-    }
-}
-
-impl<'v> Display for CommandLineOptions<'v> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        Display::fmt(&self.to_command_line_options(), f)
-    }
-}
-
-impl Display for FrozenCommandLineOptions {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        Display::fmt(&self.to_command_line_options(), f)
     }
 }
 
