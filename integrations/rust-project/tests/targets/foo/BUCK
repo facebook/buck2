@@ -16,11 +16,13 @@ rust_library(
 
 rust_library(
     name = "e",
-    srcs = ["lib.rs"],
+    srcs = ["lib_e.rs"],
+    crate_root = "lib_e.rs",
     deps = [":f"],
 )
 
 rust_library(
     name = "f",
-    srcs = ["lib.rs"],
+    crate_root = "lib_f.rs",
+    srcs = ["lib_f.rs"],
 )
