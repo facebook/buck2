@@ -222,7 +222,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
         ctx.attrs.swift_cxx_args,
     )
 
-    return ctx.actions.anon_targets(clang_module_deps, with_artifacts = True).promise.map(k)
+    return ctx.actions.anon_targets(clang_module_deps).promise.map(k)
 
 _swift_sdk_pcm_compilation = rule(
     impl = _swift_sdk_pcm_compilation_impl,
