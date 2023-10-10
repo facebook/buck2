@@ -57,7 +57,7 @@ def _download_protoc_distribution_impl(ctx: AnalysisContext) -> Promise:
             "include",
         ],
         "urls": [ctx.attrs.url],
-    }, with_artifacts = True).promise.map(lambda providers: _turn_http_archive_into_protoc_distribution(
+    }).promise.map(lambda providers: _turn_http_archive_into_protoc_distribution(
         providers = providers,
         protoc_filename = protoc_filename,
     ))
