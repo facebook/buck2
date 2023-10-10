@@ -11,6 +11,7 @@ use std::borrow::Cow;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::fmt::Formatter;
 
 use allocative::Allocative;
 use buck2_core::fs::paths::RelativePath;
@@ -24,6 +25,7 @@ use buck2_interpreter::types::regex::BuckStarlarkRegex;
 use buck2_util::commas::commas;
 use buck2_util::thin_box::ThinBoxSlice;
 use derive_more::Display;
+use display_container::fmt_container;
 use dupe::Dupe;
 use either::Either;
 use gazebo::prelude::*;
@@ -117,6 +119,26 @@ pub(crate) struct CommandLineOptions<'v> {
 pub(crate) enum OptionsReplacementsRef<'v, 'a> {
     Unfrozen(&'a [(CmdArgsRegex<'v>, StringValue<'v>)]),
     Frozen(&'a [(FrozenCmdArgsRegex, FrozenStringValue)]),
+}
+
+impl<'v, 'a> Display for OptionsReplacementsRef<'v, 'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let iter = self.iter();
+        fmt_container(
+            f,
+            "[",
+            "]",
+            iter.map(|(r, s)| {
+                struct D<'v>(CmdArgsRegex<'v>, StringValue<'v>);
+                impl<'v> Display for D<'v> {
+                    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                        write!(f, "({:?}, {:?})", self.0, self.1)
+                    }
+                }
+                D(r, s)
+            }),
+        )
+    }
 }
 
 impl<'v, 'a> OptionsReplacementsRef<'v, 'a> {
@@ -453,13 +475,7 @@ impl<'v, 'a> Display for CommandLineOptionsRef<'v, 'a> {
         }
         if !self.replacements.is_empty() {
             comma(f)?;
-            write!(f, "replacements = [")?;
-            let mut vec_comma = commas();
-            for p in self.replacements.iter() {
-                vec_comma(f)?;
-                write!(f, "({:?}, {:?})", p.0, p.1)?;
-            }
-            write!(f, "]")?;
+            write!(f, "replacements = {}", self.replacements)?;
         }
         Ok(())
     }
