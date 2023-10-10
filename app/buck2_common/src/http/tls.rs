@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::fs::File;
 use std::io::BufReader;
@@ -19,8 +20,6 @@ use rustls::ClientConfig;
 use rustls::PrivateKey;
 use rustls::RootCertStore;
 
-const MACOS_CORP_CERTS: &str = "/opt/facebook/certs/rc_digicert_ca.pem";
-
 /// Load the system root certificates using native frameworks.
 fn load_system_root_certs_native() -> anyhow::Result<Vec<Vec<u8>>> {
     let native_certs: Vec<_> = rustls_native_certs::load_native_certs()
@@ -29,29 +28,34 @@ fn load_system_root_certs_native() -> anyhow::Result<Vec<Vec<u8>>> {
     Ok(native_certs)
 }
 
-/// Fallback path: load from disk (only implemented for specific platforms).
-fn load_system_root_certs_disk(path: &str) -> anyhow::Result<Vec<Vec<u8>>> {
-    let file = File::open(path).with_context(|| format!("Opening root certs at: {}", path))?;
+/// Load system root certifcates from disk.
+fn load_system_root_certs_disk(path: &OsStr) -> anyhow::Result<Vec<Vec<u8>>> {
+    let file = File::open(path)
+        .with_context(|| format!("Opening root certs at: {}", path.to_string_lossy()))?;
     let mut reader = BufReader::new(file);
     let certs = rustls_pemfile::certs(&mut reader)
-        .with_context(|| format!("Loading root certs at: {}", path))?
+        .with_context(|| format!("Loading root certs at: {}", path.to_string_lossy()))?
         .into_iter()
         .collect();
 
     Ok(certs)
 }
 
+/// Load system root certs, trying a few different methods to get a valid root
+/// certificate store.
 fn load_system_root_certs() -> anyhow::Result<RootCertStore> {
     let mut roots = RootCertStore::empty();
-    let root_certs = match load_system_root_certs_native() {
-        Ok(certs) => certs,
-        Err(_) if cfg!(target_os = "macos") && Path::new(MACOS_CORP_CERTS).exists() => {
-            load_system_root_certs_disk(MACOS_CORP_CERTS)
-                .context("Loading corp system certs from disk")?
-        }
-        Err(e) => {
-            anyhow::bail!(e.context("Error loading system root certificates"));
-        }
+    let root_certs = if let Ok(certs) = load_system_root_certs_native() {
+        certs
+    } else if let Some(path) = find_root_ca_certs() {
+        tracing::debug!(
+            "Failed loading certs from native OS, falling back to disk at: {}",
+            path.to_string_lossy(),
+        );
+        load_system_root_certs_disk(&path)
+            .with_context(|| format!("Loading root certs from: {}", path.to_string_lossy()))?
+    } else {
+        anyhow::bail!("Unable to load system root certificates");
     };
 
     // According to [`rustls` documentation](https://docs.rs/rustls/latest/rustls/struct.RootCertStore.html#method.add_parsable_certificates),
@@ -132,6 +136,18 @@ pub fn tls_config_with_single_cert<P: AsRef<Path>>(
 pub fn find_internal_cert() -> Option<OsString> {
     #[cfg(fbcode_build)]
     return find_certs::find_tls_cert();
+
+    #[cfg(not(fbcode_build))]
+    return None;
+}
+
+/// Find root CA certs.
+///
+/// In OSS or non-fbcode builds, returns None; we do not support hardcoded root
+/// certificates in non-fbcode builds and rely solely on rustls-native-certs.
+pub fn find_root_ca_certs() -> Option<OsString> {
+    #[cfg(fbcode_build)]
+    return find_certs::find_root_ca_certs();
 
     #[cfg(not(fbcode_build))]
     return None;
