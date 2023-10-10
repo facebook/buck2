@@ -212,8 +212,8 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
                 # to fail, so I need a DEFAULT here when some target without cpu constraint tries to configure against the
                 # windows exec platform.
                 "DEFAULT": None,
-                "ovr_config//cpu:x86_32": "fbsource//arvr/third-party/toolchains/visual_studio:14.28.29910-cl_32_and_tools",
-                "ovr_config//cpu:x86_64": "fbsource//arvr/third-party/toolchains/visual_studio:14.28.29910-cl_64_and_tools",
+                "ovr_config//cpu:x86_32": "fbsource//arvr/third-party/toolchains/visual_studio:cl_x86_and_tools",
+                "ovr_config//cpu:x86_64": "fbsource//arvr/third-party/toolchains/visual_studio:cl_x64_and_tools",
             }),
         }) if is_full_meta_repo() else None)),
         "_mk_comp_db": attrs.default_only(dep_type(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
