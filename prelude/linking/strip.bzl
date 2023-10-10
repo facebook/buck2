@@ -60,7 +60,6 @@ def strip_debug_info(
                 out = out,
                 obj = obj,
             ),
-            with_artifacts = True,
         ).artifact("strip_debug_info")
 
         return ctx.actions.assert_short_path(strip_debug_info, short_path = out)

@@ -141,7 +141,6 @@ def extract_symbol_names(
                 output = name,
                 **kwargs
             ),
-            with_artifacts = True,
         ).artifact("symbols")
 
         return ctx.actions.assert_short_path(artifact, short_path = paths.join("__symbols__", name))

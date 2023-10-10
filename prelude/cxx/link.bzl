@@ -374,7 +374,6 @@ def _anon_cxx_link(
                 opts = opts,
             )
         ),
-        with_artifacts = True,
     )
 
     dwp = None

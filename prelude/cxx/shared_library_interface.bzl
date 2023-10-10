@@ -71,7 +71,6 @@ def shared_library_interface(
                 shared_lib = shared_lib,
                 identifier = shared_lib.short_path,
             ),
-            with_artifacts = True,
         ).artifact("shared_library_interface")
         return ctx.actions.assert_short_path(shared_lib_interface_artifact, short_path = output)
     else:
