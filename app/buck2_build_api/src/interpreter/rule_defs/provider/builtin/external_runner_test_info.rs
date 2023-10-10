@@ -78,6 +78,8 @@ pub struct ExternalRunnerTestInfoGen<V> {
     use_project_relative_paths: V,
 
     /// Whether this test should run from the project root, as opposed to the cell root
+    ///
+    /// Defaults to `True`.
     #[provider(field_type = bool)]
     run_from_project_root: V,
 
@@ -131,7 +133,7 @@ impl FrozenExternalRunnerTestInfo {
         NoneOr::<bool>::unpack_value(self.run_from_project_root.to_value())
             .unwrap()
             .into_option()
-            .unwrap_or_else(buck2_core::is_open_source)
+            .unwrap_or(true)
     }
 
     pub fn default_executor(&self) -> Option<&StarlarkCommandExecutorConfig> {
