@@ -195,6 +195,13 @@ impl StarlarkStr {
     pub(crate) fn offset_of_content() -> usize {
         memoffset::offset_of!(StarlarkStrN<0>, body)
     }
+
+    /// Format a Rust string like `repr(s)`.
+    pub fn repr(s: &str) -> String {
+        let mut buffer = String::new();
+        string_repr(s, &mut buffer);
+        buffer
+    }
 }
 
 /// How to hash a string in a way that is compatible with Value
@@ -208,9 +215,7 @@ impl Display for StarlarkStr {
         // We could either accumulate straight into the buffer (can't preallocate, virtual call on each character)
         // or accumulate into a String buffer first. Not sure which is faster, but string buffer lets us
         // share code with collect_repr more easily.
-        let mut buffer = String::new();
-        string_repr(self.as_str(), &mut buffer);
-        f.write_str(&buffer)
+        f.write_str(&StarlarkStr::repr(self.as_str()))
     }
 }
 
