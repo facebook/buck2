@@ -26,10 +26,10 @@ message BuckEvent {
   // A globally-unique ID (UUIDv4) of this trace. Required.
   string trace_id = 2;
   // A trace-unique 64-bit integer identifying this event's span ID, if this
-  // event begins a new span or belongs to one. Required.
+  // event begins a new span or belongs to one.
   uint64 span_id = 3;
   // A trace-unique 64-bit identifying the span that this event is logically
-  // parented to. Required.
+  // parented to.
   uint64 parent_id = 4;
   // The payload of this event. Required.
   oneof data {
