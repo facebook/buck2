@@ -33,6 +33,7 @@ members = [
     "app/buck2_execute",
     "app/buck2_execute_impl",
     "app/buck2_grpc",
+    "app/buck2_http",
     "app/buck2_install_proto",
     "app/buck2_interpreter",
     "app/buck2_interpreter_for_build",
@@ -380,6 +381,7 @@ buck2_critical_path = { path = "app/buck2_critical_path" }
 buck2_build_signals = { path = "app/buck2_build_signals" }
 buck2_build_signals_impl = { path = "app/buck2_build_signals_impl" }
 buck2_eden = { path = "app/buck2_eden" }
+buck2_http = { path = "app/buck2_http" }
 
 [profile.release]
 incremental = true

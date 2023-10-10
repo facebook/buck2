@@ -1,0 +1,56 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+oncall("build_infra")
+
+rust_library(
+    name = "buck2_http",
+    srcs = glob(["src/**/*.rs"]),
+    os_deps = [
+        (
+            "linux",
+            [
+                "fbsource//third-party/rust:hyper-unix-connector",
+            ],
+        ),
+        (
+            "macos",
+            [
+                "fbsource//third-party/rust:hyper-unix-connector",
+            ],
+        ),
+    ],
+    test_deps = [
+        "fbsource//third-party/rust:httptest",
+        "fbsource//third-party/rust:indoc",
+        "fbsource//third-party/rust:tempfile",
+    ],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:bytes",
+        "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:http",
+        "fbsource//third-party/rust:hyper",
+        "fbsource//third-party/rust:hyper-proxy",
+        "fbsource//third-party/rust:hyper-rustls",
+        "fbsource//third-party/rust:hyper-timeout",
+        "fbsource//third-party/rust:ipnetwork",
+        "fbsource//third-party/rust:pin-project",
+        "fbsource//third-party/rust:rustls",
+        "fbsource//third-party/rust:rustls-native-certs",
+        "fbsource//third-party/rust:rustls-pemfile",
+        "fbsource//third-party/rust:thiserror",
+        "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:tokio-rustls",
+        "fbsource//third-party/rust:tokio-util",
+        "fbsource//third-party/rust:tracing",
+        "//buck2/allocative/allocative:allocative",
+        "//buck2/app/buck2_common:buck2_common",
+        "//buck2/app/buck2_core:buck2_core",
+        "//buck2/dice/dice:dice",
+        "//buck2/facebook/find_certs:find_certs",
+        "//buck2/gazebo/dupe:dupe",
+        "//buck2/gazebo/gazebo:gazebo",
+        # @oss-disable: "//common/rust/cpe:cpe", 
+    ],
+)

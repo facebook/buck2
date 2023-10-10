@@ -18,7 +18,7 @@ use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
 
-use crate::http::HttpError;
+use crate::HttpError;
 
 trait UriWithRedirect {
     fn with_redirect(&self, location: &Uri) -> anyhow::Result<Uri>;

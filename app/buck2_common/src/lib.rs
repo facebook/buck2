@@ -15,7 +15,6 @@
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 #![feature(fs_try_exists)]
 #![feature(io_error_more)]
-#![feature(if_let_guard)]
 #![feature(is_sorted)]
 #![feature(trait_alias)]
 #![feature(never_type)]
@@ -37,7 +36,6 @@ pub mod external_symlink;
 pub mod file_ops;
 pub mod find_buildfile;
 pub mod home_buck_tmp;
-pub mod http;
 pub mod ignores;
 pub mod invocation_paths;
 pub mod invocation_roots;

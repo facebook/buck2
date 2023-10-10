@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![feature(if_let_guard)]
+
 use dice::UserComputationData;
 use dupe::Dupe;
 use hyper::StatusCode;

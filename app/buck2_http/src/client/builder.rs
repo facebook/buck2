@@ -12,6 +12,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context;
+use buck2_common::legacy_configs::init::DaemonStartupConfig;
+use buck2_common::legacy_configs::init::Timeout;
 use buck2_core::is_open_source;
 use hyper::client::HttpConnector;
 use hyper::service::Service;
@@ -29,12 +31,10 @@ use tokio_rustls::TlsConnector;
 
 use super::HttpClient;
 use super::RequestClient;
-use crate::http::proxy;
-use crate::http::stats::HttpNetworkStats;
-use crate::http::tls;
-use crate::http::x2p;
-use crate::legacy_configs::init::DaemonStartupConfig;
-use crate::legacy_configs::init::Timeout;
+use crate::proxy;
+use crate::stats::HttpNetworkStats;
+use crate::tls;
+use crate::x2p;
 
 /// Support following up to 10 redirects, after which a redirected request will
 /// error out.
@@ -342,11 +342,11 @@ fn find_unix_proxy(proxies: &[Proxy]) -> Option<&Proxy> {
 
 #[cfg(test)]
 mod tests {
+    use buck2_common::legacy_configs::testing::parse;
     use hyper_proxy::Intercept;
     use indoc::indoc;
 
     use super::*;
-    use crate::legacy_configs::testing::parse;
 
     #[test]
     fn test_default_builder() -> anyhow::Result<()> {

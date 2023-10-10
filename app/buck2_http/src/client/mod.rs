@@ -27,12 +27,12 @@ use hyper::Response;
 use tokio::io::AsyncReadExt;
 use tokio_util::io::StreamReader;
 
-use crate::http::redirect::PendingRequest;
-use crate::http::redirect::RedirectEngine;
-use crate::http::stats::CountingStream;
-use crate::http::stats::HttpNetworkStats;
-use crate::http::x2p::X2PAgentError;
-use crate::http::HttpError;
+use crate::redirect::PendingRequest;
+use crate::redirect::RedirectEngine;
+use crate::stats::CountingStream;
+use crate::stats::HttpNetworkStats;
+use crate::x2p::X2PAgentError;
+use crate::HttpError;
 
 mod builder;
 pub use builder::HttpClientBuilder;
@@ -760,7 +760,7 @@ mod proxy_tests {
     use hyper_proxy::Proxy;
 
     use super::*;
-    use crate::http::proxy::DefaultSchemeUri;
+    use crate::proxy::DefaultSchemeUri;
 
     const HEADER_SLEEP_DURATION_MS: &str = "x-buck2-test-proxy-sleep-duration-ms";
 
@@ -900,7 +900,7 @@ mod proxy_tests {
             .clone()
             .host()
             .to_owned();
-        let no_proxy = crate::http::proxy::NoProxy::new(http::uri::Scheme::HTTP, test_server_host);
+        let no_proxy = crate::proxy::NoProxy::new(http::uri::Scheme::HTTP, test_server_host);
 
         // Don't proxy connections to test_server.
         let client = HttpClientBuilder::https_with_system_roots()?
@@ -931,7 +931,7 @@ mod proxy_tests {
         println!("proxy_server uri: {}", proxy_server.uri()?);
 
         // Don't proxy HTTPS connections to *.foobar.com
-        let no_proxy = crate::http::proxy::NoProxy::new(http::uri::Scheme::HTTP, ".foobar.com");
+        let no_proxy = crate::proxy::NoProxy::new(http::uri::Scheme::HTTP, ".foobar.com");
 
         let client = HttpClientBuilder::https_with_system_roots()?
             .with_proxy(Proxy::new(

@@ -16,7 +16,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum HttpError {
     #[error(transparent)]
-    Client(#[from] crate::http::HttpError),
+    Client(#[from] crate::HttpError),
 
     #[error("HTTP Transfer Error when querying URL: {}. Failed after {} bytes", .url, .received)]
     Transfer {
@@ -31,11 +31,11 @@ impl HttpError {
     fn is_retryable(&self) -> bool {
         match self {
             Self::Client(client_error) => match client_error {
-                crate::http::HttpError::Status { status, .. } => {
+                crate::HttpError::Status { status, .. } => {
                     status.is_server_error() || *status == StatusCode::TOO_MANY_REQUESTS
                 }
-                crate::http::HttpError::Timeout { .. } => true,
-                crate::http::HttpError::SendRequest { .. } => true,
+                crate::HttpError::Timeout { .. } => true,
+                crate::HttpError::SendRequest { .. } => true,
                 _ => false,
             },
             Self::Transfer { source, .. } => !source.is_connect(),
@@ -131,7 +131,7 @@ mod tests {
     }
 
     fn test_error(status: StatusCode) -> HttpTestError {
-        HttpTestError::Client(HttpError::Client(crate::http::HttpError::Status {
+        HttpTestError::Client(HttpError::Client(crate::HttpError::Status {
             status,
             uri: "something".to_owned(),
             text: "something else".to_owned(),

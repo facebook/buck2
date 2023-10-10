@@ -42,6 +42,7 @@ buck2_cli_proto = { workspace = true }
 buck2_data = { workspace = true }
 buck2_events = { workspace = true }
 buck2_execute = { workspace = true }
+buck2_http = { workspace = true }
 buck2_forkserver = { workspace = true }
 buck2_forkserver_proto = { workspace = true }
 buck2_util = { workspace = true }

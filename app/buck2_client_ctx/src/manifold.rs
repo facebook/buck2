@@ -12,11 +12,11 @@ use std::time::Duration;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
-use buck2_common::http::retries::http_retry;
-use buck2_common::http::retries::AsHttpError;
-use buck2_common::http::retries::HttpError;
-use buck2_common::http::HttpClient;
-use buck2_common::http::HttpClientBuilder;
+use buck2_http::retries::http_retry;
+use buck2_http::retries::AsHttpError;
+use buck2_http::retries::HttpError;
+use buck2_http::HttpClient;
+use buck2_http::HttpClientBuilder;
 use bytes::Bytes;
 use dupe::Dupe;
 use futures::stream::BoxStream;
