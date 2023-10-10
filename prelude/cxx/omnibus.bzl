@@ -676,6 +676,14 @@ def create_omnibus_libraries(
     spec = _build_omnibus_spec(ctx, graph)
     pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior
 
+    if not allow_cache_upload:
+        # Gradually enable allow_cache_upload everywhere
+        h = hash(str(ctx.label))
+        if h < 0:
+            h = -h
+        if h % 100 < 5:
+            allow_cache_upload = True
+
     # Create dummy omnibus
     dummy_omnibus = create_dummy_omnibus(ctx, extra_ldflags)
 
