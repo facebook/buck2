@@ -8,7 +8,6 @@
 
 import argparse
 import pathlib
-import shlex
 import shutil
 import zipfile
 from tempfile import TemporaryDirectory
@@ -166,7 +165,7 @@ def main():
         with open(jars_list, "w") as f:
             f.write("\n".join([str(jar) for jar in all_jars]))
 
-        combine_all_jars_cmd = shlex.split(jar_builder_tool) + [
+        combine_all_jars_cmd = utils.shlex_split(jar_builder_tool) + [
             "--entries-to-jar",
             jars_list,
             "--output",
