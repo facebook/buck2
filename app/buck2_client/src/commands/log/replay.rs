@@ -82,8 +82,18 @@ impl ReplayCommand {
                         None,
                         ctx.stdin().console_interaction_stream(&console_opts),
                     )
-                    .await??;
+                    .await;
 
+                if let Err(e) = &res {
+                    let msg = "request finished without returning a CommandResult";
+                    if e.to_string().contains(msg) {
+                        buck2_client_ctx::eprintln!(
+                            "Warning: Incomplete log. Replay may be inaccurate."
+                        )?;
+                    };
+                };
+
+                let res = res??;
                 for e in &res.errors {
                     buck2_client_ctx::eprintln!("{}", e)?;
                 }
