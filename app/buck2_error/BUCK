@@ -9,12 +9,12 @@ rust_library(
         ["src/**/*.rs"],
     ),
     deps = [
-        "fbcode//buck2/app/buck2_error_derive:buck2_error_derive",
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:ref-cast",
         "fbsource//third-party/rust:thiserror",
         "//buck2/allocative/allocative:allocative",
+        "//buck2/app/buck2_error_derive:buck2_error_derive",
         "//buck2/gazebo/dupe:dupe",
     ],
 )
