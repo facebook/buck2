@@ -40,8 +40,10 @@ INSPECT_BY_RULE = {
     "prelude//rules.bzl:android_library": inspect_java_rule,
     "prelude//rules.bzl:configured_alias": inspect_alias_rule,
     "prelude//rules.bzl:java_binary": inspect_java_rule,
+    "prelude//rules.bzl:java_library": inspect_java_rule,
     "prelude//rules.bzl:java_test": inspect_java_rule,
     "prelude//rules.bzl:kotlin_binary": inspect_java_rule,
+    "prelude//rules.bzl:kotlin_library": inspect_java_rule,
     "prelude//rules.bzl:kotlin_test": inspect_java_rule,
     "prelude//rules.bzl:robolectric_test": inspect_java_rule,
 }
