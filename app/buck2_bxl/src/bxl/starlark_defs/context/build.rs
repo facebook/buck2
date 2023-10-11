@@ -49,6 +49,7 @@ use starlark::values::UnpackValue as _;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueLike;
+use starlark::values::ValueTyped;
 use starlark_map::small_map::SmallMap;
 
 use crate::bxl::starlark_defs::build_result::StarlarkBxlBuildResult;
@@ -181,7 +182,12 @@ pub(crate) fn build<'v>(
     target_platform: Value<'v>,
     materializations: Materializations,
     eval: &Evaluator<'v, '_>,
-) -> anyhow::Result<SmallMap<Value<'v>, Value<'v>>> {
+) -> anyhow::Result<
+    SmallMap<
+        ValueTyped<'v, StarlarkConfiguredProvidersLabel>,
+        ValueTyped<'v, StarlarkBxlBuildResult>,
+    >,
+> {
     let materializations =
         ConvertMaterializationContext::with_existing_map(materializations, materializations_map);
 
@@ -243,17 +249,17 @@ pub(crate) fn build<'v>(
         }.boxed_local())
     )?;
 
-    build_result
+    Ok(build_result
         .into_iter()
         .map(|(target, result)| {
-            Ok((
+            (
                 eval.heap()
-                    .alloc(StarlarkConfiguredProvidersLabel::new(target))
-                    .get_hashed()
+                    .alloc_typed(StarlarkConfiguredProvidersLabel::new(target))
+                    .hashed()
                     .unwrap(),
                 eval.heap()
-                    .alloc(StarlarkBxlBuildResult(BxlBuildResult::new(result))),
-            ))
+                    .alloc_typed(StarlarkBxlBuildResult(BxlBuildResult::new(result))),
+            )
         })
-        .collect()
+        .collect())
 }

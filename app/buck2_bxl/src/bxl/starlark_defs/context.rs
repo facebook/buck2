@@ -106,6 +106,7 @@ use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::alloc_node::AllocNode;
 use crate::bxl::starlark_defs::aquery::StarlarkAQueryCtx;
 use crate::bxl::starlark_defs::audit::StarlarkAuditCtx;
+use crate::bxl::starlark_defs::build_result::StarlarkBxlBuildResult;
 use crate::bxl::starlark_defs::context::actions::resolve_bxl_execution_platform;
 use crate::bxl::starlark_defs::context::actions::validate_action_instantiation;
 use crate::bxl::starlark_defs::context::actions::BxlActions;
@@ -1180,7 +1181,12 @@ fn context_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = NoneType)] target_platform: Value<'v>,
         #[starlark(require = named, default = "default")] materializations: &str,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<
+        SmallMap<
+            ValueTyped<'v, StarlarkConfiguredProvidersLabel>,
+            ValueTyped<'v, StarlarkBxlBuildResult>,
+        >,
+    > {
         let materialization_setting = materializations;
         let materializations = &this
             .data
@@ -1188,7 +1194,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
             .unpack_root()
             .context(BxlContextDynamicError::Unsupported("build".to_owned()))?
             .materializations;
-        Ok(eval.heap().alloc(Dict::new(build::build(
+        build::build(
             this,
             materializations,
             labels,
@@ -1202,7 +1208,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
                 },
             )?,
             eval,
-        )?)))
+        )
     }
 
     /// A struct of the command line args as declared using the [`cli_args`] module.
