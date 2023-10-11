@@ -24,7 +24,7 @@ This is intentional because when the ensured artifact is created within BXL, it 
 
 This is a safeguard to prevent people from misusing the artifact path and passing it into an action without the artifact having been materialized or passing an absolute path into RE, which can actually mess up RE and render the action not shareable across users. In addition, it makes these actions separately cacheable from the BXL execution.
 
-### What is the difference between dynamic outputs and anon targets?
+## What is the difference between dynamic outputs and anon targets?
 
 Dynamic outputs are meant for [dynamic dependencies](../rule_authors/dynamic_dependencies.md). The context type is a `bxl_ctx`. Dynamic outputs are ran asynchronously outside of the BXL execution.
 
