@@ -29,6 +29,7 @@ use dupe::Clone_;
 use dupe::Copy_;
 use dupe::Dupe_;
 use serde::Serialize;
+use starlark_map::Hashed;
 
 use crate as starlark;
 use crate::any::AnyLifetime;
@@ -178,6 +179,16 @@ impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
     pub fn as_ref(self) -> &'v T {
         // SAFETY: type is checked in constructor.
         unsafe { self.0.downcast_ref_unchecked() }
+    }
+
+    /// Compute the hash value.
+    pub fn hashed(self) -> anyhow::Result<Hashed<Self>> {
+        let hash = if let Some(s) = self.to_value().unpack_starlark_str() {
+            s.get_hash()
+        } else {
+            self.to_value().get_hash()?
+        };
+        Ok(Hashed::new_unchecked(hash, self))
     }
 }
 

@@ -275,6 +275,7 @@ mod tests {
         let heap = Heap::new();
         let s: StringValue = heap.alloc_str("xyz");
         assert_eq!(expected, Hashed::new(s).hash());
+        assert_eq!(s.get_hashed().hash(), s.hashed().unwrap().hash());
         let v: Value = heap.alloc_str("xyz").to_value();
         assert_eq!(expected, v.get_hashed().unwrap().hash());
 
