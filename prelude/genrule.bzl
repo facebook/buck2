@@ -77,6 +77,7 @@ _USE_CACHE_MODE = is_full_meta_repo()
 # Extra attributes required by every genrule based on genrule_impl
 def genrule_attributes() -> dict[str, Attr]:
     attributes = {
+        "always_print_stderr": attrs.bool(default = False),
         "metadata_env_var": attrs.option(attrs.string(), default = None),
         "metadata_path": attrs.option(attrs.string(), default = None),
         "no_outputs_cleanup": attrs.bool(default = False),
@@ -335,6 +336,7 @@ def process_genrule(
         category = category,
         identifier = identifier,
         no_outputs_cleanup = ctx.attrs.no_outputs_cleanup,
+        always_print_stderr = ctx.attrs.always_print_stderr,
         **metadata_args
     )
 
