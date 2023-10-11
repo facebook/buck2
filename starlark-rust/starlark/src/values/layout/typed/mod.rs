@@ -139,6 +139,23 @@ impl<'v, T: StarlarkValue<'v>> Serialize for FrozenValueTyped<'v, T> {
     }
 }
 
+// Have to implement these manually to avoid the `T: PartialEq` bound
+impl<'v, T: StarlarkValue<'v>> PartialEq for ValueTyped<'v, T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<'v, T: StarlarkValue<'v>> Eq for ValueTyped<'v, T> {}
+
+impl<'v, T: StarlarkValue<'v>> PartialEq for FrozenValueTyped<'v, T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<'v, T: StarlarkValue<'v>> Eq for FrozenValueTyped<'v, T> {}
+
 impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
     /// Downcast.
     #[inline]

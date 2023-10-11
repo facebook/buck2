@@ -190,25 +190,6 @@ impl<'v> StringValueLike<'v> for FrozenStringValue {
     }
 }
 
-impl<'v1, 'v2> PartialEq<StringValue<'v1>> for StringValue<'v2> {
-    fn eq(&self, other: &StringValue) -> bool {
-        // `PartialEq` can be implemented for other types, not just for `StarlarkStr`.
-        // But at the moment of writing, we don't guarantee that `PartialEq` for `T`
-        // is consistent with `StarlarkValue::equals` for `T`.
-        self.to_value().ptr_eq(other.to_value()) || self.as_ref() == other.as_ref()
-    }
-}
-
-impl<'v> Eq for StringValue<'v> {}
-
-impl PartialEq for FrozenStringValue {
-    fn eq(&self, other: &Self) -> bool {
-        self.to_value_typed() == other.to_value_typed()
-    }
-}
-
-impl Eq for FrozenStringValue {}
-
 impl<'v> PartialEq<StringValue<'v>> for FrozenStringValue {
     fn eq(&self, other: &StringValue<'v>) -> bool {
         &self.to_value_typed() == other
