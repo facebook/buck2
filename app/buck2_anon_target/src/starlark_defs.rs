@@ -251,19 +251,12 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
     /// Two distinct rules might ask for the same anonymous target, sharing the work it performs.
     ///
     /// For more details see https://buck2.build/docs/rule_authors/anon_targets/
-    ///
-    /// `with_artifacts` is a temporary flag for migration purposes. If `with_artifacts` is false, the return type is just the
-    /// promise. If set to true, the return type will be an object containing a `promise` attribute with accessors to get the
-    /// promise artifacts. This will be the eventual return type after the migration.
     fn anon_target<'v>(
         this: &AnalysisActions<'v>,
         rule: ValueTyped<'v, FrozenRuleCallable>,
         attrs: DictOf<'v, &'v str, Value<'v>>,
-        #[starlark(require = named, default = false)] with_artifacts: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        // TODO - remove after migration
-        let _with_artifacts = with_artifacts;
         let res = eval.heap().alloc_typed(StarlarkPromise::new_unresolved());
         let mut this = this.state();
         let registry = AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?;
@@ -283,21 +276,14 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
     }
 
     /// Generate a series of anonymous targets.
-    ///
-    /// `with_artifacts` is a temporary flag for migration purposes. If `with_artifacts` is false, the return type is just the
-    /// promise. If set to true, the return type will be an object containing a `promise` attribute with accessors to get the
-    /// promise artifacts. This will be the eventual return type after the migration.
     fn anon_targets<'v>(
         this: &AnalysisActions<'v>,
         rules: Vec<(
             ValueTyped<'v, FrozenRuleCallable>,
             DictOf<'v, &'v str, Value<'v>>,
         )>,
-        #[starlark(require = named, default = false)] with_artifacts: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        // TODO - remove after migration
-        let _with_artifacts = with_artifacts;
         let mut this = this.state();
         let registry = AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?;
         let declaration_location = eval.call_stack_top_location();
