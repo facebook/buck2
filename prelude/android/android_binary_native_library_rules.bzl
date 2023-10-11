@@ -935,8 +935,8 @@ def _get_merged_linkables(
                         len(node_data.shared_libs) == 1,
                         "unexpected shared_libs length for somerge of {} ({})".format(target, node_data.shared_libs),
                     )
-                    expect(not node_data.deps, "prebuilt shared libs with deps not supported by somerge")
-                    expect(not node_data.exported_deps, "prebuilt shared libs with exported_deps not supported by somerge")
+                    expect(not node_data.deps, "prebuilt shared library `{}` with deps not supported by somerge".format(target))
+                    expect(not node_data.exported_deps, "prebuilt shared library `{}` with exported_deps not supported by somerge".format(target))
                     soname, shlib = node_data.shared_libs.items()[0]
                     shared_lib = SharedLibrary(
                         lib = shlib,
