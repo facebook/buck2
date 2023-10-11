@@ -370,12 +370,13 @@ def compile_cxx(
         )
 
         # If we're building with split debugging, where the debug info is in the
-        # original object, then add the object as external debug info, *unless*
-        # we're doing LTO, which generates debug info at link time (*except* for
-        # fat LTO, which still generates native code and, therefore, debug info).
+        # original object, then add the object as external debug info
+        # FIXME: ThinLTO generates debug info in a separate dwo dir, but we still
+        # need to track object files if the object file is not compiled to bitcode.
+        # We should track whether ThinLTO is used on a per-object basis rather than
+        # globally on a toolchain level.
         object_has_external_debug_info = (
-            toolchain.split_debug_mode == SplitDebugMode("single") and
-            linker_info.lto_mode in (LtoMode("none"), LtoMode("fat"))
+            toolchain.split_debug_mode == SplitDebugMode("single")
         )
 
         # .S extension is native assembly code (machine level, processor specific)
