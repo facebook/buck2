@@ -28,7 +28,7 @@ def get_apple_toolchain_attr():
     # FIXME: prelude// should be standalone (not refer to fbcode//)
     return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-default", providers = [AppleToolchainInfo])
 
-def _get_apple_bundle_toolchain_attr():
+def get_apple_bundle_toolchain_attr():
     # FIXME: prelude// should be standalone (not refer to fbcode//)
     return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-bundle", providers = [AppleToolchainInfo])
 
@@ -108,7 +108,7 @@ def apple_bundle_extra_attrs():
         "selective_debugging": attrs.option(attrs.dep(providers = [AppleSelectiveDebuggingInfo]), default = None),
         "split_arch_dsym": attrs.bool(default = False),
         "universal": attrs.option(attrs.bool(), default = None),
-        "_apple_toolchain": _get_apple_bundle_toolchain_attr(),
+        "_apple_toolchain": get_apple_bundle_toolchain_attr(),
         "_codesign_entitlements": attrs.option(attrs.source(), default = None),
         APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_NAME: APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_TYPE,
         APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_NAME: APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_TYPE,

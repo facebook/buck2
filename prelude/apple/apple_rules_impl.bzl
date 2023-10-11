@@ -27,6 +27,7 @@ load(
     "APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME",
     "apple_bundle_extra_attrs",
     "apple_test_extra_attrs",
+    "get_apple_bundle_toolchain_attr",
     "get_apple_toolchain_attr",
     "get_apple_xctoolchain_attr",
     "get_apple_xctoolchain_bundle_id_attr",
@@ -116,7 +117,7 @@ extra_attributes = {
         "packager": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "packager_args": attrs.list(attrs.arg(), default = []),
         "validator": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
-        "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
+        "_apple_toolchain": get_apple_bundle_toolchain_attr(),
         # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
         "_ipa_compression_level": attrs.enum(IpaCompressionLevel.values()),
