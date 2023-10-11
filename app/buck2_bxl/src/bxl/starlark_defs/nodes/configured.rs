@@ -332,7 +332,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         Ok(traversal.inputs)
     }
 
-    /// Gets the `SourceArtifact` that corresponds to the given `path` given a context. The path should be the
+    /// Gets the source `Artifact` that corresponds to the given `path` given a context. The path should be the
     /// project relative path to the file, or an absolute path.
     ///
     /// Sample usage:
