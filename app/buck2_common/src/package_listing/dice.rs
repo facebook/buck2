@@ -15,6 +15,8 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::package::PackageLabel;
+use buck2_error::shared_result::SharedResult;
+use buck2_error::shared_result::ToUnsharedResultExt;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::span::SpanId;
 use dice::DiceComputations;
@@ -28,8 +30,6 @@ use crate::dice::file_ops::HasFileOps;
 use crate::package_listing::interpreter::InterpreterPackageListingResolver;
 use crate::package_listing::listing::PackageListing;
 use crate::package_listing::resolver::PackageListingResolver;
-use crate::result::SharedResult;
-use crate::result::ToUnsharedResultExt;
 
 #[async_trait]
 pub trait HasPackageListingResolver<'c> {

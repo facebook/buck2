@@ -35,12 +35,12 @@ use buck2_client_ctx::subscribers::event_log::file_names::do_find_log_by_trace_i
 use buck2_client_ctx::subscribers::event_log::file_names::get_local_logs;
 use buck2_client_ctx::subscribers::event_log::read::EventLogPathBuf;
 use buck2_client_ctx::subscribers::event_log::read::EventLogSummary;
-use buck2_common::result::ToSharedResultExt;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_data::instant_event::Data;
 use buck2_data::InstantEvent;
 use buck2_data::RageResult;
+use buck2_error::shared_result::ToSharedResultExt;
 use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
 use buck2_events::sink::scribe::ThriftScribeSink;
 use buck2_events::BuckEvent;

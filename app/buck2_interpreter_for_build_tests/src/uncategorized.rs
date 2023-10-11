@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use buck2_common::result::SharedResult;
 use buck2_core::bzl::ImportPath;
+use buck2_error::shared_result::SharedResult;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use buck2_interpreter_for_build::rule::register_rule_function;
 use indoc::indoc;

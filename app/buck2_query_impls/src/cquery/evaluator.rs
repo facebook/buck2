@@ -12,9 +12,9 @@
 use std::sync::Arc;
 
 use buck2_build_api::query::oneshot::CqueryOwnerBehavior;
-use buck2_common::result::ToSharedResultExt;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::target::label::TargetLabel;
+use buck2_error::shared_result::ToSharedResultExt;
 use buck2_events::dispatch::console_message;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::nodes::configured::ConfiguredTargetNode;

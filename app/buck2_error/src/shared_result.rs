@@ -22,7 +22,7 @@ use dupe::Dupe;
 /// as different error types requires use of `shared_error()` or `unshared_error()`.
 ///
 /// ```
-/// use buck2_common::result::*;
+/// use buck2_error::shared_result::*;
 ///
 /// fn foo() -> Result<(), anyhow::Error> {
 ///     bar()?;

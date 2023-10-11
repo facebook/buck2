@@ -34,6 +34,7 @@ allocative = { workspace = true }
 
 buck2_common = { workspace = true }
 buck2_core = { workspace = true }
+buck2_error = { workspace = true }
 buck2_events = { workspace = true }
 buck2_query = { workspace = true }
 buck2_query_parser = { workspace = true }

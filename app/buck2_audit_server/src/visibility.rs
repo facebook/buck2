@@ -10,9 +10,9 @@
 use async_trait::async_trait;
 use buck2_audit::visibility::AuditVisibilityCommand;
 use buck2_cli_proto::ClientContext;
-use buck2_common::result::SharedResult;
-use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
+use buck2_error::shared_result::SharedResult;
+use buck2_error::shared_result::ToUnsharedResultExt;
 use buck2_node::load_patterns::load_patterns;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::lookup::TargetNodeLookup;

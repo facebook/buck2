@@ -36,9 +36,9 @@ pub mod result_report {
     use buck2_cli_proto::build_target::build_output::BuildOutputProviders;
     use buck2_cli_proto::build_target::BuildOutput;
     use buck2_cli_proto::BuildTarget;
-    use buck2_common::result::SharedError;
     use buck2_core::configuration::compatibility::MaybeCompatible;
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+    use buck2_error::shared_result::SharedError;
     use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
     use dupe::Dupe;
     use starlark_map::small_map::SmallMap;

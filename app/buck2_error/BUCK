@@ -13,8 +13,10 @@ rust_library(
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:ref-cast",
         "fbsource//third-party/rust:thiserror",
+        "fbsource//third-party/rust:tokio",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_error_derive:buck2_error_derive",
+        "//buck2/dice/dice:dice",
         "//buck2/gazebo/dupe:dupe",
     ],
 )

@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use crate::result::recursive_shared_downcast_ref;
-use crate::result::MayProvideAnyhowError;
+use buck2_error::shared_result::recursive_shared_downcast_ref;
+use buck2_error::shared_result::MayProvideAnyhowError;
 
 pub trait CreateErrorReport {
     fn create_error_report(&self) -> Option<buck2_data::ErrorReport>;

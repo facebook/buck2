@@ -13,6 +13,8 @@ ref-cast = { workspace = true }
 thiserror = { workspace = true }
 
 allocative = { workspace = true }
+dice = { workspace = true }
 dupe = { workspace = true }
+tokio = { workspace = true }
 
 buck2_error_derive = { workspace = true }

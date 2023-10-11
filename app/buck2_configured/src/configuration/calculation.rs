@@ -15,9 +15,9 @@ use async_trait::async_trait;use buck2_build_api::interpreter::rule_defs::provid
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::parse_config_section_and_key;
-use buck2_common::result::SharedResult;
-use buck2_common::result::ToSharedResultExt;
-use buck2_common::result::ToUnsharedResultExt;
+use buck2_error::shared_result::SharedResult;
+use buck2_error::shared_result::ToSharedResultExt;
+use buck2_error::shared_result::ToUnsharedResultExt;
 use buck2_core::cells::name::CellName;
 use starlark_map::unordered_map::UnorderedMap;
 use buck2_core::configuration::compatibility::MaybeCompatible;

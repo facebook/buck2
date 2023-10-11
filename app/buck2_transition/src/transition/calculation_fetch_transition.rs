@@ -8,10 +8,10 @@
  */
 
 use async_trait::async_trait;
-use buck2_common::result::SharedError;
-use buck2_common::result::SharedResult;
-use buck2_common::result::ToSharedResultExt;
 use buck2_core::configuration::transition::id::TransitionId;
+use buck2_error::shared_result::SharedError;
+use buck2_error::shared_result::SharedResult;
+use buck2_error::shared_result::ToSharedResultExt;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use dice::DiceComputations;
 use starlark::values::OwnedFrozenValueTyped;

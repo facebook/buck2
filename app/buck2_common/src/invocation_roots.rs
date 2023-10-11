@@ -18,11 +18,10 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_error::shared_result::SharedResult;
+use buck2_error::shared_result::ToSharedResultExt;
 use once_cell::sync::Lazy;
 use thiserror::Error;
-
-use crate::result::SharedResult;
-use crate::result::ToSharedResultExt;
 
 #[derive(Debug, Error)]
 enum BuckCliError {

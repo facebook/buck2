@@ -11,6 +11,7 @@ mod any;
 mod context;
 mod error;
 mod format;
+pub mod shared_result;
 
 pub use any::AnyError;
 pub use context::Context;

@@ -13,6 +13,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::target_aliases::TargetAliasResolver;
+use buck2_error::shared_result::SharedResult;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -24,7 +25,6 @@ use more_futures::cancellation::CancellationContext;
 use crate::dice::cells::HasCellResolver;
 use crate::legacy_configs::dice::HasLegacyConfigs;
 use crate::legacy_configs::LegacyBuckConfig;
-use crate::result::SharedResult;
 
 #[derive(thiserror::Error, Debug)]
 enum AliasResolutionError {

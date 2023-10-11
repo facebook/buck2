@@ -11,8 +11,8 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandL
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineInputs;
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
-use buck2_common::result::SharedResult;
 use buck2_core::bzl::ImportPath;
+use buck2_error::shared_result::SharedResult;
 use buck2_interpreter::types::regex::register_buck_regex;
 use buck2_interpreter_for_build::interpreter::testing::expect_error;
 use buck2_interpreter_for_build::interpreter::testing::Tester;

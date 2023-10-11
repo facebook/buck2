@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_common::result::SharedResult;
+use buck2_error::shared_result::SharedResult;
 use buck2_interpreter_for_build::interpreter::testing::expect_error;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use indoc::indoc;

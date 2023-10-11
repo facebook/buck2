@@ -28,11 +28,11 @@ mod tests {
     use buck2_build_api::deferred::types::DeferredTable;
     use buck2_build_api::deferred::types::DeferredValue;
     use buck2_common::dice::data::testing::SetTestingIoProvider;
-    use buck2_common::result::ToSharedResultExt;
     use buck2_core::base_deferred_key::BaseDeferredKey;
     use buck2_core::execution_types::execution::ExecutionPlatformResolution;
     use buck2_core::execution_types::executor_config::CommandExecutorConfig;
     use buck2_core::fs::project::ProjectRootTemp;
+    use buck2_error::shared_result::ToSharedResultExt;
     use buck2_execute::digest_config::DigestConfig;
     use buck2_execute::digest_config::SetDigestConfig;
     use buck2_execute::execute::dice_data::set_fallback_executor_config;

@@ -11,9 +11,9 @@ use std::collections::HashSet;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_common::result::SharedResult;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_error::shared_result::SharedResult;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use dice::CancellationContext;
 use dice::DiceComputations;

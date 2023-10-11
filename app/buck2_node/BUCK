@@ -29,6 +29,7 @@ rust_library(
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_core:buck2_core",
+        "//buck2/app/buck2_error:buck2_error",
         "//buck2/app/buck2_events:buck2_events",
         "//buck2/app/buck2_query:buck2_query",
         "//buck2/app/buck2_query_parser:buck2_query_parser",

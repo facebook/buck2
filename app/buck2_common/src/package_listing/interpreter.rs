@@ -17,6 +17,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::PackageLabel;
+use buck2_error::shared_result::SharedResult;
 use buck2_util::arc_str::ArcS;
 use dupe::Dupe;
 use futures::stream::FuturesUnordered;
@@ -30,7 +31,6 @@ use crate::file_ops::SimpleDirEntry;
 use crate::find_buildfile::find_buildfile;
 use crate::package_listing::listing::PackageListing;
 use crate::package_listing::resolver::PackageListingResolver;
-use crate::result::SharedResult;
 
 #[derive(Debug, Error)]
 enum PackageListingError {

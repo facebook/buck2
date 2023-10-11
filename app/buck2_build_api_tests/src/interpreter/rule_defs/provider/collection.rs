@@ -10,8 +10,8 @@
 use buck2_build_api::interpreter::rule_defs::provider::callable::register_provider;
 use buck2_build_api::interpreter::rule_defs::provider::collection::tester::collection_creator;
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
-use buck2_common::result::SharedResult;
 use buck2_core::bzl::ImportPath;
+use buck2_error::shared_result::SharedResult;
 use buck2_interpreter_for_build::interpreter::testing::expect_error;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use indoc::indoc;

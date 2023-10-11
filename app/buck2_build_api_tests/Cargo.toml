@@ -35,6 +35,7 @@ buck2_common = { workspace = true }
 buck2_configured = { workspace = true }
 buck2_core = { workspace = true }
 buck2_data = { workspace = true }
+buck2_error = { workspace = true }
 buck2_file_watcher = { workspace = true }
 buck2_http = { workspace = true }
 buck2_interpreter = { workspace = true }

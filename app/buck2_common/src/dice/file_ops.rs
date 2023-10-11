@@ -24,6 +24,9 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_error::shared_result::SharedResult;
+use buck2_error::shared_result::ToSharedResultExt;
+use buck2_error::shared_result::ToUnsharedResultExt;
 use buck2_events::dispatch::console_message;
 use cmp_any::PartialEqAny;
 use derivative::Derivative;
@@ -46,9 +49,6 @@ use crate::file_ops::SimpleDirEntry;
 use crate::ignores::all_cells::AllCellIgnores;
 use crate::ignores::all_cells::HasAllCellIgnores;
 use crate::io::IoProvider;
-use crate::result::SharedResult;
-use crate::result::ToSharedResultExt;
-use crate::result::ToUnsharedResultExt;
 
 pub trait HasFileOps<'c> {
     type T: FileOps;

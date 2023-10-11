@@ -9,7 +9,7 @@
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_common::result::SharedResult;
+use buck2_error::shared_result::SharedResult;
 use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;

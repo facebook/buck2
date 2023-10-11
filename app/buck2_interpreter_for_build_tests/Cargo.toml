@@ -19,6 +19,7 @@ starlark = { workspace = true }
 buck2_build_api = { workspace = true }
 buck2_common = { workspace = true }
 buck2_core = { workspace = true }
+buck2_error = { workspace = true }
 buck2_events = { workspace = true }
 buck2_interpreter = { workspace = true }
 buck2_interpreter_for_build = { workspace = true }

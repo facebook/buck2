@@ -9,7 +9,7 @@
 
 use buck2_build_api::interpreter::rule_defs::provider::collection::tester::collection_creator;
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
-use buck2_common::result::SharedResult;
+use buck2_error::shared_result::SharedResult;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use buck2_interpreter_for_build::label::testing::label_creator;
 use indoc::indoc;

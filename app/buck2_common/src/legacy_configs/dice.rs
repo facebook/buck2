@@ -15,6 +15,8 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::name::CellName;
+use buck2_error::shared_result::SharedResult;
+use buck2_error::shared_result::ToSharedResultExt;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceProjectionComputations;
@@ -34,8 +36,6 @@ use crate::legacy_configs::view::LegacyBuckConfigsView;
 use crate::legacy_configs::ConfigError;
 use crate::legacy_configs::LegacyBuckConfig;
 use crate::legacy_configs::LegacyBuckConfigs;
-use crate::result::SharedResult;
-use crate::result::ToSharedResultExt;
 
 /// Buckconfig view which queries buckconfig entry from DICE.
 #[derive(Clone, Dupe, Debug)]
