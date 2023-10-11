@@ -78,8 +78,16 @@ def __startup__():
         if name.startswith("STARTUP_"):
             name, sep, func = var.partition(":")
             if sep:
-                module = importlib.import_module(name)
-                getattr(module, func)()
+                try:
+                    module = importlib.import_module(name)
+                    getattr(module, func)()
+                except Exception as e:
+                    # TODO: Ignoring errors for now. The way to properly fix this should be to make
+                    # sure we are still at the same binary that configured `STARTUP_` before importing.
+                    print(
+                        "Error running startup function %s:%s: %s" % (name, func, e),
+                        file=sys.stderr,
+                    )
 
 
 # pyre-fixme[3]: Return type must be annotated.
