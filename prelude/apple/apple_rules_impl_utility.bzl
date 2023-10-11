@@ -8,6 +8,13 @@
 load("@prelude//apple:apple_bundle_attrs.bzl", "get_apple_info_plist_build_system_identification_attrs")
 load("@prelude//apple:apple_bundle_types.bzl", "AppleBundleResourceInfo")
 load("@prelude//apple:apple_code_signing_types.bzl", "CodeSignType")
+load(
+    "@prelude//apple:apple_genrule_deps.bzl",
+    "APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_NAME",
+    "APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_TYPE",
+    "APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_NAME",
+    "APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_TYPE",
+)
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebuggingInfo")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
@@ -103,6 +110,8 @@ def apple_bundle_extra_attrs():
         "universal": attrs.option(attrs.bool(), default = None),
         "_apple_toolchain": _get_apple_bundle_toolchain_attr(),
         "_codesign_entitlements": attrs.option(attrs.source(), default = None),
+        APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_NAME: APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_TYPE,
+        APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_NAME: APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_TYPE,
     }
     attribs.update(_apple_bundle_like_common_attrs())
     return attribs

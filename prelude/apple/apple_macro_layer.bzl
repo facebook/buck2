@@ -6,6 +6,7 @@
 # of this source tree.
 
 load(":apple_bundle_config.bzl", "apple_bundle_config")
+load(":apple_genrule_deps.bzl", "get_apple_build_genrule_deps_default_kwargs")
 load(":apple_info_plist_substitutions_parsing.bzl", "parse_codesign_entitlements")
 load(":apple_package_config.bzl", "apple_package_config")
 load(":apple_resource_bundle.bzl", "make_resource_bundle_rule")
@@ -84,6 +85,7 @@ def apple_test_macro_impl(apple_test_rule, apple_resource_bundle_rule, **kwargs)
 def apple_bundle_macro_impl(apple_bundle_rule, apple_resource_bundle_rule, **kwargs):
     info_plist_substitutions = kwargs.get("info_plist_substitutions")
     kwargs.update(apple_bundle_config())
+    kwargs.update(get_apple_build_genrule_deps_default_kwargs())
     apple_bundle_rule(
         _codesign_entitlements = parse_codesign_entitlements(info_plist_substitutions),
         _resource_bundle = make_resource_bundle_rule(apple_resource_bundle_rule, **kwargs),

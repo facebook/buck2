@@ -46,7 +46,8 @@ def assemble_bundle(
         bundle: Artifact,
         parts: list[AppleBundlePart],
         info_plist_part: [AppleBundlePart, None],
-        swift_stdlib_args: [SwiftStdlibArguments, None]) -> dict[str, list[Provider]]:
+        swift_stdlib_args: [SwiftStdlibArguments, None],
+        extra_hidden: list[Artifact] = []) -> dict[str, list[Provider]]:
     """
     Returns extra subtargets related to bundling.
     """
@@ -176,6 +177,9 @@ def assemble_bundle(
         command.add("--check-conflicts")
 
     command.add(codesign_configuration_args)
+
+    # Ensures any genrule deps get built, such targets are used for validation
+    command.hidden(extra_hidden)
 
     env = {}
     cache_buster = ctx.attrs._bundling_cache_buster
