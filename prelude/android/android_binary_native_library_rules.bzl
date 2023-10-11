@@ -243,7 +243,7 @@ def get_android_binary_native_library_info(
                             if merge_result:
                                 break
                             for pattern in patterns:
-                                if pattern.match(raw_target):
+                                if regex(pattern).match(raw_target):
                                     merge_result = merge_lib
                                     break
                         if merge_result:
