@@ -86,6 +86,7 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::dict::Dict;
+use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::starlark_value;
 use starlark::values::structs::AllocStruct;
@@ -116,6 +117,7 @@ use crate::bxl::starlark_defs::context::output::OutputStream;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::cquery::StarlarkCQueryCtx;
 use crate::bxl::starlark_defs::event::StarlarkUserEventParser;
+use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 use crate::bxl::starlark_defs::target_expr::filter_incompatible;
 use crate::bxl::starlark_defs::target_expr::TargetExpr;
@@ -713,7 +715,9 @@ fn context_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = pos)] labels: Value<'v>,
         #[starlark(default = NoneType)] target_platform: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<
+        Either<NoneOr<StarlarkConfiguredTargetNode>, StarlarkTargetSet<ConfiguredTargetNode>>,
+    > {
         let target_platform = target_platform.parse_target_platforms(
             &this.data.target_alias_resolver,
             &this.data.cell_resolver,
@@ -721,7 +725,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
             &this.data.global_target_platform,
         )?;
 
-        let res: anyhow::Result<Value<'v>> = this.via_dice(|mut dice, this| {
+        this.via_dice(|mut dice, this| {
             dice.via(|ctx| {
                 async move {
                     let target_expr =
@@ -746,26 +750,26 @@ fn context_methods(builder: &mut MethodsBuilder) {
                             assert!(set.len() <= 1);
 
                             if let Some(node) = set.iter().next() {
-                                node.clone().alloc(eval.heap())
+                                Either::Left(NoneOr::Other(StarlarkConfiguredTargetNode(
+                                    node.dupe(),
+                                )))
                             } else {
-                                Value::new_none()
+                                Either::Left(NoneOr::None)
                             }
                         }
 
-                        TargetExpr::Node(node) => node.alloc(eval.heap()),
-                        multi => eval
-                            .heap()
-                            .alloc(StarlarkTargetSet::from(filter_incompatible(
-                                multi.get(ctx).await?.into_iter(),
-                                this,
-                            )?)),
+                        TargetExpr::Node(node) => {
+                            Either::Left(NoneOr::Other(StarlarkConfiguredTargetNode(node)))
+                        }
+                        multi => Either::Right(StarlarkTargetSet::from(filter_incompatible(
+                            multi.get(ctx).await?.into_iter(),
+                            this,
+                        )?)),
                     })
                 }
                 .boxed_local()
             })
-        });
-
-        res
+        })
     }
 
     /// Gets the unconfigured target nodes for the `labels`
