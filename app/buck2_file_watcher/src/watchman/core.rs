@@ -139,18 +139,14 @@ async fn with_timeout<R>(
 ) -> anyhow::Result<R> {
     static WATCHMAN_TIMEOUT: EnvHelper<u64> = EnvHelper::new("BUCK2_WATCHMAN_TIMEOUT");
 
-    match WATCHMAN_TIMEOUT.get_copied()? {
-        Some(timeout) => {
-            if timeout == 0 {
-                return Err(WatchmanClientError::ZeroTimeout.into());
-            }
-            match tokio::time::timeout(Duration::from_secs(timeout), fut).await {
-                Ok(Ok(res)) => Ok(res),
-                Ok(Err(e)) => Err(e.into()),
-                Err(_) => Err(WatchmanClientError::Timeout(timeout).into()),
-            }
-        }
-        None => Ok(fut.await?),
+    let timeout = WATCHMAN_TIMEOUT.get_copied()?.unwrap_or(57);
+    if timeout == 0 {
+        return Err(WatchmanClientError::ZeroTimeout.into());
+    }
+    match tokio::time::timeout(Duration::from_secs(timeout), fut).await {
+        Ok(Ok(res)) => Ok(res),
+        Ok(Err(e)) => Err(e.into()),
+        Err(_) => Err(WatchmanClientError::Timeout(timeout).into()),
     }
 }
 
