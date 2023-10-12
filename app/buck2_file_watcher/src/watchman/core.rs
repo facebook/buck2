@@ -239,7 +239,7 @@ where
     T: Send + 'static,
     P: Send + 'static,
 {
-    async fn run_loop(&mut self) {
+    async fn run_loop(mut self) {
         // We discard the first error here, if there is one. It's a bit unfortunate but it makes
         // everything a lot simpler below, and kicking it off earlier is desirable because it can
         // give Watchman time to warm up.
@@ -477,7 +477,7 @@ where
             tokio::sync::mpsc::unbounded_channel::<SyncableQueryCommand<T, P>>();
 
         tokio::spawn(async move {
-            let mut handler = SyncableQueryHandler {
+            let handler = SyncableQueryHandler {
                 connector,
                 path,
                 query,
