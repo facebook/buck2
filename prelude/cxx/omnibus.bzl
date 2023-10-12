@@ -681,7 +681,7 @@ def create_omnibus_libraries(
         h = hash(str(ctx.label))
         if h < 0:
             h = -h
-        if h % 100 < 5:
+        if h % 100 < 20:
             allow_cache_upload = True
 
     # Create dummy omnibus
