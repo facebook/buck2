@@ -132,7 +132,6 @@ async fn build(
     request: &buck2_cli_proto::BuildRequest,
 ) -> anyhow::Result<buck2_cli_proto::BuildResponse> {
     // TODO(nmj): Move build report printing logic out of here.
-    let fs = server_ctx.project_root();
     let cwd = server_ctx.working_dir();
 
     let build_opts = expect_build_opts(request);
@@ -161,7 +160,6 @@ async fn build(
         )
     };
 
-    let artifact_fs = ctx.get_artifact_fs().await?;
     let build_providers = Arc::new(request.build_providers.clone().unwrap());
 
     let final_artifact_materializations =
@@ -193,7 +191,23 @@ async fn build(
     )
     .await?;
 
+    process_build_result(server_ctx, ctx, request, build_result).await
+}
+
+async fn process_build_result(
+    server_ctx: &dyn ServerCommandContextTrait,
+    ctx: DiceTransaction,
+    request: &buck2_cli_proto::BuildRequest,
+    build_result: BTreeMap<ConfiguredProvidersLabel, BuildTargetResult>,
+) -> anyhow::Result<buck2_cli_proto::BuildResponse> {
+    let fs = server_ctx.project_root();
+    let cwd = server_ctx.working_dir();
+
+    let build_opts = expect_build_opts(request);
     let response_options = request.response_options.clone().unwrap_or_default();
+
+    let cell_resolver = ctx.get_cell_resolver().await?;
+    let artifact_fs = ctx.get_artifact_fs().await?;
 
     let mut result_collector = ResultReporter::new(
         &artifact_fs,
