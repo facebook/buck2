@@ -39,6 +39,8 @@ use futures::TryFutureExt;
 use starlark::collections::SmallSet;
 use starlark::eval::Evaluator;
 use starlark::values::list::ListRef;
+use starlark::values::type_repr::StarlarkTypeRepr;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
@@ -124,13 +126,18 @@ pub(crate) fn filter_incompatible(
     Ok(target_set)
 }
 
-fn unpack_target_label<'v>(value: Value<'v>) -> Option<&'v TargetLabel> {
-    if let Some(target) = value.downcast_ref::<StarlarkTargetLabel>() {
-        Some(target.label())
-    } else if let Some(node) = value.downcast_ref::<StarlarkTargetNode>() {
-        Some(node.0.label())
-    } else {
-        None
+#[derive(StarlarkTypeRepr, UnpackValue)]
+enum TargetNodeOrTargetLabel<'v> {
+    TargetNode(&'v StarlarkTargetNode),
+    TargetLabel(&'v StarlarkTargetLabel),
+}
+
+impl<'v> TargetNodeOrTargetLabel<'v> {
+    fn label(&self) -> &'v TargetLabel {
+        match self {
+            TargetNodeOrTargetLabel::TargetNode(node) => node.0.label(),
+            TargetNodeOrTargetLabel::TargetLabel(label) => label.label(),
+        }
     }
 }
 
@@ -323,12 +330,12 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
                     }
                 }
             } else {
-                match unpack_target_label(value) {
+                match TargetNodeOrTargetLabel::unpack_value(value) {
                     None => Ok(None),
                     Some(label) => {
-                        unconfigured_label = Some(label.to_string());
+                        unconfigured_label = Some(label.label().to_string());
                         Ok(Some(Self::Label(Cow::Owned(
-                            dice.get_configured_target(label, target_platform.as_ref())
+                            dice.get_configured_target(label.label(), target_platform.as_ref())
                                 .await?,
                         ))))
                     }
@@ -451,9 +458,9 @@ impl<'v> TargetExpr<'v, TargetNode> {
                 }
             }
         } else {
-            match unpack_target_label(value) {
+            match TargetNodeOrTargetLabel::unpack_value(value) {
                 None => Ok(None),
-                Some(label) => Ok(Some(Self::Label(Cow::Borrowed(label)))),
+                Some(label) => Ok(Some(Self::Label(Cow::Borrowed(label.label())))),
             }
         }
     }
