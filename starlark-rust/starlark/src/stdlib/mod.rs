@@ -23,6 +23,7 @@ use dupe::Dupe;
 use crate::environment::GlobalsBuilder;
 
 pub(crate) mod breakpoint;
+pub(crate) mod call_stack;
 pub(crate) mod dict;
 pub(crate) mod extra;
 mod funcs;
@@ -87,6 +88,9 @@ pub enum LibraryExtension {
     /// Utilities exposing starlark-rust internals.
     /// These are not for production use.
     Internal,
+    /// Add a function `call_stack()` which returns a string representation of
+    /// the current call stack.
+    CallStack,
     // Make sure if you add anything new, you add it to `all` below.
 }
 
@@ -109,6 +113,7 @@ impl LibraryExtension {
             Json,
             Typing,
             Internal,
+            CallStack,
         ]
     }
 
@@ -130,6 +135,7 @@ impl LibraryExtension {
             Json => json::json(builder),
             Typing => typing::globals::register_typing(builder),
             Internal => register_internal(builder),
+            CallStack => call_stack::global(builder),
         }
     }
 }
