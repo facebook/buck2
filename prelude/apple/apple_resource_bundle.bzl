@@ -59,7 +59,8 @@ _RESOURCE_BUNDLE_FIELDS = [
 
 def _is_resources_toolchain_enabled() -> bool:
     is_arvr_query_mode = read_root_config("fb", "arvr_query_mode") in ("True", "true")
-    if is_arvr_query_mode:
+    is_xplat_query_mode = read_root_config("mode", "is_xplat_mode_query") in ("True", "true")
+    if is_arvr_query_mode or is_xplat_query_mode:
         # Avoid returning buck2-only targets
         return False
 
