@@ -7,7 +7,9 @@
 
 load("@prelude//utils:utils.bzl", "expect")
 
-def pre_order_traversal(graph: dict[typing.Any, list[typing.Any]]) -> list[typing.Any]:
+def pre_order_traversal(
+        graph: dict[typing.Any, list[typing.Any]],
+        node_formatter: typing.Callable = str) -> list[typing.Any]:
     """
     Perform a pre-order (topologically sorted) traversal of `graph` and return the ordered nodes
     """
@@ -27,7 +29,7 @@ def pre_order_traversal(graph: dict[typing.Any, list[typing.Any]]) -> list[typin
 
     for _ in range(len(in_degrees)):
         if len(queue) == 0:
-            fail_cycle(graph)
+            fail_cycle(graph, node_formatter)
 
         node = queue.pop()
         ordered.append(node)
@@ -37,12 +39,14 @@ def pre_order_traversal(graph: dict[typing.Any, list[typing.Any]]) -> list[typin
             if in_degrees[dep] == 0:
                 queue.append(dep)
 
-    expect(not queue, "finished before processing nodes: {}".format(queue))
+    expect(not queue, "finished before processing nodes: {}".format([node_formatter(node) for node in queue]))
     expect(len(ordered) == len(graph), "missing or duplicate nodes in sort")
 
     return ordered
 
-def post_order_traversal(graph: dict[typing.Any, list[typing.Any]]) -> list[typing.Any]:
+def post_order_traversal(
+        graph: dict[typing.Any, list[typing.Any]],
+        node_formatter: typing.Callable = str) -> list[typing.Any]:
     """
     Performs a post-order traversal of `graph`.
     """
@@ -64,7 +68,7 @@ def post_order_traversal(graph: dict[typing.Any, list[typing.Any]]) -> list[typi
 
     for _ in range(len(out_degrees)):
         if len(queue) == 0:
-            fail_cycle(graph)
+            fail_cycle(graph, node_formatter)
 
         node = queue.pop()
         ordered.append(node)
@@ -74,18 +78,20 @@ def post_order_traversal(graph: dict[typing.Any, list[typing.Any]]) -> list[typi
             if out_degrees[dep] == 0:
                 queue.append(dep)
 
-    expect(not queue, "finished before processing nodes: {}".format(queue))
+    expect(not queue, "finished before processing nodes: {}".format([node_formatter(node) for node in queue]))
     expect(len(ordered) == len(graph), "missing or duplicate nodes in sort")
 
     return ordered
 
-def fail_cycle(graph: dict[typing.Any, list[typing.Any]]) -> typing.Never:
+def fail_cycle(
+        graph: dict[typing.Any, list[typing.Any]],
+        node_formatter: typing.Callable) -> typing.Never:
     cycle = find_cycle(graph)
     if cycle:
         fail(
             "cycle in graph detected: {}".format(
                 " -> ".join(
-                    [str(c) for c in cycle],
+                    [node_formatter(c) for c in cycle],
                 ),
             ),
         )
@@ -178,7 +184,8 @@ def breadth_first_traversal(
 def breadth_first_traversal_by(
         graph_nodes: [dict[typing.Any, typing.Any], None],
         roots: list[typing.Any],
-        get_nodes_to_traverse_func) -> list[typing.Any]:
+        get_nodes_to_traverse_func: typing.Callable,
+        node_formatter: typing.Callable = str) -> list[typing.Any]:
     """
     Performs a breadth first traversal of `graph_nodes`, beginning
     with the `roots` and queuing the nodes returned by`get_nodes_to_traverse_func`.
@@ -201,7 +208,7 @@ def breadth_first_traversal_by(
             break
         node = queue.pop()
         if graph_nodes:
-            expect(node in graph_nodes, "Expected node {} in graph nodes", node)
+            expect(node in graph_nodes, "Expected node {} in graph nodes", node_formatter(node))
         nodes_to_visit = get_nodes_to_traverse_func(node)
         for node in nodes_to_visit:
             if node not in visited:
