@@ -155,8 +155,12 @@ impl WatchmanClient {
         connector: &Connector,
         path: CanonicalPath,
     ) -> anyhow::Result<WatchmanClient> {
-        let client = connector.connect().await?;
-        let root = client.resolve_root(path).await?;
+        let client = with_timeout(connector.connect())
+            .await
+            .context("Connecting to watchman")?;
+        let root = with_timeout(client.resolve_root(path))
+            .await
+            .context("Resolving watchman root")?;
         Ok(Self(Arc::new((client, root))))
     }
 
