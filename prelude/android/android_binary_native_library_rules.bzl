@@ -57,7 +57,7 @@ load(
     "traverse_shared_library_info",
 )
 load("@prelude//linking:strip.bzl", "strip_object")
-load("@prelude//utils:graph_utils.bzl", "breadth_first_traversal_by", "post_order_traversal", "topo_sort", "topo_sort_by")
+load("@prelude//utils:graph_utils.bzl", "breadth_first_traversal_by", "post_order_traversal", "pre_order_traversal", "pre_order_traversal_by")
 load("@prelude//utils:set.bzl", "set_type")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "dedupe_by_value", "expect")
 
@@ -825,7 +825,7 @@ def _get_merged_linkables(
         linkable_nodes = merge_data.linkable_nodes
 
         linkable_nodes_graph = {k: dedupe(v.deps + v.exported_deps) for k, v in linkable_nodes.items()}
-        topo_sorted_targets = topo_sort(linkable_nodes_graph)
+        topo_sorted_targets = pre_order_traversal(linkable_nodes_graph)
 
         # first we collect basic information about each link group, this will populate the fields in LinkGroupData and
         # map target labels to their link group name.
@@ -1031,7 +1031,7 @@ def _get_merged_linkables(
 
             solib_constituents = []
             link_group_deps = []
-            ordered_group_constituents = topo_sort_by(group_data.constituents, get_merged_graph_traversal(group, False))
+            ordered_group_constituents = pre_order_traversal_by(group_data.constituents, get_merged_graph_traversal(group, False))
             representative_label = ordered_group_constituents[0]
             for key in ordered_group_constituents:
                 real_constituents.append(key)
@@ -1184,7 +1184,7 @@ def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict
                     shlib_graph[soname].append(dep)
                     rev_shlib_graph.setdefault(dep, []).append(soname)
         needed_symbols_files = {}
-        for soname in topo_sort(shlib_graph):
+        for soname in pre_order_traversal(shlib_graph):
             if soname in unsupported_libs:
                 relinked_libraries[soname] = shared_libraries[soname]
                 continue

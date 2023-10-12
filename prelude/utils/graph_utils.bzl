@@ -7,9 +7,9 @@
 
 load("@prelude//utils:utils.bzl", "expect")
 
-def topo_sort(graph: dict[typing.Any, list[typing.Any]]) -> list[typing.Any]:
+def pre_order_traversal(graph: dict[typing.Any, list[typing.Any]]) -> list[typing.Any]:
     """
-    Topo-sort the given graph.
+    Perform a pre-order (topologically sorted) traversal of `graph` and return the ordered nodes
     """
 
     in_degrees = {node: 0 for node in graph}
@@ -152,13 +152,13 @@ def post_order_traversal_by(
             ordered.append(node)
     return ordered
 
-def topo_sort_by(
+def pre_order_traversal_by(
         roots: list[typing.Any],
         get_nodes_to_traverse_func) -> list[typing.Any]:
     """
-    Returns a topological sorted list of the nodes in the traversal.
+    Returns a topological sorted list of the nodes from a pre-order traversal.
 
-    Note this gives a different order from topo_sort above (to simplify the implementation).
+    Note this gives a different order from `pre_order_traversal` above (to simplify the implementation).
     """
     ordered = post_order_traversal_by(roots, get_nodes_to_traverse_func)
     return ordered[::-1]
