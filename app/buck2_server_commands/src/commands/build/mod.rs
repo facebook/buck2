@@ -25,6 +25,7 @@ use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_cli_proto::build_request::build_providers::Action as BuildProviderAction;
 use buck2_cli_proto::build_request::BuildProviders;
 use buck2_cli_proto::build_request::Materializations;
+use buck2_cli_proto::CommonBuildOptions;
 use buck2_cli_proto::HasClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
@@ -121,6 +122,10 @@ enum TargetResolutionConfig {
     Universe(CqueryUniverse),
 }
 
+fn expect_build_opts(req: &buck2_cli_proto::BuildRequest) -> &CommonBuildOptions {
+    req.build_opts.as_ref().expect("should have build options")
+}
+
 async fn build(
     server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,
@@ -130,10 +135,7 @@ async fn build(
     let fs = server_ctx.project_root();
     let cwd = server_ctx.working_dir();
 
-    let build_opts = request
-        .build_opts
-        .as_ref()
-        .expect("should have build options");
+    let build_opts = expect_build_opts(request);
 
     let cell_resolver = ctx.get_cell_resolver().await?;
 
