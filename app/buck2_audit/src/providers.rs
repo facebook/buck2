@@ -21,7 +21,11 @@ pub struct AuditProvidersCommand {
     #[clap(flatten)]
     common_opts: CommonCommandOptions,
 
-    #[clap(name = "TARGET_PATTERNS", help = "Patterns to analyze")]
+    #[clap(
+        name = "TARGET_PATTERNS",
+        help = "Patterns to analyze",
+        required = true
+    )]
     pub patterns: Vec<String>,
 
     #[clap(long, conflicts_with_all=&["list", "print-debug"])]

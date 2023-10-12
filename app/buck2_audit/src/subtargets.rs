@@ -20,7 +20,7 @@ pub struct AuditSubtargetsCommand {
     common_opts: CommonCommandOptions,
 
     /// Patterns to analyze.
-    #[clap(name = "TARGET_PATTERNS")]
+    #[clap(name = "TARGET_PATTERNS", required = true)]
     pub patterns: Vec<String>,
 
     /// Do not recursively print all nested subtargets; print only
