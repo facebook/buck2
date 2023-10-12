@@ -143,19 +143,6 @@ async fn build(
     let global_target_platform =
         target_platform_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
 
-    let should_create_unhashed_links = ctx
-        .parse_legacy_config_property(cell_resolver.root_cell(), "buck2", "create_unhashed_links")
-        .await?;
-
-    let want_configured_graph_size = ctx
-        .parse_legacy_config_property(
-            cell_resolver.root_cell(),
-            "buck2",
-            "log_configured_graph_size",
-        )
-        .await?
-        .unwrap_or_default();
-
     let parsed_patterns: Vec<ParsedPattern<ConfiguredProvidersPatternExtra>> =
         parse_patterns_from_cli_args(&mut ctx, &request.target_patterns, cwd).await?;
     server_ctx.log_target_pattern(&parsed_patterns);
@@ -176,6 +163,23 @@ async fn build(
 
     let artifact_fs = ctx.get_artifact_fs().await?;
     let build_providers = Arc::new(request.build_providers.clone().unwrap());
+
+    let final_artifact_materializations =
+        Materializations::from_i32(request.final_artifact_materializations)
+            .with_context(|| "Invalid final_artifact_materializations")
+            .unwrap();
+    let materialization_context =
+        ConvertMaterializationContext::from(final_artifact_materializations);
+
+    let want_configured_graph_size = ctx
+        .parse_legacy_config_property(
+            cell_resolver.root_cell(),
+            "buck2",
+            "log_configured_graph_size",
+        )
+        .await?
+        .unwrap_or_default();
+
     let response_options = request.response_options.clone().unwrap_or_default();
 
     let mut result_collector = ResultReporter::new(
@@ -220,13 +224,6 @@ async fn build(
     .flatten()
     .collect::<Vec<&mut dyn BuildResultCollector>>();
 
-    let final_artifact_materializations =
-        Materializations::from_i32(request.final_artifact_materializations)
-            .with_context(|| "Invalid final_artifact_materializations")
-            .unwrap();
-    let materialization_context =
-        ConvertMaterializationContext::from(final_artifact_materializations);
-
     let mut provider_artifacts = Vec::new();
     for (k, v) in build_targets(
         &ctx,
@@ -248,6 +245,10 @@ async fn build(
         });
         provider_artifacts.extend(&mut outputs);
     }
+
+    let should_create_unhashed_links = ctx
+        .parse_legacy_config_property(cell_resolver.root_cell(), "buck2", "create_unhashed_links")
+        .await?;
 
     if should_create_unhashed_links.unwrap_or(false) {
         span_async(buck2_data::CreateOutputSymlinksStart {}, async {
