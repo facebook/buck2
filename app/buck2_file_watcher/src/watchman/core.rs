@@ -25,6 +25,12 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
 use watchman_client::prelude::*;
 
+#[derive(Debug, thiserror::Error)]
+enum WatchmanClientError {
+    #[error("Configured timeout is zero")]
+    ZeroTimeout,
+}
+
 // We use the "new" field. This is marked as deprecated, but buck1 uses it and
 // I'm unaware of issues due to its use there.
 //
@@ -132,9 +138,14 @@ async fn with_timeout<R>(
     static WATCHMAN_TIMEOUT: EnvHelper<u64> = EnvHelper::new("BUCK2_WATCHMAN_TIMEOUT");
 
     Ok(match WATCHMAN_TIMEOUT.get_copied()? {
-        Some(timeout) => tokio::time::timeout(Duration::from_secs(timeout), fut)
-            .await
-            .context("Watchman request timed out")?,
+        Some(timeout) => {
+            if timeout == 0 {
+                return Err(WatchmanClientError::ZeroTimeout.into());
+            }
+            tokio::time::timeout(Duration::from_secs(timeout), fut)
+                .await
+                .context("Watchman request timed out")?
+        }
         None => fut.await,
     }?)
 }

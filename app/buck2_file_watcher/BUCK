@@ -18,6 +18,7 @@ rust_library(
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:notify",
         "fbsource//third-party/rust:serde",
+        "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tracing",
         "//buck2/allocative/allocative:allocative",
