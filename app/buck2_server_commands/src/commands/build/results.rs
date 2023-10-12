@@ -33,9 +33,6 @@ pub mod result_report {
     use buck2_build_api::build::BuildProviderType;
     use buck2_build_api::build::BuildTargetResult;
     use buck2_build_api::build::ProviderArtifacts;
-    use buck2_cli_proto::build_target::build_output::BuildOutputProviders;
-    use buck2_cli_proto::build_target::BuildOutput;
-    use buck2_cli_proto::BuildTarget;
     use buck2_core::configuration::compatibility::MaybeCompatible;
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
     use buck2_error::shared_result::SharedError;
@@ -45,6 +42,12 @@ pub mod result_report {
 
     use crate::commands::build::results::BuildOwner;
     use crate::commands::build::results::BuildResultCollector;
+
+    mod proto {
+        pub use buck2_cli_proto::build_target::build_output::BuildOutputProviders;
+        pub use buck2_cli_proto::build_target::BuildOutput;
+        pub use buck2_cli_proto::BuildTarget;
+    }
 
     /// Simple container for multiple [`SharedError`]s
     pub(crate) struct SharedErrors {
@@ -60,7 +63,7 @@ pub mod result_report {
     pub(crate) struct ResultReporter<'a> {
         artifact_fs: &'a ArtifactFs,
         options: ResultReporterOptions,
-        results: Result<Vec<BuildTarget>, SharedErrors>,
+        results: Result<Vec<proto::BuildTarget>, SharedErrors>,
     }
 
     impl<'a> ResultReporter<'a> {
@@ -72,7 +75,7 @@ pub mod result_report {
             }
         }
 
-        pub(crate) fn results(self) -> Result<Vec<BuildTarget>, SharedErrors> {
+        pub(crate) fn results(self) -> Result<Vec<proto::BuildTarget>, SharedErrors> {
             self.results
         }
     }
@@ -117,15 +120,14 @@ pub mod result_report {
                         }
 
                         for (artifact, _value) in values.iter() {
-                            let entry =
-                                artifacts
-                                    .entry(artifact)
-                                    .or_insert_with(|| BuildOutputProviders {
-                                        default_info: false,
-                                        run_info: false,
-                                        other: false,
-                                        test_info: false,
-                                    });
+                            let entry = artifacts.entry(artifact).or_insert_with(|| {
+                                proto::BuildOutputProviders {
+                                    default_info: false,
+                                    run_info: false,
+                                    other: false,
+                                    test_info: false,
+                                }
+                            });
 
                             match provider_type {
                                 BuildProviderType::Default => {
@@ -148,7 +150,7 @@ pub mod result_report {
 
                     artifacts
                         .into_iter()
-                        .map(|(a, providers)| BuildOutput {
+                        .map(|(a, providers)| proto::BuildOutput {
                             path: a.resolve_path(artifact_fs).unwrap().to_string(),
                             providers: Some(providers),
                         })
@@ -177,7 +179,7 @@ pub mod result_report {
                     None => None,
                 };
 
-                r.push(BuildTarget {
+                r.push(proto::BuildTarget {
                     target,
                     configuration,
                     run_args: result.run_args.clone().unwrap_or_default(),
