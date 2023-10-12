@@ -29,6 +29,8 @@ use watchman_client::prelude::*;
 enum WatchmanClientError {
     #[error("Configured timeout is zero")]
     ZeroTimeout,
+    #[error("Watchman request timed out after {0}s; try restarting watchman")]
+    Timeout(u64),
 }
 
 // We use the "new" field. This is marked as deprecated, but buck1 uses it and
@@ -137,17 +139,19 @@ async fn with_timeout<R>(
 ) -> anyhow::Result<R> {
     static WATCHMAN_TIMEOUT: EnvHelper<u64> = EnvHelper::new("BUCK2_WATCHMAN_TIMEOUT");
 
-    Ok(match WATCHMAN_TIMEOUT.get_copied()? {
+    match WATCHMAN_TIMEOUT.get_copied()? {
         Some(timeout) => {
             if timeout == 0 {
                 return Err(WatchmanClientError::ZeroTimeout.into());
             }
-            tokio::time::timeout(Duration::from_secs(timeout), fut)
-                .await
-                .context("Watchman request timed out")?
+            match tokio::time::timeout(Duration::from_secs(timeout), fut).await {
+                Ok(Ok(res)) => Ok(res),
+                Ok(Err(e)) => Err(e.into()),
+                Err(_) => Err(WatchmanClientError::Timeout(timeout).into()),
+            }
         }
-        None => fut.await,
-    }?)
+        None => Ok(fut.await?),
+    }
 }
 
 impl WatchmanClient {
