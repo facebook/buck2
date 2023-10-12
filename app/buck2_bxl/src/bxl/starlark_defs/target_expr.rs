@@ -458,10 +458,7 @@ impl<'v> TargetExpr<'v, TargetNode> {
                 }
             }
         } else {
-            match TargetNodeOrTargetLabel::unpack_value(value) {
-                None => Ok(None),
-                Some(label) => Ok(Some(Self::Label(Cow::Borrowed(label.label())))),
-            }
+            Ok(None)
         }
     }
 
