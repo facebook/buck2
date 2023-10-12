@@ -180,6 +180,19 @@ async fn build(
         .await?
         .unwrap_or_default();
 
+    let build_result = build_targets(
+        &ctx,
+        resolved_pattern,
+        target_resolution_config,
+        build_providers,
+        &materialization_context,
+        build_opts.fail_fast,
+        MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
+        build_opts.skip_incompatible_targets,
+        want_configured_graph_size,
+    )
+    .await?;
+
     let response_options = request.response_options.clone().unwrap_or_default();
 
     let mut result_collector = ResultReporter::new(
@@ -225,19 +238,7 @@ async fn build(
     .collect::<Vec<&mut dyn BuildResultCollector>>();
 
     let mut provider_artifacts = Vec::new();
-    for (k, v) in build_targets(
-        &ctx,
-        resolved_pattern,
-        target_resolution_config,
-        build_providers,
-        &materialization_context,
-        build_opts.fail_fast,
-        MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
-        build_opts.skip_incompatible_targets,
-        want_configured_graph_size,
-    )
-    .await?
-    {
+    for (k, v) in build_result {
         result_collectors.collect_result(&BuildOwner::Target(&k), &v);
         let mut outputs = v.outputs.into_iter().filter_map(|output| match output {
             Ok(output) => Some(output),
