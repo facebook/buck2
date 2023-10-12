@@ -227,19 +227,13 @@ async fn build(
         None
     };
 
-    let mut result_collectors = vec![
-        Some(&mut result_collector as &mut dyn BuildResultCollector),
-        build_report_collector
-            .as_mut()
-            .map(|v| v as &mut dyn BuildResultCollector),
-    ]
-    .into_iter()
-    .flatten()
-    .collect::<Vec<&mut dyn BuildResultCollector>>();
-
     let mut provider_artifacts = Vec::new();
     for (k, v) in build_result {
-        result_collectors.collect_result(&BuildOwner::Target(&k), &v);
+        let owner = BuildOwner::Target(&k);
+        result_collector.collect_result(&owner, &v);
+        if let Some(c) = build_report_collector.as_mut() {
+            c.collect_result(&owner, &v)
+        }
         let mut outputs = v.outputs.into_iter().filter_map(|output| match output {
             Ok(output) => Some(output),
             _ => None,

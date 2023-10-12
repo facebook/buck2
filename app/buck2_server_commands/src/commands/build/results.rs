@@ -21,14 +21,6 @@ pub(crate) trait BuildResultCollector: Send {
     fn collect_result(&mut self, label: &BuildOwner, result: &BuildTargetResult);
 }
 
-impl BuildResultCollector for Vec<&mut dyn BuildResultCollector> {
-    fn collect_result(&mut self, label: &BuildOwner, result: &BuildTargetResult) {
-        for collector in self {
-            collector.collect_result(label, result);
-        }
-    }
-}
-
 pub mod result_report {
     use buck2_build_api::build::BuildProviderType;
     use buck2_build_api::build::BuildTargetResult;
