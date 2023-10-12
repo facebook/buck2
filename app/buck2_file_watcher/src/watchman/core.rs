@@ -126,6 +126,19 @@ impl Debug for WatchmanClient {
     }
 }
 
+async fn with_timeout<R>(
+    fut: impl Future<Output = Result<R, watchman_client::Error>> + Send,
+) -> anyhow::Result<R> {
+    static WATCHMAN_TIMEOUT: EnvHelper<u64> = EnvHelper::new("BUCK2_WATCHMAN_TIMEOUT");
+
+    Ok(match WATCHMAN_TIMEOUT.get_copied()? {
+        Some(timeout) => tokio::time::timeout(Duration::from_secs(timeout), fut)
+            .await
+            .context("Watchman request timed out")?,
+        None => fut.await,
+    }?)
+}
+
 impl WatchmanClient {
     pub async fn connect(
         connector: &Connector,
@@ -142,15 +155,9 @@ impl WatchmanClient {
         &self,
         query: QueryRequestCommon,
     ) -> anyhow::Result<QueryResult<F>> {
-        static WATCHMAN_TIMEOUT: EnvHelper<u64> = EnvHelper::new("BUCK2_WATCHMAN_TIMEOUT");
         let fut = self.client().query(self.root(), query);
 
-        Ok(match WATCHMAN_TIMEOUT.get_copied()? {
-            Some(timeout) => tokio::time::timeout(Duration::from_secs(timeout), fut)
-                .await
-                .context("Watchman request timed out")?,
-            None => fut.await,
-        }?)
+        with_timeout(fut).await
     }
 
     fn root(&self) -> &ResolvedRoot {
