@@ -60,6 +60,8 @@ pub mod result_report {
         pub(crate) return_default_other_outputs: bool,
     }
 
+    /// Collects build results into a Result<Vec<proto::BuildTarget>, SharedErrors>. If any targets
+    /// fail, then the error case will be returned, otherwise a vec of all the successful results.
     pub(crate) struct ResultReporter<'a> {
         artifact_fs: &'a ArtifactFs,
         options: ResultReporterOptions,
@@ -274,6 +276,7 @@ pub mod build_report {
         Target(TargetLabel),
     }
 
+    /// Collects BuildEvents to form a BuildReport.
     pub(crate) struct BuildReportCollector<'a> {
         trace_id: &'a TraceId,
         artifact_fs: &'a ArtifactFs,
