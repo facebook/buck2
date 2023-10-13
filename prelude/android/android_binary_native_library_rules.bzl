@@ -172,7 +172,6 @@ def get_android_binary_native_library_info(
         native_merge_debug = ctx.actions.declare_output("native_merge.debug")
         dynamic_outputs.append(native_merge_debug)
 
-    if native_library_merge_sequence:
         # We serialize info about the linkable graph and the apk module mapping and pass that to an
         # external subcommand to apply a merge sequence algorithm and return us the merge mapping.
         for platform, deps in deps_by_platform.items():
@@ -181,7 +180,9 @@ def get_android_binary_native_library_info(
             linkables_debug = ctx.actions.write("linkables." + platform, list(graph_node_map.keys()))
             enhance_ctx.debug_output("linkables." + platform, linkables_debug)
 
-            flattened_linkable_graphs_by_platform[platform] = graph_node_map  # _get_flattened_linkable_graph(ctx, graph_node_map)
+            flattened_linkable_graphs_by_platform[platform] = graph_node_map
+
+    if native_library_merge_sequence:
         native_library_merge_input_file = ctx.actions.write_json("mergemap.input", {
             "linkable_graphs_by_platform": encode_linkable_graph_for_mergemap(flattened_linkable_graphs_by_platform),
             "native_library_merge_sequence": ctx.attrs.native_library_merge_sequence,
@@ -198,8 +199,6 @@ def get_android_binary_native_library_info(
         enhance_ctx.debug_output("compute_merge_sequence", native_library_merge_dir)
 
         dynamic_inputs.append(native_library_merge_map)
-    elif has_native_merging:
-        flattened_linkable_graphs_by_platform = {platform: {} for platform in platform_to_original_native_linkables.keys()}
 
     mergemap_gencode_jar = None
     if has_native_merging and ctx.attrs.native_library_merge_code_generator:
@@ -240,12 +239,12 @@ def get_android_binary_native_library_info(
                         raw_target = str(target.raw_target())
                         merge_result = None
                         for merge_lib, patterns in ctx.attrs.native_library_merge_map.items():
-                            if merge_result:
-                                break
                             for pattern in patterns:
                                 if regex(pattern).match(raw_target):
                                     merge_result = merge_lib
                                     break
+                            if merge_result:
+                                break
                         if merge_result:
                             merge_map[str(target)] = merge_result
                 merge_map = ctx.actions.write_json("merge.map", merge_map_by_platform)
@@ -257,7 +256,7 @@ def get_android_binary_native_library_info(
                 ctx,
                 {
                     platform: LinkableMergeData(
-                        glue_linkable = glue_linkables[platform],
+                        glue_linkable = glue_linkables[platform] if glue_linkables else None,
                         default_shared_libs = platform_to_original_native_linkables[platform],
                         linkable_nodes = flattened_linkable_graphs_by_platform[platform],
                         merge_map = merge_map_by_platform[platform],
@@ -836,7 +835,7 @@ def _get_merged_linkables(
             expect(target not in target_to_link_group, "prelude internal error, target seen twice?")
             target_apk_module = merge_data.apk_module_graph(str(target.raw_target()))
 
-            link_group = merge_data.merge_map[str(target)]
+            link_group = merge_data.merge_map.get(str(target), None)
             if not link_group:
                 link_group = str(target)
                 link_groups[link_group] = LinkGroupData(
