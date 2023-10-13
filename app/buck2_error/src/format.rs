@@ -29,6 +29,9 @@ fn into_anyhow_for_format(mut error: &crate::Error) -> anyhow::Error {
                 context_stack.push(context.clone());
                 error = inner;
             }
+            ErrorKind::Emitted(inner) => {
+                error = inner;
+            }
         }
     };
 

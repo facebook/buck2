@@ -34,10 +34,33 @@ pub(crate) enum ErrorKind {
         #[allocative(skip)] Arc<dyn Display + Send + Sync + 'static>,
         Error,
     ),
+    /// Indicates that the error has been emitted, ie shown to the user.
+    Emitted(Error),
 }
 
 impl Error {
     pub fn new<E: std::error::Error + Send + Sync + 'static>(e: E) -> Self {
         Self(Arc::new(ErrorKind::Root(Arc::new(e))))
+    }
+
+    fn iter_kinds<'a>(&'a self) -> impl Iterator<Item = &'a ErrorKind> {
+        let mut cur = Some(self);
+        std::iter::from_fn(move || {
+            let out = cur?;
+            match &*out.0 {
+                ErrorKind::WithContext(_, next) | ErrorKind::Emitted(next) => cur = Some(next),
+                ErrorKind::Root(_) => cur = None,
+            };
+            Some(out.0.as_ref())
+        })
+    }
+
+    pub fn mark_emitted(self) -> Self {
+        Self(Arc::new(ErrorKind::Emitted(self)))
+    }
+
+    pub fn is_emitted(&self) -> bool {
+        self.iter_kinds()
+            .any(|kind| matches!(kind, ErrorKind::Emitted(_)))
     }
 }

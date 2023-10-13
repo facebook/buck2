@@ -138,7 +138,9 @@ impl std::error::Error for CrateAsStdError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match &*self.0.0 {
             ErrorKind::Root(r) => std::error::Error::source(r),
-            ErrorKind::WithContext(_, r) => Some(CrateAsStdError::ref_cast(r)),
+            ErrorKind::WithContext(_, r) | ErrorKind::Emitted(r) => {
+                Some(CrateAsStdError::ref_cast(r))
+            }
         }
     }
 }
@@ -170,11 +172,12 @@ mod tests {
                     a = a_inner;
                     b = b_inner;
                 }
-                (ErrorKind::WithContext(_, _), ErrorKind::Root(_)) => {
-                    panic!("Left side had more context than right!")
+                (ErrorKind::Emitted(a_inner), ErrorKind::Emitted(b_inner)) => {
+                    a = a_inner;
+                    b = b_inner;
                 }
-                (ErrorKind::Root(_), ErrorKind::WithContext(_, _)) => {
-                    panic!("Right side had more context than left!")
+                (_, _) => {
+                    panic!("Left side did not match right: {:?} {:?}", a, b)
                 }
             }
         }
