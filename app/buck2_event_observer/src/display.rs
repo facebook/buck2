@@ -9,7 +9,6 @@
 
 // TODO(brasselsprouts): move this onto the original core types and convert in events
 
-use std::borrow::Cow;
 use std::fmt;
 use std::fmt::Write;
 use std::sync::Arc;
@@ -545,7 +544,7 @@ pub fn format_test_result(test_result: &buck2_data::TestResult) -> anyhow::Resul
 pub struct ActionErrorDisplay<'a> {
     pub action_id: String,
     pub reason: String,
-    pub command: Option<Cow<'a, buck2_data::CommandExecutionDetails>>,
+    pub command: Option<&'a buck2_data::CommandExecutionDetails>,
 }
 
 fn strip_trailing_newline(stream_contents: &str) -> &str {
@@ -556,14 +555,6 @@ fn strip_trailing_newline(stream_contents: &str) -> &str {
 }
 
 impl<'a> ActionErrorDisplay<'a> {
-    pub fn to_static(self) -> ActionErrorDisplay<'static> {
-        ActionErrorDisplay {
-            action_id: self.action_id,
-            reason: self.reason,
-            command: self.command.map(|c| Cow::Owned(c.into_owned())),
-        }
-    }
-
     /// Format the error message in a way that is suitable for use with the simpleconsole or build
     /// report.
     ///
@@ -670,7 +661,7 @@ pub fn display_action_error<'a>(
     Ok(ActionErrorDisplay {
         action_id: display_action_identity(error.key.as_ref(), error.name.as_ref(), opts)?,
         reason,
-        command: command.map(Cow::Borrowed),
+        command,
     })
 }
 
