@@ -9,6 +9,7 @@
 
 use std::borrow::Cow;
 
+use anyhow::Context;
 use buck2_build_api::configure_targets::get_maybe_compatible_targets;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::paths::CellRelativePath;
@@ -422,8 +423,8 @@ impl<'v> TargetExpr<'v, TargetNode> {
         eval: &Evaluator<'v, 'c>,
     ) -> anyhow::Result<TargetExpr<'v, TargetNode>> {
         Ok(
-            if let Some(resolved) = Self::unpack_literal(value, ctx, dice).await? {
-                resolved
+            if let Some(x) = TargetNodeOrTargetLabelOrStr::unpack_value(value) {
+                Self::unpack_literal(x, ctx, dice).await?
             } else if let Some(resolved) = Self::unpack_iterable(value, ctx, dice, eval).await? {
                 resolved
             } else {
@@ -435,18 +436,16 @@ impl<'v> TargetExpr<'v, TargetNode> {
     }
 
     async fn unpack_literal(
-        value: Value<'v>,
+        value: TargetNodeOrTargetLabelOrStr<'v>,
         ctx: &BxlContextNoDice<'_>,
         dice: &mut DiceComputations,
-    ) -> anyhow::Result<Option<TargetExpr<'v, TargetNode>>> {
-        match TargetNodeOrTargetLabelOrStr::unpack_value(value) {
-            Some(TargetNodeOrTargetLabelOrStr::TargetNode(target)) => {
-                Ok(Some(Self::Node(target.0.dupe())))
+    ) -> anyhow::Result<TargetExpr<'v, TargetNode>> {
+        match value {
+            TargetNodeOrTargetLabelOrStr::TargetNode(target) => Ok(Self::Node(target.0.dupe())),
+            TargetNodeOrTargetLabelOrStr::TargetLabel(target) => {
+                Ok(Self::Label(Cow::Borrowed(target.label())))
             }
-            Some(TargetNodeOrTargetLabelOrStr::TargetLabel(target)) => {
-                Ok(Some(Self::Label(Cow::Borrowed(target.label()))))
-            }
-            Some(TargetNodeOrTargetLabelOrStr::Str(s)) => {
+            TargetNodeOrTargetLabelOrStr::Str(s) => {
                 match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                     &ctx.target_alias_resolver,
                     // TODO(nga): Parse relaxed relative to cell root is incorrect.
@@ -454,9 +453,9 @@ impl<'v> TargetExpr<'v, TargetNode> {
                     s,
                     &ctx.cell_resolver,
                 )? {
-                    ParsedPattern::Target(pkg, name, TargetPatternExtra) => Ok(Some(Self::Label(
+                    ParsedPattern::Target(pkg, name, TargetPatternExtra) => Ok(Self::Label(
                         Cow::Owned(TargetLabel::new(pkg, name.as_ref())),
-                    ))),
+                    )),
                     pattern => {
                         let loaded_patterns =
                             load_patterns(dice, vec![pattern], MissingTargetBehavior::Fail).await?;
@@ -464,11 +463,10 @@ impl<'v> TargetExpr<'v, TargetNode> {
                         for (_package, results) in loaded_patterns.into_iter() {
                             target_set.extend(results?.into_values());
                         }
-                        Ok(Some(Self::TargetSet(Cow::Owned(target_set))))
+                        Ok(Self::TargetSet(Cow::Owned(target_set)))
                     }
                 }
             }
-            None => Ok(None),
         }
     }
 
@@ -495,22 +493,25 @@ impl<'v> TargetExpr<'v, TargetNode> {
         let mut resolved = vec![];
 
         for item in items {
-            let unpacked = Self::unpack_literal(item, ctx, dice).await?;
+            let Some(or) = TargetNodeOrTargetLabelOrStr::unpack_value(item) else {
+                return Err(TargetExprError::NotATarget(item.to_repr())).context(format!(
+                    "Error resolving list `{}`",
+                    truncate(&value.to_repr(), 150)
+                ));
+            };
+            let unpacked = Self::unpack_literal(or, ctx, dice).await?;
 
             match unpacked {
-                Some(TargetExpr::Node(node)) => resolved.push(Either::Left(node)),
-                Some(TargetExpr::Label(label)) => resolved.push(Either::Right(label)),
-                Some(TargetExpr::TargetSet(set)) => match set {
+                TargetExpr::Node(node) => resolved.push(Either::Left(node)),
+                TargetExpr::Label(label) => resolved.push(Either::Right(label)),
+                TargetExpr::TargetSet(set) => match set {
                     Cow::Borrowed(s) => itertools::Either::Left(s.iter().duped()),
                     Cow::Owned(s) => itertools::Either::Right(s.into_iter()),
                 }
                 .for_each(|t| resolved.push(Either::Left(t))),
-                _ => {
-                    return Err(anyhow::anyhow!(TargetExprError::NotATarget(item.to_repr()))
-                        .context(format!(
-                            "Error resolving list `{}`",
-                            truncate(&value.to_repr(), 150)
-                        )));
+                TargetExpr::Iterable(_) => {
+                    return Err(TargetExprError::NotATarget(item.to_repr()))
+                        .context("list in a list");
                 }
             }
         }
