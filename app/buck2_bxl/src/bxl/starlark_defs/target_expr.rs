@@ -151,6 +151,12 @@ enum TargetNodeOrTargetLabelOrStr<'v> {
     Str(&'v str),
 }
 
+#[derive(StarlarkTypeRepr, UnpackValue)]
+enum TargetSetOrTargetList<'v> {
+    TargetSet(&'v StarlarkTargetSet<TargetNode>),
+    TargetList(UnpackList<ValueOf<'v, TargetNodeOrTargetLabelOrStr<'v>>>),
+}
+
 impl<'v> TargetExpr<'v, TargetNode> {
     /// Get a `TargetSet<TargetNode>` from the `TargetExpr`
     pub(crate) async fn get(
@@ -476,34 +482,33 @@ impl<'v> TargetExpr<'v, TargetNode> {
         ctx: &BxlContextNoDice<'_>,
         dice: &mut DiceComputations,
     ) -> anyhow::Result<Option<TargetExpr<'v, TargetNode>>> {
-        if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
-            return Ok(Some(Self::TargetSet(Cow::Borrowed(s))));
-        }
-
-        let Some(items) = UnpackList::<ValueOf<TargetNodeOrTargetLabelOrStr>>::unpack_value(value)
-        else {
+        let Some(target_set_or_target_list) = TargetSetOrTargetList::unpack_value(value) else {
             return Err(TargetExprError::NotAListOfTargets(value.to_repr()).into());
         };
+        match target_set_or_target_list {
+            TargetSetOrTargetList::TargetSet(s) => Ok(Some(Self::TargetSet(Cow::Borrowed(s)))),
+            TargetSetOrTargetList::TargetList(items) => {
+                let mut resolved = vec![];
 
-        let mut resolved = vec![];
+                for item in items.items {
+                    let unpacked = Self::unpack_literal(item.typed, ctx, dice).await?;
 
-        for item in items.items {
-            let unpacked = Self::unpack_literal(item.typed, ctx, dice).await?;
-
-            match unpacked {
-                TargetExpr::Node(node) => resolved.push(Either::Left(node)),
-                TargetExpr::Label(label) => resolved.push(Either::Right(label)),
-                TargetExpr::TargetSet(set) => match set {
-                    Cow::Borrowed(s) => itertools::Either::Left(s.iter().duped()),
-                    Cow::Owned(s) => itertools::Either::Right(s.into_iter()),
+                    match unpacked {
+                        TargetExpr::Node(node) => resolved.push(Either::Left(node)),
+                        TargetExpr::Label(label) => resolved.push(Either::Right(label)),
+                        TargetExpr::TargetSet(set) => match set {
+                            Cow::Borrowed(s) => itertools::Either::Left(s.iter().duped()),
+                            Cow::Owned(s) => itertools::Either::Right(s.into_iter()),
+                        }
+                        .for_each(|t| resolved.push(Either::Left(t))),
+                        TargetExpr::Iterable(_) => {
+                            return Err(TargetExprError::NotATarget(item.value.to_repr()))
+                                .context("list in a list");
+                        }
+                    }
                 }
-                .for_each(|t| resolved.push(Either::Left(t))),
-                TargetExpr::Iterable(_) => {
-                    return Err(TargetExprError::NotATarget(item.value.to_repr()))
-                        .context("list in a list");
-                }
+                Ok(Some(Self::Iterable(resolved)))
             }
         }
-        Ok(Some(Self::Iterable(resolved)))
     }
 }
