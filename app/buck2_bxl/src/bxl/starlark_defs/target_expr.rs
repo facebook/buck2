@@ -157,6 +157,12 @@ enum TargetSetOrTargetList<'v> {
     TargetList(UnpackList<ValueOf<'v, TargetNodeOrTargetLabelOrStr<'v>>>),
 }
 
+#[derive(StarlarkTypeRepr, UnpackValue)]
+enum TargetListExprArg<'v> {
+    Target(TargetNodeOrTargetLabelOrStr<'v>),
+    List(TargetSetOrTargetList<'v>),
+}
+
 impl<'v> TargetExpr<'v, TargetNode> {
     /// Get a `TargetSet<TargetNode>` from the `TargetExpr`
     pub(crate) async fn get(
@@ -429,17 +435,15 @@ impl<'v> TargetExpr<'v, TargetNode> {
         ctx: &BxlContextNoDice<'_>,
         dice: &mut DiceComputations,
     ) -> anyhow::Result<TargetExpr<'v, TargetNode>> {
-        Ok(
-            if let Some(x) = TargetNodeOrTargetLabelOrStr::unpack_value(value) {
-                Self::unpack_literal(x, ctx, dice).await?
-            } else if let Some(x) = TargetSetOrTargetList::unpack_value(value) {
-                Self::unpack_iterable(x, ctx, dice).await?
-            } else {
-                return Err(anyhow::anyhow!(TargetExprError::NotAListOfTargets(
-                    value.to_repr()
-                )));
-            },
-        )
+        let Some(x) = TargetListExprArg::unpack_value(value) else {
+            return Err(anyhow::anyhow!(TargetExprError::NotAListOfTargets(
+                value.to_repr()
+            )));
+        };
+        match x {
+            TargetListExprArg::Target(x) => Self::unpack_literal(x, ctx, dice).await,
+            TargetListExprArg::List(x) => Self::unpack_iterable(x, ctx, dice).await,
+        }
     }
 
     async fn unpack_literal(
