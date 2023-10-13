@@ -141,6 +141,13 @@ impl<'v> TargetNodeOrTargetLabel<'v> {
     }
 }
 
+#[derive(StarlarkTypeRepr, UnpackValue)]
+enum TargetNodeOrTargetLabelOrStr<'v> {
+    TargetNode(&'v StarlarkTargetNode),
+    TargetLabel(&'v StarlarkTargetLabel),
+    Str(&'v str),
+}
+
 impl<'v> TargetExpr<'v, TargetNode> {
     /// Get a `TargetSet<TargetNode>` from the `TargetExpr`
     pub(crate) async fn get(
@@ -432,33 +439,36 @@ impl<'v> TargetExpr<'v, TargetNode> {
         ctx: &BxlContextNoDice<'_>,
         dice: &mut DiceComputations,
     ) -> anyhow::Result<Option<TargetExpr<'v, TargetNode>>> {
-        if let Some(target) = value.downcast_ref::<StarlarkTargetNode>() {
-            Ok(Some(Self::Node(target.0.dupe())))
-        } else if let Some(label) = value.downcast_ref::<StarlarkTargetLabel>() {
-            Ok(Some(Self::Label(Cow::Borrowed(label.label()))))
-        } else if let Some(s) = value.unpack_str() {
-            match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
-                &ctx.target_alias_resolver,
-                // TODO(nga): Parse relaxed relative to cell root is incorrect.
-                CellPathRef::new(ctx.cell_name, CellRelativePath::empty()),
-                s,
-                &ctx.cell_resolver,
-            )? {
-                ParsedPattern::Target(pkg, name, TargetPatternExtra) => Ok(Some(Self::Label(
-                    Cow::Owned(TargetLabel::new(pkg, name.as_ref())),
-                ))),
-                pattern => {
-                    let loaded_patterns =
-                        load_patterns(dice, vec![pattern], MissingTargetBehavior::Fail).await?;
-                    let mut target_set = TargetSet::new();
-                    for (_package, results) in loaded_patterns.into_iter() {
-                        target_set.extend(results?.into_values());
+        match TargetNodeOrTargetLabelOrStr::unpack_value(value) {
+            Some(TargetNodeOrTargetLabelOrStr::TargetNode(target)) => {
+                Ok(Some(Self::Node(target.0.dupe())))
+            }
+            Some(TargetNodeOrTargetLabelOrStr::TargetLabel(target)) => {
+                Ok(Some(Self::Label(Cow::Borrowed(target.label()))))
+            }
+            Some(TargetNodeOrTargetLabelOrStr::Str(s)) => {
+                match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
+                    &ctx.target_alias_resolver,
+                    // TODO(nga): Parse relaxed relative to cell root is incorrect.
+                    CellPathRef::new(ctx.cell_name, CellRelativePath::empty()),
+                    s,
+                    &ctx.cell_resolver,
+                )? {
+                    ParsedPattern::Target(pkg, name, TargetPatternExtra) => Ok(Some(Self::Label(
+                        Cow::Owned(TargetLabel::new(pkg, name.as_ref())),
+                    ))),
+                    pattern => {
+                        let loaded_patterns =
+                            load_patterns(dice, vec![pattern], MissingTargetBehavior::Fail).await?;
+                        let mut target_set = TargetSet::new();
+                        for (_package, results) in loaded_patterns.into_iter() {
+                            target_set.extend(results?.into_values());
+                        }
+                        Ok(Some(Self::TargetSet(Cow::Owned(target_set))))
                     }
-                    Ok(Some(Self::TargetSet(Cow::Owned(target_set))))
                 }
             }
-        } else {
-            Ok(None)
+            None => Ok(None),
         }
     }
 
