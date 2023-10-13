@@ -40,12 +40,12 @@ use starlark::values::ValueError;
 use starlark::StarlarkDocs;
 
 use super::file_set::StarlarkFileSet;
-use super::target_expr::TargetExpr;
+use super::target_list_expr::TargetListExpr;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
 use crate::bxl::starlark_defs::file_set::FileSetExpr;
 use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
-use crate::bxl::starlark_defs::target_expr::TargetListExprArg;
+use crate::bxl::starlark_defs::target_list_expr::TargetListExprArg;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 
 #[derive(
@@ -111,11 +111,11 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         this.ctx.via_dice(|mut dice, ctx| {
             dice.via(|dice| {
                 async {
-                    let from = TargetExpr::<'v, TargetNode>::unpack(from, ctx, dice)
+                    let from = TargetListExpr::<'v, TargetNode>::unpack(from, ctx, dice)
                         .await?
                         .get(dice)
                         .await?;
-                    let to = TargetExpr::<'v, TargetNode>::unpack(to, ctx, dice)
+                    let to = TargetListExpr::<'v, TargetNode>::unpack(to, ctx, dice)
                         .await?
                         .get(dice)
                         .await?;
@@ -139,11 +139,11 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         this.ctx.via_dice(|mut dice, ctx| {
             dice.via(|dice| {
                 async {
-                    let from = TargetExpr::<'v, TargetNode>::unpack(from, ctx, dice)
+                    let from = TargetListExpr::<'v, TargetNode>::unpack(from, ctx, dice)
                         .await?
                         .get(dice)
                         .await?;
-                    let to = TargetExpr::<'v, TargetNode>::unpack(to, ctx, dice)
+                    let to = TargetListExpr::<'v, TargetNode>::unpack(to, ctx, dice)
                         .await?
                         .get(dice)
                         .await?;
@@ -168,7 +168,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         this.ctx.via_dice(|mut dice, ctx| {
             dice.via(|dice| {
                 async {
-                    let targets = TargetExpr::<'v, TargetNode>::unpack(targets, ctx, dice)
+                    let targets = TargetListExpr::<'v, TargetNode>::unpack(targets, ctx, dice)
                         .await?
                         .get(dice)
                         .await?;
@@ -197,7 +197,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
             .via_dice(|mut dice, ctx| {
                 dice.via(|dice| {
                     async {
-                        let targets = TargetExpr::<'v, TargetNode>::unpack(targets, ctx, dice)
+                        let targets = TargetListExpr::<'v, TargetNode>::unpack(targets, ctx, dice)
                             .await?
                             .get(dice)
                             .await?;
@@ -225,7 +225,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         this.ctx.via_dice(|mut dice, ctx| {
             dice.via(|dice| {
                 async {
-                    let targets = TargetExpr::<'v, TargetNode>::unpack(targets, ctx, dice)
+                    let targets = TargetListExpr::<'v, TargetNode>::unpack(targets, ctx, dice)
                         .await?
                         .get(dice)
                         .await?;
@@ -258,7 +258,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                             .into_option()
                             .try_map(buck2_query_parser::parse_expr)?;
 
-                        let targets = TargetExpr::<'v, TargetNode>::unpack(universe, ctx, dice)
+                        let targets = TargetListExpr::<'v, TargetNode>::unpack(universe, ctx, dice)
                             .await?
                             .get(dice)
                             .await?;
@@ -300,12 +300,13 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
             .via_dice(|mut dice, ctx| {
                 dice.via(|dice| {
                     async {
-                        let universe = TargetExpr::<'v, TargetNode>::unpack(universe, ctx, dice)
-                            .await?
-                            .get(dice)
-                            .await?;
+                        let universe =
+                            TargetListExpr::<'v, TargetNode>::unpack(universe, ctx, dice)
+                                .await?
+                                .get(dice)
+                                .await?;
 
-                        let targets = TargetExpr::<'v, TargetNode>::unpack(from, ctx, dice)
+                        let targets = TargetListExpr::<'v, TargetNode>::unpack(from, ctx, dice)
                             .await?
                             .get(dice)
                             .await?;
@@ -338,7 +339,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
             .via_dice(|mut dice, ctx| {
                 dice.via(|dice| {
                     async {
-                        let targets = TargetExpr::<'v, TargetNode>::unpack(targets, ctx, dice)
+                        let targets = TargetListExpr::<'v, TargetNode>::unpack(targets, ctx, dice)
                             .await?
                             .get(dice)
                             .await?;
@@ -366,7 +367,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
             .via_dice(|mut dice, ctx| {
                 dice.via(|dice| {
                     async {
-                        let targets = TargetExpr::<'v, TargetNode>::unpack(targets, ctx, dice)
+                        let targets = TargetListExpr::<'v, TargetNode>::unpack(targets, ctx, dice)
                             .await?
                             .get(dice)
                             .await?;
@@ -395,10 +396,11 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
             .via_dice(|mut dice, ctx| {
                 dice.via(|dice| {
                     async {
-                        let targets = &*TargetExpr::<'v, TargetNode>::unpack(targets, ctx, dice)
-                            .await?
-                            .get(dice)
-                            .await?;
+                        let targets =
+                            &*TargetListExpr::<'v, TargetNode>::unpack(targets, ctx, dice)
+                                .await?
+                                .get(dice)
+                                .await?;
 
                         Ok(targets.buildfile())
                     }
@@ -455,7 +457,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         this.ctx.via_dice(|mut dice, ctx| {
             dice.via(|dice| {
                 async {
-                    let targets = TargetExpr::<'v, TargetNode>::unpack(targets, ctx, dice)
+                    let targets = TargetListExpr::<'v, TargetNode>::unpack(targets, ctx, dice)
                         .await?
                         .get(dice)
                         .await?;

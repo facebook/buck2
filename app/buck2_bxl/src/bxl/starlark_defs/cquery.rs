@@ -45,8 +45,8 @@ use crate::bxl::starlark_defs::context::BxlContextNoDice;
 use crate::bxl::starlark_defs::file_set::FileSetExpr;
 use crate::bxl::starlark_defs::file_set::StarlarkFileSet;
 use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
-use crate::bxl::starlark_defs::target_expr::filter_incompatible;
-use crate::bxl::starlark_defs::target_expr::TargetExpr;
+use crate::bxl::starlark_defs::target_list_expr::filter_incompatible;
+use crate::bxl::starlark_defs::target_list_expr::TargetListExpr;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::uquery::unpack_unconfigured_query_args;
 use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
@@ -137,7 +137,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
             dice.via(|dice| {
                 async move {
                     let from = filter_incompatible(
-                        TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                        TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                             from,
                             &this.target_platform,
                             ctx,
@@ -151,7 +151,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                         ctx,
                     )?;
                     let to = filter_incompatible(
-                        TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                        TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                             to,
                             &this.target_platform,
                             ctx,
@@ -186,7 +186,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
             dice.via(|dice| {
                 async {
                     let from = filter_incompatible(
-                        TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                        TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                             from,
                             &this.target_platform,
                             ctx,
@@ -200,7 +200,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                         ctx,
                     )?;
                     let to = filter_incompatible(
-                        TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                        TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                             to,
                             &this.target_platform,
                             ctx,
@@ -236,7 +236,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
             dice.via(|dice| {
                 async {
                     filter_incompatible(
-                        TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                        TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                             targets,
                             &this.target_platform,
                             ctx,
@@ -275,7 +275,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
             dice.via(|dice| {
                 async {
                     filter_incompatible(
-                        TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                        TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                             targets,
                             &this.target_platform,
                             ctx,
@@ -315,7 +315,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
             dice.via(|dice| {
                 async {
                     filter_incompatible(
-                        TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                        TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                             targets,
                             &this.target_platform,
                             ctx,
@@ -359,7 +359,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                     async {
                         let universe = match universe.into_option() {
                             Some(universe) => Some(filter_incompatible(
-                                TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                                TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                                     universe,
                                     &this.target_platform,
                                     ctx,
@@ -410,7 +410,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             .try_map(buck2_query_parser::parse_expr)?;
 
                         let targets = filter_incompatible(
-                            TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                            TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                                 universe,
                                 &this.target_platform,
                                 ctx,
@@ -462,7 +462,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                 dice.via(|dice| {
                     async {
                         filter_incompatible(
-                            TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                            TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                                 targets,
                                 &this.target_platform,
                                 ctx,
@@ -501,7 +501,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                 dice.via(|dice| {
                     async {
                         filter_incompatible(
-                            TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                            TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                                 targets,
                                 &this.target_platform,
                                 ctx,
@@ -533,7 +533,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                 dice.via(|dice| {
                     async {
                         let targets = filter_incompatible(
-                            TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                            TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                                 targets,
                                 &this.target_platform,
                                 ctx,
@@ -569,7 +569,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                 dice.via(|dice| {
                     async {
                         let targets = filter_incompatible(
-                            TargetExpr::<'v, ConfiguredTargetNode>::unpack_allow_unconfigured(
+                            TargetListExpr::<'v, ConfiguredTargetNode>::unpack_allow_unconfigured(
                                 targets,
                                 &this.target_platform,
                                 ctx,
@@ -615,7 +615,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                 dice.via(|dice| {
                     async {
                         let universe = filter_incompatible(
-                            TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                            TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                                 universe,
                                 &this.target_platform,
                                 ctx,
@@ -629,7 +629,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             ctx,
                         )?;
                         let targets = filter_incompatible(
-                            TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                            TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                                 from,
                                 &this.target_platform,
                                 ctx,
@@ -739,7 +739,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                 dice.via(|dice| {
                     async {
                         let targets = &filter_incompatible(
-                            TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                            TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                                 targets,
                                 &this.target_platform,
                                 ctx,

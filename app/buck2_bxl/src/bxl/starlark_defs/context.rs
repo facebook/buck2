@@ -119,9 +119,9 @@ use crate::bxl::starlark_defs::cquery::StarlarkCQueryCtx;
 use crate::bxl::starlark_defs::event::StarlarkUserEventParser;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
-use crate::bxl::starlark_defs::target_expr::filter_incompatible;
-use crate::bxl::starlark_defs::target_expr::TargetExpr;
-use crate::bxl::starlark_defs::target_expr::TargetListExprArg;
+use crate::bxl::starlark_defs::target_list_expr::filter_incompatible;
+use crate::bxl::starlark_defs::target_list_expr::TargetListExpr;
+use crate::bxl::starlark_defs::target_list_expr::TargetListExprArg;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::uquery::StarlarkUQueryCtx;
 use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
@@ -699,7 +699,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
     /// The `target_platform` is either a string that can be parsed as a target label, or a
     /// target label.
     ///
-    /// The given `labels` is a [`TargetExpr`], which is either:
+    /// The given `labels` is a [`TargetListExpr`], which is either:
     ///     - a single string that is a `target pattern`.
     ///     - a single target node or label, configured or unconfigured
     ///     - a list of the two options above.
@@ -730,7 +730,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
             dice.via(|ctx| {
                 async move {
                     let target_expr =
-                        TargetExpr::<'v, ConfiguredTargetNode>::unpack_allow_unconfigured(
+                        TargetListExpr::<'v, ConfiguredTargetNode>::unpack_allow_unconfigured(
                             labels,
                             &target_platform,
                             this,
@@ -740,7 +740,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
                         .await?;
 
                     Ok(match target_expr {
-                        TargetExpr::Label(label) => {
+                        TargetListExpr::Label(label) => {
                             let set = filter_incompatible(
                                 iter::once(ctx.get_configured_target_node(&label).await?),
                                 this,
@@ -759,7 +759,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
                             }
                         }
 
-                        TargetExpr::Node(node) => {
+                        TargetListExpr::Node(node) => {
                             Either::Left(NoneOr::Other(StarlarkConfiguredTargetNode(node)))
                         }
                         multi => Either::Right(StarlarkTargetSet::from(filter_incompatible(
@@ -792,14 +792,14 @@ fn context_methods(builder: &mut MethodsBuilder) {
             ctx.via(|ctx| {
                 async move {
                     Ok(
-                        match TargetExpr::<'v, TargetNode>::unpack(labels, this, ctx).await? {
-                            TargetExpr::Label(label) => {
+                        match TargetListExpr::<'v, TargetNode>::unpack(labels, this, ctx).await? {
+                            TargetListExpr::Label(label) => {
                                 let node = ctx.get_target_node(&label).await?;
 
                                 node.alloc(eval.heap())
                             }
 
-                            TargetExpr::Node(node) => node.alloc(eval.heap()),
+                            TargetListExpr::Node(node) => node.alloc(eval.heap()),
                             multi => eval
                                 .heap()
                                 .alloc(StarlarkTargetSet::from(multi.get(ctx).await?.into_owned())),
@@ -884,7 +884,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
             ctx.via(|ctx| {
                 async move {
                     let target_expr =
-                        TargetExpr::<'v, ConfiguredTargetNode>::unpack_allow_unconfigured(
+                        TargetListExpr::<'v, ConfiguredTargetNode>::unpack_allow_unconfigured(
                             labels,
                             &target_platform,
                             this_no_dice,
@@ -894,11 +894,11 @@ fn context_methods(builder: &mut MethodsBuilder) {
                         .await?;
 
                     let target_set = match target_expr {
-                        TargetExpr::Label(label) => filter_incompatible(
+                        TargetListExpr::Label(label) => filter_incompatible(
                             iter::once(ctx.get_configured_target_node(&label).await?),
                             this_no_dice,
                         )?,
-                        TargetExpr::Node(node) => {
+                        TargetListExpr::Node(node) => {
                             let mut set = TargetSet::new();
                             set.insert(node);
                             set
@@ -1043,7 +1043,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
                             let exec_compatible_with = match exec_compatible_with {
                                 NoneOr::None => Vec::new(),
                                 NoneOr::Other(exec_compatible_with) => {
-                                    TargetExpr::<TargetNode>::unpack(
+                                    TargetListExpr::<TargetNode>::unpack(
                                         exec_compatible_with,
                                         this,
                                         ctx,
