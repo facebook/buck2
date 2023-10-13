@@ -56,8 +56,7 @@ use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 /// TargetExpr is just a simple type that can be used in starlark_module
 /// functions for arguments that should be target sets. It will accept a
 /// literal (like `//some:target`) or list of literals or a TargetSet Value (from one of the
-/// BXL functions that return them). It can be resolved to a `&TargetSet` with
-/// the help of the `targets!()` macro.
+/// BXL functions that return them).
 pub(crate) enum TargetExpr<'v, Node: QueryTarget> {
     Node(Node),
     Label(Cow<'v, Node::NodeRef>),
