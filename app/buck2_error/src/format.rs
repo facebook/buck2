@@ -11,7 +11,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::sync::Arc;
 
-use crate::error::ErrorImpl;
+use crate::error::ErrorKind;
 
 /// We currently implement formatting in the laziest way possible - we convert to an equivalent
 /// `anyhow::Error` and format that.
@@ -24,8 +24,8 @@ fn into_anyhow_for_format(mut error: &crate::Error) -> anyhow::Error {
 
     let base = loop {
         match error.0.as_ref() {
-            ErrorImpl::Root(root) => break Arc::clone(root),
-            ErrorImpl::WithContext(context, inner) => {
+            ErrorKind::Root(root) => break Arc::clone(root),
+            ErrorKind::WithContext(context, inner) => {
                 context_stack.push(context.clone());
                 error = inner;
             }

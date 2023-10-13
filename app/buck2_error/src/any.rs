@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 use ref_cast::RefCast;
 
-use crate::error::ErrorImpl;
+use crate::error::ErrorKind;
 
 /// Represents an arbitrary `buck2_error` compatible error type.
 ///
@@ -47,7 +47,7 @@ where
         // Otherwise, we'll use the strategy for `std::error::Error`
         let anyhow = e.unwrap().into();
         let std_err: Box<dyn std::error::Error + Send + Sync + 'static> = anyhow.into();
-        crate::Error(Arc::new(crate::error::ErrorImpl::Root(Arc::from(std_err))))
+        crate::Error(Arc::new(crate::error::ErrorKind::Root(Arc::from(std_err))))
     }
 }
 impl<T: Debug + Display + Sync + Send + 'static> AnyError for T
@@ -137,8 +137,8 @@ impl Debug for CrateAsStdError {
 impl std::error::Error for CrateAsStdError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match &*self.0.0 {
-            ErrorImpl::Root(r) => std::error::Error::source(r),
-            ErrorImpl::WithContext(_, r) => Some(CrateAsStdError::ref_cast(r)),
+            ErrorKind::Root(r) => std::error::Error::source(r),
+            ErrorKind::WithContext(_, r) => Some(CrateAsStdError::ref_cast(r)),
         }
     }
 }
@@ -147,7 +147,7 @@ impl std::error::Error for CrateAsStdError {
 mod tests {
     use std::sync::Arc;
 
-    use crate::error::ErrorImpl;
+    use crate::error::ErrorKind;
 
     #[derive(Debug, derive_more::Display)]
     struct TestError;
@@ -157,23 +157,23 @@ mod tests {
     fn check_equal(mut a: &crate::Error, mut b: &crate::Error) {
         loop {
             match (&*a.0, &*b.0) {
-                (ErrorImpl::Root(a), ErrorImpl::Root(b)) => {
+                (ErrorKind::Root(a), ErrorKind::Root(b)) => {
                     // Avoid comparing vtable pointers
                     assert_eq!(Arc::as_ptr(a).cast::<()>(), Arc::as_ptr(b).cast::<()>());
                     return;
                 }
                 (
-                    ErrorImpl::WithContext(a_context, a_inner),
-                    ErrorImpl::WithContext(b_context, b_inner),
+                    ErrorKind::WithContext(a_context, a_inner),
+                    ErrorKind::WithContext(b_context, b_inner),
                 ) => {
                     assert_eq!(format!("{}", a_context), format!("{}", b_context));
                     a = a_inner;
                     b = b_inner;
                 }
-                (ErrorImpl::WithContext(_, _), ErrorImpl::Root(_)) => {
+                (ErrorKind::WithContext(_, _), ErrorKind::Root(_)) => {
                     panic!("Left side had more context than right!")
                 }
-                (ErrorImpl::Root(_), ErrorImpl::WithContext(_, _)) => {
+                (ErrorKind::Root(_), ErrorKind::WithContext(_, _)) => {
                     panic!("Right side had more context than left!")
                 }
             }

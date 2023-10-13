@@ -9,12 +9,12 @@
 
 use std::sync::Arc;
 
-use crate::error::ErrorImpl;
+use crate::error::ErrorKind;
 use crate::AnyError;
 
 impl crate::Error {
     pub fn context<C: std::fmt::Display + Send + Sync + 'static>(self, context: C) -> Self {
-        Self(Arc::new(ErrorImpl::WithContext(Arc::new(context), self)))
+        Self(Arc::new(ErrorKind::WithContext(Arc::new(context), self)))
     }
 
     #[cold]

@@ -16,7 +16,7 @@ use std::sync::Arc;
 /// to use `anyhow`. This type is only expected to appear on a small number of APIs which require a
 /// clonable error.
 #[derive(allocative::Allocative, Clone, dupe::Dupe)]
-pub struct Error(pub(crate) Arc<ErrorImpl>);
+pub struct Error(pub(crate) Arc<ErrorKind>);
 
 /// The actual error representation.
 ///
@@ -25,7 +25,7 @@ pub struct Error(pub(crate) Arc<ErrorImpl>);
 ///
 /// Right now, this type can represent an error root, together with a stack of context information.
 #[derive(allocative::Allocative)]
-pub(crate) enum ErrorImpl {
+pub(crate) enum ErrorKind {
     // This `Arc` should ideally be a `Box`. However, that doesn't work right now because of the
     // implementation of `into_anyhow_for_format`.
     Root(#[allocative(skip)] Arc<dyn std::error::Error + Send + Sync + 'static>),
@@ -38,6 +38,6 @@ pub(crate) enum ErrorImpl {
 
 impl Error {
     pub fn new<E: std::error::Error + Send + Sync + 'static>(e: E) -> Self {
-        Self(Arc::new(ErrorImpl::Root(Arc::new(e))))
+        Self(Arc::new(ErrorKind::Root(Arc::new(e))))
     }
 }
