@@ -559,43 +559,39 @@ impl<'a> ActionErrorDisplay<'a> {
     /// report.
     ///
     /// The output may include terminal colors that need to be sanitized
-    pub fn simple_format(
-        &self,
-        mut with_timestamps: Option<impl FnMut(&str) -> anyhow::Result<String>>,
-    ) -> anyhow::Result<String> {
+    pub fn simple_format(&self, mut with_timestamps: Option<impl FnMut(&str) -> String>) -> String {
         let mut s = String::new();
         macro_rules! append {
             ($fmt:expr $(, $args:expr)*) => {{
                 let mut message = format!($fmt $(, $args)*);
                 if let Some(with_timestamps) = &mut with_timestamps {
-                    message = with_timestamps(&message)?;
+                    message = with_timestamps(&message);
                 }
                 writeln!(s, "{message}").unwrap();
-                anyhow::Ok(())
             }};
         }
-        append!("Action failed: {}", self.action_id)?;
-        append!("{}", self.reason)?;
+        append!("Action failed: {}", self.action_id);
+        append!("{}", self.reason);
         let Some(command_failed) = &self.command else {
-            return Ok(s);
+            return s;
         };
         if let Some(command_kind) = command_failed.command_kind.as_ref() {
             use buck2_data::command_execution_kind::Command;
             match command_kind.command.as_ref() {
                 Some(Command::LocalCommand(local_command)) => {
-                    append!("Local command: {}", command_to_string(local_command))?;
+                    append!("Local command: {}", command_to_string(local_command));
                 }
                 Some(Command::WorkerCommand(worker_command)) => {
                     append!(
                         "Local worker command: {}",
                         worker_command_as_fallback_to_string(worker_command)
-                    )?;
+                    );
                 }
                 Some(Command::WorkerInitCommand(worker_init_command)) => {
                     append!(
                         "Local worker initialization command: {}",
                         command_to_string(worker_init_command)
-                    )?;
+                    );
                 }
                 Some(Command::RemoteCommand(remote_command)) => {
                     append!(
@@ -606,7 +602,7 @@ impl<'a> ActionErrorDisplay<'a> {
                             ""
                         },
                         remote_command.action_digest
-                    )?;
+                    );
                 }
                 Some(Command::OmittedLocalCommand(..)) | None => {
                     // Nothing to show in this case.
@@ -616,18 +612,17 @@ impl<'a> ActionErrorDisplay<'a> {
 
         let mut append_stream = |name, contents: &str| {
             if contents.is_empty() {
-                append!("{name}: <empty>")?;
+                append!("{name}: <empty>");
             } else {
-                append!("{name}:")?;
+                append!("{name}:");
                 let contents = strip_trailing_newline(contents);
-                writeln!(s, "{}", contents)?;
+                writeln!(s, "{}", contents).unwrap();
             }
-            anyhow::Ok(())
         };
 
-        append_stream("Stdout", &command_failed.stdout)?;
-        append_stream("Stderr", &command_failed.stderr)?;
-        Ok(s)
+        append_stream("Stdout", &command_failed.stdout);
+        append_stream("Stderr", &command_failed.stderr);
+        s
     }
 }
 

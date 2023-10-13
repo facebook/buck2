@@ -50,19 +50,19 @@ fn now_display() -> impl Display {
     chrono::Local::now().to_rfc3339_opts(::chrono::SecondsFormat::Millis, false)
 }
 
-fn with_timestamps(message: &str) -> anyhow::Result<String> {
+fn with_timestamps(message: &str) -> String {
     let mut s = String::new();
     let now = now_display();
     for line in message.lines() {
         if line.is_empty() {
-            writeln!(s, "[{}]", now)?;
+            writeln!(s, "[{}]", now).unwrap();
         } else {
-            writeln!(s, "[{}] {}", now, line)?;
+            writeln!(s, "[{}] {}", now, line).unwrap();
         }
     }
     // Remove the trailing newline
     s.pop();
-    Ok(s)
+    s
 }
 
 // Echoes a message to stderr, along with a timestamp.
@@ -76,7 +76,7 @@ macro_rules! echo {
     ($fmt:expr $(, $args:expr)*) => {
         {
             let message = format!($fmt $(, $args)*);
-            let message = with_timestamps(&message)?;
+            let message = with_timestamps(&message);
             // patternlint-disable-next-line buck2-cli-simpleconsole-echo
             crate::eprintln!("{}", message)
         }
@@ -207,7 +207,7 @@ where
 
     fn print_action_error(&mut self, error: &buck2_data::ActionError) -> anyhow::Result<()> {
         let display = display::display_action_error(error, TargetDisplayOptions::for_log())?;
-        let message = display.simple_format(Some(with_timestamps))?;
+        let message = display.simple_format(Some(with_timestamps));
         if self.tty_mode == TtyMode::Disabled {
             // patternlint-disable-next-line buck2-cli-simpleconsole-echo
             crate::eprintln!("{}", sanitize_output_colors(message.as_bytes()))?;
