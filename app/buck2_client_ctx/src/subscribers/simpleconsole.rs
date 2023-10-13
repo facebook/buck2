@@ -207,7 +207,7 @@ where
 
     fn print_action_error(&mut self, error: &buck2_data::ActionError) -> anyhow::Result<()> {
         let display = display::display_action_error(error, TargetDisplayOptions::for_log())?;
-        let message = display.simple_format(Some(with_timestamps));
+        let message = display.simple_format_with_timestamps(with_timestamps);
         if self.tty_mode == TtyMode::Disabled {
             // patternlint-disable-next-line buck2-cli-simpleconsole-echo
             crate::eprintln!("{}", sanitize_output_colors(message.as_bytes()))?;

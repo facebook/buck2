@@ -555,11 +555,27 @@ fn strip_trailing_newline(stream_contents: &str) -> &str {
 }
 
 impl<'a> ActionErrorDisplay<'a> {
-    /// Format the error message in a way that is suitable for use with the simpleconsole or build
-    /// report.
+    /// Format the error message in a way that is suitable for use with the build report
+    ///
+    /// The output may include terminal colors that need to be sanitized.
+    pub fn simple_format(&self) -> String {
+        self.simple_format_inner(None::<&'static mut dyn for<'x> FnMut(&'x str) -> String>)
+    }
+
+    /// Format the error message in a way that is suitable for use with the simpleconsole
     ///
     /// The output may include terminal colors that need to be sanitized
-    pub fn simple_format(&self, mut with_timestamps: Option<impl FnMut(&str) -> String>) -> String {
+    pub fn simple_format_with_timestamps(
+        &self,
+        with_timestamps: impl FnMut(&str) -> String,
+    ) -> String {
+        self.simple_format_inner(Some(with_timestamps))
+    }
+
+    fn simple_format_inner(
+        &self,
+        mut with_timestamps: Option<impl FnMut(&str) -> String>,
+    ) -> String {
         let mut s = String::new();
         macro_rules! append {
             ($fmt:expr $(, $args:expr)*) => {{
