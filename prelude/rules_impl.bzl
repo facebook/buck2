@@ -320,11 +320,13 @@ def _python_executable_attrs():
             attrs.string(),
             default = None,
             doc = """
-            Fully qualified name of a Python function that will serve as the main entry point of the binary.
-
-            This should usually be a function defined within one of the
-            dependencies of this target. This attribute should be preferred over
-            `main_module` or `main`, and it is an error to specify more than one of these.
+            Name of a Python function that will serve as the main entry point of
+            the binary. The name is either a fully qualified name like
+            `foo.bar.baz` or it starts with a `.` like `.bar.baz`, in which case
+            it is relative to the package containing the target. This should
+            usually be a function defined within one of the dependencies of this
+            target. This attribute should be preferred over `main_module` or
+            `main`, and it is an error to specify more than one of these.
         """,
         ),
         "make_py_package": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
