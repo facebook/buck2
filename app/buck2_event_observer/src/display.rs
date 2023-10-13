@@ -40,6 +40,8 @@ use thiserror::Error;
 
 use crate::fmt_duration;
 use crate::verbosity::Verbosity;
+use crate::what_ran::command_to_string;
+use crate::what_ran::worker_command_as_fallback_to_string;
 
 #[derive(Copy, Clone, Dupe)]
 pub struct TargetDisplayOptions {
@@ -546,6 +548,13 @@ pub struct ActionErrorDisplay<'a> {
     pub command: Option<Cow<'a, buck2_data::CommandExecutionDetails>>,
 }
 
+fn strip_trailing_newline(stream_contents: &str) -> &str {
+    match stream_contents.strip_suffix('\n') {
+        None => stream_contents,
+        Some(s) => s.strip_suffix('\r').unwrap_or(s),
+    }
+}
+
 impl<'a> ActionErrorDisplay<'a> {
     pub fn to_static(self) -> ActionErrorDisplay<'static> {
         ActionErrorDisplay {
@@ -553,6 +562,81 @@ impl<'a> ActionErrorDisplay<'a> {
             reason: self.reason,
             command: self.command.map(|c| Cow::Owned(c.into_owned())),
         }
+    }
+
+    /// Format the error message in a way that is suitable for use with the simpleconsole or build
+    /// report.
+    ///
+    /// The output may include terminal colors that need to be sanitized
+    pub fn simple_format(
+        &self,
+        mut with_timestamps: Option<impl FnMut(&str) -> anyhow::Result<String>>,
+    ) -> anyhow::Result<String> {
+        let mut s = String::new();
+        macro_rules! append {
+            ($fmt:expr $(, $args:expr)*) => {{
+                let mut message = format!($fmt $(, $args)*);
+                if let Some(with_timestamps) = &mut with_timestamps {
+                    message = with_timestamps(&message)?;
+                }
+                writeln!(s, "{message}").unwrap();
+                anyhow::Ok(())
+            }};
+        }
+        append!("Action failed: {}", self.action_id)?;
+        append!("{}", self.reason)?;
+        let Some(command_failed) = &self.command else {
+            return Ok(s);
+        };
+        if let Some(command_kind) = command_failed.command_kind.as_ref() {
+            use buck2_data::command_execution_kind::Command;
+            match command_kind.command.as_ref() {
+                Some(Command::LocalCommand(local_command)) => {
+                    append!("Local command: {}", command_to_string(local_command))?;
+                }
+                Some(Command::WorkerCommand(worker_command)) => {
+                    append!(
+                        "Local worker command: {}",
+                        worker_command_as_fallback_to_string(worker_command)
+                    )?;
+                }
+                Some(Command::WorkerInitCommand(worker_init_command)) => {
+                    append!(
+                        "Local worker initialization command: {}",
+                        command_to_string(worker_init_command)
+                    )?;
+                }
+                Some(Command::RemoteCommand(remote_command)) => {
+                    append!(
+                        "Remote action{}, reproduce with: `frecli cas download-action {}`",
+                        if remote_command.cache_hit {
+                            " cache hit"
+                        } else {
+                            ""
+                        },
+                        remote_command.action_digest
+                    )?;
+                }
+                Some(Command::OmittedLocalCommand(..)) | None => {
+                    // Nothing to show in this case.
+                }
+            };
+        }
+
+        let mut append_stream = |name, contents: &str| {
+            if contents.is_empty() {
+                append!("{name}: <empty>")?;
+            } else {
+                append!("{name}:")?;
+                let contents = strip_trailing_newline(contents);
+                writeln!(s, "{}", contents)?;
+            }
+            anyhow::Ok(())
+        };
+
+        append_stream("Stdout", &command_failed.stdout)?;
+        append_stream("Stderr", &command_failed.stderr)?;
+        Ok(s)
     }
 }
 
@@ -687,4 +771,44 @@ pub fn success_stderr<'a>(
     }
 
     Ok(Some(stderr))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn strips_trailing_newline_character() {
+        let stream_contents = "test\n";
+        let res = strip_trailing_newline(stream_contents);
+        assert_eq!(res, "test");
+    }
+
+    #[test]
+    fn preserves_duplicate_newlines() {
+        let stream_contents = "test\n\n";
+        let res = strip_trailing_newline(stream_contents);
+        assert_eq!(res, "test\n");
+    }
+
+    #[test]
+    fn preserves_other_trailing_whitespace() {
+        let stream_contents = "test    \t";
+        let res = strip_trailing_newline(stream_contents);
+        assert_eq!(res, stream_contents);
+    }
+
+    #[test]
+    fn preserves_leading_whitespace() {
+        let stream_contents = "\n  test";
+        let res = strip_trailing_newline(stream_contents);
+        assert_eq!(res, stream_contents);
+    }
+
+    #[test]
+    fn correctly_handles_carriage_return() {
+        let stream_contents = "test\r\n";
+        let res = strip_trailing_newline(stream_contents);
+        assert_eq!(res, "test");
+    }
 }

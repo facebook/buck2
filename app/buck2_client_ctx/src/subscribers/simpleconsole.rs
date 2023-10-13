@@ -26,8 +26,6 @@ use buck2_event_observer::event_observer::EventObserverExtra;
 use buck2_event_observer::humanized::HumanizedBytes;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_event_observer::what_ran;
-use buck2_event_observer::what_ran::command_to_string;
-use buck2_event_observer::what_ran::worker_command_as_fallback_to_string;
 use buck2_event_observer::what_ran::WhatRanCommandConsoleFormat;
 use buck2_event_observer::what_ran::WhatRanOptions;
 use buck2_event_observer::what_ran::WhatRanOutputCommand;
@@ -97,7 +95,7 @@ struct ActionError {
 
 impl ActionError {
     fn print(&self, tty_mode: TtyMode) -> anyhow::Result<()> {
-        let message = format_action_error(&self.display, true)?;
+        let message = self.display.simple_format(Some(with_timestamps))?;
         if tty_mode == TtyMode::Disabled {
             // patternlint-disable-next-line buck2-cli-simpleconsole-echo
             crate::eprintln!("{}", sanitize_output_colors(message.as_bytes()))?;
@@ -106,84 +104,6 @@ impl ActionError {
             crate::eprintln!("{}", message)?;
         }
         Ok(())
-    }
-}
-
-fn format_action_error(
-    display: &display::ActionErrorDisplay<'static>,
-    include_timestamps: bool,
-) -> anyhow::Result<String> {
-    let mut s = String::new();
-    macro_rules! append {
-        ($fmt:expr $(, $args:expr)*) => {{
-            let mut message = format!($fmt $(, $args)*);
-            if include_timestamps {
-                message = with_timestamps(&message)?;
-            }
-            writeln!(s, "{message}").unwrap();
-            anyhow::Ok(())
-        }};
-    }
-    append!("Action failed: {}", display.action_id)?;
-    append!("{}", display.reason)?;
-    let Some(command_failed) = &display.command else {
-        return Ok(s);
-    };
-    if let Some(command_kind) = command_failed.command_kind.as_ref() {
-        use buck2_data::command_execution_kind::Command;
-        match command_kind.command.as_ref() {
-            Some(Command::LocalCommand(local_command)) => {
-                append!("Local command: {}", command_to_string(local_command))?;
-            }
-            Some(Command::WorkerCommand(worker_command)) => {
-                append!(
-                    "Local worker command: {}",
-                    worker_command_as_fallback_to_string(worker_command)
-                )?;
-            }
-            Some(Command::WorkerInitCommand(worker_init_command)) => {
-                append!(
-                    "Local worker initialization command: {}",
-                    command_to_string(worker_init_command)
-                )?;
-            }
-            Some(Command::RemoteCommand(remote_command)) => {
-                append!(
-                    "Remote action{}, reproduce with: `frecli cas download-action {}`",
-                    if remote_command.cache_hit {
-                        " cache hit"
-                    } else {
-                        ""
-                    },
-                    remote_command.action_digest
-                )?;
-            }
-            Some(Command::OmittedLocalCommand(..)) | None => {
-                // Nothing to show in this case.
-            }
-        };
-    }
-
-    let mut append_stream = |name, contents: &str| {
-        if contents.is_empty() {
-            append!("{name}: <empty>")?;
-        } else {
-            append!("{name}:")?;
-            let contents = strip_trailing_newline(contents);
-            writeln!(s, "{}", contents)?;
-        }
-        anyhow::Ok(())
-    };
-
-    append_stream("Stdout", &command_failed.stdout)?;
-    append_stream("Stderr", &command_failed.stderr)?;
-    Ok(s)
-}
-
-fn strip_trailing_newline(stream_contents: &str) -> &str {
-    match stream_contents.strip_suffix('\n') {
-        None => stream_contents,
-        Some(s) => s.strip_suffix('\r').unwrap_or(s),
     }
 }
 
@@ -689,44 +609,5 @@ mod tests {
         let sanitized = sanitize_output_colors(message.as_bytes());
 
         assert_eq!("Foo\tBar\nBaz\r\nQuz", sanitized);
-    }
-
-    mod strip_trailing_newline {
-        use super::*;
-
-        #[test]
-        fn strips_trailing_newline_character() {
-            let stream_contents = "test\n";
-            let res = strip_trailing_newline(stream_contents);
-            assert_eq!(res, "test");
-        }
-
-        #[test]
-        fn preserves_duplicate_newlines() {
-            let stream_contents = "test\n\n";
-            let res = strip_trailing_newline(stream_contents);
-            assert_eq!(res, "test\n");
-        }
-
-        #[test]
-        fn preserves_other_trailing_whitespace() {
-            let stream_contents = "test    \t";
-            let res = strip_trailing_newline(stream_contents);
-            assert_eq!(res, stream_contents);
-        }
-
-        #[test]
-        fn preserves_leading_whitespace() {
-            let stream_contents = "\n  test";
-            let res = strip_trailing_newline(stream_contents);
-            assert_eq!(res, stream_contents);
-        }
-
-        #[test]
-        fn correctly_handles_carriage_return() {
-            let stream_contents = "test\r\n";
-            let res = strip_trailing_newline(stream_contents);
-            assert_eq!(res, "test");
-        }
     }
 }
