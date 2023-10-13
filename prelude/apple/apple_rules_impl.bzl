@@ -5,6 +5,13 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(
+    "@prelude//apple:apple_genrule_deps.bzl",
+    "APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_NAME",
+    "APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_TYPE",
+    "APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_NAME",
+    "APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_TYPE",
+)
 load("@prelude//apple/swift:swift_toolchain.bzl", "swift_toolchain_impl")
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftObjectFormat")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
@@ -89,6 +96,8 @@ extra_attributes = {
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_stripped_default": attrs.bool(default = False),
+        APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_NAME: APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_TYPE,
+        APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_NAME: APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_TYPE,
     },
     "apple_bundle": apple_bundle_extra_attrs(),
     "apple_library": {

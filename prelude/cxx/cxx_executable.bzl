@@ -472,6 +472,13 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         dep_links,
     ] + impl_params.extra_link_args
 
+    # If there are hidden dependencies to this target then add them as
+    # hidden link args.
+    if impl_params.extra_hidden:
+        links.append(
+            LinkArgs(flags = cmd_args().hidden(impl_params.extra_hidden)),
+        )
+
     link_result = _link_into_executable(
         ctx,
         # If shlib lib tree generation is enabled, pass in the shared libs (which

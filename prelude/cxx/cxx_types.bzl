@@ -119,6 +119,8 @@ CxxRuleConstructorParams = record(
     # Additional information used to link every object produced by the rule,
     # flags are _both_ exported and used to link the target itself.
     extra_exported_link_flags = field(list[typing.Any], []),
+    # Additional hidden inputs for link or archive actions.
+    extra_hidden = field(list[Artifact], []),
     # Additional flags used _only_ when linking the target itself.
     # These flags are _not_ propagated up the dep tree.
     extra_link_flags = field(list[typing.Any], []),
