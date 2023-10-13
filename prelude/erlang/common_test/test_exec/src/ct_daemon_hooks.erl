@@ -164,8 +164,28 @@ get_hooks_config() ->
 wrap_part(Part, Fun, State) ->
     wrap_init_end(Part, Fun, State).
 
-wrap_init_end(Part, Fun, #{hooks := Hooks}) ->
-    WrappedWithPreAndPost = lists:foldl(
+wrap_init_end(Part, Fun, #{hooks := HooksInInstallationOrder}) ->
+    %% NOTE ON EXECUTION ORDER:
+    %%
+    %% As of OTP/26 CT's behaviour according to [https://www.erlang.org/doc/apps/common_test/ct_hooks_chapter#cth-execution-order]:
+    %% > By default, each CTH installed is executed in the order that they are installed for init calls,
+    %% > and then reversed for end calls. This is not always desired, so Common Test allows the user to specify
+    %% > a priority for each hook.
+    %%
+    %% Implicit here is:
+    %% - pre_init and post_init functions are executed in the same order
+    %% - the hook with the "highest numerical priority" will be the first to run pre_init_per xxxx
+    %%
+    %% Starting from OTP/27, CT adds a new option ct_hooks_order option. The behaviour above is called `test`, and a
+    %% new behaviour called `config` will be added, in which the order of the post_xxxx functions is reversed wrt pre_xxxx
+    %% (see [https://github.com/erlang/otp/issues/7397] for discussion, and [https://github.com/erlang/otp/pull/7496]
+    %% for the upcoming ct_hooks_order option).
+    %%
+    %% Here we implement only the behaviour that corresponds to the new `config` option.
+
+    %% NB. we use a foldr to ensure that the first hook in HookInInstallationOrder is the innermost, so the first one to
+    %% be executed
+    WrappedWithPreAndPost = lists:foldr(
         fun(Hook, FunToWrap) ->
             fun(FullPathArg, ConfigArg0) ->
                 PathArg =
@@ -229,7 +249,7 @@ wrap_init_end(Part, Fun, #{hooks := Hooks}) ->
             end
         end,
         normalize_part(Part, Fun),
-        Hooks
+        HooksInInstallationOrder
     ),
     %% after the post_per functions we need to handle now failures, and call either on_tc_fail or on_tc_skip
     fun(PathArg, ConfigArg) ->
@@ -261,7 +281,7 @@ wrap_init_end(Part, Fun, #{hooks := Hooks}) ->
             catch
                 Class:Reason:Stacktrace -> {failed, {'EXIT', {{Class, Reason}, Stacktrace}}}
             end,
-        handle_post_result(Hooks, build_test_name(Part, PathArg), Suite, Result)
+        handle_post_result(HooksInInstallationOrder, build_test_name(Part, PathArg), Suite, Result)
     end.
 
 handle_post_result(Hooks, TestName, Suite, Result) ->
