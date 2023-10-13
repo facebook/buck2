@@ -173,7 +173,7 @@ message CommandOptions {
 
 // An event that represents a single point in time.
 message InstantEvent {
-  reserved 2, 8, 9, 13, 22, 24;
+  reserved 2, 8, 9, 12, 13, 22, 24;
 
   oneof data {
     StructuredError structured_error = 1;
@@ -249,8 +249,6 @@ message InstantEvent {
     // Info coming from the `buck2 debug persist-event-log` subprocess
     PersistSubprocess persist_subprocess = 33;
   }
-
-  reserved 12; // Log
 }
 
 message DebugAdapterStoppedEval {
