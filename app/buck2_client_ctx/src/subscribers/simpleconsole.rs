@@ -17,7 +17,6 @@ use std::time::SystemTime;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_data::CommandExecutionDetails;
 use buck2_data::TagEvent;
 use buck2_event_observer::display;
 use buck2_event_observer::display::display_file_watcher_end;
@@ -98,39 +97,58 @@ struct ActionError {
 
 impl ActionError {
     fn print(&self, tty_mode: TtyMode) -> anyhow::Result<()> {
-        echo!("Action failed: {}", self.display.action_id)?;
-        echo!("{}", self.display.reason)?;
-        if let Some(command) = &self.display.command {
-            eprint_command_details(command, tty_mode)?;
+        let message = format_action_error(&self.display, true)?;
+        if tty_mode == TtyMode::Disabled {
+            // patternlint-disable-next-line buck2-cli-simpleconsole-echo
+            crate::eprintln!("{}", sanitize_output_colors(message.as_bytes()))?;
+        } else {
+            // patternlint-disable-next-line buck2-cli-simpleconsole-echo
+            crate::eprintln!("{}", message)?;
         }
         Ok(())
     }
 }
 
-fn eprint_command_details(
-    command_failed: &CommandExecutionDetails,
-    tty_mode: TtyMode,
-) -> anyhow::Result<()> {
+fn format_action_error(
+    display: &display::ActionErrorDisplay<'static>,
+    include_timestamps: bool,
+) -> anyhow::Result<String> {
+    let mut s = String::new();
+    macro_rules! append {
+        ($fmt:expr $(, $args:expr)*) => {{
+            let mut message = format!($fmt $(, $args)*);
+            if include_timestamps {
+                message = with_timestamps(&message)?;
+            }
+            writeln!(s, "{message}").unwrap();
+            anyhow::Ok(())
+        }};
+    }
+    append!("Action failed: {}", display.action_id)?;
+    append!("{}", display.reason)?;
+    let Some(command_failed) = &display.command else {
+        return Ok(s);
+    };
     if let Some(command_kind) = command_failed.command_kind.as_ref() {
         use buck2_data::command_execution_kind::Command;
         match command_kind.command.as_ref() {
             Some(Command::LocalCommand(local_command)) => {
-                echo!("Local command: {}", command_to_string(local_command))?;
+                append!("Local command: {}", command_to_string(local_command))?;
             }
             Some(Command::WorkerCommand(worker_command)) => {
-                echo!(
+                append!(
                     "Local worker command: {}",
                     worker_command_as_fallback_to_string(worker_command)
                 )?;
             }
             Some(Command::WorkerInitCommand(worker_init_command)) => {
-                echo!(
+                append!(
                     "Local worker initialization command: {}",
                     command_to_string(worker_init_command)
                 )?;
             }
             Some(Command::RemoteCommand(remote_command)) => {
-                echo!(
+                append!(
                     "Remote action{}, reproduce with: `frecli cas download-action {}`",
                     if remote_command.cache_hit {
                         " cache hit"
@@ -146,17 +164,20 @@ fn eprint_command_details(
         };
     }
 
-    let (stdout, stderr) = if tty_mode == TtyMode::Disabled {
-        (
-            sanitize_output_colors(command_failed.stdout.as_bytes()),
-            sanitize_output_colors(command_failed.stderr.as_bytes()),
-        )
-    } else {
-        (command_failed.stdout.clone(), command_failed.stderr.clone())
+    let mut append_stream = |name, contents: &str| {
+        if contents.is_empty() {
+            append!("{name}: <empty>")?;
+        } else {
+            append!("{name}:")?;
+            let contents = strip_trailing_newline(contents);
+            writeln!(s, "{}", contents)?;
+        }
+        anyhow::Ok(())
     };
-    print_stream("Stdout", &stdout)?;
-    print_stream("Stderr", &stderr)?;
-    Ok(())
+
+    append_stream("Stdout", &command_failed.stdout)?;
+    append_stream("Stderr", &command_failed.stderr)?;
+    Ok(s)
 }
 
 fn strip_trailing_newline(stream_contents: &str) -> &str {
@@ -164,18 +185,6 @@ fn strip_trailing_newline(stream_contents: &str) -> &str {
         None => stream_contents,
         Some(s) => s.strip_suffix('\r').unwrap_or(s),
     }
-}
-
-fn print_stream(stream_name: &str, stream_contents: &str) -> anyhow::Result<()> {
-    if stream_contents.is_empty() {
-        echo!("{stream_name}: <empty>")?;
-        return Ok(());
-    }
-    echo!("{stream_name}:")?;
-
-    let stream_contents = strip_trailing_newline(stream_contents);
-    crate::eprintln!("{}", &stream_contents)?;
-    Ok(())
 }
 
 /// Just repeats stdout and stderr to client process.
