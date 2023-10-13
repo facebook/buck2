@@ -557,15 +557,18 @@ impl<'a> ActionErrorDisplay<'a> {
 }
 
 pub fn display_action_error<'a>(
-    action: &'a buck2_data::ActionExecutionEnd,
-    error: &'a buck2_data::action_execution_end::Error,
+    error: &'a buck2_data::ActionError,
     opts: TargetDisplayOptions,
 ) -> anyhow::Result<ActionErrorDisplay<'a>> {
-    use buck2_data::action_execution_end::Error;
+    use buck2_data::action_error::Error;
 
-    let command = action.commands.last().and_then(|c| c.details.as_ref());
+    let command = error.last_command.as_ref().and_then(|c| c.details.as_ref());
 
-    let reason = match error {
+    let reason = match error
+        .error
+        .as_ref()
+        .context("Internal error: Missing error in action error")?
+    {
         Error::MissingOutputs(missing_outputs) => {
             format!("Required outputs are missing: {}", missing_outputs.message)
         }
@@ -573,7 +576,7 @@ pub fn display_action_error<'a>(
             format!("Internal error: {}", error_string)
         }
         Error::CommandExecutionError(buck2_data::CommandExecutionError {}) => {
-            match action.commands.last() {
+            match &error.last_command {
                 Some(c) => failure_reason_for_command_execution(c)?,
                 None => "Unexpected command status".to_owned(),
             }
@@ -581,7 +584,7 @@ pub fn display_action_error<'a>(
     };
 
     Ok(ActionErrorDisplay {
-        action_id: display_action_identity(action.key.as_ref(), action.name.as_ref(), opts)?,
+        action_id: display_action_identity(error.key.as_ref(), error.name.as_ref(), opts)?,
         reason,
         command: command.map(Cow::Borrowed),
     })

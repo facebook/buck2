@@ -615,15 +615,14 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
 
         let mut lines = vec![];
         let display_platform = self.state.config.display_platform;
-        match action.error.as_ref() {
+        match action_error_from_execution_end(action) {
             Some(error) => {
                 let display::ActionErrorDisplay {
                     action_id,
                     reason,
                     command,
                 } = display::display_action_error(
-                    action,
-                    error,
+                    &error,
                     TargetDisplayOptions::for_console(display_platform),
                 )?;
 
@@ -837,6 +836,23 @@ fn truncate(contents: &str) -> Option<String> {
     } else {
         None
     }
+}
+
+pub fn action_error_from_execution_end(
+    e: &buck2_data::ActionExecutionEnd,
+) -> Option<buck2_data::ActionError> {
+    let error = e.error.clone()?;
+    let error_type = match error {
+        buck2_data::action_execution_end::Error::Unknown(x) => x.into(),
+        buck2_data::action_execution_end::Error::MissingOutputs(x) => x.into(),
+        buck2_data::action_execution_end::Error::CommandExecutionError(x) => x.into(),
+    };
+    Some(buck2_data::ActionError {
+        key: e.key.clone(),
+        name: e.name.clone(),
+        error: Some(error_type),
+        last_command: e.commands.last().cloned(),
+    })
 }
 
 #[cfg(test)]

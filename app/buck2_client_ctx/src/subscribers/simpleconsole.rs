@@ -43,6 +43,7 @@ use termwiz::escape::ControlCode;
 
 use crate::subscribers::subscriber::Tick;
 use crate::subscribers::subscriber_unpack::UnpackingEventSubscriber;
+use crate::subscribers::superconsole::action_error_from_execution_end;
 use crate::subscribers::superconsole::io::io_in_flight_non_zero_counters;
 
 /// buck2 daemon info is printed to stderr if there are no other updates available
@@ -500,14 +501,10 @@ where
             self.notify_printed();
         }
 
-        if let Some(error) = &action.error {
+        if let Some(error) = action_error_from_execution_end(action) {
             let action_error = ActionError {
-                display: display::display_action_error(
-                    action,
-                    error,
-                    TargetDisplayOptions::for_log(),
-                )?
-                .to_static(),
+                display: display::display_action_error(&error, TargetDisplayOptions::for_log())?
+                    .to_static(),
             };
 
             action_error.print(self.tty_mode)?;

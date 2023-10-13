@@ -1092,6 +1092,7 @@ message ActionExecutionEnd {
   // If this action failed, contains an object that represents the nature of the
   // error. Can be just a string, in which case it is `unknown`, or may be a
   // richer object depending on the error.
+  // TODO(JakobDegen): Consider reusing the `ActionError` type below
   oneof error {
     // An error message whose nature is unknown. This often comes from cases
     // where action execution fails for reasons other than the command failing.
@@ -1155,6 +1156,22 @@ message ActionExecutionEnd {
   // Remote dep file key (the digest we use to populate the action cache).
   // This is set if the action contains a dep file
   optional string dep_file_key = 37;
+}
+
+message ActionError {
+  ActionKey key = 1;
+  ActionName name = 2;
+
+  // Matches the definition in `ActionExecutionEnd`
+  // FIXME(JakobDegen): Extract and deduplicate
+  oneof error {
+    string unknown = 3;
+    CommandOutputsMissing missing_outputs = 4;
+    CommandExecutionError command_execution_error = 5;
+  };
+
+  // The last command executed as a part of the action, if any
+  optional CommandExecution last_command = 6;
 }
 
 // The beginning of materialization for the output of a target requested,
