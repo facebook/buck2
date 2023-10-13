@@ -29,6 +29,9 @@ use crate::values::Value;
 
 /// Like `ValueOf`, but only validates item types; does not construct or store a
 /// vec. Use `to_vec` to get a Vec.
+///
+/// This type unpacks items twices: during `unpack_value` and during `to_vec`.
+/// Consider using [`UnpackList`][crate::values::types::list::unpack::UnpackList] instead.
 #[derive(Debug, Trace)]
 pub struct ListOf<'v, V: UnpackValue<'v>> {
     value: Value<'v>,
