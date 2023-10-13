@@ -420,12 +420,11 @@ impl<'v> TargetExpr<'v, TargetNode> {
         value: Value<'v>,
         ctx: &BxlContextNoDice<'_>,
         dice: &mut DiceComputations,
-        eval: &Evaluator<'v, 'c>,
     ) -> anyhow::Result<TargetExpr<'v, TargetNode>> {
         Ok(
             if let Some(x) = TargetNodeOrTargetLabelOrStr::unpack_value(value) {
                 Self::unpack_literal(x, ctx, dice).await?
-            } else if let Some(resolved) = Self::unpack_iterable(value, ctx, dice, eval).await? {
+            } else if let Some(resolved) = Self::unpack_iterable(value, ctx, dice).await? {
                 resolved
             } else {
                 return Err(anyhow::anyhow!(TargetExprError::NotAListOfTargets(
@@ -474,25 +473,18 @@ impl<'v> TargetExpr<'v, TargetNode> {
         value: Value<'v>,
         ctx: &BxlContextNoDice<'_>,
         dice: &mut DiceComputations,
-        eval: &Evaluator<'v, 'c>,
     ) -> anyhow::Result<Option<TargetExpr<'v, TargetNode>>> {
         if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
             return Ok(Some(Self::TargetSet(Cow::Borrowed(s))));
         }
 
-        #[allow(clippy::manual_map)] // `if else if` looks better here
-        let items = if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
-            Some(Either::Left(s.iter(eval.heap())))
-        } else if let Some(iterable) = ListRef::from_value(value) {
-            Some(Either::Right(iterable.iter()))
-        } else {
-            None
-        }
-        .ok_or_else(|| TargetExprError::NotAListOfTargets(value.to_repr()))?;
+        let Some(items) = ListRef::from_value(value) else {
+            return Err(TargetExprError::NotAListOfTargets(value.to_repr()).into());
+        };
 
         let mut resolved = vec![];
 
-        for item in items {
+        for item in items.iter() {
             let Some(or) = TargetNodeOrTargetLabelOrStr::unpack_value(item) else {
                 return Err(TargetExprError::NotATarget(item.to_repr())).context(format!(
                     "Error resolving list `{}`",

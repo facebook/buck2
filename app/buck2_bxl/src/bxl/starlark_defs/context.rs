@@ -791,7 +791,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
             ctx.via(|ctx| {
                 async move {
                     Ok(
-                        match TargetExpr::<'v, TargetNode>::unpack(labels, this, ctx, eval).await? {
+                        match TargetExpr::<'v, TargetNode>::unpack(labels, this, ctx).await? {
                             TargetExpr::Label(label) => {
                                 let node = ctx.get_target_node(&label).await?;
 
@@ -1040,18 +1040,13 @@ fn context_methods(builder: &mut MethodsBuilder) {
                             let exec_compatible_with = if exec_compatible_with.is_none() {
                                 Vec::new()
                             } else {
-                                TargetExpr::<TargetNode>::unpack(
-                                    exec_compatible_with,
-                                    this,
-                                    ctx,
-                                    eval,
-                                )
-                                .await?
-                                .get(ctx)
-                                .await?
-                                .iter()
-                                .map(|n| n.label().dupe())
-                                .collect()
+                                TargetExpr::<TargetNode>::unpack(exec_compatible_with, this, ctx)
+                                    .await?
+                                    .get(ctx)
+                                    .await?
+                                    .iter()
+                                    .map(|n| n.label().dupe())
+                                    .collect()
                             };
 
                             let execution_resolution = resolve_bxl_execution_platform(

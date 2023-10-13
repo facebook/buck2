@@ -111,7 +111,7 @@ fn target_universe_methods(builder: &mut MethodsBuilder) {
         this.ctx.via_dice(|mut dice, ctx| {
             dice.via(|dice| {
                 async move {
-                    let inputs = &*TargetExpr::<'v, TargetNode>::unpack(targets, ctx, dice, eval)
+                    let inputs = &*TargetExpr::<'v, TargetNode>::unpack(targets, ctx, dice)
                         .await?
                         .get(dice)
                         .await?;

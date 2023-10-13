@@ -291,8 +291,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
                             .await
                     } else {
                         let target_expr =
-                            TargetExpr::<'v, TargetNode>::unpack(target_hint, ctx, dice, eval)
-                                .await?;
+                            TargetExpr::<'v, TargetNode>::unpack(target_hint, ctx, dice).await?;
                         match target_expr {
                             TargetExpr::Node(node) => Ok(node.label().pkg()),
                             TargetExpr::Label(label) => Ok(label.as_ref().pkg()),
