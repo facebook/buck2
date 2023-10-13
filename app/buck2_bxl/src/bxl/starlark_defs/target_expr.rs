@@ -40,10 +40,12 @@ use futures::TryFutureExt;
 use starlark::collections::SmallSet;
 use starlark::eval::Evaluator;
 use starlark::values::list::ListRef;
+use starlark::values::list::UnpackList;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::values::ValueOf;
 use thiserror::Error;
 
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
@@ -478,20 +480,15 @@ impl<'v> TargetExpr<'v, TargetNode> {
             return Ok(Some(Self::TargetSet(Cow::Borrowed(s))));
         }
 
-        let Some(items) = ListRef::from_value(value) else {
+        let Some(items) = UnpackList::<ValueOf<TargetNodeOrTargetLabelOrStr>>::unpack_value(value)
+        else {
             return Err(TargetExprError::NotAListOfTargets(value.to_repr()).into());
         };
 
         let mut resolved = vec![];
 
-        for item in items.iter() {
-            let Some(or) = TargetNodeOrTargetLabelOrStr::unpack_value(item) else {
-                return Err(TargetExprError::NotATarget(item.to_repr())).context(format!(
-                    "Error resolving list `{}`",
-                    truncate(&value.to_repr(), 150)
-                ));
-            };
-            let unpacked = Self::unpack_literal(or, ctx, dice).await?;
+        for item in items.items {
+            let unpacked = Self::unpack_literal(item.typed, ctx, dice).await?;
 
             match unpacked {
                 TargetExpr::Node(node) => resolved.push(Either::Left(node)),
@@ -502,7 +499,7 @@ impl<'v> TargetExpr<'v, TargetNode> {
                 }
                 .for_each(|t| resolved.push(Either::Left(t))),
                 TargetExpr::Iterable(_) => {
-                    return Err(TargetExprError::NotATarget(item.to_repr()))
+                    return Err(TargetExprError::NotATarget(item.value.to_repr()))
                         .context("list in a list");
                 }
             }
