@@ -16,7 +16,6 @@ use std::sync::Arc;
 use ref_cast::RefCast;
 
 use crate::error::ErrorKind;
-use crate::error::ErrorRoot;
 
 /// Represents an arbitrary `buck2_error` compatible error type.
 ///
@@ -48,9 +47,7 @@ where
         // Otherwise, we'll use the strategy for `std::error::Error`
         let anyhow = e.unwrap().into();
         let std_err: Box<dyn std::error::Error + Send + Sync + 'static> = anyhow.into();
-        crate::Error(Arc::new(crate::error::ErrorKind::Root(ErrorRoot {
-            inner: Arc::from(std_err),
-        })))
+        crate::Error::new_from_arc(Arc::from(std_err))
     }
 }
 impl<T: Debug + Display + Sync + Send + 'static> AnyError for T

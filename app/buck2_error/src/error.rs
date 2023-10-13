@@ -41,7 +41,7 @@ pub(crate) enum ErrorKind {
 #[derive(allocative::Allocative)]
 pub(crate) struct ErrorRoot {
     #[allocative(skip)]
-    pub(crate) inner: Arc<dyn std::error::Error + Send + Sync + 'static>,
+    inner: Arc<dyn std::error::Error + Send + Sync + 'static>,
 }
 
 impl ErrorRoot {
@@ -52,7 +52,11 @@ impl ErrorRoot {
 
 impl Error {
     pub fn new<E: std::error::Error + Send + Sync + 'static>(e: E) -> Self {
-        Self(Arc::new(ErrorKind::Root(ErrorRoot { inner: Arc::new(e) })))
+        Self::new_from_arc(Arc::new(e))
+    }
+
+    pub(crate) fn new_from_arc(arc: Arc<dyn std::error::Error + Send + Sync + 'static>) -> Self {
+        Self(Arc::new(ErrorKind::Root(ErrorRoot { inner: arc })))
     }
 
     fn iter_kinds<'a>(&'a self) -> impl Iterator<Item = &'a ErrorKind> {
