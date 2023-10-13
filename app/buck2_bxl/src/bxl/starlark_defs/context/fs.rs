@@ -39,7 +39,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::none::NoneType;
+use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -48,6 +48,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::ValueOf;
 use starlark::StarlarkDocs;
 use thiserror::Error;
 
@@ -55,6 +56,7 @@ use super::BxlContext;
 use crate::bxl::starlark_defs::file_expr::FileExpr;
 use crate::bxl::starlark_defs::file_set::StarlarkReadDirSet;
 use crate::bxl::starlark_defs::target_expr::TargetExpr;
+use crate::bxl::starlark_defs::target_expr::TargetListExprArg;
 
 #[derive(
     ProvidesStaticType,
@@ -274,7 +276,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     fn source<'v>(
         this: &'v BxlFilesystem<'v>,
         expr: FileExpr<'v>,
-        #[starlark(default = NoneType)] target_hint: Value<'v>,
+        #[starlark(default = NoneOr::None)] target_hint: NoneOr<ValueOf<'v, TargetListExprArg<'v>>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let buck_path = this.ctx.via_dice(|mut dice, ctx| {
@@ -285,21 +287,25 @@ fn fs_operations(builder: &mut MethodsBuilder) {
                         .artifact_fs()
                         .resolve_cell_path(file_path_as_cell_path.as_ref())?;
 
-                    let package_label = if target_hint.is_none() {
-                        dice.get_package_listing_resolver()
-                            .get_enclosing_package(file_path_as_cell_path.as_ref())
-                            .await
-                    } else {
-                        let target_expr =
-                            TargetExpr::<'v, TargetNode>::unpack(target_hint, ctx, dice).await?;
-                        match target_expr {
-                            TargetExpr::Node(node) => Ok(node.label().pkg()),
-                            TargetExpr::Label(label) => Ok(label.as_ref().pkg()),
-                            _ => Err(anyhow::anyhow!(
-                                BxlFilesystemError::MultipleTargetHintsNotSupported(
-                                    target_hint.to_repr()
-                                )
-                            )),
+                    let package_label = match target_hint {
+                        NoneOr::None => {
+                            dice.get_package_listing_resolver()
+                                .get_enclosing_package(file_path_as_cell_path.as_ref())
+                                .await
+                        }
+                        NoneOr::Other(target_hint) => {
+                            let target_expr =
+                                TargetExpr::<'v, TargetNode>::unpack(target_hint.typed, ctx, dice)
+                                    .await?;
+                            match target_expr {
+                                TargetExpr::Node(node) => Ok(node.label().pkg()),
+                                TargetExpr::Label(label) => Ok(label.as_ref().pkg()),
+                                _ => Err(anyhow::anyhow!(
+                                    BxlFilesystemError::MultipleTargetHintsNotSupported(
+                                        target_hint.value.to_repr()
+                                    )
+                                )),
+                            }
                         }
                     }?;
 

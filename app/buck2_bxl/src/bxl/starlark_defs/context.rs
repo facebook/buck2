@@ -121,6 +121,7 @@ use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 use crate::bxl::starlark_defs::target_expr::filter_incompatible;
 use crate::bxl::starlark_defs::target_expr::TargetExpr;
+use crate::bxl::starlark_defs::target_expr::TargetListExprArg;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::uquery::StarlarkUQueryCtx;
 use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
@@ -784,7 +785,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
     /// given `labels` is list-like
     fn unconfigured_targets<'v>(
         this: &'v BxlContext<'v>,
-        labels: Value<'v>,
+        labels: TargetListExprArg<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let res: anyhow::Result<Value<'v>> = this.via_dice(|mut ctx, this| {
@@ -1003,7 +1004,9 @@ fn context_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneType)] exec_deps: Value<'v>,
         #[starlark(require = named, default = NoneType)] toolchains: Value<'v>,
         #[starlark(require = named, default = NoneType)] target_platform: Value<'v>,
-        #[starlark(require = named, default = NoneType)] exec_compatible_with: Value<'v>,
+        #[starlark(require = named, default = NoneOr::None)] exec_compatible_with: NoneOr<
+            TargetListExprArg<'v>,
+        >,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<BxlActions<'v>> {
         this.via_dice(|mut ctx, this| {
@@ -1037,16 +1040,21 @@ fn context_methods(builder: &mut MethodsBuilder) {
                                     .collect()
                             };
 
-                            let exec_compatible_with = if exec_compatible_with.is_none() {
-                                Vec::new()
-                            } else {
-                                TargetExpr::<TargetNode>::unpack(exec_compatible_with, this, ctx)
+                            let exec_compatible_with = match exec_compatible_with {
+                                NoneOr::None => Vec::new(),
+                                NoneOr::Other(exec_compatible_with) => {
+                                    TargetExpr::<TargetNode>::unpack(
+                                        exec_compatible_with,
+                                        this,
+                                        ctx,
+                                    )
                                     .await?
                                     .get(ctx)
                                     .await?
                                     .iter()
                                     .map(|n| n.label().dupe())
                                     .collect()
+                                }
                             };
 
                             let execution_resolution = resolve_bxl_execution_platform(

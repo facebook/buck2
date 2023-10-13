@@ -33,6 +33,7 @@ use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::target_expr::TargetExpr;
+use crate::bxl::starlark_defs::target_expr::TargetListExprArg;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 
 #[derive(
@@ -105,7 +106,7 @@ fn target_universe_methods(builder: &mut MethodsBuilder) {
     // unconfigured target nodes, or unconfigured target labels.
     fn lookup<'v>(
         this: &'v StarlarkTargetUniverse<'v>,
-        targets: Value<'v>,
+        targets: TargetListExprArg<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         this.ctx.via_dice(|mut dice, ctx| {
