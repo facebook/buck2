@@ -432,8 +432,8 @@ impl<'v> TargetExpr<'v, TargetNode> {
         Ok(
             if let Some(x) = TargetNodeOrTargetLabelOrStr::unpack_value(value) {
                 Self::unpack_literal(x, ctx, dice).await?
-            } else if let Some(resolved) = Self::unpack_iterable(value, ctx, dice).await? {
-                resolved
+            } else if let Some(x) = TargetSetOrTargetList::unpack_value(value) {
+                Self::unpack_iterable(x, ctx, dice).await?
             } else {
                 return Err(anyhow::anyhow!(TargetExprError::NotAListOfTargets(
                     value.to_repr()
@@ -478,15 +478,12 @@ impl<'v> TargetExpr<'v, TargetNode> {
     }
 
     async fn unpack_iterable<'c>(
-        value: Value<'v>,
+        value: TargetSetOrTargetList<'v>,
         ctx: &BxlContextNoDice<'_>,
         dice: &mut DiceComputations,
-    ) -> anyhow::Result<Option<TargetExpr<'v, TargetNode>>> {
-        let Some(target_set_or_target_list) = TargetSetOrTargetList::unpack_value(value) else {
-            return Err(TargetExprError::NotAListOfTargets(value.to_repr()).into());
-        };
-        match target_set_or_target_list {
-            TargetSetOrTargetList::TargetSet(s) => Ok(Some(Self::TargetSet(Cow::Borrowed(s)))),
+    ) -> anyhow::Result<TargetExpr<'v, TargetNode>> {
+        match value {
+            TargetSetOrTargetList::TargetSet(s) => Ok(Self::TargetSet(Cow::Borrowed(s))),
             TargetSetOrTargetList::TargetList(items) => {
                 let mut resolved = vec![];
 
@@ -507,7 +504,7 @@ impl<'v> TargetExpr<'v, TargetNode> {
                         }
                     }
                 }
-                Ok(Some(Self::Iterable(resolved)))
+                Ok(Self::Iterable(resolved))
             }
         }
     }
