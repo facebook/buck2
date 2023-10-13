@@ -53,18 +53,19 @@ fn now_display() -> impl Display {
     chrono::Local::now().to_rfc3339_opts(::chrono::SecondsFormat::Millis, false)
 }
 
-fn echo_impl(message: &str) -> anyhow::Result<()> {
+fn with_timestamps(message: &str) -> anyhow::Result<String> {
+    let mut s = String::new();
     let now = now_display();
     for line in message.lines() {
         if line.is_empty() {
-            // patternlint-disable-next-line buck2-cli-simpleconsole-echo
-            crate::eprintln!("[{}]", now)?;
+            writeln!(s, "[{}]", now)?;
         } else {
-            // patternlint-disable-next-line buck2-cli-simpleconsole-echo
-            crate::eprintln!("[{}] {}", now, line)?;
+            writeln!(s, "[{}] {}", now, line)?;
         }
     }
-    Ok(())
+    // Remove the trailing newline
+    s.pop();
+    Ok(s)
 }
 
 // Echoes a message to stderr, along with a timestamp.
@@ -78,7 +79,9 @@ macro_rules! echo {
     ($fmt:expr $(, $args:expr)*) => {
         {
             let message = format!($fmt $(, $args)*);
-            echo_impl(&message)
+            let message = with_timestamps(&message)?;
+            // patternlint-disable-next-line buck2-cli-simpleconsole-echo
+            crate::eprintln!("{}", message)
         }
     };
 }
