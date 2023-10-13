@@ -70,16 +70,23 @@ mod fbcode {
 
         // Send this event now, bypassing internal message queue.
         pub async fn send_now(&self, event: BuckEvent) {
-            let message_key = event.trace_id().unwrap().hash();
-            if let Some(bytes) = Self::encode_message(event, false) {
-                self.client
-                    .send_now(scribe_client::Message {
+            self.send_messages_now(vec![event]).await;
+        }
+
+        // Send multiple events now, bypassing internal message queue.
+        pub async fn send_messages_now(&self, events: Vec<BuckEvent>) {
+            let messages = events
+                .into_iter()
+                .filter_map(|e| {
+                    let message_key = e.trace_id().unwrap().hash();
+                    Self::encode_message(e, false).map(|bytes| scribe_client::Message {
                         category: self.category.clone(),
                         message: bytes,
                         message_key: Some(message_key),
                     })
-                    .await;
-            }
+                })
+                .collect();
+            self.client.send_messages_now(messages).await;
         }
 
         // Send this event by placing it on the internal message queue.
@@ -855,6 +862,7 @@ mod fbcode {
 
     impl ThriftScribeSink {
         pub async fn send_now(&self, _event: BuckEvent) {}
+        pub async fn send_messages_now(&self, _events: Vec<BuckEvent>) {}
     }
 
     impl EventSink for ThriftScribeSink {
