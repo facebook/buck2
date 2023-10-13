@@ -17,6 +17,7 @@ use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_signals::NodeDuration;
+use buck2_common::events::HasEvents;
 use buck2_data::ToProtoMessage;
 use buck2_error::shared_result::SharedResult;
 use buck2_error::shared_result::ToSharedResultExt;
@@ -132,6 +133,13 @@ async fn build_action_no_redirect(
         )
         .await;
 
+        let action_key = action.key().as_proto();
+
+        let action_name = buck2_data::ActionName {
+            category: action.category().as_str().to_owned(),
+            identifier: action.identifier().unwrap_or("").to_owned(),
+        };
+
         let action_result;
         let execution_kind;
         let wall_time;
@@ -171,11 +179,10 @@ async fn build_action_no_redirect(
                 }
             }
             Err(e) => {
-                // Because we already are sending the error message in the
-                // ActionExecutionEnd event, we slim the error down in the result.
-                // We can then unconditionally print the error message for compute(),
-                // including ones near the beginning of this method, and also not
-                // duplicate any error messages.
+                // Because we already are sending the error message in the `ActionError` event, we
+                // slim the error down in the result. We can then unconditionally print the error
+                // message for compute(), including ones near the beginning of this method, and also
+                // not duplicate any error messages.
                 action_result = Err(anyhow::anyhow!("Failed to build '{}'", action.owner()));
                 // TODO (torozco): Remove (see protobuf file)?
                 execution_kind = command_reports
@@ -190,6 +197,15 @@ async fn build_action_no_redirect(
                 buck2_revision = buck2_build_info::revision().map(|s| s.to_owned());
                 buck2_build_time = buck2_build_info::time_iso8601().map(|s| s.to_owned());
                 hostname = buck2_events::metadata::hostname();
+
+                ctx.per_transaction_data().get_dispatcher().instant_event(
+                    buck2_data::ActionError {
+                        key: Some(action_key.clone()),
+                        name: Some(action_name.clone()),
+                        error: Some(e.as_action_error_proto()),
+                        last_command: commands.last().cloned(),
+                    },
+                );
             }
         };
 
@@ -210,12 +226,9 @@ async fn build_action_no_redirect(
         (
             (action_result, wall_time),
             Box::new(buck2_data::ActionExecutionEnd {
-                key: Some(action.key().as_proto()),
+                key: Some(action_key),
                 kind: action.kind().into(),
-                name: Some(buck2_data::ActionName {
-                    category: action.category().as_str().to_owned(),
-                    identifier: action.identifier().unwrap_or("").to_owned(),
-                }),
+                name: Some(action_name),
                 failed: error.is_some(),
                 error,
                 always_print_stderr: action.always_print_stderr(),

@@ -613,59 +613,76 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
             }
         };
 
+        if action.error.is_some() {
+            // Don't handle action errors here. We deal with them as a part of a separate
+            // `ActionError` event
+            return Ok(());
+        }
+
+        if let Some(stderr) = display::success_stderr(action, self.verbosity)? {
+            let mut lines = vec![];
+            let display_platform = self.state.config.display_platform;
+            let action_id = StyledContent::new(
+                ContentStyle {
+                    foreground_color: Some(Color::White),
+                    attributes: Attribute::Bold.into(),
+                    ..Default::default()
+                },
+                format!(
+                    "stderr for {}:",
+                    display::display_action_identity(
+                        action.key.as_ref(),
+                        action.name.as_ref(),
+                        TargetDisplayOptions::for_console(display_platform),
+                    )?
+                ),
+            );
+            lines.push(Line::from_iter([Span::new_styled_lossy(action_id)]));
+            lines.extend(Lines::from_colored_multiline_string(stderr));
+
+            super_console.emit(Lines(lines));
+        }
+
+        Ok(())
+    }
+
+    async fn handle_action_error(&mut self, error: &buck2_data::ActionError) -> anyhow::Result<()> {
+        let super_console = match &mut self.super_console {
+            Some(super_console) => super_console,
+            None => {
+                return self.state.simple_console.handle_action_error(error).await;
+            }
+        };
+
         let mut lines = vec![];
         let display_platform = self.state.config.display_platform;
-        match action_error_from_execution_end(action) {
-            Some(error) => {
-                let display::ActionErrorDisplay {
-                    action_id,
-                    reason,
-                    command,
-                } = display::display_action_error(
-                    &error,
-                    TargetDisplayOptions::for_console(display_platform),
-                )?;
 
-                lines.push(Line::from_iter([Span::new_styled_lossy(
-                    StyledContent::new(
-                        ContentStyle {
-                            foreground_color: Some(Color::White),
-                            attributes: Attribute::Bold.into(),
-                            ..Default::default()
-                        },
-                        format!("Action failed: {}", action_id,),
-                    ),
-                )]));
+        let display::ActionErrorDisplay {
+            action_id,
+            reason,
+            command,
+        } = display::display_action_error(
+            error,
+            TargetDisplayOptions::for_console(display_platform),
+        )?;
 
-                lines.push(Line::from_iter([Span::new_styled_lossy(
-                    reason.with(Color::DarkRed),
-                )]));
+        lines.push(Line::from_iter([Span::new_styled_lossy(
+            StyledContent::new(
+                ContentStyle {
+                    foreground_color: Some(Color::White),
+                    attributes: Attribute::Bold.into(),
+                    ..Default::default()
+                },
+                format!("Action failed: {}", action_id,),
+            ),
+        )]));
 
-                if let Some(command) = command {
-                    lines_for_command_details(&command, self.verbosity, &mut lines);
-                }
-            }
-            None => {
-                if let Some(stderr) = display::success_stderr(action, self.verbosity)? {
-                    let action_id = StyledContent::new(
-                        ContentStyle {
-                            foreground_color: Some(Color::White),
-                            attributes: Attribute::Bold.into(),
-                            ..Default::default()
-                        },
-                        format!(
-                            "stderr for {}:",
-                            display::display_action_identity(
-                                action.key.as_ref(),
-                                action.name.as_ref(),
-                                TargetDisplayOptions::for_console(display_platform),
-                            )?
-                        ),
-                    );
-                    lines.push(Line::from_iter([Span::new_styled_lossy(action_id)]));
-                    lines.extend(Lines::from_colored_multiline_string(stderr));
-                }
-            }
+        lines.push(Line::from_iter([Span::new_styled_lossy(
+            reason.with(Color::DarkRed),
+        )]));
+
+        if let Some(command) = command {
+            lines_for_command_details(&command, self.verbosity, &mut lines);
         }
 
         super_console.emit(Lines(lines));

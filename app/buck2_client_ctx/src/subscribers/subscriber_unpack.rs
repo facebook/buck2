@@ -131,6 +131,9 @@ pub trait UnpackingEventSubscriber: Send {
                 self.handle_debug_adapter_snapshot(snapshot).await
             }
             buck2_data::instant_event::Data::TagEvent(tags) => self.handle_tags(tags).await,
+            buck2_data::instant_event::Data::ActionError(error) => {
+                self.handle_action_error(error).await
+            }
             _ => Ok(()),
         }
     }
@@ -213,6 +216,9 @@ pub trait UnpackingEventSubscriber: Send {
 
     /// Allow the subscriber to do some sort of action once every render cycle.
     async fn tick(&mut self, _tick: &Tick) -> anyhow::Result<()>;
+
+    async fn handle_action_error(&mut self, _error: &buck2_data::ActionError)
+    -> anyhow::Result<()>;
 
     fn as_error_observer(&self) -> Option<&dyn ErrorObserver> {
         None

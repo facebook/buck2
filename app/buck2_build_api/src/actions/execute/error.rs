@@ -59,6 +59,14 @@ impl ExecuteError {
             ExecuteError::CommandExecutionError => buck2_data::CommandExecutionError {}.into(),
         }
     }
+
+    pub(crate) fn as_action_error_proto(&self) -> buck2_data::action_error::Error {
+        match self.as_proto() {
+            buck2_data::action_execution_end::Error::Unknown(e) => e.into(),
+            buck2_data::action_execution_end::Error::MissingOutputs(e) => e.into(),
+            buck2_data::action_execution_end::Error::CommandExecutionError(e) => e.into(),
+        }
+    }
 }
 
 fn error_items<T: Display>(xs: &[T]) -> String {

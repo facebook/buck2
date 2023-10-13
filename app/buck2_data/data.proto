@@ -248,6 +248,9 @@ message InstantEvent {
 
     // Info coming from the `buck2 debug persist-event-log` subprocess
     PersistSubprocess persist_subprocess = 33;
+
+    // An action error encountered during the build
+    ActionError action_error = 34;
   }
 }
 
