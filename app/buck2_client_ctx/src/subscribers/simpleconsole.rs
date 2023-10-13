@@ -89,24 +89,6 @@ enum TtyMode {
     Disabled,
 }
 
-struct ActionError {
-    display: display::ActionErrorDisplay<'static>,
-}
-
-impl ActionError {
-    fn print(&self, tty_mode: TtyMode) -> anyhow::Result<()> {
-        let message = self.display.simple_format(Some(with_timestamps))?;
-        if tty_mode == TtyMode::Disabled {
-            // patternlint-disable-next-line buck2-cli-simpleconsole-echo
-            crate::eprintln!("{}", sanitize_output_colors(message.as_bytes()))?;
-        } else {
-            // patternlint-disable-next-line buck2-cli-simpleconsole-echo
-            crate::eprintln!("{}", message)?;
-        }
-        Ok(())
-    }
-}
-
 /// Just repeats stdout and stderr to client process.
 pub(crate) struct SimpleConsole<E> {
     tty_mode: TtyMode,
@@ -114,7 +96,7 @@ pub(crate) struct SimpleConsole<E> {
     // Whether to show "Waiting for daemon..." when no root spans are received
     expect_spans: bool,
     pub(crate) observer: EventObserver<E>,
-    action_errors: Vec<ActionError>,
+    action_errors: Vec<buck2_data::ActionError>,
     last_print_time: Instant,
     last_shown_snapshot_ts: Option<SystemTime>,
 }
@@ -220,6 +202,21 @@ where
             self.last_shown_snapshot_ts = last_snapshot_ts;
         }
 
+        Ok(())
+    }
+
+    fn print_action_error(&mut self, error: &buck2_data::ActionError) -> anyhow::Result<()> {
+        let display =
+            display::display_action_error(error, TargetDisplayOptions::for_log())?.to_static();
+        let message = display.simple_format(Some(with_timestamps))?;
+        if self.tty_mode == TtyMode::Disabled {
+            // patternlint-disable-next-line buck2-cli-simpleconsole-echo
+            crate::eprintln!("{}", sanitize_output_colors(message.as_bytes()))?;
+        } else {
+            // patternlint-disable-next-line buck2-cli-simpleconsole-echo
+            crate::eprintln!("{}", message)?;
+        }
+        self.notify_printed();
         Ok(())
     }
 }
@@ -330,7 +327,7 @@ where
             echo!("BUILD ERRORS ({})", errors.len())?;
             echo!("The following actions failed during the execution of this command:")?;
             for error in errors.iter() {
-                error.print(self.tty_mode)?;
+                self.print_action_error(error)?;
             }
             echo!()?;
             self.notify_printed();
@@ -436,15 +433,8 @@ where
     }
 
     async fn handle_action_error(&mut self, error: &buck2_data::ActionError) -> anyhow::Result<()> {
-        let action_error = ActionError {
-            display: display::display_action_error(error, TargetDisplayOptions::for_log())?
-                .to_static(),
-        };
-
-        action_error.print(self.tty_mode)?;
-        self.action_errors.push(action_error);
-        self.notify_printed();
-
+        self.print_action_error(error)?;
+        self.action_errors.push(error.clone());
         Ok(())
     }
 
