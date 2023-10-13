@@ -24,7 +24,7 @@ fn into_anyhow_for_format(mut error: &crate::Error) -> anyhow::Error {
 
     let base = loop {
         match error.0.as_ref() {
-            ErrorKind::Root(root) => break Arc::clone(root),
+            ErrorKind::Root(root) => break Arc::clone(root.inner()),
             ErrorKind::WithContext(context, inner) => {
                 context_stack.push(context.clone());
                 error = inner;

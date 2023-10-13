@@ -16,6 +16,7 @@ use std::sync::Arc;
 use ref_cast::RefCast;
 
 use crate::error::ErrorKind;
+use crate::error::ErrorRoot;
 
 /// Represents an arbitrary `buck2_error` compatible error type.
 ///
@@ -47,7 +48,9 @@ where
         // Otherwise, we'll use the strategy for `std::error::Error`
         let anyhow = e.unwrap().into();
         let std_err: Box<dyn std::error::Error + Send + Sync + 'static> = anyhow.into();
-        crate::Error(Arc::new(crate::error::ErrorKind::Root(Arc::from(std_err))))
+        crate::Error(Arc::new(crate::error::ErrorKind::Root(ErrorRoot {
+            inner: Arc::from(std_err),
+        })))
     }
 }
 impl<T: Debug + Display + Sync + Send + 'static> AnyError for T
@@ -137,7 +140,7 @@ impl Debug for CrateAsStdError {
 impl std::error::Error for CrateAsStdError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match &*self.0.0 {
-            ErrorKind::Root(r) => std::error::Error::source(r),
+            ErrorKind::Root(r) => std::error::Error::source(r.inner()),
             ErrorKind::WithContext(_, r) | ErrorKind::Emitted(r) => {
                 Some(CrateAsStdError::ref_cast(r))
             }
@@ -161,7 +164,10 @@ mod tests {
             match (&*a.0, &*b.0) {
                 (ErrorKind::Root(a), ErrorKind::Root(b)) => {
                     // Avoid comparing vtable pointers
-                    assert_eq!(Arc::as_ptr(a).cast::<()>(), Arc::as_ptr(b).cast::<()>());
+                    assert_eq!(
+                        Arc::as_ptr(a.inner()).cast::<()>(),
+                        Arc::as_ptr(b.inner()).cast::<()>()
+                    );
                     return;
                 }
                 (

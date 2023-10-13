@@ -28,7 +28,7 @@ pub struct Error(pub(crate) Arc<ErrorKind>);
 pub(crate) enum ErrorKind {
     // This `Arc` should ideally be a `Box`. However, that doesn't work right now because of the
     // implementation of `into_anyhow_for_format`.
-    Root(#[allocative(skip)] Arc<dyn std::error::Error + Send + Sync + 'static>),
+    Root(ErrorRoot),
     /// For now we use untyped context to maximize compatibility with anyhow.
     WithContext(
         #[allocative(skip)] Arc<dyn Display + Send + Sync + 'static>,
@@ -38,9 +38,21 @@ pub(crate) enum ErrorKind {
     Emitted(Error),
 }
 
+#[derive(allocative::Allocative)]
+pub(crate) struct ErrorRoot {
+    #[allocative(skip)]
+    pub(crate) inner: Arc<dyn std::error::Error + Send + Sync + 'static>,
+}
+
+impl ErrorRoot {
+    pub(crate) fn inner(&self) -> &Arc<dyn std::error::Error + Send + Sync + 'static> {
+        &self.inner
+    }
+}
+
 impl Error {
     pub fn new<E: std::error::Error + Send + Sync + 'static>(e: E) -> Self {
-        Self(Arc::new(ErrorKind::Root(Arc::new(e))))
+        Self(Arc::new(ErrorKind::Root(ErrorRoot { inner: Arc::new(e) })))
     }
 
     fn iter_kinds<'a>(&'a self) -> impl Iterator<Item = &'a ErrorKind> {
