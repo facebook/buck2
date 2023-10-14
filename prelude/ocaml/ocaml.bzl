@@ -69,6 +69,7 @@ load(
     "LinkInfo",
     "LinkInfos",
     "LinkStrategy",
+    "LinkerFlags",
     "MergedLinkInfo",
     "ObjectsLinkable",
     "create_merged_link_info",
@@ -77,7 +78,10 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
+    "LinkableGraph",
     "create_linkable_graph",
+    "create_linkable_graph_node",
+    "create_linkable_node",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -214,6 +218,34 @@ def _mk_ocaml_compiler(ctx: AnalysisContext, env: dict[str, typing.Any], build_m
     script_name = "ocamlopt" + build_mode.value + ".sh"
     script_args = _mk_script(ctx, script_name, [compiler], env)
     return script_args
+
+def _get_empty_link_infos() -> dict[LibOutputStyle, LinkInfos]:
+    infos = {}
+    for output_style in LibOutputStyle:
+        infos[output_style] = LinkInfos(default = LinkInfo())
+    return infos
+
+def _get_linkable_graph(
+        ctx: AnalysisContext,
+        deps: list[Dependency] = [],
+        link_infos: dict[LibOutputStyle, LinkInfos] = {},
+        linker_flags: [LinkerFlags, None] = None) -> LinkableGraph:
+    if not deps:
+        deps = ctx.attrs.deps
+    return create_linkable_graph(
+        ctx,
+        node = create_linkable_graph_node(
+            ctx,
+            linkable_node = create_linkable_node(
+                ctx,
+                default_soname = None,
+                deps = deps,
+                link_infos = link_infos if link_infos else _get_empty_link_infos(),
+                linker_flags = linker_flags,
+            ),
+        ),
+        deps = deps,
+    )
 
 # A command initialized with flags common to all compiler commands.
 def _compiler_cmd(ctx: AnalysisContext, compiler: cmd_args, cc: cmd_args) -> cmd_args:
@@ -685,10 +717,7 @@ def ocaml_library_impl(ctx: AnalysisContext) -> list[Provider]:
         merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, _attr_deps(ctx))),
         merge_link_group_lib_info(deps = _attr_deps(ctx)),
         other_outputs_info,
-        create_linkable_graph(
-            ctx,
-            deps = _attr_deps(ctx),
-        ),
+        _get_linkable_graph(ctx),
     ]
 
 def ocaml_binary_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -822,12 +851,13 @@ def ocaml_object_impl(ctx: AnalysisContext) -> list[Provider]:
     ocaml_toolchain_runtime_deps = ocaml_toolchain.runtime_dep_link_extras
     linker_type = cxx_toolchain.linker_info.type
     link_infos = {}
+    linker_flags = [cmd_args(f) for f in ocaml_toolchain.runtime_dep_link_flags]
     for output_style in LibOutputStyle:
         link_infos[output_style] = LinkInfos(default = LinkInfo(
             linkables = [
                 ObjectsLinkable(objects = [obj], linker_type = linker_type),
             ],
-            post_flags = [cmd_args(f) for f in ocaml_toolchain.runtime_dep_link_flags],
+            post_flags = linker_flags,
         ))
 
     obj_link_info = create_merged_link_info(
@@ -871,10 +901,7 @@ def ocaml_object_impl(ctx: AnalysisContext) -> list[Provider]:
         obj_link_info,
         merge_link_group_lib_info(deps = deps),
         merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, deps)),
-        create_linkable_graph(
-            ctx,
-            deps = deps,
-        ),
+        _get_linkable_graph(ctx, deps, link_infos, LinkerFlags(post_flags = linker_flags)),
     ]
 
 # `ocaml_shared` enables one to produce an OCaml "plugin". Such native code
@@ -945,6 +972,7 @@ def ocaml_shared_impl(ctx: AnalysisContext) -> list[Provider]:
 
     return [
         DefaultInfo(default_output = binary_nat, sub_targets = sub_targets),
+        _get_linkable_graph(ctx),
     ]
 
 def prebuilt_ocaml_library_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -1010,8 +1038,5 @@ def prebuilt_ocaml_library_impl(ctx: AnalysisContext) -> list[Provider]:
         create_merged_link_info_for_propagation(ctx, native_infos),
         merge_link_group_lib_info(deps = ctx.attrs.deps),
         merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, ctx.attrs.deps)),
-        create_linkable_graph(
-            ctx,
-            deps = ctx.attrs.deps,
-        ),
+        _get_linkable_graph(ctx),
     ]
