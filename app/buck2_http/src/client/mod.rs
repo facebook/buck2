@@ -26,6 +26,7 @@ use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use tokio::io::AsyncReadExt;
+use tokio::sync::Semaphore;
 use tokio_util::io::StreamReader;
 
 use crate::redirect::PendingRequest;
@@ -45,6 +46,10 @@ pub struct HttpClient {
     // hyper::Client doesn't impl Allocative.
     #[allocative(skip)]
     inner: Arc<dyn RequestClient>,
+    /// Number of simultaneous HTTP operations at once.
+    /// If we are unbounded we likely run out of file handles.
+    #[allocative(skip)]
+    limit: Arc<Semaphore>,
     max_redirects: Option<usize>,
     supports_vpnless: bool,
     stats: HttpNetworkStats,
@@ -55,6 +60,10 @@ impl HttpClient {
         Request::builder()
             .uri(uri)
             .header(http::header::USER_AGENT, DEFAULT_USER_AGENT)
+    }
+
+    pub async fn permit(&self) -> impl Drop + '_ {
+        self.limit.acquire().await.unwrap()
     }
 
     /// Send a HEAD request. Assumes no body will be returned. If one is returned, it will be ignored.

@@ -112,6 +112,7 @@ impl AsHttpError for HttpDownloadError {
 }
 
 pub async fn http_head(client: &HttpClient, url: &str) -> anyhow::Result<Response<()>> {
+    client.permit().await;
     let response = http_retry(
         || async {
             client
@@ -134,6 +135,7 @@ pub async fn http_download(
     checksum: &Checksum,
     executable: bool,
 ) -> anyhow::Result<TrackedFileDigest> {
+    client.permit().await;
     let abs_path = fs.resolve(path);
     if let Some(dir) = abs_path.parent() {
         fs_util::create_dir_all(fs.resolve(dir))?;

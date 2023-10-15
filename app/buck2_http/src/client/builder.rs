@@ -24,6 +24,7 @@ use hyper_timeout::TimeoutConnector;
 use rustls::ClientConfig;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
+use tokio::sync::Semaphore;
 use tokio_rustls::TlsConnector;
 
 use super::HttpClient;
@@ -264,6 +265,7 @@ impl HttpClientBuilder {
     pub fn build(&self) -> HttpClient {
         HttpClient {
             inner: self.build_inner(),
+            limit: Arc::new(Semaphore::new(10)),
             max_redirects: self.max_redirects,
             supports_vpnless: self.supports_vpnless,
             stats: HttpNetworkStats::new(),
