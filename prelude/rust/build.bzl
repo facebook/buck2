@@ -209,7 +209,9 @@ def generate_rustdoc_test(
         link_style: LinkStyle,
         library: RustLinkStyleInfo,
         params: BuildParams,
-        default_roots: list[str]) -> cmd_args:
+        default_roots: list[str]) -> (cmd_args, dict[str, cmd_args]):
+    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+
     toolchain_info = compile_ctx.toolchain_info
 
     resources = create_resource_db(
@@ -272,7 +274,7 @@ def generate_rustdoc_test(
         allow_args = True,
     )
 
-    if ctx.attrs._exec_os_type[OsLookup].platform == "windows":
+    if exec_is_windows:
         runtool = ["--runtool=cmd.exe", "--runtool-arg=/V:OFF", "--runtool-arg=/C"]
     else:
         runtool = ["--runtool=/usr/bin/env"]
@@ -297,12 +299,25 @@ def generate_rustdoc_test(
 
     rustdoc_cmd.hidden(compile_ctx.symlinked_srcs, link_args_output.hidden, runtime_files)
 
-    return _long_command(
+    rustdoc_cmd = _long_command(
         ctx = ctx,
         exe = toolchain_info.rustdoc,
         args = rustdoc_cmd,
         argfile_name = "{}.args".format(common_args.subdir),
     )
+
+    plain_env, path_env = _process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
+    rustdoc_env = plain_env | path_env
+
+    # Pass everything in env + doc_env, except ones with value None in doc_env.
+    for k, v in ctx.attrs.doc_env.items():
+        if v == None:
+            rustdoc_env.pop(k, None)
+        else:
+            rustdoc_env[k] = cmd_args(v)
+    rustdoc_env["RUSTC_BOOTSTRAP"] = cmd_args("1")  # for `-Zunstable-options`
+
+    return (rustdoc_cmd, rustdoc_env)
 
 # Generate multiple compile artifacts so that distinct sets of artifacts can be
 # generated concurrently.
