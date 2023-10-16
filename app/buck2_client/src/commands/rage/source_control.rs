@@ -8,8 +8,8 @@
  */
 
 use anyhow::Context;
+use buck2_util::process::async_background_command;
 use thiserror::Error;
-use tokio::process::Command;
 
 #[derive(Debug, Error)]
 enum SourceControlError {
@@ -41,7 +41,7 @@ pub async fn get_info() -> anyhow::Result<String> {
 }
 
 async fn get_hg_info() -> anyhow::Result<CommandResult> {
-    let result = Command::new("hg")
+    let result = async_background_command("hg")
         .args(["snapshot", "create"])
         .env("HGPLAIN", "1")
         .output()
@@ -59,7 +59,7 @@ async fn get_hg_info() -> anyhow::Result<CommandResult> {
 }
 
 async fn get_git_info() -> anyhow::Result<CommandResult> {
-    let commit_hash = Command::new("git")
+    let commit_hash = async_background_command("git")
         .args(["log", "-1", "--format=%H"])
         .output()
         .await?;
@@ -72,7 +72,10 @@ async fn get_git_info() -> anyhow::Result<CommandResult> {
         return Err(SourceControlError::GitCommand(code, error).into());
     };
 
-    let status = Command::new("git").args(["status", "-sb"]).output().await?;
+    let status = async_background_command("git")
+        .args(["status", "-sb"])
+        .output()
+        .await?;
     if !status.status.success() {
         let error = from_utf8(status.stderr, "git status stderr")?;
         let code = status.status.code().unwrap_or(1);
