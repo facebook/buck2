@@ -33,8 +33,8 @@ impl BuildGraphStats {
         &self,
         res: &buck2_cli_proto::BuildResponse,
     ) -> anyhow::Result<()> {
-        let event = self.build_graph_stats_from_build_response(res);
-        self.send_event(event).await;
+        let events = self.build_graph_stats_from_build_response(res);
+        self.send_events(events).await;
 
         Ok(())
     }
@@ -42,37 +42,46 @@ impl BuildGraphStats {
     fn build_graph_stats_from_build_response(
         &self,
         res: &buck2_cli_proto::BuildResponse,
-    ) -> buck2_events::BuckEvent {
-        let build_targets = res
-            .build_targets
-            .iter()
-            .map(|t| buck2_data::BuildTarget {
-                target: t.target.clone(),
-                configuration: t.configuration.clone(),
-                configured_graph_size: t.configured_graph_size,
+    ) -> Vec<buck2_events::BuckEvent> {
+        const MAX_BUILD_TARGETS_LEN: usize = 3000;
+
+        res.build_targets
+            .chunks(MAX_BUILD_TARGETS_LEN)
+            .map(|ts| {
+                buck2_events::BuckEvent::new(
+                    SystemTime::now(),
+                    self.trace_id.dupe(),
+                    None,
+                    None,
+                    buck2_data::RecordEvent {
+                        data: Some(
+                            buck2_data::BuildGraphStats {
+                                build_targets: ts
+                                    .iter()
+                                    .map(|t| buck2_data::BuildTarget {
+                                        target: t.target.clone(),
+                                        configuration: t.configuration.clone(),
+                                        configured_graph_size: t.configured_graph_size,
+                                    })
+                                    .collect(),
+                            }
+                            .into(),
+                        ),
+                    }
+                    .into(),
+                )
             })
-            .collect();
-        let stats = buck2_data::BuildGraphStats { build_targets };
-        buck2_events::BuckEvent::new(
-            SystemTime::now(),
-            self.trace_id.dupe(),
-            None,
-            None,
-            buck2_data::RecordEvent {
-                data: Some(stats.into()),
-            }
-            .into(),
-        )
+            .collect()
     }
 
-    async fn send_event(&self, event: buck2_events::BuckEvent) {
+    async fn send_events(&self, events: Vec<buck2_events::BuckEvent>) {
         if let Ok(Some(sink)) =
             new_thrift_scribe_sink_if_enabled(self.fb, 1, Duration::from_millis(100), 2, None)
         {
-            tracing::info!("Sending an event to Scribe: {:?}", &event);
-            sink.send_now(event).await;
+            tracing::info!("Sending events to Scribe: {:?}", &events);
+            sink.send_messages_now(events).await;
         } else {
-            tracing::info!("An event was not sent to Scribe: {:?}", &event);
+            tracing::info!("Events were not sent to Scribe: {:?}", &events);
         }
     }
 }
@@ -118,7 +127,7 @@ mod tests {
 
         let uuid = TraceId::new();
         let handler = BuildGraphStats::new(fb, uuid.dupe());
-        let event = handler.build_graph_stats_from_build_response(&res);
+        let events = handler.build_graph_stats_from_build_response(&res);
 
         let event_expected = buck2_data::BuckEvent {
             data: Some(buck2_data::buck_event::Data::Record(
@@ -144,8 +153,9 @@ mod tests {
             ..Default::default()
         };
 
-        assert_eq!(event.trace_id().unwrap(), uuid);
-        assert_eq!(event.data(), &event_expected.data.unwrap());
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].trace_id().unwrap(), uuid);
+        assert_eq!(events[0].data(), event_expected.data.as_ref().unwrap());
     }
 
     #[fbinit::test]
@@ -157,14 +167,65 @@ mod tests {
 
         let uuid = TraceId::new();
         let handler = BuildGraphStats::new(fb, uuid.dupe());
-        let event = handler.build_graph_stats_from_build_response(&res);
+        let events = handler.build_graph_stats_from_build_response(&res);
 
-        let event_expected = buck2_data::BuckEvent {
+        assert_eq!(events.len(), 0);
+    }
+
+    #[fbinit::test]
+    fn build_graph_stats_too_long_targets(fb: FacebookInit) {
+        let build_target = buck2_cli_proto::BuildTarget {
+            target: "T".to_owned(),
+            configuration: "C".to_owned(),
+            configured_graph_size: Some(1),
+            ..Default::default()
+        };
+
+        // Testing if [6002] becomes [[3000], [3000], [2]]
+        let mut input_build_targets = vec![];
+        for _ in 0..6002 {
+            input_build_targets.push(build_target.clone());
+        }
+
+        let res = buck2_cli_proto::BuildResponse {
+            build_targets: input_build_targets,
+            ..Default::default()
+        };
+
+        let uuid = TraceId::new();
+        let handler = BuildGraphStats::new(fb, uuid.dupe());
+        let events = handler.build_graph_stats_from_build_response(&res);
+
+        let build_target = buck2_data::BuildTarget {
+            target: "T".to_owned(),
+            configuration: "C".to_owned(),
+            configured_graph_size: Some(1),
+        };
+
+        let mut output_build_targets_3000 = vec![];
+        for _ in 0..3000 {
+            output_build_targets_3000.push(build_target.clone());
+        }
+        let output_build_targets_2 = vec![build_target.clone(), build_target.clone()];
+
+        let event_expected_3000 = buck2_data::BuckEvent {
             data: Some(buck2_data::buck_event::Data::Record(
                 buck2_data::RecordEvent {
                     data: Some(buck2_data::record_event::Data::BuildGraphStats(
                         buck2_data::BuildGraphStats {
-                            build_targets: vec![],
+                            build_targets: output_build_targets_3000,
+                        },
+                    )),
+                },
+            )),
+            ..Default::default()
+        };
+        let event_expected_2 = buck2_data::BuckEvent {
+            data: Some(buck2_data::buck_event::Data::Record(
+                buck2_data::RecordEvent {
+                    data: Some(buck2_data::record_event::Data::BuildGraphStats(
+                        buck2_data::BuildGraphStats {
+                            build_targets: output_build_targets_2,
                         },
                     )),
                 },
@@ -172,7 +233,9 @@ mod tests {
             ..Default::default()
         };
 
-        assert_eq!(event.trace_id().unwrap(), uuid);
-        assert_eq!(event.data(), &event_expected.data.unwrap());
+        assert_eq!(events.len(), 3);
+        assert_eq!(events[0].data(), event_expected_3000.data.as_ref().unwrap());
+        assert_eq!(events[1].data(), event_expected_3000.data.as_ref().unwrap());
+        assert_eq!(events[2].data(), event_expected_2.data.as_ref().unwrap());
     }
 }
