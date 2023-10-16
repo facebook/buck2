@@ -55,6 +55,10 @@ The following sub-sections contain a list of links to key points in the Buck2 Do
 * [Buck2 Unboxing](https://www.buildbuddy.io/blog/buck2-review/) is a general review of Buck2 by [Son Luong Ngoc](https://github.com/sluongng/).
 * [A tour around Buck2](https://www.tweag.io/blog/2023-07-06-buck2/) gives an overview of Buck2 and how it differs from Bazel.
 
+### External videos about Buck2
+
+* [antlir2: Deterministic image bulids with Buck2](https://www.youtube.com/watch?v=Wv-ilbckSx4) talks about layering a packaging system over Buck2.
+
 ### External projects using Buck2
 
 * [System Initiative](https://www.systeminit.com/) build their DevOps product [using Buck2](https://nickgerace.dev/post/system-initiative-the-second-wave-of-devops/#under-the-hood), with their own custom prelude.
