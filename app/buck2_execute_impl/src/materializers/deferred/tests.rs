@@ -543,6 +543,63 @@ mod state_machine {
     }
 
     #[tokio::test]
+    async fn test_subscription_subscribe_also_materializes() -> anyhow::Result<()> {
+        let (mut dm, mut channel) = make_processor(Default::default());
+        let digest_config = dm.io.digest_config();
+        let value = ArtifactValue::file(digest_config.empty_file());
+
+        let mut handle = {
+            let (sender, recv) = oneshot::channel();
+            MaterializerSubscriptionOperation::Create { sender }.execute(&mut dm);
+            recv.await.unwrap()
+        };
+
+        let foo_bar = make_path("foo/bar");
+
+        dm.declare(
+            &foo_bar,
+            value.dupe(),
+            Box::new(ArtifactMaterializationMethod::Test),
+        );
+
+        handle.subscribe_to_paths(vec![foo_bar.clone()]);
+        while let Ok(cmd) = channel.high_priority.try_recv() {
+            dm.process_one_command(cmd);
+        }
+
+        // We need to yield to let the materialization task run. If we had a handle to it, we'd
+        // just await it, but the subscription isn't retaining those handles.
+        let mut log = Vec::new();
+        while log.len() < 2 {
+            log.extend(dm.io.take_log());
+            tokio::task::yield_now().await;
+        }
+
+        assert_eq!(
+            &log,
+            &[
+                (Op::Clean, foo_bar.clone()),
+                (Op::Materialize, foo_bar.clone())
+            ]
+        );
+
+        // Drain low priority commands. This should include our materialization finished message,
+        // at which point we'll notify the subscription handle.
+        while let Ok(cmd) = channel.low_priority.try_recv() {
+            dm.process_one_low_priority_command(cmd);
+        }
+
+        let mut paths = Vec::new();
+        while let Ok(path) = handle.receiver().try_recv() {
+            paths.push(path);
+        }
+
+        assert_eq!(paths, vec![foo_bar]);
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn test_subscription_unsubscribe() {
         let (mut dm, mut channel) = make_processor(Default::default());
         let digest_config = dm.io.digest_config();

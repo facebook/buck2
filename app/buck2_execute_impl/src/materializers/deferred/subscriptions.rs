@@ -16,6 +16,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
 use derivative::Derivative;
 use derive_more::Display;
@@ -162,6 +163,8 @@ where
                 for path in &paths {
                     if dm.is_path_materialized(path) {
                         paths_to_report.push(path.to_owned());
+                    } else {
+                        dm.materialize_artifact(path, EventDispatcher::null());
                     }
                 }
 
