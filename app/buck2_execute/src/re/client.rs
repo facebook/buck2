@@ -639,7 +639,6 @@ impl RemoteExecutionClientImpl {
                     .unwrap_or("remote_execution/features/client_buck2")
                     .to_owned();
 
-                re_client_config.disable_fallocate = static_metadata.disable_fallocate;
                 // TODO(ndmitchell): For now, we just drop RE log messages, but ideally we'd put them in our log stream.
                 let logger = slog::Logger::root(slog::Discard, slog::o!());
                 REClientBuilder::new(fb)

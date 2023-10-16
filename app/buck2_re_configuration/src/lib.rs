@@ -62,7 +62,6 @@ mod fbcode {
 
         // ttl management
         pub minimal_blob_ttl_seconds: Option<i64>,
-        pub disable_fallocate: bool,
     }
 
     impl RemoteExecutionStaticMetadataImpl for RemoteExecutionStaticMetadata {
@@ -136,9 +135,6 @@ mod fbcode {
                 )?,
                 minimal_blob_ttl_seconds: legacy_config
                     .parse(BUCK2_RE_CLIENT_CFG_SECTION, "minimal_blob_ttl_seconds")?,
-                disable_fallocate: legacy_config
-                    .parse(BUCK2_RE_CLIENT_CFG_SECTION, "disable_fallocate")?
-                    .unwrap_or(false),
             })
         }
 
