@@ -38,6 +38,7 @@ INSPECT_BY_RULE = {
     "prelude//rules.bzl:android_instrumentation_apk": inspect_java_rule,
     "prelude//rules.bzl:android_instrumentation_test": inspect_java_rule,
     "prelude//rules.bzl:android_library": inspect_java_rule,
+    "prelude//rules.bzl:apk_genrule": inspect_java_rule,
     "prelude//rules.bzl:configured_alias": inspect_alias_rule,
     "prelude//rules.bzl:java_binary": inspect_java_rule,
     "prelude//rules.bzl:java_library": inspect_java_rule,
