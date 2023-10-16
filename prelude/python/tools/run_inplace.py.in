@@ -75,7 +75,7 @@ def __run():
     assert sys.argv[0] == '-c'
     sys.argv[0] = {sys.argv[0]!r}
 
-    # Replace the working directory with location of the modules directory.
+    # Remove the working directory.
     assert sys.path[0] == ''
     del sys.path[0]
 
@@ -136,9 +136,14 @@ if (
 ):
     args[1:1] = ["-X", "importtime"]
 
+# Save the variables that will be restored back into the environment by
+# fbcode/buck2/prelude/python/tools/make_par/sitecustomize.py
+for env in ("PYTHONPATH", "LD_LIBRARY_PATH", "LD_PRELOAD",
+            "DYLD_LIBRARY_PATH", "DYLD_INSERT_LIBRARIES"):
+    if env in os.environ:
+        os.environ["FB_SAVED_" + env] = os.environ[env]
+
 path = os.path.join(dirpath, modules_dir)
-if "PYTHONPATH" in os.environ:
-    path += os.pathsep + os.environ["PYTHONPATH"]
 os.environ["PYTHONPATH"] = path
 
 if platform.system() == "Windows":

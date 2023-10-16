@@ -31,8 +31,18 @@ def __run():
 
     dirpath = os.path.dirname(os.path.realpath(__file__))
 
+    # Save the variables that will be restored back into the environment by
+    # fbcode/buck2/prelude/python/tools/make_par/sitecustomize.py
+    for env in ("PYTHONPATH", "LD_LIBRARY_PATH", "LD_PRELOAD",
+                "DYLD_LIBRARY_PATH", "DYLD_INSERT_LIBRARIES"):
+        if env in os.environ:
+            os.environ["FB_SAVED_" + env] = os.environ[env]
+
+    path = os.path.join(dirpath, modules_dir)
+    os.environ["PYTHONPATH"] = path
+
     # Replace the working directory with location of the modules directory.
-    sys.path[0] = os.path.join(dirpath, modules_dir)
+    sys.path[0] = path
 
     site.execsitecustomize()
 
