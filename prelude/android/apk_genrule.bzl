@@ -44,7 +44,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     output_apk = genrule_providers[0].default_outputs[0]
 
-    class_to_src_map = [ctx.attrs.apk[JavaClassToSourceMapInfo]] if JavaClassToSourceMapInfo in ctx.attrs.apk else []
+    class_to_src_map = [ctx.attrs.apk[JavaClassToSourceMapInfo]] if (ctx.attrs.apk and JavaClassToSourceMapInfo in ctx.attrs.apk) else []
 
     install_info = get_install_info(
         ctx,
