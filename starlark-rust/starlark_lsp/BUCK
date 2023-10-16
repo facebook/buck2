@@ -5,7 +5,6 @@ oncall("build_infra")
 rust_library(
     name = "starlark_lsp",
     srcs = glob(["src/**/*.rs"]),
-    doctests = False,  # FIXME
     rustc_flags = [
         "--cfg=rust_nightly",
     ],

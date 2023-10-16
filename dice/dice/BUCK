@@ -10,7 +10,6 @@ rust_library(
         ["src/**/*.rs"],
     ),
     crate_root = "src/lib.rs",
-    doctests = False,  # FIXME
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:bincode",

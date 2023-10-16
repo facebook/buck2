@@ -8,7 +8,6 @@ rust_library(
     srcs = glob(
         ["src/**/*.rs"],
     ),
-    doctests = False,  # FIXME
     os_deps = [
         (
             "linux",
