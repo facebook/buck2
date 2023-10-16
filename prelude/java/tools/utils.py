@@ -109,3 +109,14 @@ def execute_command(command: List):
     exit_code = subprocess.call(command)
     if exit_code != 0:
         sys.exit(exit_code)
+
+
+def execute_command_ignore_exit_codes(command: List, exit_codes_to_ignore: List):
+    log_message(
+        "executing command = '{}'".format(
+            " ".join([shlex.quote(str(s)) for s in command])
+        )
+    )
+    exit_code = subprocess.call(command)
+    if exit_code != 0 and exit_code not in exit_codes_to_ignore:
+        sys.exit(exit_code)

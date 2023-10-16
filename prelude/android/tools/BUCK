@@ -95,3 +95,13 @@ native.python_binary(
     labels = ["buck2-only"],
     visibility = ["PUBLIC"],
 )
+
+native.python_binary(
+    name = "filter_extra_resources",
+    main = "filter_extra_resources.py",
+    labels = ["buck2-only"],
+    visibility = ["PUBLIC"],
+    deps = [
+        "prelude//java/tools:utils_lib",
+    ],
+)

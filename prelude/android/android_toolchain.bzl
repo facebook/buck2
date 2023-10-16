@@ -13,6 +13,7 @@ AndroidToolchainInfo = provider(
     # @unsorted-dict-items
     fields = {
         "aapt2": provider_field(typing.Any, default = None),
+        "aapt2_filter_resources": provider_field(typing.Any, default = None),
         "aar_builder": provider_field(typing.Any, default = None),
         "adb": provider_field(typing.Any, default = None),
         "aidl": provider_field(typing.Any, default = None),
