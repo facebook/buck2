@@ -313,13 +313,6 @@ def _make_py_package_impl(
             for k, v in ctx.attrs.runtime_env.items():
                 bootstrap.add(cmd_args(["--runtime_env", "{}={}".format(k, v)]))
 
-        if ctx.attrs.add_multiprocessing_wrapper and ctx.attrs._exec_os_type[OsLookup].platform == "linux":
-            # This script will add the preload/library path vars as well as the pythonpath vars to the
-            # subprocess interpreter so that the spawned process will be able to find the inplace par
-            # link tree, native libs, and the modules under the link tree.
-            mp_executable = ctx.actions.declare_output("mp_exec_{}.sh".format(name))
-            runtime_files.append((mp_executable, mp_executable.short_path))
-            bootstrap.add(["--add-multiprocessing-executable", mp_executable.as_output()])
         ctx.actions.run(bootstrap, category = "par", identifier = "bootstrap{}".format(output_suffix))
 
     run_args = []

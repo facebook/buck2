@@ -122,11 +122,6 @@ def parse_args() -> argparse.Namespace:
         help="Where to write the bootstrapper script to",
     )
     parser.add_argument(
-        "--add-multiprocessing-executable",
-        type=Path,
-        help="If set, where to write the multiprocessing executable",
-    )
-    parser.add_argument(
         "--native-libs-env-var",
         default=(
             "DYLD_LIBRARY_PATH" if platform.system() == "Darwin" else "LD_LIBRARY_PATH"
@@ -189,27 +184,6 @@ def write_bootstrapper(args: argparse.Namespace) -> None:
     main_runner_module, main_runner_function = args.main_runner.rsplit(".", 1)
     new_data = new_data.replace("<MAIN_RUNNER_MODULE>", main_runner_module)
     new_data = new_data.replace("<MAIN_RUNNER_FUNCTION>", main_runner_function)
-
-    if args.add_multiprocessing_executable:
-        # Handle enabling multiprocessing for inplace par
-        new_data = new_data.replace("<SHOULD_ADD_MULTIPROCESSING_WRAPPER>", str(True))
-        env_vals_for_subprocesses = [
-            f"PYTHONPATH=$(dirname $0)/{relative_modules_dir}",
-            f"LD_PRELOAD={ld_preload}",
-            f"{args.native_libs_env_var}=$(dirname $0)/{relative_modules_dir}",
-        ]
-        # env_str should contain PYTHONPATH, LD_LIBRARY_PATH, and LD_PRELOAD (if set)
-        env_str = " ".join(env_vals_for_subprocesses)
-        script_contents = f'#!/usr/bin/env bash\n\n{env_str} {str(args.python)} "$@"'
-        mp_executable = args.add_multiprocessing_executable
-        with open(mp_executable, "w") as handle:
-            handle.write(script_contents)
-        os.chmod(mp_executable, 0o755)
-        relative_mp = os.path.relpath(mp_executable.as_posix(), args.output.parent)
-        new_data = new_data.replace("<MP_EXECUTABLE>", relative_mp)
-    else:
-        new_data = new_data.replace("<MP_EXECUTABLE>", str(args.python))
-        new_data = new_data.replace("<SHOULD_ADD_MULTIPROCESSING_WRAPPER>", str(False))
 
     # Things that are only required for the full template
     new_data = new_data.replace("<NATIVE_LIBS_ENV_VAR>", args.native_libs_env_var)
