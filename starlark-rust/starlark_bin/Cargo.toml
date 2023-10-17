@@ -1,7 +1,7 @@
 [package]
 name = "starlark_bin"
 edition = "2021"
-version = "0.9.0"
+version = "0.10.0"
 license = "Apache-2.0"
 description = "starlark binary"
 documentation = "https://docs.rs/starlark"
@@ -16,9 +16,9 @@ categories = ["parser-implementations", "development-tools"]
 [dependencies]
 dupe = { workspace = true }
 
-starlark = { version = "0.9.0", path = "../starlark" }
-starlark_lsp = { version = "0.9.0", path = "../starlark_lsp" }
-starlark_map = { version = "0.9.0", path = "../starlark_map" }
+starlark = { version = "0.10.0", path = "../starlark" }
+starlark_lsp = { version = "0.10.0", path = "../starlark_lsp" }
+starlark_map = { version = "0.10.0", path = "../starlark_map" }
 
 anyhow = "1.0.65"
 argfile = "0.1.0"

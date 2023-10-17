@@ -1,7 +1,7 @@
 [package]
 name = "starlark"
 edition = "2021"
-version = "0.9.0"
+version = "0.10.0"
 license = "Apache-2.0"
 description = "An implementation of the Starlark language in Rust."
 documentation = "https://docs.rs/starlark"
@@ -30,9 +30,9 @@ either = "1.8"
 static_assertions = "1.1.0"
 memoffset = "0.6.4"
 thiserror = "1.0.36"
-starlark_derive = { version = "0.9.0", path = "../starlark_derive" }
-starlark_map = { version = "0.9.0", path = "../starlark_map" }
-starlark_syntax = { version = "0.9.0", path = "../starlark_syntax" }
+starlark_derive = { version = "0.10.0", path = "../starlark_derive" }
+starlark_map = { version = "0.10.0", path = "../starlark_map" }
+starlark_syntax = { version = "0.10.0", path = "../starlark_syntax" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 maplit = "1.0.2"
