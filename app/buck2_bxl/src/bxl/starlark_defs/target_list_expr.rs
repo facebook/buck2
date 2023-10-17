@@ -40,7 +40,6 @@ use starlark::collections::SmallSet;
 use starlark::values::list::UnpackList;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::UnpackValue;
-use starlark::values::Value;
 use starlark::values::ValueOf;
 use thiserror::Error;
 
@@ -208,10 +207,6 @@ impl<'v> TargetListExpr<'v, TargetNode> {
 #[derive(Debug, Error)]
 pub(crate) enum TargetExprError {
     #[error(
-        "Expected a list of target like items, but was `{0}`. If you have passed in a list of `label`s, make sure to call `configured_target()` to get the underlying configured target label."
-    )]
-    NotAListOfTargets(String),
-    #[error(
         "Expected a single target like item, but was `{0}`. If you have passed in a `label`, make sure to call `configured_target()` to get the underlying configured target label."
     )]
     NotATarget(String),
@@ -274,20 +269,12 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     }
 
     pub(crate) async fn unpack_allow_unconfigured<'c>(
-        value: Value<'v>,
+        arg: ConfiguredTargetListExprArg<'v>,
         target_platform: &Option<TargetLabel>,
         ctx: &BxlContextNoDice<'v>,
         dice: &mut DiceComputations,
     ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
-        Ok(
-            if let Some(arg) = ConfiguredTargetListExprArg::unpack_value(value) {
-                Self::unpack_opt(arg, target_platform, ctx, dice, true).await?
-            } else {
-                return Err(anyhow::anyhow!(TargetExprError::NotAListOfTargets(
-                    value.to_repr()
-                )));
-            },
-        )
+        Self::unpack_opt(arg, target_platform, ctx, dice, true).await
     }
 
     fn check_allow_unconfigured(

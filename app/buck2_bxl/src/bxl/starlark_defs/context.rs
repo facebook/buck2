@@ -119,6 +119,7 @@ use crate::bxl::starlark_defs::event::StarlarkUserEventParser;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 use crate::bxl::starlark_defs::target_list_expr::filter_incompatible;
+use crate::bxl::starlark_defs::target_list_expr::ConfiguredTargetListExprArg;
 use crate::bxl::starlark_defs::target_list_expr::TargetListExpr;
 use crate::bxl::starlark_defs::target_list_expr::TargetListExprArg;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
@@ -712,7 +713,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
     /// given `labels` is list-like
     fn configured_targets<'v>(
         this: &'v BxlContext<'v>,
-        #[starlark(require = pos)] labels: Value<'v>,
+        #[starlark(require = pos)] labels: ConfiguredTargetListExprArg<'v>,
         #[starlark(default = NoneType)] target_platform: Value<'v>,
     ) -> anyhow::Result<
         Either<NoneOr<StarlarkConfiguredTargetNode>, StarlarkTargetSet<ConfiguredTargetNode>>,
@@ -857,7 +858,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
     /// Also takes in an optional `target_platform` param to configure the nodes with.
     fn target_universe<'v>(
         this: &'v BxlContext<'v>,
-        labels: Value<'v>,
+        labels: ConfiguredTargetListExprArg<'v>,
         #[starlark(default = NoneType)] target_platform: Value<'v>,
     ) -> anyhow::Result<StarlarkTargetUniverse<'v>> {
         let target_platform = target_platform.parse_target_platforms(

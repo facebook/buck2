@@ -540,7 +540,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     /// resolution under the hood for the tests found.
     fn testsof_with_default_target_platform<'v>(
         this: &StarlarkCQueryCtx<'v>,
-        targets: Value<'v>,
+        targets: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx
             .via_dice(|mut dice, ctx| {
