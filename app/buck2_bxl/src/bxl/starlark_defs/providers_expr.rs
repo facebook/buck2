@@ -66,6 +66,14 @@ enum ProvidersLabelArg<'v> {
     StarlarkTargetNode(&'v StarlarkTargetNode),
 }
 
+#[derive(StarlarkTypeRepr, UnpackValue)]
+enum ConfiguredProvidersLabelArg<'v> {
+    ConfiguredTargetNode(&'v StarlarkConfiguredTargetNode),
+    ConfiguredTargetLabel(&'v StarlarkConfiguredTargetLabel),
+    ConfiguredProvidersLabel(&'v StarlarkConfiguredProvidersLabel),
+    Unconfigured(ProvidersLabelArg<'v>),
+}
+
 impl ProvidersExpr<ConfiguredProvidersLabel> {
     pub(crate) async fn unpack_opt<'v, 'c>(
         value: Value<'v>,
@@ -113,28 +121,30 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
         ctx: &BxlContextNoDice<'_>,
         dice: &'c DiceComputations,
     ) -> BoxFuture<'c, anyhow::Result<Option<Self>>> {
-        if let Some(configured_target) = value.downcast_ref::<StarlarkConfiguredTargetNode>() {
-            futures::future::ready(Ok(Some(Self::Literal(ConfiguredProvidersLabel::new(
-                configured_target.0.label().dupe(),
-                ProvidersName::Default,
-            )))))
-            .boxed()
-        } else if let Some(configured_target) =
-            value.downcast_ref::<StarlarkConfiguredTargetLabel>()
-        {
-            futures::future::ready(Ok(Some(Self::Literal(ConfiguredProvidersLabel::new(
-                configured_target.label().dupe(),
-                ProvidersName::Default,
-            )))))
-            .boxed()
-        } else if let Some(configured_target) =
-            value.downcast_ref::<StarlarkConfiguredProvidersLabel>()
-        {
-            futures::future::ready(Ok(Some(Self::Literal(configured_target.label().clone()))))
+        let Some(arg) = ConfiguredProvidersLabelArg::unpack_value(value) else {
+            return futures::future::ready(Ok(None)).boxed();
+        };
+        match arg {
+            ConfiguredProvidersLabelArg::ConfiguredTargetNode(configured_target) => {
+                futures::future::ready(Ok(Some(Self::Literal(ConfiguredProvidersLabel::new(
+                    configured_target.0.label().dupe(),
+                    ProvidersName::Default,
+                )))))
                 .boxed()
-        } else {
-            match ProvidersLabelArg::unpack_value(value) {
-                Some(arg) => match Self::unpack_providers_label(arg, ctx) {
+            }
+            ConfiguredProvidersLabelArg::ConfiguredTargetLabel(configured_target) => {
+                futures::future::ready(Ok(Some(Self::Literal(ConfiguredProvidersLabel::new(
+                    configured_target.label().dupe(),
+                    ProvidersName::Default,
+                )))))
+                .boxed()
+            }
+            ConfiguredProvidersLabelArg::ConfiguredProvidersLabel(configured_target) => {
+                futures::future::ready(Ok(Some(Self::Literal(configured_target.label().clone()))))
+                    .boxed()
+            }
+            ConfiguredProvidersLabelArg::Unconfigured(arg) => {
+                match Self::unpack_providers_label(arg, ctx) {
                     Ok(label) => async move {
                         dice.get_configured_provider_label(&label, target_platform.as_ref())
                             .map(|res| res.map(|r| Some(Self::Literal(r))))
@@ -142,8 +152,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
                     }
                     .boxed(),
                     Err(e) => futures::future::ready(Err(e)).boxed(),
-                },
-                None => futures::future::ready(Ok(None)).boxed(),
+                }
             }
         }
     }
