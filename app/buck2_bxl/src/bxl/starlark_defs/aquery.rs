@@ -50,6 +50,7 @@ use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
+use crate::bxl::starlark_defs::target_list_expr::ConfiguredTargetListExprArg;
 use crate::bxl::starlark_defs::target_list_expr::TargetListExpr;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::uquery::unpack_unconfigured_query_args;
@@ -158,11 +159,10 @@ async fn unpack_action_nodes<'v>(
     .await?
     {
         providers.labels().cloned().collect()
-    } else if let Some(targets) =
-        TargetListExpr::<ConfiguredTargetNode>::unpack_opt(expr, target_platform, ctx, dice, true)
+    } else if let Some(arg) = ConfiguredTargetListExprArg::unpack_value(expr) {
+        TargetListExpr::<ConfiguredTargetNode>::unpack_opt(arg, target_platform, ctx, dice, true)
             .await?
-    {
-        targets.as_provider_labels()
+            .as_provider_labels()
     } else {
         return Err(anyhow::anyhow!(BxlAqueryError::InvalidInputs(
             expr.to_repr()

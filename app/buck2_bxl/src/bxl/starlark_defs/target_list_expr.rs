@@ -157,7 +157,7 @@ pub(crate) enum TargetSetOrTargetList<'v> {
 }
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
-enum ConfiguredTargetListArg<'v> {
+pub(crate) enum ConfiguredTargetListArg<'v> {
     ConfiguredTargetSet(&'v StarlarkTargetSet<ConfiguredTargetNode>),
     TargetSet(&'v StarlarkTargetSet<TargetNode>),
     TargetList(UnpackList<ConfiguredTargetNodeArg<'v>>),
@@ -170,7 +170,7 @@ pub(crate) enum TargetListExprArg<'v> {
 }
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
-enum ConfiguredTargetListExprArg<'v> {
+pub(crate) enum ConfiguredTargetListExprArg<'v> {
     Target(ConfiguredTargetNodeArg<'v>),
     List(ValueOf<'v, ConfiguredTargetListArg<'v>>),
 }
@@ -241,22 +241,25 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     }
 
     pub(crate) async fn unpack_opt<'c>(
-        value: Value<'v>,
+        arg: ConfiguredTargetListExprArg<'v>,
         target_platform: &Option<TargetLabel>,
         ctx: &BxlContextNoDice<'v>,
         dice: &mut DiceComputations,
         allow_unconfigured: bool,
-    ) -> anyhow::Result<Option<TargetListExpr<'v, ConfiguredTargetNode>>> {
-        let Some(arg) = ConfiguredTargetListExprArg::unpack_value(value) else {
-            return Ok(None);
-        };
+    ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         match arg {
-            ConfiguredTargetListExprArg::Target(arg) => Ok(Some(
-                Self::unpack_literal(arg, target_platform, ctx, dice, allow_unconfigured).await?,
-            )),
-            ConfiguredTargetListExprArg::List(arg) => Ok(Some(
-                Self::unpack_iterable(arg, target_platform, ctx, dice, allow_unconfigured).await?,
-            )),
+            ConfiguredTargetListExprArg::Target(arg) => {
+                Ok(
+                    Self::unpack_literal(arg, target_platform, ctx, dice, allow_unconfigured)
+                        .await?,
+                )
+            }
+            ConfiguredTargetListExprArg::List(arg) => {
+                Ok(
+                    Self::unpack_iterable(arg, target_platform, ctx, dice, allow_unconfigured)
+                        .await?,
+                )
+            }
         }
     }
 
@@ -267,10 +270,8 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         dice: &mut DiceComputations,
     ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         Ok(
-            if let Some(resolved) =
-                Self::unpack_opt(value, target_platform, ctx, dice, false).await?
-            {
-                resolved
+            if let Some(arg) = ConfiguredTargetListExprArg::unpack_value(value) {
+                Self::unpack_opt(arg, target_platform, ctx, dice, false).await?
             } else {
                 return Err(anyhow::anyhow!(TargetExprError::NotAListOfTargets(
                     value.to_repr()
@@ -286,10 +287,8 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         dice: &mut DiceComputations,
     ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         Ok(
-            if let Some(resolved) =
-                Self::unpack_opt(value, target_platform, ctx, dice, true).await?
-            {
-                resolved
+            if let Some(arg) = ConfiguredTargetListExprArg::unpack_value(value) {
+                Self::unpack_opt(arg, target_platform, ctx, dice, true).await?
             } else {
                 return Err(anyhow::anyhow!(TargetExprError::NotAListOfTargets(
                     value.to_repr()
