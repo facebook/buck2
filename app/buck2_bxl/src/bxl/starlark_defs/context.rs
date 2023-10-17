@@ -652,14 +652,14 @@ fn context_methods(builder: &mut MethodsBuilder) {
     ///
     /// This function is not available on the `bxl_ctx` when called from `dynamic_output`.
     #[starlark(attribute)]
-    fn output<'v>(this: &'v BxlContext) -> anyhow::Result<Value<'v>> {
+    fn output<'v>(this: &'v BxlContext) -> anyhow::Result<ValueTyped<'v, OutputStream<'v>>> {
         let output_stream = this
             .data
             .context_type
             .unpack_root()
             .context(BxlContextDynamicError::Unsupported("output".to_owned()))?
             .output_stream;
-        Ok(output_stream.to_value())
+        Ok(output_stream)
     }
 
     /// Returns the absolute path to the root of the repository
