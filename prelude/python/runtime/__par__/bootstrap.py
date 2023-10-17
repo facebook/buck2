@@ -61,6 +61,10 @@ def run_as_main(
     import sys
 
     sys.modules["__main__"] = mod
+
+    # Pretend we're executing `main()` directly
+    if hasattr(main, "__globals__") and isinstance(main.__globals__, dict):
+        main.__globals__["__name__"] = "__main__"
     for hook in main_function_hooks:
         hook()
     main()
