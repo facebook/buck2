@@ -16,7 +16,7 @@ load(
 )
 load(":apple_asset_catalog_types.bzl", "AppleAssetCatalogSpec")
 load(":apple_core_data_types.bzl", "AppleCoreDataSpec")
-load(":apple_resource_types.bzl", "AppleResourceSpec")
+load(":apple_resource_types.bzl", "AppleResourceSpec", "CxxResourceSpec")
 load(":scene_kit_assets_types.bzl", "SceneKitAssetsSpec")
 
 ResourceGroupInfo = provider(
@@ -51,6 +51,8 @@ ResourceGraphNode = record(
     core_data_spec = field([AppleCoreDataSpec, None], None),
     # Actual scene kit assets, present when node corresponds to `scene_kit_assets` target
     scene_kit_assets_spec = field([SceneKitAssetsSpec, None], None),
+    # Actual resource data, present when node corresponds to `cxx_library` target containing resources.
+    cxx_resource_spec = field([CxxResourceSpec, None], None),
 )
 
 ResourceGraphTSet = transitive_set()
@@ -71,6 +73,7 @@ def create_resource_graph(
         asset_catalog_spec: [AppleAssetCatalogSpec, None] = None,
         core_data_spec: [AppleCoreDataSpec, None] = None,
         scene_kit_assets_spec: [SceneKitAssetsSpec, None] = None,
+        cxx_resource_spec: [CxxResourceSpec, None] = None,
         should_propagate: bool = True) -> ResourceGraphInfo:
     # Collect deps and exported_deps with resources that should propagate.
     dep_labels, dep_graphs = _filtered_labels_and_graphs(deps)
@@ -95,6 +98,7 @@ def create_resource_graph(
         asset_catalog_spec = asset_catalog_spec,
         core_data_spec = core_data_spec,
         scene_kit_assets_spec = scene_kit_assets_spec,
+        cxx_resource_spec = cxx_resource_spec,
     )
     children = [child_node.nodes for child_node in dep_graphs + exported_dep_graphs]
     return ResourceGraphInfo(
@@ -145,7 +149,7 @@ def get_filtered_resources(
         root: Label,
         resource_graph_node_map_func,
         resource_group: [str, None],
-        resource_group_mappings: [dict[Label, str], None]) -> (list[AppleResourceSpec], list[AppleAssetCatalogSpec], list[AppleCoreDataSpec], list[SceneKitAssetsSpec]):
+        resource_group_mappings: [dict[Label, str], None]) -> (list[AppleResourceSpec], list[AppleAssetCatalogSpec], list[AppleCoreDataSpec], list[SceneKitAssetsSpec], list[CxxResourceSpec]):
     """
     Walks the provided DAG and collects resources matching resource groups definition.
     """
@@ -166,6 +170,7 @@ def get_filtered_resources(
     asset_catalog_specs = []
     core_data_specs = []
     scene_kit_assets_specs = []
+    cxx_resource_specs = []
 
     for target in targets:
         target_resource_group = resource_group_mappings.get(target)
@@ -189,5 +194,8 @@ def get_filtered_resources(
             scene_kit_assets_spec = node.scene_kit_assets_spec
             if scene_kit_assets_spec:
                 scene_kit_assets_specs.append(scene_kit_assets_spec)
+            cxx_resource_spec = node.cxx_resource_spec
+            if cxx_resource_spec:
+                cxx_resource_specs.append(cxx_resource_spec)
 
-    return resource_specs, asset_catalog_specs, core_data_specs, scene_kit_assets_specs
+    return resource_specs, asset_catalog_specs, core_data_specs, scene_kit_assets_specs, cxx_resource_specs

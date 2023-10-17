@@ -74,6 +74,8 @@ CxxRuleProviderParams = record(
     merged_native_link_info = field(bool, True),
     omnibus_root = field(bool, True),
     preprocessors = field(bool, True),
+    # Whether or not to generate a resource groups provider for raw cxx resources.
+    cxx_resources_as_apple_resources = field(bool, True),
     resources = field(bool, True),
     shared_libraries = field(bool, True),
     template_placeholders = field(bool, True),

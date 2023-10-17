@@ -26,6 +26,7 @@ load(
     "apple_create_frameworks_linkable",
     "apple_get_link_info_by_deduping_link_infos",
 )
+load("@prelude//apple:resource_groups.bzl", "create_resource_graph")
 load(
     "@prelude//apple:xcode.bzl",
     "get_project_root_file",
@@ -103,6 +104,10 @@ load(
     "is_any",
     "map_val",
     "value_or",
+)
+load(
+    "@prelude//apple/apple_resource_types.bzl",
+    "CxxResourceSpec",
 )
 load(":archive.bzl", "make_archive")
 load(
@@ -729,11 +734,22 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
     # C++ resource.
     if impl_params.generate_providers.resources:
-        providers.append(ResourceInfo(resources = gather_resources(
+        resources = cxx_attr_resources(ctx)
+        cxx_resource_info = ResourceInfo(resources = gather_resources(
             label = ctx.label,
-            resources = cxx_attr_resources(ctx),
+            resources = resources,
             deps = non_exported_deps + exported_deps,
-        )))
+        ))
+        providers += [cxx_resource_info]
+        if impl_params.generate_providers.cxx_resources_as_apple_resources:
+            apple_resource_graph = create_resource_graph(
+                ctx = ctx,
+                labels = ctx.attrs.labels,
+                deps = non_exported_deps,
+                exported_deps = exported_deps,
+                cxx_resource_spec = CxxResourceSpec(resources = resources) if resources else None,
+            )
+            providers += [apple_resource_graph]
 
     if impl_params.generate_providers.template_placeholders:
         templ_vars = {}

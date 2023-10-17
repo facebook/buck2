@@ -114,6 +114,8 @@ def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
                     java_packaging_info = False,
                     android_packageable_info = False,
                     omnibus_root = False,
+                    # We generate a provider on our own, disable to avoid several providers of same type.
+                    cxx_resources_as_apple_resources = False,
                 ),
             ),
             deps_providers,

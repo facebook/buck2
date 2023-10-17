@@ -677,6 +677,7 @@ def _get_params_for_android_binary_cxx_library() -> (CxxRuleSubTargetParams, Cxx
         compilation_database = False,
         omnibus_root = False,
         preprocessor_for_tests = False,
+        cxx_resources_as_apple_resources = False,
     )
 
     return sub_target_params, provider_params

@@ -6,7 +6,6 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//:resources.bzl", "gather_resources")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//utils:utils.bzl", "expect", "flatten_dict")
 load(
@@ -31,6 +30,7 @@ load(
     ":apple_resource_types.bzl",
     "AppleResourceDestination",
     "AppleResourceSpec",  # @unused Used as a type
+    "CxxResourceSpec",  # @unused Used as a type
 )
 load(":apple_resource_utility.bzl", "apple_bundle_destination_from_resource_destination")
 load(
@@ -58,14 +58,11 @@ def get_apple_bundle_resource_part_list(ctx: AnalysisContext) -> AppleBundleReso
 
     parts.extend(_create_pkg_info_if_needed(ctx))
 
-    (resource_specs, asset_catalog_specs, core_data_specs, scene_kit_assets_spec) = _select_resources(ctx)
+    (resource_specs, asset_catalog_specs, core_data_specs, scene_kit_assets_spec, cxx_resource_specs) = _select_resources(ctx)
 
     # If we've pulled in native/C++ resources from deps, inline them into the
     # bundle under the `CxxResources` namespace.
-    cxx_resources = flatten_dict(gather_resources(
-        label = ctx.label,
-        deps = ctx.attrs.deps,
-    ).values())
+    cxx_resources = flatten_dict([s.resources for s in cxx_resource_specs])
     if cxx_resources:
         cxx_res_dir = ctx.actions.copied_dir(
             "CxxResources",
@@ -130,7 +127,7 @@ def _create_pkg_info_if_needed(ctx: AnalysisContext) -> list[AppleBundlePart]:
     artifact = ctx.actions.write("PkgInfo", "APPLWRUN\n")
     return [AppleBundlePart(source = artifact, destination = AppleBundleDestination("metadata"))]
 
-def _select_resources(ctx: AnalysisContext) -> ((list[AppleResourceSpec], list[AppleAssetCatalogSpec], list[AppleCoreDataSpec], list[SceneKitAssetsSpec])):
+def _select_resources(ctx: AnalysisContext) -> ((list[AppleResourceSpec], list[AppleAssetCatalogSpec], list[AppleCoreDataSpec], list[SceneKitAssetsSpec], list[CxxResourceSpec])):
     resource_group_info = get_resource_group_info(ctx)
     if resource_group_info:
         resource_groups_deps = resource_group_info.implicit_deps
