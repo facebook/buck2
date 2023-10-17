@@ -169,6 +169,12 @@ pub(crate) enum TargetListExprArg<'v> {
     List(TargetSetOrTargetList<'v>),
 }
 
+#[derive(StarlarkTypeRepr, UnpackValue)]
+enum ConfiguredTargetListExprArg<'v> {
+    Target(ConfiguredTargetNodeArg<'v>),
+    List(ValueOf<'v, ConfiguredTargetListArg<'v>>),
+}
+
 impl<'v> TargetListExpr<'v, TargetNode> {
     /// Get a `TargetSet<TargetNode>` from the `TargetExpr`
     pub(crate) async fn get(
@@ -241,21 +247,17 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         dice: &mut DiceComputations,
         allow_unconfigured: bool,
     ) -> anyhow::Result<Option<TargetListExpr<'v, ConfiguredTargetNode>>> {
-        Ok(
-            if let Some(arg) = ConfiguredTargetNodeArg::unpack_value(value) {
-                Some(
-                    Self::unpack_literal(arg, target_platform, ctx, dice, allow_unconfigured)
-                        .await?,
-                )
-            } else if let Some(arg) = UnpackValue::unpack_value(value) {
-                Some(
-                    Self::unpack_iterable(arg, target_platform, ctx, dice, allow_unconfigured)
-                        .await?,
-                )
-            } else {
-                None
-            },
-        )
+        let Some(arg) = ConfiguredTargetListExprArg::unpack_value(value) else {
+            return Ok(None);
+        };
+        match arg {
+            ConfiguredTargetListExprArg::Target(arg) => Ok(Some(
+                Self::unpack_literal(arg, target_platform, ctx, dice, allow_unconfigured).await?,
+            )),
+            ConfiguredTargetListExprArg::List(arg) => Ok(Some(
+                Self::unpack_iterable(arg, target_platform, ctx, dice, allow_unconfigured).await?,
+            )),
+        }
     }
 
     pub(crate) async fn unpack<'c>(
