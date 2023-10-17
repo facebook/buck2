@@ -15,7 +15,6 @@ use allocative::Allocative;
 use anyhow::Context;
 use arc_swap::ArcSwapOption;
 use buck2_core::tag_error;
-use buck2_error::shared_result::SharedError;
 use dupe::Dupe;
 use futures::future;
 use futures::future::Future;
@@ -47,7 +46,7 @@ enum ForkserverError {
 struct ForkserverClientInner {
     /// Error from the forkserver process, if any.
     #[allocative(skip)]
-    error: Arc<ArcSwapOption<anyhow::Error>>,
+    error: Arc<ArcSwapOption<buck2_error::Error>>,
     pid: u32,
     #[allocative(skip)]
     rpc: buck2_forkserver_proto::forkserver_client::ForkserverClient<Channel>,
@@ -73,7 +72,7 @@ impl ForkserverClient {
                     Err(e) => ForkserverError::WaitError(e),
                 };
 
-                let err = anyhow::Error::new(err).context("Forkserver is unavailable");
+                let err = buck2_error::Error::new(err).context("Forkserver is unavailable");
 
                 error.swap(Some(Arc::new(err)));
             }
@@ -99,7 +98,7 @@ impl ForkserverClient {
         if let Some(err) = &*self.inner.error.load() {
             return Err(tag_error!(
                 "forkserver_exit",
-                SharedError::from(err.dupe()).into(),
+                err.as_ref().dupe().into(),
                 quiet: true,
                 task: false,
                 daemon_in_memory_state_is_corrupted: true,
