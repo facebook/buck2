@@ -34,11 +34,9 @@ use buck2_util::truncate::truncate;
 use dice::DiceComputations;
 use dupe::Dupe;
 use dupe::IterDupedExt;
-use either::Either;
 use futures::TryFutureExt;
 use starlark::collections::SmallSet;
 use starlark::eval::Evaluator;
-use starlark::values::list::ListRef;
 use starlark::values::list::UnpackList;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::UnpackValue;
@@ -386,19 +384,25 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
 
         #[allow(clippy::manual_map)] // `if else if` looks better here
         let items = if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
-            Either::Left(s.iter(eval.heap()))
-        } else if let Some(iterable) = ListRef::from_value(value) {
-            Either::Right(iterable.iter())
+            s.0.iter()
+                .map(|n| {
+                    ConfiguredTargetNodeArg::Unconfigured(TargetNodeOrTargetLabel::TargetNode(
+                        // TODO(nga): this extra allocation is ugly.
+                        eval.heap()
+                            .alloc_typed(StarlarkTargetNode(n.dupe()))
+                            .as_ref(),
+                    ))
+                })
+                .collect()
+        } else if let Some(unpack) = UnpackList::<ConfiguredTargetNodeArg>::unpack_value(value) {
+            unpack.items
         } else {
             return Err(TargetExprError::NotAListOfTargets(value.to_repr()).into());
         };
 
         let mut resolved = vec![];
 
-        for item_value in items {
-            let Some(item) = ConfiguredTargetNodeArg::unpack_value(item_value) else {
-                return Err(TargetExprError::NotATarget(item_value.to_repr()).into());
-            };
+        for item in items {
             let unpacked =
                 Self::unpack_literal(item, target_platform, ctx, dice, allow_unconfigured).await?;
 
@@ -411,7 +415,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                 .for_each(|t| resolved.push(TargetExpr::Node(t))),
                 _ => {
                     return Err(
-                        anyhow::anyhow!(TargetExprError::NotATarget(item_value.to_repr())).context(
+                        anyhow::anyhow!(TargetExprError::NotATarget(value.to_repr())).context(
                             format!("Error resolving list `{}`", truncate(&value.to_repr(), 150)),
                         ),
                     );
