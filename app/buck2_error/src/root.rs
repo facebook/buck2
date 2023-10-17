@@ -93,6 +93,12 @@ impl ErrorRoot {
     pub(crate) fn test_equal(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.inner, &other.inner)
     }
+
+    pub(crate) fn downcast_ref<T: fmt::Display + fmt::Debug + Send + Sync + 'static>(
+        &self,
+    ) -> Option<&T> {
+        self.inner.downcast_ref()
+    }
 }
 
 impl fmt::Debug for ErrorRoot {

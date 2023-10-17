@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::any::Any;
 use std::fmt;
 use std::sync::Arc;
 
@@ -120,6 +121,14 @@ impl Error {
         }
         s
     }
+
+    pub fn downcast_ref<T: fmt::Display + fmt::Debug + Send + Sync + 'static>(&self) -> Option<&T> {
+        self.iter_kinds().find_map(|kind| match kind {
+            ErrorKind::Root(r) => r.downcast_ref(),
+            ErrorKind::WithContext(ctx, _) => (ctx.as_ref() as &dyn Any).downcast_ref(),
+            ErrorKind::Emitted(_) => None,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -137,5 +146,36 @@ mod tests {
         let e: anyhow::Error = e.into();
         let e: crate::Error = e.context("context").into();
         assert!(e.is_emitted());
+    }
+
+    #[derive(Debug, thiserror::Error)]
+    #[error("Context A")]
+    struct ContextA;
+
+    #[derive(Debug, thiserror::Error)]
+    #[error("Context B")]
+    struct ContextB;
+
+    #[derive(Debug, thiserror::Error)]
+    #[error("Context C")]
+    struct ContextC;
+
+    #[test]
+    fn test_downcast() {
+        let e: anyhow::Error = TestError.into();
+        let e = e.context(ContextA);
+        let e: crate::Error = e.into();
+        let e = e.context(ContextB);
+        let e: anyhow::Error = e.into();
+        let e = e.context(ContextC);
+        let e: crate::Error = e.into();
+
+        // Context added via `buck2_error` can always be accessed via downcasting. Context added via
+        // `anyhow` cannot - it can only be accessed before the first time the error is converted to
+        // `buck2_error`.
+        assert!(e.downcast_ref::<TestError>().is_some());
+        assert!(e.downcast_ref::<ContextA>().is_some());
+        assert!(e.downcast_ref::<ContextB>().is_some());
+        assert!(e.downcast_ref::<ContextC>().is_none());
     }
 }

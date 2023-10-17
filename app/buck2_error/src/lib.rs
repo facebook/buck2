@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![feature(trait_upcasting)]
+
 mod any;
 mod context;
 mod error;
