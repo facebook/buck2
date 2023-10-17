@@ -49,6 +49,7 @@ use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueOf;
+use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
 use thiserror::Error;
 
@@ -278,7 +279,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
         expr: FileExpr<'v>,
         #[starlark(default = NoneOr::None)] target_hint: NoneOr<ValueOf<'v, TargetListExprArg<'v>>>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<ValueTyped<'v, StarlarkArtifact>> {
         let buck_path = this.ctx.via_dice(|mut dice, ctx| {
             dice.via(|dice| {
                 async {
@@ -336,6 +337,6 @@ fn fs_operations(builder: &mut MethodsBuilder) {
 
         Ok(eval
             .heap()
-            .alloc(StarlarkArtifact::new(SourceArtifact::new(buck_path).into())))
+            .alloc_typed(StarlarkArtifact::new(SourceArtifact::new(buck_path).into())))
     }
 }
