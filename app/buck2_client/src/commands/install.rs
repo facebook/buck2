@@ -119,6 +119,13 @@ struct AndroidInstallOptions {
         help = "Use this option to uninstall an installed app before installing again. Here for compatibility with buck1 - it is automatically forwarded to the installer"
     )]
     uninstall: bool,
+
+    #[clap(
+        short,
+        long,
+        help = "Use this option to Keep user data when uninstalling. Here for compatibility with buck1 - it is automatically forwarded to the installer"
+    )]
+    keep: bool,
 }
 
 #[async_trait]
@@ -162,6 +169,9 @@ impl StreamingCommand for InstallCommand {
         }
         if self.android_install_opts.uninstall {
             extra_run_args.push("-u".to_owned());
+        }
+        if self.android_install_opts.keep {
+            extra_run_args.push("-k".to_owned());
         }
 
         let response = buckd
