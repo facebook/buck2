@@ -11,7 +11,6 @@ use std::fmt;
 use std::sync::Arc;
 
 use crate::context::DisplayAndAny;
-use crate::root::DynLateFormat;
 use crate::root::ErrorRoot;
 
 /// The core error type provided by this crate.
@@ -41,26 +40,19 @@ pub(crate) enum ErrorKind {
 
 impl Error {
     pub fn new<E: std::error::Error + Send + Sync + 'static>(e: E) -> Self {
-        Self::new_from_arc(Arc::new(e), None)
+        // Help type inference pick a `T` for the `Option<T>`
+        fn dummy_impl<'a, 'b, 'c, E>(_: &'a E, _: &'b mut fmt::Formatter<'c>) -> fmt::Result {
+            panic!()
+        }
+        let f = if true { None } else { Some(dummy_impl) };
+        Self(Arc::new(ErrorKind::Root(ErrorRoot::new(e, f))))
     }
 
     pub fn new_with_late_format<E: std::error::Error + Send + Sync + 'static>(
         e: E,
         f: impl Fn(&E, &mut fmt::Formatter<'_>) -> fmt::Result + Send + Sync + 'static,
     ) -> Self {
-        Self::new_from_arc(
-            Arc::new(e),
-            Some(Box::new(move |e: &anyhow::Error, fmt| {
-                f(e.downcast_ref().unwrap(), fmt)
-            })),
-        )
-    }
-
-    pub(crate) fn new_from_arc(
-        arc: Arc<dyn std::error::Error + Send + Sync + 'static>,
-        late_format: Option<Box<DynLateFormat>>,
-    ) -> Self {
-        Self(Arc::new(ErrorKind::Root(ErrorRoot::new(arc, late_format))))
+        Self(Arc::new(ErrorKind::Root(ErrorRoot::new(e, Some(f)))))
     }
 
     fn iter_kinds<'a>(&'a self) -> impl Iterator<Item = &'a ErrorKind> {

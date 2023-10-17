@@ -10,7 +10,7 @@
 use std::fmt;
 use std::sync::Arc;
 
-pub(crate) type DynLateFormat =
+type DynLateFormat =
     dyn Fn(&anyhow::Error, &mut fmt::Formatter<'_>) -> fmt::Result + Send + Sync + 'static;
 
 #[derive(allocative::Allocative)]
@@ -22,13 +22,25 @@ pub(crate) struct ErrorRoot {
 }
 
 impl ErrorRoot {
-    pub(crate) fn new(
-        inner: Arc<dyn std::error::Error + Send + Sync + 'static>,
-        late_format: Option<Box<DynLateFormat>>,
+    pub(crate) fn new<E: std::error::Error + Send + Sync + 'static>(
+        inner: E,
+        late_format: Option<
+            impl Fn(&E, &mut fmt::Formatter<'_>) -> fmt::Result + Send + Sync + 'static,
+        >,
     ) -> Self {
+        let inner = Arc::new(anyhow::Error::new(inner));
+        // Have to write this kind of weird to get the compiler to infer a higher ranked closure
+        let Some(late_format) = late_format else {
+            return Self {
+                inner,
+                late_format: None,
+            };
+        };
         Self {
-            inner: Arc::new(anyhow::Error::new(inner)),
-            late_format,
+            inner,
+            late_format: Some(Box::new(move |e: &anyhow::Error, fmt| {
+                late_format(e.downcast_ref().unwrap(), fmt)
+            })),
         }
     }
 
