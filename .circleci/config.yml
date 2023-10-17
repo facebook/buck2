@@ -47,6 +47,12 @@ commands:
           name: Install Rustup
           command: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
       - run:
+          name: Increase open file descriptor limit
+          command: |
+            # Avoid "too many open files" error.
+            echo 'sudo launchctl limit maxfiles 9000000 9999999' >> "$BASH_ENV"
+            echo 'ulimit -Sn 9000000' >> "$BASH_ENV"
+      - run:
           name: Brew install
           command: |
             brew install cmake coreutils opam llvm protobuf zstd
@@ -189,7 +195,7 @@ jobs:
     description: |
       Build all with cargo for macOS
     macos:
-      xcode: "14.2.0"
+      xcode: "14.2.0" # macOS version 12.6 (see https://circleci.com/docs/using-macos/)
     resource_class: macos.m1.medium.gen1
     steps:
       - checkout
