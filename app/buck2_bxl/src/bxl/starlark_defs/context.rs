@@ -714,7 +714,6 @@ fn context_methods(builder: &mut MethodsBuilder) {
         this: &'v BxlContext<'v>,
         #[starlark(require = pos)] labels: Value<'v>,
         #[starlark(default = NoneType)] target_platform: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<
         Either<NoneOr<StarlarkConfiguredTargetNode>, StarlarkTargetSet<ConfiguredTargetNode>>,
     > {
@@ -734,7 +733,6 @@ fn context_methods(builder: &mut MethodsBuilder) {
                             &target_platform,
                             this,
                             ctx,
-                            eval,
                         )
                         .await?;
 
@@ -861,7 +859,6 @@ fn context_methods(builder: &mut MethodsBuilder) {
         this: &'v BxlContext<'v>,
         labels: Value<'v>,
         #[starlark(default = NoneType)] target_platform: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetUniverse<'v>> {
         let target_platform = target_platform.parse_target_platforms(
             &this.data.target_alias_resolver,
@@ -879,7 +876,6 @@ fn context_methods(builder: &mut MethodsBuilder) {
                             &target_platform,
                             this_no_dice,
                             ctx,
-                            eval,
                         )
                         .await?;
 

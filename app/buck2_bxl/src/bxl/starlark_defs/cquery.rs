@@ -131,7 +131,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkCQueryCtx<'v>,
         from: Value<'v>,
         to: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx.via_dice(move |mut dice, ctx| {
             dice.via(|dice| {
@@ -142,7 +141,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             &this.target_platform,
                             ctx,
                             dice,
-                            eval,
                         )
                         .await?
                         .get(dice)
@@ -156,7 +154,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             &this.target_platform,
                             ctx,
                             dice,
-                            eval,
                         )
                         .await?
                         .get(dice)
@@ -180,7 +177,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkCQueryCtx<'v>,
         from: Value<'v>,
         to: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx.via_dice(|mut dice, ctx| {
             dice.via(|dice| {
@@ -191,7 +187,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             &this.target_platform,
                             ctx,
                             dice,
-                            eval,
                         )
                         .await?
                         .get(dice)
@@ -205,7 +200,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             &this.target_platform,
                             ctx,
                             dice,
-                            eval,
                         )
                         .await?
                         .get(dice)
@@ -230,7 +224,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         attr: &str,
         value: &str,
         targets: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx.via_dice(|mut dice, ctx| {
             dice.via(|dice| {
@@ -241,7 +234,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             &this.target_platform,
                             ctx,
                             dice,
-                            eval,
                         )
                         .await?
                         .get(dice)
@@ -269,7 +261,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkCQueryCtx<'v>,
         regex: &str,
         targets: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx.via_dice(|mut dice, ctx| {
             dice.via(|dice| {
@@ -280,7 +271,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             &this.target_platform,
                             ctx,
                             dice,
-                            eval,
                         )
                         .await?
                         .get(dice)
@@ -309,7 +299,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         attribute: &str,
         value: &str,
         targets: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx.via_dice(|mut dice, ctx| {
             dice.via(|dice| {
@@ -320,7 +309,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             &this.target_platform,
                             ctx,
                             dice,
-                            eval,
                         )
                         .await?
                         .get(dice)
@@ -351,7 +339,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkCQueryCtx<'v>,
         files: FileSetExpr,
         #[starlark(default = NoneOr::None)] universe: NoneOr<Value<'v>>,
-        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx
             .via_dice(|mut dice, ctx| {
@@ -364,7 +351,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                                     &this.target_platform,
                                     ctx,
                                     dice,
-                                    eval,
                                 )
                                 .await?
                                 .get(dice)
@@ -399,7 +385,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         universe: Value<'v>,
         #[starlark(default = NoneOr::None)] depth: NoneOr<i32>,
         #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
-        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx
             .via_dice(|mut dice, ctx| {
@@ -415,7 +400,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                                 &this.target_platform,
                                 ctx,
                                 dice,
-                                eval,
                             )
                             .await?
                             .get(dice)
@@ -455,7 +439,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkCQueryCtx<'v>,
         regex: &str,
         targets: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx
             .via_dice(|mut dice, ctx| {
@@ -467,7 +450,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                                 &this.target_platform,
                                 ctx,
                                 dice,
-                                eval,
                             )
                             .await?
                             .get(dice)
@@ -494,7 +476,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     fn inputs<'v>(
         this: &StarlarkCQueryCtx<'v>,
         targets: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkFileSet> {
         this.ctx
             .via_dice(|mut dice, ctx| {
@@ -506,7 +487,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                                 &this.target_platform,
                                 ctx,
                                 dice,
-                                eval,
                             )
                             .await?
                             .get(dice)
@@ -526,7 +506,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     fn testsof<'v>(
         this: &StarlarkCQueryCtx<'v>,
         targets: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx
             .via_dice(|mut dice, ctx| {
@@ -538,7 +517,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                                 &this.target_platform,
                                 ctx,
                                 dice,
-                                eval,
                             )
                             .await?
                             .get(dice)
@@ -562,7 +540,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     fn testsof_with_default_target_platform<'v>(
         this: &StarlarkCQueryCtx<'v>,
         targets: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx
             .via_dice(|mut dice, ctx| {
@@ -574,7 +551,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                                 &this.target_platform,
                                 ctx,
                                 dice,
-                                eval,
                             )
                             .await?
                             .get(dice)
@@ -608,7 +584,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         universe: Value<'v>,
         from: Value<'v>,
         depth: Option<i32>,
-        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx
             .via_dice(|mut dice, ctx| {
@@ -620,7 +595,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                                 &this.target_platform,
                                 ctx,
                                 dice,
-                                eval,
                             )
                             .await?
                             .get(dice)
@@ -634,7 +608,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                                 &this.target_platform,
                                 ctx,
                                 dice,
-                                eval,
                             )
                             .await?
                             .get(dice)
@@ -732,7 +705,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     fn buildfile<'v>(
         this: &StarlarkCQueryCtx<'v>,
         targets: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkFileSet> {
         this.ctx
             .via_dice(|mut dice, ctx| {
@@ -744,7 +716,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                                 &this.target_platform,
                                 ctx,
                                 dice,
-                                eval,
                             )
                             .await?
                             .get(dice)

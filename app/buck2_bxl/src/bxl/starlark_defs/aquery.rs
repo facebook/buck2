@@ -158,15 +158,9 @@ async fn unpack_action_nodes<'v>(
     .await?
     {
         providers.labels().cloned().collect()
-    } else if let Some(targets) = TargetListExpr::<ConfiguredTargetNode>::unpack_opt(
-        expr,
-        target_platform,
-        ctx,
-        dice,
-        eval,
-        true,
-    )
-    .await?
+    } else if let Some(targets) =
+        TargetListExpr::<ConfiguredTargetNode>::unpack_opt(expr, target_platform, ctx, dice, true)
+            .await?
     {
         targets.as_provider_labels()
     } else {

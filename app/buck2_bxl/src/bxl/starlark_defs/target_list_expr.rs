@@ -34,9 +34,9 @@ use buck2_util::truncate::truncate;
 use dice::DiceComputations;
 use dupe::Dupe;
 use dupe::IterDupedExt;
+use futures::future;
 use futures::TryFutureExt;
 use starlark::collections::SmallSet;
-use starlark::eval::Evaluator;
 use starlark::values::list::UnpackList;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::UnpackValue;
@@ -233,7 +233,6 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         target_platform: &Option<TargetLabel>,
         ctx: &BxlContextNoDice<'v>,
         dice: &mut DiceComputations,
-        eval: &Evaluator<'v, 'c>,
         allow_unconfigured: bool,
     ) -> anyhow::Result<Option<TargetListExpr<'v, ConfiguredTargetNode>>> {
         Ok(
@@ -243,8 +242,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                         .await?,
                 )
             } else {
-                Self::unpack_iterable(value, target_platform, ctx, dice, eval, allow_unconfigured)
-                    .await?
+                Self::unpack_iterable(value, target_platform, ctx, dice, allow_unconfigured).await?
             },
         )
     }
@@ -254,11 +252,10 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         target_platform: &Option<TargetLabel>,
         ctx: &BxlContextNoDice<'v>,
         dice: &mut DiceComputations,
-        eval: &Evaluator<'v, 'c>,
     ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         Ok(
             if let Some(resolved) =
-                Self::unpack_opt(value, target_platform, ctx, dice, eval, false).await?
+                Self::unpack_opt(value, target_platform, ctx, dice, false).await?
             {
                 resolved
             } else {
@@ -274,11 +271,10 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         target_platform: &Option<TargetLabel>,
         ctx: &BxlContextNoDice<'v>,
         dice: &mut DiceComputations,
-        eval: &Evaluator<'v, 'c>,
     ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         Ok(
             if let Some(resolved) =
-                Self::unpack_opt(value, target_platform, ctx, dice, eval, true).await?
+                Self::unpack_opt(value, target_platform, ctx, dice, true).await?
             {
                 resolved
             } else {
@@ -375,7 +371,6 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         target_platform: &Option<TargetLabel>,
         ctx: &BxlContextNoDice<'_>,
         dice: &mut DiceComputations,
-        eval: &Evaluator<'v, 'c>,
         allow_unconfigured: bool,
     ) -> anyhow::Result<Option<TargetListExpr<'v, ConfiguredTargetNode>>> {
         if let Some(s) = value.downcast_ref::<StarlarkTargetSet<ConfiguredTargetNode>>() {
@@ -384,16 +379,20 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
 
         #[allow(clippy::manual_map)] // `if else if` looks better here
         let items = if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
-            s.0.iter()
-                .map(|n| {
-                    ConfiguredTargetNodeArg::Unconfigured(TargetNodeOrTargetLabel::TargetNode(
-                        // TODO(nga): this extra allocation is ugly.
-                        eval.heap()
-                            .alloc_typed(StarlarkTargetNode(n.dupe()))
-                            .as_ref(),
-                    ))
-                })
-                .collect()
+            return Ok(Some(TargetListExpr::Iterable(
+                future::try_join_all(s.0.iter().map(|node| async {
+                    Self::check_allow_unconfigured(
+                        allow_unconfigured,
+                        &node.label().to_string(),
+                        target_platform,
+                    )?;
+                    anyhow::Ok(TargetExpr::Label(Cow::Owned(
+                        dice.get_configured_target(node.label(), target_platform.as_ref())
+                            .await?,
+                    )))
+                }))
+                .await?,
+            )));
         } else if let Some(unpack) = UnpackList::<ConfiguredTargetNodeArg>::unpack_value(value) {
             unpack.items
         } else {
