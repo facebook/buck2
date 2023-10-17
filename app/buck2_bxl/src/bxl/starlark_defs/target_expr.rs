@@ -15,3 +15,12 @@ pub(crate) enum TargetExpr<'v, Node: QueryTarget> {
     Node(Node),
     Label(Cow<'v, Node::NodeRef>),
 }
+
+impl<'v, Node: QueryTarget> TargetExpr<'v, Node> {
+    pub(crate) fn node_ref(&self) -> &Node::NodeRef {
+        match self {
+            TargetExpr::Node(node) => node.node_ref(),
+            TargetExpr::Label(label) => label,
+        }
+    }
+}

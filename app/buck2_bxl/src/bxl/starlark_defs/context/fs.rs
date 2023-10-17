@@ -56,7 +56,6 @@ use thiserror::Error;
 use super::BxlContext;
 use crate::bxl::starlark_defs::file_expr::FileExpr;
 use crate::bxl::starlark_defs::file_set::StarlarkReadDirSet;
-use crate::bxl::starlark_defs::target_expr::TargetExpr;
 use crate::bxl::starlark_defs::target_list_expr::TargetListExpr;
 use crate::bxl::starlark_defs::target_list_expr::TargetListExprArg;
 
@@ -303,12 +302,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
                             )
                             .await?;
                             match target_expr {
-                                TargetListExpr::One(TargetExpr::Node(node)) => {
-                                    Ok(node.label().pkg())
-                                }
-                                TargetListExpr::One(TargetExpr::Label(label)) => {
-                                    Ok(label.as_ref().pkg())
-                                }
+                                TargetListExpr::One(node) => Ok(node.node_ref().pkg()),
                                 _ => Err(anyhow::anyhow!(
                                     BxlFilesystemError::MultipleTargetHintsNotSupported(
                                         target_hint.value.to_repr()

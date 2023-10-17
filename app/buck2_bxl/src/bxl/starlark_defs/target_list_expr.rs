@@ -73,22 +73,14 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         dice: &mut DiceComputations,
     ) -> anyhow::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
         match self {
-            TargetListExpr::One(TargetExpr::Node(val)) => {
-                Ok(vec![dice.get_configured_target_node(val.label()).await?])
-            }
-            TargetListExpr::One(TargetExpr::Label(label)) => {
-                Ok(vec![dice.get_configured_target_node(label.as_ref()).await?])
-            }
+            TargetListExpr::One(node) => Ok(vec![
+                dice.get_configured_target_node(node.node_ref()).await?,
+            ]),
             TargetListExpr::Iterable(val) => {
                 let futs = val.into_iter().map(|node_or_ref| async {
-                    match node_or_ref {
-                        TargetExpr::Node(node) => {
-                            dice.get_configured_target_node(node.label()).await
-                        }
-                        TargetExpr::Label(label) => {
-                            dice.get_configured_target_node(label.as_ref()).await
-                        }
-                    }
+                    let node_or_ref = node_or_ref;
+                    dice.get_configured_target_node(node_or_ref.node_ref())
+                        .await
                 });
 
                 futures::future::join_all(futs).await.into_iter().collect()
@@ -225,20 +217,12 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         match &self {
             TargetListExpr::Iterable(i) => i
                 .iter()
-                .map(|e| match e {
-                    TargetExpr::Node(node) => {
-                        ConfiguredProvidersLabel::default_for(node.label().dupe())
-                    }
-                    TargetExpr::Label(label) => {
-                        ConfiguredProvidersLabel::default_for(label.as_ref().clone())
-                    }
-                })
+                .map(|e| ConfiguredProvidersLabel::default_for(e.node_ref().dupe()))
                 .collect(),
-            TargetListExpr::One(TargetExpr::Label(l)) => {
-                vec![ConfiguredProvidersLabel::default_for(l.as_ref().clone())]
-            }
-            TargetListExpr::One(TargetExpr::Node(n)) => {
-                vec![ConfiguredProvidersLabel::default_for(n.label().dupe())]
+            TargetListExpr::One(node) => {
+                vec![ConfiguredProvidersLabel::default_for(
+                    node.node_ref().dupe(),
+                )]
             }
             TargetListExpr::TargetSet(t) => t
                 .iter()
