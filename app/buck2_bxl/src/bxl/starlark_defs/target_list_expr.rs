@@ -41,7 +41,6 @@ use starlark::values::list::UnpackList;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use thiserror::Error;
 
@@ -155,6 +154,13 @@ pub(crate) enum ConfiguredTargetNodeArg<'v> {
 pub(crate) enum TargetSetOrTargetList<'v> {
     TargetSet(&'v StarlarkTargetSet<TargetNode>),
     TargetList(UnpackList<ValueOf<'v, TargetNodeOrTargetLabelOrStr<'v>>>),
+}
+
+#[derive(StarlarkTypeRepr, UnpackValue)]
+enum ConfiguredTargetListArg<'v> {
+    ConfiguredTargetSet(&'v StarlarkTargetSet<ConfiguredTargetNode>),
+    TargetSet(&'v StarlarkTargetSet<TargetNode>),
+    TargetList(UnpackList<ConfiguredTargetNodeArg<'v>>),
 }
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
@@ -373,56 +379,59 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         dice: &mut DiceComputations,
         allow_unconfigured: bool,
     ) -> anyhow::Result<Option<TargetListExpr<'v, ConfiguredTargetNode>>> {
-        if let Some(s) = value.downcast_ref::<StarlarkTargetSet<ConfiguredTargetNode>>() {
-            return Ok(Some(Self::TargetSet(Cow::Borrowed(s))));
-        }
-
-        #[allow(clippy::manual_map)] // `if else if` looks better here
-        let items = if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
-            return Ok(Some(TargetListExpr::Iterable(
-                future::try_join_all(s.0.iter().map(|node| async {
-                    Self::check_allow_unconfigured(
-                        allow_unconfigured,
-                        &node.label().to_string(),
-                        target_platform,
-                    )?;
-                    anyhow::Ok(TargetExpr::Label(Cow::Owned(
-                        dice.get_configured_target(node.label(), target_platform.as_ref())
-                            .await?,
-                    )))
-                }))
-                .await?,
-            )));
-        } else if let Some(unpack) = UnpackList::<ConfiguredTargetNodeArg>::unpack_value(value) {
-            unpack.items
-        } else {
-            return Err(TargetExprError::NotAListOfTargets(value.to_repr()).into());
+        let Some(arg) = ConfiguredTargetListArg::unpack_value(value) else {
+            return Ok(None);
         };
+        match arg {
+            ConfiguredTargetListArg::ConfiguredTargetSet(s) => {
+                return Ok(Some(Self::TargetSet(Cow::Borrowed(s))));
+            }
+            ConfiguredTargetListArg::TargetSet(s) => {
+                return Ok(Some(TargetListExpr::Iterable(
+                    future::try_join_all(s.0.iter().map(|node| async {
+                        Self::check_allow_unconfigured(
+                            allow_unconfigured,
+                            &node.label().to_string(),
+                            target_platform,
+                        )?;
+                        anyhow::Ok(TargetExpr::Label(Cow::Owned(
+                            dice.get_configured_target(node.label(), target_platform.as_ref())
+                                .await?,
+                        )))
+                    }))
+                    .await?,
+                )));
+            }
+            ConfiguredTargetListArg::TargetList(unpack) => {
+                let mut resolved = vec![];
 
-        let mut resolved = vec![];
+                for item in unpack.items {
+                    let unpacked =
+                        Self::unpack_literal(item, target_platform, ctx, dice, allow_unconfigured)
+                            .await?;
 
-        for item in items {
-            let unpacked =
-                Self::unpack_literal(item, target_platform, ctx, dice, allow_unconfigured).await?;
-
-            match unpacked {
-                TargetListExpr::One(node) => resolved.push(node),
-                TargetListExpr::TargetSet(set) => match set {
-                    Cow::Borrowed(s) => itertools::Either::Left(s.iter().duped()),
-                    Cow::Owned(s) => itertools::Either::Right(s.into_iter()),
+                    match unpacked {
+                        TargetListExpr::One(node) => resolved.push(node),
+                        TargetListExpr::TargetSet(set) => match set {
+                            Cow::Borrowed(s) => itertools::Either::Left(s.iter().duped()),
+                            Cow::Owned(s) => itertools::Either::Right(s.into_iter()),
+                        }
+                        .for_each(|t| resolved.push(TargetExpr::Node(t))),
+                        _ => {
+                            return Err(anyhow::anyhow!(TargetExprError::NotATarget(
+                                value.to_repr()
+                            ))
+                            .context(format!(
+                                "Error resolving list `{}`",
+                                truncate(&value.to_repr(), 150)
+                            )));
+                        }
+                    }
                 }
-                .for_each(|t| resolved.push(TargetExpr::Node(t))),
-                _ => {
-                    return Err(
-                        anyhow::anyhow!(TargetExprError::NotATarget(value.to_repr())).context(
-                            format!("Error resolving list `{}`", truncate(&value.to_repr(), 150)),
-                        ),
-                    );
-                }
+
+                Ok(Some(Self::Iterable(resolved)))
             }
         }
-
-        Ok(Some(Self::Iterable(resolved)))
     }
 }
 
