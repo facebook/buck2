@@ -74,6 +74,7 @@ def apple_macro_layer_set_bool_override_attrs_from_config(overrides: list[AppleB
 def apple_test_macro_impl(apple_test_rule, apple_resource_bundle_rule, **kwargs):
     kwargs.update(apple_bundle_config())
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config(_APPLE_TEST_LOCAL_EXECUTION_OVERRIDES))
+    kwargs.update(get_apple_build_genrule_deps_default_kwargs())
 
     # `extension` is used both by `apple_test` and `apple_resource_bundle`, so provide default here
     kwargs["extension"] = kwargs.pop("extension", "xctest")
@@ -95,6 +96,7 @@ def apple_bundle_macro_impl(apple_bundle_rule, apple_resource_bundle_rule, **kwa
 def apple_library_macro_impl(apple_library_rule = None, **kwargs):
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config(_APPLE_LIBRARY_LOCAL_EXECUTION_OVERRIDES))
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config([APPLE_STRIPPED_DEFAULT]))
+    kwargs.update(get_apple_build_genrule_deps_default_kwargs())
     apple_library_rule(**kwargs)
 
 def apple_binary_macro_impl(apple_binary_rule = None, apple_universal_executable = None, **kwargs):

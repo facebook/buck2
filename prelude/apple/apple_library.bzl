@@ -69,6 +69,7 @@ load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:utils.bzl", "expect")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
+load(":apple_genrule_deps.bzl", "get_apple_build_genrule_deps_attr_value", "get_apple_genrule_deps_outputs")
 load(":apple_modular_utility.bzl", "MODULE_CACHE_PATH")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node", "get_min_deployment_version_target_linker_flags", "get_min_deployment_version_target_preprocessor_flags")
 load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_apple_stripped_attr_value_with_default_fallback", "get_module_name")
@@ -212,11 +213,16 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         relative_args = CPreprocessorArgs(args = [framework_search_paths_flags]),
     )
 
+    genrule_deps_outputs = []
+    if get_apple_build_genrule_deps_attr_value(ctx):
+        genrule_deps_outputs = get_apple_genrule_deps_outputs(cxx_attr_deps(ctx) + cxx_attr_exported_deps(ctx))
+
     return CxxRuleConstructorParams(
         rule_type = params.rule_type,
         is_test = (params.rule_type == "apple_test"),
         headers_layout = get_apple_cxx_headers_layout(ctx),
         extra_exported_link_flags = params.extra_exported_link_flags,
+        extra_hidden = genrule_deps_outputs,
         extra_link_flags = [_get_linker_flags(ctx)],
         extra_link_input = swift_object_files,
         extra_link_input_has_external_debug_info = True,

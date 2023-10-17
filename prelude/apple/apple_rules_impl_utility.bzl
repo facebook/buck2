@@ -99,6 +99,10 @@ def apple_test_extra_attrs():
         "_macos_idb_companion": attrs.default_only(attrs.dep(default = "fbsource//xplat/buck2/platform/apple:macos_idb_companion", providers = [LocalResourceInfo])),
     }
     attribs.update(_apple_bundle_like_common_attrs())
+    attribs.update({
+        APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_NAME: APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_TYPE,
+        APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_NAME: APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_TYPE,
+    })
     return attribs
 
 def apple_bundle_extra_attrs():

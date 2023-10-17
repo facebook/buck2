@@ -1238,7 +1238,14 @@ def _static_library(
 
     base_name = _base_static_library_name(ctx, stripped)
     name = _archive_name(base_name, pic = pic, extension = linker_info.static_library_extension)
-    archive = make_archive(ctx, name, objects)
+
+    # If we have extra hidden deps of this target add them to the archive action
+    # so they are forced to build for static library output.
+    archive_args = cmd_args(objects)
+    if impl_params.extra_hidden:
+        archive_args.hidden(impl_params.extra_hidden)
+
+    archive = make_archive(ctx, name, objects, archive_args)
 
     bitcode_bundle = _bitcode_bundle(ctx, bitcode_objects, pic, stripped)
     if False:
@@ -1387,11 +1394,20 @@ def _shared_library(
         ),
         external_debug_info = external_debug_info,
     )
+
+    # If we have extra hidden deps here, add them as hidden inputs
+    # to the link action so that they are forced to build before linking.
+    links = [LinkArgs(infos = [link_info]), dep_infos]
+    if impl_params.extra_hidden:
+        links.append(
+            LinkArgs(flags = cmd_args().hidden(impl_params.extra_hidden)),
+        )
+
     link_result = cxx_link_shared_library(
         ctx = ctx,
         output = soname,
         opts = link_options(
-            links = [LinkArgs(infos = [link_info]), dep_infos],
+            links = links,
             identifier = soname,
             link_ordering = link_ordering,
             strip = impl_params.strip_executable,
