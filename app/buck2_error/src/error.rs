@@ -188,12 +188,12 @@ mod tests {
         let e: SharedError = e.into();
 
         let direct: crate::Error = e.clone().into();
-        assert!(!direct.is_emitted()); // FIXME
-        assert!(direct.downcast_ref::<TestError>().is_none()); // FIXME
+        assert!(direct.is_emitted());
+        assert!(direct.downcast_ref::<TestError>().is_some());
 
         let via_anyhow: anyhow::Error = e.into();
         let via_anyhow: crate::Error = via_anyhow.into();
-        assert!(!via_anyhow.is_emitted()); // FIXME
+        assert!(via_anyhow.is_emitted());
         assert!(via_anyhow.downcast_ref::<TestError>().is_some());
     }
 }

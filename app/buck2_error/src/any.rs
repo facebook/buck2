@@ -16,6 +16,7 @@ use ref_cast::RefCast;
 
 use crate::error::ErrorKind;
 use crate::root::ErrorRoot;
+use crate::shared_result::SharedError;
 
 /// Represents an arbitrary `buck2_error` compatible error type.
 ///
@@ -44,7 +45,10 @@ where
         let mut e = Some(value);
         let r: &mut dyn std::any::Any = &mut e;
         if let Some(e) = r.downcast_mut::<Option<anyhow::Error>>() {
-            return from_anyhow_for_crate(e.take().unwrap());
+            return from_anyhow_for_crate(Arc::new(e.take().unwrap()));
+        }
+        if let Some(e) = r.downcast_mut::<Option<SharedError>>() {
+            return from_anyhow_for_crate(e.take().unwrap().into_inner());
         }
 
         // Otherwise, we'll use the strategy for `std::error::Error`
@@ -67,7 +71,7 @@ where
 {
 }
 
-fn from_anyhow_for_crate(value: anyhow::Error) -> crate::Error {
+fn from_anyhow_for_crate(value: Arc<anyhow::Error>) -> crate::Error {
     // Instead of just turning this into an error root, we will first check if this
     // `anyhow::Error` was created from a `buck2_error::Error`. If so, we can recover the context in
     // a structured way.
@@ -78,11 +82,14 @@ fn from_anyhow_for_crate(value: anyhow::Error) -> crate::Error {
             None => {
                 // This error was not created from a `buck2_error::Error`, so we can't do anything
                 // smart
-                return crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new_anyhow(Arc::new(
-                    value,
-                )))));
+                return crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new_anyhow(value))));
             }
-            Some(e) => {
+            Some(mut e) => {
+                if let Some(shared) = e.downcast_ref::<SharedError>() {
+                    // `SharedError` might "hide" the actual type that we want to downcast to - make
+                    // sure it doesn't.
+                    e = shared.inner().as_ref();
+                }
                 if let Some(base) = e.downcast_ref::<CrateAsStdError>() {
                     break base;
                 } else {

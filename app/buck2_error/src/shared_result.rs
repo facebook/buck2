@@ -53,6 +53,10 @@ impl SharedError {
     pub fn inner(&self) -> &anyhow::Error {
         &self.0
     }
+
+    pub fn into_inner(self) -> Arc<anyhow::Error> {
+        self.0
+    }
 }
 
 impl Display for SharedError {
