@@ -83,13 +83,22 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
         aapt2_preferred_density = ctx.attrs.aapt2_preferred_density,
     )
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
-    java_packaging_deps += [
+    compiled_r_dot_java_deps = [
         create_java_packaging_dep(
             ctx,
             r_dot_java.library_output.full_library,
             dex_weight_factor = android_toolchain.r_dot_java_weight_factor,
         )
         for r_dot_java in resources_info.r_dot_javas
+    ]
+    java_packaging_deps += compiled_r_dot_java_deps
+    sub_targets["compiled_r_dot_java"] = [
+        DefaultInfo(
+            default_outputs = [
+                compiled_r_dot_java_dep.jar
+                for compiled_r_dot_java_dep in compiled_r_dot_java_deps
+            ],
+        ),
     ]
 
     dex_java_packaging_deps = [packaging_dep for packaging_dep in java_packaging_deps if packaging_dep.dex and packaging_dep.dex.dex.owner.raw_target() not in no_dx_target_labels]
