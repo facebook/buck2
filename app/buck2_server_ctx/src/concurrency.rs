@@ -19,7 +19,6 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use async_condvar_fair::Condvar;
 use async_trait::async_trait;
 use buck2_core::soft_error;
@@ -32,6 +31,7 @@ use buck2_data::ExclusiveCommandWaitEnd;
 use buck2_data::ExclusiveCommandWaitStart;
 use buck2_data::ExitWhenDifferentState;
 use buck2_data::NoActiveDiceState;
+use buck2_error::Context;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_util::truncate::truncate;
 use buck2_wrapper_common::invocation_id::TraceId;
