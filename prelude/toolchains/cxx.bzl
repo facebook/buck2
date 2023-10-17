@@ -27,7 +27,7 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
     """
     A very simple toolchain that is hardcoded to the current environment.
     """
-    archiver_args = ["ar", "rcs"]
+    archiver_args = ["ar"]
     archiver_type = "gnu"
     archiver_supports_argfiles = True
     asm_compiler = ctx.attrs.compiler
@@ -94,7 +94,7 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
                 type = linker_type,
                 link_binaries_locally = True,
                 archive_objects_locally = True,
-                use_archiver_flags = False,
+                use_archiver_flags = True,
                 static_dep_runtime_ld_flags = [],
                 static_pic_dep_runtime_ld_flags = [],
                 shared_dep_runtime_ld_flags = [],
