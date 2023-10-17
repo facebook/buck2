@@ -133,15 +133,17 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
             futures::future::ready(Ok(Some(Self::Literal(configured_target.label().clone()))))
                 .boxed()
         } else {
-            match Self::unpack_providers_label(value, ctx) {
-                Ok(Some(label)) => async move {
-                    dice.get_configured_provider_label(&label, target_platform.as_ref())
-                        .map(|res| res.map(|r| Some(Self::Literal(r))))
-                        .await
-                }
-                .boxed(),
-                Ok(None) => futures::future::ready(Ok(None)).boxed(),
-                Err(e) => futures::future::ready(Err(e)).boxed(),
+            match ProvidersLabelArg::unpack_value(value) {
+                Some(arg) => match Self::unpack_providers_label(arg, ctx) {
+                    Ok(label) => async move {
+                        dice.get_configured_provider_label(&label, target_platform.as_ref())
+                            .map(|res| res.map(|r| Some(Self::Literal(r))))
+                            .await
+                    }
+                    .boxed(),
+                    Err(e) => futures::future::ready(Err(e)).boxed(),
+                },
+                None => futures::future::ready(Ok(None)).boxed(),
             }
         }
     }
@@ -153,10 +155,14 @@ impl ProvidersExpr<ProvidersLabel> {
         ctx: &BxlContextNoDice<'_>,
         eval: &Evaluator<'v, '_>,
     ) -> anyhow::Result<Self> {
-        Ok(if let Some(resolved) = Self::unpack_literal(value, ctx)? {
-            resolved
+        Ok(if let Some(arg) = ProvidersLabelArg::unpack_value(value) {
+            Self::unpack_literal(arg, ctx)?
         } else if let Some(resolved) = Self::unpack_iterable(value, ctx, eval, |value, ctx| {
-            let res = Self::unpack_literal(value, ctx);
+            let arg = ProvidersLabelArg::unpack_value(value);
+            let res = match arg {
+                None => Ok(None),
+                Some(arg) => Self::unpack_literal(arg, ctx).map(Some),
+            };
             async move { res }.boxed()
         })
         .await?
@@ -170,11 +176,10 @@ impl ProvidersExpr<ProvidersLabel> {
     }
 
     fn unpack_literal<'v>(
-        value: Value<'v>,
+        value: ProvidersLabelArg<'v>,
         ctx: &BxlContextNoDice<'_>,
-    ) -> anyhow::Result<Option<Self>> {
-        Self::unpack_providers_label(value, ctx)?
-            .map_or(Ok(None), |label| Ok(Some(Self::Literal(label))))
+    ) -> anyhow::Result<Self> {
+        Ok(Self::Literal(Self::unpack_providers_label(value, ctx)?))
     }
 }
 
@@ -187,34 +192,29 @@ impl<P: ProvidersLabelMaybeConfigured> ProvidersExpr<P> {
     }
 
     fn unpack_providers_label<'v>(
-        value: Value<'v>,
+        arg: ProvidersLabelArg<'v>,
         ctx: &BxlContextNoDice<'_>,
-    ) -> anyhow::Result<Option<ProvidersLabel>> {
-        let Some(arg) = ProvidersLabelArg::unpack_value(value) else {
-            return Ok(None);
-        };
+    ) -> anyhow::Result<ProvidersLabel> {
         match arg {
             ProvidersLabelArg::Str(s) => {
-                Ok(Some(
-                    ParsedPattern::<ProvidersPatternExtra>::parse_relaxed(
-                        &ctx.target_alias_resolver,
-                        // TODO(nga): Parse relaxed relative to cell root is incorrect.
-                        CellPathRef::new(ctx.cell_name, CellRelativePath::empty()),
-                        s,
-                        &ctx.cell_resolver,
-                    )?
-                    .as_providers_label(s)?,
-                ))
+                Ok(ParsedPattern::<ProvidersPatternExtra>::parse_relaxed(
+                    &ctx.target_alias_resolver,
+                    // TODO(nga): Parse relaxed relative to cell root is incorrect.
+                    CellPathRef::new(ctx.cell_name, CellRelativePath::empty()),
+                    s,
+                    &ctx.cell_resolver,
+                )?
+                .as_providers_label(s)?)
             }
-            ProvidersLabelArg::StarlarkTargetLabel(target) => Ok(Some(ProvidersLabel::new(
+            ProvidersLabelArg::StarlarkTargetLabel(target) => Ok(ProvidersLabel::new(
                 target.label().dupe(),
                 ProvidersName::Default,
-            ))),
-            ProvidersLabelArg::StarlarkProvidersLabel(label) => Ok(Some(label.label().clone())),
-            ProvidersLabelArg::StarlarkTargetNode(node) => Ok(Some(ProvidersLabel::new(
+            )),
+            ProvidersLabelArg::StarlarkProvidersLabel(label) => Ok(label.label().clone()),
+            ProvidersLabelArg::StarlarkTargetNode(node) => Ok(ProvidersLabel::new(
                 node.0.label().dupe(),
                 ProvidersName::Default,
-            ))),
+            )),
         }
     }
 
