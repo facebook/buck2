@@ -159,26 +159,25 @@ async fn bxl(
     } = match eval_bxl(ctx, bxl_key.clone()).await {
         Ok(result) => result,
         Err(e) => {
+            // `buck2_error::Error` has more reliable downcasting
+            let e: buck2_error::Error = e.into();
             if !request.print_stacktrace {
-                if let Some(shared) = e.downcast_ref::<SharedError>() {
-                    if let Some(diag) = shared.inner().downcast_ref::<Diagnostic>() {
-                        if let Some(fail_no_stacktrace) =
-                            diag.message.downcast_ref::<BxlErrorWithoutStacktrace>()
-                        {
-                            let dispatcher = get_dispatcher();
-                            dispatcher.instant_event(StarlarkFailNoStacktrace {
-                                trace: format!("{}", diag),
-                            });
-                            dispatcher.console_message(
-                                "Re-run the script with `-v5` to show the full stacktrace"
-                                    .to_owned(),
-                            );
-                            return Err((fail_no_stacktrace.clone()).into());
-                        }
+                if let Some(diag) = e.downcast_ref::<Diagnostic>() {
+                    if let Some(fail_no_stacktrace) =
+                        diag.message.downcast_ref::<BxlErrorWithoutStacktrace>()
+                    {
+                        let dispatcher = get_dispatcher();
+                        dispatcher.instant_event(StarlarkFailNoStacktrace {
+                            trace: format!("{}", diag),
+                        });
+                        dispatcher.console_message(
+                            "Re-run the script with `-v5` to show the full stacktrace".to_owned(),
+                        );
+                        return Err((fail_no_stacktrace.clone()).into());
                     }
                 }
             }
-            return Err(e);
+            return Err(e.into());
         }
     };
 
