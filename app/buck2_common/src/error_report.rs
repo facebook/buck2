@@ -7,15 +7,15 @@
  * of this source tree.
  */
 
-use buck2_error::shared_result::recursive_shared_downcast_ref;
-
-pub fn create_error_report(err: &anyhow::Error) -> buck2_data::ErrorReport {
+pub fn create_error_report(err: &buck2_error::Error) -> buck2_data::ErrorReport {
     // Infra error by default if no category tag is set
     let category = Some(
-        recursive_shared_downcast_ref::<buck2_data::ErrorCategory>(err)
+        err.downcast_ref::<buck2_data::ErrorCategory>()
             .map_or(buck2_data::ErrorCategory::Infra as i32, |c| *c as i32),
     );
-    let cause = recursive_shared_downcast_ref::<buck2_data::ErrorCause>(err).map(|c| *c as i32);
+    let cause = err
+        .downcast_ref::<buck2_data::ErrorCause>()
+        .map(|c| *c as i32);
     let error_message = format!("{:#}", err);
 
     buck2_data::ErrorReport {

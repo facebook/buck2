@@ -445,10 +445,14 @@ impl<'c> DiceCalculationDelegate<'c> {
                 path: package.as_cell_path().to_string(),
             },
             async {
-                let result = self.ctx.resolve_package_listing(package.dupe()).await;
+                let result = self
+                    .ctx
+                    .resolve_package_listing(package.dupe())
+                    .await
+                    .map_err(Into::into);
                 let error = result.as_ref().err().map(create_error_report);
                 (
-                    result,
+                    result.map_err(Into::into),
                     buck2_data::LoadPackageEnd {
                         path: package.as_cell_path().to_string(),
                         error,
