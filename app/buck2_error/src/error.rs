@@ -10,6 +10,7 @@
 use std::fmt;
 use std::sync::Arc;
 
+use crate::context::DisplayAndAny;
 use crate::root::DynLateFormat;
 use crate::root::ErrorRoot;
 
@@ -33,10 +34,7 @@ pub(crate) enum ErrorKind {
     // implementation of `into_anyhow_for_format`.
     Root(ErrorRoot),
     /// For now we use untyped context to maximize compatibility with anyhow.
-    WithContext(
-        #[allocative(skip)] Arc<dyn fmt::Display + Send + Sync + 'static>,
-        Error,
-    ),
+    WithContext(#[allocative(skip)] Arc<dyn DisplayAndAny>, Error),
     /// Indicates that the error has been emitted, ie shown to the user.
     Emitted(Error),
 }
