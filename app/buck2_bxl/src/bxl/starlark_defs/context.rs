@@ -120,6 +120,7 @@ use crate::bxl::starlark_defs::cquery::StarlarkCQueryCtx;
 use crate::bxl::starlark_defs::event::StarlarkUserEventParser;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
+use crate::bxl::starlark_defs::target_expr::TargetExpr;
 use crate::bxl::starlark_defs::target_list_expr::filter_incompatible;
 use crate::bxl::starlark_defs::target_list_expr::TargetListExpr;
 use crate::bxl::starlark_defs::target_list_expr::TargetListExprArg;
@@ -741,7 +742,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
                         .await?;
 
                     Ok(match target_expr {
-                        TargetListExpr::Label(label) => {
+                        TargetListExpr::One(TargetExpr::Label(label)) => {
                             let set = filter_incompatible(
                                 iter::once(ctx.get_configured_target_node(&label).await?),
                                 this,
@@ -760,7 +761,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
                             }
                         }
 
-                        TargetListExpr::Node(node) => {
+                        TargetListExpr::One(TargetExpr::Node(node)) => {
                             Either::Left(NoneOr::Other(StarlarkConfiguredTargetNode(node)))
                         }
                         multi => Either::Right(StarlarkTargetSet::from(filter_incompatible(
@@ -794,13 +795,13 @@ fn context_methods(builder: &mut MethodsBuilder) {
                 async move {
                     Ok(
                         match TargetListExpr::<'v, TargetNode>::unpack(labels, this, ctx).await? {
-                            TargetListExpr::Label(label) => {
+                            TargetListExpr::One(TargetExpr::Label(label)) => {
                                 let node = ctx.get_target_node(&label).await?;
 
                                 node.alloc(eval.heap())
                             }
 
-                            TargetListExpr::Node(node) => node.alloc(eval.heap()),
+                            TargetListExpr::One(TargetExpr::Node(node)) => node.alloc(eval.heap()),
                             multi => eval
                                 .heap()
                                 .alloc(StarlarkTargetSet::from(multi.get(ctx).await?.into_owned())),
@@ -895,11 +896,11 @@ fn context_methods(builder: &mut MethodsBuilder) {
                         .await?;
 
                     let target_set = match target_expr {
-                        TargetListExpr::Label(label) => filter_incompatible(
+                        TargetListExpr::One(TargetExpr::Label(label)) => filter_incompatible(
                             iter::once(ctx.get_configured_target_node(&label).await?),
                             this_no_dice,
                         )?,
-                        TargetListExpr::Node(node) => {
+                        TargetListExpr::One(TargetExpr::Node(node)) => {
                             let mut set = TargetSet::new();
                             set.insert(node);
                             set

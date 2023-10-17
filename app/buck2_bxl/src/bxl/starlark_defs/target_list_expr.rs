@@ -51,6 +51,7 @@ use thiserror::Error;
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
+use crate::bxl::starlark_defs::target_expr::TargetExpr;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 
 /// TargetExpr is just a simple type that can be used in starlark_module
@@ -58,9 +59,8 @@ use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 /// literal (like `//some:target`) or list of literals or a TargetSet Value (from one of the
 /// BXL functions that return them).
 pub(crate) enum TargetListExpr<'v, Node: QueryTarget> {
-    Node(Node),
-    Label(Cow<'v, Node::NodeRef>),
-    Iterable(Vec<Either<Node, Cow<'v, Node::NodeRef>>>),
+    One(TargetExpr<'v, Node>),
+    Iterable(Vec<TargetExpr<'v, Node>>),
     TargetSet(Cow<'v, TargetSet<Node>>),
 }
 
@@ -73,17 +73,19 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         dice: &mut DiceComputations,
     ) -> anyhow::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
         match self {
-            TargetListExpr::Node(val) => {
+            TargetListExpr::One(TargetExpr::Node(val)) => {
                 Ok(vec![dice.get_configured_target_node(val.label()).await?])
             }
-            TargetListExpr::Label(label) => {
+            TargetListExpr::One(TargetExpr::Label(label)) => {
                 Ok(vec![dice.get_configured_target_node(label.as_ref()).await?])
             }
             TargetListExpr::Iterable(val) => {
                 let futs = val.into_iter().map(|node_or_ref| async {
                     match node_or_ref {
-                        Either::Left(node) => dice.get_configured_target_node(node.label()).await,
-                        Either::Right(label) => {
+                        TargetExpr::Node(node) => {
+                            dice.get_configured_target_node(node.label()).await
+                        }
+                        TargetExpr::Label(label) => {
                             dice.get_configured_target_node(label.as_ref()).await
                         }
                     }
@@ -171,12 +173,12 @@ impl<'v> TargetListExpr<'v, TargetNode> {
         ctx: &DiceComputations,
     ) -> anyhow::Result<Cow<'v, TargetSet<TargetNode>>> {
         match self {
-            TargetListExpr::Node(val) => {
+            TargetListExpr::One(TargetExpr::Node(val)) => {
                 let mut set = TargetSet::new();
                 set.insert(val);
                 Ok(Cow::Owned(set))
             }
-            TargetListExpr::Label(label) => {
+            TargetListExpr::One(TargetExpr::Label(label)) => {
                 let node = ctx.get_target_node(&label).await?;
                 let mut set = TargetSet::new();
                 set.insert(node);
@@ -186,8 +188,8 @@ impl<'v> TargetListExpr<'v, TargetNode> {
                 let mut set = TargetSet::new();
                 let futs = val.into_iter().map(|node_or_ref| async {
                     match node_or_ref {
-                        Either::Left(node) => Ok(node),
-                        Either::Right(node_ref) => ctx.get_target_node(&node_ref).await,
+                        TargetExpr::Node(node) => Ok(node),
+                        TargetExpr::Label(node_ref) => ctx.get_target_node(&node_ref).await,
                     }
                 });
 
@@ -224,18 +226,18 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
             TargetListExpr::Iterable(i) => i
                 .iter()
                 .map(|e| match e {
-                    Either::Left(node) => {
+                    TargetExpr::Node(node) => {
                         ConfiguredProvidersLabel::default_for(node.label().dupe())
                     }
-                    Either::Right(label) => {
+                    TargetExpr::Label(label) => {
                         ConfiguredProvidersLabel::default_for(label.as_ref().clone())
                     }
                 })
                 .collect(),
-            TargetListExpr::Label(l) => {
+            TargetListExpr::One(TargetExpr::Label(l)) => {
                 vec![ConfiguredProvidersLabel::default_for(l.as_ref().clone())]
             }
-            TargetListExpr::Node(n) => {
+            TargetListExpr::One(TargetExpr::Node(n)) => {
                 vec![ConfiguredProvidersLabel::default_for(n.label().dupe())]
             }
             TargetListExpr::TargetSet(t) => t
@@ -313,11 +315,15 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         allow_unconfigured: bool,
     ) -> anyhow::Result<Option<TargetListExpr<'v, ConfiguredTargetNode>>> {
         if let Some(configured_target) = value.downcast_ref::<StarlarkConfiguredTargetNode>() {
-            Ok(Some(Self::Node(configured_target.0.dupe())))
+            Ok(Some(Self::One(TargetExpr::Node(
+                configured_target.0.dupe(),
+            ))))
         } else if let Some(configured_target) =
             value.downcast_ref::<StarlarkConfiguredTargetLabel>()
         {
-            Ok(Some(Self::Label(Cow::Borrowed(configured_target.label()))))
+            Ok(Some(TargetListExpr::One(TargetExpr::Label(Cow::Borrowed(
+                configured_target.label(),
+            )))))
         } else {
             // Handle the unconfigured case
             let mut unconfigured_label = None;
@@ -332,13 +338,13 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                     &ctx.cell_resolver,
                 )? {
                     ParsedPattern::Target(pkg, name, TargetPatternExtra) => {
-                        Ok(Some(Self::Label(Cow::Owned(
+                        Ok(Some(TargetListExpr::One(TargetExpr::Label(Cow::Owned(
                             dice.get_configured_target(
                                 &TargetLabel::new(pkg, name.as_ref()),
                                 target_platform.as_ref(),
                             )
                             .await?,
-                        ))))
+                        )))))
                     }
                     pattern => {
                         let loaded_patterns =
@@ -361,10 +367,10 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                     None => Ok(None),
                     Some(label) => {
                         unconfigured_label = Some(label.label().to_string());
-                        Ok(Some(Self::Label(Cow::Owned(
+                        Ok(Some(TargetListExpr::One(TargetExpr::Label(Cow::Owned(
                             dice.get_configured_target(label.label(), target_platform.as_ref())
                                 .await?,
-                        ))))
+                        )))))
                     }
                 }
             };
@@ -413,13 +419,12 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                 Self::unpack_literal(item, target_platform, ctx, dice, allow_unconfigured).await?;
 
             match unpacked {
-                Some(TargetListExpr::Node(node)) => resolved.push(Either::Left(node)),
-                Some(TargetListExpr::Label(label)) => resolved.push(Either::Right(label)),
+                Some(TargetListExpr::One(node)) => resolved.push(node),
                 Some(TargetListExpr::TargetSet(set)) => match set {
                     Cow::Borrowed(s) => itertools::Either::Left(s.iter().duped()),
                     Cow::Owned(s) => itertools::Either::Right(s.into_iter()),
                 }
-                .for_each(|t| resolved.push(Either::Left(t))),
+                .for_each(|t| resolved.push(TargetExpr::Node(t))),
                 _ => {
                     return Err(anyhow::anyhow!(TargetExprError::NotATarget(item.to_repr()))
                         .context(format!(
@@ -452,10 +457,12 @@ impl<'v> TargetListExpr<'v, TargetNode> {
         dice: &mut DiceComputations,
     ) -> anyhow::Result<TargetListExpr<'v, TargetNode>> {
         match value {
-            TargetNodeOrTargetLabelOrStr::TargetNode(target) => Ok(Self::Node(target.0.dupe())),
-            TargetNodeOrTargetLabelOrStr::TargetLabel(target) => {
-                Ok(Self::Label(Cow::Borrowed(target.label())))
+            TargetNodeOrTargetLabelOrStr::TargetNode(target) => {
+                Ok(TargetListExpr::One(TargetExpr::Node(target.0.dupe())))
             }
+            TargetNodeOrTargetLabelOrStr::TargetLabel(target) => Ok(TargetListExpr::One(
+                TargetExpr::Label(Cow::Borrowed(target.label())),
+            )),
             TargetNodeOrTargetLabelOrStr::Str(s) => {
                 match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                     &ctx.target_alias_resolver,
@@ -464,9 +471,11 @@ impl<'v> TargetListExpr<'v, TargetNode> {
                     s,
                     &ctx.cell_resolver,
                 )? {
-                    ParsedPattern::Target(pkg, name, TargetPatternExtra) => Ok(Self::Label(
-                        Cow::Owned(TargetLabel::new(pkg, name.as_ref())),
-                    )),
+                    ParsedPattern::Target(pkg, name, TargetPatternExtra) => {
+                        Ok(TargetListExpr::One(TargetExpr::Label(Cow::Owned(
+                            TargetLabel::new(pkg, name.as_ref()),
+                        ))))
+                    }
                     pattern => {
                         let loaded_patterns =
                             load_patterns(dice, vec![pattern], MissingTargetBehavior::Fail).await?;
@@ -495,13 +504,12 @@ impl<'v> TargetListExpr<'v, TargetNode> {
                     let unpacked = Self::unpack_literal(item.typed, ctx, dice).await?;
 
                     match unpacked {
-                        TargetListExpr::Node(node) => resolved.push(Either::Left(node)),
-                        TargetListExpr::Label(label) => resolved.push(Either::Right(label)),
+                        TargetListExpr::One(node) => resolved.push(node),
                         TargetListExpr::TargetSet(set) => match set {
                             Cow::Borrowed(s) => itertools::Either::Left(s.iter().duped()),
                             Cow::Owned(s) => itertools::Either::Right(s.into_iter()),
                         }
-                        .for_each(|t| resolved.push(Either::Left(t))),
+                        .for_each(|t| resolved.push(TargetExpr::Node(t))),
                         TargetListExpr::Iterable(_) => {
                             return Err(TargetExprError::NotATarget(item.value.to_repr()))
                                 .context("list in a list");
