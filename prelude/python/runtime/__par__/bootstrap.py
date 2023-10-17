@@ -44,6 +44,12 @@ def run_as_main(
         os.environ["PAR_MAIN_ORIGINAL"] = main_module
         main_module = decorate_main_module
 
+        # Also pass the main function if set:
+        decorate_main_function = os.environ.pop("PAR_MAIN_FUNCTION_OVERRIDE", None)
+        if main_function:
+            os.environ["PAR_MAIN_FUNCTION_ORIGINAL"] = main_function
+            main_function = decorate_main_function
+
     if not main_function:
         import runpy
 
