@@ -583,7 +583,14 @@ impl<'a> LspContext for BuckLspContext<'a> {
                         match self.parse_file_with_contents(uri, content).await {
                             Ok(result) => result,
                             Err(e) => {
-                                let message = EvalMessage::from_anyhow(uri.path(), e.inner());
+                                let e: buck2_error::Error = e.into();
+                                let message = if let Some(d) =
+                                    e.downcast_ref::<starlark::errors::Diagnostic>()
+                                {
+                                    EvalMessage::from_diagnostic(uri.path(), d)
+                                } else {
+                                    EvalMessage::from_any_error(uri.path(), &e)
+                                };
                                 LspEvalResult {
                                     diagnostics: vec![eval_message_to_lsp_diagnostic(message)],
                                     ast: None,

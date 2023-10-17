@@ -146,7 +146,9 @@ impl Display for EvalMessage {
 }
 
 impl EvalMessage {
-    /// Convert from an `anyhow::Error`, including some type checking, to an `EvalMessage`
+    /// Convert from an `anyhow::Error` to an `EvalMessage`.
+    ///
+    /// This will attempt to downcast the error to a `Diagnostic`.
     pub fn from_anyhow(file: &Path, x: &anyhow::Error) -> Self {
         match x.downcast_ref::<Diagnostic>() {
             Some(d) => Self::from_diagnostic(file, d),
