@@ -124,7 +124,7 @@ pub(crate) fn filter_incompatible(
 }
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
-enum TargetNodeOrTargetLabel<'v> {
+pub(crate) enum TargetNodeOrTargetLabel<'v> {
     TargetNode(&'v StarlarkTargetNode),
     TargetLabel(&'v StarlarkTargetLabel),
 }
@@ -143,6 +143,14 @@ pub(crate) enum TargetNodeOrTargetLabelOrStr<'v> {
     TargetNode(&'v StarlarkTargetNode),
     TargetLabel(&'v StarlarkTargetLabel),
     Str(&'v str),
+}
+
+#[derive(StarlarkTypeRepr, UnpackValue)]
+pub(crate) enum ConfiguredTargetNodeArg<'v> {
+    ConfiguredTargetNode(&'v StarlarkConfiguredTargetNode),
+    ConfiguredTargetLabel(&'v StarlarkConfiguredTargetLabel),
+    Str(&'v str),
+    Unconfigured(TargetNodeOrTargetLabel<'v>),
 }
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
@@ -306,19 +314,17 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         dice: &mut DiceComputations,
         allow_unconfigured: bool,
     ) -> anyhow::Result<Option<TargetListExpr<'v, ConfiguredTargetNode>>> {
-        if let Some(configured_target) = value.downcast_ref::<StarlarkConfiguredTargetNode>() {
-            Ok(Some(Self::One(TargetExpr::Node(
-                configured_target.0.dupe(),
-            ))))
-        } else if let Some(configured_target) =
-            value.downcast_ref::<StarlarkConfiguredTargetLabel>()
-        {
-            Ok(Some(TargetListExpr::One(TargetExpr::Label(Cow::Borrowed(
-                configured_target.label(),
-            )))))
-        } else {
-            // Handle the unconfigured case
-            let result = if let Some(s) = value.unpack_str() {
+        let Some(arg) = ConfiguredTargetNodeArg::unpack_value(value) else {
+            return Ok(None);
+        };
+        match arg {
+            ConfiguredTargetNodeArg::ConfiguredTargetNode(configured_target) => Ok(Some(
+                Self::One(TargetExpr::Node(configured_target.0.dupe())),
+            )),
+            ConfiguredTargetNodeArg::ConfiguredTargetLabel(configured_target) => Ok(Some(
+                TargetListExpr::One(TargetExpr::Label(Cow::Borrowed(configured_target.label()))),
+            )),
+            ConfiguredTargetNodeArg::Str(s) => {
                 Self::check_allow_unconfigured(allow_unconfigured, s, target_platform)?;
 
                 match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
@@ -353,24 +359,18 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                         Ok(Some(Self::TargetSet(Cow::Owned(result))))
                     }
                 }
-            } else {
-                match TargetNodeOrTargetLabel::unpack_value(value) {
-                    None => Ok(None),
-                    Some(label) => {
-                        Self::check_allow_unconfigured(
-                            allow_unconfigured,
-                            &label.label().to_string(),
-                            target_platform,
-                        )?;
-                        Ok(Some(TargetListExpr::One(TargetExpr::Label(Cow::Owned(
-                            dice.get_configured_target(label.label(), target_platform.as_ref())
-                                .await?,
-                        )))))
-                    }
-                }
-            };
-
-            result
+            }
+            ConfiguredTargetNodeArg::Unconfigured(label) => {
+                Self::check_allow_unconfigured(
+                    allow_unconfigured,
+                    &label.label().to_string(),
+                    target_platform,
+                )?;
+                Ok(Some(TargetListExpr::One(TargetExpr::Label(Cow::Owned(
+                    dice.get_configured_target(label.label(), target_platform.as_ref())
+                        .await?,
+                )))))
+            }
         }
     }
 
