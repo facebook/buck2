@@ -282,6 +282,23 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         )
     }
 
+    fn check_allow_unconfigured(
+        allow_unconfigured: bool,
+        unconfigured_label: &str,
+        target_platform: &Option<TargetLabel>,
+    ) -> anyhow::Result<()> {
+        if !allow_unconfigured {
+            if target_platform.is_none() {
+                soft_error!(
+                    "bxl_unconfigured_target_in_cquery",
+                    TargetExprError::UnconfiguredTargetInCquery(unconfigured_label.to_owned())
+                        .into()
+                )?;
+            }
+        }
+        Ok(())
+    }
+
     async fn unpack_literal(
         value: Value<'v>,
         target_platform: &Option<TargetLabel>,
@@ -301,9 +318,8 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
             )))))
         } else {
             // Handle the unconfigured case
-            let mut unconfigured_label = None;
             let result = if let Some(s) = value.unpack_str() {
-                unconfigured_label = Some(s.to_owned());
+                Self::check_allow_unconfigured(allow_unconfigured, s, target_platform)?;
 
                 match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                     &ctx.target_alias_resolver,
@@ -341,7 +357,11 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                 match TargetNodeOrTargetLabel::unpack_value(value) {
                     None => Ok(None),
                     Some(label) => {
-                        unconfigured_label = Some(label.label().to_string());
+                        Self::check_allow_unconfigured(
+                            allow_unconfigured,
+                            &label.label().to_string(),
+                            target_platform,
+                        )?;
                         Ok(Some(TargetListExpr::One(TargetExpr::Label(Cow::Owned(
                             dice.get_configured_target(label.label(), target_platform.as_ref())
                                 .await?,
@@ -349,17 +369,6 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                     }
                 }
             };
-
-            if !allow_unconfigured {
-                if let Some(unconfigured_label) = unconfigured_label {
-                    if target_platform.is_none() {
-                        soft_error!(
-                            "bxl_unconfigured_target_in_cquery",
-                            TargetExprError::UnconfiguredTargetInCquery(unconfigured_label).into()
-                        )?;
-                    }
-                }
-            }
 
             result
         }
