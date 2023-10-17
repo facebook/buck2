@@ -16,7 +16,6 @@ use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::starlark_value;
-use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkValue;
@@ -54,7 +53,7 @@ fn starlark_instant_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(time_a)
     ///     ctx.output.print(time_b)
     /// ```
-    fn elapsed_secs<'v>(this: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn elapsed_secs<'v>(this: Value<'v>) -> anyhow::Result<f64> {
         let secs = this
             .downcast_ref::<StarlarkInstant>()
             .unwrap()
@@ -62,7 +61,7 @@ fn starlark_instant_methods(builder: &mut MethodsBuilder) {
             .elapsed()
             .as_secs() as f64;
 
-        Ok(heap.alloc(secs))
+        Ok(secs)
     }
 
     /// Elapsed time in millis as a float
@@ -78,7 +77,7 @@ fn starlark_instant_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(time_a)
     ///     ctx.output.print(time_b)
     /// ```
-    fn elapsed_millis<'v>(this: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn elapsed_millis<'v>(this: Value<'v>) -> anyhow::Result<f64> {
         let millis = this
             .downcast_ref::<StarlarkInstant>()
             .unwrap()
@@ -86,7 +85,7 @@ fn starlark_instant_methods(builder: &mut MethodsBuilder) {
             .elapsed()
             .as_millis() as f64;
 
-        Ok(heap.alloc(millis))
+        Ok(millis)
     }
 }
 
