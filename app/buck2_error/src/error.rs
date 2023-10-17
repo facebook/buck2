@@ -52,9 +52,9 @@ impl Error {
     ) -> Self {
         Self::new_from_arc(
             Arc::new(e),
-            Some(Box::new(
-                move |e: &(dyn std::error::Error + 'static), fmt| f(e.downcast_ref().unwrap(), fmt),
-            )),
+            Some(Box::new(move |e: &anyhow::Error, fmt| {
+                f(e.downcast_ref().unwrap(), fmt)
+            })),
         )
     }
 

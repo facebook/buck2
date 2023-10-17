@@ -10,15 +10,13 @@
 use std::fmt;
 use std::sync::Arc;
 
-pub(crate) type DynLateFormat = dyn Fn(&(dyn std::error::Error + 'static), &mut fmt::Formatter<'_>) -> fmt::Result
-    + Send
-    + Sync
-    + 'static;
+pub(crate) type DynLateFormat =
+    dyn Fn(&anyhow::Error, &mut fmt::Formatter<'_>) -> fmt::Result + Send + Sync + 'static;
 
 #[derive(allocative::Allocative)]
 pub(crate) struct ErrorRoot {
     #[allocative(skip)]
-    inner: Arc<dyn std::error::Error + Send + Sync + 'static>,
+    inner: Arc<anyhow::Error>,
     #[allocative(skip)] // FIXME(JakobDegen): "Implementation is not general enough"
     late_format: Option<Box<DynLateFormat>>,
 }
@@ -28,11 +26,23 @@ impl ErrorRoot {
         inner: Arc<dyn std::error::Error + Send + Sync + 'static>,
         late_format: Option<Box<DynLateFormat>>,
     ) -> Self {
-        Self { inner, late_format }
+        Self {
+            inner: Arc::new(anyhow::Error::new(inner)),
+            late_format,
+        }
+    }
+
+    /// Should not typically be used. Use the appropriate `anyhow::Error: From<crate::Error>`
+    /// instead.
+    pub(crate) fn new_anyhow(e: Arc<anyhow::Error>) -> Self {
+        Self {
+            inner: e,
+            late_format: None,
+        }
     }
 
     pub fn get_late_format<'a>(&'a self) -> Option<impl fmt::Display + 'a> {
-        struct DisplayWrapper<'a>(&'a (dyn std::error::Error + 'static), &'a DynLateFormat);
+        struct DisplayWrapper<'a>(&'a anyhow::Error, &'a DynLateFormat);
 
         impl<'a> fmt::Display for DisplayWrapper<'a> {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -48,7 +58,22 @@ impl ErrorRoot {
     }
 
     pub(crate) fn into_anyhow_for_format(&self) -> anyhow::Error {
-        anyhow::Error::new(self.inner.clone())
+        #[derive(derive_more::Display)]
+        pub(crate) struct ArcAnyhowAsStdError(pub Arc<anyhow::Error>);
+
+        impl fmt::Debug for ArcAnyhowAsStdError {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                fmt::Debug::fmt(&self.0, f)
+            }
+        }
+
+        impl std::error::Error for ArcAnyhowAsStdError {
+            fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+                std::error::Error::source(&**self.0)
+            }
+        }
+
+        ArcAnyhowAsStdError(self.inner.clone()).into()
     }
 
     /// Equality comparison for use in tests only

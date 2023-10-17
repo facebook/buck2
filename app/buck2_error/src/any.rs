@@ -15,6 +15,7 @@ use std::sync::Arc;
 use ref_cast::RefCast;
 
 use crate::error::ErrorKind;
+use crate::root::ErrorRoot;
 
 /// Represents an arbitrary `buck2_error` compatible error type.
 ///
@@ -48,8 +49,9 @@ where
 
         // Otherwise, we'll use the strategy for `std::error::Error`
         let anyhow = e.unwrap().into();
-        let std_err: Box<dyn std::error::Error + Send + Sync + 'static> = anyhow.into();
-        crate::Error::new_from_arc(Arc::from(std_err), None)
+        crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new_anyhow(Arc::new(
+            anyhow,
+        )))))
     }
 }
 impl<T: fmt::Debug + fmt::Display + Sync + Send + 'static> AnyError for T
@@ -76,7 +78,9 @@ fn from_anyhow_for_crate(value: anyhow::Error) -> crate::Error {
             None => {
                 // This error was not created from a `buck2_error::Error`, so we can't do anything
                 // smart
-                return crate::Error::new(AnyhowAsStdError(value));
+                return crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new_anyhow(Arc::new(
+                    value,
+                )))));
             }
             Some(e) => {
                 if let Some(base) = e.downcast_ref::<CrateAsStdError>() {
@@ -108,21 +112,6 @@ fn from_anyhow_for_crate(value: anyhow::Error) -> crate::Error {
 impl From<crate::Error> for anyhow::Error {
     fn from(value: crate::Error) -> Self {
         Into::into(CrateAsStdError(value))
-    }
-}
-
-#[derive(derive_more::Display)]
-pub(crate) struct AnyhowAsStdError(pub anyhow::Error);
-
-impl fmt::Debug for AnyhowAsStdError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&self.0, f)
-    }
-}
-
-impl std::error::Error for AnyhowAsStdError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        std::error::Error::source(&*self.0)
     }
 }
 
