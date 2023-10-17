@@ -29,6 +29,7 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::BxlContext;
@@ -98,8 +99,8 @@ fn target_universe_methods(builder: &mut MethodsBuilder) {
     fn target_set<'v>(
         this: &'v StarlarkTargetUniverse<'v>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
-        Ok(heap.alloc(StarlarkTargetSet::from(this.target_set.clone())))
+    ) -> anyhow::Result<ValueTyped<'v, StarlarkTargetSet<ConfiguredTargetNode>>> {
+        Ok(heap.alloc_typed(StarlarkTargetSet::from(this.target_set.clone())))
     }
 
     // Looks up valid configured target nodes within the universe. The targets passed in are either string literals,
@@ -108,7 +109,7 @@ fn target_universe_methods(builder: &mut MethodsBuilder) {
         this: &'v StarlarkTargetUniverse<'v>,
         targets: TargetListExprArg<'v>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<ValueTyped<'v, StarlarkTargetSet<ConfiguredTargetNode>>> {
         this.ctx.via_dice(|mut dice, ctx| {
             dice.via(|dice| {
                 async move {
@@ -121,7 +122,7 @@ fn target_universe_methods(builder: &mut MethodsBuilder) {
                         .target_universe
                         .get_from_targets(inputs.iter().map(|i| i.label().dupe()));
 
-                    Ok(eval.heap().alloc(StarlarkTargetSet::from(result)))
+                    Ok(eval.heap().alloc_typed(StarlarkTargetSet::from(result)))
                 }
                 .boxed_local()
             })
