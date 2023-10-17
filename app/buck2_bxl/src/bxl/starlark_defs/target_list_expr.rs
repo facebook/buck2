@@ -264,20 +264,13 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     }
 
     pub(crate) async fn unpack<'c>(
-        value: Value<'v>,
+        // TODO(nga): this does not accept unconfigured targets, so should be narrower type here.
+        arg: ConfiguredTargetListExprArg<'v>,
         target_platform: &Option<TargetLabel>,
         ctx: &BxlContextNoDice<'v>,
         dice: &mut DiceComputations,
     ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
-        Ok(
-            if let Some(arg) = ConfiguredTargetListExprArg::unpack_value(value) {
-                Self::unpack_opt(arg, target_platform, ctx, dice, false).await?
-            } else {
-                return Err(anyhow::anyhow!(TargetExprError::NotAListOfTargets(
-                    value.to_repr()
-                )));
-            },
-        )
+        Self::unpack_opt(arg, target_platform, ctx, dice, false).await
     }
 
     pub(crate) async fn unpack_allow_unconfigured<'c>(

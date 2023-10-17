@@ -46,6 +46,7 @@ use crate::bxl::starlark_defs::file_set::FileSetExpr;
 use crate::bxl::starlark_defs::file_set::StarlarkFileSet;
 use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
 use crate::bxl::starlark_defs::target_list_expr::filter_incompatible;
+use crate::bxl::starlark_defs::target_list_expr::ConfiguredTargetListExprArg;
 use crate::bxl::starlark_defs::target_list_expr::TargetListExpr;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::uquery::unpack_unconfigured_query_args;
@@ -129,8 +130,8 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     /// The `allpaths` query for computing all dependency paths.
     fn allpaths<'v>(
         this: &StarlarkCQueryCtx<'v>,
-        from: Value<'v>,
-        to: Value<'v>,
+        from: ConfiguredTargetListExprArg<'v>,
+        to: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx.via_dice(move |mut dice, ctx| {
             dice.via(|dice| {
@@ -175,8 +176,8 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     // The somepath query.
     fn somepath<'v>(
         this: &StarlarkCQueryCtx<'v>,
-        from: Value<'v>,
-        to: Value<'v>,
+        from: ConfiguredTargetListExprArg<'v>,
+        to: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx.via_dice(|mut dice, ctx| {
             dice.via(|dice| {
@@ -223,7 +224,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkCQueryCtx<'v>,
         attr: &str,
         value: &str,
-        targets: Value<'v>,
+        targets: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx.via_dice(|mut dice, ctx| {
             dice.via(|dice| {
@@ -260,7 +261,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     fn kind<'v>(
         this: &StarlarkCQueryCtx<'v>,
         regex: &str,
-        targets: Value<'v>,
+        targets: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx.via_dice(|mut dice, ctx| {
             dice.via(|dice| {
@@ -298,7 +299,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkCQueryCtx<'v>,
         attribute: &str,
         value: &str,
-        targets: Value<'v>,
+        targets: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx.via_dice(|mut dice, ctx| {
             dice.via(|dice| {
@@ -338,7 +339,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     fn owner<'v>(
         this: &StarlarkCQueryCtx<'v>,
         files: FileSetExpr,
-        #[starlark(default = NoneOr::None)] universe: NoneOr<Value<'v>>,
+        #[starlark(default = NoneOr::None)] universe: NoneOr<ConfiguredTargetListExprArg<'v>>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx
             .via_dice(|mut dice, ctx| {
@@ -382,7 +383,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn deps<'v>(
         this: &StarlarkCQueryCtx<'v>,
-        universe: Value<'v>,
+        universe: ConfiguredTargetListExprArg<'v>,
         #[starlark(default = NoneOr::None)] depth: NoneOr<i32>,
         #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
@@ -438,7 +439,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     fn filter<'v>(
         this: &StarlarkCQueryCtx<'v>,
         regex: &str,
-        targets: Value<'v>,
+        targets: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx
             .via_dice(|mut dice, ctx| {
@@ -475,7 +476,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn inputs<'v>(
         this: &StarlarkCQueryCtx<'v>,
-        targets: Value<'v>,
+        targets: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkFileSet> {
         this.ctx
             .via_dice(|mut dice, ctx| {
@@ -505,7 +506,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     /// The testsof query for listing the tests of the specified targets.
     fn testsof<'v>(
         this: &StarlarkCQueryCtx<'v>,
-        targets: Value<'v>,
+        targets: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx
             .via_dice(|mut dice, ctx| {
@@ -581,8 +582,8 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn rdeps<'v>(
         this: &StarlarkCQueryCtx<'v>,
-        universe: Value<'v>,
-        from: Value<'v>,
+        universe: ConfiguredTargetListExprArg<'v>,
+        from: ConfiguredTargetListExprArg<'v>,
         depth: Option<i32>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx
@@ -704,7 +705,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn buildfile<'v>(
         this: &StarlarkCQueryCtx<'v>,
-        targets: Value<'v>,
+        targets: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkFileSet> {
         this.ctx
             .via_dice(|mut dice, ctx| {
