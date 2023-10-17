@@ -247,8 +247,13 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                     Self::unpack_literal(arg, target_platform, ctx, dice, allow_unconfigured)
                         .await?,
                 )
+            } else if let Some(arg) = UnpackValue::unpack_value(value) {
+                Some(
+                    Self::unpack_iterable(arg, target_platform, ctx, dice, allow_unconfigured)
+                        .await?,
+                )
             } else {
-                Self::unpack_iterable(value, target_platform, ctx, dice, allow_unconfigured).await?
+                None
             },
         )
     }
@@ -373,21 +378,18 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     }
 
     async fn unpack_iterable<'c>(
-        value: Value<'v>,
+        value: ValueOf<'v, ConfiguredTargetListArg<'v>>,
         target_platform: &Option<TargetLabel>,
         ctx: &BxlContextNoDice<'_>,
         dice: &mut DiceComputations,
         allow_unconfigured: bool,
-    ) -> anyhow::Result<Option<TargetListExpr<'v, ConfiguredTargetNode>>> {
-        let Some(arg) = ConfiguredTargetListArg::unpack_value(value) else {
-            return Ok(None);
-        };
-        match arg {
+    ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
+        match value.typed {
             ConfiguredTargetListArg::ConfiguredTargetSet(s) => {
-                return Ok(Some(Self::TargetSet(Cow::Borrowed(s))));
+                return Ok(Self::TargetSet(Cow::Borrowed(s)));
             }
             ConfiguredTargetListArg::TargetSet(s) => {
-                return Ok(Some(TargetListExpr::Iterable(
+                return Ok(TargetListExpr::Iterable(
                     future::try_join_all(s.0.iter().map(|node| async {
                         Self::check_allow_unconfigured(
                             allow_unconfigured,
@@ -400,7 +402,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                         )))
                     }))
                     .await?,
-                )));
+                ));
             }
             ConfiguredTargetListArg::TargetList(unpack) => {
                 let mut resolved = vec![];
@@ -419,17 +421,17 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                         .for_each(|t| resolved.push(TargetExpr::Node(t))),
                         _ => {
                             return Err(anyhow::anyhow!(TargetExprError::NotATarget(
-                                value.to_repr()
+                                value.value.to_repr()
                             ))
                             .context(format!(
                                 "Error resolving list `{}`",
-                                truncate(&value.to_repr(), 150)
+                                truncate(&value.value.to_repr(), 150)
                             )));
                         }
                     }
                 }
 
-                Ok(Some(Self::Iterable(resolved)))
+                Ok(Self::Iterable(resolved))
             }
         }
     }
