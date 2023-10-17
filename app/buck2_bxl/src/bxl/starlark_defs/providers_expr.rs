@@ -31,6 +31,8 @@ use futures::FutureExt;
 use itertools::Either;
 use starlark::eval::Evaluator;
 use starlark::values::list::ListRef;
+use starlark::values::type_repr::StarlarkTypeRepr;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
@@ -54,6 +56,14 @@ enum ProviderExprError {
 pub(crate) enum ProvidersExpr<P: ProvidersLabelMaybeConfigured> {
     Literal(P),
     Iterable(Vec<P>),
+}
+
+#[derive(StarlarkTypeRepr, UnpackValue)]
+enum ProvidersLabelArg<'v> {
+    Str(&'v str),
+    StarlarkTargetLabel(&'v StarlarkTargetLabel),
+    StarlarkProvidersLabel(&'v StarlarkProvidersLabel),
+    StarlarkTargetNode(&'v StarlarkTargetNode),
 }
 
 impl ProvidersExpr<ConfiguredProvidersLabel> {
@@ -180,33 +190,32 @@ impl<P: ProvidersLabelMaybeConfigured> ProvidersExpr<P> {
         value: Value<'v>,
         ctx: &BxlContextNoDice<'_>,
     ) -> anyhow::Result<Option<ProvidersLabel>> {
-        #[allow(clippy::manual_map)] // `if else if` looks better here
-        Ok(if let Some(s) = value.unpack_str() {
-            Some(
-                ParsedPattern::<ProvidersPatternExtra>::parse_relaxed(
-                    &ctx.target_alias_resolver,
-                    // TODO(nga): Parse relaxed relative to cell root is incorrect.
-                    CellPathRef::new(ctx.cell_name, CellRelativePath::empty()),
-                    s,
-                    &ctx.cell_resolver,
-                )?
-                .as_providers_label(s)?,
-            )
-        } else if let Some(target) = value.downcast_ref::<StarlarkTargetLabel>() {
-            Some(ProvidersLabel::new(
+        let Some(arg) = ProvidersLabelArg::unpack_value(value) else {
+            return Ok(None);
+        };
+        match arg {
+            ProvidersLabelArg::Str(s) => {
+                Ok(Some(
+                    ParsedPattern::<ProvidersPatternExtra>::parse_relaxed(
+                        &ctx.target_alias_resolver,
+                        // TODO(nga): Parse relaxed relative to cell root is incorrect.
+                        CellPathRef::new(ctx.cell_name, CellRelativePath::empty()),
+                        s,
+                        &ctx.cell_resolver,
+                    )?
+                    .as_providers_label(s)?,
+                ))
+            }
+            ProvidersLabelArg::StarlarkTargetLabel(target) => Ok(Some(ProvidersLabel::new(
                 target.label().dupe(),
                 ProvidersName::Default,
-            ))
-        } else if let Some(label) = value.downcast_ref::<StarlarkProvidersLabel>() {
-            Some(label.label().clone())
-        } else if let Some(node) = value.downcast_ref::<StarlarkTargetNode>() {
-            Some(ProvidersLabel::new(
+            ))),
+            ProvidersLabelArg::StarlarkProvidersLabel(label) => Ok(Some(label.label().clone())),
+            ProvidersLabelArg::StarlarkTargetNode(node) => Ok(Some(ProvidersLabel::new(
                 node.0.label().dupe(),
                 ProvidersName::Default,
-            ))
-        } else {
-            None
-        })
+            ))),
+        }
     }
 
     async fn unpack_iterable<'c, 'v: 'c>(
