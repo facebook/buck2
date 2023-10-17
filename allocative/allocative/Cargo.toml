@@ -1,6 +1,6 @@
 [package]
 name = "allocative"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 description = "Inspect rust object tree and output it as flamegraph"
 license = "MIT OR Apache-2.0"
@@ -9,7 +9,7 @@ repository = "https://github.com/facebookexperimental/allocative"
 documentation = "https://docs.rs/allocative"
 
 [dependencies]
-allocative_derive = { path = "../allocative_derive", version = "=0.3.0" }
+allocative_derive = { path = "../allocative_derive", version = "=0.3.1" }
 
 ctor = { workspace = true }
 
