@@ -47,6 +47,8 @@ pub trait Context<T>: Sealed {
     where
         C: fmt::Display + Send + Sync + 'static,
         F: FnOnce() -> C;
+
+    fn unshared_error(self) -> anyhow::Result<T>;
 }
 pub trait Sealed {}
 
@@ -71,6 +73,16 @@ impl<T, E: AnyError> Context<T> for std::result::Result<T, E> {
         match self {
             Ok(x) => Ok(x),
             Err(e) => Err(crate::Error::new_anyhow_with_context(e, f())),
+        }
+    }
+
+    fn unshared_error(self) -> anyhow::Result<T> {
+        match self {
+            Ok(x) => Ok(x),
+            Err(e) => {
+                let e: crate::Error = e.into();
+                Err(e.into())
+            }
         }
     }
 }
@@ -105,6 +117,13 @@ impl<T> Context<T> for Option<T> {
         match self {
             Some(x) => Ok(x),
             None => Err(crate::Error::new_anyhow_with_context(NoneError, f())),
+        }
+    }
+
+    fn unshared_error(self) -> anyhow::Result<T> {
+        match self {
+            Some(x) => Ok(x),
+            None => Err(crate::Error::new(NoneError).into()),
         }
     }
 }

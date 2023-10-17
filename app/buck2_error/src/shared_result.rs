@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::fmt;
-
 use dupe::Dupe;
 
 pub type SharedError = crate::Error;
@@ -38,29 +36,4 @@ where
     }
 }
 
-/// unshared_error() can be used to convert a SharedResult to a normal anyhow::Result. The inner error will still be shared.
-///
-/// The `?` operator will automatically convert SharedError to non-shared Error in the same way,
-/// so unshared_error() is only necessary when propagating a SharedResult directly.
-pub trait ToUnsharedResultExt<T, E> {
-    fn with_context<C, F>(self, f: F) -> anyhow::Result<T>
-    where
-        C: fmt::Display + Send + Sync + 'static,
-        F: FnOnce() -> C;
-
-    fn unshared_error(self) -> Result<T, E>;
-}
-
-impl<T> ToUnsharedResultExt<T, anyhow::Error> for SharedResult<T> {
-    fn with_context<C, F>(self, f: F) -> anyhow::Result<T>
-    where
-        C: fmt::Display + Send + Sync + 'static,
-        F: FnOnce() -> C,
-    {
-        crate::Context::with_context(self, f)
-    }
-
-    fn unshared_error(self) -> Result<T, anyhow::Error> {
-        self.map_err(|e| e.into())
-    }
-}
+pub trait ToUnsharedResultExt<T> = crate::Context<T>;

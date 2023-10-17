@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+#![feature(trait_alias)]
 #![feature(trait_upcasting)]
 
 mod any;

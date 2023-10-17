@@ -10,7 +10,6 @@
 use std::sync::Arc;
 
 use allocative::Allocative;use starlark_map::small_map::SmallMap;
-use anyhow::Context;
 use async_trait::async_trait;use buck2_build_api::interpreter::rule_defs::provider::builtin::platform_info::FrozenPlatformInfo;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;

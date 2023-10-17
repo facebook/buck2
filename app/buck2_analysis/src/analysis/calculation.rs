@@ -13,7 +13,6 @@ use std::time::Duration;
 use std::time::Instant;
 
 use allocative::Allocative;
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_build_api::analysis::calculation::RuleAnalsysisCalculationImpl;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
