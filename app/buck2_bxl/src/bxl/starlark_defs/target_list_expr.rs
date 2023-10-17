@@ -239,10 +239,11 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         allow_unconfigured: bool,
     ) -> anyhow::Result<Option<TargetListExpr<'v, ConfiguredTargetNode>>> {
         Ok(
-            if let Some(resolved) =
-                Self::unpack_literal(value, target_platform, ctx, dice, allow_unconfigured).await?
-            {
-                Some(resolved)
+            if let Some(arg) = ConfiguredTargetNodeArg::unpack_value(value) {
+                Some(
+                    Self::unpack_literal(arg, target_platform, ctx, dice, allow_unconfigured)
+                        .await?,
+                )
             } else {
                 Self::unpack_iterable(value, target_platform, ctx, dice, eval, allow_unconfigured)
                     .await?
@@ -308,22 +309,19 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     }
 
     async fn unpack_literal(
-        value: Value<'v>,
+        arg: ConfiguredTargetNodeArg<'v>,
         target_platform: &Option<TargetLabel>,
         ctx: &BxlContextNoDice<'_>,
         dice: &mut DiceComputations,
         allow_unconfigured: bool,
-    ) -> anyhow::Result<Option<TargetListExpr<'v, ConfiguredTargetNode>>> {
-        let Some(arg) = ConfiguredTargetNodeArg::unpack_value(value) else {
-            return Ok(None);
-        };
+    ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         match arg {
-            ConfiguredTargetNodeArg::ConfiguredTargetNode(configured_target) => Ok(Some(
-                Self::One(TargetExpr::Node(configured_target.0.dupe())),
-            )),
-            ConfiguredTargetNodeArg::ConfiguredTargetLabel(configured_target) => Ok(Some(
+            ConfiguredTargetNodeArg::ConfiguredTargetNode(configured_target) => {
+                Ok(Self::One(TargetExpr::Node(configured_target.0.dupe())))
+            }
+            ConfiguredTargetNodeArg::ConfiguredTargetLabel(configured_target) => Ok(
                 TargetListExpr::One(TargetExpr::Label(Cow::Borrowed(configured_target.label()))),
-            )),
+            ),
             ConfiguredTargetNodeArg::Str(s) => {
                 Self::check_allow_unconfigured(allow_unconfigured, s, target_platform)?;
 
@@ -335,13 +333,13 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                     &ctx.cell_resolver,
                 )? {
                     ParsedPattern::Target(pkg, name, TargetPatternExtra) => {
-                        Ok(Some(TargetListExpr::One(TargetExpr::Label(Cow::Owned(
+                        Ok(TargetListExpr::One(TargetExpr::Label(Cow::Owned(
                             dice.get_configured_target(
                                 &TargetLabel::new(pkg, name.as_ref()),
                                 target_platform.as_ref(),
                             )
                             .await?,
-                        )))))
+                        ))))
                     }
                     pattern => {
                         let loaded_patterns =
@@ -356,7 +354,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                         .collect::<Result<Vec<_>, _>>()?;
 
                         let result = filter_incompatible(maybe_compatible.into_iter(), ctx)?;
-                        Ok(Some(Self::TargetSet(Cow::Owned(result))))
+                        Ok(Self::TargetSet(Cow::Owned(result)))
                     }
                 }
             }
@@ -366,10 +364,10 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                     &label.label().to_string(),
                     target_platform,
                 )?;
-                Ok(Some(TargetListExpr::One(TargetExpr::Label(Cow::Owned(
+                Ok(TargetListExpr::One(TargetExpr::Label(Cow::Owned(
                     dice.get_configured_target(label.label(), target_platform.as_ref())
                         .await?,
-                )))))
+                ))))
             }
         }
     }
@@ -398,23 +396,26 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
 
         let mut resolved = vec![];
 
-        for item in items {
+        for item_value in items {
+            let Some(item) = ConfiguredTargetNodeArg::unpack_value(item_value) else {
+                return Err(TargetExprError::NotATarget(item_value.to_repr()).into());
+            };
             let unpacked =
                 Self::unpack_literal(item, target_platform, ctx, dice, allow_unconfigured).await?;
 
             match unpacked {
-                Some(TargetListExpr::One(node)) => resolved.push(node),
-                Some(TargetListExpr::TargetSet(set)) => match set {
+                TargetListExpr::One(node) => resolved.push(node),
+                TargetListExpr::TargetSet(set) => match set {
                     Cow::Borrowed(s) => itertools::Either::Left(s.iter().duped()),
                     Cow::Owned(s) => itertools::Either::Right(s.into_iter()),
                 }
                 .for_each(|t| resolved.push(TargetExpr::Node(t))),
                 _ => {
-                    return Err(anyhow::anyhow!(TargetExprError::NotATarget(item.to_repr()))
-                        .context(format!(
-                            "Error resolving list `{}`",
-                            truncate(&value.to_repr(), 150)
-                        )));
+                    return Err(
+                        anyhow::anyhow!(TargetExprError::NotATarget(item_value.to_repr())).context(
+                            format!("Error resolving list `{}`", truncate(&value.to_repr(), 150)),
+                        ),
+                    );
                 }
             }
         }
