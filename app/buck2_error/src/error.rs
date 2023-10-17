@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::fmt;
 use std::fmt::Display;
 use std::sync::Arc;
 
@@ -38,10 +39,17 @@ pub(crate) enum ErrorKind {
     Emitted(Error),
 }
 
+type DynLateFormat = dyn Fn(&(dyn std::error::Error + 'static), &mut fmt::Formatter<'_>) -> fmt::Result
+    + Send
+    + Sync
+    + 'static;
+
 #[derive(allocative::Allocative)]
 pub(crate) struct ErrorRoot {
     #[allocative(skip)]
     inner: Arc<dyn std::error::Error + Send + Sync + 'static>,
+    #[allocative(skip)] // FIXME(JakobDegen): "Implementation is not general enough"
+    late_format: Option<Box<DynLateFormat>>,
 }
 
 impl ErrorRoot {
@@ -52,11 +60,29 @@ impl ErrorRoot {
 
 impl Error {
     pub fn new<E: std::error::Error + Send + Sync + 'static>(e: E) -> Self {
-        Self::new_from_arc(Arc::new(e))
+        Self::new_from_arc(Arc::new(e), None)
     }
 
-    pub(crate) fn new_from_arc(arc: Arc<dyn std::error::Error + Send + Sync + 'static>) -> Self {
-        Self(Arc::new(ErrorKind::Root(ErrorRoot { inner: arc })))
+    pub fn new_with_late_format<E: std::error::Error + Send + Sync + 'static>(
+        e: E,
+        f: impl Fn(&E, &mut fmt::Formatter<'_>) -> fmt::Result + Send + Sync + 'static,
+    ) -> Self {
+        Self::new_from_arc(
+            Arc::new(e),
+            Some(Box::new(
+                move |e: &(dyn std::error::Error + 'static), fmt| f(e.downcast_ref().unwrap(), fmt),
+            )),
+        )
+    }
+
+    pub(crate) fn new_from_arc(
+        arc: Arc<dyn std::error::Error + Send + Sync + 'static>,
+        late_format: Option<Box<DynLateFormat>>,
+    ) -> Self {
+        Self(Arc::new(ErrorKind::Root(ErrorRoot {
+            inner: arc,
+            late_format,
+        })))
     }
 
     fn iter_kinds<'a>(&'a self) -> impl Iterator<Item = &'a ErrorKind> {
@@ -71,6 +97,13 @@ impl Error {
         })
     }
 
+    fn root(&self) -> &ErrorRoot {
+        let Some(ErrorKind::Root(r)) = self.iter_kinds().last() else {
+            unreachable!()
+        };
+        r
+    }
+
     pub fn mark_emitted(self) -> Self {
         Self(Arc::new(ErrorKind::Emitted(self)))
     }
@@ -78,5 +111,26 @@ impl Error {
     pub fn is_emitted(&self) -> bool {
         self.iter_kinds()
             .any(|kind| matches!(kind, ErrorKind::Emitted(_)))
+    }
+
+    /// Returns possible additional late formatting for this error
+    ///
+    /// Most errors are only shown to the user once. However, some errors, specifically action
+    /// errors, are shown to the user twice: Once when the error occurs, and again at the end of the
+    /// build in the form of a short "Failed to build target" summary.
+    ///
+    /// In cases like these, this function returns the additional information to show to the user at
+    /// the end of the build.
+    pub fn get_late_format<'a>(&'a self) -> Option<impl fmt::Display + 'a> {
+        struct DisplayWrapper<'a>(&'a (dyn std::error::Error + 'static), &'a DynLateFormat);
+
+        impl<'a> fmt::Display for DisplayWrapper<'a> {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                self.1(self.0, f)
+            }
+        }
+
+        let root = self.root();
+        Some(DisplayWrapper(root.inner(), root.late_format.as_ref()?))
     }
 }

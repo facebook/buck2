@@ -47,7 +47,7 @@ where
         // Otherwise, we'll use the strategy for `std::error::Error`
         let anyhow = e.unwrap().into();
         let std_err: Box<dyn std::error::Error + Send + Sync + 'static> = anyhow.into();
-        crate::Error::new_from_arc(Arc::from(std_err))
+        crate::Error::new_from_arc(Arc::from(std_err), None)
     }
 }
 impl<T: Debug + Display + Sync + Send + 'static> AnyError for T
