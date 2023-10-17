@@ -714,7 +714,8 @@ fn context_methods(builder: &mut MethodsBuilder) {
     fn configured_targets<'v>(
         this: &'v BxlContext<'v>,
         #[starlark(require = pos)] labels: ConfiguredTargetListExprArg<'v>,
-        #[starlark(default = NoneType)] target_platform: Value<'v>,
+        #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
+        target_platform: ValueAsStarlarkTargetLabel<'v>,
     ) -> anyhow::Result<
         Either<NoneOr<StarlarkConfiguredTargetNode>, StarlarkTargetSet<ConfiguredTargetNode>>,
     > {
@@ -859,7 +860,8 @@ fn context_methods(builder: &mut MethodsBuilder) {
     fn target_universe<'v>(
         this: &'v BxlContext<'v>,
         labels: ConfiguredTargetListExprArg<'v>,
-        #[starlark(default = NoneType)] target_platform: Value<'v>,
+        #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
+        target_platform: ValueAsStarlarkTargetLabel<'v>,
     ) -> anyhow::Result<StarlarkTargetUniverse<'v>> {
         let target_platform = target_platform.parse_target_platforms(
             &this.data.target_alias_resolver,
@@ -909,8 +911,9 @@ fn context_methods(builder: &mut MethodsBuilder) {
     /// The `target_platform` is a target label, or a string that is a target label.
     fn cquery<'v>(
         this: &'v BxlContext<'v>,
-        // TODO(brasselsprouts): I would like to strongly type this.
-        #[starlark(default = NoneType)] target_platform: Value<'v>,
+        // TODO(nga): parameter should be either positional or named, not both.
+        #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
+        target_platform: ValueAsStarlarkTargetLabel<'v>,
     ) -> anyhow::Result<StarlarkCQueryCtx<'v>> {
         StarlarkCQueryCtx::new(this, target_platform, &this.data.global_target_platform)
     }
@@ -922,7 +925,8 @@ fn context_methods(builder: &mut MethodsBuilder) {
     /// The `target_platform` is a target label, or a string that is a target label.
     fn aquery<'v>(
         this: &'v BxlContext<'v>,
-        #[starlark(default = NoneType)] target_platform: Value<'v>,
+        #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
+        target_platform: ValueAsStarlarkTargetLabel<'v>,
     ) -> anyhow::Result<StarlarkAQueryCtx<'v>> {
         StarlarkAQueryCtx::new(this, target_platform, &this.data.global_target_platform)
     }
@@ -985,7 +989,8 @@ fn context_methods(builder: &mut MethodsBuilder) {
         this: &'v BxlContext<'v>,
         #[starlark(require = named, default = NoneType)] exec_deps: Value<'v>,
         #[starlark(require = named, default = NoneType)] toolchains: Value<'v>,
-        #[starlark(require = named, default = NoneType)] target_platform: Value<'v>,
+        #[starlark(require = named, default = ValueAsStarlarkTargetLabel::NONE)]
+        target_platform: ValueAsStarlarkTargetLabel<'v>,
         #[starlark(require = named, default = NoneOr::None)] exec_compatible_with: NoneOr<
             TargetListExprArg<'v>,
         >,
@@ -1104,8 +1109,10 @@ fn context_methods(builder: &mut MethodsBuilder) {
     /// is list-like
     fn analysis<'v>(
         this: &BxlContext<'v>,
+        // TODO(nga): these parameters should be either position or named, not both.
         labels: Value<'v>,
-        #[starlark(default = NoneType)] target_platform: Value<'v>,
+        #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
+        target_platform: ValueAsStarlarkTargetLabel<'v>,
         #[starlark(require = named, default = true)] skip_incompatible: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<
@@ -1181,8 +1188,10 @@ fn context_methods(builder: &mut MethodsBuilder) {
     /// This function is not available on the `bxl_ctx` when called from `dynamic_output`.
     fn build<'v>(
         this: &'v BxlContext<'v>,
+        // TODO(nga): parameter should be either positional or named, not both.
         labels: Value<'v>,
-        #[starlark(default = NoneType)] target_platform: Value<'v>,
+        #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
+        target_platform: ValueAsStarlarkTargetLabel<'v>,
         #[starlark(require = named, default = "default")] materializations: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<

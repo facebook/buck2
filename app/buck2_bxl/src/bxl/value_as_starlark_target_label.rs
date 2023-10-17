@@ -17,54 +17,46 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::TargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use dupe::Dupe;
-use starlark::values::Value;
-use starlark::values::ValueLike;
+use starlark::values::none::NoneType;
+use starlark::values::type_repr::StarlarkTypeRepr;
+use starlark::values::UnpackValue;
 
-#[derive(Debug, thiserror::Error)]
-enum ValueAsTargetLabelError {
-    #[error("Expected a single target like item, but was `{0}`")]
-    NotATarget(String),
+#[derive(StarlarkTypeRepr, UnpackValue)]
+pub(crate) enum ValueAsStarlarkTargetLabel<'v> {
+    None(NoneType),
+    Str(&'v str),
+    TargetLabel(&'v StarlarkTargetLabel),
 }
 
-pub(crate) trait ValueAsStarlarkTargetLabel {
-    fn parse_target_platforms(
-        self,
-        target_alias_resolver: &BuckConfigTargetAliasResolver,
-        cell_resolver: &CellResolver,
-        cell_name: CellName,
-        default_target_platform: &Option<TargetLabel>,
-    ) -> anyhow::Result<Option<TargetLabel>>;
-}
+impl<'v> ValueAsStarlarkTargetLabel<'v> {
+    pub const NONE: Self = Self::None(NoneType);
 
-impl<'v> ValueAsStarlarkTargetLabel for Value<'v> {
-    fn parse_target_platforms(
+    pub(crate) fn parse_target_platforms(
         self,
         target_alias_resolver: &BuckConfigTargetAliasResolver,
         cell_resolver: &CellResolver,
         cell_name: CellName,
         default_target_platform: &Option<TargetLabel>,
     ) -> anyhow::Result<Option<TargetLabel>> {
-        let target_platform = if self.is_none() {
-            default_target_platform.clone()
-        } else if let Some(s) = self.unpack_str() {
-            Some(
-                ParsedPattern::<TargetPatternExtra>::parse_relaxed(
-                    target_alias_resolver,
-                    // TODO(nga): Parse relaxed relative to cell root is incorrect.
-                    CellPathRef::new(cell_name, CellRelativePath::empty()),
-                    s,
-                    cell_resolver,
-                )?
-                .as_target_label(s)?,
-            )
-        } else if let Some(target) = self.downcast_ref::<StarlarkTargetLabel>() {
-            Some(target.label().dupe())
-        } else {
-            return Err(anyhow::anyhow!(ValueAsTargetLabelError::NotATarget(
-                self.to_repr()
-            )));
-        };
+        match self {
+            ValueAsStarlarkTargetLabel::None(_) => Ok(default_target_platform.clone()),
+            ValueAsStarlarkTargetLabel::Str(s) => {
+                Ok(Some(
+                    ParsedPattern::<TargetPatternExtra>::parse_relaxed(
+                        target_alias_resolver,
+                        // TODO(nga): Parse relaxed relative to cell root is incorrect.
+                        CellPathRef::new(cell_name, CellRelativePath::empty()),
+                        s,
+                        cell_resolver,
+                    )?
+                    .as_target_label(s)?,
+                ))
+            }
+            ValueAsStarlarkTargetLabel::TargetLabel(target) => Ok(Some(target.label().dupe())),
+        }
+    }
 
-        Ok(target_platform)
+    pub(crate) fn is_none(&self) -> bool {
+        matches!(self, Self::None(_))
     }
 }

@@ -26,7 +26,6 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::values::dict::Dict;
-use starlark::values::none::NoneType;
 use starlark::values::starlark_value;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -117,8 +116,10 @@ fn audit_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn output<'v>(
         this: &StarlarkAuditCtx<'v>,
+        // TODO(nga): parameters should be either positional or named, not both.
         output_path: &'v str,
-        #[starlark(default = NoneType)] target_platform: Value<'v>,
+        #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
+        target_platform: ValueAsStarlarkTargetLabel<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<Option<Value<'v>>> {
         let target_platform = target_platform.parse_target_platforms(

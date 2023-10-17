@@ -103,7 +103,7 @@ pub(crate) async fn get_cquery_env(
 impl<'v> StarlarkCQueryCtx<'v> {
     pub(crate) fn new(
         ctx: &'v BxlContext<'v>,
-        global_target_platform: Value<'v>,
+        global_target_platform: ValueAsStarlarkTargetLabel<'v>,
         default_target_platform: &Option<TargetLabel>,
     ) -> anyhow::Result<StarlarkCQueryCtx<'v>> {
         let target_platform = global_target_platform.parse_target_platforms(

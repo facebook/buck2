@@ -94,7 +94,7 @@ impl<'v> AllocValue<'v> for StarlarkAQueryCtx<'v> {
 impl<'v> StarlarkAQueryCtx<'v> {
     pub(crate) fn new(
         ctx: &'v BxlContext<'v>,
-        global_target_platform: Value<'v>,
+        global_target_platform: ValueAsStarlarkTargetLabel<'v>,
         default_target_platform: &Option<TargetLabel>,
     ) -> anyhow::Result<StarlarkAQueryCtx<'v>> {
         let target_platform = global_target_platform.parse_target_platforms(
