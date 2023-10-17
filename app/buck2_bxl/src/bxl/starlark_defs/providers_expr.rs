@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::future;
+
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
@@ -83,12 +85,17 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
         eval: &Evaluator<'v, '_>,
     ) -> anyhow::Result<Option<Self>> {
         Ok(
-            if let Some(resolved) = Self::unpack_literal(value, &target_platform, ctx, dice).await?
-            {
-                Some(resolved)
+            if let Some(arg) = ConfiguredProvidersLabelArg::unpack_value(value) {
+                Some(Self::unpack_literal(arg, &target_platform, ctx, dice).await?)
             } else {
                 Self::unpack_iterable(value, ctx, eval, |v, ctx| {
-                    Self::unpack_literal(v, &target_platform, ctx, dice)
+                    let arg = ConfiguredProvidersLabelArg::unpack_value(v);
+                    match arg {
+                        Some(arg) => Self::unpack_literal(arg, &target_platform, ctx, dice)
+                            .map(|result| result.map(Some))
+                            .boxed(),
+                        None => future::ready(Ok(None)).boxed(),
+                    }
                 })
                 .await?
             },
@@ -116,38 +123,34 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
     }
 
     fn unpack_literal<'v, 'c>(
-        value: Value<'v>,
+        arg: ConfiguredProvidersLabelArg<'v>,
         target_platform: &'c Option<TargetLabel>,
         ctx: &BxlContextNoDice<'_>,
         dice: &'c DiceComputations,
-    ) -> BoxFuture<'c, anyhow::Result<Option<Self>>> {
-        let Some(arg) = ConfiguredProvidersLabelArg::unpack_value(value) else {
-            return futures::future::ready(Ok(None)).boxed();
-        };
+    ) -> BoxFuture<'c, anyhow::Result<Self>> {
         match arg {
             ConfiguredProvidersLabelArg::ConfiguredTargetNode(configured_target) => {
-                futures::future::ready(Ok(Some(Self::Literal(ConfiguredProvidersLabel::new(
+                futures::future::ready(Ok(Self::Literal(ConfiguredProvidersLabel::new(
                     configured_target.0.label().dupe(),
                     ProvidersName::Default,
-                )))))
+                ))))
                 .boxed()
             }
             ConfiguredProvidersLabelArg::ConfiguredTargetLabel(configured_target) => {
-                futures::future::ready(Ok(Some(Self::Literal(ConfiguredProvidersLabel::new(
+                futures::future::ready(Ok(Self::Literal(ConfiguredProvidersLabel::new(
                     configured_target.label().dupe(),
                     ProvidersName::Default,
-                )))))
+                ))))
                 .boxed()
             }
             ConfiguredProvidersLabelArg::ConfiguredProvidersLabel(configured_target) => {
-                futures::future::ready(Ok(Some(Self::Literal(configured_target.label().clone()))))
-                    .boxed()
+                futures::future::ready(Ok(Self::Literal(configured_target.label().clone()))).boxed()
             }
             ConfiguredProvidersLabelArg::Unconfigured(arg) => {
                 match Self::unpack_providers_label(arg, ctx) {
                     Ok(label) => async move {
                         dice.get_configured_provider_label(&label, target_platform.as_ref())
-                            .map(|res| res.map(|r| Some(Self::Literal(r))))
+                            .map(|res| res.map(Self::Literal))
                             .await
                     }
                     .boxed(),
