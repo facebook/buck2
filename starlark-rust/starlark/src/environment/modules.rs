@@ -145,6 +145,10 @@ impl FrozenModule {
             module.set(name, value.to_value());
         }
 
+        if let Some(docstring) = globals.docstring() {
+            module.set_docstring(String::from(docstring));
+        }
+
         module.freeze()
     }
 

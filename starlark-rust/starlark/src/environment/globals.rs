@@ -168,6 +168,11 @@ impl Globals {
             .join("\n")
     }
 
+    /// Get the documentation for the object itself
+    pub fn docstring(&self) -> Option<&str> {
+        self.0.docstring.as_deref()
+    }
+
     /// Get the documentation for both the object itself, and its members.
     pub fn documentation(&self) -> DocModule {
         let DocObject { docs, members } = common_documentation(
