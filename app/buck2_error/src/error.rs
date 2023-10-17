@@ -116,7 +116,7 @@ impl Error {
                         s,
                         "ROOT: late format: {}:\n{:#?}",
                         r.get_late_format().is_some(),
-                        r.inner()
+                        r
                     )
                     .unwrap();
                 }

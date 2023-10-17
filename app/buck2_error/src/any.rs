@@ -139,7 +139,7 @@ impl fmt::Debug for CrateAsStdError {
 impl std::error::Error for CrateAsStdError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match &*self.0.0 {
-            ErrorKind::Root(r) => std::error::Error::source(r.inner()),
+            ErrorKind::Root(r) => r.source(),
             ErrorKind::WithContext(_, r) | ErrorKind::Emitted(r) => {
                 Some(CrateAsStdError::ref_cast(r))
             }
@@ -149,8 +149,6 @@ impl std::error::Error for CrateAsStdError {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use crate::error::ErrorKind;
 
     #[derive(Debug, derive_more::Display)]
@@ -163,10 +161,7 @@ mod tests {
             match (&*a.0, &*b.0) {
                 (ErrorKind::Root(a), ErrorKind::Root(b)) => {
                     // Avoid comparing vtable pointers
-                    assert_eq!(
-                        Arc::as_ptr(a.inner()).cast::<()>(),
-                        Arc::as_ptr(b.inner()).cast::<()>()
-                    );
+                    assert!(a.test_equal(b));
                     return;
                 }
                 (

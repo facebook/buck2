@@ -8,7 +8,6 @@
  */
 
 use std::fmt;
-use std::sync::Arc;
 
 use crate::error::ErrorKind;
 
@@ -21,9 +20,9 @@ use crate::error::ErrorKind;
 fn into_anyhow_for_format(mut error: &crate::Error) -> anyhow::Error {
     let mut context_stack = Vec::new();
 
-    let base = loop {
+    let root = loop {
         match error.0.as_ref() {
-            ErrorKind::Root(root) => break Arc::clone(root.inner()),
+            ErrorKind::Root(root) => break root,
             ErrorKind::WithContext(context, inner) => {
                 context_stack.push(context.clone());
                 error = inner;
@@ -34,7 +33,7 @@ fn into_anyhow_for_format(mut error: &crate::Error) -> anyhow::Error {
         }
     };
 
-    let mut out: anyhow::Error = base.into();
+    let mut out: anyhow::Error = root.into_anyhow_for_format();
     for context in context_stack.into_iter().rev() {
         out = out.context(context);
     }

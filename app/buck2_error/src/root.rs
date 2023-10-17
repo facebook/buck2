@@ -31,10 +31,6 @@ impl ErrorRoot {
         Self { inner, late_format }
     }
 
-    pub(crate) fn inner(&self) -> &Arc<dyn std::error::Error + Send + Sync + 'static> {
-        &self.inner
-    }
-
     pub fn get_late_format<'a>(&'a self) -> Option<impl fmt::Display + 'a> {
         struct DisplayWrapper<'a>(&'a (dyn std::error::Error + 'static), &'a DynLateFormat);
 
@@ -45,5 +41,25 @@ impl ErrorRoot {
         }
 
         Some(DisplayWrapper(&self.inner, self.late_format.as_ref()?))
+    }
+
+    pub(crate) fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.inner.source()
+    }
+
+    pub(crate) fn into_anyhow_for_format(&self) -> anyhow::Error {
+        anyhow::Error::new(self.inner.clone())
+    }
+
+    /// Equality comparison for use in tests only
+    #[cfg(test)]
+    pub(crate) fn test_equal(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.inner, &other.inner)
+    }
+}
+
+impl fmt::Debug for ErrorRoot {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(&self.inner, f)
     }
 }
