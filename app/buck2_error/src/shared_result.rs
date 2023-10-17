@@ -174,34 +174,6 @@ where
     }
 }
 
-pub trait MayProvideAnyhowError {
-    fn as_anyhow(&self) -> Option<&anyhow::Error>;
-}
-
-impl<T> MayProvideAnyhowError for Result<T, SharedError> {
-    fn as_anyhow(&self) -> Option<&anyhow::Error> {
-        self.as_ref().err().map(|e| e.inner())
-    }
-}
-
-impl<T> MayProvideAnyhowError for anyhow::Result<T> {
-    fn as_anyhow(&self) -> Option<&anyhow::Error> {
-        self.as_ref().err()
-    }
-}
-
-impl MayProvideAnyhowError for SharedError {
-    fn as_anyhow(&self) -> Option<&anyhow::Error> {
-        Some(self.inner())
-    }
-}
-
-impl MayProvideAnyhowError for anyhow::Error {
-    fn as_anyhow(&self) -> Option<&anyhow::Error> {
-        Some(self)
-    }
-}
-
 #[cfg(test)]
 mod tests {
 
