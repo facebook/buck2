@@ -105,6 +105,7 @@ use super::target_universe::StarlarkTargetUniverse;
 use crate::bxl::key::BxlDynamicKey;
 use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::alloc_node::AllocNode;
+use crate::bxl::starlark_defs::analysis_result::StarlarkAnalysisResult;
 use crate::bxl::starlark_defs::aquery::StarlarkAQueryCtx;
 use crate::bxl::starlark_defs::audit::StarlarkAuditCtx;
 use crate::bxl::starlark_defs::build_result::StarlarkBxlBuildResult;
@@ -1126,7 +1127,15 @@ fn context_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = NoneType)] target_platform: Value<'v>,
         #[starlark(require = named, default = true)] skip_incompatible: bool,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<
+        Either<
+            NoneOr<StarlarkAnalysisResult>,
+            SmallMap<
+                ValueTyped<'v, StarlarkConfiguredProvidersLabel>,
+                ValueTyped<'v, StarlarkAnalysisResult>,
+            >,
+        >,
+    > {
         let target_platform = target_platform.parse_target_platforms(
             &this.data.target_alias_resolver,
             &this.data.cell_resolver,
@@ -1152,19 +1161,26 @@ fn context_methods(builder: &mut MethodsBuilder) {
         });
 
         Ok(match res? {
-            Either::Left(single) => eval.heap().alloc(single),
-            Either::Right(many) => eval.heap().alloc(Dict::new(
+            Either::Left(single) => {
+                let single = match single {
+                    Some(single) => NoneOr::Other(single),
+                    None => NoneOr::None,
+                };
+                Either::Left(single)
+            }
+            Either::Right(many) => Either::Right(
                 many.into_iter()
                     .map(|(t, v)| {
                         Ok((
                             eval.heap()
-                                .alloc(StarlarkConfiguredProvidersLabel::new(t))
-                                .get_hashed()?,
-                            eval.heap().alloc(v),
+                                .alloc_typed(StarlarkConfiguredProvidersLabel::new(t))
+                                .hashed()
+                                .unwrap(),
+                            eval.heap().alloc_typed(v),
                         ))
                     })
                     .collect::<anyhow::Result<_>>()?,
-            )),
+            ),
         })
     }
 
