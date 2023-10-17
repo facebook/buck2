@@ -158,7 +158,7 @@ pub(crate) async fn targets_batch(
                     formatter.separator(&mut buffer);
                 }
                 needs_separator = true;
-                formatter.package_error(package.dupe(), e.inner(), &mut buffer, &mut stderr);
+                formatter.package_error(package.dupe(), &e.dupe().into(), &mut buffer, &mut stderr);
 
                 server_ctx.stderr()?.write_all(stderr.as_bytes())?;
 

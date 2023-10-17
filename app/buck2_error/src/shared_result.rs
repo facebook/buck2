@@ -50,11 +50,11 @@ impl SharedError {
         SharedError(Arc::new(e.into()))
     }
 
-    pub fn inner(&self) -> &anyhow::Error {
+    pub(crate) fn inner(&self) -> &anyhow::Error {
         &self.0
     }
 
-    pub fn into_inner(self) -> Arc<anyhow::Error> {
+    pub(crate) fn into_inner(self) -> Arc<anyhow::Error> {
         self.0
     }
 }
@@ -150,7 +150,7 @@ impl<T> ToUnsharedResultExt<T, anyhow::Error> for SharedResult<T> {
 }
 
 /// Traverse `anyhow::Error` in `SharedError` recursively until the context `E` is found.
-pub fn recursive_shared_downcast_ref<E>(error: &anyhow::Error) -> Option<&E>
+pub(crate) fn recursive_shared_downcast_ref<E>(error: &anyhow::Error) -> Option<&E>
 where
     E: Display + Debug + Send + Sync + 'static,
 {
