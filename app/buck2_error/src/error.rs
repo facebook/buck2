@@ -10,6 +10,9 @@
 use std::fmt;
 use std::sync::Arc;
 
+use crate::root::DynLateFormat;
+use crate::root::ErrorRoot;
+
 /// The core error type provided by this crate.
 ///
 /// While this type has many of the features of `anyhow::Error`, in most places you should continue
@@ -38,25 +41,6 @@ pub(crate) enum ErrorKind {
     Emitted(Error),
 }
 
-type DynLateFormat = dyn Fn(&(dyn std::error::Error + 'static), &mut fmt::Formatter<'_>) -> fmt::Result
-    + Send
-    + Sync
-    + 'static;
-
-#[derive(allocative::Allocative)]
-pub(crate) struct ErrorRoot {
-    #[allocative(skip)]
-    inner: Arc<dyn std::error::Error + Send + Sync + 'static>,
-    #[allocative(skip)] // FIXME(JakobDegen): "Implementation is not general enough"
-    late_format: Option<Box<DynLateFormat>>,
-}
-
-impl ErrorRoot {
-    pub(crate) fn inner(&self) -> &Arc<dyn std::error::Error + Send + Sync + 'static> {
-        &self.inner
-    }
-}
-
 impl Error {
     pub fn new<E: std::error::Error + Send + Sync + 'static>(e: E) -> Self {
         Self::new_from_arc(Arc::new(e), None)
@@ -78,10 +62,7 @@ impl Error {
         arc: Arc<dyn std::error::Error + Send + Sync + 'static>,
         late_format: Option<Box<DynLateFormat>>,
     ) -> Self {
-        Self(Arc::new(ErrorKind::Root(ErrorRoot {
-            inner: arc,
-            late_format,
-        })))
+        Self(Arc::new(ErrorKind::Root(ErrorRoot::new(arc, late_format))))
     }
 
     fn iter_kinds<'a>(&'a self) -> impl Iterator<Item = &'a ErrorKind> {
@@ -121,16 +102,7 @@ impl Error {
     /// In cases like these, this function returns the additional information to show to the user at
     /// the end of the build.
     pub fn get_late_format<'a>(&'a self) -> Option<impl fmt::Display + 'a> {
-        struct DisplayWrapper<'a>(&'a (dyn std::error::Error + 'static), &'a DynLateFormat);
-
-        impl<'a> fmt::Display for DisplayWrapper<'a> {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                self.1(self.0, f)
-            }
-        }
-
-        let root = self.root();
-        Some(DisplayWrapper(root.inner(), root.late_format.as_ref()?))
+        self.root().get_late_format()
     }
 
     /// Only intended to be used for debugging, helps to understand the structure of the error
@@ -143,8 +115,8 @@ impl Error {
                     writeln!(
                         s,
                         "ROOT: late format: {}:\n{:#?}",
-                        r.late_format.is_some(),
-                        r.inner
+                        r.get_late_format().is_some(),
+                        r.inner()
                     )
                     .unwrap();
                 }
