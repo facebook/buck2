@@ -26,7 +26,6 @@ use buck2_node::load_patterns::load_patterns;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
-use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_query::query::environment::QueryTarget;
@@ -165,24 +164,16 @@ impl<'v> TargetListExpr<'v, TargetNode> {
         ctx: &DiceComputations,
     ) -> anyhow::Result<Cow<'v, TargetSet<TargetNode>>> {
         match self {
-            TargetListExpr::One(TargetExpr::Node(val)) => {
+            TargetListExpr::One(node) => {
                 let mut set = TargetSet::new();
-                set.insert(val);
-                Ok(Cow::Owned(set))
-            }
-            TargetListExpr::One(TargetExpr::Label(label)) => {
-                let node = ctx.get_target_node(&label).await?;
-                let mut set = TargetSet::new();
-                set.insert(node);
+                set.insert(node.get_from_dice(ctx).await?);
                 Ok(Cow::Owned(set))
             }
             TargetListExpr::Iterable(val) => {
                 let mut set = TargetSet::new();
                 let futs = val.into_iter().map(|node_or_ref| async {
-                    match node_or_ref {
-                        TargetExpr::Node(node) => Ok(node),
-                        TargetExpr::Label(node_ref) => ctx.get_target_node(&node_ref).await,
-                    }
+                    let node_or_ref = node_or_ref;
+                    node_or_ref.get_from_dice(ctx).await
                 });
 
                 for node in futures::future::join_all(futs).await {

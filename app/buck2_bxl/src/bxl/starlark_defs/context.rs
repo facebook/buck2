@@ -64,10 +64,8 @@ use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
-use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
-use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dashmap::DashMap;
 use derivative::Derivative;
 use derive_more::Display;
@@ -120,7 +118,6 @@ use crate::bxl::starlark_defs::cquery::StarlarkCQueryCtx;
 use crate::bxl::starlark_defs::event::StarlarkUserEventParser;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
-use crate::bxl::starlark_defs::target_expr::TargetExpr;
 use crate::bxl::starlark_defs::target_list_expr::filter_incompatible;
 use crate::bxl::starlark_defs::target_list_expr::TargetListExpr;
 use crate::bxl::starlark_defs::target_list_expr::TargetListExprArg;
@@ -742,11 +739,9 @@ fn context_methods(builder: &mut MethodsBuilder) {
                         .await?;
 
                     Ok(match target_expr {
-                        TargetListExpr::One(TargetExpr::Label(label)) => {
-                            let set = filter_incompatible(
-                                iter::once(ctx.get_configured_target_node(&label).await?),
-                                this,
-                            )?;
+                        TargetListExpr::One(node) => {
+                            let node = node.get_from_dice(ctx).await?;
+                            let set = filter_incompatible(iter::once(node), this)?;
 
                             // When a target label is passed in, we should only get one target node.
                             // filter_incompatible() returns a set, so lets assert the size
@@ -759,10 +754,6 @@ fn context_methods(builder: &mut MethodsBuilder) {
                             } else {
                                 Either::Left(NoneOr::None)
                             }
-                        }
-
-                        TargetListExpr::One(TargetExpr::Node(node)) => {
-                            Either::Left(NoneOr::Other(StarlarkConfiguredTargetNode(node)))
                         }
                         multi => Either::Right(StarlarkTargetSet::from(filter_incompatible(
                             multi.get(ctx).await?.into_iter(),
@@ -795,13 +786,10 @@ fn context_methods(builder: &mut MethodsBuilder) {
                 async move {
                     Ok(
                         match TargetListExpr::<'v, TargetNode>::unpack(labels, this, ctx).await? {
-                            TargetListExpr::One(TargetExpr::Label(label)) => {
-                                let node = ctx.get_target_node(&label).await?;
-
+                            TargetListExpr::One(node) => {
+                                let node = node.get_from_dice(ctx).await?;
                                 node.alloc(eval.heap())
                             }
-
-                            TargetListExpr::One(TargetExpr::Node(node)) => node.alloc(eval.heap()),
                             multi => eval
                                 .heap()
                                 .alloc(StarlarkTargetSet::from(multi.get(ctx).await?.into_owned())),
@@ -896,14 +884,9 @@ fn context_methods(builder: &mut MethodsBuilder) {
                         .await?;
 
                     let target_set = match target_expr {
-                        TargetListExpr::One(TargetExpr::Label(label)) => filter_incompatible(
-                            iter::once(ctx.get_configured_target_node(&label).await?),
-                            this_no_dice,
-                        )?,
-                        TargetListExpr::One(TargetExpr::Node(node)) => {
-                            let mut set = TargetSet::new();
-                            set.insert(node);
-                            set
+                        TargetListExpr::One(node) => {
+                            let node = node.get_from_dice(ctx).await?;
+                            filter_incompatible(iter::once(node), this_no_dice)?
                         }
                         multi => {
                             filter_incompatible(multi.get(ctx).await?.into_iter(), this_no_dice)?
