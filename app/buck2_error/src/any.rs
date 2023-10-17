@@ -16,7 +16,6 @@ use ref_cast::RefCast;
 
 use crate::error::ErrorKind;
 use crate::root::ErrorRoot;
-use crate::shared_result::SharedError;
 
 /// Represents an arbitrary `buck2_error` compatible error type.
 ///
@@ -46,9 +45,6 @@ where
         let r: &mut dyn std::any::Any = &mut e;
         if let Some(e) = r.downcast_mut::<Option<anyhow::Error>>() {
             return from_anyhow_for_crate(Arc::new(e.take().unwrap()));
-        }
-        if let Some(e) = r.downcast_mut::<Option<SharedError>>() {
-            return from_anyhow_for_crate(e.take().unwrap().into_inner());
         }
 
         // Otherwise, we'll use the strategy for `std::error::Error`
@@ -84,12 +80,7 @@ fn from_anyhow_for_crate(value: Arc<anyhow::Error>) -> crate::Error {
                 // smart
                 return crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new_anyhow(value))));
             }
-            Some(mut e) => {
-                if let Some(shared) = e.downcast_ref::<SharedError>() {
-                    // `SharedError` might "hide" the actual type that we want to downcast to - make
-                    // sure it doesn't.
-                    e = shared.inner().as_ref();
-                }
+            Some(e) => {
                 if let Some(base) = e.downcast_ref::<CrateAsStdError>() {
                     break base;
                 } else {

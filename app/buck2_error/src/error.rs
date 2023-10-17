@@ -187,6 +187,7 @@ mod tests {
         let e: anyhow::Error = e.mark_emitted().into();
         let e: SharedError = e.into();
 
+        #[allow(clippy::useless_conversion)]
         let direct: crate::Error = e.clone().into();
         assert!(direct.is_emitted());
         assert!(direct.downcast_ref::<TestError>().is_some());

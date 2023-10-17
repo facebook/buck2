@@ -184,7 +184,7 @@ impl<T: PatternType> LoadedPatterns<T> {
             let targets = result
                 .as_ref()
                 .map(|pkg| pkg.targets.values().map(|t| t.dupe()).collect::<Vec<_>>())
-                .map_err(|e| anyhow::Error::new(e.dupe()));
+                .map_err(|e| e.dupe().into());
             (package.dupe(), targets)
         })
     }

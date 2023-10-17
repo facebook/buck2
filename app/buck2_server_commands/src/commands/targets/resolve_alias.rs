@@ -22,7 +22,6 @@ use std::collections::HashSet;
 use std::fmt::Write;
 use std::sync::Arc;
 
-use anyhow::Context;
 use buck2_cli_proto::targets_request::OutputFormat;
 use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsResponse;
@@ -32,6 +31,7 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::TargetLabel;
 use buck2_error::shared_result::SharedResult;
 use buck2_error::shared_result::ToSharedResultExt;
+use buck2_error::Context;
 use buck2_node::nodes::attributes::PACKAGE;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;

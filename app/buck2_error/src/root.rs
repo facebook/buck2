@@ -10,8 +10,6 @@
 use std::fmt;
 use std::sync::Arc;
 
-use crate::shared_result::recursive_shared_downcast_ref;
-
 type DynLateFormat =
     dyn Fn(&anyhow::Error, &mut fmt::Formatter<'_>) -> fmt::Result + Send + Sync + 'static;
 
@@ -99,7 +97,7 @@ impl ErrorRoot {
     pub(crate) fn downcast_ref<T: fmt::Display + fmt::Debug + Send + Sync + 'static>(
         &self,
     ) -> Option<&T> {
-        recursive_shared_downcast_ref(&self.inner)
+        self.inner.downcast_ref()
     }
 }
 

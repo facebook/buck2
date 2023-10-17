@@ -14,7 +14,6 @@ use std::ffi::OsStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
@@ -58,9 +57,9 @@ use buck2_data::TestRunStart;
 use buck2_data::TestSessionInfo;
 use buck2_data::TestSuite;
 use buck2_data::ToProtoMessage;
-use buck2_error::shared_result::SharedError;
 use buck2_error::shared_result::SharedResult;
 use buck2_error::shared_result::ToSharedResultExt;
+use buck2_error::Context;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::digest_config::DigestConfig;
@@ -1074,28 +1073,26 @@ impl<'b> BuckTestOrchestrator<'b> {
         match status {
             CommandExecutionStatus::Success { .. } => {}
             CommandExecutionStatus::Failure { .. } => {
-                return Err(SharedError::new(anyhow::anyhow!(
+                return Err(anyhow::anyhow!(
                     "Local resource setup command failed with `{}` exit code, stdout:\n{}\nstderr:\n{}\n",
                     exit_code.unwrap_or(1),
                     String::from_utf8_lossy(&std_streams.stdout),
                     String::from_utf8_lossy(&std_streams.stderr),
-                )));
+                ).into());
             }
             CommandExecutionStatus::TimedOut { duration, .. } => {
-                return Err(SharedError::new(anyhow::anyhow!(
+                return Err(anyhow::anyhow!(
                     "Local resource setup command timed out after `{}s`, stdout:\n{}\nstderr:\n{}\n",
                     duration.as_secs(),
                     String::from_utf8_lossy(&std_streams.stdout),
                     String::from_utf8_lossy(&std_streams.stderr),
-                )));
+                ).into());
             }
             CommandExecutionStatus::Error { stage: _, error } => {
-                return Err(SharedError::new(error));
+                return Err(error.into());
             }
             CommandExecutionStatus::Cancelled => {
-                return Err(SharedError::new(anyhow::anyhow!(
-                    "Local resource setup command cancelled"
-                )));
+                return Err(anyhow::anyhow!("Local resource setup command cancelled").into());
             }
         };
 
