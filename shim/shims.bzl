@@ -183,9 +183,6 @@ def _fix_dep(x: str) -> [
     None,
     str,
 ]:
-    if x == "fbsource//third-party/blake3:blake3-rust":
-        x = "fbsource//third-party/rust:blake3"
-
     if x == "//common/rust/folly/logging:logging":
         return None
     elif x == "//watchman/rust/watchman_client:watchman_client":

@@ -36,10 +36,10 @@ rust_library(
         "fbsource//third-party/rust:tempfile",
     ],
     deps = [
-        "fbsource//third-party/blake3:blake3-rust",
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-compression",
         "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:blake3",
         "fbsource//third-party/rust:bytes",
         "fbsource//third-party/rust:chrono",
         "fbsource//third-party/rust:clap-3",

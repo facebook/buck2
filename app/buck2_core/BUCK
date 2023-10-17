@@ -37,9 +37,9 @@ rust_library(
         "fbsource//third-party/rust:test-case",
     ],
     deps = [
-        "fbsource//third-party/blake3:blake3-rust",
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:arc-swap",
+        "fbsource//third-party/rust:blake3",
         "fbsource//third-party/rust:compact_str",
         "fbsource//third-party/rust:dashmap",
         "fbsource//third-party/rust:derivative",

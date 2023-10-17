@@ -1,9 +1,5 @@
 load("@fbcode//buck2:buck_rust_binary.bzl", "buck_rust_binary")
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
-load(
-    "@fbsource//tools/build_defs:audit_dependencies_test.bzl",
-    "audit_dependencies_test",
-)
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("build_infra")
@@ -118,19 +114,4 @@ buck_rust_binary(
         "//common/rust/gflags:gflags",
         "//common/rust/shed/fbinit:fbinit",
     ],
-)
-
-# We use //third-party/blake3/blake3-rust to avoid ODR violations instead.
-audit_dependencies_test(
-    name = "ban_third_party_rust_blake3",
-    blocklist_patterns = [
-        "fbsource//third-party/rust:blake3.*",
-    ],
-    # audit_dependencies_test doesn't work on Windows as the macro relies on bash
-    compatible_with = [
-        "ovr_config//os:linux",
-        "ovr_config//os:macos",
-    ],
-    contacts = ["oncall+build_infra@xmail.facebook.com"],
-    rule = ":buck2",
 )

@@ -7,10 +7,10 @@ rust_library(
     name = "buck2_server_commands",
     srcs = glob(["src/**/*.rs"]),
     deps = [
-        "fbsource//third-party/blake3:blake3-rust",
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-recursion",
         "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:blake3",
         "fbsource//third-party/rust:chrono",
         "fbsource//third-party/rust:derivative",
         "fbsource//third-party/rust:derive_more",
