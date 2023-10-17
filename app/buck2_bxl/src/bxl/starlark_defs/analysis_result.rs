@@ -23,7 +23,7 @@ use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
-use starlark::values::Value;
+use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
 
 #[derive(
@@ -101,11 +101,11 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
     fn as_dependency<'v>(
         this: &'v StarlarkAnalysisResult,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<ValueTyped<'v, Dependency<'v>>> {
         unsafe {
             // SAFETY:: this actually just returns a FrozenValue from in the StarlarkAnalysisResult
             // which is kept alive for 'v
-            Ok(heap.alloc(Dependency::new(
+            Ok(heap.alloc_typed(Dependency::new(
                 heap,
                 this.label.clone(),
                 this.analysis
