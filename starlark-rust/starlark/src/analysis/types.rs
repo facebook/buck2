@@ -149,34 +149,42 @@ impl EvalMessage {
     /// Convert from an `anyhow::Error`, including some type checking, to an `EvalMessage`
     pub fn from_anyhow(file: &Path, x: &anyhow::Error) -> Self {
         match x.downcast_ref::<Diagnostic>() {
-            Some(
-                d @ Diagnostic {
-                    message,
-                    span: Some(span),
-                    ..
-                },
-            ) => {
-                let original = span.source_span().to_owned();
-                let resolved_span = span.resolve_span();
-                Self {
-                    path: span.filename().to_owned(),
-                    span: Some(resolved_span),
-                    severity: EvalSeverity::Error,
-                    name: "error".to_owned(),
-                    description: format!("{:#}", message),
-                    full_error_with_span: Some(d.to_string()),
-                    original: Some(original),
-                }
-            }
-            _ => Self {
-                path: file.display().to_string(),
-                span: None,
-                severity: EvalSeverity::Error,
-                name: "error".to_owned(),
-                description: format!("{:#}", x),
-                full_error_with_span: None,
-                original: None,
-            },
+            Some(d) => Self::from_diagnostic(file, d),
+            _ => Self::from_any_error(file, x),
+        }
+    }
+
+    /// Convert any error into an `EvalMessage`.
+    ///
+    /// You should prefer to turn the error into a diagnostic first, and then use `from_diagnostic`
+    /// if possible.
+    pub fn from_any_error(file: &Path, x: &impl std::fmt::Display) -> Self {
+        Self {
+            path: file.display().to_string(),
+            span: None,
+            severity: EvalSeverity::Error,
+            name: "error".to_owned(),
+            description: format!("{:#}", x),
+            full_error_with_span: None,
+            original: None,
+        }
+    }
+
+    /// Turn a diagnostic into an `EvalMessage`.
+    pub fn from_diagnostic(file: &Path, d: &Diagnostic) -> Self {
+        let Some(span) = &d.span else {
+            return Self::from_any_error(file, d);
+        };
+        let original = span.source_span().to_owned();
+        let resolved_span = span.resolve_span();
+        Self {
+            path: span.filename().to_owned(),
+            span: Some(resolved_span),
+            severity: EvalSeverity::Error,
+            name: "error".to_owned(),
+            description: format!("{:#}", d.message),
+            full_error_with_span: Some(d.to_string()),
+            original: Some(original),
         }
     }
 }
