@@ -386,13 +386,12 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
 
         #[allow(clippy::manual_map)] // `if else if` looks better here
         let items = if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
-            Some(Either::Left(s.iter(eval.heap())))
+            Either::Left(s.iter(eval.heap()))
         } else if let Some(iterable) = ListRef::from_value(value) {
-            Some(Either::Right(iterable.iter()))
+            Either::Right(iterable.iter())
         } else {
-            None
-        }
-        .ok_or_else(|| TargetExprError::NotAListOfTargets(value.to_repr()))?;
+            return Err(TargetExprError::NotAListOfTargets(value.to_repr()).into());
+        };
 
         let mut resolved = vec![];
 
