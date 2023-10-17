@@ -133,6 +133,8 @@ impl Error {
 
 #[cfg(test)]
 mod tests {
+    use crate::shared_result::SharedError;
+
     #[derive(Debug, thiserror::Error)]
     #[error("Test")]
     struct TestError;
@@ -177,5 +179,21 @@ mod tests {
         assert!(e.downcast_ref::<ContextA>().is_some());
         assert!(e.downcast_ref::<ContextB>().is_some());
         assert!(e.downcast_ref::<ContextC>().is_none());
+    }
+
+    #[test]
+    fn test_composes_with_shared_error() {
+        let e: crate::Error = TestError.into();
+        let e: anyhow::Error = e.mark_emitted().into();
+        let e: SharedError = e.into();
+
+        let direct: crate::Error = e.clone().into();
+        assert!(!direct.is_emitted()); // FIXME
+        assert!(direct.downcast_ref::<TestError>().is_none()); // FIXME
+
+        let via_anyhow: anyhow::Error = e.into();
+        let via_anyhow: crate::Error = via_anyhow.into();
+        assert!(!via_anyhow.is_emitted()); // FIXME
+        assert!(via_anyhow.downcast_ref::<TestError>().is_some());
     }
 }
