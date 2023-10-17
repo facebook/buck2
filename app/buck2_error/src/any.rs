@@ -9,8 +9,7 @@
 
 //! Integrations of `buck2_error::Error` with `anyhow::Error` and `std::error::Error`.
 
-use std::fmt::Debug;
-use std::fmt::Display;
+use std::fmt;
 use std::sync::Arc;
 
 use ref_cast::RefCast;
@@ -20,7 +19,10 @@ use crate::error::ErrorKind;
 /// Represents an arbitrary `buck2_error` compatible error type.
 ///
 /// This trait is implemented for `buck2_error::Error`, `anyhow::Error` and any `std::error::Error`.
-pub trait AnyError: Sealed + Into<crate::Error> + Debug + Display + Sync + Send + 'static {}
+pub trait AnyError:
+    Sealed + Into<crate::Error> + fmt::Debug + fmt::Display + Sync + Send + 'static
+{
+}
 pub trait Sealed {}
 
 impl AnyError for crate::Error {}
@@ -31,7 +33,7 @@ impl Sealed for crate::Error {}
 // bound is what we actually make use of in the implementation, while the other bound is needed to
 // make sure this impl does not accidentally cover too many types. Importantly, this impl does not
 // conflict with `T: From<T>`
-impl<T: Debug + Display + Sync + Send + 'static> From<T> for crate::Error
+impl<T: fmt::Debug + fmt::Display + Sync + Send + 'static> From<T> for crate::Error
 where
     T: Into<anyhow::Error>,
     Result<(), T>: anyhow::Context<(), T>,
@@ -50,13 +52,13 @@ where
         crate::Error::new_from_arc(Arc::from(std_err), None)
     }
 }
-impl<T: Debug + Display + Sync + Send + 'static> AnyError for T
+impl<T: fmt::Debug + fmt::Display + Sync + Send + 'static> AnyError for T
 where
     T: Into<anyhow::Error>,
     Result<(), T>: anyhow::Context<(), T>,
 {
 }
-impl<T: Debug + Display + Sync + Send + 'static> Sealed for T
+impl<T: fmt::Debug + fmt::Display + Sync + Send + 'static> Sealed for T
 where
     T: Into<anyhow::Error>,
     Result<(), T>: anyhow::Context<(), T>,
@@ -112,9 +114,9 @@ impl From<crate::Error> for anyhow::Error {
 #[derive(derive_more::Display)]
 pub(crate) struct AnyhowAsStdError(pub anyhow::Error);
 
-impl Debug for AnyhowAsStdError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Debug::fmt(&self.0, f)
+impl fmt::Debug for AnyhowAsStdError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(&self.0, f)
     }
 }
 
@@ -128,9 +130,9 @@ impl std::error::Error for AnyhowAsStdError {
 #[repr(transparent)]
 pub(crate) struct CrateAsStdError(pub(crate) crate::Error);
 
-impl Debug for CrateAsStdError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Debug::fmt(&self.0, f)
+impl fmt::Debug for CrateAsStdError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(&self.0, f)
     }
 }
 

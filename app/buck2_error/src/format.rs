@@ -7,8 +7,7 @@
  * of this source tree.
  */
 
-use std::fmt::Debug;
-use std::fmt::Display;
+use std::fmt;
 use std::sync::Arc;
 
 use crate::error::ErrorKind;
@@ -42,15 +41,15 @@ fn into_anyhow_for_format(mut error: &crate::Error) -> anyhow::Error {
     out
 }
 
-impl Debug for crate::Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Debug::fmt(&into_anyhow_for_format(self), f)
+impl fmt::Debug for crate::Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(&into_anyhow_for_format(self), f)
     }
 }
 
-impl Display for crate::Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Display::fmt(&into_anyhow_for_format(self), f)
+impl fmt::Display for crate::Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&into_anyhow_for_format(self), f)
     }
 }
 

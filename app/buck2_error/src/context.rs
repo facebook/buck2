@@ -7,18 +7,19 @@
  * of this source tree.
  */
 
+use std::fmt;
 use std::sync::Arc;
 
 use crate::error::ErrorKind;
 use crate::AnyError;
 
 impl crate::Error {
-    pub fn context<C: std::fmt::Display + Send + Sync + 'static>(self, context: C) -> Self {
+    pub fn context<C: fmt::Display + Send + Sync + 'static>(self, context: C) -> Self {
         Self(Arc::new(ErrorKind::WithContext(Arc::new(context), self)))
     }
 
     #[cold]
-    fn new_anyhow_with_context<E: AnyError, C: std::fmt::Display + Send + Sync + 'static>(
+    fn new_anyhow_with_context<E: AnyError, C: fmt::Display + Send + Sync + 'static>(
         e: E,
         c: C,
     ) -> anyhow::Error {
@@ -33,12 +34,11 @@ impl crate::Error {
 /// of this trait. Subsequently, additional APIs will be provided for annotating errors with
 /// structured context data.
 pub trait Context<T>: Sealed {
-    fn context<C: std::fmt::Display + Send + Sync + 'static>(self, context: C)
-    -> anyhow::Result<T>;
+    fn context<C: fmt::Display + Send + Sync + 'static>(self, context: C) -> anyhow::Result<T>;
 
     fn with_context<C, F>(self, f: F) -> anyhow::Result<T>
     where
-        C: std::fmt::Display + Send + Sync + 'static,
+        C: fmt::Display + Send + Sync + 'static,
         F: FnOnce() -> C;
 }
 pub trait Sealed {}
@@ -48,7 +48,7 @@ impl<T, E: AnyError> Sealed for std::result::Result<T, E> {}
 impl<T, E: AnyError> Context<T> for std::result::Result<T, E> {
     fn context<C>(self, c: C) -> anyhow::Result<T>
     where
-        C: std::fmt::Display + Send + Sync + 'static,
+        C: fmt::Display + Send + Sync + 'static,
     {
         match self {
             Ok(x) => Ok(x),
@@ -58,7 +58,7 @@ impl<T, E: AnyError> Context<T> for std::result::Result<T, E> {
 
     fn with_context<C, F>(self, f: F) -> anyhow::Result<T>
     where
-        C: std::fmt::Display + Send + Sync + 'static,
+        C: fmt::Display + Send + Sync + 'static,
         F: FnOnce() -> C,
     {
         match self {
@@ -82,7 +82,7 @@ impl<T> Sealed for Option<T> {}
 impl<T> Context<T> for Option<T> {
     fn context<C>(self, c: C) -> anyhow::Result<T>
     where
-        C: std::fmt::Display + Send + Sync + 'static,
+        C: fmt::Display + Send + Sync + 'static,
     {
         match self {
             Some(x) => Ok(x),
@@ -92,7 +92,7 @@ impl<T> Context<T> for Option<T> {
 
     fn with_context<C, F>(self, f: F) -> anyhow::Result<T>
     where
-        C: std::fmt::Display + Send + Sync + 'static,
+        C: fmt::Display + Send + Sync + 'static,
         F: FnOnce() -> C,
     {
         match self {

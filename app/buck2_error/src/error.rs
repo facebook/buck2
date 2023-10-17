@@ -8,7 +8,6 @@
  */
 
 use std::fmt;
-use std::fmt::Display;
 use std::sync::Arc;
 
 /// The core error type provided by this crate.
@@ -32,7 +31,7 @@ pub(crate) enum ErrorKind {
     Root(ErrorRoot),
     /// For now we use untyped context to maximize compatibility with anyhow.
     WithContext(
-        #[allocative(skip)] Arc<dyn Display + Send + Sync + 'static>,
+        #[allocative(skip)] Arc<dyn fmt::Display + Send + Sync + 'static>,
         Error,
     ),
     /// Indicates that the error has been emitted, ie shown to the user.
