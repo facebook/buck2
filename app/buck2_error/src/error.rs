@@ -196,4 +196,14 @@ mod tests {
         assert!(via_anyhow.is_emitted());
         assert!(via_anyhow.downcast_ref::<TestError>().is_some());
     }
+
+    #[test]
+    fn test_composes_with_shared_error_2() {
+        let e: anyhow::Error = TestError.into();
+        let e: SharedError = e.into();
+        let e: anyhow::Error = e.into();
+        let e: crate::Error = e.into();
+
+        assert!(e.downcast_ref::<TestError>().is_some());
+    }
 }
