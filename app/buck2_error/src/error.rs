@@ -132,4 +132,48 @@ impl Error {
         let root = self.root();
         Some(DisplayWrapper(root.inner(), root.late_format.as_ref()?))
     }
+
+    /// Only intended to be used for debugging, helps to understand the structure of the error
+    pub fn get_stack_for_debug(&self) -> String {
+        use fmt::Write;
+        let mut s = String::new();
+        for kind in self.iter_kinds() {
+            match kind {
+                ErrorKind::Root(r) => {
+                    writeln!(
+                        s,
+                        "ROOT: late format: {}:\n{:#?}",
+                        r.late_format.is_some(),
+                        r.inner
+                    )
+                    .unwrap();
+                }
+                ErrorKind::Emitted(_) => {
+                    writeln!(s, "EMITTED").unwrap();
+                }
+                ErrorKind::WithContext(ctx, _) => {
+                    writeln!(s, "CONTEXT: {:#}", ctx).unwrap();
+                }
+            }
+        }
+        s
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[derive(Debug, thiserror::Error)]
+    #[error("Test")]
+    struct TestError;
+
+    #[test]
+    fn test_emitted_works() {
+        let e: crate::Error = TestError.into();
+        assert!(!e.is_emitted());
+        let e = e.mark_emitted();
+        assert!(e.is_emitted());
+        let e: anyhow::Error = e.into();
+        let e: crate::Error = e.context("context").into();
+        assert!(e.is_emitted());
+    }
 }
