@@ -155,20 +155,6 @@ impl<T> ToUnsharedResultExt<T, anyhow::Error> for SharedResult<T> {
     }
 }
 
-/// Like `downcast_ref()`, but if the error is a [`SharedError`], attempt to downcast
-/// its `inner()` error instead.
-pub fn shared_downcast_ref<'a, E: std::error::Error + Display + Debug + Send + Sync + 'static>(
-    error: &'a (dyn std::error::Error + 'static),
-) -> Option<&'a E> {
-    match error.downcast_ref::<E>() {
-        Some(e) => Some(e),
-        None => match error.downcast_ref::<SharedError>() {
-            Some(shared_err) => shared_err.inner().downcast_ref::<E>(),
-            None => None,
-        },
-    }
-}
-
 /// Traverse `anyhow::Error` in `SharedError` recursively until the context `E` is found.
 pub fn recursive_shared_downcast_ref<E>(error: &anyhow::Error) -> Option<&E>
 where
@@ -268,28 +254,6 @@ mod tests {
     #[derive(thiserror::Error, Debug)]
     #[error("Inner error")]
     struct TestInnerError;
-
-    #[test]
-    fn test_anyhow_chain_works() {
-        let err: anyhow::Error = TestError { source: None }.into();
-        let err_with_source: anyhow::Error = TestError {
-            source: Some(TestInnerError {}.into()),
-        }
-        .into();
-
-        let shared_err: anyhow::Error = SharedError::from(err).into();
-        let shared_err_with_source: anyhow::Error = SharedError::from(err_with_source).into();
-
-        let found_err = shared_err
-            .chain()
-            .find_map(|e| shared_downcast_ref::<TestError>(e));
-        assert!(found_err.is_some());
-
-        let found_err = shared_err_with_source
-            .chain()
-            .find_map(|e| shared_downcast_ref::<TestInnerError>(e));
-        assert!(found_err.is_some());
-    }
 
     #[test]
     fn test_anyhow_recursive_downcast() {
