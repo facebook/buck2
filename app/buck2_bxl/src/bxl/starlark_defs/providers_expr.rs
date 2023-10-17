@@ -238,15 +238,14 @@ impl<P: ProvidersLabelMaybeConfigured> ProvidersExpr<P> {
     ) -> anyhow::Result<Option<ProvidersExpr<P>>> {
         #[allow(clippy::manual_map)] // `if else if` looks better here
         let iterable = if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
-            Some(Either::Left(Either::Left(s.iter(eval.heap()))))
+            Either::Left(Either::Left(s.iter(eval.heap())))
         } else if let Some(s) = value.downcast_ref::<StarlarkTargetSet<ConfiguredTargetNode>>() {
-            Some(Either::Left(Either::Right(s.iter(eval.heap()))))
+            Either::Left(Either::Right(s.iter(eval.heap())))
         } else if let Some(iterable) = ListRef::from_value(value) {
-            Some(Either::Right(iterable.iter()))
+            Either::Right(iterable.iter())
         } else {
-            None
-        }
-        .ok_or_else(|| ProviderExprError::NotATarget(value.to_repr()))?;
+            return Err(ProviderExprError::NotATarget(value.to_repr()).into());
+        };
 
         let mut res = Vec::new();
         for val in iterable {
