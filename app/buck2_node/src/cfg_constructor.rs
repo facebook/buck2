@@ -8,6 +8,8 @@
  */
 
 use std::fmt::Debug;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -20,11 +22,11 @@ use dice::DiceComputations;
 /// The output of invoking these functions is a PlatformInfo
 #[async_trait]
 pub trait CfgConstructorImpl: Send + Sync + Debug + Allocative {
-    async fn eval(
-        &self,
-        ctx: &DiceComputations,
-        cfg: &ConfigurationData,
-    ) -> anyhow::Result<ConfigurationData>;
+    fn eval<'a>(
+        &'a self,
+        ctx: &'a DiceComputations,
+        cfg: &'a ConfigurationData,
+    ) -> Pin<Box<dyn Future<Output = anyhow::Result<ConfigurationData>> + Send + 'a>>;
 }
 
 pub static CFG_CONSTRUCTOR_CALCULATION_IMPL: LateBinding<

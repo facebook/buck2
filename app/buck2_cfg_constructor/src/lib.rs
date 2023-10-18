@@ -13,24 +13,46 @@
 pub(crate) mod calculation;
 pub(crate) mod registration;
 
+use std::future::Future;
+use std::pin::Pin;
+
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfo;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::configuration::data::ConfigurationData;
+use buck2_core::target::label::TargetLabel;
+use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
+use buck2_node::nodes::frontend::TargetGraphCalculation;
+use buck2_node::nodes::unconfigured::RuleKind;
 use calculation::CfgConstructorCalculationInstance;
 use dice::DiceComputations;
+use futures::future::try_join_all;
+use starlark::collections::SmallMap;
+use starlark::collections::SmallSet;
 use starlark::environment::Module;
+use starlark::values::structs::AllocStruct;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 
 use crate::registration::init_registration;
+
+#[derive(Debug, thiserror::Error)]
+enum CfgConstructorError {
+    #[error(
+        "Parameter `refs` to post-constraint analysis function must only contain configuration rules. {0} is not a configuration rule."
+    )]
+    PostConstraintAnalysisRefsMustBeConfigurationRules(String),
+}
 
 #[derive(Allocative, Debug)]
 pub(crate) struct CfgConstructor {
@@ -40,59 +62,130 @@ pub(crate) struct CfgConstructor {
 
 #[async_trait]
 impl CfgConstructorImpl for CfgConstructor {
-    async fn eval(
-        &self,
-        ctx: &DiceComputations,
-        cfg: &ConfigurationData,
-    ) -> anyhow::Result<ConfigurationData> {
-        let module = Module::new();
-        let print = EventDispatcherPrintHandler(get_dispatcher());
-        with_starlark_eval_provider(
-            ctx,
-            // TODO: pass proper profiler (T163570348)
-            &mut StarlarkProfilerOrInstrumentation::disabled(),
-            // TODO: better description
-            format!("cfg constructor invocation for cfg: {}", &cfg),
-            move |provider, _| -> anyhow::Result<ConfigurationData> {
-                let mut eval = provider.make(&module)?;
-                eval.set_print_handler(&print);
+    fn eval<'a>(
+        &'a self,
+        ctx: &'a DiceComputations,
+        cfg: &'a ConfigurationData,
+    ) -> Pin<Box<dyn Future<Output = anyhow::Result<ConfigurationData>> + Send + 'a>> {
+        // Inner fn that actually does all the work
+        async fn eval_underlying(
+            cfg_constructor: &CfgConstructor,
+            ctx: &DiceComputations,
+            cfg: &ConfigurationData,
+        ) -> anyhow::Result<ConfigurationData> {
+            let module = Module::new();
+            let print = EventDispatcherPrintHandler(get_dispatcher());
 
-                // Pre-constraint analysis
-                let args = vec![(
-                    "platform",
-                    // TODO: should eventually accept cli modifiers, target modifiers, and PACKAGE modifiers (T163570597)
-                    // and unbound platform case will be handled properly
-                    if cfg.is_bound() {
-                        eval.heap()
-                            .alloc_complex(PlatformInfo::from_configuration(cfg, eval.heap())?)
+            // Pre constraint-analysis
+            let (refs, params, mut eval) = with_starlark_eval_provider(
+                ctx,
+                // TODO: pass proper profiler (T163570348)
+                &mut StarlarkProfilerOrInstrumentation::disabled(),
+                "pre constraint-analysis invocation".to_owned(),
+                |provider, _| {
+                    let mut eval = provider.make(&module)?;
+                    eval.set_print_handler(&print);
+
+                    let pre_constraint_analysis_args = vec![(
+                        "legacy_platform",
+                        // TODO: should eventually accept cli modifiers, target modifiers, and PACKAGE modifiers (T163570597)
+                        // and unbound platform case will be handled properly
+                        if cfg.is_bound() {
+                            eval.heap()
+                                .alloc_complex(PlatformInfo::from_configuration(cfg, eval.heap())?)
+                        } else {
+                            Value::new_none()
+                        },
+                    )];
+
+                    // Type check + unpack
+                    let (refs, params) = <(Vec<String>, Value)>::unpack_value_err(
+                        eval.eval_function(
+                            cfg_constructor
+                                .cfg_constructor_pre_constraint_analysis
+                                .value(),
+                            &[],
+                            &pre_constraint_analysis_args,
+                        )?,
+                    )?;
+
+                    // `params` Value lives on eval.heap() so we need to move eval out of the closure to keep it alive
+                    Ok((refs, params, eval))
+                },
+            )
+            .await?;
+
+            // Constraint analysis
+            let refs_providers_map = try_join_all(SmallSet::from_iter(refs).into_iter().map(
+                async move |label_str| -> anyhow::Result<(String, FrozenProviderCollectionValue)> {
+                    let cell_resolver = ctx.get_cell_resolver().await?;
+
+                    // Ensure all refs are configuration rules
+                    let label =
+                        TargetLabel::parse(&label_str, cell_resolver.root_cell(), &cell_resolver)?;
+
+                    if ctx.get_target_node(&label).await?.rule_kind() == RuleKind::Configuration {
+                        Ok((
+                            label_str,
+                            ctx.get_configuration_analysis_result(&label)
+                                .await?
+                                .provider_collection,
+                        ))
                     } else {
-                        Value::new_none()
-                    },
-                )];
-                let pre_constraint_analysis_result = eval.eval_function(
-                    self.cfg_constructor_pre_constraint_analysis.value(),
-                    &[],
-                    &args,
-                )?;
-                // Check return type
-                drop(<(Vec<String>, Value)>::unpack_value_err(
-                    pre_constraint_analysis_result,
-                )?);
+                        Err(
+                            CfgConstructorError::PostConstraintAnalysisRefsMustBeConfigurationRules(
+                                label_str,
+                            )
+                            .into(),
+                        )
+                    }
+                },
+            ))
+            .await?
+            .into_iter()
+            .collect::<SmallMap<String, FrozenProviderCollectionValue>>();
 
-                // TODO: analysis of constraints (T163226707)
+            // Post constraint-analysis
+            with_starlark_eval_provider(
+                ctx,
+                // TODO: pass proper profiler (T163570348)
+                &mut StarlarkProfilerOrInstrumentation::disabled(),
+                "post constraint-analysis invocation for cfg".to_owned(),
+                |_, _| -> anyhow::Result<ConfigurationData> {
+                    let post_constraint_analysis_args = vec![
+                        (
+                            "refs",
+                            eval.heap().alloc(AllocStruct(
+                                refs_providers_map
+                                    .into_iter()
+                                    .map(|(label, providers)| {
+                                        (label, providers.value().owned_value(eval.frozen_heap()))
+                                    })
+                                    .collect::<SmallMap<String, Value<'_>>>(),
+                            )),
+                        ),
+                        ("params", params),
+                    ];
 
-                // Post-constraint analysis
-                let post_constraint_analysis_result = eval.eval_function(
-                    self.cfg_constructor_post_constraint_analysis.value(),
-                    &[],
-                    &[("refs", pre_constraint_analysis_result)],
-                )?;
+                    let post_constraint_analysis_result = eval.eval_function(
+                        cfg_constructor
+                            .cfg_constructor_post_constraint_analysis
+                            .value(),
+                        &[],
+                        &post_constraint_analysis_args,
+                    )?;
 
-                <&PlatformInfo>::unpack_value_err(post_constraint_analysis_result)?
-                    .to_configuration()
-            },
-        )
-        .await
+                    // Type check + unpack
+                    <&PlatformInfo>::unpack_value_err(post_constraint_analysis_result)?
+                        .to_configuration()
+                },
+            )
+            .await
+        }
+
+        // Get around issue of Evaluator not being send by wrapping future in UnsafeSendFuture
+        let fut = async move { eval_underlying(self, ctx, cfg).await };
+        unsafe { Box::pin(UnsafeSendFuture::new_encapsulates_starlark(fut)) }
     }
 }
 

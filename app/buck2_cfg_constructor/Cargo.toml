@@ -13,6 +13,7 @@ dice = { workspace = true }
 dupe = { workspace = true }
 starlark = { workspace = true }
 thiserror = { workspace = true }
+futures = { workspace = true }
 
 buck2_common = { workspace = true }
 buck2_configured = { workspace = true }
