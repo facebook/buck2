@@ -205,7 +205,7 @@ impl ExecutionPlatformConstraints {
             gathered_deps
                 .toolchain_deps
                 .iter()
-                .map(|c| c.target().dupe())
+                .map(|c| c.dupe())
                 .collect(),
             exec_compatible_with,
         ))
@@ -672,7 +672,7 @@ impl ErrorsAndIncompatibilities {
 struct GatheredDeps {
     deps: Vec<ConfiguredTargetNode>,
     exec_deps: SmallMap<ConfiguredProvidersLabel, CheckVisibility>,
-    toolchain_deps: SmallSet<ConfiguredProvidersLabel>,
+    toolchain_deps: SmallSet<ConfiguredTargetLabel>,
     plugin_lists: PluginLists,
 }
 
@@ -686,7 +686,7 @@ async fn gather_deps(
     struct Traversal {
         deps: OrderedMap<ConfiguredProvidersLabel, SmallSet<PluginKindSet>>,
         exec_deps: SmallMap<ConfiguredProvidersLabel, CheckVisibility>,
-        toolchain_deps: SmallSet<ConfiguredProvidersLabel>,
+        toolchain_deps: SmallSet<ConfiguredTargetLabel>,
         plugin_lists: PluginLists,
     }
 
@@ -714,7 +714,7 @@ async fn gather_deps(
         }
 
         fn toolchain_dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
-            self.toolchain_deps.insert(dep.clone());
+            self.toolchain_deps.insert(dep.target().dupe());
             Ok(())
         }
 
@@ -881,7 +881,7 @@ async fn compute_configured_target_node_no_transition(
     let toolchain_dep_futures = gathered_deps
         .toolchain_deps
         .iter()
-        .map(|v| v.target().map_exec_cfg(execution_platform.cfg()))
+        .map(|v| v.map_exec_cfg(execution_platform.cfg()))
         .map(|v| async move { ctx.get_configured_target_node(&v).await });
 
     let exec_dep_futures = gathered_deps
