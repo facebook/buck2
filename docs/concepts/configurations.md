@@ -3,16 +3,16 @@ id: configurations
 title: Configurations
 ---
 
-When building targets, buck always builds them with a particular configuration.
-This configuration typically includes information like the target os, target
-arch, sanitizers, opt level, etc. One way that we can understand the difference
-is via the `cquery` and `uquery` commands. The cquery command will compute the
-appropriate configuration for a target and display a version of that target's
-attributes with the configuration applied. The `uquery` command will not apply a
-configuration.
+When building a target, buck always builds it in a particular "configuration."
+The configuration typically includes information like the target os, target
+arch, sanitizers, opt level, etc. One way to understand the effect that a
+configuration has is via the `cquery` and `uquery` commands. The cquery command
+will compute the appropriate configuration for a target and display a version of
+that target's attributes with the configuration applied. The `uquery` command
+will not apply a configuration.
 
-Here are a heavily trimmed version of the outpus of invoking uquery and cquery
-on `//buck2/app/buck2_core:buck2_core`.
+Here is a heavily trimmed version of the outpus of invoking `uquery` and
+`cquery` on `//buck2/app/buck2_core:buck2_core`.
 
 ```
 > buck2 uquery -A '"//buck2/app/buck2_core:buck2_core"'
@@ -78,7 +78,8 @@ on `//buck2/app/buck2_core:buck2_core`.
 
 The `cquery` output has additional `buck.target_configuration` and
 `buck.execution_platform` attributes which tell you what the target is being
-built for, and what it's being built on. `uquery` doesn't have those.
+built for and what it's being built on, respectively. `uquery` doesn't have
+those.
 
 The deps in `uquery` also have a number of selects; these indicate that the
 `common-path` dependency should only be included when building for Windows,
