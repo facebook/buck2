@@ -71,6 +71,7 @@ use starlark_map::small_set::SmallSet;
 use thiserror::Error;
 
 use crate::calculation::ConfiguredGraphCycleDescriptor;
+use crate::configuration::calculation::resolve_toolchain_constraints_from_constraints;
 use crate::configuration::calculation::ConfigurationCalculation;
 
 #[derive(Debug, thiserror::Error)]
@@ -257,7 +258,8 @@ impl ExecutionPlatformConstraints {
         ctx: &DiceComputations,
         target: &ConfiguredTargetLabel,
     ) -> SharedResult<ToolchainConstraints> {
-        ctx.resolve_toolchain_constraints_from_constraints(
+        resolve_toolchain_constraints_from_constraints(
+            ctx,
             target,
             &self.exec_compatible_with,
             &self.exec_deps,

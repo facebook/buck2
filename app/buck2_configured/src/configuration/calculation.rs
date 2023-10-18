@@ -236,7 +236,7 @@ async fn get_execution_platforms_enabled(
         .context("Execution platforms are not enabled")
 }
 
-async fn resolve_toolchain_constraints_from_constraints(
+pub(crate) async fn resolve_toolchain_constraints_from_constraints(
     ctx: &DiceComputations,
     target: &ConfiguredTargetLabel,
     exec_compatible_with: &[TargetLabel],
