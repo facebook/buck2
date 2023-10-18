@@ -50,7 +50,7 @@ BuildTargetFilter = record(
 )
 
 LabelFilter = record(
-    regex = field("regex"),
+    regex = regex,
     _type = field(FilterType, FilterType("label")),
 )
 
@@ -172,7 +172,8 @@ def _parse_filter(entry: str) -> [BuildTargetFilter, LabelFilter]:
             # anywhere in the text, while we want full text match for group label
             # text.
             return LabelFilter(
-                regex = experimental_regex("^{}$".format(label_regex)),
+                # TODO(nga): fancy is probably not needed here.
+                regex = regex("^{}$".format(label_regex), fancy = True),
             )
 
     pattern = strip_prefix("pattern:", entry)
