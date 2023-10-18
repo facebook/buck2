@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::future;
-
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
@@ -28,7 +26,6 @@ use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use dice::DiceComputations;
 use dupe::Dupe;
 use futures::future::BoxFuture;
-use futures::future::LocalBoxFuture;
 use futures::FutureExt;
 use itertools::Either;
 use starlark::eval::Evaluator;
@@ -76,12 +73,6 @@ enum ConfiguredProvidersLabelArg<'v> {
     Unconfigured(ProvidersLabelArg<'v>),
 }
 
-trait ProviderLabelArgGeneric<'v>: UnpackValue<'v> {}
-
-impl<'v> ProviderLabelArgGeneric<'v> for ProvidersLabelArg<'v> {}
-
-impl<'v> ProviderLabelArgGeneric<'v> for ConfiguredProvidersLabelArg<'v> {}
-
 impl ProvidersExpr<ConfiguredProvidersLabel> {
     pub(crate) async fn unpack_opt<'v, 'c>(
         value: Value<'v>,
@@ -94,10 +85,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
             if let Some(arg) = ConfiguredProvidersLabelArg::unpack_value(value) {
                 Some(Self::unpack_literal(arg, &target_platform, ctx, dice).await?)
             } else {
-                Self::unpack_iterable(value, ctx, eval, |arg, ctx| {
-                    Self::unpack_literal(arg, &target_platform, ctx, dice)
-                })
-                .await?
+                Self::unpack_iterable(value, &target_platform, ctx, dice, eval).await?
             },
         )
     }
@@ -159,6 +147,45 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
             }
         }
     }
+
+    async fn unpack_iterable<'c, 'v: 'c>(
+        value: Value<'v>,
+        target_platform: &'c Option<TargetLabel>,
+        ctx: &'c BxlContextNoDice<'_>,
+        dice: &'c DiceComputations,
+        eval: &Evaluator<'v, '_>,
+    ) -> anyhow::Result<Option<ProvidersExpr<ConfiguredProvidersLabel>>> {
+        #[allow(clippy::manual_map)] // `if else if` looks better here
+        let iterable = if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
+            Either::Left(Either::Left(s.iter(eval.heap())))
+        } else if let Some(s) = value.downcast_ref::<StarlarkTargetSet<ConfiguredTargetNode>>() {
+            Either::Left(Either::Right(s.iter(eval.heap())))
+        } else if let Some(iterable) = ListRef::from_value(value) {
+            Either::Right(iterable.iter())
+        } else {
+            return Err(ProviderExprError::NotATarget(value.to_repr()).into());
+        };
+
+        let mut res = Vec::new();
+        for val in iterable {
+            let Some(arg) = ConfiguredProvidersLabelArg::unpack_value(val) else {
+                return Err(anyhow::anyhow!(ProviderExprError::NotATarget(
+                    val.to_repr()
+                )));
+            };
+            if let ProvidersExpr::Literal(resolved_val) =
+                Self::unpack_literal(arg, target_platform, ctx, dice).await?
+            {
+                res.push(resolved_val)
+            } else {
+                return Err(anyhow::anyhow!(ProviderExprError::NotATarget(
+                    val.to_repr()
+                )));
+            }
+        }
+
+        Ok(Some(Self::Iterable(res)))
+    }
 }
 
 impl ProvidersExpr<ProvidersLabel> {
@@ -169,11 +196,7 @@ impl ProvidersExpr<ProvidersLabel> {
     ) -> anyhow::Result<Self> {
         Ok(if let Some(arg) = ProvidersLabelArg::unpack_value(value) {
             Self::unpack_literal(arg, ctx)?
-        } else if let Some(resolved) = Self::unpack_iterable(value, ctx, eval, |arg, ctx| {
-            future::ready(Self::unpack_literal(arg, ctx)).boxed()
-        })
-        .await?
-        {
+        } else if let Some(resolved) = Self::unpack_iterable(value, ctx, eval).await? {
             resolved
         } else {
             return Err(anyhow::anyhow!(ProviderExprError::NotAListOfTargets(
@@ -187,6 +210,41 @@ impl ProvidersExpr<ProvidersLabel> {
         ctx: &BxlContextNoDice<'_>,
     ) -> anyhow::Result<Self> {
         Ok(Self::Literal(Self::unpack_providers_label(value, ctx)?))
+    }
+
+    async fn unpack_iterable<'c, 'v: 'c>(
+        value: Value<'v>,
+        ctx: &'c BxlContextNoDice<'_>,
+        eval: &Evaluator<'v, '_>,
+    ) -> anyhow::Result<Option<ProvidersExpr<ProvidersLabel>>> {
+        #[allow(clippy::manual_map)] // `if else if` looks better here
+        let iterable = if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
+            Either::Left(Either::Left(s.iter(eval.heap())))
+        } else if let Some(s) = value.downcast_ref::<StarlarkTargetSet<ConfiguredTargetNode>>() {
+            Either::Left(Either::Right(s.iter(eval.heap())))
+        } else if let Some(iterable) = ListRef::from_value(value) {
+            Either::Right(iterable.iter())
+        } else {
+            return Err(ProviderExprError::NotATarget(value.to_repr()).into());
+        };
+
+        let mut res = Vec::new();
+        for val in iterable {
+            let Some(arg) = ProvidersLabelArg::unpack_value(val) else {
+                return Err(anyhow::anyhow!(ProviderExprError::NotATarget(
+                    val.to_repr()
+                )));
+            };
+            if let ProvidersExpr::Literal(resolved_val) = Self::unpack_literal(arg, ctx)? {
+                res.push(resolved_val)
+            } else {
+                return Err(anyhow::anyhow!(ProviderExprError::NotATarget(
+                    val.to_repr()
+                )));
+            }
+        }
+
+        Ok(Some(Self::Iterable(res)))
     }
 }
 
@@ -223,44 +281,5 @@ impl<P: ProvidersLabelMaybeConfigured> ProvidersExpr<P> {
                 ProvidersName::Default,
             )),
         }
-    }
-
-    async fn unpack_iterable<'c, 'v: 'c, A: ProviderLabelArgGeneric<'v>>(
-        value: Value<'v>,
-        ctx: &'c BxlContextNoDice<'_>,
-        eval: &Evaluator<'v, '_>,
-        unpack_literal: impl Fn(
-            A,
-            &'c BxlContextNoDice<'_>,
-        ) -> LocalBoxFuture<'c, anyhow::Result<ProvidersExpr<P>>>,
-    ) -> anyhow::Result<Option<ProvidersExpr<P>>> {
-        #[allow(clippy::manual_map)] // `if else if` looks better here
-        let iterable = if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
-            Either::Left(Either::Left(s.iter(eval.heap())))
-        } else if let Some(s) = value.downcast_ref::<StarlarkTargetSet<ConfiguredTargetNode>>() {
-            Either::Left(Either::Right(s.iter(eval.heap())))
-        } else if let Some(iterable) = ListRef::from_value(value) {
-            Either::Right(iterable.iter())
-        } else {
-            return Err(ProviderExprError::NotATarget(value.to_repr()).into());
-        };
-
-        let mut res = Vec::new();
-        for val in iterable {
-            let Some(arg) = A::unpack_value(val) else {
-                return Err(anyhow::anyhow!(ProviderExprError::NotATarget(
-                    val.to_repr()
-                )));
-            };
-            if let ProvidersExpr::Literal(resolved_val) = unpack_literal(arg, ctx).await? {
-                res.push(resolved_val)
-            } else {
-                return Err(anyhow::anyhow!(ProviderExprError::NotATarget(
-                    val.to_repr()
-                )));
-            }
-        }
-
-        Ok(Some(Self::Iterable(res)))
     }
 }
