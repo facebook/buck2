@@ -377,7 +377,6 @@ mod fbcode {
 
     fn should_send_event(d: &buck2_data::buck_event::Data) -> bool {
         use buck2_data::buck_event::Data;
-        use buck2_data::ActionKind;
 
         match d {
             Data::SpanStart(s) => {
@@ -385,14 +384,6 @@ mod fbcode {
 
                 match &s.data {
                     Some(Data::Command(..)) => true,
-                    Some(Data::ActionExecution(a)) => match ActionKind::from_i32(a.kind) {
-                        // Simple actions are not useful for most log analysis cases
-                        Some(ActionKind::Copy)
-                        | Some(ActionKind::SymlinkedDir)
-                        | Some(ActionKind::Write)
-                        | Some(ActionKind::WriteMacrosToFile) => false,
-                        _ => true,
-                    },
                     None => false,
                     _ => false,
                 }
