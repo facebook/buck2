@@ -91,8 +91,8 @@ def _source_type_artifacts(value: PythonLibraryManifests):
     return [a for a, _ in value.src_types.artifacts]
 
 _BYTECODE_PROJ_PREFIX = {
-    PycInvalidationMode("checked_hash"): "checked_bytecode",
-    PycInvalidationMode("unchecked_hash"): "bytecode",
+    PycInvalidationMode("CHECKED_HASH"): "checked_bytecode",
+    PycInvalidationMode("UNCHECKED_HASH"): "bytecode",
 }
 
 PythonLibraryManifestsTSet = transitive_set(

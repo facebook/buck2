@@ -276,7 +276,7 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     bytecode = None
     if src_manifest != None:
         bytecode = compile_manifests(ctx, [src_manifest])
-        sub_targets["compile"] = [DefaultInfo(default_output = bytecode[PycInvalidationMode("unchecked_hash")].artifacts[0][0])]
+        sub_targets["compile"] = [DefaultInfo(default_output = bytecode[PycInvalidationMode("UNCHECKED_HASH")].artifacts[0][0])]
         sub_targets["src-manifest"] = [DefaultInfo(default_output = src_manifest.manifest, other_outputs = [a for a, _ in src_manifest.artifacts])]
         if python_toolchain.emit_dependency_metadata:
             dep_manifest = create_dep_manifest_for_source_map(ctx, python_toolchain, qualified_srcs)
