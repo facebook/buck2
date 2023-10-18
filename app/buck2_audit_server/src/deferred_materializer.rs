@@ -45,6 +45,15 @@ impl AuditSubcommand for DeferredMaterializerCommand {
                     writeln!(stdout, "{}\t{}", path, entry)?;
                 }
             }
+            DeferredMaterializerSubcommand::ListSubscriptions => {
+                let mut stream = deferred_materializer
+                    .list_subscriptions()
+                    .context("Failed to start listing subscriptions")?;
+
+                while let Some(path) = stream.next().await {
+                    writeln!(stdout, "{}", path)?;
+                }
+            }
             DeferredMaterializerSubcommand::Fsck => {
                 let mut stream = deferred_materializer
                     .fsck()

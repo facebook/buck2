@@ -28,6 +28,7 @@ pub struct DeferredMaterializerCommand {
 #[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
 pub enum DeferredMaterializerSubcommand {
     List,
+    ListSubscriptions,
     Fsck,
     Refresh {
         /// Minimum TTL to require for actions.

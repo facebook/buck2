@@ -655,6 +655,8 @@ pub trait DeferredMaterializerExtensions: Send + Sync {
         BoxStream<'static, (ProjectRelativePathBuf, Box<dyn DeferredMaterializerEntry>)>,
     >;
 
+    fn list_subscriptions(&self) -> anyhow::Result<BoxStream<'static, ProjectRelativePathBuf>>;
+
     /// Obtain a list of files that don't match their in-memory representation. This may not catch
     /// all discrepancies.
     fn fsck(&self) -> anyhow::Result<BoxStream<'static, (ProjectRelativePathBuf, anyhow::Error)>>;

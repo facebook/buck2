@@ -130,6 +130,24 @@ impl<T> ExtensionCommand<T> for Iterate {
 
 #[derive(Derivative)]
 #[derivative(Debug)]
+struct ListSubscriptions {
+    #[derivative(Debug = "ignore")]
+    sender: UnboundedSender<ProjectRelativePathBuf>,
+}
+
+impl<T> ExtensionCommand<T> for ListSubscriptions {
+    fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
+        for path in processor.subscriptions.list_subscribed_paths() {
+            match self.sender.send(path.to_owned()) {
+                Ok(..) => {}
+                Err(..) => break, // No use sending more if the client disconnected.
+            }
+        }
+    }
+}
+
+#[derive(Derivative)]
+#[derivative(Debug)]
 struct Fsck {
     /// This is for debug commands so we use an unbounded channel to avoid locking up the
     /// materializer command thread.
@@ -292,6 +310,15 @@ impl<T: IoHandler> DeferredMaterializerExtensions for DeferredMaterializerAccess
         self.command_sender.send(MaterializerCommand::Extension(
             Box::new(Iterate { sender }) as _
         ))?;
+        Ok(UnboundedReceiverStream::new(receiver).boxed())
+    }
+
+    fn list_subscriptions(&self) -> anyhow::Result<BoxStream<'static, ProjectRelativePathBuf>> {
+        let (sender, receiver) = mpsc::unbounded_channel();
+        self.command_sender
+            .send(MaterializerCommand::Extension(
+                Box::new(ListSubscriptions { sender }) as _,
+            ))?;
         Ok(UnboundedReceiverStream::new(receiver).boxed())
     }
 

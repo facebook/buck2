@@ -79,6 +79,16 @@ impl MaterializerSubscriptions {
     pub(super) fn has_any_subscriptions(&self) -> bool {
         !self.active.is_empty()
     }
+
+    pub(super) fn list_subscribed_paths(&self) -> impl Iterator<Item = &ProjectRelativePath> {
+        let mut seen = HashSet::new();
+
+        self.active
+            .values()
+            .flat_map(|v| v.paths.iter())
+            .map(|p| p.as_ref())
+            .filter(move |p| seen.insert(*p))
+    }
 }
 
 struct SubscriptionData {
