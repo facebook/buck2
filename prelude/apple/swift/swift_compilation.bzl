@@ -413,6 +413,9 @@ def _get_shared_flags(
         # passed to the frontend. We later debug prefix these to ensure relative paths
         # in the debug info.
         "-working-directory=",
+        # Unset the working directory in the debug information.
+        "-file-compilation-dir",
+        ".",
         "-sdk",
         toolchain.sdk_path,
         "-target",

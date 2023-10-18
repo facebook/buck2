@@ -29,4 +29,4 @@ fi
 # relocatable, we must use that path at which the action
 # is run (be it locally or on RE) and this is not known
 # at the time of action definition.
-exec "$@" -debug-prefix-map "$PWD"/= -file-compilation-dir .
+exec "$@" -debug-prefix-map "$PWD"/=
