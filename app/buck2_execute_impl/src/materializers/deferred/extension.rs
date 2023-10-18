@@ -47,13 +47,21 @@ use crate::materializers::deferred::ArtifactMaterializationStage;
 use crate::materializers::deferred::DeferredMaterializerAccessor;
 use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::deferred::MaterializerCommand;
+use crate::materializers::deferred::Processing;
+use crate::materializers::deferred::ProcessingFuture;
 
 pub(super) trait ExtensionCommand<T>: Debug + Sync + Send + 'static {
     fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>);
 }
 
 #[derive(Debug)]
-enum PathData {
+struct PathData {
+    stage: PathStage,
+    processing: PathProcessing,
+}
+
+#[derive(Debug)]
+enum PathStage {
     Materialized {
         ts: DateTime<Utc>,
         size: Option<u64>,
@@ -61,18 +69,39 @@ enum PathData {
     Declared(Arc<ArtifactMaterializationMethod>),
 }
 
+#[derive(Debug)]
+enum PathProcessing {
+    Done,
+    Materializing,
+    Cleaning,
+}
+
 impl Display for PathData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            PathData::Materialized { ts, size } => {
+        match &self.stage {
+            PathStage::Materialized { ts, size } => {
                 if let Some(size) = size {
-                    write!(f, "materialized (ts={:?}, size={})", ts, size)
+                    write!(f, "materialized (ts={:?}, size={})", ts, size)?;
                 } else {
-                    write!(f, "materialized (ts={:?})", ts)
+                    write!(f, "materialized (ts={:?})", ts)?;
                 }
             }
-            PathData::Declared(method) => write!(f, "declared: {}", method),
+            PathStage::Declared(method) => {
+                write!(f, "declared: {}", method)?;
+            }
         }
+
+        match &self.processing {
+            PathProcessing::Done => {}
+            PathProcessing::Materializing => {
+                write!(f, " (materializing")?;
+            }
+            PathProcessing::Cleaning => {
+                write!(f, " (cleaning)")?;
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -90,9 +119,9 @@ struct Iterate {
 impl<T> ExtensionCommand<T> for Iterate {
     fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
         for (path, data) in processor.tree.iter_with_paths() {
-            let path_data = match &data.stage {
+            let stage = match &data.stage {
                 ArtifactMaterializationStage::Declared { method, .. } => {
-                    PathData::Declared(method.dupe())
+                    PathStage::Declared(method.dupe())
                 }
                 ArtifactMaterializationStage::Materialized {
                     last_access_time,
@@ -111,12 +140,26 @@ impl<T> ExtensionCommand<T> for Iterate {
                         .timestamp_opt(last_access_time.timestamp(), 0)
                         .single()
                         .unwrap();
-                    PathData::Materialized {
+                    PathStage::Materialized {
                         ts,
                         size: Some(size),
                     }
                 }
             };
+
+            let processing = match &data.processing {
+                Processing::Done(..) => PathProcessing::Done,
+                Processing::Active {
+                    future: ProcessingFuture::Materializing(..),
+                    ..
+                } => PathProcessing::Materializing,
+                Processing::Active {
+                    future: ProcessingFuture::Cleaning(..),
+                    ..
+                } => PathProcessing::Cleaning,
+            };
+
+            let path_data = PathData { stage, processing };
 
             let path = ProjectRelativePathBuf::from(path);
 
