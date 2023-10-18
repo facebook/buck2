@@ -202,8 +202,13 @@ def process_genrule(
         symlinks = ctx.attrs.srcs
     srcs_artifact = ctx.actions.symlinked_dir("srcs" if not identifier else "{}-srcs".format(identifier), symlinks)
 
+    if ctx.attrs.environment_expansion_separator:
+        delimiter = ctx.attrs.environment_expansion_separator
+    else:
+        delimiter = " "
+
     # Setup environment variables.
-    srcs = cmd_args()
+    srcs = cmd_args(delimiter = delimiter)
     for symlink in symlinks:
         srcs.add(cmd_args(srcs_artifact, format = path_sep.join([".", "{}", symlink.replace("/", path_sep)])))
     env_vars = {
