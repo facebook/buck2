@@ -70,7 +70,6 @@ load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
 load("@prelude//paths.bzl", "paths")
 load("@prelude//resources.bzl", "gather_resources")
-load(":compile.bzl", "compile_manifests")
 load(
     ":interface.bzl",
     "EntryPoint",
@@ -340,7 +339,6 @@ def python_executable(
     python_deps, shared_deps = gather_dep_libraries(raw_deps)
 
     src_manifest = None
-    bytecode_manifest = None
 
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
     if python_toolchain.runtime_library and ArtifactGroupInfo in python_toolchain.runtime_library:
@@ -349,7 +347,6 @@ def python_executable(
 
     if srcs:
         src_manifest = create_manifest_for_source_map(ctx, "srcs", srcs)
-        bytecode_manifest = compile_manifests(ctx, [src_manifest])
 
     dep_manifest = None
     if python_toolchain.emit_dependency_metadata and srcs:
@@ -367,7 +364,6 @@ def python_executable(
         srcs = src_manifest,
         dep_manifest = dep_manifest,
         resources = py_resources(ctx, all_resources) if all_resources else None,
-        bytecode = bytecode_manifest,
         deps = python_deps,
         shared_libraries = shared_deps,
     )

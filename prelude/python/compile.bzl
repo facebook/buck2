@@ -25,14 +25,6 @@ _AnonCompileResult = provider(fields = {
     "result": provider_field(None | CompiledPycInfo.type, default = None),
 })
 
-def compile_manifests(
-        ctx: AnalysisContext,
-        manifests: list[ManifestInfo]) -> dict[PycInvalidationMode, ManifestInfo]:
-    return {
-        mode: compile_manifests_for_mode(ctx, manifests, mode)
-        for mode in [PycInvalidationMode("unchecked_hash"), PycInvalidationMode("checked_hash")]
-    }
-
 def compile_manifests_for_mode(
         ctx: AnalysisContext,
         manifests: list[ManifestInfo],
