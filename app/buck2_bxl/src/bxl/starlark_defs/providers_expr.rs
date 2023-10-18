@@ -76,6 +76,12 @@ enum ConfiguredProvidersLabelArg<'v> {
     Unconfigured(ProvidersLabelArg<'v>),
 }
 
+trait ProviderLabelArgGeneric<'v>: UnpackValue<'v> {}
+
+impl<'v> ProviderLabelArgGeneric<'v> for ProvidersLabelArg<'v> {}
+
+impl<'v> ProviderLabelArgGeneric<'v> for ConfiguredProvidersLabelArg<'v> {}
+
 impl ProvidersExpr<ConfiguredProvidersLabel> {
     pub(crate) async fn unpack_opt<'v, 'c>(
         value: Value<'v>,
@@ -88,14 +94,8 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
             if let Some(arg) = ConfiguredProvidersLabelArg::unpack_value(value) {
                 Some(Self::unpack_literal(arg, &target_platform, ctx, dice).await?)
             } else {
-                Self::unpack_iterable(value, ctx, eval, |v, ctx| {
-                    let arg = ConfiguredProvidersLabelArg::unpack_value(v);
-                    match arg {
-                        Some(arg) => Self::unpack_literal(arg, &target_platform, ctx, dice)
-                            .map(|result| result.map(Some))
-                            .boxed(),
-                        None => future::ready(Ok(None)).boxed(),
-                    }
+                Self::unpack_iterable(value, ctx, eval, |arg, ctx| {
+                    Self::unpack_literal(arg, &target_platform, ctx, dice)
                 })
                 .await?
             },
@@ -169,13 +169,8 @@ impl ProvidersExpr<ProvidersLabel> {
     ) -> anyhow::Result<Self> {
         Ok(if let Some(arg) = ProvidersLabelArg::unpack_value(value) {
             Self::unpack_literal(arg, ctx)?
-        } else if let Some(resolved) = Self::unpack_iterable(value, ctx, eval, |value, ctx| {
-            let arg = ProvidersLabelArg::unpack_value(value);
-            let res = match arg {
-                None => Ok(None),
-                Some(arg) => Self::unpack_literal(arg, ctx).map(Some),
-            };
-            async move { res }.boxed()
+        } else if let Some(resolved) = Self::unpack_iterable(value, ctx, eval, |arg, ctx| {
+            future::ready(Self::unpack_literal(arg, ctx)).boxed()
         })
         .await?
         {
@@ -230,14 +225,14 @@ impl<P: ProvidersLabelMaybeConfigured> ProvidersExpr<P> {
         }
     }
 
-    async fn unpack_iterable<'c, 'v: 'c>(
+    async fn unpack_iterable<'c, 'v: 'c, A: ProviderLabelArgGeneric<'v>>(
         value: Value<'v>,
         ctx: &'c BxlContextNoDice<'_>,
         eval: &Evaluator<'v, '_>,
         unpack_literal: impl Fn(
-            Value<'v>,
+            A,
             &'c BxlContextNoDice<'_>,
-        ) -> LocalBoxFuture<'c, anyhow::Result<Option<ProvidersExpr<P>>>>,
+        ) -> LocalBoxFuture<'c, anyhow::Result<ProvidersExpr<P>>>,
     ) -> anyhow::Result<Option<ProvidersExpr<P>>> {
         #[allow(clippy::manual_map)] // `if else if` looks better here
         let iterable = if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
@@ -252,7 +247,12 @@ impl<P: ProvidersLabelMaybeConfigured> ProvidersExpr<P> {
 
         let mut res = Vec::new();
         for val in iterable {
-            if let Some(ProvidersExpr::Literal(resolved_val)) = unpack_literal(val, ctx).await? {
+            let Some(arg) = A::unpack_value(val) else {
+                return Err(anyhow::anyhow!(ProviderExprError::NotATarget(
+                    val.to_repr()
+                )));
+            };
+            if let ProvidersExpr::Literal(resolved_val) = unpack_literal(arg, ctx).await? {
                 res.push(resolved_val)
             } else {
                 return Err(anyhow::anyhow!(ProviderExprError::NotATarget(
