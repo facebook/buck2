@@ -33,6 +33,7 @@ load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_share
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "expect", "flatten", "from_named_set")
+load(":compile.bzl", "PycInvalidationMode", "compile_manifests")
 load(
     ":manifest.bzl",
     "ManifestInfo",  # @unused Used as a type
@@ -103,6 +104,7 @@ def create_python_library_info(
         label: Label,
         srcs: [ManifestInfo, None] = None,
         src_types: [ManifestInfo, None] = None,
+        bytecode: [dict[PycInvalidationMode, ManifestInfo], None] = None,
         dep_manifest: [ManifestInfo, None] = None,
         resources: [(ManifestInfo, list[ArgLike]), None] = None,
         extensions: [dict[str, LinkedObject], None] = None,
@@ -131,6 +133,7 @@ def create_python_library_info(
         src_types = src_types,
         resources = resources,
         dep_manifest = dep_manifest,
+        bytecode = bytecode,
         extensions = extensions,
     )
 
@@ -269,7 +272,11 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     dep_manifest = None
     src_type_manifest = create_manifest_for_source_map(ctx, "type_stubs", src_types) if src_types else None
 
+    # Compile bytecode.
+    bytecode = None
     if src_manifest != None:
+        bytecode = compile_manifests(ctx, [src_manifest])
+        sub_targets["compile"] = [DefaultInfo(default_output = bytecode[PycInvalidationMode("unchecked_hash")].artifacts[0][0])]
         sub_targets["src-manifest"] = [DefaultInfo(default_output = src_manifest.manifest, other_outputs = [a for a, _ in src_manifest.artifacts])]
         if python_toolchain.emit_dependency_metadata:
             dep_manifest = create_dep_manifest_for_source_map(ctx, python_toolchain, qualified_srcs)
@@ -286,6 +293,7 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
         srcs = src_manifest,
         src_types = src_type_manifest,
         resources = py_resources(ctx, resources) if resources else None,
+        bytecode = bytecode,
         dep_manifest = dep_manifest,
         deps = deps,
         shared_libraries = shared_libraries,

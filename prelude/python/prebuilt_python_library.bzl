@@ -20,6 +20,7 @@ load(
     "create_linkable_graph",
     "create_linkable_graph_node",
 )
+load(":compile.bzl", "compile_manifests")
 load(":manifest.bzl", "create_manifest_for_source_dir")
 load(
     ":python_library.bzl",
@@ -37,11 +38,13 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     ctx.actions.run([ctx.attrs._extract[RunInfo], ctx.attrs.binary_src, "--output", extracted_src.as_output()], category = "py_extract_prebuilt_library")
     deps, shared_deps = gather_dep_libraries(ctx.attrs.deps)
     src_manifest = create_manifest_for_source_dir(ctx, "binary_src", extracted_src, exclude = "\\.pyc$")
+    bytecode = compile_manifests(ctx, [src_manifest])
     library_info = create_python_library_info(
         ctx.actions,
         ctx.label,
         srcs = src_manifest,
         src_types = src_manifest,
+        bytecode = bytecode,
         deps = deps,
         shared_libraries = shared_deps,
     )
