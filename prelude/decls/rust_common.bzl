@@ -115,10 +115,14 @@ def _named_deps_arg(is_binary: bool):
 """),
     }
 
-def _toolchains_args():
+def _rust_toolchain_arg():
+    return {
+        "_rust_toolchain": toolchains_common.rust(),
+    }
+
+def _cxx_toolchain_arg():
     return {
         "_cxx_toolchain": toolchains_common.cxx(),
-        "_rust_toolchain": toolchains_common.rust(),
     }
 
 def _workspaces_arg():
@@ -141,6 +145,7 @@ rust_common = struct(
     env_arg = _env_arg,
     mapped_srcs_arg = _mapped_srcs_arg,
     named_deps_arg = _named_deps_arg,
-    toolchains_args = _toolchains_args,
+    rust_toolchain_arg = _rust_toolchain_arg,
+    cxx_toolchain_arg = _cxx_toolchain_arg,
     workspaces_arg = _workspaces_arg,
 )

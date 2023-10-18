@@ -60,7 +60,7 @@ prebuilt_rust_library = prelude_rule(
             "link_style": attrs.option(attrs.enum(LinkableDepType), default = None),
             "proc_macro": attrs.bool(default = False),
         } |
-        rust_common.toolchains_args()
+        rust_common.cxx_toolchain_arg()
     ),
     uses_plugins = [RustProcMacroPlugin],
 )
@@ -172,7 +172,8 @@ rust_binary = prelude_rule(
         _rust_binary_attrs_group(prefix = "") |
         _rust_common_attributes(is_binary = True) |
         _RUST_EXECUTABLE_ATTRIBUTES |
-        rust_common.toolchains_args() |
+        rust_common.cxx_toolchain_arg() |
+        rust_common.rust_toolchain_arg() |
         rust_common.workspaces_arg() |
         buck.allow_cache_upload_arg()
     ),
@@ -244,7 +245,8 @@ rust_library = prelude_rule(
             "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
         } |
         _rust_binary_attrs_group(prefix = "doc_") |
-        rust_common.toolchains_args() |
+        rust_common.cxx_toolchain_arg() |
+        rust_common.rust_toolchain_arg() |
         rust_common.workspaces_arg()
     ),
     uses_plugins = [RustProcMacroPlugin],
@@ -316,7 +318,8 @@ rust_test = prelude_rule(
             """),
         } |
         buck.re_test_args() |
-        rust_common.toolchains_args() |
+        rust_common.cxx_toolchain_arg() |
+        rust_common.rust_toolchain_arg() |
         rust_common.workspaces_arg()
     ),
     uses_plugins = [RustProcMacroPlugin],
