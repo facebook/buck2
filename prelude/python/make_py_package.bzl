@@ -256,7 +256,6 @@ def _make_py_package_impl(
             if manifest.srcs:
                 manifests_to_compile.append(manifest.srcs)
 
-        # TODO (xxiang) Pass bytecode compiler and compilation_env
         bytecode_manifest = compile_manifests_for_mode(
             ctx = ctx,
             manifests = manifests_to_compile,
