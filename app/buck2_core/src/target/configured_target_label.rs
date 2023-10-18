@@ -73,15 +73,11 @@ impl ConfiguredTargetLabel {
         self.cfg_pair.exec_cfg()
     }
 
-    /// Updates the exec config, but only if it's present
-    pub fn map_exec_cfg(&self, new_exec_cfg: &ConfigurationData) -> Self {
-        if self.exec_cfg().is_some() {
-            Self {
-                target: self.target.dupe(),
-                cfg_pair: Configuration::new(self.cfg().dupe(), Some(new_exec_cfg.dupe())),
-            }
-        } else {
-            self.dupe()
+    /// Sets the exec cfg to the given one
+    pub fn with_exec_cfg(&self, new_exec_cfg: ConfigurationData) -> Self {
+        Self {
+            target: self.target.dupe(),
+            cfg_pair: Configuration::new(self.cfg().dupe(), Some(new_exec_cfg)),
         }
     }
 

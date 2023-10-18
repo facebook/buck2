@@ -881,7 +881,7 @@ async fn compute_configured_target_node_no_transition(
     let toolchain_dep_futures = gathered_deps
         .toolchain_deps
         .iter()
-        .map(|v| v.map_exec_cfg(execution_platform.cfg()))
+        .map(|v| v.with_exec_cfg(execution_platform.cfg().dupe()))
         .map(|v| async move { ctx.get_configured_target_node(&v).await });
 
     let exec_dep_futures = gathered_deps
