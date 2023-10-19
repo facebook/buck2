@@ -8,6 +8,24 @@
 # @starlark-rust: allow_string_literals_in_type_expr
 
 load("@prelude//:build_mode.bzl", "BuildModeInfo")
+load("@prelude//tests:remote_test_execution_toolchain.bzl", "RemoteTestExecutionToolchainInfo")
+load("@prelude//utils:utils.bzl", "expect_non_none")
+
+def _get_re_arg(ctx: AnalysisContext):
+    if ctx.attrs.remote_execution != None:
+        # If this is a string, look up the profile on the RE toolchain.
+        if type(ctx.attrs.remote_execution) == type(""):
+            expect_non_none(ctx.attrs._remote_test_execution_toolchain)
+            return ctx.attrs._remote_test_execution_toolchain[RemoteTestExecutionToolchainInfo].profiles[ctx.attrs.remote_execution]
+
+        return ctx.attrs.remote_execution
+
+    # Check for a default RE option on the toolchain.
+    re_toolchain = ctx.attrs._remote_test_execution_toolchain
+    if re_toolchain != None and re_toolchain[RemoteTestExecutionToolchainInfo].default_profile != None:
+        return re_toolchain[RemoteTestExecutionToolchainInfo].default_profile
+
+    return None
 
 def get_re_executor_from_props(ctx: AnalysisContext) -> ["command_executor_config", None]:
     """
@@ -15,7 +33,7 @@ def get_re_executor_from_props(ctx: AnalysisContext) -> ["command_executor_confi
     to use with test providers.
     """
 
-    re_props = ctx.attrs.remote_execution
+    re_props = _get_re_arg(ctx)
     if re_props == None:
         return None
 

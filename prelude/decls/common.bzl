@@ -10,9 +10,6 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
-load("@prelude//:build_mode.bzl", "BuildModeInfo")
-load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
-
 def validate_uri(_s):
     return True
 
@@ -206,47 +203,6 @@ def _target_os_type_arg() -> Attr:
 def _exec_os_type_arg() -> Attr:
     return attrs.default_only(attrs.exec_dep(default = "prelude//os_lookup/targets:os_lookup"))
 
-def _re_opts_for_tests_arg() -> Attr:
-    # Attributes types do not have records.
-    # The expected shape of re_opts is:
-    # {
-    #     "capabilities": Dict<str, str> | None
-    #     "use_case": str | None
-    #     "remote_cache_enabled": bool | None
-    # }
-    return attrs.option(
-        attrs.dict(
-            key = attrs.string(),
-            value = attrs.option(
-                attrs.one_of(
-                    attrs.dict(
-                        key = attrs.string(),
-                        value = attrs.string(),
-                        sorted = False,
-                    ),
-                    attrs.string(),
-                    attrs.bool(),
-                ),
-                # TODO(cjhopman): I think this default does nothing, it should be deleted
-                default = None,
-            ),
-            sorted = False,
-        ),
-        default = None,
-    )
-
-def _re_action_key_provider_arg() -> Attr:
-    if is_full_meta_repo():
-        return attrs.dep(providers = [BuildModeInfo], default = "fbcode//buck2/platform/build_mode:build_mode")
-    else:
-        return attrs.option(attrs.dep(providers = [BuildModeInfo]), default = None)
-
-def _re_test_args() -> dict[str, Attr]:
-    return {
-        "remote_execution": _re_opts_for_tests_arg(),
-        "remote_execution_action_key_providers": _re_action_key_provider_arg(),
-    }
-
 def _allow_cache_upload_arg():
     return {
         "allow_cache_upload": attrs.bool(
@@ -274,7 +230,6 @@ buck = struct(
     run_test_separately_arg = _run_test_separately_arg,
     fork_mode = _fork_mode,
     test_rule_timeout_ms = _test_rule_timeout_ms,
-    re_test_args = _re_test_args,
     target_os_type_arg = _target_os_type_arg,
     allow_cache_upload_arg = _allow_cache_upload_arg,
 )

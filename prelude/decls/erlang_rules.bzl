@@ -6,11 +6,12 @@
 # of this source tree.
 
 load("@prelude//erlang/erlang_application.bzl", "StartTypeValues")
-load(":common.bzl", "buck", "prelude_rule")
+load(":common.bzl", "prelude_rule")
+load(":re_test_common.bzl", "re_test_common")
 
 def re_test_args():
     # remove reference to fbcode targets
-    args = buck.re_test_args()
+    args = re_test_common.test_args()
     return {"remote_execution": args["remote_execution"]}
 
 common_attributes = {

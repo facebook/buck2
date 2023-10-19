@@ -6,6 +6,7 @@
 # of this source tree.
 
 load(":common.bzl", "buck", "prelude_rule")
+load(":re_test_common.bzl", "re_test_common")
 
 sh_binary = prelude_rule(
     name = "sh_binary",
@@ -186,7 +187,7 @@ sh_test = prelude_rule(
             "run_env": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
             "run_test_separately": attrs.bool(default = False),
             "test_rule_timeout_ms": attrs.option(attrs.int(), default = None),
-        } | buck.re_test_args()
+        } | re_test_common.test_args()
     ),
 )
 

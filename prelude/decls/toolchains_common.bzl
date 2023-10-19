@@ -25,6 +25,7 @@ load(
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "PythonToolchainInfo")
 load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapToolchainInfo")
 load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
+load("@prelude//tests:remote_test_execution_toolchain.bzl", "RemoteTestExecutionToolchainInfo")
 load("@prelude//zip_file:zip_file_toolchain.bzl", "ZipFileToolchainInfo")
 
 def _toolchain(lang: str, providers: list[typing.Any]) -> Attr:
@@ -82,6 +83,9 @@ def _rust_toolchain():
 def _zip_file_toolchain():
     return _toolchain("zip_file", [ZipFileToolchainInfo])
 
+def _remote_test_execution_toolchain():
+    return _toolchain("remote_test_execution", [RemoteTestExecutionToolchainInfo])
+
 toolchains_common = struct(
     android = _android_toolchain,
     csharp = _csharp_toolchain,
@@ -99,4 +103,5 @@ toolchains_common = struct(
     python_bootstrap = _python_bootstrap_toolchain,
     rust = _rust_toolchain,
     zip_file = _zip_file_toolchain,
+    remote_test_execution_toolchain = _remote_test_execution_toolchain,
 )

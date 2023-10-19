@@ -111,6 +111,7 @@ load("@prelude//decls/kotlin_rules.bzl", "kotlin_rules")
 load("@prelude//decls/lua_rules.bzl", "lua_rules")
 load("@prelude//decls/ocaml_rules.bzl", "ocaml_rules")
 load("@prelude//decls/python_rules.bzl", "python_rules")
+load("@prelude//decls/re_test_common.bzl", "re_test_common")
 load("@prelude//decls/rust_rules.bzl", "rust_rules")
 load("@prelude//decls/scala_rules.bzl", "scala_rules")
 load("@prelude//decls/shell_rules.bzl", "shell_rules")
@@ -359,7 +360,7 @@ def _python_executable_attrs():
 def _python_test_attrs():
     test_attrs = _python_executable_attrs()
     test_attrs["_test_main"] = attrs.source(default = "prelude//python/tools:__test_main__.py")
-    test_attrs.update(buck.re_test_args())
+    test_attrs.update(re_test_common.test_args())
     return test_attrs
 
 def _cxx_binary_and_test_attrs():
@@ -445,7 +446,7 @@ inlined_extra_attributes = {
         "_is_building_android_binary": is_building_android_binary_attr(),
     },
     "cxx_python_extension": _cxx_python_extension_attrs(),
-    "cxx_test": buck.re_test_args() | _cxx_binary_and_test_attrs(),
+    "cxx_test": re_test_common.test_args() | _cxx_binary_and_test_attrs(),
     "cxx_toolchain": cxx_toolchain_extra_attributes(is_toolchain_rule = False),
 
     # Generic rule to build from a command
@@ -567,7 +568,7 @@ inlined_extra_attributes = {
         labels = attrs.list(attrs.string(), default = []),
         needed_coverage = attrs.list(attrs.tuple(attrs.int(), attrs.dep(), attrs.option(attrs.string())), default = []),
         test = attrs.dep(providers = [ExternalRunnerTestInfo]),
-        **buck.re_test_args()
+        **re_test_common.test_args()
     ),
     "python_test": _python_test_attrs(),
     "remote_file": {
