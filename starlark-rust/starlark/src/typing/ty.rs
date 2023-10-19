@@ -288,7 +288,11 @@ impl Ty {
 
     /// Tuple where elements are unknown.
     pub(crate) fn any_tuple() -> Self {
-        Ty::basic(TyBasic::Tuple(TyTuple::any()))
+        Self::tuple_of(Ty::any())
+    }
+
+    pub(crate) fn tuple_of(item: Ty) -> Self {
+        Ty::basic(TyBasic::Tuple(TyTuple::Of(ArcTy::new(item))))
     }
 
     /// Create a function type.

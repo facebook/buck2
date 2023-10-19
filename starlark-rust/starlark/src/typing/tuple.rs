@@ -46,11 +46,6 @@ pub enum TyTuple {
 }
 
 impl TyTuple {
-    /// `tuple`.
-    pub(crate) fn any() -> TyTuple {
-        TyTuple::Of(ArcTy::any())
-    }
-
     pub(crate) fn get(&self, i: usize) -> Option<&Ty> {
         match self {
             TyTuple::Elems(elems) => elems.get(i),

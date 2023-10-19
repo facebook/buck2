@@ -50,9 +50,10 @@ impl AllocTuple<iter::Empty<FrozenValue>> {
 impl<T> StarlarkTypeRepr for AllocTuple<T>
 where
     T: IntoIterator,
+    T::Item: StarlarkTypeRepr,
 {
     fn starlark_type_repr() -> Ty {
-        Ty::any_tuple()
+        Ty::tuple_of(T::Item::starlark_type_repr())
     }
 }
 
