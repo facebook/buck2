@@ -34,6 +34,7 @@ use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -42,9 +43,7 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
-use starlark::values::ValueLike;
 use starlark::StarlarkDocs;
-use thiserror::Error;
 
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
@@ -125,12 +124,11 @@ pub(crate) async fn get_aquery_env(
     .await
 }
 
-#[derive(Debug, Error)]
-pub(crate) enum BxlAqueryError {
-    #[error(
-        "Expected a list of target-like or provider-like items, or a target set of action query nodes, but was `{0}`"
-    )]
-    InvalidInputs(String),
+#[derive(StarlarkTypeRepr, UnpackValue)]
+enum UnpackActionNodes<'v> {
+    ActionQueryNodes(&'v StarlarkTargetSet<ActionQueryNode>),
+    ConfiguredProviders(ConfiguredProvidersExprArg<'v>),
+    ConfiguredTargets(ConfiguredTargetListExprArg<'v>),
 }
 
 // Aquery operates on `ActionQueryNode`s. Under the hood, the target set of action query nodes is obtained
@@ -139,30 +137,37 @@ pub(crate) enum BxlAqueryError {
 // and `ProvidersExpr`, we need to pass the aquery delegate a list of configured providers labels, and it will
 // run analysis on them to construct the `ActionQueryNode`s.
 async fn unpack_action_nodes<'v>(
-    expr: Value<'v>,
+    expr: UnpackActionNodes<'v>,
     target_platform: &Option<TargetLabel>,
     ctx: &BxlContextNoDice<'v>,
     dice: &mut DiceComputations,
     aquery_env: &dyn BxlAqueryFunctions,
 ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
-    if let Some(action_nodes) = expr.downcast_ref::<StarlarkTargetSet<ActionQueryNode>>() {
-        return Ok(action_nodes.0.clone());
-    }
-
-    let providers = if let Some(arg) = ConfiguredProvidersExprArg::unpack_value(expr) {
-        ProvidersExpr::<ConfiguredProvidersLabel>::unpack(arg, target_platform.clone(), ctx, dice)
+    let providers = match expr {
+        UnpackActionNodes::ActionQueryNodes(action_nodes) => return Ok(action_nodes.0.clone()),
+        UnpackActionNodes::ConfiguredProviders(arg) => {
+            ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
+                arg,
+                target_platform.clone(),
+                ctx,
+                dice,
+            )
             .await?
             .labels()
             .cloned()
             .collect()
-    } else if let Some(arg) = ConfiguredTargetListExprArg::unpack_value(expr) {
-        TargetListExpr::<ConfiguredTargetNode>::unpack_opt(arg, target_platform, ctx, dice, true)
+        }
+        UnpackActionNodes::ConfiguredTargets(arg) => {
+            TargetListExpr::<ConfiguredTargetNode>::unpack_opt(
+                arg,
+                target_platform,
+                ctx,
+                dice,
+                true,
+            )
             .await?
             .as_provider_labels()
-    } else {
-        return Err(anyhow::anyhow!(BxlAqueryError::InvalidInputs(
-            expr.to_repr()
-        )));
+        }
     };
 
     let (incompatible_targets, result) = aquery_env.get_target_set(dice, providers).await?;
@@ -186,7 +191,8 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
     /// The deps query for finding the transitive closure of dependencies.
     fn deps<'v>(
         this: &StarlarkAQueryCtx<'v>,
-        universe: Value<'v>,
+        // TODO(nga): parameters should be either positional or named, not both.
+        universe: UnpackActionNodes<'v>,
         #[starlark(default = NoneOr::None)] depth: NoneOr<i32>,
         #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
     ) -> anyhow::Result<StarlarkTargetSet<ActionQueryNode>> {
@@ -233,7 +239,8 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
     /// an action).
     fn all_actions<'v>(
         this: &StarlarkAQueryCtx<'v>,
-        targets: Value<'v>,
+        // TODO(nga): parameters should be either positional or named, not both.
+        targets: UnpackActionNodes<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ActionQueryNode>> {
         this.ctx
             .via_dice(|mut dice, ctx| {
@@ -268,7 +275,8 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
     /// else).
     fn all_outputs<'v>(
         this: &StarlarkAQueryCtx<'v>,
-        targets: Value<'v>,
+        // TODO(nga): parameters should be either positional or named, not both.
+        targets: UnpackActionNodes<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ActionQueryNode>> {
         this.ctx
             .via_dice(|mut dice, ctx| {
@@ -299,9 +307,10 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
     /// The attrfilter query for rule attribute filtering.
     fn attrfilter<'v>(
         this: &StarlarkAQueryCtx<'v>,
+        // TODO(nga): parameters should be either positional or named, not both.
         attr: &str,
         value: &str,
-        targets: Value<'v>,
+        targets: UnpackActionNodes<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ActionQueryNode>> {
         this.ctx.via_dice(|mut dice, ctx| {
             dice.via(|dice| {
