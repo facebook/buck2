@@ -28,7 +28,6 @@ use dupe::Dupe;
 use futures::future;
 use futures::FutureExt;
 use itertools::Either;
-use starlark::values::list::ListRef;
 use starlark::values::list::UnpackList;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::UnpackValue;
@@ -171,26 +170,23 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
                     .map(|node| ConfiguredProvidersLabel::default_for(node.label().dupe()))
                     .collect(),
             )));
-        } else if let Some(iterable) = ListRef::from_value(value) {
-            iterable.iter()
+        } else if let Some(iterable) =
+            UnpackList::<ConfiguredProvidersLabelArg>::unpack_value(value)
+        {
+            iterable
         } else {
             return Err(ProviderExprError::NotATarget(value.to_repr()).into());
         };
 
         let mut res = Vec::new();
-        for val in iterable {
-            let Some(arg) = ConfiguredProvidersLabelArg::unpack_value(val) else {
-                return Err(anyhow::anyhow!(ProviderExprError::NotATarget(
-                    val.to_repr()
-                )));
-            };
+        for arg in iterable.items {
             if let ProvidersExpr::Literal(resolved_val) =
                 Self::unpack_literal(arg, target_platform, ctx, dice).await?
             {
                 res.push(resolved_val)
             } else {
                 return Err(anyhow::anyhow!(ProviderExprError::NotATarget(
-                    val.to_repr()
+                    value.to_repr()
                 )));
             }
         }
