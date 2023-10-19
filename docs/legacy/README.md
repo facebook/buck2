@@ -1,7 +1,10 @@
 # buck 1 Documentation Import
-This folder contains documentation pulled from the Buck 1 website at https://buck.build/.
+
+This folder contains documentation pulled from the Buck 1 website at
+https://buck.build/.
 
 The folders include the following:
+
 ```
 ├── README.md
 ├── about
@@ -27,5 +30,6 @@ The folders include the following:
     └── dot-buckconfig.md
 
 ```
-Feel free to contact Brian Johnson (brianjo) with any questions
-for further cleanup of this documentation.
+
+Feel free to contact Brian Johnson (brianjo) with any questions for further
+cleanup of this documentation.

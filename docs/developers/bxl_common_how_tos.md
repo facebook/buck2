@@ -1,11 +1,12 @@
 ---
 id: bxl_how_tos
-title:  Common How-Tos
+title: Common How-Tos
 ---
 
 ## Passing in and using CLI args
 
-A BXL function can accept a `cli_args` attribute where args names and types are specified to use within your script, as shown in the following example:
+A BXL function can accept a `cli_args` attribute where args names and types are
+specified to use within your script, as shown in the following example:
 
 Example:
 
@@ -32,7 +33,8 @@ On the command line, you can invoke the arguments as follows:
 buck2 bxl //myscript.bxl:example -- --bool_arg true --list_type 1 --list_type 2 --target //foo:bar
 ```
 
-For BXL functions, to read the arguments, use them as attributes from the `cli_args` attribute on the BXL `ctx` object, as follows:
+For BXL functions, to read the arguments, use them as attributes from the
+`cli_args` attribute on the BXL `ctx` object, as follows:
 
 ```python
 def _impl_example(ctx):
@@ -41,7 +43,8 @@ def _impl_example(ctx):
 
 ## Running actions
 
-You can create actions within BXL via the `actions_factory`. This is called once globally then used on demand:
+You can create actions within BXL via the `actions_factory`. This is called once
+globally then used on demand:
 
 ```python
 def _impl_example(ctx):
@@ -49,15 +52,33 @@ def _impl_example(ctx):
     output = actions.write("my_output", "out")
 ```
 
-You can specify the execution platform resolution by setting named parameters when instantiating `bxl_actions`:
-* `exec_deps` - These are dependencies you wish to access as executables for creating the action. This is usually the same set of targets one would pass to rule's `attr.exec_dep`. Accepts a list of strings, subtarget labels, target labels, or target nodes.
-* `toolchains` - The set of toolchains needed for the actions you intend to create. Accepts a list of strings, subtarget labels, target labels, or target nodes.
-* `target_platform` - The intended target platform for your toolchains. Accepts a string or target label.
-* `exec_compatible_with` - Explicit list of configuration nodes (like platforms or constraints) that these actions are compatible with. This is the `exec_compatible_with` attribute of a target. Accepts a list of strings, target labels, or target nodes.
+You can specify the execution platform resolution by setting named parameters
+when instantiating `bxl_actions`:
 
-If you specify `exec_deps` or `toolchains`, you can access the resolved `dependency` objects on the `bxl_actions` object. The `bxl_actions` object will have `exec_deps` and `toolchains` attributes, which are `dict`s where the keys are the unconfigured subtarget labels, and the values are the configured/resolved `dependency` objects.
+- `exec_deps` - These are dependencies you wish to access as executables for
+  creating the action. This is usually the same set of targets one would pass to
+  rule's `attr.exec_dep`. Accepts a list of strings, subtarget labels, target
+  labels, or target nodes.
+- `toolchains` - The set of toolchains needed for the actions you intend to
+  create. Accepts a list of strings, subtarget labels, target labels, or target
+  nodes.
+- `target_platform` - The intended target platform for your toolchains. Accepts
+  a string or target label.
+- `exec_compatible_with` - Explicit list of configuration nodes (like platforms
+  or constraints) that these actions are compatible with. This is the
+  `exec_compatible_with` attribute of a target. Accepts a list of strings,
+  target labels, or target nodes.
 
-Note that the keys of `exec_deps` and `toolchains` must be unconfigured subtarget labels (`StarlarkProvidersLabel`), and not unconfigured target labels. You can use `ctx.unconfigured_sub_targets(...)` or `with_sub_target()` on `target_label` to create the label.
+If you specify `exec_deps` or `toolchains`, you can access the resolved
+`dependency` objects on the `bxl_actions` object. The `bxl_actions` object will
+have `exec_deps` and `toolchains` attributes, which are `dict`s where the keys
+are the unconfigured subtarget labels, and the values are the
+configured/resolved `dependency` objects.
+
+Note that the keys of `exec_deps` and `toolchains` must be unconfigured
+subtarget labels (`StarlarkProvidersLabel`), and not unconfigured target labels.
+You can use `ctx.unconfigured_sub_targets(...)` or `with_sub_target()` on
+`target_label` to create the label.
 
 ```python
 def _impl_example(ctx):
@@ -77,7 +98,8 @@ def _impl_example(ctx):
 
 ## Getting providers from an analysis
 
-After calling `analysis()`, you can get the providers collection from `providers()`:
+After calling `analysis()`, you can get the providers collection from
+`providers()`:
 
 ```python
 def _impl_example(ctx):
@@ -86,7 +108,8 @@ def _impl_example(ctx):
 
 ## Get a specific provider from an analysis
 
-After calling `analysis()`, you can also get the providers collection from `providers()` then grab whatever specific provider you need:
+After calling `analysis()`, you can also get the providers collection from
+`providers()` then grab whatever specific provider you need:
 
 ```python
 def _impl_example(ctx):
@@ -96,7 +119,9 @@ def _impl_example(ctx):
 
 ## Get a specific subtarget from an analysis
 
-Once you have a provider, you can get its subtargets by using the `sub_targets` attribute on the struct to get a dict of provider labels to provider collections:
+Once you have a provider, you can get its subtargets by using the `sub_targets`
+attribute on the struct to get a dict of provider labels to provider
+collections:
 
 ```python
 def _impl_example(ctx):
@@ -106,7 +131,8 @@ def _impl_example(ctx):
 
 ## Building a subtarget
 
-You can use `analysis()` to get a specific subtarget from an analysis, or you can pass in the subtarget literal directly into `ctx.build()`:
+You can use `analysis()` to get a specific subtarget from an analysis, or you
+can pass in the subtarget literal directly into `ctx.build()`:
 
 ```python
 def _impl_example(ctx):
@@ -116,9 +142,15 @@ def _impl_example(ctx):
 
 ## Getting attributes or resolved attributes efficiently
 
-If you need to use all of the attrs/resolved_attrs, then initializing the eager variant once would be best. If you only need a few of the attrs, then initializing the lazy variant is better. There’s not really a hard line, it depends on the target node, and which attrs you are looking for. If performance is key to your BXL script, the best way to determine this is to use the BXL profiler.
+If you need to use all of the attrs/resolved_attrs, then initializing the eager
+variant once would be best. If you only need a few of the attrs, then
+initializing the lazy variant is better. There’s not really a hard line, it
+depends on the target node, and which attrs you are looking for. If performance
+is key to your BXL script, the best way to determine this is to use the BXL
+profiler.
 
-Regardless, if you use eager or lazy versions of getting attributes, you should cache the attrs object:
+Regardless, if you use eager or lazy versions of getting attributes, you should
+cache the attrs object:
 
 ```python
 def _impl_example(ctx):
@@ -128,17 +160,23 @@ def _impl_example(ctx):
 
 ## Inspecting a struct
 
-You can use `dir(my_struct)` to inspect a struct. You can also use `getattr(my_struct, “my_attr”)` to grab individual attributes, which is equivalent to `my_struct.my_attr`.
+You can use `dir(my_struct)` to inspect a struct. You can also use
+`getattr(my_struct, “my_attr”)` to grab individual attributes, which is
+equivalent to `my_struct.my_attr`.
 
-These are available as part of the [Starlark language spec](https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#dir).
+These are available as part of the
+[Starlark language spec](https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#dir).
 
 ## Set addition/subtraction on a `target_set`
 
-There are a few BXL actions that return a `target_set` (such as a cquery `eval()`). The `target_set` supports set subtraction and addition (you can use `-` and `+` directly in Starlark).
+There are a few BXL actions that return a `target_set` (such as a cquery
+`eval()`). The `target_set` supports set subtraction and addition (you can use
+`-` and `+` directly in Starlark).
 
 ## Profiling, Testing, and Debugging a BXL script
 
-You can use `buck2 bxl profiler`, with various measurements, to determine where the script is least efficient.
+You can use `buck2 bxl profiler`, with various measurements, to determine where
+the script is least efficient.
 
 To time individual pieces of the script, you can use BXL’s timestamp methods:
 
@@ -151,7 +189,10 @@ def _impl_example(_ctx):
     end2 = start.elapsed_millis()
 ```
 
-BXL does not have a debugger available nor a robust testing framework for mocking.
+BXL does not have a debugger available nor a robust testing framework for
+mocking.
 
-* **Debug** - the main method to debug a BXL script is with print statements (`print()` and `ctx.output.print()`).
-* **Test** - the main method to test a BXL script is to actually invoke it with required inputs then verify the outputs.
+- **Debug** - the main method to debug a BXL script is with print statements
+  (`print()` and `ctx.output.print()`).
+- **Test** - the main method to test a BXL script is to actually invoke it with
+  required inputs then verify the outputs.

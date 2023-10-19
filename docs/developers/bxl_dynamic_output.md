@@ -5,20 +5,36 @@ title: BXL and Dynamic Outputs
 
 ## Dynamic output
 
-When declaring [dynamic outputs](../rule_authors/dynamic_dependencies.md) within a BXL script, the dynamic lambda for is created with a `bxl_ctx`, which means that you can do things like run analysis or queries to inspect the build graph from within the dynamic lambda.
+When declaring [dynamic outputs](../rule_authors/dynamic_dependencies.md) within
+a BXL script, the dynamic lambda for is created with a `bxl_ctx`, which means
+that you can do things like run analysis or queries to inspect the build graph
+from within the dynamic lambda.
 
-You may declare multiple dynamic outputs within a single BXL script, or declare nested dynamic outputs. Dynamic outputs are run asynchronously after the BXL evaluation.
+You may declare multiple dynamic outputs within a single BXL script, or declare
+nested dynamic outputs. Dynamic outputs are run asynchronously after the BXL
+evaluation.
 
 ### Limitations
-- `ctx.output` is not available from a dynamic lambda. This means you can’t ensure artifacts or print cached outputs within a dynamic lambda.
-- Error messages from skipping incompatible targets are only emitted to the console, and not cached in the stderr
+
+- `ctx.output` is not available from a dynamic lambda. This means you can’t
+  ensure artifacts or print cached outputs within a dynamic lambda.
+- Error messages from skipping incompatible targets are only emitted to the
+  console, and not cached in the stderr
 - `build()` is not available from a dynamic lambda
-- `bxl_actions` in a dynamic lambda always inherits the execution platform resolution of the root/parent BXL.
-  - The expected usage of `bxl_actions` from within a dynamic lambda is to instantiate it without any named parameters, but the `exec_deps` and `toolchains` of the execution platform resolution are accessible, and return the same values as the root/parent BXL
+- `bxl_actions` in a dynamic lambda always inherits the execution platform
+  resolution of the root/parent BXL.
+  - The expected usage of `bxl_actions` from within a dynamic lambda is to
+    instantiate it without any named parameters, but the `exec_deps` and
+    `toolchains` of the execution platform resolution are accessible, and return
+    the same values as the root/parent BXL
 - Profiling is not hooked up to dynamic BXL context
 
 ### Silly example
-This is a silly example of creating a dynamic output which reads some `query_params` input, calls some BXL functions like `uquery`, `configured_targets` to get the resolved attributes of a target node, and then writes the attributes to an output file.
+
+This is a silly example of creating a dynamic output which reads some
+`query_params` input, calls some BXL functions like `uquery`,
+`configured_targets` to get the resolved attributes of a target node, and then
+writes the attributes to an output file.
 
 ```python
 def _impl_dynamic_output(ctx):

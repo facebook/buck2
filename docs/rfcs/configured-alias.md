@@ -21,25 +21,27 @@ configured_alias(
 )
 ```
 
-When this rule is built, it ignores "current" target configuration,
-and builds the "actual" target with the configuration specified as "platform" argument.
+When this rule is built, it ignores "current" target configuration, and builds
+the "actual" target with the configuration specified as "platform" argument.
 
 ## How to implement it in buck v2?
 
 ### New rule attribute type: `configured_dep`
 
 Currently, we have several dependency attributes:
-* `attrs.dep`
-* `attrs.exec_dep`
-* `attrs.transition_dep`
-* `attrs.split_transition_dep`
+
+- `attrs.dep`
+- `attrs.exec_dep`
+- `attrs.transition_dep`
+- `attrs.split_transition_dep`
 
 This RFC proposes adding another attribute:
 
-* `attrs.configured_dep`
+- `attrs.configured_dep`
 
-`configured_dep` is an attribute which accepts a pair of strings: target and configuration.
-During analysis, configured attr deps are resolved to providers resolved using given configuration.
+`configured_dep` is an attribute which accepts a pair of strings: target and
+configuration. During analysis, configured attr deps are resolved to providers
+resolved using given configuration.
 
 ### `configured_alias_impl` user defined rule
 
@@ -69,8 +71,8 @@ def configured_alias(name, actual, platform):
 
 ### No `configured_alias`
 
-Each specific case where `configured_alias` is used, it can be done with defining
-custom transition, and using custom transition rule.
+Each specific case where `configured_alias` is used, it can be done with
+defining custom transition, and using custom transition rule.
 
 But having `configured_alias` is a convenient stopgap to unblock people.
 
@@ -81,8 +83,9 @@ Instead of passing `confiured_target_label(x, y)` pass `x + "@" + y`.
 ### Accept `configured_target_label` in `dep` attribute
 
 `dep` attribute could support all of:
-* regular target label as string
-* configured target label (as either `configured_target_label` or `x@y`
 
-I don't know practical applications for this magic,
-and unless there are uses for it, better keep API simple and explicit.
+- regular target label as string
+- configured target label (as either `configured_target_label` or `x@y`
+
+I don't know practical applications for this magic, and unless there are uses
+for it, better keep API simple and explicit.

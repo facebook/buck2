@@ -5,23 +5,42 @@ title: BXL and Anonymous Targets
 
 ## Anonymous targets
 
-[Anonymous targets](../rule_authors/anon_targets.md) are supported in BXL. Anonymous targets are keyed by the attributes, and allow you to share/cache work more effectively.
+[Anonymous targets](../rule_authors/anon_targets.md) are supported in BXL.
+Anonymous targets are keyed by the attributes, and allow you to share/cache work
+more effectively.
 
-You might want to use anonymous targets if there is some heavy Starlark evaluation which can be cached, or if you want to cache local actions.
+You might want to use anonymous targets if there is some heavy Starlark
+evaluation which can be cached, or if you want to cache local actions.
 
-**Note**: The context object within the anon target rule is **not** a BXL context, but a normal rule analysis context.
+**Note**: The context object within the anon target rule is **not** a BXL
+context, but a normal rule analysis context.
 
 ### APIs
 
-The `actions` object returned from `ctx.bxl_actions().actions` (equivalent of `ctx.actions` in normal rules) has the following functions for anonymous targets:
+The `actions` object returned from `ctx.bxl_actions().actions` (equivalent of
+`ctx.actions` in normal rules) has the following functions for anonymous
+targets:
 
-* `anon_target(rule: "rule", attrs: Dict[str, Any]) -> "promise"`: generates a single anonymous target. Return type is an unresolved `promise`.
-* `anon_targets(rules: [("rule", Dict[str, Any])]) -> "promise"`: generates a list of anonymous targets. Return type is an unresolved `promise` representing the list of anonymous targets.
-* `artifact_promise(promise: "promise") -> "promise_artifact"`: turns an unresolved promise into a kind of artifact. See [Convert promise to artifact](../rule_authors/anon_targets.md#convert-promise-to-artifact) for more info on why you might want to use this.
+- `anon_target(rule: "rule", attrs: Dict[str, Any]) -> "promise"`: generates a
+  single anonymous target. Return type is an unresolved `promise`.
+- `anon_targets(rules: [("rule", Dict[str, Any])]) -> "promise"`: generates a
+  list of anonymous targets. Return type is an unresolved `promise` representing
+  the list of anonymous targets.
+- `artifact_promise(promise: "promise") -> "promise_artifact"`: turns an
+  unresolved promise into a kind of artifact. See
+  [Convert promise to artifact](../rule_authors/anon_targets.md#convert-promise-to-artifact)
+  for more info on why you might want to use this.
 
-The resulting promise also has `map()` and `join()` functions. `map()` applies a function to the promise's results, and `join()` turns multiple promises into a single promise.
+The resulting promise also has `map()` and `join()` functions. `map()` applies a
+function to the promise's results, and `join()` turns multiple promises into a
+single promise.
 
-To resolve promises in BXL, `bxl_ctx` has a `resolve()` function, which takes in the analysis actions instance (`actions` object returned from `ctx.bxl_actions().actions`) and a single promise and returns an optional promise value, if there is one. If you intend to create multiple promises, using `join()` to produce a single promise will allow you to resolve them concurently with a single `resolve()` call.
+To resolve promises in BXL, `bxl_ctx` has a `resolve()` function, which takes in
+the analysis actions instance (`actions` object returned from
+`ctx.bxl_actions().actions`) and a single promise and returns an optional
+promise value, if there is one. If you intend to create multiple promises, using
+`join()` to produce a single promise will allow you to resolve them concurently
+with a single `resolve()` call.
 
 Small example:
 
