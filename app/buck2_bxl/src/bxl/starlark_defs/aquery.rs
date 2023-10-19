@@ -48,6 +48,7 @@ use thiserror::Error;
 
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
+use crate::bxl::starlark_defs::providers_expr::ConfiguredProvidersExprArg;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
 use crate::bxl::starlark_defs::target_list_expr::ConfiguredTargetListExprArg;
@@ -148,15 +149,12 @@ async fn unpack_action_nodes<'v>(
         return Ok(action_nodes.0.clone());
     }
 
-    let providers = if let Some(providers) = ProvidersExpr::<ConfiguredProvidersLabel>::unpack_opt(
-        expr,
-        target_platform.clone(),
-        ctx,
-        dice,
-    )
-    .await?
-    {
-        providers.labels().cloned().collect()
+    let providers = if let Some(arg) = ConfiguredProvidersExprArg::unpack_value(expr) {
+        ProvidersExpr::<ConfiguredProvidersLabel>::unpack(arg, target_platform.clone(), ctx, dice)
+            .await?
+            .labels()
+            .cloned()
+            .collect()
     } else if let Some(arg) = ConfiguredTargetListExprArg::unpack_value(expr) {
         TargetListExpr::<ConfiguredTargetNode>::unpack_opt(arg, target_platform, ctx, dice, true)
             .await?

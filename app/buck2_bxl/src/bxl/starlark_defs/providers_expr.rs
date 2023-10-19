@@ -30,19 +30,11 @@ use itertools::Either;
 use starlark::values::list::UnpackList;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::UnpackValue;
-use starlark::values::Value;
-use thiserror::Error;
 
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
-
-#[derive(Debug, Error)]
-enum ProviderExprError {
-    #[error("Expected a list of target like items, but was `{0}`")]
-    NotAListOfTargets(String),
-}
 
 /// ProvidersExpr is just a simple type that can be used in starlark_module
 /// functions for arguments that should be a set of provider labels. It will accept a
@@ -61,7 +53,7 @@ pub(crate) enum ProvidersLabelArg<'v> {
 }
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
-enum ConfiguredProvidersLabelArg<'v> {
+pub(crate) enum ConfiguredProvidersLabelArg<'v> {
     ConfiguredTargetNode(&'v StarlarkConfiguredTargetNode),
     ConfiguredTargetLabel(&'v StarlarkConfiguredTargetLabel),
     ConfiguredProvidersLabel(&'v StarlarkConfiguredProvidersLabel),
@@ -81,54 +73,33 @@ pub(crate) enum ProviderExprArg<'v> {
 }
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
-enum ConfiguredProvidersLabelListArg<'v> {
+pub(crate) enum ConfiguredProvidersLabelListArg<'v> {
     StarlarkTargetSet(&'v StarlarkTargetSet<TargetNode>),
     StarlarkConfiguredTargetSet(&'v StarlarkTargetSet<ConfiguredTargetNode>),
     List(UnpackList<ConfiguredProvidersLabelArg<'v>>),
 }
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
-enum ConfiguredProvidersExprArg<'v> {
+pub(crate) enum ConfiguredProvidersExprArg<'v> {
     One(ConfiguredProvidersLabelArg<'v>),
     List(ConfiguredProvidersLabelListArg<'v>),
 }
 
 impl ProvidersExpr<ConfiguredProvidersLabel> {
-    pub(crate) async fn unpack_opt<'v, 'c>(
-        value: Value<'v>,
-        target_platform: Option<TargetLabel>,
-        ctx: &BxlContextNoDice<'_>,
-        dice: &'c DiceComputations,
-    ) -> anyhow::Result<Option<Self>> {
-        let Some(arg) = ConfiguredProvidersExprArg::unpack_value(value) else {
-            return Ok(None);
-        };
-
-        match arg {
-            ConfiguredProvidersExprArg::One(arg) => Ok(Some(ProvidersExpr::Literal(
-                Self::unpack_literal(arg, &target_platform, ctx, dice).await?,
-            ))),
-            ConfiguredProvidersExprArg::List(arg) => Ok(Some(
-                Self::unpack_iterable(arg, &target_platform, ctx, dice).await?,
-            )),
-        }
-    }
-
     pub(crate) async fn unpack<'v, 'c>(
-        value: Value<'v>,
+        arg: ConfiguredProvidersExprArg<'v>,
         target_platform: Option<TargetLabel>,
         ctx: &BxlContextNoDice<'_>,
         dice: &'c DiceComputations,
     ) -> anyhow::Result<Self> {
-        Ok(
-            if let Some(resolved) = Self::unpack_opt(value, target_platform, ctx, dice).await? {
-                resolved
-            } else {
-                return Err(anyhow::anyhow!(ProviderExprError::NotAListOfTargets(
-                    value.to_repr()
-                )));
-            },
-        )
+        match arg {
+            ConfiguredProvidersExprArg::One(arg) => Ok(ProvidersExpr::Literal(
+                Self::unpack_literal(arg, &target_platform, ctx, dice).await?,
+            )),
+            ConfiguredProvidersExprArg::List(arg) => {
+                Ok(Self::unpack_iterable(arg, &target_platform, ctx, dice).await?)
+            }
+        }
     }
 
     async fn unpack_literal<'v, 'c>(
