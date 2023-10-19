@@ -58,7 +58,7 @@ pub(crate) enum ProvidersExpr<P: ProvidersLabelMaybeConfigured> {
 }
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
-enum ProvidersLabelArg<'v> {
+pub(crate) enum ProvidersLabelArg<'v> {
     Str(&'v str),
     StarlarkTargetLabel(&'v StarlarkTargetLabel),
     StarlarkProvidersLabel(&'v StarlarkProvidersLabel),
@@ -74,13 +74,13 @@ enum ConfiguredProvidersLabelArg<'v> {
 }
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
-enum ProviderLabelListArg<'v> {
+pub(crate) enum ProviderLabelListArg<'v> {
     List(UnpackList<ProvidersLabelArg<'v>>),
     TargetSet(&'v StarlarkTargetSet<TargetNode>),
 }
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
-enum ProviderExprArg<'v> {
+pub(crate) enum ProviderExprArg<'v> {
     One(ProvidersLabelArg<'v>),
     List(ProviderLabelListArg<'v>),
 }
@@ -194,12 +194,10 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
 }
 
 impl ProvidersExpr<ProvidersLabel> {
-    pub(crate) fn unpack<'v>(value: Value<'v>, ctx: &BxlContextNoDice<'_>) -> anyhow::Result<Self> {
-        let Some(arg) = ProviderExprArg::unpack_value(value) else {
-            return Err(anyhow::anyhow!(ProviderExprError::NotAListOfTargets(
-                value.to_repr()
-            )));
-        };
+    pub(crate) fn unpack<'v>(
+        arg: ProviderExprArg<'v>,
+        ctx: &BxlContextNoDice<'_>,
+    ) -> anyhow::Result<Self> {
         match arg {
             ProviderExprArg::One(arg) => Self::unpack_literal(arg, ctx),
             ProviderExprArg::List(arg) => Self::unpack_iterable(arg, ctx),

@@ -117,6 +117,7 @@ use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::cquery::StarlarkCQueryCtx;
 use crate::bxl::starlark_defs::event::StarlarkUserEventParser;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
+use crate::bxl::starlark_defs::providers_expr::ProviderExprArg;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 use crate::bxl::starlark_defs::target_list_expr::filter_incompatible;
 use crate::bxl::starlark_defs::target_list_expr::ConfiguredTargetListExprArg;
@@ -818,7 +819,8 @@ fn context_methods(builder: &mut MethodsBuilder) {
     /// Note that this function does not check that this subtarget exists in the repo.
     fn unconfigured_sub_targets<'v>(
         this: &BxlContext<'v>,
-        labels: Value<'v>,
+        // TODO(nga): parameter should be either positional or named, not both.
+        labels: ProviderExprArg<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let providers =
@@ -986,8 +988,10 @@ fn context_methods(builder: &mut MethodsBuilder) {
     /// platform resolution from the parent BXL.
     fn bxl_actions<'v>(
         this: &'v BxlContext<'v>,
-        #[starlark(require = named, default = NoneType)] exec_deps: Value<'v>,
-        #[starlark(require = named, default = NoneType)] toolchains: Value<'v>,
+        #[starlark(require = named, default = NoneOr::None)] exec_deps: NoneOr<ProviderExprArg<'v>>,
+        #[starlark(require = named, default = NoneOr::None)] toolchains: NoneOr<
+            ProviderExprArg<'v>,
+        >,
         #[starlark(require = named, default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
         #[starlark(require = named, default = NoneOr::None)] exec_compatible_with: NoneOr<
@@ -1006,22 +1010,24 @@ fn context_methods(builder: &mut MethodsBuilder) {
                                 this.cell_name,
                                 &this.global_target_platform,
                             )?;
-                            let exec_deps = if exec_deps.is_none() {
-                                Vec::new()
-                            } else {
-                                ProvidersExpr::<ProvidersLabel>::unpack(exec_deps, this)?
-                                    .labels()
-                                    .cloned()
-                                    .collect()
+                            let exec_deps = match exec_deps {
+                                NoneOr::None => Vec::new(),
+                                NoneOr::Other(exec_deps) => {
+                                    ProvidersExpr::<ProvidersLabel>::unpack(exec_deps, this)?
+                                        .labels()
+                                        .cloned()
+                                        .collect()
+                                }
                             };
 
-                            let toolchains = if toolchains.is_none() {
-                                Vec::new()
-                            } else {
-                                ProvidersExpr::<ProvidersLabel>::unpack(toolchains, this)?
-                                    .labels()
-                                    .cloned()
-                                    .collect()
+                            let toolchains = match toolchains {
+                                NoneOr::None => Vec::new(),
+                                NoneOr::Other(toolchains) => {
+                                    ProvidersExpr::<ProvidersLabel>::unpack(toolchains, this)?
+                                        .labels()
+                                        .cloned()
+                                        .collect()
+                                }
                             };
 
                             let exec_compatible_with = match exec_compatible_with {
