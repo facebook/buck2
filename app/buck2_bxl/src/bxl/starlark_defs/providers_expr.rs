@@ -79,6 +79,12 @@ enum ProviderLabelListArg<'v> {
     TargetSet(&'v StarlarkTargetSet<TargetNode>),
 }
 
+#[derive(StarlarkTypeRepr, UnpackValue)]
+enum ProviderExprArg<'v> {
+    One(ProvidersLabelArg<'v>),
+    List(ProviderLabelListArg<'v>),
+}
+
 impl ProvidersExpr<ConfiguredProvidersLabel> {
     pub(crate) async fn unpack_opt<'v, 'c>(
         value: Value<'v>,
@@ -192,15 +198,15 @@ impl ProvidersExpr<ProvidersLabel> {
         value: Value<'v>,
         ctx: &BxlContextNoDice<'_>,
     ) -> anyhow::Result<Self> {
-        Ok(if let Some(arg) = ProvidersLabelArg::unpack_value(value) {
-            Self::unpack_literal(arg, ctx)?
-        } else if let Some(arg) = ProviderLabelListArg::unpack_value(value) {
-            Self::unpack_iterable(arg, ctx).await?
-        } else {
+        let Some(arg) = ProviderExprArg::unpack_value(value) else {
             return Err(anyhow::anyhow!(ProviderExprError::NotAListOfTargets(
                 value.to_repr()
             )));
-        })
+        };
+        match arg {
+            ProviderExprArg::One(arg) => Self::unpack_literal(arg, ctx),
+            ProviderExprArg::List(arg) => Self::unpack_iterable(arg, ctx).await,
+        }
     }
 
     fn unpack_literal<'v>(
