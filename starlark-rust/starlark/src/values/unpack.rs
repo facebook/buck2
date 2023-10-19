@@ -23,9 +23,8 @@ use dupe::Dupe;
 use either::Either;
 
 use crate::typing::Ty;
-use crate::values::list::ListRef;
 use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::tuple::value::Tuple;
+use crate::values::types::list_or_tuple::UnpackListOrTuple;
 use crate::values::AllocValue;
 use crate::values::Heap;
 use crate::values::Value;
@@ -201,22 +200,19 @@ impl<'v, TLeft: UnpackValue<'v>, TRight: UnpackValue<'v>> UnpackValue<'v>
     }
 }
 
+/// This implementation is deprecated, use [`UnpackListOrTuple`] instead.
 impl<'v, T: UnpackValue<'v>> UnpackValue<'v> for Vec<T> {
     fn expected() -> String {
         format!("list or tuple of {}", T::expected())
     }
 
     fn unpack_value(value: Value<'v>) -> Option<Self> {
-        if let Some(o) = ListRef::from_value(value) {
-            o.iter().map(T::unpack_value).collect::<Option<Vec<_>>>()
-        } else if let Some(o) = Tuple::from_value(value) {
-            // TODO(nga): `StarlarkTypeRepr` for `Vec` says is `list`,
-            //   but here we also accept `tuple`.
-            //   So native function declaring it accepts `Vec`,
-            //   does not accept tuple at compile time, but accepts it at runtime.
-            o.iter().map(T::unpack_value).collect::<Option<Vec<_>>>()
-        } else {
-            None
-        }
+        // TODO(nga): `StarlarkTypeRepr` for `Vec` says is `list`,
+        //   but here we also accept `tuple`.
+        //   So native function declaring it accepts `Vec`,
+        //   does not accept tuple at compile time, but accepts it at runtime.
+        //   It is hard to fix, because `UnpackValue` for `Vec`
+        //   is often used to unpack `#[starlark(args)]` arguments, which unpacks tuple.
+        Some(UnpackListOrTuple::unpack_value(value)?.items)
     }
 }
