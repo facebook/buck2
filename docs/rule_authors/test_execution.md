@@ -40,8 +40,10 @@ When a user runs `buck2 test $targets`:
 * The test runner can request command execution from Buck2 to list and execute tests.
 * When it receives command results from Buck2, the test runner may fire off events that the end-user will see (such as test results), upload logs externally, request further executions, and so on.
 
+<!-- prettier-ignore -->
 :::note
 If more than one target is being built, test building and execution will proceed concurrently.
+<!-- prettier-ignore -->
 :::
 
 ## Information available on `ExternalRunnerTestInfo`

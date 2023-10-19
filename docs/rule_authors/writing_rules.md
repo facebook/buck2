@@ -7,8 +7,10 @@ This page describes how to write rules for Buck2 and explains the flow for imple
 
 For a list of the API functions available, see the [Build APIs](../../api/build/globals).
 
+<!-- prettier-ignore -->
 :::note
 Rules such as `@fbcode_macros//build_defs:native_rules.bzl buck_genrule` are not actually rules, they are _macros_ (Starlark functions that eventually call out the underlying `genrule` _rule_). Macros in Buck2 are mostly compatible with Buck1 and should be written in the same way.
+<!-- prettier-ignore -->
 :::
 
 ## Workflow by example
@@ -32,8 +34,10 @@ The built-in Buck2 rules are stored in `fbsource` in `fbcode/buck2/prelude`. To 
 
 6. Now implement the rules (see the rest of this page).
 
+<!-- prettier-ignore -->
 :::note
 Before merging a diff, it's important that all your Starlark is warning free (if you don't want to set up Buck2 for local development, test it in CI). <FbInternalOnly>If you do set it up locally, see the `README.md` in the root of `fbcode/buck2`. Running `./test.py --lint-only` will confirm your Starlark code is warning free.</FbInternalOnly>
+<!-- prettier-ignore -->
 :::
 
 ## Concepts and design

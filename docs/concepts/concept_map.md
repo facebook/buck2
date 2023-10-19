@@ -9,6 +9,7 @@ The Concept Map provides an at-a-glance overview of the relationships between wi
 
 <img src={useBaseUrl('/img/buck2_conceptmap.png')} alt='justifyContent'/>
 
+<!-- prettier-ignore -->
 :::note
 The Concept Map is for reference only and is not intended to be 100% accurate nor complete.
 
@@ -16,5 +17,6 @@ The Concept Map is for reference only and is not intended to be 100% accurate no
 
 The version above was created in LucidChart and is located in the [Buck2 team folder](https://lucid.app/folder/invitations/accept/inv_c5c89718-b1cd-4b22-ae76-a47616719948). To login into Lucidcharts, do `bunnylol lucidchart`
 
+<!-- prettier-ignore -->
 </FbInternalOnly>
 :::
