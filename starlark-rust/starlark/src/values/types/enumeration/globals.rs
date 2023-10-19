@@ -185,4 +185,14 @@ assert_ne(rt("one"), diff("one"))
 "#,
         );
     }
+
+    #[test]
+    fn test_enum_repr() {
+        assert::pass(
+            r#"
+enum_type = enum("option1", "option2")
+assert_eq("\"option1\"", repr(enum_type("option1")))
+"#,
+        );
+    }
 }
