@@ -26,7 +26,6 @@ use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use dice::DiceComputations;
 use dupe::Dupe;
 use futures::future;
-use futures::FutureExt;
 use itertools::Either;
 use starlark::values::list::UnpackList;
 use starlark::values::type_repr::StarlarkTypeRepr;
@@ -93,7 +92,9 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
     ) -> anyhow::Result<Option<Self>> {
         Ok(
             if let Some(arg) = ConfiguredProvidersLabelArg::unpack_value(value) {
-                Some(Self::unpack_literal(arg, &target_platform, ctx, dice).await?)
+                Some(ProvidersExpr::Literal(
+                    Self::unpack_literal(arg, &target_platform, ctx, dice).await?,
+                ))
             } else {
                 Self::unpack_iterable(value, &target_platform, ctx, dice).await?
             },
@@ -122,27 +123,26 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
         target_platform: &'c Option<TargetLabel>,
         ctx: &BxlContextNoDice<'_>,
         dice: &'c DiceComputations,
-    ) -> anyhow::Result<Self> {
+    ) -> anyhow::Result<ConfiguredProvidersLabel> {
         match arg {
             ConfiguredProvidersLabelArg::ConfiguredTargetNode(configured_target) => {
-                Ok(Self::Literal(ConfiguredProvidersLabel::new(
+                Ok(ConfiguredProvidersLabel::new(
                     configured_target.0.label().dupe(),
                     ProvidersName::Default,
-                )))
+                ))
             }
             ConfiguredProvidersLabelArg::ConfiguredTargetLabel(configured_target) => {
-                Ok(Self::Literal(ConfiguredProvidersLabel::new(
+                Ok(ConfiguredProvidersLabel::new(
                     configured_target.label().dupe(),
                     ProvidersName::Default,
-                )))
+                ))
             }
             ConfiguredProvidersLabelArg::ConfiguredProvidersLabel(configured_target) => {
-                Ok(Self::Literal(configured_target.label().clone()))
+                Ok(configured_target.label().clone())
             }
             ConfiguredProvidersLabelArg::Unconfigured(arg) => {
                 let label = Self::unpack_providers_label(arg, ctx)?;
                 dice.get_configured_provider_label(&label, target_platform.as_ref())
-                    .map(|res| res.map(Self::Literal))
                     .await
             }
         }
@@ -180,15 +180,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
 
         let mut res = Vec::new();
         for arg in iterable.items {
-            if let ProvidersExpr::Literal(resolved_val) =
-                Self::unpack_literal(arg, target_platform, ctx, dice).await?
-            {
-                res.push(resolved_val)
-            } else {
-                return Err(anyhow::anyhow!(ProviderExprError::NotATarget(
-                    value.to_repr()
-                )));
-            }
+            res.push(Self::unpack_literal(arg, target_platform, ctx, dice).await?);
         }
 
         Ok(Some(Self::Iterable(res)))
