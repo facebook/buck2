@@ -31,7 +31,6 @@ use starlark::values::list::UnpackList;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueLike;
 use thiserror::Error;
 
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
@@ -43,8 +42,6 @@ use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 enum ProviderExprError {
     #[error("Expected a list of target like items, but was `{0}`")]
     NotAListOfTargets(String),
-    #[error("Expected a single target like item, but was `{0}`")]
-    NotATarget(String),
 }
 
 /// ProvidersExpr is just a simple type that can be used in starlark_module
@@ -81,6 +78,13 @@ pub(crate) enum ProviderLabelListArg<'v> {
 pub(crate) enum ProviderExprArg<'v> {
     One(ProvidersLabelArg<'v>),
     List(ProviderLabelListArg<'v>),
+}
+
+#[derive(StarlarkTypeRepr, UnpackValue)]
+enum ConfiguredProvidersLabelListArg<'v> {
+    StarlarkTargetSet(&'v StarlarkTargetSet<TargetNode>),
+    StarlarkConfiguredTargetSet(&'v StarlarkTargetSet<ConfiguredTargetNode>),
+    List(UnpackList<ConfiguredProvidersLabelArg<'v>>),
 }
 
 impl ProvidersExpr<ConfiguredProvidersLabel> {
@@ -154,36 +158,40 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
         ctx: &'c BxlContextNoDice<'_>,
         dice: &'c DiceComputations,
     ) -> anyhow::Result<Option<ProvidersExpr<ConfiguredProvidersLabel>>> {
-        #[allow(clippy::manual_map)] // `if else if` looks better here
-        let iterable = if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
-            return Ok(Some(ProvidersExpr::Iterable(
-                future::try_join_all(s.0.iter().map(|node| async {
-                    let providers_label = ProvidersLabel::default_for(node.label().dupe());
-                    dice.get_configured_provider_label(&providers_label, target_platform.as_ref())
-                        .await
-                }))
-                .await?,
-            )));
-        } else if let Some(s) = value.downcast_ref::<StarlarkTargetSet<ConfiguredTargetNode>>() {
-            return Ok(Some(ProvidersExpr::Iterable(
-                s.0.iter()
-                    .map(|node| ConfiguredProvidersLabel::default_for(node.label().dupe()))
-                    .collect(),
-            )));
-        } else if let Some(iterable) =
-            UnpackList::<ConfiguredProvidersLabelArg>::unpack_value(value)
-        {
-            iterable
-        } else {
-            return Err(ProviderExprError::NotATarget(value.to_repr()).into());
+        let Some(arg) = ConfiguredProvidersLabelListArg::unpack_value(value) else {
+            return Ok(None);
         };
 
-        let mut res = Vec::new();
-        for arg in iterable.items {
-            res.push(Self::unpack_literal(arg, target_platform, ctx, dice).await?);
-        }
+        match arg {
+            ConfiguredProvidersLabelListArg::StarlarkTargetSet(s) => {
+                Ok(Some(ProvidersExpr::Iterable(
+                    future::try_join_all(s.0.iter().map(|node| async {
+                        let providers_label = ProvidersLabel::default_for(node.label().dupe());
+                        dice.get_configured_provider_label(
+                            &providers_label,
+                            target_platform.as_ref(),
+                        )
+                        .await
+                    }))
+                    .await?,
+                )))
+            }
+            ConfiguredProvidersLabelListArg::StarlarkConfiguredTargetSet(s) => {
+                Ok(Some(ProvidersExpr::Iterable(
+                    s.0.iter()
+                        .map(|node| ConfiguredProvidersLabel::default_for(node.label().dupe()))
+                        .collect(),
+                )))
+            }
+            ConfiguredProvidersLabelListArg::List(iterable) => {
+                let mut res = Vec::new();
+                for arg in iterable.items {
+                    res.push(Self::unpack_literal(arg, target_platform, ctx, dice).await?);
+                }
 
-        Ok(Some(Self::Iterable(res)))
+                Ok(Some(Self::Iterable(res)))
+            }
+        }
     }
 }
 
