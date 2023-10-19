@@ -25,7 +25,6 @@ use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use dice::DiceComputations;
 use dupe::Dupe;
-use futures::future::BoxFuture;
 use futures::FutureExt;
 use itertools::Either;
 use starlark::eval::Evaluator;
@@ -110,40 +109,33 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
         )
     }
 
-    fn unpack_literal<'v, 'c>(
+    async fn unpack_literal<'v, 'c>(
         arg: ConfiguredProvidersLabelArg<'v>,
         target_platform: &'c Option<TargetLabel>,
         ctx: &BxlContextNoDice<'_>,
         dice: &'c DiceComputations,
-    ) -> BoxFuture<'c, anyhow::Result<Self>> {
+    ) -> anyhow::Result<Self> {
         match arg {
             ConfiguredProvidersLabelArg::ConfiguredTargetNode(configured_target) => {
-                futures::future::ready(Ok(Self::Literal(ConfiguredProvidersLabel::new(
+                Ok(Self::Literal(ConfiguredProvidersLabel::new(
                     configured_target.0.label().dupe(),
                     ProvidersName::Default,
-                ))))
-                .boxed()
+                )))
             }
             ConfiguredProvidersLabelArg::ConfiguredTargetLabel(configured_target) => {
-                futures::future::ready(Ok(Self::Literal(ConfiguredProvidersLabel::new(
+                Ok(Self::Literal(ConfiguredProvidersLabel::new(
                     configured_target.label().dupe(),
                     ProvidersName::Default,
-                ))))
-                .boxed()
+                )))
             }
             ConfiguredProvidersLabelArg::ConfiguredProvidersLabel(configured_target) => {
-                futures::future::ready(Ok(Self::Literal(configured_target.label().clone()))).boxed()
+                Ok(Self::Literal(configured_target.label().clone()))
             }
             ConfiguredProvidersLabelArg::Unconfigured(arg) => {
-                match Self::unpack_providers_label(arg, ctx) {
-                    Ok(label) => async move {
-                        dice.get_configured_provider_label(&label, target_platform.as_ref())
-                            .map(|res| res.map(Self::Literal))
-                            .await
-                    }
-                    .boxed(),
-                    Err(e) => futures::future::ready(Err(e)).boxed(),
-                }
+                let label = Self::unpack_providers_label(arg, ctx)?;
+                dice.get_configured_provider_label(&label, target_platform.as_ref())
+                    .map(|res| res.map(Self::Literal))
+                    .await
             }
         }
     }
