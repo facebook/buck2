@@ -249,9 +249,9 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         ))
     }
 
-    /// Returns an `artifact` whose contents are content written as a JSON value.
+    /// Returns an `artifact` whose contents are `content` written as a JSON value.
     ///
-    /// * `filename`: can be a string, or an existing artifact created with `declare_output`
+    /// * `output`: can be a string, or an existing artifact created with `declare_output`
     /// * `content`:  must be composed of the basic json types (boolean, number, string, list/tuple,
     ///   dictionary) plus artifacts and command lines
     ///     * An artifact will be written as a string containing the path
