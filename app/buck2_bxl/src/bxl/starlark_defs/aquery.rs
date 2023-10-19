@@ -143,7 +143,6 @@ async fn unpack_action_nodes<'v>(
     ctx: &BxlContextNoDice<'v>,
     dice: &mut DiceComputations,
     aquery_env: &dyn BxlAqueryFunctions,
-    eval: &mut Evaluator<'v, '_>,
 ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
     if let Some(action_nodes) = expr.downcast_ref::<StarlarkTargetSet<ActionQueryNode>>() {
         return Ok(action_nodes.0.clone());
@@ -154,7 +153,6 @@ async fn unpack_action_nodes<'v>(
         target_platform.clone(),
         ctx,
         dice,
-        eval,
     )
     .await?
     {
@@ -193,7 +191,6 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
         universe: Value<'v>,
         #[starlark(default = NoneOr::None)] depth: NoneOr<i32>,
         #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
-        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ActionQueryNode>> {
         this.ctx
             .via_dice(|mut dice, ctx| {
@@ -211,7 +208,6 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
                             ctx,
                             dice,
                             aquery_env.as_ref(),
-                            eval,
                         )
                         .await?;
 
@@ -240,7 +236,6 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
     fn all_actions<'v>(
         this: &StarlarkAQueryCtx<'v>,
         targets: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ActionQueryNode>> {
         this.ctx
             .via_dice(|mut dice, ctx| {
@@ -254,7 +249,6 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
                             ctx,
                             dice,
                             aquery_env.as_ref(),
-                            eval,
                         )
                         .await?;
 
@@ -277,7 +271,6 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
     fn all_outputs<'v>(
         this: &StarlarkAQueryCtx<'v>,
         targets: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ActionQueryNode>> {
         this.ctx
             .via_dice(|mut dice, ctx| {
@@ -291,7 +284,6 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
                             ctx,
                             dice,
                             aquery_env.as_ref(),
-                            eval,
                         )
                         .await?;
 
@@ -312,7 +304,6 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
         attr: &str,
         value: &str,
         targets: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ActionQueryNode>> {
         this.ctx.via_dice(|mut dice, ctx| {
             dice.via(|dice| {
@@ -325,7 +316,6 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
                         ctx,
                         dice,
                         aquery_env.as_ref(),
-                        eval,
                     )
                     .await?;
 

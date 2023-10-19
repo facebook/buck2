@@ -1142,7 +1142,6 @@ fn context_methods(builder: &mut MethodsBuilder) {
                         target_platform,
                         ctx,
                         dice,
-                        eval,
                     )
                     .await?;
                     analysis::analysis(dice, ctx, providers, skip_incompatible).await

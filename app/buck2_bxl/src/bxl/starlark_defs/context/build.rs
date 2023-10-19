@@ -207,7 +207,6 @@ pub(crate) fn build<'v>(
                 target_platform,
                 ctx,
                 dice,
-                eval,
             )
             .await?;
 

@@ -25,9 +25,9 @@ use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use dice::DiceComputations;
 use dupe::Dupe;
+use futures::future;
 use futures::FutureExt;
 use itertools::Either;
-use starlark::eval::Evaluator;
 use starlark::values::list::ListRef;
 use starlark::values::list::UnpackList;
 use starlark::values::type_repr::StarlarkTypeRepr;
@@ -91,13 +91,12 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
         target_platform: Option<TargetLabel>,
         ctx: &BxlContextNoDice<'_>,
         dice: &'c DiceComputations,
-        eval: &Evaluator<'v, '_>,
     ) -> anyhow::Result<Option<Self>> {
         Ok(
             if let Some(arg) = ConfiguredProvidersLabelArg::unpack_value(value) {
                 Some(Self::unpack_literal(arg, &target_platform, ctx, dice).await?)
             } else {
-                Self::unpack_iterable(value, &target_platform, ctx, dice, eval).await?
+                Self::unpack_iterable(value, &target_platform, ctx, dice).await?
             },
         )
     }
@@ -107,12 +106,9 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
         target_platform: Option<TargetLabel>,
         ctx: &BxlContextNoDice<'_>,
         dice: &'c DiceComputations,
-        eval: &Evaluator<'v, '_>,
     ) -> anyhow::Result<Self> {
         Ok(
-            if let Some(resolved) =
-                Self::unpack_opt(value, target_platform, ctx, dice, eval).await?
-            {
+            if let Some(resolved) = Self::unpack_opt(value, target_platform, ctx, dice).await? {
                 resolved
             } else {
                 return Err(anyhow::anyhow!(ProviderExprError::NotAListOfTargets(
@@ -158,11 +154,17 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
         target_platform: &'c Option<TargetLabel>,
         ctx: &'c BxlContextNoDice<'_>,
         dice: &'c DiceComputations,
-        eval: &Evaluator<'v, '_>,
     ) -> anyhow::Result<Option<ProvidersExpr<ConfiguredProvidersLabel>>> {
         #[allow(clippy::manual_map)] // `if else if` looks better here
         let iterable = if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
-            Either::Left(s.iter(eval.heap()))
+            return Ok(Some(ProvidersExpr::Iterable(
+                future::try_join_all(s.0.iter().map(|node| async {
+                    let providers_label = ProvidersLabel::default_for(node.label().dupe());
+                    dice.get_configured_provider_label(&providers_label, target_platform.as_ref())
+                        .await
+                }))
+                .await?,
+            )));
         } else if let Some(s) = value.downcast_ref::<StarlarkTargetSet<ConfiguredTargetNode>>() {
             return Ok(Some(ProvidersExpr::Iterable(
                 s.0.iter()
@@ -170,7 +172,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
                     .collect(),
             )));
         } else if let Some(iterable) = ListRef::from_value(value) {
-            Either::Right(iterable.iter())
+            iterable.iter()
         } else {
             return Err(ProviderExprError::NotATarget(value.to_repr()).into());
         };
