@@ -122,7 +122,7 @@ assert_eq([x.value for x in enum_type], ["option1","option2"])"#,
 enum_type = enum("option1","option2")
 x = enum_type("option1")
 assert_eq(str(enum_type), "enum(\"option1\", \"option2\")")
-assert_eq(str(x), "\"option1\"")
+assert_eq(str(x), "enum_type(\"option1\")")
 "#,
         );
         assert::pass(
@@ -191,7 +191,8 @@ assert_ne(rt("one"), diff("one"))
         assert::pass(
             r#"
 enum_type = enum("option1", "option2")
-assert_eq("\"option1\"", repr(enum_type("option1")))
+assert_eq("enum_type(\"option1\")", repr(enum_type("option1")))
+assert_eq("enum()(\"option1\")", repr(enum("option1", "option2")("option1")))
 "#,
         );
     }

@@ -410,7 +410,7 @@ def g(x):
 
 g(Season[0])
 "#,
-            r#"Value `"SPRING"` of type `enum` does not match the type annotation `Color` for argument `x`"#,
+            r#"Value `Season("SPRING")` of type `enum` does not match the type annotation `Color` for argument `x`"#,
         );
     }
 
