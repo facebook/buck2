@@ -194,8 +194,8 @@ impl ProvidersExpr<ProvidersLabel> {
     ) -> anyhow::Result<Self> {
         Ok(if let Some(arg) = ProvidersLabelArg::unpack_value(value) {
             Self::unpack_literal(arg, ctx)?
-        } else if let Some(resolved) = Self::unpack_iterable(value, ctx).await? {
-            resolved
+        } else if let Some(arg) = ProviderLabelListArg::unpack_value(value) {
+            Self::unpack_iterable(arg, ctx).await?
         } else {
             return Err(anyhow::anyhow!(ProviderExprError::NotAListOfTargets(
                 value.to_repr()
@@ -211,24 +211,21 @@ impl ProvidersExpr<ProvidersLabel> {
     }
 
     async fn unpack_iterable<'c, 'v: 'c>(
-        value: Value<'v>,
+        arg: ProviderLabelListArg<'v>,
         ctx: &'c BxlContextNoDice<'_>,
-    ) -> anyhow::Result<Option<ProvidersExpr<ProvidersLabel>>> {
-        let Some(arg) = ProviderLabelListArg::unpack_value(value) else {
-            return Ok(None);
-        };
+    ) -> anyhow::Result<ProvidersExpr<ProvidersLabel>> {
         match arg {
-            ProviderLabelListArg::TargetSet(s) => Ok(Some(ProvidersExpr::Iterable(
+            ProviderLabelListArg::TargetSet(s) => Ok(ProvidersExpr::Iterable(
                 s.0.iter()
                     .map(|node| ProvidersLabel::default_for(node.label().dupe()))
                     .collect(),
-            ))),
+            )),
             ProviderLabelListArg::List(iterable) => {
                 let mut res = Vec::new();
                 for val in iterable.items {
                     res.push(Self::unpack_providers_label(val, ctx)?)
                 }
-                Ok(Some(ProvidersExpr::Iterable(res)))
+                Ok(ProvidersExpr::Iterable(res))
             }
         }
     }
