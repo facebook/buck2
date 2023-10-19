@@ -162,9 +162,13 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
     ) -> anyhow::Result<Option<ProvidersExpr<ConfiguredProvidersLabel>>> {
         #[allow(clippy::manual_map)] // `if else if` looks better here
         let iterable = if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
-            Either::Left(Either::Left(s.iter(eval.heap())))
+            Either::Left(s.iter(eval.heap()))
         } else if let Some(s) = value.downcast_ref::<StarlarkTargetSet<ConfiguredTargetNode>>() {
-            Either::Left(Either::Right(s.iter(eval.heap())))
+            return Ok(Some(ProvidersExpr::Iterable(
+                s.0.iter()
+                    .map(|node| ConfiguredProvidersLabel::default_for(node.label().dupe()))
+                    .collect(),
+            )));
         } else if let Some(iterable) = ListRef::from_value(value) {
             Either::Right(iterable.iter())
         } else {
