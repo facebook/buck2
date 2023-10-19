@@ -43,9 +43,13 @@ use crate::directory::ActionImmutableDirectory;
 use crate::execute::environment_inheritance::EnvironmentInheritance;
 use crate::execute::inputs_directory::inputs_directory;
 
+// TODO(nga): explain what that is.
+#[derive(Clone)]
+pub struct ActionMetadataBlobData(pub Vec<u8>);
+
 #[derive(Clone)]
 pub struct ActionMetadataBlob {
-    pub data: Vec<u8>,
+    pub data: ActionMetadataBlobData,
     pub digest: TrackedFileDigest,
     pub path: BuckOutPath,
 }

@@ -144,7 +144,7 @@ impl Uploader {
                 match blobs.get(digest) {
                     Some(blob) => {
                         upload_blobs.push(InlinedBlobWithDigest {
-                            blob: blob.clone(),
+                            blob: blob.clone().0,
                             digest: digest.to_re(),
                             ..Default::default()
                         });

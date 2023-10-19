@@ -37,6 +37,7 @@ use crate::execute::prepared::PreparedAction;
 use crate::execute::prepared::PreparedCommand;
 use crate::execute::prepared::PreparedCommandExecutor;
 use crate::execute::prepared::PreparedCommandOptionalExecutor;
+use crate::execute::request::ActionMetadataBlobData;
 use crate::execute::request::CommandExecutionInput;
 use crate::execute::request::CommandExecutionRequest;
 use crate::execute::request::ExecutorPreference;
@@ -193,7 +194,7 @@ fn re_create_action(
     workdir: Option<String>,
     environment: &SortedVectorMap<String, String>,
     input_digest: &TrackedFileDigest,
-    blobs: impl Iterator<Item = (Vec<u8>, TrackedFileDigest)>,
+    blobs: impl Iterator<Item = (ActionMetadataBlobData, TrackedFileDigest)>,
     timeout: Option<Duration>,
     platform: RE::Platform,
     do_not_cache: bool,

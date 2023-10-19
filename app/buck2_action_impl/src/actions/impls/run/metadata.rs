@@ -20,6 +20,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryMember;
+use buck2_execute::execute::request::ActionMetadataBlobData;
 use serde::Serialize;
 use serde::Serializer;
 
@@ -35,7 +36,7 @@ pub(crate) fn metadata_content(
     fs: &ArtifactFs,
     inputs: &[&ArtifactGroupValues],
     digest_config: DigestConfig,
-) -> anyhow::Result<(Vec<u8>, TrackedFileDigest)> {
+) -> anyhow::Result<(ActionMetadataBlobData, TrackedFileDigest)> {
     let mut builder = ActionDirectoryBuilder::empty();
     for &group in inputs {
         group.add_to_directory(&mut builder, fs)?;
@@ -82,5 +83,5 @@ pub(crate) fn metadata_content(
     let json_string = serde_json::to_string(&json)?;
     let digest =
         TrackedFileDigest::from_content(json_string.as_bytes(), digest_config.cas_digest_config());
-    Ok((json_string.into(), digest))
+    Ok((ActionMetadataBlobData(json_string.into()), digest))
 }

@@ -14,9 +14,10 @@ use dupe::Dupe;
 use prost::Message;
 
 use crate::digest_config::DigestConfig;
+use crate::execute::request::ActionMetadataBlobData;
 
 /// Contains small blobs referenced from action messages (does not include any file contents blobs).
-pub struct ActionBlobs(HashMap<TrackedFileDigest, Vec<u8>>);
+pub struct ActionBlobs(HashMap<TrackedFileDigest, ActionMetadataBlobData>);
 
 impl ActionBlobs {
     pub fn new(digest_config: DigestConfig) -> Self {
@@ -25,12 +26,12 @@ impl ActionBlobs {
         let mut blobs = HashMap::new();
         blobs.insert(
             TrackedFileDigest::empty(digest_config.cas_digest_config()),
-            Vec::new(),
+            ActionMetadataBlobData(Vec::new()),
         );
         Self(blobs)
     }
 
-    pub fn add_blob(&mut self, digest: TrackedFileDigest, data: Vec<u8>) {
+    pub fn add_blob(&mut self, digest: TrackedFileDigest, data: ActionMetadataBlobData) {
         self.0.insert(digest, data);
     }
 
@@ -43,7 +44,7 @@ impl ActionBlobs {
         // Unwrap is safe because it only fails in OOM conditions, which we pretend don't happen
         m.encode(&mut blob).unwrap();
         let digest = TrackedFileDigest::from_content(&blob, digest_config.cas_digest_config());
-        self.0.insert(digest.dupe(), blob);
+        self.0.insert(digest.dupe(), ActionMetadataBlobData(blob));
         digest
     }
 
@@ -51,7 +52,7 @@ impl ActionBlobs {
         self.0.keys()
     }
 
-    pub fn get(&self, digest: &TrackedFileDigest) -> Option<&Vec<u8>> {
+    pub fn get(&self, digest: &TrackedFileDigest) -> Option<&ActionMetadataBlobData> {
         self.0.get(digest)
     }
 }
