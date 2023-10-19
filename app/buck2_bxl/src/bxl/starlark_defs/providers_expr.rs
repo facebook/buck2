@@ -29,6 +29,7 @@ use futures::FutureExt;
 use itertools::Either;
 use starlark::eval::Evaluator;
 use starlark::values::list::ListRef;
+use starlark::values::list::UnpackList;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -214,20 +215,15 @@ impl ProvidersExpr<ProvidersLabel> {
                     .map(|node| ProvidersLabel::default_for(node.label().dupe()))
                     .collect(),
             )));
-        } else if let Some(iterable) = ListRef::from_value(value) {
-            iterable.iter()
+        } else if let Some(iterable) = UnpackList::<ProvidersLabelArg>::unpack_value(value) {
+            iterable.items
         } else {
             return Err(ProviderExprError::NotATarget(value.to_repr()).into());
         };
 
         let mut res = Vec::new();
         for val in iterable {
-            let Some(arg) = ProvidersLabelArg::unpack_value(val) else {
-                return Err(anyhow::anyhow!(ProviderExprError::NotATarget(
-                    val.to_repr()
-                )));
-            };
-            res.push(Self::unpack_providers_label(arg, ctx)?)
+            res.push(Self::unpack_providers_label(val, ctx)?)
         }
 
         Ok(Some(Self::Iterable(res)))
