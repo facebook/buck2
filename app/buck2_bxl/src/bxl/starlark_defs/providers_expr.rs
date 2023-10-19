@@ -87,6 +87,12 @@ enum ConfiguredProvidersLabelListArg<'v> {
     List(UnpackList<ConfiguredProvidersLabelArg<'v>>),
 }
 
+#[derive(StarlarkTypeRepr, UnpackValue)]
+enum ConfiguredProvidersExprArg<'v> {
+    One(ConfiguredProvidersLabelArg<'v>),
+    List(ConfiguredProvidersLabelListArg<'v>),
+}
+
 impl ProvidersExpr<ConfiguredProvidersLabel> {
     pub(crate) async fn unpack_opt<'v, 'c>(
         value: Value<'v>,
@@ -94,17 +100,18 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
         ctx: &BxlContextNoDice<'_>,
         dice: &'c DiceComputations,
     ) -> anyhow::Result<Option<Self>> {
-        Ok(
-            if let Some(arg) = ConfiguredProvidersLabelArg::unpack_value(value) {
-                Some(ProvidersExpr::Literal(
-                    Self::unpack_literal(arg, &target_platform, ctx, dice).await?,
-                ))
-            } else if let Some(arg) = ConfiguredProvidersLabelListArg::unpack_value(value) {
-                Some(Self::unpack_iterable(arg, &target_platform, ctx, dice).await?)
-            } else {
-                None
-            },
-        )
+        let Some(arg) = ConfiguredProvidersExprArg::unpack_value(value) else {
+            return Ok(None);
+        };
+
+        match arg {
+            ConfiguredProvidersExprArg::One(arg) => Ok(Some(ProvidersExpr::Literal(
+                Self::unpack_literal(arg, &target_platform, ctx, dice).await?,
+            ))),
+            ConfiguredProvidersExprArg::List(arg) => Ok(Some(
+                Self::unpack_iterable(arg, &target_platform, ctx, dice).await?,
+            )),
+        }
     }
 
     pub(crate) async fn unpack<'v, 'c>(
