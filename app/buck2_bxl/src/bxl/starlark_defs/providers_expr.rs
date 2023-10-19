@@ -73,6 +73,12 @@ enum ConfiguredProvidersLabelArg<'v> {
     Unconfigured(ProvidersLabelArg<'v>),
 }
 
+#[derive(StarlarkTypeRepr, UnpackValue)]
+enum ProviderLabelListArg<'v> {
+    List(UnpackList<ProvidersLabelArg<'v>>),
+    TargetSet(&'v StarlarkTargetSet<TargetNode>),
+}
+
 impl ProvidersExpr<ConfiguredProvidersLabel> {
     pub(crate) async fn unpack_opt<'v, 'c>(
         value: Value<'v>,
@@ -208,25 +214,23 @@ impl ProvidersExpr<ProvidersLabel> {
         value: Value<'v>,
         ctx: &'c BxlContextNoDice<'_>,
     ) -> anyhow::Result<Option<ProvidersExpr<ProvidersLabel>>> {
-        #[allow(clippy::manual_map)] // `if else if` looks better here
-        let iterable = if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
-            return Ok(Some(ProvidersExpr::Iterable(
+        let Some(arg) = ProviderLabelListArg::unpack_value(value) else {
+            return Ok(None);
+        };
+        match arg {
+            ProviderLabelListArg::TargetSet(s) => Ok(Some(ProvidersExpr::Iterable(
                 s.0.iter()
                     .map(|node| ProvidersLabel::default_for(node.label().dupe()))
                     .collect(),
-            )));
-        } else if let Some(iterable) = UnpackList::<ProvidersLabelArg>::unpack_value(value) {
-            iterable.items
-        } else {
-            return Err(ProviderExprError::NotATarget(value.to_repr()).into());
-        };
-
-        let mut res = Vec::new();
-        for val in iterable {
-            res.push(Self::unpack_providers_label(val, ctx)?)
+            ))),
+            ProviderLabelListArg::List(iterable) => {
+                let mut res = Vec::new();
+                for val in iterable.items {
+                    res.push(Self::unpack_providers_label(val, ctx)?)
+                }
+                Ok(Some(ProvidersExpr::Iterable(res)))
+            }
         }
-
-        Ok(Some(Self::Iterable(res)))
     }
 }
 
