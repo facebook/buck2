@@ -459,7 +459,7 @@ def cxx_dist_link(
             archives = [index_link_data[idx].link_data.objects_dir for idx in plan_json["archive_imports"]]
             opt_cmd.hidden(imports)
             opt_cmd.hidden(archives)
-            ctx.actions.run(opt_cmd, category = make_cat("thin_lto_opt"), identifier = name)
+            ctx.actions.run(opt_cmd, category = make_cat("thin_lto_opt_object"), identifier = name)
 
         ctx.actions.dynamic_output(dynamic = [plan], inputs = [], outputs = [opt_object], f = optimize_object)
 
@@ -493,7 +493,7 @@ def cxx_dist_link(
                     output_dir[source_path] = opt_object
                     continue
 
-                opt_object = ctx.actions.declare_output("%s/%s" % (make_cat("thin_lto_opt"), source_path))
+                opt_object = ctx.actions.declare_output("%s/%s" % (make_cat("thin_lto_opt_archive"), source_path))
                 output_manifest.add(opt_object)
                 output_dir[source_path] = opt_object
                 opt_cmd = cmd_args(lto_opt)
@@ -518,7 +518,7 @@ def cxx_dist_link(
                 opt_cmd.hidden(archives)
                 opt_cmd.hidden(archive.indexes_dir)
                 opt_cmd.hidden(archive.objects_dir)
-                ctx.actions.run(opt_cmd, category = make_cat("thin_lto_opt"), identifier = source_path)
+                ctx.actions.run(opt_cmd, category = make_cat("thin_lto_opt_archive"), identifier = source_path)
 
             ctx.actions.symlinked_dir(outputs[archive.opt_objects_dir], output_dir)
             ctx.actions.write(outputs[archive.opt_manifest], output_manifest, allow_args = True)
