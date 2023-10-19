@@ -821,9 +821,8 @@ fn context_methods(builder: &mut MethodsBuilder) {
         labels: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let providers = this.via_dice(|mut dice, this| {
-            dice.via(|_| ProvidersExpr::<ProvidersLabel>::unpack(labels, this).boxed_local())
-        })?;
+        let providers =
+            this.via_dice(|_dice, this| ProvidersExpr::<ProvidersLabel>::unpack(labels, this))?;
 
         let res = match providers {
             ProvidersExpr::Literal(provider) => {
@@ -1010,8 +1009,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
                             let exec_deps = if exec_deps.is_none() {
                                 Vec::new()
                             } else {
-                                ProvidersExpr::<ProvidersLabel>::unpack(exec_deps, this)
-                                    .await?
+                                ProvidersExpr::<ProvidersLabel>::unpack(exec_deps, this)?
                                     .labels()
                                     .cloned()
                                     .collect()
@@ -1020,8 +1018,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
                             let toolchains = if toolchains.is_none() {
                                 Vec::new()
                             } else {
-                                ProvidersExpr::<ProvidersLabel>::unpack(toolchains, this)
-                                    .await?
+                                ProvidersExpr::<ProvidersLabel>::unpack(toolchains, this)?
                                     .labels()
                                     .cloned()
                                     .collect()
