@@ -99,8 +99,10 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
                 Some(ProvidersExpr::Literal(
                     Self::unpack_literal(arg, &target_platform, ctx, dice).await?,
                 ))
+            } else if let Some(arg) = ConfiguredProvidersLabelListArg::unpack_value(value) {
+                Some(Self::unpack_iterable(arg, &target_platform, ctx, dice).await?)
             } else {
-                Self::unpack_iterable(value, &target_platform, ctx, dice).await?
+                None
             },
         )
     }
@@ -153,35 +155,26 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
     }
 
     async fn unpack_iterable<'c, 'v: 'c>(
-        value: Value<'v>,
+        arg: ConfiguredProvidersLabelListArg<'v>,
         target_platform: &'c Option<TargetLabel>,
         ctx: &'c BxlContextNoDice<'_>,
         dice: &'c DiceComputations,
-    ) -> anyhow::Result<Option<ProvidersExpr<ConfiguredProvidersLabel>>> {
-        let Some(arg) = ConfiguredProvidersLabelListArg::unpack_value(value) else {
-            return Ok(None);
-        };
-
+    ) -> anyhow::Result<ProvidersExpr<ConfiguredProvidersLabel>> {
         match arg {
-            ConfiguredProvidersLabelListArg::StarlarkTargetSet(s) => {
-                Ok(Some(ProvidersExpr::Iterable(
-                    future::try_join_all(s.0.iter().map(|node| async {
-                        let providers_label = ProvidersLabel::default_for(node.label().dupe());
-                        dice.get_configured_provider_label(
-                            &providers_label,
-                            target_platform.as_ref(),
-                        )
+            ConfiguredProvidersLabelListArg::StarlarkTargetSet(s) => Ok(ProvidersExpr::Iterable(
+                future::try_join_all(s.0.iter().map(|node| async {
+                    let providers_label = ProvidersLabel::default_for(node.label().dupe());
+                    dice.get_configured_provider_label(&providers_label, target_platform.as_ref())
                         .await
-                    }))
-                    .await?,
-                )))
-            }
+                }))
+                .await?,
+            )),
             ConfiguredProvidersLabelListArg::StarlarkConfiguredTargetSet(s) => {
-                Ok(Some(ProvidersExpr::Iterable(
+                Ok(ProvidersExpr::Iterable(
                     s.0.iter()
                         .map(|node| ConfiguredProvidersLabel::default_for(node.label().dupe()))
                         .collect(),
-                )))
+                ))
             }
             ConfiguredProvidersLabelListArg::List(iterable) => {
                 let mut res = Vec::new();
@@ -189,7 +182,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
                     res.push(Self::unpack_literal(arg, target_platform, ctx, dice).await?);
                 }
 
-                Ok(Some(Self::Iterable(res)))
+                Ok(Self::Iterable(res))
             }
         }
     }
