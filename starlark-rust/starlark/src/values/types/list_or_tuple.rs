@@ -27,6 +27,7 @@ use crate::values::UnpackValue;
 use crate::values::Value;
 
 /// Unpack a value of type `list[T]` or `tuple[T, ...]` into a vec.
+#[derive(Default, Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct UnpackListOrTuple<T> {
     /// Unpacked items of the list or tuple.
     pub items: Vec<T>,

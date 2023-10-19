@@ -22,6 +22,7 @@ use crate::values::UnpackValue;
 use crate::values::Value;
 
 /// Unpack a value of type `list<T>` into a vec.
+#[derive(Default, Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct UnpackList<T> {
     /// Unpacked items.
     pub items: Vec<T>,
