@@ -39,7 +39,7 @@ use crate::fs::paths::path_util::path_remove_prefix;
 ///
 /// This path is platform agnostic, so path separators are always '/'.
 #[derive(
-    Display, Debug, RefCast, PartialEq, Eq, PartialOrd, Ord, Hash, Allocative
+    Display, Debug, Serialize, RefCast, PartialEq, Eq, PartialOrd, Ord, Hash, Allocative
 )]
 #[repr(transparent)]
 pub struct ForwardRelativePath(

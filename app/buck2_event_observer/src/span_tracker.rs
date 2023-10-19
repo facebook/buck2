@@ -539,7 +539,8 @@ pub fn is_span_shown(event: &BuckEvent) -> bool {
             | Data::ReUpload(..)
             | Data::ConnectToInstaller(..)
             | Data::LocalResources(..)
-            | Data::ReleaseLocalResources(..),
+            | Data::ReleaseLocalResources(..)
+            | Data::CreateOutputHashesFile(..),
         ) => true,
         None => false,
     }

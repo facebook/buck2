@@ -17,6 +17,7 @@
 //! will need to be "bound" to an 'Action' through being used as an 'OutputArtifact'. Once bound,
 //! it becomes a 'BuildArtifact' that can be available.
 
+pub mod artifact_dump;
 pub mod artifact_type;
 pub mod build_artifact;
 pub mod projected_artifact;

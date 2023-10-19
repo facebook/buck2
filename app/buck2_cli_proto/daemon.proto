@@ -383,6 +383,9 @@ message BuildRequest {
   }
   // Materialize final artifacts?
   Materializations final_artifact_materializations = 7;
+
+  // File name where built artifact hash information should be saved
+  optional string output_hashes_file = 9;
 }
 
 message TestSessionOptions {

@@ -34,6 +34,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::exit_result::FailureExitCode;
 use buck2_client_ctx::final_console::FinalConsole;
 use buck2_client_ctx::output_destination_arg::OutputDestinationArg;
+use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_core::fs::async_fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -168,6 +169,12 @@ pub struct BuildCommand {
 
     #[clap(name = "TARGET_PATTERNS", help = "Patterns to build")]
     patterns: Vec<String>,
+
+    #[clap(
+        long,
+        help = "Experimental: Path to a file where the Buck2 daemon should write a list of produced artifacts in json format"
+    )]
+    output_hashes_file: Option<PathArg>,
 }
 
 impl BuildCommand {
@@ -263,6 +270,17 @@ impl StreamingCommand for BuildCommand {
                     build_opts: Some(self.build_opts.to_proto()),
                     final_artifact_materializations: self.materializations.to_proto() as i32,
                     target_universe: self.target_universe,
+                    output_hashes_file: self
+                        .output_hashes_file
+                        .map(|p| {
+                            p.resolve(&ctx.working_dir).into_string().with_context(|| {
+                                format!(
+                                    "Failed to convert output hashes file path ({}) to string",
+                                    p.display()
+                                )
+                            })
+                        })
+                        .transpose()?,
                 },
                 ctx.stdin()
                     .console_interaction_stream(&self.common_opts.console_opts),

@@ -82,6 +82,7 @@ message SpanStartEvent {
     ReleaseLocalResourcesStart release_local_resources = 81;
     // Measure total time it takes to ensure BXL artifacts.
     BxlEnsureArtifactsStart bxl_ensure_artifacts = 82;
+    CreateOutputHashesFileStart create_output_hashes_file = 84;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -129,6 +130,7 @@ message SpanEndEvent {
     SetupLocalResourcesEnd local_resources = 81;
     ReleaseLocalResourcesEnd release_local_resources = 82;
     BxlEnsureArtifactsEnd bxl_ensure_artifacts = 83;
+    CreateOutputHashesFileEnd create_output_hashes_file = 85;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -1771,6 +1773,10 @@ message CreateOutputSymlinksStart {};
 message CreateOutputSymlinksEnd {
   uint64 created = 1;
 };
+
+message CreateOutputHashesFileStart {};
+
+message CreateOutputHashesFileEnd {};
 
 message InstallEventInfoStart {
   string artifact_name = 1;
