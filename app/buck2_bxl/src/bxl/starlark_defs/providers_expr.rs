@@ -227,13 +227,7 @@ impl ProvidersExpr<ProvidersLabel> {
                     val.to_repr()
                 )));
             };
-            if let ProvidersExpr::Literal(resolved_val) = Self::unpack_literal(arg, ctx)? {
-                res.push(resolved_val)
-            } else {
-                return Err(anyhow::anyhow!(ProviderExprError::NotATarget(
-                    val.to_repr()
-                )));
-            }
+            res.push(Self::unpack_providers_label(arg, ctx)?)
         }
 
         Ok(Some(Self::Iterable(res)))
