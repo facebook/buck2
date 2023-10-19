@@ -184,11 +184,10 @@ impl ProvidersExpr<ProvidersLabel> {
     pub(crate) async fn unpack<'v>(
         value: Value<'v>,
         ctx: &BxlContextNoDice<'_>,
-        eval: &Evaluator<'v, '_>,
     ) -> anyhow::Result<Self> {
         Ok(if let Some(arg) = ProvidersLabelArg::unpack_value(value) {
             Self::unpack_literal(arg, ctx)?
-        } else if let Some(resolved) = Self::unpack_iterable(value, ctx, eval).await? {
+        } else if let Some(resolved) = Self::unpack_iterable(value, ctx).await? {
             resolved
         } else {
             return Err(anyhow::anyhow!(ProviderExprError::NotAListOfTargets(
@@ -207,7 +206,6 @@ impl ProvidersExpr<ProvidersLabel> {
     async fn unpack_iterable<'c, 'v: 'c>(
         value: Value<'v>,
         ctx: &'c BxlContextNoDice<'_>,
-        eval: &Evaluator<'v, '_>,
     ) -> anyhow::Result<Option<ProvidersExpr<ProvidersLabel>>> {
         #[allow(clippy::manual_map)] // `if else if` looks better here
         let iterable = if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
@@ -216,10 +214,8 @@ impl ProvidersExpr<ProvidersLabel> {
                     .map(|node| ProvidersLabel::default_for(node.label().dupe()))
                     .collect(),
             )));
-        } else if let Some(s) = value.downcast_ref::<StarlarkTargetSet<ConfiguredTargetNode>>() {
-            Either::Left(s.iter(eval.heap()))
         } else if let Some(iterable) = ListRef::from_value(value) {
-            Either::Right(iterable.iter())
+            iterable.iter()
         } else {
             return Err(ProviderExprError::NotATarget(value.to_repr()).into());
         };
