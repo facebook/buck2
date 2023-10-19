@@ -11,7 +11,7 @@ For reports from real users, see the [Testimonials](testimonials.fb.md), which i
 
 ## Benefits for end users
 
-> *"`buck2 build SOME_TARGET_I_ALREADY_BUILT_BEFORE` is basically instantaneous and is a super delightful experience. 🙂" - End user experience* <FbInternalOnly> ([source](https://fb.prod.workplace.com/groups/buck2users/posts/3030704467185914))</FbInternalOnly>
+> *"`buck2 build SOME_TARGET_I_ALREADY_BUILT_BEFORE` is basically instantaneous and is a super delightful experience. 🙂"* - End user experience <FbInternalOnly> ([source](https://fb.prod.workplace.com/groups/buck2users/posts/3030704467185914))</FbInternalOnly>
 
 > *"Buck2 is largely faster and more memory efficient than buck1, and where I’ve seen counter-examples, the buck2 team quickly optimizes and fixes that.🙂"* - Software Engineer feedback<FbInternalOnly> ([source](https://fb.prod.workplace.com/groups/devx.ci.bffs/posts/616830502778501))</FbInternalOnly>
 
