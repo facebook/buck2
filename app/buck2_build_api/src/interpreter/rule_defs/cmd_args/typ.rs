@@ -18,7 +18,6 @@ use std::marker::PhantomData;
 
 use allocative::Allocative;
 use buck2_core::fs::paths::RelativePathBuf;
-use buck2_util::commas::commas;
 use buck2_util::thin_box::ThinBoxSlice;
 use display_container::display_pair;
 use display_container::fmt_container;
@@ -855,13 +854,7 @@ starlark_simple_value!(StarlarkCommandLineInputs);
 
 impl Display for StarlarkCommandLineInputs {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut comma = commas();
-        write!(f, "command_line_inputs(")?;
-        for v in self.inputs.iter() {
-            comma(f)?;
-            Display::fmt(v, f)?;
-        }
-        write!(f, ")")
+        fmt_container(f, "command_line_inputs(", ")", self.inputs.iter())
     }
 }
 
