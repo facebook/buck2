@@ -64,6 +64,7 @@ use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::errors::late_format_error;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
@@ -387,7 +388,7 @@ async fn process_build_result(
             let error_strings = errors
                 .errors
                 .iter()
-                .map(|e| format!("{:#}", e))
+                .filter_map(late_format_error)
                 .unique()
                 .collect();
             (vec![], error_strings)

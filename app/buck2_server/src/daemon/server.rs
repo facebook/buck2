@@ -53,6 +53,7 @@ use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_server_ctx::bxl::BXL_SERVER_COMMANDS;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::errors::late_format_error;
 use buck2_server_ctx::other_server_commands::OTHER_SERVER_COMMANDS;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -533,7 +534,11 @@ fn convert_positive_duration(proto_duration: &prost_types::Duration) -> Result<D
 }
 
 fn error_to_command_result(e: anyhow::Error) -> CommandResult {
-    let messages = vec![format!("{:?}", e)];
+    let messages = if let Some(m) = late_format_error(&e.into()) {
+        vec![m]
+    } else {
+        Vec::new()
+    };
 
     CommandResult {
         result: Some(command_result::Result::Error(CommandError { messages })),
