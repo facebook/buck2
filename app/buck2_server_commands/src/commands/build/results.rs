@@ -86,6 +86,14 @@ pub mod result_report {
 
     impl<'a> BuildResultCollector for ResultReporter<'a> {
         fn collect_result(&mut self, label: &BuildOwner, result: &BuildTargetResult) {
+            if let Some(e) = result.errors.last() {
+                let errors = self.build_errors();
+                // FIXME(JakobDegen): We'd like to be able to report more errors here. However, we
+                // need to get better at error deduplication before we can do that.
+                if errors.is_empty() {
+                    errors.push(e.dupe());
+                }
+            }
             let outputs = result
                 .outputs
                 .iter()
@@ -340,7 +348,7 @@ pub mod build_report {
 
     impl<'a> BuildResultCollector for BuildReportCollector<'a> {
         fn collect_result(&mut self, label: &BuildOwner, result: &BuildTargetResult) {
-            let (default_outs, other_outs, errors) = {
+            let (default_outs, other_outs, mut errors) = {
                 let mut default_outs = SmallSet::new();
                 let mut other_outs = SmallSet::new();
                 let mut errors = Vec::new();
@@ -391,6 +399,12 @@ pub mod build_report {
 
                 (default_outs, other_outs, errors)
             };
+
+            for err in &result.errors {
+                errors.push(BuildReportError {
+                    message: format!("{:#}", err),
+                });
+            }
 
             let report_results = self
                 .build_report_results

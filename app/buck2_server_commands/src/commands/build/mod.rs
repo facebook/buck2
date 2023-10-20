@@ -440,6 +440,7 @@ async fn build_targets(
             materialization_context,
             want_configured_graph_size,
         )
+        .map(Ok)
         .right_stream(),
     };
 
@@ -460,7 +461,7 @@ fn build_targets_in_universe<'a>(
     build_providers: Arc<BuildProviders>,
     materialization_context: &'a MaterializationContext,
     want_configured_graph_size: bool,
-) -> impl Stream<Item = anyhow::Result<BuildEvent>> + Unpin + 'a {
+) -> impl Stream<Item = BuildEvent> + Unpin + 'a {
     let providers_to_build = build_providers_to_providers_to_build(&build_providers);
     let provider_labels = universe.get_provider_labels(&spec);
     provider_labels
@@ -468,7 +469,7 @@ fn build_targets_in_universe<'a>(
         .map(|p| {
             let providers_to_build = providers_to_build.clone();
             async move {
-                let res = build::build_configured_label(
+                build::build_configured_label(
                     ctx,
                     materialization_context,
                     p,
@@ -478,14 +479,8 @@ fn build_targets_in_universe<'a>(
                         want_configured_graph_size,
                     },
                 )
-                .await;
-
-                match res {
-                    Ok(stream) => stream.map(Ok).left_stream(),
-                    Err(e) => futures::stream::once(futures::future::ready(Err(e))).right_stream(),
-                }
+                .await
             }
-            .boxed()
         })
         .collect::<FuturesUnordered<_>>()
         .flatten_unordered(None)
@@ -640,7 +635,7 @@ async fn build_target<'a>(
             )
             .await?;
 
-        build::build_configured_label(
+        Ok(build::build_configured_label(
             ctx,
             materialization_context,
             providers_label,
@@ -650,7 +645,7 @@ async fn build_target<'a>(
                 want_configured_graph_size: spec.want_configured_graph_size,
             },
         )
-        .await
+        .await)
     }
     .await;
 

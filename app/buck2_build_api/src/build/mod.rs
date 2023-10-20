@@ -69,6 +69,7 @@ pub struct BuildTargetResultGen<T> {
     pub outputs: Vec<T>,
     pub run_args: Option<Vec<String>>,
     pub configured_graph_size: Option<SharedResult<MaybeCompatible<u64>>>,
+    pub errors: Vec<buck2_error::Error>,
 }
 
 pub type BuildTargetResult = BuildTargetResultGen<SharedResult<ProviderArtifacts>>;
@@ -95,6 +96,7 @@ impl BuildTargetResult {
                             outputs: Vec::new(),
                             run_args,
                             configured_graph_size: None,
+                            errors: Vec::new(),
                         }));
                 }
                 BuildEventVariant::Output { index, output } => {
@@ -120,6 +122,22 @@ impl BuildTargetResult {
                         .with_context(|| format!("BuildEventVariant::GraphSize for a skipped target: `{}` (internal error)", label))?
                         .configured_graph_size = Some(configured_graph_size);
                 }
+                BuildEventVariant::Error { err } => {
+                    res.entry((*label).clone())
+                        .or_insert(Some(BuildTargetResultGen {
+                            outputs: Vec::new(),
+                            run_args: None,
+                            configured_graph_size: None,
+                            errors: Vec::new(),
+                        }))
+                        .as_mut()
+                        .unwrap()
+                        .errors
+                        .push(err);
+                    if fail_fast {
+                        break;
+                    }
+                }
             }
         }
 
@@ -133,6 +151,7 @@ impl BuildTargetResult {
                         mut outputs,
                         run_args,
                         configured_graph_size,
+                        errors,
                     } = result;
 
                     // No need for a stable sort: the indices are unique (see below).
@@ -150,6 +169,7 @@ impl BuildTargetResult {
                             .collect(),
                         run_args,
                         configured_graph_size,
+                        errors,
                     }
                 });
 
@@ -174,6 +194,10 @@ enum BuildEventVariant {
     GraphSize {
         configured_graph_size: SharedResult<MaybeCompatible<u64>>,
     },
+    Error {
+        /// An error that can't be associated with a single artifact.
+        err: buck2_error::Error,
+    },
 }
 
 /// Events to be accumulated using BuildTargetResult::collect_stream.
@@ -194,9 +218,32 @@ pub async fn build_configured_label<'a>(
     providers_label: ConfiguredProvidersLabel,
     providers_to_build: &ProvidersToBuild,
     opts: BuildConfiguredLabelOptions,
-) -> anyhow::Result<BoxStream<'a, BuildEvent>> {
+) -> BoxStream<'a, BuildEvent> {
     let providers_label = Arc::new(providers_label);
+    build_configured_label_inner(
+        ctx,
+        materialization_context,
+        providers_label.clone(),
+        providers_to_build,
+        opts,
+    )
+    .await
+    .unwrap_or_else(|e| {
+        futures::stream::once(futures::future::ready(BuildEvent {
+            label: providers_label,
+            variant: BuildEventVariant::Error { err: e.into() },
+        }))
+        .boxed()
+    })
+}
 
+async fn build_configured_label_inner<'a>(
+    ctx: &'a DiceComputations,
+    materialization_context: &MaterializationContext,
+    providers_label: Arc<ConfiguredProvidersLabel>,
+    providers_to_build: &ProvidersToBuild,
+    opts: BuildConfiguredLabelOptions,
+) -> anyhow::Result<BoxStream<'a, BuildEvent>> {
     let artifact_fs = ctx.get_artifact_fs().await?;
 
     let (outputs, run_args) = {

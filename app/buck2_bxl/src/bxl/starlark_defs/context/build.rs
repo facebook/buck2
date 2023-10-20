@@ -216,7 +216,7 @@ pub(crate) fn build<'v>(
                     let target = target.clone();
                     let materializations = materializations.dupe();
                     higher_order_closure! {
-                        for <'x> move |dice: &'x mut DiceComputationsParallel<'_>| -> BoxFuture<'x, Vec<anyhow::Result<BuildEvent>>> {
+                        for <'x> move |dice: &'x mut DiceComputationsParallel<'_>| -> BoxFuture<'x, Vec<BuildEvent>> {
                             async move {
                                 build_configured_label(
                                     dice,
@@ -233,21 +233,25 @@ pub(crate) fn build<'v>(
                                         want_configured_graph_size: false,
                                     },
                                 ).await
-                            }.then(|res| async move {
-                                match res {
-                                    Ok(stream) => stream.map(Ok).collect::<Vec<_>>().await,
-                                    Err(e) => vec![Err(e)],
-                                }
-                            }).boxed()
+                            }.then(|stream| stream.collect::<Vec<_>>()).boxed()
                         }
                     }
                 }))
                 .into_iter().collect::<FuturesUnordered<_>>().map(|v| v.into_iter().map(futures::future::ready).collect::<FuturesUnordered<_>>()).flatten();
 
             // TODO (torozco): support --fail-fast in BXL.
-            BuildTargetResult::collect_stream(stream, false).await
+            BuildTargetResult::collect_stream(stream.map(Ok), false).await
         }.boxed_local())
     )?;
+
+    if let Some(err) = build_result
+        .values()
+        .flatten()
+        .flat_map(|r| &r.errors)
+        .next()
+    {
+        return Err(err.dupe().into());
+    }
 
     Ok(build_result
         .into_iter()
