@@ -420,6 +420,7 @@ pub mod build_report {
             >,
         ) -> ConfiguredBuildReportEntry {
             let mut configured_report = ConfiguredBuildReportEntry::default();
+            let mut errors = Vec::new();
             for (label, result) in results {
                 let provider_name: Arc<str> = report_providers_name(label).into();
 
@@ -467,19 +468,11 @@ pub mod build_report {
                                 }
                             }
                         }
-                        Err(e) => {
-                            configured_report.errors.push(BuildReportError {
-                                message: format!("{:#}", e),
-                            });
-                        }
+                        Err(e) => errors.push(e.dupe()),
                     }
                 });
 
-                for err in &result.errors {
-                    configured_report.errors.push(BuildReportError {
-                        message: format!("{:#}", err),
-                    });
-                }
+                errors.extend(result.errors.iter().cloned());
 
                 if let Some(Ok(MaybeCompatible::Compatible(configured_graph_size))) =
                     result.configured_graph_size
@@ -487,13 +480,27 @@ pub mod build_report {
                     configured_report.inner.configured_graph_size = Some(configured_graph_size);
                 }
             }
+            configured_report.errors = self.convert_error_list(&errors);
             if !configured_report.errors.is_empty() {
-                self.overall_success = false;
                 configured_report.inner.success = BuildOutcome::FAIL;
-                // Keep the output deterministic
-                configured_report.errors.sort_unstable();
             }
             configured_report
+        }
+
+        fn convert_error_list(&mut self, errors: &[buck2_error::Error]) -> Vec<BuildReportError> {
+            if errors.is_empty() {
+                return Vec::new();
+            }
+            self.overall_success = false;
+            let mut errors: Vec<_> = errors
+                .iter()
+                .map(|err| BuildReportError {
+                    message: format!("{:#}", err),
+                })
+                .collect();
+            // Keep the output deterministic
+            errors.sort_unstable();
+            errors
         }
 
         fn handle_error(
