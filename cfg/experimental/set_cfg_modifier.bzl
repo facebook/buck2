@@ -5,9 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(":asserts.bzl", "verify_normalized_target")
-load(":common.bzl", "constraint_setting_to_modifier_key")
-load(":types.bzl", "CfgModifier", "CfgModifierPackageLocation", "CfgModifierWithLocation")
+load(":common.bzl", "cfg_modifier_common_impl")
+load(":types.bzl", "CfgModifier", "CfgModifierPackageLocation")
 
 def set_cfg_modifier(constraint_setting: str, modifier: CfgModifier):
     """
@@ -23,23 +22,15 @@ def set_cfg_modifier(constraint_setting: str, modifier: CfgModifier):
             For example, to change the OS to linux in fbsource, this can be specified as "ovr_config//os/constraints:linux".
             TODO(scottcao): Add support for modifier select types.
     """
-    verify_normalized_target(constraint_setting, _CONSTRAINT_SETTING_ERROR_CONTEXT)
-    verify_normalized_target(modifier, _MODIFIER_ERROR_CONTEXT)
+    key, modifier_with_loc = cfg_modifier_common_impl(
+        constraint_setting,
+        modifier,
+        CfgModifierPackageLocation(package_path = _get_package_path()),
+    )
 
-    package_value_key = constraint_setting_to_modifier_key(constraint_setting)
     write_package_value(
-        package_value_key,
-        CfgModifierWithLocation(
-            # We need to track where this modifier comes from because some user errors
-            # can only be identified in the post-constraint analysis cfg constructor.
-            # When these errors are identified, we need to be able to provide an
-            # error message that clearly points to where the error occurred, including
-            # which PACKAGE the modifier was specified.
-            # The downside is that this however does make cfg constructor less likely to
-            # cache. For example, if
-            location = CfgModifierPackageLocation(package_path = _get_package_path()),
-            modifier = modifier,
-        ),
+        key,
+        modifier_with_loc,
         overwrite = True,
     )
 
@@ -49,6 +40,3 @@ def _get_package_path() -> str:
     Ex. `foo//bar/PACKAGE`
     """
     return "{}//{}/PACKAGE".format(get_cell_name(), get_base_path())
-
-_CONSTRAINT_SETTING_ERROR_CONTEXT = "`constraint_setting` of `set_cfg_modifier`"
-_MODIFIER_ERROR_CONTEXT = "`modifier` of `set_cfg_modifier`"

@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//:asserts.bzl", "asserts")
-load(":types.bzl", "CfgModifierCliLocation", "CfgModifierLocation", "CfgModifierPackageLocation", "CfgModifierTargetLocation")
+load(":types.bzl", "CfgModifier", "CfgModifierCliLocation", "CfgModifierLocation", "CfgModifierPackageLocation", "CfgModifierTargetLocation", "CfgModifierWithLocation")
 
 def constraint_setting_to_modifier_key(constraint_setting: str) -> str:
     # Keys in PACKAGE values/metadata can only contain a single dot.
@@ -32,3 +32,36 @@ def location_to_string(location: CfgModifierLocation) -> str:
     if isinstance(location, CfgModifierCliLocation):
         return _CLI_LOCATION_STR
     fail("Internal error. Unrecognized location type `{}` for location `{}`".format(type(location), location))
+
+def verify_normalized_target(target: str, param_context: str, location: CfgModifierLocation):
+    if isinstance(location, CfgModifierCliLocation):
+        fail("Internal error: location should not be CfgModifierCliLocation")
+    function_context = "set_cfg_modifier" if isinstance(location, CfgModifierPackageLocation) else "cfg_modifier"
+
+    # Do some basic checks that target looks reasonably valid and normalized
+    # Targets should always be fully qualified to improve readability.
+    if "//" not in target or target.startswith("//") or ":" not in target:
+        fail(
+            "Must specify fully qualified target (ex. `cell//foo:bar`) for `{}` of `{}`. Found `{}`".format(
+                param_context,
+                function_context,
+                target,
+            ),
+        )
+
+_CONSTRAINT_SETTING_PARAM = "constraint_setting"
+_MODIFIER_PARAM = "modifier"
+
+def cfg_modifier_common_impl(
+        constraint_setting: str,
+        modifier: CfgModifier,
+        location: CfgModifierLocation) -> (str, CfgModifierWithLocation):
+    verify_normalized_target(constraint_setting, _CONSTRAINT_SETTING_PARAM, location)
+    verify_normalized_target(modifier, _MODIFIER_PARAM, location)
+
+    modifier_key = constraint_setting_to_modifier_key(constraint_setting)
+    modifier_with_loc = CfgModifierWithLocation(
+        modifier = modifier,
+        location = location,
+    )
+    return modifier_key, modifier_with_loc
