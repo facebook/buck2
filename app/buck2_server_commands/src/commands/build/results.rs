@@ -250,17 +250,37 @@ pub mod build_report {
         configured_graph_size: Option<u64>,
     }
 
+    #[derive(Default, Debug, Serialize)]
+    pub(crate) struct ConfiguredBuildReportEntryWithErrors {
+        /// A list of errors that occurred while building this target
+        errors: Vec<BuildReportError>,
+        #[serde(flatten)]
+        inner: ConfiguredBuildReportEntry,
+    }
+
     #[derive(Debug, Serialize)]
     pub(crate) struct BuildReportEntry {
         /// The buck1 build report did not support multiple configurations of the same target. We
         /// do, which is why we have the `configured` field below, which users should ideally use.
         /// This field is kept around for buck1 compatibility only and should ideally be removed.
+        ///
+        /// We avoid the `WithErrors` variant here, to keep the errors field from conflicting with
+        /// the one on this struct.
         #[serde(flatten)]
         #[serde(skip_serializing_if = "Option::is_none")]
         compatible: Option<ConfiguredBuildReportEntry>,
 
         /// the configured entry
-        configured: HashMap<ConfigurationData, ConfiguredBuildReportEntry>,
+        configured: HashMap<ConfigurationData, ConfiguredBuildReportEntryWithErrors>,
+
+        /// Errors that could not be associated with a particular configured version of the target,
+        /// typically because they happened before configuration.
+        errors: Vec<BuildReportError>,
+    }
+
+    #[derive(Debug, Serialize)]
+    pub(crate) struct BuildReportError {
+        message: String,
     }
 
     #[derive(Derivative, Serialize, Eq, PartialEq, Hash)]
@@ -377,6 +397,7 @@ pub mod build_report {
                         None
                     },
                     configured: HashMap::new(),
+                    errors: Vec::new(),
                 });
 
             let unconfigured_report = &mut report_results.compatible;
@@ -385,7 +406,7 @@ pub mod build_report {
                 .entry(match label {
                     BuildOwner::Target(t) => t.cfg().dupe(),
                 })
-                .or_insert_with(ConfiguredBuildReportEntry::default);
+                .or_insert(ConfiguredBuildReportEntryWithErrors::default());
             if !default_outs.is_empty() {
                 if let Some(report) = unconfigured_report {
                     report.outputs.insert(
@@ -394,7 +415,7 @@ pub mod build_report {
                     );
                 }
 
-                configured_report.outputs.insert(
+                configured_report.inner.outputs.insert(
                     report_providers_name(label),
                     default_outs.into_iter().collect(),
                 );
@@ -407,7 +428,7 @@ pub mod build_report {
                     );
                 }
 
-                configured_report.other_outputs.insert(
+                configured_report.inner.other_outputs.insert(
                     report_providers_name(label),
                     other_outs.into_iter().collect(),
                 );
@@ -417,7 +438,7 @@ pub mod build_report {
                 if let Some(report) = unconfigured_report {
                     report.success = BuildOutcome::FAIL;
                 }
-                configured_report.success = BuildOutcome::FAIL;
+                configured_report.inner.success = BuildOutcome::FAIL;
                 self.overall_success = false;
             }
 
@@ -427,7 +448,7 @@ pub mod build_report {
                 if let Some(report) = unconfigured_report {
                     report.configured_graph_size = Some(configured_graph_size);
                 }
-                configured_report.configured_graph_size = Some(configured_graph_size);
+                configured_report.inner.configured_graph_size = Some(configured_graph_size);
             }
         }
     }
