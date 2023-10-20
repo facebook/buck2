@@ -38,17 +38,18 @@ def run_as_main(
     # `sys.path` has been setup by setting the PAR_MAIN_OVERRIDE environment
     # variable.
     decorate_main_module = os.environ.pop("PAR_MAIN_OVERRIDE", None)
+    is_decorated_module = "PAR_MAIN_ORIGINAL" in os.environ
     if decorate_main_module:
         # Pass the original main module as environment variable for the process.
         # Allowing the decorating module to pick it up.
         os.environ["PAR_MAIN_ORIGINAL"] = main_module
         main_module = decorate_main_module
 
-        # Also pass the main function if set:
-        decorate_main_function = os.environ.pop("PAR_MAIN_FUNCTION_OVERRIDE", None)
-        if main_function:
-            os.environ["PAR_MAIN_FUNCTION_ORIGINAL"] = main_function
-            main_function = decorate_main_function
+    # Also pass the main function if set:
+    decorate_main_function = os.environ.pop("PAR_MAIN_FUNCTION_OVERRIDE", None)
+    if main_function and (decorate_main_module or is_decorated_module):
+        os.environ["PAR_MAIN_FUNCTION_ORIGINAL"] = main_function
+        main_function = decorate_main_function
 
     if not main_function:
         import runpy
