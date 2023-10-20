@@ -68,13 +68,6 @@ impl Error {
         })
     }
 
-    fn root(&self) -> &ErrorRoot {
-        let Some(ErrorKind::Root(r)) = self.iter_kinds().last() else {
-            unreachable!()
-        };
-        r
-    }
-
     pub fn mark_emitted(self) -> Self {
         Self(Arc::new(ErrorKind::Emitted(self)))
     }
@@ -93,7 +86,7 @@ impl Error {
     /// In cases like these, this function returns the additional information to show to the user at
     /// the end of the build.
     pub fn get_late_format<'a>(&'a self) -> Option<impl fmt::Display + 'a> {
-        self.root().get_late_format()
+        crate::format::into_anyhow_for_format(self, true)
     }
 
     /// Only intended to be used for debugging, helps to understand the structure of the error
@@ -106,7 +99,7 @@ impl Error {
                     writeln!(
                         s,
                         "ROOT: late format: {}:\n{:#?}",
-                        r.get_late_format().is_some(),
+                        r.into_anyhow_for_late_format().is_some(),
                         r
                     )
                     .unwrap();
@@ -206,5 +199,16 @@ mod tests {
         let e: crate::Error = e.into();
 
         assert!(e.downcast_ref::<TestError>().is_some());
+    }
+
+    #[test]
+    fn test_late_format_has_context() {
+        let e = crate::Error::new_with_late_format(TestError, |_e, f| write!(f, "Late formatted!"));
+        let e = e.context(ContextA).context(ContextB);
+
+        let s = format!("{:#}", e.get_late_format().unwrap());
+        assert!(s.contains("Late formatted!"));
+        assert!(s.contains("Context A"));
+        assert!(s.contains("Context B"));
     }
 }

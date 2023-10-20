@@ -17,7 +17,13 @@ use crate::error::ErrorKind;
 /// In the long term, this is not what we want to do. Writing our own error formatter is not that
 /// hard and will give us a huge amount of flexibility. However, the goal right now is to get large
 /// amounts of `anyhow` compatibility with minimal work, and this achieves that.
-fn into_anyhow_for_format(mut error: &crate::Error) -> anyhow::Error {
+///
+/// If `late_format` is set, attempts to use the late formatter instead of the standard one. That
+/// might not be present, in which case this function returns `None`. If `late_format` is false, the return value is never `None`.
+pub(crate) fn into_anyhow_for_format(
+    mut error: &crate::Error,
+    late_format: bool,
+) -> Option<anyhow::Error> {
     let mut context_stack = Vec::new();
 
     let root = loop {
@@ -33,22 +39,26 @@ fn into_anyhow_for_format(mut error: &crate::Error) -> anyhow::Error {
         }
     };
 
-    let mut out: anyhow::Error = root.into_anyhow_for_format();
+    let mut out: anyhow::Error = if late_format {
+        root.into_anyhow_for_late_format()?
+    } else {
+        root.into_anyhow_for_format()
+    };
     for context in context_stack.into_iter().rev() {
         out = out.context(context);
     }
-    out
+    Some(out)
 }
 
 impl fmt::Debug for crate::Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&into_anyhow_for_format(self), f)
+        fmt::Debug::fmt(&into_anyhow_for_format(self, false).unwrap(), f)
     }
 }
 
 impl fmt::Display for crate::Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&into_anyhow_for_format(self), f)
+        fmt::Display::fmt(&into_anyhow_for_format(self, false).unwrap(), f)
     }
 }
 

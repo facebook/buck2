@@ -53,10 +53,10 @@ impl ErrorRoot {
         }
     }
 
-    pub fn get_late_format<'a>(&'a self) -> Option<impl fmt::Display + 'a> {
+    pub(crate) fn into_anyhow_for_late_format<'a>(&'a self) -> Option<anyhow::Error> {
         self.late_format
             .clone()
-            .map(|f| AnyhowWrapperForFormat(self.inner.clone(), Some(f)))
+            .map(|f| AnyhowWrapperForFormat(self.inner.clone(), Some(f)).into())
     }
 
     pub(crate) fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
