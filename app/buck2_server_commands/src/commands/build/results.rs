@@ -22,7 +22,6 @@ pub mod result_report {
     use buck2_build_api::build::ProviderArtifacts;
     use buck2_core::configuration::compatibility::MaybeCompatible;
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-    use buck2_core::provider::label::ProvidersLabel;
     use buck2_error::shared_result::SharedError;
     use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
     use dupe::Dupe;
@@ -67,51 +66,41 @@ pub mod result_report {
                 results: Ok(Vec::new()),
             };
 
-            for (unconfigured, errors) in &build_result.other_errors {
-                for e in errors {
-                    out.handle_error(unconfigured, e);
-                }
-            }
+            let mut non_action_errors = vec![];
+            let mut action_errors = vec![];
+            non_action_errors.extend(build_result.other_errors.values().flatten().cloned());
 
             for (k, v) in &build_result.configured {
                 // We omit skipped targets here.
                 let Some(v) = v else { continue };
+                non_action_errors.extend(v.errors.iter().cloned());
+                action_errors.extend(v.outputs.iter().filter_map(|x| x.as_ref().err()).cloned());
+
                 let owner = BuildOwner::Target(k);
                 out.collect_result(&owner, v);
+            }
+
+            if let Some(e) = non_action_errors.pop() {
+                return Err(BuildErrors {
+                    // FIXME(JakobDegen): We'd like to return more than one error here, but we have
+                    // to get better at error deduplication first
+                    errors: vec![e],
+                });
+            }
+            if !action_errors.is_empty() {
+                return Err(BuildErrors {
+                    errors: action_errors,
+                });
             }
 
             out.results
         }
 
-        fn build_errors(&mut self) -> &mut Vec<SharedError> {
-            match &mut self.results {
-                results @ Ok(..) => {
-                    *results = Err(BuildErrors { errors: Vec::new() });
-                    &mut results.as_mut().unwrap_err().errors
-                }
-                Err(errs) => &mut errs.errors,
-            }
-        }
-
         fn collect_result(&mut self, label: &BuildOwner, result: &ConfiguredBuildTargetResult) {
-            if let Some(e) = result.errors.last() {
-                let errors = self.build_errors();
-                // FIXME(JakobDegen): We'd like to be able to report more errors here. However, we
-                // need to get better at error deduplication before we can do that.
-                if errors.is_empty() {
-                    errors.push(e.dupe());
-                }
-            }
             let outputs = result
                 .outputs
                 .iter()
-                .filter_map(|output| match output {
-                    Ok(output) => Some(output),
-                    Err(e) => {
-                        self.build_errors().push(e.dupe());
-                        None
-                    }
-                })
+                .filter_map(|output| output.as_ref().ok())
                 .collect::<Vec<_>>();
 
             if let Ok(r) = &mut self.results {
@@ -200,15 +189,6 @@ pub mod result_report {
                     configured_graph_size,
                 })
             };
-        }
-
-        fn handle_error(&mut self, _p: &Option<ProvidersLabel>, e: &buck2_error::Error) {
-            let errors = self.build_errors();
-            // FIXME(JakobDegen): We'd like to be able to report more errors here. However, we
-            // need to get better at error deduplication before we can do that.
-            if errors.is_empty() {
-                errors.push(e.dupe());
-            }
         }
     }
 }
