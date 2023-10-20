@@ -36,7 +36,6 @@ use futures::stream::BoxStream;
 use futures::stream::FuturesUnordered;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
-use futures::stream::TryStreamExt;
 use futures::FutureExt;
 use itertools::Itertools;
 use tokio::sync::Mutex;
@@ -85,7 +84,7 @@ pub struct BuildTargetResult {
 
 impl BuildTargetResult {
     pub async fn collect_stream(
-        mut stream: impl Stream<Item = anyhow::Result<BuildEvent>> + Unpin,
+        mut stream: impl Stream<Item = BuildEvent> + Unpin,
         fail_fast: bool,
     ) -> anyhow::Result<Self> {
         // Create a map of labels to outputs, but retain the expected index of each output.
@@ -95,7 +94,7 @@ impl BuildTargetResult {
         >::new();
         let mut other_errors = BTreeMap::<_, Vec<_>>::new();
 
-        while let Some(event) = stream.try_next().await? {
+        while let Some(event) = stream.next().await {
             let ConfiguredBuildEvent { variant, label } = match event {
                 BuildEvent::Configured(variant) => variant,
                 BuildEvent::OtherError { label: target, err } => {

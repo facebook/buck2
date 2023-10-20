@@ -74,7 +74,6 @@ use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::future::FutureExt;
-use futures::future::TryFutureExt;
 use futures::stream::futures_unordered::FuturesUnordered;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
@@ -451,7 +450,7 @@ async fn build_targets(
             materialization_context,
             want_configured_graph_size,
         )
-        .map(|x| Ok(BuildEvent::Configured(x)))
+        .map(BuildEvent::Configured)
         .right_stream(),
     };
 
@@ -499,7 +498,7 @@ fn build_targets_with_global_target_platform<'a>(
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
     want_configured_graph_size: bool,
-) -> impl Stream<Item = anyhow::Result<BuildEvent>> + Unpin + 'a {
+) -> impl Stream<Item = BuildEvent> + Unpin + 'a {
     futures::stream::iter(spec.specs.into_iter().map(move |(package, spec)| {
         build_targets_for_spec(
             ctx,
@@ -556,7 +555,7 @@ fn build_targets_for_spec<'a>(
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
     want_configured_graph_size: bool,
-) -> impl Stream<Item = anyhow::Result<BuildEvent>> + Unpin + 'a {
+) -> impl Stream<Item = BuildEvent> + Unpin + 'a {
     async move {
         let skippable = match spec {
             PackageSpec::Targets(..) => skip_incompatible_targets,
@@ -582,15 +581,14 @@ fn build_targets_for_spec<'a>(
                     ),
                     PackageSpec::All => Either::Right(std::iter::once(None)),
                 };
-                return Ok(futures::stream::iter(targets.into_iter().map(move |t| {
+                return futures::stream::iter(targets.into_iter().map(move |t| {
                     BuildEvent::OtherError {
                         label: t,
                         err: e.dupe(),
                     }
                 }))
-                .map(Ok)
                 .left_stream()
-                .left_stream());
+                .left_stream();
             }
         };
         let (targets, missing) = res.apply_spec(spec);
@@ -598,20 +596,17 @@ fn build_targets_for_spec<'a>(
             match missing_target_behavior {
                 MissingTargetBehavior::Fail => {
                     let (first, rest) = missing.into_errors();
-                    return Ok(
-                        futures::stream::iter(std::iter::once(first).chain(rest).map(|err| {
-                            BuildEvent::OtherError {
-                                label: Some(ProvidersLabel::new(
-                                    TargetLabel::new(err.package.dupe(), err.target.as_ref()),
-                                    ProvidersName::Default,
-                                )),
-                                err: err.into(),
-                            }
-                        }))
-                        .map(Ok)
-                        .right_stream()
-                        .left_stream(),
-                    );
+                    return futures::stream::iter(std::iter::once(first).chain(rest).map(|err| {
+                        BuildEvent::OtherError {
+                            label: Some(ProvidersLabel::new(
+                                TargetLabel::new(err.package.dupe(), err.target.as_ref()),
+                                ProvidersName::Default,
+                            )),
+                            err: err.into(),
+                        }
+                    }))
+                    .right_stream()
+                    .left_stream();
                 }
                 MissingTargetBehavior::Warn => {
                     // TODO: This should be reported in the build report eventually.
@@ -648,13 +643,12 @@ fn build_targets_for_spec<'a>(
                 }
             })
             .collect::<FuturesUnordered<_>>()
-            .flatten_unordered(None)
-            .map(Ok);
+            .flatten_unordered(None);
 
-        anyhow::Ok(stream.right_stream())
+        stream.right_stream()
     }
     .boxed()
-    .try_flatten_stream()
+    .flatten_stream()
 }
 
 async fn build_target<'a>(
