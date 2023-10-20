@@ -283,12 +283,13 @@ async fn process_build_result(
     let cell_resolver = ctx.get_cell_resolver().await?;
     let artifact_fs = ctx.get_artifact_fs().await?;
 
-    let mut result_collector = ResultReporter::new(
+    let result_reports = ResultReporter::convert(
         &artifact_fs,
         ResultReporterOptions {
             return_outputs: response_options.return_outputs,
             return_default_other_outputs: response_options.return_default_other_outputs,
         },
+        &build_result,
     );
 
     let mut build_report_collector = if build_opts.unstable_print_build_report {
@@ -317,7 +318,6 @@ async fn process_build_result(
 
     for (unconfigured, errors) in build_result.other_errors {
         for e in errors {
-            result_collector.handle_error(&unconfigured, &e);
             if let Some(c) = build_report_collector.as_mut() {
                 c.handle_error(&unconfigured, &e);
             }
@@ -329,7 +329,6 @@ async fn process_build_result(
         // We omit skipped targets here.
         let Some(v) = v else { continue };
         let owner = BuildOwner::Target(&k);
-        result_collector.collect_result(&owner, &v);
         if let Some(c) = build_report_collector.as_mut() {
             c.collect_result(&owner, &v)
         }
@@ -390,7 +389,7 @@ async fn process_build_result(
         };
     }
 
-    let (build_targets, error_messages) = match result_collector.results() {
+    let (build_targets, error_messages) = match result_reports {
         Ok(targets) => (targets, Vec::new()),
         Err(errors) => {
             let error_strings = errors

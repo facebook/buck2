@@ -17,6 +17,7 @@ pub(crate) enum BuildOwner<'a> {
 
 pub mod result_report {
     use buck2_build_api::build::BuildProviderType;
+    use buck2_build_api::build::BuildTargetResult;
     use buck2_build_api::build::ConfiguredBuildTargetResult;
     use buck2_build_api::build::ProviderArtifacts;
     use buck2_core::configuration::compatibility::MaybeCompatible;
@@ -55,16 +56,31 @@ pub mod result_report {
     }
 
     impl<'a> ResultReporter<'a> {
-        pub(crate) fn new(artifact_fs: &'a ArtifactFs, options: ResultReporterOptions) -> Self {
-            Self {
+        pub(crate) fn convert(
+            artifact_fs: &'a ArtifactFs,
+            options: ResultReporterOptions,
+            build_result: &BuildTargetResult,
+        ) -> Result<Vec<proto::BuildTarget>, BuildErrors> {
+            let mut out = Self {
                 artifact_fs,
                 options,
                 results: Ok(Vec::new()),
-            }
-        }
+            };
 
-        pub(crate) fn results(self) -> Result<Vec<proto::BuildTarget>, BuildErrors> {
-            self.results
+            for (unconfigured, errors) in &build_result.other_errors {
+                for e in errors {
+                    out.handle_error(unconfigured, e);
+                }
+            }
+
+            for (k, v) in &build_result.configured {
+                // We omit skipped targets here.
+                let Some(v) = v else { continue };
+                let owner = BuildOwner::Target(k);
+                out.collect_result(&owner, v);
+            }
+
+            out.results
         }
 
         fn build_errors(&mut self) -> &mut Vec<SharedError> {
@@ -77,11 +93,7 @@ pub mod result_report {
             }
         }
 
-        pub(crate) fn collect_result(
-            &mut self,
-            label: &BuildOwner,
-            result: &ConfiguredBuildTargetResult,
-        ) {
+        fn collect_result(&mut self, label: &BuildOwner, result: &ConfiguredBuildTargetResult) {
             if let Some(e) = result.errors.last() {
                 let errors = self.build_errors();
                 // FIXME(JakobDegen): We'd like to be able to report more errors here. However, we
@@ -190,7 +202,7 @@ pub mod result_report {
             };
         }
 
-        pub(crate) fn handle_error(&mut self, _p: &Option<ProvidersLabel>, e: &buck2_error::Error) {
+        fn handle_error(&mut self, _p: &Option<ProvidersLabel>, e: &buck2_error::Error) {
             let errors = self.build_errors();
             // FIXME(JakobDegen): We'd like to be able to report more errors here. However, we
             // need to get better at error deduplication before we can do that.
