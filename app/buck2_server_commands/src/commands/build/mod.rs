@@ -511,6 +511,8 @@ fn build_targets_with_global_target_platform<'a>(
             skip_incompatible_targets,
             want_configured_graph_size,
         )
+        .boxed()
+        .flatten_stream()
     }))
     .flatten_unordered(None)
 }
@@ -545,7 +547,7 @@ fn build_providers_to_providers_to_build(build_providers: &BuildProviders) -> Pr
     providers_to_build
 }
 
-fn build_targets_for_spec<'a>(
+async fn build_targets_for_spec<'a>(
     ctx: &'a DiceComputations,
     spec: PackageSpec<ProvidersPatternExtra>,
     package: PackageLabel,
@@ -555,98 +557,94 @@ fn build_targets_for_spec<'a>(
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
     want_configured_graph_size: bool,
-) -> impl Stream<Item = BuildEvent> + Unpin + 'a {
-    async move {
-        let skippable = match spec {
-            PackageSpec::Targets(..) => skip_incompatible_targets,
-            PackageSpec::All => true,
-        };
+) -> impl Stream<Item = BuildEvent> + 'a {
+    let skippable = match spec {
+        PackageSpec::Targets(..) => skip_incompatible_targets,
+        PackageSpec::All => true,
+    };
 
-        let res = match ctx.get_interpreter_results(package.dupe()).await {
-            Ok(res) => res,
-            Err(e) => {
-                let e: buck2_error::Error = e.into();
-                // Try to associate the error to concrete targets, if possible
-                let targets = match spec {
-                    PackageSpec::Targets(targets) => Either::Left(
-                        targets
-                            .into_iter()
-                            .map(move |(t, providers)| {
-                                ProvidersLabel::new(
-                                    TargetLabel::new(package.dupe(), t.as_ref()),
-                                    providers.providers,
-                                )
-                            })
-                            .map(Some),
-                    ),
-                    PackageSpec::All => Either::Right(std::iter::once(None)),
-                };
-                return futures::stream::iter(targets.into_iter().map(move |t| {
-                    BuildEvent::OtherError {
-                        label: t,
-                        err: e.dupe(),
-                    }
-                }))
-                .left_stream();
-            }
-        };
-        let (targets, missing) = res.apply_spec(spec);
-        let missing_target_stream = match (missing, missing_target_behavior) {
-            (Some(missing), MissingTargetBehavior::Fail) => {
-                let (first, rest) = missing.into_errors();
-                futures::stream::iter(std::iter::once(first).chain(rest).map(|err| {
-                    BuildEvent::OtherError {
-                        label: Some(ProvidersLabel::new(
-                            TargetLabel::new(err.package.dupe(), err.target.as_ref()),
-                            ProvidersName::Default,
-                        )),
-                        err: err.into(),
-                    }
-                }))
-                .left_stream()
-            }
-            (Some(missing), MissingTargetBehavior::Warn) => {
-                // TODO: This should be reported in the build report eventually.
-                console_message(missing.missing_targets_warning());
-                futures::stream::empty().right_stream()
-            }
-            (None, _) => futures::stream::empty().right_stream(),
-        };
-
-        let todo_targets: Vec<TargetBuildSpec> = targets
-            .into_iter()
-            .map(|((_target_name, extra), target)| TargetBuildSpec {
-                target,
-                providers: extra.providers,
-                global_target_platform: global_target_platform.dupe(),
-                skippable,
-                want_configured_graph_size,
-            })
-            .collect();
-
-        let providers_to_build = build_providers_to_providers_to_build(&build_providers);
-
-        todo_targets
-            .into_iter()
-            .map(|build_spec| {
-                let providers_to_build = providers_to_build.clone();
-                async move {
-                    build_target(
-                        ctx,
-                        build_spec,
-                        &providers_to_build,
-                        materialization_context,
-                    )
-                    .await
+    let res = match ctx.get_interpreter_results(package.dupe()).await {
+        Ok(res) => res,
+        Err(e) => {
+            let e: buck2_error::Error = e.into();
+            // Try to associate the error to concrete targets, if possible
+            let targets = match spec {
+                PackageSpec::Targets(targets) => Either::Left(
+                    targets
+                        .into_iter()
+                        .map(move |(t, providers)| {
+                            ProvidersLabel::new(
+                                TargetLabel::new(package.dupe(), t.as_ref()),
+                                providers.providers,
+                            )
+                        })
+                        .map(Some),
+                ),
+                PackageSpec::All => Either::Right(std::iter::once(None)),
+            };
+            return futures::stream::iter(targets.into_iter().map(move |t| {
+                BuildEvent::OtherError {
+                    label: t,
+                    err: e.dupe(),
                 }
-            })
-            .collect::<FuturesUnordered<_>>()
-            .flatten_unordered(None)
-            .chain(missing_target_stream)
-            .right_stream()
-    }
-    .boxed()
-    .flatten_stream()
+            }))
+            .left_stream();
+        }
+    };
+    let (targets, missing) = res.apply_spec(spec);
+    let missing_target_stream = match (missing, missing_target_behavior) {
+        (Some(missing), MissingTargetBehavior::Fail) => {
+            let (first, rest) = missing.into_errors();
+            futures::stream::iter(std::iter::once(first).chain(rest).map(|err| {
+                BuildEvent::OtherError {
+                    label: Some(ProvidersLabel::new(
+                        TargetLabel::new(err.package.dupe(), err.target.as_ref()),
+                        ProvidersName::Default,
+                    )),
+                    err: err.into(),
+                }
+            }))
+            .left_stream()
+        }
+        (Some(missing), MissingTargetBehavior::Warn) => {
+            // TODO: This should be reported in the build report eventually.
+            console_message(missing.missing_targets_warning());
+            futures::stream::empty().right_stream()
+        }
+        (None, _) => futures::stream::empty().right_stream(),
+    };
+
+    let todo_targets: Vec<TargetBuildSpec> = targets
+        .into_iter()
+        .map(|((_target_name, extra), target)| TargetBuildSpec {
+            target,
+            providers: extra.providers,
+            global_target_platform: global_target_platform.dupe(),
+            skippable,
+            want_configured_graph_size,
+        })
+        .collect();
+
+    let providers_to_build = build_providers_to_providers_to_build(&build_providers);
+
+    todo_targets
+        .into_iter()
+        .map(|build_spec| {
+            let providers_to_build = providers_to_build.clone();
+            async move {
+                build_target(
+                    ctx,
+                    build_spec,
+                    &providers_to_build,
+                    materialization_context,
+                )
+                .await
+            }
+        })
+        .collect::<FuturesUnordered<_>>()
+        .flatten_unordered(None)
+        .chain(missing_target_stream)
+        .right_stream()
 }
 
 async fn build_target<'a>(
