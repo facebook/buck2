@@ -315,12 +315,12 @@ pub mod build_report {
                 include_unconfigured_section,
                 include_other_outputs,
             };
-            for (_, configured) in &build_result
+            for (label, configured) in &build_result
                 .configured
                 .iter()
                 .group_by(|x| x.0.target().unconfigured().dupe())
             {
-                out.collect_results_for_unconfigured(configured);
+                out.collect_results_for_unconfigured(label, configured);
             }
             for (unconfigured, errors) in &build_result.other_errors {
                 for e in errors {
@@ -343,6 +343,7 @@ pub mod build_report {
         /// Always called for one unconfigured target at a time
         fn collect_results_for_unconfigured<'b>(
             &mut self,
+            label: TargetLabel,
             results: impl IntoIterator<
                 Item = (
                     &'b ConfiguredProvidersLabel,
@@ -350,6 +351,13 @@ pub mod build_report {
                 ),
             >,
         ) {
+            let mut unconfigured_report = if self.include_unconfigured_section {
+                Some(ConfiguredBuildReportEntry::default())
+            } else {
+                None
+            };
+            let mut configured_reports = HashMap::new();
+
             for (label, result) in results {
                 // We omit skipped targets here.
                 let Some(result) = result else { continue };
@@ -413,26 +421,11 @@ pub mod build_report {
                     });
                 }
 
-                let report_results = self
-                    .build_report_results
-                    .entry(EntryLabel::Target(label.unconfigured().target().dupe()))
-                    .or_insert_with(|| BuildReportEntry {
-                        compatible: if self.include_unconfigured_section {
-                            Some(ConfiguredBuildReportEntry::default())
-                        } else {
-                            None
-                        },
-                        configured: HashMap::new(),
-                        errors: Vec::new(),
-                    });
-
-                let unconfigured_report = &mut report_results.compatible;
-                let configured_report = report_results
-                    .configured
+                let configured_report = configured_reports
                     .entry(label.cfg().dupe())
                     .or_insert(ConfiguredBuildReportEntryWithErrors::default());
                 if !default_outs.is_empty() {
-                    if let Some(report) = unconfigured_report {
+                    if let Some(report) = unconfigured_report.as_mut() {
                         report.outputs.insert(
                             report_providers_name(label),
                             default_outs.iter().cloned().collect(),
@@ -445,7 +438,7 @@ pub mod build_report {
                     );
                 }
                 if !other_outs.is_empty() {
-                    if let Some(report) = unconfigured_report {
+                    if let Some(report) = unconfigured_report.as_mut() {
                         report.other_outputs.insert(
                             report_providers_name(label),
                             other_outs.iter().cloned().collect(),
@@ -459,7 +452,7 @@ pub mod build_report {
                 }
 
                 if !errors.is_empty() {
-                    if let Some(unconfigured_report) = unconfigured_report {
+                    if let Some(unconfigured_report) = unconfigured_report.as_mut() {
                         unconfigured_report.success = BuildOutcome::FAIL;
                     }
                     configured_report.inner.success = BuildOutcome::FAIL;
@@ -473,12 +466,21 @@ pub mod build_report {
                 if let Some(Ok(MaybeCompatible::Compatible(configured_graph_size))) =
                     result.configured_graph_size
                 {
-                    if let Some(report) = unconfigured_report {
+                    if let Some(report) = unconfigured_report.as_mut() {
                         report.configured_graph_size = Some(configured_graph_size);
                     }
                     configured_report.inner.configured_graph_size = Some(configured_graph_size);
                 }
             }
+
+            self.build_report_results.insert(
+                EntryLabel::Target(label),
+                BuildReportEntry {
+                    compatible: unconfigured_report,
+                    configured: configured_reports,
+                    errors: Vec::new(),
+                },
+            );
         }
 
         fn handle_error(&mut self, p: &Option<ProvidersLabel>, e: &buck2_error::Error) {
