@@ -592,28 +592,27 @@ fn build_targets_for_spec<'a>(
             }
         };
         let (targets, missing) = res.apply_spec(spec);
-        if let Some(missing) = missing {
-            match missing_target_behavior {
-                MissingTargetBehavior::Fail => {
-                    let (first, rest) = missing.into_errors();
-                    return futures::stream::iter(std::iter::once(first).chain(rest).map(|err| {
-                        BuildEvent::OtherError {
-                            label: Some(ProvidersLabel::new(
-                                TargetLabel::new(err.package.dupe(), err.target.as_ref()),
-                                ProvidersName::Default,
-                            )),
-                            err: err.into(),
-                        }
-                    }))
-                    .right_stream()
-                    .left_stream();
-                }
-                MissingTargetBehavior::Warn => {
-                    // TODO: This should be reported in the build report eventually.
-                    console_message(missing.missing_targets_warning());
-                }
+        match (missing, missing_target_behavior) {
+            (Some(missing), MissingTargetBehavior::Fail) => {
+                let (first, rest) = missing.into_errors();
+                return futures::stream::iter(std::iter::once(first).chain(rest).map(|err| {
+                    BuildEvent::OtherError {
+                        label: Some(ProvidersLabel::new(
+                            TargetLabel::new(err.package.dupe(), err.target.as_ref()),
+                            ProvidersName::Default,
+                        )),
+                        err: err.into(),
+                    }
+                }))
+                .right_stream()
+                .left_stream();
             }
-        }
+            (Some(missing), MissingTargetBehavior::Warn) => {
+                // TODO: This should be reported in the build report eventually.
+                console_message(missing.missing_targets_warning());
+            }
+            (None, _) => (),
+        };
 
         let todo_targets: Vec<TargetBuildSpec> = targets
             .into_iter()
