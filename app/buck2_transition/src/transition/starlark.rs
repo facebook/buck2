@@ -30,6 +30,7 @@ use starlark::eval::Evaluator;
 use starlark::starlark_complex_values;
 use starlark::starlark_module;
 use starlark::values::dict::DictOf;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::Demand;
@@ -174,7 +175,7 @@ fn register_transition_function(builder: &mut GlobalsBuilder) {
     fn transition<'v>(
         #[starlark(require = named)] r#impl: StarlarkCallable<'v>,
         #[starlark(require = named)] refs: DictOf<'v, StringValue<'v>, StringValue<'v>>,
-        #[starlark(require = named)] attrs: Option<Vec<StringValue<'v>>>,
+        #[starlark(require = named)] attrs: Option<UnpackListOrTuple<StringValue<'v>>>,
         #[starlark(require = named, default = false)] split: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Transition<'v>> {
@@ -196,8 +197,8 @@ fn register_transition_function(builder: &mut GlobalsBuilder) {
             None => return Err(TransitionError::MustBeDefNotDef.into()),
         };
         let expected_params: &[&str] = if let Some(attrs) = &attrs {
-            let attrs_set: HashSet<StringValue> = attrs.iter().copied().collect();
-            if attrs_set.len() != attrs.len() {
+            let attrs_set: HashSet<StringValue> = attrs.items.iter().copied().collect();
+            if attrs_set.len() != attrs.items.len() {
                 return Err(TransitionError::NonUniqueAttrs.into());
             }
             &["platform", "refs", "attrs"]
@@ -217,7 +218,7 @@ fn register_transition_function(builder: &mut GlobalsBuilder) {
             path,
             implementation,
             refs,
-            attrs,
+            attrs: attrs.map(|a| a.items),
             split,
         })
     }
