@@ -290,6 +290,12 @@ pub mod build_report {
     #[derive(Debug, Clone, Serialize, PartialOrd, Ord, PartialEq, Eq)]
     struct BuildReportError {
         message: String,
+        /// An opaque index that can be use to de-duplicate errors. Two errors with the same
+        /// deduplication index have the same "cause."
+        ///
+        /// For example, two targets in different packages may have the same cause (evaluation of
+        /// common bzl file), but error stack will be different.
+        cause_index: usize,
     }
 
     #[derive(Derivative, Serialize, Eq, PartialEq, Hash)]
@@ -305,6 +311,8 @@ pub mod build_report {
         overall_success: bool,
         include_unconfigured_section: bool,
         include_other_outputs: bool,
+        error_cause_cache: HashMap<buck2_error::UniqueRootId, usize>,
+        next_cause_index: usize,
     }
 
     impl<'a> BuildReportCollector<'a> {
@@ -321,6 +329,8 @@ pub mod build_report {
                 overall_success: true,
                 include_unconfigured_section,
                 include_other_outputs,
+                error_cause_cache: HashMap::default(),
+                next_cause_index: 0,
             };
             let mut entries = HashMap::new();
 
@@ -523,20 +533,54 @@ pub mod build_report {
             configured_report
         }
 
+        /// Note: In order for production of the build report to be deterministic, the order in
+        /// which this function is called, and which errors it is called with, must be
+        /// deterministic. The particular order of the errors need not be.
         fn convert_error_list(&mut self, errors: &[buck2_error::Error]) -> Vec<BuildReportError> {
             if errors.is_empty() {
                 return Vec::new();
             }
             self.overall_success = false;
-            let mut errors: Vec<_> = errors
-                .iter()
-                .map(|err| BuildReportError {
-                    message: format!("{:#}", err),
-                })
-                .collect();
-            // Keep the output deterministic
-            errors.sort_unstable();
-            errors
+
+            let mut temp = Vec::with_capacity(errors.len());
+            for e in errors {
+                // we initially avoid assigning new deduplication indexes and instead use a sentinal
+                // value. This is to make sure that we can be deterministic
+                let root = e.root_id();
+                let message = format!("{:#}", e);
+                temp.push((self.error_cause_cache.get(&root).copied(), message, e));
+            }
+            // Sort the errors. This sort *almost* guarantees full determinism, but unfortunately
+            // not quite; it is hypothetically non-deterministic if the same configured target has
+            // two errors with different error roots but the same error message. Probably unlikely?
+            temp.sort_unstable_by(|x, y| Ord::cmp(&(x.0, &x.1), &(y.0, &y.1)));
+
+            let mut out = Vec::with_capacity(temp.len());
+            // Now assign new deduplication indexes if we haven't yet
+            for (dedup_index, message, e) in temp {
+                let dedup_index = match dedup_index {
+                    Some(i) => i,
+                    None => {
+                        // We need to recheck the cache first, as a previous iteration of this loop
+                        // may have inserted our root
+                        self.error_cause_cache
+                            .get(&e.root_id())
+                            .copied()
+                            .unwrap_or_else(|| {
+                                let index = self.next_cause_index;
+                                self.next_cause_index += 1;
+                                self.error_cause_cache.insert(e.root_id(), index);
+                                index
+                            })
+                    }
+                };
+                out.push(BuildReportError {
+                    message,
+                    cause_index: dedup_index,
+                });
+            }
+
+            out
         }
     }
 
