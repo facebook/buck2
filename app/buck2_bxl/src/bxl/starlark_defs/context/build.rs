@@ -16,8 +16,8 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::build::build_configured_label;
 use buck2_build_api::build::BuildConfiguredLabelOptions;
-use buck2_build_api::build::BuildEvent;
 use buck2_build_api::build::BuildTargetResult;
+use buck2_build_api::build::ConfiguredBuildEvent;
 use buck2_build_api::build::ConvertMaterializationContext;
 use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
@@ -216,7 +216,7 @@ pub(crate) fn build<'v>(
                     let target = target.clone();
                     let materializations = materializations.dupe();
                     higher_order_closure! {
-                        for <'x> move |dice: &'x mut DiceComputationsParallel<'_>| -> BoxFuture<'x, Vec<BuildEvent>> {
+                        for <'x> move |dice: &'x mut DiceComputationsParallel<'_>| -> BoxFuture<'x, Vec<ConfiguredBuildEvent>> {
                             async move {
                                 build_configured_label(
                                     dice,

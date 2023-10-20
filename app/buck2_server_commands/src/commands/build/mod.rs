@@ -21,8 +21,8 @@ use buck2_artifact::artifact::artifact_dump::FileInfo;
 use buck2_artifact::artifact::artifact_dump::SymlinkInfo;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::build;
-use buck2_build_api::build::BuildEvent;
 use buck2_build_api::build::BuildTargetResult;
+use buck2_build_api::build::ConfiguredBuildEvent;
 use buck2_build_api::build::ConvertMaterializationContext;
 use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
 use buck2_build_api::build::MaterializationContext;
@@ -454,7 +454,7 @@ fn build_targets_in_universe<'a>(
     build_providers: Arc<BuildProviders>,
     materialization_context: &'a MaterializationContext,
     want_configured_graph_size: bool,
-) -> impl Stream<Item = BuildEvent> + Unpin + 'a {
+) -> impl Stream<Item = ConfiguredBuildEvent> + Unpin + 'a {
     let providers_to_build = build_providers_to_providers_to_build(&build_providers);
     let provider_labels = universe.get_provider_labels(&spec);
     provider_labels
@@ -488,7 +488,7 @@ fn build_targets_with_global_target_platform<'a>(
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
     want_configured_graph_size: bool,
-) -> impl Stream<Item = anyhow::Result<BuildEvent>> + Unpin + 'a {
+) -> impl Stream<Item = anyhow::Result<ConfiguredBuildEvent>> + Unpin + 'a {
     spec.specs
         .into_iter()
         .map(|(package, spec)| {
@@ -557,7 +557,7 @@ fn build_targets_for_spec<'a>(
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
     want_configured_graph_size: bool,
-) -> impl Stream<Item = anyhow::Result<BuildEvent>> + Unpin + 'a {
+) -> impl Stream<Item = anyhow::Result<ConfiguredBuildEvent>> + Unpin + 'a {
     async move {
         let skippable = match spec {
             PackageSpec::Targets(..) => skip_incompatible_targets,
@@ -619,7 +619,7 @@ async fn build_target<'a>(
     spec: TargetBuildSpec,
     providers_to_build: &ProvidersToBuild,
     materialization_context: &MaterializationContext,
-) -> impl Stream<Item = anyhow::Result<BuildEvent>> + 'a {
+) -> impl Stream<Item = anyhow::Result<ConfiguredBuildEvent>> + 'a {
     let res = async {
         let providers_label = ctx
             .get_configured_provider_label(

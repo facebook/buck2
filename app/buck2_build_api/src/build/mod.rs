@@ -81,7 +81,7 @@ pub struct BuildTargetResult {
 
 impl BuildTargetResult {
     pub async fn collect_stream(
-        mut stream: impl Stream<Item = anyhow::Result<BuildEvent>> + Unpin,
+        mut stream: impl Stream<Item = anyhow::Result<ConfiguredBuildEvent>> + Unpin,
         fail_fast: bool,
     ) -> anyhow::Result<Self> {
         // Create a map of labels to outputs, but retain the expected index of each output.
@@ -90,12 +90,12 @@ impl BuildTargetResult {
             Option<ConfiguredBuildTargetResultGen<(usize, SharedResult<ProviderArtifacts>)>>,
         >::new();
 
-        while let Some(BuildEvent { label, variant }) = stream.try_next().await? {
+        while let Some(ConfiguredBuildEvent { label, variant }) = stream.try_next().await? {
             match variant {
-                BuildEventVariant::SkippedIncompatible => {
+                ConfiguredBuildEventVariant::SkippedIncompatible => {
                     res.entry((*label).clone()).or_insert(None);
                 }
-                BuildEventVariant::Prepared { run_args } => {
+                ConfiguredBuildEventVariant::Prepared { run_args } => {
                     res.entry((*label).clone())
                         .or_insert(Some(ConfiguredBuildTargetResultGen {
                             outputs: Vec::new(),
@@ -104,7 +104,7 @@ impl BuildTargetResult {
                             errors: Vec::new(),
                         }));
                 }
-                BuildEventVariant::Output { index, output } => {
+                ConfiguredBuildEventVariant::Output { index, output } => {
                     let is_err = output.is_err();
 
                     res.get_mut(label.as_ref())
@@ -118,7 +118,7 @@ impl BuildTargetResult {
                         break;
                     }
                 }
-                BuildEventVariant::GraphSize {
+                ConfiguredBuildEventVariant::GraphSize {
                     configured_graph_size,
                 } => {
                     res.get_mut(label.as_ref())
@@ -127,7 +127,7 @@ impl BuildTargetResult {
                         .with_context(|| format!("BuildEventVariant::GraphSize for a skipped target: `{}` (internal error)", label))?
                         .configured_graph_size = Some(configured_graph_size);
                 }
-                BuildEventVariant::Error { err } => {
+                ConfiguredBuildEventVariant::Error { err } => {
                     res.entry((*label).clone())
                         .or_insert(Some(ConfiguredBuildTargetResultGen {
                             outputs: Vec::new(),
@@ -186,7 +186,7 @@ impl BuildTargetResult {
     }
 }
 
-enum BuildEventVariant {
+enum ConfiguredBuildEventVariant {
     SkippedIncompatible,
     Prepared {
         run_args: Option<Vec<String>>,
@@ -206,9 +206,9 @@ enum BuildEventVariant {
 }
 
 /// Events to be accumulated using BuildTargetResult::collect_stream.
-pub struct BuildEvent {
+pub struct ConfiguredBuildEvent {
     label: Arc<ConfiguredProvidersLabel>,
-    variant: BuildEventVariant,
+    variant: ConfiguredBuildEventVariant,
 }
 
 #[derive(Copy, Clone, Dupe, Debug)]
@@ -223,7 +223,7 @@ pub async fn build_configured_label<'a>(
     providers_label: ConfiguredProvidersLabel,
     providers_to_build: &ProvidersToBuild,
     opts: BuildConfiguredLabelOptions,
-) -> BoxStream<'a, BuildEvent> {
+) -> BoxStream<'a, ConfiguredBuildEvent> {
     let providers_label = Arc::new(providers_label);
     build_configured_label_inner(
         ctx,
@@ -234,9 +234,9 @@ pub async fn build_configured_label<'a>(
     )
     .await
     .unwrap_or_else(|e| {
-        futures::stream::once(futures::future::ready(BuildEvent {
+        futures::stream::once(futures::future::ready(ConfiguredBuildEvent {
             label: providers_label,
-            variant: BuildEventVariant::Error { err: e.into() },
+            variant: ConfiguredBuildEventVariant::Error { err: e.into() },
         }))
         .boxed()
     })
@@ -248,7 +248,7 @@ async fn build_configured_label_inner<'a>(
     providers_label: Arc<ConfiguredProvidersLabel>,
     providers_to_build: &ProvidersToBuild,
     opts: BuildConfiguredLabelOptions,
-) -> anyhow::Result<BoxStream<'a, BuildEvent>> {
+) -> anyhow::Result<BoxStream<'a, ConfiguredBuildEvent>> {
     let artifact_fs = ctx.get_artifact_fs().await?;
 
     let (outputs, run_args) = {
@@ -257,10 +257,12 @@ async fn build_configured_label_inner<'a>(
             MaybeCompatible::Incompatible(reason) => {
                 if opts.skippable {
                     console_message(reason.skipping_message(providers_label.target()));
-                    return Ok(futures::stream::once(futures::future::ready(BuildEvent {
-                        label: providers_label.dupe(),
-                        variant: BuildEventVariant::SkippedIncompatible,
-                    }))
+                    return Ok(futures::stream::once(futures::future::ready(
+                        ConfiguredBuildEvent {
+                            label: providers_label.dupe(),
+                            variant: ConfiguredBuildEventVariant::SkippedIncompatible,
+                        },
+                    ))
                     .boxed());
                 } else {
                     return Err(reason.to_err());
@@ -373,15 +375,15 @@ async fn build_configured_label_inner<'a>(
         .collect::<FuturesUnordered<_>>()
         .map({
             let providers_label = providers_label.dupe();
-            move |(index, output)| BuildEvent {
+            move |(index, output)| ConfiguredBuildEvent {
                 label: providers_label.dupe(),
-                variant: BuildEventVariant::Output { index, output },
+                variant: ConfiguredBuildEventVariant::Output { index, output },
             }
         });
 
-    let stream = futures::stream::once(futures::future::ready(BuildEvent {
+    let stream = futures::stream::once(futures::future::ready(ConfiguredBuildEvent {
         label: providers_label.dupe(),
-        variant: BuildEventVariant::Prepared { run_args },
+        variant: ConfiguredBuildEventVariant::Prepared { run_args },
     }))
     .chain(outputs);
 
@@ -392,9 +394,9 @@ async fn build_configured_label_inner<'a>(
                     .await
                     .map_err(|e| e.into());
 
-            BuildEvent {
+            ConfiguredBuildEvent {
                 label: providers_label,
-                variant: BuildEventVariant::GraphSize {
+                variant: ConfiguredBuildEventVariant::GraphSize {
                     configured_graph_size,
                 },
             }
