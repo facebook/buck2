@@ -236,8 +236,11 @@ pub mod build_report {
         truncated: bool,
     }
 
+    /// The fields that stored in the unconfigured `BuildReportEntry` for buck1 backcompat.
+    ///
+    /// Do not put new fields in here. Put them in `ConfiguredBuildReportEntry`
     #[derive(Default, Debug, Serialize)]
-    struct ConfiguredBuildReportEntry {
+    struct MaybeConfiguredBuildReportEntry {
         /// whether this particular target was successful
         success: BuildOutcome,
         /// a map of each subtarget of the current target (outputted as a `|` delimited list) to
@@ -246,17 +249,21 @@ pub mod build_report {
         /// a map of each subtarget of the current target (outputted as a `|` delimited list) to
         /// the hidden, implicitly built outputs of the subtarget. There are multiple outputs
         /// per subtarget
+        ///
+        /// FIXME(JakobDegen): This should be in `ConfiguredBuildReportEntry`
         other_outputs: HashMap<Arc<str>, SmallSet<ProjectRelativePathBuf>>,
         /// The size of the graph for this target, if it was produced
+        ///
+        /// FIXME(JakobDegen): This should be in `ConfiguredBuildReportEntry`
         configured_graph_size: Option<u64>,
     }
 
     #[derive(Default, Debug, Serialize)]
-    pub(crate) struct ConfiguredBuildReportEntryWithErrors {
+    pub(crate) struct ConfiguredBuildReportEntry {
         /// A list of errors that occurred while building this target
         errors: Vec<BuildReportError>,
         #[serde(flatten)]
-        inner: ConfiguredBuildReportEntry,
+        inner: MaybeConfiguredBuildReportEntry,
     }
 
     #[derive(Debug, Serialize)]
@@ -269,10 +276,10 @@ pub mod build_report {
         /// the one on this struct.
         #[serde(flatten)]
         #[serde(skip_serializing_if = "Option::is_none")]
-        compatible: Option<ConfiguredBuildReportEntry>,
+        compatible: Option<MaybeConfiguredBuildReportEntry>,
 
         /// the configured entry
-        configured: HashMap<ConfigurationData, ConfiguredBuildReportEntryWithErrors>,
+        configured: HashMap<ConfigurationData, ConfiguredBuildReportEntry>,
 
         /// Errors that could not be associated with a particular configured version of the target,
         /// typically because they happened before configuration.
@@ -352,7 +359,7 @@ pub mod build_report {
             >,
         ) -> BuildReportEntry {
             let mut unconfigured_report = if self.include_unconfigured_section {
-                Some(ConfiguredBuildReportEntry::default())
+                Some(MaybeConfiguredBuildReportEntry::default())
             } else {
                 None
             };
@@ -411,8 +418,8 @@ pub mod build_report {
                     &'b ConfiguredBuildTargetResult,
                 ),
             >,
-        ) -> ConfiguredBuildReportEntryWithErrors {
-            let mut configured_report = ConfiguredBuildReportEntryWithErrors::default();
+        ) -> ConfiguredBuildReportEntry {
+            let mut configured_report = ConfiguredBuildReportEntry::default();
             for (label, result) in results {
                 let provider_name: Arc<str> = report_providers_name(label).into();
 
@@ -505,7 +512,7 @@ pub mod build_report {
                 .entry(EntryLabel::Target(target))
                 .or_insert(BuildReportEntry {
                     compatible: if self.include_unconfigured_section {
-                        Some(ConfiguredBuildReportEntry::default())
+                        Some(MaybeConfiguredBuildReportEntry::default())
                     } else {
                         None
                     },
