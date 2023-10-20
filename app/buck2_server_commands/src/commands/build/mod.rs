@@ -45,6 +45,7 @@ use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::fs_util;
+use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::PackageSpec;
@@ -58,7 +59,6 @@ use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::load_patterns::MissingTargetBehavior;
-use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
@@ -505,25 +505,20 @@ fn build_targets_with_global_target_platform<'a>(
             let build_providers = build_providers.dupe();
             let global_target_platform = global_target_platform.dupe();
             async move {
-                let res = ctx.get_interpreter_results(package.dupe()).await?;
-                anyhow::Ok(build_targets_for_spec(
+                build_targets_for_spec(
                     ctx,
                     spec,
+                    package,
                     global_target_platform,
-                    res,
                     build_providers,
                     materialization_context,
                     missing_target_behavior,
                     skip_incompatible_targets,
                     want_configured_graph_size,
-                ))
+                )
             }
         })
         .collect::<FuturesUnordered<_>>()
-        .map(|res| match res {
-            Ok(stream) => stream.left_stream(),
-            Err(e) => futures::stream::once(futures::future::ready(Err(e))).right_stream(),
-        })
         .flatten_unordered(None)
 }
 
@@ -560,8 +555,8 @@ fn build_providers_to_providers_to_build(build_providers: &BuildProviders) -> Pr
 fn build_targets_for_spec<'a>(
     ctx: &'a DiceComputations,
     spec: PackageSpec<ProvidersPatternExtra>,
+    package: PackageLabel,
     global_target_platform: Option<TargetLabel>,
-    res: Arc<EvaluationResult>,
     build_providers: Arc<BuildProviders>,
     materialization_context: &'a MaterializationContext,
     missing_target_behavior: MissingTargetBehavior,
@@ -574,6 +569,7 @@ fn build_targets_for_spec<'a>(
             PackageSpec::All => true,
         };
 
+        let res = ctx.get_interpreter_results(package.dupe()).await?;
         let (targets, missing) = res.apply_spec(spec);
         if let Some(missing) = missing {
             match missing_target_behavior {
