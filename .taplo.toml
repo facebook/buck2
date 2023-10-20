@@ -1,0 +1,19 @@
+include = [
+    "*.toml",
+]
+
+[formatting]
+align_comments = false
+array_auto_collapse = false
+array_auto_expand = false
+indent_string = "    "
+reorder_arrays = false
+reorder_keys = true
+
+[[rule]]
+keys = [
+    "dependencies",
+    "target.*.dependencies",
+]
+[rule.formatting]
+reorder_arrays = true
