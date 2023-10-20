@@ -29,10 +29,18 @@ pub(crate) fn global(builder: &mut GlobalsBuilder) {
     ///
     /// This is intended only for debugging purposes to display to a human and
     /// should not be considered stable or parseable.
-    fn call_stack(eval: &mut Evaluator) -> anyhow::Result<String> {
+    ///
+    /// strip_frames will pop N frames from the top of the call stack, which can
+    /// be useful to hide non-interesting lines - for example, strip_frames=1
+    /// will hide the call to and location of `call_stack()` itself.
+    fn call_stack(
+        #[starlark(require=named, default = 0)] strip_frames: u32,
+        eval: &mut Evaluator,
+    ) -> anyhow::Result<String> {
         let mut stack = eval.call_stack();
-        // pop the call to call_stack() itself because that's not interesting
-        stack.frames.pop();
+        stack
+            .frames
+            .truncate(stack.frames.len().saturating_sub(strip_frames as usize));
         Ok(stack.to_string())
     }
 }
@@ -43,7 +51,7 @@ mod tests {
     use crate::assert::Assert;
 
     #[test]
-    fn test_call_stack() {
+    fn test_simple() {
         let mut a = Assert::new();
         a.globals_add(global);
         a.is_true(
@@ -56,8 +64,48 @@ def bar():
     return all([
         "foo()" in s,
         "bar()" in s,
+        "call_stack()" in s,
+    ])
+
+foo()
+            "#,
+        );
+    }
+
+    #[test]
+    fn test_strip_one() {
+        let mut a = Assert::new();
+        a.globals_add(global);
+        a.is_true(
+            r#"
+def foo():
+    return bar()
+
+def bar():
+    s = call_stack(strip_frames=1)
+    return all([
+        "foo()" in s,
+        "bar()" in s,
         "call_stack()" not in s,
     ])
+
+foo()
+            "#,
+        );
+    }
+
+    #[test]
+    fn test_strip_all() {
+        let mut a = Assert::new();
+        a.globals_add(global);
+        a.is_true(
+            r#"
+def foo():
+    return bar()
+
+def bar():
+    s = call_stack(strip_frames=10)
+    return not bool(s)
 
 foo()
             "#,
