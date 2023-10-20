@@ -413,10 +413,9 @@ pub mod build_report {
         ) -> ConfiguredBuildReportEntryWithErrors {
             let mut configured_report = ConfiguredBuildReportEntryWithErrors::default();
             for (label, result) in results {
-                let (default_outs, other_outs, mut errors) = {
+                let (default_outs, other_outs) = {
                     let mut default_outs = SmallSet::new();
                     let mut other_outs = SmallSet::new();
-                    let mut errors = Vec::new();
 
                     result.outputs.iter().for_each(|res| {
                         match res {
@@ -457,18 +456,18 @@ pub mod build_report {
                                 }
                             }
                             Err(e) => {
-                                errors.push(BuildReportError {
+                                configured_report.errors.push(BuildReportError {
                                     message: format!("{:#}", e),
                                 });
                             }
                         }
                     });
 
-                    (default_outs, other_outs, errors)
+                    (default_outs, other_outs)
                 };
 
                 for err in &result.errors {
-                    errors.push(BuildReportError {
+                    configured_report.errors.push(BuildReportError {
                         message: format!("{:#}", err),
                     });
                 }
@@ -486,20 +485,17 @@ pub mod build_report {
                     );
                 }
 
-                if !errors.is_empty() {
-                    configured_report.inner.success = BuildOutcome::FAIL;
-                    configured_report.errors.extend(errors);
-                    // Keep the output deterministic
-                    configured_report.errors.sort_unstable();
-
-                    self.overall_success = false;
-                }
-
                 if let Some(Ok(MaybeCompatible::Compatible(configured_graph_size))) =
                     result.configured_graph_size
                 {
                     configured_report.inner.configured_graph_size = Some(configured_graph_size);
                 }
+            }
+            if !configured_report.errors.is_empty() {
+                self.overall_success = false;
+                configured_report.inner.success = BuildOutcome::FAIL;
+                // Keep the output deterministic
+                configured_report.errors.sort_unstable();
             }
             configured_report
         }
