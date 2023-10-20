@@ -567,7 +567,20 @@ fn build_targets_for_spec<'a>(
         if let Some(missing) = missing {
             match missing_target_behavior {
                 MissingTargetBehavior::Fail => {
-                    return Err(missing.into_errors().0.into());
+                    let (first, rest) = missing.into_errors();
+                    return Ok(
+                        futures::stream::iter(std::iter::once(first).chain(rest).map(|err| {
+                            BuildEvent::OtherError {
+                                label: Some(ProvidersLabel::new(
+                                    TargetLabel::new(err.package.dupe(), err.target.as_ref()),
+                                    ProvidersName::Default,
+                                )),
+                                err: err.into(),
+                            }
+                        }))
+                        .map(Ok)
+                        .left_stream(),
+                    );
                 }
                 MissingTargetBehavior::Warn => {
                     // TODO: This should be reported in the build report eventually.
@@ -607,7 +620,7 @@ fn build_targets_for_spec<'a>(
             .flatten_unordered(None)
             .map(Ok);
 
-        anyhow::Ok(stream)
+        anyhow::Ok(stream.right_stream())
     }
     .boxed()
     .try_flatten_stream()
