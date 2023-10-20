@@ -252,6 +252,9 @@ pub mod build_report {
 
     #[derive(Debug, Serialize)]
     pub(crate) struct BuildReportEntry {
+        /// The buck1 build report did not support multiple configurations of the same target. We
+        /// do, which is why we have the `configured` field below, which users should ideally use.
+        /// This field is kept around for buck1 compatibility only and should ideally be removed.
         #[serde(flatten)]
         #[serde(skip_serializing_if = "Option::is_none")]
         compatible: Option<ConfiguredBuildReportEntry>,
