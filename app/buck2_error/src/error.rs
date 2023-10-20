@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use crate::context::DisplayAndAny;
 use crate::root::ErrorRoot;
+use crate::UniqueRootId;
 
 /// The core error type provided by this crate.
 ///
@@ -68,6 +69,13 @@ impl Error {
         })
     }
 
+    fn root(&self) -> &ErrorRoot {
+        let Some(ErrorKind::Root(r)) = self.iter_kinds().last() else {
+            unreachable!()
+        };
+        r
+    }
+
     pub fn mark_emitted(self) -> Self {
         Self(Arc::new(ErrorKind::Emitted(self)))
     }
@@ -121,6 +129,10 @@ impl Error {
             ErrorKind::WithContext(ctx, _) => (ctx.as_ref() as &dyn Any).downcast_ref(),
             ErrorKind::Emitted(_) => None,
         })
+    }
+
+    pub fn root_id(&self) -> UniqueRootId {
+        self.root().id()
     }
 }
 
@@ -210,5 +222,20 @@ mod tests {
         assert!(s.contains("Late formatted!"));
         assert!(s.contains("Context A"));
         assert!(s.contains("Context B"));
+    }
+
+    #[test]
+    fn test_root_id() {
+        let e1: crate::Error = TestError.into();
+        let e1x = e1.clone().context("context");
+        let e1y = e1.clone().context("context2");
+
+        let e2: crate::Error = TestError.into();
+
+        assert_eq!(e1.root_id(), e1x.root_id());
+        assert_eq!(e1.root_id(), e1y.root_id());
+        assert_eq!(e1x.root_id(), e1y.root_id());
+
+        assert_ne!(e1.root_id(), e2.root_id());
     }
 }

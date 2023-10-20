@@ -20,6 +20,7 @@ pub mod shared_result;
 pub use any::AnyError;
 pub use context::Context;
 pub use error::Error;
+pub use root::UniqueRootId;
 
 pub type Result<T> = std::result::Result<T, crate::Error>;
 

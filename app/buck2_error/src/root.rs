@@ -10,11 +10,32 @@
 use std::fmt;
 use std::sync::Arc;
 
+static NEXT_ROOT_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Uniquely identifies an instance of an error root
+///
+/// This can be used to deduplicate errors, ie determine that they are caused by the same thing.
+///
+/// Note that while this type implements `Hash` and `Debug`, the behavior of both implementations is
+/// unstable across executions, and one should be careful not to cause non-determinism with it.
+#[derive(
+    allocative::Allocative,
+    Copy,
+    Clone,
+    Debug,
+    dupe::Dupe,
+    PartialEq,
+    Eq,
+    Hash
+)]
+pub struct UniqueRootId(u64);
+
 type DynLateFormat =
     dyn Fn(&anyhow::Error, &mut fmt::Formatter<'_>) -> fmt::Result + Send + Sync + 'static;
 
 #[derive(allocative::Allocative)]
 pub(crate) struct ErrorRoot {
+    id: UniqueRootId,
     #[allocative(skip)]
     inner: Arc<anyhow::Error>,
     #[allocative(skip)] // FIXME(JakobDegen): "Implementation is not general enough"
@@ -28,15 +49,18 @@ impl ErrorRoot {
             impl Fn(&E, &mut fmt::Formatter<'_>) -> fmt::Result + Send + Sync + 'static,
         >,
     ) -> Self {
+        let id = UniqueRootId(NEXT_ROOT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
         let inner = Arc::new(anyhow::Error::new(inner));
         // Have to write this kind of weird to get the compiler to infer a higher ranked closure
         let Some(late_format) = late_format else {
             return Self {
+                id,
                 inner,
                 late_format: None,
             };
         };
         Self {
+            id,
             inner,
             late_format: Some(Arc::new(move |e: &anyhow::Error, fmt| {
                 late_format(e.downcast_ref().unwrap(), fmt)
@@ -48,6 +72,7 @@ impl ErrorRoot {
     /// instead.
     pub(crate) fn new_anyhow(e: Arc<anyhow::Error>) -> Self {
         Self {
+            id: UniqueRootId(NEXT_ROOT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)),
             inner: e,
             late_format: None,
         }
@@ -77,6 +102,10 @@ impl ErrorRoot {
         &self,
     ) -> Option<&T> {
         self.inner.downcast_ref()
+    }
+
+    pub(crate) fn id(&self) -> UniqueRootId {
+        self.id
     }
 }
 
