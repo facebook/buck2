@@ -363,97 +363,7 @@ pub mod build_report {
                 .filter_map(|(label, result)| Some((label, result.as_ref()?)))
                 .group_by(|x| x.0.target().dupe())
             {
-                let mut configured_report = ConfiguredBuildReportEntryWithErrors::default();
-                for (label, result) in results {
-                    let (default_outs, other_outs, mut errors) = {
-                        let mut default_outs = SmallSet::new();
-                        let mut other_outs = SmallSet::new();
-                        let mut errors = Vec::new();
-
-                        result.outputs.iter().for_each(|res| {
-                            match res {
-                                Ok(artifacts) => {
-                                    let mut is_default = false;
-                                    let mut is_other = false;
-
-                                    match artifacts.provider_type {
-                                        BuildProviderType::Default => {
-                                            // as long as we have requested it as a default info, it should  be
-                                            // considered a default output whether or not it also appears as an other
-                                            // non-main output
-                                            is_default = true;
-                                        }
-                                        BuildProviderType::DefaultOther
-                                        | BuildProviderType::Run
-                                        | BuildProviderType::Test => {
-                                            // as long as the output isn't the default, we add it to other outputs.
-                                            // This means that the same artifact may appear twice if its part of the
-                                            // default AND the other outputs, but this is intended as it accurately
-                                            // describes the type of the artifact
-                                            is_other = true;
-                                        }
-                                    }
-
-                                    for (artifact, _value) in artifacts.values.iter() {
-                                        if is_default {
-                                            default_outs.insert(
-                                                artifact.resolve_path(self.artifact_fs).unwrap(),
-                                            );
-                                        }
-
-                                        if is_other && self.include_other_outputs {
-                                            other_outs.insert(
-                                                artifact.resolve_path(self.artifact_fs).unwrap(),
-                                            );
-                                        }
-                                    }
-                                }
-                                Err(e) => {
-                                    errors.push(BuildReportError {
-                                        message: format!("{:#}", e),
-                                    });
-                                }
-                            }
-                        });
-
-                        (default_outs, other_outs, errors)
-                    };
-
-                    for err in &result.errors {
-                        errors.push(BuildReportError {
-                            message: format!("{:#}", err),
-                        });
-                    }
-
-                    if !default_outs.is_empty() {
-                        configured_report.inner.outputs.insert(
-                            report_providers_name(label),
-                            default_outs.into_iter().collect(),
-                        );
-                    }
-                    if !other_outs.is_empty() {
-                        configured_report.inner.other_outputs.insert(
-                            report_providers_name(label),
-                            other_outs.into_iter().collect(),
-                        );
-                    }
-
-                    if !errors.is_empty() {
-                        configured_report.inner.success = BuildOutcome::FAIL;
-                        configured_report.errors.extend(errors);
-                        // Keep the output deterministic
-                        configured_report.errors.sort_unstable();
-
-                        self.overall_success = false;
-                    }
-
-                    if let Some(Ok(MaybeCompatible::Compatible(configured_graph_size))) =
-                        result.configured_graph_size
-                    {
-                        configured_report.inner.configured_graph_size = Some(configured_graph_size);
-                    }
-                }
-
+                let configured_report = self.collect_results_for_configured(results);
                 if let Some(report) = unconfigured_report.as_mut() {
                     if !configured_report.errors.is_empty() {
                         report.success = BuildOutcome::FAIL;
@@ -490,6 +400,108 @@ pub mod build_report {
                 configured: configured_reports,
                 errors: Vec::new(),
             }
+        }
+
+        fn collect_results_for_configured<'b>(
+            &mut self,
+            results: impl IntoIterator<
+                Item = (
+                    &'b ConfiguredProvidersLabel,
+                    &'b ConfiguredBuildTargetResult,
+                ),
+            >,
+        ) -> ConfiguredBuildReportEntryWithErrors {
+            let mut configured_report = ConfiguredBuildReportEntryWithErrors::default();
+            for (label, result) in results {
+                let (default_outs, other_outs, mut errors) = {
+                    let mut default_outs = SmallSet::new();
+                    let mut other_outs = SmallSet::new();
+                    let mut errors = Vec::new();
+
+                    result.outputs.iter().for_each(|res| {
+                        match res {
+                            Ok(artifacts) => {
+                                let mut is_default = false;
+                                let mut is_other = false;
+
+                                match artifacts.provider_type {
+                                    BuildProviderType::Default => {
+                                        // as long as we have requested it as a default info, it should  be
+                                        // considered a default output whether or not it also appears as an other
+                                        // non-main output
+                                        is_default = true;
+                                    }
+                                    BuildProviderType::DefaultOther
+                                    | BuildProviderType::Run
+                                    | BuildProviderType::Test => {
+                                        // as long as the output isn't the default, we add it to other outputs.
+                                        // This means that the same artifact may appear twice if its part of the
+                                        // default AND the other outputs, but this is intended as it accurately
+                                        // describes the type of the artifact
+                                        is_other = true;
+                                    }
+                                }
+
+                                for (artifact, _value) in artifacts.values.iter() {
+                                    if is_default {
+                                        default_outs.insert(
+                                            artifact.resolve_path(self.artifact_fs).unwrap(),
+                                        );
+                                    }
+
+                                    if is_other && self.include_other_outputs {
+                                        other_outs.insert(
+                                            artifact.resolve_path(self.artifact_fs).unwrap(),
+                                        );
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                errors.push(BuildReportError {
+                                    message: format!("{:#}", e),
+                                });
+                            }
+                        }
+                    });
+
+                    (default_outs, other_outs, errors)
+                };
+
+                for err in &result.errors {
+                    errors.push(BuildReportError {
+                        message: format!("{:#}", err),
+                    });
+                }
+
+                if !default_outs.is_empty() {
+                    configured_report.inner.outputs.insert(
+                        report_providers_name(label),
+                        default_outs.into_iter().collect(),
+                    );
+                }
+                if !other_outs.is_empty() {
+                    configured_report.inner.other_outputs.insert(
+                        report_providers_name(label),
+                        other_outs.into_iter().collect(),
+                    );
+                }
+
+                if !errors.is_empty() {
+                    configured_report.inner.success = BuildOutcome::FAIL;
+                    configured_report.errors.extend(errors);
+                    // Keep the output deterministic
+                    configured_report.errors.sort_unstable();
+
+                    self.overall_success = false;
+                }
+
+                if let Some(Ok(MaybeCompatible::Compatible(configured_graph_size))) =
+                    result.configured_graph_size
+                {
+                    configured_report.inner.configured_graph_size = Some(configured_graph_size);
+                }
+            }
+            configured_report
         }
 
         fn handle_error(
