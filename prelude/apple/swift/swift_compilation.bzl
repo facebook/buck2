@@ -496,6 +496,14 @@ def _get_shared_flags(
             "-disable-cxx-interop-requirement-at-import",
         ])
 
+    if toolchain.supports_swift_importing_objc_forward_declarations:
+        cmd.add([
+            "-Xfrontend",
+            "-enable-upcoming-feature",
+            "-Xfrontend",
+            "ImportObjcForwardDeclarations",
+        ])
+
     pcm_deps_tset = get_compiled_pcm_deps_tset(ctx, deps_providers)
     sdk_clang_deps_tset = get_compiled_sdk_clang_deps_tset(ctx, deps_providers)
     sdk_swift_deps_tset = get_compiled_sdk_swift_deps_tset(ctx, deps_providers)

@@ -995,6 +995,7 @@ swift_toolchain = prelude_rule(
             "sdk_path": attrs.source(),
             "static_runtime_paths": attrs.list(attrs.string(), default = []),
             "supports_swift_cxx_interoperability_mode": attrs.bool(default = False),
+            "supports_swift_importing_obj_c_forward_declarations": attrs.bool(default = False),
             "supports_cxx_interop_requirement_at_import": attrs.bool(default = False),
             "swift_stdlib_tool": attrs.option(attrs.source(), default = None),
             "swift_stdlib_tool_flags": attrs.list(attrs.arg(), default = []),

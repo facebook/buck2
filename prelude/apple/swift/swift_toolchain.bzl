@@ -70,6 +70,7 @@ def swift_toolchain_impl(ctx):
             swift_stdlib_tool_flags = ctx.attrs.swift_stdlib_tool_flags,
             runtime_run_paths = ctx.attrs.runtime_run_paths,
             supports_swift_cxx_interoperability_mode = ctx.attrs.supports_swift_cxx_interoperability_mode,
+            supports_swift_importing_objc_forward_declarations = ctx.attrs.supports_swift_importing_obj_c_forward_declarations,
             supports_cxx_interop_requirement_at_import = ctx.attrs.supports_cxx_interop_requirement_at_import,
             mk_swift_comp_db = ctx.attrs.make_swift_comp_db,
         ),

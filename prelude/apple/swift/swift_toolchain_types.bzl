@@ -33,6 +33,7 @@ SwiftToolchainInfo = provider(
         "swift_stdlib_tool": provider_field(typing.Any, default = None),
         "runtime_run_paths": provider_field(typing.Any, default = None),  # [str]
         "supports_swift_cxx_interoperability_mode": provider_field(typing.Any, default = None),  # bool
+        "supports_swift_importing_objc_forward_declarations": provider_field(typing.Any, default = None),  # bool
         "supports_cxx_interop_requirement_at_import": provider_field(typing.Any, default = None),  # bool
         "mk_swift_comp_db": provider_field(typing.Any, default = None),
     },
