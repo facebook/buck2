@@ -228,7 +228,7 @@ fn apply_spec<T: PatternType>(
                 if let Some(missing) = missing {
                     match skip_missing_targets {
                         MissingTargetBehavior::Fail => {
-                            return Err(missing.into_errors().0);
+                            return Err(missing.into_errors().0.into());
                         }
                         MissingTargetBehavior::Warn => {
                             console_message(missing.missing_targets_warning())

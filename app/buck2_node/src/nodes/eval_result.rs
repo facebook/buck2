@@ -31,18 +31,16 @@ use crate::nodes::unconfigured::TargetNode;
 use crate::super_package::SuperPackage;
 
 #[derive(Debug, thiserror::Error)]
-enum EvalulationResultError {
-    #[error(
-        "Unknown target `{target}` from package `{package}`.\n\
+#[error(
+    "Unknown target `{target}` from package `{package}`.\n\
 Did you mean one of the {num_targets} targets in {buildfile_path}?{similar_targets}"
-    )]
-    UnknownTarget {
-        target: TargetName,
-        package: PackageLabel,
-        num_targets: usize,
-        buildfile_path: Arc<BuildFilePath>,
-        similar_targets: SuggestedSimilarTargets,
-    },
+)]
+pub struct MissingTargetError {
+    pub target: TargetName,
+    pub package: PackageLabel,
+    num_targets: usize,
+    buildfile_path: Arc<BuildFilePath>,
+    similar_targets: SuggestedSimilarTargets,
 }
 
 #[derive(Debug)]
@@ -56,21 +54,20 @@ pub struct MissingTargets {
 
 impl MissingTargets {
     /// Error message emitted when missing targets are not skipped.
-    pub fn into_errors(self) -> (anyhow::Error, impl Iterator<Item = anyhow::Error>) {
+    pub fn into_errors(self) -> (MissingTargetError, impl Iterator<Item = MissingTargetError>) {
         let mut iter = self.missing_targets.into_iter().map(move |target| {
             let similar_targets = SuggestedSimilarTargets::suggest(
                 target.name(),
                 self.package.dupe(),
                 self.all_target_labels.iter().map(|x| x.name()),
             );
-            EvalulationResultError::UnknownTarget {
+            MissingTargetError {
                 target: target.name().to_owned(),
                 package: self.package.dupe(),
                 num_targets: self.num_targets,
                 buildfile_path: self.buildfile_path.dupe(),
                 similar_targets,
             }
-            .into()
         });
         (
             iter.next()
@@ -167,7 +164,7 @@ impl EvaluationResult {
 
     pub fn resolve_target<'a>(&'a self, path: &TargetNameRef) -> anyhow::Result<&'a TargetNode> {
         self.get_target(path).ok_or_else(|| {
-            EvalulationResultError::UnknownTarget {
+            MissingTargetError {
                 target: path.to_owned(),
                 package: self.package().dupe(),
                 num_targets: self.targets.len(),

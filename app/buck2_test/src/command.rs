@@ -788,7 +788,7 @@ fn spec_to_targets(
     if let Some(missing) = missing {
         match missing_target_behavior {
             MissingTargetBehavior::Fail => {
-                return Err(missing.into_errors().0);
+                return Err(missing.into_errors().0.into());
             }
             MissingTargetBehavior::Warn => {
                 console_message(missing.missing_targets_warning());
