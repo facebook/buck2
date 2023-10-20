@@ -587,15 +587,14 @@ fn build_targets_for_spec<'a>(
                         err: e.dupe(),
                     }
                 }))
-                .left_stream()
                 .left_stream();
             }
         };
         let (targets, missing) = res.apply_spec(spec);
-        match (missing, missing_target_behavior) {
+        let missing_target_stream = match (missing, missing_target_behavior) {
             (Some(missing), MissingTargetBehavior::Fail) => {
                 let (first, rest) = missing.into_errors();
-                return futures::stream::iter(std::iter::once(first).chain(rest).map(|err| {
+                futures::stream::iter(std::iter::once(first).chain(rest).map(|err| {
                     BuildEvent::OtherError {
                         label: Some(ProvidersLabel::new(
                             TargetLabel::new(err.package.dupe(), err.target.as_ref()),
@@ -604,14 +603,14 @@ fn build_targets_for_spec<'a>(
                         err: err.into(),
                     }
                 }))
-                .right_stream()
-                .left_stream();
+                .left_stream()
             }
             (Some(missing), MissingTargetBehavior::Warn) => {
                 // TODO: This should be reported in the build report eventually.
                 console_message(missing.missing_targets_warning());
+                futures::stream::empty().right_stream()
             }
-            (None, _) => (),
+            (None, _) => futures::stream::empty().right_stream(),
         };
 
         let todo_targets: Vec<TargetBuildSpec> = targets
@@ -627,7 +626,7 @@ fn build_targets_for_spec<'a>(
 
         let providers_to_build = build_providers_to_providers_to_build(&build_providers);
 
-        let stream = todo_targets
+        todo_targets
             .into_iter()
             .map(|build_spec| {
                 let providers_to_build = providers_to_build.clone();
@@ -642,9 +641,9 @@ fn build_targets_for_spec<'a>(
                 }
             })
             .collect::<FuturesUnordered<_>>()
-            .flatten_unordered(None);
-
-        stream.right_stream()
+            .flatten_unordered(None)
+            .chain(missing_target_stream)
+            .right_stream()
     }
     .boxed()
     .flatten_stream()
