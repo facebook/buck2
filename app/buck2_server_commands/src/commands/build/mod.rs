@@ -499,27 +499,20 @@ fn build_targets_with_global_target_platform<'a>(
     skip_incompatible_targets: bool,
     want_configured_graph_size: bool,
 ) -> impl Stream<Item = anyhow::Result<BuildEvent>> + Unpin + 'a {
-    spec.specs
-        .into_iter()
-        .map(|(package, spec)| {
-            let build_providers = build_providers.dupe();
-            let global_target_platform = global_target_platform.dupe();
-            async move {
-                build_targets_for_spec(
-                    ctx,
-                    spec,
-                    package,
-                    global_target_platform,
-                    build_providers,
-                    materialization_context,
-                    missing_target_behavior,
-                    skip_incompatible_targets,
-                    want_configured_graph_size,
-                )
-            }
-        })
-        .collect::<FuturesUnordered<_>>()
-        .flatten_unordered(None)
+    futures::stream::iter(spec.specs.into_iter().map(move |(package, spec)| {
+        build_targets_for_spec(
+            ctx,
+            spec,
+            package,
+            global_target_platform.dupe(),
+            build_providers.dupe(),
+            materialization_context,
+            missing_target_behavior,
+            skip_incompatible_targets,
+            want_configured_graph_size,
+        )
+    }))
+    .flatten_unordered(None)
 }
 
 struct TargetBuildSpec {
