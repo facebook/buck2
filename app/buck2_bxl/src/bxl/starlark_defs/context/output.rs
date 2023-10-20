@@ -47,6 +47,7 @@ use starlark::values::record::Record;
 use starlark::values::starlark_value;
 use starlark::values::structs::StructRef;
 use starlark::values::tuple::TupleRef;
+use starlark::values::tuple::UnpackTuple;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -155,7 +156,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn print<'v>(
         this: &'v OutputStream<'v>,
-        #[starlark(args)] args: Vec<Value<'v>>,
+        #[starlark(args)] args: UnpackTuple<Value<'v>>,
         #[starlark(default = " ")] sep: &'v str,
     ) -> anyhow::Result<NoneType> {
         let mut first = true;

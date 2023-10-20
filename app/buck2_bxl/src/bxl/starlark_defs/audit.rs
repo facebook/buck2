@@ -26,6 +26,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::values::dict::Dict;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -174,12 +175,14 @@ fn audit_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn cell<'v>(
         this: &StarlarkAuditCtx<'v>,
-        #[starlark(default = Vec::new())] aliases_to_resolve: Vec<String>,
+        #[starlark(default = UnpackListOrTuple::default())] aliases_to_resolve: UnpackListOrTuple<
+            String,
+        >,
         #[starlark(require = named, default = false)] aliases: bool,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         audit_cell(
-            &aliases_to_resolve,
+            &aliases_to_resolve.items,
             aliases,
             &this.cell_resolver,
             &this.working_dir,

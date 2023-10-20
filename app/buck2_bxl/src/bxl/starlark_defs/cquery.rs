@@ -28,6 +28,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::AllocValue;
@@ -643,7 +644,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkCQueryCtx<'v>,
         query: &'v str,
         #[starlark(default = NoneOr::None)] query_args: NoneOr<Value<'v>>,
-        #[starlark(default = NoneOr::None)] target_universe: NoneOr<Vec<String>>,
+        #[starlark(default = NoneOr::None)] target_universe: NoneOr<UnpackListOrTuple<String>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let query_args = if query_args.is_none() {
@@ -683,7 +684,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                                 query,
                                 &query_args,
                                 this.target_platform.dupe(),
-                                target_universe.into_option().as_ref().map(|v| &v[..]),
+                                target_universe.into_option().as_ref().map(|v| &v.items[..]),
                             )
                             .await?,
                         eval,

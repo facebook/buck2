@@ -44,6 +44,7 @@ use starlark::values::dict::Dict;
 use starlark::values::float::StarlarkFloat;
 use starlark::values::list::AllocList;
 use starlark::values::list::ListRef;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::none::NoneType;
 use starlark::values::starlark_value;
 use starlark::values::Heap;
@@ -711,7 +712,7 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
     }
 
     fn r#enum<'v>(
-        #[starlark(require = pos)] variants: Vec<String>,
+        #[starlark(require = pos)] variants: UnpackListOrTuple<String>,
         default: Option<Value<'v>>,
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,

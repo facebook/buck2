@@ -23,6 +23,7 @@ use gazebo::prelude::VecExt;
 use indexmap::IndexSet;
 use starlark::any::ProvidesStaticType;
 use starlark::starlark_simple_value;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Heap;
@@ -42,7 +43,7 @@ use crate::bxl::starlark_defs::context::BxlContextNoDice;
 #[derive(StarlarkTypeRepr, UnpackValue)]
 pub(crate) enum FileSetExpr<'v> {
     Literal(&'v str),
-    Literals(Vec<&'v str>),
+    Literals(UnpackListOrTuple<&'v str>),
     FileSet(&'v StarlarkFileSet),
 }
 
@@ -54,7 +55,7 @@ impl<'a> FileSetExpr<'a> {
             )])),
             FileSetExpr::Literals(val) => {
                 let mut file_set = FileSet::new(IndexSet::new());
-                for arg in val.iter() {
+                for arg in &val {
                     file_set.insert(FileNode(bxl.parse_query_file_literal(arg)?));
                 }
                 Cow::Owned(file_set)

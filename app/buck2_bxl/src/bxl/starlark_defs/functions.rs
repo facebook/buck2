@@ -19,6 +19,7 @@ use futures::FutureExt;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::values::none::NoneType;
+use starlark::values::tuple::UnpackTuple;
 use starlark::values::Heap;
 use starlark::values::StringValue;
 use starlark::values::Value;
@@ -192,7 +193,7 @@ pub(crate) struct BxlErrorWithoutStacktrace(String);
 /// Global method for error handling.
 #[starlark_module]
 pub(crate) fn register_error_handling_function(builder: &mut GlobalsBuilder) {
-    fn fail_no_stacktrace(#[starlark(args)] args: Vec<Value>) -> anyhow::Result<NoneType> {
+    fn fail_no_stacktrace(#[starlark(args)] args: UnpackTuple<Value>) -> anyhow::Result<NoneType> {
         let mut s = String::new();
         for x in args {
             s.push(' ');
