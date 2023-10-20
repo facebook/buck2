@@ -12,20 +12,22 @@ pub fn command_end<R, D>(result: &anyhow::Result<R>, data: D) -> buck2_data::Com
 where
     D: Into<buck2_data::command_end::Data>,
 {
-    command_end_ext(result, data.into(), |_| true)
+    command_end_ext(result, data.into(), |_| true, |_| Vec::new())
 }
 
-pub fn command_end_ext<R, D, F>(
+pub fn command_end_ext<R, D, F, G>(
     result: &anyhow::Result<R>,
     data: D,
     is_success: F,
+    additional_telemetry_errors: G,
 ) -> buck2_data::CommandEnd
 where
     F: FnOnce(&R) -> bool,
+    G: FnOnce(&R) -> Vec<String>,
     D: Into<buck2_data::command_end::Data>,
 {
     let (is_success, error_messages) = match result {
-        Ok(r) => (is_success(r), Vec::new()),
+        Ok(r) => (is_success(r), additional_telemetry_errors(r)),
         Err(e) => (false, vec![format!("{:#}", e)]),
     };
     buck2_data::CommandEnd {
