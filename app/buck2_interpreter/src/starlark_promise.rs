@@ -23,6 +23,7 @@ use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::typing::Ty;
 use starlark::values::list::AllocList;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
@@ -313,11 +314,11 @@ fn promise_methods(builder: &mut MethodsBuilder) {
     /// those from `p1`, `p2` and `p3` respectively.
     fn join<'v>(
         this: ValueTyped<'v, StarlarkPromise<'v>>,
-        #[starlark(args)] mut args: Vec<ValueTyped<'v, StarlarkPromise<'v>>>,
+        #[starlark(args)] mut args: UnpackListOrTuple<ValueTyped<'v, StarlarkPromise<'v>>>,
         heap: &'v Heap,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
-        args.insert(0, this);
-        Ok(StarlarkPromise::join(args, heap))
+        args.items.insert(0, this);
+        Ok(StarlarkPromise::join(args.items, heap))
     }
 }
 

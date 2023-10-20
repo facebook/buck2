@@ -60,6 +60,7 @@ use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::dict::DictOf;
 use starlark::values::function::FUNCTION_TYPE;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::typing::StarlarkIter;
@@ -1003,9 +1004,9 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     /// https://buck2.build/docs/rule_authors/dynamic_dependencies/.
     fn dynamic_output<'v>(
         this: &'v AnalysisActions<'v>,
-        #[starlark(require = named)] dynamic: Vec<StarlarkArtifact>,
-        #[starlark(require = named)] inputs: Vec<StarlarkArtifact>,
-        #[starlark(require = named)] outputs: Vec<StarlarkOutputOrDeclaredArtifact>,
+        #[starlark(require = named)] dynamic: UnpackListOrTuple<StarlarkArtifact>,
+        #[starlark(require = named)] inputs: UnpackListOrTuple<StarlarkArtifact>,
+        #[starlark(require = named)] outputs: UnpackListOrTuple<StarlarkOutputOrDeclaredArtifact>,
         #[starlark(require = named)] f: Value<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
@@ -1014,17 +1015,17 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         if lambda_type != FUNCTION_TYPE {
             return Err(DynamicOutputError::NotAFunction(lambda_type.to_owned()).into());
         }
-        if dynamic.is_empty() {
+        if dynamic.items.is_empty() {
             return Err(DynamicOutputError::EmptyDynamic.into());
         }
-        if outputs.is_empty() {
+        if outputs.items.is_empty() {
             return Err(DynamicOutputError::EmptyOutput.into());
         }
 
         // Conversion
-        let dynamic = dynamic.iter().map(|x| x.artifact()).collect();
-        let inputs = inputs.iter().map(|x| x.artifact()).collect();
-        let outputs = outputs.iter().map(|x| x.0.artifact()).collect();
+        let dynamic = dynamic.items.iter().map(|x| x.artifact()).collect();
+        let inputs = inputs.items.iter().map(|x| x.artifact()).collect();
+        let outputs = outputs.items.iter().map(|x| x.0.artifact()).collect();
 
         // Registration
         let attributes_plugins_lambda = heap.alloc((this.attributes, this.plugins, f));

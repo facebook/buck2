@@ -33,6 +33,7 @@ use starlark::starlark_module;
 use starlark::values::dict::Dict;
 use starlark::values::dict::DictOf;
 use starlark::values::list::AllocList;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::AllocValue;
@@ -278,7 +279,8 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
     /// Generate a series of anonymous targets.
     fn anon_targets<'v>(
         this: &AnalysisActions<'v>,
-        rules: Vec<(
+        // TODO(nga): this should be either positional or named, not both.
+        rules: UnpackListOrTuple<(
             ValueTyped<'v, FrozenRuleCallable>,
             DictOf<'v, &'v str, Value<'v>>,
         )>,
@@ -290,7 +292,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
 
         let mut anon_targets = Vec::new();
         let mut promises_to_join = Vec::new();
-        rules.into_try_map(|(rule, attributes)| {
+        rules.items.into_try_map(|(rule, attributes)| {
             let key = registry.anon_target_key(rule, attributes)?;
             let res = eval.heap().alloc_typed(StarlarkPromise::new_unresolved());
 
