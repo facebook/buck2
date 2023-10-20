@@ -53,7 +53,6 @@ use remote_execution::TExecutedActionMetadata;
 use remote_execution::TFile;
 use remote_execution::TStatus;
 use remote_execution::TTimestamp;
-use RE::InlinedBlobWithDigest;
 
 // Whether to throw errors when cache uploads fail (primarily for tests).
 static ERROR_ON_CACHE_UPLOAD: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_ERROR_ON_CACHE_UPLOAD");
@@ -96,7 +95,6 @@ impl CacheUploader {
         result: &CommandExecutionResult,
         digest_config: DigestConfig,
         error_on_cache_upload: bool,
-        action_blobs: &ActionBlobs,
     ) -> anyhow::Result<bool> {
         tracing::debug!("Uploading action result for `{}`", action_digest);
         let result = self
@@ -107,7 +105,6 @@ impl CacheUploader {
                 action_digest.to_re(),
                 vec![],
                 buck2_data::CacheUploadReason::LocalExecution,
-                action_blobs,
             )
             .await;
         Self::modify_upload_result(action_digest, result, error_on_cache_upload)
@@ -124,7 +121,6 @@ impl CacheUploader {
         digest_config: DigestConfig,
         dep_file_entry: DepFileEntry,
         error_on_cache_upload: bool,
-        action_blobs: &ActionBlobs,
     ) -> anyhow::Result<bool> {
         tracing::debug!(
             "Uploading dep file entry for action `{}` with dep file key `{}`",
@@ -145,7 +141,6 @@ impl CacheUploader {
                 digest_re,
                 vec![dep_file_tany],
                 buck2_data::CacheUploadReason::DepFile,
-                action_blobs,
             )
             .await;
 
@@ -164,7 +159,6 @@ impl CacheUploader {
         digest: TDigest,
         metadata: Vec<TAny>,
         reason: buck2_data::CacheUploadReason,
-        action_blobs: &ActionBlobs,
     ) -> anyhow::Result<bool> {
         let digest_str = digest.to_string();
         let output_bytes = result.calc_output_size_bytes();
@@ -189,31 +183,6 @@ impl CacheUploader {
                         }
                     }
 
-                    // upload Action to CAS.
-                    // This is necessary when writing to the ActionCache through CAS, since CAS needs to inspect the Action related to the ActionResult.
-                    // Without storing the Action itself to CAS, ActionCache writes would fail.
-                    let mut inlined_blobs = vec![];
-
-                    action_blobs.keys().for_each(|digest| {
-                        if let Some(blob) = action_blobs.get(digest) {
-                            inlined_blobs.push(InlinedBlobWithDigest {
-                                digest: digest.to_re(),
-                                blob: blob.to_vec(),
-                                ..Default::default()
-                            });
-                        }
-                    });
-
-                    self.re_client
-                        .upload_files_and_directories(
-                            vec![],
-                            vec![],
-                            inlined_blobs,
-                            self.re_use_case,
-                        )
-                        .await?;
-
-                    // upload ActionResult to ActionCache
                     let result: TActionResult2 = match self
                         .upload_files_and_directories(
                             result,
@@ -459,7 +428,6 @@ impl UploadCache for CacheUploader {
         info: &CacheUploadInfo<'_>,
         res: &CommandExecutionResult,
         dep_file_entry: Option<DepFileEntry>,
-        action_blobs: &ActionBlobs,
     ) -> anyhow::Result<CacheUploadResult> {
         let error_on_cache_upload = match ERROR_ON_CACHE_UPLOAD.get_copied() {
             Ok(r) => r.unwrap_or_default(),
@@ -475,7 +443,6 @@ impl UploadCache for CacheUploader {
                 res,
                 info.digest_config,
                 error_on_cache_upload,
-                action_blobs,
             )
             .await?
         } else {
@@ -493,7 +460,6 @@ impl UploadCache for CacheUploader {
                     info.digest_config,
                     dep_file_entry,
                     error_on_cache_upload,
-                    action_blobs,
                 )
                 .await?
             }

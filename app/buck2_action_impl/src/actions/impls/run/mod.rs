@@ -721,12 +721,7 @@ impl IncrementalActionExecutable for RunAction {
                 _ => None,
             };
             let upload_result = ctx
-                .cache_upload(
-                    prepared_action.action.dupe(),
-                    &result,
-                    dep_file_entry,
-                    &prepared_action.blobs,
-                )
+                .cache_upload(prepared_action.action.dupe(), &result, dep_file_entry)
                 .await?;
 
             result.did_cache_upload = upload_result.did_cache_upload;

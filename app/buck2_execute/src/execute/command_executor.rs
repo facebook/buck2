@@ -123,11 +123,10 @@ impl CommandExecutor {
         info: &CacheUploadInfo<'_>,
         execution_result: &CommandExecutionResult,
         dep_file_entry: Option<DepFileEntry>,
-        action_blobs: &ActionBlobs,
     ) -> anyhow::Result<CacheUploadResult> {
         self.0
             .cache_uploader
-            .upload(info, execution_result, dep_file_entry, action_blobs)
+            .upload(info, execution_result, dep_file_entry)
             .await
     }
 
