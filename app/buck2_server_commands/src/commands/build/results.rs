@@ -9,12 +9,6 @@
 
 //! Processing and reporting the the results of the build
 
-use buck2_core::provider::label::ConfiguredProvidersLabel;
-
-pub(crate) enum BuildOwner<'a> {
-    Target(&'a ConfiguredProvidersLabel),
-}
-
 pub mod result_report {
     use buck2_build_api::build::BuildProviderType;
     use buck2_build_api::build::BuildTargetResult;
@@ -22,12 +16,11 @@ pub mod result_report {
     use buck2_build_api::build::ProviderArtifacts;
     use buck2_core::configuration::compatibility::MaybeCompatible;
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+    use buck2_core::provider::label::ConfiguredProvidersLabel;
     use buck2_error::shared_result::SharedError;
     use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
     use dupe::Dupe;
     use starlark_map::small_map::SmallMap;
-
-    use crate::commands::build::results::BuildOwner;
 
     mod proto {
         pub use buck2_cli_proto::build_target::build_output::BuildOutputProviders;
@@ -76,8 +69,7 @@ pub mod result_report {
                 non_action_errors.extend(v.errors.iter().cloned());
                 action_errors.extend(v.outputs.iter().filter_map(|x| x.as_ref().err()).cloned());
 
-                let owner = BuildOwner::Target(k);
-                out.collect_result(&owner, v);
+                out.collect_result(k, v);
             }
 
             if let Some(e) = non_action_errors.pop() {
@@ -96,7 +88,11 @@ pub mod result_report {
             Ok(out.results)
         }
 
-        fn collect_result(&mut self, label: &BuildOwner, result: &ConfiguredBuildTargetResult) {
+        fn collect_result(
+            &mut self,
+            label: &ConfiguredProvidersLabel,
+            result: &ConfiguredBuildTargetResult,
+        ) {
             let outputs = result
                 .outputs
                 .iter()
@@ -159,9 +155,8 @@ pub mod result_report {
                 Vec::new()
             };
 
-            let (target, configuration) = match label {
-                BuildOwner::Target(t) => (t.unconfigured().to_string(), t.cfg().to_string()),
-            };
+            let target = label.unconfigured().to_string();
+            let configuration = label.cfg().to_string();
 
             let configured_graph_size = match &result.configured_graph_size {
                 Some(Ok(MaybeCompatible::Compatible(v))) => Some(*v),
@@ -202,6 +197,7 @@ pub mod build_report {
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+    use buck2_core::provider::label::ConfiguredProvidersLabel;
     use buck2_core::provider::label::NonDefaultProvidersName;
     use buck2_core::provider::label::ProvidersLabel;
     use buck2_core::provider::label::ProvidersName;
@@ -213,8 +209,6 @@ pub mod build_report {
     use itertools::Itertools;
     use serde::Serialize;
     use starlark_map::small_set::SmallSet;
-
-    use crate::commands::build::results::BuildOwner;
 
     #[derive(Debug, Serialize)]
     #[allow(clippy::upper_case_acronyms)] // We care about how they serialise
@@ -329,8 +323,7 @@ pub mod build_report {
             for (k, v) in &build_result.configured {
                 // We omit skipped targets here.
                 let Some(v) = v else { continue };
-                let owner = BuildOwner::Target(k);
-                out.collect_result(&owner, v);
+                out.collect_result(k, v);
             }
             for (unconfigured, errors) in &build_result.other_errors {
                 for e in errors {
@@ -354,7 +347,11 @@ pub mod build_report {
             }
         }
 
-        fn collect_result(&mut self, label: &BuildOwner, result: &ConfiguredBuildTargetResult) {
+        fn collect_result(
+            &mut self,
+            label: &ConfiguredProvidersLabel,
+            result: &ConfiguredBuildTargetResult,
+        ) {
             let (default_outs, other_outs, mut errors) = {
                 let mut default_outs = SmallSet::new();
                 let mut other_outs = SmallSet::new();
@@ -415,9 +412,7 @@ pub mod build_report {
 
             let report_results = self
                 .build_report_results
-                .entry(match label {
-                    BuildOwner::Target(t) => EntryLabel::Target(t.unconfigured().target().dupe()),
-                })
+                .entry(EntryLabel::Target(label.unconfigured().target().dupe()))
                 .or_insert_with(|| BuildReportEntry {
                     compatible: if self.include_unconfigured_section {
                         Some(ConfiguredBuildReportEntry::default())
@@ -431,9 +426,7 @@ pub mod build_report {
             let unconfigured_report = &mut report_results.compatible;
             let configured_report = report_results
                 .configured
-                .entry(match label {
-                    BuildOwner::Target(t) => t.cfg().dupe(),
-                })
+                .entry(label.cfg().dupe())
                 .or_insert(ConfiguredBuildReportEntryWithErrors::default());
             if !default_outs.is_empty() {
                 if let Some(report) = unconfigured_report {
@@ -512,17 +505,15 @@ pub mod build_report {
         }
     }
 
-    fn report_providers_name(label: &BuildOwner) -> String {
-        match label {
-            BuildOwner::Target(t) => match t.name() {
-                ProvidersName::Default => "DEFAULT".to_owned(),
-                ProvidersName::NonDefault(box NonDefaultProvidersName::Named(names)) => {
-                    names.iter().join("|")
-                }
-                ProvidersName::NonDefault(box NonDefaultProvidersName::UnrecognizedFlavor(f)) => {
-                    format!("#{}", f)
-                }
-            },
+    fn report_providers_name(label: &ConfiguredProvidersLabel) -> String {
+        match label.name() {
+            ProvidersName::Default => "DEFAULT".to_owned(),
+            ProvidersName::NonDefault(box NonDefaultProvidersName::Named(names)) => {
+                names.iter().join("|")
+            }
+            ProvidersName::NonDefault(box NonDefaultProvidersName::UnrecognizedFlavor(f)) => {
+                format!("#{}", f)
+            }
         }
     }
 }
