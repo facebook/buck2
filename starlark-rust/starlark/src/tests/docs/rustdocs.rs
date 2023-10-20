@@ -31,8 +31,10 @@ use crate::docs::DocMember;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
+use crate::values::list::UnpackList;
 use crate::values::none::NoneType;
 use crate::values::starlark_value_as_type::StarlarkValueAsType;
+use crate::values::tuple::UnpackTuple;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
@@ -73,7 +75,7 @@ fn globals(builder: &mut GlobalsBuilder) {
     fn simple(
         arg_int: i32,
         arg_bool: bool,
-        arg_vec: Vec<&str>,
+        arg_vec: UnpackList<&str>,
         arg_dict: SmallMap<String, (bool, i32)>,
     ) -> anyhow::Result<NoneType> {
         unimplemented!()
@@ -88,7 +90,7 @@ fn globals(builder: &mut GlobalsBuilder) {
     }
 
     fn args_kwargs<'v>(
-        #[starlark(args)] args: Vec<Value<'v>>,
+        #[starlark(args)] args: UnpackTuple<Value<'v>>,
         #[starlark(kwargs)] kwargs: Value<'v>,
     ) -> anyhow::Result<NoneType> {
         unimplemented!()

@@ -249,6 +249,7 @@ noop(f)(1)
 #[cfg_attr(rust_nightly, cfg(not(sanitize = "address")))]
 #[test]
 fn test_frame_size() {
+    use starlark::values::list_or_tuple::UnpackListOrTuple;
     use starlark_derive::starlark_module;
 
     use crate as starlark;
@@ -258,7 +259,7 @@ fn test_frame_size() {
 
     #[starlark_module]
     fn natives(builder: &mut GlobalsBuilder) {
-        fn stack_ptr(args: Vec<Value>) -> anyhow::Result<usize> {
+        fn stack_ptr(args: UnpackListOrTuple<Value>) -> anyhow::Result<usize> {
             drop(args);
 
             let x = std::hint::black_box(1);

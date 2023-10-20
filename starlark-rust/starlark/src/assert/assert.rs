@@ -43,6 +43,7 @@ use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::values::none::NoneType;
 use crate::values::structs::AllocStruct;
+use crate::values::tuple::UnpackTuple;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::AllocValue;
 use crate::values::Heap;
@@ -211,11 +212,11 @@ pub(crate) fn test_functions(builder: &mut GlobalsBuilder) {
     ///
     /// This function is unknown to optimizer, so it can be used in optimizer tests.
     fn noop<'v>(
-        #[starlark(args)] args: Vec<Value<'v>>,
+        #[starlark(args)] args: UnpackTuple<Value<'v>>,
         #[starlark(kwargs)] kwargs: Value<'v>,
     ) -> anyhow::Result<Value<'v>> {
         let _ = kwargs;
-        Ok(args.into_iter().next().unwrap_or(Value::new_none()))
+        Ok(args.items.into_iter().next().unwrap_or(Value::new_none()))
     }
 }
 

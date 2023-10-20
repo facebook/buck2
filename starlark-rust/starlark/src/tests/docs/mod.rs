@@ -34,6 +34,7 @@ use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
 use crate::tests::docs::golden::docs_golden_test;
+use crate::values::list::UnpackList;
 use crate::values::none::NoneType;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
@@ -147,8 +148,8 @@ fn module(builder: &mut GlobalsBuilder) {
     }
 
     fn with_defaults<'v>(
-        #[starlark(default=Vec::new())] explicit_default: Vec<String>,
-        hidden_default: Option<Vec<String>>,
+        #[starlark(default=UnpackList::default())] explicit_default: UnpackList<String>,
+        hidden_default: Option<UnpackList<String>>,
         #[starlark(default = "my_default")] string_default: &str,
     ) -> anyhow::Result<NoneType> {
         let _unused = (explicit_default, hidden_default, string_default);

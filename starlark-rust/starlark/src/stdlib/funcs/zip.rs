@@ -27,6 +27,7 @@ use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::Arg;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
+use crate::values::tuple::UnpackTuple;
 use crate::values::Heap;
 use crate::values::Value;
 
@@ -95,12 +96,12 @@ pub(crate) fn register_zip(globals: &mut GlobalsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe, ty_custom_function = ZipType)]
     fn zip<'v>(
-        #[starlark(args)] args: Vec<Value<'v>>,
+        #[starlark(args)] args: UnpackTuple<Value<'v>>,
         heap: &'v Heap,
     ) -> anyhow::Result<Vec<Value<'v>>> {
         let mut v = Vec::new();
         let mut first = true;
-        for arg in args {
+        for arg in args.items {
             let mut idx = 0;
             for e in arg.iterate(heap)? {
                 if first {

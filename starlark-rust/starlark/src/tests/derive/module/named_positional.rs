@@ -20,6 +20,7 @@ use starlark_derive::starlark_module;
 use crate as starlark;
 use crate::assert::Assert;
 use crate::environment::GlobalsBuilder;
+use crate::values::tuple::UnpackTuple;
 
 #[starlark_module]
 fn named_positional_functions(globals: &mut GlobalsBuilder) {
@@ -35,16 +36,19 @@ fn named_positional_functions(globals: &mut GlobalsBuilder) {
         Ok(x)
     }
 
-    fn named_after_args(#[starlark(args)] star_args: Vec<i32>, x: i32) -> anyhow::Result<i32> {
-        Ok(x + star_args.iter().sum::<i32>())
+    fn named_after_args(
+        #[starlark(args)] star_args: UnpackTuple<i32>,
+        x: i32,
+    ) -> anyhow::Result<i32> {
+        Ok(x + star_args.items.iter().sum::<i32>())
     }
 
     // Same as above, but with explicit redundant annotation.
     fn named_after_args_explicitly_marked(
-        #[starlark(args)] args: Vec<i32>,
+        #[starlark(args)] args: UnpackTuple<i32>,
         #[starlark(require = named)] x: i32,
     ) -> anyhow::Result<i32> {
-        Ok(x + args.iter().sum::<i32>())
+        Ok(x + args.items.iter().sum::<i32>())
     }
 }
 

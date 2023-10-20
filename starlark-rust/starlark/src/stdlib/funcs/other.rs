@@ -41,6 +41,7 @@ use crate::values::string::StarlarkStr;
 use crate::values::tuple::value::FrozenTuple;
 use crate::values::tuple::AllocTuple;
 use crate::values::tuple::TupleRef;
+use crate::values::tuple::UnpackTuple;
 use crate::values::types::int_or_big::StarlarkInt;
 use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::typing::never::StarlarkNever;
@@ -78,9 +79,9 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     /// fail("oops", 1, False)  # fail: oops 1 False
     /// # "#, "oops 1 False");
     /// ```
-    fn fail(#[starlark(args)] args: Vec<Value>) -> anyhow::Result<StarlarkNever> {
+    fn fail(#[starlark(args)] args: UnpackTuple<Value>) -> anyhow::Result<StarlarkNever> {
         let mut s = String::new();
-        for x in args {
+        for x in args.items {
             s.push(' ');
             match x.unpack_str() {
                 Some(x) => s.push_str(x),

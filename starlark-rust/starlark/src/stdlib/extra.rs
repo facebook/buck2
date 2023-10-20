@@ -27,6 +27,7 @@ use crate::values::function::StarlarkFunction;
 use crate::values::none::NoneOr;
 use crate::values::none::NoneType;
 use crate::values::regex::StarlarkRegex;
+use crate::values::tuple::UnpackTuple;
 use crate::values::typing::iter::StarlarkIter;
 use crate::values::Value;
 use crate::values::ValueOfUnchecked;
@@ -149,11 +150,14 @@ impl PrintHandler for StderrPrintHandler {
 #[starlark_module]
 pub fn print(builder: &mut GlobalsBuilder) {
     /// Print some values to the output.
-    fn print(#[starlark(args)] args: Vec<Value>, eval: &mut Evaluator) -> anyhow::Result<NoneType> {
+    fn print(
+        #[starlark(args)] args: UnpackTuple<Value>,
+        eval: &mut Evaluator,
+    ) -> anyhow::Result<NoneType> {
         // In practice most users should want to put the print somewhere else, but this does for now
         // Unfortunately, we can't use PrintWrapper because strings to_str() and Display are different.
         eval.print_handler
-            .println(&args.iter().map(|x| x.to_str()).join(" "))?;
+            .println(&args.items.iter().map(|x| x.to_str()).join(" "))?;
         Ok(NoneType)
     }
 }
@@ -161,12 +165,12 @@ pub fn print(builder: &mut GlobalsBuilder) {
 #[starlark_module]
 pub fn pprint(builder: &mut GlobalsBuilder) {
     fn pprint(
-        #[starlark(args)] args: Vec<Value>,
+        #[starlark(args)] args: UnpackTuple<Value>,
         eval: &mut Evaluator,
     ) -> anyhow::Result<NoneType> {
         // In practice most users may want to put the print somewhere else, but this does for now
         eval.print_handler
-            .println(&format!("{:#}", PrintWrapper(&args)))?;
+            .println(&format!("{:#}", PrintWrapper(&args.items)))?;
         Ok(NoneType)
     }
 }

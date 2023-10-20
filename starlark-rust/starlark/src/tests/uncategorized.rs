@@ -38,6 +38,7 @@ use crate::eval::Evaluator;
 use crate::starlark_simple_value;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
+use crate::values::list_or_tuple::UnpackListOrTuple;
 use crate::values::none::NoneType;
 use crate::values::Freeze;
 use crate::values::Freezer;
@@ -294,7 +295,7 @@ fn test_radd() {
         fn unpack_value(value: Value<'v>) -> Option<Self> {
             match Select::from_value(value) {
                 Some(x) => Some(x.clone()),
-                None => Some(Select(UnpackValue::unpack_value(value)?)),
+                None => Some(Select(UnpackListOrTuple::unpack_value(value)?.items)),
             }
         }
     }
@@ -323,8 +324,8 @@ fn test_radd() {
 
     #[starlark_module]
     fn module(build: &mut GlobalsBuilder) {
-        fn select(xs: Vec<i32>) -> anyhow::Result<Select> {
-            Ok(Select(xs))
+        fn select(xs: UnpackListOrTuple<i32>) -> anyhow::Result<Select> {
+            Ok(Select(xs.items))
         }
     }
 

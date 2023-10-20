@@ -22,6 +22,7 @@ use starlark_derive::starlark_module;
 use crate as starlark;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Evaluator;
+use crate::values::tuple::UnpackTuple;
 use crate::values::Value;
 
 fn min_max_iter<'v>(
@@ -68,17 +69,17 @@ fn min_max_iter<'v>(
 
 /// Common implementation of `min` and `max`.
 fn min_max<'v>(
-    mut args: Vec<Value<'v>>,
+    mut args: UnpackTuple<Value<'v>>,
     key: Option<Value<'v>>,
     eval: &mut Evaluator<'v, '_>,
     // Select min on true, max on false.
     min: bool,
 ) -> anyhow::Result<Value<'v>> {
-    if args.len() == 1 {
-        let it = args.swap_remove(0).iterate(eval.heap())?;
+    if args.items.len() == 1 {
+        let it = args.items.swap_remove(0).iterate(eval.heap())?;
         min_max_iter(it, key, eval, min)
     } else {
-        min_max_iter(args.into_iter(), key, eval, min)
+        min_max_iter(args.items.into_iter(), key, eval, min)
     }
 }
 
@@ -105,7 +106,7 @@ pub(crate) fn register_min_max(globals: &mut GlobalsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn max<'v>(
-        #[starlark(args)] args: Vec<Value<'v>>,
+        #[starlark(args)] args: UnpackTuple<Value<'v>>,
         key: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
@@ -130,7 +131,7 @@ pub(crate) fn register_min_max(globals: &mut GlobalsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn min<'v>(
-        #[starlark(args)] args: Vec<Value<'v>>,
+        #[starlark(args)] args: UnpackTuple<Value<'v>>,
         key: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {

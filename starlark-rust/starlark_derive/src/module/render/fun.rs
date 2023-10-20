@@ -751,7 +751,7 @@ fn render_default_as_frozen_value(default: &Expr) -> Option<TokenStream> {
     ) {
         // Make sure we don't splice in `x` again, or we double quote the string
         Some(quote! { globals_builder.alloc(#default) })
-    } else if x == "Vec :: new()" {
+    } else if x == "UnpackListOrTuple :: default()" || x == "UnpackList :: default()" {
         Some(quote! { globals_builder.alloc(starlark::values::list::AllocList::EMPTY) })
     } else if x == "SmallMap :: new()" {
         Some(quote! { globals_builder.alloc(starlark::values::dict::AllocDict::EMPTY) })
