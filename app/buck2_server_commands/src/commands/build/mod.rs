@@ -78,6 +78,7 @@ use futures::future::TryFutureExt;
 use futures::stream::futures_unordered::FuturesUnordered;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
+use itertools::Either;
 use itertools::Itertools;
 use serde::ser::SerializeSeq;
 use serde::ser::Serializer;
@@ -562,7 +563,36 @@ fn build_targets_for_spec<'a>(
             PackageSpec::All => true,
         };
 
-        let res = ctx.get_interpreter_results(package.dupe()).await?;
+        let res = match ctx.get_interpreter_results(package.dupe()).await {
+            Ok(res) => res,
+            Err(e) => {
+                let e: buck2_error::Error = e.into();
+                // Try to associate the error to concrete targets, if possible
+                let targets = match spec {
+                    PackageSpec::Targets(targets) => Either::Left(
+                        targets
+                            .into_iter()
+                            .map(move |(t, providers)| {
+                                ProvidersLabel::new(
+                                    TargetLabel::new(package.dupe(), t.as_ref()),
+                                    providers.providers,
+                                )
+                            })
+                            .map(Some),
+                    ),
+                    PackageSpec::All => Either::Right(std::iter::once(None)),
+                };
+                return Ok(futures::stream::iter(targets.into_iter().map(move |t| {
+                    BuildEvent::OtherError {
+                        label: t,
+                        err: e.dupe(),
+                    }
+                }))
+                .map(Ok)
+                .left_stream()
+                .left_stream());
+            }
+        };
         let (targets, missing) = res.apply_spec(spec);
         if let Some(missing) = missing {
             match missing_target_behavior {
@@ -579,6 +609,7 @@ fn build_targets_for_spec<'a>(
                             }
                         }))
                         .map(Ok)
+                        .right_stream()
                         .left_stream(),
                     );
                 }
