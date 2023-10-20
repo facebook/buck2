@@ -357,12 +357,13 @@ pub mod build_report {
             };
             let mut configured_reports = HashMap::new();
 
-            for (_label, results) in &results
+            for (label, results) in &results
                 .into_iter()
                 // We omit skipped targets here.
                 .filter_map(|(label, result)| Some((label, result.as_ref()?)))
                 .group_by(|x| x.0.target().dupe())
             {
+                let mut configured_report = ConfiguredBuildReportEntryWithErrors::default();
                 for (label, result) in results {
                     let (default_outs, other_outs, mut errors) = {
                         let mut default_outs = SmallSet::new();
@@ -424,30 +425,13 @@ pub mod build_report {
                         });
                     }
 
-                    let configured_report = configured_reports
-                        .entry(label.cfg().dupe())
-                        .or_insert(ConfiguredBuildReportEntryWithErrors::default());
                     if !default_outs.is_empty() {
-                        if let Some(report) = unconfigured_report.as_mut() {
-                            report.outputs.insert(
-                                report_providers_name(label),
-                                default_outs.iter().cloned().collect(),
-                            );
-                        }
-
                         configured_report.inner.outputs.insert(
                             report_providers_name(label),
                             default_outs.into_iter().collect(),
                         );
                     }
                     if !other_outs.is_empty() {
-                        if let Some(report) = unconfigured_report.as_mut() {
-                            report.other_outputs.insert(
-                                report_providers_name(label),
-                                other_outs.iter().cloned().collect(),
-                            );
-                        }
-
                         configured_report.inner.other_outputs.insert(
                             report_providers_name(label),
                             other_outs.into_iter().collect(),
@@ -455,9 +439,6 @@ pub mod build_report {
                     }
 
                     if !errors.is_empty() {
-                        if let Some(unconfigured_report) = unconfigured_report.as_mut() {
-                            unconfigured_report.success = BuildOutcome::FAIL;
-                        }
                         configured_report.inner.success = BuildOutcome::FAIL;
                         configured_report.errors.extend(errors);
                         // Keep the output deterministic
@@ -469,12 +450,39 @@ pub mod build_report {
                     if let Some(Ok(MaybeCompatible::Compatible(configured_graph_size))) =
                         result.configured_graph_size
                     {
-                        if let Some(report) = unconfigured_report.as_mut() {
-                            report.configured_graph_size = Some(configured_graph_size);
-                        }
                         configured_report.inner.configured_graph_size = Some(configured_graph_size);
                     }
                 }
+
+                if let Some(report) = unconfigured_report.as_mut() {
+                    if !configured_report.errors.is_empty() {
+                        report.success = BuildOutcome::FAIL;
+                    }
+
+                    // FIXME(JakobDegen): This potentially overwrites entries from other
+                    // configurations. Is that intended? Send a diff with a comment if you know
+                    report.outputs.extend(
+                        configured_report
+                            .inner
+                            .outputs
+                            .iter()
+                            .map(|(k, v)| (k.clone(), v.clone())),
+                    );
+                    report.other_outputs.extend(
+                        configured_report
+                            .inner
+                            .other_outputs
+                            .iter()
+                            .map(|(k, v)| (k.clone(), v.clone())),
+                    );
+                    if let Some(configured_graph_size) =
+                        configured_report.inner.configured_graph_size
+                    {
+                        report.configured_graph_size = Some(configured_graph_size);
+                    }
+                }
+
+                configured_reports.insert(label.cfg().dupe(), configured_report);
             }
 
             BuildReportEntry {
