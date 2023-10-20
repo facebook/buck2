@@ -22,6 +22,7 @@ def cfg_constructor_pre_constraint_analysis(
         *,
         legacy_platform: PlatformInfo | None,
         package_modifiers: dict[str, CfgModifierWithLocation],
+        target_modifiers: dict[str, CfgModifierWithLocation],
         cli_modifiers: list[str]) -> (list[str], PostConstraintAnalysisParams):
     """
     First stage of cfg constructor for modifiers.
@@ -33,15 +34,23 @@ def cfg_constructor_pre_constraint_analysis(
             Modifiers specified from all parent PACKAGE files aggregated into a single dictionary.
             Key of dictionary is the modifier key converted from constraint setting.
             Value of dictionary is the modifier for that constraint setting.
+        target_modifier:
+            Modifiers specified from buildfile via `metadata` attribute.
+            Key of dictionary is the modifier key converted from constraint setting.
+            Value of dictionary is the modifier for that constraint setting.
         cli_modifiers:
             modifiers specified from `--modifier` flag, `?modifier`, or BXL
 
     Returns `(refs, PostConstraintAnalysisParams)`, where `refs` is a list of fully qualified configuration
     targets we need providers for.
     """
+
+    # Merge PACKAGE and target modifiers into one dictionary
     package_and_target_modifiers = {
         modifier_key_to_constraint_setting(modifier_key): modifier_with_loc
-        for modifier_key, modifier_with_loc in package_modifiers.items()
+        # Target modifier always overrides PACKAGE modifier of the same key
+        for modifiers in (package_modifiers, target_modifiers)
+        for modifier_key, modifier_with_loc in modifiers.items()
     }
 
     refs = []
