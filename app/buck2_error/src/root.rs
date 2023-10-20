@@ -18,7 +18,7 @@ pub(crate) struct ErrorRoot {
     #[allocative(skip)]
     inner: Arc<anyhow::Error>,
     #[allocative(skip)] // FIXME(JakobDegen): "Implementation is not general enough"
-    late_format: Option<Box<DynLateFormat>>,
+    late_format: Option<Arc<DynLateFormat>>,
 }
 
 impl ErrorRoot {
@@ -38,7 +38,7 @@ impl ErrorRoot {
         };
         Self {
             inner,
-            late_format: Some(Box::new(move |e: &anyhow::Error, fmt| {
+            late_format: Some(Arc::new(move |e: &anyhow::Error, fmt| {
                 late_format(e.downcast_ref().unwrap(), fmt)
             })),
         }
@@ -54,15 +54,9 @@ impl ErrorRoot {
     }
 
     pub fn get_late_format<'a>(&'a self) -> Option<impl fmt::Display + 'a> {
-        struct DisplayWrapper<'a>(&'a anyhow::Error, &'a DynLateFormat);
-
-        impl<'a> fmt::Display for DisplayWrapper<'a> {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                self.1(self.0, f)
-            }
-        }
-
-        Some(DisplayWrapper(&self.inner, self.late_format.as_ref()?))
+        self.late_format
+            .clone()
+            .map(|f| AnyhowWrapperForFormat(self.inner.clone(), Some(f)))
     }
 
     pub(crate) fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
@@ -70,22 +64,7 @@ impl ErrorRoot {
     }
 
     pub(crate) fn into_anyhow_for_format(&self) -> anyhow::Error {
-        #[derive(derive_more::Display)]
-        pub(crate) struct ArcAnyhowAsStdError(pub Arc<anyhow::Error>);
-
-        impl fmt::Debug for ArcAnyhowAsStdError {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                fmt::Debug::fmt(&self.0, f)
-            }
-        }
-
-        impl std::error::Error for ArcAnyhowAsStdError {
-            fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-                std::error::Error::source(&**self.0)
-            }
-        }
-
-        ArcAnyhowAsStdError(self.inner.clone()).into()
+        AnyhowWrapperForFormat(self.inner.clone(), None).into()
     }
 
     /// Equality comparison for use in tests only
@@ -104,5 +83,29 @@ impl ErrorRoot {
 impl fmt::Debug for ErrorRoot {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&self.inner, f)
+    }
+}
+
+struct AnyhowWrapperForFormat(Arc<anyhow::Error>, Option<Arc<DynLateFormat>>);
+
+impl fmt::Debug for AnyhowWrapperForFormat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(&self.0, f)
+    }
+}
+
+impl fmt::Display for AnyhowWrapperForFormat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(late_format) = &self.1 {
+            late_format(&self.0, f)
+        } else {
+            fmt::Display::fmt(&self.0, f)
+        }
+    }
+}
+
+impl std::error::Error for AnyhowWrapperForFormat {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        std::error::Error::source(&**self.0)
     }
 }
