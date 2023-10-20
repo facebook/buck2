@@ -602,7 +602,6 @@ fn build_targets_for_spec<'a>(
                     )
                     .await
                 }
-                .boxed()
             })
             .collect::<FuturesUnordered<_>>()
             .flatten_unordered(None)
