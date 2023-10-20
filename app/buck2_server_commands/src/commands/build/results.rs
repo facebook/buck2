@@ -72,6 +72,16 @@ pub mod result_report {
         pub(crate) fn results(self) -> Result<Vec<proto::BuildTarget>, BuildErrors> {
             self.results
         }
+
+        fn build_errors(&mut self) -> &mut Vec<SharedError> {
+            match &mut self.results {
+                results @ Ok(..) => {
+                    *results = Err(BuildErrors { errors: Vec::new() });
+                    &mut results.as_mut().unwrap_err().errors
+                }
+                Err(errs) => &mut errs.errors,
+            }
+        }
     }
 
     impl<'a> BuildResultCollector for ResultReporter<'a> {
@@ -82,14 +92,7 @@ pub mod result_report {
                 .filter_map(|output| match output {
                     Ok(output) => Some(output),
                     Err(e) => {
-                        match self.results.as_mut() {
-                            Ok(..) => {
-                                self.results = Err(BuildErrors {
-                                    errors: vec![e.dupe()],
-                                });
-                            }
-                            Err(errs) => errs.errors.push(e.dupe()),
-                        };
+                        self.build_errors().push(e.dupe());
                         None
                     }
                 })
