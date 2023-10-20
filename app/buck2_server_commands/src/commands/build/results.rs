@@ -293,7 +293,6 @@ pub mod build_report {
 
     pub(crate) struct BuildReportCollector<'a> {
         artifact_fs: &'a ArtifactFs,
-        build_report_results: HashMap<EntryLabel, BuildReportEntry>,
         overall_success: bool,
         include_unconfigured_section: bool,
         include_other_outputs: bool,
@@ -308,30 +307,31 @@ pub mod build_report {
             include_other_outputs: bool,
             build_result: &BuildTargetResult,
         ) -> BuildReport {
-            let mut out = Self {
+            let mut this = Self {
                 artifact_fs,
-                build_report_results: HashMap::new(),
                 overall_success: true,
                 include_unconfigured_section,
                 include_other_outputs,
             };
+            let mut entries = HashMap::new();
             for (label, configured) in &build_result
                 .configured
                 .iter()
                 .group_by(|x| x.0.target().unconfigured().dupe())
             {
-                out.collect_results_for_unconfigured(label, configured);
+                let entry = this.collect_results_for_unconfigured(configured);
+                entries.insert(EntryLabel::Target(label), entry);
             }
             for (unconfigured, errors) in &build_result.other_errors {
                 for e in errors {
-                    out.handle_error(unconfigured, e);
+                    this.handle_error(&mut entries, unconfigured, e);
                 }
             }
 
             BuildReport {
                 trace_id: trace_id.dupe(),
-                success: out.overall_success,
-                results: out.build_report_results,
+                success: this.overall_success,
+                results: entries,
                 failures: HashMap::new(),
                 project_root: project_root.root().to_owned(),
                 // In buck1 we may truncate build report for a large number of targets.
@@ -343,14 +343,13 @@ pub mod build_report {
         /// Always called for one unconfigured target at a time
         fn collect_results_for_unconfigured<'b>(
             &mut self,
-            label: TargetLabel,
             results: impl IntoIterator<
                 Item = (
                     &'b ConfiguredProvidersLabel,
                     &'b Option<ConfiguredBuildTargetResult>,
                 ),
             >,
-        ) {
+        ) -> BuildReportEntry {
             let mut unconfigured_report = if self.include_unconfigured_section {
                 Some(ConfiguredBuildReportEntry::default())
             } else {
@@ -473,25 +472,26 @@ pub mod build_report {
                 }
             }
 
-            self.build_report_results.insert(
-                EntryLabel::Target(label),
-                BuildReportEntry {
-                    compatible: unconfigured_report,
-                    configured: configured_reports,
-                    errors: Vec::new(),
-                },
-            );
+            BuildReportEntry {
+                compatible: unconfigured_report,
+                configured: configured_reports,
+                errors: Vec::new(),
+            }
         }
 
-        fn handle_error(&mut self, p: &Option<ProvidersLabel>, e: &buck2_error::Error) {
+        fn handle_error(
+            &mut self,
+            entries: &mut HashMap<EntryLabel, BuildReportEntry>,
+            p: &Option<ProvidersLabel>,
+            e: &buck2_error::Error,
+        ) {
             self.overall_success = false;
             let Some(p) = p else {
                 // We have nowhere in the build report to put this error
                 return;
             };
             let target = p.target().dupe();
-            let entry = self
-                .build_report_results
+            let entry = entries
                 .entry(EntryLabel::Target(target))
                 .or_insert(BuildReportEntry {
                     compatible: if self.include_unconfigured_section {
