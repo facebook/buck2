@@ -65,16 +65,17 @@ pub enum BuildProviderType {
 }
 
 #[derive(Clone, Debug, Allocative)]
-pub struct BuildTargetResultGen<T> {
+pub struct ConfiguredBuildTargetResultGen<T> {
     pub outputs: Vec<T>,
     pub run_args: Option<Vec<String>>,
     pub configured_graph_size: Option<SharedResult<MaybeCompatible<u64>>>,
     pub errors: Vec<buck2_error::Error>,
 }
 
-pub type BuildTargetResult = BuildTargetResultGen<SharedResult<ProviderArtifacts>>;
+pub type ConfiguredBuildTargetResult =
+    ConfiguredBuildTargetResultGen<SharedResult<ProviderArtifacts>>;
 
-impl BuildTargetResult {
+impl ConfiguredBuildTargetResult {
     pub async fn collect_stream(
         mut stream: impl Stream<Item = anyhow::Result<BuildEvent>> + Unpin,
         fail_fast: bool,
@@ -82,7 +83,7 @@ impl BuildTargetResult {
         // Create a map of labels to outputs, but retain the expected index of each output.
         let mut res = HashMap::<
             ConfiguredProvidersLabel,
-            Option<BuildTargetResultGen<(usize, SharedResult<ProviderArtifacts>)>>,
+            Option<ConfiguredBuildTargetResultGen<(usize, SharedResult<ProviderArtifacts>)>>,
         >::new();
 
         while let Some(BuildEvent { label, variant }) = stream.try_next().await? {
@@ -92,7 +93,7 @@ impl BuildTargetResult {
                 }
                 BuildEventVariant::Prepared { run_args } => {
                     res.entry((*label).clone())
-                        .or_insert(Some(BuildTargetResultGen {
+                        .or_insert(Some(ConfiguredBuildTargetResultGen {
                             outputs: Vec::new(),
                             run_args,
                             configured_graph_size: None,
@@ -124,7 +125,7 @@ impl BuildTargetResult {
                 }
                 BuildEventVariant::Error { err } => {
                     res.entry((*label).clone())
-                        .or_insert(Some(BuildTargetResultGen {
+                        .or_insert(Some(ConfiguredBuildTargetResultGen {
                             outputs: Vec::new(),
                             run_args: None,
                             configured_graph_size: None,
@@ -147,7 +148,7 @@ impl BuildTargetResult {
             .into_iter()
             .map(|(label, result)| {
                 let result = result.map(|result| {
-                    let BuildTargetResultGen {
+                    let ConfiguredBuildTargetResultGen {
                         mut outputs,
                         run_args,
                         configured_graph_size,
@@ -161,7 +162,7 @@ impl BuildTargetResult {
                     // request the same targets multiple times here, but since we know that
                     // ConfiguredTargetLabel -> Output is going to be deterministic, we just dedupe
                     // them using the index.
-                    BuildTargetResult {
+                    ConfiguredBuildTargetResult {
                         outputs: outputs
                             .into_iter()
                             .unique_by(|(index, _outputs)| *index)

@@ -10,17 +10,17 @@
 use allocative::Allocative;
 use gazebo::variants::UnpackVariants;
 
-use crate::build::BuildTargetResult;
+use crate::build::ConfiguredBuildTargetResult;
 
 #[derive(Clone, Debug, derive_more::Display, UnpackVariants, Allocative)]
 pub enum BxlBuildResult {
     None,
     #[display(fmt = "build result")]
-    Built(BuildTargetResult),
+    Built(ConfiguredBuildTargetResult),
 }
 
 impl BxlBuildResult {
-    pub fn new(result: Option<BuildTargetResult>) -> Self {
+    pub fn new(result: Option<ConfiguredBuildTargetResult>) -> Self {
         match result {
             Some(result) => Self::Built(result),
             None => Self::None,

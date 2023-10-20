@@ -9,7 +9,7 @@
 
 //! Processing and reporting the the results of the build
 
-use buck2_build_api::build::BuildTargetResult;
+use buck2_build_api::build::ConfiguredBuildTargetResult;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 
 pub(crate) enum BuildOwner<'a> {
@@ -18,12 +18,12 @@ pub(crate) enum BuildOwner<'a> {
 
 /// Collects the results of the build and processes it
 pub(crate) trait BuildResultCollector: Send {
-    fn collect_result(&mut self, label: &BuildOwner, result: &BuildTargetResult);
+    fn collect_result(&mut self, label: &BuildOwner, result: &ConfiguredBuildTargetResult);
 }
 
 pub mod result_report {
     use buck2_build_api::build::BuildProviderType;
-    use buck2_build_api::build::BuildTargetResult;
+    use buck2_build_api::build::ConfiguredBuildTargetResult;
     use buck2_build_api::build::ProviderArtifacts;
     use buck2_core::configuration::compatibility::MaybeCompatible;
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -85,7 +85,7 @@ pub mod result_report {
     }
 
     impl<'a> BuildResultCollector for ResultReporter<'a> {
-        fn collect_result(&mut self, label: &BuildOwner, result: &BuildTargetResult) {
+        fn collect_result(&mut self, label: &BuildOwner, result: &ConfiguredBuildTargetResult) {
             if let Some(e) = result.errors.last() {
                 let errors = self.build_errors();
                 // FIXME(JakobDegen): We'd like to be able to report more errors here. However, we
@@ -219,7 +219,7 @@ pub mod build_report {
 
     use crate::commands::build::results::BuildOwner;
     use crate::commands::build::results::BuildResultCollector;
-    use crate::commands::build::BuildTargetResult;
+    use crate::commands::build::ConfiguredBuildTargetResult;
 
     #[derive(Debug, Serialize)]
     #[allow(clippy::upper_case_acronyms)] // We care about how they serialise
@@ -347,7 +347,7 @@ pub mod build_report {
     }
 
     impl<'a> BuildResultCollector for BuildReportCollector<'a> {
-        fn collect_result(&mut self, label: &BuildOwner, result: &BuildTargetResult) {
+        fn collect_result(&mut self, label: &BuildOwner, result: &ConfiguredBuildTargetResult) {
             let (default_outs, other_outs, mut errors) = {
                 let mut default_outs = SmallSet::new();
                 let mut other_outs = SmallSet::new();

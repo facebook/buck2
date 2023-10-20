@@ -23,7 +23,7 @@ use buck2_artifact::artifact::artifact_dump::SymlinkInfo;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::build;
 use buck2_build_api::build::BuildEvent;
-use buck2_build_api::build::BuildTargetResult;
+use buck2_build_api::build::ConfiguredBuildTargetResult;
 use buck2_build_api::build::ConvertMaterializationContext;
 use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
 use buck2_build_api::build::MaterializationContext;
@@ -274,7 +274,7 @@ async fn process_build_result(
     server_ctx: &dyn ServerCommandContextTrait,
     ctx: DiceTransaction,
     request: &buck2_cli_proto::BuildRequest,
-    build_result: BTreeMap<ConfiguredProvidersLabel, BuildTargetResult>,
+    build_result: BTreeMap<ConfiguredProvidersLabel, ConfiguredBuildTargetResult>,
 ) -> anyhow::Result<buck2_cli_proto::BuildResponse> {
     let fs = server_ctx.project_root();
     let cwd = server_ctx.working_dir();
@@ -414,7 +414,7 @@ async fn build_targets(
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
     want_configured_graph_size: bool,
-) -> anyhow::Result<BTreeMap<ConfiguredProvidersLabel, BuildTargetResult>> {
+) -> anyhow::Result<BTreeMap<ConfiguredProvidersLabel, ConfiguredBuildTargetResult>> {
     let stream = match target_resolution_config {
         TargetResolutionConfig::Default(global_target_platform) => {
             let spec = spec.convert_pattern().context(
@@ -445,7 +445,7 @@ async fn build_targets(
     };
 
     // We omit skipped targets here.
-    let res = BuildTargetResult::collect_stream(stream, fail_fast)
+    let res = ConfiguredBuildTargetResult::collect_stream(stream, fail_fast)
         .await?
         .into_iter()
         .filter_map(|(k, v)| Some((k, v?)))
