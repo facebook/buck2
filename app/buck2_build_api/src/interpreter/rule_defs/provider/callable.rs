@@ -41,6 +41,7 @@ use starlark::values::dict::AllocDict;
 use starlark::values::dict::DictRef;
 use starlark::values::list::AllocList;
 use starlark::values::list::ListRef;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::typing::TypeCompiled;
@@ -544,7 +545,10 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
     /// For providers that accumulate upwards a transitive set is often a good choice.
     fn provider<'v>(
         #[starlark(require=named, default = "")] doc: &str,
-        #[starlark(require=named)] fields: Either<Vec<String>, SmallMap<String, Value<'v>>>,
+        #[starlark(require=named)] fields: Either<
+            UnpackListOrTuple<String>,
+            SmallMap<String, Value<'v>>,
+        >,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<UserProviderCallable> {
         let docstring = DocString::from_docstring(DocStringKind::Starlark, doc);
@@ -553,11 +557,12 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
         let fields = match fields {
             Either::Left(fields) => {
                 let new_fields: SmallMap<String, UserProviderField> = fields
+                    .items
                     .iter()
                     .map(|name| (name.clone(), UserProviderField::default()))
                     .collect();
-                if new_fields.len() != fields.len() {
-                    return Err(ProviderCallableError::NonUniqueFields(fields).into());
+                if new_fields.len() != fields.items.len() {
+                    return Err(ProviderCallableError::NonUniqueFields(fields.items).into());
                 }
                 new_fields
             }

@@ -52,6 +52,7 @@ use indexmap::IndexSet;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::Value;
 
 use crate::actions::testings::SimpleUnregisteredAction;
@@ -188,8 +189,9 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
     // artifact parameter can be either string or artifact
     #[allow(clippy::from_iter_instead_of_collect)]
     fn declared_bound_artifact_with_associated_artifacts<'v>(
+        // TODO(nga): parameters should be either positional or named, not both.
         artifact: OutputArtifactArg<'v>,
-        associated_artifacts: Vec<StarlarkArtifact>,
+        associated_artifacts: UnpackListOrTuple<StarlarkArtifact>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let target_label = get_label(eval, "//foo:bar")?;
@@ -207,6 +209,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
 
         let associated_artifacts = AssociatedArtifacts::from(
             associated_artifacts
+                .items
                 .iter()
                 .map(|a| ArtifactGroup::Artifact(a.artifact())),
         );

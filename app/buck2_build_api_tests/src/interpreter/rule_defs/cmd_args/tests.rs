@@ -20,6 +20,7 @@ use buck2_interpreter_for_build::label::testing::label_creator;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::Value;
 
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
@@ -27,7 +28,9 @@ use crate::interpreter::rule_defs::cmd_args::testing;
 
 #[starlark_module]
 pub(crate) fn inputs_helper(builder: &mut GlobalsBuilder) {
-    fn make_inputs<'v>(values: Vec<Value<'v>>) -> anyhow::Result<StarlarkCommandLineInputs> {
+    fn make_inputs<'v>(
+        values: UnpackListOrTuple<Value<'v>>,
+    ) -> anyhow::Result<StarlarkCommandLineInputs> {
         let mut visitor = SimpleCommandLineArtifactVisitor::new();
         for v in values {
             let cli = v.as_command_line_err()?;

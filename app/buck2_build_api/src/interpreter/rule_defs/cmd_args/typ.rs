@@ -40,6 +40,7 @@ use starlark::environment::MethodsStatic;
 use starlark::typing::Ty;
 use starlark::values::list::ListRef;
 use starlark::values::starlark_value;
+use starlark::values::tuple::UnpackTuple;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
@@ -643,9 +644,9 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
     /// Note that this operation mutates the input `cmd_args`.
     fn add<'v>(
         mut this: StarlarkCommandLineMut<'v>,
-        #[starlark(args)] args: Vec<Value<'v>>,
+        #[starlark(args)] args: UnpackTuple<Value<'v>>,
     ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
-        this.borrow.add_values(&args)?;
+        this.borrow.add_values(&args.items)?;
         Ok(this)
     }
 
@@ -656,9 +657,9 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
     /// passed on the command line, e.g. headers in the case of a C compilation.
     fn hidden<'v>(
         mut this: StarlarkCommandLineMut<'v>,
-        #[starlark(args)] args: Vec<Value<'v>>,
+        #[starlark(args)] args: UnpackTuple<Value<'v>>,
     ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
-        this.borrow.add_hidden(&args)?;
+        this.borrow.add_hidden(&args.items)?;
         Ok(this)
     }
 
@@ -824,14 +825,14 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     /// * `prepend` - added as a separate argument before each argument.
     /// * `quote` - indicates whether quoting is to be applied to each argument. The only current valid value is `"shell"`.
     fn cmd_args<'v>(
-        #[starlark(args)] args: Vec<Value<'v>>,
+        #[starlark(args)] args: UnpackTuple<Value<'v>>,
         delimiter: Option<StringValue<'v>>,
         format: Option<StringValue<'v>>,
         prepend: Option<StringValue<'v>>,
         quote: Option<&str>,
     ) -> anyhow::Result<StarlarkCmdArgs<'v>> {
         StarlarkCmdArgs::try_from_values_with_options(
-            &args,
+            &args.items,
             delimiter,
             format,
             prepend,
