@@ -293,30 +293,26 @@ pub mod build_report {
 
     /// Collects BuildEvents to form a BuildReport.
     pub(crate) struct BuildReportCollector<'a> {
-        trace_id: &'a TraceId,
         artifact_fs: &'a ArtifactFs,
         build_report_results: HashMap<EntryLabel, BuildReportEntry>,
         overall_success: bool,
-        project_root: &'a ProjectRoot,
         include_unconfigured_section: bool,
         include_other_outputs: bool,
     }
 
     impl<'a> BuildReportCollector<'a> {
         pub(crate) fn convert(
-            trace_id: &'a TraceId,
+            trace_id: &TraceId,
             artifact_fs: &'a ArtifactFs,
-            project_root: &'a ProjectRoot,
+            project_root: &ProjectRoot,
             include_unconfigured_section: bool,
             include_other_outputs: bool,
             build_result: &BuildTargetResult,
         ) -> BuildReport {
             let mut out = Self {
-                trace_id,
                 artifact_fs,
                 build_report_results: HashMap::new(),
                 overall_success: true,
-                project_root,
                 include_unconfigured_section,
                 include_other_outputs,
             };
@@ -331,16 +327,12 @@ pub mod build_report {
                 }
             }
 
-            out.into_report()
-        }
-
-        fn into_report(self) -> BuildReport {
             BuildReport {
-                trace_id: self.trace_id.dupe(),
-                success: self.overall_success,
-                results: self.build_report_results,
+                trace_id: trace_id.dupe(),
+                success: out.overall_success,
+                results: out.build_report_results,
                 failures: HashMap::new(),
-                project_root: self.project_root.root().to_owned(),
+                project_root: project_root.root().to_owned(),
                 // In buck1 we may truncate build report for a large number of targets.
                 // Setting this to false since we don't currently truncate buck2's build report.
                 truncated: false,
