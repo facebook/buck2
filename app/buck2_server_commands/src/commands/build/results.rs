@@ -187,6 +187,7 @@ pub mod result_report {
 
 pub mod build_report {
     use std::collections::HashMap;
+    use std::sync::Arc;
 
     use buck2_build_api::build::BuildProviderType;
     use buck2_build_api::build::BuildTargetResult;
@@ -241,11 +242,11 @@ pub mod build_report {
         success: BuildOutcome,
         /// a map of each subtarget of the current target (outputted as a `|` delimited list) to
         /// the default exposed output of the subtarget
-        outputs: HashMap<String, SmallSet<ProjectRelativePathBuf>>,
+        outputs: HashMap<Arc<str>, SmallSet<ProjectRelativePathBuf>>,
         /// a map of each subtarget of the current target (outputted as a `|` delimited list) to
         /// the hidden, implicitly built outputs of the subtarget. There are multiple outputs
         /// per subtarget
-        other_outputs: HashMap<String, SmallSet<ProjectRelativePathBuf>>,
+        other_outputs: HashMap<Arc<str>, SmallSet<ProjectRelativePathBuf>>,
         /// The size of the graph for this target, if it was produced
         configured_graph_size: Option<u64>,
     }
@@ -413,7 +414,7 @@ pub mod build_report {
         ) -> ConfiguredBuildReportEntryWithErrors {
             let mut configured_report = ConfiguredBuildReportEntryWithErrors::default();
             for (label, result) in results {
-                let provider_name = report_providers_name(label);
+                let provider_name: Arc<str> = report_providers_name(label).into();
 
                 result.outputs.iter().for_each(|res| {
                     match res {
