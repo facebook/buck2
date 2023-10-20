@@ -86,7 +86,6 @@ use crate::commands::build::results::build_report::BuildReportCollector;
 use crate::commands::build::results::result_report::ResultReporter;
 use crate::commands::build::results::result_report::ResultReporterOptions;
 use crate::commands::build::results::BuildOwner;
-use crate::commands::build::results::BuildResultCollector;
 use crate::commands::build::unhashed_outputs::create_unhashed_outputs;
 
 mod results;

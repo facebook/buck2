@@ -9,19 +9,10 @@
 
 //! Processing and reporting the the results of the build
 
-use buck2_build_api::build::ConfiguredBuildTargetResult;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::provider::label::ProvidersLabel;
 
 pub(crate) enum BuildOwner<'a> {
     Target(&'a ConfiguredProvidersLabel),
-}
-
-/// Collects the results of the build and processes it
-pub(crate) trait BuildResultCollector: Send {
-    fn collect_result(&mut self, label: &BuildOwner, result: &ConfiguredBuildTargetResult);
-
-    fn handle_error(&mut self, label: &Option<ProvidersLabel>, e: &buck2_error::Error);
 }
 
 pub mod result_report {
@@ -37,7 +28,6 @@ pub mod result_report {
     use starlark_map::small_map::SmallMap;
 
     use crate::commands::build::results::BuildOwner;
-    use crate::commands::build::results::BuildResultCollector;
 
     mod proto {
         pub use buck2_cli_proto::build_target::build_output::BuildOutputProviders;
@@ -86,10 +76,12 @@ pub mod result_report {
                 Err(errs) => &mut errs.errors,
             }
         }
-    }
 
-    impl<'a> BuildResultCollector for ResultReporter<'a> {
-        fn collect_result(&mut self, label: &BuildOwner, result: &ConfiguredBuildTargetResult) {
+        pub(crate) fn collect_result(
+            &mut self,
+            label: &BuildOwner,
+            result: &ConfiguredBuildTargetResult,
+        ) {
             if let Some(e) = result.errors.last() {
                 let errors = self.build_errors();
                 // FIXME(JakobDegen): We'd like to be able to report more errors here. However, we
@@ -198,7 +190,7 @@ pub mod result_report {
             };
         }
 
-        fn handle_error(&mut self, _p: &Option<ProvidersLabel>, e: &buck2_error::Error) {
+        pub(crate) fn handle_error(&mut self, _p: &Option<ProvidersLabel>, e: &buck2_error::Error) {
             let errors = self.build_errors();
             // FIXME(JakobDegen): We'd like to be able to report more errors here. However, we
             // need to get better at error deduplication before we can do that.
@@ -233,7 +225,6 @@ pub mod build_report {
     use starlark_map::small_set::SmallSet;
 
     use crate::commands::build::results::BuildOwner;
-    use crate::commands::build::results::BuildResultCollector;
 
     #[derive(Debug, Serialize)]
     #[allow(clippy::upper_case_acronyms)] // We care about how they serialise
@@ -358,10 +349,12 @@ pub mod build_report {
                 truncated: false,
             }
         }
-    }
 
-    impl<'a> BuildResultCollector for BuildReportCollector<'a> {
-        fn collect_result(&mut self, label: &BuildOwner, result: &ConfiguredBuildTargetResult) {
+        pub(crate) fn collect_result(
+            &mut self,
+            label: &BuildOwner,
+            result: &ConfiguredBuildTargetResult,
+        ) {
             let (default_outs, other_outs, mut errors) = {
                 let mut default_outs = SmallSet::new();
                 let mut other_outs = SmallSet::new();
@@ -491,7 +484,7 @@ pub mod build_report {
             }
         }
 
-        fn handle_error(&mut self, p: &Option<ProvidersLabel>, e: &buck2_error::Error) {
+        pub(crate) fn handle_error(&mut self, p: &Option<ProvidersLabel>, e: &buck2_error::Error) {
             self.overall_success = false;
             let Some(p) = p else {
                 // We have nowhere in the build report to put this error
