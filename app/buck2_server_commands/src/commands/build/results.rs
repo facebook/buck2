@@ -51,7 +51,7 @@ pub mod result_report {
     pub(crate) struct ResultReporter<'a> {
         artifact_fs: &'a ArtifactFs,
         options: ResultReporterOptions,
-        results: Result<Vec<proto::BuildTarget>, BuildErrors>,
+        results: Vec<proto::BuildTarget>,
     }
 
     impl<'a> ResultReporter<'a> {
@@ -63,7 +63,7 @@ pub mod result_report {
             let mut out = Self {
                 artifact_fs,
                 options,
-                results: Ok(Vec::new()),
+                results: Vec::new(),
             };
 
             let mut non_action_errors = vec![];
@@ -93,7 +93,7 @@ pub mod result_report {
                 });
             }
 
-            out.results
+            Ok(out.results)
         }
 
         fn collect_result(&mut self, label: &BuildOwner, result: &ConfiguredBuildTargetResult) {
@@ -103,92 +103,90 @@ pub mod result_report {
                 .filter_map(|output| output.as_ref().ok())
                 .collect::<Vec<_>>();
 
-            if let Ok(r) = &mut self.results {
-                let artifacts = if self.options.return_outputs {
-                    // NOTE: We use an SmallMap here to preserve the order the rule author wrote, all
-                    // the while avoiding duplicates.
-                    let mut artifacts = SmallMap::new();
+            let artifacts = if self.options.return_outputs {
+                // NOTE: We use an SmallMap here to preserve the order the rule author wrote, all
+                // the while avoiding duplicates.
+                let mut artifacts = SmallMap::new();
 
-                    for output in outputs {
-                        let ProviderArtifacts {
-                            values,
-                            provider_type,
-                        } = output;
+                for output in outputs {
+                    let ProviderArtifacts {
+                        values,
+                        provider_type,
+                    } = output;
 
-                        if !self.options.return_default_other_outputs
-                            && matches!(provider_type, BuildProviderType::DefaultOther)
-                        {
-                            continue;
-                        }
+                    if !self.options.return_default_other_outputs
+                        && matches!(provider_type, BuildProviderType::DefaultOther)
+                    {
+                        continue;
+                    }
 
-                        for (artifact, _value) in values.iter() {
-                            let entry = artifacts.entry(artifact).or_insert_with(|| {
-                                proto::BuildOutputProviders {
-                                    default_info: false,
-                                    run_info: false,
-                                    other: false,
-                                    test_info: false,
-                                }
-                            });
+                    for (artifact, _value) in values.iter() {
+                        let entry = artifacts.entry(artifact).or_insert_with(|| {
+                            proto::BuildOutputProviders {
+                                default_info: false,
+                                run_info: false,
+                                other: false,
+                                test_info: false,
+                            }
+                        });
 
-                            match provider_type {
-                                BuildProviderType::Default => {
-                                    entry.default_info = true;
-                                }
-                                BuildProviderType::DefaultOther => {
-                                    entry.other = true;
-                                }
-                                BuildProviderType::Run => {
-                                    entry.run_info = true;
-                                }
-                                BuildProviderType::Test => {
-                                    entry.test_info = true;
-                                }
+                        match provider_type {
+                            BuildProviderType::Default => {
+                                entry.default_info = true;
+                            }
+                            BuildProviderType::DefaultOther => {
+                                entry.other = true;
+                            }
+                            BuildProviderType::Run => {
+                                entry.run_info = true;
+                            }
+                            BuildProviderType::Test => {
+                                entry.test_info = true;
                             }
                         }
                     }
+                }
 
-                    let artifact_fs = &self.artifact_fs;
+                let artifact_fs = &self.artifact_fs;
 
-                    // Write it this way because `.into_iter()` gets rust-analyzer confused
-                    IntoIterator::into_iter(artifacts)
-                        .map(|(a, providers)| proto::BuildOutput {
-                            path: a.resolve_path(artifact_fs).unwrap().to_string(),
-                            providers: Some(providers),
-                        })
-                        .collect()
-                } else {
-                    Vec::new()
-                };
-
-                let (target, configuration) = match label {
-                    BuildOwner::Target(t) => (t.unconfigured().to_string(), t.cfg().to_string()),
-                };
-
-                let configured_graph_size = match &result.configured_graph_size {
-                    Some(Ok(MaybeCompatible::Compatible(v))) => Some(*v),
-                    Some(Ok(MaybeCompatible::Incompatible(..))) => None,
-                    Some(Err(e)) => {
-                        // We don't expect an error on this unless something else on this target
-                        // failed.
-                        tracing::debug!(
-                            "Graph size calculation error failed for {}: {:#}",
-                            target,
-                            e
-                        );
-                        None
-                    }
-                    None => None,
-                };
-
-                r.push(proto::BuildTarget {
-                    target,
-                    configuration,
-                    run_args: result.run_args.clone().unwrap_or_default(),
-                    outputs: artifacts,
-                    configured_graph_size,
-                })
+                // Write it this way because `.into_iter()` gets rust-analyzer confused
+                IntoIterator::into_iter(artifacts)
+                    .map(|(a, providers)| proto::BuildOutput {
+                        path: a.resolve_path(artifact_fs).unwrap().to_string(),
+                        providers: Some(providers),
+                    })
+                    .collect()
+            } else {
+                Vec::new()
             };
+
+            let (target, configuration) = match label {
+                BuildOwner::Target(t) => (t.unconfigured().to_string(), t.cfg().to_string()),
+            };
+
+            let configured_graph_size = match &result.configured_graph_size {
+                Some(Ok(MaybeCompatible::Compatible(v))) => Some(*v),
+                Some(Ok(MaybeCompatible::Incompatible(..))) => None,
+                Some(Err(e)) => {
+                    // We don't expect an error on this unless something else on this target
+                    // failed.
+                    tracing::debug!(
+                        "Graph size calculation error failed for {}: {:#}",
+                        target,
+                        e
+                    );
+                    None
+                }
+                None => None,
+            };
+
+            self.results.push(proto::BuildTarget {
+                target,
+                configuration,
+                run_args: result.run_args.clone().unwrap_or_default(),
+                outputs: artifacts,
+                configured_graph_size,
+            })
         }
     }
 }
