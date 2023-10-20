@@ -21,6 +21,7 @@ use buck2_cli_proto::build_request::Materializations;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_error::shared_result::SharedResult;
 use buck2_error::shared_result::ToSharedResultExt;
 use buck2_events::dispatch::console_message;
@@ -77,6 +78,9 @@ pub type ConfiguredBuildTargetResult =
 
 pub struct BuildTargetResult {
     pub configured: BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
+    /// Errors that could not be associated with a specific configured target. These errors may be
+    /// associated with a providers label, or might not be associated with any target at all.
+    pub other_errors: BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
 }
 
 impl BuildTargetResult {
@@ -182,7 +186,10 @@ impl BuildTargetResult {
             })
             .collect();
 
-        Ok(Self { configured: res })
+        Ok(Self {
+            configured: res,
+            other_errors: BTreeMap::new(),
+        })
     }
 }
 

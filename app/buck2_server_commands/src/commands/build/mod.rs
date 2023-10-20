@@ -315,6 +315,15 @@ async fn process_build_result(
         None
     };
 
+    for (unconfigured, errors) in build_result.other_errors {
+        for e in errors {
+            result_collector.handle_error(&unconfigured, &e);
+            if let Some(c) = build_report_collector.as_mut() {
+                c.handle_error(&unconfigured, &e);
+            }
+        }
+    }
+
     let mut provider_artifacts = Vec::new();
     for (k, v) in build_result.configured {
         // We omit skipped targets here.

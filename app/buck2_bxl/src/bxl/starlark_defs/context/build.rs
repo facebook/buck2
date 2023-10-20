@@ -249,6 +249,7 @@ pub(crate) fn build<'v>(
         .values()
         .flatten()
         .flat_map(|r| &r.errors)
+        .chain(build_result.other_errors.values().flatten())
         .next()
     {
         return Err(err.dupe().into());

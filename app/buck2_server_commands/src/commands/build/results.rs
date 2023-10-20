@@ -11,6 +11,7 @@
 
 use buck2_build_api::build::ConfiguredBuildTargetResult;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
 
 pub(crate) enum BuildOwner<'a> {
     Target(&'a ConfiguredProvidersLabel),
@@ -19,6 +20,8 @@ pub(crate) enum BuildOwner<'a> {
 /// Collects the results of the build and processes it
 pub(crate) trait BuildResultCollector: Send {
     fn collect_result(&mut self, label: &BuildOwner, result: &ConfiguredBuildTargetResult);
+
+    fn handle_error(&mut self, label: &Option<ProvidersLabel>, e: &buck2_error::Error);
 }
 
 pub mod result_report {
@@ -27,6 +30,7 @@ pub mod result_report {
     use buck2_build_api::build::ProviderArtifacts;
     use buck2_core::configuration::compatibility::MaybeCompatible;
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+    use buck2_core::provider::label::ProvidersLabel;
     use buck2_error::shared_result::SharedError;
     use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
     use dupe::Dupe;
@@ -193,6 +197,15 @@ pub mod result_report {
                 })
             };
         }
+
+        fn handle_error(&mut self, _p: &Option<ProvidersLabel>, e: &buck2_error::Error) {
+            let errors = self.build_errors();
+            // FIXME(JakobDegen): We'd like to be able to report more errors here. However, we
+            // need to get better at error deduplication before we can do that.
+            if errors.is_empty() {
+                errors.push(e.dupe());
+            }
+        }
     }
 }
 
@@ -208,6 +221,7 @@ pub mod build_report {
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::provider::label::NonDefaultProvidersName;
+    use buck2_core::provider::label::ProvidersLabel;
     use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::label::TargetLabel;
     use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
@@ -474,6 +488,33 @@ pub mod build_report {
                     report.configured_graph_size = Some(configured_graph_size);
                 }
                 configured_report.inner.configured_graph_size = Some(configured_graph_size);
+            }
+        }
+
+        fn handle_error(&mut self, p: &Option<ProvidersLabel>, e: &buck2_error::Error) {
+            self.overall_success = false;
+            let Some(p) = p else {
+                // We have nowhere in the build report to put this error
+                return;
+            };
+            let target = p.target().dupe();
+            let entry = self
+                .build_report_results
+                .entry(EntryLabel::Target(target))
+                .or_insert(BuildReportEntry {
+                    compatible: if self.include_unconfigured_section {
+                        Some(ConfiguredBuildReportEntry::default())
+                    } else {
+                        None
+                    },
+                    configured: HashMap::new(),
+                    errors: Vec::new(),
+                });
+            entry.errors.push(BuildReportError {
+                message: format!("{:#}", e),
+            });
+            if let Some(unconfigured) = entry.compatible.as_mut() {
+                unconfigured.success = BuildOutcome::FAIL;
             }
         }
     }
