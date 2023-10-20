@@ -47,7 +47,7 @@ pub mod result_report {
 
     /// Simple container for multiple [`SharedError`]s
     pub(crate) struct BuildErrors {
-        pub errors: Vec<SharedError>,
+        pub(crate) errors: Vec<SharedError>,
     }
 
     #[derive(Copy, Clone, Dupe)]
@@ -261,7 +261,7 @@ pub mod build_report {
     }
 
     #[derive(Default, Debug, Serialize)]
-    pub(crate) struct ConfiguredBuildReportEntry {
+    struct ConfiguredBuildReportEntry {
         /// whether this particular target was successful
         success: BuildOutcome,
         /// a map of each subtarget of the current target (outputted as a `|` delimited list) to
@@ -284,7 +284,7 @@ pub mod build_report {
     }
 
     #[derive(Debug, Serialize)]
-    pub(crate) struct BuildReportEntry {
+    struct BuildReportEntry {
         /// The buck1 build report did not support multiple configurations of the same target. We
         /// do, which is why we have the `configured` field below, which users should ideally use.
         /// This field is kept around for buck1 compatibility only and should ideally be removed.
@@ -304,7 +304,7 @@ pub mod build_report {
     }
 
     #[derive(Debug, Clone, Serialize, PartialOrd, Ord, PartialEq, Eq)]
-    pub(crate) struct BuildReportError {
+    struct BuildReportError {
         message: String,
     }
 
