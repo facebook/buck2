@@ -204,7 +204,6 @@ async fn build(
     mut ctx: DiceTransaction,
     request: &buck2_cli_proto::BuildRequest,
 ) -> anyhow::Result<buck2_cli_proto::BuildResponse> {
-    // TODO(nmj): Move build report printing logic out of here.
     let cwd = server_ctx.working_dir();
 
     let build_opts = expect_build_opts(request);
@@ -378,10 +377,6 @@ async fn process_build_result(
         };
     }
 
-    // TODO(nmj): The BuildResult / BuildResponse will eventually return all of the
-    //            data back to the CLI client, and all build report generation will happen there.
-    //            For now, we're going to be a little hacky to remove some stdout printing that
-    //            used to exist here.
     let (build_targets, error_messages) = match result_collector.results() {
         Ok(targets) => (targets, Vec::new()),
         Err(errors) => {

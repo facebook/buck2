@@ -678,15 +678,11 @@ message CommandCriticalStart {
   string dice_version = 3;
 }
 
-message AuditCommandStart {
-  // TODO(swgillespie) fill this with useful fields
-}
+message AuditCommandStart {}
 
 message StarlarkCommandStart {}
 
-message BuildCommandStart {
-  // TODO(swgillespie) fill this with useful fields
-}
+message BuildCommandStart {}
 
 message BxlCommandStart {
   // The full bxl label that was run, excluding the arguments to the bxl
@@ -697,46 +693,29 @@ message LspCommandStart {}
 
 message StarlarkDebugAttachCommandStart {}
 
-message TargetsCommandStart {
-  // TODO(swgillespie) fill this with useful fields
-}
+message TargetsCommandStart {}
 
 message ConfiguredTargetsCommandStart {}
 
-message QueryCommandStart {
-  // TODO(swgillespie) fill this with useful fields
-}
+message QueryCommandStart {}
 
-message AqueryCommandStart {
-  // TODO(swgillespie) fill this with useful fields
-}
+message AqueryCommandStart {}
 
 message CQueryCommandStart {
   string query = 1;
   string query_args = 2;
   string target_universe = 3;
-  // TODO(swgillespie) fill this with useful fields
 }
 
-message TestCommandStart {
-  // TODO(swgillespie) fill this with useful fields
-}
+message TestCommandStart {}
 
-message DocsCommandStart {
-  // TODO(nmj) fill this with useful fields
-}
+message DocsCommandStart {}
 
-message CleanCommandStart {
-  // TODO fill this with useful fields
-}
+message CleanCommandStart {}
 
-message InstallCommandStart {
-  // TODO fill this with useful fields
-}
+message InstallCommandStart {}
 
-message MaterializeCommandStart {
-  // TODO fill this with useful fields
-}
+message MaterializeCommandStart {}
 
 message FileStatusCommandStart {}
 
@@ -809,25 +788,17 @@ message TargetsCommandEnd {
 
 message ConfiguredTargetsCommandEnd {}
 
-message QueryCommandEnd {
-  // TODO(swgillespie) fill this with useful fields
-}
+message QueryCommandEnd {}
 
-message CQueryCommandEnd {
-  // TODO(swgillespie) fill this with useful fields
-}
+message CQueryCommandEnd {}
 
-message AqueryCommandEnd {
-  // TODO(swgillespie) fill this with useful fields
-}
+message AqueryCommandEnd {}
 
 message TestCommandEnd {
   repeated TargetPattern unresolved_target_patterns = 1;
 }
 
-message DocsCommandEnd {
-  // TODO(nmj) fill this with useful fields
-}
+message DocsCommandEnd {}
 
 message CleanCommandEnd {
   optional CleanStaleStats clean_stale_stats = 1;
@@ -849,9 +820,7 @@ message InstallCommandEnd {
   repeated TargetPattern unresolved_target_patterns = 1;
 }
 
-message MaterializeCommandEnd {
-  // TODO fill this with useful fields
-}
+message MaterializeCommandEnd {}
 
 message FileStatusCommandEnd {}
 
