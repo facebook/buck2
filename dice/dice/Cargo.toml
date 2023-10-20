@@ -1,56 +1,56 @@
 [package]
+edition = "2021"
 name = "dice"
 version = "0.1.0"
-edition = "2021"
 
 [dependencies]
+allocative = { workspace = true }
+anyhow = "1.0.65"
 anymap = "0.12.1"
 async-trait = "0.1.24"
 bincode = "1.3.3"
 clap = { version = "3.2.24", features = ["derive"] }
+cmp_any = { workspace = true }
 dashmap = "4.0.2"
-derivative = { workspace = true}
+derivative = { workspace = true }
 derive_more = "0.99.3"
+dupe = { workspace = true }
 fnv = "1.0"
 futures = "0.3"
-indexmap = { version = "1.9.1", features = ["serde-1"] }
-itertools = "0.10.0"
-more_futures = { path = "../../shed/more_futures" }
-once_cell = "1.3"
-sorted_vector_map.version = "0.1"
-# @oss-disable: sorted_vector_map.path = "../../../common/rust/shed/sorted_vector_map"
-tokio = { version = "1.5", features = ["full"]}
-tokio-stream = { workspace = true }
-dupe = { workspace = true }
 gazebo = { workspace = true }
-gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
-cmp_any = { workspace = true }
-allocative = { workspace = true }
+gazebo_lint.version = "0.1"
+indexmap = { version = "1.9.1", features = ["serde-1"] }
+itertools = "0.10.0"
+lock_free_hashtable = { workspace = true }
+lock_free_vec = { workspace = true }
+more_futures = { path = "../../shed/more_futures" }
+once_cell = "1.3"
+parking_lot = { version = "0.11.2", features = ["send_guard"] }
+scopeguard = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.48"
 slab = "0.4.7"
-thiserror = "1.0.36"
-tracing = "0.1.22"
-parking_lot = { version = "0.11.2", features = ["send_guard"] }
-anyhow = "1.0.65"
+# @oss-disable: sorted_vector_map.path = "../../../common/rust/shed/sorted_vector_map"
+sorted_vector_map.version = "0.1"
 take_mut = { workspace = true }
+thiserror = "1.0.36"
+tokio = { version = "1.5", features = ["full"] }
+tokio-stream = { workspace = true }
+tracing = "0.1.22"
 triomphe = { workspace = true }
-lock_free_hashtable = { workspace = true }
-lock_free_vec = { workspace = true }
-scopeguard = { workspace = true }
 
 [features]
 # @oss-disable: default = ["gazebo_lint"]
 
 [dev-dependencies]
+anyhow = "1.0.65"
+assert_matches = "1.5"
 cast = "0.2.3"
 derivative = "2.1.1"
 tempfile = "3.1"
-anyhow = "1.0.65"
-assert_matches = "1.5"
-tokio = { version = "1.5", features = ["full"]}
+tokio = { version = "1.5", features = ["full"] }
 
 
 [[bin]]

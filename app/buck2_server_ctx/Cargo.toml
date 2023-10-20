@@ -1,8 +1,8 @@
 [package]
+description = "Common parts of Buck commands"
+edition = "2021"
 name = "buck2_server_ctx"
 version = "0.1.0"
-edition = "2021"
-description = "Common parts of Buck commands"
 
 [dependencies]
 anyhow = { workspace = true }
@@ -11,34 +11,34 @@ async-trait = { workspace = true }
 derive_more = { workspace = true }
 futures = { workspace = true }
 itertools = { workspace = true }
+more_futures = { workspace = true }
 parking_lot = { workspace = true }
 pin-project = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-more_futures = { workspace = true }
-tokio = { workspace = true }
 
 allocative = { workspace = true }
 dice = { workspace = true }
-gazebo = { workspace = true }
 dupe = { workspace = true }
+gazebo = { workspace = true }
 
 # Please do not add dependency on `buck2_build_api`.
+buck2_build_signals = { workspace = true }
+buck2_cli_proto = { workspace = true }
 buck2_common = { workspace = true }
 buck2_core = { workspace = true }
 buck2_data = { workspace = true }
 buck2_error = { workspace = true }
 buck2_events = { workspace = true }
 buck2_execute = { workspace = true }
-buck2_cli_proto = { workspace = true }
 buck2_util = { workspace = true }
 buck2_wrapper_common = { workspace = true }
-buck2_build_signals = { workspace = true }
 starlark_map = { workspace = true }
 
 [dev-dependencies]
+assert_matches = { workspace = true }
 derivative = { workspace = true }
 tokio = { workspace = true }
-assert_matches = { workspace = true }

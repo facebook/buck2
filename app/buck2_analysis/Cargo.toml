@@ -1,8 +1,8 @@
 [package]
+description = "Execute rule function"
+edition = "2021"
 name = "buck2_analysis"
 version = "0.1.0"
-edition = "2021"
-description = "Execute rule function"
 
 [dependencies]
 anyhow = { workspace = true }

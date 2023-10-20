@@ -5,10 +5,10 @@ edition = "2021"
 version = "0.1.0"
 
 [dependencies]
+anyhow = { workspace = true }
 prost = { workspace = true }
 prost-types = { workspace = true }
 tonic = { workspace = true }
-anyhow = { workspace = true }
 tracing = { workspace = true }
 
 [build-dependencies]

@@ -1,5 +1,5 @@
 [package]
+description = "std::any::Provider replacement"
+edition = "2021"
 name = "provider"
 version = "0.1.0"
-edition = "2021"
-description = "std::any::Provider replacement"

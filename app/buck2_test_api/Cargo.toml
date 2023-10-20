@@ -1,34 +1,34 @@
 [package]
+edition = "2021"
 name = "buck2_test_api"
 version = "0.1.0"
-edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 derive_more = { workspace = true }
 futures = { workspace = true }
+prost-types = { workspace = true }
+tokio = { workspace = true }
 tonic = { workspace = true }
 tower-layer = { workspace = true }
 tower-service = { workspace = true }
-tokio = { workspace = true }
 tracing = { workspace = true }
-prost-types = { workspace = true }
 
-gazebo = { workspace = true }
 dupe = { workspace = true }
-gazebo_lint.version = "0.1"
+gazebo = { workspace = true }
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
+gazebo_lint.version = "0.1"
 host_sharing = { workspace = true }
 sorted_vector_map = { workspace = true }
 
 buck2_core = { workspace = true }
+buck2_downward_api = { workspace = true }
+buck2_downward_api_proto = { workspace = true }
 buck2_events = { workspace = true }
 buck2_grpc = { workspace = true }
 buck2_test_proto = { workspace = true }
-buck2_downward_api = { workspace = true }
-buck2_downward_api_proto = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }

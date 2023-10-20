@@ -1,8 +1,8 @@
 [package]
+description = "utilities to interpret the buck2 event stream"
+edition = "2021"
 name = "buck2_event_observer"
 version = "0.1.0"
-edition = "2021"
-description = "utilities to interpret the buck2 event stream"
 
 [dependencies]
 starlark_map = { workspace = true }
@@ -12,6 +12,7 @@ buck2_common = { workspace = true }
 buck2_data = { workspace = true }
 buck2_events = { workspace = true }
 buck2_test_api = { workspace = true }
+buck2_util = { workspace = true }
 buck2_wrapper_common = { workspace = true }
 clap = { workspace = true }
 derivative = { workspace = true }
@@ -23,7 +24,6 @@ linked-hash-map = { workspace = true }
 shlex = { workspace = true }
 superconsole = { version = "0.2.0", path = "../../superconsole" }
 thiserror = { workspace = true }
-buck2_util = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]

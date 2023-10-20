@@ -1,8 +1,8 @@
 [package]
+description = "Tests for buck2_node"
+edition = "2021"
 name = "buck2_node_tests"
 version = "0.1.0"
-edition = "2021"
-description = "Tests for buck2_node"
 
 [dev-dependencies]
 anyhow = { workspace = true }

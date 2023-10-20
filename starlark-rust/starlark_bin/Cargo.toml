@@ -1,17 +1,17 @@
 [package]
-name = "starlark_bin"
-edition = "2021"
-version = "0.10.0"
-license = "Apache-2.0"
-description = "starlark binary"
-documentation = "https://docs.rs/starlark"
-repository = "https://github.com/facebookexperimental/starlark-rust"
 authors = [
     "Damien Martin-Guillerez <dmarting@google.com>",
     "Facebook",
 ]
-keywords = ["starlark", "skylark", "language", "interpreter"]
 categories = ["parser-implementations", "development-tools"]
+description = "starlark binary"
+documentation = "https://docs.rs/starlark"
+edition = "2021"
+keywords = ["starlark", "skylark", "language", "interpreter"]
+license = "Apache-2.0"
+name = "starlark_bin"
+repository = "https://github.com/facebookexperimental/starlark-rust"
+version = "0.10.0"
 
 [dependencies]
 dupe = { workspace = true }

@@ -1,18 +1,18 @@
 [package]
+authors = ["Meta"]
+description = "Interface for build signals"
+edition = "2021"
+license = "MIT OR Apache-2.0"
 name = "buck2_build_signals"
 version = "0.1.0"
-edition = "2021"
-description = "Interface for build signals"
-license = "MIT OR Apache-2.0"
-authors = ["Meta"]
 
 [dependencies]
+allocative = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-derive_more = { workspace = true }
-futures = { workspace = true }
-allocative = { workspace = true }
 buck2_core = { workspace = true }
 buck2_events = { workspace = true }
+derive_more = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
+futures = { workspace = true }

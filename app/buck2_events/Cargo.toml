@@ -1,42 +1,42 @@
 [package]
+edition = "2021"
 name = "buck2_events"
 version = "0.1.0"
-edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 base64 = { workspace = true }
 byteorder = { workspace = true }
+crossbeam-channel = { workspace = true }
+crossbeam-epoch = { workspace = true }
 derive_more = { workspace = true }
 futures = { workspace = true }
 hostname = { workspace = true }
+is_proc_translated = { workspace = true }
 once_cell = { workspace = true }
+pin-project = { workspace = true }
 prost = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+smallvec = { workspace = true }
 sys-info = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
-crossbeam-channel = { workspace = true }
-crossbeam-epoch = { workspace = true }
-pin-project = { workspace = true }
-is_proc_translated = { workspace = true }
 uuid = { workspace = true }
-smallvec = { workspace = true }
 
+allocative = { workspace = true }
+dupe = { workspace = true }
 fbinit = { workspace = true }
 gazebo = { workspace = true }
-dupe = { workspace = true }
-gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
+gazebo_lint.version = "0.1"
 # @oss-disable: user = { path = "../../../common/rust/user" }
-allocative = { workspace = true }
 
-buck2_cli_proto = { workspace = true }
 buck2_build_info = { workspace = true }
+buck2_cli_proto = { workspace = true }
 buck2_core = { workspace = true }
 buck2_data = { workspace = true }
 buck2_util = { workspace = true }

@@ -11,15 +11,17 @@ async-compression = { workspace = true }
 async-trait = { workspace = true }
 blake3 = { workspace = true }
 bytes = { workspace = true }
-clap = { workspace = true }
 chrono = { workspace = true }
+clap = { workspace = true }
 crossterm = { workspace = true }
 derivative = { workspace = true }
 derive_more = { workspace = true }
+dupe = { workspace = true }
+fbinit = { workspace = true }
 fs4 = { workspace = true }
 futures = { workspace = true }
+gazebo = { workspace = true }
 hex = { workspace = true }
-regex = { workspace = true }
 httparse = { workspace = true }
 hyper = { workspace = true }
 itertools = { workspace = true }
@@ -31,6 +33,7 @@ once_cell = { workspace = true }
 pin-project = { workspace = true }
 prost = { workspace = true }
 prost-types = { workspace = true }
+regex = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 shlex = { workspace = true }
@@ -43,9 +46,6 @@ tokio-stream = { workspace = true }
 tokio-util = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
-gazebo = { workspace = true }
-dupe = { workspace = true }
-fbinit = { workspace = true }
 
 # @oss-disable: detect_eden = { path = "../../../common/rust/shed/detect_eden" }
 # @oss-disable: hostcaps = { path = "../../../common/rust/shed/hostcaps" }
@@ -53,16 +53,16 @@ superconsole = { version = "0.2.0", path = "../../superconsole" }
 
 # Please do not add dependency on `buck2_build_api`.
 buck2_build_info = { workspace = true }
+buck2_cli_proto = { workspace = true }
 buck2_common = { workspace = true }
 buck2_core = { workspace = true }
 buck2_data = { workspace = true }
 buck2_error = { workspace = true }
+buck2_event_observer = { workspace = true }
 buck2_events = { workspace = true }
 buck2_http = { workspace = true }
 buck2_test_api = { workspace = true }
-buck2_cli_proto = { workspace = true }
 buck2_util = { workspace = true }
-buck2_event_observer = { workspace = true }
 buck2_wrapper_common = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
@@ -73,8 +73,8 @@ termios = { workspace = true }
 winapi = { workspace = true }
 
 [dev-dependencies]
-assert_matches= { workspace = true }
+assert_matches = { workspace = true }
 lsp-server = { workspace = true }
-maplit = {workspace = true}
+maplit = { workspace = true }
 pretty_assertions = { workspace = true }
 tempfile = { workspace = true }

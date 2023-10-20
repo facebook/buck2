@@ -1,9 +1,9 @@
 [package]
-name = "rust-project"
-version = "0.0.0"
-edition = "2021"
 description = "A Rust-centric companion tool to Buck for usage in IDEs."
+edition = "2021"
+name = "rust-project"
 readme = "README.md"
+version = "0.0.0"
 
 [dependencies]
 anyhow = { workspace = true }

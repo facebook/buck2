@@ -1,7 +1,7 @@
 [package]
+edition = "2021"
 name = "buck2_forkserver"
 version = "0.1.0"
-edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
@@ -15,8 +15,8 @@ pin-project = { workspace = true }
 rand = { workspace = true }
 take_mut = { workspace = true }
 thiserror = { workspace = true }
-tokio-util = { workspace = true }
 tokio = { workspace = true }
+tokio-util = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
 
@@ -29,12 +29,12 @@ gazebo_lint.version = "0.1"
 
 buck2_common = { workspace = true }
 buck2_core = { workspace = true }
-buck2_forkserver_proto = { workspace = true }
 buck2_data = { workspace = true }
 buck2_error = { workspace = true }
+buck2_forkserver_proto = { workspace = true }
 buck2_grpc = { workspace = true }
-buck2_util = { workspace = true }
 buck2_miniperf_proto = { workspace = true }
+buck2_util = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 nix = { workspace = true }

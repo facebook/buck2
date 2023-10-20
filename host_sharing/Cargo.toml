@@ -1,8 +1,8 @@
 [package]
-name = "host_sharing"
-version = "0.1.0"
 authors = ["Logan Wendholt <lwendholt@fb.com>"]
 edition = "2021"
+name = "host_sharing"
+version = "0.1.0"
 
 [dependencies]
 allocative = { workspace = true }

@@ -1,50 +1,50 @@
 [package]
-name = "starlark"
-edition = "2021"
-version = "0.10.0"
-license = "Apache-2.0"
-description = "An implementation of the Starlark language in Rust."
-documentation = "https://docs.rs/starlark"
-repository = "https://github.com/facebookexperimental/starlark-rust"
 authors = [
     "Damien Martin-Guillerez <dmarting@google.com>",
     "Stepan Koltsov <stepan.koltsov@gmail.com>",
     "Facebook",
 ]
 build = "build.rs"
-keywords = ["starlark", "skylark", "bazel", "language", "interpreter"]
 categories = ["parser-implementations", "development-tools"]
+description = "An implementation of the Starlark language in Rust."
+documentation = "https://docs.rs/starlark"
+edition = "2021"
+keywords = ["starlark", "skylark", "bazel", "language", "interpreter"]
+license = "Apache-2.0"
+name = "starlark"
+repository = "https://github.com/facebookexperimental/starlark-rust"
+version = "0.10.0"
 
 [dependencies]
 anyhow = "1.0.65"
+bumpalo = "3.8"
+debugserver-types = "0.5.0"
 derivative = "2.2"
 derive_more = "0.99"
 display_container = { workspace = true }
 dupe = { workspace = true }
-erased-serde = "0.3.12"
-itertools = "0.10"
-once_cell = "1.8"
-bumpalo = "3.8"
-paste = "1.0"
 either = "1.8"
-static_assertions = "1.1.0"
+erased-serde = "0.3.12"
+fancy-regex = "0.10.0"
+hashbrown = { version = "0.12.3", features = ["raw"] }
+inventory = "0.3.8"
+itertools = "0.10"
+maplit = "1.0.2"
 memoffset = "0.6.4"
-thiserror = "1.0.36"
+num-bigint = "0.4.3"
+num-traits = "0.2"
+once_cell = "1.8"
+paste = "1.0"
+regex = "1.5.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 starlark_derive = { version = "0.10.0", path = "../starlark_derive" }
 starlark_map = { version = "0.10.0", path = "../starlark_map" }
 starlark_syntax = { version = "0.10.0", path = "../starlark_syntax" }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-maplit = "1.0.2"
-debugserver-types = "0.5.0"
-hashbrown = { version = "0.12.3", features = ["raw"] }
-textwrap = "0.11"
-fancy-regex = "0.10.0"
-regex = "1.5.4"
+static_assertions = "1.1.0"
 strsim = "0.10.0"
-num-bigint = "0.4.3"
-num-traits = "0.2"
-inventory = "0.3.8"
+textwrap = "0.11"
+thiserror = "1.0.36"
 
 allocative = { workspace = true, features = ["bumpalo", "num-bigint"] }
 cmp_any = { workspace = true }

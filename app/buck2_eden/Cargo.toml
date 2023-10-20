@@ -1,14 +1,14 @@
 [package]
+authors = ["Meta"]
+description = "Eden integration for Buck2"
+edition = "2021"
+license = "MIT OR Apache-2.0"
 name = "buck2_eden"
 version = "0.1.0"
-edition = "2021"
-description = "Eden integration for Buck2"
-license = "MIT OR Apache-2.0"
-authors = ["Meta"]
 
 [dependencies]
-anyhow = { workspace = true }
 allocative = { workspace = true }
+anyhow = { workspace = true }
 async-trait = { workspace = true }
 buck2_common = { workspace = true }
 buck2_core = { workspace = true }

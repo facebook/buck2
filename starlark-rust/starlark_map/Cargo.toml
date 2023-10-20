@@ -1,22 +1,22 @@
 [package]
-name = "starlark_map"
-edition = "2021"
-version = "0.10.0"
-license = "Apache-2.0"
+authors = [
+    "Facebook",
+]
 description = "Map implementation with starlark-rust specific optimizations"
 documentation = "https://docs.rs/starlark_map"
+edition = "2021"
+license = "Apache-2.0"
+name = "starlark_map"
 repository = "https://github.com/facebookexperimental/starlark-rust"
-authors = [
-    "Facebook"
-]
+version = "0.10.0"
 
 [dependencies]
-dupe = { workspace = true }
 allocative = { workspace = true, features = ["hashbrown"] }
+dupe = { workspace = true }
 
+equivalent = { workspace = true }
 fnv = "1.0.7"
 hashbrown = { version = "0.12.3", features = ["raw"] }
-equivalent = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]

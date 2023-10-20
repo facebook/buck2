@@ -1,17 +1,17 @@
 [package]
+authors = ["Meta"]
+description = "Critical path calculations for Buck2"
+edition = "2021"
+license = "MIT OR Apache-2.0"
 name = "buck2_critical_path"
 version = "0.1.0"
-edition = "2021"
-description = "Critical path calculations for Buck2"
-license = "MIT OR Apache-2.0"
-authors = ["Meta"]
 
 [dependencies]
 anyhow = { workspace = true }
+crossbeam = { workspace = true }
+derive_more = { workspace = true }
 starlark_map = { workspace = true }
 thiserror = { workspace = true }
-derive_more = { workspace = true }
-crossbeam = { workspace = true }
 
 [dev-dependencies]
 rand = { workspace = true }

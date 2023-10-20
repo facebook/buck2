@@ -1,11 +1,11 @@
 [workspace]
-resolver = "2"
 members = [
     "gazebo/gazebo",
     "gazebo/gazebo_derive",
     "dice",
     "dice_examples",
 ]
+resolver = "2"
 [workspace.dependencies]
 allocative = { version = "0.3.1" }
 gazebo = { version = "0.8.1", path = "gazebo/gazebo" }

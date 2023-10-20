@@ -1,21 +1,21 @@
 [package]
-name = "buck2_wrapper_common"
-version = "0.1.0"
-edition = "2021"
 description = """
 Code shared with Meta internal buck2 launcher.
 
 Careful! The wrapper is not released as part of the regular buck version bumps,
 meaning code changes here are not "atomically" updated.
 """
+edition = "2021"
+name = "buck2_wrapper_common"
+version = "0.1.0"
 
 [dependencies]
 allocative = { workspace = true }
-dupe = { workspace = true }
 anyhow = { workspace = true }
+dupe = { workspace = true }
 once_cell = { workspace = true }
-shlex = { workspace = true }
 serde = { workspace = true }
+shlex = { workspace = true }
 sysinfo = { workspace = true }
 thiserror = { workspace = true }
 uuid = { workspace = true }

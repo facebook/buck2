@@ -1,8 +1,8 @@
 [package]
+description = "Interpreter setup to BUCK files"
+edition = "2021"
 name = "buck2_interpreter_for_build"
 version = "0.1.0"
-edition = "2021"
-description = "Interpreter setup to BUCK files"
 
 [dependencies]
 anyhow = { workspace = true }
@@ -20,18 +20,18 @@ indoc = { workspace = true }
 itertools = { workspace = true }
 maplit = { workspace = true }
 once_cell = { workspace = true }
-thiserror = { workspace = true }
-tracing = { workspace = true }
-twox-hash = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
 smallvec = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+twox-hash = { workspace = true }
 
 allocative = { workspace = true }
 dice = { workspace = true }
+dupe = { workspace = true }
 gazebo = { workspace = true }
 more_futures = { workspace = true }
-dupe = { workspace = true }
 starlark = { workspace = true }
 starlark_map = { workspace = true }
 
@@ -40,8 +40,8 @@ buck2_core = { workspace = true }
 buck2_data = { workspace = true }
 buck2_error = { workspace = true }
 buck2_events = { workspace = true }
-buck2_node = { workspace = true }
 buck2_interpreter = { workspace = true }
+buck2_node = { workspace = true }
 buck2_query = { workspace = true }
 buck2_query_parser = { workspace = true }
 buck2_util = { workspace = true }

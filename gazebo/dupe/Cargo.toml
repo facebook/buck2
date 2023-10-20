@@ -1,13 +1,13 @@
 [package]
-name = "dupe"
-version = "0.9.0"
-license = "MIT OR Apache-2.0"
 authors = ["Facebook"]
-edition = "2021"
-description = "Marker for types which are cheap to clone"
-repository = "https://github.com/facebookincubator/gazebo"
-documentation = "https://docs.rs/dupe"
 categories = ["rust-patterns"]
+description = "Marker for types which are cheap to clone"
+documentation = "https://docs.rs/dupe"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+name = "dupe"
+repository = "https://github.com/facebookincubator/gazebo"
+version = "0.9.0"
 
 [dependencies]
 dupe_derive = { version = "=0.9.0", path = "../dupe_derive" }

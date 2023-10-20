@@ -1,7 +1,7 @@
 [package]
+edition = "2021"
 name = "buck2_configured"
 version = "0.1.0"
-edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }

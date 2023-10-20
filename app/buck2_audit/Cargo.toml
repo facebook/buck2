@@ -1,8 +1,8 @@
 [package]
+description = "Client side of `buck2 audit`"
+edition = "2021"
 name = "buck2_audit"
 version = "0.1.0"
-edition = "2021"
-description = "Client side of `buck2 audit`"
 
 [dependencies]
 async-trait = { workspace = true }
@@ -12,5 +12,5 @@ serde_json = { workspace = true }
 
 dupe = { workspace = true }
 
-buck2_client_ctx = { workspace = true }
 buck2_cli_proto = { workspace = true }
+buck2_client_ctx = { workspace = true }

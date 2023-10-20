@@ -1,28 +1,28 @@
 [package]
+description = "A library providing remote execution using gRPC"
+edition = "2021"
 name = "remote_execution"
 version = "0.1.0"
-edition = "2021"
-description = "A library providing remote execution using gRPC"
 
 [dependencies]
 anyhow = { workspace = true }
 dupe = { workspace = true }
-gazebo = { workspace = true }
 futures = { workspace = true }
+gazebo = { workspace = true }
 http = { workspace = true }
-thiserror = { workspace = true }
-prost-types = { workspace = true }
+once_cell = { workspace = true }
 prost = { workspace = true }
+prost-types = { workspace = true }
 regex = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
-once_cell = { workspace = true }
 uuid = { workspace = true }
 
-gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../../gazebo_lint/gazebo_lint"
+gazebo_lint.version = "0.1"
 
 buck2_re_configuration = { workspace = true }
 re_grpc_proto = { path = "../re_grpc_proto" }

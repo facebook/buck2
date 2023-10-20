@@ -1,8 +1,8 @@
 [package]
+description = "Lock-free (almost) insertion only hashtable"
+edition = "2021"
 name = "lock_free_hashtable"
 version = "0.1.0"
-edition = "2021"
-description = "Lock-free (almost) insertion only hashtable"
 
 [dependencies]
 allocative = { workspace = true }

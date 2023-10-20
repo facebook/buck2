@@ -1,27 +1,27 @@
 [package]
+edition = "2021"
 name = "more_futures"
 version = "0.1.0"
-edition = "2021"
 
 [dependencies]
+allocative = { workspace = true }
+buck2_data = { workspace = true }
+buck2_events = { workspace = true }
+buck2_wrapper_common = { workspace = true }
+dupe = { workspace = true }
 futures = "0.3"
 gazebo = { workspace = true }
-dupe = { workspace = true }
-gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
-pin-project = "0.4"
-tokio = { version = "1.5", features = ["full"]}
-tracing = "0.1.22"
-buck2_events = { workspace = true }
-buck2_data = { workspace = true }
-buck2_wrapper_common = { workspace = true }
-allocative = { workspace = true }
+gazebo_lint.version = "0.1"
 once_cell = { workspace = true }
 parking_lot = { workspace = true }
+pin-project = "0.4"
 slab = "0.4.7"
 take_mut = { workspace = true }
 thiserror = { workspace = true }
+tokio = { version = "1.5", features = ["full"] }
+tracing = "0.1.22"
 
 [features]
 # @oss-disable: default = ["gazebo_lint"]

@@ -1,8 +1,8 @@
 [package]
+description = "Buck query generic implementation"
+edition = "2021"
 name = "buck2_query"
 version = "0.1.0"
-edition = "2021"
-description = "Buck query generic implementation"
 
 [dependencies]
 anyhow = { workspace = true }
@@ -14,23 +14,23 @@ futures = { workspace = true }
 indexmap = { workspace = true }
 indoc = { workspace = true }
 itertools = { workspace = true }
+ref-cast = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
-ref-cast = { workspace = true }
 
 allocative = { workspace = true }
 display_container = { workspace = true }
-gazebo = { workspace = true }
 dupe = { workspace = true }
-gazebo_lint.version = "0.1"
+gazebo = { workspace = true }
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
+gazebo_lint.version = "0.1"
 starlark_map = { workspace = true }
 
 buck2_core = { workspace = true }
-buck2_query_parser = { workspace = true }
 buck2_query_derive = { workspace = true }
+buck2_query_parser = { workspace = true }
 buck2_util = { workspace = true }
 
 [lib]

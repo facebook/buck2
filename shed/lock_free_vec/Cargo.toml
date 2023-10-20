@@ -1,8 +1,8 @@
 [package]
+description = "Data structure"
+edition = "2021"
 name = "lock_free_vec"
 version = "0.1.0"
-edition = "2021"
-description = "Data structure"
 
 [dependencies]
 allocative = { workspace = true }

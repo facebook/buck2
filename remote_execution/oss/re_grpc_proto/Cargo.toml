@@ -1,12 +1,12 @@
 [package]
+description = "A library providing gRPC client for Bazel remote execution"
+edition = "2021"
 name = "re_grpc_proto"
 version = "0.1.0"
-edition = "2021"
-description = "A library providing gRPC client for Bazel remote execution"
 
 [dependencies]
-prost-types = { workspace = true }
 prost = { workspace = true }
+prost-types = { workspace = true }
 tonic = { workspace = true }
 
 [build-dependencies]

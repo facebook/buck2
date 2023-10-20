@@ -1,8 +1,8 @@
 [package]
-name = "starlark-fuzz"
-version = "0.0.0"
-publish = false
 edition = "2021"
+name = "starlark-fuzz"
+publish = false
+version = "0.0.0"
 
 [package.metadata]
 cargo-fuzz = true
@@ -20,7 +20,7 @@ members = ["."]
 debug = 1
 
 [[bin]]
+doc = false
 name = "starlark"
 path = "fuzz_targets/starlark.rs"
 test = false
-doc = false

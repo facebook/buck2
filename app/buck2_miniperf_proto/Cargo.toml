@@ -1,10 +1,10 @@
 [package]
+authors = ["Meta"]
+description = "Serialized datastructures for buck2_miniperf"
+edition = "2021"
+license = "MIT OR Apache-2.0"
 name = "buck2_miniperf_proto"
 version = "0.1.0"
-edition = "2021"
-description = "Serialized datastructures for buck2_miniperf"
-license = "MIT OR Apache-2.0"
-authors = ["Meta"]
 
 [dependencies]
 dupe = { workspace = true }

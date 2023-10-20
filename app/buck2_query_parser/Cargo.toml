@@ -1,8 +1,8 @@
 [package]
+description = "Buck2 query language parser"
+edition = "2021"
 name = "buck2_query_parser"
 version = "0.1.0"
-edition = "2021"
-description = "Buck2 query language parser"
 
 [dependencies]
 anyhow = { workspace = true }
@@ -12,11 +12,11 @@ nom = { workspace = true }
 structopt = { workspace = true }
 thiserror = { workspace = true }
 
+dupe = { workspace = true }
 gazebo = { workspace = true }
-gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
-dupe = { workspace = true }
+gazebo_lint.version = "0.1"
 
 buck2_util = { workspace = true }
 

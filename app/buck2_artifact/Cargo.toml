@@ -1,8 +1,8 @@
 [package]
+description = "Artifact types"
+edition = "2021"
 name = "buck2_artifact"
 version = "0.1.0"
-edition = "2021"
-description = "Artifact types"
 
 [dependencies]
 anyhow = { workspace = true }

@@ -1,7 +1,7 @@
 [package]
+edition = "2021"
 name = "buck2_http"
 version = "0.1.0"
-edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
@@ -20,16 +20,16 @@ rustls-pemfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-rustls = { workspace = true }
-tracing = { workspace = true }
 tokio-util = { workspace = true }
+tracing = { workspace = true }
 
 allocative = { workspace = true }
 dice = { workspace = true }
-gazebo = { workspace = true }
 dupe = { workspace = true }
-gazebo_lint.version = "0.1"
+gazebo = { workspace = true }
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
+gazebo_lint.version = "0.1"
 
 [target.'cfg(unix)'.dependencies]
 hyper-unix-connector = { workspace = true }

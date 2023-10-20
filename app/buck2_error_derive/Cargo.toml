@@ -1,10 +1,10 @@
 [package]
-name = "buck2_error_derive"
-version = "0.1.0"
-edition = "2021"
 description = """
 Macros used by buck2_error
 """
+edition = "2021"
+name = "buck2_error_derive"
+version = "0.1.0"
 
 [lib]
 proc-macro = true

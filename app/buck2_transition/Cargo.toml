@@ -1,8 +1,8 @@
 [package]
+description = "Implementation of configuration transition"
+edition = "2021"
 name = "buck2_transition"
 version = "0.1.0"
-edition = "2021"
-description = "Implementation of configuration transition"
 
 [dependencies]
 anyhow = { workspace = true }

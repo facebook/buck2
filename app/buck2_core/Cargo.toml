@@ -1,18 +1,20 @@
 [package]
+edition = "2021"
 name = "buck2_core"
 version = "0.1.0"
-edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
-async-trait = { workspace = true }
 arc-swap = { workspace = true }
+assert_matches = { workspace = true }
+async-trait = { workspace = true }
 blake3 = { workspace = true }
 compact_str = { workspace = true }
-tempfile = { workspace = true }
-derive_more = { workspace = true }
+dashmap = { workspace = true }
 derivative = { workspace = true }
+derive_more = { workspace = true }
 dunce = { workspace = true }
+either = { workspace = true }
 equivalent = { workspace = true }
 fnv = { workspace = true }
 futures = { workspace = true }
@@ -24,32 +26,30 @@ memchr = { workspace = true }
 once_cell = { workspace = true }
 os_str_bytes = { workspace = true }
 pin-project = { workspace = true }
-relative-path = { workspace = true }
+rand = { workspace = true }
 ref-cast = { workspace = true }
+regex = { workspace = true }
+relative-path = { workspace = true }
 sequence_trie = { workspace = true }
 serde = { workspace = true }
+smallvec = { workspace = true }
+starlark_map = { workspace = true }
 static_assertions = { workspace = true }
+tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
-regex = { workspace = true }
-dashmap = { workspace = true }
-either = { workspace = true }
-assert_matches = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 triomphe = { workspace = true }
-rand = { workspace = true }
-smallvec = { workspace = true }
-starlark_map = { workspace = true }
 
-gazebo = { workspace = true }
-dupe = { workspace = true }
+allocative = { workspace = true }
 cmp_any = { workspace = true }
-gazebo_lint.version = "0.1"
+dupe = { workspace = true }
+gazebo = { workspace = true }
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
+gazebo_lint.version = "0.1"
 internment_tweaks = { path = "../../shed/internment_tweaks" }
-allocative = { workspace = true }
 sorted_vector_map = { workspace = true }
 
 buck2_data = { workspace = true }
@@ -59,12 +59,12 @@ buck2_util = { workspace = true }
 nix = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
-common-path = { workspace = true}
+common-path = { workspace = true }
 
 [dev-dependencies]
 maplit = { workspace = true }
-test-case = { workspace = true }
 serde_json = { workspace = true }
+test-case = { workspace = true }
 
 [features]
 # @oss-disable: default = ["gazebo_lint"]

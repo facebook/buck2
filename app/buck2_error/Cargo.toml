@@ -1,10 +1,10 @@
 [package]
-name = "buck2_error"
-version = "0.1.0"
-edition = "2021"
 description = """
 Library providing an `anyhow` inspired error type for buck2
 """
+edition = "2021"
+name = "buck2_error"
+version = "0.1.0"
 
 [dependencies]
 anyhow = { workspace = true }

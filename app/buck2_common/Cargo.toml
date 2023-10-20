@@ -1,7 +1,7 @@
 [package]
+edition = "2021"
 name = "buck2_common"
 version = "0.1.0"
-edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
@@ -10,6 +10,7 @@ blake3 = { workspace = true }
 chrono = { workspace = true }
 compact_str = { workspace = true }
 dashmap = { workspace = true }
+derivative = { workspace = true }
 derive_more = { workspace = true }
 digest = { workspace = true }
 dirs = { workspace = true }
@@ -18,34 +19,33 @@ globset = { workspace = true }
 hex = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
+num_enum = { workspace = true }
 once_cell = { workspace = true }
+parking_lot = { workspace = true }
 prost-types = { workspace = true }
 rand = { workspace = true }
 ref-cast = { workspace = true }
 regex = { workspace = true }
 rusqlite = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 sha1 = { workspace = true }
 sha2 = { workspace = true }
 smallvec = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+tokio-util = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
-num_enum = { workspace = true }
-derivative = { workspace = true }
-parking_lot = { workspace = true }
-tokio-util = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
 
 allocative = { workspace = true }
+cmp_any = { workspace = true }
 dice = { workspace = true }
-gazebo = { workspace = true }
 dupe = { workspace = true }
-gazebo_lint.version = "0.1"
+gazebo = { workspace = true }
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
-cmp_any = { workspace = true }
+gazebo_lint.version = "0.1"
 more_futures = { workspace = true }
 starlark_map = { workspace = true }
 
@@ -64,8 +64,8 @@ xattr = { workspace = true }
 # @oss-disable: default = ["gazebo_lint"]
 
 [dev-dependencies]
+assert_matches = { workspace = true }
 indoc = { workspace = true }
 maplit = { workspace = true }
-assert_matches = { workspace = true }
 tempfile = { workspace = true }
 test-case = { workspace = true }

@@ -1,9 +1,9 @@
 [package]
+edition = "2021"
 name = "buck2_protoc_dev"
 version = "0.1.0"
-edition = "2021"
 
 [dependencies]
-tonic-build = { workspace = true }
 dunce = { workspace = true }
 protoc-bin-vendored = { workspace = true }
+tonic-build = { workspace = true }
