@@ -200,13 +200,14 @@ pub mod build_report {
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::provider::label::ConfiguredProvidersLabel;
     use buck2_core::provider::label::NonDefaultProvidersName;
-    use buck2_core::provider::label::ProvidersLabel;
     use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::label::TargetLabel;
     use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
     use buck2_wrapper_common::invocation_id::TraceId;
     use derivative::Derivative;
     use dupe::Dupe;
+    use itertools::Either;
+    use itertools::EitherOrBoth;
     use itertools::Itertools;
     use serde::Serialize;
     use starlark_map::small_set::SmallSet;
@@ -322,18 +323,45 @@ pub mod build_report {
                 include_other_outputs,
             };
             let mut entries = HashMap::new();
-            for (label, configured) in &build_result
+
+            if build_result
+                .other_errors
+                .values()
+                .flatten()
+                .next()
+                .is_some()
+            {
+                // Do this check ahead of time. We don't check for errors that aren't associated
+                // with a target below, so we'd miss this otherwise.
+                this.overall_success = false;
+            }
+
+            // The `BuildTargetResult` doesn't group errors by their unconfigured target, so we need
+            // to do a little iterator munging to achieve that ourselves
+            let results_by_unconfigured = &build_result
                 .configured
                 .iter()
-                .group_by(|x| x.0.target().unconfigured().dupe())
-            {
-                let entry = this.collect_results_for_unconfigured(configured);
+                .group_by(|x| x.0.target().unconfigured().dupe());
+            let errors_by_unconfigured = build_result
+                .other_errors
+                .iter()
+                .filter_map(|(l, e)| Some((l.as_ref()?.target().dupe(), e)));
+            for i in Itertools::merge_join_by(
+                IntoIterator::into_iter(results_by_unconfigured),
+                errors_by_unconfigured,
+                |(l1, _), (l2, _)| Ord::cmp(l1, l2),
+            ) {
+                let (label, results, errors) = match i {
+                    EitherOrBoth::Both((label, results), (_, errors)) => {
+                        (label, Either::Left(results), &**errors)
+                    }
+                    EitherOrBoth::Left((label, results)) => (label, Either::Left(results), &[][..]),
+                    EitherOrBoth::Right((label, errors)) => {
+                        (label, Either::Right(std::iter::empty()), &**errors)
+                    }
+                };
+                let entry = this.collect_results_for_unconfigured(results, errors);
                 entries.insert(EntryLabel::Target(label), entry);
-            }
-            for (unconfigured, errors) in &build_result.other_errors {
-                for e in errors {
-                    this.handle_error(&mut entries, unconfigured, e);
-                }
             }
 
             BuildReport {
@@ -357,6 +385,7 @@ pub mod build_report {
                     &'b Option<ConfiguredBuildTargetResult>,
                 ),
             >,
+            errors: &[buck2_error::Error],
         ) -> BuildReportEntry {
             let mut unconfigured_report = if self.include_unconfigured_section {
                 Some(MaybeConfiguredBuildReportEntry::default())
@@ -403,10 +432,17 @@ pub mod build_report {
                 configured_reports.insert(label.cfg().dupe(), configured_report);
             }
 
+            let errors = self.convert_error_list(errors);
+            if !errors.is_empty() {
+                if let Some(report) = unconfigured_report.as_mut() {
+                    report.success = BuildOutcome::FAIL;
+                }
+            }
+
             BuildReportEntry {
                 compatible: unconfigured_report,
                 configured: configured_reports,
-                errors: Vec::new(),
+                errors,
             }
         }
 
@@ -501,37 +537,6 @@ pub mod build_report {
             // Keep the output deterministic
             errors.sort_unstable();
             errors
-        }
-
-        fn handle_error(
-            &mut self,
-            entries: &mut HashMap<EntryLabel, BuildReportEntry>,
-            p: &Option<ProvidersLabel>,
-            e: &buck2_error::Error,
-        ) {
-            self.overall_success = false;
-            let Some(p) = p else {
-                // We have nowhere in the build report to put this error
-                return;
-            };
-            let target = p.target().dupe();
-            let entry = entries
-                .entry(EntryLabel::Target(target))
-                .or_insert(BuildReportEntry {
-                    compatible: if self.include_unconfigured_section {
-                        Some(MaybeConfiguredBuildReportEntry::default())
-                    } else {
-                        None
-                    },
-                    configured: HashMap::new(),
-                    errors: Vec::new(),
-                });
-            entry.errors.push(BuildReportError {
-                message: format!("{:#}", e),
-            });
-            if let Some(unconfigured) = entry.compatible.as_mut() {
-                unconfigured.success = BuildOutcome::FAIL;
-            }
         }
     }
 
