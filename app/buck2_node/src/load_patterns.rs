@@ -227,7 +227,9 @@ fn apply_spec<T: PatternType>(
                 let (label_to_node, missing) = res.apply_spec(pkg_spec);
                 if let Some(missing) = missing {
                     match skip_missing_targets {
-                        MissingTargetBehavior::Fail => return Err(missing.into_error()),
+                        MissingTargetBehavior::Fail => {
+                            return Err(missing.into_errors().0);
+                        }
                         MissingTargetBehavior::Warn => {
                             console_message(missing.missing_targets_warning())
                         }

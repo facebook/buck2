@@ -567,7 +567,7 @@ fn build_targets_for_spec<'a>(
         if let Some(missing) = missing {
             match missing_target_behavior {
                 MissingTargetBehavior::Fail => {
-                    return Err(missing.into_error());
+                    return Err(missing.into_errors().0);
                 }
                 MissingTargetBehavior::Warn => {
                     // TODO: This should be reported in the build report eventually.

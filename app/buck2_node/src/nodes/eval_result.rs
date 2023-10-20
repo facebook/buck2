@@ -43,8 +43,6 @@ Did you mean one of the {num_targets} targets in {buildfile_path}?{similar_targe
         buildfile_path: Arc<BuildFilePath>,
         similar_targets: SuggestedSimilarTargets,
     },
-    #[error("Zero missing targets (internal error)")]
-    ZeroMissingTargets,
 }
 
 #[derive(Debug)]
@@ -58,24 +56,27 @@ pub struct MissingTargets {
 
 impl MissingTargets {
     /// Error message emitted when missing targets are not skipped.
-    pub fn into_error(mut self) -> anyhow::Error {
-        if self.missing_targets.is_empty() {
-            return EvalulationResultError::ZeroMissingTargets.into();
-        }
-        let target = self.missing_targets.swap_remove(0);
-        let similar_targets = SuggestedSimilarTargets::suggest(
-            target.name(),
-            self.package.dupe(),
-            self.all_target_labels.iter().map(|x| x.name()),
-        );
-        EvalulationResultError::UnknownTarget {
-            target: target.name().to_owned(),
-            package: self.package,
-            num_targets: self.num_targets,
-            buildfile_path: self.buildfile_path,
-            similar_targets,
-        }
-        .into()
+    pub fn into_errors(self) -> (anyhow::Error, impl Iterator<Item = anyhow::Error>) {
+        let mut iter = self.missing_targets.into_iter().map(move |target| {
+            let similar_targets = SuggestedSimilarTargets::suggest(
+                target.name(),
+                self.package.dupe(),
+                self.all_target_labels.iter().map(|x| x.name()),
+            );
+            EvalulationResultError::UnknownTarget {
+                target: target.name().to_owned(),
+                package: self.package.dupe(),
+                num_targets: self.num_targets,
+                buildfile_path: self.buildfile_path.dupe(),
+                similar_targets,
+            }
+            .into()
+        });
+        (
+            iter.next()
+                .expect("Should be guaranteed that this vec is non-empty in this same file"),
+            iter,
+        )
     }
 
     fn gen_missing_target_warning(mut missing_targets: Vec<TargetLabel>) -> String {
