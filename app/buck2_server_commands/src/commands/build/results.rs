@@ -42,7 +42,7 @@ pub mod result_report {
     }
 
     /// Simple container for multiple [`SharedError`]s
-    pub(crate) struct SharedErrors {
+    pub(crate) struct BuildErrors {
         pub errors: Vec<SharedError>,
     }
 
@@ -57,7 +57,7 @@ pub mod result_report {
     pub(crate) struct ResultReporter<'a> {
         artifact_fs: &'a ArtifactFs,
         options: ResultReporterOptions,
-        results: Result<Vec<proto::BuildTarget>, SharedErrors>,
+        results: Result<Vec<proto::BuildTarget>, BuildErrors>,
     }
 
     impl<'a> ResultReporter<'a> {
@@ -69,7 +69,7 @@ pub mod result_report {
             }
         }
 
-        pub(crate) fn results(self) -> Result<Vec<proto::BuildTarget>, SharedErrors> {
+        pub(crate) fn results(self) -> Result<Vec<proto::BuildTarget>, BuildErrors> {
             self.results
         }
     }
@@ -84,7 +84,7 @@ pub mod result_report {
                     Err(e) => {
                         match self.results.as_mut() {
                             Ok(..) => {
-                                self.results = Err(SharedErrors {
+                                self.results = Err(BuildErrors {
                                     errors: vec![e.dupe()],
                                 });
                             }
