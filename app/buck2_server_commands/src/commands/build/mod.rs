@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::BTreeMap;
 use std::io::BufWriter;
 use std::io::Write;
 use std::sync::Arc;
@@ -23,7 +22,7 @@ use buck2_artifact::artifact::artifact_dump::SymlinkInfo;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::build;
 use buck2_build_api::build::BuildEvent;
-use buck2_build_api::build::ConfiguredBuildTargetResult;
+use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConvertMaterializationContext;
 use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
 use buck2_build_api::build::MaterializationContext;
@@ -49,7 +48,6 @@ use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::TargetLabel;
@@ -274,7 +272,7 @@ async fn process_build_result(
     server_ctx: &dyn ServerCommandContextTrait,
     ctx: DiceTransaction,
     request: &buck2_cli_proto::BuildRequest,
-    build_result: BTreeMap<ConfiguredProvidersLabel, ConfiguredBuildTargetResult>,
+    build_result: BuildTargetResult,
 ) -> anyhow::Result<buck2_cli_proto::BuildResponse> {
     let fs = server_ctx.project_root();
     let cwd = server_ctx.working_dir();
@@ -318,7 +316,9 @@ async fn process_build_result(
     };
 
     let mut provider_artifacts = Vec::new();
-    for (k, v) in build_result {
+    for (k, v) in build_result.configured {
+        // We omit skipped targets here.
+        let Some(v) = v else { continue };
         let owner = BuildOwner::Target(&k);
         result_collector.collect_result(&owner, &v);
         if let Some(c) = build_report_collector.as_mut() {
@@ -414,7 +414,7 @@ async fn build_targets(
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
     want_configured_graph_size: bool,
-) -> anyhow::Result<BTreeMap<ConfiguredProvidersLabel, ConfiguredBuildTargetResult>> {
+) -> anyhow::Result<BuildTargetResult> {
     let stream = match target_resolution_config {
         TargetResolutionConfig::Default(global_target_platform) => {
             let spec = spec.convert_pattern().context(
@@ -444,14 +444,7 @@ async fn build_targets(
         .right_stream(),
     };
 
-    // We omit skipped targets here.
-    let res = ConfiguredBuildTargetResult::collect_stream(stream, fail_fast)
-        .await?
-        .into_iter()
-        .filter_map(|(k, v)| Some((k, v?)))
-        .collect();
-
-    Ok(res)
+    BuildTargetResult::collect_stream(stream, fail_fast).await
 }
 
 fn build_targets_in_universe<'a>(

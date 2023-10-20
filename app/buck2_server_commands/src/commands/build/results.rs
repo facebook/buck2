@@ -200,6 +200,7 @@ pub mod build_report {
     use std::collections::HashMap;
 
     use buck2_build_api::build::BuildProviderType;
+    use buck2_build_api::build::ConfiguredBuildTargetResult;
     use buck2_core::configuration::compatibility::MaybeCompatible;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -219,7 +220,6 @@ pub mod build_report {
 
     use crate::commands::build::results::BuildOwner;
     use crate::commands::build::results::BuildResultCollector;
-    use crate::commands::build::ConfiguredBuildTargetResult;
 
     #[derive(Debug, Serialize)]
     #[allow(clippy::upper_case_acronyms)] // We care about how they serialise

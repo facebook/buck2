@@ -75,11 +75,15 @@ pub struct ConfiguredBuildTargetResultGen<T> {
 pub type ConfiguredBuildTargetResult =
     ConfiguredBuildTargetResultGen<SharedResult<ProviderArtifacts>>;
 
-impl ConfiguredBuildTargetResult {
+pub struct BuildTargetResult {
+    pub configured: BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
+}
+
+impl BuildTargetResult {
     pub async fn collect_stream(
         mut stream: impl Stream<Item = anyhow::Result<BuildEvent>> + Unpin,
         fail_fast: bool,
-    ) -> anyhow::Result<BTreeMap<ConfiguredProvidersLabel, Option<Self>>> {
+    ) -> anyhow::Result<Self> {
         // Create a map of labels to outputs, but retain the expected index of each output.
         let mut res = HashMap::<
             ConfiguredProvidersLabel,
@@ -178,7 +182,7 @@ impl ConfiguredBuildTargetResult {
             })
             .collect();
 
-        Ok(res)
+        Ok(Self { configured: res })
     }
 }
 
