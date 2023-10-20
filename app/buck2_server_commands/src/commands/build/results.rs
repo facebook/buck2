@@ -229,14 +229,14 @@ pub mod build_report {
     pub(crate) struct BuildReport {
         trace_id: TraceId,
         success: bool,
-        results: HashMap<EntryLabel, ConfiguredBuildReportEntry>,
+        results: HashMap<EntryLabel, BuildReportEntry>,
         failures: HashMap<EntryLabel, ProjectRelativePathBuf>,
         project_root: AbsNormPathBuf,
         truncated: bool,
     }
 
     #[derive(Default, Debug, Serialize)]
-    pub(crate) struct BuildReportEntry {
+    pub(crate) struct ConfiguredBuildReportEntry {
         /// whether this particular target was successful
         success: BuildOutcome,
         /// a map of each subtarget of the current target (outputted as a `|` delimited list) to
@@ -251,13 +251,13 @@ pub mod build_report {
     }
 
     #[derive(Debug, Serialize)]
-    pub(crate) struct ConfiguredBuildReportEntry {
+    pub(crate) struct BuildReportEntry {
         #[serde(flatten)]
         #[serde(skip_serializing_if = "Option::is_none")]
-        compatible: Option<BuildReportEntry>,
+        compatible: Option<ConfiguredBuildReportEntry>,
 
         /// the configured entry
-        configured: HashMap<ConfigurationData, BuildReportEntry>,
+        configured: HashMap<ConfigurationData, ConfiguredBuildReportEntry>,
     }
 
     #[derive(Derivative, Serialize, Eq, PartialEq, Hash)]
@@ -272,7 +272,7 @@ pub mod build_report {
     pub(crate) struct BuildReportCollector<'a> {
         trace_id: &'a TraceId,
         artifact_fs: &'a ArtifactFs,
-        build_report_results: HashMap<EntryLabel, ConfiguredBuildReportEntry>,
+        build_report_results: HashMap<EntryLabel, BuildReportEntry>,
         overall_success: bool,
         project_root: &'a ProjectRoot,
         include_unconfigured_section: bool,
@@ -367,9 +367,9 @@ pub mod build_report {
                 .entry(match label {
                     BuildOwner::Target(t) => EntryLabel::Target(t.unconfigured().target().dupe()),
                 })
-                .or_insert_with(|| ConfiguredBuildReportEntry {
+                .or_insert_with(|| BuildReportEntry {
                     compatible: if self.include_unconfigured_section {
-                        Some(BuildReportEntry::default())
+                        Some(ConfiguredBuildReportEntry::default())
                     } else {
                         None
                     },
@@ -382,7 +382,7 @@ pub mod build_report {
                 .entry(match label {
                     BuildOwner::Target(t) => t.cfg().dupe(),
                 })
-                .or_insert_with(BuildReportEntry::default);
+                .or_insert_with(ConfiguredBuildReportEntry::default);
             if !default_outs.is_empty() {
                 if let Some(report) = unconfigured_report {
                     report.outputs.insert(
