@@ -10,12 +10,8 @@
 // Because Buck build uses different version of Rust than Cargo build.
 #![allow(stable_features)]
 #![feature(absolute_path)]
-#![feature(const_fn_fn_ptr_basics)]
-#![feature(const_fn_trait_bound)]
-#![feature(const_panic)]
 #![feature(control_flow_enum)]
 #![feature(fs_try_exists)]
-#![feature(termination_trait_lib)]
 #![feature(try_trait_v2)]
 #![feature(type_alias_impl_trait)]
 #![feature(never_type)]
