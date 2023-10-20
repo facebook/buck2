@@ -278,7 +278,7 @@ pub mod build_report {
         errors: Vec<BuildReportError>,
     }
 
-    #[derive(Debug, Serialize)]
+    #[derive(Debug, Clone, Serialize, PartialOrd, Ord, PartialEq, Eq)]
     pub(crate) struct BuildReportError {
         message: String,
     }
@@ -337,10 +337,10 @@ pub mod build_report {
 
     impl<'a> BuildResultCollector for BuildReportCollector<'a> {
         fn collect_result(&mut self, label: &BuildOwner, result: &BuildTargetResult) {
-            let (default_outs, other_outs, success) = {
+            let (default_outs, other_outs, errors) = {
                 let mut default_outs = SmallSet::new();
                 let mut other_outs = SmallSet::new();
-                let mut success = true;
+                let mut errors = Vec::new();
 
                 result.outputs.iter().for_each(|res| {
                     match res {
@@ -378,11 +378,15 @@ pub mod build_report {
                                 }
                             }
                         }
-                        Err(..) => success = false,
+                        Err(e) => {
+                            errors.push(BuildReportError {
+                                message: format!("{:#}", e),
+                            });
+                        }
                     }
                 });
 
-                (default_outs, other_outs, success)
+                (default_outs, other_outs, errors)
             };
 
             let report_results = self
@@ -434,11 +438,15 @@ pub mod build_report {
                 );
             }
 
-            if !success {
-                if let Some(report) = unconfigured_report {
-                    report.success = BuildOutcome::FAIL;
+            if !errors.is_empty() {
+                if let Some(unconfigured_report) = unconfigured_report {
+                    unconfigured_report.success = BuildOutcome::FAIL;
                 }
                 configured_report.inner.success = BuildOutcome::FAIL;
+                configured_report.errors.extend(errors);
+                // Keep the output deterministic
+                configured_report.errors.sort_unstable();
+
                 self.overall_success = false;
             }
 
