@@ -5,9 +5,20 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(":common.bzl", "location_to_string", "modifier_key_to_constraint_setting")
+load(
+    ":common.bzl",
+    "get_modifier_info",
+    "modifier_key_to_constraint_setting",
+    "modifier_to_refs",
+    "resolve_modifier",
+)
 load(":name.bzl", "cfg_name")
-load(":types.bzl", "CfgModifierCliLocation", "CfgModifierInfoWithLocation", "CfgModifierWithLocation")
+load(
+    ":types.bzl",
+    "CfgModifierCliLocation",
+    "CfgModifierInfoWithLocation",
+    "CfgModifierWithLocation",
+)
 
 PostConstraintAnalysisParams = record(
     legacy_platform = PlatformInfo | None,
@@ -56,7 +67,7 @@ def cfg_constructor_pre_constraint_analysis(
     refs = []
     for constraint_setting, modifier_with_loc in package_and_target_modifiers.items():
         refs.append(constraint_setting)
-        refs.append(modifier_with_loc.modifier)
+        refs.extend(modifier_to_refs(modifier_with_loc.modifier, constraint_setting, modifier_with_loc.location))
     refs.extend(cli_modifiers)
 
     return refs, PostConstraintAnalysisParams(
@@ -69,22 +80,16 @@ def _get_constraint_setting_and_modifier_info(
         refs: dict[str, ProviderCollection],
         constraint_setting: str,
         modifier_with_loc: CfgModifierWithLocation) -> (TargetLabel, CfgModifierInfoWithLocation):
-    constraint_value_info = refs[modifier_with_loc.modifier][ConstraintValueInfo]
-    constraint_setting_info = refs[constraint_setting][ConstraintSettingInfo]
-    if constraint_setting_info.label != constraint_value_info.setting.label:
-        fail(
-            (
-                "Mismatched constraint setting and modifier: modifier `{}` from `{}` modifies constraint setting `{}`, but the provided constraint setting is `{}`"
-            ).format(
-                modifier_with_loc.modifier,
-                location_to_string(modifier_with_loc.location),
-                constraint_value_info.setting.label,
-                constraint_setting,
-            ),
-        )
-    return constraint_setting_info.label, CfgModifierInfoWithLocation(
-        modifier_info = constraint_value_info,
-        setting = constraint_setting_info,
+    modifier_info = get_modifier_info(
+        refs = refs,
+        modifier = modifier_with_loc.modifier,
+        constraint_setting = constraint_setting,
+        location = modifier_with_loc.location,
+    )
+    constraint_setting = refs[constraint_setting][ConstraintSettingInfo]
+    return constraint_setting.label, CfgModifierInfoWithLocation(
+        modifier_info = modifier_info,
+        setting = constraint_setting,
         location = modifier_with_loc.location,
     )
 
@@ -133,21 +138,22 @@ def cfg_constructor_post_constraint_analysis(
             ),
         )
 
-    constraints = {}
+    cfg = ConfigurationInfo(
+        constraints = {},
+        values = {},
+    )
     for constraint_setting, modifier_info_with_loc in modifier_infos_with_loc.items():
-        constraints[constraint_setting] = modifier_info_with_loc.modifier_info
+        constraint_value = resolve_modifier(cfg, modifier_info_with_loc.modifier_info)
+        if constraint_value:
+            cfg.constraints[constraint_setting] = constraint_value
 
     if params.legacy_platform:
         # For backwards compatibility with legacy target platform, any constraint setting
         # from legacy target platform not covered by modifiers will be added to the configuration
         for key, value in params.legacy_platform.configuration.constraints.items():
-            if key not in constraints:
-                constraints[key] = value
+            if key not in cfg.constraints:
+                cfg.constraints[key] = value
 
-    cfg = ConfigurationInfo(
-        constraints = constraints,
-        values = {},
-    )
     name = cfg_name(cfg)
     return PlatformInfo(
         label = name,

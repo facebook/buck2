@@ -11,6 +11,7 @@ load(
     "CfgModifier",
     "CfgModifierCliLocation",
     "CfgModifierInfo",
+    "CfgModifierInfoWithLocation",
     "CfgModifierLocation",
     "CfgModifierPackageLocation",
     "CfgModifierTargetLocation",
@@ -63,12 +64,22 @@ def verify_normalized_target(target: str, param_context: str, location: CfgModif
 _CONSTRAINT_SETTING_PARAM = "constraint_setting"
 _MODIFIER_PARAM = "modifier"
 
+def verify_normalized_modifier(modifier: CfgModifier, location: CfgModifierLocation):
+    if isinstance(modifier, ModifierSelect):
+        for key, sub_modifier in modifier.selector.items():
+            if key != "DEFAULT":
+                verify_normalized_modifier(sub_modifier, location)
+    elif isinstance(modifier, str):
+        verify_normalized_target(modifier, _MODIFIER_PARAM, location)
+    else:
+        fail("Found unexpected modifier `{}` type `{}`".format(modifier, type(modifier)))
+
 def cfg_modifier_common_impl(
         constraint_setting: str,
         modifier: CfgModifier,
         location: CfgModifierLocation) -> (str, CfgModifierWithLocation):
     verify_normalized_target(constraint_setting, _CONSTRAINT_SETTING_PARAM, location)
-    verify_normalized_target(modifier, _MODIFIER_PARAM, location)
+    verify_normalized_modifier(modifier, location)
 
     modifier_key = constraint_setting_to_modifier_key(constraint_setting)
     modifier_with_loc = CfgModifierWithLocation(
@@ -114,6 +125,18 @@ def get_modifier_info(
         return refs[modifier][ConstraintValueInfo]
     fail("Internal error: Found unexpected modifier `{}` type `{}`".format(modifier, type(modifier)))
 
+def get_modifier_info_with_loc(
+        refs: dict[str, ProviderCollection],
+        constraint_setting: str,
+        modifier_with_loc: CfgModifierWithLocation) -> (TargetLabel, CfgModifierInfoWithLocation):
+    modifier_info = get_modifier_info(refs, modifier_with_loc.modifier)
+    constraint_setting = refs[constraint_setting][ConstraintSettingInfo]
+    return constraint_setting.label, CfgModifierInfoWithLocation(
+        setting = constraint_setting,
+        modifier_info = modifier_info,
+        location = modifier_with_loc.location,
+    )
+
 def _is_subset(a: ConfigurationInfo, b: ConfigurationInfo) -> bool:
     for (constraint_setting, a_constraint_value) in a.constraints.items():
         b_constraint_value = b.constraints.get(constraint_setting)
@@ -135,3 +158,17 @@ def resolve_modifier(cfg: ConfigurationInfo, modifier: CfgModifierInfo) -> Const
     if isinstance(modifier, ConstraintValueInfo):
         return modifier
     fail("Internal error: Found unexpected modifier `{}` type `{}`".format(modifier, type(modifier)))
+
+def modifier_to_refs(modifier: CfgModifier, constraint_setting: str, location: CfgModifierLocation) -> list[str]:
+    # Obtain a list of targets to analyze from a modifier.
+    refs = []
+    if isinstance(modifier, ModifierSelect):
+        for key, sub_modifier in modifier.selector.items():
+            if key != "DEFAULT":
+                refs.append(key)
+            refs.extend(modifier_to_refs(sub_modifier, constraint_setting, location))
+    elif isinstance(modifier, str):
+        refs.append(modifier)
+    else:
+        fail("Internal error: Found unexpected modifier `{}` type `{}`".format(modifier, type(modifier)))
+    return refs
