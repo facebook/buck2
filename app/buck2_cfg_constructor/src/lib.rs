@@ -39,6 +39,7 @@ use futures::future::try_join_all;
 use starlark::collections::SmallMap;
 use starlark::collections::SmallSet;
 use starlark::environment::Module;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::structs::AllocStruct;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
@@ -99,7 +100,7 @@ impl CfgConstructorImpl for CfgConstructor {
                     )];
 
                     // Type check + unpack
-                    let (refs, params) = <(Vec<String>, Value)>::unpack_value_err(
+                    let (refs, params) = <(UnpackListOrTuple<String>, Value)>::unpack_value_err(
                         eval.eval_function(
                             cfg_constructor
                                 .cfg_constructor_pre_constraint_analysis
@@ -110,7 +111,7 @@ impl CfgConstructorImpl for CfgConstructor {
                     )?;
 
                     // `params` Value lives on eval.heap() so we need to move eval out of the closure to keep it alive
-                    Ok((refs, params, eval))
+                    Ok((refs.items, params, eval))
                 },
             )
             .await?;
