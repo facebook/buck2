@@ -26,6 +26,7 @@
 pub mod artifact;
 pub mod box_slice_set;
 pub mod calculation;
+mod error;
 pub mod execute;
 pub mod impls;
 pub mod key;

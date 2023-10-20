@@ -40,6 +40,8 @@ use ref_cast::RefCast;
 use smallvec::SmallVec;
 use tracing::debug;
 
+use crate::actions::error::late_format_action_error;
+use crate::actions::error::ActionError;
 use crate::actions::execute::action_executor::ActionOutputs;
 use crate::actions::execute::action_executor::HasActionExecutor;
 use crate::actions::key::ActionKeyExt;
@@ -178,11 +180,6 @@ async fn build_action_no_redirect(
                 }
             }
             Err(e) => {
-                // Because we already are sending the error message in the `ActionError` event, we
-                // slim the error down in the result. We can then unconditionally print the error
-                // message for compute(), including ones near the beginning of this method, and also
-                // not duplicate any error messages.
-                action_result = Err(anyhow::anyhow!("Failed to build '{}'", action.owner()));
                 // TODO (torozco): Remove (see protobuf file)?
                 execution_kind = command_reports
                     .last()
@@ -197,14 +194,30 @@ async fn build_action_no_redirect(
                 buck2_build_time = buck2_build_info::time_iso8601().map(|s| s.to_owned());
                 hostname = buck2_events::metadata::hostname();
 
-                ctx.per_transaction_data().get_dispatcher().instant_event(
-                    buck2_data::ActionError {
-                        key: Some(action_key.clone()),
-                        name: Some(action_name.clone()),
-                        error: Some(e.as_action_error_proto()),
-                        last_command: commands.last().cloned(),
-                    },
-                );
+                let action_error_event = buck2_data::ActionError {
+                    key: Some(action_key.clone()),
+                    name: Some(action_name.clone()),
+                    error: Some(e.as_action_error_proto()),
+                    last_command: commands.last().cloned(),
+                };
+
+                ctx.per_transaction_data()
+                    .get_dispatcher()
+                    .instant_event(action_error_event.clone());
+
+                let action_error = ActionError {
+                    event: action_error_event,
+                    owner: action.owner().dupe(),
+                };
+                action_result = Err(buck2_error::Error::new_with_late_format(
+                    action_error,
+                    late_format_action_error,
+                )
+                // Make sure to mark the error as emitted so that it is not printed out to console
+                // again in this command. We still need to keep it around for the build report (and
+                // in the future) other commands
+                .mark_emitted()
+                .into());
             }
         };
 
