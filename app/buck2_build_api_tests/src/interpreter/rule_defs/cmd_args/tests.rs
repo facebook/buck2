@@ -111,8 +111,8 @@ fn displays_correctly() -> SharedResult<()> {
             cli.add("foo")
             cli.hidden("bar")
             # TODO(nga): fix options formatting.
-            assert_eq('cmd_args("foo", hidden=["bar"], options=format = ValueTyped(Value("x{}y")), quote = "shell")', str(cli))
-            assert_eq('cmd_args(\n  "foo",\n  hidden=[ "bar" ],\n  options=format = ValueTyped(Value("x{}y")), quote = "shell"\n)', pprint_str(cli))
+            assert_eq('cmd_args("foo", hidden=["bar"], format="x{}y", quote="shell")', str(cli))
+            assert_eq('cmd_args(\n  "foo",\n  hidden=[ "bar" ],\n  format="x{}y",\n  quote="shell"\n)', pprint_str(cli))
         "#
     ))?;
 
@@ -128,7 +128,7 @@ fn displays_correctly_replace_regex() {
         def test():
             cli = cmd_args()
             cli.replace_regex(regex("foo"), "bar")
-            assert_eq('cmd_args(options=replacements = [("foo", "bar")])', str(cli))
+            assert_eq('cmd_args(replacements=[("foo", "bar")])', str(cli))
         "#
         ))
         .unwrap();

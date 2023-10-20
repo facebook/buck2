@@ -131,9 +131,12 @@ impl<'v, F: Fields<'v>> Display for FieldsRef<'v, F> {
                             }
                             display_pair("hidden", "=", Wrapper(hidden))
                         }),
-                    self.0.options().iter().map(|options| {
-                        display_pair("options", "=", options.to_command_line_options())
-                    }),
+                    self.0
+                        .options()
+                        .map(|o| o.to_command_line_options())
+                        .unwrap_or_default()
+                        .iter_fields_display()
+                        .map(|(k, v)| display_pair(k, "=", v)),
                 ),
             ),
         )

@@ -22,7 +22,6 @@ use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_interpreter::types::project_root::ProjectRoot;
 use buck2_interpreter::types::regex::BuckStarlarkRegex;
-use buck2_util::commas::commas;
 use buck2_util::thin_box::ThinBoxSlice;
 use derive_more::Display;
 use display_container::fmt_container;
@@ -56,7 +55,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
 
 /// Supported ways of quoting arguments.
-#[derive(Debug, Clone, Dupe, Trace, Freeze, Serialize, Allocative)]
+#[derive(Debug, Clone, Copy, Dupe, Trace, Freeze, Serialize, Allocative)]
 pub enum QuoteStyle {
     /// Quote arguments for Unix shell:
     /// <https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html>
@@ -117,6 +116,7 @@ pub(crate) struct CommandLineOptions<'v> {
     pub(crate) replacements: Option<Box<Vec<(CmdArgsRegex<'v>, StringValue<'v>)>>>,
 }
 
+#[derive(Clone, Copy, Dupe)]
 pub(crate) enum OptionsReplacementsRef<'v, 'a> {
     Unfrozen(&'a [(CmdArgsRegex<'v>, StringValue<'v>)]),
     Frozen(&'a [(FrozenCmdArgsRegex, FrozenStringValue)]),
@@ -431,57 +431,6 @@ where
     }
 }
 
-impl<'v, 'a> Display for CommandLineOptionsRef<'v, 'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut comma = commas();
-        if let Some((v, i)) = &self.relative_to {
-            comma(f)?;
-            write!(f, "relative_to = {}", v)?;
-            if *i != 0 {
-                comma(f)?;
-                write!(f, "relative_to_parent = {}", i)?;
-            }
-        }
-        if let Some(v) = &self.absolute_prefix {
-            comma(f)?;
-            write!(f, "absolute_prefix = {}", v)?;
-        }
-        if let Some(v) = &self.absolute_suffix {
-            comma(f)?;
-            write!(f, "absolute_suffix = {}", v)?;
-        }
-        if self.parent != 0 {
-            comma(f)?;
-            write!(f, "parent = {}", self.parent)?;
-        }
-        if self.ignore_artifacts {
-            comma(f)?;
-            write!(f, "ignore_artifacts = True")?;
-        }
-        if let Some(v) = &self.delimiter {
-            comma(f)?;
-            write!(f, "delimiter = {:?}", v)?;
-        }
-        if let Some(v) = &self.format {
-            comma(f)?;
-            write!(f, "format = {:?}", v)?;
-        }
-        if let Some(v) = &self.prepend {
-            comma(f)?;
-            write!(f, "prepend = {:?}", v)?;
-        }
-        if let Some(v) = &self.quote {
-            comma(f)?;
-            write!(f, "quote = \"{}\"", v)?;
-        }
-        if !self.replacements.is_empty() {
-            comma(f)?;
-            write!(f, "replacements = {}", self.replacements)?;
-        }
-        Ok(())
-    }
-}
-
 // NOTE: This is an enum as opposed to a trait because of the `C` parameter on (which is required
 // because upcasting is not stable).
 #[derive(Display)]
@@ -768,4 +717,88 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
 
         Ok(Some(relative_path))
     }
+
+    pub(crate) fn iter_fields_display(
+        &self,
+    ) -> impl Iterator<Item = (&'static str, CommandLineOptionsIterItem<'v, 'x>)> {
+        let CommandLineOptionsRef {
+            relative_to,
+            absolute_prefix,
+            absolute_suffix,
+            parent,
+            ignore_artifacts,
+            delimiter,
+            format,
+            prepend,
+            quote,
+            replacements,
+        } = self;
+
+        // This can be implemented without allocation,
+        // but generic version with iterator chain chain chain...
+        // or either either either... leads to compilation of the crate slowing down
+        // from 15s to minutes, and a fight against the borrow checker.
+        let mut iter = Vec::new();
+
+        if let Some((value, index)) = relative_to {
+            iter.push(("relative_to", CommandLineOptionsIterItem::Value(*value)));
+            if *index != 0 {
+                iter.push((
+                    "relative_to_parent",
+                    CommandLineOptionsIterItem::Usize(*index),
+                ));
+            }
+        }
+
+        if let Some(value) = absolute_prefix {
+            iter.push((
+                "absolute_prefix",
+                CommandLineOptionsIterItem::StringValue(*value),
+            ));
+        }
+        if let Some(value) = absolute_suffix {
+            iter.push((
+                "absolute_suffix",
+                CommandLineOptionsIterItem::StringValue(*value),
+            ));
+        }
+        if *parent != 0 {
+            iter.push(("parent", CommandLineOptionsIterItem::U32(*parent)));
+        }
+        if *ignore_artifacts {
+            iter.push(("ignore_artifacts", CommandLineOptionsIterItem::Str("True")));
+        }
+        if let Some(value) = delimiter {
+            iter.push(("delimiter", CommandLineOptionsIterItem::StringValue(*value)));
+        }
+        if let Some(value) = format {
+            iter.push(("format", CommandLineOptionsIterItem::StringValue(*value)));
+        }
+        if let Some(value) = prepend {
+            iter.push(("prepend", CommandLineOptionsIterItem::StringValue(*value)));
+        }
+        if let Some(value) = quote {
+            iter.push(("quote", CommandLineOptionsIterItem::QuoteStyle(*value)));
+        }
+        if !replacements.is_empty() {
+            iter.push((
+                "replacements",
+                CommandLineOptionsIterItem::Replacements(*replacements),
+            ));
+        }
+
+        iter.into_iter()
+    }
+}
+
+#[derive(derive_more::Display)]
+pub(crate) enum CommandLineOptionsIterItem<'v, 'a> {
+    U32(u32),
+    Usize(usize),
+    Value(Value<'v>),
+    Str(&'static str),
+    StringValue(StringValue<'v>),
+    Replacements(OptionsReplacementsRef<'v, 'a>),
+    #[display(fmt = "\"{}\"", _0)]
+    QuoteStyle(QuoteStyle),
 }
