@@ -100,8 +100,7 @@ pub mod result_report {
             let outputs = result
                 .outputs
                 .iter()
-                .filter_map(|output| output.as_ref().ok())
-                .collect::<Vec<_>>();
+                .filter_map(|output| output.as_ref().ok());
 
             let artifacts = if self.options.return_outputs {
                 // NOTE: We use an SmallMap here to preserve the order the rule author wrote, all
