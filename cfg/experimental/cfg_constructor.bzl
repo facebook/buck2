@@ -7,7 +7,7 @@
 
 load(":common.bzl", "location_to_string", "modifier_key_to_constraint_setting")
 load(":name.bzl", "cfg_name")
-load(":types.bzl", "CfgModifierCliLocation", "CfgModifierInfo", "CfgModifierInfoWithLocation", "CfgModifierWithLocation")
+load(":types.bzl", "CfgModifierCliLocation", "CfgModifierInfoWithLocation", "CfgModifierWithLocation")
 
 PostConstraintAnalysisParams = record(
     legacy_platform = PlatformInfo | None,
@@ -83,10 +83,8 @@ def _get_constraint_setting_and_modifier_info(
             ),
         )
     return constraint_setting_info.label, CfgModifierInfoWithLocation(
-        modifier_info = CfgModifierInfo(
-            modifier = constraint_value_info,
-            setting = constraint_setting_info,
-        ),
+        modifier_info = constraint_value_info,
+        setting = constraint_setting_info,
         location = modifier_with_loc.location,
     )
 
@@ -117,10 +115,8 @@ def cfg_constructor_post_constraint_analysis(
     for modifier in params.cli_modifiers:
         constraint_value_info = refs[modifier][ConstraintValueInfo]
         modifier_infos_with_loc[constraint_value_info.setting.label] = CfgModifierInfoWithLocation(
-            modifier_info = CfgModifierInfo(
-                modifier = constraint_value_info,
-                setting = constraint_value_info.setting,
-            ),
+            modifier_info = constraint_value_info,
+            setting = constraint_value_info.setting,
             location = CfgModifierCliLocation(),
         )
 
@@ -139,7 +135,7 @@ def cfg_constructor_post_constraint_analysis(
 
     constraints = {}
     for constraint_setting, modifier_info_with_loc in modifier_infos_with_loc.items():
-        constraints[constraint_setting] = modifier_info_with_loc.modifier_info.modifier
+        constraints[constraint_setting] = modifier_info_with_loc.modifier_info
 
     if params.legacy_platform:
         # For backwards compatibility with legacy target platform, any constraint setting

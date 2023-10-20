@@ -24,7 +24,12 @@ CfgModifierLocation = CfgModifierPackageLocation | CfgModifierTargetLocation | C
 
 # Modifier types as how they appear to the user via `set_cfg_modifier` or `cfg_modifier` function.
 
-CfgModifier = str
+ModifierSelect = record(
+    # should be dict[str, "CfgModifier"] once recursive types are supported
+    selector = dict[str, typing.Any],
+)
+
+CfgModifier = str | ModifierSelect
 
 CfgModifierWithLocation = record(
     modifier = CfgModifier,
@@ -36,12 +41,16 @@ CfgModifierWithLocation = record(
 # An "Info" is added to the type name to denote post-constraint-analysis version of the
 # modifier type.
 
-CfgModifierInfo = record(
-    modifier = ConstraintValueInfo,
-    setting = ConstraintSettingInfo,
+ModifierSelectInfo = record(
+    # should be list[(ConfigurationInfo, "CfgModifierInfo")] once recursive types are supported
+    selector = list[(ConfigurationInfo, typing.Any)],
+    default = typing.Any,  # should be "CfgModifierInfo" | None with recursive types
 )
 
+CfgModifierInfo = ConstraintValueInfo | ModifierSelectInfo
+
 CfgModifierInfoWithLocation = record(
+    setting = ConstraintSettingInfo,
     modifier_info = CfgModifierInfo,
     location = CfgModifierLocation,
 )
