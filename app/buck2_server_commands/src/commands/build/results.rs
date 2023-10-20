@@ -157,8 +157,8 @@ pub mod result_report {
 
                     let artifact_fs = &self.artifact_fs;
 
-                    artifacts
-                        .into_iter()
+                    // Write it this way because `.into_iter()` gets rust-analyzer confused
+                    IntoIterator::into_iter(artifacts)
                         .map(|(a, providers)| proto::BuildOutput {
                             path: a.resolve_path(artifact_fs).unwrap().to_string(),
                             providers: Some(providers),
