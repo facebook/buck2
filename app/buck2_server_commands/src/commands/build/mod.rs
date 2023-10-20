@@ -130,6 +130,10 @@ impl ServerCommandTemplate for BuildServerCommand {
     fn is_success(&self, response: &Self::Response) -> bool {
         response.error_messages.is_empty()
     }
+
+    fn additional_telemetry_errors(&self, response: &Self::Response) -> Vec<String> {
+        response.error_messages.clone()
+    }
 }
 
 enum TargetResolutionConfig {
