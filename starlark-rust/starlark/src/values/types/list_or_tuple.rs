@@ -17,6 +17,9 @@
 
 //! Utility for unpacking a value of type `list[T]` or `tuple[T, ...]` into a vec.
 
+use std::slice;
+use std::vec;
+
 use either::Either;
 
 use crate::typing::Ty;
@@ -45,6 +48,33 @@ impl<'v, T: UnpackValue<'v>> UnpackValue<'v> for UnpackListOrTuple<T> {
             Either::Left(l) => Some(UnpackListOrTuple { items: l.items }),
             Either::Right(r) => Some(UnpackListOrTuple { items: r.items }),
         }
+    }
+}
+
+impl<T> IntoIterator for UnpackListOrTuple<T> {
+    type Item = T;
+    type IntoIter = vec::IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.into_iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a UnpackListOrTuple<T> {
+    type Item = &'a T;
+    type IntoIter = slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a mut UnpackListOrTuple<T> {
+    type Item = &'a mut T;
+    type IntoIter = slice::IterMut<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter_mut()
     }
 }
 

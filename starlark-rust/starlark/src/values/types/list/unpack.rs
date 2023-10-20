@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+use std::slice;
+use std::vec;
+
 use crate::typing::Ty;
 use crate::values::list::ListRef;
 use crate::values::type_repr::StarlarkTypeRepr;
@@ -42,6 +45,33 @@ impl<'v, T: UnpackValue<'v>> UnpackValue<'v> for UnpackList<T> {
             items.push(T::unpack_value(v)?);
         }
         Some(UnpackList { items })
+    }
+}
+
+impl<T> IntoIterator for UnpackList<T> {
+    type Item = T;
+    type IntoIter = vec::IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.into_iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a UnpackList<T> {
+    type Item = &'a T;
+    type IntoIter = slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a mut UnpackList<T> {
+    type Item = &'a mut T;
+    type IntoIter = slice::IterMut<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter_mut()
     }
 }
 
