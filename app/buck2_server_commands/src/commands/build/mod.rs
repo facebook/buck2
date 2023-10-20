@@ -21,6 +21,7 @@ use buck2_artifact::artifact::artifact_dump::FileInfo;
 use buck2_artifact::artifact::artifact_dump::SymlinkInfo;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::build;
+use buck2_build_api::build::BuildEvent;
 use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConfiguredBuildEvent;
 use buck2_build_api::build::ConvertMaterializationContext;
@@ -449,7 +450,7 @@ async fn build_targets(
             materialization_context,
             want_configured_graph_size,
         )
-        .map(Ok)
+        .map(|x| Ok(BuildEvent::Configured(x)))
         .right_stream(),
     };
 
@@ -497,7 +498,7 @@ fn build_targets_with_global_target_platform<'a>(
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
     want_configured_graph_size: bool,
-) -> impl Stream<Item = anyhow::Result<ConfiguredBuildEvent>> + Unpin + 'a {
+) -> impl Stream<Item = anyhow::Result<BuildEvent>> + Unpin + 'a {
     spec.specs
         .into_iter()
         .map(|(package, spec)| {
@@ -566,7 +567,7 @@ fn build_targets_for_spec<'a>(
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
     want_configured_graph_size: bool,
-) -> impl Stream<Item = anyhow::Result<ConfiguredBuildEvent>> + Unpin + 'a {
+) -> impl Stream<Item = anyhow::Result<BuildEvent>> + Unpin + 'a {
     async move {
         let skippable = match spec {
             PackageSpec::Targets(..) => skip_incompatible_targets,
@@ -615,7 +616,8 @@ fn build_targets_for_spec<'a>(
                 .boxed()
             })
             .collect::<FuturesUnordered<_>>()
-            .flatten_unordered(None);
+            .flatten_unordered(None)
+            .map(Ok);
 
         anyhow::Ok(stream)
     }
@@ -628,31 +630,33 @@ async fn build_target<'a>(
     spec: TargetBuildSpec,
     providers_to_build: &ProvidersToBuild,
     materialization_context: &MaterializationContext,
-) -> impl Stream<Item = anyhow::Result<ConfiguredBuildEvent>> + 'a {
-    let res = async {
-        let providers_label = ctx
-            .get_configured_provider_label(
-                &ProvidersLabel::new(spec.target.label().dupe(), spec.providers),
-                spec.global_target_platform.as_ref(),
-            )
-            .await?;
+) -> impl Stream<Item = BuildEvent> + 'a {
+    let providers_label = ProvidersLabel::new(spec.target.label().dupe(), spec.providers);
+    let providers_label = match ctx
+        .get_configured_provider_label(&providers_label, spec.global_target_platform.as_ref())
+        .await
+    {
+        Ok(l) => l,
+        Err(e) => {
+            return futures::stream::once(futures::future::ready(BuildEvent::OtherError {
+                label: Some(providers_label),
+                err: e.into(),
+            }))
+            .left_stream();
+        }
+    };
 
-        Ok(build::build_configured_label(
-            ctx,
-            materialization_context,
-            providers_label,
-            providers_to_build,
-            build::BuildConfiguredLabelOptions {
-                skippable: spec.skippable,
-                want_configured_graph_size: spec.want_configured_graph_size,
-            },
-        )
-        .await)
-    }
-    .await;
-
-    match res {
-        Ok(stream) => stream.map(Ok).left_stream(),
-        Err(e) => futures::stream::once(futures::future::ready(Err(e))).right_stream(),
-    }
+    build::build_configured_label(
+        ctx,
+        materialization_context,
+        providers_label,
+        providers_to_build,
+        build::BuildConfiguredLabelOptions {
+            skippable: spec.skippable,
+            want_configured_graph_size: spec.want_configured_graph_size,
+        },
+    )
+    .await
+    .map(BuildEvent::Configured)
+    .right_stream()
 }

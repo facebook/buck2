@@ -85,7 +85,7 @@ pub struct BuildTargetResult {
 
 impl BuildTargetResult {
     pub async fn collect_stream(
-        mut stream: impl Stream<Item = anyhow::Result<ConfiguredBuildEvent>> + Unpin,
+        mut stream: impl Stream<Item = anyhow::Result<BuildEvent>> + Unpin,
         fail_fast: bool,
     ) -> anyhow::Result<Self> {
         // Create a map of labels to outputs, but retain the expected index of each output.
@@ -93,8 +93,16 @@ impl BuildTargetResult {
             ConfiguredProvidersLabel,
             Option<ConfiguredBuildTargetResultGen<(usize, SharedResult<ProviderArtifacts>)>>,
         >::new();
+        let mut other_errors = BTreeMap::<_, Vec<_>>::new();
 
-        while let Some(ConfiguredBuildEvent { label, variant }) = stream.try_next().await? {
+        while let Some(event) = stream.try_next().await? {
+            let ConfiguredBuildEvent { variant, label } = match event {
+                BuildEvent::Configured(variant) => variant,
+                BuildEvent::OtherError { label: target, err } => {
+                    other_errors.entry(target).or_default().push(err);
+                    continue;
+                }
+            };
             match variant {
                 ConfiguredBuildEventVariant::SkippedIncompatible => {
                     res.entry((*label).clone()).or_insert(None);
@@ -188,7 +196,7 @@ impl BuildTargetResult {
 
         Ok(Self {
             configured: res,
-            other_errors: BTreeMap::new(),
+            other_errors,
         })
     }
 }
@@ -216,6 +224,15 @@ enum ConfiguredBuildEventVariant {
 pub struct ConfiguredBuildEvent {
     label: Arc<ConfiguredProvidersLabel>,
     variant: ConfiguredBuildEventVariant,
+}
+
+pub enum BuildEvent {
+    Configured(ConfiguredBuildEvent),
+    // An error that cannot be associated with a specific configured target
+    OtherError {
+        label: Option<ProvidersLabel>,
+        err: buck2_error::Error,
+    },
 }
 
 #[derive(Copy, Clone, Dupe, Debug)]

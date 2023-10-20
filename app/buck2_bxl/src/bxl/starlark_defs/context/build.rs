@@ -16,6 +16,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::build::build_configured_label;
 use buck2_build_api::build::BuildConfiguredLabelOptions;
+use buck2_build_api::build::BuildEvent;
 use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConfiguredBuildEvent;
 use buck2_build_api::build::ConvertMaterializationContext;
@@ -240,7 +241,7 @@ pub(crate) fn build<'v>(
                 .into_iter().collect::<FuturesUnordered<_>>().map(|v| v.into_iter().map(futures::future::ready).collect::<FuturesUnordered<_>>()).flatten();
 
             // TODO (torozco): support --fail-fast in BXL.
-            BuildTargetResult::collect_stream(stream.map(Ok), false).await
+            BuildTargetResult::collect_stream(stream.map(|x| Ok(BuildEvent::Configured(x))), false).await
         }.boxed_local())
     )?;
 
