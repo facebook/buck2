@@ -194,6 +194,7 @@ pub mod build_report {
     use std::collections::HashMap;
 
     use buck2_build_api::build::BuildProviderType;
+    use buck2_build_api::build::BuildTargetResult;
     use buck2_build_api::build::ConfiguredBuildTargetResult;
     use buck2_core::configuration::compatibility::MaybeCompatible;
     use buck2_core::configuration::data::ConfigurationData;
@@ -308,14 +309,15 @@ pub mod build_report {
     }
 
     impl<'a> BuildReportCollector<'a> {
-        pub(crate) fn new(
+        pub(crate) fn convert(
             trace_id: &'a TraceId,
             artifact_fs: &'a ArtifactFs,
             project_root: &'a ProjectRoot,
             include_unconfigured_section: bool,
             include_other_outputs: bool,
-        ) -> Self {
-            Self {
+            build_result: &BuildTargetResult,
+        ) -> BuildReport {
+            let mut out = Self {
                 trace_id,
                 artifact_fs,
                 build_report_results: HashMap::new(),
@@ -323,10 +325,23 @@ pub mod build_report {
                 project_root,
                 include_unconfigured_section,
                 include_other_outputs,
+            };
+            for (k, v) in &build_result.configured {
+                // We omit skipped targets here.
+                let Some(v) = v else { continue };
+                let owner = BuildOwner::Target(k);
+                out.collect_result(&owner, v);
             }
+            for (unconfigured, errors) in &build_result.other_errors {
+                for e in errors {
+                    out.handle_error(unconfigured, e);
+                }
+            }
+
+            out.into_report()
         }
 
-        pub(crate) fn into_report(self) -> BuildReport {
+        fn into_report(self) -> BuildReport {
             BuildReport {
                 trace_id: self.trace_id.dupe(),
                 success: self.overall_success,
@@ -339,11 +354,7 @@ pub mod build_report {
             }
         }
 
-        pub(crate) fn collect_result(
-            &mut self,
-            label: &BuildOwner,
-            result: &ConfiguredBuildTargetResult,
-        ) {
+        fn collect_result(&mut self, label: &BuildOwner, result: &ConfiguredBuildTargetResult) {
             let (default_outs, other_outs, mut errors) = {
                 let mut default_outs = SmallSet::new();
                 let mut other_outs = SmallSet::new();
@@ -473,7 +484,7 @@ pub mod build_report {
             }
         }
 
-        pub(crate) fn handle_error(&mut self, p: &Option<ProvidersLabel>, e: &buck2_error::Error) {
+        fn handle_error(&mut self, p: &Option<ProvidersLabel>, e: &buck2_error::Error) {
             self.overall_success = false;
             let Some(p) = p else {
                 // We have nowhere in the build report to put this error

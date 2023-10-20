@@ -85,7 +85,6 @@ use serde::ser::Serializer;
 use crate::commands::build::results::build_report::BuildReportCollector;
 use crate::commands::build::results::result_report::ResultReporter;
 use crate::commands::build::results::result_report::ResultReporterOptions;
-use crate::commands::build::results::BuildOwner;
 use crate::commands::build::unhashed_outputs::create_unhashed_outputs;
 
 mod results;
@@ -292,8 +291,8 @@ async fn process_build_result(
         &build_result,
     );
 
-    let mut build_report_collector = if build_opts.unstable_print_build_report {
-        Some(BuildReportCollector::new(
+    let build_report = if build_opts.unstable_print_build_report {
+        Some(BuildReportCollector::convert(
             server_ctx.events().trace_id(),
             &artifact_fs,
             server_ctx.project_root(),
@@ -311,27 +310,16 @@ async fn process_build_result(
             )
             .await?
             .unwrap_or(false),
+            &build_result,
         ))
     } else {
         None
     };
 
-    for (unconfigured, errors) in build_result.other_errors {
-        for e in errors {
-            if let Some(c) = build_report_collector.as_mut() {
-                c.handle_error(&unconfigured, &e);
-            }
-        }
-    }
-
     let mut provider_artifacts = Vec::new();
-    for (k, v) in build_result.configured {
+    for v in build_result.configured.into_values() {
         // We omit skipped targets here.
         let Some(v) = v else { continue };
-        let owner = BuildOwner::Target(&k);
-        if let Some(c) = build_report_collector.as_mut() {
-            c.collect_result(&owner, &v)
-        }
         let mut outputs = v.outputs.into_iter().filter_map(|output| match output {
             Ok(output) => Some(output),
             _ => None,
@@ -373,8 +361,7 @@ async fn process_build_result(
     }
 
     let mut serialized_build_report = None;
-    if let Some(build_report_collector) = build_report_collector {
-        let report = build_report_collector.into_report();
+    if let Some(report) = build_report {
         if !build_opts.unstable_build_report_filename.is_empty() {
             let file = fs_util::create_file(
                 fs.resolve(cwd)
