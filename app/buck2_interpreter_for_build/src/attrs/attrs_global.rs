@@ -34,7 +34,9 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
+use starlark::values::tuple::UnpackTuple;
 use starlark::values::NoSerialize;
 use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkValue;
@@ -204,13 +206,14 @@ fn attr_module(registry: &mut MethodsBuilder) {
     /// plan to execute things from this dependency as part of the compilation.
     fn exec_dep<'v>(
         #[starlark(this)] _this: Value<'v>,
-        #[starlark(require = named, default = Vec::new())] providers: Vec<Value<'v>>,
+        #[starlark(require = named, default = UnpackListOrTuple::default())]
+        providers: UnpackListOrTuple<Value<'v>>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkAttribute> {
         Attribute::check_not_relative_label(default, "attrs.exec_dep")?;
-        let required_providers = dep_like_attr_handle_providers_arg(providers)?;
+        let required_providers = dep_like_attr_handle_providers_arg(providers.items)?;
         let coercer = AttrType::exec_dep(required_providers);
         Attribute::attr(eval, default, doc, coercer)
     }
@@ -220,27 +223,29 @@ fn attr_module(registry: &mut MethodsBuilder) {
     /// dependencies will be used to select the execution platform for this rule.
     fn toolchain_dep<'v>(
         #[starlark(this)] _this: Value<'v>,
-        #[starlark(require = named, default = Vec::new())] providers: Vec<Value<'v>>,
+        #[starlark(require = named, default = UnpackListOrTuple::default())]
+        providers: UnpackListOrTuple<Value<'v>>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkAttribute> {
         Attribute::check_not_relative_label(default, "attrs.toolchain_dep")?;
-        let required_providers = dep_like_attr_handle_providers_arg(providers)?;
+        let required_providers = dep_like_attr_handle_providers_arg(providers.items)?;
         let coercer = AttrType::toolchain_dep(required_providers);
         Attribute::attr(eval, default, doc, coercer)
     }
 
     fn transition_dep<'v>(
         #[starlark(this)] _this: Value<'v>,
-        #[starlark(require = named, default = Vec::new())] providers: Vec<Value<'v>>,
+        #[starlark(require = named, default = UnpackListOrTuple::default())]
+        providers: UnpackListOrTuple<Value<'v>>,
         #[starlark(require = named)] cfg: Value<'v>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkAttribute> {
         Attribute::check_not_relative_label(default, "attrs.transition_dep")?;
-        let required_providers = dep_like_attr_handle_providers_arg(providers)?;
+        let required_providers = dep_like_attr_handle_providers_arg(providers.items)?;
         let transition_id = transition_id_from_value(cfg)?;
         let coercer = AttrType::transition_dep(required_providers, transition_id);
 
@@ -267,27 +272,29 @@ fn attr_module(registry: &mut MethodsBuilder) {
 
     fn configured_dep<'v>(
         #[starlark(this)] _this: Value<'v>,
-        #[starlark(require = named, default = Vec::new())] providers: Vec<Value<'v>>,
+        #[starlark(require = named, default = UnpackListOrTuple::default())]
+        providers: UnpackListOrTuple<Value<'v>>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkAttribute> {
         Attribute::check_not_relative_label(default, "attrs.configured_dep")?;
-        let required_providers = dep_like_attr_handle_providers_arg(providers)?;
+        let required_providers = dep_like_attr_handle_providers_arg(providers.items)?;
         let coercer = AttrType::configured_dep(required_providers);
         Attribute::attr(eval, default, doc, coercer)
     }
 
     fn split_transition_dep<'v>(
         #[starlark(this)] _this: Value<'v>,
-        #[starlark(require = named, default = Vec::new())] providers: Vec<Value<'v>>,
+        #[starlark(require = named, default = UnpackListOrTuple::default())]
+        providers: UnpackListOrTuple<Value<'v>>,
         #[starlark(require = named)] cfg: Value<'v>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkAttribute> {
         Attribute::check_not_relative_label(default, "attrs.split_transition_dep")?;
-        let required_providers = dep_like_attr_handle_providers_arg(providers)?;
+        let required_providers = dep_like_attr_handle_providers_arg(providers.items)?;
         let transition_id = transition_id_from_value(cfg)?;
         let coercer = AttrType::split_transition_dep(required_providers, transition_id);
 
@@ -331,24 +338,28 @@ fn attr_module(registry: &mut MethodsBuilder) {
     /// on the dependency.
     fn dep<'v>(
         #[starlark(this)] _this: Value<'v>,
-        #[starlark(require = named, default = Vec::new())] providers: Vec<Value<'v>>,
-        #[starlark(require = named, default = Vec::new())] pulls_plugins: Vec<Value<'v>>,
-        #[starlark(require = named, default = Either::Left(Vec::new()))]
-        pulls_and_pushes_plugins: Either<Vec<Value<'v>>, &'v AllPlugins>,
+        #[starlark(require = named, default = UnpackListOrTuple::default())]
+        providers: UnpackListOrTuple<Value<'v>>,
+        #[starlark(require = named, default = UnpackListOrTuple::default())]
+        pulls_plugins: UnpackListOrTuple<Value<'v>>,
+        #[starlark(require = named, default = Either::Left(UnpackListOrTuple::default()))]
+        pulls_and_pushes_plugins: Either<UnpackListOrTuple<Value<'v>>, &'v AllPlugins>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkAttribute> {
         Attribute::check_not_relative_label(default, "attrs.dep")?;
-        let required_providers = dep_like_attr_handle_providers_arg(providers)?;
+        let required_providers = dep_like_attr_handle_providers_arg(providers.items)?;
         let plugin_kinds = match pulls_and_pushes_plugins {
             Either::Right(_) => PluginKindSet::ALL,
             Either::Left(pulls_and_pushes_plugins) => {
                 let pulls_and_pushes_plugins: Vec<_> = pulls_and_pushes_plugins
+                    .items
                     .into_iter()
                     .map(plugin_kind_from_value)
                     .collect::<anyhow::Result<_>>()?;
                 let pulls_plugins: Vec<_> = pulls_plugins
+                    .items
                     .into_iter()
                     .map(plugin_kind_from_value)
                     .collect::<anyhow::Result<_>>()?;
@@ -473,7 +484,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
     /// Strings are matched case-insensitively, and always passed to the rule lowercase.
     fn r#enum<'v>(
         #[starlark(this)] _this: Value<'v>,
-        #[starlark(require = pos)] variants: Vec<String>,
+        #[starlark(require = pos)] variants: UnpackListOrTuple<String>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
@@ -481,7 +492,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
         // Value seems to usually be a `[String]`, listing the possible values of the
         // enumeration. Unfortunately, for things like `exported_lang_preprocessor_flags`
         // it ends up being `Type` which doesn't match the data we see.
-        Attribute::attr(eval, default, doc, AttrType::enumeration(variants)?)
+        Attribute::attr(eval, default, doc, AttrType::enumeration(variants.items)?)
     }
 
     fn configuration_label<'v>(
@@ -541,24 +552,24 @@ fn attr_module(registry: &mut MethodsBuilder) {
     /// Given a list of alternative attributes, selects the first that matches and gives that to the rule.
     fn one_of<'v>(
         #[starlark(this)] _this: Value<'v>,
-        #[starlark(args)] args: Vec<&StarlarkAttribute>,
+        #[starlark(args)] args: UnpackTuple<&StarlarkAttribute>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkAttribute> {
-        let coercer = AttrType::one_of(args.into_try_map(|arg| arg.coercer_for_inner())?);
+        let coercer = AttrType::one_of(args.items.into_try_map(|arg| arg.coercer_for_inner())?);
         Attribute::attr(eval, default, doc, coercer)
     }
 
     /// Takes a tuple of values and gives a tuple to the rule.
     fn tuple<'v>(
         #[starlark(this)] _this: Value<'v>,
-        #[starlark(args)] args: Vec<&StarlarkAttribute>,
+        #[starlark(args)] args: UnpackTuple<&StarlarkAttribute>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkAttribute> {
-        let coercer = AttrType::tuple(args.into_try_map(|arg| arg.coercer_for_inner())?);
+        let coercer = AttrType::tuple(args.items.into_try_map(|arg| arg.coercer_for_inner())?);
         Attribute::attr(eval, default, doc, coercer)
     }
 

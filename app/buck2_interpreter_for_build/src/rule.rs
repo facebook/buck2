@@ -43,6 +43,7 @@ use starlark::starlark_simple_value;
 use starlark::typing::Param;
 use starlark::typing::Ty;
 use starlark::values::dict::DictOf;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::AllocValue;
@@ -422,7 +423,8 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         #[starlark(require = named, default = false)] is_configuration_rule: bool,
         #[starlark(require = named, default = false)] is_toolchain_rule: bool,
-        #[starlark(require = named, default = Vec::new())] uses_plugins: Vec<Value<'v>>,
+        #[starlark(require = named, default = UnpackListOrTuple::default())]
+        uses_plugins: UnpackListOrTuple<Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<RuleCallable<'v>> {
         RuleCallable::new(
@@ -432,7 +434,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
             doc,
             is_configuration_rule,
             is_toolchain_rule,
-            uses_plugins,
+            uses_plugins.items,
             None,
             eval,
         )

@@ -17,6 +17,7 @@ use buck2_node::visibility::WithinViewSpecification;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::none::NoneType;
 
 use crate::interpreter::build_context::BuildContext;
@@ -79,8 +80,10 @@ fn parse_within_view(
 pub(crate) fn register_package_function(globals: &mut GlobalsBuilder) {
     fn package(
         #[starlark(require=named, default=false)] inherit: bool,
-        #[starlark(require=named, default=Vec::new())] visibility: Vec<String>,
-        #[starlark(require=named, default=Vec::new())] within_view: Vec<String>,
+        #[starlark(require=named, default=UnpackListOrTuple::default())]
+        visibility: UnpackListOrTuple<String>,
+        #[starlark(require=named, default=UnpackListOrTuple::default())]
+        within_view: UnpackListOrTuple<String>,
         eval: &mut Evaluator,
     ) -> anyhow::Result<NoneType> {
         let build_context = BuildContext::from_context(eval)?;
@@ -89,12 +92,12 @@ pub(crate) fn register_package_function(globals: &mut GlobalsBuilder) {
             _ => return Err(PackageFileError::NotPackage.into()),
         };
         let visibility = parse_visibility(
-            &visibility,
+            &visibility.items,
             build_context.cell_info().name().name(),
             build_context.cell_info().cell_resolver(),
         )?;
         let within_view = parse_within_view(
-            &within_view,
+            &within_view.items,
             build_context.cell_info().name().name(),
             build_context.cell_info().cell_resolver(),
         )?;

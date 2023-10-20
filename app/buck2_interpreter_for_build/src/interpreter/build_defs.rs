@@ -13,6 +13,7 @@ use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::list::AllocList;
 use starlark::values::list::ListOf;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::ValueOfUnchecked;
 
 use crate::interpreter::build_context::BuildContext;
@@ -53,12 +54,13 @@ pub(crate) fn register_path(builder: &mut GlobalsBuilder) {
     /// Currently `glob` is evaluated case-insensitively on all file systems, but we expect
     /// that to change to case sensitive in the near future.
     fn glob<'v>(
-        include: Vec<String>,
-        #[starlark(require = named, default=Vec::new())] exclude: Vec<String>,
+        include: UnpackListOrTuple<String>,
+        #[starlark(require = named, default=UnpackListOrTuple::default())]
+        exclude: UnpackListOrTuple<String>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<ValueOfUnchecked<'v, ListOf<'v, String>>> {
         let extra = ModuleInternals::from_context(eval, "glob")?;
-        let spec = GlobSpec::new(&include, &exclude)?;
+        let spec = GlobSpec::new(&include.items, &exclude.items)?;
         let res = extra.resolve_glob(&spec).map(|path| path.as_str());
         Ok(ValueOfUnchecked::new(eval.heap().alloc(AllocList(res))))
     }
