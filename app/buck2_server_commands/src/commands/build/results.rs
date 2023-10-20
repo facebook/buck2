@@ -241,11 +241,11 @@ pub mod build_report {
         success: BuildOutcome,
         /// a map of each subtarget of the current target (outputted as a `|` delimited list) to
         /// the default exposed output of the subtarget
-        outputs: HashMap<String, Vec<ProjectRelativePathBuf>>,
+        outputs: HashMap<String, SmallSet<ProjectRelativePathBuf>>,
         /// a map of each subtarget of the current target (outputted as a `|` delimited list) to
         /// the hidden, implicitly built outputs of the subtarget. There are multiple outputs
         /// per subtarget
-        other_outputs: HashMap<String, Vec<ProjectRelativePathBuf>>,
+        other_outputs: HashMap<String, SmallSet<ProjectRelativePathBuf>>,
         /// The size of the graph for this target, if it was produced
         configured_graph_size: Option<u64>,
     }
@@ -413,76 +413,64 @@ pub mod build_report {
         ) -> ConfiguredBuildReportEntryWithErrors {
             let mut configured_report = ConfiguredBuildReportEntryWithErrors::default();
             for (label, result) in results {
-                let (default_outs, other_outs) = {
-                    let mut default_outs = SmallSet::new();
-                    let mut other_outs = SmallSet::new();
+                let provider_name = report_providers_name(label);
 
-                    result.outputs.iter().for_each(|res| {
-                        match res {
-                            Ok(artifacts) => {
-                                let mut is_default = false;
-                                let mut is_other = false;
+                result.outputs.iter().for_each(|res| {
+                    match res {
+                        Ok(artifacts) => {
+                            let mut is_default = false;
+                            let mut is_other = false;
 
-                                match artifacts.provider_type {
-                                    BuildProviderType::Default => {
-                                        // as long as we have requested it as a default info, it should  be
-                                        // considered a default output whether or not it also appears as an other
-                                        // non-main output
-                                        is_default = true;
-                                    }
-                                    BuildProviderType::DefaultOther
-                                    | BuildProviderType::Run
-                                    | BuildProviderType::Test => {
-                                        // as long as the output isn't the default, we add it to other outputs.
-                                        // This means that the same artifact may appear twice if its part of the
-                                        // default AND the other outputs, but this is intended as it accurately
-                                        // describes the type of the artifact
-                                        is_other = true;
-                                    }
+                            match artifacts.provider_type {
+                                BuildProviderType::Default => {
+                                    // as long as we have requested it as a default info, it should  be
+                                    // considered a default output whether or not it also appears as an other
+                                    // non-main output
+                                    is_default = true;
                                 }
-
-                                for (artifact, _value) in artifacts.values.iter() {
-                                    if is_default {
-                                        default_outs.insert(
-                                            artifact.resolve_path(self.artifact_fs).unwrap(),
-                                        );
-                                    }
-
-                                    if is_other && self.include_other_outputs {
-                                        other_outs.insert(
-                                            artifact.resolve_path(self.artifact_fs).unwrap(),
-                                        );
-                                    }
+                                BuildProviderType::DefaultOther
+                                | BuildProviderType::Run
+                                | BuildProviderType::Test => {
+                                    // as long as the output isn't the default, we add it to other outputs.
+                                    // This means that the same artifact may appear twice if its part of the
+                                    // default AND the other outputs, but this is intended as it accurately
+                                    // describes the type of the artifact
+                                    is_other = true;
                                 }
                             }
-                            Err(e) => {
-                                configured_report.errors.push(BuildReportError {
-                                    message: format!("{:#}", e),
-                                });
+
+                            for (artifact, _value) in artifacts.values.iter() {
+                                if is_default {
+                                    configured_report
+                                        .inner
+                                        .outputs
+                                        .entry(provider_name.clone())
+                                        .or_default()
+                                        .insert(artifact.resolve_path(self.artifact_fs).unwrap());
+                                }
+
+                                if is_other && self.include_other_outputs {
+                                    configured_report
+                                        .inner
+                                        .other_outputs
+                                        .entry(provider_name.clone())
+                                        .or_default()
+                                        .insert(artifact.resolve_path(self.artifact_fs).unwrap());
+                                }
                             }
                         }
-                    });
-
-                    (default_outs, other_outs)
-                };
+                        Err(e) => {
+                            configured_report.errors.push(BuildReportError {
+                                message: format!("{:#}", e),
+                            });
+                        }
+                    }
+                });
 
                 for err in &result.errors {
                     configured_report.errors.push(BuildReportError {
                         message: format!("{:#}", err),
                     });
-                }
-
-                if !default_outs.is_empty() {
-                    configured_report.inner.outputs.insert(
-                        report_providers_name(label),
-                        default_outs.into_iter().collect(),
-                    );
-                }
-                if !other_outs.is_empty() {
-                    configured_report.inner.other_outputs.insert(
-                        report_providers_name(label),
-                        other_outs.into_iter().collect(),
-                    );
                 }
 
                 if let Some(Ok(MaybeCompatible::Compatible(configured_graph_size))) =
