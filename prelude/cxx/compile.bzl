@@ -8,6 +8,7 @@
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//linking:lto.bzl", "LtoMode")
+load("@prelude//utils:set.bzl", "set")
 load(
     "@prelude//utils:utils.bzl",
     "flatten",
@@ -59,6 +60,16 @@ CxxExtension = enum(
     ".hh",
     ".h++",
     ".hxx",
+)
+
+# Header files included in compilation databases
+HeaderExtension = enum(
+    ".h",
+    ".hpp",
+    ".hh",
+    ".h++",
+    ".hxx",
+    ".cuh",
 )
 
 # File types for dep files
@@ -146,6 +157,77 @@ _ABSOLUTE_ARGSFILE_SUBSTITUTIONS = [
     (regex("-filter-ignore=.+"), "-fcolor-diagnostics"),
 ]
 
+def get_extension_for_header(header_extension: str) -> str | None:
+    """
+    Which source file extension to use to get compiler flags for the header.
+    """
+    if header_extension in (".hpp", ".hh", ".h++", ".hxx"):
+        return ".cpp"
+    elif header_extension == ".cuh":
+        return ".cu"
+    elif header_extension not in HeaderExtension.values():
+        return header_extension  # a file in `headers` has a source extension
+    else:
+        return None
+
+def get_extension_for_plain_headers(srcs: list[CxxSrcWithFlags]) -> str | None:
+    """
+    For a given list source files determine which source file extension
+    to use to get compiler flags for plain .h headers.
+    """
+    duplicates = {
+        ".c++": ".cpp",
+        ".cc": ".cpp",
+        ".cxx": ".cpp",
+    }
+
+    extensions = set([duplicates.get(src.file.extension, src.file.extension) for src in srcs])
+
+    # Assembly doesn't need any special handling as included files tend to have .asm extension themselves.
+    # And the presence of assembly in the target doesn't tell us anything about the language of .h files.
+    for asm_ext in [".s", ".S", ".asm", ".asmpp"]:
+        extensions.remove(asm_ext)
+
+    if extensions.size() == 0:
+        return None
+    if extensions.size() == 1:
+        return extensions.list()[0]
+    if extensions.contains(".hip"):
+        return ".hip"
+    if extensions.contains(".cu"):
+        return ".cu"
+    if extensions.contains(".mm"):
+        return ".mm"
+    if extensions.contains(".cpp") and extensions.contains(".m"):
+        return ".mm"
+    if extensions.contains(".cpp"):
+        return ".cpp"
+    if extensions.contains(".m"):
+        return ".m"
+    return ".c"
+
+def get_default_extension_for_plain_header(rule_type: str) -> str:
+    """
+    Returns default source file extension to use to get get compiler flags for plain .h headers.
+    """
+
+    # Default to (Objective-)C++ instead of plain (Objective-)C as it is more likely to be compatible with both.
+    return ".mm" if rule_type.startswith("apple_") else ".cpp"
+
+def get_header_language_mode(source_extension: str) -> str | None:
+    """
+    Returns the header mode to use for plain .h headers based on the
+    source file extension used to obtain the compiler flags for them.
+    """
+
+    # Note: CUDA doesn't have its own header language mode, but the headers have distinct .cuh extension.
+    modes = {
+        ".cpp": "c++-header",
+        ".m": "objective-c-header",
+        ".mm": "objective-c++-header",
+    }
+    return modes.get(source_extension)
+
 def create_compile_cmds(
         ctx: AnalysisContext,
         # TODO(nga): this is `CxxRuleConstructorParams`,
@@ -160,26 +242,32 @@ def create_compile_cmds(
     of the generated compile commands and argsfile output.
     """
 
+    # Effective type: [(CxxSrcWithFlags, bool)]
+    # But cannot be annotated as buildifier doesn't support local variable type annotations.
+    # See P857174176 for the buildifier error and how this can be expressed as a record().
+    #
+    # In order to produce compile commands for all files in one go, contains CxxSrcWithFlags()
+    # for both sources and headers, and a boolean indicating whether it is a header.
     srcs_with_flags = []
+
     for src in impl_params.srcs:
-        srcs_with_flags.append(src)
-    header_only = False
-    if len(srcs_with_flags) == 0 and len(impl_params.additional.srcs) == 0:
-        all_headers = flatten([x.headers for x in own_preprocessors])
-        if len(all_headers) == 0:
-            all_raw_headers = flatten([x.raw_headers for x in own_preprocessors])
-            if len(all_raw_headers) != 0:
-                header_only = True
-                for header in all_raw_headers:
-                    if header.extension in [".h", ".hpp"]:
-                        srcs_with_flags.append(CxxSrcWithFlags(file = header))
-            else:
-                return CxxCompileCommandOutput()
-        else:
-            header_only = True
-            for header in all_headers:
-                if header.artifact.extension in [".h", ".hpp", ".cpp"]:
-                    srcs_with_flags.append(CxxSrcWithFlags(file = header.artifact))
+        srcs_with_flags.append((src, False))
+
+    # Some targets have .cpp files in their `headers` lists, see D46195628
+    # todo: should this be prohibited or expanded to allow all source extensions?
+    artifact_extensions = HeaderExtension.values() + [".cpp"]
+    all_headers = flatten([x.headers for x in own_preprocessors])
+    for header in all_headers:
+        if header.artifact.extension in artifact_extensions:
+            srcs_with_flags.append((CxxSrcWithFlags(file = header.artifact), True))
+
+    all_raw_headers = flatten([x.raw_headers for x in own_preprocessors])
+    for header in all_raw_headers:
+        if header.extension in HeaderExtension.values():
+            srcs_with_flags.append((CxxSrcWithFlags(file = header), True))
+
+    if len(srcs_with_flags) == 0:
+        return CxxCompileCommandOutput()
 
     # TODO(T110378129): Buck v1 validates *all* headers used by a compilation
     # at compile time, but that doing that here/eagerly might be expensive (but
@@ -197,14 +285,17 @@ def create_compile_cmds(
     abs_headers_tag = ctx.actions.artifact_tag()  # This headers tag is just for convenience use in _mk_argsfile and is otherwise unused.
 
     src_compile_cmds = []
+    hdr_compile_cmds = []
     cxx_compile_cmd_by_ext = {}
     argsfile_by_ext = {}
     abs_argsfile_by_ext = {}
 
-    for src in srcs_with_flags:
-        # If we have a header_only library we'll send the header files through this path,
-        # and want them to appear as though they are C++ files.
-        ext = CxxExtension(".cpp" if header_only else src.file.extension)
+    extension_for_plain_headers = get_extension_for_plain_headers(impl_params.srcs)
+    extension_for_plain_headers = extension_for_plain_headers or get_default_extension_for_plain_header(impl_params.rule_type)
+    for src, is_header in srcs_with_flags:
+        # We want headers to appear as though they are source files.
+        extension_for_header = get_extension_for_header(src.file.extension) or extension_for_plain_headers
+        ext = CxxExtension(extension_for_header if is_header else src.file.extension)
 
         # Deduplicate shared arguments to save memory. If we compile multiple files
         # of the same extension they will have some of the same flags. Save on
@@ -243,25 +334,28 @@ def create_compile_cmds(
 
         src_args = []
         src_args.extend(src.flags)
+        if is_header:
+            language_mode = get_header_language_mode(extension_for_header)
+            src_args.extend(["-x", language_mode] if language_mode else [])
         src_args.extend(["-c", src.file])
 
         src_compile_command = CxxSrcCompileCommand(src = src.file, cxx_compile_cmd = cxx_compile_cmd, args = src_args, index = src.index)
-        src_compile_cmds.append(src_compile_command)
+        if is_header:
+            hdr_compile_cmds.append(src_compile_command)
+        else:
+            src_compile_cmds.append(src_compile_command)
 
     argsfile_by_ext.update(impl_params.additional.argsfiles.relative)
     abs_argsfile_by_ext.update(impl_params.additional.argsfiles.absolute)
 
-    if header_only:
-        return CxxCompileCommandOutput(comp_db_compile_cmds = src_compile_cmds)
-    else:
-        return CxxCompileCommandOutput(
-            src_compile_cmds = src_compile_cmds,
-            argsfiles = CompileArgsfiles(
-                relative = argsfile_by_ext,
-                absolute = abs_argsfile_by_ext,
-            ),
-            comp_db_compile_cmds = src_compile_cmds,
-        )
+    return CxxCompileCommandOutput(
+        src_compile_cmds = src_compile_cmds,
+        argsfiles = CompileArgsfiles(
+            relative = argsfile_by_ext,
+            absolute = abs_argsfile_by_ext,
+        ),
+        comp_db_compile_cmds = src_compile_cmds + hdr_compile_cmds,
+    )
 
 def compile_cxx(
         ctx: AnalysisContext,
