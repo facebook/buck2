@@ -195,7 +195,9 @@ impl<'v> Dict<'v> {
         DictGen::<FrozenDictData>::get_type_value_static()
     }
 
-    /// Create a new [`Dict`].
+    /// This function is deprecated.
+    /// Use [`AllocDict`](crate::values::dict::AllocDict) or [`SmallMap`]
+    /// to allocate a new dictionary on the heap.
     pub fn new(content: SmallMap<Value<'v>, Value<'v>>) -> Self {
         Self { content }
     }
