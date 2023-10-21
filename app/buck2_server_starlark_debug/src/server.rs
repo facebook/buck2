@@ -52,6 +52,7 @@ use crate::dap_api::ContinueArguments;
 use crate::dap_api::DebugServer;
 use crate::error::StarlarkDebuggerError;
 use crate::run::ToClientMessage;
+use crate::variable_known_paths::VariablesKnownPaths;
 use crate::BuckStarlarkDebuggerHandle;
 use crate::HandleData;
 use crate::HandleId;
@@ -284,6 +285,11 @@ struct ServerState {
     /// 100s of ids)
     free_pseudo_threads: BTreeSet<u32>,
     next_pseudo_thread: u32,
+
+    /// This data structure keeps track of destructured local variables obtained by debugger at breakpoint
+    /// this is required to satify incremental nature of VariablesRequeste
+    /// variables are lazily fetched from starlark evaluator and cached by thread id
+    variables_by_thread: HashMap<u32, VariablesKnownPaths>,
 }
 
 /// This type is using bitmasking to pack "is_top_frame, thread_id, variable_id" into an integer value
@@ -544,6 +550,7 @@ impl ServerState {
             next_pseudo_thread: 0,
             next_hook_id: HookId(0),
             set_breakpoints: HashMap::new(),
+            variables_by_thread: HashMap::new(),
         }
     }
 
@@ -736,6 +743,7 @@ impl ServerState {
         };
         state.stopped_at = Some(description);
         let thread_id = state.pseudo_thread_id;
+        self.variables_by_thread.remove(&thread_id);
 
         let msg = dap::StoppedEventBody {
             reason: "breakpoint".to_owned(),

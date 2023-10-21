@@ -67,6 +67,7 @@ mod dap_api;
 mod error;
 pub mod run;
 mod server;
+mod variable_known_paths;
 
 /// A handle to the debugger server.
 #[derive(Debug, Clone, Dupe)]
