@@ -396,13 +396,18 @@ def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
         prof_lib = prof_hlibinfos,
     )
 
+    # The link info that will be used when this library is a dependency of a non-Haskell
+    # target (e.g. a cxx_library()). We need to pick the profiling libs if we're in
+    # profiling mode.
+    default_link_infos = prof_link_infos if ctx.attrs.enable_profiling else link_infos
+    default_native_infos = prof_native_infos if ctx.attrs.enable_profiling else native_infos
     merged_link_info = create_merged_link_info(
         ctx,
         # We don't have access to a CxxToolchain here (yet).
         # Give that it's already built, this doesn't mean much, use a sane default.
         pic_behavior = PicBehavior("supported"),
-        link_infos = {_to_lib_output_style(s): v for s, v in link_infos.items()},
-        exported_deps = native_infos,
+        link_infos = {_to_lib_output_style(s): v for s, v in default_link_infos.items()},
+        exported_deps = default_native_infos,
     )
 
     prof_merged_link_info = create_merged_link_info(
@@ -1071,12 +1076,14 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
         # and `link_infos` if the target doesn't force static linking.
         prof_link_infos[LinkStyle("shared")] = link_infos[LinkStyle("shared")]
 
+    default_link_infos = prof_link_infos if ctx.attrs.enable_profiling else link_infos
+    default_native_infos = prof_nlis if ctx.attrs.enable_profiling else nlis
     merged_link_info = create_merged_link_info(
         ctx,
         pic_behavior = pic_behavior,
-        link_infos = {_to_lib_output_style(s): v for s, v in link_infos.items()},
+        link_infos = {_to_lib_output_style(s): v for s, v in default_link_infos.items()},
         preferred_linkage = preferred_linkage,
-        exported_deps = nlis,
+        exported_deps = default_native_infos,
     )
 
     prof_merged_link_info = create_merged_link_info(
