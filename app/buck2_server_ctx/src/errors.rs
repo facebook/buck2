@@ -12,8 +12,9 @@
 /// This function is aware of errors that may have been emitted earlier in the command execution.
 pub fn late_format_error(e: &buck2_error::Error) -> Option<String> {
     if e.is_emitted() {
+        // FIXME(JakobDegen): This should use consistent formatting with below
         Some(format!("{:#}", e.get_late_format()?))
     } else {
-        Some(format!("{:#}", e))
+        Some(format!("{:?}", e))
     }
 }
