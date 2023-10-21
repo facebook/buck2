@@ -29,6 +29,7 @@ use debugserver_types::*;
 use dupe::Dupe;
 use starlark_syntax::slice_vec_ext::SliceExt;
 
+use super::EvaluateExprInfo;
 use super::InspectVariableInfo;
 use super::PathSegment;
 use super::VariablePath;
@@ -321,6 +322,7 @@ impl DapAdapter for DapAdapterImpl {
 
     fn inspect_variable(&self, path: VariablePath) -> anyhow::Result<InspectVariableInfo> {
         let path = path;
+        let state = self.state.dupe();
         self.with_ctx(Box::new(move |_span, eval| {
             let access_path = &path.access_path;
             let mut value = match &path.scope {
@@ -332,7 +334,7 @@ impl DapAdapter for DapAdapterImpl {
                         anyhow::Error::msg(format!("Local variable {} not found", name))
                     })
                 }
-                super::Scope::Expr(_expr) => panic!("Not implemented yet"),
+                super::Scope::Expr(expr) => evaluate_expr(&state, eval, expr.to_owned()),
             }?;
 
             for p in access_path.iter() {
@@ -352,22 +354,14 @@ impl DapAdapter for DapAdapterImpl {
         Ok(())
     }
 
-    fn evaluate(&self, expr: &str) -> anyhow::Result<EvaluateResponseBody> {
+    fn evaluate(&self, expr: &str) -> anyhow::Result<EvaluateExprInfo> {
         let state = self.state.dupe();
         let expression = expr.to_owned();
         self.with_ctx(Box::new(move |_, eval| {
-            let s = match evaluate_expr(&state, eval, expression.clone()) {
-                Err(e) => format!("{:#}", e),
-                Ok(v) => v.to_string(),
-            };
-            Ok(EvaluateResponseBody {
-                indexed_variables: None,
-                named_variables: None,
-                presentation_hint: None,
-                result: s,
-                type_: None,
-                variables_reference: 0.0,
-            })
+            match evaluate_expr(&state, eval, expression.clone()) {
+                Err(e) => Err(e),
+                Ok(v) => Ok(EvaluateExprInfo::from_value(&v)),
+            }
         }))
     }
 }

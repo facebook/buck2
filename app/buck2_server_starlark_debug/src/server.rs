@@ -480,10 +480,15 @@ impl DebugServer for ServerState {
         }
 
         let mut result = Vec::new();
+
         if encoded_variable_id.variable_id() == 0 {
             let hook = self.find_hook_by_pseudo_thread(thread_id.into())?;
             let vars_info = hook.adapter.variables()?;
-            let mut known_variables = VariablesKnownPaths::default();
+            let known_variables = self
+                .variables_by_thread
+                .entry(thread_id)
+                .or_insert_with(VariablesKnownPaths::default);
+
             for v in vars_info.locals {
                 let has_children = v.has_children;
                 let var_path = VariablePath::new_local(&v.name.to_string());
@@ -495,7 +500,6 @@ impl DebugServer for ServerState {
                 }
                 result.push(dap_message);
             }
-            self.variables_by_thread.insert(thread_id, known_variables);
         } else {
             let path = self
                 .variables_by_thread
@@ -576,7 +580,48 @@ impl DebugServer for ServerState {
         }
 
         let hook = self.find_hook_by_pseudo_thread(thread_id)?;
-        hook.adapter.evaluate(&x.expression)
+        match hook.adapter.evaluate(&x.expression) {
+            Ok(v) if v.has_children => {
+                let mut variable_id = 0;
+
+                self.variables_by_thread
+                    .entry(thread_id as u32)
+                    .and_modify(|path| {
+                        variable_id = path.insert(VariablePath::new_expression(&x.expression))
+                    })
+                    .or_insert_with(|| {
+                        let mut result = VariablesKnownPaths::default();
+                        variable_id = result.insert(VariablePath::new_expression(&x.expression));
+                        result
+                    });
+
+                Ok(dap::EvaluateResponseBody {
+                    indexed_variables: None,
+                    named_variables: None,
+                    presentation_hint: None,
+                    result: v.result,
+                    type_: Some(v.type_),
+                    variables_reference: VariableId::new(true, thread_id as u32, variable_id)?
+                        .as_i64() as f64,
+                })
+            }
+            Ok(v) => Ok(dap::EvaluateResponseBody {
+                indexed_variables: None,
+                named_variables: None,
+                presentation_hint: None,
+                result: v.result,
+                type_: Some(v.type_),
+                variables_reference: 0.0,
+            }),
+            Err(er) => Ok(dap::EvaluateResponseBody {
+                indexed_variables: None,
+                named_variables: None,
+                presentation_hint: None,
+                result: format!("{:#}", er),
+                type_: None,
+                variables_reference: 0.0,
+            }),
+        }
     }
 
     fn disconnect(&mut self, _x: dap::DisconnectArguments) -> anyhow::Result<()> {

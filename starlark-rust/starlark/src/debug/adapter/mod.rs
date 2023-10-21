@@ -86,7 +86,15 @@ pub struct VariablePath {
 }
 
 impl VariablePath {
-    /// creates new instance of VariablePath
+    /// creates new instance of VariablePath from a given expression
+    pub fn new_expression(expr: impl Into<String>) -> VariablePath {
+        VariablePath {
+            scope: Scope::Expr(expr.into()),
+            access_path: vec![],
+        }
+    }
+
+    /// creates new instance of VariablePath from a given local variable
     pub fn new_local(scope: impl Into<String>) -> VariablePath {
         VariablePath {
             scope: Scope::Local(scope.into()),
@@ -156,11 +164,15 @@ impl Variable {
             name,
             value: v.to_str(),
             type_: v.get_type().to_owned(),
-            has_children: match v.get_type() {
-                "function" | "never" | "NoneType" | "bool" | "int" | "float" | "string" => false,
-                _ => true,
-            },
+            has_children: Self::has_children(v.get_type()),
         }
+    }
+
+    pub(crate) fn has_children(value_type: &str) -> bool {
+        !matches!(
+            value_type,
+            "function" | "never" | "NoneType" | "bool" | "int" | "float" | "string"
+        )
     }
 }
 
@@ -189,6 +201,16 @@ pub struct VariablesInfo {
 pub struct InspectVariableInfo {
     /// Child variables.
     pub sub_values: Vec<Variable>,
+}
+
+/// Information about expression evaluation result
+pub struct EvaluateExprInfo {
+    /// The value as a String.
+    pub result: String,
+    /// The variables type.
+    pub type_: String,
+    /// Indicates whether there are children available for a given variable.
+    pub has_children: bool,
 }
 
 impl InspectVariableInfo {
@@ -228,6 +250,17 @@ impl InspectVariableInfo {
             "function" | "never" | "NoneType" => Ok(Default::default()),
             // this branch will catch Ty::basic(name)
             _ => Self::try_from_struct_like(v, heap),
+        }
+    }
+}
+
+impl EvaluateExprInfo {
+    /// Creating EvaluateExprInfo from a given starlark value
+    pub fn from_value(v: &Value) -> Self {
+        Self {
+            result: v.to_str(),
+            type_: v.get_type().to_owned(),
+            has_children: Variable::has_children(v.get_type()),
         }
     }
 }
@@ -280,7 +313,7 @@ pub trait DapAdapter: Debug + Send + 'static {
     /// Evaluates in expression in the context of the top-most frame.
     ///
     /// See <https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Evaluate>
-    fn evaluate(&self, expr: &str) -> anyhow::Result<EvaluateResponseBody>;
+    fn evaluate(&self, expr: &str) -> anyhow::Result<EvaluateExprInfo>;
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
