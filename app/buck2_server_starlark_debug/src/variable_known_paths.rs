@@ -24,17 +24,14 @@ use starlark::debug::VariablePath;
 /// upon a variable request against the child's ID.
 #[derive(Default, Debug)]
 pub(crate) struct VariablesKnownPaths {
-    #[allow(dead_code)]
     path_by_id: HashMap<u32, VariablePath>,
 }
 
 impl VariablesKnownPaths {
-    #[allow(dead_code)]
     pub fn get(&self, id: u32) -> Option<&VariablePath> {
         self.path_by_id.get(&id)
     }
 
-    #[allow(dead_code)]
     pub fn insert(&mut self, path: VariablePath) -> u32 {
         let id = (self.path_by_id.len() + 1) as u32;
         self.path_by_id.insert(id, path);

@@ -14,6 +14,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
 
+use anyhow::Context;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project::ProjectRoot;
@@ -23,7 +24,6 @@ use buck2_interpreter::starlark_debug::StarlarkDebugController;
 use debugserver_types as dap;
 use dupe::Dupe;
 use futures::StreamExt;
-use gazebo::prelude::*;
 use itertools::Itertools;
 use starlark::debug::prepare_dap_adapter;
 use starlark::debug::resolve_breakpoints;
@@ -32,6 +32,7 @@ use starlark::debug::DapAdapterClient;
 use starlark::debug::DapAdapterEvalHook;
 use starlark::debug::ResolvedBreakpoints;
 use starlark::debug::StepKind;
+use starlark::debug::VariablePath;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
 use starlark::syntax::DialectTypes;
@@ -321,7 +322,6 @@ impl VariableId {
         ((self.0 >> 32) & 0xFFFFF) as u32
     }
 
-    #[allow(dead_code)]
     pub fn variable_id(self) -> u32 {
         (self.0 & 0xFFFFFFFF) as u32
     }
@@ -479,11 +479,56 @@ impl DebugServer for ServerState {
             });
         }
 
-        let hook = self.find_hook_by_pseudo_thread(thread_id as i64)?;
-        let vars_info = hook.adapter.variables()?;
-        Ok(dap::VariablesResponseBody {
-            variables: vars_info.locals.into_map(|var| var.to_dap()),
-        })
+        let mut result = Vec::new();
+        if encoded_variable_id.variable_id() == 0 {
+            let hook = self.find_hook_by_pseudo_thread(thread_id.into())?;
+            let vars_info = hook.adapter.variables()?;
+            let mut known_variables = VariablesKnownPaths::default();
+            for v in vars_info.locals {
+                let has_children = v.has_children;
+                let var_path = VariablePath::new(&v.name.to_string());
+                let mut dap_message = v.to_dap();
+                if has_children {
+                    let var_id = known_variables.insert(var_path);
+                    dap_message.variables_reference =
+                        VariableId::new(true, thread_id, var_id)?.into();
+                }
+                result.push(dap_message);
+            }
+            self.variables_by_thread.insert(thread_id, known_variables);
+        } else {
+            let path = self
+                .variables_by_thread
+                .get(&thread_id)
+                .and_then(|x| x.get(encoded_variable_id.variable_id()))
+                .map(ToOwned::to_owned);
+
+            if let Some(path) = path {
+                let hook = self.find_hook_by_pseudo_thread(thread_id.into())?;
+                let inspect_result = hook.adapter.inspect_variable(path.to_owned())?;
+                let current_frame_vars = self
+                    .variables_by_thread
+                    .get_mut(&thread_id)
+                    .context("variables cache must exist in this codepath")?;
+
+                for child in inspect_result.sub_values {
+                    let child_path = path.make_child(child.name.clone());
+                    let has_children = child.has_children;
+                    let mut dap_result = child.to_dap();
+                    if has_children {
+                        let reference_id = VariableId::new(
+                            true,
+                            thread_id,
+                            current_frame_vars.insert(child_path),
+                        )?;
+                        dap_result.variables_reference = reference_id.into();
+                    }
+                    result.push(dap_result);
+                }
+            }
+        };
+
+        Ok(dap::VariablesResponseBody { variables: result })
     }
 
     fn source(&mut self, _x: dap::SourceArguments) -> anyhow::Result<dap::SourceResponseBody> {

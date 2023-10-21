@@ -135,9 +135,9 @@ impl Variable {
     }
 
     /// creates a new instance of Variable from a given starlark value
-    pub fn from_value<'v>(name_segment: PathSegment, v: Value<'v>) -> Self {
+    pub fn from_value<'v>(name: PathSegment, v: Value<'v>) -> Self {
         Self {
-            name: name_segment,
+            name,
             value: v.to_str(),
             type_: v.get_type().to_owned(),
             has_children: match v.get_type() {
