@@ -52,8 +52,11 @@ def _impl_example(ctx):
     output = actions.write("my_output", "out")
 ```
 
-You can specify the execution platform resolution by setting named parameters
-when instantiating `bxl_actions`:
+You will need to have
+[execution platforms](../rule_authors/configurations.md#execution-platforms)
+enabled for your project, or else you will get an error. You can specify the
+execution platform resolution by setting named parameters when instantiating
+`bxl_actions`:
 
 - `exec_deps` - These are dependencies you wish to access as executables for
   creating the action. This is usually the same set of targets one would pass to
