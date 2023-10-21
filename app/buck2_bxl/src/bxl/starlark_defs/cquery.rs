@@ -647,27 +647,30 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = NoneOr::None)] target_universe: NoneOr<UnpackListOrTuple<String>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let query_args = if query_args.is_none() {
-            Vec::new()
-        } else {
-            let unwrapped_query_args = query_args.into_option().unwrap();
-            if let Some(query_args) = unpack_unconfigured_query_args(unwrapped_query_args) {
-                query_args
-            } else {
-                let err = Err(ValueError::IncorrectParameterTypeWithExpected(
-                    "list of strings, or a target_set of unconfigured nodes".to_owned(),
-                    query_args.into_option().unwrap().get_type().to_owned(),
-                )
-                .into());
+        let query_args = match query_args {
+            NoneOr::None => Vec::new(),
+            NoneOr::Other(unwrapped_query_args) => {
+                if let Some(query_args) = unpack_unconfigured_query_args(unwrapped_query_args) {
+                    query_args
+                } else {
+                    let err = Err(ValueError::IncorrectParameterTypeWithExpected(
+                        "list of strings, or a target_set of unconfigured nodes".to_owned(),
+                        query_args.into_option().unwrap().get_type().to_owned(),
+                    )
+                    .into());
 
-                if <&StarlarkTargetSet<ConfiguredTargetNode>>::unpack_value(unwrapped_query_args)
+                    if <&StarlarkTargetSet<ConfiguredTargetNode>>::unpack_value(
+                        unwrapped_query_args,
+                    )
                     .is_some()
-                {
-                    return err
-                        .context("target_set with configured nodes are currently not supported");
-                }
+                    {
+                        return err.context(
+                            "target_set with configured nodes are currently not supported",
+                        );
+                    }
 
-                return err;
+                    return err;
+                }
             }
         };
 

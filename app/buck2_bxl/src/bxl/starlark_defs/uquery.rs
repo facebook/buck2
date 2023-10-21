@@ -488,18 +488,18 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = NoneOr::None)] query_args: NoneOr<Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let query_args = if query_args.is_none() {
-            Vec::new()
-        } else {
-            let unwrapped_query_args = query_args.into_option().unwrap();
-            if let Some(query_args) = unpack_unconfigured_query_args(unwrapped_query_args) {
-                query_args
-            } else {
-                return Err(ValueError::IncorrectParameterTypeWithExpected(
-                    "list of strings, or a target_set with unconfigured nodes".to_owned(),
-                    unwrapped_query_args.get_type().to_owned(),
-                )
-                .into());
+        let query_args = match query_args {
+            NoneOr::None => Vec::new(),
+            NoneOr::Other(unwrapped_query_args) => {
+                if let Some(query_args) = unpack_unconfigured_query_args(unwrapped_query_args) {
+                    query_args
+                } else {
+                    return Err(ValueError::IncorrectParameterTypeWithExpected(
+                        "list of strings, or a target_set with unconfigured nodes".to_owned(),
+                        unwrapped_query_args.get_type().to_owned(),
+                    )
+                    .into());
+                }
             }
         };
 
