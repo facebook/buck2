@@ -8,7 +8,6 @@
  */
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::query::bxl::BxlAqueryFunctions;
 use buck2_build_api::query::bxl::NEW_BXL_AQUERY_FUNCTIONS;
@@ -24,6 +23,7 @@ use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
+use either::Either;
 use futures::FutureExt;
 use gazebo::prelude::OptionExt;
 use starlark::any::ProvidesStaticType;
@@ -42,7 +42,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueError;
 use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::BxlContext;
@@ -53,7 +52,7 @@ use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
 use crate::bxl::starlark_defs::target_list_expr::ConfiguredTargetListExprArg;
 use crate::bxl::starlark_defs::target_list_expr::TargetListExpr;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
-use crate::bxl::starlark_defs::uquery::unpack_unconfigured_query_args;
+use crate::bxl::starlark_defs::uquery::UnpackUnconfiguredQueryArgs;
 use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 
 #[derive(
@@ -340,34 +339,18 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
     fn eval<'v>(
         this: &StarlarkAQueryCtx<'v>,
         query: &'v str,
-        #[starlark(default = NoneOr::None)] query_args: NoneOr<Value<'v>>,
+        #[starlark(default = NoneOr::None)] query_args: NoneOr<
+            Either<UnpackUnconfiguredQueryArgs<'v>, &'v StarlarkTargetSet<ConfiguredTargetNode>>,
+        >,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let query_args = match query_args {
             NoneOr::None => Vec::new(),
-            NoneOr::Other(unwrapped_query_args) => {
-                if let Some(query_args) = unpack_unconfigured_query_args(unwrapped_query_args) {
-                    query_args
-                } else {
-                    // TODO(@wendyy) - we probably also want to support subtargets here
-                    let err = Err(ValueError::IncorrectParameterTypeWithExpected(
-                        "list of strings, or a target_set of unconfigured nodes".to_owned(),
-                        query_args.into_option().unwrap().get_type().to_owned(),
-                    )
-                    .into());
-
-                    if <&StarlarkTargetSet<ConfiguredTargetNode>>::unpack_value(
-                        unwrapped_query_args,
-                    )
-                    .is_some()
-                    {
-                        return err.context(
-                            "target_set with configured nodes are currently not supported",
-                        );
-                    }
-
-                    return err;
-                }
+            NoneOr::Other(Either::Left(query_args)) => query_args.into_strings(),
+            NoneOr::Other(Either::Right(_)) => {
+                return Err(anyhow::anyhow!(
+                    "target_set with configured nodes are currently not supported"
+                ));
             }
         };
 

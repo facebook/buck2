@@ -36,7 +36,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueError;
 use starlark::StarlarkDocs;
 
 use super::file_set::StarlarkFileSet;
@@ -485,22 +484,12 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
     fn eval<'v>(
         this: &StarlarkUQueryCtx<'v>,
         query: &'v str,
-        #[starlark(default = NoneOr::None)] query_args: NoneOr<Value<'v>>,
+        #[starlark(default = NoneOr::None)] query_args: NoneOr<UnpackUnconfiguredQueryArgs<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let query_args = match query_args {
             NoneOr::None => Vec::new(),
-            NoneOr::Other(unwrapped_query_args) => {
-                if let Some(query_args) = unpack_unconfigured_query_args(unwrapped_query_args) {
-                    query_args
-                } else {
-                    return Err(ValueError::IncorrectParameterTypeWithExpected(
-                        "list of strings, or a target_set with unconfigured nodes".to_owned(),
-                        unwrapped_query_args.get_type().to_owned(),
-                    )
-                    .into());
-                }
-            }
+            NoneOr::Other(query_args) => query_args.into_strings(),
         };
 
         this.ctx.via_dice(|mut dice, _| {
@@ -521,18 +510,20 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
 }
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
-enum UnpackUnconfiguredQueryArgs<'v> {
+pub(crate) enum UnpackUnconfiguredQueryArgs<'v> {
     ListOfStrings(UnpackList<String>),
     TargetSet(&'v StarlarkTargetSet<TargetNode>),
 }
 
-pub(crate) fn unpack_unconfigured_query_args(query_args: Value) -> Option<Vec<String>> {
-    match UnpackUnconfiguredQueryArgs::unpack_value(query_args)? {
-        UnpackUnconfiguredQueryArgs::ListOfStrings(list) => Some(list.items),
-        UnpackUnconfiguredQueryArgs::TargetSet(set) => {
-            // TODO - we really should change eval_query() to handle this, but escaping the unconfigured target label for now
-            // as a quick solution.
-            Some(set.0.iter_names().map(|e| format!("\"{}\"", e)).collect())
+impl<'v> UnpackUnconfiguredQueryArgs<'v> {
+    pub(crate) fn into_strings(self) -> Vec<String> {
+        match self {
+            UnpackUnconfiguredQueryArgs::ListOfStrings(list) => list.items,
+            UnpackUnconfiguredQueryArgs::TargetSet(set) => {
+                // TODO - we really should change eval_query() to handle this, but escaping the unconfigured target label for now
+                // as a quick solution.
+                set.0.iter_names().map(|e| format!("\"{}\"", e)).collect()
+            }
         }
     }
 }
