@@ -23,7 +23,6 @@ use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
-use either::Either;
 use futures::FutureExt;
 use gazebo::prelude::OptionExt;
 use starlark::any::ProvidesStaticType;
@@ -339,19 +338,12 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
     fn eval<'v>(
         this: &StarlarkAQueryCtx<'v>,
         query: &'v str,
-        #[starlark(default = NoneOr::None)] query_args: NoneOr<
-            Either<UnpackUnconfiguredQueryArgs<'v>, &'v StarlarkTargetSet<ConfiguredTargetNode>>,
-        >,
+        #[starlark(default = NoneOr::None)] query_args: NoneOr<UnpackUnconfiguredQueryArgs<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let query_args = match query_args {
             NoneOr::None => Vec::new(),
-            NoneOr::Other(Either::Left(query_args)) => query_args.into_strings(),
-            NoneOr::Other(Either::Right(_)) => {
-                return Err(anyhow::anyhow!(
-                    "target_set with configured nodes are currently not supported"
-                ));
-            }
+            NoneOr::Other(query_args) => query_args.into_strings(),
         };
 
         this.ctx.via_dice(|mut dice, ctx| {
