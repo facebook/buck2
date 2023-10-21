@@ -322,7 +322,7 @@ impl DapAdapter for DapAdapterImpl {
     fn inspect_variable(&self, path: VariablePath) -> anyhow::Result<InspectVariableInfo> {
         let path = path;
         self.with_ctx(Box::new(move |_span, eval| {
-            let name = &path.name;
+            let name = &path.scope;
             let access_path = &path.access_path;
 
             let mut vars = eval.local_variables();

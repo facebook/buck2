@@ -65,15 +65,15 @@ pub struct Variable {
 /// This struct represents an "access path" to a given variable on the stack
 #[derive(Clone, Debug)]
 pub struct VariablePath {
-    name: String,
+    scope: String,
     access_path: Vec<PathSegment>,
 }
 
 impl VariablePath {
     /// creates new instance of VariablePath
-    pub fn new(name: impl Into<String>) -> VariablePath {
+    pub fn new(scope: impl Into<String>) -> VariablePath {
         VariablePath {
-            name: name.into(),
+            scope: scope.into(),
             access_path: vec![],
         }
     }
@@ -84,7 +84,7 @@ impl VariablePath {
         access_path.push(path);
 
         Self {
-            name: self.name.clone(),
+            scope: self.scope.clone(),
             access_path,
         }
     }
