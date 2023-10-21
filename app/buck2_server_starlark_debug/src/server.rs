@@ -64,16 +64,17 @@ fn capabilities() -> serde_json::Value {
     // debugserver_types is out of date and missing fields on Capabilities and so we just construct
     // a little json map explicitly ourselves.
     serde_json::json!({
-        "supports_configuration_done_request": true,
-        "supports_evaluate_for_hovers": true,
-        "supports_set_variable": true,
-        "supports_step_in_targets_request": true,
-        "supports_conditional_breakpoints": true,
-        "support_terminate_debuggee": false,
-        "support_suspend_debuggee": false,
+        "supportsConfigurationDoneRequest": true,
+        "supportsEvaluateForHovers": true,
+        "supportsSetVariable": true,
+        "supportsStepInTargetsRequest": true,
+        "supportsConditionalBreakpoints": true,
+        // note that some capabilities have the word "support" and some "supports" this seems to be according to the spec
+        "supportTerminateDebuggee": false,
+        "supportSuspendDebuggee": false,
         // This is different from starlark's `dap_capabilities`. The buck starlark debugger treats
         // each ongoing starlark Evaluation as a separate thread and handles requests appropriately.
-        "supports_single_thread_execution_requests": true,
+        "supportsSingleThreadExecutionRequests": true,
 
     })
 }
