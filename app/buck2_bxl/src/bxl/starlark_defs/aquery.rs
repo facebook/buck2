@@ -347,7 +347,7 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
             Vec::new()
         } else {
             let unwrapped_query_args = query_args.into_option().unwrap();
-            if let Some(query_args) = unpack_unconfigured_query_args(unwrapped_query_args)? {
+            if let Some(query_args) = unpack_unconfigured_query_args(unwrapped_query_args) {
                 query_args
             } else {
                 // TODO(@wendyy) - we probably also want to support subtargets here

@@ -19,14 +19,13 @@ use derive_more::Display;
 use dupe::Dupe;
 use futures::FutureExt;
 use gazebo::prelude::OptionExt;
-use gazebo::prelude::SliceExt;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::list::ListRef;
+use starlark::values::list::UnpackList;
 use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::AllocValue;
@@ -492,7 +491,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
             Vec::new()
         } else {
             let unwrapped_query_args = query_args.into_option().unwrap();
-            if let Some(query_args) = unpack_unconfigured_query_args(unwrapped_query_args)? {
+            if let Some(query_args) = unpack_unconfigured_query_args(unwrapped_query_args) {
                 query_args
             } else {
                 return Err(ValueError::IncorrectParameterTypeWithExpected(
@@ -520,24 +519,15 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-pub(crate) fn unpack_unconfigured_query_args<'v>(
-    query_args: Value<'v>,
-) -> anyhow::Result<Option<Vec<String>>> {
-    if let Some(list) = <&ListRef>::unpack_value(query_args) {
-        Ok(Some(list.content().try_map(|e| match e.unpack_str() {
-            Some(arg) => Ok(arg.to_owned()),
-            None => Err(ValueError::IncorrectParameterTypeWithExpected(
-                "list of strings, or a target_set of unconfigured nodes".to_owned(),
-                query_args.get_type().to_owned(),
-            )),
-        })?))
+#[allow(clippy::manual_map)]
+pub(crate) fn unpack_unconfigured_query_args(query_args: Value) -> Option<Vec<String>> {
+    if let Some(list) = UnpackList::unpack_value(query_args) {
+        Some(list.items)
     } else if let Some(set) = <&StarlarkTargetSet<TargetNode>>::unpack_value(query_args) {
         // TODO - we really should change eval_query() to handle this, but escaping the unconfigured target label for now
         // as a quick solution.
-        Ok(Some(
-            set.0.iter_names().map(|e| format!("\"{}\"", e)).collect(),
-        ))
+        Some(set.0.iter_names().map(|e| format!("\"{}\"", e)).collect())
     } else {
-        Ok(None)
+        None
     }
 }
