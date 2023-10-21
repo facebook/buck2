@@ -62,18 +62,34 @@ pub struct Variable {
     pub has_children: bool,
 }
 
-/// This struct represents an "access path" to a given variable on the stack
+/// Represents the scope of a variable.
+#[derive(Clone, Debug)]
+pub enum Scope {
+    /// A local variable's scope, identified by its name.
+    Local(String),
+    /// A scope determined by a particular expression.
+    #[allow(dead_code)]
+    Expr(String),
+}
+
+/// Represents a variable's "access path" for a local variable or watch expression.
+///
+/// # Examples
+///
+/// - For path `var1.field1[0]`, the scope is `Local("var1")` and the access path is `["field1", 0]`.
+/// - For path `someObject.method().something`, the scope is `Expr("someObject.method().something")`. The access path
+///   includes segments inside the evaluated result of `someObject.method().something` if it returns a complex object.
 #[derive(Clone, Debug)]
 pub struct VariablePath {
-    scope: String,
+    scope: Scope,
     access_path: Vec<PathSegment>,
 }
 
 impl VariablePath {
     /// creates new instance of VariablePath
-    pub fn new(scope: impl Into<String>) -> VariablePath {
+    pub fn new_local(scope: impl Into<String>) -> VariablePath {
         VariablePath {
-            scope: scope.into(),
+            scope: Scope::Local(scope.into()),
             access_path: vec![],
         }
     }

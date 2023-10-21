@@ -322,24 +322,23 @@ impl DapAdapter for DapAdapterImpl {
     fn inspect_variable(&self, path: VariablePath) -> anyhow::Result<InspectVariableInfo> {
         let path = path;
         self.with_ctx(Box::new(move |_span, eval| {
-            let name = &path.scope;
             let access_path = &path.access_path;
-
-            let mut vars = eval.local_variables();
-
-            // since vars is owned within this closure scope we can just remove value from the map
-            // obtaining owned variable as the rest of the map will be dropped anyway
-            if let Some(mut v) = vars.remove(name) {
-                for p in access_path.iter() {
-                    v = p.get(&v, eval.heap())?;
+            let mut value = match &path.scope {
+                super::Scope::Local(name) => {
+                    let mut vars = eval.local_variables();
+                    // since vars is owned within this closure scope we can just remove value from the map
+                    // obtaining owned variable as the rest of the map will be dropped anyway
+                    vars.remove(name).ok_or_else(|| {
+                        anyhow::Error::msg(format!("Local variable {} not found", name))
+                    })
                 }
-                Ok(InspectVariableInfo::try_from_value(&v, eval.heap())?)
-            } else {
-                Err(anyhow::Error::msg(format!(
-                    "Variable `{}` is not accessible",
-                    name
-                )))
+                super::Scope::Expr(_expr) => panic!("Not implemented yet"),
+            }?;
+
+            for p in access_path.iter() {
+                value = p.get(&value, eval.heap())?;
             }
+            InspectVariableInfo::try_from_value(&value, eval.heap())
         }))
     }
 

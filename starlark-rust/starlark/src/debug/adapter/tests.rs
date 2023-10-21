@@ -433,7 +433,9 @@ print(do())
                 s.spawn(move || -> anyhow::Result<_> { eval_with_hook(ast, eval_hook) });
             controller.wait_for_eval_stopped(1, TIMEOUT);
             assert_eq!(&[String::from("int_field"), String::from("str_field")], {
-                let result = adapter.inspect_variable(VariablePath::new("x")).unwrap();
+                let result = adapter
+                    .inspect_variable(VariablePath::new_local("x"))
+                    .unwrap();
                 result
                     .sub_values
                     .into_iter()
@@ -445,7 +447,9 @@ print(do())
             assert_eq!(
                 &[String::from("1"), String::from("2"), String::from("3")],
                 {
-                    let result = adapter.inspect_variable(VariablePath::new("y")).unwrap();
+                    let result = adapter
+                        .inspect_variable(VariablePath::new_local("y"))
+                        .unwrap();
                     result
                         .sub_values
                         .into_iter()
@@ -456,7 +460,7 @@ print(do())
             );
 
             assert!({
-                let path = VariablePath::new("y");
+                let path = VariablePath::new_local("y");
                 let result = adapter
                     .inspect_variable(path.make_child(PathSegment::Index(1)))
                     .unwrap();
