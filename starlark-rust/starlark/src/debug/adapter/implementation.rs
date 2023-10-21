@@ -321,7 +321,6 @@ impl DapAdapter for DapAdapterImpl {
     }
 
     fn inspect_variable(&self, path: VariablePath) -> anyhow::Result<InspectVariableInfo> {
-        let path = path;
         let state = self.state.dupe();
         self.with_ctx(Box::new(move |_span, eval| {
             let access_path = &path.access_path;
