@@ -25,7 +25,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
-use starlark::values::dict::Dict;
+use starlark::values::dict::AllocDict;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
 use starlark::values::AllocValue;
@@ -175,31 +175,21 @@ fn audit_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn cell<'v>(
         this: &StarlarkAuditCtx<'v>,
+        // TODO(nga): parameters should be either positional or named, not both.
         #[starlark(default = UnpackListOrTuple::default())] aliases_to_resolve: UnpackListOrTuple<
             String,
         >,
         #[starlark(require = named, default = false)] aliases: bool,
-        heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
-        audit_cell(
+    ) -> anyhow::Result<AllocDict<impl Iterator<Item = (String, String)>>> {
+        let result = audit_cell(
             &aliases_to_resolve.items,
             aliases,
             &this.cell_resolver,
             &this.working_dir,
             this.ctx.project_root(),
-        )
-        .map(|result| {
-            Ok(heap.alloc(Dict::new(
-                result
-                    .into_iter()
-                    .map(|(k, v)| {
-                        Ok((
-                            heap.alloc_str(&k).to_value().get_hashed()?,
-                            heap.alloc_str(&v.to_string()).to_value(),
-                        ))
-                    })
-                    .collect::<anyhow::Result<_>>()?,
-            )))
-        })?
+        )?;
+        Ok(AllocDict(
+            result.into_iter().map(|(k, v)| (k, v.to_string())),
+        ))
     }
 }
