@@ -28,6 +28,7 @@ use starlark::starlark_module;
 use starlark::values::list::UnpackList;
 use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -519,15 +520,19 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-#[allow(clippy::manual_map)]
+#[derive(StarlarkTypeRepr, UnpackValue)]
+enum UnpackUnconfiguredQueryArgs<'v> {
+    ListOfStrings(UnpackList<String>),
+    TargetSet(&'v StarlarkTargetSet<TargetNode>),
+}
+
 pub(crate) fn unpack_unconfigured_query_args(query_args: Value) -> Option<Vec<String>> {
-    if let Some(list) = UnpackList::unpack_value(query_args) {
-        Some(list.items)
-    } else if let Some(set) = <&StarlarkTargetSet<TargetNode>>::unpack_value(query_args) {
-        // TODO - we really should change eval_query() to handle this, but escaping the unconfigured target label for now
-        // as a quick solution.
-        Some(set.0.iter_names().map(|e| format!("\"{}\"", e)).collect())
-    } else {
-        None
+    match UnpackUnconfiguredQueryArgs::unpack_value(query_args)? {
+        UnpackUnconfiguredQueryArgs::ListOfStrings(list) => Some(list.items),
+        UnpackUnconfiguredQueryArgs::TargetSet(set) => {
+            // TODO - we really should change eval_query() to handle this, but escaping the unconfigured target label for now
+            // as a quick solution.
+            Some(set.0.iter_names().map(|e| format!("\"{}\"", e)).collect())
+        }
     }
 }
