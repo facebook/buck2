@@ -286,7 +286,65 @@ struct ServerState {
     next_pseudo_thread: u32,
 }
 
-static TOP_FRAME_LOCALS_ID: i64 = 2000;
+/// This type is using bitmasking to pack "is_top_frame, thread_id, variable_id" into an integer value
+/// Since this is a JSON serialized number it's safer to only rely on 53 bits
+/// thread_id is u32 but we're putting a limit of 20 bits on it for now to simplify DAP implementation
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct VariableId(i64);
+
+impl VariableId {
+    const MASK_53_BITS: i64 = (1 << 53) - 1;
+
+    pub fn new(top_frame: bool, thread_id: u32, variable_id: u32) -> anyhow::Result<Self> {
+        if thread_id > 0xFFFFF {
+            return Err(anyhow::Error::msg(format!(
+                "Thread ID exceeds 20-bit limit: max is 0xFFFFF, received {}",
+                thread_id
+            )));
+        }
+        let top_frame_flag = (if top_frame { 1 } else { 0 }) << 52;
+        let thread_id_part = ((thread_id as i64) << 32) & 0xFFFFF00000000;
+        Ok(Self(top_frame_flag | thread_id_part | variable_id as i64))
+    }
+
+    pub fn is_top_frame(self) -> bool {
+        (self.0 >> 52) != 0
+    }
+
+    pub fn thread_id(self) -> u32 {
+        ((self.0 >> 32) & 0xFFFFF) as u32
+    }
+
+    #[allow(dead_code)]
+    pub fn variable_id(self) -> u32 {
+        (self.0 & 0xFFFFFFFF) as u32
+    }
+
+    pub fn as_i64(self) -> i64 {
+        self.0
+    }
+}
+
+impl TryFrom<i64> for VariableId {
+    type Error = anyhow::Error;
+
+    fn try_from(value: i64) -> Result<Self, Self::Error> {
+        if value & VariableId::MASK_53_BITS == value {
+            Ok(Self(value))
+        } else {
+            Err(anyhow::Error::msg(format!(
+                "value exceeds 53-bit limit. value: {}",
+                value
+            )))
+        }
+    }
+}
+
+impl From<VariableId> for i64 {
+    fn from(value: VariableId) -> Self {
+        value.0
+    }
+}
 
 impl DebugServer for ServerState {
     fn initialize(
@@ -390,7 +448,7 @@ impl DebugServer for ServerState {
                 // rewrite variables reference to include our threadid. we don't currently send back any
                 // variables other than locals so the TOP_FRAME_LOCALS_ID doesnt really matter (though we
                 // do check against it below).
-                variables_reference: (thread_id << 16) | TOP_FRAME_LOCALS_ID,
+                variables_reference: VariableId::new(true, thread_id as u32, 0)?.as_i64(),
                 expensive: false,
                 column: None,
                 end_column: None,
@@ -406,16 +464,16 @@ impl DebugServer for ServerState {
         &mut self,
         x: dap::VariablesArguments,
     ) -> anyhow::Result<dap::VariablesResponseBody> {
-        let thread_id = x.variables_reference >> 16;
-        let variables_id = x.variables_reference & 0xFFFF;
+        let encoded_variable_id = VariableId::try_from(x.variables_reference)?;
+        let thread_id = encoded_variable_id.thread_id();
         // We only understand the TOP_FRAME_LOCALS_ID id
-        if variables_id != TOP_FRAME_LOCALS_ID {
+        if !encoded_variable_id.is_top_frame() {
             return Ok(dap::VariablesResponseBody {
                 variables: Vec::new(),
             });
         }
 
-        let hook = self.find_hook_by_pseudo_thread(thread_id)?;
+        let hook = self.find_hook_by_pseudo_thread(thread_id as i64)?;
         let vars_info = hook.adapter.variables()?;
         Ok(dap::VariablesResponseBody {
             variables: vars_info.locals.into_map(|var| var.to_dap()),
@@ -785,5 +843,47 @@ fn describe_frame(frame: dap::StackFrame) -> String {
             format!("{}:{}", path, line)
         }
         _ => "???".to_owned(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::VariableId;
+
+    fn check_variable_err(is_top_frame: bool, thread_id: u32, variable_id: u32) {
+        assert!(
+            VariableId::new(is_top_frame, thread_id, variable_id).is_err(),
+            "Expecting error for values ({}, {}, {})",
+            is_top_frame,
+            thread_id,
+            variable_id
+        );
+    }
+
+    fn check_variable_id(is_top_frame: bool, thread_id: u32, variable_id: u32) {
+        let var = VariableId::new(is_top_frame, thread_id, variable_id).unwrap();
+        assert_eq!(
+            (var.is_top_frame(), var.thread_id(), var.variable_id()),
+            (is_top_frame, thread_id, variable_id)
+        );
+    }
+
+    #[test]
+    fn test_variable_id_failures() {
+        check_variable_err(true, u32::MAX, u32::MAX);
+        check_variable_err(true, 0xFFFFF + 1, u32::MAX);
+    }
+
+    #[test]
+    fn test_variable_id() {
+        check_variable_id(true, 1234, 9867324);
+        check_variable_id(true, 0, 0);
+        check_variable_id(false, 0, 0);
+        check_variable_id(true, u16::MAX as u32, u32::MAX);
+        check_variable_id(false, u16::MAX as u32, u32::MAX);
+        check_variable_id(true, 0xFFFFF, u32::MAX);
+        check_variable_id(false, 0xFFFFF, u32::MAX);
+        check_variable_id(false, 0xFFFFF - 1, u32::MAX / 2);
+        check_variable_id(true, 0xFFFFF - 1, u32::MAX / 2);
     }
 }
