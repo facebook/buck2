@@ -34,7 +34,9 @@ mod t {
     use crate::debug::DapAdapter;
     use crate::debug::DapAdapterClient;
     use crate::debug::DapAdapterEvalHook;
+    use crate::debug::PathSegment;
     use crate::debug::StepKind;
+    use crate::debug::VariablePath;
     use crate::environment::GlobalsBuilder;
     use crate::environment::Module;
     use crate::eval::Evaluator;
@@ -399,6 +401,68 @@ print(x)
 
             // one more out should be equivalent to continue
             adapter.step(StepKind::Out)?;
+            join_timeout(eval_result, TIMEOUT)?;
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn test_inspect_variables() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
+        let controller = BreakpointController::new();
+        let (adapter, eval_hook) = prepare_dap_adapter(controller.get_client());
+        let file_contents = "
+def do():
+    x = struct(
+        str_field = \"one\",
+        int_field= 2
+    )
+    y = [1, 2, 3]
+    return x # line 8
+print(do())
+        ";
+        std::thread::scope(|s| {
+            let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
+            let breakpoints =
+                resolve_breakpoints(&breakpoints_args("test.bzl", &[(8, None)]), &ast)?;
+            adapter.set_breakpoints("test.bzl", &breakpoints)?;
+            let eval_result =
+                s.spawn(move || -> anyhow::Result<_> { eval_with_hook(ast, eval_hook) });
+            controller.wait_for_eval_stopped(1, TIMEOUT);
+            assert_eq!(&[String::from("int_field"), String::from("str_field")], {
+                let result = adapter.inspect_variable(VariablePath::new("x")).unwrap();
+                result
+                    .sub_values
+                    .into_iter()
+                    .map(|x| x.name.to_string())
+                    .collect::<Vec<_>>()
+                    .as_slice()
+            });
+
+            assert_eq!(
+                &[String::from("1"), String::from("2"), String::from("3")],
+                {
+                    let result = adapter.inspect_variable(VariablePath::new("y")).unwrap();
+                    result
+                        .sub_values
+                        .into_iter()
+                        .map(|x| x.value)
+                        .collect::<Vec<_>>()
+                        .as_slice()
+                }
+            );
+
+            assert!({
+                let path = VariablePath::new("y");
+                let result = adapter
+                    .inspect_variable(path.make_child(PathSegment::Index(1)))
+                    .unwrap();
+                result.sub_values.is_empty()
+            });
+            adapter.continue_()?;
             join_timeout(eval_result, TIMEOUT)?;
             Ok(())
         })

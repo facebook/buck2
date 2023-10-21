@@ -29,6 +29,9 @@ use debugserver_types::*;
 use dupe::Dupe;
 use starlark_syntax::slice_vec_ext::SliceExt;
 
+use super::InspectVariableInfo;
+use super::PathSegment;
+use super::VariablePath;
 use crate::codemap::FileSpan;
 use crate::codemap::FileSpanRef;
 use crate::codemap::Span;
@@ -310,13 +313,33 @@ impl DapAdapter for DapAdapterImpl {
             Ok(VariablesInfo {
                 locals: vars
                     .into_iter()
-                    .map(|(name, value)| Variable {
-                        name,
-                        value: value.to_string(),
-                        type_: value.get_type().to_owned(),
-                    })
+                    .map(|(name, value)| Variable::from_value(PathSegment::Key(name), value))
                     .collect(),
             })
+        }))
+    }
+
+    fn inspect_variable(&self, path: VariablePath) -> anyhow::Result<InspectVariableInfo> {
+        let path = path;
+        self.with_ctx(Box::new(move |_span, eval| {
+            let name = &path.name;
+            let access_path = &path.access_path;
+
+            let mut vars = eval.local_variables();
+
+            // since vars is owned within this closure scope we can just remove value from the map
+            // obtaining owned variable as the rest of the map will be dropped anyway
+            if let Some(mut v) = vars.remove(name) {
+                for p in access_path.iter() {
+                    v = p.get(&v, eval.heap())?;
+                }
+                Ok(InspectVariableInfo::try_from_value(&v, eval.heap())?)
+            } else {
+                Err(anyhow::Error::msg(format!(
+                    "Variable `{}` is not accessible",
+                    name
+                )))
+            }
         }))
     }
 

@@ -20,6 +20,7 @@
 //! that provide for debugging a starlark Evaluation.
 
 use std::fmt::Debug;
+use std::fmt::Display;
 
 use debugserver_types::*;
 use dupe::Dupe;
@@ -27,6 +28,8 @@ use dupe::Dupe;
 use crate::codemap::FileSpan;
 use crate::eval::Evaluator;
 use crate::syntax::AstModule;
+use crate::values::layout::heap::heap_type::Heap;
+use crate::values::layout::value::Value;
 
 mod implementation;
 mod tests;
@@ -43,21 +46,84 @@ pub struct ScopesInfo {
     pub num_locals: usize,
 }
 
-/// Information about a variable.
+/// Information about a "structural variable" inspected by a debugger
+/// this currently has DAP-like semantic meaning that every complex object returned
+/// by debugger from the stack or from the heap can be broken down into "variables"
+/// this is how structured data is managed by the debugger.
+/// Something similar to LLDB's SBValue
 pub struct Variable {
     /// Name of the variable.
-    pub name: String,
+    pub name: PathSegment,
     /// The value as a String.
     pub value: String,
     /// The variables type.
     pub type_: String,
+    /// Indicates whether there are children available for a given variable.
+    pub has_children: bool,
+}
+
+/// This struct represents an "access path" to a given variable on the stack
+#[derive(Clone, Debug)]
+pub struct VariablePath {
+    name: String,
+    access_path: Vec<PathSegment>,
+}
+
+impl VariablePath {
+    /// creates new instance of VariablePath
+    pub fn new(name: impl Into<String>) -> VariablePath {
+        VariablePath {
+            name: name.into(),
+            access_path: vec![],
+        }
+    }
+    /// creates a child segment of given access path
+    pub fn make_child(&self, path: PathSegment) -> VariablePath {
+        // TODO(vmakaev): figure out if need to optimize memory usage and build persistent data structure
+        let mut access_path = self.access_path.clone();
+        access_path.push(path);
+
+        Self {
+            name: self.name.clone(),
+            access_path,
+        }
+    }
+}
+
+/// Represents a segment in an access expression.
+///
+/// For the given expression `name.field1.array\[0\]`, the segments are "field1", "array", and "0".
+#[derive(Clone, Debug)]
+pub enum PathSegment {
+    /// Represents a path segment that accesses array-like types (i.e., types indexable by numbers).
+    Index(i32),
+    /// Represents a path segment that accesses object-like types (i.e., types keyed by strings).
+    Key(String),
+}
+
+impl Display for PathSegment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PathSegment::Index(x) => write!(f, "{}", x),
+            PathSegment::Key(x) => f.write_str(x),
+        }
+    }
+}
+
+impl PathSegment {
+    fn get<'v>(&self, v: &Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+        match self {
+            PathSegment::Index(i) => v.at(heap.alloc(*i), heap),
+            PathSegment::Key(key) => v.get_attr_error(key.as_str(), heap),
+        }
+    }
 }
 
 impl Variable {
     /// Helper to convert to the DAP Variable type.
     pub fn to_dap(self) -> debugserver_types::Variable {
         debugserver_types::Variable {
-            name: self.name,
+            name: self.name.to_string(),
             value: self.value,
             type_: Some(self.type_),
             evaluate_name: None,
@@ -65,6 +131,19 @@ impl Variable {
             named_variables: None,
             presentation_hint: None,
             variables_reference: 0,
+        }
+    }
+
+    /// creates a new instance of Variable from a given starlark value
+    pub fn from_value<'v>(name_segment: PathSegment, v: Value<'v>) -> Self {
+        Self {
+            name: name_segment,
+            value: v.to_str(),
+            type_: v.get_type().to_owned(),
+            has_children: match v.get_type() {
+                "function" | "never" | "NoneType" | "bool" | "int" | "float" | "string" => false,
+                _ => true,
+            },
         }
     }
 }
@@ -87,6 +166,54 @@ pub enum StepKind {
 pub struct VariablesInfo {
     /// Local variables.
     pub locals: Vec<Variable>,
+}
+
+/// Information about variable child "sub-values"
+#[derive(Default)]
+pub struct InspectVariableInfo {
+    /// Child variables.
+    pub sub_values: Vec<Variable>,
+}
+
+impl InspectVariableInfo {
+    fn try_from_struct_like<'v>(v: &Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
+        Ok(Self {
+            sub_values: v
+                .dir_attr()
+                .into_iter()
+                .map(|child_name| {
+                    let child_value = v.get_attr_error(&child_name, heap)?;
+                    let segment = PathSegment::Key(child_name);
+                    Ok(Variable::from_value(segment, child_value))
+                })
+                .collect::<anyhow::Result<Vec<_>>>()?,
+        })
+    }
+
+    fn try_from_array_like<'v>(v: &Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
+        let len = v.length()?;
+        Ok(Self {
+            sub_values: (0..len)
+                .map(|i| {
+                    let index = heap.alloc(i);
+                    v.at(index, heap)
+                        .map(|v| Variable::from_value(PathSegment::Index(i), v))
+                })
+                .collect::<anyhow::Result<Vec<_>>>()?,
+        })
+    }
+
+    /// Trying to create InspectVariableInfo from a given starlark value
+    pub fn try_from_value<'v>(v: &Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
+        match v.get_type() {
+            "struct" | "dict" => Self::try_from_struct_like(v, heap),
+            "list" | "tuple" => Self::try_from_array_like(v, heap),
+            "bool" | "int" | "float" | "string" => Ok(Default::default()),
+            "function" | "never" | "NoneType" => Ok(Default::default()),
+            // this branch will catch Ty::basic(name)
+            _ => Self::try_from_struct_like(v, heap),
+        }
+    }
 }
 
 /// The DapAdapter accepts DAP requests and updates the hooks in the running evaluator.
@@ -113,10 +240,15 @@ pub trait DapAdapter: Debug + Send + 'static {
     /// See <https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Scopes>
     fn scopes(&self) -> anyhow::Result<ScopesInfo>;
 
-    /// Gets child variables for a variable reference.
+    /// Gets variables for the current scope
     ///
     /// See <https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Variables>
     fn variables(&self) -> anyhow::Result<VariablesInfo>;
+
+    /// Gets all child variables for the given access path
+    ///
+    /// See <https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Variables>
+    fn inspect_variable(&self, path: VariablePath) -> anyhow::Result<InspectVariableInfo>;
 
     /// Resumes execution.
     ///
