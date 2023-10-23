@@ -197,10 +197,10 @@ def _copied_bundle_spec(bundle_info: AppleBundleInfo) -> [None, AppleBundlePart]
         codesign_on_copy = False
     elif bundle_extension == ".qlgenerator":
         destination = AppleBundleDestination("quicklook")
-        codesign_on_copy = False
+        codesign_on_copy = True
     elif bundle_extension == ".xpc":
         destination = AppleBundleDestination("xpcservices")
-        codesign_on_copy = False
+        codesign_on_copy = True
     else:
         fail("Extension `{}` is not yet supported.".format(bundle_extension))
     return AppleBundlePart(
