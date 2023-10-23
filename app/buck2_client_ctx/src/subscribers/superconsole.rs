@@ -944,6 +944,7 @@ mod tests {
                     module_id: "foo".to_owned(),
                     cell: "bar".to_owned(),
                     error: None,
+                    starlark_peak_allocated_bytes: 0,
                 })),
                 stats: None,
                 duration: None,

@@ -309,7 +309,7 @@ impl Tester {
             .unwrap();
         let root_buckconfig = self.configs.get(self.cell_resolver.root_cell()).unwrap();
         let mut provider = StarlarkPassthroughProvider;
-        let eval_result = interpreter.eval_build_file(
+        let eval_result_with_stats = interpreter.eval_build_file(
             path,
             buckconfig,
             root_buckconfig,
@@ -321,7 +321,7 @@ impl Tester {
             &mut provider,
             true,
         )?;
-        Ok(eval_result)
+        Ok(eval_result_with_stats.result)
     }
 
     pub fn build_file_path() -> BuildFilePath {

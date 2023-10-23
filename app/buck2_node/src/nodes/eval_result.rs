@@ -228,6 +228,13 @@ impl EvaluationResult {
 }
 
 #[derive(Debug)]
+pub struct EvaluationResultWithStats {
+    pub result: EvaluationResult,
+    // Peak allocated memory in starlark mutable heap during evaluation of BUCK file
+    pub starlark_peak_allocated_bytes: u64,
+}
+
+#[derive(Debug)]
 struct SuggestedSimilarTargets {
     package: PackageLabel,
     targets: Vec<TargetName>,

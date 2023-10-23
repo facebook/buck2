@@ -845,6 +845,9 @@ message LoadBuildFileEnd {
   string module_id = 1;
   string cell = 2;
   optional string error = 3;
+  // Peak allocated memory in starlark mutable heap during evaluation of BUCK
+  // file.
+  uint64 starlark_peak_allocated_bytes = 4;
 }
 
 message SharedTaskStart {

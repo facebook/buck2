@@ -494,7 +494,7 @@ impl<'c> DiceCalculationDelegate<'c> {
             format!("load_buildfile:{}", &package),
             move |provider, _| {
                 span(start_event, move || {
-                    let result = self
+                    let result_with_stats = self
                         .configs
                         .eval_build_file(
                             &build_file_path,
@@ -511,13 +511,19 @@ impl<'c> DiceCalculationDelegate<'c> {
                         .with_context(|| {
                             DiceCalculationDelegateError::EvalBuildFileError(build_file_path)
                         });
-                    let error = result.as_ref().err().map(|e| format!("{:#}", e));
+                    let error = result_with_stats.as_ref().err().map(|e| format!("{:#}", e));
+                    let starlark_peak_allocated_bytes = result_with_stats
+                        .as_ref()
+                        .map(|rs| rs.starlark_peak_allocated_bytes)
+                        .unwrap_or(0);
+                    let result = result_with_stats.map(|rs| rs.result);
 
                     (
                         result,
                         buck2_data::LoadBuildFileEnd {
                             module_id,
                             cell: cell_str,
+                            starlark_peak_allocated_bytes,
                             error,
                         },
                     )

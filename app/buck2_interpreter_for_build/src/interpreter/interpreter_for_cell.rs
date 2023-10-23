@@ -41,6 +41,7 @@ use buck2_interpreter::paths::path::StarlarkPath;
 use buck2_interpreter::prelude_path::PreludePath;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_node::nodes::eval_result::EvaluationResult;
+use buck2_node::nodes::eval_result::EvaluationResultWithStats;
 use buck2_node::super_package::SuperPackage;
 use dupe::Dupe;
 use gazebo::prelude::*;
@@ -584,7 +585,7 @@ impl InterpreterForCell {
         loaded_modules: LoadedModules,
         eval_provider: &mut dyn StarlarkEvaluatorProvider,
         unstable_typecheck: bool,
-    ) -> anyhow::Result<EvaluationResult> {
+    ) -> anyhow::Result<EvaluationResultWithStats> {
         let (env, internals) = self.create_build_env(
             build_file,
             &listing,
@@ -604,7 +605,9 @@ impl InterpreterForCell {
                 unstable_typecheck,
             )?
             .into_build()?;
-
-        Ok(EvaluationResult::from(internals))
+        Ok(EvaluationResultWithStats {
+            result: EvaluationResult::from(internals),
+            starlark_peak_allocated_bytes: env.heap().peak_allocated_bytes() as u64,
+        })
     }
 }
