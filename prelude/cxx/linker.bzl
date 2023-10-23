@@ -30,7 +30,7 @@ SharedLibraryFlagOverrides = record(
     # How to format arguments to the linker to set a shared lib name.
     shared_library_name_linker_flags_format = list[str],
     # Flags to pass to the linker to make it generate a shared library.
-    shared_library_flags = list[str],
+    shared_library_flags = list[ArgLike],
 )
 
 LINKERS = {
@@ -152,7 +152,7 @@ def get_shared_library_name_linker_flags(linker_type: str, soname: str, flag_ove
         for f in shared_library_name_linker_flags_format
     ]
 
-def get_shared_library_flags(linker_type: str, flag_overrides: [SharedLibraryFlagOverrides, None] = None) -> list[str]:
+def get_shared_library_flags(linker_type: str, flag_overrides: [SharedLibraryFlagOverrides, None] = None) -> list[ArgLike]:
     """
     Arguments to pass to the linker to link a shared library.
     """
