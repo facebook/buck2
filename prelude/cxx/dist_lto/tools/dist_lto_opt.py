@@ -229,7 +229,9 @@ def main(argv: List[str]) -> int:
             f"-fthinlto-index={args.index}",
         ]
     )
-    if args.split_dwarf:
+    if args.split_dwarf == "none":
+        clang_opt_flags.append("-gno-split-dwarf")
+    else:
         clang_opt_flags.append(f"-gsplit-dwarf={args.split_dwarf}")
 
     # The following args slices manipulating may be confusing. The first 3 element of opt_args are:

@@ -443,7 +443,9 @@ def cxx_dist_link(
             # Local thinlto generates .dwo files by default. For distributed thinlto, however, we
             # want to keep all dwo debug info in the object file to reduce the number of files to
             # materialize.
-            if cxx_toolchain.split_debug_mode == SplitDebugMode("single"):
+            if cxx_toolchain.split_debug_mode == SplitDebugMode("none"):
+                opt_cmd.add("--split-dwarf=none")
+            elif cxx_toolchain.split_debug_mode == SplitDebugMode("single"):
                 opt_cmd.add("--split-dwarf=single")
 
             # Create an argsfile and dump all the flags to be processed later.
@@ -501,7 +503,9 @@ def cxx_dist_link(
                 opt_cmd.add("--input", entry["path"])
                 opt_cmd.add("--index", entry["bitcode_file"])
 
-                if cxx_toolchain.split_debug_mode == SplitDebugMode("single"):
+                if cxx_toolchain.split_debug_mode == SplitDebugMode("none") or ctx.attrs.distributed_thinlto_partial_split_dwarf:
+                    opt_cmd.add("--split-dwarf=none")
+                elif cxx_toolchain.split_debug_mode == SplitDebugMode("single"):
                     opt_cmd.add("--split-dwarf=single")
 
                 opt_argsfile = ctx.actions.declare_output(opt_object.basename + ".opt.argsfile")
