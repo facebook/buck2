@@ -47,7 +47,8 @@ def assemble_bundle(
         parts: list[AppleBundlePart],
         info_plist_part: [AppleBundlePart, None],
         swift_stdlib_args: [SwiftStdlibArguments, None],
-        extra_hidden: list[Artifact] = []) -> dict[str, list[Provider]]:
+        extra_hidden: list[Artifact] = [],
+        skip_adhoc_signing: bool = False) -> dict[str, list[Provider]]:
     """
     Returns extra subtargets related to bundling.
     """
@@ -58,7 +59,7 @@ def assemble_bundle(
     tool = tools.assemble_bundle
 
     codesign_args = []
-    codesign_type = _detect_codesign_type(ctx)
+    codesign_type = _detect_codesign_type(ctx, skip_adhoc_signing)
 
     codesign_tool = ctx.attrs._apple_toolchain[AppleToolchainInfo].codesign
     if ctx.attrs._dry_run_code_signing:
@@ -220,13 +221,20 @@ def _bundle_spec_json(ctx: AnalysisContext, parts: list[AppleBundlePart]) -> Art
 
     return ctx.actions.write_json("bundle_spec.json", specs)
 
-def _detect_codesign_type(ctx: AnalysisContext) -> CodeSignType:
-    if ctx.attrs.extension not in ["app", "appex", "xctest"]:
-        # Only code sign application bundles, extensions and test bundles
-        return CodeSignType("skip")
+def _detect_codesign_type(ctx: AnalysisContext, skip_adhoc_signing: bool) -> CodeSignType:
+    def compute_codesign_type():
+        if ctx.attrs.extension not in ["app", "appex", "xctest"]:
+            # Only code sign application bundles, extensions and test bundles
+            return CodeSignType("skip")
 
-    if ctx.attrs._codesign_type:
-        return CodeSignType(ctx.attrs._codesign_type)
-    sdk_name = get_apple_sdk_name(ctx)
-    is_ad_hoc_sufficient = get_apple_sdk_metadata_for_sdk_name(sdk_name).is_ad_hoc_code_sign_sufficient
-    return CodeSignType("adhoc" if is_ad_hoc_sufficient else "distribution")
+        if ctx.attrs._codesign_type:
+            return CodeSignType(ctx.attrs._codesign_type)
+        sdk_name = get_apple_sdk_name(ctx)
+        is_ad_hoc_sufficient = get_apple_sdk_metadata_for_sdk_name(sdk_name).is_ad_hoc_code_sign_sufficient
+        return CodeSignType("adhoc" if is_ad_hoc_sufficient else "distribution")
+
+    codesign_type = compute_codesign_type()
+    if skip_adhoc_signing and codesign_type.value == "adhoc":
+        codesign_type = CodeSignType("skip")
+
+    return codesign_type

@@ -134,7 +134,16 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         primary_binary_rel_path = get_apple_bundle_part_relative_destination_path(ctx, binary_part)
         swift_stdlib_args = SwiftStdlibArguments(primary_binary_rel_path = primary_binary_rel_path)
 
-        sub_targets = assemble_bundle(ctx, xctest_bundle, bundle_parts, part_list_output.info_plist_part, swift_stdlib_args)
+        sub_targets = assemble_bundle(
+            ctx,
+            xctest_bundle,
+            bundle_parts,
+            part_list_output.info_plist_part,
+            swift_stdlib_args,
+            # Adhoc signing can be skipped because the test executable is adhoc signed
+            # + includes any entitlements if present.
+            skip_adhoc_signing = True,
+        )
 
         sub_targets.update(cxx_library_output.sub_targets)
         (debuginfo,) = sub_targets[DEBUGINFO_SUBTARGET]
