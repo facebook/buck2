@@ -147,6 +147,7 @@ fn spawn_via_forkserver(
                 stdout: stdout_path.as_os_str().as_bytes().into(),
                 stderr: stderr_path.as_os_str().as_bytes().into(),
             }),
+            graceful_shutdown: true,
         };
         apply_local_execution_environment(&mut req, &working_directory, env, None);
         let res = forkserver

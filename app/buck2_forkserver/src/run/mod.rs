@@ -22,6 +22,8 @@ use std::task::Poll;
 use std::time::Duration;
 
 use anyhow::Context as _;
+use async_trait::async_trait;
+use buck2_common::kill_util::try_terminate_process_gracefully;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use bytes::Bytes;
@@ -238,6 +240,7 @@ where
             Outcome::Cancelled(res) => {
                 kill_process
                     .kill(&mut child)
+                    .await
                     .context("Failed to terminate child after timeout")?;
 
                 decoder
@@ -298,21 +301,26 @@ where
         child,
         cancellation,
         DefaultStatusDecoder,
-        DefaultKillProcess,
+        DefaultKillProcess::default(),
         true,
     )?;
     decode_command_event_stream(stream).await
 }
 
 /// Dependency injection for kill. We use this in testing.
+#[async_trait]
 pub trait KillProcess {
-    fn kill(self, child: &mut Child) -> anyhow::Result<()>;
+    async fn kill(self, child: &mut Child) -> anyhow::Result<()>;
 }
 
-pub struct DefaultKillProcess;
+#[derive(Default)]
+pub struct DefaultKillProcess {
+    pub graceful_shutdown: bool,
+}
 
+#[async_trait]
 impl KillProcess for DefaultKillProcess {
-    fn kill(self, child: &mut Child) -> anyhow::Result<()> {
+    async fn kill(self, child: &mut Child) -> anyhow::Result<()> {
         let pid = match child.id() {
             Some(pid) => pid,
             None => {
@@ -327,7 +335,7 @@ impl KillProcess for DefaultKillProcess {
                 // On unix we want killpg, so we don't use the default impl.
                 // We use `if true` here to do less conditional compilation
                 // or conditional dependencies.
-                return kill_process_impl(pid);
+                return kill_process_impl(pid, self.graceful_shutdown).await;
             }
         }
         // `start_kill` is just `std::process::Child::kill` on Windows.
@@ -339,15 +347,21 @@ impl KillProcess for DefaultKillProcess {
 }
 
 #[cfg(unix)]
-fn kill_process_impl(pid: u32) -> anyhow::Result<()> {
+async fn kill_process_impl(pid: u32, graceful_shutdown: bool) -> anyhow::Result<()> {
     use nix::sys::signal;
     use nix::sys::signal::Signal;
     use nix::unistd::Pid;
 
     let pid: i32 = pid.try_into().context("PID does not fit a i32")?;
 
-    signal::killpg(Pid::from_raw(pid), Signal::SIGKILL)
-        .with_context(|| format!("Failed to kill process {}", pid))
+    if graceful_shutdown {
+        try_terminate_process_gracefully(pid, Duration::from_secs(10))
+            .await
+            .with_context(|| format!("Failed to terminate process {} gracefully", pid))
+    } else {
+        signal::killpg(Pid::from_raw(pid), Signal::SIGKILL)
+            .with_context(|| format!("Failed to kill process {}", pid))
+    }
 }
 
 /// Unify the the behavior of using a relative path for the executable between Unix and Windows. On
@@ -607,7 +621,7 @@ mod tests {
             child,
             futures::future::pending(),
             DefaultStatusDecoder,
-            DefaultKillProcess,
+            DefaultKillProcess::default(),
             true,
         )?
         .boxed();
@@ -639,13 +653,14 @@ mod tests {
             killed: Arc<Mutex<bool>>,
         }
 
+        #[async_trait]
         impl KillProcess for Kill {
-            fn kill(self, child: &mut Child) -> anyhow::Result<()> {
+            async fn kill(self, child: &mut Child) -> anyhow::Result<()> {
                 *self.killed.lock().unwrap() = true;
 
                 // We still need to kill the process. On Windows in particular our test will hang
                 // if we do not.
-                DefaultKillProcess.kill(child)
+                DefaultKillProcess::default().kill(child).await
             }
         }
 
@@ -718,7 +733,7 @@ mod tests {
             child,
             futures::future::pending(),
             DefaultStatusDecoder,
-            DefaultKillProcess,
+            DefaultKillProcess::default(),
             false,
         )?
         .boxed();

@@ -36,6 +36,10 @@ message CommandRequest {
   // Used to optionally redirect stdout and stderr to files.
   // If set, stdout and stderr events will not be streamed.
   optional StdRedirectPaths std_redirects = 12;
+  // Whether to give the process time to shutdown after SIGTERM
+  // before sending SIGKILL.
+  // Should only be needed for daemonized processes (workers).
+  bool graceful_shutdown = 13;
 }
 
 message WorkingDirectory {
