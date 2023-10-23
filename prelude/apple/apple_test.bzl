@@ -39,6 +39,7 @@ load(":apple_bundle_part.bzl", "AppleBundlePart", "SwiftStdlibArguments", "assem
 load(":apple_bundle_types.bzl", "AppleBundleInfo")
 load(":apple_bundle_utility.bzl", "get_product_name")
 load(":apple_dsym.bzl", "DSYM_SUBTARGET", "DWARF_AND_DSYM_SUBTARGET", "get_apple_dsym")
+load(":apple_entitlements.bzl", "entitlements_link_flags")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(
     ":apple_sdk_metadata.bzl",
@@ -62,6 +63,16 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             cmd_args(ctx.attrs.bridging_header),
         ] if ctx.attrs.bridging_header else []
 
+        shared_library_flags = ["-bundle"]
+
+        # Embedding entitlements (if present) means that we can skip adhoc codesigning
+        # any xctests altogether, provided the test dylib is adhoc signed
+        shared_library_flags += entitlements_link_flags(ctx)
+
+        # The linker will incluide adhoc signature for ARM64 by default, lets
+        # ensure we always have an adhoc signature regardless of arch/linker logic.
+        shared_library_flags += ["-Wl,-adhoc_codesign"]
+
         constructor_params = apple_library_rule_constructor_params_and_swift_providers(
             ctx,
             AppleLibraryAdditionalParams(
@@ -73,7 +84,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
                     shared_library_name_linker_flags_format = [],
                     # When building Apple tests, we want to link with `-bundle` instead of `-shared` to allow
                     # linking against the bundle loader.
-                    shared_library_flags = ["-bundle"],
+                    shared_library_flags = shared_library_flags,
                 ),
                 generate_sub_targets = CxxRuleSubTargetParams(
                     compilation_database = True,
