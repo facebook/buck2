@@ -28,6 +28,7 @@ use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::execute::action_digest::ActionDigest;
+use buck2_execute::execute::blobs::ActionBlobs;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::HasBlockingExecutor;
 use buck2_execute::execute::cache_uploader::CacheUploadInfo;
@@ -498,6 +499,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         action_digest: ActionDigest,
         execution_result: &CommandExecutionResult,
         dep_file_entry: Option<DepFileEntry>,
+        action_blobs: &ActionBlobs,
     ) -> anyhow::Result<CacheUploadResult> {
         let action = self.target();
         self.executor
@@ -510,6 +512,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                 },
                 execution_result,
                 dep_file_entry,
+                action_blobs,
             )
             .await
     }

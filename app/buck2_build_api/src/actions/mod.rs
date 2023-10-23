@@ -54,6 +54,7 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::action_digest::ActionDigest;
+use buck2_execute::execute::blobs::ActionBlobs;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::cache_uploader::CacheUploadResult;
 use buck2_execute::execute::cache_uploader::DepFileEntry;
@@ -218,6 +219,7 @@ pub trait ActionExecutionCtx: Send + Sync {
         action_digest: ActionDigest,
         execution_result: &CommandExecutionResult,
         dep_file_entry: Option<DepFileEntry>,
+        action_blobs: &ActionBlobs,
     ) -> anyhow::Result<CacheUploadResult>;
 
     /// Executes a command

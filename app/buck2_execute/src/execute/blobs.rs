@@ -55,4 +55,10 @@ impl ActionBlobs {
     pub fn get(&self, digest: &TrackedFileDigest) -> Option<&ActionMetadataBlobData> {
         self.0.get(digest)
     }
+
+    pub fn iter(
+        &self,
+    ) -> std::collections::hash_map::Iter<'_, TrackedFileDigest, ActionMetadataBlobData> {
+        self.0.iter()
+    }
 }
