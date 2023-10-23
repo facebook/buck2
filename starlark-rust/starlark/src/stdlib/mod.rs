@@ -68,8 +68,6 @@ pub enum LibraryExtension {
     /// Partially apply a function, `partial(f, *args, **kwargs)` will create a function where those `args` `kwargs`
     /// are already applied to `f`.
     Partial,
-    /// Create a regex from a string.
-    ExperimentalRegex,
     /// Add a function `debug(x)` which shows the Rust [`Debug`](std::fmt::Debug) representation of a value.
     /// Useful when debugging, but the output should not be considered stable.
     Debug,
@@ -99,21 +97,8 @@ impl LibraryExtension {
     pub(crate) fn all() -> &'static [Self] {
         use LibraryExtension::*;
         &[
-            StructType,
-            RecordType,
-            EnumType,
-            Map,
-            Filter,
-            Partial,
-            ExperimentalRegex,
-            Debug,
-            Print,
-            Pprint,
-            Breakpoint,
-            Json,
-            Typing,
-            Internal,
-            CallStack,
+            StructType, RecordType, EnumType, Map, Filter, Partial, Debug, Print, Pprint,
+            Breakpoint, Json, Typing, Internal, CallStack,
         ]
     }
 
@@ -127,7 +112,6 @@ impl LibraryExtension {
             Map => extra::map(builder),
             Filter => extra::filter(builder),
             Partial => partial::partial(builder),
-            ExperimentalRegex => extra::regex(builder),
             Debug => extra::debug(builder),
             Print => extra::print(builder),
             Pprint => extra::pprint(builder),

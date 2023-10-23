@@ -35,7 +35,6 @@ pub mod list_or_tuple;
 pub mod none;
 pub mod range;
 pub mod record;
-pub mod regex;
 pub mod starlark_value_as_type;
 pub mod string;
 pub mod structs;

@@ -26,7 +26,6 @@ use crate::eval::Evaluator;
 use crate::values::function::StarlarkFunction;
 use crate::values::none::NoneOr;
 use crate::values::none::NoneType;
-use crate::values::regex::StarlarkRegex;
 use crate::values::tuple::UnpackTuple;
 use crate::values::typing::iter::StarlarkIter;
 use crate::values::Value;
@@ -99,23 +98,6 @@ pub fn debug(builder: &mut GlobalsBuilder) {
     /// Intended for debugging purposes and guaranteed to produce verbose output not suitable for user display.
     fn debug(#[starlark(require = pos)] val: Value) -> anyhow::Result<String> {
         Ok(format!("{:?}", val))
-    }
-}
-
-#[starlark_module]
-pub fn regex(builder: &mut GlobalsBuilder) {
-    /// Creates a regex which can be used for matching.
-    ///
-    /// ```
-    /// # starlark::assert::all_true(r#"
-    /// experimental_regex("^[a-z]*$").match("test") == True
-    /// experimental_regex("^[a-z]*$").match("1234") == False
-    /// # "#);
-    /// ```
-    fn experimental_regex<'v>(
-        #[starlark(require = pos)] regex: &str,
-    ) -> anyhow::Result<StarlarkRegex> {
-        StarlarkRegex::new(regex)
     }
 }
 
