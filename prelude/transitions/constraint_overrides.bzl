@@ -5,11 +5,15 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @oss-disable: load("@prelude//meta_only:product_constraints.bzl", _PRODUCT_CONSTRAINTS = "constraints") 
-# @oss-disable: load("@prelude//meta_only:third_party_version_constraints.bzl", _VERSION_CONSTRAINTS = "constraints") 
-
-# @oss-disable: _CONSTRAINTS = _PRODUCT_CONSTRAINTS + _VERSION_CONSTRAINTS 
-_CONSTRAINTS = [] # @oss-enable
+# NOTE: Currently, constraints can't be propagated via rule attrs and so need
+# to be hard-coded here.
+# We use a `read_config` to avoid hard-coding these repo-specific constraints
+# into the buck2 prelude.
+_CONSTRAINTS = [
+    constraint.strip()
+    for constraint in read_root_config("buck2", "constraint_overrides", "").split(",")
+    if constraint.strip()
+]
 
 # Apparently, `==` doesn't do value comparison for `ConstraintValueInfo`, so
 # impl a hacky eq impl to workaround.
