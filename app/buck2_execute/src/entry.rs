@@ -14,6 +14,7 @@ use anyhow::Context as _;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileDigestConfig;
 use buck2_common::file_ops::FileMetadata;
+use buck2_common::file_ops::FileType;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::fs_util;
@@ -43,20 +44,17 @@ pub fn build_entry_from_disk(
     };
     let hashing_start = Instant::now();
 
-    let value = if m.file_type().is_symlink() {
-        DirectoryEntry::Leaf(new_symlink(fs_util::read_link(&path)?)?)
-    } else if m.is_file() {
-        DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
+    let value = match FileType::from(m.file_type()) {
+        FileType::File => DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
             digest: TrackedFileDigest::new(
                 FileDigest::from_file(&path, digest_config)?,
                 digest_config.as_cas_digest_config(),
             ),
             is_executable: path.executable(),
-        }))
-    } else if m.is_dir() {
-        DirectoryEntry::Dir(build_dir_from_disk(&mut path, digest_config)?)
-    } else {
-        anyhow::bail!("Path {:?} is of an unknown file type.", path)
+        })),
+        FileType::Symlink => DirectoryEntry::Leaf(new_symlink(fs_util::read_link(&path)?)?),
+        FileType::Directory => DirectoryEntry::Dir(build_dir_from_disk(&mut path, digest_config)?),
+        FileType::Unknown => anyhow::bail!("Path {:?} is of an unknown file type.", path),
     };
     let hashing_time = hashing_start.elapsed();
     Ok((Some(value), hashing_time))
@@ -80,28 +78,33 @@ fn build_dir_from_disk(
             .with_context(|| format!("Invalid filename: {}", disk_path.display()))?;
 
         disk_path.push(&filename);
+        match FileType::from(filetype) {
+            FileType::File => {
+                let metadata = FileMetadata {
+                    digest: TrackedFileDigest::new(
+                        FileDigest::from_file(disk_path, digest_config)?,
+                        digest_config.as_cas_digest_config(),
+                    ),
+                    is_executable: file.path().executable(),
+                };
+                builder.insert(
+                    filename,
+                    DirectoryEntry::Leaf(ActionDirectoryMember::File(metadata)),
+                )?;
+            }
+            FileType::Symlink => {
+                builder.insert(
+                    filename,
+                    DirectoryEntry::Leaf(new_symlink(fs_util::read_link(&disk_path)?)?),
+                )?;
+            }
+            FileType::Directory => {
+                let dir = build_dir_from_disk(disk_path, digest_config)?;
+                builder.insert(filename, DirectoryEntry::Dir(dir))?;
+            }
+            FileType::Unknown => (),
+        };
 
-        if filetype.is_dir() {
-            let dir = build_dir_from_disk(disk_path, digest_config)?;
-            builder.insert(filename, DirectoryEntry::Dir(dir))?;
-        } else if filetype.is_symlink() {
-            builder.insert(
-                filename,
-                DirectoryEntry::Leaf(new_symlink(fs_util::read_link(&disk_path)?)?),
-            )?;
-        } else if filetype.is_file() {
-            let metadata = FileMetadata {
-                digest: TrackedFileDigest::new(
-                    FileDigest::from_file(disk_path, digest_config)?,
-                    digest_config.as_cas_digest_config(),
-                ),
-                is_executable: file.path().executable(),
-            };
-            builder.insert(
-                filename,
-                DirectoryEntry::Leaf(ActionDirectoryMember::File(metadata)),
-            )?;
-        }
         disk_path.pop();
     }
 
