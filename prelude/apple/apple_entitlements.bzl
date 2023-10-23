@@ -8,6 +8,8 @@
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load(":apple_bundle_utility.bzl", "get_default_binary_dep")
 load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo", "CodeSignType")
+load(":apple_sdk_metadata.bzl", "IPhoneSimulatorSdkMetadata", "MacOSXCatalystSdkMetadata")
+load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 
 def get_entitlements_codesign_args(ctx: AnalysisContext, codesign_type: CodeSignType) -> list[ArgLike]:
     include_entitlements = _should_include_entitlements(ctx, codesign_type)
@@ -41,3 +43,24 @@ def _entitlements_file(ctx: AnalysisContext) -> [Artifact, None]:
         return binary_entitlement_info.entitlements_file
 
     return ctx.attrs._codesign_entitlements
+
+_SDK_NAMES_NEED_ENTITLEMENTS_IN_BINARY = [
+    IPhoneSimulatorSdkMetadata.name,
+    MacOSXCatalystSdkMetadata.name,
+]
+
+def _needs_entitlements_in_binary(ctx: AnalysisContext) -> bool:
+    apple_toolchain_info = ctx.attrs._apple_toolchain[AppleToolchainInfo]
+    return apple_toolchain_info.sdk_name in _SDK_NAMES_NEED_ENTITLEMENTS_IN_BINARY
+
+def entitlements_link_flags(ctx: AnalysisContext) -> list[typing.Any]:
+    return [
+        "-Xlinker",
+        "-sectcreate",
+        "-Xlinker",
+        "__TEXT",
+        "-Xlinker",
+        "__entitlements",
+        "-Xlinker",
+        ctx.attrs.entitlements_file,
+    ] if (ctx.attrs.entitlements_file and _needs_entitlements_in_binary(ctx)) else []

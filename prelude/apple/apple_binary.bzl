@@ -60,11 +60,10 @@ load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentV
 load(":apple_bundle_utility.bzl", "get_bundle_infos_from_graph", "merge_bundle_linker_maps_info")
 load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo")
 load(":apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
+load(":apple_entitlements.bzl", "entitlements_link_flags")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_genrule_deps.bzl", "get_apple_build_genrule_deps_attr_value", "get_apple_genrule_deps_outputs")
-load(":apple_sdk_metadata.bzl", "IPhoneSimulatorSdkMetadata", "MacOSXCatalystSdkMetadata")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node", "get_min_deployment_version_target_linker_flags", "get_min_deployment_version_target_preprocessor_flags")
-load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_apple_stripped_attr_value_with_default_fallback")
 load(":debug.bzl", "AppleDebuggableInfo")
 load(":resource_groups.bzl", "create_resource_graph")
@@ -96,7 +95,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
 
         extra_linker_output_flags, extra_linker_output_providers = [], {} # @oss-enable
         # @oss-disable: extra_linker_output_flags, extra_linker_output_providers = add_extra_linker_outputs(ctx) 
-        extra_link_flags = get_min_deployment_version_target_linker_flags(ctx) + _entitlements_link_flags(ctx) + extra_linker_output_flags
+        extra_link_flags = get_min_deployment_version_target_linker_flags(ctx) + entitlements_link_flags(ctx) + extra_linker_output_flags
 
         framework_search_path_pre = CPreprocessor(
             relative_args = CPreprocessorArgs(args = [framework_search_path_flags]),
@@ -203,27 +202,6 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         return get_swift_anonymous_targets(ctx, get_apple_binary_providers)
     else:
         return get_apple_binary_providers([])
-
-_SDK_NAMES_NEED_ENTITLEMENTS_IN_BINARY = [
-    IPhoneSimulatorSdkMetadata.name,
-    MacOSXCatalystSdkMetadata.name,
-]
-
-def _needs_entitlements_in_binary(ctx: AnalysisContext) -> bool:
-    apple_toolchain_info = ctx.attrs._apple_toolchain[AppleToolchainInfo]
-    return apple_toolchain_info.sdk_name in _SDK_NAMES_NEED_ENTITLEMENTS_IN_BINARY
-
-def _entitlements_link_flags(ctx: AnalysisContext) -> list[typing.Any]:
-    return [
-        "-Xlinker",
-        "-sectcreate",
-        "-Xlinker",
-        "__TEXT",
-        "-Xlinker",
-        "__entitlements",
-        "-Xlinker",
-        ctx.attrs.entitlements_file,
-    ] if (ctx.attrs.entitlements_file and _needs_entitlements_in_binary(ctx)) else []
 
 def _filter_swift_srcs(ctx: AnalysisContext) -> (list[CxxSrcWithFlags], list[CxxSrcWithFlags]):
     cxx_srcs = []
