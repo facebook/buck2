@@ -11,7 +11,9 @@ use std::borrow::Borrow;
 use std::borrow::ToOwned;
 
 use allocative::Allocative;
+use buck2_util::arc_str::ArcStr;
 use derive_more::Display;
+use dupe::Dupe;
 use ref_cast::RefCast;
 use serde::Serialize;
 
@@ -24,18 +26,14 @@ pub enum MetadataKeyError {
 /// A String that we validated conforms to our rules for metadata keys (whih are quite relaxed:
 /// they must contain exactly one dot).
 #[derive(
-    PartialEq, Eq, PartialOrd, Ord, Display, Debug, Clone, Allocative, Serialize, Hash
+    PartialEq, Eq, PartialOrd, Ord, Display, Debug, Clone, Dupe, Allocative, Serialize, Hash
 )]
 #[serde(transparent)]
-pub struct MetadataKey(String);
+pub struct MetadataKey(ArcStr);
 
 impl MetadataKey {
     pub fn as_str(&self) -> &str {
-        &self.0
-    }
-
-    pub fn into_string(self) -> String {
-        self.0
+        self.0.as_str()
     }
 }
 
@@ -44,7 +42,7 @@ impl TryFrom<String> for MetadataKey {
 
     fn try_from(key: String) -> Result<Self, Self::Error> {
         validate_key(&key)?;
-        Ok(Self(key))
+        Ok(Self(ArcStr::from(key)))
     }
 }
 
@@ -81,6 +79,6 @@ impl ToOwned for MetadataKeyRef {
     type Owned = MetadataKey;
 
     fn to_owned(&self) -> Self::Owned {
-        MetadataKey(self.0.to_owned())
+        MetadataKey(ArcStr::from(&self.0))
     }
 }
