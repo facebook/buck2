@@ -254,10 +254,10 @@ test_part(Config, Suite, Test, Path) ->
                 of
                     {save_config, AfterEndConfig} ->
                         {Result, AfterEndConfig};
-                    E = {Failed, _} when Failed =:= fail orelse Failed =:= failed ->
+                    {Failed, E} when Failed =:= fail orelse Failed =:= failed ->
                         FinalResult =
                             case status_from_test_result(Result, Test) of
-                                pass_result -> {error, {end_per_testcase, E}};
+                                pass_result -> {fail, {end_per_testcase, E}};
                                 _ -> Result
                             end,
                         {FinalResult, AfterRunConfig};
