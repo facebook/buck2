@@ -1,0 +1,15 @@
+[repositories]
+self = .
+prelude = prelude
+toolchains = toolchains
+none = none
+
+[repository_aliases]
+config = prelude
+buck = none
+fbcode = none
+fbcode_macros = none
+fbsource = none
+
+[parser]
+target_platform_detector_spec = target://...->prelude//platforms:default

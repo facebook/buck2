@@ -33,7 +33,8 @@ commands:
     description: Setup env for Linux
     steps:
       - run: sudo apt-get update
-      - run: sudo apt-get install libssl-dev cmake clang lld opam libzstd-dev
+      - run: sudo apt-get install libssl-dev cmake clang lld opam libzstd-dev python3-pip
+      - run: sudo pip3 install conan==1.*
       - run:
           # the xlarge linux resource class has 8 CPUs, limit the number of jobs to 6 to avoid running out of resources
           name: "Set CARGO_BUILD_JOBS=6 to limit the number of CPUs used"
@@ -55,10 +56,14 @@ commands:
       - run:
           name: Brew install
           command: |
-            brew install cmake coreutils opam llvm protobuf zstd
+            # Avoid: "Error: The `brew link` step did not complete
+            # successfully" (for llvm dependency 'six').
+            rm -f '/usr/local/lib/python3.9/site-packages/six.py'
+            brew install cmake python3 coreutils opam llvm protobuf zstd
             # TODO: Remove once non intel macos platform is supported on https://github.com/stepancheg/rust-protoc-bin-vendored/
             echo 'export BUCK2_BUILD_PROTOC=/opt/homebrew/opt/protobuf/bin/protoc' >> "$BASH_ENV"
             echo 'export BUCK2_BUILD_PROTOC_INCLUDE=/opt/homebrew/opt/protobuf/include' >> "$BASH_ENV"
+      - run: sudo pip3 install conan==1.*
       - run:
           # the xlarge linux resource class has 8 CPUs, limit the number of jobs to 6 to avoid running out of resources
           name: "Set CARGO_BUILD_JOBS=6 to limit the number of CPUs used"
@@ -150,6 +155,20 @@ commands:
             cd examples/no_prelude
             /tmp/artifacts/buck2 build //... -v 2
 
+  build_example_conan:
+    description: Buile examples/toolchains/conan_toolchain
+    steps:
+      - run:
+          name: Build examples/toolchains/conan_toolchain
+          command: |
+            cd examples/toolchains/conan_toolchain
+            /tmp/artifacts/buck2 init
+            cp -r ../../../prelude prelude
+            # Generate Conan imports. TODO[AH] Make that unnecessary.
+            PATH="/tmp/artifacts:$PATH" /tmp/artifacts/buck2 run //cpp/conan:update -v 2
+            /tmp/artifacts/buck2 build //... -v 2
+            /tmp/artifacts/buck2 test //... -v 2
+
 
 version: 2.1
 orbs:
@@ -187,6 +206,7 @@ jobs:
             source ./ocaml-setup.sh
             /tmp/artifacts/buck2 build //... -v 2
             /tmp/artifacts/buck2 test //... -v 2
+      - build_example_conan
       - build_example_no_prelude
       - setup_reindeer
       - build_bootstrap
@@ -223,6 +243,7 @@ jobs:
             source ./ocaml-setup.sh
             /tmp/artifacts/buck2 build //... -v 2
             /tmp/artifacts/buck2 test //... -v 2
+      - build_example_conan
       - build_example_no_prelude
       - setup_reindeer
       - build_bootstrap

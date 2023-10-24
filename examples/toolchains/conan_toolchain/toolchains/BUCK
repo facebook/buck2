@@ -1,0 +1,70 @@
+load("@prelude//toolchains:demo.bzl", "system_demo_toolchains")
+load("@prelude//toolchains/conan:defs.bzl", "conan_init", "conan_profile", "system_conan_toolchain")
+
+system_conan_toolchain(
+    name = "conan",
+    conan_path = "conan",
+    visibility = ["PUBLIC"],
+)
+
+conan_profile(
+    name = "conan-profile-linux",
+    arch = "x86_64",
+    build_type = "Release",
+    compiler = "gcc",
+    compiler_libcxx = "libstdc++",
+    compiler_version = "11.3",
+    os = "Linux",
+)
+
+conan_profile(
+    name = "conan-profile-macos-x86_64",
+    arch = "x86_64",
+    build_type = "Release",
+    compiler = "clang",
+    compiler_libcxx = "libc++",
+    compiler_version = "15",
+    os = "Macos",
+)
+
+conan_profile(
+    name = "conan-profile-macos-arm64",
+    arch = "armv8",
+    build_type = "Release",
+    compiler = "clang",
+    compiler_libcxx = "libc++",
+    compiler_version = "15",
+    os = "Macos",
+)
+
+conan_profile(
+    name = "conan-profile-windows",
+    arch = "x86_64",
+    build_type = "Release",
+    compiler = "gcc",
+    compiler_libcxx = "libstdc++",
+    compiler_version = "11.3",
+    os = "Windows",
+)
+
+alias(
+    name = "conan-profile",
+    actual = select({
+        "prelude//os:linux": ":conan-profile-linux",
+        "prelude//os:macos": select({
+            "prelude//cpu:arm64": ":conan-profile-macos-arm64",
+            "prelude//cpu:x86_64": ":conan-profile-macos-x86_64",
+        }),
+        "prelude//os:windows": ":conan-profile-windows",
+    }),
+)
+
+conan_init(
+    name = "conan-init",
+    profile = ":conan-profile",
+    visibility = ["PUBLIC"],
+)
+
+# All the default toolchains, suitable for a quick demo or early prototyping.
+# Most real projects should copy/paste the implementation to configure them.
+system_demo_toolchains()
