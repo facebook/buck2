@@ -107,7 +107,6 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-ahash = "0.8.0, <0.8.4"
 anyhow = "1.0.65"
 anymap = "0.12.1"
 arc-swap = "1.6.0"
