@@ -70,12 +70,14 @@ def strip_debug_info(
             obj = obj,
         )
 
-def strip_object(ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo, unstripped: Artifact, strip_flags: cmd_args, category_suffix: [str, None] = None) -> Artifact:
+def strip_object(ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo, unstripped: Artifact, strip_flags: cmd_args, category_suffix: [str, None] = None, output_path: [str, None] = None) -> Artifact:
     """
     Strip unneeded information from binaries / shared libs.
     """
     strip = cxx_toolchain.binary_utilities_info.strip
-    stripped_lib = ctx.actions.declare_output("stripped/{}".format(unstripped.short_path))
+
+    output_path = output_path or unstripped.short_path
+    stripped_lib = ctx.actions.declare_output("stripped/{}".format(output_path))
 
     # TODO(T109996375) support configuring the flags used for stripping
     cmd = cmd_args()
@@ -86,7 +88,7 @@ def strip_object(ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo, unstripp
     effective_category_suffix = category_suffix if category_suffix else "shared_lib"
     category = "strip_{}".format(effective_category_suffix)
 
-    ctx.actions.run(cmd, category = category, identifier = unstripped.short_path)
+    ctx.actions.run(cmd, category = category, identifier = output_path)
 
     return stripped_lib
 

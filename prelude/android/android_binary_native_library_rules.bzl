@@ -743,7 +743,8 @@ def write_merged_library_map(ctx: AnalysisContext, merged_linkables: MergedLinka
                 platform_solib_map[soname] = sorted(merged_shared_lib.solib_constituents)
         if solib_map:
             if solib_map != platform_solib_map:
-                fail("DO NOT COMMIT")
+                # TODO(ctolliday) combine merge maps for different platforms since some pre-built libs may not exist on every platform
+                fail("Mismatch in platform merge library maps\n\n{}\n\n{}".format(solib_map, platform_solib_map))
         else:
             solib_map = platform_solib_map
 
@@ -889,6 +890,11 @@ def _get_merged_linkables(
         group_shared_libs = {}
         included_default_solibs = {}
 
+        def platform_output_path(path):
+            if len(merged_data_by_platform) > 1:
+                return platform + "/" + path
+            return path
+
         # Now we will traverse from the leaves up the graph (the link groups graph). As we traverse, we will produce
         # a link group linkablenode for each group.
         for group in post_order_traversal(link_groups_graph):
@@ -937,9 +943,11 @@ def _get_merged_linkables(
                     expect(not node_data.deps, "prebuilt shared library `{}` with deps not supported by somerge".format(target))
                     expect(not node_data.exported_deps, "prebuilt shared library `{}` with exported_deps not supported by somerge".format(target))
                     soname, shlib = node_data.shared_libs.items()[0]
+
+                    output_path = platform_output_path(shlib.output.short_path)
                     shared_lib = SharedLibrary(
                         lib = shlib,
-                        stripped_lib = strip_lib(ctx, cxx_toolchain, shlib.output),
+                        stripped_lib = strip_lib(ctx, cxx_toolchain, shlib.output, output_path = output_path),
                         link_args = None,
                         shlib_deps = None,
                         can_be_asset = can_be_asset,
@@ -1095,9 +1103,7 @@ def _get_merged_linkables(
                 ),
             )
 
-            output_path = soname
-            if len(merged_data_by_platform) > 1:
-                output_path = platform + "/" + output_path
+            output_path = platform_output_path(soname)
             link_args = [LinkArgs(infos = links)]
 
             shared_lib = create_shared_lib(
@@ -1275,13 +1281,14 @@ def union_needed_symbols(actions: AnalysisActions, output: Artifact, needed_symb
 
     actions.dynamic_output(dynamic = needed_symbols, inputs = [], outputs = [output], f = compute_union)
 
-def strip_lib(ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo, shlib: Artifact):
+def strip_lib(ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo, shlib: Artifact, output_path: [str, None] = None):
     strip_flags = cmd_args(get_strip_non_global_flags(cxx_toolchain))
     return strip_object(
         ctx,
         cxx_toolchain,
         shlib,
         strip_flags,
+        output_path = output_path,
     )
 
 def create_shared_lib(
