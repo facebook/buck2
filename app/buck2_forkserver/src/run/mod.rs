@@ -23,7 +23,6 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_common::kill_util::try_terminate_process_gracefully;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use bytes::Bytes;
@@ -348,6 +347,7 @@ impl KillProcess for DefaultKillProcess {
 
 #[cfg(unix)]
 async fn kill_process_impl(pid: u32, graceful_shutdown: bool) -> anyhow::Result<()> {
+    use buck2_common::kill_util::try_terminate_process_gracefully;
     use nix::sys::signal;
     use nix::sys::signal::Signal;
     use nix::unistd::Pid;
