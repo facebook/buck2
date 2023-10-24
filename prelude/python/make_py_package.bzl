@@ -13,6 +13,10 @@ execution
 load("@prelude//:artifact_tset.bzl", "project_artifacts")
 load("@prelude//:local_only.bzl", "package_python_locally")
 load(
+    "@prelude//cxx:cxx_library_utility.bzl",
+    "cxx_is_gnu",
+)
+load(
     "@prelude//linking:link_info.bzl",
     "LinkedObject",  # @unused Used as a type
 )
@@ -21,7 +25,7 @@ load("@prelude//utils:arglike.bzl", "ArgLike")
 load(":compile.bzl", "PycInvalidationMode")
 load(":interface.bzl", "EntryPoint", "EntryPointKind", "PythonLibraryManifestsInterface")
 load(":manifest.bzl", "ManifestInfo")  # @unused Used as a type
-load(":toolchain.bzl", "PackageStyle", "PythonToolchainInfo")
+load(":toolchain.bzl", "PackageStyle", "PythonToolchainInfo", "get_package_style")
 
 # This represents the input to the creation of a Pex. Manifests provide source
 # files, extensions are native extensions, and compile indicates whether we
@@ -441,7 +445,11 @@ def _pex_modules_common_args(
         deps.extend(debuginfo_files)
 
     if ctx.attrs.package_split_dwarf_dwp:
-        dwp = [(s.dwp, "{}.dwp".format(n)) for n, s in shared_libraries.items() if s.dwp != None]
+        if ctx.attrs.strip_libpar == "extract" and get_package_style(ctx) == PackageStyle("standalone") and cxx_is_gnu(ctx):
+            # rename to match extracted debuginfo package
+            dwp = [(s.dwp, "{}.debuginfo.dwp".format(n)) for n, s in shared_libraries.items() if s.dwp != None]
+        else:
+            dwp = [(s.dwp, "{}.dwp".format(n)) for n, s in shared_libraries.items() if s.dwp != None]
         dwp_srcs_path = ctx.actions.write(
             "__dwp___srcs.txt",
             _srcs([src for src, _ in dwp], format = "--dwp-src={}"),

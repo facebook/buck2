@@ -85,6 +85,11 @@ PythonPlatformInfo = provider(fields = {
     "name": provider_field(typing.Any, default = None),
 })
 
+def get_package_style(ctx: AnalysisContext) -> PackageStyle:
+    if ctx.attrs.package_style != None:
+        return PackageStyle(ctx.attrs.package_style.lower())
+    return PackageStyle(ctx.attrs._python_toolchain[PythonToolchainInfo].package_style)
+
 def get_platform_attr(
         python_platform_info: PythonPlatformInfo,
         cxx_platform_info: CxxPlatformInfo,

@@ -94,7 +94,7 @@ load(
     "qualify_srcs",
 )
 load(":source_db.bzl", "create_dbg_source_db", "create_python_source_db_info", "create_source_db", "create_source_db_no_deps")
-load(":toolchain.bzl", "NativeLinkStrategy", "PackageStyle", "PythonPlatformInfo", "PythonToolchainInfo", "get_platform_attr")
+load(":toolchain.bzl", "NativeLinkStrategy", "PackageStyle", "PythonPlatformInfo", "PythonToolchainInfo", "get_package_style", "get_platform_attr")
 
 OmnibusMetadataInfo = provider(
     # @unsorted-dict-items
@@ -105,11 +105,6 @@ def _link_strategy(ctx: AnalysisContext) -> NativeLinkStrategy:
     if ctx.attrs.native_link_strategy != None:
         return NativeLinkStrategy(ctx.attrs.native_link_strategy)
     return NativeLinkStrategy(ctx.attrs._python_toolchain[PythonToolchainInfo].native_link_strategy)
-
-def _package_style(ctx: AnalysisContext) -> PackageStyle:
-    if ctx.attrs.package_style != None:
-        return PackageStyle(ctx.attrs.package_style.lower())
-    return PackageStyle(ctx.attrs._python_toolchain[PythonToolchainInfo].package_style)
 
 # We do a lot of merging extensions, so don't use O(n) type annotations
 def _merge_extensions(
@@ -428,7 +423,7 @@ def _convert_python_library_to_executable(
     extra = {}
 
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
-    package_style = _package_style(ctx)
+    package_style = get_package_style(ctx)
 
     # Convert preloaded deps to a set of their names to be loaded by.
     preload_labels = {d.label: None for d in ctx.attrs.preload_deps}
