@@ -677,12 +677,14 @@ def _compile(
         else:
             compile_args.hidden(src)
 
-    argsfile = ctx.actions.declare_output(
-        "haskell_compile_" + artifact_suffix + ".argsfile",
-    )
-    ctx.actions.write(argsfile.as_output(), compile_args, allow_args = True)
-    hidden_args = [compile_args]
-    compile_cmd.add(cmd_args(argsfile, format = "@{}").hidden(hidden_args))
+    if haskell_toolchain.use_argsfile:
+        argsfile = ctx.actions.declare_output(
+            "haskell_compile_" + artifact_suffix + ".argsfile",
+        )
+        ctx.actions.write(argsfile.as_output(), compile_args, allow_args = True)
+        compile_cmd.add(cmd_args(argsfile, format = "@{}").hidden(compile_args))
+    else:
+        compile_cmd.add(compile_args)
 
     ctx.actions.run(
         compile_cmd,
