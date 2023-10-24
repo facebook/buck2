@@ -44,7 +44,7 @@ enum PackageValueError {
 
 #[derive(Debug, Default, Allocative)]
 pub struct SuperPackageValuesImpl {
-    pub(crate) values: SmallMap<MetadataKey, OwnedFrozenStarlarkPackageValue>,
+    values: SmallMap<MetadataKey, OwnedFrozenStarlarkPackageValue>,
 }
 
 impl SuperPackageValuesImpl {
