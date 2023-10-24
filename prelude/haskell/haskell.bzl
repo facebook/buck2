@@ -700,7 +700,7 @@ def _compile(
     )
 
 _REGISTER_PACKAGE = """\
-set -euo pipefail
+set -eu
 GHC_PKG=$1
 DB=$2
 PKGCONF=$3
