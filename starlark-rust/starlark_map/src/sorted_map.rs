@@ -23,6 +23,7 @@ use allocative::Allocative;
 
 use crate::ordered_map::OrderedMap;
 use crate::small_map;
+use crate::small_map::SmallMap;
 use crate::Equivalent;
 
 /// `IndexMap` but with keys sorted.
@@ -135,6 +136,14 @@ impl<K: Ord + Hash, V> From<OrderedMap<K, V>> for SortedMap<K, V> {
     fn from(mut map: OrderedMap<K, V>) -> SortedMap<K, V> {
         map.sort_keys();
         SortedMap { map }
+    }
+}
+
+impl<K: Ord + Hash, V> From<SmallMap<K, V>> for SortedMap<K, V> {
+    #[inline]
+    fn from(map: SmallMap<K, V>) -> SortedMap<K, V> {
+        // `OrderedMap: From<SmallMap>` is trivial, so this does not do any extra work
+        SortedMap::from(OrderedMap::from(map))
     }
 }
 
