@@ -709,8 +709,14 @@ cxx_precompiled_header = prelude_rule(
     """,
     further = None,
     attrs = (
-        # @unsorted-dict-items
         {
+            "contacts": attrs.list(attrs.string(), default = []),
+            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
+            "deps": attrs.list(attrs.dep(), default = [], doc = """
+                Dependency rules which export headers used by the header specified in `src`.
+            """),
+            "labels": attrs.list(attrs.string(), default = []),
+            "licenses": attrs.list(attrs.source(), default = []),
             "src": attrs.source(doc = """
                 The path to the header file that should be precompiled.
                  Only one header file can be specified. But of course this header could include
@@ -718,13 +724,6 @@ cxx_precompiled_header = prelude_rule(
                  be `exported_headers` from -- another rule, in which case, the rule would
                  have to be added to `deps` as usual.
             """),
-            "deps": attrs.list(attrs.dep(), default = [], doc = """
-                Dependency rules which export headers used by the header specified in `src`.
-            """),
-            "contacts": attrs.list(attrs.string(), default = []),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "version_universe": attrs.option(attrs.string(), default = None),
         }
     ),
@@ -860,7 +859,6 @@ cxx_toolchain = prelude_rule(
     examples = None,
     further = None,
     attrs = (
-        # @unsorted-dict-items
         {
             "archive_contents": attrs.enum(ArchiveContents, default = "normal"),
             "archiver": attrs.source(),
@@ -1006,15 +1004,14 @@ prebuilt_cxx_library = prelude_rule(
     """,
     further = None,
     attrs = (
-        # @unsorted-dict-items
         {
-            "header_only": attrs.bool(default = False, doc = """
-                Indicates if this library only consists of headers or not. If this is set to
-                 `True`, Buck will not link this library into any library that depends on it.
-            """),
             "header_dirs": attrs.option(attrs.list(attrs.source()), default = None, doc = """
                 A directory that headers can be included from. These directories are added
                  to the include path using `-isystem`.
+            """),
+            "header_only": attrs.bool(default = False, doc = """
+                Indicates if this library only consists of headers or not. If this is set to
+                 `True`, Buck will not link this library into any library that depends on it.
             """),
             "platform_header_dirs": attrs.option(attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.source()))), default = None, doc = """
                 Platform specific header directories. These should be specified as a list of pairs where the first
@@ -1022,17 +1019,17 @@ prebuilt_cxx_library = prelude_rule(
                  name is matched, and the second element is either a list of header directories.
                  See `header_dirs` for more information.
             """),
-            "static_lib": attrs.option(attrs.source(), default = None, doc = """
-                The path to the library to use when performing static linking.
+            "platform_shared_lib": attrs.option(attrs.list(attrs.tuple(attrs.regex(), attrs.source())), default = None, doc = """
+                Platform specific shared library. These should be specified as a list of pairs where the first
+                 element is an un-anchored regex (in java.util.regex.Pattern syntax) against which the platform
+                 name is matched, and the second element the path to the library.
+                 See `shared_lib` for more information.
             """),
             "platform_static_lib": attrs.option(attrs.list(attrs.tuple(attrs.regex(), attrs.source())), default = None, doc = """
                 Platform specific static library. These should be specified as a list of pairs where the first
                  element is an un-anchored regex (in java.util.regex.Pattern syntax) against which the platform
                  name is matched, and the second element the path to the library.
                  See `static_lib` for more information.
-            """),
-            "static_pic_lib": attrs.option(attrs.source(), default = None, doc = """
-                The path to the library to use when performing static PIC linking.
             """),
             "platform_static_pic_lib": attrs.option(attrs.list(attrs.tuple(attrs.regex(), attrs.source())), default = None, doc = """
                 Platform specific static PIC library. These should be specified as a list of pairs where the first
@@ -1043,11 +1040,11 @@ prebuilt_cxx_library = prelude_rule(
             "shared_lib": attrs.option(attrs.source(), default = None, doc = """
                 The path to the library to use when performing shared linking.
             """),
-            "platform_shared_lib": attrs.option(attrs.list(attrs.tuple(attrs.regex(), attrs.source())), default = None, doc = """
-                Platform specific shared library. These should be specified as a list of pairs where the first
-                 element is an un-anchored regex (in java.util.regex.Pattern syntax) against which the platform
-                 name is matched, and the second element the path to the library.
-                 See `shared_lib` for more information.
+            "static_lib": attrs.option(attrs.source(), default = None, doc = """
+                The path to the library to use when performing static linking.
+            """),
+            "static_pic_lib": attrs.option(attrs.source(), default = None, doc = """
+                The path to the library to use when performing static PIC linking.
             """),
         } |
         cxx_common.supported_platforms_regex_arg() |
