@@ -114,6 +114,7 @@ def apple_binary_macro_impl(apple_binary_rule = None, apple_universal_executable
             executable = ":" + binary_name,
             labels = kwargs.get("labels"),
             visibility = kwargs.get("visibility"),
+            default_target_platform = kwargs.get("default_target_platform"),
         )
 
     apple_binary_rule(name = binary_name, **kwargs)
