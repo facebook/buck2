@@ -19,6 +19,10 @@ use crate::bxl::starlark_defs::context::actions::BxlActions;
 use crate::bxl::starlark_defs::context::fs::BxlFilesystem;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::cquery::StarlarkCQueryCtx;
+use crate::bxl::starlark_defs::file_set::StarlarkFileNode;
+use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
+use crate::bxl::starlark_defs::nodes::configured::StarlarkLazyResolvedAttrs;
+use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::uquery::StarlarkUQueryCtx;
 
@@ -40,6 +44,12 @@ pub(crate) fn register_bxl_type_names_in_bxl_namespace(globals: &mut GlobalsBuil
     const Actions: StarlarkValueAsType<BxlActions> = StarlarkValueAsType::new();
     const Filesystem: StarlarkValueAsType<BxlFilesystem> = StarlarkValueAsType::new();
     const BuildResult: StarlarkValueAsType<StarlarkBxlBuildResult> = StarlarkValueAsType::new();
+    const FileNode: StarlarkValueAsType<StarlarkFileNode> = StarlarkValueAsType::new();
+    const TargetNode: StarlarkValueAsType<StarlarkTargetNode> = StarlarkValueAsType::new();
+    const ConfiguredTargetNode: StarlarkValueAsType<StarlarkConfiguredTargetNode> =
+        StarlarkValueAsType::new();
+    const LazyResolvedAttrs: StarlarkValueAsType<StarlarkLazyResolvedAttrs> =
+        StarlarkValueAsType::new();
     const TargetSet: StarlarkValueAsType<StarlarkTargetSet<TargetNode>> =
         StarlarkValueAsType::new();
     const ConfiguredTargetSet: StarlarkValueAsType<StarlarkTargetSet<ConfiguredTargetNode>> =
