@@ -5,10 +5,10 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load(
     "@prelude//java:java_providers.bzl",
+    "JavaClasspathEntry",  # @unused Used as a type
+    "JavaCompileOutputs",  # @unused Used as a type
     "make_compile_outputs",
 )
 load("@prelude//java:java_resources.bzl", "get_resources_map")
@@ -17,6 +17,14 @@ load(
     "AbiGenerationMode",  # @unused Used as a type
     "DepFiles",
     "JavaToolchainInfo",  # @unused Used as a type
+)
+load(
+    "@prelude//java/plugins:java_annotation_processor.bzl",
+    "AnnotationProcessorProperties",  # @unused Used as a type
+)
+load(
+    "@prelude//java/plugins:java_plugin.bzl",
+    "PluginParams",  # @unused Used as a type
 )
 load(
     "@prelude//jvm:cd_jar_creator_util.bzl",
@@ -56,8 +64,8 @@ def create_jar_artifact_javacd(
         resources: list[Artifact],
         resources_root: [str, None],
         manifest_file: [Artifact, None],
-        annotation_processor_properties: "AnnotationProcessorProperties",
-        plugin_params: ["PluginParams", None],
+        annotation_processor_properties: AnnotationProcessorProperties,
+        plugin_params: [PluginParams, None],
         source_level: int,
         target_level: int,
         deps: list[Dependency],
@@ -68,7 +76,7 @@ def create_jar_artifact_javacd(
         additional_compiled_srcs: [Artifact, None],
         bootclasspath_entries: list[Artifact],
         is_building_android_binary: bool,
-        is_creating_subtarget: bool = False) -> "JavaCompileOutputs":
+        is_creating_subtarget: bool = False) -> JavaCompileOutputs:
     if javac_tool != None:
         # TODO(cjhopman): We can probably handle this better. I think we should be able to just use the non-javacd path.
         fail("cannot set explicit javac on library when using javacd")
@@ -146,7 +154,7 @@ def create_jar_artifact_javacd(
             output_paths: OutputPaths,
             target_type: TargetType,
             classpath_jars_tag: ArtifactTag,
-            source_only_abi_compiling_deps: list["JavaClasspathEntry"] = []) -> struct:
+            source_only_abi_compiling_deps: list[JavaClasspathEntry] = []) -> struct:
         base_jar_command = encode_base_jar_command(
             javac_tool,
             target_type,
@@ -191,7 +199,7 @@ def create_jar_artifact_javacd(
             target_type: TargetType,
             path_to_class_hashes: [Artifact, None],
             is_creating_subtarget: bool = False,
-            source_only_abi_compiling_deps: list["JavaClasspathEntry"] = []):
+            source_only_abi_compiling_deps: list[JavaClasspathEntry] = []):
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
 
         proto_with_inputs = actions.write_json(proto, encoded_command, with_inputs = True)
