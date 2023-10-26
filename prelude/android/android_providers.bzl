@@ -43,6 +43,7 @@ ExopackageResourcesInfo = record(
 RDotJavaInfo = record(
     identifier = str,
     library_info = JavaLibraryInfo,
+    source_zipped = Artifact,
 )
 
 AndroidBinaryNativeLibsInfo = record(

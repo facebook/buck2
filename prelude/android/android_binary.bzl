@@ -100,6 +100,12 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
             ],
         ),
     ]
+    for r_dot_java_info in resources_info.r_dot_java_infos:
+        sub_targets[r_dot_java_info.identifier + "_src"] = [
+            DefaultInfo(
+                default_output = r_dot_java_info.source_zipped,
+            ),
+        ]
 
     dex_java_packaging_deps = [packaging_dep for packaging_dep in java_packaging_deps if packaging_dep.dex and packaging_dep.dex.dex.owner.raw_target() not in no_dx_target_labels]
     if should_pre_dex:

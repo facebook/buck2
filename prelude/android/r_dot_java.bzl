@@ -199,4 +199,5 @@ def _generate_and_compile_r_dot_java(
             library_output = library_output,
             output_for_classpath_macro = library_output.full_library,
         ),
+        source_zipped = r_dot_java_source_code_zipped,
     )
