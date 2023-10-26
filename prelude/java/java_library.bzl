@@ -5,12 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//android:android_providers.bzl", "merge_android_packageable_info")
 load(
     "@prelude//java:java_providers.bzl",
+    "JavaCompileOutputs",  # @unused Used as type
     "JavaLibraryInfo",
     "JavaPackagingDepTSet",
     "JavaProviders",
@@ -25,7 +24,11 @@ load("@prelude//java:java_resources.bzl", "get_resources_map")
 load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "JavaToolchainInfo")
 load("@prelude//java:javacd_jar_creator.bzl", "create_jar_artifact_javacd")
 load("@prelude//java/plugins:java_annotation_processor.bzl", "AnnotationProcessorProperties", "create_annotation_processor_properties")
-load("@prelude//java/plugins:java_plugin.bzl", "create_plugin_params")
+load(
+    "@prelude//java/plugins:java_plugin.bzl",
+    "PluginParams",  # @unused Used as type
+    "create_plugin_params",
+)
 load("@prelude//java/utils:java_utils.bzl", "declare_prefixed_name", "derive_javac", "get_abi_generation_mode", "get_class_to_source_map_info", "get_default_info", "get_java_version_attributes", "get_path_separator_for_exec_os", "to_java_version")
 load("@prelude//jvm:nullsafe.bzl", "get_nullsafe_info")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo")
@@ -60,7 +63,7 @@ def _process_plugins(
         ctx: AnalysisContext,
         actions_identifier: [str, None],
         annotation_processor_properties: AnnotationProcessorProperties,
-        plugin_params: ["PluginParams", None],
+        plugin_params: [PluginParams, None],
         javac_args: cmd_args,
         cmd: cmd_args):
     processors_classpath_tsets = []
@@ -144,7 +147,7 @@ def _append_javac_params(
         srcs: list[Artifact],
         remove_classes: list[str],
         annotation_processor_properties: AnnotationProcessorProperties,
-        javac_plugin_params: ["PluginParams", None],
+        javac_plugin_params: [PluginParams, None],
         source_level: int,
         target_level: int,
         deps: list[Dependency],
@@ -279,7 +282,7 @@ def compile_to_jar(
         remove_classes: [list[str], None] = None,
         manifest_file: [Artifact, None] = None,
         annotation_processor_properties: [AnnotationProcessorProperties, None] = None,
-        plugin_params: ["PluginParams", None] = None,
+        plugin_params: [PluginParams, None] = None,
         source_level: [int, None] = None,
         target_level: [int, None] = None,
         deps: [list[Dependency], None] = None,
@@ -289,7 +292,7 @@ def compile_to_jar(
         additional_classpath_entries: [list[Artifact], None] = None,
         additional_compiled_srcs: [Artifact, None] = None,
         bootclasspath_entries: [list[Artifact], None] = None,
-        is_creating_subtarget: bool = False) -> "JavaCompileOutputs":
+        is_creating_subtarget: bool = False) -> JavaCompileOutputs:
     if not additional_classpath_entries:
         additional_classpath_entries = []
     if not bootclasspath_entries:
@@ -359,7 +362,7 @@ def _create_jar_artifact(
         resources_root: [str, None],
         manifest_file: [Artifact, None],
         annotation_processor_properties: AnnotationProcessorProperties,
-        plugin_params: ["PluginParams", None],
+        plugin_params: [PluginParams, None],
         source_level: int,
         target_level: int,
         deps: list[Dependency],
@@ -370,7 +373,7 @@ def _create_jar_artifact(
         additional_compiled_srcs: [Artifact, None],
         bootclasspath_entries: list[Artifact],
         _is_building_android_binary: bool,
-        _is_creating_subtarget: bool = False) -> "JavaCompileOutputs":
+        _is_creating_subtarget: bool = False) -> JavaCompileOutputs:
     """
     Creates jar artifact.
 
