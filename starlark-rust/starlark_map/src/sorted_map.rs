@@ -121,6 +121,12 @@ where
     {
         self.map.contains_key(k)
     }
+
+    /// Iterate over the map with hashes.
+    #[inline]
+    pub fn iter_hashed(&self) -> small_map::IterHashed<K, V> {
+        self.map.iter_hashed()
+    }
 }
 
 impl<K: Ord + Hash, V> FromIterator<(K, V)> for SortedMap<K, V> {
