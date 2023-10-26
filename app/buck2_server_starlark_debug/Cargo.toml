@@ -20,7 +20,6 @@ tokio-stream = { workspace = true }
 tracing = { workspace = true }
 
 dupe = { workspace = true }
-gazebo = { workspace = true }
 starlark = { workspace = true }
 
 buck2_cli_proto = { workspace = true }
