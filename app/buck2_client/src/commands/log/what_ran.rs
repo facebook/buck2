@@ -153,9 +153,9 @@ pub struct WhatRanImpl {
 }
 
 impl WhatRanState for WhatRanImpl {
-    fn get(&self, span_id: OptionalSpanId) -> Option<WhatRanRelevantAction<'_>> {
+    fn get(&self, span_id: SpanId) -> Option<WhatRanRelevantAction<'_>> {
         self.known_actions
-            .get(&span_id.0?)
+            .get(&span_id)
             .and_then(|e| e.data.as_ref())
             .and_then(WhatRanRelevantAction::from_buck_data)
     }
@@ -209,9 +209,9 @@ struct WhatFailedEntry {
 }
 
 impl WhatRanState for WhatFailedImpl {
-    fn get(&self, span_id: OptionalSpanId) -> Option<WhatRanRelevantAction<'_>> {
+    fn get(&self, span_id: SpanId) -> Option<WhatRanRelevantAction<'_>> {
         self.known_actions
-            .get(&span_id.0?)
+            .get(&span_id)
             .and_then(|e| e.event.data.as_ref())
             .and_then(WhatRanRelevantAction::from_buck_data)
     }

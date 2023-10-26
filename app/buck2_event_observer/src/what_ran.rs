@@ -11,6 +11,7 @@ use std::borrow::Cow;
 use std::fmt;
 
 use buck2_data::re_platform::Property;
+use buck2_events::span::SpanId;
 use dupe::Dupe;
 use superconsole::Line;
 use superconsole::Lines;
@@ -97,7 +98,7 @@ pub trait WhatRanOutputWriter {
 /// Storage provided for events. The expectations is that any previously event that would qualify
 /// as a WhatRanRelevantAction was captured in this and will be returned.
 pub trait WhatRanState {
-    fn get(&self, span_id: OptionalSpanId) -> Option<WhatRanRelevantAction<'_>>;
+    fn get(&self, span_id: SpanId) -> Option<WhatRanRelevantAction<'_>>;
 }
 
 /// Presented with an event and its containing span, emit it to the output if it's relevant. The
@@ -124,7 +125,11 @@ fn emit(
     state: &impl WhatRanState,
     output: &mut impl WhatRanOutputWriter,
 ) -> anyhow::Result<()> {
-    emit_reproducer(state.get(parent_span_id), repro, output)
+    let action = match parent_span_id.0 {
+        None => None,
+        Some(parent_span_id) => state.get(parent_span_id),
+    };
+    emit_reproducer(action, repro, output)
 }
 
 pub fn emit_reproducer(

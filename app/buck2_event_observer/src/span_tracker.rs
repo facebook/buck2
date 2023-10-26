@@ -567,9 +567,7 @@ impl BuckEventSpanTracker {
 }
 
 impl WhatRanState for SpanTracker<Arc<BuckEvent>> {
-    fn get(&self, span_id: OptionalSpanId) -> Option<WhatRanRelevantAction<'_>> {
-        let span_id = span_id.0?;
-
+    fn get(&self, span_id: SpanId) -> Option<WhatRanRelevantAction<'_>> {
         self.all
             .get(&span_id)
             .map(|e| e.info.event.data())
