@@ -83,7 +83,6 @@ use starlark::environment::MethodsStatic;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::dict::Dict;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::starlark_value;
@@ -818,32 +817,22 @@ fn context_methods(builder: &mut MethodsBuilder) {
         this: &BxlContext<'v>,
         // TODO(nga): parameter should be either positional or named, not both.
         labels: ProviderExprArg<'v>,
-        eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<Either<StarlarkProvidersLabel, SmallMap<String, StarlarkProvidersLabel>>>
+    {
         let providers =
             this.via_dice(|_dice, this| ProvidersExpr::<ProvidersLabel>::unpack(labels, this))?;
 
-        let res = match providers {
+        match providers {
             ProvidersExpr::Literal(provider) => {
-                eval.heap().alloc(StarlarkProvidersLabel::new(provider))
+                Ok(Either::Left(StarlarkProvidersLabel::new(provider)))
             }
-            ProvidersExpr::Iterable(providers) => eval.heap().alloc(Dict::new(
+            ProvidersExpr::Iterable(providers) => Ok(Either::Right(
                 providers
                     .into_iter()
-                    .map(|p| {
-                        Ok((
-                            eval.heap()
-                                .alloc_str(&p.to_string())
-                                .to_value()
-                                .get_hashed()?,
-                            eval.heap().alloc(StarlarkProvidersLabel::new(p)),
-                        ))
-                    })
-                    .collect::<anyhow::Result<_>>()?,
+                    .map(|p| (p.to_string(), StarlarkProvidersLabel::new(p)))
+                    .collect(),
             )),
-        };
-
-        Ok(res)
+        }
     }
 
     /// Returns the [`StarlarkTargetUniverse`] that can lookup valid configured nodes in the universe.
