@@ -64,25 +64,10 @@ impl<'a> WhatRanRelevantAction<'a> {
 }
 
 pub struct WhatRanOutputCommand<'a> {
-    reason: &'a str,
-    identity: &'a str,
-    repro: CommandReproducer<'a>,
-    extra: Option<WhatRanOutputCommandExtra<'a>>,
-}
-
-impl WhatRanOutputCommand<'_> {
-    pub fn reason(&self) -> &str {
-        self.reason
-    }
-    pub fn identity(&self) -> &str {
-        self.identity
-    }
-    pub fn repro(&self) -> CommandReproducer<'_> {
-        self.repro
-    }
-    pub fn extra(&self) -> Option<WhatRanOutputCommandExtra<'_>> {
-        self.extra
-    }
+    pub reason: &'a str,
+    pub identity: &'a str,
+    pub repro: CommandReproducer<'a>,
+    pub extra: Option<WhatRanOutputCommandExtra<'a>>,
 }
 
 #[derive(Clone, Copy, Dupe)]
@@ -375,9 +360,9 @@ impl WhatRanOutputWriter for SuperConsole {
     fn emit_command(&mut self, command: WhatRanOutputCommand<'_>) -> anyhow::Result<()> {
         // TODO: Change this API to just produce a String.
         let msg = WhatRanCommandConsoleFormat {
-            reason: command.reason(),
-            identity: command.identity(),
-            repro: command.repro(),
+            reason: command.reason,
+            identity: command.identity,
+            repro: command.repro,
         }
         .to_string();
         self.emit(Lines(vec![Line::sanitized(&msg)]));

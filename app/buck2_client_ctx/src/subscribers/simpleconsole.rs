@@ -562,9 +562,9 @@ impl WhatRanOutputWriter for PrintDebugCommandToStderr {
         echo!(
             "{}",
             WhatRanCommandConsoleFormat {
-                reason: command.reason(),
-                identity: command.identity(),
-                repro: command.repro(),
+                reason: command.reason,
+                identity: command.identity,
+                repro: command.repro,
             }
         )?;
         Ok(())

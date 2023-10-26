@@ -291,14 +291,14 @@ impl WhatRanOutputWriter for LogCommandOutputFormat {
             Self::Tabulated => {
                 buck2_client_ctx::println!(
                     "{}\t{}\t{}\t{}",
-                    command.reason(),
-                    command.identity(),
-                    command.repro().executor(),
-                    command.repro().as_human_readable()
+                    command.reason,
+                    command.identity,
+                    command.repro.executor(),
+                    command.repro.as_human_readable()
                 )
             }
             Self::Json => {
-                let reproducer = match command.repro() {
+                let reproducer = match command.repro {
                     CommandReproducer::CacheQuery(cache_hit) => JsonReproducer::CacheQuery {
                         digest: &cache_hit.action_digest,
                     },
@@ -355,10 +355,10 @@ impl WhatRanOutputWriter for LogCommandOutputFormat {
                 };
 
                 let command = JsonCommand {
-                    reason: command.reason(),
-                    identity: command.identity(),
+                    reason: command.reason,
+                    identity: command.identity,
                     reproducer,
-                    extra: command.extra().map(Into::into),
+                    extra: command.extra.map(Into::into),
                 };
 
                 buck2_client_ctx::stdio::print_with_writer(|mut w| {
@@ -378,10 +378,10 @@ impl WhatRanOutputWriter for LogCommandOutputFormat {
                 buck2_client_ctx::stdio::print_with_writer(|w| {
                     let mut writer = csv::WriterBuilder::new().has_headers(false).from_writer(w);
                     writer.serialize(Record {
-                        reason: command.reason(),
-                        identity: command.identity(),
-                        executor: command.repro().executor(),
-                        reproducer: command.repro().as_human_readable().to_string(),
+                        reason: command.reason,
+                        identity: command.identity,
+                        executor: command.repro.executor(),
+                        reproducer: command.repro.as_human_readable().to_string(),
                     })
                 })
             }
