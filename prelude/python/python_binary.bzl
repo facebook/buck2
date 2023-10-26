@@ -706,9 +706,7 @@ def python_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         fail("Only one of main_module or main may be set. Prefer main_function as main and main_module are considered deprecated")
     elif main_module != None and main_function != None:
         fail("Only one of main_module or main_function may be set. Prefer main_function.")
-    elif main_function != None and ctx.attrs.main != None:
-        fail("Only one of main_function or main may be set. Prefer main_function.")
-    elif ctx.attrs.main != None:
+    elif ctx.attrs.main != None and main_function == None:
         main_module = "." + ctx.attrs.main.short_path.replace("/", ".")
         if main_module.endswith(".py"):
             main_module = main_module[:-3]
