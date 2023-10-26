@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//:build_mode.bzl", "BuildModeInfo")
 load("@prelude//tests:remote_test_execution_toolchain.bzl", "RemoteTestExecutionToolchainInfo")
 load("@prelude//utils:utils.bzl", "expect_non_none")
@@ -27,7 +25,7 @@ def _get_re_arg(ctx: AnalysisContext):
 
     return None
 
-def get_re_executor_from_props(ctx: AnalysisContext) -> ["command_executor_config", None]:
+def get_re_executor_from_props(ctx: AnalysisContext) -> [CommandExecutorConfig, None]:
     """
     Convert the `remote_execution` properties param into a `CommandExecutorConfig`
     to use with test providers.
