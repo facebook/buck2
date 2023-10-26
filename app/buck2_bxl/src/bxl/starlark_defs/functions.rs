@@ -84,8 +84,8 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
     ///     ctx.output.print(source_artifact_project_rel_path) # Note this artifact is NOT ensured or materialized
     /// ```
     fn get_path_without_materialization<'v>(
-        this: &'v StarlarkArtifact,
-        ctx: &'v BxlContext<'v>,
+        #[starlark(require=pos)] this: &'v StarlarkArtifact,
+        #[starlark(require=pos)] ctx: &'v BxlContext<'v>,
         #[starlark(require = named, default = false)] abs: bool,
         heap: &'v Heap,
     ) -> anyhow::Result<StringValue<'v>> {
@@ -118,8 +118,8 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
     ///     ctx.output.print(path)
     /// ```
     fn get_paths_without_materialization<'v>(
-        this: Value<'v>,
-        ctx: &'v BxlContext<'v>,
+        #[starlark(require=pos)] this: Value<'v>,
+        #[starlark(require=pos)] ctx: &'v BxlContext<'v>,
         #[starlark(require = named, default = false)] abs: bool,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
