@@ -102,7 +102,6 @@ use thiserror::Error;
 use super::target_universe::StarlarkTargetUniverse;
 use crate::bxl::key::BxlDynamicKey;
 use crate::bxl::key::BxlKey;
-use crate::bxl::starlark_defs::alloc_node::AllocNode;
 use crate::bxl::starlark_defs::analysis_result::StarlarkAnalysisResult;
 use crate::bxl::starlark_defs::aquery::StarlarkAQueryCtx;
 use crate::bxl::starlark_defs::audit::StarlarkAuditCtx;
@@ -117,6 +116,7 @@ use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::cquery::StarlarkCQueryCtx;
 use crate::bxl::starlark_defs::event::StarlarkUserEventParser;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
+use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::providers_expr::ConfiguredProvidersExprArg;
 use crate::bxl::starlark_defs::providers_expr::ProviderExprArg;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
@@ -781,28 +781,24 @@ fn context_methods(builder: &mut MethodsBuilder) {
     fn unconfigured_targets<'v>(
         this: &'v BxlContext<'v>,
         labels: TargetListExprArg<'v>,
-        eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
-        let res: anyhow::Result<Value<'v>> = this.via_dice(|mut ctx, this| {
+    ) -> anyhow::Result<Either<StarlarkTargetNode, StarlarkTargetSet<TargetNode>>> {
+        this.via_dice(|mut ctx, this| {
             ctx.via(|ctx| {
                 async move {
                     Ok(
                         match TargetListExpr::<'v, TargetNode>::unpack(labels, this, ctx).await? {
                             TargetListExpr::One(node) => {
-                                let node = node.get_from_dice(ctx).await?;
-                                node.alloc(eval.heap())
+                                Either::Left(StarlarkTargetNode(node.get_from_dice(ctx).await?))
                             }
-                            multi => eval
-                                .heap()
-                                .alloc(StarlarkTargetSet::from(multi.get(ctx).await?.into_owned())),
+                            multi => Either::Right(StarlarkTargetSet::from(
+                                multi.get(ctx).await?.into_owned(),
+                            )),
                         },
                     )
                 }
                 .boxed_local()
             })
-        });
-
-        res
+        })
     }
 
     /// Gets the unconfigured subtargets for the given `labels`
