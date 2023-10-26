@@ -21,7 +21,7 @@ use starlark::values::dict::DictRef;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Value;
-use starlark_map::ordered_map::OrderedMap;
+use starlark_map::small_map::SmallMap;
 
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::error::CoercionError;
@@ -55,7 +55,7 @@ impl AttrTypeCoerce for MetadataAttrType {
             None => return Err(CoercionError::type_error(Dict::TYPE, value).into()),
         };
 
-        let mut map = OrderedMap::with_capacity(dict.len());
+        let mut map = SmallMap::with_capacity(dict.len());
         for (key, value) in dict.iter() {
             let key = match key.unpack_str() {
                 Some(k) => k,

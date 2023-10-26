@@ -12,20 +12,21 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use allocative::Allocative;
-use starlark_map::ordered_map::OrderedMap;
+use starlark_map::small_map::SmallMap;
+use starlark_map::sorted_map::SortedMap;
 
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::metadata::key::MetadataKey;
 
 #[derive(Debug, Eq, PartialEq, Clone, Allocative, Default)]
 pub struct MetadataMap {
-    values: Box<OrderedMap<MetadataKey, serde_json::Value>>,
+    values: Box<SortedMap<MetadataKey, serde_json::Value>>,
 }
 
 impl MetadataMap {
-    pub fn new(values: OrderedMap<MetadataKey, serde_json::Value>) -> Self {
+    pub fn new(values: SmallMap<MetadataKey, serde_json::Value>) -> Self {
         Self {
-            values: Box::new(values),
+            values: Box::new(SortedMap::from(values)),
         }
     }
 }
@@ -129,7 +130,7 @@ mod tests {
     use super::*;
 
     fn make() -> MetadataMap {
-        let mut map = OrderedMap::new();
+        let mut map = SmallMap::new();
         map.insert(
             "foo.bar".to_owned().try_into().unwrap(),
             serde_json::Value::String("baz".to_owned()),
