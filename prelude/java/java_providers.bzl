@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load(
     "@prelude//:resources.bzl",
     "ResourceInfo",
@@ -286,7 +284,7 @@ def create_abi(actions: AnalysisActions, class_abi_generator: Dependency, librar
 def derive_compiling_deps(
         actions: AnalysisActions,
         library_output: [JavaClasspathEntry, None],
-        children: list[Dependency]) -> ["JavaCompilingDepsTSet", None]:
+        children: list[Dependency]) -> [JavaCompilingDepsTSet, None]:
     if children:
         filtered_children = filter(
             None,
@@ -311,7 +309,7 @@ def create_java_packaging_dep(
         is_prebuilt_jar: bool = False,
         has_srcs: bool = True,
         dex_weight_factor: int = 1,
-        proguard_config: [Artifact, None] = None) -> "JavaPackagingDep":
+        proguard_config: [Artifact, None] = None) -> JavaPackagingDep:
     dex_toolchain = getattr(ctx.attrs, "_dex_toolchain", None)
     if library_jar != None and has_srcs and dex_toolchain != None and ctx.attrs._dex_toolchain[DexToolchainInfo].d8_command != None:
         dex = get_dex_produced_from_java_library(
@@ -336,10 +334,10 @@ def create_java_packaging_dep(
         output_for_classpath_macro = output_for_classpath_macro or library_jar,
     )
 
-def get_all_java_packaging_deps(ctx: AnalysisContext, deps: list[Dependency]) -> list["JavaPackagingDep"]:
+def get_all_java_packaging_deps(ctx: AnalysisContext, deps: list[Dependency]) -> list[JavaPackagingDep]:
     return get_all_java_packaging_deps_from_packaging_infos(ctx, filter(None, [x.get(JavaPackagingInfo) for x in deps]))
 
-def get_all_java_packaging_deps_from_packaging_infos(ctx: AnalysisContext, infos: list[JavaPackagingInfo]) -> list["JavaPackagingDep"]:
+def get_all_java_packaging_deps_from_packaging_infos(ctx: AnalysisContext, infos: list[JavaPackagingInfo]) -> list[JavaPackagingDep]:
     children = filter(None, [info.packaging_deps for info in infos])
     if not children:
         return []
