@@ -9,7 +9,8 @@ load("@prelude//android:android_binary.bzl", "get_binary_info")
 load("@prelude//android:android_providers.bzl", "AndroidApkInfo", "AndroidApkUnderTestInfo", "AndroidBinaryNativeLibsInfo", "AndroidBinaryResourcesInfo", "DexFilesInfo", "ExopackageInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:java_providers.bzl", "KeystoreInfo")
-load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info", "get_path_separator_for_exec_os")
+load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
+load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info")
 load("@prelude//utils:set.bzl", "set")
 
 def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:

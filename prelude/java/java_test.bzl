@@ -13,7 +13,7 @@ load(
 load("@prelude//java:java_library.bzl", "build_java_library")
 load("@prelude//java:java_providers.bzl", "JavaLibraryInfo", "JavaPackagingInfo", "get_all_java_packaging_deps_tset")
 load("@prelude//java:java_toolchain.bzl", "JavaTestToolchainInfo", "JavaToolchainInfo")
-load("@prelude//java/utils:java_utils.bzl", "get_path_separator_for_exec_os")
+load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
 load("@prelude//utils:utils.bzl", "expect")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")

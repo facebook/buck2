@@ -29,7 +29,8 @@ load(
 )
 load("@prelude//java/plugins:java_annotation_processor.bzl", "AnnotationProcessorProperties", "create_annotation_processor_properties", "create_ksp_annotation_processor_properties")
 load("@prelude//java/plugins:java_plugin.bzl", "create_plugin_params")
-load("@prelude//java/utils:java_utils.bzl", "derive_javac", "get_abi_generation_mode", "get_class_to_source_map_info", "get_default_info", "get_java_version_attributes", "get_path_separator_for_exec_os")
+load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
+load("@prelude//java/utils:java_utils.bzl", "derive_javac", "get_abi_generation_mode", "get_class_to_source_map_info", "get_default_info", "get_java_version_attributes")
 load("@prelude//jvm:nullsafe.bzl", "get_nullsafe_info")
 load(
     "@prelude//kotlin:kotlin_toolchain.bzl",

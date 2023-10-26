@@ -11,7 +11,7 @@ load(
     "JavaPackagingDep",  # @unused Used as type
 )
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
-load("@prelude//java/utils:java_utils.bzl", "get_path_separator_for_exec_os")
+load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
 load("@prelude//utils:utils.bzl", "expect")
 
 _UNSCRUBBED_JARS_DIR = "unscrubbed"

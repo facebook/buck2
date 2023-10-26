@@ -15,7 +15,7 @@ load(
 load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
 load("@prelude//java:dex.bzl", "DexLibraryInfo", "get_dex_produced_from_java_library")
 load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
-load("@prelude//java/utils:java_utils.bzl", "get_path_separator_for_exec_os")
+load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
 load("@prelude//linking:linkable_graph.bzl", "LinkableGraph", "create_linkable_graph")
 load(
     "@prelude//linking:shared_libraries.bzl",

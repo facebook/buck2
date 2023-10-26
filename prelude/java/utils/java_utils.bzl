@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load(
     "@prelude//java:class_to_srcs.bzl",
     "JavaClassToSourceMapInfo",  # @unused Used as a type
@@ -14,14 +12,13 @@ load(
     "create_class_to_source_map_info",
     "maybe_create_class_to_source_map_debuginfo",
 )
+load(
+    "@prelude//java:java_providers.bzl",
+    "JavaCompileOutputs",  # @unused Used as a type
+    "JavaPackagingInfo",  # @unused Used as a type
+)
 load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "JavaToolchainInfo")
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:utils.bzl", "expect")
-
-def get_path_separator_for_exec_os(ctx: AnalysisContext) -> str:
-    expect(hasattr(ctx.attrs, "_exec_os_type"), "Expect ctx.attrs._exec_os_type is defined.")
-    is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
-    return ";" if is_windows else ":"
 
 def derive_javac(javac_attribute: [str, Dependency, Artifact]) -> [str, RunInfo, Artifact]:
     javac_attr_type = type(javac_attribute)
@@ -87,8 +84,8 @@ def get_abi_generation_mode(abi_generation_mode):
 def get_default_info(
         actions: AnalysisActions,
         java_toolchain: JavaToolchainInfo,
-        outputs: ["JavaCompileOutputs", None],
-        packaging_info: "JavaPackagingInfo",
+        outputs: [JavaCompileOutputs, None],
+        packaging_info: JavaPackagingInfo,
         extra_sub_targets: dict = {}) -> DefaultInfo:
     sub_targets = get_classpath_subtarget(actions, packaging_info)
     default_info = DefaultInfo()
@@ -119,7 +116,7 @@ def declare_prefixed_name(name: str, prefix: [str, None]) -> str:
 
 def get_class_to_source_map_info(
         ctx: AnalysisContext,
-        outputs: ["JavaCompileOutputs", None],
+        outputs: [JavaCompileOutputs, None],
         deps: list[Dependency]) -> (JavaClassToSourceMapInfo, dict):
     sub_targets = {}
     class_to_srcs = None
@@ -151,7 +148,7 @@ def get_class_to_source_map_info(
         sub_targets["debuginfo"] = [DefaultInfo(default_output = class_to_src_map_info.debuginfo)]
     return (class_to_src_map_info, sub_targets)
 
-def get_classpath_subtarget(actions: AnalysisActions, packaging_info: "JavaPackagingInfo") -> dict[str, list[Provider]]:
+def get_classpath_subtarget(actions: AnalysisActions, packaging_info: JavaPackagingInfo) -> dict[str, list[Provider]]:
     proj = packaging_info.packaging_deps.project_as_args("full_jar_args")
     output = actions.write("classpath", proj)
     return {"classpath": [DefaultInfo(output, other_outputs = [proj])]}
