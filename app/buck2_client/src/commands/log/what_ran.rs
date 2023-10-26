@@ -149,13 +149,13 @@ trait WhatRanCommandImplementation: Default {
 #[derive(Default)]
 pub struct WhatRanImpl {
     /// Maps action spans to their details.
-    known_actions: HashMap<OptionalSpanId, Box<buck2_data::BuckEvent>>,
+    known_actions: HashMap<SpanId, Box<buck2_data::BuckEvent>>,
 }
 
 impl WhatRanState for WhatRanImpl {
     fn get(&self, span_id: OptionalSpanId) -> Option<WhatRanRelevantAction<'_>> {
         self.known_actions
-            .get(&span_id)
+            .get(&span_id.0?)
             .and_then(|e| e.data.as_ref())
             .and_then(WhatRanRelevantAction::from_buck_data)
     }
@@ -183,7 +183,7 @@ impl WhatRanCommandImplementation for WhatRanImpl {
 
             if WhatRanRelevantAction::from_buck_data(data).is_some() {
                 self.known_actions
-                    .insert(OptionalSpanId::from_u64(event.span_id), event);
+                    .insert(SpanId::from_u64(event.span_id)?, event);
             }
         }
 
