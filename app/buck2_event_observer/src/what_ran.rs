@@ -18,6 +18,7 @@ use superconsole::SuperConsole;
 
 use crate::display;
 use crate::display::TargetDisplayOptions;
+use crate::span_tracker::OptionalSpanId;
 
 /// Options controlling what WhatRan produces.
 #[derive(Debug, Default, clap::Parser)]
@@ -95,17 +96,17 @@ pub trait WhatRanOutputWriter {
 
 /// Storage provided for events. The expectations is that any previously event that would qualify
 /// as a WhatRanRelevantAction was captured in this and will be returned.
-pub trait WhatRanState<T> {
-    fn get(&self, span_id: T) -> Option<WhatRanRelevantAction<'_>>;
+pub trait WhatRanState {
+    fn get(&self, span_id: OptionalSpanId) -> Option<WhatRanRelevantAction<'_>>;
 }
 
 /// Presented with an event and its containing span, emit it to the output if it's relevant. The
 /// state is used to associate the parent with something meaningful. This does not take the parent
 /// directly because *most* events are *not* relevant so we save the lookup in that case.
-pub fn emit_event_if_relevant<T: fmt::Display + Copy>(
-    parent_span_id: T,
+pub fn emit_event_if_relevant(
+    parent_span_id: OptionalSpanId,
     data: &buck2_data::buck_event::Data,
-    state: &impl WhatRanState<T>,
+    state: &impl WhatRanState,
     output: &mut impl WhatRanOutputWriter,
     options: &WhatRanOptions,
 ) -> anyhow::Result<()> {
@@ -117,10 +118,10 @@ pub fn emit_event_if_relevant<T: fmt::Display + Copy>(
 }
 
 /// Find and format the parent span (if any), then emit the relevant command.
-fn emit<T: fmt::Display + Copy>(
-    parent_span_id: T,
+fn emit(
+    parent_span_id: OptionalSpanId,
     repro: CommandReproducer<'_>,
-    state: &impl WhatRanState<T>,
+    state: &impl WhatRanState,
     output: &mut impl WhatRanOutputWriter,
 ) -> anyhow::Result<()> {
     emit_reproducer(state.get(parent_span_id), repro, output)

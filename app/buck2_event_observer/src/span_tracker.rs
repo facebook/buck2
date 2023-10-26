@@ -9,6 +9,7 @@
 
 use std::collections::HashMap;
 use std::fmt;
+use std::num::NonZeroU64;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -565,7 +566,7 @@ impl BuckEventSpanTracker {
     }
 }
 
-impl WhatRanState<OptionalSpanId> for SpanTracker<Arc<BuckEvent>> {
+impl WhatRanState for SpanTracker<Arc<BuckEvent>> {
     fn get(&self, span_id: OptionalSpanId) -> Option<WhatRanRelevantAction<'_>> {
         let span_id = span_id.0?;
 
@@ -578,8 +579,14 @@ impl WhatRanState<OptionalSpanId> for SpanTracker<Arc<BuckEvent>> {
 
 /// A wrapper type to make calls to emit_event_if_relevant more convenient, since parent_id is
 /// `Option<SpanId>` on BuckEvent.
-#[derive(From, Copy, Clone, Dupe)]
+#[derive(From, Copy, Clone, Dupe, Eq, PartialEq, Hash)]
 pub struct OptionalSpanId(Option<SpanId>);
+
+impl OptionalSpanId {
+    pub fn from_u64(optional_span_id: u64) -> OptionalSpanId {
+        OptionalSpanId(NonZeroU64::new(optional_span_id).map(SpanId))
+    }
+}
 
 impl fmt::Display for OptionalSpanId {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

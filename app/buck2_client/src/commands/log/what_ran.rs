@@ -15,6 +15,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stream_value::StreamValue;
 use buck2_data::re_platform::Property;
+use buck2_event_observer::span_tracker::OptionalSpanId;
 use buck2_event_observer::what_ran;
 use buck2_event_observer::what_ran::CommandReproducer;
 use buck2_event_observer::what_ran::WhatRanOptions;
@@ -147,11 +148,11 @@ trait WhatRanCommandImplementation: Default {
 #[derive(Default)]
 pub struct WhatRanImpl {
     /// Maps action spans to their details.
-    known_actions: HashMap<u64, Box<buck2_data::BuckEvent>>,
+    known_actions: HashMap<OptionalSpanId, Box<buck2_data::BuckEvent>>,
 }
 
-impl WhatRanState<u64> for WhatRanImpl {
-    fn get(&self, span_id: u64) -> Option<WhatRanRelevantAction<'_>> {
+impl WhatRanState for WhatRanImpl {
+    fn get(&self, span_id: OptionalSpanId) -> Option<WhatRanRelevantAction<'_>> {
         self.known_actions
             .get(&span_id)
             .and_then(|e| e.data.as_ref())
@@ -171,10 +172,17 @@ impl WhatRanCommandImplementation for WhatRanImpl {
         options: &WhatRanOptions,
     ) -> anyhow::Result<()> {
         if let Some(data) = &event.data {
-            what_ran::emit_event_if_relevant(event.parent_id, data, &*self, output, options)?;
+            what_ran::emit_event_if_relevant(
+                OptionalSpanId::from_u64(event.parent_id),
+                data,
+                &*self,
+                output,
+                options,
+            )?;
 
             if WhatRanRelevantAction::from_buck_data(data).is_some() {
-                self.known_actions.insert(event.span_id, event);
+                self.known_actions
+                    .insert(OptionalSpanId::from_u64(event.span_id), event);
             }
         }
 
@@ -187,7 +195,7 @@ impl WhatRanCommandImplementation for WhatRanImpl {
 #[derive(Default)]
 pub struct WhatFailedImpl {
     /// Maps action spans to their details.
-    known_actions: HashMap<u64, WhatFailedEntry>,
+    known_actions: HashMap<OptionalSpanId, WhatFailedEntry>,
 }
 
 #[allow(clippy::vec_box)]
@@ -199,8 +207,8 @@ struct WhatFailedEntry {
     reproducers: Vec<Box<buck2_data::BuckEvent>>,
 }
 
-impl WhatRanState<u64> for WhatFailedImpl {
-    fn get(&self, span_id: u64) -> Option<WhatRanRelevantAction<'_>> {
+impl WhatRanState for WhatFailedImpl {
+    fn get(&self, span_id: OptionalSpanId) -> Option<WhatRanRelevantAction<'_>> {
         self.known_actions
             .get(&span_id)
             .and_then(|e| e.event.data.as_ref())
@@ -222,7 +230,7 @@ impl WhatRanCommandImplementation for WhatFailedImpl {
         if let Some(data) = &event.data {
             if WhatRanRelevantAction::from_buck_data(data).is_some() {
                 self.known_actions.insert(
-                    event.span_id,
+                    OptionalSpanId::from_u64(event.span_id),
                     WhatFailedEntry {
                         event,
                         reproducers: Default::default(),
@@ -232,7 +240,10 @@ impl WhatRanCommandImplementation for WhatFailedImpl {
             }
 
             if CommandReproducer::from_buck_data(data, options).is_some() {
-                if let Some(entry) = self.known_actions.get_mut(&event.parent_id) {
+                if let Some(entry) = self
+                    .known_actions
+                    .get_mut(&OptionalSpanId::from_u64(event.parent_id))
+                {
                     entry.reproducers.push(event);
                 }
                 return Ok(());
@@ -243,7 +254,10 @@ impl WhatRanCommandImplementation for WhatFailedImpl {
                     Some(buck2_data::span_end_event::Data::ActionExecution(action))
                         if action.failed =>
                     {
-                        if let Some(entry) = self.known_actions.remove(&event.span_id) {
+                        if let Some(entry) = self
+                            .known_actions
+                            .remove(&OptionalSpanId::from_u64(event.span_id))
+                        {
                             let action = WhatRanRelevantAction::from_buck_data(
                                 entry.event.data.as_ref().expect("Checked above"),
                             );

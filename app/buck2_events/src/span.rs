@@ -29,7 +29,7 @@ use serde::Serialize;
     derive_more::Display,
     Allocative
 )]
-pub struct SpanId(pub(crate) NonZeroU64);
+pub struct SpanId(pub NonZeroU64);
 
 impl SpanId {
     /// Generates a new SpanId, suitable for identifying a particular span within the context of a trace. Span IDs are
