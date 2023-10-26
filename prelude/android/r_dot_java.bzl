@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//android:android_providers.bzl", "AndroidResourceInfo")
+load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "RDotJavaInfo")
 load("@prelude//java:java_library.bzl", "compile_to_jar")
 load("@prelude//java:java_providers.bzl", "JavaClasspathEntry", "JavaLibraryInfo", "derive_compiling_deps")
 load("@prelude//utils:set.bzl", "set")
@@ -29,7 +29,7 @@ def get_dummy_r_dot_java(
         ctx,
         r_dot_java_source_code.r_dot_java_source_code_zipped,
         "dummy_r_dot_java",
-    )
+    ).library_info
 
 def generate_r_dot_javas(
         ctx: AnalysisContext,
@@ -42,7 +42,7 @@ def generate_r_dot_javas(
         union_package: [str, None],
         referenced_resources_lists: list[Artifact],
         generate_strings_and_ids_separately: [bool, None] = True,
-        remove_classes: list[str] = []) -> list[JavaLibraryInfo]:
+        remove_classes: list[str] = []) -> list[RDotJavaInfo]:
     r_dot_java_source_code = _generate_r_dot_java_source_code(
         ctx,
         merge_android_resources_tool,
@@ -172,7 +172,7 @@ def _generate_and_compile_r_dot_java(
         ctx: AnalysisContext,
         r_dot_java_source_code_zipped: Artifact,
         identifier: str,
-        remove_classes: list[str] = []) -> JavaLibraryInfo:
+        remove_classes: list[str] = []) -> RDotJavaInfo:
     r_dot_java_out = ctx.actions.declare_output("{}.jar".format(identifier))
 
     compile_to_jar(
@@ -192,8 +192,11 @@ def _generate_and_compile_r_dot_java(
         required_for_source_only_abi = False,
     )
 
-    return JavaLibraryInfo(
-        compiling_deps = derive_compiling_deps(ctx.actions, library_output, []),
-        library_output = library_output,
-        output_for_classpath_macro = library_output.full_library,
+    return RDotJavaInfo(
+        identifier = identifier,
+        library_info = JavaLibraryInfo(
+            compiling_deps = derive_compiling_deps(ctx.actions, library_output, []),
+            library_output = library_output,
+            output_for_classpath_macro = library_output.full_library,
+        ),
     )

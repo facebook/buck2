@@ -129,7 +129,7 @@ def get_android_binary_resources_info(
 
     override_symbols_paths = [override_symbols] if override_symbols else []
     resources = [resource for resource in resource_infos if resource.res != None]
-    r_dot_javas = [] if len(resources) == 0 else generate_r_dot_javas(
+    r_dot_java_infos = [] if len(resources) == 0 else generate_r_dot_javas(
         ctx,
         ctx.attrs._android_toolchain[AndroidToolchainInfo].merge_android_resources[RunInfo],
         resources,
@@ -175,7 +175,7 @@ def get_android_binary_resources_info(
         packaged_string_assets = packaged_string_assets,
         primary_resources_apk = primary_resources_apk,
         proguard_config_file = aapt2_link_info.proguard_config_file,
-        r_dot_javas = r_dot_javas,
+        r_dot_java_infos = r_dot_java_infos,
         string_source_map = string_source_map,
         voltron_string_source_map = voltron_string_source_map,
         jar_files_that_may_contain_resources = prebuilt_jars,

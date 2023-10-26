@@ -40,6 +40,11 @@ ExopackageResourcesInfo = record(
     res_hash = Artifact,
 )
 
+RDotJavaInfo = record(
+    identifier = str,
+    library_info = JavaLibraryInfo,
+)
+
 AndroidBinaryNativeLibsInfo = record(
     apk_under_test_prebuilt_native_library_dirs = list[PrebuiltNativeLibraryDir],
     # Indicates which shared lib producing targets are included in the binary. Used by instrumentation tests
@@ -66,7 +71,7 @@ AndroidBinaryResourcesInfo = record(
     # proguard config needed to retain used resources
     proguard_config_file = Artifact,
     # R.java jars containing all the linked resources
-    r_dot_javas = list[JavaLibraryInfo],
+    r_dot_java_infos = list[RDotJavaInfo],
     # directory containing filtered string resources files
     string_source_map = [Artifact, None],
     # directory containing filtered string resources files for Voltron language packs

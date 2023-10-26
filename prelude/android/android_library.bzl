@@ -89,14 +89,14 @@ def _get_dummy_r_dot_java(
     if len(android_resources) == 0:
         return (None, None)
 
-    dummy_r_dot_java_library_info = get_dummy_r_dot_java(
+    dummy_r_dot_java_info = get_dummy_r_dot_java(
         ctx,
         ctx.attrs._android_toolchain[AndroidToolchainInfo].merge_android_resources[RunInfo],
         android_resources,
         ctx.attrs.resource_union_package,
     )
 
-    dummy_r_dot_java = dummy_r_dot_java_library_info.library_output.abi
+    dummy_r_dot_java = dummy_r_dot_java_info.library_output.abi
     return (dummy_r_dot_java, AndroidLibraryIntellijInfo(
         dummy_r_dot_java = dummy_r_dot_java,
         android_resource_deps = android_resources,

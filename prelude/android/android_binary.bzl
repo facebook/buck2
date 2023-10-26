@@ -86,10 +86,10 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
     compiled_r_dot_java_deps = [
         create_java_packaging_dep(
             ctx,
-            r_dot_java.library_output.full_library,
+            r_dot_java.library_info.library_output.full_library,
             dex_weight_factor = android_toolchain.r_dot_java_weight_factor,
         )
-        for r_dot_java in resources_info.r_dot_javas
+        for r_dot_java in resources_info.r_dot_java_infos
     ]
     java_packaging_deps += compiled_r_dot_java_deps
     sub_targets["compiled_r_dot_java"] = [
