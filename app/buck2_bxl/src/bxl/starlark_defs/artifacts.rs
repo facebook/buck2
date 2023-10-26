@@ -37,6 +37,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::values::starlark_value;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::StarlarkValue;
@@ -184,29 +185,28 @@ impl PartialEq for EnsuredArtifact {
 
 impl Eq for EnsuredArtifact {}
 
-impl EnsuredArtifact {
-    pub(crate) fn new<'v>(artifact: Value<'v>) -> anyhow::Result<Self> {
-        let artifact = artifact
-            .downcast_ref::<StarlarkArtifact>()
-            .map(|o| EnsuredArtifact::Artifact {
-                artifact: o.dupe(),
-                abs: false,
-            })
-            .or_else(|| {
-                artifact
-                    .downcast_ref::<StarlarkDeclaredArtifact>()
-                    .map(|o| EnsuredArtifact::DeclaredArtifact {
-                        artifact: o.dupe(),
-                        abs: false,
-                    })
-            });
+#[derive(StarlarkTypeRepr, UnpackValue)]
+pub(crate) enum EnsuredArtifactArg<'v> {
+    Artifact(&'v StarlarkArtifact),
+    DeclaredArtifact(&'v StarlarkDeclaredArtifact),
+}
 
-        match artifact {
-            Some(artifact) => Ok(artifact),
-            None => Err(anyhow::anyhow!("must be artifact like")),
+impl<'v> EnsuredArtifactArg<'v> {
+    pub(crate) fn into_ensured_artifact(self) -> EnsuredArtifact {
+        match self {
+            EnsuredArtifactArg::Artifact(artifact) => EnsuredArtifact::Artifact {
+                artifact: artifact.dupe(),
+                abs: false,
+            },
+            EnsuredArtifactArg::DeclaredArtifact(artifact) => EnsuredArtifact::DeclaredArtifact {
+                artifact: artifact.dupe(),
+                abs: false,
+            },
         }
     }
+}
 
+impl EnsuredArtifact {
     pub(crate) fn as_artifact(&self) -> &dyn StarlarkArtifactLike {
         match self {
             EnsuredArtifact::Artifact { artifact, .. } => artifact as &dyn StarlarkArtifactLike,

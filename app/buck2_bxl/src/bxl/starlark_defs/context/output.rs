@@ -29,7 +29,7 @@ use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::FutureExt;
-use gazebo::prelude::SliceExt;
+use gazebo::prelude::VecExt;
 use serde::ser::SerializeSeq;
 use serde::Serialize;
 use serde::Serializer;
@@ -42,6 +42,7 @@ use starlark::starlark_module;
 use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
 use starlark::values::list::ListRef;
+use starlark::values::list::UnpackList;
 use starlark::values::none::NoneType;
 use starlark::values::record::Record;
 use starlark::values::starlark_value;
@@ -61,6 +62,7 @@ use starlark::StarlarkDocs;
 
 use super::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::artifacts::EnsuredArtifact;
+use crate::bxl::starlark_defs::artifacts::EnsuredArtifactArg;
 use crate::bxl::starlark_defs::artifacts::EnsuredArtifactGroup;
 use crate::bxl::starlark_defs::build_result::StarlarkBxlBuildResult;
 use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable;
@@ -339,8 +341,11 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     ///     ensured = ctx.output.ensure(output)
     ///     ctx.output.print(ensured)
     /// ```
-    fn ensure<'v>(this: &OutputStream, artifact: Value<'v>) -> anyhow::Result<EnsuredArtifact> {
-        let artifact = EnsuredArtifact::new(artifact)?;
+    fn ensure<'v>(
+        this: &OutputStream,
+        artifact: EnsuredArtifactArg<'v>,
+    ) -> anyhow::Result<EnsuredArtifact> {
+        let artifact = artifact.into_ensured_artifact();
         populate_ensured_artifacts(this, EnsuredArtifactOrGroup::Artifact(artifact.clone()))?;
 
         Ok(artifact)
@@ -369,10 +374,9 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<Value<'v>> {
         if artifacts.is_none() {
             Ok(heap.alloc(Vec::<EnsuredArtifact>::new()))
-        } else if let Some(list) = <&ListRef>::unpack_value(artifacts) {
-            let artifacts: Vec<EnsuredArtifact> = list.content().try_map(|artifact| {
-                let artifact = EnsuredArtifact::new(*artifact)?;
-
+        } else if let Some(list) = UnpackList::<EnsuredArtifactArg>::unpack_value(artifacts) {
+            let artifacts: Vec<EnsuredArtifact> = list.items.into_try_map(|artifact| {
+                let artifact = artifact.into_ensured_artifact();
                 populate_ensured_artifacts(
                     this,
                     EnsuredArtifactOrGroup::Artifact(artifact.clone()),
