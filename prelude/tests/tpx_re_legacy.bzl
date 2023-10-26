@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//utils:utils.bzl", "expect")
 
 _RE_ENABLED = "supports_remote_execution"
@@ -31,8 +29,7 @@ def _parse_re_opts(labels: list[str]) -> [dict[str, str], None]:
 # TODO(agallagher): Parsing RE options via JSON embedded in labels isn't a great
 # UI, and we just do it here to support existing use cases.  Ideally, though, we'd
 # present a better UI (e.g. an `re_opts` param for tests) and use that instead.
-# TODO(nga): remove "command_executor_config_builder", this is dead code after the version bump.
-def get_re_executor_from_labels(labels: list[str]) -> ["command_executor_config_builder", "command_executor_config", None]:
+def get_re_executor_from_labels(labels: list[str]) -> [CommandExecutorConfig, None]:
     """
     Parse legacy RE-enablement test labels and use them to configure a test RE
     executor to run the test with.
