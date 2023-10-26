@@ -580,7 +580,7 @@ impl WhatRanState for SpanTracker<Arc<BuckEvent>> {
 /// A wrapper type to make calls to emit_event_if_relevant more convenient, since parent_id is
 /// `Option<SpanId>` on BuckEvent.
 #[derive(From, Copy, Clone, Dupe, Eq, PartialEq, Hash)]
-pub struct OptionalSpanId(Option<SpanId>);
+pub struct OptionalSpanId(pub Option<SpanId>);
 
 impl OptionalSpanId {
     pub fn from_u64(optional_span_id: u64) -> OptionalSpanId {
