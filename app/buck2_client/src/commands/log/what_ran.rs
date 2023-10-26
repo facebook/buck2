@@ -363,7 +363,7 @@ impl WhatRanOutputWriter for LogCommandOutputFormat {
 
                 buck2_client_ctx::stdio::print_with_writer(|mut w| {
                     serde_json::to_writer(&mut w, &command)?;
-                    w.write(b"\n").map(|_| ())
+                    w.write_all(b"\n")
                 })
             }
             Self::Csv => {
