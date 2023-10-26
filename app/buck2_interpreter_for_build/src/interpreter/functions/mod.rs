@@ -14,4 +14,5 @@ pub mod read_config;
 pub(crate) mod regex;
 pub mod sha256;
 pub mod soft_error;
+pub mod starlark;
 pub mod warning;

@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::cell::OnceCell;
 use std::fmt::Debug;
 
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
@@ -165,6 +166,9 @@ pub struct BuildContext<'a> {
 
     /// When true, rule function is no-op.
     pub ignore_attrs_for_profiling: bool,
+
+    /// Peak allocated bytes limit for starlark.
+    pub(crate) starlark_peak_allocated_byte_limit: OnceCell<Option<u64>>,
 }
 
 impl<'a> BuildContext<'a> {
@@ -187,6 +191,7 @@ impl<'a> BuildContext<'a> {
             host_info,
             additional,
             ignore_attrs_for_profiling,
+            starlark_peak_allocated_byte_limit: OnceCell::new(),
         }
     }
 

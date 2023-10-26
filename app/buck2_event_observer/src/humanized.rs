@@ -10,6 +10,7 @@
 use std::fmt;
 
 /// Write out a u64 representing bytes as something more readable
+#[derive(Debug)]
 pub struct HumanizedBytes {
     bytes: u64,
     fixed_width: bool,

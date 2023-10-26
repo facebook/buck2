@@ -23,6 +23,7 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
+use buck2_event_observer::humanized::HumanizedBytes;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::file_loader::InterpreterFileLoader;
@@ -67,6 +68,12 @@ enum StarlarkParseError {
     InFile(OwnedStarlarkPath),
     #[error("Tabs are not allowed in Buck files: `{0}`")]
     Tabs(OwnedStarlarkPath),
+}
+
+#[derive(Debug, Error)]
+enum StarlarkPeakMemoryError {
+    #[error("Starlark peak memory usage is `{0}` which exceeds the limit `{1}`!")]
+    ExceedsThreshold(HumanizedBytes, HumanizedBytes),
 }
 
 /// A ParseResult includes the parsed AST and a list of the imported files.
@@ -430,17 +437,17 @@ impl InterpreterForCell {
         self.load_resolver(import).resolve_load(import_string, None)
     }
 
-    fn eval(
-        self: &Arc<Self>,
-        env: &Module,
+    fn eval<'a>(
+        self: &'a Arc<Self>,
+        env: &'a Module,
         ast: AstModule,
-        buckconfig: &dyn LegacyBuckConfigView,
-        root_buckconfig: &dyn LegacyBuckConfigView,
+        buckconfig: &'a dyn LegacyBuckConfigView,
+        root_buckconfig: &'a dyn LegacyBuckConfigView,
         loaded_modules: LoadedModules,
         extra_context: PerFileTypeContext,
-        eval_provider: &mut dyn StarlarkEvaluatorProvider,
+        eval_provider: &'a mut dyn StarlarkEvaluatorProvider,
         unstable_typecheck: bool,
-    ) -> anyhow::Result<PerFileTypeContext> {
+    ) -> anyhow::Result<BuildContext<'a>> {
         let import = extra_context.starlark_path();
         let globals = self
             .global_state
@@ -480,7 +487,7 @@ impl InterpreterForCell {
                 Err(p) => return Err(p),
             }
         };
-        Ok(extra.additional)
+        Ok(extra)
     }
 
     /// Evaluates the AST for a parsed module. Loaded modules must contain the loaded
@@ -544,16 +551,18 @@ impl InterpreterForCell {
             visibility: RefCell::new(None),
         });
 
-        let per_file_context = self.eval(
-            &env,
-            ast,
-            buckconfig,
-            root_buckconfig,
-            loaded_modules,
-            extra_context,
-            eval_provider,
-            false,
-        )?;
+        let per_file_context = self
+            .eval(
+                &env,
+                ast,
+                buckconfig,
+                root_buckconfig,
+                loaded_modules,
+                extra_context,
+                eval_provider,
+                false,
+            )?
+            .additional;
 
         let extra: Option<OwnedFrozenValueTyped<FrozenPackageFileExtra>> =
             if env.extra_value().is_some() {
@@ -593,21 +602,40 @@ impl InterpreterForCell {
             package_boundary_exception,
             &loaded_modules,
         )?;
-        let internals = self
-            .eval(
-                &env,
-                ast,
-                buckconfig,
-                root_buckconfig,
-                loaded_modules,
-                PerFileTypeContext::Build(internals),
-                eval_provider,
-                unstable_typecheck,
-            )?
-            .into_build()?;
-        Ok(EvaluationResultWithStats {
-            result: EvaluationResult::from(internals),
-            starlark_peak_allocated_bytes: env.heap().peak_allocated_bytes() as u64,
-        })
+        let build_ctx = self.eval(
+            &env,
+            ast,
+            buckconfig,
+            root_buckconfig,
+            loaded_modules,
+            PerFileTypeContext::Build(internals),
+            eval_provider,
+            unstable_typecheck,
+        )?;
+
+        let internals = build_ctx.additional.into_build()?;
+        let starlark_peak_allocated_bytes = env.heap().peak_allocated_bytes() as u64;
+        // TODO(ezgi): err if we cannot parse as bool
+        let starlark_peak_mem_check_enabled = root_buckconfig
+            .get("buck2", "check_starlark_peak_memory")
+            .map_or(false, |value| value.map_or(false, |v| &*v == "true"));
+        let default_limit = 1 << 30;
+        let starlark_mem_limit = build_ctx
+            .starlark_peak_allocated_byte_limit
+            .get()
+            .map_or(default_limit, |opt| opt.unwrap_or(default_limit));
+
+        if starlark_peak_mem_check_enabled && starlark_peak_allocated_bytes > starlark_mem_limit {
+            Err(StarlarkPeakMemoryError::ExceedsThreshold(
+                HumanizedBytes::fixed_width(starlark_peak_allocated_bytes),
+                HumanizedBytes::fixed_width(starlark_mem_limit),
+            )
+            .into())
+        } else {
+            Ok(EvaluationResultWithStats {
+                result: EvaluationResult::from(internals),
+                starlark_peak_allocated_bytes,
+            })
+        }
     }
 }
