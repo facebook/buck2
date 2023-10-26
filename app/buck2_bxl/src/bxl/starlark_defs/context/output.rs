@@ -420,6 +420,10 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                     .collect::<anyhow::Result<_>>()?,
             )))
         } else if let Some(cmd_line) = artifacts.as_command_line() {
+            // TODO(nga): we should not be doing that here.
+            //   If we pass random string to this function,
+            //   it will be interpreted as a command line without inputs,
+            //   and this function will return empty `EnsuredArtifactGroup`.
             let inputs = get_cmd_line_inputs(cmd_line)?;
             let mut result = Vec::new();
 
