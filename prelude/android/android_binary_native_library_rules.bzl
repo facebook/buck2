@@ -240,7 +240,7 @@ def get_android_binary_native_library_info(
                         merge_result = None
                         for merge_lib, patterns in ctx.attrs.native_library_merge_map.items():
                             for pattern in patterns:
-                                if regex(pattern).match(raw_target):
+                                if regex(pattern, fancy = True).match(raw_target):
                                     merge_result = merge_lib
                                     break
                             if merge_result:
