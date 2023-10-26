@@ -17,7 +17,7 @@ def _get_bundling_path_conflicts_check_enabled():
         return check_enabled
 
     return select({
-        "DEFAULT": False,
+        "DEFAULT": True,
         "ovr_config//features/apple/constraints:bundling_path_conflicts_check_disabled": False,
         "ovr_config//features/apple/constraints:bundling_path_conflicts_check_enabled": True,
     })
