@@ -20,6 +20,8 @@
 use std::hash::Hash;
 
 use allocative::Allocative;
+use serde::Deserialize;
+use serde::Serialize;
 
 use crate::ordered_map::OrderedMap;
 use crate::small_map;
@@ -180,6 +182,30 @@ impl<'a, K: Ord + Hash, V> IntoIterator for &'a mut SortedMap<K, V> {
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
         self.map.iter_mut()
+    }
+}
+
+impl<K: Serialize, V: Serialize> Serialize for SortedMap<K, V> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.map.serialize(serializer)
+    }
+}
+
+impl<'de, K, V> Deserialize<'de> for SortedMap<K, V>
+where
+    K: Deserialize<'de> + Hash + Eq,
+    V: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self {
+            map: OrderedMap::deserialize(deserializer)?,
+        })
     }
 }
 
