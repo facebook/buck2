@@ -93,17 +93,12 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
                 _cancellations: &CancellationContext,
             ) -> Self::Value {
                 // Invoke eval fn from global instance of cfg constructors
-                match CFG_CONSTRUCTOR_CALCULATION_IMPL
+                let cfg_constructor = CFG_CONSTRUCTOR_CALCULATION_IMPL
                     .get()?
                     .get_cfg_constructor(ctx)
                     .await?
-                {
-                    Some(cfg_constructor) => {
-                        cfg_constructor.eval(ctx, &self.cfg).await.shared_error()
-                    }
-                    // By this point we should have already confirmed that the global cfg constructor instance exists
-                    None => unreachable!("Global cfg constructor instance should exist."),
-                }
+                    .context("Internal error: Global cfg constructor instance should exist")?;
+                cfg_constructor.eval(ctx, &self.cfg).await.shared_error()
             }
 
             fn equality(x: &Self::Value, y: &Self::Value) -> bool {
