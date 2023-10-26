@@ -85,9 +85,15 @@ def _unarchive_cmd(
         # Else hope for the best
 
     if ext_type in _TAR_FLAGS:
+        os_flags = [
+            # buck-out is a symlink with EdenFS, and tar on Windows doesn't like it,
+            # and needs -P flag to allow operations with symlinks
+            "-P",
+        ] if exec_is_windows else []
         return cmd_args(
             "tar",
             _TAR_FLAGS[ext_type],
+            os_flags,
             "-x",
             "-f",
             archive,
