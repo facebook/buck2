@@ -7,4 +7,5 @@
 
 CSharpToolchainInfo = provider(fields = [
     "csc",
+    "framework_dirs",
 ])
