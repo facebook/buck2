@@ -5,11 +5,15 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info", "get_classpath_subtarget")
-load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
+load(
+    "@prelude//linking:shared_libraries.bzl",
+    "SharedLibrary",  # @unused used as type
+    "SharedLibraryInfo",
+    "merge_shared_libraries",
+    "traverse_shared_library_info",
+)
 load("@prelude//utils:utils.bzl", "expect")
 load(
     ":java_providers.bzl",
@@ -18,7 +22,7 @@ load(
     "get_java_packaging_info",
 )
 
-def _generate_script(generate_wrapper: bool, native_libs: dict[str, "SharedLibrary"]) -> bool:
+def _generate_script(generate_wrapper: bool, native_libs: dict[str, SharedLibrary]) -> bool:
     # if `generate_wrapper` is set and no native libs then it should be a wrapper script as result,
     # otherwise fat jar will be generated (inner jar or script will be included inside a final fat jar)
     return generate_wrapper and len(native_libs) == 0
@@ -27,7 +31,7 @@ def _create_fat_jar(
         ctx: AnalysisContext,
         java_toolchain: JavaToolchainInfo,
         jars: cmd_args,
-        native_libs: dict[str, "SharedLibrary"],
+        native_libs: dict[str, SharedLibrary],
         do_not_create_inner_jar: bool,
         generate_wrapper: bool) -> list[Artifact]:
     extension = "sh" if _generate_script(generate_wrapper, native_libs) else "jar"
