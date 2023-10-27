@@ -101,7 +101,7 @@ impl StreamingCommand for BxlCommand {
             )
             .await;
         let success = match &result {
-            Ok(CommandOutcome::Success(response)) => response.error_messages.is_empty(),
+            Ok(CommandOutcome::Success(response)) => response.errors.is_empty(),
             _ => false,
         };
 
@@ -117,10 +117,10 @@ impl StreamingCommand for BxlCommand {
         // of error will be printed below the FAILED line here.
         let response = result??;
 
-        print_build_result(&console, &response.error_messages)?;
+        print_build_result(&console, response.errors.iter().map(|e| &e.error_message))?;
 
         if !success {
-            return ExitResult::failure();
+            return ExitResult::from_errors(&response.errors);
         }
 
         ExitResult::success()

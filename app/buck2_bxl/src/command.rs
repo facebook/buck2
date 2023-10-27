@@ -28,6 +28,7 @@ use buck2_cli_proto::BxlResponse;
 use buck2_cli_proto::HasClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
+use buck2_common::error_report::create_error_report;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellResolver;
@@ -112,8 +113,15 @@ impl ServerCommandTemplate for BxlServerCommand {
         .await
     }
 
+    fn additional_telemetry_errors(
+        &self,
+        response: &Self::Response,
+    ) -> Vec<buck2_data::ErrorReport> {
+        response.errors.clone()
+    }
+
     fn is_success(&self, response: &Self::Response) -> bool {
-        response.error_messages.is_empty()
+        response.errors.is_empty()
     }
 }
 
@@ -139,7 +147,7 @@ async fn bxl(
             BxlResolvedCliArgs::Help => {
                 return Ok(BxlResponse {
                     project_root,
-                    error_messages: Vec::new(),
+                    errors: Vec::new(),
                 });
             }
         };
@@ -194,13 +202,17 @@ async fn bxl(
     copy_output(stdout, ctx, bxl_result.get_output_loc()).await?;
     copy_output(server_ctx.stderr()?, ctx, bxl_result.get_error_loc()).await?;
 
-    let error_messages = match build_result {
+    let errors = match build_result {
         Ok(_) => vec![],
-        Err(errors) => errors.iter().map(|e| format!("{:#}", e)).unique().collect(),
+        Err(errors) => errors
+            .iter()
+            .map(create_error_report)
+            .unique_by(|e| e.error_message.clone())
+            .collect(),
     };
     Ok(BxlResponse {
         project_root,
-        error_messages,
+        errors,
     })
 }
 

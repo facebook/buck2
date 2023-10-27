@@ -440,9 +440,10 @@ message BxlRequest {
 }
 
 message BxlResponse {
+  reserved 101;
   // Absolute path to the repo root
   string project_root = 2;
-  repeated string error_messages = 101;
+  repeated buck.data.ErrorReport errors = 102;
 }
 
 message InstallRequest {
