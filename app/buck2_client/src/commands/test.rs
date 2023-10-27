@@ -213,9 +213,9 @@ impl StreamingCommand for TestCommand {
         let skipped = statuses.skipped.as_ref().context("Missing `skipped`")?;
 
         let console = self.common_opts.console_opts.final_console();
-        print_build_result(&console, &response.error_messages)?;
-        if !response.error_messages.is_empty() {
-            console.print_error(&format!("{} BUILDS FAILED", response.error_messages.len()))?;
+        print_build_result(&console, response.errors.iter().map(|e| &e.error_message))?;
+        if !response.errors.is_empty() {
+            console.print_error(&format!("{} BUILDS FAILED", response.errors.len()))?;
         }
 
         // TODO(nmj): Might make sense for us to expose the event ctx, and use its
@@ -238,9 +238,7 @@ impl StreamingCommand for TestCommand {
             line.push(column.to_span_from_test_statuses(statuses)?);
             line.push(Span::new_unstyled_lossy(". "));
         }
-        line.push(span_from_build_failure_count(
-            response.error_messages.len(),
-        )?);
+        line.push(span_from_build_failure_count(response.errors.len())?);
         eprint_line(&line)?;
 
         print_error_counter(&console, listing_failed, "LISTINGS FAILED", "⚠")?;
@@ -268,7 +266,7 @@ impl StreamingCommand for TestCommand {
         let exit_result = if let Some(exit_code) = response.exit_code {
             ExitResult::status_extended(exit_code)
         } else {
-            ExitResult::failure()
+            ExitResult::from_errors(&response.errors)
         };
 
         match self.test_executor_stdout {

@@ -495,8 +495,9 @@ message CounterWithExamples {
 }
 
 message TestResponse {
+  reserved 101;
   optional int32 exit_code = 1;
-  repeated string error_messages = 101;
+  repeated buck.data.ErrorReport errors = 102;
   message TestStatuses {
     reserved 1 to 6;
     CounterWithExamples passed = 10;

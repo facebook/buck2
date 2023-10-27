@@ -25,6 +25,7 @@ use buck2_cli_proto::TestRequest;
 use buck2_cli_proto::TestResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::error_report::create_error_report;
 use buck2_common::events::HasEvents;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::liveliness_observer::LivelinessGuard;
@@ -78,6 +79,7 @@ use futures::stream::TryStreamExt;
 use gazebo::prelude::*;
 use indexmap::indexset;
 use indexmap::IndexSet;
+use itertools::Itertools;
 use more_futures::cancellation::CancellationContext;
 use serde::Serialize;
 
@@ -99,7 +101,7 @@ pub(crate) struct TestReport {
 }
 
 struct TestOutcome {
-    error_messages: Vec<String>,
+    errors: Vec<buck2_data::ErrorReport>,
     executor_report: ExecutorReport,
     executor_stdout: String,
     executor_stderr: String,
@@ -107,7 +109,7 @@ struct TestOutcome {
 
 impl TestOutcome {
     pub(crate) fn exit_code(&self) -> anyhow::Result<Option<i32>> {
-        if !self.error_messages.is_empty() {
+        if !self.errors.is_empty() {
             // Some tests failed to build. Send `None` back to
             // the client to delegate the exit code generation.
             return Ok(None);
@@ -234,6 +236,13 @@ impl ServerCommandTemplate for TestServerCommand {
         buck2_data::TestCommandEnd {
             unresolved_target_patterns: self.req.target_patterns.clone(),
         }
+    }
+
+    fn additional_telemetry_errors(
+        &self,
+        response: &Self::Response,
+    ) -> Vec<buck2_data::ErrorReport> {
+        response.errors.clone()
     }
 
     async fn command(
@@ -381,7 +390,7 @@ async fn test(
 
     Ok(TestResponse {
         exit_code,
-        error_messages: test_outcome.error_messages,
+        errors: test_outcome.errors,
         test_statuses: Some(test_statuses),
         executor_stdout: test_outcome.executor_stdout,
         executor_stderr: test_outcome.executor_stderr,
@@ -551,8 +560,14 @@ async fn test_targets(
         .await
         .context("Failed to collect executor report")??;
 
+    let errors = build_errors
+        .iter()
+        .map(create_error_report)
+        .unique_by(|e| e.error_message.clone())
+        .collect();
+
     Ok(TestOutcome {
-        error_messages: build_errors,
+        errors,
         executor_stdout: executor_output.stdout,
         executor_stderr: executor_output.stderr,
         executor_report,
@@ -592,7 +607,7 @@ struct TestDriver<'a, 'e> {
     work: FuturesUnordered<BoxFuture<'a, anyhow::Result<Vec<TestDriverTask>>>>,
     labels_configured: HashSet<(ProvidersLabel, bool)>,
     labels_tested: HashSet<ConfiguredProvidersLabel>,
-    build_errors: Vec<String>,
+    build_errors: Vec<buck2_error::Error>,
 }
 
 impl<'a, 'e> TestDriver<'a, 'e> {
@@ -648,8 +663,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                     }
                 }
                 Err(e) => {
-                    // TODO(brasselsprouts): filter out duplicate errors.
-                    self.build_errors.push(format!("{:#}", e));
+                    self.build_errors.push(e.into());
                 }
             }
         }
