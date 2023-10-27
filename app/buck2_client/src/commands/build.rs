@@ -308,8 +308,8 @@ impl StreamingCommand for BuildCommand {
             print_build_failed(&console)?;
         }
 
-        // Action errors will have already been printed, but any other type
-        // of error will be printed below the FAILED line here.
+        // Most build errors are returned in the `result.errors` field, but some are not and printed
+        // here.
         let response = result??;
 
         print_build_result(&console, response.errors.iter().map(|e| &e.error_message))?;
