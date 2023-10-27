@@ -75,9 +75,9 @@ download_zig_distribution(
 alias(
     name = "zig",
     actual = select({
-        "prelude//os:linux": ":zig-x86_64-linux",
-        "prelude//os:macos": ":zig-x86_64-macos",
-        "prelude//os:windows": ":zig-x86_64-windows",
+        "@prelude//os:linux": ":zig-x86_64-linux",
+        "@prelude//os:macos": ":zig-x86_64-macos",
+        "@prelude//os:windows": ":zig-x86_64-windows",
     }),
 )
 
@@ -85,9 +85,9 @@ cxx_zig_toolchain(
     name = "cxx",
     distribution = ":zig",
     target = select({
-        "prelude//os:linux": "x86_64-linux-gnu",
-        "prelude//os:macos": "x86_64-macos-gnu",
-        "prelude//os:windows": "x86_64-windows-gnu",
+        "@prelude//os:linux": "x86_64-linux-gnu",
+        "@prelude//os:macos": "x86_64-macos-gnu",
+        "@prelude//os:windows": "x86_64-windows-gnu",
     }),
     visibility = ["PUBLIC"],
 )
