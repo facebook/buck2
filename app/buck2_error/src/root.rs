@@ -10,6 +10,8 @@
 use std::fmt;
 use std::sync::Arc;
 
+use crate::ErrorType;
+
 static NEXT_ROOT_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 /// Uniquely identifies an instance of an error root
@@ -40,12 +42,14 @@ pub(crate) struct ErrorRoot {
     inner: Arc<anyhow::Error>,
     #[allocative(skip)] // FIXME(JakobDegen): "Implementation is not general enough"
     late_format: Option<Arc<DynLateFormat>>,
+    error_type: Option<ErrorType>,
 }
 
 impl ErrorRoot {
     pub(crate) fn new<E: std::error::Error + Send + Sync + 'static>(
         inner: E,
         late_format: Option<fn(&E, &mut fmt::Formatter<'_>) -> fmt::Result>,
+        error_type: Option<ErrorType>,
     ) -> Self {
         let id = UniqueRootId(NEXT_ROOT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
         let inner = Arc::new(anyhow::Error::new(inner));
@@ -55,6 +59,7 @@ impl ErrorRoot {
                 id,
                 inner,
                 late_format: None,
+                error_type,
             };
         };
         Self {
@@ -63,6 +68,7 @@ impl ErrorRoot {
             late_format: Some(Arc::new(move |e: &anyhow::Error, fmt| {
                 late_format(e.downcast_ref().unwrap(), fmt)
             })),
+            error_type,
         }
     }
 
@@ -73,6 +79,7 @@ impl ErrorRoot {
             id: UniqueRootId(NEXT_ROOT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)),
             inner: e,
             late_format: None,
+            error_type: None,
         }
     }
 
@@ -104,6 +111,10 @@ impl ErrorRoot {
 
     pub(crate) fn id(&self) -> UniqueRootId {
         self.id
+    }
+
+    pub(crate) fn error_type(&self) -> Option<ErrorType> {
+        self.error_type
     }
 }
 

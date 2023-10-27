@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use crate::context_value::ContextValue;
 use crate::root::ErrorRoot;
+use crate::ErrorType;
 use crate::UniqueRootId;
 
 /// The core error type provided by this crate.
@@ -42,14 +43,15 @@ pub(crate) enum ErrorKind {
 
 impl Error {
     pub fn new<E: std::error::Error + Send + Sync + 'static>(e: E) -> Self {
-        Self(Arc::new(ErrorKind::Root(ErrorRoot::new(e, None))))
+        Self(Arc::new(ErrorKind::Root(ErrorRoot::new(e, None, None))))
     }
 
-    pub fn new_with_late_format<E: std::error::Error + Send + Sync + 'static>(
+    pub fn new_with_options<E: std::error::Error + Send + Sync + 'static>(
         e: E,
-        f: fn(&E, &mut fmt::Formatter<'_>) -> fmt::Result,
+        f: Option<fn(&E, &mut fmt::Formatter<'_>) -> fmt::Result>,
+        t: Option<ErrorType>,
     ) -> Self {
-        Self(Arc::new(ErrorKind::Root(ErrorRoot::new(e, Some(f)))))
+        Self(Arc::new(ErrorKind::Root(ErrorRoot::new(e, f, t))))
     }
 
     fn iter_kinds<'a>(&'a self) -> impl Iterator<Item = &'a ErrorKind> {
@@ -97,6 +99,10 @@ impl Error {
     /// the end of the build.
     pub fn get_late_format<'a>(&'a self) -> Option<impl fmt::Display + fmt::Debug + 'a> {
         crate::format::into_anyhow_for_format(self, true)
+    }
+
+    pub fn get_error_type(&self) -> Option<ErrorType> {
+        self.root().error_type()
     }
 
     /// Only intended to be used for debugging, helps to understand the structure of the error
@@ -222,7 +228,11 @@ mod tests {
 
     #[test]
     fn test_late_format_has_context() {
-        let e = crate::Error::new_with_late_format(TestError, |_e, f| write!(f, "Late formatted!"));
+        let e = crate::Error::new_with_options(
+            TestError,
+            Some(|_e, f| write!(f, "Late formatted!")),
+            None,
+        );
         let e = e.context(ContextA).context(ContextB);
 
         let s = format!("{:#}", e.get_late_format().unwrap());

@@ -216,9 +216,10 @@ async fn build_action_no_redirect(
                     event: action_error_event,
                     owner: action.owner().dupe(),
                 };
-                let mut action_error = buck2_error::Error::new_with_late_format(
+                let mut action_error = buck2_error::Error::new_with_options(
                     action_error,
-                    late_format_action_error,
+                    Some(late_format_action_error),
+                    None,
                 );
                 if is_user_error {
                     action_error = action_error.context(buck2_error::Category::User);
