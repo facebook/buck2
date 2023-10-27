@@ -584,11 +584,19 @@ def _srcs_to_objfiles(
         odir: Artifact,
         osuf: str) -> cmd_args:
     objfiles = cmd_args()
-    for src in ctx.attrs.srcs:
+    for src, _ in _srcs_to_pairs(ctx.attrs.srcs):
         # Don't link boot sources, as they're only meant to be used for compiling.
         if _is_haskell_src(src):
             objfiles.add(cmd_args([odir, "/", paths.replace_extension(src, "." + osuf)], delimiter = ""))
     return objfiles
+
+# We take a named_set for srcs, which is sometimes a list, sometimes a dict.
+# In future we should only accept a list, but for now, cope with both.
+def _srcs_to_pairs(srcs) -> list[(str, Artifact)]:
+    if type(srcs) == type({}):
+        return srcs.items()
+    else:
+        return [(src.short_path, src) for src in srcs]
 
 # Single place to build the suffix used in artifacts (e.g. package directories,
 # lib names) considering attributes like link style and profiling.
@@ -669,7 +677,7 @@ def _compile(
 
     compile_args.add(extra_args)
 
-    for (path, src) in ctx.attrs.srcs.items():
+    for (path, src) in _srcs_to_pairs(ctx.attrs.srcs):
         # hs-boot files aren't expected to be an argument to compiler but does need
         # to be included in the directory of the associated src file
         if _is_haskell_src(path):
@@ -740,7 +748,7 @@ def _make_package(
     artifact_suffix = get_artifact_suffix(link_style, enable_profiling)
 
     # Don't expose boot sources, as they're only meant to be used for compiling.
-    modules = [_src_to_module_name(x) for x in ctx.attrs.srcs if _is_haskell_src(x)]
+    modules = [_src_to_module_name(x) for x, _ in _srcs_to_pairs(ctx.attrs.srcs) if _is_haskell_src(x)]
 
     uniq_hlis = {}
     for x in hlis:

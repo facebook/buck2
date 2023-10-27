@@ -1,12 +1,12 @@
 # buildifier: disable=no-effect
 haskell_library(
     name = "library",
-    srcs = {"Library.hs": "Library.hs"},
+    srcs = ["Library.hs"],
 ) if host_info().os.is_linux else None
 
 # buildifier: disable=no-effect
 haskell_binary(
     name = "main",
-    srcs = {"Main.hs": "Main.hs"},
+    srcs = ["Main.hs"],
     deps = [":library"],
 ) if host_info().os.is_linux else None

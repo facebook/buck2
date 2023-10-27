@@ -13,7 +13,7 @@
 def _srcs_arg():
     return {
         "srcs": attrs.named_set(attrs.source(), sorted = True, default = [], doc = """
-    A list of Haskell sources to be built by this rule.
+    A list of Haskell sources to be built by this rule. The dictionary option is deprecated.
 """),
     }
 
