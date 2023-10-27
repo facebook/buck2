@@ -551,7 +551,7 @@ pub mod build_report {
                 // we initially avoid assigning new deduplication indexes and instead use a sentinal
                 // value. This is to make sure that we can be deterministic
                 let root = e.root_id();
-                let message = format!("{:#}", e);
+                let message = format!("{:?}", e);
                 temp.push((self.error_cause_cache.get(&root).copied(), message, e));
             }
             // Sort the errors. This sort *almost* guarantees full determinism, but unfortunately
