@@ -95,9 +95,10 @@ impl ReplayCommand {
 
                 let res = res??;
                 for e in &res.errors {
-                    buck2_client_ctx::eprintln!("{}", e)?;
+                    buck2_client_ctx::eprintln!("{}", e.error_message)?;
                 }
 
+                // FIXME(JakobDegen)(easy): This should probably return failures if there were errors
                 ExitResult::success()
             };
 
@@ -109,7 +110,7 @@ impl ReplayCommand {
 }
 
 struct ReplayResult {
-    errors: Vec<String>,
+    errors: Vec<buck2_data::ErrorReport>,
 }
 
 impl TryFrom<buck2_cli_proto::command_result::Result> for ReplayResult {
@@ -121,10 +122,10 @@ impl TryFrom<buck2_cli_proto::command_result::Result> for ReplayResult {
         // It would be good to declare this as a extension trait on our types, but for now to
         // support Replay this is fine;
         let errors = match v {
-            Result::Error(v) => v.errors.into_iter().map(|e| e.error_message).collect(),
-            Result::BuildResponse(v) => v.errors.into_iter().map(|e| e.error_message).collect(),
-            Result::TestResponse(v) => v.errors.into_iter().map(|e| e.error_message).collect(),
-            Result::BxlResponse(v) => v.errors.into_iter().map(|e| e.error_message).collect(),
+            Result::Error(v) => v.errors,
+            Result::BuildResponse(v) => v.errors,
+            Result::TestResponse(v) => v.errors,
+            Result::BxlResponse(v) => v.errors,
             _ => Vec::new(),
         };
 
