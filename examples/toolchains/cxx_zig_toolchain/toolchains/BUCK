@@ -3,7 +3,7 @@ load("@prelude//toolchains/cxx/zig:defs.bzl", "cxx_zig_toolchain", "download_zig
 
 download_zig_distribution(
     name = "zig",
-    version = "0.9.1",
+    version = "0.11.0",
 )
 
 cxx_zig_toolchain(
