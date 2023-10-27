@@ -150,6 +150,31 @@ impl ExitResult {
             Err(e) => ExitResultVariant::Err(e).report(),
         }
     }
+
+    pub fn from_errors(errors: &[buck2_data::ErrorReport]) -> Self {
+        let mut has_infra = false;
+        let mut has_user = false;
+        for e in errors {
+            if e.typ == Some(buck2_data::ErrorType::DaemonIsBusy as i32) {
+                return Self::status(4);
+            }
+            match e.category.and_then(buck2_data::ErrorCategory::from_i32) {
+                Some(buck2_data::ErrorCategory::Infra) => has_infra = true,
+                Some(buck2_data::ErrorCategory::User) => has_user = true,
+                None => (),
+            }
+        }
+        if has_infra {
+            return Self::status(2);
+        }
+        if has_user {
+            return Self::status(3);
+        }
+        // FIXME(JakobDegen): For compatibility with pre-existing behavior, we return infra failure
+        // here. However, it would be more honest to return the `1` status code that we use for
+        // "unknown"
+        Self::status(2)
+    }
 }
 
 /// We can produce a ExitResult from a `anyhow::Result` for convenience.
