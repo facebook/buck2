@@ -174,6 +174,8 @@ pub(crate) fn register_instant_function(builder: &mut GlobalsBuilder) {
     ///     ctx.output.print(time_b)
     /// ```
     fn now() -> anyhow::Result<StarlarkInstant> {
+        // TODO(nga): this function is callable from interpreter/analysis context,
+        //   where it can cause non-determinism.
         Ok(StarlarkInstant(Instant::now()))
     }
 }
