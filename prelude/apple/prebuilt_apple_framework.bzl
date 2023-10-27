@@ -108,6 +108,7 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> list[Provider]:
         is_watchos = None,
         skip_copying_swift_stdlib = True,
         contains_watchapp = None,
+        is_appclip = None,
     ))
     providers.append(merge_link_group_lib_info(deps = ctx.attrs.deps))
     providers.append(merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, ctx.attrs.deps)))

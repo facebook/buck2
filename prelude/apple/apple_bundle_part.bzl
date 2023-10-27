@@ -87,6 +87,8 @@ def assemble_bundle(
             bundle_relative_path_for_destination(AppleBundleDestination("frameworks"), sdk_name, ctx.attrs.extension),
             "--plugins-destination",
             bundle_relative_path_for_destination(AppleBundleDestination("plugins"), sdk_name, ctx.attrs.extension),
+            "--appclips-destination",
+            bundle_relative_path_for_destination(AppleBundleDestination("appclips"), sdk_name, ctx.attrs.extension),
             "--swift-stdlib-command",
             cmd_args(ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info.swift_stdlib_tool, delimiter = " ", quote = "shell"),
             "--sdk-root",

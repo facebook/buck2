@@ -26,6 +26,9 @@ AppleBundleInfo = provider(
         # By default, non-framework, non-appex binaries copy Swift libraries into the final
         # binary. This is the opt-out for that.
         "skip_copying_swift_stdlib": provider_field([bool, None]),
+        # If the bundle was built for Apple AppClips, this affects packaging.
+        # Might be omitted for certain types of bundle (e.g. frameworks) when packaging doesn't depend on it.
+        "is_appclip": provider_field([bool, None]),
     },
 )
 

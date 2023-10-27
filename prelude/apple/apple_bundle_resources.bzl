@@ -190,7 +190,12 @@ def _copied_bundle_spec(bundle_info: AppleBundleInfo) -> [None, AppleBundlePart]
         codesign_on_copy = True
     elif bundle_extension == ".app":
         expect(bundle_info.is_watchos != None, "Field should be set for bundles with extension {}".format(bundle_extension))
-        destination = AppleBundleDestination("watchapp" if bundle_info.is_watchos else "plugins")
+        app_destination_type = "plugins"
+        if bundle_info.is_watchos:
+            app_destination_type = "watchapp"
+        elif bundle_info.is_appclip:
+            app_destination_type = "appclips"
+        destination = AppleBundleDestination(app_destination_type)
         codesign_on_copy = False
     elif bundle_extension == ".appex":
         destination = AppleBundleDestination("plugins")

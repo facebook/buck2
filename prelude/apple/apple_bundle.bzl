@@ -356,6 +356,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
             is_watchos = get_is_watch_bundle(ctx),
             contains_watchapp = is_any(lambda part: part.destination == AppleBundleDestination("watchapp"), apple_bundle_part_list_output.parts),
             skip_copying_swift_stdlib = ctx.attrs.skip_copying_swift_stdlib,
+            is_appclip = ctx.attrs.is_appclip,
         ),
         AppleDebuggableInfo(
             dsyms = dsym_artifacts,

@@ -25,6 +25,7 @@ AppleBundleDestination = enum(
     "watchkitstub",
     "bundleroot",
     "loginitems",
+    "appclips",
 )
 
 AppleBundleDestinationPaths = record(
@@ -41,6 +42,7 @@ AppleBundleDestinationPaths = record(
     watchkitstub = field(str, ""),
     bundleroot = field(str, ""),
     loginitems = field(str, ""),
+    appclips = field(str, ""),
 )
 
 _IOSBundleDestinationPaths = AppleBundleDestinationPaths(
@@ -50,6 +52,7 @@ _IOSBundleDestinationPaths = AppleBundleDestinationPaths(
     watchapp = "Watch",
     quicklook = "Library/QuickLook",
     watchkitstub = "_WatchKitStub",
+    appclips = "AppClips",
 )
 
 _IOSFrameworkBundleDestinationPaths = AppleBundleDestinationPaths(
@@ -129,4 +132,6 @@ def bundle_relative_path_for_destination(destination: AppleBundleDestination, sd
         return bundle_destinations.bundleroot
     elif destination.value == "loginitems":
         return bundle_destinations.loginitems
+    elif destination.value == "appclips":
+        return bundle_destinations.appclips
     fail("Unsupported Apple bundle destination {}".format(destination))
