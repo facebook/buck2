@@ -15,7 +15,7 @@ pub fn create_error_report(err: &buck2_error::Error) -> buck2_data::ErrorReport 
     });
     let typ = err.get_error_type().map(|c| c as i32);
 
-    let (error_message, telemetry_error_message) = if let Some(f) = err.get_late_format() && err.is_emitted() {
+    let (message, telemetry_message) = if let Some(f) = err.get_late_format() && err.is_emitted() {
         (format!("{:?}", f), Some(format!("{:?}", err)))
     } else {
         (format!("{:?}", err), None)
@@ -24,7 +24,7 @@ pub fn create_error_report(err: &buck2_error::Error) -> buck2_data::ErrorReport 
     buck2_data::ErrorReport {
         category: category.map(|c| c as i32),
         typ,
-        error_message,
-        telemetry_error_message,
+        message,
+        telemetry_message,
     }
 }

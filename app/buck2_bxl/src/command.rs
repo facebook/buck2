@@ -207,7 +207,7 @@ async fn bxl(
         Err(errors) => errors
             .iter()
             .map(create_error_report)
-            .unique_by(|e| e.error_message.clone())
+            .unique_by(|e| e.message.clone())
             .collect(),
     };
     Ok(BxlResponse {

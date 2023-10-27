@@ -319,7 +319,7 @@ impl StatefulSuperConsole {
             for e in &e.errors {
                 lines
                     .0
-                    .extend(Lines::from_multiline_string(&e.error_message, style).0);
+                    .extend(Lines::from_multiline_string(&e.message, style).0);
             }
         }
         lines

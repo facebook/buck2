@@ -386,7 +386,7 @@ async fn process_build_result(
                 .errors
                 .iter()
                 .map(create_error_report)
-                .unique_by(|e| e.error_message.clone())
+                .unique_by(|e| e.message.clone())
                 .collect();
             (vec![], errors)
         }

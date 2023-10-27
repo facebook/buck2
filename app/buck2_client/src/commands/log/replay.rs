@@ -96,7 +96,7 @@ impl ReplayCommand {
 
                 let res = res??;
                 for e in &res.errors {
-                    buck2_client_ctx::eprintln!("{}", e.error_message)?;
+                    buck2_client_ctx::eprintln!("{}", e.message)?;
                 }
 
                 // FIXME(JakobDegen)(easy): This should probably return failures if there were errors

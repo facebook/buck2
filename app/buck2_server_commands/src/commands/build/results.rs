@@ -553,12 +553,11 @@ pub mod build_report {
                 // value. This is to make sure that we can be deterministic
                 let root = e.root_id();
                 let error_report = create_error_report(e);
-                let message =
-                    if let Some(telemetry_error_message) = error_report.telemetry_error_message {
-                        telemetry_error_message
-                    } else {
-                        error_report.error_message
-                    };
+                let message = if let Some(telemetry_message) = error_report.telemetry_message {
+                    telemetry_message
+                } else {
+                    error_report.message
+                };
                 temp.push((self.error_cause_cache.get(&root).copied(), message, e));
             }
             // Sort the errors. This sort *almost* guarantees full determinism, but unfortunately

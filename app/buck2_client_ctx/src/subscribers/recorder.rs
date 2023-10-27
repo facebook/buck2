@@ -464,9 +464,9 @@ mod imp {
             self.error_messages.extend(
                 std::mem::take(&mut command.errors)
                     .into_iter()
-                    // Intentionally use `error_message` and not `telemetry_error_message` to avoid
-                    // changing behavior, later diffs will do this properly
-                    .map(|e| e.error_message),
+                    // Intentionally use `message` and not `telemetry_message` to avoid changing
+                    // behavior, later diffs will do this properly
+                    .map(|e| e.message),
             );
 
             // Awkwardly unpacks the SpanEnd event so we can read its duration.

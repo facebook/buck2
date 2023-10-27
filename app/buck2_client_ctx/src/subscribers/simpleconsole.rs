@@ -314,7 +314,7 @@ where
         {
             echo!("Command failed: ")?;
             for e in &e.errors {
-                echo!("{}", e.error_message)?;
+                echo!("{}", e.message)?;
             }
             self.notify_printed();
         }

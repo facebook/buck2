@@ -229,7 +229,7 @@ pub fn print_build_result(
     errors: &[buck2_data::ErrorReport],
 ) -> anyhow::Result<()> {
     for error in errors {
-        console.print_error(&error.error_message)?;
+        console.print_error(&error.message)?;
     }
     Ok(())
 }
