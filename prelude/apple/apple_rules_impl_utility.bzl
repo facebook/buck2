@@ -108,6 +108,7 @@ def apple_test_extra_attrs():
 def apple_bundle_extra_attrs():
     attribs = {
         "binary": attrs.option(attrs.split_transition_dep(cfg = cpu_split_transition), default = None),
+        "is_appclip": attrs.bool(default = False),
         "resource_group_map": resource_group_map_attr(),
         "selective_debugging": attrs.option(attrs.dep(providers = [AppleSelectiveDebuggingInfo]), default = None),
         "split_arch_dsym": attrs.bool(default = False),
