@@ -19,7 +19,7 @@ use std::sync::atomic::Ordering;
 
 use superconsole::Line;
 
-use crate::exit_result::FailureExitCode;
+use crate::exit_result::UserIoError;
 
 static HAS_WRITTEN_TO_STDOUT: AtomicBool = AtomicBool::new(false);
 
@@ -78,32 +78,25 @@ macro_rules! eprintln {
     };
 }
 
-fn map_stdout_error(err: io::Error) -> anyhow::Error {
-    if err.kind() == io::ErrorKind::BrokenPipe {
-        anyhow::Error::new(FailureExitCode::StdoutBrokenPipe)
-    } else {
-        anyhow::Error::new(err)
-    }
-}
-
-fn map_stderr_error(err: io::Error) -> anyhow::Error {
-    if err.kind() == io::ErrorKind::BrokenPipe {
-        anyhow::Error::new(FailureExitCode::StderrBrokenPipe)
-    } else {
-        anyhow::Error::new(err)
-    }
-}
-
 pub fn _print(fmt: Arguments) -> anyhow::Result<()> {
-    stdout().lock().write_fmt(fmt).map_err(map_stdout_error)
+    stdout()
+        .lock()
+        .write_fmt(fmt)
+        .map_err(|e| UserIoError(e).into())
 }
 
 pub fn _eprint(fmt: Arguments) -> anyhow::Result<()> {
-    io::stderr().lock().write_fmt(fmt).map_err(map_stderr_error)
+    io::stderr()
+        .lock()
+        .write_fmt(fmt)
+        .map_err(|e| UserIoError(e).into())
 }
 
 pub fn print_bytes(bytes: &[u8]) -> anyhow::Result<()> {
-    stdout().lock().write_all(bytes).map_err(map_stdout_error)
+    stdout()
+        .lock()
+        .write_all(bytes)
+        .map_err(|e| UserIoError(e).into())
 }
 
 pub fn eprint_line(line: &Line) -> anyhow::Result<()> {
@@ -112,7 +105,7 @@ pub fn eprint_line(line: &Line) -> anyhow::Result<()> {
 }
 
 pub fn flush() -> anyhow::Result<()> {
-    stdout().flush().map_err(map_stdout_error)
+    stdout().flush().map_err(|e| UserIoError(e).into())
 }
 
 pub fn print_with_writer<E, F>(f: F) -> anyhow::Result<()>
@@ -124,11 +117,9 @@ where
         Ok(_) => Ok(()),
         Err(e) => {
             let e: anyhow::Error = e.into();
-            match e.downcast_ref::<io::Error>() {
-                Some(io_error) if io_error.kind() == io::ErrorKind::BrokenPipe => {
-                    Err(anyhow::Error::new(FailureExitCode::StdoutBrokenPipe))
-                }
-                Some(_) | None => Err(e),
+            match e.downcast::<io::Error>() {
+                Ok(io_error) => Err(UserIoError(io_error).into()),
+                Err(e) => Err(e),
             }
         }
     }

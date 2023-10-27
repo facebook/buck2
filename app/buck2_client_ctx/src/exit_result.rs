@@ -219,6 +219,9 @@ impl ExitResultVariant {
                 // execv does not return.
                 execv(args)
             }
+            Self::Err(e) if let Some(io_error) = e.downcast_ref::<UserIoError>() && io_error.0.kind() == io::ErrorKind::BrokenPipe => {
+                141
+            },
             Self::Err(e) => {
                 match e.downcast_ref::<FailureExitCode>() {
                     None => {
@@ -228,22 +231,6 @@ impl ExitResultVariant {
                     Some(FailureExitCode::SignalInterrupt) => {
                         tracing::debug!("Interrupted");
                         130
-                    }
-                    Some(FailureExitCode::StdoutBrokenPipe) => {
-                        // Report a broken pipe, but don't print anything to stderr by default. If
-                        // the user wants to find out why we exited non-zero, they'll have to look
-                        // at the output or raise the log level.
-                        tracing::debug!("stdout pipe was broken");
-                        141
-                    }
-                    Some(FailureExitCode::StderrBrokenPipe) => {
-                        // Not much point in printing anything here, since we know stderr is
-                        // closed.
-                        141
-                    }
-                    Some(FailureExitCode::OutputFileBrokenPipe) => {
-                        tracing::debug!("--out pipe was broken");
-                        141
                     }
                     Some(FailureExitCode::ConnectError(e)) => {
                         let _ignored = writeln!(io::stderr().lock(), "{:?}", e);
@@ -273,6 +260,14 @@ impl ExitResultVariant {
     }
 }
 
+/// A wrapper around an `io::Error` which indicates that the error came from "user IO".
+///
+/// We use this to inform the exit code generation
+#[derive(thiserror::Error, derivative::Derivative)]
+#[derivative(Debug = "transparent")]
+#[error(transparent)]
+pub struct UserIoError(pub io::Error);
+
 /// Common exit codes for buck with stronger semantic meanings
 #[derive(thiserror::Error, Debug)]
 pub enum FailureExitCode {
@@ -280,15 +275,6 @@ pub enum FailureExitCode {
     // how many make sense in v2 versus v1. Some are assuredly unnecessary in v2.
     #[error("Ctrl-c was pressed")]
     SignalInterrupt,
-
-    #[error("Broken pipe writing on stdout")]
-    StdoutBrokenPipe,
-
-    #[error("Broken pipe writing on stdout")]
-    StderrBrokenPipe,
-
-    #[error("Broken pipe writing build artifact to --out")]
-    OutputFileBrokenPipe,
 
     #[error(transparent)]
     ConnectError(anyhow::Error),

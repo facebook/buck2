@@ -31,7 +31,7 @@ use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::exit_result::FailureExitCode;
+use buck2_client_ctx::exit_result::UserIoError;
 use buck2_client_ctx::final_console::FinalConsole;
 use buck2_client_ctx::output_destination_arg::OutputDestinationArg;
 use buck2_client_ctx::path_arg::PathArg;
@@ -676,11 +676,7 @@ async fn copy_file(src: &Path, dst: &Path) -> anyhow::Result<()> {
 }
 
 fn convert_broken_pipe_error(e: io::Error) -> anyhow::Error {
-    if e.kind() == io::ErrorKind::BrokenPipe {
-        anyhow::Error::new(FailureExitCode::OutputFileBrokenPipe)
-    } else {
-        anyhow::Error::new(e).context("Error writing build artifact to --out")
-    }
+    anyhow::Error::new(UserIoError(e)).context("Error writing build artifact to --out")
 }
 
 #[cfg(test)]
