@@ -17,8 +17,6 @@ use std::process::Command;
 
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 
-use crate::subscribers::observer::ErrorCause;
-
 pub struct ExecArgs {
     prog: String,
     argv: Vec<String>,
@@ -124,15 +122,6 @@ impl ExitResult {
         }
 
         f(self)
-    }
-
-    /// Return this ExitStatus if it's not Uncategorized, or produce a new exit code.
-    pub fn categorized_or_else(mut self, f: impl FnOnce() -> u8) -> Self {
-        if matches!(self.variant, ExitResultVariant::UncategorizedError) {
-            self.variant = ExitResultVariant::Status(f());
-        }
-
-        self
     }
 
     pub fn with_stdout(mut self, stdout: Vec<u8>) -> Self {
@@ -281,15 +270,6 @@ impl ExitResultVariant {
         }
 
         unsafe { libc::_exit(exit_code as libc::c_int) }
-    }
-}
-
-pub fn gen_error_exit_code(cause: ErrorCause) -> u8 {
-    match cause {
-        ErrorCause::Unknown => 2, // We treat unknown as infra error.
-        ErrorCause::Infra => 2,
-        ErrorCause::User => 3,
-        ErrorCause::DaemonIsBusy => 4, // For exiting concurrent commands of a different state early
     }
 }
 

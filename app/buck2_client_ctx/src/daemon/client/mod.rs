@@ -40,7 +40,6 @@ use crate::events_ctx::FileTailers;
 use crate::events_ctx::PartialResultCtx;
 use crate::events_ctx::PartialResultHandler;
 use crate::stream_value::StreamValue;
-use crate::subscribers::observer::ErrorCause;
 use crate::subscribers::observer::ErrorObserver;
 
 pub mod connect;
@@ -77,14 +76,6 @@ impl<'a> BuckdClientConnector<'a> {
             .subscribers
             .iter()
             .filter_map(|s| s.as_error_observer())
-    }
-
-    pub fn collect_error_cause(&self) -> ErrorCause {
-        if let Some(obs) = self.error_observers().next() {
-            return obs.error_cause();
-        }
-
-        ErrorCause::Unknown
     }
 }
 

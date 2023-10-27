@@ -50,7 +50,6 @@ mod imp {
 
     use crate::build_count::BuildCountManager;
     use crate::cleanup_ctx::AsyncCleanupContext;
-    use crate::subscribers::observer::ErrorCause;
     use crate::subscribers::observer::ErrorObserver;
     use crate::subscribers::recorder::system_memory_stats;
     use crate::subscribers::subscriber::EventSubscriber;
@@ -1054,18 +1053,6 @@ mod imp {
     }
 
     impl<'a> ErrorObserver for InvocationRecorder<'a> {
-        fn error_cause(&self) -> ErrorCause {
-            if self.exit_when_different_state {
-                // User wants to immediately exit concurrent commands with different states
-                return ErrorCause::DaemonIsBusy;
-            } else if self.run_command_failure_count > 0 {
-                // Action fails likely because of user-defined commands in the action
-                return ErrorCause::User;
-            }
-
-            ErrorCause::Unknown
-        }
-
         fn daemon_in_memory_state_is_corrupted(&self) -> bool {
             self.daemon_in_memory_state_is_corrupted
         }

@@ -10,10 +10,6 @@
 /// A trait for such event subscribers that are watching a specific set of
 /// errors and keeping the record of them for later use.
 pub trait ErrorObserver {
-    fn error_cause(&self) -> ErrorCause {
-        ErrorCause::Unknown
-    }
-
     /// Whether this observer thinks that the daemon needs killing to work again.
     fn daemon_in_memory_state_is_corrupted(&self) -> bool {
         false
@@ -28,11 +24,4 @@ pub trait ErrorObserver {
     fn restarter_is_enabled(&self) -> bool {
         false
     }
-}
-
-pub enum ErrorCause {
-    Unknown,
-    Infra,
-    User,
-    DaemonIsBusy,
 }

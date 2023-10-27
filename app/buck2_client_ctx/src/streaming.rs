@@ -24,7 +24,6 @@ use crate::daemon::client::connect::BuckdConnectOptions;
 use crate::daemon::client::connect::DaemonConstraintsRequest;
 use crate::daemon::client::connect::DesiredTraceIoState;
 use crate::daemon::client::BuckdClientConnector;
-use crate::exit_result::gen_error_exit_code;
 use crate::exit_result::ExitResult;
 use crate::exit_result::FailureExitCode;
 use crate::path_arg::PathArg;
@@ -193,8 +192,6 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                 };
 
                 let command_result = self.exec_impl(&mut buckd, matches, &mut ctx).await;
-                let command_result = command_result
-                    .categorized_or_else(|| gen_error_exit_code(buckd.collect_error_cause()));
 
                 ctx.restarter.observe(&buckd);
 
