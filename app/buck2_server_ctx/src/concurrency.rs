@@ -29,7 +29,6 @@ use buck2_data::DiceSynchronizeSectionEnd;
 use buck2_data::DiceSynchronizeSectionStart;
 use buck2_data::ExclusiveCommandWaitEnd;
 use buck2_data::ExclusiveCommandWaitStart;
-use buck2_data::ExitWhenDifferentState;
 use buck2_data::NoActiveDiceState;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_util::truncate::truncate;
@@ -495,8 +494,6 @@ impl ConcurrencyHandler {
                             }
                             BypassSemaphore::Block => {
                                 if exit_when_different_state {
-                                    event_dispatcher.instant_event(ExitWhenDifferentState {});
-
                                     return Err(buck2_error::Error::new_with_options(
                                         ConcurrencyHandlerError::ExitWhenDifferentState,
                                         None,

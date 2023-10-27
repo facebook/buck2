@@ -223,10 +223,6 @@ message InstantEvent {
     // Stacktrace from the fail_no_stacktrace() call.
     StarlarkFailNoStacktrace starlark_fail_no_stacktrace = 25;
 
-    // Emitted when the user requests that concurrent commands with different
-    // states should be exited immediately
-    ExitWhenDifferentState exit_when_different_state = 26;
-
     // Snapshot of current debug adapter state. Only sent when a debugger is
     // attached.
     DebugAdapterSnapshot debug_adapter_snapshot = 27;
@@ -1554,7 +1550,7 @@ message TypedMetadata {
 
 // Record event sent directly to scribe.
 message InvocationRecord {
-  reserved 1, 22, 27, 28, 36, 61, 66;
+  reserved 1, 22, 27, 28, 36, 61, 62, 66;
 
   // Optional - present if ever sent to client.
   // Will be missing on a cancelled build.
@@ -1656,7 +1652,6 @@ message InvocationRecord {
   google.protobuf.Duration concurrent_command_blocking_duration = 59;
   // How many analyses were executed
   optional uint64 analysis_count = 60;
-  optional bool exit_when_different_state = 62;
   optional string restarted_trace_id = 63;
   optional bool has_command_result = 64;
   optional uint64 compressed_event_log_size_bytes = 65;
@@ -1805,8 +1800,6 @@ message DiceCriticalSectionEnd {}
 message DiceSynchronizeSectionStart {}
 
 message DiceSynchronizeSectionEnd {}
-
-message ExitWhenDifferentState {}
 
 message BxlExecutionStart {
   string name = 1;

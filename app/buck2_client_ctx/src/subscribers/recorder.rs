@@ -112,7 +112,6 @@ mod imp {
         concurrent_command_blocking_duration: Option<Duration>,
         metadata: HashMap<String, String>,
         analysis_count: u64,
-        exit_when_different_state: bool,
         daemon_in_memory_state_is_corrupted: bool,
         daemon_materializer_state_is_corrupted: bool,
         enable_restarter: bool,
@@ -204,7 +203,6 @@ mod imp {
                 concurrent_command_blocking_duration: None,
                 metadata: buck2_events::metadata::collect(),
                 analysis_count: 0,
-                exit_when_different_state: false,
                 daemon_in_memory_state_is_corrupted: false,
                 daemon_materializer_state_is_corrupted: false,
                 enable_restarter: false,
@@ -371,7 +369,6 @@ mod imp {
                     .concurrent_command_blocking_duration
                     .and_then(|x| x.try_into().ok()),
                 analysis_count: Some(self.analysis_count),
-                exit_when_different_state: Some(self.exit_when_different_state),
                 restarted_trace_id: self.restarted_trace_id.as_ref().map(|t| t.to_string()),
                 has_command_result: Some(self.has_command_result),
                 has_end_of_stream: Some(self.has_end_of_stream),
@@ -729,14 +726,6 @@ mod imp {
             Ok(())
         }
 
-        fn handle_exit_when_different_state(
-            &mut self,
-            _exit_when_different_state: &buck2_data::ExitWhenDifferentState,
-        ) -> anyhow::Result<()> {
-            self.exit_when_different_state = true;
-            Ok(())
-        }
-
         fn handle_tag(&mut self, tag: &buck2_data::TagEvent) -> anyhow::Result<()> {
             self.tags.extend(tag.tags.iter().cloned());
             Ok(())
@@ -989,9 +978,6 @@ mod imp {
                         buck2_data::instant_event::Data::StructuredError(err) => {
                             self.handle_structured_error(err)
                         }
-                        buck2_data::instant_event::Data::ExitWhenDifferentState(
-                            exit_when_different_state,
-                        ) => self.handle_exit_when_different_state(exit_when_different_state),
                         buck2_data::instant_event::Data::RestartConfiguration(conf) => {
                             self.enable_restarter = conf.enable_restarter;
                             Ok(())
