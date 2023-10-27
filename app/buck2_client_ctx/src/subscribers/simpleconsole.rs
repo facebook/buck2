@@ -313,8 +313,8 @@ where
         } = result
         {
             echo!("Command failed: ")?;
-            for message in &e.messages {
-                echo!("{}", message)?;
+            for e in &e.errors {
+                echo!("{}", e.error_message)?;
             }
             self.notify_printed();
         }

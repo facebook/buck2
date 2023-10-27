@@ -121,7 +121,7 @@ impl TryFrom<buck2_cli_proto::command_result::Result> for ReplayResult {
         // It would be good to declare this as a extension trait on our types, but for now to
         // support Replay this is fine;
         let errors = match v {
-            Result::Error(v) => v.messages,
+            Result::Error(v) => v.errors.into_iter().map(|e| e.error_message).collect(),
             Result::BuildResponse(v) => v.errors.into_iter().map(|e| e.error_message).collect(),
             Result::TestResponse(v) => v.error_messages,
             Result::BxlResponse(v) => v.error_messages,

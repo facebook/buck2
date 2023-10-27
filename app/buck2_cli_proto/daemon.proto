@@ -568,7 +568,8 @@ message UnstableDocsResponse {
 }
 
 message CommandError {
-  repeated string messages = 1;
+  reserved 1;
+  repeated buck.data.ErrorReport errors = 2;
 }
 
 message CommandResult {

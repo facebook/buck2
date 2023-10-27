@@ -535,10 +535,10 @@ fn convert_positive_duration(proto_duration: &prost_types::Duration) -> Result<D
 
 fn error_to_command_result(e: anyhow::Error) -> CommandResult {
     let report = create_error_report(&e.into());
-    let messages = vec![report.error_message];
+    let errors = vec![report];
 
     CommandResult {
-        result: Some(command_result::Result::Error(CommandError { messages })),
+        result: Some(command_result::Result::Error(CommandError { errors })),
     }
 }
 
