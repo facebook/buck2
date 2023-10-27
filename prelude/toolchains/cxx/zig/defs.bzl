@@ -75,9 +75,9 @@ download_zig_distribution(
 alias(
     name = "zig",
     actual = select({
-        "prelude//os:linux": ":zig-x86_64-linux",
-        "prelude//os:macos": ":zig-x86_64-macos",
-        "prelude//os:windows": ":zig-x86_64-windows",
+        "@prelude//os:linux": ":zig-x86_64-linux",
+        "@prelude//os:macos": ":zig-x86_64-macos",
+        "@prelude//os:windows": ":zig-x86_64-windows",
     }),
 )
 
@@ -85,9 +85,9 @@ cxx_zig_toolchain(
     name = "cxx",
     distribution = ":zig",
     target = select({
-        "prelude//os:linux": "x86_64-linux-gnu",
-        "prelude//os:macos": "x86_64-macos-gnu",
-        "prelude//os:windows": "x86_64-windows-gnu",
+        "@prelude//os:linux": "x86_64-linux-gnu",
+        "@prelude//os:macos": "x86_64-macos-gnu",
+        "@prelude//os:windows": "x86_64-windows-gnu",
     }),
     visibility = ["PUBLIC"],
 )
@@ -115,6 +115,11 @@ load(
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
+)
+load(
+    "@prelude//utils:cmd_script.bzl",
+    "ScriptOs",
+    "cmd_script",
 )
 load(
     ":releases.bzl",
@@ -166,7 +171,7 @@ def _zig_distribution_impl(ctx: AnalysisContext) -> list[Provider]:
     dst = ctx.actions.declare_output("zig")
     path_tpl = "{}/" + ctx.attrs.prefix + "/zig" + ctx.attrs.suffix
     src = cmd_args(ctx.attrs.dist[DefaultInfo].default_outputs[0], format = path_tpl)
-    ctx.actions.run(["ln", "-srf", src, dst.as_output()], category = "cp_compiler")
+    ctx.actions.run(["ln", "-sf", cmd_args(src).relative_to(dst, parent = 1), dst.as_output()], category = "cp_compiler")
 
     compiler = cmd_args([dst])
     compiler.hidden(ctx.attrs.dist[DefaultInfo].default_outputs)
@@ -304,28 +309,52 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     dist = ctx.attrs.distribution[ZigDistributionInfo]
     zig = ctx.attrs.distribution[RunInfo]
     target = ["-target", ctx.attrs.target] if ctx.attrs.target else []
+    zig_cc = cmd_script(
+        ctx = ctx,
+        name = "zig_cc",
+        cmd = cmd_args(zig, "cc"),
+        os = ScriptOs("windows" if dist.os == "windows" else "unix"),
+    )
+    zig_cxx = cmd_script(
+        ctx = ctx,
+        name = "zig_cxx",
+        cmd = cmd_args(zig, "c++"),
+        os = ScriptOs("windows" if dist.os == "windows" else "unix"),
+    )
+    zig_ar = cmd_script(
+        ctx = ctx,
+        name = "zig_ar",
+        cmd = cmd_args(zig, "ar"),
+        os = ScriptOs("windows" if dist.os == "windows" else "unix"),
+    )
+    zig_ranlib = cmd_script(
+        ctx = ctx,
+        name = "zig_ranlib",
+        cmd = cmd_args(zig, "ranlib"),
+        os = ScriptOs("windows" if dist.os == "windows" else "unix"),
+    )
     return [ctx.attrs.distribution[DefaultInfo]] + cxx_toolchain_infos(
         platform_name = dist.arch,
         c_compiler_info = CCompilerInfo(
-            compiler = RunInfo(args = cmd_args([zig, "cc"], delimiter = " ")),
+            compiler = RunInfo(args = cmd_args(zig_cc)),
             compiler_type = "clang",
-            compiler_flags = cmd_args(target + ctx.attrs.c_compiler_flags),
+            compiler_flags = cmd_args(target, *ctx.attrs.c_compiler_flags),
             #preprocessor = None,
             #preprocessor_type = None,
             preprocessor_flags = cmd_args(ctx.attrs.c_preprocessor_flags),
             #dep_files_processor = None,
         ),
         cxx_compiler_info = CxxCompilerInfo(
-            compiler = RunInfo(args = cmd_args([zig, "c++"], delimiter = " ")),
+            compiler = RunInfo(args = cmd_args(zig_cxx)),
             compiler_type = "clang",
-            compiler_flags = cmd_args(target + ctx.attrs.cxx_compiler_flags),
+            compiler_flags = cmd_args(target, *ctx.attrs.cxx_compiler_flags),
             #preprocessor = None,
             #preprocessor_type = None,
             preprocessor_flags = cmd_args(ctx.attrs.cxx_preprocessor_flags),
             #dep_files_processor = None,
         ),
         linker_info = LinkerInfo(
-            archiver = RunInfo(args = cmd_args([zig, "ar"], delimiter = " ")),
+            archiver = RunInfo(args = cmd_args(zig_ar)),
             archiver_type = "gnu",
             archiver_supports_argfiles = True,
             #archive_contents = None,
@@ -337,8 +366,8 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             link_style = LinkStyle(ctx.attrs.link_style),
             link_weight = 1,
             #link_ordering = None,
-            linker = RunInfo(args = cmd_args([zig, "c++"], delimiter = " ")),
-            linker_flags = cmd_args(target + ctx.attrs.linker_flags),
+            linker = RunInfo(args = cmd_args(zig_cxx)),
+            linker_flags = cmd_args(target, *ctx.attrs.linker_flags),
             #lto_mode = None,  # TODO support LTO
             object_file_extension = "o",
             #mk_shlib_intf = None,  # not needed if shlib_interfaces = "disabled"
@@ -364,7 +393,7 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             dwp = None,
             nm = RunInfo(args = ["nm"]),  # not included in the zig distribution.
             objcopy = RunInfo(args = ["objcopy"]),  # not included in the zig distribution.
-            ranlib = RunInfo(args = cmd_args([zig, "ranlib"], delimiter = " ")),
+            ranlib = RunInfo(args = cmd_args(zig_ranlib)),
             strip = RunInfo(args = ["strip"]),  # not included in the zig distribution.
         ),
         header_mode = HeaderMode("symlink_tree_only"),  # header map modes require mk_hmap

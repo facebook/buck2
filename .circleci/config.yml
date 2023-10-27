@@ -169,6 +169,18 @@ commands:
             /tmp/artifacts/buck2 build //... -v 2
             /tmp/artifacts/buck2 test //... -v 2
 
+  build_example_zig:
+    description: Buile examples/toolchains/cxx_zig_toolchain
+    steps:
+      - run:
+          name: Build examples/toolchains/cxx_zig_toolchain
+          command: |
+            cd examples/toolchains/cxx_zig_toolchain
+            /tmp/artifacts/buck2 init
+            cp -r ../../../prelude prelude
+            /tmp/artifacts/buck2 build //... -v 2
+            /tmp/artifacts/buck2 run //:main -v 2
+
 
 version: 2.1
 orbs:
