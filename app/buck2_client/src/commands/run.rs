@@ -133,7 +133,7 @@ impl StreamingCommand for RunCommand {
             print_build_failed(&console)?;
         }
         let response = response??;
-        print_build_result(&console, response.errors.iter().map(|e| &e.error_message))?;
+        print_build_result(&console, &response.errors)?;
 
         if !success {
             return ExitResult::from_errors(&response.errors);

@@ -224,12 +224,12 @@ impl MaterializationsToProto for Option<FinalArtifactMaterializations> {
     }
 }
 
-pub fn print_build_result<'x>(
+pub fn print_build_result(
     console: &FinalConsole,
-    error_messages: impl IntoIterator<Item = &'x String>,
+    errors: &[buck2_data::ErrorReport],
 ) -> anyhow::Result<()> {
-    for error_message in error_messages {
-        console.print_error(error_message)?;
+    for error in errors {
+        console.print_error(&error.error_message)?;
     }
     Ok(())
 }
@@ -312,7 +312,7 @@ impl StreamingCommand for BuildCommand {
         // here.
         let response = result??;
 
-        print_build_result(&console, response.errors.iter().map(|e| &e.error_message))?;
+        print_build_result(&console, &response.errors)?;
 
         let mut stdout = Vec::new();
 

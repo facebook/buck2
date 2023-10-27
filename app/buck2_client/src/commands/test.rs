@@ -213,7 +213,7 @@ impl StreamingCommand for TestCommand {
         let skipped = statuses.skipped.as_ref().context("Missing `skipped`")?;
 
         let console = self.common_opts.console_opts.final_console();
-        print_build_result(&console, response.errors.iter().map(|e| &e.error_message))?;
+        print_build_result(&console, &response.errors)?;
         if !response.errors.is_empty() {
             console.print_error(&format!("{} BUILDS FAILED", response.errors.len()))?;
         }

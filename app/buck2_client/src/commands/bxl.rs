@@ -117,7 +117,7 @@ impl StreamingCommand for BxlCommand {
         // of error will be printed below the FAILED line here.
         let response = result??;
 
-        print_build_result(&console, response.errors.iter().map(|e| &e.error_message))?;
+        print_build_result(&console, &response.errors)?;
 
         if !success {
             return ExitResult::from_errors(&response.errors);
