@@ -16,8 +16,8 @@ use buck2_client_ctx::argv::Argv;
 use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonConsoleOptions;
+use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::exit_result::FailureExitCode;
 use buck2_client_ctx::final_console::FinalConsole;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_core::fs::fs_util;
@@ -66,7 +66,7 @@ impl InitCommand {
                 // include the backtrace with the error output
                 // (same behaviour as returning the Error from main)
                 console.print_error(&format!("{:?}", e))?;
-                ExitResult::status(FailureExitCode::UnknownFailure)
+                ExitResult::status(ExitCode::UnknownFailure)
             }
         }
     }
