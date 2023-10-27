@@ -224,7 +224,10 @@ impl MaterializationsToProto for Option<FinalArtifactMaterializations> {
     }
 }
 
-pub fn print_build_result(console: &FinalConsole, error_messages: &[String]) -> anyhow::Result<()> {
+pub fn print_build_result<'x>(
+    console: &FinalConsole,
+    error_messages: impl IntoIterator<Item = &'x String>,
+) -> anyhow::Result<()> {
     for error_message in error_messages {
         console.print_error(error_message)?;
     }
@@ -288,7 +291,7 @@ impl StreamingCommand for BuildCommand {
             )
             .await;
         let success = match &result {
-            Ok(CommandOutcome::Success(response)) => response.error_messages.is_empty(),
+            Ok(CommandOutcome::Success(response)) => response.errors.is_empty(),
             Ok(CommandOutcome::Failure(_)) => false,
             Err(_) => false,
         };
@@ -309,7 +312,7 @@ impl StreamingCommand for BuildCommand {
         // of error will be printed below the FAILED line here.
         let response = result??;
 
-        print_build_result(&console, &response.error_messages)?;
+        print_build_result(&console, response.errors.iter().map(|e| &e.error_message))?;
 
         let mut stdout = Vec::new();
 

@@ -122,7 +122,7 @@ impl TryFrom<buck2_cli_proto::command_result::Result> for ReplayResult {
         // support Replay this is fine;
         let errors = match v {
             Result::Error(v) => v.messages,
-            Result::BuildResponse(v) => v.error_messages,
+            Result::BuildResponse(v) => v.errors.into_iter().map(|e| e.error_message).collect(),
             Result::TestResponse(v) => v.error_messages,
             Result::BxlResponse(v) => v.error_messages,
             _ => Vec::new(),

@@ -125,7 +125,7 @@ impl StreamingCommand for RunCommand {
 
         let console = self.common_opts.console_opts.final_console();
         let success = match &response {
-            Ok(CommandOutcome::Success(response)) => response.error_messages.is_empty(),
+            Ok(CommandOutcome::Success(response)) => response.errors.is_empty(),
             Ok(CommandOutcome::Failure(_)) => false,
             Err(_) => false,
         };
@@ -133,7 +133,7 @@ impl StreamingCommand for RunCommand {
             print_build_failed(&console)?;
         }
         let response = response??;
-        print_build_result(&console, &response.error_messages)?;
+        print_build_result(&console, response.errors.iter().map(|e| &e.error_message))?;
 
         if !success {
             return ExitResult::failure();

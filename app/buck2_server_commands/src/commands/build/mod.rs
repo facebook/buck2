@@ -125,11 +125,17 @@ impl ServerCommandTemplate for BuildServerCommand {
     }
 
     fn is_success(&self, response: &Self::Response) -> bool {
-        response.error_messages.is_empty()
+        response.errors.is_empty()
     }
 
     fn additional_telemetry_errors(&self, response: &Self::Response) -> Vec<String> {
-        response.error_messages.clone()
+        // Intentionally use `error_message` and not `telemetry_error_message` to avoid changing
+        // behavior, later diffs will do this properly
+        response
+            .errors
+            .iter()
+            .map(|e| e.error_message.to_owned())
+            .collect()
     }
 }
 
@@ -376,16 +382,16 @@ async fn process_build_result(
         };
     }
 
-    let (build_targets, error_messages) = match result_reports {
+    let (build_targets, errors) = match result_reports {
         Ok(targets) => (targets, Vec::new()),
         Err(errors) => {
-            let error_strings = errors
+            let errors = errors
                 .errors
                 .iter()
-                .map(|x| create_error_report(x).error_message)
-                .unique()
+                .map(create_error_report)
+                .unique_by(|e| e.error_message.clone())
                 .collect();
-            (vec![], error_strings)
+            (vec![], errors)
         }
     };
 
@@ -395,7 +401,7 @@ async fn process_build_result(
         build_targets,
         project_root,
         serialized_build_report: serialized_build_report.unwrap_or_default(),
-        error_messages,
+        errors,
     })
 }
 
