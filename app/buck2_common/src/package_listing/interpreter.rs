@@ -122,12 +122,7 @@ impl<'c> InterpreterPackageListingResolver<'c> {
         let mut dirs: Vec<ArcS<PackageRelativePath>> = Vec::new();
         let mut subpackages: Vec<ArcS<PackageRelativePath>> = Vec::new();
 
-        let root_entries = self
-            .fs
-            .read_dir(root.as_cell_path())
-            .await
-            .context(buck2_data::ErrorCategory::User)?
-            .included;
+        let root_entries = self.fs.read_dir(root.as_cell_path()).await.user()?.included;
         let buildfile = find_buildfile(buildfile_candidates, &root_entries)
             .ok_or_else(|| {
                 PackageListingError::NoBuildFile(
@@ -135,7 +130,7 @@ impl<'c> InterpreterPackageListingResolver<'c> {
                     buildfile_candidates.to_vec(),
                 )
             })
-            .context(buck2_data::ErrorCategory::User)?;
+            .user()?;
 
         let mut work = FuturesUnordered::new();
 
