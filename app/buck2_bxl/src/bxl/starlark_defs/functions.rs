@@ -22,7 +22,6 @@ use starlark::values::none::NoneType;
 use starlark::values::tuple::UnpackTuple;
 use starlark::values::Heap;
 use starlark::values::StringValue;
-use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
@@ -119,47 +118,42 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
     ///     ctx.output.print(path)
     /// ```
     fn get_paths_without_materialization<'v>(
-        #[starlark(require=pos)] this: Value<'v>,
+        #[starlark(require=pos)] cmd_line: ValueAsCommandLineLike<'v>,
         #[starlark(require=pos)] ctx: &'v BxlContext<'v>,
         #[starlark(require = named, default = false)] abs: bool,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
-        match ValueAsCommandLineLike::unpack_value(this) {
-            Some(cmd_line) => {
-                let inputs = get_cmd_line_inputs(cmd_line.0)?;
-                let mut result = Vec::new();
+        let inputs = get_cmd_line_inputs(cmd_line.0)?;
+        let mut result = Vec::new();
 
-                for artifact_group in &inputs.inputs {
-                    result.push(artifact_group.dupe());
-                }
-
-                let mut paths = Vec::new();
-
-                ctx.via_dice(|mut dice_ctx, bxl_ctx| {
-                    dice_ctx.via(|dice_ctx| {
-                        visit_artifact_path_without_associated_deduped(
-                            &result,
-                            abs,
-                            |artifact_path, abs| {
-                                let path = get_artifact_path_display(
-                                    artifact_path,
-                                    abs,
-                                    &bxl_ctx.project_fs,
-                                    &bxl_ctx.artifact_fs,
-                                )?;
-
-                                paths.push(path);
-                                Ok(())
-                            },
-                            dice_ctx,
-                        )
-                        .boxed_local()
-                    })
-                })?;
-                Ok(heap.alloc(paths))
-            }
-            None => Err(anyhow::anyhow!("Expected a cmd_args()")),
+        for artifact_group in &inputs.inputs {
+            result.push(artifact_group.dupe());
         }
+
+        let mut paths = Vec::new();
+
+        ctx.via_dice(|mut dice_ctx, bxl_ctx| {
+            dice_ctx.via(|dice_ctx| {
+                visit_artifact_path_without_associated_deduped(
+                    &result,
+                    abs,
+                    |artifact_path, abs| {
+                        let path = get_artifact_path_display(
+                            artifact_path,
+                            abs,
+                            &bxl_ctx.project_fs,
+                            &bxl_ctx.artifact_fs,
+                        )?;
+
+                        paths.push(path);
+                        Ok(())
+                    },
+                    dice_ctx,
+                )
+                .boxed_local()
+            })
+        })?;
+        Ok(heap.alloc(paths))
     }
 }
 
