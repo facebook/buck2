@@ -24,3 +24,14 @@ pub fn create_error_report(err: &buck2_error::Error) -> buck2_data::ErrorReport 
         error_message,
     }
 }
+
+/// Formats an error to be displayed at the end of the command invocation.
+///
+/// This function is aware of errors that may have been emitted earlier in the command execution.
+pub fn late_format_error(e: &buck2_error::Error) -> Option<String> {
+    if e.is_emitted() {
+        Some(format!("{:?}", e.get_late_format()?))
+    } else {
+        Some(format!("{:?}", e))
+    }
+}
