@@ -69,13 +69,6 @@ impl ExitResult {
         Self::status(0)
     }
 
-    pub fn failure() -> Self {
-        Self {
-            variant: ExitResultVariant::UncategorizedError,
-            stdout: Vec::new(),
-        }
-    }
-
     pub fn status(status: u8) -> Self {
         Self {
             variant: ExitResultVariant::Status(status),
@@ -89,7 +82,10 @@ impl ExitResult {
             Self::status(code)
         } else {
             // The exit code isn't an allowable value, so just switch to generic failure
-            Self::failure()
+            Self {
+                variant: ExitResultVariant::UncategorizedError,
+                stdout: Vec::new(),
+            }
         }
     }
 

@@ -145,7 +145,9 @@ impl StreamingCommand for SubscribeCommand {
         if partial_result_handler.ok {
             ExitResult::success()
         } else {
-            ExitResult::failure()
+            // FIXME(JakobDegen): This command should propagate some error information back from the
+            // server so that we can do error handling here.
+            ExitResult::status(1)
         }
     }
 
