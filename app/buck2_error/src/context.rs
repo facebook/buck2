@@ -39,8 +39,16 @@ pub trait Context<T>: Sealed {
         F: FnOnce() -> C;
 
     fn unshared_error(self) -> anyhow::Result<T>;
+
+    fn user(self) -> anyhow::Result<T> {
+        self.context(crate::Category::User)
+    }
+
+    fn infra(self) -> anyhow::Result<T> {
+        self.context(crate::Category::Infra)
+    }
 }
-pub trait Sealed {}
+pub trait Sealed: Sized {}
 
 impl<T, E: AnyError> Sealed for std::result::Result<T, E> {}
 

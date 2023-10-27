@@ -76,6 +76,13 @@ impl Error {
         r
     }
 
+    pub(crate) fn iter_context<'a>(&'a self) -> impl Iterator<Item = &'a ContextValue> {
+        self.iter_kinds().filter_map(|kind| match kind {
+            ErrorKind::WithContext(ctx, _) => Some(ctx),
+            _ => None,
+        })
+    }
+
     pub fn mark_emitted(self) -> Self {
         Self(Arc::new(ErrorKind::Emitted(self)))
     }
@@ -129,6 +136,9 @@ impl Error {
             ErrorKind::WithContext(ContextValue::Dyn(ctx), _) => {
                 (ctx.as_ref() as &dyn Any).downcast_ref()
             }
+            // Intentionally don't support downcasting for other `ContextValue` variants, it should
+            // not be necessary
+            ErrorKind::WithContext(_, _) => None,
             ErrorKind::Emitted(_) => None,
         })
     }

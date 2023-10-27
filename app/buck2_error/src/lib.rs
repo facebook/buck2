@@ -20,6 +20,7 @@ pub mod shared_result;
 
 pub use any::AnyError;
 pub use context::Context;
+pub use context_value::Category;
 pub use error::Error;
 pub use root::UniqueRootId;
 
