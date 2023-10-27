@@ -1498,7 +1498,11 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         // Dispatch Write actions eagerly if possible. We can do this if no cleanup is required. We
         // also check that there are no deps, though for writes there should never be deps.
 
-        let can_use_write_fast_path = existing_futs.is_empty() && value.deps().is_none();
+        // Gate this to not macs for now because we are seeing some instances of extremely slow I/O on macs.
+        // This is a very hacky and temporary fix.
+        // TODO(scottcao): Eagerly dispatch writes on a lower priority.
+        let can_use_write_fast_path =
+            !cfg!(target_os = "macos") && existing_futs.is_empty() && value.deps().is_none();
 
         let future = match &*method {
             ArtifactMaterializationMethod::Write(write) if can_use_write_fast_path => {
