@@ -101,30 +101,6 @@ pub trait ToProtoMessage {
     fn as_proto(&self) -> Self::Message;
 }
 
-/// Write out a human-readable description of the error tags
-/// that is printed out in the context stack when program fails.
-impl fmt::Display for ErrorCategory {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let msg = match &self {
-            ErrorCategory::Infra => "This error is an internal Buck2 error",
-            ErrorCategory::User => "This error was caused by the end user",
-        };
-
-        write!(f, "{}", msg)
-    }
-}
-
-impl fmt::Display for ErrorType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let msg = match &self {
-            ErrorType::UnusedDefault => "Unused variant (should not appear)",
-            ErrorType::DaemonIsBusy => "Buck daemon is busy processing another command",
-        };
-
-        write!(f, "{}", msg)
-    }
-}
-
 impl fmt::Display for DaemonShutdown {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}, caller:", self.reason)?;
