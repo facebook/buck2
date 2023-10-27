@@ -194,6 +194,13 @@ async fn build_action_no_redirect(
                 buck2_build_time = buck2_build_info::time_iso8601().map(|s| s.to_owned());
                 hostname = buck2_events::metadata::hostname();
 
+                // FIXME(JakobDegen): This is probably far too conservative. The only reason that
+                // this is what we do is because it's a nop with respect to the error categorization
+                // behavior before this was added.
+                let is_user_error = command_reports
+                    .iter()
+                    .any(|c| matches!(c.status, CommandExecutionStatus::Failure { .. }));
+
                 let action_error_event = buck2_data::ActionError {
                     key: Some(action_key.clone()),
                     name: Some(action_name.clone()),
@@ -209,15 +216,19 @@ async fn build_action_no_redirect(
                     event: action_error_event,
                     owner: action.owner().dupe(),
                 };
-                action_result = Err(buck2_error::Error::new_with_late_format(
+                let mut action_error = buck2_error::Error::new_with_late_format(
                     action_error,
                     late_format_action_error,
-                )
-                // Make sure to mark the error as emitted so that it is not printed out to console
-                // again in this command. We still need to keep it around for the build report (and
-                // in the future) other commands
-                .mark_emitted()
-                .into());
+                );
+                if is_user_error {
+                    action_error = action_error.context(buck2_error::Category::User);
+                }
+                action_result = Err(action_error
+                    // Make sure to mark the error as emitted so that it is not printed out to console
+                    // again in this command. We still need to keep it around for the build report (and
+                    // in the future) other commands
+                    .mark_emitted()
+                    .into());
             }
         };
 
