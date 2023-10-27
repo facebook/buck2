@@ -48,6 +48,7 @@ use starlark::values::Tracer;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueOfUnchecked;
+use starlark::StarlarkDocs;
 
 use crate::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 use crate::interpreter::rule_defs::provider::DefaultInfo;
@@ -105,18 +106,7 @@ enum ProviderCollectionError {
     AtNotFound(String, Vec<String>),
 }
 
-/// Holds a collection of `UserProvider`s. These can be accessed in Starlark by indexing on
-/// a `ProviderCallable` object.
-///
-/// e.g.
-/// ```ignore
-/// FooInfo = provider(fields=["bar"])
-/// ....
-/// collection[FooInfo] # None if absent, a FooInfo instance if present
-/// ```
-///
-/// This is the result of all UDR implementation functions
-#[derive(Debug, ProvidesStaticType, Allocative)]
+#[derive(Debug, ProvidesStaticType, Allocative, StarlarkDocs)]
 #[repr(C)]
 pub struct ProviderCollectionGen<V> {
     pub(crate) providers: SmallMap<Arc<ProviderId>, V>,
@@ -279,6 +269,17 @@ impl<'v, V: ValueLike<'v>> ProviderCollectionGen<V> {
     }
 }
 
+/// Holds a collection of `UserProvider`s. These can be accessed in Starlark by indexing on
+/// a `ProviderCallable` object.
+///
+/// e.g.
+/// ```ignore
+/// FooInfo = provider(fields=["bar"])
+/// ....
+/// collection[FooInfo] # None if absent, a FooInfo instance if present
+/// ```
+///
+/// This is the result of all UDR implementation functions
 #[starlark_module]
 fn provider_collection_methods(builder: &mut MethodsBuilder) {
     fn get<'v>(
