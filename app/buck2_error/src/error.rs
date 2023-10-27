@@ -93,7 +93,7 @@ impl Error {
     ///
     /// In cases like these, this function returns the additional information to show to the user at
     /// the end of the build.
-    pub fn get_late_format<'a>(&'a self) -> Option<impl fmt::Display + 'a> {
+    pub fn get_late_format<'a>(&'a self) -> Option<impl fmt::Display + fmt::Debug + 'a> {
         crate::format::into_anyhow_for_format(self, true)
     }
 
