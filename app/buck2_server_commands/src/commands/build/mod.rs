@@ -109,7 +109,7 @@ impl ServerCommandTemplate for BuildServerCommand {
     type Response = buck2_cli_proto::BuildResponse;
     type PartialResult = NoPartialResult;
 
-    fn end_event(&self, _response: &anyhow::Result<Self::Response>) -> Self::EndEvent {
+    fn end_event(&self, _response: &buck2_error::Result<Self::Response>) -> Self::EndEvent {
         buck2_data::BuildCommandEnd {
             unresolved_target_patterns: self.req.target_patterns.clone(),
         }

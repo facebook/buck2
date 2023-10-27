@@ -230,7 +230,7 @@ impl ServerCommandTemplate for TestServerCommand {
         matches!(response.exit_code, Some(0))
     }
 
-    fn end_event(&self, _response: &anyhow::Result<Self::Response>) -> Self::EndEvent {
+    fn end_event(&self, _response: &buck2_error::Result<Self::Response>) -> Self::EndEvent {
         buck2_data::TestCommandEnd {
             unresolved_target_patterns: self.req.target_patterns.clone(),
         }

@@ -107,9 +107,10 @@ pub(crate) async fn run_subscription_server_command(
 
             buck2_cli_proto::SubscriptionCommandResponse {}
         };
+        let result = result.map_err(Into::into);
 
         let end_event = command_end(&result, buck2_data::SubscriptionCommandEnd {});
-        (result, end_event)
+        (result.map_err(Into::into), end_event)
     })
     .await
 }

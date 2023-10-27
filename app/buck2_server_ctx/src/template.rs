@@ -37,7 +37,7 @@ pub trait ServerCommandTemplate: Send + Sync {
     }
 
     /// Create end event. Called after command is invoked.
-    fn end_event(&self, _response: &anyhow::Result<Self::Response>) -> Self::EndEvent {
+    fn end_event(&self, _response: &buck2_error::Result<Self::Response>) -> Self::EndEvent {
         Self::EndEvent::default()
     }
 
@@ -92,14 +92,15 @@ pub async fn run_server_command<T: ServerCommandTemplate>(
                 },
                 command.exclusive_command_name(),
             )
-            .await;
+            .await
+            .map_err(Into::into);
         let end_event = command_end_ext(
             &result,
             command.end_event(&result),
             |result| command.is_success(result),
             |result| command.additional_telemetry_errors(result),
         );
-        (result, end_event)
+        (result.map_err(Into::into), end_event)
     })
     .await
 }

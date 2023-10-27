@@ -51,9 +51,11 @@ pub async fn run_dap_server_command(
         data: Some(buck2_data::StarlarkDebugAttachCommandStart {}.into()),
     };
     span_async(start_event, async move {
-        let result = run_dap_server(ctx, partial_result_dispatcher, req).await;
+        let result = run_dap_server(ctx, partial_result_dispatcher, req)
+            .await
+            .map_err(Into::into);
         let end_event = command_end(&result, buck2_data::StarlarkDebugAttachCommandEnd {});
-        (result, end_event)
+        (result.map_err(Into::into), end_event)
     })
     .await
 }

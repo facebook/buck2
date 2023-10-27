@@ -30,9 +30,10 @@ pub(crate) async fn materialize_command(
         let result = materialize(&context.base_context, req.paths)
             .await
             .map(|()| MaterializeResponse {})
-            .context("Failed to materialize paths");
+            .context("Failed to materialize paths")
+            .map_err(Into::into);
         let end_event = command_end(&result, buck2_data::MaterializeCommandEnd {});
-        (result, end_event)
+        (result.map_err(Into::into), end_event)
     })
     .await
 }

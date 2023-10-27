@@ -54,10 +54,11 @@ pub(crate) async fn trace_io_command(
                 relative_symlinks: Vec::new(),
                 external_symlinks: Vec::new(),
             }),
-        };
+        }
+        .map_err(Into::into);
 
         let end_event = command_end(&result, buck2_data::TraceIoCommandEnd {});
-        (result, end_event)
+        (result.map_err(Into::into), end_event)
     })
     .await
 }

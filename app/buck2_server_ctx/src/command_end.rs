@@ -8,7 +8,7 @@
  */
 
 /// Common code executed in the end of command to produce `CommandEnd`.
-pub fn command_end<R, D>(result: &anyhow::Result<R>, data: D) -> buck2_data::CommandEnd
+pub fn command_end<R, D>(result: &buck2_error::Result<R>, data: D) -> buck2_data::CommandEnd
 where
     D: Into<buck2_data::command_end::Data>,
 {
@@ -16,7 +16,7 @@ where
 }
 
 pub fn command_end_ext<R, D, F, G>(
-    result: &anyhow::Result<R>,
+    result: &buck2_error::Result<R>,
     data: D,
     is_success: F,
     additional_telemetry_errors: G,
