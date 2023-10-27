@@ -722,6 +722,7 @@ message FileStatusCommandStart {}
 message ProfileCommandStart {}
 
 message CommandEnd {
+  reserved 3;
   oneof data {
     BuildCommandEnd build = 20;
     TargetsCommandEnd targets = 21;
@@ -746,7 +747,7 @@ message CommandEnd {
   }
 
   bool is_success = 2;
-  repeated string error_messages = 3;
+  repeated ErrorReport errors = 4;
 }
 
 // Marks the exit of the `CommandCriticalStart` event, such that the command has

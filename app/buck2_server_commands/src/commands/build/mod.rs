@@ -128,14 +128,11 @@ impl ServerCommandTemplate for BuildServerCommand {
         response.errors.is_empty()
     }
 
-    fn additional_telemetry_errors(&self, response: &Self::Response) -> Vec<String> {
-        // Intentionally use `error_message` and not `telemetry_error_message` to avoid changing
-        // behavior, later diffs will do this properly
-        response
-            .errors
-            .iter()
-            .map(|e| e.error_message.to_owned())
-            .collect()
+    fn additional_telemetry_errors(
+        &self,
+        response: &Self::Response,
+    ) -> Vec<buck2_data::ErrorReport> {
+        response.errors.clone()
     }
 }
 

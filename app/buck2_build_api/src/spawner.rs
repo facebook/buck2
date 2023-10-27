@@ -91,7 +91,7 @@ mod tests {
         let end = CommandEnd {
             data: Default::default(),
             is_success: true,
-            error_messages: vec![],
+            errors: vec![],
         };
 
         (start, end)

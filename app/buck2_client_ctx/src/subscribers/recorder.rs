@@ -465,8 +465,13 @@ mod imp {
             event: &BuckEvent,
         ) -> anyhow::Result<()> {
             let mut command = command.clone();
-            self.error_messages
-                .extend(std::mem::take(&mut command.error_messages));
+            self.error_messages.extend(
+                std::mem::take(&mut command.errors)
+                    .into_iter()
+                    // Intentionally use `error_message` and not `telemetry_error_message` to avoid
+                    // changing behavior, later diffs will do this properly
+                    .map(|e| e.error_message),
+            );
 
             // Awkwardly unpacks the SpanEnd event so we can read its duration.
             let command_end = match event.data() {

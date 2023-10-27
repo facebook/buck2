@@ -53,7 +53,10 @@ pub trait ServerCommandTemplate: Send + Sync {
 
     /// Additional errors that should be reported via the invocation record, even if the command
     /// successfully produces a response.
-    fn additional_telemetry_errors(&self, _response: &Self::Response) -> Vec<String> {
+    fn additional_telemetry_errors(
+        &self,
+        _response: &Self::Response,
+    ) -> Vec<buck2_data::ErrorReport> {
         Vec::new()
     }
 

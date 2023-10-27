@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use buck2_common::error_report::create_error_report;
+
 /// Common code executed in the end of command to produce `CommandEnd`.
 pub fn command_end<R, D>(result: &buck2_error::Result<R>, data: D) -> buck2_data::CommandEnd
 where
@@ -23,16 +25,16 @@ pub fn command_end_ext<R, D, F, G>(
 ) -> buck2_data::CommandEnd
 where
     F: FnOnce(&R) -> bool,
-    G: FnOnce(&R) -> Vec<String>,
+    G: FnOnce(&R) -> Vec<buck2_data::ErrorReport>,
     D: Into<buck2_data::command_end::Data>,
 {
-    let (is_success, error_messages) = match result {
+    let (is_success, errors) = match result {
         Ok(r) => (is_success(r), additional_telemetry_errors(r)),
-        Err(e) => (false, vec![format!("{:#}", e)]),
+        Err(e) => (false, vec![create_error_report(e)]),
     };
     buck2_data::CommandEnd {
         is_success,
-        error_messages,
+        errors,
         data: Some(data.into()),
     }
 }
