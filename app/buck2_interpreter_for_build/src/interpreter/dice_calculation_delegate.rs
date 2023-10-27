@@ -15,7 +15,6 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::cycles::CycleGuard;
 use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::dice::file_ops::HasFileOps;
-use buck2_common::error_report::create_error_report;
 use buck2_common::file_ops::FileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::dice::LegacyBuckConfigOnDice;
@@ -444,17 +443,11 @@ impl<'c> DiceCalculationDelegate<'c> {
                 path: package.as_cell_path().to_string(),
             },
             async {
-                let result = self
-                    .ctx
-                    .resolve_package_listing(package.dupe())
-                    .await
-                    .map_err(Into::into);
-                let error = result.as_ref().err().map(create_error_report);
+                let result = self.ctx.resolve_package_listing(package.dupe()).await;
                 (
-                    result.map_err(Into::into),
+                    result,
                     buck2_data::LoadPackageEnd {
                         path: package.as_cell_path().to_string(),
-                        error,
                     },
                 )
             },

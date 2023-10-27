@@ -828,9 +828,8 @@ message LoadPackageStart {
 }
 
 message LoadPackageEnd {
-  reserved 2;
+  reserved 2, 3;
   string path = 1;
-  optional ErrorReport error = 3;
 }
 
 message LoadBuildFileStart {
