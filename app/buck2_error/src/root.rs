@@ -45,9 +45,7 @@ pub(crate) struct ErrorRoot {
 impl ErrorRoot {
     pub(crate) fn new<E: std::error::Error + Send + Sync + 'static>(
         inner: E,
-        late_format: Option<
-            impl Fn(&E, &mut fmt::Formatter<'_>) -> fmt::Result + Send + Sync + 'static,
-        >,
+        late_format: Option<fn(&E, &mut fmt::Formatter<'_>) -> fmt::Result>,
     ) -> Self {
         let id = UniqueRootId(NEXT_ROOT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
         let inner = Arc::new(anyhow::Error::new(inner));

@@ -42,17 +42,12 @@ pub(crate) enum ErrorKind {
 
 impl Error {
     pub fn new<E: std::error::Error + Send + Sync + 'static>(e: E) -> Self {
-        // Help type inference pick a `T` for the `Option<T>`
-        fn dummy_impl<'a, 'b, 'c, E>(_: &'a E, _: &'b mut fmt::Formatter<'c>) -> fmt::Result {
-            panic!()
-        }
-        let f = if true { None } else { Some(dummy_impl) };
-        Self(Arc::new(ErrorKind::Root(ErrorRoot::new(e, f))))
+        Self(Arc::new(ErrorKind::Root(ErrorRoot::new(e, None))))
     }
 
     pub fn new_with_late_format<E: std::error::Error + Send + Sync + 'static>(
         e: E,
-        f: impl Fn(&E, &mut fmt::Formatter<'_>) -> fmt::Result + Send + Sync + 'static,
+        f: fn(&E, &mut fmt::Formatter<'_>) -> fmt::Result,
     ) -> Self {
         Self(Arc::new(ErrorKind::Root(ErrorRoot::new(e, Some(f)))))
     }
