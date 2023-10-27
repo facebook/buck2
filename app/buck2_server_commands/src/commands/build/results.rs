@@ -227,6 +227,7 @@ pub mod build_report {
         }
     }
 
+    /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
     #[derive(Debug, Serialize)]
     pub(crate) struct BuildReport {
         trace_id: TraceId,
@@ -259,6 +260,7 @@ pub mod build_report {
         configured_graph_size: Option<u64>,
     }
 
+    /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
     #[derive(Default, Debug, Serialize)]
     pub(crate) struct ConfiguredBuildReportEntry {
         /// A list of errors that occurred while building this target
@@ -267,6 +269,7 @@ pub mod build_report {
         inner: MaybeConfiguredBuildReportEntry,
     }
 
+    /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
     #[derive(Debug, Serialize)]
     struct BuildReportEntry {
         /// The buck1 build report did not support multiple configurations of the same target. We
@@ -287,6 +290,7 @@ pub mod build_report {
         errors: Vec<BuildReportError>,
     }
 
+    /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
     #[derive(Debug, Clone, Serialize, PartialOrd, Ord, PartialEq, Eq)]
     struct BuildReportError {
         message: String,

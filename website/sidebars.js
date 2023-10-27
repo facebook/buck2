@@ -96,6 +96,7 @@ const manualSidebar = [
         items: [
           'users/build_observability/interactive_console',
           'users/build_observability/logging',
+          'users/build_observability/build_report',
           isInternal() ? 'users/build_observability/observability' : [],
           isInternal() ? 'users/build_observability/scuba' : [],
           isInternal() ? 'users/build_observability/ods' : [],
