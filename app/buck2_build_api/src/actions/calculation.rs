@@ -194,12 +194,13 @@ async fn build_action_no_redirect(
                 buck2_build_time = buck2_build_info::time_iso8601().map(|s| s.to_owned());
                 hostname = buck2_events::metadata::hostname();
 
+                let is_command_failure = command_reports
+                    .iter()
+                    .any(|c| matches!(c.status, CommandExecutionStatus::Failure { .. }));
                 // FIXME(JakobDegen): This is probably far too conservative. The only reason that
                 // this is what we do is because it's a nop with respect to the error categorization
                 // behavior before this was added.
-                let is_user_error = command_reports
-                    .iter()
-                    .any(|c| matches!(c.status, CommandExecutionStatus::Failure { .. }));
+                let is_user_error = is_command_failure;
 
                 let action_error_event = buck2_data::ActionError {
                     key: Some(action_key.clone()),
@@ -219,7 +220,7 @@ async fn build_action_no_redirect(
                 let mut action_error = buck2_error::Error::new_with_options(
                     action_error,
                     Some(late_format_action_error),
-                    None,
+                    is_command_failure.then_some(buck2_error::ErrorType::ActionCommandFailure),
                 );
                 if is_user_error {
                     action_error = action_error.context(buck2_error::Category::User);

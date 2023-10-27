@@ -1846,6 +1846,7 @@ enum ErrorType {
   // appear. Still, let's use a sentinal just to be safe.
   UNUSED_DEFAULT = 0;
   DAEMON_IS_BUSY = 1;
+  ACTION_COMMAND_FAILURE = 2;
   // Add causes here as needed
 }
 
