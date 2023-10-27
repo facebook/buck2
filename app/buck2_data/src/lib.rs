@@ -117,7 +117,7 @@ impl fmt::Display for ErrorCategory {
 impl fmt::Display for ErrorType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let msg = match &self {
-            ErrorType::InvalidPackage => "The package is invalid",
+            ErrorType::UnusedDefault => "Unused variant (should not appear)",
             ErrorType::DaemonIsBusy => "Buck daemon is busy processing another command",
         };
 
