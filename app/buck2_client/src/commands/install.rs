@@ -198,9 +198,9 @@ impl StreamingCommand for InstallCommand {
                 console.print_success("INSTALL SUCCEEDED")?;
                 ExitResult::success()
             }
-            CommandOutcome::Failure(_) => {
+            CommandOutcome::Failure(exit_result) => {
                 console.print_error("INSTALL FAILED")?;
-                ExitResult::failure()
+                exit_result
             }
         }
     }
