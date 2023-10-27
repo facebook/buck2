@@ -16,12 +16,18 @@ pub fn create_error_report(err: &buck2_error::Error) -> buck2_data::ErrorReport 
     let cause = err
         .downcast_ref::<buck2_data::ErrorCause>()
         .map(|c| *c as i32);
-    let error_message = format!("{:#}", err);
+
+    let (error_message, telemetry_error_message) = if let Some(f) = err.get_late_format() && err.is_emitted() {
+        (format!("{:?}", f), Some(format!("{:?}", err)))
+    } else {
+        (format!("{:?}", err), None)
+    };
 
     buck2_data::ErrorReport {
         category: Some(category as i32),
         cause,
         error_message,
+        telemetry_error_message,
     }
 }
 

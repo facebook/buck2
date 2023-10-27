@@ -1856,7 +1856,14 @@ enum ErrorCause {
 message ErrorReport {
   optional ErrorCategory category = 1;
   optional ErrorCause cause = 2;
+  // The error message that is shown to users on the CLI
   string error_message = 3;
+  // If different from `error_message`, the error messsage that is shown to the
+  // build report or logged in scuba. Currently, this distinction only exists
+  // for action errors - they show the full stderr in telemetry and in a
+  // separate event, but the error message only contains `failed to build target
+  // foo`
+  optional string telemetry_error_message = 4;
 }
 
 message MaterializerStateInfo {
