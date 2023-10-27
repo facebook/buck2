@@ -18,7 +18,6 @@ use crate::exit_result::ExitResult;
 /// Either "successful", in which case `R`, the response type, is available, or "failure",
 /// where a general `CommandError` was returned. Consider this a "failed successfully" indicator.
 /// At the point where this is returned, all event processing / logging should be handled.
-#[derive(Debug)]
 #[must_use]
 pub enum CommandOutcome<R> {
     /// The buckd client successfully returned the expected response.
@@ -30,11 +29,11 @@ pub enum CommandOutcome<R> {
     ///
     /// The user has already been presented an error message, and the CLI should exit with
     /// this status code.
-    Failure(Option<u8>),
+    Failure(ExitResult),
 }
 
 /// Small wrapper used in FromResidual
-pub struct CommandFailure(Option<u8>);
+pub struct CommandFailure(ExitResult);
 
 /// Allow the usage of '?' when going from a CommandOutcome -> ExitResult
 impl<R> Try for CommandOutcome<R> {
@@ -54,8 +53,8 @@ impl<R> Try for CommandOutcome<R> {
 }
 
 impl FromResidual<CommandFailure> for ExitResult {
-    fn from_residual(_residual: CommandFailure) -> Self {
-        ExitResult::failure()
+    fn from_residual(residual: CommandFailure) -> Self {
+        residual.0
     }
 }
 

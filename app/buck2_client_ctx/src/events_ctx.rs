@@ -31,6 +31,7 @@ use crate::command_outcome::CommandOutcome;
 use crate::console_interaction_stream::ConsoleInteraction;
 use crate::console_interaction_stream::ConsoleInteractionStream;
 use crate::console_interaction_stream::NoopConsoleInteraction;
+use crate::exit_result::ExitResult;
 use crate::file_tailer::FileTailer;
 use crate::file_tailer::StdoutOrStderr;
 use crate::stream_value::StreamValue;
@@ -385,7 +386,10 @@ fn convert_result<R: TryFrom<command_result::Result, Error = command_result::Res
     value: CommandResult,
 ) -> anyhow::Result<CommandOutcome<R>> {
     match value.result {
-        Some(command_result::Result::Error(_)) => Ok(CommandOutcome::Failure(None)),
+        // FIXME(JakobDegen): Use the errors here
+        Some(command_result::Result::Error(_)) => {
+            Ok(CommandOutcome::Failure(ExitResult::failure()))
+        }
         Some(value) => match value.try_into() {
             Ok(v) => Ok(CommandOutcome::Success(v)),
             Err(res) => Err(BuckdCommunicationError::UnexpectedResultType(res).into()),
