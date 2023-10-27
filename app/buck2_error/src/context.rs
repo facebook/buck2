@@ -88,8 +88,6 @@ impl<T, E: AnyError> Context<T> for std::result::Result<T, E> {
 // FIXME(JakobDegen): This impl should not exist. We should make people write error types for these
 // conditions. Let's have it for now to ease migration though.
 
-// Can't use our derive macro because it creates reference to `::buck2_error`, which doesn't exist in this
-// crate
 #[derive(Debug, buck2_error_derive::Error)]
 #[error("NoneError")]
 struct NoneError;
