@@ -962,19 +962,12 @@ impl ChromeTraceCommand {
         };
 
         let trace_path = self.trace_path.resolve(&ctx.working_dir);
-        let dest_path_result = if trace_path.is_dir() {
-            Self::trace_path_from_dir(trace_path, &log)
+        let dest_path = if trace_path.is_dir() {
+            Self::trace_path_from_dir(trace_path, &log).context("Could not determine trace path")?
         } else {
-            Ok(trace_path)
+            trace_path
         };
 
-        let dest_path = match dest_path_result {
-            Ok(dest_path) => dest_path,
-            Err(e) => {
-                buck2_client_ctx::eprintln!("Could not determine trace path, {:#}", e)?;
-                return ExitResult::failure();
-            }
-        };
         let log = EventLogPathBuf::infer(log)?;
 
         let writer = ctx.runtime.block_on(Self::trace_writer(log))?;
