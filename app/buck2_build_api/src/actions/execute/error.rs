@@ -85,10 +85,11 @@ fn error_items<T: Display>(xs: &[T]) -> String {
 
 impl From<anyhow::Error> for ExecuteError {
     fn from(error: anyhow::Error) -> Self {
-        if error.is::<CommandExecutionErrorMarker>() {
+        let e: buck2_error::Error = error.into();
+        if e.downcast_ref::<CommandExecutionErrorMarker>().is_some() {
             return Self::CommandExecutionError;
         }
-        Self::Error { error }
+        Self::Error { error: e.into() }
     }
 }
 
