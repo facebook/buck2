@@ -15,4 +15,5 @@ thiserror = { workspace = true }
 allocative = { workspace = true }
 dupe = { workspace = true }
 
+buck2_data = { workspace = true }
 buck2_error_derive = { workspace = true }

@@ -20,12 +20,31 @@ pub mod shared_result;
 
 pub use any::AnyError;
 pub use context::Context;
+/// A piece of metadata to indicate whether this error is an infra or user error.
+///
+/// You can attach this to an error by passing it to the [`Error::context`] method. Alternatively,
+/// you can call `.user()` or `.infra()` on a [`buck2_error::Result`][`Result`].
+///
+/// The category is fundamentally closed - the expectation is that it will not grow new variants in
+/// the future.
+#[doc(inline)]
 pub use context_value::Category;
 pub use error::Error;
 pub use root::UniqueRootId;
 
 pub type Result<T> = std::result::Result<T, crate::Error>;
 
+/// The type of the error that is being produced.
+///
+/// The type of the error approximately indicates where the error came from. It is useful when you
+/// want to track a particular error scenario in more detail.
+///
+/// The error type is not a piece of context - it can only be set when creating the error, not at
+/// some later point.
+///
+/// Unlike the [`category`](crate::Category) metadata, this type is "open" in the sense that it is
+/// expected to grow in the future. You should not match on it exhaustively.
+pub use buck2_data::ErrorType;
 /// Generates an error impl for the type.
 ///
 /// This macro is a drop-in replacement for [`thiserror::Error`]. In the near future, all uses of
