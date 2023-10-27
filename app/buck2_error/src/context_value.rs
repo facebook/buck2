@@ -9,15 +9,12 @@
 
 use std::fmt;
 use std::sync::Arc;
-pub(crate) trait DisplayAndAny:
-    fmt::Display + std::any::Any + Send + Sync + 'static
-{
-}
+pub trait DisplayAndAny: fmt::Display + std::any::Any + Send + Sync + 'static {}
 
 impl<T: fmt::Display + std::any::Any + Send + Sync + 'static> DisplayAndAny for T {}
 
 #[derive(allocative::Allocative)]
-pub(crate) enum ContextValue {
+pub enum ContextValue {
     Dyn(#[allocative(skip)] Arc<dyn DisplayAndAny>),
 }
 
@@ -43,5 +40,11 @@ impl ContextValue {
                 assert_eq!(format!("{}", a), format!("{}", b))
             }
         }
+    }
+}
+
+impl<T: DisplayAndAny> From<T> for ContextValue {
+    fn from(value: T) -> Self {
+        ContextValue::Dyn(Arc::new(value))
     }
 }
