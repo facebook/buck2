@@ -18,7 +18,7 @@ load(
 )
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart")
-load(":apple_bundle_types.bzl", "AppleBundleInfo")
+load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleTypeAppClip", "AppleBundleTypeDefault", "AppleBundleTypeWatchApp")
 load(":apple_bundle_utility.bzl", "get_bundle_resource_processing_options", "get_extension_attr", "get_product_name")
 load(":apple_core_data.bzl", "compile_apple_core_data")
 load(
@@ -189,12 +189,13 @@ def _copied_bundle_spec(bundle_info: AppleBundleInfo) -> [None, AppleBundlePart]
         destination = AppleBundleDestination("frameworks")
         codesign_on_copy = True
     elif bundle_extension == ".app":
-        expect(bundle_info.is_watchos != None, "Field should be set for bundles with extension {}".format(bundle_extension))
         app_destination_type = "plugins"
-        if bundle_info.is_watchos:
+        if bundle_info.bundle_type == AppleBundleTypeWatchApp:
             app_destination_type = "watchapp"
-        elif bundle_info.is_appclip:
+        elif bundle_info.bundle_type == AppleBundleTypeAppClip:
             app_destination_type = "appclips"
+        elif bundle_info.bundle_type != AppleBundleTypeDefault:
+            fail("Unhandled bundle type `{}`".format(bundle_info.bundle_type))
         destination = AppleBundleDestination(app_destination_type)
         codesign_on_copy = False
     elif bundle_extension == ".appex":

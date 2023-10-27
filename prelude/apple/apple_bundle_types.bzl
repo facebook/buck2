@@ -7,6 +7,14 @@
 
 load(":debug.bzl", "AppleDebuggableInfo")
 
+AppleBundleType = enum(
+    "default",
+    # Bundle was built for watchOS Apple platform
+    "watchapp",
+    # Bundle represents an App Clip to be embedded
+    "appclip",
+)
+
 # Provider flagging that result of the rule contains Apple bundle.
 # It might be copied into main bundle to appropriate place if rule
 # with this provider is a dependency of `apple_bundle`.
@@ -15,20 +23,15 @@ AppleBundleInfo = provider(
     fields = {
         # Result bundle
         "bundle": provider_field(Artifact),
+        "bundle_type": provider_field(AppleBundleType),
         # The name of the executable within the bundle.
         "binary_name": provider_field([str, None], default = None),
-        # If the bundle was built for watchOS Apple platform, this affects packaging.
-        # Might be omitted for certain types of bundle (e.g. frameworks) when packaging doesn't depend on it.
-        "is_watchos": provider_field([bool, None]),
         # If the bundle contains a Watch Extension executable, we have to update the packaging.
         # Similar to `is_watchos`, this might be omitted for certain types of bundles which don't depend on it.
         "contains_watchapp": provider_field([bool, None]),
         # By default, non-framework, non-appex binaries copy Swift libraries into the final
         # binary. This is the opt-out for that.
         "skip_copying_swift_stdlib": provider_field([bool, None]),
-        # If the bundle was built for Apple AppClips, this affects packaging.
-        # Might be omitted for certain types of bundle (e.g. frameworks) when packaging doesn't depend on it.
-        "is_appclip": provider_field([bool, None]),
     },
 )
 
@@ -63,3 +66,7 @@ AppleBundleBinaryOutput = record(
     # In the case of watchkit, the `ctx.attrs.binary`'s not set, and we need to create a stub binary.
     is_watchkit_stub_binary = field(bool, False),
 )
+
+AppleBundleTypeDefault = AppleBundleType("default")
+AppleBundleTypeWatchApp = AppleBundleType("watchapp")
+AppleBundleTypeAppClip = AppleBundleType("appclip")

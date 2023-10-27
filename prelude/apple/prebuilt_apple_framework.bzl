@@ -42,7 +42,7 @@ load(
     "merge_shared_libraries",
 )
 load("@prelude//utils:utils.bzl", "filter_and_map_idx")
-load(":apple_bundle_types.bzl", "AppleBundleInfo")
+load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleTypeDefault")
 load(":apple_frameworks.bzl", "to_framework_name")
 
 def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -105,10 +105,9 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> list[Provider]:
     providers.append(DefaultInfo(default_output = framework_directory_artifact))
     providers.append(AppleBundleInfo(
         bundle = framework_directory_artifact,
-        is_watchos = None,
+        bundle_type = AppleBundleTypeDefault,
         skip_copying_swift_stdlib = True,
         contains_watchapp = None,
-        is_appclip = None,
     ))
     providers.append(merge_link_group_lib_info(deps = ctx.attrs.deps))
     providers.append(merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, ctx.attrs.deps)))
