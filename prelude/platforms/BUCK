@@ -12,6 +12,43 @@ execution_platform(
 )
 
 prelude.constraint_setting(
+    name = "runs_remote",
+)
+
+prelude.constraint_value(
+    name = "may_run_remote",
+    constraint_setting = ":runs_remote",
+    visibility = ["PUBLIC"],
+)
+
+prelude.constraint_setting(
+    name = "runs_local",
+    visibility = ["PUBLIC"],
+)
+
+prelude.constraint_value(
+    name = "may_run_local",
+    constraint_setting = ":runs_local",
+    visibility = ["PUBLIC"],
+)
+
+prelude.constraint_setting(
+    name = "runs_only",
+)
+
+prelude.constraint_value(
+    name = "runs_only_local",
+    constraint_setting = ":runs_only",
+    visibility = ["PUBLIC"],
+)
+
+prelude.constraint_value(
+    name = "runs_only_remote",
+    constraint_setting = ":runs_only",
+    visibility = ["PUBLIC"],
+)
+
+prelude.constraint_setting(
     name = "fat_platform_marker",
 )
 
