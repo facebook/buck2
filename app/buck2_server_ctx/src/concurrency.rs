@@ -31,7 +31,6 @@ use buck2_data::ExclusiveCommandWaitEnd;
 use buck2_data::ExclusiveCommandWaitStart;
 use buck2_data::ExitWhenDifferentState;
 use buck2_data::NoActiveDiceState;
-use buck2_error::Context;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_util::truncate::truncate;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -498,10 +497,13 @@ impl ConcurrencyHandler {
                                 if exit_when_different_state {
                                     event_dispatcher.instant_event(ExitWhenDifferentState {});
 
-                                    return Err(anyhow::Error::new(
+                                    return Err(buck2_error::Error::new_with_options(
                                         ConcurrencyHandlerError::ExitWhenDifferentState,
-                                    ))
-                                    .context(buck2_data::ErrorType::DaemonIsBusy);
+                                        None,
+                                        Some(buck2_error::ErrorType::DaemonIsBusy),
+                                    )
+                                    .context("Buck daemon is busy processing another command")
+                                    .into());
                                 }
                                 // We should probably show more than the first here, but for now
                                 // this is what we have.
@@ -1168,13 +1170,10 @@ mod tests {
 
         let fut3_result = fut3.await?;
 
-        assert!(fut3_result.is_err());
-        assert!(
-            fut3_result
-                .err()
-                .unwrap()
-                .to_string()
-                .contains("daemon is busy")
+        let fut3_error: buck2_error::Error = fut3_result.unwrap_err().into();
+        assert_eq!(
+            fut3_error.get_error_type(),
+            Some(buck2_error::ErrorType::DaemonIsBusy)
         );
 
         Ok(())
