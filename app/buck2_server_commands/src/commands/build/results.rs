@@ -192,7 +192,6 @@ pub mod build_report {
     use buck2_build_api::build::BuildProviderType;
     use buck2_build_api::build::BuildTargetResult;
     use buck2_build_api::build::ConfiguredBuildTargetResult;
-    use buck2_common::error_report::create_error_report;
     use buck2_core::configuration::compatibility::MaybeCompatible;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -204,6 +203,7 @@ pub mod build_report {
     use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::label::TargetLabel;
     use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
+    use buck2_server_ctx::errors::create_error_report;
     use buck2_wrapper_common::invocation_id::TraceId;
     use derivative::Derivative;
     use dupe::Dupe;

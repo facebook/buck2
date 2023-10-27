@@ -31,7 +31,6 @@ pub mod client_utils;
 pub mod convert;
 pub mod daemon_dir;
 pub mod dice;
-pub mod error_report;
 pub mod events;
 pub mod external_symlink;
 pub mod file_ops;

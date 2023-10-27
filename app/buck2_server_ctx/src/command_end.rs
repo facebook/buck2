@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_common::error_report::create_error_report;
+use crate::errors::create_error_report;
 
 /// Common code executed in the end of command to produce `CommandEnd`.
 pub fn command_end<R, D>(result: &buck2_error::Result<R>, data: D) -> buck2_data::CommandEnd

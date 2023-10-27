@@ -7,10 +7,13 @@
  * of this source tree.
  */
 
+#![feature(let_chains)]
+
 pub mod bxl;
 pub mod command_end;
 pub mod concurrency;
 pub mod ctx;
+pub mod errors;
 pub mod logging;
 pub mod other_server_commands;
 pub mod partial_result_dispatcher;
