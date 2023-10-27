@@ -10,19 +10,16 @@
 use std::fmt;
 use std::sync::Arc;
 
+use crate::context_value::ContextValue;
 use crate::error::ErrorKind;
 use crate::AnyError;
 
-pub(crate) trait DisplayAndAny:
-    fmt::Display + std::any::Any + Send + Sync + 'static
-{
-}
-
-impl<T: fmt::Display + std::any::Any + Send + Sync + 'static> DisplayAndAny for T {}
-
 impl crate::Error {
     pub fn context<C: fmt::Display + Send + Sync + 'static>(self, context: C) -> Self {
-        Self(Arc::new(ErrorKind::WithContext(Arc::new(context), self)))
+        Self(Arc::new(ErrorKind::WithContext(
+            ContextValue::Dyn(Arc::new(context)),
+            self,
+        )))
     }
 
     #[cold]

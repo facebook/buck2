@@ -11,7 +11,7 @@ use std::any::Any;
 use std::fmt;
 use std::sync::Arc;
 
-use crate::context::DisplayAndAny;
+use crate::context_value::ContextValue;
 use crate::root::ErrorRoot;
 use crate::UniqueRootId;
 
@@ -35,7 +35,7 @@ pub(crate) enum ErrorKind {
     // implementation of `into_anyhow_for_format`.
     Root(ErrorRoot),
     /// For now we use untyped context to maximize compatibility with anyhow.
-    WithContext(#[allocative(skip)] Arc<dyn DisplayAndAny>, Error),
+    WithContext(ContextValue, Error),
     /// Indicates that the error has been emitted, ie shown to the user.
     Emitted(Error),
 }
@@ -116,7 +116,7 @@ impl Error {
                     writeln!(s, "EMITTED").unwrap();
                 }
                 ErrorKind::WithContext(ctx, _) => {
-                    writeln!(s, "CONTEXT: {:#}", ctx).unwrap();
+                    writeln!(s, "CONTEXT: {:#}", ctx.as_display_for_debugging()).unwrap();
                 }
             }
         }
@@ -126,7 +126,9 @@ impl Error {
     pub fn downcast_ref<T: fmt::Display + fmt::Debug + Send + Sync + 'static>(&self) -> Option<&T> {
         self.iter_kinds().find_map(|kind| match kind {
             ErrorKind::Root(r) => r.downcast_ref(),
-            ErrorKind::WithContext(ctx, _) => (ctx.as_ref() as &dyn Any).downcast_ref(),
+            ErrorKind::WithContext(ContextValue::Dyn(ctx), _) => {
+                (ctx.as_ref() as &dyn Any).downcast_ref()
+            }
             ErrorKind::Emitted(_) => None,
         })
     }

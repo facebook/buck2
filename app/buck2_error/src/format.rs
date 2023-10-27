@@ -30,7 +30,7 @@ pub(crate) fn into_anyhow_for_format(
         match error.0.as_ref() {
             ErrorKind::Root(root) => break root,
             ErrorKind::WithContext(context, inner) => {
-                context_stack.push(context.clone());
+                context_stack.extend(context.as_display());
                 error = inner;
             }
             ErrorKind::Emitted(inner) => {

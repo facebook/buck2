@@ -155,7 +155,7 @@ mod tests {
                     ErrorKind::WithContext(a_context, a_inner),
                     ErrorKind::WithContext(b_context, b_inner),
                 ) => {
-                    assert_eq!(format!("{}", a_context), format!("{}", b_context));
+                    a_context.assert_eq(b_context);
                     a = a_inner;
                     b = b_inner;
                 }
