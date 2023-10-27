@@ -192,6 +192,7 @@ pub mod build_report {
     use buck2_build_api::build::BuildProviderType;
     use buck2_build_api::build::BuildTargetResult;
     use buck2_build_api::build::ConfiguredBuildTargetResult;
+    use buck2_common::error_report::create_error_report;
     use buck2_core::configuration::compatibility::MaybeCompatible;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -551,7 +552,13 @@ pub mod build_report {
                 // we initially avoid assigning new deduplication indexes and instead use a sentinal
                 // value. This is to make sure that we can be deterministic
                 let root = e.root_id();
-                let message = format!("{:?}", e);
+                let error_report = create_error_report(e);
+                let message =
+                    if let Some(telemetry_error_message) = error_report.telemetry_error_message {
+                        telemetry_error_message
+                    } else {
+                        error_report.error_message
+                    };
                 temp.push((self.error_cause_cache.get(&root).copied(), message, e));
             }
             // Sort the errors. This sort *almost* guarantees full determinism, but unfortunately

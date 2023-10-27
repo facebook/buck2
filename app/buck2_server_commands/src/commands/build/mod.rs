@@ -37,7 +37,7 @@ use buck2_cli_proto::CommonBuildOptions;
 use buck2_cli_proto::HasClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
-use buck2_common::error_report::late_format_error;
+use buck2_common::error_report::create_error_report;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
@@ -382,7 +382,7 @@ async fn process_build_result(
             let error_strings = errors
                 .errors
                 .iter()
-                .filter_map(late_format_error)
+                .map(|x| create_error_report(x).error_message)
                 .unique()
                 .collect();
             (vec![], error_strings)

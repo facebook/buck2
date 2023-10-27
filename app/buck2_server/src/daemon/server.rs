@@ -29,7 +29,7 @@ use buck2_build_api::spawner::BuckSpawner;
 use buck2_cli_proto::daemon_api_server::*;
 use buck2_cli_proto::*;
 use buck2_common::buckd_connection::BUCK_AUTH_TOKEN_HEADER;
-use buck2_common::error_report::late_format_error;
+use buck2_common::error_report::create_error_report;
 use buck2_common::events::HasEvents;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::trace::TracingIoProvider;
@@ -534,11 +534,8 @@ fn convert_positive_duration(proto_duration: &prost_types::Duration) -> Result<D
 }
 
 fn error_to_command_result(e: anyhow::Error) -> CommandResult {
-    let messages = if let Some(m) = late_format_error(&e.into()) {
-        vec![m]
-    } else {
-        Vec::new()
-    };
+    let report = create_error_report(&e.into());
+    let messages = vec![report.error_message];
 
     CommandResult {
         result: Some(command_result::Result::Error(CommandError { messages })),
