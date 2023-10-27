@@ -13,7 +13,7 @@ use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::exit_result::FailureExitCode;
+use buck2_client_ctx::exit_result::InterruptSignalError;
 use buck2_client_ctx::replayer::Replayer;
 use buck2_client_ctx::signal_handler::with_simple_sigint_handler;
 use buck2_client_ctx::subscribers::get::get_console_with_root;
@@ -104,7 +104,7 @@ impl ReplayCommand {
 
             with_simple_sigint_handler(work)
                 .await
-                .unwrap_or_else(|| ExitResult::from(FailureExitCode::SignalInterrupt))
+                .unwrap_or_else(|| ExitResult::err_with_exit_code(InterruptSignalError.into(), 130))
         })
     }
 }

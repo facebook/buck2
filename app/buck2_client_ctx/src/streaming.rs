@@ -25,7 +25,7 @@ use crate::daemon::client::connect::DaemonConstraintsRequest;
 use crate::daemon::client::connect::DesiredTraceIoState;
 use crate::daemon::client::BuckdClientConnector;
 use crate::exit_result::ExitResult;
-use crate::exit_result::FailureExitCode;
+use crate::exit_result::InterruptSignalError;
 use crate::path_arg::PathArg;
 use crate::signal_handler::with_simple_sigint_handler;
 use crate::subscribers::get::get_console_with_root;
@@ -187,7 +187,7 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                 let mut buckd = match buckd {
                     Ok(buckd) => buckd,
                     Err(e) => {
-                        return ExitResult::from(FailureExitCode::ConnectError(e));
+                        return ExitResult::err_with_exit_code(e, 11);
                     }
                 };
 
@@ -200,7 +200,7 @@ impl<T: StreamingCommand> BuckSubcommand for T {
 
             with_simple_sigint_handler(work)
                 .await
-                .unwrap_or_else(|| ExitResult::from(FailureExitCode::SignalInterrupt))
+                .unwrap_or_else(|| ExitResult::err_with_exit_code(InterruptSignalError.into(), 130))
         })
     }
 }

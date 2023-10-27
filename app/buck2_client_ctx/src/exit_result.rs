@@ -8,7 +8,6 @@
  */
 
 use std::convert::Infallible;
-use std::fmt::Debug;
 use std::fmt::Display;
 use std::io;
 use std::io::Write;
@@ -59,7 +58,7 @@ enum ExitResultVariant {
     Buck2RunExec(ExecArgs),
     /// We failed (i.e. due to a Buck internal error).
     /// At this time, when execution does fail, we print out the error message to stderr.
-    Err(anyhow::Error),
+    StatusWithErr(u8, anyhow::Error),
 }
 
 impl ExitResult {
@@ -109,8 +108,20 @@ impl ExitResult {
     }
 
     pub fn err(err: anyhow::Error) -> Self {
+        let exit_code = if let Some(io_error) = err.downcast_ref::<UserIoError>() && io_error.0.kind() == io::ErrorKind::BrokenPipe {
+            141
+        } else {
+            1
+        };
         Self {
-            variant: ExitResultVariant::Err(err),
+            variant: ExitResultVariant::StatusWithErr(exit_code, err),
+            stdout: Vec::new(),
+        }
+    }
+
+    pub fn err_with_exit_code(err: anyhow::Error, exit_code: u8) -> Self {
+        Self {
+            variant: ExitResultVariant::StatusWithErr(exit_code, err),
             stdout: Vec::new(),
         }
     }
@@ -132,7 +143,7 @@ impl ExitResult {
     pub fn report(self) -> ! {
         match crate::stdio::print_bytes(&self.stdout) {
             Ok(()) => self.variant.report(),
-            Err(e) => ExitResultVariant::Err(e).report(),
+            Err(e) => Self::err(e).variant.report(),
         }
     }
 
@@ -181,12 +192,6 @@ impl From<anyhow::Result<u8>> for ExitResult {
     }
 }
 
-impl From<FailureExitCode> for ExitResult {
-    fn from(e: FailureExitCode) -> Self {
-        Self::err(e.into())
-    }
-}
-
 impl FromResidual<anyhow::Error> for ExitResult {
     #[track_caller]
     fn from_residual(residual: anyhow::Error) -> ExitResult {
@@ -219,24 +224,9 @@ impl ExitResultVariant {
                 // execv does not return.
                 execv(args)
             }
-            Self::Err(e) if let Some(io_error) = e.downcast_ref::<UserIoError>() && io_error.0.kind() == io::ErrorKind::BrokenPipe => {
-                141
-            },
-            Self::Err(e) => {
-                match e.downcast_ref::<FailureExitCode>() {
-                    None => {
-                        let _ignored = writeln!(io::stderr().lock(), "Command failed: {:?}", e);
-                        1
-                    }
-                    Some(FailureExitCode::SignalInterrupt) => {
-                        tracing::debug!("Interrupted");
-                        130
-                    }
-                    Some(FailureExitCode::ConnectError(e)) => {
-                        let _ignored = writeln!(io::stderr().lock(), "{:?}", e);
-                        11
-                    }
-                }
+            Self::StatusWithErr(exit_code, e) => {
+                let _ignored = writeln!(io::stderr().lock(), "Command failed: {:?}", e);
+                exit_code
             }
         };
 
@@ -268,16 +258,16 @@ impl ExitResultVariant {
 #[error(transparent)]
 pub struct UserIoError(pub io::Error);
 
-/// Common exit codes for buck with stronger semantic meanings
 #[derive(thiserror::Error, Debug)]
+#[error("Ctrl-c was pressed")]
+pub struct InterruptSignalError;
+
+/// Common exit codes for buck with stronger semantic meanings
 pub enum FailureExitCode {
     // TODO: Fill in more exit codes from ExitCode.java here. Need to determine
     // how many make sense in v2 versus v1. Some are assuredly unnecessary in v2.
-    #[error("Ctrl-c was pressed")]
     SignalInterrupt,
-
-    #[error(transparent)]
-    ConnectError(anyhow::Error),
+    ConnectError,
 }
 
 #[cfg(windows)]
