@@ -171,7 +171,7 @@ def _zig_distribution_impl(ctx: AnalysisContext) -> list[Provider]:
     dst = ctx.actions.declare_output("zig")
     path_tpl = "{}/" + ctx.attrs.prefix + "/zig" + ctx.attrs.suffix
     src = cmd_args(ctx.attrs.dist[DefaultInfo].default_outputs[0], format = path_tpl)
-    ctx.actions.run(["ln", "-srf", src, dst.as_output()], category = "cp_compiler")
+    ctx.actions.run(["ln", "-sf", cmd_args(src).relative_to(dst, parent=1), dst.as_output()], category = "cp_compiler")
 
     compiler = cmd_args([dst])
     compiler.hidden(ctx.attrs.dist[DefaultInfo].default_outputs)
