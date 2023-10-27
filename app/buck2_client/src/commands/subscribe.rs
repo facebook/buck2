@@ -19,6 +19,7 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::events_ctx::PartialResultCtx;
 use buck2_client_ctx::events_ctx::PartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_client_ctx::exit_result::FailureExitCode;
 use buck2_client_ctx::stream_util::reborrow_stream_for_static;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_subscription_proto::SubscriptionRequest;
@@ -147,7 +148,7 @@ impl StreamingCommand for SubscribeCommand {
         } else {
             // FIXME(JakobDegen): This command should propagate some error information back from the
             // server so that we can do error handling here.
-            ExitResult::status(1)
+            ExitResult::status(FailureExitCode::UnknownFailure)
         }
     }
 

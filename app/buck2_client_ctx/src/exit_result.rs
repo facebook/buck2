@@ -47,7 +47,7 @@ pub struct ExitResult {
 
 enum ExitResultVariant {
     /// We finished successfully, return the specific exit code.
-    Status(u8),
+    Status(FailureExitCode),
     /// The command failed and it doesn't have a specific exit code yet. This may be updated by
     /// `ErrorObserver::error_cause` if more accurate categorization is available after the
     /// command ends. If no categorization succeeded, it will return exit code 1.
@@ -58,15 +58,15 @@ enum ExitResultVariant {
     Buck2RunExec(ExecArgs),
     /// We failed (i.e. due to a Buck internal error).
     /// At this time, when execution does fail, we print out the error message to stderr.
-    StatusWithErr(u8, anyhow::Error),
+    StatusWithErr(FailureExitCode, anyhow::Error),
 }
 
 impl ExitResult {
     pub fn success() -> Self {
-        Self::status(0)
+        Self::status(FailureExitCode::Success)
     }
 
-    pub fn status(status: u8) -> Self {
+    pub fn status(status: FailureExitCode) -> Self {
         Self {
             variant: ExitResultVariant::Status(status),
             stdout: Vec::new(),
@@ -76,7 +76,7 @@ impl ExitResult {
     /// Values out of the range of u8 will have their status information ignored
     pub fn status_extended(status: i32) -> Self {
         if let Ok(code) = status.try_into() {
-            Self::status(code)
+            Self::status(FailureExitCode::Explicit(code))
         } else {
             // The exit code isn't an allowable value, so just switch to generic failure
             Self {
@@ -109,9 +109,9 @@ impl ExitResult {
 
     pub fn err(err: anyhow::Error) -> Self {
         let exit_code = if let Some(io_error) = err.downcast_ref::<UserIoError>() && io_error.0.kind() == io::ErrorKind::BrokenPipe {
-            141
+            FailureExitCode::BrokenPipe
         } else {
-            1
+            FailureExitCode::UnknownFailure
         };
         Self {
             variant: ExitResultVariant::StatusWithErr(exit_code, err),
@@ -119,7 +119,7 @@ impl ExitResult {
         }
     }
 
-    pub fn err_with_exit_code(err: anyhow::Error, exit_code: u8) -> Self {
+    pub fn err_with_exit_code(err: anyhow::Error, exit_code: FailureExitCode) -> Self {
         Self {
             variant: ExitResultVariant::StatusWithErr(exit_code, err),
             stdout: Vec::new(),
@@ -128,7 +128,10 @@ impl ExitResult {
 
     /// Return this ExitStatus or call a function to produce a new one.
     pub fn or_else(self, f: impl FnOnce(Self) -> Self) -> Self {
-        if matches!(self.variant, ExitResultVariant::Status(0)) {
+        if matches!(
+            self.variant,
+            ExitResultVariant::Status(FailureExitCode::Success)
+        ) {
             return self;
         }
 
@@ -152,7 +155,7 @@ impl ExitResult {
         let mut has_user = false;
         for e in errors {
             if e.typ == Some(buck2_data::ErrorType::DaemonIsBusy as i32) {
-                return Self::status(4);
+                return Self::status(FailureExitCode::DaemonIsBusy);
             }
             match e.category.and_then(buck2_data::ErrorCategory::from_i32) {
                 Some(buck2_data::ErrorCategory::Infra) => has_infra = true,
@@ -161,15 +164,15 @@ impl ExitResult {
             }
         }
         if has_infra {
-            return Self::status(2);
+            return Self::status(FailureExitCode::InfraError);
         }
         if has_user {
-            return Self::status(3);
+            return Self::status(FailureExitCode::UserError);
         }
         // FIXME(JakobDegen): For compatibility with pre-existing behavior, we return infra failure
         // here. However, it would be more honest to return the `1` status code that we use for
         // "unknown"
-        Self::status(2)
+        Self::status(FailureExitCode::InfraError)
     }
 }
 
@@ -183,8 +186,8 @@ impl From<anyhow::Result<()>> for ExitResult {
     }
 }
 
-impl From<anyhow::Result<u8>> for ExitResult {
-    fn from(e: anyhow::Result<u8>) -> Self {
+impl From<anyhow::Result<FailureExitCode>> for ExitResult {
+    fn from(e: anyhow::Result<FailureExitCode>) -> Self {
         match e {
             Ok(code) => Self::status(code),
             Err(e) => Self::err(e),
@@ -217,7 +220,7 @@ impl ExitResultVariant {
         // ensures we get the desired exit code printed instead of potentially a panic.
         let mut exit_code = match self {
             Self::Status(v) => v,
-            Self::UncategorizedError => 1,
+            Self::UncategorizedError => FailureExitCode::UnknownFailure,
             Self::Buck2RunExec(args) => {
                 // Terminate by exec-ing a new process - usually because of `buck2 run`.
                 //
@@ -238,15 +241,15 @@ impl ExitResultVariant {
         // Global destructors are hard (if even possible) to do safely anyway.
 
         if io::stdout().flush().is_err() {
-            exit_code = 141;
+            exit_code = FailureExitCode::SignalInterrupt;
         }
 
         // Stderr should be autoflushed, but just in case...
         if io::stderr().flush().is_err() {
-            exit_code = 141;
+            exit_code = FailureExitCode::SignalInterrupt;
         }
 
-        unsafe { libc::_exit(exit_code as libc::c_int) }
+        unsafe { libc::_exit(exit_code.exit_code() as libc::c_int) }
     }
 }
 
@@ -266,8 +269,34 @@ pub struct InterruptSignalError;
 pub enum FailureExitCode {
     // TODO: Fill in more exit codes from ExitCode.java here. Need to determine
     // how many make sense in v2 versus v1. Some are assuredly unnecessary in v2.
-    SignalInterrupt,
+    Success,
+    UnknownFailure,
+    InfraError,
+    UserError,
+    DaemonIsBusy,
     ConnectError,
+    SignalInterrupt,
+    BrokenPipe,
+    /// Something other than buck2 itself (usually a test runner) explicitly requested that this
+    /// exit code be returned
+    Explicit(u8),
+}
+
+impl FailureExitCode {
+    pub fn exit_code(self) -> u8 {
+        use FailureExitCode::*;
+        match self {
+            Success => 0,
+            UnknownFailure => 1,
+            InfraError => 2,
+            UserError => 3,
+            DaemonIsBusy => 4,
+            ConnectError => 11,
+            BrokenPipe => 130,
+            SignalInterrupt => 141,
+            Explicit(code) => code,
+        }
+    }
 }
 
 #[cfg(windows)]

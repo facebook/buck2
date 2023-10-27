@@ -17,6 +17,7 @@ use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_client_ctx::exit_result::FailureExitCode;
 use buck2_client_ctx::final_console::FinalConsole;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_core::fs::fs_util;
@@ -60,12 +61,12 @@ impl InitCommand {
         let console = self.console_opts.final_console();
 
         match exec_impl(self, ctx, &console) {
-            Ok(_) => ExitResult::status(0),
+            Ok(_) => ExitResult::success(),
             Err(e) => {
                 // include the backtrace with the error output
                 // (same behaviour as returning the Error from main)
                 console.print_error(&format!("{:?}", e))?;
-                ExitResult::status(1)
+                ExitResult::status(FailureExitCode::UnknownFailure)
             }
         }
     }
