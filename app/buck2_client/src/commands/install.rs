@@ -190,15 +190,15 @@ impl StreamingCommand for InstallCommand {
                     .console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,
             )
-            .await;
+            .await?;
         let console = self.common_opts.console_opts.final_console();
 
         match response {
-            Ok(CommandOutcome::Success(_)) => {
+            CommandOutcome::Success(_) => {
                 console.print_success("INSTALL SUCCEEDED")?;
                 ExitResult::success()
             }
-            Ok(CommandOutcome::Failure(_)) | Err(_) => {
+            CommandOutcome::Failure(_) => {
                 console.print_error("INSTALL FAILED")?;
                 ExitResult::failure()
             }
