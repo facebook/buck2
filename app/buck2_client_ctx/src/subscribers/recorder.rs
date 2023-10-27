@@ -390,6 +390,7 @@ mod imp {
                 daemon_connection_failure: Some(self.daemon_connection_failure),
                 client_metadata: std::mem::take(&mut self.client_metadata),
                 error_messages: std::mem::take(&mut self.error_messages),
+                errors: Vec::new(),
             };
 
             let event = BuckEvent::new(

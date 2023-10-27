@@ -1670,8 +1670,11 @@ message InvocationRecord {
   // Metadata provided by the client. Unlike TypedMetadata, this won't become
   // its own column in Scuba, all those entries will land in a NormVector.
   repeated ClientMetadata client_metadata = 76;
-  // The error messages that were shown to the user.
+  // The error messages that were shown to the user. FIXME(JakobDegen):
+  // Deprecated in favor of `errors`
   repeated string error_messages = 77;
+  // The errors that occured during the command.
+  repeated ProcessedErrorReport errors = 79;
   // Cache hit rate as it appears in the console
   float cache_hit_rate = 78;
 }
@@ -1860,6 +1863,17 @@ message ErrorReport {
   // for action errors - they show the full stderr in telemetry and in a
   // separate event, but the error message only contains `failed to build target
   // foo`
+  optional string telemetry_message = 4;
+}
+
+// Identical to `ErrorReport`, but with the cause converted to a string. This
+// makes it easy to change the cause without having to worry about uses of this
+// protobuf definition outside of buck2. Currently used in the invocation record
+// and nowhere else.
+message ProcessedErrorReport {
+  optional ErrorCategory category = 1;
+  optional string typ = 2;
+  string message = 3;
   optional string telemetry_message = 4;
 }
 
