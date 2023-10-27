@@ -13,8 +13,8 @@ pub fn create_error_report(err: &buck2_error::Error) -> buck2_data::ErrorReport 
         buck2_error::Category::User => buck2_data::ErrorCategory::User,
         buck2_error::Category::Infra => buck2_data::ErrorCategory::Infra,
     });
-    let cause = err
-        .downcast_ref::<buck2_data::ErrorCause>()
+    let typ = err
+        .downcast_ref::<buck2_data::ErrorType>()
         .map(|c| *c as i32);
 
     let (error_message, telemetry_error_message) = if let Some(f) = err.get_late_format() && err.is_emitted() {
@@ -25,7 +25,7 @@ pub fn create_error_report(err: &buck2_error::Error) -> buck2_data::ErrorReport 
 
     buck2_data::ErrorReport {
         category: category.map(|c| c as i32),
-        cause,
+        typ,
         error_message,
         telemetry_error_message,
     }

@@ -114,11 +114,11 @@ impl fmt::Display for ErrorCategory {
     }
 }
 
-impl fmt::Display for ErrorCause {
+impl fmt::Display for ErrorType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let msg = match &self {
-            ErrorCause::InvalidPackage => "The package is invalid",
-            ErrorCause::DaemonIsBusy => "Buck daemon is busy processing another command",
+            ErrorType::InvalidPackage => "The package is invalid",
+            ErrorType::DaemonIsBusy => "Buck daemon is busy processing another command",
         };
 
         write!(f, "{}", msg)

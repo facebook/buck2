@@ -501,7 +501,7 @@ impl ConcurrencyHandler {
                                     return Err(anyhow::Error::new(
                                         ConcurrencyHandlerError::ExitWhenDifferentState,
                                     ))
-                                    .context(buck2_data::ErrorCause::DaemonIsBusy);
+                                    .context(buck2_data::ErrorType::DaemonIsBusy);
                                 }
                                 // We should probably show more than the first here, but for now
                                 // this is what we have.

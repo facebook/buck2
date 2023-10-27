@@ -46,7 +46,7 @@ impl<'c> PackageListingResolver for InterpreterPackageListingResolver<'c> {
         Ok(self
             .gather_package_listing(package.dupe())
             .await
-            .context(buck2_data::ErrorCause::InvalidPackage)
+            .context(buck2_data::ErrorType::InvalidPackage)
             .with_context(|| format!("Error gathering package listing for `{}`", package))?)
     }
 

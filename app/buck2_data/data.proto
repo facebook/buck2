@@ -1848,7 +1848,7 @@ enum ErrorCategory {
   INFRA = 1;
 }
 
-enum ErrorCause {
+enum ErrorType {
   INVALID_PACKAGE = 0;
   DAEMON_IS_BUSY = 1;
   // Add causes here as needed
@@ -1856,7 +1856,7 @@ enum ErrorCause {
 
 message ErrorReport {
   optional ErrorCategory category = 1;
-  optional ErrorCause cause = 2;
+  optional ErrorType typ = 2;
   // The error message that is shown to users on the CLI
   string error_message = 3;
   // If different from `error_message`, the error messsage that is shown to the
