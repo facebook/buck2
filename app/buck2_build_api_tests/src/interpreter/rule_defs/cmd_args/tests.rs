@@ -21,6 +21,7 @@ use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
@@ -33,7 +34,7 @@ pub(crate) fn inputs_helper(builder: &mut GlobalsBuilder) {
     ) -> anyhow::Result<StarlarkCommandLineInputs> {
         let mut visitor = SimpleCommandLineArtifactVisitor::new();
         for v in values {
-            let cli = v.as_command_line_err()?;
+            let cli = ValueAsCommandLineLike::unpack_value_err(v)?.0;
             cli.visit_artifacts(&mut visitor)?;
         }
 
@@ -95,7 +96,7 @@ fn stringifies_correctly() -> SharedResult<()> {
     expect_error(
         tester.run_starlark_bzl_test(contents),
         contents,
-        "expected command line item to be a string",
+        "value implementing CommandLineArgLike",
     );
 
     Ok(())
@@ -254,12 +255,12 @@ fn command_line_builder() -> SharedResult<()> {
     expect_error(
         tester.run_starlark_bzl_test(content_invalid_type_1),
         content_invalid_type_1,
-        "expected command line item",
+        "value implementing CommandLineArgLike",
     );
     expect_error(
         tester.run_starlark_bzl_test(content_invalid_type_3),
         content_invalid_type_3,
-        "expected command line item",
+        "value implementing CommandLineArgLike",
     );
 
     Ok(())

@@ -18,6 +18,7 @@ use starlark::values::Freeze;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
+use starlark::values::UnpackValue;
 use starlark::values::ValueLike;
 
 use super::TaggedValueGen;
@@ -75,39 +76,30 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TaggedCommandLineGen<V> {
         cli: &mut dyn CommandLineBuilder,
         context: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
-        self.inner
-            .value()
-            .to_value()
-            .as_command_line_err()?
+        ValueAsCommandLineLike::unpack_value_err(self.inner.value().to_value())?
+            .0
             .add_to_command_line(cli, context)
     }
 
     fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
         let mut visitor = self.inner.wrap_visitor(visitor);
 
-        self.inner
-            .value()
-            .to_value()
-            .as_command_line_err()?
+        ValueAsCommandLineLike::unpack_value_err(self.inner.value().to_value())?
+            .0
             .visit_artifacts(&mut visitor)
     }
 
     fn contains_arg_attr(&self) -> bool {
-        self.inner
-            .value()
-            .to_value()
-            .as_command_line()
-            .map_or(false, |inner| inner.contains_arg_attr())
+        ValueAsCommandLineLike::unpack_value(self.inner.value().to_value())
+            .map_or(false, |inner| inner.0.contains_arg_attr())
     }
 
     fn visit_write_to_file_macros(
         &self,
         visitor: &mut dyn WriteToFileMacroVisitor,
     ) -> anyhow::Result<()> {
-        self.inner
-            .value()
-            .to_value()
-            .as_command_line_err()?
+        ValueAsCommandLineLike::unpack_value_err(self.inner.value().to_value())?
+            .0
             .visit_write_to_file_macros(visitor)
     }
 }

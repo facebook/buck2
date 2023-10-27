@@ -229,9 +229,9 @@ fn iter_test_command<'v>(
             }
         }
 
-        let arglike = item
-            .as_command_line_err()
-            .context("Invalid item in `command`")?;
+        let arglike = ValueAsCommandLineLike::unpack_value_err(item)
+            .context("Invalid item in `command`")?
+            .0;
 
         Ok(TestCommandMember::Arglike(arglike))
     }))
@@ -264,9 +264,9 @@ fn iter_test_env<'v>(
             .unpack_str()
             .with_context(|| format!("Invalid key in `env`: Expected a str, got: `{}`", key))?;
 
-        let arglike = value
-            .as_command_line_err()
-            .with_context(|| format!("Invalid value in `env` for key `{}`", key))?;
+        let arglike = ValueAsCommandLineLike::unpack_value_err(value)
+            .with_context(|| format!("Invalid value in `env` for key `{}`", key))?
+            .0;
 
         Ok((key, arglike))
     }))

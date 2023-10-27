@@ -46,6 +46,7 @@ use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
 use starlark::values::Heap;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 
 use crate::attrs::resolve::testing::resolution_ctx;
@@ -918,8 +919,9 @@ fn test_user_placeholders() -> anyhow::Result<()> {
 
                 let mut cli = Vec::<String>::new();
                 let mut ctx = DefaultCommandLineContext::new(&executor_fs);
-                v.as_command_line()
+                ValueAsCommandLineLike::unpack_value_err(v)
                     .unwrap()
+                    .0
                     .add_to_command_line(&mut cli, &mut ctx)
                     .unwrap();
                 cli.join(" ")

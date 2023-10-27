@@ -12,43 +12,44 @@ use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::project_root::ProjectRoot;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
+use starlark::typing::Ty;
+use starlark::values::type_repr::StarlarkTypeRepr;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
-use crate::starlark::values::StarlarkValue;
 
-#[derive(Debug, thiserror::Error)]
-enum CommandLineArgError {
-    #[error(
-        "expected command line item to be a string, artifact, {}, or {}, or list thereof, \
-        not `{repr}` (`{type_name}`)",
-        StarlarkConfiguredProvidersLabel::TYPE,
-        StarlarkTargetLabel::TYPE
-    )]
-    InvalidItemType {
-        repr: String,
-        type_name: &'static str,
-    },
+pub struct ValueAsCommandLineLike<'v>(pub &'v dyn CommandLineArgLike);
+
+impl<'v> StarlarkTypeRepr for ValueAsCommandLineLike<'v> {
+    fn starlark_type_repr() -> Ty {
+        Ty::any()
+    }
 }
 
-pub trait ValueAsCommandLineLike<'v> {
-    fn as_command_line(&self) -> Option<&'v dyn CommandLineArgLike>;
-    fn as_command_line_err(&self) -> anyhow::Result<&'v dyn CommandLineArgLike>;
-}
+impl<'v> UnpackValue<'v> for ValueAsCommandLineLike<'v> {
+    fn expected() -> String {
+        // TODO(nga): implement one of two solutions to this.
+        //   1. Listing all the types in repr, but that is somewhat hard to implement,
+        //   because types live in at least two crates
+        //   including `buck2_action_impl` which is not a dependency of `buck2_build_api`.
+        //   But if we do, that'd help with documentation and type checking.
+        //   2. Implement abstract starlark type for command line like.
+        "a value implementing CommandLineArgLike (str, Artifact, RunInfo, etc)".to_owned()
+    }
 
-impl<'v> ValueAsCommandLineLike<'v> for Value<'v> {
-    fn as_command_line(&self) -> Option<&'v dyn CommandLineArgLike> {
-        if let Some(x) = self.to_value().unpack_starlark_str() {
-            return Some(x as &dyn CommandLineArgLike);
+    fn unpack_value(value: Value<'v>) -> Option<Self> {
+        if let Some(x) = value.unpack_starlark_str() {
+            return Some(ValueAsCommandLineLike(x as &dyn CommandLineArgLike));
         }
 
         macro_rules! check {
             ($t:ty) => {
-                if let Some(v) = self.to_value().downcast_ref::<$t>() {
-                    return Some(v as &dyn CommandLineArgLike);
+                if let Some(v) = value.downcast_ref::<$t>() {
+                    return Some(ValueAsCommandLineLike(v as &dyn CommandLineArgLike));
                 }
             };
         }
@@ -67,16 +68,6 @@ impl<'v> ValueAsCommandLineLike<'v> for Value<'v> {
         check!(CellRoot);
         check!(ProjectRoot);
 
-        self.request_value()
-    }
-
-    fn as_command_line_err(&self) -> anyhow::Result<&'v dyn CommandLineArgLike> {
-        self.as_command_line().ok_or_else(|| {
-            CommandLineArgError::InvalidItemType {
-                repr: self.to_value().to_repr(),
-                type_name: self.to_value().get_type(),
-            }
-            .into()
-        })
+        Some(ValueAsCommandLineLike(value.request_value()?))
     }
 }

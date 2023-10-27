@@ -31,6 +31,7 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
@@ -109,8 +110,8 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
                     Impl::Item(v) => v.add_to_command_line(cli, context),
                     Impl::List(items) => {
                         for v in *items {
-                            v.as_command_line()
-                                .unwrap()
+                            ValueAsCommandLineLike::unpack_value_err(*v)?
+                                .0
                                 .add_to_command_line(cli, context)?;
                         }
                         Ok(())
@@ -123,7 +124,11 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
                     Impl::Item(v) => v.contains_arg_attr(),
                     Impl::List(items) => {
                         for v in *items {
-                            if v.as_command_line().unwrap().contains_arg_attr() {
+                            if ValueAsCommandLineLike::unpack_value_err(*v)
+                                .unwrap()
+                                .0
+                                .contains_arg_attr()
+                            {
                                 return true;
                             }
                         }
@@ -140,8 +145,8 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
                     Impl::Item(v) => v.visit_write_to_file_macros(visitor),
                     Impl::List(items) => {
                         for v in *items {
-                            v.as_command_line()
-                                .unwrap()
+                            ValueAsCommandLineLike::unpack_value_err(*v)?
+                                .0
                                 .visit_write_to_file_macros(visitor)?;
                         }
                         Ok(())
@@ -157,7 +162,9 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
                     Impl::Item(v) => v.visit_artifacts(visitor),
                     Impl::List(items) => {
                         for v in *items {
-                            v.as_command_line().unwrap().visit_artifacts(visitor)?;
+                            ValueAsCommandLineLike::unpack_value_err(*v)?
+                                .0
+                                .visit_artifacts(visitor)?;
                         }
                         Ok(())
                     }
@@ -168,11 +175,13 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
         let value = v.to_value();
         if let Some(values) = ListRef::from_value(value) {
             for v in values.content() {
-                v.as_command_line_err()?;
+                ValueAsCommandLineLike::unpack_value_err(*v)?;
             }
             Ok(Impl::List(values.content()))
         } else {
-            Ok(Impl::Item(value.as_command_line_err()?))
+            Ok(Impl::Item(
+                ValueAsCommandLineLike::unpack_value_err(value)?.0,
+            ))
         }
     }
 }

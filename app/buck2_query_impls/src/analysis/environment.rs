@@ -59,6 +59,7 @@ use buck2_query_parser::BinaryOp;
 use dice::DiceComputations;
 use dupe::Dupe;
 use indexmap::IndexMap;
+use starlark::values::UnpackValue;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -402,7 +403,8 @@ pub(crate) async fn get_from_template_placeholder_info<'x>(
                                     // ignored
                                 }
                             }
-                            v.as_command_line_err()?
+                            ValueAsCommandLineLike::unpack_value_err(v)?
+                                .0
                                 .visit_artifacts(&mut Visitor(&mut artifacts, target.dupe()))?;
                         }
 

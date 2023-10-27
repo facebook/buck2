@@ -66,6 +66,7 @@ use starlark::values::none::NoneType;
 use starlark::values::typing::StarlarkIter;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
@@ -398,9 +399,9 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             this.get_or_declare_output(eval, output, OutputType::File)?;
 
         let (content_cli, written_macro_count, mut associated_artifacts) =
-            if let Some(content_arg) = content.as_command_line() {
-                let count = count_write_to_file_macros(allow_args, content_arg)?;
-                let cli_inputs = get_cli_inputs(with_inputs, content_arg)?;
+            if let Some(content_arg) = ValueAsCommandLineLike::unpack_value(content) {
+                let count = count_write_to_file_macros(allow_args, content_arg.0)?;
+                let cli_inputs = get_cli_inputs(with_inputs, content_arg.0)?;
                 (content, count, cli_inputs)
             } else {
                 let cli = StarlarkCmdArgs::try_from_value(content)?;
@@ -750,7 +751,8 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             None => Value::new_none(),
             Some(env) => {
                 for v in env.typed.values() {
-                    v.as_command_line_err()?
+                    ValueAsCommandLineLike::unpack_value_err(*v)?
+                        .0
                         .visit_artifacts(&mut artifact_visitor)?;
                 }
                 env.value

@@ -22,6 +22,7 @@ use starlark::values::none::NoneType;
 use starlark::values::tuple::UnpackTuple;
 use starlark::values::Heap;
 use starlark::values::StringValue;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
@@ -123,9 +124,9 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
         #[starlark(require = named, default = false)] abs: bool,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
-        match this.as_command_line() {
+        match ValueAsCommandLineLike::unpack_value(this) {
             Some(cmd_line) => {
-                let inputs = get_cmd_line_inputs(cmd_line)?;
+                let inputs = get_cmd_line_inputs(cmd_line.0)?;
                 let mut result = Vec::new();
 
                 for artifact_group in &inputs.inputs {

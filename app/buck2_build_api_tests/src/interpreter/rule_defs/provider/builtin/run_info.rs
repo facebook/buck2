@@ -101,7 +101,10 @@ fn run_info_validates_types() {
             "#
     );
     let mut tester = run_info_tester();
-    tester.run_starlark_bzl_test_expecting_error(content_bad_args1, "expected command line item");
+    tester.run_starlark_bzl_test_expecting_error(
+        content_bad_args1,
+        "a value implementing CommandLineArgLike",
+    );
 
     let content_bad_args2 = indoc!(
         r#"
@@ -110,7 +113,10 @@ fn run_info_validates_types() {
             "#
     );
     let mut tester = run_info_tester();
-    tester.run_starlark_bzl_test_expecting_error(content_bad_args2, "expected command line item");
+    tester.run_starlark_bzl_test_expecting_error(
+        content_bad_args2,
+        "a value implementing CommandLineArgLike",
+    );
 }
 
 #[test]

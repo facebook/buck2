@@ -18,8 +18,8 @@ use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::Trace;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -61,14 +61,14 @@ impl<'v> Freeze for CommandLineArg<'v> {
 
 impl<'v> CommandLineArg<'v> {
     pub(crate) fn try_from_value(value: Value<'v>) -> anyhow::Result<Self> {
-        value.to_value().as_command_line_err()?;
+        ValueAsCommandLineLike::unpack_value_err(value)?;
         Ok(Self(value))
     }
 
     pub(crate) fn as_command_line_arg(self) -> &'v dyn CommandLineArgLike {
-        self.0
-            .as_command_line_err()
+        ValueAsCommandLineLike::unpack_value_err(self.0)
             .expect("checked type in constructor")
+            .0
     }
 }
 
@@ -89,7 +89,7 @@ unsafe impl<'v> Coerce<CommandLineArg<'v>> for FrozenCommandLineArg {}
 
 impl FrozenCommandLineArg {
     pub fn new(value: FrozenValue) -> anyhow::Result<FrozenCommandLineArg> {
-        value.to_value().as_command_line_err()?;
+        ValueAsCommandLineLike::unpack_value_err(value.to_value())?;
         Ok(FrozenCommandLineArg(value))
     }
 

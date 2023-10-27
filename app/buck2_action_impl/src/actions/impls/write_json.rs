@@ -53,6 +53,7 @@ use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
@@ -261,16 +262,17 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for WriteJsonCommandLineArgGen<V> 
         builder: &mut dyn CommandLineBuilder,
         context: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
-        self.artifact
-            .to_value()
-            .as_command_line_err()?
+        ValueAsCommandLineLike::unpack_value_err(self.artifact.to_value())?
+            .0
             .add_to_command_line(builder, context)
     }
 
     fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
         let artifact = self.artifact.to_value();
         let content = self.content.to_value();
-        artifact.as_command_line_err()?.visit_artifacts(visitor)?;
+        ValueAsCommandLineLike::unpack_value_err(artifact)?
+            .0
+            .visit_artifacts(visitor)?;
         json::visit_json_artifacts(content, visitor)
     }
 

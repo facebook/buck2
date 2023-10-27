@@ -133,8 +133,8 @@ fn unpack<'v>(value: Value<'v>) -> JsonUnpack<'v> {
         JsonUnpack::ConfiguredProvidersLabel(x)
     } else if let Some(x) = get_artifact(value) {
         JsonUnpack::Artifact(x)
-    } else if let Some(x) = value.as_command_line() {
-        JsonUnpack::CommandLine(x)
+    } else if let Some(x) = ValueAsCommandLineLike::unpack_value(value) {
+        JsonUnpack::CommandLine(x.0)
     } else if let Some(x) = value.as_provider() {
         JsonUnpack::Provider(x)
     } else if let Some(x) = TaggedValue::from_value(value) {
@@ -314,7 +314,9 @@ pub fn visit_json_artifacts(
             // The _x function requires that the artifact is already bound, but we may need to visit artifacts
             // before that happens. Treating it like an opaque command_line works as we want for any artifact
             // type.
-            v.as_command_line_err()?.visit_artifacts(visitor)?;
+            ValueAsCommandLineLike::unpack_value_err(v)?
+                .0
+                .visit_artifacts(visitor)?;
         }
         JsonUnpack::CommandLine(x) => x.visit_artifacts(visitor)?,
         JsonUnpack::Unsupported => {

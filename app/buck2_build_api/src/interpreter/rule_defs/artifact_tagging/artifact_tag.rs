@@ -28,6 +28,7 @@ use starlark::values::Freeze;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
@@ -118,7 +119,7 @@ fn artifact_tag_methods(_: &mut MethodsBuilder) {
     ) -> anyhow::Result<Either<TaggedValue<'v>, TaggedCommandLine<'v>>> {
         let value = TaggedValue::new(inner, this.dupe());
 
-        Ok(if inner.as_command_line().is_some() {
+        Ok(if ValueAsCommandLineLike::unpack_value(inner).is_some() {
             Either::Right(TaggedCommandLine::new(value))
         } else {
             Either::Left(value)
@@ -131,7 +132,7 @@ fn artifact_tag_methods(_: &mut MethodsBuilder) {
     ) -> anyhow::Result<Either<TaggedValue<'v>, TaggedCommandLine<'v>>> {
         let value = TaggedValue::inputs_only(inner, this.dupe());
 
-        Ok(if inner.as_command_line().is_some() {
+        Ok(if ValueAsCommandLineLike::unpack_value(inner).is_some() {
             Either::Right(TaggedCommandLine::new(value))
         } else {
             Either::Left(value)

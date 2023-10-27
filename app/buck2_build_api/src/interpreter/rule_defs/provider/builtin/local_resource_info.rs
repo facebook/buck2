@@ -160,7 +160,9 @@ impl FrozenLocalResourceInfo {
     }
 
     pub fn setup_command_line(&self) -> &dyn CommandLineArgLike {
-        self.setup.to_value().as_command_line().unwrap()
+        ValueAsCommandLineLike::unpack_value_err(self.setup.to_value())
+            .unwrap()
+            .0
     }
 
     pub fn setup_timeout(&self) -> Option<Duration> {

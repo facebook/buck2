@@ -24,6 +24,7 @@ use starlark::values::Freeze;
 use starlark::values::FrozenRef;
 use starlark::values::FrozenValue;
 use starlark::values::Trace;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use thiserror::Error;
 
@@ -150,13 +151,13 @@ fn verify_variables_type(field_key: &str, variables: Value) -> anyhow::Result<()
         .into()),
         Some(dict) => {
             for (key, value) in dict.iter() {
-                if value.as_command_line().is_some() {
+                if ValueAsCommandLineLike::unpack_value(value).is_some() {
                     continue;
                 }
 
                 if let Some(dict) = DictRef::from_value(value) {
                     for (inner_key, value) in dict.iter() {
-                        if value.as_command_line().is_none() {
+                        if ValueAsCommandLineLike::unpack_value(value).is_none() {
                             return Err(
                                 TemplatePlaceholderInfoError::InnerValueNotCommandLineLike {
                                     field_key: field_key.to_owned(),

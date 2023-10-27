@@ -73,10 +73,9 @@ fn worker_info_creator(globals: &mut GlobalsBuilder) {
 
 impl<'v, V: ValueLike<'v>> WorkerInfoGen<V> {
     pub fn exe_command_line(&self) -> &'v dyn CommandLineArgLike {
-        self.exe
-            .to_value()
-            .as_command_line()
+        ValueAsCommandLineLike::unpack_value_err(self.exe.to_value())
             .expect("validated at construction")
+            .0
     }
 
     pub fn concurrency(&self) -> Option<usize> {

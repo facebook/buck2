@@ -242,8 +242,8 @@ impl RunAction {
     fn unpack(
         values: &OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>,
     ) -> anyhow::Result<UnpackedRunActionValues> {
-        let exe = values.exe.to_value().as_command_line_err()?;
-        let args = values.args.to_value().as_command_line_err()?;
+        let exe = ValueAsCommandLineLike::unpack_value_err(values.exe.to_value())?.0;
+        let args = ValueAsCommandLineLike::unpack_value_err(values.args.to_value())?.0;
         let env = if values.env.is_none() {
             Vec::new()
         } else {
@@ -252,7 +252,7 @@ impl RunAction {
             for (k, v) in d.iter() {
                 res.push((
                     k.unpack_str().context("expecting string")?,
-                    v.as_command_line_err()?,
+                    ValueAsCommandLineLike::unpack_value_err(v)?.0,
                 ));
             }
             res

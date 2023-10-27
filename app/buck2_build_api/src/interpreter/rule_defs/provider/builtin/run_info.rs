@@ -18,6 +18,7 @@ use starlark::eval::Evaluator;
 use starlark::values::list::AllocList;
 use starlark::values::Freeze;
 use starlark::values::Trace;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
@@ -60,28 +61,25 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for RunInfoGen<V> {
         cli: &mut dyn CommandLineBuilder,
         context: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
-        self.args
-            .to_value()
-            .as_command_line()
+        ValueAsCommandLineLike::unpack_value_err(self.args.to_value())
             .expect("a command line from construction")
+            .0
             .add_to_command_line(cli, context)?;
         Ok(())
     }
 
     fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
-        self.args
-            .to_value()
-            .as_command_line()
+        ValueAsCommandLineLike::unpack_value_err(self.args.to_value())
             .expect("a command line from construction")
+            .0
             .visit_artifacts(visitor)?;
         Ok(())
     }
 
     fn contains_arg_attr(&self) -> bool {
-        self.args
-            .to_value()
-            .as_command_line()
+        ValueAsCommandLineLike::unpack_value_err(self.args.to_value())
             .expect("a command line from construction")
+            .0
             .contains_arg_attr()
     }
 

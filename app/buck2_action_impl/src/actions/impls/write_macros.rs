@@ -40,6 +40,7 @@ use dupe::Dupe;
 use indexmap::IndexSet;
 use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
+use starlark::values::UnpackValue;
 use thiserror::Error;
 
 #[derive(Allocative)]
@@ -97,7 +98,7 @@ impl WriteMacrosToFileAction {
             Err(anyhow::anyhow!(
                 WriteMacrosActionValidationError::NoOutputsSpecified
             ))
-        } else if contents.value().as_command_line().is_none() {
+        } else if ValueAsCommandLineLike::unpack_value(contents.value()).is_none() {
             Err(anyhow::anyhow!(
                 WriteMacrosActionValidationError::ContentsNotCommandLineValue(
                     contents.value().to_repr()
@@ -162,10 +163,8 @@ impl IncrementalActionExecutable for WriteMacrosToFileAction {
                 let mut output_contents = Vec::with_capacity(self.outputs.len());
                 let mut macro_writer = MacroToFileWriter::new(&fs, &mut output_contents);
 
-                self.contents
-                    .value()
-                    .as_command_line()
-                    .unwrap()
+                ValueAsCommandLineLike::unpack_value_err(self.contents.value())?
+                    .0
                     .visit_write_to_file_macros(&mut macro_writer)?;
 
                 if self.outputs.len() != output_contents.len() {

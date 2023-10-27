@@ -38,6 +38,7 @@ use indexmap::IndexMap;
 use indexmap::IndexSet;
 use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
+use starlark::values::UnpackValue;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -99,7 +100,7 @@ impl WriteAction {
             return Err(WriteActionValidationError::TooManyInputs.into());
         }
 
-        if contents.value().as_command_line().is_none() {
+        if ValueAsCommandLineLike::unpack_value(contents.value()).is_none() {
             return Err(WriteActionValidationError::ContentsNotCommandLineValue(
                 contents.value().to_repr(),
             )
@@ -131,10 +132,9 @@ impl WriteAction {
             &mut ctx as _
         };
 
-        self.contents
-            .value()
-            .as_command_line()
+        ValueAsCommandLineLike::unpack_value_err(self.contents.value())
             .unwrap()
+            .0
             .add_to_command_line(&mut cli, ctx)?;
 
         Ok(cli.join("\n"))

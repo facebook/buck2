@@ -369,8 +369,8 @@ impl<'v, V: ValueLike<'v>> ValueAsArtifactTraversable<'v> for V {
             return Some(Box::new(artifact.0));
         }
 
-        if let Some(cli) = self.to_value().as_command_line() {
-            return Some(Box::new(cli));
+        if let Some(cli) = ValueAsCommandLineLike::unpack_value(self.to_value()) {
+            return Some(Box::new(cli.0));
         }
 
         None

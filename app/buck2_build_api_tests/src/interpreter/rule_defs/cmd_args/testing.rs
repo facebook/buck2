@@ -19,6 +19,7 @@ use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_interpreter_for_build::interpreter::testing::cells;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 
 fn artifact_fs() -> ArtifactFs {
@@ -39,10 +40,10 @@ fn get_command_line(value: Value) -> anyhow::Result<Vec<String>> {
     let mut cli = Vec::<String>::new();
     let mut ctx = DefaultCommandLineContext::new(&executor_fs);
 
-    match value.as_command_line() {
-        Some(v) => v.add_to_command_line(&mut cli, &mut ctx),
-        None => value
-            .as_command_line_err()?
+    match ValueAsCommandLineLike::unpack_value(value) {
+        Some(v) => v.0.add_to_command_line(&mut cli, &mut ctx),
+        None => ValueAsCommandLineLike::unpack_value_err(value)?
+            .0
             .add_to_command_line(&mut cli, &mut ctx),
     }?;
     Ok(cli)
@@ -59,8 +60,8 @@ pub(crate) fn command_line_stringifier(builder: &mut GlobalsBuilder) {
         let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
         let mut cli = Vec::<String>::new();
         let mut ctx = DefaultCommandLineContext::new(&executor_fs);
-        value
-            .as_command_line_err()?
+        ValueAsCommandLineLike::unpack_value_err(value)?
+            .0
             .add_to_command_line(&mut cli, &mut ctx)?;
         assert_eq!(1, cli.len());
         Ok(cli.get(0).unwrap().clone())
