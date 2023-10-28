@@ -7,9 +7,8 @@
 
 load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS")
 load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version")
-load("@prelude//decls/android_rules.bzl", "AaptMode", "DuplicateResourceBehaviour")
+load("@prelude//decls/android_rules.bzl", "AaptMode", "DuplicateResourceBehaviour", "TargetCpuType")
 load("@prelude//decls/common.bzl", "buck")
-load("@prelude//decls/core_rules.bzl", "TargetCpuType")
 load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load("@prelude//genrule.bzl", "genrule_attributes")
 load(":android_aar.bzl", "android_aar_impl")
