@@ -30,6 +30,39 @@ from typing import Any, Dict, IO, List, NamedTuple, Optional, Tuple
 
 DEBUG = False
 
+NIX_ENV_VARS = [
+    "NIX_BINTOOLS",
+    "NIX_BINTOOLS_FOR_TARGET",
+    "NIX_CC",
+    "NIX_CC_FOR_TARGET",
+    "NIX_CFLAGS_COMPILE",
+    "NIX_CFLAGS_COMPILE_FOR_TARGET",
+    "NIX_COREFOUNDATION_RPATH",
+    "NIX_DONT_SET_RPATH",
+    "NIX_DONT_SET_RPATH_FOR_BUILD",
+    "NIX_ENFORCE_NO_NATIVE",
+    "NIX_HARDENING_ENABLE",
+    "NIX_IGNORE_LD_THROUGH_GCC",
+    "NIX_LDFLAGS",
+    "NIX_LDFLAGS_FOR_TARGET",
+    "NIX_NO_SELF_RPATH",
+]
+NIX_ENV_VAR_PREFIXES = [
+    "NIX_BINTOOLS_WRAPPER_TARGET_HOST_",
+    "NIX_BINTOOLS_WRAPPER_TARGET_TARGET_",
+    "NIX_CC_WRAPPER_TARGET_HOST_",
+    "NIX_CC_WRAPPER_TARGET_TARGET_",
+]
+
+
+def nix_env(env: Dict[str, str]):
+    env.update({k: os.environ[k] for k in NIX_ENV_VARS if k in os.environ})
+    for prefix in NIX_ENV_VAR_PREFIXES:
+        vars_starting_with = dict(
+            filter(lambda pair: pair[0].startswith(prefix),
+                   os.environ.items()))
+        env.update({k: v for k, v in vars_starting_with.items()})
+
 
 def eprint(*args: Any, **kwargs: Any) -> None:
     print(*args, end="\n", file=sys.stderr, flush=True, **kwargs)
@@ -259,6 +292,7 @@ async def main() -> int:
         ]
         if k in os.environ
     }
+    nix_env(env)
     if args.env:
         # Unescape previously escaped newlines.
         # Example: \\\\n\\n -> \\\n\n -> \\n\n
