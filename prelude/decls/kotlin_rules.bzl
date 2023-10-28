@@ -12,6 +12,7 @@
 
 load(":common.bzl", "AbiGenerationMode", "AnnotationProcessingTool", "LogLevel", "SourceAbiVerificationMode", "TestType", "UnusedDependenciesAction", "buck", "prelude_rule")
 load(":jvm_common.bzl", "jvm_common")
+load(":re_test_common.bzl", "re_test_common")
 
 kotlin_library = prelude_rule(
     name = "kotlin_library",
@@ -240,6 +241,7 @@ kotlin_test = prelude_rule(
         } |
         buck.run_test_separately_arg(run_test_separately_type = attrs.bool(default = False)) |
         buck.fork_mode() |
+        re_test_common.test_args() |
         buck.test_rule_timeout_ms() |
         {
             "std_out_log_level": attrs.option(attrs.one_of(attrs.enum(LogLevel), attrs.int()), default = None, doc = """
