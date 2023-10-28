@@ -207,6 +207,11 @@ xattr = "0.2.2"
 zip = "0.5"
 zstd = "0.13.0"
 
+# We pin these two indirect dependencies since they upgrade us to ring-0.17,
+# which we don't yet have a fixup for.
+sct = "=0.7.0"
+rustls-webpki = "=0.101.6"
+
 [patch.crates-io]
 # For https://github.com/jimblandy/perf-event/pull/29
 perf-event = { git = "https://github.com/krallin/perf-event.git", rev = "86224a9bc025d5d19f719542f27c8c629a08b167", version = "0.4" }
