@@ -11,6 +11,17 @@ native.constraint_value(
     visibility = ["PUBLIC"],
 )
 
+native.constraint_setting(
+    name = "maybe_merge_native_libraries",
+    visibility = ["PUBLIC"],
+)
+
+native.constraint_value(
+    name = "merge_native_libraries",
+    constraint_setting = ":maybe_merge_native_libraries",
+    visibility = ["PUBLIC"],
+)
+
 native.filegroup(
     name = "files",
     srcs = glob(

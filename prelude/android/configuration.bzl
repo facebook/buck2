@@ -32,6 +32,8 @@ _REFS = {
     "default_platform": "config//platform/android:x86_32-fbsource",
     "maybe_build_only_native_code": "prelude//android/constraints:maybe_build_only_native_code",
     "maybe_building_android_binary": "prelude//os:maybe_building_android_binary",
+    "maybe_merge_native_libraries": "config//features/android/constraints:maybe_merge_native_libraries",
+    "merge_native_libraries": "config//features/android/constraints:merge_native_libraries",
     "min_sdk_version": "prelude//android/constraints:min_sdk_version",
     "x86": "config//cpu/constraints:x86_32",
     "x86_64": "config//cpu/constraints:x86_64",
@@ -55,13 +57,17 @@ def _cpu_split_transition_impl(
         refs,
         cpu_filters,
         attrs.min_sdk_version,
+        attrs.native_library_merge_map,
+        attrs.native_library_merge_sequence,
     )
 
 def _cpu_split_transition(
         platform: PlatformInfo,
         refs: struct,
         cpu_filters: list[str],
-        min_sdk_version: [int, None]) -> dict[str, PlatformInfo]:
+        min_sdk_version: [int, None],
+        native_library_merge_map: [dict[str, list[str]], None],
+        native_library_merge_sequence: [list[tuple], None]) -> dict[str, PlatformInfo]:
     cpu = refs.cpu
     x86 = refs.x86[ConstraintValueInfo]
     x86_64 = refs.x86_64[ConstraintValueInfo]
@@ -95,6 +101,9 @@ def _cpu_split_transition(
 
     base_constraints[refs.maybe_building_android_binary[ConstraintSettingInfo].label] = refs.building_android_binary[ConstraintValueInfo]
 
+    if native_library_merge_map or native_library_merge_sequence:
+        base_constraints[refs.maybe_merge_native_libraries[ConstraintSettingInfo].label] = refs.merge_native_libraries[ConstraintValueInfo]
+
     if min_sdk_version:
         base_constraints[refs.min_sdk_version[ConstraintSettingInfo].label] = _get_min_sdk_constraint_value(min_sdk_version, refs)
 
@@ -127,6 +136,8 @@ cpu_split_transition = transition(
     attrs = [
         "cpu_filters",
         "min_sdk_version",
+        "native_library_merge_map",
+        "native_library_merge_sequence",
         "_is_force_single_cpu",
         "_is_force_single_default_cpu",
     ],
@@ -146,6 +157,8 @@ cpu_transition = transition(
     attrs = [
         "cpu_filters",
         "min_sdk_version",
+        "native_library_merge_map",
+        "native_library_merge_sequence",
         "_is_force_single_cpu",
         "_is_force_single_default_cpu",
     ],
