@@ -5,15 +5,13 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//debugging/common.bzl", "create_target_info", "target_name")
 load("@prelude//debugging/ensure_dwp.bzl", "ensure_dwp")
 load("@prelude//debugging/types.bzl", "ExecInfo", "ScriptSettings")
 
 # "inspect_default" is reused across "fdb.bxl" to provide a fallback default information
 # in case special handling for the rule type isn't implemented yet
-def inspect_default(ctx: bxl.Context, _actions: AnalysisActions, target: "target_node", settings: ScriptSettings) -> ExecInfo:
+def inspect_default(ctx: bxl.Context, _actions: AnalysisActions, target: bxl.ConfiguredTargetNode, settings: ScriptSettings) -> ExecInfo:
     ensure_dwp(ctx, target)
 
     return ExecInfo(
