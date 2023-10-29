@@ -227,6 +227,17 @@ mod fbcode {
                                 break;
                             }
                         }
+
+                        const MAX_ERROR_REPORT_BYTS: usize = 512 * 1024;
+                        let max_per_report =
+                            MAX_ERROR_REPORT_BYTS / invocation_record.errors.len().max(1);
+                        for error in &mut invocation_record.errors {
+                            error.message = truncate(&error.message, max_per_report / 2);
+                            if let Some(telemetry_message) = &mut error.telemetry_message {
+                                *telemetry_message =
+                                    truncate(telemetry_message, max_per_report / 2);
+                            }
+                        }
                     }
                 }
                 _ => {}
@@ -799,6 +810,43 @@ mod fbcode {
             ThriftScribeSink::smart_truncate_event(&mut event_data);
 
             assert_eq!(event_data, event_data_expected);
+        }
+
+        #[test]
+        fn smart_truncate_invocation_record_error_reports_truncated() {
+            let errors = vec![
+                buck2_data::ProcessedErrorReport {
+                    message: "0123456789".repeat(200 * 1024),
+                    telemetry_message: None,
+                    ..Default::default()
+                },
+                buck2_data::ProcessedErrorReport {
+                    message: "0123456789".repeat(200 * 1024),
+                    telemetry_message: Some("0123456789".repeat(200 * 1024)),
+                    ..Default::default()
+                },
+            ];
+
+            let mut event_data = make_invocation_record(buck2_data::InvocationRecord {
+                errors,
+                ..Default::default()
+            });
+            ThriftScribeSink::smart_truncate_event(&mut event_data);
+
+            let buck2_data::buck_event::Data::Record(record_event) = event_data else {
+                unreachable!()
+            };
+            let Some(buck2_data::record_event::Data::InvocationRecord(invocation_record)) =
+                record_event.data
+            else {
+                unreachable!()
+            };
+            let size = invocation_record
+                .errors
+                .into_iter()
+                .map(|e| e.message.len() + e.telemetry_message.map_or(0, |s| s.len()))
+                .sum::<usize>();
+            assert!(size < 500 * 1024);
         }
 
         #[test]
