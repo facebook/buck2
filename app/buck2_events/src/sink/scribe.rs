@@ -193,6 +193,7 @@ mod fbcode {
                         ref mut invocation_record,
                     )) = rec.data
                     {
+                        // FIXME(JakobDegen): The sum of the per-field limits adds up to more than the 1MB scribe limits
                         if let Some(ref mut file_watcher_stats) =
                             invocation_record.file_watcher_stats
                         {
