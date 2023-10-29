@@ -338,7 +338,7 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
         c_compiler_info = CCompilerInfo(
             compiler = RunInfo(args = cmd_args(zig_cc)),
             compiler_type = "clang",
-            compiler_flags = cmd_args(target, *ctx.attrs.c_compiler_flags),
+            compiler_flags = cmd_args(target, ctx.attrs.c_compiler_flags),
             #preprocessor = None,
             #preprocessor_type = None,
             preprocessor_flags = cmd_args(ctx.attrs.c_preprocessor_flags),
@@ -347,7 +347,7 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
         cxx_compiler_info = CxxCompilerInfo(
             compiler = RunInfo(args = cmd_args(zig_cxx)),
             compiler_type = "clang",
-            compiler_flags = cmd_args(target, *ctx.attrs.cxx_compiler_flags),
+            compiler_flags = cmd_args(target, ctx.attrs.cxx_compiler_flags),
             #preprocessor = None,
             #preprocessor_type = None,
             preprocessor_flags = cmd_args(ctx.attrs.cxx_preprocessor_flags),
@@ -367,7 +367,7 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             link_weight = 1,
             #link_ordering = None,
             linker = RunInfo(args = cmd_args(zig_cxx)),
-            linker_flags = cmd_args(target, *ctx.attrs.linker_flags),
+            linker_flags = cmd_args(target, ctx.attrs.linker_flags),
             #lto_mode = None,  # TODO support LTO
             object_file_extension = "o",
             #mk_shlib_intf = None,  # not needed if shlib_interfaces = "disabled"
