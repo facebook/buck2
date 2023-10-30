@@ -54,8 +54,7 @@ load(
     "AppleBundleInfo",
     "AppleBundleLinkerMapInfo",
     "AppleBundleResourceInfo",
-    "AppleBundleType",  # @unused Used as a type
-    "AppleBundleTypeAppClip",
+    "AppleBundleType",
     "AppleBundleTypeDefault",
     "AppleBundleTypeWatchApp",
 )
@@ -294,14 +293,14 @@ def get_apple_bundle_part_list(ctx: AnalysisContext, params: AppleBundlePartList
 
 def _infer_apple_bundle_type(ctx: AnalysisContext) -> AppleBundleType:
     is_watchos = get_is_watch_bundle(ctx)
-    is_appclip = ctx.attrs.is_appclip
-    if is_watchos and is_appclip:
-        fail("Bundle cannot be both watchOS app and App Clip, target: {}".format(ctx.label))
+    if is_watchos and ctx.attrs.bundle_type:
+        fail("Cannot have a watchOS app with an explicit `bundle_type`, target: {}".format(ctx.label))
 
     if is_watchos:
         return AppleBundleTypeWatchApp
-    if is_appclip:
-        return AppleBundleTypeAppClip
+    if ctx.attrs.bundle_type != None:
+        return AppleBundleType(ctx.attrs.bundle_type)
+
     return AppleBundleTypeDefault
 
 def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:

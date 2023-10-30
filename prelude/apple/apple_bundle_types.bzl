@@ -70,3 +70,8 @@ AppleBundleBinaryOutput = record(
 AppleBundleTypeDefault = AppleBundleType("default")
 AppleBundleTypeWatchApp = AppleBundleType("watchapp")
 AppleBundleTypeAppClip = AppleBundleType("appclip")
+
+# Represents the user-visible type which is distinct from the internal one (`AppleBundleType`)
+AppleBundleTypeAttributeType = enum(
+    "appclip",
+)
