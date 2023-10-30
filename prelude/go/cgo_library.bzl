@@ -224,6 +224,7 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
         pkg_name: GoPkg(
             shared = shared_pkg,
             static = static_pkg,
+            cgo = True,
         ),
     }
 

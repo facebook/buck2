@@ -57,6 +57,14 @@ def _build_mode_param(mode: GoBuildMode) -> str:
 def get_inherited_link_pkgs(deps: list[Dependency]) -> dict[str, GoPkg]:
     return merge_pkgs([d[GoPkgLinkInfo].pkgs for d in deps if GoPkgLinkInfo in d])
 
+def is_any_dep_cgo(deps: list[Dependency]) -> bool:
+    for d in deps:
+        if GoPkgLinkInfo in d:
+            for pkg in d[GoPkgLinkInfo].pkgs.values():
+                if pkg.cgo:
+                    return True
+    return False
+
 # TODO(cjhopman): Is link_style a LibOutputStyle or a LinkStrategy here? Based on returning an empty thing for link_style != shared,
 # it seems likely its intended to be LibOutputStyle, but it's called in places that are passing what appears to be a LinkStrategy.
 def _process_shared_dependencies(ctx: AnalysisContext, artifact: Artifact, deps: list[Dependency], link_style: LinkStyle):
@@ -139,7 +147,11 @@ def link(
     runtime_files, extra_link_args = _process_shared_dependencies(ctx, output, deps, link_style)
 
     if link_mode == None:
-        if go_toolchain.cxx_toolchain_for_linking != None:
+        if build_mode == GoBuildMode("c_shared"):
+            link_mode = "external"
+        elif shared:
+            link_mode = "external"
+        elif is_any_dep_cgo(deps):
             link_mode = "external"
         else:
             link_mode = "internal"
