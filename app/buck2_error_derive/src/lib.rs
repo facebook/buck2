@@ -8,16 +8,148 @@
  */
 
 #![feature(proc_macro_def_site)]
+#![feature(extract_if)]
+#![feature(iterator_try_collect)]
 
 use proc_macro::TokenStream;
+use syn::parse::Parse;
+use syn::parse::ParseStream;
+use syn::parse::Parser;
 use syn::parse_macro_input;
 use syn::parse_quote;
+use syn::punctuated::Punctuated;
+use syn::Token;
+
+enum MacroOption {
+    User(syn::Ident),
+    Infra(syn::Ident),
+}
+
+impl Parse for MacroOption {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let name: syn::Ident = input.parse()?;
+        if name == "user" {
+            Ok(MacroOption::User(name))
+        } else if name == "infra" {
+            Ok(MacroOption::Infra(name))
+        } else {
+            Err(syn::Error::new_spanned(name, "expected option"))
+        }
+    }
+}
+
+struct ParsedOptions {
+    category: Option<syn::Ident>,
+}
+
+fn parse_attributes(
+    attrs: &mut Vec<syn::Attribute>,
+    always_fail: Option<&str>,
+) -> syn::Result<ParsedOptions> {
+    let mut all_options = Vec::new();
+
+    for attr in attrs.extract_if(|attr| attr.meta.path().get_ident().is_some_and(|i| i == "buck2"))
+    {
+        if let Some(message) = always_fail {
+            return Err(syn::Error::new_spanned(attr, message));
+        }
+        let meta = attr.meta.require_list()?;
+        let parsed =
+            Punctuated::<MacroOption, Token![,]>::parse_terminated.parse2(meta.tokens.clone())?;
+        all_options.extend(parsed);
+    }
+
+    let mut parsed_options = ParsedOptions { category: None };
+
+    for option in all_options {
+        match option {
+            MacroOption::User(ident) => {
+                if parsed_options.category.is_some() {
+                    return Err(syn::Error::new_spanned(ident, "duplicate category"));
+                }
+                parsed_options.category = Some(syn::Ident::new("User", ident.span()));
+            }
+            MacroOption::Infra(ident) => {
+                if parsed_options.category.is_some() {
+                    return Err(syn::Error::new_spanned(ident, "duplicate category"));
+                }
+                parsed_options.category = Some(syn::Ident::new("Infra", ident.span()));
+            }
+        }
+    }
+
+    Ok(parsed_options)
+}
+
+fn render_options(options: ParsedOptions, krate: &syn::Path) -> proc_macro2::TokenStream {
+    let category = options.category.map(|cat| {
+        quote::quote! {
+            category = ::core::option::Option::Some(#krate::Category::#cat);
+        }
+    });
+
+    quote::quote! {
+        #category
+    }
+}
+
+fn fields_as_pat(fields: &syn::Fields) -> proc_macro2::TokenStream {
+    match fields {
+        syn::Fields::Named(_) => quote::quote! {
+            { .. }
+        },
+        syn::Fields::Unnamed(_) => quote::quote! {
+            (..)
+        },
+        syn::Fields::Unit => quote::quote! {},
+    }
+}
 
 /// Generates appropriate assignments to `category` and `typ` for the value in `val`.
 ///
 /// Also, removes any attributes specific to this macro from the input.
-fn generate_option_assignments(_input: &mut syn::DeriveInput) -> proc_macro2::TokenStream {
-    proc_macro2::TokenStream::new()
+fn generate_option_assignments(
+    input: &mut syn::DeriveInput,
+    krate: &syn::Path,
+) -> syn::Result<proc_macro2::TokenStream> {
+    let name = input.ident.clone();
+    match &mut input.data {
+        syn::Data::Struct(data) => {
+            for field in &mut data.fields {
+                parse_attributes(
+                    &mut field.attrs,
+                    Some("Attribute must be on the type, not a field"),
+                )?;
+            }
+            let options = parse_attributes(&mut input.attrs, None)?;
+            Ok(render_options(options, krate))
+        }
+        syn::Data::Enum(data) => {
+            let variants = data
+                .variants
+                .iter_mut()
+                .map(|variant| {
+                    let options = parse_attributes(&mut variant.attrs, None)?;
+                    let rendered_options = render_options(options, krate);
+                    let fields_as_pat = fields_as_pat(&variant.fields);
+                    let variant_name = &variant.ident;
+                    Ok::<_, syn::Error>(quote::quote! {
+                        #name::#variant_name #fields_as_pat => { #rendered_options },
+                    })
+                })
+                .try_collect::<Vec<_>>()?;
+
+            parse_attributes(
+                &mut input.attrs,
+                Some("Attribute must be on the variant, not the type"),
+            )?;
+
+            Ok(quote::quote! {
+                match val { #(#variants)* };
+            })
+        }
+        syn::Data::Union(_) => Err(syn::Error::new_spanned(input, "Unions are not supported")),
+    }
 }
 
 fn derive_error_impl(input: TokenStream, krate: syn::Path) -> TokenStream {
@@ -26,7 +158,10 @@ fn derive_error_impl(input: TokenStream, krate: syn::Path) -> TokenStream {
     // For now, this is more or less just a stub that forwards to `thiserror`. It doesn't yet do
     // anything interesting.
     let mut input = parse_macro_input!(input as syn::DeriveInput);
-    let option_assignments = generate_option_assignments(&mut input);
+    let option_assignments = match generate_option_assignments(&mut input, &krate) {
+        Ok(x) => x,
+        Err(e) => return e.into_compile_error().into(),
+    };
     let (impl_generics, type_generics, where_clauses) = input.generics.split_for_impl();
 
     // In order to make this macro work, we have to do a number of cursed things with reexports. As
@@ -122,12 +257,12 @@ fn derive_error_impl(input: TokenStream, krate: syn::Path) -> TokenStream {
     .into()
 }
 
-#[proc_macro_derive(ErrorForReexport, attributes(backtrace, error, from, source))]
+#[proc_macro_derive(ErrorForReexport, attributes(backtrace, error, from, source, buck2))]
 pub fn derive_error_for_reexport(input: TokenStream) -> TokenStream {
     derive_error_impl(input, parse_quote! { ::buck2_error })
 }
 
-#[proc_macro_derive(Error, attributes(backtrace, error, from, source))]
+#[proc_macro_derive(Error, attributes(backtrace, error, from, source, buck2))]
 pub fn derive_error(input: TokenStream) -> TokenStream {
     derive_error_impl(input, parse_quote! { crate })
 }
