@@ -14,7 +14,7 @@ GoPkg = record(
     shared = field(Artifact),
     # Built w/o `-shared`.
     static = field(Artifact),
-    cgo = field(bool, default = True),
+    cgo = field(bool, default = False),
 )
 
 def go_attr_pkg_name(ctx: AnalysisContext) -> str:
