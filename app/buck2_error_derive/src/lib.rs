@@ -23,6 +23,7 @@ use syn::Token;
 enum MacroOption {
     User(syn::Ident),
     Infra(syn::Ident),
+    Typ(syn::Ident),
 }
 
 impl Parse for MacroOption {
@@ -32,6 +33,10 @@ impl Parse for MacroOption {
             Ok(MacroOption::User(name))
         } else if name == "infra" {
             Ok(MacroOption::Infra(name))
+        } else if name == "typ" {
+            let _eq: Token![=] = input.parse()?;
+            let typ: syn::Ident = input.parse()?;
+            Ok(MacroOption::Typ(typ))
         } else {
             Err(syn::Error::new_spanned(name, "expected option"))
         }
@@ -40,6 +45,7 @@ impl Parse for MacroOption {
 
 struct ParsedOptions {
     category: Option<syn::Ident>,
+    typ: Option<syn::Ident>,
 }
 
 fn parse_attributes(
@@ -59,7 +65,10 @@ fn parse_attributes(
         all_options.extend(parsed);
     }
 
-    let mut parsed_options = ParsedOptions { category: None };
+    let mut parsed_options = ParsedOptions {
+        category: None,
+        typ: None,
+    };
 
     for option in all_options {
         match option {
@@ -75,6 +84,12 @@ fn parse_attributes(
                 }
                 parsed_options.category = Some(syn::Ident::new("Infra", ident.span()));
             }
+            MacroOption::Typ(ident) => {
+                if parsed_options.typ.is_some() {
+                    return Err(syn::Error::new_spanned(ident, "duplicate error type"));
+                }
+                parsed_options.typ = Some(ident);
+            }
         }
     }
 
@@ -87,9 +102,15 @@ fn render_options(options: ParsedOptions, krate: &syn::Path) -> proc_macro2::Tok
             category = ::core::option::Option::Some(#krate::Category::#cat);
         }
     });
+    let typ = options.typ.map(|typ| {
+        quote::quote! {
+            typ = ::core::option::Option::Some(#krate::ErrorType::#typ);
+        }
+    });
 
     quote::quote! {
         #category
+        #typ
     }
 }
 

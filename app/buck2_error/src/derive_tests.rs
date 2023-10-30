@@ -26,7 +26,7 @@ fn test_derive_error1() {
 
 #[derive(buck2_error_derive::Error, Debug)]
 #[error("foo")]
-#[buck2(infra)]
+#[buck2(infra, typ = ActionCommandFailure)]
 #[allow(unused)]
 struct Error2((), ());
 
@@ -34,12 +34,17 @@ struct Error2((), ());
 fn test_derive_error2() {
     let e: crate::Error = Error2((), ()).into();
     assert_eq!(e.get_category(), Some(crate::Category::Infra));
+    assert_eq!(
+        e.get_error_type(),
+        Some(crate::ErrorType::ActionCommandFailure)
+    );
 }
 
 #[derive(buck2_error_derive::Error, Debug)]
 enum Error3 {
     #[error("foo")]
     #[buck2(user)]
+    #[buck2(typ = DaemonIsBusy)]
     VariantA,
     #[error("bar")]
     #[buck2(infra)]
@@ -52,10 +57,13 @@ enum Error3 {
 fn test_derive_error3() {
     let e: crate::Error = Error3::VariantA.into();
     assert_eq!(e.get_category(), Some(crate::Category::User));
+    assert_eq!(e.get_error_type(), Some(crate::ErrorType::DaemonIsBusy));
 
     let e: crate::Error = Error3::VariantB.into();
     assert_eq!(e.get_category(), Some(crate::Category::Infra));
+    assert_eq!(e.get_error_type(), None);
 
     let e: crate::Error = Error3::VariantC.into();
     assert_eq!(e.get_category(), None);
+    assert_eq!(e.get_error_type(), None);
 }
