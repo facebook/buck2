@@ -48,10 +48,6 @@ pub struct ExitResult {
 enum ExitResultVariant {
     /// We finished successfully, return the specific exit code.
     Status(ExitCode),
-    /// The command failed and it doesn't have a specific exit code yet. This may be updated by
-    /// `ErrorObserver::error_cause` if more accurate categorization is available after the
-    /// command ends. If no categorization succeeded, it will return exit code 1.
-    UncategorizedError,
     /// Instead of terminating normally, `exec` (or spawn on Windows)
     /// a new process with the given name and argv.
     /// This is used to implement `buck2 run`.
@@ -79,10 +75,7 @@ impl ExitResult {
             Self::status(ExitCode::Explicit(code))
         } else {
             // The exit code isn't an allowable value, so just switch to generic failure
-            Self {
-                variant: ExitResultVariant::UncategorizedError,
-                stdout: Vec::new(),
-            }
+            Self::status(ExitCode::UnknownFailure)
         }
     }
 
@@ -217,7 +210,6 @@ impl ExitResultVariant {
         // ensures we get the desired exit code printed instead of potentially a panic.
         let mut exit_code = match self {
             Self::Status(v) => v,
-            Self::UncategorizedError => ExitCode::UnknownFailure,
             Self::Buck2RunExec(args) => {
                 // Terminate by exec-ing a new process - usually because of `buck2 run`.
                 //
