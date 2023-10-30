@@ -19,7 +19,7 @@ use std::sync::atomic::Ordering;
 
 use superconsole::Line;
 
-use crate::exit_result::UserIoError;
+use crate::exit_result::ClientIoError;
 
 static HAS_WRITTEN_TO_STDOUT: AtomicBool = AtomicBool::new(false);
 
@@ -82,21 +82,21 @@ pub fn _print(fmt: Arguments) -> anyhow::Result<()> {
     stdout()
         .lock()
         .write_fmt(fmt)
-        .map_err(|e| UserIoError(e).into())
+        .map_err(|e| ClientIoError(e).into())
 }
 
 pub fn _eprint(fmt: Arguments) -> anyhow::Result<()> {
     io::stderr()
         .lock()
         .write_fmt(fmt)
-        .map_err(|e| UserIoError(e).into())
+        .map_err(|e| ClientIoError(e).into())
 }
 
 pub fn print_bytes(bytes: &[u8]) -> anyhow::Result<()> {
     stdout()
         .lock()
         .write_all(bytes)
-        .map_err(|e| UserIoError(e).into())
+        .map_err(|e| ClientIoError(e).into())
 }
 
 pub fn eprint_line(line: &Line) -> anyhow::Result<()> {
@@ -105,7 +105,7 @@ pub fn eprint_line(line: &Line) -> anyhow::Result<()> {
 }
 
 pub fn flush() -> anyhow::Result<()> {
-    stdout().flush().map_err(|e| UserIoError(e).into())
+    stdout().flush().map_err(|e| ClientIoError(e).into())
 }
 
 pub fn print_with_writer<E, F>(f: F) -> anyhow::Result<()>
@@ -118,7 +118,7 @@ where
         Err(e) => {
             let e: anyhow::Error = e.into();
             match e.downcast::<io::Error>() {
-                Ok(io_error) => Err(UserIoError(io_error).into()),
+                Ok(io_error) => Err(ClientIoError(io_error).into()),
                 Err(e) => Err(e),
             }
         }

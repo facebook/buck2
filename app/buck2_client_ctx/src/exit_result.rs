@@ -101,7 +101,7 @@ impl ExitResult {
     }
 
     pub fn err(err: anyhow::Error) -> Self {
-        let exit_code = if let Some(io_error) = err.downcast_ref::<UserIoError>() && io_error.0.kind() == io::ErrorKind::BrokenPipe {
+        let exit_code = if let Some(io_error) = err.downcast_ref::<ClientIoError>() && io_error.0.kind() == io::ErrorKind::BrokenPipe {
             ExitCode::BrokenPipe
         } else {
             ExitCode::UnknownFailure
@@ -242,13 +242,13 @@ impl ExitResultVariant {
     }
 }
 
-/// A wrapper around an `io::Error` which indicates that the error came from "user IO".
+/// A wrapper around an `io::Error` which indicates that the error came from "client IO".
 ///
 /// We use this to inform the exit code generation
 #[derive(thiserror::Error, derivative::Derivative)]
 #[derivative(Debug = "transparent")]
 #[error(transparent)]
-pub struct UserIoError(pub io::Error);
+pub struct ClientIoError(pub io::Error);
 
 #[derive(thiserror::Error, Debug)]
 #[error("Ctrl-c was pressed")]
