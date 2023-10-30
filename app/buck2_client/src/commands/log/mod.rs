@@ -15,6 +15,7 @@ pub(crate) mod path_log;
 mod replay;
 mod show_log;
 mod show_user_log;
+mod summary;
 mod what_cmd;
 mod what_failed;
 mod what_materialized;
@@ -62,6 +63,7 @@ pub enum LogCommand {
     CriticalPath(critical_path::CriticalPathCommand),
     Replay(replay::ReplayCommand),
     ShowUser(show_user_log::ShowUserLogCommand),
+    Summary(summary::SummaryCommand),
 }
 
 impl LogCommand {
@@ -78,6 +80,7 @@ impl LogCommand {
             Self::CriticalPath(cmd) => cmd.exec(matches, ctx),
             Self::Replay(cmd) => cmd.exec(matches, ctx),
             Self::ShowUser(cmd) => cmd.exec(matches, ctx),
+            Self::Summary(cmd) => cmd.exec(matches, ctx),
         }
     }
 
