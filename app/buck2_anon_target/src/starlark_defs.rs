@@ -254,26 +254,25 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
     /// For more details see https://buck2.build/docs/rule_authors/anon_targets/
     fn anon_target<'v>(
         this: &AnalysisActions<'v>,
+        // TODO(nga): this should be either positional or named, not both.
         rule: ValueTyped<'v, FrozenRuleCallable>,
         attrs: DictOf<'v, &'v str, Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<StarlarkAnonTarget<'v>> {
         let res = eval.heap().alloc_typed(StarlarkPromise::new_unresolved());
         let mut this = this.state();
         let registry = AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?;
         let key = registry.anon_target_key(rule, attrs)?;
         registry.register_one(res, key.clone())?;
 
-        let anon_target = StarlarkAnonTarget::new(
+        StarlarkAnonTarget::new(
             eval.call_stack_top_location(),
             res,
             rule.artifact_promise_mappings(),
             key,
             registry,
             eval,
-        )?;
-
-        Ok(eval.heap().alloc(anon_target))
+        )
     }
 
     /// Generate a series of anonymous targets.
@@ -285,7 +284,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
             DictOf<'v, &'v str, Value<'v>>,
         )>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<StarlarkAnonTargets<'v>> {
         let mut this = this.state();
         let registry = AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?;
         let declaration_location = eval.call_stack_top_location();
@@ -313,13 +312,11 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
             anyhow::Ok(key)
         })?;
 
-        let anon_targets = StarlarkAnonTargets {
+        Ok(StarlarkAnonTargets {
             promise: StarlarkPromise::join(promises_to_join, eval.heap()),
             anon_targets,
             declaration_location,
-        };
-
-        Ok(eval.heap().alloc(anon_targets))
+        })
     }
 
     /// Generate a promise artifact that has short path accessible on it. The short path's correctness will
@@ -329,6 +326,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
     /// we cannot support this until we can get access to the `AnalysisContext` without passing it into this method.
     fn assert_short_path<'v>(
         this: &AnalysisActions<'v>,
+        // TODO(nga): this should be either positional or named, not both.
         artifact: ValueTyped<'v, StarlarkPromiseArtifact>,
         short_path: &'v str,
     ) -> anyhow::Result<StarlarkPromiseArtifact> {
