@@ -87,6 +87,7 @@ use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::starlark_value;
 use starlark::values::structs::AllocStruct;
+use starlark::values::structs::StructRef;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -151,7 +152,7 @@ struct NotATargetLabelString;
 pub(crate) struct RootBxlContextData<'v> {
     output_stream: ValueTyped<'v, OutputStream<'v>>,
     error_stream: ValueTyped<'v, OutputStream<'v>>,
-    cli_args: Value<'v>,
+    cli_args: ValueOfUnchecked<'v, StructRef<'v>>,
     /// Use a RefCell/Option so when we are done with it, without obtaining exclusive access,
     /// we can take the internal state without having to clone it.
     #[derivative(Debug = "ignore")]
@@ -240,7 +241,7 @@ impl<'v> BxlContext<'v> {
     pub(crate) fn new(
         heap: &'v Heap,
         current_bxl: BxlKey,
-        cli_args: Value<'v>,
+        cli_args: ValueOfUnchecked<'v, StructRef<'v>>,
         target_alias_resolver: BuckConfigTargetAliasResolver,
         project_fs: ProjectRoot,
         artifact_fs: ArtifactFs,
@@ -1221,7 +1222,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
     ///
     /// This attribute is not available on the bxl context within the a dynamic lambda.
     #[starlark(attribute)]
-    fn cli_args<'v>(this: &BxlContext<'v>) -> anyhow::Result<Value<'v>> {
+    fn cli_args<'v>(this: &BxlContext<'v>) -> anyhow::Result<ValueOfUnchecked<'v, StructRef<'v>>> {
         let cli_args = this
             .data
             .context_type

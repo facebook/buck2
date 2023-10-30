@@ -53,8 +53,11 @@ use more_futures::cancellable_future::CancellationObserver;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::structs::AllocStruct;
+use starlark::values::structs::StructRef;
 use starlark::values::OwnedFrozenValueTyped;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark_map::ordered_map::OrderedMap;
 use thiserror::Error;
@@ -165,11 +168,13 @@ pub(crate) async fn eval(
                         move |provider, ctx| {
                             let env = Module::new();
 
-                            let resolved_args = env.heap().alloc(AllocStruct(
-                                key.cli_args()
-                                    .iter()
-                                    .map(|(k, v)| (k, v.as_starlark(env.heap()))),
-                            ));
+                            let resolved_args = ValueOfUnchecked::<StructRef>::unpack_value_err(
+                                env.heap().alloc(AllocStruct(
+                                    key.cli_args()
+                                        .iter()
+                                        .map(|(k, v)| (k, v.as_starlark(env.heap()))),
+                                )),
+                            )?;
 
                             let mut eval = provider.make(&env)?;
                             let bxl_function_name = key.label().name.clone();
