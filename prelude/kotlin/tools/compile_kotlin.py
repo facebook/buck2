@@ -267,7 +267,7 @@ def _encode_kapt_ap_options(
         )
         if kapt_annotation_processor_params:
             for param in kapt_annotation_processor_params.split(";"):
-                file.write(os.linesep)
+                file.write("\n")
                 file.write(param)
 
     encoded_ap_options_file = os.path.join(temp_dir, "encoded_ap_options.txt")
@@ -283,7 +283,7 @@ def _encode_javac_arguments(
 ) -> str:
     javac_arguments_file = os.path.join(temp_dir, "javac_arguments.txt")
     with open(javac_arguments_file, "w") as file:
-        file.write("-source={}{}-target={}".format(jvm_target, os.linesep, jvm_target))
+        file.write("-source={}\n-target={}".format(jvm_target, jvm_target))
 
     encoded_javac_arguments_file = os.path.join(temp_dir, "encoded_javac_arguments.txt")
     return _encode_options(
