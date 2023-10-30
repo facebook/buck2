@@ -330,7 +330,7 @@ def _get_kapt_cmd(
             "=".join([_AP_CLASSPATH_ARG, line.strip()]) for line in file.readlines()
         ]
 
-    kapt_base64_encoder_cmd = shlex.split(kapt_base64_encoder)
+    kapt_base64_encoder_cmd = utils.shlex_split(kapt_base64_encoder)
     kapt_plugin_options += [
         "=".join([_SOURCES_ARG, str(kapt_sources_output)]),
         "=".join([_CLASSES_ARG, str(kapt_classes_output)]),
@@ -554,7 +554,9 @@ def main():
         utils.execute_command(
             ["zip", "-r", ksp_zipped_sources_output, ksp_sources_output]
         )
-        utils.execute_command(shlex.split(zip_scrubber) + [ksp_zipped_sources_output])
+        utils.execute_command(
+            utils.shlex_split(zip_scrubber) + [ksp_zipped_sources_output]
+        )
 
     if ksp_classes_and_resources_output:
         if not ksp_classes_and_resources_output.exists():
@@ -568,7 +570,7 @@ def main():
                 ["zip", "-r", kapt_generated_sources_output, kapt_sources_output]
             )
             utils.execute_command(
-                shlex.split(zip_scrubber) + [kapt_generated_sources_output]
+                utils.shlex_split(zip_scrubber) + [kapt_generated_sources_output]
             )
 
     if kapt_classes_output:
