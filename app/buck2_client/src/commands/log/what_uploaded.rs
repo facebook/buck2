@@ -34,56 +34,53 @@ pub struct WhatUploadedCommand {
     pub output: LogCommandOutputFormat,
 }
 
-fn print_uploads(
-    format: &LogCommandOutputFormat,
-    upload: ReUploadEvent,
+#[derive(serde::Serialize)]
+struct Record {
+    action: String,
+    digests_uploaded: u64,
+    bytes_uploaded: u64,
+}
+
+fn get_record(
     state: &HashMap<u64, buck2_data::ActionExecutionStart>,
-    total_digests: &mut u64,
-    total_bytes: &mut u64,
-) -> anyhow::Result<()> {
+    upload: &ReUploadEvent,
+) -> Record {
     let digests_uploaded = upload.inner.digests_uploaded.unwrap_or_default();
     let bytes_uploaded = upload.inner.bytes_uploaded.unwrap_or_default();
-    *total_digests += digests_uploaded;
-    *total_bytes += bytes_uploaded;
-
+    let unknown = "unknown action".to_owned();
     let action_str = if let Some(action) = state.get(&upload.parent_span_id) {
         display::display_action_identity(
             action.key.as_ref(),
             action.name.as_ref(),
             TargetDisplayOptions::for_log(),
-        )?
+        )
+        .unwrap_or(unknown)
     } else {
-        "unknown action".to_owned()
+        unknown
     };
-
-    #[derive(serde::Serialize)]
-    struct Record<'a> {
-        action: &'a str,
-        digests_uploaded: u64,
-        bytes_uploaded: u64,
+    Record {
+        action: action_str,
+        digests_uploaded,
+        bytes_uploaded,
     }
+}
 
+fn print_uploads(format: &LogCommandOutputFormat, record: &Record) -> anyhow::Result<()> {
     match format {
         LogCommandOutputFormat::Tabulated => {
-            buck2_client_ctx::println!("{}\t{}\t{}", action_str, digests_uploaded, bytes_uploaded)
+            buck2_client_ctx::println!(
+                "{}\t{}\t{}",
+                record.action,
+                record.digests_uploaded,
+                record.bytes_uploaded
+            )
         }
         LogCommandOutputFormat::Csv => buck2_client_ctx::stdio::print_with_writer(|w| {
             let mut writer = csv::WriterBuilder::new().has_headers(false).from_writer(w);
-            writer.serialize(Record {
-                action: &action_str,
-                digests_uploaded,
-                bytes_uploaded,
-            })
+            writer.serialize(record)
         }),
         LogCommandOutputFormat::Json => {
-            buck2_client_ctx::stdio::print_with_writer(|w| {
-                let record = Record {
-                    action: &action_str,
-                    digests_uploaded,
-                    bytes_uploaded,
-                };
-                serde_json::to_writer(w, &record)
-            })?;
+            buck2_client_ctx::stdio::print_with_writer(|w| serde_json::to_writer(w, &record))?;
             buck2_client_ctx::println!("")
         }
     }
@@ -123,16 +120,14 @@ impl WhatUploadedCommand {
                         Some(buck2_data::buck_event::Data::SpanEnd(end)) => {
                             match end.data.as_ref() {
                                 Some(buck2_data::span_end_event::Data::ReUpload(ref u)) => {
-                                    print_uploads(
-                                        &output,
-                                        ReUploadEvent {
-                                            parent_span_id: event.parent_id,
-                                            inner: u,
-                                        },
-                                        &state,
-                                        &mut total_digests_uploaded,
-                                        &mut total_bytes_uploaded,
-                                    )?;
+                                    let upload = ReUploadEvent {
+                                        parent_span_id: event.parent_id,
+                                        inner: u,
+                                    };
+                                    let record = get_record(&state, &upload);
+                                    total_digests_uploaded += record.digests_uploaded;
+                                    total_bytes_uploaded += record.bytes_uploaded;
+                                    print_uploads(&output, &record)?;
                                 }
                                 _ => {}
                             }

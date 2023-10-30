@@ -33,48 +33,52 @@ pub struct WhatMaterializedCommand {
     pub output: LogCommandOutputFormat,
 }
 
-fn write_output(
-    output: &LogCommandOutputFormat,
-    materialization: &buck2_data::MaterializationEnd,
-    method: &str,
-) -> anyhow::Result<()> {
-    #[derive(serde::Serialize)]
-    struct Record<'a> {
-        path: &'a str,
-        method: &'a str,
-        file_count: u64,
-        total_bytes: u64,
-    }
+#[derive(serde::Serialize)]
+struct Record {
+    path: String,
+    method: &'static str,
+    file_count: u64,
+    total_bytes: u64,
+}
 
+fn write_output(output: &LogCommandOutputFormat, record: &Record) -> anyhow::Result<()> {
     match output {
         LogCommandOutputFormat::Tabulated => {
             buck2_client_ctx::println!(
                 "{}\t{}\t{}\t{}",
-                materialization.path,
-                method,
-                materialization.file_count,
-                materialization.total_bytes
+                record.path,
+                record.method,
+                record.file_count,
+                record.total_bytes
             )
         }
         LogCommandOutputFormat::Csv => buck2_client_ctx::stdio::print_with_writer(|w| {
             let mut writer = csv::WriterBuilder::new().has_headers(false).from_writer(w);
-            writer.serialize(Record {
-                path: &materialization.path,
-                method,
-                file_count: materialization.file_count,
-                total_bytes: materialization.total_bytes,
-            })
+            writer.serialize(record)
         }),
         LogCommandOutputFormat::Json => buck2_client_ctx::stdio::print_with_writer(|mut w| {
-            let record = Record {
-                path: &materialization.path,
-                method,
-                file_count: materialization.file_count,
-                total_bytes: materialization.total_bytes,
-            };
             serde_json::to_writer(&mut w, &record)?;
             w.write(b"\n").map(|_| ())
         }),
+    }
+}
+
+fn get_record(materialization: &buck2_data::MaterializationEnd) -> Record {
+    let method = match materialization
+        .method
+        .and_then(buck2_data::MaterializationMethod::from_i32)
+    {
+        Some(buck2_data::MaterializationMethod::CasDownload) => "cas",
+        Some(buck2_data::MaterializationMethod::LocalCopy) => "copy",
+        Some(buck2_data::MaterializationMethod::HttpDownload) => "http",
+        Some(buck2_data::MaterializationMethod::Write) => "write",
+        _ => "<unknown>",
+    };
+    Record {
+        path: materialization.path.clone(),
+        method,
+        file_count: materialization.file_count,
+        total_bytes: materialization.total_bytes,
     }
 }
 
@@ -94,46 +98,20 @@ impl WhatMaterializedCommand {
 
             while let Some(event) = events.try_next().await? {
                 match event {
-                    StreamValue::Event(event) => {
-                        match &event.data {
-                            Some(buck2_data::buck_event::Data::SpanEnd(ref end)) => match end
-                                .data
-                                .as_ref()
-                            {
-                                Some(buck2_data::span_end_event::Data::Materialization(m)) => {
-                                    // Only log what has been materialized.
-                                    if !m.success {
-                                        continue;
-                                    }
-
-                                    let method = match m
-                                        .method
-                                        .and_then(buck2_data::MaterializationMethod::from_i32)
-                                    {
-                                        Some(buck2_data::MaterializationMethod::CasDownload) => {
-                                            "cas"
-                                        }
-                                        Some(buck2_data::MaterializationMethod::LocalCopy) => {
-                                            "copy"
-                                        }
-                                        Some(buck2_data::MaterializationMethod::HttpDownload) => {
-                                            "http"
-                                        }
-                                        Some(buck2_data::MaterializationMethod::Write) => "write",
-                                        _ => "<unknown>",
-                                    };
-
-                                    write_output(&output, m, method)?;
-                                }
-                                _ => {}
-                            },
-                            _ => {}
+                    StreamValue::Event(event) => match &event.data {
+                        Some(buck2_data::buck_event::Data::SpanEnd(buck2_data::SpanEndEvent {
+                            data: Some(buck2_data::span_end_event::Data::Materialization(m)),
+                            ..
+                        })) if m.success =>
+                        // Only log what has been materialized.
+                        {
+                            write_output(&output, &get_record(m))?
                         }
-                    }
+                        _ => {}
+                    },
                     StreamValue::Result(..) | StreamValue::PartialResult(..) => {}
-                }
+                };
             }
-
             anyhow::Ok(())
         })?;
         ExitResult::success()
