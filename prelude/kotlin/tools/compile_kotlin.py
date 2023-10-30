@@ -9,8 +9,8 @@
 import argparse
 import os
 import pathlib
-import shlex
 import shutil
+import zipfile
 from tempfile import TemporaryDirectory
 from typing import List
 
@@ -403,6 +403,16 @@ def _get_ksp_cmd(
     ]
 
 
+def _zip_recursive(archive_path: pathlib.Path, source_path: pathlib.Path):
+    # Same as 'zip -r archive_path source_path'
+    with zipfile.ZipFile(
+        archive_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6
+    ) as z:
+        z.write(source_path)
+        for f in source_path.glob("**/*"):
+            z.write(f)
+
+
 def main():
     args = _parse_args()
 
@@ -551,9 +561,7 @@ def main():
     if ksp_sources_output:
         if not ksp_sources_output.exists():
             ksp_sources_output.mkdir()
-        utils.execute_command(
-            ["zip", "-r", ksp_zipped_sources_output, ksp_sources_output]
-        )
+        _zip_recursive(ksp_zipped_sources_output, ksp_sources_output)
         utils.execute_command(
             utils.shlex_split(zip_scrubber) + [ksp_zipped_sources_output]
         )
@@ -566,9 +574,7 @@ def main():
             os.mkdir(kapt_sources_output)
             kapt_generated_sources_output.touch()
         else:
-            utils.execute_command(
-                ["zip", "-r", kapt_generated_sources_output, kapt_sources_output]
-            )
+            _zip_recursive(kapt_generated_sources_output, kapt_sources_output)
             utils.execute_command(
                 utils.shlex_split(zip_scrubber) + [kapt_generated_sources_output]
             )
