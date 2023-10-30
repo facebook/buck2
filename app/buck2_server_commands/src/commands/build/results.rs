@@ -547,6 +547,12 @@ pub mod build_report {
             }
             self.overall_success = false;
 
+            struct ExpandedErrorInfo<'a> {
+                cause_index: Option<usize>,
+                message: String,
+                e: &'a buck2_error::Error,
+            }
+
             let mut temp = Vec::with_capacity(errors.len());
             for e in errors {
                 // we initially avoid assigning new cause indexes and instead use a sentinal value.
@@ -558,34 +564,40 @@ pub mod build_report {
                 } else {
                     error_report.message
                 };
-                temp.push((self.error_cause_cache.get(&root).copied(), message, e));
+                temp.push(ExpandedErrorInfo {
+                    cause_index: self.error_cause_cache.get(&root).copied(),
+                    message,
+                    e,
+                });
             }
             // Sort the errors. This sort *almost* guarantees full determinism, but unfortunately
             // not quite; it is hypothetically non-deterministic if the same configured target has
             // two errors with different error roots but the same error message. Probably unlikely?
-            temp.sort_unstable_by(|x, y| Ord::cmp(&(x.0, &x.1), &(y.0, &y.1)));
+            temp.sort_unstable_by(|x, y| {
+                Ord::cmp(&(x.cause_index, &x.message), &(y.cause_index, &y.message))
+            });
 
             let mut out = Vec::with_capacity(temp.len());
             // Now assign new cause indexes if we haven't yet
-            for (cause_index, message, e) in temp {
-                let cause_index = match cause_index {
+            for info in temp {
+                let cause_index = match info.cause_index {
                     Some(i) => i,
                     None => {
                         // We need to recheck the cache first, as a previous iteration of this loop
                         // may have inserted our root
                         self.error_cause_cache
-                            .get(&e.root_id())
+                            .get(&info.e.root_id())
                             .copied()
                             .unwrap_or_else(|| {
                                 let index = self.next_cause_index;
                                 self.next_cause_index += 1;
-                                self.error_cause_cache.insert(e.root_id(), index);
+                                self.error_cause_cache.insert(info.e.root_id(), index);
                                 index
                             })
                     }
                 };
                 out.push(BuildReportError {
-                    message,
+                    message: info.message,
                     cause_index,
                 });
             }
