@@ -23,6 +23,14 @@ use crate::commands::log::LogCommandOutputFormat;
 pub struct WhatMaterializedCommand {
     #[clap(flatten)]
     event_log: EventLogOptions,
+
+    #[clap(
+        long = "sort-by-size",
+        short = 's',
+        help = "Sort the output by total bytes in ascending order"
+    )]
+    sort_by_total_bytes: bool,
+
     #[clap(
         long = "format",
         help = "Which output format to use for this command",
@@ -84,7 +92,11 @@ fn get_record(materialization: &buck2_data::MaterializationEnd) -> Record {
 
 impl WhatMaterializedCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
-        let Self { event_log, output } = self;
+        let Self {
+            event_log,
+            output,
+            sort_by_total_bytes,
+        } = self;
 
         ctx.with_runtime(async move |ctx| {
             let log_path = event_log.get(&ctx).await?;
@@ -96,6 +108,7 @@ impl WhatMaterializedCommand {
                 invocation.display_command_line()
             )?;
 
+            let mut records: Vec<Record> = Vec::new();
             while let Some(event) = events.try_next().await? {
                 match event {
                     StreamValue::Event(event) => match &event.data {
@@ -105,13 +118,22 @@ impl WhatMaterializedCommand {
                         })) if m.success =>
                         // Only log what has been materialized.
                         {
-                            write_output(&output, &get_record(m))?
+                            if sort_by_total_bytes {
+                                records.push(get_record(m));
+                            } else {
+                                write_output(&output, &get_record(m))?
+                            }
                         }
                         _ => {}
                     },
                     StreamValue::Result(..) | StreamValue::PartialResult(..) => {}
                 };
             }
+            if sort_by_total_bytes {
+                records.sort_by(|a, b| a.total_bytes.cmp(&b.total_bytes));
+                records.iter().try_for_each(|r| write_output(&output, r))?;
+            }
+
             anyhow::Ok(())
         })?;
         ExitResult::success()
