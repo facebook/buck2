@@ -58,7 +58,7 @@ load(
 )
 load("@prelude//linking:strip.bzl", "strip_object")
 load("@prelude//utils:graph_utils.bzl", "breadth_first_traversal_by", "post_order_traversal", "pre_order_traversal", "pre_order_traversal_by")
-load("@prelude//utils:set.bzl", "set_type")  # @unused Used as a type
+load("@prelude//utils:set.bzl", "set", "set_type")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "dedupe_by_value", "expect")
 
 # Native libraries on Android are built for a particular Application Binary Interface (ABI). We
@@ -732,25 +732,16 @@ def write_merged_library_map(ctx: AnalysisContext, merged_linkables: MergedLinka
     ...
     ```
     """
-    solib_map = None
+    solib_map = {}  # dict[final_soname, set[original_soname]]
     for _, shared_libs in merged_linkables.shared_libs_by_platform.items():
-        platform_solib_map = {}
-
-        # we sort these just so that they will be deterministic when we compare across different platforms
-        for soname in sorted(shared_libs.keys()):
+        for soname in shared_libs.keys():
             merged_shared_lib = shared_libs[soname]
             if merged_shared_lib.is_actually_merged:
-                platform_solib_map[soname] = sorted(merged_shared_lib.solib_constituents)
-        if solib_map:
-            if solib_map != platform_solib_map:
-                # TODO(ctolliday) combine merge maps for different platforms since some pre-built libs may not exist on every platform
-                fail("Mismatch in platform merge library maps\n\n{}\n\n{}".format(solib_map, platform_solib_map))
-        else:
-            solib_map = platform_solib_map
+                solib_map.setdefault(soname, set()).update(merged_shared_lib.solib_constituents)
 
     lines = []
-    for final_soname, sonames in solib_map.items():
-        for original_soname in sonames:
+    for final_soname in sorted(solib_map.keys()):
+        for original_soname in solib_map[final_soname].list():
             lines.append("{} {}".format(original_soname, final_soname))
 
     # we wanted it sorted by original_soname
