@@ -35,8 +35,6 @@ use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use superconsole::DrawMode;
 use superconsole::SuperConsole;
-use termwiz::escape::Action;
-use termwiz::escape::ControlCode;
 
 use crate::subscribers::subscriber::Tick;
 use crate::subscribers::subscriber_unpack::UnpackingEventSubscriber;
@@ -210,7 +208,7 @@ where
         let message = display.simple_format_with_timestamps(with_timestamps);
         if self.tty_mode == TtyMode::Disabled {
             // patternlint-disable-next-line buck2-cli-simpleconsole-echo
-            crate::eprintln!("{}", sanitize_output_colors(message.as_bytes()))?;
+            crate::eprintln!("{}", display::sanitize_output_colors(message.as_bytes()))?;
         } else {
             // patternlint-disable-next-line buck2-cli-simpleconsole-echo
             crate::eprintln!("{}", message)?;
@@ -421,7 +419,10 @@ where
                         echo!("stderr:{}\x1b[0m", stderr)?;
                     }
                     TtyMode::Disabled => {
-                        echo!("stderr:\n{}", sanitize_output_colors(stderr.as_bytes()))?;
+                        echo!(
+                            "stderr:\n{}",
+                            display::sanitize_output_colors(stderr.as_bytes())
+                        )?;
                     }
                 }
             }
@@ -568,35 +569,5 @@ impl WhatRanOutputWriter for PrintDebugCommandToStderr {
             }
         )?;
         Ok(())
-    }
-}
-
-fn sanitize_output_colors(stderr: &[u8]) -> String {
-    let mut sanitized = String::with_capacity(stderr.len());
-    let mut parser = termwiz::escape::parser::Parser::new();
-    parser.parse(stderr, |a| match a {
-        Action::Print(c) => sanitized.push(c),
-        Action::Control(cc) => match cc {
-            ControlCode::CarriageReturn => sanitized.push('\r'),
-            ControlCode::LineFeed => sanitized.push('\n'),
-            ControlCode::HorizontalTab => sanitized.push('\t'),
-            _ => {}
-        },
-        _ => {}
-    });
-    sanitized
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn removes_color_characters() {
-        let message = "\x1b[0mFoo\t\x1b[34mBar\n\x1b[DBaz\r\nQuz";
-
-        let sanitized = sanitize_output_colors(message.as_bytes());
-
-        assert_eq!("Foo\tBar\nBaz\r\nQuz", sanitized);
     }
 }

@@ -35,6 +35,8 @@ use superconsole::style::Stylize;
 use superconsole::Line;
 use superconsole::Lines;
 use superconsole::Span;
+use termwiz::escape::Action;
+use termwiz::escape::ControlCode;
 use thiserror::Error;
 
 use crate::fmt_duration;
@@ -559,8 +561,9 @@ impl<'a> ActionErrorDisplay<'a> {
     /// Format the error message in a way that is suitable for use with the build report
     ///
     /// The output may include terminal colors that need to be sanitized.
-    pub fn simple_format(&self) -> String {
-        self.simple_format_inner(None::<&'static mut dyn for<'x> FnMut(&'x str) -> String>)
+    pub fn simple_format_for_build_report(&self) -> String {
+        let s = self.simple_format_inner(None::<&'static mut dyn for<'x> FnMut(&'x str) -> String>);
+        sanitize_output_colors(s.as_bytes())
     }
 
     /// Format the error message in a way that is suitable for use with the simpleconsole
@@ -776,9 +779,34 @@ pub fn success_stderr<'a>(
     Ok(Some(stderr))
 }
 
+pub fn sanitize_output_colors(stderr: &[u8]) -> String {
+    let mut sanitized = String::with_capacity(stderr.len());
+    let mut parser = termwiz::escape::parser::Parser::new();
+    parser.parse(stderr, |a| match a {
+        Action::Print(c) => sanitized.push(c),
+        Action::Control(cc) => match cc {
+            ControlCode::CarriageReturn => sanitized.push('\r'),
+            ControlCode::LineFeed => sanitized.push('\n'),
+            ControlCode::HorizontalTab => sanitized.push('\t'),
+            _ => {}
+        },
+        _ => {}
+    });
+    sanitized
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn removes_color_characters() {
+        let message = "\x1b[0mFoo\t\x1b[34mBar\n\x1b[DBaz\r\nQuz";
+
+        let sanitized = sanitize_output_colors(message.as_bytes());
+
+        assert_eq!("Foo\tBar\nBaz\r\nQuz", sanitized);
+    }
 
     #[test]
     fn strips_trailing_newline_character() {

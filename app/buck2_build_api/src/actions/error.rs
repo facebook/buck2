@@ -23,7 +23,7 @@ impl fmt::Display for ActionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = display_action_error(&self.event, TargetDisplayOptions::for_log())
             .expect("Action key is always present in `ActionError`")
-            .simple_format();
+            .simple_format_for_build_report();
         write!(f, "{}", s)
     }
 }

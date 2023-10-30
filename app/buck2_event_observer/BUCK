@@ -16,6 +16,7 @@ rust_library(
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:linked-hash-map",
         "fbsource//third-party/rust:shlex",
+        "fbsource//third-party/rust:termwiz",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tracing",
         "//buck2/app/buck2_common:buck2_common",

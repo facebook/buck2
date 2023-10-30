@@ -23,6 +23,7 @@ itertools = { workspace = true }
 linked-hash-map = { workspace = true }
 shlex = { workspace = true }
 superconsole = { version = "0.2.0", path = "../../superconsole" }
+termwiz = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 
