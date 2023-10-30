@@ -41,15 +41,17 @@ def create_compilation_database(
         cdb_path = paths.join(indentifier, "__comp_db__", src_compile_cmd.src.short_path + ".comp_db.json")
         if cdb_path not in entries:
             entry = ctx.actions.declare_output(cdb_path)
-            cmd = cmd_args(mk_comp_db)
-            cmd.add("gen")
-            cmd.add(cmd_args(entry.as_output(), format = "--output={}"))
-            cmd.add(src_compile_cmd.src.basename)
-            cmd.add(cmd_args(src_compile_cmd.src).parent())
-            cmd.add("--")
-            cmd.add(src_compile_cmd.cxx_compile_cmd.base_compile_cmd)
-            cmd.add(src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form)
-            cmd.add(src_compile_cmd.args)
+            cmd = cmd_args(
+                mk_comp_db,
+                "gen",
+                cmd_args(entry.as_output(), format = "--output={}"),
+                src_compile_cmd.src.basename,
+                cmd_args(src_compile_cmd.src).parent(),
+                "--",
+                src_compile_cmd.cxx_compile_cmd.base_compile_cmd,
+                src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form,
+                src_compile_cmd.args,
+            )
             entry_identifier = paths.join(indentifier, src_compile_cmd.src.short_path)
             ctx.actions.run(cmd, category = "cxx_compilation_database", identifier = entry_identifier)
 
@@ -57,9 +59,7 @@ def create_compilation_database(
             other_outputs.append(cmd)
             entries[cdb_path] = entry
 
-    content = cmd_args()
-    for v in entries.values():
-        content.add(v)
+    content = cmd_args(*entries.values())
 
     argfile = ctx.actions.declare_output(paths.join(indentifier, "comp_db.argsfile"))
     ctx.actions.write(argfile.as_output(), content)
