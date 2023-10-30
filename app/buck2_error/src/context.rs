@@ -119,7 +119,7 @@ impl<T> Context<T> for Option<T> {
     fn unshared_error(self) -> anyhow::Result<T> {
         match self {
             Some(x) => Ok(x),
-            None => Err(crate::Error::new(NoneError).into()),
+            None => Err(crate::Error::from(NoneError).into()),
         }
     }
 }

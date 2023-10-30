@@ -70,6 +70,9 @@ pub use buck2_error_derive::ErrorForReexport as Error;
 
 #[doc(hidden)]
 pub mod __for_macro {
+    pub use anyhow;
     pub use buck2_error_derive::exterminate;
     pub use thiserror;
+
+    pub use crate::any::Sealed;
 }
