@@ -187,6 +187,7 @@ pub mod result_report {
 
 pub mod build_report {
     use std::collections::HashMap;
+    use std::collections::HashSet;
     use std::sync::Arc;
 
     use buck2_build_api::build::BuildProviderType;
@@ -202,6 +203,7 @@ pub mod build_report {
     use buck2_core::provider::label::NonDefaultProvidersName;
     use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::label::TargetLabel;
+    use buck2_error::UniqueRootId;
     use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
     use buck2_server_ctx::errors::create_error_report;
     use buck2_wrapper_common::invocation_id::TraceId;
@@ -547,10 +549,10 @@ pub mod build_report {
             }
             self.overall_success = false;
 
-            struct ExpandedErrorInfo<'a> {
+            struct ExpandedErrorInfo {
+                root: UniqueRootId,
                 cause_index: Option<usize>,
                 message: String,
-                e: &'a buck2_error::Error,
             }
 
             let mut temp = Vec::with_capacity(errors.len());
@@ -565,9 +567,9 @@ pub mod build_report {
                     error_report.message
                 };
                 temp.push(ExpandedErrorInfo {
+                    root,
                     cause_index: self.error_cause_cache.get(&root).copied(),
                     message,
-                    e,
                 });
             }
             // Sort the errors. This sort *almost* guarantees full determinism, but unfortunately
@@ -576,6 +578,18 @@ pub mod build_report {
             temp.sort_unstable_by(|x, y| {
                 Ord::cmp(&(x.cause_index, &x.message), &(y.cause_index, &y.message))
             });
+
+            // Deduplicate errors with the same root. We have to do this after sorting to retain
+            // determinism.
+            //
+            // FIXME(JakobDegen): Ideally we wouldn't need this. It originally wasn't here, but this
+            // caused the size of the build report to grow very large in some cases. I suspect this
+            // is the result of some rules producing large amounts of `other_outputs`. Because those
+            // are all top level artifacts that get their own `BuildEvent`, if they all fail, they
+            // all get their own error in the build report. Completing the migration to artifact
+            // groups would likely let us get rid of this.
+            let mut found_roots = HashSet::new();
+            temp.retain(|info| found_roots.insert(info.root));
 
             let mut out = Vec::with_capacity(temp.len());
             // Now assign new cause indexes if we haven't yet
@@ -586,12 +600,12 @@ pub mod build_report {
                         // We need to recheck the cache first, as a previous iteration of this loop
                         // may have inserted our root
                         self.error_cause_cache
-                            .get(&info.e.root_id())
+                            .get(&info.root)
                             .copied()
                             .unwrap_or_else(|| {
                                 let index = self.next_cause_index;
                                 self.next_cause_index += 1;
-                                self.error_cause_cache.insert(info.e.root_id(), index);
+                                self.error_cause_cache.insert(info.root, index);
                                 index
                             })
                     }
