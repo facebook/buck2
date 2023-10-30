@@ -75,4 +75,13 @@ pub mod __for_macro {
     pub use thiserror;
 
     pub use crate::any::Sealed;
+
+    pub fn new_with_macro_options<E: std::error::Error + Send + Sync + 'static>(
+        e: E,
+        t: Option<crate::ErrorType>,
+        c: Option<crate::Category>,
+    ) -> crate::Error {
+        let e = crate::Error::new_with_options(e, None, t);
+        if let Some(c) = c { e.context(c) } else { e }
+    }
 }

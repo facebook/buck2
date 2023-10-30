@@ -13,12 +13,20 @@ use proc_macro::TokenStream;
 use syn::parse_macro_input;
 use syn::parse_quote;
 
+/// Generates appropriate assignments to `category` and `typ` for the value in `val`.
+///
+/// Also, removes any attributes specific to this macro from the input.
+fn generate_option_assignments(_input: &mut syn::DeriveInput) -> proc_macro2::TokenStream {
+    proc_macro2::TokenStream::new()
+}
+
 fn derive_error_impl(input: TokenStream, krate: syn::Path) -> TokenStream {
     let def_site: proc_macro2::Span = proc_macro::Span::def_site().into();
 
     // For now, this is more or less just a stub that forwards to `thiserror`. It doesn't yet do
     // anything interesting.
-    let input = parse_macro_input!(input as syn::DeriveInput);
+    let mut input = parse_macro_input!(input as syn::DeriveInput);
+    let option_assignments = generate_option_assignments(&mut input);
     let (impl_generics, type_generics, where_clauses) = input.generics.split_for_impl();
 
     // In order to make this macro work, we have to do a number of cursed things with reexports. As
@@ -77,8 +85,13 @@ fn derive_error_impl(input: TokenStream, krate: syn::Path) -> TokenStream {
             #where_clauses
             {
                 fn from(val: #outer #type_generics) -> Self {
+                    #[allow(unused_mut)]
+                    let mut typ = ::core::option::Option::None;
+                    #[allow(unused_mut)]
+                    let mut category = ::core::option::Option::None;
+                    #option_assignments
                     let val: #inner = unsafe { #val_transmute(val) };
-                    Self::new(val)
+                    #krate::__for_macro::new_with_macro_options(val, typ, category)
                 }
             }
             impl #impl_generics #krate::AnyError for #outer #type_generics
