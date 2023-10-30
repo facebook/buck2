@@ -671,18 +671,9 @@ def create_omnibus_libraries(
         ctx: AnalysisContext,
         graph: OmnibusGraph,
         extra_ldflags: list[typing.Any] = [],
-        prefer_stripped_objects: bool = False,
-        allow_cache_upload: bool = False) -> OmnibusSharedLibraries:
+        prefer_stripped_objects: bool = False) -> OmnibusSharedLibraries:
     spec = _build_omnibus_spec(ctx, graph)
     pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior
-
-    if not allow_cache_upload:
-        # Gradually enable allow_cache_upload everywhere
-        h = hash(str(ctx.label))
-        if h < 0:
-            h = -h
-        if h % 100 < 50:
-            allow_cache_upload = True
 
     # Create dummy omnibus
     dummy_omnibus = create_dummy_omnibus(ctx, extra_ldflags)
@@ -703,7 +694,7 @@ def create_omnibus_libraries(
             pic_behavior,
             extra_ldflags,
             prefer_stripped_objects,
-            allow_cache_upload = allow_cache_upload,
+            allow_cache_upload = True,
         )
         if root.name != None:
             libraries[root.name] = product.shared_library
@@ -719,7 +710,7 @@ def create_omnibus_libraries(
             pic_behavior,
             extra_ldflags,
             prefer_stripped_objects,
-            allow_cache_upload = allow_cache_upload,
+            allow_cache_upload = True,
         )
         libraries[_omnibus_soname(ctx)] = omnibus.linked_object
 
