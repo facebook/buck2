@@ -34,7 +34,6 @@ impl TyMaybeSelect {
         }
     }
 
-    #[allow(dead_code)] // TODO(nga): use.
     pub(crate) fn to_ty_with_select(&self) -> Ty {
         fn with_select(ty: Ty) -> Ty {
             Ty::union2(ty, StarlarkSelectorGen::<Value>::starlark_type_repr())
