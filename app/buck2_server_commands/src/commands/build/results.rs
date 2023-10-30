@@ -296,7 +296,7 @@ pub mod build_report {
     struct BuildReportError {
         message: String,
         /// An opaque index that can be use to de-duplicate errors. Two errors with the same
-        /// deduplication index have the same "cause."
+        /// cause index have the same cause
         ///
         /// For example, two targets in different packages may have the same cause (evaluation of
         /// common bzl file), but error stack will be different.
@@ -549,8 +549,8 @@ pub mod build_report {
 
             let mut temp = Vec::with_capacity(errors.len());
             for e in errors {
-                // we initially avoid assigning new deduplication indexes and instead use a sentinal
-                // value. This is to make sure that we can be deterministic
+                // we initially avoid assigning new cause indexes and instead use a sentinal value.
+                // This is to make sure that we can be deterministic
                 let root = e.root_id();
                 let error_report = create_error_report(e);
                 let message = if let Some(telemetry_message) = error_report.telemetry_message {
@@ -566,9 +566,9 @@ pub mod build_report {
             temp.sort_unstable_by(|x, y| Ord::cmp(&(x.0, &x.1), &(y.0, &y.1)));
 
             let mut out = Vec::with_capacity(temp.len());
-            // Now assign new deduplication indexes if we haven't yet
-            for (dedup_index, message, e) in temp {
-                let dedup_index = match dedup_index {
+            // Now assign new cause indexes if we haven't yet
+            for (cause_index, message, e) in temp {
+                let cause_index = match cause_index {
                     Some(i) => i,
                     None => {
                         // We need to recheck the cache first, as a previous iteration of this loop
@@ -586,7 +586,7 @@ pub mod build_report {
                 };
                 out.push(BuildReportError {
                     message,
-                    cause_index: dedup_index,
+                    cause_index,
                 });
             }
 
