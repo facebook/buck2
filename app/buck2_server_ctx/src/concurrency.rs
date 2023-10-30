@@ -30,6 +30,7 @@ use buck2_data::DiceSynchronizeSectionStart;
 use buck2_data::ExclusiveCommandWaitEnd;
 use buck2_data::ExclusiveCommandWaitStart;
 use buck2_data::NoActiveDiceState;
+use buck2_error::Context;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_util::truncate::truncate;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -49,11 +50,10 @@ use itertools::Itertools;
 use more_futures::cancellation::ExplicitCancellationContext;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
-use thiserror::Error;
 use tokio::sync::Mutex;
 use tokio::sync::MutexGuard;
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum ConcurrencyHandlerError {
     #[error(
         "Recursive invocation of Buck, which is discouraged, but will probably work (using the same state). Trace Ids: {0}. Recursive invocation command: `{1}`"
@@ -64,6 +64,7 @@ enum ConcurrencyHandlerError {
     )]
     NestedInvocationWithDifferentStates(String, String),
     #[error("`--exit-when-different-state` was set")]
+    #[buck2(typ = DaemonIsBusy)]
     ExitWhenDifferentState,
 }
 
@@ -481,12 +482,13 @@ impl ConcurrencyHandler {
 
                         match bypass_semaphore {
                             BypassSemaphore::Error => {
-                                return Err(anyhow::Error::new(
+                                return Err(
                                     ConcurrencyHandlerError::NestedInvocationWithDifferentStates(
                                         format_traces(&data.active_commands, &command_data),
                                         command_data.format_argv(),
-                                    ),
-                                ));
+                                    )
+                                    .into(),
+                                );
                             }
                             BypassSemaphore::Run(state) => {
                                 self.emit_logs(state, &data.active_commands, &command_data)?;
@@ -494,13 +496,8 @@ impl ConcurrencyHandler {
                             }
                             BypassSemaphore::Block => {
                                 if exit_when_different_state {
-                                    return Err(buck2_error::Error::new_with_options(
-                                        ConcurrencyHandlerError::ExitWhenDifferentState,
-                                        None,
-                                        Some(buck2_error::ErrorType::DaemonIsBusy),
-                                    )
-                                    .context("Buck daemon is busy processing another command")
-                                    .into());
+                                    return Err(ConcurrencyHandlerError::ExitWhenDifferentState)
+                                        .context("Buck daemon is busy processing another command");
                                 }
                                 // We should probably show more than the first here, but for now
                                 // this is what we have.
