@@ -26,7 +26,6 @@ use crate::daemon::client::connect::DesiredTraceIoState;
 use crate::daemon::client::BuckdClientConnector;
 use crate::exit_result::ExitCode;
 use crate::exit_result::ExitResult;
-use crate::exit_result::InterruptSignalError;
 use crate::path_arg::PathArg;
 use crate::signal_handler::with_simple_sigint_handler;
 use crate::subscribers::get::get_console_with_root;
@@ -199,12 +198,9 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                 command_result
             };
 
-            with_simple_sigint_handler(work).await.unwrap_or_else(|| {
-                ExitResult::err_with_exit_code(
-                    InterruptSignalError.into(),
-                    ExitCode::SignalInterrupt,
-                )
-            })
+            with_simple_sigint_handler(work)
+                .await
+                .unwrap_or_else(|| ExitResult::status(ExitCode::SignalInterrupt))
         })
     }
 }

@@ -253,10 +253,6 @@ impl ExitResultVariant {
 #[error(transparent)]
 pub struct ClientIoError(pub io::Error);
 
-#[derive(thiserror::Error, Debug)]
-#[error("Ctrl-c was pressed")]
-pub struct InterruptSignalError;
-
 /// Common exit codes for buck with stronger semantic meanings
 pub enum ExitCode {
     // TODO: Fill in more exit codes from ExitCode.java here. Need to determine
