@@ -127,7 +127,7 @@ mod imp {
         concurrent_command_ids: HashSet<String>,
         daemon_connection_failure: bool,
         client_metadata: Vec<buck2_data::ClientMetadata>,
-        error_messages: Vec<String>,
+        errors: Vec<buck2_data::ProcessedErrorReport>,
     }
 
     impl<'a> InvocationRecorder<'a> {
@@ -218,7 +218,7 @@ mod imp {
                 concurrent_command_ids: HashSet::new(),
                 daemon_connection_failure: false,
                 client_metadata,
-                error_messages: Vec::new(),
+                errors: Vec::new(),
             }
         }
 
@@ -389,8 +389,8 @@ mod imp {
                     .collect(),
                 daemon_connection_failure: Some(self.daemon_connection_failure),
                 client_metadata: std::mem::take(&mut self.client_metadata),
-                error_messages: std::mem::take(&mut self.error_messages),
-                errors: Vec::new(),
+                error_messages: Vec::new(),
+                errors: std::mem::take(&mut self.errors),
             };
 
             let event = BuckEvent::new(
@@ -462,13 +462,18 @@ mod imp {
             event: &BuckEvent,
         ) -> anyhow::Result<()> {
             let mut command = command.clone();
-            self.error_messages.extend(
-                std::mem::take(&mut command.errors)
-                    .into_iter()
-                    // Intentionally use `message` and not `telemetry_message` to avoid changing
-                    // behavior, later diffs will do this properly
-                    .map(|e| e.message),
-            );
+            self.errors
+                .extend(std::mem::take(&mut command.errors).into_iter().map(|r| {
+                    buck2_data::ProcessedErrorReport {
+                        category: r.category,
+                        message: r.message,
+                        telemetry_message: r.telemetry_message,
+                        typ: r
+                            .typ
+                            .and_then(buck2_data::ErrorType::from_i32)
+                            .map(|t| t.as_str_name().to_owned()),
+                    }
+                }));
 
             // Awkwardly unpacks the SpanEnd event so we can read its duration.
             let command_end = match event.data() {
