@@ -9,7 +9,6 @@
 
 #![feature(async_closure)]
 #![feature(try_blocks)]
-#![feature(provide_any)]
 
 use async_trait::async_trait;
 use buck2_cli_proto::GenericRequest;

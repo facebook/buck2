@@ -8,7 +8,6 @@
  */
 
 #![cfg(test)]
-#![feature(provide_any)]
 
 mod actions;
 mod analysis;

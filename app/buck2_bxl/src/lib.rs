@@ -10,7 +10,6 @@
 #![feature(async_closure)]
 #![feature(trait_alias)]
 #![feature(try_blocks)]
-#![feature(provide_any)]
 
 #[macro_use]
 extern crate higher_order_closure;

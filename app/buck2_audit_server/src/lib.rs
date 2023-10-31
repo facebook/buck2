@@ -9,7 +9,6 @@
 
 #![feature(async_closure)]
 #![feature(try_blocks)]
-#![feature(provide_any)]
 
 use std::sync::Once;
 
