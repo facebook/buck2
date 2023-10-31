@@ -121,12 +121,12 @@ RustLinkInfo = provider(
         "crate": CrateName,
         # styles - information about each LinkStyle as RustLinkStyleInfo
         "styles": dict[LinkStyle, RustLinkStyleInfo],
-        # Propagate non-rust native linkable dependencies through rust libraries.
-        "non_rust_exported_link_deps": typing.Any,
-        # Propagate non-rust native linkable info through rust libraries.
-        "non_rust_link_info": typing.Any,
-        # Propagate non-rust shared libraries through rust libraries.
-        "non_rust_shared_libs": typing.Any,
+        # Propagate native linkable dependencies through rust libraries.
+        "exported_link_deps": typing.Any,
+        # Propagate native linkable info through rust libraries.
+        "merged_link_info": typing.Any,
+        # Propagate shared libraries through rust libraries.
+        "shared_libs": typing.Any,
     },
 )
 
@@ -253,7 +253,7 @@ def resolve_rust_deps(
 def get_available_proc_macros(ctx: AnalysisContext) -> dict[TargetLabel, Dependency]:
     return {x.label.raw_target(): x for x in ctx.plugins[RustProcMacroPlugin]}
 
-def _non_rust_linkable_graph(
+def _create_linkable_graph(
         ctx: AnalysisContext,
         deps: list[Dependency]) -> LinkableGraph:
     linkable_graph = create_linkable_graph(
@@ -323,19 +323,21 @@ def _rust_link_infos(
 def normalize_crate(label: str) -> str:
     return label.replace("-", "_")
 
-def inherited_non_rust_exported_link_deps(ctx: AnalysisContext) -> list[Dependency]:
+# TODO(pickett): Currently this assumes the library target is being built as a
+# staticlib or cdylib.
+def inherited_exported_link_deps(ctx: AnalysisContext) -> list[Dependency]:
     deps = {}
     for dep in _non_rust_link_deps(ctx):
         deps[dep.label] = dep
     for info in _rust_link_infos(ctx):
-        for dep in info.non_rust_exported_link_deps:
+        for dep in info.exported_link_deps:
             deps[dep.label] = dep
     return deps.values()
 
-def inherited_non_rust_link_group_info(
+def inherited_rust_cxx_link_group_info(
         ctx: AnalysisContext,
         link_style: [LinkStyle, None] = None) -> RustCxxLinkGroupInfo:
-    link_deps = inherited_non_rust_exported_link_deps(ctx)
+    link_deps = inherited_exported_link_deps(ctx)
 
     # Assume a rust executable wants to use link groups if a link group map
     # is present
@@ -346,7 +348,7 @@ def inherited_non_rust_link_group_info(
     link_group_preferred_linkage = get_link_group_preferred_linkage(link_groups.values())
 
     auto_link_group_specs = get_auto_link_group_specs(ctx, link_group_info)
-    linkable_graph = _non_rust_linkable_graph(
+    linkable_graph = _create_linkable_graph(
         ctx,
         link_deps,
     )
@@ -413,20 +415,24 @@ def inherited_non_rust_link_group_info(
         link_group_preferred_linkage = link_group_preferred_linkage,
     )
 
-def inherited_non_rust_link_info(
+# TODO(pickett): Currently this assumes the library target is being built as a
+# staticlib or cdylib.
+def inherited_merged_link_infos(
         ctx: AnalysisContext,
         include_doc_deps: bool = False) -> list[MergedLinkInfo]:
     infos = []
     infos.extend(_non_rust_link_infos(ctx, include_doc_deps))
-    infos.extend([d.non_rust_link_info for d in _rust_link_infos(ctx, include_doc_deps) if d.non_rust_link_info])
+    infos.extend([d.merged_link_info for d in _rust_link_infos(ctx, include_doc_deps) if d.merged_link_info])
     return infos
 
-def inherited_non_rust_shared_libs(
+# TODO(pickett): Currently this assumes the library target is being built as a
+# staticlib or cdylib.
+def inherited_shared_libs(
         ctx: AnalysisContext,
         include_doc_deps: bool = False) -> list[SharedLibraryInfo]:
     infos = []
     infos.extend(_non_rust_shared_lib_infos(ctx, include_doc_deps))
-    infos.extend([d.non_rust_shared_libs for d in _rust_link_infos(ctx, include_doc_deps)])
+    infos.extend([d.shared_libs for d in _rust_link_infos(ctx, include_doc_deps)])
     return infos
 
 def inherited_external_debug_info(
@@ -437,16 +443,16 @@ def inherited_external_debug_info(
     non_rust_dep_link_style = dep_link_style
 
     inherited_debug_infos = []
-    inherited_non_rust_link_infos = []
+    inherited_link_infos = []
 
     for d in resolve_deps(ctx):
         if RustLinkInfo in d.dep:
             inherited_debug_infos.append(d.dep[RustLinkInfo].styles[rust_dep_link_style].external_debug_info)
-            inherited_non_rust_link_infos.append(d.dep[RustLinkInfo].non_rust_link_info)
+            inherited_link_infos.append(d.dep[RustLinkInfo].merged_link_info)
         elif MergedLinkInfo in d.dep:
-            inherited_non_rust_link_infos.append(d.dep[MergedLinkInfo])
+            inherited_link_infos.append(d.dep[MergedLinkInfo])
 
-    link_args = get_link_args_for_strategy(ctx, inherited_non_rust_link_infos, to_link_strategy(non_rust_dep_link_style))
+    link_args = get_link_args_for_strategy(ctx, inherited_link_infos, to_link_strategy(non_rust_dep_link_style))
     inherited_debug_infos.append(unpack_external_debug_info(ctx.actions, link_args))
 
     return make_artifact_tset(

@@ -64,8 +64,8 @@ load(
     "DEFAULT_STATIC_LINK_STYLE",
     "attr_simple_crate_for_filenames",
     "enable_link_groups",
-    "inherited_non_rust_link_group_info",
-    "inherited_non_rust_shared_libs",
+    "inherited_rust_cxx_link_group_info",
+    "inherited_shared_libs",
 )
 load(":resources.bzl", "rust_attr_resources")
 
@@ -131,7 +131,7 @@ def _rust_binary_common(
         filtered_targets = []
 
         if enable_link_groups(ctx, link_style, specified_link_style, is_binary = True):
-            rust_cxx_link_group_info = inherited_non_rust_link_group_info(
+            rust_cxx_link_group_info = inherited_rust_cxx_link_group_info(
                 ctx,
                 link_style = link_style,
             )
@@ -147,7 +147,7 @@ def _rust_binary_common(
         if link_style == LinkStyle("shared") or rust_cxx_link_group_info != None:
             shlib_info = merge_shared_libraries(
                 ctx.actions,
-                deps = inherited_non_rust_shared_libs(ctx),
+                deps = inherited_shared_libs(ctx),
             )
 
             link_group_ctx = LinkGroupContext(

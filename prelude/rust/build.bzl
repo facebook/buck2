@@ -67,8 +67,8 @@ load(
     "attr_simple_crate_for_filenames",
     "get_available_proc_macros",
     "inherited_external_debug_info",
-    "inherited_non_rust_link_info",
-    "inherited_non_rust_shared_libs",
+    "inherited_merged_link_infos",
+    "inherited_shared_libs",
     "normalize_crate",
     "resolve_rust_deps",
     "style_info",
@@ -230,7 +230,7 @@ def generate_rustdoc_test(
     if link_style == LinkStyle("shared"):
         shlib_info = merge_shared_libraries(
             ctx.actions,
-            deps = inherited_non_rust_shared_libs(ctx, include_doc_deps = True),
+            deps = inherited_shared_libs(ctx, include_doc_deps = True),
         )
         for soname, shared_lib in traverse_shared_library_info(shlib_info).items():
             shared_libs[soname] = shared_lib.lib
@@ -258,7 +258,7 @@ def generate_rustdoc_test(
             LinkArgs(flags = extra_link_args),
             get_link_args_for_strategy(
                 ctx,
-                inherited_non_rust_link_info(ctx, include_doc_deps = True),
+                inherited_merged_link_infos(ctx, include_doc_deps = True),
                 # TODO(cjhopman): It's unclear how rust is using link_style. I'm not sure if it's intended to be a LibOutputStyle or a LinkStrategy.
                 to_link_strategy(link_style),
             ),
@@ -435,14 +435,14 @@ def rust_compile(
         # of that style.
 
         if rust_cxx_link_group_info:
-            inherited_non_rust_link_args = LinkArgs(
+            inherited_link_args = LinkArgs(
                 infos = rust_cxx_link_group_info.filtered_links + [rust_cxx_link_group_info.symbol_files_info],
             )
 
         else:
-            inherited_non_rust_link_args = get_link_args_for_strategy(
+            inherited_link_args = get_link_args_for_strategy(
                 ctx,
-                inherited_non_rust_link_info(
+                inherited_merged_link_infos(
                     ctx,
                     include_doc_deps = False,
                 ),
@@ -455,7 +455,7 @@ def rust_compile(
             compile_ctx.cxx_toolchain_info,
             [
                 LinkArgs(flags = extra_link_args),
-                inherited_non_rust_link_args,
+                inherited_link_args,
             ],
             "{}-{}".format(subdir, tempfile),
             output_short_path = emit_output.short_path,

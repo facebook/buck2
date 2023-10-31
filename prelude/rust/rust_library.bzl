@@ -97,10 +97,10 @@ load(
     "RustLinkStyleInfo",
     "RustProcMacroMarker",  # @unused Used as a type
     "attr_crate",
+    "inherited_exported_link_deps",
     "inherited_external_debug_info",
-    "inherited_non_rust_exported_link_deps",
-    "inherited_non_rust_link_info",
-    "inherited_non_rust_shared_libs",
+    "inherited_merged_link_infos",
+    "inherited_shared_libs",
     "resolve_deps",
     "resolve_rust_deps",
     "style_info",
@@ -142,11 +142,11 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         RustLinkInfo(
             crate = crate,
             styles = styles,
-            non_rust_exported_link_deps = inherited_non_rust_exported_link_deps(ctx),
-            non_rust_link_info = create_merged_link_info_for_propagation(ctx, inherited_non_rust_link_info(ctx)),
-            non_rust_shared_libs = merge_shared_libraries(
+            exported_link_deps = inherited_exported_link_deps(ctx),
+            merged_link_info = create_merged_link_info_for_propagation(ctx, inherited_merged_link_infos(ctx)),
+            shared_libs = merge_shared_libraries(
                 ctx.actions,
-                deps = inherited_non_rust_shared_libs(ctx),
+                deps = inherited_shared_libs(ctx),
             ),
         ),
     )
@@ -532,15 +532,15 @@ def _rust_providers(
     # non-Rust rules, found by walking through -- and ignoring -- Rust libraries
     # to find non-Rust native linkables and libraries.
     if not ctx.attrs.proc_macro:
-        inherited_non_rust_link_deps = inherited_non_rust_exported_link_deps(ctx)
-        inherited_non_rust_link = inherited_non_rust_link_info(ctx)
-        inherited_non_rust_shlibs = inherited_non_rust_shared_libs(ctx)
+        inherited_link_deps = inherited_exported_link_deps(ctx)
+        inherited_link_infos = inherited_merged_link_infos(ctx)
+        inherited_shlibs = inherited_shared_libs(ctx)
     else:
         # proc-macros are just used by the compiler and shouldn't propagate
         # their native deps to the link line of the target.
-        inherited_non_rust_link = []
-        inherited_non_rust_shlibs = []
-        inherited_non_rust_link_deps = []
+        inherited_link_infos = []
+        inherited_shlibs = []
+        inherited_link_deps = []
 
     providers = []
 
@@ -548,11 +548,11 @@ def _rust_providers(
     providers.append(RustLinkInfo(
         crate = crate,
         styles = style_info,
-        non_rust_link_info = create_merged_link_info_for_propagation(ctx, inherited_non_rust_link),
-        non_rust_exported_link_deps = inherited_non_rust_link_deps,
-        non_rust_shared_libs = merge_shared_libraries(
+        merged_link_info = create_merged_link_info_for_propagation(ctx, inherited_link_infos),
+        exported_link_deps = inherited_link_deps,
+        shared_libs = merge_shared_libraries(
             ctx.actions,
-            deps = inherited_non_rust_shlibs,
+            deps = inherited_shlibs,
         ),
     ))
 
@@ -571,9 +571,9 @@ def _native_providers(
     dependencies are bundled into the Rust crate itself. We need to break out of
     this mode of operation.
     """
-    inherited_non_rust_link_deps = inherited_non_rust_exported_link_deps(ctx)
-    inherited_non_rust_link = inherited_non_rust_link_info(ctx)
-    inherited_non_rust_shlibs = inherited_non_rust_shared_libs(ctx)
+    inherited_link_deps = inherited_exported_link_deps(ctx)
+    inherited_link_infos = inherited_merged_link_infos(ctx)
+    inherited_shlibs = inherited_shared_libs(ctx)
     linker_info = compile_ctx.cxx_toolchain_info.linker_info
     linker_type = linker_info.type
 
@@ -639,14 +639,14 @@ def _native_providers(
 
     # TODO(cjhopman): This is preserving existing behavior, but it doesn't make sense. These lists can be passed
     # unmerged to create_merged_link_info below. Potentially that could change link order, so needs to be done more carefully.
-    merged_inherited_non_rust_link = create_merged_link_info_for_propagation(ctx, inherited_non_rust_link)
+    merged_inherited_link = create_merged_link_info_for_propagation(ctx, inherited_link_infos)
 
     # Native link provider.
     providers.append(create_merged_link_info(
         ctx,
         compile_ctx.cxx_toolchain_info.pic_behavior,
         link_infos,
-        exported_deps = [merged_inherited_non_rust_link],
+        exported_deps = [merged_inherited_link],
         preferred_linkage = preferred_linkage,
     ))
 
@@ -671,7 +671,7 @@ def _native_providers(
     providers.append(merge_shared_libraries(
         ctx.actions,
         create_shared_libraries(ctx, solibs),
-        inherited_non_rust_shlibs,
+        inherited_shlibs,
     ))
 
     # Omnibus root provider.
@@ -689,7 +689,7 @@ def _native_providers(
                 external_debug_info = external_debug_infos[LibOutputStyle("pic_archive")],
             ),
         ),
-        deps = inherited_non_rust_link_deps,
+        deps = inherited_link_deps,
     )
     providers.append(linkable_root)
 
@@ -704,18 +704,18 @@ def _native_providers(
             linkable_node = create_linkable_node(
                 ctx = ctx,
                 preferred_linkage = preferred_linkage,
-                exported_deps = inherited_non_rust_link_deps,
+                exported_deps = inherited_link_deps,
                 link_infos = link_infos,
                 shared_libs = solibs,
                 default_soname = shlib_name,
             ),
         ),
-        deps = inherited_non_rust_link_deps,
+        deps = inherited_link_deps,
     )
 
     providers.append(linkable_graph)
 
-    providers.append(merge_link_group_lib_info(deps = inherited_non_rust_link_deps))
+    providers.append(merge_link_group_lib_info(deps = inherited_link_deps))
 
     return providers
 
