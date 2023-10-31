@@ -119,13 +119,10 @@ pub fn tls_config_with_single_cert<P: AsRef<Path>>(
     let system_roots = load_system_root_certs()?;
     let (cert, key) =
         load_cert_pair(cert_path, key_path).context("Error loading certificate pair")?;
-    // TODO: replace with_single_cert with with_client_auth_cert
-    //       once rustls get upgraded to >0.21.4
-    #[allow(deprecated)]
     ClientConfig::builder()
         .with_safe_defaults()
         .with_root_certificates(system_roots)
-        .with_single_cert(cert, key)
+        .with_client_auth_cert(cert, key)
         .context("Error creating TLS config with cert and key path")
 }
 
