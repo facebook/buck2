@@ -314,7 +314,7 @@ pub trait KillProcess {
 
 #[derive(Default)]
 pub struct DefaultKillProcess {
-    pub graceful_shutdown: bool,
+    pub graceful_shutdown_timeout_s: Option<u32>,
 }
 
 #[async_trait]
@@ -334,7 +334,7 @@ impl KillProcess for DefaultKillProcess {
                 // On unix we want killpg, so we don't use the default impl.
                 // We use `if true` here to do less conditional compilation
                 // or conditional dependencies.
-                return kill_process_impl(pid, self.graceful_shutdown).await;
+                return kill_process_impl(pid, self.graceful_shutdown_timeout_s).await;
             }
         }
         // `start_kill` is just `std::process::Child::kill` on Windows.
@@ -346,7 +346,10 @@ impl KillProcess for DefaultKillProcess {
 }
 
 #[cfg(unix)]
-async fn kill_process_impl(pid: u32, graceful_shutdown: bool) -> anyhow::Result<()> {
+async fn kill_process_impl(
+    pid: u32,
+    graceful_shutdown_timeout_s: Option<u32>,
+) -> anyhow::Result<()> {
     use buck2_common::kill_util::try_terminate_process_gracefully;
     use nix::sys::signal;
     use nix::sys::signal::Signal;
@@ -354,10 +357,13 @@ async fn kill_process_impl(pid: u32, graceful_shutdown: bool) -> anyhow::Result<
 
     let pid: i32 = pid.try_into().context("PID does not fit a i32")?;
 
-    if graceful_shutdown {
-        try_terminate_process_gracefully(pid, Duration::from_secs(10))
-            .await
-            .with_context(|| format!("Failed to terminate process {} gracefully", pid))
+    if let Some(graceful_shutdown_timeout_s) = graceful_shutdown_timeout_s {
+        try_terminate_process_gracefully(
+            pid,
+            Duration::from_secs(graceful_shutdown_timeout_s as u64),
+        )
+        .await
+        .with_context(|| format!("Failed to terminate process {} gracefully", pid))
     } else {
         signal::killpg(Pid::from_raw(pid), Signal::SIGKILL)
             .with_context(|| format!("Failed to kill process {}", pid))

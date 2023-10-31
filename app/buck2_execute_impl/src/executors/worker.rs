@@ -124,6 +124,7 @@ fn spawn_via_forkserver(
     stdout_path: &AbsNormPathBuf,
     stderr_path: &AbsNormPathBuf,
     socket_path: &AbsNormPathBuf,
+    graceful_shutdown_timeout_s: Option<u32>,
 ) -> JoinHandle<anyhow::Result<GatherOutputStatus>> {
     use std::os::unix::ffi::OsStrExt;
 
@@ -147,7 +148,7 @@ fn spawn_via_forkserver(
                 stdout: stdout_path.as_os_str().as_bytes().into(),
                 stderr: stderr_path.as_os_str().as_bytes().into(),
             }),
-            graceful_shutdown: true,
+            graceful_shutdown_timeout_s,
         };
         apply_local_execution_environment(&mut req, &working_directory, env, None);
         let res = forkserver
@@ -175,6 +176,7 @@ fn spawn_via_forkserver(
     _stdout_path: &AbsNormPathBuf,
     _stderr_path: &AbsNormPathBuf,
     _socket_path: &AbsNormPathBuf,
+    _graceful_shutdown_timeout_s: Option<u32>,
 ) -> JoinHandle<anyhow::Result<GatherOutputStatus>> {
     unreachable!("workers should not be initialized off unix")
 }
@@ -185,6 +187,7 @@ async fn spawn_worker(
     root: &AbsNormPathBuf,
     forkserver: ForkserverClient,
     dispatcher: EventDispatcher,
+    graceful_shutdown_timeout_s: Option<u32>,
 ) -> Result<WorkerHandle, WorkerInitError> {
     // Use fixed length path at /tmp to avoid 108 character limit for unix domain sockets
     let dir_name = format!("{}-{}", dispatcher.trace_id(), worker_spec.id);
@@ -226,6 +229,7 @@ async fn spawn_worker(
         &stdout_path,
         &stderr_path,
         &socket_path,
+        graceful_shutdown_timeout_s,
     );
 
     let initial_delay = Duration::from_millis(50);
@@ -297,14 +301,16 @@ type WorkerFuture = Shared<BoxFuture<'static, Result<Arc<WorkerHandle>, Arc<Work
 pub struct WorkerPool {
     workers: Arc<parking_lot::Mutex<HashMap<WorkerId, WorkerFuture>>>,
     brokers: Arc<parking_lot::Mutex<HashMap<WorkerId, Arc<HostSharingBroker>>>>,
+    graceful_shutdown_timeout_s: Option<u32>,
 }
 
 impl WorkerPool {
-    pub fn new() -> WorkerPool {
+    pub fn new(graceful_shutdown_timeout_s: Option<u32>) -> WorkerPool {
         tracing::info!("Creating new WorkerPool");
         WorkerPool {
             workers: Arc::new(parking_lot::Mutex::new(HashMap::default())),
             brokers: Arc::new(parking_lot::Mutex::new(HashMap::default())),
+            graceful_shutdown_timeout_s,
         }
     }
 
@@ -339,8 +345,18 @@ impl WorkerPool {
             let worker_spec = worker_spec.clone();
             let root = root.clone();
             let env: Vec<(OsString, OsString)> = env.into_iter().collect();
+            let graceful_shutdown_timeout_s = self.graceful_shutdown_timeout_s;
             let fut = async move {
-                match spawn_worker(&worker_spec, env, &root, forkserver, dispatcher).await {
+                match spawn_worker(
+                    &worker_spec,
+                    env,
+                    &root,
+                    forkserver,
+                    dispatcher,
+                    graceful_shutdown_timeout_s,
+                )
+                .await
+                {
                     Ok(worker) => Ok(Arc::new(worker)),
                     Err(e) => Err(Arc::new(e)),
                 }

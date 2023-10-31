@@ -1076,7 +1076,7 @@ mod unix {
             timeout: command_timeout.try_map(|d| d.try_into())?,
             enable_miniperf,
             std_redirects: None,
-            graceful_shutdown: false,
+            graceful_shutdown_timeout_s: None,
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
         forkserver

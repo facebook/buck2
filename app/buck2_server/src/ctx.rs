@@ -569,6 +569,10 @@ impl DiceDataProvider for DiceCommandDataProvider {
             .parse::<bool>("buck2", "log_configured_graph_size")?
             .unwrap_or(false);
 
+        let persistent_worker_shutdown_timeout_s = root_config
+            .parse::<u32>("build", "persistent_worker_shutdown_timeout_s")?
+            .or(Some(10));
+
         let executor_global_knobs = ExecutorGlobalKnobs {
             enable_miniperf,
             log_action_keys,
@@ -610,7 +614,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
             ..Default::default()
         };
 
-        let worker_pool = Arc::new(WorkerPool::new());
+        let worker_pool = Arc::new(WorkerPool::new(persistent_worker_shutdown_timeout_s));
 
         let critical_path_backend = root_config
             .parse("buck2", "critical_path_backend2")?

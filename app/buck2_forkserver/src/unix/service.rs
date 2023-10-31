@@ -114,7 +114,7 @@ impl Forkserver for UnixForkserverService {
                 timeout,
                 enable_miniperf,
                 std_redirects,
-                graceful_shutdown,
+                graceful_shutdown_timeout_s,
             } = msg;
 
             let exe = OsStr::from_bytes(&exe);
@@ -177,7 +177,9 @@ impl Forkserver for UnixForkserverService {
                     child,
                     cancellation,
                     MiniperfStatusDecoder::new(out),
-                    DefaultKillProcess { graceful_shutdown },
+                    DefaultKillProcess {
+                        graceful_shutdown_timeout_s,
+                    },
                     stream_stdio,
                 )?
                 .left_stream(),
@@ -185,7 +187,9 @@ impl Forkserver for UnixForkserverService {
                     child,
                     cancellation,
                     DefaultStatusDecoder,
-                    DefaultKillProcess { graceful_shutdown },
+                    DefaultKillProcess {
+                        graceful_shutdown_timeout_s,
+                    },
                     stream_stdio,
                 )?
                 .right_stream(),
