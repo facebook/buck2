@@ -111,10 +111,6 @@ def _cgo(
 
     args.add(
         cmd_args(c_compiler.compiler, format = "--env-cc={}"),
-        cmd_args(c_compiler.preprocessor_flags, format = "--env-cc={}"),
-        cmd_args(c_compiler.compiler_flags, format = "--env-cc={}"),
-        cmd_args(pre_args, format = "--env-cc={}"),
-        cmd_args(pre_include_dirs, format = "--env-cc={}"),
         # cmd_args(ldflags, format = "--env-ldflags={}"),
     )
 
