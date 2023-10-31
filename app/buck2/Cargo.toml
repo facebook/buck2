@@ -71,6 +71,11 @@ buck2_transition = { workspace = true }
 buck2_util = { workspace = true }
 buck2_wrapper_common = { workspace = true }
 
+# We pin these two indirect dependencies since they upgrade us to ring-0.17,
+# which we don't yet have a fixup for.
+sct = "=0.7.0" # @oss-enable
+rustls-webpki = "=0.101.6" # @oss-enable
+
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
 jemallocator = { workspace = true }
 
