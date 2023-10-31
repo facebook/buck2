@@ -7,13 +7,9 @@
  * of this source tree.
  */
 
-#![feature(async_closure)]
 #![feature(box_patterns)]
 #![feature(iter_order_by)]
 #![feature(try_blocks)]
-#![feature(try_trait_v2)]
-#![feature(never_type)]
-#![feature(provide_any)]
 #![feature(once_cell_try)]
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
