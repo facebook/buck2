@@ -124,8 +124,37 @@ def output_filename(cratename: str, emit: Emit, buildparams: BuildParams, extra:
 # Rule type - 'binary' also covers 'test'
 RuleType = enum("binary", "library")
 
-# What language we're generating artifacts to be linked with
-LinkageLang = enum("rust", "c++")
+# Controls how we build our rust libraries, largely dependent on whether rustc
+# or buck is driving the final linking and whether we are linking the artifact
+# into other rust targets.
+#
+# Rust: In this mode, we build rust libraries as rlibs. This is the primary
+# approach for building rust targets when the final link step is driven by
+# rustc (e.g. rust_binary, rust_unittest, etc).
+#
+# Native: In this mode, we build rust libraries as staticlibs, where rustc
+# will bundle all of this target's rust dependencies into a single library
+# artifact. This approach is the most standardized way to build rust libraries
+# for linkage in non-rust code.
+#
+# NOTE: This approach does not scale well. It's possible to end up with
+# non-rust target A depending on two rust targets B and C, which can cause
+# duplicate symbols if B and C share common rust dependencies.
+#
+# Native Unbundled: In this mode, we revert back to building as rlibs. This
+# approach mitigates the duplicate symbol downside of the "Native" approach.
+# However, this option is not formally supported by rustc, and depends on an
+# implementation detail of rlibs (they're effectively .a archives and can be
+# linked with other native code using the CXX linker).
+#
+# See https://github.com/rust-lang/rust/issues/73632 for more details on
+# stabilizing this approach.
+
+LinkageLang = enum(
+    "rust",
+    "native",
+    "native-unbundled",
+)
 
 _BINARY_SHARED = 0
 _BINARY_PIE = 1
@@ -231,10 +260,15 @@ _INPUTS = {
     ("binary", False, "static", "shared", "rust"): _BINARY_NON_PIE,
     ("binary", False, "static", "static", "rust"): _BINARY_NON_PIE,
     # Native linkable shared object
-    ("library", False, "shared", "any", "c++"): _NATIVE_LINKABLE_SHARED_OBJECT,
-    ("library", False, "shared", "shared", "c++"): _NATIVE_LINKABLE_SHARED_OBJECT,
-    ("library", False, "static", "shared", "c++"): _NATIVE_LINKABLE_SHARED_OBJECT,
-    ("library", False, "static_pic", "shared", "c++"): _NATIVE_LINKABLE_SHARED_OBJECT,
+    ("library", False, "shared", "any", "native"): _NATIVE_LINKABLE_SHARED_OBJECT,
+    ("library", False, "shared", "shared", "native"): _NATIVE_LINKABLE_SHARED_OBJECT,
+    ("library", False, "static", "shared", "native"): _NATIVE_LINKABLE_SHARED_OBJECT,
+    ("library", False, "static_pic", "shared", "native"): _NATIVE_LINKABLE_SHARED_OBJECT,
+    # Native unbundled linkable shared object
+    ("library", False, "shared", "any", "native-unbundled"): _RUST_DYLIB_SHARED,
+    ("library", False, "shared", "shared", "native-unbundled"): _RUST_DYLIB_SHARED,
+    ("library", False, "static", "shared", "native-unbundled"): _RUST_DYLIB_SHARED,
+    ("library", False, "static_pic", "shared", "native-unbundled"): _RUST_DYLIB_SHARED,
     # Rust dylib shared object
     ("library", False, "shared", "any", "rust"): _RUST_DYLIB_SHARED,
     ("library", False, "shared", "shared", "rust"): _RUST_DYLIB_SHARED,
@@ -258,12 +292,19 @@ _INPUTS = {
     ("library", False, "static", "any", "rust"): _RUST_STATIC_NON_PIC_LIBRARY,
     ("library", False, "static", "static", "rust"): _RUST_STATIC_NON_PIC_LIBRARY,
     # Native linkable static_pic
-    ("library", False, "shared", "static", "c++"): _NATIVE_LINKABLE_STATIC_PIC,
-    ("library", False, "static_pic", "any", "c++"): _NATIVE_LINKABLE_STATIC_PIC,
-    ("library", False, "static_pic", "static", "c++"): _NATIVE_LINKABLE_STATIC_PIC,
+    ("library", False, "shared", "static", "native"): _NATIVE_LINKABLE_STATIC_PIC,
+    ("library", False, "static_pic", "any", "native"): _NATIVE_LINKABLE_STATIC_PIC,
+    ("library", False, "static_pic", "static", "native"): _NATIVE_LINKABLE_STATIC_PIC,
     # Native linkable static non-pic
-    ("library", False, "static", "any", "c++"): _NATIVE_LINKABLE_STATIC_NON_PIC,
-    ("library", False, "static", "static", "c++"): _NATIVE_LINKABLE_STATIC_NON_PIC,
+    ("library", False, "static", "any", "native"): _NATIVE_LINKABLE_STATIC_NON_PIC,
+    ("library", False, "static", "static", "native"): _NATIVE_LINKABLE_STATIC_NON_PIC,
+    # Native Unbundled static_pic library
+    ("library", False, "shared", "static", "native-unbundled"): _RUST_STATIC_PIC_LIBRARY,
+    ("library", False, "static_pic", "any", "native-unbundled"): _RUST_STATIC_PIC_LIBRARY,
+    ("library", False, "static_pic", "static", "native-unbundled"): _RUST_STATIC_PIC_LIBRARY,
+    # Native Unbundled static (non-pic) library
+    ("library", False, "static", "any", "native-unbundled"): _RUST_STATIC_NON_PIC_LIBRARY,
+    ("library", False, "static", "static", "native-unbundled"): _RUST_STATIC_NON_PIC_LIBRARY,
 }
 
 # Check types of _INPUTS, writing these out as types is too verbose, but let's make sure we don't have any typos.

@@ -213,6 +213,7 @@ def generate_rustdoc_test(
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
     toolchain_info = compile_ctx.toolchain_info
+    native_unbundle_deps = toolchain_info.native_unbundle_deps
 
     resources = create_resource_db(
         ctx = ctx,
@@ -230,7 +231,7 @@ def generate_rustdoc_test(
     if link_style == LinkStyle("shared"):
         shlib_info = merge_shared_libraries(
             ctx.actions,
-            deps = inherited_shared_libs(ctx, include_doc_deps = True),
+            deps = inherited_shared_libs(ctx, native_unbundle_deps, include_doc_deps = True),
         )
         for soname, shared_lib in traverse_shared_library_info(shlib_info).items():
             shared_libs[soname] = shared_lib.lib
@@ -258,7 +259,7 @@ def generate_rustdoc_test(
             LinkArgs(flags = extra_link_args),
             get_link_args_for_strategy(
                 ctx,
-                inherited_merged_link_infos(ctx, include_doc_deps = True),
+                inherited_merged_link_infos(ctx, native_unbundle_deps, include_doc_deps = True),
                 # TODO(cjhopman): It's unclear how rust is using link_style. I'm not sure if it's intended to be a LibOutputStyle or a LinkStrategy.
                 to_link_strategy(link_style),
             ),
@@ -374,6 +375,7 @@ def rust_compile(
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
     toolchain_info = compile_ctx.toolchain_info
+    native_unbundle_deps = toolchain_info.native_unbundle_deps
 
     lints, clippy_lints = _lint_flags(compile_ctx)
 
@@ -444,6 +446,7 @@ def rust_compile(
                 ctx,
                 inherited_merged_link_infos(
                     ctx,
+                    native_unbundle_deps,
                     include_doc_deps = False,
                 ),
                 # TODO(cjhopman): It's unclear how rust is using link_style. I'm not sure if it's intended to be a LibOutputStyle or a LinkStrategy.

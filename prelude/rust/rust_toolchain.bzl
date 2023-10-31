@@ -68,6 +68,10 @@ _rust_toolchain_attrs = {
     # Utilities used for building flagfiles containing dynamic crate names
     "concat_tool": None,
     "transitive_dependency_symlinks_tool": None,
+    # Passing true here enables the unstable feature using `rlib` format
+    # instead of `staticlib` when linking rust targets into native (e.g.
+    # C/C++) targets.
+    "native_unbundle_deps": False,
 }
 
 RustToolchainInfo = provider(fields = _rust_toolchain_attrs.keys())

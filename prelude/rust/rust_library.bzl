@@ -138,15 +138,19 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             pdb = None,
             external_debug_info = external_debug_info,
         )
+
+    # Prebuilt libraries only work in unbundled mode, as they only support `rlib`
+    # files today.
+    native_unbundle_deps = True
     providers.append(
         RustLinkInfo(
             crate = crate,
             styles = styles,
-            exported_link_deps = inherited_exported_link_deps(ctx),
-            merged_link_info = create_merged_link_info_for_propagation(ctx, inherited_merged_link_infos(ctx)),
+            exported_link_deps = inherited_exported_link_deps(ctx, native_unbundle_deps),
+            merged_link_info = create_merged_link_info_for_propagation(ctx, inherited_merged_link_infos(ctx, native_unbundle_deps)),
             shared_libs = merge_shared_libraries(
                 ctx.actions,
-                deps = inherited_shared_libs(ctx),
+                deps = inherited_shared_libs(ctx, native_unbundle_deps),
             ),
         ),
     )
@@ -237,7 +241,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 check_artifacts.update(meta.diag)
 
             rust_param_artifact[params] = _handle_rust_artifact(ctx, params, link, meta)
-        if LinkageLang("c++") in param_lang[params]:
+        if LinkageLang("native") in param_lang[params] or LinkageLang("native-unbundled") in param_lang[params]:
             native_param_artifact[params] = link
 
     # Among {rustdoc, doctests, macro expand}, doctests are the only one which
@@ -317,6 +321,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     providers += _rust_providers(
         ctx = ctx,
+        compile_ctx = compile_ctx,
         lang_style_param = lang_style_param,
         param_artifact = rust_param_artifact,
     )
@@ -364,8 +369,8 @@ def _build_params_for_styles(
 
     # Styles+lang linkage to params
     for linkage_lang in LinkageLang:
-        # Skip proc_macro + c++ combination
-        if ctx.attrs.proc_macro and linkage_lang == LinkageLang("c++"):
+        # Skip proc_macro + non-rust combinations
+        if ctx.attrs.proc_macro and linkage_lang != LinkageLang("rust"):
             continue
 
         for link_style in LinkStyle:
@@ -516,12 +521,14 @@ def _default_providers(
 
 def _rust_providers(
         ctx: AnalysisContext,
+        compile_ctx: CompileContext,
         lang_style_param: dict[(LinkageLang, LinkStyle), BuildParams],
         param_artifact: dict[BuildParams, RustLinkStyleInfo]) -> list[Provider]:
     """
     Return the set of providers for Rust linkage.
     """
     crate = attr_crate(ctx)
+    native_unbundle_deps = compile_ctx.toolchain_info.native_unbundle_deps
 
     style_info = {
         link_style: param_artifact[lang_style_param[(LinkageLang("rust"), link_style)]]
@@ -532,9 +539,9 @@ def _rust_providers(
     # non-Rust rules, found by walking through -- and ignoring -- Rust libraries
     # to find non-Rust native linkables and libraries.
     if not ctx.attrs.proc_macro:
-        inherited_link_deps = inherited_exported_link_deps(ctx)
-        inherited_link_infos = inherited_merged_link_infos(ctx)
-        inherited_shlibs = inherited_shared_libs(ctx)
+        inherited_link_deps = inherited_exported_link_deps(ctx, native_unbundle_deps)
+        inherited_link_infos = inherited_merged_link_infos(ctx, native_unbundle_deps)
+        inherited_shlibs = inherited_shared_libs(ctx, native_unbundle_deps)
     else:
         # proc-macros are just used by the compiler and shouldn't propagate
         # their native deps to the link line of the target.
@@ -566,14 +573,16 @@ def _native_providers(
     """
     Return the set of providers needed to link Rust as a dependency for native
     (ie C/C++) code, along with relevant dependencies.
-
-    TODO: This currently assumes `staticlib`/`cdylib` behaviour, where all
-    dependencies are bundled into the Rust crate itself. We need to break out of
-    this mode of operation.
     """
-    inherited_link_deps = inherited_exported_link_deps(ctx)
-    inherited_link_infos = inherited_merged_link_infos(ctx)
-    inherited_shlibs = inherited_shared_libs(ctx)
+
+    # If native_unbundle_deps is set on the the rust toolchain, then build this artifact
+    # using the "native-unbundled" linkage language. See LinkageLang docs for more details
+    native_unbundle_deps = compile_ctx.toolchain_info.native_unbundle_deps
+    lang = LinkageLang("native-unbundled") if native_unbundle_deps else LinkageLang("native")
+
+    inherited_link_deps = inherited_exported_link_deps(ctx, native_unbundle_deps)
+    inherited_link_infos = inherited_merged_link_infos(ctx, native_unbundle_deps)
+    inherited_shlibs = inherited_shared_libs(ctx, native_unbundle_deps)
     linker_info = compile_ctx.cxx_toolchain_info.linker_info
     linker_type = linker_info.type
 
@@ -593,7 +602,7 @@ def _native_providers(
     external_debug_infos = {}
     for output_style in LibOutputStyle:
         legacy_link_style = legacy_output_style_to_link_style(output_style)
-        params = lang_style_param[(LinkageLang("c++"), legacy_link_style)]
+        params = lang_style_param[(lang, legacy_link_style)]
         lib = param_artifact[params]
         libraries[output_style] = lib
 

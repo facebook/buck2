@@ -172,7 +172,7 @@ RustCxxLinkGroupInfo = record(
     link_group_libs = field(dict[str, [LinkGroupLib, None]]),
     # mapping from target labels to the corresponding link group link_info
     labels_to_links_map = field(dict[Label, LinkGroupLinkInfo]),
-    # prefrred linkage mode for link group libraries
+    # preferred linkage mode for link group libraries
     link_group_preferred_linkage = field(dict[Label, Linkage]),
 )
 
@@ -265,8 +265,9 @@ def _create_linkable_graph(
     return linkable_graph
 
 # Returns native link dependencies.
-def _non_rust_link_deps(
+def _native_link_dependencies(
         ctx: AnalysisContext,
+        native_unbundle_deps: bool,
         include_doc_deps: bool = False) -> list[Dependency]:
     """
     Return all first-order native linkable dependencies of all transitive Rust
@@ -276,30 +277,31 @@ def _non_rust_link_deps(
     looking for non-Rust native link infos (and terminating the search there).
     """
     first_order_deps = [dep.dep for dep in resolve_deps(ctx, include_doc_deps)]
-    return [
-        d
-        for d in first_order_deps
-        if RustLinkInfo not in d and MergedLinkInfo in d
-    ]
+
+    if native_unbundle_deps:
+        return [d for d in first_order_deps if MergedLinkInfo in d]
+    else:
+        return [
+            d
+            for d in first_order_deps
+            if RustLinkInfo not in d and MergedLinkInfo in d
+        ]
 
 # Returns native link dependencies.
-def _non_rust_link_infos(
+def _native_link_infos(
         ctx: AnalysisContext,
+        native_unbundle_deps: bool,
         include_doc_deps: bool = False) -> list[MergedLinkInfo]:
     """
     Return all first-order native link infos of all transitive Rust libraries.
-
-    This emulates v1's graph walk, where it traverses through Rust libraries
-    looking for non-Rust native link infos (and terminating the search there).
-    MergedLinkInfo is a mapping from link style to all the transitive deps
-    rolled up in a tset.
     """
-    link_deps = _non_rust_link_deps(ctx, include_doc_deps)
+    link_deps = _native_link_dependencies(ctx, native_unbundle_deps, include_doc_deps)
     return [d[MergedLinkInfo] for d in link_deps]
 
 # Returns native link dependencies.
-def _non_rust_shared_lib_infos(
+def _native_shared_lib_infos(
         ctx: AnalysisContext,
+        native_unbundle_deps: bool,
         include_doc_deps: bool = False) -> list[SharedLibraryInfo]:
     """
     Return all transitive shared libraries for non-Rust native linkabes.
@@ -308,11 +310,15 @@ def _non_rust_shared_lib_infos(
     Rust libraries to collect all transitive shared libraries.
     """
     first_order_deps = [dep.dep for dep in resolve_deps(ctx, include_doc_deps)]
-    return [
-        d[SharedLibraryInfo]
-        for d in first_order_deps
-        if RustLinkInfo not in d and SharedLibraryInfo in d
-    ]
+
+    if native_unbundle_deps:
+        return [d[SharedLibraryInfo] for d in first_order_deps if SharedLibraryInfo in d]
+    else:
+        return [
+            d[SharedLibraryInfo]
+            for d in first_order_deps
+            if RustLinkInfo not in d and SharedLibraryInfo in d
+        ]
 
 # Returns native link dependencies.
 def _rust_link_infos(
@@ -323,21 +329,21 @@ def _rust_link_infos(
 def normalize_crate(label: str) -> str:
     return label.replace("-", "_")
 
-# TODO(pickett): Currently this assumes the library target is being built as a
-# staticlib or cdylib.
-def inherited_exported_link_deps(ctx: AnalysisContext) -> list[Dependency]:
+def inherited_exported_link_deps(ctx: AnalysisContext, native_unbundle_deps: bool) -> list[Dependency]:
     deps = {}
-    for dep in _non_rust_link_deps(ctx):
+    for dep in _native_link_dependencies(ctx, native_unbundle_deps):
         deps[dep.label] = dep
-    for info in _rust_link_infos(ctx):
-        for dep in info.exported_link_deps:
-            deps[dep.label] = dep
+    if not native_unbundle_deps:
+        for info in _rust_link_infos(ctx):
+            for dep in info.exported_link_deps:
+                deps[dep.label] = dep
     return deps.values()
 
 def inherited_rust_cxx_link_group_info(
         ctx: AnalysisContext,
+        native_unbundle_deps: bool,
         link_style: [LinkStyle, None] = None) -> RustCxxLinkGroupInfo:
-    link_deps = inherited_exported_link_deps(ctx)
+    link_deps = inherited_exported_link_deps(ctx, native_unbundle_deps)
 
     # Assume a rust executable wants to use link groups if a link group map
     # is present
@@ -415,24 +421,24 @@ def inherited_rust_cxx_link_group_info(
         link_group_preferred_linkage = link_group_preferred_linkage,
     )
 
-# TODO(pickett): Currently this assumes the library target is being built as a
-# staticlib or cdylib.
 def inherited_merged_link_infos(
         ctx: AnalysisContext,
+        native_unbundle_deps: bool,
         include_doc_deps: bool = False) -> list[MergedLinkInfo]:
     infos = []
-    infos.extend(_non_rust_link_infos(ctx, include_doc_deps))
-    infos.extend([d.merged_link_info for d in _rust_link_infos(ctx, include_doc_deps) if d.merged_link_info])
+    infos.extend(_native_link_infos(ctx, native_unbundle_deps, include_doc_deps))
+    if not native_unbundle_deps:
+        infos.extend([d.merged_link_info for d in _rust_link_infos(ctx, include_doc_deps) if d.merged_link_info])
     return infos
 
-# TODO(pickett): Currently this assumes the library target is being built as a
-# staticlib or cdylib.
 def inherited_shared_libs(
         ctx: AnalysisContext,
+        native_unbundle_deps: bool,
         include_doc_deps: bool = False) -> list[SharedLibraryInfo]:
     infos = []
-    infos.extend(_non_rust_shared_lib_infos(ctx, include_doc_deps))
-    infos.extend([d.shared_libs for d in _rust_link_infos(ctx, include_doc_deps)])
+    infos.extend(_native_shared_lib_infos(ctx, native_unbundle_deps, include_doc_deps))
+    if not native_unbundle_deps:
+        infos.extend([d.shared_libs for d in _rust_link_infos(ctx, include_doc_deps)])
     return infos
 
 def inherited_external_debug_info(
