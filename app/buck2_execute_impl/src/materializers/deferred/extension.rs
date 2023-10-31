@@ -116,8 +116,10 @@ struct Iterate {
     sender: UnboundedSender<(ProjectRelativePathBuf, Box<dyn DeferredMaterializerEntry>)>,
 }
 
-impl<T> ExtensionCommand<T> for Iterate {
+impl<T: IoHandler> ExtensionCommand<T> for Iterate {
     fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
+        // Ensure up to date access times
+        processor.flush_access_times(0);
         for (path, data) in processor.tree.iter_with_paths() {
             let stage = match &data.stage {
                 ArtifactMaterializationStage::Declared { method, .. } => {
