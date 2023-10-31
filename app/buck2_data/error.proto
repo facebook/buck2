@@ -23,6 +23,7 @@ enum ErrorType {
   UNUSED_DEFAULT = 0;
   DAEMON_IS_BUSY = 1;
   ACTION_COMMAND_FAILURE = 2;
+  WATCHMAN = 3;
   // Add causes here as needed
 }
 
