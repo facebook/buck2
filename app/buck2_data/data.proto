@@ -12,6 +12,7 @@ syntax = "proto3";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
+import "error.proto";
 
 package buck.data;
 
@@ -1838,24 +1839,9 @@ message DiceEqualityCheck {
 
 message NoActiveDiceState {}
 
-enum ErrorCategory {
-  USER = 0;
-  INFRA = 1;
-}
-
-enum ErrorType {
-  // Protobuf requires us to supply a default value; however, this type is
-  // always used in an `optional` way and so no default value should ever
-  // appear. Still, let's use a sentinal just to be safe.
-  UNUSED_DEFAULT = 0;
-  DAEMON_IS_BUSY = 1;
-  ACTION_COMMAND_FAILURE = 2;
-  // Add causes here as needed
-}
-
 message ErrorReport {
-  optional ErrorCategory category = 1;
-  optional ErrorType typ = 2;
+  optional buck.data.error.ErrorCategory category = 1;
+  optional buck.data.error.ErrorType typ = 2;
   // The error message that is shown to users on the CLI
   string message = 3;
   // If different from `message`, the error messsage that is shown to the
@@ -1871,7 +1857,7 @@ message ErrorReport {
 // protobuf definition outside of buck2. Currently used in the invocation record
 // and nowhere else.
 message ProcessedErrorReport {
-  optional ErrorCategory category = 1;
+  optional buck.data.error.ErrorCategory category = 1;
   optional string typ = 2;
   string message = 3;
   optional string telemetry_message = 4;

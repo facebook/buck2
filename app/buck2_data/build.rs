@@ -10,7 +10,7 @@
 use std::io;
 
 fn main() -> io::Result<()> {
-    let proto_files = &["data.proto"];
+    let proto_files = &["data.proto", "error.proto"];
 
     buck2_protoc_dev::configure()
         .setup_protoc()

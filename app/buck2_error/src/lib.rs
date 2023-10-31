@@ -45,7 +45,7 @@ pub type Result<T> = std::result::Result<T, crate::Error>;
 ///
 /// Unlike the [`category`](crate::Category) metadata, this type is "open" in the sense that it is
 /// expected to grow in the future. You should not match on it exhaustively.
-pub use buck2_data::ErrorType;
+pub use buck2_data::error::ErrorType;
 /// Generates an error impl for the type.
 ///
 /// This macro is a drop-in replacement for [`thiserror::Error`]. In the near future, all uses of

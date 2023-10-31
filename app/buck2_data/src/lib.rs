@@ -93,6 +93,10 @@ mod serialize_action_kind {
 
 tonic::include_proto!("buck.data");
 
+pub mod error {
+    tonic::include_proto!("buck.data.error");
+}
+
 /// Trait for things that can be converted into protobuf messages, for ease of emitting events. There are many core Buck
 /// types that are represented in the Daemon API that use this trait to ease conversion.
 pub trait ToProtoMessage {

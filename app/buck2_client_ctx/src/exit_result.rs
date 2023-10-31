@@ -144,12 +144,15 @@ impl ExitResult {
         let mut has_infra = false;
         let mut has_user = false;
         for e in errors {
-            if e.typ == Some(buck2_data::ErrorType::DaemonIsBusy as i32) {
+            if e.typ == Some(buck2_data::error::ErrorType::DaemonIsBusy as i32) {
                 return Self::status(ExitCode::DaemonIsBusy);
             }
-            match e.category.and_then(buck2_data::ErrorCategory::from_i32) {
-                Some(buck2_data::ErrorCategory::Infra) => has_infra = true,
-                Some(buck2_data::ErrorCategory::User) => has_user = true,
+            match e
+                .category
+                .and_then(buck2_data::error::ErrorCategory::from_i32)
+            {
+                Some(buck2_data::error::ErrorCategory::Infra) => has_infra = true,
+                Some(buck2_data::error::ErrorCategory::User) => has_user = true,
                 None => (),
             }
         }

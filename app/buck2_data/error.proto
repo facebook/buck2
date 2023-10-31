@@ -1,0 +1,32 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
+syntax = "proto3";
+
+// In protobuf, enum values are not namespaced in their type. That means that in
+// any protbuf file, you can only have one enum variant with any given name. The
+// only reason this file exists is to work around that limitation, especially
+// for error types, which may often have a name that might also make sense
+// elsewhere.
+package buck.data.error;
+
+enum ErrorType {
+  // Protobuf requires us to supply a default value; however, this type is
+  // always used in an `optional` way and so no default value should ever
+  // appear. Still, let's use a sentinal just to be safe.
+  UNUSED_DEFAULT = 0;
+  DAEMON_IS_BUSY = 1;
+  ACTION_COMMAND_FAILURE = 2;
+  // Add causes here as needed
+}
+
+enum ErrorCategory {
+  USER = 0;
+  INFRA = 1;
+}

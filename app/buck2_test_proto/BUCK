@@ -7,7 +7,7 @@ rust_protobuf_library(
     name = "buck2_test_proto",
     srcs = glob(["src/**/*.rs"]),
     build_env = {
-        "BUCK_HACK_DATA_PROTOC_INCLUDE": "$(location //buck2/app/buck2_data:data.proto)",
+        "BUCK_HACK_DATA_PROTOC_INCLUDE": "$(location //buck2/app/buck2_data:data_proto)",
     },
     build_script = "build.rs",
     protos = ["test.proto"],

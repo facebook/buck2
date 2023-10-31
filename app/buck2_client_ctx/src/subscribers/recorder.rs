@@ -470,7 +470,7 @@ mod imp {
                         telemetry_message: r.telemetry_message,
                         typ: r
                             .typ
-                            .and_then(buck2_data::ErrorType::from_i32)
+                            .and_then(buck2_data::error::ErrorType::from_i32)
                             .map(|t| t.as_str_name().to_owned()),
                     }
                 }));
