@@ -39,7 +39,19 @@ def gen_aidl_impl(ctx: AnalysisContext) -> list[Provider]:
     aidl_out = ctx.actions.declare_output("aidl_output", dir = True)
     aidl_cmd.add("-o", aidl_out.as_output())
     aidl_cmd.add(ctx.attrs.aidl)
-    ctx.actions.run(aidl_cmd, category = "aidl")
+
+    # Aidl does not create any output for parcelables. Therefore, we always initialize the output
+    # directory so that we don't get an "Action failed to produce outputs" error.
+    sh_cmd = cmd_args([
+        "sh",
+        "-c",
+        "mkdir -p $1 && $2",
+        "--",
+        aidl_out.as_output(),
+        cmd_args(aidl_cmd, delimiter = " "),
+    ])
+
+    ctx.actions.run(sh_cmd, category = "aidl")
 
     # Put the generated Java files into a zip file to be used as srcs to other rules.
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
