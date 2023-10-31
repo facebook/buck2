@@ -13,8 +13,11 @@ use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
+use crate::bxl::starlark_defs::analysis_result::StarlarkAnalysisResult;
+use crate::bxl::starlark_defs::artifacts::EnsuredArtifact;
 use crate::bxl::starlark_defs::audit::StarlarkAuditCtx;
 use crate::bxl::starlark_defs::build_result::StarlarkBxlBuildResult;
+use crate::bxl::starlark_defs::cli_args::CliArgs;
 use crate::bxl::starlark_defs::context::actions::BxlActions;
 use crate::bxl::starlark_defs::context::fs::BxlFilesystem;
 use crate::bxl::starlark_defs::context::BxlContext;
@@ -37,6 +40,7 @@ pub(crate) fn register_bxl_type_names(globals: &mut GlobalsBuilder) {
 
 #[starlark_module]
 pub(crate) fn register_bxl_type_names_in_bxl_namespace(globals: &mut GlobalsBuilder) {
+    const CliArgs: StarlarkValueAsType<CliArgs> = StarlarkValueAsType::new();
     const Context: StarlarkValueAsType<BxlContext> = StarlarkValueAsType::new();
     const AuditContext: StarlarkValueAsType<StarlarkAuditCtx> = StarlarkValueAsType::new();
     const CqueryContext: StarlarkValueAsType<StarlarkCQueryCtx> = StarlarkValueAsType::new();
@@ -44,6 +48,8 @@ pub(crate) fn register_bxl_type_names_in_bxl_namespace(globals: &mut GlobalsBuil
     const Actions: StarlarkValueAsType<BxlActions> = StarlarkValueAsType::new();
     const Filesystem: StarlarkValueAsType<BxlFilesystem> = StarlarkValueAsType::new();
     const BuildResult: StarlarkValueAsType<StarlarkBxlBuildResult> = StarlarkValueAsType::new();
+    const AnalysisResult: StarlarkValueAsType<StarlarkAnalysisResult> = StarlarkValueAsType::new();
+    const EnsuredArtifact: StarlarkValueAsType<EnsuredArtifact> = StarlarkValueAsType::new();
     const FileNode: StarlarkValueAsType<StarlarkFileNode> = StarlarkValueAsType::new();
     const TargetNode: StarlarkValueAsType<StarlarkTargetNode> = StarlarkValueAsType::new();
     const ConfiguredTargetNode: StarlarkValueAsType<StarlarkConfiguredTargetNode> =
