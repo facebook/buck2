@@ -118,7 +118,7 @@ RING_CORE_PREFIX = "ring_core_0_17_5_"
 [[platform_fixup.'cfg(any(all(target_arch = "x86_64", target_os = "windows", target_env = "gnu")))'.buildscript]]
 [platform_fixup.'cfg(any(all(target_arch = "x86_64", target_os = "windows", target_env = "gnu")))'.buildscript.cxx_library]
 name = "ring-c-win-x86_84"
-srcs = [ "crypto/**/*.c", "third_party/fiat/asm/fiat_curve25519_adx_mul.S", "third_party/fiat/asm/fiat_curve25519_adx_square.S" ]
+srcs = [ "crypto/**/*.c" ]
 headers = [ "include/**/*.h", "crypto/**/*.h", "third_party/**/*.h", "crypto/**/*.inl" ]
 # Exclude C AES because we've got the x86_64 one
 exclude = [ "crypto/fipsmodule/aes/aes.c" ]
@@ -142,7 +142,7 @@ RING_CORE_PREFIX = "ring_core_0_17_5_"
 [[platform_fixup.'cfg(any(all(target_arch = "x86_64", target_os = "windows", target_env = "msvc")))'.buildscript]]
 [platform_fixup.'cfg(any(all(target_arch = "x86_64", target_os = "windows", target_env = "msvc")))'.buildscript.cxx_library]
 name = "ring-c-win-msvc-x86_84"
-srcs = [ "crypto/**/*.c", "third_party/fiat/asm/fiat_curve25519_adx_mul.S", "third_party/fiat/asm/fiat_curve25519_adx_square.S" ]
+srcs = [ "crypto/**/*.c" ]
 headers = [ "include/**/*.h", "crypto/**/*.h", "third_party/**/*.h", "crypto/**/*.inl" ]
 # Exclude C AES because we've got the x86_64 one
 exclude = [ "crypto/fipsmodule/aes/aes.c" ]
@@ -153,3 +153,10 @@ fixup_include_paths = ["include"]
 [platform_fixup.'cfg(all(target_arch = "x86_64", target_os = "windows"))'.buildscript.prebuilt_cxx_library]
 name = "ring-asm-windows-x86_84"
 static_libs = [ "pregenerated/*x86_64*-nasm.obj" ]
+
+[platform_fixup.'cfg(any(all(target_arch = "x86_64", target_os = "windows")))']
+version = "=0.17.5"
+[[platform_fixup.'cfg(any(all(target_arch = "x86_64", target_os = "windows")))'.buildscript]]
+[platform_fixup.'cfg(any(all(target_arch = "x86_64", target_os = "windows")))'.buildscript.prebuilt_cxx_library]
+name = "ring-asm-windows-x86_84"
+static_libs = [ "pregenerated/*x86_64*-nasm.o" ]
