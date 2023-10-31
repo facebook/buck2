@@ -75,7 +75,7 @@ def main(argv):
 
     go_files = [s for s in real_srcs if s.suffix == ".go"]
     s_files = [s for s in real_srcs if s.suffix == ".s"]
-    o_files = [s for s in real_srcs if s.suffix == ".o"]
+    o_files = [s for s in real_srcs if s.suffix in (".o", ".obj")]
 
     with contextlib.ExitStack() as stack:
 
