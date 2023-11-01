@@ -31,7 +31,6 @@ use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::target::label::TargetLabel;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::SetDigestConfig;
 use buck2_execute::execute::dice_data::set_fallback_executor_config;
@@ -106,7 +105,7 @@ async fn lookup_deferred_from_analysis() -> anyhow::Result<()> {
                 deferred_result,
                 None,
             )))
-            .shared_error(),
+            .map_err(buck2_error::Error::from),
         )
         .mock_and_return(
             configured_node_key,
@@ -200,7 +199,7 @@ async fn lookup_deferred_that_has_deferreds() -> anyhow::Result<()> {
                 deferred_result,
                 None,
             )))
-            .shared_error(),
+            .map_err(buck2_error::Error::from),
         )
         .mock_and_return(
             configured_node_key,

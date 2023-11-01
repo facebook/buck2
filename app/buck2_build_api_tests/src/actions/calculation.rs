@@ -56,7 +56,6 @@ use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -146,7 +145,10 @@ fn mock_deferred_resolution_calculation(
 ) -> DiceBuilder {
     let arc_any: Arc<dyn AnyValue + 'static> = Arc::new(registered_action_arc);
     let an_any = DeferredValueAnyReady::AnyValue(arc_any);
-    dice_builder.mock_and_return(deferred_resolve, anyhow::Ok(an_any).shared_error())
+    dice_builder.mock_and_return(
+        deferred_resolve,
+        anyhow::Ok(an_any).map_err(buck2_error::Error::from),
+    )
 }
 
 async fn make_default_dice_state(

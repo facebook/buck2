@@ -14,7 +14,6 @@ use std::sync::Arc;
 use buck2_build_api::query::oneshot::CqueryOwnerBehavior;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::target::label::TargetLabel;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_events::dispatch::console_message;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -147,7 +146,7 @@ async fn resolve_literals_in_universe<L: AsRef<str>, U: AsRef<str>>(
                 universe_ref.get(&resolved_pattern)
             };
 
-            (lit.to_owned(), result.shared_error())
+            (lit.to_owned(), result.map_err(buck2_error::Error::from))
         })
         .collect();
 

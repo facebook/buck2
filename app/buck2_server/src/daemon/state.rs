@@ -36,7 +36,6 @@ use buck2_core::is_open_source;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_core::tag_result;
 use buck2_error::shared_result::SharedResult;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::sink::scribe;
 use buck2_events::sink::tee::TeeSink;
@@ -212,7 +211,7 @@ impl DaemonState {
 
         tracing::info!("Daemon state is ready.");
 
-        let data = data.shared_error();
+        let data = data.map_err(buck2_error::Error::from);
 
         DaemonState {
             fb,

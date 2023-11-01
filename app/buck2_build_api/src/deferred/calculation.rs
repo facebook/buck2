@@ -25,7 +25,6 @@ use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::shared_result::SharedResult;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_error::Context;
 use buck2_events::dispatch::create_span;
 use buck2_events::dispatch::Span;
@@ -186,7 +185,9 @@ async fn resolve_deferred(
             let result = compute_deferred(ctx, &self.0).await?;
             match result.value() {
                 DeferredValueAny::Ready(value) => Ok(value.dupe()),
-                DeferredValueAny::Deferred(key) => resolve_deferred(ctx, key).await.shared_error(),
+                DeferredValueAny::Deferred(key) => resolve_deferred(ctx, key)
+                    .await
+                    .map_err(buck2_error::Error::from),
             }
         }
 

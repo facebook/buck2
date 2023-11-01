@@ -10,20 +10,3 @@
 pub type SharedError = crate::Error;
 
 pub type SharedResult<T> = Result<T, SharedError>;
-
-/// shared_error() can convert some non-shared Result to Result.
-///
-/// The `?` operator will automatically convert non-shared Error to SharedError, so shared_error()
-/// is usually unnecessary except when propagating a Result directly as a return value.
-pub trait ToSharedResultExt<T> {
-    fn shared_error(self) -> SharedResult<T>;
-}
-
-impl<T, E> ToSharedResultExt<T> for Result<T, E>
-where
-    SharedError: From<E>,
-{
-    fn shared_error(self) -> SharedResult<T> {
-        Ok(self?)
-    }
-}

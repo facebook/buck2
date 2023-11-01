@@ -30,7 +30,6 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::TargetLabel;
 use buck2_error::shared_result::SharedResult;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_error::Context;
 use buck2_node::nodes::attributes::PACKAGE;
 use buck2_node::nodes::eval_result::EvaluationResult;
@@ -140,7 +139,7 @@ pub(crate) async fn targets_resolve_aliases(
                     package.dupe(),
                     dice.get_interpreter_results(package.dupe())
                         .await
-                        .shared_error(),
+                        .map_err(buck2_error::Error::from),
                 )
             }
         })

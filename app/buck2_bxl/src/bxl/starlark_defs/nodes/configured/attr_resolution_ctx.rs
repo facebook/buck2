@@ -25,7 +25,6 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::shared_result::SharedResult;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use futures::FutureExt;
 use starlark::environment::Module;
@@ -99,7 +98,8 @@ impl<'v> AttrResolutionContext<'v> for LazyAttrResolutionContext<'v> {
     fn resolve_query(&self, query: &str) -> SharedResult<Arc<AnalysisQueryResult>> {
         match self.query_results() {
             Ok(res) => resolve_query(res, query, self.module),
-            Err(e) => Err(anyhow::anyhow!("Error resolving query: `{}`", e)).shared_error(),
+            Err(e) => Err(anyhow::anyhow!("Error resolving query: `{}`", e))
+                .map_err(buck2_error::Error::from),
         }
     }
 

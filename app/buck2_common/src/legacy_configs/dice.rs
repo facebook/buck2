@@ -16,7 +16,6 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::name::CellName;
 use buck2_error::shared_result::SharedResult;
-use buck2_error::shared_result::ToSharedResultExt;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceProjectionComputations;
@@ -186,7 +185,7 @@ impl Key for LegacyBuckConfigForCellKey {
         legacy_configs
             .get(self.cell_name)
             .map(|x| x.dupe())
-            .shared_error()
+            .map_err(buck2_error::Error::from)
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {

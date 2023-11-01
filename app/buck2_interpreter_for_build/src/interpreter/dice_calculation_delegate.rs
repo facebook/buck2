@@ -26,7 +26,6 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::name::CellName;
 use buck2_core::package::PackageLabel;
 use buck2_error::shared_result::SharedResult;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_error::Context;
 use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async;
@@ -392,7 +391,7 @@ impl<'c> DiceCalculationDelegate<'c> {
                 interpreter
                     .eval_package_file_uncached(&self.0)
                     .await
-                    .shared_error()
+                    .map_err(buck2_error::Error::from)
             }
 
             fn equality(x: &Self::Value, y: &Self::Value) -> bool {
@@ -524,7 +523,7 @@ impl<'c> DiceCalculationDelegate<'c> {
         )
         .await
         .map(Arc::new)
-        .shared_error()
+        .map_err(buck2_error::Error::from)
     }
 }
 

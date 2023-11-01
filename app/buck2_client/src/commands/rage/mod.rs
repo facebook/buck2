@@ -40,7 +40,6 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_data::instant_event::Data;
 use buck2_data::InstantEvent;
 use buck2_data::RageResult;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
 use buck2_events::sink::scribe::ThriftScribeSink;
 use buck2_events::BuckEvent;
@@ -141,12 +140,17 @@ impl RageCommand {
         )?;
 
         // If there is a daemon, start connecting.
-        let info = BuckdProcessInfo::load(&daemon_dir).shared_error();
+        let info = BuckdProcessInfo::load(&daemon_dir).map_err(buck2_error::Error::from);
 
         let buckd = match &info {
-            Ok(info) => {
-                async { info.create_channel().await?.upgrade().await.shared_error() }.boxed()
+            Ok(info) => async {
+                info.create_channel()
+                    .await?
+                    .upgrade()
+                    .await
+                    .map_err(buck2_error::Error::from)
             }
+            .boxed(),
             Err(e) => futures::future::ready(Err(e.dupe())).boxed(),
         }
         .shared();

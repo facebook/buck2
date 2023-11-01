@@ -53,7 +53,6 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::invocation_roots::find_invocation_roots;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::file_name::FileNameBuf;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_starlark::StarlarkCommand;
 use clap::AppSettings;
@@ -313,7 +312,7 @@ impl CommandKind {
                 roots: r,
                 isolation: common_opts.isolation_dir.clone(),
             })
-            .shared_error();
+            .map_err(buck2_error::Error::from);
 
         // Handle the daemon command earlier: it wants to fork, but the things we do below might
         // want to create threads.

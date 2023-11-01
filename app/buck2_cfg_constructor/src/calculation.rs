@@ -17,7 +17,6 @@ use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_error::shared_result::SharedResult;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_error::Context;
 use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_interpreter_for_build::interpreter::package_file_calculation::EvalPackageFile;
@@ -62,7 +61,9 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
                 ctx: &mut DiceComputations,
                 _cancellations: &CancellationContext,
             ) -> Self::Value {
-                get_cfg_constructor_uncached(ctx).await.shared_error()
+                get_cfg_constructor_uncached(ctx)
+                    .await
+                    .map_err(buck2_error::Error::from)
             }
 
             fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
@@ -100,7 +101,10 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
                     .get_cfg_constructor(ctx)
                     .await?
                     .context("Internal error: Global cfg constructor instance should exist")?;
-                cfg_constructor.eval(ctx, &self.cfg).await.shared_error()
+                cfg_constructor
+                    .eval(ctx, &self.cfg)
+                    .await
+                    .map_err(buck2_error::Error::from)
             }
 
             fn equality(x: &Self::Value, y: &Self::Value) -> bool {

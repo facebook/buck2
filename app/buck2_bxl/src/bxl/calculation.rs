@@ -15,7 +15,6 @@ use buck2_build_api::bxl::calculation::BxlComputeResult;
 use buck2_build_api::bxl::calculation::BXL_CALCULATION_IMPL;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_error::shared_result::SharedResult;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
 use dice::DiceComputations;
 use dice::Key;
@@ -69,12 +68,13 @@ impl Key for internal::BxlComputeKey {
         cancellation
             .with_structured_cancellation(|observer| {
                 async move {
-                    eval(ctx, key, profiler, observer).await.shared_error().map(
-                        |(result, _, materializations)| BxlComputeResult {
+                    eval(ctx, key, profiler, observer)
+                        .await
+                        .map_err(buck2_error::Error::from)
+                        .map(|(result, _, materializations)| BxlComputeResult {
                             bxl_result: Arc::new(result),
                             materializations,
-                        },
-                    )
+                        })
                 }
                 .boxed()
             })

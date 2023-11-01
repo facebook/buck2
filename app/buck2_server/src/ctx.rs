@@ -61,7 +61,6 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_error::shared_result::SharedError;
 use buck2_error::shared_result::SharedResult;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_events::daemon_id;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
@@ -491,7 +490,7 @@ impl CellConfigLoader {
                             dice_ctx.get_cell_resolver().await?,
                             dice_ctx.get_legacy_configs().await?,
                             HashSet::new(),
-                        )).shared_error();
+                        )).map_err(buck2_error::Error::from);
                     } else {
                         // If there is no previous command but the flag was set, then the flag is ignored, the command behaves as if there isn't the reuse config flag.
                         warn!(
@@ -500,7 +499,7 @@ impl CellConfigLoader {
                     }
                 }
                 parse_legacy_cells(&self.config_overrides, &self.working_dir, &self.project_root)
-                    .shared_error()
+                    .map_err(buck2_error::Error::from)
             })
             .await
             .clone()

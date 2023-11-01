@@ -24,7 +24,6 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::shared_result::SharedResult;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_error::Context;
 use buck2_events::dispatch::console_message;
 use cmp_any::PartialEqAny;
@@ -383,7 +382,7 @@ impl Key for ReadDirKey {
             .await?
             .read_dir(self.0.as_ref())
             .await
-            .shared_error()
+            .map_err(buck2_error::Error::from)
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {

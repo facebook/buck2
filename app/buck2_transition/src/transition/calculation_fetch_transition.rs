@@ -11,7 +11,6 @@ use async_trait::async_trait;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_error::shared_result::SharedError;
 use buck2_error::shared_result::SharedResult;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use dice::DiceComputations;
 use starlark::values::OwnedFrozenValueTyped;
@@ -49,6 +48,8 @@ impl FetchTransition for DiceComputations {
             .map_err(|_| SharedError::new(FetchTransitionError::NotFound(id.clone())))?
             .0;
 
-        transition.downcast_anyhow().shared_error()
+        transition
+            .downcast_anyhow()
+            .map_err(buck2_error::Error::from)
     }
 }

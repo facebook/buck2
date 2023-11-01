@@ -37,7 +37,6 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_error::shared_result::SharedError;
 use buck2_error::shared_result::SharedResult;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_error::Context;
 use buck2_execute::execute::dice_data::HasFallbackExecutorConfig;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
@@ -1003,7 +1002,7 @@ async fn compute_configured_target_node(
             ) -> SharedResult<MaybeCompatible<ConfiguredTargetNode>> {
                 compute_configured_target_node_with_transition(self, ctx)
                     .await
-                    .shared_error()
+                    .map_err(buck2_error::Error::from)
             }
 
             fn equality(x: &Self::Value, y: &Self::Value) -> bool {

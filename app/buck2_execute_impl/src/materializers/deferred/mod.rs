@@ -40,7 +40,6 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
 use buck2_error::shared_result::SharedError;
 use buck2_error::shared_result::SharedResult;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_error::Context as _;
 use buck2_events::dispatch::current_span;
 use buck2_events::dispatch::get_dispatcher;
@@ -1252,9 +1251,13 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 // TODO: This probably shouldn't return a CleanFuture
                 sender
                     .send(
-                        async move { join_all_existing_futs(existing_futs?).await.shared_error() }
-                            .boxed()
-                            .shared(),
+                        async move {
+                            join_all_existing_futs(existing_futs?)
+                                .await
+                                .map_err(buck2_error::Error::from)
+                        }
+                        .boxed()
+                        .shared(),
                     )
                     .ok();
             }

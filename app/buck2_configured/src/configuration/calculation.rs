@@ -15,7 +15,6 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::parse_config_section_and_key;
 use buck2_error::shared_result::SharedResult;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_error::Context;
 use buck2_core::cells::name::CellName;
 use starlark_map::unordered_map::UnorderedMap;
@@ -489,7 +488,7 @@ impl ConfigurationCalculation for DiceComputations {
             ) -> Self::Value {
                 compute_platform_configuration(ctx, &self.0)
                     .await
-                    .shared_error()
+                    .map_err(buck2_error::Error::from)
             }
 
             fn equality(x: &Self::Value, y: &Self::Value) -> bool {
@@ -508,7 +507,10 @@ impl ConfigurationCalculation for DiceComputations {
     async fn get_default_platform(&self, target: &TargetLabel) -> SharedResult<ConfigurationData> {
         let detector = get_target_platform_detector(self).await?;
         if let Some(target) = detector.detect(target) {
-            return self.get_platform_configuration(target).await.shared_error();
+            return self
+                .get_platform_configuration(target)
+                .await
+                .map_err(buck2_error::Error::from);
         }
         // TODO(cjhopman): This needs to implement buck1's approach to determining target platform, it's currently missing the fallback to buckconfig parser.target_platform.
         Ok(ConfigurationData::unspecified())
@@ -593,7 +595,7 @@ impl ConfigurationCalculation for DiceComputations {
                             )
                             .into(),
                         )
-                        .shared_error();
+                        .map_err(buck2_error::Error::from);
                     }
                 }
                 .to_config_setting_data();
@@ -629,7 +631,7 @@ impl ConfigurationCalculation for DiceComputations {
                 cfg_target, target_cfg,
             )
         })
-        .shared_error()
+        .map_err(buck2_error::Error::from)
     }
 
     async fn get_execution_platforms(&self) -> SharedResult<Option<ExecutionPlatforms>> {

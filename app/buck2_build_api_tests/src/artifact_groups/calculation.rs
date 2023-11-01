@@ -39,7 +39,6 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::PackageLabel;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::SetDigestConfig;
@@ -58,7 +57,7 @@ fn mock_deferred_tset(dice_builder: DiceBuilder, value: OwnedFrozenValue) -> Dic
 
     let data: Arc<dyn AnyValue + 'static> = Arc::new(DeferredTransitiveSetData::testing_new(value));
     let any = DeferredValueAnyReady::AnyValue(data);
-    dice_builder.mock_and_return(resolve, anyhow::Ok(any).shared_error())
+    dice_builder.mock_and_return(resolve, anyhow::Ok(any).map_err(buck2_error::Error::from))
 }
 
 #[tokio::test]

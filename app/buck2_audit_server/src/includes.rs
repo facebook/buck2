@@ -23,7 +23,6 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::package::PackageLabel;
 use buck2_error::shared_result::SharedResult;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::StarlarkModulePath;
@@ -164,7 +163,7 @@ async fn load_and_collect_includes(
             path.clone(),
             buildfile_name.to_owned(),
         )))
-        .shared_error();
+        .map_err(buck2_error::Error::from);
     }
 
     Ok(get_transitive_includes(ctx, &load_result).await?)

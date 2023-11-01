@@ -23,7 +23,6 @@ use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::TargetLabel;
 use buck2_error::shared_result::SharedResult;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::LabeledNode;
@@ -137,7 +136,7 @@ impl<T: QueryTarget> PreresolvedQueryLiterals<T> {
             .map(|lit| async move { (lit.to_owned(), base.eval_literals(&[lit], dice).await) });
         let mut resolved_literals = HashMap::new();
         for (literal, result) in futures::future::join_all(futs).await {
-            resolved_literals.insert(literal, result.shared_error());
+            resolved_literals.insert(literal, result.map_err(buck2_error::Error::from));
         }
         Self { resolved_literals }
     }

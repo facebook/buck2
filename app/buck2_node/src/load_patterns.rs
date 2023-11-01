@@ -20,7 +20,6 @@ use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::name::TargetName;
 use buck2_error::shared_result::SharedResult;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_events::dispatch::console_message;
 use dice::DiceComputations;
 use dupe::Dupe;
@@ -265,7 +264,7 @@ pub async fn load_patterns<T: PatternType>(
 
     let mut results: BTreeMap<PackageLabel, SharedResult<Arc<EvaluationResult>>> = BTreeMap::new();
     while let Some((pkg, load_res)) = load_package_futs.next().await {
-        results.insert(pkg, load_res.shared_error());
+        results.insert(pkg, load_res.map_err(buck2_error::Error::from));
     }
 
     apply_spec(spec, results, skip_missing_targets)

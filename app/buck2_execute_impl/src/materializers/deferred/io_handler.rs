@@ -22,7 +22,6 @@ use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::shared_result::SharedError;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::digest::CasDigestFromReExt;
 use buck2_execute::digest::CasDigestToReExt;
@@ -334,7 +333,7 @@ impl IoHandler for DefaultIoHandler {
                 }),
                 cancellations,
             )
-            .map(|r| r.shared_error())
+            .map(|r| r.map_err(buck2_error::Error::from))
             .boxed()
     }
 
@@ -564,7 +563,9 @@ impl IoRequest for WriteIoRequest {
     fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> anyhow::Result<()> {
         // NOTE: No spans here! We should perhaps add one, but this needs to be considered
         // carefully as it's a lot of spans, and we haven't historically emitted those for writes.
-        let res = self.execute_inner(project_fs).shared_error();
+        let res = self
+            .execute_inner(project_fs)
+            .map_err(buck2_error::Error::from);
 
         // If the materializer has shut down, we ignore this.
         let _ignored = self.command_sender.send_low_priority(
@@ -590,7 +591,7 @@ impl IoRequest for CleanIoRequest {
     fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> anyhow::Result<()> {
         // NOTE: No spans here! We should perhaps add one, but this needs to be considered
         // carefully as it's a lot of spans, and we haven't historically emitted those for writes.
-        let res = cleanup_path(project_fs, &self.path).shared_error();
+        let res = cleanup_path(project_fs, &self.path).map_err(buck2_error::Error::from);
 
         // If the materializer has shut down, we ignore this.
         let _ignored = self.command_sender.send_low_priority(

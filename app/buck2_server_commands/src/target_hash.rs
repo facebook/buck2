@@ -25,7 +25,6 @@ use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_error::shared_result::SharedResult;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::ConfiguredOrUnconfiguredTargetLabel;
@@ -413,7 +412,7 @@ impl TargetHashes {
                     };
                     (
                         target.node_ref().unconfigured_label().dupe(),
-                        hash_result.shared_error(),
+                        hash_result.map_err(buck2_error::Error::from),
                     )
                 }
                 .boxed()

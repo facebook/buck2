@@ -58,7 +58,6 @@ use buck2_data::TestSessionInfo;
 use buck2_data::TestSuite;
 use buck2_data::ToProtoMessage;
 use buck2_error::shared_result::SharedResult;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_error::Context;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
@@ -975,7 +974,7 @@ impl<'b> BuckTestOrchestrator<'b> {
                                     local_resource_target
                                 )
                             })
-                            .shared_error()
+                            .map_err(buck2_error::Error::from)
                     }
                     .boxed()
                     .shared()

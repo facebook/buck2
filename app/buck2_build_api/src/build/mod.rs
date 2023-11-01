@@ -23,7 +23,6 @@ use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_error::shared_result::SharedResult;
-use buck2_error::shared_result::ToSharedResultExt;
 use buck2_events::dispatch::console_message;
 use buck2_execute::artifact::fs::ExecutorFs;
 use dashmap::mapref::entry::Entry;
@@ -385,10 +384,12 @@ async fn build_configured_label_inner<'a>(
                 let materialization_context = materialization_context.dupe();
                 materialize_artifact_group_owned(ctx, output, materialization_context).map(
                     move |res| {
-                        let res = res.shared_error().map(|values| ProviderArtifacts {
-                            values,
-                            provider_type,
-                        });
+                        let res =
+                            res.map_err(buck2_error::Error::from)
+                                .map(|values| ProviderArtifacts {
+                                    values,
+                                    provider_type,
+                                });
 
                         (index, res)
                     },
