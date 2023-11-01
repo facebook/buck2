@@ -43,15 +43,19 @@ pub(crate) enum ErrorKind {
 
 impl Error {
     pub fn new<E: std::error::Error + Send + Sync + 'static>(e: E) -> Self {
-        Self(Arc::new(ErrorKind::Root(ErrorRoot::new(e, None, None))))
+        Self::new_with_options(e, None, None)
     }
 
     pub fn new_with_options<E: std::error::Error + Send + Sync + 'static>(
         e: E,
-        f: Option<fn(&E, &mut fmt::Formatter<'_>) -> fmt::Result>,
-        t: Option<ErrorType>,
+        late_format: Option<fn(&E, &mut fmt::Formatter<'_>) -> fmt::Result>,
+        typ: Option<ErrorType>,
     ) -> Self {
-        Self(Arc::new(ErrorKind::Root(ErrorRoot::new(e, f, t))))
+        Self(Arc::new(ErrorKind::Root(ErrorRoot::new(
+            e,
+            late_format,
+            typ,
+        ))))
     }
 
     fn iter_kinds<'a>(&'a self) -> impl Iterator<Item = &'a ErrorKind> {
