@@ -1,4 +1,6 @@
-native.python_binary(
+prelude = native
+
+prelude.python_binary(
     name = "dry_codesign_tool",
     main = "dry_codesign_tool.py",
     visibility = ["PUBLIC"],
@@ -13,43 +15,43 @@ native.python_binary(
     ],
 )
 
-native.python_bootstrap_binary(
+prelude.python_bootstrap_binary(
     name = "make_modulemap",
     main = "make_modulemap.py",
     visibility = ["PUBLIC"],
 )
 
-native.python_bootstrap_binary(
-    name = "make_swift_comp_db",
-    main = "make_swift_comp_db.py",
-    visibility = ["PUBLIC"],
+prelude.export_file(
+    name = "swift_exec.sh",
+    src = "swift_exec.sh",
 )
 
-native.python_bootstrap_binary(
-    name = "make_vfsoverlay",
-    main = "make_vfsoverlay.py",
-    visibility = ["PUBLIC"],
-)
-
-native.python_binary(
-    name = "split_arch_combine_dsym_bundles_tool",
-    main = "split_arch_combine_dsym_bundles_tool.py",
-    visibility = ["PUBLIC"],
-)
-
-native.command_alias(
+prelude.command_alias(
     name = "swift_exec",
     exe = ":swift_exec.sh",
     visibility = ["PUBLIC"],
 )
 
-native.export_file(
-    name = "swift_exec.sh",
-    src = "swift_exec.sh",
+prelude.python_bootstrap_binary(
+    name = "make_vfsoverlay",
+    main = "make_vfsoverlay.py",
+    visibility = ["PUBLIC"],
 )
 
-native.python_bootstrap_binary(
+prelude.python_binary(
+    name = "split_arch_combine_dsym_bundles_tool",
+    main = "split_arch_combine_dsym_bundles_tool.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
     name = "swift_objc_header_postprocess",
     main = "swift_objc_header_postprocess.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
+    name = "make_swift_comp_db",
+    main = "make_swift_comp_db.py",
     visibility = ["PUBLIC"],
 )
