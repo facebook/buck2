@@ -42,19 +42,24 @@ pub(crate) enum ErrorKind {
 }
 
 impl Error {
+    #[track_caller]
     pub fn new<E: std::error::Error + Send + Sync + 'static>(e: E) -> Self {
         Self::new_with_options(e, None, None)
     }
 
+    #[track_caller]
     pub fn new_with_options<E: std::error::Error + Send + Sync + 'static>(
         e: E,
         late_format: Option<fn(&E, &mut fmt::Formatter<'_>) -> fmt::Result>,
         typ: Option<ErrorType>,
     ) -> Self {
+        let source_location =
+            crate::source_location::from_file(std::panic::Location::caller().file(), None);
         Self(Arc::new(ErrorKind::Root(ErrorRoot::new(
             e,
             late_format,
             typ,
+            source_location,
         ))))
     }
 
@@ -150,6 +155,10 @@ impl Error {
 
     pub fn root_id(&self) -> UniqueRootId {
         self.root().id()
+    }
+
+    pub fn source_location(&self) -> Option<&str> {
+        self.root().source_location()
     }
 }
 

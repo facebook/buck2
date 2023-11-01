@@ -17,6 +17,7 @@ mod derive_tests;
 mod error;
 mod format;
 mod root;
+mod source_location;
 
 pub use any::AnyError;
 pub use context::Context;

@@ -21,11 +21,13 @@ pub fn create_error_report(err: &buck2_error::Error) -> buck2_data::ErrorReport 
         (format!("{:?}", err), None)
     };
 
+    let source_location = err.source_location().map(ToOwned::to_owned);
+
     buck2_data::ErrorReport {
         category: category.map(|c| c as i32),
         typ,
         message,
         telemetry_message,
-        source_location: None,
+        source_location,
     }
 }

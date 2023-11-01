@@ -43,6 +43,7 @@ pub(crate) struct ErrorRoot {
     #[allocative(skip)] // FIXME(JakobDegen): "Implementation is not general enough"
     late_format: Option<Arc<DynLateFormat>>,
     error_type: Option<ErrorType>,
+    source_location: Option<String>,
 }
 
 impl ErrorRoot {
@@ -50,6 +51,7 @@ impl ErrorRoot {
         inner: E,
         late_format: Option<fn(&E, &mut fmt::Formatter<'_>) -> fmt::Result>,
         error_type: Option<ErrorType>,
+        source_location: Option<String>,
     ) -> Self {
         let id = UniqueRootId(NEXT_ROOT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
         let inner = Arc::new(anyhow::Error::new(inner));
@@ -60,6 +62,7 @@ impl ErrorRoot {
                 inner,
                 late_format: None,
                 error_type,
+                source_location,
             };
         };
         Self {
@@ -69,6 +72,7 @@ impl ErrorRoot {
                 late_format(e.downcast_ref().unwrap(), fmt)
             })),
             error_type,
+            source_location,
         }
     }
 
@@ -80,6 +84,7 @@ impl ErrorRoot {
             inner: e,
             late_format: None,
             error_type: None,
+            source_location: None,
         }
     }
 
@@ -115,6 +120,10 @@ impl ErrorRoot {
 
     pub(crate) fn error_type(&self) -> Option<ErrorType> {
         self.error_type
+    }
+
+    pub(crate) fn source_location(&self) -> Option<&str> {
+        self.source_location.as_deref()
     }
 }
 
