@@ -105,3 +105,10 @@ native.python_binary(
         "prelude//java/tools:utils_lib",
     ],
 )
+
+native.zip_file(
+    name = "app_without_resources_stub",
+    srcs = ["com/facebook/buck_generated/AppWithoutResourcesStub.java"],
+    out = "app_without_resources_stub.src.zip",
+    visibility = ["PUBLIC"],
+)
