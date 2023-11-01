@@ -10,7 +10,7 @@ prelude.python_bootstrap_binary(
 prelude.command_alias(
     name = "hmap_wrapper",
     args = [
-        "--hmap-tool=$(exe fbsource//third-party/hmaptool:hmaptool)",
+        "--hmap-tool=$(exe prelude//third-party/hmaptool:hmaptool)",
     ],
     exe = ":hmap_wrapper.py",
     labels = ["buck2-only"],
