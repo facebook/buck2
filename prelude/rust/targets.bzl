@@ -6,7 +6,8 @@
 # of this source tree.
 
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
-load("@prelude//decls/core_rules.bzl", "Platform", "TargetCpuType")
+load("@prelude//decls/android_rules.bzl", "TargetCpuType")
+load("@prelude//decls/core_rules.bzl", "Platform")
 
 _platform = enum(*Platform)
 _cpu = enum(*TargetCpuType)
