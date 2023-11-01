@@ -10,12 +10,11 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 
-use async_trait::async_trait;
+use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stream_value::StreamValue;
 use buck2_data::re_platform::Property;
-use buck2_event_observer::span_tracker::OptionalSpanId;
 use buck2_event_observer::what_ran;
 use buck2_event_observer::what_ran::CommandReproducer;
 use buck2_event_observer::what_ran::WhatRanOptions;
@@ -82,6 +81,13 @@ pub struct WhatRanCommandCommon {
     pub options: WhatRanOptions,
 }
 
+struct WhatRanCommandOptions {
+    options: WhatRanOptions,
+
+    /// Print commands only if they failed.
+    failed: bool,
+}
+
 impl WhatRanCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         let Self {
@@ -104,11 +110,8 @@ impl WhatRanCommand {
                 invocation.display_command_line()
             )?;
 
-            if failed {
-                WhatFailedImpl::execute(events, &mut output, &options).await?;
-            } else {
-                WhatRanImpl::execute(events, &mut output, &options).await?;
-            };
+            let options = WhatRanCommandOptions { options, failed };
+            WhatRanCommandState::execute(events, &mut output, &options).await?;
 
             anyhow::Ok(())
         })?;
@@ -117,19 +120,62 @@ impl WhatRanCommand {
     }
 }
 
-#[async_trait]
-trait WhatRanCommandImplementation: Default {
-    fn event(
-        &mut self,
-        event: Box<buck2_data::BuckEvent>,
-        output: &mut impl WhatRanOutputWriter,
-        options: &WhatRanOptions,
-    ) -> anyhow::Result<()>;
+#[allow(clippy::vec_box)]
+struct WhatRanEntry {
+    /// Known to be a WhatRanRelevantAction.
+    event: Box<buck2_data::BuckEvent>,
 
+    /// Known to be a CommandReproducer.
+    reproducers: Vec<Box<buck2_data::BuckEvent>>,
+}
+
+impl WhatRanEntry {
+    fn emit_reproducers(
+        &self,
+        output: &mut impl WhatRanOutputWriter,
+        options: &WhatRanCommandOptions,
+    ) -> anyhow::Result<()> {
+        let action = WhatRanRelevantAction::from_buck_data(
+            self.event.data.as_ref().context("Checked above")?,
+        );
+
+        for repro in self.reproducers.iter() {
+            what_ran::emit_reproducer(
+                action,
+                CommandReproducer::from_buck_data(
+                    repro.data.as_ref().context("Checked above")?,
+                    &options.options,
+                )
+                .context("Checked above")?,
+                output,
+            )?;
+        }
+        Ok(())
+    }
+}
+
+/// The state for a WhatRan command. This is all the events we have seen that are
+/// we have seen that are WhatRanRelevantActions, and the CommandReproducer associated with them.
+#[derive(Default)]
+pub struct WhatRanCommandState {
+    /// Maps action spans to their details.
+    known_actions: HashMap<SpanId, WhatRanEntry>,
+}
+
+impl WhatRanState for WhatRanCommandState {
+    fn get(&self, span_id: SpanId) -> Option<WhatRanRelevantAction<'_>> {
+        self.known_actions
+            .get(&span_id)
+            .and_then(|e| e.event.data.as_ref())
+            .and_then(WhatRanRelevantAction::from_buck_data)
+    }
+}
+
+impl WhatRanCommandState {
     async fn execute(
         mut events: impl Stream<Item = anyhow::Result<StreamValue>> + Unpin + Send,
         output: &mut (impl WhatRanOutputWriter + Send),
-        options: &WhatRanOptions,
+        options: &WhatRanCommandOptions,
     ) -> anyhow::Result<()> {
         let mut cmd = Self::default();
 
@@ -139,100 +185,23 @@ trait WhatRanCommandImplementation: Default {
                 _ => {}
             }
         }
-
-        Ok(())
+        cmd.emit_remaining(output, options)
     }
-}
 
-/// The state for a WhatRan command. This is all the events we have seen that are
-/// WhatRanRelevantActions. This emits the actions immediately.
-#[derive(Default)]
-pub struct WhatRanImpl {
-    /// Maps action spans to their details.
-    known_actions: HashMap<SpanId, Box<buck2_data::BuckEvent>>,
-}
-
-impl WhatRanState for WhatRanImpl {
-    fn get(&self, span_id: SpanId) -> Option<WhatRanRelevantAction<'_>> {
-        self.known_actions
-            .get(&span_id)
-            .and_then(|e| e.data.as_ref())
-            .and_then(WhatRanRelevantAction::from_buck_data)
-    }
-}
-
-impl WhatRanCommandImplementation for WhatRanImpl {
-    /// Receive a new event. We start by emitting it if it's relevant (since that only takes a
-    /// borrow), and then if it's relevant as a parent, we store it for latter use. Note that in
-    /// practice we don't expect the event to be *both* relevant to emit *and* a
+    /// Receive a new event. We store it if it's relevant and emmit them latter.
+    /// Note that in practice we don't expect the event to be *both* relevant to emit *and* a
     /// WhatRanRelevantAction, but it doesn't hurt to always check both.
     fn event(
         &mut self,
         event: Box<buck2_data::BuckEvent>,
         output: &mut impl WhatRanOutputWriter,
-        options: &WhatRanOptions,
-    ) -> anyhow::Result<()> {
-        if let Some(data) = &event.data {
-            what_ran::emit_event_if_relevant(
-                OptionalSpanId::from_u64(event.parent_id),
-                data,
-                &*self,
-                output,
-                options,
-            )?;
-
-            if WhatRanRelevantAction::from_buck_data(data).is_some() {
-                self.known_actions
-                    .insert(SpanId::from_u64(event.span_id)?, event);
-            }
-        }
-
-        Ok(())
-    }
-}
-
-/// The state for a WhatRan command when only showing actions that failed. This stores all the events
-/// we have seen that are WhatRanRelevantActions, and the CommandReproducer associated with them.
-#[derive(Default)]
-pub struct WhatFailedImpl {
-    /// Maps action spans to their details.
-    known_actions: HashMap<SpanId, WhatFailedEntry>,
-}
-
-#[allow(clippy::vec_box)]
-struct WhatFailedEntry {
-    /// Known to be a WhatRanRelevantAction.
-    event: Box<buck2_data::BuckEvent>,
-
-    /// Known to be a CommandReproducer.
-    reproducers: Vec<Box<buck2_data::BuckEvent>>,
-}
-
-impl WhatRanState for WhatFailedImpl {
-    fn get(&self, span_id: SpanId) -> Option<WhatRanRelevantAction<'_>> {
-        self.known_actions
-            .get(&span_id)
-            .and_then(|e| e.event.data.as_ref())
-            .and_then(WhatRanRelevantAction::from_buck_data)
-    }
-}
-
-impl WhatRanCommandImplementation for WhatFailedImpl {
-    /// Receive a new event. We start by emitting it if it's relevant (since that only takes a
-    /// borrow), and then if it's relevant as a parent, we store it for latter use. Note that in
-    /// practice we don't expect the event to be *both* relevant to emit *and* a
-    /// WhatRanRelevantAction, but it doesn't hurt to always check both.
-    fn event(
-        &mut self,
-        event: Box<buck2_data::BuckEvent>,
-        output: &mut impl WhatRanOutputWriter,
-        options: &WhatRanOptions,
+        options: &WhatRanCommandOptions,
     ) -> anyhow::Result<()> {
         if let Some(data) = &event.data {
             if WhatRanRelevantAction::from_buck_data(data).is_some() {
                 self.known_actions.insert(
                     SpanId::from_u64(event.span_id)?,
-                    WhatFailedEntry {
+                    WhatRanEntry {
                         event,
                         reproducers: Default::default(),
                     },
@@ -240,7 +209,7 @@ impl WhatRanCommandImplementation for WhatFailedImpl {
                 return Ok(());
             }
 
-            if CommandReproducer::from_buck_data(data, options).is_some() {
+            if CommandReproducer::from_buck_data(data, &options.options).is_some() {
                 if let Some(parent_id) = SpanId::from_u64_opt(event.parent_id) {
                     if let Some(entry) = self.known_actions.get_mut(&parent_id) {
                         entry.reproducers.push(event);
@@ -250,37 +219,43 @@ impl WhatRanCommandImplementation for WhatFailedImpl {
             }
 
             match data {
-                buck2_data::buck_event::Data::SpanEnd(span) => match &span.data {
-                    Some(buck2_data::span_end_event::Data::ActionExecution(action))
-                        if action.failed =>
+                buck2_data::buck_event::Data::SpanEnd(span) => {
+                    if let Some(entry) =
+                        self.known_actions.remove(&SpanId::from_u64(event.span_id)?)
                     {
-                        if let Some(entry) =
-                            self.known_actions.remove(&SpanId::from_u64(event.span_id)?)
-                        {
-                            let action = WhatRanRelevantAction::from_buck_data(
-                                entry.event.data.as_ref().expect("Checked above"),
-                            );
-
-                            for repro in entry.reproducers.iter() {
-                                what_ran::emit_reproducer(
-                                    action,
-                                    CommandReproducer::from_buck_data(
-                                        repro.data.as_ref().expect("Checked above"),
-                                        options,
-                                    )
-                                    .expect("Checked above"),
-                                    output,
-                                )?;
-                            }
+                        if should_emit_immediately(&span.data, options) {
+                            entry.emit_reproducers(output, options)?;
                         }
                     }
-                    _ => {}
-                },
+                }
                 _ => {}
             }
         }
 
         Ok(())
+    }
+
+    fn emit_remaining(
+        &self,
+        output: &mut impl WhatRanOutputWriter,
+        options: &WhatRanCommandOptions,
+    ) -> anyhow::Result<()> {
+        for (_, entry) in self.known_actions.iter() {
+            entry.emit_reproducers(output, options)?;
+        }
+        Ok(())
+    }
+}
+
+fn should_emit_immediately(
+    data: &Option<buck2_data::span_end_event::Data>,
+    options: &WhatRanCommandOptions,
+) -> bool {
+    match data {
+        Some(buck2_data::span_end_event::Data::ActionExecution(action)) => {
+            action.failed || !options.failed
+        }
+        _ => !options.failed,
     }
 }
 
