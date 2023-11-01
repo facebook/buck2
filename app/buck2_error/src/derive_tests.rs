@@ -12,7 +12,7 @@
 #[derive(buck2_error_derive::Error, Debug)]
 #[error("foo")]
 #[buck2(user)]
-struct Error1;
+pub struct Error1;
 
 #[test]
 fn test_derive_error1() {
@@ -41,7 +41,7 @@ fn test_derive_error2() {
 }
 
 #[derive(buck2_error_derive::Error, Debug)]
-enum Error3 {
+pub enum Error3 {
     #[error("foo")]
     #[buck2(user)]
     #[buck2(typ = DaemonIsBusy)]

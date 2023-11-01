@@ -70,18 +70,30 @@ pub use buck2_error_derive::ErrorForReexport as Error;
 
 #[doc(hidden)]
 pub mod __for_macro {
+    use std::sync::Arc;
+
     pub use anyhow;
     pub use buck2_error_derive::exterminate;
     pub use thiserror;
 
     pub use crate::any::Sealed;
+    use crate::error::ErrorKind;
+    use crate::root::ErrorRoot;
 
     pub fn new_with_macro_options<E: std::error::Error + Send + Sync + 'static>(
         e: E,
         t: Option<crate::ErrorType>,
         c: Option<crate::Category>,
+        file: &'static str,
+        source_location_extra: &'static str,
     ) -> crate::Error {
-        let e = crate::Error::new_with_options(e, None, t);
+        let source_location = crate::source_location::from_file(file, Some(source_location_extra));
+        let e = crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new(
+            e,
+            None,
+            t,
+            source_location,
+        ))));
         if let Some(c) = c { e.context(c) } else { e }
     }
 }

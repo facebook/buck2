@@ -129,4 +129,22 @@ mod tests {
             Some("buck2_error/src/source_location.rs"),
         );
     }
+
+    #[test]
+    fn test_via_derive() {
+        use crate::derive_tests::Error1;
+        use crate::derive_tests::Error3;
+
+        let e: crate::Error = Error1.into();
+        assert_eq!(
+            e.source_location(),
+            Some("buck2_error/src/derive_tests.rs::Error1")
+        );
+
+        let e: crate::Error = Error3::VariantB.into();
+        assert_eq!(
+            e.source_location(),
+            Some("buck2_error/src/derive_tests.rs::Error3::VariantB")
+        );
+    }
 }

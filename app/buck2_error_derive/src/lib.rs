@@ -12,6 +12,7 @@
 #![feature(iterator_try_collect)]
 
 use proc_macro::TokenStream;
+use proc_macro2::Span;
 use syn::parse::Parse;
 use syn::parse::ParseStream;
 use syn::parse::Parser;
@@ -96,7 +97,12 @@ fn parse_attributes(
     Ok(parsed_options)
 }
 
-fn render_options(options: ParsedOptions, krate: &syn::Path) -> proc_macro2::TokenStream {
+fn render_options(
+    options: ParsedOptions,
+    krate: &syn::Path,
+    type_and_variant: &str,
+) -> proc_macro2::TokenStream {
+    let source_location_extra = syn::LitStr::new(type_and_variant, Span::call_site());
     let category = options.category.map(|cat| {
         quote::quote! {
             category = ::core::option::Option::Some(#krate::Category::#cat);
@@ -109,6 +115,7 @@ fn render_options(options: ParsedOptions, krate: &syn::Path) -> proc_macro2::Tok
     });
 
     quote::quote! {
+        source_location_extra = #source_location_extra;
         #category
         #typ
     }
@@ -143,15 +150,16 @@ fn generate_option_assignments(
                 )?;
             }
             let options = parse_attributes(&mut input.attrs, None)?;
-            Ok(render_options(options, krate))
+            Ok(render_options(options, krate, &name.to_string()))
         }
         syn::Data::Enum(data) => {
             let variants = data
                 .variants
                 .iter_mut()
                 .map(|variant| {
+                    let type_and_variant = format!("{}::{}", name, variant.ident);
                     let options = parse_attributes(&mut variant.attrs, None)?;
-                    let rendered_options = render_options(options, krate);
+                    let rendered_options = render_options(options, krate, &type_and_variant);
                     let fields_as_pat = fields_as_pat(&variant.fields);
                     let variant_name = &variant.ident;
                     Ok::<_, syn::Error>(quote::quote! {
@@ -245,9 +253,11 @@ fn derive_error_impl(input: TokenStream, krate: syn::Path) -> TokenStream {
                     let mut typ = ::core::option::Option::None;
                     #[allow(unused_mut)]
                     let mut category = ::core::option::Option::None;
+                    let file = ::core::file!();
+                    let source_location_extra;
                     #option_assignments
                     let val: #inner = unsafe { #val_transmute(val) };
-                    #krate::__for_macro::new_with_macro_options(val, typ, category)
+                    #krate::__for_macro::new_with_macro_options(val, typ, category, file, source_location_extra)
                 }
             }
             impl #impl_generics #krate::__for_macro::Sealed for #outer #type_generics
