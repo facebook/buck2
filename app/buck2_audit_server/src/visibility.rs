@@ -86,10 +86,12 @@ async fn verify_visibility(
                     }
                 }
                 None => {
-                    return Err(anyhow::Error::new(VisibilityCommandError::DepNodeNotFound(
-                        dep.to_string(),
-                        target.label().name().to_string(),
-                    )));
+                    return Err(anyhow::Error::from(
+                        VisibilityCommandError::DepNodeNotFound(
+                            dep.to_string(),
+                            target.label().name().to_string(),
+                        ),
+                    ));
                 }
             }
         }

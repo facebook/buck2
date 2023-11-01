@@ -77,7 +77,7 @@ impl<'a> LegacyBuckConfigsView for LegacyBuckConfigsOnDice<'a> {
         let config = self
             .configs
             .get(&cell_name)
-            .ok_or_else(|| anyhow::Error::new(ConfigError::UnknownCell(cell_name.to_owned())))?;
+            .ok_or_else(|| anyhow::Error::from(ConfigError::UnknownCell(cell_name.to_owned())))?;
         Ok(config)
     }
 

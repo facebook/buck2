@@ -118,7 +118,7 @@ impl PromiseArtifact {
         if let Some(expected_short_path) = expected_short_path {
             bound.get_path().with_short_path(|artifact_short_path| {
                 if artifact_short_path != expected_short_path {
-                    Err(anyhow::Error::new(
+                    Err(anyhow::Error::from(
                         PromiseArtifactResolveError::ShortPathMismatch(
                             expected_short_path.clone(),
                             artifact_short_path.to_string(),

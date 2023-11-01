@@ -232,7 +232,7 @@ impl CellAliasResolver {
             return Ok(self.current);
         }
         self.aliases.get(alias).duped().ok_or_else(|| {
-            anyhow::Error::new(CellError::UnknownCellAlias(
+            anyhow::Error::from(CellError::UnknownCellAlias(
                 CellAlias::new(alias.to_owned()),
                 self.current,
                 self.aliases.keys().cloned().collect(),
@@ -308,7 +308,7 @@ impl CellResolver {
     /// Get a `Cell` from the `CellMap`
     pub fn get(&self, cell: CellName) -> anyhow::Result<&CellInstance> {
         self.0.cells.get(&cell).ok_or_else(|| {
-            anyhow::Error::new(CellError::UnknownCellName(
+            anyhow::Error::from(CellError::UnknownCellName(
                 cell,
                 self.0.cells.keys().copied().collect(),
             ))
@@ -344,7 +344,7 @@ impl CellResolver {
             .get_ancestor(path.as_ref().iter())
             .copied()
             .ok_or_else(|| {
-                anyhow::Error::new(CellError::UnknownCellPath(
+                anyhow::Error::from(CellError::UnknownCellPath(
                     path.as_ref().to_buf(),
                     self.0
                         .path_mappings
