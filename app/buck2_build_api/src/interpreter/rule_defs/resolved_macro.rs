@@ -14,8 +14,10 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use buck2_util::arc_str::ArcStr;
+use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::starlark_value;
@@ -27,6 +29,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use static_assertions::assert_eq_size;
 
+use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::cmd_args::arg_builder::ArgBuilder;
@@ -50,6 +53,7 @@ use crate::interpreter::rule_defs::resolve_query_macro::ResolvedQueryMacro;
 #[derive(Debug, PartialEq, Allocative)]
 pub enum ResolvedMacro {
     Location(FrozenRef<'static, FrozenDefaultInfo>),
+    Source(Artifact),
     /// Holds an arg-like value
     ArgLike(FrozenCommandLineArg),
     /// Holds a resolved query placeholder
@@ -65,6 +69,7 @@ impl Display for ResolvedMacro {
                 // Unfortunately we don't keep the location here, which makes it harder to show
                 write!(f, "$(location ...)")
             }
+            ResolvedMacro::Source(a) => write!(f, "$(source {})", a),
             ResolvedMacro::ArgLike(x) => Display::fmt(x, f),
             ResolvedMacro::Query(x) => Display::fmt(x, f),
         }
@@ -104,6 +109,10 @@ impl ResolvedMacro {
         ctx: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
         match self {
+            Self::Source(artifact) => {
+                let s = ctx.resolve_artifact(artifact)?.into_string();
+                builder.push_str(&s);
+            }
             Self::Location(info) => {
                 let outputs = &info.default_outputs();
 
@@ -135,6 +144,9 @@ impl ResolvedMacro {
                     .visit_artifacts(visitor)?;
             }
             Self::Query(value) => value.visit_artifacts(visitor)?,
+            Self::Source(artifact) => {
+                visitor.visit_input(ArtifactGroup::Artifact(artifact.dupe()), None)
+            }
         }
         Ok(())
     }

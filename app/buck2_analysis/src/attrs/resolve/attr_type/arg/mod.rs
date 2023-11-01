@@ -8,12 +8,15 @@
  */
 
 use anyhow::Context;
+use buck2_artifact::artifact::source_artifact::SourceArtifact;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfoCallable;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacrosPart;
+use buck2_core::buck_path::path::BuckPath;
+use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_node::attrs::attr_type::arg::ConfiguredMacro;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
@@ -52,11 +55,19 @@ enum ResolveMacroError {
 }
 
 pub trait ConfiguredStringWithMacrosExt {
-    fn resolve<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Value<'v>>;
+    fn resolve<'v>(
+        &self,
+        ctx: &dyn AttrResolutionContext<'v>,
+        pkg: &PackageLabel,
+    ) -> anyhow::Result<Value<'v>>;
 }
 
 impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
-    fn resolve<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Value<'v>> {
+    fn resolve<'v>(
+        &self,
+        ctx: &dyn AttrResolutionContext<'v>,
+        pkg: &PackageLabel,
+    ) -> anyhow::Result<Value<'v>> {
         let resolved_parts = match &self.string_with_macros {
             StringWithMacros::StringPart(s) => {
                 vec![ResolvedStringWithMacrosPart::String(s.dupe())]
@@ -71,7 +82,7 @@ impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
                         ConfiguredStringWithMacrosPart::Macro(write_to_file, m) => {
                             resolved_parts.push(ResolvedStringWithMacrosPart::Macro(
                                 *write_to_file,
-                                resolve_configured_macro(m, ctx)
+                                resolve_configured_macro(m, ctx, pkg)
                                     .with_context(|| format!("Error resolving `{}`.", part))?,
                             ));
                         }
@@ -97,6 +108,7 @@ impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
 fn resolve_configured_macro(
     configured_macro: &ConfiguredMacro,
     ctx: &dyn AttrResolutionContext,
+    pkg: &PackageLabel,
 ) -> anyhow::Result<ResolvedMacro> {
     match configured_macro {
         ConfiguredMacro::Location(target) => {
@@ -116,6 +128,10 @@ fn resolve_configured_macro(
             };
             // A RunInfo is an arg-like value.
             Ok(ResolvedMacro::ArgLike(FrozenCommandLineArg::new(run_info)?))
+        }
+        ConfiguredMacro::Source(p) => {
+            let buck_path = BuckPath::new(pkg.dupe(), p.path().dupe());
+            Ok(ResolvedMacro::Source(SourceArtifact::new(buck_path).into()))
         }
         ConfiguredMacro::UserUnkeyedPlaceholder(name) => {
             let provider = ctx.resolve_unkeyed_placeholder(name)?.ok_or_else(|| {

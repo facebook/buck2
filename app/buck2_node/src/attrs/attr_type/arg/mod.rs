@@ -12,6 +12,8 @@ pub mod parser;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_core::buck_path::path::BuckPathRef;
+use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
@@ -22,6 +24,7 @@ use gazebo::prelude::SliceExt;
 use static_assertions::assert_eq_size;
 
 use crate::attrs::attr_type::query::QueryMacroBase;
+use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::traversal::CoercedAttrTraversal;
@@ -72,6 +75,7 @@ impl StringWithMacros<ConfiguredProvidersLabel> {
     pub fn traverse<'a>(
         &'a self,
         traversal: &mut dyn ConfiguredAttrTraversal,
+        pkg: &PackageLabel,
     ) -> anyhow::Result<()> {
         match self {
             Self::StringPart(..) => {}
@@ -80,7 +84,7 @@ impl StringWithMacros<ConfiguredProvidersLabel> {
                     match part {
                         StringWithMacrosPart::String(_) => {}
                         StringWithMacrosPart::Macro(_, m) => {
-                            m.traverse(traversal)?;
+                            m.traverse(traversal, pkg)?;
                         }
                     }
                 }
@@ -113,6 +117,7 @@ impl StringWithMacros<ProvidersLabel> {
     pub(crate) fn traverse<'a>(
         &'a self,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
+        pkg: &PackageLabel,
     ) -> anyhow::Result<()> {
         match self {
             Self::StringPart(..) => {}
@@ -121,7 +126,7 @@ impl StringWithMacros<ProvidersLabel> {
                     match part {
                         StringWithMacrosPart::String(_) => {}
                         StringWithMacrosPart::Macro(_, m) => {
-                            m.traverse(traversal)?;
+                            m.traverse(traversal, pkg)?;
                         }
                     }
                 }
@@ -162,6 +167,7 @@ pub enum MacroBase<P: ProvidersLabelMaybeConfigured> {
     UserKeyedPlaceholder(Box<(Box<str>, P, Option<Box<str>>)>),
 
     Query(Box<QueryMacroBase<P>>),
+    Source(CoercedPath),
 
     /// Right now, we defer error for unrecognized macros to the place where they are used. This just allows
     /// us to progress further into a build and detect more issues. Once we have all (or most) of the buckv1 macros
@@ -173,6 +179,7 @@ impl MacroBase<ConfiguredProvidersLabel> {
     pub fn traverse<'a>(
         &'a self,
         traversal: &mut dyn ConfiguredAttrTraversal,
+        pkg: &PackageLabel,
     ) -> anyhow::Result<()> {
         // macros can't reference repo inputs (they only reference the outputs of other targets)
         match self {
@@ -187,6 +194,12 @@ impl MacroBase<ConfiguredProvidersLabel> {
                 label,
                 exec_dep: false,
             } => traversal.dep(label),
+            MacroBase::Source(path) => {
+                for x in path.inputs() {
+                    traversal.input(BuckPathRef::new(pkg.dupe(), x))?;
+                }
+                Ok(())
+            }
             MacroBase::Query(query_macro) => query_macro.traverse(traversal),
             MacroBase::UserUnkeyedPlaceholder(_) | MacroBase::UnrecognizedMacro(..) => Ok(()),
         }
@@ -220,6 +233,7 @@ impl MacroBase<ProvidersLabel> {
             UnconfiguredMacro::Query(query) => {
                 ConfiguredMacro::Query(Box::new(query.configure(ctx)?))
             }
+            UnconfiguredMacro::Source(path) => ConfiguredMacro::Source(path.clone()),
             UnconfiguredMacro::UnrecognizedMacro(macr) => {
                 ConfiguredMacro::UnrecognizedMacro(macr.clone())
             }
@@ -229,6 +243,7 @@ impl MacroBase<ProvidersLabel> {
     pub fn traverse<'a>(
         &'a self,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
+        pkg: &PackageLabel,
     ) -> anyhow::Result<()> {
         match self {
             MacroBase::Location(l) | MacroBase::UserKeyedPlaceholder(box (_, l, _)) => {
@@ -243,6 +258,12 @@ impl MacroBase<ProvidersLabel> {
                 exec_dep: false,
             } => traversal.dep(label.target()),
             MacroBase::Query(query) => query.traverse(traversal),
+            MacroBase::Source(path) => {
+                for x in path.inputs() {
+                    traversal.input(BuckPathRef::new(pkg.dupe(), x))?;
+                }
+                Ok(())
+            }
             MacroBase::UserUnkeyedPlaceholder(_) | MacroBase::UnrecognizedMacro(..) => Ok(()),
         }
     }
@@ -281,6 +302,7 @@ impl<P: ProvidersLabelMaybeConfigured> Display for MacroBase<P> {
                 )
             }
             MacroBase::Query(query) => Display::fmt(query, f),
+            MacroBase::Source(path) => write!(f, "src {}", path.path()),
             MacroBase::UserUnkeyedPlaceholder(var) => write!(f, "{}", var),
             MacroBase::UserKeyedPlaceholder(box (macro_type, target, arg)) => write!(
                 f,

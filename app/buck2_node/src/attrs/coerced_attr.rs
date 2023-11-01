@@ -461,7 +461,7 @@ impl CoercedAttr {
             }
             CoercedAttrWithType::SourceLabel(s, _t) => traversal.dep(s.target()),
             CoercedAttrWithType::Label(label, _t) => traversal.label(label),
-            CoercedAttrWithType::Arg(arg, _t) => arg.traverse(traversal),
+            CoercedAttrWithType::Arg(arg, _t) => arg.traverse(traversal, &pkg),
             CoercedAttrWithType::Query(query, _t) => query.traverse(traversal),
             CoercedAttrWithType::SourceFile(source, _t) => {
                 for x in source.inputs() {

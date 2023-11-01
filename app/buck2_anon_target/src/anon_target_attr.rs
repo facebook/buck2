@@ -172,7 +172,7 @@ impl AnonTargetAttr {
             AnonTargetAttr::OneOf(l, _) => l.traverse(pkg, traversal),
             AnonTargetAttr::Dep(dep) => traversal.dep(&dep.label),
             AnonTargetAttr::Artifact(_) => Ok(()),
-            AnonTargetAttr::Arg(e) => e.string_with_macros.traverse(traversal),
+            AnonTargetAttr::Arg(e) => e.string_with_macros.traverse(traversal, &pkg),
             AnonTargetAttr::PromiseArtifact(..) => Ok(()),
             AnonTargetAttr::Label(_) => Ok(()),
         }

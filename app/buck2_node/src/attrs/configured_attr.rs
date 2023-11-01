@@ -206,7 +206,7 @@ impl ConfiguredAttr {
             ConfiguredAttr::Dep(dep) => dep.traverse(traversal),
             ConfiguredAttr::SourceLabel(dep) => traversal.dep(dep),
             ConfiguredAttr::Label(label) => traversal.label(label),
-            ConfiguredAttr::Arg(arg) => arg.string_with_macros.traverse(traversal),
+            ConfiguredAttr::Arg(arg) => arg.string_with_macros.traverse(traversal, &pkg),
             ConfiguredAttr::Query(query) => query.traverse(traversal),
             ConfiguredAttr::SourceFile(source) => {
                 for x in source.inputs() {

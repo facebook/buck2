@@ -50,6 +50,8 @@ static UNIMPLEMENTED_MACROS: Lazy<HashSet<&'static str>> =
 enum MacroError {
     #[error("Expected a single target label argument. Got `[{}]`", (.0).join(", "))]
     ExpectedSingleTargetArgument(Vec<String>),
+    #[error("Expected a single path argument. Got `{}`", (.0).join(", "))]
+    ExpectedSinglePathArgument(Vec<String>),
     #[error("Incorrect number of args to macro `{0}` (had {1} args)")]
     InvalidNumberOfArgs(String, usize),
 }
@@ -91,6 +93,7 @@ impl AttrTypeCoerce for ArgAttrType {
                         }
                         "exe" => UnconfiguredMacro::new_exe(ctx, args, true)?,
                         "exe_target" => UnconfiguredMacro::new_exe(ctx, args, false)?,
+                        "source" => UnconfiguredMacro::new_source(ctx, args)?,
                         "query_outputs" | "query_targets" | "query_targets_and_outputs" => {
                             UnconfiguredMacro::new_query(ctx, &macro_type, args)?
                         }
@@ -151,6 +154,20 @@ pub trait UnconfiguredMacroExt {
             label: get_single_target_arg(args, ctx)?,
             exec_dep,
         })
+    }
+
+    fn new_source(
+        ctx: &dyn AttrCoercionContext,
+        args: Vec<String>,
+    ) -> anyhow::Result<UnconfiguredMacro> {
+        if args.len() != 1 {
+            return Err(anyhow::anyhow!(MacroError::ExpectedSinglePathArgument(
+                args
+            )));
+        }
+
+        ctx.coerce_path(&args[0], /* allow_directory */ true)
+            .map(UnconfiguredMacro::Source)
     }
 
     fn new_user_keyed_placeholder(
@@ -220,6 +237,7 @@ impl UnconfiguredMacroExt for UnconfiguredMacro {}
 #[cfg(test)]
 mod tests {
     use buck2_core::configuration::data::ConfigurationData;
+    use buck2_core::package::PackageLabel;
     use buck2_core::target::label::TargetLabel;
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
@@ -248,7 +266,7 @@ mod tests {
         type DepsType = TargetLabel;
         fn get_deps(&self) -> anyhow::Result<Vec<Self::DepsType>> {
             let mut visitor = CoercedDepsCollector::new();
-            self.traverse(&mut visitor)?;
+            self.traverse(&mut visitor, &PackageLabel::testing_new("root", ""))?;
             let CoercedDepsCollector {
                 deps, exec_deps, ..
             } = visitor;
@@ -292,7 +310,7 @@ mod tests {
 
         if let MacroBase::Location(target) = &configured {
             let mut info = ConfiguredAttrInfo::new();
-            configured.traverse(&mut info)?;
+            configured.traverse(&mut info, &PackageLabel::testing_new("root", ""))?;
             assert_eq!(smallset![target.clone()], info.deps);
         } else {
             return Err(anyhow::anyhow!("Expected Location"));
@@ -314,7 +332,7 @@ mod tests {
 
         if let MacroBase::Exe { label, .. } = &configured {
             let mut info = ConfiguredAttrInfo::new();
-            configured.traverse(&mut info)?;
+            configured.traverse(&mut info, &PackageLabel::testing_new("root", ""))?;
             assert_eq!(label.cfg(), config_ctx.exec_cfg().cfg());
             assert_eq!(smallset![label.clone()], info.execution_deps);
             assert_eq!(smallset![], info.deps);
@@ -338,7 +356,7 @@ mod tests {
 
         if let MacroBase::Exe { label, .. } = &configured {
             let mut info = ConfiguredAttrInfo::new();
-            configured.traverse(&mut info)?;
+            configured.traverse(&mut info, &PackageLabel::testing_new("root", ""))?;
             assert_eq!(label.cfg(), config_ctx.cfg().cfg());
             assert_eq!(smallset![], info.execution_deps);
             assert_eq!(smallset![label.clone()], info.deps);

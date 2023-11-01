@@ -144,7 +144,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
                 let label = StarlarkConfiguredProvidersLabel::new(*label.clone());
                 Ok(ctx.heap().alloc(label))
             }
-            ConfiguredAttr::Arg(arg) => arg.resolve(ctx),
+            ConfiguredAttr::Arg(arg) => arg.resolve(ctx, &pkg),
             ConfiguredAttr::Query(query) => query.resolve(ctx),
             ConfiguredAttr::SourceFile(s) => Ok(SourceAttrType::resolve_single_file(
                 ctx,

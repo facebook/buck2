@@ -92,7 +92,7 @@ impl AnonTargetAttrExt for AnonTargetAttr {
             AnonTargetAttr::OneOf(box l, _) => l.resolve_single(pkg, ctx),
             AnonTargetAttr::Dep(d) => DepAttrType::resolve_single(ctx, d),
             AnonTargetAttr::Artifact(d) => Ok(ctx.heap().alloc(StarlarkArtifact::new(d.clone()))),
-            AnonTargetAttr::Arg(a) => a.resolve(ctx),
+            AnonTargetAttr::Arg(a) => a.resolve(ctx, &pkg),
             AnonTargetAttr::PromiseArtifact(artifact) => Ok(ctx.heap().alloc(artifact.clone())),
             AnonTargetAttr::Label(label) => {
                 Ok(ctx.heap().alloc(StarlarkProvidersLabel::new(label.clone())))
