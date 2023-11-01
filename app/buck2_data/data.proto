@@ -1942,9 +1942,17 @@ message ConnectToInstallerStart {
 
 message ConnectToInstallerEnd {}
 
+message CpuCounter {
+  uint64 count = 1;
+  uint64 time_enabled = 2;
+  uint64 time_running = 3;
+}
+
 message CommandExecutionStats {
   optional uint64 cpu_instructions_user = 1;
   optional uint64 cpu_instructions_kernel = 2;
+  optional CpuCounter userspace_events = 3;
+  optional CpuCounter kernel_events = 4;
 }
 
 message NetworkInterfaceStats {

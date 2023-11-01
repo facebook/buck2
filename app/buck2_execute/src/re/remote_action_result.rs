@@ -220,11 +220,15 @@ fn timing_from_re_metadata(meta: &TExecutedActionMetadata) -> CommandExecutionMe
 fn convert_perf_counts(
     perf_counts: &TPerfCount,
 ) -> anyhow::Result<buck2_data::CommandExecutionStats> {
-    Ok(buck2_data::CommandExecutionStats {
-        cpu_instructions_user: convert_perf_count(&perf_counts.userspace_events)?
-            .map(|p| p.adjusted_count()),
-        cpu_instructions_kernel: convert_perf_count(&perf_counts.kernel_events)?
-            .map(|p| p.adjusted_count()),
+    Ok({
+        let userspace_counter = convert_perf_count(&perf_counts.userspace_events)?;
+        let kernel_counter = convert_perf_count(&perf_counts.kernel_events)?;
+        buck2_data::CommandExecutionStats {
+            cpu_instructions_user: userspace_counter.map(|p| p.adjusted_count()),
+            cpu_instructions_kernel: kernel_counter.map(|p| p.adjusted_count()),
+            userspace_events: userspace_counter.map(|p| p.to_proto()),
+            kernel_events: kernel_counter.map(|p| p.to_proto()),
+        }
     })
 }
 

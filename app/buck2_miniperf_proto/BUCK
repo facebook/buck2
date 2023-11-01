@@ -11,6 +11,7 @@ rust_library(
     ],
     deps = [
         "fbsource//third-party/rust:serde",
+        "//buck2/app/buck2_data:buck2_data",
         "//buck2/gazebo/dupe:dupe",
     ],
 )

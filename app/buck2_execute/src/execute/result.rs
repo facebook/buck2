@@ -330,6 +330,16 @@ mod tests {
             execution_stats: Some(buck2_data::CommandExecutionStats {
                 cpu_instructions_user: Some(4),
                 cpu_instructions_kernel: Some(5),
+                userspace_events: Some(buck2_data::CpuCounter {
+                    count: 4,
+                    time_enabled: 100,
+                    time_running: 100,
+                }),
+                kernel_events: Some(buck2_data::CpuCounter {
+                    count: 10,
+                    time_enabled: 50,
+                    time_running: 100,
+                }),
             }),
             input_materialization_duration: Duration::from_secs(6),
             hashing_duration: Duration::from_secs(7),
@@ -368,6 +378,16 @@ mod tests {
         let command_execution_stats = buck2_data::CommandExecutionStats {
             cpu_instructions_user: Some(4),
             cpu_instructions_kernel: Some(5),
+            userspace_events: Some(buck2_data::CpuCounter {
+                count: 4,
+                time_enabled: 100,
+                time_running: 100,
+            }),
+            kernel_events: Some(buck2_data::CpuCounter {
+                count: 10,
+                time_enabled: 50,
+                time_running: 100,
+            }),
         };
         let command_execution_metadata = buck2_data::CommandExecutionMetadata {
             wall_time: Some(Duration {

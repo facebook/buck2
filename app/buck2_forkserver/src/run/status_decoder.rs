@@ -121,6 +121,8 @@ impl StatusDecoder for MiniperfStatusDecoder {
                                 cpu_instructions_kernel: Some(
                                     counters.kernel_instructions.adjusted_count(),
                                 ),
+                                userspace_events: Some(counters.user_instructions.to_proto()),
+                                kernel_events: Some(counters.kernel_instructions.to_proto()),
                             });
 
                     if let Err(e) = execution_stats.as_ref() {
