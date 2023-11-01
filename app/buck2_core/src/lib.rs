@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-// Because Buck build uses different version of Rust than Cargo build.
-#![allow(stable_features)]
 #![feature(absolute_path)]
 #![feature(control_flow_enum)]
 #![feature(fs_try_exists)]
@@ -20,7 +18,6 @@
 #![feature(maybe_uninit_slice)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(once_cell_try)]
-#![cfg_attr(windows, feature(windows_file_type_ext))]
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
