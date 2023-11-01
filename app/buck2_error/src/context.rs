@@ -11,7 +11,6 @@ use std::sync::Arc;
 
 use crate::context_value::ContextValue;
 use crate::error::ErrorKind;
-use crate::AnyError;
 
 impl crate::Error {
     pub fn context<C: Into<ContextValue>>(self, context: C) -> Self {
@@ -19,7 +18,10 @@ impl crate::Error {
     }
 
     #[cold]
-    fn new_anyhow_with_context<E: AnyError, C: Into<ContextValue>>(e: E, c: C) -> anyhow::Error {
+    fn new_anyhow_with_context<E, C: Into<ContextValue>>(e: E, c: C) -> anyhow::Error
+    where
+        crate::Error: From<E>,
+    {
         Into::<Self>::into(e).context(c).into()
     }
 }
@@ -48,9 +50,12 @@ pub trait Context<T>: Sealed {
 }
 pub trait Sealed: Sized {}
 
-impl<T, E: AnyError> Sealed for std::result::Result<T, E> {}
+impl<T, E> Sealed for std::result::Result<T, E> where crate::Error: From<E> {}
 
-impl<T, E: AnyError> Context<T> for std::result::Result<T, E> {
+impl<T, E> Context<T> for std::result::Result<T, E>
+where
+    crate::Error: From<E>,
+{
     fn context<C>(self, c: C) -> anyhow::Result<T>
     where
         C: Into<ContextValue>,

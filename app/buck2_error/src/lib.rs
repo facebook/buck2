@@ -19,7 +19,6 @@ mod format;
 mod root;
 mod source_location;
 
-pub use any::AnyError;
 pub use context::Context;
 /// A piece of metadata to indicate whether this error is an infra or user error.
 ///
@@ -52,7 +51,7 @@ pub use buck2_data::error::ErrorType;
 /// `thiserror` in `buck2/app` will be replaced with this macro.
 ///
 /// Currently, the only distinction from `thiserror::Error` is that an additional impl of
-/// [`AnyError`] is generated for the type, which makes some of the interactions with `buck2_error` more
+/// `AnyError` is generated for the type, which makes some of the interactions with `buck2_error` more
 /// ergonomic. In the future, this macro will also be used to be able to annotate errors with
 /// additional structured context information.
 ///

@@ -250,8 +250,6 @@ fn derive_error_impl(input: TokenStream, krate: syn::Path) -> TokenStream {
                     #krate::__for_macro::new_with_macro_options(val, typ, category)
                 }
             }
-            impl #impl_generics #krate::AnyError for #outer #type_generics
-            #where_clauses {}
             impl #impl_generics #krate::__for_macro::Sealed for #outer #type_generics
             #where_clauses {}
 

@@ -17,16 +17,8 @@ use ref_cast::RefCast;
 use crate::error::ErrorKind;
 use crate::root::ErrorRoot;
 
-/// Represents an arbitrary `buck2_error` compatible error type.
-///
-/// This trait is implemented for `buck2_error::Error`, `anyhow::Error` and any `std::error::Error`.
-pub trait AnyError:
-    Sealed + Into<crate::Error> + fmt::Debug + fmt::Display + Sync + Send + 'static
-{
-}
 pub trait Sealed {}
 
-impl AnyError for crate::Error {}
 impl Sealed for crate::Error {}
 
 // This implementation is fairly magic and is what allows us to bypass the issue with conflicting
@@ -57,12 +49,6 @@ where
             source_location,
         ))))
     }
-}
-impl<T: fmt::Debug + fmt::Display + Sync + Send + 'static> AnyError for T
-where
-    T: Into<anyhow::Error>,
-    Result<(), T>: anyhow::Context<(), T>,
-{
 }
 impl<T: fmt::Debug + fmt::Display + Sync + Send + 'static> Sealed for T
 where
