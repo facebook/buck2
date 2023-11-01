@@ -7,17 +7,13 @@
  * of this source tree.
  */
 
-#![feature(absolute_path)]
-#![feature(control_flow_enum)]
 #![feature(fs_try_exists)]
-#![feature(try_trait_v2)]
-#![feature(type_alias_impl_trait)]
 #![feature(never_type)]
 #![feature(pattern)]
 #![feature(box_patterns)]
-#![feature(maybe_uninit_slice)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(once_cell_try)]
+#![cfg_attr(windows, feature(absolute_path))]
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
