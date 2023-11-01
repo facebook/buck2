@@ -1,5 +1,0 @@
-{
-    "targets": [
-        "//fbobjc/buck2/samples/focused_debugging:Foo"
-    ]
-}
