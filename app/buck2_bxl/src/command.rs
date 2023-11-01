@@ -40,7 +40,6 @@ use buck2_core::tag_result;
 use buck2_data::BxlEnsureArtifactsEnd;
 use buck2_data::BxlEnsureArtifactsStart;
 use buck2_data::StarlarkFailNoStacktrace;
-use buck2_error::shared_result::SharedError;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::parse_import::parse_import_with_config;
@@ -273,7 +272,7 @@ async fn ensure_artifacts(
     ctx: &DiceComputations,
     materialization_ctx: &MaterializationContext,
     bxl_result: &buck2_build_api::bxl::result::BxlResult,
-) -> Result<(), Vec<SharedError>> {
+) -> Result<(), Vec<buck2_error::Error>> {
     match bxl_result {
         buck2_build_api::bxl::result::BxlResult::None { .. } => Ok(()),
         buck2_build_api::bxl::result::BxlResult::BuildsArtifacts {
@@ -296,7 +295,7 @@ async fn ensure_artifacts_inner(
     materialization_ctx: &MaterializationContext,
     built: &[BxlBuildResult],
     artifacts: &[ArtifactGroup],
-) -> Result<(), Vec<SharedError>> {
+) -> Result<(), Vec<buck2_error::Error>> {
     let mut futs = vec![];
 
     built.iter().for_each(|res| match res {

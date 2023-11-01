@@ -25,7 +25,6 @@ use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_error::shared_result::SharedError;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use dashmap::DashMap;
 use derive_more::Display;
@@ -140,7 +139,7 @@ impl<'v, V: ValueLike<'v> + 'v> StarlarkFailedArtifactIterableGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    fn iter(&self) -> impl Iterator<Item = &'v SharedError> {
+    fn iter(&self) -> impl Iterator<Item = &'v buck2_error::Error> {
         self.0
             .downcast_ref::<StarlarkBxlBuildResult>()
             .unwrap()

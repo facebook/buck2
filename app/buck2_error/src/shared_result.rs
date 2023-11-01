@@ -7,6 +7,4 @@
  * of this source tree.
  */
 
-pub type SharedError = crate::Error;
-
-pub type SharedResult<T> = Result<T, SharedError>;
+pub type SharedResult<T> = Result<T, crate::Error>;

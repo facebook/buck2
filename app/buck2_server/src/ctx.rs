@@ -59,7 +59,6 @@ use buck2_core::fs::working_dir::WorkingDir;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::rollout_percentage::RolloutPercentage;
-use buck2_error::shared_result::SharedError;
 use buck2_error::shared_result::SharedResult;
 use buck2_events::daemon_id;
 use buck2_events::dispatch::EventDispatcher;
@@ -381,7 +380,7 @@ impl<'a> ServerCommandContext<'a> {
             .as_ref()
             .and_then(|opts| opts.concurrency.as_ref())
             .map(|obj| parse_concurrency(obj.concurrency))
-            .map(|v| v.map_err(SharedError::from));
+            .map(|v| v.map_err(buck2_error::Error::from));
 
         let executor_config = get_default_executor_config(self.host_platform_override);
         let blocking_executor: Arc<_> = self.base_context.daemon.blocking_executor.dupe();
@@ -510,7 +509,7 @@ struct DiceCommandDataProvider {
     cell_configs_loader: Arc<CellConfigLoader>,
     execution_strategy: ExecutionStrategy,
     events: EventDispatcher,
-    concurrency: Option<Result<usize, SharedError>>,
+    concurrency: Option<Result<usize, buck2_error::Error>>,
     executor_config: Arc<CommandExecutorConfig>,
     blocking_executor: Arc<dyn BlockingExecutor>,
     materializer: Arc<dyn Materializer>,

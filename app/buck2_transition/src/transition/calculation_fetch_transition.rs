@@ -9,7 +9,6 @@
 
 use async_trait::async_trait;
 use buck2_core::configuration::transition::id::TransitionId;
-use buck2_error::shared_result::SharedError;
 use buck2_error::shared_result::SharedResult;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use dice::DiceComputations;
@@ -45,7 +44,7 @@ impl FetchTransition for DiceComputations {
             .env()
             // This is a hashmap lookup, so we are not caching the result in DICE.
             .get_any_visibility(&id.name)
-            .map_err(|_| SharedError::new(FetchTransitionError::NotFound(id.clone())))?
+            .map_err(|_| buck2_error::Error::new(FetchTransitionError::NotFound(id.clone())))?
             .0;
 
         transition

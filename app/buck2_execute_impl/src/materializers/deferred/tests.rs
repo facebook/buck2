@@ -150,7 +150,7 @@ mod state_machine {
             version: Version,
             command_sender: MaterializerSender<Self>,
             _cancellations: &'a CancellationContext,
-        ) -> BoxFuture<'a, Result<(), SharedError>> {
+        ) -> BoxFuture<'a, Result<(), buck2_error::Error>> {
             self.log.lock().push((Op::Clean, path.clone()));
 
             async move {

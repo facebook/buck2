@@ -38,7 +38,6 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
-use buck2_error::shared_result::SharedError;
 use buck2_error::shared_result::SharedResult;
 use buck2_error::Context as _;
 use buck2_events::dispatch::current_span;
@@ -315,7 +314,7 @@ struct TtlRefreshHistoryEntry {
 // possible, in fact) to add  `context` to this SharedProcessingError and lose the variant.
 #[derive(Debug, Clone, Dupe)]
 pub enum SharedMaterializingError {
-    Error(SharedError),
+    Error(buck2_error::Error),
     NotFound {
         info: Arc<CasDownloadInfo>,
         debug: Arc<str>,
@@ -1782,7 +1781,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             })
             .map(|r| match r {
                 Ok(r) => r,
-                Err(e) => Err(SharedMaterializingError::Error(e.into())), // Turn the JoinError into a SharedError.
+                Err(e) => Err(SharedMaterializingError::Error(e.into())), // Turn the JoinError into a buck2_error::Error.
             })
             .boxed()
             .shared();
@@ -2192,7 +2191,7 @@ fn clean_path<T: IoHandler>(
     })
     .map(|r| match r {
         Ok(r) => r,
-        Err(e) => Err(e.into()), // Turn the JoinError into a SharedError.
+        Err(e) => Err(e.into()), // Turn the JoinError into a buck2_error::Error.
     })
     .boxed()
     .shared()

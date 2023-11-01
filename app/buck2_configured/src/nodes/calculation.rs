@@ -35,7 +35,6 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
-use buck2_error::shared_result::SharedError;
 use buck2_error::shared_result::SharedResult;
 use buck2_error::Context;
 use buck2_execute::execute::dice_data::HasFallbackExecutorConfig;
@@ -143,7 +142,7 @@ pub async fn find_execution_platform_by_configuration(
                     return Ok(c.dupe());
                 }
             }
-            Err(SharedError::new(
+            Err(buck2_error::Error::new(
                 ToolchainDepError::ToolchainDepMissingPlatform(exec_cfg.dupe()),
             ))
         }
@@ -287,9 +286,9 @@ async fn execution_platforms_for_toolchain(
             if node.transition_deps().next().is_some() {
                 // We could actually check this when defining the rule, but a bit of a corner
                 // case, and much simpler to do so here.
-                return Err(SharedError::new(ToolchainDepError::ToolchainTransitionDep(
-                    self.0.unconfigured().dupe(),
-                )));
+                return Err(buck2_error::Error::new(
+                    ToolchainDepError::ToolchainTransitionDep(self.0.unconfigured().dupe()),
+                ));
             }
             let resolved_configuration = &ctx
                 .get_resolved_configuration(
@@ -349,9 +348,9 @@ pub async fn get_execution_platform_toolchain_dep(
         )
         .await?;
     if target_node.transition_deps().next().is_some() {
-        Err(SharedError::new(ToolchainDepError::ToolchainTransitionDep(
-            target_label.unconfigured().dupe(),
-        )))
+        Err(buck2_error::Error::new(
+            ToolchainDepError::ToolchainTransitionDep(target_label.unconfigured().dupe()),
+        ))
     } else {
         let platform_cfgs = compute_platform_cfgs(ctx, target_node).await?;
         let resolved_transitions = OrderedMap::new();

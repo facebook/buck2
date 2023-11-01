@@ -21,7 +21,6 @@ use buck2_core::directory::DirectoryEntry;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_error::shared_result::SharedError;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::digest::CasDigestFromReExt;
 use buck2_execute::digest::CasDigestToReExt;
@@ -99,7 +98,7 @@ pub trait IoHandler: Sized + Sync + Send + 'static {
         version: Version,
         command_sender: MaterializerSender<Self>,
         cancellations: &'a CancellationContext,
-    ) -> BoxFuture<'a, Result<(), SharedError>>;
+    ) -> BoxFuture<'a, Result<(), buck2_error::Error>>;
 
     async fn materialize_entry(
         self: &Arc<Self>,
@@ -323,7 +322,7 @@ impl IoHandler for DefaultIoHandler {
         version: Version,
         command_sender: MaterializerSender<Self>,
         cancellations: &'a CancellationContext,
-    ) -> BoxFuture<'a, Result<(), SharedError>> {
+    ) -> BoxFuture<'a, Result<(), buck2_error::Error>> {
         self.io_executor
             .execute_io(
                 Box::new(CleanIoRequest {

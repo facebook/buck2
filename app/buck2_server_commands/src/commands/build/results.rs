@@ -17,7 +17,6 @@ pub mod result_report {
     use buck2_core::configuration::compatibility::MaybeCompatible;
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
     use buck2_core::provider::label::ConfiguredProvidersLabel;
-    use buck2_error::shared_result::SharedError;
     use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
     use dupe::Dupe;
     use starlark_map::small_map::SmallMap;
@@ -28,9 +27,9 @@ pub mod result_report {
         pub use buck2_cli_proto::BuildTarget;
     }
 
-    /// Simple container for multiple [`SharedError`]s
+    /// Simple container for multiple [`buck2_error::Error`]s
     pub(crate) struct BuildErrors {
-        pub(crate) errors: Vec<SharedError>,
+        pub(crate) errors: Vec<buck2_error::Error>,
     }
 
     #[derive(Copy, Clone, Dupe)]
@@ -39,7 +38,7 @@ pub mod result_report {
         pub(crate) return_default_other_outputs: bool,
     }
 
-    /// Collects build results into a Result<Vec<proto::BuildTarget>, SharedErrors>. If any targets
+    /// Collects build results into a Result<Vec<proto::BuildTarget>, buck2_error::Errors>. If any targets
     /// fail, then the error case will be returned, otherwise a vec of all the successful results.
     pub(crate) struct ResultReporter<'a> {
         artifact_fs: &'a ArtifactFs,

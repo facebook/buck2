@@ -261,7 +261,7 @@ impl EdenConnector {
         })
         .map(|r| match r {
             Ok(r) => r,
-            Err(e) => Err(e.into()), // Turn the JoinError into a SharedError.
+            Err(e) => Err(e.into()), // Turn the JoinError into a buck2_error::Error.
         })
         .boxed()
         .shared()

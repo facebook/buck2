@@ -19,7 +19,6 @@ use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
-use buck2_error::shared_result::SharedError;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
@@ -59,7 +58,7 @@ pub enum WorkerInitError {
     ConnectionTimeout(f64, String),
     /// Any error not related to worker behavior
     #[error("Error initializing worker `{0}`")]
-    InternalError(SharedError),
+    InternalError(buck2_error::Error),
 }
 
 impl WorkerInitError {
