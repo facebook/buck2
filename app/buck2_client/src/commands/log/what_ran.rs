@@ -251,6 +251,10 @@ fn should_emit_immediately(
     data: &Option<buck2_data::span_end_event::Data>,
     options: &WhatRanCommandOptions,
 ) -> bool {
+    if options.options.incomplete {
+        return false;
+    }
+
     match data {
         Some(buck2_data::span_end_event::Data::ActionExecution(action)) => {
             action.failed || !options.failed

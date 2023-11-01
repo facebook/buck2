@@ -32,6 +32,12 @@ pub struct WhatRanOptions {
     pub skip_remote_executions: bool,
     #[clap(long)]
     pub skip_local_executions: bool,
+
+    /// Show only commands that were not completed.
+    /// That is command were running if buck2 process was killed,
+    /// or command currently running if buck2 is running build now.
+    #[clap(long)]
+    pub incomplete: bool,
 }
 
 /// An action that makes sense to use to contextualize a command we ran.
