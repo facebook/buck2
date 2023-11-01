@@ -189,7 +189,7 @@ impl<'c> DiceCalculationDelegate<'c> {
         self.ctx
             .compute(&EvalImportKey(OwnedStarlarkModulePath::new(starlark_path)))
             .await?
-            .unshared_error()
+            .map_err(anyhow::Error::from)
     }
 
     async fn get_legacy_buck_config_for_starlark(
@@ -411,7 +411,7 @@ impl<'c> DiceCalculationDelegate<'c> {
         self.ctx
             .compute(&PackageFileKey(path.clone()))
             .await?
-            .unshared_error()
+            .map_err(anyhow::Error::from)
     }
 
     /// Most directories do not contain a `PACKAGE` file, this function

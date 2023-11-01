@@ -16,7 +16,6 @@ use buck2_build_api::bxl::calculation::BXL_CALCULATION_IMPL;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_error::shared_result::SharedResult;
 use buck2_error::shared_result::ToSharedResultExt;
-use buck2_error::shared_result::ToUnsharedResultExt;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
 use dice::DiceComputations;
 use dice::Key;
@@ -51,7 +50,7 @@ pub(crate) async fn eval_bxl(
 ) -> anyhow::Result<BxlComputeResult> {
     ctx.compute(&internal::BxlComputeKey(bxl))
         .await?
-        .unshared_error()
+        .map_err(anyhow::Error::from)
 }
 
 #[async_trait]

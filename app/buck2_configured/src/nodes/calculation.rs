@@ -1088,6 +1088,6 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
 
         ctx.compute(&ConfiguredTargetNodeKey(target.dupe()))
             .await?
-            .unshared_error()
+            .map_err(anyhow::Error::from)
     }
 }

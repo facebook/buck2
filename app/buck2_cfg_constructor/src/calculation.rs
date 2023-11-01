@@ -70,7 +70,9 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
             }
         }
 
-        ctx.compute(&GetCfgConstructorKey).await?.unshared_error()
+        ctx.compute(&GetCfgConstructorKey)
+            .await?
+            .map_err(anyhow::Error::from)
     }
 
     async fn eval_cfg_constructor(

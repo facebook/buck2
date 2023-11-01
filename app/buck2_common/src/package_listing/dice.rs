@@ -16,7 +16,6 @@ use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::package::PackageLabel;
 use buck2_error::shared_result::SharedResult;
-use buck2_error::shared_result::ToUnsharedResultExt;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::span::SpanId;
 use dice::DiceComputations;
@@ -55,7 +54,7 @@ impl<'c> HasPackageListingResolver<'c> for DiceComputations {
         self.get_package_listing_resolver()
             .resolve(package)
             .await
-            .unshared_error()
+            .map_err(anyhow::Error::from)
     }
 }
 

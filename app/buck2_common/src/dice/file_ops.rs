@@ -459,7 +459,7 @@ impl<'c> FileOps for DiceFileOps<'c> {
         self.0
             .compute(&ReadDirKey(path.to_owned()))
             .await?
-            .unshared_error()
+            .map_err(anyhow::Error::from)
     }
 
     async fn read_path_metadata_if_exists(
@@ -469,7 +469,7 @@ impl<'c> FileOps for DiceFileOps<'c> {
         self.0
             .compute(&PathMetadataKey(path.to_owned()))
             .await?
-            .unshared_error()
+            .map_err(anyhow::Error::from)
     }
 
     async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool> {

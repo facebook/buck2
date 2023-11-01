@@ -11,8 +11,6 @@ use async_trait::async_trait;
 use buck2_audit::visibility::AuditVisibilityCommand;
 use buck2_cli_proto::ClientContext;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
-use buck2_error::shared_result::SharedResult;
-use buck2_error::shared_result::ToUnsharedResultExt;
 use buck2_node::load_patterns::load_patterns;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::lookup::TargetNodeLookup;
@@ -133,14 +131,8 @@ impl AuditSubcommand for AuditVisibilityCommand {
 
                 let mut nodes = TargetSet::<TargetNode>::new();
                 for (_package, result) in parsed_target_patterns.iter() {
-                    match result {
-                        Ok(res) => {
-                            nodes.extend(res.values());
-                        }
-                        Err(e) => {
-                            return SharedResult::unshared_error(Err(e.dupe()));
-                        }
-                    }
+                    let res = result.as_ref().map_err(Dupe::dupe)?;
+                    nodes.extend(res.values());
                 }
 
                 verify_visibility(ctx, nodes).await?;

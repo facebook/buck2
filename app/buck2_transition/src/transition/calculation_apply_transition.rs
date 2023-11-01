@@ -321,6 +321,6 @@ impl TransitionCalculation for TransitionCalculationImpl {
             attrs,
         };
 
-        ctx.compute(&key).await?.unshared_error()
+        ctx.compute(&key).await?.map_err(anyhow::Error::from)
     }
 }

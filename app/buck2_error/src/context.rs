@@ -38,8 +38,6 @@ pub trait Context<T>: Sealed {
         C: Into<ContextValue>,
         F: FnOnce() -> C;
 
-    fn unshared_error(self) -> anyhow::Result<T>;
-
     fn user(self) -> anyhow::Result<T> {
         self.context(crate::Category::User)
     }
@@ -73,16 +71,6 @@ impl<T, E: AnyError> Context<T> for std::result::Result<T, E> {
             Err(e) => Err(crate::Error::new_anyhow_with_context(e, f())),
         }
     }
-
-    fn unshared_error(self) -> anyhow::Result<T> {
-        match self {
-            Ok(x) => Ok(x),
-            Err(e) => {
-                let e: crate::Error = e.into();
-                Err(e.into())
-            }
-        }
-    }
 }
 
 // FIXME(JakobDegen): This impl should not exist. We should make people write error types for these
@@ -113,13 +101,6 @@ impl<T> Context<T> for Option<T> {
         match self {
             Some(x) => Ok(x),
             None => Err(crate::Error::new_anyhow_with_context(NoneError, f())),
-        }
-    }
-
-    fn unshared_error(self) -> anyhow::Result<T> {
-        match self {
-            Some(x) => Ok(x),
-            None => Err(crate::Error::from(NoneError).into()),
         }
     }
 }

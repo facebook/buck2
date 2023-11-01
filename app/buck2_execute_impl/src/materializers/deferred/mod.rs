@@ -850,7 +850,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
 
         // Wait on future to finish before invalidation can continue.
         let invalidate_fut = recv.await?;
-        invalidate_fut.await.unshared_error()
+        invalidate_fut.await.map_err(anyhow::Error::from)
     }
 
     async fn materialize_many(

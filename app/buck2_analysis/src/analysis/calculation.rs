@@ -111,7 +111,7 @@ impl RuleAnalsysisCalculationImpl for RuleAnalysisCalculationInstance {
 
         ctx.compute(&AnalysisKey(target.dupe()))
             .await?
-            .unshared_error()
+            .map_err(anyhow::Error::from)
     }
 }
 

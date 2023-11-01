@@ -21,7 +21,6 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::package::PackageLabel;
 use buck2_error::shared_result::SharedResult;
-use buck2_error::shared_result::ToUnsharedResultExt;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::span::SpanId;
 use buck2_interpreter::file_loader::LoadedModule;
@@ -125,7 +124,7 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
         }
 
         ctx.compute(&InterpreterResultsKey(package.dupe()))
-            .map(|res| res?.unshared_error())
+            .map(|res| res?.map_err(anyhow::Error::from))
             .boxed()
     }
 }

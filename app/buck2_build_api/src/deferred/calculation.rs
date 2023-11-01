@@ -198,7 +198,7 @@ async fn resolve_deferred(
 
     dice.compute(&DeferredResolve(deferred.dupe()))
         .await?
-        .unshared_error()
+        .map_err(anyhow::Error::from)
 }
 
 /// Computes and returns the untyped deferred at the given key. This does not fully resolve

@@ -20,7 +20,6 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellAliasResolver;
 use buck2_error::shared_result::SharedResult;
-use buck2_error::shared_result::ToUnsharedResultExt;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
@@ -124,6 +123,6 @@ impl HasImportPaths for DiceComputations {
 
         self.compute(&ImportPathsKey { cell_name })
             .await?
-            .unshared_error()
+            .map_err(anyhow::Error::from)
     }
 }

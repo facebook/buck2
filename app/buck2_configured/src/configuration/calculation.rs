@@ -502,7 +502,7 @@ impl ConfigurationCalculation for DiceComputations {
 
         self.compute(&PlatformConfigurationKey(target.dupe()))
             .await?
-            .unshared_error()
+            .map_err(anyhow::Error::from)
     }
 
     async fn get_default_platform(&self, target: &TargetLabel) -> SharedResult<ConfigurationData> {

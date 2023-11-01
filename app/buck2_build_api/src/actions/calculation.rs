@@ -319,7 +319,7 @@ impl ActionCalculation for DiceComputations {
         // We don't currently consume this in buck_e2e but it's good to log for debugging purposes.
         debug!("build_action {}", action_key);
         self.compute(BuildKey::ref_cast(action_key))
-            .map(|v| v?.unshared_error())
+            .map(|v| v?.map_err(anyhow::Error::from))
             .await
     }
 
