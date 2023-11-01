@@ -110,4 +110,23 @@ mod tests {
             Some("buck2_error/src/source_location.rs"),
         );
     }
+
+    #[test]
+    fn test_via_context() {
+        use crate::Context;
+
+        let e: anyhow::Error = Err::<(), _>(MyError).context("foo").unwrap_err();
+        let e: crate::Error = e.into();
+        assert_eq!(
+            e.source_location(),
+            Some("buck2_error/src/source_location.rs"),
+        );
+
+        let e: anyhow::Error = Err::<(), _>(MyError).user().unwrap_err();
+        let e: crate::Error = e.into();
+        assert_eq!(
+            e.source_location(),
+            Some("buck2_error/src/source_location.rs"),
+        );
+    }
 }

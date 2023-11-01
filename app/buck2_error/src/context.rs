@@ -18,11 +18,12 @@ impl crate::Error {
     }
 
     #[cold]
+    #[track_caller]
     fn new_anyhow_with_context<E, C: Into<ContextValue>>(e: E, c: C) -> anyhow::Error
     where
         crate::Error: From<E>,
     {
-        Into::<Self>::into(e).context(c).into()
+        crate::Error::from(e).context(c).into()
     }
 }
 
@@ -33,17 +34,21 @@ impl crate::Error {
 /// of this trait. Subsequently, additional APIs will be provided for annotating errors with
 /// structured context data.
 pub trait Context<T>: Sealed {
+    #[track_caller]
     fn context<C: Into<ContextValue>>(self, context: C) -> anyhow::Result<T>;
 
+    #[track_caller]
     fn with_context<C, F>(self, f: F) -> anyhow::Result<T>
     where
         C: Into<ContextValue>,
         F: FnOnce() -> C;
 
+    #[track_caller]
     fn user(self) -> anyhow::Result<T> {
         self.context(crate::Category::User)
     }
 
+    #[track_caller]
     fn infra(self) -> anyhow::Result<T> {
         self.context(crate::Category::Infra)
     }
