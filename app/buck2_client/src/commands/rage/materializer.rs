@@ -18,7 +18,6 @@ use buck2_client_ctx::events_ctx::PartialResultCtx;
 use buck2_client_ctx::events_ctx::PartialResultHandler;
 use buck2_client_ctx::manifold::ManifoldClient;
 use buck2_client_ctx::subscribers::subscriber::EventSubscriber;
-use buck2_error::shared_result::SharedResult;
 use futures::future::BoxFuture;
 use futures::future::Shared;
 
@@ -26,7 +25,7 @@ use crate::commands::rage::manifold::buf_to_manifold;
 use crate::commands::rage::MaterializerRageUploadData;
 
 pub async fn upload_materializer_data(
-    buckd: Shared<BoxFuture<'_, SharedResult<BootstrapBuckdClient>>>,
+    buckd: Shared<BoxFuture<'_, buck2_error::Result<BootstrapBuckdClient>>>,
     client_context: &ClientContext,
     manifold: &ManifoldClient,
     manifold_id: &String,

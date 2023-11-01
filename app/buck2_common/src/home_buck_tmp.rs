@@ -13,7 +13,6 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
-use buck2_error::shared_result::SharedResult;
 use once_cell::sync::Lazy;
 
 use crate::invocation_roots::home_buck_dir;
@@ -54,7 +53,7 @@ pub fn home_buck_tmp_dir() -> anyhow::Result<&'static AbsNormPath> {
         Ok(tmp_dir)
     }
 
-    static DIR: Lazy<SharedResult<AbsNormPathBuf>> =
+    static DIR: Lazy<buck2_error::Result<AbsNormPathBuf>> =
         Lazy::new(|| find_dir().map_err(buck2_error::Error::from));
 
     Ok(&Lazy::force(&DIR).as_ref().map_err(dupe::Dupe::dupe)?)

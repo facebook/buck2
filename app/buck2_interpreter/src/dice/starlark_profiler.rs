@@ -9,7 +9,6 @@
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_error::shared_result::SharedResult;
 use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
@@ -128,7 +127,7 @@ pub struct StarlarkProfileModeForIntermediateAnalysisKey;
 
 #[async_trait]
 impl Key for StarlarkProfilerConfigurationKey {
-    type Value = SharedResult<StarlarkProfilerConfiguration>;
+    type Value = buck2_error::Result<StarlarkProfilerConfiguration>;
 
     async fn compute(
         &self,
@@ -149,13 +148,13 @@ impl Key for StarlarkProfilerConfigurationKey {
 
 #[async_trait]
 impl Key for StarlarkProfileModeForIntermediateAnalysisKey {
-    type Value = SharedResult<StarlarkProfileModeOrInstrumentation>;
+    type Value = buck2_error::Result<StarlarkProfileModeOrInstrumentation>;
 
     async fn compute(
         &self,
         ctx: &mut DiceComputations,
         _cancellation: &CancellationContext,
-    ) -> SharedResult<StarlarkProfileModeOrInstrumentation> {
+    ) -> buck2_error::Result<StarlarkProfileModeOrInstrumentation> {
         let configuration = get_starlark_profiler_configuration(ctx).await?;
         Ok(configuration.profile_mode_for_intermediate_analysis())
     }

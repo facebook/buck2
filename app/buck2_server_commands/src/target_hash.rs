@@ -24,7 +24,6 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::TargetLabel;
-use buck2_error::shared_result::SharedResult;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::ConfiguredOrUnconfiguredTargetLabel;
@@ -233,7 +232,7 @@ impl TargetHashingTargetNode for TargetNode {
 }
 pub struct TargetHashes {
     // key is an unconfigured target label, but the hash is generated from the configured target label.
-    target_mapping: HashMap<TargetLabel, SharedResult<BuckTargetHash>>,
+    target_mapping: HashMap<TargetLabel, buck2_error::Result<BuckTargetHash>>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -245,7 +244,7 @@ enum TargetHashError {
 }
 
 impl TargetHashes {
-    pub fn get(&self, label: &TargetLabel) -> Option<&SharedResult<BuckTargetHash>> {
+    pub fn get(&self, label: &TargetLabel) -> Option<&buck2_error::Result<BuckTargetHash>> {
         self.target_mapping.get(label)
     }
 
@@ -260,7 +259,8 @@ impl TargetHashes {
         T::NodeRef: ConfiguredOrUnconfiguredTargetLabel,
     {
         struct Delegate<T: QueryTarget> {
-            hashes: HashMap<T::NodeRef, Shared<DropCancelFuture<SharedResult<BuckTargetHash>>>>,
+            hashes:
+                HashMap<T::NodeRef, Shared<DropCancelFuture<buck2_error::Result<BuckTargetHash>>>>,
             file_hasher: Option<Arc<dyn FileHasher>>,
             use_fast_hash: bool,
             dice: DiceTransaction,
@@ -356,7 +356,8 @@ impl TargetHashes {
             .map(|(target, fut)| async move { (target, fut.await) })
             .collect();
 
-        let mut target_mapping: HashMap<TargetLabel, SharedResult<BuckTargetHash>> = HashMap::new();
+        let mut target_mapping: HashMap<TargetLabel, buck2_error::Result<BuckTargetHash>> =
+            HashMap::new();
 
         // TODO(cjhopman): FuturesOrdered/Unordered interacts poorly with tokio cooperative scheduling
         // (see https://github.com/rust-lang/futures-rs/issues/2053). Clean this up once a good
@@ -420,7 +421,7 @@ impl TargetHashes {
             })
             .collect();
 
-        let target_mapping: HashMap<TargetLabel, SharedResult<BuckTargetHash>> =
+        let target_mapping: HashMap<TargetLabel, buck2_error::Result<BuckTargetHash>> =
             join_all(hashing_futures).await.into_iter().collect();
         Ok(Self { target_mapping })
     }
@@ -483,9 +484,9 @@ impl TargetHashes {
     }
 
     fn hash_deps(
-        dep_hashes: Vec<SharedResult<BuckTargetHash>>,
+        dep_hashes: Vec<buck2_error::Result<BuckTargetHash>>,
         hasher: &mut dyn BuckTargetHasher,
-    ) -> SharedResult<()> {
+    ) -> buck2_error::Result<()> {
         for target_hash in dep_hashes {
             hasher.write_u128(target_hash?.0);
         }
@@ -495,7 +496,7 @@ impl TargetHashes {
     fn hash_files(
         file_digests: Vec<(CellPath, anyhow::Result<Vec<u8>>)>,
         mut hasher: &mut dyn BuckTargetHasher,
-    ) -> SharedResult<()> {
+    ) -> buck2_error::Result<()> {
         for (path, digest) in file_digests {
             path.hash(&mut hasher);
             let digest = digest?;

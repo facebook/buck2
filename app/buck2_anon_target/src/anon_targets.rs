@@ -58,7 +58,6 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
-use buck2_error::shared_result::SharedResult;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
 use buck2_execute::digest_config::HasDigestConfig;
@@ -269,7 +268,7 @@ impl AnonTargetKey {
     pub(crate) async fn resolve(&self, dice: &DiceComputations) -> anyhow::Result<AnalysisResult> {
         #[async_trait]
         impl Key for AnonTargetKey {
-            type Value = SharedResult<AnalysisResult>;
+            type Value = buck2_error::Result<AnalysisResult>;
 
             async fn compute(
                 &self,

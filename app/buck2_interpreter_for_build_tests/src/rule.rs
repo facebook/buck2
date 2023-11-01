@@ -9,7 +9,6 @@
 
 use buck2_build_api::interpreter::rule_defs::transitive_set::transitive_set_definition::register_transitive_set;
 use buck2_core::bzl::ImportPath;
-use buck2_error::shared_result::SharedResult;
 use buck2_interpreter::file_loader::LoadedModules;
 use buck2_interpreter_for_build::attrs::attrs_global::register_attrs;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
@@ -132,7 +131,7 @@ fn rule_unbound() {
 }
 
 #[test]
-fn udr_is_recorded() -> SharedResult<()> {
+fn udr_is_recorded() -> buck2_error::Result<()> {
     let content = indoc!(
         r#"
         def impl(ctx):

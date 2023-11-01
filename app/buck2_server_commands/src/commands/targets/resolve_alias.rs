@@ -29,7 +29,6 @@ use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::TargetLabel;
-use buck2_error::shared_result::SharedResult;
 use buck2_error::Context;
 use buck2_node::nodes::attributes::PACKAGE;
 use buck2_node::nodes::eval_result::EvaluationResult;
@@ -144,7 +143,7 @@ pub(crate) async fn targets_resolve_aliases(
             }
         })
         .collect::<FuturesUnordered<_>>()
-        .collect::<HashMap<PackageLabel, SharedResult<Arc<EvaluationResult>>>>()
+        .collect::<HashMap<PackageLabel, buck2_error::Result<Arc<EvaluationResult>>>>()
         .await;
 
     let mut buffer = String::new();

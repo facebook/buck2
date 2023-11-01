@@ -13,7 +13,6 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_error::shared_result::SharedResult;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use dice::CancellationContext;
 use dice::DiceComputations;
@@ -34,7 +33,7 @@ struct GraphSizeKey(ConfiguredTargetLabel);
 
 #[async_trait]
 impl Key for GraphSizeKey {
-    type Value = SharedResult<MaybeCompatible<u64>>;
+    type Value = buck2_error::Result<MaybeCompatible<u64>>;
 
     async fn compute(
         &self,

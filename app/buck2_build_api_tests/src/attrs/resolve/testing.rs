@@ -19,7 +19,6 @@ use buck2_build_api::interpreter::rule_defs::provider::registration::register_bu
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_error::shared_result::SharedResult;
 use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
 use buck2_interpreter_for_build::attrs::coerce;
 use buck2_interpreter_for_build::attrs::coerce::testing;
@@ -239,7 +238,7 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
             Ok(None)
         }
 
-        fn resolve_query(&self, _query: &str) -> SharedResult<Arc<AnalysisQueryResult>> {
+        fn resolve_query(&self, _query: &str) -> buck2_error::Result<Arc<AnalysisQueryResult>> {
             unimplemented!("This test resolution context doesn't handle queries")
         }
 

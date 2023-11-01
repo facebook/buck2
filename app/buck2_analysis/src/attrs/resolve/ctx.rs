@@ -14,7 +14,6 @@ use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProvide
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_error::shared_result::SharedResult;
 use starlark::environment::Module;
 use starlark::values::Heap;
 
@@ -43,7 +42,7 @@ pub trait AttrResolutionContext<'v> {
 
     /// Provides the result of the query. This will only provide results for queries that are reported during the configured attr traversal.
     // TODO(cjhopman): Ideally, we wouldn't need to split query attr resolution in this way, but processing queries is an async operation and the starlark Heap cannot be used in async code.
-    fn resolve_query(&self, query: &str) -> SharedResult<Arc<AnalysisQueryResult>>;
+    fn resolve_query(&self, query: &str) -> buck2_error::Result<Arc<AnalysisQueryResult>>;
 
     fn execution_platform_resolution(&self) -> &ExecutionPlatformResolution;
 }

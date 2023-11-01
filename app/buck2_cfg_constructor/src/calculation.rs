@@ -16,7 +16,6 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::data::ConfigurationData;
-use buck2_error::shared_result::SharedResult;
 use buck2_error::Context;
 use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_interpreter_for_build::interpreter::package_file_calculation::EvalPackageFile;
@@ -54,7 +53,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
 
         #[async_trait]
         impl Key for GetCfgConstructorKey {
-            type Value = SharedResult<Option<Arc<dyn CfgConstructorImpl>>>;
+            type Value = buck2_error::Result<Option<Arc<dyn CfgConstructorImpl>>>;
 
             async fn compute(
                 &self,
@@ -88,7 +87,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
 
         #[async_trait]
         impl Key for CfgConstructorInvocationKey {
-            type Value = SharedResult<ConfigurationData>;
+            type Value = buck2_error::Result<ConfigurationData>;
 
             async fn compute(
                 &self,

@@ -8,12 +8,11 @@
  */
 
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
-use buck2_error::shared_result::SharedResult;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use indoc::indoc;
 
 #[test]
-fn configuration_info_validates_buckconfigs() -> SharedResult<()> {
+fn configuration_info_validates_buckconfigs() -> buck2_error::Result<()> {
     let mut tester = Tester::new().unwrap();
     tester.additional_globals(register_rule_defs);
     tester.run_starlark_bzl_test_expecting_error(

@@ -25,7 +25,6 @@ use buck2_data::CommandCriticalEnd;
 use buck2_data::CommandCriticalStart;
 use buck2_data::DiceCriticalSectionEnd;
 use buck2_data::DiceCriticalSectionStart;
-use buck2_error::shared_result::SharedResult;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::materialize::materializer::Materializer;
 use dice::DiceComputations;
@@ -53,7 +52,7 @@ pub trait ServerCommandContextTrait: Send + Sync {
     fn materializer(&self) -> Arc<dyn Materializer>;
 
     /// exposes the dice for scoped access, but isn't intended to be callable by anyone
-    async fn dice_accessor(&self, private: PrivateStruct) -> SharedResult<DiceAccessor>;
+    async fn dice_accessor(&self, private: PrivateStruct) -> buck2_error::Result<DiceAccessor>;
 
     fn events(&self) -> &EventDispatcher;
 

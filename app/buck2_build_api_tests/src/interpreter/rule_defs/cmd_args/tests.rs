@@ -12,7 +12,6 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifact
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineInputs;
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_core::bzl::ImportPath;
-use buck2_error::shared_result::SharedResult;
 use buck2_interpreter::types::regex::register_buck_regex;
 use buck2_interpreter_for_build::interpreter::testing::expect_error;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
@@ -56,7 +55,7 @@ fn tester() -> anyhow::Result<Tester> {
 }
 
 #[test]
-fn stringifies_correctly() -> SharedResult<()> {
+fn stringifies_correctly() -> buck2_error::Result<()> {
     let mut tester = tester()?;
     tester.run_starlark_bzl_test(indoc!(
         r#"
@@ -103,7 +102,7 @@ fn stringifies_correctly() -> SharedResult<()> {
 }
 
 #[test]
-fn displays_correctly() -> SharedResult<()> {
+fn displays_correctly() -> buck2_error::Result<()> {
     let mut tester = tester()?;
     tester.run_starlark_bzl_test(indoc!(
         r#"
@@ -136,7 +135,7 @@ fn displays_correctly_replace_regex() {
 }
 
 #[test]
-fn command_line_builder() -> SharedResult<()> {
+fn command_line_builder() -> buck2_error::Result<()> {
     let mut tester = tester()?;
     let content = indoc!(
         r#"

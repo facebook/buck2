@@ -24,7 +24,6 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_error::shared_result::SharedResult;
 use buck2_error::Context;
 use buck2_events::dispatch::create_span;
 use buck2_events::dispatch::Span;
@@ -175,7 +174,7 @@ async fn resolve_deferred(
 ) -> anyhow::Result<DeferredValueAnyReady> {
     #[async_trait]
     impl Key for DeferredResolve {
-        type Value = SharedResult<DeferredValueAnyReady>;
+        type Value = buck2_error::Result<DeferredValueAnyReady>;
 
         async fn compute(
             &self,
@@ -210,7 +209,7 @@ async fn compute_deferred(
 ) -> anyhow::Result<DeferredResult> {
     #[async_trait]
     impl Key for DeferredCompute {
-        type Value = SharedResult<DeferredResult>;
+        type Value = buck2_error::Result<DeferredResult>;
 
         async fn compute(
             &self,

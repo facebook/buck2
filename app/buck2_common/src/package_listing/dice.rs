@@ -15,7 +15,6 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::package::PackageLabel;
-use buck2_error::shared_result::SharedResult;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::span::SpanId;
 use dice::DiceComputations;
@@ -77,7 +76,7 @@ pub struct PackageListingKeyActivationData {
 
 #[async_trait]
 impl Key for PackageListingKey {
-    type Value = SharedResult<PackageListing>;
+    type Value = buck2_error::Result<PackageListing>;
     async fn compute(
         &self,
         ctx: &mut DiceComputations,
@@ -114,7 +113,7 @@ pub struct DicePackageListingResolver<'compute>(&'compute DiceComputations);
 
 #[async_trait]
 impl<'c> PackageListingResolver for DicePackageListingResolver<'c> {
-    async fn resolve(&self, package: PackageLabel) -> SharedResult<PackageListing> {
+    async fn resolve(&self, package: PackageLabel) -> buck2_error::Result<PackageListing> {
         self.0.compute(&PackageListingKey(package.dupe())).await?
     }
 

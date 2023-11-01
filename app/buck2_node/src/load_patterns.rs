@@ -19,7 +19,6 @@ use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::name::TargetName;
-use buck2_error::shared_result::SharedResult;
 use buck2_events::dispatch::console_message;
 use dice::DiceComputations;
 use dupe::Dupe;
@@ -112,7 +111,7 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
 }
 
 pub struct LoadedPatterns<T: PatternType> {
-    results: BTreeMap<PackageLabel, SharedResult<PackageLoadedPatterns<T>>>,
+    results: BTreeMap<PackageLabel, buck2_error::Result<PackageLoadedPatterns<T>>>,
 }
 
 pub struct PackageLoadedPatterns<T: PatternType> {
@@ -154,7 +153,7 @@ impl<T: PatternType> IntoIterator for PackageLoadedPatterns<T> {
 impl<T: PatternType> LoadedPatterns<T> {
     pub fn iter(
         &self,
-    ) -> impl Iterator<Item = (PackageLabel, &SharedResult<PackageLoadedPatterns<T>>)> {
+    ) -> impl Iterator<Item = (PackageLabel, &buck2_error::Result<PackageLoadedPatterns<T>>)> {
         self.results.iter().map(|(k, v)| (k.dupe(), v))
     }
 
@@ -162,11 +161,11 @@ impl<T: PatternType> LoadedPatterns<T> {
     #[allow(clippy::should_implement_trait)]
     pub fn into_iter(
         self,
-    ) -> impl Iterator<Item = (PackageLabel, SharedResult<PackageLoadedPatterns<T>>)> {
+    ) -> impl Iterator<Item = (PackageLabel, buck2_error::Result<PackageLoadedPatterns<T>>)> {
         self.results.into_iter()
     }
 
-    pub fn iter_loaded_targets(&self) -> impl Iterator<Item = SharedResult<&TargetNode>> {
+    pub fn iter_loaded_targets(&self) -> impl Iterator<Item = buck2_error::Result<&TargetNode>> {
         self.results
             .values()
             .map(|result| match result {
@@ -212,10 +211,11 @@ impl MissingTargetBehavior {
 /// Finds all the requested targets in `spec` from a map of loaded targets in `load_result`.
 fn apply_spec<T: PatternType>(
     spec: ResolvedPattern<T>,
-    load_results: BTreeMap<PackageLabel, SharedResult<Arc<EvaluationResult>>>,
+    load_results: BTreeMap<PackageLabel, buck2_error::Result<Arc<EvaluationResult>>>,
     skip_missing_targets: MissingTargetBehavior,
 ) -> anyhow::Result<LoadedPatterns<T>> {
-    let mut all_targets: BTreeMap<_, SharedResult<PackageLoadedPatterns<T>>> = BTreeMap::new();
+    let mut all_targets: BTreeMap<_, buck2_error::Result<PackageLoadedPatterns<T>>> =
+        BTreeMap::new();
     for (pkg, pkg_spec) in spec.specs.into_iter() {
         let result = match load_results.get(&pkg) {
             Some(r) => r,
@@ -262,7 +262,8 @@ pub async fn load_patterns<T: PatternType>(
     let (spec, mut load_package_futs) =
         resolve_patterns_and_load_buildfiles(ctx, parsed_patterns).await?;
 
-    let mut results: BTreeMap<PackageLabel, SharedResult<Arc<EvaluationResult>>> = BTreeMap::new();
+    let mut results: BTreeMap<PackageLabel, buck2_error::Result<Arc<EvaluationResult>>> =
+        BTreeMap::new();
     while let Some((pkg, load_res)) = load_package_futs.next().await {
         results.insert(pkg, load_res.map_err(buck2_error::Error::from));
     }

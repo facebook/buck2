@@ -25,7 +25,6 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::name::CellName;
 use buck2_core::package::PackageLabel;
-use buck2_error::shared_result::SharedResult;
 use buck2_error::Context;
 use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async;
@@ -90,7 +89,7 @@ impl<'c> HasCalculationDelegate<'c> for DiceComputations {
 
         #[async_trait]
         impl Key for InterpreterConfigForCellKey {
-            type Value = SharedResult<Arc<InterpreterForCell>>;
+            type Value = buck2_error::Result<Arc<InterpreterForCell>>;
             async fn compute(
                 &self,
                 ctx: &mut DiceComputations,
@@ -154,7 +153,7 @@ impl<'c> DiceCalculationDelegate<'c> {
     ) -> anyhow::Result<LoadedModule> {
         #[async_trait]
         impl Key for EvalImportKey {
-            type Value = SharedResult<LoadedModule>;
+            type Value = buck2_error::Result<LoadedModule>;
             async fn compute(
                 &self,
                 ctx: &mut DiceComputations,
@@ -378,7 +377,7 @@ impl<'c> DiceCalculationDelegate<'c> {
 
         #[async_trait]
         impl Key for PackageFileKey {
-            type Value = SharedResult<SuperPackage>;
+            type Value = buck2_error::Result<SuperPackage>;
 
             async fn compute(
                 &self,
@@ -457,7 +456,7 @@ impl<'c> DiceCalculationDelegate<'c> {
         &self,
         package: PackageLabel,
         profiler_instrumentation: &mut StarlarkProfilerOrInstrumentation<'_>,
-    ) -> SharedResult<Arc<EvaluationResult>> {
+    ) -> buck2_error::Result<Arc<EvaluationResult>> {
         let listing = self.resolve_package_listing(package.dupe()).await?;
 
         let build_file_path = BuildFilePath::new(package.dupe(), listing.buildfile().to_owned());

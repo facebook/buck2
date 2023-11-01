@@ -22,7 +22,6 @@ use buck2_core;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_path::AbsPath;
-use buck2_error::shared_result::SharedResult;
 use dupe::Dupe;
 use edenfs::client::EdenService;
 use edenfs::errors::eden_service::ListMountsError;
@@ -209,7 +208,7 @@ impl EdenConnectionManager {
 
 /// A (potentially pending) Eden client.
 type EdenClientFuture =
-    Shared<BoxFuture<'static, SharedResult<Arc<dyn EdenService + Send + Sync>>>>;
+    Shared<BoxFuture<'static, buck2_error::Result<Arc<dyn EdenService + Send + Sync>>>>;
 
 /// An Eden client and an epoch to keep track of reconnections.
 #[derive(Clone, Allocative)]

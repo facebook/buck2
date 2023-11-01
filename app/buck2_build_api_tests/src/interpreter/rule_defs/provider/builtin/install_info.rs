@@ -9,7 +9,6 @@
 
 use buck2_build_api::interpreter::rule_defs::provider::collection::tester::collection_creator;
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
-use buck2_error::shared_result::SharedResult;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use buck2_interpreter_for_build::label::testing::label_creator;
 use indoc::indoc;
@@ -26,7 +25,7 @@ fn tester() -> Tester {
 }
 
 #[test]
-fn install_info_works_as_provider_key() -> SharedResult<()> {
+fn install_info_works_as_provider_key() -> buck2_error::Result<()> {
     let content = indoc!(
         r#"
              installer_app = label("//foo:bar[quz]")
@@ -40,7 +39,7 @@ fn install_info_works_as_provider_key() -> SharedResult<()> {
 }
 
 #[test]
-fn info_validator_succeeds_for_artifacts_without_additional_artifacts() -> SharedResult<()> {
+fn info_validator_succeeds_for_artifacts_without_additional_artifacts() -> buck2_error::Result<()> {
     let content = indoc!(
         r#"
              a1 = source_artifact("foo/bar", "baz.h")

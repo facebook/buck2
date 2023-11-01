@@ -31,7 +31,6 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::name::TargetName;
-use buck2_error::shared_result::SharedResult;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::with_dispatcher;
 use buck2_events::dispatch::with_dispatcher_async;
@@ -466,7 +465,7 @@ impl<'a> BuckLspContext<'a> {
         &self,
         uri: &LspUrl,
         content: String,
-    ) -> SharedResult<LspEvalResult> {
+    ) -> buck2_error::Result<LspEvalResult> {
         let import_path: OwnedStarlarkModulePath = match uri {
             LspUrl::File(path) => self.import_path(path).await,
             LspUrl::Starlark(path) => self.starlark_import_path(path).await,

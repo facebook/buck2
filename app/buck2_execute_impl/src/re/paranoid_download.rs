@@ -14,7 +14,6 @@ use allocative::Allocative;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_error::shared_result::SharedResult;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::IoRequest;
@@ -107,7 +106,7 @@ impl ParanoidDownloader {
             )
             .await?;
 
-            SharedResult::Ok(())
+            buck2_error::Result::Ok(())
         })
         .map(|r| match r {
             Ok(r) => r,
@@ -192,7 +191,7 @@ impl CacheDownload {
 
 struct CacheDownloadInner {
     io: Arc<dyn BlockingExecutor>,
-    future: Shared<BoxFuture<'static, SharedResult<()>>>,
+    future: Shared<BoxFuture<'static, buck2_error::Result<()>>>,
     paths: Vec<ProjectRelativePathBuf>,
 }
 

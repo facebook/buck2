@@ -11,7 +11,6 @@ use std::sync::Arc;
 
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
-use buck2_error::shared_result::SharedResult;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::query::QueryAttr;
 use buck2_node::attrs::attr_type::query::QueryAttrBase;
@@ -23,11 +22,17 @@ use crate::attrs::resolve::ctx::AnalysisQueryResult;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 
 pub(crate) trait ConfiguredQueryAttrBaseExt {
-    fn resolve(&self, ctx: &dyn AttrResolutionContext) -> SharedResult<Arc<AnalysisQueryResult>>;
+    fn resolve(
+        &self,
+        ctx: &dyn AttrResolutionContext,
+    ) -> buck2_error::Result<Arc<AnalysisQueryResult>>;
 }
 
 impl ConfiguredQueryAttrBaseExt for QueryAttrBase<ConfiguredProvidersLabel> {
-    fn resolve(&self, ctx: &dyn AttrResolutionContext) -> SharedResult<Arc<AnalysisQueryResult>> {
+    fn resolve(
+        &self,
+        ctx: &dyn AttrResolutionContext,
+    ) -> buck2_error::Result<Arc<AnalysisQueryResult>> {
         ctx.resolve_query(&self.query)
     }
 }

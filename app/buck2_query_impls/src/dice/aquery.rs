@@ -31,7 +31,6 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_error::shared_result::SharedResult;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dashmap::mapref::entry::Entry;
@@ -127,8 +126,9 @@ impl<K: Hash + Eq + PartialEq + Dupe, V: Dupe> NodeCache<K, V> {
 /// be able to iterate the tset structure synchronously.
 #[derive(Clone, Dupe)]
 struct DiceAqueryNodesCache {
-    action_nodes: Arc<NodeCache<ActionKey, SharedResult<ActionQueryNode>>>,
-    tset_nodes: Arc<NodeCache<TransitiveSetProjectionKey, SharedResult<SetProjectionInputs>>>,
+    action_nodes: Arc<NodeCache<ActionKey, buck2_error::Result<ActionQueryNode>>>,
+    tset_nodes:
+        Arc<NodeCache<TransitiveSetProjectionKey, buck2_error::Result<SetProjectionInputs>>>,
 }
 
 impl DiceAqueryNodesCache {
@@ -192,7 +192,7 @@ fn compute_tset_node<'c>(
     node_cache: DiceAqueryNodesCache,
     ctx: &'c DiceComputations,
     key: TransitiveSetProjectionKey,
-) -> BoxFuture<'c, SharedResult<SetProjectionInputs>> {
+) -> BoxFuture<'c, buck2_error::Result<SetProjectionInputs>> {
     async move {
         let set = ctx
             .compute_deferred_data(&key.key)
@@ -234,7 +234,7 @@ fn compute_action_node<'c>(
     ctx: &'c DiceComputations,
     key: ActionKey,
     fs: Arc<ArtifactFs>,
-) -> BoxFuture<'c, SharedResult<ActionQueryNode>> {
+) -> BoxFuture<'c, buck2_error::Result<ActionQueryNode>> {
     async move {
         let action = ActionCalculation::get_action(ctx, &key).await?;
         let deps = convert_inputs(ctx, node_cache, action.inputs()?.iter()).await?;

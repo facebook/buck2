@@ -15,14 +15,16 @@ use buck2_common::local_resource_state::LocalResourceState;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::ReleaseLocalResourcesEnd;
 use buck2_data::ReleaseLocalResourcesStart;
-use buck2_error::shared_result::SharedResult;
 use buck2_events::dispatch::span_async;
 use dashmap::DashMap;
 use futures::future::BoxFuture;
 use futures::future::Shared;
 
 pub struct LocalResourceRegistry<'a>(
-    pub DashMap<ConfiguredTargetLabel, Shared<BoxFuture<'a, SharedResult<LocalResourceState>>>>,
+    pub  DashMap<
+        ConfiguredTargetLabel,
+        Shared<BoxFuture<'a, buck2_error::Result<LocalResourceState>>>,
+    >,
 );
 
 impl<'a> LocalResourceRegistry<'a> {

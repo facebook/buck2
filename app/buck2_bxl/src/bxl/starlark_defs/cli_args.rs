@@ -23,7 +23,6 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
-use buck2_error::shared_result::SharedResult;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::load_patterns::load_patterns;
@@ -606,7 +605,7 @@ impl CliArgType {
                         loaded
                             .iter_loaded_targets()
                             .map_ok(|t| CliArgValue::TargetLabel(t.label().dupe()))
-                            .collect::<SharedResult<_>>()?,
+                            .collect::<buck2_error::Result<_>>()?,
                     ))
                 }
                 CliArgType::SubTargetExpr => {
@@ -636,7 +635,7 @@ impl CliArgType {
                                     .collect::<Vec<_>>(),
                                 Err(e) => vec![Err(e.dupe())],
                             })
-                            .collect::<SharedResult<Vec<_>>>()?,
+                            .collect::<buck2_error::Result<Vec<_>>>()?,
                     ))
                 }
                 CliArgType::Json => match clap.value_of() {

@@ -11,14 +11,13 @@ use buck2_build_api::interpreter::rule_defs::provider::callable::register_provid
 use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_core::bzl::ImportPath;
-use buck2_error::shared_result::SharedResult;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use indoc::indoc;
 
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
 
 #[test]
-fn default_info_is_available() -> SharedResult<()> {
+fn default_info_is_available() -> buck2_error::Result<()> {
     let mut tester = Tester::new()?;
     tester.additional_globals(artifactory);
     tester.additional_globals(register_rule_defs);
@@ -65,7 +64,7 @@ fn default_info_is_available() -> SharedResult<()> {
 }
 
 #[test]
-fn default_info_validates_types() -> SharedResult<()> {
+fn default_info_validates_types() -> buck2_error::Result<()> {
     // TODO(nmj): More complex types
     let mut tester = Tester::new().unwrap();
     tester.additional_globals(register_rule_defs);

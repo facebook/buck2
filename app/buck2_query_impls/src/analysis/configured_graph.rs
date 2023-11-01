@@ -15,7 +15,6 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_error::shared_result::SharedResult;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
@@ -74,7 +73,7 @@ impl<'a> ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQuer
 
         #[async_trait]
         impl Key for TemplatePlaceholderInfoQueryKey {
-            type Value = SharedResult<Arc<TargetSet<ConfiguredGraphNodeRef>>>;
+            type Value = buck2_error::Result<Arc<TargetSet<ConfiguredGraphNodeRef>>>;
 
             async fn compute(
                 &self,

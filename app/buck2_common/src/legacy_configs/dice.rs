@@ -15,7 +15,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::name::CellName;
-use buck2_error::shared_result::SharedResult;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceProjectionComputations;
@@ -124,7 +123,7 @@ pub trait HasLegacyConfigs {
     async fn get_legacy_config_for_cell(
         &self,
         cell_name: CellName,
-    ) -> SharedResult<LegacyBuckConfig>;
+    ) -> buck2_error::Result<LegacyBuckConfig>;
 
     async fn get_legacy_config_property(
         &self,
@@ -174,13 +173,13 @@ struct LegacyBuckConfigForCellKey {
 
 #[async_trait]
 impl Key for LegacyBuckConfigForCellKey {
-    type Value = SharedResult<LegacyBuckConfig>;
+    type Value = buck2_error::Result<LegacyBuckConfig>;
 
     async fn compute(
         &self,
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
-    ) -> SharedResult<LegacyBuckConfig> {
+    ) -> buck2_error::Result<LegacyBuckConfig> {
         let legacy_configs = ctx.get_legacy_configs().await?;
         legacy_configs
             .get(self.cell_name)
@@ -206,13 +205,13 @@ struct LegacyBuckConfigPropertyKey {
 
 #[async_trait]
 impl Key for LegacyBuckConfigPropertyKey {
-    type Value = SharedResult<Option<Arc<str>>>;
+    type Value = buck2_error::Result<Option<Arc<str>>>;
 
     async fn compute(
         &self,
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
-    ) -> SharedResult<Option<Arc<str>>> {
+    ) -> buck2_error::Result<Option<Arc<str>>> {
         let legacy_config = ctx.get_legacy_config_for_cell(self.cell_name).await?;
         Ok(legacy_config
             .get(&self.section, &self.property)
@@ -240,7 +239,7 @@ impl ProjectionKey for LegacyBuckConfigPropertyProjectionKey {
 
     fn compute(
         &self,
-        config: &SharedResult<LegacyBuckConfig>,
+        config: &buck2_error::Result<LegacyBuckConfig>,
         _ctx: &DiceProjectionComputations,
     ) -> Option<Arc<str>> {
         // This is safe, because this code is only called from `DiceLegacyBuckConfig`
@@ -341,7 +340,7 @@ impl HasLegacyConfigs for DiceComputations {
     async fn get_legacy_config_for_cell(
         &self,
         cell_name: CellName,
-    ) -> SharedResult<LegacyBuckConfig> {
+    ) -> buck2_error::Result<LegacyBuckConfig> {
         self.compute(&LegacyBuckConfigForCellKey { cell_name })
             .await?
     }

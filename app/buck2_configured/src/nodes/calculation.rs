@@ -35,7 +35,6 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
-use buck2_error::shared_result::SharedResult;
 use buck2_error::Context;
 use buck2_execute::execute::dice_data::HasFallbackExecutorConfig;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
@@ -134,7 +133,7 @@ pub async fn find_execution_platform_by_configuration(
     ctx: &DiceComputations,
     exec_cfg: &ConfigurationData,
     cfg: &ConfigurationData,
-) -> SharedResult<ExecutionPlatform> {
+) -> buck2_error::Result<ExecutionPlatform> {
     match ctx.get_execution_platforms().await? {
         Some(platforms) if exec_cfg != &ConfigurationData::unbound_exec() => {
             for c in platforms.candidates() {
@@ -174,7 +173,7 @@ impl ExecutionPlatformConstraints {
         node: &TargetNode,
         gathered_deps: &GatheredDeps,
         cfg_ctx: &(dyn AttrConfigurationContext + Sync),
-    ) -> SharedResult<Self> {
+    ) -> buck2_error::Result<Self> {
         let mut exec_compatible_with = Vec::new();
         if let Some(a) = node.attr_or_none(
             EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
@@ -212,7 +211,7 @@ impl ExecutionPlatformConstraints {
     async fn toolchain_allows(
         &self,
         ctx: &DiceComputations,
-    ) -> SharedResult<Vec<ToolchainConstraints>> {
+    ) -> buck2_error::Result<Vec<ToolchainConstraints>> {
         // We could merge these constraints together, but the time to do that
         // probably outweighs the benefits given there are likely to only be a few
         // execution platforms to test.
@@ -227,7 +226,7 @@ impl ExecutionPlatformConstraints {
         &self,
         ctx: &DiceComputations,
         node: &TargetNode,
-    ) -> SharedResult<ExecutionPlatformResolution> {
+    ) -> buck2_error::Result<ExecutionPlatformResolution> {
         ctx.resolve_execution_platform_from_constraints(
             node.label().pkg().cell_name(),
             &self.exec_compatible_with,
@@ -241,7 +240,7 @@ impl ExecutionPlatformConstraints {
         &self,
         ctx: &DiceComputations,
         cell: CellName,
-    ) -> SharedResult<ExecutionPlatformResolution> {
+    ) -> buck2_error::Result<ExecutionPlatformResolution> {
         ctx.resolve_execution_platform_from_constraints(
             cell,
             &self.exec_compatible_with,
@@ -255,7 +254,7 @@ impl ExecutionPlatformConstraints {
         &self,
         ctx: &DiceComputations,
         target: &ConfiguredTargetLabel,
-    ) -> SharedResult<ToolchainConstraints> {
+    ) -> buck2_error::Result<ToolchainConstraints> {
         resolve_toolchain_constraints_from_constraints(
             ctx,
             target,
@@ -270,13 +269,13 @@ impl ExecutionPlatformConstraints {
 async fn execution_platforms_for_toolchain(
     ctx: &DiceComputations,
     target: ConfiguredTargetLabel,
-) -> SharedResult<ToolchainConstraints> {
+) -> buck2_error::Result<ToolchainConstraints> {
     #[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
     struct ExecutionPlatformsForToolchainKey(ConfiguredTargetLabel);
 
     #[async_trait]
     impl Key for ExecutionPlatformsForToolchainKey {
-        type Value = SharedResult<ToolchainConstraints>;
+        type Value = buck2_error::Result<ToolchainConstraints>;
         async fn compute(
             &self,
             ctx: &mut DiceComputations,
@@ -336,7 +335,7 @@ pub async fn get_execution_platform_toolchain_dep(
     ctx: &DiceComputations,
     target_label: &ConfiguredTargetLabel,
     target_node: &TargetNode,
-) -> SharedResult<MaybeCompatible<ExecutionPlatformResolution>> {
+) -> buck2_error::Result<MaybeCompatible<ExecutionPlatformResolution>> {
     assert!(target_node.is_toolchain_rule());
     let target_cfg = target_label.cfg();
     let target_cell = target_node.label().pkg().cell_name();
@@ -384,7 +383,7 @@ async fn resolve_execution_platform(
     resolved_configuration: &ResolvedConfiguration,
     gathered_deps: &GatheredDeps,
     cfg_ctx: &(dyn AttrConfigurationContext + Sync),
-) -> SharedResult<ExecutionPlatformResolution> {
+) -> buck2_error::Result<ExecutionPlatformResolution> {
     // If no execution platforms are configured, we fall back to the legacy execution
     // platform behavior. We currently only support legacy execution platforms. That behavior is that there is a
     // single executor config (the fallback config) and the execution platform is in the same
@@ -992,13 +991,13 @@ async fn compute_configured_target_node(
     if let Some(transition_id) = &target_node.0.rule.cfg {
         #[async_trait]
         impl Key for ConfiguredTransitionedNodeKey {
-            type Value = SharedResult<MaybeCompatible<ConfiguredTargetNode>>;
+            type Value = buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>;
 
             async fn compute(
                 &self,
                 ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
-            ) -> SharedResult<MaybeCompatible<ConfiguredTargetNode>> {
+            ) -> buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>> {
                 compute_configured_target_node_with_transition(self, ctx)
                     .await
                     .map_err(buck2_error::Error::from)
@@ -1066,7 +1065,7 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
         #[async_trait]
         impl Key for ConfiguredTargetNodeKey {
-            type Value = SharedResult<MaybeCompatible<ConfiguredTargetNode>>;
+            type Value = buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>;
             async fn compute(
                 &self,
                 ctx: &mut DiceComputations,

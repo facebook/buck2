@@ -14,7 +14,6 @@ use buck2_common::dice::cycles::CycleAdapterDescriptor;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
-use buck2_error::shared_result::SharedResult;
 use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::RuleKind;
@@ -47,7 +46,7 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
     ) -> anyhow::Result<ConfiguredTargetLabel> {
         let node = ctx.get_target_node(target).await?;
 
-        let get_platform_configuration = async || -> SharedResult<ConfigurationData> {
+        let get_platform_configuration = async || -> buck2_error::Result<ConfigurationData> {
             let current_cfg = match global_target_platform {
                 Some(global_target_platform) => {
                     ctx.get_platform_configuration(global_target_platform)

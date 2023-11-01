@@ -16,7 +16,6 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::PackageLabel;
-use buck2_error::shared_result::SharedResult;
 use buck2_error::Context;
 use buck2_util::arc_str::ArcS;
 use dupe::Dupe;
@@ -42,7 +41,7 @@ enum PackageListingError {
 
 #[async_trait]
 impl<'c> PackageListingResolver for InterpreterPackageListingResolver<'c> {
-    async fn resolve(&self, package: PackageLabel) -> SharedResult<PackageListing> {
+    async fn resolve(&self, package: PackageLabel) -> buck2_error::Result<PackageListing> {
         Ok(self
             .gather_package_listing(package.dupe())
             .await

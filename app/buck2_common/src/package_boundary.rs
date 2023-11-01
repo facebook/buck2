@@ -21,7 +21,6 @@ use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_error::shared_result::SharedResult;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -133,27 +132,28 @@ impl PackageBoundaryExceptions {
 
 #[async_trait]
 pub trait HasPackageBoundaryExceptions {
-    async fn get_package_boundary_exceptions(&self)
-    -> SharedResult<Arc<PackageBoundaryExceptions>>;
+    async fn get_package_boundary_exceptions(
+        &self,
+    ) -> buck2_error::Result<Arc<PackageBoundaryExceptions>>;
 
     async fn get_package_boundary_exception(
         &self,
         path: CellPathRef<'async_trait>,
-    ) -> SharedResult<bool>;
+    ) -> buck2_error::Result<bool>;
 }
 
 #[async_trait]
 impl HasPackageBoundaryExceptions for DiceComputations {
     async fn get_package_boundary_exceptions(
         &self,
-    ) -> SharedResult<Arc<PackageBoundaryExceptions>> {
+    ) -> buck2_error::Result<Arc<PackageBoundaryExceptions>> {
         #[derive(Hash, Eq, PartialEq, Clone, Dupe, Display, Debug, Allocative)]
         #[display(fmt = "{:?}", self)]
         struct PackageBoundaryExceptionsKey;
 
         #[async_trait]
         impl Key for PackageBoundaryExceptionsKey {
-            type Value = SharedResult<Arc<PackageBoundaryExceptions>>;
+            type Value = buck2_error::Result<Arc<PackageBoundaryExceptions>>;
 
             async fn compute(
                 &self,
@@ -183,14 +183,14 @@ impl HasPackageBoundaryExceptions for DiceComputations {
     async fn get_package_boundary_exception(
         &self,
         path: CellPathRef<'async_trait>,
-    ) -> SharedResult<bool> {
+    ) -> buck2_error::Result<bool> {
         #[derive(Hash, Eq, PartialEq, Clone, Display, Debug, RefCast, Allocative)]
         #[repr(transparent)]
         struct PackageBoundaryExceptionKey(CellPath);
 
         #[async_trait]
         impl Key for PackageBoundaryExceptionKey {
-            type Value = SharedResult<bool>;
+            type Value = buck2_error::Result<bool>;
 
             async fn compute(
                 &self,

@@ -20,7 +20,6 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::package::PackageLabel;
-use buck2_error::shared_result::SharedResult;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::span::SpanId;
 use buck2_interpreter::file_loader::LoadedModule;
@@ -70,7 +69,7 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
         &self,
         ctx: &DiceComputations,
         package: PackageLabel,
-    ) -> SharedResult<Arc<EvaluationResult>> {
+    ) -> buck2_error::Result<Arc<EvaluationResult>> {
         let interpreter = ctx
             .get_interpreter_calculator(
                 package.cell_name(),
@@ -92,7 +91,7 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
     ) -> BoxFuture<'a, anyhow::Result<Arc<EvaluationResult>>> {
         #[async_trait]
         impl Key for InterpreterResultsKey {
-            type Value = SharedResult<Arc<EvaluationResult>>;
+            type Value = buck2_error::Result<Arc<EvaluationResult>>;
             async fn compute(
                 &self,
                 ctx: &mut DiceComputations,
@@ -237,6 +236,6 @@ impl PackageValuesCalculation for PackageValuesCalculationInstance {
 
 pub struct IntepreterResultsKeyActivationData {
     pub duration: Duration,
-    pub result: SharedResult<Arc<EvaluationResult>>,
+    pub result: buck2_error::Result<Arc<EvaluationResult>>,
     pub spans: SmallVec<[SpanId; 1]>,
 }

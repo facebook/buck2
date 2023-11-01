@@ -10,13 +10,12 @@
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::package::PackageLabel;
-use buck2_error::shared_result::SharedResult;
 
 use crate::package_listing::listing::PackageListing;
 
 #[async_trait]
 pub trait PackageListingResolver: Send + Sync {
-    async fn resolve(&self, package: PackageLabel) -> SharedResult<PackageListing>;
+    async fn resolve(&self, package: PackageLabel) -> buck2_error::Result<PackageListing>;
 
     async fn get_enclosing_package(
         &self,

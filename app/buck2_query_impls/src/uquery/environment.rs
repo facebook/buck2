@@ -22,7 +22,6 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::TargetLabel;
-use buck2_error::shared_result::SharedResult;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::LabeledNode;
@@ -118,11 +117,11 @@ pub struct UqueryEnvironment<'c> {
 }
 
 pub struct PreresolvedQueryLiterals<T: QueryTarget> {
-    resolved_literals: HashMap<String, SharedResult<TargetSet<T>>>,
+    resolved_literals: HashMap<String, buck2_error::Result<TargetSet<T>>>,
 }
 
 impl<T: QueryTarget> PreresolvedQueryLiterals<T> {
-    pub fn new(resolved_literals: HashMap<String, SharedResult<TargetSet<T>>>) -> Self {
+    pub fn new(resolved_literals: HashMap<String, buck2_error::Result<TargetSet<T>>>) -> Self {
         Self { resolved_literals }
     }
 

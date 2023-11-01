@@ -8,7 +8,6 @@
  */
 
 use buck2_core::bzl::ImportPath;
-use buck2_error::shared_result::SharedResult;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use buck2_interpreter_for_build::rule::register_rule_function;
 use indoc::indoc;
@@ -47,7 +46,7 @@ fn extra_provider_module(builder: &mut GlobalsBuilder) {
 }
 
 #[test]
-fn tester_can_load_extra_modules() -> SharedResult<()> {
+fn tester_can_load_extra_modules() -> buck2_error::Result<()> {
     let mut tester = Tester::new()?;
     tester.additional_globals(extra_provider_module);
 
@@ -73,8 +72,8 @@ fn tester_can_load_extra_modules() -> SharedResult<()> {
 }
 
 #[test]
-fn tester_can_load_symbols_transitively() -> SharedResult<()> {
-    fn new_tester() -> SharedResult<Tester> {
+fn tester_can_load_symbols_transitively() -> buck2_error::Result<()> {
+    fn new_tester() -> buck2_error::Result<Tester> {
         let mut tester = Tester::new()?;
         tester.add_import(
             &ImportPath::testing_new("root//test:def1.bzl"),

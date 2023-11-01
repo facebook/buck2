@@ -19,7 +19,6 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellAliasResolver;
-use buck2_error::shared_result::SharedResult;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
@@ -92,7 +91,7 @@ impl HasImportPaths for DiceComputations {
 
         #[async_trait]
         impl Key for ImportPathsKey {
-            type Value = SharedResult<Arc<ImplicitImportPaths>>;
+            type Value = buck2_error::Result<Arc<ImplicitImportPaths>>;
 
             async fn compute(
                 &self,

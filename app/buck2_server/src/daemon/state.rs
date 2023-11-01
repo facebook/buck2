@@ -35,7 +35,6 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::is_open_source;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_core::tag_result;
-use buck2_error::shared_result::SharedResult;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::sink::scribe;
 use buck2_events::sink::tee::TeeSink;
@@ -91,7 +90,7 @@ pub struct DaemonState {
     pub paths: InvocationPaths,
 
     /// This holds the main data shared across different commands.
-    pub(crate) data: SharedResult<Arc<DaemonStateData>>,
+    pub(crate) data: buck2_error::Result<Arc<DaemonStateData>>,
 
     #[allocative(skip)]
     rt: Handle,
@@ -612,7 +611,7 @@ impl DaemonState {
     pub async fn prepare_events(
         &self,
         trace_id: TraceId,
-    ) -> SharedResult<(ChannelEventSource, EventDispatcher)> {
+    ) -> buck2_error::Result<(ChannelEventSource, EventDispatcher)> {
         // facebook only: logging events to Scribe.
         facebook_only();
         let (events, sink) = buck2_events::create_source_sink_pair();
@@ -632,7 +631,7 @@ impl DaemonState {
         &self,
         dispatcher: EventDispatcher,
         drop_guard: ActiveCommandDropGuard,
-    ) -> SharedResult<BaseServerCommandContext> {
+    ) -> buck2_error::Result<BaseServerCommandContext> {
         let data = self.data();
 
         dispatcher.instant_event(buck2_data::RestartConfiguration {

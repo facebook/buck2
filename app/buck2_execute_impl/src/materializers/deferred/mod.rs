@@ -38,7 +38,6 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
-use buck2_error::shared_result::SharedResult;
 use buck2_error::Context as _;
 use buck2_events::dispatch::current_span;
 use buck2_events::dispatch::get_dispatcher;
@@ -346,7 +345,7 @@ impl From<MaterializeEntryError> for SharedMaterializingError {
 /// A future that is materializing on a separate task spawned by the materializer
 type MaterializingFuture = Shared<BoxFuture<'static, Result<(), SharedMaterializingError>>>;
 /// A future that is cleaning paths on a separate task spawned by the materializer
-type CleaningFuture = Shared<BoxFuture<'static, SharedResult<()>>>;
+type CleaningFuture = Shared<BoxFuture<'static, buck2_error::Result<()>>>;
 
 #[derive(Clone)]
 enum ProcessingFuture {
@@ -2139,7 +2138,7 @@ impl<V: 'static> FileTree<V> {
 /// in the Vec.
 async fn join_all_existing_futs(
     existing_futs: Vec<(ProjectRelativePathBuf, ProcessingFuture)>,
-) -> SharedResult<()> {
+) -> buck2_error::Result<()> {
     // We can await inside a loop here because all ProcessingFuture's are spawned.
     for (path, fut) in existing_futs.into_iter() {
         match fut {

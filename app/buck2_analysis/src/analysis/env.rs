@@ -26,7 +26,6 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
-use buck2_error::shared_result::SharedResult;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
@@ -93,7 +92,7 @@ impl<'v> AttrResolutionContext<'v> for RuleAnalysisAttrResolutionContext<'v> {
         ))
     }
 
-    fn resolve_query(&self, query: &str) -> SharedResult<Arc<AnalysisQueryResult>> {
+    fn resolve_query(&self, query: &str) -> buck2_error::Result<Arc<AnalysisQueryResult>> {
         resolve_query(&self.query_results, query, self.module)
     }
 
@@ -145,7 +144,7 @@ pub fn resolve_query<'v>(
     query_results: &HashMap<String, Arc<AnalysisQueryResult>>,
     query: &str,
     module: &'v Module,
-) -> SharedResult<Arc<AnalysisQueryResult>> {
+) -> buck2_error::Result<Arc<AnalysisQueryResult>> {
     match query_results.get(query) {
         None => Err(anyhow::anyhow!(AnalysisError::MissingQuery(query.to_owned())).into()),
         Some(x) => {

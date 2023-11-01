@@ -12,7 +12,6 @@ use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::ParsedPattern;
-use buck2_error::shared_result::SharedResult;
 use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use indoc::indoc;
@@ -51,7 +50,7 @@ fn dependency_creator(builder: &mut GlobalsBuilder) {
 }
 
 #[test]
-fn dependency_works() -> SharedResult<()> {
+fn dependency_works() -> buck2_error::Result<()> {
     let mut tester = Tester::new()?;
     tester.additional_globals(buck2_build_api::interpreter::rule_defs::register_rule_defs);
     tester.additional_globals(dependency_creator);

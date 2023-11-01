@@ -17,7 +17,6 @@ use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::view::LegacyBuckConfigsView;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::CellResolver;
-use buck2_error::shared_result::SharedResult;
 use buck2_interpreter::dice::starlark_types::GetStarlarkTypes;
 use buck2_interpreter::file_type::StarlarkFileType;
 use dice::DiceComputations;
@@ -141,7 +140,7 @@ impl HasGlobalInterpreterState for DiceComputations {
 
         #[async_trait]
         impl Key for GisKey {
-            type Value = SharedResult<GisValue>;
+            type Value = buck2_error::Result<GisValue>;
             async fn compute(
                 &self,
                 ctx: &mut DiceComputations,

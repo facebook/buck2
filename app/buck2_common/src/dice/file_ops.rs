@@ -23,7 +23,6 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_error::shared_result::SharedResult;
 use buck2_error::Context;
 use buck2_events::dispatch::console_message;
 use cmp_any::PartialEqAny;
@@ -93,7 +92,7 @@ pub mod keys {
     pub struct FileOpsValue(#[allocative(skip)] pub Arc<dyn FileOps>);
 }
 
-async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn FileOps>> {
+async fn get_default_file_ops(dice: &DiceComputations) -> buck2_error::Result<Arc<dyn FileOps>> {
     #[derive(Clone, Dupe, Derivative, Allocative)]
     #[derivative(PartialEq)]
     struct DiceFileOpsDelegate {
@@ -233,7 +232,7 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
 
     #[async_trait]
     impl Key for FileOpsKey {
-        type Value = SharedResult<FileOpsValue>;
+        type Value = buck2_error::Result<FileOpsValue>;
         async fn compute(
             &self,
             ctx: &mut DiceComputations,
@@ -372,7 +371,7 @@ struct ReadDirKey(CellPath);
 
 #[async_trait]
 impl Key for ReadDirKey {
-    type Value = SharedResult<ReadDirOutput>;
+    type Value = buck2_error::Result<ReadDirOutput>;
     async fn compute(
         &self,
         ctx: &mut DiceComputations,
@@ -402,7 +401,7 @@ struct PathMetadataKey(CellPath);
 
 #[async_trait]
 impl Key for PathMetadataKey {
-    type Value = SharedResult<Option<RawPathMetadata>>;
+    type Value = buck2_error::Result<Option<RawPathMetadata>>;
     async fn compute(
         &self,
         ctx: &mut DiceComputations,

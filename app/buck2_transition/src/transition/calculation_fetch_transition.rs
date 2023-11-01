@@ -9,7 +9,6 @@
 
 use async_trait::async_trait;
 use buck2_core::configuration::transition::id::TransitionId;
-use buck2_error::shared_result::SharedResult;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use dice::DiceComputations;
 use starlark::values::OwnedFrozenValueTyped;
@@ -24,7 +23,7 @@ pub(crate) trait FetchTransition {
     async fn fetch_transition(
         &self,
         id: &TransitionId,
-    ) -> SharedResult<OwnedFrozenValueTyped<FrozenTransition>>;
+    ) -> buck2_error::Result<OwnedFrozenValueTyped<FrozenTransition>>;
 }
 
 #[derive(Debug, Error)]
@@ -38,7 +37,7 @@ impl FetchTransition for DiceComputations {
     async fn fetch_transition(
         &self,
         id: &TransitionId,
-    ) -> SharedResult<OwnedFrozenValueTyped<FrozenTransition>> {
+    ) -> buck2_error::Result<OwnedFrozenValueTyped<FrozenTransition>> {
         let module = self.get_loaded_module_from_import_path(&id.path).await?;
         let transition = module
             .env()

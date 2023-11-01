@@ -59,7 +59,6 @@ use buck2_core::fs::working_dir::WorkingDir;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::rollout_percentage::RolloutPercentage;
-use buck2_error::shared_result::SharedResult;
 use buck2_events::daemon_id;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
@@ -463,15 +462,16 @@ struct CellConfigLoader {
     /// Reuses build config from the previous invocation if there is one
     reuse_current_config: bool,
     config_overrides: Vec<LegacyConfigCmdArg>,
-    loaded_cell_configs:
-        AsyncOnceCell<SharedResult<(CellResolver, LegacyBuckConfigs, HashSet<AbsNormPathBuf>)>>,
+    loaded_cell_configs: AsyncOnceCell<
+        buck2_error::Result<(CellResolver, LegacyBuckConfigs, HashSet<AbsNormPathBuf>)>,
+    >,
 }
 
 impl CellConfigLoader {
     pub async fn cells_and_configs(
         &self,
         dice_ctx: &DiceComputations,
-    ) -> SharedResult<(CellResolver, LegacyBuckConfigs, HashSet<AbsNormPathBuf>)> {
+    ) -> buck2_error::Result<(CellResolver, LegacyBuckConfigs, HashSet<AbsNormPathBuf>)> {
         self.loaded_cell_configs
             .get_or_init(async move {
                 if self.reuse_current_config {
@@ -767,7 +767,7 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
     }
 
     /// Provides a DiceTransaction, initialized on first use and shared after initialization.
-    async fn dice_accessor(&self, _private: PrivateStruct) -> SharedResult<DiceAccessor> {
+    async fn dice_accessor(&self, _private: PrivateStruct) -> buck2_error::Result<DiceAccessor> {
         let (build_signals_installer, deferred_build_signals) = create_build_signals();
 
         let is_nested_invocation = if let Some(uuid) = &self.daemon_uuid_from_client {

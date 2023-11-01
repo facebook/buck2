@@ -26,7 +26,6 @@ use buck2_common::file_ops::PathMetadata;
 use buck2_common::file_ops::PathMetadataOrRedirection;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::directory::DirectoryData;
-use buck2_error::shared_result::SharedResult;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::directory::extract_artifact_value;
@@ -251,7 +250,7 @@ async fn dir_artifact_value(
 
     #[async_trait]
     impl Key for DirArtifactValueKey {
-        type Value = SharedResult<ActionSharedDirectory>;
+        type Value = buck2_error::Result<ActionSharedDirectory>;
 
         async fn compute(
             &self,
@@ -323,7 +322,7 @@ pub struct EnsureProjectedArtifactKey(pub(crate) ProjectedArtifact);
 
 #[async_trait]
 impl Key for EnsureProjectedArtifactKey {
-    type Value = SharedResult<ArtifactValue>;
+    type Value = buck2_error::Result<ArtifactValue>;
 
     async fn compute(
         &self,
@@ -378,7 +377,7 @@ pub struct EnsureTransitiveSetProjectionKey(pub TransitiveSetProjectionKey);
 
 #[async_trait]
 impl Key for EnsureTransitiveSetProjectionKey {
-    type Value = SharedResult<ArtifactGroupValues>;
+    type Value = buck2_error::Result<ArtifactGroupValues>;
 
     async fn compute(
         &self,

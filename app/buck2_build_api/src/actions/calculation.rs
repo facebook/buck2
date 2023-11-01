@@ -18,7 +18,6 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_signals::NodeDuration;
 use buck2_common::events::HasEvents;
 use buck2_data::ToProtoMessage;
-use buck2_error::shared_result::SharedResult;
 use buck2_error::Context;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::dispatch::span_async;
@@ -333,7 +332,7 @@ pub struct BuildKey(pub ActionKey);
 
 #[async_trait]
 impl Key for BuildKey {
-    type Value = SharedResult<ActionOutputs>;
+    type Value = buck2_error::Result<ActionOutputs>;
 
     async fn compute(
         &self,

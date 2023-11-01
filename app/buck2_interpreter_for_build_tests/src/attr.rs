@@ -14,7 +14,6 @@ use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::plugins::PluginKindSet;
-use buck2_error::shared_result::SharedResult;
 use buck2_interpreter_for_build::attrs::attrs_global::register_attrs;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
 use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
@@ -36,7 +35,7 @@ fn tester() -> Tester {
 }
 
 #[test]
-fn string_works() -> SharedResult<()> {
+fn string_works() -> buck2_error::Result<()> {
     let mut tester = tester();
     tester.run_starlark_bzl_test(indoc!(
         r#"
@@ -49,7 +48,7 @@ fn string_works() -> SharedResult<()> {
 }
 
 #[test]
-fn boolean_works() -> SharedResult<()> {
+fn boolean_works() -> buck2_error::Result<()> {
     let mut tester = tester();
     tester.run_starlark_bzl_test(indoc!(
         r#"
@@ -62,7 +61,7 @@ fn boolean_works() -> SharedResult<()> {
 }
 
 #[test]
-fn test_attr_module_registered() -> SharedResult<()> {
+fn test_attr_module_registered() -> buck2_error::Result<()> {
     let mut tester = tester();
     tester.run_starlark_bzl_test(indoc!(
         r#"
@@ -73,7 +72,7 @@ fn test_attr_module_registered() -> SharedResult<()> {
 }
 
 #[test]
-fn list_works() -> SharedResult<()> {
+fn list_works() -> buck2_error::Result<()> {
     let mut tester = tester();
     tester.run_starlark_bzl_test(indoc!(
         r#"
@@ -96,7 +95,7 @@ fn list_works() -> SharedResult<()> {
 }
 
 #[test]
-fn enum_works() -> SharedResult<()> {
+fn enum_works() -> buck2_error::Result<()> {
     let mut tester = tester();
     tester.run_starlark_bzl_test(indoc!(
         r#"
@@ -212,7 +211,7 @@ fn attr_coercer_coerces() -> anyhow::Result<()> {
 }
 
 #[test]
-fn dep_works() -> SharedResult<()> {
+fn dep_works() -> buck2_error::Result<()> {
     let mut t = tester();
     t.run_starlark_bzl_test(indoc!(
         r#"
@@ -251,7 +250,7 @@ fn dep_works() -> SharedResult<()> {
 }
 
 #[test]
-fn source_works() -> SharedResult<()> {
+fn source_works() -> buck2_error::Result<()> {
     let mut t = tester();
     t.run_starlark_bzl_test(indoc!(
         r#"

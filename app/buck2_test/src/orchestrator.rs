@@ -57,7 +57,6 @@ use buck2_data::TestRunStart;
 use buck2_data::TestSessionInfo;
 use buck2_data::TestSuite;
 use buck2_data::ToProtoMessage;
-use buck2_error::shared_result::SharedResult;
 use buck2_error::Context;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
@@ -1021,7 +1020,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         executor: CommandExecutor,
         context: PreparedLocalResourceSetupContext,
         cancellations: &'b CancellationContext<'b>,
-    ) -> SharedResult<LocalResourceState> {
+    ) -> buck2_error::Result<LocalResourceState> {
         let manager = CommandExecutionManager::new(
             Box::new(MutexClaimManager::new()),
             events.dupe(),

@@ -22,7 +22,6 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::package::PackageLabel;
-use buck2_error::shared_result::SharedResult;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::StarlarkModulePath;
@@ -145,7 +144,7 @@ async fn get_transitive_includes(
 async fn load_and_collect_includes(
     ctx: &mut DiceComputations,
     path: &CellPath,
-) -> SharedResult<Vec<ImportPath>> {
+) -> buck2_error::Result<Vec<ImportPath>> {
     let parent = path
         .parent()
         .ok_or_else(|| anyhow::anyhow!(AuditIncludesError::InvalidPath(path.clone())))?;
@@ -224,7 +223,7 @@ impl AuditSubcommand for AuditIncludesCommand {
                     })
                     .collect();
 
-                let results: Vec<(_, SharedResult<Vec<_>>)> = futures.collect().await;
+                let results: Vec<(_, buck2_error::Result<Vec<_>>)> = futures.collect().await;
                 // This is expected to not return any errors, and so we're not careful about not propagating it.
                 let to_absolute_path = move |include: ImportPath| -> anyhow::Result<_> {
                     let include = include.path();
@@ -233,10 +232,10 @@ impl AuditSubcommand for AuditIncludesCommand {
                     Ok(fs.resolve(&path))
                 };
                 let absolutize_paths =
-                    |paths: Vec<ImportPath>| -> SharedResult<Vec<AbsNormPathBuf>> {
+                    |paths: Vec<ImportPath>| -> buck2_error::Result<Vec<AbsNormPathBuf>> {
                         Ok(paths.into_try_map(&to_absolute_path)?)
                     };
-                let results: Vec<(String, SharedResult<Vec<AbsNormPathBuf>>)> = results
+                let results: Vec<(String, buck2_error::Result<Vec<AbsNormPathBuf>>)> = results
                     .into_map(|(path, includes)| (path, includes.and_then(absolutize_paths)));
 
                 let mut stdout = stdout.as_writer();

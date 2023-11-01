@@ -24,7 +24,6 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_error::shared_result::SharedResult;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
 use chrono::DateTime;
 use chrono::Utc;
@@ -115,7 +114,7 @@ pub trait ReConnectionObserver: Allocative + 'static + Send + Sync {
 
 #[derive(Allocative)]
 struct LazyRemoteExecutionClient {
-    client: AsyncOnceCell<SharedResult<RemoteExecutionClient>>,
+    client: AsyncOnceCell<buck2_error::Result<RemoteExecutionClient>>,
     observers: Mutex<Vec<Weak<dyn ReConnectionObserver>>>,
     config: RemoteExecutionConfig,
 }
@@ -155,7 +154,7 @@ impl LazyRemoteExecutionClient {
         }
     }
 
-    async fn init(&self) -> SharedResult<RemoteExecutionClient> {
+    async fn init(&self) -> buck2_error::Result<RemoteExecutionClient> {
         let client = self.config.connect_now().await?;
 
         let mut observers = self.observers.lock().unwrap();

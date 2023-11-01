@@ -21,7 +21,6 @@ use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::label::TargetLabel;
-use buck2_error::shared_result::SharedResult;
 use buck2_error::Context;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
@@ -115,7 +114,7 @@ async fn do_apply_transition(
     attrs: Option<&[Option<CoercedAttr>]>,
     conf: &ConfigurationData,
     transition_id: &TransitionId,
-) -> SharedResult<TransitionApplied> {
+) -> buck2_error::Result<TransitionApplied> {
     let transition = ctx.fetch_transition(transition_id).await?;
     let module = Module::new();
     let mut refs = Vec::with_capacity(transition.refs.len());
@@ -206,7 +205,7 @@ pub(crate) trait ApplyTransition {
     async fn fetch_transition_function_reference(
         &self,
         target: &TargetLabel,
-    ) -> SharedResult<FrozenProviderCollectionValue>;
+    ) -> buck2_error::Result<FrozenProviderCollectionValue>;
 }
 
 #[async_trait]
@@ -214,7 +213,7 @@ impl ApplyTransition for DiceComputations {
     async fn fetch_transition_function_reference(
         &self,
         target: &TargetLabel,
-    ) -> SharedResult<FrozenProviderCollectionValue> {
+    ) -> buck2_error::Result<FrozenProviderCollectionValue> {
         Ok(self
             .get_configuration_analysis_result(target)
             .await?
@@ -274,14 +273,14 @@ impl TransitionCalculation for TransitionCalculationImpl {
 
         #[async_trait]
         impl Key for TransitionKey {
-            type Value = SharedResult<Arc<TransitionApplied>>;
+            type Value = buck2_error::Result<Arc<TransitionApplied>>;
 
             async fn compute(
                 &self,
                 ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
-                let v: SharedResult<_> = try {
+                let v: buck2_error::Result<_> = try {
                     do_apply_transition(ctx, self.attrs.as_deref(), &self.cfg, &self.transition_id)
                         .await?
                 };

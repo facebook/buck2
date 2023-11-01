@@ -13,7 +13,6 @@ use buck2_core::cells::name::CellName;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::target_aliases::TargetAliasResolver;
-use buck2_error::shared_result::SharedResult;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -147,13 +146,13 @@ struct TargetAliasResolverKey {
 
 #[async_trait]
 impl Key for TargetAliasResolverKey {
-    type Value = SharedResult<BuckConfigTargetAliasResolver>;
+    type Value = buck2_error::Result<BuckConfigTargetAliasResolver>;
 
     async fn compute(
         &self,
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
-    ) -> SharedResult<BuckConfigTargetAliasResolver> {
+    ) -> buck2_error::Result<BuckConfigTargetAliasResolver> {
         let legacy_configs = ctx.get_legacy_config_for_cell(self.cell_name).await?;
         Ok(legacy_configs.target_alias_resolver())
     }

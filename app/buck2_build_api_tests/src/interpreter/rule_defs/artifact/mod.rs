@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use buck2_error::shared_result::SharedResult;
 use buck2_interpreter_for_build::interpreter::testing::expect_error;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use indoc::indoc;
@@ -17,7 +16,7 @@ use crate::interpreter::rule_defs::artifact::testing::artifactory;
 pub(crate) mod testing;
 
 #[test]
-fn source_artifact() -> SharedResult<()> {
+fn source_artifact() -> buck2_error::Result<()> {
     let mut tester = Tester::new()?;
     tester.additional_globals(artifactory);
     tester.run_starlark_bzl_test(indoc!(
@@ -81,7 +80,7 @@ fn source_artifact() -> SharedResult<()> {
 }
 
 #[test]
-fn bound_artifact() -> SharedResult<()> {
+fn bound_artifact() -> buck2_error::Result<()> {
     let mut tester = Tester::new()?;
     tester.additional_globals(buck2_build_api::interpreter::rule_defs::register_rule_defs);
     tester.additional_globals(artifactory);
@@ -146,7 +145,7 @@ fn bound_artifact() -> SharedResult<()> {
 }
 
 #[test]
-fn declared_artifact() -> SharedResult<()> {
+fn declared_artifact() -> buck2_error::Result<()> {
     let mut tester = Tester::new()?;
     tester.additional_globals(artifactory);
     tester.run_starlark_bzl_test(indoc!(
@@ -181,7 +180,7 @@ fn declared_artifact() -> SharedResult<()> {
 }
 
 #[test]
-fn declared_bound() -> SharedResult<()> {
+fn declared_bound() -> buck2_error::Result<()> {
     let mut tester = Tester::new()?;
     tester.additional_globals(buck2_build_api::interpreter::rule_defs::register_rule_defs);
     tester.additional_globals(artifactory);
@@ -235,7 +234,7 @@ fn declared_bound() -> SharedResult<()> {
 }
 
 #[test]
-fn project_declared_artifact() -> SharedResult<()> {
+fn project_declared_artifact() -> buck2_error::Result<()> {
     let mut tester = Tester::new()?;
     tester.additional_globals(artifactory);
     tester.run_starlark_bzl_test(indoc!(
@@ -257,7 +256,7 @@ fn project_declared_artifact() -> SharedResult<()> {
 }
 
 #[test]
-fn test_short_path() -> SharedResult<()> {
+fn test_short_path() -> buck2_error::Result<()> {
     let mut tester = Tester::new()?;
     tester.additional_globals(artifactory);
     tester.run_starlark_bzl_test(indoc!(
@@ -289,7 +288,7 @@ fn test_short_path() -> SharedResult<()> {
 }
 
 #[test]
-fn project_source_artifact() -> SharedResult<()> {
+fn project_source_artifact() -> buck2_error::Result<()> {
     let mut tester = Tester::new()?;
     tester.additional_globals(artifactory);
     let test = indoc!(
@@ -307,7 +306,7 @@ fn project_source_artifact() -> SharedResult<()> {
 }
 
 #[test]
-fn project_artifact() -> SharedResult<()> {
+fn project_artifact() -> buck2_error::Result<()> {
     let mut tester = Tester::new()?;
     tester.additional_globals(artifactory);
     let test = indoc!(
@@ -325,7 +324,7 @@ fn project_artifact() -> SharedResult<()> {
 }
 
 #[test]
-fn stringifies_for_command_line() -> SharedResult<()> {
+fn stringifies_for_command_line() -> buck2_error::Result<()> {
     let mut tester = Tester::new()?;
     tester.additional_globals(artifactory);
     tester.run_starlark_bzl_test(indoc!(
@@ -346,7 +345,7 @@ fn stringifies_for_command_line() -> SharedResult<()> {
 }
 
 #[test]
-fn bound_artifact_with_associated_artifacts() -> SharedResult<()> {
+fn bound_artifact_with_associated_artifacts() -> buck2_error::Result<()> {
     let mut tester = Tester::new()?;
     tester.additional_globals(buck2_build_api::interpreter::rule_defs::register_rule_defs);
     tester.additional_globals(artifactory);

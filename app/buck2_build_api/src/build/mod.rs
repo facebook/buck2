@@ -22,7 +22,6 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_error::shared_result::SharedResult;
 use buck2_events::dispatch::console_message;
 use buck2_execute::artifact::fs::ExecutorFs;
 use dashmap::mapref::entry::Entry;
@@ -67,12 +66,12 @@ pub enum BuildProviderType {
 pub struct ConfiguredBuildTargetResultGen<T> {
     pub outputs: Vec<T>,
     pub run_args: Option<Vec<String>>,
-    pub configured_graph_size: Option<SharedResult<MaybeCompatible<u64>>>,
+    pub configured_graph_size: Option<buck2_error::Result<MaybeCompatible<u64>>>,
     pub errors: Vec<buck2_error::Error>,
 }
 
 pub type ConfiguredBuildTargetResult =
-    ConfiguredBuildTargetResultGen<SharedResult<ProviderArtifacts>>;
+    ConfiguredBuildTargetResultGen<buck2_error::Result<ProviderArtifacts>>;
 
 pub struct BuildTargetResult {
     pub configured: BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
@@ -89,7 +88,7 @@ impl BuildTargetResult {
         // Create a map of labels to outputs, but retain the expected index of each output.
         let mut res = HashMap::<
             ConfiguredProvidersLabel,
-            Option<ConfiguredBuildTargetResultGen<(usize, SharedResult<ProviderArtifacts>)>>,
+            Option<ConfiguredBuildTargetResultGen<(usize, buck2_error::Result<ProviderArtifacts>)>>,
         >::new();
         let mut other_errors = BTreeMap::<_, Vec<_>>::new();
 
@@ -205,12 +204,12 @@ enum ConfiguredBuildEventVariant {
         run_args: Option<Vec<String>>,
     },
     Output {
-        output: SharedResult<ProviderArtifacts>,
+        output: buck2_error::Result<ProviderArtifacts>,
         /// Ensure a stable ordering of outputs.
         index: usize,
     },
     GraphSize {
-        configured_graph_size: SharedResult<MaybeCompatible<u64>>,
+        configured_graph_size: buck2_error::Result<MaybeCompatible<u64>>,
     },
     Error {
         /// An error that can't be associated with a single artifact.

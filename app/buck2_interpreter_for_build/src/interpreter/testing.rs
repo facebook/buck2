@@ -23,7 +23,6 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::*;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_error::shared_result::SharedResult;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::factory::StarlarkPassthroughProvider;
@@ -135,7 +134,7 @@ pub fn cells(extra_root_config: Option<&str>) -> anyhow::Result<CellsData> {
     ))
 }
 
-pub fn expect_error<T>(result: SharedResult<T>, content: &str, expected: &str) {
+pub fn expect_error<T>(result: buck2_error::Result<T>, content: &str, expected: &str) {
     match result {
         Ok(_) => {
             eprintln!(
@@ -330,7 +329,7 @@ impl Tester {
 
     /// Run a starlark test with a basic environment. See
     /// `run_starlark_test()` above.
-    pub fn run_starlark_test(&mut self, content: &str) -> SharedResult<TargetsMap> {
+    pub fn run_starlark_test(&mut self, content: &str) -> buck2_error::Result<TargetsMap> {
         let import_path = ImportPath::testing_new("root//some/package:defs.bzl");
         self.add_import(
             &import_path,
@@ -367,7 +366,7 @@ impl Tester {
     /// evaluation was successful. This can be handy if the .bzl
     /// evaluation environment is different from the build file
     /// environment.
-    pub fn run_starlark_bzl_test(&mut self, content: &str) -> SharedResult<()> {
+    pub fn run_starlark_bzl_test(&mut self, content: &str) -> buck2_error::Result<()> {
         let import_path = ImportPath::testing_new("root//some/package:defs.bzl");
         let template = indoc!(
             r#"
