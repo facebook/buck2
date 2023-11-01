@@ -77,4 +77,37 @@ mod tests {
             Some("buck2_error/src/source_location.rs"),
         );
     }
+
+    #[test]
+    fn test_via_anyhow_from() {
+        let err: anyhow::Error = anyhow::Error::new(MyError);
+        let err: crate::Error = crate::Error::from(err);
+        assert_eq!(
+            err.source_location(),
+            Some("buck2_error/src/source_location.rs"),
+        );
+    }
+
+    #[test]
+    fn test_via_anyhow_into() {
+        let err: anyhow::Error = anyhow::Error::new(MyError);
+        let err: crate::Error = err.into();
+        // This doesn't work because the `#[track_caller]` location points to the body of the
+        // `impl<T: From> Into for T` in std. This is not really fixable with this approach.
+        assert_eq!(err.source_location(), None);
+    }
+
+    #[test]
+    fn test_via_try() {
+        fn foo() -> crate::Result<()> {
+            Err::<(), _>(MyError)?;
+            Ok(())
+        }
+
+        let err = foo().unwrap_err();
+        assert_eq!(
+            err.source_location(),
+            Some("buck2_error/src/source_location.rs"),
+        );
+    }
 }

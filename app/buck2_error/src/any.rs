@@ -39,19 +39,23 @@ where
     T: Into<anyhow::Error>,
     Result<(), T>: anyhow::Context<(), T>,
 {
+    #[track_caller]
     fn from(value: T) -> crate::Error {
+        let source_location =
+            crate::source_location::from_file(std::panic::Location::caller().file(), None);
         // `Self` may be an `anyhow::Error` or any `std::error::Error`. We'll check by downcasting
         let mut e = Some(value);
         let r: &mut dyn std::any::Any = &mut e;
         if let Some(e) = r.downcast_mut::<Option<anyhow::Error>>() {
-            return from_anyhow_for_crate(Arc::new(e.take().unwrap()));
+            return from_anyhow_for_crate(Arc::new(e.take().unwrap()), source_location);
         }
 
         // Otherwise, we'll use the strategy for `std::error::Error`
         let anyhow = e.unwrap().into();
-        crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new_anyhow(Arc::new(
-            anyhow,
-        )))))
+        crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new_anyhow(
+            Arc::new(anyhow),
+            source_location,
+        ))))
     }
 }
 impl<T: fmt::Debug + fmt::Display + Sync + Send + 'static> AnyError for T
@@ -67,7 +71,10 @@ where
 {
 }
 
-fn from_anyhow_for_crate(value: Arc<anyhow::Error>) -> crate::Error {
+fn from_anyhow_for_crate(
+    value: Arc<anyhow::Error>,
+    source_location: Option<String>,
+) -> crate::Error {
     // Instead of just turning this into an error root, we will first check if this
     // `anyhow::Error` was created from a `buck2_error::Error`. If so, we can recover the context in
     // a structured way.
@@ -78,7 +85,10 @@ fn from_anyhow_for_crate(value: Arc<anyhow::Error>) -> crate::Error {
             None => {
                 // This error was not created from a `buck2_error::Error`, so we can't do anything
                 // smart
-                return crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new_anyhow(value))));
+                return crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new_anyhow(
+                    value,
+                    source_location,
+                ))));
             }
             Some(e) => {
                 if let Some(base) = e.downcast_ref::<CrateAsStdError>() {

@@ -78,13 +78,13 @@ impl ErrorRoot {
 
     /// Should not typically be used. Use the appropriate `anyhow::Error: From<crate::Error>`
     /// instead.
-    pub(crate) fn new_anyhow(e: Arc<anyhow::Error>) -> Self {
+    pub(crate) fn new_anyhow(e: Arc<anyhow::Error>, source_location: Option<String>) -> Self {
         Self {
             id: UniqueRootId(NEXT_ROOT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)),
             inner: e,
             late_format: None,
             error_type: None,
-            source_location: None,
+            source_location,
         }
     }
 
