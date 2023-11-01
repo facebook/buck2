@@ -472,6 +472,7 @@ mod imp {
                             .typ
                             .and_then(buck2_data::error::ErrorType::from_i32)
                             .map(|t| t.as_str_name().to_owned()),
+                        source_location: r.source_location,
                     }
                 }));
 

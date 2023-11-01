@@ -1850,6 +1850,9 @@ message ErrorReport {
   // separate event, but the error message only contains `failed to build target
   // foo`
   optional string telemetry_message = 4;
+  // The location in source code where this error was created. Typically a Rust
+  // source file, but the exact format is not guaranteed.
+  optional string source_location = 5;
 }
 
 // Identical to `ErrorReport`, but with the cause converted to a string. This
@@ -1861,6 +1864,7 @@ message ProcessedErrorReport {
   optional string typ = 2;
   string message = 3;
   optional string telemetry_message = 4;
+  optional string source_location = 5;
 }
 
 message MaterializerStateInfo {

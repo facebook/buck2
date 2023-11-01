@@ -26,5 +26,6 @@ pub fn create_error_report(err: &buck2_error::Error) -> buck2_data::ErrorReport 
         typ,
         message,
         telemetry_message,
+        source_location: None,
     }
 }
