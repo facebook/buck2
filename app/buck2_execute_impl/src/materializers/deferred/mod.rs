@@ -1252,13 +1252,9 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 // TODO: This probably shouldn't return a CleanFuture
                 sender
                     .send(
-                        async move {
-                            join_all_existing_futs(existing_futs.shared_error()?)
-                                .await
-                                .shared_error()
-                        }
-                        .boxed()
-                        .shared(),
+                        async move { join_all_existing_futs(existing_futs?).await.shared_error() }
+                            .boxed()
+                            .shared(),
                     )
                     .ok();
             }

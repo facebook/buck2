@@ -388,8 +388,7 @@ impl<'c> DiceCalculationDelegate<'c> {
             ) -> Self::Value {
                 let interpreter = ctx
                     .get_interpreter_calculator(self.0.cell(), self.0.build_file_cell())
-                    .await
-                    .shared_error()?;
+                    .await?;
                 interpreter
                     .eval_package_file_uncached(&self.0)
                     .await

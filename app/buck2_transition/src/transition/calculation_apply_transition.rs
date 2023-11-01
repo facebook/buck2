@@ -171,8 +171,7 @@ async fn do_apply_transition(
                 TransitionApplied::Single(new) => {
                     let new_2 =
                         match call_transition_function(&transition, &new, refs, attrs, &mut eval)
-                            .context("applying transition again on transition output")
-                            .shared_error()?
+                            .context("applying transition again on transition output")?
                         {
                             TransitionApplied::Single(new_2) => new_2,
                             TransitionApplied::Split(_) => {

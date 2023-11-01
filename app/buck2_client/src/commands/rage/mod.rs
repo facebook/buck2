@@ -144,15 +144,9 @@ impl RageCommand {
         let info = BuckdProcessInfo::load(&daemon_dir).shared_error();
 
         let buckd = match &info {
-            Ok(info) => async {
-                info.create_channel()
-                    .await
-                    .shared_error()?
-                    .upgrade()
-                    .await
-                    .shared_error()
+            Ok(info) => {
+                async { info.create_channel().await?.upgrade().await.shared_error() }.boxed()
             }
-            .boxed(),
             Err(e) => futures::future::ready(Err(e.dupe())).boxed(),
         }
         .shared();
