@@ -152,7 +152,7 @@ impl ExitResult {
                 .and_then(buck2_data::error::ErrorCategory::from_i32)
             {
                 Some(buck2_data::error::ErrorCategory::Infra) => has_infra = true,
-                Some(buck2_data::error::ErrorCategory::User) => has_user = true,
+                Some(buck2_data::error::ErrorCategory::UserDeprecated) => has_user = true,
                 None => (),
             }
         }

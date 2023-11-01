@@ -28,6 +28,6 @@ enum ErrorType {
 }
 
 enum ErrorCategory {
-  USER = 0;
+  USER_DEPRECATED = 0;
   INFRA = 1;
 }
