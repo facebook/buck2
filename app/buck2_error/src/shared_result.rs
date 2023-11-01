@@ -7,15 +7,7 @@
  * of this source tree.
  */
 
-use dupe::Dupe;
-
 pub type SharedError = crate::Error;
-
-impl From<&SharedError> for anyhow::Error {
-    fn from(e: &SharedError) -> Self {
-        e.dupe().into()
-    }
-}
 
 pub type SharedResult<T> = Result<T, SharedError>;
 

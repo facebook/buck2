@@ -135,5 +135,5 @@ pub(crate) fn home_buck_dir() -> anyhow::Result<&'static AbsNormPath> {
 
     static DIR: Lazy<SharedResult<AbsNormPathBuf>> = Lazy::new(|| find_dir().shared_error());
 
-    Ok(&Lazy::force(&DIR).as_ref()?)
+    Ok(&Lazy::force(&DIR).as_ref().map_err(dupe::Dupe::dupe)?)
 }
