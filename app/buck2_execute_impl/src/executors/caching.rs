@@ -15,6 +15,7 @@ use std::time::SystemTime;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_action_metadata_proto::REMOTE_DEP_FILE_KEY;
+use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
@@ -39,6 +40,7 @@ use derive_more::Display;
 use dupe::Dupe;
 use futures::future;
 use futures::future::FutureExt;
+use gazebo::prelude::VecExt;
 use prost::Message;
 use remote_execution as RE;
 use remote_execution::DigestWithStatus;
@@ -261,8 +263,8 @@ impl CacheUploader {
                         success,
                         error,
                         re_error_code,
-                        file_digests,
-                        tree_digests,
+                        file_digests: file_digests.into_map(|d| d.to_string()),
+                        tree_digests: tree_digests.into_map(|d| d.to_string()),
                         output_bytes: Some(output_bytes),
                         reason: reason.into(),
                     }),
@@ -275,8 +277,8 @@ impl CacheUploader {
     async fn upload_files_and_directories(
         &self,
         result: &CommandExecutionResult,
-        file_digests: &mut Vec<String>,
-        tree_digests: &mut Vec<String>,
+        file_digests: &mut Vec<TrackedFileDigest>,
+        tree_digests: &mut Vec<TrackedFileDigest>,
         digest_config: DigestConfig,
         // metadata to be added in the auxiliary_metadata field of TActionResult
         metadata: Vec<TAny>,
@@ -327,7 +329,7 @@ impl CacheUploader {
                             .await
                     };
 
-                    file_digests.push(f.digest.to_string());
+                    file_digests.push(f.digest.dupe());
                     upload_futs.push(fut.boxed());
                 }
                 DirectoryEntry::Dir(d) => {
@@ -358,7 +360,7 @@ impl CacheUploader {
                     };
 
                     upload_futs.push(fut.boxed());
-                    tree_digests.push(tree_digest.to_string());
+                    tree_digests.push(tree_digest);
                 }
                 DirectoryEntry::Leaf(..) => {
                     // Bail, there is something that is not a file here and we don't handle this.
