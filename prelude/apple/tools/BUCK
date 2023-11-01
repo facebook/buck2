@@ -1,5 +1,11 @@
 prelude = native
 
+prelude.python_binary(
+    name = "dry_codesign_tool",
+    main = "dry_codesign_tool.py",
+    visibility = ["PUBLIC"],
+)
+
 prelude.python_bootstrap_binary(
     name = "make_modulemap",
     main = "make_modulemap.py",
