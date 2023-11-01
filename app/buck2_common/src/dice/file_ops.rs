@@ -25,7 +25,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::shared_result::SharedResult;
 use buck2_error::shared_result::ToSharedResultExt;
-use buck2_error::shared_result::ToUnsharedResultExt;
+use buck2_error::Context;
 use buck2_events::dispatch::console_message;
 use cmp_any::PartialEqAny;
 use derivative::Derivative;

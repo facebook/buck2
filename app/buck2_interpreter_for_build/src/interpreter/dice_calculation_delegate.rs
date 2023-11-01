@@ -27,7 +27,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::package::PackageLabel;
 use buck2_error::shared_result::SharedResult;
 use buck2_error::shared_result::ToSharedResultExt;
-use buck2_error::shared_result::ToUnsharedResultExt;
+use buck2_error::Context;
 use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;

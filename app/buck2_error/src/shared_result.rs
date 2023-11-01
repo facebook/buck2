@@ -27,5 +27,3 @@ where
         Ok(self?)
     }
 }
-
-pub trait ToUnsharedResultExt<T> = crate::Context<T>;

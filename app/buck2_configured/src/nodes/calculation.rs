@@ -38,7 +38,7 @@ use buck2_core::target::label::TargetLabel;
 use buck2_error::shared_result::SharedError;
 use buck2_error::shared_result::SharedResult;
 use buck2_error::shared_result::ToSharedResultExt;
-use buck2_error::shared_result::ToUnsharedResultExt;
+use buck2_error::Context;
 use buck2_execute::execute::dice_data::HasFallbackExecutorConfig;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;

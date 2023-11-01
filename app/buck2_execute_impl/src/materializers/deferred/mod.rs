@@ -41,7 +41,7 @@ use buck2_core::soft_error;
 use buck2_error::shared_result::SharedError;
 use buck2_error::shared_result::SharedResult;
 use buck2_error::shared_result::ToSharedResultExt;
-use buck2_error::shared_result::ToUnsharedResultExt;
+use buck2_error::Context as _;
 use buck2_events::dispatch::current_span;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::get_dispatcher_opt;

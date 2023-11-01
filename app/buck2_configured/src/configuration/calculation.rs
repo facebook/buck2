@@ -16,7 +16,7 @@ use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::parse_config_section_and_key;
 use buck2_error::shared_result::SharedResult;
 use buck2_error::shared_result::ToSharedResultExt;
-use buck2_error::shared_result::ToUnsharedResultExt;
+use buck2_error::Context;
 use buck2_core::cells::name::CellName;
 use starlark_map::unordered_map::UnorderedMap;
 use buck2_core::configuration::compatibility::MaybeCompatible;
