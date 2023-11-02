@@ -31,6 +31,12 @@ native.python_bootstrap_binary(
     visibility = ["PUBLIC"],
 )
 
+native.python_library(
+    name = "plistlib_utils",
+    srcs = ["plistlib_utils.py"],
+    visibility = ["PUBLIC"],
+)
+
 native.python_binary(
     name = "split_arch_combine_dsym_bundles_tool",
     main = "split_arch_combine_dsym_bundles_tool.py",
