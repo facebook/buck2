@@ -301,13 +301,14 @@ fn fs_operations(builder: &mut MethodsBuilder) {
                                 dice,
                             )
                             .await?;
-                            match target_expr {
-                                TargetListExpr::One(node) => Ok(node.node_ref().pkg()),
-                                _ => Err(anyhow::anyhow!(
+                            if let Some(node) = target_expr.get_one(dice).await? {
+                                Ok(node.label().pkg())
+                            } else {
+                                Err(anyhow::anyhow!(
                                     BxlFilesystemError::MultipleTargetHintsNotSupported(
                                         target_hint.value.to_repr()
                                     )
-                                )),
+                                ))
                             }
                         }
                     }?;

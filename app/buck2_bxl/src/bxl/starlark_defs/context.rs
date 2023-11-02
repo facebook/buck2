@@ -740,28 +740,21 @@ fn context_methods(builder: &mut MethodsBuilder) {
                         )
                         .await?;
 
-                    Ok(match target_expr {
-                        TargetListExpr::One(node) => {
-                            let node = node.get_from_dice(ctx).await?;
-                            let set = filter_incompatible(iter::once(node), this)?;
-
-                            // When a target label is passed in, we should only get one target node.
-                            // filter_incompatible() returns a set, so lets assert the size
-                            assert!(set.len() <= 1);
-
-                            if let Some(node) = set.iter().next() {
-                                Either::Left(NoneOr::Other(StarlarkConfiguredTargetNode(
-                                    node.dupe(),
-                                )))
-                            } else {
-                                Either::Left(NoneOr::None)
-                            }
+                    if let Some(one) = target_expr.get_one(ctx).await? {
+                        let result = filter_incompatible(iter::once(one), this)?;
+                        if let Some(node) = result.iter().next() {
+                            Ok(Either::Left(NoneOr::Other(StarlarkConfiguredTargetNode(
+                                node.dupe(),
+                            ))))
+                        } else {
+                            Ok(Either::Left(NoneOr::None))
                         }
-                        multi => Either::Right(StarlarkTargetSet::from(filter_incompatible(
-                            multi.get(ctx).await?.into_iter(),
+                    } else {
+                        Ok(Either::Right(StarlarkTargetSet(filter_incompatible(
+                            target_expr.get(ctx).await?.into_iter(),
                             this,
-                        )?)),
-                    })
+                        )?)))
+                    }
                 }
                 .boxed_local()
             })
@@ -785,16 +778,14 @@ fn context_methods(builder: &mut MethodsBuilder) {
         this.via_dice(|mut ctx, this| {
             ctx.via(|ctx| {
                 async move {
-                    Ok(
-                        match TargetListExpr::<'v, TargetNode>::unpack(labels, this, ctx).await? {
-                            TargetListExpr::One(node) => {
-                                Either::Left(StarlarkTargetNode(node.get_from_dice(ctx).await?))
-                            }
-                            multi => Either::Right(StarlarkTargetSet::from(
-                                multi.get(ctx).await?.into_owned(),
-                            )),
-                        },
-                    )
+                    let expr = TargetListExpr::<'v, TargetNode>::unpack(labels, this, ctx).await?;
+                    if let Some(one) = expr.get_one(ctx).await? {
+                        Ok(Either::Left(StarlarkTargetNode(one)))
+                    } else {
+                        Ok(Either::Right(StarlarkTargetSet(
+                            expr.get(ctx).await?.into_owned(),
+                        )))
+                    }
                 }
                 .boxed_local()
             })
@@ -870,15 +861,9 @@ fn context_methods(builder: &mut MethodsBuilder) {
                         )
                         .await?;
 
-                    let target_set = match target_expr {
-                        TargetListExpr::One(node) => {
-                            let node = node.get_from_dice(ctx).await?;
-                            filter_incompatible(iter::once(node), this_no_dice)?
-                        }
-                        multi => {
-                            filter_incompatible(multi.get(ctx).await?.into_iter(), this_no_dice)?
-                        }
-                    };
+                    let maybe_compatible_set = target_expr.get(ctx).await?;
+                    let target_set =
+                        filter_incompatible(maybe_compatible_set.into_iter(), this_no_dice)?;
 
                     StarlarkTargetUniverse::new(this, target_set).await
                 }

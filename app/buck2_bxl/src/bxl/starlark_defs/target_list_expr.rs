@@ -85,6 +85,20 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
 
         futures::future::join_all(futs).await.into_iter().collect()
     }
+
+    /// Get a single maybe compatible `ConfiguredTargetNode`.
+    pub(crate) async fn get_one(
+        &self,
+        dice: &mut DiceComputations,
+    ) -> anyhow::Result<Option<MaybeCompatible<ConfiguredTargetNode>>> {
+        Ok(match &self {
+            Self::One(node_or_ref) => Some(
+                dice.get_configured_target_node(node_or_ref.node_ref())
+                    .await?,
+            ),
+            _ => None,
+        })
+    }
 }
 
 // Filters out incompatible targets and emits the error message
@@ -171,7 +185,7 @@ pub(crate) enum ConfiguredTargetListExprArg<'v> {
 }
 
 impl<'v> TargetListExpr<'v, TargetNode> {
-    fn iter(&self) -> Box<dyn Iterator<Item = TargetExpr<'v, TargetNode>> + '_> {
+    pub(crate) fn iter(&self) -> Box<dyn Iterator<Item = TargetExpr<'v, TargetNode>> + '_> {
         match &self {
             Self::One(one) => Box::new(iter::once(one.clone())),
             Self::Iterable(iterable) => Box::new(iterable.iter().cloned()),
@@ -197,6 +211,17 @@ impl<'v> TargetListExpr<'v, TargetNode> {
         }
 
         Ok(Cow::Owned(set))
+    }
+
+    /// Get a single `TargetNode`
+    pub(crate) async fn get_one(
+        &self,
+        ctx: &DiceComputations,
+    ) -> anyhow::Result<Option<TargetNode>> {
+        Ok(match &self {
+            Self::One(node_or_ref) => Some(node_or_ref.get_from_dice(ctx).await?),
+            _ => None,
+        })
     }
 }
 

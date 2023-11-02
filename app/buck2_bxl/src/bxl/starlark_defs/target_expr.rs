@@ -9,9 +9,6 @@
 
 use std::borrow::Cow;
 
-use buck2_core::configuration::compatibility::MaybeCompatible;
-use buck2_node::nodes::configured::ConfiguredTargetNode;
-use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::QueryTarget;
@@ -29,18 +26,6 @@ impl<'v, Node: QueryTarget> TargetExpr<'v, Node> {
         match self {
             TargetExpr::Node(node) => node.node_ref(),
             TargetExpr::Label(label) => label,
-        }
-    }
-}
-
-impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
-    pub(crate) async fn get_from_dice(
-        &self,
-        dice: &DiceComputations,
-    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
-        match self {
-            TargetExpr::Node(node) => Ok(MaybeCompatible::Compatible(node.dupe())),
-            TargetExpr::Label(label) => dice.get_configured_target_node(label).await,
         }
     }
 }
