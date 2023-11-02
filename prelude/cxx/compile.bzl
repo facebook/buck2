@@ -117,6 +117,8 @@ CxxSrcCompileCommand = record(
     cxx_compile_cmd = field(_CxxCompileCommand),
     # Arguments specific to the source file.
     args = field(list[typing.Any]),
+    # Is this a header file?
+    is_header = field(bool, False),
 )
 
 # Output of creating compile commands for Cxx source files.
@@ -137,6 +139,7 @@ CxxSrcWithFlags = record(
     # If we have multiple source entries with same files but different flags,
     # specify an index so we can differentiate them. Otherwise, use None.
     index = field([int, None], None),
+    is_header = field(bool, False),
 )
 
 CxxCompileOutput = record(
@@ -243,16 +246,10 @@ def create_compile_cmds(
     of the generated compile commands and argsfile output.
     """
 
-    # Effective type: [(CxxSrcWithFlags, bool)]
-    # But cannot be annotated as buildifier doesn't support local variable type annotations.
-    # See P857174176 for the buildifier error and how this can be expressed as a record().
-    #
-    # In order to produce compile commands for all files in one go, contains CxxSrcWithFlags()
-    # for both sources and headers, and a boolean indicating whether it is a header.
-    srcs_with_flags = []
+    srcs_with_flags = []  # type: [CxxSrcWithFlags]
 
     for src in impl_params.srcs:
-        srcs_with_flags.append((src, False))
+        srcs_with_flags.append(src)
 
     # Some targets have .cpp files in their `headers` lists, see D46195628
     # todo: should this be prohibited or expanded to allow all source extensions?
@@ -260,12 +257,12 @@ def create_compile_cmds(
     all_headers = flatten([x.headers for x in own_preprocessors])
     for header in all_headers:
         if header.artifact.extension in artifact_extensions:
-            srcs_with_flags.append((CxxSrcWithFlags(file = header.artifact), True))
+            srcs_with_flags.append(CxxSrcWithFlags(file = header.artifact, is_header = True))
 
     all_raw_headers = flatten([x.raw_headers for x in own_preprocessors])
     for header in all_raw_headers:
         if header.extension in HeaderExtension.values():
-            srcs_with_flags.append((CxxSrcWithFlags(file = header), True))
+            srcs_with_flags.append(CxxSrcWithFlags(file = header, is_header = True))
 
     if len(srcs_with_flags) == 0:
         return CxxCompileCommandOutput()
@@ -293,10 +290,10 @@ def create_compile_cmds(
 
     extension_for_plain_headers = get_extension_for_plain_headers(impl_params.srcs)
     extension_for_plain_headers = extension_for_plain_headers or get_default_extension_for_plain_header(impl_params.rule_type)
-    for src, is_header in srcs_with_flags:
+    for src in srcs_with_flags:
         # We want headers to appear as though they are source files.
         extension_for_header = get_extension_for_header(src.file.extension) or extension_for_plain_headers
-        ext = CxxExtension(extension_for_header if is_header else src.file.extension)
+        ext = CxxExtension(extension_for_header if src.is_header else src.file.extension)
 
         # Deduplicate shared arguments to save memory. If we compile multiple files
         # of the same extension they will have some of the same flags. Save on
@@ -335,13 +332,13 @@ def create_compile_cmds(
 
         src_args = []
         src_args.extend(src.flags)
-        if is_header:
+        if src.is_header:
             language_mode = get_header_language_mode(extension_for_header)
             src_args.extend(["-x", language_mode] if language_mode else [])
         src_args.extend(["-c", src.file])
 
-        src_compile_command = CxxSrcCompileCommand(src = src.file, cxx_compile_cmd = cxx_compile_cmd, args = src_args, index = src.index)
-        if is_header:
+        src_compile_command = CxxSrcCompileCommand(src = src.file, cxx_compile_cmd = cxx_compile_cmd, args = src_args, index = src.index, is_header = src.is_header)
+        if src.is_header:
             hdr_compile_cmds.append(src_compile_command)
         else:
             src_compile_cmds.append(src_compile_command)
