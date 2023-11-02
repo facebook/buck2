@@ -21,6 +21,8 @@ Platform = ["linux", "macos", "windows", "freebsd", "unknown"]
 
 RemoteFileType = ["data", "executable", "exploded_zip"]
 
+TargetCpuType = ["arm", "armv7", "arm64", "x86", "x86_64", "mips"]
+
 alias = prelude_rule(
     name = "alias",
     docs = "",

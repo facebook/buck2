@@ -10,6 +10,9 @@ load("@prelude//tests:remote_test_execution_toolchain.bzl", "RemoteTestExecution
 load("@prelude//utils:utils.bzl", "expect_non_none")
 
 def _get_re_arg(ctx: AnalysisContext):
+    if not hasattr(ctx.attrs, "remote_execution"):
+        return None
+
     if ctx.attrs.remote_execution != None:
         # If this is a string, look up the profile on the RE toolchain.
         if type(ctx.attrs.remote_execution) == type(""):

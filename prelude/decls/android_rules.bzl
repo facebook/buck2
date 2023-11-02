@@ -12,8 +12,10 @@
 
 load(":android_common.bzl", "android_common")
 load(":common.bzl", "AbiGenerationMode", "AnnotationProcessingTool", "ForkMode", "LogLevel", "OnDuplicateEntry", "SourceAbiVerificationMode", "TestType", "UnusedDependenciesAction", "buck", "prelude_rule")
+load(":core_rules.bzl", "TargetCpuType")
 load(":genrule_common.bzl", "genrule_common")
 load(":jvm_common.bzl", "jvm_common")
+load(":re_test_common.bzl", "re_test_common")
 
 AaptMode = ["aapt1", "aapt2"]
 
@@ -34,8 +36,6 @@ RType = ["anim", "animator", "array", "attr", "bool", "color", "dimen", "drawabl
 ResourceCompressionMode = ["disabled", "enabled", "enabled_strings_only", "enabled_with_strings_as_assets"]
 
 SdkProguardType = ["default", "optimized", "none"]
-
-TargetCpuType = ["arm", "armv7", "arm64", "x86", "x86_64", "mips"]
 
 android_aar = prelude_rule(
     name = "android_aar",
@@ -1452,7 +1452,8 @@ robolectric_test = prelude_rule(
             "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
             "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
             "vm_args": attrs.list(attrs.arg(), default = []),
-        } | jvm_common.k2()
+        } | jvm_common.k2() |
+        re_test_common.test_args()
     ),
 )
 
