@@ -214,21 +214,9 @@ pub(crate) enum TargetExprError {
 
 impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     pub(crate) fn as_provider_labels(&self) -> Vec<ConfiguredProvidersLabel> {
-        match &self {
-            TargetListExpr::Iterable(i) => i
-                .iter()
-                .map(|e| ConfiguredProvidersLabel::default_for(e.node_ref().dupe()))
-                .collect(),
-            TargetListExpr::One(node) => {
-                vec![ConfiguredProvidersLabel::default_for(
-                    node.node_ref().dupe(),
-                )]
-            }
-            TargetListExpr::TargetSet(t) => t
-                .iter()
-                .map(|n| ConfiguredProvidersLabel::default_for(n.label().dupe()))
-                .collect(),
-        }
+        self.iter()
+            .map(|e| ConfiguredProvidersLabel::default_for(e.node_ref().dupe()))
+            .collect()
     }
 
     pub(crate) async fn unpack_opt<'c>(
