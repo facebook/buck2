@@ -102,11 +102,13 @@ mod state_machine {
     enum Op {
         Clean,
         Materialize,
+        MaterializeError,
     }
 
     struct StubIoHandler {
         log: Mutex<Vec<(Op, ProjectRelativePathBuf)>>,
         fail: Mutex<bool>,
+        fail_paths: Mutex<Vec<ProjectRelativePathBuf>>,
         // If set, add a sleep when materializing to simulate a long materialization period
         materialization_config: HashMap<ProjectRelativePathBuf, TokioDuration>,
         digest_config: DigestConfig,
@@ -121,10 +123,15 @@ mod state_machine {
             *self.fail.lock() = fail;
         }
 
+        fn set_fail_on(&self, paths: Vec<ProjectRelativePathBuf>) {
+            *self.fail_paths.lock() = paths;
+        }
+
         pub fn new(materialization_config: HashMap<ProjectRelativePathBuf, TokioDuration>) -> Self {
             Self {
                 log: Default::default(),
                 fail: Default::default(),
+                fail_paths: Default::default(),
                 materialization_config,
                 digest_config: DigestConfig::testing_default(),
             }
@@ -181,11 +188,12 @@ mod state_machine {
                 }
                 None => (),
             }
-            self.log.lock().push((Op::Materialize, path));
 
-            if *self.fail.lock() {
+            if (*self.fail_paths.lock()).contains(&path) || *self.fail.lock() {
+                self.log.lock().push((Op::MaterializeError, path));
                 Err(anyhow::anyhow!("Injected error").into())
             } else {
+                self.log.lock().push((Op::Materialize, path));
                 Ok(())
             }
         }
@@ -666,6 +674,96 @@ mod state_machine {
         // We do not actually get to materializing or cleaning.
         assert_eq!(dm.io.take_log(), &[]);
 
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_materialize_dep_error() -> anyhow::Result<()> {
+        // Construct a tree with a symlink and its target, materialize both at once
+        let symlink_path = make_path("foo/bar_symlink");
+        let target_path = make_path("foo/bar_target");
+        let target_from_symlink = RelativePathBuf::from_path(Path::new("bar_target"))?;
+
+        let (mut dm, mut channel) = make_processor(Default::default());
+        let digest_config = dm.io.digest_config();
+
+        let target_value = ArtifactValue::file(digest_config.empty_file());
+        let symlink_value = make_artifact_value_with_symlink_dep(
+            &target_path,
+            &target_from_symlink,
+            digest_config,
+        )?;
+        // Declare and materialize symlink and target
+        dm.declare(
+            &target_path,
+            target_value.clone(),
+            Box::new(ArtifactMaterializationMethod::Test),
+        );
+        dm.declare(
+            &symlink_path,
+            symlink_value.clone(),
+            Box::new(ArtifactMaterializationMethod::Test),
+        );
+        dm.materialize_artifact(&symlink_path, EventDispatcher::null())
+            .context("Expected a future")?
+            .await
+            .map_err(|err| anyhow::anyhow!("error materializing {:?}", err))?;
+        assert_eq!(
+            dm.io.take_log(),
+            &[
+                (Op::Clean, target_path.clone()),
+                (Op::Clean, symlink_path.clone()),
+                (Op::Materialize, target_path.clone()),
+                (Op::Materialize, symlink_path.clone()),
+            ]
+        );
+
+        // Process materialization_finished, change symlink stage to materialized
+        while let Ok(cmd) = channel.low_priority.try_recv() {
+            dm.process_one_low_priority_command(cmd);
+        }
+
+        // Change symlink target value and re-declare
+        let content = b"not empty";
+        let meta = FileMetadata {
+            digest: TrackedFileDigest::from_content(content, digest_config.cas_digest_config()),
+            is_executable: false,
+        };
+        let target_value = ArtifactValue::file(meta);
+        dm.declare(
+            &target_path,
+            target_value,
+            Box::new(ArtifactMaterializationMethod::Test),
+        );
+        assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
+
+        // Request to materialize symlink, fail to materialize target
+        dm.io.set_fail_on(vec![target_path.clone()]);
+        let res = dm
+            .materialize_artifact(&symlink_path, EventDispatcher::null())
+            .context("Expected a future")?
+            .await;
+        assert_matches!(
+            res,
+            Err(SharedMaterializingError::Error(e)) if format!("{:#}", e).contains("Injected error")
+        );
+        assert_eq!(
+            dm.io.take_log(),
+            &[(Op::MaterializeError, target_path.clone())]
+        );
+        // Process materialization_finished, _only_ target is cleaned, not symlink
+        while let Ok(cmd) = channel.low_priority.try_recv() {
+            dm.process_one_low_priority_command(cmd);
+        }
+        assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
+
+        // Request symlink again, target is materialized and symlink materialization succeeds
+        dm.io.set_fail_on(vec![]);
+        dm.materialize_artifact(&symlink_path, EventDispatcher::null())
+            .context("Expected a future")?
+            .await
+            .map_err(|err| anyhow::anyhow!("error materializing 2 {:?}", err))?;
+        assert_eq!(dm.io.take_log(), &[(Op::Materialize, target_path.clone()),]);
         Ok(())
     }
 

@@ -1812,22 +1812,33 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 }
 
                 if result.is_err() {
-                    tracing::debug!("materialization failed, redeclaring artifact");
-                    // Even though materialization failed, something may have still materialized at artifact_path,
-                    // so we need to delete anything at artifact_path before we ever retry materializing it.
-                    // TODO(scottcao): Once command processor accepts an ArtifactTree instead of initializing one,
-                    // add a test case to ensure this behavior.
                     let version = self.version_tracker.next();
-                    let future = ProcessingFuture::Cleaning(clean_path(
-                        &self.io,
-                        artifact_path.clone(),
-                        version,
-                        self.command_sender.dupe(),
-                        ExistingFutures::empty(),
-                        &self.rt,
-                        self.cancellations,
-                    ));
-                    info.processing = Processing::Active { future, version };
+                    match &info.stage {
+                        ArtifactMaterializationStage::Materialized { .. } => {
+                            tracing::debug!("artifact deps materialization failed, doing nothing");
+                            // If already materialized, we only attempted to materialize deps, which means the error did
+                            // not occur when materializing the artifact itself. There is no need to clean the artifact path
+                            // and doing so will make the filesystem out of sync with materializer state.
+                            info.processing = Processing::Done(version);
+                        }
+                        ArtifactMaterializationStage::Declared { .. } => {
+                            tracing::debug!("materialization failed, redeclaring artifact");
+                            // Even though materialization failed, something may have still materialized at artifact_path,
+                            // so we need to delete anything at artifact_path before we ever retry materializing it.
+                            // TODO(scottcao): Once command processor accepts an ArtifactTree instead of initializing one,
+                            // add a test case to ensure this behavior.
+                            let future = ProcessingFuture::Cleaning(clean_path(
+                                &self.io,
+                                artifact_path.clone(),
+                                version,
+                                self.command_sender.dupe(),
+                                ExistingFutures::empty(),
+                                &self.rt,
+                                self.cancellations,
+                            ));
+                            info.processing = Processing::Active { future, version };
+                        }
+                    }
                 } else {
                     tracing::debug!(has_deps = info.deps.is_some(), "transition to Materialized");
                     let new_stage = match &info.stage {
@@ -1871,7 +1882,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 }
             }
             None => {
-                // NOTE: This can happen if a path got invalidted while it was being materialized.
+                // NOTE: This can happen if a path got invalidated while it was being materialized.
                 tracing::debug!("materialization_finished but path is vacant!")
             }
         }
