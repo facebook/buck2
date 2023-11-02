@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "RDotJavaInfo")
+load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:java_library.bzl", "compile_to_jar")
 load("@prelude//java:java_providers.bzl", "JavaClasspathEntry", "JavaLibraryInfo", "derive_compiling_deps")
 load("@prelude//utils:set.bzl", "set")
@@ -43,6 +44,18 @@ def generate_r_dot_javas(
         referenced_resources_lists: list[Artifact],
         generate_strings_and_ids_separately: [bool, None] = True,
         remove_classes: list[str] = []) -> list[RDotJavaInfo]:
+    if not android_resources:
+        # d8 will fail if its input contains no classes. Rather than add empty input handling in multiple places,
+        # like buck1 we just generate a stub class if we have no resources.  This will be stripped from release
+        # builds and have minimal impact on debug builds.
+        return [
+            _generate_and_compile_r_dot_java(
+                ctx,
+                ctx.attrs._android_toolchain[AndroidToolchainInfo].app_without_resources_stub,
+                "main_r_dot_java",
+            ),
+        ]
+
     r_dot_java_source_code = _generate_r_dot_java_source_code(
         ctx,
         merge_android_resources_tool,

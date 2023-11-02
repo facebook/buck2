@@ -129,7 +129,7 @@ def get_android_binary_resources_info(
 
     override_symbols_paths = [override_symbols] if override_symbols else []
     resources = [resource for resource in resource_infos if resource.res != None]
-    r_dot_java_infos = [] if len(resources) == 0 else generate_r_dot_javas(
+    r_dot_java_infos = generate_r_dot_javas(
         ctx,
         ctx.attrs._android_toolchain[AndroidToolchainInfo].merge_android_resources[RunInfo],
         resources,

@@ -188,7 +188,12 @@ def _android_binary_macro_stub(
         primary_dex_patterns = [],
         **kwargs):
     if not allow_r_dot_java_in_secondary_dex:
-        primary_dex_patterns = primary_dex_patterns + ["/R^", "/R$"]
+        primary_dex_patterns = primary_dex_patterns + [
+            "/R^",
+            "/R$",
+            # Pin this to the primary for apps with no primary dex classes.
+            "^com/facebook/buck_generated/AppWithoutResourcesStub^",
+        ]
     __rules__["android_binary"](
         allow_r_dot_java_in_secondary_dex = allow_r_dot_java_in_secondary_dex,
         cpu_filters = _get_valid_cpu_filters(cpu_filters),
