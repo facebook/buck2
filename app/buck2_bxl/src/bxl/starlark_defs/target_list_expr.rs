@@ -8,6 +8,7 @@
  */
 
 use std::borrow::Cow;
+use std::iter;
 
 use anyhow::Context;
 use buck2_build_api::configure_targets::get_maybe_compatible_targets;
@@ -35,7 +36,6 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use futures::future;
-use futures::TryFutureExt;
 use starlark::collections::SmallSet;
 use starlark::values::list::UnpackList;
 use starlark::values::type_repr::StarlarkTypeRepr;
@@ -60,6 +60,16 @@ pub(crate) enum TargetListExpr<'v, Node: QueryTarget> {
 }
 
 impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
+    fn iter(&self) -> Box<dyn Iterator<Item = TargetExpr<'v, ConfiguredTargetNode>> + '_> {
+        match &self {
+            Self::One(one) => Box::new(iter::once(one.clone())),
+            Self::Iterable(iterable) => Box::new(iterable.iter().cloned()),
+            Self::TargetSet(target_set) => {
+                Box::new(target_set.iter().map(|s| TargetExpr::Node(s.clone())))
+            }
+        }
+    }
+
     /// Get a vector of maybe compatible `ConfiguredTargetNode`s from the `TargetExpr`.
     /// Any callers of this function will need to call `filter_incompatible()` on the result
     /// in order to get the `TargetSet<ConfiguredTargetNode>`.
@@ -67,27 +77,13 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         self,
         dice: &mut DiceComputations,
     ) -> anyhow::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
-        match self {
-            TargetListExpr::One(node) => Ok(vec![
-                dice.get_configured_target_node(node.node_ref()).await?,
-            ]),
-            TargetListExpr::Iterable(val) => {
-                let futs = val.into_iter().map(|node_or_ref| async {
-                    let node_or_ref = node_or_ref;
-                    dice.get_configured_target_node(node_or_ref.node_ref())
-                        .await
-                });
+        let futs = self.iter().map(|node_or_ref| async {
+            let node_or_ref = node_or_ref;
+            dice.get_configured_target_node(node_or_ref.node_ref())
+                .await
+        });
 
-                futures::future::join_all(futs).await.into_iter().collect()
-            }
-            TargetListExpr::TargetSet(val) => futures::future::join_all(val.iter().map(|node| {
-                dice.get_configured_target_node(node.label())
-                    .map_err(anyhow::Error::from)
-            }))
-            .await
-            .into_iter()
-            .collect(),
-        }
+        futures::future::join_all(futs).await.into_iter().collect()
     }
 }
 
@@ -175,32 +171,32 @@ pub(crate) enum ConfiguredTargetListExprArg<'v> {
 }
 
 impl<'v> TargetListExpr<'v, TargetNode> {
+    fn iter(&self) -> Box<dyn Iterator<Item = TargetExpr<'v, TargetNode>> + '_> {
+        match &self {
+            Self::One(one) => Box::new(iter::once(one.clone())),
+            Self::Iterable(iterable) => Box::new(iterable.iter().cloned()),
+            Self::TargetSet(target_set) => {
+                Box::new(target_set.iter().map(|s| TargetExpr::Node(s.clone())))
+            }
+        }
+    }
+
     /// Get a `TargetSet<TargetNode>` from the `TargetExpr`
     pub(crate) async fn get(
         self,
         ctx: &DiceComputations,
     ) -> anyhow::Result<Cow<'v, TargetSet<TargetNode>>> {
-        match self {
-            TargetListExpr::One(node) => {
-                let mut set = TargetSet::new();
-                set.insert(node.get_from_dice(ctx).await?);
-                Ok(Cow::Owned(set))
-            }
-            TargetListExpr::Iterable(val) => {
-                let mut set = TargetSet::new();
-                let futs = val.into_iter().map(|node_or_ref| async {
-                    let node_or_ref = node_or_ref;
-                    node_or_ref.get_from_dice(ctx).await
-                });
+        let mut set = TargetSet::new();
+        let futs = self.iter().map(|node_or_ref| async {
+            let node_or_ref = node_or_ref;
+            node_or_ref.get_from_dice(ctx).await
+        });
 
-                for node in futures::future::join_all(futs).await {
-                    set.insert(node?);
-                }
-
-                Ok(Cow::Owned(set))
-            }
-            TargetListExpr::TargetSet(val) => Ok(val),
+        for node in futures::future::join_all(futs).await {
+            set.insert(node?);
         }
+
+        Ok(Cow::Owned(set))
     }
 }
 

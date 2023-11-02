@@ -18,6 +18,7 @@ use buck2_query::query::environment::QueryTarget;
 use dice::DiceComputations;
 use dupe::Dupe;
 
+#[derive(Clone)]
 pub(crate) enum TargetExpr<'v, Node: QueryTarget> {
     Node(Node),
     Label(Cow<'v, Node::NodeRef>),
