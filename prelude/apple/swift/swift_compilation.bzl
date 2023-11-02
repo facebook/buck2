@@ -777,8 +777,8 @@ def _create_compilation_database(
     swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
     mk_comp_db = swift_toolchain.mk_swift_comp_db[RunInfo]
 
-    indentifier = module_name + ".swift_comp_db.json"
-    cdb_artifact = ctx.actions.declare_output(indentifier)
+    identifier = module_name + ".swift_comp_db.json"
+    cdb_artifact = ctx.actions.declare_output(identifier)
     cmd = cmd_args(mk_comp_db)
     cmd.add(cmd_args(cdb_artifact.as_output(), format = "--output={}"))
     cmd.add(cmd_args(_get_project_root_file(ctx), format = "--project-root-file={}"))
@@ -786,6 +786,6 @@ def _create_compilation_database(
 
     cmd.add("--")
     cmd.add(argfile.cmd_form)
-    ctx.actions.run(cmd, category = "swift_compilation_database", identifier = indentifier)
+    ctx.actions.run(cmd, category = "swift_compilation_database", identifier = identifier)
 
     return SwiftCompilationDatabase(db = cdb_artifact, other_outputs = argfile.cmd_form)
