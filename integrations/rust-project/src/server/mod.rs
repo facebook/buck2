@@ -8,6 +8,7 @@
  */
 
 use std::fmt;
+use std::path::Path;
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -17,6 +18,7 @@ use lsp_server::Connection;
 use lsp_server::ExtractError;
 use lsp_server::IoThreads;
 use lsp_server::ReqQueue;
+use lsp_types::notification::Notification;
 use lsp_types::ServerCapabilities;
 use serde::Deserialize;
 use serde::Serialize;
@@ -27,6 +29,7 @@ use tracing_subscriber::Registry;
 
 use crate::cli::Develop;
 use crate::cli::Input;
+use crate::json_project::Crate;
 use crate::json_project::JsonProject;
 use crate::progress::ProgressLayer;
 
@@ -101,7 +104,7 @@ impl State {
 
                     dispatcher
                         .on::<lsp_types::notification::DidSaveTextDocument>(
-                            handle_did_save_text_document,
+                            handle_did_save_buck_file,
                         )?
                         .finish()
                 }
@@ -262,12 +265,7 @@ impl Server {
     pub(crate) fn respond(&mut self, response: lsp_server::Response) {
         if let Some((method, start)) = self.req_queue.incoming.complete(response.id.clone()) {
             let duration = start.elapsed();
-            tracing::info!(
-                "handled {} - ({}) in {:0.2?}",
-                method,
-                response.id,
-                duration
-            );
+            tracing::info!(?method, ?response.id, ?duration);
             self.send(response.into());
         } else {
             tracing::error!("Unable to complete response");
@@ -304,11 +302,78 @@ fn handle_discover_buck_targets(
     Ok(project)
 }
 
-fn handle_did_save_text_document(
-    _: &mut State,
-    _: lsp_types::DidSaveTextDocumentParams,
+fn handle_did_save_buck_file(
+    state: &mut State,
+    params: lsp_types::DidSaveTextDocumentParams,
 ) -> Result<(), anyhow::Error> {
+    let State {
+        server, projects, ..
+    } = state;
+
+    let mut projects = projects.clone();
+
+    let path = params
+        .text_document
+        .uri
+        .to_file_path()
+        .expect("unable to convert URI to file path; this is a bug");
+
+    let crates = find_changed_crate(&path, &projects);
+    match crates {
+        Some((idx, crates)) => {
+            let labels = crates
+                .iter()
+                .map(|krate| krate.buck_extensions.label.clone())
+                .collect::<Vec<String>>();
+
+            info!(?params.text_document, crates = ?labels, "got document");
+
+            let token: lsp_types::NumberOrString =
+                lsp_types::ProgressToken::String(UpdatedBuckTargets::METHOD.to_owned());
+
+            server.send_request::<lsp_types::request::WorkDoneProgressCreate>(
+                lsp_types::WorkDoneProgressCreateParams { token },
+                |_, _| (),
+            );
+            let _guard =
+                tracing::span!(target: "lsp_progress", tracing::Level::INFO, "resolving targets")
+                    .entered();
+
+            let labels = crates
+                .iter()
+                .map(|krate| krate.buck_extensions.label.clone())
+                .collect::<Vec<String>>();
+            let project = Develop::new(Input::Targets(labels)).run()?;
+            projects[idx] = project;
+
+            let notification = lsp_server::Notification::new(
+                UpdatedBuckTargets::METHOD.to_string(),
+                UpdatedBuckTargetsParams { projects },
+            );
+
+            server.send(notification.into())
+        }
+        None => info!(?params.text_document, "could not find build file for doc"),
+    }
+
     Ok(())
+}
+
+fn find_changed_crate<'a>(
+    changed_file: &Path,
+    projects: &'a [JsonProject],
+) -> Option<(usize, Vec<&'a Crate>)> {
+    for (idx, project) in projects.iter().enumerate() {
+        let impacted_crates = project
+            .crates
+            .iter()
+            .filter(|krate| krate.buck_extensions.build_file == changed_file)
+            .collect::<Vec<&Crate>>();
+        {
+            return Some((idx, impacted_crates));
+        }
+    }
+    None
 }
 
 fn register_did_save_capability(server: &mut Server) {
@@ -367,7 +432,6 @@ where
 
 type ReqHandler = fn(&mut State, lsp_server::Response);
 
-#[derive(Debug)]
 pub enum DiscoverBuckTargets {}
 
 impl lsp_types::request::Request for DiscoverBuckTargets {
@@ -380,4 +444,17 @@ impl lsp_types::request::Request for DiscoverBuckTargets {
 #[serde(rename_all = "camelCase")]
 pub struct DiscoverBuckTargetParams {
     text_documents: Vec<PathBuf>,
+}
+
+pub enum UpdatedBuckTargets {}
+
+impl lsp_types::notification::Notification for UpdatedBuckTargets {
+    type Params = UpdatedBuckTargetsParams;
+    const METHOD: &'static str = "rust-project/updatedBuckTargets";
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdatedBuckTargetsParams {
+    projects: Vec<JsonProject>,
 }
