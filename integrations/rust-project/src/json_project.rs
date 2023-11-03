@@ -22,7 +22,7 @@ use std::path::PathBuf;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct JsonProject {
     #[serde(flatten)]
     pub sysroot: Sysroot,
@@ -35,20 +35,13 @@ pub struct JsonProject {
     pub generated: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
 pub struct Crate {
     /// Optional crate name used for display purposes; has no semantic significance.
     pub display_name: Option<String>,
     /// The path to the root module of the crate.
     pub root_module: PathBuf,
-    /// Path corresponding to the BUCK/TARGETS file of
-    /// the crate.
-    ///
-    /// This is a non-standard extension to the
-    /// `rust-project.json` format, but this is needed in order
-    /// to add support for reloading `rust-analyzer` when
-    /// a `TARGETS` file is changed.
-    pub build_file: PathBuf,
+    pub buck_extensions: BuckExtensions,
     pub edition: Edition,
     pub deps: Vec<Dep>,
     /// Should this crate be treated as a member of
@@ -98,6 +91,18 @@ pub struct Crate {
     pub proc_macro_dylib_path: Option<PathBuf>,
 }
 
+/// Buck-specific extensions to the `rust-project.json` format.
+///
+/// This is needed to add support for reloading `rust-analyzer` when
+/// a `TARGETS` file is changed.
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
+pub struct BuckExtensions {
+    /// Path corresponding to the BUCK defining the crate.
+    pub build_file: PathBuf,
+    /// A name corresponding to the Buck target of the crate.
+    pub label: String,
+}
+
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
 #[serde(rename = "edition")]
 pub enum Edition {
@@ -116,13 +121,13 @@ pub enum Edition {
 /// `Crate::root_module` can belong to a crate. `include_dirs`
 /// are included recursively, unless a subdirectory is
 /// specified in `include_dirs`.
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Default)]
 pub struct Source {
     pub include_dirs: BTreeSet<PathBuf>,
     pub exclude_dirs: BTreeSet<PathBuf>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Dep {
     #[serde(rename = "crate")]
     pub crate_index: usize,
@@ -134,7 +139,7 @@ pub struct Dep {
 /// <https://rust-analyzer.github.io/manual.html#non-cargo-based-projects>
 ///
 /// rust-analyzer treats both paths as optional, but we always provide sysroot.
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Sysroot {
     /// Path to the directory of the sysroot; this is a superset of `sysroot_src`.
     ///

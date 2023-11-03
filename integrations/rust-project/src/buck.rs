@@ -26,6 +26,7 @@ use tracing::trace;
 use tracing::warn;
 use tracing::Level;
 
+use crate::json_project::BuckExtensions;
 use crate::json_project::Edition;
 use crate::json_project::JsonProject;
 use crate::json_project::Sysroot;
@@ -123,7 +124,10 @@ pub fn to_json_project(
         let crate_info = Crate {
             display_name: Some(info.name.clone()),
             root_module,
-            build_file: build_file.to_owned(),
+            buck_extensions: BuckExtensions {
+                label: target.to_string(),
+                build_file: build_file.to_owned(),
+            },
             edition,
             deps,
             is_workspace_member: info.in_workspace,

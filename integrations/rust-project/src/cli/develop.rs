@@ -39,9 +39,9 @@ pub struct OutputCfg {
 }
 
 impl Develop {
-    pub fn new(paths: Vec<PathBuf>) -> Self {
+    pub fn new(input: Input) -> Self {
         Self {
-            input: Input::Files(paths),
+            input,
             sysroot: SysrootConfig::BuckConfig,
             mode: None,
             relative_paths: false,

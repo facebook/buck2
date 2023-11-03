@@ -14,6 +14,7 @@ use std::time::Instant;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
 use lsp_server::Connection;
+use lsp_server::ExtractError;
 use lsp_server::IoThreads;
 use lsp_server::ReqQueue;
 use lsp_types::ServerCapabilities;
@@ -25,11 +26,13 @@ use tracing_subscriber::Layer;
 use tracing_subscriber::Registry;
 
 use crate::cli::Develop;
+use crate::cli::Input;
 use crate::json_project::JsonProject;
 use crate::progress::ProgressLayer;
 
 pub struct State {
     server: Server,
+    projects: Vec<JsonProject>,
     io_threads: IoThreads,
 }
 
@@ -61,27 +64,25 @@ impl State {
             })
             .expect("Unable to update subscriber");
 
-        let state = State { server, io_threads };
+        let state = State {
+            server,
+            io_threads,
+            projects: vec![],
+        };
         Ok(state)
     }
 
-    pub fn run(self) -> Result<(), anyhow::Error> {
-        let State {
-            mut server,
-            io_threads,
-        } = self;
-
-        register_did_save_capability(&mut server);
+    pub fn run(mut self) -> Result<(), anyhow::Error> {
+        register_did_save_capability(&mut self.server);
 
         info!("waiting for incoming messages");
-
-        let receiver = server.receiver.clone();
+        let receiver = self.server.receiver.clone();
         for msg in receiver {
             match msg {
                 lsp_server::Message::Request(req) => {
-                    let mut dispatcher = Dispatcher {
+                    let mut dispatcher = RequestDispatch {
                         req: Some(req),
-                        server: &mut server,
+                        state: &mut self,
                     };
 
                     dispatcher
@@ -91,28 +92,38 @@ impl State {
                         })
                         .finish();
                 }
+                lsp_server::Message::Notification(notification) => {
+                    tracing::info!(notification = ?notification, "notification");
+                    let mut dispatcher = NotificationDispatch {
+                        not: Some(notification),
+                        state: &mut self,
+                    };
+
+                    dispatcher
+                        .on::<lsp_types::notification::DidSaveTextDocument>(
+                            handle_did_save_text_document,
+                        )?
+                        .finish()
+                }
                 lsp_server::Message::Response(resp) => {
                     tracing::info!(resp = ?resp, "response");
                 }
-                lsp_server::Message::Notification(notification) => {
-                    tracing::info!(notification = ?notification, "notification");
-                }
             }
         }
-        io_threads.join()?;
+        self.io_threads.join()?;
         Ok(())
     }
 }
 
-pub struct Dispatcher<'a> {
+pub struct RequestDispatch<'a> {
     pub(crate) req: Option<lsp_server::Request>,
-    pub(crate) server: &'a mut Server,
+    pub(crate) state: &'a mut State,
 }
 
-impl<'a> Dispatcher<'a> {
+impl<'a> RequestDispatch<'a> {
     pub(crate) fn on<R>(
         &mut self,
-        f: fn(&mut Server, R::Params) -> anyhow::Result<R::Result>,
+        f: fn(&mut State, R::Params) -> anyhow::Result<R::Result>,
     ) -> &mut Self
     where
         R: lsp_types::request::Request + 'static,
@@ -125,12 +136,13 @@ impl<'a> Dispatcher<'a> {
         };
 
         info!(id = ?req.id, ?params, "received request");
-        self.server
+        self.state
+            .server
             .register_request(&req, std::time::Instant::now());
 
-        let result = { f(self.server, params) };
+        let result = { f(self.state, params) };
         if let Ok(response) = result_to_response::<R>(req.id, result) {
-            self.server.respond(response);
+            self.state.server.respond(response);
         }
 
         self
@@ -144,7 +156,7 @@ impl<'a> Dispatcher<'a> {
                 lsp_server::ErrorCode::MethodNotFound as i32,
                 "unknown request".to_owned(),
             );
-            self.server.respond(response);
+            self.state.server.respond(response);
         }
     }
 
@@ -167,8 +179,52 @@ impl<'a> Dispatcher<'a> {
                     lsp_server::ErrorCode::InvalidParams as i32,
                     err.to_string(),
                 );
-                self.server.respond(response);
+                self.state.server.respond(response);
                 None
+            }
+        }
+    }
+}
+
+pub(crate) struct NotificationDispatch<'a> {
+    pub(crate) not: Option<lsp_server::Notification>,
+    pub(crate) state: &'a mut State,
+}
+
+impl NotificationDispatch<'_> {
+    pub(crate) fn on<N>(
+        &mut self,
+        f: fn(&mut State, N::Params) -> anyhow::Result<()>,
+    ) -> anyhow::Result<&mut Self>
+    where
+        N: lsp_types::notification::Notification,
+        N::Params: for<'de> Deserialize<'de> + fmt::Debug + Send,
+    {
+        let not = match self.not.take() {
+            Some(it) => it,
+            None => return Ok(self),
+        };
+        let params = match not.extract::<N::Params>(N::METHOD) {
+            Ok(it) => it,
+            Err(ExtractError::JsonError { method, error }) => {
+                let error: Box<dyn std::error::Error + Send + Sync + 'static> = Box::new(error);
+                tracing::error!(?method, error = error.as_ref(), "invalid request");
+                return Ok(self);
+            }
+            Err(ExtractError::MethodMismatch(not)) => {
+                self.not = Some(not);
+                return Ok(self);
+            }
+        };
+
+        f(self.state, params)?;
+        Ok(self)
+    }
+
+    pub(crate) fn finish(&mut self) {
+        if let Some(not) = &self.not {
+            if !not.method.starts_with("$/") {
+                tracing::error!("unhandled notification: {:?}", not);
             }
         }
     }
@@ -224,9 +280,13 @@ impl Server {
 }
 
 fn handle_discover_buck_targets(
-    server: &mut Server,
+    state: &mut State,
     params: DiscoverBuckTargetParams,
 ) -> Result<JsonProject, anyhow::Error> {
+    let State {
+        server, projects, ..
+    } = state;
+
     let token: lsp_types::NumberOrString =
         lsp_types::ProgressToken::String("rust-project/discoverBuckTargets".to_owned());
 
@@ -238,9 +298,17 @@ fn handle_discover_buck_targets(
     let _guard =
         tracing::span!(target: "lsp_progress", tracing::Level::INFO, "resolving targets").entered();
 
-    let project = Develop::new(params.text_documents).run()?;
+    let project = Develop::new(Input::Files(params.text_documents)).run()?;
+    projects.push(project.clone());
     tracing::info!(crate_len = project.crates.len(), "created index");
     Ok(project)
+}
+
+fn handle_did_save_text_document(
+    _: &mut State,
+    _: lsp_types::DidSaveTextDocumentParams,
+) -> Result<(), anyhow::Error> {
+    Ok(())
 }
 
 fn register_did_save_capability(server: &mut Server) {
@@ -297,7 +365,7 @@ where
     Ok(res)
 }
 
-type ReqHandler = fn(&mut Server, lsp_server::Response);
+type ReqHandler = fn(&mut State, lsp_server::Response);
 
 #[derive(Debug)]
 pub enum DiscoverBuckTargets {}
