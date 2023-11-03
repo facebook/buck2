@@ -254,8 +254,6 @@ fn derive_error_impl(mut input: syn::DeriveInput, krate: syn::Path) -> syn::Resu
                     #krate::__for_macro::new_with_macro_options(val, typ, category, file, source_location_extra)
                 }
             }
-            impl #impl_generics #krate::__for_macro::Sealed for #outer #type_generics
-            #where_clauses {}
 
             impl #impl_generics ::core::convert::From<#outer #type_generics>
             for #krate::__for_macro::anyhow::Error

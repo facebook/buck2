@@ -17,10 +17,6 @@ use ref_cast::RefCast;
 use crate::error::ErrorKind;
 use crate::root::ErrorRoot;
 
-pub trait Sealed {}
-
-impl Sealed for crate::Error {}
-
 // This implementation is fairly magic and is what allows us to bypass the issue with conflicting
 // implementations between `anyhow::Error` and `T: std::error::Error`. The `T: Into<anyhow::Error>`
 // bound is what we actually make use of in the implementation, while the other bound is needed to
@@ -49,12 +45,6 @@ where
             source_location,
         ))))
     }
-}
-impl<T: fmt::Debug + fmt::Display + Sync + Send + 'static> Sealed for T
-where
-    T: Into<anyhow::Error>,
-    Result<(), T>: anyhow::Context<(), T>,
-{
 }
 
 fn from_anyhow_for_crate(

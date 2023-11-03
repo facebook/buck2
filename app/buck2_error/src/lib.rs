@@ -75,7 +75,6 @@ pub mod __for_macro {
     pub use anyhow;
     pub use thiserror;
 
-    pub use crate::any::Sealed;
     use crate::error::ErrorKind;
     use crate::root::ErrorRoot;
 
