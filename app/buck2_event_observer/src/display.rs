@@ -646,32 +646,38 @@ impl<'a> ActionErrorDisplay<'a> {
     }
 }
 
+pub fn get_action_error_reason<'a>(error: &'a buck2_data::ActionError) -> anyhow::Result<String> {
+    use buck2_data::action_error::Error;
+
+    Ok(
+        match error
+            .error
+            .as_ref()
+            .context("Internal error: Missing error in action error")?
+        {
+            Error::MissingOutputs(missing_outputs) => {
+                format!("Required outputs are missing: {}", missing_outputs.message)
+            }
+            Error::Unknown(error_string) => {
+                format!("Internal error: {}", error_string)
+            }
+            Error::CommandExecutionError(buck2_data::CommandExecutionError {}) => {
+                match &error.last_command {
+                    Some(c) => failure_reason_for_command_execution(c)?,
+                    None => "Unexpected command status".to_owned(),
+                }
+            }
+        },
+    )
+}
+
 pub fn display_action_error<'a>(
     error: &'a buck2_data::ActionError,
     opts: TargetDisplayOptions,
 ) -> anyhow::Result<ActionErrorDisplay<'a>> {
-    use buck2_data::action_error::Error;
-
     let command = error.last_command.as_ref().and_then(|c| c.details.as_ref());
 
-    let reason = match error
-        .error
-        .as_ref()
-        .context("Internal error: Missing error in action error")?
-    {
-        Error::MissingOutputs(missing_outputs) => {
-            format!("Required outputs are missing: {}", missing_outputs.message)
-        }
-        Error::Unknown(error_string) => {
-            format!("Internal error: {}", error_string)
-        }
-        Error::CommandExecutionError(buck2_data::CommandExecutionError {}) => {
-            match &error.last_command {
-                Some(c) => failure_reason_for_command_execution(c)?,
-                None => "Unexpected command status".to_owned(),
-            }
-        }
-    };
+    let reason = get_action_error_reason(error)?;
 
     Ok(ActionErrorDisplay {
         action_id: display_action_identity(error.key.as_ref(), error.name.as_ref(), opts)?,
