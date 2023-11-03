@@ -11,8 +11,8 @@
 #![feature(extract_if)]
 #![feature(iterator_try_collect)]
 
-use proc_macro::TokenStream;
 use proc_macro2::Span;
+use proc_macro2::TokenStream;
 use syn::parse::Parse;
 use syn::parse::ParseStream;
 use syn::parse::Parser;
@@ -181,16 +181,10 @@ fn generate_option_assignments(
     }
 }
 
-fn derive_error_impl(input: TokenStream, krate: syn::Path) -> TokenStream {
+fn derive_error_impl(mut input: syn::DeriveInput, krate: syn::Path) -> syn::Result<TokenStream> {
     let def_site: proc_macro2::Span = proc_macro::Span::def_site().into();
 
-    // For now, this is more or less just a stub that forwards to `thiserror`. It doesn't yet do
-    // anything interesting.
-    let mut input = parse_macro_input!(input as syn::DeriveInput);
-    let option_assignments = match generate_option_assignments(&mut input, &krate) {
-        Ok(x) => x,
-        Err(e) => return e.into_compile_error().into(),
-    };
+    let option_assignments = generate_option_assignments(&mut input, &krate)?;
     let (impl_generics, type_generics, where_clauses) = input.generics.split_for_impl();
 
     // In order to make this macro work, we have to do a number of cursed things with reexports. As
@@ -235,7 +229,7 @@ fn derive_error_impl(input: TokenStream, krate: syn::Path) -> TokenStream {
     let derive_attribute = quote::quote! {
         #[derive(::core::fmt::Debug, thiserror::Error)]
     };
-    quote::quote! {
+    Ok(quote::quote! {
         #[allow(unused)]
         #[doc(hidden)]
         #[allow(non_snake_case)]
@@ -282,16 +276,23 @@ fn derive_error_impl(input: TokenStream, krate: syn::Path) -> TokenStream {
                 }
             }
         }
-    }
-    .into()
+    })
 }
 
 #[proc_macro_derive(ErrorForReexport, attributes(backtrace, error, from, source, buck2))]
-pub fn derive_error_for_reexport(input: TokenStream) -> TokenStream {
-    derive_error_impl(input, parse_quote! { ::buck2_error })
+pub fn derive_error_for_reexport(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(input as syn::DeriveInput);
+    match derive_error_impl(input, parse_quote! { ::buck2_error }) {
+        Ok(x) => x.into(),
+        Err(e) => e.into_compile_error().into(),
+    }
 }
 
 #[proc_macro_derive(Error, attributes(backtrace, error, from, source, buck2))]
-pub fn derive_error(input: TokenStream) -> TokenStream {
-    derive_error_impl(input, parse_quote! { crate })
+pub fn derive_error(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(input as syn::DeriveInput);
+    match derive_error_impl(input, parse_quote! { crate }) {
+        Ok(x) => x.into(),
+        Err(e) => e.into_compile_error().into(),
+    }
 }
