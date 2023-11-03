@@ -12,6 +12,7 @@ mod cli;
 mod diagnostics;
 mod json_project;
 mod progress;
+mod server;
 mod sysroot;
 mod target;
 
@@ -139,6 +140,9 @@ fn main() -> Result<(), anyhow::Error> {
             let (develop, out) = cli::Develop::from_command(c);
             develop.run_as_cli(out)
         }
-        Command::LspServer => cli::Lsp::start(reload_handle),
+        Command::LspServer => {
+            let state = server::State::new(reload_handle)?;
+            state.run()
+        }
     }
 }
