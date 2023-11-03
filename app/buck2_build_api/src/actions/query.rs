@@ -61,10 +61,6 @@ impl ActionAttr {
         ActionAttr::ref_cast(x)
     }
 
-    pub fn value(&self) -> &str {
-        &self.0
-    }
-
     pub fn to_owned(&self) -> OwnedActionAttr {
         OwnedActionAttr(self.0.to_owned())
     }
