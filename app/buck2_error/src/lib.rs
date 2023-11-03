@@ -73,7 +73,6 @@ pub mod __for_macro {
     use std::sync::Arc;
 
     pub use anyhow;
-    pub use buck2_error_derive::exterminate;
     pub use thiserror;
 
     pub use crate::any::Sealed;

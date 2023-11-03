@@ -295,10 +295,3 @@ pub fn derive_error_for_reexport(input: TokenStream) -> TokenStream {
 pub fn derive_error(input: TokenStream) -> TokenStream {
     derive_error_impl(input, parse_quote! { crate })
 }
-
-// Implementation detail of `derive_error`
-#[doc(hidden)]
-#[proc_macro_attribute]
-pub fn exterminate(_attr: TokenStream, _input: TokenStream) -> TokenStream {
-    TokenStream::default()
-}
