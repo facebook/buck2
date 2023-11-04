@@ -369,7 +369,7 @@ fn find_changed_crate<'a>(
             .iter()
             .filter(|krate| krate.buck_extensions.build_file == changed_file)
             .collect::<Vec<&Crate>>();
-        {
+        if !impacted_crates.is_empty() {
             return Some((idx, impacted_crates));
         }
     }
