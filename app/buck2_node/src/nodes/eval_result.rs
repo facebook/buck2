@@ -31,6 +31,8 @@ use crate::nodes::unconfigured::TargetNode;
 use crate::super_package::SuperPackage;
 
 #[derive(Debug, thiserror::Error)]
+// WARN: CI uses this message to filter targets
+// If you change this message, please also update https://fburl.com/code/z0azzcc3
 #[error(
     "Unknown target `{target}` from package `{package}`.\n\
 Did you mean one of the {num_targets} targets in {buildfile_path}?{similar_targets}"
