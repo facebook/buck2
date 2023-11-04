@@ -88,6 +88,16 @@ def cfg_modifier_common_impl(
     )
     return modifier_key, modifier_with_loc
 
+def merge_modifiers(modifiers: list[CfgModifierWithLocation] | None, modifier: CfgModifierWithLocation) -> list[CfgModifierWithLocation]:
+    if isinstance(modifier.modifier, str):
+        return [modifier]
+
+    # `read_parent_package_value` returns an immutable value,
+    # so if `modifiers` is already a list, then we need to copy it to make it mutable.
+    modifiers = list(modifiers) if modifiers else []
+    modifiers.append(modifier)
+    return modifiers
+
 def get_modifier_info(
         refs: dict[str, ProviderCollection],
         modifier: CfgModifier,

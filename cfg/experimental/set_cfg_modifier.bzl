@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(":common.bzl", "cfg_modifier_common_impl")
+load(":common.bzl", "cfg_modifier_common_impl", "merge_modifiers")
 load(":types.bzl", "CfgModifier", "CfgModifierPackageLocation")
 
 def set_cfg_modifier(constraint_setting: str, modifier: CfgModifier):
@@ -28,9 +28,11 @@ def set_cfg_modifier(constraint_setting: str, modifier: CfgModifier):
         CfgModifierPackageLocation(package_path = _get_package_path()),
     )
 
+    modifiers = merge_modifiers(read_parent_package_value(key), modifier_with_loc)
+
     write_package_value(
         key,
-        modifier_with_loc,
+        modifiers,
         overwrite = True,
     )
 

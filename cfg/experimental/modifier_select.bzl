@@ -12,7 +12,7 @@ load(
 )
 
 def modifier_select(
-        selector: dict[str, CfgModifier]) -> ModifierSelect:
+        selector: dict[str, CfgModifier | None]) -> ModifierSelect:
     """
     A select operator for modifiers. A `modifier_select` specifies a way for a
     modifier to be added based on an existing constraint in the configuration.
