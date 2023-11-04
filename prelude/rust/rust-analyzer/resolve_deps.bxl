@@ -70,8 +70,8 @@ def _process_target_config(ctx, target, in_workspace):
     return copy
 
 def cquery_deps(ctx, top_targets, workspaces):
-    # the set that we have at home.
-    targets = [target for top_target in top_targets for target in ctx.cquery().deps(top_target)]
+    target_universe = ctx.target_universe(top_targets).target_set()
+    targets = ctx.cquery().deps(target_universe)
     outputs = ctx.cquery().kind("^(rust_binary|rust_library|rust_test)$", targets)
     out = {}
 
@@ -87,7 +87,8 @@ def cquery_deps(ctx, top_targets, workspaces):
     return out
 
 def expand_proc_macros(ctx, targets):
-    targets = ctx.cquery().deps(targets)
+    target_universe = ctx.target_universe(targets).target_set()
+    targets = ctx.cquery().deps(target_universe)
     outputs = ctx.cquery().kind("^(configured_alias)$", targets)
 
     out = {}
@@ -112,11 +113,12 @@ def expand_proc_macros(ctx, targets):
 
 # Returns a list of all the expanded targets including any workspaces, followed by just the workspaces
 def expand_targets(ctx, targets):
-    kind_target_list = ctx.cquery().kind("^(rust_binary|rust_library|rust_test|alias)$", targets)
+    target_universe = ctx.target_universe(targets).target_set()
+    kind_target_list = ctx.cquery().kind("^(rust_binary|rust_library|rust_test|alias)$", target_universe)
 
     # Allow targets to opt-in to being treated as rust-analyzer-compatible.
     # This is used for cross-compilation targets that apply Buck transitions to Rust rules.
-    labeled_target_list = ctx.cquery().attrfilter("labels", "rust_analyzer_target", targets)
+    labeled_target_list = ctx.cquery().attrfilter("labels", "rust_analyzer_target", target_universe)
     expanded_targets = {t.label.raw_target(): t for t in kind_target_list + labeled_target_list}
 
     # Map of potential workspaces to a list of the targets that name these as potential workspaces
