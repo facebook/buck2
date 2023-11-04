@@ -8,6 +8,7 @@
 load(
     ":common.bzl",
     "get_modifier_info",
+    "merge_modifiers",
     "modifier_key_to_constraint_setting",
     "modifier_to_refs",
     "resolve_modifier",
@@ -25,14 +26,14 @@ PostConstraintAnalysisParams = record(
     # Merged modifier dictionaries from PACKAGE and target modifiers.
     # If a key exists in both PACKAGE and target modifiers, the target modifier
     # will override PACKAGE modifier for that key.
-    package_and_target_modifiers = dict[str, CfgModifierWithLocation],
+    package_and_target_modifiers = dict[str, list[CfgModifierWithLocation]],
     cli_modifiers = list[str],
 )
 
 def cfg_constructor_pre_constraint_analysis(
         *,
         legacy_platform: PlatformInfo | None,
-        package_modifiers: dict[str, CfgModifierWithLocation],
+        package_modifiers: dict[str, list[CfgModifierWithLocation]],
         target_modifiers: dict[str, CfgModifierWithLocation],
         cli_modifiers: list[str]) -> (list[str], PostConstraintAnalysisParams):
     """
@@ -56,18 +57,23 @@ def cfg_constructor_pre_constraint_analysis(
     targets we need providers for.
     """
 
+    # Convert modifier keys back to constraint settings
+    package_modifiers = {modifier_key_to_constraint_setting(key): val for key, val in package_modifiers.items()}
+    target_modifiers = {modifier_key_to_constraint_setting(key): val for key, val in target_modifiers.items()}
+
     # Merge PACKAGE and target modifiers into one dictionary
-    package_and_target_modifiers = {
-        modifier_key_to_constraint_setting(modifier_key): modifier_with_loc
-        # Target modifier always overrides PACKAGE modifier of the same key
-        for modifiers in (package_modifiers, target_modifiers)
-        for modifier_key, modifier_with_loc in modifiers.items()
-    }
+    package_and_target_modifiers = package_modifiers
+    for modifier_key, modifier_with_loc in target_modifiers.items():
+        package_and_target_modifiers[modifier_key] = merge_modifiers(
+            package_and_target_modifiers.get(modifier_key),
+            modifier_with_loc,
+        )
 
     refs = []
-    for constraint_setting, modifier_with_loc in package_and_target_modifiers.items():
+    for constraint_setting, modifiers in package_and_target_modifiers.items():
         refs.append(constraint_setting)
-        refs.extend(modifier_to_refs(modifier_with_loc.modifier, constraint_setting, modifier_with_loc.location))
+        for modifier_with_loc in modifiers:
+            refs.extend(modifier_to_refs(modifier_with_loc.modifier, constraint_setting, modifier_with_loc.location))
     refs.extend(cli_modifiers)
 
     return refs, PostConstraintAnalysisParams(
@@ -76,22 +82,22 @@ def cfg_constructor_pre_constraint_analysis(
         cli_modifiers = cli_modifiers,
     )
 
-def _get_constraint_setting_and_modifier_info(
+def _get_constraint_setting_and_modifier_infos(
         refs: dict[str, ProviderCollection],
         constraint_setting: str,
-        modifier_with_loc: CfgModifierWithLocation) -> (TargetLabel, CfgModifierInfoWithLocation):
-    modifier_info = get_modifier_info(
-        refs = refs,
-        modifier = modifier_with_loc.modifier,
-        constraint_setting = constraint_setting,
+        modifiers: list[CfgModifierWithLocation]) -> (TargetLabel, list[CfgModifierInfoWithLocation]):
+    constraint_setting_info = refs[constraint_setting][ConstraintSettingInfo]
+    modifier_infos = [CfgModifierInfoWithLocation(
+        modifier_info = get_modifier_info(
+            refs = refs,
+            modifier = modifier_with_loc.modifier,
+            constraint_setting = constraint_setting,
+            location = modifier_with_loc.location,
+        ),
+        setting = constraint_setting_info,
         location = modifier_with_loc.location,
-    )
-    constraint_setting = refs[constraint_setting][ConstraintSettingInfo]
-    return constraint_setting.label, CfgModifierInfoWithLocation(
-        modifier_info = modifier_info,
-        setting = constraint_setting,
-        location = modifier_with_loc.location,
-    )
+    ) for modifier_with_loc in modifiers]
+    return constraint_setting_info.label, modifier_infos
 
 def cfg_constructor_post_constraint_analysis(
         *,
@@ -109,21 +115,21 @@ def cfg_constructor_post_constraint_analysis(
 
     modifier_infos_with_loc = {}
 
-    for constraint_setting, modifier_with_loc in params.package_and_target_modifiers.items():
-        constraint_setting_label, modifier_info_with_loc = _get_constraint_setting_and_modifier_info(
+    for constraint_setting, modifiers in params.package_and_target_modifiers.items():
+        constraint_setting_label, modifier_infos = _get_constraint_setting_and_modifier_infos(
             refs = refs,
             constraint_setting = constraint_setting,
-            modifier_with_loc = modifier_with_loc,
+            modifiers = modifiers,
         )
-        modifier_infos_with_loc[constraint_setting_label] = modifier_info_with_loc
+        modifier_infos_with_loc[constraint_setting_label] = modifier_infos
 
     for modifier in params.cli_modifiers:
         constraint_value_info = refs[modifier][ConstraintValueInfo]
-        modifier_infos_with_loc[constraint_value_info.setting.label] = CfgModifierInfoWithLocation(
+        modifier_infos_with_loc[constraint_value_info.setting.label] = [CfgModifierInfoWithLocation(
             modifier_info = constraint_value_info,
             setting = constraint_value_info.setting,
             location = CfgModifierCliLocation(),
-        )
+        )]
 
     if not modifier_infos_with_loc:
         # If there is no modifier and legacy platform is specified,
@@ -142,10 +148,11 @@ def cfg_constructor_post_constraint_analysis(
         constraints = {},
         values = {},
     )
-    for constraint_setting, modifier_info_with_loc in modifier_infos_with_loc.items():
-        constraint_value = resolve_modifier(cfg, modifier_info_with_loc.modifier_info)
-        if constraint_value:
-            cfg.constraints[constraint_setting] = constraint_value
+    for constraint_setting, modifier_infos in modifier_infos_with_loc.items():
+        for modifier_info_with_loc in modifier_infos:
+            constraint_value = resolve_modifier(cfg, modifier_info_with_loc.modifier_info)
+            if constraint_value:
+                cfg.constraints[constraint_setting] = constraint_value
 
     if params.legacy_platform:
         # For backwards compatibility with legacy target platform, any constraint setting
