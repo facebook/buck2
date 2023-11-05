@@ -448,7 +448,7 @@ impl ManagedRemoteExecutionClient {
 
     pub async fn upload_blob(
         &self,
-        blob: Vec<u8>,
+        blob: InlinedBlobWithDigest,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<TDigest> {
         self.lock()?.get().await?.upload_blob(blob, use_case).await
