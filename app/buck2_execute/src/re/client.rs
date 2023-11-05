@@ -1143,6 +1143,9 @@ impl RemoteExecutionClientImpl {
                     ..Default::default()
                 },
             )
+            .inspect_err(|err| {
+                tracing::warn!("write_action_result failed: {err}");
+            })
             .await
     }
 }
