@@ -41,11 +41,15 @@ use re_grpc_proto::build::bazel::remote::execution::v2::Digest;
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteOperationMetadata;
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteRequest as GExecuteRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteResponse as GExecuteResponse;
+use re_grpc_proto::build::bazel::remote::execution::v2::ExecutedActionMetadata;
 use re_grpc_proto::build::bazel::remote::execution::v2::FindMissingBlobsRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::FindMissingBlobsResponse;
 use re_grpc_proto::build::bazel::remote::execution::v2::GetActionResultRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::GetCapabilitiesRequest;
+use re_grpc_proto::build::bazel::remote::execution::v2::OutputDirectory;
+use re_grpc_proto::build::bazel::remote::execution::v2::OutputFile;
 use re_grpc_proto::build::bazel::remote::execution::v2::ResultsCachePolicy;
+use re_grpc_proto::build::bazel::remote::execution::v2::UpdateActionResultRequest;
 use re_grpc_proto::google::bytestream::byte_stream_client::ByteStreamClient;
 use re_grpc_proto::google::bytestream::ReadRequest;
 use re_grpc_proto::google::bytestream::ReadResponse;
@@ -112,6 +116,13 @@ fn check_status(status: Status) -> Result<(), REClientError> {
     Err(REClientError {
         code: TCode(status.code),
         message: status.message,
+    })
+}
+
+fn ttimestamp_to(ts: TTimestamp) -> Option<prost_types::Timestamp> {
+    Some(prost_types::Timestamp {
+        seconds: ts.seconds,
+        nanos: ts.nanos,
     })
 }
 
@@ -499,10 +510,33 @@ impl REClient {
 
     pub async fn write_action_result(
         &self,
-        _metadata: RemoteExecutionMetadata,
-        _request: WriteActionResultRequest,
+        metadata: RemoteExecutionMetadata,
+        write_request: WriteActionResultRequest,
     ) -> anyhow::Result<WriteActionResultResponse> {
-        Err(anyhow::anyhow!("Not supported"))
+        let mut client = self.grpc_clients.action_cache_client.clone();
+        let action_digest = tdigest_to(write_request.action_digest.clone());
+        let action_result = convert_taction_result_to_rbe(write_request.action_result)?;
+        let request = UpdateActionResultRequest {
+            action_digest: Some(action_digest),
+            action_result: Some(action_result),
+            results_cache_policy: None,
+            instance_name: self.instance_name.as_str().to_owned(),
+        };
+
+        let t: ActionResult = client
+            .update_action_result(with_internal_metadata(request, metadata))
+            .await?
+            .into_inner();
+
+        let result = convert_action_result(t)?;
+        let result = WriteActionResultResponse {
+            actual_action_result: result,
+            // NOTE: This is an arbitrary number because RBE does not return information
+            // on the TTL of the ActionResult.
+            // Also buck2 does not appear to read this value anywhere.
+            ttl_seconds: 0,
+        };
+        Ok(result)
     }
 
     pub async fn execute_with_progress(
@@ -769,6 +803,108 @@ impl REClient {
     pub fn get_experiment_name(&self) -> anyhow::Result<Option<String>> {
         Ok(None)
     }
+}
+
+fn convert_execution_action_metadata_to_rbe(
+    execution_metadata: TExecutedActionMetadata,
+) -> anyhow::Result<ExecutedActionMetadata> {
+    let TExecutedActionMetadata {
+        worker,
+        queued_timestamp,
+        worker_start_timestamp,
+        worker_completed_timestamp,
+        input_fetch_start_timestamp,
+        input_fetch_completed_timestamp,
+        execution_start_timestamp,
+        execution_completed_timestamp,
+        output_upload_start_timestamp,
+        output_upload_completed_timestamp,
+        execution_dir: _,
+        input_analyzing_start_timestamp: _,
+        input_analyzing_completed_timestamp: _,
+        execution_attempts: _,
+        last_queued_timestamp: _,
+        instruction_counts: _,
+        auxiliary_metadata: _,
+        _dot_dot_default,
+    } = execution_metadata;
+    Ok(ExecutedActionMetadata {
+        worker,
+        worker_start_timestamp: ttimestamp_to(worker_start_timestamp),
+        worker_completed_timestamp: ttimestamp_to(worker_completed_timestamp),
+        input_fetch_start_timestamp: ttimestamp_to(input_fetch_start_timestamp),
+        input_fetch_completed_timestamp: ttimestamp_to(input_fetch_completed_timestamp),
+        execution_start_timestamp: ttimestamp_to(execution_start_timestamp),
+        execution_completed_timestamp: ttimestamp_to(execution_completed_timestamp),
+        output_upload_start_timestamp: ttimestamp_to(output_upload_start_timestamp),
+        output_upload_completed_timestamp: ttimestamp_to(output_upload_completed_timestamp),
+        queued_timestamp: ttimestamp_to(queued_timestamp),
+        // TODO(cormacrelf): calculate this in a reasonable way for buck.
+        // see protobuf docs on virtual_execution_duration.
+        // May be able to use last_queued_timestamp
+        virtual_execution_duration: None,
+        // Ugh, need a routine to convert TAny to prost_type::Any...
+        auxiliary_metadata: vec![],
+    })
+}
+
+fn convert_taction_result_to_rbe(taction_result: TActionResult2) -> anyhow::Result<ActionResult> {
+    let TActionResult2 {
+        output_files,
+        output_directories,
+        exit_code,
+        stdout_raw,
+        stdout_digest,
+        stderr_raw,
+        stderr_digest,
+        execution_metadata,
+        auxiliary_metadata: _,
+        _dot_dot_default,
+    } = taction_result;
+
+    let execution_metadata = convert_execution_action_metadata_to_rbe(execution_metadata)?;
+    let output_files = output_files.into_try_map(|output_file| {
+        let TFile {
+            digest,
+            name,
+            executable,
+            ..
+        } = output_file;
+        anyhow::Ok(OutputFile {
+            digest: Some(tdigest_to(digest.digest)),
+            path: name,
+            is_executable: executable,
+            // Clients SHOULD NOT populate this field when uploading to the cache.
+            contents: Vec::new(),
+            node_properties: None,
+        })
+    })?;
+    let output_directories = output_directories.into_try_map(|output_directory| {
+        let tree_digest = tdigest_to(output_directory.tree_digest);
+        anyhow::Ok(OutputDirectory {
+            path: output_directory.path,
+            tree_digest: Some(tree_digest.clone()),
+            // TODO(cormacrelf): check whether buck2_execute::directory::directory_to_re_tree
+            // conforms with the requirements of passing `true` here (see .proto file)
+            is_topologically_sorted: false,
+        })
+    })?;
+    anyhow::Ok(ActionResult {
+        exit_code,
+        execution_metadata: Some(execution_metadata),
+        output_directories,
+        output_files,
+        // TODO: support symlinks
+        output_symlinks: vec![],
+        output_file_symlinks: vec![],
+        output_directory_symlinks: vec![],
+        // If missing, it's because we uploaded it already
+        // if present, it's inline
+        stdout_raw: stdout_raw.unwrap_or(Vec::new()),
+        stdout_digest: stdout_digest.map(tdigest_to),
+        stderr_raw: stderr_raw.unwrap_or(Vec::new()),
+        stderr_digest: stderr_digest.map(tdigest_to),
+    })
 }
 
 fn convert_action_result(action_result: ActionResult) -> anyhow::Result<TActionResult2> {

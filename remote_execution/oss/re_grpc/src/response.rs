@@ -91,6 +91,9 @@ pub struct TSubsysPerfCount {
 pub struct TActionResult2 {
     pub output_files: Vec<TFile>,
     pub output_directories: Vec<TDirectory2>,
+    // TODO: output_symlinks (use in preference when output_paths mode is used the execution side)
+    // TODO: output_file_symlinks (deprecated)
+    // TODO: output_directory_symlinks (deprecated)
     pub exit_code: i32,
     pub stdout_raw: Option<Vec<u8>>,
     pub stdout_digest: Option<TDigest>,
