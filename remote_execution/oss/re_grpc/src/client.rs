@@ -908,6 +908,15 @@ fn convert_taction_result_to_rbe(taction_result: TActionResult2) -> anyhow::Resu
 }
 
 fn convert_action_result(action_result: ActionResult) -> anyhow::Result<TActionResult2> {
+    if !action_result.output_symlinks.is_empty()
+        || !action_result.output_file_symlinks.is_empty()
+        || !action_result.output_directory_symlinks.is_empty()
+    {
+        anyhow::bail!(
+            "CAS ActionResult returned with symlinks in it, buck2 cannot handle these yet"
+        );
+    }
+
     let execution_metadata = action_result
         .execution_metadata
         .with_context(|| "The execution metadata are not defined.")?;
