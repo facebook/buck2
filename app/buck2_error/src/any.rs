@@ -9,6 +9,7 @@
 
 //! Integrations of `buck2_error::Error` with `anyhow::Error` and `std::error::Error`.
 
+use std::any::request_value;
 use std::fmt;
 use std::sync::Arc;
 
@@ -57,9 +58,24 @@ pub(crate) fn recover_crate_error(
         // Handle the `cur` error
         if let Some(base) = cur.downcast_ref::<CrateAsStdError>() {
             break base.0.clone();
+        } else if let Some(metadata) = request_value::<ProvidableMetadata>(&*cur) && (metadata.check_error_type)(&*cur).is_some() {
+            // FIXME(JakobDegen): `Marc` needs `try_map` here too
+            let cur = Marc::map(cur, |e| (metadata.check_error_type)(e).unwrap());
+            let source_location = crate::source_location::from_file(metadata.source_file, metadata.source_location_extra);
+            let mut e = crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new(
+                cur,
+                None,
+                metadata.typ,
+                source_location,
+            ))));
+            if let Some(category) = metadata.category {
+                e = e.context(category);
+            }
+            break e;
         } else {
             context_stack.push(cur.clone());
         }
+
         // Compute the next element in the source chain
         if cur.source().is_none() {
             // This error was not created from a `buck2_error::Error`, so we can't do anything
@@ -118,8 +134,44 @@ impl std::error::Error for CrateAsStdError {
     }
 }
 
+pub type CheckErrorType = for<'a> fn(
+    &'a (dyn std::error::Error + 'static),
+)
+    -> Option<&'a (dyn std::error::Error + Send + Sync + 'static)>;
+
+/// This can be `provide`d by an error to inject buck2-specific information about it.
+///
+/// Currently intended for macro use only, might make sense to allow it more generally in the
+/// future.
+#[derive(Copy, Clone)]
+pub struct ProvidableMetadata {
+    pub source_file: &'static str,
+    /// Extra information to add to the end of the source location - typically a type/variant name,
+    /// and the same thing as gets passed to `buck2_error::source_location::from_file`.
+    pub source_location_extra: Option<&'static str>,
+    pub category: Option<crate::Category>,
+    pub typ: Option<crate::ErrorType>,
+    /// Some errors will transitively call `Provide` for their sources, others won't. In order to
+    /// make sure that we get consistent behavior, we need to be able to check that the error we're
+    /// currently inspecting is actually the one doing the providing. This is how we do it.
+    ///
+    /// We also reuse this to get a `Send + Sync` reference to our error, since `source()` does not
+    /// give us that.
+    pub check_error_type: CheckErrorType,
+}
+
+impl ProvidableMetadata {
+    pub const fn gen_check_error_type<E: std::error::Error + Send + Sync + 'static>()
+    -> CheckErrorType {
+        |e| e.downcast_ref::<E>().map(|e| e as _)
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::any::Demand;
+
+    use super::*;
     use crate::error::ErrorKind;
 
     #[derive(Debug, derive_more::Display)]
@@ -167,5 +219,52 @@ mod tests {
         let e2 = crate::Error::from(anyhow::Error::from(e.clone()).context("context 2"));
         let e3 = e.context("context 2");
         check_equal(&e2, &e3);
+    }
+
+    #[derive(Debug, derive_more::Display)]
+    struct MetadataError;
+
+    impl std::error::Error for MetadataError {
+        fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
+            demand.provide_value(ProvidableMetadata {
+                source_file: file!(),
+                source_location_extra: Some("MetadataError"),
+                category: Some(crate::Category::User),
+                typ: Some(crate::ErrorType::Watchman),
+                check_error_type: ProvidableMetadata::gen_check_error_type::<Self>(),
+            });
+        }
+    }
+
+    #[test]
+    fn test_metadata() {
+        for e in [MetadataError.into(), crate::Error::new(MetadataError)] {
+            assert_eq!(e.get_category(), Some(crate::Category::User));
+            assert_eq!(e.get_error_type(), Some(crate::ErrorType::Watchman));
+            assert_eq!(
+                e.source_location(),
+                Some("buck2_error/src/any.rs::MetadataError")
+            );
+        }
+    }
+
+    #[test]
+    fn test_metadata_through_anyhow() {
+        let e: anyhow::Error = MetadataError.into();
+        let e = e.context("anyhow");
+        let e: crate::Error = e.into();
+        assert_eq!(e.get_category(), Some(crate::Category::User));
+        assert!(format!("{:?}", e).contains("anyhow"));
+    }
+
+    #[derive(Debug, thiserror::Error)]
+    #[error("wrapper")]
+    struct WrapperError(#[source] MetadataError);
+
+    #[test]
+    fn test_metadata_through_wrapper() {
+        let e: crate::Error = WrapperError(MetadataError).into();
+        assert_eq!(e.get_category(), Some(crate::Category::User));
+        assert!(format!("{:?}", e).contains("wrapper"));
     }
 }

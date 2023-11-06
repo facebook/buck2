@@ -7,8 +7,11 @@
  * of this source tree.
  */
 
+#![feature(error_generic_member_access)]
+#![feature(let_chains)]
 #![feature(trait_alias)]
 #![feature(trait_upcasting)]
+#![feature(provide_any)]
 
 mod any;
 mod context;
@@ -75,6 +78,7 @@ pub mod __for_macro {
     pub use anyhow;
     pub use thiserror;
 
+    pub use crate::any::ProvidableMetadata;
     use crate::error::ErrorKind;
     use crate::root::ErrorRoot;
 
