@@ -201,7 +201,11 @@ fn derive_error_impl(mut input: syn::DeriveInput, krate: syn::Path) -> syn::Resu
     let def_site: proc_macro2::Span = proc_macro::Span::def_site().into();
 
     let option_assignments = generate_option_assignments(&mut input, &krate)?;
-    let (impl_generics, type_generics, where_clauses) = input.generics.split_for_impl();
+    let (_, type_generics, where_clauses) = input.generics.split_for_impl();
+    let mut impl_generics = input.generics.params.clone();
+    if !impl_generics.empty_or_trailing() {
+        impl_generics.push_punct(Default::default());
+    }
 
     // In order to make this macro work, we have to do a number of cursed things with reexports. As
     // a result, we need to be careful about not polluting the namespace in which the macro is
@@ -250,6 +254,7 @@ fn derive_error_impl(mut input: syn::DeriveInput, krate: syn::Path) -> syn::Resu
     if !where_clauses.empty_or_trailing() {
         where_clauses.push_punct(Default::default());
     }
+
     Ok(quote::quote! {
         #[allow(unused)]
         #[doc(hidden)]
@@ -260,7 +265,7 @@ fn derive_error_impl(mut input: syn::DeriveInput, krate: syn::Path) -> syn::Resu
             #derive_attribute
             #input_for_inner
 
-            impl #impl_generics ::std::error::Error for #outer #type_generics
+            impl < #impl_generics > ::std::error::Error for #outer #type_generics
             where #where_clauses
             Self: ::core::fmt::Debug + ::core::fmt::Display + ::core::marker::Send + ::core::marker::Sync + 'static,
             #inner #type_generics : ::std::error::Error
@@ -300,7 +305,7 @@ fn derive_error_impl(mut input: syn::DeriveInput, krate: syn::Path) -> syn::Resu
                 }
             }
 
-            impl #impl_generics ::core::fmt::Display for #outer #type_generics
+            impl < #impl_generics > ::core::fmt::Display for #outer #type_generics
             where #where_clauses
             #inner #type_generics : ::core::fmt::Display
             {
@@ -308,6 +313,18 @@ fn derive_error_impl(mut input: syn::DeriveInput, krate: syn::Path) -> syn::Resu
                 -> ::core::fmt::Result {
                     let val = unsafe { #ref_transmute(self) };
                     ::core::fmt::Display::fmt(val, f)
+                }
+            }
+
+            impl < #impl_generics __FOR_MACRO_T> ::core::convert::From<__FOR_MACRO_T> for #outer #type_generics
+            where #inner #type_generics : ::core::convert::From<__FOR_MACRO_T>
+            {
+                fn from(val: __FOR_MACRO_T) -> Self {
+                    let val: #inner #type_generics = ::core::convert::From::from(val);
+                    let out = unsafe { ::core::ptr::read(&val as *const _ as *const _) };
+                    #[allow(clippy::forget_non_drop)]
+                    ::core::mem::forget(val);
+                    out
                 }
             }
         }

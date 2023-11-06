@@ -88,3 +88,17 @@ pub struct WithField {
 fn test_with_field() {
     let _e: crate::Error = WithField { x: 42 }.into();
 }
+
+#[derive(buck2_error_derive::Error, Debug)]
+#[error("Unused")]
+struct Simple;
+
+#[derive(buck2_error_derive::Error, Debug)]
+#[error("Unused")]
+struct UsesFrom(#[from] Simple);
+
+#[test]
+fn test_uses_from() {
+    let e: UsesFrom = Simple.into();
+    let _e: crate::Error = e.into();
+}
