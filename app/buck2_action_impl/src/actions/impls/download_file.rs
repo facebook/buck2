@@ -37,7 +37,6 @@ use buck2_execute::materialize::http::http_head;
 use buck2_execute::materialize::http::Checksum;
 use buck2_execute::materialize::materializer::HttpDownloadInfo;
 use buck2_http::HttpClient;
-use buck2_http::HttpError;
 use dupe::Dupe;
 use indexmap::IndexSet;
 use once_cell::sync::Lazy;
@@ -52,8 +51,6 @@ enum DownloadFileActionError {
     WrongNumberOfInputs(usize),
     #[error("Exactly one output file must be specified for a download file action, got {0}")]
     WrongNumberOfOutputs(usize),
-    #[error(transparent)]
-    Http(#[from] HttpError),
 }
 
 #[derive(Debug, Allocative)]
