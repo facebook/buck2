@@ -20,7 +20,6 @@ rust_library(
         "fbsource//third-party/rust:libc",
         "fbsource//third-party/rust:parking_lot",
         "fbsource//third-party/rust:serde",
-        "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:toml",
         "fbsource//third-party/rust:tracing",

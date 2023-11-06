@@ -23,7 +23,6 @@ libc = { workspace = true }
 parking_lot = { workspace = true }
 serde = { workspace = true }
 sorted_vector_map = { workspace = true }
-thiserror = { workspace = true }
 tokio = { workspace = true }
 toml = { workspace = true }
 tracing = { workspace = true }

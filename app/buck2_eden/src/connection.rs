@@ -42,7 +42,6 @@ use futures::future::Shared;
 use parking_lot::Mutex;
 use serde::Deserialize;
 use sorted_vector_map::SortedVectorMap;
-use thiserror::Error;
 use tokio::sync::Semaphore;
 
 #[derive(Allocative)]
@@ -278,7 +277,7 @@ impl EdenConnector {
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 #[error("Mount never became ready: `{}`", self.mount)]
 struct MountNeverBecameReady {
     mount: Arc<String>,
@@ -309,7 +308,7 @@ async fn wait_until_mount_is_ready(
     Err(MountNeverBecameReady { mount: root.dupe() }.into())
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 pub enum IsMountReadyError {
     #[error("Mount does not exist in Eden: `{}`", .mount)]
     MountDoesNotExist { mount: Arc<String> },
@@ -336,7 +335,7 @@ async fn is_mount_ready(
     Err(IsMountReadyError::MountDoesNotExist { mount: root.dupe() })
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 pub enum ConnectAndRequestError<E> {
     #[error(transparent)]
     ConnectionError(anyhow::Error),
@@ -399,7 +398,7 @@ impl_has_error_handling_strategy!(EnsureMaterializedError);
 impl_has_error_handling_strategy!(ReaddirError);
 impl_has_error_handling_strategy!(GetSHA1Error);
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum EdenError {
     #[error("Eden POSIX error (code = {}): {}", .code, .error.message)]
     PosixError {

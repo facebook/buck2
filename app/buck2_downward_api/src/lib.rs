@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![feature(error_generic_member_access)]
+
 //! The downward api for external processes. This crate defines a trait of downward api that Buck
 //! will need to handle as the process runner.
 
