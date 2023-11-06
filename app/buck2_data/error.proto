@@ -28,9 +28,8 @@ enum ErrorType {
 }
 
 enum ErrorCategory {
-  // FIXME(JakobDegen): Stop emitting this from buck2 and then rename it to
-  // `DEFAULT_UNUSED`
-  USER_DEPRECATED = 0;
+  // Same as above
+  UNUSED_DEFAULT_CATEGORY = 0;
   INFRA = 1;
   USER = 2;
 }
