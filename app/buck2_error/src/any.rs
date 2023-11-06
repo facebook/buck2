@@ -36,19 +36,16 @@ where
         let mut e = Some(value);
         let r: &mut dyn std::any::Any = &mut e;
         if let Some(e) = r.downcast_mut::<Option<anyhow::Error>>() {
-            return from_anyhow_for_crate(Marc::new(e.take().unwrap()), source_location);
+            return recover_crate_error(Marc::new(e.take().unwrap()), source_location);
         }
 
         // Otherwise, we'll use the strategy for `std::error::Error`
         let anyhow = e.unwrap().into();
-        crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new_anyhow(
-            Marc::new(anyhow),
-            source_location,
-        ))))
+        recover_crate_error(Marc::new(anyhow), source_location)
     }
 }
 
-fn from_anyhow_for_crate(
+pub(crate) fn recover_crate_error(
     value: Marc<anyhow::Error>,
     source_location: Option<String>,
 ) -> crate::Error {

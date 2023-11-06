@@ -11,6 +11,8 @@ use std::any::Any;
 use std::fmt;
 use std::sync::Arc;
 
+use mappable_rc::Marc;
+
 use crate::context_value::ContextValue;
 use crate::root::ErrorRoot;
 use crate::ErrorType;
@@ -44,9 +46,14 @@ pub(crate) enum ErrorKind {
 impl Error {
     #[track_caller]
     pub fn new<E: std::error::Error + Send + Sync + 'static>(e: E) -> Self {
-        Self::new_with_options(e, None, None)
+        let source_location =
+            crate::source_location::from_file(std::panic::Location::caller().file(), None);
+        crate::any::recover_crate_error(Marc::new(anyhow::Error::new(e)), source_location)
     }
 
+    /// Note that unlike `new`, this will not attempt to recover extra error metadata from the error
+    /// itself, instead assuming that you will provide that directly here. As such, you should only
+    /// use this with a newly constructed error that doesn't have an unknown cause/source.
     #[track_caller]
     pub fn new_with_options<E: std::error::Error + Send + Sync + 'static>(
         e: E,
