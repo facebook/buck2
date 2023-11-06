@@ -30,7 +30,6 @@ use edenfs::SetPathObjectIdParams;
 use fbinit::FacebookInit;
 use more_futures::cancellation::CancellationContext;
 use serde::Deserialize;
-use thiserror::Error;
 use tokio::sync::Semaphore;
 
 use crate::artifact_value::ArtifactValue;
@@ -41,7 +40,7 @@ pub type EdenFsClient = Arc<dyn EdenService + Sync>;
 
 const RE_SYMLINK_PREFIX: &str = "re-symlink";
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 pub enum SetupBuckOutError {
     #[error("Could not read Eden Config")]
     EdenConfigIOError(#[source] std::io::Error),

@@ -80,13 +80,12 @@ use host_sharing::HostSharingRequirements;
 use indexmap::IndexMap;
 use more_futures::cancellable_future::CancellationObserver;
 use more_futures::cancellation::CancellationContext;
-use thiserror::Error;
 use tracing::info;
 
 use crate::executors::worker::WorkerHandle;
 use crate::executors::worker::WorkerPool;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum LocalExecutionError {
     #[error("Args list was empty")]
     NoArgs,

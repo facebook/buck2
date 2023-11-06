@@ -27,7 +27,6 @@ use dupe::Dupe;
 use futures::stream::BoxStream;
 use futures::stream::TryStreamExt;
 use more_futures::cancellation::CancellationContext;
-use thiserror::Error;
 
 use crate::artifact_value::ArtifactValue;
 use crate::directory::ActionDirectoryEntry;
@@ -71,7 +70,7 @@ pub struct WriteRequest {
     pub is_executable: bool,
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 pub enum MaterializationError {
     #[error("Error materializing artifact at path `{}`", .path)]
     Error {
@@ -534,7 +533,7 @@ pub struct HttpDownloadInfo {
     pub owner: BaseDeferredKey,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum ArtifactNotMaterializedReason {
     #[error(
         "The artifact at path '{}' ({}) was produced by a RE action ({}), \
@@ -604,7 +603,7 @@ pub enum MaterializationMethod {
     Eden,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum MaterializationMethodError {
     #[error(
         "Invalid value for buckconfig `[buck2] materializations`. Got `{0}`. Expected one of `all`, `deferred`, `deferred_skip_final_artifacts` or `eden`."

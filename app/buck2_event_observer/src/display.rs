@@ -37,7 +37,6 @@ use superconsole::Lines;
 use superconsole::Span;
 use termwiz::escape::Action;
 use termwiz::escape::ControlCode;
-use thiserror::Error;
 
 use crate::fmt_duration;
 use crate::verbosity::Verbosity;
@@ -465,7 +464,7 @@ pub fn display_executor_stage(
     Some(label)
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum ParseEventError {
     #[error("Missing configured target label")]
     MissingConfiguredTargetLabel,
@@ -489,7 +488,7 @@ enum ParseEventError {
     UnexpectedEvent,
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 #[error("Invalid buck event: `{0:?}`")]
 pub struct InvalidBuckEvent(pub Arc<BuckEvent>);
 

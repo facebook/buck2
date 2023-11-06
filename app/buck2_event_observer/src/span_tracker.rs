@@ -24,7 +24,7 @@ use linked_hash_map::LinkedHashMap;
 use crate::what_ran::WhatRanRelevantAction;
 use crate::what_ran::WhatRanState;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum SpanTrackerError<T: SpanTrackable> {
     #[error(
         "Tried to end a child (`{child:#?}`) that did not exist for its parent (`{parent:#?}`)."

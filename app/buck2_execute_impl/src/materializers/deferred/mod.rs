@@ -84,7 +84,6 @@ use gazebo::prelude::*;
 use itertools::Itertools;
 use more_futures::cancellation::CancellationContext;
 use pin_project::pin_project;
-use thiserror::Error;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -190,7 +189,7 @@ pub enum AccessTimesUpdates {
     Disabled,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum AccessTimesUpdatesError {
     #[error(
         "Invalid value for buckconfig `[buck2] update_access_times`. Got `{0}`. Expected one of `full`, `partial`  or `disabled`."
@@ -320,7 +319,7 @@ pub enum SharedMaterializingError {
     },
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 pub enum MaterializeEntryError {
     #[error(transparent)]
     Error(#[from] anyhow::Error),

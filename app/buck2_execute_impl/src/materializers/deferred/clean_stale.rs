@@ -29,7 +29,6 @@ use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use more_futures::cancellation::CancellationContext;
-use thiserror::Error;
 use tokio::sync::oneshot::Sender;
 use tracing::error;
 
@@ -103,7 +102,7 @@ impl<T: IoHandler> ExtensionCommand<T> for CleanStaleArtifacts {
     }
 }
 
-#[derive(Debug, Clone, Error)]
+#[derive(Debug, Clone, buck2_error::Error)]
 #[error("Internal error: materializer state exists (num db entries: {}) but no artifacts were found by clean ({:?}). Not cleaning untracked artifacts.", .db_size, .stats)]
 pub(crate) struct CleanStaleError {
     db_size: usize,

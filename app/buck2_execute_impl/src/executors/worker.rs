@@ -44,7 +44,7 @@ use indexmap::IndexMap;
 use tokio::task::JoinHandle;
 use tonic::transport::Channel;
 
-#[derive(thiserror::Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 pub enum WorkerInitError {
     #[error("Worker failed to spawn: {0}")]
     SpawnFailed(String),

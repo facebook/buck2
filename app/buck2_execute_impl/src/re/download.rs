@@ -53,7 +53,6 @@ use gazebo::prelude::*;
 use indexmap::IndexMap;
 use more_futures::cancellation::CancellationContext;
 use remote_execution as RE;
-use thiserror::Error;
 
 use crate::re::paranoid_download::ParanoidDownloader;
 
@@ -332,7 +331,7 @@ fn re_forward_path(re_path: &str) -> anyhow::Result<&ForwardRelativePath> {
         .context(DownloadError::InvalidPathFromRe)
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum DownloadError {
     #[error("Failed to declare in materializer")]
     Materialization,

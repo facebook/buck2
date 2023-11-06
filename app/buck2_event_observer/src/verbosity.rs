@@ -11,7 +11,7 @@ use std::collections::HashSet;
 
 use dupe::Dupe;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum VerbosityError {
     #[error("Can't have more than 1 level set at a time")]
     MoreThan1Level,

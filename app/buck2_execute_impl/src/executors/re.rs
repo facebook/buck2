@@ -46,14 +46,13 @@ use more_futures::cancellation::CancellationContext;
 use remote_execution as RE;
 use remote_execution::ExecuteResponse;
 use remote_execution::TCode;
-use thiserror::Error;
 use tracing::info;
 
 use crate::re::download::download_action_results;
 use crate::re::download::DownloadResult;
 use crate::re::paranoid_download::ParanoidDownloader;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum RemoteExecutorError {
     #[error("Trying to execute a `local_only = True` action on remote executor")]
     LocalOnlyAction,
@@ -311,7 +310,7 @@ impl PreparedCommandExecutor for ReExecutor {
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 #[error(
     "action_digest={}, re_code={}, re_location={}, re_message={}",
     .action_digest,

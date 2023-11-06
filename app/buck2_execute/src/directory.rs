@@ -50,7 +50,6 @@ use once_cell::sync::Lazy;
 use ref_cast::RefCast;
 use remote_execution as RE;
 use starlark_map::small_map::SmallMap;
-use thiserror::Error;
 
 use crate::artifact_value::ArtifactValue;
 use crate::digest::CasDigestFromReExt;
@@ -432,7 +431,7 @@ pub fn re_tree_to_directory(
     )
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum DirectoryReConversionError {
     // Conversion from RE::Tree errors (these shouldn't happen unless something is broken on RE side)
     #[error("Converting RE::Tree to Directory, dir `{dir}` has child `{name}` with digest=None.")]

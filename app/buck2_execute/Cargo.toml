@@ -29,7 +29,6 @@ sha1 = { workspace = true }
 sha2 = { workspace = true }
 slog = { workspace = true }
 smallvec = { workspace = true }
-thiserror = { workspace = true }
 tokio = { workspace = true }
 toml = { workspace = true }
 tracing = { workspace = true }

@@ -32,7 +32,6 @@ use indexmap::IndexSet;
 use itertools::Itertools;
 use sorted_vector_map::SortedVectorMap;
 use starlark_map::sorted_set::SortedSet;
-use thiserror::Error;
 
 use super::dep_file_digest::DepFileDigest;
 use crate::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;
@@ -66,7 +65,7 @@ pub enum OutputCreationBehavior {
     Parent,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 #[error("Incompatible executor preferences: `{}` & `{}`", a, b)]
 struct IncompatibleExecutorPreferences {
     a: ExecutorPreference,
@@ -521,7 +520,7 @@ pub enum OutputType {
     Directory,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum OutputTypeError {
     #[error("Expected {1:?}, but `{0}` is already declared as {2:?}")]
     CheckPath(String, OutputType, OutputType),

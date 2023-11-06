@@ -12,9 +12,8 @@ use buck2_data::InstantEvent;
 use buck2_data::SpanEndEvent;
 use buck2_data::SpanStartEvent;
 use buck2_events::BuckEvent;
-use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 pub enum VisitorError {
     #[error("Sent an event missing one or more fields: `{0:?}`")]
     MissingField(BuckEvent),

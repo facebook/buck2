@@ -26,7 +26,6 @@ pin-project = { workspace = true }
 prost = { workspace = true }
 remote_execution = { workspace = true }
 rusqlite = { workspace = true }
-thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tonic = { workspace = true }

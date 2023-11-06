@@ -27,7 +27,6 @@ rust_library(
         "fbsource//third-party/rust:pin-project",
         "fbsource//third-party/rust:prost",
         "fbsource//third-party/rust:rusqlite",
-        "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tokio-stream",
         "fbsource//third-party/rust:tonic",

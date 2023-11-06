@@ -15,11 +15,10 @@ use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::cas_digest::TrackedCasDigest;
 use remote_execution::Digest;
 use remote_execution::TDigest;
-use thiserror::Error;
 
 use crate::digest_config::DigestConfig;
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 pub enum DigestConversionError {
     #[error("Error parsing digest: `{}`", digest)]
     ParseError {

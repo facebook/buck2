@@ -39,7 +39,6 @@ use itertools::Itertools;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use rusqlite::Connection;
-use thiserror::Error;
 
 use crate::materializers::deferred::ArtifactMetadata;
 use crate::materializers::deferred::DirectoryMetadata;
@@ -59,7 +58,7 @@ const IDENTITY_KEY: &str = "timestamp_on_initialization";
 
 pub type MaterializerState = Vec<(ProjectRelativePathBuf, (ArtifactMetadata, DateTime<Utc>))>;
 
-#[derive(Error, Debug, PartialEq, Eq)]
+#[derive(buck2_error::Error, Debug, PartialEq, Eq)]
 pub(crate) enum ArtifactMetadataSqliteConversionError {
     #[error("Internal error: expected field `{}` to be not null for artifact type '{}'", .field, .artifact_type)]
     ExpectedNotNull {
@@ -473,7 +472,7 @@ impl MaterializerStateSqliteTable {
     }
 }
 
-#[derive(Error, Debug, PartialEq, Eq)]
+#[derive(buck2_error::Error, Debug, PartialEq, Eq)]
 enum MaterializerStateSqliteDbError {
     #[error("Path {} does not exist", .0)]
     PathDoesNotExist(AbsNormPathBuf),

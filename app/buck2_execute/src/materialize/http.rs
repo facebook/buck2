@@ -34,7 +34,6 @@ use sha1::Digest;
 use sha1::Sha1;
 use sha2::Sha256;
 use smallvec::SmallVec;
-use thiserror::Error;
 
 use crate::digest_config::DigestConfig;
 
@@ -63,13 +62,13 @@ impl Checksum {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum HttpHeadError {
     #[error("Error performing http_head request")]
     Client(#[from] HttpError),
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum HttpDownloadError {
     #[error("Error performing http_download request")]
     Client(#[from] HttpError),

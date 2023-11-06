@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+#![feature(error_generic_member_access)]
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
@@ -44,7 +45,6 @@ use buck2_wrapper_common::invocation_id::TraceId;
 use derive_more::From;
 use gazebo::variants::UnpackVariants;
 use serde::Serialize;
-use thiserror::Error;
 
 use crate::sink::channel::ChannelEventSink;
 use crate::source::ChannelEventSource;
@@ -260,7 +260,7 @@ pub fn create_source_sink_pair() -> (ChannelEventSource, impl EventSink) {
 }
 
 #[allow(clippy::large_enum_variant)]
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum BuckEventError {
     #[error("The `buck2_data::BuckEvent` provided has no `Timestamp`")]
     MissingTimestamp,

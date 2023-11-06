@@ -21,7 +21,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 smallvec = { workspace = true }
 sys-info = { workspace = true }
-thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
@@ -39,6 +38,7 @@ buck2_build_info = { workspace = true }
 buck2_cli_proto = { workspace = true }
 buck2_core = { workspace = true }
 buck2_data = { workspace = true }
+buck2_error = { workspace = true }
 buck2_util = { workspace = true }
 buck2_wrapper_common = { workspace = true }
 
