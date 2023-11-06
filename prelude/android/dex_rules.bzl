@@ -695,9 +695,9 @@ def _get_raw_secondary_dex_name(index: int, module: str) -> str:
     if is_root_module(module):
         return "classes{}.dex".format(index + 2)
     elif index == 0:
-        return "classes.dex".format(module)
+        return "classes.dex"
     else:
-        return "classes{}.dex".format(module, index + 1)
+        return "classes{}.dex".format(index + 1)
 
 def _get_raw_secondary_dex_path(index: int, module: str):
     if is_root_module(module):
