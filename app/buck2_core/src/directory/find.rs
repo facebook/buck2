@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use thiserror::Error;
-
 use super::Directory;
 use super::DirectoryEntry;
 use super::DirectoryMut;
@@ -17,7 +15,7 @@ use super::PathAccumulator;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum DirectoryFindError {
     #[error("Path is empty")]
     EmptyPath,

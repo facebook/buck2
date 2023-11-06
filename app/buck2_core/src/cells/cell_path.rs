@@ -17,7 +17,7 @@ use crate::cells::paths::CellRelativePath;
 use crate::cells::paths::CellRelativePathBuf;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 
-#[derive(thiserror::Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 #[error("attempted to strip prefix of two CellPath with different cell names `{0}` and `{1}`")]
 struct StripPrefixError(CellName, CellName);
 

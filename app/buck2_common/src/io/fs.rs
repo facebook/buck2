@@ -26,7 +26,6 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use compact_str::CompactString;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
-use thiserror::Error;
 use tokio::sync::Semaphore;
 
 use crate::cas_digest::CasDigestConfig;
@@ -59,7 +58,7 @@ impl FsIoProvider {
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum ReadSymlinkAtExactPathError {
     #[error("The path does not exist")]
     DoesNotExist,
@@ -89,7 +88,7 @@ impl FsIoProvider {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum ReadDirError {
     #[error("File name `{0:?}` is not UTF-8")]
     NotUtf8(OsString),

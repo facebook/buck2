@@ -18,7 +18,6 @@ use dupe::Dupe;
 use serde::Serialize;
 use serde::Serializer;
 use static_assertions::assert_eq_size;
-use thiserror::Error;
 
 use crate::ascii_char_set::AsciiCharSet;
 use crate::configuration::data::ConfigurationData;
@@ -32,7 +31,7 @@ use crate::target::label::TargetLabel;
 )]
 pub struct ProviderName(String);
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 #[error(
     "Invalid provider name `{}`. Inner providers names can only contain non-empty alpha numeric characters, and symbols `,`, '=', `-`, `/`, `+` and `_`. No other characters are allowed.",
     _0

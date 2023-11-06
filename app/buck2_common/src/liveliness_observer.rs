@@ -11,11 +11,10 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use dupe::Dupe;
-use thiserror::Error;
 use tokio::sync::OwnedRwLockWriteGuard;
 use tokio::sync::RwLock;
 
-#[derive(Debug, Error, Copy, Clone, Dupe)]
+#[derive(Debug, buck2_error::Error, Copy, Clone, Dupe)]
 #[error("LivelinessObserver reports this session is shutting down")]
 struct NotAlive;
 

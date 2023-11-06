@@ -29,7 +29,7 @@ use crate::configuration::constraints::ConstraintKey;
 use crate::configuration::constraints::ConstraintValue;
 use crate::configuration::hash::ConfigurationHash;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum ConfigurationError {
     #[error(
         "Attempted to access the configuration data for the {0} platform. \
@@ -45,7 +45,7 @@ enum ConfigurationError {
     UnspecifiedExec,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum ConfigurationLookupError {
     #[error("
     Could not find configuration `{0}`. Configuration lookup by string requires

@@ -13,7 +13,6 @@ use allocative::Allocative;
 use dupe::Dupe;
 use indent_write::indentable::Indentable;
 use itertools::Itertools;
-use thiserror::Error;
 
 use crate::configuration::compatibility::IncompatiblePlatformReason;
 use crate::configuration::compatibility::IncompatiblePlatformReasonCause;
@@ -143,7 +142,7 @@ impl std::fmt::Display for ExecutionPlatformIncompatibleReason {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum ExecutionPlatformError {
     // .indented() losing the alternate flag that we want to use to format the reason so we need to explicitly do that.
     #[error("No compatible execution platform.\n{}", .0.iter().map(|(id, reason)| format!("  `{}` skipped because:\n{}", id, format!("{:#}", reason).indented("    "))).join("\n"))]

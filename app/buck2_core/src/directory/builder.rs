@@ -12,7 +12,6 @@ use derivative::Derivative;
 use either::Either;
 use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
-use thiserror::Error;
 
 use super::Directory;
 use super::DirectoryData;
@@ -29,7 +28,7 @@ use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::file_name::FileNameBuf;
 use crate::fs::paths::IntoFileNameBufIterator;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum DirectoryInsertError {
     #[error("Path is empty")]
     EmptyPath,
@@ -38,13 +37,13 @@ pub enum DirectoryInsertError {
     CannotTraverseLeaf { path: PathAccumulator },
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum DirectoryMkdirError {
     #[error("Mkdir conflicts with an existing leaf at path: `{}`", .path)]
     CannotTraverseLeaf { path: PathAccumulator },
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum DirectoryMergeError {
     #[error("Merge conflicts with an existing leaf at path: `{}`", .path)]
     CannotTraverseLeaf { path: PathAccumulator },

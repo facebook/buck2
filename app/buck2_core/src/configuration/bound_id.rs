@@ -12,7 +12,7 @@ use anyhow::Context;
 use crate::configuration::bound_label::BoundConfigurationLabel;
 use crate::configuration::hash::ConfigurationHash;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum BoundConfigurationIdError {
     #[error("Bound configuration id must contain a hash, got: `{0}`")]
     MissingHash(String),

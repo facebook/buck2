@@ -14,7 +14,7 @@ use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
 
 use crate::ignores::ignore_set::IgnoreSet;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum FileOpsError {
     #[error("Tried to read ignored dir `{0}` (reason: {1}).")]
     ReadIgnoredDir(String, String),

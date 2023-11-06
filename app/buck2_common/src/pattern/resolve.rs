@@ -23,7 +23,7 @@ use indexmap::IndexMap;
 use crate::file_ops::FileOps;
 use crate::pattern::package_roots::find_package_roots;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum ResolvedPatternError {
     #[error("Expecting {0} pattern, got `{1}`")]
     InvalidPattern(&'static str, String),

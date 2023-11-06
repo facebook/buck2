@@ -14,7 +14,7 @@ use crate::cells::CellAliasResolver;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::package::PackageLabel;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum ParsePackageError {
     #[error("Package should contain `//`: `{0}`")]
     NoSlashSlash(String),

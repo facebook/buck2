@@ -20,7 +20,7 @@ use crate::cells::nested::NestedCells;
 use crate::cells::CellAliasResolver;
 use crate::fs::paths::file_name::FileNameBuf;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum CellInstanceError {
     #[error("Inconsistent cell name: `{0}` in instance, but `{1}` in alias resolver")]
     InconsistentCellName(CellName, CellName),

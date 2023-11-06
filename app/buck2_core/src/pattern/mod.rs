@@ -60,7 +60,7 @@ use crate::target::name::TargetName;
 use crate::target::name::TargetNameRef;
 use crate::target_aliases::TargetAliasResolver;
 
-#[derive(thiserror::Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum TargetPatternParseError {
     #[error("Expected a `:`, a trailing `/...` or the literal `...`.")]
     UnexpectedFormat,
@@ -901,7 +901,7 @@ where
     }
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum ResolveTargetAliasError {
     #[error("Error dereferencing alias `{}` -> `{}`", target, alias)]
     ErrorDereferencing { target: String, alias: String },

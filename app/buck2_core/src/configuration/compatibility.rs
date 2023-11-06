@@ -16,12 +16,11 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use thiserror::Error;
 
 use crate::target::configured_target_label::ConfiguredTargetLabel;
 use crate::target::label::TargetLabel;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum CompatibilityErrors {
     #[error("{0}")]
     TargetIncompatible(IncompatiblePlatformReason),

@@ -34,7 +34,7 @@ impl WorkingDir {
     pub fn current_dir() -> anyhow::Result<WorkingDir> {
         let current_dir = env::current_dir()?;
 
-        #[derive(Debug, thiserror::Error)]
+        #[derive(Debug, buck2_error::Error)]
         enum CurrentDirError {
             #[error("std::env::current_dir returns non-canonical path: `{0}` -> `{1}`")]
             NotCanonical(PathBuf, PathBuf),

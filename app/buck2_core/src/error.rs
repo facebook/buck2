@@ -17,7 +17,6 @@ use std::sync::OnceLock;
 use anyhow::Context;
 use arc_swap::ArcSwapOption;
 use starlark_map::small_set::SmallSet;
-use thiserror::Error;
 
 use crate::env_helper::EnvHelper;
 use crate::is_open_source;
@@ -273,11 +272,11 @@ impl HardErrorConfigHolder {
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 #[error("Invalid hard error config: `{0}`")]
 struct InvalidHardErrorConfig(String);
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum InvalidSoftError {
     #[error("Invalid category, must be lower_snake_case, got `{0}`")]
     InvalidCategory(String),

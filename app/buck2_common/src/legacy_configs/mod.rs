@@ -43,14 +43,13 @@ use itertools::Itertools;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use starlark_map::sorted_map::SortedMap;
-use thiserror::Error;
 
 use crate::legacy_configs::cells::BuckConfigBasedCells;
 use crate::legacy_configs::view::LegacyBuckConfigView;
 use crate::legacy_configs::view::LegacyBuckConfigsView;
 use crate::target_aliases::BuckConfigTargetAliasResolver;
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 pub(crate) enum ConfigError {
     #[error("Expected line of the form `key = value` but key was empty. Line was `{0}`")]
     EmptyKey(String),
@@ -346,7 +345,7 @@ struct CellResolutionState<'a> {
     cell_resolver: OnceCell<CellResolver>,
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum ConfigArgumentParseError {
     #[error("Could not find section separator (`.`) in pair `{0}`")]
     NoSectionDotSeparator(String),

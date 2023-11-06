@@ -16,7 +16,7 @@ use once_cell::sync::Lazy;
 
 use crate::configuration::data::ConfigurationData;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum ConfigurationError {
     #[error("`ConfigurationPair` has unexpected `exec_cfg`")]
     HasExecCfg,

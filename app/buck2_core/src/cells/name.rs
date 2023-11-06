@@ -18,7 +18,7 @@ use fnv::FnvHasher;
 use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum CellNameError {
     #[error("Cell name must be non-empty")]
     Empty,

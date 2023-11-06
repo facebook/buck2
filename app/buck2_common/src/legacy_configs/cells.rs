@@ -40,7 +40,7 @@ use crate::legacy_configs::LegacyBuckConfigs;
 use crate::legacy_configs::LegacyConfigCmdArg;
 use crate::legacy_configs::MainConfigFile;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum CellsError {
     #[error(
         "Repository root buckconfig must have `[repositories]` section with a pointer to itself \

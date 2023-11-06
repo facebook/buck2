@@ -65,13 +65,12 @@ use more_futures::cancellation::CancellationContext;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
-use thiserror::Error;
 
 use crate::calculation::ConfiguredGraphCycleDescriptor;
 use crate::configuration::calculation::resolve_toolchain_constraints_from_constraints;
 use crate::configuration::calculation::ConfigurationCalculation;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum NodeCalculationError {
     #[error("expected `{0}` attribute to be a list but got `{1}`")]
     TargetCompatibleNotList(String, String),
@@ -111,7 +110,7 @@ async fn legacy_execution_platform(
     )
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum ToolchainDepError {
     #[error("Can't find toolchain_dep execution platform using configuration `{0}`")]
     ToolchainDepMissingPlatform(ConfigurationData),
@@ -123,7 +122,7 @@ enum ToolchainDepError {
     ToolchainTransitionDep(TargetLabel),
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum PluginDepError {
     #[error("Plugin dep `{0}` is a toolchain rule")]
     PluginDepIsToolchainRule(TargetLabel),

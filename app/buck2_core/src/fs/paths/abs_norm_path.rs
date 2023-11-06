@@ -22,7 +22,6 @@ use relative_path::RelativePath;
 use serde::de::Error;
 use serde::Deserialize;
 use serde::Serialize;
-use thiserror::Error;
 
 use crate::fs::paths::abs_path::AbsPath;
 use crate::fs::paths::abs_path::AbsPathBuf;
@@ -784,14 +783,14 @@ fn verify_abs_path(path: &AbsPath) -> anyhow::Result<()> {
 }
 
 /// Errors from 'AbsPath' creation
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum AbsNormPathError {
     #[error("expected a normalized path, but found a non-normalized path instead: `{0}`")]
     PathNotNormalized(AbsPathBuf),
 }
 
 /// Errors from normalizing paths
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum PathNormalizationError {
     #[error(
         "no such path: normalizing `{}` requires the parent directory of the root of `{}`",

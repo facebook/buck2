@@ -19,9 +19,8 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::project::ProjectRoot;
 use once_cell::sync::Lazy;
-use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum BuckCliError {
     #[error(
         "Couldn't find a buck project root for directory `{0}`. Expected to find a .buckconfig file."

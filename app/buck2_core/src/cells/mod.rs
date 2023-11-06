@@ -152,7 +152,6 @@ use gazebo::prelude::*;
 use instance::CellInstance;
 use itertools::Itertools;
 use sequence_trie::SequenceTrie;
-use thiserror::Error;
 
 use crate::buck_path::path::BuckPathRef;
 use crate::cells::alias::CellAlias;
@@ -173,7 +172,7 @@ use crate::fs::project_rel_path::ProjectRelativePathBuf;
 use crate::package::PackageLabel;
 
 /// Errors from cell creation
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum CellError {
     #[error("Cell paths `{1}` and `{2}` had the same alias `{0}`.")]
     DuplicateAliases(NonEmptyCellAlias, CellRootPathBuf, CellRootPathBuf),

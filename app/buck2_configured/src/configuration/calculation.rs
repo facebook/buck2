@@ -43,12 +43,11 @@ use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
 use more_futures::cancellation::CancellationContext;
-use thiserror::Error;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::execution_platform_registration_info::FrozenExecutionPlatformRegistrationInfo;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum ConfigurationError {
     #[error("Expected a ConfigurationInfo provider from `{0}`.")]
     MissingConfigurationInfoProvider(TargetLabel),

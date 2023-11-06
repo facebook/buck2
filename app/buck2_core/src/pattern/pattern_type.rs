@@ -24,7 +24,7 @@ use crate::provider::label::ProvidersName;
 use crate::target::label::TargetLabel;
 use crate::target::name::TargetNameRef;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum PatternTypeError {
     #[error("Expecting target pattern, without providers")]
     ExpectingTargetNameWithoutProviders,

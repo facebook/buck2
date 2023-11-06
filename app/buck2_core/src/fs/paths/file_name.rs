@@ -19,14 +19,13 @@ use compact_str::CompactString;
 use derive_more::Display;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
-use thiserror::Error;
 
 use crate::cells::paths::CellRelativePath;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::package::package_relative_path::PackageRelativePath;
 
 /// Errors from ForwardRelativePath creation
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum FileNameError {
     #[error("file name is empty")]
     Empty,

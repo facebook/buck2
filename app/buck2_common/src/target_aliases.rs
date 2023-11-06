@@ -25,7 +25,7 @@ use crate::dice::cells::HasCellResolver;
 use crate::legacy_configs::dice::HasLegacyConfigs;
 use crate::legacy_configs::LegacyBuckConfig;
 
-#[derive(thiserror::Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum AliasResolutionError {
     #[error("No [alias] section in buckconfig")]
     MissingAliasSection,

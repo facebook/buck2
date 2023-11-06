@@ -16,7 +16,7 @@ use gazebo::prelude::StrExt;
 
 pub const BUCK_AUTH_TOKEN_HEADER: &str = "x-buck-auth-token";
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum ConnectionTypeError {
     #[error("Failed to parse correct endpoint information {0}")]
     ParseError(String),

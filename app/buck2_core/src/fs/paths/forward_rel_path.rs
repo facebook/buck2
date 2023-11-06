@@ -24,7 +24,6 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use smallvec::SmallVec;
-use thiserror::Error;
 
 use crate::fs::fs_util;
 use crate::fs::paths::abs_norm_path::AbsNormPath;
@@ -863,7 +862,7 @@ impl Clone for Box<ForwardRelativePath> {
 }
 
 /// Errors from ForwardRelativePath creation
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum ForwardRelativePathError {
     #[error("expected a relative path but got an absolute path instead: `{0}`")]
     PathNotRelative(String),
@@ -876,7 +875,7 @@ enum ForwardRelativePathError {
 }
 
 /// Error from 'strip_prefix'
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 #[error("`{0}` is not a base of `{1}`")]
 pub struct StripPrefixError(String, String);
 

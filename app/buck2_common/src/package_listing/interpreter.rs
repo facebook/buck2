@@ -23,7 +23,6 @@ use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use starlark_map::sorted_set::SortedSet;
 use starlark_map::sorted_vec::SortedVec;
-use thiserror::Error;
 
 use crate::file_ops::FileOps;
 use crate::file_ops::SimpleDirEntry;
@@ -31,7 +30,7 @@ use crate::find_buildfile::find_buildfile;
 use crate::package_listing::listing::PackageListing;
 use crate::package_listing::resolver::PackageListingResolver;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum PackageListingError {
     #[error("Expected `{0}` to be a package directory, but there was no buildfile there, expected one of `{}`", .1.join("`, `"))]
     NoBuildFile(CellPath, Vec<FileNameBuf>),

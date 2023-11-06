@@ -31,7 +31,6 @@ use num_enum::TryFromPrimitive;
 use once_cell::sync::Lazy;
 use sha1::Sha1;
 use sha2::Sha256;
-use thiserror::Error;
 
 /// The number of bytes required by a SHA-1 hash
 pub const SHA1_SIZE: usize = 20;
@@ -133,7 +132,7 @@ pub enum DigestAlgorithmKind {
     Blake3Keyed,
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 #[error("Invalid Digest algorithm: `{0}`")]
 pub struct InvalidDigestAlgorithmKind(String);
 
@@ -343,7 +342,7 @@ impl CasDigestConfigInner {
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 pub enum CasDigestConfigError {
     #[error("At least one algorithm must be enabled")]
     NotConfigured,
@@ -636,7 +635,7 @@ pub struct TinyDigest<'a, Kind> {
     of: &'a CasDigest<Kind>,
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 pub enum CasDigestParseError {
     #[error("The digest is missing a size separator, it should look like `HASH:SIZE`")]
     MissingSizeSeparator,

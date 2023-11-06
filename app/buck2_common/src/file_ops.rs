@@ -31,7 +31,7 @@ use crate::cas_digest::TrackedCasDigest;
 use crate::cas_digest::TrackedCasDigestKind;
 use crate::external_symlink::ExternalSymlink;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum FileOpsError {
     #[error("File not found: `{0}`")]
     FileNotFound(String),

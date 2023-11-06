@@ -97,7 +97,7 @@ pub async fn get_channel_tcp(socket_addr: Ipv4Addr, port: u16) -> anyhow::Result
         .with_context(|| format!("failed to connect to port {}", port))
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 pub enum RetryError<E> {
     #[error("Timed out after {0:.2}s")]
     Timeout(f64),

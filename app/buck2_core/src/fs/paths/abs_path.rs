@@ -18,11 +18,10 @@ use std::str::FromStr;
 use allocative::Allocative;
 use derive_more::Display;
 use ref_cast::RefCast;
-use thiserror::Error;
 
 use crate::fs::cwd;
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum AbsPathError {
     #[error("expected an absolute path but got a relative path instead: `{0}`")]
     PathNotAbsolute(PathBuf),

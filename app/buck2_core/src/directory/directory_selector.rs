@@ -8,7 +8,6 @@
  */
 
 use starlark_map::small_map::SmallMap;
-use thiserror::Error;
 
 use super::Directory;
 use super::DirectoryBuilder;
@@ -26,7 +25,7 @@ use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::file_name::FileNameBuf;
 use crate::fs::paths::IntoFileNameBufIterator;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum DirectorySearchError<L> {
     #[error("Search traverses a leaf")]
     CannotTraverseLeaf { leaf: L },
@@ -39,7 +38,7 @@ impl<L> DirectorySearchError<L> {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum DirectoryFilterError {
     #[error("Filter traverses a leaf")]
     CannotTraverseLeaf,
