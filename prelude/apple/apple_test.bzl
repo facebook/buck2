@@ -8,7 +8,7 @@
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_library.bzl", "AppleLibraryAdditionalParams", "apple_library_rule_constructor_params_and_swift_providers")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-# @oss-disable: load("@prelude//apple/meta_only:apple_test_re_capabilities.bzl", "apple_test_re_capabilities") 
+# @oss-disable: load("@prelude//apple/meta_only:apple_test_re_capabilities.bzl", "ios_test_re_capabilities") 
 # @oss-disable: load("@prelude//apple/meta_only:apple_test_re_use_case.bzl", "apple_test_re_use_case") 
 load("@prelude//apple/swift:swift_compilation.bzl", "get_swift_anonymous_targets", "uses_explicit_modules")
 load(
@@ -203,7 +203,7 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_
         local_enabled = False
         remote_enabled = True
         # @oss-disable: requires_ios_booted_simulator = ctx.attrs.test_host_app != None or ctx.attrs.ui_test_target_app != None 
-        # @oss-disable: remote_execution_properties = apple_test_re_capabilities(use_unbooted_simulator = not requires_ios_booted_simulator) 
+        # @oss-disable: remote_execution_properties = ios_test_re_capabilities(use_unbooted_simulator = not requires_ios_booted_simulator) 
         # @oss-disable: remote_execution_use_case = apple_test_re_use_case() 
         remote_execution_properties = None # @oss-enable
         remote_execution_use_case = None # @oss-enable
