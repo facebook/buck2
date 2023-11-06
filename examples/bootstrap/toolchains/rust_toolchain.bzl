@@ -29,7 +29,7 @@ def _rust_toolchain_impl(ctx):
     return [
         DefaultInfo(),
         RustToolchainInfo(
-            clippy_driver = "clippy-driver",
+            clippy_driver = RunInfo(args = ["clippy-driver"]),
             compiler = ctx.attrs.compiler[RunInfo],
             default_edition = ctx.attrs.default_edition,
             extern_html_root_url_prefix = ctx.attrs.extern_html_root_url_prefix,
@@ -37,7 +37,7 @@ def _rust_toolchain_impl(ctx):
             rustc_action = ctx.attrs.rustc_action[RunInfo],
             rustc_flags = ctx.attrs.rustc_flags,
             rustc_target_triple = ctx.attrs.rustc_target_triple,
-            rustdoc = "rustdoc",
+            rustdoc = RunInfo(args = ["rustdoc"]),
             rustdoc_flags = ctx.attrs.rustdoc_flags,
             rustdoc_test_with_resources = ctx.attrs.rustdoc_test_with_resources[RunInfo],
         ),
