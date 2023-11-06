@@ -308,7 +308,11 @@ async def main() -> int:
 
         if shutdown:
             # We got what we want so shut down early
-            proc.terminate()
+            try:
+                proc.terminate()
+            except ProcessLookupError:
+                # The process already terminated on its own.
+                pass
             await proc.wait()
             res = 0
         else:
