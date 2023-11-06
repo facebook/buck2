@@ -61,6 +61,7 @@ pub use buck2_data::error::ErrorType;
 /// ## Example
 ///
 /// ```rust
+/// # #![feature(error_generic_member_access)]
 /// #[derive(Debug, buck2_error::Error)]
 /// #[error("My error type")]
 /// struct MyError;
@@ -73,29 +74,19 @@ pub use buck2_error_derive::ErrorForReexport as Error;
 
 #[doc(hidden)]
 pub mod __for_macro {
-    use std::sync::Arc;
+    // Re-export this as a type alias so that crates can avoid having to specify
+    // `#![feature(provide_any)]`
+    pub type Demand<'a> = std::any::Demand<'a>;
 
     pub use anyhow;
     pub use thiserror;
 
     pub use crate::any::ProvidableMetadata;
-    use crate::error::ErrorKind;
-    use crate::root::ErrorRoot;
 
-    pub fn new_with_macro_options<E: std::error::Error + Send + Sync + 'static>(
-        e: E,
-        t: Option<crate::ErrorType>,
-        c: Option<crate::Category>,
-        file: &'static str,
-        source_location_extra: &'static str,
-    ) -> crate::Error {
-        let source_location = crate::source_location::from_file(file, Some(source_location_extra));
-        let e = crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new(
-            e,
-            None,
-            t,
-            source_location,
-        ))));
-        if let Some(c) = c { e.context(c) } else { e }
+    pub fn provide_value<'a, 'b, T: 'static>(
+        demand: &'b mut Demand<'a>,
+        val: T,
+    ) -> &'b mut Demand<'a> {
+        Demand::provide_value(demand, val)
     }
 }

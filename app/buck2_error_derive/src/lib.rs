@@ -216,9 +216,6 @@ fn derive_error_impl(mut input: syn::DeriveInput, krate: syn::Path) -> syn::Resu
     // Rust is a function of the type definition only, ie that types with identical definition have
     // identical layout. This is true today, but is not guaranteed. If it ever changes, we will need
     // to start requiring `#[repr(C)]` or find a different way to implement this.
-    let val_transmute = quote::quote! {
-        ::core::mem::transmute::<#outer, #inner>
-    };
     let lifetime = quote::quote! {
         'generated_lifetime_name
     };
@@ -239,29 +236,41 @@ fn derive_error_impl(mut input: syn::DeriveInput, krate: syn::Path) -> syn::Resu
             #derive_attribute
             #input_for_inner
 
-            impl #impl_generics ::core::convert::From<#outer #type_generics> for #krate::Error
+            impl #impl_generics ::std::error::Error for #outer #type_generics
             #where_clauses
             {
-                fn from(val: #outer #type_generics) -> Self {
+                fn source<#lifetime>(&#lifetime self) -> Option<&(dyn ::std::error::Error + 'static)> {
+                    let val = unsafe { #ref_transmute(self) };
+                    <_ as ::std::error::Error>::source(val)
+                }
+
+                fn description<#lifetime>(&#lifetime self) -> &str {
+                    let val = unsafe { #ref_transmute(self) };
+                    <_ as ::std::error::Error>::description(val)
+                }
+
+                fn cause<#lifetime>(&#lifetime self) -> Option<&dyn ::std::error::Error> {
+                    let val = unsafe { #ref_transmute(self) };
+                    <_ as ::std::error::Error>::cause(val)
+                }
+
+                fn provide<#lifetime>(&#lifetime self, demand: &mut #krate::__for_macro::Demand<#lifetime>) {
+                    let val = self;
                     #[allow(unused_mut)]
                     let mut typ = ::core::option::Option::None;
                     #[allow(unused_mut)]
                     let mut category = ::core::option::Option::None;
-                    let file = ::core::file!();
                     let source_location_extra;
                     #option_assignments
-                    let val: #inner = unsafe { #val_transmute(val) };
-                    #krate::__for_macro::new_with_macro_options(val, typ, category, file, source_location_extra)
-                }
-            }
-
-            impl #impl_generics ::core::convert::From<#outer #type_generics>
-            for #krate::__for_macro::anyhow::Error
-            #where_clauses
-            {
-                fn from(val: #outer #type_generics) -> Self {
-                    let val: #krate::Error = ::core::convert::From::from(val);
-                    ::core::convert::Into::into(val)
+                    #krate::__for_macro::provide_value(demand, #krate::__for_macro::ProvidableMetadata {
+                        category,
+                        typ,
+                        source_file: ::core::file!(),
+                        source_location_extra: ::core::option::Option::Some(source_location_extra),
+                        check_error_type: #krate::__for_macro::ProvidableMetadata::gen_check_error_type::<Self>(),
+                    });
+                    let val = unsafe { #ref_transmute(self) };
+                    <_ as ::std::error::Error>::provide(val, demand)
                 }
             }
 
