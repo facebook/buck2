@@ -34,7 +34,7 @@ pub struct ForkserverClient {
     inner: Arc<ForkserverClientInner>,
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum ForkserverError {
     #[error("Error on Forkserver wait()")]
     WaitError(#[source] io::Error),
