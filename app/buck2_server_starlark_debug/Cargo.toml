@@ -14,7 +14,6 @@ itertools = { workspace = true }
 num_cpus = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tracing = { workspace = true }
@@ -25,6 +24,7 @@ starlark = { workspace = true }
 buck2_cli_proto = { workspace = true }
 buck2_core = { workspace = true }
 buck2_data = { workspace = true }
+buck2_error = { workspace = true }
 buck2_events = { workspace = true }
 buck2_interpreter = { workspace = true }
 buck2_server_ctx = { workspace = true }

@@ -126,7 +126,7 @@ use crate::heartbeat_guard::HeartbeatGuard;
 use crate::host_info;
 use crate::snapshot::SnapshotCollector;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum DaemonCommunicationError {
     #[error("Got invalid working directory `{0}`")]
     InvalidWorkingDirectory(String),

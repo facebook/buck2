@@ -39,7 +39,7 @@ use crate::commands::targets::fmt::create_formatter;
 use crate::commands::targets::resolve_alias::targets_resolve_aliases;
 use crate::commands::targets::streaming::targets_streaming;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum TargetsCommandError {
     #[error("Missing field in proto request (internal error)")]
     MissingField,

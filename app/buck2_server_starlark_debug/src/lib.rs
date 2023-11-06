@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+#![feature(error_generic_member_access)]
 #![allow(rustdoc::private_intra_doc_links)]
 
 //! Provides the (daemon-side) support for buck2's starlark debugging.

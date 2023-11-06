@@ -85,7 +85,7 @@ use starlark_map::small_map::SmallMap;
 use tokio::sync::mpsc;
 use tonic::transport::Channel;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum InstallError {
     #[error("Target {1}:{0} cannot be installed as it does not expose an InstallInfo provider")]
     NoInstallProvider(TargetName, PackageLabel),

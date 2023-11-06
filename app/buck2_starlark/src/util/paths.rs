@@ -26,9 +26,8 @@ use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_interpreter::paths::path::OwnedStarlarkPath;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use dupe::Dupe;
-use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum StarlarkFilesError {
     #[error("File not found, `{0}`")]
     FileNotFound(ProjectRelativePathBuf),

@@ -7,10 +7,8 @@
  * of this source tree.
  */
 
-use thiserror::Error;
-
 /// Errors from buck's starlark debugger
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub(crate) enum StarlarkDebuggerError {
     #[error("starlark debugger has not yet implemented this functionality")]
     Unimplemented,
@@ -19,7 +17,7 @@ pub(crate) enum StarlarkDebuggerError {
 }
 
 /// Internal errors from buck's starlark debugger
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub(crate) enum StarlarkDebuggerInternalError {
     #[error("Internal error: debbugger server shutdown unexpectedly")]
     UnexpectedDebuggerShutdown,

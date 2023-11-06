@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![feature(error_generic_member_access)]
+
 //! Implementation of several server commands.
 
 #![feature(async_closure)]

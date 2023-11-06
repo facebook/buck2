@@ -17,7 +17,7 @@ use futures::Stream;
 use pin_project::pin_project;
 use tonic::Status;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum StreamingRequestError {
     #[error("Request returned error status: {0}")]
     GrpcStatus(Status),

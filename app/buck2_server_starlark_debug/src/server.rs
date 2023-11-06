@@ -36,7 +36,6 @@ use starlark::debug::VariablePath;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
 use starlark::syntax::DialectTypes;
-use thiserror::Error;
 use tokio::select;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
@@ -81,7 +80,7 @@ fn capabilities() -> serde_json::Value {
     })
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum DebuggerError {
     #[error("SetBreakpointsArguments invalid: {0:?}")]
     InvalidSetBreakpoints(dap::SetBreakpointsArguments),

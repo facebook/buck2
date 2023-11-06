@@ -20,7 +20,6 @@ rust_library(
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:parking_lot",
         "fbsource//third-party/rust:pin-project",
-        "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tonic",
         "fbsource//third-party/rust:tracing",

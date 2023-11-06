@@ -38,7 +38,7 @@ use regex::RegexSet;
 use crate::json::QuotedJson;
 use crate::target_hash::BuckTargetHash;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum FormatterError {
     #[error("Attributes can only be specified when output format is JSON (internal error)")]
     AttrsOnlyWithJson,

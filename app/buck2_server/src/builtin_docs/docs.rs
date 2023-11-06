@@ -54,7 +54,7 @@ use starlark::typing::Ty;
 use super::bxl_docs::get_builtin_bxl_docs;
 use crate::builtin_docs::markdown::generate_markdown_files;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum DocsError {
     #[error("Unknown format requested (internal error)")]
     UnknownFormat,

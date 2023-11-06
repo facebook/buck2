@@ -9,7 +9,7 @@
 
 //! Server-side implementation of `buck2 targets --resolve-alias` command.
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum ResolveAliasError {
     #[error("`output_format` not set (internal error)")]
     OutputFormatNotSet,

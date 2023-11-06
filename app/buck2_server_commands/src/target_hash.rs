@@ -235,7 +235,7 @@ pub struct TargetHashes {
     target_mapping: HashMap<TargetLabel, buck2_error::Result<BuckTargetHash>>,
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum TargetHashError {
     #[error(
         "Found a dependency `{0}` of target `{1}` which has not been hashed yet. This may indicate a dependency cycle in the unconfigured graph."

@@ -44,7 +44,6 @@ use itertools::Either;
 use itertools::Itertools;
 use more_futures::spawn::spawn_cancellable;
 use starlark_map::small_set::SmallSet;
-use thiserror::Error;
 use tokio::sync::Semaphore;
 
 use crate::commands::targets::fmt::Stats;
@@ -267,7 +266,7 @@ fn stream_packages<T: PatternType>(
         .chain(find_package_roots_stream(dice, recursive_paths).map(|x| Ok((x?, PackageSpec::All))))
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum TargetsError {
     #[error(
         "Unknown targets {} from package `{0}`.",

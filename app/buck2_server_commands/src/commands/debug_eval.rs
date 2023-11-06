@@ -22,7 +22,7 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use futures::future;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum DebugEvalError {
     #[error("Can only eval `.bzl` or `.bxl`, but got `{0}`")]
     InvalidImportPath(CellPath),
