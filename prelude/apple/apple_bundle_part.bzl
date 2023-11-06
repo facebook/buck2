@@ -223,14 +223,26 @@ def _bundle_spec_json(ctx: AnalysisContext, parts: list[AppleBundlePart]) -> Art
 
     return ctx.actions.write_json("bundle_spec.json", specs)
 
+def _get_codesign_type_from_attribs(ctx: AnalysisContext) -> [CodeSignType, None]:
+    # Target-level attribute takes highest priority
+    if ctx.attrs.codesign_type:
+        return CodeSignType(ctx.attrs.codesign_type)
+
+    # Config-based global default
+    if ctx.attrs._codesign_type:
+        return CodeSignType(ctx.attrs._codesign_type)
+    return None
+
 def _detect_codesign_type(ctx: AnalysisContext, skip_adhoc_signing: bool) -> CodeSignType:
     def compute_codesign_type():
         if ctx.attrs.extension not in ["app", "appex", "xctest"]:
             # Only code sign application bundles, extensions and test bundles
             return CodeSignType("skip")
 
-        if ctx.attrs._codesign_type:
-            return CodeSignType(ctx.attrs._codesign_type)
+        codesign_type_attrib = _get_codesign_type_from_attribs(ctx)
+        if codesign_type_attrib != None:
+            return codesign_type_attrib
+
         sdk_name = get_apple_sdk_name(ctx)
         is_ad_hoc_sufficient = get_apple_sdk_metadata_for_sdk_name(sdk_name).is_ad_hoc_code_sign_sufficient
         return CodeSignType("adhoc" if is_ad_hoc_sufficient else "distribution")
