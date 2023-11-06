@@ -13,11 +13,13 @@ use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_event_observer::display::display_action_error;
 use buck2_event_observer::display::TargetDisplayOptions;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug)]
 pub struct ActionError {
     pub event: buck2_data::ActionError,
     pub owner: BaseDeferredKey,
 }
+
+impl std::error::Error for ActionError {}
 
 impl fmt::Display for ActionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

@@ -15,7 +15,6 @@ use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_util::cycle_detector::CycleDescriptor;
 use derive_more::Display;
 use gazebo::prelude::VecExt;
-use thiserror::Error;
 
 use crate::interpreter::dice_calculation_delegate::testing::EvalImportKey;
 
@@ -28,10 +27,12 @@ pub enum LoadCycleKey {
     Module(OwnedStarlarkModulePath),
 }
 
-#[derive(Debug, Error, Clone)]
+#[derive(Debug, Clone)]
 pub struct LoadCycleError {
     cycle: Arc<Vec<OwnedStarlarkModulePath>>,
 }
+
+impl std::error::Error for LoadCycleError {}
 
 impl Display for LoadCycleError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

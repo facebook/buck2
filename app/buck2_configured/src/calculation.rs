@@ -24,7 +24,6 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
 use gazebo::prelude::*;
-use thiserror::Error;
 
 use crate::configuration::calculation::ConfigurationCalculation;
 use crate::nodes::calculation::get_execution_platform_toolchain_dep;
@@ -80,10 +79,12 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
     }
 }
 
-#[derive(Error, Debug, Clone, Dupe)]
+#[derive(Debug, Clone, Dupe)]
 pub struct ConfiguredGraphCycleError {
     cycle: Arc<Vec<ConfiguredGraphCycleKeys>>,
 }
+
+impl std::error::Error for ConfiguredGraphCycleError {}
 
 impl std::fmt::Display for ConfiguredGraphCycleError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

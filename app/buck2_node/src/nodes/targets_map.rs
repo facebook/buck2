@@ -25,7 +25,7 @@ use crate::nodes::unconfigured::TargetNode;
 pub enum TargetsMapRecordError {
     #[error(
         "Attempted to register target {0} twice, {}",
-        Self::format_call_stack_for_registered_target_twice(_1)
+        TargetsMapRecordError::format_call_stack_for_registered_target_twice(_1)
     )]
     RegisteredTargetTwice(TargetLabel, Option<String>),
 }
