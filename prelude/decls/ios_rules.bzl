@@ -994,6 +994,7 @@ swift_toolchain = prelude_rule(
             "sdk_dependencies_path": attrs.option(attrs.string(), default = None),
             "sdk_path": attrs.source(),
             "static_runtime_paths": attrs.list(attrs.string(), default = []),
+            "supports_relative_resource_dir": attrs.bool(default = False),
             "supports_swift_cxx_interoperability_mode": attrs.bool(default = False),
             "supports_swift_importing_obj_c_forward_declarations": attrs.bool(default = False),
             "supports_cxx_interop_requirement_at_import": attrs.bool(default = False),
