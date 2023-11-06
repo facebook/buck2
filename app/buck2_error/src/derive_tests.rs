@@ -76,3 +76,15 @@ pub struct GenericError<G>(G);
 fn test_generic_error() {
     let _e: crate::Error = GenericError(42).into();
 }
+
+/// Test that no unused fields warning is emitted.
+#[derive(buck2_error_derive::Error, Debug)]
+#[error("Unused")]
+pub struct WithField {
+    x: u8,
+}
+
+#[test]
+fn test_with_field() {
+    let _e: crate::Error = WithField { x: 42 }.into();
+}

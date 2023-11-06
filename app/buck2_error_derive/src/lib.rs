@@ -123,9 +123,20 @@ fn render_options(
 
 fn fields_as_pat(fields: &syn::Fields) -> proc_macro2::TokenStream {
     match fields {
-        syn::Fields::Named(_) => quote::quote! {
-            { .. }
-        },
+        syn::Fields::Named(fields) => {
+            // Because we always access the fields of the outer type by transmute, Rust thinks
+            // they're unused and issues a warning. Insert a dummy use here to silence it.
+            let fields = fields.named.iter().map(|field| {
+                let name = field.ident.as_ref().unwrap();
+                let underscore_name = syn::Ident::new(&format!("_{}", name), name.span());
+                quote::quote! {
+                    #name: #underscore_name
+                }
+            });
+            quote::quote! {
+                { #(#fields ,)* }
+            }
+        }
         syn::Fields::Unnamed(_) => quote::quote! {
             (..)
         },
@@ -150,7 +161,12 @@ fn generate_option_assignments(
                 )?;
             }
             let options = parse_attributes(&mut input.attrs, None)?;
-            Ok(render_options(options, krate, &name.to_string()))
+            let options = render_options(options, krate, &name.to_string());
+            let fields_as_pat = fields_as_pat(&data.fields);
+            Ok(quote::quote! {
+                match val { #name #fields_as_pat => (), };
+                #options
+            })
         }
         syn::Data::Enum(data) => {
             let variants = data
