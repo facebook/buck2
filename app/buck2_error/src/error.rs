@@ -148,7 +148,7 @@ impl Error {
         s
     }
 
-    pub fn downcast_ref<T: fmt::Display + fmt::Debug + Send + Sync + 'static>(&self) -> Option<&T> {
+    pub fn downcast_ref<T: StdError + Send + Sync + 'static>(&self) -> Option<&T> {
         self.iter_kinds().find_map(|kind| match kind {
             ErrorKind::Root(r) => r.downcast_ref(),
             ErrorKind::WithContext(ContextValue::Dyn(ctx), _) => {
@@ -216,6 +216,33 @@ mod tests {
         assert!(e.downcast_ref::<ContextA>().is_some());
         assert!(e.downcast_ref::<ContextB>().is_some());
         assert!(e.downcast_ref::<ContextC>().is_none());
+    }
+
+    #[derive(Debug, buck2_error_derive::Error)]
+    #[error("inner")]
+    struct Inner;
+
+    #[derive(Debug, buck2_error_derive::Error)]
+    #[error("outer")]
+    struct Outer(#[source] Inner);
+
+    #[test]
+    fn test_downcast_through_sources() {
+        let e: crate::Error = Inner.into();
+        assert!(e.downcast_ref::<Inner>().is_some());
+
+        let e: anyhow::Error = Inner.into();
+        let e: crate::Error = e.into();
+        assert!(e.downcast_ref::<Inner>().is_some());
+
+        let e: crate::Error = Outer(Inner).into();
+        assert!(e.downcast_ref::<Outer>().is_some());
+        assert!(e.downcast_ref::<Inner>().is_some());
+
+        let e: anyhow::Error = Outer(Inner).into();
+        let e: crate::Error = e.into();
+        assert!(e.downcast_ref::<Outer>().is_some());
+        assert!(e.downcast_ref::<Inner>().is_some());
     }
 
     #[test]

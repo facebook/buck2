@@ -111,10 +111,35 @@ impl ErrorRoot {
         Marc::ptr_eq(&self.inner, &other.inner)
     }
 
-    pub(crate) fn downcast_ref<T: fmt::Display + fmt::Debug + Send + Sync + 'static>(
-        &self,
-    ) -> Option<&T> {
-        self.inner.downcast_ref()
+    pub(crate) fn downcast_ref<T: StdError + Send + Sync + 'static>(&self) -> Option<&T> {
+        // We attempt to downcast using two different strategies. The second strategy below is to
+        // just walk the source chain of the error and try downcasting each one in turn. This works
+        // for almost everything, except for things added via `anyhow::Context`, since
+        // `anyhow::Context` produces source chains that don't correctly reflect the context type.
+        // To mitigate this, we first try a regular `anyhow::Error::downcast_ref`.
+        if let Some(e) = self.inner.downcast_ref::<T>() {
+            return Some(e);
+        }
+        // Occasionally when recovering a `buck2_error::Error` from an `anyhow::Error` or another
+        // type, we might wrap a `Marc<dyn StdError + Send + Sync + 'static>` in a `anyhow::Error`
+        // to be able to fit it into the `Marc<anyhow::Error>` that this type expects. That means
+        // that in order to recover correct downcasting, we need to "unwrap" that. This is a bit
+        // ugly - the alternative though would be to allow this type to store either a
+        // `Marc<anyhow::Error>` or a `Marc<dyn StdError + Send + Sync + 'static>`, which might be
+        // better? It's not clear though
+        let e: &(dyn StdError + 'static) = (*self.inner).as_ref();
+        let e = if let Some(e) = e.downcast_ref::<Marc<dyn StdError + Send + Sync + 'static>>() {
+            &**e
+        } else {
+            e
+        };
+        let mut cur = e;
+        loop {
+            if let Some(out) = cur.downcast_ref::<T>() {
+                return Some(out);
+            }
+            cur = cur.source()?;
+        }
     }
 
     pub(crate) fn id(&self) -> UniqueRootId {
