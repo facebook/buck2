@@ -12,7 +12,6 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use dice::DiceComputations;
 use starlark::values::OwnedFrozenValueTyped;
-use thiserror::Error;
 
 use crate::transition::starlark::FrozenTransition;
 
@@ -26,7 +25,7 @@ pub(crate) trait FetchTransition {
     ) -> buck2_error::Result<OwnedFrozenValueTyped<FrozenTransition>>;
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum FetchTransitionError {
     #[error("Transition object not found by id {:?}", _0)]
     NotFound(TransitionId),

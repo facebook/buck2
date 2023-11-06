@@ -44,7 +44,7 @@ use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum TransitionError {
     #[error("Transition must be assigned to a variable, e.g. `android_cpus = transition(...)`")]
     TransitionNotAssigned,

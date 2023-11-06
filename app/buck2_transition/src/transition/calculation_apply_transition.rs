@@ -45,13 +45,12 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::sorted_map::SortedMap;
-use thiserror::Error;
 
 use crate::coerced_attr::CoercedAttrResolveExt;
 use crate::transition::calculation_fetch_transition::FetchTransition;
 use crate::transition::starlark::FrozenTransition;
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum ApplyTransitionError {
     #[error("transition function not marked as `split` must return a `PlatformInfo`")]
     NonSplitTransitionMustReturnPlatformInfo,

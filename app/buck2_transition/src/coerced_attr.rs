@@ -16,7 +16,7 @@ use starlark::values::Heap;
 use starlark::values::Value;
 use starlark_map::small_map::SmallMap;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum CoercedAttrResolveError {
     #[error("Attribute cannot be converted to Starlark value: `{0}`")]
     AttrCannotBeConvertedToValue(String),

@@ -9,7 +9,6 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 derive_more = { workspace = true }
 itertools = { workspace = true }
-thiserror = { workspace = true }
 
 allocative = { workspace = true }
 dice = { workspace = true }
