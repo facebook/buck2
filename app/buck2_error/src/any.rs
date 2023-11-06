@@ -49,39 +49,39 @@ pub(crate) fn recover_crate_error(
     value: Marc<anyhow::Error>,
     source_location: Option<String>,
 ) -> crate::Error {
-    // Instead of just turning this into an error root, we will first check if this
-    // `anyhow::Error` was created from a `buck2_error::Error`. If so, we can recover the context in
-    // a structured way.
+    // Instead of just turning this into an error root, we will first check if this error has any
+    // information associated with it that would allow us to recover more structure.
     let mut context_stack = Vec::new();
-    let mut chain = value.chain();
+    let mut cur: Marc<dyn std::error::Error + 'static> = Marc::map(value.clone(), AsRef::as_ref);
     let base = loop {
-        match chain.next() {
-            None => {
-                // This error was not created from a `buck2_error::Error`, so we can't do anything
-                // smart
-                return crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new_anyhow(
-                    value,
-                    source_location,
-                ))));
-            }
-            Some(e) => {
-                if let Some(base) = e.downcast_ref::<CrateAsStdError>() {
-                    break base;
-                } else {
-                    context_stack.push(e);
-                }
-            }
+        // Handle the `cur` error
+        if let Some(base) = cur.downcast_ref::<CrateAsStdError>() {
+            break base.0.clone();
+        } else {
+            context_stack.push(cur.clone());
+        }
+        // Compute the next element in the source chain
+        if cur.source().is_none() {
+            // This error was not created from a `buck2_error::Error`, so we can't do anything
+            // smart
+            return crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new_anyhow(
+                value,
+                source_location,
+            ))));
+        } else {
+            // FIXME(JakobDegen): `Marc` should have `try_map` or some such so that we don't need to
+            // unwrap
+            cur = Marc::map(cur, |e| e.source().unwrap());
         }
     };
-    // We've discovered that this `anyhow::Error` has a cause chain that includes a
-    // `buck2_error::Error`. We'll try and recover a properly structured error by converting the
-    // part of the cause chain that's not in the base to context on the buck2_error error.
+    // We were able to convert the error into a `buck2_error::Error` in some non-trivial way. We'll
+    // now need to add back any context that is not included in the `base` buck2_error yet.
     // Unfortunately, we cannot detect whether the remainder of the error chain is actually
-    // associated with `.context` calls on the anyhow error or not. If it is, this will all work
+    // associated with `anyhow::Context::context` calls or not. If it is, this will all work
     // correctly. If not, we might get some whacky formatting. However, in order for this to go
-    // wrong, someone else has to have put an `anyhow::Error` into their custom error type,
-    // which they really shouldn't be doing anyway.
-    let mut e = base.0.clone();
+    // wrong, someone else has to have put an `anyhow::Error` into their custom error type, which
+    // they really shouldn't be doing anyway.
+    let mut e = base;
     for context in context_stack.into_iter().rev() {
         // Even for proper context objects, anyhow does not give us access to them directly. The
         // best we can do is turn them into strings.
