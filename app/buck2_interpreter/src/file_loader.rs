@@ -25,7 +25,7 @@ use starlark_map::ordered_map::OrderedMap;
 use crate::paths::module::OwnedStarlarkModulePath;
 use crate::paths::module::StarlarkModulePath;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum FileLoaderError {
     #[error("`native` in `prelude.bzl` must be a struct")]
     NativeMustBeStruct,

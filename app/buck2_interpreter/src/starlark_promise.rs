@@ -36,7 +36,6 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
-use thiserror::Error;
 
 /// A type that corresponds to a Rust promise.
 #[derive(
@@ -107,7 +106,7 @@ impl<'v> PromiseJoin<'v> {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum PromiseError {
     #[error("Can't .resolve on a promise produced with .map")]
     CantResolveMap,

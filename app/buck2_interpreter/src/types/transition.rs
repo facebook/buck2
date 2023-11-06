@@ -13,7 +13,7 @@ use buck2_core::configuration::transition::id::TransitionId;
 use starlark::any::ProvidesStaticType;
 use starlark::values::Value;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum TransitionError {
     #[error("cfg parameter is not a transition object: {}", _0)]
     WrongType(String),

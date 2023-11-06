@@ -36,7 +36,7 @@ use starlark_map::small_map::SmallMap;
 use crate::super_package::package_value::FrozenStarlarkPackageValue;
 use crate::super_package::package_value::StarlarkPackageValue;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum PackageFileExtraError {
     #[error("Wrong type of frozen package extra (internal error)")]
     WrongTypeOfFrozenExtra,

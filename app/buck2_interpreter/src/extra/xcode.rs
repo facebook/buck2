@@ -17,9 +17,8 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use regex::Regex;
 use serde::Deserialize;
-use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum XcodeVersionError {
     #[error("XCode select symlink `{}` resolved to path without parent: `{}`", XCODE_SELECT_SYMLINK, _0.display())]
     XcodeSelectSymlinkResolvedToPathWithoutParent(AbsNormPathBuf),

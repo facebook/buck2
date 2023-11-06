@@ -18,11 +18,10 @@ use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::package::PackageLabel;
-use thiserror::Error;
 
 use crate::parse_import::parse_import;
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum PackageImportsError {
     #[error("Expected value to contain `=>`. Got `{0}`.")]
     MissingArrow(String),

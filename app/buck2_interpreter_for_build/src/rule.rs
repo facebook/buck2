@@ -123,7 +123,7 @@ impl<'v> Display for RuleCallable<'v> {
 }
 
 /// Errors around rule declaration, instantiation, validation, etc
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum RuleError {
     #[error("The output of rule() may only be called after the module is loaded")]
     RuleCalledBeforeFreezing,

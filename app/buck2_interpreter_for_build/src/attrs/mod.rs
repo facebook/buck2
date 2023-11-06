@@ -24,7 +24,7 @@ pub mod attrs_global;
 pub mod coerce;
 pub(crate) mod starlark_attribute;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum AttrCoerceError {
     #[error("Parameter `{0}` had no value provided, but it is mandatory")]
     MissingMandatoryParameter(String),

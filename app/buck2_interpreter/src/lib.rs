@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![feature(error_generic_member_access)]
+
 //! Implements Buck's handling of target patterns and parsing of build files.
 
 #![feature(pattern)]

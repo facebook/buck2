@@ -22,7 +22,7 @@ use crate::attrs::coerce::attr_type::AttrTypeExt;
 use crate::attrs::coerce::AttrTypeCoerce;
 use crate::interpreter::selector::StarlarkSelector;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum VisibilityAttrTypeCoerceError {
     #[error("Visibility attribute is not configurable (internal error)")]
     AttrTypeNotConfigurable,

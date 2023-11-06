@@ -34,7 +34,7 @@ use starlark_map::small_map::SmallMap;
 use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::package_file_extra::PackageFileExtra;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum PackageValueError {
     #[error("key already set in this file: `{0}`")]
     KeyAlreadySetInThisFile(MetadataKey),

@@ -108,7 +108,7 @@ impl PackageImplicits {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum OncallErrors {
     #[error("Called `oncall` after one or more targets were declared, `oncall` must be first.")]
     OncallAfterTargets,

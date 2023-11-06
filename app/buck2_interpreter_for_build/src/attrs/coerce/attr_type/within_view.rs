@@ -18,7 +18,7 @@ use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::attr_type::visibility::parse_visibility_with_view;
 use crate::attrs::coerce::AttrTypeCoerce;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum WithinViewAttrTypeCoerceError {
     #[error("Within view attribute is not configurable (internal error)")]
     AttrTypeNotConfigurable,

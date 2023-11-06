@@ -51,7 +51,6 @@ use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::syntax::AstModule;
 use starlark::values::OwnedFrozenValueTyped;
-use thiserror::Error;
 
 use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::build_context::PerFileTypeContext;
@@ -62,7 +61,7 @@ use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::package_file_extra::FrozenPackageFileExtra;
 use crate::super_package::eval_ctx::PackageFileEvalCtx;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum StarlarkParseError {
     #[error("Error parsing: `{0}`")]
     InFile(OwnedStarlarkPath),
@@ -70,7 +69,7 @@ enum StarlarkParseError {
     Tabs(OwnedStarlarkPath),
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum StarlarkPeakMemoryError {
     #[error("Starlark peak memory usage is `{0}` which exceeds the limit `{1}`!")]
     ExceedsThreshold(HumanizedBytes, HumanizedBytes),
@@ -144,7 +143,7 @@ struct InterpreterLoadResolver {
     build_file_cell: BuildFileCell,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum LoadResolutionError {
     #[error(
         "Cannot load `{0}`. Bxl loads are not allowed from within this context. bxl files can only be loaded from other bxl files."

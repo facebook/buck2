@@ -22,7 +22,6 @@ use buck2_interpreter::paths::path::StarlarkPath;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
-use thiserror::Error;
 
 use crate::interpreter::buckconfig::LegacyBuckConfigForStarlark;
 use crate::interpreter::bzl_eval_ctx::BzlEvalCtx;
@@ -31,7 +30,7 @@ use crate::interpreter::functions::host_info::HostInfo;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::super_package::eval_ctx::PackageFileEvalCtx;
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum BuildContextError {
     #[error(
         "This function is unavailable during analysis (usual solution is to place the information on a toolchain)"

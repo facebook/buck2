@@ -26,7 +26,7 @@ use starlark::values::Value;
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::AttrTypeCoerce;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum AnyError {
     #[error("Cannot coerce value of type `{0}` to any: `{1}`")]
     CannotCoerce(&'static str, String),

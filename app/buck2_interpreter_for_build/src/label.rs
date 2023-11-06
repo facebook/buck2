@@ -21,7 +21,7 @@ pub mod testing {
 
     use crate::interpreter::build_context::BuildContext;
 
-    #[derive(Debug, thiserror::Error)]
+    #[derive(Debug, buck2_error::Error)]
     enum LabelCreatorError {
         #[error("Expected provider, found something else: `{0}`")]
         ExpectedProvider(String),

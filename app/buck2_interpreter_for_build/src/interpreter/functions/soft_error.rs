@@ -13,7 +13,7 @@ use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::none::NoneType;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum SoftErrorError {
     #[error("Error produced by Starlark: {category}: {message}\n{call_stack}")]
     StarlarkSoftError {

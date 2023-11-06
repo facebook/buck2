@@ -27,7 +27,7 @@ use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum MetadataAttrTypeCoerceError {
     #[error("Metadata attribute is not configurable (internal error)")]
     AttrTypeNotConfigurable,

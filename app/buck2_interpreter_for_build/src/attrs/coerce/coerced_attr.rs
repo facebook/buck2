@@ -17,13 +17,12 @@ use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::values::dict::DictRef;
 use starlark::values::Value;
-use thiserror::Error;
 
 use crate::attrs::coerce::attr_type::AttrTypeExt;
 use crate::interpreter::selector::StarlarkSelector;
 use crate::interpreter::selector::StarlarkSelectorGen;
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum SelectError {
     #[error("select() condition was not a string, got `{0}`.")]
     KeyNotString(String),

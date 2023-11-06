@@ -37,7 +37,7 @@ use crate::attrs::AttributeCoerceExt;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::nodes::check_within_view::check_within_view;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum AttributeSpecError {
     #[error("`within_view` coerced incorrectly (internal error)")]
     WithinViewCoercedIncorrectly,

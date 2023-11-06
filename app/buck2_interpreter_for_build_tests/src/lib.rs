@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+#![feature(error_generic_member_access)]
 #![cfg(test)]
 
 #[cfg(test)]

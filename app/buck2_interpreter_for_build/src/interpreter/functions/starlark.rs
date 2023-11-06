@@ -14,7 +14,7 @@ use starlark::values::none::NoneType;
 
 use crate::interpreter::build_context::BuildContext;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum StarlarkPeakMemoryError {
     #[error("starlark peak memory already set in this file")]
     MemorySetInThisFile(),

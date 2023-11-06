@@ -10,7 +10,7 @@
 use gazebo::prelude::*;
 use starlark::values::Value;
 
-#[derive(thiserror::Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 pub(crate) enum CoercionError {
     #[error("Expected value of type `{0}`, got value with type `{1}` (value was `{2}`)")]
     TypeError(String, String, String),

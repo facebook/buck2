@@ -43,7 +43,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::StarlarkDocs;
-use thiserror::Error;
 use tracing::error;
 
 use crate::attrs::coerce::attr_type::AttrTypeExt;
@@ -56,7 +55,7 @@ use crate::plugins::AllPlugins;
 
 const OPTION_NONE_EXPLANATION: &str = "`None` as an attribute value always picks the default. For `attrs.option`, if the default isn't `None`, there is no way to express `None`.";
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum AttrError {
     #[error(
         "`attrs.option` `default` parameter must be `None` or absent, got `{0}`.\n{}",
@@ -138,7 +137,7 @@ pub(crate) fn init_coerce_target_label() {
         .init(|eval, value| get_attr_coercion_context(eval)?.coerce_target_label(value))
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum DepError {
     #[error(
         "relative labels ('{invalid_label}') are not permitted as default values for `{attr}` \

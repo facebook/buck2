@@ -12,7 +12,6 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePathBuf;
-use thiserror::Error;
 
 /// Path of a `bxl` file for `bxl` commands
 #[derive(
@@ -32,7 +31,7 @@ pub struct BxlFilePath {
     path: CellPath,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 #[error("Expected a cell path to a `.bxl` file, but got `{0}`")]
 struct BxlPathError(CellPath);
 

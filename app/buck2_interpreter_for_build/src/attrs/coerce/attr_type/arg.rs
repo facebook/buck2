@@ -32,7 +32,6 @@ use once_cell::sync::Lazy;
 use starlark::typing::Ty;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
-use thiserror::Error;
 
 use crate::attrs::coerce::attr_type::query::QueryAttrTypeExt;
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
@@ -46,7 +45,7 @@ use crate::attrs::coerce::AttrTypeCoerce;
 static UNIMPLEMENTED_MACROS: Lazy<HashSet<&'static str>> =
     Lazy::new(|| hashset!["classpath_abi", "maven_coords", "output", "query_paths",]);
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum MacroError {
     #[error("Expected a single target label argument. Got `[{}]`", (.0).join(", "))]
     ExpectedSingleTargetArgument(Vec<String>),

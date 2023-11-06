@@ -23,7 +23,7 @@ use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum StarlarkAttributeError {
     #[error("`attrs.default_only()` cannot be used in nested attributes")]
     DefaultOnlyInNested,

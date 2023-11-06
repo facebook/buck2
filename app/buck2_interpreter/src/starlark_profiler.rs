@@ -19,7 +19,7 @@ use starlark::eval::Evaluator;
 use starlark::eval::ProfileData;
 use starlark::eval::ProfileMode;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum StarlarkProfilerError {
     #[error("will_freeze field was initialized incorrectly (internal error)")]
     IncorrectWillFreeze,

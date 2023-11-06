@@ -45,7 +45,7 @@ use super::interner::AttrCoercionInterner;
 use crate::attrs::coerce::arc_str_interner::ArcStrInterner;
 use crate::attrs::coerce::str_hash::str_hash;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum BuildAttrCoercionContextError {
     #[error("Expected a label, got the pattern `{0}`.")]
     RequiredLabel(String),

@@ -14,7 +14,7 @@ use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::values::ValueLike;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum ProviderCallableError {
     #[error("provider callable did not have a bound id; this is an internal error")]
     ProviderCallableMissingID,

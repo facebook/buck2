@@ -19,7 +19,7 @@ use starlark::eval::ProfileMode;
 
 use crate::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum StarlarkProfilerError {
     #[error("profiler is not configured to profile last element (internal error)")]
     ProfilerConfigurationNotLast,

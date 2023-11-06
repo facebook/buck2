@@ -14,7 +14,6 @@ fancy-regex = { workspace = true }
 plist = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true }
-thiserror = { workspace = true }
 tokio = { workspace = true }
 
 allocative = { workspace = true }
