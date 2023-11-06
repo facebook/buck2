@@ -8,6 +8,7 @@
  */
 
 use std::any::Any;
+use std::error::Error as StdError;
 use std::fmt;
 use std::sync::Arc;
 
@@ -45,7 +46,7 @@ pub(crate) enum ErrorKind {
 
 impl Error {
     #[track_caller]
-    pub fn new<E: std::error::Error + Send + Sync + 'static>(e: E) -> Self {
+    pub fn new<E: StdError + Send + Sync + 'static>(e: E) -> Self {
         let source_location =
             crate::source_location::from_file(std::panic::Location::caller().file(), None);
         crate::any::recover_crate_error(Marc::new(anyhow::Error::new(e)), source_location)
@@ -55,7 +56,7 @@ impl Error {
     /// itself, instead assuming that you will provide that directly here. As such, you should only
     /// use this with a newly constructed error that doesn't have an unknown cause/source.
     #[track_caller]
-    pub fn new_with_options<E: std::error::Error + Send + Sync + 'static>(
+    pub fn new_with_options<E: StdError + Send + Sync + 'static>(
         e: E,
         late_format: Option<fn(&E, &mut fmt::Formatter<'_>) -> fmt::Result>,
         typ: Option<ErrorType>,

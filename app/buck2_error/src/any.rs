@@ -7,9 +7,10 @@
  * of this source tree.
  */
 
-//! Integrations of `buck2_error::Error` with `anyhow::Error` and `std::error::Error`.
+//! Integrations of `buck2_error::Error` with `anyhow::Error` and `StdError`.
 
 use std::any::request_value;
+use std::error::Error as StdError;
 use std::fmt;
 use std::sync::Arc;
 
@@ -20,10 +21,10 @@ use crate::error::ErrorKind;
 use crate::root::ErrorRoot;
 
 // This implementation is fairly magic and is what allows us to bypass the issue with conflicting
-// implementations between `anyhow::Error` and `T: std::error::Error`. The `T: Into<anyhow::Error>`
-// bound is what we actually make use of in the implementation, while the other bound is needed to
-// make sure this impl does not accidentally cover too many types. Importantly, this impl does not
-// conflict with `T: From<T>`
+// implementations between `anyhow::Error` and `T: StdError`. The `T: Into<anyhow::Error>` bound is
+// what we actually make use of in the implementation, while the other bound is needed to make sure
+// this impl does not accidentally cover too many types. Importantly, this impl does not conflict
+// with `T: From<T>`
 impl<T: fmt::Debug + fmt::Display + Sync + Send + 'static> From<T> for crate::Error
 where
     T: Into<anyhow::Error>,
@@ -33,14 +34,14 @@ where
     fn from(value: T) -> crate::Error {
         let source_location =
             crate::source_location::from_file(std::panic::Location::caller().file(), None);
-        // `Self` may be an `anyhow::Error` or any `std::error::Error`. We'll check by downcasting
+        // `Self` may be an `anyhow::Error` or any `StdError`. We'll check by downcasting
         let mut e = Some(value);
         let r: &mut dyn std::any::Any = &mut e;
         if let Some(e) = r.downcast_mut::<Option<anyhow::Error>>() {
             return recover_crate_error(Marc::new(e.take().unwrap()), source_location);
         }
 
-        // Otherwise, we'll use the strategy for `std::error::Error`
+        // Otherwise, we'll use the strategy for `StdError`
         let anyhow = e.unwrap().into();
         recover_crate_error(Marc::new(anyhow), source_location)
     }
@@ -53,7 +54,7 @@ pub(crate) fn recover_crate_error(
     // Instead of just turning this into an error root, we will first check if this error has any
     // information associated with it that would allow us to recover more structure.
     let mut context_stack = Vec::new();
-    let mut cur: Marc<dyn std::error::Error + 'static> = Marc::map(value.clone(), AsRef::as_ref);
+    let mut cur: Marc<dyn StdError + 'static> = Marc::map(value.clone(), AsRef::as_ref);
     let base = loop {
         // Handle the `cur` error
         if let Some(base) = cur.downcast_ref::<CrateAsStdError>() {
@@ -123,8 +124,8 @@ impl fmt::Debug for CrateAsStdError {
     }
 }
 
-impl std::error::Error for CrateAsStdError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+impl StdError for CrateAsStdError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match &*self.0.0 {
             ErrorKind::Root(r) => r.source(),
             ErrorKind::WithContext(_, r) | ErrorKind::Emitted(r) => {
@@ -134,10 +135,8 @@ impl std::error::Error for CrateAsStdError {
     }
 }
 
-pub type CheckErrorType = for<'a> fn(
-    &'a (dyn std::error::Error + 'static),
-)
-    -> Option<&'a (dyn std::error::Error + Send + Sync + 'static)>;
+pub type CheckErrorType =
+    for<'a> fn(&'a (dyn StdError + 'static)) -> Option<&'a (dyn StdError + Send + Sync + 'static)>;
 
 /// This can be `provide`d by an error to inject buck2-specific information about it.
 ///
@@ -161,8 +160,7 @@ pub struct ProvidableMetadata {
 }
 
 impl ProvidableMetadata {
-    pub const fn gen_check_error_type<E: std::error::Error + Send + Sync + 'static>()
-    -> CheckErrorType {
+    pub const fn gen_check_error_type<E: StdError + Send + Sync + 'static>() -> CheckErrorType {
         |e| e.downcast_ref::<E>().map(|e| e as _)
     }
 }
@@ -177,7 +175,7 @@ mod tests {
     #[derive(Debug, derive_more::Display)]
     struct TestError;
 
-    impl std::error::Error for TestError {}
+    impl StdError for TestError {}
 
     fn check_equal(mut a: &crate::Error, mut b: &crate::Error) {
         loop {
@@ -224,7 +222,7 @@ mod tests {
     #[derive(Debug, derive_more::Display)]
     struct MetadataError;
 
-    impl std::error::Error for MetadataError {
+    impl StdError for MetadataError {
         fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
             demand.provide_value(ProvidableMetadata {
                 source_file: file!(),

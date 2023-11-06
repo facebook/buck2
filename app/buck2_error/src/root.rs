@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::error::Error as StdError;
 use std::fmt;
 use std::sync::Arc;
 
@@ -49,7 +50,7 @@ pub(crate) struct ErrorRoot {
 }
 
 impl ErrorRoot {
-    pub(crate) fn new<E: std::error::Error + Send + Sync + 'static>(
+    pub(crate) fn new<E: StdError + Send + Sync + 'static>(
         inner: E,
         late_format: Option<fn(&E, &mut fmt::Formatter<'_>) -> fmt::Result>,
         error_type: Option<ErrorType>,
@@ -96,7 +97,7 @@ impl ErrorRoot {
             .map(|f| AnyhowWrapperForFormat(self.inner.clone(), Some(f)).into())
     }
 
-    pub(crate) fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+    pub(crate) fn source(&self) -> Option<&(dyn StdError + 'static)> {
         self.inner.source()
     }
 
@@ -153,8 +154,8 @@ impl fmt::Display for AnyhowWrapperForFormat {
     }
 }
 
-impl std::error::Error for AnyhowWrapperForFormat {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        std::error::Error::source(&**self.0)
+impl StdError for AnyhowWrapperForFormat {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        StdError::source(&**self.0)
     }
 }
