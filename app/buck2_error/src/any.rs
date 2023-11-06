@@ -12,6 +12,7 @@
 use std::fmt;
 use std::sync::Arc;
 
+use mappable_rc::Marc;
 use ref_cast::RefCast;
 
 use crate::error::ErrorKind;
@@ -35,20 +36,20 @@ where
         let mut e = Some(value);
         let r: &mut dyn std::any::Any = &mut e;
         if let Some(e) = r.downcast_mut::<Option<anyhow::Error>>() {
-            return from_anyhow_for_crate(Arc::new(e.take().unwrap()), source_location);
+            return from_anyhow_for_crate(Marc::new(e.take().unwrap()), source_location);
         }
 
         // Otherwise, we'll use the strategy for `std::error::Error`
         let anyhow = e.unwrap().into();
         crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new_anyhow(
-            Arc::new(anyhow),
+            Marc::new(anyhow),
             source_location,
         ))))
     }
 }
 
 fn from_anyhow_for_crate(
-    value: Arc<anyhow::Error>,
+    value: Marc<anyhow::Error>,
     source_location: Option<String>,
 ) -> crate::Error {
     // Instead of just turning this into an error root, we will first check if this

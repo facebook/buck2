@@ -10,6 +10,8 @@
 use std::fmt;
 use std::sync::Arc;
 
+use mappable_rc::Marc;
+
 use crate::ErrorType;
 
 static NEXT_ROOT_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
@@ -39,7 +41,7 @@ type DynLateFormat =
 pub(crate) struct ErrorRoot {
     id: UniqueRootId,
     #[allocative(skip)]
-    inner: Arc<anyhow::Error>,
+    inner: Marc<anyhow::Error>,
     #[allocative(skip)] // FIXME(JakobDegen): "Implementation is not general enough"
     late_format: Option<Arc<DynLateFormat>>,
     error_type: Option<ErrorType>,
@@ -54,7 +56,7 @@ impl ErrorRoot {
         source_location: Option<String>,
     ) -> Self {
         let id = UniqueRootId(NEXT_ROOT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
-        let inner = Arc::new(anyhow::Error::new(inner));
+        let inner = Marc::new(anyhow::Error::new(inner));
         // Have to write this kind of weird to get the compiler to infer a higher ranked closure
         let Some(late_format) = late_format else {
             return Self {
@@ -78,7 +80,7 @@ impl ErrorRoot {
 
     /// Should not typically be used. Use the appropriate `anyhow::Error: From<crate::Error>`
     /// instead.
-    pub(crate) fn new_anyhow(e: Arc<anyhow::Error>, source_location: Option<String>) -> Self {
+    pub(crate) fn new_anyhow(e: Marc<anyhow::Error>, source_location: Option<String>) -> Self {
         Self {
             id: UniqueRootId(NEXT_ROOT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)),
             inner: e,
@@ -105,7 +107,7 @@ impl ErrorRoot {
     /// Equality comparison for use in tests only
     #[cfg(test)]
     pub(crate) fn test_equal(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.inner, &other.inner)
+        Marc::ptr_eq(&self.inner, &other.inner)
     }
 
     pub(crate) fn downcast_ref<T: fmt::Display + fmt::Debug + Send + Sync + 'static>(
@@ -133,7 +135,7 @@ impl fmt::Debug for ErrorRoot {
     }
 }
 
-struct AnyhowWrapperForFormat(Arc<anyhow::Error>, Option<Arc<DynLateFormat>>);
+struct AnyhowWrapperForFormat(Marc<anyhow::Error>, Option<Arc<DynLateFormat>>);
 
 impl fmt::Debug for AnyhowWrapperForFormat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

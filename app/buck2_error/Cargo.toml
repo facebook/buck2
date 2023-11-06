@@ -9,6 +9,7 @@ version = "0.1.0"
 [dependencies]
 anyhow = { workspace = true }
 derive_more = { workspace = true }
+mappable-rc = { workspace = true }
 ref-cast = { workspace = true }
 thiserror = { workspace = true }
 
