@@ -38,7 +38,7 @@ use crate::uquery::environment::rbuildfiles;
 use crate::uquery::environment::QueryLiterals;
 use crate::uquery::environment::UqueryDelegate;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum CqueryError {
     #[error("Target universe not specified (internal error)")]
     NoUniverse,

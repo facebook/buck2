@@ -24,7 +24,6 @@ use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::stream::TryStreamExt;
 use starlark_map::ordered_set::OrderedSet;
-use thiserror::Error;
 
 use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::file_set::FileSet;
@@ -34,7 +33,7 @@ use crate::query::traversal::AsyncTraversalDelegate;
 use crate::query::traversal::ChildVisitor;
 mod tests;
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 pub enum QueryEnvironmentError {
     #[error("Missing target `{}`. Targets in the package: <{}>", .0, .1.join(", "))]
     MissingTargetError(String, Vec<String>),

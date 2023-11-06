@@ -19,9 +19,8 @@ use buck2_query_parser::placeholder::QUERY_PERCENT_S_PLACEHOLDER;
 use futures::Future;
 use gazebo::prelude::*;
 use starlark::collections::SmallSet;
-use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum EvalQueryError {
     #[error("Query args supplied without any `%s` placeholder in the query, got args {}", .0.map(|x| format!("`{}`", x)).join(", "))]
     ArgsWithoutPlaceholder(Vec<String>),

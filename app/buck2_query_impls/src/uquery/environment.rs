@@ -49,18 +49,17 @@ use gazebo::prelude::*;
 use indexmap::IndexSet;
 use itertools::Itertools;
 use ref_cast::RefCast;
-use thiserror::Error;
 use tracing::warn;
 
 type ArcCellPath = Arc<CellPath>;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum QueryLiteralResolutionError {
     #[error("literal `{0}` missing in pre-resolved literals")]
     LiteralMissing(String),
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum RBuildFilesError {
     #[error("no parent found for the file `{0}`")]
     ParentDoesNotExist(ArcCellPath),

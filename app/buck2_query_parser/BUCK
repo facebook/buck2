@@ -11,7 +11,7 @@ rust_library(
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:enum-map",
         "fbsource//third-party/rust:nom",
-        "fbsource//third-party/rust:thiserror",
+        "//buck2/app/buck2_error:buck2_error",
         "//buck2/app/buck2_util:buck2_util",
         "//buck2/gazebo/dupe:dupe",
         "//buck2/gazebo/gazebo:gazebo",

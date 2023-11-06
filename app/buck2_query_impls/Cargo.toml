@@ -16,7 +16,6 @@ futures = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
 ref-cast = { workspace = true }
-thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 

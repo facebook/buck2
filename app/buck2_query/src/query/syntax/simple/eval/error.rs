@@ -11,11 +11,10 @@
 
 use buck2_core::fs::project::ProjectRoot;
 use buck2_query_parser::spanned::Spanned;
-use thiserror::Error;
 
 /// While this is a std Error type, we generally don't use it directly. It's instead wrapped in a Spanned and can be converted to a normal error
 /// with QueryError::convert_error (which will resolve the spans to context messages).
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum QueryError {
     #[error("unknown function `{0}`")]
     UnknownFunction(String),

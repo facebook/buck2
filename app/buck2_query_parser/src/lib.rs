@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![feature(error_generic_member_access)]
+
 //! Parsing query expressions.
 //!
 //! The parser doesn't do any validation on the function names or function arguments, that is handled
@@ -79,7 +81,6 @@ use nom::sequence::pair;
 use nom::sequence::preceded;
 use nom::sequence::terminated;
 use nom::IResult;
-use thiserror::Error;
 
 use crate::span::Span;
 use crate::spanned::Spanned;
@@ -102,7 +103,7 @@ impl<'a, E: nom::error::ParseError<Span<'a>> + nom::error::ContextError<Span<'a>
 {
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum ParseError {
     #[error("{0}")]
     NomError(String),

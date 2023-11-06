@@ -16,7 +16,6 @@ indoc = { workspace = true }
 itertools = { workspace = true }
 ref-cast = { workspace = true }
 serde = { workspace = true }
-thiserror = { workspace = true }
 tokio = { workspace = true }
 
 allocative = { workspace = true }
@@ -29,6 +28,7 @@ gazebo_lint.version = "0.1"
 starlark_map = { workspace = true }
 
 buck2_core = { workspace = true }
+buck2_error = { workspace = true }
 buck2_query_derive = { workspace = true }
 buck2_query_parser = { workspace = true }
 buck2_util = { workspace = true }

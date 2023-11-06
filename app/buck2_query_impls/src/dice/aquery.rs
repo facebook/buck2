@@ -45,7 +45,6 @@ use futures::StreamExt;
 use gazebo::prelude::*;
 use itertools::Either;
 use itertools::Itertools;
-use thiserror::Error;
 use tokio::sync::oneshot;
 
 use crate::aquery::environment::AqueryDelegate;
@@ -54,7 +53,7 @@ use crate::dice::DiceQueryData;
 use crate::dice::DiceQueryDelegate;
 use crate::uquery::environment::QueryLiterals;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum ActionQueryError {
     #[error(
         "`aquery` currently only supports literal target patterns, not package or recursive (got `{0}`)"

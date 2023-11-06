@@ -10,7 +10,6 @@ derive_more = { workspace = true }
 enum-map = { workspace = true }
 nom = { workspace = true }
 structopt = { workspace = true }
-thiserror = { workspace = true }
 
 dupe = { workspace = true }
 gazebo = { workspace = true }
@@ -18,6 +17,7 @@ gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
 gazebo_lint.version = "0.1"
 
+buck2_error = { workspace = true }
 buck2_util = { workspace = true }
 
 [features]

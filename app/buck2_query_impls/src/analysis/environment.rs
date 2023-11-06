@@ -60,9 +60,8 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use indexmap::IndexMap;
 use starlark::values::UnpackValue;
-use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum AnalysisQueryError {
     #[error("file literals aren't supported in query attributes (got `{0}`)")]
     FileLiteralsNotAllowed(String),
