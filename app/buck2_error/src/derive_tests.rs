@@ -67,3 +67,12 @@ fn test_derive_error3() {
     assert_eq!(e.get_category(), None);
     assert_eq!(e.get_error_type(), None);
 }
+
+#[derive(buck2_error_derive::Error, Debug)]
+#[error("Generic error")]
+pub struct GenericError<G>(G);
+
+#[test]
+fn test_generic_error() {
+    let _e: crate::Error = GenericError(42).into();
+}

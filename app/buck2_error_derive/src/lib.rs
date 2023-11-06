@@ -220,12 +220,20 @@ fn derive_error_impl(mut input: syn::DeriveInput, krate: syn::Path) -> syn::Resu
         'generated_lifetime_name
     };
     let ref_transmute = quote::quote! {
-        ::core::mem::transmute::<&#lifetime #outer, &#lifetime #inner>
+        ::core::mem::transmute::<&#lifetime #outer #type_generics, &#lifetime #inner #type_generics>
     };
 
     let derive_attribute = quote::quote! {
         #[derive(::core::fmt::Debug, thiserror::Error)]
     };
+
+    let mut where_clauses = match where_clauses {
+        Some(x) => x.predicates.clone(),
+        None => Punctuated::new(),
+    };
+    if !where_clauses.empty_or_trailing() {
+        where_clauses.push_punct(Default::default());
+    }
     Ok(quote::quote! {
         #[allow(unused)]
         #[doc(hidden)]
@@ -237,7 +245,9 @@ fn derive_error_impl(mut input: syn::DeriveInput, krate: syn::Path) -> syn::Resu
             #input_for_inner
 
             impl #impl_generics ::std::error::Error for #outer #type_generics
-            #where_clauses
+            where #where_clauses
+            Self: ::core::fmt::Debug + ::core::fmt::Display + ::core::marker::Send + ::core::marker::Sync + 'static,
+            #inner #type_generics : ::std::error::Error
             {
                 fn source<#lifetime>(&#lifetime self) -> Option<&(dyn ::std::error::Error + 'static)> {
                     let val = unsafe { #ref_transmute(self) };
@@ -274,7 +284,9 @@ fn derive_error_impl(mut input: syn::DeriveInput, krate: syn::Path) -> syn::Resu
                 }
             }
 
-            impl #impl_generics ::core::fmt::Display for #outer #type_generics #where_clauses
+            impl #impl_generics ::core::fmt::Display for #outer #type_generics
+            where #where_clauses
+            #inner #type_generics : ::core::fmt::Display
             {
                 fn fmt<#lifetime>(&#lifetime self, f: &mut ::core::fmt::Formatter<'_>)
                 -> ::core::fmt::Result {
