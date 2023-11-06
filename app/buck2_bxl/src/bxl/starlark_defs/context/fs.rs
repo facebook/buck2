@@ -51,7 +51,6 @@ use starlark::values::Value;
 use starlark::values::ValueOf;
 use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
-use thiserror::Error;
 
 use super::BxlContext;
 use crate::bxl::starlark_defs::file_expr::FileExpr;
@@ -110,7 +109,7 @@ impl<'v> AllocValue<'v> for BxlFilesystem<'v> {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub(crate) enum BxlFilesystemError {
     #[error("Inferred package path `{0}` is not a valid package within the given file path `{1}`")]
     PackageMismatch(PackageLabel, CellPath),

@@ -97,7 +97,6 @@ use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
-use thiserror::Error;
 
 use super::target_universe::StarlarkTargetUniverse;
 use crate::bxl::key::BxlDynamicKey;
@@ -135,7 +134,7 @@ pub(crate) mod fs;
 pub(crate) mod output;
 pub(crate) mod starlark_async;
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum BxlContextDynamicError {
     #[error("`{0}()` is unsupported")]
     Unsupported(String),
@@ -143,7 +142,7 @@ enum BxlContextDynamicError {
     RequireSameExecutionPlatformAsRoot,
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 #[error("Expected a single target as a string literal, not a target pattern")]
 struct NotATargetLabelString;
 

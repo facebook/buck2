@@ -24,7 +24,6 @@ use starlark::values::Heap;
 use starlark::values::StringValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
-use thiserror::Error;
 
 use super::artifacts::visit_artifact_path_without_associated_deduped;
 use super::context::output::get_artifact_path_display;
@@ -183,7 +182,7 @@ pub(crate) fn register_instant_function(builder: &mut GlobalsBuilder) {
 /// This is used to mark the error returned by `fail_no_stacktrace()` (via context chaining).
 /// We check if this marker is present after finishing BXL evaluation. If this marker is present,
 /// then we hide the stacktrace. Otherwise, we emit the stacktrace to users.
-#[derive(Debug, Error, Clone)]
+#[derive(Debug, buck2_error::Error, Clone)]
 #[error("fail:{0}")]
 pub(crate) struct BxlErrorWithoutStacktrace(String);
 

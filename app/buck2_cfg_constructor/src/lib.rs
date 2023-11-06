@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+#![feature(error_generic_member_access)]
 #![feature(async_closure)]
 #![feature(async_fn_in_trait)]
 
@@ -48,7 +49,7 @@ use starlark::values::Value;
 
 use crate::registration::init_registration;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum CfgConstructorError {
     #[error(
         "Parameter `refs` to post-constraint analysis function must only contain configuration rules. {0} is not a configuration rule."

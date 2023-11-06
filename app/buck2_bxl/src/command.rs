@@ -342,7 +342,7 @@ async fn ensure_artifacts_inner(
     if res.is_empty() { Ok(()) } else { Err(res) }
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum BxlLabelError {
     #[error(
         "bxl label should be of format `<cell>//path/to/file.bxl:function_name`, but got `{0}`"

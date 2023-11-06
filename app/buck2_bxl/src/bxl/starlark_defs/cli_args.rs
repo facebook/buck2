@@ -55,7 +55,6 @@ use starlark::values::ValueError;
 use starlark::values::ValueLike;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
-use thiserror::Error;
 
 use crate::bxl::eval::CliResolutionCtx;
 
@@ -365,7 +364,7 @@ impl CliArgType {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub(crate) enum CliArgError {
     #[error("Expected default value of type `{}`, but got `{}`", _0, _1)]
     DefaultValueTypeError(CliArgType, String),

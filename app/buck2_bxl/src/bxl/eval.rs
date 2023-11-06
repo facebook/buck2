@@ -60,7 +60,6 @@ use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark_map::ordered_map::OrderedMap;
-use thiserror::Error;
 
 use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::bxl_function::FrozenBxlFunction;
@@ -337,7 +336,7 @@ fn eval_bxl<'a>(
     result
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 #[error("Expected {0} to be a bxl function, was a {1}")]
 struct NotABxlFunction(String, &'static str);
 
@@ -394,6 +393,6 @@ pub(crate) async fn resolve_cli_args<'a>(
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 #[error("Expected `NoneType` to be returned from bxl. Got return value `{0}`")]
 struct NotAValidReturnType(&'static str);

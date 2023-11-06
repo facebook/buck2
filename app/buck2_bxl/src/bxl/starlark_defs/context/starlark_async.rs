@@ -22,9 +22,8 @@ use futures::future::select;
 use futures::future::Either;
 use futures::future::LocalBoxFuture;
 use more_futures::cancellable_future::CancellationObserver;
-use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum ViaError {
     #[error("The owning DICE evaluation has been cancelled")]
     Cancelled,

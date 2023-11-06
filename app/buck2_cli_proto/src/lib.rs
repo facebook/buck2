@@ -7,10 +7,9 @@
  * of this source tree.
  */
 
+#![feature(error_generic_member_access)]
 #![feature(min_specialization)]
 #![allow(clippy::large_enum_variant)]
-
-use thiserror::Error;
 
 use crate::BuckDaemonProtoError::MissingClientContext;
 
@@ -19,7 +18,7 @@ pub mod protobuf_util;
 
 tonic::include_proto!("buck.daemon");
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum BuckDaemonProtoError {
     #[error("daemon request was missing client context")]
     MissingClientContext,

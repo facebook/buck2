@@ -30,7 +30,6 @@ rust_library(
         "fbsource//third-party/rust:num-bigint",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
-        "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_analysis:buck2_analysis",

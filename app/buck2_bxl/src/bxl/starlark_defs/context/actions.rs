@@ -53,11 +53,10 @@ use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
 use starlark_map::ordered_map::OrderedMap;
-use thiserror::Error;
 
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum BxlActionsError {
     #[error(
         "An action registry was already requested via `ctx.bxl_actions().actions`. Only one action registry is allowed"
