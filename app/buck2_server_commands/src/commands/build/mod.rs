@@ -82,12 +82,13 @@ use itertools::Itertools;
 use serde::ser::SerializeSeq;
 use serde::ser::Serializer;
 
-use crate::commands::build::results::build_report::BuildReportCollector;
-use crate::commands::build::results::result_report::ResultReporter;
-use crate::commands::build::results::result_report::ResultReporterOptions;
+use crate::commands::build::build_report::BuildReportCollector;
+use crate::commands::build::result_report::ResultReporter;
+use crate::commands::build::result_report::ResultReporterOptions;
 use crate::commands::build::unhashed_outputs::create_unhashed_outputs;
 
-mod results;
+mod build_report;
+mod result_report;
 mod unhashed_outputs;
 
 pub(crate) async fn build_command(
