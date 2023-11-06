@@ -69,7 +69,7 @@ pub struct AnalysisRegistry<'v> {
     pub short_path_assertions: HashMap<PromiseArtifactId, ForwardRelativePathBuf>,
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum DeclaredArtifactError {
     #[error("Can't declare an artifact with an empty filename component")]
     DeclaredEmptyFileName,

@@ -38,7 +38,6 @@ use starlark::values::tuple::TupleRef;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::Value;
 use starlark::values::ValueTypedComplex;
-use thiserror::Error;
 
 use crate::actions::key::ActionKeyExt;
 use crate::actions::RegisteredAction;
@@ -170,7 +169,7 @@ impl Deferred for DynamicAction {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum DynamicLambdaError {
     #[error("dynamic_output and anon_target cannot be used together (yet)")]
     AnonTargetIncompatible,

@@ -32,7 +32,6 @@ use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
-use thiserror::Error;
 
 /// The Starlark representation of an `Artifact` on disk which can be accessed.
 #[derive(Debug, ProvidesStaticType, NoSerialize, Allocative)]
@@ -66,7 +65,7 @@ impl<'v> StarlarkValue<'v> for StarlarkArtifactValue {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum JsonError {
     #[error("JSON number is outside the bounds that Starlark supports, `{0}`")]
     NumberOutOfBounds(String),

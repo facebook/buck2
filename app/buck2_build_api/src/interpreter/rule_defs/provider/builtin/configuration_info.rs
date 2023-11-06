@@ -34,7 +34,6 @@ use starlark::values::Heap;
 use starlark::values::Trace;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
-use thiserror::Error;
 
 use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::ConstraintSettingInfo;
 use crate::interpreter::rule_defs::provider::builtin::constraint_value_info::ConstraintValueInfo;
@@ -123,7 +122,7 @@ impl<'v> ConfigurationInfo<'v> {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum ConfigurationInfoError {
     #[error("key `{0}` in constraints dict does not match constraint value `{1}`")]
     ConstraintsKeyValueMismatch(String, String),

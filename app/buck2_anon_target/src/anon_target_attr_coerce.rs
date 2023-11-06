@@ -169,7 +169,7 @@ impl AnonTargetAttrTypeCoerce for AttrType {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 pub(crate) enum AnonTargetCoercionError {
     #[error("Expected value of type `{0}`, got value with type `{1}` (value was `{2}`)")]
     TypeError(String, String, String),

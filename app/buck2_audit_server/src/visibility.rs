@@ -30,7 +30,7 @@ use gazebo::prelude::SliceExt;
 
 use crate::AuditSubcommand;
 
-#[derive(thiserror::Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum VisibilityCommandError {
     #[error(
         "Internal Error: The dependency `{0}` of the target `{1}` was not found during the traversal."

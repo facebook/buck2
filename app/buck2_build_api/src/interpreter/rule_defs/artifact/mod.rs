@@ -31,7 +31,7 @@ pub use self::starlark_output_artifact::StarlarkOutputArtifact;
 pub use self::starlark_output_artifact::StarlarkOutputOrDeclaredArtifact;
 pub use self::starlark_promise_artifact::StarlarkPromiseArtifact;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 pub(crate) enum ArtifactError {
     #[error("expected artifact {repr} to be used as the output of an action, but it was not")]
     DeclaredArtifactWasNotBound { repr: String },

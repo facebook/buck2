@@ -36,13 +36,12 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
-use thiserror::Error;
 
 use crate::interpreter::rule_defs::provider::execution_platform::StarlarkExecutionPlatformResolution;
 use crate::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 use crate::interpreter::rule_defs::provider::ProviderCollection;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum DependencyError {
     #[error("Unknown subtarget, could not find `{0}`")]
     UnknownSubtarget(String),

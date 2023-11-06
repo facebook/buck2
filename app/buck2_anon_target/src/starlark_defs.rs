@@ -46,12 +46,11 @@ use starlark::values::Value;
 use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
 use starlark_map::small_map::SmallMap;
-use thiserror::Error;
 
 use crate::anon_targets::AnonTargetKey;
 use crate::anon_targets::AnonTargetsRegistry;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum AnonTargetsError {
     #[error("artifact with name `{0}` was not found")]
     ArtifactNotFound(String),

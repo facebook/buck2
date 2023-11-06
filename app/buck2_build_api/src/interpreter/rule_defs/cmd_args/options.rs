@@ -70,7 +70,7 @@ impl Display for QuoteStyle {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum CommandLineArgError {
     #[error("Unknown quoting style `{0}`")]
     UnknownQuotingStyle(String),

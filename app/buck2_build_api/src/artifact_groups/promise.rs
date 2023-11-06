@@ -19,11 +19,10 @@ use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use dupe::Dupe;
 use starlark::codemap::FileSpan;
-use thiserror::Error;
 
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum PromiseArtifactResolveError {
     #[error(
         "Resolved promise of the artifact promise {} was not an artifact (was `{1}`)",

@@ -17,8 +17,6 @@ mod transitive_set_iterator;
 mod transitive_set_json_projection;
 mod traversal;
 
-use thiserror::Error;
-
 pub use self::transitive_set::FrozenTransitiveSet;
 pub use self::transitive_set::TransitiveSet;
 use self::transitive_set::TransitiveSetGen;
@@ -40,7 +38,7 @@ pub use self::transitive_set_json_projection::FrozenTransitiveSetJsonProjection;
 pub use self::transitive_set_json_projection::TransitiveSetJsonProjection;
 pub use self::traversal::TransitiveSetOrdering;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub(crate) enum TransitiveSetError {
     #[error(
         "Transitive set type must be assigned to a top-level variable, e.g. `MySet = transitive_set()`"

@@ -35,7 +35,6 @@ use starlark::values::StringValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
-use thiserror::Error;
 
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
@@ -244,7 +243,7 @@ impl<'v> StarlarkValue<'v> for StarlarkArtifact {
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum CannotProject {
     #[error("Source artifacts cannot be projected")]
     SourceArtifact,

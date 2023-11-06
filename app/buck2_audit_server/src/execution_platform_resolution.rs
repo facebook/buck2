@@ -31,7 +31,7 @@ use indent_write::io::IndentWriter;
 
 use crate::AuditSubcommand;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum AuditExecutionPlatformResolutionCommandError {
     #[error("Builtin configurations are not supported: `{0}`")]
     BuiltinConfigurationsNotSupported(String),

@@ -23,12 +23,11 @@ use starlark::values::Freeze;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
-use thiserror::Error;
 
 use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
 use crate::interpreter::rule_defs::provider::builtin::configuration_info::ConfigurationInfo;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum ExecutionPlatformProviderErrors {
     #[error("expected a label, got `{0}` (type `{1}`)")]
     ExpectedLabel(String, String),

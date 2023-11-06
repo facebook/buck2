@@ -27,13 +27,12 @@ use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use dice::DiceComputations;
-use thiserror::Error;
 
 use crate::output::buck_out_path_parser::BuckOutPathParser;
 use crate::output::buck_out_path_parser::BuckOutPathType;
 use crate::AuditSubcommand;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub(crate) enum AuditOutputError {
     #[error(
         "BXL, anonymous target, test, and tmp artifacts are not supported for audit output. Only rule output artifacts are supported. Path: `{0}`"

@@ -49,7 +49,7 @@ use crate::interpreter::rule_defs::transitive_set::transitive_set::TransitiveSet
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum TransitiveSetDefinitionError {
     #[error("`transitive_set()` can only be used in `bzl` files")]
     TransitiveSetOnlyInBzl,

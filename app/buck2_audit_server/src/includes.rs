@@ -48,11 +48,10 @@ use ref_cast::RefCast;
 use serde::ser::SerializeMap;
 use serde::Serialize;
 use serde::Serializer;
-use thiserror::Error;
 
 use crate::AuditSubcommand;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum AuditIncludesError {
     #[error("Error loading buildfile for `{0}` found a mismatched buildfile name (`{1}`)")]
     WrongBuildfilePath(CellPath, FileNameBuf),

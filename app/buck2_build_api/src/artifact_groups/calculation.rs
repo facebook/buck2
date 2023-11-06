@@ -46,7 +46,6 @@ use futures::FutureExt;
 use more_futures::cancellation::CancellationContext;
 use ref_cast::RefCast;
 use smallvec::SmallVec;
-use thiserror::Error;
 
 use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::actions::calculation::ActionCalculation;
@@ -174,7 +173,7 @@ fn ensure_source_artifact_staged<'a>(
 
 // These errors should be unreachable, they indicate misuse of the staged ensure artifact (or other buck
 // invariant violations), but it's still better to propagate them as Error than to panic!().
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum EnsureArtifactStagedError {
     #[error("Tried to unpack single artifact, but got transitive set")]
     UnpackSingleTransitiveSet,

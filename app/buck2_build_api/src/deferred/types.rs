@@ -37,7 +37,6 @@ use indexmap::IndexSet;
 use itertools::Itertools;
 use more_futures::cancellable_future::CancellationObserver;
 use once_cell::sync::Lazy;
-use thiserror::Error;
 
 /// An asynchronous chunk of work that will be executed when requested.
 /// The 'Deferred' can have "inputs" which are values that will be guaranteed to be ready to use
@@ -540,7 +539,7 @@ impl DeferredRegistry {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum DeferredErrors {
     #[error("no deferred found for deferred id `{0}`")]
     DeferredNotFound(u32),

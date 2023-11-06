@@ -25,13 +25,12 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
-use thiserror::Error;
 
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 // Provider that signals a rule is installable (ex. android_binary)
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum InstallInfoProviderErrors {
     #[error("expected a label, got `{0}` (type `{1}`)")]
     ExpectedLabel(String, String),

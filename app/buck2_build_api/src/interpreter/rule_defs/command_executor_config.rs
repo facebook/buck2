@@ -32,9 +32,8 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
-use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum CommandExecutorConfigErrors {
     #[error("expected a dict, got `{0}` (type `{1}`)")]
     RePropertiesNotADict(String, String),

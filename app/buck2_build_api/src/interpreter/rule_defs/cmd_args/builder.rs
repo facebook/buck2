@@ -15,12 +15,11 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
 use indexmap::IndexSet;
-use thiserror::Error;
 
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineLocation;
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 pub enum CommandLineBuilderErrors {
     #[error(
         "write-to-file macro is only supported as a part of command line argument which is written to a file"

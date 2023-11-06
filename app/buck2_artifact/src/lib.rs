@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![feature(error_generic_member_access)]
+
 pub mod actions;
 pub mod artifact;
 pub mod deferred;

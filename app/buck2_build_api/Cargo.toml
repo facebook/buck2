@@ -32,7 +32,6 @@ shlex = { workspace = true }
 smallvec = { workspace = true }
 static_assertions = { workspace = true }
 structopt = { workspace = true }
-thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }

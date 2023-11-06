@@ -12,7 +12,6 @@ use std::fmt::Write;
 
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::execute::request::OutputType;
-use thiserror::Error;
 
 #[derive(Debug)]
 pub enum ExecuteError {
@@ -93,6 +92,6 @@ impl From<anyhow::Error> for ExecuteError {
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 #[error("Command execution failed. Details are in the command report.")]
 pub struct CommandExecutionErrorMarker;

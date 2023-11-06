@@ -384,7 +384,7 @@ impl DeclaredArtifactKind {
     }
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 pub enum ArtifactErrors {
     #[error("artifact `{0}` was already bound, but attempted to bind to action id `{1}`")]
     DuplicateBind(BuildArtifact, ActionKey),

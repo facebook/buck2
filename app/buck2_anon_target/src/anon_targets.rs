@@ -96,7 +96,6 @@ use starlark::values::Value;
 use starlark::values::ValueTyped;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
-use thiserror::Error;
 
 use crate::anon_promises::AnonPromises;
 use crate::anon_target_attr::AnonTargetAttr;
@@ -113,7 +112,7 @@ pub struct AnonTargetsRegistry<'v> {
     promise_artifact_registry: PromiseArtifactRegistry<'v>,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum AnonTargetsError {
     #[error("Not allowed to call `anon_targets` in this context")]
     AssertNoPromisesFailed,

@@ -75,7 +75,6 @@ use indexmap::IndexSet;
 use more_futures::cancellation::CancellationContext;
 use starlark::values::OwnedFrozenValue;
 use static_assertions::_core::ops::Deref;
-use thiserror::Error;
 
 use crate::actions::execute::action_execution_target::ActionExecutionTarget;
 use crate::actions::execute::action_executor::ActionExecutionMetadata;
@@ -267,7 +266,7 @@ pub trait ActionExecutionCtx: Send + Sync {
     fn http_client(&self) -> HttpClient;
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 pub enum ActionErrors {
     #[error("Output path for artifact or metadata file cannot be empty.")]
     EmptyOutputPath,

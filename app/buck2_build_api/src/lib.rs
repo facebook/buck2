@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+#![feature(error_generic_member_access)]
 #![feature(box_patterns)]
 #![feature(iter_order_by)]
 #![feature(try_blocks)]

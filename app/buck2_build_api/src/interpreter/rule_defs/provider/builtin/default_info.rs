@@ -35,7 +35,6 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueLike;
-use thiserror::Error;
 
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
@@ -377,7 +376,7 @@ impl<'v, V: ValueLike<'v>> ValueAsArtifactTraversable<'v> for V {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum DefaultOutputError {
     #[error("Cannot specify both `default_output` and `default_outputs`.")]
     ConflictingArguments,

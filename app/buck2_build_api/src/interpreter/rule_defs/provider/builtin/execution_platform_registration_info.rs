@@ -20,12 +20,11 @@ use starlark::values::Freeze;
 use starlark::values::FrozenRef;
 use starlark::values::Trace;
 use starlark::values::Value;
-use thiserror::Error;
 
 use crate::interpreter::rule_defs::provider::builtin::execution_platform_info::ExecutionPlatformInfo;
 use crate::interpreter::rule_defs::provider::builtin::execution_platform_info::FrozenExecutionPlatformInfo;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum ExecutionPlatformRegistrationTypeError {
     #[error("expected a list of ExecutionPlatformInfo, got `{0}` (type `{1}`)")]
     ExpectedListOfPlatforms(String, String),

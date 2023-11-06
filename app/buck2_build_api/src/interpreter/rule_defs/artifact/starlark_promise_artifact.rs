@@ -35,7 +35,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Value;
-use thiserror::Error;
 
 use crate::artifact_groups::promise::PromiseArtifact;
 use crate::artifact_groups::ArtifactGroup;
@@ -54,7 +53,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum PromiseArtifactError {
     #[error("cannot access {1} on unresolved promise artifact ({0})")]
     MethodUnsupported(StarlarkPromiseArtifact, &'static str),
