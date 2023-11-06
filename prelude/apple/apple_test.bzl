@@ -8,7 +8,7 @@
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_library.bzl", "AppleLibraryAdditionalParams", "apple_library_rule_constructor_params_and_swift_providers")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-# @oss-disable: load("@prelude//apple/meta_only:apple_test_re_capabilities.bzl", "ios_test_re_capabilities") 
+# @oss-disable: load("@prelude//apple/meta_only:apple_test_re_capabilities.bzl", "ios_test_re_capabilities", "macos_test_re_capabilities") 
 # @oss-disable: load("@prelude//apple/meta_only:apple_test_re_use_case.bzl", "apple_test_re_use_case") 
 load("@prelude//apple/swift:swift_compilation.bzl", "get_swift_anonymous_targets", "uses_explicit_modules")
 load(
@@ -194,19 +194,19 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_
 
     sdk_name = get_apple_sdk_name(ctx)
     if sdk_name == MacOSXSdkMetadata.name:
-        # It's not possible to execute macOS tests on RE yet
-        local_enabled = True
-        remote_enabled = False
-        remote_execution_properties = None
-        remote_execution_use_case = None
+        # @oss-disable: remote_execution_properties = macos_test_re_capabilities() 
+        remote_execution_properties = None # @oss-enable
+
     else:
-        local_enabled = False
-        remote_enabled = True
         # @oss-disable: requires_ios_booted_simulator = ctx.attrs.test_host_app != None or ctx.attrs.ui_test_target_app != None 
         # @oss-disable: remote_execution_properties = ios_test_re_capabilities(use_unbooted_simulator = not requires_ios_booted_simulator) 
-        # @oss-disable: remote_execution_use_case = apple_test_re_use_case() 
         remote_execution_properties = None # @oss-enable
-        remote_execution_use_case = None # @oss-enable
+
+    # @oss-disable: remote_execution_use_case = apple_test_re_use_case(macos_test = sdk_name == MacOSXSdkMetadata.name) 
+
+    remote_execution_use_case = None # @oss-enable
+    local_enabled = remote_execution_use_case == None
+    remote_enabled = remote_execution_use_case != None
 
     return ExternalRunnerTestInfo(
         type = "custom",  # We inherit a label via the macro layer that overrides this.
