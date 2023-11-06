@@ -79,6 +79,3 @@ _rust_toolchain_attrs = {
 }
 
 RustToolchainInfo = provider(fields = _rust_toolchain_attrs)
-
-def ctx_toolchain_info(ctx: AnalysisContext) -> RustToolchainInfo:
-    return ctx.attrs._rust_toolchain[RustToolchainInfo]

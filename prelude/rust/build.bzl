@@ -74,7 +74,7 @@ load(
     "style_info",
 )
 load(":resources.bzl", "rust_attr_resources")
-load(":rust_toolchain.bzl", "RustToolchainInfo", "ctx_toolchain_info")
+load(":rust_toolchain.bzl", "RustToolchainInfo")
 
 RustcOutput = record(
     output = field(Artifact),
@@ -87,7 +87,7 @@ RustcOutput = record(
 )
 
 def compile_context(ctx: AnalysisContext) -> CompileContext:
-    toolchain_info = ctx_toolchain_info(ctx)
+    toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
 
     # Setup source symlink tree.
