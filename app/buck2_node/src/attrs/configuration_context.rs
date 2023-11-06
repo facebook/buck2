@@ -26,7 +26,7 @@ use starlark_map::sorted_map::SortedMap;
 use crate::configuration::resolved::ConfigurationSettingKeyRef;
 use crate::configuration::resolved::ResolvedConfiguration;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum PlatformConfigurationError {
     #[error("Could not find configuration for platform target `{0}`")]
     UnknownPlatformTarget(TargetLabel),

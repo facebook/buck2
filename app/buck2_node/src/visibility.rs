@@ -18,11 +18,10 @@ use buck2_core::target::label::TargetLabel;
 use buck2_util::arc_str::ThinArcSlice;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
-use thiserror::Error;
 
 use crate::attrs::attr_type::any_matches::AnyMatches;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum VisibilityError {
     #[error(
         "`{0}` is not visible to `{1}` (run `buck2 uquery --output-attribute visibility {0}` to check the visibility)"

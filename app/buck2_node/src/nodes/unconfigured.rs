@@ -44,7 +44,7 @@ use crate::rule::Rule;
 use crate::rule_type::RuleType;
 use crate::visibility::VisibilitySpecification;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum TargetNodeError {
     #[error("`visibility` attribute coerced incorrectly (`{0}`) (internal error)")]
     IncorrectVisibilityAttribute(String),

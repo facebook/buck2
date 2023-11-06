@@ -35,7 +35,7 @@ use crate::nodes::frontend::TargetGraphCalculation;
 use crate::nodes::unconfigured::TargetNode;
 use crate::super_package::SuperPackage;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum BuildErrors {
     #[error("Did not find package with name `{0}`.")]
     MissingPackage(PackageLabel),

@@ -51,7 +51,7 @@ use crate::metadata::map::MetadataMap;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum CoercedAttrWithTypeError {
     #[error(
         "attr and type mismatch: {}, {}; ({:?}) (internal error)",

@@ -19,7 +19,7 @@ pub struct EnumAttrType {
     pub variants: OrderedSet<ArcStr>,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum EnumAttrError {
     #[error("enum.attr() variant names must all be lowercase, got `{0}`")]
     NotLowercase(String),

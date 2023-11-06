@@ -21,7 +21,7 @@ use starlark_map::ordered_set::OrderedSet;
 
 use crate::nodes::unconfigured::TargetNode;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum TargetsMapRecordError {
     #[error(
         "Attempted to register target {0} twice, {}",

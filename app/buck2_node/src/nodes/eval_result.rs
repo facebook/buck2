@@ -30,7 +30,7 @@ use crate::nodes::targets_map::TargetsMap;
 use crate::nodes::unconfigured::TargetNode;
 use crate::super_package::SuperPackage;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 // WARN: CI uses this message to filter targets
 // If you change this message, please also update https://fburl.com/code/z0azzcc3
 #[error(

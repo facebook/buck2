@@ -22,7 +22,7 @@ use buck2_util::arc_str::ArcStr;
 use super::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_path::CoercedPath;
 
-#[derive(thiserror::Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum AttrCoercionContextError {
     #[error("Expected target label without name. Got `{0}`")]
     UnexpectedProvidersName(String),

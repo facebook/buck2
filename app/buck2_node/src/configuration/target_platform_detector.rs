@@ -31,9 +31,8 @@ use buck2_core::cells::CellResolver;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::TargetLabel;
-use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum DetectorSpecParseError {
     #[error(
         "`target:` platform detector only supports a recursive pattern matcher (like `cell//package/...`) but got `{0}`"

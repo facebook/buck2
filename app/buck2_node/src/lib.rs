@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+#![feature(error_generic_member_access)]
 #![feature(box_patterns)]
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]

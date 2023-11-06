@@ -25,7 +25,6 @@ rust_library(
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:static_assertions",
         "fbsource//third-party/rust:strsim",
-        "fbsource//third-party/rust:thiserror",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_core:buck2_core",

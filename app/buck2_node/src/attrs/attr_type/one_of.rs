@@ -13,7 +13,7 @@ use allocative::Allocative;
 
 use crate::attrs::attr_type::AttrType;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum OneOfAttrTypeError {
     #[error("Oneof index ({0}) out of bounds (internal error)")]
     IndexOutOfBounds(u32),

@@ -36,7 +36,7 @@ pub struct AttributeSpec {
     attributes: OrderedMap<Box<str>, Attribute>,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 pub(crate) enum AttributeSpecError {
     #[error("User provided attribute `{0}` overrides internal attribute")]
     InternalAttributeRedefined(String),

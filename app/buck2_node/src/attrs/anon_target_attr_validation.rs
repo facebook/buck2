@@ -9,12 +9,10 @@
 
 use std::fmt::Debug;
 
-use thiserror::Error;
-
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::attr_type::AttrTypeInner;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum AnonRuleAttrError {
     #[error("Attr type `{0}` is not supported for anon rules")]
     NotSupported(String),

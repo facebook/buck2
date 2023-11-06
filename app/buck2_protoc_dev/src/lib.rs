@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![feature(error_generic_member_access)]
+
 use std::env;
 use std::ffi::OsString;
 use std::io;

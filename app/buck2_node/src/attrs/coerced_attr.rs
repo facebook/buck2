@@ -60,7 +60,7 @@ use crate::metadata::map::MetadataMap;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 
-#[derive(thiserror::Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum SelectError {
     #[error("None of {} conditions matched configuration `{}` and no default was set:\n{}",
         .1.len(),
@@ -78,7 +78,7 @@ enum SelectError {
     DuplicateKey(String),
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum CoercedAttrError {
     #[error("Inconsistent number of elements in tuple")]
     InconsistentTupleLength,

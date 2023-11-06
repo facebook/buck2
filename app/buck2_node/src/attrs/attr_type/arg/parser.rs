@@ -70,8 +70,6 @@
 // character.
 use std::result;
 
-use thiserror::Error;
-
 #[derive(Debug, PartialEq)]
 pub struct ParsedMacro {
     /// Indicates that the value of the macro should be written to a file and the command should be passed `@<filename>` where
@@ -133,7 +131,7 @@ pub fn parse_macros(input: &str) -> anyhow::Result<ParsedArg> {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum ArgParseError {
     #[error("Unfinished quoted arg, expected a `{0}`")]
     UnfinishedQuotedArg(char),
