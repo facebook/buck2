@@ -32,7 +32,7 @@ use crate::attrs::resolve::ctx::AttrResolutionContext;
 
 pub mod query;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum ResolveMacroError {
     #[error(
         "The mapping for {0} in the TemplatePlaceholderInfo for {1} was not a dictionary (required because requested arg `{2}`)."

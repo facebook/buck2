@@ -33,9 +33,8 @@ use gazebo::prelude::*;
 use indexmap::IndexSet;
 use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
-use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum CopyActionValidationError {
     #[error("Exactly one input file must be specified for a copy action, got {0}")]
     WrongNumberOfInputs(usize),

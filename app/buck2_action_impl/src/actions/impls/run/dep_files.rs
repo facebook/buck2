@@ -66,7 +66,6 @@ use parking_lot::MappedMutexGuard;
 use parking_lot::Mutex;
 use parking_lot::MutexGuard;
 use starlark_map::ordered_map::OrderedMap;
-use thiserror::Error;
 use tracing::instrument;
 
 #[allocative::root]
@@ -1267,7 +1266,7 @@ impl DeclaredDepFiles {
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum MaterializeDepFilesError {
     #[error("Error materializing dep file")]
     MaterializationFailed {

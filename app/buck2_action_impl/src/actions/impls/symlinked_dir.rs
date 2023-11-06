@@ -41,9 +41,8 @@ use starlark::values::dict::DictOf;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::ValueError;
 use starlark_map::small_set::SmallSet;
-use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum SymlinkedDirError {
     #[error("Paths to symlink_dir must be non-overlapping, but got `{0}` and `{1}`")]
     OverlappingPaths(Box<ForwardRelativePath>, Box<ForwardRelativePath>),

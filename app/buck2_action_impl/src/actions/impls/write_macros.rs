@@ -41,7 +41,6 @@ use indexmap::IndexSet;
 use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
-use thiserror::Error;
 
 #[derive(Allocative)]
 pub(crate) struct UnregisteredWriteMacrosToFileAction {
@@ -67,7 +66,7 @@ impl UnregisteredAction for UnregisteredWriteMacrosToFileAction {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum WriteMacrosActionValidationError {
     #[error("At least one output file must be specified for a write macros action")]
     NoOutputsSpecified,

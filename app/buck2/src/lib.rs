@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![feature(error_generic_member_access)]
+
 //! `buck2 audit` command implementation, both client and server.
 
 // Plugins

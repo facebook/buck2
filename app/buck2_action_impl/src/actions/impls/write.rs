@@ -39,9 +39,8 @@ use indexmap::IndexSet;
 use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
-use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum WriteActionValidationError {
     #[error("WriteAction received inputs")]
     TooManyInputs,

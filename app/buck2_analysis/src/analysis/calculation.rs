@@ -55,7 +55,7 @@ use crate::analysis::env::run_analysis;
 use crate::analysis::env::RuleImplFunction;
 use crate::attrs::resolve::ctx::AnalysisQueryResult;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum AnalysisCalculationError {
     #[error("Internal error: literal `{0}` not found in `deps`")]
     LiteralNotFoundInDeps(String),
@@ -314,7 +314,7 @@ fn make_analysis_profile(res: &AnalysisResult) -> buck2_data::AnalysisProfile {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum ProfileAnalysisError {
     #[error("recursive analysis configured incorrectly (internal error)")]
     RecursiveProfileConfiguredIncorrectly,

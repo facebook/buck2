@@ -17,7 +17,7 @@ use starlark::values::Value;
 
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 
-#[derive(thiserror::Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum SourceLabelResolutionError {
     #[error("Expected a single artifact from {0}, but it returned {1} artifacts")]
     ExpectedSingleValue(String, usize),

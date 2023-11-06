@@ -50,14 +50,13 @@ use futures::select;
 use futures::FutureExt;
 use futures::StreamExt;
 use rand::Rng;
-use thiserror::Error;
 use tokio::runtime::Builder;
 
 use crate::commands::daemon_lower_priority::daemon_lower_priority;
 use crate::commands::schedule_termination::maybe_schedule_termination;
 use crate::DaemonBeforeSubcommandOptions;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum DaemonError {
     #[error("The buckd pid file at `{0}` had a mismatched pid, expected `{1}`, got `{2}`")]
     PidFileMismatch(PathBuf, u32, u32),

@@ -50,7 +50,7 @@ use crate::attrs::resolve::ctx::AnalysisQueryResult;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 use crate::attrs::resolve::node_to_attrs_struct::node_to_attrs_struct;
 
-#[derive(thiserror::Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum AnalysisError {
     #[error(
         "Analysis context was missing a query result, this shouldn't be possible. Query was `{0}`"

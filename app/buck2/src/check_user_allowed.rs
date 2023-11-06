@@ -28,7 +28,7 @@ pub(crate) fn check_user_allowed() -> anyhow::Result<()> {
     use winapi::um::winnt::TOKEN_ELEVATION;
     use winapi::um::winnt::TOKEN_QUERY;
 
-    #[derive(Debug, thiserror::Error)]
+    #[derive(Debug, buck2_error::Error)]
     enum CheckUserAllowedError {
         #[error("OpenProcessToken returned null token handle (unreachable)")]
         NullTokenHandle,
@@ -95,7 +95,7 @@ pub(crate) fn check_user_allowed() -> anyhow::Result<()> {
     use buck2_core::fs::paths::abs_path::AbsPath;
     use buck2_core::soft_error;
 
-    #[derive(Debug, thiserror::Error)]
+    #[derive(Debug, buck2_error::Error)]
     #[error("buck2 is not allowed to run as root (unless home dir is owned by root)")]
     struct RootError;
 

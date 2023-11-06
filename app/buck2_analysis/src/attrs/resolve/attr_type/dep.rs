@@ -20,11 +20,10 @@ use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::provider_id_set::ProviderIdSet;
 use starlark::environment::Module;
 use starlark::values::Value;
-use thiserror::Error;
 
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum ResolutionError {
     #[error("required provider `{0}` was not found on `{1}`. Found these providers: {}", .2.join(", "))]
     MissingRequiredProvider(String, ConfiguredProvidersLabel, Vec<String>),

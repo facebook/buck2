@@ -150,7 +150,7 @@ fn do_lower_priority() -> anyhow::Result<()> {
         }
     }
 
-    #[derive(Debug, thiserror::Error)]
+    #[derive(Debug, buck2_error::Error)]
     #[error("`posix_spawnp` with `POSIX_SPAWN_SETEXEC` flag should not return on success.")]
     struct Unreachable;
 

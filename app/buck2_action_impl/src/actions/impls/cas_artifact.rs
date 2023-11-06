@@ -46,11 +46,10 @@ use indexmap::IndexSet;
 use once_cell::sync::Lazy;
 use remote_execution as RE;
 use starlark::values::OwnedFrozenValue;
-use thiserror::Error;
 
 use crate::actions::impls::offline;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum CasArtifactActionDeclarationError {
     #[error("CAS artifact action should not have inputs, got {0}")]
     WrongNumberOfInputs(usize),
@@ -58,7 +57,7 @@ enum CasArtifactActionDeclarationError {
     WrongNumberOfOutputs(usize),
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum CasArtifactActionExecutionError {
     #[error("Error accessing digest expiration for: `{0}`")]
     GetDigestExpirationError(FileDigest),

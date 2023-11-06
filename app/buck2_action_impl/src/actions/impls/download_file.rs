@@ -41,11 +41,10 @@ use dupe::Dupe;
 use indexmap::IndexSet;
 use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
-use thiserror::Error;
 
 use crate::actions::impls::offline;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum DownloadFileActionError {
     #[error("download file action should not have inputs, got {0}")]
     WrongNumberOfInputs(usize),

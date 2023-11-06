@@ -76,7 +76,6 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
-use thiserror::Error;
 
 use self::dep_files::DepFileBundle;
 use crate::actions::impls::run::dep_files::make_dep_file_bundle;
@@ -89,7 +88,7 @@ pub(crate) mod audit_dep_files;
 pub mod dep_files;
 mod metadata;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum RunActionValidationError {
     #[error("Expected command line value, got {0}")]
     ContentsNotCommandLineValue(String),
@@ -114,7 +113,7 @@ impl Display for MetadataParameter {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum LocalPreferenceError {
     #[error("cannot have `local_only = True` and `prefer_local = True` at the same time")]
     LocalOnlyAndPreferLocal,

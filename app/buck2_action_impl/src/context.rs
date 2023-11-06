@@ -92,13 +92,13 @@ use crate::actions::impls::write::UnregisteredWriteAction;
 use crate::actions::impls::write_json::UnregisteredWriteJsonAction;
 use crate::actions::impls::write_macros::UnregisteredWriteMacrosToFileAction;
 
-#[derive(thiserror::Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum DownloadFileError {
     #[error("Must pass in at least one checksum (e.g. `sha1 = ...`)")]
     MissingChecksum,
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum DynamicOutputError {
     #[error("Output list may not be empty")]
     EmptyOutput,
@@ -108,7 +108,7 @@ enum DynamicOutputError {
     NotAFunction(String),
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum CasArtifactError {
     #[error("Not a valid RE digest: `{0}`")]
     InvalidDigest(String),
@@ -116,7 +116,7 @@ enum CasArtifactError {
     TreeAndDirectory,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum RunActionError {
     #[error("expected at least one output artifact, did not get any")]
     NoOutputsSpecified,
@@ -142,7 +142,7 @@ enum RunActionError {
     ArtifactVisitRecursionLimitExceeded,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum WriteActionError {
     #[error(
         "Argument type attributes detected in a content to be written into a file, but support for arguments was not turned on. Use `allow_args` parameter to turn on the support for arguments."

@@ -56,9 +56,8 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
-use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum WriteJsonActionValidationError {
     #[error("WriteJsonAction received inputs")]
     TooManyInputs,
