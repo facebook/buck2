@@ -4,5 +4,6 @@ name = "buck2_build_info"
 version = "0.1.0"
 
 [dependencies]
+buck2_error = { workspace = true }
 buck2_util = { workspace = true }
 # @oss-disable: build_info = { path = "../../../common/rust/build_info" }

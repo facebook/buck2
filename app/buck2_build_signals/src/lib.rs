@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![feature(error_generic_member_access)]
+
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Duration;

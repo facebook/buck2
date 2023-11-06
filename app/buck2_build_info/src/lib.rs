@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![feature(error_generic_member_access)]
+
 use buck2_util::late_binding::LateBinding;
 
 pub struct Buck2BuildInfo {
