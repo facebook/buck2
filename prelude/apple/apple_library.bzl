@@ -11,6 +11,7 @@ load(
 )
 load("@prelude//apple:apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 # @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "add_extra_linker_outputs") 
 load(
     "@prelude//apple/swift:swift_compilation.bzl",
@@ -176,6 +177,16 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         swift_compile,
     )
 
+    swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    if swift_toolchain and swift_toolchain.supports_relative_resource_dir:
+        resource_dir_args = []
+    else:
+        # We have to use this hack to make compilation work when Clang modules
+        # are enabled and using toolchains that don't support relative resource
+        # directories correctly. The builtin headers will be embedded relative
+        # to the CWD, so need to add . to be located correctly.
+        resource_dir_args = ["-I."]
+
     modular_pre = CPreprocessor(
         uses_modules = ctx.attrs.uses_modules,
         modular_args = [
@@ -183,13 +194,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
             "-fmodules",
             "-fmodule-name=" + get_module_name(ctx),
             "-fmodules-cache-path=" + MODULE_CACHE_PATH,
-            # TODO(T123756899): We have to use this hack to make compilation work
-            # when Clang modules are enabled and using toolchains. That's because
-            # resource-dir is passed as a relative path (so that no abs paths appear
-            # in any .pcm). The compiler will then expand and generate #include paths
-            # that won't work unless we have the directive below.
-            "-I.",
-        ],
+        ] + resource_dir_args,
     )
 
     contains_swift_sources = bool(swift_srcs)

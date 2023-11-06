@@ -44,10 +44,6 @@ def get_shared_pcm_compilation_args(module_name: str) -> cmd_args:
         # to avoid serializing it as an absolute path.
         "-Xcc",
         "-working-directory=",
-        # Using a relative resource dir requires we add the working directory as a search
-        # path to be able to find the compiler generated includes.
-        "-Xcc",
-        "-I.",
     ])
 
     cmd.add(get_disable_pch_validation_flags())
@@ -133,6 +129,14 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
             cmd.add([
                 "-resource-dir",
                 swift_toolchain.resource_dir,
+            ])
+
+        if not swift_toolchain.supports_relative_resource_dir:
+            # When the compiler does not correctly serialize builtin header paths
+            # we need to specify the CWD as a search path to find the headers.
+            cmd.add([
+                "-Xcc",
+                "-I.",
             ])
 
         cmd.add(sdk_deps_tset.project_as_args("clang_deps"))

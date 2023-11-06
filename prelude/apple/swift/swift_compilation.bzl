@@ -408,11 +408,14 @@ def _get_shared_flags(
         extra_search_paths_flags: list[ArgLike] = []) -> cmd_args:
     toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
     cmd = cmd_args()
-    cmd.add([
+
+    if not toolchain.supports_relative_resource_dir:
         # Setting this to empty will get the driver to make all paths absolute when
         # passed to the frontend. We later debug prefix these to ensure relative paths
         # in the debug info.
-        "-working-directory=",
+        cmd.add(["-working-directory="])
+
+    cmd.add([
         # Unset the working directory in the debug information.
         "-file-compilation-dir",
         ".",
