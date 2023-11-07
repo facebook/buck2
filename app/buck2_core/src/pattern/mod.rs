@@ -61,42 +61,33 @@ use crate::target::name::TargetNameRef;
 use crate::target_aliases::TargetAliasResolver;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(user)]
 enum TargetPatternParseError {
     #[error("Expected a `:`, a trailing `/...` or the literal `...`.")]
-    #[buck2(user)]
     UnexpectedFormat,
     #[error("Package is empty")]
-    #[buck2(user)]
     PackageIsEmpty,
     #[error("Must be absolute, with a `//` or no package just `:`.")]
-    #[buck2(user)]
     AbsoluteRequired,
     #[error(
         "Packages may not end with a trailing `/` (except when provided on the command line where it's tolerated)"
     )]
-    #[buck2(user)]
     PackageTrailingSlash,
     #[error("Required a target literal, but got a non-literal pattern `{0}`")]
-    #[buck2(user)]
     TargetLiteralRequired(String),
     #[error(
         "You may be trying to use a macro instead of a target pattern. Macro usage is invalid here"
     )]
-    #[buck2(user)]
     PossibleMacroUsage,
     #[error("Expecting {0} pattern, got: `{1}`")]
-    #[buck2(user)]
     ExpectingPatternOfType(&'static str, String),
     #[error("Configuration part of the pattern must be enclosed in `()`")]
-    #[buck2(user)]
     ConfigurationPartMustBeEnclosedInParentheses,
     #[error(
         "Cell resolver cell `{0}` does not match the given relative dir `{1}` (internal error)"
     )]
-    #[buck2(user)]
     CellResolverCellDoesNotMatchWorkingDir(CellName, CellPath),
     #[error("Pattern `{0}` is parsed as `{1}` which crosses cell boundaries. Try `{2}` instead")]
-    #[buck2(user)]
     PatternCrossesCellBoundaries(String, String, String),
 }
 
