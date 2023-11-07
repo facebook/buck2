@@ -9,7 +9,6 @@
 
 use std::fmt;
 use std::hash::Hash;
-use std::hash::Hasher;
 
 use allocative::Allocative;
 use starlark_map::small_map::SmallMap;
@@ -17,73 +16,17 @@ use starlark_map::sorted_map::SortedMap;
 
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::metadata::key::MetadataKey;
+use crate::metadata::value::MetadataValue;
 
-#[derive(Debug, Eq, PartialEq, Clone, Allocative, Default)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Default)]
 pub struct MetadataMap {
-    values: Box<SortedMap<MetadataKey, serde_json::Value>>,
+    values: Box<SortedMap<MetadataKey, MetadataValue>>,
 }
 
 impl MetadataMap {
-    pub fn new(values: SmallMap<MetadataKey, serde_json::Value>) -> Self {
+    pub fn new(values: SmallMap<MetadataKey, MetadataValue>) -> Self {
         Self {
             values: Box::new(SortedMap::from(values)),
-        }
-    }
-}
-
-impl Hash for MetadataMap {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        let Self { values } = self;
-        state.write_usize(values.len());
-        for (k, v) in values.iter_hashed() {
-            Hash::hash(&k, state);
-            hash_value(v, state);
-        }
-    }
-}
-
-fn hash_value<H: Hasher>(v: &serde_json::Value, state: &mut H) {
-    use serde_json::Value;
-
-    match v {
-        Value::Null => {
-            state.write_u8(0);
-        }
-        Value::Bool(v) => {
-            state.write_u8(1);
-            v.hash(state);
-        }
-        Value::Number(v) => {
-            state.write_u8(2);
-            if let Some(v) = v.as_u64() {
-                state.write_u8(1);
-                v.hash(state);
-            } else if let Some(v) = v.as_i64() {
-                state.write_u8(2);
-                v.hash(state);
-            } else {
-                state.write_u8(3);
-                v.to_string().hash(state);
-            }
-        }
-        Value::String(v) => {
-            state.write_u8(3);
-            v.hash(state);
-        }
-        Value::Array(vals) => {
-            state.write_u8(4);
-            state.write_usize(vals.len());
-            for v in vals {
-                hash_value(v, state);
-            }
-        }
-        Value::Object(vals) => {
-            state.write_u8(5);
-            state.write_usize(vals.len());
-            for (k, v) in vals {
-                k.hash(state);
-                hash_value(v, state);
-            }
         }
     }
 }
@@ -93,7 +36,7 @@ impl MetadataMap {
         let Self { values } = self;
         let map = values
             .iter()
-            .map(|(k, v)| (k.as_str().to_owned(), v.clone()))
+            .map(|(k, v)| (k.as_str().to_owned(), v.to_json()))
             .collect();
         serde_json::Value::Object(map)
     }
@@ -116,7 +59,7 @@ impl AnyMatches for MetadataMap {
             if filter(k.as_str())? {
                 return Ok(true);
             }
-            if v.any_matches(filter)? {
+            if v.0.any_matches(filter)? {
                 return Ok(true);
             }
         }
@@ -133,7 +76,7 @@ mod tests {
         let mut map = SmallMap::new();
         map.insert(
             "foo.bar".to_owned().try_into().unwrap(),
-            serde_json::Value::String("baz".to_owned()),
+            MetadataValue::new(serde_json::Value::String("baz".to_owned())),
         );
         MetadataMap::new(map)
     }

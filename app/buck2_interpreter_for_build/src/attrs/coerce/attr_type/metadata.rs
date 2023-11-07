@@ -16,6 +16,7 @@ use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::metadata::key::MetadataKey;
 use buck2_node::metadata::key::MetadataKeyRef;
 use buck2_node::metadata::map::MetadataMap;
+use buck2_node::metadata::value::MetadataValue;
 use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
 use starlark::values::string::STRING_TYPE;
@@ -71,7 +72,7 @@ impl AttrTypeCoerce for MetadataAttrType {
                 }
             })?;
 
-            map.insert(key.to_owned(), value);
+            map.insert(key.to_owned(), MetadataValue::new(value));
         }
 
         Ok(CoercedAttr::Metadata(MetadataMap::new(map)))
