@@ -37,6 +37,8 @@ except ImportError:
 
 
 class TestIncrementalUtils(unittest.TestCase):
+    maxDiff = None
+
     def test_not_run_incrementally_when_previous_build_not_incremental(self):
         spec = [
             BundleSpecItem(
@@ -331,6 +333,54 @@ class TestIncrementalUtils(unittest.TestCase):
                         source=Path("ghi/def"),
                         destination_relative_to_bundle=Path("ghi/def"),
                         digest="hash(def)",
+                        resolved_symlink=None,
+                    ),
+                ],
+            )
+
+    def test_calculate_incremental_state_with_ds_store(self) -> None:
+        with tempfile.TemporaryDirectory() as project_root, chdir(project_root):
+            # project_root
+            #           ├── foo
+            #           └── bar
+            #                ├── baz
+            #                └── .DS_Store
+            Path("foo").write_text("hello")
+            bar_path = Path("bar")
+            bar_path.mkdir()
+            (bar_path / "baz").write_text("world")
+            (bar_path / ".DS_Store").touch()
+
+            action_metadata = {
+                Path("foo"): "hash(foo)",
+                Path("bar/baz"): "hash(baz)",
+            }
+            spec = [
+                BundleSpecItem(
+                    src="foo",
+                    dst="foo",
+                    codesign_on_copy=False,
+                ),
+                BundleSpecItem(
+                    src="bar",
+                    dst="bar",
+                    codesign_on_copy=True,
+                ),
+            ]
+            state = calculate_incremental_state(spec, action_metadata)
+            self.assertEqual(
+                state,
+                [
+                    IncrementalStateItem(
+                        source=Path("foo"),
+                        destination_relative_to_bundle=Path("foo"),
+                        digest="hash(foo)",
+                        resolved_symlink=None,
+                    ),
+                    IncrementalStateItem(
+                        source=Path("bar/baz"),
+                        destination_relative_to_bundle=Path("bar/baz"),
+                        digest="hash(baz)",
                         resolved_symlink=None,
                     ),
                 ],

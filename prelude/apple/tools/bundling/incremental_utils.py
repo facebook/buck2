@@ -13,6 +13,11 @@ from typing import Dict, List, Set, Tuple
 from .assemble_bundle_types import BundleSpecItem, IncrementalContext
 from .incremental_state import IncrementalStateItem
 
+FILES_TO_BE_IGNORED: Set[str] = {
+    # Storage of Finder settings, which shouldn't be added when enumerating files from sources
+    ".DS_Store",
+}
+
 
 def should_assemble_incrementally(
     spec: List[BundleSpecItem], incremental_context: IncrementalContext
@@ -149,7 +154,8 @@ def _source_with_destination_files(
             raise RuntimeError(
                 f"Path {file_or_dir} is not a file and not a dir, don't know how to handle it."
             )
-    return result
+
+    return [(src, dst) for src, dst in result if src.name not in FILES_TO_BE_IGNORED]
 
 
 def _list_directory_deterministically(directory: Path) -> List[Path]:
