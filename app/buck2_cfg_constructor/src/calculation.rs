@@ -94,9 +94,9 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
                 ctx: &mut DiceComputations,
                 _cancellations: &CancellationContext,
             ) -> Self::Value {
+                let cfg_constructor_calculation = CFG_CONSTRUCTOR_CALCULATION_IMPL.get()?;
                 // Invoke eval fn from global instance of cfg constructors
-                let cfg_constructor = CFG_CONSTRUCTOR_CALCULATION_IMPL
-                    .get()?
+                let cfg_constructor = cfg_constructor_calculation
                     .get_cfg_constructor(ctx)
                     .await?
                     .context("Internal error: Global cfg constructor instance should exist")?;
