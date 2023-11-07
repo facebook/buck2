@@ -59,6 +59,7 @@ enum RegisterCfgConstructorError {
 struct StarlarkCfgConstructor<'v> {
     stage0: Value<'v>,
     stage1: Value<'v>,
+    key: String,
 }
 
 #[derive(
@@ -72,6 +73,7 @@ struct StarlarkCfgConstructor<'v> {
 struct FrozenStarlarkCfgConstructor {
     stage0: FrozenValue,
     stage1: FrozenValue,
+    key: String,
 }
 
 #[starlark_value(type = "StarlarkCfgConstructor")]
@@ -86,9 +88,17 @@ impl<'v> Freeze for StarlarkCfgConstructor<'v> {
     type Frozen = FrozenStarlarkCfgConstructor;
 
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
-        let StarlarkCfgConstructor { stage0, stage1 } = self;
+        let StarlarkCfgConstructor {
+            stage0,
+            stage1,
+            key,
+        } = self;
         let (stage0, stage1) = (stage0, stage1).freeze(freezer)?;
-        Ok(FrozenStarlarkCfgConstructor { stage0, stage1 })
+        Ok(FrozenStarlarkCfgConstructor {
+            stage0,
+            stage1,
+            key,
+        })
     }
 }
 
@@ -102,9 +112,11 @@ fn make_cfg_constructor(
             OwnedFrozenValue::new(cfg_constructor.owner().dupe(), cfg_constructor.stage1),
         )
     };
+    let key = cfg_constructor.key.clone();
     Ok(Arc::new(CfgConstructor {
         cfg_constructor_pre_constraint_analysis,
         cfg_constructor_post_constraint_analysis,
+        key,
     }))
 }
 
@@ -116,6 +128,7 @@ pub(crate) fn register_set_cfg_constructor(globals: &mut GlobalsBuilder) {
     fn set_cfg_constructor<'v>(
         #[starlark(require=named)] stage0: Value<'v>,
         #[starlark(require=named)] stage1: Value<'v>,
+        #[starlark(require=named)] key: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<NoneType> {
         let build_context = BuildContext::from_context(eval)?;
@@ -136,8 +149,11 @@ pub(crate) fn register_set_cfg_constructor(globals: &mut GlobalsBuilder) {
             return Err(RegisterCfgConstructorError::AlreadyRegistered.into());
         }
         package_file_extra.cfg_constructor.get_or_init(|| {
-            eval.heap()
-                .alloc_complex(StarlarkCfgConstructor { stage0, stage1 })
+            eval.heap().alloc_complex(StarlarkCfgConstructor {
+                stage0,
+                stage1,
+                key: key.to_owned(),
+            })
         });
         Ok(NoneType)
     }

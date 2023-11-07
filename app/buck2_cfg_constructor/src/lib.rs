@@ -61,6 +61,7 @@ enum CfgConstructorError {
 pub(crate) struct CfgConstructor {
     pub(crate) cfg_constructor_pre_constraint_analysis: OwnedFrozenValue,
     pub(crate) cfg_constructor_post_constraint_analysis: OwnedFrozenValue,
+    pub(crate) key: String,
 }
 
 async fn eval_pre_constraint_analysis<'v>(
