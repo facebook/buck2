@@ -44,7 +44,7 @@ impl Parse for MacroOption {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct ParsedOptions {
     category: Option<syn::Ident>,
     typ: Option<syn::Ident>,
@@ -52,6 +52,7 @@ struct ParsedOptions {
 
 fn parse_attributes(
     attrs: &mut Vec<syn::Attribute>,
+    fields: &syn::Fields,
     always_fail: Option<&str>,
 ) -> syn::Result<Option<ParsedOptions>> {
     let mut all_options = Vec::new();
@@ -96,6 +97,15 @@ fn parse_attributes(
                 }
                 parsed_options.typ = Some(ident);
             }
+        }
+    }
+
+    for attr in fields.iter().flat_map(|f| f.attrs.iter()) {
+        if attr.meta.path().get_ident().is_some_and(|i| i == "buck2") {
+            return Err(syn::Error::new_spanned(
+                attr,
+                "put this on the type or variant, not a field",
+            ));
         }
     }
 
@@ -160,13 +170,7 @@ fn generate_option_assignments(
     let name = input.ident.clone();
     match &mut input.data {
         syn::Data::Struct(data) => {
-            for field in &mut data.fields {
-                parse_attributes(
-                    &mut field.attrs,
-                    Some("Attribute must be on the type, not a field"),
-                )?;
-            }
-            let options = parse_attributes(&mut input.attrs, None)?;
+            let options = parse_attributes(&mut input.attrs, &data.fields, None)?;
             let options = render_options(options, krate, &name.to_string());
             let fields_as_pat = fields_as_pat(&data.fields);
             Ok(quote::quote! {
@@ -175,7 +179,7 @@ fn generate_option_assignments(
             })
         }
         syn::Data::Enum(data) => {
-            let type_options = parse_attributes(&mut input.attrs, None)?;
+            let type_options = parse_attributes(&mut input.attrs, &syn::Fields::Unit, None)?;
             let fail_on_variant_options = if type_options.is_some() {
                 Some("Cannot specify options on both the type and the variant")
             } else {
@@ -188,7 +192,11 @@ fn generate_option_assignments(
                 .iter_mut()
                 .map(|variant| {
                     let type_and_variant = format!("{}::{}", name, variant.ident);
-                    let options = parse_attributes(&mut variant.attrs, fail_on_variant_options)?;
+                    let options = parse_attributes(
+                        &mut variant.attrs,
+                        &variant.fields,
+                        fail_on_variant_options,
+                    )?;
                     let rendered_options = render_options(options, krate, &type_and_variant);
                     let fields_as_pat = fields_as_pat(&variant.fields);
                     let variant_name = &variant.ident;
