@@ -47,6 +47,21 @@ where
     }
 }
 
+fn construct_root_from_recovered_error(
+    e: Marc<dyn StdError + Send + Sync + 'static>,
+    typ: Option<crate::ErrorType>,
+    source_file: &'static str,
+    source_location_extra: Option<&'static str>,
+) -> crate::Error {
+    let source_location = crate::source_location::from_file(source_file, source_location_extra);
+    crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new(
+        e,
+        None,
+        typ,
+        source_location,
+    ))))
+}
+
 pub(crate) fn recover_crate_error(
     value: Marc<anyhow::Error>,
     source_location: Option<String>,
@@ -59,23 +74,19 @@ pub(crate) fn recover_crate_error(
         // Handle the `cur` error
         if let Some(base) = cur.downcast_ref::<CrateAsStdError>() {
             break base.0.clone();
-        } else if let Some(metadata) = request_value::<ProvidableMetadata>(&*cur) && (metadata.check_error_type)(&*cur).is_some() {
+        }
+
+        if let Some(metadata) = request_value::<ProvidableMetadata>(&*cur) && (metadata.check_error_type)(&*cur).is_some() {
             // FIXME(JakobDegen): `Marc` needs `try_map` here too
             let cur = Marc::map(cur, |e| (metadata.check_error_type)(e).unwrap());
-            let source_location = crate::source_location::from_file(metadata.source_file, metadata.source_location_extra);
-            let mut e = crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new(
-                cur,
-                None,
-                metadata.typ,
-                source_location,
-            ))));
+            let mut e = construct_root_from_recovered_error(cur, metadata.typ, metadata.source_file, metadata.source_location_extra);
             if let Some(category) = metadata.category {
                 e = e.context(category);
             }
             break e;
-        } else {
-            context_stack.push(cur.clone());
         }
+
+        context_stack.push(cur.clone());
 
         // Compute the next element in the source chain
         if cur.source().is_none() {
@@ -150,9 +161,11 @@ pub struct ProvidableMetadata {
     pub source_location_extra: Option<&'static str>,
     pub category: Option<crate::Category>,
     pub typ: Option<crate::ErrorType>,
-    /// Some errors will transitively call `Provide` for their sources, others won't. In order to
-    /// make sure that we get consistent behavior, we need to be able to check that the error we're
-    /// currently inspecting is actually the one doing the providing. This is how we do it.
+    /// Some errors will transitively call `Provide` for their sources. That means that even when a
+    /// `request_value` call returns `Some`, the value might actually be provided by something
+    /// further down the source chain. We work around this issue by calling this function to confirm
+    /// that the value was indeed provided by the element of the source chain we're currently
+    /// inspecting.
     ///
     /// We also reuse this to get a `Send + Sync` reference to our error, since `source()` does not
     /// give us that.
