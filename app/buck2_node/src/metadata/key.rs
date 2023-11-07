@@ -58,6 +58,10 @@ impl MetadataKeyRef {
         validate_key(key)?;
         Ok(Self::ref_cast(key))
     }
+
+    pub fn unchecked_new(key: &str) -> &Self {
+        Self::ref_cast(key)
+    }
 }
 
 fn validate_key(key: &str) -> Result<(), MetadataKeyError> {
