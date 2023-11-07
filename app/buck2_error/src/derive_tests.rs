@@ -126,3 +126,20 @@ fn test_source_location_no_attrs() {
         Some("buck2_error/src/derive_tests.rs::NoAttrsEnum::Variant")
     );
 }
+
+#[derive(buck2_error_derive::Error, Debug)]
+#[error("Unused")]
+#[buck2(user)]
+enum EnumWithTypeOption {
+    Variant,
+}
+
+#[test]
+fn test_enum_with_type_option() {
+    let e: crate::Error = EnumWithTypeOption::Variant.into();
+    assert_eq!(e.get_category(), Some(crate::Category::User));
+    assert_eq!(
+        e.source_location(),
+        Some("buck2_error/src/derive_tests.rs::EnumWithTypeOption::Variant"),
+    );
+}

@@ -175,12 +175,20 @@ fn generate_option_assignments(
             })
         }
         syn::Data::Enum(data) => {
+            let type_options = parse_attributes(&mut input.attrs, None)?;
+            let fail_on_variant_options = if type_options.is_some() {
+                Some("Cannot specify options on both the type and the variant")
+            } else {
+                None
+            };
+            // `type_and_variant` does not matter, as it's overwritten for each variant later anyway
+            let type_options = render_options(type_options, krate, "");
             let variants = data
                 .variants
                 .iter_mut()
                 .map(|variant| {
                     let type_and_variant = format!("{}::{}", name, variant.ident);
-                    let options = parse_attributes(&mut variant.attrs, None)?;
+                    let options = parse_attributes(&mut variant.attrs, fail_on_variant_options)?;
                     let rendered_options = render_options(options, krate, &type_and_variant);
                     let fields_as_pat = fields_as_pat(&variant.fields);
                     let variant_name = &variant.ident;
@@ -190,12 +198,8 @@ fn generate_option_assignments(
                 })
                 .try_collect::<Vec<_>>()?;
 
-            parse_attributes(
-                &mut input.attrs,
-                Some("Attribute must be on the variant, not the type"),
-            )?;
-
             Ok(quote::quote! {
+                #type_options
                 match val { #(#variants)* };
             })
         }
@@ -297,7 +301,8 @@ fn derive_error_impl(mut input: syn::DeriveInput, krate: syn::Path) -> syn::Resu
                     let mut typ = ::core::option::Option::None;
                     #[allow(unused_mut)]
                     let mut category = ::core::option::Option::None;
-                    let source_location_extra;
+                    #[allow(unused_mut)]
+                    let mut source_location_extra;
                     #option_assignments
                     #krate::__for_macro::provide_value(demand, #krate::__for_macro::ProvidableMetadata {
                         category,
