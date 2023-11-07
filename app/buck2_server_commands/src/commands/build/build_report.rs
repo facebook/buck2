@@ -94,26 +94,6 @@ pub(crate) struct ConfiguredBuildReportEntry {
     #[serde(flatten)]
     inner: MaybeConfiguredBuildReportEntry,
 }
-/*
-Dave
-
-    pub(crate) struct BuildTargetsAndErrors {
-        pub(crate) build_targets: Vec<proto::BuildTarget>,
-        pub(crate) build_errors: BuildErrors,
-    }
-
-    impl<'a> ResultReporter<'a> {
-        pub(crate) fn convert(
-            artifact_fs: &'a ArtifactFs,
-            options: ResultReporterOptions,
-            build_result: &BuildTargetResult,
-        ) -> BuildTargetsAndErrors {
-            let mut out = Self {
-                artifact_fs,
-                options,
-                results: Vec::new(),
-            };
- */
 
 /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
 #[derive(Debug, Serialize)]
@@ -165,18 +145,6 @@ pub(crate) struct BuildReportCollector<'a> {
     next_cause_index: usize,
 }
 
-/*
-dave
-let error_list = if let Some(e) = non_action_errors.pop() {
-                // FIXME(JakobDegen): We'd like to return more than one error here, but we have
-                // to get better at error deduplication first
-                vec![e]
-            } else {
-                // FIXME: Only one non-action error or all action errors is returned currently
-                action_errors
-            };
-*/
-
 impl<'a> BuildReportCollector<'a> {
     pub(crate) fn convert(
         trace_id: &TraceId,
@@ -206,12 +174,6 @@ impl<'a> BuildReportCollector<'a> {
             // Do this check ahead of time. We don't check for errors that aren't associated
             // with a target below, so we'd miss this otherwise.
             this.overall_success = false;
-            /* dave
-                        BuildTargetsAndErrors {
-                            build_targets: out.results,
-                            build_errors: BuildErrors { errors: error_list },
-                        }
-            */
         }
 
         // The `BuildTargetResult` doesn't group errors by their unconfigured target, so we need
