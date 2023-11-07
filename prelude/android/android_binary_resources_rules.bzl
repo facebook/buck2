@@ -73,7 +73,6 @@ def get_android_binary_resources_info(
 
     module_manifests = _get_module_manifests(
         ctx,
-        android_packageable_info,
         manifest_entries,
         apk_module_graph_file,
         use_proto_format,
@@ -465,7 +464,6 @@ def get_manifest(
 
 def _get_module_manifests(
         ctx: AnalysisContext,
-        android_packageable_info: AndroidPackageableInfo,
         manifest_entries: dict,
         apk_module_graph_file: [Artifact, None],
         use_proto_format: bool,
@@ -484,16 +482,9 @@ def _get_module_manifests(
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
 
     module_manifests_dir = ctx.actions.declare_output("module_manifests_dir", dir = True)
-    android_manifests = list(android_packageable_info.manifests.traverse()) if android_packageable_info.manifests else []
 
     def get_manifests_modular(ctx: AnalysisContext, artifacts, outputs):
         apk_module_graph_info = get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts)
-        get_module_from_target = apk_module_graph_info.target_to_module_mapping_function
-        module_to_manifests = {}
-        for android_manifest in android_manifests:
-            module_name = get_module_from_target(str(android_manifest.target_label))
-            if not is_root_module(module_name):
-                module_to_manifests.setdefault(module_name, []).append(android_manifest.manifest)
 
         merged_module_manifests = {}
         for module_name in apk_module_graph_info.module_list:
@@ -505,7 +496,8 @@ def _get_module_manifests(
                 android_toolchain.generate_manifest[RunInfo],
                 module_manifest_skeleton,
                 module_name,
-                module_to_manifests.get(module_name, []),
+                # Note - the expectation of voltron modules is that the AndroidManifest entries are merged into the base APK's manifest.
+                None,
                 manifest_entries.get("placeholders", {}),
             )
 
