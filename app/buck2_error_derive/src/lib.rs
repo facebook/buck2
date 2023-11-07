@@ -53,14 +53,17 @@ struct ParsedOptions {
 fn parse_attributes(
     attrs: &mut Vec<syn::Attribute>,
     fields: &syn::Fields,
-    always_fail: Option<&str>,
+    parsed_earlier: Option<&ParsedOptions>,
 ) -> syn::Result<Option<ParsedOptions>> {
     let mut all_options = Vec::new();
 
     for attr in attrs.extract_if(|attr| attr.meta.path().get_ident().is_some_and(|i| i == "buck2"))
     {
-        if let Some(message) = always_fail {
-            return Err(syn::Error::new_spanned(attr, message));
+        if parsed_earlier.is_some() {
+            return Err(syn::Error::new_spanned(
+                attr,
+                "Cannot specify options on both the type and the variant",
+            ));
         }
         let meta = attr.meta.require_list()?;
         let parsed =
@@ -180,13 +183,8 @@ fn generate_option_assignments(
         }
         syn::Data::Enum(data) => {
             let type_options = parse_attributes(&mut input.attrs, &syn::Fields::Unit, None)?;
-            let fail_on_variant_options = if type_options.is_some() {
-                Some("Cannot specify options on both the type and the variant")
-            } else {
-                None
-            };
-            // `type_and_variant` does not matter, as it's overwritten for each variant later anyway
-            let type_options = render_options(type_options, krate, "");
+            // `type_and_variant` does not matter, as it's overwritten in each variant later anyway
+            let type_options_rendered = render_options(type_options.clone(), krate, "");
             let variants = data
                 .variants
                 .iter_mut()
@@ -195,7 +193,7 @@ fn generate_option_assignments(
                     let options = parse_attributes(
                         &mut variant.attrs,
                         &variant.fields,
-                        fail_on_variant_options,
+                        type_options.as_ref(),
                     )?;
                     let rendered_options = render_options(options, krate, &type_and_variant);
                     let fields_as_pat = fields_as_pat(&variant.fields);
@@ -207,7 +205,7 @@ fn generate_option_assignments(
                 .try_collect::<Vec<_>>()?;
 
             Ok(quote::quote! {
-                #type_options
+                #type_options_rendered
                 match val { #(#variants)* };
             })
         }
