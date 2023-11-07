@@ -235,12 +235,16 @@ def get_android_binary_native_library_info(
                 merge_map_by_platform = {}
                 for platform, linkable_nodes in flattened_linkable_graphs_by_platform.items():
                     merge_map = merge_map_by_platform.setdefault(platform, {})
+                    merge_lib_to_fancy_regexes = {
+                        merge_lib: [regex(pattern, fancy = True) for pattern in patterns]
+                        for merge_lib, patterns in ctx.attrs.native_library_merge_map.items()
+                    }
                     for target, _node in linkable_nodes.items():
                         raw_target = str(target.raw_target())
                         merge_result = None
-                        for merge_lib, patterns in ctx.attrs.native_library_merge_map.items():
-                            for pattern in patterns:
-                                if regex(pattern, fancy = True).match(raw_target):
+                        for merge_lib, fancy_regexes in merge_lib_to_fancy_regexes.items():
+                            for fancy_regex in fancy_regexes:
+                                if fancy_regex.match(raw_target):
                                     merge_result = merge_lib
                                     break
                             if merge_result:
