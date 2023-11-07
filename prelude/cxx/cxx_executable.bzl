@@ -713,4 +713,6 @@ def _link_into_executable(
     )
 
 def get_cxx_executable_product_name(ctx: AnalysisContext) -> str:
+    if ctx.attrs.executable_name:
+        return ctx.attrs.executable_name
     return ctx.label.name + ("-wrapper" if cxx_use_bolt(ctx) else "")
