@@ -125,6 +125,11 @@ pub(crate) fn register_set_cfg_constructor(globals: &mut GlobalsBuilder) {
     /// Register global cfg constructor.
     ///
     /// This function can only be called from the repository root `PACKAGE` file.
+    ///
+    /// Parameters:
+    ///   stage0: The first cfg constructor that will be invoked before configuration rules are analyzed.
+    ///   stage1: The second cfg constructor that will be invoked after configuration rules are analyzed.
+    ///   key: The key for cfg modifiers on PACKAGE values and metadata.
     fn set_cfg_constructor<'v>(
         #[starlark(require=named)] stage0: Value<'v>,
         #[starlark(require=named)] stage1: Value<'v>,
