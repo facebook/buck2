@@ -319,38 +319,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
             ConfiguredTargetNodeArg::Str(s) => {
                 Self::check_allow_unconfigured(allow_unconfigured, s, target_platform)?;
 
-                match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
-                    &ctx.target_alias_resolver,
-                    // TODO(nga): Parse relaxed relative to cell root is incorrect.
-                    CellPathRef::new(ctx.cell_name, CellRelativePath::empty()),
-                    s,
-                    &ctx.cell_resolver,
-                )? {
-                    ParsedPattern::Target(pkg, name, TargetPatternExtra) => {
-                        Ok(TargetListExpr::One(TargetExpr::Label(Cow::Owned(
-                            dice.get_configured_target(
-                                &TargetLabel::new(pkg, name.as_ref()),
-                                target_platform.as_ref(),
-                            )
-                            .await?,
-                        ))))
-                    }
-                    pattern => {
-                        let loaded_patterns =
-                            load_patterns(dice, vec![pattern], MissingTargetBehavior::Fail).await?;
-
-                        let maybe_compatible = get_maybe_compatible_targets(
-                            dice,
-                            loaded_patterns.iter_loaded_targets_by_package(),
-                            target_platform.as_ref(),
-                        )
-                        .await?
-                        .collect::<Result<Vec<_>, _>>()?;
-
-                        let result = filter_incompatible(maybe_compatible.into_iter(), ctx)?;
-                        Ok(Self::TargetSet(Cow::Owned(result)))
-                    }
-                }
+                Self::unpack_string_literal(s, target_platform, ctx, dice).await
             }
             ConfiguredTargetNodeArg::Unconfigured(label) => {
                 Self::check_allow_unconfigured(
@@ -362,6 +331,48 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                     dice.get_configured_target(label.label(), target_platform.as_ref())
                         .await?,
                 ))))
+            }
+        }
+    }
+
+    // Unpack functionality for a string literal
+    async fn unpack_string_literal(
+        val: &str,
+        target_platform: &Option<TargetLabel>,
+        ctx: &BxlContextNoDice<'_>,
+        dice: &mut DiceComputations,
+    ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
+        match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
+            &ctx.target_alias_resolver,
+            // TODO(nga): Parse relaxed relative to cell root is incorrect.
+            CellPathRef::new(ctx.cell_name, CellRelativePath::empty()),
+            val,
+            &ctx.cell_resolver,
+        )? {
+            ParsedPattern::Target(pkg, name, TargetPatternExtra) => {
+                let label = dice
+                    .get_configured_target(
+                        &TargetLabel::new(pkg, name.as_ref()),
+                        target_platform.as_ref(),
+                    )
+                    .await?;
+
+                Ok(TargetListExpr::One(TargetExpr::Label(Cow::Owned(label))))
+            }
+            pattern => {
+                let loaded_patterns =
+                    load_patterns(dice, vec![pattern], MissingTargetBehavior::Fail).await?;
+
+                let maybe_compatible = get_maybe_compatible_targets(
+                    dice,
+                    loaded_patterns.iter_loaded_targets_by_package(),
+                    target_platform.as_ref(),
+                )
+                .await?
+                .collect::<Result<Vec<_>, _>>()?;
+
+                let result = filter_incompatible(maybe_compatible.into_iter(), ctx)?;
+                Ok(TargetListExpr::TargetSet(Cow::Owned(result)))
             }
         }
     }
