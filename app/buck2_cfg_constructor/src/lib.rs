@@ -14,6 +14,7 @@
 pub(crate) mod calculation;
 pub(crate) mod registration;
 
+use std::borrow::Borrow;
 use std::future::Future;
 use std::pin::Pin;
 
@@ -32,6 +33,8 @@ use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
+use buck2_node::metadata::key::MetadataKey;
+use buck2_node::metadata::key::MetadataKeyRef;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::RuleKind;
 use calculation::CfgConstructorCalculationInstance;
@@ -61,7 +64,7 @@ enum CfgConstructorError {
 pub(crate) struct CfgConstructor {
     pub(crate) cfg_constructor_pre_constraint_analysis: OwnedFrozenValue,
     pub(crate) cfg_constructor_post_constraint_analysis: OwnedFrozenValue,
-    pub(crate) key: String,
+    pub(crate) key: MetadataKey,
 }
 
 async fn eval_pre_constraint_analysis<'v>(
@@ -230,6 +233,10 @@ impl CfgConstructorImpl for CfgConstructor {
         // Get around issue of Evaluator not being send by wrapping future in UnsafeSendFuture
         let fut = async move { eval_underlying(self, ctx, cfg).await };
         unsafe { Box::pin(UnsafeSendFuture::new_encapsulates_starlark(fut)) }
+    }
+
+    fn key(&self) -> &MetadataKeyRef {
+        self.key.borrow()
     }
 }
 

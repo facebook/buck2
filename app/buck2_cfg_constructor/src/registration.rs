@@ -19,6 +19,7 @@ use buck2_interpreter_for_build::interpreter::build_context::PerFileTypeContext;
 use buck2_interpreter_for_build::interpreter::package_file_extra::PackageFileExtra;
 use buck2_interpreter_for_build::interpreter::package_file_extra::MAKE_CFG_CONSTRUCTOR;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
+use buck2_node::metadata::key::MetadataKeyRef;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
@@ -112,7 +113,7 @@ fn make_cfg_constructor(
             OwnedFrozenValue::new(cfg_constructor.owner().dupe(), cfg_constructor.stage1),
         )
     };
-    let key = cfg_constructor.key.clone();
+    let key = MetadataKeyRef::new(&cfg_constructor.key)?.to_owned();
     Ok(Arc::new(CfgConstructor {
         cfg_constructor_pre_constraint_analysis,
         cfg_constructor_post_constraint_analysis,

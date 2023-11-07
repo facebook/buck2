@@ -18,6 +18,8 @@ use buck2_core::configuration::data::ConfigurationData;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 
+use crate::metadata::key::MetadataKeyRef;
+
 /// Trait for configuration constructor functions.
 /// The output of invoking these functions is a PlatformInfo
 #[async_trait]
@@ -27,6 +29,9 @@ pub trait CfgConstructorImpl: Send + Sync + Debug + Allocative {
         ctx: &'a DiceComputations,
         cfg: &'a ConfigurationData,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<ConfigurationData>> + Send + 'a>>;
+
+    /// Returns the metadata key used to encode modifiers in PACKAGE values and metadata attribute
+    fn key<'a>(&'a self) -> &'a MetadataKeyRef;
 }
 
 pub static CFG_CONSTRUCTOR_CALCULATION_IMPL: LateBinding<
