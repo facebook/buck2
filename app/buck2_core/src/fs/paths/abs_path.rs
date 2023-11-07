@@ -137,8 +137,7 @@ impl AbsPath {
 
     pub fn join<P: AsRef<Path>>(&self, other: P) -> AbsPathBuf {
         let path = self.0.join(other);
-        assert!(path.is_absolute());
-        AbsPathBuf(path)
+        AbsPathBuf::new(path).unwrap()
     }
 
     pub fn parent(&self) -> Option<&AbsPath> {
