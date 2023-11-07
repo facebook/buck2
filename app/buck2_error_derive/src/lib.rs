@@ -44,6 +44,7 @@ impl Parse for MacroOption {
     }
 }
 
+#[derive(Default)]
 struct ParsedOptions {
     category: Option<syn::Ident>,
     typ: Option<syn::Ident>,
@@ -52,7 +53,7 @@ struct ParsedOptions {
 fn parse_attributes(
     attrs: &mut Vec<syn::Attribute>,
     always_fail: Option<&str>,
-) -> syn::Result<ParsedOptions> {
+) -> syn::Result<Option<ParsedOptions>> {
     let mut all_options = Vec::new();
 
     for attr in attrs.extract_if(|attr| attr.meta.path().get_ident().is_some_and(|i| i == "buck2"))
@@ -64,6 +65,10 @@ fn parse_attributes(
         let parsed =
             Punctuated::<MacroOption, Token![,]>::parse_terminated.parse2(meta.tokens.clone())?;
         all_options.extend(parsed);
+    }
+
+    if all_options.is_empty() {
+        return Ok(None);
     }
 
     let mut parsed_options = ParsedOptions {
@@ -94,14 +99,15 @@ fn parse_attributes(
         }
     }
 
-    Ok(parsed_options)
+    Ok(Some(parsed_options))
 }
 
 fn render_options(
-    options: ParsedOptions,
+    options: Option<ParsedOptions>,
     krate: &syn::Path,
     type_and_variant: &str,
 ) -> proc_macro2::TokenStream {
+    let options = options.unwrap_or_default();
     let source_location_extra = syn::LitStr::new(type_and_variant, Span::call_site());
     let category = options.category.map(|cat| {
         quote::quote! {

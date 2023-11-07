@@ -102,3 +102,27 @@ fn test_uses_from() {
     let e: UsesFrom = Simple.into();
     let _e: crate::Error = e.into();
 }
+
+#[derive(buck2_error_derive::Error, Debug)]
+#[error("Unused")]
+struct NoAttrsStruct;
+
+#[derive(buck2_error_derive::Error, Debug)]
+#[error("Unused")]
+enum NoAttrsEnum {
+    Variant,
+}
+
+#[test]
+fn test_source_location_no_attrs() {
+    let e: crate::Error = NoAttrsStruct.into();
+    assert_eq!(
+        e.source_location(),
+        Some("buck2_error/src/derive_tests.rs::NoAttrsStruct")
+    );
+    let e: crate::Error = NoAttrsEnum::Variant.into();
+    assert_eq!(
+        e.source_location(),
+        Some("buck2_error/src/derive_tests.rs::NoAttrsEnum::Variant")
+    );
+}
