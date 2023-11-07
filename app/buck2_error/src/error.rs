@@ -152,7 +152,15 @@ impl Error {
         self.iter_kinds().find_map(|kind| match kind {
             ErrorKind::Root(r) => r.downcast_ref(),
             ErrorKind::WithContext(ContextValue::Dyn(ctx), _) => {
-                (ctx.as_ref() as &dyn Any).downcast_ref()
+                // More hacks: We need to see through `Marc`s to deal with the way we create context
+                // when doing error reconstruction
+                if let Some(ctx) = (ctx.as_ref() as &dyn Any)
+                    .downcast_ref::<Marc<dyn StdError + Send + Sync + 'static>>()
+                {
+                    ctx.as_ref().downcast_ref()
+                } else {
+                    (ctx.as_ref() as &dyn Any).downcast_ref()
+                }
             }
             // Intentionally don't support downcasting for other `ContextValue` variants, it should
             // not be necessary

@@ -334,7 +334,7 @@ fn derive_error_impl(mut input: syn::DeriveInput, krate: syn::Path) -> syn::Resu
                         typ,
                         ::core::file!(),
                         ::core::option::Option::Some(source_location_extra),
-                        #krate::__for_macro::ProvidableMetadata::gen_check_error_type::<Self>(),
+                        #krate::__for_macro::ProvidableRootMetadata::gen_check_error_type::<Self>(),
                     );
                     let val = unsafe { #ref_transmute(self) };
                     <_ as ::std::error::Error>::provide(val, demand)

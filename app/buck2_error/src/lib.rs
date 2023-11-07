@@ -82,7 +82,8 @@ pub mod __for_macro {
     pub use thiserror;
 
     use crate::any::CheckErrorType;
-    pub use crate::any::ProvidableMetadata;
+    use crate::any::ProvidableContextMetadata;
+    pub use crate::any::ProvidableRootMetadata;
 
     pub fn provide_value_impl<'a, 'b>(
         demand: &'b mut Demand<'a>,
@@ -92,9 +93,13 @@ pub mod __for_macro {
         source_location_extra: Option<&'static str>,
         check_error_type: CheckErrorType,
     ) -> &'b mut Demand<'a> {
-        let metadata = ProvidableMetadata {
-            category,
+        let metadata = ProvidableRootMetadata {
             typ,
+            check_error_type,
+        };
+        Demand::provide_value(demand, metadata);
+        let metadata = ProvidableContextMetadata {
+            category,
             source_file,
             source_location_extra,
             check_error_type,

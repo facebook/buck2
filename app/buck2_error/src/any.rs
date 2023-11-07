@@ -50,16 +50,24 @@ where
 fn construct_root_from_recovered_error(
     e: Marc<dyn StdError + Send + Sync + 'static>,
     typ: Option<crate::ErrorType>,
-    source_file: &'static str,
-    source_location_extra: Option<&'static str>,
+    context: Option<ProvidableContextMetadata>,
 ) -> crate::Error {
-    let source_location = crate::source_location::from_file(source_file, source_location_extra);
-    crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new(
+    let source_location = if let Some(context) = context {
+        crate::source_location::from_file(context.source_file, context.source_location_extra)
+    } else {
+        None
+    };
+    let e = crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new(
         e,
         None,
         typ,
         source_location,
-    ))))
+    ))));
+    if let Some(context) = context && let Some(category) = context.category {
+        e.context(category)
+    } else {
+        e
+    }
 }
 
 pub(crate) fn recover_crate_error(
@@ -70,37 +78,50 @@ pub(crate) fn recover_crate_error(
     // information associated with it that would allow us to recover more structure.
     let mut context_stack = Vec::new();
     let mut cur: Marc<dyn StdError + 'static> = Marc::map(value.clone(), AsRef::as_ref);
-    let base = loop {
+    let base = 'base: loop {
         // Handle the `cur` error
         if let Some(base) = cur.downcast_ref::<CrateAsStdError>() {
             break base.0.clone();
         }
 
-        if let Some(metadata) = request_value::<ProvidableMetadata>(&*cur) && (metadata.check_error_type)(&*cur).is_some() {
+        let context_metadata = if let Some(metadata) = request_value::<ProvidableContextMetadata>(&*cur) && (metadata.check_error_type)(&*cur).is_some() {
+            Some(metadata)
+        } else {
+            None
+        };
+
+        if let Some(metadata) = request_value::<ProvidableRootMetadata>(&*cur) && (metadata.check_error_type)(&*cur).is_some() {
             // FIXME(JakobDegen): `Marc` needs `try_map` here too
             let cur = Marc::map(cur, |e| (metadata.check_error_type)(e).unwrap());
-            let mut e = construct_root_from_recovered_error(cur, metadata.typ, metadata.source_file, metadata.source_location_extra);
-            if let Some(category) = metadata.category {
-                e = e.context(category);
-            }
-            break e;
+            break construct_root_from_recovered_error(cur, metadata.typ, context_metadata);
         }
 
-        context_stack.push(cur.clone());
+        context_stack.push((cur.clone(), context_metadata));
 
         // Compute the next element in the source chain
-        if cur.source().is_none() {
-            // This error was not created from a `buck2_error::Error`, so we can't do anything
-            // smart
-            return crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new_anyhow(
-                value,
-                source_location,
-            ))));
-        } else {
+        if cur.source().is_some() {
             // FIXME(JakobDegen): `Marc` should have `try_map` or some such so that we don't need to
             // unwrap
             cur = Marc::map(cur, |e| e.source().unwrap());
+            continue;
         }
+
+        // The error was not created directly from a `buck2_error::Error` or with a
+        // `ProvidableRootMetadata`. However, if may have only `ProvidableContextMetadata`, so
+        // check for that possibility
+        while let Some((e, context_metadata)) = context_stack.pop() {
+            let Some(context_metadata) = context_metadata else {
+                continue;
+            };
+            // The `unwrap` is ok because we checked this condition when initially constructing the `context_metadata`
+            let e = Marc::map(e, |e| (context_metadata.check_error_type)(e).unwrap());
+            break 'base construct_root_from_recovered_error(e, None, Some(context_metadata));
+        }
+        // This error was not created with any useful metadata on it, so there's nothing smart we can do
+        return crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new_anyhow(
+            value,
+            source_location,
+        ))));
     };
     // We were able to convert the error into a `buck2_error::Error` in some non-trivial way. We'll
     // now need to add back any context that is not included in the `base` buck2_error yet.
@@ -110,11 +131,26 @@ pub(crate) fn recover_crate_error(
     // wrong, someone else has to have put an `anyhow::Error` into their custom error type, which
     // they really shouldn't be doing anyway.
     let mut e = base;
-    for context in context_stack.into_iter().rev() {
-        // Even for proper context objects, anyhow does not give us access to them directly. The
-        // best we can do is turn them into strings.
-        let context = format!("{}", context);
-        e = e.context(context);
+    for (context_value, context_metadata) in context_stack.into_iter().rev() {
+        if let Some(context_metadata) = context_metadata {
+            // The `unwrap` is ok because we checked this condition when initially constructing the `context_metadata`
+            let context_value = Marc::map(context_value, |e| {
+                (context_metadata.check_error_type)(e).unwrap()
+            });
+            e = e.context(context_value);
+            if let Some(category) = context_metadata.category {
+                e = e.context(category);
+            }
+        } else {
+            // The context that shows up here is restricted to that which was added by
+            // `anyhow::Context` or non-`buck2_error::Error` impls of `StdError`, including from
+            // `thiserror`. The only way we can get access to this context in any way is via the
+            // source chain - however the source chain only gives us a `dyn StdError`, without `Send
+            // + Sync`. As a result, we cannot store the context in a "typed" way, and must resort
+            //   to doing this.
+            let context = format!("{}", context_value);
+            e = e.context(context);
+        }
     }
     e
 }
@@ -154,12 +190,7 @@ pub type CheckErrorType =
 /// Currently intended for macro use only, might make sense to allow it more generally in the
 /// future.
 #[derive(Copy, Clone)]
-pub struct ProvidableMetadata {
-    pub source_file: &'static str,
-    /// Extra information to add to the end of the source location - typically a type/variant name,
-    /// and the same thing as gets passed to `buck2_error::source_location::from_file`.
-    pub source_location_extra: Option<&'static str>,
-    pub category: Option<crate::Category>,
+pub struct ProvidableRootMetadata {
     pub typ: Option<crate::ErrorType>,
     /// Some errors will transitively call `Provide` for their sources. That means that even when a
     /// `request_value` call returns `Some`, the value might actually be provided by something
@@ -172,7 +203,22 @@ pub struct ProvidableMetadata {
     pub check_error_type: CheckErrorType,
 }
 
-impl ProvidableMetadata {
+/// Like `ProvidableRootMetadata`, but for "context-like" metadata that can appear on the error more
+/// than once.
+#[derive(Copy, Clone)]
+pub struct ProvidableContextMetadata {
+    /// Technically this should be in the `ProvidableRootMetadata`. However, we allow it to appear
+    /// multiple times in the context and just pick the last one. There's no benefit to being picky.
+    pub source_file: &'static str,
+    /// Extra information to add to the end of the source location - typically a type/variant name,
+    /// and the same thing as gets passed to `buck2_error::source_location::from_file`.
+    pub source_location_extra: Option<&'static str>,
+    pub category: Option<crate::Category>,
+    /// See `ProvidableRootMetadata`
+    pub check_error_type: CheckErrorType,
+}
+
+impl ProvidableRootMetadata {
     pub const fn gen_check_error_type<E: StdError + Send + Sync + 'static>() -> CheckErrorType {
         |e| e.downcast_ref::<E>().map(|e| e as _)
     }
@@ -233,35 +279,42 @@ mod tests {
     }
 
     #[derive(Debug, derive_more::Display)]
-    struct MetadataError;
+    struct FullMetadataError;
 
-    impl StdError for MetadataError {
+    impl StdError for FullMetadataError {
         fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
-            demand.provide_value(ProvidableMetadata {
-                source_file: file!(),
-                source_location_extra: Some("MetadataError"),
-                category: Some(crate::Category::User),
-                typ: Some(crate::ErrorType::Watchman),
-                check_error_type: ProvidableMetadata::gen_check_error_type::<Self>(),
-            });
+            demand
+                .provide_value(ProvidableRootMetadata {
+                    typ: Some(crate::ErrorType::Watchman),
+                    check_error_type: ProvidableRootMetadata::gen_check_error_type::<Self>(),
+                })
+                .provide_value(ProvidableContextMetadata {
+                    source_file: file!(),
+                    source_location_extra: Some("FullMetadataError"),
+                    category: Some(crate::Category::User),
+                    check_error_type: ProvidableRootMetadata::gen_check_error_type::<Self>(),
+                });
         }
     }
 
     #[test]
     fn test_metadata() {
-        for e in [MetadataError.into(), crate::Error::new(MetadataError)] {
+        for e in [
+            FullMetadataError.into(),
+            crate::Error::new(FullMetadataError),
+        ] {
             assert_eq!(e.get_category(), Some(crate::Category::User));
             assert_eq!(e.get_error_type(), Some(crate::ErrorType::Watchman));
             assert_eq!(
                 e.source_location(),
-                Some("buck2_error/src/any.rs::MetadataError")
+                Some("buck2_error/src/any.rs::FullMetadataError")
             );
         }
     }
 
     #[test]
     fn test_metadata_through_anyhow() {
-        let e: anyhow::Error = MetadataError.into();
+        let e: anyhow::Error = FullMetadataError.into();
         let e = e.context("anyhow");
         let e: crate::Error = e.into();
         assert_eq!(e.get_category(), Some(crate::Category::User));
@@ -270,11 +323,11 @@ mod tests {
 
     #[derive(Debug, thiserror::Error)]
     #[error("wrapper")]
-    struct WrapperError(#[source] MetadataError);
+    struct WrapperError(#[source] FullMetadataError);
 
     #[test]
     fn test_metadata_through_wrapper() {
-        let e: crate::Error = WrapperError(MetadataError).into();
+        let e: crate::Error = WrapperError(FullMetadataError).into();
         assert_eq!(e.get_category(), Some(crate::Category::User));
         assert!(format!("{:?}", e).contains("wrapper"));
     }
