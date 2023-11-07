@@ -92,6 +92,16 @@ impl SuperPackageValues for SuperPackageValuesImpl {
     fn contains_key(&self, key: &MetadataKeyRef) -> bool {
         self.values.contains_key(key)
     }
+
+    fn get_package_value_json(
+        &self,
+        key: &MetadataKeyRef,
+    ) -> anyhow::Result<Option<serde_json::Value>> {
+        match self.values.get(key) {
+            Some(value) => Ok(Some(value.to_json_value()?)),
+            None => Ok(None),
+        }
+    }
 }
 
 /// Value that is known to be serializable to JSON.
