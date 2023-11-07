@@ -499,7 +499,7 @@ def _get_shared_flags(
             "-disable-cxx-interop-requirement-at-import",
         ])
 
-    if toolchain.supports_swift_importing_objc_forward_declarations:
+    if toolchain.supports_swift_importing_objc_forward_declarations and ctx.attrs.import_obj_c_forward_declarations:
         cmd.add([
             "-Xfrontend",
             "-enable-upcoming-feature",
