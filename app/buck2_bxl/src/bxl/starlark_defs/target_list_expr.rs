@@ -234,6 +234,10 @@ pub(crate) enum TargetExprError {
         "Unconfigured target with label `{0}` was passed into cquery. Targets passed into cquery should be configured (recommendation is to use `ctx.target_universe()`)."
     )]
     UnconfiguredTargetInCquery(String),
+    #[error(
+        "`keep_going` is currently only implemented for a single target pattern as a string literal."
+    )]
+    KeepGoingOnlyForStringLiteral,
 }
 
 impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
@@ -319,7 +323,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
             ConfiguredTargetNodeArg::Str(s) => {
                 Self::check_allow_unconfigured(allow_unconfigured, s, target_platform)?;
 
-                Self::unpack_string_literal(s, target_platform, ctx, dice).await
+                Self::unpack_string_literal(s, target_platform, ctx, dice, false).await
             }
             ConfiguredTargetNodeArg::Unconfigured(label) => {
                 Self::check_allow_unconfigured(
@@ -335,12 +339,29 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         }
     }
 
-    // Unpack functionality for a string literal
+    // Ideally we refactor the entire unpacking logic for configured targets to make this easier,
+    // but let's support keep_going for string literals for now.
+    pub(crate) async fn unpack_keep_going<'c>(
+        arg: ConfiguredTargetListExprArg<'v>,
+        target_platform: &Option<TargetLabel>,
+        ctx: &BxlContextNoDice<'v>,
+        dice: &mut DiceComputations,
+    ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
+        match arg {
+            ConfiguredTargetListExprArg::Target(ConfiguredTargetNodeArg::Str(val)) => {
+                Self::unpack_string_literal(val, target_platform, ctx, dice, true).await
+            }
+            _ => Err(TargetExprError::KeepGoingOnlyForStringLiteral.into()),
+        }
+    }
+
+    // Unpack functionality for a string literal, with keep_going support
     async fn unpack_string_literal(
         val: &str,
         target_platform: &Option<TargetLabel>,
         ctx: &BxlContextNoDice<'_>,
         dice: &mut DiceComputations,
+        keep_going: bool,
     ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
             &ctx.target_alias_resolver,
@@ -350,14 +371,32 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
             &ctx.cell_resolver,
         )? {
             ParsedPattern::Target(pkg, name, TargetPatternExtra) => {
-                let label = dice
+                let result = match dice
                     .get_configured_target(
                         &TargetLabel::new(pkg, name.as_ref()),
                         target_platform.as_ref(),
                     )
-                    .await?;
+                    .await
+                {
+                    Ok(label) => {
+                        // check if we can get a maybe compatible configured target node successfully here to make
+                        // sure keep_going works. We will try to get the node later, but due to how complex this
+                        // code is, it's much easier to just call it once here as a sanity check.
+                        match dice.get_configured_target_node(&label).await {
+                            Ok(_) => Ok(TargetListExpr::One(TargetExpr::Label(Cow::Owned(label)))),
+                            Err(e) => Err(e),
+                        }
+                    }
+                    Err(e) => Err(e),
+                };
 
-                Ok(TargetListExpr::One(TargetExpr::Label(Cow::Owned(label))))
+                result.or_else(|e| {
+                    if keep_going {
+                        Ok(TargetListExpr::Iterable(Vec::new()))
+                    } else {
+                        Err(e)
+                    }
+                })
             }
             pattern => {
                 let loaded_patterns =
@@ -367,9 +406,15 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                     dice,
                     loaded_patterns.iter_loaded_targets_by_package(),
                     target_platform.as_ref(),
+                    keep_going,
                 )
-                .await?
-                .collect::<Result<Vec<_>, _>>()?;
+                .await?;
+
+                let maybe_compatible: Vec<_> = if keep_going {
+                    maybe_compatible.filter_map(|r| r.ok()).collect()
+                } else {
+                    maybe_compatible.collect::<anyhow::Result<_>>()?
+                };
 
                 let result = filter_incompatible(maybe_compatible.into_iter(), ctx)?;
                 Ok(TargetListExpr::TargetSet(Cow::Owned(result)))

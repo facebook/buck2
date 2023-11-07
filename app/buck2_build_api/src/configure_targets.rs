@@ -57,28 +57,37 @@ pub async fn get_maybe_compatible_targets<'a>(
     ctx: &'a DiceComputations,
     loaded_targets: impl IntoIterator<Item = (PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
     global_target_platform: Option<&TargetLabel>,
+    keep_going: bool,
 ) -> anyhow::Result<impl Iterator<Item = anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>>> {
     let mut by_package_fns: Vec<_> = Vec::new();
 
     for (_package, result) in loaded_targets {
-        let targets = result?;
+        match result {
+            Ok(targets) => {
+                by_package_fns.extend({
+                    let target_fns: Vec<_> = targets.into_map(|target|
+                        higher_order_closure! {
+                            #![with<'a>]
+                            for<'x> |ctx: &'x mut DiceComputationsParallel<'a>| -> BoxFuture<'x, anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>> {
+                                async move {
+                                    let target = ctx
+                                        .get_configured_target(target.label(), global_target_platform)
+                                        .await?;
+                                    anyhow::Ok(ctx.get_configured_target_node(&target).await?)
+                                }.boxed()
+                            }
+                        });
 
-        by_package_fns.extend({
-            let target_fns: Vec<_> = targets.into_map(|target|
-                higher_order_closure! {
-                    #![with<'a>]
-                    for<'x> |ctx: &'x mut DiceComputationsParallel<'a>| -> BoxFuture<'x, anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>> {
-                        async move {
-                            let target = ctx
-                                .get_configured_target(target.label(), global_target_platform)
-                                .await?;
-                            anyhow::Ok(ctx.get_configured_target_node(&target).await?)
-                        }.boxed()
-                    }
+                    target_fns
                 });
-
-            target_fns
-        });
+            }
+            Err(e) => {
+                // TODO(@wendyy) - log the error
+                if !keep_going {
+                    return Err(e);
+                }
+            }
+        }
     }
 
     Ok(futures::future::join_all(ctx.compute_many(by_package_fns))
@@ -93,7 +102,8 @@ pub async fn get_compatible_targets(
     global_target_platform: Option<TargetLabel>,
 ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
     let maybe_compatible_targets =
-        get_maybe_compatible_targets(ctx, loaded_targets, global_target_platform.as_ref()).await?;
+        get_maybe_compatible_targets(ctx, loaded_targets, global_target_platform.as_ref(), false)
+            .await?;
 
     let (compatible_targets, incompatible_targets) =
         split_compatible_incompatible(maybe_compatible_targets)?;

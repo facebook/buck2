@@ -834,12 +834,15 @@ fn context_methods(builder: &mut MethodsBuilder) {
     ///     - a single subtarget label, configured or unconfigured
     ///     - a list of the two options above.
     ///
-    /// Also takes in an optional `target_platform` param to configure the nodes with.
+    /// Also takes in an optional `target_platform` param to configure the nodes with, and a `keep_going``
+    /// flag to skip any loading or configuration errors. Note that `keep_going` currently can only be used
+    /// if the input labels is a single target pattern as a string literal.
     fn target_universe<'v>(
         this: &'v BxlContext<'v>,
         labels: ConfiguredTargetListExprArg<'v>,
         #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
+        #[starlark(require = named, default = false)] keep_going: bool,
     ) -> anyhow::Result<StarlarkTargetUniverse<'v>> {
         let target_platform = target_platform.parse_target_platforms(
             &this.data.target_alias_resolver,
@@ -851,16 +854,26 @@ fn context_methods(builder: &mut MethodsBuilder) {
         this.via_dice(|mut ctx, this_no_dice: &BxlContextNoDice<'_>| {
             ctx.via(|ctx| {
                 async move {
-                    let target_expr =
+                    let target_expr = if keep_going {
+                        TargetListExpr::<'v, ConfiguredTargetNode>::unpack_keep_going(
+                            labels,
+                            &target_platform,
+                            this_no_dice,
+                            ctx,
+                        )
+                        .await?
+                    } else {
                         TargetListExpr::<'v, ConfiguredTargetNode>::unpack_allow_unconfigured(
                             labels,
                             &target_platform,
                             this_no_dice,
                             ctx,
                         )
-                        .await?;
+                        .await?
+                    };
 
                     let maybe_compatible_set = target_expr.get(ctx).await?;
+
                     let target_set =
                         filter_incompatible(maybe_compatible_set.into_iter(), this_no_dice)?;
 
