@@ -21,6 +21,7 @@ use futures::FutureExt;
 
 use crate::nodes::eval_result::EvaluationResult;
 use crate::nodes::unconfigured::TargetNode;
+use crate::super_package::SuperPackage;
 
 #[async_trait]
 pub trait TargetGraphCalculationImpl: Send + Sync + 'static {
@@ -65,6 +66,12 @@ pub trait TargetGraphCalculation {
         &'a self,
         target: &'a TargetLabel,
     ) -> BoxFuture<'a, anyhow::Result<TargetNode>>;
+
+    /// For a TargetLabel, returns the TargetNode and its SuperPackage from PACKAGE files.
+    fn get_target_node_with_super_package<'a>(
+        &'a self,
+        target: &'a TargetLabel,
+    ) -> BoxFuture<'a, anyhow::Result<(TargetNode, SuperPackage)>>;
 }
 
 #[async_trait]
@@ -93,22 +100,31 @@ impl TargetGraphCalculation for DiceComputations {
         &'a self,
         target: &'a TargetLabel,
     ) -> BoxFuture<'a, anyhow::Result<TargetNode>> {
+        self.get_target_node_with_super_package(target)
+            .map(|r| r.map(|(node, _)| node))
+            .boxed()
+    }
+
+    fn get_target_node_with_super_package<'a>(
+        &'a self,
+        target: &'a TargetLabel,
+    ) -> BoxFuture<'a, anyhow::Result<(TargetNode, SuperPackage)>> {
         TARGET_GRAPH_CALCULATION_IMPL
             .get()
             .unwrap()
             .get_interpreter_results(self, target.pkg())
             .map(move |res| {
-                anyhow::Ok(
-                    res.with_context(|| {
-                        format!(
-                            "Error loading targets in package `{}` for target `{}`",
-                            target.pkg(),
-                            target
-                        )
-                    })?
-                    .resolve_target(target.name())?
-                    .dupe(),
-                )
+                let res = res.with_context(|| {
+                    format!(
+                        "Error loading targets in package `{}` for target `{}`",
+                        target.pkg(),
+                        target
+                    )
+                })?;
+                anyhow::Ok((
+                    res.resolve_target(target.name())?.dupe(),
+                    res.super_package().dupe(),
+                ))
             })
             .boxed()
     }
