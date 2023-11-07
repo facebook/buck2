@@ -75,7 +75,7 @@ pub fn supports_vpnless() -> bool {
 /// Collection of different kinds of errors we can see from x2pagent. Typically
 /// denotes a URL is not authorized for vpnless access and/or using the wrong,
 /// non-vpnless url.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum X2PAgentError {
     #[error("Host `{host}` is not authorized for vpnless access: {message}")]
     ForbiddenHost { host: String, message: String },

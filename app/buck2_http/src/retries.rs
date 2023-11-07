@@ -11,9 +11,8 @@ use std::time::Duration;
 
 use futures::future::Future;
 use http::StatusCode;
-use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum HttpError {
     #[error(transparent)]
     Client(#[from] crate::HttpError),
@@ -104,7 +103,7 @@ mod tests {
         }
     }
 
-    #[derive(Debug, Error)]
+    #[derive(Debug, buck2_error::Error)]
     enum HttpTestError {
         #[error("Error in test")]
         Client(#[from] HttpError),

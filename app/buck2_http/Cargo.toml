@@ -17,7 +17,6 @@ pin-project = { workspace = true }
 rustls = { workspace = true }
 rustls-native-certs = { workspace = true }
 rustls-pemfile = { workspace = true }
-thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-rustls = { workspace = true }
 tokio-util = { workspace = true }
@@ -30,6 +29,8 @@ gazebo = { workspace = true }
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
 gazebo_lint.version = "0.1"
+
+buck2_error = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 hyper-unix-connector = { workspace = true }

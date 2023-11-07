@@ -17,8 +17,9 @@ once_cell = { workspace = true }
 serde = { workspace = true }
 shlex = { workspace = true }
 sysinfo = { workspace = true }
-thiserror = { workspace = true }
 uuid = { workspace = true }
+
+buck2_error = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 nix = { workspace = true }

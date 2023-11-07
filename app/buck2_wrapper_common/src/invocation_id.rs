@@ -22,7 +22,7 @@ use uuid::Uuid;
 
 use crate::BUCK_WRAPPER_UUID_ENV_VAR;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum TraceIdError {
     #[error("`{}` environment variable is not UTF-8", BUCK_WRAPPER_UUID_ENV_VAR)]
     EnvVarNotUtf8,

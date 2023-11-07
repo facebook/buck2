@@ -7,12 +7,12 @@
  * of this source tree.
  */
 
+#![feature(error_generic_member_access)]
 #![feature(if_let_guard)]
 
 use dice::UserComputationData;
 use dupe::Dupe;
 use hyper::StatusCode;
-use thiserror::Error;
 
 mod client;
 mod proxy;
@@ -61,7 +61,7 @@ fn http_error_label(status: StatusCode) -> &'static str {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum HttpError {
     #[error("HTTP URI Error: URI {uri} is malformed: {source:?}")]
     InvalidUri {
