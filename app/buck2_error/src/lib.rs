@@ -93,11 +93,13 @@ pub mod __for_macro {
         source_location_extra: Option<&'static str>,
         check_error_type: CheckErrorType,
     ) -> &'b mut Demand<'a> {
-        let metadata = ProvidableRootMetadata {
-            typ,
-            check_error_type,
-        };
-        Demand::provide_value(demand, metadata);
+        if typ.is_some() {
+            let metadata = ProvidableRootMetadata {
+                typ,
+                check_error_type,
+            };
+            Demand::provide_value(demand, metadata);
+        }
         let metadata = ProvidableContextMetadata {
             category,
             source_file,

@@ -331,4 +331,38 @@ mod tests {
         assert_eq!(e.get_category(), Some(crate::Category::User));
         assert!(format!("{:?}", e).contains("wrapper"));
     }
+
+    #[derive(Debug, buck2_error_derive::Error)]
+    #[buck2(infra)]
+    #[error("wrapper2")]
+    struct FullMetadataContextWrapperError(#[source] FullMetadataError);
+
+    #[test]
+    fn test_context_in_wrapper() {
+        let e: crate::Error = FullMetadataContextWrapperError(FullMetadataError).into();
+        assert_eq!(e.get_category(), Some(crate::Category::Infra));
+        assert_eq!(e.get_error_type(), Some(crate::ErrorType::Watchman));
+        assert_eq!(
+            e.source_location(),
+            Some("buck2_error/src/any.rs::FullMetadataError")
+        );
+        assert!(format!("{:?}", e).contains("wrapper2"));
+    }
+
+    #[derive(Debug, buck2_error_derive::Error)]
+    #[buck2(user)]
+    #[error("unused")]
+    struct UserMetadataError;
+
+    #[derive(Debug, buck2_error_derive::Error)]
+    #[buck2(infra)]
+    #[error("unused")]
+    struct InfraMetadataWrapperError(#[from] UserMetadataError);
+
+    #[test]
+    fn test_no_root_metadata_context() {
+        let e: InfraMetadataWrapperError = UserMetadataError.into();
+        let e: crate::Error = e.into();
+        assert_eq!(e.get_category(), Some(crate::Category::Infra));
+    }
 }
