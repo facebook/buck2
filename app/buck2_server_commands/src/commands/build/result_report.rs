@@ -45,12 +45,17 @@ pub(crate) struct ResultReporter<'a> {
     results: Vec<proto::BuildTarget>,
 }
 
+pub(crate) struct BuildTargetsAndErrors {
+    pub(crate) build_targets: Vec<proto::BuildTarget>,
+    pub(crate) build_errors: BuildErrors,
+}
+
 impl<'a> ResultReporter<'a> {
     pub(crate) fn convert(
         artifact_fs: &'a ArtifactFs,
         options: ResultReporterOptions,
         build_result: &BuildTargetResult,
-    ) -> Result<Vec<proto::BuildTarget>, BuildErrors> {
+    ) -> BuildTargetsAndErrors {
         let mut out = Self {
             artifact_fs,
             options,
@@ -70,20 +75,19 @@ impl<'a> ResultReporter<'a> {
             out.collect_result(k, v);
         }
 
-        if let Some(e) = non_action_errors.pop() {
-            return Err(BuildErrors {
-                // FIXME(JakobDegen): We'd like to return more than one error here, but we have
-                // to get better at error deduplication first
-                errors: vec![e],
-            });
-        }
-        if !action_errors.is_empty() {
-            return Err(BuildErrors {
-                errors: action_errors,
-            });
-        }
+        let error_list = if let Some(e) = non_action_errors.pop() {
+            // FIXME(JakobDegen): We'd like to return more than one error here, but we have
+            // to get better at error deduplication first
+            vec![e]
+        } else {
+            // FIXME: Only one non-action error or all action errors is returned currently
+            action_errors
+        };
 
-        Ok(out.results)
+        BuildTargetsAndErrors {
+            build_targets: out.results,
+            build_errors: BuildErrors { errors: error_list },
+        }
     }
 
     fn collect_result(

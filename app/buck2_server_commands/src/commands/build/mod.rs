@@ -380,18 +380,14 @@ async fn process_build_result(
         };
     }
 
-    let (build_targets, errors) = match result_reports {
-        Ok(targets) => (targets, Vec::new()),
-        Err(errors) => {
-            let errors = errors
-                .errors
-                .iter()
-                .map(create_error_report)
-                .unique_by(|e| e.message.clone())
-                .collect();
-            (vec![], errors)
-        }
-    };
+    let build_targets = result_reports.build_targets;
+    let errors = result_reports
+        .build_errors
+        .errors
+        .iter()
+        .map(create_error_report)
+        .unique_by(|e| e.message.clone())
+        .collect();
 
     let project_root = server_ctx.project_root().to_string();
 
