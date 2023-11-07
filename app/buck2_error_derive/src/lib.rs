@@ -50,6 +50,12 @@ struct ParsedOptions {
     typ: Option<syn::Ident>,
 }
 
+/// Indicates that an option was provided which is only allowed on error roots, and is therefore
+/// incompatible with the `#[source]` attribute.
+fn is_incompatible_with_source(p: &ParsedOptions) -> bool {
+    p.typ.is_some()
+}
+
 fn parse_attributes(
     attrs: &mut Vec<syn::Attribute>,
     fields: &syn::Fields,
@@ -104,7 +110,19 @@ fn parse_attributes(
     }
 
     for attr in fields.iter().flat_map(|f| f.attrs.iter()) {
-        if attr.meta.path().get_ident().is_some_and(|i| i == "buck2") {
+        let ident = attr.meta.path().get_ident();
+        if parsed_earlier.is_some_and(is_incompatible_with_source)
+            || is_incompatible_with_source(&parsed_options)
+        {
+            if ident.is_some_and(|i| i == "source" || i == "from") {
+                return Err(syn::Error::new_spanned(
+                    attr,
+                    "cannot be used with root-only buck2 options",
+                ));
+            }
+        }
+
+        if ident.is_some_and(|i| i == "buck2") {
             return Err(syn::Error::new_spanned(
                 attr,
                 "put this on the type or variant, not a field",
