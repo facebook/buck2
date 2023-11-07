@@ -29,11 +29,13 @@ use crate::attrs::coerced_deps_collector::CoercedDeps;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::internal::DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD;
+use crate::attrs::internal::METADATA_ATTRIBUTE_FIELD;
 use crate::attrs::internal::TESTS_ATTRIBUTE_FIELD;
 use crate::attrs::spec::AttributeSpec;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::attrs::values::AttrValues;
 use crate::call_stack::StarlarkCallStack;
+use crate::metadata::map::MetadataMap;
 use crate::nodes::attributes::CONFIGURATION_DEPS;
 use crate::nodes::attributes::DEPS;
 use crate::nodes::attributes::ONCALL;
@@ -48,6 +50,10 @@ use crate::visibility::VisibilitySpecification;
 enum TargetNodeError {
     #[error("`visibility` attribute coerced incorrectly (`{0}`) (internal error)")]
     IncorrectVisibilityAttribute(String),
+    #[error(
+        "`metadata` attribute should be coerced as a dict of strings to JSON values. Found `{0}` instead (internal error)"
+    )]
+    IncorrectMetadataAttribute(String),
 }
 
 /// Describes a target including its name, type, and the values that the user provided.
@@ -438,6 +444,15 @@ impl TargetNode {
             x.name.hash(state);
             x.value.hash(state);
         });
+    }
+
+    pub fn metadata(&self) -> anyhow::Result<Option<&MetadataMap>> {
+        self.attr_or_none(METADATA_ATTRIBUTE_FIELD, AttrInspectOptions::All)
+            .map(|attr| match attr.value {
+                CoercedAttr::Metadata(m) => Ok(m),
+                x => Err(TargetNodeError::IncorrectMetadataAttribute(format!("{:?}", x)).into()),
+            })
+            .transpose()
     }
 }
 
