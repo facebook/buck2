@@ -70,39 +70,48 @@ fn format_provider_keys_for_error(keys: &[String]) -> String {
 #[derive(Debug, buck2_error::Error)]
 enum ProviderCollectionError {
     #[error("expected a list of Provider objects, got {repr}")]
+    #[buck2(user)]
     CollectionNotAList { repr: String },
     #[error("expected a Provider object, got {repr}")]
+    #[buck2(user)]
     CollectionElementNotAProvider { repr: String },
     #[error("provider of type {provider_name} specified twice ({original_repr} and {new_repr})")]
+    #[buck2(user)]
     CollectionSpecifiedProviderTwice {
         provider_name: String,
         original_repr: String,
         new_repr: String,
     },
     #[error("collection {repr} did not receive a DefaultInfo provider")]
+    #[buck2(user)]
     CollectionMissingDefaultInfo { repr: String },
     #[error(
         "requested sub target named `{0}` of target `{1}` is not available. Available subtargets are: `{2:?}`"
     )]
+    #[buck2(user)]
     RequestedInvalidSubTarget(ProviderName, ConfiguredProvidersLabel, Vec<String>),
     #[error(
         "Cannot handle flavor `{flavor}` on target `{target}`. Most flavors are unsupported in Buck2."
     )]
+    #[buck2(user)]
     UnknownFlavors { target: String, flavor: String },
     #[error(
         "provider value that should have been `DefaultInfo` was not. It was `{repr}`. This is an internal error."
     )]
+    #[buck2(user)]
     ValueIsNotDefaultInfo { repr: String },
     #[error(
         "provider collection operation {0} parameter type must be a provider type \
         but not and instance of provider (for example, `RunInfo` or user defined provider type), \
         got `{1}`"
     )]
+    #[buck2(user)]
     AtTypeNotProvider(GetOp, &'static str),
     #[error(
         "provider collection does not have a key `{0}`, available keys are: {}",
         format_provider_keys_for_error(_1)
     )]
+    #[buck2(user)]
     AtNotFound(String, Vec<String>),
 }
 

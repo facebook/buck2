@@ -106,6 +106,7 @@ impl<'a, E: nom::error::ParseError<Span<'a>> + nom::error::ContextError<Span<'a>
 #[derive(Debug, buck2_error::Error)]
 enum ParseError {
     #[error("{0}")]
+    #[buck2(user)]
     NomError(String),
 }
 

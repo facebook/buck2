@@ -67,14 +67,17 @@ enum SelectError {
         .0,
         .1.iter().map(| s | format ! ("  {}", s)).join("\n"),
     )]
+    #[buck2(user)]
     MissingDefault(ConfigurationData, Vec<TargetLabel>),
     #[error(
         "Both select keys `{0}` and `{1}` match the configuration, but neither is more specific"
     )]
+    #[buck2(user)]
     TwoKeysDoNotRefineEachOther(String, String),
     #[error("concat with no items (internal error)")]
     ConcatEmpty,
     #[error("duplicate key `{0}` in `select()`")]
+    #[buck2(user)]
     DuplicateKey(String),
 }
 
