@@ -203,26 +203,30 @@ impl Variable {
         str_value
     }
 
+    pub(crate) fn value_as_str<'v>(v: &Value<'v>) -> String {
+        if Self::has_children(v) {
+            match v.get_type() {
+                "list" => Self::list_value_as_str(*v),
+                "tuple" => Self::tuple_value_as_str(*v),
+                "dict" => Self::dict_value_as_str(*v),
+                _ => Self::struct_like_value_as_str(*v),
+            }
+        } else {
+            match v.get_type() {
+                "function" => "<function>".to_owned(),
+                _ => {
+                    const MAX_STR_LEN: usize = 10000;
+                    Self::truncate_string(v.to_str(), MAX_STR_LEN)
+                }
+            }
+        }
+    }
+
     /// creates a new instance of Variable from a given starlark value
     pub fn from_value<'v>(name: PathSegment, v: Value<'v>) -> Self {
         Self {
             name,
-            value: if Self::has_children(&v) {
-                match v.get_type() {
-                    "list" => Self::list_value_as_str(v),
-                    "tuple" => Self::tuple_value_as_str(v),
-                    "dict" => Self::dict_value_as_str(v),
-                    _ => Self::struct_like_value_as_str(v),
-                }
-            } else {
-                match v.get_type() {
-                    "function" => "<function>".to_owned(),
-                    _ => {
-                        const MAX_STR_LEN: usize = 10000;
-                        Self::truncate_string(v.to_str(), MAX_STR_LEN)
-                    }
-                }
-            },
+            value: Self::value_as_str(&v),
             type_: v.get_type().to_owned(),
             has_children: Self::has_children(&v),
         }
@@ -339,7 +343,7 @@ impl EvaluateExprInfo {
     /// Creating EvaluateExprInfo from a given starlark value
     pub fn from_value(v: &Value) -> Self {
         Self {
-            result: v.to_str(),
+            result: Variable::value_as_str(v),
             type_: v.get_type().to_owned(),
             has_children: Variable::has_children(v),
         }

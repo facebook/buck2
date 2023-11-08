@@ -273,17 +273,23 @@ print(x)
             adapter.continue_()?;
             controller.wait_for_eval_stopped(2, TIMEOUT);
 
-            assert_eq!("[1, 2, 3]", adapter.evaluate("x")?.result);
+            assert_eq!("1", adapter.evaluate("x[0]")?.result);
+            assert_eq!("2", adapter.evaluate("x[1]")?.result);
+            assert_eq!("3", adapter.evaluate("x[2]")?.result);
             adapter.step(StepKind::Over)?;
             controller.wait_for_eval_stopped(3, TIMEOUT);
-            assert_eq!("[2, 3, 4]", adapter.evaluate("x")?.result);
+            assert_eq!("2", adapter.evaluate("x[0]")?.result);
+            assert_eq!("3", adapter.evaluate("x[1]")?.result);
+            assert_eq!("4", adapter.evaluate("x[2]")?.result);
 
             // TODO(cjhopman): we currently hit breakpoints on top-level statements twice (once for the gc bytecode, once for the actual statement).
             adapter.step(StepKind::Over)?;
             controller.wait_for_eval_stopped(4, TIMEOUT);
             adapter.step(StepKind::Over)?;
             controller.wait_for_eval_stopped(5, TIMEOUT);
-            assert_eq!("[3, 4, 5]", adapter.evaluate("x")?.result);
+            assert_eq!("3", adapter.evaluate("x[0]")?.result);
+            assert_eq!("4", adapter.evaluate("x[1]")?.result);
+            assert_eq!("5", adapter.evaluate("x[2]")?.result);
             adapter.continue_()?;
             join_timeout(eval_result, TIMEOUT)?;
             Ok(())
@@ -320,23 +326,32 @@ print(x)
             adapter.continue_()?;
             controller.wait_for_eval_stopped(2, TIMEOUT);
 
-            assert_eq!("[1, 2, 3]", adapter.evaluate("x")?.result);
+            assert_eq!("1", adapter.evaluate("x[0]")?.result);
+            assert_eq!("2", adapter.evaluate("x[1]")?.result);
+            assert_eq!("3", adapter.evaluate("x[2]")?.result);
 
             // into adjust
             adapter.step(StepKind::Into)?;
             controller.wait_for_eval_stopped(3, TIMEOUT);
-            assert_eq!("[1, 2, 3]", adapter.evaluate("y")?.result);
+            assert_eq!("1", adapter.evaluate("y[0]")?.result);
+            assert_eq!("2", adapter.evaluate("y[1]")?.result);
+            assert_eq!("3", adapter.evaluate("y[2]")?.result);
 
             // into should go to next line
             adapter.step(StepKind::Into)?;
             controller.wait_for_eval_stopped(4, TIMEOUT);
-            assert_eq!("[2, 2, 3]", adapter.evaluate("y")?.result);
+            assert_eq!("2", adapter.evaluate("y[0]")?.result);
+            assert_eq!("2", adapter.evaluate("y[1]")?.result);
+            assert_eq!("3", adapter.evaluate("y[2]")?.result);
+
             // two more intos should get us out of the function call
             adapter.step(StepKind::Into)?;
             controller.wait_for_eval_stopped(5, TIMEOUT);
             adapter.step(StepKind::Into)?;
             controller.wait_for_eval_stopped(6, TIMEOUT);
-            assert_eq!("[2, 3, 4]", adapter.evaluate("x")?.result);
+            assert_eq!("2", adapter.evaluate("x[0]")?.result);
+            assert_eq!("3", adapter.evaluate("x[1]")?.result);
+            assert_eq!("4", adapter.evaluate("x[2]")?.result);
 
             // and once more back into the function
             adapter.step(StepKind::Into)?;
@@ -346,7 +361,9 @@ print(x)
             adapter.step(StepKind::Into)?;
             controller.wait_for_eval_stopped(8, TIMEOUT);
 
-            assert_eq!("[2, 3, 4]", adapter.evaluate("y")?.result);
+            assert_eq!("2", adapter.evaluate("y[0]")?.result);
+            assert_eq!("3", adapter.evaluate("y[1]")?.result);
+            assert_eq!("4", adapter.evaluate("y[2]")?.result);
 
             adapter.continue_()?;
             join_timeout(eval_result, TIMEOUT)?;
@@ -381,22 +398,30 @@ print(x)
                 s.spawn(move || -> anyhow::Result<_> { eval_with_hook(ast, eval_hook) });
             // should break on the first time hitting line 4
             controller.wait_for_eval_stopped(1, TIMEOUT);
-            assert_eq!("[2, 2, 3]", adapter.evaluate("y")?.result);
+            assert_eq!("2", adapter.evaluate("y[0]")?.result);
+            assert_eq!("2", adapter.evaluate("y[1]")?.result);
+            assert_eq!("3", adapter.evaluate("y[2]")?.result);
 
             // step out should take us to line 8
             adapter.step(StepKind::Out)?;
             controller.wait_for_eval_stopped(2, TIMEOUT);
-            assert_eq!("[2, 3, 4]", adapter.evaluate("x")?.result);
+            assert_eq!("2", adapter.evaluate("x[0]")?.result);
+            assert_eq!("3", adapter.evaluate("x[1]")?.result);
+            assert_eq!("4", adapter.evaluate("x[2]")?.result);
 
             // step out should actually hit the breakpoint at 4 first (before getting out)
             adapter.step(StepKind::Out)?;
             controller.wait_for_eval_stopped(3, TIMEOUT);
-            assert_eq!("[3, 3, 4]", adapter.evaluate("y")?.result);
+            assert_eq!("3", adapter.evaluate("y[0]")?.result);
+            assert_eq!("3", adapter.evaluate("y[1]")?.result);
+            assert_eq!("4", adapter.evaluate("y[2]")?.result);
 
             // step out should get out to the print
             adapter.step(StepKind::Out)?;
             controller.wait_for_eval_stopped(4, TIMEOUT);
-            assert_eq!("[3, 4, 5]", adapter.evaluate("x")?.result);
+            assert_eq!("3", adapter.evaluate("x[0]")?.result);
+            assert_eq!("4", adapter.evaluate("x[1]")?.result);
+            assert_eq!("5", adapter.evaluate("x[2]")?.result);
 
             // one more out should be equivalent to continue
             adapter.step(StepKind::Out)?;
@@ -519,6 +544,70 @@ print(do())
         assert_variable("1", "2", false, &result[2].sub_values[1]);
         assert_variable("\"a\"", "1", false, &result[3].sub_values[0]);
         assert_variable("\"b\"", "2", false, &result[3].sub_values[1]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_evaluate_expression() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
+        let controller = BreakpointController::new();
+        let (adapter, eval_hook) = prepare_dap_adapter(controller.get_client());
+        let file_contents = "
+def do():
+    s = struct(
+        inner = struct(
+            inner = struct(
+                value = \"more_inner\"
+            ),
+            value = \"inner\",
+            arr = [dict(a = 1, b = \"2\"), 1337]
+        )
+    )
+    return s # line 12
+print(do())
+        ";
+        let result = std::thread::scope(|s| {
+            let mut result = Vec::new();
+            let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
+            let breakpoints =
+                resolve_breakpoints(&breakpoints_args("test.bzl", &[(12, None)]), &ast)?;
+            adapter.set_breakpoints("test.bzl", &breakpoints)?;
+            let eval_result =
+                s.spawn(move || -> anyhow::Result<_> { eval_with_hook(ast, eval_hook) });
+            controller.wait_for_eval_stopped(1, TIMEOUT);
+            result.extend([
+                adapter.evaluate("s.inner.value"),
+                adapter.evaluate("s.inner.inner.value"),
+                adapter.evaluate("s.inner.arr[0]"),
+                adapter.evaluate("s.inner.arr[0][\"a\"]"),
+                adapter.evaluate("s.inner.arr[1]"),
+            ]);
+            adapter.continue_()?;
+            join_timeout(eval_result, TIMEOUT)?;
+            anyhow::Ok(result)
+        })?
+        .into_iter()
+        .collect::<anyhow::Result<Vec<_>>>()?;
+
+        // It's easier to handle errors outside of thread::scope block as the test is quite flaky
+        // and hangs in case error propagates
+        assert_eq!(
+            vec![
+                ("inner", false),
+                ("more_inner", false),
+                ("<dict, size=2>", true),
+                ("1", false),
+                ("1337", false),
+            ],
+            result
+                .iter()
+                .map(|v| (v.result.as_str(), v.has_children))
+                .collect::<Vec<_>>()
+        );
+
         Ok(())
     }
 
