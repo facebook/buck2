@@ -28,6 +28,7 @@ use dupe::Dupe;
 use crate::codemap::FileSpan;
 use crate::eval::Evaluator;
 use crate::syntax::AstModule;
+use crate::values::dict::DictRef;
 use crate::values::layout::heap::heap_type::Heap;
 use crate::values::layout::value::Value;
 
@@ -122,6 +123,8 @@ pub enum PathSegment {
     /// Represents a path segment that accesses array-like types (i.e., types indexable by numbers).
     Index(i32),
     /// Represents a path segment that accesses object-like types (i.e., types keyed by strings).
+    Attr(String),
+    /// Represents a path segment that accesses dict items by key.
     Key(String),
 }
 
@@ -129,7 +132,8 @@ impl Display for PathSegment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             PathSegment::Index(x) => write!(f, "{}", x),
-            PathSegment::Key(x) => f.write_str(x),
+            PathSegment::Attr(x) => f.write_str(x),
+            PathSegment::Key(x) => write!(f, "\"{}\"", x),
         }
     }
 }
@@ -138,7 +142,8 @@ impl PathSegment {
     fn get<'v>(&self, v: &Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match self {
             PathSegment::Index(i) => v.at(heap.alloc(*i), heap),
-            PathSegment::Key(key) => v.get_attr_error(key.as_str(), heap),
+            PathSegment::Attr(key) => v.get_attr_error(key.as_str(), heap),
+            PathSegment::Key(i) => v.at(heap.alloc(i.to_owned()), heap),
         }
     }
 }
@@ -172,6 +177,13 @@ impl Variable {
         }
     }
 
+    fn dict_value_as_str<'v>(v: Value<'v>) -> String {
+        match v.length() {
+            Ok(size) if size > 0 => format!("<dict, size={}>", size),
+            _ => "{}".to_owned(),
+        }
+    }
+
     fn struct_like_value_as_str<'v>(v: Value<'v>) -> String {
         let attrs = v.dir_attr();
         format!("<type:{}, size={}>", v.get_type(), attrs.len())
@@ -199,6 +211,7 @@ impl Variable {
                 match v.get_type() {
                     "list" => Self::list_value_as_str(v),
                     "tuple" => Self::tuple_value_as_str(v),
+                    "dict" => Self::dict_value_as_str(v),
                     _ => Self::struct_like_value_as_str(v),
                 }
             } else {
@@ -265,21 +278,35 @@ pub struct EvaluateExprInfo {
 }
 
 impl InspectVariableInfo {
-    fn try_from_struct_like<'v>(v: &Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
+    fn try_from_dict<'v>(value_dict: DictRef<'v>) -> anyhow::Result<Self> {
+        let key_segments = value_dict
+            .iter()
+            .map(|(key, value)| (PathSegment::Key(key.to_str()), value))
+            .collect::<Vec<_>>();
+
+        Ok(Self {
+            sub_values: key_segments
+                .into_iter()
+                .map(|(path_segment, value)| Variable::from_value(path_segment, value))
+                .collect::<Vec<_>>(),
+        })
+    }
+
+    fn try_from_struct_like<'v>(v: Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
         Ok(Self {
             sub_values: v
                 .dir_attr()
                 .into_iter()
                 .map(|child_name| {
                     let child_value = v.get_attr_error(&child_name, heap)?;
-                    let segment = PathSegment::Key(child_name);
+                    let segment = PathSegment::Attr(child_name);
                     Ok(Variable::from_value(segment, child_value))
                 })
                 .collect::<anyhow::Result<Vec<_>>>()?,
         })
     }
 
-    fn try_from_array_like<'v>(v: &Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
+    fn try_from_array_like<'v>(v: Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
         let len = v.length()?;
         Ok(Self {
             sub_values: (0..len)
@@ -293,9 +320,12 @@ impl InspectVariableInfo {
     }
 
     /// Trying to create InspectVariableInfo from a given starlark value
-    pub fn try_from_value<'v>(v: &Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
+    pub fn try_from_value<'v>(v: Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
         match v.get_type() {
-            "struct" | "dict" => Self::try_from_struct_like(v, heap),
+            "dict" => Self::try_from_dict(
+                DictRef::from_value(v).ok_or(anyhow::Error::msg("not a dictionary"))?,
+            ),
+            "struct" => Self::try_from_struct_like(v, heap),
             "list" | "tuple" => Self::try_from_array_like(v, heap),
             "bool" | "int" | "float" | "string" => Ok(Default::default()),
             "function" | "never" | "NoneType" => Ok(Default::default()),

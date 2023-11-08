@@ -448,7 +448,7 @@ print(do())
                 ("a".to_owned(), String::from("<type:struct, size=2>"), true),
                 ("arr".to_owned(), String::from("<list, size=7>"), true),
                 ("t".to_owned(), String::from("<tuple, size=2>"), true),
-                ("d".to_owned(), String::from("<type:dict, size=9>"), true),
+                ("d".to_owned(), String::from("<dict, size=2>"), true),
                 ("empty_dict".to_owned(), String::from("{}"), false),
                 ("empty_list".to_owned(), String::from("[]"), false),
                 ("empty_tuple".to_owned(), String::from("()"), false),
@@ -517,6 +517,8 @@ print(do())
         assert_variable("5", "234", false, &result[1].sub_values[5]);
         assert_variable("0", "1", false, &result[2].sub_values[0]);
         assert_variable("1", "2", false, &result[2].sub_values[1]);
+        assert_variable("\"a\"", "1", false, &result[3].sub_values[0]);
+        assert_variable("\"b\"", "2", false, &result[3].sub_values[1]);
         Ok(())
     }
 

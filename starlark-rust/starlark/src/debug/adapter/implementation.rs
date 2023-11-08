@@ -314,7 +314,7 @@ impl DapAdapter for DapAdapterImpl {
             Ok(VariablesInfo {
                 locals: vars
                     .into_iter()
-                    .map(|(name, value)| Variable::from_value(PathSegment::Key(name), value))
+                    .map(|(name, value)| Variable::from_value(PathSegment::Attr(name), value))
                     .collect(),
             })
         }))
@@ -339,7 +339,7 @@ impl DapAdapter for DapAdapterImpl {
             for p in access_path.iter() {
                 value = p.get(&value, eval.heap())?;
             }
-            InspectVariableInfo::try_from_value(&value, eval.heap())
+            InspectVariableInfo::try_from_value(value, eval.heap())
         }))
     }
 
