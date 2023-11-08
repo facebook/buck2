@@ -29,7 +29,7 @@ def get_incremental_object_compilation_flags(ctx: AnalysisContext, srcs: list[Cx
 
 def get_incremental_swiftmodule_compilation_flags(ctx: AnalysisContext, srcs: list[CxxSrcWithFlags]) -> IncrementalCompilationOutput:
     output_file_map = _write_output_file_map(ctx, get_module_name(ctx), srcs, "swiftmodule", ".swiftmodule")
-    return _get_incremental_compilation_flags_and_objects(output_file_map, cmd_args(["-emit-swiftmodule"]))
+    return _get_incremental_compilation_flags_and_objects(output_file_map, cmd_args())
 
 def _get_incremental_compilation_flags_and_objects(
         output_file_map: _WriteOutputFileMapOutput,
@@ -83,7 +83,7 @@ def _write_output_file_map(
         artifacts.append(output_artifact)
         swiftdeps.append(swiftdeps_artifact)
 
-    output_map_artifact = ctx.actions.write_json(module_name + "-OutputFileMap.json", output_file_map)
+    output_map_artifact = ctx.actions.write_json(module_name + "-OutputFileMap." + compilation_mode + ".json", output_file_map)
 
     return _WriteOutputFileMapOutput(
         artifacts = artifacts,

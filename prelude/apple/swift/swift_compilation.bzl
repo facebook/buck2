@@ -49,6 +49,7 @@ load(
 load(
     ":swift_incremental_support.bzl",
     "get_incremental_object_compilation_flags",
+    "get_incremental_swiftmodule_compilation_flags",
 )
 load(":swift_module_map.bzl", "write_swift_module_map_with_swift_deps")
 load(":swift_pcm_compilation.bzl", "compile_underlying_pcm", "get_compiled_pcm_deps_tset", "get_swift_pcm_anon_targets")
@@ -326,18 +327,30 @@ def _compile_swiftmodule(
         output_header: Artifact) -> CompileArgsfiles:
     argfile_cmd = cmd_args(shared_flags)
     argfile_cmd.add([
+        "-emit-module",
         "-Xfrontend",
         "-experimental-skip-non-inlinable-function-bodies-without-types",
-        "-emit-module",
-        "-emit-objc-header",
-        "-wmo",
     ])
+
     cmd = cmd_args([
-        "-emit-module-path",
-        output_swiftmodule.as_output(),
+        "-emit-objc-header",
         "-emit-objc-header-path",
         output_header.as_output(),
+        "-emit-module-path",
+        output_swiftmodule.as_output(),
     ])
+
+    if _should_build_swift_incrementally(ctx):
+        incremental_compilation_output = get_incremental_swiftmodule_compilation_flags(ctx, srcs)
+        cmd.add(incremental_compilation_output.incremental_flags_cmd)
+        argfile_cmd.add([
+            "-experimental-emit-module-separately",
+        ])
+    else:
+        argfile_cmd.add([
+            "-wmo",
+        ])
+
     return _compile_with_argsfile(ctx, "swiftmodule_compile", SWIFTMODULE_EXTENSION, argfile_cmd, srcs, cmd, toolchain)
 
 def _compile_object(
