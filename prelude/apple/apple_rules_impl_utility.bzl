@@ -77,7 +77,6 @@ def apple_test_extra_attrs():
     attribs = {
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
         "binary": attrs.option(attrs.dep(), default = None),
-        "build_incrementally": attrs.bool(default = False),
         # The resulting test bundle should have .xctest extension.
         "extension": attrs.string(),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
@@ -94,6 +93,7 @@ def apple_test_extra_attrs():
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
         "resource_group_map": attrs.option(attrs.string(), default = None),
         "stripped": attrs.bool(default = False),
+        "swift_incremental_build_mode": attrs.bool(default = False),
         "_apple_toolchain": get_apple_toolchain_attr(),
         "_ios_booted_simulator": attrs.default_only(attrs.dep(default = "fbsource//xplat/buck2/platform/apple:ios_booted_simulator", providers = [LocalResourceInfo])),
         "_ios_unbooted_simulator": attrs.default_only(attrs.dep(default = "fbsource//xplat/buck2/platform/apple:ios_unbooted_simulator", providers = [LocalResourceInfo])),

@@ -81,7 +81,6 @@ extra_attributes = {
     },
     "apple_binary": {
         "binary_linker_flags": attrs.list(attrs.arg(), default = []),
-        "build_incrementally": attrs.bool(default = False),
         "enable_distributed_thinlto": attrs.bool(default = False),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "link_execution_preference": link_execution_preference_attr(),
@@ -91,6 +90,7 @@ extra_attributes = {
         "prefer_stripped_objects": attrs.bool(default = False),
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "stripped": attrs.option(attrs.bool(), default = None),
+        "swift_incremental_build_mode": attrs.bool(default = False),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
         "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
@@ -101,7 +101,6 @@ extra_attributes = {
     },
     "apple_bundle": apple_bundle_extra_attrs(),
     "apple_library": {
-        "build_incrementally": attrs.bool(default = False),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "link_execution_preference": link_execution_preference_attr(),
         "link_group_map": link_group_map_attr(),
@@ -112,6 +111,7 @@ extra_attributes = {
         "stripped": attrs.option(attrs.bool(), default = None),
         "supports_header_symlink_subtarget": attrs.bool(default = False),
         "supports_shlib_interfaces": attrs.bool(default = True),
+        "swift_incremental_build_mode": attrs.bool(default = False),
         "use_archive": attrs.option(attrs.bool(), default = None),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
         "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),

@@ -12,7 +12,7 @@ load(
 )
 
 _WriteOutputFileMapOutput = record(
-    objects = field(list[Artifact]),
+    artifacts = field(list[Artifact]),
     swiftdeps = field(list[Artifact]),
     main_swiftdeps = field(Artifact),
     output_map_artifact = field(Artifact),
@@ -23,34 +23,44 @@ IncrementalCompilationOutput = record(
     artifacts = field(list[Artifact]),
 )
 
-def get_incremental_compilation_flags_and_objects(ctx: AnalysisContext, srcs: list[CxxSrcWithFlags]) -> IncrementalCompilationOutput:
-    output_file_map = _write_output_file_map(ctx, get_module_name(ctx), srcs)
+def get_incremental_object_compilation_flags(ctx: AnalysisContext, srcs: list[CxxSrcWithFlags]) -> IncrementalCompilationOutput:
+    output_file_map = _write_output_file_map(ctx, get_module_name(ctx), srcs, "object", ".o")
+    return _get_incremental_compilation_flags_and_objects(output_file_map, cmd_args(["-emit-object"]))
 
+def get_incremental_swiftmodule_compilation_flags(ctx: AnalysisContext, srcs: list[CxxSrcWithFlags]) -> IncrementalCompilationOutput:
+    output_file_map = _write_output_file_map(ctx, get_module_name(ctx), srcs, "swiftmodule", ".swiftmodule")
+    return _get_incremental_compilation_flags_and_objects(output_file_map, cmd_args(["-emit-swiftmodule"]))
+
+def _get_incremental_compilation_flags_and_objects(
+        output_file_map: _WriteOutputFileMapOutput,
+        additional_flags: cmd_args) -> IncrementalCompilationOutput:
     cmd = cmd_args([
         "-incremental",
         "-enable-incremental-imports",
         "-enable-batch-mode",
         "-driver-batch-count",
         "1",
-        "-emit-object",
         "-output-file-map",
         output_file_map.output_map_artifact,
     ])
+    cmd.add(additional_flags)
 
     cmd = cmd.hidden([swiftdep.as_output() for swiftdep in output_file_map.swiftdeps])
-    cmd = cmd.hidden([object_file.as_output() for object_file in output_file_map.objects])
+    cmd = cmd.hidden([artifact.as_output() for artifact in output_file_map.artifacts])
     cmd = cmd.hidden(output_file_map.main_swiftdeps.as_output())
 
     return IncrementalCompilationOutput(
         incremental_flags_cmd = cmd,
-        artifacts = output_file_map.objects,
+        artifacts = output_file_map.artifacts,
     )
 
 def _write_output_file_map(
         ctx: AnalysisContext,
         module_name: str,
-        srcs: list[CxxSrcWithFlags]) -> _WriteOutputFileMapOutput:
-    module_swiftdeps = ctx.actions.declare_output("module-build-record.swiftdeps")
+        srcs: list[CxxSrcWithFlags],
+        compilation_mode: str,  # Either "object" or "swiftmodule"
+        extension: str) -> _WriteOutputFileMapOutput:  # Either ".o" or ".swiftmodule"
+    module_swiftdeps = ctx.actions.declare_output("module-build-record." + compilation_mode + ".swiftdeps")
 
     output_file_map = {
         "": {
@@ -58,25 +68,25 @@ def _write_output_file_map(
         },
     }
 
-    objects = []
+    artifacts = []
     swiftdeps = []
     for src in srcs:
         file_name = src.file.basename
-        object_artifact = ctx.actions.declare_output(file_name + ".o")
-        swiftdeps_artifact = ctx.actions.declare_output(file_name + ".swiftdeps")
+        output_artifact = ctx.actions.declare_output(file_name + extension)
+        swiftdeps_artifact = ctx.actions.declare_output(file_name + "." + compilation_mode + ".swiftdeps")
 
         part_map = {
-            "object": object_artifact,
+            compilation_mode: output_artifact,
             "swift-dependencies": swiftdeps_artifact,
         }
         output_file_map[src.file] = part_map
-        objects.append(object_artifact)
+        artifacts.append(output_artifact)
         swiftdeps.append(swiftdeps_artifact)
 
     output_map_artifact = ctx.actions.write_json(module_name + "-OutputFileMap.json", output_file_map)
 
     return _WriteOutputFileMapOutput(
-        objects = objects,
+        artifacts = artifacts,
         swiftdeps = swiftdeps,
         main_swiftdeps = module_swiftdeps,
         output_map_artifact = output_map_artifact,
