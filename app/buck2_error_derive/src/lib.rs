@@ -22,8 +22,7 @@ use syn::punctuated::Punctuated;
 use syn::Token;
 
 enum MacroOption {
-    User(syn::Ident),
-    Infra(syn::Ident),
+    Category(syn::Ident),
     Typ(syn::Ident),
 }
 
@@ -31,9 +30,11 @@ impl Parse for MacroOption {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let name: syn::Ident = input.parse()?;
         if name == "user" {
-            Ok(MacroOption::User(name))
+            let ident = syn::Ident::new("User", name.span());
+            Ok(MacroOption::Category(ident))
         } else if name == "infra" {
-            Ok(MacroOption::Infra(name))
+            let ident = syn::Ident::new("Infra", name.span());
+            Ok(MacroOption::Category(ident))
         } else if name == "typ" {
             let _eq: Token![=] = input.parse()?;
             let typ: syn::Ident = input.parse()?;
@@ -88,17 +89,11 @@ fn parse_attributes(
 
     for option in all_options {
         match option {
-            MacroOption::User(ident) => {
+            MacroOption::Category(ident) => {
                 if parsed_options.category.is_some() {
                     return Err(syn::Error::new_spanned(ident, "duplicate category"));
                 }
-                parsed_options.category = Some(syn::Ident::new("User", ident.span()));
-            }
-            MacroOption::Infra(ident) => {
-                if parsed_options.category.is_some() {
-                    return Err(syn::Error::new_spanned(ident, "duplicate category"));
-                }
-                parsed_options.category = Some(syn::Ident::new("Infra", ident.span()));
+                parsed_options.category = Some(ident);
             }
             MacroOption::Typ(ident) => {
                 if parsed_options.typ.is_some() {
