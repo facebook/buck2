@@ -59,7 +59,6 @@ fn construct_root_from_recovered_error(
     };
     let e = crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new(
         e,
-        None,
         typ,
         source_location,
     ))));
@@ -175,7 +174,7 @@ impl StdError for CrateAsStdError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match &*self.0.0 {
             ErrorKind::Root(r) => r.source(),
-            ErrorKind::WithContext(_, r) | ErrorKind::Emitted(r) => {
+            ErrorKind::WithContext(_, r) | ErrorKind::Emitted(_, r) => {
                 Some(CrateAsStdError::ref_cast(r))
             }
         }
@@ -252,7 +251,7 @@ mod tests {
                     a = a_inner;
                     b = b_inner;
                 }
-                (ErrorKind::Emitted(a_inner), ErrorKind::Emitted(b_inner)) => {
+                (ErrorKind::Emitted(_, a_inner), ErrorKind::Emitted(_, b_inner)) => {
                     a = a_inner;
                     b = b_inner;
                 }

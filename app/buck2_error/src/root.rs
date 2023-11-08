@@ -9,7 +9,6 @@
 
 use std::error::Error as StdError;
 use std::fmt;
-use std::sync::Arc;
 
 use mappable_rc::Marc;
 
@@ -35,16 +34,11 @@ static NEXT_ROOT_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64
 )]
 pub struct UniqueRootId(u64);
 
-type DynLateFormat =
-    dyn Fn(&anyhow::Error, &mut fmt::Formatter<'_>) -> fmt::Result + Send + Sync + 'static;
-
 #[derive(allocative::Allocative)]
 pub(crate) struct ErrorRoot {
     id: UniqueRootId,
     #[allocative(skip)]
     inner: Marc<anyhow::Error>,
-    #[allocative(skip)] // FIXME(JakobDegen): "Implementation is not general enough"
-    late_format: Option<Arc<DynLateFormat>>,
     error_type: Option<ErrorType>,
     source_location: Option<String>,
 }
@@ -52,28 +46,14 @@ pub(crate) struct ErrorRoot {
 impl ErrorRoot {
     pub(crate) fn new<E: StdError + Send + Sync + 'static>(
         inner: E,
-        late_format: Option<fn(&E, &mut fmt::Formatter<'_>) -> fmt::Result>,
         error_type: Option<ErrorType>,
         source_location: Option<String>,
     ) -> Self {
         let id = UniqueRootId(NEXT_ROOT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
         let inner = Marc::new(anyhow::Error::new(inner));
-        // Have to write this kind of weird to get the compiler to infer a higher ranked closure
-        let Some(late_format) = late_format else {
-            return Self {
-                id,
-                inner,
-                late_format: None,
-                error_type,
-                source_location,
-            };
-        };
         Self {
             id,
             inner,
-            late_format: Some(Arc::new(move |e: &anyhow::Error, fmt| {
-                late_format(e.downcast_ref().unwrap(), fmt)
-            })),
             error_type,
             source_location,
         }
@@ -85,24 +65,17 @@ impl ErrorRoot {
         Self {
             id: UniqueRootId(NEXT_ROOT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)),
             inner: e,
-            late_format: None,
             error_type: None,
             source_location,
         }
-    }
-
-    pub(crate) fn into_anyhow_for_late_format<'a>(&'a self) -> Option<anyhow::Error> {
-        self.late_format
-            .clone()
-            .map(|f| AnyhowWrapperForFormat(self.inner.clone(), Some(f)).into())
     }
 
     pub(crate) fn source(&self) -> Option<&(dyn StdError + 'static)> {
         self.inner.source()
     }
 
-    pub(crate) fn into_anyhow_for_format(&self) -> anyhow::Error {
-        AnyhowWrapperForFormat(self.inner.clone(), None).into()
+    pub(crate) fn inner(&self) -> Marc<anyhow::Error> {
+        self.inner.clone()
     }
 
     /// Equality comparison for use in tests only
@@ -158,29 +131,5 @@ impl ErrorRoot {
 impl fmt::Debug for ErrorRoot {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&self.inner, f)
-    }
-}
-
-struct AnyhowWrapperForFormat(Marc<anyhow::Error>, Option<Arc<DynLateFormat>>);
-
-impl fmt::Debug for AnyhowWrapperForFormat {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&self.0, f)
-    }
-}
-
-impl fmt::Display for AnyhowWrapperForFormat {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(late_format) = &self.1 {
-            late_format(&self.0, f)
-        } else {
-            fmt::Display::fmt(&self.0, f)
-        }
-    }
-}
-
-impl StdError for AnyhowWrapperForFormat {
-    fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        StdError::source(&**self.0)
     }
 }

@@ -15,9 +15,12 @@ use std::sync::Arc;
 use mappable_rc::Marc;
 
 use crate::context_value::ContextValue;
+use crate::format::into_anyhow_for_format;
 use crate::root::ErrorRoot;
 use crate::ErrorType;
 use crate::UniqueRootId;
+
+pub type DynLateFormat = dyn Fn(&mut fmt::Formatter<'_>) -> fmt::Result + Send + Sync + 'static;
 
 /// The core error type provided by this crate.
 ///
@@ -41,7 +44,8 @@ pub(crate) enum ErrorKind {
     /// For now we use untyped context to maximize compatibility with anyhow.
     WithContext(ContextValue, Error),
     /// Indicates that the error has been emitted, ie shown to the user.
-    Emitted(Error),
+    #[allocative(skip)] // FIXME(JakobDegen): "Implementation is not general enough"
+    Emitted(Arc<DynLateFormat>, Error),
 }
 
 impl Error {
@@ -58,14 +62,12 @@ impl Error {
     #[track_caller]
     pub fn new_with_options<E: StdError + Send + Sync + 'static>(
         e: E,
-        late_format: Option<fn(&E, &mut fmt::Formatter<'_>) -> fmt::Result>,
         typ: Option<ErrorType>,
     ) -> Self {
         let source_location =
             crate::source_location::from_file(std::panic::Location::caller().file(), None);
         Self(Arc::new(ErrorKind::Root(ErrorRoot::new(
             e,
-            late_format,
             typ,
             source_location,
         ))))
@@ -76,7 +78,7 @@ impl Error {
         std::iter::from_fn(move || {
             let out = cur?;
             match &*out.0 {
-                ErrorKind::WithContext(_, next) | ErrorKind::Emitted(next) => cur = Some(next),
+                ErrorKind::WithContext(_, next) | ErrorKind::Emitted(_, next) => cur = Some(next),
                 ErrorKind::Root(_) => cur = None,
             };
             Some(out.0.as_ref())
@@ -97,25 +99,22 @@ impl Error {
         })
     }
 
-    pub fn mark_emitted(self) -> Self {
-        Self(Arc::new(ErrorKind::Emitted(self)))
+    pub fn mark_emitted(self, late_format: Arc<DynLateFormat>) -> Self {
+        // Have to write this kind of weird to get the compiler to infer a higher ranked closure
+        Self(Arc::new(ErrorKind::Emitted(late_format, self)))
     }
 
-    pub fn is_emitted(&self) -> bool {
-        self.iter_kinds()
-            .any(|kind| matches!(kind, ErrorKind::Emitted(_)))
-    }
-
-    /// Returns possible additional late formatting for this error
+    /// If the error has not been emitted yet, returns `None`, otherwise `Some`.
     ///
     /// Most errors are only shown to the user once. However, some errors, specifically action
     /// errors, are shown to the user twice: Once when the error occurs, and again at the end of the
     /// build in the form of a short "Failed to build target" summary.
     ///
-    /// In cases like these, this function returns the additional information to show to the user at
-    /// the end of the build.
-    pub fn get_late_format<'a>(&'a self) -> Option<impl fmt::Display + fmt::Debug + 'a> {
-        crate::format::into_anyhow_for_format(self, true)
+    /// After the error has been shown to the user for the first time, it is marked as emitted. The
+    /// late formatter that is returned here is what should be printed at the end of the build
+    pub fn is_emitted<'a>(&'a self) -> Option<impl fmt::Debug + fmt::Display + 'a> {
+        let (val, was_late_formatted) = into_anyhow_for_format(self, true);
+        if was_late_formatted { Some(val) } else { None }
     }
 
     pub fn get_error_type(&self) -> Option<ErrorType> {
@@ -129,15 +128,9 @@ impl Error {
         for kind in self.iter_kinds() {
             match kind {
                 ErrorKind::Root(r) => {
-                    writeln!(
-                        s,
-                        "ROOT: late format: {}:\n{:#?}",
-                        r.into_anyhow_for_late_format().is_some(),
-                        r
-                    )
-                    .unwrap();
+                    writeln!(s, "ROOT:\n{:#?}", r).unwrap();
                 }
-                ErrorKind::Emitted(_) => {
+                ErrorKind::Emitted(_, _) => {
                     writeln!(s, "EMITTED").unwrap();
                 }
                 ErrorKind::WithContext(ctx, _) => {
@@ -165,7 +158,7 @@ impl Error {
             // Intentionally don't support downcasting for other `ContextValue` variants, it should
             // not be necessary
             ErrorKind::WithContext(_, _) => None,
-            ErrorKind::Emitted(_) => None,
+            ErrorKind::Emitted(_, _) => None,
         })
     }
 
@@ -180,6 +173,8 @@ impl Error {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     #[derive(Debug, thiserror::Error)]
     #[error("Test")]
     struct TestError;
@@ -187,12 +182,12 @@ mod tests {
     #[test]
     fn test_emitted_works() {
         let e: crate::Error = TestError.into();
-        assert!(!e.is_emitted());
-        let e = e.mark_emitted();
-        assert!(e.is_emitted());
+        assert!(e.is_emitted().is_none());
+        let e = e.mark_emitted(Arc::new(|_| Ok(())));
+        assert!(e.is_emitted().is_some());
         let e: anyhow::Error = e.into();
         let e: crate::Error = e.context("context").into();
-        assert!(e.is_emitted());
+        assert!(e.is_emitted().is_some());
     }
 
     #[derive(Debug, thiserror::Error)]
@@ -251,21 +246,6 @@ mod tests {
         let e: crate::Error = e.into();
         assert!(e.downcast_ref::<Outer>().is_some());
         assert!(e.downcast_ref::<Inner>().is_some());
-    }
-
-    #[test]
-    fn test_late_format_has_context() {
-        let e = crate::Error::new_with_options(
-            TestError,
-            Some(|_e, f| write!(f, "Late formatted!")),
-            None,
-        );
-        let e = e.context(ContextA).context(ContextB);
-
-        let s = format!("{:#}", e.get_late_format().unwrap());
-        assert!(s.contains("Late formatted!"));
-        assert!(s.contains("Context A"));
-        assert!(s.contains("Context B"));
     }
 
     #[test]

@@ -215,9 +215,9 @@ async fn build_action_no_redirect(
                     event: action_error_event,
                     owner: action.owner().dupe(),
                 };
+                let action_error_clone = action_error.clone();
                 let mut action_error = buck2_error::Error::new_with_options(
                     action_error,
-                    Some(late_format_action_error),
                     is_command_failure.then_some(buck2_error::ErrorType::ActionCommandFailure),
                 );
                 if is_user_error {
@@ -227,7 +227,9 @@ async fn build_action_no_redirect(
                     // Make sure to mark the error as emitted so that it is not printed out to console
                     // again in this command. We still need to keep it around for the build report (and
                     // in the future) other commands
-                    .mark_emitted()
+                    .mark_emitted(Arc::new(move |f| {
+                        late_format_action_error(&action_error_clone, f)
+                    }))
                     .into());
             }
         };

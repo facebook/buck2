@@ -13,7 +13,7 @@ use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_event_observer::display::display_action_error;
 use buck2_event_observer::display::TargetDisplayOptions;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ActionError {
     pub event: buck2_data::ActionError,
     pub owner: BaseDeferredKey,

@@ -7,9 +7,15 @@
  * of this source tree.
  */
 
+use std::error::Error as StdError;
 use std::fmt;
+use std::sync::Arc;
+
+use dupe::Dupe;
+use mappable_rc::Marc;
 
 use crate::error::ErrorKind;
+use crate::DynLateFormat;
 
 /// We currently implement formatting in the laziest way possible - we convert to an equivalent
 /// `anyhow::Error` and format that.
@@ -18,47 +24,81 @@ use crate::error::ErrorKind;
 /// hard and will give us a huge amount of flexibility. However, the goal right now is to get large
 /// amounts of `anyhow` compatibility with minimal work, and this achieves that.
 ///
-/// If `late_format` is set, attempts to use the late formatter instead of the standard one. That
-/// might not be present, in which case this function returns `None`. If `late_format` is false, the return value is never `None`.
+/// If `should_late_format` is set, attempts to use the late formatter instead of the standard one.
+/// That might not be present, so additionally returns a bool which indicates whether the late
+/// formatter was used.
 pub(crate) fn into_anyhow_for_format(
     mut error: &crate::Error,
-    late_format: bool,
-) -> Option<anyhow::Error> {
+    should_late_format: bool,
+) -> (anyhow::Error, bool) {
     let mut context_stack = Vec::new();
+    let mut was_late_formatted = false;
 
-    let root = loop {
+    let base = loop {
         match error.0.as_ref() {
-            ErrorKind::Root(root) => break root,
+            ErrorKind::Root(root) => break AnyhowWrapperForFormat::Root(root.inner()),
             ErrorKind::WithContext(context, inner) => {
                 context_stack.extend(context.as_display());
                 error = inner;
             }
-            ErrorKind::Emitted(inner) => {
+            ErrorKind::Emitted(late_format, inner) => {
+                if should_late_format {
+                    was_late_formatted = true;
+                    break AnyhowWrapperForFormat::LateFormat(late_format.dupe());
+                }
                 error = inner;
             }
         }
     };
 
-    let mut out: anyhow::Error = if late_format {
-        root.into_anyhow_for_late_format()?
-    } else {
-        root.into_anyhow_for_format()
-    };
+    let mut out: anyhow::Error = base.into();
     for context in context_stack.into_iter().rev() {
         out = out.context(context);
     }
-    Some(out)
+    (out, was_late_formatted)
 }
 
 impl fmt::Debug for crate::Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&into_anyhow_for_format(self, false).unwrap(), f)
+        fmt::Debug::fmt(&into_anyhow_for_format(self, false).0, f)
     }
 }
 
 impl fmt::Display for crate::Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&into_anyhow_for_format(self, false).unwrap(), f)
+        fmt::Display::fmt(&into_anyhow_for_format(self, false).0, f)
+    }
+}
+
+enum AnyhowWrapperForFormat {
+    Root(Marc<anyhow::Error>),
+    LateFormat(Arc<DynLateFormat>),
+}
+
+impl fmt::Debug for AnyhowWrapperForFormat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Root(root) => fmt::Debug::fmt(root, f),
+            Self::LateFormat(late_format) => late_format(f),
+        }
+    }
+}
+
+impl fmt::Display for AnyhowWrapperForFormat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Root(root) => fmt::Display::fmt(root, f),
+            Self::LateFormat(late_format) => late_format(f),
+        }
+    }
+}
+
+impl StdError for AnyhowWrapperForFormat {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        match self {
+            Self::Root(root) => root.source(),
+            Self::LateFormat(_) => None,
+        }
     }
 }
 

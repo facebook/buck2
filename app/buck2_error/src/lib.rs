@@ -32,6 +32,7 @@ pub use context::Context;
 /// the future.
 #[doc(inline)]
 pub use context_value::Category;
+pub use error::DynLateFormat;
 pub use error::Error;
 pub use root::UniqueRootId;
 
