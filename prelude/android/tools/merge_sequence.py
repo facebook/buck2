@@ -206,7 +206,7 @@ class NodeData(typing.NamedTuple):
     merge_group: int
     is_excluded: bool
     final_lib_key: FinalLibKey
-    split_group_exit_counts: dict[int, int]
+    dependent_included_split_group_entry_counts: dict[int, int]
 
     def debug(self) -> object:
         return self._asdict()
@@ -459,6 +459,7 @@ def get_native_linkables_by_merge_sequence(  # noqa: C901
                 split_group_key, len(split_groups)
             )
 
+        # Bottom-up traversal (compute transitive module dependencies)
         for target in post_ordered_targets:
             assert target not in node_data, "{}: {}".format(
                 target, post_ordered_targets
@@ -466,43 +467,66 @@ def get_native_linkables_by_merge_sequence(  # noqa: C901
 
             node = graph_node_map[target]
             module = apk_module_graph.module_for_target(node.raw_target)
+
             merge_group_module_constituents[current_merge_group].add(module)
 
             transitive_module_deps = {module}
-
-            deps_data = [node_data[dep] for dep in node.deps]
-
             for dep in node.deps:
                 transitive_module_deps.update(transitive_module_deps_map[dep])
-
             transitive_module_deps_map[target] = frozenset(transitive_module_deps)
+
+        # Top-down traversal (determine split groups, compute dependent split group reentry counts, finalize layers)
+        for target in reversed(post_ordered_targets):
+            assert target not in node_data, "{}: {}".format(
+                target, post_ordered_targets
+            )
+
+            node = graph_node_map[target]
+            module = apk_module_graph.module_for_target(node.raw_target)
 
             is_excluded, split_group = get_split_group(
                 target, transitive_module_deps_map[target], module
             )
 
-            split_group_exit_counts: dict[int, int] = {}
+            dependent_included_split_group_entry_counts: dict[int, int] = {}
 
-            for dep_data in deps_data:
-                if current_merge_group == dep_data.merge_group:
-                    dep_split_group = dep_data.final_lib_key.split_group
-                    is_cross_group_edge = split_group != dep_split_group
+            for dependent_in_group in dependents_in_current_merge_group_map.get(
+                target, []
+            ):
+                dependent_in_group_data = node_data[dependent_in_group]
+                dependent_split_group = (
+                    dependent_in_group_data.final_lib_key.split_group
+                )
+                is_included_split_group_entry = (
+                    split_group != dependent_split_group
+                    and not dependent_in_group_data.is_excluded
+                )
 
-                    # if this is the first exit edge from the group, it won't apper in dep_data's map so we add it
-                    # explicitly if we don't yet have a non-zero count (except if it's exited an excluded node
-                    # where there's no need to track exit counts)
-                    if (
-                        not dep_data.is_excluded
-                        and is_cross_group_edge
-                        and dep_split_group not in split_group_exit_counts
-                    ):
-                        split_group_exit_counts[dep_split_group] = 1
-                    for (group, count) in dep_data.split_group_exit_counts.items():
-                        if group == dep_split_group and is_cross_group_edge:
-                            count += 1
-                        curr_count = split_group_exit_counts.get(group, 0)
-                        if count > curr_count:
-                            split_group_exit_counts[group] = count
+                # dependent_included_split_group_entry_counts do not count entry into a target's own split group layer,
+                # so we have to ensure that its dependencies record an entry count of at least 1 for that split group.
+                if (
+                    is_included_split_group_entry
+                    and dependent_split_group
+                    not in dependent_included_split_group_entry_counts
+                ):
+                    dependent_included_split_group_entry_counts[
+                        dependent_split_group
+                    ] = 1
+
+                for (
+                    group,
+                    entry_count,
+                ) in (
+                    dependent_in_group_data.dependent_included_split_group_entry_counts.items()
+                ):
+                    if group == dependent_split_group and is_included_split_group_entry:
+                        entry_count += 1
+
+                    curr_entry_count = dependent_included_split_group_entry_counts.get(
+                        group, 0
+                    )
+                    if entry_count > curr_entry_count:
+                        dependent_included_split_group_entry_counts[group] = entry_count
 
             this_node_data = NodeData(
                 base_library_name=node.raw_target if is_excluded else merge_group_name,
@@ -510,15 +534,19 @@ def get_native_linkables_by_merge_sequence(  # noqa: C901
                 merge_group=current_merge_group,
                 final_lib_key=FinalLibKey(
                     split_group=split_group,
-                    cycle_breaker=frozenset(split_group_exit_counts.items())
-                    if is_root_module(module)
-                    else split_group_exit_counts.get(split_group, 0),
+                    cycle_breaker=dependent_included_split_group_entry_counts.get(
+                        split_group, 0
+                    ),
                 ),
                 is_excluded=is_excluded,
-                split_group_exit_counts=split_group_exit_counts,
+                dependent_included_split_group_entry_counts=dependent_included_split_group_entry_counts,
             )
             node_data[target] = this_node_data
-            final_lib_graph.add_node(this_node_data, deps_data)
+
+        for target in post_ordered_targets:
+            node = graph_node_map[target]
+            deps_data = [node_data[dep] for dep in node.deps]
+            final_lib_graph.add_node(node_data[target], deps_data)
 
     final_lib_names = final_lib_graph.assign_names(merge_group_module_constituents)
     return node_data, final_lib_names, final_lib_graph
