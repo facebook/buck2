@@ -206,7 +206,6 @@ class NodeData(typing.NamedTuple):
     merge_group: int
     is_excluded: bool
     final_lib_key: FinalLibKey
-    transitive_module_deps: frozenset[str]
     split_group_exit_counts: dict[int, int]
 
     def debug(self) -> object:
@@ -370,6 +369,9 @@ def get_native_linkables_by_merge_sequence(  # noqa: C901
 ) -> typing.Tuple[dict[Label, NodeData], dict[FinalLibKey, str], FinalLibGraph]:
     final_lib_graph = FinalLibGraph()
     node_data: dict[Label, NodeData] = {}
+    transitive_module_deps_map: dict[Label, frozenset[str]] = {}
+
+    dependents_in_current_merge_group_map: dict[Label, list[Label]] = {}
 
     def check_is_excluded(target: Label) -> bool:
         node = graph_node_map[target]
@@ -388,7 +390,15 @@ def get_native_linkables_by_merge_sequence(  # noqa: C901
 
     def get_children_without_merge_group(label: Label) -> list[Label]:
         node = graph_node_map[label]
-        return [child for child in node.deps if child not in node_data]
+        group_deps = [child for child in node.deps if child not in node_data]
+
+        # In addition to applying an ordering to targets, this traversal identifies within-merge-group dependents.
+        for group_dep in group_deps:
+            dependents_in_current_merge_group_map.setdefault(group_dep, []).append(
+                label
+            )
+
+        return group_deps
 
     current_merge_group = 0
 
@@ -397,6 +407,8 @@ def get_native_linkables_by_merge_sequence(  # noqa: C901
     merge_group_module_constituents: list[set[str]] = []
 
     for current_merge_group in range(len(native_library_merge_sequence)):
+        dependents_in_current_merge_group_map = {}
+
         merge_group_module_constituents.append(set())
         group_specs: MergeSequenceGroupSpec = native_library_merge_sequence[
             current_merge_group
@@ -460,13 +472,13 @@ def get_native_linkables_by_merge_sequence(  # noqa: C901
 
             deps_data = [node_data[dep] for dep in node.deps]
 
-            for dep_data in deps_data:
-                transitive_module_deps.update(dep_data.transitive_module_deps)
+            for dep in node.deps:
+                transitive_module_deps.update(transitive_module_deps_map[dep])
 
-            transitive_module_deps = frozenset(transitive_module_deps)
+            transitive_module_deps_map[target] = frozenset(transitive_module_deps)
 
             is_excluded, split_group = get_split_group(
-                target, transitive_module_deps, module
+                target, transitive_module_deps_map[target], module
             )
 
             split_group_exit_counts: dict[int, int] = {}
@@ -503,7 +515,6 @@ def get_native_linkables_by_merge_sequence(  # noqa: C901
                     else split_group_exit_counts.get(split_group, 0),
                 ),
                 is_excluded=is_excluded,
-                transitive_module_deps=transitive_module_deps,
                 split_group_exit_counts=split_group_exit_counts,
             )
             node_data[target] = this_node_data
