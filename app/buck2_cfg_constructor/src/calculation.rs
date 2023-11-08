@@ -81,7 +81,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
     async fn eval_cfg_constructor(
         &self,
         ctx: &DiceComputations,
-        _target: &TargetNode,
+        target: &TargetNode,
         super_package: &SuperPackage,
         cfg: ConfigurationData,
     ) -> anyhow::Result<ConfigurationData> {
@@ -89,6 +89,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
         #[display(fmt = "CfgConstructorInvocationKey")]
         struct CfgConstructorInvocationKey {
             package_cfg_modifiers: Option<MetadataValue>,
+            target_cfg_modifiers: Option<MetadataValue>,
             cfg: ConfigurationData,
         }
 
@@ -108,7 +109,12 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
                     .await?
                     .context("Internal error: Global cfg constructor instance should exist")?;
                 cfg_constructor
-                    .eval(ctx, &self.cfg, self.package_cfg_modifiers.as_ref())
+                    .eval(
+                        ctx,
+                        &self.cfg,
+                        self.package_cfg_modifiers.as_ref(),
+                        self.target_cfg_modifiers.as_ref(),
+                    )
                     .await
                     .map_err(buck2_error::Error::from)
             }
@@ -128,9 +134,12 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
                     .package_values()
                     .get_package_value_json(modifier_key)?
                     .map(MetadataValue::new);
+                let target_cfg_modifiers =
+                    target.metadata()?.and_then(|m| m.get(modifier_key)).duped();
 
                 let key = CfgConstructorInvocationKey {
                     package_cfg_modifiers,
+                    target_cfg_modifiers,
                     cfg,
                 };
                 Ok(ctx.compute(&key).await??)

@@ -32,6 +32,7 @@ pub trait CfgConstructorImpl: Send + Sync + Debug + Allocative {
         ctx: &'a DiceComputations,
         cfg: &'a ConfigurationData,
         package_cfg_modifiers: Option<&'a MetadataValue>,
+        target_cfg_modifiers: Option<&'a MetadataValue>,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<ConfigurationData>> + Send + 'a>>;
 
     /// Returns the metadata key used to encode modifiers in PACKAGE values and metadata attribute

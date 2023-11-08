@@ -73,6 +73,7 @@ async fn eval_pre_constraint_analysis<'v>(
     ctx: &DiceComputations,
     cfg: &ConfigurationData,
     package_cfg_modifiers: Option<&MetadataValue>,
+    target_cfg_modifiers: Option<&MetadataValue>,
     module: &'v Module,
     print: &'v EventDispatcherPrintHandler,
 ) -> anyhow::Result<(Vec<String>, Value<'v>, Evaluator<'v, 'v>)> {
@@ -95,11 +96,13 @@ async fn eval_pre_constraint_analysis<'v>(
             let package_cfg_modifiers = eval
                 .heap()
                 .alloc(package_cfg_modifiers.map(|m| m.as_json()));
+            let target_cfg_modifiers = eval.heap().alloc(target_cfg_modifiers.map(|m| m.as_json()));
 
             // TODO: should eventually accept cli modifiers and target modifiers (T163570597)
             let pre_constraint_analysis_args = vec![
                 ("legacy_platform", legacy_platform),
                 ("package_modifiers", package_cfg_modifiers),
+                ("target_modifiers", target_cfg_modifiers),
             ];
 
             // Type check + unpack
@@ -199,6 +202,7 @@ async fn eval_underlying(
     ctx: &DiceComputations,
     cfg: &ConfigurationData,
     package_cfg_modifiers: Option<&MetadataValue>,
+    target_cfg_modifiers: Option<&MetadataValue>,
 ) -> anyhow::Result<ConfigurationData> {
     let module = Module::new();
     let print = EventDispatcherPrintHandler(get_dispatcher());
@@ -211,6 +215,7 @@ async fn eval_underlying(
         ctx,
         cfg,
         package_cfg_modifiers,
+        target_cfg_modifiers,
         &module,
         &print,
     )
@@ -239,9 +244,12 @@ impl CfgConstructorImpl for CfgConstructor {
         ctx: &'a DiceComputations,
         cfg: &'a ConfigurationData,
         package_cfg_modifiers: Option<&'a MetadataValue>,
+        target_cfg_modifiers: Option<&'a MetadataValue>,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<ConfigurationData>> + Send + 'a>> {
         // Get around issue of Evaluator not being send by wrapping future in UnsafeSendFuture
-        let fut = async move { eval_underlying(self, ctx, cfg, package_cfg_modifiers).await };
+        let fut = async move {
+            eval_underlying(self, ctx, cfg, package_cfg_modifiers, target_cfg_modifiers).await
+        };
         unsafe { Box::pin(UnsafeSendFuture::new_encapsulates_starlark(fut)) }
     }
 
