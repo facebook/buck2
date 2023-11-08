@@ -158,21 +158,72 @@ impl Variable {
         }
     }
 
+    fn tuple_value_as_str<'v>(v: Value<'v>) -> String {
+        match v.length() {
+            Ok(size) if size > 0 => format!("<tuple, size={}>", size),
+            _ => "()".to_owned(),
+        }
+    }
+
+    fn list_value_as_str<'v>(v: Value<'v>) -> String {
+        match v.length() {
+            Ok(size) if size > 0 => format!("<list, size={}>", size),
+            _ => "[]".to_owned(),
+        }
+    }
+
+    fn struct_like_value_as_str<'v>(v: Value<'v>) -> String {
+        let attrs = v.dir_attr();
+        format!("<type:{}, size={}>", v.get_type(), attrs.len())
+    }
+
+    pub(crate) fn truncate_string(mut str_value: String, mut max_len: usize) -> String {
+        if str_value.len() > max_len {
+            // Find a valid UTF-8 cut-off point that's within our max length
+            while max_len > 0 && !str_value.is_char_boundary(max_len) {
+                max_len -= 1;
+            }
+            if max_len > 0 {
+                str_value.truncate(max_len);
+                str_value.push_str("...(truncated)");
+            }
+        }
+        str_value
+    }
+
     /// creates a new instance of Variable from a given starlark value
     pub fn from_value<'v>(name: PathSegment, v: Value<'v>) -> Self {
         Self {
             name,
-            value: v.to_str(),
+            value: if Self::has_children(&v) {
+                match v.get_type() {
+                    "list" => Self::list_value_as_str(v),
+                    "tuple" => Self::tuple_value_as_str(v),
+                    _ => Self::struct_like_value_as_str(v),
+                }
+            } else {
+                match v.get_type() {
+                    "function" => "<function>".to_owned(),
+                    _ => {
+                        const MAX_STR_LEN: usize = 10000;
+                        Self::truncate_string(v.to_str(), MAX_STR_LEN)
+                    }
+                }
+            },
             type_: v.get_type().to_owned(),
-            has_children: Self::has_children(v.get_type()),
+            has_children: Self::has_children(&v),
         }
     }
 
-    pub(crate) fn has_children(value_type: &str) -> bool {
-        !matches!(
-            value_type,
-            "function" | "never" | "NoneType" | "bool" | "int" | "float" | "string"
-        )
+    pub(crate) fn has_children<'v>(v: &Value<'v>) -> bool {
+        match v.get_type() {
+            "function" | "never" | "NoneType" | "bool" | "int" | "float" | "string" => false,
+            "list" | "tuple" | "dict" => match v.length() {
+                Ok(length) => length > 0,
+                _ => false,
+            },
+            _ => true,
+        }
     }
 }
 
@@ -260,7 +311,7 @@ impl EvaluateExprInfo {
         Self {
             result: v.to_str(),
             type_: v.get_type().to_owned(),
-            has_children: Variable::has_children(v.get_type()),
+            has_children: Variable::has_children(v),
         }
     }
 }

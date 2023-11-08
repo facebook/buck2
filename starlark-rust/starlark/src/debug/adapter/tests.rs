@@ -34,7 +34,6 @@ mod t {
     use crate::debug::DapAdapter;
     use crate::debug::DapAdapterClient;
     use crate::debug::DapAdapterEvalHook;
-    use crate::debug::PathSegment;
     use crate::debug::StepKind;
     use crate::debug::VariablePath;
     use crate::environment::GlobalsBuilder;
@@ -407,6 +406,64 @@ print(x)
     }
 
     #[test]
+    fn test_local_variables() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
+        let controller = BreakpointController::new();
+        let (adapter, eval_hook) = prepare_dap_adapter(controller.get_client());
+        let file_contents = "
+def do():
+    a = struct(
+        f1 = \"1\",
+        f2 = 123,
+    )
+    arr = [1, 2, 3, 4, 6, \"234\", 123.32]
+    t = (1, 2)
+    d = dict(a = 1, b = \"2\")
+    empty_dict = {}
+    empty_list = []
+    empty_tuple = ()
+    return d # line 13
+print(do())
+        ";
+        let result = std::thread::scope(|s| {
+            let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
+            let breakpoints =
+                resolve_breakpoints(&breakpoints_args("test.bzl", &[(13, None)]), &ast)?;
+            adapter.set_breakpoints("test.bzl", &breakpoints)?;
+            let eval_result =
+                s.spawn(move || -> anyhow::Result<_> { eval_with_hook(ast, eval_hook) });
+            controller.wait_for_eval_stopped(1, TIMEOUT);
+            let result = adapter.variables();
+            adapter.continue_()?;
+            join_timeout(eval_result, TIMEOUT)?;
+            result
+        })?;
+        // It's easier to handle errors outside of thread::scope block as the test is quite flaky
+        // and hangs in case error propagates
+        assert_eq!(
+            vec![
+                ("a".to_owned(), String::from("<type:struct, size=2>"), true),
+                ("arr".to_owned(), String::from("<list, size=7>"), true),
+                ("t".to_owned(), String::from("<tuple, size=2>"), true),
+                ("d".to_owned(), String::from("<type:dict, size=9>"), true),
+                ("empty_dict".to_owned(), String::from("{}"), false),
+                ("empty_list".to_owned(), String::from("[]"), false),
+                ("empty_tuple".to_owned(), String::from("()"), false),
+            ],
+            result
+                .locals
+                .into_iter()
+                .map(|v| (v.name.to_string(), v.value, v.has_children))
+                .collect::<Vec<_>>()
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn test_inspect_variables() -> anyhow::Result<()> {
         if is_wasm() {
             return Ok(());
@@ -416,59 +473,93 @@ print(x)
         let (adapter, eval_hook) = prepare_dap_adapter(controller.get_client());
         let file_contents = "
 def do():
-    x = struct(
-        str_field = \"one\",
-        int_field= 2
+    a = struct(
+        f1 = \"1\",
+        f2 = 123,
     )
-    y = [1, 2, 3]
-    return x # line 8
+    arr = [1, 2, 3, 4, 6, \"234\", 123.32]
+    t = (1, 2)
+    d = dict(a = 1, b = \"2\")
+    empty_dict = {}
+    empty_list = []
+    empty_tuple = ()
+    return d # line 13
 print(do())
         ";
-        std::thread::scope(|s| {
+        let result = std::thread::scope(|s| {
+            let mut result = Vec::new();
             let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
             let breakpoints =
-                resolve_breakpoints(&breakpoints_args("test.bzl", &[(8, None)]), &ast)?;
+                resolve_breakpoints(&breakpoints_args("test.bzl", &[(13, None)]), &ast)?;
             adapter.set_breakpoints("test.bzl", &breakpoints)?;
             let eval_result =
                 s.spawn(move || -> anyhow::Result<_> { eval_with_hook(ast, eval_hook) });
             controller.wait_for_eval_stopped(1, TIMEOUT);
-            assert_eq!(&[String::from("int_field"), String::from("str_field")], {
-                let result = adapter
-                    .inspect_variable(VariablePath::new_local("x"))
-                    .unwrap();
-                result
-                    .sub_values
-                    .into_iter()
-                    .map(|x| x.name.to_string())
-                    .collect::<Vec<_>>()
-                    .as_slice()
-            });
-
-            assert_eq!(
-                &[String::from("1"), String::from("2"), String::from("3")],
-                {
-                    let result = adapter
-                        .inspect_variable(VariablePath::new_local("y"))
-                        .unwrap();
-                    result
-                        .sub_values
-                        .into_iter()
-                        .map(|x| x.value)
-                        .collect::<Vec<_>>()
-                        .as_slice()
-                }
-            );
-
-            assert!({
-                let path = VariablePath::new_local("y");
-                let result = adapter
-                    .inspect_variable(path.make_child(PathSegment::Index(1)))
-                    .unwrap();
-                result.sub_values.is_empty()
-            });
+            result.extend([
+                adapter.inspect_variable(VariablePath::new_local("a")),
+                adapter.inspect_variable(VariablePath::new_local("arr")),
+                adapter.inspect_variable(VariablePath::new_local("t")),
+                adapter.inspect_variable(VariablePath::new_local("d")),
+            ]);
             adapter.continue_()?;
             join_timeout(eval_result, TIMEOUT)?;
-            Ok(())
-        })
+            anyhow::Ok(result)
+        })?
+        .into_iter()
+        .collect::<anyhow::Result<Vec<_>>>()?;
+
+        // It's easier to handle errors outside of thread::scope block as the test is quite flaky
+        // and hangs in case error propagates
+
+        assert_variable("f1", "1", false, &result[0].sub_values[0]);
+        assert_variable("f2", "123", false, &result[0].sub_values[1]);
+        assert_variable("0", "1", false, &result[1].sub_values[0]);
+        assert_variable("5", "234", false, &result[1].sub_values[5]);
+        assert_variable("0", "1", false, &result[2].sub_values[0]);
+        assert_variable("1", "2", false, &result[2].sub_values[1]);
+        Ok(())
+    }
+
+    fn assert_variable(
+        name: &str,
+        value: &str,
+        has_children: bool,
+        var: &crate::debug::adapter::Variable,
+    ) {
+        assert_eq!(
+            (name.to_owned(), value, has_children),
+            (var.name.to_string(), var.value.as_str(), var.has_children)
+        );
+    }
+
+    #[test]
+    pub fn test_truncate_string() {
+        assert_eq!(
+            "Hello",
+            crate::debug::adapter::Variable::truncate_string("Hello".to_owned(), 10)
+        );
+        assert_eq!(
+            "Hello",
+            crate::debug::adapter::Variable::truncate_string("Hello".to_owned(), 5)
+        );
+        assert_eq!(
+            "Hello, ...(truncated)",
+            // A string that should be truncated at a character boundary
+            crate::debug::adapter::Variable::truncate_string("Hello, 世界".to_owned(), 7)
+        );
+        assert_eq!(
+            "Hello, ...(truncated)",
+            // A string that would be truncated within a multi-byte character
+            crate::debug::adapter::Variable::truncate_string("Hello, 世界".to_owned(), 8)
+        );
+        assert_eq!(
+            "Hello, ...(truncated)",
+            // A string that should be truncated just before a multi-byte character
+            crate::debug::adapter::Variable::truncate_string("Hello, 世界".to_owned(), 9)
+        );
+        assert_eq!(
+            "Hello, 世...(truncated)",
+            crate::debug::adapter::Variable::truncate_string("Hello, 世界".to_owned(), 10)
+        );
     }
 }
