@@ -19,11 +19,44 @@ use syn::parse::Parser;
 use syn::parse_macro_input;
 use syn::parse_quote;
 use syn::punctuated::Punctuated;
+use syn::spanned::Spanned;
 use syn::Token;
 
+/// Did the user provide an explicit value for the option, or a function from which to compute it
+#[derive(Clone)]
+enum OptionStyle {
+    Explicit(syn::Ident),
+    ByFunc(syn::Path),
+}
+
+impl OptionStyle {
+    fn span(&self) -> Span {
+        match self {
+            Self::Explicit(ident) => ident.span(),
+            Self::ByFunc(path) => path.span(),
+        }
+    }
+}
+
+impl Parse for OptionStyle {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let path: syn::Path = input.parse()?;
+
+        if input.is_empty() {
+            let ident = path.require_ident()?;
+            Ok(Self::Explicit(ident.clone()))
+        } else {
+            let inner;
+            syn::parenthesized!(inner in input);
+            let _underscore: Token![_] = inner.parse()?;
+            Ok(Self::ByFunc(path))
+        }
+    }
+}
+
 enum MacroOption {
-    Category(syn::Ident),
-    Typ(syn::Ident),
+    Category(OptionStyle),
+    Typ(OptionStyle),
 }
 
 impl Parse for MacroOption {
@@ -31,18 +64,16 @@ impl Parse for MacroOption {
         let name: syn::Ident = input.parse()?;
         if name == "user" {
             let ident = syn::Ident::new("User", name.span());
-            Ok(MacroOption::Category(ident))
+            Ok(MacroOption::Category(OptionStyle::Explicit(ident)))
         } else if name == "infra" {
             let ident = syn::Ident::new("Infra", name.span());
-            Ok(MacroOption::Category(ident))
+            Ok(MacroOption::Category(OptionStyle::Explicit(ident)))
         } else if name == "category" {
             let _eq: Token![=] = input.parse()?;
-            let cat: syn::Ident = input.parse()?;
-            Ok(MacroOption::Category(cat))
+            Ok(MacroOption::Category(input.parse()?))
         } else if name == "typ" {
             let _eq: Token![=] = input.parse()?;
-            let typ: syn::Ident = input.parse()?;
-            Ok(MacroOption::Typ(typ))
+            Ok(MacroOption::Typ(input.parse()?))
         } else {
             Err(syn::Error::new_spanned(name, "expected option"))
         }
@@ -51,8 +82,8 @@ impl Parse for MacroOption {
 
 #[derive(Default, Clone)]
 struct ParsedOptions {
-    category: Option<syn::Ident>,
-    typ: Option<syn::Ident>,
+    category: Option<OptionStyle>,
+    typ: Option<OptionStyle>,
 }
 
 /// Indicates that an option was provided which is only allowed on error roots, and is therefore
@@ -93,17 +124,17 @@ fn parse_attributes(
 
     for option in all_options {
         match option {
-            MacroOption::Category(ident) => {
+            MacroOption::Category(style) => {
                 if parsed_options.category.is_some() {
-                    return Err(syn::Error::new_spanned(ident, "duplicate category"));
+                    return Err(syn::Error::new(style.span(), "duplicate category"));
                 }
-                parsed_options.category = Some(ident);
+                parsed_options.category = Some(style);
             }
-            MacroOption::Typ(ident) => {
+            MacroOption::Typ(style) => {
                 if parsed_options.typ.is_some() {
-                    return Err(syn::Error::new_spanned(ident, "duplicate error type"));
+                    return Err(syn::Error::new(style.span(), "duplicate error type"));
                 }
-                parsed_options.typ = Some(ident);
+                parsed_options.typ = Some(style);
             }
         }
     }
@@ -139,15 +170,21 @@ fn render_options(
 ) -> proc_macro2::TokenStream {
     let options = options.unwrap_or_default();
     let source_location_extra = syn::LitStr::new(type_and_variant, Span::call_site());
-    let category = options.category.map(|cat| {
-        quote::quote! {
+    let category = options.category.map(|cat| match cat {
+        OptionStyle::Explicit(cat) => quote::quote! {
             category = ::core::option::Option::Some(#krate::Category::#cat);
-        }
+        },
+        OptionStyle::ByFunc(func) => quote::quote! {
+            category = #func(&val);
+        },
     });
-    let typ = options.typ.map(|typ| {
-        quote::quote! {
+    let typ = options.typ.map(|typ| match typ {
+        OptionStyle::Explicit(typ) => quote::quote! {
             typ = ::core::option::Option::Some(#krate::ErrorType::#typ);
-        }
+        },
+        OptionStyle::ByFunc(func) => quote::quote! {
+            typ = #func(&val);
+        },
     });
 
     quote::quote! {
