@@ -16,6 +16,7 @@ use starlark_map::sorted_map::SortedMap;
 
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::metadata::key::MetadataKey;
+use crate::metadata::key::MetadataKeyRef;
 use crate::metadata::value::MetadataValue;
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Default)]
@@ -28,6 +29,10 @@ impl MetadataMap {
         Self {
             values: Box::new(SortedMap::from(values)),
         }
+    }
+
+    pub fn get(&self, key: &MetadataKeyRef) -> Option<&MetadataValue> {
+        self.values.get(key)
     }
 }
 
