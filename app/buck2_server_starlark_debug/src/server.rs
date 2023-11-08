@@ -866,7 +866,8 @@ impl ServerState {
     fn get_ast(&self, source: &ProjectRelativePath) -> anyhow::Result<AstModule> {
         debug!("tried to get ast `{}`", source);
         let abs_path = self.project_root.resolve(source);
-        let content = fs_util::read_to_string_if_exists(abs_path)?.unwrap();
+        let content = fs_util::read_to_string_if_exists(abs_path)?
+            .ok_or_else(|| anyhow::anyhow!("file not found: {}", source))?;
         AstModule::parse(
             &source.to_string(),
             content,
