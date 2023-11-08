@@ -11,7 +11,8 @@ anyhow = { workspace = true }
 crossbeam = { workspace = true }
 derive_more = { workspace = true }
 starlark_map = { workspace = true }
-thiserror = { workspace = true }
+
+buck2_error = { workspace = true }
 
 [dev-dependencies]
 rand = { workspace = true }

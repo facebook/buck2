@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use thiserror::Error;
-
 use crate::types::OptionalVertexId;
 use crate::types::VertexData;
 use crate::types::VertexId;
@@ -237,7 +235,7 @@ impl Graph {
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 pub enum TopoSortError {
     #[error("cycle")]
     Cycle,
@@ -258,7 +256,7 @@ impl AddEdges for VertexData<OptionalVertexId> {
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 pub enum AddEdgesError {
     #[error("overflow")]
     Overflow,

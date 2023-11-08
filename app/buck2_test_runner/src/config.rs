@@ -60,7 +60,7 @@ impl FromStr for EnvValue {
     }
 }
 
-#[derive(Debug, thiserror::Error, PartialEq)]
+#[derive(Debug, buck2_error::Error, PartialEq)]
 pub enum EnvValueParseError {
     #[error("Incorrect syntax for env value. Please use name=value. Input: `{0}`")]
     IncorrectSyntax(String),

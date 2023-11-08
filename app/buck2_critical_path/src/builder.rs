@@ -12,7 +12,6 @@ use std::hash::Hash;
 
 use starlark_map::small_map::SmallMap;
 use starlark_map::Hashed;
-use thiserror::Error;
 
 use crate::graph::Graph;
 use crate::graph::GraphVertex;
@@ -20,7 +19,7 @@ use crate::types::VertexData;
 use crate::types::VertexId;
 use crate::types::VertexKeys;
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 pub enum PushError<K: Display> {
     #[error("duplicate key: {key}")]
     DuplicateKey { key: K },
