@@ -1,3 +1,19 @@
+apple_tools(
+    name = "apple-tools",
+    assemble_bundle = "prelude//apple/tools/bundling:assemble_bundle",
+    # @oss-disable: adhoc_codesign_tool = "prelude//apple/tools/meta_only/codesign_rust:adhoc-signer", 
+    adhoc_codesign_tool = None # @oss-enable
+    split_arch_combine_dsym_bundles_tool = ":split_arch_combine_dsym_bundles_tool",
+    dry_codesign_tool = ":dry_codesign_tool",
+    info_plist_processor = "prelude//apple/tools/info_plist_processor:tool",
+    ipa_package_maker = ":ipa_package_maker",
+    make_modulemap = ":make_modulemap",
+    make_vfsoverlay = ":make_vfsoverlay",
+    selective_debugging_scrubber = "prelude//apple/tools/selective_debugging:tool",
+    swift_objc_header_postprocess = ":swift_objc_header_postprocess",
+    visibility = ["PUBLIC"],
+)
+
 native.python_binary(
     name = "dry_codesign_tool",
     main = "dry_codesign_tool.py",

@@ -172,7 +172,7 @@ registration_spec = RuleRegistrationSpec(
         "include_regular_expressions": attrs.list(attrs.string(), default = []),
         "json_type": attrs.enum(_SelectiveDebuggingJsonTypes),
         "targets_json_file": attrs.option(attrs.source(), default = None),
-        "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
+        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
     },
 )
 

@@ -91,8 +91,7 @@ extra_attributes = {
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "stripped": attrs.option(attrs.bool(), default = None),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
-        # FIXME: prelude// should be standalone (not refer to fbsource//)
-        "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
+        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_stripped_default": attrs.bool(default = False),
@@ -113,8 +112,7 @@ extra_attributes = {
         "supports_shlib_interfaces": attrs.bool(default = True),
         "use_archive": attrs.option(attrs.bool(), default = None),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
-        # FIXME: prelude// should be standalone (not refer to fbsource//)
-        "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
+        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_stripped_default": attrs.bool(default = False),
@@ -129,8 +127,7 @@ extra_attributes = {
         "packager_args": attrs.list(attrs.arg(), default = []),
         "validator": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "_apple_toolchain": get_apple_bundle_toolchain_attr(),
-        # FIXME: prelude// should be standalone (not refer to fbsource//)
-        "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
+        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
         "_ipa_compression_level": attrs.enum(IpaCompressionLevel.values()),
     },
     "apple_resource": {
@@ -190,7 +187,7 @@ extra_attributes = {
         "split_arch_dsym": attrs.bool(default = False),
         "universal": attrs.option(attrs.bool(), default = None),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
-        "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
+        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
     },
     "core_data_model": {
         "path": attrs.source(allow_directory = True),

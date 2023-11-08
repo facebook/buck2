@@ -42,8 +42,7 @@ def _apple_resource_bundle_attrs():
         "resource_group_map": resource_group_map_attr(),
         # Only include macOS hosted toolchains, so we compile resources directly on Mac RE
         "_apple_toolchain": _get_apple_resources_toolchain_attr(),
-        # FIXME: prelude// should be standalone (not refer to fbsource//)
-        "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
+        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
         # Because `apple_resource_bundle` is a proxy for `apple_bundle`, we need to get `name`
         # field of the `apple_bundle`, as it's used as a fallback value in Info.plist.
         "_bundle_target_name": attrs.string(),

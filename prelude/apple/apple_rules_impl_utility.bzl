@@ -48,8 +48,7 @@ def _apple_bundle_like_common_attrs():
     # `apple_bundle()` and `apple_test()` share a common set of extra attrs
     attribs = {
         "codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
-        # FIXME: prelude// should be standalone (not refer to fbsource//)
-        "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
+        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_bundling_cache_buster": attrs.option(attrs.string(), default = None),
