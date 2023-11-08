@@ -79,26 +79,28 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
     }
 }
 
-#[derive(Debug, Clone, Dupe)]
+#[derive(Debug, buck2_error::Error, Clone, Dupe)]
+#[buck2(user)]
+#[error("{}", display_configured_graph_cycle_error(&.cycle[..]))]
 pub struct ConfiguredGraphCycleError {
     cycle: Arc<Vec<ConfiguredGraphCycleKeys>>,
 }
 
-impl std::error::Error for ConfiguredGraphCycleError {}
+fn display_configured_graph_cycle_error(cycle: &[ConfiguredGraphCycleKeys]) -> String {
+    use std::fmt::Write;
 
-impl std::fmt::Display for ConfiguredGraphCycleError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(
-            f,
-            "Configured target cycle detected (`->` means \"depends on\"):"
-        )?;
-        for p in self.cycle.iter() {
-            writeln!(f, "  {} ->", p)?;
-        }
-        // point back at the first item in the cycle.
-        writeln!(f, "  {}", self.cycle.first().unwrap())?;
-        Ok(())
+    let mut s = String::new();
+    writeln!(
+        s,
+        "Configured target cycle detected (`->` means \"depends on\"):"
+    )
+    .unwrap();
+    for p in cycle.iter() {
+        writeln!(s, "  {} ->", p).unwrap();
     }
+    // point back at the first item in the cycle.
+    writeln!(s, "  {}", cycle.first().unwrap()).unwrap();
+    s
 }
 
 // TODO(cjhopman): There's other keys that could be involved in a cycle in the configured graph and they should probably also be tracked
