@@ -36,7 +36,7 @@ impl MetadataMap {
         let Self { values } = self;
         let map = values
             .iter()
-            .map(|(k, v)| (k.as_str().to_owned(), v.to_json()))
+            .map(|(k, v)| (k.as_str().to_owned(), v.as_json().clone()))
             .collect();
         serde_json::Value::Object(map)
     }

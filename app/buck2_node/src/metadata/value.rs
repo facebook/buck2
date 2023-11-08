@@ -38,8 +38,8 @@ impl MetadataValue {
         Self(value)
     }
 
-    pub(crate) fn to_json(&self) -> serde_json::Value {
-        self.0.as_ref().clone()
+    pub fn as_json(&self) -> &serde_json::Value {
+        self.0.as_ref()
     }
 }
 
