@@ -180,13 +180,14 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     # Config files for ct
     config_files = [config_file[DefaultInfo].default_outputs[0] for config_file in ctx.attrs.config_files]
 
-    test_binary = ctx.attrs._test_binary[RunInfo]
+    test_binary = ctx.attrs._test_binary[DefaultInfo].default_outputs
 
     trampoline = ctx.attrs._trampoline
     cmd = cmd_args([])
     if trampoline:
         cmd.add(trampoline[RunInfo])
 
+    cmd.add(primary_toolchain.otp_binaries.escript)
     cmd.add(test_binary)
 
     suite = ctx.attrs.suite
