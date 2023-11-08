@@ -24,6 +24,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_events::dispatch::console_message;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use dice::DiceComputations;
@@ -66,6 +67,7 @@ pub enum BuildProviderType {
 pub struct ConfiguredBuildTargetResultGen<T> {
     pub outputs: Vec<T>,
     pub run_args: Option<Vec<String>>,
+    pub target_rule_type_name: Option<String>,
     pub configured_graph_size: Option<buck2_error::Result<MaybeCompatible<u64>>>,
     pub errors: Vec<buck2_error::Error>,
 }
@@ -104,11 +106,15 @@ impl BuildTargetResult {
                 ConfiguredBuildEventVariant::SkippedIncompatible => {
                     res.entry((*label).clone()).or_insert(None);
                 }
-                ConfiguredBuildEventVariant::Prepared { run_args } => {
+                ConfiguredBuildEventVariant::Prepared {
+                    run_args,
+                    target_rule_type_name,
+                } => {
                     res.entry((*label).clone())
                         .or_insert(Some(ConfiguredBuildTargetResultGen {
                             outputs: Vec::new(),
                             run_args,
+                            target_rule_type_name: Some(target_rule_type_name),
                             configured_graph_size: None,
                             errors: Vec::new(),
                         }));
@@ -141,6 +147,7 @@ impl BuildTargetResult {
                         .or_insert(Some(ConfiguredBuildTargetResultGen {
                             outputs: Vec::new(),
                             run_args: None,
+                            target_rule_type_name: None,
                             configured_graph_size: None,
                             errors: Vec::new(),
                         }))
@@ -164,6 +171,7 @@ impl BuildTargetResult {
                     let ConfiguredBuildTargetResultGen {
                         mut outputs,
                         run_args,
+                        target_rule_type_name,
                         configured_graph_size,
                         errors,
                     } = result;
@@ -182,6 +190,7 @@ impl BuildTargetResult {
                             .map(|(_index, outputs)| outputs)
                             .collect(),
                         run_args,
+                        target_rule_type_name,
                         configured_graph_size,
                         errors,
                     }
@@ -202,6 +211,7 @@ enum ConfiguredBuildEventVariant {
     SkippedIncompatible,
     Prepared {
         run_args: Option<Vec<String>>,
+        target_rule_type_name: String,
     },
     Output {
         output: buck2_error::Result<ProviderArtifacts>,
@@ -272,7 +282,7 @@ async fn build_configured_label_inner<'a>(
 ) -> anyhow::Result<BoxStream<'a, ConfiguredBuildEvent>> {
     let artifact_fs = ctx.get_artifact_fs().await?;
 
-    let (outputs, run_args) = {
+    let (outputs, run_args, target_rule_type_name) = {
         // A couple of these objects aren't Send and so scope them here so async transform doesn't get concerned.
         let providers = match ctx.get_providers(providers_label.as_ref()).await? {
             MaybeCompatible::Incompatible(reason) => {
@@ -355,7 +365,15 @@ async fn build_configured_label_inner<'a>(
             }
         }
 
-        (outputs, run_args)
+        let target_rule_type_name: String = ctx
+            .get_configured_target_node(providers_label.target())
+            .await?
+            .require_compatible()?
+            .rule_type()
+            .name()
+            .to_owned();
+
+        (outputs, run_args, target_rule_type_name)
     };
 
     if let Some(signals) = ctx.per_transaction_data().get_build_signals() {
@@ -406,7 +424,10 @@ async fn build_configured_label_inner<'a>(
 
     let stream = futures::stream::once(futures::future::ready(ConfiguredBuildEvent {
         label: providers_label.dupe(),
-        variant: ConfiguredBuildEventVariant::Prepared { run_args },
+        variant: ConfiguredBuildEventVariant::Prepared {
+            run_args,
+            target_rule_type_name,
+        },
     }))
     .chain(outputs);
 

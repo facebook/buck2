@@ -181,6 +181,7 @@ impl<'a> ResultReporter<'a> {
             target,
             configuration,
             run_args: result.run_args.clone().unwrap_or_default(),
+            target_rule_type_name: result.target_rule_type_name.clone(),
             outputs: artifacts,
             configured_graph_size,
         })

@@ -476,6 +476,7 @@ message BuildTarget {
   // The dependency graph size for this target, if enabled and the target was
   // not skipped.
   optional uint64 configured_graph_size = 5;
+  optional string target_rule_type_name = 6;
 }
 
 message BuildResponse {
