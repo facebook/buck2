@@ -50,6 +50,7 @@ load(
     ":swift_incremental_support.bzl",
     "get_incremental_object_compilation_flags",
     "get_incremental_swiftmodule_compilation_flags",
+    "should_build_swift_incrementally",
 )
 load(":swift_module_map.bzl", "write_swift_module_map_with_swift_deps")
 load(":swift_pcm_compilation.bzl", "compile_underlying_pcm", "get_compiled_pcm_deps_tset", "get_swift_pcm_anon_targets")
@@ -340,7 +341,7 @@ def _compile_swiftmodule(
         output_swiftmodule.as_output(),
     ])
 
-    if _should_build_swift_incrementally(ctx):
+    if should_build_swift_incrementally(ctx, len(srcs)):
         incremental_compilation_output = get_incremental_swiftmodule_compilation_flags(ctx, srcs)
         cmd.add(incremental_compilation_output.incremental_flags_cmd)
         argfile_cmd.add([
@@ -358,7 +359,7 @@ def _compile_object(
         toolchain: SwiftToolchainInfo,
         shared_flags: cmd_args,
         srcs: list[CxxSrcWithFlags]) -> SwiftObjectOutput:
-    if _should_build_swift_incrementally(ctx):
+    if should_build_swift_incrementally(ctx, len(srcs)):
         incremental_compilation_output = get_incremental_object_compilation_flags(ctx, srcs)
         objects = incremental_compilation_output.artifacts
         cmd = incremental_compilation_output.incremental_flags_cmd
@@ -417,7 +418,7 @@ def _compile_with_argsfile(
         prefer_local = not explicit_modules_enabled,
         allow_cache_upload = True,
         # When building incrementally, we need to preserve local state between invocations.
-        no_outputs_cleanup = _should_build_swift_incrementally(ctx),
+        no_outputs_cleanup = should_build_swift_incrementally(ctx, len(srcs)),
     )
 
     relative_argsfile = CompileArgsfile(
@@ -825,6 +826,3 @@ def _create_compilation_database(
     ctx.actions.run(cmd, category = "swift_compilation_database", identifier = identifier)
 
     return SwiftCompilationDatabase(db = cdb_artifact, other_outputs = argfile.cmd_form)
-
-def _should_build_swift_incrementally(ctx: AnalysisContext) -> bool:
-    return ctx.attrs.swift_incremental_build_mode

@@ -12,6 +12,7 @@ load(
     "APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_NAME",
     "APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_TYPE",
 )
+load("@prelude//apple/swift:swift_incremental_support.bzl", "SwiftCompilationMode")
 load("@prelude//apple/swift:swift_toolchain.bzl", "swift_toolchain_impl")
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftObjectFormat")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
@@ -90,7 +91,7 @@ extra_attributes = {
         "prefer_stripped_objects": attrs.bool(default = False),
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "stripped": attrs.option(attrs.bool(), default = None),
-        "swift_incremental_build_mode": attrs.bool(default = False),
+        "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
         "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
@@ -111,7 +112,7 @@ extra_attributes = {
         "stripped": attrs.option(attrs.bool(), default = None),
         "supports_header_symlink_subtarget": attrs.bool(default = False),
         "supports_shlib_interfaces": attrs.bool(default = True),
-        "swift_incremental_build_mode": attrs.bool(default = False),
+        "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
         "use_archive": attrs.option(attrs.bool(), default = None),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
         "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
