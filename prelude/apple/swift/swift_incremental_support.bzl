@@ -23,6 +23,7 @@ _WriteOutputFileMapOutput = record(
 IncrementalCompilationOutput = record(
     incremental_flags_cmd = field(cmd_args),
     artifacts = field(list[Artifact]),
+    output_map_artifact = field(Artifact),
 )
 
 SwiftCompilationMode = enum(
@@ -76,6 +77,7 @@ def _get_incremental_compilation_flags_and_objects(
     return IncrementalCompilationOutput(
         incremental_flags_cmd = cmd,
         artifacts = output_file_map.artifacts,
+        output_map_artifact = output_file_map.output_map_artifact,
     )
 
 def _write_output_file_map(

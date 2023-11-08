@@ -86,6 +86,7 @@ SwiftCompilationDatabase = record(
 SwiftObjectOutput = record(
     object_files = field(list[Artifact]),
     argsfiles = field(CompileArgsfiles),
+    output_map_artifact = field([Artifact, None]),
 )
 
 SwiftCompilationOutput = record(
@@ -110,6 +111,8 @@ SwiftCompilationOutput = record(
     clang_debug_info = field(ArtifactTSet),
     # Info required for `[swift-compilation-database]` subtarget.
     compilation_database = field(SwiftCompilationDatabase),
+    # An artifact that represent the Swift module map for this target.
+    output_map_artifact = field([Artifact, None]),
 )
 
 SwiftDebugInfo = record(
@@ -279,6 +282,7 @@ def compile_swift(
 
     # Pass up the swiftmodule paths for this module and its exported_deps
     return SwiftCompilationOutput(
+        output_map_artifact = object_output.output_map_artifact,
         object_files = object_output.object_files,
         object_format = toolchain.object_format,
         swiftmodule = output_swiftmodule,
@@ -361,9 +365,11 @@ def _compile_object(
         srcs: list[CxxSrcWithFlags]) -> SwiftObjectOutput:
     if should_build_swift_incrementally(ctx, len(srcs)):
         incremental_compilation_output = get_incremental_object_compilation_flags(ctx, srcs)
+        output_map_artifact = incremental_compilation_output.output_map_artifact
         objects = incremental_compilation_output.artifacts
         cmd = incremental_compilation_output.incremental_flags_cmd
     else:
+        output_map_artifact = None
         output_object = ctx.actions.declare_output(get_module_name(ctx) + ".o")
         objects = [output_object]
         object_format = toolchain.object_format.value
@@ -384,7 +390,11 @@ def _compile_object(
 
     argsfiles = _compile_with_argsfile(ctx, "swift_compile", SWIFT_EXTENSION, shared_flags, srcs, cmd, toolchain)
 
-    return SwiftObjectOutput(object_files = objects, argsfiles = argsfiles)
+    return SwiftObjectOutput(
+        object_files = objects,
+        argsfiles = argsfiles,
+        output_map_artifact = output_map_artifact,
+    )
 
 def _compile_with_argsfile(
         ctx: AnalysisContext,

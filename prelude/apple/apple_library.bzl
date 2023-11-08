@@ -254,6 +254,11 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
                         default_outputs = swift_compile.object_files if swift_compile else None,
                     ),
                 ],
+                "swift-output-file-map": [
+                    DefaultInfo(
+                        default_output = swift_compile.output_map_artifact if swift_compile else None,
+                    ),
+                ],
                 "swiftmodule": [
                     DefaultInfo(
                         default_output = swift_compile.swiftmodule if swift_compile else None,
