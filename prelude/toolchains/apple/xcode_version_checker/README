@@ -1,0 +1,8 @@
+- Run `make` to compile the `xcode_version_checker` binary.
+- Run `make all` to compile the `xcode_version_checker` binary and run all tests.
+- Run `make test` to just run tests.
+- Run `make clean` to delete tests and intermediate binaries.
+
+We cannot include this as part of the toolchain because of
+bootstrapping issues: i.e., compiling it requires an
+`apple_toolchain` but its needed to define an `apple_toolchain`.
