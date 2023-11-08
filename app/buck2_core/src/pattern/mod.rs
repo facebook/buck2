@@ -21,7 +21,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use allocative::Allocative;
-use anyhow::Context;
+use buck2_error::Context;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
 use pattern_type::ConfigurationPredicate;
@@ -769,41 +769,45 @@ fn parse_target_pattern<T>(
 where
     T: PatternType,
 {
-    let parsed_pattern = parse_target_pattern_no_validate::<T>(
-        cell_name,
-        cell_resolver,
-        target_alias_resolver,
-        opts,
-        pattern,
-    )?;
-
-    let crossed_path =
-        cell_resolver.resolve_path_crossing_cell_boundaries(parsed_pattern.cell_path())?;
-    if crossed_path != parsed_pattern.cell_path() {
-        let new_pattern = match &parsed_pattern {
-            ParsedPattern::Target(_, target_name, extra) => ParsedPattern::Target(
-                PackageLabel::from_cell_path(crossed_path),
-                target_name.dupe(),
-                extra.clone(),
-            ),
-            ParsedPattern::Package(_) => {
-                ParsedPattern::Package(PackageLabel::from_cell_path(crossed_path))
-            }
-            ParsedPattern::Recursive(_) => ParsedPattern::Recursive(crossed_path.to_owned()),
-        };
-
-        soft_error!(
-            "pattern_crosses_cell_boundary",
-            TargetPatternParseError::PatternCrossesCellBoundaries(
-                pattern.to_owned(),
-                parsed_pattern.to_string(),
-                new_pattern.to_string(),
-            )
-            .into()
+    let res: anyhow::Result<_> = try {
+        let parsed_pattern = parse_target_pattern_no_validate::<T>(
+            cell_name,
+            cell_resolver,
+            target_alias_resolver,
+            opts,
+            pattern,
         )?;
-    }
 
-    Ok(parsed_pattern)
+        let crossed_path =
+            cell_resolver.resolve_path_crossing_cell_boundaries(parsed_pattern.cell_path())?;
+        if crossed_path != parsed_pattern.cell_path() {
+            let new_pattern = match &parsed_pattern {
+                ParsedPattern::Target(_, target_name, extra) => ParsedPattern::Target(
+                    PackageLabel::from_cell_path(crossed_path),
+                    target_name.dupe(),
+                    extra.clone(),
+                ),
+                ParsedPattern::Package(_) => {
+                    ParsedPattern::Package(PackageLabel::from_cell_path(crossed_path))
+                }
+                ParsedPattern::Recursive(_) => ParsedPattern::Recursive(crossed_path.to_owned()),
+            };
+
+            soft_error!(
+                "pattern_crosses_cell_boundary",
+                TargetPatternParseError::PatternCrossesCellBoundaries(
+                    pattern.to_owned(),
+                    parsed_pattern.to_string(),
+                    new_pattern.to_string(),
+                )
+                .into()
+            )?;
+        }
+
+        parsed_pattern
+    };
+
+    res.user()
 }
 
 fn parse_target_pattern_no_validate<T>(
@@ -1174,7 +1178,7 @@ mod tests {
             ParsedPattern::<T>::parse_precise("package/path:", CellName::testing_new("root"), &resolver()),
             Err(e) => {
                 assert_matches!(
-                    e.downcast_ref::<TargetPatternParseError>(),
+                    buck2_error::Error::from(e).downcast_ref::<TargetPatternParseError>(),
                     Some(TargetPatternParseError::AbsoluteRequired)
                 );
             }
@@ -1261,7 +1265,7 @@ mod tests {
             ),
             Err(e) => {
                 assert_matches!(
-                    e.downcast_ref::<TargetPatternParseError>(),
+                    buck2_error::Error::from(e).downcast_ref::<TargetPatternParseError>(),
                     Some(TargetPatternParseError::UnexpectedFormat)
                 );
             }
@@ -1347,7 +1351,7 @@ mod tests {
             ),
             Err(e) => {
                 assert_matches!(
-                    e.downcast_ref::<TargetPatternParseError>(),
+                    buck2_error::Error::from(e).downcast_ref::<TargetPatternParseError>(),
                     Some(TargetPatternParseError::PackageIsEmpty)
                 );
             }
@@ -1414,7 +1418,7 @@ mod tests {
             ),
             Err(e) => {
                 assert_matches!(
-                    e.downcast_ref::<TargetPatternParseError>(),
+                    buck2_error::Error::from(e).downcast_ref::<TargetPatternParseError>(),
                     Some(TargetPatternParseError::UnexpectedFormat)
                 );
             }
@@ -1429,7 +1433,7 @@ mod tests {
             ),
             Err(e) => {
                 assert_matches!(
-                    e.downcast_ref::<TargetPatternParseError>(),
+                    buck2_error::Error::from(e).downcast_ref::<TargetPatternParseError>(),
                     Some(TargetPatternParseError::AbsoluteRequired)
                 );
             }
@@ -1443,7 +1447,7 @@ mod tests {
             ),
             Err(e) => {
                 assert_matches!(
-                    e.downcast_ref::<TargetPatternParseError>(),
+                    buck2_error::Error::from(e).downcast_ref::<TargetPatternParseError>(),
                     Some(TargetPatternParseError::AbsoluteRequired)
                 );
             }
@@ -1479,7 +1483,7 @@ mod tests {
             ),
             Err(e) => {
                 assert_matches!(
-                    e.downcast_ref::<ResolveTargetAliasError>(),
+                    buck2_error::Error::from(e).downcast_ref::<ResolveTargetAliasError>(),
                     Some(ResolveTargetAliasError::InvalidAlias { .. })
                 );
             }
@@ -1494,7 +1498,7 @@ mod tests {
             ),
             Err(e) => {
                 assert_matches!(
-                    e.downcast_ref::<ResolveTargetAliasError>(),
+                    buck2_error::Error::from(e).downcast_ref::<ResolveTargetAliasError>(),
                     Some(ResolveTargetAliasError::AliasIsNotATarget { .. })
                 );
             }
