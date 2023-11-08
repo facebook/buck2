@@ -143,3 +143,14 @@ fn test_enum_with_type_option() {
         Some("buck2_error/src/derive_tests.rs::EnumWithTypeOption::Variant"),
     );
 }
+
+#[derive(buck2_error_derive::Error, Debug)]
+#[error("Unused")]
+#[buck2(category = User)]
+struct ErrorWithSpelledOutCategory;
+
+#[test]
+fn test_error_with_spelled_out_category() {
+    let e: crate::Error = ErrorWithSpelledOutCategory.into();
+    assert_eq!(e.get_category(), Some(crate::Category::User));
+}
