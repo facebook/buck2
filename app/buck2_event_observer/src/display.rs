@@ -657,9 +657,7 @@ pub fn get_action_error_reason<'a>(error: &'a buck2_data::ActionError) -> anyhow
             Error::MissingOutputs(missing_outputs) => {
                 format!("Required outputs are missing: {}", missing_outputs.message)
             }
-            Error::Unknown(error_string) => {
-                format!("Internal error: {}", error_string)
-            }
+            Error::Unknown(error_string) => error_string.to_owned(),
             Error::CommandExecutionError(buck2_data::CommandExecutionError {}) => {
                 match &error.last_command {
                     Some(c) => failure_reason_for_command_execution(c)?,
