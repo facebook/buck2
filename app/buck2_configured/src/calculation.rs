@@ -43,7 +43,7 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
         target: &TargetLabel,
         global_target_platform: Option<&TargetLabel>,
     ) -> anyhow::Result<ConfiguredTargetLabel> {
-        let node = ctx.get_target_node(target).await?;
+        let (node, super_package) = ctx.get_target_node_with_super_package(target).await?;
 
         let get_platform_configuration = async || -> buck2_error::Result<ConfigurationData> {
             let current_cfg = match global_target_platform {
@@ -59,7 +59,7 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
 
             Ok(CFG_CONSTRUCTOR_CALCULATION_IMPL
                 .get()?
-                .eval_cfg_constructor(ctx, current_cfg)
+                .eval_cfg_constructor(ctx, &node, &super_package, current_cfg)
                 .await?)
         };
 

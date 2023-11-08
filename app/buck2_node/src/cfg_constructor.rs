@@ -19,6 +19,9 @@ use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 
 use crate::metadata::key::MetadataKeyRef;
+use crate::metadata::value::MetadataValue;
+use crate::nodes::unconfigured::TargetNode;
+use crate::super_package::SuperPackage;
 
 /// Trait for configuration constructor functions.
 /// The output of invoking these functions is a PlatformInfo
@@ -28,6 +31,7 @@ pub trait CfgConstructorImpl: Send + Sync + Debug + Allocative {
         &'a self,
         ctx: &'a DiceComputations,
         cfg: &'a ConfigurationData,
+        package_cfg_modifiers: Option<&'a MetadataValue>,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<ConfigurationData>> + Send + 'a>>;
 
     /// Returns the metadata key used to encode modifiers in PACKAGE values and metadata attribute
@@ -51,6 +55,8 @@ pub trait CfgConstructorCalculationImpl: Send + Sync + 'static {
     async fn eval_cfg_constructor(
         &self,
         ctx: &DiceComputations,
+        target: &TargetNode,
+        super_package: &SuperPackage,
         cfg: ConfigurationData,
     ) -> anyhow::Result<ConfigurationData>;
 }

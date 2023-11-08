@@ -22,6 +22,9 @@ use buck2_interpreter_for_build::interpreter::package_file_calculation::EvalPack
 use buck2_node::cfg_constructor::CfgConstructorCalculationImpl;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
+use buck2_node::metadata::value::MetadataValue;
+use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::super_package::SuperPackage;
 use derive_more::Display;
 use dice::CancellationContext;
 use dice::DiceComputations;
@@ -78,10 +81,14 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
     async fn eval_cfg_constructor(
         &self,
         ctx: &DiceComputations,
+        _target: &TargetNode,
+        super_package: &SuperPackage,
         cfg: ConfigurationData,
     ) -> anyhow::Result<ConfigurationData> {
-        #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+        #[derive(Clone, Display, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
+        #[display(fmt = "CfgConstructorInvocationKey")]
         struct CfgConstructorInvocationKey {
+            package_cfg_modifiers: Option<MetadataValue>,
             cfg: ConfigurationData,
         }
 
@@ -101,7 +108,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
                     .await?
                     .context("Internal error: Global cfg constructor instance should exist")?;
                 cfg_constructor
-                    .eval(ctx, &self.cfg)
+                    .eval(ctx, &self.cfg, self.package_cfg_modifiers.as_ref())
                     .await
                     .map_err(buck2_error::Error::from)
             }
@@ -115,8 +122,17 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
         }
 
         match self.get_cfg_constructor(ctx).await? {
-            Some(_) => {
-                let key = CfgConstructorInvocationKey { cfg };
+            Some(cfg_constructor) => {
+                let modifier_key = cfg_constructor.key();
+                let package_cfg_modifiers = super_package
+                    .package_values()
+                    .get_package_value_json(modifier_key)?
+                    .map(MetadataValue::new);
+
+                let key = CfgConstructorInvocationKey {
+                    package_cfg_modifiers,
+                    cfg,
+                };
                 Ok(ctx.compute(&key).await??)
             }
             // To facilitate rollout of modifiers, return original configuration if

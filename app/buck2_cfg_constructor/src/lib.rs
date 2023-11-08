@@ -35,6 +35,7 @@ use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
 use buck2_node::metadata::key::MetadataKey;
 use buck2_node::metadata::key::MetadataKeyRef;
+use buck2_node::metadata::value::MetadataValue;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::RuleKind;
 use calculation::CfgConstructorCalculationInstance;
@@ -71,6 +72,7 @@ async fn eval_pre_constraint_analysis<'v>(
     cfg_constructor_pre_constraint_analysis: Value<'v>,
     ctx: &DiceComputations,
     cfg: &ConfigurationData,
+    package_cfg_modifiers: Option<&MetadataValue>,
     module: &'v Module,
     print: &'v EventDispatcherPrintHandler,
 ) -> anyhow::Result<(Vec<String>, Value<'v>, Evaluator<'v, 'v>)> {
@@ -83,17 +85,22 @@ async fn eval_pre_constraint_analysis<'v>(
             let mut eval = provider.make(module)?;
             eval.set_print_handler(print);
 
-            let pre_constraint_analysis_args = vec![(
-                "legacy_platform",
-                // TODO: should eventually accept cli modifiers, target modifiers, and PACKAGE modifiers (T163570597)
-                // and unbound platform case will be handled properly
-                if cfg.is_bound() {
-                    eval.heap()
-                        .alloc_complex(PlatformInfo::from_configuration(cfg, eval.heap())?)
-                } else {
-                    Value::new_none()
-                },
-            )];
+            let legacy_platform = if cfg.is_bound() {
+                eval.heap()
+                    .alloc_complex(PlatformInfo::from_configuration(cfg, eval.heap())?)
+            } else {
+                Value::new_none()
+            };
+
+            let package_cfg_modifiers = eval
+                .heap()
+                .alloc(package_cfg_modifiers.map(|m| m.as_json()));
+
+            // TODO: should eventually accept cli modifiers and target modifiers (T163570597)
+            let pre_constraint_analysis_args = vec![
+                ("legacy_platform", legacy_platform),
+                ("package_modifiers", package_cfg_modifiers),
+            ];
 
             // Type check + unpack
             let (refs, params) =
@@ -191,6 +198,7 @@ async fn eval_underlying(
     cfg_constructor: &CfgConstructor,
     ctx: &DiceComputations,
     cfg: &ConfigurationData,
+    package_cfg_modifiers: Option<&MetadataValue>,
 ) -> anyhow::Result<ConfigurationData> {
     let module = Module::new();
     let print = EventDispatcherPrintHandler(get_dispatcher());
@@ -202,6 +210,7 @@ async fn eval_underlying(
             .value(),
         ctx,
         cfg,
+        package_cfg_modifiers,
         &module,
         &print,
     )
@@ -229,9 +238,10 @@ impl CfgConstructorImpl for CfgConstructor {
         &'a self,
         ctx: &'a DiceComputations,
         cfg: &'a ConfigurationData,
+        package_cfg_modifiers: Option<&'a MetadataValue>,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<ConfigurationData>> + Send + 'a>> {
         // Get around issue of Evaluator not being send by wrapping future in UnsafeSendFuture
-        let fut = async move { eval_underlying(self, ctx, cfg).await };
+        let fut = async move { eval_underlying(self, ctx, cfg, package_cfg_modifiers).await };
         unsafe { Box::pin(UnsafeSendFuture::new_encapsulates_starlark(fut)) }
     }
 
