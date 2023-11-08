@@ -195,3 +195,32 @@ fn test_computed_options() {
     assert_eq!(e.get_category(), Some(crate::Category::Infra));
     assert_eq!(e.get_error_type(), None);
 }
+
+#[test]
+fn test_root_is_applied_conditionally() {
+    #[derive(buck2_error_derive::Error, Debug)]
+    #[error("Unused")]
+    #[buck2(typ = Watchman)]
+    struct WatchmanError;
+
+    #[derive(buck2_error_derive::Error, Debug)]
+    #[error("Unused")]
+    #[buck2(typ = compute(_))]
+    enum MaybeWatchmanError {
+        Some(#[source] WatchmanError),
+        None,
+    }
+
+    fn compute(x: &MaybeWatchmanError) -> Option<crate::ErrorType> {
+        match x {
+            MaybeWatchmanError::Some(_) => None,
+            MaybeWatchmanError::None => Some(crate::ErrorType::DaemonIsBusy),
+        }
+    }
+
+    let e: crate::Error = MaybeWatchmanError::None.into();
+    assert_eq!(e.get_error_type(), Some(crate::ErrorType::DaemonIsBusy));
+
+    let e: crate::Error = MaybeWatchmanError::Some(WatchmanError).into();
+    assert_eq!(e.get_error_type(), Some(crate::ErrorType::Watchman));
+}
