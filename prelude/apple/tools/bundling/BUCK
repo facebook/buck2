@@ -1,6 +1,6 @@
 load("@prelude//apple/tools/defs.bzl", "meta_python_test")
 
-native.python_binary(
+python_binary(
     name = "assemble_bundle",
     main = "main.py",
     visibility = ["PUBLIC"],
@@ -11,7 +11,7 @@ native.python_binary(
     ],
 )
 
-native.python_library(
+python_library(
     name = "lib",
     srcs = glob(
         [

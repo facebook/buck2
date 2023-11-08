@@ -1,6 +1,6 @@
 load("@prelude//apple/tools/defs.bzl", "meta_python_test")
 
-native.python_library(
+python_library(
     name = "lib",
     srcs = [
         "macho.py",
@@ -14,7 +14,7 @@ native.python_library(
     ],
 )
 
-native.python_binary(
+python_binary(
     name = "tool",
     main = "main.py",
     visibility = ["PUBLIC"],

@@ -1,6 +1,6 @@
 load("@prelude//apple/tools/defs.bzl", "meta_python_test")
 
-native.python_library(
+python_library(
     name = "lib",
     srcs = glob(
         [
@@ -30,7 +30,7 @@ meta_python_test(
     ],
 )
 
-native.python_binary(
+python_binary(
     name = "codesign_bundle",
     main = "main.py",
     visibility = ["PUBLIC"],

@@ -1,6 +1,6 @@
 load("@prelude//apple/tools/defs.bzl", "meta_python_test")
 
-native.python_library(
+python_library(
     name = "preprocess",
     srcs = ["preprocess.py"],
 )
@@ -11,7 +11,7 @@ meta_python_test(
     deps = [":preprocess"],
 )
 
-native.python_library(
+python_library(
     name = "process",
     srcs = ["process.py"],
     deps = ["prelude//apple/tools:plistlib_utils"],
@@ -24,7 +24,7 @@ meta_python_test(
     deps = [":process"],
 )
 
-native.python_binary(
+python_binary(
     name = "tool",
     main = "main.py",
     deps = [
