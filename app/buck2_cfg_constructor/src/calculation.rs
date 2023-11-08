@@ -114,6 +114,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
                         &self.cfg,
                         self.package_cfg_modifiers.as_ref(),
                         self.target_cfg_modifiers.as_ref(),
+                        &[],
                     )
                     .await
                     .map_err(buck2_error::Error::from)
