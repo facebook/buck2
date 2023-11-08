@@ -289,7 +289,7 @@ class FinalLibGraph:
                 count = name_counters.setdefault(lib_name, 0) + 1
                 name_counters[lib_name] = count
                 if count > 1:
-                    lib_name += "_{}".format(count)
+                    lib_name += "_{}".format(count - 1)
                 final_lib_names[key] = lib_name + ext
         return final_lib_names
 
