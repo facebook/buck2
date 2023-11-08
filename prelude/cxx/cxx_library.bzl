@@ -97,11 +97,11 @@ load(
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "create_shared_libraries", "merge_shared_libraries")
 load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//utils:arglike.bzl", "ArgLike")
+load("@prelude//utils:lazy.bzl", "lazy")
 load(
     "@prelude//utils:utils.bzl",
     "expect",
     "flatten",
-    "is_any",
     "map_val",
     "value_or",
 )
@@ -890,7 +890,7 @@ def _get_library_compile_output(ctx, outs: list[CxxCompileOutput], extra_link_in
         clang_traces = [out.clang_trace for out in outs if out.clang_trace != None],
         clang_remarks = [out.clang_remarks for out in outs if out.clang_remarks != None],
         external_debug_info = [out.external_debug_info for out in outs if out.external_debug_info != None],
-        objects_have_external_debug_info = is_any(lambda out: out.object_has_external_debug_info, outs),
+        objects_have_external_debug_info = lazy.is_any(lambda out: out.object_has_external_debug_info, outs),
         objects_sub_targets = objects_sub_targets,
     )
 

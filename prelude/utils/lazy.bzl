@@ -10,8 +10,6 @@ def _is_any(predicate, iterable):
     This expression lazily iterates the container with 0 new allocations.
     In the event that the iterable is empty, it will return False.
 
-    Context: https://fb.workplace.com/groups/buck2users/posts/3346771138912577
-
     For scenarios like this:
 
     _ = any([i % 2 == 0 for i in range(100000)])
@@ -33,8 +31,6 @@ def _is_all(predicate, iterable):
     """
     This expression lazily iterates the container with 0 new allocations.
     In the event that the iterable is empty, it will return False.
-
-    Context: https://fb.workplace.com/groups/buck2users/posts/3346771138912577
 
     For scenarios like this:
 

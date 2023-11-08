@@ -19,10 +19,7 @@ load(
     "BuildTargetPattern",  # @unused Used as a type
     "parse_build_target_pattern",
 )
-load(
-    "@prelude//utils:utils.bzl",
-    "is_any",
-)
+load("@prelude//utils:lazy.bzl", "lazy")
 
 _SelectionCriteria = record(
     include_build_target_patterns = field(list[BuildTargetPattern], []),
@@ -136,7 +133,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
     def preference_for_links(links: list[Label], deps_preferences: list[LinkExecutionPreferenceInfo]) -> LinkExecutionPreference:
         # If any dependent links were run locally, prefer that the current link is also performed locally,
         # to avoid needing to upload the previous link.
-        dep_prefered_local = is_any(lambda info: info.preference == LinkExecutionPreference("local"), deps_preferences)
+        dep_prefered_local = lazy.is_any(lambda info: info.preference == LinkExecutionPreference("local"), deps_preferences)
         if dep_prefered_local:
             return LinkExecutionPreference("local")
 

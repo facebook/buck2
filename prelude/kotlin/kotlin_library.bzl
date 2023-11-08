@@ -38,7 +38,8 @@ load(
 )
 load("@prelude//kotlin:kotlin_utils.bzl", "get_kotlinc_compatible_target")
 load("@prelude//kotlin:kotlincd_jar_creator.bzl", "create_jar_artifact_kotlincd")
-load("@prelude//utils:utils.bzl", "is_any", "map_idx")
+load("@prelude//utils:lazy.bzl", "lazy")
+load("@prelude//utils:utils.bzl", "map_idx")
 
 _JAVA_OR_KOTLIN_FILE_EXTENSION = [".java", ".kt"]
 
@@ -272,7 +273,7 @@ def build_kotlin_library(
         bootclasspath_entries: list[Artifact] = [],
         extra_sub_targets: dict = {}) -> JavaProviders:
     srcs = ctx.attrs.srcs
-    has_kotlin_srcs = is_any(lambda src: src.extension == ".kt" or src.basename.endswith(".src.zip") or src.basename.endswith("-sources.jar"), srcs)
+    has_kotlin_srcs = lazy.is_any(lambda src: src.extension == ".kt" or src.basename.endswith(".src.zip") or src.basename.endswith("-sources.jar"), srcs)
 
     if not has_kotlin_srcs:
         return build_java_library(

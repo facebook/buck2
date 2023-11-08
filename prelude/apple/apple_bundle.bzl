@@ -33,6 +33,7 @@ load(
     "make_link_command_debug_output_json_info",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
+load("@prelude//utils:lazy.bzl", "lazy")
 load(
     "@prelude//utils:set.bzl",
     "set",
@@ -41,7 +42,6 @@ load(
     "@prelude//utils:utils.bzl",
     "expect",
     "flatten",
-    "is_any",
 )
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart", "SwiftStdlibArguments", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path", "get_bundle_dir_name")
@@ -377,7 +377,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
             bundle = bundle,
             bundle_type = _infer_apple_bundle_type(ctx),
             binary_name = get_product_name(ctx),
-            contains_watchapp = is_any(lambda part: part.destination == AppleBundleDestination("watchapp"), apple_bundle_part_list_output.parts),
+            contains_watchapp = lazy.is_any(lambda part: part.destination == AppleBundleDestination("watchapp"), apple_bundle_part_list_output.parts),
             skip_copying_swift_stdlib = ctx.attrs.skip_copying_swift_stdlib,
         ),
         AppleDebuggableInfo(
