@@ -1678,6 +1678,8 @@ message InvocationRecord {
   repeated ProcessedErrorReport errors = 79;
   // Cache hit rate as it appears in the console
   float cache_hit_rate = 78;
+
+  repeated string target_rule_type_names = 80;
 }
 
 // Record event sent directly to scribe.

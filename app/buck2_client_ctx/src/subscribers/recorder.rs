@@ -32,6 +32,7 @@ mod imp {
 
     use anyhow::Context;
     use async_trait::async_trait;
+    use buck2_cli_proto::command_result;
     use buck2_common::convert::ProstDurationExt;
     use buck2_core::fs::fs_util;
     use buck2_core::fs::paths::abs_path::AbsPathBuf;
@@ -46,6 +47,7 @@ mod imp {
     use fbinit::FacebookInit;
     use futures::FutureExt;
     use gazebo::variants::VariantName;
+    use itertools::Itertools;
     use termwiz::istty::IsTty;
 
     use crate::build_count::BuildCountManager;
@@ -128,6 +130,7 @@ mod imp {
         daemon_connection_failure: bool,
         client_metadata: Vec<buck2_data::ClientMetadata>,
         errors: Vec<buck2_data::ProcessedErrorReport>,
+        target_rule_type_names: Vec<String>,
     }
 
     impl<'a> InvocationRecorder<'a> {
@@ -219,6 +222,7 @@ mod imp {
                 daemon_connection_failure: false,
                 client_metadata,
                 errors: Vec::new(),
+                target_rule_type_names: Vec::new(),
             }
         }
 
@@ -391,6 +395,7 @@ mod imp {
                 client_metadata: std::mem::take(&mut self.client_metadata),
                 error_messages: Vec::new(),
                 errors: std::mem::take(&mut self.errors),
+                target_rule_type_names: std::mem::take(&mut self.target_rule_type_names),
             };
 
             let event = BuckEvent::new(
@@ -1025,9 +1030,26 @@ mod imp {
 
         async fn handle_command_result(
             &mut self,
-            _result: &buck2_cli_proto::CommandResult,
+            result: &buck2_cli_proto::CommandResult,
         ) -> anyhow::Result<()> {
             self.has_command_result = true;
+            match &result.result {
+                Some(command_result::Result::BuildResponse(res)) => {
+                    let mut built_rule_type_names: Vec<String> = res
+                        .build_targets
+                        .iter()
+                        .map(|t| {
+                            t.target_rule_type_name
+                                .clone()
+                                .unwrap_or_else(|| "NULL".to_owned())
+                        })
+                        .unique_by(|x| x.clone())
+                        .collect();
+                    built_rule_type_names.sort();
+                    self.target_rule_type_names = built_rule_type_names;
+                }
+                _ => {}
+            }
             Ok(())
         }
 
