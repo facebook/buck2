@@ -77,6 +77,7 @@ def apple_test_extra_attrs():
     attribs = {
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
         "binary": attrs.option(attrs.dep(), default = None),
+        "build_incrementally": attrs.bool(default = False),
         # The resulting test bundle should have .xctest extension.
         "extension": attrs.string(),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),

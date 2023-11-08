@@ -81,6 +81,7 @@ extra_attributes = {
     },
     "apple_binary": {
         "binary_linker_flags": attrs.list(attrs.arg(), default = []),
+        "build_incrementally": attrs.bool(default = False),
         "enable_distributed_thinlto": attrs.bool(default = False),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "link_execution_preference": link_execution_preference_attr(),
@@ -100,6 +101,7 @@ extra_attributes = {
     },
     "apple_bundle": apple_bundle_extra_attrs(),
     "apple_library": {
+        "build_incrementally": attrs.bool(default = False),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "link_execution_preference": link_execution_preference_attr(),
         "link_group_map": link_group_map_attr(),

@@ -152,7 +152,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         framework_search_paths_flags,
         params.extra_swift_compiler_flags,
     )
-    swift_object_files = [swift_compile.object_file] if swift_compile else []
+    swift_object_files = swift_compile.object_files if swift_compile else []
 
     swift_pre = CPreprocessor()
     if swift_compile:
@@ -249,7 +249,11 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
                         other_outputs = [swift_compile.compilation_database.other_outputs] if swift_compile else [],
                     ),
                 ],
-                "swift-compile": [DefaultInfo(default_output = swift_compile.object_file if swift_compile else None)],
+                "swift-compile": [
+                    DefaultInfo(
+                        default_outputs = swift_compile.object_files if swift_compile else None,
+                    ),
+                ],
             },
             additional_providers_factory = additional_providers_factory,
         ),

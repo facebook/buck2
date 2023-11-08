@@ -89,7 +89,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             framework_search_path_flags,
             objc_bridging_header_flags,
         )
-        swift_object_files = [swift_compile.object_file] if swift_compile else []
+        swift_object_files = swift_compile.object_files if swift_compile else []
 
         swift_preprocessor = [swift_compile.pre] if swift_compile else []
 
