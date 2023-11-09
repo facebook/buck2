@@ -5,93 +5,50 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# Android
 load("@prelude//android:android.bzl", _android_extra_attributes = "extra_attributes", _android_implemented_rules = "implemented_rules")
 load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
-
-# Apple
 load("@prelude//apple:apple_rules_impl.bzl", _apple_extra_attributes = "extra_attributes", _apple_implemented_rules = "implemented_rules")
-
-# Configuration
 load("@prelude//configurations:rules.bzl", _config_extra_attributes = "extra_attributes", _config_implemented_rules = "implemented_rules")
-
-# C#
 load("@prelude//csharp:csharp.bzl", "csharp_library_impl", "prebuilt_dotnet_library_impl")
-
-# C++ - LLVM
 load("@prelude//cxx:bitcode.bzl", "llvm_link_bitcode_impl")
 load("@prelude//cxx:cxx.bzl", "cxx_binary_impl", "cxx_library_impl", "cxx_precompiled_header_impl", "cxx_test_impl", "prebuilt_cxx_library_impl")
 load("@prelude//cxx:cxx_toolchain.bzl", "cxx_toolchain_extra_attributes", "cxx_toolchain_impl")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
-
-# C++
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo", "HeaderMode")
 load("@prelude//cxx:prebuilt_cxx_library_group.bzl", "prebuilt_cxx_library_group_impl")
 load("@prelude//cxx/user:link_group_map.bzl", "link_group_map_attr")
-
-# Erlang
 load("@prelude//erlang:erlang.bzl", _erlang_implemented_rules = "implemented_rules")
-
-# Git
 load("@prelude//git:git_fetch.bzl", "git_fetch_impl")
-
-# Go
 load("@prelude//go:cgo_library.bzl", "cgo_library_impl")
 load("@prelude//go:coverage.bzl", "GoCoverageMode")
 load("@prelude//go:go_binary.bzl", "go_binary_impl")
 load("@prelude//go:go_exported_library.bzl", "go_exported_library_impl")
 load("@prelude//go:go_library.bzl", "go_library_impl")
 load("@prelude//go:go_test.bzl", "go_test_impl")
-
-# Haskell
 load("@prelude//haskell:haskell.bzl", "HaskellLibraryProvider", "haskell_binary_impl", "haskell_library_impl", "haskell_prebuilt_library_impl")
 load("@prelude//haskell:haskell_ghci.bzl", "haskell_ghci_impl")
 load("@prelude//haskell:haskell_haddock.bzl", "haskell_haddock_impl")
 load("@prelude//haskell:haskell_ide.bzl", "haskell_ide_impl")
-
-# Http archive
 load("@prelude//http_archive:http_archive.bzl", "http_archive_impl")
-
-# Java
 load("@prelude//java:java.bzl", _java_extra_attributes = "extra_attributes", _java_implemented_rules = "implemented_rules")
-
-# JavaScript
 load("@prelude//js:js.bzl", _js_extra_attributes = "extra_attributes", _js_implemented_rules = "implemented_rules")
-
-# Julia
 load("@prelude//julia:julia.bzl", _julia_extra_attributes = "extra_attributes", _julia_implemented_rules = "implemented_rules")
-
-# Kotlin
 load("@prelude//kotlin:kotlin.bzl", _kotlin_extra_attributes = "extra_attributes", _kotlin_implemented_rules = "implemented_rules")
 load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
-
-# Linking
 load("@prelude//linking:link_info.bzl", "LinkOrdering")
-
-# Lua
 load("@prelude//lua:cxx_lua_extension.bzl", "cxx_lua_extension_impl")
 load("@prelude//lua:lua_binary.bzl", "lua_binary_impl")
 load("@prelude//lua:lua_library.bzl", "lua_library_impl")
-
-# OCaml
 load("@prelude//ocaml:attrs.bzl", _ocaml_extra_attributes = "ocaml_extra_attributes")
 load("@prelude//ocaml:ocaml.bzl", "ocaml_binary_impl", "ocaml_library_impl", "ocaml_object_impl", "ocaml_shared_impl", "prebuilt_ocaml_library_impl")
-
-# Python
 load("@prelude//python:cxx_python_extension.bzl", "cxx_python_extension_impl")
 load("@prelude//python:prebuilt_python_library.bzl", "prebuilt_python_library_impl")
 load("@prelude//python:python_binary.bzl", "python_binary_impl")
 load("@prelude//python:python_library.bzl", "python_library_impl")
 load("@prelude//python:python_needed_coverage_test.bzl", "python_needed_coverage_test_impl")
 load("@prelude//python:python_test.bzl", "python_test_impl")
-
-# Python Bootstrap
 load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapSources", "python_bootstrap_binary_impl", "python_bootstrap_library_impl")
-
-# Zip file
 load("@prelude//zip_file:zip_file.bzl", _zip_file_extra_attributes = "extra_attributes", _zip_file_implemented_rules = "implemented_rules")
-
-# Rule declarations
 load("@prelude//decls/android_rules.bzl", "android_rules")
 load("@prelude//decls/common.bzl", "IncludeType", "LinkableDepType", "Linkage", "buck")
 load("@prelude//decls/core_rules.bzl", "core_rules")
@@ -117,8 +74,6 @@ load("@prelude//decls/scala_rules.bzl", "scala_rules")
 load("@prelude//decls/shell_rules.bzl", "shell_rules")
 load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load("@prelude//decls/uncategorized_rules.bzl", "uncategorized_rules")
-
-# Constraints
 load("@prelude//transitions/constraint_overrides.bzl", "constraint_overrides_transition")
 load(":alias.bzl", "alias_impl", "configured_alias_impl", "versioned_alias_impl")
 load(":command_alias.bzl", "command_alias_impl")
@@ -130,8 +85,6 @@ load(":remote_file.bzl", "remote_file_impl")
 load(":sh_binary.bzl", "sh_binary_impl")
 load(":sh_test.bzl", "sh_test_impl")
 load(":test_suite.bzl", "test_suite_impl")
-
-# Other
 load(":worker_tool.bzl", "worker_tool")
 
 rule_decl_records = [
