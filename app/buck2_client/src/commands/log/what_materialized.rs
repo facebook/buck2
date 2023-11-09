@@ -7,9 +7,16 @@
  * of this source tree.
  */
 
+use std::collections::BTreeMap;
+use std::ffi::OsStr;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::path::Path;
+
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stream_value::StreamValue;
+use serde::Serialize;
 use tokio_stream::StreamExt;
 
 use crate::commands::log::options::EventLogOptions;
@@ -27,9 +34,14 @@ pub struct WhatMaterializedCommand {
     #[clap(
         long = "sort-by-size",
         short = 's',
-        help = "Sort the output by total bytes in ascending order"
+        help = "Sort the output by total bytes in ascending order",
+        conflicts_with = "aggregate-by-ext"
     )]
     sort_by_total_bytes: bool,
+
+    /// Aggregates the output by file extension
+    #[clap(long, conflicts_with = "sort-by-total-bytes")]
+    aggregate_by_ext: bool,
 
     #[clap(
         long = "format",
@@ -49,16 +61,75 @@ struct Record {
     total_bytes: u64,
 }
 
-fn write_output(output: &LogCommandOutputFormat, record: &Record) -> anyhow::Result<()> {
+impl Display for Record {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}\t{}\t{}\t{}",
+            self.path, self.method, self.file_count, self.total_bytes
+        )
+    }
+}
+
+#[derive(Eq, Ord, PartialEq, PartialOrd)]
+struct AggregationKey<'a> {
+    extension: &'a str,
+    method: &'static str,
+}
+
+#[derive(serde::Serialize)]
+struct AggregatedRecord<'a> {
+    extension: &'a str,
+    method: &'static str,
+    file_count: u64,
+    total_bytes: u64,
+}
+
+impl<'a> AggregatedRecord<'a> {
+    fn update(&mut self, value: &Record) {
+        self.file_count += value.file_count;
+        self.total_bytes += value.total_bytes;
+    }
+
+    fn get_key(&self) -> AggregationKey<'a> {
+        AggregationKey {
+            extension: self.extension,
+            method: self.method,
+        }
+    }
+}
+
+impl<'a> Display for AggregatedRecord<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}\t{}\t{}\t{}",
+            self.extension, self.method, self.file_count, self.total_bytes
+        )
+    }
+}
+
+impl<'a> From<&'a Record> for AggregatedRecord<'a> {
+    fn from(value: &'a Record) -> Self {
+        Self {
+            extension: Path::new(&value.path)
+                .extension()
+                .and_then(OsStr::to_str)
+                .unwrap_or("<empty>"),
+            method: value.method,
+            file_count: value.file_count,
+            total_bytes: value.total_bytes,
+        }
+    }
+}
+
+fn write_output<T: Display + Serialize>(
+    output: &LogCommandOutputFormat,
+    record: &T,
+) -> anyhow::Result<()> {
     match output {
         LogCommandOutputFormat::Tabulated => {
-            buck2_client_ctx::println!(
-                "{}\t{}\t{}\t{}",
-                record.path,
-                record.method,
-                record.file_count,
-                record.total_bytes
-            )
+            buck2_client_ctx::println!("{}", record)
         }
         LogCommandOutputFormat::Csv => buck2_client_ctx::stdio::print_with_writer(|w| {
             let mut writer = csv::WriterBuilder::new().has_headers(false).from_writer(w);
@@ -96,6 +167,7 @@ impl WhatMaterializedCommand {
             event_log,
             output,
             sort_by_total_bytes,
+            aggregate_by_ext,
         } = self;
 
         ctx.with_runtime(async move |ctx| {
@@ -118,7 +190,7 @@ impl WhatMaterializedCommand {
                         })) if m.success =>
                         // Only log what has been materialized.
                         {
-                            if sort_by_total_bytes {
+                            if sort_by_total_bytes || aggregate_by_ext {
                                 records.push(get_record(m));
                             } else {
                                 write_output(&output, &get_record(m))?
@@ -129,7 +201,16 @@ impl WhatMaterializedCommand {
                     StreamValue::Result(..) | StreamValue::PartialResult(..) => {}
                 };
             }
-            if sort_by_total_bytes {
+
+            if aggregate_by_ext {
+                let mut kv: BTreeMap<AggregationKey, AggregatedRecord> = BTreeMap::new();
+                for r in records.iter() {
+                    let v: AggregatedRecord = r.into();
+                    let k = v.get_key();
+                    kv.entry(k).and_modify(|e| e.update(r)).or_insert(v);
+                }
+                kv.iter().try_for_each(|(_, v)| write_output(&output, v))?;
+            } else if sort_by_total_bytes {
                 records.sort_by(|a, b| a.total_bytes.cmp(&b.total_bytes));
                 records.iter().try_for_each(|r| write_output(&output, r))?;
             }
