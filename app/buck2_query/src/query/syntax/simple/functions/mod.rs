@@ -336,6 +336,13 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
         Ok(targets.kind(&regex)?.into())
     }
 
+    /// This function is not implemented, and won't be, because buck2 query core does not support
+    /// returning both files and targets from a single function.
+    ///
+    /// In buck1 it returns targets and files referenced by the given attribute
+    /// in the given targets.
+    ///
+    /// Some discussion in T126638795.
     async fn labels(&self, attr: String, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
         self.implementation.labels(&attr, &targets)
     }
