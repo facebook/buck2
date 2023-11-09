@@ -104,18 +104,19 @@ def apple_binary_macro_impl(apple_binary_rule = None, apple_universal_executable
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config([APPLE_STRIPPED_DEFAULT]))
     kwargs.update(get_apple_build_genrule_deps_default_kwargs())
 
-    binary_name = kwargs.pop("name")
+    original_binary_name = kwargs.pop("name")
 
     if kwargs.pop("supports_universal", False):
-        universal_wrapper_name = binary_name
-        binary_name = universal_wrapper_name + "ThinBinary"
+        binary_name = original_binary_name + "ThinBinary"
         apple_universal_executable(
-            name = universal_wrapper_name,
+            name = original_binary_name,
             executable = ":" + binary_name,
             labels = kwargs.get("labels"),
             visibility = kwargs.get("visibility"),
             default_target_platform = kwargs.get("default_target_platform"),
         )
+    else:
+        binary_name = original_binary_name
 
     apple_binary_rule(name = binary_name, **kwargs)
 
