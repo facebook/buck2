@@ -31,7 +31,7 @@ impl TryInto<HashMap<String, String>> for proto::Event {
                     e.insert(value);
                 }
                 Entry::Occupied(e) => {
-                    anyhow::bail!("Duplicate key: {}", e.key());
+                    return Err(anyhow::anyhow!("Duplicate key: {}", e.key()));
                 }
             }
         }
@@ -66,7 +66,7 @@ impl TryInto<Level> for proto::LogLevel {
         let value = Value::from_i32(value).context("Invalid `value`")?;
 
         Ok(match value {
-            Value::NotSet => anyhow::bail!("Missing `value`"),
+            Value::NotSet => return Err(anyhow::anyhow!("Missing `value`")),
             Value::Trace => Level::TRACE,
             Value::Debug => Level::DEBUG,
             Value::Info => Level::INFO,
@@ -88,7 +88,7 @@ impl TryFrom<Level> for proto::LogLevel {
             v if v == Level::INFO => Value::Info,
             v if v == Level::WARN => Value::Warn,
             v if v == Level::ERROR => Value::Error,
-            v => anyhow::bail!("Unsupported Level: {:?}", v),
+            v => return Err(anyhow::anyhow!("Unsupported Level: {:?}", v)),
         };
 
         Ok(proto::LogLevel {

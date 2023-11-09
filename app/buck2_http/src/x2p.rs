@@ -60,7 +60,9 @@ pub fn find_proxy() -> anyhow::Result<Option<Proxy>> {
 
 #[cfg(not(fbcode_build))]
 pub fn find_proxy() -> anyhow::Result<Option<Proxy>> {
-    anyhow::bail!("VPNless development not supported for non-internal fbcode builds");
+    Err(anyhow::anyhow!(
+        "VPNless development not supported for non-internal fbcode builds"
+    ))
 }
 
 /// Whether the machine buck is running on supports vpnless operation.

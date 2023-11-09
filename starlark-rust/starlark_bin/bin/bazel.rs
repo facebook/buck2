@@ -141,7 +141,7 @@ pub(crate) fn main(
     prelude: &[PathBuf],
 ) -> anyhow::Result<()> {
     if !lsp {
-        anyhow::bail!("Bazel mode only supports `--lsp`");
+        return Err(anyhow::anyhow!("Bazel mode only supports `--lsp`"));
     }
 
     // NOTE: Copied from `main.rs`

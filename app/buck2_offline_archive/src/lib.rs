@@ -143,7 +143,7 @@ where
         let out = String::from_utf8(result.stdout).context("hg stdout to string")?;
         let out = out.trim();
         if out.is_empty() {
-            anyhow::bail!("expected to be run in hg repository");
+            Err(anyhow::anyhow!("expected to be run in hg repository"))
         } else {
             Ok(out.to_owned())
         }

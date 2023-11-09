@@ -45,9 +45,9 @@ impl InternalTestRunnerCommand {
                 }
             })
         } else {
-            anyhow::bail!(
+            Err(anyhow::anyhow!(
                 "Cannot use internal test runner. Config value must be provided for test.v2_test_executor."
-            )
+            ))
         }
     }
 }

@@ -493,7 +493,12 @@ impl RemoteExecutionClientImpl {
                     {
                         "BIG_FILES" => RemoteCacheManagerMode::BIG_FILES,
                         "ALL_FILES" => RemoteCacheManagerMode::ALL_FILES,
-                        unknown => anyhow::bail!("Unknown RemoteCacheManagerMode: {}", unknown),
+                        unknown => {
+                            return Err(anyhow::anyhow!(
+                                "Unknown RemoteCacheManagerMode: {}",
+                                unknown
+                            ));
+                        }
                     };
                     let remote_cache_config = {
                         let mut remote_cache_config = RemoteCacheConfig {

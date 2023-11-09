@@ -54,7 +54,12 @@ pub fn build_entry_from_disk(
         })),
         FileType::Symlink => DirectoryEntry::Leaf(new_symlink(fs_util::read_link(&path)?)?),
         FileType::Directory => DirectoryEntry::Dir(build_dir_from_disk(&mut path, digest_config)?),
-        FileType::Unknown => anyhow::bail!("Path {:?} is of an unknown file type.", path),
+        FileType::Unknown => {
+            return Err(anyhow::anyhow!(
+                "Path {:?} is of an unknown file type.",
+                path
+            ));
+        }
     };
     let hashing_time = hashing_start.elapsed();
     Ok((Some(value), hashing_time))

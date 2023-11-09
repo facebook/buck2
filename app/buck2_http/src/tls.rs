@@ -55,7 +55,7 @@ fn load_system_root_certs() -> anyhow::Result<RootCertStore> {
         load_system_root_certs_disk(&path)
             .with_context(|| format!("Loading root certs from: {}", path.to_string_lossy()))?
     } else {
-        anyhow::bail!("Unable to load system root certificates");
+        return Err(anyhow::anyhow!("Unable to load system root certificates"));
     };
 
     // According to [`rustls` documentation](https://docs.rs/rustls/latest/rustls/struct.RootCertStore.html#method.add_parsable_certificates),
@@ -67,10 +67,11 @@ fn load_system_root_certs() -> anyhow::Result<RootCertStore> {
 
     // But make sure we get at least _one_ valid cert, otherwise we legitimately won't be
     // able to make any connections via https.
-    anyhow::ensure!(
-        valid > 0,
-        "Error loading system certs: unable to find any valid system certs"
-    );
+    if valid == 0 {
+        return Err(anyhow::anyhow!(
+            "Error loading system certs: unable to find any valid system certs"
+        ));
+    }
     tracing::debug!("Loaded {} valid system root certs", valid);
     tracing::debug!("Loaded {} invalid system root certs", invalid);
     Ok(roots)
