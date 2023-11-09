@@ -28,7 +28,11 @@ _MERGED_PROVIDER_TYPES = [
     AppleBundleLinkerMapInfo,
 ]
 
-def _get_universal_binary_name(binary_deps: dict[str, Dependency]):
+def _get_universal_binary_name(ctx: AnalysisContext) -> str:
+    if ctx.attrs.executable_name:
+        return ctx.attrs.executable_name
+    binary_deps = ctx.attrs.executable
+
     # Because `binary_deps` is a split transition of the same target,
     # the filenames would be identical, so we just pick the first one.
     first_binary_dep = binary_deps.values()[0]
@@ -42,7 +46,7 @@ def apple_universal_executable_impl(ctx: AnalysisContext) -> list[Provider]:
     binary_outputs = create_universal_binary(
         ctx = ctx,
         binary_deps = ctx.attrs.executable,
-        binary_name = _get_universal_binary_name(ctx.attrs.executable),
+        binary_name = _get_universal_binary_name(ctx),
         dsym_bundle_name = dsym_name,
         split_arch_dsym = ctx.attrs.split_arch_dsym,
     )
