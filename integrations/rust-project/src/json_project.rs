@@ -22,6 +22,8 @@ use std::path::PathBuf;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::target::Target;
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct JsonProject {
     #[serde(flatten)]
@@ -100,7 +102,7 @@ pub struct BuckExtensions {
     /// Path corresponding to the BUCK defining the crate.
     pub build_file: PathBuf,
     /// A name corresponding to the Buck target of the crate.
-    pub label: String,
+    pub label: Target,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]

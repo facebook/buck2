@@ -22,7 +22,7 @@ pub struct Check {
 
 impl Check {
     pub fn new(mode: Option<String>, use_clippy: bool, saved_file: PathBuf) -> Self {
-        let mode = select_mode(mode);
+        let mode = select_mode(mode.as_deref());
         let buck = buck::Buck::new(mode);
         Self {
             buck,

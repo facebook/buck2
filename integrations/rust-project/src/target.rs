@@ -16,10 +16,11 @@ use std::path::PathBuf;
 
 use serde::Deserialize;
 use serde::Deserializer;
+use serde::Serialize;
 
 use crate::json_project::Edition;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(Serialize, Debug, Default, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct Target(String);
 
 impl Target {

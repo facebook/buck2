@@ -30,7 +30,9 @@ impl<S> ProgressLayer<S> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct ProgressStorage;
+struct ProgressStorage {
+    token: lsp_types::ProgressToken,
+}
 
 impl<S> Layer<S> for ProgressLayer<S>
 where
@@ -48,21 +50,32 @@ where
 
         let span = ctx.span(id).unwrap();
         let mut extensions = span.extensions_mut();
-        extensions.insert(ProgressStorage);
 
         let mut fields = BTreeMap::new();
         let mut visitor = StringVisitor(&mut fields);
         attrs.record(&mut visitor);
 
+        let Some(token) = fields.remove("token") else {
+            // we can't report on progress if we don't have a cancellation token. exit.
+            return;
+        };
+        let title = match fields.get("label") {
+            Some(label) => String::from(label),
+            None => String::from(attrs.metadata().name()),
+        };
+
+        let token = lsp_types::ProgressToken::String(token.clone());
+
         let begin = lsp_types::WorkDoneProgressBegin {
-            title: String::from(attrs.metadata().name()),
+            title,
             cancellable: Some(true),
-            message: Some(String::from("resolving targets")),
+            message: Some(String::from("resolving")),
             percentage: None,
         };
 
-        let token: lsp_types::NumberOrString =
-            lsp_types::ProgressToken::String("rust-project/discoverBuckTargets".to_owned());
+        extensions.insert(ProgressStorage {
+            token: token.clone(),
+        });
 
         let notification = lsp_server::Notification::new(
             lsp_types::notification::Progress::METHOD.to_owned(),
@@ -75,16 +88,20 @@ where
         let _err = self.sender.send(notification.into());
     }
 
-    fn on_event(&self, event: &tracing::Event<'_>, _: tracing_subscriber::layer::Context<'_, S>) {
+    fn on_event(&self, event: &tracing::Event<'_>, ctx: tracing_subscriber::layer::Context<'_, S>) {
         let mut fields = BTreeMap::new();
         let mut visitor = StringVisitor(&mut fields);
         event.record(&mut visitor);
 
+        let Some(span) = ctx.lookup_current() else {
+            return;
+        };
+        let ext = span.extensions();
+        let Some(storage) = ext.get::<ProgressStorage>() else {
+            return;
+        };
+
         let message = fields.get("message").map(|value| value.to_owned());
-
-        let token: lsp_types::NumberOrString =
-            lsp_types::ProgressToken::String("rust-project/discoverBuckTargets".to_owned());
-
         let report = lsp_types::WorkDoneProgressReport {
             message,
             cancellable: Some(true),
@@ -93,10 +110,11 @@ where
 
         let report: lsp_types::ProgressParamsValue =
             lsp_types::ProgressParamsValue::WorkDone(WorkDoneProgress::Report(report));
+        let token = &storage.token;
         let notification = lsp_server::Notification::new(
             lsp_types::notification::Progress::METHOD.to_owned(),
             lsp_types::ProgressParams {
-                token,
+                token: token.clone(),
                 value: report,
             },
         );
@@ -107,12 +125,10 @@ where
     fn on_close(&self, id: span::Id, ctx: tracing_subscriber::layer::Context<'_, S>) {
         let span = ctx.span(&id).unwrap();
         let extensions = span.extensions();
-        if extensions.get::<ProgressStorage>().is_none() {
+        let Some(storage) = extensions.get::<ProgressStorage>() else {
             return;
-        }
-
-        let token: lsp_types::NumberOrString =
-            lsp_types::ProgressToken::String("rust-project/discoverBuckTargets".to_owned());
+        };
+        let token = &storage.token;
 
         let end = lsp_types::WorkDoneProgressEnd {
             message: Some(String::from("resolving targets")),
@@ -124,7 +140,7 @@ where
         let notification = lsp_server::Notification::new(
             lsp_types::notification::Progress::METHOD.to_owned(),
             lsp_types::ProgressParams {
-                token,
+                token: token.clone(),
                 value: report,
             },
         );

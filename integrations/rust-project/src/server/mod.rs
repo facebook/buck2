@@ -19,10 +19,12 @@ use lsp_server::ExtractError;
 use lsp_server::IoThreads;
 use lsp_server::ReqQueue;
 use lsp_types::notification::Notification;
+use lsp_types::request::Request;
 use lsp_types::ServerCapabilities;
 use serde::Deserialize;
 use serde::Serialize;
 use tracing::info;
+use tracing::warn;
 use tracing_subscriber::reload::Handle;
 use tracing_subscriber::Layer;
 use tracing_subscriber::Registry;
@@ -32,6 +34,7 @@ use crate::cli::Input;
 use crate::json_project::Crate;
 use crate::json_project::JsonProject;
 use crate::progress::ProgressLayer;
+use crate::target::Target;
 
 pub struct State {
     server: Server,
@@ -79,42 +82,48 @@ impl State {
         register_did_save_capability(&mut self.server);
 
         info!("waiting for incoming messages");
-        let receiver = self.server.receiver.clone();
-        for msg in receiver {
-            match msg {
-                lsp_server::Message::Request(req) => {
-                    let mut dispatcher = RequestDispatch {
-                        req: Some(req),
-                        state: &mut self,
-                    };
-
-                    dispatcher
-                        .on::<DiscoverBuckTargets>(handle_discover_buck_targets)
-                        .on::<lsp_types::request::Shutdown>(|_, ()| {
-                            std::process::exit(0);
-                        })
-                        .finish();
-                }
-                lsp_server::Message::Notification(notification) => {
-                    tracing::info!(notification = ?notification, "notification");
-                    let mut dispatcher = NotificationDispatch {
-                        not: Some(notification),
-                        state: &mut self,
-                    };
-
-                    dispatcher
-                        .on::<lsp_types::notification::DidSaveTextDocument>(
-                            handle_did_save_buck_file,
-                        )?
-                        .finish()
-                }
-                lsp_server::Message::Response(resp) => {
-                    tracing::info!(resp = ?resp, "response");
-                }
-            }
+        let lsp_receiver = self.server.receiver.clone();
+        for msg in lsp_receiver {
+            self.handle_lsp(msg)?;
         }
         self.io_threads.join()?;
         Ok(())
+    }
+
+    fn handle_lsp(&mut self, msg: lsp_server::Message) -> Result<(), anyhow::Error> {
+        match msg {
+            lsp_server::Message::Request(req) => {
+                let mut dispatcher = RequestDispatch {
+                    req: Some(req),
+                    state: self,
+                };
+
+                dispatcher
+                    .on::<DiscoverBuckTargets>(handle_discover_buck_targets)
+                    .on::<lsp_types::request::Shutdown>(|_, ()| {
+                        std::process::exit(0);
+                    })
+                    .finish();
+
+                Ok(())
+            }
+            lsp_server::Message::Notification(notification) => {
+                tracing::info!(notification = ?notification, "notification");
+                let mut dispatcher = NotificationDispatch {
+                    not: Some(notification),
+                    state: self,
+                };
+
+                dispatcher
+                    .on::<lsp_types::notification::DidSaveTextDocument>(handle_did_save_buck_file)?
+                    .finish();
+                Ok(())
+            }
+            lsp_server::Message::Response(resp) => {
+                tracing::info!(resp = ?resp, "response");
+                Ok(())
+            }
+        }
     }
 }
 
@@ -182,6 +191,7 @@ impl<'a> RequestDispatch<'a> {
                     lsp_server::ErrorCode::InvalidParams as i32,
                     err.to_string(),
                 );
+                info!(id = ?response.id, err = err.to_string(), "Unable to respond");
                 self.state.server.respond(response);
                 None
             }
@@ -280,26 +290,54 @@ impl Server {
 fn handle_discover_buck_targets(
     state: &mut State,
     params: DiscoverBuckTargetParams,
-) -> Result<JsonProject, anyhow::Error> {
+) -> Result<Vec<JsonProject>, anyhow::Error> {
     let State {
         server, projects, ..
     } = state;
-
-    let token: lsp_types::NumberOrString =
-        lsp_types::ProgressToken::String("rust-project/discoverBuckTargets".to_owned());
+    let develop = Develop::new(Input::Files(params.text_documents));
 
     // this request is load-bearing: it is necessary in order to start showing in-editor progress.
+    let token = lsp_types::ProgressToken::String(DiscoverBuckTargets::METHOD.to_owned());
     server.send_request::<lsp_types::request::WorkDoneProgressCreate>(
-        lsp_types::WorkDoneProgressCreateParams { token },
+        lsp_types::WorkDoneProgressCreateParams {
+            token: token.clone(),
+        },
         |_, _| (),
     );
-    let _guard =
-        tracing::span!(target: "lsp_progress", tracing::Level::INFO, "resolving targets").entered();
+    let targets = tracing::span!(
+        target: "lsp_progress",
+        tracing::Level::INFO,
+        "resolving targets",
+        token = DiscoverBuckTargets::METHOD.to_owned(),
+    )
+    .in_scope(|| develop.resolve_owners())?;
 
-    let project = Develop::new(Input::Files(params.text_documents)).run()?;
-    projects.push(project.clone());
-    tracing::info!(crate_len = project.crates.len(), "created index");
-    Ok(project)
+    let Some(target) = targets.last() else {
+        anyhow::bail!("Could not find any targets.");
+    };
+
+    // this request is load-bearing: it is necessary in order to start showing in-editor progress.
+    let token = lsp_types::ProgressToken::String(target.to_string());
+    server.send_request::<lsp_types::request::WorkDoneProgressCreate>(
+        lsp_types::WorkDoneProgressCreateParams {
+            token: token.clone(),
+        },
+        |_, _| (),
+    );
+    let span = tracing::span!(
+        target: "lsp_progress",
+        tracing::Level::INFO,
+        "resolving targets",
+        token = target.to_string(),
+        label = target.to_string(),
+    );
+    let _guard = span.entered();
+
+    let project = develop.run(targets)?;
+    tracing::info!(crate_len = &project.crates.len(), "created index");
+    projects.push(project);
+
+    Ok(projects.clone())
 }
 
 fn handle_did_save_buck_file(
@@ -318,43 +356,55 @@ fn handle_did_save_buck_file(
         .to_file_path()
         .expect("unable to convert URI to file path; this is a bug");
 
-    let crates = find_changed_crate(&path, &projects);
-    match crates {
-        Some((idx, crates)) => {
-            let labels = crates
-                .iter()
-                .map(|krate| krate.buck_extensions.label.clone())
-                .collect::<Vec<String>>();
+    let Some((idx, crates)) = find_changed_crate(&path, &projects) else {
+        info!(?params.text_document, "could not find build file for document");
+        return Ok(());
+    };
 
-            info!(?params.text_document, crates = ?labels, "got document");
+    let targets = crates
+        .iter()
+        .map(|krate| krate.buck_extensions.label.clone())
+        .collect::<Vec<Target>>();
 
-            let token: lsp_types::NumberOrString =
-                lsp_types::ProgressToken::String(UpdatedBuckTargets::METHOD.to_owned());
+    info!(?params.text_document, crates = ?targets, "got document");
 
-            server.send_request::<lsp_types::request::WorkDoneProgressCreate>(
-                lsp_types::WorkDoneProgressCreateParams { token },
-                |_, _| (),
-            );
-            let _guard =
-                tracing::span!(target: "lsp_progress", tracing::Level::INFO, "resolving targets")
-                    .entered();
+    let Some(target) = targets.last() else {
+        anyhow::bail!("Could not find any targets.");
+    };
 
-            let labels = crates
-                .iter()
-                .map(|krate| krate.buck_extensions.label.clone())
-                .collect::<Vec<String>>();
-            let project = Develop::new(Input::Targets(labels)).run()?;
-            projects[idx] = project;
+    let token = lsp_types::ProgressToken::String(target.to_string());
+    server.send_request::<lsp_types::request::WorkDoneProgressCreate>(
+        lsp_types::WorkDoneProgressCreateParams {
+            token: token.clone(),
+        },
+        |_, _| (),
+    );
+    let _guard = tracing::span!(
+        target: "lsp_progress",
+        tracing::Level::INFO,
+        "resolving targets",
+        token = target.to_string(),
+        label = target.to_string(),
+    )
+    .entered();
 
-            let notification = lsp_server::Notification::new(
-                UpdatedBuckTargets::METHOD.to_owned(),
-                UpdatedBuckTargetsParams { projects },
-            );
-
-            server.send(notification.into())
+    let develop = Develop::new(Input::Targets(targets.clone()));
+    let project = match develop.run(targets) {
+        Ok(project) => project,
+        Err(e) => {
+            warn!(error = ?e, "unable to load updated file");
+            return Ok(());
         }
-        None => info!(?params.text_document, "could not find build file for doc"),
-    }
+    };
+
+    projects[idx] = project;
+
+    let notification = lsp_server::Notification::new(
+        UpdatedBuckTargets::METHOD.to_string(),
+        UpdatedBuckTargetsParams { projects },
+    );
+
+    server.send(notification.into());
 
     Ok(())
 }
@@ -436,7 +486,7 @@ pub enum DiscoverBuckTargets {}
 
 impl lsp_types::request::Request for DiscoverBuckTargets {
     type Params = DiscoverBuckTargetParams;
-    type Result = JsonProject;
+    type Result = Vec<JsonProject>;
     const METHOD: &'static str = "rust-project/discoverBuckTargets";
 }
 

@@ -125,7 +125,7 @@ pub fn to_json_project(
             display_name: Some(info.name.clone()),
             root_module,
             buck_extensions: BuckExtensions {
-                label: target.to_string(),
+                label: target.to_owned(),
                 build_file: build_file.to_owned(),
             },
             edition,
@@ -431,7 +431,7 @@ impl Buck {
     #[instrument(skip_all)]
     pub fn query_owner(
         &self,
-        files: Vec<PathBuf>,
+        files: &Vec<PathBuf>,
     ) -> Result<HashMap<PathBuf, Vec<Target>>, anyhow::Error> {
         let mut command = self.command();
 
@@ -445,7 +445,7 @@ impl Buck {
             "owner(\"%s\")",
             "--",
         ]);
-        command.args(&files);
+        command.args(files);
 
         info!(?files, "querying buck to determine owner");
         let out = deserialize_output(command.output(), &command)?;
@@ -518,9 +518,9 @@ pub fn truncate_line_ending(s: &mut String) {
     }
 }
 
-pub fn select_mode(mode: Option<String>) -> Option<String> {
+pub fn select_mode(mode: Option<&str>) -> Option<String> {
     if let Some(mode) = mode {
-        Some(mode)
+        Some(mode.to_owned())
     } else if cfg!(target_os = "macos") {
         Some("@fbcode//mode/mac".to_owned())
     } else if cfg!(target_os = "windows") {

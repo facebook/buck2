@@ -13,7 +13,6 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use tracing::info;
-use tracing::warn;
 
 use crate::buck;
 use crate::buck::relative_to;
@@ -30,7 +29,7 @@ pub struct Develop {
     pub input: Input,
     pub sysroot: SysrootConfig,
     pub relative_paths: bool,
-    pub mode: Option<String>,
+    pub buck: buck::Buck,
 }
 
 pub struct OutputCfg {
@@ -38,12 +37,26 @@ pub struct OutputCfg {
     pretty: bool,
 }
 
+pub enum Input {
+    Targets(Vec<Target>),
+    Files(Vec<PathBuf>),
+}
+
+#[derive(Debug)]
+pub enum Output {
+    Path(PathBuf),
+    Stdout,
+}
+
 impl Develop {
     pub fn new(input: Input) -> Self {
+        let mode = select_mode(None);
+        let buck = buck::Buck::new(mode);
+
         Self {
             input,
             sysroot: SysrootConfig::BuckConfig,
-            mode: None,
+            buck,
             relative_paths: false,
         }
     }
@@ -62,6 +75,7 @@ impl Develop {
         } = command
         {
             let input = if !targets.is_empty() {
+                let targets = targets.into_iter().map(Target::new).collect();
                 Input::Targets(targets)
             } else {
                 Input::Files(files)
@@ -81,11 +95,14 @@ impl Develop {
                 SysrootConfig::BuckConfig
             };
 
+            let mode = select_mode(mode.as_deref());
+            let buck = buck::Buck::new(mode);
+
             let develop = Develop {
                 input,
                 sysroot,
                 relative_paths,
-                mode,
+                buck,
             };
             let out = OutputCfg { out, pretty };
 
@@ -96,38 +113,29 @@ impl Develop {
     }
 }
 
-pub enum Input {
-    Targets(Vec<String>),
-    Files(Vec<PathBuf>),
-}
-
-#[derive(Debug)]
-pub enum Output {
-    Path(PathBuf),
-    Stdout,
-}
-
 impl Develop {
-    pub fn run(self) -> Result<JsonProject, anyhow::Error> {
-        let Develop {
-            input,
-            sysroot,
-            relative_paths,
-            mode,
-        } = self;
-        let mode = select_mode(mode);
-        let buck = buck::Buck::new(mode);
-        let project_root = buck.resolve_project_root()?;
+    // the split between "resolve owners" is necessary, in order provide meaningful progress reporting to users.
+    pub fn resolve_owners(&self) -> Result<Vec<Target>, anyhow::Error> {
+        let Develop { input, buck, .. } = self;
 
         let targets = match input {
-            Input::Targets(targets) => targets.iter().map(Target::new).collect::<Vec<Target>>(),
+            Input::Targets(targets) => targets.to_owned(),
             // the owners query returns a `HashMap<PathBuf, Vec<Target>>`
             Input::Files(files) => buck.query_owner(files)?.into_values().flatten().collect(),
         };
 
-        if targets.is_empty() {
-            warn!("Could not find any targets associated with the files specified.");
-        }
+        Ok(targets)
+    }
+
+    pub fn run(&self, targets: Vec<Target>) -> Result<JsonProject, anyhow::Error> {
+        let Develop {
+            sysroot,
+            relative_paths,
+            buck,
+            ..
+        } = self;
+
+        let project_root = buck.resolve_project_root()?;
 
         info!("building generated code");
         let expanded_and_resolved = buck.expand_and_resolve(&targets)?;
@@ -138,7 +146,7 @@ impl Develop {
         let sysroot = match &sysroot {
             SysrootConfig::Sysroot(path) => {
                 let mut sysroot_path = expand_tilde(path)?.canonicalize()?;
-                if relative_paths {
+                if *relative_paths {
                     sysroot_path = relative_to(&sysroot_path, &project_root);
                 }
 
@@ -147,7 +155,9 @@ impl Develop {
                     sysroot_src: None,
                 }
             }
-            SysrootConfig::BuckConfig => resolve_buckconfig_sysroot(&project_root, relative_paths)?,
+            SysrootConfig::BuckConfig => {
+                resolve_buckconfig_sysroot(&project_root, *relative_paths)?
+            }
             SysrootConfig::Rustup => resolve_rustup_sysroot()?,
         };
         info!("converting buck info to rust-project.json");
@@ -155,13 +165,14 @@ impl Develop {
             sysroot,
             expanded_and_resolved,
             aliased_libraries,
-            relative_paths,
+            *relative_paths,
         )?;
         Ok(rust_project)
     }
 
     pub fn run_as_cli(self, cfg: OutputCfg) -> Result<(), anyhow::Error> {
-        let rust_project = self.run()?;
+        let targets = self.resolve_owners()?;
+        let rust_project = self.run(targets)?;
 
         let mut writer: BufWriter<Box<dyn Write>> = match cfg.out {
             Output::Path(ref p) => {
