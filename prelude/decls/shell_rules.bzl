@@ -76,6 +76,11 @@ sh_binary = prelude_rule(
                  that contains all the resources, laid out in their locations relative to
                  the original buck project root.
             """),
+            "append_script_extension": attrs.bool(default = True, doc = """
+                By default, sh_binary ensures that the script has an appropriate extension (e.g. `.sh` or `.bat`),
+                  appending one itself if necessary. Setting this to False prevents that behavior and makes the caller
+                  responsible for ensuring an existing appropriate extension.
+            """),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),

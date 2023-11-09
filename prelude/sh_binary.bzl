@@ -18,9 +18,17 @@ def _derive_link(artifact):
 
     return paths.join(artifact.owner.package, artifact.owner.name)
 
-def _generate_script(name: str, main: Artifact, resources: list[Artifact], actions: AnalysisActions, is_windows: bool) -> (Artifact, Artifact):
+def _generate_script(
+        name: str,
+        main: Artifact,
+        resources: list[Artifact],
+        append_script_extension: bool,
+        actions: AnalysisActions,
+        is_windows: bool) -> (Artifact, Artifact):
     main_path = main.short_path
-    if is_windows:
+    if not append_script_extension:
+        main_link = main_path
+    elif is_windows:
         main_link = main_path if main_path.endswith(".bat") or main_path.endswith(".cmd") else main_path + ".bat"
     else:
         main_link = main_path if main_path.endswith(".sh") else main_path + ".sh"
@@ -111,7 +119,14 @@ def sh_binary_impl(ctx):
         fail("sh_binary deps unsupported. Got `{}`".format(repr(ctx.attrs)))
 
     is_windows = ctx.attrs._target_os_type[OsLookup].platform == "windows"
-    (script, resources_dir) = _generate_script(ctx.label.name, ctx.attrs.main, ctx.attrs.resources, ctx.actions, is_windows)
+    (script, resources_dir) = _generate_script(
+        ctx.label.name,
+        ctx.attrs.main,
+        ctx.attrs.resources,
+        ctx.attrs.append_script_extension,
+        ctx.actions,
+        is_windows,
+    )
 
     return [
         DefaultInfo(default_output = script, other_outputs = [resources_dir]),
