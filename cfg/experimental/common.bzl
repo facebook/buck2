@@ -54,7 +54,7 @@ def verify_normalized_target(target: str, param_context: str, location: Modifier
         fail("Internal error: location should not be ModifierCliLocation")
     if isinstance(location, ModifierLegacyPlatformLocation):
         fail("Internal error: location should not be ModifierLegacyPlatformLocation")
-    function_context = "set_cfg_modifiers" if isinstance(location, ModifierPackageLocation) else "cfg_modifier"
+    function_context = "set_cfg_modifiers" if isinstance(location, ModifierPackageLocation) else "cfg_modifiers"
 
     # Do some basic checks that target looks reasonably valid and normalized
     # Targets should always be fully qualified to improve readability.
