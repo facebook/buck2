@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 load("@prelude//python:python.bzl", "PythonLibraryManifestsTSet")
 load("@prelude//python:source_db.bzl", "PythonSourceDBInfo")
 
@@ -18,8 +16,8 @@ BUCK_PYTHON_RULE_KINDS = [
 BUCK_PYTHON_RULE_KIND_QUERY = "|".join(BUCK_PYTHON_RULE_KINDS)
 
 def _filter_root_targets(
-        query: "cqueryctx",
-        target_patterns: typing.Any) -> "target_set":
+        query: bxl.CqueryContext,
+        target_patterns: typing.Any) -> bxl.ConfiguredTargetSet:
     # Find all Pure-Python targets
     candidate_targets = ctarget_set()
     for pattern in target_patterns:
@@ -51,7 +49,7 @@ def _filter_root_targets(
     return filtered_targets
 
 def _get_python_library_manifests_from_analysis_result(
-        analysis_result: "analysis_result") -> [PythonLibraryManifestsTSet, None]:
+        analysis_result: bxl.AnalysisResult) -> [PythonLibraryManifestsTSet, None]:
     sub_target = analysis_result.providers()[DefaultInfo].sub_targets.get("source-db-no-deps")
     if sub_target == None:
         return None
@@ -62,7 +60,7 @@ def _get_python_library_manifests_from_analysis_result(
 
 def _get_python_library_manifests_from_targets(
         ctx: bxl.Context,
-        targets: "target_set") -> list[PythonLibraryManifestsTSet]:
+        targets: bxl.ConfiguredTargetSet) -> list[PythonLibraryManifestsTSet]:
     return filter(None, [
         _get_python_library_manifests_from_analysis_result(analysis_result)
         for analysis_result in ctx.analysis(targets).values()
@@ -71,7 +69,7 @@ def _get_python_library_manifests_from_targets(
 def get_python_library_manifests_tset_from_targets(
         ctx: bxl.Context,
         actions: AnalysisActions,
-        root_targets: "target_set") -> PythonLibraryManifestsTSet:
+        root_targets: bxl.ConfiguredTargetSet) -> PythonLibraryManifestsTSet:
     return actions.tset(
         PythonLibraryManifestsTSet,
         children = _get_python_library_manifests_from_targets(ctx, root_targets),
@@ -79,7 +77,7 @@ def get_python_library_manifests_tset_from_targets(
 
 def get_python_library_manifests_tset_from_target_patterns(
         ctx: bxl.Context,
-        query: "cqueryctx",
+        query: bxl.CqueryContext,
         actions: AnalysisActions,
         target_patterns: typing.Any) -> PythonLibraryManifestsTSet:
     root_targets = _filter_root_targets(query, target_patterns)
@@ -87,7 +85,7 @@ def get_python_library_manifests_tset_from_target_patterns(
 
 def do_query(
         ctx: bxl.Context,
-        query: "cqueryctx",
+        query: bxl.CqueryContext,
         actions: AnalysisActions,
         target_patterns: typing.Any) -> list[ConfiguredTargetLabel]:
     manifests_of_transitive_dependencies = get_python_library_manifests_tset_from_target_patterns(

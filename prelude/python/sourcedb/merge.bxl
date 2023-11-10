@@ -5,13 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @starlark-rust: allow_string_literals_in_type_expr
-
 def do_merge(
         ctx: bxl.Context,
-        bxl_actions: "bxl_actions",
+        bxl_actions: bxl.Actions,
         built_sourcedbs: dict[TargetLabel, Artifact],
-        command_category: str) -> "ensured_artifact":
+        command_category: str) -> bxl.EnsuredArtifact:
     actions = bxl_actions.actions
 
     merger_input = actions.write_json("merge_input.json", built_sourcedbs)
