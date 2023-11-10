@@ -78,6 +78,7 @@ def cfg_constructor_pre_constraint_analysis(
         package_and_target_modifiers[modifier_key] = merge_modifiers(
             package_and_target_modifiers.get(modifier_key),
             modifier_with_loc,
+            to_json = False,
         )
 
     refs = list(CONSTRAINT_SETTING_ORDER)

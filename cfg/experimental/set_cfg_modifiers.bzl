@@ -27,14 +27,15 @@ def set_cfg_modifiers(modifiers: dict[str, Modifier]):
     merged_modifiers = dict(merged_modifiers) if merged_modifiers else {}
 
     for constraint_setting, modifier in modifiers.items():
-        modifier_with_loc = get_tagged_modifier(
+        tagged_modifier = get_tagged_modifier(
             constraint_setting,
             modifier,
             ModifierPackageLocation(package_path = _get_package_path()),
         )
         merged_modifiers[constraint_setting] = merge_modifiers(
             merged_modifiers.get(constraint_setting),
-            modifier_with_loc,
+            tagged_modifier,
+            to_json = True,
         )
 
     write_package_value(

@@ -78,14 +78,17 @@ def get_tagged_modifier(
     )
     return tagged_modifier
 
-def merge_modifiers(tagged_modifiers: list[TaggedModifier] | None, tagged_modifier: TaggedModifier) -> list[TaggedModifier]:
+def merge_modifiers(tagged_modifiers: list[typing.Any] | None, tagged_modifier: TaggedModifier, to_json: bool) -> list[typing.Any]:
+    def transform(tagged_modifier: TaggedModifier):
+        return tagged_modifier_to_json(tagged_modifier) if to_json else tagged_modifier
+
     if isinstance(tagged_modifier.modifier, str):
-        return [tagged_modifier]
+        return [transform(tagged_modifier)]
 
     # `read_parent_package_value` returns an immutable value,
     # so if `tagged_modifiers` is already a list, then we need to copy it to make it mutable.
     tagged_modifiers = list(tagged_modifiers) if tagged_modifiers else []
-    tagged_modifiers.append(tagged_modifier)
+    tagged_modifiers.append(transform(tagged_modifier))
     return tagged_modifiers
 
 def get_modifier_info(
