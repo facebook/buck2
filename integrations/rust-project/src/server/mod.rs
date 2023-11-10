@@ -313,7 +313,7 @@ fn handle_discover_buck_targets(
     .in_scope(|| develop.resolve_owners())?;
 
     let Some(target) = targets.last() else {
-        anyhow::bail!("Could not find any targets.");
+        return Err(anyhow::anyhow!("Could not find any targets."));
     };
 
     // this request is load-bearing: it is necessary in order to start showing in-editor progress.
@@ -369,7 +369,7 @@ fn handle_did_save_buck_file(
     info!(?params.text_document, crates = ?targets, "got document");
 
     let Some(target) = targets.last() else {
-        anyhow::bail!("Could not find any targets.");
+        return Err(anyhow::anyhow!("Could not find any targets."));
     };
 
     let token = lsp_types::ProgressToken::String(target.to_string());
