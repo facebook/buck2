@@ -128,27 +128,24 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
             }
         }
 
-        match self.get_cfg_constructor(ctx).await? {
-            Some(cfg_constructor) => {
-                let modifier_key = cfg_constructor.key();
-                let package_cfg_modifiers = super_package
-                    .package_values()
-                    .get_package_value_json(modifier_key)?
-                    .map(MetadataValue::new);
-                let target_cfg_modifiers =
-                    target.metadata()?.and_then(|m| m.get(modifier_key)).duped();
-
-                let key = CfgConstructorInvocationKey {
-                    package_cfg_modifiers,
-                    target_cfg_modifiers,
-                    cfg,
-                };
-                Ok(ctx.compute(&key).await??)
-            }
+        let Some(cfg_constructor) = self.get_cfg_constructor(ctx).await? else {
             // To facilitate rollout of modifiers, return original configuration if
             // no cfg constructors are available.
-            None => Ok(cfg),
-        }
+            return Ok(cfg);
+        };
+        let modifier_key = cfg_constructor.key();
+        let package_cfg_modifiers = super_package
+            .package_values()
+            .get_package_value_json(modifier_key)?
+            .map(MetadataValue::new);
+        let target_cfg_modifiers = target.metadata()?.and_then(|m| m.get(modifier_key)).duped();
+
+        let key = CfgConstructorInvocationKey {
+            package_cfg_modifiers,
+            target_cfg_modifiers,
+            cfg,
+        };
+        Ok(ctx.compute(&key).await??)
     }
 }
 
