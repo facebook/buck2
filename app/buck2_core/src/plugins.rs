@@ -125,7 +125,7 @@ impl PluginKindSet {
         } else if self.0 as usize == 1 {
             PluginKindSetUnpacked::All
         } else {
-            // SAFETY: Instances of this type are only creaeted by `pack`
+            // SAFETY: Instances of this type are only created by `pack`
             PluginKindSetUnpacked::Interned(unsafe { Intern::from_ptr(self.0 as *const _) })
         }
     }
