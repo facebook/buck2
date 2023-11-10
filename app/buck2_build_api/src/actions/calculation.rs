@@ -183,13 +183,21 @@ async fn build_action_no_redirect(
                     .and_then(|r| r.status.execution_kind())
                     .map(|e| e.as_enum());
                 wall_time = None;
-                error = Some(e.as_proto());
                 output_size = 0;
                 // We define the below fields only in the instance of an action error
                 // so as to reduce Scribe traffic and log it in buck2_action_errors
                 buck2_revision = buck2_build_info::revision().map(|s| s.to_owned());
                 buck2_build_time = buck2_build_info::time_iso8601().map(|s| s.to_owned());
                 hostname = buck2_events::metadata::hostname();
+
+                let e = ActionError::new(
+                    e,
+                    action_name.clone(),
+                    action_key.clone(),
+                    commands.last().cloned(),
+                );
+
+                error = Some(e.as_proto_field());
 
                 let is_command_failure = command_reports
                     .iter()
@@ -199,22 +207,12 @@ async fn build_action_no_redirect(
                 // behavior before this was added.
                 let is_user_error = is_command_failure;
 
-                let action_error_event = buck2_data::ActionError {
-                    key: Some(action_key.clone()),
-                    name: Some(action_name.clone()),
-                    error: Some(e.as_action_error_proto()),
-                    last_command: commands.last().cloned(),
-                };
-
                 ctx.per_transaction_data()
                     .get_dispatcher()
-                    .instant_event(action_error_event.clone());
+                    .instant_event(e.as_proto_event());
 
-                let action_error = ActionError {
-                    event: action_error_event,
-                };
                 let mut action_error = buck2_error::Error::new_with_options(
-                    action_error,
+                    e,
                     is_command_failure.then_some(buck2_error::ErrorType::ActionCommandFailure),
                 );
                 if is_user_error {

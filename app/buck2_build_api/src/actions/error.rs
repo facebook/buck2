@@ -14,25 +14,42 @@ use buck2_event_observer::display::TargetDisplayOptions;
 
 use crate::actions::execute::error::ExecuteError;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ActionError {
-    pub event: buck2_data::ActionError,
+    execute_error: ExecuteError,
+    name: buck2_data::ActionName,
+    key: buck2_data::ActionKey,
+    last_command: Option<buck2_data::CommandExecution>,
 }
 
 impl std::error::Error for ActionError {}
 
 impl fmt::Display for ActionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = display_action_error(&self.event, TargetDisplayOptions::for_log())
+        let s = display_action_error(&self.as_proto_event(), TargetDisplayOptions::for_log())
             .expect("Action key is always present in `ActionError`")
             .simple_format_for_build_report();
         write!(f, "{}", s)
     }
 }
 
-impl ExecuteError {
-    pub(crate) fn as_proto(&self) -> buck2_data::action_execution_end::Error {
-        match self {
+impl ActionError {
+    pub(crate) fn new(
+        execute_error: ExecuteError,
+        name: buck2_data::ActionName,
+        key: buck2_data::ActionKey,
+        last_command: Option<buck2_data::CommandExecution>,
+    ) -> Self {
+        Self {
+            execute_error,
+            name,
+            key,
+            last_command,
+        }
+    }
+
+    pub(crate) fn as_proto_field(&self) -> buck2_data::action_execution_end::Error {
+        match &self.execute_error {
             ExecuteError::MissingOutputs { declared } => buck2_data::CommandOutputsMissing {
                 message: format!("Action failed to produce outputs: {}", error_items(declared)),
             }
@@ -56,11 +73,17 @@ impl ExecuteError {
         }
     }
 
-    pub(crate) fn as_action_error_proto(&self) -> buck2_data::action_error::Error {
-        match self.as_proto() {
+    pub(crate) fn as_proto_event(&self) -> buck2_data::ActionError {
+        let field = match self.as_proto_field() {
             buck2_data::action_execution_end::Error::Unknown(e) => e.into(),
             buck2_data::action_execution_end::Error::MissingOutputs(e) => e.into(),
             buck2_data::action_execution_end::Error::CommandExecutionError(e) => e.into(),
+        };
+        buck2_data::ActionError {
+            error: Some(field),
+            name: Some(self.name.clone()),
+            key: Some(self.key.clone()),
+            last_command: self.last_command.clone(),
         }
     }
 }
