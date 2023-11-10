@@ -120,8 +120,6 @@ fn test_rustdoc() {
     let mut a = Assert::new();
     a.globals_add(globals);
     let expected = a.pass_module(r#"
-# @starlark-rust: allow_string_literals_in_type_expr
-
 def args_kwargs(*args, **kwargs: typing.Any) -> None: pass
 def custom_types(arg1: str, arg2: Input) -> Output: pass
 def default_arg(arg1 = "_", arg2: typing.Any = None) -> list[str]: pass

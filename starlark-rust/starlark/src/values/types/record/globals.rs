@@ -149,11 +149,9 @@ foo(rec_type(host="localhost", port=80))"#,
         );
         assert::pass(
             r#"
-# @starlark-rust: allow_string_literals_in_type_expr
-
 v = [record(host=str.type, port=int.type)]
 v_0 = v[0]
-def foo(y: v_0) -> "record":
+def foo(y: v_0) -> v_0:
     # TODO(nga): fails at compile time.
     return noop(y)
 foo(v[0](host="localhost", port=80))"#,
