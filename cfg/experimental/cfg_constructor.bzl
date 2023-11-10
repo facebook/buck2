@@ -33,8 +33,8 @@ PostConstraintAnalysisParams = record(
 def cfg_constructor_pre_constraint_analysis(
         *,
         legacy_platform: PlatformInfo | None,
-        package_modifiers: dict[str, list[CfgModifierWithLocation]],
-        target_modifiers: dict[str, CfgModifierWithLocation],
+        package_modifiers: dict[str, list[CfgModifierWithLocation]] | None,
+        target_modifiers: dict[str, CfgModifierWithLocation] | None,
         cli_modifiers: list[str]) -> (list[str], PostConstraintAnalysisParams):
     """
     First stage of cfg constructor for modifiers.
@@ -56,6 +56,9 @@ def cfg_constructor_pre_constraint_analysis(
     Returns `(refs, PostConstraintAnalysisParams)`, where `refs` is a list of fully qualified configuration
     targets we need providers for.
     """
+
+    package_modifiers = package_modifiers or {}
+    target_modifiers = target_modifiers or {}
 
     # Convert modifier keys back to constraint settings
     package_modifiers = {modifier_key_to_constraint_setting(key): val for key, val in package_modifiers.items()}
