@@ -228,6 +228,7 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     link_group_info = get_link_group_info(ctx, filter_and_map_idx(LinkableGraph, cxx_attr_deps(ctx)))
     params = CxxRuleConstructorParams(
         rule_type = "cxx_binary",
+        executable_name = ctx.attrs.executable_name,
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
         srcs = get_srcs_with_flags(ctx),
         link_group_info = link_group_info,

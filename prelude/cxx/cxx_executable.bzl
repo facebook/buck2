@@ -484,6 +484,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         # If shlib lib tree generation is enabled, pass in the shared libs (which
         # will trigger the necessary link tree and link args).
         shared_libs if impl_params.exe_shared_libs_link_tree else {},
+        impl_params.executable_name,
         linker_info.binary_extension,
         link_options(
             links = links,
@@ -685,9 +686,15 @@ _CxxLinkExecutableResult = record(
 def _link_into_executable(
         ctx: AnalysisContext,
         shared_libs: dict[str, LinkedObject],
+        executable_name: [str, None],
         binary_extension: str,
         opts: LinkOptions) -> _CxxLinkExecutableResult:
-    output = ctx.actions.declare_output("{}{}".format(get_cxx_executable_product_name(ctx), "." + binary_extension if binary_extension else ""))
+    if executable_name and binary_extension and executable_name.endswith(binary_extension):
+        # don't append .exe if it already is .exe
+        output_name = executable_name
+    else:
+        output_name = "{}{}".format(executable_name if executable_name else get_cxx_executable_product_name(ctx), "." + binary_extension if binary_extension else "")
+    output = ctx.actions.declare_output(output_name)
     extra_args, runtime_files, shared_libs_symlink_tree = executable_shared_lib_arguments(
         ctx.actions,
         get_cxx_toolchain_info(ctx),

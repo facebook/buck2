@@ -149,6 +149,8 @@ CxxRuleConstructorParams = record(
     shared_library_flags = field([SharedLibraryFlagOverrides, None], None),
     # Optional argument to override the default name of the shared object being produced.
     soname = field([str, None], None),
+    # Optional argument to override the default name of the executable being produced.
+    executable_name = field([str, None], None),
     # If passed to cxx_executable, this field will be used to determine
     # a shared subtarget's default output should be stripped.
     strip_executable = field(bool, False),
