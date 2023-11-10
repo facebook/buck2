@@ -138,6 +138,7 @@ extra_attributes = {
         "content_dirs": attrs.list(attrs.source(allow_directory = True), default = []),
         "dirs": attrs.list(attrs.source(allow_directory = True), default = []),
         "files": attrs.list(attrs.one_of(attrs.dep(), attrs.source()), default = []),
+        "skip_universal_resource_dedupe": attrs.bool(default = False),
     },
     "apple_test": apple_test_extra_attrs(),
     "apple_toolchain": {

@@ -49,6 +49,7 @@ load("@prelude//python:python_needed_coverage_test.bzl", "python_needed_coverage
 load("@prelude//python:python_test.bzl", "python_test_impl")
 load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapSources", "python_bootstrap_binary_impl", "python_bootstrap_library_impl")
 load("@prelude//zip_file:zip_file.bzl", _zip_file_extra_attributes = "extra_attributes", _zip_file_implemented_rules = "implemented_rules")
+load("@prelude//apple/user/apple_resource_transition.bzl", "apple_resource_transition")
 load("@prelude//decls/android_rules.bzl", "android_rules")
 load("@prelude//decls/common.bzl", "IncludeType", "LinkableDepType", "Linkage", "buck")
 load("@prelude//decls/core_rules.bzl", "core_rules")
@@ -578,6 +579,7 @@ extra_attributes = struct(**all_extra_attributes)
 # Configuration transitions to pass `cfg` for builtin rules.
 transitions = {
     "android_binary": constraint_overrides_transition,
+    "apple_resource": apple_resource_transition,
     "python_binary": constraint_overrides_transition,
     "python_test": constraint_overrides_transition,
 }
