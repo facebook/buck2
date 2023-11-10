@@ -135,7 +135,7 @@ def cfg_constructor_post_constraint_analysis(
         # configuration.
         return params.legacy_platform or PlatformInfo(
             # Empty configuration
-            label = "",
+            label = "<empty>",
             configuration = ConfigurationInfo(
                 constraints = {},
                 values = {},
