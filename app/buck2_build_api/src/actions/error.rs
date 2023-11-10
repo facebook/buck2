@@ -50,7 +50,13 @@ impl std::error::Error for ActionError {
                     None
                 }
             }
-            _ => None,
+            // Returning extra outputs is a bug in the executor
+            ExecuteError::MismatchedOutputs { .. } => Some(buck2_error::Category::Infra),
+            // However outputs may be legitimately missing if the action didn't produce them
+            ExecuteError::MissingOutputs { .. } => Some(buck2_error::Category::User),
+            // Or if the action produced the wrong type
+            ExecuteError::WrongOutputType { .. } => Some(buck2_error::Category::User),
+            ExecuteError::Error { .. } => None,
         };
 
         buck2_error::provide_metadata::<Self>(
