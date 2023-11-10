@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(":common.bzl", "cfg_modifier_common_impl")
+load(":common.bzl", "get_tagged_modifier")
 load(":set_cfg_constructor.bzl", "MODIFIER_METADATA_KEY")
 load(
     ":types.bzl",
@@ -17,6 +17,5 @@ load(
 def cfg_modifiers(modifiers: dict[str, Modifier]) -> dict[str, dict[str, TaggedModifier]]:
     tagged_modifiers = {}
     for constraint_setting, modifier in modifiers.items():
-        key, modifier_with_loc = cfg_modifier_common_impl(constraint_setting, modifier, ModifierTargetLocation())
-        tagged_modifiers[key] = modifier_with_loc
+        tagged_modifiers[constraint_setting] = get_tagged_modifier(constraint_setting, modifier, ModifierTargetLocation())
     return {MODIFIER_METADATA_KEY: tagged_modifiers}

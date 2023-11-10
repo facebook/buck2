@@ -21,19 +21,6 @@ load(
     "TaggedModifierInfo",
 )
 
-def constraint_setting_to_modifier_key(constraint_setting: str) -> str:
-    # Keys in PACKAGE values/metadata can only contain a single dot.
-    # This means that if the constraint setting contains a dot, we must replace it.
-    # Forward slash isn't allowed in filenames or target names, so a triple slash is
-    # the best replacement for dots.
-    constraint_setting_key = constraint_setting.replace(".", "///")
-    return "cfg_modifiers." + constraint_setting_key
-
-def modifier_key_to_constraint_setting(modifier_key: str) -> str:
-    # Reverse transformation of `constraint_setting_to_modifier_key`
-    asserts.true(modifier_key.startswith("cfg_modifiers."), "Internal error: modifier key must start with 'cfg_modifier.'; found '{}'".format(modifier_key))
-    return modifier_key.replace("cfg_modifiers.", "").replace("///", ".")
-
 _TARGET_LOCATION_STR = "`metadata` attribute of target"
 _CLI_LOCATION_STR = "command line"
 _LEGACY_PLATFORM_LOCATION_STR = "legacy target platform"
@@ -80,19 +67,18 @@ def verify_normalized_modifier(modifier: Modifier, location: ModifierLocation):
     else:
         fail("Found unexpected modifier `{}` type `{}`".format(modifier, type(modifier)))
 
-def cfg_modifier_common_impl(
+def get_tagged_modifier(
         constraint_setting: str,
         modifier: Modifier,
-        location: ModifierLocation) -> (str, TaggedModifier):
+        location: ModifierLocation) -> TaggedModifier:
     verify_normalized_target(constraint_setting, _CONSTRAINT_SETTING_PARAM, location)
     verify_normalized_modifier(modifier, location)
 
-    modifier_key = constraint_setting_to_modifier_key(constraint_setting)
     tagged_modifier = TaggedModifier(
         modifier = modifier,
         location = location,
     )
-    return modifier_key, tagged_modifier
+    return tagged_modifier
 
 def merge_modifiers(tagged_modifiers: list[TaggedModifier] | None, tagged_modifier: TaggedModifier) -> list[TaggedModifier]:
     if isinstance(tagged_modifier.modifier, str):
