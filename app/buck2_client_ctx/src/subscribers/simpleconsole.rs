@@ -384,6 +384,14 @@ where
         self.handle_stderr(&message.message).await
     }
 
+    async fn handle_console_warning(
+        &mut self,
+        message: &buck2_data::ConsoleWarning,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        self.handle_stderr(&message.message).await
+    }
+
     async fn handle_re_session_created(
         &mut self,
         session: &buck2_data::RemoteExecutionSessionCreated,

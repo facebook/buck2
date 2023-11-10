@@ -597,6 +597,29 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
         }
     }
 
+    async fn handle_console_warning(
+        &mut self,
+        message: &buck2_data::ConsoleWarning,
+        event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        match &mut self.super_console {
+            Some(super_console) => {
+                let style = ContentStyle {
+                    foreground_color: Some(Color::Yellow),
+                    ..Default::default()
+                };
+                super_console.emit(Lines::from_multiline_string(&message.message, style));
+                Ok(())
+            }
+            None => {
+                self.state
+                    .simple_console
+                    .handle_console_warning(message, event)
+                    .await
+            }
+        }
+    }
+
     async fn handle_action_execution_end(
         &mut self,
         action: &buck2_data::ActionExecutionEnd,

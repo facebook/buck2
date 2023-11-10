@@ -98,6 +98,10 @@ impl EventDispatcher {
         self.instant_event(buck2_data::ConsoleMessage { message })
     }
 
+    pub fn console_warning(&self, message: String) {
+        self.instant_event(buck2_data::ConsoleWarning { message })
+    }
+
     fn event_with_span_id<E: Into<buck_event::Data>>(
         &self,
         data: E,
@@ -431,6 +435,11 @@ pub fn instant_event<E: Into<buck2_data::instant_event::Data>>(data: E) {
 /// Send console message from the server.
 pub fn console_message(message: String) {
     get_dispatcher().console_message(message)
+}
+
+/// Send console warning from the server.
+pub fn console_warning(message: String) {
+    get_dispatcher().console_warning(message)
 }
 
 /// Introduces a new span and immediately fires the given start event. When the given future resolves,  the span is

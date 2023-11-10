@@ -250,6 +250,8 @@ message InstantEvent {
 
     // An action error encountered during the build
     ActionError action_error = 34;
+
+    ConsoleWarning console_warning = 35;
   }
 }
 
@@ -1455,6 +1457,12 @@ message TargetPattern {
 /// Generally, one should rely on properly typed events, rather than raw
 /// console events if additional formatting is required.
 message ConsoleMessage {
+  string message = 1;
+}
+
+/// A message that should be printed to the user as a warning in yellow color,
+/// generally via stderr
+message ConsoleWarning {
   string message = 1;
 }
 

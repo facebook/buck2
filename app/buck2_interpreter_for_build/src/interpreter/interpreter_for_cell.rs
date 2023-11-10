@@ -24,6 +24,7 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_event_observer::humanized::HumanizedBytes;
+use buck2_events::dispatch::console_warning;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::file_loader::InterpreterFileLoader;
@@ -630,6 +631,22 @@ impl InterpreterForCell {
                 HumanizedBytes::fixed_width(starlark_mem_limit),
             )
             .into())
+        } else if starlark_peak_mem_check_enabled
+            && starlark_peak_allocated_bytes > starlark_mem_limit / 2
+        {
+            console_warning(
+                format!(
+                    "Starlark peak memory usage is `{}` which is over `50`% of the limit `{}`! Consider investigating what takes too much memory.",
+                    HumanizedBytes::fixed_width(starlark_peak_allocated_bytes),
+                    HumanizedBytes::fixed_width(starlark_mem_limit)
+                )
+                .to_owned(),
+            );
+
+            Ok(EvaluationResultWithStats {
+                result: EvaluationResult::from(internals),
+                starlark_peak_allocated_bytes,
+            })
         } else {
             Ok(EvaluationResultWithStats {
                 result: EvaluationResult::from(internals),

@@ -112,6 +112,9 @@ pub trait UnpackingEventSubscriber: Send {
             buck2_data::instant_event::Data::ConsoleMessage(message) => {
                 self.handle_console_message(message, event).await
             }
+            buck2_data::instant_event::Data::ConsoleWarning(message) => {
+                self.handle_console_warning(message, event).await
+            }
             buck2_data::instant_event::Data::ReSession(session) => {
                 self.handle_re_session_created(session, event).await
             }
@@ -165,6 +168,12 @@ pub trait UnpackingEventSubscriber: Send {
     async fn handle_console_message(
         &mut self,
         _message: &buck2_data::ConsoleMessage,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()>;
+
+    async fn handle_console_warning(
+        &mut self,
+        _message: &buck2_data::ConsoleWarning,
         _event: &BuckEvent,
     ) -> anyhow::Result<()>;
 
