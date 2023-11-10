@@ -199,26 +199,11 @@ async fn build_action_no_redirect(
 
                 error = Some(e.as_proto_field());
 
-                let is_command_failure = command_reports
-                    .iter()
-                    .any(|c| matches!(c.status, CommandExecutionStatus::Failure { .. }));
-                // FIXME(JakobDegen): This is probably far too conservative. The only reason that
-                // this is what we do is because it's a nop with respect to the error categorization
-                // behavior before this was added.
-                let is_user_error = is_command_failure;
-
                 ctx.per_transaction_data()
                     .get_dispatcher()
                     .instant_event(e.as_proto_event());
 
-                let mut action_error = buck2_error::Error::new_with_options(
-                    e,
-                    is_command_failure.then_some(buck2_error::ErrorType::ActionCommandFailure),
-                );
-                if is_user_error {
-                    action_error = action_error.context(buck2_error::Category::User);
-                }
-                action_result = Err(action_error
+                action_result = Err(buck2_error::Error::from(e)
                     // Make sure to mark the error as emitted so that it is not printed out to console
                     // again in this command. We still need to keep it around for the build report (and
                     // in the future) other commands

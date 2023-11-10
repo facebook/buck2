@@ -22,7 +22,36 @@ pub struct ActionError {
     last_command: Option<buck2_data::CommandExecution>,
 }
 
-impl std::error::Error for ActionError {}
+impl std::error::Error for ActionError {
+    fn provide(&self, demand: &mut buck2_error::Demand<'_>) {
+        let is_command_failure = self.last_command.as_ref().is_some_and(|c| {
+            matches!(
+                c.status,
+                Some(buck2_data::command_execution::Status::Failure { .. })
+            )
+        });
+
+        let typ = if is_command_failure {
+            Some(buck2_error::ErrorType::ActionCommandFailure)
+        } else {
+            None
+        };
+
+        let category = if is_command_failure {
+            Some(buck2_error::Category::User)
+        } else {
+            None
+        };
+
+        buck2_error::provide_metadata::<Self>(
+            demand,
+            category,
+            typ,
+            std::file!(),
+            Some("ActionError"),
+        );
+    }
+}
 
 impl fmt::Display for ActionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
