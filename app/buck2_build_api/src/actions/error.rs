@@ -67,6 +67,13 @@ impl std::error::Error for ActionError {
             Some("ActionError"),
         );
     }
+
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match &self.execute_error {
+            ExecuteError::Error { error } => error.source(),
+            _ => None,
+        }
+    }
 }
 
 impl fmt::Display for ActionError {
