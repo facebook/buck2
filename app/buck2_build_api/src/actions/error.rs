@@ -31,16 +31,26 @@ impl std::error::Error for ActionError {
             )
         });
 
-        let typ = if is_command_failure {
-            Some(buck2_error::ErrorType::ActionCommandFailure)
-        } else {
-            None
+        let typ = match &self.execute_error {
+            ExecuteError::CommandExecutionError => {
+                if is_command_failure {
+                    Some(buck2_error::ErrorType::ActionCommandFailure)
+                } else {
+                    None
+                }
+            }
+            _ => None,
         };
 
-        let category = if is_command_failure {
-            Some(buck2_error::Category::User)
-        } else {
-            None
+        let category = match &self.execute_error {
+            ExecuteError::CommandExecutionError => {
+                if is_command_failure {
+                    Some(buck2_error::Category::User)
+                } else {
+                    None
+                }
+            }
+            _ => None,
         };
 
         buck2_error::provide_metadata::<Self>(
