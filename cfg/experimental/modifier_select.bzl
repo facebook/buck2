@@ -7,12 +7,12 @@
 
 load(
     ":types.bzl",
-    "CfgModifier",  # @unused Used in type annotation
+    "Modifier",  # @unused Used in type annotation
     "ModifierSelect",
 )
 
 def modifier_select(
-        selector: dict[str, CfgModifier | None]) -> ModifierSelect:
+        selector: dict[str, Modifier | None]) -> ModifierSelect:
     """
     A select operator for modifiers. A `modifier_select` specifies a way for a
     modifier to be added based on an existing constraint in the configuration.

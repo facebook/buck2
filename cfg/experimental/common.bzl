@@ -8,9 +8,9 @@
 load("@prelude//:asserts.bzl", "asserts")
 load(
     ":types.bzl",
-    "CfgModifier",
-    "CfgModifierInfo",
+    "Modifier",
     "ModifierCliLocation",
+    "ModifierInfo",
     "ModifierLocation",
     "ModifierPackageLocation",
     "ModifierSelect",
@@ -64,7 +64,7 @@ def verify_normalized_target(target: str, param_context: str, location: Modifier
 _CONSTRAINT_SETTING_PARAM = "constraint_setting"
 _MODIFIER_PARAM = "modifier"
 
-def verify_normalized_modifier(modifier: CfgModifier, location: ModifierLocation):
+def verify_normalized_modifier(modifier: Modifier, location: ModifierLocation):
     if isinstance(modifier, ModifierSelect):
         for key, sub_modifier in modifier.selector.items():
             if key != "DEFAULT":
@@ -76,7 +76,7 @@ def verify_normalized_modifier(modifier: CfgModifier, location: ModifierLocation
 
 def cfg_modifier_common_impl(
         constraint_setting: str,
-        modifier: CfgModifier,
+        modifier: Modifier,
         location: ModifierLocation) -> (str, TaggedModifier):
     verify_normalized_target(constraint_setting, _CONSTRAINT_SETTING_PARAM, location)
     verify_normalized_modifier(modifier, location)
@@ -100,9 +100,9 @@ def merge_modifiers(tagged_modifiers: list[TaggedModifier] | None, tagged_modifi
 
 def get_modifier_info(
         refs: dict[str, ProviderCollection],
-        modifier: CfgModifier,
+        modifier: Modifier,
         constraint_setting: str,
-        location: ModifierLocation) -> CfgModifierInfo:
+        location: ModifierLocation) -> ModifierInfo:
     # Gets a modifier info from a modifier based on providers from `refs`.
     if isinstance(modifier, ModifierSelect):
         default = None
@@ -153,7 +153,7 @@ def _is_subset(a: ConfigurationInfo, b: ConfigurationInfo) -> bool:
             return False
     return True
 
-def resolve_modifier(cfg: ConfigurationInfo, modifier: CfgModifierInfo) -> ConstraintValueInfo | None:
+def resolve_modifier(cfg: ConfigurationInfo, modifier: ModifierInfo) -> ConstraintValueInfo | None:
     # Resolve the modifier and return the constraint value to add to the configuration, if there is one
     if isinstance(modifier, ModifierSelectInfo):
         for key, sub_modifier in modifier.selector:
@@ -168,7 +168,7 @@ def resolve_modifier(cfg: ConfigurationInfo, modifier: CfgModifierInfo) -> Const
         return modifier
     fail("Internal error: Found unexpected modifier `{}` type `{}`".format(modifier, type(modifier)))
 
-def modifier_to_refs(modifier: CfgModifier, constraint_setting: str, location: ModifierLocation) -> list[str]:
+def modifier_to_refs(modifier: Modifier, constraint_setting: str, location: ModifierLocation) -> list[str]:
     # Obtain a list of targets to analyze from a modifier.
     refs = []
     if isinstance(modifier, ModifierSelect):
@@ -183,7 +183,7 @@ def modifier_to_refs(modifier: CfgModifier, constraint_setting: str, location: M
     return refs
 
 def _get_constraint_setting_deps(
-        modifier_info: CfgModifierInfo) -> list[TargetLabel]:
+        modifier_info: ModifierInfo) -> list[TargetLabel]:
     deps = []
     if isinstance(modifier_info, ModifierSelectInfo):
         for key, sub_modifier in modifier_info.selector:
@@ -195,7 +195,7 @@ def _get_constraint_setting_deps(
     return deps
 
 def get_constraint_setting_deps(
-        modifier_info: CfgModifierInfo) -> list[TargetLabel]:
+        modifier_info: ModifierInfo) -> list[TargetLabel]:
     # Get all constraint settings depended on by a modifier (from keys of `modifier_select`). The modifiers
     # for these constraint settings must be resolved before this modifier can be resolved.
     return dedupe(_get_constraint_setting_deps(modifier_info))

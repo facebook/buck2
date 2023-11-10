@@ -25,14 +25,14 @@ ModifierLocation = ModifierPackageLocation | ModifierTargetLocation | ModifierCl
 # Modifier types as how they appear to the user via `set_cfg_modifier` or `cfg_modifier` function.
 
 ModifierSelect = record(
-    # should be dict[str, "CfgModifier"] once recursive types are supported
+    # should be dict[str, "Modifier"] once recursive types are supported
     selector = dict[str, typing.Any],
 )
 
-CfgModifier = str | ModifierSelect
+Modifier = str | ModifierSelect
 
 TaggedModifier = record(
-    modifier = CfgModifier,
+    modifier = Modifier,
     location = ModifierLocation,
 )
 
@@ -42,14 +42,14 @@ TaggedModifier = record(
 # modifier type.
 
 ModifierSelectInfo = record(
-    # should be list[(ConfigurationInfo, "CfgModifierInfo")] once recursive types are supported
+    # should be list[(ConfigurationInfo, "ModifierInfo")] once recursive types are supported
     selector = list[(ConfigurationInfo, typing.Any)],
-    default = typing.Any,  # should be "CfgModifierInfo" | None with recursive types
+    default = typing.Any,  # should be "ModifierInfo" | None with recursive types
 )
 
-CfgModifierInfo = ConstraintValueInfo | ModifierSelectInfo
+ModifierInfo = ConstraintValueInfo | ModifierSelectInfo
 
 TaggedModifierInfo = record(
-    modifier_info = CfgModifierInfo,
+    modifier_info = ModifierInfo,
     location = ModifierLocation,
 )

@@ -6,9 +6,9 @@
 # of this source tree.
 
 load(":common.bzl", "cfg_modifier_common_impl", "merge_modifiers")
-load(":types.bzl", "CfgModifier", "ModifierPackageLocation")
+load(":types.bzl", "Modifier", "ModifierPackageLocation")
 
-def set_cfg_modifier(constraint_setting: str, modifier: CfgModifier):
+def set_cfg_modifier(constraint_setting: str, modifier: Modifier):
     """
     Sets a configuration modifier for all targets under this PACKAGE file. This can only be called from a PACKAGE file context
     (e.g. a PACKAGE file or a bzl file transitively loaded by a PACKAGE file).

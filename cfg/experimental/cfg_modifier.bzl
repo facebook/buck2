@@ -8,11 +8,11 @@
 load(":common.bzl", "cfg_modifier_common_impl")
 load(
     ":types.bzl",
-    "CfgModifier",
+    "Modifier",
     "ModifierTargetLocation",
     "TaggedModifier",  # @unused This is used in type annotation
 )
 
-def cfg_modifier(constraint_setting: str, modifier: CfgModifier) -> dict[str, TaggedModifier]:
+def cfg_modifier(constraint_setting: str, modifier: Modifier) -> dict[str, TaggedModifier]:
     key, modifier_with_loc = cfg_modifier_common_impl(constraint_setting, modifier, ModifierTargetLocation())
     return {key: modifier_with_loc}
