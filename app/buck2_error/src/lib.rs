@@ -22,6 +22,8 @@ mod format;
 mod root;
 mod source_location;
 
+use std::error::Error as StdError;
+
 pub use context::Context;
 /// A piece of metadata to indicate whether this error is an infra or user error.
 ///
@@ -73,40 +75,52 @@ pub use buck2_data::error::ErrorType;
 #[doc(inline)]
 pub use buck2_error_derive::ErrorForReexport as Error;
 
-#[doc(hidden)]
-pub mod __for_macro {
-    // Re-export this as a type alias so that crates can avoid having to specify
-    // `#![feature(provide_any)]`
-    pub type Demand<'a> = std::any::Demand<'a>;
+use crate::any::ProvidableContextMetadata;
+use crate::any::ProvidableRootMetadata;
 
-    pub use anyhow;
-    pub use thiserror;
+/// This type is re-exported to keep you from having to pick up an explicit
+/// `#![feature(provide_any)]`
+pub type Demand<'a> = std::any::Demand<'a>;
 
-    use crate::any::CheckErrorType;
-    use crate::any::ProvidableContextMetadata;
-    pub use crate::any::ProvidableRootMetadata;
-
-    pub fn provide_value_impl<'a, 'b>(
-        demand: &'b mut Demand<'a>,
-        category: Option<crate::Category>,
-        typ: Option<crate::ErrorType>,
-        source_file: &'static str,
-        source_location_extra: Option<&'static str>,
-        check_error_type: CheckErrorType,
-    ) -> &'b mut Demand<'a> {
-        if typ.is_some() {
-            let metadata = ProvidableRootMetadata {
-                typ,
-                check_error_type,
-            };
-            Demand::provide_value(demand, metadata);
-        }
-        let metadata = ProvidableContextMetadata {
-            category,
-            source_file,
-            source_location_extra,
+/// Provide metadata about an error.
+///
+/// This is a manual alternative to deriving `buck2_error::Error`, which should be preferred if at
+/// all possible. This function has a pretty strict contract: You must call it within the `provide`
+/// implementation for an error type `E`, and must pass `E` as the type parameter.
+///
+/// If the `typ` argument is provided, then this metadata is treated as "root-like." That means that
+/// this error will be treated as the error root and errors furthere down in the `.source()` chain
+/// will not be checked for context. However they will still be printed as a part of the `Display`
+/// and `Debug` impls on `buck2_error::Error`.
+///
+/// The `source_file` should just be `std::file!()`; the `source_location_extra` should be the type
+/// - and possibly variant - name, formatted as either `Type` or `Type::Variant`.
+pub fn provide_metadata<'a, 'b, E: StdError + Send + Sync + 'static>(
+    demand: &'b mut Demand<'a>,
+    category: Option<crate::Category>,
+    typ: Option<crate::ErrorType>,
+    source_file: &'static str,
+    source_location_extra: Option<&'static str>,
+) {
+    let check_error_type = ProvidableRootMetadata::gen_check_error_type::<E>();
+    if typ.is_some() {
+        let metadata = ProvidableRootMetadata {
+            typ,
             check_error_type,
         };
-        Demand::provide_value(demand, metadata)
+        Demand::provide_value(demand, metadata);
     }
+    let metadata = ProvidableContextMetadata {
+        category,
+        source_file,
+        source_location_extra,
+        check_error_type,
+    };
+    Demand::provide_value(demand, metadata);
+}
+
+#[doc(hidden)]
+pub mod __for_macro {
+    pub use anyhow;
+    pub use thiserror;
 }
