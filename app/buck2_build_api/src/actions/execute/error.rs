@@ -10,6 +10,9 @@
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::execute::request::OutputType;
 
+/// This type intentionally does not implement `std::error::Error`. That's because it represents an
+/// "incomplete" error - it needs more information like the command results, action keys, etc.
+/// before it can be turned into a `buck2_build_api::actions::error::ActionError`.
 #[derive(Debug)]
 pub enum ExecuteError {
     MissingOutputs {
