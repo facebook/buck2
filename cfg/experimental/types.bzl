@@ -11,16 +11,16 @@
 # that include where the bad modifier comes from.
 
 # Modifier defined in a PACKAGE file. We track path of that PACKAGE file.
-CfgModifierPackageLocation = record(package_path = str)
+ModifierPackageLocation = record(package_path = str)
 
 # Modifier defined on the target in buildfile.
-CfgModifierTargetLocation = record()
+ModifierTargetLocation = record()
 
 # Modifier specified via command line from the user
-CfgModifierCliLocation = record()
+ModifierCliLocation = record()
 
 # This is a handy way of specifying a rust-style enum in Starlark.
-CfgModifierLocation = CfgModifierPackageLocation | CfgModifierTargetLocation | CfgModifierCliLocation
+ModifierLocation = ModifierPackageLocation | ModifierTargetLocation | ModifierCliLocation
 
 # Modifier types as how they appear to the user via `set_cfg_modifier` or `cfg_modifier` function.
 
@@ -31,9 +31,9 @@ ModifierSelect = record(
 
 CfgModifier = str | ModifierSelect
 
-CfgModifierWithLocation = record(
+TaggedModifier = record(
     modifier = CfgModifier,
-    location = CfgModifierLocation,
+    location = ModifierLocation,
 )
 
 # Modifier types after analysis of configuration rules.
@@ -49,8 +49,7 @@ ModifierSelectInfo = record(
 
 CfgModifierInfo = ConstraintValueInfo | ModifierSelectInfo
 
-CfgModifierInfoWithLocation = record(
-    setting = ConstraintSettingInfo,
+TaggedModifierInfo = record(
     modifier_info = CfgModifierInfo,
-    location = CfgModifierLocation,
+    location = ModifierLocation,
 )

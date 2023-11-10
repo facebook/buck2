@@ -9,15 +9,15 @@ load("@prelude//:asserts.bzl", "asserts")
 load(
     ":types.bzl",
     "CfgModifier",
-    "CfgModifierCliLocation",
     "CfgModifierInfo",
-    "CfgModifierInfoWithLocation",
-    "CfgModifierLocation",
-    "CfgModifierPackageLocation",
-    "CfgModifierTargetLocation",
-    "CfgModifierWithLocation",
+    "ModifierCliLocation",
+    "ModifierLocation",
+    "ModifierPackageLocation",
     "ModifierSelect",
     "ModifierSelectInfo",
+    "ModifierTargetLocation",
+    "TaggedModifier",
+    "TaggedModifierInfo",
 )
 
 def constraint_setting_to_modifier_key(constraint_setting: str) -> str:
@@ -36,19 +36,19 @@ def modifier_key_to_constraint_setting(modifier_key: str) -> str:
 _TARGET_LOCATION_STR = "`metadata` attribute of target"
 _CLI_LOCATION_STR = "command line"
 
-def location_to_string(location: CfgModifierLocation) -> str:
-    if isinstance(location, CfgModifierPackageLocation):
+def location_to_string(location: ModifierLocation) -> str:
+    if isinstance(location, ModifierPackageLocation):
         return location.package_path
-    if isinstance(location, CfgModifierTargetLocation):
+    if isinstance(location, ModifierTargetLocation):
         return _TARGET_LOCATION_STR
-    if isinstance(location, CfgModifierCliLocation):
+    if isinstance(location, ModifierCliLocation):
         return _CLI_LOCATION_STR
     fail("Internal error. Unrecognized location type `{}` for location `{}`".format(type(location), location))
 
-def verify_normalized_target(target: str, param_context: str, location: CfgModifierLocation):
-    if isinstance(location, CfgModifierCliLocation):
-        fail("Internal error: location should not be CfgModifierCliLocation")
-    function_context = "set_cfg_modifier" if isinstance(location, CfgModifierPackageLocation) else "cfg_modifier"
+def verify_normalized_target(target: str, param_context: str, location: ModifierLocation):
+    if isinstance(location, ModifierCliLocation):
+        fail("Internal error: location should not be ModifierCliLocation")
+    function_context = "set_cfg_modifier" if isinstance(location, ModifierPackageLocation) else "cfg_modifier"
 
     # Do some basic checks that target looks reasonably valid and normalized
     # Targets should always be fully qualified to improve readability.
@@ -64,7 +64,7 @@ def verify_normalized_target(target: str, param_context: str, location: CfgModif
 _CONSTRAINT_SETTING_PARAM = "constraint_setting"
 _MODIFIER_PARAM = "modifier"
 
-def verify_normalized_modifier(modifier: CfgModifier, location: CfgModifierLocation):
+def verify_normalized_modifier(modifier: CfgModifier, location: ModifierLocation):
     if isinstance(modifier, ModifierSelect):
         for key, sub_modifier in modifier.selector.items():
             if key != "DEFAULT":
@@ -77,32 +77,32 @@ def verify_normalized_modifier(modifier: CfgModifier, location: CfgModifierLocat
 def cfg_modifier_common_impl(
         constraint_setting: str,
         modifier: CfgModifier,
-        location: CfgModifierLocation) -> (str, CfgModifierWithLocation):
+        location: ModifierLocation) -> (str, TaggedModifier):
     verify_normalized_target(constraint_setting, _CONSTRAINT_SETTING_PARAM, location)
     verify_normalized_modifier(modifier, location)
 
     modifier_key = constraint_setting_to_modifier_key(constraint_setting)
-    modifier_with_loc = CfgModifierWithLocation(
+    tagged_modifier = TaggedModifier(
         modifier = modifier,
         location = location,
     )
-    return modifier_key, modifier_with_loc
+    return modifier_key, tagged_modifier
 
-def merge_modifiers(modifiers: list[CfgModifierWithLocation] | None, modifier: CfgModifierWithLocation) -> list[CfgModifierWithLocation]:
-    if isinstance(modifier.modifier, str):
-        return [modifier]
+def merge_modifiers(tagged_modifiers: list[TaggedModifier] | None, tagged_modifier: TaggedModifier) -> list[TaggedModifier]:
+    if isinstance(tagged_modifier.modifier, str):
+        return [tagged_modifier]
 
     # `read_parent_package_value` returns an immutable value,
-    # so if `modifiers` is already a list, then we need to copy it to make it mutable.
-    modifiers = list(modifiers) if modifiers else []
-    modifiers.append(modifier)
-    return modifiers
+    # so if `tagged_modifiers` is already a list, then we need to copy it to make it mutable.
+    tagged_modifiers = list(tagged_modifiers) if tagged_modifiers else []
+    tagged_modifiers.append(tagged_modifier)
+    return tagged_modifiers
 
 def get_modifier_info(
         refs: dict[str, ProviderCollection],
         modifier: CfgModifier,
         constraint_setting: str,
-        location: CfgModifierLocation) -> CfgModifierInfo:
+        location: ModifierLocation) -> CfgModifierInfo:
     # Gets a modifier info from a modifier based on providers from `refs`.
     if isinstance(modifier, ModifierSelect):
         default = None
@@ -138,13 +138,12 @@ def get_modifier_info(
 def get_modifier_info_with_loc(
         refs: dict[str, ProviderCollection],
         constraint_setting: str,
-        modifier_with_loc: CfgModifierWithLocation) -> (TargetLabel, CfgModifierInfoWithLocation):
-    modifier_info = get_modifier_info(refs, modifier_with_loc.modifier)
+        tagged_modifier: TaggedModifier) -> (TargetLabel, TaggedModifierInfo):
+    modifier_info = get_modifier_info(refs, tagged_modifier.modifier)
     constraint_setting = refs[constraint_setting][ConstraintSettingInfo]
-    return constraint_setting.label, CfgModifierInfoWithLocation(
-        setting = constraint_setting,
+    return constraint_setting.label, TaggedModifierInfo(
         modifier_info = modifier_info,
-        location = modifier_with_loc.location,
+        location = tagged_modifier.location,
     )
 
 def _is_subset(a: ConfigurationInfo, b: ConfigurationInfo) -> bool:
@@ -169,7 +168,7 @@ def resolve_modifier(cfg: ConfigurationInfo, modifier: CfgModifierInfo) -> Const
         return modifier
     fail("Internal error: Found unexpected modifier `{}` type `{}`".format(modifier, type(modifier)))
 
-def modifier_to_refs(modifier: CfgModifier, constraint_setting: str, location: CfgModifierLocation) -> list[str]:
+def modifier_to_refs(modifier: CfgModifier, constraint_setting: str, location: ModifierLocation) -> list[str]:
     # Obtain a list of targets to analyze from a modifier.
     refs = []
     if isinstance(modifier, ModifierSelect):

@@ -18,9 +18,9 @@ load(
 load(":name.bzl", "cfg_name")
 load(
     ":types.bzl",
-    "CfgModifierCliLocation",
-    "CfgModifierInfoWithLocation",
-    "CfgModifierWithLocation",
+    "ModifierCliLocation",
+    "TaggedModifier",
+    "TaggedModifierInfo",
 )
 
 PostConstraintAnalysisParams = record(
@@ -28,15 +28,15 @@ PostConstraintAnalysisParams = record(
     # Merged modifier dictionaries from PACKAGE and target modifiers.
     # If a key exists in both PACKAGE and target modifiers, the target modifier
     # will override PACKAGE modifier for that key.
-    package_and_target_modifiers = dict[str, list[CfgModifierWithLocation]],
+    package_and_target_modifiers = dict[str, list[TaggedModifier]],
     cli_modifiers = list[str],
 )
 
 def cfg_constructor_pre_constraint_analysis(
         *,
         legacy_platform: PlatformInfo | None,
-        package_modifiers: dict[str, list[CfgModifierWithLocation]] | None,
-        target_modifiers: dict[str, CfgModifierWithLocation] | None,
+        package_modifiers: dict[str, list[TaggedModifier]] | None,
+        target_modifiers: dict[str, TaggedModifier] | None,
         cli_modifiers: list[str]) -> (list[str], PostConstraintAnalysisParams):
     """
     First stage of cfg constructor for modifiers.
@@ -87,19 +87,18 @@ def cfg_constructor_pre_constraint_analysis(
         cli_modifiers = cli_modifiers,
     )
 
-def _get_constraint_setting_and_modifier_infos(
+def _get_constraint_setting_and_tagged_modifier_infos(
         refs: dict[str, ProviderCollection],
         constraint_setting: str,
-        modifiers: list[CfgModifierWithLocation]) -> (TargetLabel, list[CfgModifierInfoWithLocation]):
+        modifiers: list[TaggedModifier]) -> (TargetLabel, list[TaggedModifierInfo]):
     constraint_setting_info = refs[constraint_setting][ConstraintSettingInfo]
-    modifier_infos = [CfgModifierInfoWithLocation(
+    modifier_infos = [TaggedModifierInfo(
         modifier_info = get_modifier_info(
             refs = refs,
             modifier = modifier_with_loc.modifier,
             constraint_setting = constraint_setting,
             location = modifier_with_loc.location,
         ),
-        setting = constraint_setting_info,
         location = modifier_with_loc.location,
     ) for modifier_with_loc in modifiers]
     return constraint_setting_info.label, modifier_infos
@@ -118,22 +117,21 @@ def cfg_constructor_post_constraint_analysis(
     Returns a PlatformInfo
     """
 
-    modifier_infos_with_loc = {}
+    constraint_setting_to_tagged_modifier_infos = {}
 
     for constraint_setting, modifiers in params.package_and_target_modifiers.items():
-        constraint_setting_label, modifier_infos = _get_constraint_setting_and_modifier_infos(
+        constraint_setting_label, tagged_modifier_infos = _get_constraint_setting_and_tagged_modifier_infos(
             refs = refs,
             constraint_setting = constraint_setting,
             modifiers = modifiers,
         )
-        modifier_infos_with_loc[constraint_setting_label] = modifier_infos
+        constraint_setting_to_tagged_modifier_infos[constraint_setting_label] = tagged_modifier_infos
 
     for modifier in params.cli_modifiers:
         constraint_value_info = refs[modifier][ConstraintValueInfo]
-        modifier_infos_with_loc[constraint_value_info.setting.label] = [CfgModifierInfoWithLocation(
+        constraint_setting_to_tagged_modifier_infos[constraint_value_info.setting.label] = [TaggedModifierInfo(
             modifier_info = constraint_value_info,
-            setting = constraint_value_info.setting,
-            location = CfgModifierCliLocation(),
+            location = ModifierCliLocation(),
         )]
 
     # Modifiers are resolved in topological ordering of modifier selects. For example, if the CPU modifier
@@ -143,14 +141,14 @@ def cfg_constructor_post_constraint_analysis(
     modifier_dep_graph = {
         constraint_setting: [
             dep
-            for modifier_info_with_loc in modifier_infos
-            for dep in get_constraint_setting_deps(modifier_info_with_loc.modifier_info)
+            for tagged_modifier_info in tagged_modifier_infos
+            for dep in get_constraint_setting_deps(tagged_modifier_info.modifier_info)
         ]
-        for constraint_setting, modifier_infos in modifier_infos_with_loc.items()
+        for constraint_setting, tagged_modifier_infos in constraint_setting_to_tagged_modifier_infos.items()
     }
     constraint_setting_order = post_order_traversal(modifier_dep_graph)
 
-    if not modifier_infos_with_loc:
+    if not constraint_setting_to_tagged_modifier_infos:
         # If there is no modifier and legacy platform is specified,
         # then return the legacy platform as is without changing the label or
         # configuration.
@@ -168,8 +166,8 @@ def cfg_constructor_post_constraint_analysis(
         values = {},
     )
     for constraint_setting in constraint_setting_order:
-        for modifier_info_with_loc in modifier_infos_with_loc[constraint_setting]:
-            constraint_value = resolve_modifier(cfg, modifier_info_with_loc.modifier_info)
+        for tagged_modifier_info in constraint_setting_to_tagged_modifier_infos[constraint_setting]:
+            constraint_value = resolve_modifier(cfg, tagged_modifier_info.modifier_info)
             if constraint_value:
                 cfg.constraints[constraint_setting] = constraint_value
 

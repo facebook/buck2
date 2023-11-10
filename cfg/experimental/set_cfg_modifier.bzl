@@ -6,7 +6,7 @@
 # of this source tree.
 
 load(":common.bzl", "cfg_modifier_common_impl", "merge_modifiers")
-load(":types.bzl", "CfgModifier", "CfgModifierPackageLocation")
+load(":types.bzl", "CfgModifier", "ModifierPackageLocation")
 
 def set_cfg_modifier(constraint_setting: str, modifier: CfgModifier):
     """
@@ -25,7 +25,7 @@ def set_cfg_modifier(constraint_setting: str, modifier: CfgModifier):
     key, modifier_with_loc = cfg_modifier_common_impl(
         constraint_setting,
         modifier,
-        CfgModifierPackageLocation(package_path = _get_package_path()),
+        ModifierPackageLocation(package_path = _get_package_path()),
     )
 
     modifiers = merge_modifiers(read_parent_package_value(key), modifier_with_loc)
