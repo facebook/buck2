@@ -24,7 +24,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
-use std::marker;
+use std::marker::PhantomData;
 use std::mem;
 use std::ops::Deref;
 use std::ptr;
@@ -37,7 +37,7 @@ use lock_free_hashtable::sharded::ShardedLockFreeRawTable;
 
 pub struct StaticInterner<T: 'static, H = DefaultHasher> {
     table: ShardedLockFreeRawTable<Box<InternedData<T>>, 64>,
-    _marker: marker::PhantomData<H>,
+    _marker: PhantomData<H>,
 }
 
 /// This structure is similar to `Hashed<T>`, but it is not parameterized by hash function.
@@ -160,7 +160,7 @@ impl<T: Display> Display for Intern<T> {
 struct Hashed<T, H> {
     hash: u64,
     value: T,
-    _marker: marker::PhantomData<H>,
+    _marker: PhantomData<H>,
 }
 
 impl<T: Hash, H: Hasher + Default> Hashed<T, H> {
@@ -176,7 +176,7 @@ impl<T: Hash, H: Hasher + Default> Hashed<T, H> {
         Hashed {
             hash,
             value,
-            _marker: marker::PhantomData,
+            _marker: PhantomData,
         }
     }
 }
@@ -186,7 +186,7 @@ impl<T: 'static, H> StaticInterner<T, H> {
     pub const fn new() -> StaticInterner<T, H> {
         StaticInterner {
             table: ShardedLockFreeRawTable::new(),
-            _marker: marker::PhantomData,
+            _marker: PhantomData,
         }
     }
 }
@@ -248,14 +248,14 @@ impl<T: 'static, H: Hasher + Default> StaticInterner<T, H> {
     pub fn iter(&'static self) -> Iter<T, H> {
         Iter {
             iter: self.table.iter(),
-            _marker: marker::PhantomData,
+            _marker: PhantomData,
         }
     }
 }
 
 pub struct Iter<T: 'static, H: 'static> {
     iter: lock_free_hashtable::sharded::Iter<'static, Box<InternedData<T>>, 64>,
-    _marker: marker::PhantomData<H>,
+    _marker: PhantomData<H>,
 }
 
 impl<T: 'static, H> Iterator for Iter<T, H> {
