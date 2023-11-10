@@ -6,9 +6,10 @@
 # of this source tree.
 
 load(":common.bzl", "cfg_modifier_common_impl", "merge_modifiers")
-load(":types.bzl", "Modifier", "ModifierPackageLocation")
+load(":set_cfg_constructor.bzl", "MODIFIER_METADATA_KEY")
+load(":types.bzl", "Modifier", "ModifierPackageLocation")  # @unused
 
-def set_cfg_modifier(constraint_setting: str, modifier: Modifier):
+def set_cfg_modifiers(modifiers: dict[str, Modifier]):
     """
     Sets a configuration modifier for all targets under this PACKAGE file. This can only be called from a PACKAGE file context
     (e.g. a PACKAGE file or a bzl file transitively loaded by a PACKAGE file).
@@ -22,17 +23,23 @@ def set_cfg_modifier(constraint_setting: str, modifier: Modifier):
             For example, to change the OS to linux in fbsource, this can be specified as "ovr_config//os/constraints:linux".
             TODO(scottcao): Add support for modifier select types.
     """
-    key, modifier_with_loc = cfg_modifier_common_impl(
-        constraint_setting,
-        modifier,
-        ModifierPackageLocation(package_path = _get_package_path()),
-    )
+    merged_modifiers = read_parent_package_value(MODIFIER_METADATA_KEY)
+    merged_modifiers = dict(merged_modifiers) if merged_modifiers else {}
 
-    modifiers = merge_modifiers(read_parent_package_value(key), modifier_with_loc)
+    for constraint_setting, modifier in modifiers.items():
+        key, modifier_with_loc = cfg_modifier_common_impl(
+            constraint_setting,
+            modifier,
+            ModifierPackageLocation(package_path = _get_package_path()),
+        )
+        merged_modifiers[key] = merge_modifiers(
+            merged_modifiers.get(key),
+            modifier_with_loc,
+        )
 
     write_package_value(
-        key,
-        modifiers,
+        MODIFIER_METADATA_KEY,
+        merged_modifiers,
         overwrite = True,
     )
 
