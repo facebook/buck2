@@ -102,18 +102,27 @@ def get_modifier_info(
         refs: dict[str, ProviderCollection],
         modifier: Modifier,
         constraint_setting: str,
-        location: ModifierLocation) -> ModifierInfo:
+        location: ModifierLocation,
+        constraint_setting_order: list[TargetLabel]) -> ModifierInfo:
     # Gets a modifier info from a modifier based on providers from `refs`.
     if isinstance(modifier, ModifierSelect):
         default = None
         modifier_selector_info = []
         for key, sub_modifier in modifier.selector.items():
             if key == "DEFAULT":
-                default = get_modifier_info(refs, sub_modifier, constraint_setting, location)
+                default = get_modifier_info(refs, sub_modifier, constraint_setting, location, constraint_setting_order)
             else:
-                configuration_info = refs[key][ConfigurationInfo]
-                sub_modifier_info = get_modifier_info(refs, sub_modifier, constraint_setting, location)
-                modifier_selector_info.append((configuration_info, sub_modifier_info))
+                cfg_info = refs[key][ConfigurationInfo]
+                for cfg_constraint_setting, cfg_constraint_value_info in cfg_info.constraints.items():
+                    asserts.true(
+                        cfg_constraint_setting in constraint_setting_order,
+                        (
+                            "modifier_select `{}` from `{}` selects on `{}` of constraint_setting `{}`, which is now allowed. " +
+                            "To select on this constraint, this constraint setting needs to be added to `buck2/cfg/experimental/cfg_constructor.bzl`"
+                        ).format(modifier, location_to_string(location), cfg_constraint_value_info.label, constraint_setting),
+                    )
+                sub_modifier_info = get_modifier_info(refs, sub_modifier, constraint_setting, location, constraint_setting_order)
+                modifier_selector_info.append((cfg_info, sub_modifier_info))
         return ModifierSelectInfo(
             default = default,
             selector = modifier_selector_info,
@@ -181,21 +190,3 @@ def modifier_to_refs(modifier: Modifier, constraint_setting: str, location: Modi
     else:
         fail("Internal error: Found unexpected modifier `{}` type `{}`".format(modifier, type(modifier)))
     return refs
-
-def _get_constraint_setting_deps(
-        modifier_info: ModifierInfo) -> list[TargetLabel]:
-    deps = []
-    if isinstance(modifier_info, ModifierSelectInfo):
-        for key, sub_modifier in modifier_info.selector:
-            for constraint_setting in key.constraints:
-                deps.append(constraint_setting)
-            deps += _get_constraint_setting_deps(sub_modifier)
-        if modifier_info.default:
-            deps += _get_constraint_setting_deps(modifier_info.default)
-    return deps
-
-def get_constraint_setting_deps(
-        modifier_info: ModifierInfo) -> list[TargetLabel]:
-    # Get all constraint settings depended on by a modifier (from keys of `modifier_select`). The modifiers
-    # for these constraint settings must be resolved before this modifier can be resolved.
-    return dedupe(_get_constraint_setting_deps(modifier_info))

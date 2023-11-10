@@ -5,10 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//utils:graph_utils.bzl", "post_order_traversal")
 load(
     ":common.bzl",
-    "get_constraint_setting_deps",
     "get_modifier_info",
     "merge_modifiers",
     "modifier_key_to_constraint_setting",
@@ -31,6 +29,19 @@ PostConstraintAnalysisParams = record(
     package_and_target_modifiers = dict[str, list[TaggedModifier]],
     cli_modifiers = list[str],
 )
+
+# List of constraint settings that can be selected on via `modifier_select`.
+# Modifiers for these constraints are resolved first before other modifiers,
+# if they exist. `modifier_select` keying on other constraint settings will
+# fail
+# TODO(scottcao): Find a better place to set this so that OSS users can add
+# their own constraints.
+CONSTRAINT_SETTING_ORDER = [
+    "ovr_config//build_mode/constraints:build_mode",
+    "ovr_config//os/constraints:os",
+    "ovr_config//cpu/constraints:cpu",
+    "ovr_config//build_mode/constraints:lto",
+]
 
 def cfg_constructor_pre_constraint_analysis(
         *,
@@ -74,7 +85,7 @@ def cfg_constructor_pre_constraint_analysis(
             modifier_with_loc,
         )
 
-    refs = []
+    refs = list(CONSTRAINT_SETTING_ORDER)
     for constraint_setting, modifiers in package_and_target_modifiers.items():
         refs.append(constraint_setting)
         for modifier_with_loc in modifiers:
@@ -87,10 +98,14 @@ def cfg_constructor_pre_constraint_analysis(
         cli_modifiers = cli_modifiers,
     )
 
+def get_constraint_setting_order(refs: dict[str, ProviderCollection]) -> list[TargetLabel]:
+    return [refs[constraint_setting][ConstraintSettingInfo].label for constraint_setting in CONSTRAINT_SETTING_ORDER]
+
 def _get_constraint_setting_and_tagged_modifier_infos(
         refs: dict[str, ProviderCollection],
         constraint_setting: str,
-        modifiers: list[TaggedModifier]) -> (TargetLabel, list[TaggedModifierInfo]):
+        modifiers: list[TaggedModifier],
+        constraint_setting_order: list[TargetLabel]) -> (TargetLabel, list[TaggedModifierInfo]):
     constraint_setting_info = refs[constraint_setting][ConstraintSettingInfo]
     modifier_infos = [TaggedModifierInfo(
         modifier_info = get_modifier_info(
@@ -98,6 +113,7 @@ def _get_constraint_setting_and_tagged_modifier_infos(
             modifier = modifier_with_loc.modifier,
             constraint_setting = constraint_setting,
             location = modifier_with_loc.location,
+            constraint_setting_order = constraint_setting_order,
         ),
         location = modifier_with_loc.location,
     ) for modifier_with_loc in modifiers]
@@ -118,12 +134,14 @@ def cfg_constructor_post_constraint_analysis(
     """
 
     constraint_setting_to_tagged_modifier_infos = {}
+    constraint_setting_order = get_constraint_setting_order(refs)
 
     for constraint_setting, modifiers in params.package_and_target_modifiers.items():
         constraint_setting_label, tagged_modifier_infos = _get_constraint_setting_and_tagged_modifier_infos(
             refs = refs,
             constraint_setting = constraint_setting,
             modifiers = modifiers,
+            constraint_setting_order = constraint_setting_order,
         )
         constraint_setting_to_tagged_modifier_infos[constraint_setting_label] = tagged_modifier_infos
 
@@ -133,20 +151,6 @@ def cfg_constructor_post_constraint_analysis(
             modifier_info = constraint_value_info,
             location = ModifierCliLocation(),
         )]
-
-    # Modifiers are resolved in topological ordering of modifier selects. For example, if the CPU modifier
-    # is a modifier_select on OS constraint, then the OS modifier must be resolved before the CPU modifier.
-    # To determine this order, we first construct a dep graph of constraint settings based on the modifier
-    # selects. Then we perform a post order traversal of the said graph.
-    modifier_dep_graph = {
-        constraint_setting: [
-            dep
-            for tagged_modifier_info in tagged_modifier_infos
-            for dep in get_constraint_setting_deps(tagged_modifier_info.modifier_info)
-        ]
-        for constraint_setting, tagged_modifier_infos in constraint_setting_to_tagged_modifier_infos.items()
-    }
-    constraint_setting_order = post_order_traversal(modifier_dep_graph)
 
     if not constraint_setting_to_tagged_modifier_infos:
         # If there is no modifier and legacy platform is specified,
@@ -165,6 +169,17 @@ def cfg_constructor_post_constraint_analysis(
         constraints = {},
         values = {},
     )
+
+    # Order modifiers by CONSTRAINT_SETTING_ORDER, then the rest of modifiers can go in any order
+    constraint_setting_order = [
+        constraint_setting
+        for constraint_setting in constraint_setting_order
+        if constraint_setting in constraint_setting_to_tagged_modifier_infos
+    ] + [
+        constraint_setting
+        for constraint_setting in constraint_setting_to_tagged_modifier_infos
+        if constraint_setting not in constraint_setting_order
+    ]
     for constraint_setting in constraint_setting_order:
         for tagged_modifier_info in constraint_setting_to_tagged_modifier_infos[constraint_setting]:
             constraint_value = resolve_modifier(cfg, tagged_modifier_info.modifier_info)
