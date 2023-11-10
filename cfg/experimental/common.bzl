@@ -182,3 +182,21 @@ def modifier_to_refs(modifier: CfgModifier, constraint_setting: str, location: C
     else:
         fail("Internal error: Found unexpected modifier `{}` type `{}`".format(modifier, type(modifier)))
     return refs
+
+def _get_constraint_setting_deps(
+        modifier_info: CfgModifierInfo) -> list[TargetLabel]:
+    deps = []
+    if isinstance(modifier_info, ModifierSelectInfo):
+        for key, sub_modifier in modifier_info.selector:
+            for constraint_setting in key.constraints:
+                deps.append(constraint_setting)
+            deps += _get_constraint_setting_deps(sub_modifier)
+        if modifier_info.default:
+            deps += _get_constraint_setting_deps(modifier_info.default)
+    return deps
+
+def get_constraint_setting_deps(
+        modifier_info: CfgModifierInfo) -> list[TargetLabel]:
+    # Get all constraint settings depended on by a modifier (from keys of `modifier_select`). The modifiers
+    # for these constraint settings must be resolved before this modifier can be resolved.
+    return dedupe(_get_constraint_setting_deps(modifier_info))
