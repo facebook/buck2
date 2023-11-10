@@ -46,7 +46,6 @@ use starlark::collections::SmallSet;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
-use starlark::values::structs::AllocStruct;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -175,14 +174,14 @@ async fn eval_post_constraint_analysis<'v>(
             let post_constraint_analysis_args = vec![
                 (
                     "refs",
-                    eval.heap().alloc(AllocStruct(
+                    eval.heap().alloc(
                         refs_providers_map
                             .into_iter()
                             .map(|(label, providers)| {
                                 (label, providers.value().owned_value(eval.frozen_heap()))
                             })
                             .collect::<SmallMap<String, Value<'_>>>(),
-                    )),
+                    ),
                 ),
                 ("params", params),
             ];
