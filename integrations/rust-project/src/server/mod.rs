@@ -400,7 +400,7 @@ fn handle_did_save_buck_file(
     projects[idx] = project;
 
     let notification = lsp_server::Notification::new(
-        UpdatedBuckTargets::METHOD.to_string(),
+        UpdatedBuckTargets::METHOD.to_owned(),
         UpdatedBuckTargetsParams { projects },
     );
 
