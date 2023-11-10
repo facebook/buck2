@@ -66,22 +66,14 @@ enum ConfigurationLookupError {
     Debug,
     Eq,
     PartialEq,
+    Hash,
+    Dupe,
     Ord,
     PartialOrd,
     Allocative,
     derive_more::Display
 )]
 pub struct ConfigurationData(Intern<HashedConfigurationPlatform>);
-
-/// Intern doesn't implement Hash.
-#[allow(clippy::derived_hash_with_manual_eq)] // The derived PartialEq (that uses pointer equality) is still correct.
-impl Hash for ConfigurationData {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.hash(state);
-    }
-}
-
-impl Dupe for ConfigurationData {}
 
 #[derive(Hash)]
 struct ConfigurationHashRef<'a>(&'a str);
