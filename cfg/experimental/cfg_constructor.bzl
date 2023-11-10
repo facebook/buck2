@@ -17,6 +17,7 @@ load(":name.bzl", "cfg_name")
 load(
     ":types.bzl",
     "ModifierCliLocation",
+    "ModifierLegacyPlatformLocation",
     "TaggedModifier",
     "TaggedModifierInfo",
 )
@@ -133,8 +134,28 @@ def cfg_constructor_post_constraint_analysis(
     Returns a PlatformInfo
     """
 
+    if not params.package_and_target_modifiers and not params.cli_modifiers:
+        # If there is no modifier and legacy platform is specified,
+        # then return the legacy platform as is without changing the label or
+        # configuration.
+        return params.legacy_platform or PlatformInfo(
+            # Empty configuration
+            label = "",
+            configuration = ConfigurationInfo(
+                constraints = {},
+                values = {},
+            ),
+        )
+
     constraint_setting_to_tagged_modifier_infos = {}
     constraint_setting_order = get_constraint_setting_order(refs)
+
+    if params.legacy_platform:
+        for constraint_setting, constraint_value_info in params.legacy_platform.configuration.constraints.items():
+            constraint_setting_to_tagged_modifier_infos[constraint_setting] = [TaggedModifierInfo(
+                modifier_info = constraint_value_info,
+                location = ModifierLegacyPlatformLocation(),
+            )]
 
     for constraint_setting, modifiers in params.package_and_target_modifiers.items():
         constraint_setting_label, tagged_modifier_infos = _get_constraint_setting_and_tagged_modifier_infos(
@@ -151,19 +172,6 @@ def cfg_constructor_post_constraint_analysis(
             modifier_info = constraint_value_info,
             location = ModifierCliLocation(),
         )]
-
-    if not constraint_setting_to_tagged_modifier_infos:
-        # If there is no modifier and legacy platform is specified,
-        # then return the legacy platform as is without changing the label or
-        # configuration.
-        return params.legacy_platform or PlatformInfo(
-            # Empty configuration
-            label = "",
-            configuration = ConfigurationInfo(
-                constraints = {},
-                values = {},
-            ),
-        )
 
     cfg = ConfigurationInfo(
         constraints = {},
@@ -185,13 +193,6 @@ def cfg_constructor_post_constraint_analysis(
             constraint_value = resolve_modifier(cfg, tagged_modifier_info.modifier_info)
             if constraint_value:
                 cfg.constraints[constraint_setting] = constraint_value
-
-    if params.legacy_platform:
-        # For backwards compatibility with legacy target platform, any constraint setting
-        # from legacy target platform not covered by modifiers will be added to the configuration
-        for key, value in params.legacy_platform.configuration.constraints.items():
-            if key not in cfg.constraints:
-                cfg.constraints[key] = value
 
     name = cfg_name(cfg)
     return PlatformInfo(

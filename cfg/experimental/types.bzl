@@ -19,8 +19,11 @@ ModifierTargetLocation = record()
 # Modifier specified via command line from the user
 ModifierCliLocation = record()
 
+# Modifier applied from the legacy target platform
+ModifierLegacyPlatformLocation = record()
+
 # This is a handy way of specifying a rust-style enum in Starlark.
-ModifierLocation = ModifierPackageLocation | ModifierTargetLocation | ModifierCliLocation
+ModifierLocation = ModifierPackageLocation | ModifierTargetLocation | ModifierCliLocation | ModifierLegacyPlatformLocation
 
 # Modifier types as how they appear to the user via `set_cfg_modifier` or `cfg_modifier` function.
 
