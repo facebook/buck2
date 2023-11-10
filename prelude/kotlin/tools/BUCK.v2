@@ -1,6 +1,6 @@
 prelude = native
 
-prelude.python_binary(
+prelude.python_bootstrap_binary(
     name = "compile_kotlin",
     main = "compile_kotlin.py",
     visibility = ["PUBLIC"],
@@ -9,7 +9,7 @@ prelude.python_binary(
     ],
 )
 
-prelude.python_library(
+prelude.python_bootstrap_library(
     name = "compile_kotlin_lib",
     srcs = [
         "compile_kotlin.py",

@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//utils:utils.bzl", "flatten")
+
 PythonBootstrapSources = provider(fields = {"srcs": provider_field(typing.Any, default = None)})
 
 PythonBootstrapToolchainInfo = provider(fields = {"interpreter": provider_field(typing.Any, default = None)})
@@ -14,7 +16,7 @@ def python_bootstrap_library_impl(ctx: AnalysisContext) -> list[Provider]:
     output = ctx.actions.symlinked_dir("__{}__".format(ctx.attrs.name), tree)
     return [
         DefaultInfo(default_output = output),
-        PythonBootstrapSources(srcs = ctx.attrs.srcs),
+        PythonBootstrapSources(srcs = dedupe(flatten([ctx.attrs.srcs] + [dep[PythonBootstrapSources].srcs for dep in ctx.attrs.deps]))),
     ]
 
 def python_bootstrap_binary_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -30,7 +32,7 @@ def python_bootstrap_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     for dep in ctx.attrs.deps:
         dep_srcs = dep[PythonBootstrapSources].srcs
         for src in dep_srcs:
-            if src.short_path in run_tree_recorded_deps:
+            if src.short_path in run_tree_recorded_deps and src != run_tree_inputs[src.short_path]:
                 original_dep = run_tree_recorded_deps[src.short_path]
                 fail("dependency `{}` and `{}` both declare a source file named `{}`, consider renaming one of these files to avoid collision".format(original_dep.label, dep.label, src.short_path))
             run_tree_inputs[src.short_path] = src

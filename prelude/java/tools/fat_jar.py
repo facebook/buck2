@@ -16,7 +16,7 @@ from shutil import copy, copytree
 from tempfile import TemporaryDirectory
 from typing import Dict, List
 
-from java.tools import utils
+import utils
 
 
 def _parse_args():

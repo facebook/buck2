@@ -11,7 +11,7 @@ import os
 import pathlib
 from tempfile import TemporaryDirectory
 
-from java.tools import utils
+import utils
 
 _JAVA_FILE_EXTENSION = [".java"]
 

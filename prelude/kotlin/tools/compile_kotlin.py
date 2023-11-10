@@ -14,7 +14,7 @@ import zipfile
 from tempfile import TemporaryDirectory
 from typing import List
 
-from java.tools import utils
+import utils
 
 _JAVA_OR_KOTLIN_FILE_EXTENSION = [".java", ".kt"]
 

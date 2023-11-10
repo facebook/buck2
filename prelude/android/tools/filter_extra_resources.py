@@ -9,7 +9,7 @@ import argparse
 import pathlib
 import shutil
 
-from java.tools import utils
+import utils
 
 ZIP_NOTHING_TO_DO_EXIT_CODE = 12
 

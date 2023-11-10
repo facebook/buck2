@@ -509,6 +509,7 @@ inlined_extra_attributes = {
         ),
     },
     "python_bootstrap_library": {
+        "deps": attrs.list(attrs.dep(providers = [PythonBootstrapSources]), default = []),
         "srcs": attrs.list(attrs.source()),
     },
     "python_library": {

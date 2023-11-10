@@ -12,7 +12,7 @@ import shutil
 import zipfile
 from tempfile import TemporaryDirectory
 
-from java.tools import utils
+import utils
 
 
 CLASSES_JAR_FILE_NAME = "classes.jar"
