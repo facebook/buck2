@@ -353,7 +353,7 @@ impl DaemonState {
                 create_io_provider(
                     fb,
                     fs.dupe(),
-                    legacy_configs.get(cells.root_cell()).ok(),
+                    root_config,
                     digest_config.cas_digest_config(),
                     init_ctx.enable_trace_io,
                 ),

@@ -19,7 +19,7 @@ use buck2_core::fs::project::ProjectRoot;
 pub async fn create_io_provider(
     fb: fbinit::FacebookInit,
     project_fs: ProjectRoot,
-    root_config: Option<&LegacyBuckConfig>,
+    root_config: &LegacyBuckConfig,
     cas_digest_config: CasDigestConfig,
     trace_io: bool,
 ) -> anyhow::Result<Arc<dyn IoProvider>> {
@@ -31,8 +31,7 @@ pub async fn create_io_provider(
             RolloutPercentage::from_bool(cfg!(any(target_os = "macos", target_os = "windows")));
 
         let allow_eden_io = root_config
-            .and_then(|c| c.parse("buck2", "allow_eden_io").transpose())
-            .transpose()?
+            .parse("buck2", "allow_eden_io")?
             .unwrap_or(allow_eden_io_default)
             .roll();
 
