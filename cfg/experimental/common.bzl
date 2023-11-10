@@ -182,3 +182,53 @@ def modifier_to_refs(modifier: Modifier, constraint_setting: str, location: Modi
     else:
         fail("Internal error: Found unexpected modifier `{}` type `{}`".format(modifier, type(modifier)))
     return refs
+
+def tagged_modifier_to_json(tagged_modifier: TaggedModifier) -> dict[str, typing.Any]:
+    return {
+        "location": _location_to_json(tagged_modifier.location),
+        "modifier": _modifier_to_json(tagged_modifier.modifier),
+        "_type": "TaggedModifier",
+    }
+
+def _modifier_to_json(modifier: Modifier) -> dict[str, typing.Any] | str:
+    if isinstance(modifier, ModifierSelect):
+        return {"_type": "ModifierSelect"} | {
+            k: _modifier_to_json(v)
+            for k, v in modifier.selector.items()
+        }
+    if isinstance(modifier, str):
+        return modifier
+    fail("Internal error: Found unexpected modifier `{}` type `{}`".format(modifier, type(modifier)))
+
+def _location_to_json(location: ModifierLocation) -> dict[str, str]:
+    if isinstance(location, ModifierPackageLocation):
+        return {"package_path": location.package_path, "_type": "ModifierPackageLocation"}
+    if isinstance(location, ModifierTargetLocation):
+        return {"_type": "ModifierTargetLocation"}
+    if isinstance(location, _LEGACY_PLATFORM_LOCATION_STR) or isinstance(location, _CLI_LOCATION_STR):
+        fail("Internal error: location shouldn't be specified as `{}`".format(type(location)))
+    fail("Internal error: unknown location `{}` with type `{}`".format(location, type(location)))
+
+def json_to_tagged_modifier(j: dict[str, typing.Any]) -> TaggedModifier:
+    if j["_type"] != "TaggedModifier":
+        fail("Internal error: `{}` is not a `TaggedModifier`".format(j))
+    return TaggedModifier(
+        location = _json_to_location(j["location"]),
+        modifier = _json_to_modifier(j["modifier"]),
+    )
+
+def _json_to_modifier(j: dict[str, typing.Any] | str) -> Modifier:
+    if isinstance(j, str):
+        return j
+    asserts.true(j.pop("_type") == "ModifierSelect", "Internal error: cannot deserialize modifier `{}`".format(j))
+    return ModifierSelect(
+        selector = {k: _json_to_modifier(v) for k, v in j.items()},
+    )
+
+def _json_to_location(j: dict[str, str]) -> ModifierLocation:
+    modifier_type = j.pop("_type")
+    if modifier_type == "ModifierPackageLocation":
+        return ModifierPackageLocation(package_path = j["package_path"])
+    if modifier_type == "ModifierTargetLocation":
+        return ModifierTargetLocation()
+    fail("Internal error: cannot deserialize location `{}`".format(j))
