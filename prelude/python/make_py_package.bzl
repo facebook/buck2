@@ -163,7 +163,7 @@ def make_py_package(
 
     preload_libraries = _preload_libraries_args(ctx, shared_libraries)
     manifest_module = generate_manifest_module(ctx, python_toolchain, srcs)
-    common_modules_args, dep_artifacts = _pex_modules_common_args(
+    common_modules_args, dep_artifacts, debug_artifacts = _pex_modules_common_args(
         ctx,
         pex_modules,
         {name: lib for name, (lib, _) in shared_libraries.items()},
@@ -179,6 +179,7 @@ def make_py_package(
         preload_libraries,
         common_modules_args,
         dep_artifacts,
+        debug_artifacts,
         main,
         hidden_resources,
         manifest_module,
@@ -197,6 +198,7 @@ def make_py_package(
             preload_libraries,
             common_modules_args,
             dep_artifacts,
+            debug_artifacts,
             main,
             hidden_resources,
             manifest_module,
@@ -217,6 +219,7 @@ def _make_py_package_impl(
         preload_libraries: cmd_args,
         common_modules_args: cmd_args,
         dep_artifacts: list[(ArgLike, str)],
+        debug_artifacts: list[(ArgLike, str)],
         main: EntryPoint,
         hidden_resources: [None, list[ArgLike]],
         manifest_module: [None, ArgLike],
@@ -255,6 +258,7 @@ def _make_py_package_impl(
         ctx,
         common_modules_args,
         dep_artifacts,
+        debug_artifacts,
         symlink_tree_path,
         manifest_module,
         pex_modules,
@@ -385,10 +389,11 @@ def _pex_bootstrap_args(
 def _pex_modules_common_args(
         ctx: AnalysisContext,
         pex_modules: PexModules,
-        shared_libraries: dict[str, LinkedObject]) -> (cmd_args, list[(ArgLike, str)]):
+        shared_libraries: dict[str, LinkedObject]) -> (cmd_args, list[(ArgLike, str)], list[(ArgLike, str)]):
     srcs = []
     src_artifacts = []
     deps = []
+    debug_artifacts = []
 
     srcs.extend(pex_modules.manifests.src_manifests())
     src_artifacts.extend(pex_modules.manifests.src_artifacts_with_paths())
@@ -442,7 +447,7 @@ def _pex_modules_common_args(
         )
         debuginfo_srcs_args = cmd_args(debuginfo_srcs_path)
         cmd.add(cmd_args(debuginfo_srcs_args, format = "@{}"))
-        deps.extend(debuginfo_files)
+        debug_artifacts.extend(debuginfo_files)
 
     if ctx.attrs.package_split_dwarf_dwp:
         if ctx.attrs.strip_libpar == "extract" and get_package_style(ctx) == PackageStyle("standalone") and cxx_is_gnu(ctx):
@@ -462,7 +467,7 @@ def _pex_modules_common_args(
         cmd.add(cmd_args(dwp_srcs_args, format = "@{}"))
         cmd.add(cmd_args(dwp_dests_path, format = "@{}"))
 
-        deps.extend(dwp)
+        debug_artifacts.extend(dwp)
 
     deps.extend([(lib.output, name) for name, lib in shared_libraries.items()])
 
@@ -472,14 +477,15 @@ def _pex_modules_common_args(
     )
 
     # HACK: exclude external_debug_info from InstallInfo by providing an empty path
-    deps.extend([(d, "") for d in external_debug_info])
+    debug_artifacts.extend([(d, "") for d in external_debug_info])
 
-    return (cmd, deps)
+    return (cmd, deps, debug_artifacts)
 
 def _pex_modules_args(
         ctx: AnalysisContext,
         common_args: cmd_args,
         dep_artifacts: list[(ArgLike, str)],
+        debug_artifacts: list[(ArgLike, str)],
         symlink_tree_path: [None, Artifact],
         manifest_module: [ArgLike, None],
         pex_modules: PexModules,
@@ -517,6 +523,8 @@ def _pex_modules_args(
         # Accumulate all the artifacts we depend on. Only add them to the command
         # if we are not going to create symlinks.
         cmd.hidden([a for a, _ in dep_artifacts])
+
+    cmd.hidden([a for a, _ in debug_artifacts])
 
     return cmd
 
