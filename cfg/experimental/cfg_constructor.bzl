@@ -5,8 +5,10 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//utils:graph_utils.bzl", "post_order_traversal")
 load(
     ":common.bzl",
+    "get_constraint_setting_deps",
     "get_modifier_info",
     "merge_modifiers",
     "modifier_key_to_constraint_setting",
@@ -134,6 +136,20 @@ def cfg_constructor_post_constraint_analysis(
             location = CfgModifierCliLocation(),
         )]
 
+    # Modifiers are resolved in topological ordering of modifier selects. For example, if the CPU modifier
+    # is a modifier_select on OS constraint, then the OS modifier must be resolved before the CPU modifier.
+    # To determine this order, we first construct a dep graph of constraint settings based on the modifier
+    # selects. Then we perform a post order traversal of the said graph.
+    modifier_dep_graph = {
+        constraint_setting: [
+            dep
+            for modifier_info_with_loc in modifier_infos
+            for dep in get_constraint_setting_deps(modifier_info_with_loc.modifier_info)
+        ]
+        for constraint_setting, modifier_infos in modifier_infos_with_loc.items()
+    }
+    constraint_setting_order = post_order_traversal(modifier_dep_graph)
+
     if not modifier_infos_with_loc:
         # If there is no modifier and legacy platform is specified,
         # then return the legacy platform as is without changing the label or
@@ -151,8 +167,8 @@ def cfg_constructor_post_constraint_analysis(
         constraints = {},
         values = {},
     )
-    for constraint_setting, modifier_infos in modifier_infos_with_loc.items():
-        for modifier_info_with_loc in modifier_infos:
+    for constraint_setting in constraint_setting_order:
+        for modifier_info_with_loc in modifier_infos_with_loc[constraint_setting]:
             constraint_value = resolve_modifier(cfg, modifier_info_with_loc.modifier_info)
             if constraint_value:
                 cfg.constraints[constraint_setting] = constraint_value
