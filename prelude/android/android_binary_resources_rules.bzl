@@ -305,7 +305,6 @@ def _maybe_filter_resources(
             continue
 
         filtered_res = res_info_to_out_res_dir[resource]
-        final_filtered_res = voltron_res_info_to_out_res_dir[resource] if is_voltron_language_pack_enabled else filtered_res
         filtered_aapt2_compile_output = aapt2_compile(
             ctx,
             filtered_res,
@@ -319,7 +318,7 @@ def _maybe_filter_resources(
             assets = resource.assets,
             manifest_file = resource.manifest_file,
             r_dot_java_package = resource.r_dot_java_package,
-            res = final_filtered_res,
+            res = filtered_res,
             text_symbols = resource.text_symbols,
         )
         filtered_resource_infos.append(filtered_resource)
