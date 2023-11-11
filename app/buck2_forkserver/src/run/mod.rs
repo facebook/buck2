@@ -582,35 +582,36 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(unix)]
     #[tokio::test]
     async fn test_kill_terminates_process_group() -> anyhow::Result<()> {
-        use std::str::FromStr;
+        let tempdir = tempfile::tempdir()?;
+        let tempfile_buffer = tempdir.path().join("stdout");
+        let tempfile = tempfile_buffer.as_path();
+        let tempfile_string = match tempfile.to_str() {
+            None => Err(anyhow::anyhow!("Failed to create temporary file string")),
+            Some(s) => Ok(s),
+        }?;
 
-        use nix::errno::Errno;
-        use nix::sys::signal;
-        use nix::unistd::Pid;
+        let cmd = if cfg!(windows) {
+            let mut cmd = background_command("powershell");
+            cmd.args(["-c", &("&(Get-Process -Id $PID).Path { Sleep 10; \"hello\" > ".to_owned() + tempfile_string + "}")]);
+            cmd
+        } else {
+            let mut cmd = background_command("sh");
+            cmd.arg("-c").arg("( ( sleep 10 && echo \"hello\" > ".to_owned() + tempfile_string + " ) )");
+            cmd
+        };
+        let timeout = if cfg!(windows) { 5 } else { 1 };
+        let (_status, _stdout, _stderr) =
+            gather_output(cmd, timeout_into_cancellation(Some(Duration::from_secs(timeout)))).await?;
 
-        // This command will spawn 2 subprocesses (subshells) and print the PID of the 2nd shell.
-        let mut cmd = background_command("sh");
-        cmd.arg("-c").arg("( ( echo $$ && sleep 1000 ) )");
-        let (_status, stdout, _stderr) =
-            gather_output(cmd, timeout_into_cancellation(Some(Duration::from_secs(1)))).await?;
-        let pid = i32::from_str(std::str::from_utf8(&stdout)?.trim())?;
+        tokio::time::sleep(Duration::from_secs(15)).await;
 
-        for _ in 0..10 {
-            // This does rely on no PID reuse but the odds of PIDs wrapping around all the way to the
-            // same PID we just used before we issue this kill seem low. So, we expect this to error
-            // out.
-            if matches!(signal::kill(Pid::from_raw(pid), None), Err(e) if e == Errno::ESRCH) {
-                return Ok(());
-            }
-
-            // This is awkward but unfortunately the process does not immediately disappear.
-            tokio::time::sleep(Duration::from_secs(1)).await;
+        if Path::exists(tempfile) {
+            Err(anyhow::anyhow!("Subprocess was not killed"))
+        } else {
+            Ok(())
         }
-
-        Err(anyhow::anyhow!("PID did not exit: {}", pid))
     }
 
     #[tokio::test]
