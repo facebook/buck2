@@ -235,7 +235,7 @@ def generate_rustdoc_test(
         )
         for soname, shared_lib in traverse_shared_library_info(shlib_info).items():
             shared_libs[soname] = shared_lib.lib
-    extra_link_args, runtime_files, _ = executable_shared_lib_arguments(
+    executable_args = executable_shared_lib_arguments(
         ctx.actions,
         compile_ctx.cxx_toolchain_info,
         resources,
@@ -256,7 +256,7 @@ def generate_rustdoc_test(
         ctx.actions,
         compile_ctx.cxx_toolchain_info,
         [
-            LinkArgs(flags = extra_link_args),
+            LinkArgs(flags = executable_args.extra_link_args),
             get_link_args_for_strategy(
                 ctx,
                 inherited_merged_link_infos(ctx, native_unbundle_deps, include_doc_deps = True),
@@ -298,7 +298,11 @@ def generate_rustdoc_test(
         "--test-args=--color=always",
     )
 
-    rustdoc_cmd.hidden(compile_ctx.symlinked_srcs, link_args_output.hidden, runtime_files)
+    rustdoc_cmd.hidden(
+        compile_ctx.symlinked_srcs,
+        link_args_output.hidden,
+        executable_args.runtime_files,
+    )
 
     rustdoc_cmd = _long_command(
         ctx = ctx,

@@ -171,7 +171,7 @@ def _rust_binary_common(
 
         # link groups shared libraries link args are directly added to the link command,
         # we don't have to add them here
-        extra_link_args, runtime_files, shared_libs_symlink_tree = executable_shared_lib_arguments(
+        executable_args = executable_shared_lib_arguments(
             ctx.actions,
             compile_ctx.cxx_toolchain_info,
             output,
@@ -188,7 +188,7 @@ def _rust_binary_common(
             params = params,
             dep_link_style = link_style,
             default_roots = default_roots,
-            extra_link_args = extra_link_args,
+            extra_link_args = executable_args.extra_link_args,
             predeclared_outputs = {Emit("link"): output},
             extra_flags = extra_flags,
             is_binary = True,
@@ -196,12 +196,13 @@ def _rust_binary_common(
             rust_cxx_link_group_info = rust_cxx_link_group_info,
         )
 
-        args = cmd_args(link.output).hidden(runtime_files)
+        args = cmd_args(link.output).hidden(executable_args.runtime_files)
         extra_targets = [("check", meta.output)] + meta.diag.items()
 
         # If we have some resources, write it to the resources JSON file and add
         # it and all resources to "runtime_files" so that we make to materialize
         # them with the final binary.
+        runtime_files = list(executable_args.runtime_files)
         if resources:
             resources_hidden = [create_resource_db(
                 ctx = ctx,
@@ -223,7 +224,7 @@ def _rust_binary_common(
                 {
                     "libraries": ["{}:{}[shared-libraries][{}]".format(ctx.label.path, ctx.label.name, name) for name in shared_libs.keys()],
                     "librariesdwp": ["{}:{}[shared-libraries][{}][dwp]".format(ctx.label.path, ctx.label.name, name) for name, lib in shared_libs.items() if lib.dwp],
-                    "rpathtree": ["{}:{}[rpath-tree]".format(ctx.label.path, ctx.label.name)] if shared_libs_symlink_tree else [],
+                    "rpathtree": ["{}:{}[rpath-tree]".format(ctx.label.path, ctx.label.name)] if executable_args.shared_libs_symlink_tree else [],
                 },
             ),
             sub_targets = {
@@ -235,9 +236,9 @@ def _rust_binary_common(
             },
         )]
 
-        if isinstance(shared_libs_symlink_tree, Artifact):
+        if isinstance(executable_args.shared_libs_symlink_tree, Artifact):
             sub_targets_for_link_style["rpath-tree"] = [DefaultInfo(
-                default_output = shared_libs_symlink_tree,
+                default_output = executable_args.shared_libs_symlink_tree,
                 other_outputs = [
                     lib.output
                     for lib in shared_libs.values()

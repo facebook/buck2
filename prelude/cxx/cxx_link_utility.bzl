@@ -143,16 +143,20 @@ def make_link_args(
 def shared_libs_symlink_tree_name(output: Artifact) -> str:
     return "__{}__shared_libs_symlink_tree".format(output.short_path)
 
-# Returns a tuple of:
-# - list of extra arguments,
-# - list of files/directories that should be present for executable to be run successfully
-# - optional shared libs symlink tree symlinked_dir action
+ExecutableSharedLibArguments = record(
+    extra_link_args = list[ArgLike],
+    # Files/directories that should be present for executable to be run successfully.
+    runtime_files = list[ArgLike],
+    # Optional shared libs symlink tree symlinked_dir action.
+    shared_libs_symlink_tree = [list[Artifact], Artifact, None],
+)
+
 def executable_shared_lib_arguments(
         actions: AnalysisActions,
         cxx_toolchain: CxxToolchainInfo,
         output: Artifact,
-        shared_libs: dict[str, LinkedObject]) -> (list[typing.Any], list[ArgLike], [list[Artifact], Artifact, None]):
-    extra_args = []
+        shared_libs: dict[str, LinkedObject]) -> ExecutableSharedLibArguments:
+    extra_link_args = []
     runtime_files = []
     shared_libs_symlink_tree = None
 
@@ -186,9 +190,13 @@ def executable_shared_lib_arguments(
 
             # We ignore_artifacts() here since we don't want the symlink tree to actually be there for the link.
             rpath_arg = cmd_args(shared_libs_symlink_tree, format = "-Wl,-rpath,{}/{{}}".format(rpath_reference)).relative_to(output, parent = 1).ignore_artifacts()
-            extra_args.append(rpath_arg)
+            extra_link_args.append(rpath_arg)
 
-    return (extra_args, runtime_files, shared_libs_symlink_tree)
+    return ExecutableSharedLibArguments(
+        extra_link_args = extra_link_args,
+        runtime_files = runtime_files,
+        shared_libs_symlink_tree = shared_libs_symlink_tree,
+    )
 
 def cxx_link_cmd_parts(toolchain: CxxToolchainInfo) -> ((RunInfo | cmd_args), cmd_args):
     # `toolchain_linker_flags` can either be a list of strings, `cmd_args` or `None`,

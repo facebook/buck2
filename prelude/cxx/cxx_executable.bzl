@@ -695,7 +695,7 @@ def _link_into_executable(
     else:
         output_name = "{}{}".format(executable_name if executable_name else get_cxx_executable_product_name(ctx), "." + binary_extension if binary_extension else "")
     output = ctx.actions.declare_output(output_name)
-    extra_args, runtime_files, shared_libs_symlink_tree = executable_shared_lib_arguments(
+    executable_args = executable_shared_lib_arguments(
         ctx.actions,
         get_cxx_toolchain_info(ctx),
         output,
@@ -708,14 +708,14 @@ def _link_into_executable(
         result_type = CxxLinkResultType("executable"),
         opts = merge_link_options(
             opts,
-            links = [LinkArgs(flags = extra_args)] + opts.links,
+            links = [LinkArgs(flags = executable_args.extra_link_args)] + opts.links,
         ),
     )
 
     return _CxxLinkExecutableResult(
         exe = link_result.linked_object,
-        runtime_files = runtime_files,
-        shared_libs_symlink_tree = shared_libs_symlink_tree,
+        runtime_files = executable_args.runtime_files,
+        shared_libs_symlink_tree = executable_args.shared_libs_symlink_tree,
         linker_map_data = link_result.linker_map_data,
     )
 

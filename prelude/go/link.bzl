@@ -24,6 +24,7 @@ load(
     "traverse_shared_library_info",
 )
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load(
     "@prelude//utils:utils.bzl",
     "map_idx",
@@ -65,9 +66,15 @@ def is_any_dep_cgo(deps: list[Dependency]) -> bool:
                     return True
     return False
 
-# TODO(cjhopman): Is link_style a LibOutputStyle or a LinkStrategy here? Based on returning an empty thing for link_style != shared,
-# it seems likely its intended to be LibOutputStyle, but it's called in places that are passing what appears to be a LinkStrategy.
-def _process_shared_dependencies(ctx: AnalysisContext, artifact: Artifact, deps: list[Dependency], link_style: LinkStyle):
+# TODO(cjhopman): Is link_style a LibOutputStyle or a LinkStrategy here? Based
+# on returning an empty thing for link_style != shared, it seems likely its
+# intended to be LibOutputStyle, but it's called in places that are passing what
+# appears to be a LinkStrategy.
+def _process_shared_dependencies(
+        ctx: AnalysisContext,
+        artifact: Artifact,
+        deps: list[Dependency],
+        link_style: LinkStyle) -> (list[ArgLike], list[ArgLike]):
     """
     Provides files and linker args needed to for binaries with shared library linkage.
     - the runtime files needed to run binary linked with shared libraries
@@ -84,14 +91,14 @@ def _process_shared_dependencies(ctx: AnalysisContext, artifact: Artifact, deps:
     for name, shared_lib in traverse_shared_library_info(shlib_info).items():
         shared_libs[name] = shared_lib.lib
 
-    extra_link_args, runtime_files, _ = executable_shared_lib_arguments(
+    executable_args = executable_shared_lib_arguments(
         ctx.actions,
         ctx.attrs._go_toolchain[GoToolchainInfo].cxx_toolchain_for_linking,
         artifact,
         shared_libs,
     )
 
-    return (runtime_files, extra_link_args)
+    return (executable_args.runtime_files, executable_args.extra_link_args)
 
 def link(
         ctx: AnalysisContext,
