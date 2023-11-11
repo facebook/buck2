@@ -51,6 +51,7 @@ use crate::run::stream_command_events;
 use crate::run::timeout_into_cancellation;
 use crate::run::DefaultKillProcess;
 use crate::run::GatherOutputStatus;
+use crate::run::ProcessDetails;
 
 // Not quite BoxStream: it has to be Sync (...)
 type RunStream =
@@ -167,6 +168,7 @@ impl Forkserver for UnixForkserverService {
                 cmd.stderr(File::create(OsStr::from_bytes(&std_redirects.stderr))?);
             }
             let child = cmd.spawn();
+            let process_details = child.map_err(anyhow::Error::from).and_then(ProcessDetails::new);
 
             let timeout = timeout_into_cancellation(timeout);
 
@@ -174,7 +176,7 @@ impl Forkserver for UnixForkserverService {
 
             let stream = match miniperf_output {
                 Some(out) => stream_command_events(
-                    child,
+                    process_details,
                     cancellation,
                     MiniperfStatusDecoder::new(out),
                     DefaultKillProcess {
@@ -184,7 +186,7 @@ impl Forkserver for UnixForkserverService {
                 )?
                 .left_stream(),
                 None => stream_command_events(
-                    child,
+                    process_details,
                     cancellation,
                     DefaultStatusDecoder,
                     DefaultKillProcess {

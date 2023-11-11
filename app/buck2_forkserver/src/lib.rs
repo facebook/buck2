@@ -9,6 +9,7 @@
 
 #![feature(error_generic_member_access)]
 #![feature(async_fn_in_trait)]
+#![feature(offset_of)]
 pub mod client;
 pub mod convert;
 pub mod run;

@@ -11,7 +11,6 @@ mod interruptible_async_read;
 pub mod status_decoder;
 
 use std::borrow::Cow;
-use std::io;
 use std::path::Path;
 use std::pin::Pin;
 use std::process::Command;
@@ -172,7 +171,7 @@ pub async fn timeout_into_cancellation(
 }
 
 pub fn stream_command_events<T>(
-    child: io::Result<Child>,
+    process_details: anyhow::Result<ProcessDetails>,
     cancellation: T,
     decoder: impl StatusDecoder,
     kill_process: impl KillProcess,
@@ -181,8 +180,8 @@ pub fn stream_command_events<T>(
 where
     T: Future<Output = anyhow::Result<GatherOutputStatus>> + Send,
 {
-    let mut child = match child {
-        Ok(child) => child,
+    let mut process_details = match process_details {
+        Ok(process_details) => process_details,
         Err(e) => {
             let event = Ok(CommandEvent::Exit(GatherOutputStatus::SpawnFailed(
                 e.to_string(),
@@ -192,8 +191,8 @@ where
     };
 
     let stdio = if stream_stdio {
-        let stdout = child.stdout.take().context("Child stdout is not piped")?;
-        let stderr = child.stderr.take().context("Child stderr is not piped")?;
+        let stdout = process_details.child.stdout.take().context("Child stdout is not piped")?;
+        let stderr = process_details.child.stderr.take().context("Child stderr is not piped")?;
 
         #[cfg(unix)]
         type Drainer<R> = self::interruptible_async_read::UnixNonBlockingDrainer<R>;
@@ -224,7 +223,7 @@ where
         // NOTE: This wrapping here is so that we release the borrow of `child` that stems from
         // `wait()` by the time we call kill_process a few lines down.
         let execute = async {
-            let status = child.wait();
+            let status = process_details.child.wait();
             futures::pin_mut!(status);
             futures::pin_mut!(cancellation);
 
@@ -238,7 +237,7 @@ where
             Outcome::Finished(status) => decoder.decode_status(status).await?.into(),
             Outcome::Cancelled(res) => {
                 kill_process
-                    .kill(&mut child)
+                    .kill(&mut process_details)
                     .await
                     .context("Failed to terminate child after timeout")?;
 
@@ -249,7 +248,7 @@ where
 
                 // We just killed the child, so this should finish immediately. We should still call
                 // this to release any process.
-                child
+                process_details.child
                     .wait()
                     .await
                     .context("Failed to await child after kill")?;
@@ -295,9 +294,10 @@ where
 {
     let cmd = prepare_command(cmd);
 
-    let child = spawn_retry_txt_busy(cmd, || tokio::time::sleep(Duration::from_millis(50))).await;
+    let process_details = spawn_retry_txt_busy(cmd, || tokio::time::sleep(Duration::from_millis(50))).await;
+
     let stream = stream_command_events(
-        child,
+        process_details,
         cancellation,
         DefaultStatusDecoder,
         DefaultKillProcess::default(),
@@ -306,10 +306,68 @@ where
     decode_command_event_stream(stream).await
 }
 
+#[cfg(windows)]
+pub struct WindowsJobHandle {
+    job_handle_as_integer: usize,
+}
+
+#[cfg(windows)]
+impl Drop for WindowsJobHandle {
+    fn drop(&mut self) {
+        let job_handle = self.job_handle_as_integer as *mut winapi::ctypes::c_void;
+        let close_handle_result;
+        unsafe {
+            close_handle_result = winapi::um::handleapi::CloseHandle(job_handle);
+        }
+
+        if close_handle_result == winapi::shared::minwindef::FALSE {
+            tracing::info!("Failed to close job handle with return code {}", close_handle_result);
+        }
+    }
+}
+
+#[cfg(windows)]
+impl WindowsJobHandle {
+    pub fn new(job_handle: *mut winapi::ctypes::c_void) -> WindowsJobHandle {
+        WindowsJobHandle {
+            job_handle_as_integer: job_handle as usize,
+        }
+    }
+
+    pub fn get_handle(&self) -> *mut winapi::ctypes::c_void {
+        self.job_handle_as_integer as *mut winapi::ctypes::c_void
+    }
+}
+
+pub struct ProcessDetails {
+    child: Child,
+    #[cfg(windows)]
+    job_handle: WindowsJobHandle,
+}
+
+impl ProcessDetails {
+    #[cfg(windows)]
+    pub fn new(child: tokio::process::Child) -> anyhow::Result<ProcessDetails> {
+        let job_handle = add_process_to_job(&child)?;
+        resume_process(&child)?;
+        Ok(ProcessDetails {
+            child,
+            job_handle,
+        })
+    }
+
+    #[cfg(unix)]
+    pub fn new(child: tokio::process::Child) -> anyhow::Result<ProcessDetails> {
+        Ok(ProcessDetails {
+            child,
+        })
+    }
+}
+
 /// Dependency injection for kill. We use this in testing.
 #[async_trait]
 pub trait KillProcess {
-    async fn kill(self, child: &mut Child) -> anyhow::Result<()>;
+    async fn kill(self, process_details: &mut ProcessDetails) -> anyhow::Result<()>;
 }
 
 #[derive(Default)]
@@ -319,8 +377,8 @@ pub struct DefaultKillProcess {
 
 #[async_trait]
 impl KillProcess for DefaultKillProcess {
-    async fn kill(self, child: &mut Child) -> anyhow::Result<()> {
-        let pid = match child.id() {
+    async fn kill(self, process_details: &mut ProcessDetails) -> anyhow::Result<()> {
+        let pid = match process_details.child.id() {
             Some(pid) => pid,
             None => {
                 // Child just exited, so in this case we don't want to kill anything.
@@ -337,11 +395,19 @@ impl KillProcess for DefaultKillProcess {
                 return kill_process_impl(pid, self.graceful_shutdown_timeout_s).await;
             }
         }
-        // `start_kill` is just `std::process::Child::kill` on Windows.
-        // Ignore the error because `kill` fails on Windows if the process has been terminated
-        // even if we did not wait for it.
-        let _ignore = child.start_kill();
-        Ok(())
+
+        #[cfg(windows)]
+        {
+            if true {
+                // On Windows we use Jobs to manage the processes so we don't
+                // use the default impl.
+                // We use `if true` here to do less conditional compilation
+                // or conditional dependencies.
+                return kill_job(&process_details.job_handle);
+            }
+        }
+
+        process_details.child.start_kill().map_err(anyhow::Error::from)
     }
 }
 
@@ -367,6 +433,20 @@ async fn kill_process_impl(
     } else {
         signal::killpg(Pid::from_raw(pid), Signal::SIGKILL)
             .with_context(|| format!("Failed to kill process {}", pid))
+    }
+}
+
+#[cfg(windows)]
+fn kill_job(job_handle: &WindowsJobHandle) -> anyhow::Result<()> {
+    unsafe {
+        let terminate_job_result = winapi::um::jobapi2::TerminateJobObject(job_handle.get_handle(), 1);
+
+        if terminate_job_result == winapi::shared::minwindef::FALSE {
+            Err(anyhow::Error::msg("Failed to terminate job to kill"))
+        }
+        else {
+            Ok(())
+        }
     }
 }
 
@@ -397,6 +477,12 @@ pub fn prepare_command(mut cmd: Command) -> tokio::process::Command {
         cmd.process_group(0);
     }
 
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW | winapi::um::winbase::CREATE_SUSPENDED);
+    }
+
     cmd.stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -421,7 +507,7 @@ pub fn prepare_command(mut cmd: Command) -> tokio::process::Command {
 async fn spawn_retry_txt_busy<F, D>(
     mut cmd: tokio::process::Command,
     mut delay: F,
-) -> io::Result<Child>
+) -> anyhow::Result<ProcessDetails>
 where
     F: FnMut() -> D,
     D: Future<Output = ()>,
@@ -435,12 +521,110 @@ where
         let is_txt_busy = matches!(res_errno, Err(Some(libc::ETXTBSY)));
 
         if attempts == 0 || !is_txt_busy {
-            return res;
+            return res.map_err(anyhow::Error::from).and_then(ProcessDetails::new);
         }
 
         delay().await;
 
         attempts -= 1;
+    }
+}
+
+#[cfg(windows)]
+fn add_process_to_job(child: &tokio::process::Child) -> anyhow::Result<WindowsJobHandle> {
+    let raw_process_handle = child.raw_handle().ok_or_else(|| anyhow::Error::msg("Failed to get the raw handle to the process"))?;
+    unsafe {
+        let raw_job_handle = winapi::um::jobapi2::CreateJobObjectW(std::ptr::null_mut(), std::ptr::null());
+        if raw_job_handle.is_null() {
+            return Err(anyhow::Error::msg("Failed to create job"));
+        }
+        let job_handle = WindowsJobHandle::new(raw_job_handle);
+
+        let assign_process_result = winapi::um::jobapi2::AssignProcessToJobObject(raw_job_handle, raw_process_handle);
+
+        if assign_process_result == winapi::shared::minwindef::FALSE {
+            Err(anyhow::Error::msg("Failed to assign process to job"))
+        }
+        else {
+            Ok(job_handle)
+        }
+    }
+}
+
+#[cfg(windows)]
+fn resume_process(child: &tokio::process::Child) -> anyhow::Result<()> {
+    let process_id = child.id().ok_or_else(|| anyhow::Error::msg("Failed to get the process id"))?;
+    let main_thread_id = get_main_thread(process_id)?;
+    resume_thread(main_thread_id)
+}
+
+#[cfg(windows)]
+fn get_main_thread(process_id: u32) -> anyhow::Result<winapi::shared::minwindef::DWORD> {
+    unsafe {
+        let snapshot_handle = winapi::um::tlhelp32::CreateToolhelp32Snapshot(winapi::um::tlhelp32::TH32CS_SNAPTHREAD, 0);
+
+        if snapshot_handle == winapi::um::handleapi::INVALID_HANDLE_VALUE {
+            return Err(anyhow::Error::msg("Failed to list threads"))
+        }
+
+        let mut thread_entry_32 = winapi::um::tlhelp32::THREADENTRY32 {
+            dwSize: std::mem::size_of::<winapi::um::tlhelp32::THREADENTRY32>() as u32,
+            cntUsage: 0,
+            th32ThreadID: 0,
+            th32OwnerProcessID: 0,
+            tpBasePri: 0,
+            tpDeltaPri: 0,
+            dwFlags: 0,
+        };
+        let raw_pointer_to_thread_entry_32 = &mut thread_entry_32  as *mut winapi::um::tlhelp32::THREADENTRY32;
+
+        let mut main_thread_id : Option<winapi::shared::minwindef::DWORD> = None;
+
+        let mut thread_result = winapi::um::tlhelp32::Thread32First(snapshot_handle, raw_pointer_to_thread_entry_32);
+        while thread_result == winapi::shared::minwindef::TRUE {
+            if thread_entry_32.dwSize as usize >= std::mem::offset_of!(winapi::um::tlhelp32::THREADENTRY32, th32OwnerProcessID) {
+                if thread_entry_32.th32OwnerProcessID == process_id {
+                    main_thread_id = Some(thread_entry_32.th32ThreadID);
+                    break;
+                }
+            }
+            thread_result = winapi::um::tlhelp32::Thread32Next(snapshot_handle, raw_pointer_to_thread_entry_32);
+        }
+
+        let close_handle_result = winapi::um::handleapi::CloseHandle(snapshot_handle);
+
+        if let Some(thread_id) = main_thread_id {
+            if close_handle_result == winapi::shared::minwindef::FALSE {
+                Err(anyhow::Error::msg("Failed to close thread snapshot handle"))
+            }
+            else {
+                Ok(thread_id)
+            }
+        }
+        else {
+            Err(anyhow::Error::msg("Failed to find thread to resume"))
+        }
+    }
+}
+
+#[cfg(windows)]
+fn resume_thread(thread_id: winapi::shared::minwindef::DWORD) -> anyhow::Result<()> {
+    unsafe {
+        let thread_handle = winapi::um::processthreadsapi::OpenThread(winapi::um::winnt::THREAD_SUSPEND_RESUME, winapi::shared::minwindef::FALSE, thread_id);
+        if thread_handle.is_null() {
+            return Err(anyhow::Error::msg("Failed to open thread to resume"));
+        }
+        let resume_thread_result = winapi::um::processthreadsapi::ResumeThread(thread_handle);
+        let close_handle_result = winapi::um::handleapi::CloseHandle(thread_handle);
+        if resume_thread_result == winapi::shared::minwindef::DWORD::MAX {
+            Err(anyhow::Error::msg("Failed to resume thread"))
+        }
+        else if close_handle_result == winapi::shared::minwindef::FALSE {
+            Err(anyhow::Error::msg("Failed to close thread handle"))
+        }
+        else {
+            Ok(())
+        }
     }
 }
 
@@ -555,7 +739,7 @@ mod tests {
         file.write_all(b"#!/usr/bin/env bash\ntrue\n").await?;
 
         let cmd = async_background_command(&bin);
-        let mut child = spawn_retry_txt_busy(cmd, {
+        let mut process_details = spawn_retry_txt_busy(cmd, {
             let mut file = Some(file);
             move || {
                 file.take();
@@ -564,7 +748,7 @@ mod tests {
         })
         .await?;
 
-        let status = child.wait().await?;
+        let status = process_details.child.wait().await?;
         assert_eq!(status.code(), Some(0));
 
         Ok(())
@@ -623,9 +807,9 @@ mod tests {
         };
         cmd.args(["-c", "exit 0"]);
 
-        let child = prepare_command(cmd).spawn();
+        let process_details = prepare_command(cmd).spawn().map_err(anyhow::Error::from).and_then(ProcessDetails::new);
         let mut events = stream_command_events(
-            child,
+            process_details,
             futures::future::pending(),
             DefaultStatusDecoder,
             DefaultKillProcess::default(),
@@ -662,12 +846,12 @@ mod tests {
 
         #[async_trait]
         impl KillProcess for Kill {
-            async fn kill(self, child: &mut Child) -> anyhow::Result<()> {
+            async fn kill(self, process_details: &mut ProcessDetails) -> anyhow::Result<()> {
                 *self.killed.lock().unwrap() = true;
 
                 // We still need to kill the process. On Windows in particular our test will hang
                 // if we do not.
-                DefaultKillProcess::default().kill(child).await
+                DefaultKillProcess::default().kill(process_details).await
             }
         }
 
@@ -700,10 +884,10 @@ mod tests {
         cmd.args(["-c", "sleep 10000"]);
 
         let mut cmd = prepare_command(cmd);
-        let child = cmd.spawn();
+        let process_details = cmd.spawn().map_err(anyhow::Error::from).and_then(ProcessDetails::new);
 
         let stream = stream_command_events(
-            child,
+            process_details,
             timeout_into_cancellation(Some(Duration::from_secs(1))),
             Decoder {
                 killed: killed.dupe(),
@@ -735,9 +919,9 @@ mod tests {
         let stdout = tempdir.path().join("stdout");
         cmd.stdout(std::fs::File::create(stdout.clone())?);
 
-        let child = cmd.spawn();
+        let process_details = cmd.spawn().map_err(anyhow::Error::from).and_then(ProcessDetails::new);
         let mut events = stream_command_events(
-            child,
+            process_details,
             futures::future::pending(),
             DefaultStatusDecoder,
             DefaultKillProcess::default(),
