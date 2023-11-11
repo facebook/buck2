@@ -12,7 +12,7 @@ use dupe::Dupe;
 use fnv::FnvHasher;
 use once_cell::sync::Lazy;
 use static_interner::Intern;
-use static_interner::StaticInterner;
+use static_interner::Interner;
 
 use crate::configuration::data::ConfigurationData;
 
@@ -34,7 +34,7 @@ struct ConfigurationPairData {
 #[derive(Debug, Clone, Dupe, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
 pub struct Configuration(Intern<ConfigurationPairData>);
 
-static INTERNER: StaticInterner<ConfigurationPairData, FnvHasher> = StaticInterner::new();
+static INTERNER: Interner<ConfigurationPairData, FnvHasher> = Interner::new();
 
 impl Configuration {
     #[inline]

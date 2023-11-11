@@ -20,7 +20,7 @@ use once_cell::sync::Lazy;
 use serde::Serialize;
 use serde::Serializer;
 use static_interner::Intern;
-use static_interner::StaticInterner;
+use static_interner::Interner;
 
 use crate::configuration::bound_id::BoundConfigurationId;
 use crate::configuration::bound_label::BoundConfigurationLabel;
@@ -84,7 +84,7 @@ impl<'a> Equivalent<HashedConfigurationPlatform> for ConfigurationHashRef<'a> {
     }
 }
 
-static INTERNER: StaticInterner<HashedConfigurationPlatform> = StaticInterner::new();
+static INTERNER: Interner<HashedConfigurationPlatform> = Interner::new();
 
 impl ConfigurationData {
     /// Produces a "bound" configuration for a platform. The label should be a unique identifier for the data.

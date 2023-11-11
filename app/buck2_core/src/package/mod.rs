@@ -51,7 +51,7 @@ use fnv::FnvHasher;
 use serde::Serialize;
 use serde::Serializer;
 use static_interner::Intern;
-use static_interner::StaticInterner;
+use static_interner::Interner;
 
 use crate::cells::cell_path::CellPath;
 use crate::cells::cell_path::CellPathRef;
@@ -112,7 +112,7 @@ impl<'a> Equivalent<PackageLabelData> for PackageLabelDataRef<'a> {
     }
 }
 
-static INTERNER: StaticInterner<PackageLabelData, FnvHasher> = StaticInterner::new();
+static INTERNER: Interner<PackageLabelData, FnvHasher> = Interner::new();
 
 impl PackageLabel {
     #[inline]

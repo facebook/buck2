@@ -20,7 +20,7 @@ use dupe::Dupe;
 use once_cell::sync::Lazy;
 use starlark_map::sorted_map::SortedMap;
 use static_interner::Intern;
-use static_interner::StaticInterner;
+use static_interner::Interner;
 
 #[derive(Debug, Default, Eq, Hash, PartialEq, Clone, Dupe, Allocative)]
 pub struct LocalExecutorOptions {
@@ -32,7 +32,7 @@ pub struct RemoteExecutorUseCase(Intern<String>);
 
 impl RemoteExecutorUseCase {
     pub fn new(use_case: String) -> Self {
-        static USE_CASE_INTERNER: StaticInterner<String> = StaticInterner::new();
+        static USE_CASE_INTERNER: Interner<String> = Interner::new();
         Self(USE_CASE_INTERNER.intern(use_case))
     }
 

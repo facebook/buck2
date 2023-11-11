@@ -16,7 +16,7 @@ use dupe::Dupe;
 use equivalent::Equivalent;
 use fnv::FnvHasher;
 use static_interner::Intern;
-use static_interner::StaticInterner;
+use static_interner::Interner;
 
 #[derive(Debug, buck2_error::Error)]
 enum CellNameError {
@@ -49,7 +49,7 @@ impl<'a> From<CellNameDataRef<'a>> for CellNameData {
     }
 }
 
-static INTERNER: StaticInterner<CellNameData, FnvHasher> = StaticInterner::new();
+static INTERNER: Interner<CellNameData, FnvHasher> = Interner::new();
 
 /// A 'CellName' is a canonicalized, human-readable name that corresponds to a
 /// 'CellInstance'. There should be a one to one mapping between a 'CellName'

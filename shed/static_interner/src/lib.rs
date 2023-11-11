@@ -35,7 +35,7 @@ use dupe::Dupe;
 use equivalent::Equivalent;
 use lock_free_hashtable::sharded::ShardedLockFreeRawTable;
 
-pub struct StaticInterner<T: 'static, H = DefaultHasher> {
+pub struct Interner<T: 'static, H = DefaultHasher> {
     table: ShardedLockFreeRawTable<Box<InternedData<T>>, 64>,
     _marker: PhantomData<H>,
 }
@@ -51,7 +51,7 @@ struct InternedData<T: 'static> {
 ///
 /// Equality of this type is a pointer comparison.
 /// But note, this works correctly only if `Intern` pointers created
-/// from the same instance of `StaticInterner`.
+/// from the same instance of `Interner`.
 #[derive(Debug)]
 pub struct Intern<T: 'static> {
     pointer: &'static InternedData<T>,
@@ -181,17 +181,17 @@ impl<T: Hash, H: Hasher + Default> Hashed<T, H> {
     }
 }
 
-impl<T: 'static, H> StaticInterner<T, H> {
+impl<T: 'static, H> Interner<T, H> {
     /// Create a new interner for given type.
-    pub const fn new() -> StaticInterner<T, H> {
-        StaticInterner {
+    pub const fn new() -> Interner<T, H> {
+        Interner {
             table: ShardedLockFreeRawTable::new(),
             _marker: PhantomData,
         }
     }
 }
 
-impl<T: 'static, H: Hasher + Default> StaticInterner<T, H> {
+impl<T: 'static, H: Hasher + Default> Interner<T, H> {
     /// Allocate a value, or return previously allocated one.
     pub fn intern<Q>(&'static self, value: Q) -> Intern<T>
     where
@@ -274,9 +274,9 @@ mod tests {
     use equivalent::Equivalent;
 
     use crate::Intern;
-    use crate::StaticInterner;
+    use crate::Interner;
 
-    static STRING_INTERNER: StaticInterner<String> = StaticInterner::new();
+    static STRING_INTERNER: Interner<String> = Interner::new();
 
     #[derive(Hash, Eq, PartialEq)]
     struct StrRef<'a>(&'a str);
@@ -326,7 +326,7 @@ mod tests {
         }
     }
 
-    static TEST_GET_INTERNER: StaticInterner<String> = StaticInterner::new();
+    static TEST_GET_INTERNER: Interner<String> = Interner::new();
     #[test]
     fn test_get() {
         let interner = &TEST_GET_INTERNER;
@@ -339,7 +339,7 @@ mod tests {
         assert_eq!(interner.get(StrRef("world")), None);
     }
 
-    static TEST_ITER_INTERNER: StaticInterner<&'static str> = StaticInterner::new();
+    static TEST_ITER_INTERNER: Interner<&'static str> = Interner::new();
     #[test]
     fn test_iter() {
         let interner = &TEST_ITER_INTERNER;
@@ -363,7 +363,7 @@ mod tests {
         );
     }
 
-    static TEST_POINTER_INTERNER: StaticInterner<&'static str> = StaticInterner::new();
+    static TEST_POINTER_INTERNER: Interner<&'static str> = Interner::new();
     #[test]
     fn test_pointer_roundtrip() {
         let one = TEST_POINTER_INTERNER.intern("one");

@@ -15,7 +15,7 @@ use dupe::Dupe;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::Entry;
 use static_interner::Intern;
-use static_interner::StaticInterner;
+use static_interner::Interner;
 
 use crate::cells::cell_path::CellPath;
 use crate::target::label::TargetLabel;
@@ -43,7 +43,7 @@ impl<'a> From<&'a PluginKindInner> for PluginKindInner {
 )]
 pub struct PluginKind(Intern<PluginKindInner>);
 
-static PLUGIN_KIND_INTERNER: StaticInterner<PluginKindInner> = StaticInterner::new();
+static PLUGIN_KIND_INTERNER: Interner<PluginKindInner> = Interner::new();
 
 impl PluginKind {
     /// Creates a new `PluginKind` instance.
@@ -80,7 +80,7 @@ enum PluginKindSetUnpacked {
 static_assertions::assert_eq_size!(PluginKindSet, usize);
 static_assertions::assert_eq_size!(PluginKindSetUnpacked, [usize; 2]);
 
-static PLUGIN_KIND_SET_INTERNER: StaticInterner<Vec<(PluginKind, bool)>> = StaticInterner::new();
+static PLUGIN_KIND_SET_INTERNER: Interner<Vec<(PluginKind, bool)>> = Interner::new();
 
 impl PluginKindSet {
     pub const EMPTY: Self = Self::pack(PluginKindSetUnpacked::None);
