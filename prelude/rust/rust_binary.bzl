@@ -82,7 +82,7 @@ def _rust_binary_common(
         compile_ctx: CompileContext,
         default_roots: list[str],
         extra_flags: list[str],
-        allow_cache_upload: bool) -> (list[[DefaultInfo, RunInfo]], cmd_args):
+        allow_cache_upload: bool) -> (list[Provider], cmd_args):
     toolchain_info = compile_ctx.toolchain_info
 
     simple_crate = attr_simple_crate_for_filenames(ctx)
@@ -332,7 +332,7 @@ def _rust_binary_common(
     ]
     return (providers, compiled_outputs.args)
 
-def rust_binary_impl(ctx: AnalysisContext) -> list[[DefaultInfo, RunInfo]]:
+def rust_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     compile_ctx = compile_context(ctx)
 
     providers, args = _rust_binary_common(
@@ -345,7 +345,7 @@ def rust_binary_impl(ctx: AnalysisContext) -> list[[DefaultInfo, RunInfo]]:
 
     return providers + [RunInfo(args = args)]
 
-def rust_test_impl(ctx: AnalysisContext) -> list[[DefaultInfo, RunInfo, ExternalRunnerTestInfo]]:
+def rust_test_impl(ctx: AnalysisContext) -> list[Provider]:
     compile_ctx = compile_context(ctx)
     toolchain_info = compile_ctx.toolchain_info
 
