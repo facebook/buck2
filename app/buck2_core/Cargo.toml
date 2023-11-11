@@ -48,8 +48,8 @@ gazebo = { workspace = true }
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
 gazebo_lint.version = "0.1"
-internment_tweaks = { path = "../../shed/internment_tweaks" }
 sorted_vector_map = { workspace = true }
+static_interner = { path = "../../shed/static_interner" }
 
 buck2_data = { workspace = true }
 buck2_error = { workspace = true }

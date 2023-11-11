@@ -48,10 +48,10 @@ use derive_more::Display;
 use dupe::Dupe;
 use equivalent::Equivalent;
 use fnv::FnvHasher;
-use internment_tweaks::Intern;
-use internment_tweaks::StaticInterner;
 use serde::Serialize;
 use serde::Serializer;
+use static_interner::Intern;
+use static_interner::StaticInterner;
 
 use crate::cells::cell_path::CellPath;
 use crate::cells::cell_path::CellPathRef;

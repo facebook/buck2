@@ -17,10 +17,10 @@ use std::sync::Arc;
 use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
-use internment_tweaks::Intern;
-use internment_tweaks::StaticInterner;
 use once_cell::sync::Lazy;
 use starlark_map::sorted_map::SortedMap;
+use static_interner::Intern;
+use static_interner::StaticInterner;
 
 #[derive(Debug, Default, Eq, Hash, PartialEq, Clone, Dupe, Allocative)]
 pub struct LocalExecutorOptions {

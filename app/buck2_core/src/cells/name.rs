@@ -15,8 +15,8 @@ use derive_more::Display;
 use dupe::Dupe;
 use equivalent::Equivalent;
 use fnv::FnvHasher;
-use internment_tweaks::Intern;
-use internment_tweaks::StaticInterner;
+use static_interner::Intern;
+use static_interner::StaticInterner;
 
 #[derive(Debug, buck2_error::Error)]
 enum CellNameError {

@@ -1,7 +1,7 @@
 [package]
 description = "Similar to `internment` crate, but with interface and performance tweaks"
 edition = "2021"
-name = "internment_tweaks"
+name = "static_interner"
 version = "0.1.0"
 
 [dependencies]

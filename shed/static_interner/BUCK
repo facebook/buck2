@@ -4,7 +4,7 @@ load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 oncall("build_infra")
 
 rust_library(
-    name = "internment_tweaks",
+    name = "static_interner",
     srcs = glob(["src/**/*.rs"]),
     crate_root = "src/lib.rs",
     deps = [

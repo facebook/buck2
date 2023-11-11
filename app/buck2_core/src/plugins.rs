@@ -12,10 +12,10 @@ use std::collections::BTreeMap;
 use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
-use internment_tweaks::Intern;
-use internment_tweaks::StaticInterner;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::Entry;
+use static_interner::Intern;
+use static_interner::StaticInterner;
 
 use crate::cells::cell_path::CellPath;
 use crate::target::label::TargetLabel;

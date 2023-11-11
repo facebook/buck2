@@ -16,11 +16,11 @@ use allocative::Allocative;
 use buck2_data::ToProtoMessage;
 use dupe::Dupe;
 use equivalent::Equivalent;
-use internment_tweaks::Intern;
-use internment_tweaks::StaticInterner;
 use once_cell::sync::Lazy;
 use serde::Serialize;
 use serde::Serializer;
+use static_interner::Intern;
+use static_interner::StaticInterner;
 
 use crate::configuration::bound_id::BoundConfigurationId;
 use crate::configuration::bound_label::BoundConfigurationLabel;

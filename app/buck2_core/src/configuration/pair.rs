@@ -10,9 +10,9 @@
 use allocative::Allocative;
 use dupe::Dupe;
 use fnv::FnvHasher;
-use internment_tweaks::Intern;
-use internment_tweaks::StaticInterner;
 use once_cell::sync::Lazy;
+use static_interner::Intern;
+use static_interner::StaticInterner;
 
 use crate::configuration::data::ConfigurationData;
 
