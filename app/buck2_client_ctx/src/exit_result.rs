@@ -101,7 +101,9 @@ impl ExitResult {
     }
 
     pub fn err(err: anyhow::Error) -> Self {
-        let exit_code = if let Some(io_error) = err.downcast_ref::<ClientIoError>() && io_error.0.kind() == io::ErrorKind::BrokenPipe {
+        let exit_code = if let Some(io_error) = err.downcast_ref::<ClientIoError>()
+            && io_error.0.kind() == io::ErrorKind::BrokenPipe
+        {
             ExitCode::BrokenPipe
         } else {
             ExitCode::UnknownFailure

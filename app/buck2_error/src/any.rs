@@ -62,7 +62,9 @@ fn construct_root_from_recovered_error(
         typ,
         source_location,
     ))));
-    if let Some(context) = context && let Some(category) = context.category {
+    if let Some(context) = context
+        && let Some(category) = context.category
+    {
         e.context(category)
     } else {
         e
@@ -83,13 +85,18 @@ pub(crate) fn recover_crate_error(
             break base.0.clone();
         }
 
-        let context_metadata = if let Some(metadata) = request_value::<ProvidableContextMetadata>(&*cur) && (metadata.check_error_type)(&*cur).is_some() {
+        let context_metadata = if let Some(metadata) =
+            request_value::<ProvidableContextMetadata>(&*cur)
+            && (metadata.check_error_type)(&*cur).is_some()
+        {
             Some(metadata)
         } else {
             None
         };
 
-        if let Some(metadata) = request_value::<ProvidableRootMetadata>(&*cur) && (metadata.check_error_type)(&*cur).is_some() {
+        if let Some(metadata) = request_value::<ProvidableRootMetadata>(&*cur)
+            && (metadata.check_error_type)(&*cur).is_some()
+        {
             // FIXME(JakobDegen): `Marc` needs `try_map` here too
             let cur = Marc::map(cur, |e| (metadata.check_error_type)(e).unwrap());
             break construct_root_from_recovered_error(cur, metadata.typ, context_metadata);

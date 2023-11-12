@@ -46,7 +46,6 @@ impl ServerHandle {
 pub fn spawn_oneshot<T, L>(io: T, router: Router<L>) -> ServerHandle
 where
     T: AsyncRead + AsyncWrite + Send + Unpin + 'static + tonic::transport::server::Connected,
-
     L: Layer<Routes> + Send + 'static,
     L::Service: Service<
             http::Request<tonic::transport::Body>,

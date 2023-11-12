@@ -206,16 +206,24 @@ impl HttpClientBuilder {
             // Construct x2p unix socket client.
             // Note: This ignores (and does not require) the TLS config.
             #[cfg(unix)]
-            (proxies @ [_, ..], Some(timeout_config)) if let Some(unix_socket) = find_unix_proxy(proxies) => {
-                let timeout_connector = timeout_config.to_connector(hyper_unix_connector::UnixClient);
-                let proxy_connector = build_proxy_connector(&[unix_socket.clone()], timeout_connector, None);
+            (proxies @ [_, ..], Some(timeout_config))
+                if let Some(unix_socket) = find_unix_proxy(proxies) =>
+            {
+                let timeout_connector =
+                    timeout_config.to_connector(hyper_unix_connector::UnixClient);
+                let proxy_connector =
+                    build_proxy_connector(&[unix_socket.clone()], timeout_connector, None);
                 Arc::new(hyper::Client::builder().build::<_, Body>(proxy_connector))
             }
             #[cfg(unix)]
             (proxies @ [_, ..], None) if let Some(unix_socket) = find_unix_proxy(proxies) => {
-                let proxy_connector = build_proxy_connector(&[unix_socket.clone()], hyper_unix_connector::UnixClient, None);
+                let proxy_connector = build_proxy_connector(
+                    &[unix_socket.clone()],
+                    hyper_unix_connector::UnixClient,
+                    None,
+                );
                 Arc::new(hyper::Client::builder().build::<_, Body>(proxy_connector))
-            },
+            }
 
             // Construct x2p http proxy client.
             (proxies @ [_, ..], Some(timeout_config)) if self.supports_vpnless => {
@@ -239,25 +247,30 @@ impl HttpClientBuilder {
                 let https_connector = build_https_connector(self.tls_config.clone());
                 let timeout_connector = timeout_config.to_connector(https_connector);
                 // Re-use TLS config from https connection for communication with proxies.
-                let proxy_connector = build_proxy_connector(proxies, timeout_connector, Some(self.tls_config.clone()));
+                let proxy_connector = build_proxy_connector(
+                    proxies,
+                    timeout_connector,
+                    Some(self.tls_config.clone()),
+                );
                 Arc::new(hyper::Client::builder().build::<_, Body>(proxy_connector))
-            },
+            }
             (proxies @ [_, ..], None) => {
                 let https_connector = build_https_connector(self.tls_config.clone());
-                let proxy_connector = build_proxy_connector(proxies, https_connector, Some(self.tls_config.clone()));
+                let proxy_connector =
+                    build_proxy_connector(proxies, https_connector, Some(self.tls_config.clone()));
                 Arc::new(hyper::Client::builder().build::<_, Body>(proxy_connector))
-            },
+            }
 
             // Client with TLS only.
             ([], Some(timeout_config)) => {
                 let https_connector = build_https_connector(self.tls_config.clone());
                 let timeout_connector = timeout_config.to_connector(https_connector);
                 Arc::new(hyper::Client::builder().build::<_, Body>(timeout_connector))
-            },
+            }
             ([], None) => {
                 let https_connector = build_https_connector(self.tls_config.clone());
                 Arc::new(hyper::Client::builder().build::<_, Body>(https_connector))
-            },
+            }
         }
     }
 
