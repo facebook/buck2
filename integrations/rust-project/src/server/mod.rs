@@ -54,14 +54,18 @@ impl State {
         };
 
         let capabilities = serde_json::to_value(capabilities)?;
-        let _initialization_params = connection.initialize(capabilities)?;
+        let params = connection.initialize(capabilities)?;
+        let params: lsp_types::InitializeParams = serde_json::from_value(params)?;
+        let supports_multiple_projects = supports_multiple_projects(params).unwrap_or(false);
 
         let (sender, receiver) = (connection.sender, connection.receiver);
         let server = Server {
             sender: sender.clone(),
             receiver,
             req_queue: ReqQueue::default(),
+            supports_multiple_projects,
         };
+        info!(?supports_multiple_projects);
 
         handle
             .modify(|layers| {
@@ -247,6 +251,7 @@ pub(crate) struct Server {
     sender: Sender<lsp_server::Message>,
     receiver: Receiver<lsp_server::Message>,
     req_queue: ReqQueue<(String, Instant), ReqHandler>,
+    supports_multiple_projects: bool,
 }
 
 impl Server {
@@ -290,7 +295,7 @@ impl Server {
 fn handle_discover_buck_targets(
     state: &mut State,
     params: DiscoverBuckTargetParams,
-) -> Result<Vec<JsonProject>, anyhow::Error> {
+) -> Result<DiscoverBuckTargetsResult, anyhow::Error> {
     let State {
         server, projects, ..
     } = state;
@@ -335,9 +340,15 @@ fn handle_discover_buck_targets(
 
     let project = develop.run(targets)?;
     tracing::info!(crate_len = &project.crates.len(), "created index");
-    projects.push(project);
+    projects.push(project.clone());
 
-    Ok(projects.clone())
+    // backwards compatibility hack for older clients that expect only a JsonProject, not a `Vec<JsonProject>`.
+    // We'll remove this after a few days.
+    if server.supports_multiple_projects {
+        Ok(DiscoverBuckTargetsResult::Many(projects.clone()))
+    } else {
+        Ok(DiscoverBuckTargetsResult::Single(project))
+    }
 }
 
 fn handle_did_save_buck_file(
@@ -480,13 +491,26 @@ where
     Ok(res)
 }
 
+fn supports_multiple_projects(params: lsp_types::InitializeParams) -> Option<bool> {
+    let init_options = params.initialization_options?;
+    let supports_multiple_projects = init_options.get("multipleProjects")?.as_bool()?;
+    Some(supports_multiple_projects)
+}
+
 type ReqHandler = fn(&mut State, lsp_server::Response);
+
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DiscoverBuckTargetsResult {
+    Single(JsonProject),
+    Many(Vec<JsonProject>),
+}
 
 pub enum DiscoverBuckTargets {}
 
 impl lsp_types::request::Request for DiscoverBuckTargets {
     type Params = DiscoverBuckTargetParams;
-    type Result = Vec<JsonProject>;
+    type Result = DiscoverBuckTargetsResult;
     const METHOD: &'static str = "rust-project/discoverBuckTargets";
 }
 
