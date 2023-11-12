@@ -319,6 +319,7 @@ def _maybe_filter_resources(
             manifest_file = resource.manifest_file,
             r_dot_java_package = resource.r_dot_java_package,
             res = filtered_res,
+            voltron_res = voltron_res_info_to_out_res_dir[resource] if is_voltron_language_pack_enabled else None,
             text_symbols = resource.text_symbols,
         )
         filtered_resource_infos.append(filtered_resource)
@@ -356,7 +357,11 @@ def _maybe_generate_string_source_map(
         return None
 
     prefix = "voltron_" if is_voltron_string_source_map else ""
-    res_dirs = [resource_info.res for resource_info in resource_infos]
+    res_dirs = []
+    if is_voltron_string_source_map:
+        res_dirs = [resource_info.voltron_res for resource_info in resource_infos if resource_info.voltron_res != None]
+    if len(res_dirs) == 0:
+        res_dirs = [resource_info.res for resource_info in resource_infos]
     output = actions.declare_output("{}string_source_map".format(prefix), dir = True)
     res_dirs_file = actions.write("resource_dirs_for_{}string_source_map".format(prefix), res_dirs)
     generate_string_source_map_cmd = cmd_args([

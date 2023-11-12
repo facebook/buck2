@@ -195,6 +195,8 @@ AndroidResourceInfo = provider(
         "r_dot_java_package": provider_field(typing.Any, default = None),  # Artifact | None
         # resources defined by this rule. May be empty
         "res": provider_field(typing.Any, default = None),  # Artifact | None
+        # voltron resources defined by this rule. May be empty
+        "voltron_res": provider_field(typing.Any, default = None),  # Artifact | None
         # priority of the resources, may be 'low' or 'normal'
         "res_priority": provider_field(typing.Any, default = None),  # str
         # symbols defined by the resources, if resources are present
