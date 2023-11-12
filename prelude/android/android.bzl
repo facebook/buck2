@@ -143,6 +143,8 @@ extra_attributes = {
         "_java_toolchain": toolchains_common.java_for_android(),
     },
     "android_instrumentation_test": {
+        "instrumentation_test_listener": attrs.option(attrs.source(), default = None),
+        "instrumentation_test_listener_class": attrs.option(attrs.string(), default = None),
         "_android_toolchain": toolchains_common.android(),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_java_toolchain": toolchains_common.java_for_android(),

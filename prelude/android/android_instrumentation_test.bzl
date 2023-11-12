@@ -24,7 +24,10 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
 
     classpath_args = cmd_args()
     classpath_args.add("-classpath")
-    classpath_args.add(cmd_args(classpath, delimiter = get_path_separator_for_exec_os(ctx)))
+    extra_classpath = []
+    if ctx.attrs.instrumentation_test_listener != None:
+        extra_classpath.append(ctx.attrs.instrumentation_test_listener)
+    classpath_args.add(cmd_args(classpath + extra_classpath, delimiter = get_path_separator_for_exec_os(ctx)))
     classpath_args_file = ctx.actions.write("classpath_args_file", classpath_args)
     cmd.append(cmd_args(classpath_args_file, format = "@{}").hidden(classpath_args))
 
@@ -52,7 +55,6 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
         test_runner_file.as_output(),
     ])
     ctx.actions.run(manifest_utils_cmd, category = "get_manifest_info")
-
     cmd.extend(
         [
             "--test-package-name",
@@ -63,6 +65,9 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
             cmd_args(test_runner_file, format = "@{}"),
         ],
     )
+
+    if ctx.attrs.instrumentation_test_listener_class != None:
+        cmd.extend(["--extra-instrumentation-test-listener", ctx.attrs.instrumentation_test_listener_class])
 
     cmd.extend(
         [
