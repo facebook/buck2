@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use anyhow::Context as _;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
@@ -72,8 +71,7 @@ impl ReplayCommand {
                     speed,
                     "(replay)", // Could be better
                     console_opts.superconsole_config(),
-                )?
-                .context("You must request a console for replay")?;
+                )?;
 
                 let res = EventsCtx::new(vec![console])
                     .unpack_stream::<_, ReplayResult, _>(

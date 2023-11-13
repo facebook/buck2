@@ -39,18 +39,18 @@ pub fn get_console_with_root(
     replay_speed: Option<f64>,
     command_name: &str,
     config: SuperConsoleConfig,
-) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
+) -> anyhow::Result<Box<dyn EventSubscriber>> {
     match console_type {
-        ConsoleType::Simple => Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
+        ConsoleType::Simple => Ok(Box::new(UnpackingEventSubscriberAsEventSubscriber(
             SimpleConsole::<NoopEventObserverExtra>::autodetect(trace_id, verbosity, expect_spans),
-        )))),
-        ConsoleType::SimpleNoTty => Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
+        ))),
+        ConsoleType::SimpleNoTty => Ok(Box::new(UnpackingEventSubscriberAsEventSubscriber(
             SimpleConsole::<NoopEventObserverExtra>::without_tty(trace_id, verbosity, expect_spans),
-        )))),
-        ConsoleType::SimpleTty => Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
+        ))),
+        ConsoleType::SimpleTty => Ok(Box::new(UnpackingEventSubscriberAsEventSubscriber(
             SimpleConsole::<NoopEventObserverExtra>::with_tty(trace_id, verbosity, expect_spans),
-        )))),
-        ConsoleType::Super => Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
+        ))),
+        ConsoleType::Super => Ok(Box::new(UnpackingEventSubscriberAsEventSubscriber(
             StatefulSuperConsole::new_with_root_forced(
                 trace_id,
                 command_name,
@@ -60,7 +60,7 @@ pub fn get_console_with_root(
                 None,
                 config,
             )?,
-        )))),
+        ))),
         ConsoleType::Auto => {
             match StatefulSuperConsole::new_with_root(
                 trace_id.dupe(),
@@ -70,21 +70,21 @@ pub fn get_console_with_root(
                 replay_speed,
                 config,
             )? {
-                Some(super_console) => Ok(Some(Box::new(
-                    UnpackingEventSubscriberAsEventSubscriber(super_console),
+                Some(super_console) => Ok(Box::new(UnpackingEventSubscriberAsEventSubscriber(
+                    super_console,
                 ))),
-                None => Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
+                None => Ok(Box::new(UnpackingEventSubscriberAsEventSubscriber(
                     SimpleConsole::<NoopEventObserverExtra>::autodetect(
                         trace_id,
                         verbosity,
                         expect_spans,
                     ),
-                )))),
+                ))),
             }
         }
-        ConsoleType::None => Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
+        ConsoleType::None => Ok(Box::new(UnpackingEventSubscriberAsEventSubscriber(
             ErrorConsole,
-        )))),
+        ))),
     }
 }
 
