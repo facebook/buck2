@@ -58,11 +58,14 @@ impl WatchmanQueryProcessor {
         &self,
         mut ctx: DiceTransactionUpdater,
         events: Vec<WatchmanEvent>,
-        mergebase: &Option<String>,
         watchman_version: Option<String>,
     ) -> anyhow::Result<(buck2_data::FileWatcherStats, DiceTransactionUpdater)> {
         let mut handler = FileChangeTracker::new();
-        let mut stats = FileWatcherStats::new(events.len(), mergebase.as_deref(), watchman_version);
+        let mut stats = FileWatcherStats::new(
+            events.len(),
+            self.last_mergebase.as_deref(),
+            watchman_version,
+        );
 
         for ev in events {
             // If the path is invalid, then walk up all the way until you find a valid dir to
@@ -217,7 +220,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         watchman_version: Option<String>,
     ) -> anyhow::Result<(Self::Output, DiceTransactionUpdater)> {
         self.last_mergebase = mergebase.clone();
-        self.process_events_impl(dice, events, mergebase, watchman_version)
+        self.process_events_impl(dice, events, watchman_version)
             .await
     }
 
