@@ -23,7 +23,6 @@ use crate::syntax::Dialect;
 pub struct ParserState<'a> {
     pub dialect: &'a Dialect,
     pub codemap: &'a CodeMap,
-    pub(crate) allow_string_literals_in_type_expr: bool,
     /// Recoverable errors.
     pub errors: &'a mut Vec<EvalException>,
 }

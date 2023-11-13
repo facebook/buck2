@@ -237,11 +237,7 @@ impl<'v> Compiler<'v, '_, '_> {
             ));
         }
         // This should not fail because we validated it at parse time.
-        let unpack = TypeExprUnpackP::unpack(
-            &type_expr.expr,
-            &self.codemap,
-            self.allow_string_literals_in_type_expr,
-        )?;
+        let unpack = TypeExprUnpackP::unpack(&type_expr.expr, &self.codemap)?;
         let type_value = self.eval_expr_as_type(unpack)?;
         type_expr.payload.compiler_ty = Some(type_value.as_ty().clone());
         Ok(())

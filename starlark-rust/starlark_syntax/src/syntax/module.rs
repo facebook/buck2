@@ -113,9 +113,6 @@ pub struct AstModule {
     pub(crate) codemap: CodeMap,
     pub(crate) statement: AstStmt,
     pub(crate) dialect: Dialect,
-    /// Temporary option to allow string literals in type expressions.
-    /// Specified with `@starlark-rust: allow_string_literals_in_type_expr`.
-    pub(crate) allow_string_literals_in_type_expr: bool,
     /// Opt-in typecheck.
     /// Specified with `@starlark-rust: typecheck`.
     pub(crate) typecheck: bool,
@@ -129,9 +126,7 @@ pub trait AstModuleFields: Sized {
 
     fn dialect(&self) -> &Dialect;
 
-    fn allow_string_literals_in_type_expr(&self) -> bool;
-
-    fn into_parts(self) -> (CodeMap, AstStmt, Dialect, bool, bool);
+    fn into_parts(self) -> (CodeMap, AstStmt, Dialect, bool);
 }
 
 impl AstModuleFields for AstModule {
@@ -147,18 +142,8 @@ impl AstModuleFields for AstModule {
         &self.dialect
     }
 
-    fn allow_string_literals_in_type_expr(&self) -> bool {
-        self.allow_string_literals_in_type_expr
-    }
-
-    fn into_parts(self) -> (CodeMap, AstStmt, Dialect, bool, bool) {
-        (
-            self.codemap,
-            self.statement,
-            self.dialect,
-            self.allow_string_literals_in_type_expr,
-            self.typecheck,
-        )
+    fn into_parts(self) -> (CodeMap, AstStmt, Dialect, bool) {
+        (self.codemap, self.statement, self.dialect, self.typecheck)
     }
 }
 
@@ -167,7 +152,6 @@ impl AstModule {
         codemap: CodeMap,
         statement: AstStmt,
         dialect: &Dialect,
-        allow_string_literals_in_type_expr: bool,
         typecheck: bool,
     ) -> anyhow::Result<AstModule> {
         Stmt::validate(&codemap, &statement, dialect).map_err(EvalException::into_anyhow)?;
@@ -175,7 +159,6 @@ impl AstModule {
             codemap,
             statement,
             dialect: dialect.clone(),
-            allow_string_literals_in_type_expr,
             typecheck,
         })
     }
@@ -201,8 +184,6 @@ impl AstModule {
     /// assert_eq!(err.span.unwrap().to_string(), "filename:2:11");
     /// ```
     pub fn parse(filename: &str, content: String, dialect: &Dialect) -> anyhow::Result<Self> {
-        let allow_string_literals_in_type_expr =
-            content.contains("@starlark-rust: allow_string_literals_in_type_expr");
         let typecheck = content.contains("@starlark-rust: typecheck");
         let codemap = CodeMap::new(filename.to_owned(), content);
         let lexer = Lexer::new(codemap.source(), dialect, codemap.dupe());
@@ -211,7 +192,6 @@ impl AstModule {
             &mut ParserState {
                 codemap: &codemap,
                 dialect,
-                allow_string_literals_in_type_expr,
                 errors: &mut errors,
             },
             lexer.filter(|t| match t {
@@ -223,13 +203,7 @@ impl AstModule {
                 if let Some(err) = errors.into_iter().next() {
                     return Err(err.into_anyhow());
                 }
-                Ok(AstModule::create(
-                    codemap,
-                    v,
-                    dialect,
-                    allow_string_literals_in_type_expr,
-                    typecheck,
-                )?)
+                Ok(AstModule::create(codemap, v, dialect, typecheck)?)
             }
             Err(p) => Err(parse_error_add_span(p, codemap.source().len(), &codemap)),
         }

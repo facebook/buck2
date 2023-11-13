@@ -62,8 +62,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     pub fn eval_module(&mut self, ast: AstModule, globals: &Globals) -> anyhow::Result<Value<'v>> {
         let start = Instant::now();
 
-        let (codemap, statement, dialect, allow_string_literals_in_type_expr, typecheck) =
-            ast.into_parts();
+        let (codemap, statement, dialect, typecheck) = ast.into_parts();
 
         let codemap = self
             .module_env
@@ -127,7 +126,6 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             eval: self,
             check_types: dialect.enable_types == DialectTypes::Enable,
             top_level_stmt_count,
-            allow_string_literals_in_type_expr,
             typecheck,
         };
 

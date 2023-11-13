@@ -386,7 +386,7 @@ pub fn dialect_check_type(
         return err(state.codemap, x.span, DialectError::Types);
     }
 
-    TypeExprUnpackP::unpack(&x, state.codemap, state.allow_string_literals_in_type_expr)?;
+    TypeExprUnpackP::unpack(&x, state.codemap)?;
 
     Ok(x.map(|node| TypeExprP {
         expr: Spanned { node, span },
