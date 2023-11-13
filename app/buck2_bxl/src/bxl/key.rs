@@ -176,6 +176,7 @@ impl BaseDeferredKeyDyn for BxlDynamicKeyData {
         let output_hash = {
             let mut hasher = DefaultHasher::new();
             self.key.bxl_args.hash(&mut hasher);
+            self.key.global_target_platform.hash(&mut hasher);
             let output_hash = hasher.finish();
             format!("{:x}", output_hash)
         };
