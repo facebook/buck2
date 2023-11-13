@@ -1,6 +1,7 @@
 [package]
 description = "Data structure"
 edition = "2021"
+license = "MIT OR Apache-2.0"
 name = "lock_free_vec"
 version = "0.1.0"
 
