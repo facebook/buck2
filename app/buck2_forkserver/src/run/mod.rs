@@ -442,7 +442,7 @@ fn kill_job(job_handle: &WindowsJobHandle) -> anyhow::Result<()> {
         let terminate_job_result = winapi::um::jobapi2::TerminateJobObject(job_handle.get_handle(), 1);
 
         if terminate_job_result == winapi::shared::minwindef::FALSE {
-            Err(anyhow::Error::msg("Failed to terminate job to kill"))
+            Err(anyhow::anyhow!("Failed to terminate job to kill"))
         }
         else {
             Ok(())
@@ -532,18 +532,18 @@ where
 
 #[cfg(windows)]
 fn add_process_to_job(child: &tokio::process::Child) -> anyhow::Result<WindowsJobHandle> {
-    let raw_process_handle = child.raw_handle().ok_or_else(|| anyhow::Error::msg("Failed to get the raw handle to the process"))?;
+    let raw_process_handle = child.raw_handle().ok_or_else(|| anyhow::anyhow!("Failed to get the raw handle to the process"))?;
     unsafe {
         let raw_job_handle = winapi::um::jobapi2::CreateJobObjectW(std::ptr::null_mut(), std::ptr::null());
         if raw_job_handle.is_null() {
-            return Err(anyhow::Error::msg("Failed to create job"));
+            return Err(anyhow::anyhow!("Failed to create job"));
         }
         let job_handle = WindowsJobHandle::new(raw_job_handle);
 
         let assign_process_result = winapi::um::jobapi2::AssignProcessToJobObject(raw_job_handle, raw_process_handle);
 
         if assign_process_result == winapi::shared::minwindef::FALSE {
-            Err(anyhow::Error::msg("Failed to assign process to job"))
+            Err(anyhow::anyhow!("Failed to assign process to job"))
         }
         else {
             Ok(job_handle)
@@ -553,7 +553,7 @@ fn add_process_to_job(child: &tokio::process::Child) -> anyhow::Result<WindowsJo
 
 #[cfg(windows)]
 fn resume_process(child: &tokio::process::Child) -> anyhow::Result<()> {
-    let process_id = child.id().ok_or_else(|| anyhow::Error::msg("Failed to get the process id"))?;
+    let process_id = child.id().ok_or_else(|| anyhow::anyhow!("Failed to get the process id"))?;
     let main_thread_id = get_main_thread(process_id)?;
     resume_thread(main_thread_id)
 }
@@ -564,7 +564,7 @@ fn get_main_thread(process_id: u32) -> anyhow::Result<winapi::shared::minwindef:
         let snapshot_handle = winapi::um::tlhelp32::CreateToolhelp32Snapshot(winapi::um::tlhelp32::TH32CS_SNAPTHREAD, 0);
 
         if snapshot_handle == winapi::um::handleapi::INVALID_HANDLE_VALUE {
-            return Err(anyhow::Error::msg("Failed to list threads"))
+            return Err(anyhow::anyhow!("Failed to list threads"))
         }
 
         let mut thread_entry_32 = winapi::um::tlhelp32::THREADENTRY32 {
@@ -595,14 +595,14 @@ fn get_main_thread(process_id: u32) -> anyhow::Result<winapi::shared::minwindef:
 
         if let Some(thread_id) = main_thread_id {
             if close_handle_result == winapi::shared::minwindef::FALSE {
-                Err(anyhow::Error::msg("Failed to close thread snapshot handle"))
+                Err(anyhow::anyhow!("Failed to close thread snapshot handle"))
             }
             else {
                 Ok(thread_id)
             }
         }
         else {
-            Err(anyhow::Error::msg("Failed to find thread to resume"))
+            Err(anyhow::anyhow!("Failed to find thread to resume"))
         }
     }
 }
@@ -612,15 +612,15 @@ fn resume_thread(thread_id: winapi::shared::minwindef::DWORD) -> anyhow::Result<
     unsafe {
         let thread_handle = winapi::um::processthreadsapi::OpenThread(winapi::um::winnt::THREAD_SUSPEND_RESUME, winapi::shared::minwindef::FALSE, thread_id);
         if thread_handle.is_null() {
-            return Err(anyhow::Error::msg("Failed to open thread to resume"));
+            return Err(anyhow::anyhow!("Failed to open thread to resume"));
         }
         let resume_thread_result = winapi::um::processthreadsapi::ResumeThread(thread_handle);
         let close_handle_result = winapi::um::handleapi::CloseHandle(thread_handle);
         if resume_thread_result == winapi::shared::minwindef::DWORD::MAX {
-            Err(anyhow::Error::msg("Failed to resume thread"))
+            Err(anyhow::anyhow!("Failed to resume thread"))
         }
         else if close_handle_result == winapi::shared::minwindef::FALSE {
-            Err(anyhow::Error::msg("Failed to close thread handle"))
+            Err(anyhow::anyhow!("Failed to close thread handle"))
         }
         else {
             Ok(())
