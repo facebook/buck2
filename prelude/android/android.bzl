@@ -191,6 +191,7 @@ extra_attributes = {
     "gen_aidl": {
         "import_paths": attrs.list(attrs.arg(), default = []),
         "_android_toolchain": toolchains_common.android(),
+        "_exec_os_type": buck.exec_os_type_arg(),
         "_java_toolchain": toolchains_common.java_for_android(),
     },
     "prebuilt_native_library": {
