@@ -603,6 +603,30 @@ def build_java_library(
                 DefaultInfo(default_output = nullsafe_info.output),
             ]}
 
+    gwt_output = None
+    if (
+        (srcs or resources) and
+        not java_toolchain.is_bootstrap_toolchain and
+        not ctx.attrs._is_building_android_binary
+    ):
+        gwt_output = ctx.actions.declare_output("gwt_module/{}.jar".format(ctx.label.name))
+        entries = []
+
+        if srcs or resources:
+            entries.append(_copy_resources(ctx.actions, "gwt_module", java_toolchain, ctx.label.package, srcs + resources, resources_root))
+        if outputs and outputs.annotation_processor_output:
+            entries.append(outputs.annotation_processor_output)
+
+        gwt_cmd_args = cmd_args(
+            java_toolchain.jar_builder,
+            "--entries-to-jar",
+            ctx.actions.write("gwt_entries.txt", entries),
+            "--output",
+            gwt_output.as_output(),
+        ).hidden(entries)
+
+        ctx.actions.run(gwt_cmd_args, category = "gwt_module")
+
     all_generated_sources = list(generated_sources)
     if outputs and outputs.annotation_processor_output:
         all_generated_sources.append(outputs.annotation_processor_output)
@@ -623,6 +647,7 @@ def build_java_library(
         needs_desugar = source_level > 7 or target_level > 7,
         generated_sources = all_generated_sources,
         has_srcs = has_srcs,
+        gwt_module = gwt_output,
     )
 
     class_to_src_map, class_to_src_map_sub_targets = get_class_to_source_map_info(

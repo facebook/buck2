@@ -127,6 +127,7 @@ JavaPackagingDep = record(
     label = Label,
     jar = [Artifact, None],
     dex = [DexLibraryInfo, None],
+    gwt_module = [Artifact, None],
     is_prebuilt_jar = bool,
     proguard_config = [Artifact, None],
 
@@ -309,7 +310,8 @@ def create_java_packaging_dep(
         is_prebuilt_jar: bool = False,
         has_srcs: bool = True,
         dex_weight_factor: int = 1,
-        proguard_config: [Artifact, None] = None) -> JavaPackagingDep:
+        proguard_config: [Artifact, None] = None,
+        gwt_module: [Artifact, None] = None) -> JavaPackagingDep:
     dex_toolchain = getattr(ctx.attrs, "_dex_toolchain", None)
     if library_jar != None and has_srcs and dex_toolchain != None and ctx.attrs._dex_toolchain[DexToolchainInfo].d8_command != None:
         dex = get_dex_produced_from_java_library(
@@ -329,6 +331,7 @@ def create_java_packaging_dep(
         label = ctx.label,
         jar = library_jar,
         dex = dex,
+        gwt_module = gwt_module,
         is_prebuilt_jar = is_prebuilt_jar,
         proguard_config = proguard_config or getattr(ctx.attrs, "proguard_config", None),
         output_for_classpath_macro = output_for_classpath_macro or library_jar,
@@ -393,7 +396,8 @@ def _create_non_template_providers(
         desugar_classpath: list[Artifact] = [],
         is_prebuilt_jar: bool = False,
         has_srcs: bool = True,
-        proguard_config: [Artifact, None] = None) -> (JavaLibraryInfo, JavaPackagingInfo, SharedLibraryInfo, ResourceInfo, LinkableGraph):
+        proguard_config: [Artifact, None] = None,
+        gwt_module: [Artifact, None] = None) -> (JavaLibraryInfo, JavaPackagingInfo, SharedLibraryInfo, ResourceInfo, LinkableGraph):
     """Creates java library providers of type `JavaLibraryInfo` and `JavaPackagingInfo`.
 
     Args:
@@ -416,6 +420,7 @@ def _create_non_template_providers(
         is_prebuilt_jar,
         has_srcs,
         proguard_config = proguard_config,
+        gwt_module = gwt_module,
     )
 
     java_packaging_info = get_java_packaging_info(
@@ -456,7 +461,8 @@ def create_java_library_providers(
         has_srcs: bool = True,
         generated_sources: list[Artifact] = [],
         annotation_jars_dir: [Artifact, None] = None,
-        proguard_config: [Artifact, None] = None) -> (JavaLibraryInfo, JavaPackagingInfo, SharedLibraryInfo, ResourceInfo, LinkableGraph, TemplatePlaceholderInfo, JavaLibraryIntellijInfo):
+        proguard_config: [Artifact, None] = None,
+        gwt_module: [Artifact, None] = None) -> (JavaLibraryInfo, JavaPackagingInfo, SharedLibraryInfo, ResourceInfo, LinkableGraph, TemplatePlaceholderInfo, JavaLibraryIntellijInfo):
     first_order_classpath_deps = filter(None, [x.get(JavaLibraryInfo) for x in declared_deps + exported_deps + runtime_deps])
     first_order_classpath_libs = [dep.output_for_classpath_macro for dep in first_order_classpath_deps]
 
@@ -476,6 +482,7 @@ def create_java_library_providers(
         is_prebuilt_jar = is_prebuilt_jar,
         has_srcs = has_srcs,
         proguard_config = proguard_config,
+        gwt_module = gwt_module,
     )
 
     first_order_libs = first_order_classpath_libs + [library_info.library_output.full_library] if library_info.library_output else first_order_classpath_libs
