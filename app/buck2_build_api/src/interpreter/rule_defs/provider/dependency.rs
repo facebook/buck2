@@ -14,6 +14,7 @@ use allocative::Allocative;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProviderName;
+use buck2_error::Context;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
@@ -134,7 +135,10 @@ where
     }
 
     fn at(&self, index: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        self.providers_collection.to_value().at(index, heap)
+        self.providers_collection
+            .to_value()
+            .at(index, heap)
+            .with_context(|| format!("Error accessing dependencies of `{}`", self.label))
     }
 
     fn is_in(&self, other: Value<'v>) -> anyhow::Result<bool> {
@@ -190,7 +194,9 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
         this: &Dependency<'v>,
         index: Value<'v>,
     ) -> anyhow::Result<NoneOr<ValueOfUnchecked<'v, AbstractProvider>>> {
-        this.provider_collection()?.get(index)
+        this.provider_collection()?
+            .get(index)
+            .with_context(|| format!("Error accessing dependencies of `{}`", this.label))
     }
 }
 
