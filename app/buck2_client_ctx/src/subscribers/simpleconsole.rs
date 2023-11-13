@@ -306,17 +306,6 @@ where
         &mut self,
         result: &buck2_cli_proto::CommandResult,
     ) -> anyhow::Result<()> {
-        if let buck2_cli_proto::CommandResult {
-            result: Some(buck2_cli_proto::command_result::Result::Error(e)),
-        } = result
-        {
-            echo!("Command failed: ")?;
-            for e in &e.errors {
-                echo!("{}", e.message)?;
-            }
-            self.notify_printed();
-        }
-
         let errors = std::mem::take(&mut self.action_errors);
 
         if !errors.is_empty() {
@@ -330,7 +319,9 @@ where
             self.notify_printed();
         }
 
-        Ok(())
+        crate::subscribers::errorconsole::ErrorConsole
+            .handle_command_result(result)
+            .await
     }
 
     async fn handle_command_end(

@@ -21,6 +21,7 @@ use crate::common::ConsoleType;
 use crate::streaming::StreamingCommand;
 use crate::subscribers::build_graph_stats::BuildGraphStats;
 use crate::subscribers::build_id_writer::BuildIdWriter;
+use crate::subscribers::errorconsole::ErrorConsole;
 use crate::subscribers::event_log::subscriber::EventLog;
 use crate::subscribers::re_log::ReLog;
 use crate::subscribers::simpleconsole::SimpleConsole;
@@ -81,7 +82,9 @@ pub fn get_console_with_root(
                 )))),
             }
         }
-        ConsoleType::None => Ok(None),
+        ConsoleType::None => Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
+            ErrorConsole,
+        )))),
     }
 }
 

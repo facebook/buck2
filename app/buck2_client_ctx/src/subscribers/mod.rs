@@ -19,6 +19,7 @@ use tokio::task::JoinHandle;
 
 pub(crate) mod build_graph_stats;
 pub(crate) mod build_id_writer;
+pub(crate) mod errorconsole;
 pub mod event_log;
 pub mod get;
 pub(crate) mod observer;
