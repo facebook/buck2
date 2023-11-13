@@ -13,6 +13,7 @@ load("@prelude//java/plugins:java_plugin.bzl", "java_plugin_impl")
 load("@prelude//decls/common.bzl", "buck")
 load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load("@prelude//genrule.bzl", "genrule_attributes")
+load(":gwt_binary.bzl", "gwt_binary_impl")
 load(":jar_genrule.bzl", "jar_genrule_impl")
 load(":java_binary.bzl", "java_binary_impl")
 load(":java_library.bzl", "java_library_impl")
@@ -31,6 +32,7 @@ def dex_min_sdk_version():
     return select(min_sdk_version_dict)
 
 implemented_rules = {
+    "gwt_binary": gwt_binary_impl,
     "jar_genrule": jar_genrule_impl,
     "java_annotation_processor": java_annotation_processor_impl,
     "java_binary": java_binary_impl,
@@ -42,6 +44,10 @@ implemented_rules = {
 }
 
 extra_attributes = {
+    "gwt_binary": {
+        "_exec_os_type": buck.exec_os_type_arg(),
+        "_java_toolchain": toolchains_common.java(),
+    },
     "jar_genrule": genrule_attributes() | {
         "_java_toolchain": toolchains_common.java(),
     },
