@@ -304,7 +304,7 @@ gazebo.features = ["str_pattern_extensions"]
 gazebo.path = "gazebo/gazebo"
 gazebo.version = "0.8.1"
 host_sharing = { path = "host_sharing" }
-lock_free_hashtable = { path = "shed/lock_free_hashtable" }
+lock_free_hashtable = { version = "0.1.0", path = "shed/lock_free_hashtable" }
 lock_free_vec = { path = "shed/lock_free_vec" }
 more_futures = { path = "shed/more_futures" }
 provider = { path = "shed/provider" }
