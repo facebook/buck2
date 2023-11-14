@@ -251,7 +251,7 @@ impl LocalExecutor {
                 )
                 .await;
 
-                let scratch_path = r1?;
+                let scratch_path = r1?.scratch;
                 r2?;
 
                 anyhow::Ok((scratch_path, start.elapsed()))
@@ -785,6 +785,11 @@ impl<'a> StrOrOsStr<'a> {
     }
 }
 
+pub struct MaterializedInputPaths {
+    pub scratch: ScratchPath,
+    pub paths: Vec<ProjectRelativePathBuf>,
+}
+
 /// Materialize all inputs artifact for CommandExecutionRequest so the command can be executed locally.
 ///
 /// This also discovers the scratch directory if any was passed (if multiple are passed, one of
@@ -793,7 +798,7 @@ pub async fn materialize_inputs(
     artifact_fs: &ArtifactFs,
     materializer: &dyn Materializer,
     request: &CommandExecutionRequest,
-) -> anyhow::Result<ScratchPath> {
+) -> anyhow::Result<MaterializedInputPaths> {
     let mut paths = vec![];
     let mut scratch = ScratchPath(None);
 
@@ -827,7 +832,7 @@ pub async fn materialize_inputs(
         }
     }
 
-    let mut stream = materializer.materialize_many(paths).await?;
+    let mut stream = materializer.materialize_many(paths.clone()).await?;
     while let Some(res) = stream.next().await {
         match res {
             Ok(()) => {}
@@ -849,7 +854,7 @@ pub async fn materialize_inputs(
         }
     }
 
-    Ok(scratch)
+    Ok(MaterializedInputPaths { scratch, paths })
 }
 
 /// A scratch path discovered during `materialize_inputs`.
