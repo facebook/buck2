@@ -7,35 +7,15 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
-
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::query::QueryAttr;
-use buck2_node::attrs::attr_type::query::QueryAttrBase;
 use dupe::Dupe;
 use starlark::values::Value;
 
 use crate::attrs::resolve::attr_type::dep::DepAttrTypeExt;
-use crate::attrs::resolve::ctx::AnalysisQueryResult;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
-
-pub(crate) trait ConfiguredQueryAttrBaseExt {
-    fn resolve(
-        &self,
-        ctx: &dyn AttrResolutionContext,
-    ) -> buck2_error::Result<Arc<AnalysisQueryResult>>;
-}
-
-impl ConfiguredQueryAttrBaseExt for QueryAttrBase<ConfiguredProvidersLabel> {
-    fn resolve(
-        &self,
-        ctx: &dyn AttrResolutionContext,
-    ) -> buck2_error::Result<Arc<AnalysisQueryResult>> {
-        ctx.resolve_query(&self.query)
-    }
-}
 
 pub(crate) trait ConfiguredQueryAttrExt {
     fn resolve<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Value<'v>>;
@@ -43,7 +23,7 @@ pub(crate) trait ConfiguredQueryAttrExt {
 
 impl ConfiguredQueryAttrExt for QueryAttr<ConfiguredProvidersLabel> {
     fn resolve<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Value<'v>> {
-        let query_results = self.query.resolve(ctx)?;
+        let query_results = ctx.resolve_query(&self.query.query)?;
         let mut dependencies = Vec::new();
 
         for (target, providers) in &*query_results {

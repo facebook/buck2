@@ -16,7 +16,6 @@ use buck2_node::attrs::attr_type::arg::QueryExpansion;
 use buck2_node::attrs::attr_type::query::QueryMacroBase;
 use dupe::Dupe;
 
-use crate::attrs::resolve::attr_type::query::ConfiguredQueryAttrBaseExt;
 use crate::attrs::resolve::ctx::AnalysisQueryResult;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 
@@ -26,7 +25,7 @@ pub(crate) trait ConfiguredQueryMacroBaseExt {
 
 impl ConfiguredQueryMacroBaseExt for QueryMacroBase<ConfiguredProvidersLabel> {
     fn resolve(&self, ctx: &dyn AttrResolutionContext) -> anyhow::Result<ResolvedQueryMacro> {
-        let query_result: Arc<AnalysisQueryResult> = self.query.resolve(ctx)?;
+        let query_result: Arc<AnalysisQueryResult> = ctx.resolve_query(&self.query.query)?;
 
         match &self.expansion_type {
             QueryExpansion::Output => Ok(ResolvedQueryMacro::Outputs(
