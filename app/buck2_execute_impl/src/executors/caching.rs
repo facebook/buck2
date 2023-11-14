@@ -286,8 +286,8 @@ impl CacheUploader {
         let timing = result.report.timing;
 
         let mut upload_futs = vec![];
-        let mut output_files = vec![];
-        let mut output_directories = vec![];
+        let mut output_files: Vec<TFile> = Vec::new();
+        let mut output_directories: Vec<TDirectory2> = Vec::new();
 
         for (output, value) in result.resolve_outputs(&self.artifact_fs) {
             match value.entry().as_ref() {
