@@ -282,7 +282,7 @@ impl CacheUploader {
         digest_config: DigestConfig,
         // metadata to be added in the auxiliary_metadata field of TActionResult
         metadata: Vec<TAny>,
-    ) -> anyhow::Result<anyhow::Result<TActionResult2, CacheUploadRejectionReason>> {
+    ) -> anyhow::Result<Result<TActionResult2, CacheUploadRejectionReason>> {
         let timing = result.report.timing;
 
         let mut upload_futs = vec![];
