@@ -192,10 +192,6 @@
 #![feature(map_try_insert)]
 #![feature(map_entry_replace)]
 #![feature(result_flattening)]
-// Plugins
-#![cfg_attr(feature = "gazebo_lint", feature(plugin))]
-#![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
-#![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 // This sometimes flag false positives where proc-macros expand pass by value into pass by refs
 #![allow(clippy::trivially_copy_pass_by_ref)]
 

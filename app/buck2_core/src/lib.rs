@@ -16,10 +16,6 @@
 #![feature(once_cell_try)]
 #![feature(try_blocks)]
 #![cfg_attr(windows, feature(absolute_path))]
-// Plugins
-#![cfg_attr(feature = "gazebo_lint", feature(plugin))]
-#![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
-#![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
 #[cfg(test)]
 #[macro_use]

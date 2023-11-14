@@ -85,7 +85,6 @@ pub fn derive_trace(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// Parse attribute `#[trace(unsafe_ignore)]`.
 ///
 /// Currently it fails on any attribute argument other than `unsafe_ignore`.
-#[cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_impl_dupe))] // The custom_keyword macro
 fn is_ignore(attrs: &[Attribute]) -> bool {
     syn::custom_keyword!(unsafe_ignore);
 

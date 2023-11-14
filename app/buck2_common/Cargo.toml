@@ -42,9 +42,6 @@ cmp_any = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
-gazebo_lint.optional = true
-# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
-gazebo_lint.version = "0.1"
 more_futures = { workspace = true }
 starlark_map = { workspace = true }
 
@@ -57,9 +54,6 @@ buck2_util = { workspace = true }
 nix = { workspace = true }
 tower = { workspace = true }
 xattr = { workspace = true }
-
-[features]
-# @oss-disable: default = ["gazebo_lint"]
 
 [dev-dependencies]
 assert_matches = { workspace = true }

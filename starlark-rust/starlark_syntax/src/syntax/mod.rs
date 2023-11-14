@@ -47,7 +47,7 @@ pub mod validate;
 #[allow(clippy::cloned_instead_of_copied)]
 #[allow(unused_extern_crates)]
 #[allow(unused_braces)]
-#[cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_use_dupe))]
+
 mod grammar {
     include!(concat!(env!("OUT_DIR"), "/syntax/grammar.rs"));
 }

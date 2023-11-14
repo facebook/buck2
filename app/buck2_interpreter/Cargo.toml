@@ -20,9 +20,6 @@ allocative = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
-gazebo_lint.optional = true
-# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
-gazebo_lint.version = "0.1"
 more_futures = { path = "../../shed/more_futures" }
 starlark = { workspace = true }
 starlark_map = { workspace = true }
@@ -32,9 +29,6 @@ buck2_core = { workspace = true }
 buck2_error = { workspace = true }
 buck2_events = { workspace = true }
 buck2_util = { workspace = true }
-
-[features]
-# @oss-disable: default = ["gazebo_lint"]
 
 [dev-dependencies]
 tempfile = { workspace = true }

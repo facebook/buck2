@@ -42,9 +42,6 @@ display_container = { workspace = true }
 dupe = { workspace = true }
 fbinit = { workspace = true }
 gazebo = { workspace = true }
-gazebo_lint.optional = true
-# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
-gazebo_lint.version = "0.1"
 more_futures = { workspace = true }
 provider = { workspace = true }
 sorted_vector_map = { workspace = true }
@@ -73,6 +70,3 @@ buck2_util = { workspace = true }
 
 [dev-dependencies]
 buck2_wrapper_common = { workspace = true }
-
-[features]
-# @oss-disable: default = ["gazebo_lint"]

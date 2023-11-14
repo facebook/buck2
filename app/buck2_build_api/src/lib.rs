@@ -12,10 +12,6 @@
 #![feature(iter_order_by)]
 #![feature(try_blocks)]
 #![feature(once_cell_try)]
-// Plugins
-#![cfg_attr(feature = "gazebo_lint", feature(plugin))]
-#![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
-#![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
 #[macro_use]
 extern crate starlark;

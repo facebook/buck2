@@ -26,9 +26,6 @@ allocative = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
-gazebo_lint.optional = true
-# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
-gazebo_lint.version = "0.1"
 
 buck2_error = { workspace = true }
 

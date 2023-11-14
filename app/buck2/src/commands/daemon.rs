@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-#![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
-
 use std::fs::File;
 use std::path::PathBuf;
 use std::process;

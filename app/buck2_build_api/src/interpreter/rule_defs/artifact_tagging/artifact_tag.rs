@@ -52,7 +52,6 @@ use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
     Allocative
 )]
 pub struct ArtifactTag {
-    #[cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_arc_on_dupe))]
     #[freeze(identity)]
     identity: Arc<()>,
 }

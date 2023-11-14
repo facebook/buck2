@@ -29,9 +29,6 @@ allocative = { workspace = true }
 dupe = { workspace = true }
 fbinit = { workspace = true }
 gazebo = { workspace = true }
-gazebo_lint.optional = true
-# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
-gazebo_lint.version = "0.1"
 # @oss-disable: user = { path = "../../../common/rust/user" }
 
 buck2_build_info = { workspace = true }
@@ -41,6 +38,3 @@ buck2_data = { workspace = true }
 buck2_error = { workspace = true }
 buck2_util = { workspace = true }
 buck2_wrapper_common = { workspace = true }
-
-[features]
-# @oss-disable: default = ["gazebo_lint"]

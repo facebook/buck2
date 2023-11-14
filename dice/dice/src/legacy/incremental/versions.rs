@@ -56,7 +56,6 @@ impl MinorVersion {
 
 // A bit of a weird type to put the MinorVersion in Arc, but we do it to
 // have weak guards.
-#[cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_arc_on_dupe))]
 #[derive(Allocative)]
 pub(crate) struct MinorVersionGuard(Arc<MinorVersion>);
 #[derive(Allocative)]

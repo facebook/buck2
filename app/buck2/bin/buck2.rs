@@ -8,10 +8,6 @@
  */
 
 #![feature(async_closure)]
-// Plugins
-#![cfg_attr(feature = "gazebo_lint", feature(plugin))]
-#![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
-#![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
 use std::fs;
 use std::io;

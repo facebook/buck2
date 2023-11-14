@@ -15,10 +15,3 @@ proc-macro2 = { workspace = true }
 quote = { workspace = true }
 syn = { workspace = true }
 textwrap = { workspace = true }
-
-gazebo_lint.optional = true
-# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
-gazebo_lint.version = "0.1"
-
-[features]
-# @oss-disable: default = ["gazebo_lint"]

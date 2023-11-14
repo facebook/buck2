@@ -12,9 +12,6 @@
 //! This is similar to [`internment` crate](https://github.com/droundy/internment)
 //! but with changes for performance and flexibility.
 
-#![cfg_attr(feature = "gazebo_lint", feature(plugin))]
-#![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
-#![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 #![feature(offset_of)]
 
 use std::cmp::Ordering;

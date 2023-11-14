@@ -146,7 +146,6 @@ struct FreezeDeriveOptions {
 }
 
 /// Parse a #[freeze(validator = function)] annotation.
-#[cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_impl_dupe))] // The custom_keyword macro
 fn extract_options(attrs: &[Attribute]) -> syn::Result<FreezeDeriveOptions> {
     syn::custom_keyword!(validator);
     syn::custom_keyword!(bounds);
@@ -192,7 +191,6 @@ fn extract_options(attrs: &[Attribute]) -> syn::Result<FreezeDeriveOptions> {
 /// Parse attribute `#[freeze(identity)]`.
 ///
 /// Currently it fails on any attribute argument other than `id`.
-#[cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_impl_dupe))] // The custom_keyword macro
 fn is_identity(attrs: &[Attribute]) -> syn::Result<bool> {
     syn::custom_keyword!(identity);
 

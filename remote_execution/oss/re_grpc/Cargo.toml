@@ -20,15 +20,8 @@ tonic = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
 
-gazebo_lint.optional = true
-# @oss-disable: gazebo_lint.path = "../../../gazebo_lint/gazebo_lint"
-gazebo_lint.version = "0.1"
-
 buck2_re_configuration = { workspace = true }
 re_grpc_proto = { path = "../re_grpc_proto" }
 
 [dev-dependencies]
 tempfile = { workspace = true }
-
-[features]
-# @oss-disable: default = ["gazebo_lint"]

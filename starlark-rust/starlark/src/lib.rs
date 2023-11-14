@@ -356,11 +356,6 @@
 #![cfg_attr(rust_nightly, feature(core_intrinsics))]
 #![cfg_attr(rust_nightly, feature(cfg_sanitize))]
 #![cfg_attr(rust_nightly, feature(const_type_name))]
-// Plugins
-#![cfg_attr(feature = "gazebo_lint", feature(plugin))]
-#![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
-#![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
-//
 // Good reasons
 #![allow(clippy::needless_return)] // Mixing explicit returns with implicit ones sometimes looks odd
 #![allow(clippy::new_ret_no_self)] // We often return Value, even though its morally a Self

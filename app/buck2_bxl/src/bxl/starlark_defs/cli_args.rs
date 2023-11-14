@@ -276,7 +276,6 @@ impl CliArgValue {
 }
 
 #[derive(Debug, VariantName, Clone, Dupe, Allocative)]
-#[cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_arc_on_dupe))] // recursive type
 pub(crate) enum CliArgType {
     Bool,
     Int,

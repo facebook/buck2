@@ -9,10 +9,4 @@ version = "0.1.0"
 allocative = { workspace = true }
 dupe = { workspace = true }
 equivalent = { workspace = true }
-gazebo_lint.optional = true
-# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
-gazebo_lint.version = "0.1"
 lock_free_hashtable = { workspace = true }
-
-[features]
-# @oss-disable: default = ["gazebo_lint"]

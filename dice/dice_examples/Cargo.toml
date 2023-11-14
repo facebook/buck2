@@ -11,9 +11,6 @@ derive_more = "0.99.3"
 dupe = { workspace = true }
 futures = "0.3"
 gazebo = { workspace = true }
-gazebo_lint.optional = true
-# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
-gazebo_lint.version = "0.1"
 higher-order-closure = { workspace = true }
 more_futures = { path = "../../shed/more_futures" }
 ref-cast = "1.0.0"
@@ -26,6 +23,3 @@ cast = "0.2.3"
 futures = "0.3"
 paste = "1.0" # !
 tokio = { version = "1.5", features = ["full"] }
-
-[features]
-# @oss-disable: default = ["gazebo_lint"]

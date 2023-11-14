@@ -22,9 +22,6 @@ allocative = { workspace = true }
 display_container = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
-gazebo_lint.optional = true
-# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
-gazebo_lint.version = "0.1"
 starlark_map = { workspace = true }
 
 buck2_core = { workspace = true }
@@ -34,6 +31,3 @@ buck2_query_parser = { workspace = true }
 buck2_util = { workspace = true }
 
 [lib]
-
-[features]
-# @oss-disable: default = ["gazebo_lint"]

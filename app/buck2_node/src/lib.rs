@@ -9,10 +9,6 @@
 
 #![feature(error_generic_member_access)]
 #![feature(box_patterns)]
-// Plugins
-#![cfg_attr(feature = "gazebo_lint", feature(plugin))]
-#![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
-#![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
 pub mod attrs;
 pub mod call_stack;

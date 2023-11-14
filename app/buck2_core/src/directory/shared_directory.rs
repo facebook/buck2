@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-#![cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_use_dupe))]
-
 use std::sync::Arc;
 
 use allocative::Allocative;

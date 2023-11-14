@@ -24,10 +24,6 @@
 //! External test executors are expected to implement the trait `TestExecutor`. Test executors
 //! will be able to interact with Buck via the `TestOrchestrator` trait.
 
-#![cfg_attr(feature = "gazebo_lint", feature(plugin))]
-#![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
-#![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
-
 pub mod convert;
 pub mod data;
 pub mod grpc;

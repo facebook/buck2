@@ -17,9 +17,6 @@ tracing = { workspace = true }
 
 dupe = { workspace = true }
 gazebo = { workspace = true }
-gazebo_lint.optional = true
-# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
-gazebo_lint.version = "0.1"
 host_sharing = { workspace = true }
 sorted_vector_map = { workspace = true }
 
@@ -32,6 +29,3 @@ buck2_test_proto = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-
-[features]
-# @oss-disable: default = ["gazebo_lint"]

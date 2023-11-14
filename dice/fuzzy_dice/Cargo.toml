@@ -28,9 +28,6 @@ uuid = { version = "1.2", features = ["v4"] }
 
 allocative = { workspace = true }
 dupe = { workspace = true }
-gazebo_lint.optional = true
-# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
-gazebo_lint.version = "0.1"
 more_futures = { path = "../../shed/more_futures" }
 
 dice = { path = "../dice" }
@@ -40,6 +37,3 @@ dice = { path = "../dice" }
 # https://github.com/dtolnay/semver/issues/251
 anyhow = "1.0.65"
 futures = "0.3"
-
-[features]
-# @oss-disable: default = ["gazebo_lint"]

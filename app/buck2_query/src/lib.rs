@@ -11,10 +11,6 @@
 #![feature(async_closure)]
 #![feature(box_patterns)]
 #![feature(try_blocks)]
-// Plugins
-#![cfg_attr(feature = "gazebo_lint", feature(plugin))]
-#![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
-#![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
 pub mod query;
 

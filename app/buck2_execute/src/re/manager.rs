@@ -277,7 +277,6 @@ pub struct ReConnectionHandle {
     // TODO(cjhopman): While we vend out Weak<Arc> with this, due to the way this is stored/used on
     // the dice graph we are guaranteed that there's an Arc that outlives all the Weak from it. That
     // kind of defeats the purpose of this.
-    #[cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_arc_on_dupe))]
     connection: Arc<Arc<LazyRemoteExecutionClient>>,
     // We use a similar Arc/Weak to ensure that the observer only lives as long as the connection
     // handle. Otherwise it would be possible to observer a session create attached to one command
@@ -315,7 +314,6 @@ pub struct ManagedRemoteExecutionClient {
 }
 
 impl ManagedRemoteExecutionClient {
-    #[cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_arc_on_dupe))]
     fn lock(&self) -> anyhow::Result<Arc<Arc<LazyRemoteExecutionClient>>> {
         self.data
             .upgrade()

@@ -27,7 +27,6 @@ use crate::deferred::id::DeferredId;
     PartialEq,
     Allocative
 )]
-#[cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_arc_on_dupe))] // Recursive type
 pub enum DeferredKey {
     /// Base means it's the first deferred registered that can be looked up via the ID based on
     /// analysis of the 'ConfiguredTargetLabel'.

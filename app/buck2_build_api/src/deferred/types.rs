@@ -176,7 +176,6 @@ pub enum BaseKey {
     Base(BaseDeferredKey),
     // While DeferredKey is Dupe, it has quite a lot of Arc's inside it, so maybe an Arc here makes sense?
     // Maybe not?
-    #[cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_arc_on_dupe))]
     Deferred(Arc<DeferredKey>),
 }
 

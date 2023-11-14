@@ -12,12 +12,5 @@ tokio = { workspace = true }
 tonic = { workspace = true }
 tower = { workspace = true }
 
-gazebo_lint.optional = true
-# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
-gazebo_lint.version = "0.1"
-
 [dev-dependencies]
 assert_matches = { workspace = true }
-
-[features]
-# @oss-disable: default = ["gazebo_lint"]

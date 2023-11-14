@@ -11,11 +11,6 @@
 
 //! `buck2 audit` command implementation, both client and server.
 
-// Plugins
-#![cfg_attr(feature = "gazebo_lint", feature(plugin))]
-#![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
-#![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
-
 use anyhow::Context as _;
 use buck2_audit::AuditCommand;
 use buck2_client::args::expand_argfiles_with_context;

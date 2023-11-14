@@ -22,9 +22,6 @@ tracing = { workspace = true }
 allocative = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
-gazebo_lint.optional = true
-# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
-gazebo_lint.version = "0.1"
 
 buck2_common = { workspace = true }
 buck2_core = { workspace = true }
@@ -46,6 +43,3 @@ assert_matches = { workspace = true }
 bytes = { workspace = true }
 tempfile = { workspace = true }
 tokio-stream = { workspace = true }
-
-[features]
-# @oss-disable: default = ["gazebo_lint"]
