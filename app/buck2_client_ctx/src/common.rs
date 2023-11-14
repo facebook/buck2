@@ -420,6 +420,10 @@ pub struct CommonBuildOptions {
     /// which are skipped unconditionally.
     #[clap(long)]
     skip_incompatible_targets: bool,
+
+    /// Materializes inputs for failed actions which ran on RE
+    #[clap(long)]
+    materialize_failed_inputs: bool,
 }
 
 impl CommonBuildOptions {
@@ -462,6 +466,7 @@ impl CommonBuildOptions {
             keep_going: self.keep_going,
             skip_missing_targets: self.skip_missing_targets,
             skip_incompatible_targets: self.skip_incompatible_targets,
+            materialize_failed_inputs: self.materialize_failed_inputs,
         }
     }
 }

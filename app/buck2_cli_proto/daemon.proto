@@ -334,6 +334,9 @@ message CommonBuildOptions {
   bool skip_missing_targets = 16;
   bool skip_incompatible_targets = 17;
 
+  /// Materializes inputs for failed actions which ran on RE.
+  bool materialize_failed_inputs = 18;
+
   // These should possibly be deleted and never become real options. Let's not
   // pollute the low ids (and then forever need a comment about them). The only
   // one of these that might stick around is print_build_report, it's unclear if
