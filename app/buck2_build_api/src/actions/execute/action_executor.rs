@@ -118,7 +118,7 @@ pub struct ActionExecutionMetadata {
 pub enum ActionExecutionKind {
     #[display(fmt = "command({})", kind)]
     Command {
-        kind: CommandExecutionKind,
+        kind: Box<CommandExecutionKind>,
         prefers_local: bool,
         requires_local: bool,
         allows_cache_upload: bool,
@@ -450,7 +450,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                     ),
                     ActionExecutionMetadata {
                         execution_kind: ActionExecutionKind::Command {
-                            kind: execution_kind.clone(),
+                            kind: Box::new(execution_kind.clone()),
                             prefers_local: request.executor_preference().prefers_local(),
                             requires_local: request.executor_preference().requires_local(),
                             allows_cache_upload,
