@@ -11,10 +11,10 @@ use std::collections::HashMap;
 
 use buck2_common::file_ops::TrackedFileDigest;
 use dupe::Dupe;
-use prost::Message;
 
 use crate::digest_config::DigestConfig;
 use crate::execute::request::ActionMetadataBlobData;
+use crate::execute::request::ActionMetadataBlobMessage;
 
 /// Contains small blobs referenced from action messages (does not include any file contents blobs).
 pub struct ActionBlobs(HashMap<TrackedFileDigest, ActionMetadataBlobData>);
@@ -37,14 +37,12 @@ impl ActionBlobs {
 
     pub fn add_protobuf_message(
         &mut self,
-        m: &impl Message,
+        m: &impl ActionMetadataBlobMessage,
         digest_config: DigestConfig,
     ) -> TrackedFileDigest {
-        let mut blob = Vec::new();
-        // Unwrap is safe because it only fails in OOM conditions, which we pretend don't happen
-        m.encode(&mut blob).unwrap();
-        let digest = TrackedFileDigest::from_content(&blob, digest_config.cas_digest_config());
-        self.0.insert(digest.dupe(), ActionMetadataBlobData(blob));
+        let blob = ActionMetadataBlobData::from_message(m);
+        let digest = TrackedFileDigest::from_content(&blob.0, digest_config.cas_digest_config());
+        self.0.insert(digest.dupe(), blob);
         digest
     }
 

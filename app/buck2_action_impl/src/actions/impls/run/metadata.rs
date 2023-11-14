@@ -83,5 +83,5 @@ pub(crate) fn metadata_content(
     let json_string = serde_json::to_string(&json)?;
     let digest =
         TrackedFileDigest::from_content(json_string.as_bytes(), digest_config.cas_digest_config());
-    Ok((ActionMetadataBlobData(json_string.into()), digest))
+    Ok((ActionMetadataBlobData::from_json(json_string), digest))
 }

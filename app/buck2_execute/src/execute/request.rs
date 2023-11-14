@@ -30,6 +30,8 @@ use gazebo::variants::UnpackVariants;
 use host_sharing::host_sharing::HostSharingRequirements;
 use indexmap::IndexSet;
 use itertools::Itertools;
+use prost::Message;
+use remote_execution as RE;
 use sorted_vector_map::SortedVectorMap;
 use starlark_map::sorted_set::SortedSet;
 
@@ -42,9 +44,28 @@ use crate::directory::ActionImmutableDirectory;
 use crate::execute::environment_inheritance::EnvironmentInheritance;
 use crate::execute::inputs_directory::inputs_directory;
 
-// TODO(nga): explain what that is.
+/// What protobuf messages can be stored in the action metadata blobs.
+pub trait ActionMetadataBlobMessage: Message {}
+
+impl ActionMetadataBlobMessage for RE::Action {}
+impl ActionMetadataBlobMessage for RE::Command {}
+impl ActionMetadataBlobMessage for RE::Tree {}
+
 #[derive(Clone)]
 pub struct ActionMetadataBlobData(pub Vec<u8>);
+
+impl ActionMetadataBlobData {
+    pub fn from_message(m: &impl ActionMetadataBlobMessage) -> ActionMetadataBlobData {
+        let mut blob = Vec::new();
+        // Unwrap is safe because it only fails in OOM conditions, which we pretend don't happen
+        m.encode(&mut blob).unwrap();
+        ActionMetadataBlobData(blob)
+    }
+
+    pub fn from_json(json: String) -> ActionMetadataBlobData {
+        ActionMetadataBlobData(json.into_bytes())
+    }
+}
 
 #[derive(Clone)]
 pub struct ActionMetadataBlob {
