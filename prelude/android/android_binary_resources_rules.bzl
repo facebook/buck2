@@ -21,6 +21,14 @@ load("@prelude//utils:set.bzl", "set_type")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "expect")
 load("@prelude//decls/android_rules.bzl", "RType")
 
+_FilteredResourcesOutput = record(
+    resource_infos = list[AndroidResourceInfo],
+    voltron_res = list[Artifact],
+    override_symbols = [Artifact, None],
+    string_files_list = [Artifact, None],
+    string_files_res_dirs = list[Artifact],
+)
+
 def get_android_binary_resources_info(
         ctx: AnalysisContext,
         deps: list[Dependency],
@@ -41,11 +49,12 @@ def get_android_binary_resources_info(
         for resource_info in list(android_packageable_info.resource_infos.traverse() if android_packageable_info.resource_infos else [])
         if not (resource_infos_to_exclude and resource_infos_to_exclude.contains(resource_info.raw_target))
     ]
-    resource_infos, voltron_res, override_symbols, string_files_list, string_files_res_dirs = _maybe_filter_resources(
+    filtered_resources_output = _maybe_filter_resources(
         ctx,
         unfiltered_resource_infos,
         android_toolchain,
     )
+    resource_infos = filtered_resources_output.resource_infos
 
     android_manifest = get_manifest(ctx, android_packageable_info, manifest_entries)
 
@@ -126,7 +135,7 @@ def get_android_binary_resources_info(
         exopackage_info = None
         r_dot_txt = aapt2_link_info.r_dot_txt
 
-    override_symbols_paths = [override_symbols] if override_symbols else []
+    override_symbols_paths = [filtered_resources_output.override_symbols] if filtered_resources_output.override_symbols else []
     resources = [resource for resource in resource_infos if resource.res != None]
     r_dot_java_infos = generate_r_dot_javas(
         ctx,
@@ -154,15 +163,15 @@ def get_android_binary_resources_info(
     voltron_string_source_map = _maybe_generate_string_source_map(
         ctx.actions,
         getattr(ctx.attrs, "is_voltron_language_pack_enabled", False),
-        voltron_res,
+        filtered_resources_output.voltron_res,
         android_toolchain,
         is_voltron_string_source_map = True,
     )
 
     packaged_string_assets = _maybe_package_strings_as_assets(
         ctx,
-        string_files_list,
-        string_files_res_dirs,
+        filtered_resources_output.string_files_list,
+        filtered_resources_output.string_files_res_dirs,
         r_dot_txt,
         android_toolchain,
     )
@@ -184,7 +193,7 @@ def get_android_binary_resources_info(
 def _maybe_filter_resources(
         ctx: AnalysisContext,
         resources: list[AndroidResourceInfo],
-        android_toolchain: AndroidToolchainInfo) -> (list[AndroidResourceInfo], list[Artifact], [Artifact, None], [Artifact, None], list[Artifact]):
+        android_toolchain: AndroidToolchainInfo) -> _FilteredResourcesOutput:
     resources_filter_strings = getattr(ctx.attrs, "resource_filter", [])
     resources_filter = _get_resources_filter(resources_filter_strings)
     resource_compression_mode = getattr(ctx.attrs, "resource_compression", "disabled")
@@ -202,7 +211,13 @@ def _maybe_filter_resources(
     )
 
     if not needs_resource_filtering:
-        return resources, [resource.res for resource in resources if resource.res != None], None, None, []
+        return _FilteredResourcesOutput(
+            resource_infos = resources,
+            voltron_res = [resource.res for resource in resources if resource.res != None],
+            override_symbols = None,
+            string_files_list = None,
+            string_files_res_dirs = [],
+        )
 
     res_info_to_out_res_dir = {}
     voltron_res_info_to_out_res_dir = {}
@@ -323,12 +338,12 @@ def _maybe_filter_resources(
         )
         filtered_resource_infos.append(filtered_resource)
 
-    return (
-        res_infos_with_no_res + filtered_resource_infos,
-        voltron_res_info_to_out_res_dir.values(),
-        override_symbols_artifact,
-        all_strings_files_list,
-        all_strings_files_res_dirs,
+    return _FilteredResourcesOutput(
+        resource_infos = res_infos_with_no_res + filtered_resource_infos,
+        voltron_res = voltron_res_info_to_out_res_dir.values(),
+        override_symbols = override_symbols_artifact,
+        string_files_list = all_strings_files_list,
+        string_files_res_dirs = all_strings_files_res_dirs,
     )
 
 ResourcesFilter = record(
