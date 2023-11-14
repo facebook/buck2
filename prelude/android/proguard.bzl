@@ -99,7 +99,7 @@ def run_proguard(
     sh_cmd = cmd_args([
         "sh",
         "-c",
-        "touch $1 && touch $2 && $3 && $4 --paths-to-scrub $5",
+        "touch $1 && touch $2 && $3 && $4 --paths-to-scrub $5 --create-if-not-present",
         "--",
         mapping_file.as_output(),
         usage_file.as_output(),
