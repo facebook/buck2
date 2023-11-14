@@ -871,6 +871,7 @@ def _compute_common_args(
         # TODO: SplitDebugMode("split"): ["-Csplit-debuginfo=unpacked"],
     }[compile_ctx.cxx_toolchain_info.split_debug_mode or SplitDebugMode("none")]
 
+    null_path = "nul" if ctx.attrs._exec_os_type[OsLookup].platform == "windows" else "/dev/null"
     args = cmd_args(
         cmd_args(compile_ctx.symlinked_srcs, path_sep, crate_root, delimiter = ""),
         crate_name_arg,
@@ -883,6 +884,7 @@ def _compute_common_args(
         ["-Cprefer-dynamic=yes"] if crate_type == CrateType("dylib") else [],
         ["--target={}".format(toolchain_info.rustc_target_triple)] if toolchain_info.rustc_target_triple else [],
         split_debuginfo_flags,
+        ["--sysroot=" + null_path] if toolchain_info.explicit_sysroot_deps != None else [],
         _rustc_flags(toolchain_info.rustc_flags),
         _rustc_flags(toolchain_info.rustc_check_flags) if is_check else [],
         _rustc_flags(toolchain_info.rustc_coverage_flags) if ctx.attrs.coverage else [],
@@ -916,6 +918,8 @@ def _clippy_wrapper(
     if toolchain_info.rustc_target_triple:
         rustc_print_sysroot.add("--target={}".format(toolchain_info.rustc_target_triple))
 
+    skip_setting_sysroot = toolchain_info.explicit_sysroot_deps != None
+
     if ctx.attrs._exec_os_type[OsLookup].platform == "windows":
         wrapper_file, _ = ctx.actions.write(
             ctx.actions.declare_output("__clippy_driver_wrapper.bat"),
@@ -923,7 +927,9 @@ def _clippy_wrapper(
                 "@echo off",
                 "set __CLIPPY_INTERNAL_TESTS=true",
                 cmd_args(rustc_print_sysroot, format = 'FOR /F "tokens=* USEBACKQ" %%F IN (`{}`) DO ('),
-                "set SYSROOT=%%F",
+            ] + (
+                [] if skip_setting_sysroot else ["set SYSROOT=%%F"]
+            ) + [
                 ")",
                 cmd_args(clippy_driver, format = "{} %*"),
             ],
@@ -936,7 +942,9 @@ def _clippy_wrapper(
                 "#!/usr/bin/env bash",
                 # Force clippy to be clippy: https://github.com/rust-lang/rust-clippy/blob/e405c68b3c1265daa9a091ed9b4b5c5a38c0c0ba/src/driver.rs#L334
                 "export __CLIPPY_INTERNAL_TESTS=true",
-                cmd_args(rustc_print_sysroot, format = "export SYSROOT=$({})"),
+            ] + (
+                [] if skip_setting_sysroot else [cmd_args(rustc_print_sysroot, format = "export SYSROOT=$({})")]
+            ) + [
                 cmd_args(clippy_driver, format = "{} \"$@\"\n"),
             ],
             is_executable = True,
