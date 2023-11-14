@@ -32,10 +32,7 @@ def location_to_string(location: ModifierLocation) -> str:
         return _CLI_LOCATION_STR
     fail("Internal error. Unrecognized location type `{}` for location `{}`".format(type(location), location))
 
-def verify_normalized_target(target: str, param_context: str, location: ModifierLocation):
-    if isinstance(location, ModifierCliLocation):
-        fail("Internal error: location should not be ModifierCliLocation")
-
+def verify_normalized_target(target: str, param_context: str):
     # Do some basic checks that target looks reasonably valid and normalized
     # Targets should always be fully qualified to improve readability.
     if "//" not in target or target.startswith("//") or ":" not in target:
@@ -48,20 +45,20 @@ def verify_normalized_target(target: str, param_context: str, location: Modifier
 
 _MODIFIER_PARAM = "modifier"
 
-def verify_normalized_modifier(modifier: Modifier, location: ModifierLocation):
+def verify_normalized_modifier(modifier: Modifier):
     if isinstance(modifier, ModifierSelect):
         for key, sub_modifier in modifier.selector.items():
             if key != "DEFAULT":
-                verify_normalized_modifier(sub_modifier, location)
+                verify_normalized_modifier(sub_modifier)
     elif isinstance(modifier, str):
-        verify_normalized_target(modifier, _MODIFIER_PARAM, location)
+        verify_normalized_target(modifier, _MODIFIER_PARAM)
     else:
         fail("Found unexpected modifier `{}` type `{}`".format(modifier, type(modifier)))
 
 def get_tagged_modifier(
         modifier: Modifier,
         location: ModifierLocation) -> TaggedModifier:
-    verify_normalized_modifier(modifier, location)
+    verify_normalized_modifier(modifier)
 
     tagged_modifier = TaggedModifier(
         modifier = modifier,
