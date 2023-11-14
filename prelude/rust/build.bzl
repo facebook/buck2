@@ -55,6 +55,7 @@ load(
     "CommonArgsInfo",
     "CompileContext",
     "CrateName",  # @unused Used as a type
+    "DepCollectionContext",
 )
 load(":extern.bzl", "crate_map_arg", "extern_arg")
 load(
@@ -119,9 +120,15 @@ def compile_context(ctx: AnalysisContext) -> CompileContext:
     linker = _linker_args(ctx, cxx_toolchain_info.linker_info)
     clippy_wrapper = _clippy_wrapper(ctx, toolchain_info)
 
+    dep_ctx = DepCollectionContext(
+        native_unbundle_deps = toolchain_info.native_unbundle_deps,
+        include_doc_deps = False,
+    )
+
     return CompileContext(
         toolchain_info = toolchain_info,
         cxx_toolchain_info = cxx_toolchain_info,
+        dep_ctx = dep_ctx,
         symlinked_srcs = symlinked_srcs,
         linker_args = linker,
         clippy_wrapper = clippy_wrapper,
@@ -146,6 +153,7 @@ def generate_rustdoc(
     common_args = _compute_common_args(
         ctx = ctx,
         compile_ctx = compile_ctx,
+        dep_ctx = compile_ctx.dep_ctx,
         # to make sure we get the rmeta's generated for the crate dependencies,
         # rather than full .rlibs
         emit = Emit("metadata"),
@@ -179,7 +187,7 @@ def generate_rustdoc(
         # Flag --extern-html-root-url used below is only supported on nightly.
         rustdoc_cmd.add("-Zunstable-options")
 
-        for dep in resolve_rust_deps(ctx):
+        for dep in resolve_rust_deps(ctx, compile_ctx.dep_ctx):
             if dep.label.cell != ctx.label.cell:
                 # TODO: support a different extern_html_root_url_prefix per cell
                 continue
@@ -217,7 +225,10 @@ def generate_rustdoc_test(
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
     toolchain_info = compile_ctx.toolchain_info
-    native_unbundle_deps = toolchain_info.native_unbundle_deps
+    doc_dep_ctx = DepCollectionContext(
+        native_unbundle_deps = compile_ctx.dep_ctx.native_unbundle_deps,
+        include_doc_deps = True,
+    )
 
     resources = create_resource_db(
         ctx = ctx,
@@ -235,7 +246,7 @@ def generate_rustdoc_test(
     if link_style == LinkStyle("shared"):
         shlib_info = merge_shared_libraries(
             ctx.actions,
-            deps = inherited_shared_libs(ctx, native_unbundle_deps, include_doc_deps = True),
+            deps = inherited_shared_libs(ctx, doc_dep_ctx),
         )
         for soname, shared_lib in traverse_shared_library_info(shlib_info).items():
             shared_libs[soname] = shared_lib.lib
@@ -249,6 +260,7 @@ def generate_rustdoc_test(
     common_args = _compute_common_args(
         ctx = ctx,
         compile_ctx = compile_ctx,
+        dep_ctx = doc_dep_ctx,
         emit = Emit("link"),
         params = params,
         dep_link_style = params.dep_link_style,
@@ -263,7 +275,7 @@ def generate_rustdoc_test(
             LinkArgs(flags = executable_args.extra_link_args),
             get_link_args_for_strategy(
                 ctx,
-                inherited_merged_link_infos(ctx, native_unbundle_deps, include_doc_deps = True),
+                inherited_merged_link_infos(ctx, doc_dep_ctx),
                 # TODO(cjhopman): It's unclear how rust is using link_style. I'm not sure if it's intended to be a LibOutputStyle or a LinkStrategy.
                 to_link_strategy(link_style),
             ),
@@ -383,13 +395,13 @@ def rust_compile(
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
     toolchain_info = compile_ctx.toolchain_info
-    native_unbundle_deps = toolchain_info.native_unbundle_deps
 
     lints, clippy_lints = _lint_flags(compile_ctx)
 
     common_args = _compute_common_args(
         ctx = ctx,
         compile_ctx = compile_ctx,
+        dep_ctx = compile_ctx.dep_ctx,
         emit = emit,
         params = params,
         dep_link_style = dep_link_style,
@@ -454,8 +466,7 @@ def rust_compile(
                 ctx,
                 inherited_merged_link_infos(
                     ctx,
-                    native_unbundle_deps,
-                    include_doc_deps = False,
+                    compile_ctx.dep_ctx,
                 ),
                 # TODO(cjhopman): It's unclear how rust is using link_style. I'm not sure if it's intended to be a LibOutputStyle or a LinkStrategy.
                 to_link_strategy(dep_link_style),
@@ -562,6 +573,7 @@ def rust_compile(
         dwo_output_directory = extra_out
         external_debug_info = inherited_external_debug_info(
             ctx = ctx,
+            dep_ctx = compile_ctx.dep_ctx,
             dwo_output_directory = dwo_output_directory,
             dep_link_style = params.dep_link_style,
         )
@@ -601,6 +613,7 @@ def rust_compile(
 def _dependency_args(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
+        dep_ctx: DepCollectionContext,
         subdir: str,
         crate_type: CrateType,
         dep_link_style: LinkStyle,
@@ -610,7 +623,7 @@ def _dependency_args(
     transitive_deps = {}
     crate_targets = []
     available_proc_macros = get_available_proc_macros(ctx)
-    for dep in resolve_rust_deps(ctx, include_doc_deps = is_rustdoc_test):
+    for dep in resolve_rust_deps(ctx, dep_ctx):
         if dep.name:
             crate = CrateName(
                 simple = normalize_crate(dep.name),
@@ -742,6 +755,7 @@ def _rustc_flags(flags: list[[str, ResolvedStringWithMacros]]) -> list[[str, Res
 def _compute_common_args(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
+        dep_ctx: DepCollectionContext,
         emit: Emit,
         params: BuildParams,
         dep_link_style: LinkStyle,
@@ -782,6 +796,7 @@ def _compute_common_args(
     dependency_args, crate_map = _dependency_args(
         ctx = ctx,
         compile_ctx = compile_ctx,
+        dep_ctx = dep_ctx,
         subdir = subdir,
         crate_type = crate_type,
         dep_link_style = dep_link_style,

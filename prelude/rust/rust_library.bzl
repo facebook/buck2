@@ -89,6 +89,7 @@ load(
     ":context.bzl",
     "CompileContext",  # @unused Used as a type
     "CrateName",  # @unused Used as a type
+    "DepCollectionContext",
 )
 load(
     ":link_info.bzl",
@@ -119,12 +120,19 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
     )
 
+    dep_ctx = DepCollectionContext(
+        # Prebuilt libraries only work in unbundled mode, as they only support `rlib`
+        # files today.
+        native_unbundle_deps = True,
+        include_doc_deps = False,
+    )
+
     # Rust link provider.
     crate = attr_crate(ctx)
     styles = {}
     for style in LinkStyle:
         dep_link_style = style
-        tdeps, tmetadeps, external_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_link_style)
+        tdeps, tmetadeps, external_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_ctx, dep_link_style)
         external_debug_info = make_artifact_tset(
             actions = ctx.actions,
             children = external_debug_info,
@@ -139,18 +147,15 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             external_debug_info = external_debug_info,
         )
 
-    # Prebuilt libraries only work in unbundled mode, as they only support `rlib`
-    # files today.
-    native_unbundle_deps = True
     providers.append(
         RustLinkInfo(
             crate = crate,
             styles = styles,
-            exported_link_deps = inherited_exported_link_deps(ctx, native_unbundle_deps),
-            merged_link_info = create_merged_link_info_for_propagation(ctx, inherited_merged_link_infos(ctx, native_unbundle_deps)),
+            exported_link_deps = inherited_exported_link_deps(ctx, dep_ctx),
+            merged_link_info = create_merged_link_info_for_propagation(ctx, inherited_merged_link_infos(ctx, dep_ctx)),
             shared_libs = merge_shared_libraries(
                 ctx.actions,
-                deps = inherited_shared_libs(ctx, native_unbundle_deps),
+                deps = inherited_shared_libs(ctx, dep_ctx),
             ),
         ),
     )
@@ -240,7 +245,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 check_artifacts = {"check": meta.output}
                 check_artifacts.update(meta.diag)
 
-            rust_param_artifact[params] = _handle_rust_artifact(ctx, params, link, meta)
+            rust_param_artifact[params] = _handle_rust_artifact(ctx, compile_ctx.dep_ctx, params, link, meta)
         if LinkageLang("native") in param_lang[params] or LinkageLang("native-unbundled") in param_lang[params]:
             native_param_artifact[params] = link
 
@@ -332,7 +337,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         param_artifact = native_param_artifact,
     )
 
-    deps = [dep.dep for dep in resolve_deps(ctx)]
+    deps = [dep.dep for dep in resolve_deps(ctx, compile_ctx.dep_ctx)]
     providers.append(ResourceInfo(resources = gather_resources(
         label = ctx.label,
         resources = rust_attr_resources(ctx),
@@ -421,6 +426,7 @@ def _build_library_artifacts(
 
 def _handle_rust_artifact(
         ctx: AnalysisContext,
+        dep_ctx: DepCollectionContext,
         params: BuildParams,
         link: RustcOutput,
         meta: RustcOutput) -> RustLinkStyleInfo:
@@ -434,7 +440,7 @@ def _handle_rust_artifact(
     # If we're a crate where our consumers should care about transitive deps,
     # then compute them (specifically, not proc-macro).
     if crate_type_transitive_deps(params.crate_type):
-        tdeps, tmetadeps, external_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_link_style)
+        tdeps, tmetadeps, external_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_ctx, dep_link_style)
     else:
         tdeps, tmetadeps, external_debug_info, tprocmacrodeps = {}, {}, [], {}
 
@@ -528,7 +534,6 @@ def _rust_providers(
     Return the set of providers for Rust linkage.
     """
     crate = attr_crate(ctx)
-    native_unbundle_deps = compile_ctx.toolchain_info.native_unbundle_deps
 
     style_info = {
         link_style: param_artifact[lang_style_param[(LinkageLang("rust"), link_style)]]
@@ -539,9 +544,9 @@ def _rust_providers(
     # non-Rust rules, found by walking through -- and ignoring -- Rust libraries
     # to find non-Rust native linkables and libraries.
     if not ctx.attrs.proc_macro:
-        inherited_link_deps = inherited_exported_link_deps(ctx, native_unbundle_deps)
-        inherited_link_infos = inherited_merged_link_infos(ctx, native_unbundle_deps)
-        inherited_shlibs = inherited_shared_libs(ctx, native_unbundle_deps)
+        inherited_link_deps = inherited_exported_link_deps(ctx, compile_ctx.dep_ctx)
+        inherited_link_infos = inherited_merged_link_infos(ctx, compile_ctx.dep_ctx)
+        inherited_shlibs = inherited_shared_libs(ctx, compile_ctx.dep_ctx)
     else:
         # proc-macros are just used by the compiler and shouldn't propagate
         # their native deps to the link line of the target.
@@ -580,9 +585,9 @@ def _native_providers(
     native_unbundle_deps = compile_ctx.toolchain_info.native_unbundle_deps
     lang = LinkageLang("native-unbundled") if native_unbundle_deps else LinkageLang("native")
 
-    inherited_link_deps = inherited_exported_link_deps(ctx, native_unbundle_deps)
-    inherited_link_infos = inherited_merged_link_infos(ctx, native_unbundle_deps)
-    inherited_shlibs = inherited_shared_libs(ctx, native_unbundle_deps)
+    inherited_link_deps = inherited_exported_link_deps(ctx, compile_ctx.dep_ctx)
+    inherited_link_infos = inherited_merged_link_infos(ctx, compile_ctx.dep_ctx)
+    inherited_shlibs = inherited_shared_libs(ctx, compile_ctx.dep_ctx)
     linker_info = compile_ctx.cxx_toolchain_info.linker_info
     linker_type = linker_info.type
 
@@ -608,6 +613,7 @@ def _native_providers(
 
         external_debug_info = inherited_external_debug_info(
             ctx = ctx,
+            dep_ctx = compile_ctx.dep_ctx,
             dwo_output_directory = lib.dwo_output_directory,
             dep_link_style = params.dep_link_style,
         )
@@ -731,6 +737,7 @@ def _native_providers(
 # Compute transitive deps. Caller decides whether this is necessary.
 def _compute_transitive_deps(
         ctx: AnalysisContext,
+        dep_ctx: DepCollectionContext,
         dep_link_style: LinkStyle) -> (
     dict[Artifact, CrateName],
     dict[Artifact, CrateName],
@@ -742,7 +749,7 @@ def _compute_transitive_deps(
     external_debug_info = []
     transitive_proc_macro_deps = {}
 
-    for dep in resolve_rust_deps(ctx):
+    for dep in resolve_rust_deps(ctx, dep_ctx):
         if dep.proc_macro_marker != None:
             transitive_proc_macro_deps[dep.proc_macro_marker] = ()
 

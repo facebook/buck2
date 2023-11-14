@@ -97,7 +97,6 @@ def _rust_binary_common(
 
     target_os_type = ctx.attrs._target_os_type[OsLookup]
     linker_type = compile_ctx.cxx_toolchain_info.linker_info.type
-    native_unbundle_deps = compile_ctx.toolchain_info.native_unbundle_deps
 
     resources = flatten_dict(gather_resources(
         label = ctx.label,
@@ -134,7 +133,7 @@ def _rust_binary_common(
         if enable_link_groups(ctx, link_style, specified_link_style, is_binary = True):
             rust_cxx_link_group_info = inherited_rust_cxx_link_group_info(
                 ctx,
-                native_unbundle_deps,
+                compile_ctx.dep_ctx,
                 link_style = link_style,
             )
             link_group_mappings = rust_cxx_link_group_info.link_group_info.mappings
@@ -149,7 +148,7 @@ def _rust_binary_common(
         if link_style == LinkStyle("shared") or rust_cxx_link_group_info != None:
             shlib_info = merge_shared_libraries(
                 ctx.actions,
-                deps = inherited_shared_libs(ctx, native_unbundle_deps),
+                deps = inherited_shared_libs(ctx, compile_ctx.dep_ctx),
             )
 
             link_group_ctx = LinkGroupContext(

@@ -68,6 +68,7 @@ load(
 load(
     ":context.bzl",
     "CrateName",  # @unused Used as a type
+    "DepCollectionContext",  # @unused Used as a type
 )
 
 # Link style for targets which do not set an explicit `link_style` attribute.
@@ -204,7 +205,7 @@ def _do_resolve_deps(
 
 def resolve_deps(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False) -> list[RustOrNativeDependency]:
+        dep_ctx: DepCollectionContext) -> list[RustOrNativeDependency]:
     # The `getattr`s are needed for when we're operating on
     # `prebuilt_rust_library` rules, which don't have those attrs.
     dependencies = _do_resolve_deps(
@@ -213,7 +214,7 @@ def resolve_deps(
         flagged_deps = getattr(ctx.attrs, "flagged_deps", []),
     )
 
-    if include_doc_deps:
+    if dep_ctx.include_doc_deps:
         dependencies.extend(_do_resolve_deps(
             deps = ctx.attrs.doc_deps,
             named_deps = getattr(ctx.attrs, "doc_named_deps", {}),
@@ -223,8 +224,8 @@ def resolve_deps(
 
 def resolve_rust_deps(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False) -> list[RustDependency]:
-    all_deps = resolve_deps(ctx, include_doc_deps)
+        dep_ctx: DepCollectionContext) -> list[RustDependency]:
+    all_deps = resolve_deps(ctx, dep_ctx)
     rust_deps = []
     available_proc_macros = get_available_proc_macros(ctx)
     for dep in all_deps:
@@ -266,8 +267,7 @@ def _create_linkable_graph(
 # Returns native link dependencies.
 def _native_link_dependencies(
         ctx: AnalysisContext,
-        native_unbundle_deps: bool,
-        include_doc_deps: bool = False) -> list[Dependency]:
+        dep_ctx: DepCollectionContext) -> list[Dependency]:
     """
     Return all first-order native linkable dependencies of all transitive Rust
     libraries.
@@ -275,9 +275,9 @@ def _native_link_dependencies(
     This emulates v1's graph walk, where it traverses through Rust libraries
     looking for non-Rust native link infos (and terminating the search there).
     """
-    first_order_deps = [dep.dep for dep in resolve_deps(ctx, include_doc_deps)]
+    first_order_deps = [dep.dep for dep in resolve_deps(ctx, dep_ctx)]
 
-    if native_unbundle_deps:
+    if dep_ctx.native_unbundle_deps:
         return [d for d in first_order_deps if MergedLinkInfo in d]
     else:
         return [
@@ -289,28 +289,26 @@ def _native_link_dependencies(
 # Returns native link dependencies.
 def _native_link_infos(
         ctx: AnalysisContext,
-        native_unbundle_deps: bool,
-        include_doc_deps: bool = False) -> list[MergedLinkInfo]:
+        dep_ctx: DepCollectionContext) -> list[MergedLinkInfo]:
     """
     Return all first-order native link infos of all transitive Rust libraries.
     """
-    link_deps = _native_link_dependencies(ctx, native_unbundle_deps, include_doc_deps)
+    link_deps = _native_link_dependencies(ctx, dep_ctx)
     return [d[MergedLinkInfo] for d in link_deps]
 
 # Returns native link dependencies.
 def _native_shared_lib_infos(
         ctx: AnalysisContext,
-        native_unbundle_deps: bool,
-        include_doc_deps: bool = False) -> list[SharedLibraryInfo]:
+        dep_ctx: DepCollectionContext) -> list[SharedLibraryInfo]:
     """
     Return all transitive shared libraries for non-Rust native linkabes.
 
     This emulates v1's graph walk, where it traverses through -- and ignores --
     Rust libraries to collect all transitive shared libraries.
     """
-    first_order_deps = [dep.dep for dep in resolve_deps(ctx, include_doc_deps)]
+    first_order_deps = [dep.dep for dep in resolve_deps(ctx, dep_ctx)]
 
-    if native_unbundle_deps:
+    if dep_ctx.native_unbundle_deps:
         return [d[SharedLibraryInfo] for d in first_order_deps if SharedLibraryInfo in d]
     else:
         return [
@@ -322,27 +320,27 @@ def _native_shared_lib_infos(
 # Returns native link dependencies.
 def _rust_link_infos(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False) -> list[RustLinkInfo]:
-    return [d.info for d in resolve_rust_deps(ctx, include_doc_deps)]
+        dep_ctx: DepCollectionContext) -> list[RustLinkInfo]:
+    return [d.info for d in resolve_rust_deps(ctx, dep_ctx)]
 
 def normalize_crate(label: str) -> str:
     return label.replace("-", "_")
 
-def inherited_exported_link_deps(ctx: AnalysisContext, native_unbundle_deps: bool) -> list[Dependency]:
+def inherited_exported_link_deps(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[Dependency]:
     deps = {}
-    for dep in _native_link_dependencies(ctx, native_unbundle_deps):
+    for dep in _native_link_dependencies(ctx, dep_ctx):
         deps[dep.label] = dep
-    if not native_unbundle_deps:
-        for info in _rust_link_infos(ctx):
+    if not dep_ctx.native_unbundle_deps:
+        for info in _rust_link_infos(ctx, dep_ctx):
             for dep in info.exported_link_deps:
                 deps[dep.label] = dep
     return deps.values()
 
 def inherited_rust_cxx_link_group_info(
         ctx: AnalysisContext,
-        native_unbundle_deps: bool,
+        dep_ctx: DepCollectionContext,
         link_style: [LinkStyle, None] = None) -> RustCxxLinkGroupInfo:
-    link_deps = inherited_exported_link_deps(ctx, native_unbundle_deps)
+    link_deps = inherited_exported_link_deps(ctx, dep_ctx)
 
     # Assume a rust executable wants to use link groups if a link group map
     # is present
@@ -422,26 +420,25 @@ def inherited_rust_cxx_link_group_info(
 
 def inherited_merged_link_infos(
         ctx: AnalysisContext,
-        native_unbundle_deps: bool,
-        include_doc_deps: bool = False) -> list[MergedLinkInfo]:
+        dep_ctx: DepCollectionContext) -> list[MergedLinkInfo]:
     infos = []
-    infos.extend(_native_link_infos(ctx, native_unbundle_deps, include_doc_deps))
-    if not native_unbundle_deps:
-        infos.extend([d.merged_link_info for d in _rust_link_infos(ctx, include_doc_deps) if d.merged_link_info])
+    infos.extend(_native_link_infos(ctx, dep_ctx))
+    if not dep_ctx.native_unbundle_deps:
+        infos.extend([d.merged_link_info for d in _rust_link_infos(ctx, dep_ctx) if d.merged_link_info])
     return infos
 
 def inherited_shared_libs(
         ctx: AnalysisContext,
-        native_unbundle_deps: bool,
-        include_doc_deps: bool = False) -> list[SharedLibraryInfo]:
+        dep_ctx: DepCollectionContext) -> list[SharedLibraryInfo]:
     infos = []
-    infos.extend(_native_shared_lib_infos(ctx, native_unbundle_deps, include_doc_deps))
-    if not native_unbundle_deps:
-        infos.extend([d.shared_libs for d in _rust_link_infos(ctx, include_doc_deps)])
+    infos.extend(_native_shared_lib_infos(ctx, dep_ctx))
+    if not dep_ctx.native_unbundle_deps:
+        infos.extend([d.shared_libs for d in _rust_link_infos(ctx, dep_ctx)])
     return infos
 
 def inherited_external_debug_info(
         ctx: AnalysisContext,
+        dep_ctx: DepCollectionContext,
         dwo_output_directory: [Artifact, None],
         dep_link_style: LinkStyle) -> ArtifactTSet:
     rust_dep_link_style = _adjust_link_style_for_rust_dependencies(dep_link_style)
@@ -450,7 +447,7 @@ def inherited_external_debug_info(
     inherited_debug_infos = []
     inherited_link_infos = []
 
-    for d in resolve_deps(ctx):
+    for d in resolve_deps(ctx, dep_ctx):
         if RustLinkInfo in d.dep:
             inherited_debug_infos.append(d.dep[RustLinkInfo].styles[rust_dep_link_style].external_debug_info)
             inherited_link_infos.append(d.dep[RustLinkInfo].merged_link_info)

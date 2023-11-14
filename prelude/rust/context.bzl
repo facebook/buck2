@@ -35,11 +35,18 @@ CrateMapArg = record(
     label = field(Label),
 )
 
+# Information that determines how dependencies should be collected
+DepCollectionContext = record(
+    native_unbundle_deps = field(bool),
+    include_doc_deps = field(bool),
+)
+
 # Compile info which is reusable between multiple compilation command performed
 # by the same rule.
 CompileContext = record(
     toolchain_info = field(RustToolchainInfo),
     cxx_toolchain_info = field(CxxToolchainInfo),
+    dep_ctx = field(DepCollectionContext),
     # Symlink root containing all sources.
     symlinked_srcs = field(Artifact),
     # Linker args to pass the linker wrapper to rustc.
