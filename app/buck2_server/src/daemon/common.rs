@@ -356,7 +356,6 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         self.re_connection.get_client(),
                         *re_use_case,
                         platform.clone(),
-                        self.executor_global_knobs.dupe(),
                         *max_bytes,
                     )) as _
                 } else {

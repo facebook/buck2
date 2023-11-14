@@ -33,7 +33,6 @@ use buck2_execute::execute::cache_uploader::DepFileEntry;
 use buck2_execute::execute::cache_uploader::UploadCache;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::target::CommandExecutionTarget;
-use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use derive_more::Display;
@@ -67,7 +66,6 @@ pub struct CacheUploader {
     re_client: ManagedRemoteExecutionClient,
     re_use_case: RemoteExecutorUseCase,
     platform: RE::Platform,
-    _knobs: ExecutorGlobalKnobs,
     max_bytes: Option<u64>,
 }
 
@@ -78,7 +76,6 @@ impl CacheUploader {
         re_client: ManagedRemoteExecutionClient,
         re_use_case: RemoteExecutorUseCase,
         platform: RE::Platform,
-        knobs: ExecutorGlobalKnobs,
         max_bytes: Option<u64>,
     ) -> CacheUploader {
         CacheUploader {
@@ -87,7 +84,6 @@ impl CacheUploader {
             re_client,
             re_use_case,
             platform,
-            _knobs: knobs,
             max_bytes,
         }
     }
