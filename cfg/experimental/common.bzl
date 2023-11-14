@@ -13,7 +13,6 @@ load(
     "ModifierInfo",
     "ModifierLocation",
     "ModifierPackageLocation",
-    "ModifierSelect",
     "ModifierSelectInfo",
     "ModifierTargetLocation",
     "TaggedModifier",
@@ -42,11 +41,21 @@ def verify_normalized_target(target: str):
             ),
         )
 
+def is_modifier_select(modifier: Modifier) -> bool:
+    if isinstance(modifier, str):
+        return False
+    if isinstance(modifier, dict):
+        if modifier["_type"] != "ModifierSelect":
+            fail("Found unknown dictionary `{}` for modifier".format(modifier))
+        return True
+    fail("Modifier should either be a string or dict. Found `{}`".format(modifier))
+
 def verify_normalized_modifier(modifier: Modifier):
-    if isinstance(modifier, ModifierSelect):
+    if is_modifier_select(modifier):
         # TODO(scottcao): Add a test case for this once `bxl_test` supports testing failures
-        for sub_modifier in modifier.selector.values():
-            verify_normalized_modifier(sub_modifier)
+        for key, sub_modifier in modifier.items():
+            if key != "_type":
+                verify_normalized_modifier(sub_modifier)
     elif isinstance(modifier, str):
         verify_normalized_target(modifier)
     else:
@@ -82,15 +91,15 @@ def get_modifier_info(
         location: ModifierLocation,
         constraint_setting_order: list[TargetLabel]) -> (TargetLabel, ModifierInfo):
     # Gets a modifier info from a modifier based on providers from `refs`.
-    if isinstance(modifier, ModifierSelect):
+    if is_modifier_select(modifier):
         default = None
         modifier_selector_info = []
         constraint_settings = {}  # Used like a set
-        for key, sub_modifier in modifier.selector.items():
+        for key, sub_modifier in modifier.items():
             if key == "DEFAULT":
                 default_constraint_setting, default = get_modifier_info(refs, sub_modifier, location, constraint_setting_order)
                 constraint_settings[default_constraint_setting] = None
-            else:
+            elif key != "_type":
                 cfg_info = refs[key][ConfigurationInfo]
                 for cfg_constraint_setting, cfg_constraint_value_info in cfg_info.constraints.items():
                     asserts.true(
@@ -140,11 +149,12 @@ def resolve_modifier(cfg: ConfigurationInfo, modifier: ModifierInfo) -> Constrai
 def modifier_to_refs(modifier: Modifier, location: ModifierLocation) -> list[str]:
     # Obtain a list of targets to analyze from a modifier.
     refs = []
-    if isinstance(modifier, ModifierSelect):
-        for key, sub_modifier in modifier.selector.items():
-            if key != "DEFAULT":
-                refs.append(key)
-            refs.extend(modifier_to_refs(sub_modifier, location))
+    if is_modifier_select(modifier):
+        for key, sub_modifier in modifier.items():
+            if key != "_type":
+                if key != "DEFAULT":
+                    refs.append(key)
+                refs.extend(modifier_to_refs(sub_modifier, location))
     elif isinstance(modifier, str):
         refs.append(modifier)
     else:
@@ -154,19 +164,9 @@ def modifier_to_refs(modifier: Modifier, location: ModifierLocation) -> list[str
 def tagged_modifier_to_json(tagged_modifier: TaggedModifier) -> dict[str, typing.Any]:
     return {
         "location": _location_to_json(tagged_modifier.location),
-        "modifier": _modifier_to_json(tagged_modifier.modifier),
+        "modifier": tagged_modifier.modifier,
         "_type": "TaggedModifier",
     }
-
-def _modifier_to_json(modifier: Modifier) -> dict[str, typing.Any] | str:
-    if isinstance(modifier, ModifierSelect):
-        return {"_type": "ModifierSelect"} | {
-            k: _modifier_to_json(v)
-            for k, v in modifier.selector.items()
-        }
-    if isinstance(modifier, str):
-        return modifier
-    fail("Internal error: Found unexpected modifier `{}` type `{}`".format(modifier, type(modifier)))
 
 def _location_to_json(location: ModifierLocation) -> dict[str, str]:
     if isinstance(location, ModifierPackageLocation):
@@ -182,15 +182,7 @@ def json_to_tagged_modifier(j: dict[str, typing.Any]) -> TaggedModifier:
         fail("Internal error: `{}` is not a `TaggedModifier`".format(j))
     return TaggedModifier(
         location = _json_to_location(j["location"]),
-        modifier = _json_to_modifier(j["modifier"]),
-    )
-
-def _json_to_modifier(j: dict[str, typing.Any] | str) -> Modifier:
-    if isinstance(j, str):
-        return j
-    asserts.true(j.pop("_type") == "ModifierSelect", "Internal error: cannot deserialize modifier `{}`".format(j))
-    return ModifierSelect(
-        selector = {k: _json_to_modifier(v) for k, v in j.items()},
+        modifier = j["modifier"],
     )
 
 def _json_to_location(j: dict[str, str]) -> ModifierLocation:

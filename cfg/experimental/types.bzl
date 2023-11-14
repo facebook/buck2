@@ -24,10 +24,7 @@ ModifierLocation = ModifierPackageLocation | ModifierTargetLocation | ModifierCl
 
 # Modifier types as how they appear to the user via `set_cfg_modifier` or `cfg_modifier` function.
 
-ModifierSelect = record(
-    # should be dict[str, "Modifier"] once recursive types are supported
-    selector = dict[str, typing.Any],
-)
+ModifierSelect = dict[str, typing.Any]
 
 Modifier = str | ModifierSelect
 

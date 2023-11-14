@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(":common.bzl", "verify_normalized_modifier", "verify_normalized_target")
 load(
     ":types.bzl",
     "Modifier",  # @unused Used in type annotation
@@ -63,4 +64,10 @@ def modifier_select(
     ```
     """
 
-    return ModifierSelect(selector = selector)
+    for key, sub_modifier in selector.items():
+        if key != "DEFAULT":
+            verify_normalized_target(key)
+        verify_normalized_modifier(sub_modifier)
+
+    selector["_type"] = "ModifierSelect"
+    return selector
