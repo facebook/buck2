@@ -13,6 +13,7 @@ use buck2_common::cas_digest::CasDigest;
 use buck2_common::cas_digest::CasDigestParseError;
 use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::cas_digest::TrackedCasDigest;
+use buck2_common::cas_digest::TrackedCasDigestKind;
 use remote_execution::Digest;
 use remote_execution::TDigest;
 
@@ -55,7 +56,7 @@ pub trait CasDigestToReExt {
     fn to_grpc(&self) -> Digest;
 }
 
-impl<Kind> CasDigestFromReExt for CasDigest<Kind> {
+impl<Kind: TrackedCasDigestKind> CasDigestFromReExt for CasDigest<Kind> {
     fn from_re_with_algo(
         digest: &TDigest,
         digest_config: DigestConfig,
@@ -88,7 +89,9 @@ pub trait CasDigestConversionResultExt {
     fn as_display(&self) -> &dyn fmt::Display;
 }
 
-impl<Kind> CasDigestConversionResultExt for Result<CasDigest<Kind>, DigestConversionError> {
+impl<Kind: TrackedCasDigestKind> CasDigestConversionResultExt
+    for Result<CasDigest<Kind>, DigestConversionError>
+{
     fn as_display(&self) -> &dyn fmt::Display {
         match self {
             Self::Ok(ref v) => v as _,
@@ -97,7 +100,7 @@ impl<Kind> CasDigestConversionResultExt for Result<CasDigest<Kind>, DigestConver
     }
 }
 
-impl<Kind> CasDigestToReExt for TrackedCasDigest<Kind> {
+impl<Kind: TrackedCasDigestKind> CasDigestToReExt for TrackedCasDigest<Kind> {
     fn to_re(&self) -> TDigest {
         self.data().to_re()
     }
@@ -107,7 +110,7 @@ impl<Kind> CasDigestToReExt for TrackedCasDigest<Kind> {
     }
 }
 
-impl<Kind> CasDigestToReExt for CasDigest<Kind> {
+impl<Kind: TrackedCasDigestKind> CasDigestToReExt for CasDigest<Kind> {
     fn to_re(&self) -> TDigest {
         TDigest {
             hash: self.raw_digest().to_string(),

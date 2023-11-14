@@ -352,7 +352,7 @@ pub enum CasDigestConfigError {
     Conflict(DigestAlgorithm, DigestAlgorithm),
 }
 
-pub struct Digester<Kind> {
+pub struct Digester<Kind: TrackedCasDigestKind> {
     variant: DigesterVariant,
     size: u64,
     kind: PhantomData<Kind>,
@@ -365,7 +365,7 @@ enum DigesterVariant {
     Blake3Keyed(Box<blake3::Hasher>), // Same as above
 }
 
-impl<Kind> Digester<Kind> {
+impl<Kind: TrackedCasDigestKind> Digester<Kind> {
     pub fn update(&mut self, data: &[u8]) {
         // Explicit dynamic dispatch because we need to match on which variant it was.
         match &mut self.variant {
@@ -425,7 +425,7 @@ struct CasDigestData {
 #[derivative(PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[display(fmt = "{}", data)]
 #[repr(transparent)]
-pub struct CasDigest<Kind> {
+pub struct CasDigest<Kind: TrackedCasDigestKind> {
     data: CasDigestData,
     #[derivative(
         Hash = "ignore",
@@ -436,13 +436,13 @@ pub struct CasDigest<Kind> {
     kind: PhantomData<Kind>,
 }
 
-impl<Kind> fmt::Debug for CasDigest<Kind> {
+impl<Kind: TrackedCasDigestKind> fmt::Debug for CasDigest<Kind> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self)
     }
 }
 
-impl<Kind> CasDigest<Kind> {
+impl<Kind: TrackedCasDigestKind> CasDigest<Kind> {
     pub fn from_digest_bytes(
         kind: DigestAlgorithmKind,
         digest: &[u8],
@@ -615,7 +615,7 @@ impl<Kind> CasDigest<Kind> {
         Ok(digester.finalize())
     }
 
-    pub fn coerce<NewKind>(self) -> CasDigest<NewKind> {
+    pub fn coerce<NewKind: TrackedCasDigestKind>(self) -> CasDigest<NewKind> {
         CasDigest {
             data: self.data,
             kind: PhantomData,
@@ -631,7 +631,7 @@ pub trait TrackedCasDigestKind: Sized + 'static {
 
 #[derive(Display)]
 #[display(fmt = "{}", "hex::encode(&of.raw_digest().as_bytes()[0..4])")]
-pub struct TinyDigest<'a, Kind> {
+pub struct TinyDigest<'a, Kind: TrackedCasDigestKind> {
     of: &'a CasDigest<Kind>,
 }
 
@@ -662,7 +662,7 @@ pub enum CasDigestParseError {
 /// contents.
 #[derive(Allocative)]
 #[allocative(bound = "")]
-struct TrackedCasDigestInner<Kind> {
+struct TrackedCasDigestInner<Kind: TrackedCasDigestKind> {
     data: CasDigest<Kind>,
     expires: AtomicI64,
 }
@@ -670,11 +670,11 @@ struct TrackedCasDigestInner<Kind> {
 #[derive(Display, Dupe_, Allocative)]
 #[allocative(bound = "")]
 #[display(fmt = "{}", "self.data()")]
-pub struct TrackedCasDigest<Kind> {
+pub struct TrackedCasDigest<Kind: TrackedCasDigestKind> {
     inner: Arc<TrackedCasDigestInner<Kind>>,
 }
 
-impl<Kind> Clone for TrackedCasDigest<Kind> {
+impl<Kind: TrackedCasDigestKind> Clone for TrackedCasDigest<Kind> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.dupe(),
@@ -682,45 +682,45 @@ impl<Kind> Clone for TrackedCasDigest<Kind> {
     }
 }
 
-impl<Kind> Borrow<CasDigest<Kind>> for TrackedCasDigest<Kind> {
+impl<Kind: TrackedCasDigestKind> Borrow<CasDigest<Kind>> for TrackedCasDigest<Kind> {
     fn borrow(&self) -> &CasDigest<Kind> {
         self.data()
     }
 }
 
-impl<'a, Kind> Borrow<CasDigest<Kind>> for &'a TrackedCasDigest<Kind> {
+impl<'a, Kind: TrackedCasDigestKind> Borrow<CasDigest<Kind>> for &'a TrackedCasDigest<Kind> {
     fn borrow(&self) -> &CasDigest<Kind> {
         self.data()
     }
 }
 
-impl<Kind> PartialOrd for TrackedCasDigest<Kind> {
+impl<Kind: TrackedCasDigestKind> PartialOrd for TrackedCasDigest<Kind> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.data().partial_cmp(other.data())
     }
 }
 
-impl<Kind> Ord for TrackedCasDigest<Kind> {
+impl<Kind: TrackedCasDigestKind> Ord for TrackedCasDigest<Kind> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.data().cmp(other.data())
     }
 }
 
-impl<Kind> PartialEq for TrackedCasDigest<Kind> {
+impl<Kind: TrackedCasDigestKind> PartialEq for TrackedCasDigest<Kind> {
     fn eq(&self, other: &Self) -> bool {
         self.data().eq(other.data())
     }
 }
 
-impl<Kind> Eq for TrackedCasDigest<Kind> {}
+impl<Kind: TrackedCasDigestKind> Eq for TrackedCasDigest<Kind> {}
 
-impl<Kind> Hash for TrackedCasDigest<Kind> {
+impl<Kind: TrackedCasDigestKind> Hash for TrackedCasDigest<Kind> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.data().hash(state)
     }
 }
 
-impl<Kind> fmt::Debug for TrackedCasDigest<Kind> {
+impl<Kind: TrackedCasDigestKind> fmt::Debug for TrackedCasDigest<Kind> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -731,9 +731,9 @@ impl<Kind> fmt::Debug for TrackedCasDigest<Kind> {
     }
 }
 
-impl<Kind> buck2_core::directory::DirectoryDigest for TrackedCasDigest<Kind> {}
+impl<Kind: TrackedCasDigestKind> buck2_core::directory::DirectoryDigest for TrackedCasDigest<Kind> {}
 
-impl<Kind> TrackedCasDigest<Kind> {
+impl<Kind: TrackedCasDigestKind> TrackedCasDigest<Kind> {
     pub fn new(data: CasDigest<Kind>, config: CasDigestConfig) -> Self
     where
         Kind: TrackedCasDigestKind,
@@ -875,13 +875,14 @@ pub mod testing {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::file_ops::FileDigestKind;
 
     #[test]
     fn test_digest_from_str() {
         let s = "0000000000000000000000000000000000000000:123";
         let config = CasDigestConfig::testing_default();
         assert_eq!(
-            CasDigest::<()>::parse_digest(s, config)
+            CasDigest::<FileDigestKind>::parse_digest(s, config)
                 .unwrap()
                 .0
                 .to_string(),
@@ -894,21 +895,27 @@ mod tests {
         let content = &b"foo"[..];
 
         assert_eq!(
-            CasDigest::<()>::from_reader_for_algorithm(content, DigestAlgorithm::Sha1)
+            CasDigest::<FileDigestKind>::from_reader_for_algorithm(content, DigestAlgorithm::Sha1)
                 .unwrap()
                 .to_string(),
             "0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33:3"
         );
         assert_eq!(
-            CasDigest::<()>::from_reader_for_algorithm(content, DigestAlgorithm::Sha256)
-                .unwrap()
-                .to_string(),
+            CasDigest::<FileDigestKind>::from_reader_for_algorithm(
+                content,
+                DigestAlgorithm::Sha256
+            )
+            .unwrap()
+            .to_string(),
             "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae:3"
         );
         assert_eq!(
-            CasDigest::<()>::from_reader_for_algorithm(content, DigestAlgorithm::Blake3)
-                .unwrap()
-                .to_string(),
+            CasDigest::<FileDigestKind>::from_reader_for_algorithm(
+                content,
+                DigestAlgorithm::Blake3
+            )
+            .unwrap()
+            .to_string(),
             "04e0bb39f30b1a3feb89f536c93be15055482df748674b00d26e5a75777702e9:3"
         );
     }
@@ -918,17 +925,24 @@ mod tests {
         let content = &b"foo"[..];
 
         assert_eq!(
-            CasDigest::<()>::from_content_for_algorithm(content, DigestAlgorithm::Sha1).to_string(),
+            CasDigest::<FileDigestKind>::from_content_for_algorithm(content, DigestAlgorithm::Sha1)
+                .to_string(),
             "0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33:3"
         );
         assert_eq!(
-            CasDigest::<()>::from_content_for_algorithm(content, DigestAlgorithm::Sha256)
-                .to_string(),
+            CasDigest::<FileDigestKind>::from_content_for_algorithm(
+                content,
+                DigestAlgorithm::Sha256
+            )
+            .to_string(),
             "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae:3"
         );
         assert_eq!(
-            CasDigest::<()>::from_content_for_algorithm(content, DigestAlgorithm::Blake3)
-                .to_string(),
+            CasDigest::<FileDigestKind>::from_content_for_algorithm(
+                content,
+                DigestAlgorithm::Blake3
+            )
+            .to_string(),
             "04e0bb39f30b1a3feb89f536c93be15055482df748674b00d26e5a75777702e9:3"
         );
     }
@@ -938,22 +952,22 @@ mod tests {
         let content = &b"foo"[..];
 
         assert_eq!(
-            CasDigest::<()>::from_content(content, testing::sha1(),).to_string(),
+            CasDigest::<FileDigestKind>::from_content(content, testing::sha1(),).to_string(),
             "0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33:3"
         );
         assert_eq!(
-            CasDigest::<()>::from_content(content, testing::sha256(),).to_string(),
+            CasDigest::<FileDigestKind>::from_content(content, testing::sha256(),).to_string(),
             "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae:3"
         );
         assert_eq!(
-            CasDigest::<()>::from_content(content, testing::blake3(),).to_string(),
+            CasDigest::<FileDigestKind>::from_content(content, testing::blake3(),).to_string(),
             "04e0bb39f30b1a3feb89f536c93be15055482df748674b00d26e5a75777702e9:3"
         );
     }
 
     #[test]
     fn test_parse_digest() {
-        let sha1 = CasDigest::<()>::parse_digest(
+        let sha1 = CasDigest::<FileDigestKind>::parse_digest(
             "0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33:3",
             testing::sha256_sha1(),
         )
@@ -965,7 +979,7 @@ mod tests {
             "0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33:3"
         );
 
-        let sha256 = CasDigest::<()>::parse_digest(
+        let sha256 = CasDigest::<FileDigestKind>::parse_digest(
             "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae:3",
             testing::sha1_sha256(),
         )
@@ -977,7 +991,7 @@ mod tests {
             "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae:3"
         );
 
-        let blake3 = CasDigest::<()>::parse_digest(
+        let blake3 = CasDigest::<FileDigestKind>::parse_digest(
             "04e0bb39f30b1a3feb89f536c93be15055482df748674b00d26e5a75777702e9:3",
             testing::sha1_blake3(),
         )
@@ -989,7 +1003,7 @@ mod tests {
             "04e0bb39f30b1a3feb89f536c93be15055482df748674b00d26e5a75777702e9:3"
         );
 
-        let blake3_keyed = CasDigest::<()>::parse_digest(
+        let blake3_keyed = CasDigest::<FileDigestKind>::parse_digest(
             "04e0bb39f30b1a3feb89f536c93be15055482df748674b00d26e5a75777702e9:3",
             testing::blake3_keyed(),
         )
