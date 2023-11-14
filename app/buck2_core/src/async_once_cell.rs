@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::convert::Infallible;
 use std::sync::OnceLock;
 
 use allocative::Allocative;
@@ -32,22 +33,35 @@ impl<T> AsyncOnceCell<T> {
         self.cell.get()
     }
 
-    pub async fn get_or_init<F: Future<Output = T>>(&self, fut: F) -> &T {
+    pub async fn get_or_try_init<E, F: Future<Output = Result<T, E>>>(
+        &self,
+        fut: F,
+    ) -> Result<&T, E> {
         if let Some(val) = self.cell.get() {
-            return val;
+            return Ok(val);
         }
 
         let _guard = self.initialized.lock().await;
 
         if let Some(val) = self.cell.get() {
-            return val;
+            return Ok(val);
         }
 
-        let val = fut.await;
+        let val = fut.await?;
 
         match self.cell.set(val) {
-            Ok(()) => self.cell.get().unwrap(),
+            Ok(()) => Ok(self.cell.get().unwrap()),
             Err(_) => unreachable!(),
+        }
+    }
+
+    pub async fn get_or_init<F: Future<Output = T>>(&self, fut: F) -> &T {
+        match self
+            .get_or_try_init(async { Ok::<_, Infallible>(fut.await) })
+            .await
+        {
+            Ok(val) => val,
+            Err(infallible) => match infallible {},
         }
     }
 }
@@ -75,6 +89,48 @@ mod tests {
 
         assert!(*v1 == 1 || *v1 == 2);
         assert_eq!(v1, v2);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_get_or_try_init() -> anyhow::Result<()> {
+        let cell1 = AsyncOnceCell::new();
+
+        assert_eq!(
+            &43,
+            cell1
+                .get_or_try_init(async { anyhow::Ok(43) })
+                .await
+                .unwrap()
+        );
+        assert_eq!(
+            &43,
+            cell1
+                .get_or_try_init(async { anyhow::Ok(55) })
+                .await
+                .unwrap()
+        );
+
+        let cell2 = AsyncOnceCell::new();
+        cell2
+            .get_or_try_init(async { Err(anyhow::anyhow!("foo")) })
+            .await
+            .unwrap_err();
+        assert_eq!(
+            &44,
+            cell2
+                .get_or_try_init(async { anyhow::Ok(44) })
+                .await
+                .unwrap()
+        );
+        assert_eq!(
+            &44,
+            cell2
+                .get_or_try_init(async { anyhow::Ok(56) })
+                .await
+                .unwrap()
+        );
 
         Ok(())
     }
