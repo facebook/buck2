@@ -63,19 +63,20 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     if resource_infos:
         res_dirs = [resource_info.res for resource_info in resource_infos if resource_info.res]
-        merged_resource_sources_dir = ctx.actions.declare_output("merged_resource_sources_dir/res", dir = True)
-        merge_resource_sources_cmd = cmd_args([
-            android_toolchain.merge_android_resource_sources[RunInfo],
-            "--resource-paths",
-            ctx.actions.write("resource_paths.txt", res_dirs),
-            "--output",
-            merged_resource_sources_dir.as_output(),
-        ]).hidden(res_dirs)
+        if res_dirs:
+            merged_resource_sources_dir = ctx.actions.declare_output("merged_resource_sources_dir/res", dir = True)
+            merge_resource_sources_cmd = cmd_args([
+                android_toolchain.merge_android_resource_sources[RunInfo],
+                "--resource-paths",
+                ctx.actions.write("resource_paths.txt", res_dirs),
+                "--output",
+                merged_resource_sources_dir.as_output(),
+            ]).hidden(res_dirs)
 
-        ctx.actions.run(merge_resource_sources_cmd, category = "merge_android_resource_sources")
+            ctx.actions.run(merge_resource_sources_cmd, category = "merge_android_resource_sources")
 
-        r_dot_txt = get_text_symbols(ctx, merged_resource_sources_dir, [dep for dep in deps if AndroidResourceInfo in dep or ExportedAndroidResourceInfo in dep])
-        entries.extend([merged_resource_sources_dir, r_dot_txt])
+            r_dot_txt = get_text_symbols(ctx, merged_resource_sources_dir, [dep for dep in deps if AndroidResourceInfo in dep or ExportedAndroidResourceInfo in dep])
+            entries.extend([merged_resource_sources_dir, r_dot_txt])
 
         assets_dirs = [resource_infos.assets for resource_infos in resource_infos if resource_infos.assets]
         entries.extend(assets_dirs)
