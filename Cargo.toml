@@ -80,9 +80,6 @@ members = [
     # @oss-disable: "dice/fuzzy_dice",
     # @oss-disable: "dice_replay",
     # @oss-disable: "host_sharing",
-    # @oss-disable: "gazebo_lint/gazebo_lint",
-    # Uncomment to manually test linter_test
-    # "gazebo_lint/linter_test",
     "gazebo/display_container",
     "gazebo/cmp_any",
     "gazebo/gazebo",
