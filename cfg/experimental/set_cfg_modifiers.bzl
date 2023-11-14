@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(":common.bzl", "get_tagged_modifier", "tagged_modifier_to_json")
+load(":common.bzl", "get_tagged_modifiers", "tagged_modifiers_to_json")
 load(":set_cfg_constructor.bzl", "MODIFIER_METADATA_KEY")
 load(":types.bzl", "Modifier", "ModifierPackageLocation")
 
@@ -29,13 +29,11 @@ def set_cfg_modifiers(modifiers: list[Modifier]):
     # `read_parent_package_value` returns immutable values. `list()` makes it mutable.
     merged_modifier_jsons = list(merged_modifier_jsons) if merged_modifier_jsons else []
 
-    merged_modifier_jsons += [
-        tagged_modifier_to_json(get_tagged_modifier(
-            modifier,
-            ModifierPackageLocation(package_path = _get_package_path()),
-        ))
-        for modifier in modifiers
-    ]
+    tagged_modifiers = get_tagged_modifiers(
+        modifiers,
+        ModifierPackageLocation(package_path = _get_package_path()),
+    )
+    merged_modifier_jsons.append(tagged_modifiers_to_json(tagged_modifiers))
 
     write_package_value(
         MODIFIER_METADATA_KEY,

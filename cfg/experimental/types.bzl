@@ -33,6 +33,11 @@ TaggedModifier = record(
     location = ModifierLocation,
 )
 
+TaggedModifiers = record(
+    modifiers = list[Modifier],
+    location = ModifierLocation,
+)
+
 # Modifier types after analysis of configuration rules.
 # There is an equivalent post-constraint-analysis type for every modifier type listed above.
 # An "Info" is added to the type name to denote post-constraint-analysis version of the

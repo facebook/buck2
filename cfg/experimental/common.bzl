@@ -16,6 +16,7 @@ load(
     "ModifierSelectInfo",
     "ModifierTargetLocation",
     "TaggedModifier",
+    "TaggedModifiers",
 )
 
 _TARGET_LOCATION_STR = "`metadata` attribute of target"
@@ -66,11 +67,21 @@ def get_tagged_modifier(
         location: ModifierLocation) -> TaggedModifier:
     verify_normalized_modifier(modifier)
 
-    tagged_modifier = TaggedModifier(
+    return TaggedModifier(
         modifier = modifier,
         location = location,
     )
-    return tagged_modifier
+
+def get_tagged_modifiers(
+        modifiers: list[Modifier],
+        location: ModifierLocation) -> TaggedModifiers:
+    for modifier in modifiers:
+        verify_normalized_modifier(modifier)
+
+    return TaggedModifiers(
+        modifiers = modifiers,
+        location = location,
+    )
 
 def get_constraint_setting(constraint_settings: dict[TargetLabel, None], modifier: Modifier, location: ModifierLocation) -> TargetLabel:
     if len(constraint_settings) == 0:
@@ -166,6 +177,13 @@ def tagged_modifier_to_json(tagged_modifier: TaggedModifier) -> dict[str, typing
         "location": _location_to_json(tagged_modifier.location),
         "modifier": tagged_modifier.modifier,
         "_type": "TaggedModifier",
+    }
+
+def tagged_modifiers_to_json(tagged_modifiers: TaggedModifiers) -> dict[str, typing.Any]:
+    return {
+        "location": _location_to_json(tagged_modifiers.location),
+        "modifiers": tagged_modifiers.modifiers,
+        "_type": "TaggedModifiers",
     }
 
 def _location_to_json(location: ModifierLocation) -> dict[str, str]:
