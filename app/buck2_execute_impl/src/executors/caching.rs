@@ -362,7 +362,9 @@ impl CacheUploader {
                     upload_futs.push(fut.boxed());
                     tree_digests.push(tree_digest);
                 }
-                DirectoryEntry::Leaf(..) => {
+                DirectoryEntry::Leaf(
+                    ActionDirectoryMember::Symlink(..) | ActionDirectoryMember::ExternalSymlink(..),
+                ) => {
                     // Bail, there is something that is not a file here and we don't handle this.
                     // This will happen if the value is a symlink. The primary output of a command
                     // being a symlink is probably unlikely. Unfortunately, we can't represent this
