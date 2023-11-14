@@ -44,9 +44,9 @@ def verify_normalized_target(target: str):
 
 def verify_normalized_modifier(modifier: Modifier):
     if isinstance(modifier, ModifierSelect):
-        for key, sub_modifier in modifier.selector.items():
-            if key != "DEFAULT":
-                verify_normalized_modifier(sub_modifier)
+        # TODO(scottcao): Add a test case for this once `bxl_test` supports testing failures
+        for sub_modifier in modifier.selector.values():
+            verify_normalized_modifier(sub_modifier)
     elif isinstance(modifier, str):
         verify_normalized_target(modifier)
     else:
