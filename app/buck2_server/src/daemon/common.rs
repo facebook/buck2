@@ -350,15 +350,15 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 let cache_uploader = if disable_caching {
                     Arc::new(NoOpCacheUploader {}) as _
                 } else if let CacheUploadBehavior::Enabled { max_bytes } = cache_upload_behavior {
-                    Arc::new(CacheUploader {
-                        artifact_fs: artifact_fs.clone(),
-                        materializer: self.materializer.dupe(),
-                        re_client: self.re_connection.get_client(),
-                        re_use_case: *re_use_case,
-                        knobs: self.executor_global_knobs.dupe(),
-                        max_bytes: *max_bytes,
-                        platform: platform.clone(),
-                    }) as _
+                    Arc::new(CacheUploader::new(
+                        artifact_fs.clone(),
+                        self.materializer.dupe(),
+                        self.re_connection.get_client(),
+                        *re_use_case,
+                        platform.clone(),
+                        self.executor_global_knobs.dupe(),
+                        *max_bytes,
+                    )) as _
                 } else {
                     Arc::new(NoOpCacheUploader {}) as _
                 };

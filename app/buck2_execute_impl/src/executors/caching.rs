@@ -62,16 +62,36 @@ static ERROR_ON_CACHE_UPLOAD: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_ERROR
 
 /// A PreparedCommandExecutor that will write to cache after invoking the inner executor
 pub struct CacheUploader {
-    pub artifact_fs: ArtifactFs,
-    pub materializer: Arc<dyn Materializer>,
-    pub re_client: ManagedRemoteExecutionClient,
-    pub re_use_case: RemoteExecutorUseCase,
-    pub platform: RE::Platform,
-    pub knobs: ExecutorGlobalKnobs,
-    pub max_bytes: Option<u64>,
+    artifact_fs: ArtifactFs,
+    materializer: Arc<dyn Materializer>,
+    re_client: ManagedRemoteExecutionClient,
+    re_use_case: RemoteExecutorUseCase,
+    platform: RE::Platform,
+    _knobs: ExecutorGlobalKnobs,
+    max_bytes: Option<u64>,
 }
 
 impl CacheUploader {
+    pub fn new(
+        artifact_fs: ArtifactFs,
+        materializer: Arc<dyn Materializer>,
+        re_client: ManagedRemoteExecutionClient,
+        re_use_case: RemoteExecutorUseCase,
+        platform: RE::Platform,
+        knobs: ExecutorGlobalKnobs,
+        max_bytes: Option<u64>,
+    ) -> CacheUploader {
+        CacheUploader {
+            artifact_fs,
+            materializer,
+            re_client,
+            re_use_case,
+            platform,
+            _knobs: knobs,
+            max_bytes,
+        }
+    }
+
     // Only return error on upload failure if we pass a flag
     fn modify_upload_result(
         digest: &dyn Display,
