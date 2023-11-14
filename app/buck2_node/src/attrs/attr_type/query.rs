@@ -23,6 +23,7 @@ use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::provider_id_set::ProviderIdSet;
 
+/// Attribute type created with `attrs.query(...)`.
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
 pub struct QueryAttrType {
     pub inner: DepAttrType,
@@ -34,6 +35,7 @@ impl QueryAttrType {
     }
 }
 
+/// Attribute value of type `attrs.query(...)`.
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
 pub struct QueryAttr<P: ProvidersLabelMaybeConfigured> {
     pub providers: ProviderIdSet,
@@ -68,6 +70,7 @@ impl QueryAttr<ProvidersLabel> {
     }
 }
 
+/// Query in target node attribute, like `$(query_outputs ...)`.
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
 pub struct QueryMacroBase<P: ProvidersLabelMaybeConfigured> {
     pub expansion_type: QueryExpansion,
@@ -109,6 +112,11 @@ impl QueryMacroBase<ProvidersLabel> {
     }
 }
 
+/// Query in target node.
+///
+/// Used in either:
+/// * Attribute created with `attrs.query(...)`
+/// * Query inside macros like `$(query_targets ...)`
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
 pub struct QueryAttrBase<P: ProvidersLabelMaybeConfigured> {
     pub query: String,
