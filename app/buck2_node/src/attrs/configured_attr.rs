@@ -152,7 +152,7 @@ impl AttrDisplayWithContext for ConfiguredAttr {
             ConfiguredAttr::SourceLabel(e) => write!(f, "\"{}\"", e),
             ConfiguredAttr::Label(e) => write!(f, "\"{}\"", e),
             ConfiguredAttr::Arg(e) => write!(f, "\"{}\"", e),
-            ConfiguredAttr::Query(e) => write!(f, "\"{}\"", e.query()),
+            ConfiguredAttr::Query(e) => write!(f, "\"{}\"", e.query.query),
             ConfiguredAttr::SourceFile(e) => write!(f, "\"{}\"", source_file_display(ctx, e)),
             ConfiguredAttr::Metadata(m) => write!(f, "{}", m),
         }

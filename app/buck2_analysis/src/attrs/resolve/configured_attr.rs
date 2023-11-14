@@ -255,7 +255,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
                 heap.alloc(StarlarkConfiguredProvidersLabel::new(*l.clone()))
             }
             ConfiguredAttr::Arg(arg) => heap.alloc(arg.to_string()),
-            ConfiguredAttr::Query(query) => heap.alloc(query.query.query()),
+            ConfiguredAttr::Query(query) => heap.alloc(&query.query.query),
             ConfiguredAttr::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(
                 SourceArtifact::new(BuckPath::new(pkg.to_owned(), f.path().dupe())),
             ))),

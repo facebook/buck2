@@ -40,12 +40,6 @@ pub struct QueryAttr<P: ProvidersLabelMaybeConfigured> {
     pub query: QueryAttrBase<P>,
 }
 
-impl<P: ProvidersLabelMaybeConfigured> QueryAttr<P> {
-    pub fn query(&self) -> &str {
-        self.query.query()
-    }
-}
-
 impl QueryAttr<ConfiguredProvidersLabel> {
     pub(crate) fn traverse<'a>(
         &'a self,
@@ -82,7 +76,7 @@ pub struct QueryMacroBase<P: ProvidersLabelMaybeConfigured> {
 
 impl<P: ProvidersLabelMaybeConfigured> Display for QueryMacroBase<P> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}", &self.expansion_type, self.query.query())?;
+        write!(f, "{} {}", &self.expansion_type, self.query.query)?;
         Ok(())
     }
 }
@@ -119,12 +113,6 @@ impl QueryMacroBase<ProvidersLabel> {
 pub struct QueryAttrBase<P: ProvidersLabelMaybeConfigured> {
     pub query: String,
     pub resolved_literals: ResolvedQueryLiterals<P>,
-}
-
-impl<P: ProvidersLabelMaybeConfigured> QueryAttrBase<P> {
-    pub fn query(&self) -> &str {
-        &self.query
-    }
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]

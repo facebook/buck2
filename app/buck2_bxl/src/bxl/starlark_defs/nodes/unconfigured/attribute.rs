@@ -216,7 +216,7 @@ impl CoercedAttrExt for CoercedAttr {
             CoercedAttr::SourceLabel(s) => heap.alloc(StarlarkProvidersLabel::new(s.clone())),
             CoercedAttr::Label(l) => heap.alloc(StarlarkProvidersLabel::new(l.clone())),
             CoercedAttr::Arg(arg) => heap.alloc(arg.to_string()),
-            CoercedAttr::Query(query) => heap.alloc(query.query.query()),
+            CoercedAttr::Query(query) => heap.alloc(&query.query.query),
             CoercedAttr::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(
                 SourceArtifact::new(BuckPath::new(pkg.to_owned(), f.path().dupe())),
             ))),

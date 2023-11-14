@@ -269,7 +269,7 @@ impl AttrDisplayWithContext for CoercedAttr {
             CoercedAttr::SourceLabel(e) => write!(f, "\"{}\"", e),
             CoercedAttr::Label(e) => write!(f, "\"{}\"", e),
             CoercedAttr::Arg(e) => write!(f, "\"{}\"", e),
-            CoercedAttr::Query(e) => write!(f, "\"{}\"", e.query()),
+            CoercedAttr::Query(e) => write!(f, "\"{}\"", e.query.query),
             CoercedAttr::SourceFile(e) => write!(f, "\"{}\"", source_file_display(ctx, e)),
             CoercedAttr::Metadata(m) => write!(f, "{}", m),
         }
@@ -350,7 +350,7 @@ impl CoercedAttr {
             CoercedAttr::SourceLabel(e) => Ok(to_value(e.to_string())?),
             CoercedAttr::Label(e) => Ok(to_value(e.to_string())?),
             CoercedAttr::Arg(e) => Ok(to_value(e.to_string())?),
-            CoercedAttr::Query(e) => Ok(to_value(e.query())?),
+            CoercedAttr::Query(e) => Ok(to_value(&e.query.query)?),
             CoercedAttr::SourceFile(e) => Ok(to_value(source_file_display(ctx, e).to_string())?),
             CoercedAttr::Metadata(m) => Ok(m.to_value()),
         }
@@ -665,7 +665,7 @@ impl CoercedAttr {
             CoercedAttr::SourceLabel(e) => filter(&e.to_string()),
             CoercedAttr::Label(e) => filter(&e.to_string()),
             CoercedAttr::Arg(e) => filter(&e.to_string()),
-            CoercedAttr::Query(e) => filter(e.query()),
+            CoercedAttr::Query(e) => filter(&e.query.query),
             CoercedAttr::SourceFile(e) => filter(&e.path().to_string()),
             CoercedAttr::Metadata(e) => e.any_matches(filter),
         }
