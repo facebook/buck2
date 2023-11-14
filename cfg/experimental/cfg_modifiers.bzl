@@ -11,17 +11,7 @@ load(
     ":types.bzl",
     "Modifier",  # @unused This is used in type annotation
     "ModifierTargetLocation",
-    "TaggedModifier",  # @unused This is used in type annotation
 )
-
-# TODO(scottcao): This function is just here so we don't have to migrate implementation for `cfg_constructor_pre_constraint_analysis`
-# in the same diff. Remove this once we update `cfg_constructor_pre_constraint_analysis` to also accept JSONs for target modifiers
-# instead of records.
-def cfg_modifiers_deprecated(modifiers: dict[str, Modifier]) -> dict[str, dict[str, TaggedModifier]]:
-    tagged_modifiers = {}
-    for constraint_setting, modifier in modifiers.items():
-        tagged_modifiers[constraint_setting] = get_tagged_modifier(constraint_setting, modifier, ModifierTargetLocation())
-    return {MODIFIER_METADATA_KEY: tagged_modifiers}
 
 def cfg_modifiers(modifiers: dict[str, Modifier]) -> dict[str, dict[str, dict[str, typing.Any]]]:
     tagged_modifier_jsons = {}
