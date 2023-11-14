@@ -28,11 +28,6 @@ ModifierSelect = dict[str, typing.Any]
 
 Modifier = str | ModifierSelect
 
-TaggedModifier = record(
-    modifier = Modifier,
-    location = ModifierLocation,
-)
-
 TaggedModifiers = record(
     modifiers = list[Modifier],
     location = ModifierLocation,

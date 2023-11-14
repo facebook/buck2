@@ -15,7 +15,6 @@ load(
     "ModifierPackageLocation",
     "ModifierSelectInfo",
     "ModifierTargetLocation",
-    "TaggedModifier",
     "TaggedModifiers",
 )
 
@@ -61,16 +60,6 @@ def verify_normalized_modifier(modifier: Modifier):
         verify_normalized_target(modifier)
     else:
         fail("Found unexpected modifier `{}` type `{}`".format(modifier, type(modifier)))
-
-def get_tagged_modifier(
-        modifier: Modifier,
-        location: ModifierLocation) -> TaggedModifier:
-    verify_normalized_modifier(modifier)
-
-    return TaggedModifier(
-        modifier = modifier,
-        location = location,
-    )
 
 def get_tagged_modifiers(
         modifiers: list[Modifier],
@@ -172,13 +161,6 @@ def modifier_to_refs(modifier: Modifier, location: ModifierLocation) -> list[str
         fail("Internal error: Found unexpected modifier `{}` type `{}`".format(modifier, type(modifier)))
     return refs
 
-def tagged_modifier_to_json(tagged_modifier: TaggedModifier) -> dict[str, typing.Any]:
-    return {
-        "location": _location_to_json(tagged_modifier.location),
-        "modifier": tagged_modifier.modifier,
-        "_type": "TaggedModifier",
-    }
-
 def tagged_modifiers_to_json(tagged_modifiers: TaggedModifiers) -> dict[str, typing.Any]:
     return {
         "location": _location_to_json(tagged_modifiers.location),
@@ -195,12 +177,12 @@ def _location_to_json(location: ModifierLocation) -> dict[str, str]:
         fail("Internal error: location shouldn't be specified as `{}`".format(type(location)))
     fail("Internal error: unknown location `{}` with type `{}`".format(location, type(location)))
 
-def json_to_tagged_modifier(j: dict[str, typing.Any]) -> TaggedModifier:
-    if j["_type"] != "TaggedModifier":
-        fail("Internal error: `{}` is not a `TaggedModifier`".format(j))
-    return TaggedModifier(
+def json_to_tagged_modifiers(j: dict[str, typing.Any]) -> TaggedModifiers:
+    if j["_type"] != "TaggedModifiers":
+        fail("Internal error: `{}` is not a `TaggedModifiers`".format(j))
+    return TaggedModifiers(
         location = _json_to_location(j["location"]),
-        modifier = j["modifier"],
+        modifiers = j["modifiers"],
     )
 
 def _json_to_location(j: dict[str, str]) -> ModifierLocation:

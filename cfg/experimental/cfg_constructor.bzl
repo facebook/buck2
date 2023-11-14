@@ -8,7 +8,7 @@
 load(
     ":common.bzl",
     "get_modifier_info",
-    "json_to_tagged_modifier",
+    "json_to_tagged_modifiers",
     "modifier_to_refs",
     "resolve_modifier",
 )
@@ -16,15 +16,16 @@ load(":name.bzl", "cfg_name")
 load(":order.bzl", "CONSTRAINT_SETTING_ORDER", "get_constraint_setting_order")
 load(
     ":types.bzl",
+    "Modifier",  # @unused
     "ModifierCliLocation",
-    "ModifierInfo",  # @unused
-    "TaggedModifier",
+    "ModifierTargetLocation",
+    "TaggedModifiers",
 )
 
 PostConstraintAnalysisParams = record(
     legacy_platform = PlatformInfo | None,
     # Merged modifier from PACKAGE, target, and cli modifiers.
-    merged_modifiers = list[TaggedModifier],
+    merged_modifiers = list[TaggedModifiers],
 )
 
 def cfg_constructor_pre_constraint_analysis(
@@ -32,7 +33,8 @@ def cfg_constructor_pre_constraint_analysis(
         legacy_platform: PlatformInfo | None,
         # dict[str, typing.Any] is JSON dictionary form of `TaggedModifier` passed from buck2 core
         package_modifiers: list[dict[str, typing.Any]] | None,
-        target_modifiers: list[dict[str, typing.Any]] | None,
+        # typing.Any is JSON form of modifier
+        target_modifiers: list[Modifier] | None,
         cli_modifiers: list[str]) -> (list[str], PostConstraintAnalysisParams):
     """
     First stage of cfg constructor for modifiers.
@@ -53,33 +55,26 @@ def cfg_constructor_pre_constraint_analysis(
     package_modifiers = package_modifiers or []
     target_modifiers = target_modifiers or []
 
-    # Convert JSONs back to TaggedModifier
-    package_modifiers = [json_to_tagged_modifier(modifier_json) for modifier_json in package_modifiers]
-    target_modifiers = [json_to_tagged_modifier(modifier_json) for modifier_json in target_modifiers]
+    # Convert JSONs back to TaggedModifiers
+    package_modifiers = [json_to_tagged_modifiers(modifier_json) for modifier_json in package_modifiers]
+    merged_modifiers = package_modifiers
+
+    # Add target modifiers as `TaggedModifiers`
+    if target_modifiers:
+        merged_modifiers.append(TaggedModifiers(modifiers = target_modifiers, location = ModifierTargetLocation()))
 
     # Convert CLI modifiers to `TaggedModifier`
-    cli_modifiers = [TaggedModifier(modifier = modifier, location = ModifierCliLocation()) for modifier in cli_modifiers]
-
-    merged_modifiers = package_modifiers + target_modifiers + cli_modifiers
+    if cli_modifiers:
+        merged_modifiers.append(TaggedModifiers(modifiers = cli_modifiers, location = ModifierCliLocation()))
 
     refs = list(CONSTRAINT_SETTING_ORDER)
-    for tagged_modifier in merged_modifiers:
-        refs.extend(modifier_to_refs(tagged_modifier.modifier, tagged_modifier.location))
+    for tagged_modifiers in merged_modifiers:
+        for modifier in tagged_modifiers.modifiers:
+            refs.extend(modifier_to_refs(modifier, tagged_modifiers.location))
 
     return refs, PostConstraintAnalysisParams(
         legacy_platform = legacy_platform,
         merged_modifiers = merged_modifiers,
-    )
-
-def _get_constraint_setting_and_modifier_info(
-        refs: dict[str, ProviderCollection],
-        tagged_modifier: TaggedModifier,
-        constraint_setting_order: list[TargetLabel]) -> (TargetLabel, ModifierInfo):
-    return get_modifier_info(
-        refs = refs,
-        modifier = tagged_modifier.modifier,
-        location = tagged_modifier.location,
-        constraint_setting_order = constraint_setting_order,
     )
 
 def cfg_constructor_post_constraint_analysis(
@@ -116,15 +111,17 @@ def cfg_constructor_post_constraint_analysis(
         for constraint_setting, constraint_value_info in params.legacy_platform.configuration.constraints.items():
             constraint_setting_to_modifier_infos[constraint_setting] = [constraint_value_info]
 
-    for tagged_modifier in params.merged_modifiers:
-        constraint_setting_label, modifier_info = _get_constraint_setting_and_modifier_info(
-            refs = refs,
-            tagged_modifier = tagged_modifier,
-            constraint_setting_order = constraint_setting_order,
-        )
-        modifier_infos = constraint_setting_to_modifier_infos.get(constraint_setting_label) or []
-        modifier_infos.append(modifier_info)
-        constraint_setting_to_modifier_infos[constraint_setting_label] = modifier_infos
+    for tagged_modifiers in params.merged_modifiers:
+        for modifier in tagged_modifiers.modifiers:
+            constraint_setting_label, modifier_info = get_modifier_info(
+                refs = refs,
+                modifier = modifier,
+                location = tagged_modifiers.location,
+                constraint_setting_order = constraint_setting_order,
+            )
+            modifier_infos = constraint_setting_to_modifier_infos.get(constraint_setting_label) or []
+            modifier_infos.append(modifier_info)
+            constraint_setting_to_modifier_infos[constraint_setting_label] = modifier_infos
 
     cfg = ConfigurationInfo(
         constraints = {},
