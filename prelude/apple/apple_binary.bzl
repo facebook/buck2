@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//apple:apple_buck2_compatibility.bzl", "apple_check_buck2_compatibility")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 # @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "add_extra_linker_outputs") 
 load(
@@ -70,6 +71,8 @@ load(":resource_groups.bzl", "create_resource_graph")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 
 def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
+    apple_check_buck2_compatibility(ctx)
+
     def get_apple_binary_providers(deps_providers) -> list[Provider]:
         # FIXME: Ideally we'd like to remove the support of "bridging header",
         # cause it affects build time and in general considered a bad practise.

@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//apple:apple_buck2_compatibility.bzl", "BUCK2_COMPATIBILITY_ATTRIB_NAME", "BUCK2_COMPATIBILITY_ATTRIB_TYPE")
 load("@prelude//apple:apple_bundle_attrs.bzl", "get_apple_info_plist_build_system_identification_attrs")
 load("@prelude//apple:apple_bundle_types.bzl", "AppleBundleResourceInfo", "AppleBundleTypeAttributeType")
 load("@prelude//apple:apple_code_signing_types.bzl", "CodeSignType")
@@ -67,6 +68,7 @@ def _apple_bundle_like_common_attrs():
         "_resource_bundle": attrs.option(attrs.dep(providers = [AppleBundleResourceInfo]), default = None),
         APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
         APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME: attrs.bool(default = False),
+        BUCK2_COMPATIBILITY_ATTRIB_NAME: BUCK2_COMPATIBILITY_ATTRIB_TYPE,
     }
     attribs.update(get_apple_info_plist_build_system_identification_attrs())
     return attribs

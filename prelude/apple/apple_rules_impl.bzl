@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//apple:apple_buck2_compatibility.bzl", "BUCK2_COMPATIBILITY_ATTRIB_NAME", "BUCK2_COMPATIBILITY_ATTRIB_TYPE")
 load(
     "@prelude//apple:apple_genrule_deps.bzl",
     "APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_NAME",
@@ -99,6 +100,7 @@ extra_attributes = {
         "_stripped_default": attrs.bool(default = False),
         APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_NAME: APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_TYPE,
         APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_NAME: APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_TYPE,
+        BUCK2_COMPATIBILITY_ATTRIB_NAME: BUCK2_COMPATIBILITY_ATTRIB_TYPE,
     },
     "apple_bundle": apple_bundle_extra_attrs(),
     "apple_library": {
@@ -122,6 +124,7 @@ extra_attributes = {
         APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
         APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_NAME: APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_TYPE,
         APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_NAME: APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_TYPE,
+        BUCK2_COMPATIBILITY_ATTRIB_NAME: BUCK2_COMPATIBILITY_ATTRIB_TYPE,
     },
     "apple_package": {
         "bundle": attrs.dep(providers = [AppleBundleInfo]),
