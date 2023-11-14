@@ -18,7 +18,6 @@ load(
     "ModifierSelectInfo",
     "ModifierTargetLocation",
     "TaggedModifier",
-    "TaggedModifierInfo",
 )
 
 _TARGET_LOCATION_STR = "`metadata` attribute of target"
@@ -136,17 +135,6 @@ def get_modifier_info(
             )
         return refs[modifier][ConstraintValueInfo]
     fail("Internal error: Found unexpected modifier `{}` type `{}`".format(modifier, type(modifier)))
-
-def get_modifier_info_with_loc(
-        refs: dict[str, ProviderCollection],
-        constraint_setting: str,
-        tagged_modifier: TaggedModifier) -> (TargetLabel, TaggedModifierInfo):
-    modifier_info = get_modifier_info(refs, tagged_modifier.modifier)
-    constraint_setting = refs[constraint_setting][ConstraintSettingInfo]
-    return constraint_setting.label, TaggedModifierInfo(
-        modifier_info = modifier_info,
-        location = tagged_modifier.location,
-    )
 
 def _is_subset(a: ConfigurationInfo, b: ConfigurationInfo) -> bool:
     for (constraint_setting, a_constraint_value) in a.constraints.items():

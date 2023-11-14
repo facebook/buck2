@@ -17,10 +17,8 @@ load(":name.bzl", "cfg_name")
 load(":order.bzl", "CONSTRAINT_SETTING_ORDER", "get_constraint_setting_order")
 load(
     ":types.bzl",
-    "ModifierCliLocation",
-    "ModifierLegacyPlatformLocation",
+    "ModifierInfo",  # @unused
     "TaggedModifier",
-    "TaggedModifierInfo",
 )
 
 PostConstraintAnalysisParams = record(
@@ -88,21 +86,18 @@ def cfg_constructor_pre_constraint_analysis(
         cli_modifiers = cli_modifiers,
     )
 
-def _get_constraint_setting_and_tagged_modifier_infos(
+def _get_constraint_setting_and_modifier_infos(
         refs: dict[str, ProviderCollection],
         constraint_setting: str,
         modifiers: list[TaggedModifier],
-        constraint_setting_order: list[TargetLabel]) -> (TargetLabel, list[TaggedModifierInfo]):
+        constraint_setting_order: list[TargetLabel]) -> (TargetLabel, list[ModifierInfo]):
     constraint_setting_info = refs[constraint_setting][ConstraintSettingInfo]
-    modifier_infos = [TaggedModifierInfo(
-        modifier_info = get_modifier_info(
-            refs = refs,
-            modifier = modifier_with_loc.modifier,
-            constraint_setting = constraint_setting,
-            location = modifier_with_loc.location,
-            constraint_setting_order = constraint_setting_order,
-        ),
+    modifier_infos = [get_modifier_info(
+        refs = refs,
+        modifier = modifier_with_loc.modifier,
+        constraint_setting = constraint_setting,
         location = modifier_with_loc.location,
+        constraint_setting_order = constraint_setting_order,
     ) for modifier_with_loc in modifiers]
     return constraint_setting_info.label, modifier_infos
 
@@ -133,31 +128,25 @@ def cfg_constructor_post_constraint_analysis(
             ),
         )
 
-    constraint_setting_to_tagged_modifier_infos = {}
+    constraint_setting_to_modifier_infos = {}
     constraint_setting_order = get_constraint_setting_order(refs)
 
     if params.legacy_platform:
         for constraint_setting, constraint_value_info in params.legacy_platform.configuration.constraints.items():
-            constraint_setting_to_tagged_modifier_infos[constraint_setting] = [TaggedModifierInfo(
-                modifier_info = constraint_value_info,
-                location = ModifierLegacyPlatformLocation(),
-            )]
+            constraint_setting_to_modifier_infos[constraint_setting] = [constraint_value_info]
 
     for constraint_setting, modifiers in params.package_and_target_modifiers.items():
-        constraint_setting_label, tagged_modifier_infos = _get_constraint_setting_and_tagged_modifier_infos(
+        constraint_setting_label, modifier_infos = _get_constraint_setting_and_modifier_infos(
             refs = refs,
             constraint_setting = constraint_setting,
             modifiers = modifiers,
             constraint_setting_order = constraint_setting_order,
         )
-        constraint_setting_to_tagged_modifier_infos[constraint_setting_label] = tagged_modifier_infos
+        constraint_setting_to_modifier_infos[constraint_setting_label] = modifier_infos
 
     for modifier in params.cli_modifiers:
         constraint_value_info = refs[modifier][ConstraintValueInfo]
-        constraint_setting_to_tagged_modifier_infos[constraint_value_info.setting.label] = [TaggedModifierInfo(
-            modifier_info = constraint_value_info,
-            location = ModifierCliLocation(),
-        )]
+        constraint_setting_to_modifier_infos[constraint_value_info.setting.label] = [constraint_value_info]
 
     cfg = ConfigurationInfo(
         constraints = {},
@@ -168,15 +157,15 @@ def cfg_constructor_post_constraint_analysis(
     constraint_setting_order = [
         constraint_setting
         for constraint_setting in constraint_setting_order
-        if constraint_setting in constraint_setting_to_tagged_modifier_infos
+        if constraint_setting in constraint_setting_to_modifier_infos
     ] + [
         constraint_setting
-        for constraint_setting in constraint_setting_to_tagged_modifier_infos
+        for constraint_setting in constraint_setting_to_modifier_infos
         if constraint_setting not in constraint_setting_order
     ]
     for constraint_setting in constraint_setting_order:
-        for tagged_modifier_info in constraint_setting_to_tagged_modifier_infos[constraint_setting]:
-            constraint_value = resolve_modifier(cfg, tagged_modifier_info.modifier_info)
+        for modifier_info in constraint_setting_to_modifier_infos[constraint_setting]:
+            constraint_value = resolve_modifier(cfg, modifier_info)
             if constraint_value:
                 cfg.constraints[constraint_setting] = constraint_value
 

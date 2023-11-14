@@ -51,8 +51,3 @@ ModifierSelectInfo = record(
 )
 
 ModifierInfo = ConstraintValueInfo | ModifierSelectInfo
-
-TaggedModifierInfo = record(
-    modifier_info = ModifierInfo,
-    location = ModifierLocation,
-)
