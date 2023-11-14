@@ -16,6 +16,7 @@ buck_filegroup(
         "src/**/*.golden",
         "testcases/**",
     ]),
+    copy = False,
 )
 
 rust_library(

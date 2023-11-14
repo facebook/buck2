@@ -15,11 +15,3 @@ error: rust failure
 9 |     rust_failure()
   |     ^^^^^^^^^^^^^^
   |
-
-
-rust failure
-
-Caused by:
-    0: fail 3
-    1: fail 2
-    2: fail 1

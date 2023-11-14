@@ -45,11 +45,7 @@ pub struct Diagnostic {
 
 impl Error for Diagnostic {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        // We do have an underlying source (namely `self.message`), but if we return
-        // it then `anyhow` will print it with `{:#}`, and we already print it in our
-        // `Display`, which would cause it to appear twice.
-        // Therefore, we say we have no source.
-        None
+        self.message.source()
     }
 
     // TODO(nga): figure out how to do it with unstable rust.
@@ -129,7 +125,9 @@ impl Diagnostic {
 
 impl Display for Diagnostic {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        diagnostic_display(self, false, f)
+        // Not showing the context trace without `{:#}` or `{:?}` is the same thing that anyhow does
+        let alternate = f.alternate();
+        diagnostic_display(self, false, f, alternate)
     }
 }
 
@@ -139,7 +137,12 @@ impl Display for Diagnostic {
 // variants by doing a conversion using annotate-snippets
 // (https://github.com/rust-lang/annotate-snippets-rs)
 
-fn diagnostic_display(diagnostic: &Diagnostic, color: bool, f: &mut dyn fmt::Write) -> fmt::Result {
+fn diagnostic_display(
+    diagnostic: &Diagnostic,
+    color: bool,
+    f: &mut dyn fmt::Write,
+    with_context: bool,
+) -> fmt::Result {
     write!(f, "{}", diagnostic.call_stack)?;
     let annotation_label = format!("{}", diagnostic.message);
     // I set color to false here to make the comparison easier with tests (coloring
@@ -148,7 +151,7 @@ fn diagnostic_display(diagnostic: &Diagnostic, color: bool, f: &mut dyn fmt::Wri
     writeln!(f, "{}", display_list)?;
     // Print out the `Caused by:` trace (if exists) and rust backtrace (if enabled).
     // The trace printed comes from an [`anyhow::Error`] that is not a [`Diagnostic`].
-    if diagnostic.message.source().is_some() {
+    if with_context && diagnostic.message.source().is_some() {
         writeln!(f, "\n\n{:?}", diagnostic.message)?;
     }
 
@@ -157,6 +160,6 @@ fn diagnostic_display(diagnostic: &Diagnostic, color: bool, f: &mut dyn fmt::Wri
 
 fn diagnostic_stderr(diagnostic: &Diagnostic) {
     let mut stderr = String::new();
-    diagnostic_display(diagnostic, true, &mut stderr).unwrap();
+    diagnostic_display(diagnostic, true, &mut stderr, true).unwrap();
     eprint!("{}", stderr);
 }

@@ -144,7 +144,7 @@ pub fn expect_error<T>(result: buck2_error::Result<T>, content: &str, expected: 
             panic!();
         }
         Err(e) => {
-            let returned = e.to_string();
+            let returned = format!("{:?}", e);
             if !returned.contains(expected) {
                 eprintln!(
                     "Could not find expected error string.\nExpected:\n{}\n\nError:\n{}\n\nCode contents:\n{}",
