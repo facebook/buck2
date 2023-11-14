@@ -1974,7 +1974,9 @@ message TraceIoCommandStart {}
 
 message TraceIoCommandEnd {}
 
-message SetupLocalResourcesStart {}
+message SetupLocalResourcesStart {
+  ConfiguredTargetLabel target_label = 1;
+}
 
 message SetupLocalResourcesEnd {}
 

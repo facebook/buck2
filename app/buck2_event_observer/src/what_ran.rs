@@ -46,6 +46,7 @@ pub enum WhatRanRelevantAction<'a> {
     ActionExecution(&'a buck2_data::ActionExecutionStart),
     TestDiscovery(&'a buck2_data::TestDiscoveryStart),
     TestRun(&'a buck2_data::TestRunStart),
+    SetupLocalResources(&'a buck2_data::SetupLocalResourcesStart),
 }
 
 impl<'a> WhatRanRelevantAction<'a> {
@@ -61,6 +62,9 @@ impl<'a> WhatRanRelevantAction<'a> {
                 }
                 Some(buck2_data::span_start_event::Data::TestStart(test)) => {
                     Some(Self::TestRun(test))
+                }
+                Some(buck2_data::span_start_event::Data::LocalResources(setup)) => {
+                    Some(Self::SetupLocalResources(setup))
                 }
                 _ => None,
             },
@@ -151,6 +155,18 @@ pub fn emit_reproducer(
             ),
             None => ("test.run", Cow::Borrowed("unknown test suite"), None),
         },
+        Some(WhatRanRelevantAction::SetupLocalResources(setup)) => (
+            "test.local_resource_setup",
+            if let Some(target_label) = &setup.target_label {
+                Cow::Owned(display::display_configured_target_label(
+                    target_label,
+                    TargetDisplayOptions::for_log(),
+                )?)
+            } else {
+                Cow::Borrowed("")
+            },
+            None,
+        ),
         None => ("unknown", Cow::Borrowed("unknown action"), None),
     };
 

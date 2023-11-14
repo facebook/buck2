@@ -1039,7 +1039,9 @@ impl<'b> BuckTestOrchestrator<'b> {
         };
         let command = executor.exec_cmd(manager, &prepared_command, cancellations);
 
-        let start = SetupLocalResourcesStart {};
+        let start = SetupLocalResourcesStart {
+            target_label: Some(context.target.as_proto()),
+        };
         let end = SetupLocalResourcesEnd {};
         let execution_result = events
             .span_async(start, async move { (command.await, end) })
