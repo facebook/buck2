@@ -28,7 +28,7 @@ RustExplicitSysrootDeps = record(
 # FIXME(JakobDegen): These all have default values for historical reasons. Some of them certainly
 # should, but some of them probably shouldn't?
 # @unsorted-dict-items
-_rust_toolchain_attrs = {
+rust_toolchain_attrs = {
     # Report unused dependencies
     "report_unused_deps": provider_field(bool, default = False),
     # Rustc target triple to use
@@ -100,4 +100,4 @@ _rust_toolchain_attrs = {
     "explicit_sysroot_deps": provider_field(RustExplicitSysrootDeps | None, default = None),
 }
 
-RustToolchainInfo = provider(fields = _rust_toolchain_attrs)
+RustToolchainInfo = provider(fields = rust_toolchain_attrs)
