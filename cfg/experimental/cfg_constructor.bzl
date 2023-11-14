@@ -14,6 +14,7 @@ load(
     "resolve_modifier",
 )
 load(":name.bzl", "cfg_name")
+load(":order.bzl", "CONSTRAINT_SETTING_ORDER", "get_constraint_setting_order")
 load(
     ":types.bzl",
     "ModifierCliLocation",
@@ -30,19 +31,6 @@ PostConstraintAnalysisParams = record(
     package_and_target_modifiers = dict[str, list[TaggedModifier]],
     cli_modifiers = list[str],
 )
-
-# List of constraint settings that can be selected on via `modifier_select`.
-# Modifiers for these constraints are resolved first before other modifiers,
-# if they exist. `modifier_select` keying on other constraint settings will
-# fail
-# TODO(scottcao): Find a better place to set this so that OSS users can add
-# their own constraints.
-CONSTRAINT_SETTING_ORDER = [
-    "ovr_config//build_mode/constraints:build_mode",
-    "ovr_config//os/constraints:os",
-    "ovr_config//cpu/constraints:cpu",
-    "ovr_config//build_mode/constraints:lto",
-]
 
 def cfg_constructor_pre_constraint_analysis(
         *,
@@ -99,9 +87,6 @@ def cfg_constructor_pre_constraint_analysis(
         package_and_target_modifiers = package_and_target_modifiers,
         cli_modifiers = cli_modifiers,
     )
-
-def get_constraint_setting_order(refs: dict[str, ProviderCollection]) -> list[TargetLabel]:
-    return [refs[constraint_setting][ConstraintSettingInfo].label for constraint_setting in CONSTRAINT_SETTING_ORDER]
 
 def _get_constraint_setting_and_tagged_modifier_infos(
         refs: dict[str, ProviderCollection],
