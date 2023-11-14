@@ -27,8 +27,8 @@ use gazebo::variants::VariantName;
 
 use crate::cas_digest::CasDigest;
 use crate::cas_digest::CasDigestConfig;
+use crate::cas_digest::CasDigestKind;
 use crate::cas_digest::TrackedCasDigest;
-use crate::cas_digest::TrackedCasDigestKind;
 use crate::external_symlink::ExternalSymlink;
 
 #[derive(Debug, buck2_error::Error)]
@@ -111,7 +111,7 @@ pub struct FileDigestKind {
     _private: (),
 }
 
-impl TrackedCasDigestKind for FileDigestKind {
+impl CasDigestKind for FileDigestKind {
     fn empty_digest(config: CasDigestConfig) -> Option<TrackedCasDigest<Self>> {
         Some(config.empty_file_digest())
     }

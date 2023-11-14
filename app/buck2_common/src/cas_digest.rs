@@ -352,7 +352,7 @@ pub enum CasDigestConfigError {
     Conflict(DigestAlgorithm, DigestAlgorithm),
 }
 
-pub struct Digester<Kind: TrackedCasDigestKind> {
+pub struct Digester<Kind: CasDigestKind> {
     variant: DigesterVariant,
     size: u64,
     kind: PhantomData<Kind>,
@@ -365,7 +365,7 @@ enum DigesterVariant {
     Blake3Keyed(Box<blake3::Hasher>), // Same as above
 }
 
-impl<Kind: TrackedCasDigestKind> Digester<Kind> {
+impl<Kind: CasDigestKind> Digester<Kind> {
     pub fn update(&mut self, data: &[u8]) {
         // Explicit dynamic dispatch because we need to match on which variant it was.
         match &mut self.variant {
@@ -425,7 +425,7 @@ struct CasDigestData {
 #[derivative(PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[display(fmt = "{}", data)]
 #[repr(transparent)]
-pub struct CasDigest<Kind: TrackedCasDigestKind> {
+pub struct CasDigest<Kind: CasDigestKind> {
     data: CasDigestData,
     #[derivative(
         Hash = "ignore",
@@ -436,13 +436,13 @@ pub struct CasDigest<Kind: TrackedCasDigestKind> {
     kind: PhantomData<Kind>,
 }
 
-impl<Kind: TrackedCasDigestKind> fmt::Debug for CasDigest<Kind> {
+impl<Kind: CasDigestKind> fmt::Debug for CasDigest<Kind> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self)
     }
 }
 
-impl<Kind: TrackedCasDigestKind> CasDigest<Kind> {
+impl<Kind: CasDigestKind> CasDigest<Kind> {
     pub fn from_digest_bytes(
         kind: DigestAlgorithmKind,
         digest: &[u8],
@@ -615,7 +615,7 @@ impl<Kind: TrackedCasDigestKind> CasDigest<Kind> {
         Ok(digester.finalize())
     }
 
-    pub fn coerce<NewKind: TrackedCasDigestKind>(self) -> CasDigest<NewKind> {
+    pub fn coerce<NewKind: CasDigestKind>(self) -> CasDigest<NewKind> {
         CasDigest {
             data: self.data,
             kind: PhantomData,
@@ -623,7 +623,7 @@ impl<Kind: TrackedCasDigestKind> CasDigest<Kind> {
     }
 }
 
-pub trait TrackedCasDigestKind: Sized + 'static {
+pub trait CasDigestKind: Sized + 'static {
     /// This needs to be a concrete implementation since we share the empty instance in a static
     /// but we can't have static generics.
     fn empty_digest(config: CasDigestConfig) -> Option<TrackedCasDigest<Self>>;
@@ -631,7 +631,7 @@ pub trait TrackedCasDigestKind: Sized + 'static {
 
 #[derive(Display)]
 #[display(fmt = "{}", "hex::encode(&of.raw_digest().as_bytes()[0..4])")]
-pub struct TinyDigest<'a, Kind: TrackedCasDigestKind> {
+pub struct TinyDigest<'a, Kind: CasDigestKind> {
     of: &'a CasDigest<Kind>,
 }
 
@@ -662,7 +662,7 @@ pub enum CasDigestParseError {
 /// contents.
 #[derive(Allocative)]
 #[allocative(bound = "")]
-struct TrackedCasDigestInner<Kind: TrackedCasDigestKind> {
+struct TrackedCasDigestInner<Kind: CasDigestKind> {
     data: CasDigest<Kind>,
     expires: AtomicI64,
 }
@@ -670,11 +670,11 @@ struct TrackedCasDigestInner<Kind: TrackedCasDigestKind> {
 #[derive(Display, Dupe_, Allocative)]
 #[allocative(bound = "")]
 #[display(fmt = "{}", "self.data()")]
-pub struct TrackedCasDigest<Kind: TrackedCasDigestKind> {
+pub struct TrackedCasDigest<Kind: CasDigestKind> {
     inner: Arc<TrackedCasDigestInner<Kind>>,
 }
 
-impl<Kind: TrackedCasDigestKind> Clone for TrackedCasDigest<Kind> {
+impl<Kind: CasDigestKind> Clone for TrackedCasDigest<Kind> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.dupe(),
@@ -682,45 +682,45 @@ impl<Kind: TrackedCasDigestKind> Clone for TrackedCasDigest<Kind> {
     }
 }
 
-impl<Kind: TrackedCasDigestKind> Borrow<CasDigest<Kind>> for TrackedCasDigest<Kind> {
+impl<Kind: CasDigestKind> Borrow<CasDigest<Kind>> for TrackedCasDigest<Kind> {
     fn borrow(&self) -> &CasDigest<Kind> {
         self.data()
     }
 }
 
-impl<'a, Kind: TrackedCasDigestKind> Borrow<CasDigest<Kind>> for &'a TrackedCasDigest<Kind> {
+impl<'a, Kind: CasDigestKind> Borrow<CasDigest<Kind>> for &'a TrackedCasDigest<Kind> {
     fn borrow(&self) -> &CasDigest<Kind> {
         self.data()
     }
 }
 
-impl<Kind: TrackedCasDigestKind> PartialOrd for TrackedCasDigest<Kind> {
+impl<Kind: CasDigestKind> PartialOrd for TrackedCasDigest<Kind> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.data().partial_cmp(other.data())
     }
 }
 
-impl<Kind: TrackedCasDigestKind> Ord for TrackedCasDigest<Kind> {
+impl<Kind: CasDigestKind> Ord for TrackedCasDigest<Kind> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.data().cmp(other.data())
     }
 }
 
-impl<Kind: TrackedCasDigestKind> PartialEq for TrackedCasDigest<Kind> {
+impl<Kind: CasDigestKind> PartialEq for TrackedCasDigest<Kind> {
     fn eq(&self, other: &Self) -> bool {
         self.data().eq(other.data())
     }
 }
 
-impl<Kind: TrackedCasDigestKind> Eq for TrackedCasDigest<Kind> {}
+impl<Kind: CasDigestKind> Eq for TrackedCasDigest<Kind> {}
 
-impl<Kind: TrackedCasDigestKind> Hash for TrackedCasDigest<Kind> {
+impl<Kind: CasDigestKind> Hash for TrackedCasDigest<Kind> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.data().hash(state)
     }
 }
 
-impl<Kind: TrackedCasDigestKind> fmt::Debug for TrackedCasDigest<Kind> {
+impl<Kind: CasDigestKind> fmt::Debug for TrackedCasDigest<Kind> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -731,12 +731,12 @@ impl<Kind: TrackedCasDigestKind> fmt::Debug for TrackedCasDigest<Kind> {
     }
 }
 
-impl<Kind: TrackedCasDigestKind> buck2_core::directory::DirectoryDigest for TrackedCasDigest<Kind> {}
+impl<Kind: CasDigestKind> buck2_core::directory::DirectoryDigest for TrackedCasDigest<Kind> {}
 
-impl<Kind: TrackedCasDigestKind> TrackedCasDigest<Kind> {
+impl<Kind: CasDigestKind> TrackedCasDigest<Kind> {
     pub fn new(data: CasDigest<Kind>, config: CasDigestConfig) -> Self
     where
-        Kind: TrackedCasDigestKind,
+        Kind: CasDigestKind,
     {
         if data.size() == 0 {
             return Self::empty(config);
@@ -756,7 +756,7 @@ impl<Kind: TrackedCasDigestKind> TrackedCasDigest<Kind> {
         config: CasDigestConfig,
     ) -> Self
     where
-        Kind: TrackedCasDigestKind,
+        Kind: CasDigestKind,
     {
         let res = Self::new(data, config);
         res.update_expires(expiry);
@@ -765,7 +765,7 @@ impl<Kind: TrackedCasDigestKind> TrackedCasDigest<Kind> {
 
     pub fn empty(config: CasDigestConfig) -> Self
     where
-        Kind: TrackedCasDigestKind,
+        Kind: CasDigestKind,
     {
         match Kind::empty_digest(config) {
             Some(o) => o,
@@ -780,7 +780,7 @@ impl<Kind: TrackedCasDigestKind> TrackedCasDigest<Kind> {
 
     pub fn from_content(bytes: &[u8], config: CasDigestConfig) -> Self
     where
-        Kind: TrackedCasDigestKind,
+        Kind: CasDigestKind,
     {
         if bytes.is_empty() {
             return Self::empty(config);
