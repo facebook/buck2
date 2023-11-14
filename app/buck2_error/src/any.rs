@@ -105,10 +105,8 @@ pub(crate) fn recover_crate_error(
         context_stack.push((cur.clone(), context_metadata));
 
         // Compute the next element in the source chain
-        if cur.source().is_some() {
-            // FIXME(JakobDegen): `Marc` should have `try_map` or some such so that we don't need to
-            // unwrap
-            cur = Marc::map(cur, |e| e.source().unwrap());
+        if let Ok(new_cur) = Marc::try_map(cur.clone(), |e| e.source()) {
+            cur = new_cur;
             continue;
         }
 
