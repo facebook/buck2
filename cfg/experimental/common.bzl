@@ -32,18 +32,15 @@ def location_to_string(location: ModifierLocation) -> str:
         return _CLI_LOCATION_STR
     fail("Internal error. Unrecognized location type `{}` for location `{}`".format(type(location), location))
 
-def verify_normalized_target(target: str, param_context: str):
+def verify_normalized_target(target: str):
     # Do some basic checks that target looks reasonably valid and normalized
     # Targets should always be fully qualified to improve readability.
     if "//" not in target or target.startswith("//") or ":" not in target:
         fail(
-            "Must specify fully qualified target (ex. `cell//foo:bar`) for `{}`. Found `{}`".format(
-                param_context,
+            "Must specify fully qualified target (ex. `cell//foo:bar`). Found `{}`".format(
                 target,
             ),
         )
-
-_MODIFIER_PARAM = "modifier"
 
 def verify_normalized_modifier(modifier: Modifier):
     if isinstance(modifier, ModifierSelect):
@@ -51,7 +48,7 @@ def verify_normalized_modifier(modifier: Modifier):
             if key != "DEFAULT":
                 verify_normalized_modifier(sub_modifier)
     elif isinstance(modifier, str):
-        verify_normalized_target(modifier, _MODIFIER_PARAM)
+        verify_normalized_target(modifier)
     else:
         fail("Found unexpected modifier `{}` type `{}`".format(modifier, type(modifier)))
 
