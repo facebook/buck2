@@ -70,6 +70,7 @@ pub struct ReExecutor {
     pub skip_cache_write: bool,
     pub re_max_queue_time_ms: Option<u64>,
     pub paranoid: Option<ParanoidDownloader>,
+    pub materialize_failed_inputs: bool,
 }
 
 impl ReExecutor {

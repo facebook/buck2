@@ -84,6 +84,7 @@ pub struct CommandExecutorFactory {
     project_root: ProjectRoot,
     worker_pool: Arc<WorkerPool>,
     paranoid: Option<ParanoidDownloader>,
+    materialize_failed_inputs: bool,
 }
 
 impl CommandExecutorFactory {
@@ -102,6 +103,7 @@ impl CommandExecutorFactory {
         project_root: ProjectRoot,
         worker_pool: Arc<WorkerPool>,
         paranoid: Option<ParanoidDownloader>,
+        materialize_failed_inputs: bool,
     ) -> Self {
         Self {
             re_connection,
@@ -118,6 +120,7 @@ impl CommandExecutorFactory {
             project_root,
             worker_pool,
             paranoid,
+            materialize_failed_inputs,
         }
     }
 }
@@ -186,6 +189,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 skip_cache_read: self.skip_cache_read || !remote_cache_enabled,
                 skip_cache_write: self.skip_cache_write || !remote_cache_enabled,
                 paranoid: self.paranoid.dupe(),
+                materialize_failed_inputs: self.materialize_failed_inputs,
             }
         };
 

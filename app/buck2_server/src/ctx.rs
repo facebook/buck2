@@ -420,6 +420,10 @@ impl<'a> ServerCommandContext<'a> {
             http_client: self.base_context.daemon.http_client.dupe(),
             paranoid: self.base_context.daemon.paranoid.dupe(),
             spawner: self.base_context.spawner.dupe(),
+            materialize_failed_inputs: self
+                .build_options
+                .as_ref()
+                .map_or(false, |opts| opts.materialize_failed_inputs),
         }
     }
 
@@ -526,6 +530,7 @@ struct DiceCommandDataProvider {
     http_client: HttpClient,
     paranoid: Option<ParanoidDownloader>,
     spawner: Arc<BuckSpawner>,
+    materialize_failed_inputs: bool,
 }
 
 #[async_trait]
@@ -638,6 +643,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
                 .to_owned(),
             worker_pool,
             self.paranoid.dupe(),
+            self.materialize_failed_inputs,
         )));
         data.set_blocking_executor(self.blocking_executor.dupe());
         data.set_http_client(self.http_client.dupe());
