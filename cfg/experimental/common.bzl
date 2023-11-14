@@ -11,7 +11,6 @@ load(
     "Modifier",
     "ModifierCliLocation",
     "ModifierInfo",
-    "ModifierLegacyPlatformLocation",
     "ModifierLocation",
     "ModifierPackageLocation",
     "ModifierSelect",
@@ -31,15 +30,11 @@ def location_to_string(location: ModifierLocation) -> str:
         return _TARGET_LOCATION_STR
     if isinstance(location, ModifierCliLocation):
         return _CLI_LOCATION_STR
-    if isinstance(location, ModifierLegacyPlatformLocation):
-        return _LEGACY_PLATFORM_LOCATION_STR
     fail("Internal error. Unrecognized location type `{}` for location `{}`".format(type(location), location))
 
 def verify_normalized_target(target: str, param_context: str, location: ModifierLocation):
     if isinstance(location, ModifierCliLocation):
         fail("Internal error: location should not be ModifierCliLocation")
-    if isinstance(location, ModifierLegacyPlatformLocation):
-        fail("Internal error: location should not be ModifierLegacyPlatformLocation")
 
     # Do some basic checks that target looks reasonably valid and normalized
     # Targets should always be fully qualified to improve readability.
