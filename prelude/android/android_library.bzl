@@ -34,6 +34,9 @@ def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
             linkable_graph,
             # Add an unused default output in case this target is used as an attr.source() anywhere.
             DefaultInfo(default_output = ctx.actions.write("{}/unused.jar".format(ctx.label.name), [])),
+            TemplatePlaceholderInfo(keyed_variables = {
+                "classpath": "unused_but_needed_for_analysis",
+            }),
         ]
 
     java_providers, android_library_intellij_info = build_android_library(ctx)
