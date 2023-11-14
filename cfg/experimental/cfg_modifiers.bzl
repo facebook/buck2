@@ -9,14 +9,12 @@ load(":common.bzl", "get_tagged_modifier", "tagged_modifier_to_json")
 load(":set_cfg_constructor.bzl", "MODIFIER_METADATA_KEY")
 load(
     ":types.bzl",
-    "Modifier",  # @unused This is used in type annotation
+    "Modifier",
     "ModifierTargetLocation",
 )
 
-def cfg_modifiers(modifiers: dict[str, Modifier]) -> dict[str, dict[str, dict[str, typing.Any]]]:
-    tagged_modifier_jsons = {}
-    for constraint_setting, modifier in modifiers.items():
-        tagged_modifier_jsons[constraint_setting] = tagged_modifier_to_json(
-            get_tagged_modifier(constraint_setting, modifier, ModifierTargetLocation()),
-        )
+def cfg_modifiers(modifiers: list[Modifier]) -> dict[str, list[dict[str, typing.Any]]]:
+    tagged_modifier_jsons = [tagged_modifier_to_json(
+        get_tagged_modifier(modifier, ModifierTargetLocation()),
+    ) for modifier in modifiers]
     return {MODIFIER_METADATA_KEY: tagged_modifier_jsons}

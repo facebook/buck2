@@ -46,7 +46,6 @@ def verify_normalized_target(target: str, param_context: str, location: Modifier
             ),
         )
 
-_CONSTRAINT_SETTING_PARAM = "constraint_setting"
 _MODIFIER_PARAM = "modifier"
 
 def verify_normalized_modifier(modifier: Modifier, location: ModifierLocation):
@@ -60,10 +59,8 @@ def verify_normalized_modifier(modifier: Modifier, location: ModifierLocation):
         fail("Found unexpected modifier `{}` type `{}`".format(modifier, type(modifier)))
 
 def get_tagged_modifier(
-        constraint_setting: str,
         modifier: Modifier,
         location: ModifierLocation) -> TaggedModifier:
-    verify_normalized_target(constraint_setting, _CONSTRAINT_SETTING_PARAM, location)
     verify_normalized_modifier(modifier, location)
 
     tagged_modifier = TaggedModifier(
