@@ -41,7 +41,7 @@ def get_android_binary_resources_info(
         for resource_info in list(android_packageable_info.resource_infos.traverse() if android_packageable_info.resource_infos else [])
         if not (resource_infos_to_exclude and resource_infos_to_exclude.contains(resource_info.raw_target))
     ]
-    resource_infos, override_symbols, string_files_list, string_files_res_dirs = _maybe_filter_resources(
+    resource_infos, voltron_res, override_symbols, string_files_list, string_files_res_dirs = _maybe_filter_resources(
         ctx,
         unfiltered_resource_infos,
         android_toolchain,
@@ -148,13 +148,13 @@ def get_android_binary_resources_info(
     string_source_map = _maybe_generate_string_source_map(
         ctx.actions,
         getattr(ctx.attrs, "build_string_source_map", False),
-        resources,
+        [resource.res for resource in resources if resource.res != None],
         android_toolchain,
     )
     voltron_string_source_map = _maybe_generate_string_source_map(
         ctx.actions,
         getattr(ctx.attrs, "is_voltron_language_pack_enabled", False),
-        resources,
+        voltron_res,
         android_toolchain,
         is_voltron_string_source_map = True,
     )
@@ -184,7 +184,7 @@ def get_android_binary_resources_info(
 def _maybe_filter_resources(
         ctx: AnalysisContext,
         resources: list[AndroidResourceInfo],
-        android_toolchain: AndroidToolchainInfo) -> (list[AndroidResourceInfo], [Artifact, None], [Artifact, None], list[Artifact]):
+        android_toolchain: AndroidToolchainInfo) -> (list[AndroidResourceInfo], list[Artifact], [Artifact, None], [Artifact, None], list[Artifact]):
     resources_filter_strings = getattr(ctx.attrs, "resource_filter", [])
     resources_filter = _get_resources_filter(resources_filter_strings)
     resource_compression_mode = getattr(ctx.attrs, "resource_compression", "disabled")
@@ -202,7 +202,7 @@ def _maybe_filter_resources(
     )
 
     if not needs_resource_filtering:
-        return resources, None, None, []
+        return resources, [resource.res for resource in resources if resource.res != None], None, None, []
 
     res_info_to_out_res_dir = {}
     voltron_res_info_to_out_res_dir = {}
@@ -319,13 +319,13 @@ def _maybe_filter_resources(
             manifest_file = resource.manifest_file,
             r_dot_java_package = resource.r_dot_java_package,
             res = filtered_res,
-            voltron_res = voltron_res_info_to_out_res_dir[resource] if is_voltron_language_pack_enabled else None,
             text_symbols = resource.text_symbols,
         )
         filtered_resource_infos.append(filtered_resource)
 
     return (
         res_infos_with_no_res + filtered_resource_infos,
+        voltron_res_info_to_out_res_dir.values(),
         override_symbols_artifact,
         all_strings_files_list,
         all_strings_files_res_dirs,
@@ -350,18 +350,13 @@ def _get_resources_filter(resources_filter_strings: list[str]) -> [ResourcesFilt
 def _maybe_generate_string_source_map(
         actions: AnalysisActions,
         should_build_source_string_map: bool,
-        resource_infos: list[AndroidResourceInfo],
+        res_dirs: list[Artifact],
         android_toolchain: AndroidToolchainInfo,
         is_voltron_string_source_map: bool = False) -> [Artifact, None]:
-    if not should_build_source_string_map or len(resource_infos) == 0:
+    if not should_build_source_string_map or len(res_dirs) == 0:
         return None
 
     prefix = "voltron_" if is_voltron_string_source_map else ""
-    res_dirs = []
-    if is_voltron_string_source_map:
-        res_dirs = [resource_info.voltron_res for resource_info in resource_infos if resource_info.voltron_res != None]
-    if len(res_dirs) == 0:
-        res_dirs = [resource_info.res for resource_info in resource_infos]
     output = actions.declare_output("{}string_source_map".format(prefix), dir = True)
     res_dirs_file = actions.write("resource_dirs_for_{}string_source_map".format(prefix), res_dirs)
     generate_string_source_map_cmd = cmd_args([
