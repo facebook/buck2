@@ -59,6 +59,12 @@ use RE::InlinedBlobWithDigest;
 // Whether to throw errors when cache uploads fail (primarily for tests).
 static ERROR_ON_CACHE_UPLOAD: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_ERROR_ON_CACHE_UPLOAD");
 
+#[derive(Copy, Clone, Debug, Dupe, Eq, PartialEq)]
+enum CacheUploadSuccessful {
+    Yes,
+    No,
+}
+
 /// A PreparedCommandExecutor that will write to cache after invoking the inner executor
 pub struct CacheUploader {
     artifact_fs: ArtifactFs,
@@ -91,16 +97,16 @@ impl CacheUploader {
     // Only return error on upload failure if we pass a flag
     fn modify_upload_result(
         digest: &dyn Display,
-        result: anyhow::Result<bool>,
+        result: anyhow::Result<CacheUploadSuccessful>,
         error_on_cache_upload: bool,
-    ) -> anyhow::Result<bool> {
+    ) -> anyhow::Result<CacheUploadSuccessful> {
         match result {
             Err(e) => {
                 if error_on_cache_upload {
                     Err(e).context("cache_upload")
                 } else {
                     tracing::warn!("Cache upload for `{}` failed: {:#}", digest, e);
-                    Ok(false)
+                    Ok(CacheUploadSuccessful::No)
                 }
             }
             _ => result,
@@ -115,7 +121,7 @@ impl CacheUploader {
         digest_config: DigestConfig,
         error_on_cache_upload: bool,
         action_blobs: &ActionBlobs,
-    ) -> anyhow::Result<bool> {
+    ) -> anyhow::Result<CacheUploadSuccessful> {
         tracing::debug!("Uploading action result for `{}`", action_digest);
         let result = self
             .perform_cache_upload(
@@ -143,7 +149,7 @@ impl CacheUploader {
         dep_file_entry: DepFileEntry,
         error_on_cache_upload: bool,
         action_blobs: &ActionBlobs,
-    ) -> anyhow::Result<bool> {
+    ) -> anyhow::Result<CacheUploadSuccessful> {
         tracing::debug!(
             "Uploading dep file entry for action `{}` with dep file key `{}`",
             action_digest,
@@ -183,7 +189,7 @@ impl CacheUploader {
         metadata: Vec<TAny>,
         reason: buck2_data::CacheUploadReason,
         action_blobs: &ActionBlobs,
-    ) -> anyhow::Result<bool> {
+    ) -> anyhow::Result<CacheUploadSuccessful> {
         let digest_str = digest.to_string();
         let output_bytes = result.calc_output_size_bytes();
 
@@ -256,14 +262,18 @@ impl CacheUploader {
                 let (success, error, re_error_code) = match &res {
                     Ok(CacheUploadOutcome::Success) => {
                         tracing::info!("Cache upload for `{}` succeeded", digest_str);
-                        (true, String::new(), None)
+                        (CacheUploadSuccessful::Yes, String::new(), None)
                     }
                     Ok(CacheUploadOutcome::Rejected(reason)) => {
                         tracing::info!("Cache upload for `{}` rejected: {:#}", digest_str, reason);
-                        (false, format!("Rejected: {}", reason), None)
+                        (
+                            CacheUploadSuccessful::No,
+                            format!("Rejected: {}", reason),
+                            None,
+                        )
                     }
                     Err(e) => (
-                        false,
+                        CacheUploadSuccessful::No,
                         format!("{:#}", e),
                         e.downcast_ref::<REClientError>()
                             .map(|e| e.code.to_string()),
@@ -276,7 +286,7 @@ impl CacheUploader {
                         key: Some(target.as_proto_action_key()),
                         name: Some(target.as_proto_action_name()),
                         action_digest: digest_str.clone(),
-                        success,
+                        success: success == CacheUploadSuccessful::Yes,
                         error,
                         re_error_code,
                         file_digests: file_digests.into_map(|d| d.to_string()),
@@ -495,6 +505,7 @@ impl UploadCache for CacheUploader {
                 action_blobs,
             )
             .await?
+                == CacheUploadSuccessful::Yes
         } else {
             tracing::info!("Cache upload for `{}` not attempted", action);
             false
@@ -513,6 +524,7 @@ impl UploadCache for CacheUploader {
                     action_blobs,
                 )
                 .await?
+                    == CacheUploadSuccessful::Yes
             }
             _ => {
                 tracing::info!("Dep file cache upload for `{}` not attempted", action);
