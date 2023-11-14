@@ -482,7 +482,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
         let materializer = self.dice.per_transaction_data().get_materializer();
         let blocking_executor = self.dice.get_blocking_executor();
 
-        materialize_inputs(&fs, &materializer, &execution_request).await?;
+        materialize_inputs(&fs, materializer.as_ref(), &execution_request).await?;
 
         create_output_dirs(
             &fs,

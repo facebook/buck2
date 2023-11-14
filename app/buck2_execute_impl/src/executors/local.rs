@@ -230,7 +230,8 @@ impl LocalExecutor {
 
                 let (r1, r2) = future::join(
                     async {
-                        materialize_inputs(&self.artifact_fs, &self.materializer, request).await
+                        materialize_inputs(&self.artifact_fs, self.materializer.as_ref(), request)
+                            .await
                     },
                     async {
                         // When user requests to not perform a cleanup for a specific action
@@ -239,7 +240,7 @@ impl LocalExecutor {
                         if !request.outputs_cleanup {
                             materialize_build_outputs_from_previous_run(
                                 &self.artifact_fs,
-                                &self.materializer,
+                                self.materializer.as_ref(),
                                 request,
                             )
                             .await
@@ -790,7 +791,7 @@ impl<'a> StrOrOsStr<'a> {
 /// them is returned).
 pub async fn materialize_inputs(
     artifact_fs: &ArtifactFs,
-    materializer: &Arc<dyn Materializer>,
+    materializer: &dyn Materializer,
     request: &CommandExecutionRequest,
 ) -> anyhow::Result<ScratchPath> {
     let mut paths = vec![];
@@ -908,7 +909,7 @@ async fn check_inputs(
 /// Such incremental state in fact serves as the input while being output as well.
 pub async fn materialize_build_outputs_from_previous_run(
     artifact_fs: &ArtifactFs,
-    materializer: &Arc<dyn Materializer>,
+    materializer: &dyn Materializer,
     request: &CommandExecutionRequest,
 ) -> anyhow::Result<()> {
     let mut paths = vec![];
