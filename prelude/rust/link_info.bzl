@@ -203,6 +203,42 @@ def _do_resolve_deps(
                                 [(None, dep, flags) for dep, flags in flagged_deps]
     ]
 
+def _gather_explicit_sysroot_deps(dep_ctx: DepCollectionContext) -> list[RustOrNativeDependency]:
+    explicit_sysroot_deps = dep_ctx.explicit_sysroot_deps
+    if not explicit_sysroot_deps:
+        return []
+
+    out = []
+    if explicit_sysroot_deps.core:
+        out.append(RustOrNativeDependency(
+            dep = explicit_sysroot_deps.core,
+            name = None,
+            flags = ["nounused"],
+        ))
+    if explicit_sysroot_deps.std:
+        out.append(RustOrNativeDependency(
+            dep = explicit_sysroot_deps.std,
+            name = None,
+            flags = ["nounused", "force"],
+        ))
+    if explicit_sysroot_deps.proc_macro:
+        flags = ["noprelude"] if not dep_ctx.is_proc_macro or dep_ctx.include_doc_deps else []
+        out.append(RustOrNativeDependency(
+            dep = explicit_sysroot_deps.proc_macro,
+            name = None,
+            flags = ["nounused"] + flags,
+        ))
+    for d in explicit_sysroot_deps.others:
+        # FIXME(JakobDegen): Ideally we would not be using `noprelude` here but
+        # instead report these as regular transitive dependencies. However,
+        # that's a bit harder to get right, so leave it like this for now.
+        out.append(RustOrNativeDependency(
+            dep = d,
+            name = None,
+            flags = ["noprelude", "nounused"],
+        ))
+    return out
+
 def resolve_deps(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext) -> list[RustOrNativeDependency]:
@@ -220,7 +256,7 @@ def resolve_deps(
             named_deps = getattr(ctx.attrs, "doc_named_deps", {}),
         ))
 
-    return dependencies
+    return dependencies + _gather_explicit_sysroot_deps(dep_ctx)
 
 def resolve_rust_deps(
         ctx: AnalysisContext,

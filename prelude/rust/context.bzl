@@ -8,7 +8,7 @@
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//linking:link_info.bzl", "LinkStyle")
 load(":build_params.bzl", "CrateType", "Emit")
-load(":rust_toolchain.bzl", "RustToolchainInfo")
+load(":rust_toolchain.bzl", "RustExplicitSysrootDeps", "RustToolchainInfo")
 
 CrateName = record(
     simple = field(str),
@@ -39,6 +39,12 @@ CrateMapArg = record(
 DepCollectionContext = record(
     native_unbundle_deps = field(bool),
     include_doc_deps = field(bool),
+    # Is the target a proc-macro target? This is ignored if `include_doc_deps`
+    # is set, since doc tests in proc macro crates are not built with
+    # `--extern proc_macro`
+    is_proc_macro = field(bool),
+    # From the toolchain, if available
+    explicit_sysroot_deps = field(RustExplicitSysrootDeps | None),
 )
 
 # Compile info which is reusable between multiple compilation command performed

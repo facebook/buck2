@@ -125,6 +125,8 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         # files today.
         native_unbundle_deps = True,
         include_doc_deps = False,
+        is_proc_macro = False,
+        explicit_sysroot_deps = None,
     )
 
     # Rust link provider.

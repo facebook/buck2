@@ -123,6 +123,8 @@ def compile_context(ctx: AnalysisContext) -> CompileContext:
     dep_ctx = DepCollectionContext(
         native_unbundle_deps = toolchain_info.native_unbundle_deps,
         include_doc_deps = False,
+        is_proc_macro = getattr(ctx.attrs, "proc_macro", False),
+        explicit_sysroot_deps = toolchain_info.explicit_sysroot_deps,
     )
 
     return CompileContext(
@@ -228,6 +230,8 @@ def generate_rustdoc_test(
     doc_dep_ctx = DepCollectionContext(
         native_unbundle_deps = compile_ctx.dep_ctx.native_unbundle_deps,
         include_doc_deps = True,
+        is_proc_macro = False,
+        explicit_sysroot_deps = compile_ctx.dep_ctx.explicit_sysroot_deps,
     )
 
     resources = create_resource_db(
