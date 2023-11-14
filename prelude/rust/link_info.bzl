@@ -65,6 +65,10 @@ load(
     "@prelude//utils:utils.bzl",
     "filter_and_map_idx",
 )
+load(
+    ":context.bzl",
+    "CrateName",  # @unused Used as a type
+)
 
 # Link style for targets which do not set an explicit `link_style` attribute.
 DEFAULT_STATIC_LINK_STYLE = LinkStyle("static_pic")
@@ -85,11 +89,6 @@ RustProcMacroPlugin = plugins.kind()
 RustProcMacroMarker = provider(fields = {
     "label": typing.Any,
 })
-
-CrateName = record(
-    simple = field(str),
-    dynamic = field([Artifact, None]),
-)
 
 # Information which is keyed on link_style
 RustLinkStyleInfo = record(

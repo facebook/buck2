@@ -50,7 +50,12 @@ load(
     "emit_needs_codegen",
     "output_filename",
 )
-load(":context.bzl", "CommonArgsInfo", "CompileContext")
+load(
+    ":context.bzl",
+    "CommonArgsInfo",
+    "CompileContext",
+    "CrateName",  # @unused Used as a type
+)
 load(":extern.bzl", "crate_map_arg", "extern_arg")
 load(
     ":failure_filter.bzl",
@@ -59,7 +64,6 @@ load(
 )
 load(
     ":link_info.bzl",
-    "CrateName",  #@unused Used as a type
     "RustCxxLinkGroupInfo",  #@unused Used as a type
     "RustLinkInfo",
     "RustLinkStyleInfo",

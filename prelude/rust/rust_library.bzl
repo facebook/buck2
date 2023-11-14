@@ -88,10 +88,10 @@ load(
 load(
     ":context.bzl",
     "CompileContext",  # @unused Used as a type
+    "CrateName",  # @unused Used as a type
 )
 load(
     ":link_info.bzl",
-    "CrateName",  # @unused Used as a type
     "DEFAULT_STATIC_LINK_STYLE",
     "RustLinkInfo",
     "RustLinkStyleInfo",

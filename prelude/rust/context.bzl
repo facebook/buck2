@@ -8,8 +8,12 @@
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//linking:link_info.bzl", "LinkStyle")
 load(":build_params.bzl", "CrateType", "Emit")
-load(":link_info.bzl", "CrateName")
 load(":rust_toolchain.bzl", "RustToolchainInfo")
+
+CrateName = record(
+    simple = field(str),
+    dynamic = field([Artifact, None]),
+)
 
 # Struct for sharing common args between rustc and rustdoc
 # (rustdoc just relays bunch of the same args to rustc when trying to gen docs)

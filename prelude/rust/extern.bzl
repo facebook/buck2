@@ -5,8 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(":context.bzl", "CompileContext", "CrateMapArg", "ExternArg")
-load(":link_info.bzl", "CrateName")
+load(":context.bzl", "CompileContext", "CrateMapArg", "CrateName", "ExternArg")
 
 # Create `--extern` flag. For crates with a name computed during analysis:
 #
