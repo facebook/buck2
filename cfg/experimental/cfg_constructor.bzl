@@ -8,6 +8,7 @@
 load(
     ":common.bzl",
     "get_modifier_info",
+    "json_to_tagged_modifier",
     "merge_modifiers",
     "modifier_to_refs",
     "resolve_modifier",
@@ -46,8 +47,9 @@ CONSTRAINT_SETTING_ORDER = [
 def cfg_constructor_pre_constraint_analysis(
         *,
         legacy_platform: PlatformInfo | None,
-        package_modifiers: dict[str, list[TaggedModifier]] | None,
-        target_modifiers: dict[str, TaggedModifier] | None,
+        # dict[str, typing.Any] is JSON dictionary form of `TaggedModifier` passed from buck2 core
+        package_modifiers: dict[str, list[dict[str, typing.Any]]] | None,
+        target_modifiers: dict[str, dict[str, typing.Any]] | None,
         cli_modifiers: list[str]) -> (list[str], PostConstraintAnalysisParams):
     """
     First stage of cfg constructor for modifiers.
@@ -71,6 +73,10 @@ def cfg_constructor_pre_constraint_analysis(
     """
     package_modifiers = package_modifiers or {}
     target_modifiers = target_modifiers or {}
+
+    # Convert JSONs back to TaggedModifier
+    package_modifiers = {constraint_setting: [json_to_tagged_modifier(modifier_json) for modifier_json in modifier_jsons] for constraint_setting, modifier_jsons in package_modifiers.items()}
+    target_modifiers = {constraint_setting: json_to_tagged_modifier(modifier_json) for constraint_setting, modifier_json in target_modifiers.items()}
 
     # Merge PACKAGE and target modifiers into one dictionary
     package_and_target_modifiers = package_modifiers
