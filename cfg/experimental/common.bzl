@@ -69,19 +69,6 @@ def get_tagged_modifier(
     )
     return tagged_modifier
 
-def merge_modifiers(tagged_modifiers: list[typing.Any] | None, tagged_modifier: TaggedModifier, to_json: bool) -> list[typing.Any]:
-    def transform(tagged_modifier: TaggedModifier):
-        return tagged_modifier_to_json(tagged_modifier) if to_json else tagged_modifier
-
-    if isinstance(tagged_modifier.modifier, str):
-        return [transform(tagged_modifier)]
-
-    # `read_parent_package_value` returns an immutable value,
-    # so if `tagged_modifiers` is already a list, then we need to copy it to make it mutable.
-    tagged_modifiers = list(tagged_modifiers) if tagged_modifiers else []
-    tagged_modifiers.append(transform(tagged_modifier))
-    return tagged_modifiers
-
 def get_constraint_setting(constraint_settings: dict[TargetLabel, None], modifier: Modifier, location: ModifierLocation) -> TargetLabel:
     if len(constraint_settings) == 0:
         fail("`modifier_select` cannot be empty. Found empty `modifier_select` at `{}`".format(location_to_string(location)))
