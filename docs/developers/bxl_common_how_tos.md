@@ -128,7 +128,7 @@ collections:
 
 ```python
 def _impl_example(ctx):
-    subtarget = ctx.analysis(my_target).providers()[DefaultInfo].sub_targets[“my_subtarget”]
+    subtarget = ctx.analysis(my_target).providers()[DefaultInfo].sub_targets["my_subtarget"]
     ctx.output.print(subtarget)
 ```
 
@@ -164,7 +164,7 @@ def _impl_example(ctx):
 ## Inspecting a struct
 
 You can use `dir(my_struct)` to inspect a struct. You can also use
-`getattr(my_struct, “my_attr”)` to grab individual attributes, which is
+`getattr(my_struct, "my_attr")` to grab individual attributes, which is
 equivalent to `my_struct.my_attr`.
 
 These are available as part of the

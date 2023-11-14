@@ -155,8 +155,8 @@ impl CellHistory {
             .filter_map(|dep| dep.borrow().latest_verified_before(v))
             .max();
 
-        // We only need to propagate the earliest “dirty” from any of its deps, as we can rely on
-        // the recomputation from that dirty version to re-propagate any newer “dirty” as needed.
+        // We only need to propagate the earliest "dirty" from any of its deps, as we can rely on
+        // the recomputation from that dirty version to re-propagate any newer "dirty" as needed.
         let mut min_dirty = None;
         for dep in deps_iter {
             if let Some(dirty) = dep
@@ -369,8 +369,8 @@ where {
     ) where
         H: Borrow<CellHistory>,
     {
-        // We only need to propagate the earliest “dirty” from any of its deps, as we can rely on
-        // the recomputation from that dirty version to re-propagate any newer “dirty” as needed.
+        // We only need to propagate the earliest "dirty" from any of its deps, as we can rely on
+        // the recomputation from that dirty version to re-propagate any newer "dirty" as needed.
         let mut min_dirty = None;
         for dep in deps {
             if let Some(dirty) = dep

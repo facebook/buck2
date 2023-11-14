@@ -15,7 +15,7 @@ These are essentially custom buck operations, defined in Starlark, that still
 follow the constraints of Buck2, which will enable the same level of
 incrementality and caching as native buck2 operations. Furthermore, bxl will
 have subscriptions enabled in the future, where based on the incrementality
-tracking, buck2 can provide “updated” bxl executions when its known that its
+tracking, buck2 can provide "updated" bxl executions when its known that its
 dependencies change, and even when generated sources need to be regenerated.
 
 The following proposes a basic set of bxl api and building blocks that are
@@ -124,7 +124,7 @@ There are multiple models possible. We can have each file be its own bxl, or
 have each file declare multiple bxl like rules.
 
 There are multiple advantages to allowing declaration of multiple bxls, such as
-grouping similar bxls in the same file, allowing them to “invoke” each other. It
+grouping similar bxls in the same file, allowing them to "invoke" each other. It
 doesn’t necessarily add much more complexity for the author, as even with one
 bxl per file, the author still has to have some declaration for the bxls
 arguments.
@@ -134,7 +134,7 @@ arguments.
 func1 = bxl_main(
    impl = my_func1,
    args = {
-     “arg1”: arg.list(arg.str()),
+     "arg1": arg.list(arg.str()),
    }
 )
 
@@ -176,7 +176,7 @@ for target in targets:
   # also inspect the target like below
   ctx.print(target.label)
 
-target = ctx.cquery(“//foo”, “//x86”).attributes # cquery has selects resolved
+target = ctx.cquery("//foo", "//x86").attributes # cquery has selects resolved
 ```
 
 ### Inspect providers
@@ -204,13 +204,13 @@ BXL has the ability to create actions with some constraints:
    defined via rules
 
 ```python
-targets = ctx.cquery(‘deps(“//foo:rule”)’)
+targets = ctx.cquery(‘deps("//foo:rule")’)
 
 for t in targets:
   action_ctx = ctx.analysis(t).actions
   # the action context here is tied to the configured target `t`
   # actions registered by bxl will be attached with bxl prefix key
-  action_ctx.registry.write(some_output, “foo”)
+  action_ctx.registry.write(some_output, "foo")
 
 ```
 
@@ -218,12 +218,12 @@ BXL can also interact with the existing actions on an action via the action_ctx,
 such as iterating through it, analyzing its outputs, or requesting it to be ran.
 
 ```python
-targets = deps(“foo:rule”)
+targets = deps("foo:rule")
 
 for t in targets:
   action_ctx = ctx.analysis(t).actions
   for action in action_ctx.iter():
-    if “foo/path” in action.output:
+    if "foo/path" in action.output:
       ctx.build(action)
 ```
 
@@ -241,7 +241,7 @@ split up the bxl and use inter-bxl caching described below.
 ### Inter-bxl caching?
 
 Different bxl can be cacheable between each other if structured as
-“outputs”/artifacts. This is essentially the same behaviour as a bxl requesting
+"outputs"/artifacts. This is essentially the same behaviour as a bxl requesting
 `ctx.build`, which is cached. Since we have those as hashes on RE, we can track
 properly and not require storing the values in dice.
 
@@ -252,7 +252,7 @@ i.e.
 func1 = bxl_main(
    impl = my_func1,
    args = {
-     “arg1”: arg.list(arg.str()),
+     "arg1": arg.list(arg.str()),
    }
 )
 
@@ -268,7 +268,7 @@ func2 = bxl_main(
 )
 
 my_func2(ctx):
-  artifact = ctx.bxl(“:func1”)
+  artifact = ctx.bxl(":func1")
   # now read artifact value
   # everything below will only be reran if the artifact content changes
   …
