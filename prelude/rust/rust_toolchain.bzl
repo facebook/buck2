@@ -5,6 +5,26 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# Typically, rustc has access to a "sysroot," which is a directory tree with a known layout that
+# contains a number of pre-compiled rlibs that are available by default. This includes, for example,
+# the standard library. If explicit sysroot deps are passed on the toolchain, the sysroot is not
+# made available to rustc. Instead, all crates which would normally be members of the sysroot must
+# be passed explicitly here.
+#
+# Most sysroot deps typically behave as if they were transitive dependencies of the crate being
+# compiled. That means they are not guaranteed to be included in the link, and the user must write
+# `extern crate;` to access them. The crates singled out here behave differently in that regard,
+# which is why they are singled out.
+#
+# Toolchains are free to omit any crates they like from this list; those crates will simply not be
+# available in the compilation.
+RustExplicitSysrootDeps = record(
+    core = Dependency | None,
+    proc_macro = Dependency | None,
+    std = Dependency | None,
+    others = list[Dependency],
+)
+
 # FIXME(JakobDegen): These all have default values for historical reasons. Some of them certainly
 # should, but some of them probably shouldn't?
 # @unsorted-dict-items
@@ -76,6 +96,8 @@ _rust_toolchain_attrs = {
     # instead of `staticlib` when linking rust targets into native (e.g.
     # C/C++) targets.
     "native_unbundle_deps": provider_field(bool, default = False),
+    # See the documentation on the type for details
+    "explicit_sysroot_deps": provider_field(RustExplicitSysrootDeps | None, default = None),
 }
 
 RustToolchainInfo = provider(fields = _rust_toolchain_attrs)
