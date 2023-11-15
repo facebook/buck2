@@ -20,8 +20,7 @@ load(
 )
 
 _INTERPRETER = select({
-    "config//os:linux": "python3",
-    "config//os:macos": "python3",
+    "DEFAULT": "python3",
     "config//os:windows": "python",
 })
 
