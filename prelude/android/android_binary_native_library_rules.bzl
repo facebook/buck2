@@ -827,6 +827,9 @@ def _get_merged_linkables(
         link_groups = {}
         target_to_link_group = {}
 
+        # Additional caching for later. Needs to be per-platform
+        has_transitive_linkable_cache = dict[Label, bool]
+
         for target in topo_sorted_targets:
             expect(target not in target_to_link_group, "prelude internal error, target seen twice?")
             target_apk_module = merge_data.apk_module_graph(str(target.raw_target()))
@@ -890,6 +893,30 @@ def _get_merged_linkables(
                 return platform + "/" + path
             return path
 
+        def has_linkable(node_data: LinkableNode) -> bool:
+            for _, output in node_data.link_infos.items():
+                if output.default.linkables:
+                    return True
+            return False
+
+        def set_has_transitive_linkable_cache(target: Label, result: bool) -> bool:
+            has_transitive_linkable_cache[target] = result
+            return result
+
+        def transitive_has_linkable(target: Label) -> bool:
+            if target in has_transitive_linkable_cache:
+                return has_transitive_linkable_cache[target]
+
+            target_node = linkable_nodes.get(target)
+            for dep in target_node.deps:
+                if has_linkable(linkable_nodes.get(dep)) or transitive_has_linkable(dep):
+                    return set_has_transitive_linkable_cache(target, True)
+            for dep in target_node.exported_deps:
+                if has_linkable(linkable_nodes.get(dep)) or transitive_has_linkable(dep):
+                    return set_has_transitive_linkable_cache(target, True)
+
+            return set_has_transitive_linkable_cache(target, False)
+
         # Now we will traverse from the leaves up the graph (the link groups graph). As we traverse, we will produce
         # a link group linkablenode for each group.
         for group in post_order_traversal(link_groups_graph):
@@ -901,12 +928,6 @@ def _get_merged_linkables(
                 target = group_data.constituents[0]
                 node_data = linkable_nodes[target]
                 can_be_asset = node_data.can_be_asset
-
-                def has_linkable(node_data: LinkableNode) -> bool:
-                    for _, output in node_data.link_infos.items():
-                        if output.default.linkables:
-                            return True
-                    return False
 
                 if node_data.preferred_linkage == Linkage("static") or not has_linkable(node_data):
                     debug_info.unmerged_statics.append(target)
@@ -928,16 +949,6 @@ def _get_merged_linkables(
                     pic_archive_info = node_data.link_infos.get(archive_output_style, None)
                     if not pic_archive_info or not pic_archive_info.default.linkables:
                         return True
-                    return False
-
-                def transitive_has_linkable(target: Label) -> bool:
-                    target_node = linkable_nodes.get(target)
-                    for dep in target_node.deps:
-                        if has_linkable(linkable_nodes.get(dep)) or transitive_has_linkable(dep):
-                            return True
-                    for dep in target_node.exported_deps:
-                        if has_linkable(linkable_nodes.get(dep)) or transitive_has_linkable(dep):
-                            return True
                     return False
 
                 if is_prebuilt_shared(node_data):
