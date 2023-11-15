@@ -930,13 +930,29 @@ def _get_merged_linkables(
                         return True
                     return False
 
+                def transitive_has_linkable(target: Label) -> bool:
+                    target_node = linkable_nodes.get(target)
+                    for dep in target_node.deps:
+                        if has_linkable(linkable_nodes.get(dep)) or transitive_has_linkable(dep):
+                            return True
+                    for dep in target_node.exported_deps:
+                        if has_linkable(linkable_nodes.get(dep)) or transitive_has_linkable(dep):
+                            return True
+                    return False
+
                 if is_prebuilt_shared(node_data):
                     expect(
                         len(node_data.shared_libs) == 1,
                         "unexpected shared_libs length for somerge of {} ({})".format(target, node_data.shared_libs),
                     )
-                    expect(not node_data.deps, "prebuilt shared library `{}` with deps not supported by somerge".format(target))
-                    expect(not node_data.exported_deps, "prebuilt shared library `{}` with exported_deps not supported by somerge".format(target))
+
+                    # TODO(cjhopman): We don't currently support prebuilt shared libs with deps on other libs because
+                    # we don't compute the shared lib deps of prebuilt shared libs here. That
+                    # shouldn't be too hard, but we haven't needed it.
+                    for dep in node_data.deps:
+                        expect(not transitive_has_linkable(dep), "prebuilt shared library `{}` with deps not supported by somerge".format(target))
+                    for dep in node_data.exported_deps:
+                        expect(not transitive_has_linkable(dep), "prebuilt shared library `{}` with exported_deps not supported by somerge".format(target))
                     soname, shlib = node_data.shared_libs.items()[0]
 
                     output_path = platform_output_path(shlib.output.short_path)
