@@ -171,8 +171,7 @@ impl<'v> Compiler<'v, '_, '_> {
                     .get_ref()
                     .at(i.to_inner(), self.eval.heap())
                     .map_err(|e| EvalException::new(e, expr.span, &self.codemap))?;
-                Ok(TypeCompiled::new(t, self.eval.heap())
-                    .map_err(|e| EvalException::new(e, expr.span, &self.codemap))?)
+                self.alloc_value_for_type(t, expr.span)
             }
             TypeExprUnpackP::Index2(a, i0, i1) => {
                 let a = self.eval_ident_in_type_expr(a)?;
@@ -189,8 +188,7 @@ impl<'v> Compiler<'v, '_, '_> {
                     .get_ref()
                     .at2(i0.to_inner(), i1.to_inner(), self.eval.heap())
                     .map_err(|e| EvalException::new(e, expr.span, &self.codemap))?;
-                Ok(TypeCompiled::new(t, self.eval.heap())
-                    .map_err(|e| EvalException::new(e, expr.span, &self.codemap))?)
+                self.alloc_value_for_type(t, expr.span)
             }
             TypeExprUnpackP::Index2Ellipsis(a0, i) => {
                 let a = self.eval_ident_in_type_expr(a0)?;
@@ -210,8 +208,7 @@ impl<'v> Compiler<'v, '_, '_> {
                         self.eval.heap(),
                     )
                     .map_err(|e| EvalException::new(e, expr.span, &self.codemap))?;
-                Ok(TypeCompiled::new(t, self.eval.heap())
-                    .map_err(|e| EvalException::new(e, expr.span, &self.codemap))?)
+                self.alloc_value_for_type(t, expr.span)
             }
             TypeExprUnpackP::Union(xs) => {
                 let xs = xs.into_try_map(|x| self.eval_expr_as_type(x))?;
