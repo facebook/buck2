@@ -55,6 +55,12 @@ impl TargetDisplayOptions {
         }
     }
 
+    pub fn for_build_report() -> Self {
+        Self {
+            with_configuration: true,
+        }
+    }
+
     pub fn for_console(with_configuration: bool) -> Self {
         Self { with_configuration }
     }
