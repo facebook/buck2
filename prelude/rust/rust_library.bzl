@@ -62,6 +62,7 @@ load(
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
+    "SharedLibraryInfo",
     "create_shared_libraries",
     "merge_shared_libraries",
 )
@@ -218,6 +219,18 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     providers.append(linkable_graph)
 
     providers.append(merge_link_group_lib_info(deps = ctx.attrs.deps))
+
+    # FIXME(JakobDegen): I am about 85% confident that this matches what C++
+    # does for prebuilt libraries if they don't have a shared variant and have
+    # preferred linkage static. C++ doesn't require static preferred linkage on
+    # their prebuilt libraries, and so they incur extra complexity here that we
+    # don't have to deal with.
+    #
+    # However, Rust linking is not the same as C++ linking. If Rust were
+    # disciplined about its use of `LibOutputStyle`, `Linkage` and
+    # `LinkStrategy`, then this would at least be no more wrong than what C++
+    # does. In the meantime however...
+    providers.append(SharedLibraryInfo(set = None))
 
     providers.append(merge_android_packageable_info(ctx.label, ctx.actions, ctx.attrs.deps))
 
