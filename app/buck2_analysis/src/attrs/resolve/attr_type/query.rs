@@ -26,7 +26,7 @@ impl ConfiguredQueryAttrExt for QueryAttr<ConfiguredProvidersLabel> {
         let query_results = ctx.resolve_query(&self.query.query)?;
         let mut dependencies = Vec::new();
 
-        for (target, providers) in &*query_results {
+        for (target, providers) in &query_results.result {
             let providers_label =
                 ConfiguredProvidersLabel::new(target.dupe(), ProvidersName::Default);
             if !self.providers.is_empty() {

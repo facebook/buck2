@@ -148,7 +148,7 @@ pub fn resolve_query<'v>(
     match query_results.get(query) {
         None => Err(anyhow::anyhow!(AnalysisError::MissingQuery(query.to_owned())).into()),
         Some(x) => {
-            for (_, y) in x.iter() {
+            for (_, y) in x.result.iter() {
                 // IMPORTANT: Anything given back to the user must be kept alive
                 module.frozen_heap().add_reference(y.value().owner());
             }

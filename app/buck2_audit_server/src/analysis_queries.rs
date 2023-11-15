@@ -73,7 +73,7 @@ impl AuditSubcommand for AuditAnalysisQueriesCommand {
                                 writeln!(stdout, "{}:", label)?;
                                 for (query, result) in &query_results {
                                     writeln!(stdout, "  {}", query)?;
-                                    for (target, providers) in &**result {
+                                    for (target, providers) in &result.result {
                                         writeln!(stdout, "    {}", target.unconfigured())?;
                                         if self.include_outputs {
                                             let outputs = providers

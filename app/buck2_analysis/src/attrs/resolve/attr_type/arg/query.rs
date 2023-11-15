@@ -30,6 +30,7 @@ impl ConfiguredQueryMacroBaseExt for QueryMacroBase<ConfiguredProvidersLabel> {
         match &self.expansion_type {
             QueryExpansion::Output => Ok(ResolvedQueryMacro::Outputs(
                 query_result
+                    .result
                     .iter()
                     .map(|(_, providers)| {
                         providers
@@ -42,6 +43,7 @@ impl ConfiguredQueryMacroBaseExt for QueryMacroBase<ConfiguredProvidersLabel> {
             )),
             QueryExpansion::Target => Ok(ResolvedQueryMacro::Targets(
                 query_result
+                    .result
                     .iter()
                     .map(|(target, _)| target.dupe())
                     .collect(),
@@ -54,6 +56,7 @@ impl ConfiguredQueryMacroBaseExt for QueryMacroBase<ConfiguredProvidersLabel> {
                             None => " ".to_owned().into_boxed_str(),
                         },
                         list: query_result
+                            .result
                             .iter()
                             .map(|(target, providers)| {
                                 (

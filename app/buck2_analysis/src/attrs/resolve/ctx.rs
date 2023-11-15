@@ -17,7 +17,9 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use starlark::environment::Module;
 use starlark::values::Heap;
 
-pub type AnalysisQueryResult = Vec<(ConfiguredTargetLabel, FrozenProviderCollectionValue)>;
+pub struct AnalysisQueryResult {
+    pub result: Vec<(ConfiguredTargetLabel, FrozenProviderCollectionValue)>,
+}
 
 /// The context for attribute resolution. Provides access to the providers from
 /// dependents.

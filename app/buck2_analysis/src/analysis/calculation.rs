@@ -174,7 +174,12 @@ async fn resolve_queries_impl(
                     ))
                 }
 
-                anyhow::Ok((query.to_owned(), Arc::new(query_results)))
+                anyhow::Ok((
+                    query.to_owned(),
+                    Arc::new(AnalysisQueryResult {
+                        result: query_results,
+                    }),
+                ))
             }
         }))
         .await?;
