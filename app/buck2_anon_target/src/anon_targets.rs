@@ -302,7 +302,7 @@ impl AnonTargetKey {
                 Ok(())
             }
 
-            fn query_macro(
+            fn query(
                 &mut self,
                 _query: &str,
                 _resolved_literals: &ResolvedQueryLiterals<ConfiguredProvidersLabel>,

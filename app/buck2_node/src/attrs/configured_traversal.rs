@@ -45,7 +45,8 @@ pub trait ConfiguredAttrTraversal {
         Ok(())
     }
 
-    fn query_macro(
+    /// Called for both `attrs.query(...)` and query macros like `$(query_targets ...)`.
+    fn query(
         &mut self,
         _query: &str,
         _resolved_literals: &ResolvedQueryLiterals<ConfiguredProvidersLabel>,

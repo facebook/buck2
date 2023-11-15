@@ -135,7 +135,7 @@ impl QueryAttrBase<ConfiguredProvidersLabel> {
         for dep in self.resolved_literals.0.values() {
             traversal.dep(dep)?;
         }
-        traversal.query_macro(&self.query, &self.resolved_literals)?;
+        traversal.query(&self.query, &self.resolved_literals)?;
         Ok(())
     }
 }

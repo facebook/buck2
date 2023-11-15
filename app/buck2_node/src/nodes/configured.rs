@@ -390,7 +390,7 @@ impl ConfiguredTargetNode {
                 Ok(())
             }
 
-            fn query_macro(
+            fn query(
                 &mut self,
                 query: &str,
                 resolved_literals: &ResolvedQueryLiterals<ConfiguredProvidersLabel>,
