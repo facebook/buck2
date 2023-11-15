@@ -56,6 +56,8 @@ enum TypesError {
     TypeIndexOnNonDict,
     #[error("[,...] can only be applied to tuple function in type expression")]
     TypeIndexEllipsisOnNonTuple,
+    #[error("String constants cannot be used as types")]
+    StringConstantAsType,
 }
 
 impl<'v> Compiler<'v, '_, '_> {
@@ -99,6 +101,13 @@ impl<'v> Compiler<'v, '_, '_> {
         value: Value<'v>,
         span: Span,
     ) -> Result<TypeCompiled<Value<'v>>, EvalException> {
+        if value.is_str() {
+            return Err(EvalException::new(
+                TypesError::StringConstantAsType.into(),
+                span,
+                &self.codemap,
+            ));
+        }
         let ty = TypeCompiled::new(value, self.eval.heap());
         ty.map_err(|e| EvalException::new(e, span, &self.codemap))
     }

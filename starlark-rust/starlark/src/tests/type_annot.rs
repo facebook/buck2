@@ -124,11 +124,11 @@ def foo(x: ""): pass
 
 #[test]
 fn test_string_const_as_type() {
-    // TODO(nga): prohibit.
-    assert::pass(
+    assert::fail(
         r#"
 T = ""
 def foo(x: T): pass
 "#,
+        "String constants cannot be used as types",
     );
 }
