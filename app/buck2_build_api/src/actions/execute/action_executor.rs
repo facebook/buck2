@@ -505,11 +505,11 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             .cache_upload(
                 &CacheUploadInfo {
                     target: &action as _,
-                    action_digest: action_digest_and_blobs.action.dupe(),
                     digest_config: self.digest_config(),
                 },
                 execution_result,
                 dep_file_entry,
+                &action_digest_and_blobs.action,
                 &action_digest_and_blobs.blobs,
             )
             .await

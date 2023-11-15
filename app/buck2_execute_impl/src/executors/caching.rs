@@ -486,13 +486,13 @@ impl UploadCache for CacheUploader {
         info: &CacheUploadInfo<'_>,
         res: &CommandExecutionResult,
         dep_file_entry: Option<DepFileEntry>,
+        action: &ActionDigest,
         action_blobs: &ActionBlobs,
     ) -> anyhow::Result<CacheUploadResult> {
         let error_on_cache_upload = match ERROR_ON_CACHE_UPLOAD.get_copied() {
             Ok(r) => r.unwrap_or_default(),
             Err(e) => return Err(e).context("cache_upload"),
         };
-        let action = &info.action_digest;
 
         let did_cache_upload = if res.was_locally_executed() {
             // TODO(bobyf, torozco) should these be critical sections?

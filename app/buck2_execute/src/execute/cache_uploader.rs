@@ -19,7 +19,6 @@ use crate::execute::target::CommandExecutionTarget;
 
 pub struct CacheUploadInfo<'a> {
     pub target: &'a dyn CommandExecutionTarget,
-    pub action_digest: ActionDigest,
     pub digest_config: DigestConfig,
 }
 
@@ -44,6 +43,7 @@ pub trait UploadCache: Send + Sync {
         info: &CacheUploadInfo<'_>,
         execution_result: &CommandExecutionResult,
         dep_file_entry: Option<DepFileEntry>,
+        action: &ActionDigest,
         action_blobs: &ActionBlobs,
     ) -> anyhow::Result<CacheUploadResult>;
 }
@@ -58,6 +58,7 @@ impl UploadCache for NoOpCacheUploader {
         _info: &CacheUploadInfo<'_>,
         _execution_result: &CommandExecutionResult,
         _dep_file_entry: Option<DepFileEntry>,
+        _action: &ActionDigest,
         _action_blobs: &ActionBlobs,
     ) -> anyhow::Result<CacheUploadResult> {
         Ok(CacheUploadResult {
