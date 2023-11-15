@@ -9,8 +9,12 @@
 
 //! Processing and reporting the the results of the build
 
+use std::collections::hash_map::DefaultHasher;
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::hash::Hash;
+use std::hash::Hasher;
 use std::sync::Arc;
 
 use buck2_build_api::build::BuildProviderType;
@@ -62,6 +66,7 @@ pub(crate) struct BuildReport {
     failures: HashMap<EntryLabel, ProjectRelativePathBuf>,
     project_root: AbsNormPathBuf,
     truncated: bool,
+    strings: BTreeMap<u64, String>,
 }
 
 /// The fields that stored in the unconfigured `BuildReportEntry` for buck1 backcompat.
@@ -119,7 +124,9 @@ struct BuildReportEntry {
 /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
 #[derive(Debug, Clone, Serialize, PartialOrd, Ord, PartialEq, Eq)]
 struct BuildReportError {
+    // TODO(@wendyy) - remove `message` field
     message: String,
+    message_content: u64,
     /// An opaque index that can be use to de-duplicate errors. Two errors with the same
     /// cause index have the same cause
     ///
@@ -143,6 +150,7 @@ pub(crate) struct BuildReportCollector<'a> {
     include_other_outputs: bool,
     error_cause_cache: HashMap<buck2_error::UniqueRootId, usize>,
     next_cause_index: usize,
+    strings: BTreeMap<u64, String>,
 }
 
 impl<'a> BuildReportCollector<'a> {
@@ -154,13 +162,14 @@ impl<'a> BuildReportCollector<'a> {
         include_other_outputs: bool,
         build_result: &BuildTargetResult,
     ) -> BuildReport {
-        let mut this = Self {
+        let mut this: BuildReportCollector<'_> = Self {
             artifact_fs,
             overall_success: true,
             include_unconfigured_section,
             include_other_outputs,
             error_cause_cache: HashMap::default(),
             next_cause_index: 0,
+            strings: BTreeMap::default(),
         };
         let mut entries = HashMap::new();
 
@@ -213,6 +222,7 @@ impl<'a> BuildReportCollector<'a> {
             // In buck1 we may truncate build report for a large number of targets.
             // Setting this to false since we don't currently truncate buck2's build report.
             truncated: false,
+            strings: this.strings,
         }
     }
 
@@ -431,8 +441,16 @@ impl<'a> BuildReportCollector<'a> {
                         })
                 }
             };
+
+            let mut hasher = DefaultHasher::new();
+            info.message.hash(&mut hasher);
+            let message_hash = hasher.finish();
+
+            self.strings.insert(message_hash, info.message.clone());
+
             out.push(BuildReportError {
                 message: info.message,
+                message_content: message_hash,
                 cause_index,
             });
         }
