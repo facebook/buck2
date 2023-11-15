@@ -226,6 +226,14 @@ impl<'a> BuildReportCollector<'a> {
         }
     }
 
+    pub(crate) fn update_string_cache(&mut self, string: String) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        string.hash(&mut hasher);
+        let hash = hasher.finish();
+        self.strings.insert(hash, string);
+        hash
+    }
+
     /// Always called for one unconfigured target at a time
     fn collect_results_for_unconfigured<'b>(
         &mut self,
@@ -442,15 +450,11 @@ impl<'a> BuildReportCollector<'a> {
                 }
             };
 
-            let mut hasher = DefaultHasher::new();
-            info.message.hash(&mut hasher);
-            let message_hash = hasher.finish();
-
-            self.strings.insert(message_hash, info.message.clone());
+            let message_content = self.update_string_cache(info.message.clone());
 
             out.push(BuildReportError {
                 message: info.message,
-                message_content: message_hash,
+                message_content,
                 cause_index,
             });
         }
