@@ -28,7 +28,7 @@ use crate::artifact::fs::ExecutorFs;
 use crate::digest::CasDigestToReExt;
 use crate::digest_config::DigestConfig;
 use crate::execute::action_digest_and_blobs::ActionDigestAndBlobs;
-use crate::execute::blobs::ActionBlobs;
+use crate::execute::action_digest_and_blobs::ActionDigestAndBlobsBuilder;
 use crate::execute::cache_uploader::CacheUploadInfo;
 use crate::execute::cache_uploader::DepFileEntry;
 use crate::execute::cache_uploader::UploadCache;
@@ -268,18 +268,15 @@ fn re_create_action(
         }
     }
 
-    let mut prepared_blobs = ActionBlobs::new(digest_config);
+    let mut action_and_blobs = ActionDigestAndBlobsBuilder::new(digest_config);
+
     for (data, digest) in blobs {
-        prepared_blobs.add_blob(digest, data);
+        action_and_blobs.add_blob(digest, data);
     }
 
     let mut action = RE::Action {
         input_root_digest: Some(input_digest.to_grpc()),
-        command_digest: Some(
-            prepared_blobs
-                .add_protobuf_message(&command, digest_config)
-                .to_grpc(),
-        ),
+        command_digest: Some(action_and_blobs.add_protobuf_message(&command).to_grpc()),
         timeout: timeout
             .map(|t| t.try_into())
             .transpose()
@@ -305,12 +302,10 @@ fn re_create_action(
         let _unused = &mut action;
     }
 
-    let action = prepared_blobs.add_protobuf_message(&action, digest_config);
+    let action_and_blobs = action_and_blobs.build(&action);
+
     Ok(PreparedAction {
-        action_and_blobs: ActionDigestAndBlobs {
-            action: action.data().dupe().coerce(),
-            blobs: prepared_blobs,
-        },
+        action_and_blobs,
         platform: command
             .platform
             .expect("We did put a platform a few lines up"),
