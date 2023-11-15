@@ -32,7 +32,7 @@ struct BuildReportActionKey {
 
 /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
 #[derive(Debug, Clone, Serialize, PartialOrd, Ord, PartialEq, Eq)]
-struct BuildReportActionError {
+pub(crate) struct BuildReportActionError {
     name: BuildReportActionName,
     key: BuildReportActionKey,
     digest: String,

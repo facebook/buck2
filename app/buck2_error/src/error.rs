@@ -75,6 +75,10 @@ impl Error {
         r
     }
 
+    pub fn action_error(&self) -> Option<&buck2_data::ActionError> {
+        self.root().action_error()
+    }
+
     pub(crate) fn iter_context<'a>(&'a self) -> impl Iterator<Item = &'a ContextValue> {
         self.iter_kinds().filter_map(|kind| match kind {
             ErrorKind::WithContext(ctx, _) => Some(ctx),

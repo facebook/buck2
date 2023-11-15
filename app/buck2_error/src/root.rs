@@ -130,6 +130,10 @@ impl ErrorRoot {
     pub(crate) fn source_location(&self) -> Option<&str> {
         self.source_location.as_deref()
     }
+
+    pub fn action_error(&self) -> Option<&buck2_data::ActionError> {
+        self.action_error.as_ref()
+    }
 }
 
 impl fmt::Debug for ErrorRoot {

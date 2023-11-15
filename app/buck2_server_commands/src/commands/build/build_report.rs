@@ -42,6 +42,8 @@ use itertools::Itertools;
 use serde::Serialize;
 use starlark_map::small_set::SmallSet;
 
+use crate::commands::build::action_error::BuildReportActionError;
+
 #[derive(Debug, Serialize)]
 #[allow(clippy::upper_case_acronyms)] // We care about how they serialise
 enum BuildOutcome {
@@ -127,6 +129,7 @@ struct BuildReportError {
     // TODO(@wendyy) - remove `message` field
     message: String,
     message_content: u64,
+    action_error: Option<BuildReportActionError>,
     /// An opaque index that can be use to de-duplicate errors. Two errors with the same
     /// cause index have the same cause
     ///
@@ -392,6 +395,7 @@ impl<'a> BuildReportCollector<'a> {
             root: UniqueRootId,
             cause_index: Option<usize>,
             message: String,
+            action_error: Option<BuildReportActionError>,
         }
 
         let mut temp = Vec::with_capacity(errors.len());
@@ -409,6 +413,9 @@ impl<'a> BuildReportCollector<'a> {
                 root,
                 cause_index: self.error_cause_cache.get(&root).copied(),
                 message,
+                action_error: e
+                    .action_error()
+                    .map(|e| BuildReportActionError::new(e, self)),
             });
         }
         // Sort the errors. This sort *almost* guarantees full determinism, but unfortunately
@@ -455,6 +462,7 @@ impl<'a> BuildReportCollector<'a> {
             out.push(BuildReportError {
                 message: info.message,
                 message_content,
+                action_error: info.action_error,
                 cause_index,
             });
         }
