@@ -87,6 +87,8 @@ use crate::commands::build::result_report::ResultReporter;
 use crate::commands::build::result_report::ResultReporterOptions;
 use crate::commands::build::unhashed_outputs::create_unhashed_outputs;
 
+#[allow(unused)]
+mod action_error;
 mod build_report;
 mod result_report;
 mod unhashed_outputs;
