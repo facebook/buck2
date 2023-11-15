@@ -23,6 +23,8 @@ pub(crate) mod what_ran;
 mod what_up;
 mod what_uploaded;
 
+use std::fmt::Debug;
+
 use buck2_client_ctx::argv::Argv;
 use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -52,7 +54,7 @@ pub enum LogCommandOutputFormatWithWriter<'a> {
 
 pub fn transform_format<'a>(
     format: LogCommandOutputFormat,
-    w: &'a mut dyn std::io::Write,
+    w: &'a mut (dyn std::io::Write),
 ) -> LogCommandOutputFormatWithWriter<'a> {
     match format {
         LogCommandOutputFormat::Tabulated => LogCommandOutputFormatWithWriter::Tabulated(w),

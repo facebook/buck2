@@ -9,6 +9,8 @@
 
 use std::borrow::Cow;
 use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
 
 use buck2_data::re_platform::Property;
 use buck2_events::span::SpanId;
@@ -80,6 +82,18 @@ pub struct WhatRanOutputCommand<'a> {
     pub extra: Option<WhatRanOutputCommandExtra<'a>>,
 }
 
+impl Display for WhatRanOutputCommand<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}\t{}\t{}\t{}",
+            self.reason,
+            self.identity,
+            self.repro.executor(),
+            self.repro.as_human_readable()
+        )
+    }
+}
 #[derive(Clone, Copy, Dupe)]
 pub enum WhatRanOutputCommandExtra<'a> {
     TestCases(&'a [String]),

@@ -29,8 +29,9 @@ use futures::TryStreamExt;
 use indexmap::IndexMap;
 
 use crate::commands::log::options::EventLogOptions;
+use crate::commands::log::transform_format;
 use crate::commands::log::LogCommandOutputFormat;
-
+use crate::commands::log::LogCommandOutputFormatWithWriter;
 /// Output everything Buck2 ran from selected invocation.
 ///
 /// The output is presented as a series of tab-delimited records with the following structure:
@@ -94,28 +95,31 @@ impl WhatRanCommand {
             common:
                 WhatRanCommandCommon {
                     event_log,
-                    mut output,
+                    output,
                     options,
                 },
             failed,
         } = self;
+        buck2_client_ctx::stdio::print_with_writer::<anyhow::Error, _>(|w| {
+            let mut output = transform_format(output, w);
 
-        ctx.with_runtime(async move |ctx| {
-            let log_path = event_log.get(&ctx).await?;
+            ctx.with_runtime(async move |ctx| {
+                let log_path = event_log.get(&ctx).await?;
 
-            let (invocation, events) = log_path.unpack_stream().await?;
+                let (invocation, events) = log_path.unpack_stream().await?;
 
-            buck2_client_ctx::eprintln!(
-                "Showing commands from: {}",
-                invocation.display_command_line()
-            )?;
+                buck2_client_ctx::eprintln!(
+                    "Showing commands from: {}",
+                    invocation.display_command_line()
+                )?;
 
-            let options = WhatRanCommandOptions { options, failed };
-            WhatRanCommandState::execute(events, &mut output, &options).await?;
+                let options = WhatRanCommandOptions { options, failed };
+                WhatRanCommandState::execute(events, &mut output, &options).await?;
 
+                anyhow::Ok(())
+            })?;
             anyhow::Ok(())
         })?;
-
         ExitResult::success()
     }
 }
@@ -174,7 +178,7 @@ impl WhatRanState for WhatRanCommandState {
 impl WhatRanCommandState {
     async fn execute(
         mut events: impl Stream<Item = anyhow::Result<StreamValue>> + Unpin + Send,
-        output: &mut (impl WhatRanOutputWriter + Send),
+        output: &mut impl WhatRanOutputWriter,
         options: &WhatRanCommandOptions,
     ) -> anyhow::Result<()> {
         let mut cmd = Self::default();
@@ -264,19 +268,11 @@ fn should_emit_immediately(
 }
 
 /// An output that writes to stdout in a tabulated format.
-impl WhatRanOutputWriter for LogCommandOutputFormat {
+impl WhatRanOutputWriter for LogCommandOutputFormatWithWriter<'_> {
     fn emit_command(&mut self, command: WhatRanOutputCommand<'_>) -> anyhow::Result<()> {
         match self {
-            Self::Tabulated => {
-                buck2_client_ctx::println!(
-                    "{}\t{}\t{}\t{}",
-                    command.reason,
-                    command.identity,
-                    command.repro.executor(),
-                    command.repro.as_human_readable()
-                )
-            }
-            Self::Json => {
+            Self::Tabulated(w) => Ok(w.write_all(format!("{}\n", command).as_bytes())?),
+            Self::Json(w) => {
                 let reproducer = match command.repro {
                     CommandReproducer::CacheQuery(cache_hit) => JsonReproducer::CacheQuery {
                         digest: &cache_hit.action_digest,
@@ -340,12 +336,10 @@ impl WhatRanOutputWriter for LogCommandOutputFormat {
                     extra: command.extra.map(Into::into),
                 };
 
-                buck2_client_ctx::stdio::print_with_writer(|mut w| {
-                    serde_json::to_writer(&mut w, &command)?;
-                    w.write_all(b"\n")
-                })
+                serde_json::to_writer(w, &command)?;
+                buck2_client_ctx::println!("")
             }
-            Self::Csv => {
+            Self::Csv(writer) => {
                 #[derive(serde::Serialize)]
                 struct Record<'a> {
                     reason: &'a str,
@@ -353,16 +347,12 @@ impl WhatRanOutputWriter for LogCommandOutputFormat {
                     executor: String,
                     reproducer: String,
                 }
-
-                buck2_client_ctx::stdio::print_with_writer(|w| {
-                    let mut writer = csv::WriterBuilder::new().has_headers(false).from_writer(w);
-                    writer.serialize(Record {
-                        reason: command.reason,
-                        identity: command.identity,
-                        executor: command.repro.executor(),
-                        reproducer: command.repro.as_human_readable().to_string(),
-                    })
-                })
+                Ok(writer.serialize(Record {
+                    reason: command.reason,
+                    identity: command.identity,
+                    executor: command.repro.executor(),
+                    reproducer: command.repro.as_human_readable().to_string(),
+                })?)
             }
         }
     }

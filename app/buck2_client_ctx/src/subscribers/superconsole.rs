@@ -400,7 +400,6 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
                 )?;
             }
         }
-
         Ok(())
     }
 
