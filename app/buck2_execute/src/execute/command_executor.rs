@@ -27,7 +27,6 @@ use super::cache_uploader::CacheUploadResult;
 use crate::artifact::fs::ExecutorFs;
 use crate::digest::CasDigestToReExt;
 use crate::digest_config::DigestConfig;
-use crate::execute::action_digest::ActionDigest;
 use crate::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use crate::execute::blobs::ActionBlobs;
 use crate::execute::cache_uploader::CacheUploadInfo;
@@ -125,8 +124,7 @@ impl CommandExecutor {
         info: &CacheUploadInfo<'_>,
         execution_result: &CommandExecutionResult,
         dep_file_entry: Option<DepFileEntry>,
-        action_digest: &ActionDigest,
-        action_blobs: &ActionBlobs,
+        action_digest_and_blobs: &ActionDigestAndBlobs,
     ) -> anyhow::Result<CacheUploadResult> {
         self.0
             .cache_uploader
@@ -134,8 +132,7 @@ impl CommandExecutor {
                 info,
                 execution_result,
                 dep_file_entry,
-                action_digest,
-                action_blobs,
+                action_digest_and_blobs,
             )
             .await
     }

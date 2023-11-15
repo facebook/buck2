@@ -11,8 +11,7 @@ use async_trait::async_trait;
 use buck2_action_metadata_proto::RemoteDepFile;
 
 use crate::digest_config::DigestConfig;
-use crate::execute::action_digest::ActionDigest;
-use crate::execute::blobs::ActionBlobs;
+use crate::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use crate::execute::dep_file_digest::DepFileDigest;
 use crate::execute::result::CommandExecutionResult;
 use crate::execute::target::CommandExecutionTarget;
@@ -43,8 +42,7 @@ pub trait UploadCache: Send + Sync {
         info: &CacheUploadInfo<'_>,
         execution_result: &CommandExecutionResult,
         dep_file_entry: Option<DepFileEntry>,
-        action: &ActionDigest,
-        action_blobs: &ActionBlobs,
+        action_digest_and_blobs: &ActionDigestAndBlobs,
     ) -> anyhow::Result<CacheUploadResult>;
 }
 
@@ -58,8 +56,7 @@ impl UploadCache for NoOpCacheUploader {
         _info: &CacheUploadInfo<'_>,
         _execution_result: &CommandExecutionResult,
         _dep_file_entry: Option<DepFileEntry>,
-        _action: &ActionDigest,
-        _action_blobs: &ActionBlobs,
+        _action_digest_and_blobs: &ActionDigestAndBlobs,
     ) -> anyhow::Result<CacheUploadResult> {
         Ok(CacheUploadResult {
             did_cache_upload: false,

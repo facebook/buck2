@@ -25,7 +25,7 @@ use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::directory_to_re_tree;
 use buck2_execute::directory::ActionDirectoryMember;
-use buck2_execute::execute::action_digest::ActionDigest;
+use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use buck2_execute::execute::blobs::ActionBlobs;
 use buck2_execute::execute::cache_uploader::CacheUploadInfo;
 use buck2_execute::execute::cache_uploader::CacheUploadResult;
@@ -116,25 +116,31 @@ impl CacheUploader {
     async fn upload_action_result(
         &self,
         target: &dyn CommandExecutionTarget,
-        action_digest: &ActionDigest,
+        action_digest_and_blobs: &ActionDigestAndBlobs,
         result: &CommandExecutionResult,
         digest_config: DigestConfig,
         error_on_cache_upload: bool,
-        action_blobs: &ActionBlobs,
     ) -> anyhow::Result<CacheUploadSuccessful> {
-        tracing::debug!("Uploading action result for `{}`", action_digest);
+        tracing::debug!(
+            "Uploading action result for `{}`",
+            action_digest_and_blobs.action
+        );
         let result = self
             .perform_cache_upload(
                 target,
                 result,
                 digest_config,
-                action_digest.to_re(),
+                action_digest_and_blobs.action.to_re(),
                 vec![],
                 buck2_data::CacheUploadReason::LocalExecution,
-                action_blobs,
+                &action_digest_and_blobs.blobs,
             )
             .await;
-        Self::modify_upload_result(action_digest, result, error_on_cache_upload)
+        Self::modify_upload_result(
+            &action_digest_and_blobs.action,
+            result,
+            error_on_cache_upload,
+        )
     }
 
     /// Upload an action result with additional information about dep files to the RE action cache.
@@ -142,17 +148,16 @@ impl CacheUploader {
     /// and cache uploads must have been enabled for this action.
     async fn upload_dep_file_result(
         &self,
-        action_digest: &ActionDigest,
+        action_digest_and_blobs: &ActionDigestAndBlobs,
         target: &dyn CommandExecutionTarget,
         result: &CommandExecutionResult,
         digest_config: DigestConfig,
         dep_file_entry: DepFileEntry,
         error_on_cache_upload: bool,
-        action_blobs: &ActionBlobs,
     ) -> anyhow::Result<CacheUploadSuccessful> {
         tracing::debug!(
             "Uploading dep file entry for action `{}` with dep file key `{}`",
-            action_digest,
+            action_digest_and_blobs.action,
             dep_file_entry.key
         );
         let digest_re = dep_file_entry.key.to_re();
@@ -169,7 +174,7 @@ impl CacheUploader {
                 digest_re,
                 vec![dep_file_tany],
                 buck2_data::CacheUploadReason::DepFile,
-                action_blobs,
+                &action_digest_and_blobs.blobs,
             )
             .await;
 
@@ -486,8 +491,7 @@ impl UploadCache for CacheUploader {
         info: &CacheUploadInfo<'_>,
         res: &CommandExecutionResult,
         dep_file_entry: Option<DepFileEntry>,
-        action: &ActionDigest,
-        action_blobs: &ActionBlobs,
+        action_digest_and_blobs: &ActionDigestAndBlobs,
     ) -> anyhow::Result<CacheUploadResult> {
         let error_on_cache_upload = match ERROR_ON_CACHE_UPLOAD.get_copied() {
             Ok(r) => r.unwrap_or_default(),
@@ -498,16 +502,18 @@ impl UploadCache for CacheUploader {
             // TODO(bobyf, torozco) should these be critical sections?
             self.upload_action_result(
                 info.target.dupe(),
-                action,
+                action_digest_and_blobs,
                 res,
                 info.digest_config,
                 error_on_cache_upload,
-                action_blobs,
             )
             .await?
                 == CacheUploadSuccessful::Yes
         } else {
-            tracing::info!("Cache upload for `{}` not attempted", action);
+            tracing::info!(
+                "Cache upload for `{}` not attempted",
+                action_digest_and_blobs.action
+            );
             false
         };
 
@@ -515,19 +521,21 @@ impl UploadCache for CacheUploader {
         let did_dep_file_cache_upload = match dep_file_entry {
             Some(dep_file_entry) if res.was_success() => {
                 self.upload_dep_file_result(
-                    action,
+                    action_digest_and_blobs,
                     info.target.dupe(),
                     res,
                     info.digest_config,
                     dep_file_entry,
                     error_on_cache_upload,
-                    action_blobs,
                 )
                 .await?
                     == CacheUploadSuccessful::Yes
             }
             _ => {
-                tracing::info!("Dep file cache upload for `{}` not attempted", action);
+                tracing::info!(
+                    "Dep file cache upload for `{}` not attempted",
+                    action_digest_and_blobs.action
+                );
                 false
             }
         };
