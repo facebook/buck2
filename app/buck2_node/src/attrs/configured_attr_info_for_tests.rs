@@ -13,19 +13,19 @@ use starlark_map::small_set::SmallSet;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 
 #[derive(Default, Debug)]
-pub struct ConfiguredAttrInfo {
+pub struct ConfiguredAttrInfoForTests {
     // Including transitioned deps.
     pub deps: SmallSet<ConfiguredProvidersLabel>,
     pub execution_deps: SmallSet<ConfiguredProvidersLabel>,
 }
 
-impl ConfiguredAttrInfo {
+impl ConfiguredAttrInfoForTests {
     pub fn new() -> Self {
         Self::default()
     }
 }
 
-impl ConfiguredAttrTraversal for ConfiguredAttrInfo {
+impl ConfiguredAttrTraversal for ConfiguredAttrInfoForTests {
     fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
         self.deps.insert(dep.clone());
         Ok(())

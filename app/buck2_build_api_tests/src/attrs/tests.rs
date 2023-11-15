@@ -35,7 +35,7 @@ use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
-use buck2_node::attrs::configured_info::ConfiguredAttrInfo;
+use buck2_node::attrs::configured_attr_info_for_tests::ConfiguredAttrInfoForTests;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::attrs::testing::configuration_ctx;
@@ -421,7 +421,7 @@ fn test_configured_deps() -> anyhow::Result<()> {
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     let configured = coerced.configure(&attr, &configuration_ctx())?;
 
-    let mut info = ConfiguredAttrInfo::new();
+    let mut info = ConfiguredAttrInfoForTests::new();
     configured.traverse(PackageLabel::testing(), &mut info)?;
 
     let expected_deps = [
@@ -447,7 +447,7 @@ fn test_configured_deps() -> anyhow::Result<()> {
     let attr_exec = AttrType::list(AttrType::exec_dep(ProviderIdSet::EMPTY));
     let coerced_exec = attr_exec.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     let configured_exec = coerced_exec.configure(&attr_exec, &configuration_ctx())?;
-    let mut info = ConfiguredAttrInfo::new();
+    let mut info = ConfiguredAttrInfoForTests::new();
     configured_exec.traverse(PackageLabel::testing(), &mut info)?;
     eprintln!("{:?}", info);
     assert_eq!(
@@ -799,7 +799,7 @@ fn test_arg() -> anyhow::Result<()> {
     let deps: Vec<_> = deps.iter().map(|t| t.to_string()).collect();
     let exec_deps: Vec<_> = exec_deps.iter().map(|t| t.to_string()).collect();
 
-    let mut info = ConfiguredAttrInfo::new();
+    let mut info = ConfiguredAttrInfoForTests::new();
     configured.traverse(PackageLabel::testing(), &mut info)?;
 
     let expected_deps = vec!["root//some:location"];

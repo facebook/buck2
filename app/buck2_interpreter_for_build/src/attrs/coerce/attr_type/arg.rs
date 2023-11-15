@@ -242,7 +242,7 @@ mod tests {
     use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
     use buck2_node::attrs::configurable::AttrIsConfigurable;
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
-    use buck2_node::attrs::configured_info::ConfiguredAttrInfo;
+    use buck2_node::attrs::configured_attr_info_for_tests::ConfiguredAttrInfoForTests;
     use buck2_node::attrs::display::AttrDisplayWithContextExt;
     use buck2_node::attrs::testing::configuration_ctx;
     use gazebo::prelude::SliceExt;
@@ -308,7 +308,7 @@ mod tests {
         let configured = location.configure(&configuration_ctx())?;
 
         if let MacroBase::Location(target) = &configured {
-            let mut info = ConfiguredAttrInfo::new();
+            let mut info = ConfiguredAttrInfoForTests::new();
             configured.traverse(&mut info, &PackageLabel::testing_new("root", ""))?;
             assert_eq!(smallset![target.clone()], info.deps);
         } else {
@@ -330,7 +330,7 @@ mod tests {
         let configured = exe.configure(&config_ctx)?;
 
         if let MacroBase::Exe { label, .. } = &configured {
-            let mut info = ConfiguredAttrInfo::new();
+            let mut info = ConfiguredAttrInfoForTests::new();
             configured.traverse(&mut info, &PackageLabel::testing_new("root", ""))?;
             assert_eq!(label.cfg(), config_ctx.exec_cfg().cfg());
             assert_eq!(smallset![label.clone()], info.execution_deps);
@@ -354,7 +354,7 @@ mod tests {
         let configured = exe.configure(&config_ctx)?;
 
         if let MacroBase::Exe { label, .. } = &configured {
-            let mut info = ConfiguredAttrInfo::new();
+            let mut info = ConfiguredAttrInfoForTests::new();
             configured.traverse(&mut info, &PackageLabel::testing_new("root", ""))?;
             assert_eq!(label.cfg(), config_ctx.cfg().cfg());
             assert_eq!(smallset![], info.execution_deps);
