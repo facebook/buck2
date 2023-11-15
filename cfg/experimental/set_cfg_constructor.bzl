@@ -5,6 +5,16 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(":cfg_constructor.bzl?v2_only", "cfg_constructor_post_constraint_analysis", "cfg_constructor_pre_constraint_analysis")
+
 MODIFIER_METADATA_KEY = "buck.cfg_modifiers"
 
-# TODO(scottcao): Add a helper function to invoke set_cfg_constructor
+def set_cfg_constructor():
+    # This is to be buck1-proof.
+    set_cfg_constructor_func = getattr(native, "set_cfg_constructor", None)
+    if set_cfg_constructor_func:
+        set_cfg_constructor_func(
+            stage0 = cfg_constructor_pre_constraint_analysis,
+            stage1 = cfg_constructor_post_constraint_analysis,
+            key = MODIFIER_METADATA_KEY,
+        )
