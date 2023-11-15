@@ -23,7 +23,7 @@ pub struct CleanOutputPaths {
 
 impl CleanOutputPaths {
     pub fn clean<'a>(
-        paths: impl Iterator<Item = &'a ProjectRelativePath>,
+        paths: impl IntoIterator<Item = &'a ProjectRelativePath>,
         fs: &'a ProjectRoot,
     ) -> anyhow::Result<()> {
         for path in paths {

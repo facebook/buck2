@@ -195,7 +195,7 @@ fn re_create_action(
     workdir: Option<String>,
     environment: &SortedVectorMap<String, String>,
     input_digest: &TrackedFileDigest,
-    blobs: impl Iterator<Item = (ActionMetadataBlobData, TrackedFileDigest)>,
+    blobs: impl IntoIterator<Item = (ActionMetadataBlobData, TrackedFileDigest)>,
     timeout: Option<Duration>,
     platform: RE::Platform,
     do_not_cache: bool,

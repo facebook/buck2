@@ -102,7 +102,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
 
 // Filters out incompatible targets and emits the error message
 pub(crate) fn filter_incompatible(
-    targets: impl Iterator<Item = MaybeCompatible<ConfiguredTargetNode>>,
+    targets: impl IntoIterator<Item = MaybeCompatible<ConfiguredTargetNode>>,
     bxl_ctx: &BxlContextNoDice,
 ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
     let mut target_set = TargetSet::new();

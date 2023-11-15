@@ -56,7 +56,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
         key: NodeKey,
         action: Option<Arc<RegisteredAction>>,
         duration: NodeDuration,
-        dep_keys: impl Iterator<Item = NodeKey>,
+        dep_keys: impl IntoIterator<Item = NodeKey>,
         span_ids: SmallVec<[SpanId; 1]>,
     ) {
         let builder = match self.builder.as_mut() {
@@ -91,11 +91,11 @@ impl BuildListenerBackend for LongestPathGraphBackend {
     fn process_top_level_target(
         &mut self,
         analysis: NodeKey,
-        artifacts: impl Iterator<Item = NodeKey>,
+        artifacts: impl IntoIterator<Item = NodeKey>,
     ) {
         self.top_level_analysis.push(VisibilityEdge {
             node: analysis,
-            makes_visible: artifacts.collect(),
+            makes_visible: artifacts.into_iter().collect(),
         })
     }
 

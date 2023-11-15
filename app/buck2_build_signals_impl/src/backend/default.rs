@@ -97,10 +97,11 @@ impl BuildListenerBackend for DefaultBackend {
         key: NodeKey,
         value: Option<Arc<RegisteredAction>>,
         duration: NodeDuration,
-        dep_keys: impl Iterator<Item = NodeKey>,
+        dep_keys: impl IntoIterator<Item = NodeKey>,
         span_ids: SmallVec<[SpanId; 1]>,
     ) {
         let longest_ancestor = dep_keys
+            .into_iter()
             .unique()
             .filter_map(|node_key| {
                 self.num_edges += 1;
@@ -135,7 +136,7 @@ impl BuildListenerBackend for DefaultBackend {
     fn process_top_level_target(
         &mut self,
         _analysis: NodeKey,
-        _artifacts: impl Iterator<Item = NodeKey>,
+        _artifacts: impl IntoIterator<Item = NodeKey>,
     ) {
     }
 

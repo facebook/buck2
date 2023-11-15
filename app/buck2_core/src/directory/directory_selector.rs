@@ -72,7 +72,8 @@ impl DirectorySelector {
         self.select_inner(path)
     }
 
-    fn select_inner(&mut self, mut path: impl Iterator<Item = FileNameBuf>) {
+    fn select_inner(&mut self, path: impl IntoIterator<Item = FileNameBuf>) {
+        let mut path = path.into_iter();
         let entry = match path.next() {
             Some(e) => e,
             None => {

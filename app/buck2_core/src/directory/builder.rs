@@ -122,11 +122,12 @@ where
     fn insert_inner(
         &mut self,
         path_needle: FileNameBuf,
-        mut path_rest: impl Iterator<Item = FileNameBuf>,
+        path_rest: impl IntoIterator<Item = FileNameBuf>,
         val: DirectoryEntry<DirectoryBuilder<L, H>, L>,
     ) -> Result<Option<DirectoryEntry<DirectoryBuilder<L, H>, L>>, PathAccumulator> {
         let entries = self.as_mut();
 
+        let mut path_rest = path_rest.into_iter();
         let next_path_needle = path_rest.next();
 
         match next_path_needle {
@@ -160,9 +161,11 @@ where
 
     fn mkdir_inner(
         &mut self,
-        mut path: impl Iterator<Item = FileNameBuf>,
+        path: impl IntoIterator<Item = FileNameBuf>,
     ) -> Result<(), PathAccumulator> {
         let entries = self.as_mut();
+
+        let mut path = path.into_iter();
 
         let path_needle = match path.next() {
             Some(p) => p,

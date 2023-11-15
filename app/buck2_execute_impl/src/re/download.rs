@@ -65,7 +65,7 @@ pub async fn download_action_results<'a>(
     manager: CommandExecutionManager,
     stage: buck2_data::executor_stage_start::Stage,
     paths: &CommandExecutionPaths,
-    requested_outputs: impl Iterator<Item = CommandExecutionOutputRef<'a>>,
+    requested_outputs: impl IntoIterator<Item = CommandExecutionOutputRef<'a>>,
     details: RemoteCommandExecutionDetails,
     response: &dyn RemoteActionResult,
     paranoid: Option<&ParanoidDownloader>,
@@ -151,7 +151,7 @@ impl CasDownloader<'_> {
         manager: CommandExecutionManager,
         stage: buck2_data::executor_stage_start::Stage,
         paths: &CommandExecutionPaths,
-        requested_outputs: impl Iterator<Item = CommandExecutionOutputRef<'a>>,
+        requested_outputs: impl IntoIterator<Item = CommandExecutionOutputRef<'a>>,
         action_digest: &ActionDigest,
         output_spec: &dyn RemoteActionResult,
         cancellations: &CancellationContext<'_>,
@@ -232,7 +232,7 @@ impl CasDownloader<'_> {
     async fn extract_artifacts<'a>(
         &self,
         paths: &CommandExecutionPaths,
-        requested_outputs: impl Iterator<Item = CommandExecutionOutputRef<'a>>,
+        requested_outputs: impl IntoIterator<Item = CommandExecutionOutputRef<'a>>,
         output_spec: &dyn RemoteActionResult,
     ) -> anyhow::Result<ExtractedArtifacts> {
         let now = Utc::now();
@@ -288,7 +288,7 @@ impl CasDownloader<'_> {
         let mut to_declare = Vec::with_capacity(output_paths.len());
         let mut mapped_outputs = IndexMap::with_capacity(output_paths.len());
 
-        for (requested, (path, _)) in requested_outputs.zip(output_paths.iter()) {
+        for (requested, (path, _)) in requested_outputs.into_iter().zip(output_paths.iter()) {
             let value = extract_artifact_value(&input_dir, path, self.digest_config)?;
             if let Some(value) = value {
                 to_declare.push((path.to_owned(), value.dupe()));

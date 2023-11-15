@@ -24,14 +24,14 @@ pub(crate) trait BuildListenerBackend {
         key: NodeKey,
         value: Option<Arc<RegisteredAction>>,
         duration: NodeDuration,
-        dep_keys: impl Iterator<Item = NodeKey>,
+        dep_keys: impl IntoIterator<Item = NodeKey>,
         span_ids: SmallVec<[SpanId; 1]>,
     );
 
     fn process_top_level_target(
         &mut self,
         analysis: NodeKey,
-        artifacts: impl Iterator<Item = NodeKey>,
+        artifacts: impl IntoIterator<Item = NodeKey>,
     );
 
     fn finish(self) -> anyhow::Result<BuildInfo>;

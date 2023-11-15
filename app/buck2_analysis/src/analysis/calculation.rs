@@ -141,11 +141,11 @@ pub async fn resolve_queries(
 async fn resolve_queries_impl(
     ctx: &DiceComputations,
     configured_node: &ConfiguredTargetNode,
-    queries: impl Iterator<Item = (String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)>,
+    queries: impl IntoIterator<Item = (String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)>,
 ) -> anyhow::Result<HashMap<String, Arc<AnalysisQueryResult>>> {
     let deps: TargetSet<_> = configured_node.deps().duped().collect();
-    let query_results =
-        futures::future::try_join_all(queries.map(|(query, resolved_literals_labels)| {
+    let query_results = futures::future::try_join_all(queries.into_iter().map(
+        |(query, resolved_literals_labels)| {
             let ctx = ctx;
             let deps = &deps;
             async move {
@@ -181,8 +181,9 @@ async fn resolve_queries_impl(
                     }),
                 ))
             }
-        }))
-        .await?;
+        },
+    ))
+    .await?;
 
     let query_results: HashMap<_, _> = query_results.into_iter().collect();
     Ok(query_results)

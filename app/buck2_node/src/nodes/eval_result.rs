@@ -247,11 +247,12 @@ impl SuggestedSimilarTargets {
     fn suggest<'a>(
         target: &TargetNameRef,
         package: PackageLabel,
-        available_targets: impl Iterator<Item = &'a TargetNameRef>,
+        available_targets: impl IntoIterator<Item = &'a TargetNameRef>,
     ) -> Self {
         const MAX_RESULTS: usize = 10;
         const MAX_LEVENSHTEIN_DISTANCE: usize = 5;
         let targets: Vec<TargetName> = available_targets
+            .into_iter()
             .map(|t| (t, strsim::levenshtein(target.as_str(), t.as_str())))
             .filter(|(t, lev)| {
                 lev <= &MAX_LEVENSHTEIN_DISTANCE

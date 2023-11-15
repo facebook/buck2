@@ -51,7 +51,7 @@ where
     pub fn push(
         &mut self,
         key: K,
-        deps: impl Iterator<Item = K>,
+        deps: impl IntoIterator<Item = K>,
         data: D,
     ) -> Result<(), PushError<K>> {
         let idx: u32 = self

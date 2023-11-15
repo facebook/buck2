@@ -32,7 +32,7 @@ use starlark_map::small_set::SmallSet;
 
 // Returns a tuple of compatible and incompatible targets.
 fn split_compatible_incompatible(
-    targets: impl Iterator<Item = anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>>,
+    targets: impl IntoIterator<Item = anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>>,
 ) -> anyhow::Result<(
     TargetSet<ConfiguredTargetNode>,
     SmallSet<ConfiguredTargetLabel>,
