@@ -12,6 +12,7 @@ use std::time::SystemTime;
 
 use anyhow::Context as _;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_miniperf_proto::MiniperfCounter;
 use remote_execution::ActionResultResponse;
 use remote_execution::ExecuteResponse;
@@ -37,6 +38,13 @@ pub trait RemoteActionResult: Send + Sync {
 
     fn execution_kind(&self, details: RemoteCommandExecutionDetails) -> CommandExecutionKind;
 
+    /// This is only called after we inspect the action result, and the exit code is not 0
+    fn execution_kind_with_materialized_inputs_for_failed(
+        &self,
+        details: RemoteCommandExecutionDetails,
+        materialized_inputs_for_failed: Option<Vec<ProjectRelativePathBuf>>,
+    ) -> CommandExecutionKind;
+
     fn timing(&self) -> CommandExecutionMetadata;
 
     fn std_streams(
@@ -60,6 +68,14 @@ impl RemoteActionResult for ExecuteResponse {
     }
 
     fn execution_kind(&self, details: RemoteCommandExecutionDetails) -> CommandExecutionKind {
+        self.execution_kind_with_materialized_inputs_for_failed(details, None)
+    }
+
+    fn execution_kind_with_materialized_inputs_for_failed(
+        &self,
+        details: RemoteCommandExecutionDetails,
+        materialized_inputs_for_failed: Option<Vec<ProjectRelativePathBuf>>,
+    ) -> CommandExecutionKind {
         let meta = &self.action_result.execution_metadata;
         let queue_time = meta
             .last_queued_timestamp
@@ -68,6 +84,7 @@ impl RemoteActionResult for ExecuteResponse {
         CommandExecutionKind::Remote {
             details,
             queue_time,
+            materialized_inputs_for_failed,
         }
     }
 
@@ -102,6 +119,18 @@ impl RemoteActionResult for Box<dyn RemoteActionResult> {
         self.as_ref().execution_kind(details)
     }
 
+    fn execution_kind_with_materialized_inputs_for_failed(
+        &self,
+        details: RemoteCommandExecutionDetails,
+        materialized_inputs_for_failed: Option<Vec<ProjectRelativePathBuf>>,
+    ) -> CommandExecutionKind {
+        self.as_ref()
+            .execution_kind_with_materialized_inputs_for_failed(
+                details,
+                materialized_inputs_for_failed,
+            )
+    }
+
     fn timing(&self) -> CommandExecutionMetadata {
         self.as_ref().timing()
     }
@@ -131,6 +160,14 @@ impl RemoteActionResult for ActionResultResponse {
 
     fn execution_kind(&self, details: RemoteCommandExecutionDetails) -> CommandExecutionKind {
         CommandExecutionKind::ActionCache { details }
+    }
+
+    fn execution_kind_with_materialized_inputs_for_failed(
+        &self,
+        details: RemoteCommandExecutionDetails,
+        _materialized_inputs_for_failed: Option<Vec<ProjectRelativePathBuf>>,
+    ) -> CommandExecutionKind {
+        self.execution_kind(details)
     }
 
     fn timing(&self) -> CommandExecutionMetadata {
@@ -165,6 +202,14 @@ impl RemoteActionResult for RemoteDepFileResult {
 
     fn execution_kind(&self, details: RemoteCommandExecutionDetails) -> CommandExecutionKind {
         CommandExecutionKind::RemoteDepFileCache { details }
+    }
+
+    fn execution_kind_with_materialized_inputs_for_failed(
+        &self,
+        details: RemoteCommandExecutionDetails,
+        _materialized_inputs_for_failed: Option<Vec<ProjectRelativePathBuf>>,
+    ) -> CommandExecutionKind {
+        self.execution_kind(details)
     }
 
     fn timing(&self) -> CommandExecutionMetadata {

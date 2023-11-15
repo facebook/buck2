@@ -1515,6 +1515,11 @@ message RemoteCommand {
 
   CacheHitType cache_hit_type = 5;
   optional string remote_dep_file_key = 6;
+
+  // Project relative paths to the materialized inputs for failed
+
+  // actions, if `--materialize-failed-inputs` was passed to build options
+  repeated string materialized_inputs_for_failed = 7;
 }
 
 message RemoteCommandDetails {
