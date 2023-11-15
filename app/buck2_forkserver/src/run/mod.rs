@@ -8,6 +8,7 @@
  */
 
 mod interruptible_async_read;
+pub mod process_group;
 pub mod status_decoder;
 
 use std::borrow::Cow;
@@ -31,7 +32,6 @@ use futures::stream::Stream;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
 use pin_project::pin_project;
-use tokio::process::Child;
 use tokio_util::codec::BytesCodec;
 use tokio_util::codec::FramedRead;
 
@@ -40,8 +40,7 @@ use self::interruptible_async_read::InterruptibleAsyncRead;
 use self::status_decoder::DecodedStatus;
 use self::status_decoder::DefaultStatusDecoder;
 use self::status_decoder::StatusDecoder;
-#[cfg(windows)]
-use crate::win::job_object::JobObject;
+use crate::run::process_group::ProcessGroup;
 
 #[derive(Debug)]
 pub enum GatherOutputStatus {
@@ -173,7 +172,7 @@ pub async fn timeout_into_cancellation(
 }
 
 pub fn stream_command_events<T>(
-    process_details: anyhow::Result<ProcessDetails>,
+    process_group: anyhow::Result<ProcessGroup>,
     cancellation: T,
     decoder: impl StatusDecoder,
     kill_process: impl KillProcess,
@@ -182,8 +181,8 @@ pub fn stream_command_events<T>(
 where
     T: Future<Output = anyhow::Result<GatherOutputStatus>> + Send,
 {
-    let mut process_details = match process_details {
-        Ok(process_details) => process_details,
+    let mut process_group = match process_group {
+        Ok(process_group) => process_group,
         Err(e) => {
             let event = Ok(CommandEvent::Exit(GatherOutputStatus::SpawnFailed(
                 e.to_string(),
@@ -193,13 +192,13 @@ where
     };
 
     let stdio = if stream_stdio {
-        let stdout = process_details
-            .child
+        let stdout = process_group
+            .child()
             .stdout
             .take()
             .context("Child stdout is not piped")?;
-        let stderr = process_details
-            .child
+        let stderr = process_group
+            .child()
             .stderr
             .take()
             .context("Child stderr is not piped")?;
@@ -233,7 +232,7 @@ where
         // NOTE: This wrapping here is so that we release the borrow of `child` that stems from
         // `wait()` by the time we call kill_process a few lines down.
         let execute = async {
-            let status = process_details.child.wait();
+            let status = process_group.child().wait();
             futures::pin_mut!(status);
             futures::pin_mut!(cancellation);
 
@@ -247,7 +246,7 @@ where
             Outcome::Finished(status) => decoder.decode_status(status).await?.into(),
             Outcome::Cancelled(res) => {
                 kill_process
-                    .kill(&mut process_details)
+                    .kill(&mut process_group)
                     .await
                     .context("Failed to terminate child after timeout")?;
 
@@ -258,8 +257,8 @@ where
 
                 // We just killed the child, so this should finish immediately. We should still call
                 // this to release any process.
-                process_details
-                    .child
+                process_group
+                    .child()
                     .wait()
                     .await
                     .context("Failed to await child after kill")?;
@@ -318,35 +317,10 @@ where
     decode_command_event_stream(stream).await
 }
 
-pub struct ProcessDetails {
-    child: Child,
-    #[cfg(windows)]
-    job: JobObject,
-}
-
-impl ProcessDetails {
-    #[cfg(windows)]
-    pub fn new(child: Child) -> anyhow::Result<ProcessDetails> {
-        let job = JobObject::new()?;
-        if let Some(handle) = child.raw_handle() {
-            job.assign_process(handle)?;
-        }
-        // We create suspended process to assign it to a job (group)
-        // So we resume the process after assignment
-        crate::win::resume_process(&child)?;
-        Ok(ProcessDetails { child, job })
-    }
-
-    #[cfg(unix)]
-    pub fn new(child: Child) -> anyhow::Result<ProcessDetails> {
-        Ok(ProcessDetails { child })
-    }
-}
-
 /// Dependency injection for kill. We use this in testing.
 #[async_trait]
 pub trait KillProcess {
-    async fn kill(self, process_details: &mut ProcessDetails) -> anyhow::Result<()>;
+    async fn kill(self, process: &mut ProcessGroup) -> anyhow::Result<()>;
 }
 
 #[derive(Default)]
@@ -356,8 +330,8 @@ pub struct DefaultKillProcess {
 
 #[async_trait]
 impl KillProcess for DefaultKillProcess {
-    async fn kill(self, process_details: &mut ProcessDetails) -> anyhow::Result<()> {
-        let pid = match process_details.child.id() {
+    async fn kill(self, process_group: &mut ProcessGroup) -> anyhow::Result<()> {
+        let pid = match process_group.child().id() {
             Some(pid) => pid,
             None => {
                 // Child just exited, so in this case we don't want to kill anything.
@@ -365,56 +339,15 @@ impl KillProcess for DefaultKillProcess {
             }
         };
         tracing::info!("Killing process {}", pid);
-        #[cfg(unix)]
-        {
-            if true {
-                // On unix we want killpg, so we don't use the default impl.
-                // We use `if true` here to do less conditional compilation
-                // or conditional dependencies.
-                return kill_process_impl(pid, self.graceful_shutdown_timeout_s).await;
-            }
+
+        if cfg!(any(windows, unix)) {
+            return process_group.kill(self.graceful_shutdown_timeout_s).await;
         }
 
-        #[cfg(windows)]
-        {
-            if true {
-                // On Windows we use Jobs to manage the processes so we don't
-                // use the default impl.
-                // We use `if true` here to do less conditional compilation
-                // or conditional dependencies.
-                return process_details.job.terminate(0);
-            }
-        }
-
-        process_details
-            .child
+        process_group
+            .child()
             .start_kill()
             .map_err(anyhow::Error::from)
-    }
-}
-
-#[cfg(unix)]
-async fn kill_process_impl(
-    pid: u32,
-    graceful_shutdown_timeout_s: Option<u32>,
-) -> anyhow::Result<()> {
-    use buck2_common::kill_util::try_terminate_process_gracefully;
-    use nix::sys::signal;
-    use nix::sys::signal::Signal;
-    use nix::unistd::Pid;
-
-    let pid: i32 = pid.try_into().context("PID does not fit a i32")?;
-
-    if let Some(graceful_shutdown_timeout_s) = graceful_shutdown_timeout_s {
-        try_terminate_process_gracefully(
-            pid,
-            Duration::from_secs(graceful_shutdown_timeout_s as u64),
-        )
-        .await
-        .with_context(|| format!("Failed to terminate process {} gracefully", pid))
-    } else {
-        signal::killpg(Pid::from_raw(pid), Signal::SIGKILL)
-            .with_context(|| format!("Failed to kill process {}", pid))
     }
 }
 
@@ -479,7 +412,7 @@ pub fn prepare_command(mut cmd: Command) -> tokio::process::Command {
 async fn spawn_retry_txt_busy<F, D>(
     mut cmd: tokio::process::Command,
     mut delay: F,
-) -> anyhow::Result<ProcessDetails>
+) -> anyhow::Result<ProcessGroup>
 where
     F: FnMut() -> D,
     D: Future<Output = ()>,
@@ -493,9 +426,7 @@ where
         let is_txt_busy = matches!(res_errno, Err(Some(libc::ETXTBSY)));
 
         if attempts == 0 || !is_txt_busy {
-            return res
-                .map_err(anyhow::Error::from)
-                .and_then(ProcessDetails::new);
+            return res.map_err(anyhow::Error::from).and_then(ProcessGroup::new);
         }
 
         delay().await;
@@ -615,7 +546,7 @@ mod tests {
         file.write_all(b"#!/usr/bin/env bash\ntrue\n").await?;
 
         let cmd = async_background_command(&bin);
-        let mut process_details = spawn_retry_txt_busy(cmd, {
+        let mut process_group = spawn_retry_txt_busy(cmd, {
             let mut file = Some(file);
             move || {
                 file.take();
@@ -624,7 +555,7 @@ mod tests {
         })
         .await?;
 
-        let status = process_details.child.wait().await?;
+        let status = process_group.child().wait().await?;
         assert_eq!(status.code(), Some(0));
 
         Ok(())
@@ -694,12 +625,12 @@ mod tests {
         };
         cmd.args(["-c", "exit 0"]);
 
-        let process_details = prepare_command(cmd)
+        let process = prepare_command(cmd)
             .spawn()
             .map_err(anyhow::Error::from)
-            .and_then(ProcessDetails::new);
+            .and_then(ProcessGroup::new);
         let mut events = stream_command_events(
-            process_details,
+            process,
             futures::future::pending(),
             DefaultStatusDecoder,
             DefaultKillProcess::default(),
@@ -736,12 +667,12 @@ mod tests {
 
         #[async_trait]
         impl KillProcess for Kill {
-            async fn kill(self, process_details: &mut ProcessDetails) -> anyhow::Result<()> {
+            async fn kill(self, process_group: &mut ProcessGroup) -> anyhow::Result<()> {
                 *self.killed.lock().unwrap() = true;
 
                 // We still need to kill the process. On Windows in particular our test will hang
                 // if we do not.
-                DefaultKillProcess::default().kill(process_details).await
+                DefaultKillProcess::default().kill(process_group).await
             }
         }
 
@@ -774,13 +705,13 @@ mod tests {
         cmd.args(["-c", "sleep 10000"]);
 
         let mut cmd = prepare_command(cmd);
-        let process_details = cmd
+        let process = cmd
             .spawn()
             .map_err(anyhow::Error::from)
-            .and_then(ProcessDetails::new);
+            .and_then(ProcessGroup::new);
 
         let stream = stream_command_events(
-            process_details,
+            process,
             timeout_into_cancellation(Some(Duration::from_secs(1))),
             Decoder {
                 killed: killed.dupe(),
@@ -812,12 +743,12 @@ mod tests {
         let stdout = tempdir.path().join("stdout");
         cmd.stdout(std::fs::File::create(stdout.clone())?);
 
-        let process_details = cmd
+        let process_group = cmd
             .spawn()
             .map_err(anyhow::Error::from)
-            .and_then(ProcessDetails::new);
+            .and_then(ProcessGroup::new);
         let mut events = stream_command_events(
-            process_details,
+            process_group,
             futures::future::pending(),
             DefaultStatusDecoder,
             DefaultKillProcess::default(),

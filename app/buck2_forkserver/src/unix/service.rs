@@ -45,13 +45,13 @@ use tonic::Streaming;
 use crate::convert::encode_event_stream;
 use crate::run::maybe_absolutize_exe;
 use crate::run::prepare_command;
+use crate::run::process_group::ProcessGroup;
 use crate::run::status_decoder::DefaultStatusDecoder;
 use crate::run::status_decoder::MiniperfStatusDecoder;
 use crate::run::stream_command_events;
 use crate::run::timeout_into_cancellation;
 use crate::run::DefaultKillProcess;
 use crate::run::GatherOutputStatus;
-use crate::run::ProcessDetails;
 
 // Not quite BoxStream: it has to be Sync (...)
 type RunStream =
@@ -168,9 +168,9 @@ impl Forkserver for UnixForkserverService {
                 cmd.stderr(File::create(OsStr::from_bytes(&std_redirects.stderr))?);
             }
             let child = cmd.spawn();
-            let process_details = child
+            let process_group = child
                 .map_err(anyhow::Error::from)
-                .and_then(ProcessDetails::new);
+                .and_then(ProcessGroup::new);
 
             let timeout = timeout_into_cancellation(timeout);
 
@@ -178,7 +178,7 @@ impl Forkserver for UnixForkserverService {
 
             let stream = match miniperf_output {
                 Some(out) => stream_command_events(
-                    process_details,
+                    process_group,
                     cancellation,
                     MiniperfStatusDecoder::new(out),
                     DefaultKillProcess {
@@ -188,7 +188,7 @@ impl Forkserver for UnixForkserverService {
                 )?
                 .left_stream(),
                 None => stream_command_events(
-                    process_details,
+                    process_group,
                     cancellation,
                     DefaultStatusDecoder,
                     DefaultKillProcess {

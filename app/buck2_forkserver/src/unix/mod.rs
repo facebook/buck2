@@ -9,6 +9,7 @@
 
 mod command;
 mod launch;
+pub mod process_group;
 mod service;
 
 pub use command::run_forkserver;
