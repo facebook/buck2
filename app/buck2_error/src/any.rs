@@ -205,6 +205,9 @@ pub struct ProvidableRootMetadata {
     /// We also reuse this to get a `Send + Sync` reference to our error, since `source()` does not
     /// give us that.
     pub check_error_type: CheckErrorType,
+
+    /// The protobuf ActionError, if the root was an action error
+    pub action_error: Option<buck2_data::ActionError>,
 }
 
 /// Like `ProvidableRootMetadata`, but for "context-like" metadata that can appear on the error more
@@ -291,6 +294,7 @@ mod tests {
                 .provide_value(ProvidableRootMetadata {
                     typ: Some(crate::ErrorType::Watchman),
                     check_error_type: ProvidableRootMetadata::gen_check_error_type::<Self>(),
+                    action_error: None,
                 })
                 .provide_value(ProvidableContextMetadata {
                     source_file: file!(),

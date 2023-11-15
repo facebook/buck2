@@ -101,12 +101,14 @@ pub fn provide_metadata<'a, 'b, E: StdError + Send + Sync + 'static>(
     typ: Option<crate::ErrorType>,
     source_file: &'static str,
     source_location_extra: Option<&'static str>,
+    action_error: Option<buck2_data::ActionError>,
 ) {
     let check_error_type = ProvidableRootMetadata::gen_check_error_type::<E>();
     if typ.is_some() {
         let metadata = ProvidableRootMetadata {
             typ,
             check_error_type,
+            action_error,
         };
         Demand::provide_value(demand, metadata);
     }

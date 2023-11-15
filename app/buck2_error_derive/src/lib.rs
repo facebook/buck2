@@ -363,6 +363,8 @@ fn derive_error_impl(mut input: syn::DeriveInput, krate: syn::Path) -> syn::Resu
                     let mut category = ::core::option::Option::None;
                     #[allow(unused_mut)]
                     let mut source_location_extra;
+                    #[allow(unused_mut)]
+                    let mut action_error = ::core::option::Option::None;
                     #option_assignments
                     #krate::provide_metadata::<Self>(
                         demand,
@@ -370,6 +372,7 @@ fn derive_error_impl(mut input: syn::DeriveInput, krate: syn::Path) -> syn::Resu
                         typ,
                         ::core::file!(),
                         ::core::option::Option::Some(source_location_extra),
+                        action_error,
                     );
                     let val = unsafe { #ref_transmute(self) };
                     <_ as ::std::error::Error>::provide(val, demand)

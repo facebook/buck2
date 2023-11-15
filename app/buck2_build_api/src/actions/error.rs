@@ -65,6 +65,7 @@ impl std::error::Error for ActionError {
             typ,
             std::file!(),
             Some("ActionError"),
+            Some(self.as_proto_event()),
         );
     }
 
