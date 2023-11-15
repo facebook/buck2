@@ -159,7 +159,7 @@ impl NotifyFileData {
             changed_paths.insert(cell_path_str);
         }
 
-        let mut stats = FileWatcherStats::new(changed_paths.len(), None, None);
+        let mut stats = FileWatcherStats::new(changed_paths.len(), None, None, None);
         stats.add_ignored(self.ignored);
         for path in changed_paths {
             // The event type and watcher kind are just made up, but that's not a big deal

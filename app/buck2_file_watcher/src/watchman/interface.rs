@@ -43,7 +43,9 @@ struct WatchmanQueryProcessor {
     cells: CellResolver,
     ignore_specs: HashMap<CellName, IgnoreSet>,
     retain_dep_files_on_watchman_fresh_instance: bool,
+    report_global_rev: bool,
     last_mergebase: Option<String>,
+    last_mergebase_global_rev: Option<u64>,
 }
 
 /// Used in process_one_change
@@ -64,6 +66,7 @@ impl WatchmanQueryProcessor {
         let mut stats = FileWatcherStats::new(
             events.len(),
             self.last_mergebase.as_deref(),
+            self.last_mergebase_global_rev,
             watchman_version,
         );
 
@@ -207,6 +210,25 @@ fn find_first_valid_parent(mut path: &Path) -> Option<&ProjectRelativePath> {
     }
 }
 
+async fn try_fetch_global_rev(hash: &str) -> Option<u64> {
+    // There's a variety of ways in which this might go wrong: `PATH` is messed up, this somehow got
+    // turned on in a non-`hg` repo, etc. To make sure we don't fail any builds from this, ignore
+    // all errors.
+    let command = tokio::process::Command::new("hg")
+        .args(["log", "-r", hash, "-T", "{get(extras, \"global_rev\")}"])
+        .env("HPGPLAIN", "1")
+        .output();
+    let output = tokio::time::timeout(std::time::Duration::from_millis(500), command)
+        .await
+        .ok()?
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let stdout = String::from_utf8(output.stdout).ok()?;
+    stdout.trim().parse::<u64>().ok()
+}
+
 #[async_trait]
 impl SyncableQueryProcessor for WatchmanQueryProcessor {
     type Output = buck2_data::FileWatcherStats;
@@ -251,6 +273,12 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
 
         self.last_mergebase = mergebase.clone();
 
+        if let Some(hash) = self.last_mergebase.as_ref() {
+            if self.report_global_rev {
+                self.last_mergebase_global_rev = try_fetch_global_rev(hash).await;
+            }
+        }
+
         // TODO(cjhopman): could probably get away with just invalidating all fs things, but that's not supported.
         // Dropping the entire DICE map can be somewhat computationally expensive as there
         // are a lot of destructors to run. On the other hand, we don't have to wait for
@@ -261,6 +289,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
             buck2_data::FileWatcherStats {
                 fresh_instance: true,
                 branched_from_revision: mergebase.clone(),
+                branched_from_global_rev: self.last_mergebase_global_rev,
                 incomplete_events_reason: Some("Fresh instance".to_owned()),
                 watchman_version,
                 fresh_instance_data: Some(buck2_data::FreshInstance {
@@ -301,6 +330,10 @@ impl WatchmanFileWatcher {
             .unwrap_or_else(RolloutPercentage::always)
             .roll();
 
+        let report_global_rev = root_config
+            .parse::<bool>("buck2", "watchman_report_global_rev")?
+            .unwrap_or(false);
+
         let query = SyncableQuery::new(
             Connector::new(),
             project_root,
@@ -313,7 +346,9 @@ impl WatchmanFileWatcher {
                 cells,
                 ignore_specs,
                 retain_dep_files_on_watchman_fresh_instance,
+                report_global_rev,
                 last_mergebase: None,
+                last_mergebase_global_rev: None,
             }),
             watchman_merge_base,
         )?;

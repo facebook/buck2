@@ -1369,6 +1369,7 @@ message FileWatcherStats {
   uint64 events_total = 2;
   uint64 events_processed = 3;
   optional string branched_from_revision = 4;
+  optional uint64 branched_from_global_rev = 10;
   repeated FileWatcherEvent events = 6;
   // Present if the results are incomplete
   optional string incomplete_events_reason = 7;
