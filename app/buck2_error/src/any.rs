@@ -52,7 +52,7 @@ fn construct_root_from_recovered_error(
     typ: Option<crate::ErrorType>,
     context: Option<ProvidableContextMetadata>,
 ) -> crate::Error {
-    let source_location = if let Some(context) = context {
+    let source_location = if let Some(ref context) = context {
         crate::source_location::from_file(context.source_file, context.source_location_extra)
     } else {
         None
@@ -62,7 +62,7 @@ fn construct_root_from_recovered_error(
         typ,
         source_location,
     ))));
-    if let Some(context) = context
+    if let Some(ref context) = context
         && let Some(category) = context.category
     {
         e.context(category)
@@ -193,7 +193,7 @@ pub type CheckErrorType =
 ///
 /// Currently intended for macro use only, might make sense to allow it more generally in the
 /// future.
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct ProvidableRootMetadata {
     pub typ: Option<crate::ErrorType>,
     /// Some errors will transitively call `Provide` for their sources. That means that even when a
@@ -209,7 +209,7 @@ pub struct ProvidableRootMetadata {
 
 /// Like `ProvidableRootMetadata`, but for "context-like" metadata that can appear on the error more
 /// than once.
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct ProvidableContextMetadata {
     /// Technically this should be in the `ProvidableRootMetadata`. However, we allow it to appear
     /// multiple times in the context and just pick the last one. There's no benefit to being picky.
