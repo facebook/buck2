@@ -27,8 +27,7 @@ use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
-use buck2_execute::execute::action_digest::ActionDigest;
-use buck2_execute::execute::blobs::ActionBlobs;
+use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::HasBlockingExecutor;
 use buck2_execute::execute::cache_uploader::CacheUploadInfo;
@@ -496,10 +495,9 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
 
     async fn cache_upload(
         &mut self,
-        action_digest: ActionDigest,
+        action_digest_and_blobs: &ActionDigestAndBlobs,
         execution_result: &CommandExecutionResult,
         dep_file_entry: Option<DepFileEntry>,
-        action_blobs: &ActionBlobs,
     ) -> anyhow::Result<CacheUploadResult> {
         let action = self.target();
         self.executor
@@ -507,12 +505,12 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             .cache_upload(
                 &CacheUploadInfo {
                     target: &action as _,
-                    action_digest,
+                    action_digest: action_digest_and_blobs.action.dupe(),
                     digest_config: self.digest_config(),
                 },
                 execution_result,
                 dep_file_entry,
-                action_blobs,
+                &action_digest_and_blobs.blobs,
             )
             .await
     }
@@ -743,6 +741,7 @@ mod tests {
     use crate::actions::RegisteredAction;
     use crate::artifact_groups::ArtifactGroup;
     use crate::artifact_groups::ArtifactGroupValues;
+
     #[tokio::test]
     async fn can_execute_some_action() {
         let cells = CellResolver::testing_with_name_and_path(

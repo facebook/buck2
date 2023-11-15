@@ -15,8 +15,7 @@ use more_futures::cancellation::CancellationContext;
 use remote_execution as RE;
 
 use crate::digest_config::DigestConfig;
-use crate::execute::action_digest::ActionDigest;
-use crate::execute::blobs::ActionBlobs;
+use crate::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use crate::execute::manager::CommandExecutionManager;
 use crate::execute::request::CommandExecutionRequest;
 use crate::execute::request::ExecutorPreference;
@@ -24,10 +23,7 @@ use crate::execute::result::CommandExecutionResult;
 use crate::execute::target::CommandExecutionTarget;
 
 pub struct PreparedAction {
-    pub action: ActionDigest,
-    // The encoded action and other messages referenced from it by digest (e.g. RE::Command).
-    // Does not include the files referenced in inputs.
-    pub blobs: ActionBlobs,
+    pub action_and_blobs: ActionDigestAndBlobs,
     pub platform: RE::Platform,
 }
 

@@ -244,8 +244,7 @@ impl PreparedCommandExecutor for ReExecutor {
             target,
             prepared_action:
                 PreparedAction {
-                    action: action_digest,
-                    blobs,
+                    action_and_blobs,
                     platform,
                 },
             digest_config,
@@ -259,7 +258,12 @@ impl PreparedCommandExecutor for ReExecutor {
 
         // TODO(bobyf, torozco): remote execution probably needs to explicitly handle cancellations
         let manager = self
-            .upload(manager, blobs, request.paths(), *digest_config)
+            .upload(
+                manager,
+                &action_and_blobs.blobs,
+                request.paths(),
+                *digest_config,
+            )
             .await?;
 
         let (manager, response) = self
@@ -267,7 +271,7 @@ impl PreparedCommandExecutor for ReExecutor {
                 manager,
                 *target,
                 request,
-                action_digest,
+                &action_and_blobs.action,
                 *digest_config,
                 platform,
             )
@@ -287,7 +291,7 @@ impl PreparedCommandExecutor for ReExecutor {
             request.paths(),
             request.outputs(),
             RemoteCommandExecutionDetails {
-                action_digest: action_digest.dupe(),
+                action_digest: action_and_blobs.action.dupe(),
                 session_id: self.re_client.get_session_id().await.ok(),
                 use_case: self.re_use_case,
                 platform: platform.clone(),

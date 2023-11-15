@@ -8,6 +8,7 @@
  */
 
 pub mod action_digest;
+pub mod action_digest_and_blobs;
 pub mod blobs;
 pub mod blocking;
 pub mod cache_uploader;

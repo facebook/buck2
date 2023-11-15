@@ -27,6 +27,7 @@ use super::cache_uploader::CacheUploadResult;
 use crate::artifact::fs::ExecutorFs;
 use crate::digest::CasDigestToReExt;
 use crate::digest_config::DigestConfig;
+use crate::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use crate::execute::blobs::ActionBlobs;
 use crate::execute::cache_uploader::CacheUploadInfo;
 use crate::execute::cache_uploader::DepFileEntry;
@@ -301,8 +302,10 @@ fn re_create_action(
 
     let action = prepared_blobs.add_protobuf_message(&action, digest_config);
     Ok(PreparedAction {
-        action: action.data().dupe().coerce(),
-        blobs: prepared_blobs,
+        action_and_blobs: ActionDigestAndBlobs {
+            action: action.data().dupe().coerce(),
+            blobs: prepared_blobs,
+        },
         platform: command
             .platform
             .expect("We did put a platform a few lines up"),

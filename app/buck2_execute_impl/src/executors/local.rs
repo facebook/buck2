@@ -744,7 +744,7 @@ impl PreparedCommandExecutor for LocalExecutor {
             .with_structured_cancellation(|cancellation| {
                 Self::exec_request(
                     self,
-                    &prepared_action.action,
+                    &prepared_action.action_and_blobs.action,
                     request,
                     manager,
                     cancellation,

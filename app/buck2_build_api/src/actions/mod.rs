@@ -23,16 +23,6 @@
 //! An 'Action' can be bound to multiple 'BuildArtifact's, but each 'BuildArtifact' can only be
 //! bound to a particular 'Action'.
 
-pub mod artifact;
-pub mod box_slice_set;
-pub mod calculation;
-mod error;
-pub mod execute;
-pub mod impls;
-pub mod key;
-pub mod query;
-pub mod registry;
-
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::ops::ControlFlow;
@@ -53,8 +43,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::digest_config::DigestConfig;
-use buck2_execute::execute::action_digest::ActionDigest;
-use buck2_execute::execute::blobs::ActionBlobs;
+use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::cache_uploader::CacheUploadResult;
 use buck2_execute::execute::cache_uploader::DepFileEntry;
@@ -84,6 +73,16 @@ use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 use crate::deferred::types::AnyValue;
 use crate::deferred::types::TrivialDeferred;
+
+pub mod artifact;
+pub mod box_slice_set;
+pub mod calculation;
+mod error;
+pub mod execute;
+pub mod impls;
+pub mod key;
+pub mod query;
+pub mod registry;
 
 /// Represents an unregistered 'Action' that will be registered into the 'Actions' module.
 /// The 'UnregisteredAction' is not executable until it is registered, upon which it becomes an
@@ -215,10 +214,9 @@ pub trait ActionExecutionCtx: Send + Sync {
 
     async fn cache_upload(
         &mut self,
-        action_digest: ActionDigest,
+        action: &ActionDigestAndBlobs,
         execution_result: &CommandExecutionResult,
         dep_file_entry: Option<DepFileEntry>,
-        action_blobs: &ActionBlobs,
     ) -> anyhow::Result<CacheUploadResult>;
 
     /// Executes a command

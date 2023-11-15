@@ -84,7 +84,7 @@ async fn query_action_cache_and_download_result(
 ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
     let request = command.request;
     let platform = &command.prepared_action.platform;
-    let action_blobs = &command.prepared_action.blobs;
+    let action_blobs = &command.prepared_action.action_and_blobs.blobs;
     let digest_config = command.digest_config;
 
     let digest = match &cache_type {
@@ -229,7 +229,7 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
         manager: CommandExecutionManager,
         cancellations: &CancellationContext,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
-        let action_digest = &command.prepared_action.action;
+        let action_digest = &command.prepared_action.action_and_blobs.action;
         let result = query_action_cache_and_download_result(
             CacheType::ActionCache,
             &self.artifact_fs,
@@ -286,7 +286,7 @@ impl PreparedCommandOptionalExecutor for RemoteDepFileCacheChecker {
             Some(key) => key.dupe(),
         };
 
-        let action_digest = &command.prepared_action.action;
+        let action_digest = &command.prepared_action.action_and_blobs.action;
 
         query_action_cache_and_download_result(
             CacheType::RemoteDepFileCache(remote_dep_file_key),
