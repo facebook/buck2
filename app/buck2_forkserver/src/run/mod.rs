@@ -11,7 +11,6 @@ mod interruptible_async_read;
 pub mod status_decoder;
 
 use std::borrow::Cow;
-use std::io;
 use std::path::Path;
 use std::pin::Pin;
 use std::process::Command;
@@ -41,6 +40,8 @@ use self::interruptible_async_read::InterruptibleAsyncRead;
 use self::status_decoder::DecodedStatus;
 use self::status_decoder::DefaultStatusDecoder;
 use self::status_decoder::StatusDecoder;
+#[cfg(windows)]
+use crate::win::job_object::JobObject;
 
 #[derive(Debug)]
 pub enum GatherOutputStatus {
@@ -172,7 +173,7 @@ pub async fn timeout_into_cancellation(
 }
 
 pub fn stream_command_events<T>(
-    child: io::Result<Child>,
+    process_details: anyhow::Result<ProcessDetails>,
     cancellation: T,
     decoder: impl StatusDecoder,
     kill_process: impl KillProcess,
@@ -181,8 +182,8 @@ pub fn stream_command_events<T>(
 where
     T: Future<Output = anyhow::Result<GatherOutputStatus>> + Send,
 {
-    let mut child = match child {
-        Ok(child) => child,
+    let mut process_details = match process_details {
+        Ok(process_details) => process_details,
         Err(e) => {
             let event = Ok(CommandEvent::Exit(GatherOutputStatus::SpawnFailed(
                 e.to_string(),
@@ -192,8 +193,16 @@ where
     };
 
     let stdio = if stream_stdio {
-        let stdout = child.stdout.take().context("Child stdout is not piped")?;
-        let stderr = child.stderr.take().context("Child stderr is not piped")?;
+        let stdout = process_details
+            .child
+            .stdout
+            .take()
+            .context("Child stdout is not piped")?;
+        let stderr = process_details
+            .child
+            .stderr
+            .take()
+            .context("Child stderr is not piped")?;
 
         #[cfg(unix)]
         type Drainer<R> = self::interruptible_async_read::UnixNonBlockingDrainer<R>;
@@ -224,7 +233,7 @@ where
         // NOTE: This wrapping here is so that we release the borrow of `child` that stems from
         // `wait()` by the time we call kill_process a few lines down.
         let execute = async {
-            let status = child.wait();
+            let status = process_details.child.wait();
             futures::pin_mut!(status);
             futures::pin_mut!(cancellation);
 
@@ -238,7 +247,7 @@ where
             Outcome::Finished(status) => decoder.decode_status(status).await?.into(),
             Outcome::Cancelled(res) => {
                 kill_process
-                    .kill(&mut child)
+                    .kill(&mut process_details)
                     .await
                     .context("Failed to terminate child after timeout")?;
 
@@ -249,7 +258,8 @@ where
 
                 // We just killed the child, so this should finish immediately. We should still call
                 // this to release any process.
-                child
+                process_details
+                    .child
                     .wait()
                     .await
                     .context("Failed to await child after kill")?;
@@ -295,9 +305,11 @@ where
 {
     let cmd = prepare_command(cmd);
 
-    let child = spawn_retry_txt_busy(cmd, || tokio::time::sleep(Duration::from_millis(50))).await;
+    let process_details =
+        spawn_retry_txt_busy(cmd, || tokio::time::sleep(Duration::from_millis(50))).await;
+
     let stream = stream_command_events(
-        child,
+        process_details,
         cancellation,
         DefaultStatusDecoder,
         DefaultKillProcess::default(),
@@ -306,10 +318,35 @@ where
     decode_command_event_stream(stream).await
 }
 
+pub struct ProcessDetails {
+    child: Child,
+    #[cfg(windows)]
+    job: JobObject,
+}
+
+impl ProcessDetails {
+    #[cfg(windows)]
+    pub fn new(child: Child) -> anyhow::Result<ProcessDetails> {
+        let job = JobObject::new()?;
+        if let Some(handle) = child.raw_handle() {
+            job.assign_process(handle)?;
+        }
+        // We create suspended process to assign it to a job (group)
+        // So we resume the process after assignment
+        crate::win::resume_process(&child)?;
+        Ok(ProcessDetails { child, job })
+    }
+
+    #[cfg(unix)]
+    pub fn new(child: Child) -> anyhow::Result<ProcessDetails> {
+        Ok(ProcessDetails { child })
+    }
+}
+
 /// Dependency injection for kill. We use this in testing.
 #[async_trait]
 pub trait KillProcess {
-    async fn kill(self, child: &mut Child) -> anyhow::Result<()>;
+    async fn kill(self, process_details: &mut ProcessDetails) -> anyhow::Result<()>;
 }
 
 #[derive(Default)]
@@ -319,8 +356,8 @@ pub struct DefaultKillProcess {
 
 #[async_trait]
 impl KillProcess for DefaultKillProcess {
-    async fn kill(self, child: &mut Child) -> anyhow::Result<()> {
-        let pid = match child.id() {
+    async fn kill(self, process_details: &mut ProcessDetails) -> anyhow::Result<()> {
+        let pid = match process_details.child.id() {
             Some(pid) => pid,
             None => {
                 // Child just exited, so in this case we don't want to kill anything.
@@ -337,11 +374,22 @@ impl KillProcess for DefaultKillProcess {
                 return kill_process_impl(pid, self.graceful_shutdown_timeout_s).await;
             }
         }
-        // `start_kill` is just `std::process::Child::kill` on Windows.
-        // Ignore the error because `kill` fails on Windows if the process has been terminated
-        // even if we did not wait for it.
-        let _ignore = child.start_kill();
-        Ok(())
+
+        #[cfg(windows)]
+        {
+            if true {
+                // On Windows we use Jobs to manage the processes so we don't
+                // use the default impl.
+                // We use `if true` here to do less conditional compilation
+                // or conditional dependencies.
+                return process_details.job.terminate(0);
+            }
+        }
+
+        process_details
+            .child
+            .start_kill()
+            .map_err(anyhow::Error::from)
     }
 }
 
@@ -397,6 +445,16 @@ pub fn prepare_command(mut cmd: Command) -> tokio::process::Command {
         cmd.process_group(0);
     }
 
+    #[cfg(windows)]
+    {
+        // On windows we create suspended process to assign it to a job (group) and then resume.
+        // This is necessary because the process might finish before we add it to a job
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(
+            winapi::um::winbase::CREATE_NO_WINDOW | winapi::um::winbase::CREATE_SUSPENDED,
+        );
+    }
+
     cmd.stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -421,7 +479,7 @@ pub fn prepare_command(mut cmd: Command) -> tokio::process::Command {
 async fn spawn_retry_txt_busy<F, D>(
     mut cmd: tokio::process::Command,
     mut delay: F,
-) -> io::Result<Child>
+) -> anyhow::Result<ProcessDetails>
 where
     F: FnMut() -> D,
     D: Future<Output = ()>,
@@ -435,7 +493,9 @@ where
         let is_txt_busy = matches!(res_errno, Err(Some(libc::ETXTBSY)));
 
         if attempts == 0 || !is_txt_busy {
-            return res;
+            return res
+                .map_err(anyhow::Error::from)
+                .and_then(ProcessDetails::new);
         }
 
         delay().await;
@@ -555,7 +615,7 @@ mod tests {
         file.write_all(b"#!/usr/bin/env bash\ntrue\n").await?;
 
         let cmd = async_background_command(&bin);
-        let mut child = spawn_retry_txt_busy(cmd, {
+        let mut process_details = spawn_retry_txt_busy(cmd, {
             let mut file = Some(file);
             move || {
                 file.take();
@@ -564,7 +624,7 @@ mod tests {
         })
         .await?;
 
-        let status = child.wait().await?;
+        let status = process_details.child.wait().await?;
         assert_eq!(status.code(), Some(0));
 
         Ok(())
@@ -582,35 +642,47 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(unix)]
     #[tokio::test]
     async fn test_kill_terminates_process_group() -> anyhow::Result<()> {
-        use std::str::FromStr;
+        let tempdir = tempfile::tempdir()?;
+        let tempfile_buffer = tempdir.path().join("stdout");
+        let tempfile = tempfile_buffer.as_path();
+        let tempfile_string = match tempfile.to_str() {
+            None => Err(anyhow::anyhow!("Failed to create temporary file string")),
+            Some(s) => Ok(s),
+        }?;
 
-        use nix::errno::Errno;
-        use nix::sys::signal;
-        use nix::unistd::Pid;
+        let cmd = if cfg!(windows) {
+            let mut cmd = background_command("powershell");
+            cmd.args([
+                "-c",
+                &("Start-Process -FilePath \"powershell\" -NoNewWindow -ArgumentList \
+                \"&(Get-Process -Id $PID).Path { Sleep 10; echo \"hello\" > "
+                    .to_owned()
+                    + tempfile_string
+                    + "}\""),
+            ]);
+            cmd
+        } else {
+            let mut cmd = background_command("sh");
+            cmd.arg("-c")
+                .arg("( ( sleep 10 && echo \"hello\" > ".to_owned() + tempfile_string + " ) )");
+            cmd
+        };
+        let timeout = if cfg!(windows) { 5 } else { 1 };
+        let (_status, _stdout, _stderr) = gather_output(
+            cmd,
+            timeout_into_cancellation(Some(Duration::from_secs(timeout))),
+        )
+        .await?;
 
-        // This command will spawn 2 subprocesses (subshells) and print the PID of the 2nd shell.
-        let mut cmd = background_command("sh");
-        cmd.arg("-c").arg("( ( echo $$ && sleep 1000 ) )");
-        let (_status, stdout, _stderr) =
-            gather_output(cmd, timeout_into_cancellation(Some(Duration::from_secs(1)))).await?;
-        let pid = i32::from_str(std::str::from_utf8(&stdout)?.trim())?;
+        tokio::time::sleep(Duration::from_secs(15)).await;
 
-        for _ in 0..10 {
-            // This does rely on no PID reuse but the odds of PIDs wrapping around all the way to the
-            // same PID we just used before we issue this kill seem low. So, we expect this to error
-            // out.
-            if matches!(signal::kill(Pid::from_raw(pid), None), Err(e) if e == Errno::ESRCH) {
-                return Ok(());
-            }
-
-            // This is awkward but unfortunately the process does not immediately disappear.
-            tokio::time::sleep(Duration::from_secs(1)).await;
+        if Path::exists(tempfile) {
+            Err(anyhow::anyhow!("Subprocess was not killed"))
+        } else {
+            Ok(())
         }
-
-        Err(anyhow::anyhow!("PID did not exit: {}", pid))
     }
 
     #[tokio::test]
@@ -622,9 +694,12 @@ mod tests {
         };
         cmd.args(["-c", "exit 0"]);
 
-        let child = prepare_command(cmd).spawn();
+        let process_details = prepare_command(cmd)
+            .spawn()
+            .map_err(anyhow::Error::from)
+            .and_then(ProcessDetails::new);
         let mut events = stream_command_events(
-            child,
+            process_details,
             futures::future::pending(),
             DefaultStatusDecoder,
             DefaultKillProcess::default(),
@@ -661,12 +736,12 @@ mod tests {
 
         #[async_trait]
         impl KillProcess for Kill {
-            async fn kill(self, child: &mut Child) -> anyhow::Result<()> {
+            async fn kill(self, process_details: &mut ProcessDetails) -> anyhow::Result<()> {
                 *self.killed.lock().unwrap() = true;
 
                 // We still need to kill the process. On Windows in particular our test will hang
                 // if we do not.
-                DefaultKillProcess::default().kill(child).await
+                DefaultKillProcess::default().kill(process_details).await
             }
         }
 
@@ -699,10 +774,13 @@ mod tests {
         cmd.args(["-c", "sleep 10000"]);
 
         let mut cmd = prepare_command(cmd);
-        let child = cmd.spawn();
+        let process_details = cmd
+            .spawn()
+            .map_err(anyhow::Error::from)
+            .and_then(ProcessDetails::new);
 
         let stream = stream_command_events(
-            child,
+            process_details,
             timeout_into_cancellation(Some(Duration::from_secs(1))),
             Decoder {
                 killed: killed.dupe(),
@@ -734,9 +812,12 @@ mod tests {
         let stdout = tempdir.path().join("stdout");
         cmd.stdout(std::fs::File::create(stdout.clone())?);
 
-        let child = cmd.spawn();
+        let process_details = cmd
+            .spawn()
+            .map_err(anyhow::Error::from)
+            .and_then(ProcessDetails::new);
         let mut events = stream_command_events(
-            child,
+            process_details,
             futures::future::pending(),
             DefaultStatusDecoder,
             DefaultKillProcess::default(),

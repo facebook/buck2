@@ -17,6 +17,9 @@ pub struct WinapiHandle {
     handle: HANDLE,
 }
 
+unsafe impl Send for WinapiHandle {}
+unsafe impl Sync for WinapiHandle {}
+
 impl WinapiHandle {
     /// Unsafe because it closes the handle on drop.
     pub unsafe fn new(handle: HANDLE) -> WinapiHandle {
