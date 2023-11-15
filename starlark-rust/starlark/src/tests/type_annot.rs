@@ -111,3 +111,24 @@ def g(): f("")
         "Expected type `int` but got `str`",
     );
 }
+
+#[test]
+fn test_string_lit_as_type() {
+    assert::fail(
+        r#"
+def foo(x: ""): pass
+"#,
+        "string literal expression is not allowed in type expression",
+    );
+}
+
+#[test]
+fn test_string_const_as_type() {
+    // TODO(nga): prohibit.
+    assert::pass(
+        r#"
+T = ""
+def foo(x: T): pass
+"#,
+    );
+}
