@@ -46,6 +46,7 @@ async def test_workspaces(buck: Buck) -> None:
         "fbcode//buck2/integrations/rust-project/tests/targets/bar:d": True,
         "fbcode//buck2/integrations/rust-project/tests/targets/foo:e": True,
         "fbcode//buck2/integrations/rust-project/tests/targets/foo:f": True,
+        "fbsource//xplat/rust/toolchain/sysroot:rust_allocator": False,
     }
 
     # The target being edited is not in any workspaces
@@ -66,6 +67,7 @@ async def test_workspaces(buck: Buck) -> None:
         "fbcode//buck2/integrations/rust-project/tests/targets/bar:c": True,
         "fbcode//buck2/integrations/rust-project/tests/targets/foo:e": False,
         "fbcode//buck2/integrations/rust-project/tests/targets/foo:f": False,
+        "fbsource//xplat/rust/toolchain/sysroot:rust_allocator": False,
     }
 
 
