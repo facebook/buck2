@@ -51,6 +51,7 @@ fn construct_root_from_recovered_error(
     e: Marc<dyn StdError + Send + Sync + 'static>,
     typ: Option<crate::ErrorType>,
     context: Option<ProvidableContextMetadata>,
+    action_error: Option<buck2_data::ActionError>,
 ) -> crate::Error {
     let source_location = if let Some(ref context) = context {
         crate::source_location::from_file(context.source_file, context.source_location_extra)
@@ -61,6 +62,7 @@ fn construct_root_from_recovered_error(
         e,
         typ,
         source_location,
+        action_error,
     ))));
     if let Some(ref context) = context
         && let Some(category) = context.category
@@ -99,7 +101,12 @@ pub(crate) fn recover_crate_error(
         {
             // FIXME(JakobDegen): `Marc` needs `try_map` here too
             let cur = Marc::map(cur, |e| (metadata.check_error_type)(e).unwrap());
-            break construct_root_from_recovered_error(cur, metadata.typ, context_metadata);
+            break construct_root_from_recovered_error(
+                cur,
+                metadata.typ,
+                context_metadata,
+                metadata.action_error,
+            );
         }
 
         context_stack.push((cur.clone(), context_metadata));
@@ -119,7 +126,7 @@ pub(crate) fn recover_crate_error(
             };
             // The `unwrap` is ok because we checked this condition when initially constructing the `context_metadata`
             let e = Marc::map(e, |e| (context_metadata.check_error_type)(e).unwrap());
-            break 'base construct_root_from_recovered_error(e, None, Some(context_metadata));
+            break 'base construct_root_from_recovered_error(e, None, Some(context_metadata), None);
         }
         // This error was not created with any useful metadata on it, so there's nothing smart we can do
         return crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new_anyhow(

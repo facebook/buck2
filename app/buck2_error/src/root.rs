@@ -41,6 +41,7 @@ pub(crate) struct ErrorRoot {
     inner: Marc<anyhow::Error>,
     error_type: Option<ErrorType>,
     source_location: Option<String>,
+    action_error: Option<buck2_data::ActionError>,
 }
 
 impl ErrorRoot {
@@ -48,6 +49,7 @@ impl ErrorRoot {
         inner: E,
         error_type: Option<ErrorType>,
         source_location: Option<String>,
+        action_error: Option<buck2_data::ActionError>,
     ) -> Self {
         let id = UniqueRootId(NEXT_ROOT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
         let inner = Marc::new(anyhow::Error::new(inner));
@@ -56,6 +58,7 @@ impl ErrorRoot {
             inner,
             error_type,
             source_location,
+            action_error,
         }
     }
 
@@ -67,6 +70,7 @@ impl ErrorRoot {
             inner: e,
             error_type: None,
             source_location,
+            action_error: None,
         }
     }
 
