@@ -10,7 +10,6 @@
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use starlark_map::small_set::SmallSet;
 
-use crate::attrs::attr_type::query::ResolvedQueryLiterals;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 
 #[derive(Default, Debug)]
@@ -18,7 +17,6 @@ pub struct ConfiguredAttrInfo {
     // Including transitioned deps.
     pub deps: SmallSet<ConfiguredProvidersLabel>,
     pub execution_deps: SmallSet<ConfiguredProvidersLabel>,
-    pub has_query: bool,
 }
 
 impl ConfiguredAttrInfo {
@@ -30,15 +28,6 @@ impl ConfiguredAttrInfo {
 impl ConfiguredAttrTraversal for ConfiguredAttrInfo {
     fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
         self.deps.insert(dep.clone());
-        Ok(())
-    }
-
-    fn query_macro(
-        &mut self,
-        _query: &str,
-        _resolved_literals: &ResolvedQueryLiterals<ConfiguredProvidersLabel>,
-    ) -> anyhow::Result<()> {
-        self.has_query = true;
         Ok(())
     }
 
