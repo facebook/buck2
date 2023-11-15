@@ -20,8 +20,9 @@ use serde::Serialize;
 use tokio_stream::StreamExt;
 
 use crate::commands::log::options::EventLogOptions;
+use crate::commands::log::transform_format;
 use crate::commands::log::LogCommandOutputFormat;
-
+use crate::commands::log::LogCommandOutputFormatWithWriter;
 /// Outputs materializations from selected invocation.
 ///
 /// The output is a tab-separated list containing the path,
@@ -124,21 +125,18 @@ impl<'a> From<&'a Record> for AggregatedRecord<'a> {
 }
 
 fn write_output<T: Display + Serialize>(
-    output: &LogCommandOutputFormat,
+    output: &mut LogCommandOutputFormatWithWriter,
     record: &T,
 ) -> anyhow::Result<()> {
     match output {
-        LogCommandOutputFormat::Tabulated => {
-            buck2_client_ctx::println!("{}", record)
+        LogCommandOutputFormatWithWriter::Tabulated(w) => {
+            Ok(w.write_all(format!("{}\n", record).as_bytes())?)
         }
-        LogCommandOutputFormat::Csv => buck2_client_ctx::stdio::print_with_writer(|w| {
-            let mut writer = csv::WriterBuilder::new().has_headers(false).from_writer(w);
-            writer.serialize(record)
-        }),
-        LogCommandOutputFormat::Json => buck2_client_ctx::stdio::print_with_writer(|mut w| {
-            serde_json::to_writer(&mut w, &record)?;
-            w.write(b"\n").map(|_| ())
-        }),
+        LogCommandOutputFormatWithWriter::Csv(writer) => Ok(writer.serialize(record)?),
+        LogCommandOutputFormatWithWriter::Json(w) => {
+            serde_json::to_writer(w, &record)?;
+            buck2_client_ctx::println!("")
+        }
     }
 }
 
@@ -169,8 +167,10 @@ impl WhatMaterializedCommand {
             sort_by_total_bytes,
             aggregate_by_ext,
         } = self;
-
-        ctx.with_runtime(async move |ctx| {
+        buck2_client_ctx::stdio::print_with_writer::<anyhow::Error, _>(|w| {
+            {
+                let mut output = transform_format(output, w);
+                ctx.with_runtime(async move |ctx| {
             let log_path = event_log.get(&ctx).await?;
 
             let (invocation, mut events) = log_path.unpack_stream().await?;
@@ -190,10 +190,11 @@ impl WhatMaterializedCommand {
                         })) if m.success =>
                         // Only log what has been materialized.
                         {
+                            let record = get_record(m);
                             if sort_by_total_bytes || aggregate_by_ext {
-                                records.push(get_record(m));
+                                records.push(record);
                             } else {
-                                write_output(&output, &get_record(m))?
+                                write_output(&mut output, &record)?;
                             }
                         }
                         _ => {}
@@ -209,13 +210,17 @@ impl WhatMaterializedCommand {
                     let k = v.get_key();
                     kv.entry(k).and_modify(|e| e.update(r)).or_insert(v);
                 }
-                kv.iter().try_for_each(|(_, v)| write_output(&output, v))?;
+                kv.iter().try_for_each(|(_, v)| write_output(&mut output, v))?;
             } else if sort_by_total_bytes {
                 records.sort_by(|a, b| a.total_bytes.cmp(&b.total_bytes));
-                records.iter().try_for_each(|r| write_output(&output, r))?;
+                records.iter().try_for_each(|r| write_output(&mut output, r))?;
             }
 
             anyhow::Ok(())
+
+        })?;
+                anyhow::Ok(())
+            }
         })?;
         ExitResult::success()
     }

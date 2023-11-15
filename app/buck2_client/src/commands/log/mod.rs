@@ -44,6 +44,25 @@ pub enum LogCommandOutputFormat {
     Csv,
 }
 
+pub enum LogCommandOutputFormatWithWriter<'a> {
+    Tabulated(&'a mut dyn std::io::Write),
+    Json(&'a mut dyn std::io::Write),
+    Csv(Box<csv::Writer<&'a mut dyn std::io::Write>>),
+}
+
+pub fn transform_format<'a>(
+    format: LogCommandOutputFormat,
+    w: &'a mut dyn std::io::Write,
+) -> LogCommandOutputFormatWithWriter<'a> {
+    match format {
+        LogCommandOutputFormat::Tabulated => LogCommandOutputFormatWithWriter::Tabulated(w),
+        LogCommandOutputFormat::Json => LogCommandOutputFormatWithWriter::Json(w),
+        LogCommandOutputFormat::Csv => LogCommandOutputFormatWithWriter::Csv(Box::new(
+            csv::WriterBuilder::new().from_writer(w),
+        )),
+    }
+}
+
 #[derive(Debug, clap::Subcommand)]
 #[clap(about = "Commands for interacting with buck2 logs")]
 pub enum LogCommand {
