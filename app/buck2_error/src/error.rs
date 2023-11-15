@@ -56,23 +56,6 @@ impl Error {
         crate::any::recover_crate_error(Marc::new(anyhow::Error::new(e)), source_location)
     }
 
-    /// Note that unlike `new`, this will not attempt to recover extra error metadata from the error
-    /// itself, instead assuming that you will provide that directly here. As such, you should only
-    /// use this with a newly constructed error that doesn't have an unknown cause/source.
-    #[track_caller]
-    pub fn new_with_options<E: StdError + Send + Sync + 'static>(
-        e: E,
-        typ: Option<ErrorType>,
-    ) -> Self {
-        let source_location =
-            crate::source_location::from_file(std::panic::Location::caller().file(), None);
-        Self(Arc::new(ErrorKind::Root(ErrorRoot::new(
-            e,
-            typ,
-            source_location,
-        ))))
-    }
-
     fn iter_kinds<'a>(&'a self) -> impl Iterator<Item = &'a ErrorKind> {
         let mut cur = Some(self);
         std::iter::from_fn(move || {
