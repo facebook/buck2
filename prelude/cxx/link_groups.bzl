@@ -612,7 +612,9 @@ def _create_link_group(
             # graph to find candidate nodes.
             if mapping.root == None:
                 has_empty_root = True
-            else:
+            elif spec.group.attrs.requires_root_node_exists or mapping.root in linkable_graph_node_map:
+                # If spec requires root to always exist (default True), always include to traversal to fail hard if it is not in deps.
+                # Otherwise add to traversal only if we sure it is in deps graph.
                 roots.append(mapping.root)
 
         # If this link group has an empty mapping, we need to search everything

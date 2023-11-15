@@ -79,6 +79,7 @@ _VALID_ATTRS = [
     "exported_linker_flags",
     "discard_group",
     "linker_flags",
+    "requires_root_node_exists",
 ]
 
 # Representation of group attributes
@@ -95,6 +96,9 @@ GroupAttrs = record(
     # Adds additional linker flags to apply to dependents that link against the
     # link group's shared object.
     exported_linker_flags = field(list, []),
+    # Requires root nodes in specs to always exist in dependency graph.
+    # Otherwise fails.
+    requires_root_node_exists = field(bool, True),
 )
 
 # Representation of a parsed group
@@ -138,6 +142,7 @@ def parse_groups_definitions(
             exported_linker_flags = attrs.get("exported_linker_flags", []),
             discard_group = attrs.get("discard_group", False),
             linker_flags = attrs.get("linker_flags", []),
+            requires_root_node_exists = attrs.get("requires_root_node_exists", True),
         )
 
         parsed_mappings = []
