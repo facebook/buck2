@@ -99,10 +99,46 @@ Error {
     # console. The hash is stored as the key in the `strings` cache of the `BuildReport`
     message_content: u64,
 
+    # Structured action error. Present only if the error was actually an action error
+    action_error: Optional[ActionError],
+
     # An index that can be used to detect duplicate errors. Two errors with the
     # same cause index have the same cause. Note that that does not mean that
     # they have the same error message.
     cause_index: uint,
+}
+
+ActionError {
+    # The action key
+    key: ActionKey,
+
+    # The action name
+    name: ActionName,
+
+    # Digest of the action
+    digest: str,
+
+    # Hash of the stderr of the action
+    stderr: u64,
+
+    # Hash of the stdout of the action
+    stdout: u64,
+
+    # Hash of the same stringified error message that is provided by the action
+    error: u64,
+}
+
+ActionKey {
+    # The configured target, anon target, or bxl function which owns this action
+    owner: str,
+}
+
+ActionName {
+    # The category of the action
+    category: str,
+
+    # The optional identifier of the action
+    identifier: Optional[str],
 }
 ```
 
