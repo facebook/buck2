@@ -1,0 +1,19 @@
+load("@prelude//kotlin/tools:defs.bzl", "java_bootstrap_binary", "java_bootstrap_library")
+
+java_bootstrap_library(
+    name = "kapt_base64_encoder_lib",
+    srcs = [
+        "com/facebook/kapt/KaptBase64Encoder.java",
+    ],
+    source = "8",
+    target = "8",
+)
+
+java_bootstrap_binary(
+    name = "kapt_base64_encoder",
+    main_class = "com.facebook.kapt.KaptBase64Encoder",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":kapt_base64_encoder_lib",
+    ],
+)
