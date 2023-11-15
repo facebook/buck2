@@ -35,6 +35,12 @@ BuildReport {
     # The results of the build, categorized by unconfigured target
     results: dict[TargetLabel, BuildReportEntry],
 
+    # A cache for error message lookup. This is meant for deduplicating strings
+    # that might otherwise appear many times in the build report and cause an
+    # unnecessary size increase. They keys are used in other fields in the build
+    # report in reference to these strings.
+    strings: dict[u64, str],
+
     # BUCK1 BACKCOMPAT ONLY!
     #
     # Currently always empty. Will be filled in if a flag is passed in the future.
@@ -86,9 +92,12 @@ ConfiguredBuildReportEntry {
 }
 
 Error {
-    # The same stringified error message that is shown to the user on the
-    # console
+    # TO BE DEPRECATED
     message: str,
+
+    # The hash of the same stringified error message that is shown to the user on the
+    # console. The hash is stored as the key in the `strings` cache of the `BuildReport`
+    message_content: u64,
 
     # An index that can be used to detect duplicate errors. Two errors with the
     # same cause index have the same cause. Note that that does not mean that
