@@ -877,23 +877,6 @@ fn truncate(contents: &str) -> Option<String> {
     }
 }
 
-pub fn action_error_from_execution_end(
-    e: &buck2_data::ActionExecutionEnd,
-) -> Option<buck2_data::ActionError> {
-    let error = e.error.clone()?;
-    let error_type = match error {
-        buck2_data::action_execution_end::Error::Unknown(x) => x.into(),
-        buck2_data::action_execution_end::Error::MissingOutputs(x) => x.into(),
-        buck2_data::action_execution_end::Error::CommandExecutionError(x) => x.into(),
-    };
-    Some(buck2_data::ActionError {
-        key: e.key.clone(),
-        name: e.name.clone(),
-        error: Some(error_type),
-        last_command: e.commands.last().cloned(),
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use std::time::SystemTime;
