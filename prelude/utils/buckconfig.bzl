@@ -64,18 +64,19 @@ def _next_word(val, start, delimiter):
 
     return -1
 
-def read(section, field, default = None):
+def read(section, field, default = None, root_cell = False):
     """Read a `string` from `.buckconfig`."""
 
-    return read_config(section, field, default)
+    read_config_func = read_root_config if root_cell else read_config
+    return read_config_func(section, field, default)
 
 # Alias for `read` that's explicit about the type being returned.
 read_string = read
 
-def read_choice(section, field, choices, default = None, required = True):
+def read_choice(section, field, choices, default = None, required = True, root_cell = False):
     """Read a string from `.buckconfig` that must be one `choices`."""
 
-    val = read(section, field)
+    val = read(section, field, root_cell = root_cell)
     if val != None:
         if val in choices:
             return val
@@ -90,12 +91,12 @@ def read_choice(section, field, choices, default = None, required = True):
     else:
         fail("`{}:{}`: no value set".format(section, field))
 
-def read_bool(section, field, default = None, required = True):
+def read_bool(section, field, default = None, required = True, root_cell = False):
     """Read a `boolean` from `.buckconfig`."""
 
     # Treat the empty string as "unset".  This allows the user to "override" a
     # previous setting by "clearing" it out.
-    val = read(section, field)
+    val = read(section, field, root_cell = root_cell)
     if val != None and val != "":
         # Fast-path string check
         if val == "True" or val == "true":
@@ -119,10 +120,10 @@ def read_bool(section, field, default = None, required = True):
     else:
         fail("`{}:{}`: no value set".format(section, field))
 
-def read_int(section, field, default = None, required = True):
+def read_int(section, field, default = None, required = True, root_cell = False):
     """Read an `int` from `.buckconfig`."""
 
-    val = read(section, field)
+    val = read(section, field, root_cell = root_cell)
     if val != None:
         if val.isdigit():
             return int(val)
@@ -137,9 +138,9 @@ def read_int(section, field, default = None, required = True):
     else:
         fail("`{}:{}`: no value set".format(section, field))
 
-def read_list(section, field, delimiter = ",", default = None, required = True):
+def read_list(section, field, delimiter = ",", default = None, required = True, root_cell = False):
     """Read a `list` from `.buckconfig`."""
-    val = read(section, field)
+    val = read(section, field, root_cell = root_cell)
     if val != None:
         quotes = ["\\", '"', "'"]
         if lazy.is_any(lambda x: x in val, quotes):
@@ -180,7 +181,8 @@ def resolve_alias(alias):
     # Starlark doesn't have while loops or allow recursion, so if we want to
     # resolve aliases that we find we need to iterate somehow
     for _ in range(1000):
-        target = read("alias", alias)
+        # TODO: set root_cell to true when all aliases come from root cell?
+        target = read("alias", alias, root_cell = False)
         expect(target != None, "Alias {} does not exist".format(alias))
         if "//" in target:
             return target
