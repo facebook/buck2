@@ -111,8 +111,8 @@ to a target.
 
 ```python
 deps = select({
-   "cfg//os:linux": [":linux_only_dep"],
-   "DEFAULT": [],
+  "cfg//os:linux": [":linux_only_dep"],
+  "DEFAULT": [],
 })
 ```
 
@@ -177,13 +177,13 @@ targets in repo.
 ```python
 # repo/PACKAGE
 
-cfg_modifiers({
-  "cfg//os:_": "cfg//:linux",
-  "cfg//compiler:_": modifier_select({
+set_cfg_modifiers(modifiers = [
+  "cfg//:linux",
+  modifier_select({
     "DEFAULT": "cfg//compiler:clang",
     "cfg//os:windows": "cfg//compiler:msvc",
-  })
-})
+  }),
+])
 ```
 
 To make constraints easier to type, you can specify aliases for modifier targets
@@ -207,18 +207,18 @@ Then the same PACKAGE modifiers can be specified as follows.
 ```python
 # repo/PACKAGE
 
-cfg_modifiers({
-  "os": "linux",
-  "compiler": modifier_select({
+set_cfg_modifiers(modifiers = [
+  "linux",
+  modifier_select({
     "DEFAULT": "clang",
     "windows": "msvc",
-  })
+  }),
 })
 ```
 
 ### Target Modifier
 
-On a target, modifiers can be specified on the `cfg_modifiers` attribute. For
+On a target, modifiers can be specified on the `metadata` attribute. For
 example, the following specifies modifiers for `repo//foo:bar`.
 
 ```python
@@ -227,13 +227,15 @@ example, the following specifies modifiers for `repo//foo:bar`.
 python_binary(
   name = "bar",
   # ...
-  cfg_modifiers = {
-    "cfg//os:_": "cfg//os:windows",
+  metadata = {"buck.cfg_modifiers": [
+    "cfg//os:windows",
     # Target modifiers can also use aliases
-    "compiler": "clang",
-  },
+    "clang",
+  ]},
 )
 ```
+
+Note one day all targets will probably have their own `cfg_modifiers` attribute.
 
 ### CLI Modifier
 
@@ -288,28 +290,24 @@ Suppose modifiers for `repo//foo:bar` are specified as follows.
 ```python
 # repo/PACKAGE
 
-cfg_modifiers({
-  "cfg//os:_": "cfg//:linux",
-  "cfg//compiler:_": modifier_select({
+set_cfg_modifiers(modifiers = [
+  "cfg//:linux",
+  modifier_select({
     "DEFAULT": "cfg//compiler:clang",
     "cfg//os:windows": "cfg//compiler:msvc",
-  })
-})
+  }),
+])
 
 # repo/foo/PACKAGE
 
-cfg_modifiers({
-  "cfg//os:_": "cfg//os:macos",
-})
+set_cfg_modifiers(modifiers = ["cfg//os:macos"])
 
 # repo/foo/BUCK
 
 python_binary(
   name = "bar",
   # ...
-  cfg_modifiers = {
-    "cfg//os:_": "cfg//os:windows",
-  },
+  metadata = {"buck.cfg_modifiers": ["cfg//os:windows"]},
 )
 ```
 
@@ -377,17 +375,17 @@ An example using `rule_select` and `host_select` is as follows.
 # always be building for apple/android as OS, no matter the host
 # configuration.
 
-cfg_modifiers({
-  "cfg//os:_": rule_select({
+set_cfg_modifiers(modifiers = [
+  rule_select({
     "apple_.*": "cfg//os:iphone",
     "android_.*": "cfg//os:android",
     "DEFAULT": host_select({
       "cfg//os:linux": "cfg//os:linux",
       "cfg//os:macos": "cfg//os:macos",
       "cfg//os:windows": "cfg//os:windows",
-    })
-  })
-})
+    }),
+  }),
+])
 ```
 
 On select resolution, Buck's `select` currently requires unambiguous keys in the
