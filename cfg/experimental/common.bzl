@@ -120,7 +120,15 @@ def get_modifier_info(
             selector = modifier_selector_info,
         )
     if isinstance(modifier, str):
-        constraint_value_info = refs[modifier][ConstraintValueInfo]
+        modifier_info = refs[modifier]
+        if ConstraintValueInfo in modifier_info:
+            # In practice, every target with a ConstraintValueInfo also has a ConfigurationInfo,
+            # so this is just a small optimization for targets with ConstraintValueInfo.
+            constraint_value_info = modifier_info[ConstraintValueInfo]
+            return constraint_value_info.setting.label, constraint_value_info
+        cfg_info = modifier_info[ConfigurationInfo]
+        asserts.true(len(cfg_info.constraints) == 1, "Modifier should only be a single constraint value. Found multiple in `{}`".format(modifier))
+        constraint_value_info = list(cfg_info.constraints.values())[0]
         return constraint_value_info.setting.label, constraint_value_info
     fail("Internal error: Found unexpected modifier `{}` type `{}`".format(modifier, type(modifier)))
 
