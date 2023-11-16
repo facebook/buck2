@@ -5,9 +5,10 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(":common.bzl", "get_tagged_modifiers", "tagged_modifiers_to_json")
-load(":set_cfg_constructor.bzl", "MODIFIER_METADATA_KEY")
-load(":types.bzl", "Modifier", "ModifierPackageLocation")
+load("@fbsource//tools/build_defs/buck2:is_buck2.bzl", "is_buck2")
+load(":common.bzl?v2_only", "get_tagged_modifiers", "tagged_modifiers_to_json")
+load(":set_cfg_constructor.bzl?v2_only", "MODIFIER_METADATA_KEY")
+load(":types.bzl?v2_only", "Modifier", "ModifierPackageLocation")
 
 def set_cfg_modifiers(modifiers: list[Modifier]):
     """
@@ -23,6 +24,12 @@ def set_cfg_modifiers(modifiers: list[Modifier]):
             For example, to change the OS to linux in fbsource, this can be specified as "ovr_config//os/constraints:linux".
             TODO(scottcao): Add support for modifier select types.
     """
+    if not is_buck2():
+        return
+
+    # Make this buck1-proof
+    write_package_value = getattr(native, "write_package_value", None)
+    read_parent_package_value = getattr(native, "read_parent_package_value", None)
 
     merged_modifier_jsons = read_parent_package_value(MODIFIER_METADATA_KEY)
 
@@ -41,9 +48,17 @@ def set_cfg_modifiers(modifiers: list[Modifier]):
         overwrite = True,
     )
 
+_BUCK1_COMPAT_STR = "Internal error: Modifiers are for buck2 only"
+
 def _get_package_path() -> str:
     """
     Returns the cell-relative path of the current PACKAGE file.
     Ex. `foo//bar/PACKAGE`
     """
+    if not is_buck2():
+        return _BUCK1_COMPAT_STR
+
+    # Make this buck1-proof
+    get_cell_name = getattr(native, "get_cell_name", None)
+    get_base_path = getattr(native, "get_base_path", None)
     return "{}//{}/PACKAGE".format(get_cell_name(), get_base_path())

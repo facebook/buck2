@@ -5,9 +5,10 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(":common.bzl", "verify_normalized_modifier", "verify_normalized_target")
+load("@fbsource//tools/build_defs/buck2:is_buck2.bzl", "is_buck2")
+load(":common.bzl?v2_only", "verify_normalized_modifier", "verify_normalized_target")
 load(
-    ":types.bzl",
+    ":types.bzl?v2_only",
     "Modifier",  # @unused Used in type annotation
     "ModifierSelect",
 )
@@ -63,6 +64,9 @@ def modifier_select(
     })
     ```
     """
+
+    if not is_buck2():
+        return {}
 
     for key, sub_modifier in selector.items():
         if key != "DEFAULT":
