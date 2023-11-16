@@ -24,7 +24,7 @@ load(
 load("@prelude//kotlin:kotlin_library.bzl", "build_kotlin_library")
 
 def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
-    packaging_deps = ctx.attrs.deps + (ctx.attrs.deps_query or []) + ctx.attrs.exported_deps + ctx.attrs.runtime_deps
+    packaging_deps = ctx.attrs.deps + ctx.attrs.exported_deps + ctx.attrs.runtime_deps
     if ctx.attrs._build_only_native_code:
         shared_library_info, cxx_resource_info, linkable_graph = create_native_providers(ctx, ctx.label, packaging_deps)
         return [
@@ -87,7 +87,7 @@ def _get_dummy_r_dot_java(
         ctx: AnalysisContext) -> ([Artifact, None], [AndroidLibraryIntellijInfo, None]):
     android_resources = dedupe([resource for resource in filter(None, [
         x.get(AndroidResourceInfo)
-        for x in ctx.attrs.deps + (ctx.attrs.deps_query or []) + ctx.attrs.provided_deps + (getattr(ctx.attrs, "provided_deps_query", []) or [])
+        for x in ctx.attrs.deps + ctx.attrs.provided_deps + (getattr(ctx.attrs, "provided_deps_query", []) or [])
     ]) if resource.res != None])
     if len(android_resources) == 0:
         return (None, None)

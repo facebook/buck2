@@ -730,7 +730,6 @@ android_library = prelude_rule(
         jvm_common.exported_deps() |
         jvm_common.provided_deps() |
         jvm_common.exported_provided_deps() |
-        buck.deps_query_arg() |
         buck.provided_deps_query_arg() |
         jvm_common.abi_generation_mode() |
         jvm_common.source_only_abi_deps() |
@@ -1396,7 +1395,6 @@ robolectric_test = prelude_rule(
             "default_cxx_platform": attrs.option(attrs.string(), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
-            "deps_query": attrs.option(attrs.query(), default = None),
             "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
             "exported_deps": attrs.list(attrs.dep(), default = []),
             "exported_provided_deps": attrs.list(attrs.dep(), default = []),
