@@ -109,7 +109,7 @@ pub struct TargetInfo {
     #[serde(rename = "crate")]
     pub crate_name: Option<String>,
     pub crate_root: Option<PathBuf>,
-    #[serde(rename = "deps", alias = "buck.direct_dependencies", default)]
+    #[serde(rename = "buck.deps", alias = "buck.direct_dependencies", default)]
     pub deps: Vec<Target>,
     pub tests: Vec<Target>,
     // Optional set of renamed crates. in buck2, these are not unified with

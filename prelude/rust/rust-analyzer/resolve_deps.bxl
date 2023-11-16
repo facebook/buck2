@@ -5,6 +5,9 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//linking:link_info.bzl", "LinkStyle")
+load("@prelude//rust:link_info.bzl", "RustLinkInfo")
+
 def materialize(ctx, target):
     analysis = ctx.analysis(target)
     sources = analysis.providers()[DefaultInfo].sub_targets["sources"][DefaultInfo].default_outputs[0]
@@ -89,27 +92,18 @@ def cquery_deps(ctx, top_targets, workspaces):
 def expand_proc_macros(ctx, targets):
     target_universe = ctx.target_universe(targets).target_set()
     targets = ctx.cquery().deps(target_universe)
-    outputs = ctx.cquery().kind("^(configured_alias)$", targets)
+    targets = ctx.cquery().kind("^(rust_binary|rust_library)$", targets)
 
     out = {}
-    for alias in outputs:
-        cfg_actual = alias.resolved_attrs_eager(ctx).actual
-        actual = ctx.cquery().kind("rust_library", cfg_actual.raw_target())
-
-        # if a `configured_alias` has a single `configured_actual` that corresponds to
-        # a rust library, then that is probably the resolved library, but we'll
-        # double-check to make sure it's a proc macro.
-        if len(actual) == 1:
-            if actual[0].attrs_eager().proc_macro:
-                out[alias.label] = actual[0]
-
-    macros = {}
-    for (alias, actual) in out.items():
-        analysis = ctx.analysis(actual.label.raw_target())
-        so = analysis.providers()[DefaultInfo].sub_targets["shared"][DefaultInfo].default_outputs[0]
-        macros[alias] = {"actual": actual.label, "dylib": ctx.output.ensure(so).abs_path()}
-
-    return macros
+    for target in targets:
+        attrs = target.resolved_attrs_eager(ctx)
+        proc_macro = getattr(attrs, "proc_macro", False)
+        if proc_macro:
+            analysis = ctx.analysis(target)
+            rlib = analysis.providers()[RustLinkInfo].styles[LinkStyle("shared")].rlib
+            label = target.label.raw_target()
+            out[label] = {"actual": label, "dylib": ctx.output.ensure(rlib).abs_path()}
+    return out
 
 # Returns a list of all the expanded targets including any workspaces, followed by just the workspaces
 def expand_targets(ctx, targets):
