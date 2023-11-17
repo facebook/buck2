@@ -596,8 +596,13 @@ mod tests {
             cmd
         };
 
-        let (_status, stdout, _stderr) =
-            gather_output(cmd, timeout_into_cancellation(Some(Duration::from_secs(1)))).await?;
+        // On windows we need more time to run powershell
+        let timeout = if cfg!(windows) { 5 } else { 1 };
+        let (_status, stdout, _stderr) = gather_output(
+            cmd,
+            timeout_into_cancellation(Some(Duration::from_secs(timeout))),
+        )
+        .await?;
         let out = str::from_utf8(&stdout)?;
         let pids: Vec<&str> = out.split('\n').collect();
         let ppid = Pid::from_str(pids.first().context("no ppid")?.trim())?;
