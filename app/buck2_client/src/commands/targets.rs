@@ -169,13 +169,13 @@ pub struct TargetsCommand {
 
     /// Show the package values. Produces an additional attribute representing all the package values
     /// for the package containing the target.
-    #[clap(long, conflicts_with = "package_values_regex")]
+    #[clap(long, conflicts_with = "package-values-regex")]
     package_values: bool,
 
     /// Regular expressions to match package values. Produces an additional attribute representing package values
     /// for the package containing the target. Regular expressions are used in "search" mode so,
     /// for example, empty string matches all package values.
-    #[clap(long, value_name = "VALUES", conflicts_with = "package_values")]
+    #[clap(long, value_name = "VALUES", conflicts_with = "package-values")]
     package_values_regex: Vec<String>,
 
     /// File to put the output in, rather than sending to stdout.
