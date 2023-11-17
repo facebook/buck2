@@ -27,6 +27,7 @@ impl WhatFailedCommand {
         WhatRanCommand {
             common: self.common,
             failed: true,
+            incomplete: false,
         }
         .exec(matches, ctx)
     }

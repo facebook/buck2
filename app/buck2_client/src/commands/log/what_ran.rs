@@ -60,8 +60,14 @@ pub struct WhatRanCommand {
     pub common: WhatRanCommandCommon,
 
     /// Show only commands that failed
-    #[clap(long)]
+    #[clap(long, conflicts_with = "incomplete")]
     pub failed: bool,
+
+    /// Show only commands that were not completed.
+    /// That is command were running if buck2 process was killed,
+    /// or command currently running if buck2 is running build now.
+    #[clap(long)]
+    pub incomplete: bool,
 }
 
 #[derive(Debug, clap::Parser)]
@@ -87,6 +93,9 @@ struct WhatRanCommandOptions {
 
     /// Print commands only if they failed.
     failed: bool,
+
+    /// Print commands only if they did not finish.
+    incomplete: bool,
 }
 
 impl WhatRanCommand {
@@ -99,6 +108,7 @@ impl WhatRanCommand {
                     options,
                 },
             failed,
+            incomplete,
         } = self;
         buck2_client_ctx::stdio::print_with_writer::<anyhow::Error, _>(|w| {
             let mut output = transform_format(output, w);
@@ -113,7 +123,11 @@ impl WhatRanCommand {
                     invocation.display_command_line()
                 )?;
 
-                let options = WhatRanCommandOptions { options, failed };
+                let options = WhatRanCommandOptions {
+                    options,
+                    failed,
+                    incomplete,
+                };
                 WhatRanCommandState::execute(events, &mut output, &options).await?;
 
                 anyhow::Ok(())
@@ -257,7 +271,7 @@ fn should_emit_finished_action(
     data: &Option<buck2_data::span_end_event::Data>,
     options: &WhatRanCommandOptions,
 ) -> bool {
-    if options.options.incomplete {
+    if options.incomplete {
         return false;
     }
 
