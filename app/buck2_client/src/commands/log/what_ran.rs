@@ -227,7 +227,7 @@ impl WhatRanCommandState {
                     if let Some(entry) =
                         self.known_actions.remove(&SpanId::from_u64(event.span_id)?)
                     {
-                        if should_emit_immediately(&span.data, options) {
+                        if should_emit_finished_action(&span.data, options) {
                             entry.emit_reproducers(output, options)?;
                         }
                     }
@@ -251,7 +251,7 @@ impl WhatRanCommandState {
     }
 }
 
-fn should_emit_immediately(
+fn should_emit_finished_action(
     data: &Option<buck2_data::span_end_event::Data>,
     options: &WhatRanCommandOptions,
 ) -> bool {
@@ -263,7 +263,8 @@ fn should_emit_immediately(
         Some(buck2_data::span_end_event::Data::ActionExecution(action)) => {
             action.failed || !options.failed
         }
-        _ => !options.failed,
+        _ => !options.failed, // This is dead code (this span can only be ActionExecution End given
+                              // its ID must match an ActionExecution start).
     }
 }
 
