@@ -245,7 +245,9 @@ impl WhatRanCommandState {
         options: &WhatRanCommandOptions,
     ) -> anyhow::Result<()> {
         for (_, entry) in self.known_actions.iter() {
-            entry.emit_reproducers(output, options)?;
+            if should_emit_unfinished_action(options) {
+                entry.emit_reproducers(output, options)?;
+            }
         }
         Ok(())
     }
@@ -266,6 +268,10 @@ fn should_emit_finished_action(
         _ => !options.failed, // This is dead code (this span can only be ActionExecution End given
                               // its ID must match an ActionExecution start).
     }
+}
+
+fn should_emit_unfinished_action(options: &WhatRanCommandOptions) -> bool {
+    !options.failed // We don't know if it failed or not.
 }
 
 /// An output that writes to stdout in a tabulated format.
