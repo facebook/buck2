@@ -7,16 +7,12 @@
 
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
-load(
-    ":debug.bzl",
-    "AppleDebugInfo",  # @unused Used as a type
-)
 
 DSYM_SUBTARGET = "dsym"
 DSYM_INFO_SUBTARGET = "dsym-info"
 DWARF_AND_DSYM_SUBTARGET = "dwarf-and-dsym"
 
-def get_apple_dsym(ctx: AnalysisContext, executable: Artifact, debug_info: list[AppleDebugInfo], action_identifier: str, output_path_override: [str, None] = None) -> Artifact:
+def get_apple_dsym(ctx: AnalysisContext, executable: Artifact, debug_info: list[ArgLike], action_identifier: str, output_path_override: [str, None] = None) -> Artifact:
     output_path = output_path_override or "{}.dSYM".format(executable.short_path)
     return get_apple_dsym_ext(ctx, executable, debug_info, action_identifier, output_path)
 
@@ -24,7 +20,7 @@ def get_apple_dsym(ctx: AnalysisContext, executable: Artifact, debug_info: list[
 # - pass in dsymutil_extra_flags
 # - oso_prefix
 # - dsym_verification
-def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, Artifact], debug_info: list[AppleDebugInfo], action_identifier: str, output_path: str) -> Artifact:
+def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, Artifact], debug_info: list[ArgLike], action_identifier: str, output_path: str) -> Artifact:
     dsymutil = ctx.attrs._apple_toolchain[AppleToolchainInfo].dsymutil
     output = ctx.actions.declare_output(output_path, dir = True)
 
