@@ -37,6 +37,7 @@ rust_library(
     ],
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
+        "fbsource//third-party/rust:sysinfo",
         "fbsource//third-party/rust:tempfile",
         "fbsource//third-party/rust:tokio-stream",
     ],

@@ -438,6 +438,7 @@ where
 #[cfg(test)]
 mod tests {
     use std::str;
+    use std::str::FromStr;
     use std::sync::Arc;
     use std::sync::Mutex;
     use std::time::Instant;
@@ -575,45 +576,44 @@ mod tests {
 
     #[tokio::test]
     async fn test_kill_terminates_process_group() -> anyhow::Result<()> {
-        let tempdir = tempfile::tempdir()?;
-        let tempfile_buffer = tempdir.path().join("stdout");
-        let tempfile = tempfile_buffer.as_path();
-        let tempfile_string = match tempfile.to_str() {
-            None => Err(anyhow::anyhow!("Failed to create temporary file string")),
-            Some(s) => Ok(s),
-        }?;
+        use sysinfo::Pid;
+        use sysinfo::ProcessExt;
+        use sysinfo::System;
+        use sysinfo::SystemExt;
 
         let cmd = if cfg!(windows) {
             let mut cmd = background_command("powershell");
             cmd.args([
                 "-c",
-                &("Start-Process -FilePath \"powershell\" -NoNewWindow -ArgumentList \
-                \"&(Get-Process -Id $PID).Path { Sleep 10; echo \"hello\" > "
-                    .to_owned()
-                    + tempfile_string
-                    + "}\""),
+                "echo $PID; Start-Process -FilePath \"powershell\" -Wait -NoNewWindow -ArgumentList \
+                'echo $PID; Sleep 1000'",
             ]);
             cmd
         } else {
             let mut cmd = background_command("sh");
             cmd.arg("-c")
-                .arg("( ( sleep 10 && echo \"hello\" > ".to_owned() + tempfile_string + " ) )");
+                .arg("( ( echo $PPID && echo $$ && sleep 1000 ) )");
             cmd
         };
-        let timeout = if cfg!(windows) { 5 } else { 1 };
-        let (_status, _stdout, _stderr) = gather_output(
-            cmd,
-            timeout_into_cancellation(Some(Duration::from_secs(timeout))),
-        )
-        .await?;
 
-        tokio::time::sleep(Duration::from_secs(15)).await;
+        let (_status, stdout, _stderr) =
+            gather_output(cmd, timeout_into_cancellation(Some(Duration::from_secs(1)))).await?;
+        let out = str::from_utf8(&stdout)?;
+        let pids: Vec<&str> = out.split('\n').collect();
+        let ppid = Pid::from_str(pids.first().context("no ppid")?.trim())?;
+        let pid = Pid::from_str(pids.get(1).context("no pid")?.trim())?;
+        let sys = System::new_all();
 
-        if Path::exists(tempfile) {
-            Err(anyhow::anyhow!("Subprocess was not killed"))
-        } else {
-            Ok(())
+        // we want to check if existed process doesn't have the same parent because of pid reuse
+        if let Some(process) = sys.process(pid) {
+            if let Some(parent) = process.parent() {
+                if parent != ppid {
+                    return Ok(());
+                }
+            }
+            return Err(anyhow::anyhow!("PID still exits: {}", pid));
         }
+        Ok(())
     }
 
     #[tokio::test]
