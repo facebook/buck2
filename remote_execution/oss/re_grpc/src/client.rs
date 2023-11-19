@@ -1225,7 +1225,7 @@ where
     Ok(UploadResponse {})
 }
 
-fn with_re_metadata<T>(t: T, _metadata: RemoteExecutionMetadata) -> tonic::Request<T> {
+fn with_re_metadata<T>(t: T, metadata: RemoteExecutionMetadata) -> tonic::Request<T> {
     // This creates a new Tonic request with attached metadata for the RE
     // backend. There are two cases here we need to support:
     //
@@ -1269,22 +1269,21 @@ fn with_re_metadata<T>(t: T, _metadata: RemoteExecutionMetadata) -> tonic::Reque
                 // meaningful numbers exists...
                 tool_version: "0.1.0-PRERELEASE".to_owned(),
             }),
-            action_id: "".to_owned(),
-            tool_invocation_id: "".to_owned(),
+            action_id: "".to_owned(),// metadata.host_resource_requirements.map_or(String::new(), |rr| rr.affinity_keys.join(",")),
+            tool_invocation_id: metadata.buck_info.map_or(String::new(), |buck_info| buck_info.build_id),
             correlated_invocations_id: "".to_owned(),
             action_mnemonic: "".to_owned(),
             target_id: "".to_owned(),
             configuration_id: "".to_owned(),
         }
         .encode(&mut encoded)
-        .unwrap();
+        .expect("Encoding into a Vec cannot not fail");
 
         msg.metadata_mut()
             .insert_bin(
                 "build.bazel.remote.execution.v2.requestmetadata-bin",
                 MetadataValue::from_bytes(&encoded),
-            )
-            .unwrap();
+            );
     };
 
     // Now, in contrast, for builds inside fbcode, we need to set our own
@@ -1313,11 +1312,10 @@ fn with_re_metadata<T>(t: T, _metadata: RemoteExecutionMetadata) -> tonic::Reque
             use_case_id: Some(_metadata.use_case_id),
         }
         .encode(&mut encoded)
-        .unwrap();
+        .expect("Encoding into a Vec cannot not fail");
 
         msg.metadata_mut()
-            .insert_bin("re-metadata-bin", MetadataValue::from_bytes(&encoded))
-            .unwrap();
+            .insert_bin("re-metadata-bin", MetadataValue::from_bytes(&encoded));
     };
 
     // El fin

@@ -8,7 +8,8 @@
  */
 
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
-use remote_execution::RemoteExecutionMetadata;
+use buck2_events::dispatch::get_dispatcher;
+use remote_execution::{BuckInfo, RemoteExecutionMetadata};
 
 pub trait RemoteExecutionMetadataExt {
     fn metadata(&self) -> RemoteExecutionMetadata;
@@ -16,8 +17,13 @@ pub trait RemoteExecutionMetadataExt {
 
 impl RemoteExecutionMetadataExt for RemoteExecutorUseCase {
     fn metadata(&self) -> RemoteExecutionMetadata {
+        let trace_id = get_dispatcher().trace_id().to_owned();
         RemoteExecutionMetadata {
             use_case_id: self.as_str().to_owned(),
+            buck_info: Some(BuckInfo{
+                build_id: trace_id.to_string(),
+                ..Default::default()
+            }),
             ..Default::default()
         }
     }
