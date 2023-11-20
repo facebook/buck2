@@ -1261,15 +1261,10 @@ fn with_re_metadata<T>(t: T, metadata: RemoteExecutionMetadata) -> tonic::Reques
         RequestMetadata {
             tool_details: Some(ToolDetails {
                 tool_name: "buck2".to_owned(),
-                // TODO FIXME (aseipp): In theory we could use CARGO_PKG_VERSION
-                // for this from the environment, but then what do we do with
-                // cfg(buck_oss_build) builds? Honestly we need to think through
-                // the release management to answer that, and this maybe is best
-                // handled later once an open, public release schedule with
-                // meaningful numbers exists...
-                tool_version: "0.1.0-PRERELEASE".to_owned(),
+                // TODO FIXME pull the BuckVersion::get_unique_id() from BuckDaemon
+                tool_version: "0.1.0".to_owned(), // BuckVersion::get_unique_id(),
             }),
-            action_id: "".to_owned(),// metadata.host_resource_requirements.map_or(String::new(), |rr| rr.affinity_keys.join(",")),
+            action_id: metadata.host_resource_requirements.map_or(String::new(), |rr| rr.affinity_keys.join(",")),
             tool_invocation_id: metadata.buck_info.map_or(String::new(), |buck_info| buck_info.build_id),
             correlated_invocations_id: "".to_owned(),
             action_mnemonic: "".to_owned(),

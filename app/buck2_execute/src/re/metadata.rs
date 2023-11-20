@@ -9,7 +9,8 @@
 
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_events::dispatch::get_dispatcher;
-use remote_execution::{BuckInfo, RemoteExecutionMetadata};
+use remote_execution::{ActionHistoryInfo, BuckInfo, HostResourceRequirements, RemoteExecutionMetadata};
+use crate::re::action_identity::ReActionIdentity;
 
 pub trait RemoteExecutionMetadataExt {
     fn metadata(&self) -> RemoteExecutionMetadata;
@@ -27,4 +28,17 @@ impl RemoteExecutionMetadataExt for RemoteExecutorUseCase {
             ..Default::default()
         }
     }
+}
+
+pub fn apply_identity(identity: &ReActionIdentity, metadata: &mut RemoteExecutionMetadata) {
+    metadata.action_history_info = Some(ActionHistoryInfo {
+        action_key: identity.action_key.clone(),
+        disable_retry_on_oom: false,
+        ..Default::default()
+    });
+    metadata.host_resource_requirements = Some(HostResourceRequirements {
+        affinity_keys: vec![identity.affinity_key.clone()],
+        input_files_bytes: identity.paths.input_files_bytes() as i64,
+        ..Default::default()
+    });
 }

@@ -33,7 +33,6 @@ use gazebo::prelude::*;
 use itertools::Itertools;
 use prost::Message;
 use remote_execution as RE;
-use remote_execution::ActionHistoryInfo;
 use remote_execution::ActionResultRequest;
 use remote_execution::ActionResultResponse;
 use remote_execution::BuckInfo;
@@ -42,7 +41,6 @@ use remote_execution::ExecuteRequest;
 use remote_execution::ExecuteResponse;
 use remote_execution::ExecuteWithProgressResponse;
 use remote_execution::GetDigestsTtlRequest;
-use remote_execution::HostResourceRequirements;
 use remote_execution::InlinedBlobWithDigest;
 use remote_execution::NamedDigest;
 use remote_execution::NamedDigestWithPermissions;
@@ -72,7 +70,7 @@ use crate::knobs::ExecutorGlobalKnobs;
 use crate::materialize::materializer::Materializer;
 use crate::re::action_identity::ReActionIdentity;
 use crate::re::convert::platform_to_proto;
-use crate::re::metadata::RemoteExecutionMetadataExt;
+use crate::re::metadata::{apply_identity, RemoteExecutionMetadataExt};
 use crate::re::stats::OpStats;
 use crate::re::stats::RemoteExecutionClientOpStats;
 use crate::re::stats::RemoteExecutionClientStats;
@@ -205,6 +203,7 @@ impl RemoteExecutionClient {
         dir_path: &ProjectRelativePath,
         input_dir: &ActionImmutableDirectory,
         use_case: RemoteExecutorUseCase,
+        identity: Option<&ReActionIdentity<'_>>,
         digest_config: DigestConfig,
     ) -> anyhow::Result<UploadStats> {
         self.data
@@ -219,6 +218,7 @@ impl RemoteExecutionClient {
                     dir_path,
                     input_dir,
                     use_case,
+                    identity,
                     digest_config,
                 )
                 .map_err(|e| self.decorate_error(e)))
@@ -294,6 +294,7 @@ impl RemoteExecutionClient {
 
     pub async fn download_typed_blobs<T: Message + Default>(
         &self,
+        identity: Option<&ReActionIdentity<'_>>,
         digests: Vec<TDigest>,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<Vec<T>> {
@@ -302,7 +303,7 @@ impl RemoteExecutionClient {
             .op(self
                 .data
                 .client
-                .download_typed_blobs(digests, use_case)
+                .download_typed_blobs(identity, digests, use_case)
                 .map_err(|e| self.decorate_error(e)))
             .await
     }
@@ -727,6 +728,7 @@ impl RemoteExecutionClientImpl {
         dir_path: &ProjectRelativePath,
         input_dir: &ActionImmutableDirectory,
         use_case: RemoteExecutorUseCase,
+        identity: Option<&ReActionIdentity<'_>>,
         digest_config: DigestConfig,
     ) -> anyhow::Result<UploadStats> {
         // Actually upload to CAS
@@ -739,6 +741,7 @@ impl RemoteExecutionClientImpl {
             input_dir,
             blobs,
             use_case,
+            identity,
             digest_config,
         )
         .await
@@ -955,17 +958,7 @@ impl RemoteExecutionClientImpl {
         re_max_queue_time: Option<Duration>,
         knobs: &ExecutorGlobalKnobs,
     ) -> anyhow::Result<ExecuteResponseOrCancelled> {
-        let metadata = RemoteExecutionMetadata {
-            action_history_info: Some(ActionHistoryInfo {
-                action_key: identity.action_key.clone(),
-                disable_retry_on_oom: false,
-                ..Default::default()
-            }),
-            host_resource_requirements: Some(HostResourceRequirements {
-                affinity_keys: vec![identity.affinity_key.clone()],
-                input_files_bytes: identity.paths.input_files_bytes() as i64,
-                ..Default::default()
-            }),
+        let mut metadata = RemoteExecutionMetadata {
             platform: Some(re_platform(platform)),
             do_not_cache: skip_cache_write,
             buck_info: Some(BuckInfo {
@@ -985,6 +978,7 @@ impl RemoteExecutionClientImpl {
                 .collect(),
             ..use_case.metadata()
         };
+        apply_identity(identity, &mut metadata);
         let request = ExecuteRequest {
             skip_cache_lookup: self.skip_remote_cache || skip_cache_read,
             execution_policy: Some(TExecutionPolicy::default()),
@@ -1008,6 +1002,7 @@ impl RemoteExecutionClientImpl {
     /// If fetching or decoding fails for one or more digests, returns an Err.
     async fn download_typed_blobs<T: Message + Default>(
         &self,
+        identity: Option<&ReActionIdentity<'_>>,
         digests: Vec<TDigest>,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<Vec<T>> {
@@ -1015,11 +1010,15 @@ impl RemoteExecutionClientImpl {
             return Ok(Vec::new());
         }
         let expected_blobs = digests.len();
+        let mut mtd = use_case.metadata();
+        if let Some(identity) = identity {
+            apply_identity(identity, &mut mtd);
+        }
         let response = self
             .client()
             .get_cas_client()
             .download(
-                use_case.metadata(),
+                mtd,
                 DownloadRequest {
                     inlined_digests: Some(digests),
                     ..Default::default()

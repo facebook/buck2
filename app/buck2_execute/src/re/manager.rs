@@ -344,6 +344,7 @@ impl ManagedRemoteExecutionClient {
         dir_path: &ProjectRelativePath,
         input_dir: &ActionImmutableDirectory,
         use_case: RemoteExecutorUseCase,
+        identity: Option<&ReActionIdentity<'_>>,
         digest_config: DigestConfig,
     ) -> anyhow::Result<UploadStats> {
         self.lock()?
@@ -356,6 +357,7 @@ impl ManagedRemoteExecutionClient {
                 dir_path,
                 input_dir,
                 use_case,
+                identity,
                 digest_config,
             )
             .await
@@ -425,13 +427,14 @@ impl ManagedRemoteExecutionClient {
 
     pub async fn download_typed_blobs<T: Message + Default>(
         &self,
+        identity: Option<&ReActionIdentity<'_>>,
         digests: Vec<TDigest>,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<Vec<T>> {
         self.lock()?
             .get()
             .await?
-            .download_typed_blobs(digests, use_case)
+            .download_typed_blobs(identity, digests, use_case)
             .await
     }
 

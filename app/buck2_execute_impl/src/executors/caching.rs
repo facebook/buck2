@@ -388,6 +388,7 @@ impl CacheUploader {
                         ..Default::default()
                     });
 
+                    let identity = None; //TODO: implement this
                     let fut = async move {
                         self.re_client
                             .upload(
@@ -397,6 +398,7 @@ impl CacheUploader {
                                 output.path(),
                                 &d.dupe().as_immutable(),
                                 self.re_use_case,
+                                identity,
                                 digest_config,
                             )
                             .await

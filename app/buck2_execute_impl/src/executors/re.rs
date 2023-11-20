@@ -34,7 +34,6 @@ use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionResult;
-use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::action_identity::ReActionIdentity;
@@ -80,6 +79,7 @@ impl ReExecutor {
     async fn upload(
         &self,
         manager: CommandExecutionManager,
+        identity: &ReActionIdentity<'_>,
         blobs: &ActionBlobs,
         paths: &CommandExecutionPaths,
         digest_config: DigestConfig,
@@ -95,6 +95,7 @@ impl ReExecutor {
                     ProjectRelativePath::empty(),
                     paths.input_directory(),
                     self.re_use_case,
+                    Some(identity),
                     digest_config,
                 )
                 .await;
@@ -122,7 +123,7 @@ impl ReExecutor {
     async fn re_execute(
         &self,
         mut manager: CommandExecutionManager,
-        action: &dyn CommandExecutionTarget,
+        identity: &ReActionIdentity<'_>,
         request: &CommandExecutionRequest,
         action_digest: &ActionDigest,
         digest_config: DigestConfig,
@@ -134,9 +135,6 @@ impl ReExecutor {
             request.all_args_str(),
             action_digest,
         );
-
-        let identity =
-            ReActionIdentity::new(action, self.re_action_key.as_deref(), request.paths());
 
         let execute_response = self
             .re_client
@@ -222,7 +220,7 @@ impl ReExecutor {
                     "re_timeout_exceeded",
                     anyhow::anyhow!(
                         "Command {} exceeded its timeout (ran for {}s, timeout was {}s)",
-                        action.re_action_key(),
+                        &identity.action_key,
                         execution_time.as_secs(),
                         timeout.as_secs(),
                     )
@@ -276,10 +274,14 @@ impl PreparedCommandExecutor for ReExecutor {
             )?;
         }
 
+        let identity =
+            ReActionIdentity::new(*target, self.re_action_key.as_deref(), request.paths());
+
         // TODO(bobyf, torozco): remote execution probably needs to explicitly handle cancellations
         let manager = self
             .upload(
                 manager,
+                &identity,
                 &action_and_blobs.blobs,
                 request.paths(),
                 *digest_config,
@@ -289,7 +291,7 @@ impl PreparedCommandExecutor for ReExecutor {
         let (manager, response) = self
             .re_execute(
                 manager,
-                *target,
+                &identity,
                 request,
                 &action_and_blobs.action,
                 *digest_config,
@@ -305,6 +307,7 @@ impl PreparedCommandExecutor for ReExecutor {
             self.re_use_case,
             *digest_config,
             manager,
+            &identity,
             buck2_data::ReStage {
                 stage: Some(buck2_data::ReDownload {}.into()),
             }
