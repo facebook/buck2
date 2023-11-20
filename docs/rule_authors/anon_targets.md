@@ -138,7 +138,7 @@ def _silly_compilation_impl(ctx):
         ctx.attrs.src,
         "-o",
         out.as_output(),
-    ))
+    ), category = "compile")
     return [DefaultInfo(), _SillyCompilation(compiled = out)]
 
 _silly_compilation = rule(
@@ -159,7 +159,7 @@ def _silly_binary_impl(ctx):
             objs,
             "-o",
             out.as_output(),
-        ))
+        ), category = "link")
         return [
             DefaultInfo(default_output = out),
             RunInfo(args = out),
@@ -171,7 +171,7 @@ def _silly_binary_impl(ctx):
             "src": src,
             "toolchain": ctx.attrs._silly_toolchain
         }) for src in ctx.attrs.srcs]
-    ).map(k)
+    ).promise.map(k)
 
 silly_binary = rule(
     impl = _silly_binary_impl,
