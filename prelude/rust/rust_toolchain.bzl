@@ -65,9 +65,6 @@ rust_toolchain_attrs = {
     "failure_filter": provider_field(bool, default = False),
     # The Rust compiler (rustc)
     "compiler": provider_field(RunInfo | None, default = None),
-    # A Rust compiler that can be used "standalone", without special settings
-    # from Rust rules (e.g. this keeps the default sysroot).
-    "compiler_standalone": provider_field(RunInfo | None, default = None),
     # Rust documentation extractor (rustdoc)
     "rustdoc": provider_field(RunInfo | None, default = None),
     # Clippy (linter) version of the compiler
