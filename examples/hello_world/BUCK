@@ -7,7 +7,7 @@ cxx_binary(
 
 cxx_library(
     name = "print",
-    srcs = glob(["**/*.cpp"]),
+    srcs = ["library.cpp"],
     exported_headers = glob(["**/*.hpp"]),
     visibility = ["PUBLIC"],
 )
