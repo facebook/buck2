@@ -80,3 +80,18 @@ memory) when your machine ran out of memory.
 
 You can also use the `--after <millis>` option to see all open spans at a
 certain point in time of the build.
+
+## Why does my target not have any outputs?
+
+If you see that your build succeeded, but the console message stated that your
+target did not have any outputs, this means that the underlying rule did not
+declare any outputs artifacts, defined as outputs declared in:
+
+- `default_outputs` and/or `other_outputs` in `DefaultInfo`
+- `cmd_args` in `RunInfo`
+- `cmd_args` inside the `command` in `ExternalRunnerTestInfo`
+
+For example, building a target which is uses a `python_library` rule merely
+groups source files together, and does not generate any output artifacts such as
+a python executable. You would need to build a `python_binary` which uses that
+library in order to get an output.
