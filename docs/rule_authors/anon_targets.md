@@ -37,6 +37,208 @@ analysis (which is passed in, or after looking at an anon target). In many ways,
 anon target is the version of `dynamic_output` at analysis time, rather than
 action time.
 
+The execution platform for an anon target is that of the inherited from the
+calling target, which is part of the hash. If that is too restrictive, you could
+use execution groups, where an anon target gets told which execution group to
+use.
+
+# Creating anon targets
+
+## Anon rule
+
+An anonymous rule is defined using `rule` or `anon_rule`.
+
+Example:
+
+```python
+my_anon_rule = rule(
+    impl = _anon_impl,
+    attrs = {},
+)
+
+# Or:
+
+my_anon_rule = anon_rule(
+    impl = _anon_impl,
+    attrs = {},
+    artifact_promise_mappings = {} # only available for anon_rule
+)
+```
+
+For `rule`, these are normal rules, with the difference that they are not in a
+configuration, so `ctx.actions.label` won't show configuration information, but
+just `unspecified`.
+
+For `anon_rule`, the configuration restrictions also apply, and there is an
+`artifact_promise_mappings` field which you can specify a dict of artifact
+promise names to the map function, which would be applied to the anon target's
+promise during rule resolution.
+
+## Anon target
+
+An anonymous rule is used via `ctx.actions.anon_target` or
+`ctx.actions.anon_targets`, passing in the rule and the attributes for the rule.
+
+The return values of those functions are a `AnonTarget` and `AnonTargets` type,
+respectively.
+
+Example:
+
+```python
+my_anon_rule1 = anon_rule(
+    impl = _anon_impl,
+    attrs = {},
+    artifact_promise_mappings = {}
+)
+
+my_anon_rule2 = anon_rule(
+    impl = _anon_impl,
+    attrs = {},
+    artifact_promise_mappings = {}
+)
+
+# <elsewhere>
+anon_target = ctx.actions.anon_target(my_anon_rule1, {})
+
+anon_targets = ctx.actions.anon_targets([(my_anon_rule1, {}), (my_anon_rule2, {})])
+```
+
+### `AnonTarget` and `AnonTargets`
+
+`AnonTarget` has a `promise` attribute, and `artifact()` and `artifacts()`
+functions. `AnonTargets` has a `promise` attribute and `anon_targets` attribute.
+
+The `promise` attribute for both types returns the anon target's promise (type
+is `promise`), which when evaluated returns the providers of the anonymous
+target. The `promise` type has a few special behaviors.
+
+- It has a `map` function, which takes a function and applies it to the future,
+  returning a new future
+- All promises will eventually resolve to a list of providers
+
+For `AnonTarget`, the `artifact()` and `artifacts()` functions only return
+something if using `anon_rule`. `artifact()` takes in an artifact name, which
+should be found in the `artifact_promise_mappings` dict, and returns the
+artifact promise. `artifacts()` returns the dict of all promise artifact names
+to the artifact promise itself, as defined in `artifact_promise_mappings`. See
+[Convert promise to artifact](#convert-promise-to-artifact) below for more
+information about artifact promises.
+
+Example:
+
+```python
+HelloInfo = provider(fields = ["output"])
+
+my_anon_rule = anon_rule(
+    impl = _anon_impl,
+    attrs = {},
+    artifact_promise_mappings = {
+        "hello": lambda x: x[HelloInfo].output,
+    }
+)
+
+# <elsewhere>
+anon_target = ctx.actions.anon_target(my_anon_rule, {})
+artifact = anon_target.artifact("hello")
+artifact_from_dict = anon_target.artifacts()["hello"]
+```
+
+For `AnonTargets`, the `anon_targets` attribute returns a list of the underlying
+`AnonTarget`s.
+
+Example:
+
+```python
+HelloInfo = provider(fields = ["output"])
+GoodbyeInfo = provider(fields = ["output"])
+
+my_anon_rule1 = anon_rule(
+    impl = _anon_impl,
+    attrs = {},
+    artifact_promise_mappings = {
+        "hello": lambda x: x[HelloInfo].output,
+    }
+)
+
+my_anon_rule2 = anon_rule(
+    impl = _anon_impl,
+    attrs = {},
+    artifact_promise_mappings = {
+        "goodbye": lambda x: x[GoodbyeInfo].output,
+    }
+)
+
+# <elsewhere>
+all_targets = ctx.actions.anon_targets([(my_anon_rule1, {}), (my_anon_rule2, {})])
+hello = all_targets.anon_targets[0].artifact("hello")
+goodbye = all_targets.anon_targets[1].artifact("goodbye")
+```
+
+# Attributes
+
+Anon targets only support a subset of attributes that normal rules support.
+
+Supported attributes:
+
+- `bool`
+- `int`
+- `str`
+- `enum`
+- `dep`
+  - `deps` attributes do not take strings, but dependencies, already in a
+    configuration
+  - `exec_deps` are available if the passed in `dep`'s execution platform
+    matches
+  - Default `attr.deps` (as used for toolchains) are not permitted, as the
+    default can't express a dependency. They must be passed forward from the
+    caller. that of the anon target's caller
+- `source`
+  - Accepts bound artifacts or promise artifacts
+- `arg`
+  - Can only be used if `anon_target_compatible` is `True` when declaring
+    `attrs.arg` (ex: `attrs.arg(anon_target_compatible = True)`)
+- `label`
+- `list`
+- `tuple`
+- `dict`
+- `one_of`
+- `option`
+
+You can use these attributes like you would in normal rules:
+
+```python
+my_anon_rule = anon_rule(
+    impl = _my_anon_impl,
+    attrs = {
+        "my_int": attrs.int(),
+        "my_string_with_default": attrs.string(default = "foo"),
+        "my_optional_source": attrs.option(attrs.source()),
+        "my_list_of_labels": attrs.list(attrs.label()),
+    },
+    artifact_promise_mappings = {}
+)
+
+def _my_anon_impl(ctx: AnalysisContext) -> list[Provider]:
+    my_int = ctx.attrs.my_int
+    my_string_with_default = ctx.attrs.my_string_with_default
+    my_optional_source = ctx.attrs.my_optional_source
+    my_list_of_labels = ctx.attrs.my_list_of_labels
+
+    # do something with the attributes...
+
+    return [DefaultInfo()]
+```
+
+## Attribute Resolution
+
+Attribute resolution is handled differently from normal code:
+
+- The `name` attribute is optional, but, if present, must be a syntactically
+  valid target, but can refer to a cell/package that does not exist.
+- Transitions and more complex forms of attributes are banned.
+
+# Examples
+
 ## Simple Example
 
 ```python
@@ -65,52 +267,6 @@ def impl(ctx):
     .map(k)
 ```
 
-Notes:
-
-- An anonymous rule is defined using `rule` or `anon_rule`. For `rule`, these
-  are normal rules, with the difference that they are not in a configuration, so
-  `ctx.actions.label` won't show configuration information, but just
-  `unspecified`. For `anon_rule`, the configuration restrictions also apply, and
-  there is an `artifact_promise_mappings` field which you can specify a dict of
-  artifact promise names to the map function, which would be applied to the anon
-  target's promise during rule resolution.
-- An anonymous rule is used via `ctx.actions.anon_target`, passing in the rule
-  and the attributes for the rule.
-- The return value is a `AnonTarget` type, which has a `promise` attribute, and
-  `artifact()` and `artifacts()` functions.
-- The `promise` attribute returns the anon target's promise (type is `promise`),
-  which when evaluated returns the providers of the anonymous target. The
-  `promise` type has a few special behaviors.
-  - It has a `map` function, which takes a function and applies it to the
-    future, returning a new future.
-  - If analysis returns a `promise` type, the outer Rust layer invokes the
-    future to get at the analysis result. If that future then returns another
-    future, Rust keeps going until it has a final result. It must eventually get
-    to a list of providers.
-- Attribute resolution is handled differently from normal code:
-  - String/Int/Bool happen as normal.
-  - The name attribute is optional, but, if present, must be a syntactically
-    valid target, but can refer to a cell/package that does not exist.
-  - Deps attributes do not take strings, but dependencies, already in a
-    configuration.
-  - Exec_deps are available if the passed in dep's execution platform matches
-    that of the anon target's caller.
-  - Transitions and more complex forms of attributes are banned.
-  - Default `attr.deps` (as used for toolchains) are not permitted, as the
-    default can't express a dependency. They must be passed forward from the
-    caller.
-- The `artifact()` and `artifacts()` functions only return something if using
-  `anon_rule`. `artifact()` takes in an artifact name, which should be found in
-  the `artifact_promise_mappings` dict, and returns the artifact promise.
-  `artifacts()` returns the dict of all promise artifact names to the artifact
-  promise itself, as defined in `artifact_promise_mappings`. See
-  [Convert promise to artifact](#convert-promise-to-artifact) below for more
-  information about artifact promises.
-- The execution platform for an anon target is that of the inherited from the
-  calling target, which is part of the hash. If that is too restrictive, you
-  could use execution groups, where an anon target gets told which execution
-  group to use.
-
 ## Longer example
 
 The following code represents a scenario for a compile-and-link language where,
@@ -138,7 +294,7 @@ def _silly_compilation_impl(ctx):
         ctx.attrs.src,
         "-o",
         out.as_output(),
-    ), category = "compile")
+    ))
     return [DefaultInfo(), _SillyCompilation(compiled = out)]
 
 _silly_compilation = rule(
@@ -159,7 +315,7 @@ def _silly_binary_impl(ctx):
             objs,
             "-o",
             out.as_output(),
-        ), category = "link")
+        ))
         return [
             DefaultInfo(default_output = out),
             RunInfo(args = out),
@@ -171,7 +327,7 @@ def _silly_binary_impl(ctx):
             "src": src,
             "toolchain": ctx.attrs._silly_toolchain
         }) for src in ctx.attrs.srcs]
-    ).promise.map(k)
+    ).map(k)
 
 silly_binary = rule(
     impl = _silly_binary_impl,
@@ -187,7 +343,7 @@ silly_binary = rule(
 
 It can be challenging to pass around the promises from anon_target and structure
 functions to support that. If you only need an artifact (or multiple artifacts)
-from an anon_target, you can use `artifacts()` function on the anon target to
+from an anon_target, you can use `artifact()` function on the anon target to
 convert a promise to an artifact. This artifact can be passed to most things
 that expect artifacts, but until it is resolved (at the end of the current
 analysis) it can't be inspected with artifact functions like `.extension`, etc.
@@ -231,5 +387,4 @@ def _use_impl(ctx: AnalysisContext) -> ["provider"]:
 use_promise_artifact = rule(impl = _use_impl, attrs = {
     "some_tool": attr.exec_dep(),
 })
-
 ```
