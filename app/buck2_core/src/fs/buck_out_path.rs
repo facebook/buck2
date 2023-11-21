@@ -93,6 +93,7 @@ impl BuckOutScratchPath {
         owner: BaseDeferredKey,
         category: &Category,
         identifier: Option<&str>,
+        action_key: String,
     ) -> anyhow::Result<Self> {
         const MAKE_SENSIBLE_PREFIX: &str = "_buck_";
         // Windows has MAX_PATH limit (260 chars).
@@ -132,6 +133,7 @@ impl BuckOutScratchPath {
                     // FIXME: Should this be a crypto hasher?
                     let mut hasher = DefaultHasher::new();
                     v.hash(&mut hasher);
+                    action_key.hash(&mut hasher);
                     let output_hash = format!("{}{:x}", MAKE_SENSIBLE_PREFIX, hasher.finish());
                     path.join_normalized(ForwardRelativePath::new(&output_hash)?)?
                 }
@@ -399,6 +401,7 @@ mod tests {
             BaseDeferredKey::TargetLabel(cfg_target.dupe()),
             &category,
             None,
+            "1_2".to_owned(),
         )
         .unwrap();
 
@@ -407,6 +410,7 @@ mod tests {
                 BaseDeferredKey::TargetLabel(cfg_target.dupe()),
                 &category,
                 Some(s),
+                "3_4".to_owned(),
             )
             .unwrap()
             .path

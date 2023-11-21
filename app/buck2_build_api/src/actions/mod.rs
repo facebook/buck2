@@ -338,6 +338,11 @@ impl RegisteredAction {
         self.key.deferred_key().owner()
     }
 
+    /// Gets the action key, uniquely identifying this action in a target.
+    pub fn action_key(&self) -> String {
+        self.key.deferred_key().action_key()
+    }
+
     pub fn key(&self) -> &ActionKey {
         &self.key
     }

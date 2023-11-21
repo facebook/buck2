@@ -48,6 +48,7 @@ impl<'a> ActionExecutionTarget<'a> {
             self.action.owner().dupe(),
             self.action.category(),
             self.action.identifier(),
+            self.action.action_key(),
         )
         .unwrap()
     }
