@@ -72,16 +72,21 @@ list_tests(Suite, Hooks) ->
 %% @doc Test that all the tests in the list are exported.
 -spec test_exported_test(suite(), test_name()) -> error | ok.
 test_exported_test(Suite, Test) ->
-    case erlang:function_exported(Suite, Test, _Arity = 1) of
+    case erlang:function_exported(Suite, Test, 1) of
         false ->
-            error(
-                {invalid_test,
-                    io_lib:format(
-                        "The test ~s has been discovered while recursively exploring all/0, " ++
-                            "groups/0 but is not an exported method of arity 1",
-                        [Test]
-                    )}
-            );
+            case erlang:function_exported(Suite, '$handle_undefined_function', 2) of
+                true ->
+                    ok;
+                false ->
+                    error(
+                        {invalid_test,
+                            io_lib:format(
+                                "The test ~s has been discovered while recursively exploring all/0, " ++
+                                    "groups/0 but is not an exported method of arity 1",
+                                [Test]
+                            )}
+                    )
+            end;
         true ->
             ok
     end.
