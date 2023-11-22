@@ -76,6 +76,7 @@ members = [
     "dice/dice_examples",
     "dice/dice_tests",
     # @oss-disable: "dice/fuzzy_dice",
+    "dice/read_dump",
     # @oss-disable: "host_sharing",
     "gazebo/display_container",
     "gazebo/cmp_any",

@@ -1,0 +1,15 @@
+load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
+
+oncall("build_infra")
+
+rust_binary(
+    name = "read_dump",
+    srcs = ["src/main.rs"],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:bincode",
+        "fbsource//third-party/rust:clap-3",
+        "fbsource//third-party/rust:serde_json",
+        "//buck2/dice/dice:dice",
+    ],
+)
