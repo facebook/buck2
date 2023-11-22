@@ -670,7 +670,7 @@ where
     );
     let (output_send, output_recv) = tokio::sync::mpsc::unbounded_channel();
 
-    // We run the event consumer on a totally separate tokio runtime to avoid the consumer task from getting stuck behind
+    // We run the event consumer on new non-tokio thread to avoid the consumer task from getting stuck behind
     // another tokio task in its lifo task slot. See T96012305 and https://github.com/tokio-rs/tokio/issues/4323 for more
     // information.
     let merge_task = thread::Builder::new()
