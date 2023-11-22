@@ -53,7 +53,6 @@ buck2_data = { workspace = true }
 buck2_error = { workspace = true }
 buck2_event_observer = { workspace = true }
 buck2_events = { workspace = true }
-buck2_execute = { workspace = true }
 buck2_offline_archive = { workspace = true }
 buck2_query_parser = { workspace = true }
 buck2_subscription_proto = { workspace = true }

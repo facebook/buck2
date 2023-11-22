@@ -64,8 +64,6 @@ members = [
     "app/buck2_data",
     "app/buck2_worker_proto",
     "app/buck2_wrapper_common",
-    # @oss-disable: "buck2_tpx",
-    # @oss-disable: "buck2_tpx_cli",
     "app/buck2_build_api",
     "app/buck2_build_api_derive",
     "app/buck2_build_api_tests",
@@ -78,7 +76,6 @@ members = [
     "dice/dice_examples",
     "dice/dice_tests",
     # @oss-disable: "dice/fuzzy_dice",
-    # @oss-disable: "dice_replay",
     # @oss-disable: "host_sharing",
     "gazebo/display_container",
     "gazebo/cmp_any",
@@ -372,8 +369,6 @@ buck2_test = { path = "app/buck2_test" }
 buck2_test_api = { path = "app/buck2_test_api" }
 buck2_test_proto = { path = "app/buck2_test_proto" }
 buck2_test_runner = { path = "app/buck2_test_runner" }
-buck2_tpx = { path = "buck2_tpx" }
-buck2_tpx_cli = { path = "buck2_tpx_cli" }
 buck2_transition = { path = "app/buck2_transition" }
 buck2_util = { path = "app/buck2_util" }
 buck2_worker_proto = { path = "app/buck2_worker_proto" }

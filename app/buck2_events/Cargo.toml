@@ -22,7 +22,6 @@ allocative = { workspace = true }
 dupe = { workspace = true }
 fbinit = { workspace = true }
 gazebo = { workspace = true }
-# @oss-disable: user = { path = "../../../common/rust/user" }
 
 buck2_build_info = { workspace = true }
 buck2_cli_proto = { workspace = true }

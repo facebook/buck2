@@ -129,7 +129,7 @@ impl Bucket {
 
 /// Return the place to upload logs, or None to not upload logs at all
 fn log_upload_url(use_vpnless: bool) -> Option<&'static str> {
-    #[cfg(any(fbcode_build, cargo_internal_build))]
+    #[cfg(fbcode_build)]
     if hostcaps::is_prod() {
         Some("https://manifold.facebook.net")
     } else if use_vpnless {
@@ -137,7 +137,7 @@ fn log_upload_url(use_vpnless: bool) -> Option<&'static str> {
     } else {
         Some("https://manifold.c2p.facebook.net")
     }
-    #[cfg(not(any(fbcode_build, cargo_internal_build)))]
+    #[cfg(not(fbcode_build))]
     {
         #[cfg(fbcode_build)]
         compile_error!("this code is not meant to be compiled in fbcode");

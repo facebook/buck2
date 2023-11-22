@@ -79,7 +79,6 @@ def rust_protobuf_library(
         deps = [],
         test_deps = None,
         doctests = True):
-    deps = _maybe_select_map(deps, _fix_deps)
     if build_env:
         build_env = {
             k: _fix_dep_in_string(v)
@@ -184,18 +183,21 @@ def _fix_dep(x: str) -> [
     None,
     str,
 ]:
-    if x == "//common/rust/folly/logging:logging":
-        return None
+    if x == "//common/rust/shed/fbinit:fbinit":
+        return "fbsource//third-party/rust:fbinit"
+    elif x == "//common/rust/shed/sorted_vector_map:sorted_vector_map":
+        return "fbsource//third-party/rust:sorted_vector_map"
     elif x == "//watchman/rust/watchman_client:watchman_client":
         return "fbsource//third-party/rust:watchman_client"
-    elif x.startswith("//common/rust/shed/"):
-        return "fbsource//third-party/rust:" + x.removeprefix("//common/rust/shed/").split(":")[0]
-    elif x.startswith("//common/rust/") or x.startswith("//buck2/facebook/") or x.startswith("//eden/") or x.startswith("//remote_execution/"):
+    elif x.startswith("fbsource//third-party/rust:") or x.startswith(":"):
+        return x
+    elif x.startswith("//buck2/facebook/"):
         return None
     elif x.startswith("//buck2/"):
         return "root//" + x.removeprefix("//buck2/")
     else:
-        return x
+        fail("Dependency is unaccounted for `{}`.\n".format(x) +
+             "Did you forget 'oss-disable'?")
 
 def _fix_dep_in_string(x: str) -> str:
     """Replace internal labels in string values such as env-vars."""

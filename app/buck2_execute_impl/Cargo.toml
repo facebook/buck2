@@ -15,7 +15,6 @@ dupe = { workspace = true }
 futures = { workspace = true }
 gazebo = { workspace = true }
 host_sharing = { workspace = true }
-hostname = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
 more_futures = { workspace = true }

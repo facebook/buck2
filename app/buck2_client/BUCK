@@ -54,7 +54,7 @@ rust_library(
         "//buck2/app/buck2_error:buck2_error",
         "//buck2/app/buck2_event_observer:buck2_event_observer",
         "//buck2/app/buck2_events:buck2_events",
-        "//buck2/app/buck2_execute:buck2_execute",
+        # @oss-disable: "//buck2/app/buck2_execute:buck2_execute", 
         "//buck2/app/buck2_offline_archive:buck2_offline_archive",
         "//buck2/app/buck2_query_parser:buck2_query_parser",
         "//buck2/app/buck2_subscription_proto:buck2_subscription_proto",

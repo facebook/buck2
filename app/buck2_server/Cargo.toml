@@ -55,7 +55,6 @@ buck2_common = { workspace = true }
 buck2_configured = { workspace = true }
 buck2_core = { workspace = true }
 buck2_data = { workspace = true }
-buck2_eden = { workspace = true }
 buck2_error = { workspace = true }
 buck2_event_observer = { workspace = true }
 buck2_events = { workspace = true }
@@ -77,9 +76,6 @@ host_sharing = { workspace = true }
 
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
 psutil = { workspace = true }
-
-[target.'cfg(any(fbcode_build, cargo_internal_build))'.dependencies]
-# @oss-disable: detect_eden = { path = "../../../common/rust/shed/detect_eden" }
 
 [dev-dependencies]
 assert_matches = { workspace = true }

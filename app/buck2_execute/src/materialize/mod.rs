@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-#[cfg(any(fbcode_build, cargo_internal_build))]
+#[cfg(fbcode_build)]
 pub mod eden_api;
 pub mod http;
 

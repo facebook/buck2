@@ -79,11 +79,11 @@ pub struct SystemInfo {
 pub fn system_info() -> SystemInfo {
     let hostname = hostname();
     let username;
-    #[cfg(any(fbcode_build, cargo_internal_build))]
+    #[cfg(fbcode_build)]
     {
         username = user::current_username().ok();
     }
-    #[cfg(not(any(fbcode_build, cargo_internal_build)))]
+    #[cfg(not(fbcode_build))]
     {
         username = None;
     }

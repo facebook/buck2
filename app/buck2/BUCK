@@ -66,7 +66,7 @@ rust_library(
         "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
         "//buck2/dice/dice:dice",
         "//buck2/gazebo/dupe:dupe",
-        "//common/rust/gflags:gflags",
+        # @oss-disable: "//common/rust/gflags:gflags", 
         "//common/rust/shed/fbinit:fbinit",
     ],
 )
@@ -111,8 +111,8 @@ buck_rust_binary(
         "//buck2/app/buck2_transition:buck2_transition",
         "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
         "//buck2/gazebo/dupe:dupe",
-        "//common/rust/folly/logging:logging",
-        "//common/rust/gflags:gflags",
+        # @oss-disable: "//common/rust/folly/logging:logging", 
+        # @oss-disable: "//common/rust/gflags:gflags", 
         "//common/rust/shed/fbinit:fbinit",
     ],
 )

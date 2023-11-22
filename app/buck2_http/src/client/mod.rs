@@ -757,7 +757,7 @@ mod tests {
 }
 
 // TODO(skarlage, T160529958): Debug why these tests fail on CircleCI
-#[cfg(all(test, any(fbcode_build, cargo_internal_build)))]
+#[cfg(all(test, fbcode_build))]
 mod proxy_tests {
     use std::convert::Infallible;
     use std::net::TcpListener;

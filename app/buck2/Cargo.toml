@@ -12,7 +12,6 @@ blake3 = { workspace = true }
 clap = { workspace = true }
 futures = { workspace = true }
 hex = { workspace = true }
-# @oss-disable: hostcaps = { path = "../../../common/rust/shed/hostcaps" }
 libc = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }
@@ -28,7 +27,6 @@ dupe = { workspace = true }
 fbinit = { workspace = true }
 gazebo = { workspace = true }
 host_sharing = { workspace = true }
-# @oss-disable: user = { path = "../../../common/rust/user", optional = true }
 
 buck2_action_impl = { workspace = true }
 buck2_analysis = { workspace = true }

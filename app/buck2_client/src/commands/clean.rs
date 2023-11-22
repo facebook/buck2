@@ -220,7 +220,7 @@ fn clean_buck_out(path: &AbsNormPathBuf) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(any(fbcode_build, cargo_internal_build))]
+#[cfg(fbcode_build)]
 async fn try_clean_eden_buck_out(
     buck_out: &AbsNormPathBuf,
     dryrun: bool,
@@ -270,7 +270,7 @@ async fn try_clean_eden_buck_out(
     Ok(Some(vec![buck_out.display().to_string()]))
 }
 
-#[cfg(not(any(fbcode_build, cargo_internal_build)))]
+#[cfg(not(fbcode_build))]
 async fn try_clean_eden_buck_out(
     _buck_out: &AbsNormPathBuf,
     _dryrun: bool,

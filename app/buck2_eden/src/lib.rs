@@ -7,9 +7,9 @@
  * of this source tree.
  */
 
-#![feature(error_generic_member_access)]
 // This can't be built in our OSS implementation.
-#![cfg(any(fbcode_build, cargo_internal_build))]
+#![cfg(fbcode_build)]
+#![feature(error_generic_member_access)]
 
 pub mod connection;
 pub mod io_provider;

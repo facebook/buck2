@@ -40,12 +40,12 @@ pub fn win_internal_version() -> Option<&'static str> {
 
 /// Get the time at which this binary was built, if available.
 pub fn time_iso8601() -> Option<&'static str> {
-    #[cfg(any(fbcode_build, cargo_internal_build))]
+    #[cfg(fbcode_build)]
     {
         Some(build_info::BuildInfo::get_time_iso8601())
     }
 
-    #[cfg(not(any(fbcode_build, cargo_internal_build)))]
+    #[cfg(not(fbcode_build))]
     {
         None
     }

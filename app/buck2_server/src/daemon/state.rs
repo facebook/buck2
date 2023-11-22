@@ -544,7 +544,7 @@ impl DaemonState {
                 )?))
             }
             MaterializationMethod::Eden => {
-                #[cfg(any(fbcode_build, cargo_internal_build))]
+                #[cfg(fbcode_build)]
                 {
                     use buck2_execute::materialize::eden_api::EdenBuckOut;
                     use buck2_execute_impl::materializers::eden::EdenMaterializer;
@@ -575,7 +575,7 @@ impl DaemonState {
                         ))
                     }
                 }
-                #[cfg(not(any(fbcode_build, cargo_internal_build)))]
+                #[cfg(not(fbcode_build))]
                 {
                     let _unused = buck_out_path;
                     let _unused = fs;
@@ -724,7 +724,7 @@ impl DaemonState {
     }
 
     fn validate_buck_out_mount(&self) -> anyhow::Result<()> {
-        #[cfg(any(fbcode_build, cargo_internal_build))]
+        #[cfg(fbcode_build)]
         {
             use buck2_core::fs::fs_util;
             use buck2_core::soft_error;

@@ -23,7 +23,7 @@ pub async fn create_io_provider(
     cas_digest_config: CasDigestConfig,
     trace_io: bool,
 ) -> anyhow::Result<Arc<dyn IoProvider>> {
-    #[cfg(any(fbcode_build, cargo_internal_build))]
+    #[cfg(fbcode_build)]
     {
         use buck2_core::rollout_percentage::RolloutPercentage;
 

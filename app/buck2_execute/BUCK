@@ -9,7 +9,7 @@ rust_library(
         ["src/**/*.rs"],
     ),
     named_deps = {
-        "edenfs": "//eden/fs/service:thrift-rust",
+        # @oss-disable: "edenfs": "//eden/fs/service:thrift-rust", 
     },
     test_deps = [
         "fbsource//third-party/rust:assert_matches",

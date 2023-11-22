@@ -1123,7 +1123,7 @@ pub fn try_get_invocation_recorder<'a>(
         .map(|path| path.resolve(&ctx.working_dir));
 
     let filesystem;
-    #[cfg(any(fbcode_build, cargo_internal_build))]
+    #[cfg(fbcode_build)]
     {
         let root = std::path::Path::to_owned(ctx.paths()?.project_root().root().to_buf().as_ref());
         if detect_eden::is_eden(root).unwrap_or(false) {
@@ -1132,7 +1132,7 @@ pub fn try_get_invocation_recorder<'a>(
             filesystem = "default".to_owned();
         }
     }
-    #[cfg(not(any(fbcode_build, cargo_internal_build)))]
+    #[cfg(not(fbcode_build))]
     {
         filesystem = "default".to_owned();
     }
