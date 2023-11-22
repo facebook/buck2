@@ -6,7 +6,6 @@ version = "0.1.0"
 
 [dependencies]
 prost = { workspace = true }
-prost-types = { workspace = true }
 tonic = { workspace = true }
 
 [build-dependencies]

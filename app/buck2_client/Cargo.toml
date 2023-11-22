@@ -15,7 +15,6 @@ chrono = { workspace = true }
 clap = { workspace = true }
 csv = { workspace = true }
 derive_more = { workspace = true }
-dice = { workspace = true }
 dupe = { workspace = true }
 futures = { workspace = true }
 gazebo = { workspace = true }

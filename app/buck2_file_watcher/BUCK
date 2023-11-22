@@ -6,11 +6,25 @@ oncall("build_infra")
 rust_library(
     name = "buck2_file_watcher",
     srcs = glob(["src/**/*.rs"]),
-    test_deps = [
-        "fbsource//third-party/rust:assert_matches",
-        "fbsource//third-party/rust:tempfile",
-        "//buck2/app/buck2_util:buck2_util",
-        "//buck2/gazebo/gazebo:gazebo",
+    test_os_deps = [
+        (
+            "linux",
+            [
+                "fbsource//third-party/rust:assert_matches",
+                "fbsource//third-party/rust:tempfile",
+                "//buck2/app/buck2_util:buck2_util",
+                "//buck2/gazebo/gazebo:gazebo",
+            ],
+        ),
+        (
+            "macos",
+            [
+                "fbsource//third-party/rust:assert_matches",
+                "fbsource//third-party/rust:tempfile",
+                "//buck2/app/buck2_util:buck2_util",
+                "//buck2/gazebo/gazebo:gazebo",
+            ],
+        ),
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",

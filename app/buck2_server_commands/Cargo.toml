@@ -25,9 +25,7 @@ tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
 
-allocative = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }

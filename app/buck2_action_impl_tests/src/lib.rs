@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-#![feature(error_generic_member_access)]
 #![cfg(test)]
+#![feature(error_generic_member_access)]
 
 mod context;
 

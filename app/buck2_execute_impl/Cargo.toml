@@ -12,7 +12,6 @@ chrono = { workspace = true }
 derivative = { workspace = true }
 derive_more = { workspace = true }
 dupe = { workspace = true }
-faccess = { workspace = true }
 futures = { workspace = true }
 gazebo = { workspace = true }
 host_sharing = { workspace = true }
@@ -43,11 +42,13 @@ buck2_error = { workspace = true }
 buck2_events = { workspace = true }
 buck2_execute = { workspace = true }
 buck2_forkserver = { workspace = true }
-buck2_forkserver_proto = { workspace = true }
 buck2_http = { workspace = true }
 buck2_util = { workspace = true }
 buck2_worker_proto = { workspace = true }
 buck2_wrapper_common = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+buck2_forkserver_proto = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }

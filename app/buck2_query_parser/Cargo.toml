@@ -9,7 +9,6 @@ anyhow = { workspace = true }
 derive_more = { workspace = true }
 enum-map = { workspace = true }
 nom = { workspace = true }
-structopt = { workspace = true }
 
 dupe = { workspace = true }
 gazebo = { workspace = true }

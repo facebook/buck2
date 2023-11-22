@@ -27,7 +27,7 @@ buck2_error = { workspace = true }
 buck2_events = { workspace = true }
 buck2_util = { workspace = true }
 
-[dev-dependencies]
+[target.'cfg(unix)'.dev-dependencies]
 assert_matches = { workspace = true }
 buck2_util = { workspace = true }
 gazebo = { workspace = true }

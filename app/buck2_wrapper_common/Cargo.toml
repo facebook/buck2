@@ -13,7 +13,6 @@ version = "0.1.0"
 allocative = { workspace = true }
 anyhow = { workspace = true }
 dupe = { workspace = true }
-once_cell = { workspace = true }
 serde = { workspace = true }
 shlex = { workspace = true }
 sysinfo = { workspace = true }

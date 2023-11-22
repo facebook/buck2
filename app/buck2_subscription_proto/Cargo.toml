@@ -12,4 +12,3 @@ tonic = { workspace = true }
 
 [build-dependencies]
 buck2_protoc_dev = { workspace = true }
-tonic-build = { workspace = true }

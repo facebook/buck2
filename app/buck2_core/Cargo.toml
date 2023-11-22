@@ -6,8 +6,6 @@ version = "0.1.0"
 [dependencies]
 anyhow = { workspace = true }
 arc-swap = { workspace = true }
-assert_matches = { workspace = true }
-async-trait = { workspace = true }
 blake3 = { workspace = true }
 compact_str = { workspace = true }
 dashmap = { workspace = true }
@@ -21,7 +19,6 @@ futures = { workspace = true }
 hostname = { workspace = true }
 indent_write = { workspace = true }
 itertools = { workspace = true }
-libc = { workspace = true }
 memchr = { workspace = true }
 once_cell = { workspace = true }
 os_str_bytes = { workspace = true }
@@ -59,6 +56,7 @@ nix = { workspace = true }
 common-path = { workspace = true }
 
 [dev-dependencies]
+assert_matches = { workspace = true }
 maplit = { workspace = true }
 serde_json = { workspace = true }
 test-case = { workspace = true }

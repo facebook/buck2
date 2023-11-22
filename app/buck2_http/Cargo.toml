@@ -34,4 +34,6 @@ hyper-unix-connector = { workspace = true }
 
 [dev-dependencies]
 httptest = { workspace = true }
+
+[target.'cfg(unix)'.dev-dependencies]
 tempfile = { workspace = true }

@@ -4,7 +4,7 @@ edition = "2021"
 name = "buck2_action_impl_tests"
 version = "0.1.0"
 
-[dependencies]
+[dev-dependencies]
 anyhow = { workspace = true }
 ctor = { workspace = true }
 indoc = { workspace = true }

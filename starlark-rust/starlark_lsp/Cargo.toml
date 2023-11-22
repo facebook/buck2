@@ -29,6 +29,8 @@ starlark = { version = "0.10.0", path = "../starlark" }
 starlark_syntax = { version = "0.10.0", path = "../starlark_syntax" }
 
 [dev-dependencies]
-maplit = "1.0.2"
 regex = "1.5.4"
 textwrap = "0.11"
+
+[target.'cfg(not(windows))'.dev-dependencies]
+maplit = "1.0.2"

@@ -14,7 +14,6 @@ bytes = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
 crossterm = { workspace = true }
-csv = { workspace = true }
 derivative = { workspace = true }
 derive_more = { workspace = true }
 dupe = { workspace = true }
@@ -27,7 +26,6 @@ httparse = { workspace = true }
 hyper = { workspace = true }
 itertools = { workspace = true }
 libc = { workspace = true }
-linked-hash-map = { workspace = true }
 memmap2 = { workspace = true }
 object = { workspace = true }
 once_cell = { workspace = true }
@@ -62,7 +60,6 @@ buck2_error = { workspace = true }
 buck2_event_observer = { workspace = true }
 buck2_events = { workspace = true }
 buck2_http = { workspace = true }
-buck2_test_api = { workspace = true }
 buck2_util = { workspace = true }
 buck2_wrapper_common = { workspace = true }
 

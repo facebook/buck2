@@ -5,8 +5,19 @@ oncall("build_infra")
 rust_library(
     name = "buck2_offline_archive",
     srcs = glob(["src/**/*.rs"]),
-    test_deps = [
-        "fbsource//third-party/rust:tempfile",
+    test_os_deps = [
+        (
+            "linux",
+            [
+                "fbsource//third-party/rust:tempfile",
+            ],
+        ),
+        (
+            "macos",
+            [
+                "fbsource//third-party/rust:tempfile",
+            ],
+        ),
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",

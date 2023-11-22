@@ -11,7 +11,6 @@ buck2_events = { workspace = true }
 buck2_wrapper_common = { workspace = true }
 dupe = { workspace = true }
 futures = "0.3"
-gazebo = { workspace = true }
 once_cell = { workspace = true }
 parking_lot = { workspace = true }
 pin-project = "0.4"

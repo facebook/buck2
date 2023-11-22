@@ -10,5 +10,5 @@ serde = { workspace = true }
 
 buck2_core = { workspace = true }
 
-[dev-dependencies]
+[target.'cfg(unix)'.dev-dependencies]
 tempfile = { workspace = true }
