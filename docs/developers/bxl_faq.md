@@ -60,3 +60,19 @@ execution.
 Anon targets are meant for sharing work betwen multiple BXLs. The context type
 is a normal rule analysis `context`. Anon targets are `await`-ed inline with
 your BXL function.
+
+## Can I mutate types returned by BXL APIs?
+
+The data types produced by BXL API calls are always immutable.
+
+## What is run synchronously vs asynchronously?
+
+Starlark itself is run synchronously. However, certain BXL APIs are evaluated
+asynchronously.
+
+If you pass in multiple inputs to builds, queries, or analyses, the execution of
+these API calls will be blocking, but the inputs themselves will be evaluated in
+parallel within the execution.
+
+Ensuring artifacts, dynamic outputs, anon targets, and resolving promises will
+happen _after_ the Starlark script is executed.
