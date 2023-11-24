@@ -105,7 +105,7 @@ fmt_stack(Suite, CasePat, CaseArgs, {_Class, {Reason, ST}}, Label) ->
     fmt_stack(Suite, CasePat, CaseArgs, {Reason, ST}, Label);
 fmt_stack(_Suite, _CasePat, _CaseArgs, Reason, _Label) ->
     Output = ct_error_printer:format_error(Reason, true),
-    unicode:characters_to_list(io_lib:format("~s", [Output])).
+    unicode:characters_to_list(io_lib:format("~ts", [Output])).
 
 %% -----------------------------------------------------------------------------
 %% CT hooks functions
