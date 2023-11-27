@@ -52,8 +52,6 @@ use futures::future::FutureExt;
 use futures::future::LocalBoxFuture;
 use manifold::file_to_manifold;
 use manifold::manifold_leads;
-use maplit::convert_args;
-use maplit::hashmap;
 use serde::Serialize;
 use thiserror::Error;
 use tokio::io::AsyncBufRead;
@@ -287,20 +285,26 @@ impl RageCommand {
         build_info: RageSection<build_info::BuildInfo>,
         re_logs: RageSection<String>,
     ) -> anyhow::Result<()> {
-        let mut string_data = convert_args!(
-            keys = String::from,
-            hashmap! (
-                "dice_dump" => dice_dump.output(),
-                "materializer_state" => materializer_state.output(),
-                "materializer_fsck" => materializer_fsck.output(),
-                "thread_dump" => thread_dump.output(),
-                "daemon_stderr_dump" => daemon_stderr_dump.output(),
-                "hg_snapshot_id" => hg_snapshot_id.output(),
-                "invocation_id" => invocation_id.clone().map(|inv| inv.to_string()).unwrap_or_default(),
-                "event_log_dump" => event_log_dump.output(),
-                "re_logs" => re_logs.output(),
-            )
-        );
+        let mut string_data: std::collections::HashMap<String, _> = [
+            ("dice_dump", dice_dump.output()),
+            ("materializer_state", materializer_state.output()),
+            ("materializer_fsck", materializer_fsck.output()),
+            ("thread_dump", thread_dump.output()),
+            ("daemon_stderr_dump", daemon_stderr_dump.output()),
+            ("hg_snapshot_id", hg_snapshot_id.output()),
+            (
+                "invocation_id",
+                invocation_id
+                    .clone()
+                    .map(|inv| inv.to_string())
+                    .unwrap_or_default(),
+            ),
+            ("event_log_dump", event_log_dump.output()),
+            ("re_logs", re_logs.output()),
+        ]
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.clone()))
+        .collect();
 
         let command = build_info.get_field(|o| Some(o.command.to_owned()));
         let buck2_revision = build_info.get_field(|o| Some(o.buck2_revision.to_owned()));
