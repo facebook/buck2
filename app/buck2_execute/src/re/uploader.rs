@@ -49,7 +49,7 @@ use crate::materialize::materializer::ArtifactNotMaterializedReason;
 use crate::materialize::materializer::CasDownloadInfo;
 use crate::materialize::materializer::Materializer;
 use crate::re::action_identity::ReActionIdentity;
-use crate::re::metadata::{apply_identity, RemoteExecutionMetadataExt};
+use crate::re::metadata::RemoteExecutionMetadataExt;
 
 #[derive(Clone, Debug, Default)]
 pub struct UploadStats {
@@ -106,12 +106,8 @@ impl Uploader {
                 digests: input_digests.iter().map(|d| d.to_re()).collect(),
                 ..Default::default()
             };
-            let mut mtd = use_case.metadata();
-            if let Some(identity) = identity {
-                apply_identity(identity, &mut mtd);
-            }
             client
-                .get_digests_ttl(mtd, request)
+                .get_digests_ttl(use_case.metadata(identity), request)
                 .boxed()
                 .await?
                 .digests_with_ttl
@@ -357,13 +353,9 @@ impl Uploader {
 
         // Upload
         let upload_res = if !upload_files.is_empty() || !upload_blobs.is_empty() {
-            let mut mtd = use_case.metadata();
-            if let Some(identity) = identity {
-                apply_identity(identity, &mut mtd);
-            }
             client
                 .upload(
-                    mtd,
+                    use_case.metadata(identity),
                     UploadRequest {
                         files_with_digest: Some(upload_files),
                         inlined_blobs_with_digest: Some(upload_blobs),

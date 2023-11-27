@@ -81,7 +81,7 @@ async fn query_action_cache_and_download_result(
     manager: CommandExecutionManager,
     cancellations: &CancellationContext<'_>,
     upload_all_actions: bool,
-    _log_action_keys: bool,
+    log_action_keys: bool,
     details: RemoteCommandExecutionDetails,
 ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
     let request = command.request;
@@ -180,7 +180,7 @@ async fn query_action_cache_and_download_result(
         &identity,
         buck2_data::CacheHit {
             action_digest: digest.to_string(),
-            action_key: Some(identity.action_key.clone()),
+            action_key: if log_action_keys { Some(identity.action_key.clone()) } else { None },
         }
         .into(),
         request.paths(),

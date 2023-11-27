@@ -13,11 +13,11 @@ use remote_execution::{ActionHistoryInfo, BuckInfo, HostResourceRequirements, Re
 use crate::re::action_identity::ReActionIdentity;
 
 pub trait RemoteExecutionMetadataExt {
-    fn metadata(&self) -> RemoteExecutionMetadata;
+    fn metadata(&self, identity: Option<&ReActionIdentity>) -> RemoteExecutionMetadata;
 }
 
 impl RemoteExecutionMetadataExt for RemoteExecutorUseCase {
-    fn metadata(&self) -> RemoteExecutionMetadata {
+    fn metadata(&self, identity: Option<&ReActionIdentity>) -> RemoteExecutionMetadata {
         let trace_id = get_dispatcher().trace_id().to_owned();
         RemoteExecutionMetadata {
             use_case_id: self.as_str().to_owned(),
@@ -25,20 +25,17 @@ impl RemoteExecutionMetadataExt for RemoteExecutorUseCase {
                 build_id: trace_id.to_string(),
                 ..Default::default()
             }),
+            action_history_info: identity.map(|identity| ActionHistoryInfo {
+                action_key: identity.action_key.clone(),
+                disable_retry_on_oom: false,
+                ..Default::default()
+            }),
+            host_resource_requirements: identity.map(|identity| HostResourceRequirements {
+                affinity_keys: vec![identity.affinity_key.clone()],
+                input_files_bytes: identity.paths.input_files_bytes() as i64,
+                ..Default::default()
+            }),
             ..Default::default()
         }
     }
-}
-
-pub fn apply_identity(identity: &ReActionIdentity, metadata: &mut RemoteExecutionMetadata) {
-    metadata.action_history_info = Some(ActionHistoryInfo {
-        action_key: identity.action_key.clone(),
-        disable_retry_on_oom: false,
-        ..Default::default()
-    });
-    metadata.host_resource_requirements = Some(HostResourceRequirements {
-        affinity_keys: vec![identity.affinity_key.clone()],
-        input_files_bytes: identity.paths.input_files_bytes() as i64,
-        ..Default::default()
-    });
 }

@@ -209,6 +209,12 @@ pub struct RECapabilities {
     exec_enabled: bool,
 }
 
+/// Contains runtime options for the remote execution client as set under `buck2_re_client`
+pub struct RERuntimeOpts {
+    /// Use the Meta version of the request metadata
+    use_fbcode_metadata: bool,
+}
+
 struct InstanceName(Option<String>);
 
 impl InstanceName {
@@ -306,7 +312,7 @@ impl REClientBuilder {
             return Err(anyhow::anyhow!("Server has remote execution disabled."));
         }
 
-        Ok(REClient::new(grpc_clients, capabilities, instance_name))
+        Ok(REClient::new(RERuntimeOpts { use_fbcode_metadata: opts.use_fbcode_metadata }, grpc_clients, capabilities, instance_name))
     }
 
     async fn fetch_rbe_capabilities(
@@ -402,6 +408,7 @@ pub struct GRPCClients {
 }
 
 pub struct REClient {
+    runtime_opts: RERuntimeOpts,
     grpc_clients: GRPCClients,
     capabilities: RECapabilities,
     instance_name: InstanceName,
@@ -464,11 +471,13 @@ impl BatchUploadReqAggregator {
 
 impl REClient {
     fn new(
+        runtime_opts: RERuntimeOpts,
         grpc_clients: GRPCClients,
         capabilities: RECapabilities,
         instance_name: InstanceName,
     ) -> Self {
         REClient {
+            runtime_opts,
             grpc_clients,
             capabilities,
             instance_name,
@@ -490,6 +499,7 @@ impl REClient {
                     ..Default::default()
                 },
                 metadata,
+                self.runtime_opts.use_fbcode_metadata,
             ))
             .await?;
 
@@ -528,7 +538,7 @@ impl REClient {
         };
 
         let stream = client
-            .execute(with_re_metadata(request, metadata))
+            .execute(with_re_metadata(request, metadata, self.runtime_opts.use_fbcode_metadata))
             .await?
             .into_inner();
 
@@ -637,7 +647,7 @@ impl REClient {
                 let metadata = metadata.clone();
                 let mut cas_client = self.grpc_clients.cas_client.clone();
                 let resp = cas_client
-                    .batch_update_blobs(with_re_metadata(re_request, metadata))
+                    .batch_update_blobs(with_re_metadata(re_request, metadata, self.runtime_opts.use_fbcode_metadata))
                     .await?;
                 Ok(resp.into_inner())
             },
@@ -646,7 +656,7 @@ impl REClient {
                 let mut bytestream_client = self.grpc_clients.bytestream_client.clone();
                 let requests = futures::stream::iter(segments);
                 let resp = bytestream_client
-                    .write(with_re_metadata(requests, metadata))
+                    .write(with_re_metadata(requests, metadata, self.runtime_opts.use_fbcode_metadata))
                     .await?;
 
                 Ok(resp.into_inner())
@@ -677,7 +687,7 @@ impl REClient {
                 let metadata = metadata.clone();
                 let mut client = self.grpc_clients.cas_client.clone();
                 Ok(client
-                    .batch_read_blobs(with_re_metadata(re_request, metadata))
+                    .batch_read_blobs(with_re_metadata(re_request, metadata, self.runtime_opts.use_fbcode_metadata))
                     .await?
                     .into_inner())
             },
@@ -686,7 +696,7 @@ impl REClient {
                 async move {
                     let mut client = self.grpc_clients.bytestream_client.clone();
                     let response = client
-                        .read(with_re_metadata(read_request, metadata))
+                        .read(with_re_metadata(read_request, metadata, self.runtime_opts.use_fbcode_metadata))
                         .await?
                         .into_inner();
                     Ok(Box::pin(response.into_stream()))
@@ -725,6 +735,7 @@ impl REClient {
                         blob_digests: digest_chunk.map(|b| tdigest_to(b.clone())),
                     },
                     metadata.clone(),
+                    self.runtime_opts.use_fbcode_metadata,
                 ))
                 .await
                 .context("Failed to request what blobs are not present on remote")?;
@@ -1225,7 +1236,7 @@ where
     Ok(UploadResponse {})
 }
 
-fn with_re_metadata<T>(t: T, metadata: RemoteExecutionMetadata) -> tonic::Request<T> {
+fn with_re_metadata<T>(t: T, metadata: RemoteExecutionMetadata, use_fbcode_metadata: bool) -> tonic::Request<T> {
     // This creates a new Tonic request with attached metadata for the RE
     // backend. There are two cases here we need to support:
     //
@@ -1247,17 +1258,37 @@ fn with_re_metadata<T>(t: T, metadata: RemoteExecutionMetadata) -> tonic::Reques
 
     let mut msg = tonic::Request::new(t);
 
-    // First, attach the metadata for the OSS RE API, defined by Bazel. This
-    // isn't quite ideal at the moment, because it's not a 1:1 mapping with the
-    // RE API.
-    //
-    // Since this has to go on every request, don't attach it during fbcode
-    // builds to be courteous; they don't need it (and presumably wouldn't
-    // support it, anyway)
-    #[cfg(not(fbcode_build))]
+    if use_fbcode_metadata
+    {
+        // This is pretty ugly, but the protobuf spec that defines this is
+        // internal, so considering field numbers need to be stable anyway (=
+        // low risk), and this is not used in prod (= low impact if this goes
+        // wrong), we just inline it here. This is a small hack that lets us use
+        // our internal RE using this GRPC client for testing.
+        //
+        // This is defined in `fbcode/remote_execution/grpc/metadata.proto`.
+        #[derive(prost::Message)]
+        struct Metadata {
+            #[prost(message, optional, tag = "15")]
+            platform: Option<crate::grpc::Platform>,
+            #[prost(string, optional, tag = "18")]
+            use_case_id: Option<String>,
+        }
+
+        let mut encoded = Vec::new();
+        Metadata {
+            platform: metadata.platform,
+            use_case_id: Some(metadata.use_case_id),
+        }
+            .encode(&mut encoded)
+            .expect("Encoding into a Vec cannot not fail");
+
+        msg.metadata_mut()
+            .insert_bin("re-metadata-bin", MetadataValue::from_bytes(&encoded));
+    }
+    else
     {
         let mut encoded = Vec::new();
-
         RequestMetadata {
             tool_details: Some(ToolDetails {
                 tool_name: "buck2".to_owned(),
@@ -1280,40 +1311,6 @@ fn with_re_metadata<T>(t: T, metadata: RemoteExecutionMetadata) -> tonic::Reques
                 MetadataValue::from_bytes(&encoded),
             );
     };
-
-    // Now, in contrast, for builds inside fbcode, we need to set our own
-    // metadata that is used by the internal RE server, which allows usage of
-    // the OSS RE codepath.
-    #[cfg(fbcode_build)]
-    {
-        // This is pretty ugly, but the protobuf spec that defines this is
-        // internal, so considering field numbers need to be stable anyway (=
-        // low risk), and this is not used in prod (= low impact if this goes
-        // wrong), we just inline it here. This is a small hack that lets us use
-        // our internal RE using this GRPC client for testing.
-        //
-        // This is defined in `fbcode/remote_execution/grpc/metadata.proto`.
-        #[derive(prost::Message)]
-        struct Metadata {
-            #[prost(message, optional, tag = "15")]
-            platform: Option<crate::grpc::Platform>,
-            #[prost(string, optional, tag = "18")]
-            use_case_id: Option<String>,
-        }
-
-        let mut encoded = Vec::new();
-        Metadata {
-            platform: _metadata.platform,
-            use_case_id: Some(_metadata.use_case_id),
-        }
-        .encode(&mut encoded)
-        .expect("Encoding into a Vec cannot not fail");
-
-        msg.metadata_mut()
-            .insert_bin("re-metadata-bin", MetadataValue::from_bytes(&encoded));
-    };
-
-    // El fin
     msg
 }
 

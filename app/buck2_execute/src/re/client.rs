@@ -70,7 +70,7 @@ use crate::knobs::ExecutorGlobalKnobs;
 use crate::materialize::materializer::Materializer;
 use crate::re::action_identity::ReActionIdentity;
 use crate::re::convert::platform_to_proto;
-use crate::re::metadata::{apply_identity, RemoteExecutionMetadataExt};
+use crate::re::metadata::RemoteExecutionMetadataExt;
 use crate::re::stats::OpStats;
 use crate::re::stats::RemoteExecutionClientOpStats;
 use crate::re::stats::RemoteExecutionClientStats;
@@ -697,7 +697,7 @@ impl RemoteExecutionClientImpl {
             .client()
             .get_action_cache_client()
             .get_action_result(
-                use_case.metadata(),
+                use_case.metadata(None),
                 ActionResultRequest {
                     digest: action_digest.to_re(),
                     ..Default::default()
@@ -757,7 +757,7 @@ impl RemoteExecutionClientImpl {
         self.client()
             .get_cas_client()
             .upload(
-                use_case.metadata(),
+                use_case.metadata(None),
                 UploadRequest {
                     files_with_digest: Some(files_with_digest),
                     inlined_blobs_with_digest: Some(inlined_blobs_with_digest),
@@ -958,7 +958,7 @@ impl RemoteExecutionClientImpl {
         re_max_queue_time: Option<Duration>,
         knobs: &ExecutorGlobalKnobs,
     ) -> anyhow::Result<ExecuteResponseOrCancelled> {
-        let mut metadata = RemoteExecutionMetadata {
+        let metadata = RemoteExecutionMetadata {
             platform: Some(re_platform(platform)),
             do_not_cache: skip_cache_write,
             buck_info: Some(BuckInfo {
@@ -976,9 +976,8 @@ impl RemoteExecutionClientImpl {
                     ..Default::default()
                 })
                 .collect(),
-            ..use_case.metadata()
+            ..use_case.metadata(Some(identity))
         };
-        apply_identity(identity, &mut metadata);
         let request = ExecuteRequest {
             skip_cache_lookup: self.skip_remote_cache || skip_cache_read,
             execution_policy: Some(TExecutionPolicy::default()),
@@ -1010,15 +1009,11 @@ impl RemoteExecutionClientImpl {
             return Ok(Vec::new());
         }
         let expected_blobs = digests.len();
-        let mut mtd = use_case.metadata();
-        if let Some(identity) = identity {
-            apply_identity(identity, &mut mtd);
-        }
         let response = self
             .client()
             .get_cas_client()
             .download(
-                mtd,
+                use_case.metadata(identity),
                 DownloadRequest {
                     inlined_digests: Some(digests),
                     ..Default::default()
@@ -1054,7 +1049,7 @@ impl RemoteExecutionClientImpl {
             .client()
             .get_cas_client()
             .download(
-                use_case.metadata(),
+                use_case.metadata(None),
                 DownloadRequest {
                     inlined_digests: Some(vec![digest.clone()]),
                     ..Default::default()
@@ -1079,7 +1074,7 @@ impl RemoteExecutionClientImpl {
         blob: Vec<u8>,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<TDigest> {
-        self.client().upload_blob(blob, use_case.metadata()).await
+        self.client().upload_blob(blob, use_case.metadata(None)).await
     }
 
     async fn materialize_files(
@@ -1103,7 +1098,7 @@ impl RemoteExecutionClientImpl {
             self.client()
                 .get_cas_client()
                 .download(
-                    use_case.metadata(),
+                    use_case.metadata(None),
                     DownloadRequest {
                         file_digests: Some(chunk),
                         ..Default::default()
@@ -1130,7 +1125,7 @@ impl RemoteExecutionClientImpl {
             .client()
             .get_cas_client()
             .get_digests_ttl(
-                use_case.metadata(),
+                use_case.metadata(None),
                 GetDigestsTtlRequest {
                     digests,
                     ..Default::default()
@@ -1157,7 +1152,7 @@ impl RemoteExecutionClientImpl {
             .write_action_result(
                 RemoteExecutionMetadata {
                     platform: Some(re_platform(platform)),
-                    ..use_case.metadata()
+                    ..use_case.metadata(None)
                 },
                 WriteActionResultRequest {
                     action_digest: digest.to_re(),
