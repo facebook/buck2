@@ -18,7 +18,7 @@ load(
 )
 load("@prelude//cxx:headers.bzl", "HeaderMode")
 load("@prelude//cxx:linker.bzl", "is_pdb_generated")
-load("@prelude//linking:link_info.bzl", "LinkStyle")
+load("@prelude//linking:link_info.bzl", "LinkOrdering", "LinkStyle")
 load("@prelude//linking:lto.bzl", "LtoMode")
 load("@prelude//toolchains/msvc:tools.bzl", "VisualStudio")
 load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
@@ -111,6 +111,7 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
                 force_full_hybrid_if_capable = False,
                 is_pdb_generated = is_pdb_generated(linker_type, ctx.attrs.link_flags),
                 produce_interface_from_stub_shared_library = True,
+                link_ordering = ctx.attrs.link_ordering,
             ),
             bolt_enabled = False,
             binary_utilities_info = BinaryUtilitiesInfo(
@@ -182,6 +183,7 @@ system_cxx_toolchain = rule(
         "cxx_compiler": attrs.string(default = "cl.exe" if host_info().os.is_windows else "clang++"),
         "cxx_flags": attrs.list(attrs.string(), default = []),
         "link_flags": attrs.list(attrs.string(), default = []),
+        "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "link_style": attrs.string(default = "shared"),
         "linker": attrs.string(default = "link.exe" if host_info().os.is_windows else "clang++"),
         "linker_wrapper": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//cxx/tools:linker_wrapper")),
