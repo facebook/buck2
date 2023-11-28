@@ -56,6 +56,49 @@ def doc_name(x):
         raise RuntimeError("Unknown name: " + x)
 
 
+def copy_starlark_docs():
+    # Copy the starlark docs over. docusaurus does not handle upward path traversal very well.
+    for x in Path("starlark-rust/docs").glob("*.md"):
+        name = Path(x).stem
+        prefix = "---\nid: " + name + "\n---\n"
+        write_file(
+            "docs/developers/starlark/" + name + ".generated.md", prefix + read_file(x)
+        )
+
+
+def generate_api_docs(buck):
+    with tempfile.TemporaryDirectory() as tmp:
+        # Actually generate the docs
+        print("Running Buck...")
+        subprocess.run(
+            buck
+            + " docs starlark --format=markdown_files --markdown-files-destination-dir="
+            + tmp
+            + " --builtins prelude//docs:rules.bzl",
+            shell=True,
+            check=True,
+        )
+
+        for orig in Path(tmp).rglob("*.md"):
+            src = read_file(orig)
+            path = os.path.relpath(orig, tmp)
+            if path.endswith(".md"):
+                path = path[:-3]
+
+            name = doc_name(path)
+            if name is None:
+                continue
+
+            prefix = "---\nid: " + name.rsplit("/")[-1] + "\n---\n"
+            if name == "rules":
+                prefix += "# Rules\n\nThese rules are available as standard in Buck2.\n"
+                src = "\n".join(src.splitlines()[1:])
+
+            dest = "docs/api/" + name + ".generated.md"
+            os.makedirs(Path(dest).parent, exist_ok=True)
+            write_file(dest, prefix + src)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -86,44 +129,8 @@ def main() -> None:
     for x in Path("docs").rglob("*.generated.md"):
         os.remove(x)
 
-    # Copy the starlark docs over. docusaurus does not handle upward path traversal very well.
-    for x in Path("starlark-rust/docs").glob("*.md"):
-        name = Path(x).stem
-        prefix = "---\nid: " + name + "\n---\n"
-        write_file(
-            "docs/developers/starlark/" + name + ".generated.md", prefix + read_file(x)
-        )
-
-    with tempfile.TemporaryDirectory() as tmp:
-        # Actually generate the docs
-        print("Running Buck...")
-        subprocess.run(
-            buck_command(args)
-            + " docs starlark --format=markdown_files --markdown-files-destination-dir="
-            + tmp
-            + " --builtins prelude//docs:rules.bzl",
-            shell=True,
-            check=True,
-        )
-
-        for orig in Path(tmp).rglob("*.md"):
-            src = read_file(orig)
-            path = os.path.relpath(orig, tmp)
-            if path.endswith(".md"):
-                path = path[:-3]
-
-            name = doc_name(path)
-            if name is None:
-                continue
-
-            prefix = "---\nid: " + name.rsplit("/")[-1] + "\n---\n"
-            if name == "rules":
-                prefix += "# Rules\n\nThese rules are available as standard in Buck2.\n"
-                src = "\n".join(src.splitlines()[1:])
-
-            dest = "docs/api/" + name + ".generated.md"
-            os.makedirs(Path(dest).parent, exist_ok=True)
-            write_file(dest, prefix + src)
+    copy_starlark_docs()
+    generate_api_docs(buck_command(args))
 
 
 if __name__ == "__main__":
