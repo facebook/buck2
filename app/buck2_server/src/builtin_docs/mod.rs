@@ -7,6 +7,5 @@
  * of this source tree.
  */
 
-mod bxl_docs;
 pub mod docs;
 pub(crate) mod markdown;

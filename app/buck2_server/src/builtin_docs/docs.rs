@@ -51,7 +51,6 @@ use starlark::docs::Location;
 use starlark::environment::Globals;
 use starlark::typing::Ty;
 
-use super::bxl_docs::get_builtin_bxl_docs;
 use crate::builtin_docs::markdown::generate_markdown_files;
 
 #[derive(Debug, buck2_error::Error)]
@@ -104,7 +103,7 @@ fn get_builtin_global_starlark_docs() -> Doc {
     )
 }
 
-/// Globals that are in the interpreter, but none of the starlark global symbols.
+/// Globals that are in the interpreter (including BXL), but none of the starlark global symbols.
 fn get_builtin_build_docs(interpreter_state: Arc<GlobalInterpreterState>) -> anyhow::Result<Doc> {
     let mut b_o = interpreter_state.extension_file_global_env.documentation();
     let globals = Globals::extended_by(starlark_library_extensions_for_buck2());
@@ -122,10 +121,9 @@ pub fn get_builtin_docs(
 ) -> anyhow::Result<Vec<Doc>> {
     let mut all_builtins = vec![
         get_builtin_global_starlark_docs(),
-        get_builtin_build_docs(interpreter_state.dupe())?,
+        get_builtin_build_docs(interpreter_state)?,
     ];
 
-    all_builtins.extend(get_builtin_bxl_docs(interpreter_state)?);
     all_builtins.extend(get_registered_starlark_docs());
 
     Ok(all_builtins)
