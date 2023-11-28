@@ -49,7 +49,7 @@ SourceAbiVerificationMode = ["off", "log", "fail"]
 
 TestType = ["junit", "junit5", "testng"]
 
-Traversal = ["tree", "node"]
+Traversal = ["tree", "node", "subfolders"]
 
 UnusedDependenciesAction = ["unknown", "fail", "warn", "ignore", "unrecognized"]
 

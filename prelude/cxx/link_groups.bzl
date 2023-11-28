@@ -172,7 +172,7 @@ def build_link_group_info(
         filtered_groups[group.name] = group
 
     mappings = compute_mappings(
-        groups = filtered_groups.values(),
+        groups_map = filtered_groups,
         graph_map = linkable_graph_node_map,
     )
 

@@ -34,6 +34,8 @@ Traversal = enum(
     "tree",
     # Includes only the target in the group.
     "node",
+    # Uses pattern and separates all targets by full folder path.
+    "subfolders",
 )
 
 # Optional type of filtering
@@ -101,6 +103,16 @@ GroupAttrs = record(
     requires_root_node_exists = field(bool, True),
 )
 
+# Types of group traversal
+GroupDefinition = enum(
+    # Group is explicitly defined in mapping provided by user.
+    # That is the default behavior.
+    "explicit",
+    # Group is implicitly created during mapping computations.
+    # For example, group can be created for "subfolders" traversal.
+    "implicit",
+)
+
 # Representation of a parsed group
 Group = record(
     # The name for this group.
@@ -108,6 +120,7 @@ Group = record(
     # The mappings that are part of this group.
     mappings = list[GroupMapping],
     attrs = GroupAttrs,
+    definition_type = field(GroupDefinition, GroupDefinition("explicit")),
 )
 
 # Creates a group from an existing group, overwriting any properties provided
@@ -115,11 +128,13 @@ def create_group(
         group: Group,
         name: [None, str] = None,
         mappings: [None, list[GroupMapping]] = None,
-        attrs: [None, GroupAttrs] = None):
+        attrs: [None, GroupAttrs] = None,
+        definition_type: [None, GroupDefinition] = None):
     return Group(
         name = value_or(name, group.name),
         mappings = value_or(mappings, group.mappings),
         attrs = value_or(attrs, group.attrs),
+        definition_type = value_or(definition_type, group.definition_type),
     )
 
 def parse_groups_definitions(
@@ -156,7 +171,12 @@ def parse_groups_definitions(
             )
             parsed_mappings.append(mapping)
 
-        group = Group(name = name, mappings = parsed_mappings, attrs = group_attrs)
+        group = Group(
+            name = name,
+            mappings = parsed_mappings,
+            attrs = group_attrs,
+            definition_type = GroupDefinition("explicit"),
+        )
         groups.append(group)
 
     return groups
@@ -166,6 +186,8 @@ def _parse_traversal_from_mapping(entry: str) -> Traversal:
         return Traversal("tree")
     elif entry == "node":
         return Traversal("node")
+    elif entry == "subfolders":
+        return Traversal("subfolders")
     else:
         fail("Unrecognized group traversal type: " + entry)
 
@@ -196,24 +218,24 @@ def _parse_filter_from_mapping(entry: [list[str], str, None]) -> list[[BuildTarg
         return [_parse_filter(entry)]
     return []
 
-def compute_mappings(groups: list[Group], graph_map: dict[Label, typing.Any]) -> dict[Label, str]:
+def compute_mappings(groups_map: dict[str, Group], graph_map: dict[Label, typing.Any]) -> dict[Label, str]:
     """
-    Returns the group mappings {target label -> group name} based on the provided groups and graph.
+    Returns the group mappings {target label -> group name} based on the provided groups_map and graph.
     """
-    if not groups:
+    if not groups_map:
         return {}
 
     target_to_group_map = {}
     node_traversed_targets = {}
 
-    for group in groups:
+    for group in groups_map.values():
         for mapping in group.mappings:
             targets_in_mapping = _find_targets_in_mapping(graph_map, mapping)
             for target in targets_in_mapping:
                 # If the target doesn't exist in our graph, skip the mapping.
                 if target not in graph_map:
                     continue
-                _update_target_to_group_mapping(graph_map, target_to_group_map, node_traversed_targets, group.name, mapping, target)
+                _update_target_to_group_mapping(graph_map, target_to_group_map, node_traversed_targets, group, groups_map, mapping, target)
 
     return target_to_group_map
 
@@ -272,7 +294,8 @@ def _update_target_to_group_mapping(
         graph_map,  # {"label": "_b"}
         target_to_group_map,  #: {"label": str}
         node_traversed_targets,  #: {"label": None}
-        group,  #  str,
+        group,  #  Group,
+        groups_map,  # {str: Group}
         mapping,  # GroupMapping
         target):  # Label
     def assign_target_to_group(
@@ -281,7 +304,12 @@ def _update_target_to_group_mapping(
         # If the target hasn't already been assigned to a group, assign it to the
         # first group claiming the target. Return whether the target was already assigned.
         if target not in target_to_group_map:
-            target_to_group_map[target] = group
+            if mapping.traversal == Traversal("subfolders"):
+                generated_group_name = _generate_group_subfolder_name(group.name, target.package)
+                _add_to_implicit_link_group(generated_group_name, group, groups_map, target_to_group_map, target)
+            else:
+                target_to_group_map[target] = group.name
+
             if node_traversal:
                 node_traversed_targets[target] = None
             return False
@@ -297,7 +325,44 @@ def _update_target_to_group_mapping(
         graph_node = graph_map[node]
         return graph_node.deps + graph_node.exported_deps
 
-    if mapping.traversal == Traversal("node"):
+    if mapping.traversal == Traversal("node") or mapping.traversal == Traversal("subfolders"):
         assign_target_to_group(target = target, node_traversal = True)
     else:  # tree
         breadth_first_traversal_by(graph_map, [target], transitively_add_targets_to_group_mapping)
+
+def _add_to_implicit_link_group(
+        generated_group_name,  # str
+        group,  # Group
+        groups_map,  # {str: Group}
+        target_to_group_map,  # {Label: str}
+        target):  # Label
+    target_to_group_map[target] = generated_group_name
+    if generated_group_name not in groups_map:
+        groups_map[generated_group_name] = create_group(
+            group = group,
+            name = generated_group_name,
+            definition_type = GroupDefinition("implicit"),
+        )
+    elif groups_map[generated_group_name].definition_type == GroupDefinition("explicit"):
+        hashed_group_name = _hash_group_name(group.name, generated_group_name)
+        _add_to_implicit_link_group(hashed_group_name, group, groups_map, target_to_group_map, target)
+
+def _generate_group_subfolder_name(
+        group,  # str,
+        package):  # str
+    """ Dynamically generating link group name for "subfolders" traversal."""
+    name = group + "_" + package.replace("/", "_")
+
+    if len(name) > 246:
+        # Maximum filename size in unix is 255.
+        # We prefix all libraries with "lib" (3 symbols) and suffix with ".dylib" (6 symbols) or ".so" (3 symbols).
+        # Assuming ".dylib" suffix cause it's the longest, we can allow (255 - 3 - 6) = 246 symbols for the rest of the name.
+        name = _hash_group_name(group, name)
+    return name
+
+def _hash_group_name(prefix: str, name: str) -> str:
+    """
+    Creates new name via simple hashing.
+    Hash algorithm is stable in starlark: https://fburl.com/code/ptegkov6
+    """
+    return "{}_{}".format(prefix, str(hash(name)))

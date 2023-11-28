@@ -41,8 +41,8 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
     )
     resource_graph_node_map = get_resource_graph_node_map_func(resource_graph)()
     mappings = compute_mappings(
-        groups = [
-            create_group(
+        groups_map = {
+            group.name: create_group(
                 group = group,
                 # User provided mappings may contain entries that don't support
                 # ResourceGraphInfo, which `create_resource_graph` removes above.
@@ -55,7 +55,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
                 ],
             )
             for group in resource_groups
-        ],
+        },
         graph_map = resource_graph_node_map,
     )
     return [
