@@ -22,6 +22,7 @@ use std::path::Path;
 use dupe::Dupe;
 use serde::Serialize;
 use starlark_syntax::diagnostic::Diagnostic;
+use starlark_syntax::diagnostic::DiagnosticNoError;
 
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
@@ -146,9 +147,21 @@ impl Display for EvalMessage {
 }
 
 impl EvalMessage {
+    /// Produce an `EvalMessage` from a `starlark::Error`
+    pub fn from_error(file: &Path, err: &crate::Error) -> Self {
+        let (diag, message) = err.get_diagnostic_and_message();
+        if let Some(diag) = diag {
+            Self::from_diagnostic_inner(file, diag, message, err)
+        } else {
+            Self::from_any_error(file, err)
+        }
+    }
+
     /// Convert from an `anyhow::Error` to an `EvalMessage`.
     ///
     /// This will attempt to downcast the error to a `Diagnostic`.
+    ///
+    /// TODO(JakobDegen): Remove
     pub fn from_anyhow(file: &Path, x: &anyhow::Error) -> Self {
         match x.downcast_ref::<Diagnostic>() {
             Some(d) => Self::from_diagnostic(file, d),
@@ -158,8 +171,7 @@ impl EvalMessage {
 
     /// Convert any error into an `EvalMessage`.
     ///
-    /// You should prefer to turn the error into a diagnostic first, and then use `from_diagnostic`
-    /// if possible.
+    /// TODO(JakobDegen): Make private
     pub fn from_any_error(file: &Path, x: &impl std::fmt::Display) -> Self {
         Self {
             path: file.display().to_string(),
@@ -173,9 +185,20 @@ impl EvalMessage {
     }
 
     /// Turn a diagnostic into an `EvalMessage`.
+    ///
+    /// TODO(JakobDegen): Remove
     pub fn from_diagnostic(file: &Path, d: &Diagnostic) -> Self {
-        let Some(span) = &d.span() else {
-            return Self::from_any_error(file, d);
+        Self::from_diagnostic_inner(file, &d.data, &d.message, d)
+    }
+
+    fn from_diagnostic_inner(
+        file: &Path,
+        d: &DiagnosticNoError,
+        message: impl std::fmt::Display,
+        full_error: impl std::fmt::Display,
+    ) -> Self {
+        let Some(span) = &d.span else {
+            return Self::from_any_error(file, &full_error);
         };
         let original = span.source_span().to_owned();
         let resolved_span = span.resolve_span();
@@ -184,8 +207,8 @@ impl EvalMessage {
             span: Some(resolved_span),
             severity: EvalSeverity::Error,
             name: "error".to_owned(),
-            description: format!("{:#}", d.message),
-            full_error_with_span: Some(d.to_string()),
+            description: format!("{:#}", message),
+            full_error_with_span: Some(full_error.to_string()),
             original: Some(original),
         }
     }
