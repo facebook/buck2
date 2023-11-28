@@ -1,8 +1,26 @@
-use crate::ast::{Enum, Field, Input, Struct, Variant};
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
+// This code is adapted from https://github.com/dtolnay/thiserror licensed under Apache-2.0 or MIT.
+
+use syn::Error;
+use syn::GenericArgument;
+use syn::PathArguments;
+use syn::Result;
+use syn::Type;
+
+use crate::ast::Enum;
+use crate::ast::Field;
+use crate::ast::Input;
+use crate::ast::Struct;
+use crate::ast::Variant;
 use crate::attr::Attrs;
-use quote::ToTokens;
-use std::collections::BTreeSet as Set;
-use syn::{Error, GenericArgument, Member, PathArguments, Result, Type};
 
 impl Input<'_> {
     pub(crate) fn validate(&self) -> Result<()> {
@@ -52,18 +70,6 @@ impl Enum<'_> {
                 ));
             }
         }
-        let mut from_types = Set::new();
-        for variant in &self.variants {
-            if let Some(from_field) = variant.from_field() {
-                let repr = from_field.ty.to_token_stream().to_string();
-                if !from_types.insert(repr) {
-                    return Err(Error::new_spanned(
-                        from_field.original,
-                        "cannot derive From because another variant has the same source type",
-                    ));
-                }
-            }
-        }
         Ok(())
     }
 }
@@ -106,22 +112,10 @@ impl Field<'_> {
 }
 
 fn check_non_field_attrs(attrs: &Attrs) -> Result<()> {
-    if let Some(from) = &attrs.from {
-        return Err(Error::new_spanned(
-            from,
-            "not expected here; the #[from] attribute belongs on a specific field",
-        ));
-    }
     if let Some(source) = &attrs.source {
         return Err(Error::new_spanned(
             source,
             "not expected here; the #[source] attribute belongs on a specific field",
-        ));
-    }
-    if let Some(backtrace) = &attrs.backtrace {
-        return Err(Error::new_spanned(
-            backtrace,
-            "not expected here; the #[backtrace] attribute belongs on a specific field",
         ));
     }
     if let Some(display) = &attrs.display {
@@ -136,32 +130,13 @@ fn check_non_field_attrs(attrs: &Attrs) -> Result<()> {
 }
 
 fn check_field_attrs(fields: &[Field]) -> Result<()> {
-    let mut from_field = None;
     let mut source_field = None;
-    let mut backtrace_field = None;
-    let mut has_backtrace = false;
     for field in fields {
-        if let Some(from) = field.attrs.from {
-            if from_field.is_some() {
-                return Err(Error::new_spanned(from, "duplicate #[from] attribute"));
-            }
-            from_field = Some(field);
-        }
         if let Some(source) = field.attrs.source {
             if source_field.is_some() {
                 return Err(Error::new_spanned(source, "duplicate #[source] attribute"));
             }
             source_field = Some(field);
-        }
-        if let Some(backtrace) = field.attrs.backtrace {
-            if backtrace_field.is_some() {
-                return Err(Error::new_spanned(
-                    backtrace,
-                    "duplicate #[backtrace] attribute",
-                ));
-            }
-            backtrace_field = Some(field);
-            has_backtrace = true;
         }
         if let Some(transparent) = field.attrs.transparent {
             return Err(Error::new_spanned(
@@ -169,29 +144,8 @@ fn check_field_attrs(fields: &[Field]) -> Result<()> {
                 "#[error(transparent)] needs to go outside the enum or struct, not on an individual field",
             ));
         }
-        has_backtrace |= field.is_backtrace();
     }
-    if let (Some(from_field), Some(source_field)) = (from_field, source_field) {
-        if !same_member(from_field, source_field) {
-            return Err(Error::new_spanned(
-                from_field.attrs.from,
-                "#[from] is only supported on the source field, not any other field",
-            ));
-        }
-    }
-    if let Some(from_field) = from_field {
-        let max_expected_fields = match backtrace_field {
-            Some(backtrace_field) => 1 + !same_member(from_field, backtrace_field) as usize,
-            None => 1 + has_backtrace as usize,
-        };
-        if fields.len() > max_expected_fields {
-            return Err(Error::new_spanned(
-                from_field.attrs.from,
-                "deriving From requires no fields other than source and backtrace",
-            ));
-        }
-    }
-    if let Some(source_field) = source_field.or(from_field) {
+    if let Some(source_field) = source_field {
         if contains_non_static_lifetime(source_field.ty) {
             return Err(Error::new_spanned(
                 &source_field.original.ty,
@@ -200,14 +154,6 @@ fn check_field_attrs(fields: &[Field]) -> Result<()> {
         }
     }
     Ok(())
-}
-
-fn same_member(one: &Field, two: &Field) -> bool {
-    match (&one.member, &two.member) {
-        (Member::Named(one), Member::Named(two)) => one == two,
-        (Member::Unnamed(one), Member::Unnamed(two)) => one.index == two.index,
-        _ => unreachable!(),
-    }
 }
 
 fn contains_non_static_lifetime(ty: &Type) -> bool {
@@ -221,7 +167,7 @@ fn contains_non_static_lifetime(ty: &Type) -> bool {
                 match arg {
                     GenericArgument::Type(ty) if contains_non_static_lifetime(ty) => return true,
                     GenericArgument::Lifetime(lifetime) if lifetime.ident != "static" => {
-                        return true
+                        return true;
                     }
                     _ => {}
                 }

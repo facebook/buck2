@@ -1,22 +1,24 @@
-use crate::ast::{Enum, Field, Struct, Variant};
-use syn::{Member, Type};
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
+// This code is adapted from https://github.com/dtolnay/thiserror licensed under Apache-2.0 or MIT.
+
+use syn::Member;
+
+use crate::ast::Enum;
+use crate::ast::Field;
+use crate::ast::Struct;
+use crate::ast::Variant;
 
 impl Struct<'_> {
-    pub(crate) fn from_field(&self) -> Option<&Field> {
-        from_field(&self.fields)
-    }
-
     pub(crate) fn source_field(&self) -> Option<&Field> {
         source_field(&self.fields)
-    }
-
-    pub(crate) fn backtrace_field(&self) -> Option<&Field> {
-        backtrace_field(&self.fields)
-    }
-
-    pub(crate) fn distinct_backtrace_field(&self) -> Option<&Field> {
-        let backtrace_field = self.backtrace_field()?;
-        distinct_backtrace_field(backtrace_field, self.from_field())
     }
 }
 
@@ -25,12 +27,6 @@ impl Enum<'_> {
         self.variants
             .iter()
             .any(|variant| variant.source_field().is_some() || variant.attrs.transparent.is_some())
-    }
-
-    pub(crate) fn has_backtrace(&self) -> bool {
-        self.variants
-            .iter()
-            .any(|variant| variant.backtrace_field().is_some())
     }
 
     pub(crate) fn has_display(&self) -> bool {
@@ -48,42 +44,14 @@ impl Enum<'_> {
 }
 
 impl Variant<'_> {
-    pub(crate) fn from_field(&self) -> Option<&Field> {
-        from_field(&self.fields)
-    }
-
     pub(crate) fn source_field(&self) -> Option<&Field> {
         source_field(&self.fields)
     }
-
-    pub(crate) fn backtrace_field(&self) -> Option<&Field> {
-        backtrace_field(&self.fields)
-    }
-
-    pub(crate) fn distinct_backtrace_field(&self) -> Option<&Field> {
-        let backtrace_field = self.backtrace_field()?;
-        distinct_backtrace_field(backtrace_field, self.from_field())
-    }
-}
-
-impl Field<'_> {
-    pub(crate) fn is_backtrace(&self) -> bool {
-        type_is_backtrace(self.ty)
-    }
-}
-
-fn from_field<'a, 'b>(fields: &'a [Field<'b>]) -> Option<&'a Field<'b>> {
-    for field in fields {
-        if field.attrs.from.is_some() {
-            return Some(field);
-        }
-    }
-    None
 }
 
 fn source_field<'a, 'b>(fields: &'a [Field<'b>]) -> Option<&'a Field<'b>> {
     for field in fields {
-        if field.attrs.from.is_some() || field.attrs.source.is_some() {
+        if field.attrs.source.is_some() {
             return Some(field);
         }
     }
@@ -94,42 +62,4 @@ fn source_field<'a, 'b>(fields: &'a [Field<'b>]) -> Option<&'a Field<'b>> {
         }
     }
     None
-}
-
-fn backtrace_field<'a, 'b>(fields: &'a [Field<'b>]) -> Option<&'a Field<'b>> {
-    for field in fields {
-        if field.attrs.backtrace.is_some() {
-            return Some(field);
-        }
-    }
-    for field in fields {
-        if field.is_backtrace() {
-            return Some(field);
-        }
-    }
-    None
-}
-
-// The #[backtrace] field, if it is not the same as the #[from] field.
-fn distinct_backtrace_field<'a, 'b>(
-    backtrace_field: &'a Field<'b>,
-    from_field: Option<&Field>,
-) -> Option<&'a Field<'b>> {
-    if from_field.map_or(false, |from_field| {
-        from_field.member == backtrace_field.member
-    }) {
-        None
-    } else {
-        Some(backtrace_field)
-    }
-}
-
-fn type_is_backtrace(ty: &Type) -> bool {
-    let path = match ty {
-        Type::Path(ty) => &ty.path,
-        _ => return false,
-    };
-
-    let last = path.segments.last().unwrap();
-    last.ident == "Backtrace" && last.arguments.is_empty()
 }

@@ -1,11 +1,33 @@
-use crate::ast::Field;
-use crate::attr::{Display, Trait};
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
+// This code is adapted from https://github.com/dtolnay/thiserror licensed under Apache-2.0 or MIT.
+
+use std::collections::BTreeSet as Set;
+use std::collections::HashMap as Map;
+
 use proc_macro2::TokenTree;
-use quote::{format_ident, quote_spanned};
-use std::collections::{BTreeSet as Set, HashMap as Map};
+use quote::format_ident;
+use quote::quote_spanned;
 use syn::ext::IdentExt;
-use syn::parse::{ParseStream, Parser};
-use syn::{Ident, Index, LitStr, Member, Result, Token};
+use syn::parse::ParseStream;
+use syn::parse::Parser;
+use syn::Ident;
+use syn::Index;
+use syn::LitStr;
+use syn::Member;
+use syn::Result;
+use syn::Token;
+
+use crate::ast::Field;
+use crate::attr::Display;
+use crate::attr::Trait;
 
 impl Display<'_> {
     // Transform `"error {var}"` to `"error {}", var`.

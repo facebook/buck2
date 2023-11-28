@@ -1,17 +1,41 @@
-use proc_macro2::{Delimiter, Group, Span, TokenStream, TokenTree};
-use quote::{format_ident, quote, ToTokens};
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
+// This code is adapted from https://github.com/dtolnay/thiserror licensed under Apache-2.0 or MIT.
+
 use std::collections::BTreeSet as Set;
+
+use proc_macro2::Delimiter;
+use proc_macro2::Group;
+use proc_macro2::Span;
+use proc_macro2::TokenStream;
+use proc_macro2::TokenTree;
+use quote::format_ident;
+use quote::quote;
+use quote::ToTokens;
+use syn::braced;
+use syn::bracketed;
+use syn::parenthesized;
 use syn::parse::ParseStream;
-use syn::{
-    braced, bracketed, parenthesized, token, Attribute, Error, Ident, Index, LitInt, LitStr, Meta,
-    Result, Token,
-};
+use syn::token;
+use syn::Attribute;
+use syn::Error;
+use syn::Ident;
+use syn::Index;
+use syn::LitInt;
+use syn::LitStr;
+use syn::Result;
+use syn::Token;
 
 pub struct Attrs<'a> {
     pub display: Option<Display<'a>>,
     pub source: Option<&'a Attribute>,
-    pub backtrace: Option<&'a Attribute>,
-    pub from: Option<&'a Attribute>,
     pub transparent: Option<Transparent<'a>>,
 }
 
@@ -47,8 +71,6 @@ pub fn get(input: &[Attribute]) -> Result<Attrs> {
     let mut attrs = Attrs {
         display: None,
         source: None,
-        backtrace: None,
-        from: None,
         transparent: None,
     };
 
@@ -61,24 +83,6 @@ pub fn get(input: &[Attribute]) -> Result<Attrs> {
                 return Err(Error::new_spanned(attr, "duplicate #[source] attribute"));
             }
             attrs.source = Some(attr);
-        } else if attr.path().is_ident("backtrace") {
-            attr.meta.require_path_only()?;
-            if attrs.backtrace.is_some() {
-                return Err(Error::new_spanned(attr, "duplicate #[backtrace] attribute"));
-            }
-            attrs.backtrace = Some(attr);
-        } else if attr.path().is_ident("from") {
-            match attr.meta {
-                Meta::Path(_) => {}
-                Meta::List(_) | Meta::NameValue(_) => {
-                    // Assume this is meant for derive_more crate or something.
-                    continue;
-                }
-            }
-            if attrs.from.is_some() {
-                return Err(Error::new_spanned(attr, "duplicate #[from] attribute"));
-            }
-            attrs.from = Some(attr);
         }
     }
 

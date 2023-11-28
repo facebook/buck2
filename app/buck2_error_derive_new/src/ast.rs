@@ -1,10 +1,31 @@
-use crate::attr::{self, Attrs};
-use crate::generics::ParamsInScope;
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
+// This code is adapted from https://github.com/dtolnay/thiserror licensed under Apache-2.0 or MIT.
+
 use proc_macro2::Span;
-use syn::{
-    Data, DataEnum, DataStruct, DeriveInput, Error, Fields, Generics, Ident, Index, Member, Result,
-    Type,
-};
+use syn::Data;
+use syn::DataEnum;
+use syn::DataStruct;
+use syn::DeriveInput;
+use syn::Error;
+use syn::Fields;
+use syn::Generics;
+use syn::Ident;
+use syn::Index;
+use syn::Member;
+use syn::Result;
+use syn::Type;
+
+use crate::attr;
+use crate::attr::Attrs;
+use crate::generics::ParamsInScope;
 
 pub enum Input<'a> {
     Struct(Struct<'a>),
