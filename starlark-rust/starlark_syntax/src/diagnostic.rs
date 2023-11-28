@@ -118,10 +118,12 @@ impl Diagnostic {
     /// Note that this function doesn't print any context information if the error is a
     /// [`Diagnostic`], so you might prefer to use `eprintln!("{:#}"), err)`
     /// if you suspect there is useful context (although you won't get pretty colors).
-    pub fn eprint(err: &anyhow::Error) {
-        match err.downcast_ref::<Diagnostic>() {
-            None => eprintln!("{:#}", err),
-            Some(diag) => diagnostic_stderr(&diag.message, &diag.data),
+    pub fn eprint(err: &crate::Error) {
+        let (diag, message) = err.get_diagnostic_and_message();
+        if let Some(diag) = diag {
+            diagnostic_stderr(message, diag)
+        } else {
+            eprintln!("{:#}", err)
         }
     }
 }

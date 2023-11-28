@@ -292,7 +292,7 @@ impl<'a> Assert<'a> {
         program: &str,
         module: &'v Module,
         gc: GcStrategy,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         let mut modules = HashMap::with_capacity(self.modules.len());
         for (k, v) in &self.modules {
             modules.insert(k.as_str(), v);
@@ -315,7 +315,7 @@ impl<'a> Assert<'a> {
             GcStrategy::Always => eval.before_stmt_fn(&gc_always),
         }
         eval.set_loader(&loader);
-        eval.eval_module(ast, &self.globals)
+        eval.eval_module(ast, &self.globals).map_err(Into::into)
     }
 
     fn execute_fail<'v>(
@@ -324,7 +324,7 @@ impl<'a> Assert<'a> {
         program: &str,
         module: &'v Module,
         gc: GcStrategy,
-    ) -> anyhow::Error {
+    ) -> crate::Error {
         match self.execute("assert.bzl", program, module, gc) {
             Ok(v) => panic!(
                 "starlark::assert::{}, didn't fail!\nCode:\n{}\nResult:\n{}\n",
@@ -438,7 +438,7 @@ impl<'a> Assert<'a> {
         self.globals(mk_environment().with(f).build())
     }
 
-    fn fails_with_name(&self, func: &str, program: &str, msgs: &[&str]) -> anyhow::Error {
+    fn fails_with_name(&self, func: &str, program: &str, msgs: &[&str]) -> crate::Error {
         self.with_gc(|gc| {
             let module_env = Module::new();
             let original = self.execute_fail(func, program, &module_env, gc);
@@ -446,9 +446,7 @@ impl<'a> Assert<'a> {
             // fail("bad") # error: magic
             // Then when we print the source code, magic is contained in the error message.
             // Therefore, find the internals.
-            let inner = original
-                .downcast_ref::<Diagnostic>()
-                .map_or(&original, |d| &d.message);
+            let (_, inner) = original.get_diagnostic_and_message();
             let err_msg = format!("{:#}", inner);
             for msg in msgs {
                 if !err_msg.contains(msg) {
@@ -459,6 +457,7 @@ impl<'a> Assert<'a> {
                 )
                 }
             }
+            drop(inner);
             original
         })
     }
@@ -475,7 +474,7 @@ impl<'a> Assert<'a> {
     /// # use starlark::assert::Assert;
     /// Assert::new().fail("fail('hello')", "ello");
     /// ```
-    pub fn fail(&self, program: &str, msg: &str) -> anyhow::Error {
+    pub fn fail(&self, program: &str, msg: &str) -> crate::Error {
         self.fails_with_name("fail", program, &[msg])
     }
 
@@ -489,7 +488,7 @@ impl<'a> Assert<'a> {
     /// # use starlark::assert::Assert;
     /// Assert::new().fails("fail('hello')", &["fail", "ello"]);
     /// ```
-    pub fn fails(&self, program: &str, msgs: &[&str]) -> anyhow::Error {
+    pub fn fails(&self, program: &str, msgs: &[&str]) -> crate::Error {
         self.fails_with_name("fails", program, msgs)
     }
 
@@ -596,24 +595,24 @@ pub fn eq(lhs: &str, rhs: &str) {
 }
 
 /// See [`Assert::fail`].
-pub fn fail(program: &str, msg: &str) -> anyhow::Error {
+pub fn fail(program: &str, msg: &str) -> crate::Error {
     Assert::new().fail(program, msg)
 }
 
 #[cfg(test)]
-pub(crate) fn fail_skip_typecheck(program: &str, msg: &str) -> anyhow::Error {
+pub(crate) fn fail_skip_typecheck(program: &str, msg: &str) -> crate::Error {
     let mut a = Assert::new();
     a.disable_static_typechecking();
     a.fail(program, msg)
 }
 
 /// See [`Assert::fails`].
-pub fn fails(program: &str, msgs: &[&str]) -> anyhow::Error {
+pub fn fails(program: &str, msgs: &[&str]) -> crate::Error {
     Assert::new().fails(program, msgs)
 }
 
 #[cfg(test)]
-pub(crate) fn fails_skip_typecheck(program: &str, msgs: &[&str]) -> anyhow::Error {
+pub(crate) fn fails_skip_typecheck(program: &str, msgs: &[&str]) -> crate::Error {
     let mut a = Assert::new();
     a.disable_static_typechecking();
     a.fails(program, msgs)

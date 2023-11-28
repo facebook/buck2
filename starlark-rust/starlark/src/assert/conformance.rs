@@ -24,7 +24,6 @@
 #![allow(clippy::if_then_panic)]
 
 use itertools::Itertools;
-use starlark_syntax::diagnostic::Diagnostic;
 
 use crate::assert::assert::Assert;
 
@@ -88,11 +87,8 @@ impl ConformanceTest {
     }
 
     fn test(&self, assert: &Assert) {
-        fn get_line(err: &anyhow::Error) -> Option<usize> {
-            match err.downcast_ref::<Diagnostic>() {
-                Some(d) => d.span().map(|span| span.resolve_span().begin.line + 1),
-                _ => None,
-            }
+        fn get_line(err: &crate::Error) -> Option<usize> {
+            err.span().map(|span| span.resolve_span().begin.line + 1)
         }
 
         match &self.error {

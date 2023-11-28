@@ -460,16 +460,14 @@ should_fail()"#,
         "rust failure",
     );
 
-    let diag = err.downcast::<Diagnostic>().unwrap();
-
     golden_test_template(
         "src/tests/uncategorized_diagnostics_display_default.golden",
-        trim_rust_backtrace(&format!("{}", diag)),
+        trim_rust_backtrace(&format!("{}", err)),
     );
 
     golden_test_template(
         "src/tests/uncategorized_diagnostics_display_hash.golden",
-        trim_rust_backtrace(&format!("{:#}", diag)),
+        trim_rust_backtrace(&format!("{:#}", err)),
     );
 }
 
