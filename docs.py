@@ -152,6 +152,23 @@ def generate_help_docs(buck):
         )
 
 
+def generate_query_docs(buck):
+    os.makedirs("docs/users/query", exist_ok=True)
+    for x in ["uquery", "cquery", "aquery"]:
+        cmd = buck + " docs " + x + " --format=markdown"
+        print("Running " + cmd + " ...")
+        res = subprocess.run(cmd, shell=True, check=True, capture_output=True)
+        write_file(
+            "docs/users/query/" + x + ".generated.md",
+            "---\nid: "
+            + x
+            + "\ntitle: "
+            + x.title()
+            + " Environment\n---\n"
+            + res.stdout.decode(),
+        )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -186,6 +203,7 @@ def main() -> None:
     copy_starlark_docs()
     generate_api_docs(buck)
     generate_help_docs(buck)
+    generate_query_docs(buck)
 
 
 if __name__ == "__main__":
