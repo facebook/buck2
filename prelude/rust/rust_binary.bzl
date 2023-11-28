@@ -26,6 +26,10 @@ load(
 )
 load("@prelude//cxx:linker.bzl", "DUMPBIN_SUB_TARGET", "PDB_SUB_TARGET", "get_dumpbin_providers", "get_pdb_providers")
 load(
+    "@prelude//dist:dist_info.bzl",
+    "DistInfo",
+)
+load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
     "Linkage",
@@ -75,6 +79,7 @@ _CompileOutputs = record(
     extra_targets = field(list[(str, Artifact)]),
     runtime_files = field(list[ArgLike]),
     sub_targets = field(dict[str, list[DefaultInfo]]),
+    dist_info = DistInfo,
 )
 
 def _rust_binary_common(
@@ -145,22 +150,24 @@ def _rust_binary_common(
         # As per v1, we only setup a shared library symlink tree for the shared
         # link style.
         # XXX need link tree for dylib crates
+        shlib_deps = []
         if link_style == LinkStyle("shared") or rust_cxx_link_group_info != None:
-            shlib_info = merge_shared_libraries(
-                ctx.actions,
-                deps = inherited_shared_libs(ctx, compile_ctx.dep_ctx),
-            )
+            shlib_deps = inherited_shared_libs(ctx, compile_ctx.dep_ctx)
 
-            link_group_ctx = LinkGroupContext(
-                link_group_mappings = link_group_mappings,
-                link_group_libs = link_group_libs,
-                link_group_preferred_linkage = link_group_preferred_linkage,
-                labels_to_links_map = labels_to_links_map,
-            )
-            for soname, shared_lib in traverse_shared_library_info(shlib_info).items():
-                label = shared_lib.label
-                if rust_cxx_link_group_info == None or is_link_group_shlib(label, link_group_ctx):
-                    shared_libs[soname] = shared_lib.lib
+        shlib_info = merge_shared_libraries(ctx.actions, deps = shlib_deps)
+
+        link_group_ctx = LinkGroupContext(
+            link_group_mappings = link_group_mappings,
+            link_group_libs = link_group_libs,
+            link_group_preferred_linkage = link_group_preferred_linkage,
+            labels_to_links_map = labels_to_links_map,
+        )
+
+        def shlib_filter(_name, shared_lib):
+            return not rust_cxx_link_group_info or is_link_group_shlib(shared_lib.label, link_group_ctx)
+
+        for soname, shared_lib in traverse_shared_library_info(shlib_info, filter_func = shlib_filter).items():
+            shared_libs[soname] = shared_lib.lib
 
         if rust_cxx_link_group_info:
             # When there are no matches for a pattern based link group,
@@ -266,6 +273,9 @@ def _rust_binary_common(
             extra_targets = extra_targets,
             runtime_files = runtime_files,
             sub_targets = sub_targets_for_link_style,
+            dist_info = DistInfo(
+                shared_libs = shlib_info.set,
+            ),
         )
 
         if link_style == specified_link_style and link.dwp_output:
@@ -306,6 +316,7 @@ def _rust_binary_common(
                 sub_targets = sub_compiled_outputs.sub_targets,
             ),
             RunInfo(args = sub_compiled_outputs.args),
+            sub_compiled_outputs.dist_info,
         ]
 
     if dwp_target:
@@ -328,6 +339,7 @@ def _rust_binary_common(
             other_outputs = compiled_outputs.runtime_files,
             sub_targets = sub_targets,
         ),
+        compiled_outputs.dist_info,
     ]
     return (providers, compiled_outputs.args)
 
