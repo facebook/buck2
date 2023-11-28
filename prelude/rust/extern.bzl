@@ -19,9 +19,10 @@ load(":context.bzl", "CompileContext", "CrateMapArg", "CrateName", "ExternArg")
 #
 #     REALNAME=path/to/libPROVISIONAL.rlib
 #
+# The `compile_ctx` may be omitted for non-dynamic crate names
 def extern_arg(
         ctx: AnalysisContext,
-        compile_ctx: CompileContext,
+        compile_ctx: CompileContext | None,
         flags: list[str],
         crate: CrateName,
         lib: Artifact) -> cmd_args:

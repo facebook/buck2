@@ -66,6 +66,7 @@ load(
 load(
     ":link_info.bzl",
     "RustCxxLinkGroupInfo",  #@unused Used as a type
+    "RustDependency",
     "RustLinkInfo",
     "RustLinkStyleInfo",
     "attr_crate",
@@ -614,10 +615,12 @@ def rust_compile(
 # For native dependencies, we use -Clink-arg=@argsfile
 # Second element of result tuple is a list of files/directories that should be present for executable to be run successfully
 # Third return is the mapping from crate names back to targets (needed so that a deps linter knows what deps need fixing)
+#
+# The `compile_ctx` may be omitted if `is_check` is `True` and there are no dependencies with dynamic crate names
 def _dependency_args(
         ctx: AnalysisContext,
-        compile_ctx: CompileContext,
-        dep_ctx: DepCollectionContext,
+        compile_ctx: CompileContext | None,
+        deps: list[RustDependency],
         subdir: str,
         crate_type: CrateType,
         dep_link_style: LinkStyle,
@@ -627,7 +630,7 @@ def _dependency_args(
     transitive_deps = {}
     crate_targets = []
     available_proc_macros = get_available_proc_macros(ctx)
-    for dep in resolve_rust_deps(ctx, dep_ctx):
+    for dep in deps:
         if dep.name:
             crate = CrateName(
                 simple = normalize_crate(dep.name),
@@ -800,7 +803,7 @@ def _compute_common_args(
     dependency_args, crate_map = _dependency_args(
         ctx = ctx,
         compile_ctx = compile_ctx,
-        dep_ctx = dep_ctx,
+        deps = resolve_rust_deps(ctx, dep_ctx),
         subdir = subdir,
         crate_type = crate_type,
         dep_link_style = dep_link_style,
