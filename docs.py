@@ -98,6 +98,13 @@ def generate_api_docs(buck):
             os.makedirs(Path(dest).parent, exist_ok=True)
             write_file(dest, prefix + src)
 
+            # copy build APIs to BXL
+            if name.startswith("build/"):
+                name_without_build = "/".join(name.split("/")[1:])
+                bxl_dest = "docs/api/bxl/" + name_without_build + ".generated.md"
+                os.makedirs(Path(bxl_dest).parent, exist_ok=True)
+                write_file(bxl_dest, prefix + src)
+
 
 def parse_subcommands(output):
     res = []
