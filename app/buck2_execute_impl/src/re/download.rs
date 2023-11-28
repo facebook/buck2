@@ -132,16 +132,24 @@ pub async fn download_action_results<'a>(
         ),
         e => {
             let materialized_inputs = if materialize_failed_re_action_inputs {
-                match materialize_inputs(artifact_fs, materializer, request).await {
-                    Ok(materialized_paths) => Some(materialized_paths.paths.clone()),
-                    Err(e) => {
-                        console_message(format!(
-                            "Failed to materialize inputs for failed action: {}",
-                            e
-                        ));
-                        None
-                    }
-                }
+                executor_stage_async(
+                    buck2_data::ReStage {
+                        stage: Some(buck2_data::MaterializeFailedInputs {}.into()),
+                    },
+                    async move {
+                        match materialize_inputs(artifact_fs, materializer, request).await {
+                            Ok(materialized_paths) => Some(materialized_paths.paths.clone()),
+                            Err(e) => {
+                                console_message(format!(
+                                    "Failed to materialize inputs for failed action: {}",
+                                    e
+                                ));
+                                None
+                            }
+                        }
+                    },
+                )
+                .await
             } else {
                 None
             };
