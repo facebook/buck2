@@ -20,9 +20,71 @@
 
 load("@prelude//:prelude.bzl", "native")
 load("@prelude//decls:common.bzl", "buck")
+load("@prelude//linking:link_info.bzl", "LinkStyle")
+load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
 load("@prelude//rust:targets.bzl", "targets")
 load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
+load(":build.bzl", "dependency_args")
+load(":build_params.bzl", "CrateType")
+load(":context.bzl", "DepCollectionContext")
+load(":link_info.bzl", "RustProcMacroPlugin", "gather_explicit_sysroot_deps", "resolve_rust_deps_inner")
+
+def _make_rustc_shim(ctx: AnalysisContext, cwd: Artifact) -> cmd_args:
+    # Build scripts expect to receive a `rustc` which "just works." However,
+    # our rustc sometimes has no sysroot available, so we need to make a shim
+    # which supplies the sysroot deps if necessary
+    toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
+    explicit_sysroot_deps = toolchain_info.explicit_sysroot_deps
+    if explicit_sysroot_deps:
+        dep_ctx = DepCollectionContext(
+            native_unbundle_deps = False,
+            include_doc_deps = False,
+            is_proc_macro = False,
+            explicit_sysroot_deps = explicit_sysroot_deps,
+        )
+        deps = gather_explicit_sysroot_deps(dep_ctx)
+        deps = resolve_rust_deps_inner(ctx, deps)
+        dep_args, _ = dependency_args(
+            ctx,
+            None,  # compile_ctx
+            deps,
+            "any",  # subdir
+            CrateType("rlib"),
+            LinkStyle("static_pic"),
+            True,  # is_check
+            False,  # is_rustdoc_test
+        )
+
+        null_path = "nul" if ctx.attrs._exec_os_type[OsLookup].platform == "windows" else "/dev/null"
+        dep_args = cmd_args("--sysroot=" + null_path, dep_args)
+        dep_args = cmd_args("-Zunstable-options", dep_args)
+        dep_args = dep_args.relative_to(cwd)
+        dep_file, _ = ctx.actions.write("rustc_dep_file", dep_args, allow_args = True)
+        sysroot_args = cmd_args("@", dep_file, delimiter = "").hidden(dep_args)
+    else:
+        sysroot_args = cmd_args()
+
+    if ctx.attrs._exec_os_type[OsLookup].platform == "windows":
+        shim, _ = ctx.actions.write(
+            "__rustc_shim.bat",
+            [
+                "@echo off",
+                cmd_args(toolchain_info.compiler, sysroot_args, "%*", delimiter = " ").relative_to(cwd),
+            ],
+            allow_args = True,
+        )
+    else:
+        shim, _ = ctx.actions.write(
+            "__rustc_shim.sh",
+            [
+                "#!/usr/bin/env bash",
+                cmd_args(toolchain_info.compiler, sysroot_args, "\"$@\"\n", delimiter = " ").relative_to(cwd),
+            ],
+            is_executable = True,
+            allow_args = True,
+        )
+    return cmd_args(shim).relative_to(cwd).hidden(toolchain_info.compiler).hidden(sysroot_args)
 
 def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
@@ -47,7 +109,7 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
     env["CARGO_PKG_NAME"] = ctx.attrs.package_name
     env["CARGO_PKG_VERSION"] = ctx.attrs.version
     env["OUT_DIR"] = out_dir.as_output()
-    env["RUSTC"] = cmd_args(toolchain_info.compiler).relative_to(cwd)
+    env["RUSTC"] = _make_rustc_shim(ctx, cwd)
     env["RUSTC_LINKER"] = "/bin/false"
     env["RUST_BACKTRACE"] = "1"
     env["TARGET"] = toolchain_info.rustc_target_triple
@@ -95,6 +157,8 @@ _cargo_buildscript_rule = rule(
         "_exec_os_type": buck.exec_os_type_arg(),
         "_rust_toolchain": toolchains_common.rust(),
     },
+    # Always empty, but needed to prevent errors
+    uses_plugins = [RustProcMacroPlugin],
 )
 
 def buildscript_run(

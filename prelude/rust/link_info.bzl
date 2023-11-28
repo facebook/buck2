@@ -203,7 +203,7 @@ def _do_resolve_deps(
                                 [(None, dep, flags) for dep, flags in flagged_deps]
     ]
 
-def _gather_explicit_sysroot_deps(dep_ctx: DepCollectionContext) -> list[RustOrNativeDependency]:
+def gather_explicit_sysroot_deps(dep_ctx: DepCollectionContext) -> list[RustOrNativeDependency]:
     explicit_sysroot_deps = dep_ctx.explicit_sysroot_deps
     if not explicit_sysroot_deps:
         return []
@@ -256,7 +256,7 @@ def resolve_deps(
             named_deps = getattr(ctx.attrs, "doc_named_deps", {}),
         ))
 
-    return dependencies + _gather_explicit_sysroot_deps(dep_ctx)
+    return dependencies + gather_explicit_sysroot_deps(dep_ctx)
 
 def resolve_rust_deps_inner(
         ctx: AnalysisContext,

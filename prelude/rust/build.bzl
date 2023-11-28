@@ -617,7 +617,7 @@ def rust_compile(
 # Third return is the mapping from crate names back to targets (needed so that a deps linter knows what deps need fixing)
 #
 # The `compile_ctx` may be omitted if `is_check` is `True` and there are no dependencies with dynamic crate names
-def _dependency_args(
+def dependency_args(
         ctx: AnalysisContext,
         compile_ctx: CompileContext | None,
         deps: list[RustDependency],
@@ -800,7 +800,7 @@ def _compute_common_args(
 
     is_check = not emit_needs_codegen(emit)
 
-    dependency_args, crate_map = _dependency_args(
+    dep_args, crate_map = dependency_args(
         ctx = ctx,
         compile_ctx = compile_ctx,
         deps = resolve_rust_deps(ctx, dep_ctx),
@@ -812,12 +812,12 @@ def _compute_common_args(
     )
 
     if crate_type == CrateType("proc-macro"):
-        dependency_args.add("--extern=proc_macro")
+        dep_args.add("--extern=proc_macro")
 
     if crate_type == CrateType("cdylib") or crate_type == CrateType("dylib") and not is_check:
         linker_info = compile_ctx.cxx_toolchain_info.linker_info
         shlib_name = get_default_shared_library_name(linker_info, ctx.label)
-        dependency_args.add(cmd_args(
+        dep_args.add(cmd_args(
             get_shared_library_name_linker_flags(linker_info.type, shlib_name),
             format = "-Clink-arg={}",
         ))
@@ -893,7 +893,7 @@ def _compute_common_args(
         _rustc_flags(toolchain_info.rustc_coverage_flags) if ctx.attrs.coverage else [],
         _rustc_flags(ctx.attrs.rustc_flags),
         cmd_args(ctx.attrs.features, format = '--cfg=feature="{}"'),
-        dependency_args,
+        dep_args,
     )
 
     common_args = CommonArgsInfo(
