@@ -207,14 +207,23 @@ fn copy_file_impl<'v>(
 /// to output artifacts.
 #[starlark_module]
 fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
-    /// Returns an unbound `artifact` which must be bound before analysis terminates. The usual way
-    /// of binding an artifact is with `ctx.actions.run`.
+    /// Returns an unbound `artifact`, representing where a file will go, which must be bound before analysis terminates.
+    /// The usual way of binding an artifact is with `ctx.actions.run`. As an example:
     ///
-    /// To construct an artifact with the name `foo`, call `ctx.actions.declare_output("foo")`.
+    /// ```python
+    /// my_output = ctx.actions.declare_output("output.o")
+    /// ctx.actions.run(["gcc", "-c", my_source, "-o", my_output.as_output()], category = "compile")
+    /// ```
+    ///
+    /// This snippet declares an output with the filename `output.o` (it will be located in the output directory
+    /// for this target). Note the use of `as_output` to tag this artifact as being an output in
+    /// the action. After binding the artifact you can subsequently use `my_output` as either an
+    /// input for subsequent actions, or as the result in a provider.
+    ///
     /// Artifacts from a single target may not have the same name, so if you then want a second
-    /// artifact also named `foo` you need to supply a prefix, e.g.
-    /// `ctx.actions.declare_output("directory", "foo")`. The artifact will still report it has name
-    /// `foo`, but will be located at `directory/foo`.
+    /// artifact also named `output.o` you need to supply a prefix, e.g.
+    /// `ctx.actions.declare_output("directory", "output.o")`. The artifact will still report having
+    /// name `output.o`, but will be located at `directory/output.o`.
     ///
     /// The `dir` argument should be set to `True` if the binding will be a directory.
     fn declare_output<'v>(
