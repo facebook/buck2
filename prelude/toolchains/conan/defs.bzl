@@ -8,7 +8,8 @@
 """Conan C/C++ Package Manager Toolchain.
 
 Provides a toolchain and rules to use the [Conan package manager][conan] to
-manage and install third-party C/C++ dependencies.
+manage and install third-party C/C++ dependencies. Only works with Conan 1.61.1
+(not Conan 2).
 
 [conan]: https://docs.conan.io/en/latest/introduction.html
 
