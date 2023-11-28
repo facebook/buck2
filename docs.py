@@ -133,12 +133,23 @@ def generate_help_docs_subcommand(buck, args):
 
 
 def generate_help_docs(buck):
-    res = generate_help_docs_subcommand(buck, [])
-    write_file(
-        "docs/users/commands.generated.md",
-        "---\nid: commands\ntitle: Commands\n---\nThese are the Buck2 commands and their `--help` output:"
-        + res,
-    )
+    cmd = buck + " --help"
+    print("Running " + cmd + " ...")
+    res = subprocess.run(cmd, shell=True, check=True, capture_output=True)
+    os.makedirs("docs/users/commands", exist_ok=True)
+    for sub in parse_subcommands(res.stdout.decode()):
+        res = generate_help_docs_subcommand(buck, [sub])
+        write_file(
+            "docs/users/commands/" + sub + ".generated.md",
+            "---\nid: "
+            + sub
+            + "\ntitle: "
+            + sub
+            + "\n---\nThese are the flags/commands under `buck2 "
+            + sub
+            + "` and their `--help` output:"
+            + res,
+        )
 
 
 def main() -> None:
