@@ -470,7 +470,8 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
     }
 
     /// Evaluates some general query string, `query_args` can be a target_set of unconfigured nodes, or
-    /// a list of strings.
+    /// a list of strings. Returns a `dict` of target labels mapped to their `target_set` results if `query_args`
+    /// was passed in, otherwise returns a single `target_set`.
     ///
     /// Sample usage:
     /// ```text
