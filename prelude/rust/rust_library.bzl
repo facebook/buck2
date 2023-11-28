@@ -289,35 +289,35 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # If doctests=True or False is set on the individual target, respect that.
     # Otherwise look at the global setting on the toolchain.
-    doctests_enabled = ctx.attrs.doctests if ctx.attrs.doctests != None else toolchain_info.doctests
+    doctests_enabled = \
+        (ctx.attrs.doctests if ctx.attrs.doctests != None else toolchain_info.doctests) and \
+        toolchain_info.rustc_target_triple == targets.exec_triple(ctx)
 
-    rustdoc_test = None
-    if doctests_enabled and toolchain_info.rustc_target_triple == targets.exec_triple(ctx):
-        if ctx.attrs.doc_link_style:
-            doc_link_style = LinkStyle(ctx.attrs.doc_link_style)
-        else:
-            doc_link_style = {
-                "any": LinkStyle("shared"),
-                "shared": LinkStyle("shared"),
-                "static": DEFAULT_STATIC_LINK_STYLE,
-            }[ctx.attrs.preferred_linkage]
-        rustdoc_test_params = build_params(
-            rule = RuleType("binary"),
-            proc_macro = ctx.attrs.proc_macro,
-            link_style = doc_link_style,
-            preferred_linkage = Linkage(ctx.attrs.preferred_linkage),
-            lang = LinkageLang("rust"),
-            linker_type = compile_ctx.cxx_toolchain_info.linker_info.type,
-            target_os_type = ctx.attrs._target_os_type[OsLookup],
-        )
-        rustdoc_test = generate_rustdoc_test(
-            ctx = ctx,
-            compile_ctx = compile_ctx,
-            link_style = rustdoc_test_params.dep_link_style,
-            library = rust_param_artifact[static_library_params],
-            params = rustdoc_test_params,
-            default_roots = default_roots,
-        )
+    if ctx.attrs.doc_link_style:
+        doc_link_style = LinkStyle(ctx.attrs.doc_link_style)
+    else:
+        doc_link_style = {
+            "any": LinkStyle("shared"),
+            "shared": LinkStyle("shared"),
+            "static": DEFAULT_STATIC_LINK_STYLE,
+        }[ctx.attrs.preferred_linkage]
+    rustdoc_test_params = build_params(
+        rule = RuleType("binary"),
+        proc_macro = ctx.attrs.proc_macro,
+        link_style = doc_link_style,
+        preferred_linkage = Linkage(ctx.attrs.preferred_linkage),
+        lang = LinkageLang("rust"),
+        linker_type = compile_ctx.cxx_toolchain_info.linker_info.type,
+        target_os_type = ctx.attrs._target_os_type[OsLookup],
+    )
+    rustdoc_test = generate_rustdoc_test(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        link_style = rustdoc_test_params.dep_link_style,
+        library = rust_param_artifact[static_library_params],
+        params = rustdoc_test_params,
+        default_roots = default_roots,
+    )
 
     expand = rust_compile(
         ctx = ctx,
@@ -335,6 +335,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         param_artifact = rust_param_artifact,
         rustdoc = rustdoc,
         rustdoc_test = rustdoc_test,
+        doctests_enabled = doctests_enabled,
         check_artifacts = check_artifacts,
         expand = expand.output,
         sources = compile_ctx.symlinked_srcs,
@@ -491,7 +492,8 @@ def _default_providers(
         lang_style_param: dict[(LinkageLang, LinkStyle), BuildParams],
         param_artifact: dict[BuildParams, RustLinkStyleInfo],
         rustdoc: Artifact,
-        rustdoc_test: [(cmd_args, dict[str, cmd_args]), None],
+        rustdoc_test: (cmd_args, dict[str, cmd_args]),
+        doctests_enabled: bool,
         check_artifacts: dict[str, Artifact],
         expand: Artifact,
         sources: Artifact) -> list[Provider]:
@@ -518,20 +520,20 @@ def _default_providers(
 
     providers = []
 
-    if rustdoc_test:
-        (rustdoc_cmd, rustdoc_env) = rustdoc_test
-        rustdoc_test_info = ExternalRunnerTestInfo(
-            type = "rustdoc",
-            command = [rustdoc_cmd],
-            run_from_project_root = True,
-            env = rustdoc_env,
-        )
+    (rustdoc_cmd, rustdoc_env) = rustdoc_test
+    rustdoc_test_info = ExternalRunnerTestInfo(
+        type = "rustdoc",
+        command = [rustdoc_cmd],
+        run_from_project_root = True,
+        env = rustdoc_env,
+    )
 
-        # Run doc test as part of `buck2 test :crate`
+    # Always let the user run doctests via `buck2 test :crate[doc]`
+    sub_targets["doc"].append(rustdoc_test_info)
+
+    # But only run it as a part of `buck2 test :crate` if it's not disabled
+    if doctests_enabled:
         providers.append(rustdoc_test_info)
-
-        # Run doc test as part of `buck2 test :crate[doc]`
-        sub_targets["doc"].append(rustdoc_test_info)
 
     providers.append(DefaultInfo(
         default_output = check_artifacts["check"],
