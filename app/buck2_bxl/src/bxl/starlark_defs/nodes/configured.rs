@@ -8,6 +8,7 @@
  */
 
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 use std::path::Path;
@@ -533,13 +534,32 @@ fn lazy_attrs_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkLazyAttrs<'v>,
         attr: &str,
     ) -> anyhow::Result<Option<StarlarkConfiguredAttr>> {
-        Ok(this
-            .configured_target_node
-            .0
-            .get(attr, AttrInspectOptions::All)
-            .map(|a| {
-                StarlarkConfiguredAttr(a.value, this.configured_target_node.0.label().pkg().dupe())
-            }))
+        Ok(
+            match this
+                .configured_target_node
+                .0
+                .get(attr, AttrInspectOptions::All)
+            {
+                Some(attr) => Some(StarlarkConfiguredAttr(
+                    attr.value,
+                    this.configured_target_node.0.label().pkg().dupe(),
+                )),
+                None => {
+                    // Check special attrs
+                    let special_attrs = this
+                        .configured_target_node
+                        .0
+                        .special_attrs()
+                        .collect::<HashMap<_, _>>();
+                    special_attrs.get(attr).map(|attr| {
+                        StarlarkConfiguredAttr(
+                            attr.clone(),
+                            this.configured_target_node.0.label().pkg().dupe(),
+                        )
+                    })
+                }
+            },
+        )
     }
 }
 
