@@ -461,11 +461,27 @@ impl<'a> BuckLspContext<'a> {
         }
     }
 
-    async fn parse_file_with_contents(
+    async fn parse_file_with_contents(&self, uri: &LspUrl, content: String) -> LspEvalResult {
+        match self
+            .parse_file_from_contents_and_handle_diagnostic(uri, content)
+            .await
+        {
+            Ok(res) => res,
+            Err(e) => {
+                let message = EvalMessage::from_any_error(uri.path(), &e);
+                LspEvalResult {
+                    diagnostics: vec![eval_message_to_lsp_diagnostic(message)],
+                    ast: None,
+                }
+            }
+        }
+    }
+
+    async fn parse_file_from_contents_and_handle_diagnostic(
         &self,
         uri: &LspUrl,
         content: String,
-    ) -> buck2_error::Result<LspEvalResult> {
+    ) -> anyhow::Result<LspEvalResult> {
         let import_path: OwnedStarlarkModulePath = match uri {
             LspUrl::File(path) => self.import_path(path).await,
             LspUrl::Starlark(path) => self.starlark_import_path(path).await,
@@ -476,24 +492,37 @@ impl<'a> BuckLspContext<'a> {
             .into()),
         }?;
 
-        Ok(self
-            .with_dice_ctx(|dice_ctx| async move {
-                let calculator = dice_ctx
-                    .get_interpreter_calculator(
-                        import_path.borrow().cell(),
-                        import_path.borrow().build_file_cell(),
-                    )
-                    .await?;
+        self.with_dice_ctx(|dice_ctx| async move {
+            let calculator = dice_ctx
+                .get_interpreter_calculator(
+                    import_path.borrow().cell(),
+                    import_path.borrow().build_file_cell(),
+                )
+                .await?;
 
-                let module_path = import_path.borrow();
-                let path = module_path.starlark_path();
-                let ast = calculator.prepare_eval_with_content(path, content)?;
-                Ok(LspEvalResult {
-                    diagnostics: vec![],
+            let module_path = import_path.borrow();
+            let path = module_path.starlark_path();
+            let parse_result = calculator.prepare_eval_with_content(path, content);
+            match parse_result {
+                Ok(ast) => Ok(LspEvalResult {
+                    diagnostics: Vec::new(),
                     ast: Some(ast),
-                })
-            })
-            .await?)
+                }),
+                Err(e) => {
+                    let e: buck2_error::Error = e.into();
+                    if let Some(d) = e.downcast_ref::<starlark::errors::Diagnostic>() {
+                        let message = EvalMessage::from_diagnostic(uri.path(), d);
+                        Ok(LspEvalResult {
+                            diagnostics: vec![eval_message_to_lsp_diagnostic(message)],
+                            ast: None,
+                        })
+                    } else {
+                        Err(e.into())
+                    }
+                }
+            }
+        })
+        .await
     }
 
     async fn parse_file_from_string(
@@ -579,23 +608,7 @@ impl<'a> LspContext for BuckLspContext<'a> {
             .block_on(with_dispatcher_async(dispatcher, async {
                 match uri {
                     LspUrl::File(_) | LspUrl::Starlark(_) => {
-                        match self.parse_file_with_contents(uri, content).await {
-                            Ok(result) => result,
-                            Err(e) => {
-                                let e: buck2_error::Error = e.into();
-                                let message = if let Some(d) =
-                                    e.downcast_ref::<starlark::errors::Diagnostic>()
-                                {
-                                    EvalMessage::from_diagnostic(uri.path(), d)
-                                } else {
-                                    EvalMessage::from_any_error(uri.path(), &e)
-                                };
-                                LspEvalResult {
-                                    diagnostics: vec![eval_message_to_lsp_diagnostic(message)],
-                                    ast: None,
-                                }
-                            }
-                        }
+                        self.parse_file_with_contents(uri, content).await
                     }
                     _ => LspEvalResult::default(),
                 }
