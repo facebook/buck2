@@ -26,6 +26,7 @@ use buck2_core::cells::CellAliasResolver;
 use buck2_event_observer::humanized::HumanizedBytes;
 use buck2_events::dispatch::console_warning;
 use buck2_events::dispatch::get_dispatcher;
+use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::file_loader::InterpreterFileLoader;
 use buck2_interpreter::file_loader::LoadResolver;
@@ -74,7 +75,7 @@ enum StarlarkPeakMemoryError {
 
 #[derive(Debug, buck2_error::Error)]
 #[error("Error parsing: `{1}`")]
-pub struct ParseError(#[source] pub anyhow::Error, OwnedStarlarkPath);
+pub struct ParseError(#[source] pub BuckStarlarkError, OwnedStarlarkPath);
 
 /// A ParseData includes the parsed AST and a list of the imported files.
 ///
@@ -414,7 +415,12 @@ impl InterpreterForCell {
             &import.file_type().dialect(disable_starlark_types),
         ) {
             Ok(ast) => ast,
-            Err(e) => return Ok(Err(ParseError(e, OwnedStarlarkPath::new(import)))),
+            Err(e) => {
+                return Ok(Err(ParseError(
+                    BuckStarlarkError::new(e),
+                    OwnedStarlarkPath::new(import),
+                )));
+            }
         };
         let mut implicit_imports = Vec::new();
         if let Some(i) = self.prelude_import(import) {
