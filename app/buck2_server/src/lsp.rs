@@ -510,7 +510,7 @@ impl<'a> BuckLspContext<'a> {
                     ast: Some(ast),
                 }),
                 Err(e) => {
-                    let e: buck2_error::Error = e.0.into();
+                    let e = e.0;
                     if let Some(d) = e.downcast_ref::<starlark::errors::Diagnostic>() {
                         let message = EvalMessage::from_diagnostic(uri.path(), d);
                         Ok(LspEvalResult {
@@ -518,7 +518,7 @@ impl<'a> BuckLspContext<'a> {
                             ast: None,
                         })
                     } else {
-                        Err(e.into())
+                        Err(e)
                     }
                 }
             }

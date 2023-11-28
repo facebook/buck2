@@ -97,7 +97,6 @@ async fn lint_file(
     match AstModule::parse(&path_str, content.clone(), &dialect) {
         Ok(ast) => Ok(ast.lint(Some(&*cache.get_names(path).await?))),
         Err(err) => {
-            let err: buck2_error::Error = err.into();
             // There was a parse error, so we don't want to fail, we want to give a nice error message
             // Do the best we can - it is probably a `Diagnostic`, which gives us more precise info.
             let (span, message) = match err.downcast_ref::<Diagnostic>() {
