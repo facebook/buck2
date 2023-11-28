@@ -282,6 +282,12 @@ def _maybe_filter_resources(
                 ctx.actions.write("not_filtered_string_dirs", not_filtered_string_dirs),
             ])
 
+        allowlisted_locales = {resource.res: resource.allowlisted_locales for resource in resources if resource.allowlisted_locales}
+        filter_resources_cmd.add([
+            "--allowlisted-locales",
+            ctx.actions.write_json("allowlisted_locales", allowlisted_locales),
+        ])
+
     if needs_resource_filtering_for_locales:
         filter_resources_cmd.add([
             "--locales",

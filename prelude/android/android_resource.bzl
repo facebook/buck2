@@ -45,6 +45,7 @@ def android_resource_impl(ctx: AnalysisContext) -> list[Provider]:
         resource_info = AndroidResourceInfo(
             raw_target = ctx.label.raw_target(),
             aapt2_compile_output = aapt2_compile_output,
+            allowlisted_locales = ctx.attrs.allowlisted_locales,
             allow_strings_as_assets_resource_filtering = not ctx.attrs.has_whitelisted_strings,
             assets = assets,
             manifest_file = ctx.attrs.manifest,
@@ -58,6 +59,7 @@ def android_resource_impl(ctx: AnalysisContext) -> list[Provider]:
         resource_info = AndroidResourceInfo(
             raw_target = ctx.label.raw_target(),
             aapt2_compile_output = None,
+            allowlisted_locales = ctx.attrs.allowlisted_locales,
             allow_strings_as_assets_resource_filtering = not ctx.attrs.has_whitelisted_strings,
             assets = assets,
             manifest_file = ctx.attrs.manifest,

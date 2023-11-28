@@ -183,6 +183,8 @@ AndroidResourceInfo = provider(
         "raw_target": provider_field(typing.Any, default = None),  # TargetLabel
         # output of running `aapt2_compile` on the resources, if resources are present
         "aapt2_compile_output": provider_field(typing.Any, default = None),  # Artifact | None
+        # locales that should always be included in the APK for this resource
+        "allowlisted_locales": provider_field(typing.Any, default = []),  # List
         #  if False, then the "res" are not affected by the strings-as-assets resource filter
         "allow_strings_as_assets_resource_filtering": provider_field(typing.Any, default = None),  # bool
         # assets defined by this rule. May be empty
