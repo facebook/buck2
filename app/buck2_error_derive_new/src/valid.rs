@@ -33,7 +33,7 @@ impl Input<'_> {
 
 impl Struct<'_> {
     fn validate(&self) -> Result<()> {
-        check_non_field_attrs(&self.attrs)?;
+        check_non_field_attrs(&self.attrs, None)?;
         if let Some(transparent) = self.attrs.transparent {
             if self.fields.len() != 1 {
                 return Err(Error::new_spanned(
@@ -58,10 +58,10 @@ impl Struct<'_> {
 
 impl Enum<'_> {
     fn validate(&self) -> Result<()> {
-        check_non_field_attrs(&self.attrs)?;
+        check_non_field_attrs(&self.attrs, None)?;
         let has_display = self.has_display();
         for variant in &self.variants {
-            variant.validate()?;
+            variant.validate(&self.attrs)?;
             if has_display && variant.attrs.display.is_none() && variant.attrs.transparent.is_none()
             {
                 return Err(Error::new_spanned(
@@ -75,8 +75,8 @@ impl Enum<'_> {
 }
 
 impl Variant<'_> {
-    fn validate(&self) -> Result<()> {
-        check_non_field_attrs(&self.attrs)?;
+    fn validate(&self, parent_attrs: &Attrs) -> Result<()> {
+        check_non_field_attrs(&self.attrs, Some(parent_attrs))?;
         if self.attrs.transparent.is_some() {
             if self.fields.len() != 1 {
                 return Err(Error::new_spanned(
@@ -111,7 +111,9 @@ impl Field<'_> {
     }
 }
 
-fn check_non_field_attrs(attrs: &Attrs) -> Result<()> {
+/// If we're checking the attrs on an enum variant, `parsed_earlier` are the attrs on the enum
+/// itself.
+fn check_non_field_attrs(attrs: &Attrs, parsed_earlier: Option<&Attrs>) -> Result<()> {
     if let Some(source) = &attrs.source {
         return Err(Error::new_spanned(
             source,
@@ -124,6 +126,18 @@ fn check_non_field_attrs(attrs: &Attrs) -> Result<()> {
                 display.original,
                 "cannot have both #[error(transparent)] and a display attribute",
             ));
+        }
+    }
+    if let Some(parsed_earlier) = parsed_earlier {
+        if let Some(category) = &attrs.category
+            && parsed_earlier.category.is_some()
+        {
+            return Err(Error::new(category.span(), "already specified on enum"));
+        }
+        if let Some(typ) = &attrs.typ
+            && parsed_earlier.typ.is_some()
+        {
+            return Err(Error::new(typ.span(), "already specified on enum"));
         }
     }
     Ok(())
@@ -142,6 +156,12 @@ fn check_field_attrs(fields: &[Field]) -> Result<()> {
             return Err(Error::new_spanned(
                 transparent.original,
                 "#[error(transparent)] needs to go outside the enum or struct, not on an individual field",
+            ));
+        }
+        if let (Some(style), _) | (_, Some(style)) = (&field.attrs.category, &field.attrs.typ) {
+            return Err(Error::new(
+                style.span(),
+                "not expected here; the #[buck2(...)] attribute belongs on top of a struct or an enum variant",
             ));
         }
     }

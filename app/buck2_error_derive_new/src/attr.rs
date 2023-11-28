@@ -45,7 +45,7 @@ pub enum OptionStyle {
 }
 
 impl OptionStyle {
-    fn span(&self) -> Span {
+    pub fn span(&self) -> Span {
         match self {
             Self::Explicit(ident) => ident.span(),
             Self::ByFunc(path) => path.span(),
