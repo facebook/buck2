@@ -38,6 +38,18 @@ impl Error {
         &self.0.kind
     }
 
+    /// Convert the error into the underlying kind
+    pub fn into_kind(self) -> ErrorKind {
+        self.0.kind
+    }
+
+    pub fn has_diagnostic(&self) -> bool {
+        self.0.diagnostic.is_some()
+            || match self.kind() {
+                ErrorKind::Other(e) => e.downcast_ref::<Diagnostic>().is_some(),
+            }
+    }
+
     /// Convert this error into an `anyhow::Error`
     pub fn into_anyhow(self) -> anyhow::Error {
         struct Wrapped(Error);
