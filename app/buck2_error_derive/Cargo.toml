@@ -1,6 +1,6 @@
 [package]
 description = """
-Macros used by buck2_error
+Fork of thiserror used by buck2_error
 """
 edition = "2021"
 name = "buck2_error_derive"

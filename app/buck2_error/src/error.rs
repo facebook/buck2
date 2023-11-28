@@ -162,6 +162,8 @@ impl Error {
 mod tests {
     use std::sync::Arc;
 
+    use crate as buck2_error;
+
     #[derive(Debug, thiserror::Error)]
     #[error("Test")]
     struct TestError;

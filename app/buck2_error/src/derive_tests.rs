@@ -9,6 +9,8 @@
 
 #![cfg(test)]
 
+use crate as buck2_error;
+
 #[derive(buck2_error_derive::Error, Debug)]
 #[error("foo")]
 #[buck2(user)]

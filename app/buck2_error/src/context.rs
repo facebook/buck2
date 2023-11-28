@@ -9,6 +9,7 @@
 
 use std::sync::Arc;
 
+use crate as buck2_error;
 use crate::context_value::ContextValue;
 use crate::error::ErrorKind;
 

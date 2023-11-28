@@ -88,6 +88,8 @@ impl From<Category> for ContextValue {
 
 #[cfg(test)]
 mod tests {
+    use crate as buck2_error;
+
     #[derive(buck2_error_derive::Error, Debug)]
     #[error("test error")]
     struct TestError;

@@ -243,6 +243,7 @@ mod tests {
     use std::any::Demand;
 
     use super::*;
+    use crate as buck2_error;
     use crate::error::ErrorKind;
 
     #[derive(Debug, derive_more::Display)]

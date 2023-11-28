@@ -73,7 +73,7 @@ pub use buck2_data::error::ErrorType;
 /// assert_eq!(&format!("{}", e), "My error type");
 /// ```
 #[doc(inline)]
-pub use buck2_error_derive::ErrorForReexport as Error;
+pub use buck2_error_derive::Error;
 
 use crate::any::ProvidableContextMetadata;
 use crate::any::ProvidableRootMetadata;
