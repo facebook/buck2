@@ -18,8 +18,10 @@ use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
+use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_events::dispatch::console_message;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestFromReExt;
 use buck2_execute::digest_config::DigestConfig;
@@ -54,6 +56,7 @@ use indexmap::IndexMap;
 use more_futures::cancellation::CancellationContext;
 use remote_execution as RE;
 
+use crate::executors::local::materialize_inputs;
 use crate::re::paranoid_download::ParanoidDownloader;
 
 pub async fn download_action_results<'a>(
@@ -71,6 +74,8 @@ pub async fn download_action_results<'a>(
     paranoid: Option<&ParanoidDownloader>,
     cancellations: &CancellationContext<'_>,
     action_exit_code: i32,
+    artifact_fs: &ArtifactFs,
+    materialize_failed_re_action_inputs: bool,
 ) -> DownloadResult {
     let std_streams = response.std_streams(re_client, re_use_case, digest_config);
     let std_streams = async {
@@ -125,13 +130,33 @@ pub async fn download_action_results<'a>(
             CommandStdStreams::Remote(std_streams),
             response.timing(),
         ),
-        e => manager.failure(
-            response.execution_kind(details),
-            outputs,
-            CommandStdStreams::Remote(std_streams),
-            Some(e),
-            response.timing(),
-        ),
+        e => {
+            let materialized_inputs = if materialize_failed_re_action_inputs {
+                match materialize_inputs(artifact_fs, materializer, request).await {
+                    Ok(materialized_paths) => Some(materialized_paths.paths.clone()),
+                    Err(e) => {
+                        console_message(format!(
+                            "Failed to materialize inputs for failed action: {}",
+                            e
+                        ));
+                        None
+                    }
+                }
+            } else {
+                None
+            };
+
+            manager.failure(
+                response.execution_kind_with_materialized_inputs_for_failed(
+                    details,
+                    materialized_inputs,
+                ),
+                outputs,
+                CommandStdStreams::Remote(std_streams),
+                Some(e),
+                response.timing(),
+            )
+        }
     };
 
     DownloadResult::Result(res)

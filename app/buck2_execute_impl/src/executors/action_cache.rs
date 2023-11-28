@@ -197,6 +197,8 @@ async fn query_action_cache_and_download_result(
         paranoid.as_ref(),
         cancellations,
         action_exit_code,
+        artifact_fs,
+        false,
     )
     .await;
 

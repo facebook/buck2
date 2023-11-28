@@ -301,6 +301,8 @@ impl PreparedCommandExecutor for ReExecutor {
             self.paranoid.as_ref(),
             cancellations,
             response.action_result.exit_code,
+            &self.artifact_fs,
+            self.materialize_failed_inputs,
         )
         .boxed()
         .await;
