@@ -11,6 +11,7 @@
 
 use std::collections::BTreeSet as Set;
 
+use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use quote::format_ident;
 use quote::quote;
@@ -19,6 +20,7 @@ use quote::ToTokens;
 use syn::spanned::Spanned;
 use syn::Data;
 use syn::DeriveInput;
+use syn::Ident;
 use syn::Member;
 use syn::Result;
 use syn::Token;
@@ -29,6 +31,7 @@ use crate::ast::Field;
 use crate::ast::Input;
 use crate::ast::Struct;
 use crate::attr::Attrs;
+use crate::attr::OptionStyle;
 use crate::attr::Trait;
 use crate::generics::InferredBounds;
 
@@ -76,7 +79,7 @@ fn impl_struct(input: Struct) -> TokenStream {
         }
     });
 
-    let provide_body = gen_provide_contents(&input.attrs, &input.fields);
+    let provide_body = gen_provide_contents(&input.attrs, &input.fields, ty, None);
     let pat = fields_pat(&input.fields);
     let provide_method = quote! {
         fn provide<'__macro>(&'__macro self, __demand: &mut buck2_error::Demand<'__macro>) {
@@ -141,10 +144,21 @@ fn impl_struct(input: Struct) -> TokenStream {
     }
 }
 
-fn impl_enum(input: Enum) -> TokenStream {
+fn impl_enum(mut input: Enum) -> TokenStream {
     let ty = &input.ident;
     let (impl_generics, ty_generics, _) = input.generics.split_for_impl();
     let mut error_inferred_bounds = InferredBounds::new();
+
+    // We let people specify these on the type or variant, so make sure that they always show up on
+    // the variant and we don't have to re-check the type
+    for variant in &mut input.variants {
+        if input.attrs.category.is_some() {
+            variant.attrs.category = input.attrs.category.clone();
+        }
+        if input.attrs.typ.is_some() {
+            variant.attrs.typ = input.attrs.typ.clone();
+        }
+    }
 
     let source_method = if input.has_source() {
         let arms = input.variants.iter().map(|variant| {
@@ -190,7 +204,8 @@ fn impl_enum(input: Enum) -> TokenStream {
     };
 
     let provide_arms = input.variants.iter().map(|variant| {
-        let content = gen_provide_contents(&variant.attrs, &variant.fields);
+        let content =
+            gen_provide_contents(&variant.attrs, &variant.fields, ty, Some(&variant.ident));
         let ident = &variant.ident;
         let pat = fields_pat(&variant.fields);
         quote! {
@@ -279,7 +294,51 @@ fn impl_enum(input: Enum) -> TokenStream {
 }
 
 /// Generates the provided data for either a variant or the whole struct
-fn gen_provide_contents(attrs: &Attrs, fields: &[Field]) -> TokenStream {
+fn gen_provide_contents(
+    attrs: &Attrs,
+    fields: &[Field],
+    type_name: &Ident,
+    variant_name: Option<&Ident>,
+) -> TokenStream {
+    let type_and_variant = match variant_name {
+        Some(variant_name) => format!("{}::{}", type_name, variant_name),
+        None => type_name.to_string(),
+    };
+    let source_location_extra = syn::LitStr::new(&type_and_variant, Span::call_site());
+    let category = match &attrs.category {
+        Some(OptionStyle::Explicit(cat)) => quote::quote! {
+            core::option::Option::Some(buck2_error::Category::#cat)
+        },
+        Some(OptionStyle::ByFunc(func)) => quote::quote! {
+            #func(&self)
+        },
+        None => quote::quote! {
+            core::option::Option::None
+        },
+    };
+    let typ = match &attrs.typ {
+        Some(OptionStyle::Explicit(typ)) => quote::quote! {
+            core::option::Option::Some(buck2_error::ErrorType::#typ)
+        },
+        Some(OptionStyle::ByFunc(func)) => quote::quote! {
+            #func(&self)
+        },
+        None => quote::quote! {
+            core::option::Option::None
+        },
+    };
+
+    let metadata = quote! {
+        buck2_error::provide_metadata::<Self>(
+            __demand,
+            #category,
+            #typ,
+            core::file!(),
+            core::option::Option::Some(#source_location_extra),
+            core::option::Option::None,
+        );
+    };
+
     let forward_transparent = if attrs.transparent.is_some() {
         let only_field = match &fields[0].member {
             Member::Named(ident) => ident.clone(),
@@ -293,6 +352,7 @@ fn gen_provide_contents(attrs: &Attrs, fields: &[Field]) -> TokenStream {
         quote! {}
     };
     quote! {
+        #metadata
         #forward_transparent
     }
 }
