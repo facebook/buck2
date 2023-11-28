@@ -44,7 +44,7 @@ SharedLibrariesTSet = transitive_set()
 # Shared libraries required by top-level packaging rules (e.g. shared libs
 # for Python binary, symlink trees of shared libs for C++ binaries)
 SharedLibraryInfo = provider(fields = {
-    "set": provider_field(typing.Any, default = None),  # SharedLibrariesTSet | None
+    "set": provider_field(SharedLibrariesTSet | None, default = None),
 })
 
 def get_strip_non_global_flags(cxx_toolchain: CxxToolchainInfo) -> list:
