@@ -107,5 +107,5 @@ toolchains_common = struct(
     python_bootstrap = _python_bootstrap_toolchain,
     rust = _rust_toolchain,
     zip_file = _zip_file_toolchain,
-    remote_test_execution_toolchain = _remote_test_execution_toolchain,
+    remote_test_execution = _remote_test_execution_toolchain,
 )

@@ -51,7 +51,7 @@ def _test_args() -> dict[str, Attr]:
             default = None,
         ),
         "remote_execution_action_key_providers": _action_key_provider_arg(),
-        "_remote_test_execution_toolchain": toolchains_common.remote_test_execution_toolchain(),
+        "_remote_test_execution_toolchain": toolchains_common.remote_test_execution(),
     }
 
 re_test_common = struct(
