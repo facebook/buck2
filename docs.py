@@ -99,6 +99,48 @@ def generate_api_docs(buck):
             write_file(dest, prefix + src)
 
 
+def parse_subcommands(output):
+    res = []
+    seen_subcommands = False
+    for x in output.splitlines():
+        if x == "SUBCOMMANDS:":
+            seen_subcommands = True
+        if seen_subcommands and x.startswith("    ") and len(x) > 4 and x[4].isalpha():
+            sub = x.strip().split()[0]
+            if sub != "help":
+                res.append(sub)
+    return res
+
+
+def generate_help_docs_subcommand(buck, args):
+    cmd = buck + " " + " ".join(args) + " --help"
+    print("Running " + cmd + " ...")
+    res = subprocess.run(cmd, shell=True, check=True, capture_output=True)
+    root = res.stdout.decode()
+    title = "\n\n#" + ("#" * len(args)) + " " + " ".join(["buck"] + args) + "\n\n"
+    return (
+        (title if args else "")
+        + "\n\n```text\n"
+        + root
+        + "\n```"
+        + "\n\n".join(
+            [
+                generate_help_docs_subcommand(buck, args + [sub])
+                for sub in parse_subcommands(root)
+            ]
+        )
+    )
+
+
+def generate_help_docs(buck):
+    res = generate_help_docs_subcommand(buck, [])
+    write_file(
+        "docs/users/commands.generated.md",
+        "---\nid: commands\ntitle: Commands\n---\nThese are the Buck2 commands and their `--help` output:"
+        + res,
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -129,8 +171,10 @@ def main() -> None:
     for x in Path("docs").rglob("*.generated.md"):
         os.remove(x)
 
+    buck = buck_command(args)
     copy_starlark_docs()
-    generate_api_docs(buck_command(args))
+    generate_api_docs(buck)
+    generate_help_docs(buck)
 
 
 if __name__ == "__main__":
