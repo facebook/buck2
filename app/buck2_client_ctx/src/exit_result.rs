@@ -222,7 +222,17 @@ impl ExitResultVariant {
                 execv(args)
             }
             Self::StatusWithErr(exit_code, e) => {
-                let _ignored = writeln!(io::stderr().lock(), "Command failed: {:?}", e);
+                tracing::debug!("Exiting with {:?} ({:?})", exit_code, e);
+
+                match exit_code {
+                    ExitCode::SignalInterrupt | ExitCode::BrokenPipe => {
+                        // No logging for those.
+                    }
+                    _ => {
+                        let _ignored = writeln!(io::stderr().lock(), "Command failed: {:?}", e);
+                    }
+                }
+
                 exit_code
             }
         };
@@ -256,6 +266,7 @@ impl ExitResultVariant {
 pub struct ClientIoError(pub io::Error);
 
 /// Common exit codes for buck with stronger semantic meanings
+#[derive(Debug)]
 pub enum ExitCode {
     // TODO: Fill in more exit codes from ExitCode.java here. Need to determine
     // how many make sense in v2 versus v1. Some are assuredly unnecessary in v2.
