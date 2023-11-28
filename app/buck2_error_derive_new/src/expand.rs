@@ -131,6 +131,9 @@ fn impl_struct(input: Struct) -> TokenStream {
         let self_token = <Token![Self]>::default();
         error_inferred_bounds.insert(self_token, Trait::Debug);
         error_inferred_bounds.insert(self_token, Trait::Display);
+        error_inferred_bounds.insert(self_token, quote!(std::marker::Send));
+        error_inferred_bounds.insert(self_token, quote!(std::marker::Sync));
+        error_inferred_bounds.insert(self_token, quote!('static));
     }
     let error_where_clause = error_inferred_bounds.augment_where_clause(input.generics);
 
@@ -280,6 +283,9 @@ fn impl_enum(mut input: Enum) -> TokenStream {
         let self_token = <Token![Self]>::default();
         error_inferred_bounds.insert(self_token, Trait::Debug);
         error_inferred_bounds.insert(self_token, Trait::Display);
+        error_inferred_bounds.insert(self_token, quote!(std::marker::Send));
+        error_inferred_bounds.insert(self_token, quote!(std::marker::Sync));
+        error_inferred_bounds.insert(self_token, quote!('static));
     }
     let error_where_clause = error_inferred_bounds.augment_where_clause(input.generics);
 
