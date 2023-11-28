@@ -17,6 +17,11 @@
 
 use std::fmt;
 
+use crate::codemap::FileSpan;
+use crate::diagnostic::diagnostic_display;
+use crate::diagnostic::Diagnostic;
+use crate::diagnostic::DiagnosticNoError;
+
 /// An error produced by starlark.
 ///
 /// This error is composed of an error kind, together with some diagnostic information indicating
@@ -57,18 +62,61 @@ impl Error {
 
         anyhow::Error::new(Wrapped(self))
     }
+
+    /// Gets the diagnostic and the error message.
+    ///
+    /// The error message does not include the diagnostic
+    pub fn get_diagnostic_and_message<'a>(
+        &'a self,
+    ) -> (
+        Option<&'a DiagnosticNoError>,
+        impl fmt::Debug + fmt::Display + 'a,
+    ) {
+        trait DebugAndDisplay: fmt::Debug + fmt::Display {}
+        impl<T: fmt::Debug + fmt::Display> DebugAndDisplay for T {}
+
+        match &self.0.kind {
+            ErrorKind::Other(e) => {
+                if let Some(d) = e.downcast_ref::<Diagnostic>() {
+                    return (Some(&d.data), &d.message as &dyn DebugAndDisplay);
+                }
+            }
+        }
+
+        if self.0.diagnostic.is_some() {
+            return (
+                self.0.diagnostic.as_ref(),
+                &self.0.kind as &dyn DebugAndDisplay,
+            );
+        }
+
+        (None, &self.0.kind as &dyn DebugAndDisplay)
+    }
+
+    pub fn span(&self) -> Option<&FileSpan> {
+        self.get_diagnostic_and_message()
+            .0
+            .and_then(|d| d.span.as_ref())
+    }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // TODO(JakobDegen): Use the diagnostic formatting here, once it's been added to the error
-        fmt::Display::fmt(self.kind(), f)
+        let (diag, message) = self.get_diagnostic_and_message();
+        if let Some(diag) = diag {
+            // Not showing the context trace without `{:#}` or `{:?}` is the same thing that anyhow does
+            let with_context = f.alternate() && self.0.kind.source().is_some();
+            diagnostic_display(message, diag, false, f, with_context)
+        } else {
+            fmt::Display::fmt(self.kind(), f)
+        }
     }
 }
 
 #[derive(Debug)]
 struct ErrorInner {
     kind: ErrorKind,
+    diagnostic: Option<DiagnosticNoError>,
 }
 
 /// The different kinds of errors that can be produced by starlark
@@ -112,6 +160,7 @@ impl From<anyhow::Error> for Error {
     fn from(e: anyhow::Error) -> Self {
         Self(Box::new(ErrorInner {
             kind: ErrorKind::Other(e),
+            diagnostic: None,
         }))
     }
 }

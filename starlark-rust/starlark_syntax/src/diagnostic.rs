@@ -151,7 +151,7 @@ impl Display for Diagnostic {
 // variants by doing a conversion using annotate-snippets
 // (https://github.com/rust-lang/annotate-snippets-rs)
 
-fn diagnostic_display(
+pub(crate) fn diagnostic_display(
     message: impl std::fmt::Debug + Display,
     diagnostic: &DiagnosticNoError,
     color: bool,
