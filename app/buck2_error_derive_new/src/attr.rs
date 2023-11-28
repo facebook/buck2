@@ -22,7 +22,11 @@ use quote::ToTokens;
 use syn::braced;
 use syn::bracketed;
 use syn::parenthesized;
+use syn::parse::Parse;
 use syn::parse::ParseStream;
+use syn::parse::Parser;
+use syn::punctuated::Punctuated;
+use syn::spanned::Spanned;
 use syn::token;
 use syn::Attribute;
 use syn::Error;
@@ -33,10 +37,70 @@ use syn::LitStr;
 use syn::Result;
 use syn::Token;
 
+/// Did the user provide an explicit value for the option, or a function from which to compute it
+#[derive(Clone)]
+pub enum OptionStyle {
+    Explicit(syn::Ident),
+    ByFunc(syn::Path),
+}
+
+impl OptionStyle {
+    fn span(&self) -> Span {
+        match self {
+            Self::Explicit(ident) => ident.span(),
+            Self::ByFunc(path) => path.span(),
+        }
+    }
+}
+
+impl Parse for OptionStyle {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let path: syn::Path = input.parse()?;
+
+        if input.is_empty() {
+            let ident = path.require_ident()?;
+            Ok(Self::Explicit(ident.clone()))
+        } else {
+            let inner;
+            syn::parenthesized!(inner in input);
+            let _underscore: Token![_] = inner.parse()?;
+            Ok(Self::ByFunc(path))
+        }
+    }
+}
+
+enum MacroOption {
+    Category(OptionStyle),
+    Typ(OptionStyle),
+}
+
+impl Parse for MacroOption {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let name: syn::Ident = input.parse()?;
+        if name == "user" {
+            let ident = syn::Ident::new("User", name.span());
+            Ok(MacroOption::Category(OptionStyle::Explicit(ident)))
+        } else if name == "infra" {
+            let ident = syn::Ident::new("Infra", name.span());
+            Ok(MacroOption::Category(OptionStyle::Explicit(ident)))
+        } else if name == "category" {
+            let _eq: Token![=] = input.parse()?;
+            Ok(MacroOption::Category(input.parse()?))
+        } else if name == "typ" {
+            let _eq: Token![=] = input.parse()?;
+            Ok(MacroOption::Typ(input.parse()?))
+        } else {
+            Err(syn::Error::new_spanned(name, "expected option"))
+        }
+    }
+}
+
 pub struct Attrs<'a> {
     pub display: Option<Display<'a>>,
     pub source: Option<&'a Attribute>,
     pub transparent: Option<Transparent<'a>>,
+    pub category: Option<OptionStyle>,
+    pub typ: Option<OptionStyle>,
 }
 
 #[derive(Clone)]
@@ -71,6 +135,8 @@ pub fn get(input: &[Attribute]) -> Result<Attrs> {
         display: None,
         source: None,
         transparent: None,
+        category: None,
+        typ: None,
     };
 
     for attr in input {
@@ -82,6 +148,26 @@ pub fn get(input: &[Attribute]) -> Result<Attrs> {
                 return Err(Error::new_spanned(attr, "duplicate #[source] attribute"));
             }
             attrs.source = Some(attr);
+        } else if attr.path().is_ident("buck2") {
+            let meta = attr.meta.require_list()?;
+            let parsed = Punctuated::<MacroOption, Token![,]>::parse_terminated
+                .parse2(meta.tokens.clone())?;
+            for option in parsed {
+                match option {
+                    MacroOption::Category(style) => {
+                        if attrs.category.is_some() {
+                            return Err(syn::Error::new(style.span(), "duplicate category"));
+                        }
+                        attrs.category = Some(style);
+                    }
+                    MacroOption::Typ(style) => {
+                        if attrs.typ.is_some() {
+                            return Err(syn::Error::new(style.span(), "duplicate error type"));
+                        }
+                        attrs.typ = Some(style);
+                    }
+                }
+            }
         }
     }
 
