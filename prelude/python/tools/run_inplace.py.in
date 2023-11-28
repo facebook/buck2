@@ -26,7 +26,11 @@ import time
 
 os.environ["PAR_LAUNCH_TIMESTAMP"] = str(time.time())
 
-dirpath = os.path.dirname(os.path.realpath(__file__))
+# Enable long path support on Windows
+if platform.system() == "Windows":
+    dirpath = "\\\\?\\" + os.path.dirname(os.path.abspath(__file__))
+else:
+    dirpath = os.path.dirname(os.path.realpath(__file__))
 
 env_vals_to_restore = {}
 # Update the environment variable for the dynamic loader to the native
