@@ -77,6 +77,7 @@ def _unarchive_cmd(
             return cmd_args(
                 "tar",
                 "-x",
+                "-P",
                 "-f",
                 archive,
                 _tar_strip_prefix_flags(strip_prefix),
