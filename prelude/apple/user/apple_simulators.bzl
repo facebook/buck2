@@ -11,7 +11,7 @@ def _rule_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(),
         LocalResourceInfo(
-            setup = cmd_args([ctx.attrs.broker[RunInfo]] + ctx.attrs.args),
+            setup = cmd_args([ctx.attrs.broker[RunInfo], "--simulator-manager", ctx.attrs.idb_targets[RunInfo]] + ctx.attrs.args),
             resource_env_vars = {
                 "IDB_COMPANION": "socket_address",
             },
@@ -43,6 +43,7 @@ registration_spec = RuleRegistrationSpec(
     attrs = {
         "args": attrs.list(attrs.string(), default = []),
         "broker": attrs.exec_dep(providers = [RunInfo]),
+        "idb_targets": attrs.exec_dep(providers = [RunInfo]),
         "setup_timeout_seconds": attrs.option(attrs.int(), default = None),
     },
 )
