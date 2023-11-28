@@ -322,7 +322,7 @@ pub enum SharedMaterializingError {
 #[derive(buck2_error::Error, Debug)]
 pub enum MaterializeEntryError {
     #[error(transparent)]
-    Error(#[from] anyhow::Error),
+    Error(anyhow::Error),
 
     /// The artifact wasn't found. This typically means it expired in the CAS.
     #[error("Artifact not found (digest origin: {}, debug: {})", .info.origin.as_display_for_not_found(), .debug)]
@@ -330,6 +330,12 @@ pub enum MaterializeEntryError {
         info: Arc<CasDownloadInfo>,
         debug: Arc<str>,
     },
+}
+
+impl From<anyhow::Error> for MaterializeEntryError {
+    fn from(e: anyhow::Error) -> MaterializeEntryError {
+        Self::Error(e)
+    }
 }
 
 impl From<MaterializeEntryError> for SharedMaterializingError {

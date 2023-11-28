@@ -65,13 +65,19 @@ impl Checksum {
 #[derive(Debug, buck2_error::Error)]
 enum HttpHeadError {
     #[error("Error performing http_head request")]
-    Client(#[from] HttpError),
+    Client(#[source] HttpError),
+}
+
+impl From<HttpError> for HttpHeadError {
+    fn from(e: HttpError) -> Self {
+        Self::Client(e)
+    }
 }
 
 #[derive(Debug, buck2_error::Error)]
 enum HttpDownloadError {
     #[error("Error performing http_download request")]
-    Client(#[from] HttpError),
+    Client(#[source] HttpError),
 
     #[error("Invalid {0} digest. Expected {1}, got {2}. URL: {3}")]
     InvalidChecksum(&'static str, String, String, String),
@@ -89,6 +95,12 @@ enum HttpDownloadError {
 
     #[error(transparent)]
     IoError(anyhow::Error),
+}
+
+impl From<HttpError> for HttpDownloadError {
+    fn from(e: HttpError) -> Self {
+        Self::Client(e)
+    }
 }
 
 impl AsHttpError for HttpHeadError {

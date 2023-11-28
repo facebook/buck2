@@ -70,7 +70,7 @@ pub enum HttpError {
         source: http::uri::InvalidUri,
     },
     #[error("HTTP: Error building request")]
-    BuildRequest(#[from] http::Error),
+    BuildRequest(#[source] http::Error),
     #[error("HTTP: Error sending request to {uri}")]
     SendRequest {
         uri: String,
@@ -86,7 +86,7 @@ pub enum HttpError {
     #[error("HTTP Error: Exceeded max redirects ({max_redirects}) while fetching URI: {uri}. ")]
     TooManyRedirects { uri: String, max_redirects: usize },
     #[error("HTTP: Error mutating request")]
-    MutateRequest(#[from] anyhow::Error),
+    MutateRequest(#[source] anyhow::Error),
     #[error("HTTP: Timed out while making request to URI: {uri} after {duration} seconds.")]
     Timeout { uri: String, duration: u64 },
     #[error("While making request to {uri} via x2p")]
@@ -95,4 +95,16 @@ pub enum HttpError {
         #[source]
         source: x2p::X2PAgentError,
     },
+}
+
+impl From<http::Error> for HttpError {
+    fn from(err: http::Error) -> Self {
+        Self::BuildRequest(err)
+    }
+}
+
+impl From<anyhow::Error> for HttpError {
+    fn from(err: anyhow::Error) -> Self {
+        Self::MutateRequest(err)
+    }
 }

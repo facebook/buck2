@@ -86,7 +86,13 @@ pub enum X2PAgentError {
     #[error("Host `{host}` and path `{path}` is not authorized on vpnless")]
     AccessDenied { host: String, path: String },
     #[error(transparent)]
-    Error(#[from] anyhow::Error),
+    Error(anyhow::Error),
+}
+
+impl From<anyhow::Error> for X2PAgentError {
+    fn from(e: anyhow::Error) -> Self {
+        Self::Error(e)
+    }
 }
 
 impl X2PAgentError {

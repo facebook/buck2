@@ -91,20 +91,6 @@ fn test_with_field() {
 
 #[derive(buck2_error_derive::Error, Debug)]
 #[error("Unused")]
-struct Simple;
-
-#[derive(buck2_error_derive::Error, Debug)]
-#[error("Unused")]
-struct UsesFrom(#[from] Simple);
-
-#[test]
-fn test_uses_from() {
-    let e: UsesFrom = Simple.into();
-    let _e: crate::Error = e.into();
-}
-
-#[derive(buck2_error_derive::Error, Debug)]
-#[error("Unused")]
 struct NoAttrsStruct;
 
 #[derive(buck2_error_derive::Error, Debug)]

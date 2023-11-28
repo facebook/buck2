@@ -15,7 +15,7 @@ use http::StatusCode;
 #[derive(Debug, buck2_error::Error)]
 pub enum HttpError {
     #[error(transparent)]
-    Client(#[from] crate::HttpError),
+    Client(crate::HttpError),
 
     #[error("HTTP Transfer Error when querying URL: {}. Failed after {} bytes", .url, .received)]
     Transfer {
@@ -24,6 +24,12 @@ pub enum HttpError {
         #[source]
         source: hyper::Error,
     },
+}
+
+impl From<crate::HttpError> for HttpError {
+    fn from(value: crate::HttpError) -> Self {
+        Self::Client(value)
+    }
 }
 
 impl HttpError {
@@ -106,7 +112,13 @@ mod tests {
     #[derive(Debug, buck2_error::Error)]
     enum HttpTestError {
         #[error("Error in test")]
-        Client(#[from] HttpError),
+        Client(#[source] HttpError),
+    }
+
+    impl From<HttpError> for HttpTestError {
+        fn from(value: HttpError) -> Self {
+            Self::Client(value)
+        }
     }
 
     impl AsHttpError for HttpTestError {

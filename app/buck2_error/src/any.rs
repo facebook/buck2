@@ -372,11 +372,11 @@ mod tests {
     #[derive(Debug, buck2_error_derive::Error)]
     #[buck2(infra)]
     #[error("unused")]
-    struct InfraMetadataWrapperError(#[from] UserMetadataError);
+    struct InfraMetadataWrapperError(#[source] UserMetadataError);
 
     #[test]
     fn test_no_root_metadata_context() {
-        let e: InfraMetadataWrapperError = UserMetadataError.into();
+        let e = InfraMetadataWrapperError(UserMetadataError);
         let e: crate::Error = e.into();
         assert_eq!(e.get_category(), Some(crate::Category::Infra));
     }
