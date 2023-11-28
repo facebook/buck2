@@ -28,6 +28,7 @@ use crate::ast::Enum;
 use crate::ast::Field;
 use crate::ast::Input;
 use crate::ast::Struct;
+use crate::attr::Attrs;
 use crate::attr::Trait;
 use crate::generics::InferredBounds;
 
@@ -74,6 +75,13 @@ fn impl_struct(input: Struct) -> TokenStream {
             }
         }
     });
+
+    let provide_body = gen_provide_contents(&input.attrs, &input.fields);
+    let provide_method = quote! {
+        fn provide<'__macro>(&'__macro self, __demand: &mut buck2_error::Demand<'__macro>) {
+            #provide_body
+        }
+    };
 
     let mut display_implied_bounds = Set::new();
     let display_body = if input.attrs.transparent.is_some() {
@@ -125,6 +133,7 @@ fn impl_struct(input: Struct) -> TokenStream {
         #[allow(unused_qualifications)]
         impl #impl_generics #error_trait for #ty #ty_generics #error_where_clause {
             #source_method
+            #provide_method
         }
         #display_impl
     }
@@ -176,6 +185,25 @@ fn impl_enum(input: Enum) -> TokenStream {
         })
     } else {
         None
+    };
+
+    let provide_arms = input.variants.iter().map(|variant| {
+        let content = gen_provide_contents(&variant.attrs, &variant.fields);
+        let ident = &variant.ident;
+        let pat = fields_pat(&variant.fields);
+        quote! {
+            #[allow(unused_variables, deprecated)]
+            #ty::#ident #pat => {
+                #content
+            },
+        }
+    });
+    let provide_method = quote! {
+        fn provide<'__macro>(&'__macro self, __demand: &mut buck2_error::Demand<'__macro>) {
+            match self {
+                #(#provide_arms)*
+            }
+        }
     };
 
     let display_impl = if input.has_display() {
@@ -242,9 +270,15 @@ fn impl_enum(input: Enum) -> TokenStream {
         #[allow(unused_qualifications)]
         impl #impl_generics #error_trait for #ty #ty_generics #error_where_clause {
             #source_method
+            #provide_method
         }
         #display_impl
     }
+}
+
+/// Generates the provided data for either a variant or the whole struct
+fn gen_provide_contents(_attrs: &Attrs, _fields: &[Field]) -> TokenStream {
+    quote! {}
 }
 
 fn fields_pat(fields: &[Field]) -> TokenStream {
