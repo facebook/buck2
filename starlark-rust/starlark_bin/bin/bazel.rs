@@ -253,11 +253,11 @@ impl BazelContext {
     // Convert an anyhow over iterator of EvalMessage, into an iterator of EvalMessage
     fn err(
         file: &str,
-        result: anyhow::Result<EvalResult<impl Iterator<Item = EvalMessage>>>,
+        result: starlark::Result<EvalResult<impl Iterator<Item = EvalMessage>>>,
     ) -> EvalResult<impl Iterator<Item = EvalMessage>> {
         match result {
             Err(e) => EvalResult {
-                messages: Either::Left(iter::once(EvalMessage::from_anyhow(Path::new(file), &e))),
+                messages: Either::Left(iter::once(EvalMessage::from_error(Path::new(file), &e))),
                 ast: None,
             },
             Ok(res) => EvalResult {
@@ -321,15 +321,17 @@ impl BazelContext {
         let globals = globals();
         Self::err(
             file,
-            eval.eval_module(ast, &globals).map(|v| {
-                if self.print_non_none && !v.is_none() {
-                    println!("{}", v);
-                }
-                EvalResult {
-                    messages: iter::empty(),
-                    ast: None,
-                }
-            }),
+            eval.eval_module(ast, &globals)
+                .map(|v| {
+                    if self.print_non_none && !v.is_none() {
+                        println!("{}", v);
+                    }
+                    EvalResult {
+                        messages: iter::empty(),
+                        ast: None,
+                    }
+                })
+                .map_err(Into::into),
         )
     }
 
@@ -363,7 +365,9 @@ impl BazelContext {
     ) -> EvalResult<impl Iterator<Item = EvalMessage>> {
         Self::err(
             filename,
-            AstModule::parse(filename, content, &dialect()).map(|module| self.go(filename, module)),
+            AstModule::parse(filename, content, &dialect())
+                .map(|module| self.go(filename, module))
+                .map_err(Into::into),
         )
     }
 

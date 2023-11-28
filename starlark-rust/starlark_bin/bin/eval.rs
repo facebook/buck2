@@ -179,14 +179,14 @@ impl Context {
         }
     }
 
-    // Convert an anyhow over iterator of EvalMessage, into an iterator of EvalMessage
+    // Convert a result over iterator of EvalMessage, into an iterator of EvalMessage
     fn err(
         file: &str,
-        result: anyhow::Result<EvalResult<impl Iterator<Item = EvalMessage>>>,
+        result: starlark::Result<EvalResult<impl Iterator<Item = EvalMessage>>>,
     ) -> EvalResult<impl Iterator<Item = EvalMessage>> {
         match result {
             Err(e) => EvalResult {
-                messages: Either::Left(iter::once(EvalMessage::from_anyhow(Path::new(file), &e))),
+                messages: Either::Left(iter::once(EvalMessage::from_error(Path::new(file), &e))),
                 ast: None,
             },
             Ok(res) => EvalResult {
@@ -203,7 +203,9 @@ impl Context {
         let file = "expression";
         Self::err(
             file,
-            AstModule::parse(file, content, &dialect()).map(|module| self.go(file, module)),
+            AstModule::parse(file, content, &dialect())
+                .map(|module| self.go(file, module))
+                .map_err(Into::into),
         )
     }
 
@@ -213,7 +215,7 @@ impl Context {
             filename,
             fs::read_to_string(file)
                 .map(|content| self.file_with_contents(filename, content))
-                .map_err(|e| e.into()),
+                .map_err(|e| anyhow::Error::from(e).into()),
         )
     }
 
@@ -224,7 +226,9 @@ impl Context {
     ) -> EvalResult<impl Iterator<Item = EvalMessage>> {
         Self::err(
             filename,
-            AstModule::parse(filename, content, &dialect()).map(|module| self.go(filename, module)),
+            AstModule::parse(filename, content, &dialect())
+                .map(|module| self.go(filename, module))
+                .map_err(Into::into),
         )
     }
 
@@ -242,15 +246,17 @@ impl Context {
         let globals = globals();
         Self::err(
             file,
-            eval.eval_module(ast, &globals).map(|v| {
-                if self.print_non_none && !v.is_none() {
-                    println!("{}", v);
-                }
-                EvalResult {
-                    messages: iter::empty(),
-                    ast: None,
-                }
-            }),
+            eval.eval_module(ast, &globals)
+                .map(|v| {
+                    if self.print_non_none && !v.is_none() {
+                        println!("{}", v);
+                    }
+                    EvalResult {
+                        messages: iter::empty(),
+                        ast: None,
+                    }
+                })
+                .map_err(Into::into),
         )
     }
 
