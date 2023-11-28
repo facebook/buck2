@@ -89,7 +89,10 @@ def create_jar_artifact_kotlincd(
     output_paths = define_output_paths(actions, actions_identifier, label)
     path_to_class_hashes_out = declare_prefixed_output(actions, actions_identifier, "classes.txt")
 
-    should_create_class_abi = not is_creating_subtarget and (actual_abi_generation_mode == AbiGenerationMode("class") or not is_building_android_binary)
+    should_create_class_abi = \
+        not is_creating_subtarget and \
+        (actual_abi_generation_mode == AbiGenerationMode("class") or not is_building_android_binary) and \
+        kotlin_toolchain.jvm_abi_gen_plugin != None
     if should_create_class_abi:
         class_abi_jar = declare_prefixed_output(actions, actions_identifier, "class-abi.jar")
         class_abi_output_dir = declare_prefixed_output(actions, actions_identifier, "class_abi_dir", dir = True)
