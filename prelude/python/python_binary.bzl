@@ -360,6 +360,7 @@ def python_executable(
         ctx.actions,
         ctx.label,
         srcs = src_manifest,
+        src_types = src_manifest,
         dep_manifest = dep_manifest,
         resources = py_resources(ctx, all_resources) if all_resources else None,
         bytecode = bytecode_manifest,
