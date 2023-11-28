@@ -1227,8 +1227,11 @@ message ReStage {
     ReWorkerDownload worker_download = 8;
     ReWorkerUpload worker_upload = 9;
     ReUnknown unknown = 10;
+    MaterializeFailedInputs materialize_failed_inputs = 11;
   }
 }
+
+message MaterializeFailedInputs {}
 
 message ReExecute {
   string action_digest = 1;
