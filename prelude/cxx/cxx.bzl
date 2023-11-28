@@ -253,6 +253,7 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         RunInfo(args = cmd_args(output.binary).hidden(output.runtime_files)),
         output.compilation_db,
         output.xcode_data,
+        output.dist_info,
     ] + extra_providers
 
 def _prebuilt_item(

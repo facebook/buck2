@@ -32,6 +32,10 @@ load(
     "cxx_use_bolt",
 )
 load(
+    "@prelude//dist:dist_info.bzl",
+    "DistInfo",
+)
+load(
     "@prelude//ide_integrations:xcode.bzl",
     "XCODE_DATA_SUB_TARGET",
     "XcodeDataInfo",
@@ -175,6 +179,7 @@ CxxExecutableOutput = record(
     xcode_data = XcodeDataInfo,
     linker_map_data = [CxxLinkerMapData, None],
     link_command_debug_output = field([LinkCommandDebugOutput, None], None),
+    dist_info = DistInfo,
 )
 
 def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, is_cxx_test: bool = False) -> CxxExecutableOutput:
@@ -419,27 +424,27 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
 
     # Only setup a shared library symlink tree when shared linkage or link_groups is used
     gnu_use_link_groups = cxx_is_gnu(ctx) and link_group_mappings
+    shlib_deps = []
     if link_strategy == LinkStrategy("shared") or gnu_use_link_groups:
-        shlib_info = merge_shared_libraries(
-            ctx.actions,
-            deps = (
-                [d.shared_library_info for d in link_deps] +
-                [d.shared_library_info for d in impl_params.extra_link_roots]
-            ),
+        shlib_deps = (
+            [d.shared_library_info for d in link_deps] +
+            [d.shared_library_info for d in impl_params.extra_link_roots]
         )
 
-        link_group_ctx = LinkGroupContext(
-            link_group_mappings = link_group_mappings,
-            link_group_libs = link_group_libs,
-            link_group_preferred_linkage = link_group_preferred_linkage,
-            labels_to_links_map = labels_to_links_map,
-        )
+    shlib_info = merge_shared_libraries(ctx.actions, deps = shlib_deps)
 
-        def shlib_filter(_name, shared_lib):
-            return not gnu_use_link_groups or is_link_group_shlib(shared_lib.label, link_group_ctx)
+    link_group_ctx = LinkGroupContext(
+        link_group_mappings = link_group_mappings,
+        link_group_libs = link_group_libs,
+        link_group_preferred_linkage = link_group_preferred_linkage,
+        labels_to_links_map = labels_to_links_map,
+    )
 
-        for name, shared_lib in traverse_shared_library_info(shlib_info, filter_func = shlib_filter).items():
-            shared_libs[name] = shared_lib.lib
+    def shlib_filter(_name, shared_lib):
+        return not gnu_use_link_groups or is_link_group_shlib(shared_lib.label, link_group_ctx)
+
+    for name, shared_lib in traverse_shared_library_info(shlib_info, filter_func = shlib_filter).items():
+        shared_libs[name] = shared_lib.lib
 
     if gnu_use_link_groups:
         # When there are no matches for a pattern based link group,
@@ -671,6 +676,9 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         xcode_data = xcode_data_info,
         linker_map_data = linker_map_data,
         link_command_debug_output = link_cmd_debug_output,
+        dist_info = DistInfo(
+            shared_libs = shlib_info.set,
+        ),
     )
 
 _CxxLinkExecutableResult = record(
