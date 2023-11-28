@@ -29,6 +29,7 @@ use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use dice::DiceTransaction;
 use dupe::Dupe;
+use dupe::OptionDupedExt;
 use starlark::analysis::AstModuleLint;
 use starlark::codemap::FileSpan;
 use starlark::errors::Diagnostic;
@@ -101,7 +102,7 @@ async fn lint_file(
             // Do the best we can - it is probably a `Diagnostic`, which gives us more precise info.
             let (span, message) = match err.downcast_ref::<Diagnostic>() {
                 None => (None, &err as &dyn std::fmt::Display),
-                Some(diag) => (diag.span.dupe(), &diag.message as &dyn std::fmt::Display),
+                Some(diag) => (diag.span().duped(), &diag.message as &dyn std::fmt::Display),
             };
             Ok(vec![Lint {
                 location: span.unwrap_or_else(|| FileSpan::new(path_str, content)),

@@ -174,7 +174,7 @@ impl EvalMessage {
 
     /// Turn a diagnostic into an `EvalMessage`.
     pub fn from_diagnostic(file: &Path, d: &Diagnostic) -> Self {
-        let Some(span) = &d.span else {
+        let Some(span) = &d.span() else {
             return Self::from_any_error(file, d);
         };
         let original = span.source_span().to_owned();

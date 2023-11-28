@@ -181,7 +181,7 @@ impl AstModule {
     ///
     /// let err: anyhow::Error = AstModule::parse("filename", "\n(unmatched".to_owned(), &Dialect::Standard).unwrap_err();
     /// let err: Diagnostic = err.downcast::<Diagnostic>().unwrap();
-    /// assert_eq!(err.span.unwrap().to_string(), "filename:2:11");
+    /// assert_eq!(err.span().unwrap().to_string(), "filename:2:11");
     /// ```
     pub fn parse(filename: &str, content: String, dialect: &Dialect) -> anyhow::Result<Self> {
         let typecheck = content.contains("@starlark-rust: typecheck");

@@ -90,9 +90,7 @@ impl ConformanceTest {
     fn test(&self, assert: &Assert) {
         fn get_line(err: &anyhow::Error) -> Option<usize> {
             match err.downcast_ref::<Diagnostic>() {
-                Some(Diagnostic {
-                    span: Some(span), ..
-                }) => Some(span.resolve_span().begin.line + 1),
+                Some(d) => d.span().map(|span| span.resolve_span().begin.line + 1),
                 _ => None,
             }
         }

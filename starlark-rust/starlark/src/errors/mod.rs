@@ -18,6 +18,7 @@
 //! Error types used by Starlark, mostly [`Diagnostic`].
 
 pub use starlark_syntax::diagnostic::Diagnostic;
+pub use starlark_syntax::diagnostic::DiagnosticNoError;
 pub use starlark_syntax::frame::Frame;
 
 pub use crate::analysis::EvalMessage;

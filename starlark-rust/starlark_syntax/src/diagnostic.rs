@@ -26,6 +26,16 @@ use crate::codemap::FileSpan;
 use crate::codemap::Span;
 use crate::span_display::span_display;
 
+/// A diagnostic, but without the error message attached
+#[derive(Debug)]
+pub struct DiagnosticNoError {
+    /// Location where the error originated.
+    pub span: Option<FileSpan>,
+
+    /// Call stack where the error originated.
+    pub call_stack: CallStack,
+}
+
 /// An error plus its origination location and call stack.
 ///
 /// The underlying [`message`](Diagnostic::message) is an [`anyhow::Error`].
@@ -35,12 +45,8 @@ pub struct Diagnostic {
     /// Underlying error for the [`Diagnostic`].
     /// Should _never_ be of type [`Diagnostic`] itself.
     pub message: anyhow::Error,
-
-    /// Location where the error originated.
-    pub span: Option<FileSpan>,
-
-    /// Call stack where the error originated.
-    pub call_stack: CallStack,
+    /// The actual data about the diagnostic
+    pub data: DiagnosticNoError,
 }
 
 impl Error for Diagnostic {
@@ -62,6 +68,10 @@ impl Diagnostic {
         Self::modify(message.into(), |d| d.set_span(span, codemap))
     }
 
+    pub fn span(&self) -> Option<&FileSpan> {
+        self.data.span.as_ref()
+    }
+
     /// Modify an error by attaching diagnostic information to it - e.g. `span`/`call_stack`.
     /// If given an [`anyhow::Error`] which is a [`Diagnostic`], it will add the information to the
     /// existing [`Diagnostic`]. If not, it will wrap the error in [`Diagnostic`].
@@ -75,8 +85,10 @@ impl Diagnostic {
             _ => {
                 let mut err = Self {
                     message: err,
-                    span: None,
-                    call_stack: CallStack::default(),
+                    data: DiagnosticNoError {
+                        span: None,
+                        call_stack: CallStack::default(),
+                    },
                 };
                 f(&mut err);
                 err.into()
@@ -84,19 +96,19 @@ impl Diagnostic {
         }
     }
 
-    /// Set the [`Diagnostic::span`] field, unless it's already been set.
+    /// Set the diagnostic's span, unless it's already been set.
     pub fn set_span(&mut self, span: Span, codemap: &CodeMap) {
-        if self.span.is_none() {
+        if self.data.span.is_none() {
             // We want the best span, which is likely the first person to set it
-            self.span = Some(codemap.file_span(span));
+            self.data.span = Some(codemap.file_span(span));
         }
     }
 
-    /// Set the [`Diagnostic::call_stack`] field, unless it's already been set.
+    /// Set the diagnostic's call stack, unless it's already been set.
     pub fn set_call_stack(&mut self, call_stack: impl FnOnce() -> CallStack) {
-        if self.call_stack.is_empty() {
+        if self.data.call_stack.is_empty() {
             // We want the best call stack, which is likely the first person to set it
-            self.call_stack = call_stack();
+            self.data.call_stack = call_stack();
         }
     }
 
@@ -115,11 +127,7 @@ impl Diagnostic {
 
     /// Gets annotated snippets for a [`Diagnostic`].
     fn get_display_list<'a>(&'a self, annotation_label: &'a str, color: bool) -> impl Display + 'a {
-        span_display(
-            self.span.as_ref().map(|s| s.as_ref()),
-            annotation_label,
-            color,
-        )
+        span_display(self.span().map(|s| s.as_ref()), annotation_label, color)
     }
 }
 
@@ -143,7 +151,7 @@ fn diagnostic_display(
     f: &mut dyn fmt::Write,
     with_context: bool,
 ) -> fmt::Result {
-    write!(f, "{}", diagnostic.call_stack)?;
+    write!(f, "{}", diagnostic.data.call_stack)?;
     let annotation_label = format!("{}", diagnostic.message);
     // I set color to false here to make the comparison easier with tests (coloring
     // adds in pretty strange unicode chars).

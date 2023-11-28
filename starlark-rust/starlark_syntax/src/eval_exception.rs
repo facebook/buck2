@@ -48,7 +48,7 @@ impl EvalException {
             err = &eval_exc.0;
         }
         match err.downcast_ref::<Diagnostic>() {
-            Some(d) => d.span.as_ref().unwrap().resolve(),
+            Some(d) => d.span().unwrap().resolve(),
             None => panic!("Expected Diagnostic, got {:#?}", err),
         }
     }
