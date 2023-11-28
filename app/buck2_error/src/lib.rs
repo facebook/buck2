@@ -123,6 +123,24 @@ pub fn provide_metadata<'a, 'b, E: StdError + Send + Sync + 'static>(
 
 #[doc(hidden)]
 pub mod __for_macro {
+    use std::error::Error as StdError;
+
     pub use anyhow;
     pub use thiserror;
+
+    pub trait AsDynError {
+        fn as_dyn_error<'a>(&'a self) -> &'a (dyn StdError + 'static);
+    }
+
+    impl AsDynError for dyn StdError + Sync + Send + 'static {
+        fn as_dyn_error<'a>(&'a self) -> &'a (dyn StdError + 'static) {
+            self
+        }
+    }
+
+    impl<T: StdError + 'static> AsDynError for T {
+        fn as_dyn_error<'a>(&'a self) -> &'a (dyn StdError + 'static) {
+            self
+        }
+    }
 }

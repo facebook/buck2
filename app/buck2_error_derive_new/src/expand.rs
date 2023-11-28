@@ -69,7 +69,7 @@ fn impl_struct(input: Struct) -> TokenStream {
     let source_method = source_body.map(|body| {
         quote! {
             fn source(&self) -> std::option::Option<&(dyn std::error::Error + 'static)> {
-                use thiserror::__private::AsDynError;
+                use buck2_error::__for_macro::AsDynError;
                 #body
             }
         }
@@ -167,7 +167,7 @@ fn impl_enum(input: Enum) -> TokenStream {
         });
         Some(quote! {
             fn source(&self) -> std::option::Option<&(dyn std::error::Error + 'static)> {
-                use thiserror::__private::AsDynError;
+                use buck2_error::__for_macro::AsDynError;
                 #[allow(deprecated)]
                 match self {
                     #(#arms)*
