@@ -102,6 +102,16 @@ def create_jar_artifact_kotlincd(
         should_use_jvm_abi_gen = False
 
     def encode_kotlin_extra_params(kotlin_compiler_plugins):
+        kosabiPluginOptionsMap = {}
+        if kotlin_toolchain.kosabi_stubs_gen_plugin != None:
+            kosabiPluginOptionsMap["kosabi_stubs_gen_plugin"] = kotlin_toolchain.kosabi_stubs_gen_plugin
+
+        if kotlin_toolchain.kosabi_applicability_plugin != None:
+            kosabiPluginOptionsMap["kosabi_applicability_plugin"] = kotlin_toolchain.kosabi_applicability_plugin
+
+        if kotlin_toolchain.kosabi_jvm_abi_gen_plugin != None:
+            kosabiPluginOptionsMap["kosabi_jvm_abi_gen_plugin"] = kotlin_toolchain.kosabi_jvm_abi_gen_plugin
+
         return struct(
             extraClassPaths = bootclasspath_entries,
             standardLibraryClassPath = kotlin_toolchain.kotlin_stdlib[JavaLibraryInfo].library_output.full_library,
@@ -110,11 +120,7 @@ def create_jar_artifact_kotlincd(
             qpldDotslash = kotlin_toolchain.qpld_dotslash,
             jvmAbiGenPlugin = kotlin_toolchain.jvm_abi_gen_plugin,
             kotlinCompilerPlugins = {plugin: {"params": plugin_options} if plugin_options else {} for plugin, plugin_options in kotlin_compiler_plugins.items()},
-            kosabiPluginOptions = struct(
-                kosabi_stubs_gen_plugin = kotlin_toolchain.kosabi_stubs_gen_plugin,
-                kosabi_applicability_plugin = kotlin_toolchain.kosabi_applicability_plugin,
-                kosabi_jvm_abi_gen_plugin = kotlin_toolchain.kosabi_jvm_abi_gen_plugin,
-            ),
+            kosabiPluginOptions = struct(**kosabiPluginOptionsMap),
             friendPaths = [friend_path.library_output.abi for friend_path in map_idx(JavaLibraryInfo, friend_paths) if friend_path.library_output],
             kotlinHomeLibraries = kotlin_toolchain.kotlin_home_libraries,
             jvmTarget = get_kotlinc_compatible_target(str(target_level)),
