@@ -88,6 +88,7 @@ const manualSidebar = [
           isInternal() ? 'users/faq/meta_issues' : [],
           isInternal() ? 'users/faq/meta_installation' : [],
           isInternal() ? 'users/faq/remote_execution' : [],
+          isInternal() ? 'users/faq/starlark_peak_mem' : [],
         ],
       },
       {
