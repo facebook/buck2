@@ -56,7 +56,7 @@ use crate::DaemonBeforeSubcommandOptions;
 
 #[derive(Debug, buck2_error::Error)]
 enum DaemonError {
-    #[error("The buckd pid file at `{0}` had a mismatched pid, expected `{1}`, got `{2}`")]
+    #[error("The buckd pid file at `{}` had a mismatched pid, expected `{1}`, got `{2}`", _0.display())]
     PidFileMismatch(PathBuf, u32, u32),
 }
 

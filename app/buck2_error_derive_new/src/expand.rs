@@ -84,17 +84,8 @@ fn impl_struct(input: Struct) -> TokenStream {
         })
     } else if let Some(display) = &input.attrs.display {
         display_implied_bounds = display.implied_bounds.clone();
-        let use_as_display = if display.has_bonus_display {
-            Some(quote! {
-                #[allow(unused_imports)]
-                use thiserror::__private::{DisplayAsDisplay, PathAsDisplay};
-            })
-        } else {
-            None
-        };
         let pat = fields_pat(&input.fields);
         Some(quote! {
-            #use_as_display
             #[allow(unused_variables, deprecated)]
             let Self #pat = self;
             #display
@@ -189,19 +180,6 @@ fn impl_enum(input: Enum) -> TokenStream {
 
     let display_impl = if input.has_display() {
         let mut display_inferred_bounds = InferredBounds::new();
-        let use_as_display = if input.variants.iter().any(|v| {
-            v.attrs
-                .display
-                .as_ref()
-                .map_or(false, |display| display.has_bonus_display)
-        }) {
-            Some(quote! {
-                #[allow(unused_imports)]
-                use thiserror::__private::{DisplayAsDisplay, PathAsDisplay};
-            })
-        } else {
-            None
-        };
         let void_deref = if input.variants.is_empty() {
             Some(quote!(*))
         } else {
@@ -241,7 +219,6 @@ fn impl_enum(input: Enum) -> TokenStream {
             #[allow(unused_qualifications)]
             impl #impl_generics std::fmt::Display for #ty #ty_generics #display_where_clause {
                 fn fmt(&self, __formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                    #use_as_display
                     #[allow(unused_variables, deprecated, clippy::used_underscore_binding)]
                     match #void_deref self {
                         #(#arms,)*

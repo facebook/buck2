@@ -23,7 +23,7 @@ use crate::fs::cwd;
 
 #[derive(buck2_error::Error, Debug)]
 enum AbsPathError {
-    #[error("expected an absolute path but got a relative path instead: `{0}`")]
+    #[error("expected an absolute path but got a relative path instead: `{}`", _0.display())]
     PathNotAbsolute(PathBuf),
     #[error("Cannot convert path to UTF-8, `{0:?}`")]
     PathCannotBeConvertedToUtf8(OsString),

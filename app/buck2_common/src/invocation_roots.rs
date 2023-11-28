@@ -23,7 +23,7 @@ use once_cell::sync::Lazy;
 #[derive(Debug, buck2_error::Error)]
 enum BuckCliError {
     #[error(
-        "Couldn't find a buck project root for directory `{0}`. Expected to find a .buckconfig file."
+        "Couldn't find a buck project root for directory `{}`. Expected to find a .buckconfig file.", _0.display()
     )]
     NoBuckRoot(PathBuf),
 }

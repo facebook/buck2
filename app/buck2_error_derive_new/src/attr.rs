@@ -44,7 +44,6 @@ pub struct Display<'a> {
     pub original: &'a Attribute,
     pub fmt: LitStr,
     pub args: TokenStream,
-    pub has_bonus_display: bool,
     pub implied_bounds: Set<(usize, Trait)>,
 }
 
@@ -111,7 +110,6 @@ fn parse_error_attribute<'a>(attrs: &mut Attrs<'a>, attr: &'a Attribute) -> Resu
             original: attr,
             fmt: input.parse()?,
             args: parse_token_expr(input, false)?,
-            has_bonus_display: false,
             implied_bounds: Set::new(),
         };
         if attrs.display.is_some() {

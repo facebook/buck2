@@ -44,7 +44,6 @@ impl Display<'_> {
         let mut read = fmt.as_str();
         let mut out = String::new();
         let mut args = self.args.clone();
-        let mut has_bonus_display = false;
         let mut implied_bounds = Set::new();
 
         let mut has_trailing_comma = false;
@@ -126,17 +125,12 @@ impl Display<'_> {
                 args.extend(quote_spanned!(span=> ,));
             }
             args.extend(quote_spanned!(span=> #formatvar = #local));
-            if read.starts_with('}') && member_index.contains_key(&member) {
-                has_bonus_display = true;
-                args.extend(quote_spanned!(span=> .as_display()));
-            }
             has_trailing_comma = false;
         }
 
         out += read;
         self.fmt = LitStr::new(&out, self.fmt.span());
         self.args = args;
-        self.has_bonus_display = has_bonus_display;
         self.implied_bounds = implied_bounds;
     }
 }
