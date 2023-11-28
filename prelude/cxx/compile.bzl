@@ -159,6 +159,8 @@ _ABSOLUTE_ARGSFILE_SUBSTITUTIONS = [
     (regex("-filter-error=.+"), "-fcolor-diagnostics"),
     (regex("-filter-ignore=.+"), "-fcolor-diagnostics"),
     (regex("-filter-warning=.+"), "-fcolor-diagnostics"),
+    # @oss-disable: (regex("-fobjc-export-direct-methods"), "-fcolor-diagnostics"), 
+    # @oss-disable: (regex("-fpika-runtime-checks"), "-fcolor-diagnostics"), 
 ]
 
 def get_extension_for_header(header_extension: str) -> str | None:
