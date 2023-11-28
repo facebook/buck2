@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//android:android_providers.bzl",
     "merge_android_packageable_info",
@@ -471,7 +472,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
                     # Provide a sub-target that always provides the shared lib
                     # using the soname.
-                    if soname and shared_lib.output.basename != soname:
+                    if soname and shared_lib.output.basename != paths.basename(soname):
                         soname_lib = ctx.actions.copy_file(soname, shared_lib.output)
                     else:
                         soname_lib = shared_lib.output
