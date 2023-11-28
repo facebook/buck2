@@ -25,6 +25,7 @@ use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::paths::path::OwnedStarlarkPath;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
+use buck2_interpreter_for_build::interpreter::interpreter_for_cell::ParseData;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -113,7 +114,7 @@ impl<'a> Cache<'a> {
             .get_interpreter_calculator(path_ref.cell(), path_ref.build_file_cell())
             .await?;
 
-        let ast = interp.prepare_eval_with_content(path_ref, src)?;
+        let ParseData(ast, _) = interp.prepare_eval_with_content(path_ref, src)??;
         let mut loads = HashMap::new();
         for x in ast.loads() {
             let y = interp.resolve_load(path_ref, x.module_id).await?;

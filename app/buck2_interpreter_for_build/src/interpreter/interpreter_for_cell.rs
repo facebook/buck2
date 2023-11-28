@@ -63,12 +63,8 @@ use crate::interpreter::package_file_extra::FrozenPackageFileExtra;
 use crate::super_package::eval_ctx::PackageFileEvalCtx;
 
 #[derive(Debug, buck2_error::Error)]
-enum StarlarkParseError {
-    #[error("Error parsing: `{0}`")]
-    InFile(OwnedStarlarkPath),
-    #[error("Tabs are not allowed in Buck files: `{0}`")]
-    Tabs(OwnedStarlarkPath),
-}
+#[error("Tabs are not allowed in Buck files: `{0}`")]
+struct StarlarkTabsError(OwnedStarlarkPath);
 
 #[derive(Debug, buck2_error::Error)]
 enum StarlarkPeakMemoryError {
@@ -76,17 +72,22 @@ enum StarlarkPeakMemoryError {
     ExceedsThreshold(HumanizedBytes, HumanizedBytes),
 }
 
-/// A ParseResult includes the parsed AST and a list of the imported files.
+#[derive(Debug, buck2_error::Error)]
+#[error("Error parsing: `{1}`")]
+pub struct ParseError(#[source] pub anyhow::Error, OwnedStarlarkPath);
+
+/// A ParseData includes the parsed AST and a list of the imported files.
 ///
 /// The imports are under a separate Arc so that that can be shared with
 /// the evaluation result (which needs the imports but no longer needs the AST).
-#[derive(Debug)]
-pub struct ParseResult(
+pub struct ParseData(
     pub AstModule,
     pub Arc<Vec<(Option<FileSpan>, OwnedStarlarkModulePath)>>,
 );
 
-impl ParseResult {
+pub type ParseResult = Result<ParseData, ParseError>;
+
+impl ParseData {
     fn new(
         ast: AstModule,
         implicit_imports: Vec<OwnedStarlarkModulePath>,
@@ -398,23 +399,30 @@ impl InterpreterForCell {
         // for example inside parentheses in function call arguments,
         // which restricts what the spec allows.
         if content.contains('\t') {
-            return Err(StarlarkParseError::Tabs(OwnedStarlarkPath::new(import)).into());
+            return Err(StarlarkTabsError(OwnedStarlarkPath::new(import)).into());
         }
 
         let project_relative_path = self
             .global_state
             .cell_resolver
             .resolve_path(import.path().as_ref().as_ref())?;
-        let result: anyhow::Result<_> = try {
-            let disable_starlark_types = self.global_state.disable_starlark_types;
-            let ast = AstModule::parse(
-                project_relative_path.as_str(),
-                content,
-                &import.file_type().dialect(disable_starlark_types),
-            )?;
-            let mut implicit_imports = Vec::new();
-            if let Some(i) = self.prelude_import(import) {
-                implicit_imports.push(OwnedStarlarkModulePath::LoadFile(i.import_path().clone()));
+
+        let disable_starlark_types = self.global_state.disable_starlark_types;
+        let ast = match AstModule::parse(
+            project_relative_path.as_str(),
+            content,
+            &import.file_type().dialect(disable_starlark_types),
+        ) {
+            Ok(ast) => ast,
+            Err(e) => return Ok(Err(ParseError(e, OwnedStarlarkPath::new(import)))),
+        };
+        let mut implicit_imports = Vec::new();
+        if let Some(i) = self.prelude_import(import) {
+            implicit_imports.push(OwnedStarlarkModulePath::LoadFile(i.import_path().clone()));
+        }
+        if let StarlarkPath::BuildFile(build_file) = import {
+            if let Some(i) = self.package_import(build_file) {
+                implicit_imports.push(OwnedStarlarkModulePath::LoadFile(i.import().clone()));
             }
             if let StarlarkPath::BuildFile(build_file) = import {
                 if let Some(i) = self.package_import(build_file) {
@@ -424,9 +432,8 @@ impl InterpreterForCell {
                     implicit_imports.push(OwnedStarlarkModulePath::LoadFile(i));
                 }
             }
-            ParseResult::new(ast, implicit_imports, &self.load_resolver(import))?
-        };
-        result.with_context(|| StarlarkParseError::InFile(OwnedStarlarkPath::new(import)))
+        }
+        ParseData::new(ast, implicit_imports, &self.load_resolver(import)).map(Ok)
     }
 
     pub(crate) fn resolve_path(

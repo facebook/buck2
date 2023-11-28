@@ -47,7 +47,7 @@ use crate::interpreter::configuror::AdditionalGlobalsFn;
 use crate::interpreter::configuror::BuildInterpreterConfiguror;
 use crate::interpreter::global_interpreter_state::GlobalInterpreterState;
 use crate::interpreter::interpreter_for_cell::InterpreterForCell;
-use crate::interpreter::interpreter_for_cell::ParseResult;
+use crate::interpreter::interpreter_for_cell::ParseData;
 use crate::super_package::package_value::SuperPackageValuesImpl;
 
 /// Simple container that allows us to instrument things like imports
@@ -224,10 +224,11 @@ impl Tester {
         )?))
     }
 
-    pub fn parse(&self, import: StarlarkPath, content: &str) -> ParseResult {
+    pub fn parse(&self, import: StarlarkPath, content: &str) -> ParseData {
         self.interpreter()
             .unwrap()
             .parse(import, content.to_owned())
+            .unwrap()
             .unwrap()
     }
 
@@ -251,8 +252,8 @@ impl Tester {
         loaded_modules: LoadedModules,
     ) -> anyhow::Result<LoadedModule> {
         let interpreter = self.interpreter()?;
-        let ParseResult(ast, _) =
-            interpreter.parse(StarlarkPath::LoadFile(path), content.to_owned())?;
+        let ParseData(ast, _) =
+            interpreter.parse(StarlarkPath::LoadFile(path), content.to_owned())??;
         let buckconfig = self
             .configs
             .get(self.cell_alias_resolver.resolve_self())
@@ -300,8 +301,8 @@ impl Tester {
         package_listing: PackageListing,
     ) -> anyhow::Result<EvaluationResult> {
         let interpreter = self.interpreter()?;
-        let ParseResult(ast, _) =
-            interpreter.parse(StarlarkPath::BuildFile(path), content.to_owned())?;
+        let ParseData(ast, _) =
+            interpreter.parse(StarlarkPath::BuildFile(path), content.to_owned())??;
         let buckconfig = self
             .configs
             .get(self.cell_alias_resolver.resolve_self())

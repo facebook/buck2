@@ -52,6 +52,7 @@ use crate::interpreter::cycles::LoadCycleDescriptor;
 use crate::interpreter::dice_calculation_delegate::keys::EvalImportKey;
 use crate::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use crate::interpreter::interpreter_for_cell::InterpreterForCell;
+use crate::interpreter::interpreter_for_cell::ParseData;
 use crate::interpreter::interpreter_for_cell::ParseResult;
 use crate::super_package::package_value::SuperPackageValuesImpl;
 
@@ -231,7 +232,7 @@ impl<'c> DiceCalculationDelegate<'c> {
         &'a self,
         starlark_file: StarlarkPath<'_>,
     ) -> anyhow::Result<(AstModule, ModuleDeps)> {
-        let ParseResult(ast, imports) = self.parse_file(starlark_file).await?;
+        let ParseData(ast, imports) = self.parse_file(starlark_file).await??;
         let fut = self.eval_deps(&imports);
         let deps = LoadCycleDescriptor::guard_this(self.ctx, fut).await???;
         Ok((ast, deps))
@@ -241,9 +242,8 @@ impl<'c> DiceCalculationDelegate<'c> {
         &'a self,
         starlark_file: StarlarkPath<'_>,
         content: String,
-    ) -> anyhow::Result<AstModule> {
-        let ParseResult(ast, _) = self.configs.parse(starlark_file, content)?;
-        Ok(ast)
+    ) -> anyhow::Result<ParseResult> {
+        self.configs.parse(starlark_file, content)
     }
 
     pub async fn resolve_load(
