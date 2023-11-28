@@ -10,7 +10,6 @@
 
 import argparse
 import os
-import pipes
 import subprocess
 import sys
 import tempfile
@@ -45,7 +44,7 @@ def main(argv):
 
     with tempfile.NamedTemporaryFile("w", delete=False) as argsfile:
         for arg in args.cpp:
-            print(pipes.quote(arg), file=argsfile)
+            print(arg, file=argsfile)
             argsfile.flush()
     cmd.append("@" + argsfile.name)
 

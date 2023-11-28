@@ -37,6 +37,10 @@ GoToolchainInfo = provider(
 
 def get_toolchain_cmd_args(toolchain: GoToolchainInfo, go_root = True, force_disable_cgo = False) -> cmd_args:
     cmd = cmd_args("env")
+
+    # opt-out from Go1.20 coverage redisign
+    cmd.add("GOEXPERIMENT=nocoverageredesign")
+
     if toolchain.env_go_arch != None:
         cmd.add("GOARCH={}".format(toolchain.env_go_arch))
     if toolchain.env_go_os != None:
