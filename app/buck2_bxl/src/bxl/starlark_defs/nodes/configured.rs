@@ -46,6 +46,7 @@ use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::FutureExt;
+use gazebo::prelude::OptionExt;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
@@ -645,7 +646,19 @@ fn lazy_resolved_attrs_methods(builder: &mut MethodsBuilder) {
                     attr.value
                         .resolve_single(this.configured_node.label().pkg(), &this.resolution_ctx)?,
                 ),
-                None => None,
+                None => {
+                    // Check special attrs
+                    let special_attrs = this
+                        .configured_node
+                        .special_attrs()
+                        .collect::<HashMap<_, _>>();
+                    special_attrs.get(attr).try_map(|attr| {
+                        attr.resolve_single(
+                            this.configured_node.label().pkg(),
+                            &this.resolution_ctx,
+                        )
+                    })?
+                }
             },
         )
     }
