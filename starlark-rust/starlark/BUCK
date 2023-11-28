@@ -22,7 +22,6 @@ buck_filegroup(
 rust_library(
     name = "starlark",
     srcs = glob(["src/**/*.rs"]),
-    doctests = False,  # FIXME
     rustc_flags = [
         "--cfg=rust_nightly",
     ],
