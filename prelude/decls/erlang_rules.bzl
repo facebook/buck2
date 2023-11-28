@@ -49,7 +49,7 @@ common_application_attributes = {
         dependency is desired. These fields will be used to construct equally named fields in the generated `*.app` file
         for the application.
 
-        OTP applications are specified with the target path `otp//:<application>`.
+        OTP applications are specified with the target path `prelude//erlang/applications:<application>`.
 
         **NOTE**: _If you use the `app_src` field and the references application resource file template specifies
         `applications` or `included_applications` buck2 checks that the target definitions and information in the template are
