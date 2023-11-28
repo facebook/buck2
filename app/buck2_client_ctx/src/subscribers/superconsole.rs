@@ -511,6 +511,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
         } else if c == '?' || c == 'h' {
             self.handle_stderr(
                 "Help:\n\
+                `c` = toggle commands (shown by default)\n\
                 `d` = toggle DICE\n\
                 `e` = toggle debug events\n\
                 `2` = toggle two lines mode\n\
