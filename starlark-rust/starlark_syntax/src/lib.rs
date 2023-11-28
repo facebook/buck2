@@ -23,6 +23,11 @@
 #![allow(clippy::new_ret_no_self)]
 #![allow(clippy::should_implement_trait)]
 
+pub use error::Error;
+pub use error::ErrorKind;
+
+pub type Result<T> = std::result::Result<T, Error>;
+
 pub mod call_stack;
 pub mod codemap;
 pub mod convert_indices;
@@ -30,6 +35,7 @@ pub(crate) mod cursors;
 pub mod diagnostic;
 pub mod dialect;
 pub mod dot_format_parser;
+pub mod error;
 pub mod eval_exception;
 pub mod fast_string;
 pub mod frame;
