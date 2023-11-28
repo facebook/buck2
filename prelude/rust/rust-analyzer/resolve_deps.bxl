@@ -72,7 +72,7 @@ def _process_target_config(ctx, target, in_workspace):
     copy["in_workspace"] = in_workspace
     return copy
 
-def cquery_deps(ctx, top_targets, workspaces):
+def cquery_deps(ctx, top_targets, workspaces, actions):
     target_universe = ctx.target_universe(top_targets).target_set()
     targets = ctx.cquery().deps(target_universe)
     outputs = ctx.cquery().kind("^(rust_binary|rust_library|rust_test)$", targets)
@@ -81,12 +81,50 @@ def cquery_deps(ctx, top_targets, workspaces):
     # Eagerly analyze targets
     ctx.analysis(outputs)
 
+    seen = {}
     for target in outputs:
         in_workspace = target.label.raw_target() in top_targets
         for candidate_workspace in target.attrs_lazy().get("_workspaces").value():
             if candidate_workspace.raw_target() in workspaces:
                 in_workspace = True
-        out[target.label.raw_target()] = _process_target_config(ctx, target, in_workspace)
+
+        labels = target.attrs_lazy().get("labels")
+        if "thrift_library-rust" in labels.value():
+            thrift_files = materialize_generated_thrift(ctx, target, actions, seen)
+            cfg = _process_target_config(ctx, target, in_workspace)
+            for thrift in thrift_files:
+                if thrift["mapped_src"] == "lib.rs":
+                    cfg["crate_root"] = thrift["artifact"]
+            out[target.label.raw_target()] = cfg
+        else:
+            out[target.label.raw_target()] = _process_target_config(ctx, target, in_workspace)
+    return out
+
+def materialize_generated_thrift(ctx, target, actions, seen):
+    mapped_srcs = target.attrs_lazy().get("mapped_srcs").value()
+    built = ctx.build(mapped_srcs.keys())
+    out = []
+    for label, artifacts in built.items():
+        mapped_src = mapped_srcs.get(label)
+
+        outfile = "{}/{}/{}/{}".format(target.label.cell, target.label.package, target.label.name, mapped_src)
+        if outfile in seen:
+            continue
+
+        if label.sub_target:
+            label = "{}[{}]".format(label.raw_target(), label.sub_target[0])
+        else:
+            label = label.raw_target()
+
+        copied = actions.copy_file(outfile, artifacts.artifacts()[0])
+        copied = ctx.output.ensure(copied)
+        artifact = {
+            "artifact": copied.abs_path(),
+            "label": label,
+            "mapped_src": mapped_src,
+        }
+        out.append(artifact)
+        seen[outfile] = ()
     return out
 
 def expand_proc_macros(ctx, targets):
@@ -147,9 +185,11 @@ def expand_targets(ctx, targets):
 def expand_and_resolve_impl(ctx):
     # equivalent of `flat_map`ing
     targets = [target for sublist in ctx.cli_args.targets for target in sublist]
+    actions = ctx.bxl_actions().actions
+
     expanded_targets, workspaces = expand_targets(ctx, targets)
     queried_proc_macros = expand_proc_macros(ctx, expanded_targets)
-    resolved_deps = cquery_deps(ctx, expanded_targets, workspaces)
+    resolved_deps = cquery_deps(ctx, expanded_targets, workspaces, actions)
 
     ctx.output.print_json({
         "expanded_targets": expanded_targets,
