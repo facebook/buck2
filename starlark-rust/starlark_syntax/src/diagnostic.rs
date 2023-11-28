@@ -121,21 +121,27 @@ impl Diagnostic {
     pub fn eprint(err: &anyhow::Error) {
         match err.downcast_ref::<Diagnostic>() {
             None => eprintln!("{:#}", err),
-            Some(diag) => diagnostic_stderr(diag),
+            Some(diag) => diagnostic_stderr(&diag.message, &diag.data),
         }
     }
+}
 
+impl DiagnosticNoError {
     /// Gets annotated snippets for a [`Diagnostic`].
     fn get_display_list<'a>(&'a self, annotation_label: &'a str, color: bool) -> impl Display + 'a {
-        span_display(self.span().map(|s| s.as_ref()), annotation_label, color)
+        span_display(
+            self.span.as_ref().map(|s| s.as_ref()),
+            annotation_label,
+            color,
+        )
     }
 }
 
 impl Display for Diagnostic {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         // Not showing the context trace without `{:#}` or `{:?}` is the same thing that anyhow does
-        let alternate = f.alternate();
-        diagnostic_display(self, false, f, alternate)
+        let with_context = f.alternate() && self.message.source().is_some();
+        diagnostic_display(&self.message, &self.data, false, f, with_context)
     }
 }
 
@@ -146,28 +152,29 @@ impl Display for Diagnostic {
 // (https://github.com/rust-lang/annotate-snippets-rs)
 
 fn diagnostic_display(
-    diagnostic: &Diagnostic,
+    message: impl std::fmt::Debug + Display,
+    diagnostic: &DiagnosticNoError,
     color: bool,
     f: &mut dyn fmt::Write,
     with_context: bool,
 ) -> fmt::Result {
-    write!(f, "{}", diagnostic.data.call_stack)?;
-    let annotation_label = format!("{}", diagnostic.message);
+    write!(f, "{}", diagnostic.call_stack)?;
+    let annotation_label = format!("{}", message);
     // I set color to false here to make the comparison easier with tests (coloring
     // adds in pretty strange unicode chars).
     let display_list = diagnostic.get_display_list(&annotation_label, color);
     writeln!(f, "{}", display_list)?;
     // Print out the `Caused by:` trace (if exists) and rust backtrace (if enabled).
     // The trace printed comes from an [`anyhow::Error`] that is not a [`Diagnostic`].
-    if with_context && diagnostic.message.source().is_some() {
-        writeln!(f, "\n\n{:?}", diagnostic.message)?;
+    if with_context {
+        writeln!(f, "\n\n{:?}", message)?;
     }
 
     Ok(())
 }
 
-fn diagnostic_stderr(diagnostic: &Diagnostic) {
+fn diagnostic_stderr(message: impl std::fmt::Debug + Display, diagnostic: &DiagnosticNoError) {
     let mut stderr = String::new();
-    diagnostic_display(diagnostic, true, &mut stderr, true).unwrap();
+    diagnostic_display(message, diagnostic, true, &mut stderr, true).unwrap();
     eprint!("{}", stderr);
 }
