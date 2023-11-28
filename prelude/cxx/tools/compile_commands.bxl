@@ -33,7 +33,7 @@ load("@prelude//utils:set.bzl", "set")
 #     buck2 bxl root//prelude/tools/bxl/compile_commands.bxl:gen_compilation_database > compile_commands.json
 #
 
-def create_compilation_database_entry(ctx, target, buildfile_folder, action):
+def _create_compilation_database_entry(ctx, buildfile_folder, action):
 
     # the "cmd" attribute looks like a list.  For example, it might be something like:
     #   cmd = [cl.exe, -c, foo.cpp]
@@ -58,7 +58,7 @@ def create_compilation_database_entry(ctx, target, buildfile_folder, action):
     }
     return entry
 
-def gen_compilation_database_impl(ctx):
+def _gen_compilation_database_impl(ctx):
     # Generate compilation database for all targets unless user requests a more narrow set
     target_filter = ctx.cli_args.targets or '...'
     targets = ctx.configured_targets(target_filter)
@@ -81,7 +81,7 @@ def gen_compilation_database_impl(ctx):
 
         # Now walk each compilation action and generate a compilation database entry for it.
         for action in compile_actions:
-            entry = create_compilation_database_entry(ctx, target, buildfile_folder, action)
+            entry = _create_compilation_database_entry(ctx, buildfile_folder, action)
             filename = entry["file"]
             if not files.contains(filename):
                 entries.append(entry)
@@ -90,7 +90,7 @@ def gen_compilation_database_impl(ctx):
     ctx.output.print_json(entries)
 
 gen_compilation_database = bxl_main(
-    impl = gen_compilation_database_impl,
+    impl = _gen_compilation_database_impl,
     cli_args = {
         "targets": cli_args.option(cli_args.target_expr())
     }
