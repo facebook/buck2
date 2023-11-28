@@ -50,29 +50,12 @@ PexProviders = record(
 )
 
 def make_py_package_providers(
-        python_toolchain: PythonToolchainInfo,
         pex: PexProviders) -> list[Provider]:
     providers = [
         make_default_info(pex),
         make_run_info(pex),
     ]
-    if python_toolchain.installer != None:
-        providers.append(make_install_info(python_toolchain.installer, pex))
     return providers
-
-def make_install_info(installer: ArgLike, pex: PexProviders) -> Provider:
-    prefix = "{}/".format(pex.other_outputs_prefix) if pex.other_outputs_prefix != None else ""
-    files = {
-        "{}{}".format(prefix, path): artifact
-        for artifact, path in pex.other_outputs
-        if path != pex.other_outputs_prefix  # don't include prefix dir
-        if path != ""  # HACK: skip artifacts without a path
-    }
-    files[pex.default_output.basename] = pex.default_output
-    return InstallInfo(
-        installer = installer,
-        files = files,
-    )
 
 def make_default_info(pex: PexProviders) -> Provider:
     return DefaultInfo(
@@ -206,7 +189,7 @@ def make_py_package(
             output_suffix = "-{}".format(style),
             allow_cache_upload = allow_cache_upload,
         )
-        default.sub_targets[style] = make_py_package_providers(python_toolchain, pex_providers)
+        default.sub_targets[style] = make_py_package_providers(pex_providers)
     return default
 
 def _make_py_package_impl(
@@ -476,7 +459,7 @@ def _pex_modules_common_args(
         [lib.external_debug_info for lib in shared_libraries.values()],
     )
 
-    # HACK: exclude external_debug_info from InstallInfo by providing an empty path
+    # HACK: external_debug_info has an empty path
     debug_artifacts.extend([(d, "") for d in external_debug_info])
 
     return (cmd, deps, debug_artifacts)
