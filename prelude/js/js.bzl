@@ -15,10 +15,17 @@ load("@prelude//genrule.bzl", "genrule_attributes")
 
 def _select_platform():
     return select({
-        "DEFAULT": "android",
-        "config//os/constraints:iphoneos": "ios",
-        "config//os/constraints:macos": "macos",
-        "config//os/constraints:windows": "windows",
+        "DEFAULT": select({
+            "DEFAULT": "android",
+            "config//os/constraints:iphoneos": "ios",
+            "config//os/constraints:macos": "macos",
+            "config//os/constraints:windows": "windows",
+        }),
+        "fbsource//tools/build_defs/js/config:platform_override_android": "android",
+        "fbsource//tools/build_defs/js/config:platform_override_ios": "ios",
+        "fbsource//tools/build_defs/js/config:platform_override_macos": "macos",
+        "fbsource//tools/build_defs/js/config:platform_override_vr": "vr",
+        "fbsource//tools/build_defs/js/config:platform_override_windows": "windows",
     })
 
 def _is_release():
