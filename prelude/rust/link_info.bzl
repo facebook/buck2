@@ -258,10 +258,9 @@ def resolve_deps(
 
     return dependencies + _gather_explicit_sysroot_deps(dep_ctx)
 
-def resolve_rust_deps(
+def resolve_rust_deps_inner(
         ctx: AnalysisContext,
-        dep_ctx: DepCollectionContext) -> list[RustDependency]:
-    all_deps = resolve_deps(ctx, dep_ctx)
+        all_deps: list[RustOrNativeDependency]) -> list[RustDependency]:
     rust_deps = []
     available_proc_macros = get_available_proc_macros(ctx)
     for dep in all_deps:
@@ -285,6 +284,12 @@ def resolve_rust_deps(
             proc_macro_marker = proc_macro_marker,
         ))
     return rust_deps
+
+def resolve_rust_deps(
+        ctx: AnalysisContext,
+        dep_ctx: DepCollectionContext) -> list[RustDependency]:
+    all_deps = resolve_deps(ctx, dep_ctx)
+    return resolve_rust_deps_inner(ctx, all_deps)
 
 def get_available_proc_macros(ctx: AnalysisContext) -> dict[TargetLabel, Dependency]:
     return {x.label.raw_target(): x for x in ctx.plugins[RustProcMacroPlugin]}
