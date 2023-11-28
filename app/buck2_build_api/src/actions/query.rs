@@ -329,9 +329,8 @@ impl QueryTarget for ActionQueryNode {
             "identifier",
             ActionAttr::new(action.action.identifier().unwrap_or("")),
         )?;
-        // TODO(cjhopman): impl inputs/outputs for actions in aquery
-        func("inputs", ActionAttr::new(""))?;
-        func("outputs", ActionAttr::new(""))?;
+
+        // inputs and outputs are not supported for aquery
 
         for (k, v) in action.attrs() {
             func(&k, ActionAttr::new(&v))?;
