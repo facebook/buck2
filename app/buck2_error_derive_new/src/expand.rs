@@ -77,8 +77,11 @@ fn impl_struct(input: Struct) -> TokenStream {
     });
 
     let provide_body = gen_provide_contents(&input.attrs, &input.fields);
+    let pat = fields_pat(&input.fields);
     let provide_method = quote! {
         fn provide<'__macro>(&'__macro self, __demand: &mut buck2_error::Demand<'__macro>) {
+            #[allow(unused_variables, deprecated)]
+            let Self #pat = self;
             #provide_body
         }
     };
@@ -92,7 +95,6 @@ fn impl_struct(input: Struct) -> TokenStream {
         })
     } else if let Some(display) = &input.attrs.display {
         display_implied_bounds = display.implied_bounds.clone();
-        let pat = fields_pat(&input.fields);
         Some(quote! {
             #[allow(unused_variables, deprecated)]
             let Self #pat = self;
@@ -277,8 +279,22 @@ fn impl_enum(input: Enum) -> TokenStream {
 }
 
 /// Generates the provided data for either a variant or the whole struct
-fn gen_provide_contents(_attrs: &Attrs, _fields: &[Field]) -> TokenStream {
-    quote! {}
+fn gen_provide_contents(attrs: &Attrs, fields: &[Field]) -> TokenStream {
+    let forward_transparent = if attrs.transparent.is_some() {
+        let only_field = match &fields[0].member {
+            Member::Named(ident) => ident.clone(),
+            Member::Unnamed(index) => format_ident!("_{}", index),
+        };
+        quote! {
+            use buck2_error::__for_macro::AsDynError;
+            std::error::Error::provide(#only_field.as_dyn_error(), __demand);
+        }
+    } else {
+        quote! {}
+    };
+    quote! {
+        #forward_transparent
+    }
 }
 
 fn fields_pat(fields: &[Field]) -> TokenStream {
