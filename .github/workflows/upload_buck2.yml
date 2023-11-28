@@ -91,7 +91,7 @@ jobs:
       - name: Build
         shell: bash
         env:
-          RUSTFLAGS: "-C strip=debuginfo"
+          RUSTFLAGS: "-C strip=debuginfo -C codegen-units=1"
         run: |
           if [ -n "${{ matrix.target.cross }}" ]; then
             CARGO=cross
