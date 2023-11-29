@@ -527,7 +527,7 @@ impl<'v> Value<'v> {
         } else if let Some(NumRef::Int(_)) = self.unpack_num() {
             Err(ValueError::IntegerOverflow.into())
         } else {
-            ValueError::unsupported_owned(self.get_type(), "int()", None)
+            ValueError::unsupported_owned_anyhow(self.get_type(), "int()", None)
         }
     }
 
@@ -579,7 +579,7 @@ impl<'v> Value<'v> {
         } else if let Some(r) = other.get_ref().rmul(self, heap) {
             r
         } else {
-            ValueError::unsupported_owned(self.get_type(), "*", Some(other.get_type()))
+            ValueError::unsupported_owned_anyhow(self.get_type(), "*", Some(other.get_type()))
         }
     }
 
@@ -721,7 +721,7 @@ impl<'v> Value<'v> {
         } else if let Some(v) = other.get_ref().radd(self, heap) {
             v
         } else {
-            ValueError::unsupported_owned(self.get_type(), "+", Some(other.get_type()))
+            ValueError::unsupported_owned_anyhow(self.get_type(), "+", Some(other.get_type()))
         }
     }
 
@@ -856,10 +856,12 @@ impl<'v> Value<'v> {
     /// Like `get_attr` but return an error if the attribute is not available.
     pub fn get_attr_error(self, attribute: &str, heap: &'v Heap) -> crate::Result<Value<'v>> {
         match self.get_attr(attribute, heap)? {
-            None => {
-                ValueError::unsupported_owned(self.get_type(), &format!(".{}", attribute), None)
-                    .map_err(Into::into)
-            }
+            None => ValueError::unsupported_owned_anyhow(
+                self.get_type(),
+                &format!(".{}", attribute),
+                None,
+            )
+            .map_err(Into::into),
             Some(x) => Ok(x),
         }
     }

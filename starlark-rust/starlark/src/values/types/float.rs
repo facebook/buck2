@@ -299,7 +299,7 @@ impl<'v> StarlarkValue<'v> for StarlarkFloat {
 
     fn sub(&self, other: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match other.unpack_num() {
-            None => ValueError::unsupported_with(self, "-", other),
+            None => ValueError::unsupported_with_anyhow(self, "-", other),
             Some(other) => Ok(heap.alloc(NumRef::Float(self.0) - other)),
         }
     }
@@ -310,7 +310,7 @@ impl<'v> StarlarkValue<'v> for StarlarkFloat {
 
     fn div(&self, other: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match other.unpack_num() {
-            None => ValueError::unsupported_with(self, "/", other),
+            None => ValueError::unsupported_with_anyhow(self, "/", other),
             Some(other) => Ok(heap.alloc(NumRef::Float(self.0).div(other)?)),
         }
     }
@@ -318,13 +318,13 @@ impl<'v> StarlarkValue<'v> for StarlarkFloat {
     fn percent(&self, other: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match other.unpack_num() {
             Some(other) => Ok(heap.alloc(NumRef::Float(self.0).percent(other)?)),
-            None => ValueError::unsupported_with(self, "%", other),
+            None => ValueError::unsupported_with_anyhow(self, "%", other),
         }
     }
 
     fn floor_div(&self, other: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match other.unpack_num() {
-            None => ValueError::unsupported_with(self, "//", other),
+            None => ValueError::unsupported_with_anyhow(self, "//", other),
             Some(other) => Ok(heap.alloc(NumRef::Float(self.0).floor_div(other)?)),
         }
     }
@@ -335,7 +335,7 @@ impl<'v> StarlarkValue<'v> for StarlarkFloat {
 
     fn compare(&self, other: Value) -> anyhow::Result<Ordering> {
         match other.unpack_num() {
-            None => ValueError::unsupported_with(self, "compare", other),
+            None => ValueError::unsupported_with_anyhow(self, "compare", other),
             Some(other) => Ok(NumRef::Float(self.0).cmp(&other)),
         }
     }

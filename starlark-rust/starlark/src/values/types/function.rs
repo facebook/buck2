@@ -317,7 +317,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
                 let index = TypeCompiled::new(index, heap)?;
                 Ok(TypeCompiled::type_list_of(index, heap).to_inner())
             }
-            _ => ValueError::unsupported(self, "[]"),
+            _ => ValueError::unsupported_anyhow(self, "[]"),
         }
     }
 
@@ -348,7 +348,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
                     Err(FunctionError::TupleOnlyEllipsis.into())
                 }
             }
-            _ => ValueError::unsupported(self, "[,]"),
+            _ => ValueError::unsupported_anyhow(self, "[,]"),
         }
     }
 }

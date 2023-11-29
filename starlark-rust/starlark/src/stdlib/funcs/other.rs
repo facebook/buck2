@@ -357,8 +357,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
             Some(v) => Ok(v),
             None => match default {
                 Some(x) => Ok(x),
-                None => ValueError::unsupported_owned(a.get_type(), &format!(".{}", attr), None)
-                    .map_err(Into::into),
+                None => ValueError::unsupported_owned(a.get_type(), &format!(".{}", attr), None),
             },
         }
     }

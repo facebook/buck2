@@ -467,7 +467,7 @@ where
 
     fn compare(&self, other: Value<'v>) -> anyhow::Result<Ordering> {
         match ListRef::from_value(other) {
-            None => ValueError::unsupported_with(self, "cmp()", other),
+            None => ValueError::unsupported_with_anyhow(self, "cmp()", other),
             Some(other) => compare_slice(self.0.content(), &other.content, |x, y| x.compare(*y)),
         }
     }

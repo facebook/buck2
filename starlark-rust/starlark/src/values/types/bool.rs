@@ -148,7 +148,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBool {
         if let Some(other) = other.unpack_bool() {
             Ok(self.0.cmp(&other))
         } else {
-            ValueError::unsupported_with(self, "<>", other)
+            ValueError::unsupported_with_anyhow(self, "<>", other)
         }
     }
 

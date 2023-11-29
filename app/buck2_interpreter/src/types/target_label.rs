@@ -101,7 +101,7 @@ impl<'v> StarlarkValue<'v> for StarlarkTargetLabel {
         if let Some(other) = other.downcast_ref::<Self>() {
             Ok(self.label.cmp(&other.label))
         } else {
-            ValueError::unsupported_with(self, "compare", other)
+            ValueError::unsupported_with_anyhow(self, "compare", other)
         }
     }
 
@@ -208,7 +208,7 @@ impl<'v> StarlarkValue<'v> for StarlarkConfiguredTargetLabel {
         if let Some(other) = other.downcast_ref::<Self>() {
             Ok(self.label.cmp(&other.label))
         } else {
-            ValueError::unsupported_with(self, "compare", other)
+            ValueError::unsupported_with_anyhow(self, "compare", other)
         }
     }
 

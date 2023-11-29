@@ -235,9 +235,9 @@ pub(crate) fn percent(format: &str, value: Value) -> anyhow::Result<String> {
                     }
                     Some(NumRef::Float(v)) => match NumRef::Float(v.trunc()).as_int() {
                         Some(v) => write!(res, "{}", v).unwrap(),
-                        None => ValueError::unsupported_type(value, "format(%d)")?,
+                        None => ValueError::unsupported_type_anyhow(value, "format(%d)")?,
                     },
-                    None => ValueError::unsupported_type(value, "format(%d)")?,
+                    None => ValueError::unsupported_type_anyhow(value, "format(%d)")?,
                 }
             }
             Some(PercentSFormat::Oct) => {
@@ -263,7 +263,7 @@ pub(crate) fn percent(format: &str, value: Value) -> anyhow::Result<String> {
                         .unwrap()
                     }
                     Some(NumRef::Float(_)) | None => {
-                        ValueError::unsupported_type(value, "format(%o)")?
+                        ValueError::unsupported_type_anyhow(value, "format(%o)")?
                     }
                 }
             }
@@ -290,7 +290,7 @@ pub(crate) fn percent(format: &str, value: Value) -> anyhow::Result<String> {
                         .unwrap()
                     }
                     Some(NumRef::Float(_)) | None => {
-                        ValueError::unsupported_type(value, "format(%x)")?
+                        ValueError::unsupported_type_anyhow(value, "format(%x)")?
                     }
                 }
             }
@@ -317,7 +317,7 @@ pub(crate) fn percent(format: &str, value: Value) -> anyhow::Result<String> {
                         .unwrap()
                     }
                     Some(NumRef::Float(_)) | None => {
-                        ValueError::unsupported_type(value, "format(%X)")?
+                        ValueError::unsupported_type_anyhow(value, "format(%X)")?
                     }
                 }
             }

@@ -177,7 +177,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
 
     fn compare(&self, other: Value<'v>) -> anyhow::Result<Ordering> {
         match other.unpack_num() {
-            None => ValueError::unsupported_with(self, "compare", other),
+            None => ValueError::unsupported_with_anyhow(self, "compare", other),
             Some(other) => Ok(NumRef::Int(StarlarkIntRef::Big(self)).cmp(&other)),
         }
     }
@@ -191,7 +191,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     fn sub(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match other.unpack_num() {
             Some(other) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Big(self)) - other)),
-            None => ValueError::unsupported_with(self, "-", other),
+            None => ValueError::unsupported_with_anyhow(self, "-", other),
         }
     }
 
@@ -204,28 +204,28 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     fn div(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match other.unpack_num() {
             Some(other) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Big(self)).div(other)?)),
-            None => ValueError::unsupported_with(self, "/", other),
+            None => ValueError::unsupported_with_anyhow(self, "/", other),
         }
     }
 
     fn floor_div(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match other.unpack_num() {
             Some(rhs) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Big(self)).floor_div(rhs)?)),
-            None => ValueError::unsupported_with(self, "//", other),
+            None => ValueError::unsupported_with_anyhow(self, "//", other),
         }
     }
 
     fn percent(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match other.unpack_num() {
             Some(rhs) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Big(self)).percent(rhs)?)),
-            None => ValueError::unsupported_with(self, "%", other),
+            None => ValueError::unsupported_with_anyhow(self, "%", other),
         }
     }
 
     fn bit_and(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         let rhs = match StarlarkIntRef::unpack_value(other) {
             Some(rhs) => rhs,
-            None => return ValueError::unsupported_with(self, "&", other),
+            None => return ValueError::unsupported_with_anyhow(self, "&", other),
         };
         Ok(heap.alloc(StarlarkIntRef::Big(self) & rhs))
     }
@@ -233,7 +233,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     fn bit_xor(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         let rhs = match StarlarkIntRef::unpack_value(other) {
             Some(rhs) => rhs,
-            None => return ValueError::unsupported_with(self, "^", other),
+            None => return ValueError::unsupported_with_anyhow(self, "^", other),
         };
         Ok(heap.alloc(StarlarkIntRef::Big(self) ^ rhs))
     }
@@ -241,7 +241,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     fn bit_or(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         let rhs = match StarlarkIntRef::unpack_value(other) {
             Some(rhs) => rhs,
-            None => return ValueError::unsupported_with(self, "|", other),
+            None => return ValueError::unsupported_with_anyhow(self, "|", other),
         };
         Ok(heap.alloc(StarlarkIntRef::Big(self) | rhs))
     }
@@ -252,14 +252,14 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
 
     fn left_shift(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match StarlarkIntRef::unpack_value(other) {
-            None => ValueError::unsupported_with(self, "<<", other),
+            None => ValueError::unsupported_with_anyhow(self, "<<", other),
             Some(other) => Ok(heap.alloc(StarlarkIntRef::Big(self).left_shift(other)?)),
         }
     }
 
     fn right_shift(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match StarlarkIntRef::unpack_value(other) {
-            None => ValueError::unsupported_with(self, ">>", other),
+            None => ValueError::unsupported_with_anyhow(self, ">>", other),
             Some(other) => Ok(heap.alloc(StarlarkIntRef::Big(self).right_shift(other)?)),
         }
     }

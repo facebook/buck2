@@ -139,7 +139,7 @@ where
 
     fn compare(&self, other: Value<'v>) -> anyhow::Result<Ordering> {
         match Struct::from_value(other) {
-            None => ValueError::unsupported_with(self, "cmp()", other),
+            None => ValueError::unsupported_with_anyhow(self, "cmp()", other),
             Some(other) => compare_small_map(
                 coerce(&self.fields),
                 &other.fields,

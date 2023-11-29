@@ -110,7 +110,7 @@ impl<'v, Node: NodeLike> StarlarkValue<'v> for StarlarkTargetSet<Node> {
 
     fn sub(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         let Some(other) = other.downcast_ref::<Self>() else {
-            return ValueError::unsupported_with(self, "-", other);
+            return ValueError::unsupported_with_anyhow(self, "-", other);
         };
         let difference = self.0.difference(&other.0)?;
         Ok(heap.alloc(Self(difference)))
@@ -125,7 +125,7 @@ impl<'v, Node: NodeLike> StarlarkValue<'v> for StarlarkTargetSet<Node> {
 
     fn bit_and(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         let Some(other) = other.downcast_ref::<Self>() else {
-            return ValueError::unsupported_with(self, "&", other);
+            return ValueError::unsupported_with_anyhow(self, "&", other);
         };
         let intersect = self.0.intersect(&other.0)?;
         Ok(heap.alloc(Self(intersect)))
