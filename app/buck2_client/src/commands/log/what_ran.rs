@@ -76,6 +76,10 @@ pub struct WhatRanCommand {
     /// Otherwise, std_err is shown. For JSON, we show raw values and null for non-completion.
     #[clap(long, conflicts_with = "incomplete")]
     pub show_std_err: bool,
+
+    /// Omit commands if their std_err is empty
+    #[clap(long, conflicts_with = "incomplete", requires = "show-std-err")]
+    pub omit_empty_std_err: bool,
 }
 
 #[derive(Debug, clap::Parser)]
@@ -118,11 +122,13 @@ impl WhatRanCommand {
             failed,
             incomplete,
             show_std_err,
+            omit_empty_std_err,
         } = self;
         buck2_client_ctx::stdio::print_with_writer::<anyhow::Error, _>(|w| {
             let mut output = OutputFormatWithWriter {
                 format: transform_format(output, w),
                 include_std_err: show_std_err,
+                omit_empty_std_err,
             };
             ctx.with_runtime(async move |ctx| {
                 let log_path = event_log.get(&ctx).await?;
@@ -310,6 +316,12 @@ fn should_emit_unfinished_action(options: &WhatRanCommandOptions) -> bool {
 /// An output that writes to stdout in a tabulated format.
 impl WhatRanOutputWriter for OutputFormatWithWriter<'_> {
     fn emit_command(&mut self, command: WhatRanOutputCommand<'_>) -> anyhow::Result<()> {
+        if self.include_std_err
+            && self.omit_empty_std_err
+            && command.std_err.map_or(false, |s| s.is_empty())
+        {
+            return Ok(());
+        }
         let std_err_formatted = if self.include_std_err {
             Some(command.std_err.map_or_else(
                 || "<command did not finish executing>",

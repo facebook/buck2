@@ -29,6 +29,7 @@ impl WhatFailedCommand {
             failed: true,
             incomplete: false,
             show_std_err: false,
+            omit_empty_std_err: false,
         }
         .exec(matches, ctx)
     }

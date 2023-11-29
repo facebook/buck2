@@ -55,6 +55,7 @@ pub enum LogCommandOutputFormatWithWriter<'a> {
 pub struct OutputFormatWithWriter<'a> {
     pub format: LogCommandOutputFormatWithWriter<'a>,
     pub include_std_err: bool,
+    pub omit_empty_std_err: bool,
 }
 
 pub fn transform_format<'a>(
