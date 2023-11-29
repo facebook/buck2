@@ -154,7 +154,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         Ok(iterate_chars(this, heap))
     }
 
-    /// string.capitalize: returns a copy of string S, where the first character (if any) is converted to uppercase;
+    /// [string.capitalize](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string%C2%B7capitalize
+    /// ): returns a copy of string S, where the first character (if any) is converted to uppercase;
     /// all other characters are converted to lowercase.
     ///
     /// ```
@@ -206,7 +208,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·count
     /// ): count the number of occurrences of a string in another string.
     ///
-    /// `S.count(sub[, start[, end]])` returns the number of occcurences of
+    /// `S.count(sub[, start[, end]])` returns the number of occurrences of
     /// `sub` within the string S, or, if the optional substring indices
     /// `start` and `end` are provided, within the designated substring of S.
     /// They are interpreted according to Skylark's [indexing conventions](
@@ -775,10 +777,10 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// "banana".replace("", "x") == "xbxaxnxaxnxax"
     /// "banana".replace("", "x", 2) == "xbxanana"
     /// "".replace("", "x") == "x"
-    /// "# );
+    /// # "# );
     /// # starlark::assert::fail(r#"
     /// "banana".replace("a", "o", -2)  # error: argument was negative
-    /// "#, "argument was negative");
+    /// # "#, "argument was negative");
     /// ```
     #[starlark(speculative_exec_safe)]
     fn replace<'v>(
