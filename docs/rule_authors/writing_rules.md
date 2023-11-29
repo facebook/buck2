@@ -27,30 +27,23 @@ add a rule for a language, say `pascal`:
    Buck2. If `pascal` was an existing rule, you would see what attributes it
    takes (often it will be `pascal_library` and `pascal_binary`).
 
-2. Create a file at `prelude/pascal.bzl` that will contain your rule
-   implementations. The details are explained later, but a dummy rule looks like
-   the following:
+2. Create a file `pascal.bzl` that will contain your rule implementations. The
+   details are explained later, but a dummy rule looks like the following:
 
    ```python
    def pascal_binary_impl(_ctx: AnalysisContext) -> list[Provider]:
        return [DefaultInfo()]
    ```
 
-3. Register that rule in
-   [`prelude/rules_impl.bzl`](https://github.com/facebook/buck2/blob/main/prelude/rules_impl.bzl),
-   which involves adding a `load(":pascal.bzl", "pascal_binary_impl")` at the
-   top and an additional entry in `implemented_rules` section to wire up
-   `pascal_binary = pascal_binary_impl`.
-
-4. Create a directory in `fbcode/buck2/tests/targets/rules/pascal` with
+3. Create a directory in `fbcode/buck2/tests/targets/rules/pascal` with
    `TARGETS` and whatever source files and test targets you need to test your
    project. Note, Apple tests are currently located at
    `xplat/buck2/tests/apple/...`.
 
-5. Test your code with `buck2 build fbcode//buck2/tests/targets/rules/pascal:`.
+4. Test your code with `buck2 build fbcode//buck2/tests/targets/rules/pascal:`.
    They should succeed with no actual output produced.
 
-6. Now implement the rules (see the rest of this page).
+5. Now implement the rules (see the rest of this page).
 
 <!-- prettier-ignore -->
 :::note
