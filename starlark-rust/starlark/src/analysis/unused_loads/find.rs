@@ -72,7 +72,7 @@ fn has_unused_marker_in_range(span: FileSpanRef) -> bool {
 pub(crate) fn find_unused_loads(
     name: &str,
     program: &str,
-) -> anyhow::Result<(CodeMap, Vec<UnusedLoad>)> {
+) -> crate::Result<(CodeMap, Vec<UnusedLoad>)> {
     let module = AstModule::parse(name, program.to_owned(), &Dialect::Extended)?;
     let names = MutableNames::new();
     let heap = FrozenHeap::new();

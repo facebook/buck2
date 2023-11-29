@@ -50,7 +50,7 @@ impl<'a> Out<'a> {
 }
 
 /// Return `None` if there is no unused loads.
-pub fn remove_unused_loads(name: &str, program: &str) -> anyhow::Result<Option<String>> {
+pub fn remove_unused_loads(name: &str, program: &str) -> crate::Result<Option<String>> {
     let (codemap, unused_loads) = find_unused_loads(name, program)?;
     if unused_loads.is_empty() {
         return Ok(None);

@@ -86,7 +86,7 @@ mod tests {
     use crate::syntax::Dialect;
 
     #[test]
-    fn test_typecheck_profile() -> anyhow::Result<()> {
+    fn test_typecheck_profile() -> crate::Result<()> {
         let module = Module::new();
         let mut eval = Evaluator::new(&module);
         let program = r#"

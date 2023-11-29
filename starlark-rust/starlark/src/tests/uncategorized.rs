@@ -983,7 +983,7 @@ animal("Joe")
 fn test_fuzzer_59102() {
     // From https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=59102
     let src = "\"\u{e0070}";
-    let res: Result<AstModule, anyhow::Error> =
+    let res: Result<AstModule, crate::Error> =
         AstModule::parse("hello_world.star", src.to_owned(), &Dialect::Standard);
     // The panic actually only happens when we format the result
     format!("{:?}", res);
@@ -993,7 +993,7 @@ fn test_fuzzer_59102() {
 fn test_fuzzer_59371() {
     // From https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=59371
     let src = "\"\u{2009}\\x";
-    let res: Result<AstModule, anyhow::Error> =
+    let res: Result<AstModule, crate::Error> =
         AstModule::parse("hello_world.star", src.to_owned(), &Dialect::Standard);
     // The panic actually only happens when we format the result
     format!("{:?}", res);

@@ -10,7 +10,6 @@ rust_library(
     crate_root = "fuzz_targets/starlark.rs",
     unittests = False,  # There is no main
     deps = [
-        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:libfuzzer-sys",
         "//buck2/starlark-rust/starlark:starlark",
     ],

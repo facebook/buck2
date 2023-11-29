@@ -882,6 +882,7 @@ impl ServerState {
                 ..Dialect::Standard
             },
         )
+        .map_err(starlark::Error::into_anyhow)
     }
 }
 

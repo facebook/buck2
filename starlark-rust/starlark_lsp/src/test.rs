@@ -150,7 +150,7 @@ impl LspContext for TestServerContext {
                     }
                     Err(e) => {
                         let diagnostics = vec![eval_message_to_lsp_diagnostic(
-                            EvalMessage::from_anyhow(path, &e),
+                            EvalMessage::from_error(path, &e),
                         )];
                         LspEvalResult {
                             diagnostics,

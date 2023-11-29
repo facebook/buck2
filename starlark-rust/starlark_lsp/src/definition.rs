@@ -732,7 +732,7 @@ pub(crate) mod helpers {
                 .expect("identifier to be present")
         }
 
-        pub(crate) fn module(&self) -> anyhow::Result<LspModule> {
+        pub(crate) fn module(&self) -> starlark::Result<LspModule> {
             Ok(LspModule::new(AstModule::parse(
                 &self.filename,
                 self.program.clone(),
@@ -814,7 +814,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn find_definition_loaded_symbol() -> anyhow::Result<()> {
+    fn find_definition_loaded_symbol() -> starlark::Result<()> {
         let contents = dedent(
             r#"
         load("bar.star", <print>print</print> = "other_print");
@@ -861,7 +861,7 @@ mod test {
     }
 
     #[test]
-    fn find_definition_function_calls() -> anyhow::Result<()> {
+    fn find_definition_function_calls() -> starlark::Result<()> {
         let contents = dedent(
             r#"
         load("bar.star", "print");
@@ -925,7 +925,7 @@ mod test {
     }
 
     #[test]
-    fn find_definition_function_params() -> anyhow::Result<()> {
+    fn find_definition_function_params() -> starlark::Result<()> {
         let contents = dedent(
             r#"
         load("bar.star", "print");
@@ -964,7 +964,7 @@ mod test {
     }
 
     #[test]
-    fn find_definition_scopes_locals() -> anyhow::Result<()> {
+    fn find_definition_scopes_locals() -> starlark::Result<()> {
         let contents = dedent(
             r#"
         load("bar.star", "print");
@@ -1036,7 +1036,7 @@ mod test {
     }
 
     #[test]
-    fn find_definition_unknown_clicks() -> anyhow::Result<()> {
+    fn find_definition_unknown_clicks() -> starlark::Result<()> {
         let contents = dedent(
             r#"
         load("bar.star", "print");
@@ -1072,7 +1072,7 @@ mod test {
     }
 
     #[test]
-    fn finds_definition_in_strings() -> anyhow::Result<()> {
+    fn finds_definition_in_strings() -> starlark::Result<()> {
         let contents = dedent(
             r#"
         <foo1_click>"f<foo1>o</foo1>o1"</foo1_click>
@@ -1155,7 +1155,7 @@ mod test {
     }
 
     #[test]
-    fn find_definition_dot_access_unresolved_root() -> anyhow::Result<()> {
+    fn find_definition_dot_access_unresolved_root() -> starlark::Result<()> {
         let contents = dedent(
             r#"
             <foo_root><foo>f<foo_click>o</foo_click>o</foo></foo_root>.bar.baz().quz
@@ -1208,7 +1208,7 @@ mod test {
     }
 
     #[test]
-    fn find_definition_dot_access_loaded_root() -> anyhow::Result<()> {
+    fn find_definition_dot_access_loaded_root() -> starlark::Result<()> {
         let contents = dedent(
             r#"
             load("defs.bzl", <root>"foo"</root>);
@@ -1265,7 +1265,7 @@ mod test {
     }
 
     #[test]
-    fn find_definition_dot_access_local_root() -> anyhow::Result<()> {
+    fn find_definition_dot_access_local_root() -> starlark::Result<()> {
         let contents = dedent(
             r#"
             def func_1(<root>foo</root>):

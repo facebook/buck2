@@ -22,7 +22,7 @@
 //! To evaluate a simple file:
 //!
 //! ```
-//! # fn run() -> anyhow::Result<()> {
+//! # fn run() -> starlark::Result<()> {
 //! use starlark::eval::Evaluator;
 //! use starlark::environment::{Module, Globals};
 //! use starlark::values::Value;
@@ -67,7 +67,7 @@
 //! ```
 //! #[macro_use]
 //! extern crate starlark;
-//! # fn run() -> anyhow::Result<()> {
+//! # fn run() -> starlark::Result<()> {
 //! use starlark::environment::{GlobalsBuilder, Module};
 //! use starlark::eval::Evaluator;
 //! use starlark::syntax::{AstModule, Dialect};
@@ -107,7 +107,7 @@
 //! ```
 //! #[macro_use]
 //! extern crate starlark;
-//! # fn run() -> anyhow::Result<()> {
+//! # fn run() -> starlark::Result<()> {
 //! use starlark::environment::{GlobalsBuilder, Module};
 //! use starlark::eval::Evaluator;
 //! use starlark::syntax::{AstModule, Dialect};
@@ -168,7 +168,7 @@
 //! controlled by the [`Dialect`](syntax::Dialect) type.
 //!
 //! ```
-//! # fn run() -> anyhow::Result<()> {
+//! # fn run() -> starlark::Result<()> {
 //! use starlark::environment::{Globals, Module};
 //! use starlark::eval::Evaluator;
 //! use starlark::syntax::{AstModule, Dialect, DialectTypes};
@@ -201,7 +201,7 @@
 //! There is no requirement that the files are on disk, but that would be a common pattern.
 //!
 //! ```
-//! # fn run() -> anyhow::Result<()> {
+//! # fn run() -> starlark::Result<()> {
 //! use starlark::environment::{FrozenModule, Globals, Module};
 //! use starlark::eval::{Evaluator, ReturnFileLoader};
 //! use starlark::syntax::{AstModule, Dialect};
@@ -220,7 +220,7 @@
 //!     }
 //! }
 //!
-//! fn get_module(file: &str) -> anyhow::Result<FrozenModule> {
+//! fn get_module(file: &str) -> starlark::Result<FrozenModule> {
 //!    let ast = AstModule::parse(file, get_source(file).to_owned(), &Dialect::Standard)?;
 //!
 //!    // We can get the loaded modules from `ast.loads`.
@@ -256,7 +256,7 @@
 //! You can extract functions from Starlark, and call them from Rust, using [`eval_function`](eval::Evaluator::eval_function).
 //!
 //! ```
-//! # fn run() -> anyhow::Result<()> {
+//! # fn run() -> starlark::Result<()> {
 //! use starlark::environment::{Globals, Module};
 //! use starlark::eval::Evaluator;
 //! use starlark::syntax::{AstModule, Dialect};
@@ -291,7 +291,7 @@
 //! Such types are relatively complex, see the details at [`StarlarkValue`](values::StarlarkValue).
 //!
 //! ```
-//! # fn run() -> anyhow::Result<()> {
+//! # fn run() -> starlark::Result<()> {
 //! use starlark::environment::{Globals, Module};
 //! use starlark::eval::Evaluator;
 //! use starlark::syntax::{AstModule, Dialect};

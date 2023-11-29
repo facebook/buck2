@@ -13,31 +13,32 @@ use std::fmt;
 ///
 /// This type implements all the buck2-specific error categorization that is needed for starlark
 /// errors.
-///
-/// TODO(JakobDegen): Replace the inner error with `starlark::Error`
-pub struct BuckStarlarkError(anyhow::Error);
+pub struct BuckStarlarkError(starlark::Error);
 
 impl BuckStarlarkError {
-    pub fn new(e: anyhow::Error) -> Self {
+    pub fn new(e: starlark::Error) -> Self {
         Self(e)
     }
 
-    pub fn into_inner(self) -> anyhow::Error {
+    pub fn into_inner(self) -> starlark::Error {
         self.0
     }
 
-    pub fn inner(&self) -> &anyhow::Error {
+    pub fn inner(&self) -> &starlark::Error {
         &self.0
     }
 }
 
 impl std::error::Error for BuckStarlarkError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.0.source()
+        self.0.kind().source()
     }
 
     fn provide<'a>(&'a self, demand: &mut buck2_error::Demand<'a>) {
-        self.0.provide(demand);
+        match self.0.kind() {
+            starlark::ErrorKind::Other(e) => e.provide(demand),
+            _ => (),
+        }
     }
 }
 

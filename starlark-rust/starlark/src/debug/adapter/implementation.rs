@@ -95,6 +95,11 @@ fn evaluate_expr<'v>(
     state.disable_breakpoints.fetch_add(1, Ordering::SeqCst);
     // Don't use `?`, we need to reset disable_breakpoints.
     let ast = AstModule::parse("interactive", expr, &Dialect::Extended);
+    // This technically loses structured access to the diagnostic information. However, it's
+    // completely unused, so there's not much point in converting all of this code to using
+    // `starlark::Error`, only for buck2 to then go and blindly turn it into a `anyhow::Error`
+    // anyway.
+    let ast = ast.map_err(crate::Error::into_anyhow);
     let res = ast.and_then(|ast| eval.eval_statements(ast));
     state.disable_breakpoints.fetch_sub(1, Ordering::SeqCst);
     res

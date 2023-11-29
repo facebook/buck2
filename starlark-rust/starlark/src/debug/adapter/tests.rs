@@ -158,7 +158,7 @@ mod t {
     static TIMEOUT: Duration = Duration::from_secs(10);
 
     #[test]
-    fn test_breakpoint() -> anyhow::Result<()> {
+    fn test_breakpoint() -> crate::Result<()> {
         if is_wasm() {
             // `thread::scope` doesn't work in wasm.
             return Ok(());
@@ -190,7 +190,7 @@ print(x)
     }
 
     #[test]
-    fn test_breakpoint_with_failing_condition() -> anyhow::Result<()> {
+    fn test_breakpoint_with_failing_condition() -> crate::Result<()> {
         if is_wasm() {
             return Ok(());
         }
@@ -214,7 +214,7 @@ print(x)
     }
 
     #[test]
-    fn test_breakpoint_with_passing_condition() -> anyhow::Result<()> {
+    fn test_breakpoint_with_passing_condition() -> crate::Result<()> {
         if is_wasm() {
             return Ok(());
         }
@@ -244,7 +244,7 @@ print(x)
     }
 
     #[test]
-    fn test_step_over() -> anyhow::Result<()> {
+    fn test_step_over() -> crate::Result<()> {
         if is_wasm() {
             return Ok(());
         }
@@ -297,7 +297,7 @@ print(x)
     }
 
     #[test]
-    fn test_step_into() -> anyhow::Result<()> {
+    fn test_step_into() -> crate::Result<()> {
         if is_wasm() {
             return Ok(());
         }
@@ -372,7 +372,7 @@ print(x)
     }
 
     #[test]
-    fn test_step_out() -> anyhow::Result<()> {
+    fn test_step_out() -> crate::Result<()> {
         if is_wasm() {
             return Ok(());
         }
@@ -431,7 +431,7 @@ print(x)
     }
 
     #[test]
-    fn test_local_variables() -> anyhow::Result<()> {
+    fn test_local_variables() -> crate::Result<()> {
         if is_wasm() {
             return Ok(());
         }
@@ -464,7 +464,7 @@ print(do())
             let result = adapter.variables();
             adapter.continue_()?;
             join_timeout(eval_result, TIMEOUT)?;
-            result
+            result.map_err(crate::Error::from)
         })?;
         // It's easier to handle errors outside of thread::scope block as the test is quite flaky
         // and hangs in case error propagates
@@ -489,7 +489,7 @@ print(do())
     }
 
     #[test]
-    fn test_inspect_variables() -> anyhow::Result<()> {
+    fn test_inspect_variables() -> crate::Result<()> {
         if is_wasm() {
             return Ok(());
         }
@@ -528,7 +528,7 @@ print(do())
             ]);
             adapter.continue_()?;
             join_timeout(eval_result, TIMEOUT)?;
-            anyhow::Ok(result)
+            crate::Result::Ok(result)
         })?
         .into_iter()
         .collect::<anyhow::Result<Vec<_>>>()?;
@@ -548,7 +548,7 @@ print(do())
     }
 
     #[test]
-    fn test_evaluate_expression() -> anyhow::Result<()> {
+    fn test_evaluate_expression() -> crate::Result<()> {
         if is_wasm() {
             return Ok(());
         }
@@ -587,7 +587,7 @@ print(do())
             ]);
             adapter.continue_()?;
             join_timeout(eval_result, TIMEOUT)?;
-            anyhow::Ok(result)
+            crate::Result::Ok(result)
         })?
         .into_iter()
         .collect::<anyhow::Result<Vec<_>>>()?;

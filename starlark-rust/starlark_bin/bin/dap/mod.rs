@@ -63,10 +63,10 @@ impl DapAdapterClient for Client {
 }
 
 fn get_ast(source: &str) -> anyhow::Result<Arc<AstModule>> {
-    Ok(Arc::new(AstModule::parse_file(
-        Path::new(source),
-        &dialect(),
-    )?))
+    Ok(Arc::new(
+        AstModule::parse_file(Path::new(source), &dialect())
+            .map_err(starlark::Error::into_anyhow)?,
+    ))
 }
 
 impl Backend {
@@ -78,7 +78,8 @@ impl Backend {
 
         let go = move || -> anyhow::Result<String> {
             client.log(&format!("EVALUATION PREPARE: {}", path.display()));
-            let ast = AstModule::parse_file(&path, &dialect())?;
+            let ast =
+                AstModule::parse_file(&path, &dialect()).map_err(starlark::Error::into_anyhow)?;
             let module = Module::new();
             let globals = globals();
             let mut eval = Evaluator::new(&module);

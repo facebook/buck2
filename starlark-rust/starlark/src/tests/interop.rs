@@ -164,7 +164,7 @@ fn test_load_public_symbols_does_not_reexport() -> anyhow::Result<()> {
 #[test]
 // Test that we can express something that loads symbols into the exported module,
 // but not using the very dubious `set_module_variable_at_some_point`.
-fn test_load_symbols_extra() -> anyhow::Result<()> {
+fn test_load_symbols_extra() -> crate::Result<()> {
     #[starlark_module]
     fn module(builder: &mut GlobalsBuilder) {
         fn load_symbol<'v>(

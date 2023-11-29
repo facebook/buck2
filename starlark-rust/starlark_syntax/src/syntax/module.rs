@@ -164,8 +164,8 @@ impl AstModule {
     }
 
     /// Parse a file stored on disk. For details see [`parse`](AstModule::parse).
-    pub fn parse_file(path: &Path, dialect: &Dialect) -> anyhow::Result<Self> {
-        let content = fs::read_to_string(path)?;
+    pub fn parse_file(path: &Path, dialect: &Dialect) -> crate::Result<Self> {
+        let content = fs::read_to_string(path).map_err(anyhow::Error::new)?;
         Self::parse(&path.to_string_lossy(), content, dialect)
     }
 
@@ -173,17 +173,17 @@ impl AstModule {
     /// The `filename` is for error messages only, and does not have to be a valid file.
     /// The [`Dialect`] selects which Starlark constructs are valid.
     ///
-    /// Errors will be reported using the [`Diagnostic`] type. For example:
+    /// The returned error may contain diagnostic information. For example:
     ///
     /// ```
     /// use starlark_syntax::syntax::{AstModule, Dialect};
-    /// use starlark_syntax::diagnostic::Diagnostic;
+    /// use starlark_syntax::codemap::FileSpan;
     ///
-    /// let err: anyhow::Error = AstModule::parse("filename", "\n(unmatched".to_owned(), &Dialect::Standard).unwrap_err();
-    /// let err: Diagnostic = err.downcast::<Diagnostic>().unwrap();
-    /// assert_eq!(err.span().unwrap().to_string(), "filename:2:11");
+    /// let err: starlark_syntax::Error = AstModule::parse("filename", "\n(unmatched".to_owned(), &Dialect::Standard).unwrap_err();
+    /// let span: &FileSpan = err.span().unwrap();
+    /// assert_eq!(span.to_string(), "filename:2:11");
     /// ```
-    pub fn parse(filename: &str, content: String, dialect: &Dialect) -> anyhow::Result<Self> {
+    pub fn parse(filename: &str, content: String, dialect: &Dialect) -> crate::Result<Self> {
         let typecheck = content.contains("@starlark-rust: typecheck");
         let codemap = CodeMap::new(filename.to_owned(), content);
         let lexer = Lexer::new(codemap.source(), dialect, codemap.dupe());
@@ -201,11 +201,11 @@ impl AstModule {
         ) {
             Ok(v) => {
                 if let Some(err) = errors.into_iter().next() {
-                    return Err(err.into_anyhow());
+                    return Err(err.into_anyhow().into());
                 }
                 Ok(AstModule::create(codemap, v, dialect, typecheck)?)
             }
-            Err(p) => Err(parse_error_add_span(p, codemap.source().len(), &codemap)),
+            Err(p) => Err(parse_error_add_span(p, codemap.source().len(), &codemap).into()),
         }
     }
 

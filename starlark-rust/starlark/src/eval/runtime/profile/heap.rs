@@ -131,7 +131,7 @@ mod tests {
     use crate::values::Value;
 
     #[test]
-    fn test_profiling() -> anyhow::Result<()> {
+    fn test_profiling() -> crate::Result<()> {
         // We don't test that the profile looks any particular way, but we do test it doesn't crash
         let ast = AstModule::parse(
             "foo.bzl",

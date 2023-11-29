@@ -510,16 +510,11 @@ impl<'a> BuckLspContext<'a> {
                     ast: Some(ast),
                 }),
                 Err(e) => {
-                    let e = e.0.into_inner();
-                    if let Some(d) = e.downcast_ref::<starlark::errors::Diagnostic>() {
-                        let message = EvalMessage::from_diagnostic(uri.path(), d);
-                        Ok(LspEvalResult {
-                            diagnostics: vec![eval_message_to_lsp_diagnostic(message)],
-                            ast: None,
-                        })
-                    } else {
-                        Err(e)
-                    }
+                    let message = EvalMessage::from_error(uri.path(), e.0.inner());
+                    Ok(LspEvalResult {
+                        diagnostics: vec![eval_message_to_lsp_diagnostic(message)],
+                        ast: None,
+                    })
                 }
             }
         })

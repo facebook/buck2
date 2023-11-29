@@ -123,7 +123,8 @@ mod tests {
             code: String,
             eval: &mut Evaluator<'v, '_>,
         ) -> anyhow::Result<Value<'v>> {
-            let ast = AstModule::parse("interactive", code, &Dialect::Extended)?;
+            let ast = AstModule::parse("interactive", code, &Dialect::Extended)
+                .map_err(crate::Error::into_anyhow)?;
             eval.eval_statements(ast)
         }
     }

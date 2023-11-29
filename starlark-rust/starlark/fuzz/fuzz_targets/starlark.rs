@@ -24,7 +24,7 @@ use starlark::eval::Evaluator;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
 
-fn run_arbitrary_starlark_err(content: &str) -> anyhow::Result<String> {
+fn run_arbitrary_starlark_err(content: &str) -> starlark::Result<String> {
     let ast: AstModule =
         AstModule::parse("hello_world.star", content.to_owned(), &Dialect::Standard)?;
     let globals: Globals = Globals::standard();

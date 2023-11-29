@@ -356,7 +356,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn dotted_access_is_correct() -> anyhow::Result<()> {
+    fn dotted_access_is_correct() -> starlark::Result<()> {
         let contents = "x1.y\nx1.y().z\nx2().y\nx2().y.z";
 
         let expected = vec![
@@ -388,7 +388,7 @@ mod test {
     }
 
     #[test]
-    fn dotted_contains_is_correct() -> anyhow::Result<()> {
+    fn dotted_contains_is_correct() -> starlark::Result<()> {
         let contents = "x1.y1.z1\nx2.y2.z2";
         let module = AstModule::parse("foo.star", contents.to_owned(), &Dialect::Extended)?;
         let scope = scope(&module);
