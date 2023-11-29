@@ -66,6 +66,13 @@ pub enum ValueError {
     NoAttrDidYouMean(String, String, String),
 }
 
+impl From<ValueError> for crate::Error {
+    fn from(e: ValueError) -> Self {
+        // FIXME(JakobDegen): Have a proper variant for this
+        crate::Error::new_other(e)
+    }
+}
+
 #[derive(Debug, Error)]
 pub(crate) enum ControlError {
     #[error("Value of type `{0}` is not hashable")]
