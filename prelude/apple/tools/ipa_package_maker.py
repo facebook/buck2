@@ -14,7 +14,7 @@ import tempfile
 
 from pathlib import Path
 
-from typing import Optional
+from typing import List, Optional
 
 from apple.tools.re_compatibility_utils.writable import make_dir_recursively_writable
 
@@ -45,6 +45,7 @@ def _package_ipa_contents(
     ipa_output_path: Path,
     compression_level: int,
     validator: Optional[Path],
+    validator_args: List[str],
 ):
     with tempfile.TemporaryDirectory() as processed_package_dir:
         processed_package_dir_path = Path(processed_package_dir)
@@ -66,6 +67,7 @@ def _package_ipa_contents(
                 str(validator),
                 "--ipa-contents-dir",
                 str(processed_package_dir_path),
+                *validator_args,
             ]
             subprocess.run(
                 validation_command,
@@ -110,6 +112,7 @@ def main():
         required=False,
         help="A path to an executable which will be passed the path to the IPA contents dir to validate",
     )
+    parser.add_argument("--validator-args", required=False, default=[], action="append")
 
     args = parser.parse_args()
     _package_ipa_contents(
@@ -117,6 +120,7 @@ def main():
         args.ipa_output_path,
         args.compression_level,
         args.validator,
+        args.validator_args,
     )
 
 
