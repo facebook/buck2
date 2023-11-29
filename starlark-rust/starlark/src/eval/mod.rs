@@ -38,7 +38,6 @@ pub use runtime::params::ParametersSpecBuilder;
 pub use runtime::profile::data::ProfileData;
 pub use runtime::profile::ProfileMode;
 pub use starlark_syntax::call_stack::CallStack;
-use starlark_syntax::eval_exception::EvalException;
 use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::syntax::module::AstModule;
 use starlark_syntax::syntax::module::AstModuleFields;
@@ -59,7 +58,7 @@ use crate::values::Value;
 impl<'v, 'a> Evaluator<'v, 'a> {
     /// Evaluate an [`AstModule`] with this [`Evaluator`], modifying the in-scope
     /// [`Module`](crate::environment::Module) as appropriate.
-    pub fn eval_module(&mut self, ast: AstModule, globals: &Globals) -> anyhow::Result<Value<'v>> {
+    pub fn eval_module(&mut self, ast: AstModule, globals: &Globals) -> crate::Result<Value<'v>> {
         let start = Instant::now();
 
         let (codemap, statement, dialect, typecheck) = ast.into_parts();
@@ -139,7 +138,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         self.module_env.add_eval_duration(start.elapsed());
 
         // Return the result of evaluation
-        res.map_err(EvalException::into_anyhow)
+        res.map_err(|e| e.into_anyhow().into())
     }
 
     /// Evaluate a function stored in a [`Value`], passing in `positional` and `named` arguments.

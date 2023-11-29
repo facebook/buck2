@@ -87,7 +87,9 @@ impl Backend {
 
             // No way to pass back success/failure to the caller
             client.log(&format!("EVALUATION START: {}", path.display()));
-            let v = eval.eval_module(ast, &globals)?;
+            let v = eval
+                .eval_module(ast, &globals)
+                .map_err(starlark::Error::into_anyhow)?;
             let s = v.to_string();
             client.log(&format!("EVALUATION FINISHED: {}", path.display()));
             Ok(s)

@@ -99,8 +99,9 @@ fn evaluate_expr<'v>(
     // completely unused, so there's not much point in converting all of this code to using
     // `starlark::Error`, only for buck2 to then go and blindly turn it into a `anyhow::Error`
     // anyway.
-    let ast = ast.map_err(crate::Error::into_anyhow);
-    let res = ast.and_then(|ast| eval.eval_statements(ast));
+    let res = ast
+        .and_then(|ast| eval.eval_statements(ast))
+        .map_err(crate::Error::into_anyhow);
     state.disable_breakpoints.fetch_sub(1, Ordering::SeqCst);
     res
 }

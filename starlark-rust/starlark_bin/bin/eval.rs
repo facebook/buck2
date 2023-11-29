@@ -107,7 +107,8 @@ impl Context {
                     let mut eval = Evaluator::new(&env);
                     let module = AstModule::parse_file(x, &dialect())
                         .map_err(starlark::Error::into_anyhow)?;
-                    eval.eval_module(module, &globals)?;
+                    eval.eval_module(module, &globals)
+                        .map_err(starlark::Error::into_anyhow)?;
                 }
                 env.freeze()
             })

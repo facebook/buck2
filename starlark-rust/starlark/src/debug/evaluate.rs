@@ -30,7 +30,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     /// There are lots of health warnings on this code. Might not work with frozen modules, unassigned variables,
     /// nested definitions etc. It would be a bad idea to rely on the results of continued execution
     /// after evaluating stuff randomly.
-    pub fn eval_statements(&mut self, statements: AstModule) -> anyhow::Result<Value<'v>> {
+    pub fn eval_statements(&mut self, statements: AstModule) -> crate::Result<Value<'v>> {
         // We are doing a lot of funky stuff here. It's amazing anything works, so let's not push our luck with GC.
         self.disable_gc();
 
@@ -125,7 +125,7 @@ mod tests {
         ) -> anyhow::Result<Value<'v>> {
             let ast = AstModule::parse("interactive", code, &Dialect::Extended)
                 .map_err(crate::Error::into_anyhow)?;
-            eval.eval_statements(ast)
+            eval.eval_statements(ast).map_err(crate::Error::into_anyhow)
         }
     }
 

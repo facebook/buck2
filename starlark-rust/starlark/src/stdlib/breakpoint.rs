@@ -178,8 +178,7 @@ fn breakpoint_loop(
                         }
                     }
                 } else {
-                    let ast = AstModule::parse("interactive", line, &Dialect::Extended)
-                        .map_err(crate::Error::into_anyhow);
+                    let ast = AstModule::parse("interactive", line, &Dialect::Extended);
                     let res = ast.and_then(|ast| eval.eval_statements(ast));
                     match res {
                         Err(e) => {

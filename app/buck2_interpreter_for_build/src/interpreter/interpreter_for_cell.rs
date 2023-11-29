@@ -497,7 +497,7 @@ impl InterpreterForCell {
                         .visit_frozen_module(None)
                         .context("Profiler heap visitation failed")?
                 }
-                Err(p) => return Err(p),
+                Err(p) => return Err(BuckStarlarkError::new(p).into()),
             }
         };
         Ok(extra)

@@ -403,7 +403,9 @@ mod tests {
         let ast = AstModule::parse("test.bzl", content.to_owned(), &Dialect::Extended)
             .map_err(starlark::Error::into_anyhow)?;
         let mut eval = Evaluator::new(modu);
-        let res = eval.eval_module(ast, &globals)?;
+        let res = eval
+            .eval_module(ast, &globals)
+            .map_err(starlark::Error::into_anyhow)?;
         let promises = get_promises(modu);
         for (key, promise) in promises.0.borrow().iter() {
             promise.resolve(modu.heap().alloc(key), &mut eval)?;
