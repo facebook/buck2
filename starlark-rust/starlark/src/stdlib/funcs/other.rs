@@ -197,7 +197,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     /// https://github.com/bazelbuild/starlark/blob/master/spec.md#bool
     /// ): returns a string encoding a codepoint.
     ///
-    /// `chr(i)` returns a returns a string that encodes the single Unicode code
+    /// `chr(i)` returns a string that encodes the single Unicode code
     /// point whose value is specified by the integer `i`. `chr` fails
     /// unless `0 ≤ i ≤ 0x10FFFF`.
     ///
@@ -381,8 +381,8 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     /// https://github.com/bazelbuild/starlark/blob/master/spec.md#hash
     /// ): returns the hash number of a value.
     ///
-    /// `hash(x)`` returns an integer hash value for x such that `x == y`
-    /// implies `hash(x) == hash(y)``.
+    /// `hash(x)` returns an integer hash value for x such that `x == y`
+    /// implies `hash(x) == hash(y)`.
     ///
     /// `hash` fails if x, or any value upon which its hash depends, is
     /// unhashable.
@@ -683,7 +683,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     /// repr([1, "x"])          == "[1, \"x\"]"
     /// repr("test \"'")        == "\"test \\\"'\""
     /// repr("x\"y😿 \\'")      == "\"x\\\"y\\U0001f63f \\\\'\""
-    /// "#);
+    /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
     fn repr<'v>(
