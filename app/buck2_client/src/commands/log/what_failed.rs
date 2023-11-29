@@ -28,6 +28,7 @@ impl WhatFailedCommand {
             common: self.common,
             failed: true,
             incomplete: false,
+            show_std_err: false,
         }
         .exec(matches, ctx)
     }

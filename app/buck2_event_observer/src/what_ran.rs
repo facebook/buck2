@@ -74,17 +74,28 @@ pub struct WhatRanOutputCommand<'a> {
     pub identity: &'a str,
     pub repro: CommandReproducer<'a>,
     pub extra: Option<WhatRanOutputCommandExtra<'a>>,
+    pub std_err: Option<&'a str>,
 }
 
-impl Display for WhatRanOutputCommand<'_> {
+impl<'a> WhatRanOutputCommand<'a> {
+    pub fn as_tabulated_reproducer(&self) -> impl fmt::Display + '_ {
+        WhatRanOutputCommandHeader { cmd: self }
+    }
+}
+
+struct WhatRanOutputCommandHeader<'r, 'a> {
+    cmd: &'r WhatRanOutputCommand<'a>,
+}
+
+impl Display for WhatRanOutputCommandHeader<'_, '_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}\t{}\t{}\t{}",
-            self.reason,
-            self.identity,
-            self.repro.executor(),
-            self.repro.as_human_readable()
+            self.cmd.reason,
+            self.cmd.identity,
+            self.cmd.repro.executor(),
+            self.cmd.repro.as_human_readable(),
         )
     }
 }
@@ -115,7 +126,12 @@ pub fn emit_event_if_relevant(
     options: &WhatRanOptions,
 ) -> anyhow::Result<()> {
     if let Some(repro) = CommandReproducer::from_buck_data(data, options) {
-        emit(parent_span_id, repro, state, output)?;
+        let data = match data {
+            buck2_data::buck_event::Data::SpanEnd(span) => &span.data,
+            _ => &None,
+        };
+
+        emit(parent_span_id, repro, state, data, output)?;
     }
 
     Ok(())
@@ -126,18 +142,20 @@ fn emit(
     parent_span_id: OptionalSpanId,
     repro: CommandReproducer<'_>,
     state: &impl WhatRanState,
+    data: &Option<buck2_data::span_end_event::Data>,
     output: &mut impl WhatRanOutputWriter,
 ) -> anyhow::Result<()> {
     let action = match parent_span_id.0 {
         None => None,
         Some(parent_span_id) => state.get(parent_span_id),
     };
-    emit_reproducer(action, repro, output)
+    emit_what_ran_entry(action, repro, data, output)
 }
 
-pub fn emit_reproducer(
+pub fn emit_what_ran_entry(
     action: Option<WhatRanRelevantAction<'_>>,
     repro: CommandReproducer<'_>,
+    data: &Option<buck2_data::span_end_event::Data>,
     output: &mut impl WhatRanOutputWriter,
 ) -> anyhow::Result<()> {
     let (reason, identity, extra) = match action {
@@ -178,11 +196,20 @@ pub fn emit_reproducer(
         None => ("unknown", Cow::Borrowed("unknown action"), None),
     };
 
+    let std_err = match data {
+        Some(buck2_data::span_end_event::Data::ActionExecution(action_exec)) => action_exec
+            .commands
+            .iter()
+            .last()
+            .and_then(|cmd| cmd.details.as_ref().map(|d| d.stderr.as_ref())),
+        _ => None,
+    };
     output.emit_command(WhatRanOutputCommand {
         reason,
         identity: &identity,
         repro,
         extra,
+        std_err,
     })?;
 
     Ok(())

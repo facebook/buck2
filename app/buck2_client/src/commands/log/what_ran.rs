@@ -32,6 +32,7 @@ use crate::commands::log::options::EventLogOptions;
 use crate::commands::log::transform_format;
 use crate::commands::log::LogCommandOutputFormat;
 use crate::commands::log::LogCommandOutputFormatWithWriter;
+use crate::commands::log::OutputFormatWithWriter;
 /// Output everything Buck2 ran from selected invocation.
 ///
 /// The output is presented as a series of tab-delimited records with the following structure:
@@ -68,6 +69,13 @@ pub struct WhatRanCommand {
     /// or command currently running if buck2 is running build now.
     #[clap(long)]
     pub incomplete: bool,
+
+    /// Show also std_err from commands that are run.
+    /// If the command fails before completing, we display "<command did not finish executing>".
+    /// If it finishes but there is no error, we display "<stderr is empty>".
+    /// Otherwise, std_err is shown. For JSON, we show raw values and null for non-completion.
+    #[clap(long, conflicts_with = "incomplete")]
+    pub show_std_err: bool,
 }
 
 #[derive(Debug, clap::Parser)]
@@ -109,10 +117,13 @@ impl WhatRanCommand {
                 },
             failed,
             incomplete,
+            show_std_err,
         } = self;
         buck2_client_ctx::stdio::print_with_writer::<anyhow::Error, _>(|w| {
-            let mut output = transform_format(output, w);
-
+            let mut output = OutputFormatWithWriter {
+                format: transform_format(output, w),
+                include_std_err: show_std_err,
+            };
             ctx.with_runtime(async move |ctx| {
                 let log_path = event_log.get(&ctx).await?;
 
@@ -148,9 +159,10 @@ struct WhatRanEntry {
 }
 
 impl WhatRanEntry {
-    fn emit_reproducers(
+    fn emit_what_ran_entry(
         &self,
         output: &mut impl WhatRanOutputWriter,
+        data: &Option<buck2_data::span_end_event::Data>,
         options: &WhatRanCommandOptions,
     ) -> anyhow::Result<()> {
         let action = WhatRanRelevantAction::from_buck_data(
@@ -158,13 +170,14 @@ impl WhatRanEntry {
         );
 
         for repro in self.reproducers.iter() {
-            what_ran::emit_reproducer(
+            what_ran::emit_what_ran_entry(
                 action,
                 CommandReproducer::from_buck_data(
                     repro.data.as_ref().context("Checked above")?,
                     &options.options,
                 )
                 .context("Checked above")?,
+                data,
                 output,
             )?;
         }
@@ -242,7 +255,7 @@ impl WhatRanCommandState {
                         self.known_actions.remove(&SpanId::from_u64(event.span_id)?)
                     {
                         if should_emit_finished_action(&span.data, options) {
-                            entry.emit_reproducers(output, options)?;
+                            entry.emit_what_ran_entry(output, &span.data, options)?;
                         }
                     }
                 }
@@ -260,7 +273,7 @@ impl WhatRanCommandState {
     ) -> anyhow::Result<()> {
         for (_, entry) in self.known_actions.iter() {
             if should_emit_unfinished_action(options) {
-                entry.emit_reproducers(output, options)?;
+                entry.emit_what_ran_entry(output, &None, options)?;
             }
         }
         Ok(())
@@ -289,11 +302,39 @@ fn should_emit_unfinished_action(options: &WhatRanCommandOptions) -> bool {
 }
 
 /// An output that writes to stdout in a tabulated format.
-impl WhatRanOutputWriter for LogCommandOutputFormatWithWriter<'_> {
+impl WhatRanOutputWriter for OutputFormatWithWriter<'_> {
     fn emit_command(&mut self, command: WhatRanOutputCommand<'_>) -> anyhow::Result<()> {
-        match self {
-            Self::Tabulated(w) => Ok(w.write_all(format!("{}\n", command).as_bytes())?),
-            Self::Json(w) => {
+        let std_err_formatted = if self.include_std_err {
+            Some(command.std_err.map_or_else(
+                || "<command did not finish executing>",
+                |std_err| {
+                    if std_err.is_empty() {
+                        "<std_err is empty>"
+                    } else {
+                        std_err
+                    }
+                },
+            ))
+        } else {
+            None
+        };
+
+        match &mut self.format {
+            LogCommandOutputFormatWithWriter::Tabulated(w) => {
+                w.write_all(format!("{}\n", command.as_tabulated_reproducer()).as_bytes())?;
+                if let Some(std_err) = std_err_formatted {
+                    w.write_all(
+                        format!(
+                            "{}{}",
+                            std_err,
+                            if std_err.ends_with('\n') { "" } else { "\n" }
+                        )
+                        .as_bytes(),
+                    )?;
+                }
+                Ok(())
+            }
+            LogCommandOutputFormatWithWriter::Json(w) => {
                 let reproducer = match command.repro {
                     CommandReproducer::CacheQuery(cache_hit) => JsonReproducer::CacheQuery {
                         digest: &cache_hit.action_digest,
@@ -349,31 +390,41 @@ impl WhatRanOutputWriter for LogCommandOutputFormatWithWriter<'_> {
                             .collect(),
                     },
                 };
+                let std_err = if self.include_std_err {
+                    Some(command.std_err.unwrap_or("null"))
+                } else {
+                    None
+                };
 
                 let command = JsonCommand {
                     reason: command.reason,
                     identity: command.identity,
                     reproducer,
                     extra: command.extra.map(Into::into),
+                    std_err,
                 };
-
                 serde_json::to_writer(w, &command)?;
-                buck2_client_ctx::println!("")
+                buck2_client_ctx::println!("")?;
+                Ok(())
             }
-            Self::Csv(writer) => {
+            LogCommandOutputFormatWithWriter::Csv(writer) => {
                 #[derive(serde::Serialize)]
                 struct Record<'a> {
                     reason: &'a str,
                     identity: &'a str,
                     executor: String,
                     reproducer: String,
+                    #[serde(skip_serializing_if = "Option::is_none")]
+                    std_err: Option<&'a str>,
                 }
-                Ok(writer.serialize(Record {
+                writer.serialize(Record {
                     reason: command.reason,
                     identity: command.identity,
                     executor: command.repro.executor(),
                     reproducer: command.repro.as_human_readable().to_string(),
-                })?)
+                    std_err: std_err_formatted,
+                })?;
+                Ok(())
             }
         }
     }
@@ -395,6 +446,8 @@ struct JsonCommand<'a> {
     reproducer: JsonReproducer<'a>,
     #[serde(skip_serializing_if = "Option::is_none")]
     extra: Option<JsonExtra<'a>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    std_err: Option<&'a str>,
 }
 
 mod json_reproducer {
@@ -464,6 +517,7 @@ mod tests {
             identity: "some/target",
             reproducer: JsonReproducer::Local { command, env },
             extra: None,
+            std_err: None,
         }
     }
 
@@ -479,6 +533,7 @@ mod tests {
                 action_key: None,
             },
             extra: None,
+            std_err: None,
         }
     }
 

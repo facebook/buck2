@@ -52,6 +52,11 @@ pub enum LogCommandOutputFormatWithWriter<'a> {
     Csv(Box<csv::Writer<&'a mut dyn std::io::Write>>),
 }
 
+pub struct OutputFormatWithWriter<'a> {
+    pub format: LogCommandOutputFormatWithWriter<'a>,
+    pub include_std_err: bool,
+}
+
 pub fn transform_format<'a>(
     format: LogCommandOutputFormat,
     w: &'a mut (dyn std::io::Write),
