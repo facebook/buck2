@@ -17,7 +17,10 @@
 
 use std::fmt;
 
+use crate::call_stack::CallStack;
+use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
+use crate::codemap::Span;
 use crate::diagnostic::diagnostic_display;
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic::DiagnosticNoError;
@@ -33,6 +36,17 @@ use crate::diagnostic::DiagnosticNoError;
 pub struct Error(Box<ErrorInner>);
 
 impl Error {
+    /// Create a new error with a span
+    pub fn new_spanned(kind: ErrorKind, span: Span, codemap: &CodeMap) -> Self {
+        Self(Box::new(ErrorInner {
+            kind,
+            diagnostic: Some(DiagnosticNoError {
+                span: Some(codemap.file_span(span)),
+                call_stack: CallStack::default(),
+            }),
+        }))
+    }
+
     /// The kind of this error
     pub fn kind(&self) -> &ErrorKind {
         &self.0.kind

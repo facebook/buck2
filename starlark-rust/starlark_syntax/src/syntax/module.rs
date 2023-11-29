@@ -30,7 +30,6 @@ use crate::codemap::FileSpan;
 use crate::codemap::Pos;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
-use crate::diagnostic::Diagnostic;
 use crate::eval_exception::EvalException;
 use crate::lexer::Lexer;
 use crate::lexer::Token;
@@ -68,7 +67,7 @@ fn parse_error_add_span(
     err: lu::ParseError<usize, Token, EvalException>,
     pos: usize,
     codemap: &CodeMap,
-) -> anyhow::Error {
+) -> crate::Error {
     let (message, span) = match err {
         lu::ParseError::InvalidToken { location } => (
             "Parse error: invalid token".to_owned(),
@@ -93,10 +92,14 @@ fn parse_error_add_span(
             format!("Parse error: extraneous token {}", t),
             Span::new(Pos::new(x as u32), Pos::new(y as u32)),
         ),
-        lu::ParseError::User { error } => return error.into_anyhow(),
+        lu::ParseError::User { error } => return error.into_anyhow().into(),
     };
 
-    Diagnostic::new(anyhow::anyhow!(message), span, codemap)
+    crate::Error::new_spanned(
+        crate::ErrorKind::Other(anyhow::anyhow!(message)),
+        span,
+        codemap,
+    )
 }
 
 /// A representation of a Starlark module abstract syntax tree.
@@ -205,7 +208,7 @@ impl AstModule {
                 }
                 Ok(AstModule::create(codemap, v, dialect, typecheck)?)
             }
-            Err(p) => Err(parse_error_add_span(p, codemap.source().len(), &codemap).into()),
+            Err(p) => Err(parse_error_add_span(p, codemap.source().len(), &codemap)),
         }
     }
 
