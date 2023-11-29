@@ -413,8 +413,8 @@ pub trait StarlarkValue<'v>:
         _me: Value<'v>,
         _args: &Arguments<'v, '_>,
         _eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
-        ValueError::unsupported(self, "call()")
+    ) -> crate::Result<Value<'v>> {
+        ValueError::unsupported(self, "call()").map_err(Into::into)
     }
 
     /// Invoke this object as a method (after getattr, so this object is unbound).
@@ -432,7 +432,7 @@ pub trait StarlarkValue<'v>:
         _args: &Arguments<'v, '_>,
         _eval: &mut Evaluator<'v, '_>,
         _sealed: Private,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         unreachable!("invoke_method should only be invoked for method or attribute");
     }
 

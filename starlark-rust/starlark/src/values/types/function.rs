@@ -96,12 +96,12 @@ pub trait NativeFunc: Send + Sync + 'static {
         &self,
         eval: &mut Evaluator<'v, '_>,
         args: &Arguments<'v, '_>,
-    ) -> anyhow::Result<Value<'v>>;
+    ) -> crate::Result<Value<'v>>;
 }
 
 impl<T> NativeFunc for T
 where
-    T: for<'v> Fn(&mut Evaluator<'v, '_>, &Arguments<'v, '_>) -> anyhow::Result<Value<'v>>
+    T: for<'v> Fn(&mut Evaluator<'v, '_>, &Arguments<'v, '_>) -> crate::Result<Value<'v>>
         + Send
         + Sync
         + 'static,
@@ -110,7 +110,7 @@ where
         &self,
         eval: &mut Evaluator<'v, '_>,
         args: &Arguments<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         (*self)(eval, args)
     }
 }
@@ -125,7 +125,7 @@ pub trait NativeMeth: Send + Sync + 'static {
         eval: &mut Evaluator<'v, '_>,
         this: Value<'v>,
         args: &Arguments<'v, '_>,
-    ) -> anyhow::Result<Value<'v>>;
+    ) -> crate::Result<Value<'v>>;
 }
 
 impl<T> NativeMeth for T
@@ -134,7 +134,7 @@ where
             &mut Evaluator<'v, '_>,
             Value<'v>,
             &Arguments<'v, '_>,
-        ) -> anyhow::Result<Value<'v>>
+        ) -> crate::Result<Value<'v>>
         + Send
         + Sync
         + 'static,
@@ -144,7 +144,7 @@ where
         eval: &mut Evaluator<'v, '_>,
         this: Value<'v>,
         args: &Arguments<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         (*self)(eval, this, args)
     }
 }
@@ -218,7 +218,7 @@ impl NativeFunction {
     pub fn new_direct<F>(function: F, name: String) -> Self
     where
         // If I switch this to the trait alias then it fails to resolve the usages
-        F: for<'v> Fn(&mut Evaluator<'v, '_>, &Arguments<'v, '_>) -> anyhow::Result<Value<'v>>
+        F: for<'v> Fn(&mut Evaluator<'v, '_>, &Arguments<'v, '_>) -> crate::Result<Value<'v>>
             + Send
             + Sync
             + 'static,
@@ -247,7 +247,9 @@ impl NativeFunction {
     {
         Self::new_direct(
             move |eval, params| {
-                parameters.parser(params, eval, |parser, eval| function(eval, parser))
+                parameters
+                    .parser(params, eval, |parser, eval| function(eval, parser))
+                    .map_err(Into::into)
             },
             name,
         )
@@ -268,8 +270,8 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
         _me: Value<'v>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
-        self.function.invoke(eval, args)
+    ) -> crate::Result<Value<'v>> {
+        self.function.invoke(eval, args).map_err(Into::into)
     }
 
     fn get_attr(&self, attribute: &str, heap: &'v Heap) -> Option<Value<'v>> {
@@ -376,7 +378,7 @@ impl<'v> StarlarkValue<'v> for NativeMethod {
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
         _: Private,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         self.function.invoke(eval, this, args)
     }
 
@@ -420,7 +422,7 @@ impl<'v> StarlarkValue<'v> for NativeAttribute {
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
         _: Private,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         let method = self.call(this, eval.heap())?;
         method.invoke(args, eval)
     }
@@ -474,7 +476,7 @@ where
         _me: Value<'v>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         self.method
             .invoke_method(self.this.to_value(), args, eval, Private)
     }

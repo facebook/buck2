@@ -21,7 +21,6 @@ use std::mem::MaybeUninit;
 use std::path::Path;
 
 use dupe::Dupe;
-use starlark_syntax::diagnostic::Diagnostic;
 use starlark_syntax::eval_exception::EvalException;
 use starlark_syntax::frame::Frame;
 use thiserror::Error;
@@ -379,7 +378,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         self.breakpoint_handler = Some(RealBreakpointConsole::factory());
     }
 
-    /// Obtain the current call-stack, suitable for use with [`Diagnostic`].
+    /// Obtain the current call-stack, suitable for use in diagnostics.
     pub fn call_stack(&self) -> CallStack {
         self.call_stack
             .to_diagnostic_frames(InlinedFrames::default())
@@ -433,15 +432,14 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         &mut self,
         function: Value<'v>,
         span: Option<FrozenRef<'static, FrameSpan>>,
-        within: impl FnOnce(&mut Self) -> anyhow::Result<R>,
-    ) -> anyhow::Result<R> {
+        within: impl FnOnce(&mut Self) -> crate::Result<R>,
+    ) -> crate::Result<R> {
         #[cold]
         #[inline(never)]
-        fn add_diagnostics(e: anyhow::Error, me: &Evaluator) -> anyhow::Error {
-            Diagnostic::modify(e, |d: &mut Diagnostic| {
-                // Make sure we capture the call_stack before popping things off it
-                d.set_call_stack(|| me.call_stack.to_diagnostic_frames(InlinedFrames::default()));
-            })
+        fn add_diagnostics(mut e: crate::Error, me: &Evaluator) -> crate::Error {
+            // Make sure we capture the call_stack before popping things off it
+            e.set_call_stack(|| me.call_stack.to_diagnostic_frames(InlinedFrames::default()));
+            e
         }
 
         self.call_stack.push(function, span)?;

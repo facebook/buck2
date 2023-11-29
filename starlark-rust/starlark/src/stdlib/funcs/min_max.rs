@@ -31,13 +31,14 @@ fn min_max_iter<'v>(
     eval: &mut Evaluator<'v, '_>,
     // Select min on true, max on false.
     min: bool,
-) -> anyhow::Result<Value<'v>> {
+) -> crate::Result<Value<'v>> {
     let mut max = match it.next() {
         Some(x) => x,
         None => {
             return Err(anyhow::anyhow!(
                 "Argument is an empty iterable, max() expect a non empty iterable"
-            ));
+            )
+            .into());
         }
     };
     let update_max_ordering = if min {
@@ -74,7 +75,7 @@ fn min_max<'v>(
     eval: &mut Evaluator<'v, '_>,
     // Select min on true, max on false.
     min: bool,
-) -> anyhow::Result<Value<'v>> {
+) -> crate::Result<Value<'v>> {
     if args.items.len() == 1 {
         let it = args.items.swap_remove(0).iterate(eval.heap())?;
         min_max_iter(it, key, eval, min)
@@ -109,7 +110,7 @@ pub(crate) fn register_min_max(globals: &mut GlobalsBuilder) {
         #[starlark(args)] args: UnpackTuple<Value<'v>>,
         key: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         min_max(args, key, eval, false)
     }
 
@@ -134,7 +135,7 @@ pub(crate) fn register_min_max(globals: &mut GlobalsBuilder) {
         #[starlark(args)] args: UnpackTuple<Value<'v>>,
         key: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         min_max(args, key, eval, true)
     }
 }

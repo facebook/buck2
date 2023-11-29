@@ -34,7 +34,7 @@ pub(crate) enum InstrControl<'v, 'b> {
     Return(Value<'v>),
     /// Error. This can be either any `anyhow::Error` or `Diagnostics`.
     /// If it is the former, error span will be added from instruction metadata.
-    Err(anyhow::Error),
+    Err(crate::Error),
 }
 
 pub(crate) trait BcInstr: Sized + 'static {

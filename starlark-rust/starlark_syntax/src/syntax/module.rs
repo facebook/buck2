@@ -92,7 +92,7 @@ fn parse_error_add_span(
             format!("Parse error: extraneous token {}", t),
             Span::new(Pos::new(x as u32), Pos::new(y as u32)),
         ),
-        lu::ParseError::User { error } => return error.into_anyhow().into(),
+        lu::ParseError::User { error } => return error.into_error(),
     };
 
     crate::Error::new_spanned(
@@ -156,8 +156,8 @@ impl AstModule {
         statement: AstStmt,
         dialect: &Dialect,
         typecheck: bool,
-    ) -> anyhow::Result<AstModule> {
-        Stmt::validate(&codemap, &statement, dialect).map_err(EvalException::into_anyhow)?;
+    ) -> crate::Result<AstModule> {
+        Stmt::validate(&codemap, &statement, dialect).map_err(EvalException::into_error)?;
         Ok(AstModule {
             codemap,
             statement,
@@ -204,7 +204,7 @@ impl AstModule {
         ) {
             Ok(v) => {
                 if let Some(err) = errors.into_iter().next() {
-                    return Err(err.into_anyhow().into());
+                    return Err(err.into_error());
                 }
                 Ok(AstModule::create(codemap, v, dialect, typecheck)?)
             }

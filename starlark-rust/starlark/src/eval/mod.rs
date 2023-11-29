@@ -138,7 +138,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         self.module_env.add_eval_duration(start.elapsed());
 
         // Return the result of evaluation
-        res.map_err(|e| e.into_anyhow().into())
+        res.map_err(|e| e.into_error())
     }
 
     /// Evaluate a function stored in a [`Value`], passing in `positional` and `named` arguments.

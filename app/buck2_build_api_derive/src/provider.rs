@@ -478,7 +478,7 @@ impl ProviderCodegen {
                         _me: starlark::values::Value<'v>,
                         args: &starlark::eval::Arguments<'v, '_>,
                         eval: &mut starlark::eval::Evaluator<'v, '_>,
-                    ) -> anyhow::Result<starlark::values::Value<'v>> {
+                    ) -> starlark::Result<starlark::values::Value<'v>> {
                         static RES: starlark::environment::GlobalsStatic =
                             starlark::environment::GlobalsStatic::new();
                         starlark::values::ValueLike::invoke(

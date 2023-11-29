@@ -152,7 +152,7 @@ where
         _me: Value<'v>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         // apply the partial arguments first, then the remaining arguments I was given
 
         let self_pos = self.pos_content();

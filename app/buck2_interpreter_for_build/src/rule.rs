@@ -250,8 +250,10 @@ impl<'v> StarlarkValue<'v> for RuleCallable<'v> {
         _me: Value<'v>,
         _args: &Arguments<'v, '_>,
         _eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
-        Err(RuleError::RuleCalledBeforeFreezing.into())
+    ) -> starlark::Result<Value<'v>> {
+        Err(starlark::Error::new_other(
+            RuleError::RuleCalledBeforeFreezing,
+        ))
     }
 
     fn documentation(&self) -> Option<DocItem> {
@@ -361,7 +363,7 @@ impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
         _me: Value<'v>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         let record_target_call_stack =
             ModuleInternals::from_context(eval, self.rule.rule_type.name())?
                 .record_target_call_stacks();
@@ -371,22 +373,24 @@ impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
             None
         };
         let arg_count = args.len()?;
-        self.signature.parser(args, eval, |param_parser, eval| {
-            // The body of the callable returned by `rule()`.
-            // Records the target in this package's `TargetMap`.
-            let internals = ModuleInternals::from_context(eval, self.rule.rule_type.name())?;
-            let target_node = TargetNode::from_params(
-                self.rule.dupe(),
-                internals.package(),
-                internals,
-                param_parser,
-                arg_count,
-                self.ignore_attrs_for_profiling,
-                call_stack,
-            )?;
-            internals.record(target_node)?;
-            Ok(Value::new_none())
-        })
+        self.signature
+            .parser(args, eval, |param_parser, eval| {
+                // The body of the callable returned by `rule()`.
+                // Records the target in this package's `TargetMap`.
+                let internals = ModuleInternals::from_context(eval, self.rule.rule_type.name())?;
+                let target_node = TargetNode::from_params(
+                    self.rule.dupe(),
+                    internals.package(),
+                    internals,
+                    param_parser,
+                    arg_count,
+                    self.ignore_attrs_for_profiling,
+                    call_stack,
+                )?;
+                internals.record(target_node)?;
+                Ok(Value::new_none())
+            })
+            .map_err(Into::into)
     }
 
     fn documentation(&self) -> Option<DocItem> {

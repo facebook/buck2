@@ -32,7 +32,6 @@ pub(crate) mod span;
 pub(crate) mod stmt;
 pub(crate) mod types;
 
-use starlark_syntax::diagnostic::Diagnostic;
 use starlark_syntax::eval_exception::EvalException;
 
 use crate::codemap::CodeMap;
@@ -46,17 +45,16 @@ use crate::values::FrozenRef;
 
 #[cold]
 #[inline(never)]
-fn add_span_to_error(e: anyhow::Error, span: FrameSpan, eval: &Evaluator) -> anyhow::Error {
-    Diagnostic::modify(e, |d: &mut Diagnostic| {
-        d.set_span(span.span.span(), &span.span.file());
-        d.set_call_stack(|| eval.call_stack.to_diagnostic_frames(span.inlined_frames));
-    })
+fn add_span_to_error(mut e: crate::Error, span: FrameSpan, eval: &Evaluator) -> crate::Error {
+    e.set_span(span.span.span(), &span.span.file());
+    e.set_call_stack(|| eval.call_stack.to_diagnostic_frames(span.inlined_frames));
+    e
 }
 
 #[cold]
 #[inline(never)]
 pub(crate) fn add_span_to_expr_error(
-    e: anyhow::Error,
+    e: crate::Error,
     span: FrameSpan,
     eval: &Evaluator,
 ) -> EvalException {
@@ -72,7 +70,7 @@ pub(crate) fn expr_throw<'v, T>(
 ) -> Result<T, EvalException> {
     match r {
         Ok(v) => Ok(v),
-        Err(e) => Err(add_span_to_expr_error(e, span, eval)),
+        Err(e) => Err(add_span_to_expr_error(e.into(), span, eval)),
     }
 }
 

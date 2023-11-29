@@ -534,7 +534,7 @@ impl<'v> AValueDyn<'v> {
         this: Value<'v>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         (self.vtable.starlark_value.invoke_method)(self.value, this, args, eval, Private)
     }
 
@@ -615,7 +615,7 @@ impl<'v> AValueDynFull<'v> {
         self,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         (self.avalue.vtable.starlark_value.invoke)(self.avalue.value, self.value, args, eval)
     }
 }

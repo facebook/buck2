@@ -175,7 +175,7 @@ pub trait AstModuleTypecheck {
         self,
         globals: &Globals,
         loads: &HashMap<String, Interface>,
-    ) -> (Vec<anyhow::Error>, TypeMap, Interface, Vec<Approximation>);
+    ) -> (Vec<crate::Error>, TypeMap, Interface, Vec<Approximation>);
 }
 
 impl AstModuleTypecheck for AstModule {
@@ -183,7 +183,7 @@ impl AstModuleTypecheck for AstModule {
         self,
         globals: &Globals,
         loads: &HashMap<String, Interface>,
-    ) -> (Vec<anyhow::Error>, TypeMap, Interface, Vec<Approximation>) {
+    ) -> (Vec<crate::Error>, TypeMap, Interface, Vec<Approximation>) {
         let (codemap, statement, _dialect, _) = self.into_parts();
         let names = MutableNames::new();
         let frozen_heap = FrozenHeap::new();
@@ -221,7 +221,7 @@ impl AstModuleTypecheck for AstModule {
             Ok(fill_types_errors) => fill_types_errors,
             Err(e) => {
                 return (
-                    vec![InternalError::into_anyhow(e)],
+                    vec![InternalError::into_error(e)],
                     TypeMap {
                         codemap,
                         bindings: UnorderedMap::new(),
@@ -246,7 +246,7 @@ impl AstModuleTypecheck for AstModule {
                     Ok(bindings) => bindings,
                     Err(e) => {
                         return (
-                            vec![InternalError::into_anyhow(e)],
+                            vec![InternalError::into_error(e)],
                             TypeMap {
                                 codemap,
                                 bindings: UnorderedMap::new(),
@@ -261,7 +261,7 @@ impl AstModuleTypecheck for AstModule {
                         Ok(x) => x,
                         Err(e) => {
                             return (
-                                vec![e.into_anyhow()],
+                                vec![e.into_error()],
                                 TypeMap {
                                     codemap,
                                     bindings: UnorderedMap::new(),
@@ -295,7 +295,7 @@ impl AstModuleTypecheck for AstModule {
         let errors = [scope_errors, fill_types_errors, all_solve_errors]
             .into_iter()
             .flatten()
-            .map(TypingError::into_anyhow)
+            .map(TypingError::into_error)
             .collect();
 
         let mut res = HashMap::new();

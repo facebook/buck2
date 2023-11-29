@@ -17,38 +17,39 @@
 
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
-use crate::diagnostic::Diagnostic;
 
 /// Error with location.
 #[derive(Debug, derive_more::Display)]
 pub struct EvalException(
-    /// Error is `Diagnostic`, but stored as `anyhow::Error` for smaller size.
-    anyhow::Error,
+    /// Error is guaranteed to have a diagnostic
+    crate::Error,
 );
 
 impl EvalException {
     /// Error must be `Diagnostic`.
     #[cold]
-    pub fn unchecked_new(error: anyhow::Error) -> EvalException {
+    pub fn unchecked_new(error: crate::Error) -> EvalException {
         EvalException(error)
     }
 
     #[cold]
-    pub fn into_anyhow(self) -> anyhow::Error {
+    pub fn into_error(self) -> crate::Error {
         self.0
     }
 
     #[cold]
     pub fn new(error: anyhow::Error, span: Span, codemap: &CodeMap) -> EvalException {
-        EvalException(Diagnostic::new(error, span, codemap))
+        EvalException(crate::Error::new_spanned(
+            crate::ErrorKind::Other(error),
+            span,
+            codemap,
+        ))
     }
 
-    pub fn _testing_loc(mut err: &anyhow::Error) -> crate::codemap::ResolvedFileSpan {
-        if let Some(eval_exc) = err.downcast_ref::<EvalException>() {
-            err = &eval_exc.0;
-        }
-        match err.downcast_ref::<Diagnostic>() {
-            Some(d) => d.span().unwrap().resolve(),
+    pub fn _testing_loc(err: &crate::Error) -> crate::codemap::ResolvedFileSpan {
+        let (diag, _) = err.get_diagnostic_and_message();
+        match diag {
+            Some(d) => d.span.as_ref().unwrap().resolve(),
             None => panic!("Expected Diagnostic, got {:#?}", err),
         }
     }

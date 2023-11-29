@@ -328,11 +328,13 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
                     eval: &mut starlark::eval::Evaluator<'v, '_>,
                     #this_param
                     parameters: &starlark::eval::Arguments<'v, '_>,
-                ) -> anyhow::Result<starlark::values::Value<'v>> { // TODO(JakobDegen): `starlark::Result`
+                ) -> starlark::Result<starlark::values::Value<'v>> {
                     #prepare
                     match Self::invoke_impl(#this_arg #( #binding_args, )* #eval_arg #heap_arg) {
                         Ok(v) => Ok(eval.heap().alloc(v)),
-                        Err(e) => Err(e), // TODO(JakobDegen): `e.into()`
+                        // The `.into()` is an `anyhow -> anyhow` conversion if the return type is `anyhow`
+                        #[allow(clippy::useless_conversion)]
+                        Err(e) => Err(e.into()),
                     }
                 }
             }

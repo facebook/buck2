@@ -249,7 +249,7 @@ where
         _me: Value<'v>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         args.no_named_args()?;
         let val = args.positional1(eval.heap())?;
         Ok(self.construct(val)?.to_value())

@@ -42,8 +42,8 @@ impl InternalError {
     }
 
     #[cold]
-    pub(crate) fn into_anyhow(self) -> anyhow::Error {
-        self.0.into_anyhow()
+    pub(crate) fn into_error(self) -> crate::Error {
+        self.0.into_error()
     }
 
     #[cold]
@@ -79,8 +79,8 @@ impl TypingError {
     }
 
     #[cold]
-    pub(crate) fn into_anyhow(self) -> anyhow::Error {
-        self.0.into_anyhow()
+    pub(crate) fn into_error(self) -> crate::Error {
+        self.0.into_error()
     }
 
     #[cold]

@@ -633,7 +633,7 @@ impl<'v> Value<'v> {
         location: Option<FrozenRef<'static, FrameSpan>>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         eval.with_call_stack(self, location, |eval| {
             self.get_ref_full().invoke(args, eval)
         })
@@ -657,7 +657,7 @@ impl<'v> Value<'v> {
         self,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         self.invoke_with_loc(None, args, eval)
     }
 
@@ -666,7 +666,7 @@ impl<'v> Value<'v> {
         self,
         pos: &[Value<'v>],
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         let params = Arguments(ArgumentsFull {
             pos,
             ..ArgumentsFull::default()
@@ -1141,7 +1141,7 @@ pub trait ValueLike<'v>:
         self,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         self.to_value().invoke(args, eval)
     }
 

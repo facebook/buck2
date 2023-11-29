@@ -373,7 +373,7 @@ mod tests {
             _me: Value<'v>,
             _args: &Arguments<'v, '_>,
             _eval: &mut Evaluator<'v, '_>,
-        ) -> anyhow::Result<Value<'v>> {
+        ) -> crate::Result<Value<'v>> {
             unreachable!("not needed in tests, but typechecker requires it")
         }
     }

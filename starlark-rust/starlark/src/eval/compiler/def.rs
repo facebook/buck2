@@ -631,7 +631,7 @@ where
         me: Value<'v>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         self.invoke_impl(me, &args.0, eval)
     }
 
@@ -720,7 +720,7 @@ where
         me: Value<'v>,
         args: &A,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>>
+    ) -> crate::Result<Value<'v>>
     where
         'v: 'a,
     {
@@ -743,7 +743,7 @@ where
         me: Value<'v>,
         args: &A,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>>
+    ) -> crate::Result<Value<'v>>
     where
         'v: 'a,
     {
@@ -757,7 +757,7 @@ where
     /// * the frame has been allocated and stored in `eval.current_frame`
     /// * the arguments have been collected into the frame
     #[inline(always)]
-    fn invoke_raw(&self, me: Value<'v>, eval: &mut Evaluator<'v, '_>) -> anyhow::Result<Value<'v>> {
+    fn invoke_raw(&self, me: Value<'v>, eval: &mut Evaluator<'v, '_>) -> crate::Result<Value<'v>> {
         // println!("invoking {}", self.def.stmt.name.node);
 
         if !self.parameter_types.is_empty() {
@@ -785,7 +785,7 @@ where
         }
         let res = eval.with_function_context(me, self.module.load_relaxed(), self.bc());
 
-        res.map_err(EvalException::into_anyhow)
+        res.map_err(EvalException::into_error)
     }
 
     pub(crate) fn resolve_arg_name(&self, name: Hashed<&str>) -> ResolvedArgName {

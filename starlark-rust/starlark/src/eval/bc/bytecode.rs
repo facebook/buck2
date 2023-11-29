@@ -81,7 +81,7 @@ impl Bc {
     #[inline(never)]
     pub(crate) fn wrap_error_for_instr_ptr(
         ptr: BcPtrAddr,
-        e: anyhow::Error,
+        e: crate::Error,
         eval: &Evaluator,
     ) -> EvalException {
         let span = Self::slow_arg_at_ptr(ptr).span;

@@ -375,11 +375,11 @@ impl<'f> ModuleScopes<'f> {
         globals: ScopeResolverGlobals,
         codemap: FrozenRef<'static, CodeMap>,
         dialect: &Dialect,
-    ) -> anyhow::Result<ModuleScopes<'f>> {
+    ) -> crate::Result<ModuleScopes<'f>> {
         let (errors, scopes) =
             ModuleScopes::check_module(module, frozen_heap, loads, stmt, globals, codemap, dialect);
         if let Some(error) = errors.into_iter().next() {
-            return Err(error.into_anyhow());
+            return Err(error.into_error());
         }
         Ok(scopes)
     }

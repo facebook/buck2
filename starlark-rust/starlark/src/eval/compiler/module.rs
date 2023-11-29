@@ -64,7 +64,7 @@ impl<'v> Compiler<'v, '_, '_> {
         let loadenv = match self.eval.loader.as_ref() {
             None => {
                 return Err(add_span_to_expr_error(
-                    ModuleError::NoImportsAvailable(name.to_owned()).into(),
+                    crate::Error::new_other(ModuleError::NoImportsAvailable(name.to_owned())),
                     span,
                     self.eval,
                 ));

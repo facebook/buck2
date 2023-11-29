@@ -237,9 +237,11 @@ where
         me: Value<'v>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         if self.ty_record_data().is_none() {
-            return Err(RecordTypeError::RecordTypeNotAssigned.into());
+            return Err(crate::Error::new_other(
+                RecordTypeError::RecordTypeNotAssigned,
+            ));
         }
 
         let this = me;
@@ -273,6 +275,7 @@ where
                     values: values.into_boxed_slice(),
                 }))
             })
+            .map_err(Into::into)
     }
 
     fn get_methods() -> Option<&'static Methods>

@@ -47,7 +47,7 @@ pub fn filter(builder: &mut GlobalsBuilder) {
         #[starlark(require = pos)] func: NoneOr<ValueOfUnchecked<'v, StarlarkFunction>>,
         #[starlark(require = pos)] seq: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Vec<Value<'v>>> {
+    ) -> starlark::Result<Vec<Value<'v>>> {
         let mut res = Vec::new();
 
         for v in seq.get().iterate(eval.heap())? {
@@ -82,7 +82,7 @@ pub fn map(builder: &mut GlobalsBuilder) {
         #[starlark(require = pos)] func: ValueOfUnchecked<'v, StarlarkFunction>,
         #[starlark(require = pos)] seq: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Vec<Value<'v>>> {
+    ) -> starlark::Result<Vec<Value<'v>>> {
         let it = seq.get().iterate(eval.heap())?;
         let mut res = Vec::with_capacity(it.size_hint().0);
         for v in it {

@@ -55,7 +55,7 @@ impl BcNativeFunction {
         &self,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         self.imp.invoke(eval, args)
     }
 }
