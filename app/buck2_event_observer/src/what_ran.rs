@@ -13,6 +13,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 use buck2_data::re_platform::Property;
+use buck2_data::ActionName;
 use buck2_events::span::SpanId;
 use dupe::Dupe;
 use superconsole::Line;
@@ -34,6 +35,11 @@ pub struct WhatRanOptions {
     pub skip_remote_executions: bool,
     #[clap(long)]
     pub skip_local_executions: bool,
+    #[clap(long)]
+    /// Filter commands by action category (i.e. type of of actions that are
+    /// similar but operate on different inputs, such as invocations of a C++
+    /// compiler (whose category would be `cxx_compile`)).
+    pub filter_category: Option<String>,
 }
 
 /// An action that makes sense to use to contextualize a command we ran.
@@ -115,6 +121,15 @@ pub trait WhatRanState {
     fn get(&self, span_id: SpanId) -> Option<WhatRanRelevantAction<'_>>;
 }
 
+pub fn matches_category(action: Option<WhatRanRelevantAction<'_>>, pattern: &str) -> bool {
+    match action {
+        Some(WhatRanRelevantAction::ActionExecution(action)) => match action.name.as_ref() {
+            Some(ActionName { category, .. }) => category == pattern,
+            _ => false,
+        },
+        _ => false,
+    }
+}
 /// Presented with an event and its containing span, emit it to the output if it's relevant. The
 /// state is used to associate the parent with something meaningful. This does not take the parent
 /// directly because *most* events are *not* relevant so we save the lookup in that case.
@@ -131,7 +146,7 @@ pub fn emit_event_if_relevant(
             _ => &None,
         };
 
-        emit(parent_span_id, repro, state, data, output)?;
+        emit(parent_span_id, repro, state, data, output, options)?;
     }
 
     Ok(())
@@ -144,12 +159,14 @@ fn emit(
     state: &impl WhatRanState,
     data: &Option<buck2_data::span_end_event::Data>,
     output: &mut impl WhatRanOutputWriter,
+    options: &WhatRanOptions,
 ) -> anyhow::Result<()> {
     let action = match parent_span_id.0 {
         None => None,
         Some(parent_span_id) => state.get(parent_span_id),
     };
-    emit_what_ran_entry(action, repro, data, output)
+
+    emit_what_ran_entry(action, repro, data, output, options)
 }
 
 pub fn emit_what_ran_entry(
@@ -157,7 +174,16 @@ pub fn emit_what_ran_entry(
     repro: CommandReproducer<'_>,
     data: &Option<buck2_data::span_end_event::Data>,
     output: &mut impl WhatRanOutputWriter,
+    options: &WhatRanOptions,
 ) -> anyhow::Result<()> {
+    let should_emit = options
+        .filter_category
+        .as_ref()
+        .map_or(true, |category| matches_category(action, category));
+
+    if !should_emit {
+        return Ok(());
+    }
     let (reason, identity, extra) = match action {
         Some(WhatRanRelevantAction::ActionExecution(action)) => (
             "build",

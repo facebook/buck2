@@ -130,8 +130,13 @@ impl WhatRanCommand {
                 let (invocation, events) = log_path.unpack_stream().await?;
 
                 buck2_client_ctx::eprintln!(
-                    "Showing commands from: {}",
-                    invocation.display_command_line()
+                    "Showing commands from: {}{}",
+                    invocation.display_command_line(),
+                    if options.filter_category.is_some() {
+                        ", filtered by action category"
+                    } else {
+                        ""
+                    }
                 )?;
 
                 let options = WhatRanCommandOptions {
@@ -179,6 +184,7 @@ impl WhatRanEntry {
                 .context("Checked above")?,
                 data,
                 output,
+                &options.options,
             )?;
         }
         Ok(())
