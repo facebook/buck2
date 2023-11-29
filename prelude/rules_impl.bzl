@@ -368,6 +368,7 @@ inlined_extra_attributes = {
     "cgo_library": {
         "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "_cxx_toolchain": toolchains_common.cxx(),
+        "_exec_os_type": buck.exec_os_type_arg(),
         "_go_toolchain": toolchains_common.go(),
     },
     # csharp

@@ -42,6 +42,7 @@ load(
     "SharedLibraryInfo",
     "merge_shared_libraries",
 )
+load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load(
     "@prelude//utils:utils.bzl",
     "expect",
@@ -109,23 +110,42 @@ def _cgo(
     #     go_toolchain.external_linker_flags,
     # )
 
-    args.add(
-        cmd_args(c_compiler.compiler, format = "--env-cc={}"),
-        # cmd_args(ldflags, format = "--env-ldflags={}"),
+    # Construct the full C/C++ command needed to preprocess/compile sources.
+    cxx_cmd = cmd_args()
+    cxx_cmd.add(c_compiler.compiler)
+    cxx_cmd.add(c_compiler.preprocessor_flags)
+    cxx_cmd.add(c_compiler.compiler_flags)
+    cxx_cmd.add(pre_args)
+    cxx_cmd.add(pre_include_dirs)
+
+    # Passing the same value as go-build, because our -g flags break cgo
+    # in some buck modes
+    cxx_cmd.add("-g")
+
+    # Wrap the C/C++ command in a wrapper script to avoid arg length limits.
+    is_win = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+    cxx_sh = cmd_args(
+        [
+            cmd_args(cxx_cmd, quote = "shell"),
+            "%*" if is_win else "\"$@\"",
+        ],
+        delimiter = " ",
     )
+    cxx_wrapper, _ = ctx.actions.write(
+        "__{}_cxx__.{}".format(ctx.label.name, "bat" if is_win else "sh"),
+        ([] if is_win else ["#!/bin/sh"]) + [cxx_sh],
+        allow_args = True,
+        is_executable = True,
+    )
+    args.add(cmd_args(cxx_wrapper, format = "--env-cc={}"))
+    args.hidden(cxx_cmd)
 
     # TODO(agallagher): cgo outputs a dir with generated sources, but I'm not
     # sure how to pass in an output dir *and* enumerate the sources we know will
     # generated w/o v2 complaining that the output dir conflicts with the nested
     # artifacts.
     args.add(cmd_args(go_srcs[0].as_output(), format = "--output={}/.."))
-    args.add(cmd_args(pre_args, format = "--cpp={}"))
-    args.add(cmd_args(pre_include_dirs, format = "--cpp={}"))
-    args.add(cmd_args(c_compiler.preprocessor_flags, format = "--cpp={}"))
-    args.add(cmd_args(c_compiler.compiler_flags, format = "--cpp={}"))
 
-    # Passing the same value as go-build, because our -g flags break cgo in some buck modes
-    args.add(cmd_args(["-g"], format = "--cpp={}"))
     args.add(srcs)
 
     argsfile = ctx.actions.declare_output(paths.join(gen_dir, ".cgo.argsfile"))
