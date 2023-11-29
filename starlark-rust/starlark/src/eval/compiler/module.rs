@@ -101,7 +101,7 @@ impl<'v> Compiler<'v, '_, '_> {
         local_names: FrozenRef<'static, [FrozenStringValue]>,
     ) -> Result<Value<'v>, EvalException> {
         if matches!(stmt.node, StmtP::Statements(_) | StmtP::Load(_)) {
-            return Err(EvalException::new(
+            return Err(EvalException::new_anyhow(
                 ModuleError::UnexpectedStatement.into(),
                 stmt.span,
                 &self.codemap,
@@ -137,7 +137,7 @@ impl<'v> Compiler<'v, '_, '_> {
         let mut stmts = top_level_stmts_mut(stmt);
 
         if stmts.len() != self.top_level_stmt_count {
-            return Err(EvalException::new(
+            return Err(EvalException::new_anyhow(
                 ModuleError::TopLevelStmtCountMismatch.into(),
                 stmt.span,
                 &self.codemap,

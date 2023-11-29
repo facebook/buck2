@@ -38,7 +38,13 @@ impl EvalException {
     }
 
     #[cold]
-    pub fn new(error: anyhow::Error, span: Span, codemap: &CodeMap) -> EvalException {
+    pub fn new(mut error: crate::Error, span: Span, codemap: &CodeMap) -> EvalException {
+        error.set_span(span, codemap);
+        EvalException(error)
+    }
+
+    #[cold]
+    pub fn new_anyhow(error: anyhow::Error, span: Span, codemap: &CodeMap) -> EvalException {
         EvalException(crate::Error::new_spanned(
             crate::ErrorKind::Other(error),
             span,

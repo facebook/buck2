@@ -101,7 +101,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn err_span<T>(&self, msg: LexemeError, start: usize, end: usize) -> Result<T, EvalException> {
-        Err(EvalException::new(
+        Err(EvalException::new_anyhow(
             msg.into(),
             Span::new(Pos::new(start as u32), Pos::new(end as u32)),
             &self.codemap,

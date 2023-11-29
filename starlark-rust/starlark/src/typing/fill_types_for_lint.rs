@@ -124,9 +124,16 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
         InternalError::msg(message, span, self.ctx.codemap)
     }
 
-    fn err(&mut self, span: Span, e: anyhow::Error) -> GlobalValue<'v> {
+    #[allow(unused)] // TODO(JakobDegen): use
+    fn err(&mut self, span: Span, e: crate::Error) -> GlobalValue<'v> {
         self.errors
             .push(TypingError::new(e, span, self.ctx.codemap));
+        GlobalValue::any()
+    }
+
+    fn err_anyhow(&mut self, span: Span, e: anyhow::Error) -> GlobalValue<'v> {
+        self.errors
+            .push(TypingError::new_anyhow(e, span, self.ctx.codemap));
         GlobalValue::any()
     }
 
@@ -184,7 +191,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
         if let Some(object) = object.value {
             match object.get_attr_error(field.as_str(), self.heap) {
                 Ok(v) => Ok(GlobalValue::value(v)),
-                Err(e) => Ok(self.err(span, e)),
+                Err(e) => Ok(self.err_anyhow(span, e)),
             }
         } else {
             Ok(GlobalValue::any())
@@ -202,7 +209,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
         if let (Some(array), Some(index)) = (array.value, index.node.value) {
             match array.at(index, self.heap) {
                 Ok(value) => Ok(GlobalValue::value(value)),
-                Err(e) => Ok(self.err(span, e)),
+                Err(e) => Ok(self.err_anyhow(span, e)),
             }
         } else {
             Ok(GlobalValue::any())
@@ -223,7 +230,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
         {
             match array.get_ref().at2(index0, index1, self.heap) {
                 Ok(value) => Ok(GlobalValue::value(value)),
-                Err(e) => Ok(self.err(span, e)),
+                Err(e) => Ok(self.err_anyhow(span, e)),
             }
         } else {
             Ok(GlobalValue::any())
@@ -242,7 +249,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
         if let (Some(lhs), BinOp::BitOr, Some(rhs)) = (lhs.value, op, rhs.value) {
             match lhs.bit_or(rhs, self.heap) {
                 Ok(value) => Ok(GlobalValue::value(value)),
-                Err(e) => Ok(self.err(span, e)),
+                Err(e) => Ok(self.err_anyhow(span, e)),
             }
         } else {
             Ok(GlobalValue::any())
@@ -515,7 +522,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
                 Err(e) => {
                     let span = first.span.merge(x.span);
                     self.errors
-                        .push(TypingError::new(e, span, self.ctx.codemap));
+                        .push(TypingError::new_anyhow(e, span, self.ctx.codemap));
                     return Ok(Some(Ty::any()));
                 }
             }
@@ -526,7 +533,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
                 let span =
                     Span::merge_all(iter::once(first.span).chain(rem.iter().map(|x| x.span)));
                 self.errors
-                    .push(TypingError::new(e, span, self.ctx.codemap));
+                    .push(TypingError::new_anyhow(e, span, self.ctx.codemap));
                 Ok(Some(Ty::any()))
             }
         }

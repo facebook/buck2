@@ -76,7 +76,7 @@ impl<'v> Compiler<'v, '_, '_> {
             // Still make an error in panic to produce nice panic message.
             panic!(
                 "{:?}",
-                EvalException::new(
+                EvalException::new_anyhow(
                     TypesError::TypePayloadNotSet.into(),
                     expr.span,
                     &self.codemap
@@ -102,26 +102,26 @@ impl<'v> Compiler<'v, '_, '_> {
         span: Span,
     ) -> Result<TypeCompiled<Value<'v>>, EvalException> {
         if value.is_str() {
-            return Err(EvalException::new(
+            return Err(EvalException::new_anyhow(
                 TypesError::StringConstantAsType.into(),
                 span,
                 &self.codemap,
             ));
         }
         let ty = TypeCompiled::new(value, self.eval.heap());
-        ty.map_err(|e| EvalException::new(e, span, &self.codemap))
+        ty.map_err(|e| EvalException::new_anyhow(e, span, &self.codemap))
     }
 
     fn eval_ident_in_type_expr(&mut self, ident: &CstIdent) -> Result<Value<'v>, EvalException> {
         let Some(ident_payload) = &ident.node.payload else {
-            return Err(EvalException::new(
+            return Err(EvalException::new_anyhow(
                 TypesError::UnresolvedIdentifier.into(),
                 ident.span,
                 &self.codemap,
             ));
         };
         match ident_payload {
-            ResolvedIdent::Slot(Slot::Local(..), _) => Err(EvalException::new(
+            ResolvedIdent::Slot(Slot::Local(..), _) => Err(EvalException::new_anyhow(
                 TypesError::LocalIdentifier.into(),
                 ident.span,
                 &self.codemap,
@@ -129,7 +129,7 @@ impl<'v> Compiler<'v, '_, '_> {
             ResolvedIdent::Slot(Slot::Module(module_slot_id), _) => {
                 match self.eval.module_env.slots().get_slot(*module_slot_id) {
                     Some(v) => Ok(v),
-                    None => Err(EvalException::new(
+                    None => Err(EvalException::new_anyhow(
                         TypesError::ModuleVariableNotSet(ident.node.ident.clone()).into(),
                         ident.span,
                         &self.codemap,
@@ -151,7 +151,7 @@ impl<'v> Compiler<'v, '_, '_> {
         for step in rem {
             value = value
                 .get_attr_error(step.node, self.eval.heap())
-                .map_err(|e| EvalException::new(e, step.span, &self.codemap))?;
+                .map_err(|e| EvalException::new_anyhow(e, step.span, &self.codemap))?;
         }
         let mut span = first.span;
         if let Some(last) = rem.last() {
@@ -169,7 +169,7 @@ impl<'v> Compiler<'v, '_, '_> {
             TypeExprUnpackP::Index(a, i) => {
                 let a = self.eval_ident_in_type_expr(a)?;
                 if !a.ptr_eq(Constants::get().fn_list.0.to_value()) {
-                    return Err(EvalException::new(
+                    return Err(EvalException::new_anyhow(
                         TypesError::TypeIndexOnNonList.into(),
                         expr.span,
                         &self.codemap,
@@ -179,13 +179,13 @@ impl<'v> Compiler<'v, '_, '_> {
                 let t = a
                     .get_ref()
                     .at(i.to_inner(), self.eval.heap())
-                    .map_err(|e| EvalException::new(e, expr.span, &self.codemap))?;
+                    .map_err(|e| EvalException::new_anyhow(e, expr.span, &self.codemap))?;
                 self.alloc_value_for_type(t, expr.span)
             }
             TypeExprUnpackP::Index2(a, i0, i1) => {
                 let a = self.eval_ident_in_type_expr(a)?;
                 if !a.ptr_eq(Constants::get().fn_dict.0.to_value()) {
-                    return Err(EvalException::new(
+                    return Err(EvalException::new_anyhow(
                         TypesError::TypeIndexOnNonDict.into(),
                         expr.span,
                         &self.codemap,
@@ -196,13 +196,13 @@ impl<'v> Compiler<'v, '_, '_> {
                 let t = a
                     .get_ref()
                     .at2(i0.to_inner(), i1.to_inner(), self.eval.heap())
-                    .map_err(|e| EvalException::new(e, expr.span, &self.codemap))?;
+                    .map_err(|e| EvalException::new_anyhow(e, expr.span, &self.codemap))?;
                 self.alloc_value_for_type(t, expr.span)
             }
             TypeExprUnpackP::Index2Ellipsis(a0, i) => {
                 let a = self.eval_ident_in_type_expr(a0)?;
                 if !a.ptr_eq(Constants::get().fn_tuple.0.to_value()) {
-                    return Err(EvalException::new(
+                    return Err(EvalException::new_anyhow(
                         TypesError::TypeIndexEllipsisOnNonTuple.into(),
                         expr.span,
                         &self.codemap,
@@ -216,7 +216,7 @@ impl<'v> Compiler<'v, '_, '_> {
                         Ellipsis::new_value().to_value(),
                         self.eval.heap(),
                     )
-                    .map_err(|e| EvalException::new(e, expr.span, &self.codemap))?;
+                    .map_err(|e| EvalException::new_anyhow(e, expr.span, &self.codemap))?;
                 self.alloc_value_for_type(t, expr.span)
             }
             TypeExprUnpackP::Union(xs) => {
@@ -236,7 +236,7 @@ impl<'v> Compiler<'v, '_, '_> {
         type_expr: &mut CstTypeExpr,
     ) -> Result<(), EvalException> {
         if type_expr.payload.compiler_ty.is_some() {
-            return Err(EvalException::new(
+            return Err(EvalException::new_anyhow(
                 TypesError::TypeAlreadySet.into(),
                 type_expr.span,
                 &self.codemap,

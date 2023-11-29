@@ -96,7 +96,7 @@ impl Expr {
         codemap: &CodeMap,
     ) -> Result<Expr, EvalException> {
         let err = |span, msg: ArgumentDefinitionOrderError| {
-            Err(EvalException::new(msg.into(), span, codemap))
+            Err(EvalException::new_anyhow(msg.into(), span, codemap))
         };
 
         let mut stage = ArgsStage::Positional;
@@ -166,7 +166,7 @@ impl Stmt {
             inside_for: bool,
             inside_def: bool,
         ) -> Result<(), EvalException> {
-            let err = |x: anyhow::Error| Err(EvalException::new(x, stmt.span, codemap));
+            let err = |x: anyhow::Error| Err(EvalException::new_anyhow(x, stmt.span, codemap));
 
             match &stmt.node {
                 Stmt::Def(DefP { body, .. }) => f(codemap, dialect, body, false, false, true),
@@ -207,7 +207,7 @@ impl Stmt {
         fn expr(expr: &AstExpr, dialect: &Dialect, codemap: &CodeMap) -> Result<(), EvalException> {
             if let Expr::Literal(AstLiteral::Ellipsis) = &expr.node {
                 if dialect.enable_types == DialectTypes::Disable {
-                    return Err(EvalException::new(
+                    return Err(EvalException::new_anyhow(
                         ValidateError::Ellipsis.into(),
                         expr.span,
                         codemap,

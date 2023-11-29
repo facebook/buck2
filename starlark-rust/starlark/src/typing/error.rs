@@ -29,7 +29,7 @@ pub struct InternalError(EvalException);
 impl InternalError {
     #[cold]
     pub(crate) fn msg(message: impl Display, span: Span, codemap: &CodeMap) -> InternalError {
-        InternalError(EvalException::new(
+        InternalError(EvalException::new_anyhow(
             anyhow::anyhow!("{} (internal error)", message),
             span,
             codemap,
@@ -61,7 +61,7 @@ impl TypingError {
     //   So we pay for expensive error creation we ignore. Make this function cheap.
     #[cold]
     pub(crate) fn msg(message: impl Display, span: Span, codemap: &CodeMap) -> TypingError {
-        TypingError(EvalException::new(
+        TypingError(EvalException::new_anyhow(
             anyhow::Error::msg(message.to_string()),
             span,
             codemap,
@@ -69,8 +69,13 @@ impl TypingError {
     }
 
     #[cold]
-    pub(crate) fn new(error: anyhow::Error, span: Span, codemap: &CodeMap) -> TypingError {
+    pub(crate) fn new(error: crate::Error, span: Span, codemap: &CodeMap) -> TypingError {
         TypingError(EvalException::new(error, span, codemap))
+    }
+
+    #[cold]
+    pub(crate) fn new_anyhow(error: anyhow::Error, span: Span, codemap: &CodeMap) -> TypingError {
+        TypingError(EvalException::new_anyhow(error, span, codemap))
     }
 
     #[cold]

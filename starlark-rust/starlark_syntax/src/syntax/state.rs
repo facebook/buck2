@@ -31,6 +31,6 @@ impl<'a> ParserState<'a> {
     /// Add recoverable error.
     pub fn error(&mut self, span: Span, error: impl Into<anyhow::Error>) {
         self.errors
-            .push(EvalException::new(error.into(), span, self.codemap));
+            .push(EvalException::new_anyhow(error.into(), span, self.codemap));
     }
 }

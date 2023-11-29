@@ -74,7 +74,7 @@ fn check_param_name<'a, P: AstPayload, T>(
     codemap: &CodeMap,
 ) -> Result<(), EvalException> {
     if !argset.insert(n.node.ident.as_str()) {
-        return Err(EvalException::new(
+        return Err(EvalException::new_anyhow(
             DefError::DuplicateParameterName.into(),
             arg.span,
             codemap,
@@ -105,7 +105,7 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
             match &param.node {
                 ParameterP::Normal(n, ty) => {
                     if seen_kwargs || seen_optional {
-                        return Err(EvalException::new(
+                        return Err(EvalException::new_anyhow(
                             DefError::PositionalThenNonPositional.into(),
                             param.span,
                             codemap,
@@ -123,7 +123,7 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                 }
                 ParameterP::WithDefaultValue(n, ty, default_value) => {
                     if seen_kwargs {
-                        return Err(EvalException::new(
+                        return Err(EvalException::new_anyhow(
                             DefError::DefaultParameterAfterStars.into(),
                             param.span,
                             codemap,
@@ -142,7 +142,7 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                 }
                 ParameterP::NoArgs => {
                     if seen_args || seen_kwargs {
-                        return Err(EvalException::new(
+                        return Err(EvalException::new_anyhow(
                             DefError::ArgsParameterAfterStars.into(),
                             param.span,
                             codemap,
@@ -152,7 +152,7 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                 }
                 ParameterP::Args(n, ty) => {
                     if seen_args || seen_kwargs {
-                        return Err(EvalException::new(
+                        return Err(EvalException::new_anyhow(
                             DefError::ArgsParameterAfterStars.into(),
                             param.span,
                             codemap,
@@ -171,7 +171,7 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                 }
                 ParameterP::KwArgs(n, ty) => {
                     if seen_kwargs {
-                        return Err(EvalException::new(
+                        return Err(EvalException::new_anyhow(
                             DefError::MultipleKwargs.into(),
                             param.span,
                             codemap,

@@ -83,7 +83,7 @@ pub struct TypingOracleCtx<'a> {
 
 impl<'a> TypingOracleCtx<'a> {
     pub(crate) fn mk_error(&self, span: Span, err: impl Into<anyhow::Error>) -> TypingError {
-        TypingError::new(err.into(), span, self.codemap)
+        TypingError::new_anyhow(err.into(), span, self.codemap)
     }
 
     pub(crate) fn mk_error_as_maybe_internal(
@@ -91,7 +91,7 @@ impl<'a> TypingOracleCtx<'a> {
         span: Span,
         err: impl Into<anyhow::Error>,
     ) -> TypingOrInternalError {
-        TypingOrInternalError::Typing(TypingError::new(err.into(), span, self.codemap))
+        TypingOrInternalError::Typing(TypingError::new_anyhow(err.into(), span, self.codemap))
     }
 
     pub(crate) fn msg_error(&self, span: Span, msg: impl Display) -> TypingOrInternalError {

@@ -97,7 +97,7 @@ pub fn check_assign(codemap: &CodeMap, x: AstExpr) -> Result<AstAssignTarget, Ev
                 payload: (),
             })),
             _ => {
-                return Err(EvalException::new(
+                return Err(EvalException::new_anyhow(
                     GrammarUtilError::InvalidLhs.into(),
                     x.span,
                     codemap,
@@ -118,7 +118,7 @@ pub fn check_assignment(
         // for augmented assignment, Starlark doesn't allow tuple/list
         match &lhs.node {
             Expr::Tuple(_) | Expr::List(_) => {
-                return Err(EvalException::new(
+                return Err(EvalException::new_anyhow(
                     GrammarUtilError::InvalidModifyLhs.into(),
                     lhs.span,
                     codemap,
@@ -137,7 +137,7 @@ pub fn check_assignment(
             None
         };
         if let Some(err) = err {
-            return Err(EvalException::new(err.into(), ty.span, codemap));
+            return Err(EvalException::new_anyhow(err.into(), ty.span, codemap));
         }
     }
     Ok(match op {
@@ -191,7 +191,7 @@ pub fn check_def(
 }
 
 pub(crate) fn check_load_0(module: AstString, parser_state: &mut ParserState) -> Stmt {
-    parser_state.errors.push(EvalException::new(
+    parser_state.errors.push(EvalException::new_anyhow(
         GrammarUtilError::LoadRequiresAtLeastTwoArguments.into(),
         module.span,
         parser_state.codemap,
@@ -335,7 +335,7 @@ enum DialectError {
 }
 
 fn err<T>(codemap: &CodeMap, span: Span, err: DialectError) -> Result<T, EvalException> {
-    Err(EvalException::new(err.into(), span, codemap))
+    Err(EvalException::new_anyhow(err.into(), span, codemap))
 }
 
 pub fn dialect_check_lambda<T>(

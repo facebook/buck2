@@ -657,7 +657,7 @@ impl<'f> ModuleScopeBuilder<'f> {
             ident.node.ident.as_str(),
             variants.iter().map(|s| s.as_str()),
         );
-        EvalException::new(
+        EvalException::new_anyhow(
             match better {
                 Some(better) => ScopeError::VariableNotFoundDidYouMean(
                     ident.node.ident.clone(),
@@ -690,7 +690,7 @@ impl<'f> ModuleScopeBuilder<'f> {
             ResolveIdentScope::Any => {}
             ResolveIdentScope::GlobalForTypeExpression => match resolved {
                 ResolvedIdent::Slot(Slot::Local(_), _) => {
-                    self.errors.push(EvalException::new(
+                    self.errors.push(EvalException::new_anyhow(
                         ScopeError::TypeExpressionGlobalOrBuiltin(ident.node.ident.clone()).into(),
                         ident.span,
                         &self.codemap,

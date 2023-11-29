@@ -70,7 +70,7 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
     ) -> Result<Spanned<TypeExprUnpackP<'a, P>>, EvalException> {
         let span = expr.span;
         let err = |t| {
-            Err(EvalException::new(
+            Err(EvalException::new_anyhow(
                 TypeExprUnpackError::InvalidType(t).into(),
                 expr.span,
                 codemap,
@@ -104,7 +104,7 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
                                     }
                                     // TODO(nga): allow it after we prohibit
                                     //   string constants as types.
-                                    return Err(EvalException::new(
+                                    return Err(EvalException::new_anyhow(
                                         TypeExprUnpackError::DotTypeBan(full_path).into(),
                                         current.span,
                                         codemap,
@@ -117,7 +117,7 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
                             });
                         }
                         _ => {
-                            return Err(EvalException::new(
+                            return Err(EvalException::new_anyhow(
                                 TypeExprUnpackError::DotInType.into(),
                                 current.span,
                                 codemap,
@@ -190,7 +190,7 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
             ExprP::If(..) => err("if"),
             ExprP::List(xs) => {
                 if xs.is_empty() {
-                    Err(EvalException::new(
+                    Err(EvalException::new_anyhow(
                         TypeExprUnpackError::EmptyListInType.into(),
                         expr.span,
                         codemap,
