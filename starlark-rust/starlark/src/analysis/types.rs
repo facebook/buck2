@@ -21,7 +21,6 @@ use std::path::Path;
 
 use dupe::Dupe;
 use serde::Serialize;
-use starlark_syntax::diagnostic::Diagnostic;
 
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
@@ -150,10 +149,11 @@ impl EvalMessage {
     pub fn from_error(file: &Path, err: &crate::Error) -> Self {
         let (diag, message) = err.get_diagnostic_and_message();
         if let Some(diag) = diag {
-            Self::from_diagnostic(file, diag, message, err)
-        } else {
-            Self::from_any_error(file, err)
+            if let Some(span) = &diag.span {
+                return Self::from_diagnostic(span, message, err);
+            }
         }
+        Self::from_any_error(file, err)
     }
 
     /// Create an `EvalMessage` from any kind of error
@@ -172,14 +172,10 @@ impl EvalMessage {
     }
 
     fn from_diagnostic(
-        file: &Path,
-        d: &Diagnostic,
+        span: &FileSpan,
         message: impl std::fmt::Display,
         full_error: impl std::fmt::Display,
     ) -> Self {
-        let Some(span) = &d.span else {
-            return Self::from_any_error(file, &full_error);
-        };
         let original = span.source_span().to_owned();
         let resolved_span = span.resolve_span();
         Self {
