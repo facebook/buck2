@@ -55,7 +55,6 @@ use dupe::Dupe;
 use itertools::Itertools;
 use more_futures::cancellable_future::CancellationObserver;
 use starlark::environment::Module;
-use starlark::errors::Diagnostic;
 use starlark::eval::Evaluator;
 use starlark::values::structs::AllocStruct;
 use starlark::values::structs::StructRef;
@@ -365,11 +364,6 @@ fn eval_bxl<'a>(
     let should_skip_backtrace = !force_print_stacktrace
         && match e.kind() {
             starlark::ErrorKind::Other(e) => {
-                let e = if let Some(diag) = e.downcast_ref::<Diagnostic>() {
-                    &diag.message
-                } else {
-                    e
-                };
                 e.downcast_ref::<BxlErrorWithoutStacktrace>().is_some()
             }
             _ => false,

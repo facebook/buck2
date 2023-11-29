@@ -22,7 +22,6 @@ use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
 use crate::codemap::Span;
 use crate::diagnostic::diagnostic_display;
-use crate::diagnostic::Diagnostic;
 use crate::diagnostic::DiagnosticNoError;
 
 /// An error produced by starlark.
@@ -67,9 +66,6 @@ impl Error {
 
     pub fn has_diagnostic(&self) -> bool {
         self.0.diagnostic.is_some()
-            || match self.kind() {
-                ErrorKind::Other(e) => e.downcast_ref::<Diagnostic>().is_some(),
-            }
     }
 
     /// Convert this error into an `anyhow::Error`
@@ -108,14 +104,6 @@ impl Error {
     ) {
         trait DebugAndDisplay: fmt::Debug + fmt::Display {}
         impl<T: fmt::Debug + fmt::Display> DebugAndDisplay for T {}
-
-        match &self.0.kind {
-            ErrorKind::Other(e) => {
-                if let Some(d) = e.downcast_ref::<Diagnostic>() {
-                    return (Some(&d.data), &d.message as &dyn DebugAndDisplay);
-                }
-            }
-        }
 
         if self.0.diagnostic.is_some() {
             return (

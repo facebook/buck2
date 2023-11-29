@@ -15,9 +15,8 @@
  * limitations under the License.
  */
 
-//! Error types used by Starlark, mostly [`Diagnostic`].
+//! Error types used by Starlark.
 
-pub use starlark_syntax::diagnostic::Diagnostic;
 pub use starlark_syntax::diagnostic::DiagnosticNoError;
 pub use starlark_syntax::frame::Frame;
 
