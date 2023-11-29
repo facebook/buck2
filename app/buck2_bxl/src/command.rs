@@ -39,7 +39,6 @@ use buck2_core::soft_error;
 use buck2_core::tag_result;
 use buck2_data::BxlEnsureArtifactsEnd;
 use buck2_data::BxlEnsureArtifactsStart;
-use buck2_data::StarlarkFailNoStacktrace;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::parse_import::parse_import_with_config;
@@ -58,7 +57,6 @@ use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::FutureExt;
 use itertools::Itertools;
-use starlark::errors::Diagnostic;
 
 use crate::bxl::calculation::eval_bxl;
 use crate::bxl::eval::get_bxl_callable;
@@ -66,7 +64,6 @@ use crate::bxl::eval::resolve_cli_args;
 use crate::bxl::eval::BxlResolvedCliArgs;
 use crate::bxl::eval::CliResolutionCtx;
 use crate::bxl::key::BxlKey;
-use crate::bxl::starlark_defs::functions::BxlErrorWithoutStacktrace;
 
 pub(crate) async fn bxl_command(
     ctx: &dyn ServerCommandContextTrait,
@@ -156,7 +153,12 @@ async fn bxl(
             .with_context(|| "Invalid final_artifact_materializations")
             .unwrap();
 
-    let bxl_key = BxlKey::new(bxl_label.clone(), bxl_args, global_target_platform);
+    let bxl_key = BxlKey::new(
+        bxl_label.clone(),
+        bxl_args,
+        global_target_platform,
+        request.print_stacktrace,
+    );
 
     let ctx = &ctx;
 
@@ -168,22 +170,7 @@ async fn bxl(
         Err(e) => {
             // `buck2_error::Error` has more reliable downcasting
             let e: buck2_error::Error = e.into();
-            if !request.print_stacktrace {
-                if let Some(diag) = e.downcast_ref::<Diagnostic>() {
-                    if let Some(fail_no_stacktrace) =
-                        diag.message.downcast_ref::<BxlErrorWithoutStacktrace>()
-                    {
-                        let dispatcher = get_dispatcher();
-                        dispatcher.instant_event(StarlarkFailNoStacktrace {
-                            trace: format!("{}", diag),
-                        });
-                        dispatcher.console_message(
-                            "Re-run the script with `-v5` to show the full stacktrace".to_owned(),
-                        );
-                        return Err((fail_no_stacktrace.clone()).into());
-                    }
-                }
-            }
+
             return Err(e.into());
         }
     };

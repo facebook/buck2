@@ -29,7 +29,9 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_data::BxlExecutionEnd;
 use buck2_data::BxlExecutionStart;
+use buck2_data::StarlarkFailNoStacktrace;
 use buck2_events::dispatch::console_message;
+use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::with_dispatcher;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
@@ -52,6 +54,7 @@ use dupe::Dupe;
 use itertools::Itertools;
 use more_futures::cancellable_future::CancellationObserver;
 use starlark::environment::Module;
+use starlark::errors::Diagnostic;
 use starlark::eval::Evaluator;
 use starlark::values::structs::AllocStruct;
 use starlark::values::structs::StructRef;
@@ -67,6 +70,7 @@ use crate::bxl::starlark_defs::bxl_function::FrozenBxlFunction;
 use crate::bxl::starlark_defs::cli_args::CliArgValue;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::context::BxlContext;
+use crate::bxl::starlark_defs::functions::BxlErrorWithoutStacktrace;
 
 pub(crate) async fn eval(
     ctx: &mut DiceComputations,
@@ -213,6 +217,7 @@ async fn eval_bxl_inner(
 
             let bxl_dice = BxlSafeDiceComputations::new(ctx, liveness);
 
+            let force_print_stacktrace = key.force_print_stacktrace();
             let bxl_ctx = BxlContext::new(
                 eval.heap(),
                 key,
@@ -239,7 +244,13 @@ async fn eval_bxl_inner(
                         },
                         || {
                             (
-                                eval_bxl(&mut eval, frozen_callable, bxl_ctx.to_value(), provider),
+                                eval_bxl(
+                                    &mut eval,
+                                    frozen_callable,
+                                    bxl_ctx.to_value(),
+                                    provider,
+                                    force_print_stacktrace,
+                                ),
                                 BxlExecutionEnd {},
                             )
                         },
@@ -336,6 +347,7 @@ fn eval_bxl<'a>(
     frozen_callable: OwnedFrozenValueTyped<FrozenBxlFunction>,
     ctx: Value<'a>,
     provider: &mut dyn StarlarkEvaluatorProvider,
+    force_print_stacktrace: bool,
 ) -> anyhow::Result<Value<'a>> {
     let bxl_impl = frozen_callable.implementation();
     let result = eval.eval_function(bxl_impl.to_value(), &[ctx], &[]);
@@ -343,7 +355,29 @@ fn eval_bxl<'a>(
     provider
         .evaluation_complete(eval)
         .context("Profiler finalization failed")?;
-    result
+
+    let e = match result {
+        Ok(v) => return Ok(v),
+        Err(e) => e,
+    };
+
+    if force_print_stacktrace {
+        return Err(e);
+    }
+    if let Some(diag) = e.downcast_ref::<Diagnostic>() {
+        if let Some(fail_no_stacktrace) = diag.message.downcast_ref::<BxlErrorWithoutStacktrace>() {
+            let dispatcher = get_dispatcher();
+            dispatcher.instant_event(StarlarkFailNoStacktrace {
+                trace: format!("{}", diag),
+            });
+            dispatcher.console_message(
+                "Re-run the script with `-v5` to show the full stacktrace".to_owned(),
+            );
+            return Err((fail_no_stacktrace.clone()).into());
+        }
+    }
+
+    Err(e)
 }
 
 #[derive(Debug, buck2_error::Error)]

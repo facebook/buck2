@@ -81,6 +81,7 @@ mod tests {
             },
             Arc::new(OrderedMap::new()),
             None,
+            false,
         );
 
         let mut deferred = DeferredRegistry::new(BaseKey::Base(BaseDeferredKey::BxlLabel(

@@ -51,11 +51,13 @@ impl BxlKey {
         spec: BxlFunctionLabel,
         bxl_args: Arc<OrderedMap<String, CliArgValue>>,
         global_target_platform: Option<TargetLabel>,
+        force_print_stacktrace: bool,
     ) -> Self {
         Self(Arc::new(BxlKeyData {
             spec,
             bxl_args,
             global_target_platform,
+            force_print_stacktrace,
         }))
     }
 
@@ -92,6 +94,10 @@ impl BxlKey {
     pub(crate) fn global_target_platform(&self) -> &Option<TargetLabel> {
         &self.0.global_target_platform
     }
+
+    pub(crate) fn force_print_stacktrace(&self) -> bool {
+        self.0.force_print_stacktrace
+    }
 }
 
 #[derive(
@@ -110,6 +116,10 @@ struct BxlKeyData {
     spec: BxlFunctionLabel,
     bxl_args: Arc<OrderedMap<String, CliArgValue>>,
     global_target_platform: Option<TargetLabel>,
+    /// Overrides `fail_no_stacktrace` to print a stacktrace anyway. FIXME(JakobDegen): Might be
+    /// better to put this on the `UserComputationData` instead, to keep this from invalidating the
+    /// dice node. A bit hard to wire up though, so just leave it here for now.
+    force_print_stacktrace: bool,
 }
 
 impl BxlKeyData {

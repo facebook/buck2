@@ -107,8 +107,12 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                             target_platform_from_client_context(client_ctx, server_ctx, &mut ctx)
                                 .await?;
 
-                        let bxl_key =
-                            BxlKey::new(bxl_label.clone(), bxl_args, global_target_platform);
+                        let bxl_key = BxlKey::new(
+                            bxl_label.clone(),
+                            bxl_args,
+                            global_target_platform,
+                            /* force print stacktrace */ false,
+                        );
 
                         server_ctx
                             .cancellation_context()
