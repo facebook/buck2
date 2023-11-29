@@ -70,25 +70,25 @@ static ASSERTS_STAR: Lazy<FrozenModule> = Lazy::new(|| {
     m.freeze().unwrap()
 });
 
-fn assert_equals<'v>(a: Value<'v>, b: Value<'v>) -> anyhow::Result<NoneType> {
+fn assert_equals<'v>(a: Value<'v>, b: Value<'v>) -> starlark::Result<NoneType> {
     if !a.equals(b)? {
-        Err(anyhow::anyhow!("assert_eq: expected {}, got {}", a, b))
+        Err(anyhow::anyhow!("assert_eq: expected {}, got {}", a, b).into())
     } else {
         Ok(NoneType)
     }
 }
 
-fn assert_different<'v>(a: Value<'v>, b: Value<'v>) -> anyhow::Result<NoneType> {
+fn assert_different<'v>(a: Value<'v>, b: Value<'v>) -> starlark::Result<NoneType> {
     if a.equals(b)? {
-        Err(anyhow::anyhow!("assert_ne: but {} == {}", a, b))
+        Err(anyhow::anyhow!("assert_ne: but {} == {}", a, b).into())
     } else {
         Ok(NoneType)
     }
 }
 
-fn assert_less_than<'v>(a: Value<'v>, b: Value<'v>) -> anyhow::Result<NoneType> {
+fn assert_less_than<'v>(a: Value<'v>, b: Value<'v>) -> starlark::Result<NoneType> {
     if a.compare(b)? != std::cmp::Ordering::Less {
-        Err(anyhow::anyhow!("assert_lt: but {} >= {}", a, b))
+        Err(anyhow::anyhow!("assert_lt: but {} >= {}", a, b).into())
     } else {
         Ok(NoneType)
     }
@@ -107,31 +107,27 @@ enum GcStrategy {
 #[starlark_module]
 // Deliberately qualify the GlobalsBuild type to test that we can
 fn asserts_star(builder: &mut crate::environment::GlobalsBuilder) {
-    fn eq<'v>(a: Value<'v>, b: Value<'v>) -> anyhow::Result<NoneType> {
+    fn eq<'v>(a: Value<'v>, b: Value<'v>) -> starlark::Result<NoneType> {
         assert_equals(a, b)
     }
 
-    fn ne<'v>(a: Value<'v>, b: Value<'v>) -> anyhow::Result<NoneType> {
+    fn ne<'v>(a: Value<'v>, b: Value<'v>) -> starlark::Result<NoneType> {
         assert_different(a, b)
     }
 
-    fn lt<'v>(a: Value<'v>, b: Value<'v>) -> anyhow::Result<NoneType> {
+    fn lt<'v>(a: Value<'v>, b: Value<'v>) -> starlark::Result<NoneType> {
         assert_less_than(a, b)
     }
 
-    fn contains<'v>(xs: Value<'v>, x: Value<'v>) -> anyhow::Result<NoneType> {
+    fn contains<'v>(xs: Value<'v>, x: Value<'v>) -> starlark::Result<NoneType> {
         if !xs.is_in(x)? {
-            Err(anyhow::anyhow!(
-                "assert.contains: expected {} to be in {}",
-                x,
-                xs
-            ))
+            Err(anyhow::anyhow!("assert.contains: expected {} to be in {}", x, xs).into())
         } else {
             Ok(NoneType)
         }
     }
 
-    fn r#true(x: Value) -> anyhow::Result<NoneType> {
+    fn r#true(x: Value) -> starlark::Result<NoneType> {
         assert_equals(Value::new_bool(x.to_bool()), Value::new_bool(true))
     }
 
@@ -168,15 +164,15 @@ pub(crate) fn test_functions(builder: &mut GlobalsBuilder) {
         Ok(xs)
     }
 
-    fn assert_eq<'v>(a: Value<'v>, b: Value<'v>) -> anyhow::Result<NoneType> {
+    fn assert_eq<'v>(a: Value<'v>, b: Value<'v>) -> starlark::Result<NoneType> {
         assert_equals(a, b)
     }
 
-    fn assert_ne<'v>(a: Value<'v>, b: Value<'v>) -> anyhow::Result<NoneType> {
+    fn assert_ne<'v>(a: Value<'v>, b: Value<'v>) -> starlark::Result<NoneType> {
         assert_different(a, b)
     }
 
-    fn assert_lt<'v>(a: Value<'v>, b: Value<'v>) -> anyhow::Result<NoneType> {
+    fn assert_lt<'v>(a: Value<'v>, b: Value<'v>) -> starlark::Result<NoneType> {
         assert_less_than(a, b)
     }
 
