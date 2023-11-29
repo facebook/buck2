@@ -11,6 +11,7 @@
 main_module = "<MAIN_MODULE>"
 main_function = "<MAIN_FUNCTION>"
 modules_dir = "<MODULES_DIR>"
+unc_prefix = "\\\\?\\"
 
 # Wrap everything in a private function to prevent globals being captured by
 # the `runpy._run_module_as_main` below.
@@ -29,11 +30,11 @@ def __run():
     # `buck run foo/bar:bin`, runpy will fail as it tries to import
     # foo/bar/contextlib.py. You're just out of luck if you have sys.py or os.py
 
+    dirpath = os.path.dirname(os.path.realpath(__file__))
+
     # Enable long path support on Windows
-    if os.name == "nt":
-        dirpath = "\\\\?\\" + os.path.dirname(os.path.abspath(__file__))
-    else:
-        dirpath = os.path.dirname(os.path.realpath(__file__))
+    if os.name == "nt" and not dirpath.starswith(unc_prefix):
+        dirpath = unc_prefix + dirpath
 
     # Save the variables that will be restored back into the environment by
     # fbcode/buck2/prelude/python/tools/make_par/sitecustomize.py

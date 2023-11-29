@@ -16,6 +16,7 @@ native_libs_dir = <NATIVE_LIBS_DIR>
 native_libs_preload_env_var = "<NATIVE_LIBS_PRELOAD_ENV_VAR>"
 native_libs_preload = <NATIVE_LIBS_PRELOAD>
 interpreter_flags = "<PYTHON_INTERPRETER_FLAGS>"
+unc_prefix = "\\\\?\\"
 
 import os
 import platform
@@ -26,11 +27,11 @@ import time
 
 os.environ["PAR_LAUNCH_TIMESTAMP"] = str(time.time())
 
+dirpath = os.path.dirname(os.path.realpath(__file__))
+
 # Enable long path support on Windows
-if platform.system() == "Windows":
-    dirpath = "\\\\?\\" + os.path.dirname(os.path.abspath(__file__))
-else:
-    dirpath = os.path.dirname(os.path.realpath(__file__))
+if platform.system() == "Windows" and not dirpath.startswith(unc_prefix):
+    dirpath = unc_prefix + dirpath
 
 env_vals_to_restore = {}
 # Update the environment variable for the dynamic loader to the native
