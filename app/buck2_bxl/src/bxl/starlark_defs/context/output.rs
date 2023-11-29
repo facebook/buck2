@@ -353,7 +353,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
 
     /// Same as `ensure`, but for multiple artifacts. Will preserve the shape of the inputs (i.e. if the resulting
     /// `Dict` of a `ctx.build()` is passed in, the output will be a `Dict` where the key is preserved,
-    /// and the values are converted to `EnsuredArtifact`s).
+    /// and the values are converted to `ensured_artifact`s).
     ///
     /// Note that is slower to loop through objects and ensure them one by one than it is to call `ensure_multiple()`
     /// on all the objects at once (if possible).

@@ -709,8 +709,8 @@ fn context_methods(builder: &mut MethodsBuilder) {
     /// is the label of a subtarget. You can get the underlying configured target label on the `Label`
     /// using `configured_targets()` (ex: `my_label.configured_target()`).
     ///
-    /// This returns either a single [`StarlarkConfiguredTargetNode`] if the given `labels`
-    /// is "singular", a dict keyed by target labels of [`StarlarkConfiguredTargetNode`] if the
+    /// This returns either a single `target_node` if the given `labels`
+    /// is "singular", a dict keyed by target labels of `target_node` if the
     /// given `labels` is list-like
     fn configured_targets<'v>(
         this: &'v BxlContext<'v>,
@@ -799,9 +799,9 @@ fn context_methods(builder: &mut MethodsBuilder) {
     ///     - a single subtarget label, configured or unconfigured
     ///     - a list of the two options above.
     ///
-    /// This returns either a single [`StarlarkProvidersLabel`] if the given `labels`
+    /// This returns either a single `providers_label` if the given `labels` argument
     /// is "singular", or dict of the subtarget string representation to the
-    /// [`StarlarkProvidersLabel`] if the given `labels` is list-like.
+    /// `providers_label` if the given `labels` argument is list-like.
     ///
     /// Note that this function does not check that this subtarget exists in the repo.
     fn unconfigured_sub_targets<'v>(
@@ -826,7 +826,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         }
     }
 
-    /// Returns the [`StarlarkTargetUniverse`] that can lookup valid configured nodes in the universe.
+    /// Returns the `target_universe` that can lookup valid configured nodes in the universe.
     ///
     /// The given `labels` is a target expression, which is either:
     ///     - a single string that is a `target pattern`.
@@ -884,12 +884,12 @@ fn context_methods(builder: &mut MethodsBuilder) {
         })
     }
 
-    /// Returns the [`StarlarkUQueryCtx`] that holds all uquery functions.
+    /// Returns the `uqueryctx` that holds all uquery functions.
     fn uquery<'v>(this: &'v BxlContext<'v>) -> anyhow::Result<StarlarkUQueryCtx<'v>> {
         StarlarkUQueryCtx::new(this)
     }
 
-    /// Returns the [`StarlarkCQueryCtx`] that holds all the cquery functions.
+    /// Returns the `cqueryctx` that holds all the cquery functions.
     /// This function takes an optional parameter `target_platform`, which is the target platform
     /// configuration used to configured any unconfigured target nodes.
     ///
@@ -903,7 +903,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         StarlarkCQueryCtx::new(this, target_platform, &this.data.global_target_platform)
     }
 
-    /// Returns the [`StarlarkAQueryCtx`] that holds all the aquery functions.
+    /// Returns the `aqueryctx` that holds all the aquery functions.
     /// This function takes an optional parameter `target_platform`, which is the target platform
     /// configuration used to configured any unconfigured target nodes.
     ///
@@ -923,7 +923,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
     /// toolchains, and execution deps of the corresponding configuration via this context.
     ///
     /// Actions created by bxl will not be built by default. Instead, they are marked to be built
-    /// by `ctx.output.ensure(artifact)` on the output module of the [`BxlContext`]. Only artifacts
+    /// by `ctx.output.ensure(artifact)` on the output module of the `bxl_ctx`. Only artifacts
     /// marked by ensure will be built.
     ///
     /// Sample usage:
@@ -948,7 +948,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
     /// and `toolchains` attributes on the `bxl_actions`, which both return a `dict` of unconfigured subtarget labels
     /// and their configured/resolved `dependency` objects.
     ///
-    /// Note that the keys of `exec_deps` and `toolchains` must be unconfigured subtarget labels (`StarlarkProvidersLabel`),
+    /// Note that the keys of `exec_deps` and `toolchains` must be unconfigured subtarget labels (`providers_label`s),
     /// and not unconfigured target labels. You can use `ctx.unconfigured_sub_targets(...)` or `with_sub_target()` on
     /// `target_label` to create the label.
     ///
@@ -1091,8 +1091,8 @@ fn context_methods(builder: &mut MethodsBuilder) {
     ///     - a single sub target label, configured or unconfigured
     ///     - a list of the two options above.
     ///
-    /// This returns either a single [`StarlarkAnalysisResult`] if the given `labels` is "singular",
-    /// or a dict keyed by sub target labels of [`StarlarkAnalysisResult`] if the given `labels`
+    /// This returns either a single `analysis_result` if the given `labels` argument is "singular",
+    /// or a dict keyed by sub target labels of `analysis` if the given `labels` argument
     /// is list-like
     fn analysis<'v>(
         this: &BxlContext<'v>,
@@ -1168,8 +1168,8 @@ fn context_methods(builder: &mut MethodsBuilder) {
     ///     - a single provider label, configured or unconfigured
     ///     - a list of the two options above.
     ///
-    /// This returns a dict keyed by sub target labels of [`StarlarkBuildResult`] if the
-    /// given `labels` is list-like
+    /// This returns a dict keyed by sub target labels mapped to `bxl_build_result`s if the
+    /// given `labels` argument is list-like.
     ///
     /// This function is not available on the `bxl_ctx` when called from `dynamic_output`.
     fn build<'v>(
@@ -1259,7 +1259,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         })
     }
 
-    /// Returns the [`StarlarkAuditCtx`] that holds all the audit functions.
+    /// Returns the `audit_ctx` that holds all the audit functions.
     fn audit<'v>(this: &'v BxlContext<'v>) -> anyhow::Result<StarlarkAuditCtx<'v>> {
         let (working_dir, cell_resolver) = this.via_dice(|mut ctx, this| {
             ctx.via(|ctx| {

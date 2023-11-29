@@ -121,7 +121,7 @@ impl<'v> StarlarkCQueryCtx<'v> {
 /// The context for performing `cquery` operations in bxl. The functions offered on this ctx are
 /// the same behaviour as the query functions available within cquery command.
 ///
-/// Query results are `[StarlarkTargetSet]`s of `[ConfiguredTargetNode]`s, which supports iteration,
+/// Query results are `target_set`s of `target_node`s, which supports iteration,
 /// indexing, `len()`, set addition/subtraction, and `equals()`.
 #[starlark_module]
 fn cquery_methods(builder: &mut MethodsBuilder) {

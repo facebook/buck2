@@ -182,7 +182,7 @@ async fn unpack_action_nodes<'v>(
 /// The context for performing `aquery` operations in bxl. The functions offered on this ctx are
 /// the same behaviour as the query functions available within aquery command.
 ///
-/// Query results are `[StarlarkTargetSet]`s of `[ActionQueryNode]`s, which supports iteration,
+/// Query results are `target_set`s of `action_query_node`s, which supports iteration,
 /// indexing, `len()`, set addition/subtraction, and `equals()`.
 #[starlark_module]
 fn aquery_methods(builder: &mut MethodsBuilder) {

@@ -60,7 +60,7 @@ impl<'v> StarlarkValue<'v> for StarlarkAnalysisResult {
 /// The result of running an analysis in bxl.
 #[starlark_module]
 fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
-    /// Access the providers of the rule. Returns a `[ProviderCollection]` the same as accessing
+    /// Access the providers of the rule. Returns a `provider_collection` the same as accessing
     /// providers of dependencies within a rule implementation.
     ///
     /// Sample usage:

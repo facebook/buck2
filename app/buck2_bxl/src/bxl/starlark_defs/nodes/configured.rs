@@ -177,8 +177,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         Ok(heap.alloc(AllocStruct(attrs)))
     }
 
-    /// Gets a `StarlarkLazyAttrs` for getting attrs lazily. Returns a `StarlarkLazyAttrs` object
-    /// that you can call `get()` on that gets an attr one at a time.
+    /// Returns a `lazy_attrs` object that you can call `get()` on that gets an attr one at a time.
     ///
     /// If you need to access only few attrs on the same node, then this is the preferred way. Otherwise,
     /// using `attrs_eager()` would be a better option for accessing many or all attrs, although this really
@@ -186,8 +185,8 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// indication on which method to use.
     ///
     /// You should store the result of this function call for further usage in the code rather than calling
-    /// `attrs_lazy()` each time to get the `StarlarkLazyAttrs` object. Note that if the `get()` is `NoneType`,
-    /// then any methods called on `NoneType` will result in an error.
+    /// `attrs_lazy()` each time to get the `lazy_attrs` object. Note that if the `get()` is `None`,
+    /// then any methods called on `None` will result in an error.
     ///
     /// Sample usage:
     /// ```text
@@ -203,8 +202,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         Ok(StarlarkLazyAttrs::new(this))
     }
 
-    /// Gets a `StarlarkLazyResolvedAttrs` for getting resolved attrs lazily. Returns a `StarlarkLazyResolvedAttrs` object
-    /// that you can call `get()` on that gets a resolved attr one at a time.
+    /// Returns a `lazy_resolved_attrs` object that you can call `get()` on that gets a resolved attr one at a time.
     ///
     /// If you need to access only few resolved attrs on the same node, then this is the preferred way. Otherwise,
     /// using `resolved_attrs_eager()` would be a better option for accessing many or all resolved attrs, although this really
@@ -212,8 +210,8 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// indication on which method to use.
     ///
     /// You should store the result of this function call for further usage in the code rather than calling
-    /// `resolved_attrs_lazy()` each time to get the `StarlarkResolvedLazyAttrs` object. Note that if the `get()` is `NoneType`,
-    /// then any methods called on `NoneType` will result in an error.
+    /// `resolved_attrs_lazy()` each time to get the `lazy_resolved_attrs` object. Note that if the `get()` is `None`,
+    /// then any methods called on `None` will result in an error.
     ///
     /// Sample usage:
     /// ```text
@@ -232,7 +230,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     }
 
     /// Returns a struct of all the resolved attributes of this target node. The structs fields are the
-    /// attributes names, and the values are Starlark `[Value]`.
+    /// attributes names, and the values are the underlying Starlark values of the attributes.
     ///
     /// If you need to access many or all resolved attrs on the same node, then this is the preferred way. Otherwise,
     /// using `resolved_attrs_lazy()` would be a better option for accessing only a few resolved attrs, although this really
@@ -520,10 +518,10 @@ impl<'v> StarlarkLazyAttrs<'v> {
     }
 }
 
-/// The context for getting attrs lazily on a `StarlarkConfiguredTargetNode`.
+/// The context for getting attrs lazily on a `target_node`.
 #[starlark_module]
 fn lazy_attrs_methods(builder: &mut MethodsBuilder) {
-    /// Gets a single attribute. Returns an optional `[StarlarkConfiguredAttr]`.
+    /// Gets a single attribute. Returns an optional `[configured_attr]`.
     ///
     /// def _impl_attrs_lazy(ctx):
     ///     node = ctx.cquery().owner("cell//path/to/TARGETS")[0]
@@ -623,7 +621,7 @@ impl<'v> StarlarkLazyResolvedAttrs<'v> {
     }
 }
 
-/// The context for getting resolved attrs lazily on a `StarlarkConfiguredTargetNode`.
+/// The context for getting resolved attrs lazily on a `target_node`.
 #[starlark_module]
 fn lazy_resolved_attrs_methods(builder: &mut MethodsBuilder) {
     /// Gets a single resolved attribute. Returns an optional configured attribute.

@@ -101,8 +101,8 @@ impl<'v> StarlarkAuditCtx<'v> {
 #[starlark_module]
 fn audit_methods(builder: &mut MethodsBuilder) {
     /// Returns either:
-    ///  - The `StarlarkAction` which created the buck-out path, if exists.
-    ///  - The `StarlarkTargetLabel` (unconfigured target label) constructed from the buck-out path, if the configuration hashes do not match.
+    ///  - The `action` which created the buck-out path, if exists.
+    ///  - The `unconfigured_target_label` constructed from the buck-out path, if the configuration hashes do not match.
     ///  - None, if the configuration hash of the buck-out path matches the one passed into this function, or the default target
     /// configuration, but no action could be found that generated the buck-out path.
     ///

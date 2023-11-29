@@ -155,7 +155,7 @@ async fn try_exists<'v>(file_ops: &DiceFileOps<'v>, path: CellPathRef<'v>) -> an
 #[starlark_module]
 fn fs_operations(builder: &mut MethodsBuilder) {
     /// Check if a path exists on disk, taking advantage of Buck's cached filesystem.
-    /// Takes in a literal, a source artifact (via `[StarlarkArtifact]`), or a `[StarlarkFileNode]`.
+    /// Takes in a literal, a source artifact (via `artifact`), or a `file_node`.
     ///
     /// Sample usage:
     /// ```text
@@ -179,7 +179,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     /// Returns all the contents of the given input that points to a directory.
     /// Errors if the given path is a file. Takes an optional boolean `dirs_only` to only return directories, defaults to false.
     ///
-    /// The input is a either a literal, a source artifact (via `[StarlarkArtifact]`), or a `[StarlarkFileNode]`.
+    /// The input is a either a literal, a source artifact (via `artifact`), or a `file_node`.
     ///
     /// Sample usage:
     /// ```text
@@ -214,7 +214,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     }
 
     /// Returns whether the provided path is a dir. Returns false is the dir does not exist.
-    /// The input is a either a literal, a source artifact (via `[StarlarkArtifact]`), or a `[StarlarkFileNode]`.
+    /// The input is a either a literal, a source artifact (via `artifact`), or a `file_node`.
     ///
     /// Sample usage:
     /// ```text
@@ -226,7 +226,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     }
 
     /// Returns whether the provided path is a file. Returns false is the file does not exist.
-    /// The input is a either a literal, a source artifact (via `[StarlarkArtifact]`), or a `[StarlarkFileNode]`.
+    /// The input is a either a literal, a source artifact (via `artifact`), or a `file_node`.
     ///
     /// Sample usage:
     /// ```text
