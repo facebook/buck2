@@ -95,6 +95,14 @@ handle_call({discover, RegExOrTestId}, _From, State) ->
                 State}
     end;
 handle_call({gl, GL}, _From, State) ->
+    UserReplayPid = spawn(fun Loop() ->
+        receive
+            Msg -> GL ! Msg
+        end,
+        Loop()
+    end),
+    erlang:unregister(user),
+    erlang:register(user, UserReplayPid),
     {reply, erlang:group_leader(GL, self()), State};
 handle_call(load_changed, _From, State) ->
     {reply, load_changed_modules(), State};
