@@ -220,8 +220,8 @@ fn parse_fn_attrs(span: Span, xs: Vec<Attribute>) -> syn::Result<FnAttrs> {
     Ok(res)
 }
 
-/// Check if given type is `anyhow::Result<T>`
-fn is_anyhow_result(t: &Type) -> bool {
+/// Check if given type is `anyhow::Result<T>` or `starlark::Result<T>`
+fn is_anyhow_or_starlark_result(t: &Type) -> bool {
     let path = match t {
         Type::Path(p) => p,
         _ => return false,
@@ -232,7 +232,7 @@ fn is_anyhow_result(t: &Type) -> bool {
     let mut segments = path.path.segments.iter();
     match segments.next() {
         None => return false,
-        Some(s) if s.ident != "anyhow" => return false,
+        Some(s) if s.ident != "anyhow" && s.ident != "starlark" => return false,
         _ => {}
     };
     let result = match segments.next() {
@@ -492,11 +492,11 @@ fn parse_fn_output(return_type: &ReturnType, span: Span, has_v: bool) -> syn::Re
     check_lifetimes_in_return_type(return_type, has_v)?;
     match return_type {
         ReturnType::Default => Err(syn::Error::new(span, "Function must have a return type")),
-        ReturnType::Type(_, x) => match is_anyhow_result(x) {
+        ReturnType::Type(_, x) => match is_anyhow_or_starlark_result(x) {
             true => Ok((**x).clone()),
             false => Err(syn::Error::new(
                 return_type.span(),
-                "Function return type must be precisely `anyhow::Result<...>`",
+                "Function return type must be either `anyhow::Result<...>` or `starlark::Result<...>`",
             )),
         },
     }
