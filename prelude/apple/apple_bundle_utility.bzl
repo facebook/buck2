@@ -54,7 +54,7 @@ def get_bundle_min_target_version(ctx: AnalysisContext, binary: [Dependency, Non
     # The solution might to be support SDK version from
     # Info.plist (T110378109).
     if binary != None:
-        min_version_info = binary[AppleMinDeploymentVersionInfo]
+        min_version_info = binary[AppleMinDeploymentVersionInfo] if AppleMinDeploymentVersionInfo in binary else None
         if min_version_info != None:
             binary_min_version = min_version_info.version
 
