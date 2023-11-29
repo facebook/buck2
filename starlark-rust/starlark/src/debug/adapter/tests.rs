@@ -125,7 +125,7 @@ mod t {
     fn eval_with_hook(
         ast: AstModule,
         hook: impl DapAdapterEvalHook,
-    ) -> anyhow::Result<OwnedFrozenValue> {
+    ) -> crate::Result<OwnedFrozenValue> {
         let modules = HashMap::new();
         let loader = ReturnFileLoader { modules: &modules };
         let globals = GlobalsBuilder::extended().with(test_functions).build();
@@ -176,7 +176,7 @@ print(x)
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(3, None)]), &ast)?;
             adapter.set_breakpoints("test.bzl", &breakpoints)?;
             let eval_result =
-                s.spawn(move || -> anyhow::Result<_> { eval_with_hook(ast, eval_hook) });
+                s.spawn(move || -> crate::Result<_> { eval_with_hook(ast, eval_hook) });
             controller.wait_for_eval_stopped(1, TIMEOUT);
             // TODO(cjhopman): we currently hit breakpoints on top-level statements twice (once for the gc bytecode, once for the actual statement).
             adapter.continue_()?;
@@ -207,7 +207,7 @@ print(x)
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(3, Some("5 in x"))]), &ast)?;
             adapter.set_breakpoints("test.bzl", &breakpoints)?;
             let eval_result =
-                s.spawn(move || -> anyhow::Result<_> { eval_with_hook(ast, eval_hook) });
+                s.spawn(move || -> crate::Result<_> { eval_with_hook(ast, eval_hook) });
             join_timeout(eval_result, TIMEOUT)?;
             Ok(())
         })
@@ -231,7 +231,7 @@ print(x)
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(3, Some("2 in x"))]), &ast)?;
             adapter.set_breakpoints("test.bzl", &breakpoints)?;
             let eval_result =
-                s.spawn(move || -> anyhow::Result<_> { eval_with_hook(ast, eval_hook) });
+                s.spawn(move || -> crate::Result<_> { eval_with_hook(ast, eval_hook) });
             controller.wait_for_eval_stopped(1, TIMEOUT);
             adapter.continue_()?;
             // TODO(cjhopman): we currently hit breakpoints on top-level statements twice (once for the gc bytecode, once for the actual statement).
@@ -267,7 +267,7 @@ print(x)
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(7, None)]), &ast)?;
             adapter.set_breakpoints("test.bzl", &breakpoints)?;
             let eval_result =
-                s.spawn(move || -> anyhow::Result<_> { eval_with_hook(ast, eval_hook) });
+                s.spawn(move || -> crate::Result<_> { eval_with_hook(ast, eval_hook) });
             controller.wait_for_eval_stopped(1, TIMEOUT);
             // TODO(cjhopman): we currently hit breakpoints on top-level statements twice (once for the gc bytecode, once for the actual statement).
             adapter.continue_()?;
@@ -320,7 +320,7 @@ print(x)
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(7, None)]), &ast)?;
             adapter.set_breakpoints("test.bzl", &breakpoints)?;
             let eval_result =
-                s.spawn(move || -> anyhow::Result<_> { eval_with_hook(ast, eval_hook) });
+                s.spawn(move || -> crate::Result<_> { eval_with_hook(ast, eval_hook) });
             controller.wait_for_eval_stopped(1, TIMEOUT);
             // TODO(cjhopman): we currently hit breakpoints on top-level statements twice (once for the gc bytecode, once for the actual statement).
             adapter.continue_()?;
@@ -395,7 +395,7 @@ print(x)
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(4, None)]), &ast)?;
             adapter.set_breakpoints("test.bzl", &breakpoints)?;
             let eval_result =
-                s.spawn(move || -> anyhow::Result<_> { eval_with_hook(ast, eval_hook) });
+                s.spawn(move || -> crate::Result<_> { eval_with_hook(ast, eval_hook) });
             // should break on the first time hitting line 4
             controller.wait_for_eval_stopped(1, TIMEOUT);
             assert_eq!("2", adapter.evaluate("y[0]")?.result);
@@ -459,7 +459,7 @@ print(do())
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(13, None)]), &ast)?;
             adapter.set_breakpoints("test.bzl", &breakpoints)?;
             let eval_result =
-                s.spawn(move || -> anyhow::Result<_> { eval_with_hook(ast, eval_hook) });
+                s.spawn(move || -> crate::Result<_> { eval_with_hook(ast, eval_hook) });
             controller.wait_for_eval_stopped(1, TIMEOUT);
             let result = adapter.variables();
             adapter.continue_()?;
@@ -518,7 +518,7 @@ print(do())
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(13, None)]), &ast)?;
             adapter.set_breakpoints("test.bzl", &breakpoints)?;
             let eval_result =
-                s.spawn(move || -> anyhow::Result<_> { eval_with_hook(ast, eval_hook) });
+                s.spawn(move || -> crate::Result<_> { eval_with_hook(ast, eval_hook) });
             controller.wait_for_eval_stopped(1, TIMEOUT);
             result.extend([
                 adapter.inspect_variable(VariablePath::new_local("a")),
@@ -576,7 +576,7 @@ print(do())
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(12, None)]), &ast)?;
             adapter.set_breakpoints("test.bzl", &breakpoints)?;
             let eval_result =
-                s.spawn(move || -> anyhow::Result<_> { eval_with_hook(ast, eval_hook) });
+                s.spawn(move || -> crate::Result<_> { eval_with_hook(ast, eval_hook) });
             controller.wait_for_eval_stopped(1, TIMEOUT);
             result.extend([
                 adapter.evaluate("s.inner.value"),

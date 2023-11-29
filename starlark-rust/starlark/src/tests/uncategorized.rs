@@ -566,7 +566,7 @@ fn test_load_reexport() {
 }
 
 #[test]
-fn test_module_visibility_preserved_by_evaluator() -> anyhow::Result<()> {
+fn test_module_visibility_preserved_by_evaluator() -> crate::Result<()> {
     // Make sure that when we use a module in the evaluator, the entering / exiting the
     // module with ScopeData preserves the visibility of symbols.
 
