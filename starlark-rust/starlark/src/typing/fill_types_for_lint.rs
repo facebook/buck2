@@ -208,7 +208,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
         if let (Some(array), Some(index)) = (array.value, index.node.value) {
             match array.at(index, self.heap) {
                 Ok(value) => Ok(GlobalValue::value(value)),
-                Err(e) => Ok(self.err_anyhow(span, e)),
+                Err(e) => Ok(self.err(span, e)),
             }
         } else {
             Ok(GlobalValue::any())
@@ -248,7 +248,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
         if let (Some(lhs), BinOp::BitOr, Some(rhs)) = (lhs.value, op, rhs.value) {
             match lhs.bit_or(rhs, self.heap) {
                 Ok(value) => Ok(GlobalValue::value(value)),
-                Err(e) => Ok(self.err_anyhow(span, e)),
+                Err(e) => Ok(self.err(span, e)),
             }
         } else {
             Ok(GlobalValue::any())

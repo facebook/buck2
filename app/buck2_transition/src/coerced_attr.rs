@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_interpreter::error::BuckStarlarkError;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use starlark::values::dict::Dict;
@@ -60,7 +61,12 @@ impl CoercedAttrResolveExt for CoercedAttr {
             CoercedAttr::Dict(d) => {
                 let mut m = SmallMap::with_capacity(d.len());
                 for (k, v) in d.iter() {
-                    m.insert_hashed(k.to_value(heap)?.get_hashed()?, v.to_value(heap)?);
+                    m.insert_hashed(
+                        k.to_value(heap)?
+                            .get_hashed()
+                            .map_err(BuckStarlarkError::new)?,
+                        v.to_value(heap)?,
+                    );
                 }
                 Ok(heap.alloc(Dict::new(m)))
             }

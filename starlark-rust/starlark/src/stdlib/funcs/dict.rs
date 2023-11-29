@@ -80,7 +80,7 @@ pub(crate) fn register_dict(globals: &mut GlobalsBuilder) {
     speculative_exec_safe,
     special_builtin_function = SpecialBuiltinFunction::Dict,
     )]
-    fn dict<'v>(args: &Arguments<'v, '_>, heap: &'v Heap) -> anyhow::Result<Dict<'v>> {
+    fn dict<'v>(args: &Arguments<'v, '_>, heap: &'v Heap) -> starlark::Result<Dict<'v>> {
         // Dict is super hot, and has a slightly odd signature, so we can do a bunch of special cases on it.
         // In particular, we don't generate the kwargs if there are no positional arguments.
         // Therefore we make it take the raw Arguments.

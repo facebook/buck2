@@ -282,7 +282,7 @@ pub struct EvaluateExprInfo {
 }
 
 impl InspectVariableInfo {
-    fn try_from_dict<'v>(value_dict: DictRef<'v>) -> anyhow::Result<Self> {
+    fn try_from_dict<'v>(value_dict: DictRef<'v>) -> crate::Result<Self> {
         let key_segments = value_dict
             .iter()
             .map(|(key, value)| (PathSegment::Key(key.to_str()), value))
@@ -310,7 +310,7 @@ impl InspectVariableInfo {
         })
     }
 
-    fn try_from_array_like<'v>(v: Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
+    fn try_from_array_like<'v>(v: Value<'v>, heap: &'v Heap) -> crate::Result<Self> {
         let len = v.length()?;
         Ok(Self {
             sub_values: (0..len)
@@ -319,7 +319,7 @@ impl InspectVariableInfo {
                     v.at(index, heap)
                         .map(|v| Variable::from_value(PathSegment::Index(i), v))
                 })
-                .collect::<anyhow::Result<Vec<_>>>()?,
+                .collect::<crate::Result<Vec<_>>>()?,
         })
     }
 
@@ -328,10 +328,9 @@ impl InspectVariableInfo {
         match v.get_type() {
             "dict" => Self::try_from_dict(
                 DictRef::from_value(v).ok_or(anyhow::Error::msg("not a dictionary"))?,
-            )
-            .map_err(Into::into),
+            ),
             "struct" => Self::try_from_struct_like(v, heap),
-            "list" | "tuple" => Self::try_from_array_like(v, heap).map_err(Into::into),
+            "list" | "tuple" => Self::try_from_array_like(v, heap),
             "bool" | "int" | "float" | "string" => Ok(Default::default()),
             "function" | "never" | "NoneType" => Ok(Default::default()),
             // this branch will catch Ty::basic(name)

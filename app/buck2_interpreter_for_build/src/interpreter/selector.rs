@@ -69,7 +69,7 @@ impl<'v> StarlarkSelector<'v> {
         StarlarkSelector::Inner(d)
     }
 
-    fn added(left: Value<'v>, right: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn added(left: Value<'v>, right: Value<'v>, heap: &'v Heap) -> starlark::Result<Value<'v>> {
         Ok(heap.alloc(StarlarkSelector::Added(left, right)))
     }
 
@@ -203,7 +203,7 @@ where
         true
     }
 
-    fn radd(&self, left: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+    fn radd(&self, left: Value<'v>, heap: &'v Heap) -> Option<starlark::Result<Value<'v>>> {
         let right = heap.alloc(match self {
             StarlarkSelectorGen::Inner(x) => StarlarkSelectorGen::Inner(x.to_value()),
             StarlarkSelectorGen::Added(x, y) => {
@@ -213,7 +213,7 @@ where
         Some(StarlarkSelector::added(left, right, heap))
     }
 
-    fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+    fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<starlark::Result<Value<'v>>> {
         let this = match self {
             Self::Inner(ref v) => heap.alloc(StarlarkSelector::new(v.to_value())),
             Self::Added(ref l, ref r) => {

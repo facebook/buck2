@@ -50,7 +50,7 @@ pub fn register_enum(builder: &mut GlobalsBuilder) {
     fn r#enum<'v>(
         #[starlark(args)] args: UnpackTuple<StringValue<'v>>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         // Every Value must either be a field or a value (the type)
         EnumType::new(args.items, heap)
     }

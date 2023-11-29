@@ -93,14 +93,14 @@ impl<'v> StarlarkValue<'v> for ArtifactTag {
         RES.methods(artifact_tag_methods)
     }
 
-    fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
         Ok(match other.downcast_ref::<Self>() {
             Some(other) => self == other,
             None => false,
         })
     }
 
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {
         Hash::hash(self, hasher);
         Ok(())
     }

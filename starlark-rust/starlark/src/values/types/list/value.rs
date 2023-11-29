@@ -340,7 +340,7 @@ impl Display for FrozenListData {
 // This trait need to be `pub(crate)` because `ListGen<T>` is.
 pub(crate) trait ListLike<'v>: Debug + Allocative {
     fn content(&self) -> &[Value<'v>];
-    fn set_at(&self, i: usize, v: Value<'v>) -> anyhow::Result<()>;
+    fn set_at(&self, i: usize, v: Value<'v>) -> crate::Result<()>;
 
     // These functions are unsafe for the same reason
     // `StarlarkValue` iterator functions are unsafe.
@@ -355,7 +355,7 @@ impl<'v> ListLike<'v> for ListData<'v> {
         self.content.get().as_ref().content()
     }
 
-    fn set_at(&self, i: usize, v: Value<'v>) -> anyhow::Result<()> {
+    fn set_at(&self, i: usize, v: Value<'v>) -> crate::Result<()> {
         self.check_can_mutate()?;
         self.content.get().set_at(i, v);
         Ok(())
@@ -384,8 +384,10 @@ impl<'v> ListLike<'v> for FrozenListData {
         coerce(self.content())
     }
 
-    fn set_at(&self, _i: usize, _v: Value<'v>) -> anyhow::Result<()> {
-        Err(ValueError::CannotMutateImmutableValue.into())
+    fn set_at(&self, _i: usize, _v: Value<'v>) -> crate::Result<()> {
+        Err(crate::Error::new_other(
+            ValueError::CannotMutateImmutableValue,
+        ))
     }
 
     unsafe fn iter_size_hint(&self, index: usize) -> (usize, Option<usize>) {
@@ -458,21 +460,21 @@ where
         !self.0.content().is_empty()
     }
 
-    fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn equals(&self, other: Value<'v>) -> crate::Result<bool> {
         match ListRef::from_value(other) {
             None => Ok(false),
             Some(other) => equals_slice(self.0.content(), &other.content, |x, y| x.equals(*y)),
         }
     }
 
-    fn compare(&self, other: Value<'v>) -> anyhow::Result<Ordering> {
+    fn compare(&self, other: Value<'v>) -> crate::Result<Ordering> {
         match ListRef::from_value(other) {
-            None => ValueError::unsupported_with_anyhow(self, "cmp()", other),
+            None => ValueError::unsupported_with(self, "cmp()", other),
             Some(other) => compare_slice(self.0.content(), &other.content, |x, y| x.compare(*y)),
         }
     }
 
-    fn at(&self, index: Value, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn at(&self, index: Value, _heap: &'v Heap) -> crate::Result<Value<'v>> {
         let i = convert_index(index, self.0.content().len() as i32)? as usize;
         Ok(self.0.content()[i])
     }
@@ -481,7 +483,7 @@ where
         Ok(self.0.content().len() as i32)
     }
 
-    fn is_in(&self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn is_in(&self, other: Value<'v>) -> crate::Result<bool> {
         for x in self.0.content().iter() {
             if x.equals(other)? {
                 return Ok(true);
@@ -518,12 +520,12 @@ where
         self.0.iter_stop();
     }
 
-    fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+    fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
         ListRef::from_value(other)
             .map(|other| Ok(heap.alloc_list_concat(self.0.content(), other.content())))
     }
 
-    fn mul(&self, other: Value, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+    fn mul(&self, other: Value, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
         let l = i32::unpack_value(other)?;
         let mut result = Vec::with_capacity(self.0.content().len() * cmp::max(0, l) as usize);
         for _ in 0..l {
@@ -532,11 +534,11 @@ where
         Some(Ok(heap.alloc_list(&result)))
     }
 
-    fn rmul(&self, lhs: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+    fn rmul(&self, lhs: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
         self.mul(lhs, heap)
     }
 
-    fn set_at(&self, index: Value<'v>, alloc_value: Value<'v>) -> anyhow::Result<()> {
+    fn set_at(&self, index: Value<'v>, alloc_value: Value<'v>) -> crate::Result<()> {
         let i = convert_index(index, self.0.content().len() as i32)? as usize;
         self.0.set_at(i, alloc_value)
     }

@@ -296,18 +296,19 @@ impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for ProviderCollectionGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    fn at(&self, index: Value<'v>, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn at(&self, index: Value<'v>, _heap: &'v Heap) -> starlark::Result<Value<'v>> {
         match self.get_impl(index, GetOp::At)? {
             Either::Left(v) => Ok(v),
-            Either::Right(provider_id) => Err(ProviderCollectionError::AtNotFound(
-                provider_id.name.clone(),
-                self.providers.keys().map(|k| k.name.clone()).collect(),
-            )
-            .into()),
+            Either::Right(provider_id) => Err(starlark::Error::new_other(
+                ProviderCollectionError::AtNotFound(
+                    provider_id.name.clone(),
+                    self.providers.keys().map(|k| k.name.clone()).collect(),
+                ),
+            )),
         }
     }
 
-    fn is_in(&self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn is_in(&self, other: Value<'v>) -> starlark::Result<bool> {
         Ok(self.get_impl(other, GetOp::In)?.is_left())
     }
 

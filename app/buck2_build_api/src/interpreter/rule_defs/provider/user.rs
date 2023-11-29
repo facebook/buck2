@@ -114,7 +114,7 @@ where
         RES.methods(provider_methods)
     }
 
-    fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
         let this: &UserProvider = coerce(self);
         let other: &UserProvider = match UserProvider::from_value(other) {
             Some(other) => other,
@@ -141,7 +141,7 @@ where
         Ok(true)
     }
 
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {
         self.callable.provider_id.hash(hasher);
         for (k, v) in self.iter_items() {
             k.hash(hasher);

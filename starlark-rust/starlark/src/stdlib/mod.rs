@@ -183,7 +183,7 @@ mod tests {
                 RES.methods(methods)
             }
 
-            fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
+            fn equals(&self, other: Value<'v>) -> crate::Result<bool> {
                 match other.downcast_ref::<Bool2>() {
                     None => Ok(false),
                     Some(v) => Ok(*v == *self),

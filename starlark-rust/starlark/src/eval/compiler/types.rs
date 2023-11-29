@@ -179,7 +179,7 @@ impl<'v> Compiler<'v, '_, '_> {
                 let t = a
                     .get_ref()
                     .at(i.to_inner(), self.eval.heap())
-                    .map_err(|e| EvalException::new_anyhow(e, expr.span, &self.codemap))?;
+                    .map_err(|e| EvalException::new(e, expr.span, &self.codemap))?;
                 self.alloc_value_for_type(t, expr.span)
             }
             TypeExprUnpackP::Index2(a, i0, i1) => {

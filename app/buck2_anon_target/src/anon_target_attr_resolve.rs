@@ -12,6 +12,7 @@ use buck2_analysis::attrs::resolve::attr_type::dep::DepAttrTypeExt;
 use buck2_analysis::attrs::resolve::ctx::AttrResolutionContext;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_core::package::PackageLabel;
+use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
 use dupe::Dupe;
@@ -82,7 +83,9 @@ impl AnonTargetAttrExt for AnonTargetAttr {
                 let mut res = SmallMap::with_capacity(dict.len());
                 for (k, v) in dict.iter() {
                     res.insert_hashed(
-                        k.resolve_single(pkg.dupe(), ctx)?.get_hashed()?,
+                        k.resolve_single(pkg.dupe(), ctx)?
+                            .get_hashed()
+                            .map_err(BuckStarlarkError::new)?,
                         v.resolve_single(pkg.dupe(), ctx)?,
                     );
                 }

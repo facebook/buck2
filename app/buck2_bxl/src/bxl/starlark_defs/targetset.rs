@@ -88,44 +88,44 @@ impl<'v, Node: NodeLike> StarlarkValue<'v> for StarlarkTargetSet<Node> {
         Ok(self.iter(heap).collect())
     }
 
-    fn at(&self, index: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn at(&self, index: Value<'v>, heap: &'v Heap) -> starlark::Result<Value<'v>> {
         let i = i32::unpack_value_err(index)?;
         if let Ok(i) = usize::try_from(i) {
             if let Some(node) = self.0.get_index(i) {
                 return Ok(node.dupe().alloc(heap));
             }
         }
-        Err(anyhow::anyhow!(ValueError::IndexOutOfBound(i)))
+        Err(ValueError::IndexOutOfBound(i).into())
     }
 
     fn length(&self) -> anyhow::Result<i32> {
         Ok(self.0.len().try_into()?)
     }
 
-    fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+    fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<starlark::Result<Value<'v>>> {
         let other = other.downcast_ref::<Self>()?;
         let union = self.0.union(&other.0);
         Some(Ok(heap.alloc(Self(union))))
     }
 
-    fn sub(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn sub(&self, other: Value<'v>, heap: &'v Heap) -> starlark::Result<Value<'v>> {
         let Some(other) = other.downcast_ref::<Self>() else {
-            return ValueError::unsupported_with_anyhow(self, "-", other);
+            return ValueError::unsupported_with(self, "-", other);
         };
         let difference = self.0.difference(&other.0)?;
         Ok(heap.alloc(Self(difference)))
     }
 
-    fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
         match other.downcast_ref::<StarlarkTargetSet<Node>>() {
             Some(other) => Ok(self.0 == other.0),
             None => Ok(false),
         }
     }
 
-    fn bit_and(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn bit_and(&self, other: Value<'v>, heap: &'v Heap) -> starlark::Result<Value<'v>> {
         let Some(other) = other.downcast_ref::<Self>() else {
-            return ValueError::unsupported_with_anyhow(self, "&", other);
+            return ValueError::unsupported_with(self, "&", other);
         };
         let intersect = self.0.intersect(&other.0)?;
         Ok(heap.alloc(Self(intersect)))

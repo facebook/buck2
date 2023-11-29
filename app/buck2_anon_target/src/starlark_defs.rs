@@ -18,6 +18,7 @@ use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::context::ANALYSIS_ACTIONS_METHODS_ANON_TARGET;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_interpreter::anon_targets::REGISTER_ANON_TARGETS;
+use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter_for_build::rule::FrozenArtifactPromiseMappings;
 use buck2_interpreter_for_build::rule::FrozenRuleCallable;
@@ -147,7 +148,7 @@ fn anon_target_methods(builder: &mut MethodsBuilder) {
                 .iter()
                 .map(|(k, v)| {
                     Ok((
-                        k.to_value().get_hashed()?,
+                        k.to_value().get_hashed().map_err(BuckStarlarkError::new)?,
                         eval.heap().alloc(StarlarkPromiseArtifact::new(
                             eval.call_stack_top_location(),
                             v.clone(),

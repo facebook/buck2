@@ -168,12 +168,12 @@ where
         demand.provide_ref_static::<dyn TypeCompiledDyn>(self);
     }
 
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
         Hash::hash(&self.ty, hasher);
         Ok(())
     }
 
-    fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn equals(&self, other: Value<'v>) -> crate::Result<bool> {
         let Some(other) = other.downcast_ref::<Self>() else {
             return Ok(false);
         };
@@ -324,12 +324,12 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
         self.0
     }
 
-    pub(crate) fn write_hash(self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+    pub(crate) fn write_hash(self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
         self.to_value().0.write_hash(hasher)
     }
 
     // Dead code, but may become useful in the future.
-    pub(crate) fn _equals(self, other: Self) -> anyhow::Result<bool> {
+    pub(crate) fn _equals(self, other: Self) -> crate::Result<bool> {
         self.to_value().0.equals(other.to_value().0)
     }
 }

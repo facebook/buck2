@@ -84,12 +84,12 @@ impl<'v> StarlarkValue<'v> for StarlarkTargetLabel {
         RES.methods(label_methods)
     }
 
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {
         self.hash(hasher);
         Ok(())
     }
 
-    fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
         if let Some(other) = other.downcast_ref::<Self>() {
             Ok(self.label == other.label)
         } else {
@@ -97,11 +97,11 @@ impl<'v> StarlarkValue<'v> for StarlarkTargetLabel {
         }
     }
 
-    fn compare(&self, other: Value<'v>) -> anyhow::Result<std::cmp::Ordering> {
+    fn compare(&self, other: Value<'v>) -> starlark::Result<std::cmp::Ordering> {
         if let Some(other) = other.downcast_ref::<Self>() {
             Ok(self.label.cmp(&other.label))
         } else {
-            ValueError::unsupported_with_anyhow(self, "compare", other)
+            ValueError::unsupported_with(self, "compare", other)
         }
     }
 
@@ -191,12 +191,12 @@ impl<'v> StarlarkValue<'v> for StarlarkConfiguredTargetLabel {
         RES.methods(configured_label_methods)
     }
 
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {
         self.hash(hasher);
         Ok(())
     }
 
-    fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
         if let Some(other) = other.downcast_ref::<Self>() {
             Ok(self.label == other.label)
         } else {
@@ -204,11 +204,11 @@ impl<'v> StarlarkValue<'v> for StarlarkConfiguredTargetLabel {
         }
     }
 
-    fn compare(&self, other: Value<'v>) -> anyhow::Result<std::cmp::Ordering> {
+    fn compare(&self, other: Value<'v>) -> starlark::Result<std::cmp::Ordering> {
         if let Some(other) = other.downcast_ref::<Self>() {
             Ok(self.label.cmp(&other.label))
         } else {
-            ValueError::unsupported_with_anyhow(self, "compare", other)
+            ValueError::unsupported_with(self, "compare", other)
         }
     }
 

@@ -83,7 +83,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
         this: DictRef<'v>,
         #[starlark(require = pos)] key: Value<'v>,
         #[starlark(require = pos)] default: Option<Value<'v>>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         match this.get(key)? {
             None => Ok(default.unwrap_or_else(Value::new_none)),
             Some(x) => Ok(x),
@@ -171,7 +171,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
         this: Value<'v>,
         #[starlark(require = pos)] key: Value<'v>,
         #[starlark(require = pos)] default: Option<Value<'v>>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         let mut me = DictMut::from_value(this)?;
         match me.remove_hashed(key.get_hashed()?) {
             Some(x) => Ok(x),
@@ -183,7 +183,8 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
                         "Key `{}` not found in dictionary `{}`",
                         key.to_repr(),
                         this.to_repr()
-                    ))
+                    )
+                    .into())
                 }
             },
         }
@@ -261,7 +262,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
         this: Value<'v>,
         #[starlark(require = pos)] key: Value<'v>,
         #[starlark(require = pos)] default: Option<Value<'v>>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         let mut this = DictMut::from_value(this)?;
         let key = key.get_hashed()?;
         if let Some(r) = this.get_hashed(key) {
@@ -306,7 +307,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
         #[starlark(require = pos)] pairs: Option<Value<'v>>,
         #[starlark(kwargs)] kwargs: DictRef<'v>,
         heap: &'v Heap,
-    ) -> anyhow::Result<NoneType> {
+    ) -> starlark::Result<NoneType> {
         let pairs = if pairs.map(|x| x.ptr_eq(this)) == Some(true) {
             // someone has done `x.update(x)` - that isn't illegal, but we will have issues
             // with trying to iterate over x while holding x for mutation, and it doesn't do
@@ -330,7 +331,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
                     if unlikely(v.is_none() || it.next().is_some()) {
                         return Err(anyhow::anyhow!(
                             "dict.update expect a list of pairs or a dictionary as first argument, got a list of non-pairs.",
-                        ));
+                        ).into());
                     };
                     this.insert_hashed(k.unwrap().get_hashed()?, v.unwrap());
                 }

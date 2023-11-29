@@ -554,7 +554,7 @@ pub(crate) fn bit_or_assign<'v>(
     lhs: Value<'v>,
     rhs: Value<'v>,
     heap: &'v Heap,
-) -> anyhow::Result<Value<'v>> {
+) -> crate::Result<Value<'v>> {
     // The Starlark spec says dict |= mutates, while nothing else does.
     // When mutating, be careful if they alias, so we don't have `lhs`
     // mutably borrowed when we iterate over `rhs`, as they might alias.
@@ -593,7 +593,7 @@ pub(crate) fn add_assign<'v>(
     lhs: Value<'v>,
     rhs: Value<'v>,
     heap: &'v Heap,
-) -> anyhow::Result<Value<'v>> {
+) -> crate::Result<Value<'v>> {
     // Checking whether a value is an integer or a string is cheap (no virtual call),
     // and `Value::add` has optimizations for these types, so check them first
     // and delegate to `Value::add`.

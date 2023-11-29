@@ -85,15 +85,17 @@ impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for AnalysisPluginsGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    fn at(&self, index: Value<'v>, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn at(&self, index: Value<'v>, _heap: &'v Heap) -> starlark::Result<Value<'v>> {
         let kind = (PLUGIN_KIND_FROM_VALUE.get()?)(index)?;
         match self.plugins.get(&kind) {
             Some(v) => Ok(v.to_value()),
-            None => Err(AnalysisPluginsError::PluginKindNotUsed(kind).into()),
+            None => Err(starlark::Error::new_other(
+                AnalysisPluginsError::PluginKindNotUsed(kind),
+            )),
         }
     }
 
-    fn is_in(&self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn is_in(&self, other: Value<'v>) -> starlark::Result<bool> {
         let kind = (PLUGIN_KIND_FROM_VALUE.get()?)(other)?;
         Ok(self.plugins.contains_key(&kind))
     }

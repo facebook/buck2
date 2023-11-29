@@ -104,14 +104,14 @@ where
             .collect())
     }
 
-    fn at(&self, index: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn at(&self, index: Value<'v>, heap: &'v Heap) -> starlark::Result<Value<'v>> {
         let i = i32::unpack_value_err(index)?;
         if let Ok(i) = usize::try_from(i) {
             if let Some(artifact) = self.iter().nth(i) {
                 return Ok(heap.alloc(StarlarkArtifact::new(artifact.dupe())));
             }
         }
-        Err(anyhow::anyhow!(ValueError::IndexOutOfBound(i)))
+        Err(ValueError::IndexOutOfBound(i).into())
     }
 
     fn length(&self) -> anyhow::Result<i32> {
@@ -161,14 +161,14 @@ where
         Ok(self.iter().map(|e| heap.alloc(format!("{}", e))).collect())
     }
 
-    fn at(&self, index: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn at(&self, index: Value<'v>, heap: &'v Heap) -> starlark::Result<Value<'v>> {
         let i = i32::unpack_value_err(index)?;
         if let Ok(i) = usize::try_from(i) {
             if let Some(e) = self.iter().nth(i) {
                 return Ok(heap.alloc(format!("{}", e)));
             }
         }
-        Err(anyhow::anyhow!(ValueError::IndexOutOfBound(i)))
+        Err(ValueError::IndexOutOfBound(i).into())
     }
 
     fn length(&self) -> anyhow::Result<i32> {

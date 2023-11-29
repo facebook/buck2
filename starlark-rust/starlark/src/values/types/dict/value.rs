@@ -237,7 +237,7 @@ impl<'v> Dict<'v> {
 
     /// Get the value associated with a particular key. Will be [`Err`] if the key is not hashable,
     /// and otherwise [`Some`] if the key exists in the dictionary and [`None`] otherwise.
-    pub fn get(&self, key: Value<'v>) -> anyhow::Result<Option<Value<'v>>> {
+    pub fn get(&self, key: Value<'v>) -> crate::Result<Option<Value<'v>>> {
         Ok(self.get_hashed(key.get_hashed()?))
     }
 
@@ -334,7 +334,7 @@ trait DictLike<'v>: Debug + Allocative {
     unsafe fn iter_start(&self);
     unsafe fn content_unchecked(&self) -> &SmallMap<Value<'v>, Value<'v>>;
     unsafe fn iter_stop(&self);
-    fn set_at(&self, index: Hashed<Value<'v>>, value: Value<'v>) -> anyhow::Result<()>;
+    fn set_at(&self, index: Hashed<Value<'v>>, value: Value<'v>) -> crate::Result<()>;
 }
 
 impl<'v> DictLike<'v> for RefCell<Dict<'v>> {
@@ -360,13 +360,13 @@ impl<'v> DictLike<'v> for RefCell<Dict<'v>> {
         &self.try_borrow_unguarded().ok().unwrap_unchecked().content
     }
 
-    fn set_at(&self, index: Hashed<Value<'v>>, alloc_value: Value<'v>) -> anyhow::Result<()> {
+    fn set_at(&self, index: Hashed<Value<'v>>, alloc_value: Value<'v>) -> crate::Result<()> {
         match self.try_borrow_mut() {
             Ok(mut xs) => {
                 xs.content.insert_hashed(index, alloc_value);
                 Ok(())
             }
-            Err(_) => Err(ValueError::MutationDuringIteration.into()),
+            Err(_) => Err(crate::Error::new_other(ValueError::MutationDuringIteration)),
         }
     }
 }
@@ -386,8 +386,10 @@ impl<'v> DictLike<'v> for FrozenDictData {
         coerce(&self.content)
     }
 
-    fn set_at(&self, _index: Hashed<Value<'v>>, _value: Value<'v>) -> anyhow::Result<()> {
-        Err(ValueError::CannotMutateImmutableValue.into())
+    fn set_at(&self, _index: Hashed<Value<'v>>, _value: Value<'v>) -> crate::Result<()> {
+        Err(crate::Error::new_other(
+            ValueError::CannotMutateImmutableValue,
+        ))
     }
 }
 
@@ -429,7 +431,7 @@ where
         !self.0.content().is_empty()
     }
 
-    fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn equals(&self, other: Value<'v>) -> crate::Result<bool> {
         match DictRef::from_value(other) {
             None => Ok(false),
             Some(other) => {
@@ -438,10 +440,12 @@ where
         }
     }
 
-    fn at(&self, index: Value<'v>, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn at(&self, index: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
         match self.0.content().get_hashed_by_value(index.get_hashed()?) {
             Some(v) => Ok(v.to_value()),
-            None => Err(ValueError::KeyNotFound(index.to_repr()).into()),
+            None => Err(crate::Error::new_other(ValueError::KeyNotFound(
+                index.to_repr(),
+            ))),
         }
     }
 
@@ -449,7 +453,7 @@ where
         Ok(self.0.content().len() as i32)
     }
 
-    fn is_in(&self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn is_in(&self, other: Value<'v>) -> crate::Result<bool> {
         Ok(self
             .0
             .content()
@@ -475,12 +479,12 @@ where
         self.0.iter_stop();
     }
 
-    fn set_at(&self, index: Value<'v>, alloc_value: Value<'v>) -> anyhow::Result<()> {
+    fn set_at(&self, index: Value<'v>, alloc_value: Value<'v>) -> crate::Result<()> {
         let index = index.get_hashed()?;
         self.0.set_at(index, alloc_value)
     }
 
-    fn bit_or(&self, rhs: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn bit_or(&self, rhs: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         let rhs = DictRef::from_value(rhs)
             .map_or_else(|| ValueError::unsupported_with_anyhow(self, "|", rhs), Ok)?;
         if self.0.content().is_empty() {
@@ -537,7 +541,7 @@ b1 and b2 and b3
     }
 
     #[test]
-    fn test_get_str() -> anyhow::Result<()> {
+    fn test_get_str() -> crate::Result<()> {
         let heap = Heap::new();
         let k1 = heap.alloc_str("hello").get_hashed();
         let k2 = heap.alloc_str("world").get_hashed();

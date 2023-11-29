@@ -25,6 +25,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineInputs
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_execute::path::artifact_path::ArtifactPath;
+use buck2_interpreter::error::BuckStarlarkError;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
@@ -407,7 +408,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                             <&StarlarkBxlBuildResult>::unpack_value(value)
                         {
                             Ok((
-                                label.get_hashed()?,
+                                label.get_hashed().map_err(BuckStarlarkError::new)?,
                                 heap.alloc(get_artifacts_from_bxl_build_result(
                                     bxl_build_result,
                                     this,

@@ -171,77 +171,77 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
         Ok(heap.alloc(StarlarkInt::from(self.value.clone())))
     }
 
-    fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn equals(&self, other: Value<'v>) -> crate::Result<bool> {
         Ok(Some(NumRef::Int(StarlarkIntRef::Big(self))) == other.unpack_num())
     }
 
-    fn compare(&self, other: Value<'v>) -> anyhow::Result<Ordering> {
+    fn compare(&self, other: Value<'v>) -> crate::Result<Ordering> {
         match other.unpack_num() {
-            None => ValueError::unsupported_with_anyhow(self, "compare", other),
+            None => ValueError::unsupported_with(self, "compare", other),
             Some(other) => Ok(NumRef::Int(StarlarkIntRef::Big(self)).cmp(&other)),
         }
     }
 
-    fn add(&self, rhs: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+    fn add(&self, rhs: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
         Some(Ok(heap.alloc(
             NumRef::Int(StarlarkIntRef::Big(self)) + rhs.unpack_num()?,
         )))
     }
 
-    fn sub(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn sub(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         match other.unpack_num() {
             Some(other) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Big(self)) - other)),
-            None => ValueError::unsupported_with_anyhow(self, "-", other),
+            None => ValueError::unsupported_with(self, "-", other),
         }
     }
 
-    fn mul(&self, other: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+    fn mul(&self, other: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
         Some(Ok(heap.alloc(
             NumRef::Int(StarlarkIntRef::Big(self)) * other.unpack_num()?,
         )))
     }
 
-    fn div(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn div(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         match other.unpack_num() {
             Some(other) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Big(self)).div(other)?)),
-            None => ValueError::unsupported_with_anyhow(self, "/", other),
+            None => ValueError::unsupported_with(self, "/", other),
         }
     }
 
-    fn floor_div(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn floor_div(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         match other.unpack_num() {
             Some(rhs) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Big(self)).floor_div(rhs)?)),
-            None => ValueError::unsupported_with_anyhow(self, "//", other),
+            None => ValueError::unsupported_with(self, "//", other),
         }
     }
 
-    fn percent(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn percent(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         match other.unpack_num() {
             Some(rhs) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Big(self)).percent(rhs)?)),
-            None => ValueError::unsupported_with_anyhow(self, "%", other),
+            None => ValueError::unsupported_with(self, "%", other),
         }
     }
 
-    fn bit_and(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn bit_and(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         let rhs = match StarlarkIntRef::unpack_value(other) {
             Some(rhs) => rhs,
-            None => return ValueError::unsupported_with_anyhow(self, "&", other),
+            None => return ValueError::unsupported_with(self, "&", other),
         };
         Ok(heap.alloc(StarlarkIntRef::Big(self) & rhs))
     }
 
-    fn bit_xor(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn bit_xor(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         let rhs = match StarlarkIntRef::unpack_value(other) {
             Some(rhs) => rhs,
-            None => return ValueError::unsupported_with_anyhow(self, "^", other),
+            None => return ValueError::unsupported_with(self, "^", other),
         };
         Ok(heap.alloc(StarlarkIntRef::Big(self) ^ rhs))
     }
 
-    fn bit_or(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn bit_or(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         let rhs = match StarlarkIntRef::unpack_value(other) {
             Some(rhs) => rhs,
-            None => return ValueError::unsupported_with_anyhow(self, "|", other),
+            None => return ValueError::unsupported_with(self, "|", other),
         };
         Ok(heap.alloc(StarlarkIntRef::Big(self) | rhs))
     }
@@ -250,16 +250,16 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
         Ok(heap.alloc(!StarlarkIntRef::Big(self)))
     }
 
-    fn left_shift(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn left_shift(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         match StarlarkIntRef::unpack_value(other) {
-            None => ValueError::unsupported_with_anyhow(self, "<<", other),
+            None => ValueError::unsupported_with(self, "<<", other),
             Some(other) => Ok(heap.alloc(StarlarkIntRef::Big(self).left_shift(other)?)),
         }
     }
 
-    fn right_shift(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn right_shift(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         match StarlarkIntRef::unpack_value(other) {
-            None => ValueError::unsupported_with_anyhow(self, ">>", other),
+            None => ValueError::unsupported_with(self, ">>", other),
             Some(other) => Ok(heap.alloc(StarlarkIntRef::Big(self).right_shift(other)?)),
         }
     }
@@ -268,7 +268,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
         typecheck_num_bin_op(NumTy::Int, op, rhs)
     }
 
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
         NumRef::Int(StarlarkIntRef::Big(self))
             .get_hash_64()
             .hash(hasher);

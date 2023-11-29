@@ -117,7 +117,7 @@ where
         }
     }
 
-    fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn equals(&self, other: Value<'v>) -> crate::Result<bool> {
         match Record::from_value(other) {
             Some(other) if self.typ.equals(other.typ)? => {
                 equals_slice(&self.values, &other.values, |x, y| x.equals(*y))
@@ -135,7 +135,7 @@ where
         Some(self.values[i].to_value())
     }
 
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
         self.typ.write_hash(hasher)?;
         for v in &*self.values {
             v.write_hash(hasher)?;

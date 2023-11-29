@@ -63,12 +63,12 @@ pub trait StarlarkArtifactLike: Display {
     /// as the inputs to Hash/Eq to ensure they are consistent
     fn fingerprint(&self) -> ArtifactFingerprint<'_>;
 
-    fn equals<'v>(&self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn equals<'v>(&self, other: Value<'v>) -> starlark::Result<bool> {
         Ok(ValueAsArtifactLike::unpack_value(other)
             .map_or(false, |other| self.fingerprint() == other.0.fingerprint()))
     }
 
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {
         self.fingerprint().hash(hasher);
         Ok(())
     }

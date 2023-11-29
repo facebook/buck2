@@ -89,7 +89,7 @@ impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for FieldGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
         self.typ.write_hash(hasher)?;
         self.default.is_some().hash(hasher);
         if let Some(d) = self.default {

@@ -86,14 +86,14 @@ impl<'v> StarlarkValue<'v> for StarlarkFileSet {
             .collect())
     }
 
-    fn at(&self, index: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn at(&self, index: Value<'v>, heap: &'v Heap) -> starlark::Result<Value<'v>> {
         let i = i32::unpack_value_err(index)?;
         if let Ok(i) = usize::try_from(i) {
             if let Some(cell_path) = self.0.get_index(i) {
                 return Ok(heap.alloc(StarlarkFileNode(cell_path.clone())));
             }
         }
-        Err(anyhow::anyhow!(ValueError::IndexOutOfBound(i)))
+        Err(ValueError::IndexOutOfBound(i).into())
     }
 
     fn length(&self) -> anyhow::Result<i32> {

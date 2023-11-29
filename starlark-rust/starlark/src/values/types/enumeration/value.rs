@@ -126,7 +126,7 @@ where
         }
     }
 
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
         self.value.write_hash(hasher)
     }
 

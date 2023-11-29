@@ -128,7 +128,7 @@ where
         collector.push_str("struct(...)");
     }
 
-    fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn equals(&self, other: Value<'v>) -> crate::Result<bool> {
         match Struct::from_value(other) {
             None => Ok(false),
             Some(other) => {
@@ -137,9 +137,9 @@ where
         }
     }
 
-    fn compare(&self, other: Value<'v>) -> anyhow::Result<Ordering> {
+    fn compare(&self, other: Value<'v>) -> crate::Result<Ordering> {
         match Struct::from_value(other) {
-            None => ValueError::unsupported_with_anyhow(self, "cmp()", other),
+            None => ValueError::unsupported_with(self, "cmp()", other),
             Some(other) => compare_small_map(
                 coerce(&self.fields),
                 &other.fields,
@@ -157,7 +157,7 @@ where
         coerce(&self.fields).get_hashed(attribute).copied()
     }
 
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
         // Must use unordered hash because equality is unordered,
         // and `a = b  =>  hash(a) = hash(b)`.
         let mut unordered_hasher = UnorderedHasher::new();

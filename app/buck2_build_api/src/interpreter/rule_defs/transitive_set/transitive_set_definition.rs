@@ -267,7 +267,7 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
         }
     }
 
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {
         let exported = self
             .exported
             .get()
@@ -333,7 +333,7 @@ impl<'v> StarlarkValue<'v> for FrozenTransitiveSetDefinition {
         }
     }
 
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {
         self.exported.id.hash(hasher);
         Ok(())
     }

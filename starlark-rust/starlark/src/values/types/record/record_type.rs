@@ -223,7 +223,7 @@ where
 {
     type Canonical = FrozenRecordType;
 
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
         for (name, typ) in &self.fields {
             name.hash(hasher);
             // No need to hash typ.1, since it was computed from typ.0

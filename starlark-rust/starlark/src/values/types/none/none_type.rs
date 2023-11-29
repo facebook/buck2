@@ -73,7 +73,7 @@ impl<'v> StarlarkValue<'v> for NoneType {
         true
     }
 
-    fn equals(&self, other: Value) -> anyhow::Result<bool> {
+    fn equals(&self, other: Value) -> crate::Result<bool> {
         // We always compare pointers before calling `equals`,
         // so if we are here, the other is definitely not `None`.
         debug_assert!(!other.is_none());
@@ -83,13 +83,13 @@ impl<'v> StarlarkValue<'v> for NoneType {
     fn to_bool(&self) -> bool {
         false
     }
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
         // just took the result of hash(None) in macos python 2.7.10 interpreter.
         hasher.write_u64(9_223_380_832_852_120_682);
         Ok(())
     }
 
-    fn get_hash(&self, _private: Private) -> anyhow::Result<StarlarkHashValue> {
+    fn get_hash(&self, _private: Private) -> crate::Result<StarlarkHashValue> {
         // Just a random number.
         Ok(StarlarkHashValue::new_unchecked(0xf9c2263d))
     }

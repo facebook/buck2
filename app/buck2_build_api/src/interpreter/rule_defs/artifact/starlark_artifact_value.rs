@@ -71,7 +71,7 @@ enum JsonError {
     NumberOutOfBounds(String),
 }
 
-fn json_convert<'v>(v: serde_json::Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+fn json_convert<'v>(v: serde_json::Value, heap: &'v Heap) -> starlark::Result<Value<'v>> {
     match v {
         serde_json::Value::Null => Ok(Value::new_none()),
         serde_json::Value::Bool(x) => Ok(Value::new_bool(x)),
@@ -81,7 +81,9 @@ fn json_convert<'v>(v: serde_json::Value, heap: &'v Heap) -> anyhow::Result<Valu
             } else if let Some(x) = x.as_f64() {
                 Ok(heap.alloc(x))
             } else {
-                Err(JsonError::NumberOutOfBounds(x.to_string()).into())
+                Err(starlark::Error::new_other(JsonError::NumberOutOfBounds(
+                    x.to_string(),
+                )))
             }
         }
         serde_json::Value::String(x) => Ok(heap.alloc(x)),
@@ -103,7 +105,7 @@ fn artifact_value_methods(builder: &mut MethodsBuilder) {
         fs_util::read_to_string(path)
     }
 
-    fn read_json<'v>(this: &StarlarkArtifactValue, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn read_json<'v>(this: &StarlarkArtifactValue, heap: &'v Heap) -> starlark::Result<Value<'v>> {
         let path = this.fs.resolve(&this.path);
         let file = File::open(&path).with_context(|| format!("Error opening file `{}`", path))?;
         let reader = BufReader::new(file);

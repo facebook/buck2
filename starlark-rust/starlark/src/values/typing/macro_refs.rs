@@ -35,11 +35,13 @@ pub fn starlark_value_bit_or_for_type<'v, S: StarlarkValue<'v>>(
     this: &S,
     other: Value<'v>,
     heap: &'v Heap,
-) -> anyhow::Result<Value<'v>> {
+) -> crate::Result<Value<'v>> {
     let Some(this) = this.eval_type() else {
         let mut repr = String::new();
         this.collect_repr(&mut repr);
-        return Err(TypingMacroRefsError::LhsNotType(repr).into());
+        return Err(crate::Error::new_other(TypingMacroRefsError::LhsNotType(
+            repr,
+        )));
     };
     let this = TypeCompiled::from_ty(&this, heap);
     let other = TypeCompiled::new(other, heap).context("converting RHS to type")?;

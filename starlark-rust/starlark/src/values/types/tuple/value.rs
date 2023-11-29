@@ -159,28 +159,28 @@ where
         self.len() != 0
     }
 
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
         for v in self.content() {
             v.write_hash(hasher)?;
         }
         Ok(())
     }
 
-    fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn equals(&self, other: Value<'v>) -> crate::Result<bool> {
         match Tuple::from_value(other) {
             None => Ok(false),
             Some(other) => equals_slice(self.content(), other.content(), |x, y| x.equals(*y)),
         }
     }
 
-    fn compare(&self, other: Value<'v>) -> anyhow::Result<Ordering> {
+    fn compare(&self, other: Value<'v>) -> crate::Result<Ordering> {
         match Tuple::from_value(other) {
-            None => ValueError::unsupported_with_anyhow(self, "cmp()", other),
+            None => ValueError::unsupported_with(self, "cmp()", other),
             Some(other) => compare_slice(self.content(), other.content(), |x, y| x.compare(*y)),
         }
     }
 
-    fn at(&self, index: Value, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn at(&self, index: Value, _heap: &'v Heap) -> crate::Result<Value<'v>> {
         let i = convert_index(index, self.len() as i32)? as usize;
         Ok(self.content()[i].to_value())
     }
@@ -189,7 +189,7 @@ where
         Ok(self.len() as i32)
     }
 
-    fn is_in(&self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn is_in(&self, other: Value<'v>) -> crate::Result<bool> {
         for x in self.content() {
             if x.equals(other)? {
                 return Ok(true);
@@ -224,7 +224,7 @@ where
 
     unsafe fn iter_stop(&self) {}
 
-    fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+    fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
         if let Some(other) = Tuple::from_value(other) {
             let mut result = Vec::with_capacity(self.len() + other.len());
             for x in self.iter() {
@@ -239,7 +239,7 @@ where
         }
     }
 
-    fn mul(&self, other: Value, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+    fn mul(&self, other: Value, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
         let l = i32::unpack_value(other)?;
         let mut result = Vec::new();
         for _i in 0..l {
@@ -248,7 +248,7 @@ where
         Some(Ok(heap.alloc_tuple(&result)))
     }
 
-    fn rmul(&self, lhs: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+    fn rmul(&self, lhs: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
         self.mul(lhs, heap)
     }
 

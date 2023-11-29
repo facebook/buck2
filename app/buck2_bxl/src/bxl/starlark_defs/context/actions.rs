@@ -24,6 +24,7 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
+use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;
@@ -237,7 +238,8 @@ async fn alloc_deps<'v, 'c>(
             anyhow::Ok((
                 eval.heap()
                     .alloc(StarlarkProvidersLabel::new(unconfigured))
-                    .get_hashed()?,
+                    .get_hashed()
+                    .map_err(BuckStarlarkError::new)?,
                 eval.heap().alloc(dep),
             ))
         })

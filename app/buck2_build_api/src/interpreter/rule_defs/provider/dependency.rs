@@ -15,6 +15,7 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProviderName;
 use buck2_error::Context;
+use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
@@ -134,14 +135,16 @@ where
         RES.methods(dependency_methods)
     }
 
-    fn at(&self, index: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn at(&self, index: Value<'v>, heap: &'v Heap) -> starlark::Result<Value<'v>> {
         self.providers_collection
             .to_value()
             .at(index, heap)
+            .map_err(BuckStarlarkError::new)
             .with_context(|| format!("Error accessing dependencies of `{}`", self.label))
+            .map_err(Into::into)
     }
 
-    fn is_in(&self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn is_in(&self, other: Value<'v>) -> starlark::Result<bool> {
         self.providers_collection.to_value().is_in(other)
     }
 }

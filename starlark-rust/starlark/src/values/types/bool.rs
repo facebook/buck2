@@ -122,12 +122,12 @@ impl<'v> StarlarkValue<'v> for StarlarkBool {
         self.0
     }
 
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
         hasher.write_u8(if self.0 { 1 } else { 0 });
         Ok(())
     }
 
-    fn get_hash(&self, _private: Private) -> anyhow::Result<StarlarkHashValue> {
+    fn get_hash(&self, _private: Private) -> crate::Result<StarlarkHashValue> {
         // These constants are just two random numbers.
         Ok(StarlarkHashValue::new_unchecked(if self.0 {
             0xa4acba08
@@ -136,7 +136,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBool {
         }))
     }
 
-    fn equals(&self, other: Value) -> anyhow::Result<bool> {
+    fn equals(&self, other: Value) -> crate::Result<bool> {
         // We always compare values for pointer equality before calling `equals`,
         // and there are only two instances of `StarlarkBool`.
         // So if we are here, values are definitely not equal.
@@ -144,11 +144,11 @@ impl<'v> StarlarkValue<'v> for StarlarkBool {
         Ok(false)
     }
 
-    fn compare(&self, other: Value) -> anyhow::Result<Ordering> {
+    fn compare(&self, other: Value) -> crate::Result<Ordering> {
         if let Some(other) = other.unpack_bool() {
             Ok(self.0.cmp(&other))
         } else {
-            ValueError::unsupported_with_anyhow(self, "<>", other)
+            ValueError::unsupported_with(self, "<>", other)
         }
     }
 

@@ -347,7 +347,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
             path.to_owned(),
             fs.dupe(),
         ));
-        artifacts.insert_hashed(k.get_hashed()?, v);
+        artifacts.insert_hashed(k.get_hashed().map_err(BuckStarlarkError::new)?, v);
     }
 
     for x in &dynamic_lambda.outputs {
@@ -359,7 +359,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
             declared,
             AssociatedArtifacts::new(),
         ));
-        outputs.insert_hashed(k.get_hashed()?, v);
+        outputs.insert_hashed(k.get_hashed().map_err(BuckStarlarkError::new)?, v);
     }
 
     let artifacts = Dict::new(artifacts);

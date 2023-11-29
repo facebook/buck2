@@ -462,7 +462,7 @@ impl<'v> Value<'v> {
         }
     }
 
-    pub(crate) fn get_hash(self) -> anyhow::Result<StarlarkHashValue> {
+    pub(crate) fn get_hash(self) -> crate::Result<StarlarkHashValue> {
         self.get_ref().get_hash()
     }
 
@@ -532,7 +532,7 @@ impl<'v> Value<'v> {
     }
 
     /// `x[index]`.
-    pub fn at(self, index: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub fn at(self, index: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         self.get_ref().at(index, heap)
     }
 
@@ -553,7 +553,7 @@ impl<'v> Value<'v> {
     }
 
     /// `other in x`.
-    pub fn is_in(self, other: Value<'v>) -> anyhow::Result<bool> {
+    pub fn is_in(self, other: Value<'v>) -> crate::Result<bool> {
         self.get_ref().is_in(other)
     }
 
@@ -568,48 +568,48 @@ impl<'v> Value<'v> {
     }
 
     /// `x - other`.
-    pub fn sub(self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub fn sub(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         self.get_ref().sub(other, heap)
     }
 
     /// `x * other`.
-    pub fn mul(self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub fn mul(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         if let Some(r) = self.get_ref().mul(other, heap) {
             r
         } else if let Some(r) = other.get_ref().rmul(self, heap) {
             r
         } else {
-            ValueError::unsupported_owned_anyhow(self.get_type(), "*", Some(other.get_type()))
+            ValueError::unsupported_owned(self.get_type(), "*", Some(other.get_type()))
         }
     }
 
     /// `x % other`.
-    pub fn percent(self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub fn percent(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         self.get_ref().percent(other, heap)
     }
 
     /// `x / other`.
-    pub fn div(self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub fn div(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         self.get_ref().div(other, heap)
     }
 
     /// `x // other`.
-    pub fn floor_div(self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub fn floor_div(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         self.get_ref().floor_div(other, heap)
     }
 
     /// `x & other`.
-    pub fn bit_and(self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub fn bit_and(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         self.get_ref().bit_and(other, heap)
     }
 
     /// `x | other`.
-    pub fn bit_or(self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub fn bit_or(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         self.get_ref().bit_or(other, heap)
     }
 
     /// `x ^ other`.
-    pub fn bit_xor(self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub fn bit_xor(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         self.get_ref().bit_xor(other, heap)
     }
 
@@ -619,12 +619,12 @@ impl<'v> Value<'v> {
     }
 
     /// `x << other`.
-    pub fn left_shift(self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub fn left_shift(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         self.get_ref().left_shift(other, heap)
     }
 
     /// `x >> other`.
-    pub fn right_shift(self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub fn right_shift(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         self.get_ref().right_shift(other, heap)
     }
 
@@ -692,7 +692,7 @@ impl<'v> Value<'v> {
 
     /// Add two [`Value`]s together. Will first try using [`radd`](StarlarkValue::radd),
     /// before falling back to [`add`](StarlarkValue::add).
-    pub fn add(self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub fn add(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         // Fast special case for ints.
         if let Some(ls) = self.unpack_inline_int() {
             if let Some(rs) = other.unpack_inline_int() {
@@ -721,7 +721,7 @@ impl<'v> Value<'v> {
         } else if let Some(v) = other.get_ref().radd(self, heap) {
             v
         } else {
-            ValueError::unsupported_owned_anyhow(self.get_type(), "+", Some(other.get_type()))
+            ValueError::unsupported_owned(self.get_type(), "+", Some(other.get_type()))
         }
     }
 
@@ -768,7 +768,7 @@ impl<'v> Value<'v> {
     }
 
     /// Forwards to [`StarlarkValue::set_at`].
-    pub fn set_at(self, index: Value<'v>, alloc_value: Value<'v>) -> anyhow::Result<()> {
+    pub fn set_at(self, index: Value<'v>, alloc_value: Value<'v>) -> crate::Result<()> {
         self.get_ref().set_at(index, alloc_value)
     }
 
@@ -786,14 +786,14 @@ impl<'v> Value<'v> {
 
     /// Get the [`Hashed`] version of this [`Value`].
     #[inline]
-    pub fn get_hashed(self) -> anyhow::Result<Hashed<Self>> {
+    pub fn get_hashed(self) -> crate::Result<Hashed<Self>> {
         ValueLike::get_hashed(self)
     }
 
     /// Are two values equal. If the values are of different types it will
     /// return [`false`]. It will only error if there is excessive recursion.
     #[inline]
-    pub fn equals(self, other: Value<'v>) -> anyhow::Result<bool> {
+    pub fn equals(self, other: Value<'v>) -> crate::Result<bool> {
         if self.ptr_eq(other) {
             Ok(true)
         } else {
@@ -805,14 +805,14 @@ impl<'v> Value<'v> {
     }
 
     #[inline]
-    fn equals_not_ptr_eq(self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn equals_not_ptr_eq(self, other: Value<'v>) -> crate::Result<bool> {
         let _guard = stack_guard::stack_guard()?;
         self.get_ref().equals(other)
     }
 
     /// How are two values comparable. For values of different types will return [`Err`].
     #[inline]
-    pub fn compare(self, other: Value<'v>) -> anyhow::Result<Ordering> {
+    pub fn compare(self, other: Value<'v>) -> crate::Result<Ordering> {
         ValueLike::compare(self, other)
     }
 
@@ -1149,10 +1149,10 @@ pub trait ValueLike<'v>:
     }
 
     /// Hash the value.
-    fn write_hash(self, hasher: &mut StarlarkHasher) -> anyhow::Result<()>;
+    fn write_hash(self, hasher: &mut StarlarkHasher) -> crate::Result<()>;
 
     /// Get hash value.
-    fn get_hashed(self) -> anyhow::Result<Hashed<Self>> {
+    fn get_hashed(self) -> crate::Result<Hashed<Self>> {
         let hash = if let Some(s) = self.to_value().unpack_starlark_str() {
             s.get_hash()
         } else {
@@ -1176,10 +1176,10 @@ pub trait ValueLike<'v>:
     /// `x == other`.
     ///
     /// This operation can only return error on stack overflow.
-    fn equals(self, other: Value<'v>) -> anyhow::Result<bool>;
+    fn equals(self, other: Value<'v>) -> crate::Result<bool>;
 
     /// `x <=> other`.
-    fn compare(self, other: Value<'v>) -> anyhow::Result<Ordering>;
+    fn compare(self, other: Value<'v>) -> crate::Result<Ordering>;
 
     /// Get a reference to underlying data or [`None`]
     /// if contained object has different type than requested.
@@ -1245,16 +1245,16 @@ impl<'v> ValueLike<'v> for Value<'v> {
         }
     }
 
-    fn write_hash(self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+    fn write_hash(self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
         self.get_ref().write_hash(hasher)
     }
 
     #[inline]
-    fn equals(self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn equals(self, other: Value<'v>) -> crate::Result<bool> {
         self.equals(other)
     }
 
-    fn compare(self, other: Value<'v>) -> anyhow::Result<Ordering> {
+    fn compare(self, other: Value<'v>) -> crate::Result<Ordering> {
         let _guard = stack_guard::stack_guard()?;
         self.get_ref().compare(other)
     }
@@ -1286,17 +1286,17 @@ impl<'v> ValueLike<'v> for FrozenValue {
     }
 
     #[inline]
-    fn write_hash(self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+    fn write_hash(self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
         self.to_value().write_hash(hasher)
     }
 
     #[inline]
-    fn equals(self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn equals(self, other: Value<'v>) -> crate::Result<bool> {
         self.to_value().equals(other)
     }
 
     #[inline]
-    fn compare(self, other: Value<'v>) -> anyhow::Result<Ordering> {
+    fn compare(self, other: Value<'v>) -> crate::Result<Ordering> {
         self.to_value().compare(other)
     }
 }

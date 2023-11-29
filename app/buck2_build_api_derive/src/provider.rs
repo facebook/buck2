@@ -348,7 +348,7 @@ impl ProviderCodegen {
                             &dyn crate::interpreter::rule_defs::provider::ProviderLike>(self);
                     }
 
-                    fn equals(&self, other: starlark::values::Value<'v>) -> anyhow::Result<bool> {
+                    fn equals(&self, other: starlark::values::Value<'v>) -> starlark::Result<bool> {
                         let this: &#name = starlark::coerce::coerce(self);
                         let other: &#name = match #name::from_value(other) {
                             Some(other) => other,

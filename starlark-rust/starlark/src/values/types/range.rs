@@ -80,7 +80,7 @@ impl Range {
         Range { start, stop, step }
     }
 
-    fn equals_range(&self, other: &Range) -> anyhow::Result<bool> {
+    fn equals_range(&self, other: &Range) -> crate::Result<bool> {
         let self_length = self.length()?;
         let other_length = other.length()?;
         if self_length == 0 || other_length == 0 {
@@ -152,13 +152,13 @@ impl<'v> StarlarkValue<'v> for Range {
         }
     }
 
-    fn at(&self, index: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn at(&self, index: Value, heap: &'v Heap) -> crate::Result<Value<'v>> {
         let index = convert_index(index, self.length()?)?;
         // Must not overflow if `length` is computed correctly
         Ok(heap.alloc(self.start + self.step.get() * index))
     }
 
-    fn equals(&self, other: Value) -> anyhow::Result<bool> {
+    fn equals(&self, other: Value) -> crate::Result<bool> {
         if let Some(other) = other.downcast_ref::<Self>() {
             self.equals_range(other)
         } else {
@@ -224,7 +224,7 @@ impl<'v> StarlarkValue<'v> for Range {
 
     unsafe fn iter_stop(&self) {}
 
-    fn is_in(&self, other: Value) -> anyhow::Result<bool> {
+    fn is_in(&self, other: Value) -> crate::Result<bool> {
         let other = match other.unpack_num().and_then(|n| n.as_int()) {
             Some(other) => other,
             None => {

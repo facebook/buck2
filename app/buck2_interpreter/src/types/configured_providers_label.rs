@@ -98,14 +98,14 @@ where
         RES.methods(configured_label_methods)
     }
 
-    fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
         Ok(match StarlarkConfiguredProvidersLabel::from_value(other) {
             Some(other) => self.label == other.label,
             None => false,
         })
     }
 
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {
         self.label.hash(hasher);
         Ok(())
     }
@@ -236,7 +236,7 @@ where
         RES.methods(label_methods)
     }
 
-    fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
         if let Some(other) = StarlarkProvidersLabel::from_value(other) {
             Ok(self.label == other.label)
         } else {
@@ -244,7 +244,7 @@ where
         }
     }
 
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {
         self.label.hash(hasher);
         Ok(())
     }

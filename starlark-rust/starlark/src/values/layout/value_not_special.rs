@@ -63,7 +63,7 @@ impl FrozenValueNotSpecial {
     }
 
     #[inline]
-    pub(crate) fn equals(self, other: Value) -> anyhow::Result<bool> {
+    pub(crate) fn equals(self, other: Value) -> crate::Result<bool> {
         if self.to_value().ptr_eq(other) {
             Ok(true)
         } else {
@@ -75,7 +75,7 @@ impl FrozenValueNotSpecial {
     }
 
     #[inline]
-    fn equals_not_ptr_eq(self, other: Value) -> anyhow::Result<bool> {
+    fn equals_not_ptr_eq(self, other: Value) -> crate::Result<bool> {
         let _guard = stack_guard::stack_guard()?;
         self.get_ref().equals(other)
     }

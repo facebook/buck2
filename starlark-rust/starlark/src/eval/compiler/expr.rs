@@ -201,7 +201,7 @@ pub(crate) enum Builtin2 {
 }
 
 impl Builtin2 {
-    fn eval<'v>(self, a: Value<'v>, b: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn eval<'v>(self, a: Value<'v>, b: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         match self {
             Builtin2::Equals => a.equals(b).map(Value::new_bool),
             Builtin2::Compare(cmp) => a.compare(b).map(|c| Value::new_bool(cmp.apply(c))),

@@ -178,7 +178,7 @@ pub type EnumType<'v> = EnumTypeGen<Value<'v>>;
 pub type FrozenEnumType = EnumTypeGen<FrozenValue>;
 
 impl<'v> EnumType<'v> {
-    pub(crate) fn new(elements: Vec<StringValue<'v>>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub(crate) fn new(elements: Vec<StringValue<'v>>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         // We are constructing the enum and all elements in one go.
         // They both point at each other, which adds to the complexity.
         let id = TypeInstanceId::gen();
@@ -197,7 +197,9 @@ impl<'v> EnumType<'v> {
                 value: x.to_value(),
             });
             if res.insert_hashed(x.to_value().get_hashed()?, v).is_some() {
-                return Err(EnumError::DuplicateEnumValue(x.to_string()).into());
+                return Err(crate::Error::new_other(EnumError::DuplicateEnumValue(
+                    x.to_string(),
+                )));
             }
         }
 
@@ -227,10 +229,13 @@ where
         V::get_ty(&self.ty_enum_data)
     }
 
-    pub(crate) fn construct(&self, val: Value<'v>) -> anyhow::Result<V> {
+    pub(crate) fn construct(&self, val: Value<'v>) -> crate::Result<V> {
         match self.elements().get_hashed_by_value(val.get_hashed()?) {
             Some(v) => Ok(*v),
-            None => Err(EnumError::InvalidElement(val.to_str(), self.to_string()).into()),
+            None => Err(crate::Error::new_other(EnumError::InvalidElement(
+                val.to_str(),
+                self.to_string(),
+            ))),
         }
     }
 }
@@ -259,7 +264,7 @@ where
         Ok(self.elements().len() as i32)
     }
 
-    fn at(&self, index: Value, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn at(&self, index: Value, _heap: &'v Heap) -> crate::Result<Value<'v>> {
         let i = convert_index(index, self.elements().len() as i32)? as usize;
         // Must be in the valid range since convert_index checks that, so just unwrap
         Ok(self

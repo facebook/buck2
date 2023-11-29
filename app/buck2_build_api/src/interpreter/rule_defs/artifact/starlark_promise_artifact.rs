@@ -227,11 +227,11 @@ impl<'v> StarlarkValue<'v> for StarlarkPromiseArtifact {
         RES.methods(promise_artifact_methods)
     }
 
-    fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
+    fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
         StarlarkArtifactLike::equals(self, other)
     }
 
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {
         StarlarkArtifactLike::write_hash(self, hasher)
     }
 

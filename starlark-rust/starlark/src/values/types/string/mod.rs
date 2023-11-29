@@ -246,17 +246,17 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
         !self.is_empty()
     }
 
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
         // Don't defer to str because we cache the Hash in StarlarkStr
         hasher.write_u32(self.get_hash().get());
         Ok(())
     }
 
-    fn get_hash(&self, _private: Private) -> anyhow::Result<StarlarkHashValue> {
+    fn get_hash(&self, _private: Private) -> crate::Result<StarlarkHashValue> {
         Ok(self.get_hash())
     }
 
-    fn equals(&self, other: Value) -> anyhow::Result<bool> {
+    fn equals(&self, other: Value) -> crate::Result<bool> {
         if let Some(other) = other.unpack_str() {
             Ok(self.as_str() == other)
         } else {
@@ -264,15 +264,15 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
         }
     }
 
-    fn compare(&self, other: Value) -> anyhow::Result<Ordering> {
+    fn compare(&self, other: Value) -> crate::Result<Ordering> {
         if let Some(other) = other.unpack_str() {
             Ok(self.as_str().cmp(other))
         } else {
-            ValueError::unsupported_with_anyhow(self, "cmp()", other)
+            ValueError::unsupported_with(self, "cmp()", other)
         }
     }
 
-    fn at(&self, index: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn at(&self, index: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         // This method is disturbingly hot. Use the logic from `convert_index`,
         // but modified to be UTF8 string friendly.
         let i = i32::unpack_param(index)?;
@@ -299,7 +299,7 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
         Ok(fast_string::len(self).0 as i32)
     }
 
-    fn is_in(&self, other: Value) -> anyhow::Result<bool> {
+    fn is_in(&self, other: Value) -> crate::Result<bool> {
         let s = <&str>::unpack_param(other)?;
         Ok(fast_string::contains(self, s))
     }
@@ -335,7 +335,7 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
         }
     }
 
-    fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+    fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
         if let Some(other_str) = other.unpack_str() {
             if self.is_empty() {
                 Some(Ok(other))
@@ -347,7 +347,7 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
         }
     }
 
-    fn mul(&self, other: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+    fn mul(&self, other: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
         let l = i32::unpack_value(other)?;
         let mut result = String::with_capacity(self.len() * cmp::max(0, l) as usize);
         for _i in 0..l {
@@ -356,11 +356,11 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
         Some(Ok(heap.alloc(result)))
     }
 
-    fn rmul(&self, lhs: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+    fn rmul(&self, lhs: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
         self.mul(lhs, heap)
     }
 
-    fn percent(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn percent(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         Ok(heap.alloc(interpolation::percent(self, other)?))
     }
 
@@ -531,8 +531,8 @@ len("😿") == 1
     }
 
     #[test]
-    fn test_string_index() -> anyhow::Result<()> {
-        fn test_str(str: &str) -> anyhow::Result<()> {
+    fn test_string_index() -> crate::Result<()> {
+        fn test_str(str: &str) -> crate::Result<()> {
             let chars = str.chars().collect::<Vec<char>>();
             let heap = Heap::new();
             let val = heap.alloc(str);
