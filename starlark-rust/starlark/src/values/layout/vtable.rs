@@ -335,7 +335,7 @@ impl<'v> AValueDyn<'v> {
         index0: Value<'v>,
         index1: Value<'v>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         (self.vtable.starlark_value.at2)(self.value, index0, index1, heap, Private)
     }
 
@@ -351,7 +351,7 @@ impl<'v> AValueDyn<'v> {
         stop: Option<Value<'v>>,
         step: Option<Value<'v>>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         (self.vtable.starlark_value.slice)(self.value, start, stop, step, heap)
     }
 
@@ -391,7 +391,7 @@ impl<'v> AValueDyn<'v> {
     }
 
     #[inline]
-    pub(crate) fn bit_not(self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub(crate) fn bit_not(self, heap: &'v Heap) -> crate::Result<Value<'v>> {
         (self.vtable.starlark_value.bit_not)(self.value, heap)
     }
 
@@ -401,12 +401,12 @@ impl<'v> AValueDyn<'v> {
     }
 
     #[inline]
-    pub(crate) fn length(self) -> anyhow::Result<i32> {
+    pub(crate) fn length(self) -> crate::Result<i32> {
         (self.vtable.starlark_value.length)(self.value)
     }
 
     #[inline]
-    pub(crate) fn iterate(self, me: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub(crate) fn iterate(self, me: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         (self.vtable.starlark_value.iterate)(self.value, me, heap)
     }
 
@@ -431,12 +431,12 @@ impl<'v> AValueDyn<'v> {
     }
 
     #[inline]
-    pub(crate) fn plus(self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub(crate) fn plus(self, heap: &'v Heap) -> crate::Result<Value<'v>> {
         (self.vtable.starlark_value.plus)(self.value, heap)
     }
 
     #[inline]
-    pub(crate) fn minus(self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub(crate) fn minus(self, heap: &'v Heap) -> crate::Result<Value<'v>> {
         (self.vtable.starlark_value.minus)(self.value, heap)
     }
 
@@ -540,7 +540,7 @@ impl<'v> AValueDyn<'v> {
         self,
         variable_name: &str,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<()> {
+    ) -> crate::Result<()> {
         (self.vtable.starlark_value.export_as)(self.value, variable_name, eval)
     }
 
@@ -550,7 +550,7 @@ impl<'v> AValueDyn<'v> {
     }
 
     #[inline]
-    pub(crate) fn set_attr(self, attribute: &str, new_value: Value<'v>) -> anyhow::Result<()> {
+    pub(crate) fn set_attr(self, attribute: &str, new_value: Value<'v>) -> crate::Result<()> {
         (self.vtable.starlark_value.set_attr)(self.value, attribute, new_value)
     }
 

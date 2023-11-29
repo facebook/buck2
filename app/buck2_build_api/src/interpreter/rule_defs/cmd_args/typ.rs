@@ -860,8 +860,11 @@ impl Display for StarlarkCommandLineInputs {
 
 #[starlark_value(type = "command_line_inputs")]
 impl<'v> StarlarkValue<'v> for StarlarkCommandLineInputs {
-    fn length(&self) -> anyhow::Result<i32> {
-        Ok(self.inputs.len().try_into()?)
+    fn length(&self) -> starlark::Result<i32> {
+        self.inputs
+            .len()
+            .try_into()
+            .map_err(starlark::Error::new_other)
     }
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {

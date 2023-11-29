@@ -304,7 +304,7 @@ impl TypeMatcher for UserProviderMatcher {
 impl<'v> StarlarkValue<'v> for UserProviderCallable {
     type Canonical = FrozenUserProviderCallable;
 
-    fn export_as(&self, variable_name: &str, eval: &mut Evaluator<'v, '_>) -> anyhow::Result<()> {
+    fn export_as(&self, variable_name: &str, eval: &mut Evaluator<'v, '_>) -> starlark::Result<()> {
         // First export wins
         self.callable.get_or_try_init(|| {
             let provider_id = Arc::new(ProviderId {

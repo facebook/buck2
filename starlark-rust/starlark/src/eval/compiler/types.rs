@@ -196,7 +196,7 @@ impl<'v> Compiler<'v, '_, '_> {
                 let t = a
                     .get_ref()
                     .at2(i0.to_inner(), i1.to_inner(), self.eval.heap())
-                    .map_err(|e| EvalException::new_anyhow(e, expr.span, &self.codemap))?;
+                    .map_err(|e| EvalException::new(e, expr.span, &self.codemap))?;
                 self.alloc_value_for_type(t, expr.span)
             }
             TypeExprUnpackP::Index2Ellipsis(a0, i) => {
@@ -216,7 +216,7 @@ impl<'v> Compiler<'v, '_, '_> {
                         Ellipsis::new_value().to_value(),
                         self.eval.heap(),
                     )
-                    .map_err(|e| EvalException::new_anyhow(e, expr.span, &self.codemap))?;
+                    .map_err(|e| EvalException::new(e, expr.span, &self.codemap))?;
                 self.alloc_value_for_type(t, expr.span)
             }
             TypeExprUnpackP::Union(xs) => {

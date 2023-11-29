@@ -84,7 +84,7 @@ impl<'v, Node: NodeLike> AllocValue<'v> for StarlarkTargetSet<Node> {
 impl<'v, Node: NodeLike> StarlarkValue<'v> for StarlarkTargetSet<Node> {
     type Canonical = Self;
 
-    fn iterate_collect(&self, heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
+    fn iterate_collect(&self, heap: &'v Heap) -> starlark::Result<Vec<Value<'v>>> {
         Ok(self.iter(heap).collect())
     }
 
@@ -98,8 +98,8 @@ impl<'v, Node: NodeLike> StarlarkValue<'v> for StarlarkTargetSet<Node> {
         Err(ValueError::IndexOutOfBound(i).into())
     }
 
-    fn length(&self) -> anyhow::Result<i32> {
-        Ok(self.0.len().try_into()?)
+    fn length(&self) -> starlark::Result<i32> {
+        self.0.len().try_into().map_err(starlark::Error::new_other)
     }
 
     fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<starlark::Result<Value<'v>>> {

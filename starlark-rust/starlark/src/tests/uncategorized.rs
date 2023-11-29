@@ -754,7 +754,7 @@ fn test_label_assign() {
             Some(*self.0.borrow().get(attribute).unwrap())
         }
 
-        fn set_attr(&self, attribute: &str, new_value: Value<'v>) -> anyhow::Result<()> {
+        fn set_attr(&self, attribute: &str, new_value: Value<'v>) -> starlark::Result<()> {
             self.0.borrow_mut().insert(attribute.to_owned(), new_value);
             Ok(())
         }

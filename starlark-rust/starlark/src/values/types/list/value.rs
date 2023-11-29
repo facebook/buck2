@@ -479,7 +479,7 @@ where
         Ok(self.0.content()[i])
     }
 
-    fn length(&self) -> anyhow::Result<i32> {
+    fn length(&self) -> crate::Result<i32> {
         Ok(self.0.content().len() as i32)
     }
 
@@ -498,13 +498,13 @@ where
         stop: Option<Value>,
         stride: Option<Value>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         let xs = self.0.content();
         let res = apply_slice(xs, start, stop, stride)?;
         Ok(heap.alloc_list(&res))
     }
 
-    unsafe fn iterate(&self, me: Value<'v>, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    unsafe fn iterate(&self, me: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
         Ok(self.0.new_iter(me))
     }
 

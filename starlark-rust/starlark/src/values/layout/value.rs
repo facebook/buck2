@@ -543,12 +543,12 @@ impl<'v> Value<'v> {
         stop: Option<Value<'v>>,
         stride: Option<Value<'v>>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         self.get_ref().slice(start, stop, stride, heap)
     }
 
     /// `len(x)`.
-    pub fn length(self) -> anyhow::Result<i32> {
+    pub fn length(self) -> crate::Result<i32> {
         self.get_ref().length()
     }
 
@@ -558,12 +558,12 @@ impl<'v> Value<'v> {
     }
 
     /// `+x`.
-    pub fn plus(self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub fn plus(self, heap: &'v Heap) -> crate::Result<Value<'v>> {
         self.get_ref().plus(heap)
     }
 
     /// `-x`.
-    pub fn minus(self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub fn minus(self, heap: &'v Heap) -> crate::Result<Value<'v>> {
         self.get_ref().minus(heap)
     }
 
@@ -614,7 +614,7 @@ impl<'v> Value<'v> {
     }
 
     /// `~x`.
-    pub fn bit_not(self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub fn bit_not(self, heap: &'v Heap) -> crate::Result<Value<'v>> {
         self.get_ref().bit_not(heap)
     }
 
@@ -763,7 +763,7 @@ impl<'v> Value<'v> {
     }
 
     /// Forwards to [`StarlarkValue::set_attr`].
-    pub fn set_attr(self, attribute: &str, alloc_value: Value<'v>) -> anyhow::Result<()> {
+    pub fn set_attr(self, attribute: &str, alloc_value: Value<'v>) -> crate::Result<()> {
         self.get_ref().set_attr(attribute, alloc_value)
     }
 
@@ -779,7 +779,7 @@ impl<'v> Value<'v> {
 
     /// Produce an iterable from a value.
     #[inline]
-    pub fn iterate(self, heap: &'v Heap) -> anyhow::Result<StarlarkIterator<'v>> {
+    pub fn iterate(self, heap: &'v Heap) -> crate::Result<StarlarkIterator<'v>> {
         let iter = self.get_ref().iterate(self, heap)?;
         Ok(StarlarkIterator::new(iter, heap))
     }
@@ -831,11 +831,7 @@ impl<'v> Value<'v> {
 
     /// Call `export_as` on the underlying value, but only if the type is mutable.
     /// Otherwise, does nothing.
-    pub fn export_as(
-        self,
-        variable_name: &str,
-        eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<()> {
+    pub fn export_as(self, variable_name: &str, eval: &mut Evaluator<'v, '_>) -> crate::Result<()> {
         self.get_ref().export_as(variable_name, eval)
     }
 

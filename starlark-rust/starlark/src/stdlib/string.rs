@@ -359,7 +359,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         this: &str,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<StringValue<'v>> {
+    ) -> starlark::Result<StringValue<'v>> {
         let iter = args.positions(eval.heap())?;
         dot_format::format(
             this,
@@ -368,6 +368,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
             &mut eval.string_pool,
             eval.module_env.heap(),
         )
+        .map_err(Into::into)
     }
 
     /// [string.index](
@@ -650,7 +651,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         this: &str,
         #[starlark(require = pos)] to_join: ValueOfUnchecked<'v, StarlarkIter<String>>,
         heap: &'v Heap,
-    ) -> anyhow::Result<ValueOfUnchecked<'v, String>> {
+    ) -> starlark::Result<ValueOfUnchecked<'v, String>> {
         #[inline(always)]
         fn as_str<'v>(x: Value<'v>) -> anyhow::Result<&'v str> {
             <&str>::unpack_named_param(x, "to_join")

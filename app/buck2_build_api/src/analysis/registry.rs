@@ -221,7 +221,7 @@ impl<'v> AnalysisRegistry<'v> {
         value: Option<Value<'v>>,
         children: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<ValueTyped<'v, TransitiveSet<'v>>> {
+    ) -> starlark::Result<ValueTyped<'v, TransitiveSet<'v>>> {
         let set = self.artifact_groups.create_transitive_set(
             definition,
             value,

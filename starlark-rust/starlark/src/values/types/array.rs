@@ -293,7 +293,7 @@ impl<'v> StarlarkValue<'v> for Array<'v> {
         true
     }
 
-    fn length(&self) -> anyhow::Result<i32> {
+    fn length(&self) -> crate::Result<i32> {
         Ok(self.len() as i32)
     }
 

@@ -322,7 +322,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
     /// The number of arguments, where those inside a args/kwargs are counted as multiple arguments.
     ///
     /// This operation fails if the `kwargs` is not a dictionary, or `args` does not support `len`.
-    pub fn len(&self) -> anyhow::Result<usize> {
+    pub fn len(&self) -> crate::Result<usize> {
         let args = match self.0.args {
             None => 0,
             Some(v) => v.length()? as usize,
@@ -345,7 +345,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
     pub fn positions<'b>(
         &'b self,
         heap: &'v Heap,
-    ) -> anyhow::Result<impl Iterator<Item = Value<'v>> + 'b> {
+    ) -> crate::Result<impl Iterator<Item = Value<'v>> + 'b> {
         let tail = match self.0.args {
             None => Either::Left(iter::empty()),
             Some(args) => Either::Right(args.iterate(heap)?),
@@ -385,17 +385,17 @@ impl<'v, 'a> Arguments<'v, 'a> {
 
     /// Produce [`Err`] if there are any positional arguments.
     #[inline(always)]
-    pub fn no_positional_args(&self, heap: &'v Heap) -> anyhow::Result<()> {
+    pub fn no_positional_args(&self, heap: &'v Heap) -> crate::Result<()> {
         let [] = self.positional(heap)?;
         Ok(())
     }
 
     /// Produce [`Err`] if there are any named (i.e. non-positional) arguments.
     #[inline(always)]
-    pub fn no_named_args(&self) -> anyhow::Result<()> {
+    pub fn no_named_args(&self) -> crate::Result<()> {
         #[cold]
         #[inline(never)]
-        fn bad(x: &Arguments) -> anyhow::Result<()> {
+        fn bad(x: &Arguments) -> crate::Result<()> {
             // We might have a empty kwargs dictionary, but probably have an error
             let mut extra = Vec::new();
             extra.extend(x.0.names.iter().map(|x| x.0.as_str().to_owned()));
@@ -408,11 +408,10 @@ impl<'v, 'a> Arguments<'v, 'a> {
                 Ok(())
             } else {
                 // Would be nice to give a better name here, but it's in the call stack, so no big deal
-                Err(FunctionError::ExtraNamedArg {
+                Err(crate::Error::new_other(FunctionError::ExtraNamedArg {
                     names: extra,
                     function: "function".to_owned(),
-                }
-                .into())
+                }))
             }
         }
 
@@ -426,13 +425,13 @@ impl<'v, 'a> Arguments<'v, 'a> {
     /// Collect exactly `N` positional arguments from the [`Arguments`], failing if there are too many/few
     /// arguments. Ignores named arguments.
     #[inline(always)]
-    pub fn positional<const N: usize>(&self, heap: &'v Heap) -> anyhow::Result<[Value<'v>; N]> {
+    pub fn positional<const N: usize>(&self, heap: &'v Heap) -> crate::Result<[Value<'v>; N]> {
         #[cold]
         #[inline(never)]
         fn rare<'v, const N: usize>(
             x: &Arguments<'v, '_>,
             heap: &'v Heap,
-        ) -> anyhow::Result<[Value<'v>; N]> {
+        ) -> crate::Result<[Value<'v>; N]> {
             // Very sad that we allocate into a vector, but I expect calling into a small positional argument
             // with a *args is very rare.
             let xs =
@@ -442,23 +441,21 @@ impl<'v, 'a> Arguments<'v, 'a> {
                     .chain(x.0.args.unwrap().iterate(heap)?)
                     .collect::<Vec<_>>();
             xs.as_slice().try_into().map_err(|_| {
-                FunctionError::WrongNumberOfArgs {
+                crate::Error::new_other(FunctionError::WrongNumberOfArgs {
                     min: N,
                     max: N,
                     got: x.0.pos.len(),
-                }
-                .into()
+                })
             })
         }
 
         if self.0.args.is_none() {
             self.0.pos.try_into().map_err(|_| {
-                FunctionError::WrongNumberOfArgs {
+                crate::Error::new_other(FunctionError::WrongNumberOfArgs {
                     min: N,
                     max: N,
                     got: self.0.pos.len(),
-                }
-                .into()
+                })
             })
         } else {
             rare(self, heap)
@@ -472,13 +469,13 @@ impl<'v, 'a> Arguments<'v, 'a> {
     pub fn optional<const REQUIRED: usize, const OPTIONAL: usize>(
         &self,
         heap: &'v Heap,
-    ) -> anyhow::Result<([Value<'v>; REQUIRED], [Option<Value<'v>>; OPTIONAL])> {
+    ) -> crate::Result<([Value<'v>; REQUIRED], [Option<Value<'v>>; OPTIONAL])> {
         #[cold]
         #[inline(never)]
         fn rare<'v, const REQUIRED: usize, const OPTIONAL: usize>(
             x: &Arguments<'v, '_>,
             heap: &'v Heap,
-        ) -> anyhow::Result<([Value<'v>; REQUIRED], [Option<Value<'v>>; OPTIONAL])> {
+        ) -> crate::Result<([Value<'v>; REQUIRED], [Option<Value<'v>>; OPTIONAL])> {
             // Very sad that we allocate into a vector, but I expect calling into a small positional argument
             // with a *args is very rare.
             let args = match x.0.args {
@@ -494,12 +491,11 @@ impl<'v, 'a> Arguments<'v, 'a> {
                 }
                 Ok((required, optional))
             } else {
-                Err(FunctionError::WrongNumberOfArgs {
+                Err(crate::Error::new_other(FunctionError::WrongNumberOfArgs {
                     min: REQUIRED,
                     max: REQUIRED + OPTIONAL,
                     got: xs.len(),
-                }
-                .into())
+                }))
             }
         }
 
@@ -521,7 +517,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
     /// Collect 1 positional arguments from the [`Arguments`], failing if there are too many/few
     /// arguments. Ignores named arguments.
     #[inline(always)]
-    pub fn positional1(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub fn positional1(&self, heap: &'v Heap) -> crate::Result<Value<'v>> {
         // Could be implemented more directly, let's see if profiling shows it up
         let [x] = self.positional(heap)?;
         Ok(x)
@@ -530,7 +526,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
     /// Collect up to 1 optional arguments from the [`Arguments`], failing if there are too many
     /// arguments. Ignores named arguments.
     #[inline(always)]
-    pub fn optional1(&self, heap: &'v Heap) -> anyhow::Result<Option<Value<'v>>> {
+    pub fn optional1(&self, heap: &'v Heap) -> crate::Result<Option<Value<'v>>> {
         // Could be implemented more directly, let's see if profiling shows it up
         let ([], [x]) = self.optional(heap)?;
         Ok(x)

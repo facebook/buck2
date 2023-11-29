@@ -82,7 +82,7 @@ pub fn global(builder: &mut GlobalsBuilder) {
         ty_custom_function = StructType,
         as_type = FrozenStruct,
     )]
-    fn r#struct<'v>(args: &Arguments<'v, '_>, heap: &'v Heap) -> anyhow::Result<Struct<'v>> {
+    fn r#struct<'v>(args: &Arguments<'v, '_>, heap: &'v Heap) -> starlark::Result<Struct<'v>> {
         args.no_positional_args(heap)?;
         // TODO(nga): missing optimization: practically most `struct` invocations are
         //   performed with fixed named arguments, e.g. `struct(a = 1, b = 2)`.

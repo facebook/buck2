@@ -73,8 +73,8 @@ pub trait RecordCell {
 
     fn get_or_init_ty(
         ty: &Self::TyRecordDataOpt,
-        f: impl FnOnce() -> anyhow::Result<Arc<TyRecordData>>,
-    ) -> anyhow::Result<()>;
+        f: impl FnOnce() -> crate::Result<Arc<TyRecordData>>,
+    ) -> crate::Result<()>;
     fn get_ty(ty: &Self::TyRecordDataOpt) -> Option<&Arc<TyRecordData>>;
 }
 
@@ -83,8 +83,8 @@ impl<'v> RecordCell for Value<'v> {
 
     fn get_or_init_ty(
         ty: &Self::TyRecordDataOpt,
-        f: impl FnOnce() -> anyhow::Result<Arc<TyRecordData>>,
-    ) -> anyhow::Result<()> {
+        f: impl FnOnce() -> crate::Result<Arc<TyRecordData>>,
+    ) -> crate::Result<()> {
         ty.get_or_try_init(f)?;
         Ok(())
     }
@@ -98,8 +98,8 @@ impl RecordCell for FrozenValue {
 
     fn get_or_init_ty(
         ty: &Self::TyRecordDataOpt,
-        f: impl FnOnce() -> anyhow::Result<Arc<TyRecordData>>,
-    ) -> anyhow::Result<()> {
+        f: impl FnOnce() -> crate::Result<Arc<TyRecordData>>,
+    ) -> crate::Result<()> {
         let _ignore = (ty, f);
         Ok(())
     }
@@ -294,7 +294,7 @@ where
         self.ty_record_data().map(|t| t.ty_record_type.dupe())
     }
 
-    fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) -> anyhow::Result<()> {
+    fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) -> crate::Result<()> {
         V::get_or_init_ty(&self.ty_record_data, || {
             let fields: SortedMap<String, Ty> = self
                 .fields

@@ -327,7 +327,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
         index1: Value<'v>,
         heap: &'v Heap,
         _private: Private,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         match &self.special_builtin_function {
             Some(SpecialBuiltinFunction::Dict) => {
                 let index0 = TypeCompiled::new(index0, heap)?;
@@ -345,10 +345,10 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
                     )
                     .to_inner())
                 } else {
-                    Err(FunctionError::TupleOnlyEllipsis.into())
+                    Err(crate::Error::new_other(FunctionError::TupleOnlyEllipsis))
                 }
             }
-            _ => ValueError::unsupported_anyhow(self, "[,]"),
+            _ => ValueError::unsupported(self, "[,]"),
         }
     }
 }

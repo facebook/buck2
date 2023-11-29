@@ -599,7 +599,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         &mut self,
         name: &str,
         value: Value<'v>,
-    ) -> anyhow::Result<()> {
+    ) -> crate::Result<()> {
         value.export_as(name, self)?;
         self.module_env.set(name, value);
         Ok(())

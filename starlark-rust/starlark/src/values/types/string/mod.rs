@@ -295,7 +295,7 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
         }
     }
 
-    fn length(&self) -> anyhow::Result<i32> {
+    fn length(&self) -> crate::Result<i32> {
         Ok(fast_string::len(self).0 as i32)
     }
 
@@ -310,7 +310,7 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
         stop: Option<Value<'v>>,
         stride: Option<Value<'v>>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         let s = self;
         if matches!(stride, Some(stride) if stride.unpack_i32() != Some(1)) {
             // The stride case is super rare and super complex, so let's do something inefficient but safe

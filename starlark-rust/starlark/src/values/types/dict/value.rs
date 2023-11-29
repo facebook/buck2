@@ -449,7 +449,7 @@ where
         }
     }
 
-    fn length(&self) -> anyhow::Result<i32> {
+    fn length(&self) -> crate::Result<i32> {
         Ok(self.0.content().len() as i32)
     }
 
@@ -460,7 +460,7 @@ where
             .contains_key_hashed_by_value(other.get_hashed()?))
     }
 
-    unsafe fn iterate(&self, me: Value<'v>, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    unsafe fn iterate(&self, me: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
         self.0.iter_start();
         Ok(me)
     }

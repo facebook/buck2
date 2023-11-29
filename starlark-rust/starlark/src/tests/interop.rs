@@ -85,7 +85,7 @@ fn test_export_as() {
             &self,
             variable_name: &str,
             _eval: &mut Evaluator<'v, '_>,
-        ) -> anyhow::Result<()> {
+        ) -> crate::Result<()> {
             self.named.try_export_as(variable_name);
             Ok(())
         }
@@ -136,7 +136,7 @@ fn test_load_symbols() {
             name: &str,
             value: Value<'v>,
             eval: &mut Evaluator<'v, '_>,
-        ) -> anyhow::Result<NoneType> {
+        ) -> starlark::Result<NoneType> {
             eval.set_module_variable_at_some_point(name, value)?;
             Ok(NoneType)
         }

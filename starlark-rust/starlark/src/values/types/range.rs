@@ -122,7 +122,7 @@ impl<'v> StarlarkValue<'v> for Range {
             || (self.start > self.stop && self.step.get() < 0)
     }
 
-    fn length(&self) -> anyhow::Result<i32> {
+    fn length(&self) -> crate::Result<i32> {
         if self.start == self.stop {
             return Ok(0);
         }
@@ -172,7 +172,7 @@ impl<'v> StarlarkValue<'v> for Range {
         stop: Option<Value>,
         stride: Option<Value>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         let (start, stop, step) = convert_slice_indices(self.length()?, start, stop, stride)?;
         return Ok(heap.alloc(Range {
             start: self
@@ -198,7 +198,7 @@ impl<'v> StarlarkValue<'v> for Range {
         }));
     }
 
-    unsafe fn iterate(&self, me: Value<'v>, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    unsafe fn iterate(&self, me: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
         Ok(me)
     }
 

@@ -104,7 +104,7 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
         this: Value<'v>,
         #[starlark(require = pos)] other: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
         heap: &'v Heap,
-    ) -> anyhow::Result<NoneType> {
+    ) -> starlark::Result<NoneType> {
         let res = ListData::from_value_mut(this)?;
         if this.ptr_eq(other.get()) {
             // If the types alias, we can't borrow the `other` for iteration.

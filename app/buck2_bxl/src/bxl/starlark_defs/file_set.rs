@@ -78,7 +78,7 @@ starlark_simple_value!(StarlarkFileSet);
 
 #[starlark_value(type = "file_set")]
 impl<'v> StarlarkValue<'v> for StarlarkFileSet {
-    fn iterate_collect(&self, heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
+    fn iterate_collect(&self, heap: &'v Heap) -> starlark::Result<Vec<Value<'v>>> {
         Ok(self
             .0
             .iter()
@@ -96,11 +96,8 @@ impl<'v> StarlarkValue<'v> for StarlarkFileSet {
         Err(ValueError::IndexOutOfBound(i).into())
     }
 
-    fn length(&self) -> anyhow::Result<i32> {
-        match i32::try_from(self.0.len()) {
-            Ok(l) => Ok(l),
-            Err(e) => Err(e.into()),
-        }
+    fn length(&self) -> starlark::Result<i32> {
+        i32::try_from(self.0.len()).map_err(starlark::Error::new_other)
     }
 }
 
@@ -172,7 +169,7 @@ impl fmt::Display for StarlarkReadDirSet {
 
 #[starlark_value(type = "read_dir_set")]
 impl<'v> StarlarkValue<'v> for StarlarkReadDirSet {
-    fn iterate_collect(&self, heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
+    fn iterate_collect(&self, heap: &'v Heap) -> starlark::Result<Vec<Value<'v>>> {
         Ok(self
             .children()?
             .into_map(|cell_path| heap.alloc(StarlarkFileNode(cell_path))))

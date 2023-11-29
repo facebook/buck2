@@ -38,7 +38,7 @@ pub(crate) fn tset_factory(builder: &mut GlobalsBuilder) {
         value: Option<Value<'v>>,
         children: Option<Value<'v>>, // An iterable.
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<TransitiveSet<'v>> {
+    ) -> starlark::Result<TransitiveSet<'v>> {
         static LAST_ID: AtomicU32 = AtomicU32::new(0);
 
         let target = ConfiguredTargetLabel::testing_parse(

@@ -130,12 +130,6 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
         GlobalValue::any()
     }
 
-    fn err_anyhow(&mut self, span: Span, e: anyhow::Error) -> GlobalValue<'v> {
-        self.errors
-            .push(TypingError::new_anyhow(e, span, self.ctx.codemap));
-        GlobalValue::any()
-    }
-
     fn call(
         &mut self,
         _f: &CstExpr,
@@ -229,7 +223,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
         {
             match array.get_ref().at2(index0, index1, self.heap) {
                 Ok(value) => Ok(GlobalValue::value(value)),
-                Err(e) => Ok(self.err_anyhow(span, e)),
+                Err(e) => Ok(self.err(span, e)),
             }
         } else {
             Ok(GlobalValue::any())

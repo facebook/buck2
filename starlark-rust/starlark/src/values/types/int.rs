@@ -201,10 +201,10 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
         Ok(NumRef::Int(StarlarkIntRef::Small(self.get())).get_hash())
     }
 
-    fn plus(&self, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn plus(&self, _heap: &'v Heap) -> crate::Result<Value<'v>> {
         Ok(Value::new_int(self.get()))
     }
-    fn minus(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn minus(&self, heap: &'v Heap) -> crate::Result<Value<'v>> {
         Ok(heap.alloc(-StarlarkIntRef::Small(self.get())))
     }
     fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
@@ -285,7 +285,7 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
         }
     }
 
-    fn bit_not(&self, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn bit_not(&self, _heap: &'v Heap) -> crate::Result<Value<'v>> {
         Ok(Value::new_int(!self.get()))
     }
 

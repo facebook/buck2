@@ -123,7 +123,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     fn any<'v>(
         #[starlark(require = pos)] x: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
         heap: &'v Heap,
-    ) -> anyhow::Result<bool> {
+    ) -> starlark::Result<bool> {
         for i in x.get().iterate(heap)? {
             if i.to_bool() {
                 return Ok(true);
@@ -153,7 +153,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     fn all<'v>(
         #[starlark(require = pos)] x: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
         heap: &'v Heap,
-    ) -> anyhow::Result<bool> {
+    ) -> starlark::Result<bool> {
         for i in x.get().iterate(heap)? {
             if !i.to_bool() {
                 return Ok(false);
@@ -261,7 +261,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
         #[starlark(require = pos)] it: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
         #[starlark(default = 0)] start: i32,
         heap: &'v Heap,
-    ) -> anyhow::Result<impl AllocValue<'v>> {
+    ) -> starlark::Result<impl AllocValue<'v>> {
         let v = it
             .get()
             .iterate(heap)?
@@ -578,7 +578,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     /// # "#, "not supported");
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn len(#[starlark(require = pos)] a: Value) -> anyhow::Result<i32> {
+    fn len(#[starlark(require = pos)] a: Value) -> starlark::Result<i32> {
         a.length()
     }
 
@@ -716,7 +716,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     fn reversed<'v>(
         #[starlark(require = pos)] a: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Vec<Value<'v>>> {
+    ) -> starlark::Result<Vec<Value<'v>>> {
         let mut v: Vec<Value> = a.get().iterate(heap)?.collect();
         v.reverse();
         Ok(v)
@@ -838,7 +838,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     fn tuple<'v>(
         #[starlark(require = pos)] a: Option<ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>>,
         heap: &'v Heap,
-    ) -> anyhow::Result<ValueOfUnchecked<'v, &'v TupleRef<'v>>> {
+    ) -> starlark::Result<ValueOfUnchecked<'v, &'v TupleRef<'v>>> {
         if let Some(a) = a {
             if TupleRef::from_value(a.get()).is_some() {
                 return Ok(ValueOfUnchecked::new(a.get()));

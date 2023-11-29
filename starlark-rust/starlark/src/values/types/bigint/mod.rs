@@ -160,11 +160,11 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
         true
     }
 
-    fn minus(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn minus(&self, heap: &'v Heap) -> starlark::Result<Value<'v>> {
         Ok(heap.alloc(StarlarkInt::from(-&self.value)))
     }
 
-    fn plus(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn plus(&self, heap: &'v Heap) -> starlark::Result<Value<'v>> {
         // This unnecessarily allocates, could return `self`.
         // But practically people rarely write `+NNN` except in constants,
         // and in constants we fold `+NNN` into `NNN`.
@@ -246,7 +246,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
         Ok(heap.alloc(StarlarkIntRef::Big(self) | rhs))
     }
 
-    fn bit_not(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn bit_not(&self, heap: &'v Heap) -> crate::Result<Value<'v>> {
         Ok(heap.alloc(!StarlarkIntRef::Big(self)))
     }
 

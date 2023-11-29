@@ -26,7 +26,7 @@ pub fn register_load_symbols(builder: &mut GlobalsBuilder) {
     fn load_symbols<'v>(
         symbols: SmallMap<&'v str, Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<NoneType> {
+    ) -> starlark::Result<NoneType> {
         for (k, v) in symbols.into_iter() {
             eval.set_module_variable_at_some_point(k, v)?;
         }

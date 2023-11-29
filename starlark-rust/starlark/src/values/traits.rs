@@ -450,8 +450,8 @@ pub trait StarlarkValue<'v>:
         _index1: Value<'v>,
         _heap: &'v Heap,
         _private: Private,
-    ) -> anyhow::Result<Value<'v>> {
-        ValueError::unsupported_anyhow(self, "[,]")
+    ) -> crate::Result<Value<'v>> {
+        ValueError::unsupported(self, "[,]")
     }
 
     /// Extract a slice of the underlying object if the object is indexable. The
@@ -484,15 +484,15 @@ pub trait StarlarkValue<'v>:
         _stop: Option<Value<'v>>,
         _stride: Option<Value<'v>>,
         _heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
-        ValueError::unsupported_anyhow(self, "[::]")
+    ) -> crate::Result<Value<'v>> {
+        ValueError::unsupported(self, "[::]")
     }
 
     /// Implement iteration over the value of this container by providing
     /// the values in a `Vec`.
     #[starlark_internal_vtable(skip)]
-    fn iterate_collect(&self, _heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
-        ValueError::unsupported_anyhow(self, "(iter)")
+    fn iterate_collect(&self, _heap: &'v Heap) -> crate::Result<Vec<Value<'v>>> {
+        ValueError::unsupported(self, "(iter)")
     }
 
     /// Returns an iterator over the value of this container if this value holds
@@ -520,7 +520,7 @@ pub trait StarlarkValue<'v>:
     /// So implementations of iterators may acquire mutation lock in `iterate`,
     /// assume that it is held in `iter_next`, and release it in `iter_stop`.
     /// Obviously, there are no such guarantees if these functions are called directly.
-    unsafe fn iterate(&self, _me: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    unsafe fn iterate(&self, _me: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         Ok(heap.alloc_tuple(&self.iterate_collect(heap)?))
     }
 
@@ -562,8 +562,8 @@ pub trait StarlarkValue<'v>:
     }
 
     /// Returns the length of the value, if this value is a sequence.
-    fn length(&self) -> anyhow::Result<i32> {
-        ValueError::unsupported_anyhow(self, "len()")
+    fn length(&self) -> crate::Result<i32> {
+        ValueError::unsupported(self, "len()")
     }
 
     /// Attribute type, for the typechecker.
@@ -641,8 +641,8 @@ pub trait StarlarkValue<'v>:
     /// +1 == 1
     /// # "#);
     /// ```
-    fn plus(&self, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        ValueError::unsupported_anyhow(self, "+")
+    fn plus(&self, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+        ValueError::unsupported(self, "+")
     }
 
     /// Apply the `-` unary operator to the current value.
@@ -654,8 +654,8 @@ pub trait StarlarkValue<'v>:
     /// -(1) == -1
     /// # "#);
     /// ```
-    fn minus(&self, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        ValueError::unsupported_anyhow(self, "-")
+    fn minus(&self, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+        ValueError::unsupported(self, "-")
     }
 
     /// Add with the arguments the other way around. Should return [`None`]
@@ -811,8 +811,8 @@ pub trait StarlarkValue<'v>:
     }
 
     /// Bitwise `~` operator.
-    fn bit_not(&self, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        ValueError::unsupported_anyhow(self, "~")
+    fn bit_not(&self, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+        ValueError::unsupported(self, "~")
     }
 
     /// Bitwise `<<` operator.
@@ -836,7 +836,7 @@ pub trait StarlarkValue<'v>:
     }
 
     /// Called when exporting a value under a specific name,
-    fn export_as(&self, _variable_name: &str, _eval: &mut Evaluator<'v, '_>) -> anyhow::Result<()> {
+    fn export_as(&self, _variable_name: &str, _eval: &mut Evaluator<'v, '_>) -> crate::Result<()> {
         // Most data types ignore how they are exported
         // but rules/providers like to use it as a helpful hint for users
         Ok(())
@@ -860,8 +860,8 @@ pub trait StarlarkValue<'v>:
 
     /// Set the attribute named `attribute` of the current value to
     /// `value` (e.g. `a.attribute = value`).
-    fn set_attr(&self, attribute: &str, _new_value: Value<'v>) -> anyhow::Result<()> {
-        ValueError::unsupported_anyhow(self, &format!(".{}=", attribute))
+    fn set_attr(&self, attribute: &str, _new_value: Value<'v>) -> crate::Result<()> {
+        ValueError::unsupported(self, &format!(".{}=", attribute))
     }
 
     /// Dynamically provide values based on type.

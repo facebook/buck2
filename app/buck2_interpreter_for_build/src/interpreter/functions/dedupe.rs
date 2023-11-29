@@ -22,7 +22,7 @@ pub(crate) fn register_dedupe(builder: &mut GlobalsBuilder) {
     fn dedupe<'v>(
         #[starlark(require = pos)] val: Value<'v>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         let mut seen = HashSet::new();
         let mut res = Vec::new();
         for v in val.iterate(heap)? {

@@ -967,7 +967,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         value: Option<Value<'v>>,
         children: Option<ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<ValueTyped<'v, TransitiveSet<'v>>> {
+    ) -> starlark::Result<ValueTyped<'v, TransitiveSet<'v>>> {
         let mut this = this.state();
         this.create_transitive_set(
             definition.to_value(),

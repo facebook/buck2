@@ -97,7 +97,7 @@ impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkProvidersArtifactI
 where
     Self: ProvidesStaticType<'v>,
 {
-    fn iterate_collect(&self, heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
+    fn iterate_collect(&self, heap: &'v Heap) -> starlark::Result<Vec<Value<'v>>> {
         Ok(self
             .iter()
             .map(|artifact| heap.alloc(StarlarkArtifact::new(artifact.dupe())))
@@ -114,8 +114,8 @@ where
         Err(ValueError::IndexOutOfBound(i).into())
     }
 
-    fn length(&self) -> anyhow::Result<i32> {
-        i32::try_from(self.iter().count()).map_err(|e| e.into())
+    fn length(&self) -> starlark::Result<i32> {
+        i32::try_from(self.iter().count()).map_err(starlark::Error::new_other)
     }
 }
 
@@ -157,7 +157,7 @@ impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkFailedArtifactIter
 where
     Self: ProvidesStaticType<'v>,
 {
-    fn iterate_collect(&self, heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
+    fn iterate_collect(&self, heap: &'v Heap) -> starlark::Result<Vec<Value<'v>>> {
         Ok(self.iter().map(|e| heap.alloc(format!("{}", e))).collect())
     }
 
@@ -171,8 +171,8 @@ where
         Err(ValueError::IndexOutOfBound(i).into())
     }
 
-    fn length(&self) -> anyhow::Result<i32> {
-        i32::try_from(self.iter().count()).map_err(|e| e.into())
+    fn length(&self) -> starlark::Result<i32> {
+        i32::try_from(self.iter().count()).map_err(starlark::Error::new_other)
     }
 }
 

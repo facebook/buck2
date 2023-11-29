@@ -81,8 +81,8 @@ pub trait EnumCell: Freeze {
 
     fn get_or_init_ty(
         ty: &Self::TyEnumDataOpt,
-        f: impl FnOnce() -> anyhow::Result<Arc<TyEnumData>>,
-    ) -> anyhow::Result<()>;
+        f: impl FnOnce() -> crate::Result<Arc<TyEnumData>>,
+    ) -> crate::Result<()>;
     fn get_ty(ty: &Self::TyEnumDataOpt) -> Option<&Arc<TyEnumData>>;
 }
 
@@ -91,8 +91,8 @@ impl<'v> EnumCell for Value<'v> {
 
     fn get_or_init_ty(
         ty: &Self::TyEnumDataOpt,
-        f: impl FnOnce() -> anyhow::Result<Arc<TyEnumData>>,
-    ) -> anyhow::Result<()> {
+        f: impl FnOnce() -> crate::Result<Arc<TyEnumData>>,
+    ) -> crate::Result<()> {
         ty.get_or_try_init(f)?;
         Ok(())
     }
@@ -107,8 +107,8 @@ impl EnumCell for FrozenValue {
 
     fn get_or_init_ty(
         ty: &Self::TyEnumDataOpt,
-        f: impl FnOnce() -> anyhow::Result<Arc<TyEnumData>>,
-    ) -> anyhow::Result<()> {
+        f: impl FnOnce() -> crate::Result<Arc<TyEnumData>>,
+    ) -> crate::Result<()> {
         let _ignore = (ty, f);
         Ok(())
     }
@@ -260,7 +260,7 @@ where
         Ok(self.construct(val)?.to_value())
     }
 
-    fn length(&self) -> anyhow::Result<i32> {
+    fn length(&self) -> crate::Result<i32> {
         Ok(self.elements().len() as i32)
     }
 
@@ -275,7 +275,7 @@ where
             .to_value())
     }
 
-    unsafe fn iterate(&self, me: Value<'v>, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    unsafe fn iterate(&self, me: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
         Ok(me)
     }
 
@@ -304,7 +304,7 @@ where
         self.ty_enum_data().map(|t| t.ty_enum_type.dupe())
     }
 
-    fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) -> anyhow::Result<()> {
+    fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) -> crate::Result<()> {
         V::get_or_init_ty(&self.ty_enum_data, || {
             let ty_enum_value = Ty::custom(TyUser::new(
                 variable_name.to_owned(),

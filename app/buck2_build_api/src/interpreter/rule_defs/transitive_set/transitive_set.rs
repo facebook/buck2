@@ -485,14 +485,14 @@ impl<'v> TransitiveSet<'v> {
         value: Option<Value<'v>>,
         children: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Self> {
+    ) -> starlark::Result<Self> {
         let children = children
             .map(|v| v.iterate(eval.heap()))
             .transpose()?
             .into_iter()
             .flatten();
 
-        Self::new(key, definition, value, children, eval)
+        Self::new(key, definition, value, children, eval).map_err(Into::into)
     }
 }
 

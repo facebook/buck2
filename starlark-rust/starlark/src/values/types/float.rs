@@ -285,11 +285,11 @@ impl<'v> StarlarkValue<'v> for StarlarkFloat {
         Ok(NumRef::Float(self.0).get_hash())
     }
 
-    fn plus(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn plus(&self, heap: &'v Heap) -> crate::Result<Value<'v>> {
         Ok(heap.alloc(*self))
     }
 
-    fn minus(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn minus(&self, heap: &'v Heap) -> crate::Result<Value<'v>> {
         Ok(heap.alloc(StarlarkFloat(-self.0)))
     }
 

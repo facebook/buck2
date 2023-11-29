@@ -28,7 +28,7 @@ use crate::values::function::SpecialBuiltinFunction;
 use crate::values::Heap;
 use crate::values::Value;
 
-fn unpack_pair<'v>(pair: Value<'v>, heap: &'v Heap) -> anyhow::Result<(Value<'v>, Value<'v>)> {
+fn unpack_pair<'v>(pair: Value<'v>, heap: &'v Heap) -> crate::Result<(Value<'v>, Value<'v>)> {
     let mut it = pair.iterate(heap)?;
     if let Some(first) = it.next() {
         if let Some(second) = it.next() {
@@ -40,7 +40,8 @@ fn unpack_pair<'v>(pair: Value<'v>, heap: &'v Heap) -> anyhow::Result<(Value<'v>
     Err(anyhow::anyhow!(
         "Found a non-pair element in the positional argument of dict(): {}",
         pair.to_repr(),
-    ))
+    )
+    .into())
 }
 
 #[starlark_module]

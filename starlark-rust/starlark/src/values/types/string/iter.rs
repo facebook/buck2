@@ -79,7 +79,7 @@ impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StringIterableGen<'v, V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    unsafe fn iterate(&self, _me: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    unsafe fn iterate(&self, _me: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         // Lazy implementation: we allocate a tuple and then iterate over it.
         let iter = if self.produce_char {
             heap.alloc_tuple_iter(self.string.as_str().chars().map(|c| heap.alloc(c)))
