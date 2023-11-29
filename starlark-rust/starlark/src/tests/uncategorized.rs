@@ -23,7 +23,6 @@ use anyhow::Context;
 use derive_more::Display;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
-use starlark_syntax::diagnostic::Diagnostic;
 use starlark_syntax::golden_test_template::golden_test_template;
 
 use crate as starlark;
@@ -503,7 +502,7 @@ add3(8)"#,
         "Immutable",
     );
     if display {
-        Diagnostic::eprint(&diag)
+        diag.eprint();
     }
     assert_eq!(
         &format!("\n{}", diag),

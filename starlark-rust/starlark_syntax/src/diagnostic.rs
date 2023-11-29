@@ -111,21 +111,6 @@ impl Diagnostic {
             self.data.call_stack = call_stack();
         }
     }
-
-    /// Print an error to the stderr stream. If the error is a [`Diagnostic`] it will use
-    /// color-codes when printing.
-    ///
-    /// Note that this function doesn't print any context information if the error is a
-    /// [`Diagnostic`], so you might prefer to use `eprintln!("{:#}"), err)`
-    /// if you suspect there is useful context (although you won't get pretty colors).
-    pub fn eprint(err: &crate::Error) {
-        let (diag, message) = err.get_diagnostic_and_message();
-        if let Some(diag) = diag {
-            diagnostic_stderr(message, diag)
-        } else {
-            eprintln!("{:#}", err)
-        }
-    }
 }
 
 impl DiagnosticNoError {
@@ -173,10 +158,4 @@ pub(crate) fn diagnostic_display(
     }
 
     Ok(())
-}
-
-fn diagnostic_stderr(message: impl std::fmt::Debug + Display, diagnostic: &DiagnosticNoError) {
-    let mut stderr = String::new();
-    diagnostic_display(message, diagnostic, true, &mut stderr, true).unwrap();
-    eprint!("{}", stderr);
 }

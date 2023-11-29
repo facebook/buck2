@@ -155,6 +155,23 @@ impl Error {
             d.call_stack = call_stack();
         }
     }
+
+    /// Print an error to the stderr stream. If the error has diagnostic information it will use
+    /// color-codes when printing.
+    ///
+    /// Note that this function doesn't print any context information if the error is a diagnostic,
+    /// so you might prefer to use `eprintln!("{:#}"), err)` if you suspect there is useful context
+    /// (although you won't get pretty colors).
+    pub fn eprint(&self) {
+        let (diag, message) = self.get_diagnostic_and_message();
+        if let Some(diag) = diag {
+            let mut stderr = String::new();
+            diagnostic_display(message, diag, true, &mut stderr, true).unwrap();
+            eprint!("{}", stderr);
+        } else {
+            eprintln!("{:#}", self)
+        }
+    }
 }
 
 impl fmt::Display for Error {

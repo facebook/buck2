@@ -28,7 +28,6 @@ use dupe::Dupe;
 use maplit::hashmap;
 use once_cell::sync::Lazy;
 use starlark_derive::starlark_module;
-use starlark_syntax::diagnostic::Diagnostic;
 
 use crate as starlark;
 use crate::codemap::FileSpanRef;
@@ -345,7 +344,7 @@ impl<'a> Assert<'a> {
         match self.execute(path, program, module, gc) {
             Ok(v) => v,
             Err(err) => {
-                Diagnostic::eprint(&err);
+                err.eprint();
                 panic!(
                     "starlark::assert::{}, failed to execute!\nCode:\n{}\nGot error: {}",
                     func, program, err
@@ -450,7 +449,7 @@ impl<'a> Assert<'a> {
             let err_msg = format!("{:#}", inner);
             for msg in msgs {
                 if !err_msg.contains(msg) {
-                    Diagnostic::eprint(&original);
+                    original.eprint();
                     panic!(
                     "starlark::assert::{}, failed with the wrong message!\nCode:\n{}\nError:\n{}\nMissing:\n{}\nExpected:\n{:?}",
                     func, program, inner, msg, msgs
