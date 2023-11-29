@@ -168,7 +168,7 @@ You can use `dir(my_struct)` to inspect a struct. You can also use
 equivalent to `my_struct.my_attr`.
 
 These are available as part of the
-[Starlark language spec](https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#dir).
+[Starlark language spec](https://github.com/bazelbuild/starlark/blob/master/spec.md#dir).
 
 ## Set addition/subtraction on a `target_set`
 

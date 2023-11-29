@@ -25,7 +25,7 @@
 //!
 //! __Note__: we use _sequence_, _iterable_ and _indexable_ according to the
 //! definition in the [Starlark specification](
-//! https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#sequence-types).
+//! https://github.com/bazelbuild/starlark/blob/master/spec.md#sequence-types).
 //! We also use the term _container_ for denoting any of those type that can
 //! hold several values.
 
@@ -732,7 +732,7 @@ pub trait StarlarkValue<'v>:
 
     /// Apply the percent operator between the current value and `other`. Usually used on
     /// strings, as per
-    /// [the Starlark spec](https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#string-interpolation).
+    /// [the Starlark spec](https://github.com/bazelbuild/starlark/blob/master/spec.md#string-interpolation).
     ///
     /// # Examples
     ///

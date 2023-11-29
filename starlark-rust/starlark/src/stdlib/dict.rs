@@ -37,7 +37,7 @@ use crate::values::ValueOfUnchecked;
 #[starlark_module]
 pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// [dict.clear](
-    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#dict·clear
+    /// https://github.com/bazelbuild/starlark/blob/master/spec.md#dict·clear
     /// ): clear a dictionary
     ///
     /// `D.clear()` removes all the entries of dictionary D and returns `None`.
@@ -57,7 +57,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     }
 
     /// [dict.get](
-    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#dict·get
+    /// https://github.com/bazelbuild/starlark/blob/master/spec.md#dict·get
     /// ): return an element from the dictionary.
     ///
     /// `D.get(key[, default])` returns the dictionary value corresponding to
@@ -91,7 +91,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     }
 
     /// [dict.items](
-    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#dict·items
+    /// https://github.com/bazelbuild/starlark/blob/master/spec.md#dict·items
     /// ): get list of (key, value) pairs.
     ///
     /// `D.items()` returns a new list of key/value pairs, one per element in
@@ -114,7 +114,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     }
 
     /// [dict.keys](
-    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#dict·keys
+    /// https://github.com/bazelbuild/starlark/blob/master/spec.md#dict·keys
     /// ): get the list of keys of the dictionary.
     ///
     /// `D.keys()` returns a new list containing the keys of dictionary D, in
@@ -135,7 +135,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     }
 
     /// [dict.pop](
-    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#dict·pop
+    /// https://github.com/bazelbuild/starlark/blob/master/spec.md#dict·pop
     /// ): return an element and remove it from a dictionary.
     ///
     /// `D.pop(key[, default])` returns the value corresponding to the specified
@@ -190,7 +190,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     }
 
     /// [dict.popitem](
-    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#dict·popitem
+    /// https://github.com/bazelbuild/starlark/blob/master/spec.md#dict·popitem
     /// ): returns and removes the first key/value pair of a dictionary.
     ///
     /// `D.popitem()` returns the first key/value pair, removing it from the
@@ -229,7 +229,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     }
 
     /// [dict.setdefault](
-    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#dict·setdefault
+    /// https://github.com/bazelbuild/starlark/blob/master/spec.md#dict·setdefault
     /// ): get a value from a dictionary, setting it to a new value if not
     /// present.
     ///
@@ -273,7 +273,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     }
 
     /// [dict.update](
-    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#dict·update
+    /// https://github.com/bazelbuild/starlark/blob/master/spec.md#dict·update
     /// ): update values in the dictionary.
     ///
     /// `D.update([pairs][, name=value[, ...])` makes a sequence of key/value
@@ -344,7 +344,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     }
 
     /// [dict.values](
-    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#dict·values
+    /// https://github.com/bazelbuild/starlark/blob/master/spec.md#dict·values
     /// ): get the list of values of the dictionary.
     ///
     /// `D.values()` returns a new list containing the dictionary's values, in

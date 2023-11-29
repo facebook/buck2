@@ -271,7 +271,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     }
 
     /// [float](
-    /// https://github.com/google/skylark/blob/a5f7082aabed29c0e429c722292c66ec8ecf9591/doc/spec.md#float
+    /// https://github.com/bazelbuild/starlark/blob/master/spec.md#float
     /// ): interprets its argument as a floating-point number.
     ///
     /// If x is a `float`, the result is x.
@@ -583,7 +583,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     }
 
     /// [ord](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.mdord
+    /// https://github.com/bazelbuild/starlark/blob/master/spec.md#ord
     /// ): returns the codepoint of a character
     ///
     /// `ord(s)` returns the integer value of the sole Unicode code point

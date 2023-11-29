@@ -16,7 +16,7 @@
  */
 
 //! The environment, called "Module" in [this spec](
-//! https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md)
+//! https://github.com/bazelbuild/starlark/blob/master/spec.md)
 //! is the list of variable in the current scope. It can be frozen, after which
 //! all values from this environment become immutable.
 
