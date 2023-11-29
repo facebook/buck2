@@ -125,7 +125,7 @@ def get_bundle_name(ctx: AnalysisContext, default_bundle_name: str) -> str:
     flavors = bundle_name_for_flavor_map.keys()
     for flavor in flavors:
         expect(
-            flavor == "android" or flavor == "ios" or flavor == "macos" or flavor == "windows",
+            flavor == "android" or flavor == "ios" or flavor == "macos" or flavor == "windows" or flavor == "vr",
             "Currently only support picking bundle name by platform!",
         )
 
