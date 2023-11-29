@@ -13,29 +13,39 @@ use std::fmt;
 ///
 /// This type implements all the buck2-specific error categorization that is needed for starlark
 /// errors.
-pub struct BuckStarlarkError(starlark::Error);
+pub struct BuckStarlarkError {
+    e: starlark::Error,
+    print_stacktrace: bool,
+}
 
 impl BuckStarlarkError {
     pub fn new(e: starlark::Error) -> Self {
-        Self(e)
+        Self {
+            e,
+            print_stacktrace: true,
+        }
+    }
+
+    pub fn set_print_stacktrace(&mut self, print_stacktrace: bool) {
+        self.print_stacktrace = print_stacktrace;
     }
 
     pub fn into_inner(self) -> starlark::Error {
-        self.0
+        self.e
     }
 
     pub fn inner(&self) -> &starlark::Error {
-        &self.0
+        &self.e
     }
 }
 
 impl std::error::Error for BuckStarlarkError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.0.kind().source()
+        self.e.kind().source()
     }
 
     fn provide<'a>(&'a self, demand: &mut buck2_error::Demand<'a>) {
-        match self.0.kind() {
+        match self.e.kind() {
             starlark::ErrorKind::Other(e) => e.provide(demand),
             _ => (),
         }
@@ -44,12 +54,22 @@ impl std::error::Error for BuckStarlarkError {
 
 impl fmt::Debug for BuckStarlarkError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&self.0, f)
+        if self.print_stacktrace {
+            fmt::Debug::fmt(&self.e, f)
+        } else {
+            let (_, message) = self.e.get_diagnostic_and_message();
+            fmt::Debug::fmt(&message, f)
+        }
     }
 }
 
 impl fmt::Display for BuckStarlarkError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&self.0, f)
+        if self.print_stacktrace {
+            fmt::Display::fmt(&self.e, f)
+        } else {
+            let (_, message) = self.e.get_diagnostic_and_message();
+            fmt::Debug::fmt(&message, f)
+        }
     }
 }
