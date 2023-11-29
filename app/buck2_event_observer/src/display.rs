@@ -353,6 +353,7 @@ fn display_file_watcher(provider: i32) -> &'static str {
     match buck2_data::FileWatcherProvider::from_i32(provider) {
         Some(buck2_data::FileWatcherProvider::Watchman) => "Watchman",
         Some(buck2_data::FileWatcherProvider::RustNotify) => "notify",
+        Some(buck2_data::FileWatcherProvider::FsHashCrawler) => "fs_hash_crawler",
         None => "unknown mechanism",
     }
 }

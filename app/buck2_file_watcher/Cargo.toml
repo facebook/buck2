@@ -14,6 +14,8 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 
 allocative = { workspace = true }
+blake3 = { workspace = true }
+compact_str = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
 starlark_map = { workspace = true }
@@ -27,8 +29,10 @@ buck2_error = { workspace = true }
 buck2_events = { workspace = true }
 buck2_util = { workspace = true }
 
+[dev-dependencies]
+tempfile = { workspace = true }
+
 [target.'cfg(unix)'.dev-dependencies]
 assert_matches = { workspace = true }
 buck2_util = { workspace = true }
 gazebo = { workspace = true }
-tempfile = { workspace = true }

@@ -21,6 +21,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::is_open_source;
 use dice::DiceTransactionUpdater;
 
+use crate::fs_hash_crawler::FsHashCrawler;
 use crate::mergebase::Mergebase;
 use crate::notify::NotifyFileWatcher;
 use crate::watchman::interface::WatchmanFileWatcher;
@@ -56,6 +57,10 @@ impl dyn FileWatcher {
             "notify" => Ok(Arc::new(
                 NotifyFileWatcher::new(project_root, cells, ignore_specs)
                     .context("Creating notify file watcher")?,
+            )),
+            "fs_hash_crawler" => Ok(Arc::new(
+                FsHashCrawler::new(project_root, cells, ignore_specs)
+                    .context("Creating fs_crawler file watcher")?,
             )),
             other => Err(anyhow::anyhow!("Invalid buck2.file_watcher: {}", other)),
         }
