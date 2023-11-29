@@ -21,7 +21,7 @@ use std::path::Path;
 
 use dupe::Dupe;
 use serde::Serialize;
-use starlark_syntax::diagnostic::DiagnosticNoError;
+use starlark_syntax::diagnostic::Diagnostic;
 
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
@@ -173,7 +173,7 @@ impl EvalMessage {
 
     fn from_diagnostic(
         file: &Path,
-        d: &DiagnosticNoError,
+        d: &Diagnostic,
         message: impl std::fmt::Display,
         full_error: impl std::fmt::Display,
     ) -> Self {

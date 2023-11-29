@@ -22,7 +22,7 @@ use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
 use crate::codemap::Span;
 use crate::diagnostic::diagnostic_display;
-use crate::diagnostic::DiagnosticNoError;
+use crate::diagnostic::Diagnostic;
 
 /// An error produced by starlark.
 ///
@@ -39,7 +39,7 @@ impl Error {
     pub fn new_spanned(kind: ErrorKind, span: Span, codemap: &CodeMap) -> Self {
         Self(Box::new(ErrorInner {
             kind,
-            diagnostic: Some(DiagnosticNoError {
+            diagnostic: Some(Diagnostic {
                 span: Some(codemap.file_span(span)),
                 call_stack: CallStack::default(),
             }),
@@ -98,10 +98,7 @@ impl Error {
     /// The error message does not include the diagnostic
     pub fn get_diagnostic_and_message<'a>(
         &'a self,
-    ) -> (
-        Option<&'a DiagnosticNoError>,
-        impl fmt::Debug + fmt::Display + 'a,
-    ) {
+    ) -> (Option<&'a Diagnostic>, impl fmt::Debug + fmt::Display + 'a) {
         trait DebugAndDisplay: fmt::Debug + fmt::Display {}
         impl<T: fmt::Debug + fmt::Display> DebugAndDisplay for T {}
 
@@ -121,8 +118,8 @@ impl Error {
             .and_then(|d| d.span.as_ref())
     }
 
-    fn ensure_diagnostic(&mut self) -> &mut DiagnosticNoError {
-        self.0.diagnostic.get_or_insert_with(|| DiagnosticNoError {
+    fn ensure_diagnostic(&mut self) -> &mut Diagnostic {
+        self.0.diagnostic.get_or_insert_with(|| Diagnostic {
             span: None,
             call_stack: Default::default(),
         })
@@ -178,7 +175,7 @@ impl fmt::Display for Error {
 #[derive(Debug)]
 struct ErrorInner {
     kind: ErrorKind,
-    diagnostic: Option<DiagnosticNoError>,
+    diagnostic: Option<Diagnostic>,
 }
 
 /// The different kinds of errors that can be produced by starlark

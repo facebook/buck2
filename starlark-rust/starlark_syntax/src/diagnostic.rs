@@ -22,9 +22,9 @@ use crate::call_stack::CallStack;
 use crate::codemap::FileSpan;
 use crate::span_display::span_display;
 
-/// A diagnostic, but without the error message attached
+/// A description of where in starlark execution the error happened.
 #[derive(Debug)]
-pub struct DiagnosticNoError {
+pub struct Diagnostic {
     /// Location where the error originated.
     pub span: Option<FileSpan>,
 
@@ -32,7 +32,7 @@ pub struct DiagnosticNoError {
     pub call_stack: CallStack,
 }
 
-impl DiagnosticNoError {
+impl Diagnostic {
     /// Gets annotated snippets for a [`Diagnostic`].
     fn get_display_list<'a>(&'a self, annotation_label: &'a str, color: bool) -> impl Display + 'a {
         span_display(
@@ -51,7 +51,7 @@ impl DiagnosticNoError {
 
 pub(crate) fn diagnostic_display(
     message: impl std::fmt::Debug + Display,
-    diagnostic: &DiagnosticNoError,
+    diagnostic: &Diagnostic,
     color: bool,
     f: &mut dyn fmt::Write,
     with_context: bool,
