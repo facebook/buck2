@@ -47,6 +47,14 @@ impl Error {
         }))
     }
 
+    /// Create a new error with no diagnostic and of kind [`ErrorKind::Other`]
+    pub fn new_other(e: impl std::error::Error + Send + Sync + 'static) -> Self {
+        Self(Box::new(ErrorInner {
+            kind: ErrorKind::Other(anyhow::Error::new(e)),
+            diagnostic: None,
+        }))
+    }
+
     /// The kind of this error
     pub fn kind(&self) -> &ErrorKind {
         &self.0.kind
@@ -123,6 +131,29 @@ impl Error {
         self.get_diagnostic_and_message()
             .0
             .and_then(|d| d.span.as_ref())
+    }
+
+    fn ensure_diagnostic(&mut self) -> &mut DiagnosticNoError {
+        self.0.diagnostic.get_or_insert_with(|| DiagnosticNoError {
+            span: None,
+            call_stack: Default::default(),
+        })
+    }
+
+    /// Set the span, unless it's already been set.
+    pub fn set_span(&mut self, span: Span, codemap: &CodeMap) {
+        let d = self.ensure_diagnostic();
+        if d.span.is_none() {
+            d.span = Some(codemap.file_span(span));
+        }
+    }
+
+    /// Set the `call_stack` field, unless it's already been set.
+    pub fn set_call_stack(&mut self, call_stack: impl FnOnce() -> CallStack) {
+        let d = self.ensure_diagnostic();
+        if d.call_stack.is_empty() {
+            d.call_stack = call_stack();
+        }
     }
 }
 
