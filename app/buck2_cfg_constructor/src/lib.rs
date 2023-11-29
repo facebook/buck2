@@ -29,6 +29,7 @@ use buck2_core::target::label::TargetLabel;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
+use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
@@ -108,12 +109,14 @@ async fn eval_pre_constraint_analysis<'v>(
             ];
 
             // Type check + unpack
-            let (refs, params) =
-                <(UnpackListOrTuple<String>, Value)>::unpack_value_err(eval.eval_function(
+            let (refs, params) = <(UnpackListOrTuple<String>, Value)>::unpack_value_err(
+                eval.eval_function(
                     cfg_constructor_pre_constraint_analysis,
                     &[],
                     &pre_constraint_analysis_args,
-                )?)?;
+                )
+                .map_err(BuckStarlarkError::new)?,
+            )?;
 
             // `params` Value lives on eval.heap() so we need to move eval out of the closure to keep it alive
             Ok((refs.items, params, eval))
@@ -186,11 +189,13 @@ async fn eval_post_constraint_analysis<'v>(
                 ("params", params),
             ];
 
-            let post_constraint_analysis_result = eval.eval_function(
-                cfg_constructor_post_constraint_analysis,
-                &[],
-                &post_constraint_analysis_args,
-            )?;
+            let post_constraint_analysis_result = eval
+                .eval_function(
+                    cfg_constructor_post_constraint_analysis,
+                    &[],
+                    &post_constraint_analysis_args,
+                )
+                .map_err(BuckStarlarkError::new)?;
 
             // Type check + unpack
             <&PlatformInfo>::unpack_value_err(post_constraint_analysis_result)?.to_configuration()

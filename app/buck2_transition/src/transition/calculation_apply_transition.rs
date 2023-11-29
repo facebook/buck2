@@ -24,6 +24,7 @@ use buck2_core::target::label::TargetLabel;
 use buck2_error::Context;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
+use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -87,7 +88,9 @@ fn call_transition_function<'v>(
     if let Some(attrs) = attrs {
         args.push(("attrs", attrs));
     }
-    let new_platforms = eval.eval_function(transition.implementation.to_value(), &[], &args)?;
+    let new_platforms = eval
+        .eval_function(transition.implementation.to_value(), &[], &args)
+        .map_err(BuckStarlarkError::new)?;
     if transition.split {
         match DictOf::<&str, &PlatformInfo>::unpack_value(new_platforms) {
             Some(dict) => {

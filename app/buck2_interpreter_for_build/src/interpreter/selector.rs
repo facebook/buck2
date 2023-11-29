@@ -11,6 +11,7 @@ use std::fmt;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_interpreter::error::BuckStarlarkError;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::collections::SmallMap;
@@ -89,6 +90,7 @@ impl<'v> StarlarkSelector<'v> {
             val: Value<'v>,
         ) -> anyhow::Result<Value<'v>> {
             eval.eval_function(func, &[val], &[])
+                .map_err(|e| BuckStarlarkError::new(e).into())
         }
 
         if let Some(selector) = StarlarkSelector::from_value(val) {
@@ -125,7 +127,8 @@ impl<'v> StarlarkSelector<'v> {
             func: Value<'v>,
             val: Value<'v>,
         ) -> anyhow::Result<bool> {
-            eval.eval_function(func, &[val], &[])?
+            eval.eval_function(func, &[val], &[])
+                .map_err(BuckStarlarkError::new)?
                 .unpack_bool()
                 .ok_or_else(|| {
                     anyhow::anyhow!("Expected testing function to have a boolean return type")

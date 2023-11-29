@@ -29,6 +29,7 @@ use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
+use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
@@ -382,6 +383,7 @@ pub fn get_user_defined_rule_impl(
                 (FROZEN_RULE_GET_IMPL.get()?)(rule_callable)?
             };
             eval.eval_function(rule_impl.to_value(), &[ctx.to_value()], &[])
+                .map_err(|e| BuckStarlarkError::new(e).into())
         }
     }
 

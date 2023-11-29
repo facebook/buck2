@@ -58,6 +58,7 @@ use buck2_events::dispatch::with_dispatcher_async;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
+use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
@@ -576,7 +577,8 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
                                             dynamic_lambda_ctx_data.outputs,
                                         ],
                                         &[],
-                                    )?;
+                                    )
+                                    .map_err(BuckStarlarkError::new)?;
 
                                     (
                                         ctx.take_state_dynamic()?,

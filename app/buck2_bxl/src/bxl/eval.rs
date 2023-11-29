@@ -37,6 +37,7 @@ use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
+use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::load_module::InterpreterCalculation;
@@ -361,23 +362,31 @@ fn eval_bxl<'a>(
         Err(e) => e,
     };
 
-    if force_print_stacktrace {
-        return Err(e);
-    }
-    if let Some(diag) = e.downcast_ref::<Diagnostic>() {
-        if let Some(fail_no_stacktrace) = diag.message.downcast_ref::<BxlErrorWithoutStacktrace>() {
-            let dispatcher = get_dispatcher();
-            dispatcher.instant_event(StarlarkFailNoStacktrace {
-                trace: format!("{}", diag),
-            });
-            dispatcher.console_message(
-                "Re-run the script with `-v5` to show the full stacktrace".to_owned(),
-            );
-            return Err((fail_no_stacktrace.clone()).into());
-        }
+    let should_skip_backtrace = !force_print_stacktrace
+        && match e.kind() {
+            starlark::ErrorKind::Other(e) => {
+                let e = if let Some(diag) = e.downcast_ref::<Diagnostic>() {
+                    &diag.message
+                } else {
+                    e
+                };
+                e.downcast_ref::<BxlErrorWithoutStacktrace>().is_some()
+            }
+            _ => false,
+        };
+
+    let mut e = BuckStarlarkError::new(e);
+    if should_skip_backtrace {
+        let dispatcher = get_dispatcher();
+        dispatcher.instant_event(StarlarkFailNoStacktrace {
+            trace: format!("{}", e),
+        });
+        dispatcher
+            .console_message("Re-run the script with `-v5` to show the full stacktrace".to_owned());
+        e.set_print_stacktrace(false);
     }
 
-    Err(e)
+    Err(e.into())
 }
 
 #[derive(Debug, buck2_error::Error)]

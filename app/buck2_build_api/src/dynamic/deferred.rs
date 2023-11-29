@@ -23,6 +23,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::DigestConfig;
+use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use dice::DiceComputations;
@@ -239,7 +240,8 @@ impl Deferred for DynamicLambda {
                         dynamic_lambda_ctx_data.outputs,
                     ],
                     &[],
-                )?;
+                )
+                .map_err(BuckStarlarkError::new)?;
                 ctx.assert_no_promises()?;
 
                 (ctx.take_state(), dynamic_lambda_ctx_data.declared_outputs)

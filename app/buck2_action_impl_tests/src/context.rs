@@ -89,7 +89,9 @@ fn run_ctx_test(
         DigestConfig::testing_default(),
     ));
 
-    let returned = eval.eval_function(test_function, &[ctx], &[]);
+    let returned = eval
+        .eval_function(test_function, &[ctx], &[])
+        .map_err(starlark::Error::into_anyhow);
     result_handler(returned)
 }
 

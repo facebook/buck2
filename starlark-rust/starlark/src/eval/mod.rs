@@ -147,7 +147,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         function: Value<'v>,
         positional: &[Value<'v>],
         named: &[(&str, Value<'v>)],
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         let names = named.map(|(s, _)| (Symbol::new(s), self.heap().alloc_str(s)));
         let named = named.map(|x| x.1);
         let params = Arguments(ArgumentsFull {
@@ -162,5 +162,6 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         self.with_call_stack(Value::new_none(), None, |this| {
             function.invoke(&params, this)
         })
+        .map_err(Into::into)
     }
 }
