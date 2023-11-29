@@ -29,6 +29,7 @@ use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use dice::DiceTransaction;
 use dupe::Dupe;
+use dupe::OptionDupedExt;
 use starlark::analysis::AstModuleLint;
 use starlark::codemap::FileSpan;
 use starlark::errors::EvalSeverity;
@@ -98,14 +99,14 @@ async fn lint_file(
         Err(err) => {
             // There was a parse error, so we don't want to fail, we want to give a nice error message
             // Do the best we can - it is probably a `Diagnostic`, which gives us more precise info.
-            let (diag, message) = err.get_diagnostic_and_message();
             Ok(vec![Lint {
-                location: diag
-                    .and_then(|d| d.span.dupe())
+                location: err
+                    .span()
+                    .duped()
                     .unwrap_or_else(|| FileSpan::new(path_str, content)),
                 short_name: "parse_error".to_owned(),
                 severity: EvalSeverity::Error,
-                problem: format!("{:#}", message),
+                problem: format!("{:#}", err.without_diagnostic()),
                 original: "".to_owned(),
             }])
         }

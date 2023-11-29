@@ -57,8 +57,7 @@ impl fmt::Debug for BuckStarlarkError {
         if self.print_stacktrace {
             fmt::Debug::fmt(&self.e, f)
         } else {
-            let (_, message) = self.e.get_diagnostic_and_message();
-            fmt::Debug::fmt(&message, f)
+            fmt::Debug::fmt(&self.e.without_diagnostic(), f)
         }
     }
 }
@@ -68,8 +67,7 @@ impl fmt::Display for BuckStarlarkError {
         if self.print_stacktrace {
             fmt::Display::fmt(&self.e, f)
         } else {
-            let (_, message) = self.e.get_diagnostic_and_message();
-            fmt::Debug::fmt(&message, f)
+            fmt::Debug::fmt(&self.e.without_diagnostic(), f)
         }
     }
 }

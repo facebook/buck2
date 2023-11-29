@@ -93,29 +93,16 @@ impl Error {
         anyhow::Error::new(Wrapped(self))
     }
 
-    /// Gets the diagnostic and the error message.
+    /// Returns a value that can be used to format this error without including the diagnostic
+    /// information
     ///
-    /// The error message does not include the diagnostic
-    pub fn get_diagnostic_and_message<'a>(
-        &'a self,
-    ) -> (Option<&'a Diagnostic>, impl fmt::Debug + fmt::Display + 'a) {
-        trait DebugAndDisplay: fmt::Debug + fmt::Display {}
-        impl<T: fmt::Debug + fmt::Display> DebugAndDisplay for T {}
-
-        if self.0.diagnostic.is_some() {
-            return (
-                self.0.diagnostic.as_ref(),
-                &self.0.kind as &dyn DebugAndDisplay,
-            );
-        }
-
-        (None, &self.0.kind as &dyn DebugAndDisplay)
+    /// This is the same as [`kind`](crate::Error::kind), just a bit more explicit.
+    pub fn without_diagnostic<'a>(&'a self) -> impl fmt::Debug + fmt::Display + 'a {
+        &self.0.kind
     }
 
     pub fn span(&self) -> Option<&FileSpan> {
-        self.get_diagnostic_and_message()
-            .0
-            .and_then(|d| d.span.as_ref())
+        self.0.diagnostic.as_ref().and_then(|d| d.span.as_ref())
     }
 
     fn ensure_diagnostic(&mut self) -> &mut Diagnostic {
@@ -148,10 +135,9 @@ impl Error {
     /// so you might prefer to use `eprintln!("{:#}"), err)` if you suspect there is useful context
     /// (although you won't get pretty colors).
     pub fn eprint(&self) {
-        let (diag, message) = self.get_diagnostic_and_message();
-        if let Some(diag) = diag {
+        if let Some(diag) = &self.0.diagnostic {
             let mut stderr = String::new();
-            diagnostic_display(message, diag, true, &mut stderr, true).unwrap();
+            diagnostic_display(self.without_diagnostic(), diag, true, &mut stderr, true).unwrap();
             eprint!("{}", stderr);
         } else {
             eprintln!("{:#}", self)
@@ -161,13 +147,12 @@ impl Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let (diag, message) = self.get_diagnostic_and_message();
-        if let Some(diag) = diag {
+        if let Some(diag) = &self.0.diagnostic {
             // Not showing the context trace without `{:#}` or `{:?}` is the same thing that anyhow does
             let with_context = f.alternate() && self.0.kind.source().is_some();
-            diagnostic_display(message, diag, false, f, with_context)
+            diagnostic_display(self.without_diagnostic(), diag, false, f, with_context)
         } else {
-            fmt::Display::fmt(self.kind(), f)
+            fmt::Display::fmt(&self.without_diagnostic(), f)
         }
     }
 }

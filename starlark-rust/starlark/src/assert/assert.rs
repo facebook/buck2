@@ -445,7 +445,7 @@ impl<'a> Assert<'a> {
             // fail("bad") # error: magic
             // Then when we print the source code, magic is contained in the error message.
             // Therefore, find the internals.
-            let (_, inner) = original.get_diagnostic_and_message();
+            let inner = original.without_diagnostic();
             let err_msg = format!("{:#}", inner);
             for msg in msgs {
                 if !err_msg.contains(msg) {

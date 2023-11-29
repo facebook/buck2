@@ -147,11 +147,8 @@ impl Display for EvalMessage {
 impl EvalMessage {
     /// Produce an `EvalMessage` from a `starlark::Error`
     pub fn from_error(file: &Path, err: &crate::Error) -> Self {
-        let (diag, message) = err.get_diagnostic_and_message();
-        if let Some(diag) = diag {
-            if let Some(span) = &diag.span {
-                return Self::from_diagnostic(span, message, err);
-            }
+        if let Some(span) = err.span() {
+            return Self::from_diagnostic(span, err.without_diagnostic(), err);
         }
         Self::from_any_error(file, err)
     }
