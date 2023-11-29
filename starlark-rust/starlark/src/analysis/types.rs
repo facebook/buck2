@@ -21,7 +21,6 @@ use std::path::Path;
 
 use dupe::Dupe;
 use serde::Serialize;
-use starlark_syntax::diagnostic::Diagnostic;
 use starlark_syntax::diagnostic::DiagnosticNoError;
 
 use crate::codemap::CodeMap;
@@ -151,27 +150,15 @@ impl EvalMessage {
     pub fn from_error(file: &Path, err: &crate::Error) -> Self {
         let (diag, message) = err.get_diagnostic_and_message();
         if let Some(diag) = diag {
-            Self::from_diagnostic_inner(file, diag, message, err)
+            Self::from_diagnostic(file, diag, message, err)
         } else {
             Self::from_any_error(file, err)
         }
     }
 
-    /// Convert from an `anyhow::Error` to an `EvalMessage`.
+    /// Create an `EvalMessage` from any kind of error
     ///
-    /// This will attempt to downcast the error to a `Diagnostic`.
-    ///
-    /// TODO(JakobDegen): Remove
-    pub fn from_anyhow(file: &Path, x: &anyhow::Error) -> Self {
-        match x.downcast_ref::<Diagnostic>() {
-            Some(d) => Self::from_diagnostic(file, d),
-            _ => Self::from_any_error(file, x),
-        }
-    }
-
-    /// Convert any error into an `EvalMessage`.
-    ///
-    /// TODO(JakobDegen): Make private
+    /// Prefer to use `from_error` if at all possible.
     pub fn from_any_error(file: &Path, x: &impl std::fmt::Display) -> Self {
         Self {
             path: file.display().to_string(),
@@ -184,14 +171,7 @@ impl EvalMessage {
         }
     }
 
-    /// Turn a diagnostic into an `EvalMessage`.
-    ///
-    /// TODO(JakobDegen): Remove
-    pub fn from_diagnostic(file: &Path, d: &Diagnostic) -> Self {
-        Self::from_diagnostic_inner(file, &d.data, &d.message, d)
-    }
-
-    fn from_diagnostic_inner(
+    fn from_diagnostic(
         file: &Path,
         d: &DiagnosticNoError,
         message: impl std::fmt::Display,
