@@ -151,7 +151,7 @@ impl<'v> Compiler<'v, '_, '_> {
         for step in rem {
             value = value
                 .get_attr_error(step.node, self.eval.heap())
-                .map_err(|e| EvalException::new_anyhow(e, step.span, &self.codemap))?;
+                .map_err(|e| EvalException::new(e, step.span, &self.codemap))?;
         }
         let mut span = first.span;
         if let Some(last) = rem.last() {

@@ -343,9 +343,12 @@ impl DapAdapter for DapAdapterImpl {
             }?;
 
             for p in access_path.iter() {
-                value = p.get(&value, eval.heap())?;
+                value = p
+                    .get(&value, eval.heap())
+                    .map_err(crate::Error::into_anyhow)?;
             }
             InspectVariableInfo::try_from_value(value, eval.heap())
+                .map_err(crate::Error::into_anyhow)
         }))
     }
 

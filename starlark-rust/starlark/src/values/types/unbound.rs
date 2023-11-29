@@ -36,7 +36,7 @@ pub(crate) enum MaybeUnboundValue {
 
 impl MaybeUnboundValue {
     /// Bind this object to given `this` value.
-    pub(crate) fn bind<'v>(self, this: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub(crate) fn bind<'v>(self, this: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         match self {
             MaybeUnboundValue::Method(m) => {
                 Ok(heap.alloc_complex(BoundMethodGen::new(this.to_value(), m)))

@@ -151,12 +151,12 @@ where
 
 /// A native function that can be evaluated.
 pub trait NativeAttr:
-    for<'v> Fn(Value<'v>, &'v Heap) -> anyhow::Result<Value<'v>> + Send + Sync + 'static
+    for<'v> Fn(Value<'v>, &'v Heap) -> crate::Result<Value<'v>> + Send + Sync + 'static
 {
 }
 
 impl<T> NativeAttr for T where
-    T: for<'v> Fn(Value<'v>, &'v Heap) -> anyhow::Result<Value<'v>> + Send + Sync + 'static
+    T: for<'v> Fn(Value<'v>, &'v Heap) -> crate::Result<Value<'v>> + Send + Sync + 'static
 {
 }
 
@@ -409,7 +409,7 @@ pub(crate) struct NativeAttribute {
 starlark_simple_value!(NativeAttribute);
 
 impl NativeAttribute {
-    pub(crate) fn call<'v>(&self, value: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub(crate) fn call<'v>(&self, value: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         (self.function)(value, heap)
     }
 }

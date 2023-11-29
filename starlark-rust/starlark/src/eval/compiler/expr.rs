@@ -1137,7 +1137,7 @@ pub(crate) fn get_attr_hashed_bind<'v>(
     x: Value<'v>,
     attribute: &Symbol,
     heap: &'v Heap,
-) -> anyhow::Result<Value<'v>> {
+) -> crate::Result<Value<'v>> {
     let aref = x.get_ref();
     if let Some(methods) = aref.vtable().methods() {
         if let Some(v) = methods.get_frozen_symbol(attribute) {
@@ -1145,7 +1145,7 @@ pub(crate) fn get_attr_hashed_bind<'v>(
         }
     }
     match aref.get_attr_hashed(attribute.as_str_hashed(), heap) {
-        None => Err(get_attr_no_attr_error(x, attribute)),
+        None => Err(get_attr_no_attr_error(x, attribute).into()),
         Some(x) => {
             // Only `get_methods` is allowed to return unbound methods or attributes.
             // Both types are crate private, so we assume `get_attr` never returns them.

@@ -351,13 +351,14 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
         #[starlark(require = pos)] attr: &str,
         #[starlark(require = pos)] default: Option<Value<'v>>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         // TODO(nga): this doesn't cache string hash, so it is suboptimal.
         match a.get_attr(attr, heap)? {
             Some(v) => Ok(v),
             None => match default {
                 Some(x) => Ok(x),
-                None => ValueError::unsupported_owned(a.get_type(), &format!(".{}", attr), None),
+                None => ValueError::unsupported_owned(a.get_type(), &format!(".{}", attr), None)
+                    .map_err(Into::into),
             },
         }
     }

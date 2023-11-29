@@ -421,7 +421,7 @@ impl MethodsBuilder {
         typ: Ty,
         f: F,
     ) where
-        F: for<'v> Fn(Value<'v>, &'v Heap) -> anyhow::Result<Value<'v>> + Send + Sync + 'static,
+        F: for<'v> Fn(Value<'v>, &'v Heap) -> crate::Result<Value<'v>> + Send + Sync + 'static,
     {
         self.members.insert(
             name,

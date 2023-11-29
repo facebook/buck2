@@ -124,7 +124,6 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
         InternalError::msg(message, span, self.ctx.codemap)
     }
 
-    #[allow(unused)] // TODO(JakobDegen): use
     fn err(&mut self, span: Span, e: crate::Error) -> GlobalValue<'v> {
         self.errors
             .push(TypingError::new(e, span, self.ctx.codemap));
@@ -191,7 +190,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
         if let Some(object) = object.value {
             match object.get_attr_error(field.as_str(), self.heap) {
                 Ok(v) => Ok(GlobalValue::value(v)),
-                Err(e) => Ok(self.err_anyhow(span, e)),
+                Err(e) => Ok(self.err(span, e)),
             }
         } else {
             Ok(GlobalValue::any())
@@ -522,7 +521,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
                 Err(e) => {
                     let span = first.span.merge(x.span);
                     self.errors
-                        .push(TypingError::new_anyhow(e, span, self.ctx.codemap));
+                        .push(TypingError::new(e, span, self.ctx.codemap));
                     return Ok(Some(Ty::any()));
                 }
             }

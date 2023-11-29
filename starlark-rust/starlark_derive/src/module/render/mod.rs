@@ -127,11 +127,13 @@ fn render_attr(x: StarAttr) -> syn::Stmt {
             ) -> #return_type {
                 #[allow(unused_variables)]
                 let this: #arg = match starlark::values::UnpackValue::unpack_value(this) {
-                    None => return Err(starlark::values::ValueError::IncorrectParameterTypeNamedWithExpected(
+                    // The `.into()` is an `anyhow -> anyhow` conversion if the return type is `anyhow`
+                    #[allow(clippy::useless_conversion)]
+                    None => return Err(anyhow::Error::new(starlark::values::ValueError::IncorrectParameterTypeNamedWithExpected(
                         "this".to_owned(),
                         <#arg as starlark::values::UnpackValue>::expected(),
                         this.get_type().to_owned(),
-                    ).into()),
+                    )).into()),
                     Some(v) => v,
                 };
                 #let_heap
@@ -143,7 +145,7 @@ fn render_attr(x: StarAttr) -> syn::Stmt {
                 #[allow(unused_variables)]
                 this: starlark::values::Value<'v>,
                 heap: &'v starlark::values::Heap,
-            ) -> anyhow::Result<starlark::values::Value<'v>> {
+            ) -> starlark::Result<starlark::values::Value<'v>> {
                 Ok(heap.alloc(#name_inner(this, heap)?))
             }
 

@@ -840,7 +840,7 @@ impl<'v> Value<'v> {
     }
 
     /// Return the attribute with the given name.
-    pub fn get_attr(self, attribute: &str, heap: &'v Heap) -> anyhow::Result<Option<Value<'v>>> {
+    pub fn get_attr(self, attribute: &str, heap: &'v Heap) -> crate::Result<Option<Value<'v>>> {
         let aref = self.get_ref();
         if let Some(methods) = aref.vtable().methods() {
             let attribute = Hashed::new(attribute);
@@ -854,10 +854,11 @@ impl<'v> Value<'v> {
     }
 
     /// Like `get_attr` but return an error if the attribute is not available.
-    pub fn get_attr_error(self, attribute: &str, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub fn get_attr_error(self, attribute: &str, heap: &'v Heap) -> crate::Result<Value<'v>> {
         match self.get_attr(attribute, heap)? {
             None => {
                 ValueError::unsupported_owned(self.get_type(), &format!(".{}", attribute), None)
+                    .map_err(Into::into)
             }
             Some(x) => Ok(x),
         }
