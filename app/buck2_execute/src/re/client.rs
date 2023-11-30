@@ -641,13 +641,7 @@ impl RemoteExecutionClientImpl {
                 re_client_config.features_config_path = static_metadata
                     .features_config_path
                     .as_deref()
-                    .unwrap_or(
-                        if static_metadata.use_zippy_rich_client && cfg!(target_os = "linux") {
-                            "remote_execution/features/client_buck2"
-                        } else {
-                            "remote_execution/features/client_buck2_alternative"
-                        },
-                    )
+                    .unwrap_or("remote_execution/features/client_buck2")
                     .to_owned();
 
                 re_client_config.disable_fallocate = static_metadata.disable_fallocate;
