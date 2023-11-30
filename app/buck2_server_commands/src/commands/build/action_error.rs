@@ -36,9 +36,9 @@ pub(crate) struct BuildReportActionError {
     name: BuildReportActionName,
     key: BuildReportActionKey,
     digest: String,
-    error_content: u64,
-    stderr_content: u64,
-    stdout_content: u64,
+    error_content: String,
+    stderr_content: String,
+    stdout_content: String,
 }
 
 impl BuildReportActionError {

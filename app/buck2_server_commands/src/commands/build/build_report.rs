@@ -68,7 +68,7 @@ pub(crate) struct BuildReport {
     failures: HashMap<EntryLabel, ProjectRelativePathBuf>,
     project_root: AbsNormPathBuf,
     truncated: bool,
-    strings: BTreeMap<u64, String>,
+    strings: BTreeMap<String, String>,
 }
 
 /// The fields that stored in the unconfigured `BuildReportEntry` for buck1 backcompat.
@@ -128,7 +128,7 @@ struct BuildReportEntry {
 struct BuildReportError {
     // TODO(@wendyy) - remove `message` field
     message: String,
-    message_content: u64,
+    message_content: String,
     action_error: Option<BuildReportActionError>,
     /// An opaque index that can be use to de-duplicate errors. Two errors with the same
     /// cause index have the same cause
@@ -153,7 +153,7 @@ pub(crate) struct BuildReportCollector<'a> {
     include_other_outputs: bool,
     error_cause_cache: HashMap<buck2_error::UniqueRootId, usize>,
     next_cause_index: usize,
-    strings: BTreeMap<u64, String>,
+    strings: BTreeMap<String, String>,
 }
 
 impl<'a> BuildReportCollector<'a> {
@@ -229,11 +229,11 @@ impl<'a> BuildReportCollector<'a> {
         }
     }
 
-    pub(crate) fn update_string_cache(&mut self, string: String) -> u64 {
+    pub(crate) fn update_string_cache(&mut self, string: String) -> String {
         let mut hasher = DefaultHasher::new();
         string.hash(&mut hasher);
-        let hash = hasher.finish();
-        self.strings.insert(hash, string);
+        let hash = hasher.finish().to_string();
+        self.strings.insert(hash.clone(), string);
         hash
     }
 

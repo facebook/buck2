@@ -39,7 +39,7 @@ BuildReport {
     # that might otherwise appear many times in the build report and cause an
     # unnecessary size increase. They keys are used in other fields in the build
     # report in reference to these strings.
-    strings: dict[u64, str],
+    strings: dict[str, str],
 
     # BUCK1 BACKCOMPAT ONLY!
     #
@@ -95,9 +95,9 @@ Error {
     # TO BE DEPRECATED
     message: str,
 
-    # The hash of the same stringified error message that is shown to the user on the
+    # The stringified hash of the same stringified error message that is shown to the user on the
     # console. The hash is stored as the key in the `strings` cache of the `BuildReport`
-    message_content: u64,
+    message_content: str,
 
     # Structured action error. Present only if the error was actually an action error
     action_error: Optional[ActionError],
@@ -118,14 +118,14 @@ ActionError {
     # Digest of the action
     digest: str,
 
-    # Hash of the stderr of the action
-    stderr: u64,
+    # Stringified hash of the stderr of the action
+    stderr: str,
 
-    # Hash of the stdout of the action
-    stdout: u64,
+    # Stringified hash of the stdout of the action
+    stdout: str,
 
-    # Hash of the same stringified error message that is provided by the action
-    error: u64,
+    # Stringified hash of the same stringified error message that is provided by the action
+    error: str,
 }
 
 ActionKey {
