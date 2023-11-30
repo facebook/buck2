@@ -17,7 +17,14 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use starlark::environment::Module;
 use starlark::values::Heap;
 
+/// Result of query evaluation from queries referenced in target nodes.
+///
+/// Queries are:
+/// * `attrs.query()` queries
+/// * macro queries like `$(query_outputs ...)`
 pub struct AnalysisQueryResult {
+    // TODO(nga): we perform analysis even when providers are not needed,
+    //   for example, `$(query_targets ...)` only needs target labels.
     pub result: Vec<(ConfiguredTargetLabel, FrozenProviderCollectionValue)>,
 }
 
