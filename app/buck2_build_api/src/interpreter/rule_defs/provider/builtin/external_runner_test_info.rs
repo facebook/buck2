@@ -230,7 +230,7 @@ fn iter_test_command<'v>(
         }
 
         let arglike = ValueAsCommandLineLike::unpack_value_err(item)
-            .context("Invalid item in `command`")?
+            .with_context(|| format!("Invalid item in `command`: {}", item))?
             .0;
 
         Ok(TestCommandMember::Arglike(arglike))
