@@ -20,7 +20,6 @@ itertools = { workspace = true }
 once_cell = { workspace = true }
 parking_lot = { workspace = true }
 relative-path = { workspace = true }
-serde = { workspace = true }
 serde_json = { workspace = true }
 sha1 = { workspace = true }
 tracing = { workspace = true }

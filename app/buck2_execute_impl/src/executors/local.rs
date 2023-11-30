@@ -818,7 +818,7 @@ pub async fn materialize_inputs(
                 CleanOutputPaths::clean(std::iter::once(path.as_ref()), artifact_fs.fs())?;
                 artifact_fs
                     .fs()
-                    .write_file(&path, &metadata.data.0, false)?;
+                    .write_file(&path, &metadata.data.0.0, false)?;
             }
             CommandExecutionInput::ScratchPath(path) => {
                 let path = artifact_fs.buck_out_path_resolver().resolve_scratch(path);

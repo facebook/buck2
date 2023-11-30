@@ -7,63 +7,35 @@
  * of this source tree.
  */
 
-use std::fmt::Display;
-
 use buck2_build_api::artifact_groups::ArtifactGroupValues;
-use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::Directory;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryMember;
-use buck2_execute::execute::request::ActionMetadataBlobData;
-use serde::Serialize;
-use serde::Serializer;
-
-fn stringify<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
-where
-    T: Display,
-    S: Serializer,
-{
-    serializer.collect_str(value)
-}
+use buck2_execute::execute::paths_with_digest::PathsWithDigestBlobData;
+use buck2_execute::execute::paths_with_digest::PathsWithDigestBuilder;
 
 pub(crate) fn metadata_content(
     fs: &ArtifactFs,
     inputs: &[&ArtifactGroupValues],
     digest_config: DigestConfig,
-) -> anyhow::Result<(ActionMetadataBlobData, TrackedFileDigest)> {
+) -> anyhow::Result<(PathsWithDigestBlobData, TrackedFileDigest)> {
+    let mut blob_builder = PathsWithDigestBuilder::default();
+
     let mut builder = ActionDirectoryBuilder::empty();
     for &group in inputs {
         group.add_to_directory(&mut builder, fs)?;
     }
 
-    #[derive(Serialize)]
-    struct PathWithDigest<'a> {
-        path: ForwardRelativePathBuf,
-        #[serde(serialize_with = "stringify")]
-        digest: &'a FileDigest,
-    }
-
-    #[derive(Serialize)]
-    struct MetadataJson<'a> {
-        version: i32,
-        digests: Vec<PathWithDigest<'a>>,
-    }
-
-    let mut digests = Vec::new();
     let mut walk = builder.ordered_walk();
     while let Some((path, item)) = walk.next() {
         match item {
             DirectoryEntry::Leaf(ActionDirectoryMember::File(metadata)) => {
-                digests.push(PathWithDigest {
-                    path: path.get(),
-                    digest: metadata.digest.data(),
-                });
+                blob_builder.add(path.get(), metadata.digest.data());
             }
             // Omit symlinks and let user script detect and handle symlinks in inputs.
             // Metadata will contain artifacts which are symlinked, meaning the user
@@ -75,13 +47,8 @@ pub(crate) fn metadata_content(
         }
     }
 
-    let json = MetadataJson {
-        digests,
-        // Increment this version if format changes
-        version: 1,
-    };
-    let json_string = serde_json::to_string(&json)?;
-    let digest =
-        TrackedFileDigest::from_content(json_string.as_bytes(), digest_config.cas_digest_config());
-    Ok((ActionMetadataBlobData::from_json(json_string), digest))
+    let blob = blob_builder.build()?;
+
+    let digest = TrackedFileDigest::from_content(&blob.0.0, digest_config.cas_digest_config());
+    Ok((blob, digest))
 }

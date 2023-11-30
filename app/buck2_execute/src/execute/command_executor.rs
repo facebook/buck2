@@ -34,11 +34,11 @@ use crate::execute::cache_uploader::DepFileEntry;
 use crate::execute::cache_uploader::UploadCache;
 use crate::execute::executor_stage;
 use crate::execute::manager::CommandExecutionManager;
+use crate::execute::paths_with_digest::PathsWithDigestBlobData;
 use crate::execute::prepared::PreparedAction;
 use crate::execute::prepared::PreparedCommand;
 use crate::execute::prepared::PreparedCommandExecutor;
 use crate::execute::prepared::PreparedCommandOptionalExecutor;
-use crate::execute::request::ActionMetadataBlobData;
 use crate::execute::request::CommandExecutionInput;
 use crate::execute::request::CommandExecutionRequest;
 use crate::execute::request::ExecutorPreference;
@@ -201,7 +201,7 @@ fn re_create_action(
     workdir: Option<String>,
     environment: &SortedVectorMap<String, String>,
     input_digest: &TrackedFileDigest,
-    blobs: impl IntoIterator<Item = (ActionMetadataBlobData, TrackedFileDigest)>,
+    blobs: impl IntoIterator<Item = (PathsWithDigestBlobData, TrackedFileDigest)>,
     timeout: Option<Duration>,
     platform: RE::Platform,
     do_not_cache: bool,
@@ -271,7 +271,7 @@ fn re_create_action(
     let mut action_and_blobs = ActionDigestAndBlobsBuilder::new(digest_config);
 
     for (data, digest) in blobs {
-        action_and_blobs.add_blob(digest, data);
+        action_and_blobs.add_blob(digest, data.0);
     }
 
     let mut action = RE::Action {
