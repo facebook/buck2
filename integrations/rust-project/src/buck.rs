@@ -287,7 +287,12 @@ impl Buck {
     }
 
     pub fn command(&self) -> Command {
-        Command::new("buck2")
+        let mut cmd = Command::new("buck2");
+
+        cmd.env_remove("RUST_BACKTRACE")
+            .env_remove("RUST_LIB_BACKTRACE");
+
+        cmd
     }
 
     /// Return the absolute path of the current Buck project root.
