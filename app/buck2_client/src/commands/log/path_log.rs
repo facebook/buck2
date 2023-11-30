@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::subscribers::event_log::file_names::retrieve_all_logs;
@@ -34,7 +35,7 @@ impl PathLogCommand {
 
         ctx.with_runtime(async move |ctx| {
             let paths = if all {
-                retrieve_all_logs(&ctx)?
+                retrieve_all_logs(ctx.paths().context("Error identifying log dir")?)?
             } else {
                 vec![event_log_options.get(&ctx).await?]
             };

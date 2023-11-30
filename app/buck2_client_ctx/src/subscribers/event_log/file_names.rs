@@ -8,6 +8,7 @@
  */
 
 use anyhow::Context;
+use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -19,7 +20,6 @@ use chrono::Utc;
 use futures::StreamExt;
 use gazebo::prelude::VecExt;
 
-use crate::client_ctx::ClientCommandContext;
 use crate::subscribers::event_log::read::EventLogPathBuf;
 use crate::subscribers::event_log::utils::Encoding;
 use crate::subscribers::event_log::utils::EventLogErrors;
@@ -107,10 +107,10 @@ pub fn do_find_log_by_trace_id(
 }
 
 pub fn retrieve_nth_recent_log(
-    ctx: &ClientCommandContext,
+    paths: &InvocationPaths,
     n: usize,
 ) -> anyhow::Result<EventLogPathBuf> {
-    let log_dir = ctx.paths().context("Error identifying log dir")?.log_dir();
+    let log_dir = paths.log_dir();
     let mut logfiles = get_local_logs(&log_dir)?;
     logfiles.reverse(); // newest first
     let chosen = logfiles
@@ -123,7 +123,7 @@ pub fn retrieve_nth_recent_log(
     Ok(chosen.clone())
 }
 
-pub fn retrieve_all_logs(ctx: &ClientCommandContext) -> anyhow::Result<Vec<EventLogPathBuf>> {
-    let log_dir = ctx.paths().context("Error identifying log dir")?.log_dir();
+pub fn retrieve_all_logs(paths: &InvocationPaths) -> anyhow::Result<Vec<EventLogPathBuf>> {
+    let log_dir = paths.log_dir();
     get_local_logs(&log_dir)
 }

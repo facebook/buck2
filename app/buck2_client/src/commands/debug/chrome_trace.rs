@@ -956,9 +956,12 @@ impl ChromeTraceCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         let log = match self.path {
             Some(path) => path.resolve(&ctx.working_dir),
-            None => retrieve_nth_recent_log(&ctx, self.recent.unwrap_or(0))?
-                .path()
-                .to_owned(),
+            None => retrieve_nth_recent_log(
+                ctx.paths().context("Error identifying log dir")?,
+                self.recent.unwrap_or(0),
+            )?
+            .path()
+            .to_owned(),
         };
 
         let trace_path = self.trace_path.resolve(&ctx.working_dir);

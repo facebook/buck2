@@ -75,7 +75,10 @@ impl EventLogOptions {
                 return Err(EventLogOptionsError::LogNotFoundLocally(id.dupe()).into());
             }
         } else {
-            retrieve_nth_recent_log(ctx, self.recent.unwrap_or(0))
+            retrieve_nth_recent_log(
+                ctx.paths().context("Error identifying log dir")?,
+                self.recent.unwrap_or(0),
+            )
         }
     }
 
