@@ -159,6 +159,7 @@ const manualSidebar = [
         label: 'User Guide',
         items: [
           'developers/bxl_getting_started',
+          'developers/bxl_basics',
           'developers/bxl_how_tos',
           'developers/target_universe',
           'developers/bxl_telemetry',
