@@ -96,6 +96,7 @@ pub trait UnregisteredAction: Allocative {
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozenValue>,
+        error_handler: Option<OwnedFrozenValue>,
     ) -> anyhow::Result<Box<dyn Action>>;
 }
 
@@ -152,6 +153,11 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
 
     fn aquery_attributes(&self, _fs: &ExecutorFs) -> IndexMap<String, String> {
         indexmap! {}
+    }
+
+    /// error handler
+    fn error_handler(&self) -> Option<OwnedFrozenValue> {
+        None
     }
 
     // TODO this probably wants more data for execution, like printing a short_name and the target
@@ -391,8 +397,12 @@ impl ActionToBeRegistered {
         }
     }
 
-    fn register(self, starlark_data: Option<OwnedFrozenValue>) -> anyhow::Result<Box<dyn Action>> {
+    fn register(
+        self,
+        starlark_data: Option<OwnedFrozenValue>,
+        error_handler: Option<OwnedFrozenValue>,
+    ) -> anyhow::Result<Box<dyn Action>> {
         self.action
-            .register(self.inputs, self.outputs, starlark_data)
+            .register(self.inputs, self.outputs, starlark_data, error_handler)
     }
 }

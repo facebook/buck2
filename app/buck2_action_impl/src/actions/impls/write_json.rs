@@ -91,6 +91,7 @@ impl UnregisteredAction for UnregisteredWriteJsonAction {
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozenValue>,
+        _error_handler: Option<OwnedFrozenValue>,
     ) -> anyhow::Result<Box<dyn Action>> {
         let contents = starlark_data.expect("module data to be present");
         let action = WriteJsonAction::new(contents, inputs, outputs, self.pretty)?;

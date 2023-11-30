@@ -205,12 +205,17 @@ impl<'v> AnalysisRegistry<'v> {
         outputs: IndexSet<OutputArtifact>,
         action: A,
         associated_value: Option<Value<'v>>,
+        error_handler: Option<Value<'v>>,
     ) -> anyhow::Result<()> {
         let id = self
             .actions
             .register(&mut self.deferred, inputs, outputs, action)?;
         if let Some(value) = associated_value {
             self.analysis_value_storage.set_value(id, value);
+        }
+
+        if let Some(value) = error_handler {
+            self.analysis_value_storage.set_error_handler(id, value);
         }
         Ok(())
     }
@@ -347,6 +352,7 @@ impl<'v> ArtifactDeclaration<'v> {
 #[derive(Debug, Allocative)]
 struct AnalysisValueStorage<'v> {
     values: HashMap<DeferredId, Value<'v>>,
+    error_handlers: HashMap<DeferredId, Value<'v>>,
 }
 
 unsafe impl<'v> Trace<'v> for AnalysisValueStorage<'v> {
@@ -371,6 +377,7 @@ impl<'v> AnalysisValueStorage<'v> {
     fn new() -> Self {
         Self {
             values: HashMap::new(),
+            error_handlers: HashMap::new(),
         }
     }
 
@@ -380,11 +387,21 @@ impl<'v> AnalysisValueStorage<'v> {
             let starlark_key = format!("$action_key_{}", id);
             module.set(&starlark_key, *v);
         }
+
+        for (id, v) in self.error_handlers.iter() {
+            let starlark_key = format!("$error_handler_for_action_key_{}", id);
+            module.set(&starlark_key, *v);
+        }
     }
 
     /// Add a value to the internal hash map that maps ids -> values
     fn set_value(&mut self, id: DeferredId, value: Value<'v>) {
         self.values.insert(id, value);
+    }
+
+    /// Add a error handler value to the internal hash map that maps ids -> error handlers
+    fn set_error_handler(&mut self, id: DeferredId, value: Value<'v>) {
+        self.error_handlers.insert(id, value);
     }
 }
 
@@ -395,6 +412,22 @@ impl AnalysisValueFetcher {
             None => Ok(None),
             Some(module) => {
                 let starlark_key = format!("$action_key_{}", id);
+                // This return `Err` is the symbol is private.
+                // It is never private, but error is better than panic.
+                module.get_option(&starlark_key)
+            }
+        }
+    }
+
+    /// Get the `OwnedFrozenValue` that corresponds to a `DeferredId`, if present
+    pub(crate) fn get_error_handler(
+        &self,
+        id: DeferredId,
+    ) -> anyhow::Result<Option<OwnedFrozenValue>> {
+        match &self.frozen_module {
+            None => Ok(None),
+            Some(module) => {
+                let starlark_key = format!("$error_handler_for_action_key_{}", id);
                 // This return `Err` is the symbol is private.
                 // It is never private, but error is better than panic.
                 module.get_option(&starlark_key)

@@ -161,6 +161,7 @@ impl UnregisteredAction for UnregisteredSymlinkedDirAction {
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozenValue>,
+        _error_handler: Option<OwnedFrozenValue>,
     ) -> anyhow::Result<Box<dyn Action>> {
         Ok(Box::new(SymlinkedDirAction {
             copy: self.copy,

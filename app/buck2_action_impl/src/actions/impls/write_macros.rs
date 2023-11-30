@@ -59,6 +59,7 @@ impl UnregisteredAction for UnregisteredWriteMacrosToFileAction {
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozenValue>,
+        _error_handler: Option<OwnedFrozenValue>,
     ) -> anyhow::Result<Box<dyn Action>> {
         let contents = starlark_data.expect("Action data should be present");
         let action = WriteMacrosToFileAction::new(self.identifier, contents, inputs, outputs)?;

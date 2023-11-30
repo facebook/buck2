@@ -175,10 +175,11 @@ impl UnregisteredAction for UnregisteredRunAction {
         _: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozenValue>,
+        error_handler: Option<OwnedFrozenValue>,
     ) -> anyhow::Result<Box<dyn Action>> {
         let starlark_values =
             starlark_data.context("module data to be present (internal error)")?;
-        let run_action = RunAction::new(*self, starlark_values, outputs)?;
+        let run_action = RunAction::new(*self, starlark_values, outputs, error_handler)?;
         Ok(Box::new(run_action))
     }
 }
@@ -235,6 +236,7 @@ pub(crate) struct RunAction {
     inner: UnregisteredRunAction,
     starlark_values: OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>,
     outputs: BoxSliceSet<BuildArtifact>,
+    error_handler: Option<OwnedFrozenValue>,
 }
 
 impl RunAction {
@@ -337,6 +339,7 @@ impl RunAction {
         inner: UnregisteredRunAction,
         starlark_values: OwnedFrozenValue,
         outputs: IndexSet<BuildArtifact>,
+        error_handler: Option<OwnedFrozenValue>,
     ) -> anyhow::Result<Self> {
         let starlark_values = match starlark_values.downcast() {
             Ok(starlark_values) => starlark_values,
@@ -354,6 +357,7 @@ impl RunAction {
             inner,
             starlark_values,
             outputs: BoxSliceSet::from(outputs),
+            error_handler,
         })
     }
 
@@ -603,6 +607,10 @@ impl Action for RunAction {
             "allow_cache_upload".to_owned() => self.inner.allow_cache_upload.to_string(),
             "allow_dep_file_cache_upload".to_owned() => self.inner.allow_dep_file_cache_upload.to_string(),
         }
+    }
+
+    fn error_handler(&self) -> Option<OwnedFrozenValue> {
+        self.error_handler.clone()
     }
 }
 

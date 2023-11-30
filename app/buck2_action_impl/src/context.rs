@@ -165,7 +165,7 @@ fn create_dir_tree<'v>(
     let mut this = this.state();
     let (declaration, output_artifact) =
         this.get_or_declare_output(eval, output, OutputType::Directory)?;
-    this.register_action(inputs, indexset![output_artifact], action, None)?;
+    this.register_action(inputs, indexset![output_artifact], action, None, None)?;
 
     Ok(declaration.into_declared_artifact(unioned_associated_artifacts))
 }
@@ -189,6 +189,7 @@ fn copy_file_impl<'v>(
         indexset![artifact],
         indexset![output_artifact],
         UnregisteredCopyAction::new(copy),
+        None,
         None,
     )?;
 
@@ -290,6 +291,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             indexset![output_artifact],
             UnregisteredWriteJsonAction::new(pretty),
             Some(content),
+            None,
         )?;
 
         let value = declaration.into_declared_artifact(AssociatedArtifacts::new());
@@ -451,6 +453,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
                 written_macro_files.iter().map(|a| a.as_output()).collect(),
                 action,
                 Some(eval.heap().alloc(content_cli)),
+                None,
             )?;
 
             written_macro_files
@@ -479,6 +482,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             indexset![output_artifact],
             action,
             Some(content_cli),
+            None,
         )?;
 
         if allow_args {
@@ -665,6 +669,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             Either<ValueOf<'v, &'v WorkerRunInfo<'v>>, ValueOf<'v, &'v RunInfo<'v>>>,
         >,
         #[starlark(require = named, default = false)] unique_input_inodes: bool,
+        #[starlark(require = named)] error_handler: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<NoneType> {
         struct RunCommandArtifactVisitor {
@@ -850,6 +855,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             artifacts.outputs,
             action,
             Some(starlark_values),
+            error_handler,
         )?;
         Ok(NoneType)
     }
@@ -894,6 +900,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
                 is_executable,
                 is_deferrable,
             ),
+            None,
             None,
         )?;
 
@@ -954,6 +961,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
                 executable: is_executable,
                 kind,
             },
+            None,
             None,
         )?;
 
