@@ -27,6 +27,7 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_core::soft_error;
 use buck2_events::BuckEvent;
+use buck2_util::cleanup_ctx::AsyncCleanupContext;
 use buck2_wrapper_common::invocation_id::TraceId;
 use futures::future::Future;
 use futures::FutureExt;
@@ -37,7 +38,6 @@ use tokio::fs::OpenOptions;
 use tokio::io::AsyncWrite;
 use tokio::io::AsyncWriteExt;
 
-use crate::cleanup_ctx::AsyncCleanupContext;
 use crate::subscribers::event_log::file_names::get_logfile_name;
 use crate::subscribers::event_log::file_names::remove_old_logs;
 use crate::subscribers::event_log::read::EventLogPathBuf;

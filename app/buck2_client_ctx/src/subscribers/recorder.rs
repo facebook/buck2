@@ -42,6 +42,7 @@ mod imp {
     use buck2_event_observer::last_command_execution_kind::LastCommandExecutionKind;
     use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
     use buck2_events::BuckEvent;
+    use buck2_util::cleanup_ctx::AsyncCleanupContext;
     use buck2_wrapper_common::invocation_id::TraceId;
     use dupe::Dupe;
     use fbinit::FacebookInit;
@@ -51,7 +52,6 @@ mod imp {
     use termwiz::istty::IsTty;
 
     use crate::build_count::BuildCountManager;
-    use crate::cleanup_ctx::AsyncCleanupContext;
     use crate::subscribers::observer::ErrorObserver;
     use crate::subscribers::recorder::system_memory_stats;
     use crate::subscribers::subscriber::EventSubscriber;
