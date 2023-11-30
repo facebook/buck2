@@ -13,6 +13,7 @@ use allocative::Allocative;
 use buck2_data::ActionErrorLocation;
 use buck2_data::ActionErrorLocations;
 use buck2_data::ActionSubError;
+use buck2_data::CommandExecution;
 use derive_more::Display;
 use display_container::fmt_container;
 use starlark::environment::Methods;
@@ -49,6 +50,24 @@ use starlark::StarlarkDocs;
 pub struct StarlarkActionErrorContext {
     stderr: String,
     stdout: String,
+}
+
+impl StarlarkActionErrorContext {
+    #[allow(unused)]
+    fn new_from_command_execution(command: Option<&CommandExecution>) -> Self {
+        let stderr = command.map_or(String::default(), |c| {
+            c.details
+                .as_ref()
+                .map_or(String::default(), |c| c.stderr.clone())
+        });
+        let stdout = command.map_or(String::default(), |c| {
+            c.details
+                .as_ref()
+                .map_or(String::default(), |c| c.stdout.clone())
+        });
+
+        StarlarkActionErrorContext { stderr, stdout }
+    }
 }
 
 starlark_simple_value!(StarlarkActionErrorContext);
