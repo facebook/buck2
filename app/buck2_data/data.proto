@@ -1738,8 +1738,9 @@ message InvocationRecord {
   repeated ProcessedErrorReport errors = 79;
   // Cache hit rate as it appears in the console
   float cache_hit_rate = 78;
-
   repeated string target_rule_type_names = 80;
+  // Time elapsed from a build's start until first test discovery begins.
+  optional uint64 time_to_first_test_discovery_ms = 81;
 }
 
 // Record event sent directly to scribe.

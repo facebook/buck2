@@ -103,6 +103,7 @@ mod imp {
         time_to_first_analysis: Option<Duration>,
         time_to_load_first_build_file: Option<Duration>,
         time_to_first_command_execution_start: Option<Duration>,
+        time_to_first_test_discovery: Option<Duration>,
         system_total_memory_bytes: Option<u64>,
         file_watcher_stats: Option<buck2_data::FileWatcherStats>,
         time_to_last_action_execution_end: Option<Duration>,
@@ -195,6 +196,7 @@ mod imp {
                 time_to_first_analysis: None,
                 time_to_load_first_build_file: None,
                 time_to_first_command_execution_start: None,
+                time_to_first_test_discovery: None,
                 system_total_memory_bytes: Some(system_memory_stats()),
                 file_watcher_stats: None,
                 time_to_last_action_execution_end: None,
@@ -355,6 +357,9 @@ mod imp {
                     .and_then(|d| u64::try_from(d.as_millis()).ok()),
                 time_to_first_command_execution_start_ms: self
                     .time_to_first_command_execution_start
+                    .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                time_to_first_test_discovery_ms: self
+                    .time_to_first_test_discovery
                     .and_then(|d| u64::try_from(d.as_millis()).ok()),
                 system_total_memory_bytes: self.system_total_memory_bytes,
                 file_watcher_stats: self.file_watcher_stats.take(),
@@ -706,6 +711,16 @@ mod imp {
             Ok(())
         }
 
+        fn handle_test_discovery_start(
+            &mut self,
+            _test_discovery: &buck2_data::TestDiscoveryStart,
+            _event: &BuckEvent,
+        ) -> anyhow::Result<()> {
+            self.time_to_first_test_discovery
+                .get_or_insert_with(|| self.start_time.elapsed());
+            Ok(())
+        }
+
         fn handle_build_graph_info(
             &mut self,
             info: &buck2_data::BuildGraphExecutionInfo,
@@ -920,6 +935,9 @@ mod imp {
                         }
                         buck2_data::span_start_event::Data::ExecutorStage(stage) => {
                             self.handle_executor_stage_start(stage, event)
+                        }
+                        buck2_data::span_start_event::Data::TestDiscovery(test_discovery) => {
+                            self.handle_test_discovery_start(test_discovery, event)
                         }
                         _ => Ok(()),
                     }
