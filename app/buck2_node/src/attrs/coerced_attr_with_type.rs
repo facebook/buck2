@@ -111,7 +111,7 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
         attr: &'a CoercedAttr,
         ty: &'t AttrType,
     ) -> anyhow::Result<CoercedAttrWithType<'a, 't>> {
-        match (attr, &*(ty.0)) {
+        match (attr, &ty.0.inner) {
             (CoercedAttr::Selector(s), _) => Ok(CoercedAttrWithType::Selector(s, ty)),
             (CoercedAttr::Concat(c), _) => Ok(CoercedAttrWithType::Concat(c, ty)),
 

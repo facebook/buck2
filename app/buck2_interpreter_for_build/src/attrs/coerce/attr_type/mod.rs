@@ -50,7 +50,7 @@ pub trait AttrTypeExt {
         ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> anyhow::Result<CoercedAttr> {
-        self.this().0.coerce_item(configurable, ctx, value)
+        self.this().0.inner.coerce_item(configurable, ctx, value)
     }
 
     fn coerce(
@@ -73,7 +73,7 @@ pub trait AttrTypeExt {
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {
-        self.this().0.starlark_type()
+        self.this().0.inner.starlark_type()
     }
 }
 

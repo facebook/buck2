@@ -240,7 +240,7 @@ impl ConfiguredAttr {
                 // value type is `oneof(list(...))`, without indication it is an option.
                 let attr_type = attr_type.unwrap_if_option();
 
-                let oneof_type = match &*attr_type.0 {
+                let oneof_type = match &attr_type.0.inner {
                     AttrTypeInner::OneOf(oneof_type) => oneof_type,
                     _ => {
                         return Err(ConfiguredAttrError::InconsistentAttrValueAndAttrType(

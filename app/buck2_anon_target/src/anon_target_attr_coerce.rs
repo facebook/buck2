@@ -53,7 +53,7 @@ pub trait AnonTargetAttrTypeCoerce {
 
 impl AnonTargetAttrTypeCoerce for AttrType {
     fn coerce_item(&self, ctx: &AnonAttrCtx, value: Value) -> anyhow::Result<AnonTargetAttr> {
-        match self.0.as_ref() {
+        match &self.0.inner {
             AttrTypeInner::Any(_) => to_anon_target_any(value, ctx),
             AttrTypeInner::Bool(_) => match value.unpack_bool() {
                 Some(s) => Ok(AnonTargetAttr::Bool(BoolLiteral(s))),

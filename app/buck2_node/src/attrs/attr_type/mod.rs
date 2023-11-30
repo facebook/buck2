@@ -70,7 +70,12 @@ pub mod visibility;
 pub mod within_view;
 
 #[derive(Clone, Dupe, Debug, Hash, Eq, PartialEq, Allocative)]
-pub struct AttrType(pub Arc<AttrTypeInner>);
+pub struct AttrType(pub Arc<AttrTypeInner2>);
+
+#[derive(Debug, Hash, Eq, PartialEq, Allocative)]
+pub struct AttrTypeInner2 {
+    pub inner: AttrTypeInner,
+}
 
 #[derive(Debug, Hash, Eq, PartialEq, Allocative)]
 pub enum AttrTypeInner {
@@ -113,7 +118,7 @@ impl AttrType {
             Some(x) => format!(", default={}", x),
         };
 
-        match &*self.0 {
+        match &self.0.inner {
             AttrTypeInner::Any(_) => attr("any"),
             AttrTypeInner::Arg(_) => attr("arg"),
             AttrTypeInner::ConfigurationDep(_) => attr("configuration_dep"),
@@ -140,7 +145,9 @@ impl AttrType {
     }
 
     pub fn any() -> Self {
-        Self(Arc::new(AttrTypeInner::Any(AnyAttrType)))
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::Any(AnyAttrType),
+        }))
     }
 
     /// An arg attribute. Args are similar to strings, but have built in support
@@ -152,29 +159,35 @@ impl AttrType {
     /// can be passed into anon targets. There is a slight memory hit when using
     /// this flag.
     pub fn arg(anon_target_compatible: bool) -> Self {
-        Self(Arc::new(AttrTypeInner::Arg(ArgAttrType {
-            anon_target_compatible,
-        })))
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::Arg(ArgAttrType {
+                anon_target_compatible,
+            }),
+        }))
     }
 
     pub fn enumeration(variants: Vec<String>) -> anyhow::Result<Self> {
-        Ok(Self(Arc::new(AttrTypeInner::Enum(EnumAttrType::new(
-            variants,
-        )?))))
+        Ok(Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::Enum(EnumAttrType::new(variants)?),
+        })))
     }
 
     pub fn bool() -> Self {
-        Self(Arc::new(AttrTypeInner::Bool(BoolAttrType)))
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::Bool(BoolAttrType),
+        }))
     }
 
     pub fn int() -> Self {
-        Self(Arc::new(AttrTypeInner::Int(IntAttrType)))
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::Int(IntAttrType),
+        }))
     }
 
     pub fn configuration_dep() -> Self {
-        Self(Arc::new(AttrTypeInner::ConfigurationDep(
-            ConfigurationDepAttrType,
-        )))
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::ConfigurationDep(ConfigurationDepAttrType),
+        }))
     }
 
     /// A TargetLabel attribute optionally with a specific provider/providers
@@ -183,10 +196,12 @@ impl AttrType {
     /// If `required_providers` is non-empty, the dependency must return those providers
     /// from its implementation function. Otherwise an error will result at resolution time.
     pub fn dep(required_providers: ProviderIdSet, plugin_kinds: PluginKindSet) -> Self {
-        Self(Arc::new(AttrTypeInner::Dep(DepAttrType::new(
-            required_providers,
-            DepAttrTransition::Identity(plugin_kinds),
-        ))))
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::Dep(DepAttrType::new(
+                required_providers,
+                DepAttrTransition::Identity(plugin_kinds),
+            )),
+        }))
     }
 
     /// An execution dependency attribute optionally with a specific provider/providers
@@ -195,10 +210,12 @@ impl AttrType {
     /// If `required_providers` is non-empty, the dependency must return those providers
     /// from its implementation function. Otherwise an error will result at resolution time.
     pub fn exec_dep(required_providers: ProviderIdSet) -> Self {
-        Self(Arc::new(AttrTypeInner::Dep(DepAttrType::new(
-            required_providers,
-            DepAttrTransition::Exec,
-        ))))
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::Dep(DepAttrType::new(
+                required_providers,
+                DepAttrTransition::Exec,
+            )),
+        }))
     }
 
     /// A toolchain dependency attribute optionally with a specific provider/providers
@@ -207,10 +224,12 @@ impl AttrType {
     /// If `required_providers` is non-empty, the dependency must return those providers
     /// from its implementation function. Otherwise an error will result at resolution time.
     pub fn toolchain_dep(required_providers: ProviderIdSet) -> Self {
-        Self(Arc::new(AttrTypeInner::Dep(DepAttrType::new(
-            required_providers,
-            DepAttrTransition::Toolchain,
-        ))))
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::Dep(DepAttrType::new(
+                required_providers,
+                DepAttrTransition::Toolchain,
+            )),
+        }))
     }
 
     /// An a dependency attribute which changes the configuration optionally with a specific
@@ -219,92 +238,117 @@ impl AttrType {
     /// If `required_providers` is non-empty, the dependency must return those providers
     /// from its implementation function. Otherwise an error will result at resolution time.
     pub fn transition_dep(required_providers: ProviderIdSet, cfg: Arc<TransitionId>) -> Self {
-        Self(Arc::new(AttrTypeInner::Dep(DepAttrType::new(
-            required_providers,
-            DepAttrTransition::Transition(cfg),
-        ))))
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::Dep(DepAttrType::new(
+                required_providers,
+                DepAttrTransition::Transition(cfg),
+            )),
+        }))
     }
 
     pub fn configured_dep(required_providers: ProviderIdSet) -> Self {
-        Self(Arc::new(AttrTypeInner::ConfiguredDep(
-            ExplicitConfiguredDepAttrType { required_providers },
-        )))
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::ConfiguredDep(ExplicitConfiguredDepAttrType {
+                required_providers,
+            }),
+        }))
     }
 
     pub fn split_transition_dep(required_providers: ProviderIdSet, cfg: Arc<TransitionId>) -> Self {
-        Self(Arc::new(AttrTypeInner::SplitTransitionDep(
-            SplitTransitionDepAttrType::new(required_providers, cfg),
-        )))
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::SplitTransitionDep(SplitTransitionDepAttrType::new(
+                required_providers,
+                cfg,
+            )),
+        }))
     }
 
     pub fn plugin_dep(kind: PluginKind) -> Self {
-        Self(Arc::new(AttrTypeInner::PluginDep(PluginDepAttrType::new(
-            kind,
-        ))))
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::PluginDep(PluginDepAttrType::new(kind)),
+        }))
     }
 
     /// A dict attribute containing keys and values of the specified types.
     pub fn dict(key: AttrType, value: AttrType, sorted: bool) -> Self {
-        Self(Arc::new(AttrTypeInner::Dict(DictAttrType::new(
-            key, value, sorted,
-        ))))
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::Dict(DictAttrType::new(key, value, sorted)),
+        }))
     }
 
     /// A list attribute containing items of some inner type.
     pub fn list(inner: AttrType) -> Self {
-        Self(Arc::new(AttrTypeInner::List(ListAttrType::new(inner))))
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::List(ListAttrType::new(inner)),
+        }))
     }
 
     pub fn tuple(xs: Vec<AttrType>) -> Self {
-        Self(Arc::new(AttrTypeInner::Tuple(TupleAttrType::new(xs))))
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::Tuple(TupleAttrType::new(xs)),
+        }))
     }
 
     pub fn one_of(xs: Vec<AttrType>) -> Self {
-        Self(Arc::new(AttrTypeInner::OneOf(OneOfAttrType::new(xs))))
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::OneOf(OneOfAttrType::new(xs)),
+        }))
     }
 
     pub fn option(value: AttrType) -> Self {
-        Self(Arc::new(AttrTypeInner::Option(OptionAttrType::new(value))))
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::Option(OptionAttrType::new(value)),
+        }))
     }
 
     pub fn query() -> Self {
-        Self(Arc::new(AttrTypeInner::Query(QueryAttrType::new(
-            DepAttrType::new(
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::Query(QueryAttrType::new(DepAttrType::new(
                 ProviderIdSet::EMPTY,
                 DepAttrTransition::Identity(PluginKindSet::EMPTY),
-            ),
-        ))))
+            ))),
+        }))
     }
 
     // A file attribute. This will accept paths or targets like
     /// `//some:target[inner]`. When contained within a list, one item may
     /// expand to multiple (e.g. an output group or a lazy glob).
     pub fn source(allow_directory: bool) -> Self {
-        Self(Arc::new(AttrTypeInner::Source(SourceAttrType {
-            allow_directory,
-        })))
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::Source(SourceAttrType { allow_directory }),
+        }))
     }
 
     /// A string attribute. For flags passed to a command, an arg() attr is
     /// preferred to support macro and make variable substitution.
     pub fn string() -> Self {
-        Self(Arc::new(AttrTypeInner::String(StringAttrType)))
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::String(StringAttrType),
+        }))
     }
 
     pub fn label() -> Self {
-        Self(Arc::new(AttrTypeInner::Label(LabelAttrType)))
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::Label(LabelAttrType),
+        }))
     }
 
     pub(crate) fn visibility() -> Self {
-        Self(Arc::new(AttrTypeInner::Visibility(VisibilityAttrType)))
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::Visibility(VisibilityAttrType),
+        }))
     }
 
     pub(crate) fn within_view() -> Self {
-        Self(Arc::new(AttrTypeInner::WithinView(WithinViewAttrType)))
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::WithinView(WithinViewAttrType),
+        }))
     }
 
     pub(crate) fn metadata() -> Self {
-        Self(Arc::new(AttrTypeInner::Metadata(MetadataAttrType)))
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::Metadata(MetadataAttrType),
+        }))
     }
 
     /// Used when we first detect that concatenation is going to happen for an attr
@@ -314,7 +358,7 @@ impl AttrType {
     /// In some cases, we can't detect that the concattenation isn't allowed at this
     /// point and can only provide an error when performing the actual concatenation.
     pub fn supports_concat(&self) -> bool {
-        match &*self.0 {
+        match &self.0.inner {
             AttrTypeInner::Bool(_)
             | AttrTypeInner::Query(_)
             | AttrTypeInner::Source(_)
@@ -347,7 +391,7 @@ impl AttrType {
     /// identically to both `attrs.list(attrs.string())`
     /// and `attrs.option(attrs.list(attrs.string()))`.
     pub(crate) fn unwrap_if_option(&self) -> &AttrType {
-        match &*self.0 {
+        match &self.0.inner {
             AttrTypeInner::Option(inner) => &inner.inner,
             _ => self,
         }

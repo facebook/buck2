@@ -25,7 +25,7 @@ pub trait AnonRuleAttrValidation {
 
 impl AnonRuleAttrValidation for AttrType {
     fn validate_for_anon_rule(&self) -> anyhow::Result<()> {
-        match self.0.as_ref() {
+        match &self.0.inner {
             AttrTypeInner::Any(_) => Ok(()),
             AttrTypeInner::Bool(_) => Ok(()),
             AttrTypeInner::Int(_) => Ok(()),
