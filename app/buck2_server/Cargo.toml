@@ -19,7 +19,6 @@ inferno = { workspace = true }
 itertools = { workspace = true }
 lsp-server = { workspace = true }
 lsp-types = { workspace = true }
-maplit = { workspace = true }
 num_cpus = { workspace = true }
 once_cell = { workspace = true }
 parking_lot = { workspace = true }
