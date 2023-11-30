@@ -400,8 +400,13 @@ impl ConfiguredTargetNode {
                 Ok(())
             }
         }
-        // TODO(cjhopman): optimize for non-query attrs
+
         for a in self.attrs(AttrInspectOptions::All) {
+            // Optimization.
+            if !a.attr.coercer().0.may_have_queries {
+                continue;
+            }
+
             a.traverse(self.label().pkg(), &mut traversal).unwrap();
         }
         traversal.queries.into_iter()
