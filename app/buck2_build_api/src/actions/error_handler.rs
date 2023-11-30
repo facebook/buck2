@@ -10,6 +10,9 @@
 use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_data::ActionErrorLocation;
+use buck2_data::ActionErrorLocations;
+use buck2_data::ActionSubError;
 use derive_more::Display;
 use display_container::fmt_container;
 use starlark::environment::Methods;
@@ -173,3 +176,26 @@ impl<'v> AllocValue<'v> for StarlarkActionSubError<'v> {
 
 #[starlark_value(type = "ActionSubError", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkActionSubError<'v> {}
+
+impl<'v> StarlarkActionSubError<'v> {
+    #[allow(unused)]
+    fn to_proto(&self) -> ActionSubError {
+        ActionSubError {
+            category: self.category.clone(),
+            message: self.message.clone(),
+            locations: self
+                .locations
+                .clone()
+                .map(|locations| ActionErrorLocations {
+                    locations: locations
+                        .items
+                        .iter()
+                        .map(|l| ActionErrorLocation {
+                            file: l.file.clone(),
+                            line: l.line,
+                        })
+                        .collect(),
+                }),
+        }
+    }
+}
