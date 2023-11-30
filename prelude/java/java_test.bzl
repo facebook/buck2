@@ -110,7 +110,7 @@ def build_junit_test(
         cmd.extend(java_test_toolchain.junit_test_runner_main_class_args)
 
     if ctx.attrs.test_case_timeout_ms:
-        cmd.extend(["--default_test_timeout", ctx.attrs.test_case_timeout_ms])
+        cmd.extend(["--default_test_timeout", str(ctx.attrs.test_case_timeout_ms)])
 
     expect(tests_java_library_info.library_output != None, "Built test library has no output, likely due to missing srcs")
 
