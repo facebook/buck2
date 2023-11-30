@@ -11,9 +11,9 @@ use std::fmt;
 use std::time::Duration;
 use std::time::SystemTime;
 
-use buck2_client_ctx::stream_value::StreamValue;
-use buck2_client_ctx::subscribers::event_log::read::EventLogPathBuf;
-use buck2_client_ctx::subscribers::event_log::utils::Invocation;
+use buck2_event_log::read::EventLogPathBuf;
+use buck2_event_log::stream_value::StreamValue;
+use buck2_event_log::utils::Invocation;
 use buck2_events::BuckEvent;
 use buck2_util::truncate::truncate;
 use buck2_wrapper_common::invocation_id::TraceId;

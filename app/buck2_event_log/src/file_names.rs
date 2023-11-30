@@ -20,9 +20,9 @@ use chrono::Utc;
 use futures::StreamExt;
 use gazebo::prelude::VecExt;
 
-use crate::subscribers::event_log::read::EventLogPathBuf;
-use crate::subscribers::event_log::utils::Encoding;
-use crate::subscribers::event_log::utils::EventLogErrors;
+use crate::read::EventLogPathBuf;
+use crate::utils::Encoding;
+use crate::utils::EventLogErrors;
 
 pub(crate) fn get_logfile_name(
     event: &BuckEvent,

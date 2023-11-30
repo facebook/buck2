@@ -15,10 +15,10 @@ use buck2_common::argv::SanitizedArgv;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::working_dir::WorkingDir;
+use buck2_event_log::write::WriteEventLog;
 use buck2_events::BuckEvent;
 use buck2_util::cleanup_ctx::AsyncCleanupContext;
 
-use crate::subscribers::event_log::write::WriteEventLog;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
 

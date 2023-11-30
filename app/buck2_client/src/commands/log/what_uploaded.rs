@@ -13,7 +13,7 @@ use std::fmt::Formatter;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::stream_value::StreamValue;
+use buck2_event_log::stream_value::StreamValue;
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
 use tokio_stream::StreamExt;

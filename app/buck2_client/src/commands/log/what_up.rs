@@ -14,13 +14,13 @@ use std::time::SystemTimeError;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::stream_value::StreamValue;
 use buck2_client_ctx::subscribers::superconsole::session_info::SessionInfoComponent;
 use buck2_client_ctx::subscribers::superconsole::timed_list::TimedList;
 use buck2_client_ctx::subscribers::superconsole::StatefulSuperConsole;
 use buck2_client_ctx::subscribers::superconsole::SuperConsoleConfig;
 use buck2_client_ctx::subscribers::superconsole::SuperConsoleState;
 use buck2_client_ctx::subscribers::superconsole::CUTOFFS;
+use buck2_event_log::stream_value::StreamValue;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_events::BuckEvent;
 use superconsole::components::DrawVertical;

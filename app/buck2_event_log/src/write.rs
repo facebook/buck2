@@ -38,19 +38,19 @@ use tokio::fs::OpenOptions;
 use tokio::io::AsyncWrite;
 use tokio::io::AsyncWriteExt;
 
-use crate::subscribers::event_log::file_names::get_logfile_name;
-use crate::subscribers::event_log::file_names::remove_old_logs;
-use crate::subscribers::event_log::read::EventLogPathBuf;
-use crate::subscribers::event_log::utils::Compression;
-use crate::subscribers::event_log::utils::Encoding;
-use crate::subscribers::event_log::utils::EventLogErrors;
-use crate::subscribers::event_log::utils::Invocation;
-use crate::subscribers::event_log::utils::LogMode;
-use crate::subscribers::event_log::utils::NoInference;
-use crate::subscribers::should_block_on_log_upload;
-use crate::subscribers::should_upload_log;
-use crate::subscribers::wait_for_child_and_log;
-use crate::subscribers::FutureChildOutput;
+use crate::file_names::get_logfile_name;
+use crate::file_names::remove_old_logs;
+use crate::read::EventLogPathBuf;
+use crate::should_block_on_log_upload;
+use crate::should_upload_log;
+use crate::utils::Compression;
+use crate::utils::Encoding;
+use crate::utils::EventLogErrors;
+use crate::utils::Invocation;
+use crate::utils::LogMode;
+use crate::utils::NoInference;
+use crate::wait_for_child_and_log;
+use crate::FutureChildOutput;
 
 type EventLogWriter = Box<dyn AsyncWrite + Send + Sync + Unpin + 'static>;
 
@@ -136,7 +136,7 @@ pub(crate) enum LogWriterState {
     Closed,
 }
 
-pub(crate) struct WriteEventLog<'a> {
+pub struct WriteEventLog<'a> {
     state: LogWriterState,
     async_cleanup_context: Option<AsyncCleanupContext<'a>>,
     sanitized_argv: SanitizedArgv,
@@ -149,7 +149,7 @@ pub(crate) struct WriteEventLog<'a> {
 }
 
 impl<'a> WriteEventLog<'a> {
-    pub(crate) fn new(
+    pub fn new(
         logdir: AbsNormPathBuf,
         working_dir: WorkingDir,
         extra_path: Option<AbsPathBuf>,
@@ -333,7 +333,7 @@ impl<'a> WriteEventLog<'a> {
         self.log_invocation(event.trace_id()?).await
     }
 
-    pub(crate) fn exit(&mut self) -> impl Future<Output = ()> + 'static + Send + Sync {
+    pub fn exit(&mut self) -> impl Future<Output = ()> + 'static + Send + Sync {
         // Shut down writers, flush all our files before exiting.
         let state = std::mem::replace(&mut self.state, LogWriterState::Closed);
 
@@ -479,7 +479,7 @@ fn get_writer(
 }
 
 impl<'a> WriteEventLog<'a> {
-    pub(crate) async fn write_events(&mut self, events: &[Arc<BuckEvent>]) -> anyhow::Result<()> {
+    pub async fn write_events(&mut self, events: &[Arc<BuckEvent>]) -> anyhow::Result<()> {
         let mut event_refs = Vec::new();
         let mut first = true;
         for event in events {
@@ -498,7 +498,7 @@ impl<'a> WriteEventLog<'a> {
         self.write_ln(&event_refs).await
     }
 
-    pub(crate) async fn write_result(
+    pub async fn write_result(
         &mut self,
         result: &buck2_cli_proto::CommandResult,
     ) -> anyhow::Result<()> {
@@ -519,7 +519,7 @@ impl<'a> WriteEventLog<'a> {
         self.write_ln(&[event]).await
     }
 
-    pub(crate) async fn flush_files(&mut self) -> anyhow::Result<()> {
+    pub async fn flush_files(&mut self) -> anyhow::Result<()> {
         let writers = match &mut self.state {
             LogWriterState::Opened { writers } => writers,
             LogWriterState::Unopened { .. } | LogWriterState::Closed => return Ok(()),

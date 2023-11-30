@@ -163,7 +163,7 @@ mod tests {
 
     use buck2_wrapper_common::invocation_id::TraceId;
 
-    use crate::subscribers::event_log::utils::Invocation;
+    use crate::utils::Invocation;
 
     #[test]
     fn test_parse_json_line() {

@@ -10,7 +10,7 @@
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stdio;
-use buck2_client_ctx::subscribers::event_log::user_event_types::try_get_user_event_for_read;
+use buck2_event_log::user_event_types::try_get_user_event_for_read;
 use tokio_stream::StreamExt;
 
 use crate::commands::log::options::EventLogOptions;

@@ -12,6 +12,10 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_event_log::should_block_on_log_upload;
+use buck2_event_log::should_upload_log;
+use buck2_event_log::wait_for_child_and_log;
+use buck2_event_log::FutureChildOutput;
 use buck2_event_observer::unpack_event::unpack_event;
 use buck2_event_observer::unpack_event::UnpackedBuckEvent;
 use buck2_events::BuckEvent;
@@ -19,11 +23,7 @@ use buck2_util::cleanup_ctx::AsyncCleanupContext;
 use futures::Future;
 use futures::FutureExt;
 
-use crate::subscribers::should_block_on_log_upload;
-use crate::subscribers::should_upload_log;
 use crate::subscribers::subscriber::EventSubscriber;
-use crate::subscribers::wait_for_child_and_log;
-use crate::subscribers::FutureChildOutput;
 
 pub(crate) struct ReLog<'a> {
     re_session_id: Option<String>,

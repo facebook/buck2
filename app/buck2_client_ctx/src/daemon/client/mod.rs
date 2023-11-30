@@ -20,6 +20,7 @@ use buck2_cli_proto::*;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_event_log::stream_value::StreamValue;
 use fs4::FileExt;
 use futures::future::BoxFuture;
 use futures::pin_mut;
@@ -39,7 +40,6 @@ use crate::events_ctx::EventsCtx;
 use crate::events_ctx::FileTailers;
 use crate::events_ctx::PartialResultCtx;
 use crate::events_ctx::PartialResultHandler;
-use crate::stream_value::StreamValue;
 use crate::subscribers::observer::ErrorObserver;
 
 pub mod connect;

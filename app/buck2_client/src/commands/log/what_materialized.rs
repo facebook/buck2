@@ -15,7 +15,7 @@ use std::path::Path;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::stream_value::StreamValue;
+use buck2_event_log::stream_value::StreamValue;
 use serde::Serialize;
 use tokio_stream::StreamExt;
 

@@ -62,7 +62,7 @@ fn init_logging(_fb: FacebookInit) -> anyhow::Result<Arc<dyn LogConfigurationRel
 
     #[cfg(fbcode_build)]
     {
-        use buck2_client_ctx::subscribers::should_upload_log;
+        use buck2_event_log::should_upload_log;
         use buck2_events::sink::scribe;
         use gflags::GflagValue;
 

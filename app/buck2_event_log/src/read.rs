@@ -41,14 +41,14 @@ use tokio_stream::wrappers::LinesStream;
 use tokio_util::codec::FramedRead;
 
 use crate::stream_value::StreamValue;
-use crate::subscribers::event_log::utils::Compression;
-use crate::subscribers::event_log::utils::Encoding;
-use crate::subscribers::event_log::utils::EventLogErrors;
-use crate::subscribers::event_log::utils::EventLogInferenceError;
-use crate::subscribers::event_log::utils::Invocation;
-use crate::subscribers::event_log::utils::LogMode;
-use crate::subscribers::event_log::utils::NoInference;
-use crate::subscribers::event_log::utils::KNOWN_ENCODINGS;
+use crate::utils::Compression;
+use crate::utils::Encoding;
+use crate::utils::EventLogErrors;
+use crate::utils::EventLogInferenceError;
+use crate::utils::Invocation;
+use crate::utils::LogMode;
+use crate::utils::NoInference;
+use crate::utils::KNOWN_ENCODINGS;
 
 type EventLogReader<'a> = Box<dyn AsyncRead + Send + Sync + Unpin + 'a>;
 
@@ -350,7 +350,7 @@ mod tests {
     use buck2_events::span::SpanId;
 
     use super::*;
-    use crate::subscribers::event_log::file_names::get_logfile_name;
+    use crate::file_names::get_logfile_name;
 
     #[test]
     fn test_get_uuid_from_logfile_name() -> anyhow::Result<()> {

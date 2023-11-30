@@ -10,6 +10,9 @@
 use std::pin::Pin;
 use std::time::SystemTime;
 
+use buck2_event_log::read::EventLogPathBuf;
+use buck2_event_log::stream_value::StreamValue;
+use buck2_event_log::utils::Invocation;
 use futures::stream::BoxStream;
 use futures::task::Poll;
 use futures::Future;
@@ -19,10 +22,6 @@ use futures::TryStreamExt;
 use pin_project::pin_project;
 use tokio::time::Instant;
 use tokio::time::Sleep;
-
-use crate::stream_value::StreamValue;
-use crate::subscribers::event_log::read::EventLogPathBuf;
-use crate::subscribers::event_log::utils::Invocation;
 
 #[pin_project]
 struct Pending {
