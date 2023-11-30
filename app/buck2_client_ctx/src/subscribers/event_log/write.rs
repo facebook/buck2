@@ -25,6 +25,7 @@ use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::soft_error;
 use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
 use futures::future::Future;
@@ -270,6 +271,7 @@ impl<'a> WriteEventLog<'a> {
         let mut log_mode = LogMode::Protobuf;
         static JSON_LOG: EnvHelper<bool> = EnvHelper::new("BUCK2_JSON_LOG");
         if JSON_LOG.get_copied()?.unwrap_or(false) {
+            let _res = soft_error!("buck2_json_log", anyhow::anyhow!("can we deprecate this?"))?;
             log_mode = LogMode::Json;
         }
 
