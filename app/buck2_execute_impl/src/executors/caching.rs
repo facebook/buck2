@@ -501,7 +501,7 @@ impl UploadCache for CacheUploader {
         let did_cache_upload = if res.was_locally_executed() {
             // TODO(bobyf, torozco) should these be critical sections?
             self.upload_action_result(
-                info.target.dupe(),
+                info.target,
                 action_digest_and_blobs,
                 res,
                 info.digest_config,
@@ -522,7 +522,7 @@ impl UploadCache for CacheUploader {
             Some(dep_file_entry) if res.was_success() => {
                 self.upload_dep_file_result(
                     action_digest_and_blobs,
-                    info.target.dupe(),
+                    info.target,
                     res,
                     info.digest_config,
                     dep_file_entry,
