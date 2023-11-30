@@ -23,6 +23,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_events::dispatch::span_async;
+use buck2_util::process::async_background_command;
 use dice::DiceTransactionUpdater;
 use tracing::info;
 use tracing::warn;
@@ -214,7 +215,7 @@ async fn try_fetch_global_rev(hash: &str) -> Option<u64> {
     // There's a variety of ways in which this might go wrong: `PATH` is messed up, this somehow got
     // turned on in a non-`hg` repo, etc. To make sure we don't fail any builds from this, ignore
     // all errors.
-    let command = tokio::process::Command::new("hg")
+    let command = async_background_command("hg")
         .args(["log", "-r", hash, "-T", "{get(extras, \"global_rev\")}"])
         .env("HPGPLAIN", "1")
         .output();
