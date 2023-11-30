@@ -27,6 +27,7 @@ members = [
     "app/buck2_error_derive",
     "app/buck2_event_observer",
     "app/buck2_events",
+    "app/buck2_event_log",
     "app/buck2_execute",
     "app/buck2_execute_impl",
     "app/buck2_grpc",
@@ -336,6 +337,7 @@ buck2_downward_api_proto = { path = "app/buck2_downward_api_proto" }
 buck2_eden = { path = "app/buck2_eden" }
 buck2_error = { path = "app/buck2_error" }
 buck2_error_derive = { path = "app/buck2_error_derive" }
+buck2_event_log = { path = "app/buck2_event_log" }
 buck2_event_observer = { path = "app/buck2_event_observer" }
 buck2_events = { path = "app/buck2_events" }
 buck2_execute = { path = "app/buck2_execute" }

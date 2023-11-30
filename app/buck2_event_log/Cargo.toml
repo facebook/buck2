@@ -1,0 +1,9 @@
+[package]
+description = "Code supporting buck2 event log handling"
+edition = "2021"
+name = "buck2_event_log"
+version = "0.1.0"
+
+[dependencies]
+
+[dev-dependencies]

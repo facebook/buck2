@@ -1,0 +1,14 @@
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+oncall("build_infra")
+
+rust_library(
+    name = "buck2_event_log",
+    srcs = glob(["src/**/*.rs"]),
+    os_deps = [
+    ],
+    test_deps = [
+    ],
+    deps = [
+    ],
+)
