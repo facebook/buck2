@@ -75,6 +75,13 @@ pub struct AttrType(pub Arc<AttrTypeInner2>);
 #[derive(Debug, Hash, Eq, PartialEq, Allocative)]
 pub struct AttrTypeInner2 {
     pub inner: AttrTypeInner,
+    /// Attribute may have queries.
+    ///
+    /// These are either:
+    /// * `attrs.query(...)`
+    /// * `attrs.arg()`
+    /// * collection of those e.g. `attrs.list(attrs.query(...))`
+    pub may_have_queries: bool,
 }
 
 #[derive(Debug, Hash, Eq, PartialEq, Allocative)]
@@ -147,6 +154,7 @@ impl AttrType {
     pub fn any() -> Self {
         Self(Arc::new(AttrTypeInner2 {
             inner: AttrTypeInner::Any(AnyAttrType),
+            may_have_queries: false,
         }))
     }
 
@@ -163,30 +171,35 @@ impl AttrType {
             inner: AttrTypeInner::Arg(ArgAttrType {
                 anon_target_compatible,
             }),
+            may_have_queries: true,
         }))
     }
 
     pub fn enumeration(variants: Vec<String>) -> anyhow::Result<Self> {
         Ok(Self(Arc::new(AttrTypeInner2 {
             inner: AttrTypeInner::Enum(EnumAttrType::new(variants)?),
+            may_have_queries: false,
         })))
     }
 
     pub fn bool() -> Self {
         Self(Arc::new(AttrTypeInner2 {
             inner: AttrTypeInner::Bool(BoolAttrType),
+            may_have_queries: false,
         }))
     }
 
     pub fn int() -> Self {
         Self(Arc::new(AttrTypeInner2 {
             inner: AttrTypeInner::Int(IntAttrType),
+            may_have_queries: false,
         }))
     }
 
     pub fn configuration_dep() -> Self {
         Self(Arc::new(AttrTypeInner2 {
             inner: AttrTypeInner::ConfigurationDep(ConfigurationDepAttrType),
+            may_have_queries: false,
         }))
     }
 
@@ -201,6 +214,7 @@ impl AttrType {
                 required_providers,
                 DepAttrTransition::Identity(plugin_kinds),
             )),
+            may_have_queries: false,
         }))
     }
 
@@ -215,6 +229,7 @@ impl AttrType {
                 required_providers,
                 DepAttrTransition::Exec,
             )),
+            may_have_queries: false,
         }))
     }
 
@@ -229,6 +244,7 @@ impl AttrType {
                 required_providers,
                 DepAttrTransition::Toolchain,
             )),
+            may_have_queries: false,
         }))
     }
 
@@ -243,6 +259,7 @@ impl AttrType {
                 required_providers,
                 DepAttrTransition::Transition(cfg),
             )),
+            may_have_queries: false,
         }))
     }
 
@@ -251,6 +268,7 @@ impl AttrType {
             inner: AttrTypeInner::ConfiguredDep(ExplicitConfiguredDepAttrType {
                 required_providers,
             }),
+            may_have_queries: false,
         }))
     }
 
@@ -260,44 +278,56 @@ impl AttrType {
                 required_providers,
                 cfg,
             )),
+            may_have_queries: false,
         }))
     }
 
     pub fn plugin_dep(kind: PluginKind) -> Self {
         Self(Arc::new(AttrTypeInner2 {
             inner: AttrTypeInner::PluginDep(PluginDepAttrType::new(kind)),
+            may_have_queries: false,
         }))
     }
 
     /// A dict attribute containing keys and values of the specified types.
     pub fn dict(key: AttrType, value: AttrType, sorted: bool) -> Self {
+        let may_have_queries = key.0.may_have_queries || value.0.may_have_queries;
         Self(Arc::new(AttrTypeInner2 {
             inner: AttrTypeInner::Dict(DictAttrType::new(key, value, sorted)),
+            may_have_queries,
         }))
     }
 
     /// A list attribute containing items of some inner type.
     pub fn list(inner: AttrType) -> Self {
+        let may_have_queries = inner.0.may_have_queries;
         Self(Arc::new(AttrTypeInner2 {
             inner: AttrTypeInner::List(ListAttrType::new(inner)),
+            may_have_queries,
         }))
     }
 
     pub fn tuple(xs: Vec<AttrType>) -> Self {
+        let may_have_queries = xs.iter().any(|x| x.0.may_have_queries);
         Self(Arc::new(AttrTypeInner2 {
             inner: AttrTypeInner::Tuple(TupleAttrType::new(xs)),
+            may_have_queries,
         }))
     }
 
     pub fn one_of(xs: Vec<AttrType>) -> Self {
+        let may_have_queries = xs.iter().any(|x| x.0.may_have_queries);
         Self(Arc::new(AttrTypeInner2 {
             inner: AttrTypeInner::OneOf(OneOfAttrType::new(xs)),
+            may_have_queries,
         }))
     }
 
     pub fn option(value: AttrType) -> Self {
+        let may_have_queries = value.0.may_have_queries;
         Self(Arc::new(AttrTypeInner2 {
             inner: AttrTypeInner::Option(OptionAttrType::new(value)),
+            may_have_queries,
         }))
     }
 
@@ -307,6 +337,7 @@ impl AttrType {
                 ProviderIdSet::EMPTY,
                 DepAttrTransition::Identity(PluginKindSet::EMPTY),
             ))),
+            may_have_queries: true,
         }))
     }
 
@@ -316,6 +347,7 @@ impl AttrType {
     pub fn source(allow_directory: bool) -> Self {
         Self(Arc::new(AttrTypeInner2 {
             inner: AttrTypeInner::Source(SourceAttrType { allow_directory }),
+            may_have_queries: false,
         }))
     }
 
@@ -324,30 +356,35 @@ impl AttrType {
     pub fn string() -> Self {
         Self(Arc::new(AttrTypeInner2 {
             inner: AttrTypeInner::String(StringAttrType),
+            may_have_queries: false,
         }))
     }
 
     pub fn label() -> Self {
         Self(Arc::new(AttrTypeInner2 {
             inner: AttrTypeInner::Label(LabelAttrType),
+            may_have_queries: false,
         }))
     }
 
     pub(crate) fn visibility() -> Self {
         Self(Arc::new(AttrTypeInner2 {
             inner: AttrTypeInner::Visibility(VisibilityAttrType),
+            may_have_queries: false,
         }))
     }
 
     pub(crate) fn within_view() -> Self {
         Self(Arc::new(AttrTypeInner2 {
             inner: AttrTypeInner::WithinView(WithinViewAttrType),
+            may_have_queries: false,
         }))
     }
 
     pub(crate) fn metadata() -> Self {
         Self(Arc::new(AttrTypeInner2 {
             inner: AttrTypeInner::Metadata(MetadataAttrType),
+            may_have_queries: false,
         }))
     }
 
