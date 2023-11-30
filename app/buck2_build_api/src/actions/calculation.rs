@@ -28,6 +28,7 @@ use buck2_events::span::SpanId;
 use buck2_execute::execute::result::CommandExecutionReport;
 use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::output_size::OutputSize;
+use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -329,7 +330,8 @@ fn try_run_error_handler(
                     )),
                 },
                 Err(e) => {
-                    let e = buck2_error::Error::from(e).context("Error handler failed");
+                    let e = buck2_error::Error::from(BuckStarlarkError::new(e))
+                        .context("Error handler failed");
                     Data::HandlerInvocationError(format!("{:#}", e))
                 }
             };
