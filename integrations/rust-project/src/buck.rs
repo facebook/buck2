@@ -356,7 +356,6 @@ impl Buck {
         command.args([
             "prelude//rust/rust-analyzer/check.bxl:check",
             "-c=rust.failure_filter=true",
-            "-c=rust.incremental=true",
         ]);
 
         // apply BXL scripts-specific arguments:
