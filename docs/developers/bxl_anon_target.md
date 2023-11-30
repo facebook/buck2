@@ -47,7 +47,7 @@ Small example:
 ```python
 def _my_impl(ctx):
     bxl_actions = ctx.bxl_actions() # pass in relevant params to configure the execution platform resolution
-    actions = ctx.bxl_actions().actions
+    actions = bxl_actions.actions
 
     promise1 = actions.anon_target(my_anon_rule1, my_attrs1).promise
     promise2 = actions.anon_target(my_anon_rule2, my_attrs2).promise.map(my_map_function)
