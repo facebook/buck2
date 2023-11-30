@@ -32,7 +32,6 @@ use buck2_execute::execute::cache_uploader::CacheUploadResult;
 use buck2_execute::execute::cache_uploader::DepFileEntry;
 use buck2_execute::execute::cache_uploader::UploadCache;
 use buck2_execute::execute::result::CommandExecutionResult;
-use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use derive_more::Display;
@@ -115,10 +114,9 @@ impl CacheUploader {
 
     async fn upload_action_result(
         &self,
-        target: &dyn CommandExecutionTarget,
+        info: &CacheUploadInfo<'_>,
         action_digest_and_blobs: &ActionDigestAndBlobs,
         result: &CommandExecutionResult,
-        digest_config: DigestConfig,
         error_on_cache_upload: bool,
     ) -> anyhow::Result<CacheUploadSuccessful> {
         tracing::debug!(
@@ -127,9 +125,8 @@ impl CacheUploader {
         );
         let result = self
             .perform_cache_upload(
-                target,
+                info,
                 result,
-                digest_config,
                 action_digest_and_blobs.action.to_re(),
                 vec![],
                 buck2_data::CacheUploadReason::LocalExecution,
@@ -148,10 +145,9 @@ impl CacheUploader {
     /// and cache uploads must have been enabled for this action.
     async fn upload_dep_file_result(
         &self,
+        info: &CacheUploadInfo<'_>,
         action_digest_and_blobs: &ActionDigestAndBlobs,
-        target: &dyn CommandExecutionTarget,
         result: &CommandExecutionResult,
-        digest_config: DigestConfig,
         dep_file_entry: DepFileEntry,
         error_on_cache_upload: bool,
     ) -> anyhow::Result<CacheUploadSuccessful> {
@@ -168,9 +164,8 @@ impl CacheUploader {
         };
         let result = self
             .perform_cache_upload(
-                target,
+                info,
                 result,
-                digest_config,
                 digest_re,
                 vec![dep_file_tany],
                 buck2_data::CacheUploadReason::DepFile,
@@ -187,9 +182,8 @@ impl CacheUploader {
     /// The CacheUploader should only be used if cache uploads are enabled.
     async fn perform_cache_upload(
         &self,
-        target: &dyn CommandExecutionTarget,
+        info: &CacheUploadInfo<'_>,
         result: &CommandExecutionResult,
-        digest_config: DigestConfig,
         digest: TDigest,
         metadata: Vec<TAny>,
         reason: buck2_data::CacheUploadReason,
@@ -200,8 +194,8 @@ impl CacheUploader {
 
         span_async(
             buck2_data::CacheUploadStart {
-                key: Some(target.as_proto_action_key()),
-                name: Some(target.as_proto_action_name()),
+                key: Some(info.target.as_proto_action_key()),
+                name: Some(info.target.as_proto_action_name()),
                 action_digest: digest_str.clone(),
                 reason: reason.into(),
             },
@@ -245,7 +239,7 @@ impl CacheUploader {
                             result,
                             &mut file_digests,
                             &mut tree_digests,
-                            digest_config,
+                            info.digest_config,
                             metadata,
                         )
                         .await?
@@ -288,8 +282,8 @@ impl CacheUploader {
                 (
                     Ok(success),
                     Box::new(buck2_data::CacheUploadEnd {
-                        key: Some(target.as_proto_action_key()),
-                        name: Some(target.as_proto_action_name()),
+                        key: Some(info.target.as_proto_action_key()),
+                        name: Some(info.target.as_proto_action_name()),
                         action_digest: digest_str.clone(),
                         success: success == CacheUploadSuccessful::Yes,
                         error,
@@ -500,14 +494,8 @@ impl UploadCache for CacheUploader {
 
         let did_cache_upload = if res.was_locally_executed() {
             // TODO(bobyf, torozco) should these be critical sections?
-            self.upload_action_result(
-                info.target,
-                action_digest_and_blobs,
-                res,
-                info.digest_config,
-                error_on_cache_upload,
-            )
-            .await?
+            self.upload_action_result(info, action_digest_and_blobs, res, error_on_cache_upload)
+                .await?
                 == CacheUploadSuccessful::Yes
         } else {
             tracing::info!(
@@ -521,10 +509,9 @@ impl UploadCache for CacheUploader {
         let did_dep_file_cache_upload = match dep_file_entry {
             Some(dep_file_entry) if res.was_success() => {
                 self.upload_dep_file_result(
+                    info,
                     action_digest_and_blobs,
-                    info.target,
                     res,
-                    info.digest_config,
                     dep_file_entry,
                     error_on_cache_upload,
                 )
