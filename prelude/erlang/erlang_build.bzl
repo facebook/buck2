@@ -287,8 +287,11 @@ def _generate_beam_artifacts(
         input_mapping = build_environment.input_mapping,
     )
 
+    dep_info_content = to_term_args({paths.basename(artifact): {"dep_file": dep_file, "path": artifact} for artifact, dep_file in updated_build_environment.deps_files.items()})
+    dep_info_file = ctx.actions.write(_dep_info_name(toolchain), dep_info_content)
+
     for erl in src_artifacts:
-        _build_erl(ctx, toolchain, updated_build_environment, erl, beam_mapping[module_name(erl)])
+        _build_erl(ctx, toolchain, updated_build_environment, dep_info_file, erl, beam_mapping[module_name(erl)])
 
     return updated_build_environment
 
@@ -426,12 +429,28 @@ def _build_erl(
         ctx: AnalysisContext,
         toolchain: Toolchain,
         build_environment: BuildEnvironment,
+        dep_info_file: Artifact,
         src: Artifact,
         output: Artifact) -> None:
     """Compile erl files into beams."""
 
     trampoline = toolchain.erlc_trampoline
     erlc = toolchain.otp_binaries.erlc
+
+    final_dep_file = ctx.actions.declare_output(_dep_final_name(toolchain, src))
+    finalize_deps_cmd = cmd_args(
+        toolchain.otp_binaries.escript,
+        toolchain.dependency_finalizer,
+        src,
+        dep_info_file,
+        final_dep_file.as_output(),
+    )
+    finalize_deps_cmd.hidden(build_environment.deps_files.values())
+    ctx.actions.run(
+        finalize_deps_cmd,
+        category = "dependency_finalizer",
+        identifier = action_identifier(toolchain, src.basename),
+    )
 
     def dynamic_lambda(ctx: AnalysisContext, artifacts, outputs):
         erl_opts = _get_erl_opts(ctx, toolchain, src)
@@ -449,7 +468,7 @@ def _build_erl(
                 src,
             ],
         )
-        erlc_cmd, mapping = _add_dependencies_to_args(ctx, artifacts, [outputs[output].short_path], {}, {}, erlc_cmd, build_environment)
+        erlc_cmd, mapping = _add_dependencies_to_args(artifacts, final_dep_file, erlc_cmd, build_environment)
         erlc_cmd = _add_full_dependencies(erlc_cmd, build_environment)
         _run_with_env(
             ctx,
@@ -461,7 +480,7 @@ def _build_erl(
             always_print_stderr = True,
         )
 
-    ctx.actions.dynamic_output(dynamic = build_environment.deps_files.values(), inputs = [src], outputs = [output], f = dynamic_lambda)
+    ctx.actions.dynamic_output(dynamic = [final_dep_file], inputs = [src], outputs = [output], f = dynamic_lambda)
     return None
 
 def _build_edoc(
@@ -512,82 +531,66 @@ def _build_edoc(
     return None
 
 def _add_dependencies_to_args(
-        ctx: AnalysisContext,
         artifacts,
-        queue: list[str],
-        done: dict[str, bool],
-        input_mapping: dict[str, (bool, [str, Artifact])],
+        final_dep_file: Artifact,
         args: cmd_args,
         build_environment: BuildEnvironment) -> (cmd_args, dict[str, (bool, [str, Artifact])]):
     """Add the transitive closure of all per-file Erlang dependencies as specified in the deps files to the `args` with .hidden.
-
-    This function traverses the deps specified in the deps files and adds all discovered dependencies.
     """
-    if not queue:
-        return args, input_mapping
+    input_mapping = {}
+    deps = artifacts[final_dep_file].read_json()
 
-    next_round = []
+    # silently ignore not found dependencies and let erlc report the not found stuff
+    for dep in deps:
+        artifact = None
+        file = dep["file"]
+        if dep["type"] == "include_lib":
+            app = dep["app"]
+            if (app, file) in build_environment.includes:
+                artifact = build_environment.includes[(app, file)]
+                input_mapping[file] = (True, build_environment.input_mapping[artifact.basename])
+            else:
+                # the file might come from OTP
+                input_mapping[file] = (False, paths.join(app, "include", file))
+                continue
 
-    for key in queue:
-        if key not in build_environment.deps_files:
-            continue
-        deps = artifacts[build_environment.deps_files[key]].read_json()
+        elif dep["type"] == "include":
+            # these includes can either reside in the private includes
+            # or the public ones
+            if file in build_environment.private_includes:
+                artifact = build_environment.private_includes[file]
 
-        # silently ignore not found dependencies and let erlc report the not found stuff
-        for dep in deps:
-            file = dep["file"]
-            if dep["type"] == "include_lib":
-                app = dep["app"]
-                if (app, file) in build_environment.includes:
-                    artifact = build_environment.includes[(app, file)]
+                if artifact.basename in build_environment.input_mapping:
+                    input_mapping[file] = (True, build_environment.input_mapping[artifact.basename])
+            else:
+                # at this point we don't know the application the include is coming
+                # from, and have to check all public include directories
+                candidates = [key for key in build_environment.includes.keys() if key[1] == file]
+                if len(candidates) > 1:
+                    offending_apps = [app for (app, _) in candidates]
+                    fail("-include(\"%s\") is ambiguous as the following applications declare public includes with the same name: %s" % (file, offending_apps))
+                elif candidates:
+                    artifact = build_environment.includes[candidates[0]]
                     input_mapping[file] = (True, build_environment.input_mapping[artifact.basename])
                 else:
-                    # the file might come from OTP
-                    input_mapping[file] = (False, paths.join(app, "include", file))
+                    # we didn't find the include, build will fail during compile
                     continue
 
-            elif dep["type"] == "include":
-                # these includes can either reside in the private includes
-                # or the public ones
-                if file in build_environment.private_includes:
-                    artifact = build_environment.private_includes[file]
-
-                    if artifact.basename in build_environment.input_mapping:
-                        input_mapping[file] = (True, build_environment.input_mapping[artifact.basename])
-                else:
-                    # at this point we don't know the application the include is coming
-                    # from, and have to check all public include directories
-                    candidates = [key for key in build_environment.includes.keys() if key[1] == file]
-                    if len(candidates) > 1:
-                        offending_apps = [app for (app, _) in candidates]
-                        fail("-include(\"%s\") is ambiguous as the following applications declare public includes with the same name: %s" % (file, offending_apps))
-                    elif candidates:
-                        artifact = build_environment.includes[candidates[0]]
-                        input_mapping[file] = (True, build_environment.input_mapping[artifact.basename])
-                    else:
-                        # we didn't find the include, build will fail during compile
-                        continue
-
-            elif (dep["type"] == "behaviour" or
-                  dep["type"] == "parse_transform" or
-                  dep["type"] == "manual_dependency"):
-                module, _ = paths.split_extension(file)
-                if module in build_environment.beams:
-                    artifact = build_environment.beams[module]
-                else:
-                    continue
-
+        elif (dep["type"] == "behaviour" or
+              dep["type"] == "parse_transform" or
+              dep["type"] == "manual_dependency"):
+            module, _ = paths.split_extension(file)
+            if module in build_environment.beams:
+                artifact = build_environment.beams[module]
             else:
-                fail("unrecognized dependency type %s", (dep["type"]))
+                continue
 
-            next_key = artifact.short_path
-            if next_key not in done:
-                done[next_key] = True
-                next_round.append(next_key)
-                args.hidden(artifact)
+        else:
+            fail("unrecognized dependency type %s", (dep["type"]))
 
-    # STARLARK does not have unbound loops (while loops) and we use recursion instead.
-    return _add_dependencies_to_args(ctx, artifacts, next_round, done, input_mapping, args, build_environment)
+        args.hidden(artifact)
+
+    return args, input_mapping
 
 def _add_full_dependencies(erlc_cmd: cmd_args, build_environment: BuildEnvironment) -> cmd_args:
     for artifact in build_environment.full_dependencies:
@@ -744,6 +747,20 @@ def _dep_file_name(toolchain: Toolchain, src: Artifact) -> str:
         _build_dir(toolchain),
         "__dep_files",
         src.short_path + ".dep",
+    )
+
+def _dep_final_name(toolchain: Toolchain, src: Artifact) -> str:
+    return paths.join(
+        _build_dir(toolchain),
+        "__dep_files",
+        src.short_path + ".final.dep",
+    )
+
+def _dep_info_name(toolchain: Toolchain) -> str:
+    return paths.join(
+        _build_dir(toolchain),
+        "__dep_files",
+        "app.info.dep",
     )
 
 def _merge(a: dict, b: dict) -> dict:
