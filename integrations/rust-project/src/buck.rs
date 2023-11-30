@@ -395,7 +395,6 @@ impl Buck {
         command.args([
             "prelude//rust/rust-analyzer/resolve_deps.bxl:expand_and_resolve",
             "-c=rust.failure_filter=true",
-            "-c=rust.incremental=true",
             "--",
             "--targets",
         ]);
