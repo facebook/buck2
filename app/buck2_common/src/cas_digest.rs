@@ -352,9 +352,13 @@ pub enum CasDigestConfigError {
     Conflict(DigestAlgorithm, DigestAlgorithm),
 }
 
-pub struct Digester<Kind: CasDigestKind> {
+pub struct DataDigester {
     variant: DigesterVariant,
     size: u64,
+}
+
+pub struct Digester<Kind: CasDigestKind> {
+    data: DataDigester,
     kind: PhantomData<Kind>,
 }
 
@@ -365,7 +369,7 @@ enum DigesterVariant {
     Blake3Keyed(Box<blake3::Hasher>), // Same as above
 }
 
-impl<Kind: CasDigestKind> Digester<Kind> {
+impl DataDigester {
     pub fn update(&mut self, data: &[u8]) {
         // Explicit dynamic dispatch because we need to match on which variant it was.
         match &mut self.variant {
@@ -386,13 +390,13 @@ impl<Kind: CasDigestKind> Digester<Kind> {
         self.size += data.len() as u64;
     }
 
-    pub fn finalize(self) -> CasDigest<Kind> {
+    pub fn finalize(self) -> CasDigestData {
         match self.variant {
-            DigesterVariant::Sha1(h) => CasDigest::new_sha1(h.finalize().into(), self.size),
-            DigesterVariant::Sha256(h) => CasDigest::new_sha256(h.finalize().into(), self.size),
-            DigesterVariant::Blake3(h) => CasDigest::new_blake3(h.finalize().into(), self.size),
+            DigesterVariant::Sha1(h) => CasDigestData::new_sha1(h.finalize().into(), self.size),
+            DigesterVariant::Sha256(h) => CasDigestData::new_sha256(h.finalize().into(), self.size),
+            DigesterVariant::Blake3(h) => CasDigestData::new_blake3(h.finalize().into(), self.size),
             DigesterVariant::Blake3Keyed(h) => {
-                CasDigest::new_blake3_keyed(h.finalize().into(), self.size)
+                CasDigestData::new_blake3_keyed(h.finalize().into(), self.size)
             }
         }
     }
@@ -411,13 +415,77 @@ impl<Kind: CasDigestKind> Digester<Kind> {
     }
 }
 
+impl<Kind: CasDigestKind> Digester<Kind> {
+    pub fn update(&mut self, data: &[u8]) {
+        self.data.update(data);
+    }
+
+    pub fn finalize(self) -> CasDigest<Kind> {
+        CasDigest {
+            data: self.data.finalize(),
+            kind: PhantomData,
+        }
+    }
+
+    pub fn algorithm(&self) -> DigestAlgorithmKind {
+        self.data.algorithm()
+    }
+
+    pub fn bytes_read(&self) -> u64 {
+        self.data.bytes_read()
+    }
+}
+
 /// Separate struct to allow us to use  `repr(transparent)` below and guarantee an identical
 /// layout.
 #[derive(Display, PartialEq, Eq, PartialOrd, Ord, Hash, Allocative, Clone, Dupe)]
 #[display(fmt = "{}:{}", digest, size)]
-struct CasDigestData {
+pub struct CasDigestData {
     size: u64,
     digest: RawDigest,
+}
+
+impl CasDigestData {
+    fn new(digest: RawDigest, size: u64) -> Self {
+        CasDigestData { size, digest }
+    }
+
+    pub fn new_sha1(sha1: [u8; SHA1_SIZE], size: u64) -> Self {
+        Self::new(RawDigest::Sha1(sha1), size)
+    }
+
+    pub fn new_sha256(sha256: [u8; SHA256_SIZE], size: u64) -> Self {
+        Self::new(RawDigest::Sha256(sha256), size)
+    }
+
+    pub fn new_blake3(blake3: [u8; BLAKE3_SIZE], size: u64) -> Self {
+        Self::new(RawDigest::Blake3(blake3), size)
+    }
+
+    pub fn new_blake3_keyed(blake3: [u8; BLAKE3_SIZE], size: u64) -> Self {
+        Self::new(RawDigest::Blake3Keyed(blake3), size)
+    }
+
+    pub fn digester(config: CasDigestConfig) -> DataDigester {
+        Self::digester_for_algorithm(config.preferred_algorithm())
+    }
+
+    pub fn digester_for_algorithm(algorithm: DigestAlgorithm) -> DataDigester {
+        let variant = match algorithm {
+            DigestAlgorithm::Sha1 => DigesterVariant::Sha1(Sha1::new()),
+            DigestAlgorithm::Sha256 => DigesterVariant::Sha256(Sha256::new()),
+            DigestAlgorithm::Blake3 => DigesterVariant::Blake3(Box::new(blake3::Hasher::new())),
+            DigestAlgorithm::Blake3Keyed { key } => {
+                DigesterVariant::Blake3Keyed(Box::new(blake3::Hasher::new_keyed(key)))
+            }
+        };
+
+        DataDigester { variant, size: 0 }
+    }
+
+    pub fn raw_digest(&self) -> &RawDigest {
+        &self.digest
+    }
 }
 
 #[derive(Display, Derivative, Allocative, Clone_, Dupe_)]
@@ -480,7 +548,7 @@ impl<Kind: CasDigestKind> CasDigest<Kind> {
     }
 
     pub fn raw_digest(&self) -> &RawDigest {
-        &self.data.digest
+        self.data.raw_digest()
     }
 
     pub fn size(&self) -> u64 {
@@ -541,18 +609,8 @@ impl<Kind: CasDigestKind> CasDigest<Kind> {
     }
 
     pub fn digester_for_algorithm(algorithm: DigestAlgorithm) -> Digester<Kind> {
-        let variant = match algorithm {
-            DigestAlgorithm::Sha1 => DigesterVariant::Sha1(Sha1::new()),
-            DigestAlgorithm::Sha256 => DigesterVariant::Sha256(Sha256::new()),
-            DigestAlgorithm::Blake3 => DigesterVariant::Blake3(Box::new(blake3::Hasher::new())),
-            DigestAlgorithm::Blake3Keyed { key } => {
-                DigesterVariant::Blake3Keyed(Box::new(blake3::Hasher::new_keyed(key)))
-            }
-        };
-
         Digester {
-            variant,
-            size: 0,
+            data: CasDigestData::digester_for_algorithm(algorithm),
             kind: PhantomData,
         }
     }
