@@ -341,7 +341,12 @@ pub async fn profile_analysis(
     .await?
     .require_compatible()?
     .profile_data
-    .context("profile_data not set (internal error)")
+    .with_context(|| {
+        format!(
+            "profile_data not set after finished profiling analysis for `{}` (internal error)",
+            target
+        )
+    })
 }
 
 fn all_deps(node: ConfiguredTargetNode) -> LabelIndexedSet<ConfiguredTargetNode> {
@@ -383,10 +388,9 @@ pub async fn profile_analysis_recursively(
     let mut profile_datas: Vec<Arc<StarlarkProfileDataAndStats>> = Vec::new();
     while let Some(result) = futures.next().await {
         profile_datas.push(
-            result?
-                .require_compatible()?
-                .profile_data
-                .context("profile_data not set (internal error)")?,
+            result?.require_compatible()?.profile_data.context(
+                "profile_data not set after finished profiling analysis (internal error)",
+            )?,
         );
     }
 

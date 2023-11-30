@@ -74,7 +74,7 @@ async fn generate_profile_analysis(
         StarlarkProfilerConfiguration::ProfileAnalysisRecursively(_) => {
             profile_analysis_recursively(&ctx, &configured_target)
                 .await
-                .context("Analysis failed")
+                .context("Recursive profile analysis failed")
                 .map(Arc::new)
         }
         _ => Err(anyhow::anyhow!("Incorrect profile mode (internal error)")),
