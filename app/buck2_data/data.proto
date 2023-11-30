@@ -1146,6 +1146,9 @@ message ActionError {
 
   // The last command executed as a part of the action, if any
   optional CommandExecution last_command = 6;
+
+  // Additional diagnostics, if an action error handler was provided
+  optional ActionErrorDiagnostics error_diagnostics = 7;
 }
 
 // Either the produced `ActionSubError`s, or the error that occured when

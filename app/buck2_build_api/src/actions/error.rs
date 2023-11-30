@@ -20,6 +20,7 @@ pub struct ActionError {
     name: buck2_data::ActionName,
     key: buck2_data::ActionKey,
     last_command: Option<buck2_data::CommandExecution>,
+    error_diagnostics: Option<buck2_data::ActionErrorDiagnostics>,
 }
 
 impl std::error::Error for ActionError {
@@ -92,12 +93,14 @@ impl ActionError {
         name: buck2_data::ActionName,
         key: buck2_data::ActionKey,
         last_command: Option<buck2_data::CommandExecution>,
+        error_diagnostics: Option<buck2_data::ActionErrorDiagnostics>,
     ) -> Self {
         Self {
             execute_error,
             name,
             key,
             last_command,
+            error_diagnostics,
         }
     }
 
@@ -137,6 +140,7 @@ impl ActionError {
             name: Some(self.name.clone()),
             key: Some(self.key.clone()),
             last_command: self.last_command.clone(),
+            error_diagnostics: self.error_diagnostics.clone(),
         }
     }
 }

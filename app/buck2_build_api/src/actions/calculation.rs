@@ -195,6 +195,7 @@ async fn build_action_no_redirect(
                     action_name.clone(),
                     action_key.clone(),
                     commands.last().cloned(),
+                    None, // TODO(@wendyy) - populate
                 );
 
                 error = Some(e.as_proto_field());
