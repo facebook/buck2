@@ -1148,6 +1148,44 @@ message ActionError {
   optional CommandExecution last_command = 6;
 }
 
+// Either the produced `ActionSubError`s, or the error that occured when
+// invoking the error handler
+message ActionErrorDiagnostics {
+  oneof data {
+    // list of action error subcategories and their metadata
+    ActionSubErrors sub_errors = 1;
+    // error that may have occured when invoking the handler
+    string handler_invocation_error = 2;
+  }
+}
+
+// Wrapper around `ActionSubError` so we can use `oneof` in
+// `ActionErrorDiagnostics`
+message ActionSubErrors {
+  repeated ActionSubError sub_errors = 1;
+}
+
+message ActionSubError {
+  // error category produced by the error handler function provided by the rule
+  // author.
+  string category = 1;
+  // optional freeform string for rule author to populate.
+  optional string message = 2;
+  // optional list of file locations/lines for rule author to populate.
+  optional ActionErrorLocations locations = 3;
+}
+
+// Wrapper around `ActionErrorLocation` so we can differentiate between null and
+// empty locations
+message ActionErrorLocations {
+  repeated ActionErrorLocation locations = 1;
+}
+
+message ActionErrorLocation {
+  string file = 1;
+  optional uint64 line = 2;
+}
+
 // The beginning of materialization for the output of a target requested,
 // inclusive of all dependent artifacts it might recursively request to
 // materialize.
