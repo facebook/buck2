@@ -289,6 +289,10 @@ impl Buck {
     pub fn command(&self) -> Command {
         let mut cmd = Command::new("buck2");
 
+        // rust-analyzer invokes the check-on-save command with `RUST_BACKTRACE=short`
+        // set. Unfortunately, buck2 doesn't handle that well and becomes extremely
+        // slow when the daemon is started with backtrace variables set. Until that is
+        // fixed, just unset them here.
         cmd.env_remove("RUST_BACKTRACE")
             .env_remove("RUST_LIB_BACKTRACE");
 
