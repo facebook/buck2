@@ -37,6 +37,7 @@ use buck2_execute::execute::claim::MutexClaimManager;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::execute::command_executor::CommandExecutor;
+use buck2_execute::execute::dep_file_digest::DepFileDigest;
 use buck2_execute::execute::dice_data::CommandExecutorResponse;
 use buck2_execute::execute::dice_data::GetReClient;
 use buck2_execute::execute::dice_data::HasCommandExecutor;
@@ -125,7 +126,7 @@ pub enum ActionExecutionKind {
         allows_dep_file_cache_upload: bool,
         did_dep_file_cache_upload: bool,
         eligible_for_full_hybrid: bool,
-        dep_file_key: Option<String>,
+        dep_file_key: Option<DepFileDigest>,
     },
     /// This action is simple and executed inline within buck2 (e.g. write, symlink_dir)
     #[display(fmt = "simple")]
@@ -147,7 +148,7 @@ pub struct CommandExecutionRef<'a> {
     pub allows_dep_file_cache_upload: bool,
     pub did_dep_file_cache_upload: bool,
     pub eligible_for_full_hybrid: bool,
-    pub dep_file_key: &'a Option<String>,
+    pub dep_file_key: &'a Option<DepFileDigest>,
 }
 
 impl ActionExecutionKind {

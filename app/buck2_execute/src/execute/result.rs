@@ -21,6 +21,7 @@ use indexmap::IndexMap;
 
 use crate::artifact_value::ArtifactValue;
 use crate::execute::claim::Claim;
+use crate::execute::dep_file_digest::DepFileDigest;
 use crate::execute::kind::CommandExecutionKind;
 use crate::execute::output::CommandStdStreams;
 use crate::execute::request::CommandExecutionOutput;
@@ -150,7 +151,7 @@ pub struct CommandExecutionResult {
     /// Whether dep file information for this action was uploaded to cache, by Buck2.
     pub did_dep_file_cache_upload: bool,
     // Remote dep file key, if we did upload a dep file entry
-    pub dep_file_key: Option<String>,
+    pub dep_file_key: Option<DepFileDigest>,
     /// Whether this command was eligible for hybrid execution.
     pub eligible_for_full_hybrid: bool,
     /// Execution metadata used for remote dep file lookups.

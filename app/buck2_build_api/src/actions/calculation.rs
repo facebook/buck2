@@ -267,7 +267,7 @@ async fn build_action_no_redirect(
                 did_cache_upload: did_cache_upload.unwrap_or_default(),
                 allows_dep_file_cache_upload: allows_dep_file_cache_upload.unwrap_or_default(),
                 did_dep_file_cache_upload: did_dep_file_cache_upload.unwrap_or_default(),
-                dep_file_key,
+                dep_file_key: dep_file_key.map(|d| d.to_string()),
                 eligible_for_full_hybrid,
                 buck2_revision,
                 buck2_build_time,

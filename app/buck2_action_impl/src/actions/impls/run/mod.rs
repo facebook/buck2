@@ -714,7 +714,7 @@ impl IncrementalActionExecutable for RunAction {
 
         // If the action has a dep file, log the remote dep file key so we can look out for collisions
         if let Some(bundle) = &dep_file_bundle {
-            result.dep_file_key = Some(bundle.remote_dep_file_key.to_string())
+            result.dep_file_key = Some(bundle.remote_dep_file_key.dupe())
         }
 
         // If there is a dep file entry AND if dep file cache upload is enabled, upload it
