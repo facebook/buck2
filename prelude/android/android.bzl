@@ -134,7 +134,7 @@ extra_attributes = {
         "manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "min_sdk_version": attrs.option(attrs.int(), default = None),
         "native_library_merge_map": attrs.option(attrs.dict(key = attrs.string(), value = attrs.list(attrs.regex()), sorted = False), default = None),
-        "native_library_merge_sequence": attrs.option(attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.regex()))), default = None),
+        "native_library_merge_sequence": attrs.option(attrs.list(attrs.any()), default = None),
         "_android_toolchain": toolchains_common.android(),
         "_dex_toolchain": toolchains_common.dex(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),

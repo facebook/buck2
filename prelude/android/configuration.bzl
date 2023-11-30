@@ -67,7 +67,7 @@ def _cpu_split_transition(
         cpu_filters: list[str],
         min_sdk_version: [int, None],
         native_library_merge_map: [dict[str, list[str]], None],
-        native_library_merge_sequence: [list[tuple], None]) -> dict[str, PlatformInfo]:
+        native_library_merge_sequence: [list[list[tuple] | tuple], None]) -> dict[str, PlatformInfo]:
     cpu = refs.cpu
     x86 = refs.x86[ConstraintValueInfo]
     x86_64 = refs.x86_64[ConstraintValueInfo]
