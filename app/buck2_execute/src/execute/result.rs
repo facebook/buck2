@@ -106,6 +106,10 @@ pub struct CommandExecutionMetadata {
 }
 
 impl CommandExecutionMetadata {
+    pub fn end_time(&self) -> SystemTime {
+        self.start_time + self.wall_time
+    }
+
     pub fn to_proto(&self) -> buck2_data::CommandExecutionMetadata {
         let metadata = self.dupe();
         buck2_data::CommandExecutionMetadata {

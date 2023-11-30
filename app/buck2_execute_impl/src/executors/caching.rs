@@ -314,8 +314,6 @@ impl CacheUploader {
         // metadata to be added in the auxiliary_metadata field of TActionResult
         metadata: Vec<TAny>,
     ) -> anyhow::Result<Result<TActionResult2, CacheUploadRejectionReason>> {
-        let timing = result.report.timing;
-
         let mut upload_futs = vec![];
         let mut output_files: Vec<TFile> = Vec::new();
         let mut output_directories: Vec<TDirectory2> = Vec::new();
@@ -453,9 +451,11 @@ impl CacheUploader {
             execution_metadata: TExecutedActionMetadata {
                 worker,
                 execution_dir: "".to_owned(),
-                execution_start_timestamp: systemtime_to_ttimestamp(timing.start_time)?,
+                execution_start_timestamp: systemtime_to_ttimestamp(
+                    result.report.timing.start_time,
+                )?,
                 execution_completed_timestamp: systemtime_to_ttimestamp(
-                    timing.start_time + timing.wall_time,
+                    result.report.timing.end_time(),
                 )?,
                 execution_attempts: 1,
                 auxiliary_metadata: metadata,
