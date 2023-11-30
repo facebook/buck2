@@ -14,8 +14,7 @@ use remote_execution as RE;
 use crate::digest_config::DigestConfig;
 use crate::execute::action_digest::ActionDigest;
 use crate::execute::blobs::ActionBlobs;
-use crate::execute::request::ActionMetadataBlobData;
-use crate::execute::request::ActionMetadataBlobMessage;
+use crate::execute::paths_with_digest::PathsWithDigestBlobData;
 
 pub struct ActionDigestAndBlobs {
     pub action: ActionDigest,
@@ -37,19 +36,16 @@ impl ActionDigestAndBlobsBuilder {
         }
     }
 
-    pub fn add_blob(&mut self, digest: TrackedFileDigest, data: ActionMetadataBlobData) {
-        self.blobs.add_blob(digest, data);
+    pub fn add_paths(&mut self, digest: TrackedFileDigest, paths: PathsWithDigestBlobData) {
+        self.blobs.add_blob(digest, paths.0);
     }
 
-    pub fn add_protobuf_message(
-        &mut self,
-        m: &impl ActionMetadataBlobMessage,
-    ) -> TrackedFileDigest {
-        self.blobs.add_protobuf_message(m, self.digest_config)
+    pub fn add_command(&mut self, command: &RE::Command) -> TrackedFileDigest {
+        self.blobs.add_protobuf_message(command, self.digest_config)
     }
 
     pub fn build(mut self, action: &RE::Action) -> ActionDigestAndBlobs {
-        let action = self.add_protobuf_message(action);
+        let action = self.blobs.add_protobuf_message(action, self.digest_config);
         ActionDigestAndBlobs {
             action: action.data().dupe().coerce(),
             blobs: self.blobs,

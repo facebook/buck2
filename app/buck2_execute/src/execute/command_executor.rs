@@ -271,12 +271,12 @@ fn re_create_action(
     let mut action_and_blobs = ActionDigestAndBlobsBuilder::new(digest_config);
 
     for (data, digest) in blobs {
-        action_and_blobs.add_blob(digest, data.0);
+        action_and_blobs.add_paths(digest, data);
     }
 
     let mut action = RE::Action {
         input_root_digest: Some(input_digest.to_grpc()),
-        command_digest: Some(action_and_blobs.add_protobuf_message(&command).to_grpc()),
+        command_digest: Some(action_and_blobs.add_command(&command).to_grpc()),
         timeout: timeout
             .map(|t| t.try_into())
             .transpose()
