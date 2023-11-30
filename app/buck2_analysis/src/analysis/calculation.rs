@@ -59,6 +59,10 @@ use crate::attrs::resolve::ctx::AnalysisQueryResult;
 enum AnalysisCalculationError {
     #[error("Internal error: literal `{0}` not found in `deps`")]
     LiteralNotFoundInDeps(String),
+    #[error(
+        "get_analysis_result should not be called on a forward target (`{0}`) when profiling is enabled (internal error)"
+    )]
+    ProfileForwardTarget(ConfiguredTargetLabel),
 }
 
 struct RuleAnalysisCalculationInstance;
@@ -296,6 +300,14 @@ async fn get_analysis_result(
                 .await
             }
             RuleType::Forward => {
+                match profile_mode {
+                    StarlarkProfileModeOrInstrumentation::None => {}
+                    StarlarkProfileModeOrInstrumentation::Profile(_) => {
+                        return Err(
+                            AnalysisCalculationError::ProfileForwardTarget(target.dupe()).into(),
+                        );
+                    }
+                }
                 assert!(dep_analysis.len() == 1);
                 Ok(MaybeCompatible::Compatible(dep_analysis.pop().unwrap().1))
             }
@@ -333,6 +345,14 @@ pub async fn profile_analysis(
     target: &ConfiguredTargetLabel,
     profile_mode: &ProfileMode,
 ) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
+    let target_node = ctx
+        .get_configured_target_node(target)
+        .await?
+        .require_compatible()?;
+    let target = match target_node.forward_target() {
+        None => target_node.label(),
+        Some(forward) => forward.label(),
+    };
     get_analysis_result(
         ctx,
         target,
