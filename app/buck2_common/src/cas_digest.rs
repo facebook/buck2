@@ -464,43 +464,19 @@ impl<Kind: CasDigestKind> CasDigest<Kind> {
     }
 
     pub fn new_sha1(sha1: [u8; SHA1_SIZE], size: u64) -> Self {
-        Self {
-            data: CasDigestData {
-                size,
-                digest: RawDigest::Sha1(sha1),
-            },
-            kind: PhantomData,
-        }
+        Self::new(RawDigest::Sha1(sha1), size)
     }
 
     pub fn new_sha256(sha256: [u8; SHA256_SIZE], size: u64) -> Self {
-        Self {
-            data: CasDigestData {
-                size,
-                digest: RawDigest::Sha256(sha256),
-            },
-            kind: PhantomData,
-        }
+        Self::new(RawDigest::Sha256(sha256), size)
     }
 
     pub fn new_blake3(blake3: [u8; BLAKE3_SIZE], size: u64) -> Self {
-        Self {
-            data: CasDigestData {
-                size,
-                digest: RawDigest::Blake3(blake3),
-            },
-            kind: PhantomData,
-        }
+        Self::new(RawDigest::Blake3(blake3), size)
     }
 
     pub fn new_blake3_keyed(blake3: [u8; BLAKE3_SIZE], size: u64) -> Self {
-        Self {
-            data: CasDigestData {
-                size,
-                digest: RawDigest::Blake3Keyed(blake3),
-            },
-            kind: PhantomData,
-        }
+        Self::new(RawDigest::Blake3Keyed(blake3), size)
     }
 
     pub fn raw_digest(&self) -> &RawDigest {
