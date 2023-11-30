@@ -68,7 +68,7 @@ load(
     "LibOutputStyle",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_genrule_deps.bzl", "get_apple_build_genrule_deps_attr_value", "get_apple_genrule_deps_outputs")

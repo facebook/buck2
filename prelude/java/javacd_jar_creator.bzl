@@ -44,7 +44,7 @@ load(
     "prepare_final_jar",
     "setup_dep_files",
 )
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 
 base_command_params = struct(
     withDownwardApi = True,

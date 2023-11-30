@@ -7,7 +7,8 @@
 
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-load("@prelude//utils:utils.bzl", "expect", "flatten_dict")
+load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//utils:utils.bzl", "flatten_dict")
 load(
     ":apple_asset_catalog.bzl",
     "compile_apple_asset_catalog",

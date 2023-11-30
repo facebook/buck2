@@ -6,7 +6,8 @@
 # of this source tree.
 
 load("@prelude//:http_file.bzl", "http_file_shared")
-load("@prelude//utils:utils.bzl", "expect", "value_or")
+load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//utils:utils.bzl", "value_or")
 
 _ROOT = "https://maven.thefacebook.com/nexus/content/groups/public"
 

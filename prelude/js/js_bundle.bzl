@@ -10,7 +10,8 @@ load("@prelude//android:android_resource.bzl", "JAVA_PACKAGE_FILENAME", "aapt2_c
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//js:js_providers.bzl", "JsBundleInfo", "JsLibraryInfo", "get_transitive_outputs")
 load("@prelude//js:js_utils.bzl", "RAM_BUNDLE_TYPES", "TRANSFORM_PROFILES", "get_apple_resource_providers_for_js_bundle", "get_bundle_name", "get_flavors", "run_worker_commands")
-load("@prelude//utils:utils.bzl", "expect", "map_idx")
+load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//utils:utils.bzl", "map_idx")
 
 def _build_dependencies_file(
         ctx: AnalysisContext,

@@ -97,10 +97,10 @@ load(
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "create_shared_libraries", "merge_shared_libraries")
 load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//utils:arglike.bzl", "ArgLike")
+load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:lazy.bzl", "lazy")
 load(
     "@prelude//utils:utils.bzl",
-    "expect",
     "flatten",
     "map_val",
     "value_or",

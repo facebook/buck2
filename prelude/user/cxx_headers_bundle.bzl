@@ -8,7 +8,7 @@
 load("@prelude//:artifacts.bzl", "ArtifactGroupInfo")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:preprocessor.bzl", "CPreprocessorInfo", "cxx_merge_cpreprocessors")
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 load(":rule_spec.bzl", "RuleRegistrationSpec")
 
 def _headers(ctx: AnalysisContext, deps: list[Dependency]) -> dict[str, Artifact]:

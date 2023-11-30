@@ -9,9 +9,9 @@ load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
 )
+load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:utils.bzl",
-    "expect",
     "map_val",
     "value_or",
 )

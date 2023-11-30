@@ -8,11 +8,11 @@
 load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//python:python.bzl", "PythonLibraryInfo")
+load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:graph_utils.bzl",
     "breadth_first_traversal_by",
 )
-load("@prelude//utils:utils.bzl", "expect")
 load(
     ":link_info.bzl",
     "LibOutputStyle",

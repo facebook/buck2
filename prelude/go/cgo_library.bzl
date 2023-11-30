@@ -43,9 +43,9 @@ load(
     "merge_shared_libraries",
 )
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:utils.bzl",
-    "expect",
     "map_idx",
 )
 load(":compile.bzl", "GoPkgCompileInfo", "compile", "get_filtered_srcs", "get_inherited_compile_pkgs")

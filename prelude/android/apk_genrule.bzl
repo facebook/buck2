@@ -8,7 +8,7 @@
 load("@prelude//:genrule.bzl", "process_genrule")
 load("@prelude//android:android_apk.bzl", "get_install_info")
 load("@prelude//android:android_providers.bzl", "AndroidAabInfo", "AndroidApkInfo", "AndroidApkUnderTestInfo")
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//java/class_to_srcs.bzl", "JavaClassToSourceMapInfo")
 
 def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:

@@ -32,7 +32,8 @@ load(
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries")
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
-load("@prelude//utils:utils.bzl", "expect", "flatten", "from_named_set")
+load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//utils:utils.bzl", "flatten", "from_named_set")
 load(":compile.bzl", "PycInvalidationMode", "compile_manifests")
 load(
     ":manifest.bzl",

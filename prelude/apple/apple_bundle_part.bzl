@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative_path_for_destination")
 load(":apple_bundle_utility.bzl", "get_extension_attr", "get_product_name")
 load(":apple_code_signing_types.bzl", "CodeSignType")

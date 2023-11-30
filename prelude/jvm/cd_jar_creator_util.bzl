@@ -20,7 +20,7 @@ load(
     "PluginParams",  # @unused Used as type
 )
 load("@prelude//java/utils:java_utils.bzl", "declare_prefixed_name")
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 
 def add_java_7_8_bootclasspath(target_level: int, bootclasspath_entries: list[Artifact], java_toolchain: JavaToolchainInfo) -> list[Artifact]:
     if target_level == 7:

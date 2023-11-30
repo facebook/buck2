@@ -19,7 +19,7 @@ load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executor_from_props",
 )
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 
 def java_test_impl(ctx: AnalysisContext) -> list[Provider]:

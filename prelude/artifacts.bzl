@@ -7,10 +7,7 @@
 
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
-load(
-    "@prelude//utils:utils.bzl",
-    "expect",
-)
+load("@prelude//utils:expect.bzl", "expect")
 
 # A group of artifacts.
 ArtifactGroupInfo = provider(

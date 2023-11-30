@@ -38,12 +38,13 @@ load(
     "linkable_deps",
     "linkable_graph",
 )
+load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:graph_utils.bzl",
     "breadth_first_traversal_by",
     "post_order_traversal",
 )
-load("@prelude//utils:utils.bzl", "expect", "flatten", "value_or")
+load("@prelude//utils:utils.bzl", "flatten", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":link_types.bzl",

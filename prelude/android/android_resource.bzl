@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//java:java_providers.bzl", "get_java_packaging_info")
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 load(":android_providers.bzl", "AndroidResourceInfo", "ExportedAndroidResourceInfo", "RESOURCE_PRIORITY_NORMAL", "merge_android_packageable_info")
 load(":android_toolchain.bzl", "AndroidToolchainInfo")
 

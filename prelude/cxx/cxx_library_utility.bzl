@@ -14,9 +14,9 @@ load(
     "MergedLinkInfo",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
+load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:utils.bzl",
-    "expect",
     "flatten",
     "from_named_set",
 )

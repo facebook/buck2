@@ -61,9 +61,9 @@ load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executor_from_props",
 )
+load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:utils.bzl",
-    "expect",
     "filter_and_map_idx",
     "value_or",
 )

@@ -62,7 +62,8 @@ load(
 )
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
-load("@prelude//utils:utils.bzl", "expect", "value_or")
+load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//utils:utils.bzl", "value_or")
 load(":manifest.bzl", "create_manifest_for_source_map")
 load(
     ":native_python_util.bzl",

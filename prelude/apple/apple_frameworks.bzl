@@ -22,7 +22,7 @@ load(
     "merge_swift_runtime_linkables",
     "merge_swiftmodule_linkables",
 )
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 load(":apple_framework_versions.bzl", "get_framework_linker_args")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 

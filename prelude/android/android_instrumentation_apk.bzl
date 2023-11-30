@@ -15,7 +15,7 @@ load("@prelude//android:dex_rules.bzl", "get_multi_dex", "get_single_primary_dex
 load("@prelude//android:util.bzl", "create_enhancement_context")
 load("@prelude//java:java_providers.bzl", "create_java_packaging_dep", "get_all_java_packaging_deps")
 load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info")
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 
 def android_instrumentation_apk_impl(ctx: AnalysisContext):
     _verify_params(ctx)

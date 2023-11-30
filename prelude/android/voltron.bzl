@@ -15,7 +15,8 @@ load(
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
-load("@prelude//utils:utils.bzl", "expect", "flatten")
+load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//utils:utils.bzl", "flatten")
 
 # "Voltron" gives us the ability to split our Android APKs into different "modules". These
 # modules can then be downloaded on demand rather than shipped with the "main" APK.

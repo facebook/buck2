@@ -40,7 +40,8 @@ load(
 )
 load("@prelude//kotlin:kotlin_toolchain.bzl", "KotlinToolchainInfo")
 load("@prelude//kotlin:kotlin_utils.bzl", "get_kotlinc_compatible_target")
-load("@prelude//utils:utils.bzl", "expect", "map_idx")
+load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//utils:utils.bzl", "map_idx")
 
 buckPaths = struct(
     configuredBuckOut = "buck-out/v2",

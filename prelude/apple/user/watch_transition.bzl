@@ -11,7 +11,7 @@ Transforms both OS and SDK constraints.
 Only sanity check for source configuration is done.
 """
 
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 
 def _os_and_sdk_unrelated_constraints(platform: PlatformInfo, refs: struct) -> dict[TargetLabel, ConstraintValueInfo]:
     return {

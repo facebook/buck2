@@ -22,39 +22,41 @@ load(
     "is_string",
 )
 
-def expect(condition, message = None):
+def expect(condition: typing.Any, message: str = "condition not expected", *format_args):
     """Fails if provided condition is not truthy.
 
     Args:
       condition: condition that is expected to be truthy
       message: an optional error message to display in case provided condition
         is not truthy
+      format_args: optional arguments to format the error message with
     """
     if not condition:
-        fail(message)
+        formatted_message = message.format(format_args)
+        fail(formatted_message)
 
-def expect_type(name, check, desc, val):
+def expect_type(name: str, check: typing.Callable, desc: str, val: typing.Any):
     """Fails if check(val) if not truthy. name, desc are used for the error message.
 
     Usually you shouldn't need to directly use this, and prefer the expect_* family of functions
     defined in the same file.
 
     Args:
-      name: str, the name of the attribute we're checking
-      check: Callable[[Any], bool], a function implementing an invariant check
-      desc: str, a description of what we expected to see
-      val: Any, the value we're checking
+      name: the name of the attribute we're checking
+      check: a function implementing an invariant check
+      desc: a description of what we expected to see
+      val: the value we're checking
 
     See the below functions, like expect_string, for usage examples.
     """
-    expect(check(val), 'Buck target requires "{}" to be a {}'.format(name, desc))
+    expect(check(val), 'Buck target requires "{}" to be a {}', name, desc)
 
 def expect_string(name, val):
     expect_type(name, is_string, "string", val)
 
 def expect_string_starts_with(name, val, prefix):
     expect_type(name, is_string, "string", val)
-    expect(val.startswith(prefix), 'Buck target requires "{}" to start with "{}'.format(name, prefix))
+    expect(val.startswith(prefix), 'Buck target requires "{}" to start with "{}', name, prefix)
 
 def expect_number(name, val):
     expect_type(name, is_number, "number", val)

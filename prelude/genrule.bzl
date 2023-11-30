@@ -14,7 +14,8 @@ load("@prelude//:genrule_types.bzl", "GENRULE_MARKER_SUBTARGET_NAME", "GenruleMa
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
-load("@prelude//utils:utils.bzl", "expect", "flatten", "value_or")
+load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//utils:utils.bzl", "flatten", "value_or")
 
 GENRULE_OUT_DIR = "out"
 

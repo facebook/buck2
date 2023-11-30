@@ -33,7 +33,7 @@ load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os
 load("@prelude//java/utils:java_utils.bzl", "declare_prefixed_name", "derive_javac", "get_abi_generation_mode", "get_class_to_source_map_info", "get_default_info", "get_java_version_attributes", "to_java_version")
 load("@prelude//jvm:nullsafe.bzl", "get_nullsafe_info")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo")
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 
 _JAVA_FILE_EXTENSION = [".java"]
 _SUPPORTED_ARCHIVE_SUFFIXES = [".src.zip", "-sources.jar"]

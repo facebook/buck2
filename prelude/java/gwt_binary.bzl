@@ -7,7 +7,7 @@
 
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 load(
     ":java_providers.bzl",
     "derive_compiling_deps",

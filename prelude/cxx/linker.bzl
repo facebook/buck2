@@ -7,7 +7,7 @@
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerInfo")
 load("@prelude//utils:arglike.bzl", "ArgLike")
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 
 # Platform-specific linker flags handling.  Modeled after the `Linker` abstraction
 # in v1 (https://fburl.com/diffusion/kqd2ylcy).

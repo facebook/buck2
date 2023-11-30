@@ -8,7 +8,7 @@
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 
 def get_preprocessed_java_classes(ctx: AnalysisContext, input_jars = {"artifact": "target_label"}) -> dict[Artifact, TargetLabel]:
     if not input_jars:

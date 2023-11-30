@@ -30,10 +30,7 @@ load(
     "@prelude//utils:dicts.bzl",
     "flatten_x",
 )
-load(
-    "@prelude//utils:utils.bzl",
-    "expect",
-)
+load("@prelude//utils:expect.bzl", "expect")
 load(":apple_bundle.bzl", "AppleBundlePartListConstructorParams", "get_apple_bundle_part_list")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative_path_for_destination")
 load(":apple_bundle_part.bzl", "AppleBundlePart", "SwiftStdlibArguments", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path", "get_bundle_dir_name")

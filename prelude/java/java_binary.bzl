@@ -14,7 +14,7 @@ load(
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 load(
     ":java_providers.bzl",
     "create_template_info",

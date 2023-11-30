@@ -20,7 +20,7 @@ load(
     "SharedLibraryInfo",
     "merge_shared_libraries",
 )
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 
 # JAVA PROVIDER DOCS
 #

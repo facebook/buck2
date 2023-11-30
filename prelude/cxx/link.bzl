@@ -37,7 +37,8 @@ load(
     "get_split_debug_lto_info",
 )
 load("@prelude//linking:strip.bzl", "strip_object")
-load("@prelude//utils:utils.bzl", "expect", "map_val", "value_or")
+load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//utils:utils.bzl", "map_val", "value_or")
 load(
     ":anon_link.bzl",
     "ANON_ATTRS",

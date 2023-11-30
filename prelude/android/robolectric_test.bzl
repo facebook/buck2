@@ -11,7 +11,7 @@ load("@prelude//android:android_providers.bzl", "merge_android_packageable_info"
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:java_test.bzl", "build_junit_test")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 
 def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:

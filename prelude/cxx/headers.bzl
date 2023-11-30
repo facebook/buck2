@@ -6,8 +6,9 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:lazy.bzl", "lazy")
-load("@prelude//utils:utils.bzl", "expect", "from_named_set", "map_val", "value_or")
+load("@prelude//utils:utils.bzl", "from_named_set", "map_val", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":platform.bzl", "cxx_by_platform")
 

@@ -10,7 +10,7 @@ load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 
 DEFAULT_ANDROID_SUBPLATFORM = "android-30"

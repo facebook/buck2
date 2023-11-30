@@ -10,7 +10,7 @@ load("@prelude//:worker_tool.bzl", "WorkerToolInfo")
 load("@prelude//apple:apple_resource_types.bzl", "AppleResourceDestination", "AppleResourceSpec")
 load("@prelude//apple:resource_groups.bzl", "ResourceGraphInfo", "create_resource_graph")  # @unused `ResourceGraphInfo` used as a type
 load("@prelude//js:js_providers.bzl", "JsBundleInfo")
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 
 RAM_BUNDLE_TYPES = {
     "": "",

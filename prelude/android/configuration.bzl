@@ -7,7 +7,7 @@
 
 load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS", "CPU_FILTER_FOR_DEFAULT_PLATFORM", "CPU_FILTER_FOR_PRIMARY_PLATFORM")
 load("@prelude//android:min_sdk_version.bzl", "get_min_sdk_version_constraint_value_name", "get_min_sdk_version_range")
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 
 # Android binaries (APKs or AABs) can be built for one or more different platforms. buck2 supports
 # building Android binaries for arm32, arm64, x86, and x86_64. The platform(s) that we are building

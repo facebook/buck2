@@ -39,6 +39,7 @@ load(
     "get_transitive_deps",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
+load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:graph_utils.bzl",
     "breadth_first_traversal_by",
@@ -50,7 +51,6 @@ load(
 )
 load(
     "@prelude//utils:utils.bzl",
-    "expect",
     "value_or",
 )
 load(":cxx_context.bzl", "get_cxx_toolchain_info")

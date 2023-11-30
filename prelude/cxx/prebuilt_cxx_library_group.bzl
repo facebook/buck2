@@ -46,7 +46,8 @@ load(
     "merge_shared_libraries",
 )
 load("@prelude//linking:strip.bzl", "strip_debug_info")
-load("@prelude//utils:utils.bzl", "expect", "flatten_dict")
+load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//utils:utils.bzl", "flatten_dict")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":cxx_library_utility.bzl",

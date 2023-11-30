@@ -34,6 +34,7 @@ load(
     "make_link_command_debug_output_json_info",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
+load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:lazy.bzl", "lazy")
 load(
     "@prelude//utils:set.bzl",
@@ -41,7 +42,6 @@ load(
 )
 load(
     "@prelude//utils:utils.bzl",
-    "expect",
     "flatten",
 )
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")

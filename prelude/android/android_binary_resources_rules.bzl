@@ -17,8 +17,8 @@ load(
     "@prelude//java:java_providers.bzl",
     "JavaPackagingDep",  # @unused Used as type
 )
+load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:set.bzl", "set_type")  # @unused Used as a type
-load("@prelude//utils:utils.bzl", "expect")
 load("@prelude//decls/android_rules.bzl", "RType")
 
 _FilteredResourcesOutput = record(

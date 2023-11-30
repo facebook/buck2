@@ -18,7 +18,7 @@ load(
     "JavaPackagingInfo",  # @unused Used as a type
 )
 load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "JavaToolchainInfo")
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 
 def derive_javac(javac_attribute: [str, Dependency, Artifact]) -> [str, RunInfo, Artifact]:
     javac_attr_type = type(javac_attribute)

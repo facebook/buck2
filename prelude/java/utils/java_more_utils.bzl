@@ -9,7 +9,7 @@ load(
     "@prelude//os_lookup:defs.bzl",
     "OsLookup",  # @unused Used as type
 )
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 
 def get_path_separator_for_exec_os(ctx: AnalysisContext) -> str:
     expect(hasattr(ctx.attrs, "_exec_os_type"), "Expect ctx.attrs._exec_os_type is defined.")

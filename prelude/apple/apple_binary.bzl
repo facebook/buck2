@@ -56,7 +56,7 @@ load(
     "UnstrippedLinkOutputInfo",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_infos_from_graph", "merge_bundle_linker_maps_info")
 load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo")

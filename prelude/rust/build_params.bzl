@@ -13,7 +13,7 @@ load(
     "Linkage",  # @unused Used as a type
 )
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
-load("@prelude//utils:utils.bzl", "expect")
+load("@prelude//utils:expect.bzl", "expect")
 
 # --crate-type=
 # Excludes `lib` because we want to explicitly choose the library flavour

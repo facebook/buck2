@@ -7,7 +7,8 @@
 
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
-load("@prelude//utils:utils.bzl", "expect", "from_named_set")
+load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//utils:utils.bzl", "from_named_set")
 
 def rust_attr_resources(ctx: AnalysisContext) -> dict[str, (Artifact, list[ArgLike])]:
     """

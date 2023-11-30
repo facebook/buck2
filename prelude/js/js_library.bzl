@@ -8,7 +8,8 @@
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//js:js_providers.bzl", "JsLibraryInfo", "get_transitive_outputs")
 load("@prelude//js:js_utils.bzl", "TRANSFORM_PROFILES", "get_canonical_src_name", "get_flavors", "run_worker_commands")
-load("@prelude//utils:utils.bzl", "expect", "map_idx")
+load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//utils:utils.bzl", "map_idx")
 
 # A group of sources that all have the same canonical name. The main_source is arbitrary but
 # consistent (it is just the first source encountered when processing the src files).
