@@ -11,10 +11,10 @@ use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_common::argv::Argv;
+use buck2_common::argv::SanitizedArgv;
 use dupe::Dupe;
 
-use crate::argv::Argv;
-use crate::argv::SanitizedArgv;
 use crate::client_ctx::ClientCommandContext;
 use crate::common::CommonBuildConfigurationOptions;
 use crate::common::CommonConsoleOptions;

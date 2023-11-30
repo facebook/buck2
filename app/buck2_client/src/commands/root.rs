@@ -9,10 +9,10 @@
 
 use std::str::FromStr;
 
-use buck2_client_ctx::argv::Argv;
-use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::path_arg::PathArg;
+use buck2_common::argv::Argv;
+use buck2_common::argv::SanitizedArgv;
 use buck2_common::invocation_roots::find_invocation_roots;
 use thiserror::Error;
 

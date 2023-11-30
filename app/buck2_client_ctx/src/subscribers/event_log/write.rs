@@ -65,10 +65,10 @@ mod counting_reader {
     }
 }
 
+use buck2_common::argv::SanitizedArgv;
 use counting_reader::CountingReader;
 
 use super::user_event_types::try_get_user_event;
-use crate::argv::SanitizedArgv;
 
 impl<T> CountingReader<T> {
     fn new(inner: T, stats: Option<Arc<AtomicU64>>) -> Self {

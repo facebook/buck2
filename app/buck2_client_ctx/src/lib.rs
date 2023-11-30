@@ -14,7 +14,6 @@
 #![feature(try_blocks)]
 #![feature(try_trait_v2)]
 
-pub mod argv;
 pub mod build_count;
 pub mod chunk_reader;
 pub mod cleanup_ctx;

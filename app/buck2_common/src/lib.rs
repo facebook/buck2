@@ -20,6 +20,7 @@
 #[macro_use]
 extern crate maplit;
 
+pub mod argv;
 pub mod buckd_connection;
 pub mod cas_digest;
 pub mod client_utils;

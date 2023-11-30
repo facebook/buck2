@@ -10,14 +10,14 @@
 use std::time::Duration;
 
 use anyhow::Context as _;
-use buck2_client_ctx::argv::Argv;
-use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::daemon::client::connect::buckd_startup_timeout;
 use buck2_client_ctx::daemon::client::connect::BuckdProcessInfo;
 use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::startup_deadline::StartupDeadline;
+use buck2_common::argv::Argv;
+use buck2_common::argv::SanitizedArgv;
 
 /// Kill the buck daemon.
 ///

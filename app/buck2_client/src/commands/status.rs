@@ -11,12 +11,12 @@ use std::time::Duration;
 
 use anyhow::Context;
 use buck2_cli_proto::StatusResponse;
-use buck2_client_ctx::argv::Argv;
-use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::daemon::client::connect::establish_connection_existing;
 use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
 use buck2_client_ctx::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
+use buck2_common::argv::Argv;
+use buck2_common::argv::SanitizedArgv;
 use buck2_common::daemon_dir::DaemonDir;
 use chrono::NaiveDateTime;
 use humantime::format_duration;
