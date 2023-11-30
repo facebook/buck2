@@ -16,6 +16,7 @@ use buck2_data::ActionSubError;
 use buck2_data::CommandExecution;
 use derive_more::Display;
 use display_container::fmt_container;
+use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
@@ -23,6 +24,7 @@ use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -217,4 +219,13 @@ impl<'v> StarlarkActionSubError<'v> {
                 }),
         }
     }
+}
+
+#[starlark_module]
+pub(crate) fn register_action_error_types(globals: &mut GlobalsBuilder) {
+    const ActionSubError: StarlarkValueAsType<StarlarkActionSubError> = StarlarkValueAsType::new();
+    const ActionErrorCtx: StarlarkValueAsType<StarlarkActionErrorContext> =
+        StarlarkValueAsType::new();
+    const ActionErrorLocation: StarlarkValueAsType<StarlarkActionErrorLocation> =
+        StarlarkValueAsType::new();
 }
