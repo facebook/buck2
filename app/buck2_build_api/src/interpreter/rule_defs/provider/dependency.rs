@@ -193,6 +193,14 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
         Ok(Dependency::new(heap, lbl, providers.to_value(), None))
     }
 
+    /// Gets a provider by indexing on a `ProviderCallable` object.
+    ///
+    /// e.g.
+    /// ```ignore
+    /// FooInfo = provider(fields=["bar"])
+    /// ....
+    /// collection.get(FooInfo) # None if absent, a FooInfo instance if present
+    /// ```
     fn get<'v>(
         this: &Dependency<'v>,
         index: Value<'v>,

@@ -277,7 +277,7 @@ impl<'v, V: ValueLike<'v>> ProviderCollectionGen<V> {
 /// ```ignore
 /// FooInfo = provider(fields=["bar"])
 /// ....
-/// collection[FooInfo] # None if absent, a FooInfo instance if present
+/// collection.get(FooInfo) # None if absent, a FooInfo instance if present
 /// ```
 ///
 /// This is the result of all UDR implementation functions
