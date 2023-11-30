@@ -17,14 +17,18 @@ use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_signals::NodeDuration;
 use buck2_common::events::HasEvents;
+use buck2_data::ActionErrorDiagnostics;
+use buck2_data::ActionSubErrors;
 use buck2_data::ToProtoMessage;
 use buck2_error::Context;
 use buck2_events::dispatch::async_record_root_spans;
+use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
 use buck2_events::span::SpanId;
 use buck2_execute::execute::result::CommandExecutionReport;
 use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::output_size::OutputSize;
+use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -36,9 +40,14 @@ use indexmap::IndexMap;
 use more_futures::cancellation::CancellationContext;
 use ref_cast::RefCast;
 use smallvec::SmallVec;
+use starlark::environment::Module;
+use starlark::eval::Evaluator;
 use tracing::debug;
 
 use crate::actions::error::ActionError;
+use crate::actions::error_handler::ActionErrorHandlerError;
+use crate::actions::error_handler::ActionSubErrorResult;
+use crate::actions::error_handler::StarlarkActionErrorContext;
 use crate::actions::execute::action_executor::ActionOutputs;
 use crate::actions::execute::action_executor::HasActionExecutor;
 use crate::actions::key::ActionKeyExt;
@@ -46,6 +55,8 @@ use crate::actions::RegisteredAction;
 use crate::artifact_groups::calculation::ensure_artifact_group_staged;
 use crate::deferred::calculation::DeferredCalculation;
 use crate::keep_going;
+use crate::starlark::values::type_repr::StarlarkTypeRepr;
+use crate::starlark::values::UnpackValue;
 
 #[async_trait]
 pub trait ActionCalculation {
@@ -190,12 +201,16 @@ async fn build_action_no_redirect(
                 buck2_build_time = buck2_build_info::time_iso8601().map(|s| s.to_owned());
                 hostname = buck2_events::metadata::hostname();
 
+                let last_command = commands.last().cloned();
+
+                let error_diagnostics = try_run_error_handler(action.dupe(), last_command.as_ref());
+
                 let e = ActionError::new(
                     e,
                     action_name.clone(),
                     action_key.clone(),
-                    commands.last().cloned(),
-                    None, // TODO(@wendyy) - populate
+                    last_command.clone(),
+                    error_diagnostics,
                 );
 
                 error = Some(e.as_proto_field());
@@ -275,6 +290,54 @@ async fn build_action_no_redirect(
     })?;
 
     res
+}
+
+// Attempt to run the error handler if one was specified. Returns either the error diagnostics, or
+// an actual error if the handler failed to run successfully.
+fn try_run_error_handler(
+    action: Arc<RegisteredAction>,
+    last_command: Option<&buck2_data::CommandExecution>,
+) -> Option<ActionErrorDiagnostics> {
+    use buck2_data::action_error_diagnostics::Data;
+
+    // TODO(@wendyy) - emit span for this
+    match action.action.error_handler() {
+        Some(error_handler) => {
+            let env = Module::new();
+            let heap = env.heap();
+            let print = EventDispatcherPrintHandler(get_dispatcher());
+            let mut eval = Evaluator::new(&env);
+            eval.set_print_handler(&print);
+
+            let error_handler_ctx =
+                StarlarkActionErrorContext::new_from_command_execution(last_command);
+
+            let error_handler_result =
+                eval.eval_function(error_handler.value(), &[heap.alloc(error_handler_ctx)], &[]);
+
+            let data = match error_handler_result {
+                Ok(result) => match ActionSubErrorResult::unpack_value(result) {
+                    Some(result) => Data::SubErrors(ActionSubErrors {
+                        sub_errors: result.items.into_iter().map(|s| s.to_proto()).collect(),
+                    }),
+                    None => Data::HandlerInvocationError(format!(
+                        "{}",
+                        ActionErrorHandlerError::TypeError(
+                            ActionSubErrorResult::starlark_type_repr(),
+                            result.get_type().to_owned()
+                        )
+                    )),
+                },
+                Err(e) => {
+                    let e = buck2_error::Error::from(e).context("Error handler failed");
+                    Data::HandlerInvocationError(format!("{:#}", e))
+                }
+            };
+
+            Some(ActionErrorDiagnostics { data: Some(data) })
+        }
+        None => None,
+    }
 }
 
 pub struct BuildKeyActivationData {

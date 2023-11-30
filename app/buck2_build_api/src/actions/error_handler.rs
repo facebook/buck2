@@ -22,6 +22,8 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
+use starlark::typing::Ty;
+use starlark::values::list::UnpackList;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
@@ -33,6 +35,14 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::StarlarkDocs;
+
+pub(crate) type ActionSubErrorResult<'a> = UnpackList<&'a StarlarkActionSubError<'a>>;
+
+#[derive(Debug, buck2_error::Error)]
+pub(crate) enum ActionErrorHandlerError {
+    #[error("Error handler failed. Expected return type `{0}`, got value with type `{1}`")]
+    TypeError(Ty, String),
+}
 
 #[derive(
     ProvidesStaticType,
@@ -55,8 +65,7 @@ pub struct StarlarkActionErrorContext {
 }
 
 impl StarlarkActionErrorContext {
-    #[allow(unused)]
-    fn new_from_command_execution(command: Option<&CommandExecution>) -> Self {
+    pub(crate) fn new_from_command_execution(command: Option<&CommandExecution>) -> Self {
         let stderr = command.map_or(String::default(), |c| {
             c.details
                 .as_ref()
@@ -199,8 +208,7 @@ impl<'v> AllocValue<'v> for StarlarkActionSubError<'v> {
 impl<'v> StarlarkValue<'v> for StarlarkActionSubError<'v> {}
 
 impl<'v> StarlarkActionSubError<'v> {
-    #[allow(unused)]
-    fn to_proto(&self) -> ActionSubError {
+    pub(crate) fn to_proto(&self) -> ActionSubError {
         ActionSubError {
             category: self.category.clone(),
             message: self.message.clone(),
