@@ -297,12 +297,18 @@ impl<'c> DiceCalculationDelegate<'c> {
         &self,
         file: &PackageFilePath,
     ) -> anyhow::Result<SuperPackage> {
-        match file.parent_package_file() {
+        let cell_resolver = self.ctx.get_cell_resolver().await?;
+        let proj_rel_path = cell_resolver.resolve_path(file.dir())?;
+        match proj_rel_path.parent() {
             None => {
-                // We are in the cell root, there's no parent.
+                // We are in the project root, there's no parent.
                 Ok(SuperPackage::empty::<SuperPackageValuesImpl>())
             }
-            Some(parent) => self.eval_package_file(&parent).await,
+            Some(parent) => {
+                let parent_cell = cell_resolver.get_cell_path(parent)?;
+                self.eval_package_file(&PackageFilePath::for_dir(parent_cell.as_ref()))
+                    .await
+            }
         }
     }
 

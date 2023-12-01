@@ -81,7 +81,7 @@ def get_constraint_setting(constraint_settings: dict[TargetLabel, None], modifie
             "Modifier `{}` from `{}` is found to modify the following constraint settings:\n".format(
                 modifier,
                 location_to_string(location),
-            ) + "\n".join(constraint_settings.keys()),
+            ) + "\n".join([str(k) for k in constraint_settings.keys()]),
         )
     return list(constraint_settings.keys())[0]
 
