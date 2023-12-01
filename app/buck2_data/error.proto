@@ -33,3 +33,17 @@ enum ErrorCategory {
   INFRA = 1;
   USER = 2;
 }
+
+// Error types are - by design - restricted to being set exactly once at the
+// error definition site. While they are useful, that means that they are enough
+// on their own to represent all the error metadata we want. Until we figure out
+// what exactly a more complete model looks like, error tags a mechanism that
+// offers maximum flexibility - they can be added to any error anywhere.
+//
+// Feel free to continue using error types if you like.
+enum ErrorTag {
+  // Same as above
+  UNUSED_DEFAULT_TAG = 0;
+  STARLARK_FAIL = 1;
+  WATCHMAN_TIMEOUT = 2;
+}

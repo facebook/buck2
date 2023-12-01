@@ -1916,18 +1916,20 @@ message ErrorReport {
   // The location in source code where this error was created. Typically a Rust
   // source file, but the exact format is not guaranteed.
   optional string source_location = 5;
+  repeated buck.data.error.ErrorTag tags = 6;
 }
 
-// Identical to `ErrorReport`, but with the cause converted to a string. This
-// makes it easy to change the cause without having to worry about uses of this
-// protobuf definition outside of buck2. Currently used in the invocation record
-// and nowhere else.
+// Identical to `ErrorReport`, but with the typ and tags converted to strings.
+// This makes it easy to change those enums without having to worry about uses
+// of this protobuf definition outside of buck2. Currently used in the
+// invocation record and nowhere else.
 message ProcessedErrorReport {
   optional buck.data.error.ErrorCategory category = 1;
   optional string typ = 2;
   string message = 3;
   optional string telemetry_message = 4;
   optional string source_location = 5;
+  repeated string tags = 6;
 }
 
 message MaterializerStateInfo {

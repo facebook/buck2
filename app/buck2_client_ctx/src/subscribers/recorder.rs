@@ -483,6 +483,13 @@ mod imp {
                             .and_then(buck2_data::error::ErrorType::from_i32)
                             .map(|t| t.as_str_name().to_owned()),
                         source_location: r.source_location,
+                        tags: r
+                            .tags
+                            .iter()
+                            .copied()
+                            .filter_map(buck2_data::error::ErrorTag::from_i32)
+                            .map(|t| t.as_str_name().to_owned())
+                            .collect(),
                     }
                 }));
 
