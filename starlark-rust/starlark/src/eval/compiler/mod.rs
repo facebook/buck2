@@ -45,20 +45,14 @@ use crate::values::FrozenRef;
 
 #[cold]
 #[inline(never)]
-fn add_span_to_error(mut e: crate::Error, span: FrameSpan, eval: &Evaluator) -> crate::Error {
-    e.set_span(span.span.span(), &span.span.file());
-    e.set_call_stack(|| eval.call_stack.to_diagnostic_frames(span.inlined_frames));
-    e
-}
-
-#[cold]
-#[inline(never)]
 pub(crate) fn add_span_to_expr_error(
     e: crate::Error,
     span: FrameSpan,
     eval: &Evaluator,
 ) -> EvalException {
-    EvalException::unchecked_new(add_span_to_error(e, span, eval))
+    EvalException::new_with_callstack(e, span.span.span(), &span.span.file(), || {
+        eval.call_stack.to_diagnostic_frames(span.inlined_frames)
+    })
 }
 
 /// Convert syntax error to spanned evaluation exception

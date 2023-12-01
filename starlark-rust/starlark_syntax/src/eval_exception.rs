@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use crate::call_stack::CallStack;
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
 
@@ -26,12 +27,6 @@ pub struct EvalException(
 );
 
 impl EvalException {
-    /// Error must be `Diagnostic`.
-    #[cold]
-    pub fn unchecked_new(error: crate::Error) -> EvalException {
-        EvalException(error)
-    }
-
     #[cold]
     pub fn into_error(self) -> crate::Error {
         self.0
@@ -40,6 +35,18 @@ impl EvalException {
     #[cold]
     pub fn new(mut error: crate::Error, span: Span, codemap: &CodeMap) -> EvalException {
         error.set_span(span, codemap);
+        EvalException(error)
+    }
+
+    #[cold]
+    pub fn new_with_callstack(
+        mut error: crate::Error,
+        span: Span,
+        codemap: &CodeMap,
+        call_stack: impl FnOnce() -> CallStack,
+    ) -> EvalException {
+        error.set_span(span, codemap);
+        error.set_call_stack(call_stack);
         EvalException(error)
     }
 
