@@ -35,6 +35,14 @@ use crate::diagnostic::Diagnostic;
 pub struct Error(Box<ErrorInner>);
 
 impl Error {
+    /// Create a new error
+    pub fn new(kind: ErrorKind) -> Self {
+        Self(Box::new(ErrorInner {
+            kind,
+            diagnostic: None,
+        }))
+    }
+
     /// Create a new error with a span
     pub fn new_spanned(kind: ErrorKind, span: Span, codemap: &CodeMap) -> Self {
         Self(Box::new(ErrorInner {
