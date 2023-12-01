@@ -162,15 +162,19 @@ CxxExecutableOutput = record(
     unstripped_binary = Artifact,
     bitcode_bundle = field([Artifact, None], None),
     dwp = field([Artifact, None]),
-    # Files that will likely need to be included as .hidden() arguments
-    # when executing the executable (ex. RunInfo())
+    # Files that must be present for the executable to run successfully. These
+    # are always materialized, whether the executable is the output of a build
+    # or executed as a host tool. They become .hidden() arguments when executing
+    # the executable via RunInfo().
     runtime_files = list[ArgLike],
     sub_targets = dict[str, list[DefaultInfo]],
     # The LinkArgs used to create the final executable in 'binary'.
     link_args = list[LinkArgs],
     # External components needed to debug the executable.
     external_debug_info = field(ArtifactTSet, ArtifactTSet()),
-    # The projection of `external_debug_info`
+    # The projection of `external_debug_info`. These files need to be
+    # materialized when this executable is the output of a build, not when it is
+    # used by other rules. They become other_outputs on DefaultInfo.
     external_debug_info_artifacts = list[TransitiveSetArgsProjection],
     shared_libs = dict[str, LinkedObject],
     # All link group links that were generated in the executable.
@@ -575,13 +579,6 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             ),
         )]
 
-    # TODO(T110378140): We can't really enable this yet, as Python binaries
-    # consuming C++ binaries as resources don't know how to handle the
-    # extraneous debug paths and will crash.  We probably need to add a special
-    # exported resources provider and make sure we handle the workflows.
-    # Add any referenced debug paths to runtime files.
-    #runtime_files.extend(binary.external_debug_info)
-
     # If we have some resources, write it to the resources JSON file and add
     # it and all resources to "runtime_files" so that we make to materialize
     # them with the final binary.
@@ -639,7 +636,8 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             default_output = binary.index_argsfile,
         )]
 
-    # Provide a debug info target to make sure debug info is materialized.
+    # Provide a debug info target to make sure unpacked external debug info
+    # (dwo) is materialized.
     external_debug_info = make_artifact_tset(
         actions = ctx.actions,
         children = (
