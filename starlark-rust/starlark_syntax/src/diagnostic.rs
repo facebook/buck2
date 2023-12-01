@@ -24,12 +24,12 @@ use crate::span_display::span_display;
 
 /// A description of where in starlark execution the error happened.
 #[derive(Debug, Default)]
-pub struct Diagnostic {
+pub(crate) struct Diagnostic {
     /// Location where the error originated.
-    pub span: Option<FileSpan>,
+    pub(crate) span: Option<FileSpan>,
 
     /// Call stack where the error originated.
-    pub call_stack: CallStack,
+    pub(crate) call_stack: CallStack,
 }
 
 impl Diagnostic {
