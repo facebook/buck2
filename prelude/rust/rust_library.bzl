@@ -163,13 +163,15 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
     )
 
+    linker_info = get_cxx_toolchain_info(ctx).linker_info
+
     # Native link provier.
     link = LinkInfos(
         default = LinkInfo(
             linkables = [
                 ArchiveLinkable(
                     archive = Archive(artifact = ctx.attrs.rlib),
-                    linker_type = "unknown",
+                    linker_type = linker_info.type,
                 ),
             ],
         ),
@@ -183,7 +185,7 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                             obj = ctx.attrs.rlib,
                         ),
                     ),
-                    linker_type = "unknown",
+                    linker_type = linker_info.type,
                 ),
             ],
         ),
@@ -201,7 +203,6 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     # Native link graph setup.
-    linker_info = get_cxx_toolchain_info(ctx).linker_info
     linkable_graph = create_linkable_graph(
         ctx,
         node = create_linkable_graph_node(
