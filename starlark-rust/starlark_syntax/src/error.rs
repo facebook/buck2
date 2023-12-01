@@ -154,6 +154,8 @@ impl fmt::Debug for Error {
 /// The different kinds of errors that can be produced by starlark
 #[non_exhaustive]
 pub enum ErrorKind {
+    /// An explicit `fail` invocation
+    Fail(anyhow::Error),
     /// An error approximately associated with a value.
     ///
     /// Includes unsupported operations, missing attributes, things of that sort.
@@ -173,6 +175,7 @@ impl ErrorKind {
     /// The source of the error, akin to `[std::error::Error::source]`
     pub fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
+            Self::Fail(_) => None,
             Self::Value(_) => None,
             Self::Internal(_) => None,
             Self::Other(e) => e.source(),
@@ -183,6 +186,7 @@ impl ErrorKind {
 impl fmt::Debug for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Fail(s) => write!(f, "fail:{}", s),
             Self::Value(e) => fmt::Debug::fmt(e, f),
             Self::Internal(e) => write!(f, "Internal error: {}", e),
             Self::Other(e) => fmt::Debug::fmt(e, f),
@@ -193,6 +197,7 @@ impl fmt::Debug for ErrorKind {
 impl fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Fail(s) => write!(f, "fail:{}", s),
             Self::Value(e) => fmt::Display::fmt(e, f),
             Self::Internal(e) => write!(f, "Internal error: {}", e),
             Self::Other(e) => fmt::Display::fmt(e, f),

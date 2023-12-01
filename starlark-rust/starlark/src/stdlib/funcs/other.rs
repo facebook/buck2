@@ -79,7 +79,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     /// fail("oops", 1, False)  # fail: oops 1 False
     /// # "#, "oops 1 False");
     /// ```
-    fn fail(#[starlark(args)] args: UnpackTuple<Value>) -> anyhow::Result<StarlarkNever> {
+    fn fail(#[starlark(args)] args: UnpackTuple<Value>) -> starlark::Result<StarlarkNever> {
         let mut s = String::new();
         for x in args.items {
             s.push(' ');
@@ -88,7 +88,9 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
                 None => x.collect_repr(&mut s),
             }
         }
-        Err(anyhow::anyhow!("fail:{}", s))
+        Err(starlark::Error::new(starlark::ErrorKind::Fail(
+            anyhow::Error::msg(s),
+        )))
     }
 
     /// Take the absolute value of an int.
