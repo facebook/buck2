@@ -83,11 +83,11 @@ pub(crate) enum ControlError {
 
 impl ValueError {
     #[cold]
-    pub(crate) fn unsupported_owned_anyhow<T>(
+    pub(crate) fn unsupported_owned<T>(
         left: &str,
         op: &str,
         right: Option<&str>,
-    ) -> anyhow::Result<T> {
+    ) -> crate::Result<T> {
         match right {
             None => Err(ValueError::OperationNotSupported {
                 op: op.to_owned(),
@@ -103,24 +103,6 @@ impl ValueError {
         }
     }
 
-    #[cold]
-    pub(crate) fn unsupported_owned<T>(
-        left: &str,
-        op: &str,
-        right: Option<&str>,
-    ) -> crate::Result<T> {
-        Self::unsupported_owned_anyhow(left, op, right).map_err(Into::into)
-    }
-
-    /// Helper to create an [`OperationNotSupported`](ValueError::OperationNotSupported) error.
-    #[cold]
-    pub fn unsupported_anyhow<'v, T, V: StarlarkValue<'v> + ?Sized>(
-        _left: &V,
-        op: &str,
-    ) -> anyhow::Result<T> {
-        Self::unsupported_owned_anyhow(V::TYPE, op, None)
-    }
-
     /// Helper to create an [`OperationNotSupported`](ValueError::OperationNotSupported) error.
     #[cold]
     pub fn unsupported<'v, T, V: StarlarkValue<'v> + ?Sized>(
@@ -130,26 +112,9 @@ impl ValueError {
         Self::unsupported_owned(V::TYPE, op, None)
     }
 
-    /// Helper to create an [`OperationNotSupported`](ValueError::OperationNotSupported) error.
-    #[cold]
-    pub(crate) fn unsupported_type_anyhow<T>(left: Value, op: &str) -> anyhow::Result<T> {
-        Self::unsupported_owned_anyhow(left.get_type(), op, None)
-    }
-
-    #[allow(unused)] // TODO(JakobDegen): Use
     #[cold]
     pub(crate) fn unsupported_type<T>(left: Value, op: &str) -> crate::Result<T> {
         Self::unsupported_owned(left.get_type(), op, None)
-    }
-
-    /// Helper to create an [`OperationNotSupported`](ValueError::OperationNotSupportedBinary) error.
-    #[cold]
-    pub fn unsupported_with_anyhow<'v, T, V: StarlarkValue<'v> + ?Sized>(
-        _left: &V,
-        op: &str,
-        right: Value,
-    ) -> anyhow::Result<T> {
-        Self::unsupported_owned_anyhow(V::TYPE, op, Some(right.get_type()))
     }
 
     /// Helper to create an [`OperationNotSupported`](ValueError::OperationNotSupportedBinary) error.

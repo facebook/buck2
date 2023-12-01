@@ -486,7 +486,7 @@ where
 
     fn bit_or(&self, rhs: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         let rhs = DictRef::from_value(rhs)
-            .map_or_else(|| ValueError::unsupported_with_anyhow(self, "|", rhs), Ok)?;
+            .map_or_else(|| ValueError::unsupported_with(self, "|", rhs), Ok)?;
         if self.0.content().is_empty() {
             return Ok(heap.alloc(rhs.clone()));
         }

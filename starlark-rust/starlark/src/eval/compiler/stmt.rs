@@ -569,7 +569,7 @@ pub(crate) fn bit_or_assign<'v>(
         } else {
             let rhs = DictRef::from_value(rhs).map_or_else(
                 || {
-                    ValueError::unsupported_owned_anyhow(
+                    ValueError::unsupported_owned(
                         lhs_aref.vtable().type_name,
                         "|=",
                         Some(rhs.get_type()),

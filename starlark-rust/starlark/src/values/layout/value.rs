@@ -518,7 +518,7 @@ impl<'v> Value<'v> {
     }
 
     /// Conversion to an int that sees through `bool` and `int`.
-    pub(crate) fn to_int(self) -> anyhow::Result<i32> {
+    pub(crate) fn to_int(self) -> crate::Result<i32> {
         // Fast path for the common case
         if let Some(x) = self.unpack_i32() {
             Ok(x)
@@ -527,7 +527,7 @@ impl<'v> Value<'v> {
         } else if let Some(NumRef::Int(_)) = self.unpack_num() {
             Err(ValueError::IntegerOverflow.into())
         } else {
-            ValueError::unsupported_owned_anyhow(self.get_type(), "int()", None)
+            ValueError::unsupported_owned(self.get_type(), "int()", None)
         }
     }
 
@@ -852,12 +852,9 @@ impl<'v> Value<'v> {
     /// Like `get_attr` but return an error if the attribute is not available.
     pub fn get_attr_error(self, attribute: &str, heap: &'v Heap) -> crate::Result<Value<'v>> {
         match self.get_attr(attribute, heap)? {
-            None => ValueError::unsupported_owned_anyhow(
-                self.get_type(),
-                &format!(".{}", attribute),
-                None,
-            )
-            .map_err(Into::into),
+            None => {
+                ValueError::unsupported_owned(self.get_type(), &format!(".{}", attribute), None)
+            }
             Some(x) => Ok(x),
         }
     }

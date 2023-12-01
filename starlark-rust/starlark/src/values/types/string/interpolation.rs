@@ -189,7 +189,7 @@ impl<'a> Iterator for PercentFormatParser<'a> {
     }
 }
 
-pub(crate) fn percent(format: &str, value: Value) -> anyhow::Result<String> {
+pub(crate) fn percent(format: &str, value: Value) -> crate::Result<String> {
     // NOTE(nga): use could reuse `Evaluator::string_pool` here, but
     //   * we don't have access to `Evaluator` in `StarlarkValue::percent`
     //   * after single %s made intrinsic, this code is not that hot now
@@ -235,9 +235,9 @@ pub(crate) fn percent(format: &str, value: Value) -> anyhow::Result<String> {
                     }
                     Some(NumRef::Float(v)) => match NumRef::Float(v.trunc()).as_int() {
                         Some(v) => write!(res, "{}", v).unwrap(),
-                        None => ValueError::unsupported_type_anyhow(value, "format(%d)")?,
+                        None => ValueError::unsupported_type(value, "format(%d)")?,
                     },
-                    None => ValueError::unsupported_type_anyhow(value, "format(%d)")?,
+                    None => ValueError::unsupported_type(value, "format(%d)")?,
                 }
             }
             Some(PercentSFormat::Oct) => {
@@ -263,7 +263,7 @@ pub(crate) fn percent(format: &str, value: Value) -> anyhow::Result<String> {
                         .unwrap()
                     }
                     Some(NumRef::Float(_)) | None => {
-                        ValueError::unsupported_type_anyhow(value, "format(%o)")?
+                        ValueError::unsupported_type(value, "format(%o)")?
                     }
                 }
             }
@@ -290,7 +290,7 @@ pub(crate) fn percent(format: &str, value: Value) -> anyhow::Result<String> {
                         .unwrap()
                     }
                     Some(NumRef::Float(_)) | None => {
-                        ValueError::unsupported_type_anyhow(value, "format(%x)")?
+                        ValueError::unsupported_type(value, "format(%x)")?
                     }
                 }
             }
@@ -317,7 +317,7 @@ pub(crate) fn percent(format: &str, value: Value) -> anyhow::Result<String> {
                         .unwrap()
                     }
                     Some(NumRef::Float(_)) | None => {
-                        ValueError::unsupported_type_anyhow(value, "format(%X)")?
+                        ValueError::unsupported_type(value, "format(%X)")?
                     }
                 }
             }
@@ -344,7 +344,9 @@ pub(crate) fn percent(format: &str, value: Value) -> anyhow::Result<String> {
         }
     }
     if values.next().is_some() {
-        Err(StringInterpolationError::TooManyParameters.into())
+        Err(crate::Error::new_other(
+            StringInterpolationError::TooManyParameters,
+        ))
     } else {
         Ok(res)
     }

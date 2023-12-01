@@ -320,7 +320,7 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
         }
 
         #[inline(always)]
-        fn start_stop_to_none_or(v: Option<Value>) -> anyhow::Result<NoneOr<i32>> {
+        fn start_stop_to_none_or(v: Option<Value>) -> crate::Result<NoneOr<i32>> {
             match v {
                 None => Ok(NoneOr::None),
                 Some(v) => Ok(NoneOr::Other(v.to_int()?)),
