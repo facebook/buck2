@@ -47,10 +47,37 @@ impl std::error::Error for BuckStarlarkError {
     fn provide<'a>(&'a self, demand: &mut buck2_error::Demand<'a>) {
         match self.e.kind() {
             starlark::ErrorKind::Other(e) => {
-                buck2_error::forward_provide::<Self>(demand, e.as_ref())
+                buck2_error::forward_provide::<Self>(demand, e.as_ref());
+                return;
             }
             _ => (),
         }
+
+        let category = match self.e.kind() {
+            starlark::ErrorKind::Fail(_)
+            | starlark::ErrorKind::Internal(_)
+            | starlark::ErrorKind::Value(_) => Some(buck2_error::Category::User),
+            _ => None,
+        };
+        let tags = match self.e.kind() {
+            starlark::ErrorKind::Fail(_) => &[Some(buck2_error::ErrorTag::StarlarkFail)][..],
+            _ => &[][..],
+        };
+        let variant_name = match self.e.kind() {
+            starlark::ErrorKind::Fail(_) => "BuckStarlarkError::Fail",
+            starlark::ErrorKind::Internal(_) => "BuckStarlarkError::Internal",
+            starlark::ErrorKind::Value(_) => "BuckStarlarkError::Value",
+            _ => "BuckStarlarkError",
+        };
+        buck2_error::provide_metadata::<Self>(
+            demand,
+            category,
+            None, /* typ */
+            tags,
+            std::file!(),
+            Some(variant_name),
+            None, /* action error */
+        );
     }
 }
 
