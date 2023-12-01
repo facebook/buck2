@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:artifacts.bzl", "single_artifact")
+load("@prelude//dist:dist_info.bzl", "DistInfo")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
@@ -47,4 +48,5 @@ def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
             other_outputs = hidden + runtime_files,
         ),
         RunInfo(args = cmd_args(bin).hidden(hidden + runtime_files)),
+        DistInfo(nondebug_runtime_files = hidden + runtime_files),
     ]

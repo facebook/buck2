@@ -275,6 +275,7 @@ def _rust_binary_common(
             sub_targets = sub_targets_for_link_style,
             dist_info = DistInfo(
                 shared_libs = shlib_info.set,
+                nondebug_runtime_files = runtime_files,
             ),
         )
 

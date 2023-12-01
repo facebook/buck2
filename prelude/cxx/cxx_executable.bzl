@@ -678,6 +678,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         link_command_debug_output = link_cmd_debug_output,
         dist_info = DistInfo(
             shared_libs = shlib_info.set,
+            nondebug_runtime_files = runtime_files,
         ),
     )
 
