@@ -144,11 +144,11 @@ def shared_libs_symlink_tree_name(output: Artifact) -> str:
     return "__{}__shared_libs_symlink_tree".format(output.short_path)
 
 ExecutableSharedLibArguments = record(
-    extra_link_args = list[ArgLike],
+    extra_link_args = field(list[ArgLike], []),
     # Files/directories that should be present for executable to be run successfully.
-    runtime_files = list[ArgLike],
+    runtime_files = field(list[ArgLike], []),
     # Optional shared libs symlink tree symlinked_dir action.
-    shared_libs_symlink_tree = [list[Artifact], Artifact, None],
+    shared_libs_symlink_tree = field(list[Artifact] | Artifact | None, None),
 )
 
 def executable_shared_lib_arguments(

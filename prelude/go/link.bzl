@@ -8,6 +8,7 @@
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_inherited_link_info")
 load(
     "@prelude//cxx:cxx_link_utility.bzl",
+    "ExecutableSharedLibArguments",
     "executable_shared_lib_arguments",
     "make_link_args",
 )
@@ -24,7 +25,6 @@ load(
     "traverse_shared_library_info",
 )
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
-load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load(
     "@prelude//utils:utils.bzl",
     "map_idx",
@@ -74,14 +74,14 @@ def _process_shared_dependencies(
         ctx: AnalysisContext,
         artifact: Artifact,
         deps: list[Dependency],
-        link_style: LinkStyle) -> (list[ArgLike], list[ArgLike]):
+        link_style: LinkStyle) -> ExecutableSharedLibArguments:
     """
     Provides files and linker args needed to for binaries with shared library linkage.
     - the runtime files needed to run binary linked with shared libraries
     - linker arguments for shared libraries
     """
     if link_style != LinkStyle("shared"):
-        return ([], [])
+        return ExecutableSharedLibArguments()
 
     shlib_info = merge_shared_libraries(
         ctx.actions,
@@ -91,14 +91,12 @@ def _process_shared_dependencies(
     for name, shared_lib in traverse_shared_library_info(shlib_info).items():
         shared_libs[name] = shared_lib.lib
 
-    executable_args = executable_shared_lib_arguments(
+    return executable_shared_lib_arguments(
         ctx.actions,
         ctx.attrs._go_toolchain[GoToolchainInfo].cxx_toolchain_for_linking,
         artifact,
         shared_libs,
     )
-
-    return (executable_args.runtime_files, executable_args.extra_link_args)
 
 def link(
         ctx: AnalysisContext,
@@ -151,7 +149,7 @@ def link(
     cmd.add("-importcfg", importcfg)
     cmd.hidden(all_pkgs.values())
 
-    runtime_files, extra_link_args = _process_shared_dependencies(ctx, output, deps, link_style)
+    executable_args = _process_shared_dependencies(ctx, output, deps, link_style)
 
     if link_mode == None:
         if build_mode == GoBuildMode("c_shared"):
@@ -176,7 +174,7 @@ def link(
             [ext_links],
         )
         ext_link_args = cmd_args()
-        ext_link_args.add(cmd_args(extra_link_args, quote = "shell"))
+        ext_link_args.add(cmd_args(executable_args.extra_link_args, quote = "shell"))
         ext_link_args.add(external_linker_flags)
         ext_link_args.add(ext_link_args_output.link_args)
         ext_link_args.hidden(ext_link_args_output.hidden)
@@ -209,4 +207,4 @@ def link(
 
     ctx.actions.run(cmd, category = "go_link")
 
-    return (output, runtime_files)
+    return (output, executable_args.runtime_files)
