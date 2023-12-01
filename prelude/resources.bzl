@@ -5,20 +5,20 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
+load("@prelude//:artifacts.bzl", "ArtifactOutputs")
 
 # Resources for transitive deps, shared by C++ and Rust.
 ResourceInfo = provider(fields = {
     # A map containing all resources from transitive dependencies.  The keys
     # are rule labels and the values are maps of resource names (the name used
     # to lookup the resource at runtime) and the actual resource artifact.
-    "resources": provider_field(typing.Any, default = None),  # {"label": {str: ("artifact", ["hidden"])}}
+    "resources": provider_field(dict[Label, dict[str, ArtifactOutputs]]),
 })
 
 def gather_resources(
         label: Label,
-        resources: dict[str, (Artifact, list[ArgLike])] = {},
-        deps: list[Dependency] = []) -> dict[Label, dict[str, (Artifact, list[ArgLike])]]:
+        resources: dict[str, ArtifactOutputs] = {},
+        deps: list[Dependency] = []) -> dict[Label, dict[str, ArtifactOutputs]]:
     """
     Return the resources for this rule and its transitive deps.
     """
@@ -40,14 +40,14 @@ def create_resource_db(
         ctx: AnalysisContext,
         name: str,
         binary: Artifact,
-        resources: dict[str, (Artifact, list[ArgLike])]) -> Artifact:
+        resources: dict[str, ArtifactOutputs]) -> Artifact:
     """
     Generate a resource DB for resources for the given binary, relativized to
     the binary's working directory.
     """
 
     db = {
-        name: cmd_args(resource, delimiter = "").relative_to(binary, parent = 1)
-        for (name, (resource, _other)) in resources.items()
+        name: cmd_args(resource.default_output, delimiter = "").relative_to(binary, parent = 1)
+        for (name, resource) in resources.items()
     }
     return ctx.actions.write_json(name, db)

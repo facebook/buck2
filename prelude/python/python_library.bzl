@@ -5,7 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:artifacts.bzl", "unpack_artifact_map")
+load(
+    "@prelude//:artifacts.bzl",
+    "ArtifactOutputs",  # @unused Used as a type
+    "unpack_artifact_map",
+)
 load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//:resources.bzl",
@@ -197,7 +201,7 @@ def _attr_srcs(ctx: AnalysisContext) -> dict[str, Artifact]:
         all_srcs.update(from_named_set(srcs))
     return all_srcs
 
-def _attr_resources(ctx: AnalysisContext) -> dict[str, [Dependency, Artifact]]:
+def _attr_resources(ctx: AnalysisContext) -> dict[str, Artifact | Dependency]:
     python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
     cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
     all_resources = {}
@@ -206,7 +210,7 @@ def _attr_resources(ctx: AnalysisContext) -> dict[str, [Dependency, Artifact]]:
         all_resources.update(from_named_set(resources))
     return all_resources
 
-def py_attr_resources(ctx: AnalysisContext) -> dict[str, (Artifact, list[ArgLike])]:
+def py_attr_resources(ctx: AnalysisContext) -> dict[str, ArtifactOutputs]:
     """
     Return the resources provided by this rule, as a map of resource name to
     a tuple of the resource artifact and any "other" outputs exposed by it.
@@ -216,15 +220,15 @@ def py_attr_resources(ctx: AnalysisContext) -> dict[str, (Artifact, list[ArgLike
 
 def py_resources(
         ctx: AnalysisContext,
-        resources: dict[str, (Artifact, list[ArgLike])]) -> (ManifestInfo, list[ArgLike]):
+        resources: dict[str, ArtifactOutputs]) -> (ManifestInfo, list[ArgLike]):
     """
     Generate a manifest to wrap this rules resources.
     """
-    d = {name: resource for name, (resource, _) in resources.items()}
+    d = {name: resource.default_output for name, resource in resources.items()}
     hidden = []
-    for name, (resource, other) in resources.items():
-        for o in other:
-            if type(o) == "artifact" and o.basename == shared_libs_symlink_tree_name(resource):
+    for name, resource in resources.items():
+        for o in resource.other_outputs:
+            if type(o) == "artifact" and o.basename == shared_libs_symlink_tree_name(resource.default_output):
                 # Package the binary's shared libs next to the binary
                 # (the path is stored in RPATH relative to the binary).
                 d[paths.join(paths.dirname(name), o.basename)] = o

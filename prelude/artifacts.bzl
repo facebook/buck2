@@ -16,31 +16,49 @@ ArtifactGroupInfo = provider(
     },
 )
 
-def _from_default_info(dep: Dependency) -> (Artifact, list[ArgLike]):
+ArtifactOutputs = record(
+    # Single output. This is the artifact whose path would go into the resources
+    # JSON when this artifact is used as a resource.
+    default_output = field(Artifact),
+    # Other artifacts which need to be present in order to run the resource as
+    # an executable.
+    other_outputs = field(list[ArgLike]),
+)
+
+def _from_default_info(dep: Dependency) -> ArtifactOutputs:
     info = dep[DefaultInfo]
     expect(
         len(info.default_outputs) == 1,
         "expected exactly one default output from {} ({})"
             .format(dep, info.default_outputs),
     )
-    return (info.default_outputs[0], info.other_outputs)
+    return ArtifactOutputs(
+        default_output = info.default_outputs[0],
+        other_outputs = info.other_outputs,
+    )
 
-def unpack_artifacts(artifacts: list[[Artifact, Dependency]]) -> list[(Artifact, list[ArgLike])]:
+def unpack_artifacts(artifacts: list[Artifact | Dependency]) -> list[ArtifactOutputs]:
     """
-    Unpack a list of `artifact` and `ArtifactGroupInfo` into a flattened list
-    of `artifact`s
+    Unpack a heterogeneous list of Artifact and ArtifactGroupInfo into a list
+    representing their outputs.
     """
 
     out = []
 
     for artifact in artifacts:
         if type(artifact) == "artifact":
-            out.append((artifact, []))
+            out.append(ArtifactOutputs(
+                default_output = artifact,
+                other_outputs = [],
+            ))
             continue
 
         if ArtifactGroupInfo in artifact:
             for artifact in artifact[ArtifactGroupInfo].artifacts:
-                out.append((artifact, []))
+                out.append(ArtifactOutputs(
+                    default_output = artifact,
+                    other_outputs = [],
+                ))
             continue
 
         if DefaultInfo in artifact:
@@ -51,22 +69,28 @@ def unpack_artifacts(artifacts: list[[Artifact, Dependency]]) -> list[(Artifact,
 
     return out
 
-def unpack_artifact_map(artifacts: dict[str, [Artifact, Dependency]]) -> dict[str, (Artifact, list[ArgLike])]:
+def unpack_artifact_map(artifacts: dict[str, Artifact | Dependency]) -> dict[str, ArtifactOutputs]:
     """
-    Unpack a list of `artifact` and `ArtifactGroupInfo` into a flattened list
-    of `artifact`s
+    Unpack a heterogeneous dict of Artifact and ArtifactGroupInfo into a dict
+    representing their outputs.
     """
 
     out = {}
 
     for name, artifact in artifacts.items():
         if type(artifact) == "artifact":
-            out[name] = (artifact, [])
+            out[name] = ArtifactOutputs(
+                default_output = artifact,
+                other_outputs = [],
+            )
             continue
 
         if ArtifactGroupInfo in artifact:
             for artifact in artifact[ArtifactGroupInfo].artifacts:
-                out[paths.join(name, artifact.short_path)] = (artifact, [])
+                out[paths.join(name, artifact.short_path)] = ArtifactOutputs(
+                    default_output = artifact,
+                    other_outputs = [],
+                )
             continue
 
         if DefaultInfo in artifact:

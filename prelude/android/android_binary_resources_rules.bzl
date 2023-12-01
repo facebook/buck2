@@ -600,8 +600,8 @@ def get_cxx_resources(ctx: AnalysisContext, deps: list[Dependency], dir_name: st
     symlink_tree_dict = {}
     resource_maps = cxx_resources.values()
     for resource_map in resource_maps:
-        for name, (resource, _other) in resource_map.items():
-            symlink_tree_dict["cxx-resources/{}".format(name)] = resource
+        for name, resource in resource_map.items():
+            symlink_tree_dict["cxx-resources/{}".format(name)] = resource.default_output
 
     return ctx.actions.symlinked_dir(dir_name, symlink_tree_dict) if symlink_tree_dict else None
 

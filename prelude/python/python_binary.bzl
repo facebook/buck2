@@ -5,7 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:artifacts.bzl", "ArtifactGroupInfo")
+load(
+    "@prelude//:artifacts.bzl",
+    "ArtifactGroupInfo",
+    "ArtifactOutputs",  # @unused Used as a type
+)
 load("@prelude//cxx:compile.bzl", "CxxSrcWithFlags")
 load("@prelude//cxx:cxx.bzl", "create_shared_lib_link_group_specs")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
@@ -66,7 +70,6 @@ load(
 )
 load("@prelude//linking:shared_libraries.bzl", "merge_shared_libraries", "traverse_shared_library_info")
 load("@prelude//linking:strip.bzl", "strip_debug_with_gnu_debuglink")
-load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
 load("@prelude//paths.bzl", "paths")
 load("@prelude//resources.bzl", "gather_resources")
@@ -311,7 +314,7 @@ def python_executable(
         ctx: AnalysisContext,
         main: EntryPoint,
         srcs: dict[str, Artifact],
-        resources: dict[str, (Artifact, list[ArgLike])],
+        resources: dict[str, ArtifactOutputs],
         compile: bool,
         allow_cache_upload: bool) -> PexProviders:
     # Returns a three tuple: the Python binary, all its potential runtime files,

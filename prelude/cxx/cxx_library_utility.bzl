@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:artifacts.bzl", "ArtifactOutputs")
 load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//linking:link_info.bzl",
@@ -13,7 +14,6 @@ load(
     "LinkerFlags",
     "MergedLinkInfo",
 )
-load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:utils.bzl",
@@ -110,7 +110,7 @@ def cxx_attr_preferred_linkage(ctx: AnalysisContext) -> Linkage:
 
     return Linkage(preferred_linkage)
 
-def cxx_attr_resources(ctx: AnalysisContext) -> dict[str, (Artifact, list[ArgLike])]:
+def cxx_attr_resources(ctx: AnalysisContext) -> dict[str, ArtifactOutputs]:
     """
     Return the resources provided by this rule, as a map of resource name to
     a tuple of the resource artifact and any "other" outputs exposed by it.
@@ -132,7 +132,10 @@ def cxx_attr_resources(ctx: AnalysisContext) -> dict[str, (Artifact, list[ArgLik
             )
             [resource] = info.default_outputs
             other = info.other_outputs
-        resources[paths.join(namespace, name)] = (resource, other)
+        resources[paths.join(namespace, name)] = ArtifactOutputs(
+            default_output = resource,
+            other_outputs = other,
+        )
 
     return resources
 

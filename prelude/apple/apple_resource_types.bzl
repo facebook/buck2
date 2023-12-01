@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
+load("@prelude//:artifacts.bzl", "ArtifactOutputs")
 
 # Represents the values for the `destination` field of `apple_resource`
 AppleResourceDestination = enum(
@@ -37,5 +37,5 @@ AppleResourceProcessingOptions = record(
 )
 
 CxxResourceSpec = record(
-    resources = field(dict[str, (Artifact, list[ArgLike])], {}),
+    resources = field(dict[str, ArtifactOutputs], {}),
 )

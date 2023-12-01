@@ -216,9 +216,9 @@ def _rust_binary_common(
                 binary = output,
                 resources = resources,
             )]
-            for resource, other in resources.values():
-                resources_hidden.append(resource)
-                resources_hidden.extend(other)
+            for resource in resources.values():
+                resources_hidden.append(resource.default_output)
+                resources_hidden.extend(resource.other_outputs)
             args.hidden(resources_hidden)
             runtime_files.extend(resources_hidden)
 

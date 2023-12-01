@@ -68,8 +68,8 @@ def get_apple_bundle_resource_part_list(ctx: AnalysisContext) -> AppleBundleReso
         cxx_res_dir = ctx.actions.copied_dir(
             "CxxResources",
             {
-                name: resource
-                for name, (resource, _) in cxx_resources.items()
+                name: resource.default_output
+                for name, resource in cxx_resources.items()
             },
         )
         resource_specs.append(

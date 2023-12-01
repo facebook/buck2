@@ -597,9 +597,9 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             binary = binary.output,
             resources = resources,
         ))
-        for resource, other in resources.values():
-            runtime_files.append(resource)
-            runtime_files.extend(other)
+        for resource in resources.values():
+            runtime_files.append(resource.default_output)
+            runtime_files.extend(resource.other_outputs)
 
     if binary.dwp:
         # A `dwp` sub-target which generates the `.dwp` file for this binary.

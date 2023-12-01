@@ -32,7 +32,7 @@ def expect_non_none(val, msg: str = "unexpected none", *fmt_args, **fmt_kwargs):
         fail(msg.format(*fmt_args, **fmt_kwargs))
     return val
 
-def from_named_set(srcs: [dict[str, [Artifact, Dependency]], list[[Artifact, Dependency]]]) -> dict[str, [Artifact, Dependency]]:
+def from_named_set(srcs: [dict[str, Artifact | Dependency], list[Artifact | Dependency]]) -> dict[str, Artifact | Dependency]:
     """
     Normalize parameters of optionally named sources to a dictionary mapping
     names to sources, deriving the name from the short path when it's not
