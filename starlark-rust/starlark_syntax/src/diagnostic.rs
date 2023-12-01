@@ -71,6 +71,13 @@ impl<T> WithDiagnostic<T> {
         self.0.t
     }
 
+    pub fn map<U>(self, f: impl FnOnce(T) -> U) -> WithDiagnostic<U> {
+        WithDiagnostic(Box::new(WithDiagnosticInner {
+            t: f(self.0.t),
+            diagnostic: self.0.diagnostic,
+        }))
+    }
+
     pub fn span(&self) -> Option<&FileSpan> {
         self.0.diagnostic.span.as_ref()
     }
