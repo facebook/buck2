@@ -9,6 +9,8 @@
 
 use std::sync::Arc;
 
+use smallvec::smallvec;
+
 use crate as buck2_error;
 use crate::context_value::ContextValue;
 use crate::error::ErrorKind;
@@ -25,6 +27,10 @@ impl crate::Error {
         crate::Error: From<E>,
     {
         crate::Error::from(e).context(c).into()
+    }
+
+    pub fn tag(self, tags: impl IntoIterator<Item = crate::ErrorTag>) -> Self {
+        self.context(ContextValue::Tags(tags.into_iter().collect()))
     }
 }
 
@@ -52,6 +58,11 @@ pub trait Context<T>: Sealed {
     #[track_caller]
     fn infra(self) -> anyhow::Result<T> {
         self.context(crate::Category::Infra)
+    }
+
+    #[track_caller]
+    fn tag(self, tag: crate::ErrorTag) -> anyhow::Result<T> {
+        self.context(ContextValue::Tags(smallvec![tag]))
     }
 }
 pub trait Sealed: Sized {}

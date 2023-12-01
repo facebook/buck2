@@ -58,16 +58,20 @@ fn construct_root_from_recovered_error(
     } else {
         None
     };
-    let e = crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new(
+    let mut e = crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new(
         e,
         typ,
         source_location,
         action_error,
     ))));
-    if let Some(ref context) = context
-        && let Some(category) = context.category
-    {
-        e.context(category)
+    if let Some(ref context) = context {
+        if let Some(category) = context.category {
+            e = e.context(category);
+        }
+        if !context.tags.is_empty() {
+            e = e.tag(context.tags.iter().copied());
+        }
+        e
     } else {
         e
     }
@@ -152,6 +156,9 @@ pub(crate) fn recover_crate_error(
             if let Some(category) = context_metadata.category {
                 e = e.context(category);
             }
+            if !context_metadata.tags.is_empty() {
+                e = e.tag(context_metadata.tags.iter().copied());
+            }
         } else {
             // The context that shows up here is restricted to that which was added by
             // `anyhow::Context` or non-`buck2_error::Error` impls of `StdError`, including from
@@ -228,6 +235,7 @@ pub struct ProvidableContextMetadata {
     /// and the same thing as gets passed to `buck2_error::source_location::from_file`.
     pub source_location_extra: Option<&'static str>,
     pub category: Option<crate::Category>,
+    pub tags: Vec<crate::ErrorTag>,
     /// See `ProvidableRootMetadata`
     pub check_error_type: CheckErrorType,
 }
@@ -307,6 +315,11 @@ mod tests {
                 .provide_value(ProvidableContextMetadata {
                     source_file: file!(),
                     source_location_extra: Some("FullMetadataError"),
+                    tags: vec![
+                        crate::ErrorTag::WatchmanTimeout,
+                        crate::ErrorTag::StarlarkFail,
+                        crate::ErrorTag::WatchmanTimeout,
+                    ],
                     category: Some(crate::Category::User),
                     check_error_type: ProvidableRootMetadata::gen_check_error_type::<Self>(),
                 });
@@ -324,6 +337,13 @@ mod tests {
             assert_eq!(
                 e.source_location(),
                 Some("buck2_error/src/any.rs::FullMetadataError")
+            );
+            assert_eq!(
+                &e.get_tags(),
+                &[
+                    crate::ErrorTag::StarlarkFail,
+                    crate::ErrorTag::WatchmanTimeout
+                ]
             );
         }
     }

@@ -9,6 +9,9 @@
 
 use std::fmt;
 use std::sync::Arc;
+
+use smallvec::SmallVec;
+
 pub trait DisplayAndAny: fmt::Display + std::any::Any + Send + Sync + 'static {}
 
 impl<T: fmt::Display + std::any::Any + Send + Sync + 'static> DisplayAndAny for T {}
@@ -17,6 +20,7 @@ impl<T: fmt::Display + std::any::Any + Send + Sync + 'static> DisplayAndAny for 
 pub enum ContextValue {
     Dyn(#[allocative(skip)] Arc<dyn DisplayAndAny>),
     Category(Category),
+    Tags(SmallVec<[crate::ErrorTag; 1]>),
 }
 
 impl ContextValue {
@@ -26,6 +30,7 @@ impl ContextValue {
             Self::Dyn(v) => Some(Arc::clone(v)),
             // Displaying the category in the middle of an error message doesn't seem useful
             Self::Category(_) => None,
+            Self::Tags(_) => None,
         }
     }
 
@@ -34,6 +39,7 @@ impl ContextValue {
         match self {
             Self::Dyn(v) => Arc::clone(v),
             Self::Category(category) => Arc::new(format!("{:?}", category)),
+            Self::Tags(tags) => Arc::new(format!("{:?}", tags)),
         }
     }
 
@@ -44,6 +50,9 @@ impl ContextValue {
                 assert_eq!(format!("{}", a), format!("{}", b))
             }
             (ContextValue::Category(a), ContextValue::Category(b)) => {
+                assert_eq!(a, b);
+            }
+            (ContextValue::Tags(a), ContextValue::Tags(b)) => {
                 assert_eq!(a, b);
             }
             (_, _) => panic!("context variants don't match!"),
@@ -77,6 +86,21 @@ impl crate::Error {
             }
         }
         out
+    }
+
+    /// Get all the tags that have been added to this error
+    pub fn get_tags(&self) -> Vec<crate::ErrorTag> {
+        let mut tags: Vec<_> = self
+            .iter_context()
+            .filter_map(|kind| match kind {
+                ContextValue::Tags(tags) => Some(tags.iter().copied()),
+                _ => None,
+            })
+            .flatten()
+            .collect();
+        tags.sort_unstable_by_key(|tag| tag.as_str_name());
+        tags.dedup();
+        tags
     }
 }
 

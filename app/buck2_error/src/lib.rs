@@ -40,6 +40,8 @@ pub use root::UniqueRootId;
 
 pub type Result<T> = std::result::Result<T, crate::Error>;
 
+/// See the documentation in the `error.proto` file for details.
+pub use buck2_data::error::ErrorTag;
 /// The type of the error that is being produced.
 ///
 /// The type of the error approximately indicates where the error came from. It is useful when you
@@ -114,6 +116,7 @@ pub fn provide_metadata<'a, 'b, E: StdError + Send + Sync + 'static>(
     }
     let metadata = ProvidableContextMetadata {
         category,
+        tags: Vec::new(), // TODO(JakobDegen): Add in next diff
         source_file,
         source_location_extra,
         check_error_type,
