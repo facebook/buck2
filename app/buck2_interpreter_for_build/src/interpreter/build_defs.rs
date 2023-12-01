@@ -14,6 +14,7 @@ use starlark::starlark_module;
 use starlark::values::list::AllocList;
 use starlark::values::list::ListOf;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
+use starlark::values::none::NoneType;
 use starlark::values::ValueOfUnchecked;
 
 use crate::interpreter::build_context::BuildContext;
@@ -151,6 +152,7 @@ pub fn configure_base_globals(
     let mut global_env =
         GlobalsBuilder::extended_by(starlark_extensions).with(register_base_natives);
     global_env.struct_("__internal__", |x| {
+        register_buck2_fail(x);
         register_base_natives(x);
         // If `native.` symbols need to be added to the global env, they should be done
         // in `configure_build_file_globals()` or
@@ -161,4 +163,20 @@ pub fn configure_base_globals(
         configure_native_struct(x);
     });
     global_env
+}
+
+#[derive(buck2_error::Error, Debug)]
+#[error("Fail: {0}")]
+struct BuckFail(String);
+
+#[starlark_module]
+pub(crate) fn register_buck2_fail(builder: &mut GlobalsBuilder) {
+    /// `fail()` but implemented using a buck2 error type instead of starlark's, for testing
+    /// purposes.
+    fn internal_buck2_fail<'v>(
+        msg: &str,
+        _eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<NoneType> {
+        Err(BuckFail(msg.to_owned()).into())
+    }
 }
