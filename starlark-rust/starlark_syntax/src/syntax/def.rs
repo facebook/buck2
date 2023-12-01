@@ -19,7 +19,7 @@ use std::collections::HashSet;
 
 use crate::codemap::CodeMap;
 use crate::codemap::Spanned;
-use crate::eval_exception::EvalException;
+use crate::diagnostic::WithDiagnostic;
 use crate::syntax::ast::AstAssignIdentP;
 use crate::syntax::ast::AstExprP;
 use crate::syntax::ast::AstParameterP;
@@ -28,7 +28,7 @@ use crate::syntax::ast::AstTypeExprP;
 use crate::syntax::ast::ParameterP;
 
 #[derive(Debug, thiserror::Error)]
-enum DefError {
+pub enum DefError {
     #[error("duplicated parameter name")]
     DuplicateParameterName,
     #[error("positional parameter after non positional")]
@@ -39,6 +39,12 @@ enum DefError {
     ArgsParameterAfterStars,
     #[error("Multiple kwargs dictionary in parameters")]
     MultipleKwargs,
+}
+
+impl From<DefError> for crate::Error {
+    fn from(e: DefError) -> Self {
+        crate::Error::new_other(e)
+    }
 }
 
 pub enum DefParamKind<'a, P: AstPayload> {
@@ -72,10 +78,10 @@ fn check_param_name<'a, P: AstPayload, T>(
     n: &'a AstAssignIdentP<P>,
     arg: &Spanned<T>,
     codemap: &CodeMap,
-) -> Result<(), EvalException> {
+) -> Result<(), WithDiagnostic<DefError>> {
     if !argset.insert(n.node.ident.as_str()) {
-        return Err(EvalException::new_anyhow(
-            DefError::DuplicateParameterName.into(),
+        return Err(WithDiagnostic::new_spanned(
+            DefError::DuplicateParameterName,
             arg.span,
             codemap,
         ));
@@ -87,7 +93,7 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
     pub fn unpack(
         ast_params: &'a [AstParameterP<P>],
         codemap: &CodeMap,
-    ) -> Result<DefParams<'a, P>, EvalException> {
+    ) -> Result<DefParams<'a, P>, WithDiagnostic<DefError>> {
         // you can't repeat argument names
         let mut argset = HashSet::new();
         // You can't have more than one *args/*, **kwargs
@@ -105,8 +111,8 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
             match &param.node {
                 ParameterP::Normal(n, ty) => {
                     if seen_kwargs || seen_optional {
-                        return Err(EvalException::new_anyhow(
-                            DefError::PositionalThenNonPositional.into(),
+                        return Err(WithDiagnostic::new_spanned(
+                            DefError::PositionalThenNonPositional,
                             param.span,
                             codemap,
                         ));
@@ -123,8 +129,8 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                 }
                 ParameterP::WithDefaultValue(n, ty, default_value) => {
                     if seen_kwargs {
-                        return Err(EvalException::new_anyhow(
-                            DefError::DefaultParameterAfterStars.into(),
+                        return Err(WithDiagnostic::new_spanned(
+                            DefError::DefaultParameterAfterStars,
                             param.span,
                             codemap,
                         ));
@@ -142,8 +148,8 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                 }
                 ParameterP::NoArgs => {
                     if seen_args || seen_kwargs {
-                        return Err(EvalException::new_anyhow(
-                            DefError::ArgsParameterAfterStars.into(),
+                        return Err(WithDiagnostic::new_spanned(
+                            DefError::ArgsParameterAfterStars,
                             param.span,
                             codemap,
                         ));
@@ -152,8 +158,8 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                 }
                 ParameterP::Args(n, ty) => {
                     if seen_args || seen_kwargs {
-                        return Err(EvalException::new_anyhow(
-                            DefError::ArgsParameterAfterStars.into(),
+                        return Err(WithDiagnostic::new_spanned(
+                            DefError::ArgsParameterAfterStars,
                             param.span,
                             codemap,
                         ));
@@ -171,8 +177,8 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                 }
                 ParameterP::KwArgs(n, ty) => {
                     if seen_kwargs {
-                        return Err(EvalException::new_anyhow(
-                            DefError::MultipleKwargs.into(),
+                        return Err(WithDiagnostic::new_spanned(
+                            DefError::MultipleKwargs,
                             param.span,
                             codemap,
                         ));

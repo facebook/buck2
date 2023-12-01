@@ -152,7 +152,7 @@ pub fn check_assignment(
 
 fn check_parameters<'a>(parameters: &[AstParameter], parser_state: &mut ParserState<'a>) {
     if let Err(e) = DefParams::unpack(parameters, parser_state.codemap) {
-        parser_state.errors.push(e);
+        parser_state.errors.push(e.into());
     }
 }
 
