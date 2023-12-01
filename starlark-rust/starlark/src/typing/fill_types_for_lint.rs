@@ -659,7 +659,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
 
     fn ty_expr(&mut self, expr: &CstTypeExpr) -> Result<Ty, InternalError> {
         let x = TypeExprUnpackP::unpack(&expr.expr, self.ctx.codemap)
-            .map_err(InternalError::from_eval_exception)?;
+            .map_err(|e| InternalError::from_eval_exception(e.into()))?;
         self.from_type_expr_impl(&x)
     }
 

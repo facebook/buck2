@@ -386,7 +386,7 @@ pub fn dialect_check_type(
         return err(state.codemap, x.span, DialectError::Types);
     }
 
-    TypeExprUnpackP::unpack(&x, state.codemap)?;
+    TypeExprUnpackP::unpack(&x, state.codemap).map_err(EvalException::from)?;
 
     Ok(x.map(|node| TypeExprP {
         expr: Spanned { node, span },

@@ -17,7 +17,7 @@
 
 use crate::codemap::CodeMap;
 use crate::codemap::Spanned;
-use crate::eval_exception::EvalException;
+use crate::diagnostic::WithDiagnostic;
 use crate::slice_vec_ext::SliceExt;
 use crate::syntax::ast::AstExprP;
 use crate::syntax::ast::AstIdentP;
@@ -27,7 +27,7 @@ use crate::syntax::ast::BinOp;
 use crate::syntax::ast::ExprP;
 
 #[derive(Debug, thiserror::Error)]
-enum TypeExprUnpackError {
+pub enum TypeExprUnpackError {
     #[error("{0} expression is not allowed in type expression")]
     InvalidType(&'static str),
     #[error("Empty list is not allowed in type expression")]
@@ -36,6 +36,12 @@ enum TypeExprUnpackError {
     DotInType,
     #[error(r#"`{0}.type` is not allowed in type expression, use `{0}` instead"#)]
     DotTypeBan(String),
+}
+
+impl From<TypeExprUnpackError> for crate::Error {
+    fn from(e: TypeExprUnpackError) -> Self {
+        crate::Error::new_other(e)
+    }
 }
 
 /// Types that are `""` or start with `"_"` are wildcard - they match everything
@@ -67,11 +73,11 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
     pub fn unpack(
         expr: &'a AstExprP<P>,
         codemap: &CodeMap,
-    ) -> Result<Spanned<TypeExprUnpackP<'a, P>>, EvalException> {
+    ) -> Result<Spanned<TypeExprUnpackP<'a, P>>, WithDiagnostic<TypeExprUnpackError>> {
         let span = expr.span;
         let err = |t| {
-            Err(EvalException::new_anyhow(
-                TypeExprUnpackError::InvalidType(t).into(),
+            Err(WithDiagnostic::new_spanned(
+                TypeExprUnpackError::InvalidType(t),
                 expr.span,
                 codemap,
             ))
@@ -104,8 +110,8 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
                                     }
                                     // TODO(nga): allow it after we prohibit
                                     //   string constants as types.
-                                    return Err(EvalException::new_anyhow(
-                                        TypeExprUnpackError::DotTypeBan(full_path).into(),
+                                    return Err(WithDiagnostic::new_spanned(
+                                        TypeExprUnpackError::DotTypeBan(full_path),
                                         current.span,
                                         codemap,
                                     ));
@@ -117,8 +123,8 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
                             });
                         }
                         _ => {
-                            return Err(EvalException::new_anyhow(
-                                TypeExprUnpackError::DotInType.into(),
+                            return Err(WithDiagnostic::new_spanned(
+                                TypeExprUnpackError::DotInType,
                                 current.span,
                                 codemap,
                             ));
@@ -190,8 +196,8 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
             ExprP::If(..) => err("if"),
             ExprP::List(xs) => {
                 if xs.is_empty() {
-                    Err(EvalException::new_anyhow(
-                        TypeExprUnpackError::EmptyListInType.into(),
+                    Err(WithDiagnostic::new_spanned(
+                        TypeExprUnpackError::EmptyListInType,
                         expr.span,
                         codemap,
                     ))
