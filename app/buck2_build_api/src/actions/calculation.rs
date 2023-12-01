@@ -184,7 +184,7 @@ async fn build_action_no_redirect(
                     did_cache_upload = Some(command.did_cache_upload);
                     allows_dep_file_cache_upload = Some(command.allows_dep_file_cache_upload);
                     did_dep_file_cache_upload = Some(command.did_dep_file_cache_upload);
-                    dep_file_key = command.dep_file_key.clone();
+                    dep_file_key = *command.dep_file_key;
                     eligible_for_full_hybrid = Some(command.eligible_for_full_hybrid);
                 }
             }

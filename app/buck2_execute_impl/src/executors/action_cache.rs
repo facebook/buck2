@@ -191,7 +191,7 @@ async fn query_action_cache_and_download_result(
             session_id: re_client.get_session_id().await.ok(),
             use_case: re_use_case,
             platform: platform.clone(),
-            remote_dep_file_key: request.remote_dep_file_key().clone(),
+            remote_dep_file_key: *request.remote_dep_file_key(),
         },
         &response,
         paranoid.as_ref(),

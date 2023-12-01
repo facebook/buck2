@@ -25,6 +25,7 @@ use derivative::Derivative;
 use derive_more::Display;
 use digest::Digest;
 use dupe::Clone_;
+use dupe::Copy_;
 use dupe::Dupe;
 use dupe::Dupe_;
 use num_enum::TryFromPrimitive;
@@ -42,7 +43,7 @@ pub const SHA256_SIZE: usize = 32;
 pub const BLAKE3_SIZE: usize = 32;
 
 /// The bytes that make up a file digest.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Allocative, Clone)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Allocative, Clone, Copy)]
 pub enum RawDigest {
     // TODO: Perhaps this should be represented as a (DigestAlgorithmKind, [0;32])
     Sha1([u8; SHA1_SIZE]),
@@ -438,7 +439,9 @@ impl<Kind: CasDigestKind> Digester<Kind> {
 
 /// Separate struct to allow us to use  `repr(transparent)` below and guarantee an identical
 /// layout.
-#[derive(Display, PartialEq, Eq, PartialOrd, Ord, Hash, Allocative, Clone, Dupe)]
+#[derive(
+    Display, PartialEq, Eq, PartialOrd, Ord, Hash, Allocative, Clone, Dupe, Copy
+)]
 #[display(fmt = "{}:{}", digest, size)]
 pub struct CasDigestData {
     size: u64,
@@ -488,7 +491,7 @@ impl CasDigestData {
     }
 }
 
-#[derive(Display, Derivative, Allocative, Clone_, Dupe_)]
+#[derive(Display, Derivative, Allocative, Clone_, Dupe_, Copy_)]
 #[allocative(bound = "")]
 #[derivative(PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[display(fmt = "{}", data)]
