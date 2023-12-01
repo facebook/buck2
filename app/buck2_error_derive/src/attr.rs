@@ -57,7 +57,7 @@ impl Parse for OptionStyle {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let path: syn::Path = input.parse()?;
 
-        if input.is_empty() {
+        if !input.peek(token::Paren) {
             let ident = path.require_ident()?;
             Ok(Self::Explicit(ident.clone()))
         } else {

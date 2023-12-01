@@ -28,7 +28,7 @@ fn test_derive_error1() {
 
 #[derive(buck2_error_derive::Error, Debug)]
 #[error("foo")]
-#[buck2(infra, typ = ActionCommandFailure)]
+#[buck2(typ = ActionCommandFailure, infra)]
 #[allow(unused)]
 struct Error2((), ());
 
