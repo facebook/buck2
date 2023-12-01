@@ -36,17 +36,30 @@ def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         link_mode = ctx.attrs.link_mode,
     )
 
-    hidden = []
+    # runtime_files are all the artifacts that must be present in order for this
+    # binary to be runnable. Notably, all of its shared library dependencies.
+    # This is materialized when a Go binary is executed as a genrule.
+    #
+    # other_outputs is a superset of runtime_files, adding external debuginfo
+    # which is necessary for a user to run this binary in a debugger. This is
+    # materialized when a Go binary is the end result of a build.
+    runtime_files = list(runtime_files)
+    other_outputs = list(runtime_files)
+
     for resource in ctx.attrs.resources:
         resource = single_artifact(resource)
-        hidden.append(resource.default_output)
-        hidden.extend(resource.other_outputs)
+
+        runtime_files.append(resource.default_output)
+        runtime_files.extend(resource.nondebug_runtime_files)
+
+        other_outputs.append(resource.default_output)
+        other_outputs.extend(resource.other_outputs)
 
     return [
         DefaultInfo(
             default_output = bin,
-            other_outputs = hidden + runtime_files,
+            other_outputs = other_outputs,
         ),
-        RunInfo(args = cmd_args(bin).hidden(hidden + runtime_files)),
-        DistInfo(nondebug_runtime_files = hidden + runtime_files),
+        RunInfo(args = cmd_args(bin).hidden(other_outputs)),
+        DistInfo(nondebug_runtime_files = runtime_files),
     ]
