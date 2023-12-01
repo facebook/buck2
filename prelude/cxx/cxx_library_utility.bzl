@@ -5,7 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:artifacts.bzl", "ArtifactOutputs")
+load(
+    "@prelude//:artifacts.bzl",
+    "ArtifactOutputs",  # @unused Used as a type
+    "single_artifact",
+)
 load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//linking:link_info.bzl",
@@ -14,7 +18,6 @@ load(
     "LinkerFlags",
     "MergedLinkInfo",
 )
-load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:utils.bzl",
     "flatten",
@@ -121,21 +124,7 @@ def cxx_attr_resources(ctx: AnalysisContext) -> dict[str, ArtifactOutputs]:
 
     # Use getattr, as apple rules don't have a `resources` parameter.
     for name, resource in from_named_set(getattr(ctx.attrs, "resources", {})).items():
-        if type(resource) == "artifact":
-            other = []
-        else:
-            info = resource[DefaultInfo]
-            expect(
-                len(info.default_outputs) == 1,
-                "expected exactly one default output from {} ({})"
-                    .format(resource, info.default_outputs),
-            )
-            [resource] = info.default_outputs
-            other = info.other_outputs
-        resources[paths.join(namespace, name)] = ArtifactOutputs(
-            default_output = resource,
-            other_outputs = other,
-        )
+        resources[paths.join(namespace, name)] = single_artifact(resource)
 
     return resources
 

@@ -5,11 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:artifacts.bzl", "single_artifact")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
 )
-load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:utils.bzl",
     "map_val",
@@ -37,22 +37,9 @@ def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     hidden = []
     for resource in ctx.attrs.resources:
-        if type(resource) == "artifact":
-            hidden.append(resource)
-        else:
-            # Otherwise, this is a dependency, so extract the resource and other
-            # resources from the `DefaultInfo` provider.
-            info = resource[DefaultInfo]
-            expect(
-                len(info.default_outputs) == 1,
-                "expected exactly one default output from {} ({})"
-                    .format(resource, info.default_outputs),
-            )
-            [resource] = info.default_outputs
-            other = info.other_outputs
-
-            hidden.append(resource)
-            hidden.extend(other)
+        resource = single_artifact(resource)
+        hidden.append(resource.default_output)
+        hidden.extend(resource.other_outputs)
 
     return [
         DefaultInfo(

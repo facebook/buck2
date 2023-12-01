@@ -5,9 +5,9 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:artifacts.bzl", "single_artifact")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "flatten_dict")
 load(
     ":apple_asset_catalog.bzl",
@@ -154,7 +154,7 @@ def _copy_resources(ctx: AnalysisContext, specs: list[AppleResourceSpec]) -> lis
         bundle_destination = apple_bundle_destination_from_resource_destination(spec.destination)
         result += [_process_apple_resource_file_if_needed(
             ctx = ctx,
-            file = _extract_single_artifact(x),
+            file = single_artifact(x).default_output,
             destination = bundle_destination,
             destination_relative_path = None,
             codesign_on_copy = spec.codesign_files_on_copy,
@@ -164,20 +164,6 @@ def _copy_resources(ctx: AnalysisContext, specs: list[AppleResourceSpec]) -> lis
         result += _bundle_parts_for_variant_files(ctx, spec)
 
     return result
-
-def _extract_single_artifact(x: [Dependency, Artifact]) -> Artifact:
-    if type(x) == "artifact":
-        return x
-    else:
-        # Otherwise, this is a dependency, so extract the resource and other
-        # resources from the `DefaultInfo` provider.
-        info = x[DefaultInfo]
-        expect(
-            len(info.default_outputs) == 1,
-            "expected exactly one default output from {} ({})"
-                .format(x, info.default_outputs),
-        )
-        return info.default_outputs[0]
 
 def _copy_first_level_bundles(ctx: AnalysisContext) -> list[AppleBundlePart]:
     first_level_bundle_infos = filter(None, [dep.get(AppleBundleInfo) for dep in ctx.attrs.deps])

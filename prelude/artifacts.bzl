@@ -25,17 +25,26 @@ ArtifactOutputs = record(
     other_outputs = field(list[ArgLike]),
 )
 
-def _from_default_info(dep: Dependency) -> ArtifactOutputs:
-    info = dep[DefaultInfo]
-    expect(
-        len(info.default_outputs) == 1,
-        "expected exactly one default output from {} ({})"
-            .format(dep, info.default_outputs),
-    )
-    return ArtifactOutputs(
-        default_output = info.default_outputs[0],
-        other_outputs = info.other_outputs,
-    )
+def single_artifact(dep: Artifact | Dependency) -> ArtifactOutputs:
+    if type(dep) == "artifact":
+        return ArtifactOutputs(
+            default_output = dep,
+            other_outputs = [],
+        )
+
+    if DefaultInfo in dep:
+        info = dep[DefaultInfo]
+        expect(
+            len(info.default_outputs) == 1,
+            "expected exactly one default output from {} ({})"
+                .format(dep, info.default_outputs),
+        )
+        return ArtifactOutputs(
+            default_output = info.default_outputs[0],
+            other_outputs = info.other_outputs,
+        )
+
+    fail("unexpected dependency type: {}".format(type(dep)))
 
 def unpack_artifacts(artifacts: list[Artifact | Dependency]) -> list[ArtifactOutputs]:
     """
@@ -61,11 +70,7 @@ def unpack_artifacts(artifacts: list[Artifact | Dependency]) -> list[ArtifactOut
                 ))
             continue
 
-        if DefaultInfo in artifact:
-            out.append(_from_default_info(artifact))
-            continue
-
-        fail("unexpected dependency type: {}".format(type(artifact)))
+        out.append(single_artifact(artifact))
 
     return out
 
@@ -93,10 +98,6 @@ def unpack_artifact_map(artifacts: dict[str, Artifact | Dependency]) -> dict[str
                 )
             continue
 
-        if DefaultInfo in artifact:
-            out[name] = _from_default_info(artifact)
-            continue
-
-        fail("unexpected dependency type: {}".format(type(artifact)))
+        out[name] = single_artifact(artifact)
 
     return out
