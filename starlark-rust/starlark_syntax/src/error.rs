@@ -22,7 +22,7 @@ use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
 use crate::codemap::Span;
 use crate::diagnostic::diagnostic_display;
-use crate::diagnostic::Diagnostic;
+use crate::diagnostic::WithDiagnostic;
 
 /// An error produced by starlark.
 ///
@@ -31,48 +31,38 @@ use crate::diagnostic::Diagnostic;
 ///
 /// In order to prevent accidental conversions to `anyhow::Error`, this type intentionally does not
 /// implement `std::error::Error`. That should probably change in the future.
-pub struct Error(Box<ErrorInner>);
+pub struct Error(WithDiagnostic<ErrorKind>);
 
 impl Error {
     /// Create a new error
     pub fn new(kind: ErrorKind) -> Self {
-        Self(Box::new(ErrorInner {
-            kind,
-            diagnostic: Default::default(),
-        }))
+        Self(WithDiagnostic::new_empty(kind))
     }
 
     /// Create a new error with a span
     pub fn new_spanned(kind: ErrorKind, span: Span, codemap: &CodeMap) -> Self {
-        Self(Box::new(ErrorInner {
-            kind,
-            diagnostic: Diagnostic {
-                span: Some(codemap.file_span(span)),
-                call_stack: CallStack::default(),
-            },
-        }))
+        Self(WithDiagnostic::new_spanned(kind, span, codemap))
     }
 
     /// Create a new error with no diagnostic and of kind [`ErrorKind::Other`]
     pub fn new_other(e: impl std::error::Error + Send + Sync + 'static) -> Self {
-        Self(Box::new(ErrorInner {
-            kind: ErrorKind::Other(anyhow::Error::new(e)),
-            diagnostic: Default::default(),
-        }))
+        Self(WithDiagnostic::new_empty(ErrorKind::Other(
+            anyhow::Error::new(e),
+        )))
     }
 
     /// The kind of this error
     pub fn kind(&self) -> &ErrorKind {
-        &self.0.kind
+        self.0.inner()
     }
 
     /// Convert the error into the underlying kind
     pub fn into_kind(self) -> ErrorKind {
-        self.0.kind
+        self.0.into_inner()
     }
 
     pub fn has_diagnostic(&self) -> bool {
-        self.0.diagnostic.span.is_some() || !self.0.diagnostic.call_stack.is_empty()
+        self.0.span().is_some() || !self.0.call_stack().is_empty()
     }
 
     /// Convert this error into an `anyhow::Error`
@@ -105,25 +95,21 @@ impl Error {
     ///
     /// This is the same as [`kind`](crate::Error::kind), just a bit more explicit.
     pub fn without_diagnostic<'a>(&'a self) -> impl fmt::Debug + fmt::Display + 'a {
-        &self.0.kind
+        self.0.inner()
     }
 
     pub fn span(&self) -> Option<&FileSpan> {
-        self.0.diagnostic.span.as_ref()
+        self.0.span()
     }
 
     /// Set the span, unless it's already been set.
     pub fn set_span(&mut self, span: Span, codemap: &CodeMap) {
-        if self.0.diagnostic.span.is_none() {
-            self.0.diagnostic.span = Some(codemap.file_span(span));
-        }
+        self.0.set_span(span, codemap);
     }
 
     /// Set the `call_stack` field, unless it's already been set.
     pub fn set_call_stack(&mut self, call_stack: impl FnOnce() -> CallStack) {
-        if self.0.diagnostic.call_stack.is_empty() {
-            self.0.diagnostic.call_stack = call_stack();
-        }
+        self.0.set_call_stack(call_stack);
     }
 
     /// Print an error to the stderr stream. If the error has diagnostic information it will use
@@ -135,14 +121,7 @@ impl Error {
     pub fn eprint(&self) {
         if self.has_diagnostic() {
             let mut stderr = String::new();
-            diagnostic_display(
-                self.without_diagnostic(),
-                &self.0.diagnostic,
-                true,
-                &mut stderr,
-                true,
-            )
-            .unwrap();
+            diagnostic_display(&self.0, true, &mut stderr, true).unwrap();
             eprint!("{}", stderr);
         } else {
             eprintln!("{:#}", self)
@@ -153,14 +132,8 @@ impl Error {
 fn fmt_impl(this: &Error, is_debug: bool, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     if this.has_diagnostic() {
         // Not showing the context trace without `{:#}` or `{:?}` is the same thing that anyhow does
-        let with_context = (f.alternate() || is_debug) && this.0.kind.source().is_some();
-        diagnostic_display(
-            this.without_diagnostic(),
-            &this.0.diagnostic,
-            false,
-            f,
-            with_context,
-        )
+        let with_context = (f.alternate() || is_debug) && this.kind().source().is_some();
+        diagnostic_display(&this.0, false, f, with_context)
     } else {
         fmt::Display::fmt(&this.without_diagnostic(), f)
     }
@@ -176,12 +149,6 @@ impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt_impl(self, true, f)
     }
-}
-
-#[derive(Debug)]
-struct ErrorInner {
-    kind: ErrorKind,
-    diagnostic: Diagnostic,
 }
 
 /// The different kinds of errors that can be produced by starlark
@@ -230,9 +197,6 @@ impl fmt::Display for ErrorKind {
 
 impl From<anyhow::Error> for Error {
     fn from(e: anyhow::Error) -> Self {
-        Self(Box::new(ErrorInner {
-            kind: ErrorKind::Other(e),
-            diagnostic: Default::default(),
-        }))
+        Self(WithDiagnostic::new_empty(ErrorKind::Other(e)))
     }
 }

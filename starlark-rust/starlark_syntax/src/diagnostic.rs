@@ -17,7 +17,6 @@
 
 use std::error::Error as StdError;
 use std::fmt;
-use std::fmt::Display;
 
 use crate::call_stack::CallStack;
 use crate::codemap::CodeMap;
@@ -51,6 +50,16 @@ impl<T> WithDiagnostic<T> {
                 span: Some(codemap.file_span(span)),
                 call_stack: CallStack::default(),
             },
+        }))
+    }
+
+    /// The contract of this type is normally that it actually contains diagnostic information.
+    /// However, `starlark::Error` doesn't guarantee that, but it'd be convenient to use this type
+    /// for it anyway. So we make an exception. Don't use this function for anything else.
+    pub(crate) fn new_empty(t: T) -> Self {
+        Self(Box::new(WithDiagnosticInner {
+            t,
+            diagnostic: Diagnostic::default(),
         }))
     }
 
@@ -89,19 +98,13 @@ impl<T: StdError> fmt::Display for WithDiagnostic<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Not showing the context trace without `{:#}` or `{:?}` is the same thing that anyhow does
         let with_context = f.alternate() && self.0.t.source().is_some();
-        diagnostic_display(&self.0.t, &self.0.diagnostic, false, f, with_context)
+        diagnostic_display(self, false, f, with_context)
     }
 }
 
 impl<T: StdError> fmt::Debug for WithDiagnostic<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        diagnostic_display(
-            &self.0.t,
-            &self.0.diagnostic,
-            false,
-            f,
-            /* with_context */ true,
-        )
+        diagnostic_display(self, false, f, /* with_context */ true)
     }
 }
 
@@ -117,7 +120,11 @@ pub(crate) struct Diagnostic {
 
 impl Diagnostic {
     /// Gets annotated snippets for a [`Diagnostic`].
-    fn get_display_list<'a>(&'a self, annotation_label: &'a str, color: bool) -> impl Display + 'a {
+    fn get_display_list<'a>(
+        &'a self,
+        annotation_label: &'a str,
+        color: bool,
+    ) -> impl fmt::Display + 'a {
         span_display(
             self.span.as_ref().map(|s| s.as_ref()),
             annotation_label,
@@ -132,23 +139,22 @@ impl Diagnostic {
 // variants by doing a conversion using annotate-snippets
 // (https://github.com/rust-lang/annotate-snippets-rs)
 
-pub(crate) fn diagnostic_display(
-    message: impl std::fmt::Debug + Display,
-    diagnostic: &Diagnostic,
+pub(crate) fn diagnostic_display<T: fmt::Debug + fmt::Display>(
+    d: &WithDiagnostic<T>,
     color: bool,
     f: &mut dyn fmt::Write,
     with_context: bool,
 ) -> fmt::Result {
-    write!(f, "{}", diagnostic.call_stack)?;
-    let annotation_label = format!("{}", message);
+    write!(f, "{}", d.call_stack())?;
+    let annotation_label = format!("{}", d.inner());
     // I set color to false here to make the comparison easier with tests (coloring
     // adds in pretty strange unicode chars).
-    let display_list = diagnostic.get_display_list(&annotation_label, color);
+    let display_list = d.0.diagnostic.get_display_list(&annotation_label, color);
     writeln!(f, "{}", display_list)?;
     // Print out the `Caused by:` trace (if exists) and rust backtrace (if enabled).
     // The trace printed comes from an [`anyhow::Error`] that is not a [`Diagnostic`].
     if with_context {
-        writeln!(f, "\n\n{:?}", message)?;
+        writeln!(f, "\n\n{:?}", d.inner())?;
     }
 
     Ok(())
