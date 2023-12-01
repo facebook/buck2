@@ -26,7 +26,7 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
         compile_flags = ctx.attrs.compiler_flags,
         shared = True,
     )
-    (bin, runtime_files) = link(
+    (bin, runtime_files, _external_debug_info) = link(
         ctx,
         lib,
         deps = ctx.attrs.deps,

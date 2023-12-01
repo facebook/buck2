@@ -86,7 +86,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     main = compile(ctx, "main", cmd_args(gen_main), pkgs = {pkg_name: tests})
 
     # Link the above into a Go binary.
-    (bin, runtime_files) = link(
+    (bin, runtime_files, external_debug_info) = link(
         ctx = ctx,
         main = main,
         pkgs = {pkg_name: tests},
@@ -95,7 +95,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         linker_flags = ctx.attrs.linker_flags,
     )
 
-    run_cmd = cmd_args(bin).hidden(runtime_files)
+    run_cmd = cmd_args(bin).hidden(runtime_files, external_debug_info)
 
     # As per v1, copy in resources next to binary.
     for resource in ctx.attrs.resources:
@@ -112,4 +112,9 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
             # FIXME: Consider setting to true
             run_from_project_root = False,
         ),
-    ) + [DefaultInfo(default_output = bin, other_outputs = [gen_main] + runtime_files)]
+    ) + [
+        DefaultInfo(
+            default_output = bin,
+            other_outputs = [gen_main] + runtime_files + external_debug_info,
+        ),
+    ]

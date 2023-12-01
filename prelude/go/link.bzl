@@ -207,4 +207,4 @@ def link(
 
     ctx.actions.run(cmd, category = "go_link")
 
-    return (output, executable_args.runtime_files)
+    return (output, executable_args.runtime_files, executable_args.external_debug_info)

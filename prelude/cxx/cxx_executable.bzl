@@ -685,8 +685,14 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
 _CxxLinkExecutableResult = record(
     # The resulting executable
     exe = LinkedObject,
-    # List of files/directories that should be present for executable to be run successfully
+    # Files that must be present for the executable to run successfully. These
+    # are always materialized, whether the executable is the output of a build
+    # or executed as a host tool.
     runtime_files = list[ArgLike],
+    # Files needed to debug the executable. These need to be materialized when
+    # this executable is the output of a build, but not when it is used by other
+    # rules.
+    external_debug_info = list[TransitiveSetArgsProjection],
     # Optional shared libs symlink tree symlinked_dir action
     shared_libs_symlink_tree = [list[Artifact], Artifact, None],
     linker_map_data = [CxxLinkerMapData, None],
@@ -724,6 +730,7 @@ def _link_into_executable(
     return _CxxLinkExecutableResult(
         exe = link_result.linked_object,
         runtime_files = executable_args.runtime_files,
+        external_debug_info = executable_args.external_debug_info,
         shared_libs_symlink_tree = executable_args.shared_libs_symlink_tree,
         linker_map_data = link_result.linker_map_data,
     )

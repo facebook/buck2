@@ -78,6 +78,7 @@ _CompileOutputs = record(
     args = field(ArgLike),
     extra_targets = field(list[(str, Artifact)]),
     runtime_files = field(list[ArgLike]),
+    external_debug_info = field(list[TransitiveSetArgsProjection]),
     sub_targets = field(dict[str, list[DefaultInfo]]),
     dist_info = DistInfo,
 )
@@ -272,6 +273,7 @@ def _rust_binary_common(
             args = args,
             extra_targets = extra_targets,
             runtime_files = runtime_files,
+            external_debug_info = executable_args.external_debug_info,
             sub_targets = sub_targets_for_link_style,
             dist_info = DistInfo(
                 shared_libs = shlib_info.set,
@@ -312,7 +314,7 @@ def _rust_binary_common(
         sub_targets[k.value] = [
             DefaultInfo(
                 default_output = sub_compiled_outputs.link,
-                other_outputs = sub_compiled_outputs.runtime_files,
+                other_outputs = sub_compiled_outputs.runtime_files + sub_compiled_outputs.external_debug_info,
                 # Check/save-analysis for each link style?
                 sub_targets = sub_compiled_outputs.sub_targets,
             ),
@@ -337,7 +339,7 @@ def _rust_binary_common(
     providers = [
         DefaultInfo(
             default_output = compiled_outputs.link,
-            other_outputs = compiled_outputs.runtime_files,
+            other_outputs = compiled_outputs.runtime_files + compiled_outputs.external_debug_info,
             sub_targets = sub_targets,
         ),
         compiled_outputs.dist_info,

@@ -27,7 +27,7 @@ def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         deps = ctx.attrs.deps,
         compile_flags = ctx.attrs.compiler_flags,
     )
-    (bin, runtime_files) = link(
+    (bin, runtime_files, external_debug_info) = link(
         ctx,
         lib,
         deps = ctx.attrs.deps,
@@ -44,7 +44,7 @@ def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     # which is necessary for a user to run this binary in a debugger. This is
     # materialized when a Go binary is the end result of a build.
     runtime_files = list(runtime_files)
-    other_outputs = list(runtime_files)
+    other_outputs = runtime_files + external_debug_info
 
     for resource in ctx.attrs.resources:
         resource = single_artifact(resource)
