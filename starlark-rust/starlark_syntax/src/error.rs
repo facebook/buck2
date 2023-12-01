@@ -31,7 +31,7 @@ use crate::diagnostic::WithDiagnostic;
 ///
 /// In order to prevent accidental conversions to `anyhow::Error`, this type intentionally does not
 /// implement `std::error::Error`. That should probably change in the future.
-pub struct Error(WithDiagnostic<ErrorKind>);
+pub struct Error(pub(crate) WithDiagnostic<ErrorKind>);
 
 impl Error {
     /// Create a new error

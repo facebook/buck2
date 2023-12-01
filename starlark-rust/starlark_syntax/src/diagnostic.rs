@@ -108,6 +108,15 @@ impl<T: StdError> fmt::Debug for WithDiagnostic<T> {
     }
 }
 
+impl<T: Into<crate::Error>> From<WithDiagnostic<T>> for crate::Error {
+    fn from(e: WithDiagnostic<T>) -> Self {
+        let diagnostic = e.0.diagnostic;
+        let mut e: crate::Error = e.0.t.into();
+        e.0.0.diagnostic = diagnostic;
+        e
+    }
+}
+
 /// A description of where in starlark execution the error happened.
 #[derive(Debug, Default)]
 struct Diagnostic {

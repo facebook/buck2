@@ -18,6 +18,7 @@
 use crate::call_stack::CallStack;
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
+use crate::diagnostic::WithDiagnostic;
 
 /// Error with location.
 #[derive(Debug, derive_more::Display)]
@@ -64,5 +65,11 @@ impl EvalException {
             Some(d) => d.resolve(),
             None => panic!("Expected error with diagnostic, got {:#?}", err),
         }
+    }
+}
+
+impl<T: Into<crate::Error>> From<WithDiagnostic<T>> for EvalException {
+    fn from(e: WithDiagnostic<T>) -> Self {
+        Self(e.into())
     }
 }
