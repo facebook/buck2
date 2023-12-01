@@ -737,6 +737,7 @@ mod tests {
     use crate::actions::Action;
     use crate::actions::ActionExecutable;
     use crate::actions::ActionExecutionCtx;
+    use crate::actions::ExecuteError;
     use crate::actions::PristineActionExecutable;
     use crate::actions::RegisteredAction;
     use crate::artifact_groups::ArtifactGroup;
@@ -834,7 +835,7 @@ mod tests {
             async fn execute(
                 &self,
                 ctx: &mut dyn ActionExecutionCtx,
-            ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
+            ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
                 self.ran.store(true, Ordering::SeqCst);
 
                 let req = CommandExecutionRequest::new(

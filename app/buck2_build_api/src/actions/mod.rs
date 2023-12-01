@@ -68,6 +68,7 @@ use static_assertions::_core::ops::Deref;
 use crate::actions::execute::action_execution_target::ActionExecutionTarget;
 use crate::actions::execute::action_executor::ActionExecutionMetadata;
 use crate::actions::execute::action_executor::ActionOutputs;
+use crate::actions::execute::error::ExecuteError;
 use crate::actions::impls::run_action_knobs::RunActionKnobs;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
@@ -164,6 +165,7 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
 }
 
 pub enum ActionExecutable<'a> {
+    // FIXME(JakobDegen): This is only used in tests. Delete?
     Pristine(&'a dyn PristineActionExecutable),
     Incremental(&'a dyn IncrementalActionExecutable),
 }
@@ -175,7 +177,7 @@ pub trait PristineActionExecutable: Send + Sync + 'static {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
-    ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)>;
+    ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError>;
 }
 
 #[async_trait]
@@ -185,7 +187,7 @@ pub trait IncrementalActionExecutable: Send + Sync + 'static {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
-    ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)>;
+    ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError>;
 }
 
 /// The context for actions to use when executing

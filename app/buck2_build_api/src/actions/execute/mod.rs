@@ -9,4 +9,4 @@
 
 pub mod action_execution_target;
 pub mod action_executor;
-pub(crate) mod error;
+pub mod error;

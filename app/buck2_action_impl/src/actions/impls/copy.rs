@@ -17,6 +17,7 @@ use buck2_build_api::actions::box_slice_set::BoxSliceSet;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
+use buck2_build_api::actions::execute::error::ExecuteError;
 use buck2_build_api::actions::Action;
 use buck2_build_api::actions::ActionExecutable;
 use buck2_build_api::actions::ActionExecutionCtx;
@@ -157,7 +158,7 @@ impl IncrementalActionExecutable for CopyAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
-    ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
+    ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
         let (input, src_value) = ctx
             .artifact_values(self.input())
             .iter()

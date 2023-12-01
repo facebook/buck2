@@ -18,6 +18,7 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
+use buck2_build_api::actions::execute::error::ExecuteError;
 use buck2_build_api::actions::Action;
 use buck2_build_api::actions::ActionExecutable;
 use buck2_build_api::actions::ActionExecutionCtx;
@@ -196,11 +197,11 @@ impl IncrementalActionExecutable for CasArtifactAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
-    ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
+    ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
         // If running in offline environment, try to restore from cached outputs
         // first. Fallthrough to normal operation if unsuccessful.
         if ctx.run_action_knobs().use_network_action_output_cache {
-            return self.execute_for_offline(ctx).await;
+            return self.execute_for_offline(ctx).await.map_err(Into::into);
         }
 
         let expiration = ctx
@@ -216,12 +217,14 @@ impl IncrementalActionExecutable for CasArtifactAction {
             .1;
 
         if expiration < self.inner.expires_after {
-            return Err(CasArtifactActionExecutionError::InvalidExpiration {
-                digest: self.inner.digest.dupe(),
-                declared_expiration: self.inner.expires_after,
-                effective_expiration: expiration,
-            }
-            .into());
+            return Err(
+                anyhow::Error::new(CasArtifactActionExecutionError::InvalidExpiration {
+                    digest: self.inner.digest.dupe(),
+                    declared_expiration: self.inner.expires_after,
+                    effective_expiration: expiration,
+                })
+                .into(),
+            );
         }
 
         let value = match self.inner.kind {

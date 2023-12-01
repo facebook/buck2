@@ -17,6 +17,7 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
+use buck2_build_api::actions::execute::error::ExecuteError;
 use buck2_build_api::actions::Action;
 use buck2_build_api::actions::ActionExecutable;
 use buck2_build_api::actions::ActionExecutionCtx;
@@ -150,7 +151,7 @@ impl IncrementalActionExecutable for WriteMacrosToFileAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
-    ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
+    ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
         let mut execution_start = None;
 
         let values = ctx
@@ -168,9 +169,10 @@ impl IncrementalActionExecutable for WriteMacrosToFileAction {
                     .visit_write_to_file_macros(&mut macro_writer)?;
 
                 if self.outputs.len() != output_contents.len() {
-                    return Err(
-                        WriteMacrosActionValidationError::InconsistentNumberOfMacroArtifacts.into(),
-                    );
+                    return Err(anyhow::Error::new(
+                        WriteMacrosActionValidationError::InconsistentNumberOfMacroArtifacts,
+                    )
+                    .into());
                 }
 
                 Ok(

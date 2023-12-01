@@ -17,6 +17,7 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
+use buck2_build_api::actions::execute::error::ExecuteError;
 use buck2_build_api::actions::Action;
 use buck2_build_api::actions::ActionExecutable;
 use buck2_build_api::actions::ActionExecutionCtx;
@@ -259,14 +260,14 @@ impl IncrementalActionExecutable for DownloadFileAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
-    ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
+    ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
         // Early return - if this path exists, it's because we're running in a
         // special offline mode where the HEAD request below will likely fail.
         // Shortcut and just return this path as the action output.
         //
         // This mostly looks like a "copy" action.
         if ctx.run_action_knobs().use_network_action_output_cache {
-            return self.execute_for_offline(ctx).await;
+            return self.execute_for_offline(ctx).await.map_err(Into::into);
         }
 
         let client = ctx.http_client();

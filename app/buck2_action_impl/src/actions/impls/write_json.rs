@@ -20,6 +20,7 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
+use buck2_build_api::actions::execute::error::ExecuteError;
 use buck2_build_api::actions::impls::json;
 use buck2_build_api::actions::impls::json::validate_json;
 use buck2_build_api::actions::Action;
@@ -189,7 +190,7 @@ impl IncrementalActionExecutable for WriteJsonAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
-    ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
+    ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
         let fs = ctx.fs();
 
         let mut execution_start = None;
