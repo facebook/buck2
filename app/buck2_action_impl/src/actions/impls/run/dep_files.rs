@@ -29,6 +29,7 @@ use buck2_build_api::actions::ActionExecutionCtx;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use buck2_common::cas_digest::CasDigestData;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::base_deferred_key::BaseDeferredKey;
@@ -266,8 +267,8 @@ impl RunActionDepFiles {
 fn get_output_path_digest(
     digest_config: DigestConfig,
     output_paths: &[(ProjectRelativePathBuf, OutputType)],
-) -> DepFileDigest {
-    let mut digester = DepFileDigest::digester(digest_config.cas_digest_config());
+) -> CasDigestData {
+    let mut digester = CasDigestData::digester(digest_config.cas_digest_config());
     digester.update(&output_paths.len().to_le_bytes());
     for (output_path, output_type) in output_paths.iter() {
         digester.update(output_path.as_str().as_bytes());
@@ -280,14 +281,14 @@ fn get_output_path_digest(
 pub struct CommonDigests {
     commandline_cli_digest: ExpandedCommandLineDigest,
     // A digest of all output paths for this action
-    output_paths_digest: DepFileDigest,
+    output_paths_digest: CasDigestData,
     // A digest of inputs that are untagged (not tied to a dep file)
     untagged_inputs_digest: TrackedFileDigest,
 }
 impl CommonDigests {
     // Take the digest of everythig in the structure
-    fn fingerprint(&self, digest_config: DigestConfig) -> DepFileDigest {
-        let mut digester = DepFileDigest::digester(digest_config.cas_digest_config());
+    fn fingerprint(&self, digest_config: DigestConfig) -> CasDigestData {
+        let mut digester = CasDigestData::digester(digest_config.cas_digest_config());
 
         digester.update(self.output_paths_digest.raw_digest().as_bytes());
         digester.update(self.commandline_cli_digest.as_bytes());
