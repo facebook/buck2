@@ -15,21 +15,22 @@
 %%%  Extract direct dependencies from a given erl or hrl file
 %%%
 %%%  usage:
-%%%    dependency_analyzer.escript some_file.(h|e)rl [out.json]
+%%%    dependency_analyzer.escript some_file.(h|e)rl [out.term]
 %%%
 %%%  The output of the tool is written either to stdout,
-%%%  or a given output file. The JSON format is as follows:
+%%%  or a given output file. The format is as follows and intended to
+%%%  be consumed by other file:consult/1:
 %%% ```
-%%%  [{"type":   "include"
-%%%            | "include_lib"
-%%%            | "behaviour"
-%%%            | "parse_transform"
-%%%            | "manual_dependency",
-%%%   "file": "header_or_source_file.(h|e)rl",
-%%%  ["app": "application"][only for "include_lib"]
-%%%  },
+%%%  [#{"type" := "include"
+%%%             | "include_lib"
+%%%             | "behaviour"
+%%%             | "parse_transform"
+%%%             | "manual_dependency",
+%%%   "file"  := "header_or_source_file.(h|e)rl",
+%%%  ["app"   => "application"][only for "include_lib"]
+%%%   },
 %%%   ...
-%%%  ]
+%%%  ].
 %%%  '''
 %%% @end
 
@@ -74,8 +75,7 @@
 
 %% -build_dependencies(Modules)
 -define(MATCH_MANUAL_DEPENDENCIES(Modules),
-    {tree, attribute, _,
-        {attribute, {tree, atom, _, build_dependencies}, [{tree, list, _, {list, Modules, none}}]}}
+    {tree, attribute, _, {attribute, {tree, atom, _, build_dependencies}, [{tree, list, _, {list, Modules, none}}]}}
 ).
 
 %% entry point
@@ -90,13 +90,13 @@ main(_) ->
 
 -spec usage() -> ok.
 usage() ->
-    io:format("dependency_analyzer.escript some_file.(h|e)rl [out.json]").
+    io:format("dependency_analyzer.escript some_file.(h|e)rl [out.term]").
 
 -spec do(file:filename(), {file, file:filename()} | stdout) -> ok.
 do(InFile, Outspec) ->
     {ok, Forms} = epp_dodger:parse_file(InFile),
-    Dependencies = process_forms(Forms, []),
-    OutData = unicode:characters_to_binary(to_json_list(Dependencies)),
+    Dependencies = lists:sort(process_forms(Forms, [])),
+    OutData = unicode:characters_to_binary(io_lib:format("~p.", [Dependencies])),
     case Outspec of
         {file, File} ->
             file:write_file(File, OutData);
@@ -140,60 +140,3 @@ process_forms([_ | Rest], Acc) ->
 -spec module_to_erl(module()) -> file:filename().
 module_to_erl(Module) ->
     unicode:characters_to_list([atom_to_list(Module), ".erl"]).
-
-%%%
-%%% JSON encoding: base-line escripts we use in our toolchain need to be dependency less
-%%%
-
--spec to_json_list([#{string() => string()}]) -> string().
-to_json_list(Dependencies) ->
-    [
-        "[",
-        string:join([json_encode_dependency(Dependency) || Dependency <- Dependencies], ","),
-        "]"
-    ].
-
--spec json_encode_dependency(#{string() => string()}) -> string().
-json_encode_dependency(Dep) ->
-    Elements = maps:fold(
-        fun(Key, Value, Acc) ->
-            [[json_string_escape(Key), ":", json_string_escape(Value)] | Acc]
-        end,
-        [],
-        Dep
-    ),
-    ["{", string:join(Elements, ","), "}"].
-
--spec json_string_escape(string()) -> string().
-json_string_escape(Str) ->
-    [
-        "\"",
-        [json_escape_char(C) || C <- Str],
-        "\""
-    ].
-
--spec json_escape_char(non_neg_integer()) -> non_neg_integer() | string().
-json_escape_char($\") ->
-    [$\\, $\"];
-json_escape_char($\\) ->
-    [$\\, $\\];
-json_escape_char($\/) ->
-    [$\\, $\/];
-json_escape_char($\b) ->
-    [$\\, $\b];
-json_escape_char($\f) ->
-    [$\\, $\f];
-json_escape_char($\n) ->
-    [$\\, $\n];
-json_escape_char($\r) ->
-    [$\\, $\r];
-json_escape_char($\t) ->
-    [$\\, $\t];
-json_escape_char(C) when C >= 16#20 andalso C =< 16#10FFFF ->
-    %% unescaped, 16#5C (\) and 16#22 (") are handled above
-    C;
-json_escape_char(C) when C < 16#10000 ->
-    io_lib:format("\\u~s", [string:pad(integer_to_list(C, 16), 4, leading, " ")]);
-json_escape_char(_) ->
-    %% TODO: support extended unicode characters
-    error(utf8_extended_character_not_supported).

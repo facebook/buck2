@@ -88,6 +88,7 @@ ErlangToolchainInfo = provider(
         "escript_builder": provider_field(typing.Any, default = None),
         # analyzing .(h|e)rl dependencies
         "dependency_analyzer": provider_field(typing.Any, default = None),
+        "dependency_finalizer": provider_field(typing.Any, default = None),
         # trampoline rerouting stdout to stderr
         "erlc_trampoline": provider_field(typing.Any, default = None),
         # name to parse_transform artifacts mapping for core parse_transforms (that are always used) and

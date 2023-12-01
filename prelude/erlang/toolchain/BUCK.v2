@@ -23,6 +23,7 @@ toolchain_utilities(
     boot_script_builder = "boot_script_builder.escript",
     core_parse_transforms = [":transform_project_root"],
     dependency_analyzer = "dependency_analyzer.escript",
+    dependency_finalizer = "dependency_finalizer.escript",
     edoc = "edoc_cli.escript",
     erlc_trampoline = "erlc_trampoline.sh",
     escript_builder = "escript_builder.escript",
