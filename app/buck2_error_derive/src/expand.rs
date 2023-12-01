@@ -161,6 +161,7 @@ fn impl_enum(mut input: Enum) -> TokenStream {
         if input.attrs.typ.is_some() {
             variant.attrs.typ = input.attrs.typ.clone();
         }
+        variant.attrs.tags.extend(input.attrs.tags.iter().cloned());
     }
 
     let source_method = if input.has_source() {
@@ -333,12 +334,21 @@ fn gen_provide_contents(
             core::option::Option::None
         },
     };
+    let tags = attrs.tags.iter().map(|tag| match tag {
+        OptionStyle::Explicit(tag) => quote::quote! {
+            core::option::Option::Some(buck2_error::ErrorTag::#tag)
+        },
+        OptionStyle::ByFunc(func) => quote::quote! {
+            #func(&self)
+        },
+    });
 
     let metadata = quote! {
         buck2_error::provide_metadata::<Self>(
             __demand,
             #category,
             #typ,
+            &[#(#tags,)*],
             core::file!(),
             core::option::Option::Some(#source_location_extra),
             core::option::Option::None,

@@ -158,7 +158,16 @@ fn check_field_attrs(fields: &[Field]) -> Result<()> {
                 "#[error(transparent)] needs to go outside the enum or struct, not on an individual field",
             ));
         }
-        if let (Some(style), _) | (_, Some(style)) = (&field.attrs.category, &field.attrs.typ) {
+        let style = if let Some(style) = &field.attrs.category {
+            Some(style)
+        } else if let Some(style) = &field.attrs.typ {
+            Some(style)
+        } else if let Some(style) = field.attrs.tags.first() {
+            Some(style)
+        } else {
+            None
+        };
+        if let Some(style) = style {
             return Err(Error::new(
                 style.span(),
                 "not expected here; the #[buck2(...)] attribute belongs on top of a struct or an enum variant",

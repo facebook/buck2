@@ -64,6 +64,7 @@ impl std::error::Error for ActionError {
             demand,
             category,
             typ,
+            &[],
             std::file!(),
             Some("ActionError"),
             Some(self.as_proto_event()),

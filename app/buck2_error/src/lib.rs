@@ -101,6 +101,7 @@ pub fn provide_metadata<'a, 'b, E: StdError + Send + Sync + 'static>(
     demand: &'b mut Demand<'a>,
     category: Option<crate::Category>,
     typ: Option<crate::ErrorType>,
+    tags: &[Option<crate::ErrorTag>],
     source_file: &'static str,
     source_location_extra: Option<&'static str>,
     action_error: Option<buck2_data::ActionError>,
@@ -116,7 +117,7 @@ pub fn provide_metadata<'a, 'b, E: StdError + Send + Sync + 'static>(
     }
     let metadata = ProvidableContextMetadata {
         category,
-        tags: Vec::new(), // TODO(JakobDegen): Add in next diff
+        tags: tags.iter().copied().flatten().collect(),
         source_file,
         source_location_extra,
         check_error_type,

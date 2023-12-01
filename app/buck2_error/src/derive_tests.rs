@@ -212,3 +212,31 @@ fn test_root_is_applied_conditionally() {
     let e: crate::Error = MaybeWatchmanError::Some(WatchmanError).into();
     assert_eq!(e.get_error_type(), Some(crate::ErrorType::Watchman));
 }
+
+#[test]
+fn test_error_tags() {
+    fn f(_: &TaggedError) -> Option<crate::ErrorTag> {
+        Some(crate::ErrorTag::StarlarkFail)
+    }
+
+    #[derive(buck2_error_derive::Error, Debug)]
+    #[error("Unused")]
+    #[buck2(tag = WatchmanTimeout)]
+    enum TaggedError {
+        #[buck2(tag = f(_))]
+        A,
+        #[buck2(tag = WatchmanTimeout)]
+        B,
+    }
+
+    let a: crate::Error = TaggedError::A.into();
+    assert_eq!(
+        &a.get_tags(),
+        &[
+            crate::ErrorTag::StarlarkFail,
+            crate::ErrorTag::WatchmanTimeout
+        ]
+    );
+    let b: crate::Error = TaggedError::B.into();
+    assert_eq!(&b.get_tags(), &[crate::ErrorTag::WatchmanTimeout]);
+}

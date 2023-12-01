@@ -72,6 +72,7 @@ impl Parse for OptionStyle {
 enum MacroOption {
     Category(OptionStyle),
     Typ(OptionStyle),
+    Tag(OptionStyle),
 }
 
 impl Parse for MacroOption {
@@ -89,6 +90,9 @@ impl Parse for MacroOption {
         } else if name == "typ" {
             let _eq: Token![=] = input.parse()?;
             Ok(MacroOption::Typ(input.parse()?))
+        } else if name == "tag" {
+            let _eq: Token![=] = input.parse()?;
+            Ok(MacroOption::Tag(input.parse()?))
         } else {
             Err(syn::Error::new_spanned(name, "expected option"))
         }
@@ -101,6 +105,7 @@ pub struct Attrs<'a> {
     pub transparent: Option<Transparent<'a>>,
     pub category: Option<OptionStyle>,
     pub typ: Option<OptionStyle>,
+    pub tags: Vec<OptionStyle>,
 }
 
 #[derive(Clone)]
@@ -137,6 +142,7 @@ pub fn get(input: &[Attribute]) -> Result<Attrs> {
         transparent: None,
         category: None,
         typ: None,
+        tags: Vec::new(),
     };
 
     for attr in input {
@@ -165,6 +171,9 @@ pub fn get(input: &[Attribute]) -> Result<Attrs> {
                             return Err(syn::Error::new(style.span(), "duplicate error type"));
                         }
                         attrs.typ = Some(style);
+                    }
+                    MacroOption::Tag(style) => {
+                        attrs.tags.push(style);
                     }
                 }
             }
