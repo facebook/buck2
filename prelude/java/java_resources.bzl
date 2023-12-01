@@ -18,7 +18,7 @@ def get_src_package(src_root_prefixes: list[str], src_root_elements: list[str], 
                 prefix,
             )
     parts = path.split("/")
-    for i in range(len(parts) - 1, -1, -1):
+    for i in range(len(parts) - 2, -1, -1):
         part = parts[i]
         if part in src_root_elements:
             return "/".join(parts[i + 1:])
