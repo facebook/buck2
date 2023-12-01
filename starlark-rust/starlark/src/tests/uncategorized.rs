@@ -468,6 +468,11 @@ should_fail()"#,
         "src/tests/uncategorized_diagnostics_display_hash.golden",
         trim_rust_backtrace(&format!("{:#}", err)),
     );
+
+    golden_test_template(
+        "src/tests/uncategorized_diagnostics_display_debug.golden",
+        trim_rust_backtrace(&format!("{:?}", err)),
+    );
 }
 
 #[test]

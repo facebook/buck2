@@ -31,7 +31,6 @@ use crate::diagnostic::Diagnostic;
 ///
 /// In order to prevent accidental conversions to `anyhow::Error`, this type intentionally does not
 /// implement `std::error::Error`. That should probably change in the future.
-#[derive(Debug)]
 pub struct Error(Box<ErrorInner>);
 
 impl Error {
@@ -151,21 +150,31 @@ impl Error {
     }
 }
 
+fn fmt_impl(this: &Error, is_debug: bool, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    if this.has_diagnostic() {
+        // Not showing the context trace without `{:#}` or `{:?}` is the same thing that anyhow does
+        let with_context = (f.alternate() || is_debug) && this.0.kind.source().is_some();
+        diagnostic_display(
+            this.without_diagnostic(),
+            &this.0.diagnostic,
+            false,
+            f,
+            with_context,
+        )
+    } else {
+        fmt::Display::fmt(&this.without_diagnostic(), f)
+    }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.has_diagnostic() {
-            // Not showing the context trace without `{:#}` or `{:?}` is the same thing that anyhow does
-            let with_context = f.alternate() && self.0.kind.source().is_some();
-            diagnostic_display(
-                self.without_diagnostic(),
-                &self.0.diagnostic,
-                false,
-                f,
-                with_context,
-            )
-        } else {
-            fmt::Display::fmt(&self.without_diagnostic(), f)
-        }
+        fmt_impl(self, false, f)
+    }
+}
+
+impl fmt::Debug for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_impl(self, true, f)
     }
 }
 
