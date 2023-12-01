@@ -23,7 +23,7 @@ use crate::codemap::FileSpan;
 use crate::span_display::span_display;
 
 /// A description of where in starlark execution the error happened.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Diagnostic {
     /// Location where the error originated.
     pub span: Option<FileSpan>,

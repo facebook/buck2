@@ -39,7 +39,7 @@ impl Error {
     pub fn new(kind: ErrorKind) -> Self {
         Self(Box::new(ErrorInner {
             kind,
-            diagnostic: None,
+            diagnostic: Default::default(),
         }))
     }
 
@@ -47,10 +47,10 @@ impl Error {
     pub fn new_spanned(kind: ErrorKind, span: Span, codemap: &CodeMap) -> Self {
         Self(Box::new(ErrorInner {
             kind,
-            diagnostic: Some(Diagnostic {
+            diagnostic: Diagnostic {
                 span: Some(codemap.file_span(span)),
                 call_stack: CallStack::default(),
-            }),
+            },
         }))
     }
 
@@ -58,7 +58,7 @@ impl Error {
     pub fn new_other(e: impl std::error::Error + Send + Sync + 'static) -> Self {
         Self(Box::new(ErrorInner {
             kind: ErrorKind::Other(anyhow::Error::new(e)),
-            diagnostic: None,
+            diagnostic: Default::default(),
         }))
     }
 
@@ -73,7 +73,7 @@ impl Error {
     }
 
     pub fn has_diagnostic(&self) -> bool {
-        self.0.diagnostic.is_some()
+        self.0.diagnostic.span.is_some() || !self.0.diagnostic.call_stack.is_empty()
     }
 
     /// Convert this error into an `anyhow::Error`
@@ -110,29 +110,20 @@ impl Error {
     }
 
     pub fn span(&self) -> Option<&FileSpan> {
-        self.0.diagnostic.as_ref().and_then(|d| d.span.as_ref())
-    }
-
-    fn ensure_diagnostic(&mut self) -> &mut Diagnostic {
-        self.0.diagnostic.get_or_insert_with(|| Diagnostic {
-            span: None,
-            call_stack: Default::default(),
-        })
+        self.0.diagnostic.span.as_ref()
     }
 
     /// Set the span, unless it's already been set.
     pub fn set_span(&mut self, span: Span, codemap: &CodeMap) {
-        let d = self.ensure_diagnostic();
-        if d.span.is_none() {
-            d.span = Some(codemap.file_span(span));
+        if self.0.diagnostic.span.is_none() {
+            self.0.diagnostic.span = Some(codemap.file_span(span));
         }
     }
 
     /// Set the `call_stack` field, unless it's already been set.
     pub fn set_call_stack(&mut self, call_stack: impl FnOnce() -> CallStack) {
-        let d = self.ensure_diagnostic();
-        if d.call_stack.is_empty() {
-            d.call_stack = call_stack();
+        if self.0.diagnostic.call_stack.is_empty() {
+            self.0.diagnostic.call_stack = call_stack();
         }
     }
 
@@ -143,9 +134,16 @@ impl Error {
     /// so you might prefer to use `eprintln!("{:#}"), err)` if you suspect there is useful context
     /// (although you won't get pretty colors).
     pub fn eprint(&self) {
-        if let Some(diag) = &self.0.diagnostic {
+        if self.has_diagnostic() {
             let mut stderr = String::new();
-            diagnostic_display(self.without_diagnostic(), diag, true, &mut stderr, true).unwrap();
+            diagnostic_display(
+                self.without_diagnostic(),
+                &self.0.diagnostic,
+                true,
+                &mut stderr,
+                true,
+            )
+            .unwrap();
             eprint!("{}", stderr);
         } else {
             eprintln!("{:#}", self)
@@ -155,10 +153,16 @@ impl Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(diag) = &self.0.diagnostic {
+        if self.has_diagnostic() {
             // Not showing the context trace without `{:#}` or `{:?}` is the same thing that anyhow does
             let with_context = f.alternate() && self.0.kind.source().is_some();
-            diagnostic_display(self.without_diagnostic(), diag, false, f, with_context)
+            diagnostic_display(
+                self.without_diagnostic(),
+                &self.0.diagnostic,
+                false,
+                f,
+                with_context,
+            )
         } else {
             fmt::Display::fmt(&self.without_diagnostic(), f)
         }
@@ -168,7 +172,7 @@ impl fmt::Display for Error {
 #[derive(Debug)]
 struct ErrorInner {
     kind: ErrorKind,
-    diagnostic: Option<Diagnostic>,
+    diagnostic: Diagnostic,
 }
 
 /// The different kinds of errors that can be produced by starlark
@@ -219,7 +223,7 @@ impl From<anyhow::Error> for Error {
     fn from(e: anyhow::Error) -> Self {
         Self(Box::new(ErrorInner {
             kind: ErrorKind::Other(e),
-            diagnostic: None,
+            diagnostic: Default::default(),
         }))
     }
 }
