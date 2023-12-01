@@ -6,16 +6,16 @@
 # of this source tree.
 
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
-load("@prelude//cxx:cxx_library_utility.bzl", "cxx_is_gnu")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 
 def _strip_debug_info(ctx: AnalysisContext, out: str, obj: Artifact) -> Artifact:
     """
     Strip debug information from an object.
     """
-    strip = get_cxx_toolchain_info(ctx).binary_utilities_info.strip
+    cxx_toolchain = get_cxx_toolchain_info(ctx)
+    strip = cxx_toolchain.binary_utilities_info.strip
     output = ctx.actions.declare_output("__stripped__", out)
-    if cxx_is_gnu(ctx):
+    if cxx_toolchain.linker_info.type == "gnu":
         cmd = cmd_args([strip, "--strip-debug", "--strip-unneeded", "-o", output.as_output(), obj])
     else:
         cmd = cmd_args([strip, "-S", "-o", output.as_output(), obj])

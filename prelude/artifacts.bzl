@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//dist:dist_info.bzl", "DistInfo")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load("@prelude//utils:expect.bzl", "expect")
 
@@ -20,8 +21,17 @@ ArtifactOutputs = record(
     # Single output. This is the artifact whose path would go into the resources
     # JSON when this artifact is used as a resource.
     default_output = field(Artifact),
+
     # Other artifacts which need to be present in order to run the resource as
-    # an executable.
+    # an executable. This includes shared library dependencies and resources.
+    nondebug_runtime_files = field(list[ArgLike]),
+
+    # Other outputs that would be materialized if this artifact is the output of
+    # a build, or generally in any context where a user might run this artifact
+    # in a debugger.
+    #
+    # This is a superset of nondebug_runtime_files and also includes external
+    # debuginfo.
     other_outputs = field(list[ArgLike]),
 )
 
@@ -29,6 +39,7 @@ def single_artifact(dep: Artifact | Dependency) -> ArtifactOutputs:
     if type(dep) == "artifact":
         return ArtifactOutputs(
             default_output = dep,
+            nondebug_runtime_files = [],
             other_outputs = [],
         )
 
@@ -39,9 +50,16 @@ def single_artifact(dep: Artifact | Dependency) -> ArtifactOutputs:
             "expected exactly one default output from {} ({})"
                 .format(dep, info.default_outputs),
         )
+        default_output = info.default_outputs[0]
+        other_outputs = info.other_outputs
+
+        dist_info = dep.get(DistInfo)
+        nondebug_runtime_files = dist_info.nondebug_runtime_files if dist_info else other_outputs
+
         return ArtifactOutputs(
-            default_output = info.default_outputs[0],
-            other_outputs = info.other_outputs,
+            default_output = default_output,
+            nondebug_runtime_files = nondebug_runtime_files,
+            other_outputs = other_outputs,
         )
 
     fail("unexpected dependency type: {}".format(type(dep)))
@@ -58,6 +76,7 @@ def unpack_artifacts(artifacts: list[Artifact | Dependency]) -> list[ArtifactOut
         if type(artifact) == "artifact":
             out.append(ArtifactOutputs(
                 default_output = artifact,
+                nondebug_runtime_files = [],
                 other_outputs = [],
             ))
             continue
@@ -66,6 +85,7 @@ def unpack_artifacts(artifacts: list[Artifact | Dependency]) -> list[ArtifactOut
             for artifact in artifact[ArtifactGroupInfo].artifacts:
                 out.append(ArtifactOutputs(
                     default_output = artifact,
+                    nondebug_runtime_files = [],
                     other_outputs = [],
                 ))
             continue
@@ -86,6 +106,7 @@ def unpack_artifact_map(artifacts: dict[str, Artifact | Dependency]) -> dict[str
         if type(artifact) == "artifact":
             out[name] = ArtifactOutputs(
                 default_output = artifact,
+                nondebug_runtime_files = [],
                 other_outputs = [],
             )
             continue
@@ -94,6 +115,7 @@ def unpack_artifact_map(artifacts: dict[str, Artifact | Dependency]) -> dict[str
             for artifact in artifact[ArtifactGroupInfo].artifacts:
                 out[paths.join(name, artifact.short_path)] = ArtifactOutputs(
                     default_output = artifact,
+                    nondebug_runtime_files = [],
                     other_outputs = [],
                 )
             continue
