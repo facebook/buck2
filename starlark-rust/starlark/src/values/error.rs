@@ -68,8 +68,7 @@ pub enum ValueError {
 
 impl From<ValueError> for crate::Error {
     fn from(e: ValueError) -> Self {
-        // FIXME(JakobDegen): Have a proper variant for this
-        crate::Error::new_other(e)
+        crate::Error::new(crate::ErrorKind::Value(anyhow::Error::new(e)))
     }
 }
 
