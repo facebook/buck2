@@ -438,7 +438,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
 
     fn top_level_def(&mut self, def: &DefP<CstPayload>) -> Result<(), InternalError> {
         let def_params = DefParams::unpack(&def.params, self.ctx.codemap)
-            .map_err(|e| InternalError::from_eval_exception(e.into()))?;
+            .map_err(InternalError::from_diagnostic)?;
 
         let mut params = Vec::with_capacity(def_params.params.len());
         for (i, param) in def_params.params.iter().enumerate() {
@@ -659,7 +659,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
 
     fn ty_expr(&mut self, expr: &CstTypeExpr) -> Result<Ty, InternalError> {
         let x = TypeExprUnpackP::unpack(&expr.expr, self.ctx.codemap)
-            .map_err(|e| InternalError::from_eval_exception(e.into()))?;
+            .map_err(InternalError::from_diagnostic)?;
         self.from_type_expr_impl(&x)
     }
 

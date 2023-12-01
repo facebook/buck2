@@ -17,6 +17,7 @@
 
 use std::fmt::Display;
 
+use starlark_syntax::diagnostic::WithDiagnostic;
 use starlark_syntax::eval_exception::EvalException;
 
 use crate::codemap::CodeMap;
@@ -29,16 +30,23 @@ pub struct InternalError(EvalException);
 impl InternalError {
     #[cold]
     pub(crate) fn msg(message: impl Display, span: Span, codemap: &CodeMap) -> InternalError {
-        InternalError(EvalException::new_anyhow(
-            anyhow::anyhow!("{} (internal error)", message),
+        InternalError(EvalException::new(
+            crate::Error::new(crate::ErrorKind::Internal(anyhow::Error::msg(
+                message.to_string(),
+            ))),
             span,
             codemap,
         ))
     }
 
     #[cold]
-    pub(crate) fn from_eval_exception(e: EvalException) -> InternalError {
-        InternalError(e)
+    pub(crate) fn from_diagnostic(d: WithDiagnostic<impl Display>) -> InternalError {
+        let internal = d.map(|m| {
+            crate::Error::new(crate::ErrorKind::Internal(anyhow::Error::msg(
+                m.to_string(),
+            )))
+        });
+        InternalError(internal.into())
     }
 
     #[cold]

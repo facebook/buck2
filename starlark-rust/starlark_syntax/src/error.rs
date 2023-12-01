@@ -158,6 +158,8 @@ pub enum ErrorKind {
     ///
     /// Includes unsupported operations, missing attributes, things of that sort.
     Value(anyhow::Error),
+    /// Indicates a logic bug in starlark
+    Internal(anyhow::Error),
     /// Fallback option
     ///
     /// This is used in two cases:
@@ -172,6 +174,7 @@ impl ErrorKind {
     pub fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Value(_) => None,
+            Self::Internal(_) => None,
             Self::Other(e) => e.source(),
         }
     }
@@ -181,6 +184,7 @@ impl fmt::Debug for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Value(e) => fmt::Debug::fmt(e, f),
+            Self::Internal(e) => write!(f, "Internal error: {}", e),
             Self::Other(e) => fmt::Debug::fmt(e, f),
         }
     }
@@ -190,6 +194,7 @@ impl fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Value(e) => fmt::Display::fmt(e, f),
+            Self::Internal(e) => write!(f, "Internal error: {}", e),
             Self::Other(e) => fmt::Display::fmt(e, f),
         }
     }
