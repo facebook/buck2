@@ -110,12 +110,12 @@ impl<T: StdError> fmt::Debug for WithDiagnostic<T> {
 
 /// A description of where in starlark execution the error happened.
 #[derive(Debug, Default)]
-pub(crate) struct Diagnostic {
+struct Diagnostic {
     /// Location where the error originated.
-    pub(crate) span: Option<FileSpan>,
+    span: Option<FileSpan>,
 
     /// Call stack where the error originated.
-    pub(crate) call_stack: CallStack,
+    call_stack: CallStack,
 }
 
 impl Diagnostic {
