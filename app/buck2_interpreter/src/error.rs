@@ -46,7 +46,9 @@ impl std::error::Error for BuckStarlarkError {
 
     fn provide<'a>(&'a self, demand: &mut buck2_error::Demand<'a>) {
         match self.e.kind() {
-            starlark::ErrorKind::Other(e) => e.provide(demand),
+            starlark::ErrorKind::Other(e) => {
+                buck2_error::forward_provide::<Self>(demand, e.as_ref())
+            }
             _ => (),
         }
     }

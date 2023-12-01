@@ -22,6 +22,7 @@ mod format;
 mod root;
 mod source_location;
 
+use std::any::request_value;
 use std::error::Error as StdError;
 
 pub use context::Context;
@@ -125,6 +126,30 @@ pub fn provide_metadata<'a, 'b, E: StdError + Send + Sync + 'static>(
     Demand::provide_value(demand, metadata);
 }
 
+/// Forwards the metadata provided by another error.
+///
+/// This method is intended for cases where your error type contains another error and that error is
+/// not reported as a `source`. There's no need to call this with sub-errors that are reported as
+/// sources.
+pub fn forward_provide<'a, 'b, E: StdError + Send + Sync + 'static>(
+    demand: &'b mut Demand<'a>,
+    other: &dyn StdError,
+) {
+    // Unfortunately, this implementation can't be trivial. The problem is that the conversion logic
+    // expects the `CheckErrorType` value to be generated based on a type which actually matches the
+    // type of the error reported in the source chain. So we have to replace the `CheckErrorType`
+    // value with the proper one.
+    let check_error_type = ProvidableRootMetadata::gen_check_error_type::<E>();
+    if let Some(mut m) = request_value::<ProvidableRootMetadata>(other) {
+        m.check_error_type = check_error_type;
+        Demand::provide_value(demand, m);
+    }
+    if let Some(mut m) = request_value::<ProvidableContextMetadata>(other) {
+        m.check_error_type = check_error_type;
+        Demand::provide_value(demand, m);
+    }
+}
+
 #[doc(hidden)]
 pub mod __for_macro {
     use std::error::Error as StdError;
@@ -146,5 +171,33 @@ pub mod __for_macro {
         fn as_dyn_error<'a>(&'a self) -> &'a (dyn StdError + 'static) {
             self
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate as buck2_error;
+
+    #[test]
+    fn test_forward_provide() {
+        #[derive(buck2_error_derive::Error, Debug)]
+        #[error("unused")]
+        struct Inner();
+
+        #[derive(Debug, derive_more::Display)]
+        struct Outer(Inner);
+
+        impl StdError for Outer {
+            fn provide<'a, 'b>(&self, demand: &'b mut Demand<'a>) {
+                buck2_error::forward_provide::<Self>(demand, &self.0);
+            }
+        }
+
+        let err = Outer(Inner());
+        let err = buck2_error::Error::from(err);
+        // This works because we used `forward_provide`, it would not work if we had just called
+        // `.provide()`
+        assert_eq!(err.source_location(), Some("buck2_error/src/lib.rs::Inner"));
     }
 }
