@@ -350,7 +350,7 @@ impl RemoteExecutionClient {
 
     pub async fn write_action_result(
         &self,
-        digest: TDigest,
+        digest: ActionDigest,
         result: TActionResult2,
         use_case: RemoteExecutorUseCase,
         platform: &RE::Platform,
@@ -1135,7 +1135,7 @@ impl RemoteExecutionClientImpl {
 
     async fn write_action_result(
         &self,
-        digest: TDigest,
+        digest: ActionDigest,
         result: TActionResult2,
         use_case: RemoteExecutorUseCase,
         platform: &RE::Platform,
@@ -1148,7 +1148,7 @@ impl RemoteExecutionClientImpl {
                     ..use_case.metadata()
                 },
                 WriteActionResultRequest {
-                    action_digest: digest,
+                    action_digest: digest.to_re(),
                     action_result: result,
                     ..Default::default()
                 },

@@ -25,6 +25,8 @@ use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::directory_to_re_tree;
 use buck2_execute::directory::ActionDirectoryMember;
+use buck2_execute::execute::action_digest::ActionDigest;
+use buck2_execute::execute::action_digest::ActionDigestKind;
 use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use buck2_execute::execute::blobs::ActionBlobs;
 use buck2_execute::execute::cache_uploader::CacheUploadInfo;
@@ -47,7 +49,6 @@ use remote_execution::REClientError;
 use remote_execution::TActionResult2;
 use remote_execution::TAny;
 use remote_execution::TCode;
-use remote_execution::TDigest;
 use remote_execution::TDirectory2;
 use remote_execution::TExecutedActionMetadata;
 use remote_execution::TFile;
@@ -127,7 +128,7 @@ impl CacheUploader {
             .perform_cache_upload(
                 info,
                 result,
-                action_digest_and_blobs.action.to_re(),
+                action_digest_and_blobs.action.dupe(),
                 vec![],
                 buck2_data::CacheUploadReason::LocalExecution,
                 &action_digest_and_blobs.blobs,
@@ -156,7 +157,7 @@ impl CacheUploader {
             action_digest_and_blobs.action,
             dep_file_entry.key
         );
-        let digest_re = dep_file_entry.key.to_re();
+        let digest_re = dep_file_entry.key.coerce::<ActionDigestKind>();
         let dep_file_tany = TAny {
             type_url: REMOTE_DEP_FILE_KEY.to_owned(),
             value: dep_file_entry.entry.encode_to_vec(),
@@ -184,7 +185,7 @@ impl CacheUploader {
         &self,
         info: &CacheUploadInfo<'_>,
         result: &CommandExecutionResult,
-        digest: TDigest,
+        digest: ActionDigest,
         metadata: Vec<TAny>,
         reason: buck2_data::CacheUploadReason,
         action_blobs: &ActionBlobs,

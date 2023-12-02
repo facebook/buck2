@@ -466,7 +466,7 @@ impl ManagedRemoteExecutionClient {
 
     pub async fn write_action_result(
         &self,
-        digest: TDigest,
+        digest: ActionDigest,
         result: TActionResult2,
         use_case: RemoteExecutorUseCase,
         platform: &RE::Platform,
