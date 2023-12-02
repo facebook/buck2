@@ -390,17 +390,16 @@ pub fn get_dispatcher_opt() -> Option<EventDispatcher> {
 
 pub fn get_dispatcher() -> EventDispatcher {
     static ENFORCE_DISPATCHER_SET: EnvHelper<bool> = EnvHelper::new("ENFORCE_DISPATCHER_SET");
+    let enforce_event_dispatcher_set = ENFORCE_DISPATCHER_SET
+        .get()
+        .unwrap()
+        .copied()
+        .unwrap_or_default();
 
     match get_dispatcher_opt() {
         Some(dispatcher) => dispatcher,
         None => {
-            let should_error = ENFORCE_DISPATCHER_SET
-                .get()
-                .unwrap()
-                .copied()
-                .unwrap_or_default();
-
-            if should_error {
+            if enforce_event_dispatcher_set {
                 panic!("dispatcher is not set")
             } else {
                 // TODO: This is firing millions of times, needs to fix this up before it's made a soft error.
