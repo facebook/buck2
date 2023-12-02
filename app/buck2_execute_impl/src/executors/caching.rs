@@ -54,7 +54,6 @@ use remote_execution::TExecutedActionMetadata;
 use remote_execution::TFile;
 use remote_execution::TStatus;
 use remote_execution::TTimestamp;
-use RE::InlinedBlobWithDigest;
 
 // Whether to throw errors when cache uploads fail (primarily for tests).
 static ERROR_ON_CACHE_UPLOAD: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_ERROR_ON_CACHE_UPLOAD");
@@ -216,20 +215,11 @@ impl CacheUploader {
                     // upload Action to CAS.
                     // This is necessary when writing to the ActionCache through CAS, since CAS needs to inspect the Action related to the ActionResult.
                     // Without storing the Action itself to CAS, ActionCache writes would fail.
-                    let inlined_blobs = action_blobs
-                        .iter()
-                        .map(|(digest, blob)| InlinedBlobWithDigest {
-                            digest: digest.to_re(),
-                            blob: blob.0.to_vec(),
-                            ..Default::default()
-                        })
-                        .collect();
-
                     self.re_client
                         .upload_files_and_directories(
                             vec![],
                             vec![],
-                            inlined_blobs,
+                            action_blobs.to_inlined_blobs(),
                             self.re_use_case,
                         )
                         .await?;

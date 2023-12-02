@@ -11,7 +11,9 @@ use std::collections::HashMap;
 
 use buck2_common::file_ops::TrackedFileDigest;
 use dupe::Dupe;
+use remote_execution::InlinedBlobWithDigest;
 
+use crate::digest::CasDigestToReExt;
 use crate::digest_config::DigestConfig;
 use crate::execute::request::ActionMetadataBlobData;
 use crate::execute::request::ActionMetadataBlobMessage;
@@ -58,5 +60,16 @@ impl ActionBlobs {
         &self,
     ) -> std::collections::hash_map::Iter<'_, TrackedFileDigest, ActionMetadataBlobData> {
         self.0.iter()
+    }
+
+    pub fn to_inlined_blobs(&self) -> Vec<InlinedBlobWithDigest> {
+        self.0
+            .iter()
+            .map(|(digest, data)| InlinedBlobWithDigest {
+                blob: data.0.clone(),
+                digest: digest.to_re(),
+                ..Default::default()
+            })
+            .collect()
     }
 }
