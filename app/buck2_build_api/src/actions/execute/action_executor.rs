@@ -70,7 +70,6 @@ use more_futures::cancellation::CancellationContext;
 
 use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::actions::execute::action_execution_target::ActionExecutionTarget;
-use crate::actions::execute::error::CommandExecutionErrorMarker;
 use crate::actions::execute::error::ExecuteError;
 use crate::actions::impls::run_action_knobs::HasRunActionKnobs;
 use crate::actions::impls::run_action_knobs::RunActionKnobs;
@@ -424,7 +423,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         result: CommandExecutionResult,
         allows_cache_upload: bool,
         allows_dep_file_cache_upload: bool,
-    ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
+    ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
         let CommandExecutionResult {
             outputs,
             report,
@@ -465,7 +464,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                 );
                 Ok(result)
             }
-            _ => Err(CommandExecutionErrorMarker.into()),
+            _ => Err(ExecuteError::CommandExecutionError),
         };
         self.command_reports.extend(rejected_execution);
         self.command_reports.push(report);

@@ -35,14 +35,6 @@ pub enum ExecuteError {
 
 impl From<anyhow::Error> for ExecuteError {
     fn from(error: anyhow::Error) -> Self {
-        let e: buck2_error::Error = error.into();
-        if e.downcast_ref::<CommandExecutionErrorMarker>().is_some() {
-            return Self::CommandExecutionError;
-        }
-        Self::Error { error: e.into() }
+        Self::Error { error }
     }
 }
-
-#[derive(buck2_error::Error, Debug)]
-#[error("Command execution failed. Details are in the command report.")]
-pub struct CommandExecutionErrorMarker;
