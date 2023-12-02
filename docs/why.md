@@ -126,7 +126,7 @@ report it via [Github issues](https://github.com/facebook/buck2/issues).
 Buck2 is being used internally within Meta and is available as open-source
 from 2023.
 
-The are several differences between the internal and open-source versions:
+There are several differences between the internal and open-source versions:
 
 - Meta uses an internal version of remote execution with builds always hooked up
   to remote execution. The open-source binding, which uses Buck2 without remote
