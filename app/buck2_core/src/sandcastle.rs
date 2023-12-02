@@ -15,3 +15,8 @@ pub fn is_sandcastle() -> anyhow::Result<bool> {
 
     Ok(SANDCASTLE.get()?.is_some())
 }
+
+pub fn sandcastle_id() -> anyhow::Result<Option<&'static str>> {
+    static SANDCASTLE_ID: EnvHelper<String> = EnvHelper::new("SANDCASTLE_ID");
+    Ok(SANDCASTLE_ID.get()?.map(|s| s.as_str()))
+}

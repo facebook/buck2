@@ -8,7 +8,7 @@
  */
 
 use buck2_common::legacy_configs::init::DaemonStartupConfig;
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::sandcastle::sandcastle_id;
 
 use crate::version::BuckVersion;
 
@@ -29,6 +29,5 @@ pub fn version() -> String {
 }
 
 pub fn user_version() -> anyhow::Result<Option<String>> {
-    static SANDCASTLE_ID: EnvHelper<String> = EnvHelper::new("SANDCASTLE_ID");
-    Ok(SANDCASTLE_ID.get()?.cloned())
+    Ok(sandcastle_id()?.map(|s| s.to_owned()))
 }
