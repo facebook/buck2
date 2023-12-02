@@ -44,7 +44,22 @@ pub enum Checksum {
     Both { sha1: Arc<str>, sha256: Arc<str> },
 }
 
+#[derive(buck2_error::Error, Debug)]
+enum DownloadFileError {
+    #[error("Must pass in at least one checksum (e.g. `sha1 = ...`)")]
+    MissingChecksum,
+}
+
 impl Checksum {
+    pub fn new(sha1: Option<&str>, sha256: Option<&str>) -> anyhow::Result<Self> {
+        match (sha1.map(Arc::from), sha256.map(Arc::from)) {
+            (Some(sha1), None) => Ok(Checksum::Sha1(sha1)),
+            (None, Some(sha256)) => Ok(Checksum::Sha256(sha256)),
+            (Some(sha1), Some(sha256)) => Ok(Checksum::Both { sha1, sha256 }),
+            (None, None) => Err(DownloadFileError::MissingChecksum.into()),
+        }
+    }
+
     pub fn sha1(&self) -> Option<&str> {
         match self {
             Self::Sha1(sha1) => Some(sha1),

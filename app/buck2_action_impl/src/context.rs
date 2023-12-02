@@ -93,12 +93,6 @@ use crate::actions::impls::write_json::UnregisteredWriteJsonAction;
 use crate::actions::impls::write_macros::UnregisteredWriteMacrosToFileAction;
 
 #[derive(buck2_error::Error, Debug)]
-enum DownloadFileError {
-    #[error("Must pass in at least one checksum (e.g. `sha1 = ...`)")]
-    MissingChecksum,
-}
-
-#[derive(buck2_error::Error, Debug)]
 enum DynamicOutputError {
     #[error("Output list may not be empty")]
     EmptyOutput,
@@ -880,15 +874,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         let (declaration, output_artifact) =
             this.get_or_declare_output(eval, output, OutputType::File)?;
 
-        let checksum = match (
-            sha1.into_option().map(Arc::from),
-            sha256.into_option().map(Arc::from),
-        ) {
-            (Some(sha1), None) => Checksum::Sha1(sha1),
-            (None, Some(sha256)) => Checksum::Sha256(sha256),
-            (Some(sha1), Some(sha256)) => Checksum::Both { sha1, sha256 },
-            (None, None) => return Err(DownloadFileError::MissingChecksum.into()),
-        };
+        let checksum = Checksum::new(sha1.into_option(), sha256.into_option())?;
 
         this.register_action(
             IndexSet::new(),
