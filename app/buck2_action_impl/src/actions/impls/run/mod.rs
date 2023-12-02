@@ -41,6 +41,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_events::dispatch::span_async;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::action_digest::ActionDigest;
+use buck2_execute::execute::cache_uploader::FORCE_CACHE_UPLOAD;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::request::ActionMetadataBlob;
@@ -720,7 +721,11 @@ impl IncrementalActionExecutable for RunAction {
 
         // If there is a dep file entry AND if dep file cache upload is enabled, upload it
         let upload_dep_file = self.inner.allow_dep_file_cache_upload && dep_file_bundle.is_some();
-        if result.was_success() && (self.inner.allow_cache_upload || upload_dep_file) {
+        if result.was_success()
+            && (self.inner.allow_cache_upload
+                || upload_dep_file
+                || FORCE_CACHE_UPLOAD.get_copied()?.unwrap_or_default())
+        {
             let dep_file_entry = match &mut dep_file_bundle {
                 Some(dep_file_bundle) if self.inner.allow_dep_file_cache_upload => {
                     let entry = dep_file_bundle.make_remote_dep_file_entry(ctx).await?;

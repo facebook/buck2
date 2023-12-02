@@ -28,6 +28,7 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::cache_uploader::NoOpCacheUploader;
+use buck2_execute::execute::cache_uploader::FORCE_CACHE_UPLOAD;
 use buck2_execute::execute::dice_data::CommandExecutorResponse;
 use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::prepared::NoOpCommandOptionalExecutor;
@@ -351,7 +352,16 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         .collect(),
                 };
 
-                let cache_uploader = if disable_caching {
+                let cache_uploader = if FORCE_CACHE_UPLOAD.get_copied()?.unwrap_or(false) {
+                    Arc::new(CacheUploader::new(
+                        artifact_fs.clone(),
+                        self.materializer.dupe(),
+                        self.re_connection.get_client(),
+                        *re_use_case,
+                        platform.clone(),
+                        None,
+                    )) as _
+                } else if disable_caching {
                     Arc::new(NoOpCacheUploader {}) as _
                 } else if let CacheUploadBehavior::Enabled { max_bytes } = cache_upload_behavior {
                     Arc::new(CacheUploader::new(

@@ -9,6 +9,7 @@
 
 use async_trait::async_trait;
 use buck2_action_metadata_proto::RemoteDepFile;
+use buck2_core::env_helper::EnvHelper;
 
 use crate::digest_config::DigestConfig;
 use crate::execute::action_digest_and_blobs::ActionDigestAndBlobs;
@@ -30,6 +31,9 @@ pub struct CacheUploadResult {
     pub did_cache_upload: bool,
     pub did_dep_file_cache_upload: bool,
 }
+
+// This is for quick testing of cache upload without configuring executors.
+pub static FORCE_CACHE_UPLOAD: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_FORCE_CACHE_UPLOAD");
 
 /// A single purpose trait to handle cache uploads
 #[async_trait]
