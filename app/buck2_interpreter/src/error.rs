@@ -44,10 +44,10 @@ impl std::error::Error for BuckStarlarkError {
         self.e.kind().source()
     }
 
-    fn provide<'a>(&'a self, demand: &mut buck2_error::Demand<'a>) {
+    fn provide<'a>(&'a self, request: &mut std::error::Request<'a>) {
         match self.e.kind() {
             starlark::ErrorKind::Other(e) => {
-                buck2_error::forward_provide::<Self>(demand, e.as_ref());
+                buck2_error::forward_provide::<Self>(request, e.as_ref());
                 return;
             }
             _ => (),
@@ -70,7 +70,7 @@ impl std::error::Error for BuckStarlarkError {
             _ => "BuckStarlarkError",
         };
         buck2_error::provide_metadata::<Self>(
-            demand,
+            request,
             category,
             None, /* typ */
             tags,

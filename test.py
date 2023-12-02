@@ -227,10 +227,16 @@ CLIPPY_ALLOW = [
     "clippy::unnecessary-wraps",  # Sometimes unnecessary wraps provide the right API
     "clippy::wrong_self_convention",  # These rules are useless pedantry
     "clippy::bool-assert-comparison",  # Sometimes more clear to write it this way
-    "clippy::unwrap-or-else-default",  # Defaults aren't always more clear as it removes the type information when reading code
+    "clippy::unwrap-or-default",  # Defaults aren't always more clear as it removes the type information when reading code
     "clippy::enum-variant-names",  # Sometimes you do want the same prefixes
     "clippy::needless_update",  # Our RE structs have slightly different definitions in internal and OSS.
     "clippy::almost-swapped",  # Triggered by Clap v3, perhaps remove when we move to v4
+    "clippy::format_collect",  # FIXME new in Rust 1.73
+    "clippy::incorrect_partial_ord_impl_on_ord_type",  # FIXME new in Rust 1.73
+    "clippy::needless_pass_by_ref_mut",  # FIXME new in Rust 1.73
+    "clippy::needless_return",  # FIXME new in Rust 1.73
+    "clippy::redundant_closure",  # FIXME new in Rust 1.73
+    "clippy::redundant_locals",  # FIXME new in Rust 1.73
 ]
 
 CLIPPY_DENY = [
@@ -283,7 +289,7 @@ CLIPPY_AUTOFIX = [
     "clippy::needless_bitwise_bool",
     "clippy::needless_borrow",
     "clippy::range_minus_one",
-    "clippy::unwrap_or_else_default",
+    "clippy::unwrap_or_default",
     "clippy::useless-conversion",
 ]
 
@@ -292,6 +298,10 @@ RUSTC_ALLOW = {
     "unfulfilled-lint-expectations",
     # This is not *actually* a  warning but rather a warning level.
     "warnings",
+}
+
+RUSTDOC_ALLOW = {
+    "rustdoc::redundant_explicit_links",  # FIXME new in Rust 1.73
 }
 
 
@@ -432,7 +442,7 @@ def rustdoc(package_args: List[str]) -> None:
         # contain a `code` field that itself has a `code` field that is machine
         # readable for we look for this.
         code = _lookup(line, "message", "code", "code")
-        if code is None or "rustdoc::" not in code:
+        if code is None or "rustdoc::" not in code or code in RUSTDOC_ALLOW:
             continue
 
         has_warnings = True

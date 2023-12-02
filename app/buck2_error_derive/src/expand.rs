@@ -82,7 +82,7 @@ fn impl_struct(input: Struct) -> TokenStream {
     let provide_body = gen_provide_contents(&input.attrs, &input.fields, ty, None);
     let pat = fields_pat(&input.fields);
     let provide_method = quote! {
-        fn provide<'__macro>(&'__macro self, __demand: &mut buck2_error::Demand<'__macro>) {
+        fn provide<'__macro>(&'__macro self, __request: &mut std::error::Request<'__macro>) {
             #[allow(unused_variables, deprecated)]
             let Self #pat = self;
             #provide_body
@@ -220,7 +220,7 @@ fn impl_enum(mut input: Enum) -> TokenStream {
         }
     });
     let provide_method = quote! {
-        fn provide<'__macro>(&'__macro self, __demand: &mut buck2_error::Demand<'__macro>) {
+        fn provide<'__macro>(&'__macro self, __request: &mut std::error::Request<'__macro>) {
             match self {
                 #(#provide_arms)*
             }
@@ -345,7 +345,7 @@ fn gen_provide_contents(
 
     let metadata = quote! {
         buck2_error::provide_metadata::<Self>(
-            __demand,
+            __request,
             #category,
             #typ,
             &[#(#tags,)*],
@@ -362,7 +362,7 @@ fn gen_provide_contents(
         };
         quote! {
             use buck2_error::__for_macro::AsDynError;
-            std::error::Error::provide(#only_field.as_dyn_error(), __demand);
+            std::error::Error::provide(#only_field.as_dyn_error(), __request);
         }
     } else {
         quote! {}

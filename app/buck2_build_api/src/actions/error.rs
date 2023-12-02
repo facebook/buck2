@@ -24,7 +24,7 @@ pub struct ActionError {
 }
 
 impl std::error::Error for ActionError {
-    fn provide(&self, demand: &mut buck2_error::Demand<'_>) {
+    fn provide(&self, request: &mut std::error::Request<'_>) {
         let is_command_failure = self.last_command.as_ref().is_some_and(|c| {
             matches!(
                 c.status,
@@ -61,7 +61,7 @@ impl std::error::Error for ActionError {
         };
 
         buck2_error::provide_metadata::<Self>(
-            demand,
+            request,
             category,
             typ,
             &[],

@@ -11,7 +11,6 @@
 #![feature(let_chains)]
 #![feature(trait_alias)]
 #![feature(trait_upcasting)]
-#![feature(provide_any)]
 
 mod any;
 mod context;
@@ -22,8 +21,9 @@ mod format;
 mod root;
 mod source_location;
 
-use std::any::request_value;
+use std::error::request_value;
 use std::error::Error as StdError;
+use std::error::Request;
 
 pub use context::Context;
 /// A piece of metadata to indicate whether this error is an infra or user error.
@@ -81,10 +81,6 @@ pub use buck2_error_derive::Error;
 use crate::any::ProvidableContextMetadata;
 use crate::any::ProvidableRootMetadata;
 
-/// This type is re-exported to keep you from having to pick up an explicit
-/// `#![feature(provide_any)]`
-pub type Demand<'a> = std::any::Demand<'a>;
-
 /// Provide metadata about an error.
 ///
 /// This is a manual alternative to deriving `buck2_error::Error`, which should be preferred if at
@@ -99,7 +95,7 @@ pub type Demand<'a> = std::any::Demand<'a>;
 /// The `source_file` should just be `std::file!()`; the `source_location_extra` should be the type
 /// - and possibly variant - name, formatted as either `Type` or `Type::Variant`.
 pub fn provide_metadata<'a, 'b, E: StdError + Send + Sync + 'static>(
-    demand: &'b mut Demand<'a>,
+    request: &'b mut Request<'a>,
     category: Option<crate::Category>,
     typ: Option<crate::ErrorType>,
     tags: &[Option<crate::ErrorTag>],
@@ -114,7 +110,7 @@ pub fn provide_metadata<'a, 'b, E: StdError + Send + Sync + 'static>(
             check_error_type,
             action_error,
         };
-        Demand::provide_value(demand, metadata);
+        Request::provide_value(request, metadata);
     }
     let metadata = ProvidableContextMetadata {
         category,
@@ -123,7 +119,7 @@ pub fn provide_metadata<'a, 'b, E: StdError + Send + Sync + 'static>(
         source_location_extra,
         check_error_type,
     };
-    Demand::provide_value(demand, metadata);
+    Request::provide_value(request, metadata);
 }
 
 /// Forwards the metadata provided by another error.
@@ -132,7 +128,7 @@ pub fn provide_metadata<'a, 'b, E: StdError + Send + Sync + 'static>(
 /// not reported as a `source`. There's no need to call this with sub-errors that are reported as
 /// sources.
 pub fn forward_provide<'a, 'b, E: StdError + Send + Sync + 'static>(
-    demand: &'b mut Demand<'a>,
+    request: &'b mut Request<'a>,
     other: &dyn StdError,
 ) {
     // Unfortunately, this implementation can't be trivial. The problem is that the conversion logic
@@ -142,11 +138,11 @@ pub fn forward_provide<'a, 'b, E: StdError + Send + Sync + 'static>(
     let check_error_type = ProvidableRootMetadata::gen_check_error_type::<E>();
     if let Some(mut m) = request_value::<ProvidableRootMetadata>(other) {
         m.check_error_type = check_error_type;
-        Demand::provide_value(demand, m);
+        Request::provide_value(request, m);
     }
     if let Some(mut m) = request_value::<ProvidableContextMetadata>(other) {
         m.check_error_type = check_error_type;
-        Demand::provide_value(demand, m);
+        Request::provide_value(request, m);
     }
 }
 
@@ -189,8 +185,8 @@ mod tests {
         struct Outer(Inner);
 
         impl StdError for Outer {
-            fn provide<'a, 'b>(&self, demand: &'b mut Demand<'a>) {
-                buck2_error::forward_provide::<Self>(demand, &self.0);
+            fn provide<'a, 'b>(&self, request: &'b mut Request<'a>) {
+                buck2_error::forward_provide::<Self>(request, &self.0);
             }
         }
 

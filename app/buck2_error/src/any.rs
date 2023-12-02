@@ -9,7 +9,7 @@
 
 //! Integrations of `buck2_error::Error` with `anyhow::Error` and `StdError`.
 
-use std::any::request_value;
+use std::error::request_value;
 use std::error::Error as StdError;
 use std::fmt;
 use std::sync::Arc;
@@ -248,7 +248,7 @@ impl ProvidableRootMetadata {
 
 #[cfg(test)]
 mod tests {
-    use std::any::Demand;
+    use std::error::Request;
 
     use super::*;
     use crate as buck2_error;
@@ -305,8 +305,8 @@ mod tests {
     struct FullMetadataError;
 
     impl StdError for FullMetadataError {
-        fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
-            demand
+        fn provide<'a>(&'a self, request: &mut Request<'a>) {
+            request
                 .provide_value(ProvidableRootMetadata {
                     typ: Some(crate::ErrorType::Watchman),
                     check_error_type: ProvidableRootMetadata::gen_check_error_type::<Self>(),
