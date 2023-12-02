@@ -396,8 +396,7 @@ pub fn get_dispatcher() -> EventDispatcher {
         None => {
             let should_error = ENFORCE_DISPATCHER_SET
                 .get()
-                .ok()
-                .flatten()
+                .unwrap()
                 .copied()
                 .unwrap_or_default();
 
