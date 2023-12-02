@@ -33,7 +33,7 @@ def __run():
     dirpath = os.path.dirname(os.path.realpath(__file__))
 
     # Enable long path support on Windows
-    if os.name == "nt" and not dirpath.starswith(unc_prefix):
+    if os.name == "nt" and not dirpath.startswith(unc_prefix):
         dirpath = unc_prefix + dirpath
 
     # Save the variables that will be restored back into the environment by
