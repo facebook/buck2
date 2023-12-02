@@ -21,7 +21,7 @@ use anyhow::Context as _;
 use async_compression::tokio::write::GzipEncoder;
 use async_compression::tokio::write::ZstdEncoder;
 use buck2_cli_proto::*;
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::working_dir::WorkingDir;

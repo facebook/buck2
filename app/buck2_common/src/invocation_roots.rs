@@ -12,7 +12,7 @@ use std::path::PathBuf;
 
 use allocative::Allocative;
 use anyhow::Context as _;
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;

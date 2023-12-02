@@ -22,7 +22,7 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use buck2_wrapper_common::invocation_id::TraceId;
 
 use crate::daemon::dice_dump::tar_dice_dump;

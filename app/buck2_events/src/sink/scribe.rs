@@ -12,7 +12,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use fbinit::FacebookInit;
 
 #[cfg(fbcode_build)]

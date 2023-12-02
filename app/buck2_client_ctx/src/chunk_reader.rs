@@ -8,7 +8,7 @@
  */
 
 use anyhow::Context as _;
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt;
 

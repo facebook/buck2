@@ -24,7 +24,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::restarter::Restarter;
 use buck2_client_ctx::stdin::Stdin;
 use buck2_client_ctx::stdio;
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_core::logging::init_tracing_for_writer;
 use buck2_core::logging::LogConfigurationReloadHandle;

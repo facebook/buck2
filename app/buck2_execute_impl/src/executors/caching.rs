@@ -17,7 +17,7 @@ use async_trait::async_trait;
 use buck2_action_metadata_proto::REMOTE_DEP_FILE_KEY;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::DirectoryEntry;
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_events::dispatch::span_async;

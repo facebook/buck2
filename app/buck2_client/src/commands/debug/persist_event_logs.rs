@@ -16,7 +16,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::manifold;
 use buck2_client_ctx::manifold::ManifoldChunkedUploader;
 use buck2_client_ctx::manifold::ManifoldClient;
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::soft_error;
 use buck2_data::instant_event::Data;

@@ -36,7 +36,7 @@ use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::category::Category;
 use buck2_core::directory::DirectorySelector;
 use buck2_core::directory::FingerprintedDirectory;
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;

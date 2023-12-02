@@ -27,7 +27,7 @@ use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::init::DaemonStartupConfig;
 use buck2_common::legacy_configs::init::Timeout;
 use buck2_core::cells::name::CellName;
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::facebook_only;
 use buck2_core::fs::cwd::WorkingDirectory;
 use buck2_core::fs::project::ProjectRoot;

@@ -16,7 +16,7 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use dupe::Dupe;
 use futures::future::Future;
 use serde::Deserialize;

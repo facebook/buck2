@@ -18,7 +18,7 @@ use anyhow::Context;
 use arc_swap::ArcSwapOption;
 use starlark_map::small_set::SmallSet;
 
-use crate::env_helper::EnvHelper;
+use crate::env::helper::EnvHelper;
 use crate::is_open_source;
 
 type StructuredErrorHandler = Box<

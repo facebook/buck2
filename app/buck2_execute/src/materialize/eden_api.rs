@@ -15,7 +15,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::directory::DirectoryEntry;
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;

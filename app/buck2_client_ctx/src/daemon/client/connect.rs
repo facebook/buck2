@@ -24,7 +24,7 @@ use buck2_common::client_utils::get_channel_uds;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::legacy_configs::init::DaemonStartupConfig;
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use buck2_util::process::async_background_command;
 use buck2_util::truncate::truncate;
 use dupe::Dupe;

@@ -24,7 +24,7 @@ use buck2_common::io::fs::FsIoProvider;
 use buck2_common::io::fs::ReadUncheckedOptions;
 use buck2_common::io::IoProvider;
 use buck2_core;
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::io_counters::IoCounterKey;

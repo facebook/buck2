@@ -16,7 +16,7 @@ use buck2_core::cells::alias::NonEmptyCellAlias;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::CellsAggregator;
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;

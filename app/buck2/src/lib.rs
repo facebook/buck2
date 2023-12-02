@@ -47,7 +47,7 @@ use buck2_client_ctx::version::BuckVersion;
 use buck2_common::argv::Argv;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::invocation_roots::find_invocation_roots;
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_starlark::StarlarkCommand;

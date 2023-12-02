@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use crate::env_helper::EnvHelper;
+use crate::env::helper::EnvHelper;
 
 /// Are we running on sandcastle?
 pub fn is_sandcastle() -> anyhow::Result<bool> {

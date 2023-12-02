@@ -14,7 +14,7 @@ use std::task::Context;
 use std::task::Poll;
 use std::thread::JoinHandle;
 
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use bytes::Bytes;
 use futures::stream::Fuse;
 use futures::stream::StreamExt;

@@ -34,7 +34,7 @@ use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;

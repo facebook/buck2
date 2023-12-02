@@ -10,7 +10,7 @@
 use std::thread;
 use std::time::Duration;
 
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use buck2_util::process_stats::process_cpu_time_us;
 
 fn elapsed_cpu_time_as_percents(

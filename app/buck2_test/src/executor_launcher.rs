@@ -103,7 +103,7 @@ impl ExecutorLauncher for OutOfProcessTestExecutor {
     async fn launch(&self, tpx_args: Vec<String>) -> anyhow::Result<ExecutorLaunch> {
         #[cfg(unix)]
         {
-            use buck2_core::env_helper::EnvHelper;
+            use buck2_core::env::helper::EnvHelper;
 
             static BUCK2_TEST_TPX_USE_TCP: EnvHelper<bool> =
                 EnvHelper::new("BUCK2_TEST_TPX_USE_TCP");

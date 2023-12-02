@@ -26,7 +26,7 @@ use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::legacy_configs::init::DaemonStartupConfig;
 use buck2_common::memory;
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::fs::fs_util;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_server::builtin_docs::docs::docs_command;

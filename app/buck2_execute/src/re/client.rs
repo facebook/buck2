@@ -12,7 +12,7 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use anyhow::Context;
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project::ProjectRoot;

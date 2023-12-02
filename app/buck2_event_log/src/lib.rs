@@ -21,7 +21,7 @@ use std::process;
 use std::time::Duration;
 
 use anyhow::Context as _;
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::sandcastle::is_sandcastle;
 use tokio::process::Child;
 use tokio::task::JoinHandle;

@@ -15,7 +15,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;

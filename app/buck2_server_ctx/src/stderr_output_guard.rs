@@ -13,7 +13,7 @@ use std::io::Write;
 use std::marker::PhantomData;
 use std::str;
 
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use buck2_events::dispatch::EventDispatcher;
 use dupe::Dupe;
 

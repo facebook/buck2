@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 
 /// Buck2 sets priority class = utility on macOS.
 ///

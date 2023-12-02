@@ -12,7 +12,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::fs::project::ProjectRoot;
 use crossbeam_channel::unbounded;
 use dice::DiceComputations;

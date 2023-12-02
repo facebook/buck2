@@ -13,7 +13,7 @@ use std::sync::OnceLock;
 use anyhow::Context as _;
 use buck2_cli_proto::client_context::HostPlatformOverride;
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::execution_types::executor_config::CacheUploadBehavior;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::execution_types::executor_config::CommandGenerationOptions;

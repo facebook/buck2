@@ -23,7 +23,7 @@ use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
 
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use buck2_data::buck_event;
 use buck2_data::span_end_event;
 use buck2_data::span_start_event;

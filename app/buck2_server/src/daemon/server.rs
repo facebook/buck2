@@ -36,7 +36,7 @@ use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::init::DaemonStartupConfig;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::memory;
-use buck2_core::env_helper::EnvHelper;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::error::reload_hard_error_config;
 use buck2_core::error::reset_soft_error_counters;
 use buck2_core::fs::cwd::WorkingDirectory;
