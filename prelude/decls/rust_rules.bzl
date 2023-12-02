@@ -61,7 +61,8 @@ prebuilt_rust_library = prelude_rule(
             "link_style": attrs.option(attrs.enum(LinkableDepType), default = None),
             "proc_macro": attrs.bool(default = False),
         } |
-        rust_common.cxx_toolchain_arg()
+        rust_common.cxx_toolchain_arg() |
+        rust_common.rust_toolchain_arg()
     ),
     uses_plugins = [RustProcMacroPlugin],
 )
