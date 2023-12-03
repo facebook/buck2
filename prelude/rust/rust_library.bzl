@@ -109,6 +109,7 @@ load(
 )
 load(":proc_macro_alias.bzl", "rust_proc_macro_alias")
 load(":resources.bzl", "rust_attr_resources")
+load(":rust_toolchain.bzl", "RustToolchainInfo")
 load(":targets.bzl", "targets")
 
 def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -121,13 +122,12 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
     )
 
+    rust_toolchain = ctx.attrs._rust_toolchain[RustToolchainInfo]
     dep_ctx = DepCollectionContext(
-        # Prebuilt libraries only work in unbundled mode, as they only support `rlib`
-        # files today.
-        native_unbundle_deps = True,
+        native_unbundle_deps = rust_toolchain.native_unbundle_deps,
         include_doc_deps = False,
         is_proc_macro = False,
-        explicit_sysroot_deps = None,
+        explicit_sysroot_deps = rust_toolchain.explicit_sysroot_deps,
     )
 
     # Rust link provider.
