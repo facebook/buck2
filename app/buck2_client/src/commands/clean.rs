@@ -62,6 +62,12 @@ the specified duration, without killing the daemon",
     #[clap(long = "keep-since-time", conflicts_with = "stale", hidden = true)]
     keep_since_time: Option<i64>,
 
+    /// Only considers tracked artifacts for cleanup.
+    ///
+    /// `buck-out` can contain untracked artifacts for different reasons:
+    ///  - Outputs from aborted actions
+    ///  - State getting deleted (e.g., new buckversion that changes the on-disk state format)
+    ///  - Writing to `buck-out` without being expected by Buck
     #[clap(long = "tracked-only", requires = "stale")]
     tracked_only: bool,
 }
