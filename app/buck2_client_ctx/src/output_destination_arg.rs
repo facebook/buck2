@@ -33,5 +33,5 @@ impl FromStr for OutputDestinationArg {
 
 impl OutputDestinationArg {
     /// Token used to specify stream forwarding
-    const STREAM_TOKEN: &str = "-";
+    const STREAM_TOKEN: &'static str = "-";
 }

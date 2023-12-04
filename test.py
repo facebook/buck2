@@ -232,11 +232,15 @@ CLIPPY_ALLOW = [
     "clippy::needless_update",  # Our RE structs have slightly different definitions in internal and OSS.
     "clippy::almost-swapped",  # Triggered by Clap v3, perhaps remove when we move to v4
     "clippy::format_collect",  # FIXME new in Rust 1.73
-    "clippy::incorrect_partial_ord_impl_on_ord_type",  # FIXME new in Rust 1.73
     "clippy::needless_pass_by_ref_mut",  # FIXME new in Rust 1.73
     "clippy::needless_return",  # FIXME new in Rust 1.73
     "clippy::redundant_closure",  # FIXME new in Rust 1.73
     "clippy::redundant_locals",  # FIXME new in Rust 1.73
+    "clippy::await_holding_lock",  # FIXME new in Rust 1.74
+    "clippy::needless_borrows_for_generic_args",  # FIXME new in Rust 1.74
+    "clippy::non_canonical_partial_ord_impl",  # FIXME new in Rust 1.74
+    "clippy::redundant_as_str",  # FIXME new in Rust 1.74
+    "clippy::unnecessary_map_on_constructor",  # FIXME new in Rust 1.74
 ]
 
 CLIPPY_DENY = [
@@ -296,6 +300,13 @@ CLIPPY_AUTOFIX = [
 RUSTC_ALLOW = {
     # This needs a feature
     "unfulfilled-lint-expectations",
+    # error: unknown lint: `unknown_or_malformed_diagnostic_attributes`
+    #   |
+    #   = note: the `unknown_or_malformed_diagnostic_attributes` lint is unstable
+    #   = note: see issue #111996 <https://github.com/rust-lang/rust/issues/111996> for more information
+    #   = help: add `-Zcrate-attr="feature(diagnostic_namespace)"` to the command-line options to enable
+    #   = note: requested on the command line with `-D unknown-lints`
+    "unknown-lints",
     # This is not *actually* a  warning but rather a warning level.
     "warnings",
 }
@@ -370,6 +381,7 @@ def clippy(package_args: List[str], fix: bool) -> None:
             "--tests",
             "--benches",
             "--",
+            "-Zcrate-attr=feature(diagnostic_namespace)",
             *clippy_deny_args,
             *clippy_allow_args,
         ]
