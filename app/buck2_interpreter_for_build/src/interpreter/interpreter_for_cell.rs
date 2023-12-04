@@ -69,7 +69,9 @@ struct StarlarkTabsError(OwnedStarlarkPath);
 
 #[derive(Debug, buck2_error::Error)]
 enum StarlarkPeakMemoryError {
-    #[error("Starlark peak memory usage is `{0}` which exceeds the limit `{1}`!")]
+    #[error(
+        "Starlark peak memory usage is `{0}` which exceeds the limit `{1}`! Please reduce memory usage to prevent OOMs. See https://fburl.com/starlark_peak_mem_warning for debugging tips."
+    )]
     ExceedsThreshold(HumanizedBytes, HumanizedBytes),
 }
 
@@ -649,7 +651,7 @@ impl InterpreterForCell {
         {
             console_warning(
                 format!(
-                    "Starlark peak memory usage is `{}` which is over `50`% of the limit `{}`! Consider investigating what takes too much memory.",
+                    "Starlark peak memory usage is `{}` which is over `50`% of the limit `{}`! Consider investigating what takes too much memory: https://fburl.com/starlark_peak_mem_warning.",
                     HumanizedBytes::fixed_width(starlark_peak_allocated_bytes),
                     HumanizedBytes::fixed_width(starlark_mem_limit)
                 )
