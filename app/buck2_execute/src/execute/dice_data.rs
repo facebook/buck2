@@ -52,8 +52,16 @@ impl SetCommandExecutor for UserComputationData {
     }
 }
 
-impl HasCommandExecutor for DiceComputations {
-    fn get_command_executor(
+pub trait DiceHasCommandExecutor {
+    fn get_command_executor_from_dice(
+        &self,
+        artifact_fs: &ArtifactFs,
+        config: &CommandExecutorConfig,
+    ) -> anyhow::Result<CommandExecutorResponse>;
+}
+
+impl DiceHasCommandExecutor for DiceComputations {
+    fn get_command_executor_from_dice(
         &self,
         artifact_fs: &ArtifactFs,
         config: &CommandExecutorConfig,

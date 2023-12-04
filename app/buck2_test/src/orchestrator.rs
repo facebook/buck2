@@ -67,7 +67,7 @@ use buck2_execute::execute::cache_uploader::NoOpCacheUploader;
 use buck2_execute::execute::claim::MutexClaimManager;
 use buck2_execute::execute::command_executor::CommandExecutor;
 use buck2_execute::execute::dice_data::CommandExecutorResponse;
-use buck2_execute::execute::dice_data::HasCommandExecutor;
+use buck2_execute::execute::dice_data::DiceHasCommandExecutor;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
@@ -719,7 +719,9 @@ impl<'b> BuckTestOrchestrator<'b> {
             platform,
             cache_checker: _,
             cache_uploader: _,
-        } = self.dice.get_command_executor(fs, executor_config)?;
+        } = self
+            .dice
+            .get_command_executor_from_dice(fs, executor_config)?;
         let executor = CommandExecutor::new(
             executor,
             // Caching is not enabled for tests yet. Use the NoOp
@@ -745,7 +747,9 @@ impl<'b> BuckTestOrchestrator<'b> {
             platform,
             cache_checker: _,
             cache_uploader: _,
-        } = self.dice.get_command_executor(fs, &executor_config)?;
+        } = self
+            .dice
+            .get_command_executor_from_dice(fs, &executor_config)?;
         let executor = CommandExecutor::new(
             executor,
             Arc::new(NoOpCommandOptionalExecutor {}),

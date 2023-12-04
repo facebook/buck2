@@ -39,8 +39,8 @@ use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::execute::command_executor::CommandExecutor;
 use buck2_execute::execute::dep_file_digest::DepFileDigest;
 use buck2_execute::execute::dice_data::CommandExecutorResponse;
+use buck2_execute::execute::dice_data::DiceHasCommandExecutor;
 use buck2_execute::execute::dice_data::GetReClient;
-use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::prepared::PreparedAction;
@@ -246,7 +246,7 @@ impl HasActionExecutor for DiceComputations {
             platform,
             cache_checker,
             cache_uploader,
-        } = self.get_command_executor(&artifact_fs, executor_config)?;
+        } = self.get_command_executor_from_dice(&artifact_fs, executor_config)?;
         let blocking_executor = self.get_blocking_executor();
         let materializer = self.per_transaction_data().get_materializer();
         let events = self.per_transaction_data().get_dispatcher().dupe();
