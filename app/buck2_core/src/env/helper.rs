@@ -21,10 +21,7 @@ pub struct EnvHelper<T> {
 }
 
 impl<T> EnvHelper<T> {
-    pub const fn with_converter_from_macro(
-        var: &'static str,
-        convert: fn(&str) -> anyhow::Result<T>,
-    ) -> Self {
+    pub const fn with_converter(var: &'static str, convert: fn(&str) -> anyhow::Result<T>) -> Self {
         Self {
             convert,
             var,
@@ -32,7 +29,7 @@ impl<T> EnvHelper<T> {
         }
     }
 
-    pub const fn new_from_macro(var: &'static str) -> Self
+    pub const fn new(var: &'static str) -> Self
     where
         T: FromStr,
         anyhow::Error: From<<T as FromStr>::Err>,
@@ -45,7 +42,7 @@ impl<T> EnvHelper<T> {
             Ok(T::from_str(v)?)
         }
 
-        Self::with_converter_from_macro(var, convert_from_str::<T>)
+        Self::with_converter(var, convert_from_str::<T>)
     }
 
     // This code does not really require `'static` lifetime.

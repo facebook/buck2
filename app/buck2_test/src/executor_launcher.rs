@@ -14,7 +14,6 @@ use std::task::Poll;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_core::buck2_env;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_grpc::DuplexChannel;
 use buck2_grpc::ServerHandle;
@@ -104,7 +103,11 @@ impl ExecutorLauncher for OutOfProcessTestExecutor {
     async fn launch(&self, tpx_args: Vec<String>) -> anyhow::Result<ExecutorLaunch> {
         #[cfg(unix)]
         {
-            let use_tcp = buck2_env!("BUCK2_TEST_TPX_USE_TCP", bool)?;
+            use buck2_core::env::helper::EnvHelper;
+
+            static BUCK2_TEST_TPX_USE_TCP: EnvHelper<bool> =
+                EnvHelper::new("BUCK2_TEST_TPX_USE_TCP");
+            let use_tcp = BUCK2_TEST_TPX_USE_TCP.get_copied()?.unwrap_or_default();
             if !use_tcp {
                 return spawn_orchestrator(
                     crate::unix::executor::spawn(

@@ -33,10 +33,10 @@ use buck2_common::cas_digest::CasDigestData;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::base_deferred_key::BaseDeferredKey;
-use buck2_core::buck2_env;
 use buck2_core::category::Category;
 use buck2_core::directory::DirectorySelector;
 use buck2_core::directory::FingerprintedDirectory;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -74,9 +74,7 @@ static DEP_FILES: Lazy<DashMap<DepFilesKey, Arc<DepFileState>>> = Lazy::new(Dash
 
 /// When this is set, we retain directories after fingerprintig, so that we can output them later
 /// for debugging via `buck2 audit dep-files`.
-fn keep_directories() -> anyhow::Result<bool> {
-    buck2_env!("BUCK2_KEEP_DEP_FILE_DIRECTORIES", bool)
-}
+static KEEP_DIRECTORIES: EnvHelper<bool> = EnvHelper::new("BUCK2_KEEP_DEP_FILE_DIRECTORIES");
 
 /// Forget about all dep files. This isn't really meant to be commonly used, but if an invalid dep
 /// file was produced and the user wants unblocking, this will provide it.
@@ -830,7 +828,7 @@ async fn dep_files_match(
         // so), because this Mutex won't be contended: only one action will look at its value.
         let previous_fingerprints = previous_state.locked_compute_fingerprints(
             Cow::Borrowed(&dep_files),
-            keep_directories()?,
+            KEEP_DIRECTORIES.get_copied()?.unwrap_or_default(),
             digest_config,
         );
 
@@ -917,7 +915,7 @@ async fn eagerly_compute_fingerprints(
         shared_declared_inputs.clone().unshare(),
         dep_files,
         digest_config,
-        keep_directories()?,
+        KEEP_DIRECTORIES.get_copied()?.unwrap_or_default(),
     );
     Ok(fingerprints)
 }

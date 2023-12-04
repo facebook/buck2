@@ -24,7 +24,7 @@ use buck2_common::client_utils::get_channel_uds;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::legacy_configs::init::DaemonStartupConfig;
-use buck2_core::buck2_env;
+use buck2_core::env::helper::EnvHelper;
 use buck2_util::process::async_background_command;
 use buck2_util::truncate::truncate;
 use dupe::Dupe;
@@ -151,9 +151,7 @@ pub enum BuckdConnectConstraints {
     Constraints(DaemonConstraintsRequest),
 }
 
-fn buckd_startup_timeout_var() -> anyhow::Result<Option<u64>> {
-    buck2_env!("BUCKD_STARTUP_TIMEOUT", type=u64)
-}
+static BUCKD_STARTUP_TIMEOUT: EnvHelper<u64> = EnvHelper::new("BUCKD_STARTUP_TIMEOUT");
 
 async fn get_channel(
     endpoint: ConnectionType,
@@ -198,7 +196,7 @@ pub async fn new_daemon_api_client(
 
 pub fn buckd_startup_timeout() -> anyhow::Result<Duration> {
     Ok(Duration::from_secs(
-        buckd_startup_timeout_var()?.unwrap_or(10),
+        BUCKD_STARTUP_TIMEOUT.get_copied()?.unwrap_or(10),
     ))
 }
 
@@ -321,7 +319,8 @@ impl<'a> BuckdLifecycle<'a> {
         cmd.arg("daemon");
         cmd.arg(daemon_startup_config.serialize()?);
 
-        if buck2_env!("BUCK_DAEMON_LOG_TO_FILE", type=u8)? == Some(1) {
+        static DAEMON_LOG_TO_FILE: EnvHelper<u8> = EnvHelper::<u8>::new("BUCK_DAEMON_LOG_TO_FILE");
+        if DAEMON_LOG_TO_FILE.get_copied()? == Some(1) {
             cmd.env("BUCK_LOG_TO_FILE_PATH", self.paths.log_dir().as_os_str());
         }
 

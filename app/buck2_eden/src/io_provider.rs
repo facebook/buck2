@@ -24,7 +24,7 @@ use buck2_common::io::fs::FsIoProvider;
 use buck2_common::io::fs::ReadUncheckedOptions;
 use buck2_common::io::IoProvider;
 use buck2_core;
-use buck2_core::buck2_env;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::io_counters::IoCounterKey;
@@ -84,7 +84,8 @@ impl EdenIoProvider {
             return Ok(None);
         };
 
-        let eden_semaphore = buck2_env!("BUCK2_EDEN_SEMAPHORE", type=usize, default=2048)?;
+        static EDEN_SEMAPHORE: EnvHelper<usize> = EnvHelper::new("BUCK2_EDEN_SEMAPHORE");
+        let eden_semaphore = EDEN_SEMAPHORE.get_copied()?.unwrap_or(2048);
 
         let manager =
             match EdenConnectionManager::new(fb, fs.root(), Semaphore::new(eden_semaphore))? {

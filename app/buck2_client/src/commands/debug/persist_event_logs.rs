@@ -16,7 +16,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::manifold;
 use buck2_client_ctx::manifold::ManifoldChunkedUploader;
 use buck2_client_ctx::manifold::ManifoldClient;
-use buck2_core::buck2_env;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::soft_error;
 use buck2_data::instant_event::Data;
@@ -38,10 +38,7 @@ use tokio::time::sleep;
 use tokio::time::Duration;
 use tokio::time::Instant;
 
-fn manifold_ttl_s() -> anyhow::Result<Option<u64>> {
-    buck2_env!("BUCK2_TEST_MANIFOLD_TTL_S", type=u64)
-}
-
+static MANIFOLD_TTL_S: EnvHelper<u64> = EnvHelper::new("BUCK2_TEST_MANIFOLD_TTL_S");
 const MAX_WAIT: Duration = Duration::from_secs(5 * 60);
 
 #[derive(Debug, Error)]
@@ -214,7 +211,7 @@ impl<'a> Uploader<'a> {
         manifold_path: &'a str,
         manifold_client: &'a ManifoldClient,
     ) -> anyhow::Result<Self> {
-        let ttl = manifold_ttl_s()?.map(manifold::Ttl::from_secs);
+        let ttl = MANIFOLD_TTL_S.get_copied()?.map(manifold::Ttl::from_secs);
 
         let manifold = manifold_client.start_chunked_upload(
             manifold::Bucket::EVENT_LOGS,

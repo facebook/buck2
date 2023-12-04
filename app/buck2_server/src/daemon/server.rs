@@ -36,7 +36,7 @@ use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::init::DaemonStartupConfig;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::memory;
-use buck2_core::buck2_env;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::error::reload_hard_error_config;
 use buck2_core::error::reset_soft_error_counters;
 use buck2_core::fs::cwd::WorkingDirectory;
@@ -216,7 +216,12 @@ impl Interceptor for BuckCheckAuthTokenInterceptor {
             return Err(Status::unauthenticated("invalid auth token"));
         }
 
-        if buck2_env!("BUCK2_TEST_FAIL_BUCKD_AUTH", bool).unwrap() {
+        static FAIL_AUTH: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_FAIL_BUCKD_AUTH");
+        if FAIL_AUTH
+            .get_copied()
+            .unwrap_or_default()
+            .unwrap_or_default()
+        {
             return Err(Status::unauthenticated("injected auth error"));
         }
 
@@ -1406,8 +1411,11 @@ fn server_shutdown_signal(
     command_receiver: UnboundedReceiver<()>,
     mut shutdown_receiver: UnboundedReceiver<()>,
 ) -> anyhow::Result<impl Future<Output = ()>> {
+    static TESTING_INACTIVITY_TIMEOUT: EnvHelper<bool> =
+        EnvHelper::new("BUCK2_TESTING_INACTIVITY_TIMEOUT");
+
     let mut duration = DEFAULT_INACTIVITY_TIMEOUT;
-    if buck2_env!("BUCK2_TESTING_INACTIVITY_TIMEOUT", bool)? {
+    if *TESTING_INACTIVITY_TIMEOUT.get()?.unwrap_or(&false) {
         duration = Duration::from_secs(1);
     }
 

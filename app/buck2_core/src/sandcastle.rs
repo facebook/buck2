@@ -7,13 +7,16 @@
  * of this source tree.
  */
 
-use crate::buck2_env;
+use crate::env::helper::EnvHelper;
 
 /// Are we running on sandcastle?
 pub fn is_sandcastle() -> anyhow::Result<bool> {
-    Ok(buck2_env!("SANDCASTLE")?.is_some())
+    static SANDCASTLE: EnvHelper<String> = EnvHelper::new("SANDCASTLE");
+
+    Ok(SANDCASTLE.get()?.is_some())
 }
 
 pub fn sandcastle_id() -> anyhow::Result<Option<&'static str>> {
-    buck2_env!("SANDCASTLE_ID")
+    static SANDCASTLE_ID: EnvHelper<String> = EnvHelper::new("SANDCASTLE_ID");
+    Ok(SANDCASTLE_ID.get()?.map(|s| s.as_str()))
 }

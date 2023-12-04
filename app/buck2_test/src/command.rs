@@ -9,7 +9,6 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -32,10 +31,10 @@ use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
-use buck2_core::buck2_env;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -1011,9 +1010,13 @@ fn post_process_test_executor(s: &str) -> anyhow::Result<PathBuf> {
                 .context("Buck2 executable directory has no parent")?;
 
             // We allow overriding the dir here. This is used for buck2.sh
+            static BINARY_DIR_RELATIVE_OVERRIDE: EnvHelper<PathBuf> =
+                EnvHelper::new("BUCK2_BINARY_DIR_RELATIVE_TO");
+
             let overridden;
-            if let Some(v) = buck2_env!("BUCK2_BINARY_DIR_RELATIVE_TO")? {
-                overridden = exe_dir.join(Path::new(v));
+
+            if let Some(v) = BINARY_DIR_RELATIVE_OVERRIDE.get()? {
+                overridden = exe_dir.join(v.as_path());
                 exe_dir = &overridden;
             }
 

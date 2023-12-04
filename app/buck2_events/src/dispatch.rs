@@ -23,6 +23,7 @@ use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
 
+use buck2_core::env::helper::EnvHelper;
 use buck2_data::buck_event;
 use buck2_data::span_end_event;
 use buck2_data::span_start_event;
@@ -355,7 +356,6 @@ thread_local! {
 }
 
 use allocative::Allocative;
-use buck2_core::buck2_env;
 
 tokio::task_local! {
     pub static EVENTS: EventDispatcher;
@@ -389,7 +389,12 @@ pub fn get_dispatcher_opt() -> Option<EventDispatcher> {
 }
 
 pub fn get_dispatcher() -> EventDispatcher {
-    let enforce_event_dispatcher_set = buck2_env!("ENFORCE_DISPATCHER_SET", bool).unwrap();
+    static ENFORCE_DISPATCHER_SET: EnvHelper<bool> = EnvHelper::new("ENFORCE_DISPATCHER_SET");
+    let enforce_event_dispatcher_set = ENFORCE_DISPATCHER_SET
+        .get()
+        .unwrap()
+        .copied()
+        .unwrap_or_default();
 
     match get_dispatcher_opt() {
         Some(dispatcher) => dispatcher,

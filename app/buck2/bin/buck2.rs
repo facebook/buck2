@@ -24,7 +24,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::restarter::Restarter;
 use buck2_client_ctx::stdin::Stdin;
 use buck2_client_ctx::stdio;
-use buck2_core::buck2_env;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_core::logging::init_tracing_for_writer;
 use buck2_core::logging::LogConfigurationReloadHandle;
@@ -135,7 +135,9 @@ fn main(init: fbinit::FacebookInit) -> ! {
         panic::initialize(init)?;
         check_cargo();
 
-        let force_want_restart = buck2_env!("FORCE_WANT_RESTART", bool)?;
+        static FORCE_WANT_RESTART: EnvHelper<bool> = EnvHelper::new("FORCE_WANT_RESTART");
+
+        let force_want_restart = FORCE_WANT_RESTART.get_copied()?.unwrap_or_default();
 
         let log_reload_handle = init_logging(init)?;
 

@@ -16,9 +16,9 @@ use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::file_ops::FileDigest;
-use buck2_core::buck2_env;
 use buck2_core::directory::unordered_entry_walk;
 use buck2_core::directory::DirectoryEntry;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_events::dispatch::EventDispatcher;
@@ -432,8 +432,10 @@ fn maybe_tombstone_digest(digest: &FileDigest) -> anyhow::Result<&FileDigest> {
             .collect()
     }
 
-    let tombstoned_digests = buck2_env!("BUCK2_TEST_TOMBSTONED_DIGESTS", type=HashSet<FileDigest>, converter=convert_digests)?;
-    if let Some(digests) = tombstoned_digests {
+    static TOMBSTONED_DIGESTS: EnvHelper<HashSet<FileDigest>> =
+        EnvHelper::with_converter("BUCK2_TEST_TOMBSTONED_DIGESTS", convert_digests);
+
+    if let Some(digests) = TOMBSTONED_DIGESTS.get()? {
         if digests.contains(digest) {
             return Ok(&*TOMBSTONE_DIGEST);
         }

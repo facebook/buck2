@@ -13,9 +13,9 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_core::buck2_env;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
@@ -148,7 +148,9 @@ impl FileDigestConfig {
 impl FileDigest {
     /// Obtain the digest of the file if you can.
     pub fn from_file(file: &AbsPath, config: FileDigestConfig) -> anyhow::Result<Self> {
-        if !buck2_env!("BUCK2_DISABLE_FILE_ATTR", bool)? {
+        static DISABLE_FILE_ATTR: EnvHelper<bool> = EnvHelper::new("BUCK2_DISABLE_FILE_ATTR");
+
+        if !DISABLE_FILE_ATTR.get_copied()?.unwrap_or_default() {
             if let Some(digest) = Self::from_file_attr(file, config) {
                 return Ok(digest);
             }

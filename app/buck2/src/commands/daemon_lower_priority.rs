@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_core::buck2_env;
+use buck2_core::env::helper::EnvHelper;
 
 /// Buck2 sets priority class = utility on macOS.
 ///
@@ -15,8 +15,11 @@ use buck2_core::buck2_env;
 ///
 /// To experiment with other priority classes, set this variable to `true`,
 /// and start `buck2` daemon like `taskpolicy -c utility buck2 ...`.
+static DISABLE_MACOS_QOS: EnvHelper<bool> = EnvHelper::new("BUCK2_DISABLE_MACOS_QOS");
+
 fn enable_macos_qos() -> anyhow::Result<bool> {
-    Ok(!buck2_env!("BUCK2_DISABLE_MACOS_QOS", bool)?)
+    let disable_qos = DISABLE_MACOS_QOS.get_copied()?.unwrap_or(false);
+    Ok(!disable_qos)
 }
 
 pub(crate) fn daemon_lower_priority(skip_macos_qos_flag: bool) -> anyhow::Result<()> {

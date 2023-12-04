@@ -8,7 +8,7 @@
  */
 
 use anyhow::Context as _;
-use buck2_core::buck2_env;
+use buck2_core::env::helper::EnvHelper;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt;
 
@@ -19,9 +19,11 @@ pub struct ChunkReader {
 
 impl ChunkReader {
     pub fn new() -> anyhow::Result<Self> {
-        let chunk_size =
-            buck2_env!("BUCK2_TEST_MANIFOLD_CHUNK_BYTES", type=u64)?.unwrap_or(8 * 1024 * 1024);
-        Ok(ChunkReader { chunk_size })
+        static CHUNK_SIZE: EnvHelper<u64> = EnvHelper::new("BUCK2_TEST_MANIFOLD_CHUNK_BYTES");
+
+        Ok(Self {
+            chunk_size: CHUNK_SIZE.get_copied()?.unwrap_or(8 * 1024 * 1024),
+        })
     }
 
     pub async fn read<R>(&self, reader: &mut R) -> Result<Vec<u8>, anyhow::Error>

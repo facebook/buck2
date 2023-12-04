@@ -12,7 +12,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
-use buck2_core::buck2_env;
+use buck2_core::env::helper::EnvHelper;
 use fbinit::FacebookInit;
 
 #[cfg(fbcode_build)]
@@ -992,7 +992,8 @@ pub fn scribe_category() -> anyhow::Result<String> {
     const DEFAULT_SCRIBE_CATEGORY: &str = "buck2_events";
     // Note that both daemon and client are emitting events, and that changing this variable has
     // no effect on the daemon until buckd is restarted but has effect on the client.
-    Ok(buck2_env!("BUCK2_SCRIBE_CATEGORY")?
-        .unwrap_or(DEFAULT_SCRIBE_CATEGORY)
-        .to_owned())
+    static SCRIBE_CATEGORY: EnvHelper<String> = EnvHelper::new("BUCK2_SCRIBE_CATEGORY");
+    Ok(SCRIBE_CATEGORY
+        .get()?
+        .map_or_else(|| DEFAULT_SCRIBE_CATEGORY.to_owned(), |c| c.clone()))
 }

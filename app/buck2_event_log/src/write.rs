@@ -21,7 +21,7 @@ use anyhow::Context as _;
 use async_compression::tokio::write::GzipEncoder;
 use async_compression::tokio::write::ZstdEncoder;
 use buck2_cli_proto::*;
-use buck2_core::buck2_env;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::working_dir::WorkingDir;
@@ -269,7 +269,8 @@ impl<'a> WriteEventLog<'a> {
         // But we don't know the build uuid until we've gotten the CommandStart event.
         // So we'll just create it when we know where to put it.
         let mut log_mode = LogMode::Protobuf;
-        if buck2_env!("BUCK2_JSON_LOG", bool)? {
+        static JSON_LOG: EnvHelper<bool> = EnvHelper::new("BUCK2_JSON_LOG");
+        if JSON_LOG.get_copied()?.unwrap_or(false) {
             let _res = soft_error!("buck2_json_log", anyhow::anyhow!("can we deprecate this?"))?;
             log_mode = LogMode::Json;
         }

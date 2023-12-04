@@ -18,7 +18,7 @@ use anyhow::Context;
 use arc_swap::ArcSwapOption;
 use starlark_map::small_set::SmallSet;
 
-use crate::env::macros::buck2_env;
+use crate::env::helper::EnvHelper;
 use crate::is_open_source;
 
 type StructuredErrorHandler = Box<
@@ -30,9 +30,7 @@ type StructuredErrorHandler = Box<
 
 static HANDLER: OnceLock<StructuredErrorHandler> = OnceLock::new();
 
-pub fn buck2_hard_error_env() -> anyhow::Result<Option<&'static str>> {
-    buck2_env!("BUCK2_HARD_ERROR")
-}
+pub static BUCK2_HARD_ERROR_ENV_VAR: EnvHelper<String> = EnvHelper::new("BUCK2_HARD_ERROR");
 
 static HARD_ERROR_CONFIG: HardErrorConfigHolder = HardErrorConfigHolder {
     config: ArcSwapOption::const_empty(),
@@ -120,7 +118,7 @@ fn hard_error_config() -> anyhow::Result<Arc<HardErrorConfig>> {
         return Ok(config);
     }
 
-    let config = buck2_hard_error_env()?.unwrap_or_default();
+    let config = BUCK2_HARD_ERROR_ENV_VAR.get()?.map_or("", |s| s.as_str());
     let config = HardErrorConfig::from_str(config)?;
     HARD_ERROR_CONFIG.config.store(Some(Arc::new(config)));
     HARD_ERROR_CONFIG

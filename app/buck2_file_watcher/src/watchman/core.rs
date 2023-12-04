@@ -16,7 +16,7 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_core::buck2_env;
+use buck2_core::env::helper::EnvHelper;
 use dupe::Dupe;
 use futures::future::Future;
 use serde::Deserialize;
@@ -144,7 +144,9 @@ impl Debug for WatchmanClient {
 async fn with_timeout<R>(
     fut: impl Future<Output = Result<R, watchman_client::Error>> + Send,
 ) -> anyhow::Result<R> {
-    let timeout = buck2_env!("BUCK2_WATCHMAN_TIMEOUT", type=u64, default=57)?;
+    static WATCHMAN_TIMEOUT: EnvHelper<u64> = EnvHelper::new("BUCK2_WATCHMAN_TIMEOUT");
+
+    let timeout = WATCHMAN_TIMEOUT.get_copied()?.unwrap_or(57);
     if timeout == 0 {
         return Err(WatchmanClientError::ZeroTimeout.into());
     }

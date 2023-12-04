@@ -26,8 +26,8 @@ use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::init::DaemonStartupConfig;
 use buck2_common::legacy_configs::init::Timeout;
-use buck2_core::buck2_env;
 use buck2_core::cells::name::CellName;
+use buck2_core::env::helper::EnvHelper;
 use buck2_core::facebook_only;
 use buck2_core::fs::cwd::WorkingDirectory;
 use buck2_core::fs::project::ProjectRoot;
@@ -246,16 +246,17 @@ impl DaemonState {
                 .get(cells.root_cell())
                 .context("No config for root cell")?;
 
-            let default_digest_algorithm =
-                buck2_env!("BUCK_DEFAULT_DIGEST_ALGORITHM", type=DigestAlgorithmKind)?;
+            static DEFAULT_DIGEST_ALGORITHM: EnvHelper<DigestAlgorithmKind> =
+                EnvHelper::new("BUCK_DEFAULT_DIGEST_ALGORITHM");
 
-            let default_digest_algorithm = default_digest_algorithm.unwrap_or_else(|| {
-                if buck2_core::is_open_source() {
-                    DigestAlgorithmKind::Sha256
-                } else {
-                    DigestAlgorithmKind::Sha1
-                }
-            });
+            let default_digest_algorithm =
+                DEFAULT_DIGEST_ALGORITHM.get_copied()?.unwrap_or_else(|| {
+                    if buck2_core::is_open_source() {
+                        DigestAlgorithmKind::Sha256
+                    } else {
+                        DigestAlgorithmKind::Sha1
+                    }
+                });
 
             let digest_algorithms = init_ctx
                 .daemon_startup_config
