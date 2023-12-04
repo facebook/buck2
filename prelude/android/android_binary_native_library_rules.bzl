@@ -764,6 +764,17 @@ def expect_dedupe(v):
     expect(len(o) == len(v), "expected `{}` to be a list of unique items, but it wasn't. deduped list was `{}`.", v, o)
     return v
 
+# We can't merge a prebuilt shared (that has no archive) and must use it's original info.
+# Ideally this would probably be structured info on the linkablenode.
+def _is_prebuilt_shared(node_data: LinkableNode) -> bool:
+    shared_link_info = node_data.link_infos.get(LibOutputStyle("shared_lib"), None)
+    if not shared_link_info or not shared_link_info.default.linkables:
+        return False
+    pic_archive_info = node_data.link_infos.get(LibOutputStyle("pic_archive"), None)
+    if not pic_archive_info or not pic_archive_info.default.linkables:
+        return True
+    return False
+
 def _get_merged_linkables(
         ctx: AnalysisContext,
         merged_data_by_platform: dict[str, LinkableMergeData]) -> MergedLinkables:
@@ -940,18 +951,7 @@ def _get_merged_linkables(
                     )
                     continue
 
-                # We can't merge a prebuilt shared (that has no archive) and must use it's original info.
-                # Ideally this would probably be structured info on the linkablenode.
-                def is_prebuilt_shared(node_data: LinkableNode) -> bool:
-                    shared_link_info = node_data.link_infos.get(shlib_output_style, None)
-                    if not shared_link_info or not shared_link_info.default.linkables:
-                        return False
-                    pic_archive_info = node_data.link_infos.get(archive_output_style, None)
-                    if not pic_archive_info or not pic_archive_info.default.linkables:
-                        return True
-                    return False
-
-                if is_prebuilt_shared(node_data):
+                if _is_prebuilt_shared(node_data):
                     expect(
                         len(node_data.shared_libs) == 1,
                         "unexpected shared_libs length for somerge of {} ({})".format(target, node_data.shared_libs),
