@@ -244,7 +244,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// ```text
     /// def _impl_resolved_attrs_eager(ctx):
     ///     node = ctx.cquery().owner("cell//path/to/TARGETS")[0]
-    ///     attrs = node.resolved_attrs_eager() # cache once
+    ///     attrs = node.resolved_attrs_eager(ctx) # cache once
     ///     ctx.output.print(attrs)
     ///     # do more stuff with attrs
     /// ```

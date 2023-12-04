@@ -143,7 +143,7 @@ def _impl_example(ctx):
     ctx.output.ensure_multiple(outputs)
 ```
 
-## Getting attributes or resolved attributes efficiently
+## Getting attributes or resolved attributes efficiently on a configured target node
 
 If you need to use all of the attrs/resolved_attrs, then initializing the eager
 variant once would be best. If you only need a few of the attrs, then
@@ -157,8 +157,19 @@ cache the attrs object:
 
 ```python
 def _impl_example(ctx):
-    lazy = ctx.attrs_lazy() # call once and reuse wherever is necessary
-    eager = ctx.attrs_eager() # call once and reuse wherever is necessary
+    my_configured_node = ctx.configured_targets(":foo")
+
+    # call once and resue, ideally when you need most/all attrs
+    eager = my_configured_node.attrs_eager()
+
+    # call once and reuse, ideally when you only need a few attrs
+    lazy = my_configured_node.attrs_lazy()
+
+    # call once and reuse, ideally when you need most/all resolved attrs
+    resolved_eager = my_configured_node.resolved_attrs_eager(ctx)
+
+    # call once and reuse, ideally when you only need a few resolved attrs
+    resolved_lazy = my_configured_node.resolved_attrs_lazy(ctx)
 ```
 
 ## Inspecting a struct
