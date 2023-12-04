@@ -385,6 +385,12 @@ pub struct CommonBuildOptions {
     #[clap(long)]
     eager_dep_files: bool,
 
+    /// Uploads every action to the RE service, regardless of whether the action needs to execute on RE.
+    ///
+    /// This is useful when debugging builds and trying to inspect actions which executed remotely.
+    /// It's possible that the action result is cached but the action itself has expired. In this case,
+    /// downloading the action itself would fail. Enabling this option would unconditionally upload
+    /// all actions, thus you will not hit any expiration issues.
     #[clap(long)]
     upload_all_actions: bool,
 
