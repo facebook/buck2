@@ -16,10 +16,10 @@ use buck2_common::cas_digest::TrackedCasDigest;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileDigestKind;
 use buck2_common::file_ops::TrackedFileDigest;
+use buck2_core::buck2_env;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::FingerprintedDirectory;
-use buck2_core::env::helper::EnvHelper;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -446,10 +446,8 @@ fn add_injected_missing_digests<'a>(
             .collect()
     }
 
-    static INJECTED_DIGESTS: EnvHelper<Vec<FileDigest>> =
-        EnvHelper::with_converter("BUCK2_TEST_INJECTED_MISSING_DIGESTS", convert_digests);
-
-    if let Some(digests) = INJECTED_DIGESTS.get()? {
+    let ingested_digests = buck2_env!("BUCK2_TEST_INJECTED_MISSING_DIGESTS", type=Vec<FileDigest>, converter=convert_digests)?;
+    if let Some(digests) = ingested_digests {
         for d in digests {
             if let Some(i) = input_digests.get(d) {
                 missing_digests.insert(i);

@@ -13,7 +13,7 @@ use std::sync::OnceLock;
 use anyhow::Context as _;
 use buck2_cli_proto::client_context::HostPlatformOverride;
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
-use buck2_core::env::helper::EnvHelper;
+use buck2_core::buck2_env;
 use buck2_core::execution_types::executor_config::CacheUploadBehavior;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::execution_types::executor_config::CommandGenerationOptions;
@@ -219,11 +219,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 // NOTE: While we now have a legit flag for this, we keep the env var. This has been used
                 // in remediating prod incidents in the past, and this is the kind of thing that can easily
                 // become tribal knowledge. Keeping this does not hurt us.
-                static DISABLE_CACHING: EnvHelper<bool> =
-                    EnvHelper::new("BUCK2_TEST_DISABLE_CACHING");
-
-                let disable_caching = DISABLE_CACHING
-                    .get_copied()?
+                let disable_caching = buck2_env!("BUCK2_TEST_DISABLE_CACHING", type=bool)?
                     .unwrap_or(self.skip_cache_read);
 
                 let disable_caching =
@@ -231,10 +227,8 @@ impl HasCommandExecutor for CommandExecutorFactory {
 
                 // This is for test only as in real life, it would be silly to only use the remote dep file cache and not the regular cache
                 // This will only do anything if cache is not disabled and remote dep file cache is enabled
-                static ONLY_REMOTE_DEP_FILE_CACHE: EnvHelper<bool> =
-                    EnvHelper::new("BUCK2_TEST_ONLY_REMOTE_DEP_FILE_CACHE");
                 let only_remote_dep_file_cache =
-                    ONLY_REMOTE_DEP_FILE_CACHE.get_copied()?.unwrap_or(false);
+                    buck2_env!("BUCK2_TEST_ONLY_REMOTE_DEP_FILE_CACHE", bool)?;
 
                 let cache_checker_new = || -> Arc<dyn PreparedCommandOptionalExecutor> {
                     if disable_caching {

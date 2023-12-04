@@ -12,7 +12,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_core::env::helper::EnvHelper;
+use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
 use crossbeam_channel::unbounded;
 use dice::DiceComputations;
@@ -95,11 +95,8 @@ impl BuckBlockingExecutor {
     /// they are trying to write, and writing to multiple files doesn't have the negative scaling
     /// issues modifying the directory structure does.
     pub fn default_concurrency(fs: ProjectRoot) -> anyhow::Result<Self> {
-        static IO_THREADS: EnvHelper<usize> = EnvHelper::new("BUCK2_IO_THREADS");
-        static IO_SEMAPHORE: EnvHelper<usize> = EnvHelper::new("BUCK2_IO_SEMAPHORE");
-
-        let io_threads = IO_THREADS.get_copied()?.unwrap_or(4);
-        let io_semaphore = IO_SEMAPHORE.get_copied()?.unwrap_or_else(num_cpus::get);
+        let io_threads = buck2_env!("BUCK2_IO_THREADS", type=usize, default=4)?;
+        let io_semaphore = buck2_env!("BUCK2_IO_SEMAPHORE", type=usize, default=num_cpus::get())?;
 
         let (command_sender, command_receiver) = unbounded();
 

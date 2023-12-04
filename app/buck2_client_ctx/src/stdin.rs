@@ -14,7 +14,7 @@ use std::task::Context;
 use std::task::Poll;
 use std::thread::JoinHandle;
 
-use buck2_core::env::helper::EnvHelper;
+use buck2_core::buck2_env;
 use bytes::Bytes;
 use futures::stream::Fuse;
 use futures::stream::StreamExt;
@@ -51,8 +51,7 @@ impl AsyncRead for Stdin {
 
 impl Stdin {
     pub fn new() -> anyhow::Result<Self> {
-        static STDIN_BUFFER_SIZE: EnvHelper<usize> = EnvHelper::new("BUCK2_TEST_STDIN_BUFFER_SIZE");
-        let buffer_size = STDIN_BUFFER_SIZE.get()?.copied().unwrap_or(8192);
+        let buffer_size = buck2_env!("BUCK2_TEST_STDIN_BUFFER_SIZE", type=usize)?.unwrap_or(8192);
 
         // Small buffer, this isn't bytes we're buffering, just buffers of bytes. That said, since
         // we're on separate threads, give ourselves a bit of buffering.

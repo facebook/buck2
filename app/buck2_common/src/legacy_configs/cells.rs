@@ -12,11 +12,11 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 use anyhow::Context;
+use buck2_core::buck2_env;
 use buck2_core::cells::alias::NonEmptyCellAlias;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::CellsAggregator;
-use buck2_core::env::helper::EnvHelper;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
@@ -192,16 +192,10 @@ impl BuckConfigBasedCells {
             &mut file_ops,
         )?;
 
-        static SKIP_DEFAULT_EXTERNAL_CONFIG: EnvHelper<bool> =
-            EnvHelper::<bool>::new("BUCK2_TEST_SKIP_DEFAULT_EXTERNAL_CONFIG");
+        let extra_external_config = buck2_env!("BUCK2_TEST_EXTRA_EXTERNAL_CONFIG")?;
 
-        static EXTRA_EXTERNAL_CONFIG: EnvHelper<String> =
-            EnvHelper::<String>::new("BUCK2_TEST_EXTRA_EXTERNAL_CONFIG");
-
-        let skip_default_external_config = SKIP_DEFAULT_EXTERNAL_CONFIG
-            .get()?
-            .copied()
-            .unwrap_or_default();
+        let skip_default_external_config =
+            buck2_env!("BUCK2_TEST_SKIP_DEFAULT_EXTERNAL_CONFIG", bool)?;
 
         while let Some(path) = work.pop() {
             if buckconfigs.contains_key(&path) {
@@ -277,7 +271,7 @@ impl BuckConfigBasedCells {
                 }
             }
 
-            if let Some(f) = EXTRA_EXTERNAL_CONFIG.get()? {
+            if let Some(f) = extra_external_config {
                 buckconfig_paths.push(MainConfigFile {
                     path: AbsNormPathBuf::from(f.to_owned())?,
                     owned_by_project: false,
@@ -423,7 +417,6 @@ pub struct ImmediateConfig {
 
 #[cfg(test)]
 mod tests {
-
     use buck2_core::cells::name::CellName;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::project::ProjectRoot;

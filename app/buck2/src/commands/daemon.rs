@@ -26,7 +26,7 @@ use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::legacy_configs::init::DaemonStartupConfig;
 use buck2_common::memory;
-use buck2_core::env::helper::EnvHelper;
+use buck2_core::buck2_env;
 use buck2_core::fs::fs_util;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_server::builtin_docs::docs::docs_command;
@@ -309,14 +309,11 @@ impl DaemonCommand {
         builder.enable_all();
         builder.thread_name("buck2-rt");
 
-        static RUNTIME_THREADS: EnvHelper<usize> = EnvHelper::new("BUCK2_RUNTIME_THREADS");
-        if let Some(threads) = RUNTIME_THREADS.get_copied()? {
+        if let Some(threads) = buck2_env!("BUCK2_RUNTIME_THREADS", type=usize)? {
             builder.worker_threads(threads);
         }
 
-        static MAX_BLOCKING_THREADS: EnvHelper<usize> =
-            EnvHelper::new("BUCK2_MAX_BLOCKING_THREADS");
-        if let Some(threads) = MAX_BLOCKING_THREADS.get_copied()? {
+        if let Some(threads) = buck2_env!("BUCK2_RUNTIME_THREADS", type=usize)? {
             builder.max_blocking_threads(threads);
         }
 
