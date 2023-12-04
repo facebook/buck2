@@ -993,7 +993,7 @@ message CommandExecutionMetadata {
 
   CommandExecutionStats execution_stats = 5;
 
-  /// How long it took to materialize the action's inputs.
+  /// How long it took to hash the action's artifacts
   google.protobuf.Duration hashing_duration = 6;
 }
 
