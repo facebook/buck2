@@ -1,0 +1,64 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
+use buck2_common::cas_digest::DigestAlgorithm;
+use buck2_execute::digest::CasDigestToReExt;
+use buck2_execute::digest_config::DigestConfig;
+use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
+use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobsBuilder;
+use once_cell::sync::OnceCell;
+use remote_execution as RE;
+use remote_execution::TActionResult2;
+use remote_execution::TExecutedActionMetadata;
+
+/// Create an empty action result for permission check.
+pub(crate) fn empty_action_result()
+-> anyhow::Result<(&'static ActionDigestAndBlobs, &'static TActionResult2)> {
+    static EMPTY_ACTION_RESULT: OnceCell<(ActionDigestAndBlobs, TActionResult2)> = OnceCell::new();
+    let (action, action_result) = EMPTY_ACTION_RESULT.get_or_try_init(new_empty_action_result)?;
+    Ok((action, action_result))
+}
+
+fn new_empty_action_result() -> anyhow::Result<(ActionDigestAndBlobs, TActionResult2)> {
+    static DIGEST_CONFIG: OnceCell<DigestConfig> = OnceCell::new();
+    let digest_config = *DIGEST_CONFIG
+        .get_or_try_init(|| DigestConfig::leak_new(vec![DigestAlgorithm::Sha1], None))?;
+
+    let mut blobs = ActionDigestAndBlobsBuilder::new(digest_config);
+
+    let command = blobs.add_command(&RE::Command {
+        arguments: vec![
+            "/command".to_owned(),
+            "-to".to_owned(),
+            "check".to_owned(),
+            "permission".to_owned(),
+            // Random string for xbgs.
+            "EMPTY_ACTION_RESULT_fztiucvwawdmarhheqoz".to_owned(),
+        ],
+        ..Default::default()
+    });
+
+    let action = blobs.build(&RE::Action {
+        command_digest: Some(command.to_grpc()),
+        ..Default::default()
+    });
+
+    let action_result = TActionResult2 {
+        stdout_raw: Some(Vec::new()),
+        stderr_raw: Some(Vec::new()),
+        exit_code: 0,
+        execution_metadata: TExecutedActionMetadata {
+            execution_attempts: 0,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    Ok((action, action_result))
+}

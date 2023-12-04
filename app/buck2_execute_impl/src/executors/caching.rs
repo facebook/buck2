@@ -55,6 +55,7 @@ use remote_execution::TFile;
 use remote_execution::TStatus;
 use remote_execution::TTimestamp;
 
+use crate::executors::action_cache_upload_permission_checker::ActionCacheUploadPermissionChecker;
 use crate::executors::to_re_platform::RePlatformFieldsToRePlatform;
 
 // Whether to throw errors when cache uploads fail (primarily for tests).
@@ -74,6 +75,7 @@ pub struct CacheUploader {
     re_use_case: RemoteExecutorUseCase,
     platform: RePlatformFields,
     max_bytes: Option<u64>,
+    cache_upload_permission_checker: Arc<ActionCacheUploadPermissionChecker>,
 }
 
 impl CacheUploader {
@@ -84,6 +86,7 @@ impl CacheUploader {
         re_use_case: RemoteExecutorUseCase,
         platform: RePlatformFields,
         max_bytes: Option<u64>,
+        cache_upload_permission_checker: Arc<ActionCacheUploadPermissionChecker>,
     ) -> CacheUploader {
         CacheUploader {
             artifact_fs,
@@ -92,6 +95,7 @@ impl CacheUploader {
             re_use_case,
             platform,
             max_bytes,
+            cache_upload_permission_checker,
         }
     }
 
@@ -214,6 +218,16 @@ impl CacheUploader {
                         }
                     }
 
+                    if let Err(reason) = self
+                        .cache_upload_permission_checker
+                        .has_permission_to_upload_to_cache(self.re_use_case, &self.platform)
+                        .await?
+                    {
+                        return Ok(CacheUploadOutcome::Rejected(
+                            CacheUploadRejectionReason::PermissionDenied(reason),
+                        ));
+                    }
+
                     // upload Action to CAS.
                     // This is necessary when writing to the ActionCache through CAS, since CAS needs to inspect the Action related to the ActionResult.
                     // Without storing the Action itself to CAS, ActionCache writes would fail.
@@ -263,10 +277,17 @@ impl CacheUploader {
                     }
                     Ok(CacheUploadOutcome::Rejected(reason)) => {
                         tracing::info!("Cache upload for `{}` rejected: {:#}", digest_str, reason);
+                        let re_error_code = match reason {
+                            CacheUploadRejectionReason::SymlinkOutput
+                            | CacheUploadRejectionReason::OutputExceedsLimit { .. } => None,
+                            CacheUploadRejectionReason::PermissionDenied(_) => {
+                                Some(TCode::PERMISSION_DENIED.to_string())
+                            }
+                        };
                         (
                             CacheUploadSuccessful::No,
                             format!("Rejected: {}", reason),
-                            None,
+                            re_error_code,
                         )
                     }
                     Err(e) => (
@@ -461,19 +482,21 @@ impl CacheUploader {
 }
 
 /// Whether we completed a cache upload.
-#[derive(Copy, Clone, Dupe, Debug)]
+#[derive(Clone, Debug)]
 enum CacheUploadOutcome {
     Success,
     Rejected(CacheUploadRejectionReason),
 }
 
 /// A reason why we chose not to upload.
-#[derive(Copy, Clone, Dupe, Debug, Display)]
+#[derive(Clone, Debug, Display)]
 enum CacheUploadRejectionReason {
     #[display(fmt = "SymlinkOutput")]
     SymlinkOutput,
     #[display(fmt = "OutputExceedsLimit({})", max_bytes)]
     OutputExceedsLimit { max_bytes: u64 },
+    #[display(fmt = "PermissionDenied (permission check error: {})", _0)]
+    PermissionDenied(String),
 }
 
 #[async_trait]

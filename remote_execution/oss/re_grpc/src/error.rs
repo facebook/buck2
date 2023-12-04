@@ -43,6 +43,7 @@ impl TCode {
     pub const OK: Self = TCode(0i32);
     pub const INVALID_ARGUMENT: Self = TCode(3i32);
     pub const NOT_FOUND: Self = TCode(5i32);
+    pub const PERMISSION_DENIED: Self = TCode(7i32);
 }
 
 impl Display for TCode {

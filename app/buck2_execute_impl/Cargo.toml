@@ -9,6 +9,7 @@ anyhow = { workspace = true }
 async-condvar-fair = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }
+dashmap = { workspace = true }
 derivative = { workspace = true }
 derive_more = { workspace = true }
 dupe = { workspace = true }

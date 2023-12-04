@@ -41,6 +41,7 @@ use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ReConnectionHandle;
 use buck2_execute_impl::executors::action_cache::ActionCacheChecker;
 use buck2_execute_impl::executors::action_cache::RemoteDepFileCacheChecker;
+use buck2_execute_impl::executors::action_cache_upload_permission_checker::ActionCacheUploadPermissionChecker;
 use buck2_execute_impl::executors::caching::CacheUploader;
 use buck2_execute_impl::executors::hybrid::HybridExecutor;
 use buck2_execute_impl::executors::local::LocalExecutor;
@@ -86,6 +87,8 @@ pub struct CommandExecutorFactory {
     worker_pool: Arc<WorkerPool>,
     paranoid: Option<ParanoidDownloader>,
     materialize_failed_inputs: bool,
+    /// Cache permission checks per command.
+    cache_upload_permission_checker: Arc<ActionCacheUploadPermissionChecker>,
 }
 
 impl CommandExecutorFactory {
@@ -106,6 +109,9 @@ impl CommandExecutorFactory {
         paranoid: Option<ParanoidDownloader>,
         materialize_failed_inputs: bool,
     ) -> Self {
+        let cache_upload_permission_checker = Arc::new(ActionCacheUploadPermissionChecker::new(
+            re_connection.get_client(),
+        ));
         Self {
             re_connection,
             host_sharing_broker: Arc::new(host_sharing_broker),
@@ -122,6 +128,7 @@ impl CommandExecutorFactory {
             worker_pool,
             paranoid,
             materialize_failed_inputs,
+            cache_upload_permission_checker,
         }
     }
 }
@@ -350,6 +357,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         *re_use_case,
                         re_properties.clone(),
                         None,
+                        self.cache_upload_permission_checker.dupe(),
                     )) as _
                 } else if disable_caching {
                     Arc::new(NoOpCacheUploader {}) as _
@@ -361,6 +369,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         *re_use_case,
                         re_properties.clone(),
                         *max_bytes,
+                        self.cache_upload_permission_checker.dupe(),
                     )) as _
                 } else {
                     Arc::new(NoOpCacheUploader {}) as _
