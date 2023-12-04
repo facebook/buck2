@@ -9,6 +9,7 @@ anyhow = { workspace = true }
 serde = { workspace = true }
 
 buck2_core = { workspace = true }
+buck2_util = { workspace = true }
 
 [target.'cfg(unix)'.dev-dependencies]
 tempfile = { workspace = true }

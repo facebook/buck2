@@ -43,6 +43,7 @@ use buck2_event_log::read::EventLogSummary;
 use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
 use buck2_events::sink::scribe::ThriftScribeSink;
 use buck2_events::BuckEvent;
+use buck2_util::process::async_background_command;
 use buck2_wrapper_common::invocation_id::TraceId;
 use chrono::offset::Local;
 use chrono::DateTime;
@@ -58,7 +59,6 @@ use tokio::io::AsyncBufRead;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::io::BufReader;
-use tokio::process::Command;
 
 use crate::commands::debug::upload_re_logs;
 
@@ -686,7 +686,7 @@ async fn output_rage(no_paste: bool, output: &str) -> anyhow::Result<()> {
 }
 
 async fn generate_paste(title: &str, content: &str) -> anyhow::Result<String> {
-    let mut pastry = Command::new("pastry")
+    let mut pastry = async_background_command("pastry")
         .args(["--title", title])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

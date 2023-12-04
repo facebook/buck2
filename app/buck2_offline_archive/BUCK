@@ -23,5 +23,6 @@ rust_library(
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:serde",
         "//buck2/app/buck2_core:buck2_core",
+        "//buck2/app/buck2_util:buck2_util",
     ],
 )

@@ -12,9 +12,6 @@
 use std::ffi::OsStr;
 use std::fmt;
 use std::path::Path;
-// Note: Using this because we don't need to propagate async in the offline
-// archiver program.
-use std::process::Command;
 
 use anyhow::Context;
 use buck2_core::fs::fs_util;
@@ -22,6 +19,9 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+// Note: Using this because we don't need to propagate async in the offline
+// archiver program
+use buck2_util::process::background_command;
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct RelativeSymlink {
@@ -133,7 +133,7 @@ where
     S: AsRef<OsStr>,
     P: AsRef<Path>,
 {
-    let result = Command::new("hg")
+    let result = background_command("hg")
         .args(args)
         .current_dir(path.as_ref())
         .env("HGPLAIN", "1")

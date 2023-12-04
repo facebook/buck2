@@ -9,7 +9,6 @@
 
 use std::io::ErrorKind;
 use std::io::Write;
-use std::process::Command;
 
 use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -22,6 +21,7 @@ use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
+use buck2_util::process::background_command;
 
 /// Buck2 Init
 ///
@@ -94,7 +94,7 @@ fn exec_impl(
     }
 
     if git {
-        let status = match Command::new("git")
+        let status = match background_command("git")
             .args(["status", "--porcelain"])
             .current_dir(&absolute)
             .output()
@@ -199,7 +199,7 @@ fn initialize_root_buck(repo_root: &AbsPath, prelude: bool) -> anyhow::Result<()
 
 fn set_up_prelude(repo_root: &AbsPath, git: bool) -> anyhow::Result<()> {
     if git {
-        if !Command::new("git")
+        if !background_command("git")
             .args([
                 "submodule",
                 "add",
@@ -241,7 +241,7 @@ fn set_up_project(repo_root: &AbsPath, git: bool, prelude: bool) -> anyhow::Resu
     set_up_buckroot(repo_root)?;
 
     if git {
-        if !Command::new("git")
+        if !background_command("git")
             .arg("init")
             .current_dir(repo_root)
             .status()?

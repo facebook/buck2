@@ -15,6 +15,7 @@ use std::ops::FromResidual;
 use std::process::Command;
 
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_util::process::background_command;
 
 pub struct ExecArgs {
     prog: String,
@@ -320,7 +321,7 @@ fn do_exec(command: &mut Command) -> anyhow::Error {
 /// Invokes the given program with the given argv and replaces the program image with the new program.
 /// Does not return.
 fn execv(args: ExecArgs) -> ! {
-    let mut command = Command::new(&args.prog);
+    let mut command = background_command(&args.prog);
     command.args(&args.argv[1..]);
     if let Some(dir) = args.chdir {
         // Note here we break `cwd::cwd_will_not_change` promise.
