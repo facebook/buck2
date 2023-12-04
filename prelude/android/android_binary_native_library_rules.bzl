@@ -775,6 +775,12 @@ def _is_prebuilt_shared(node_data: LinkableNode) -> bool:
         return True
     return False
 
+def _has_linkable(node_data: LinkableNode) -> bool:
+    for _, output in node_data.link_infos.items():
+        if output.default.linkables:
+            return True
+    return False
+
 def _get_merged_linkables(
         ctx: AnalysisContext,
         merged_data_by_platform: dict[str, LinkableMergeData]) -> MergedLinkables:
@@ -904,12 +910,6 @@ def _get_merged_linkables(
                 return platform + "/" + path
             return path
 
-        def has_linkable(node_data: LinkableNode) -> bool:
-            for _, output in node_data.link_infos.items():
-                if output.default.linkables:
-                    return True
-            return False
-
         def set_has_transitive_linkable_cache(target: Label, result: bool) -> bool:
             has_transitive_linkable_cache[target] = result
             return result
@@ -920,10 +920,10 @@ def _get_merged_linkables(
 
             target_node = linkable_nodes.get(target)
             for dep in target_node.deps:
-                if has_linkable(linkable_nodes.get(dep)) or transitive_has_linkable(dep):
+                if _has_linkable(linkable_nodes.get(dep)) or transitive_has_linkable(dep):
                     return set_has_transitive_linkable_cache(target, True)
             for dep in target_node.exported_deps:
-                if has_linkable(linkable_nodes.get(dep)) or transitive_has_linkable(dep):
+                if _has_linkable(linkable_nodes.get(dep)) or transitive_has_linkable(dep):
                     return set_has_transitive_linkable_cache(target, True)
 
             return set_has_transitive_linkable_cache(target, False)
@@ -940,7 +940,7 @@ def _get_merged_linkables(
                 node_data = linkable_nodes[target]
                 can_be_asset = node_data.can_be_asset
 
-                if node_data.preferred_linkage == Linkage("static") or not has_linkable(node_data):
+                if node_data.preferred_linkage == Linkage("static") or not _has_linkable(node_data):
                     debug_info.unmerged_statics.append(target)
                     link_group_linkable_nodes[group] = LinkGroupLinkableNode(
                         link = node_data.link_infos[archive_output_style].default,
