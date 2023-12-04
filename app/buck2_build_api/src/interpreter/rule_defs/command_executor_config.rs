@@ -18,6 +18,7 @@ use buck2_core::execution_types::executor_config::Executor;
 use buck2_core::execution_types::executor_config::HybridExecutionLevel;
 use buck2_core::execution_types::executor_config::LocalExecutorOptions;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
+use buck2_core::execution_types::executor_config::RePlatformFields;
 use buck2_core::execution_types::executor_config::RemoteEnabledExecutor;
 use buck2_core::execution_types::executor_config::RemoteExecutorOptions;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
@@ -126,12 +127,14 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                         )
                     })?;
 
-                Some(
-                    re_properties
-                        .iter()
-                        .map(|(k, v)| (k.to_str(), v.to_str()))
-                        .collect(),
-                )
+                Some(RePlatformFields {
+                    properties: Arc::new(
+                        re_properties
+                            .iter()
+                            .map(|(k, v)| (k.to_str(), v.to_str()))
+                            .collect(),
+                    ),
+                })
             };
 
             let re_use_case = if remote_execution_use_case.is_none() {

@@ -80,6 +80,12 @@ pub enum RemoteEnabledExecutor {
     },
 }
 
+/// Normalized `remote_execution::Platform`. Also implements `Eq`, `Hash`.
+#[derive(Default, Debug, Clone, PartialEq, Eq, Hash, Allocative)]
+pub struct RePlatformFields {
+    pub properties: Arc<SortedMap<String, String>>,
+}
+
 #[derive(Debug, Eq, PartialEq, Clone, Hash, Allocative)]
 pub enum Executor {
     /// This executor only runs local commands.
@@ -89,7 +95,7 @@ pub enum Executor {
     /// to execute commands.
     RemoteEnabled {
         executor: RemoteEnabledExecutor,
-        re_properties: SortedMap<String, String>,
+        re_properties: RePlatformFields,
         re_use_case: RemoteExecutorUseCase,
         re_action_key: Option<String>,
         cache_upload_behavior: CacheUploadBehavior,

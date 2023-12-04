@@ -23,6 +23,7 @@ use buck2_core::execution_types::executor_config::Executor;
 use buck2_core::execution_types::executor_config::HybridExecutionLevel;
 use buck2_core::execution_types::executor_config::LocalExecutorOptions;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
+use buck2_core::execution_types::executor_config::RePlatformFields;
 use buck2_core::execution_types::executor_config::RemoteEnabledExecutor;
 use buck2_core::execution_types::executor_config::RemoteExecutorOptions;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
@@ -45,14 +46,13 @@ use buck2_execute_impl::executors::hybrid::HybridExecutor;
 use buck2_execute_impl::executors::local::LocalExecutor;
 use buck2_execute_impl::executors::re::ReExecutor;
 use buck2_execute_impl::executors::stacked::StackedExecutor;
+use buck2_execute_impl::executors::to_re_platform::RePlatformFieldsToRePlatform;
 use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_execute_impl::re::paranoid_download::ParanoidDownloader;
 use buck2_forkserver::client::ForkserverClient;
 use dupe::Dupe;
 use host_sharing::HostSharingBroker;
-use remote_execution as RE;
-use starlark_map::sorted_map::SortedMap;
 
 pub fn parse_concurrency(requested: u32) -> anyhow::Result<usize> {
     let mut ret = requested.try_into().context("Invalid concurrency")?;
@@ -342,23 +342,13 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     cache_checker_new()
                 };
 
-                let platform = RE::Platform {
-                    properties: re_properties
-                        .iter()
-                        .map(|(k, v)| RE::Property {
-                            name: k.clone(),
-                            value: v.clone(),
-                        })
-                        .collect(),
-                };
-
                 let cache_uploader = if FORCE_CACHE_UPLOAD.get_copied()?.unwrap_or(false) {
                     Arc::new(CacheUploader::new(
                         artifact_fs.clone(),
                         self.materializer.dupe(),
                         self.re_connection.get_client(),
                         *re_use_case,
-                        platform.clone(),
+                        re_properties.clone(),
                         None,
                     )) as _
                 } else if disable_caching {
@@ -369,7 +359,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         self.materializer.dupe(),
                         self.re_connection.get_client(),
                         *re_use_case,
-                        platform.clone(),
+                        re_properties.clone(),
                         *max_bytes,
                     )) as _
                 } else {
@@ -378,7 +368,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
 
                 executor.map(|executor| CommandExecutorResponse {
                     executor,
-                    platform,
+                    platform: re_properties.to_re_platform(),
                     cache_checker,
                     cache_uploader,
                 })
@@ -463,7 +453,7 @@ pub fn get_default_executor_config(host_platform: HostPlatformOverride) -> Comma
     }
 }
 
-fn get_default_re_properties(host_platform: HostPlatformOverride) -> SortedMap<String, String> {
+fn get_default_re_properties(host_platform: HostPlatformOverride) -> RePlatformFields {
     let linux = &[("platform", "linux-remote-execution")];
     let macos = &[("platform", "mac"), ("subplatform", "any")];
     let windows = &[("platform", "windows")];
@@ -480,10 +470,14 @@ fn get_default_re_properties(host_platform: HostPlatformOverride) -> SortedMap<S
         },
     };
 
-    props
-        .iter()
-        .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
-        .collect()
+    RePlatformFields {
+        properties: Arc::new(
+            props
+                .iter()
+                .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+                .collect(),
+        ),
+    }
 }
 
 fn get_default_path_separator(host_platform: HostPlatformOverride) -> PathSeparatorKind {

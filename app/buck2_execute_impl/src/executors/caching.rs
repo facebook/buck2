@@ -18,6 +18,7 @@ use buck2_action_metadata_proto::REMOTE_DEP_FILE_KEY;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::env::helper::EnvHelper;
+use buck2_core::execution_types::executor_config::RePlatformFields;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_events::dispatch::span_async;
@@ -42,7 +43,6 @@ use futures::future;
 use futures::future::FutureExt;
 use gazebo::prelude::VecExt;
 use prost::Message;
-use remote_execution as RE;
 use remote_execution::DigestWithStatus;
 use remote_execution::NamedDigest;
 use remote_execution::REClientError;
@@ -54,6 +54,8 @@ use remote_execution::TExecutedActionMetadata;
 use remote_execution::TFile;
 use remote_execution::TStatus;
 use remote_execution::TTimestamp;
+
+use crate::executors::to_re_platform::RePlatformFieldsToRePlatform;
 
 // Whether to throw errors when cache uploads fail (primarily for tests).
 static ERROR_ON_CACHE_UPLOAD: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_ERROR_ON_CACHE_UPLOAD");
@@ -70,7 +72,7 @@ pub struct CacheUploader {
     materializer: Arc<dyn Materializer>,
     re_client: ManagedRemoteExecutionClient,
     re_use_case: RemoteExecutorUseCase,
-    platform: RE::Platform,
+    platform: RePlatformFields,
     max_bytes: Option<u64>,
 }
 
@@ -80,7 +82,7 @@ impl CacheUploader {
         materializer: Arc<dyn Materializer>,
         re_client: ManagedRemoteExecutionClient,
         re_use_case: RemoteExecutorUseCase,
-        platform: RE::Platform,
+        platform: RePlatformFields,
         max_bytes: Option<u64>,
     ) -> CacheUploader {
         CacheUploader {
@@ -242,7 +244,12 @@ impl CacheUploader {
                     };
 
                     self.re_client
-                        .write_action_result(digest, result, self.re_use_case, &self.platform)
+                        .write_action_result(
+                            digest,
+                            result,
+                            self.re_use_case,
+                            &self.platform.to_re_platform(),
+                        )
                         .await?;
 
                     Ok(CacheUploadOutcome::Success)

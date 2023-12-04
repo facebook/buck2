@@ -41,10 +41,8 @@ dupe = { workspace = true }
 fbinit = { workspace = true }
 gazebo = { workspace = true }
 more_futures = { workspace = true }
-remote_execution = { workspace = true }
 starlark = { workspace = true }
 starlark_lsp = { workspace = true }
-starlark_map = { workspace = true }
 
 buck2_analysis = { workspace = true }
 buck2_build_api = { workspace = true }
