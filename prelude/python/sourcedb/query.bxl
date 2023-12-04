@@ -33,13 +33,6 @@ def _filter_root_targets(
         candidate_targets,
     )
 
-    # Do include unittest sources, which are marked as generated
-    filtered_targets = filtered_targets + query.attrfilter(
-        "labels",
-        "unittest-library",
-        candidate_targets,
-    )
-
     # Provide an opt-out label
     filtered_targets = filtered_targets - query.attrfilter(
         "labels",
