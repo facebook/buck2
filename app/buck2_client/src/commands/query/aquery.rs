@@ -27,6 +27,8 @@ use crate::commands::query::common::CommonQueryOptions;
 /// The action graph consists of all the declared actions for a build, with dependencies
 /// when one action consumes the outputs of another action.
 ///
+/// Run `buck2 docs aquery` for more documentation about the functions available in aquery
+///
 /// Examples:
 ///
 /// Print the action producing a target's default output
