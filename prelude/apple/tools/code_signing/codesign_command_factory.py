@@ -13,7 +13,11 @@ from typing import List, Optional, Union
 class ICodesignCommandFactory(metaclass=ABCMeta):
     @abstractmethod
     def codesign_command(
-        self, path: Path, identity_fingerprint: str, entitlements: Optional[Path]
+        self,
+        path: Path,
+        identity_fingerprint: str,
+        entitlements: Optional[Path],
+        codesign_args: List[str],
     ) -> List[Union[str, Path]]:
         raise NotImplementedError
 
@@ -25,12 +29,17 @@ class DefaultCodesignCommandFactory(ICodesignCommandFactory):
         self.codesign_tool = codesign_tool or Path("codesign")
 
     def codesign_command(
-        self, path: Path, identity_fingerprint: str, entitlements: Optional[Path]
+        self,
+        path: Path,
+        identity_fingerprint: str,
+        entitlements: Optional[Path],
+        codesign_args: List[str],
     ) -> List[Union[str, Path]]:
         entitlements_args = ["--entitlements", entitlements] if entitlements else []
         return (
             [self.codesign_tool]
             + DefaultCodesignCommandFactory._command_args
+            + codesign_args
             + [identity_fingerprint]
             + entitlements_args
             + [path]
@@ -46,7 +55,11 @@ class DryRunCodesignCommandFactory(ICodesignCommandFactory):
         self.codesign_on_copy_file_paths = file_paths
 
     def codesign_command(
-        self, path: Path, identity_fingerprint: str, entitlements: Optional[Path]
+        self,
+        path: Path,
+        identity_fingerprint: str,
+        entitlements: Optional[Path],
+        codesign_args: List[str],
     ) -> List[Union[str, Path]]:
         args = [path, "--identity", identity_fingerprint]
         if entitlements:

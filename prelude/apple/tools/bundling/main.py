@@ -325,6 +325,7 @@ def _main() -> None:
             entitlements_path=args.entitlements,
             platform=args.platform,
             codesign_on_copy_paths=[i.dst for i in spec if i.codesign_on_copy],
+            codesign_args=[],
             codesign_tool=args.codesign_tool,
             codesign_configuration=args.codesign_configuration,
         )

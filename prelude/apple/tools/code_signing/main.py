@@ -110,6 +110,7 @@ def _main():
             entitlements_path=args.entitlements,
             platform=args.platform,
             codesign_on_copy_paths=args.codesign_on_copy or [],
+            codesign_args=[],
         )
     except CodeSignProvisioningError as e:
         print(decorate_error_message(str(e)), file=sys.stderr)

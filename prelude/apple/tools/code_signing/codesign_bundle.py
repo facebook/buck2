@@ -157,6 +157,7 @@ def codesign_bundle(
     entitlements_path: Optional[Path],
     platform: ApplePlatform,
     codesign_on_copy_paths: List[Path],
+    codesign_args: List[str],
     codesign_tool: Optional[Path] = None,
     codesign_configuration: Optional[CodesignConfiguration] = None,
 ) -> None:
@@ -202,6 +203,7 @@ def codesign_bundle(
                 codesign_tool=codesign_tool,
                 entitlements=prepared_entitlements_path,
                 platform=platform,
+                codesign_args=codesign_args,
             )
         else:
             fast_adhoc_signing_enabled = (
@@ -218,6 +220,7 @@ def codesign_bundle(
                 entitlements=prepared_entitlements_path,
                 platform=platform,
                 fast_adhoc_signing=fast_adhoc_signing_enabled,
+                codesign_args=codesign_args,
             )
 
 
@@ -275,6 +278,7 @@ def _dry_codesign_everything(
     codesign_tool: Path,
     entitlements: Optional[Path],
     platform: ApplePlatform,
+    codesign_args: List[str],
 ) -> None:
     codesign_command_factory = DryRunCodesignCommandFactory(codesign_tool)
 
@@ -291,6 +295,7 @@ def _dry_codesign_everything(
         codesign_command_factory=codesign_command_factory,
         entitlements=None,
         platform=platform,
+        codesign_args=codesign_args,
     )
 
     # Dry codesigning creates a .plist inside every directory it signs.
@@ -310,6 +315,7 @@ def _dry_codesign_everything(
         codesign_command_factory=codesign_command_factory,
         entitlements=entitlements,
         platform=platform,
+        codesign_args=codesign_args,
     )
 
 
@@ -322,6 +328,7 @@ def _codesign_everything(
     entitlements: Optional[Path],
     platform: ApplePlatform,
     fast_adhoc_signing: bool,
+    codesign_args: List[str],
 ) -> None:
     # First sign codesign-on-copy paths
     codesign_on_copy_filtered_paths = _filter_out_fast_adhoc_paths(
@@ -338,6 +345,7 @@ def _codesign_everything(
         codesign_command_factory,
         None,
         platform,
+        codesign_args,
     )
     # Lastly sign whole bundle
     root_bundle_paths = _filter_out_fast_adhoc_paths(
@@ -354,6 +362,7 @@ def _codesign_everything(
         codesign_command_factory,
         entitlements,
         platform,
+        codesign_args,
     )
 
 
@@ -381,13 +390,14 @@ def _spawn_codesign_process(
     codesign_command_factory: ICodesignCommandFactory,
     entitlements: Optional[Path],
     stack: ExitStack,
+    codesign_args: List[str],
 ) -> CodesignProcess:
     stdout_path = os.path.join(tmp_dir, uuid.uuid4().hex)
     stdout = stack.enter_context(open(stdout_path, "w"))
     stderr_path = os.path.join(tmp_dir, uuid.uuid4().hex)
     stderr = stack.enter_context(open(stderr_path, "w"))
     command = codesign_command_factory.codesign_command(
-        path, identity_fingerprint, entitlements
+        path, identity_fingerprint, entitlements, codesign_args
     )
     _LOGGER.info(f"Executing codesign command: {command}")
     process = subprocess.Popen(command, stdout=stdout, stderr=stderr)
@@ -405,6 +415,7 @@ def _codesign_paths(
     codesign_command_factory: ICodesignCommandFactory,
     entitlements: Optional[Path],
     platform: ApplePlatform,
+    codesign_args: List[str],
 ) -> None:
     """Codesigns several paths in parallel."""
     processes: List[CodesignProcess] = []
@@ -417,6 +428,7 @@ def _codesign_paths(
                 codesign_command_factory=codesign_command_factory,
                 entitlements=entitlements,
                 stack=stack,
+                codesign_args=codesign_args,
             )
             processes.append(process)
         for p in processes:
