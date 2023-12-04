@@ -56,8 +56,8 @@ enum TransitionError {
     )]
     MustBeDefNotDef,
     #[error(
-        "`transition` implementation must be def with parameters: {}, \
-        but it is a def with signature `{0}`",
+        "`impl` parameter for `transition` call must be a function with the following parameters: {}, \
+        but it is a function with a signature `{0}`",
         _1.iter().map(|s| format!("`{}`", s)).join(", "))]
     MustBeDefWrongSig(String, &'static [&'static str]),
     #[error("Non-unique list of attrs")]
