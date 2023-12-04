@@ -10,6 +10,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use buck2_build_api::actions::execute::dice_data::set_fallback_executor_config;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::deferred::types::testing::DeferredAnalysisResultExt;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;
@@ -41,7 +42,6 @@ use buck2_core::target::label::TargetLabel;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::SetDigestConfig;
-use buck2_execute::execute::dice_data::set_fallback_executor_config;
 use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;

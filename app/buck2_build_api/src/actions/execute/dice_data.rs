@@ -13,16 +13,15 @@ use std::sync::Arc;
 
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_execute::execute::cache_uploader::UploadCache;
+use buck2_execute::execute::prepared::PreparedCommandExecutor;
+use buck2_execute::execute::prepared::PreparedCommandOptionalExecutor;
+use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use dice::DiceComputations;
 use dice::DiceData;
 use dice::UserComputationData;
 use dupe::Dupe;
 use remote_execution as RE;
-
-use super::prepared::PreparedCommandOptionalExecutor;
-use crate::execute::cache_uploader::UploadCache;
-use crate::execute::prepared::PreparedCommandExecutor;
-use crate::re::manager::ManagedRemoteExecutionClient;
 
 pub struct CommandExecutorResponse {
     pub executor: Arc<dyn PreparedCommandExecutor>,

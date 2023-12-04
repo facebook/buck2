@@ -9,4 +9,5 @@
 
 pub mod action_execution_target;
 pub mod action_executor;
+pub mod dice_data;
 pub mod error;

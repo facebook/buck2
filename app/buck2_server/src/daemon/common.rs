@@ -11,6 +11,8 @@ use std::sync::Arc;
 use std::sync::OnceLock;
 
 use anyhow::Context as _;
+use buck2_build_api::actions::execute::dice_data::CommandExecutorResponse;
+use buck2_build_api::actions::execute::dice_data::HasCommandExecutor;
 use buck2_cli_proto::client_context::HostPlatformOverride;
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
 use buck2_core::env::helper::EnvHelper;
@@ -29,8 +31,6 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::cache_uploader::NoOpCacheUploader;
 use buck2_execute::execute::cache_uploader::FORCE_CACHE_UPLOAD;
-use buck2_execute::execute::dice_data::CommandExecutorResponse;
-use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::prepared::NoOpCommandOptionalExecutor;
 use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::prepared::PreparedCommandOptionalExecutor;

@@ -9,6 +9,7 @@
 
 use std::sync::Arc;
 
+use buck2_build_api::actions::execute::dice_data::set_fallback_executor_config;
 use buck2_configured::configuration::calculation::ExecutionPlatformsKey;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
@@ -21,7 +22,6 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetName;
-use buck2_execute::execute::dice_data::set_fallback_executor_config;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKey;
 use buck2_interpreter_for_build::super_package::package_value::SuperPackageValuesImpl;
 use buck2_node::attrs::attr::Attribute;
