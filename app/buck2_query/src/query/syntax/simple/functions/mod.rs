@@ -381,7 +381,17 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     async fn exec_deps(&self) -> QueryFuncResult<Env> {
         Err(QueryError::NotAvailableInContext("exec_deps"))
     }
-
+    /// Computes the set intersection over the given arguments.
+    /// Can be used with the `^` symbol. This operator is commutative.
+    ///
+    /// The parser treats this operator as left-associative and of equal precedence, so we recommend
+    /// that you use parentheses if you need to ensure a specific order of evaluation. A parenthesized expression
+    /// resolves to the value of the expression it encloses.
+    ///
+    /// Example:
+    /// `buck2 aquery "deps('//foo:bar') intersect deps('//baz:lib')"` is the same as
+    /// `buck2 aquery "deps('//foo:bar') ^ deps('//baz:lib')"`
+    /// Both return the targets that appear in the transitive closure of `//foo:bar` and `//baz:lib`.
     #[binary_op(BinaryOp::Intersect)]
     async fn intersect(
         &self,
@@ -392,6 +402,17 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
         self.implementation.intersect(env, left, right).await
     }
 
+    /// Computes the arguments that are in argument A but not in argument B.
+    /// Can be used with the `-` symbol. This operator is NOT commutative.
+    ///
+    /// The parser treats this operator as left-associative and of equal precedence, so we recommend
+    /// that you use parentheses if you need to ensure a specific order of evaluation. A parenthesized expression
+    /// resolves to the value of the expression it encloses.
+    ///
+    /// Example:
+    /// `buck2 aquery "deps('//foo:bar') except deps('//baz:lib')"` is the same as
+    /// `buck2 aquery "deps('//foo:bar') - deps('//baz:lib')"`
+    /// Both return the targets that `//foo:bar` depends on and that `//baz:lib` does NOT depend on.
     #[binary_op(BinaryOp::Except)]
     async fn except(
         &self,
@@ -402,6 +423,17 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
         self.implementation.except(env, left, right).await
     }
 
+    /// Computes the set union over the given arguments.
+    /// Can be used with the `+` symbol. This operator is commutative.
+    ///
+    /// The parser treats all this operator as left-associative and of equal precedence, so we recommend
+    /// that you use parentheses if you need to ensure a specific order of evaluation. A parenthesized expression
+    /// resolves to the value of the expression it encloses.
+    ///
+    /// Example:
+    /// `buck2 aquery "deps('//foo:bar') union deps('//baz:lib')"` is the same as
+    /// `buck2 aquery "deps('//foo:bar') + deps('//baz:lib')"`
+    /// Both return the aggregation of the targets that `//foo:bar` and `//baz:lib` depend on.
     #[binary_op(BinaryOp::Union)]
     async fn union(
         &self,
