@@ -11,6 +11,7 @@
 
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_execute::execute::cache_uploader::UploadCache;
@@ -22,6 +23,8 @@ use dice::DiceData;
 use dice::UserComputationData;
 use dupe::Dupe;
 use remote_execution as RE;
+
+use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 
 pub struct CommandExecutorResponse {
     pub executor: Arc<dyn PreparedCommandExecutor>,
@@ -51,26 +54,27 @@ impl SetCommandExecutor for UserComputationData {
     }
 }
 
+#[async_trait]
 pub trait DiceHasCommandExecutor {
-    fn get_command_executor_from_dice(
+    async fn get_command_executor_from_dice(
         &self,
-        artifact_fs: &ArtifactFs,
         config: &CommandExecutorConfig,
     ) -> anyhow::Result<CommandExecutorResponse>;
 }
 
+#[async_trait]
 impl DiceHasCommandExecutor for DiceComputations {
-    fn get_command_executor_from_dice(
+    async fn get_command_executor_from_dice(
         &self,
-        artifact_fs: &ArtifactFs,
         config: &CommandExecutorConfig,
     ) -> anyhow::Result<CommandExecutorResponse> {
+        let artifact_fs = self.get_artifact_fs().await?;
         let holder = self
             .per_transaction_data()
             .data
             .get::<HasCommandExecutorHolder>()
             .expect("CommandExecutorDelegate should be set");
-        holder.delegate.get_command_executor(artifact_fs, config)
+        holder.delegate.get_command_executor(&artifact_fs, config)
     }
 }
 

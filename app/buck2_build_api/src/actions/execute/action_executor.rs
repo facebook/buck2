@@ -246,7 +246,7 @@ impl HasActionExecutor for DiceComputations {
             platform,
             cache_checker,
             cache_uploader,
-        } = self.get_command_executor_from_dice(&artifact_fs, executor_config)?;
+        } = self.get_command_executor_from_dice(executor_config).await?;
         let blocking_executor = self.get_blocking_executor();
         let materializer = self.per_transaction_data().get_materializer();
         let events = self.per_transaction_data().get_dispatcher().dupe();

@@ -247,7 +247,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         let executor_preference = self.executor_preference(supports_re)?;
 
         let required_resources = if test_executor.is_local_execution_possible(executor_preference) {
-            let setup_local_resources_executor = self.get_local_executor(&fs)?;
+            let setup_local_resources_executor = self.get_local_executor(&fs).await?;
 
             let setup_contexts = {
                 let executor_fs = setup_local_resources_executor.executor_fs();
@@ -700,7 +700,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         })
     }
 
-    fn get_command_executor(
+    async fn get_command_executor(
         &self,
         fs: &ArtifactFs,
         test_target_node: &ConfiguredTargetNode,
@@ -721,7 +721,8 @@ impl<'b> BuckTestOrchestrator<'b> {
             cache_uploader: _,
         } = self
             .dice
-            .get_command_executor_from_dice(fs, executor_config)?;
+            .get_command_executor_from_dice(executor_config)
+            .await?;
         let executor = CommandExecutor::new(
             executor,
             // Caching is not enabled for tests yet. Use the NoOp
@@ -734,7 +735,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         Ok(executor)
     }
 
-    fn get_local_executor(&self, fs: &ArtifactFs) -> anyhow::Result<CommandExecutor> {
+    async fn get_local_executor(&self, fs: &ArtifactFs) -> anyhow::Result<CommandExecutor> {
         let executor_config = CommandExecutorConfig {
             executor: Executor::Local(LocalExecutorOptions::default()),
             options: CommandGenerationOptions {
@@ -749,7 +750,8 @@ impl<'b> BuckTestOrchestrator<'b> {
             cache_uploader: _,
         } = self
             .dice
-            .get_command_executor_from_dice(fs, &executor_config)?;
+            .get_command_executor_from_dice(&executor_config)
+            .await?;
         let executor = CommandExecutor::new(
             executor,
             Arc::new(NoOpCommandOptionalExecutor {}),
@@ -813,6 +815,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             &node,
             resolved_executor_override.as_ref().map(|a| &***a),
         )
+        .await
         .context("Error constructing CommandExecutor")
     }
 
