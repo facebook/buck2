@@ -564,6 +564,10 @@ def _merge_assets(
     merge_assets_cmd.add(["--assets-dirs", assets_dirs_file])
     merge_assets_cmd.hidden(assets_dirs)
 
+    if getattr(ctx.attrs, "extra_no_compress_asset_extensions", None):
+        merge_assets_cmd.add("--extra-no-compress-asset-extensions")
+        merge_assets_cmd.add(ctx.attrs.extra_no_compress_asset_extensions)
+
     ctx.actions.run(merge_assets_cmd, category = "merge_assets")
 
     if is_exopackaged_enabled_for_resources:
