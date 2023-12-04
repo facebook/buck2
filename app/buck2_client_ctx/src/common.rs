@@ -208,6 +208,14 @@ pub struct CommonBuildConfigurationOptions {
     #[clap(long)]
     pub(crate) skip_targets_with_duplicate_names: bool,
 
+    /// Re-uses any `--config` values (inline or via modefiles) if there's
+    /// a previous command, otherwise the flag is ignored.
+    ///
+    /// If there is a previous command and `--reuse-current-config` is set,
+    /// then the old config is used, ignoring any overrides.
+    ///
+    /// If there is no previous command but the flag was set, then the flag is ignored,
+    /// the command behaves as if the flag was not set at all.
     #[clap(long)]
     pub reuse_current_config: bool,
 
