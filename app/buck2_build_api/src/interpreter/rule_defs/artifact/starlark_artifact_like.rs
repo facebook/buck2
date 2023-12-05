@@ -90,7 +90,7 @@ pub trait StarlarkArtifactLike: Display {
 
 /// Helper type to unpack artifacts.
 #[derive(StarlarkTypeRepr, UnpackValue)]
-enum ValueAsArtifactLikeUnpack<'v> {
+pub enum ValueAsArtifactLikeUnpack<'v> {
     Artifact(&'v StarlarkArtifact),
     DeclaredArtifact(&'v StarlarkDeclaredArtifact),
     PromiseArtifact(&'v StarlarkPromiseArtifact),

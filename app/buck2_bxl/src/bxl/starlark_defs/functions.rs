@@ -9,7 +9,7 @@
 
 use std::time::Instant;
 
-use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLikeUnpack;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
@@ -62,12 +62,16 @@ pub(crate) fn register_target_function(builder: &mut GlobalsBuilder) {
     }
 }
 
+#[derive(Debug, buck2_error::Error, Clone)]
+#[error("Promise artifacts are not supported in `get_path_without_materialization()`")]
+pub(crate) struct PromiseArtifactsNotSupported;
+
 /// Global methods on artifacts.
 #[starlark_module]
 pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
-    /// The output path of a source or build artifact. Takes an optional boolean to print the absolute or relative path.
-    /// Note that this method returns an artifact path without asking for the artifact to be materialized,
-    /// (i.e. it may not actually exist on the disk yet).
+    /// The output path of an artifact-like (source, build, declared). Takes an optional boolean to print the
+    /// absolute or relative path. Note that this method returns an artifact path without asking for the artifact
+    /// to be materialized (i.e. it may not actually exist on the disk yet).
     ///
     /// This is a risky function to call because you may accidentally pass this path to further BXL actions
     /// that expect the artifact to be materialized. If this happens, the BXL script will error out.
@@ -83,17 +87,29 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
     ///     ctx.output.print(source_artifact_project_rel_path) # Note this artifact is NOT ensured or materialized
     /// ```
     fn get_path_without_materialization<'v>(
-        #[starlark(require=pos)] this: &'v StarlarkArtifact,
+        #[starlark(require=pos)] this: ValueAsArtifactLikeUnpack<'v>,
         #[starlark(require=pos)] ctx: &'v BxlContext<'v>,
         #[starlark(require = named, default = false)] abs: bool,
         heap: &'v Heap,
     ) -> anyhow::Result<StringValue<'v>> {
-        let path = get_artifact_path_display(
-            this.artifact().get_path(),
-            abs,
-            &ctx.data.project_fs,
-            &ctx.data.artifact_fs,
-        )?;
+        let path = match this {
+            ValueAsArtifactLikeUnpack::Artifact(a) => {
+                let artifact = a.artifact();
+                get_artifact_path_display(
+                    artifact.get_path(),
+                    abs,
+                    &ctx.data.project_fs,
+                    &ctx.data.artifact_fs,
+                )?
+            }
+            ValueAsArtifactLikeUnpack::DeclaredArtifact(a) => get_artifact_path_display(
+                a.get_artifact_path(),
+                abs,
+                &ctx.data.project_fs,
+                &ctx.data.artifact_fs,
+            )?,
+            _ => return Err(PromiseArtifactsNotSupported.into()),
+        };
 
         Ok(heap.alloc_str(&path))
     }
