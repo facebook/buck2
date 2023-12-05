@@ -24,6 +24,7 @@
 #![deny(rustdoc::broken_intra_doc_links)]
 #![cfg_attr(rust_nightly, feature(core_intrinsics))]
 #![cfg_attr(rust_nightly, feature(portable_simd))]
+#![cfg_attr(rust_nightly, feature(cfg_version))]
 
 mod hash_value;
 mod hashed;

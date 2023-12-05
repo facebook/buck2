@@ -31,35 +31,43 @@ pub(crate) fn find_hash_in_array_without_simd(array: &[u32], hash: u32) -> Optio
 pub(crate) fn find_hash_in_array(array: &[u32], hash: u32) -> Option<usize> {
     #[cfg(rust_nightly)]
     unsafe {
+        // TODO(yurysamkevich): remove conditional compilation after updating rust toolchain
+        #[cfg(version("1.76"))]
+        use std::simd::cmp::SimdPartialEq;
         use std::simd::*;
 
         // 128-bit SIMD is available on x86_64 and aarch64.
         // Also shorter SIMD works better for shorter arrays.
         type T = Simd<u32, 4>;
 
-        if array.len() < T::LANES {
+        #[cfg(version("1.76"))]
+        const LANES: usize = T::LEN;
+        #[cfg(not(version("1.76")))]
+        const LANES: usize = T::LANES;
+
+        if array.len() < LANES {
             find_hash_in_array_without_simd(array, hash)
         } else {
             let mut i = 0;
             let hash = T::splat(hash);
 
             // Process 4 elements at a time except last <= 4 elements.
-            while i + T::LANES < array.len() {
-                let next_hashes = T::from_slice(array.get_unchecked(i..i + T::LANES));
+            while i + LANES < array.len() {
+                let next_hashes = T::from_slice(array.get_unchecked(i..i + LANES));
                 let eq = next_hashes.simd_eq(hash);
                 if eq.any() {
                     return Some(i + eq.to_bitmask().trailing_zeros() as usize);
                 }
-                i += T::LANES;
+                i += LANES;
             }
 
             // Process last <= 4 elements.
-            debug_assert!(i >= array.len() - T::LANES);
+            debug_assert!(i >= array.len() - LANES);
             debug_assert!(i < array.len());
-            let next_hashes = T::from_slice(array.get_unchecked(array.len() - T::LANES..));
+            let next_hashes = T::from_slice(array.get_unchecked(array.len() - LANES..));
             let eq = next_hashes.simd_eq(hash);
             if eq.any() {
-                Some(array.len() - T::LANES + eq.to_bitmask().trailing_zeros() as usize)
+                Some(array.len() - LANES + eq.to_bitmask().trailing_zeros() as usize)
             } else {
                 None
             }
