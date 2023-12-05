@@ -8,7 +8,16 @@
 from __future__ import annotations
 
 import os
+import types
 from typing import Callable, Sequence
+
+
+def iscoroutinefunction(func: Callable[[], None]) -> bool:
+    # This is the guts of inspect.iscoroutinefunction without the cost of inspect import
+    CO_COROUTINE = 128  # This hasn't changed in 8 years most likely never will
+    return isinstance(func, types.FunctionType) and bool(
+        func.__code__.co_flags & CO_COROUTINE
+    )
 
 
 def run_as_main(
@@ -74,4 +83,10 @@ def run_as_main(
         main.__globals__["__name__"] = "__main__"
     for hook in main_function_hooks:
         hook()
-    main()
+
+    if iscoroutinefunction(main):
+        import asyncio
+
+        asyncio.run(main())
+    else:
+        main()
