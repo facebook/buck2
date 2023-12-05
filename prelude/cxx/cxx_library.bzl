@@ -136,6 +136,7 @@ load(
     "OBJECTS_SUBTARGET",
     "cxx_attr_deps",
     "cxx_attr_exported_deps",
+    "cxx_attr_link_strategy",
     "cxx_attr_link_style",
     "cxx_attr_linker_flags_all",
     "cxx_attr_preferred_linkage",
@@ -1135,19 +1136,7 @@ def _get_shared_library_links(
     if not link_group_mappings and not force_link_group_linking:
         deps_merged_link_infos = cxx_inherited_link_info(dedupe(flatten([non_exported_deps, exported_deps])))
 
-        # Even though we're returning the shared library links, we must still
-        # respect the `link_style` attribute of the target which controls how
-        # all deps get linked. For example, you could be building the shared
-        # output of a library which has `link_style = "static"`.
-        #
-        # The fallback equivalent code in Buck v1 is in CxxLibraryFactor::createBuildRule()
-        # where link style is determined using the `linkableDepType` variable.
-        link_strategy_value = ctx.attrs.link_style if ctx.attrs.link_style != None else "shared"
-
-        # Note if `static` link style is requested, we assume `static_pic`
-        # instead, so that code in the shared library can be correctly
-        # loaded in the address space of any process at any address.
-        link_strategy_value = "static_pic" if link_strategy_value == "static" else link_strategy_value
+        link_strategy = cxx_attr_link_strategy(ctx.attrs)
 
         # We cannot support deriving link execution preference off the included links, as we've already
         # lost the information on what is in the link.
@@ -1163,7 +1152,7 @@ def _get_shared_library_links(
             # To get the link_strategy, we have to check the link_strategy against the toolchain's pic_behavior.
             #
             # For more info, check the PicBehavior docs.
-            process_link_strategy_for_pic_behavior(LinkStrategy(link_strategy_value), pic_behavior),
+            process_link_strategy_for_pic_behavior(link_strategy, pic_behavior),
             swiftmodule_linkable,
             swift_runtime_linkable = swift_runtime_linkable,
         ), None, link_execution_preference

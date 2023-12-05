@@ -13,6 +13,7 @@ load(
 load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//linking:link_info.bzl",
+    "LinkStrategy",
     "LinkStyle",
     "Linkage",
     "LinkerFlags",
@@ -91,6 +92,23 @@ def cxx_attr_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
         ctx.attrs.linker_flags +
         (flatten(cxx_by_platform(ctx, ctx.attrs.platform_linker_flags)) if hasattr(ctx.attrs, "platform_linker_flags") else [])
     )
+
+# Even though we're returning the shared library links, we must still
+# respect the `link_style` attribute of the target which controls how
+# all deps get linked. For example, you could be building the shared
+# output of a library which has `link_style = "static"`.
+#
+# The fallback equivalent code in Buck v1 is in CxxLibraryFactor::createBuildRule()
+# where link style is determined using the `linkableDepType` variable.
+
+# Note if `static` link style is requested, we assume `static_pic`
+# instead, so that code in the shared library can be correctly
+# loaded in the address space of any process at any address.
+def cxx_attr_link_strategy(attrs: typing.Any) -> LinkStrategy:
+    value = attrs.link_style if attrs.link_style != None else "shared"
+    if value == "static":
+        value = "static_pic"
+    return LinkStrategy(value)
 
 def cxx_attr_link_style(ctx: AnalysisContext) -> LinkStyle:
     if ctx.attrs.link_style != None:
