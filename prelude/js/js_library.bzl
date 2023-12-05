@@ -60,7 +60,7 @@ def _build_js_files(
     for grouped_src in grouped_srcs:
         identifier = "{}/{}".format(transform_profile, grouped_src.canonical_name)
 
-        output_path = ctx.actions.declare_output(identifier)
+        output_path = ctx.actions.declare_output("{}.jsfile".format(identifier))
         job_args = {
             "additionalSources": [{
                 "sourcePath": additional_source,
