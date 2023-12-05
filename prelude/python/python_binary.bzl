@@ -55,7 +55,7 @@ load(
 load(
     "@prelude//linking:link_info.bzl",
     "Linkage",
-    "LinkedObject",  # @unused Used as a type
+    "LinkedObject",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",

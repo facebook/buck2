@@ -394,7 +394,7 @@ LinkedObject = record(
     # The LinkArgs used to produce this LinkedObject. This can be useful for debugging or
     # for downstream rules to reproduce the shared library with some modifications (for example
     # android relinker will link again with an added version script argument).
-    link_args = field([LinkArgs, None], None),
+    link_args = field(list[LinkArgs] | None, None),
     # A linked object (binary/shared library) may have an associated dwp file with
     # its corresponding DWARF debug info.
     # May be None when Split DWARF is disabled or for some types of synthetic link objects.

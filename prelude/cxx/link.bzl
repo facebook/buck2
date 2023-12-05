@@ -290,6 +290,7 @@ def cxx_link_into(
 
     linked_object = LinkedObject(
         output = final_output,
+        link_args = opts.links,
         bitcode_bundle = bitcode_artifact.artifact if bitcode_artifact else None,
         prebolt_output = output,
         unstripped_output = unstripped_output,
