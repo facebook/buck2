@@ -26,6 +26,7 @@ use buck2_event_observer::what_ran;
 use buck2_event_observer::what_ran::command_to_string;
 use buck2_event_observer::what_ran::worker_command_as_fallback_to_string;
 use buck2_event_observer::what_ran::WhatRanOptions;
+use buck2_event_observer::what_ran::WhatRanOptionsRegex;
 use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
@@ -391,12 +392,14 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
             // borrow of the SuperConsole there. That works *only* if we don't use the console we
             // borrowed.
             if let Some(console) = &mut self.super_console {
+                let options = WhatRanOptions::default();
+                let options_regex = WhatRanOptionsRegex::from_options(&options)?;
                 what_ran::emit_event_if_relevant(
                     event.parent_id().into(),
                     event.data(),
                     self.state.simple_console.observer().spans(),
                     console,
-                    &WhatRanOptions::default(),
+                    &options_regex,
                 )?;
             }
         }

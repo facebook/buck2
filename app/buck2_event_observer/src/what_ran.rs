@@ -16,6 +16,7 @@ use buck2_data::re_platform::Property;
 use buck2_data::ActionName;
 use buck2_events::span::SpanId;
 use dupe::Dupe;
+use regex::Regex;
 use superconsole::Line;
 use superconsole::Lines;
 use superconsole::SuperConsole;
@@ -36,10 +37,27 @@ pub struct WhatRanOptions {
     #[clap(long)]
     pub skip_local_executions: bool,
     #[clap(long)]
-    /// Filter commands by action category (i.e. type of of actions that are
+    /// Regular expression to filter commands by given action category (i.e. type of of actions that are
     /// similar but operate on different inputs, such as invocations of a C++
-    /// compiler (whose category would be `cxx_compile`)).
+    /// compiler (whose category would be `cxx_compile`)). Matches by full string.
     pub filter_category: Option<String>,
+}
+
+pub struct WhatRanOptionsRegex<'a> {
+    pub options: &'a WhatRanOptions,
+    filter_category_regex: Option<Regex>,
+}
+impl<'a> WhatRanOptionsRegex<'a> {
+    pub fn from_options(options: &'a WhatRanOptions) -> anyhow::Result<Self> {
+        let filter_category_regex = match &options.filter_category {
+            Some(filter_category) => Some(Regex::new(&format!(r"^{}$", filter_category))?),
+            None => None,
+        };
+        Ok(Self {
+            options,
+            filter_category_regex,
+        })
+    }
 }
 
 /// An action that makes sense to use to contextualize a command we ran.
@@ -121,10 +139,10 @@ pub trait WhatRanState {
     fn get(&self, span_id: SpanId) -> Option<WhatRanRelevantAction<'_>>;
 }
 
-pub fn matches_category(action: Option<WhatRanRelevantAction<'_>>, pattern: &str) -> bool {
+pub fn matches_category(action: Option<WhatRanRelevantAction<'_>>, pattern: &Regex) -> bool {
     match action {
         Some(WhatRanRelevantAction::ActionExecution(action)) => match action.name.as_ref() {
-            Some(ActionName { category, .. }) => category == pattern,
+            Some(ActionName { category, .. }) => pattern.is_match(category),
             _ => false,
         },
         _ => false,
@@ -138,9 +156,9 @@ pub fn emit_event_if_relevant(
     data: &buck2_data::buck_event::Data,
     state: &impl WhatRanState,
     output: &mut impl WhatRanOutputWriter,
-    options: &WhatRanOptions,
+    options: &WhatRanOptionsRegex,
 ) -> anyhow::Result<()> {
-    if let Some(repro) = CommandReproducer::from_buck_data(data, options) {
+    if let Some(repro) = CommandReproducer::from_buck_data(data, options.options) {
         let data = match data {
             buck2_data::buck_event::Data::SpanEnd(span) => &span.data,
             _ => &None,
@@ -159,7 +177,7 @@ fn emit(
     state: &impl WhatRanState,
     data: &Option<buck2_data::span_end_event::Data>,
     output: &mut impl WhatRanOutputWriter,
-    options: &WhatRanOptions,
+    options: &WhatRanOptionsRegex,
 ) -> anyhow::Result<()> {
     let action = match parent_span_id.0 {
         None => None,
@@ -174,10 +192,10 @@ pub fn emit_what_ran_entry(
     repro: CommandReproducer<'_>,
     data: &Option<buck2_data::span_end_event::Data>,
     output: &mut impl WhatRanOutputWriter,
-    options: &WhatRanOptions,
+    options: &WhatRanOptionsRegex,
 ) -> anyhow::Result<()> {
     let should_emit = options
-        .filter_category
+        .filter_category_regex
         .as_ref()
         .map_or(true, |category| matches_category(action, category));
 

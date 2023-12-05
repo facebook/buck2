@@ -28,6 +28,7 @@ use buck2_event_observer::verbosity::Verbosity;
 use buck2_event_observer::what_ran;
 use buck2_event_observer::what_ran::WhatRanCommandConsoleFormat;
 use buck2_event_observer::what_ran::WhatRanOptions;
+use buck2_event_observer::what_ran::WhatRanOptionsRegex;
 use buck2_event_observer::what_ran::WhatRanOutputCommand;
 use buck2_event_observer::what_ran::WhatRanOutputWriter;
 use buck2_events::BuckEvent;
@@ -273,12 +274,14 @@ where
             .with_context(|| display::InvalidBuckEvent(event.dupe()))?;
 
         if self.verbosity.print_all_commands() {
+            let options = WhatRanOptions::default();
+            let options_regex = WhatRanOptionsRegex::from_options(&options)?;
             what_ran::emit_event_if_relevant(
                 event.parent_id().into(),
                 event.data(),
                 self.observer().spans(),
                 &mut PrintDebugCommandToStderr,
-                &WhatRanOptions::default(),
+                &options_regex,
             )?;
         }
 

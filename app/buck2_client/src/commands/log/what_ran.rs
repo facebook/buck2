@@ -179,18 +179,18 @@ impl WhatRanEntry {
         let action = WhatRanRelevantAction::from_buck_data(
             self.event.data.as_ref().context("Checked above")?,
         );
-
+        let options_regex = what_ran::WhatRanOptionsRegex::from_options(&options.options)?;
         for repro in self.reproducers.iter() {
             what_ran::emit_what_ran_entry(
                 action,
                 CommandReproducer::from_buck_data(
                     repro.data.as_ref().context("Checked above")?,
-                    &options.options,
+                    options_regex.options,
                 )
                 .context("Checked above")?,
                 data,
                 output,
-                &options.options,
+                &options_regex,
             )?;
         }
         Ok(())
