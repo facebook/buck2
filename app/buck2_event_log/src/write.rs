@@ -21,11 +21,9 @@ use anyhow::Context as _;
 use async_compression::tokio::write::GzipEncoder;
 use async_compression::tokio::write::ZstdEncoder;
 use buck2_cli_proto::*;
-use buck2_core::env::helper::EnvHelper;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::working_dir::WorkingDir;
-use buck2_core::soft_error;
 use buck2_events::BuckEvent;
 use buck2_util::cleanup_ctx::AsyncCleanupContext;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -268,19 +266,7 @@ impl<'a> WriteEventLog<'a> {
         // The event-log is going to be written to file containing the build uuid.
         // But we don't know the build uuid until we've gotten the CommandStart event.
         // So we'll just create it when we know where to put it.
-        let mut log_mode = LogMode::Protobuf;
-        static JSON_LOG: EnvHelper<bool> = EnvHelper::new("BUCK2_JSON_LOG");
-        if JSON_LOG.get_copied()?.unwrap_or(false) {
-            let _res = soft_error!("buck2_json_log", anyhow::anyhow!("can we deprecate this?"))?;
-            log_mode = LogMode::Json;
-        }
-
-        // Open our log fie, gzip encoded.
-        let encoding = match log_mode {
-            LogMode::Json => Encoding::JSON_GZIP,
-            LogMode::Protobuf => Encoding::PROTO_ZSTD,
-        };
-
+        let encoding = Encoding::PROTO_ZSTD;
         let file_name = &get_logfile_name(event, encoding, &self.command_name)?;
         let path = EventLogPathBuf {
             path: logdir.as_abs_path().join(file_name),
