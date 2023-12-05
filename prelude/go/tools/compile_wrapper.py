@@ -127,9 +127,9 @@ def main(argv):
 
         # If there are assembly files, assemble them to an object and add into the
         # output archive.
-        if s_files:
-            s_object = args.output.with_suffix(".o")
-            _compile(assemble_prefix, s_object, s_files)
+        for s_file in s_files:
+            s_object = args.output.with_name(s_file.name).with_suffix(".o")
+            _compile(assemble_prefix, s_object, [s_file])
             o_files.append(s_object)
 
         if o_files:
