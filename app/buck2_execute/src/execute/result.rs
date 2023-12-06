@@ -40,6 +40,7 @@ pub enum CommandExecutionStatus {
     Error {
         stage: &'static str,
         error: anyhow::Error,
+        execution_kind: Option<CommandExecutionKind>,
     },
     TimedOut {
         execution_kind: CommandExecutionKind,
@@ -54,7 +55,7 @@ impl CommandExecutionStatus {
         match self {
             CommandExecutionStatus::Success { execution_kind, .. } => Some(execution_kind),
             CommandExecutionStatus::Failure { execution_kind } => Some(execution_kind),
-            CommandExecutionStatus::Error { .. } => None,
+            CommandExecutionStatus::Error { execution_kind, .. } => execution_kind.as_ref(),
             CommandExecutionStatus::TimedOut { execution_kind, .. } => Some(execution_kind),
             CommandExecutionStatus::Cancelled => None,
         }
@@ -70,7 +71,18 @@ impl Display for CommandExecutionStatus {
             CommandExecutionStatus::Failure { execution_kind } => {
                 write!(f, "failure {}", execution_kind,)
             }
-            CommandExecutionStatus::Error { stage, error } => {
+            CommandExecutionStatus::Error {
+                stage,
+                error,
+                execution_kind: Some(execution_kind),
+            } => {
+                write!(f, "error {}:{}\n{:#}", execution_kind, stage, error)
+            }
+            CommandExecutionStatus::Error {
+                stage,
+                error,
+                execution_kind: None,
+            } => {
                 write!(f, "error:{}\n{:#}", stage, error)
             }
             CommandExecutionStatus::TimedOut { duration, .. } => {
@@ -241,7 +253,7 @@ impl CommandExecutionReport {
                 }
                 .into()
             }
-            CommandExecutionStatus::Error { stage, error } => {
+            CommandExecutionStatus::Error { stage, error, .. } => {
                 buck2_data::command_execution::Error {
                     stage: (*stage).to_owned(),
                     error: format!("{:#}", error),

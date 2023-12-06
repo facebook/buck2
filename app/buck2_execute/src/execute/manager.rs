@@ -35,6 +35,8 @@ trait CommandExecutionManagerLike: Sized {
         exit_code: Option<i32>,
         timing: CommandExecutionMetadata,
     ) -> CommandExecutionResult;
+
+    fn execution_kind(&self) -> Option<CommandExecutionKind>;
 }
 
 /// This tracker helps track the information that will go into the BuckCommandExecutionMetadata
@@ -43,6 +45,7 @@ pub struct CommandExecutionManager {
     pub events: EventDispatcher,
     pub liveliness_observer: Arc<dyn LivelinessObserver>,
     pub intend_to_fallback_on_failure: bool,
+    pub execution_kind: Option<CommandExecutionKind>,
 }
 
 impl CommandExecutionManager {
@@ -56,6 +59,7 @@ impl CommandExecutionManager {
             events,
             liveliness_observer,
             intend_to_fallback_on_failure: false,
+            execution_kind: None,
         }
     }
 
@@ -67,6 +71,7 @@ impl CommandExecutionManager {
             claim,
             events: self.events,
             liveliness_observer: self.liveliness_observer,
+            execution_kind: self.execution_kind,
         }
     }
 
@@ -89,6 +94,11 @@ impl CommandExecutionManager {
         intend_to_fallback_on_failure: bool,
     ) -> Self {
         self.intend_to_fallback_on_failure = intend_to_fallback_on_failure;
+        self
+    }
+
+    pub fn with_execution_kind(mut self, execution_kind: CommandExecutionKind) -> Self {
+        self.execution_kind = Some(execution_kind);
         self
     }
 }
@@ -119,11 +129,16 @@ impl CommandExecutionManagerLike for CommandExecutionManager {
             dep_file_metadata: None,
         }
     }
+
+    fn execution_kind(&self) -> Option<CommandExecutionKind> {
+        self.execution_kind.clone()
+    }
 }
 
 pub struct CommandExecutionManagerWithClaim {
     pub events: EventDispatcher,
     pub liveliness_observer: Arc<dyn LivelinessObserver>,
+    pub execution_kind: Option<CommandExecutionKind>,
     claim: Box<dyn Claim>,
 }
 
@@ -156,6 +171,11 @@ impl CommandExecutionManagerWithClaim {
             CommandExecutionMetadata::default(),
         )
     }
+
+    pub fn with_execution_kind(mut self, execution_kind: CommandExecutionKind) -> Self {
+        self.execution_kind = Some(execution_kind);
+        self
+    }
 }
 
 impl CommandExecutionManagerLike for CommandExecutionManagerWithClaim {
@@ -183,6 +203,10 @@ impl CommandExecutionManagerLike for CommandExecutionManagerWithClaim {
             eligible_for_full_hybrid: false,
             dep_file_metadata: None,
         }
+    }
+
+    fn execution_kind(&self) -> Option<CommandExecutionKind> {
+        self.execution_kind.clone()
     }
 }
 
@@ -248,10 +272,12 @@ where
     }
 
     fn error(self, stage: &'static str, error: impl Into<anyhow::Error>) -> CommandExecutionResult {
+        let execution_kind = self.execution_kind();
         self.result(
             CommandExecutionStatus::Error {
                 stage,
                 error: error.into(),
+                execution_kind,
             },
             IndexMap::new(),
             Default::default(),

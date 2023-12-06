@@ -28,7 +28,6 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::extract_artifact_value;
 use buck2_execute::directory::re_tree_to_directory;
 use buck2_execute::directory::ActionDirectoryMember;
-use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::action_digest::TrackedActionDigest;
 use buck2_execute::execute::executor_stage_async;
 use buck2_execute::execute::kind::RemoteCommandExecutionDetails;
@@ -115,8 +114,8 @@ pub async fn download_action_results<'a>(
         stage,
         paths,
         requested_outputs,
-        &details.action_digest,
         response,
+        &details,
         cancellations,
     );
 
@@ -185,8 +184,8 @@ impl CasDownloader<'_> {
         stage: buck2_data::executor_stage_start::Stage,
         paths: &CommandExecutionPaths,
         requested_outputs: impl IntoIterator<Item = CommandExecutionOutputRef<'a>>,
-        action_digest: &ActionDigest,
         output_spec: &dyn RemoteActionResult,
+        details: &RemoteCommandExecutionDetails,
         cancellations: &CancellationContext<'_>,
     ) -> ControlFlow<
         DownloadResult,
@@ -195,6 +194,7 @@ impl CasDownloader<'_> {
             IndexMap<CommandExecutionOutput, ArtifactValue>,
         ),
     > {
+        let manager = manager.with_execution_kind(output_spec.execution_kind(details.clone()));
         executor_stage_async(stage, async {
             let artifacts = self
                 .extract_artifacts(paths, requested_outputs, output_spec)
@@ -205,14 +205,14 @@ impl CasDownloader<'_> {
                 Err(e) => {
                     return ControlFlow::Break(DownloadResult::Result(manager.error(
                         "extract_artifacts",
-                        e.context(format!("action_digest={}", action_digest)),
+                        e.context(format!("action_digest={}", details.action_digest)),
                     )));
                 }
             };
 
             let info = CasDownloadInfo::new_execution(
                 TrackedActionDigest::new_expires(
-                    action_digest.dupe(),
+                    details.action_digest.dupe(),
                     artifacts.expires,
                     self.digest_config.cas_digest_config(),
                 ),
@@ -248,7 +248,7 @@ impl CasDownloader<'_> {
                         Err(e) => {
                             return ControlFlow::Break(DownloadResult::Result(manager.error(
                                 "materialize_outputs",
-                                e.context(format!("action_digest={}", action_digest)),
+                                e.context(format!("action_digest={}", details.action_digest)),
                             )));
                         }
                     };

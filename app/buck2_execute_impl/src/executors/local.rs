@@ -457,7 +457,9 @@ impl LocalExecutor {
 
         let (status, stdout, stderr) = match res {
             Ok(res) => res,
-            Err(e) => return manager.error("exec_failed", e), // TODO (torozco): Can this take CommandExecutionKind? Should this be a failure?
+            Err(e) => {
+                return manager.error("exec_failed", e);
+            }
         };
 
         let std_streams = CommandStdStreams::Local { stdout, stderr };
@@ -472,7 +474,9 @@ impl LocalExecutor {
                     .await
                 {
                     Ok((output_values, hashing_time)) => (output_values, hashing_time),
-                    Err(e) => return manager.error("calculate_output_values_failed", e),
+                    Err(e) => {
+                        return manager.error("calculate_output_values_failed", e);
+                    }
                 };
 
                 timing.execution_stats = execution_stats;
@@ -694,6 +698,11 @@ impl PreparedCommandExecutor for LocalExecutor {
         manager: CommandExecutionManager,
         cancellations: &CancellationContext,
     ) -> CommandExecutionResult {
+        let manager = manager.with_execution_kind(CommandExecutionKind::Local {
+            digest: command.prepared_action.digest(),
+            command: command.request.all_args_vec(),
+            env: command.request.env().clone(),
+        });
         if command.request.executor_preference().requires_remote() {
             return manager.error("local_prepare", LocalExecutionError::RemoteOnlyAction);
         }

@@ -438,11 +438,13 @@ async fn command_execution_report_to_proto(
             }
             .into()
         }
-        CommandExecutionStatus::Error { stage, error } => buck2_data::command_execution::Error {
-            stage: (*stage).to_owned(),
-            error: format!("{:#}", error),
+        CommandExecutionStatus::Error { stage, error, .. } => {
+            buck2_data::command_execution::Error {
+                stage: (*stage).to_owned(),
+                error: format!("{:#}", error),
+            }
+            .into()
         }
-        .into(),
     };
 
     buck2_data::CommandExecution {

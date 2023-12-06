@@ -72,6 +72,7 @@ impl WorkerInitError {
             command: worker_spec.exe.clone(),
             env: request.env().clone(),
         };
+        let manager = manager.with_execution_kind(execution_kind.clone());
 
         match self {
             WorkerInitError::EarlyExit {

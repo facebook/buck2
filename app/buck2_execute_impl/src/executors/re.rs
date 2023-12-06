@@ -21,6 +21,7 @@ use buck2_events::dispatch::span_async;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blobs::ActionBlobs;
+use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::kind::RemoteCommandExecutionDetails;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
@@ -165,13 +166,15 @@ impl ReExecutor {
             remote_dep_file_key: None,
         };
 
+        let execution_kind = response.execution_kind(remote_details);
+        let manager = manager.with_execution_kind(execution_kind.clone());
         if response.error.code != TCode::OK {
             let res = if let Some(out) = as_missing_outputs_error(&response.error) {
                 // TODO: Add a dedicated report variant for this.
                 // NOTE: We don't get stdout / stderr from RE when this happens, so the best we can
                 // do here is just pass on the error.
                 manager.failure(
-                    response.execution_kind(remote_details),
+                    execution_kind,
                     IndexMap::new(),
                     CommandStdStreams::Local {
                         stdout: Vec::new(),
@@ -183,7 +186,7 @@ impl ReExecutor {
                 )
             } else if is_timeout_error(&response.error) && request.timeout().is_some() {
                 manager.timeout(
-                    response.execution_kind(remote_details),
+                    execution_kind,
                     // Checked above: we fallthrough to the error path if we didn't set a timeout
                     // and yet received one.
                     request.timeout().unwrap(),
@@ -250,6 +253,19 @@ impl PreparedCommandExecutor for ReExecutor {
             digest_config,
         } = command;
 
+        let details = RemoteCommandExecutionDetails {
+            action_digest: command.prepared_action.digest(),
+            remote_dep_file_key: command.request.remote_dep_file_key,
+            session_id: self.re_client.get_session_id().await.ok(),
+            use_case: self.re_use_case,
+            platform: platform.clone(),
+        };
+        let manager = manager.with_execution_kind(CommandExecutionKind::Remote {
+            details: details.clone(),
+            queue_time: Duration::ZERO,
+            materialized_inputs_for_failed: None,
+        });
+
         if command.request.executor_preference().requires_local() {
             return ControlFlow::Break(
                 manager.error("remote_prepare", RemoteExecutorError::LocalOnlyAction),
@@ -290,13 +306,7 @@ impl PreparedCommandExecutor for ReExecutor {
             .into(),
             request.paths(),
             request.outputs(),
-            RemoteCommandExecutionDetails {
-                action_digest: action_and_blobs.action.dupe(),
-                session_id: self.re_client.get_session_id().await.ok(),
-                use_case: self.re_use_case,
-                platform: platform.clone(),
-                remote_dep_file_key: None,
-            },
+            details,
             &response,
             self.paranoid.as_ref(),
             cancellations,

@@ -684,14 +684,18 @@ impl<'b> BuckTestOrchestrator<'b> {
                 Some(execution_kind),
                 outputs,
             ),
-            CommandExecutionStatus::Error { stage: _, error } => (
+            CommandExecutionStatus::Error {
+                stage: _,
+                error,
+                execution_kind,
+            } => (
                 ExecutionStream::Inline(Default::default()),
                 ExecutionStream::Inline(format!("{:?}", error).into_bytes()),
                 ExecutionStatus::Finished {
                     exitcode: exit_code.unwrap_or(1),
                 },
                 timing,
-                None,
+                execution_kind,
                 outputs,
             ),
             CommandExecutionStatus::Cancelled => {
@@ -1095,7 +1099,11 @@ impl<'b> BuckTestOrchestrator<'b> {
                     String::from_utf8_lossy(&std_streams.stderr),
                 ).into());
             }
-            CommandExecutionStatus::Error { stage: _, error } => {
+            CommandExecutionStatus::Error {
+                stage: _,
+                error,
+                execution_kind: _,
+            } => {
                 return Err(error.into());
             }
             CommandExecutionStatus::Cancelled => {

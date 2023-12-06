@@ -11,10 +11,12 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use dupe::Dupe;
 use more_futures::cancellation::CancellationContext;
 use remote_execution as RE;
 
 use crate::digest_config::DigestConfig;
+use crate::execute::action_digest::ActionDigest;
 use crate::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use crate::execute::manager::CommandExecutionManager;
 use crate::execute::request::CommandExecutionRequest;
@@ -25,6 +27,12 @@ use crate::execute::target::CommandExecutionTarget;
 pub struct PreparedAction {
     pub action_and_blobs: ActionDigestAndBlobs,
     pub platform: RE::Platform,
+}
+
+impl PreparedAction {
+    pub fn digest(&self) -> ActionDigest {
+        self.action_and_blobs.action.dupe()
+    }
 }
 
 pub struct PreparedCommand<'a, 'b> {

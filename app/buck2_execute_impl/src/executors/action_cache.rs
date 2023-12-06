@@ -20,6 +20,7 @@ use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::action_digest::ActionDigestKind;
 use buck2_execute::execute::dep_file_digest::DepFileDigest;
 use buck2_execute::execute::executor_stage_async;
+use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::kind::RemoteCommandExecutionDetails;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
@@ -81,9 +82,9 @@ async fn query_action_cache_and_download_result(
     cancellations: &CancellationContext<'_>,
     upload_all_actions: bool,
     log_action_keys: bool,
+    details: RemoteCommandExecutionDetails,
 ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
     let request = command.request;
-    let platform = &command.prepared_action.platform;
     let action_blobs = &command.prepared_action.action_and_blobs.blobs;
     let digest_config = command.digest_config;
 
@@ -186,13 +187,7 @@ async fn query_action_cache_and_download_result(
         .into(),
         request.paths(),
         request.outputs(),
-        RemoteCommandExecutionDetails {
-            action_digest: digest.dupe(),
-            session_id: re_client.get_session_id().await.ok(),
-            use_case: re_use_case,
-            platform: platform.clone(),
-            remote_dep_file_key: *request.remote_dep_file_key(),
-        },
+        details,
         &response,
         paranoid.as_ref(),
         cancellations,
@@ -232,8 +227,20 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
         cancellations: &CancellationContext,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
         let action_digest = &command.prepared_action.action_and_blobs.action;
+        let details = RemoteCommandExecutionDetails {
+            action_digest: action_digest.dupe(),
+            session_id: self.re_client.get_session_id().await.ok(),
+            use_case: self.re_use_case,
+            platform: command.prepared_action.platform.clone(),
+            remote_dep_file_key: *command.request.remote_dep_file_key(),
+        };
+        let cache_type = CacheType::ActionCache;
+        let manager = manager.with_execution_kind(command_execution_kind_for_cache_type(
+            &cache_type,
+            details.clone(),
+        ));
         let result = query_action_cache_and_download_result(
-            CacheType::ActionCache,
+            cache_type,
             &self.artifact_fs,
             &self.materializer,
             &self.re_client,
@@ -246,6 +253,7 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
             cancellations,
             self.upload_all_actions,
             self.knobs.log_action_keys,
+            details,
         )
         .await;
 
@@ -288,23 +296,46 @@ impl PreparedCommandOptionalExecutor for RemoteDepFileCacheChecker {
             Some(key) => key.dupe(),
         };
 
-        let action_digest = &command.prepared_action.action_and_blobs.action;
+        let cache_type = CacheType::RemoteDepFileCache(remote_dep_file_key);
+        let action_digest = remote_dep_file_key.dupe().coerce::<ActionDigestKind>();
+        let details = RemoteCommandExecutionDetails {
+            action_digest: action_digest.dupe(),
+            session_id: self.re_client.get_session_id().await.ok(),
+            use_case: self.re_use_case,
+            platform: command.prepared_action.platform.clone(),
+            remote_dep_file_key: Some(remote_dep_file_key.dupe()),
+        };
+        let manager = manager.with_execution_kind(command_execution_kind_for_cache_type(
+            &cache_type,
+            details.clone(),
+        ));
 
         query_action_cache_and_download_result(
-            CacheType::RemoteDepFileCache(remote_dep_file_key),
+            cache_type,
             &self.artifact_fs,
             &self.materializer,
             &self.re_client,
             self.re_use_case,
             &self.re_action_key,
             &self.paranoid,
-            action_digest,
+            &action_digest,
             command,
             manager,
             cancellations,
             self.upload_all_actions,
             self.knobs.log_action_keys,
+            details,
         )
         .await
+    }
+}
+
+fn command_execution_kind_for_cache_type(
+    cache_type: &CacheType,
+    details: RemoteCommandExecutionDetails,
+) -> CommandExecutionKind {
+    match cache_type {
+        CacheType::ActionCache => CommandExecutionKind::ActionCache { details },
+        CacheType::RemoteDepFileCache(_) => CommandExecutionKind::RemoteDepFileCache { details },
     }
 }
