@@ -717,6 +717,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                     ctx = ctx,
                     default_soname = _soname(ctx, impl_params),
                     preferred_linkage = preferred_linkage,
+                    default_link_strategy = cxx_attr_link_strategy(ctx.attrs),
                     deps = non_exported_deps,
                     exported_deps = exported_deps,
                     # If we don't have link input for this link style, we pass in `None` so

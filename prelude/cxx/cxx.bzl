@@ -596,6 +596,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 ctx = ctx,
                 default_soname = soname,
                 preferred_linkage = preferred_linkage,
+                default_link_strategy = to_link_strategy(cxx_toolchain.linker_info.link_style),
                 exported_deps = exported_first_order_deps,
                 # If we don't have link input for this link style, we pass in `None` so
                 # that omnibus knows to avoid it.

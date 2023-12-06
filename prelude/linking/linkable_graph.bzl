@@ -53,6 +53,7 @@ LinkableNode = record(
     labels = field(list[str], []),
     # Preferred linkage for this target.
     preferred_linkage = field(Linkage, Linkage("any")),
+    default_link_strategy = field(LinkStrategy),
     # Linkable deps of this target.
     deps = field(list[Label], []),
     # Exported linkable deps of this target.
@@ -136,6 +137,7 @@ def create_linkable_node(
         ctx: AnalysisContext,
         default_soname: str | None,
         preferred_linkage: Linkage = Linkage("any"),
+        default_link_strategy: LinkStrategy = LinkStrategy("shared"),
         deps: list[Dependency] = [],
         exported_deps: list[Dependency] = [],
         link_infos: dict[LibOutputStyle, LinkInfos] = {},
@@ -153,6 +155,7 @@ def create_linkable_node(
     return LinkableNode(
         labels = ctx.attrs.labels,
         preferred_linkage = preferred_linkage,
+        default_link_strategy = default_link_strategy,
         deps = linkable_deps(deps),
         exported_deps = linkable_deps(exported_deps),
         link_infos = link_infos,
