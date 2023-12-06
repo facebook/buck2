@@ -301,42 +301,55 @@ fn try_run_error_handler(
 ) -> Option<ActionErrorDiagnostics> {
     use buck2_data::action_error_diagnostics::Data;
 
-    // TODO(@wendyy) - emit span for this
     match action.action.error_handler() {
         Some(error_handler) => {
-            let env = Module::new();
-            let heap = env.heap();
-            let print = EventDispatcherPrintHandler(get_dispatcher());
-            let mut eval = Evaluator::new(&env);
-            eval.set_print_handler(&print);
+            let dispatcher = get_dispatcher();
+            dispatcher
+                .clone()
+                .span(buck2_data::ActionErrorHandlerExecutionStart {}, || {
+                    let env = Module::new();
+                    let heap = env.heap();
+                    let print = EventDispatcherPrintHandler(get_dispatcher());
+                    let mut eval = Evaluator::new(&env);
+                    eval.set_print_handler(&print);
 
-            let error_handler_ctx =
-                StarlarkActionErrorContext::new_from_command_execution(last_command);
+                    let error_handler_ctx =
+                        StarlarkActionErrorContext::new_from_command_execution(last_command);
 
-            let error_handler_result =
-                eval.eval_function(error_handler.value(), &[heap.alloc(error_handler_ctx)], &[]);
+                    let error_handler_result = eval.eval_function(
+                        error_handler.value(),
+                        &[heap.alloc(error_handler_ctx)],
+                        &[],
+                    );
 
-            let data = match error_handler_result {
-                Ok(result) => match ActionSubErrorResult::unpack_value(result) {
-                    Some(result) => Data::SubErrors(ActionSubErrors {
-                        sub_errors: result.items.into_iter().map(|s| s.to_proto()).collect(),
-                    }),
-                    None => Data::HandlerInvocationError(format!(
-                        "{}",
-                        ActionErrorHandlerError::TypeError(
-                            ActionSubErrorResult::starlark_type_repr(),
-                            result.get_type().to_owned()
-                        )
-                    )),
-                },
-                Err(e) => {
-                    let e = buck2_error::Error::from(BuckStarlarkError::new(e))
-                        .context("Error handler failed");
-                    Data::HandlerInvocationError(format!("{:#}", e))
-                }
-            };
-
-            Some(ActionErrorDiagnostics { data: Some(data) })
+                    let data = match error_handler_result {
+                        Ok(result) => match ActionSubErrorResult::unpack_value(result) {
+                            Some(result) => Data::SubErrors(ActionSubErrors {
+                                sub_errors: result
+                                    .items
+                                    .into_iter()
+                                    .map(|s| s.to_proto())
+                                    .collect(),
+                            }),
+                            None => Data::HandlerInvocationError(format!(
+                                "{}",
+                                ActionErrorHandlerError::TypeError(
+                                    ActionSubErrorResult::starlark_type_repr(),
+                                    result.get_type().to_owned()
+                                )
+                            )),
+                        },
+                        Err(e) => {
+                            let e = buck2_error::Error::from(BuckStarlarkError::new(e))
+                                .context("Error handler failed");
+                            Data::HandlerInvocationError(format!("{:#}", e))
+                        }
+                    };
+                    (
+                        Some(ActionErrorDiagnostics { data: Some(data) }),
+                        buck2_data::ActionErrorHandlerExecutionEnd {},
+                    )
+                })
         }
         None => None,
     }
