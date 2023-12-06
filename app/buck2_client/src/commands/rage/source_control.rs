@@ -51,11 +51,31 @@ async fn get_hg_info() -> anyhow::Result<CommandResult> {
         if error.contains("is not inside a repository") {
             return Ok(CommandResult::RepoNotFound);
         };
+        // On Unix, `code()` will return `None` if the process was terminated by a signal.
         let code = result.status.code().unwrap_or(1);
         return Err(SourceControlError::HgCommand(code, error).into());
     };
-    let output = from_utf8(result.stdout, "hg snapshot stdout")?;
-    Ok(CommandResult::Ok(format!("hg snapshot update {}", output)))
+    let snapshot = {
+        let output = from_utf8(result.stdout, "hg snapshot stdout")?;
+        format!("hg snapshot update {}", output)
+    };
+
+    let result = async_background_command("hg")
+        .args(["id", "-i"])
+        .output()
+        .await?;
+    if !result.status.success() {
+        let error = from_utf8(result.stderr, "hg id stderr")?;
+        // On Unix, `code()` will return `None` if the process was terminated by a signal.
+        let code = result.status.code().unwrap_or(1);
+        return Err(SourceControlError::HgCommand(code, error).into());
+    };
+    let revision = {
+        let output = from_utf8(result.stdout, "hg id stdout")?;
+        format!("hg revision: {}", output)
+    };
+
+    Ok(CommandResult::Ok(format!("{}{}", revision, snapshot)))
 }
 
 async fn get_git_info() -> anyhow::Result<CommandResult> {
