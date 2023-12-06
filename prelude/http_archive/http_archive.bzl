@@ -76,7 +76,7 @@ def _unarchive_cmd(
             # unzip and zip are not cli commands available on windows. however, the
             # bsdtar that ships with windows has builtin support for zip
             return cmd_args(
-                "tar",
+                "%WINDIR%\\System32\\tar.exe",
                 "-x",
                 "-P",
                 "-f",
