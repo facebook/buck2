@@ -46,16 +46,16 @@ async fn get_hg_info() -> anyhow::Result<CommandResult> {
         .env("HGPLAIN", "1")
         .output()
         .await?;
-    if result.status.success() {
-        let output = from_utf8(result.stdout, "hg snapshot stdout")?;
-        return Ok(CommandResult::Ok(format!("hg snapshot update {}", output)));
+    if !result.status.success() {
+        let error = from_utf8(result.stderr, "hg snapshot stderr")?;
+        if error.contains("is not inside a repository") {
+            return Ok(CommandResult::RepoNotFound);
+        };
+        let code = result.status.code().unwrap_or(1);
+        return Err(SourceControlError::HgCommand(code, error).into());
     };
-    let error = from_utf8(result.stderr, "hg snapshot stderr")?;
-    if error.contains("is not inside a repository") {
-        return Ok(CommandResult::RepoNotFound);
-    };
-    let code = result.status.code().unwrap_or(1);
-    Err(SourceControlError::HgCommand(code, error).into())
+    let output = from_utf8(result.stdout, "hg snapshot stdout")?;
+    Ok(CommandResult::Ok(format!("hg snapshot update {}", output)))
 }
 
 async fn get_git_info() -> anyhow::Result<CommandResult> {
