@@ -30,9 +30,9 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
+use buck2_core::buck2_env;
 use buck2_core::directory::unordered_entry_walk;
 use buck2_core::directory::DirectoryEntry;
-use buck2_core::env::helper::EnvHelper;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -163,8 +163,9 @@ pub struct DeferredMaterializerStats {
     declares_reused: AtomicU64,
 }
 
-static ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE: EnvHelper<usize> =
-    EnvHelper::new("BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE");
+fn access_time_update_max_buffer_size() -> anyhow::Result<usize> {
+    buck2_env!("BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE", type=usize, default=256)
+}
 
 pub struct DeferredMaterializerConfigs {
     pub materialize_final_artifacts: bool,
@@ -1009,9 +1010,7 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
             }
         };
 
-        let access_time_update_max_buffer_size = ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE
-            .get_copied()?
-            .unwrap_or(256);
+        let access_time_update_max_buffer_size = access_time_update_max_buffer_size()?;
 
         let command_thread = std::thread::Builder::new()
             .name("buck2-dm".to_owned())
@@ -1439,13 +1438,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 } => {
                     // NOTE: This is for testing performance when hitting mismatches with disk
                     // state. Unwrapping isn't ideal, but we can't report errors here.
-                    static FORCE_DECLARE_MISMATCH: EnvHelper<bool> =
-                        EnvHelper::new("BUCK2_TEST_FORCE_DECLARE_MISMATCH");
-                    let force_mismatch = FORCE_DECLARE_MISMATCH
-                        .get()
-                        .unwrap()
-                        .copied()
-                        .unwrap_or_default();
+                    let force_mismatch =
+                        buck2_env!("BUCK2_TEST_FORCE_DECLARE_MISMATCH", bool).unwrap();
 
                     if path_iter.next().is_none()
                         && metadata.matches_entry(value.entry())

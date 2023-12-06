@@ -10,7 +10,7 @@
 use std::thread;
 use std::time::Duration;
 
-use buck2_core::env::helper::EnvHelper;
+use buck2_core::buck2_env;
 use buck2_util::process_stats::process_cpu_time_us;
 
 fn elapsed_cpu_time_as_percents(
@@ -28,9 +28,7 @@ fn elapsed_cpu_time_as_percents(
 /// Our tests sometimes don't exit Buck 2 cleanly, and they might not get an oppportunity to do so
 /// if they are terminated. This allows the daemon to self-destruct.
 pub(crate) fn maybe_schedule_termination() -> anyhow::Result<()> {
-    static TERMINATE_AFTER: EnvHelper<u64> = EnvHelper::new("BUCK2_TERMINATE_AFTER");
-
-    if let Some(duration) = TERMINATE_AFTER.get_copied()? {
+    if let Some(duration) = buck2_env!("BUCK2_TERMINATE_AFTER", type=u64)? {
         thread::Builder::new()
             .name("buck2-terminate-after".to_owned())
             .spawn(move || {

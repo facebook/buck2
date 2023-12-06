@@ -15,7 +15,7 @@ use buck2_cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOve
 use buck2_cli_proto::ClientContext;
 use buck2_common::argv::Argv;
 use buck2_common::invocation_paths::InvocationPaths;
-use buck2_core::error::BUCK2_HARD_ERROR_ENV_VAR;
+use buck2_core::error::buck2_hard_error_env;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_util::cleanup_ctx::AsyncCleanupContext;
@@ -183,7 +183,7 @@ impl<'a> ClientCommandContext<'a> {
             daemon_uuid,
             sanitized_argv: Vec::new(),
             argfiles: Vec::new(),
-            buck2_hard_error: BUCK2_HARD_ERROR_ENV_VAR.get()?.cloned().unwrap_or_default(),
+            buck2_hard_error: buck2_hard_error_env()?.unwrap_or_default().to_owned(),
             command_name: command_name.to_owned(),
             exit_when_different_state: false,
             client_metadata: self

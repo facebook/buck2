@@ -47,9 +47,10 @@ use buck2_client_ctx::version::BuckVersion;
 use buck2_common::argv::Argv;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::invocation_roots::find_invocation_roots;
-use buck2_core::env::helper::EnvHelper;
+use buck2_core::buck2_env;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_event_observer::verbosity::Verbosity;
+pub use buck2_server_ctx::logging::TracingLogFile;
 use buck2_starlark::StarlarkCommand;
 use buck2_util::cleanup_ctx::AsyncCleanupContextGuard;
 use clap::AppSettings;
@@ -77,8 +78,6 @@ pub mod process_context;
 fn parse_isolation_dir(s: &str) -> anyhow::Result<FileNameBuf> {
     FileNameBuf::try_from(s.to_owned()).context("isolation dir must be a directory name")
 }
-
-pub use buck2_server_ctx::logging::TracingLogFile;
 
 /// Options of `buck2` command, before subcommand.
 #[derive(Clone, Debug, clap::Parser)]
@@ -218,9 +217,8 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
             .context("Error expanding argsfiles")?;
 
     // Override arg0 in `buck2 help`.
-    static BUCK2_ARG0: EnvHelper<String> = EnvHelper::new("BUCK2_ARG0");
-    if let Some(arg0) = BUCK2_ARG0.get()? {
-        expanded_args[0] = arg0.clone();
+    if let Some(arg0) = buck2_env!("BUCK2_ARG0")? {
+        expanded_args[0] = arg0.to_owned();
     }
 
     let clap = Opt::clap();
