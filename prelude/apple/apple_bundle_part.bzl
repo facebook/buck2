@@ -184,6 +184,10 @@ def assemble_bundle(
     # Ensures any genrule deps get built, such targets are used for validation
     command.hidden(extra_hidden)
 
+    command_json = ctx.actions.declare_output("bundling_command.json")
+    ctx.actions.write_json(command_json, command, with_inputs = True, pretty = True)
+    subtargets["command"] = [DefaultInfo(default_output = command_json)]
+
     env = {}
     cache_buster = ctx.attrs._bundling_cache_buster
     if cache_buster:
