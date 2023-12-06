@@ -340,6 +340,9 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
             Data::ReleaseLocalResources(..) => Ok("Releasing local resources".to_owned()),
             Data::CreateOutputHashesFile(..) => Ok("Creating output hashes file".to_owned()),
             Data::BxlEnsureArtifacts(..) => Err(ParseEventError::UnexpectedEvent.into()),
+            Data::ActionErrorHandlerExecution(..) => {
+                Ok("Running error handler on action failure".to_owned())
+            }
         };
 
         // This shouldn't really be necessary, but that's how try blocks work :(

@@ -84,6 +84,7 @@ message SpanStartEvent {
     // Measure total time it takes to ensure BXL artifacts.
     BxlEnsureArtifactsStart bxl_ensure_artifacts = 82;
     CreateOutputHashesFileStart create_output_hashes_file = 84;
+    ActionErrorHandlerExecutionStart action_error_handler_execution = 85;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -132,6 +133,7 @@ message SpanEndEvent {
     ReleaseLocalResourcesEnd release_local_resources = 82;
     BxlEnsureArtifactsEnd bxl_ensure_artifacts = 83;
     CreateOutputHashesFileEnd create_output_hashes_file = 85;
+    ActionErrorHandlerExecutionEnd action_error_handler_execution = 86;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -1202,6 +1204,10 @@ message ActionErrorLocation {
   string file = 1;
   optional uint64 line = 2;
 }
+
+message ActionErrorHandlerExecutionStart {}
+
+message ActionErrorHandlerExecutionEnd {}
 
 // The beginning of materialization for the output of a target requested,
 // inclusive of all dependent artifacts it might recursively request to
