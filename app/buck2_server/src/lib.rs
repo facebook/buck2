@@ -11,6 +11,7 @@
 #![feature(async_closure)]
 #![feature(try_blocks)]
 #![feature(once_cell_try)]
+#![feature(used_with_arg)]
 
 pub mod active_commands;
 pub mod builtin_docs;

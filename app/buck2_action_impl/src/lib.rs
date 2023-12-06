@@ -10,6 +10,7 @@
 #![feature(error_generic_member_access)]
 #![feature(try_blocks)]
 #![feature(impl_trait_in_assoc_type)]
+#![feature(used_with_arg)]
 
 use std::sync::Once;
 

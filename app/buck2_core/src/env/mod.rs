@@ -9,3 +9,4 @@
 
 pub mod helper;
 pub mod macros;
+pub mod registry;

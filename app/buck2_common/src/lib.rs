@@ -15,6 +15,7 @@
 #![feature(io_error_more)]
 #![feature(is_sorted)]
 #![feature(never_type)]
+#![feature(used_with_arg)]
 
 #[cfg(test)]
 #[macro_use]

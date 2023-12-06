@@ -8,6 +8,7 @@
  */
 
 #![feature(error_generic_member_access)]
+#![feature(used_with_arg)]
 
 //!
 //! Events and event streams for Buck2.

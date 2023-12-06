@@ -16,6 +16,7 @@
 #![feature(once_cell_try)]
 #![feature(try_blocks)]
 #![cfg_attr(windows, feature(absolute_path))]
+#![feature(used_with_arg)]
 
 #[cfg(test)]
 #[macro_use]

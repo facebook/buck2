@@ -19,6 +19,7 @@ futures = { workspace = true }
 hostname = { workspace = true }
 indent_write = { workspace = true }
 itertools = { workspace = true }
+linkme = { workspace = true }
 memchr = { workspace = true }
 once_cell = { workspace = true }
 os_str_bytes = { workspace = true }

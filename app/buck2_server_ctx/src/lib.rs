@@ -9,6 +9,7 @@
 
 #![feature(let_chains)]
 #![feature(error_generic_member_access)]
+#![feature(used_with_arg)]
 
 pub mod bxl;
 pub mod command_end;

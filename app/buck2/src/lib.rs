@@ -8,6 +8,7 @@
  */
 
 #![feature(error_generic_member_access)]
+#![feature(used_with_arg)]
 
 //! `buck2 audit` command implementation, both client and server.
 

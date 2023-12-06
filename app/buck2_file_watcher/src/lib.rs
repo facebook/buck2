@@ -8,6 +8,7 @@
  */
 
 #![feature(error_generic_member_access)]
+#![feature(used_with_arg)]
 
 pub mod dep_files;
 pub mod file_watcher;

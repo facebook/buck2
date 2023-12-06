@@ -109,6 +109,7 @@ lalrpop = { version = "0.19.7", artifact = "bin", features = ["pico-args"] }
 lalrpop-util = "0.19.7"
 libc = "0.2.132"
 linked-hash-map = { version = "0.5", features = ["serde_impl"] }
+linkme = { version = "0.3.17", features = ["used_linker"] }
 log = "0.4"
 logos = "0.12"
 lsp-server = "0.7.2"

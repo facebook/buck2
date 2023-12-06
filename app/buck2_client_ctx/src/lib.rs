@@ -13,6 +13,7 @@
 #![feature(let_chains)]
 #![feature(try_blocks)]
 #![feature(try_trait_v2)]
+#![feature(used_with_arg)]
 
 pub mod build_count;
 pub mod chunk_reader;

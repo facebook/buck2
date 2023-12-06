@@ -10,6 +10,7 @@
 // This can't be built in our OSS implementation.
 #![cfg(fbcode_build)]
 #![feature(error_generic_member_access)]
+#![feature(used_with_arg)]
 
 pub mod connection;
 pub mod io_provider;
