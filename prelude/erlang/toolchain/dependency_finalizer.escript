@@ -3,8 +3,6 @@
 -module(dependency_finalizer).
 -author("loscher@meta.com").
 
--mode(compile).
-
 -spec main([string()]) -> ok | no_return().
 main([Source, InFile]) ->
     do(Source, InFile, stdout);
@@ -45,7 +43,6 @@ collect_dependencies([], _, _, Acc) ->
 collect_dependencies([Key | Rest], DepFiles, Visited, Acc) ->
     case DepFiles of
         #{Key := #{"dep_file" := DepFile}} ->
-            io:format("~p~n", [file:consult(DepFile)]),
             {ok, [Dependencies]} = file:consult(DepFile),
             {NextKeys, NextVisited, NextAcc} = lists:foldl(
                 fun(#{"file" := File} = Dep, {KeysAcc, VisitedAcc, DepAcc}) ->

@@ -374,11 +374,22 @@ def _deps_key(anchor: Artifact, src: Artifact) -> str:
 def _get_deps_file(ctx: AnalysisContext, toolchain: Toolchain, src: Artifact) -> Artifact:
     dependency_analyzer = toolchain.dependency_analyzer
     dependency_json = ctx.actions.declare_output(_dep_file_name(toolchain, src))
-    escript = toolchain.otp_binaries.escript
+    erl = toolchain.otp_binaries.erl
 
     dependency_analyzer_cmd = cmd_args(
         [
-            escript,
+            erl,
+            "+A0",
+            "+S1:1",
+            "+sbtu",
+            "-mode",
+            "minimal",
+            "-noinput",
+            "-noshell",
+            "-run",
+            "escript",
+            "start",
+            "--",
             dependency_analyzer,
             src,
             dependency_json.as_output(),
@@ -439,7 +450,18 @@ def _build_erl(
 
     final_dep_file = ctx.actions.declare_output(_dep_final_name(toolchain, src))
     finalize_deps_cmd = cmd_args(
-        toolchain.otp_binaries.escript,
+        toolchain.otp_binaries.erl,
+        "+A0",
+        "+S1:1",
+        "+sbtu",
+        "-mode",
+        "minimal",
+        "-noinput",
+        "-noshell",
+        "-run",
+        "escript",
+        "start",
+        "--",
         toolchain.dependency_finalizer,
         src,
         dep_info_file,
