@@ -126,6 +126,10 @@ ActionError {
 
     # Stringified hash of the same stringified error message that is provided by the action
     error: str,
+
+    # Optional list of error categorizations provided by an error handler which is invoked
+    # in the event of a failed action, or an error message if the error handler failed.
+    error_diagnostics: Optional[ActionErrorDiagnostics],
 }
 
 ActionKey {
@@ -139,6 +143,38 @@ ActionName {
 
     # The optional identifier of the action
     identifier: Optional[str],
+}
+
+enum ActionErrorDiagnostics {
+    # The list of sub errors if the error handler succeeded
+    sub_errors: list[ActionSubError],
+
+    # The stringified hash of the error message if the error handler failed
+    handler_invocation_error: String,
+}
+
+ActionSubError {
+    # Name of the error category. The category should be finer grain error categorizations
+    # provided by the rule authors, and tend to be language specific. These should not be
+    # any kind of shared concepts among all errors for all languages/rules. For example,
+    # timeouts and infra errors should not go here - buck2 tries to categorize these types
+    # of errors automatically. An example of a finer grain error category may be the error
+    # code for rustc outputs.
+    category: str,
+
+    # The stringified hash of the extra message provided for the specific sub-error category.
+    message_content: str,
+
+    # List of error locations, if any
+    locations: Optional[list[ActionErrorLocation]],
+}
+
+ActionErrorLocation {
+    # File path where the error appeared, preferrably either project-relative or absolute.
+    file: str,
+
+    # Optional line number
+    line: Optional[u64]
 }
 ```
 
