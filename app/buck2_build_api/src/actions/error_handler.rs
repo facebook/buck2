@@ -91,7 +91,8 @@ impl<'v> StarlarkValue<'v> for StarlarkActionErrorContext {
     }
 }
 
-/// Methods available on `ActionErrorCtx` to help categorize the action failure.
+/// Methods available on `ActionErrorCtx` to help categorize the action failure. These
+/// categorizations should be finer grain, and most likely language specific.
 #[starlark_module]
 fn action_error_context_methods(builder: &mut MethodsBuilder) {
     /// The stderr of the failed action.
@@ -106,17 +107,29 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
         Ok(&this.stdout)
     }
 
-    /// Create a new error location, specifying a file name and an optional line number
+    /// Create a new error location, specifying a file path and an optional line number.
+    ///
+    /// The file path should be either a project-relative path, or an absolute path.
     fn new_error_location<'v>(
         #[starlark(this)] _this: &'v StarlarkActionErrorContext,
         #[starlark(require = named)] file: String,
         #[starlark(require = named)] line: Option<u64>,
     ) -> anyhow::Result<StarlarkActionErrorLocation> {
+        // @TODO(wendyy) - actually enforce/validate the path types.
         Ok(StarlarkActionErrorLocation { file, line })
     }
 
     /// Create a new sub error, specifying an error category name, optional message, and
     /// an optional list of error locations.
+    ///
+    /// The category should be finer grain error categorizations provided by the rule authors,
+    /// and tend to be language specific. These should not be any kind of shared concepts
+    /// among all errors for all languages/rules. For example, timeouts and infra errors
+    /// should not go here - buck2 tries to categorize these types of errors automatically.
+    /// An example of a finer grain error category may be the error code for rustc outputs.
+    ///
+    /// The message will be emitted to the build report, and to the stderr in the error diagnostics
+    /// section.
     fn new_sub_error<'v>(
         #[starlark(this)] _this: &'v StarlarkActionErrorContext,
         #[starlark(require = named)] category: String,

@@ -30,6 +30,27 @@ struct BuildReportActionKey {
     owner: String,
 }
 
+#[derive(Debug, Clone, Serialize, PartialOrd, Ord, PartialEq, Eq)]
+enum BuildReportActionErrorDiagnostics {
+    #[serde(rename = "sub_errors")]
+    SubErrors(Vec<BuildReportActionSubError>),
+    #[serde(rename = "handler_invocation_error")]
+    HandlerInvocationError(String),
+}
+
+#[derive(Debug, Clone, Serialize, PartialOrd, Ord, PartialEq, Eq)]
+struct BuildReportActionSubError {
+    category: String,
+    message_content: Option<String>,
+    locations: Option<Vec<BuildReportActionErrorLocation>>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialOrd, Ord, PartialEq, Eq)]
+struct BuildReportActionErrorLocation {
+    file: String,
+    line: Option<u64>,
+}
+
 /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
 #[derive(Debug, Clone, Serialize, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct BuildReportActionError {
@@ -39,6 +60,7 @@ pub(crate) struct BuildReportActionError {
     error_content: String,
     stderr_content: String,
     stdout_content: String,
+    error_diagnostics: Option<BuildReportActionErrorDiagnostics>,
 }
 
 impl BuildReportActionError {
@@ -67,6 +89,43 @@ impl BuildReportActionError {
                 .map_or(String::default(), |name| name.identifier.clone()),
         };
 
+        let error_diagnostics = error.error_diagnostics.clone().map(|error_diagnostics| {
+            match error_diagnostics.data.unwrap() {
+                buck2_data::action_error_diagnostics::Data::SubErrors(sub_errors) => {
+                    let sub_errors = sub_errors
+                        .sub_errors
+                        .iter()
+                        .map(|s| {
+                            let locations = s.locations.as_ref().map(|locations| {
+                                locations
+                                    .locations
+                                    .iter()
+                                    .map(|l| BuildReportActionErrorLocation {
+                                        file: l.file.clone(),
+                                        line: l.line,
+                                    })
+                                    .collect()
+                            });
+                            BuildReportActionSubError {
+                                category: s.category.clone(),
+                                message_content: s
+                                    .message
+                                    .clone()
+                                    .map(|m| collector.update_string_cache(m)),
+                                locations,
+                            }
+                        })
+                        .collect();
+                    BuildReportActionErrorDiagnostics::SubErrors(sub_errors)
+                }
+                buck2_data::action_error_diagnostics::Data::HandlerInvocationError(
+                    invocation_failure,
+                ) => BuildReportActionErrorDiagnostics::HandlerInvocationError(
+                    collector.update_string_cache(invocation_failure.clone()),
+                ),
+            }
+        });
+
         let stderr = command_details.map_or(String::default(), |c| c.stderr.clone());
         let stdout = command_details.map_or(String::default(), |c| c.stdout.clone());
 
@@ -81,6 +140,7 @@ impl BuildReportActionError {
             stderr_content,
             stdout_content,
             digest: get_action_digest(command_details).unwrap_or_default(),
+            error_diagnostics,
         }
     }
 }

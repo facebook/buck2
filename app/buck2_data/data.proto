@@ -1169,12 +1169,25 @@ message ActionSubErrors {
 }
 
 message ActionSubError {
-  // error category produced by the error handler function provided by the rule
+  // Error category produced by the error handler function provided by the rule
   // author.
+  //
+  // These should be finer grain error categorizations provided by the rule
+  // authors, and tend to be language specific. These should not be any kind of
+  // shared concepts among all errors for all languages/rules. For example,
+  // timeouts and infra errors should not go here - buck2 tries to categorize
+  // these types of errors automatically. An example of a finer grain error
+  // category may be the error code for rustc outputs.
+
   string category = 1;
-  // optional freeform string for rule author to populate.
+
+  // Optional freeform string for rule author to populate. The message will be
+  // emitted to the build report, and to the stderr in the error diagnostics
+  // section.
+
   optional string message = 2;
-  // optional list of file locations/lines for rule author to populate.
+
+  // Optional list of file locations/lines for rule author to populate.
   optional ActionErrorLocations locations = 3;
 }
 
@@ -1185,6 +1198,7 @@ message ActionErrorLocations {
 }
 
 message ActionErrorLocation {
+  // The file path of the error location. Should be project relative or absolute
   string file = 1;
   optional uint64 line = 2;
 }
