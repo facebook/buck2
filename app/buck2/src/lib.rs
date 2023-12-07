@@ -20,6 +20,7 @@ use buck2_client::commands::bxl::BxlCommand;
 use buck2_client::commands::clean::CleanCommand;
 use buck2_client::commands::ctargets::ConfiguredTargetsCommand;
 use buck2_client::commands::debug::DebugCommand;
+use buck2_client::commands::help_env::HelpEnvCommand;
 use buck2_client::commands::init::InitCommand;
 use buck2_client::commands::install::InstallCommand;
 use buck2_client::commands::kill::KillCommand;
@@ -260,6 +261,7 @@ pub(crate) enum CommandKind {
     Aquery(AqueryCommand),
     Build(BuildCommand),
     Bxl(BxlCommand),
+    HelpEnv(HelpEnvCommand),
     Test(TestCommand),
     Cquery(CqueryCommand),
     Init(InitCommand),
@@ -369,6 +371,7 @@ impl CommandKind {
             CommandKind::Bxl(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Test(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Cquery(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::HelpEnv(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Kill(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Killall(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Clean(cmd) => cmd.exec(matches, command_ctx),

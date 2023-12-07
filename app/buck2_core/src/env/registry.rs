@@ -7,12 +7,20 @@
  * of this source tree.
  */
 
+use dupe::Dupe;
+
 /// Environment variable description.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Ord, PartialOrd, Copy, Clone, Dupe)]
 pub struct EnvInfoEntry {
     pub name: &'static str,
     pub ty: &'static str,
     pub default: Option<&'static str>,
+}
+
+impl EnvInfoEntry {
+    pub fn ty_short(&self) -> &'static str {
+        self.ty.rfind(':').map_or(self.ty, |i| &self.ty[i + 1..])
+    }
 }
 
 #[linkme::distributed_slice]
@@ -46,5 +54,15 @@ mod tests {
             },
             var_2
         );
+    }
+
+    #[test]
+    fn test_ty_short() {
+        let _ignore = buck2_env!("TEST_VAR_TY_SHORT");
+        let var = ENV_INFO
+            .iter()
+            .find(|e| e.name == "TEST_VAR_TY_SHORT")
+            .unwrap();
+        assert_eq!("String", var.ty_short());
     }
 }
