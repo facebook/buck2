@@ -651,7 +651,8 @@ impl InterpreterForCell {
         {
             console_warning(
                 format!(
-                    "Starlark peak memory usage is `{}` which is over `50`% of the limit `{}`! Consider investigating what takes too much memory: https://fburl.com/starlark_peak_mem_warning.",
+                    "Starlark peak memory usage for {} is `{}` which is over `50`% of the limit `{}`! Consider investigating what takes too much memory: https://fburl.com/starlark_peak_mem_warning.",
+                    build_file,
                     HumanizedBytes::fixed_width(starlark_peak_allocated_bytes),
                     HumanizedBytes::fixed_width(starlark_mem_limit)
                 )
