@@ -1628,7 +1628,8 @@ message TypedMetadata {
   map<string, string> strings = 2;
 }
 
-// Record event sent directly to scribe.
+// This is the origin for every sample in buck2_builds scuba table
+// It's sent from the client to Scribe at the end of each invocation
 message InvocationRecord {
   reserved 1, 22, 27, 28, 36, 61, 62, 66;
 
