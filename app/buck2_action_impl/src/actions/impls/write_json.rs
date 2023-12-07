@@ -68,14 +68,15 @@ enum WriteJsonActionValidationError {
     TooManyOutputs,
 }
 
-#[derive(Allocative)]
+#[derive(Allocative, Debug)]
 pub(crate) struct UnregisteredWriteJsonAction {
     pretty: bool,
+    absolute: bool,
 }
 
 impl UnregisteredWriteJsonAction {
-    pub(crate) fn new(pretty: bool) -> Self {
-        Self { pretty }
+    pub(crate) fn new(pretty: bool, absolute: bool) -> Self {
+        Self { pretty, absolute }
     }
 
     pub(crate) fn cli<'v>(
@@ -95,7 +96,7 @@ impl UnregisteredAction for UnregisteredWriteJsonAction {
         _error_handler: Option<OwnedFrozenValue>,
     ) -> anyhow::Result<Box<dyn Action>> {
         let contents = starlark_data.expect("module data to be present");
-        let action = WriteJsonAction::new(contents, inputs, outputs, self.pretty)?;
+        let action = WriteJsonAction::new(contents, inputs, outputs, *self)?;
         Ok(Box::new(action))
     }
 }
@@ -104,7 +105,7 @@ impl UnregisteredAction for UnregisteredWriteJsonAction {
 struct WriteJsonAction {
     contents: OwnedFrozenValue, // JSON value
     output: BuildArtifact,
-    pretty: bool,
+    inner: UnregisteredWriteJsonAction,
 }
 
 impl WriteJsonAction {
@@ -112,7 +113,7 @@ impl WriteJsonAction {
         contents: OwnedFrozenValue,
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
-        pretty: bool,
+        inner: UnregisteredWriteJsonAction,
     ) -> anyhow::Result<Self> {
         validate_json(contents.value())?;
 
@@ -133,13 +134,19 @@ impl WriteJsonAction {
         Ok(WriteJsonAction {
             contents,
             output,
-            pretty,
+            inner,
         })
     }
 
     fn get_contents(&self, fs: &ExecutorFs) -> anyhow::Result<Vec<u8>> {
         let mut writer = Vec::new();
-        json::write_json(self.contents.value(), Some(fs), &mut writer, self.pretty)?;
+        json::write_json(
+            self.contents.value(),
+            Some(fs),
+            &mut writer,
+            self.inner.pretty,
+            self.inner.absolute,
+        )?;
         Ok(writer)
     }
 }
@@ -180,7 +187,8 @@ impl Action for WriteJsonAction {
             "contents".to_owned() => match res {
                 Ok(v) => v,
                 Err(e) => format!("ERROR: constructing contents ({})", e)
-            }
+            },
+            "absolute".to_owned() => self.inner.absolute.to_string(),
         }
     }
 }

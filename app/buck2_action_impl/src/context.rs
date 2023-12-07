@@ -267,12 +267,17 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     ///   file but carries all the underlying inputs as dependencies (so you don't have to use, for
     ///   example, `hidden` for them to be added to an action that already receives the JSON file)
     /// * `pretty` (optional): write formatted JSON (defaults to `False`)
+    /// * `absolute` (optional): if set, this action will produce absolute paths in its output when
+    ///   rendering artifact paths. You generally shouldn't use this if you plan to use this action
+    ///   as the input for anything else, as this would effectively result in losing all shared
+    ///   caching. (defaults to `False`)
     fn write_json<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
         #[starlark(require = pos)] content: Value<'v>,
         #[starlark(require = named, default = false)] with_inputs: bool,
         #[starlark(require = named, default = false)] pretty: bool,
+        #[starlark(require = named, default = false)] absolute: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<impl AllocValue<'v>> {
         let mut this = this.state();
@@ -283,7 +288,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         this.register_action(
             IndexSet::new(),
             indexset![output_artifact],
-            UnregisteredWriteJsonAction::new(pretty),
+            UnregisteredWriteJsonAction::new(pretty, absolute),
             Some(content),
             None,
         )?;
