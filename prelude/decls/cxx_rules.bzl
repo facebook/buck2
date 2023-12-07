@@ -906,6 +906,7 @@ cxx_toolchain = prelude_rule(
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "link_path_normalization_args_enabled": attrs.bool(default = False),
+            "link_style": attrs.string(default = "static"),
             "linker": attrs.source(),
             "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
             "linker_type": attrs.enum(LinkerProviderType),

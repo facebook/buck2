@@ -83,7 +83,7 @@ def cxx_toolchain_impl(ctx):
         is_pdb_generated = is_pdb_generated(ctx.attrs.linker_type, ctx.attrs.linker_flags),
         link_binaries_locally = not value_or(ctx.attrs.cache_links, True),
         link_libraries_locally = False,
-        link_style = LinkStyle("static"),
+        link_style = LinkStyle(ctx.attrs.link_style),
         link_weight = 1,
         link_ordering = ctx.attrs.link_ordering,
         linker = ctx.attrs.linker[RunInfo],
