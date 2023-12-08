@@ -8,6 +8,7 @@
  */
 
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::io;
 use std::path::Path;
@@ -29,6 +30,7 @@ use tracing::Level;
 use crate::json_project::BuckExtensions;
 use crate::json_project::Edition;
 use crate::json_project::JsonProject;
+use crate::json_project::Source;
 use crate::json_project::Sysroot;
 use crate::target::AliasedTargetInfo;
 use crate::target::ExpandedAndResolved;
@@ -121,6 +123,20 @@ pub fn to_json_project(
             );
         }
 
+        let mut include_dirs = BTreeSet::new();
+        if let Some(out_dir) = &info.out_dir {
+            env.insert("OUT_DIR".to_owned(), out_dir.to_string_lossy().into_owned());
+            // to ensure that the `OUT_DIR` is included as part of the `PackageRoot` in rust-analyzer,
+            // manually insert the parent of the `out_dir` into `include_dirs`.
+            if let Some(parent) = out_dir.parent() {
+                include_dirs.insert(parent.to_owned());
+            }
+        }
+
+        if let Some(parent) = root_module.parent() {
+            include_dirs.insert(parent.to_owned());
+        }
+
         let crate_info = Crate {
             display_name: Some(info.name.clone()),
             root_module,
@@ -131,6 +147,10 @@ pub fn to_json_project(
             edition,
             deps,
             is_workspace_member: info.in_workspace,
+            source: Some(Source {
+                include_dirs,
+                exclude_dirs: BTreeSet::new(),
+            }),
             cfg,
             env,
             is_proc_macro: info.proc_macro.unwrap_or(false),
@@ -565,6 +585,7 @@ fn merge_tests_no_cycles() {
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("foo/BUCK"),
             in_workspace: false,
+            out_dir: None,
         },
     );
 
@@ -588,6 +609,7 @@ fn merge_tests_no_cycles() {
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("foo-unittest/BUCK"),
             in_workspace: false,
+            out_dir: None,
         },
     );
 
@@ -623,6 +645,7 @@ fn merge_target_multiple_tests_no_cycles() {
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("foo/BUCK"),
             in_workspace: false,
+            out_dir: None,
         },
     );
 
@@ -649,6 +672,7 @@ fn merge_target_multiple_tests_no_cycles() {
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("foo/BUCK"),
             in_workspace: false,
+            out_dir: None,
         },
     );
 
@@ -675,6 +699,7 @@ fn merge_target_multiple_tests_no_cycles() {
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("foo_test/BUCK"),
             in_workspace: false,
+            out_dir: None,
         },
     );
 
@@ -698,6 +723,7 @@ fn merge_target_multiple_tests_no_cycles() {
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("foo/BUCK"),
             in_workspace: false,
+            out_dir: None,
         },
     );
 

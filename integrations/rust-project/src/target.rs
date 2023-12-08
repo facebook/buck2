@@ -123,6 +123,7 @@ pub struct TargetInfo {
     pub source_folder: PathBuf,
     pub project_relative_buildfile: PathBuf,
     pub in_workspace: bool,
+    pub out_dir: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
