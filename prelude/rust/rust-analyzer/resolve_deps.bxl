@@ -15,7 +15,7 @@ def materialize(ctx, target):
     # Ensures the srcs folder will be present
     return ctx.output.ensure(sources).abs_path()
 
-def _process_target_config(ctx, target, in_workspace):
+def _process_target_config(ctx, target, in_workspace, out_dir = None):
     # convert all source paths to absolute paths
     resolved_attrs = target.resolved_attrs_eager(ctx)
 
@@ -70,6 +70,9 @@ def _process_target_config(ctx, target, in_workspace):
     copy["project_relative_buildfile"] = ctx.fs.project_rel_path(target.buildfile_path)
     copy["kind"] = target.rule_type
     copy["in_workspace"] = in_workspace
+    if out_dir:
+        copy["out_dir"] = out_dir
+
     return copy
 
 def cquery_deps(ctx, top_targets, workspaces, actions):
@@ -96,9 +99,22 @@ def cquery_deps(ctx, top_targets, workspaces, actions):
                 if thrift["mapped_src"] == "lib.rs":
                     cfg["crate_root"] = thrift["artifact"]
             out[target.label.raw_target()] = cfg
+        elif "generated_protobuf_library_rust" in labels.value():
+            protobuf = materialize_generated_protobufs(ctx, target, actions)
+            out[target.label.raw_target()] = _process_target_config(ctx, target, in_workspace, out_dir = protobuf.abs_path())
         else:
             out[target.label.raw_target()] = _process_target_config(ctx, target, in_workspace)
     return out
+
+def materialize_generated_protobufs(ctx, target, actions):
+    prost_target = target.attrs_lazy().get("named_deps").value().get("generated_prost_target")
+    t = prost_target.raw_target()
+    analysis = ctx.analysis(t)
+    output = analysis.providers()[DefaultInfo].default_outputs[0]
+    outfile = "{}/{}/{}".format(t.cell, t.package, t.name)
+    copied = ctx.output.ensure(actions.copy_file(outfile, output))
+
+    return copied
 
 def materialize_generated_thrift(ctx, target, actions, seen):
     mapped_srcs = target.attrs_lazy().get("mapped_srcs").value()

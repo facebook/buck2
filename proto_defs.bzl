@@ -57,6 +57,14 @@ def rust_protobuf_library(
             # This is where prost looks for generated .rs files
             "OUT_DIR": "$(location :{})".format(proto_name),
         },
+        named_deps = {
+            # "prost" is https://github.com/tokio-rs/prost, which is used
+            # to generate Rust code from protobuf definitions.
+            "generated_prost_target": ":{}".format(proto_name),
+        },
+        labels = [
+            "generated_protobuf_library_rust",
+        ],
         deps = [
             "fbsource//third-party/rust:prost",
         ] + (deps or []),
