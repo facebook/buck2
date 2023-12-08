@@ -179,9 +179,6 @@ mod fbcode {
                 Data::Instant(ref mut inst) => {
                     use buck2_data::instant_event::Data;
                     match &mut inst.data {
-                        Some(Data::TestResult(ref mut test_result)) => {
-                            Self::truncate_test_result(test_result);
-                        }
                         Some(Data::TargetPatterns(ref mut target_patterns)) => {
                             Self::truncate_target_patterns(&mut target_patterns.target_patterns);
                         }
@@ -318,11 +315,6 @@ mod fbcode {
             }
         }
 
-        fn truncate_test_result(test_result: &mut buck2_data::TestResult) {
-            const TRUNCATED_DETAILS_LENGTH: usize = 512 * 1024; // 512Kb
-            test_result.details = truncate(&test_result.details, TRUNCATED_DETAILS_LENGTH);
-        }
-
         fn truncate_test_end(test_end: &mut buck2_data::TestRunEnd) {
             const MAX_TEST_NAMES_BYTES: usize = 512 * 1024;
             if let Some(ref mut suite) = test_end.suite {
@@ -431,7 +423,6 @@ mod fbcode {
                     Some(Data::RageResult(..)) => true,
                     Some(Data::ReSession(..)) => true,
                     Some(Data::StructuredError(..)) => true,
-                    Some(Data::TestResult(..)) => true,
                     Some(Data::PersistSubprocess(..)) => true,
                     None => false,
                     _ => false,
