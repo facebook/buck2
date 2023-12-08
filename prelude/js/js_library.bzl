@@ -60,7 +60,7 @@ def _build_js_files(
     for grouped_src in grouped_srcs:
         identifier = "{}/{}".format(transform_profile, grouped_src.canonical_name)
 
-        output_path = ctx.actions.declare_output("{}.jsfile".format(identifier))
+        output_path = ctx.actions.declare_output("transform-out/{}.jsfile".format(identifier))
         job_args = {
             "additionalSources": [{
                 "sourcePath": additional_source,
@@ -106,7 +106,7 @@ def _build_library_files(
         transform_profile: str,
         flavors: list[str],
         js_files: list[Artifact]) -> Artifact:
-    output_path = ctx.actions.declare_output("{}/library_files".format(transform_profile))
+    output_path = ctx.actions.declare_output("library-files-out/{}/library_files".format(transform_profile))
     command_args_file = ctx.actions.write_json(
         "library_files_{}_command_args".format(transform_profile),
         {
@@ -135,7 +135,7 @@ def _build_js_library(
         library_files: Artifact,
         flavors: list[str],
         js_library_deps: list[Artifact]) -> Artifact:
-    output_path = ctx.actions.declare_output("{}.jslib".format(transform_profile))
+    output_path = ctx.actions.declare_output("library-dependencies-out/{}.jslib".format(transform_profile))
     job_args = {
         "aggregatedSourceFilesFilePath": library_files,
         "command": "library-dependencies",
