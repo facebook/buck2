@@ -352,12 +352,12 @@ mod test {
     #[tokio::test]
     async fn test_copy_and_hash_invalid_primary_hash() -> anyhow::Result<()> {
         assert_matches!(
-            do_test(testing::sha1(), &Checksum::Sha1(Arc::from("oops")),).await,
+            do_test(testing::sha1(), &Checksum::Sha1(Arc::from("oops"))).await,
             Err(HttpDownloadError::InvalidChecksum(..))
         );
 
         assert_matches!(
-            do_test(testing::sha256(), &Checksum::Sha256(Arc::from("oops")),).await,
+            do_test(testing::sha256(), &Checksum::Sha256(Arc::from("oops"))).await,
             Err(HttpDownloadError::InvalidChecksum(..))
         );
 
@@ -367,12 +367,12 @@ mod test {
     #[tokio::test]
     async fn test_copy_and_hash_invalid_secondary_hash() -> anyhow::Result<()> {
         assert_matches!(
-            do_test(testing::blake3(), &Checksum::Sha1(Arc::from("oops")),).await,
+            do_test(testing::blake3(), &Checksum::Sha1(Arc::from("oops"))).await,
             Err(HttpDownloadError::InvalidChecksum(..))
         );
 
         assert_matches!(
-            do_test(testing::blake3(), &Checksum::Sha256(Arc::from("oops")),).await,
+            do_test(testing::blake3(), &Checksum::Sha256(Arc::from("oops"))).await,
             Err(HttpDownloadError::InvalidChecksum(..))
         );
 
