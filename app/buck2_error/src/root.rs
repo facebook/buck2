@@ -7,10 +7,7 @@
  * of this source tree.
  */
 
-use std::error::Error as StdError;
 use std::fmt;
-
-use mappable_rc::Marc;
 
 use crate::ErrorType;
 
@@ -37,8 +34,7 @@ pub struct UniqueRootId(u64);
 #[derive(allocative::Allocative)]
 pub(crate) struct ErrorRoot {
     id: UniqueRootId,
-    #[allocative(skip)]
-    inner: Marc<anyhow::Error>,
+    description: String,
     error_type: Option<ErrorType>,
     source_location: Option<String>,
     action_error: Option<buck2_data::ActionError>,
@@ -46,7 +42,7 @@ pub(crate) struct ErrorRoot {
 
 impl ErrorRoot {
     pub(crate) fn new(
-        inner: Marc<anyhow::Error>,
+        description: String,
         error_type: Option<ErrorType>,
         source_location: Option<String>,
         action_error: Option<buck2_data::ActionError>,
@@ -54,25 +50,21 @@ impl ErrorRoot {
         let id = UniqueRootId(NEXT_ROOT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
         Self {
             id,
-            inner,
+            description,
             error_type,
             source_location,
             action_error,
         }
     }
 
-    pub(crate) fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        self.inner.source()
-    }
-
-    pub(crate) fn inner(&self) -> Marc<anyhow::Error> {
-        self.inner.clone()
+    pub(crate) fn description(&self) -> &str {
+        self.description.as_ref()
     }
 
     /// Equality comparison for use in tests only
     #[cfg(test)]
     pub(crate) fn test_equal(&self, other: &Self) -> bool {
-        Marc::ptr_eq(&self.inner, &other.inner)
+        self.description == other.description
     }
 
     pub(crate) fn id(&self) -> UniqueRootId {
@@ -94,6 +86,6 @@ impl ErrorRoot {
 
 impl fmt::Debug for ErrorRoot {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&self.inner, f)
+        fmt::Debug::fmt(&self.description, f)
     }
 }

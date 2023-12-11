@@ -12,7 +12,6 @@ use std::fmt;
 use std::sync::Arc;
 
 use dupe::Dupe;
-use mappable_rc::Marc;
 
 use crate::error::ErrorKind;
 use crate::DynLateFormat;
@@ -36,7 +35,9 @@ pub(crate) fn into_anyhow_for_format(
 
     let base = loop {
         match error.0.as_ref() {
-            ErrorKind::Root(root) => break AnyhowWrapperForFormat::Root(root.inner()),
+            ErrorKind::Root(root) => {
+                break AnyhowWrapperForFormat::Root(root.description().to_owned());
+            }
             ErrorKind::WithContext(context, inner) => {
                 context_stack.extend(context.as_display());
                 error = inner;
@@ -71,14 +72,14 @@ impl fmt::Display for crate::Error {
 }
 
 enum AnyhowWrapperForFormat {
-    Root(Marc<anyhow::Error>),
+    Root(String),
     LateFormat(Arc<DynLateFormat>),
 }
 
 impl fmt::Debug for AnyhowWrapperForFormat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Root(root) => fmt::Debug::fmt(root, f),
+            Self::Root(root) => fmt::Display::fmt(root, f),
             Self::LateFormat(late_format) => late_format(f),
         }
     }
@@ -95,10 +96,7 @@ impl fmt::Display for AnyhowWrapperForFormat {
 
 impl StdError for AnyhowWrapperForFormat {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        match self {
-            Self::Root(root) => root.source(),
-            Self::LateFormat(_) => None,
-        }
+        None
     }
 }
 

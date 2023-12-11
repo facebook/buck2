@@ -101,9 +101,9 @@ pub(crate) fn recover_crate_error(
         // alternate or debug formatting. We can match that behavior by just converting the error to
         // a string. That prevents us from having to deal with the type returned by `source` being
         // potentially non-`Send` or non-`Sync`.
-        let msg = format!("{}", cur);
+        let description = format!("{}", cur);
         let e = crate::Error(Arc::new(ErrorKind::Root(Box::new(ErrorRoot::new(
-            Marc::new(anyhow::Error::msg(msg)),
+            description,
             root_metadata.as_ref().and_then(|m| m.typ),
             source_location,
             root_metadata.and_then(|m| m.action_error),
@@ -141,7 +141,7 @@ impl fmt::Debug for CrateAsStdError {
 impl StdError for CrateAsStdError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match &*self.0.0 {
-            ErrorKind::Root(r) => r.source(),
+            ErrorKind::Root(_) => None,
             ErrorKind::WithContext(_, r) | ErrorKind::Emitted(_, r) => {
                 Some(CrateAsStdError::ref_cast(r))
             }
