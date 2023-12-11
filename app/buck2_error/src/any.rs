@@ -39,7 +39,7 @@ where
 }
 
 fn maybe_add_context_from_metadata(mut e: crate::Error, context: &dyn StdError) -> crate::Error {
-    if let Some(metadata) = request_value::<ProvidableContextMetadata>(context) {
+    if let Some(metadata) = request_value::<ProvidableMetadata>(context) {
         if let Some(category) = metadata.category {
             e = e.context(category);
         }
@@ -71,14 +71,11 @@ pub(crate) fn recover_crate_error(
             break base.0.clone();
         }
 
-        if let Some(metadata) = request_value::<ProvidableContextMetadata>(cur) {
+        if let Some(metadata) = request_value::<ProvidableMetadata>(cur) {
             source_location = crate::source_location::from_file(
                 metadata.source_file,
                 metadata.source_location_extra,
             );
-        }
-
-        if let Some(metadata) = request_value::<ProvidableRootMetadata>(cur) {
             if metadata.typ.is_some() {
                 typ = metadata.typ;
             }
@@ -148,27 +145,20 @@ impl StdError for CrateAsStdError {
 
 /// This can be `provide`d by an error to inject buck2-specific information about it.
 ///
-/// Currently intended for macro use only, might make sense to allow it more generally in the
-/// future.
+/// For `typ`, `action_error`, and the source information, only the value that appears last in the
+/// source chain will be used. The derive macro typically handles this to prevent any surprises,
+/// however if this value is being provided manually then care may need to be taken.
 #[derive(Clone)]
-pub struct ProvidableRootMetadata {
-    pub typ: Option<crate::ErrorType>,
-    /// The protobuf ActionError, if the root was an action error
-    pub action_error: Option<buck2_data::ActionError>,
-}
-
-/// Like `ProvidableRootMetadata`, but for "context-like" metadata that can appear on the error more
-/// than once.
-#[derive(Clone)]
-pub struct ProvidableContextMetadata {
-    /// Technically this should be in the `ProvidableRootMetadata`. However, we allow it to appear
-    /// multiple times in the context and just pick the last one. There's no benefit to being picky.
+pub struct ProvidableMetadata {
+    pub category: Option<crate::Category>,
+    pub tags: Vec<crate::ErrorTag>,
     pub source_file: &'static str,
     /// Extra information to add to the end of the source location - typically a type/variant name,
     /// and the same thing as gets passed to `buck2_error::source_location::from_file`.
     pub source_location_extra: Option<&'static str>,
-    pub category: Option<crate::Category>,
-    pub tags: Vec<crate::ErrorTag>,
+    pub typ: Option<crate::ErrorType>,
+    /// The protobuf ActionError, if the root was an action error
+    pub action_error: Option<buck2_data::ActionError>,
 }
 
 #[cfg(test)]
@@ -231,21 +221,18 @@ mod tests {
 
     impl StdError for FullMetadataError {
         fn provide<'a>(&'a self, request: &mut Request<'a>) {
-            request
-                .provide_value(ProvidableRootMetadata {
-                    typ: Some(crate::ErrorType::Watchman),
-                    action_error: None,
-                })
-                .provide_value(ProvidableContextMetadata {
-                    source_file: file!(),
-                    source_location_extra: Some("FullMetadataError"),
-                    tags: vec![
-                        crate::ErrorTag::WatchmanTimeout,
-                        crate::ErrorTag::StarlarkFail,
-                        crate::ErrorTag::WatchmanTimeout,
-                    ],
-                    category: Some(crate::Category::User),
-                });
+            request.provide_value(ProvidableMetadata {
+                typ: Some(crate::ErrorType::Watchman),
+                action_error: None,
+                source_file: file!(),
+                source_location_extra: Some("FullMetadataError"),
+                tags: vec![
+                    crate::ErrorTag::WatchmanTimeout,
+                    crate::ErrorTag::StarlarkFail,
+                    crate::ErrorTag::WatchmanTimeout,
+                ],
+                category: Some(crate::Category::User),
+            });
         }
     }
 

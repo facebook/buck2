@@ -76,8 +76,7 @@ pub use buck2_data::error::ErrorType;
 #[doc(inline)]
 pub use buck2_error_derive::Error;
 
-use crate::any::ProvidableContextMetadata;
-use crate::any::ProvidableRootMetadata;
+use crate::any::ProvidableMetadata;
 
 /// Provide metadata about an error.
 ///
@@ -101,11 +100,9 @@ pub fn provide_metadata<'a, 'b>(
     source_location_extra: Option<&'static str>,
     action_error: Option<buck2_data::ActionError>,
 ) {
-    if typ.is_some() {
-        let metadata = ProvidableRootMetadata { typ, action_error };
-        Request::provide_value(request, metadata);
-    }
-    let metadata = ProvidableContextMetadata {
+    let metadata = ProvidableMetadata {
+        typ,
+        action_error,
         category,
         tags: tags.iter().copied().flatten().collect(),
         source_file,
