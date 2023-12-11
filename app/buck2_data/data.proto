@@ -997,6 +997,8 @@ message CommandExecutionMetadata {
 
   /// How long it took to hash the action's artifacts
   google.protobuf.Duration hashing_duration = 6;
+
+  uint64 hashed_artifacts_count = 7;
 }
 
 message CommandOutputsMissing {

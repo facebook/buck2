@@ -259,6 +259,7 @@ fn timing_from_re_metadata(meta: &TExecutedActionMetadata) -> CommandExecutionMe
         execution_stats,
         input_materialization_duration: fetch_input_time,
         hashing_duration: Duration::ZERO,
+        hashed_artifacts_count: 0,
     }
 }
 

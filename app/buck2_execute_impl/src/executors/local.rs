@@ -447,7 +447,8 @@ impl LocalExecutor {
                     start_time,
                     execution_stats: None, // We fill this in later if available.
                     input_materialization_duration,
-                    hashing_duration: Duration::ZERO, // We fill this in later if available.
+                    hashing_duration: Duration::ZERO, // We fill hashing info in later if available.
+                    hashed_artifacts_count: 0,
                 };
 
                 (timing, r)
