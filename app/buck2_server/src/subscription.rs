@@ -9,7 +9,7 @@
 
 use std::time::Duration;
 
-use anyhow::Context as _;
+use buck2_error::Context as _;
 use buck2_events::dispatch::span_async;
 use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -58,7 +58,7 @@ pub(crate) async fn run_subscription_server_command(
                     message = req.message().fuse() => {
                         use buck2_subscription_proto::subscription_request::Request;
 
-                        match message?.request.context("Empty message")?.request.context("Empty request")? {
+                        match message?.request.context("Empty message").user()?.request.context("Empty request").user()? {
                             Request::Disconnect(disconnect) => {
                                 break disconnect;
                             }
