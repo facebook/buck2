@@ -241,22 +241,22 @@ impl<'a> BuckdLifecycle<'a> {
 
         let mut daemon_env_vars = Vec::new();
 
-        let has_backtrace_vars =
-            env::var_os("RUST_BACKTRACE").is_some() || env::var_os("RUST_LIB_BACKTRACE").is_some();
+        daemon_env_vars.push((OsStr::new("RUST_BACKTRACE"), OsStr::new("1")));
 
-        if !has_backtrace_vars {
-            daemon_env_vars.push((OsStr::new("RUST_BACKTRACE"), OsStr::new("1")));
-
-            // TODO(nga): somewhere we capture too many backtraces, probably
-            //   we create too many `anyhow::Error` on non-error paths.
-            //   Probably somewhere in Starlark, because of "evaluating build file" spans.
-            //   Can be reproduced with this command:
-            //   ```
-            //   buck2 --isolation-dir=xx audit providers fbcode//buck2:buck2 --quiet
-            //   ```
-            //   Which regresses from 15s to 80s when `RUST_LIB_BACKTRACE` is set.
-            daemon_env_vars.push((OsStr::new("RUST_LIB_BACKTRACE"), OsStr::new("0")));
-        };
+        // TODO(nga): We create too many backtraces during `attrs.source()` coercion. Can be
+        //   reproduced with this command:
+        //   ```
+        //   buck2 --isolation-dir=xx audit providers fbcode//buck2:buck2 --quiet
+        //   ```
+        //   Which regresses from 15s to 80s when `RUST_LIB_BACKTRACE` is set. So we disable
+        //   backtraces in the daemon unless the user has explicitly asked for them. We
+        //   intentionally avoid considering the `RUST_BACKTRACE` variables that buck was invoked
+        //   with, because a lot of Rust tooling sets those without meaning to influence this
+        //   behavior.
+        daemon_env_vars.push((
+            OsStr::new("RUST_LIB_BACKTRACE"),
+            OsStr::new(buck2_env!("BUCK2_LIB_BACKTRACE")?.unwrap_or("0")),
+        ));
 
         if env::var_os("FORCE_WANT_RESTART").is_some() {
             // Disable restarter for the actual daemon command, even if it was forced, otherwise we
