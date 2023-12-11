@@ -149,9 +149,6 @@ impl StdError for CrateAsStdError {
     }
 }
 
-pub type CheckErrorType =
-    for<'a> fn(&'a (dyn StdError + 'static)) -> Option<&'a (dyn StdError + Send + Sync + 'static)>;
-
 /// This can be `provide`d by an error to inject buck2-specific information about it.
 ///
 /// Currently intended for macro use only, might make sense to allow it more generally in the
@@ -159,16 +156,6 @@ pub type CheckErrorType =
 #[derive(Clone)]
 pub struct ProvidableRootMetadata {
     pub typ: Option<crate::ErrorType>,
-    /// Some errors will transitively call `Provide` for their sources. That means that even when a
-    /// `request_value` call returns `Some`, the value might actually be provided by something
-    /// further down the source chain. We work around this issue by calling this function to confirm
-    /// that the value was indeed provided by the element of the source chain we're currently
-    /// inspecting.
-    ///
-    /// We also reuse this to get a `Send + Sync` reference to our error, since `source()` does not
-    /// give us that.
-    pub check_error_type: CheckErrorType,
-
     /// The protobuf ActionError, if the root was an action error
     pub action_error: Option<buck2_data::ActionError>,
 }
@@ -185,14 +172,6 @@ pub struct ProvidableContextMetadata {
     pub source_location_extra: Option<&'static str>,
     pub category: Option<crate::Category>,
     pub tags: Vec<crate::ErrorTag>,
-    /// See `ProvidableRootMetadata`
-    pub check_error_type: CheckErrorType,
-}
-
-impl ProvidableRootMetadata {
-    pub const fn gen_check_error_type<E: StdError + Send + Sync + 'static>() -> CheckErrorType {
-        |e| e.downcast_ref::<E>().map(|e| e as _)
-    }
 }
 
 #[cfg(test)]
@@ -258,7 +237,6 @@ mod tests {
             request
                 .provide_value(ProvidableRootMetadata {
                     typ: Some(crate::ErrorType::Watchman),
-                    check_error_type: ProvidableRootMetadata::gen_check_error_type::<Self>(),
                     action_error: None,
                 })
                 .provide_value(ProvidableContextMetadata {
@@ -270,7 +248,6 @@ mod tests {
                         crate::ErrorTag::WatchmanTimeout,
                     ],
                     category: Some(crate::Category::User),
-                    check_error_type: ProvidableRootMetadata::gen_check_error_type::<Self>(),
                 });
         }
     }

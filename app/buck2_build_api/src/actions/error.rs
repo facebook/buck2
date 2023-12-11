@@ -60,7 +60,7 @@ impl std::error::Error for ActionError {
             ExecuteError::Error { .. } => None,
         };
 
-        buck2_error::provide_metadata::<Self>(
+        buck2_error::provide_metadata(
             request,
             category,
             typ,

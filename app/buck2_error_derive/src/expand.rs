@@ -344,7 +344,7 @@ fn gen_provide_contents(
     });
 
     let metadata = quote! {
-        buck2_error::provide_metadata::<Self>(
+        buck2_error::provide_metadata(
             __request,
             #category,
             #typ,
