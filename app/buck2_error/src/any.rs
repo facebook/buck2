@@ -14,7 +14,6 @@ use std::error::Error as StdError;
 use std::fmt;
 use std::sync::Arc;
 
-use mappable_rc::Marc;
 use ref_cast::RefCast;
 
 use crate::error::ErrorKind;
@@ -38,12 +37,12 @@ where
         let mut e = Some(value);
         let r: &mut dyn std::any::Any = &mut e;
         if let Some(e) = r.downcast_mut::<Option<anyhow::Error>>() {
-            return recover_crate_error(Marc::new(e.take().unwrap()), source_location);
+            return recover_crate_error(e.take().unwrap().as_ref(), source_location);
         }
 
         // Otherwise, we'll use the strategy for `StdError`
-        let anyhow = e.unwrap().into();
-        recover_crate_error(Marc::new(anyhow), source_location)
+        let anyhow: anyhow::Error = e.unwrap().into();
+        recover_crate_error(anyhow.as_ref(), source_location)
     }
 }
 
@@ -62,13 +61,13 @@ fn maybe_add_context_from_metadata(mut e: crate::Error, context: &dyn StdError) 
 }
 
 pub(crate) fn recover_crate_error(
-    value: Marc<anyhow::Error>,
+    value: &'_ (dyn StdError + 'static),
     source_location: Option<String>,
 ) -> crate::Error {
     // Instead of just turning this into an error root, we will first check if this error has any
     // information associated with it that would allow us to recover more structure.
     let mut context_stack = Vec::new();
-    let mut cur: Marc<dyn StdError + 'static> = Marc::map(value.clone(), AsRef::as_ref);
+    let mut cur = value;
     // We allow this to appear more than once in the context chain, however we always use the
     // bottom-most value
     let mut source_location = source_location;
@@ -79,19 +78,19 @@ pub(crate) fn recover_crate_error(
             break base.0.clone();
         }
 
-        if let Some(metadata) = request_value::<ProvidableContextMetadata>(&*cur) {
+        if let Some(metadata) = request_value::<ProvidableContextMetadata>(cur) {
             source_location = crate::source_location::from_file(
                 metadata.source_file,
                 metadata.source_location_extra,
             );
         }
 
-        if let Some(metadata) = request_value::<ProvidableRootMetadata>(&*cur) {
+        if let Some(metadata) = request_value::<ProvidableRootMetadata>(cur) {
             root_metadata = Some(metadata);
         }
 
         // Compute the next element in the source chain
-        if let Ok(new_cur) = Marc::try_map(cur.clone(), |e| e.source()) {
+        if let Some(new_cur) = cur.source() {
             context_stack.push(cur);
             cur = new_cur;
             continue;
@@ -108,16 +107,16 @@ pub(crate) fn recover_crate_error(
             source_location,
             root_metadata.and_then(|m| m.action_error),
         )))));
-        break 'base maybe_add_context_from_metadata(e, cur.as_ref());
+        break 'base maybe_add_context_from_metadata(e, cur);
     };
     // We were able to convert the error into a `buck2_error::Error` in some non-trivial way. We'll
     // now need to add back any context that is not included in the `base` buck2_error yet.
     let mut e = base;
     for context_value in context_stack.into_iter().rev() {
         // First, just add the value directly. This value is only used for formatting
-        e = e.context(&context_value);
+        e = e.context(context_value);
         // Now add any additional information from the metadata, if it's available
-        e = maybe_add_context_from_metadata(e, context_value.as_ref());
+        e = maybe_add_context_from_metadata(e, context_value);
     }
     e
 }

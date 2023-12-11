@@ -11,8 +11,6 @@ use std::error::Error as StdError;
 use std::fmt;
 use std::sync::Arc;
 
-use mappable_rc::Marc;
-
 use crate::context_value::ContextValue;
 use crate::format::into_anyhow_for_format;
 use crate::root::ErrorRoot;
@@ -56,7 +54,7 @@ impl Error {
     pub fn new<E: StdError + Send + Sync + 'static>(e: E) -> Self {
         let source_location =
             crate::source_location::from_file(std::panic::Location::caller().file(), None);
-        crate::any::recover_crate_error(Marc::new(anyhow::Error::new(e)), source_location)
+        crate::any::recover_crate_error(&e, source_location)
     }
 
     fn iter_kinds<'a>(&'a self) -> impl Iterator<Item = &'a ErrorKind> {
