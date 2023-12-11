@@ -72,6 +72,7 @@ enum StarlarkPeakMemoryError {
     #[error(
         "Starlark peak memory usage for {0} is `{1}` which exceeds the limit `{2}`! Please reduce memory usage to prevent OOMs. See https://fburl.com/starlark_peak_mem_warning for debugging tips."
     )]
+    #[buck2(user)]
     ExceedsThreshold(BuildFilePath, HumanizedBytes, HumanizedBytes),
 }
 
