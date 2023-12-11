@@ -140,34 +140,18 @@ pub(crate) fn recover_crate_error(
     };
     // We were able to convert the error into a `buck2_error::Error` in some non-trivial way. We'll
     // now need to add back any context that is not included in the `base` buck2_error yet.
-    // Unfortunately, we cannot detect whether the remainder of the error chain is actually
-    // associated with `anyhow::Context::context` calls or not. If it is, this will all work
-    // correctly. If not, we might get some whacky formatting. However, in order for this to go
-    // wrong, someone else has to have put an `anyhow::Error` into their custom error type, which
-    // they really shouldn't be doing anyway.
     let mut e = base;
     for (context_value, context_metadata) in context_stack.into_iter().rev() {
+        // First, just add the value directly. This value is only used for formatting
+        e = e.context(context_value);
+        // Now add any additional information from the metadata, if it's available
         if let Some(context_metadata) = context_metadata {
-            // The `unwrap` is ok because we checked this condition when initially constructing the `context_metadata`
-            let context_value = Marc::map(context_value, |e| {
-                (context_metadata.check_error_type)(e).unwrap()
-            });
-            e = e.context(context_value);
             if let Some(category) = context_metadata.category {
                 e = e.context(category);
             }
             if !context_metadata.tags.is_empty() {
                 e = e.tag(context_metadata.tags.iter().copied());
             }
-        } else {
-            // The context that shows up here is restricted to that which was added by
-            // `anyhow::Context` or non-`buck2_error::Error` impls of `StdError`, including from
-            // `thiserror`. The only way we can get access to this context in any way is via the
-            // source chain - however the source chain only gives us a `dyn StdError`, without `Send
-            // + Sync`. As a result, we cannot store the context in a "typed" way, and must resort
-            //   to doing this.
-            let context = format!("{}", context_value);
-            e = e.context(context);
         }
     }
     e
