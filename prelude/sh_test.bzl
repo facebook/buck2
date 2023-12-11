@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//tests:re_utils.bzl", "get_re_executor_from_props")
+load("@prelude//tests:re_utils.bzl", "get_re_executors_from_props")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 
 def sh_test_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -42,7 +42,7 @@ def sh_test_impl(ctx: AnalysisContext) -> list[Provider]:
     command = [args] + ctx.attrs.args
 
     # Setup a RE executor based on the `remote_execution` param.
-    re_executor = get_re_executor_from_props(ctx)
+    re_executor, executor_overrides = get_re_executors_from_props(ctx)
 
     # We implicitly make the target run from the project root if remote
     # excution options were specified
@@ -59,6 +59,7 @@ def sh_test_impl(ctx: AnalysisContext) -> list[Provider]:
             labels = ctx.attrs.labels,
             contacts = ctx.attrs.contacts,
             default_executor = re_executor,
+            executor_overrides = executor_overrides,
             run_from_project_root = run_from_project_root,
             use_project_relative_paths = run_from_project_root,
         ),

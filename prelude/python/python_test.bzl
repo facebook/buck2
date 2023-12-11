@@ -8,7 +8,7 @@
 load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//tests:re_utils.bzl",
-    "get_re_executor_from_props",
+    "get_re_executors_from_props",
 )
 load("@prelude//utils:utils.bzl", "from_named_set", "value_or")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
@@ -61,8 +61,8 @@ def python_test_impl(ctx: AnalysisContext) -> list[Provider]:
     pex = python_test_executable(ctx)
     test_cmd = pex.run_cmd
 
-    # Setup a RE executor based on the `remote_execution` param.
-    re_executor = get_re_executor_from_props(ctx)
+    # Setup RE executors based on the `remote_execution` param.
+    re_executor, executor_overrides = get_re_executors_from_props(ctx)
 
     return inject_test_run_info(
         ctx,
@@ -73,6 +73,7 @@ def python_test_impl(ctx: AnalysisContext) -> list[Provider]:
             labels = ctx.attrs.labels,
             contacts = ctx.attrs.contacts,
             default_executor = re_executor,
+            executor_overrides = executor_overrides,
             # We implicitly make this test via the project root, instead of
             # the cell root (e.g. fbcode root).
             run_from_project_root = re_executor != None,

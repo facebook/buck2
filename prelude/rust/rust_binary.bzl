@@ -42,7 +42,7 @@ load(
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load(
     "@prelude//tests:re_utils.bzl",
-    "get_re_executor_from_props",
+    "get_re_executors_from_props",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "flatten_dict")
@@ -375,8 +375,8 @@ def rust_test_impl(ctx: AnalysisContext) -> list[Provider]:
         allow_cache_upload = False,
     )
 
-    # Setup a RE executor based on the `remote_execution` param.
-    re_executor = get_re_executor_from_props(ctx)
+    # Setup RE executors based on the `remote_execution` param.
+    re_executor, executor_overrides = get_re_executors_from_props(ctx)
 
     return inject_test_run_info(
         ctx,
@@ -387,6 +387,7 @@ def rust_test_impl(ctx: AnalysisContext) -> list[Provider]:
             labels = ctx.attrs.labels,
             contacts = ctx.attrs.contacts,
             default_executor = re_executor,
+            executor_overrides = executor_overrides,
             run_from_project_root = True,
             use_project_relative_paths = True,
         ),

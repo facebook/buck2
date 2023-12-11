@@ -28,15 +28,16 @@ def _get_re_arg(ctx: AnalysisContext):
 
     return None
 
-def get_re_executor_from_props(ctx: AnalysisContext) -> [CommandExecutorConfig, None]:
+def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig, None], dict[str, CommandExecutorConfig]):
     """
-    Convert the `remote_execution` properties param into a `CommandExecutorConfig`
-    to use with test providers.
+    Convert the `remote_execution` properties param into `CommandExecutorConfig` objects to use with test providers.
+
+    Returns (default_executor, executor_overrides).
     """
 
     re_props = _get_re_arg(ctx)
     if re_props == None:
-        return None
+        return None, {}
 
     re_props_copy = dict(re_props)
     capabilities = re_props_copy.pop("capabilities")
@@ -51,7 +52,7 @@ def get_re_executor_from_props(ctx: AnalysisContext) -> [CommandExecutorConfig, 
     if build_mode_info != None:
         remote_execution_action_key = "{}={}".format(build_mode_info.cell, build_mode_info.mode)
 
-    return CommandExecutorConfig(
+    default_executor = CommandExecutorConfig(
         local_enabled = False,
         remote_enabled = True,
         remote_execution_properties = capabilities,
@@ -59,3 +60,4 @@ def get_re_executor_from_props(ctx: AnalysisContext) -> [CommandExecutorConfig, 
         remote_cache_enabled = remote_cache_enabled,
         remote_execution_action_key = remote_execution_action_key,
     )
+    return default_executor, {}

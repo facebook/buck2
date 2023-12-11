@@ -17,7 +17,7 @@ load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
 load(
     "@prelude//tests:re_utils.bzl",
-    "get_re_executor_from_props",
+    "get_re_executors_from_props",
 )
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
@@ -71,8 +71,8 @@ def build_junit_test(
 
     labels = ctx.attrs.labels or []
 
-    # Setup a RE executor based on the `remote_execution` param.
-    re_executor = get_re_executor_from_props(ctx)
+    # Setup RE executors based on the `remote_execution` param.
+    re_executor, executor_overrides = get_re_executors_from_props(ctx)
 
     # We implicitly make the target run from the project root if remote
     # excution options were specified.
@@ -157,6 +157,7 @@ def build_junit_test(
         run_from_project_root = not run_from_cell_root,
         use_project_relative_paths = not run_from_cell_root,
         default_executor = re_executor,
+        executor_overrides = executor_overrides,
     )
     return test_info
 
