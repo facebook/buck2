@@ -76,7 +76,7 @@ load("@prelude//decls/shell_rules.bzl", "shell_rules")
 load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load("@prelude//decls/uncategorized_rules.bzl", "uncategorized_rules")
 load("@prelude//transitions/constraint_overrides.bzl", "constraint_overrides_transition")
-load(":alias.bzl", "alias_impl", "configured_alias_impl", "toolchain_alias_impl", "versioned_alias_impl")
+load(":alias.bzl", "alias_impl", "configured_alias_impl", "versioned_alias_impl")
 load(":command_alias.bzl", "command_alias_impl")
 load(":export_file.bzl", "export_file_impl")
 load(":filegroup.bzl", "filegroup_impl")
@@ -137,7 +137,6 @@ extra_implemented_rules = struct(
     sh_binary = sh_binary_impl,
     sh_test = sh_test_impl,
     test_suite = test_suite_impl,
-    toolchain_alias = toolchain_alias_impl,
     versioned_alias = versioned_alias_impl,
     worker_tool = worker_tool,
 
@@ -589,5 +588,4 @@ transitions = {
 toolchain_rule_names = [
     "apple_toolchain",
     "swift_toolchain",
-    "toolchain_alias",
 ]
