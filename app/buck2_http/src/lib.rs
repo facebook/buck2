@@ -34,6 +34,16 @@ fn http_error_label(status: StatusCode) -> &'static str {
     }
 }
 
+fn category_from_status(status: StatusCode) -> Option<buck2_error::Category> {
+    if status.is_server_error() {
+        Some(buck2_error::Category::Infra)
+    } else if status == StatusCode::FORBIDDEN || status == StatusCode::NOT_FOUND {
+        Some(buck2_error::Category::User)
+    } else {
+        None
+    }
+}
+
 #[derive(Debug, buck2_error::Error)]
 pub enum HttpError {
     #[error("HTTP URI Error: URI {uri} is malformed: {source:?}")]
@@ -45,12 +55,14 @@ pub enum HttpError {
     #[error("HTTP: Error building request")]
     BuildRequest(#[source] http::Error),
     #[error("HTTP: Error sending request to {uri}")]
+    #[buck2(infra)]
     SendRequest {
         uri: String,
         #[source]
         source: hyper::Error,
     },
     #[error("HTTP {} Error ({status}) when querying URI: {uri}. Response text: {text}", http_error_label(*.status))]
+    #[buck2(category = category_from_status(*status))]
     Status {
         status: StatusCode,
         uri: String,
@@ -61,6 +73,7 @@ pub enum HttpError {
     #[error("HTTP: Error mutating request")]
     MutateRequest(#[source] anyhow::Error),
     #[error("HTTP: Timed out while making request to URI: {uri} after {duration} seconds.")]
+    #[buck2(infra)]
     Timeout { uri: String, duration: u64 },
     #[error("While making request to {uri} via x2p")]
     X2P {
