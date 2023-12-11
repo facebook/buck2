@@ -34,6 +34,9 @@ use crate::external_symlink::ExternalSymlink;
 #[derive(Debug, buck2_error::Error)]
 enum FileOpsError {
     #[error("File not found: `{0}`")]
+    // File not found errors are not inherently always user errors; however, we only use these
+    // methods with source files, and in that case this is correct
+    #[buck2(user)]
     FileNotFound(String),
 }
 
