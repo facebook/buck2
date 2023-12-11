@@ -78,18 +78,12 @@ pub(crate) fn recover_crate_error(
             break base.0.clone();
         }
 
-        let context_metadata = if let Some(metadata) =
-            request_value::<ProvidableContextMetadata>(&*cur)
-            && (metadata.check_error_type)(&*cur).is_some()
-        {
+        if let Some(metadata) = request_value::<ProvidableContextMetadata>(&*cur) {
             source_location = crate::source_location::from_file(
                 metadata.source_file,
                 metadata.source_location_extra,
             );
-            Some(metadata)
-        } else {
-            None
-        };
+        }
 
         if let Some(metadata) = request_value::<ProvidableRootMetadata>(&*cur)
             && (metadata.check_error_type)(&*cur).is_some()
@@ -107,7 +101,7 @@ pub(crate) fn recover_crate_error(
 
         // Compute the next element in the source chain
         if let Ok(new_cur) = Marc::try_map(cur.clone(), |e| e.source()) {
-            context_stack.push((cur, context_metadata));
+            context_stack.push(cur);
             cur = new_cur;
             continue;
         }
@@ -126,7 +120,7 @@ pub(crate) fn recover_crate_error(
     // We were able to convert the error into a `buck2_error::Error` in some non-trivial way. We'll
     // now need to add back any context that is not included in the `base` buck2_error yet.
     let mut e = base;
-    for (context_value, _) in context_stack.into_iter().rev() {
+    for context_value in context_stack.into_iter().rev() {
         // First, just add the value directly. This value is only used for formatting
         e = e.context(&context_value);
         // Now add any additional information from the metadata, if it's available
