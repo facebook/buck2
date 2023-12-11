@@ -27,33 +27,52 @@ use crate::directory::ActionDirectoryBuilder;
 use crate::directory::ActionDirectoryEntry;
 use crate::directory::ActionDirectoryMember;
 
+pub struct HashingInfo {
+    pub hashing_duration: Duration,
+    pub hashed_artifacts_count: u64,
+}
+
 pub fn build_entry_from_disk(
     mut path: AbsNormPathBuf,
     digest_config: FileDigestConfig,
 ) -> anyhow::Result<(
     Option<ActionDirectoryEntry<ActionDirectoryBuilder>>,
-    Duration,
+    HashingInfo,
 )> {
     // Get file metadata. If the file is missing, ignore it.
     let m = match std::fs::symlink_metadata(&path) {
         Ok(m) => m,
         Err(ref err) if err.kind() == std::io::ErrorKind::NotFound => {
-            return Ok((None, Duration::ZERO));
+            return Ok((
+                None,
+                HashingInfo {
+                    hashing_duration: Duration::ZERO,
+                    hashed_artifacts_count: 0,
+                },
+            ));
         }
         Err(err) => return Err(err.into()),
     };
     let hashing_start = Instant::now();
-
+    let mut hashed_artifacts_count = 0;
     let value = match FileType::from(m.file_type()) {
-        FileType::File => DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
-            digest: TrackedFileDigest::new(
-                FileDigest::from_file(&path, digest_config)?,
-                digest_config.as_cas_digest_config(),
-            ),
-            is_executable: path.executable(),
-        })),
+        FileType::File => {
+            hashed_artifacts_count += 1;
+            DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
+                digest: TrackedFileDigest::new(
+                    FileDigest::from_file(&path, digest_config)?,
+                    digest_config.as_cas_digest_config(),
+                ),
+                is_executable: path.executable(),
+            }))
+        }
         FileType::Symlink => DirectoryEntry::Leaf(new_symlink(fs_util::read_link(&path)?)?),
-        FileType::Directory => DirectoryEntry::Dir(build_dir_from_disk(&mut path, digest_config)?),
+
+        FileType::Directory => {
+            let (dir, count) = build_dir_from_disk(&mut path, digest_config)?;
+            hashed_artifacts_count += count;
+            DirectoryEntry::Dir(dir)
+        }
         FileType::Unknown => {
             return Err(anyhow::anyhow!(
                 "Path {:?} is of an unknown file type.",
@@ -61,16 +80,22 @@ pub fn build_entry_from_disk(
             ));
         }
     };
-    let hashing_time = hashing_start.elapsed();
-    Ok((Some(value), hashing_time))
+    let hashing_duration = hashing_start.elapsed();
+    Ok((
+        Some(value),
+        HashingInfo {
+            hashing_duration,
+            hashed_artifacts_count,
+        },
+    ))
 }
 
 fn build_dir_from_disk(
     disk_path: &mut AbsNormPathBuf,
     digest_config: FileDigestConfig,
-) -> anyhow::Result<ActionDirectoryBuilder> {
+) -> anyhow::Result<(ActionDirectoryBuilder, u64)> {
     let mut builder = ActionDirectoryBuilder::empty();
-
+    let mut hashed_artifacts_count = 0;
     for file in fs_util::read_dir(&disk_path)? {
         let file = file?;
         let filetype = file.file_type()?;
@@ -96,6 +121,7 @@ fn build_dir_from_disk(
                     filename,
                     DirectoryEntry::Leaf(ActionDirectoryMember::File(metadata)),
                 )?;
+                hashed_artifacts_count += 1;
             }
             FileType::Symlink => {
                 builder.insert(
@@ -104,8 +130,9 @@ fn build_dir_from_disk(
                 )?;
             }
             FileType::Directory => {
-                let dir = build_dir_from_disk(disk_path, digest_config)?;
+                let (dir, hashed_files) = build_dir_from_disk(disk_path, digest_config)?;
                 builder.insert(filename, DirectoryEntry::Dir(dir))?;
+                hashed_artifacts_count += hashed_files;
             }
             FileType::Unknown => (),
         };
@@ -113,5 +140,5 @@ fn build_dir_from_disk(
         disk_path.pop();
     }
 
-    Ok(builder)
+    Ok((builder, hashed_artifacts_count))
 }
