@@ -57,7 +57,6 @@ rust_library(
         "fbsource//third-party/rust:tracing",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_error:buck2_error",
-        "//buck2/dice/dice:dice",
         "//buck2/facebook/find_certs:find_certs",
         "//buck2/gazebo/dupe:dupe",
         "//buck2/gazebo/gazebo:gazebo",

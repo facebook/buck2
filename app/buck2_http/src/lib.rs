@@ -10,8 +10,6 @@
 #![feature(error_generic_member_access)]
 #![feature(if_let_guard)]
 
-use dice::UserComputationData;
-use dupe::Dupe;
 use hyper::StatusCode;
 
 mod client;
@@ -25,31 +23,6 @@ mod x2p;
 pub use client::to_bytes;
 pub use client::HttpClient;
 pub use client::HttpClientBuilder;
-
-/// Dice implementations so we can pass along the HttpClient to various subsystems
-/// that need to use it (Materializer, RunActions, etc).
-pub trait HasHttpClient {
-    fn get_http_client(&self) -> HttpClient;
-}
-
-pub trait SetHttpClient {
-    fn set_http_client(&mut self, client: HttpClient);
-}
-
-impl HasHttpClient for UserComputationData {
-    fn get_http_client(&self) -> HttpClient {
-        self.data
-            .get::<HttpClient>()
-            .expect("HttpClient should be set")
-            .dupe()
-    }
-}
-
-impl SetHttpClient for UserComputationData {
-    fn set_http_client(&mut self, client: HttpClient) {
-        self.data.set(client);
-    }
-}
 
 fn http_error_label(status: StatusCode) -> &'static str {
     if status.is_server_error() {
