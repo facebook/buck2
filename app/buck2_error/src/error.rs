@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::any::Any;
 use std::error::Error as StdError;
 use std::fmt;
 use std::sync::Arc;
@@ -27,6 +26,10 @@ pub type DynLateFormat = dyn Fn(&mut fmt::Formatter<'_>) -> fmt::Result + Send +
 /// While this type has many of the features of `anyhow::Error`, in most places you should continue
 /// to use `anyhow`. This type is only expected to appear on a small number of APIs which require a
 /// clonable error.
+///
+/// Unlike `anyhow::Error`, this type supports no downcasting. That is an intentional choice -
+/// downcasting errors is fragile and becomes difficult to support in conjunction with anyhow
+/// compatibility.
 #[derive(allocative::Allocative, Clone, dupe::Dupe)]
 pub struct Error(pub(crate) Arc<ErrorKind>);
 
@@ -128,27 +131,6 @@ impl Error {
         s
     }
 
-    pub fn downcast_ref<T: StdError + Send + Sync + 'static>(&self) -> Option<&T> {
-        self.iter_kinds().find_map(|kind| match kind {
-            ErrorKind::Root(r) => r.downcast_ref(),
-            ErrorKind::WithContext(ContextValue::Dyn(ctx), _) => {
-                // More hacks: We need to see through `Marc`s to deal with the way we create context
-                // when doing error reconstruction
-                if let Some(ctx) = (ctx.as_ref() as &dyn Any)
-                    .downcast_ref::<Marc<dyn StdError + Send + Sync + 'static>>()
-                {
-                    ctx.as_ref().downcast_ref()
-                } else {
-                    (ctx.as_ref() as &dyn Any).downcast_ref()
-                }
-            }
-            // Intentionally don't support downcasting for other `ContextValue` variants, it should
-            // not be necessary
-            ErrorKind::WithContext(_, _) => None,
-            ErrorKind::Emitted(_, _) => None,
-        })
-    }
-
     pub fn root_id(&self) -> UniqueRootId {
         self.root().id()
     }
@@ -161,8 +143,6 @@ impl Error {
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
-
-    use crate as buck2_error;
 
     #[derive(Debug, thiserror::Error)]
     #[error("Test")]
@@ -177,64 +157,6 @@ mod tests {
         let e: anyhow::Error = e.into();
         let e: crate::Error = e.context("context").into();
         assert!(e.is_emitted().is_some());
-    }
-
-    #[derive(Debug, thiserror::Error)]
-    #[error("Context A")]
-    struct ContextA;
-
-    #[derive(Debug, thiserror::Error)]
-    #[error("Context B")]
-    struct ContextB;
-
-    #[derive(Debug, thiserror::Error)]
-    #[error("Context C")]
-    struct ContextC;
-
-    #[test]
-    fn test_downcast() {
-        let e: anyhow::Error = TestError.into();
-        let e = e.context(ContextA);
-        let e: crate::Error = e.into();
-        let e = e.context(ContextB);
-        let e: anyhow::Error = e.into();
-        let e = e.context(ContextC);
-        let e: crate::Error = e.into();
-
-        // Context added via `buck2_error` can always be accessed via downcasting. Context added via
-        // `anyhow` cannot - it can only be accessed before the first time the error is converted to
-        // `buck2_error`.
-        assert!(e.downcast_ref::<TestError>().is_some());
-        assert!(e.downcast_ref::<ContextA>().is_some());
-        assert!(e.downcast_ref::<ContextB>().is_some());
-        assert!(e.downcast_ref::<ContextC>().is_none());
-    }
-
-    #[derive(Debug, buck2_error_derive::Error)]
-    #[error("inner")]
-    struct Inner;
-
-    #[derive(Debug, buck2_error_derive::Error)]
-    #[error("outer")]
-    struct Outer(#[source] Inner);
-
-    #[test]
-    fn test_downcast_through_sources() {
-        let e: crate::Error = Inner.into();
-        assert!(e.downcast_ref::<Inner>().is_some());
-
-        let e: anyhow::Error = Inner.into();
-        let e: crate::Error = e.into();
-        assert!(e.downcast_ref::<Inner>().is_some());
-
-        let e: crate::Error = Outer(Inner).into();
-        assert!(e.downcast_ref::<Outer>().is_some());
-        assert!(e.downcast_ref::<Inner>().is_some());
-
-        let e: anyhow::Error = Outer(Inner).into();
-        let e: crate::Error = e.into();
-        assert!(e.downcast_ref::<Outer>().is_some());
-        assert!(e.downcast_ref::<Inner>().is_some());
     }
 
     #[test]
