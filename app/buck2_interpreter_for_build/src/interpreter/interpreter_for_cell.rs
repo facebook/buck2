@@ -634,7 +634,7 @@ impl InterpreterForCell {
         let starlark_peak_mem_check_enabled = root_buckconfig
             .get("buck2", "check_starlark_peak_memory")
             .map_or(false, |value| value.map_or(false, |v| &*v == "true"));
-        let default_limit = 1 << 30;
+        let default_limit = 2 * (1 << 30);
         let starlark_mem_limit = build_ctx
             .starlark_peak_allocated_byte_limit
             .get()
