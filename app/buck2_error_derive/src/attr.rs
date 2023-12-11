@@ -41,30 +41,27 @@ use syn::Token;
 #[derive(Clone)]
 pub enum OptionStyle {
     Explicit(syn::Ident),
-    ByFunc(syn::Path),
+    ByExpr(syn::Expr),
 }
 
 impl OptionStyle {
     pub fn span(&self) -> Span {
         match self {
             Self::Explicit(ident) => ident.span(),
-            Self::ByFunc(path) => path.span(),
+            Self::ByExpr(expr) => expr.span(),
         }
     }
 }
 
 impl Parse for OptionStyle {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let path: syn::Path = input.parse()?;
-
-        if !input.peek(token::Paren) {
-            let ident = path.require_ident()?;
+        // syn does not have `is_empty2`
+        let fork = input.fork();
+        if fork.parse::<syn::Ident>().is_ok() && (fork.peek(Token![,]) || fork.is_empty()) {
+            let ident = input.parse::<syn::Ident>()?;
             Ok(Self::Explicit(ident.clone()))
         } else {
-            let inner;
-            syn::parenthesized!(inner in input);
-            let _underscore: Token![_] = inner.parse()?;
-            Ok(Self::ByFunc(path))
+            Ok(Self::ByExpr(input.parse()?))
         }
     }
 }

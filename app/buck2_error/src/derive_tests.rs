@@ -150,22 +150,27 @@ impl ComputedOptionsError {
             ComputedOptionsError::B(_) => Some(crate::Category::Infra),
         }
     }
+}
 
-    fn compute_typ(&self) -> Option<crate::ErrorType> {
-        match self {
-            ComputedOptionsError::A => Some(crate::ErrorType::Watchman),
-            ComputedOptionsError::B(false) => Some(crate::ErrorType::DaemonIsBusy),
-            ComputedOptionsError::B(true) => None,
-        }
+fn compute_type_a() -> Option<crate::ErrorType> {
+    Some(crate::ErrorType::Watchman)
+}
+
+fn compute_typ_b(val: bool) -> Option<crate::ErrorType> {
+    if val {
+        None
+    } else {
+        Some(crate::ErrorType::DaemonIsBusy)
     }
 }
 
 #[derive(buck2_error_derive::Error, Debug)]
 #[error("Unused")]
-#[buck2(category = ComputedOptionsError::compute_category(_))]
-#[buck2(typ = ComputedOptionsError::compute_typ(_))]
+#[buck2(category = ComputedOptionsError::compute_category(self))]
 enum ComputedOptionsError {
+    #[buck2(typ = compute_type_a())]
     A,
+    #[buck2(typ = compute_typ_b(*_0))]
     B(bool),
 }
 
@@ -193,7 +198,7 @@ fn test_root_is_applied_conditionally() {
 
     #[derive(buck2_error_derive::Error, Debug)]
     #[error("Unused")]
-    #[buck2(typ = compute(_))]
+    #[buck2(typ = compute(self))]
     enum MaybeWatchmanError {
         Some(#[source] WatchmanError),
         None,
@@ -223,7 +228,7 @@ fn test_error_tags() {
     #[error("Unused")]
     #[buck2(tag = WatchmanTimeout)]
     enum TaggedError {
-        #[buck2(tag = f(_))]
+        #[buck2(tag = f(self))]
         A,
         #[buck2(tag = WatchmanTimeout)]
         B,

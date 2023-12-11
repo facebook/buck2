@@ -316,9 +316,7 @@ fn gen_provide_contents(
         Some(OptionStyle::Explicit(cat)) => quote::quote! {
             core::option::Option::Some(buck2_error::Category::#cat)
         },
-        Some(OptionStyle::ByFunc(func)) => quote::quote! {
-            #func(&self)
-        },
+        Some(OptionStyle::ByExpr(e)) => e.to_token_stream(),
         None => quote::quote! {
             core::option::Option::None
         },
@@ -327,9 +325,7 @@ fn gen_provide_contents(
         Some(OptionStyle::Explicit(typ)) => quote::quote! {
             core::option::Option::Some(buck2_error::ErrorType::#typ)
         },
-        Some(OptionStyle::ByFunc(func)) => quote::quote! {
-            #func(&self)
-        },
+        Some(OptionStyle::ByExpr(e)) => e.to_token_stream(),
         None => quote::quote! {
             core::option::Option::None
         },
@@ -338,9 +334,7 @@ fn gen_provide_contents(
         OptionStyle::Explicit(tag) => quote::quote! {
             core::option::Option::Some(buck2_error::ErrorTag::#tag)
         },
-        OptionStyle::ByFunc(func) => quote::quote! {
-            #func(&self)
-        },
+        OptionStyle::ByExpr(e) => e.to_token_stream(),
     });
 
     let metadata = quote! {
