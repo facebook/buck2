@@ -72,6 +72,7 @@ pub(crate) fn recover_crate_error(
     // We allow this to appear more than once in the context chain, however we always use the
     // bottom-most value
     let mut source_location = source_location;
+    let mut root_metadata = None;
     let base = 'base: loop {
         // Handle the `cur` error
         if let Some(base) = cur.downcast_ref::<CrateAsStdError>() {
@@ -85,18 +86,8 @@ pub(crate) fn recover_crate_error(
             );
         }
 
-        if let Some(metadata) = request_value::<ProvidableRootMetadata>(&*cur)
-            && (metadata.check_error_type)(&*cur).is_some()
-        {
-            // FIXME(JakobDegen): `Marc` needs `try_map` here too
-            let cur = Marc::map(cur, |e| (metadata.check_error_type)(e).unwrap());
-            let e = crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new(
-                cur.clone(),
-                metadata.typ,
-                source_location,
-                metadata.action_error,
-            ))));
-            break 'base maybe_add_context_from_metadata(e, cur.as_ref());
+        if let Some(metadata) = request_value::<ProvidableRootMetadata>(&*cur) {
+            root_metadata = Some(metadata);
         }
 
         // Compute the next element in the source chain
@@ -111,9 +102,11 @@ pub(crate) fn recover_crate_error(
         // a string. That prevents us from having to deal with the type returned by `source` being
         // potentially non-`Send` or non-`Sync`.
         let msg = format!("{}", cur);
-        let e = crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new_anyhow(
+        let e = crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new(
             Marc::new(anyhow::Error::msg(msg)),
+            root_metadata.as_ref().and_then(|m| m.typ),
             source_location,
+            root_metadata.and_then(|m| m.action_error),
         ))));
         break 'base maybe_add_context_from_metadata(e, cur.as_ref());
     };

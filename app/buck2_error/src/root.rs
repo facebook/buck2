@@ -45,32 +45,19 @@ pub(crate) struct ErrorRoot {
 }
 
 impl ErrorRoot {
-    pub(crate) fn new<E: StdError + Send + Sync + 'static>(
-        inner: E,
+    pub(crate) fn new(
+        inner: Marc<anyhow::Error>,
         error_type: Option<ErrorType>,
         source_location: Option<String>,
         action_error: Option<buck2_data::ActionError>,
     ) -> Self {
         let id = UniqueRootId(NEXT_ROOT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
-        let inner = Marc::new(anyhow::Error::new(inner));
         Self {
             id,
             inner,
             error_type,
             source_location,
             action_error,
-        }
-    }
-
-    /// Should not typically be used. Use the appropriate `anyhow::Error: From<crate::Error>`
-    /// instead.
-    pub(crate) fn new_anyhow(e: Marc<anyhow::Error>, source_location: Option<String>) -> Self {
-        Self {
-            id: UniqueRootId(NEXT_ROOT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)),
-            inner: e,
-            error_type: None,
-            source_location,
-            action_error: None,
         }
     }
 
