@@ -47,6 +47,20 @@ where
     }
 }
 
+fn maybe_add_context_from_metadata(mut e: crate::Error, context: &dyn StdError) -> crate::Error {
+    if let Some(metadata) = request_value::<ProvidableContextMetadata>(context) {
+        if let Some(category) = metadata.category {
+            e = e.context(category);
+        }
+        if !metadata.tags.is_empty() {
+            e = e.tag(metadata.tags.iter().copied());
+        }
+        e
+    } else {
+        e
+    }
+}
+
 fn construct_root_from_recovered_error(
     e: Marc<dyn StdError + Send + Sync + 'static>,
     typ: Option<crate::ErrorType>,
@@ -58,23 +72,12 @@ fn construct_root_from_recovered_error(
     } else {
         None
     };
-    let mut e = crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new(
+    crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new(
         e,
         typ,
         source_location,
         action_error,
-    ))));
-    if let Some(ref context) = context {
-        if let Some(category) = context.category {
-            e = e.context(category);
-        }
-        if !context.tags.is_empty() {
-            e = e.tag(context.tags.iter().copied());
-        }
-        e
-    } else {
-        e
-    }
+    ))))
 }
 
 pub(crate) fn recover_crate_error(
@@ -105,12 +108,13 @@ pub(crate) fn recover_crate_error(
         {
             // FIXME(JakobDegen): `Marc` needs `try_map` here too
             let cur = Marc::map(cur, |e| (metadata.check_error_type)(e).unwrap());
-            break construct_root_from_recovered_error(
-                cur,
+            let e = construct_root_from_recovered_error(
+                cur.clone(),
                 metadata.typ,
                 context_metadata,
                 metadata.action_error,
             );
+            break 'base maybe_add_context_from_metadata(e, cur.as_ref());
         }
 
         context_stack.push((cur.clone(), context_metadata));
@@ -130,7 +134,9 @@ pub(crate) fn recover_crate_error(
             };
             // The `unwrap` is ok because we checked this condition when initially constructing the `context_metadata`
             let e = Marc::map(e, |e| (context_metadata.check_error_type)(e).unwrap());
-            break 'base construct_root_from_recovered_error(e, None, Some(context_metadata), None);
+            let val =
+                construct_root_from_recovered_error(e.clone(), None, Some(context_metadata), None);
+            break 'base maybe_add_context_from_metadata(val, e.as_ref());
         }
         // This error was not created with any useful metadata on it, so there's nothing smart we can do
         return crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new_anyhow(
@@ -141,18 +147,11 @@ pub(crate) fn recover_crate_error(
     // We were able to convert the error into a `buck2_error::Error` in some non-trivial way. We'll
     // now need to add back any context that is not included in the `base` buck2_error yet.
     let mut e = base;
-    for (context_value, context_metadata) in context_stack.into_iter().rev() {
+    for (context_value, _) in context_stack.into_iter().rev() {
         // First, just add the value directly. This value is only used for formatting
-        e = e.context(context_value);
+        e = e.context(&context_value);
         // Now add any additional information from the metadata, if it's available
-        if let Some(context_metadata) = context_metadata {
-            if let Some(category) = context_metadata.category {
-                e = e.context(category);
-            }
-            if !context_metadata.tags.is_empty() {
-                e = e.tag(context_metadata.tags.iter().copied());
-            }
-        }
+        e = maybe_add_context_from_metadata(e, context_value.as_ref());
     }
     e
 }
