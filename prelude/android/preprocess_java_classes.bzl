@@ -26,6 +26,7 @@ def get_preprocessed_java_classes(ctx: AnalysisContext, input_jars = {"artifact"
         output_jars_to_owners[output_jar] = target_label
 
     input_dir = ctx.actions.symlinked_dir("preprocessed_java_classes/input_dir", input_srcs)
+    materialized_artifacts_dir = ctx.actions.declare_output("preprocessed_java_classes/materialized_artifacts")
 
     env = {
         "ANDROID_BOOTCLASSPATH": cmd_args(
@@ -33,6 +34,7 @@ def get_preprocessed_java_classes(ctx: AnalysisContext, input_jars = {"artifact"
             delimiter = get_path_separator_for_exec_os(ctx),
         ),
         "IN_JARS_DIR": cmd_args(input_dir),
+        "MATERIALIZED_ARTIFACTS_DIR": materialized_artifacts_dir.as_output(),
         "OUT_JARS_DIR": output_dir.as_output(),
         "PREPROCESS": ctx.attrs.preprocess_java_classes_bash,
         "ZIP_SCRUBBER": ctx.attrs._java_toolchain[JavaToolchainInfo].zip_scrubber,
@@ -46,7 +48,7 @@ def get_preprocessed_java_classes(ctx: AnalysisContext, input_jars = {"artifact"
         "bash",
         "-c",
         # Note: ZIP_SCRUBBER might expand to multiple words, so no quoting there.
-        'mkdir -p "$OUT_JARS_DIR" && eval "$PREPROCESS" && $ZIP_SCRUBBER --paths-to-scrub "$@"',
+        'mkdir -p "$OUT_JARS_DIR" && mkdir -p "$MATERIALIZED_ARTIFACTS_DIR" && eval "$PREPROCESS" && $ZIP_SCRUBBER --paths-to-scrub "$@"',
         "--",
         output_jars_file,
     ]
