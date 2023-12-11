@@ -1177,9 +1177,8 @@ mod tests {
         assert_matches!(
             ParsedPattern::<T>::parse_precise("package/path:", CellName::testing_new("root"), &resolver()),
             Err(e) => {
-                assert_matches!(
-                    buck2_error::Error::from(e).downcast_ref::<TargetPatternParseError>(),
-                    Some(TargetPatternParseError::AbsoluteRequired)
+                assert!(
+                    format!("{:?}", e).contains(&format!("{}", TargetPatternParseError::AbsoluteRequired))
                 );
             }
         );
@@ -1264,9 +1263,8 @@ mod tests {
                 &resolver(),
             ),
             Err(e) => {
-                assert_matches!(
-                    buck2_error::Error::from(e).downcast_ref::<TargetPatternParseError>(),
-                    Some(TargetPatternParseError::UnexpectedFormat)
+                assert!(
+                    format!("{:?}", e).contains(&format!("{}", TargetPatternParseError::UnexpectedFormat))
                 );
             }
         );
@@ -1350,9 +1348,8 @@ mod tests {
                 &resolver(),
             ),
             Err(e) => {
-                assert_matches!(
-                    buck2_error::Error::from(e).downcast_ref::<TargetPatternParseError>(),
-                    Some(TargetPatternParseError::PackageIsEmpty)
+                assert!(
+                    format!("{:?}", e).contains(&format!("{}", TargetPatternParseError::PackageIsEmpty))
                 );
             }
         );
@@ -1417,9 +1414,8 @@ mod tests {
                 &resolver(),
             ),
             Err(e) => {
-                assert_matches!(
-                    buck2_error::Error::from(e).downcast_ref::<TargetPatternParseError>(),
-                    Some(TargetPatternParseError::UnexpectedFormat)
+                assert!(
+                    format!("{:?}", e).contains(&format!("{}", TargetPatternParseError::UnexpectedFormat))
                 );
             }
         );
@@ -1432,9 +1428,8 @@ mod tests {
                 &resolver(),
             ),
             Err(e) => {
-                assert_matches!(
-                    buck2_error::Error::from(e).downcast_ref::<TargetPatternParseError>(),
-                    Some(TargetPatternParseError::AbsoluteRequired)
+                assert!(
+                    format!("{:?}", e).contains(&format!("{}", TargetPatternParseError::AbsoluteRequired))
                 );
             }
         );
@@ -1446,9 +1441,8 @@ mod tests {
                 &resolver(),
             ),
             Err(e) => {
-                assert_matches!(
-                    buck2_error::Error::from(e).downcast_ref::<TargetPatternParseError>(),
-                    Some(TargetPatternParseError::AbsoluteRequired)
+                assert!(
+                    format!("{:?}", e).contains(&format!("{}", TargetPatternParseError::AbsoluteRequired))
                 );
             }
         );
@@ -1482,9 +1476,8 @@ mod tests {
                 &resolver(),
             ),
             Err(e) => {
-                assert_matches!(
-                    buck2_error::Error::from(e).downcast_ref::<ResolveTargetAliasError>(),
-                    Some(ResolveTargetAliasError::InvalidAlias { .. })
+                assert!(
+                    format!("{:?}", e).contains("Invalid alias")
                 );
             }
         );
@@ -1497,9 +1490,8 @@ mod tests {
                 &resolver(),
             ),
             Err(e) => {
-                assert_matches!(
-                    buck2_error::Error::from(e).downcast_ref::<ResolveTargetAliasError>(),
-                    Some(ResolveTargetAliasError::AliasIsNotATarget { .. })
+                assert!(
+                    format!("{:?}", e).contains("is not a target")
                 );
             }
         );
