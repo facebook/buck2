@@ -12,20 +12,16 @@ use std::sync::Arc;
 
 use smallvec::SmallVec;
 
-pub trait DisplayAndAny: fmt::Display + std::any::Any + Send + Sync + 'static {}
-
-impl<T: fmt::Display + std::any::Any + Send + Sync + 'static> DisplayAndAny for T {}
-
 #[derive(allocative::Allocative)]
 pub enum ContextValue {
-    Dyn(#[allocative(skip)] Arc<dyn DisplayAndAny>),
+    Dyn(Arc<str>),
     Category(Category),
     Tags(SmallVec<[crate::ErrorTag; 1]>),
 }
 
 impl ContextValue {
     /// Returns a value that should be included in the error message
-    pub(crate) fn as_display(&self) -> Option<Arc<dyn DisplayAndAny>> {
+    pub(crate) fn as_display(&self) -> Option<Arc<str>> {
         match self {
             Self::Dyn(v) => Some(Arc::clone(v)),
             // Displaying the category in the middle of an error message doesn't seem useful
@@ -35,11 +31,11 @@ impl ContextValue {
     }
 
     /// A way to display the context - this is only used to assist in debugging
-    pub(crate) fn as_display_for_debugging(&self) -> Arc<dyn DisplayAndAny> {
+    pub(crate) fn as_display_for_debugging(&self) -> Arc<str> {
         match self {
             Self::Dyn(v) => Arc::clone(v),
-            Self::Category(category) => Arc::new(format!("{:?}", category)),
-            Self::Tags(tags) => Arc::new(format!("{:?}", tags)),
+            Self::Category(category) => format!("{:?}", category).into(),
+            Self::Tags(tags) => format!("{:?}", tags).into(),
         }
     }
 
@@ -47,7 +43,7 @@ impl ContextValue {
     pub(crate) fn assert_eq(&self, other: &Self) {
         match (self, other) {
             (ContextValue::Dyn(a), ContextValue::Dyn(b)) => {
-                assert_eq!(format!("{}", a), format!("{}", b))
+                assert_eq!(a, b);
             }
             (ContextValue::Category(a), ContextValue::Category(b)) => {
                 assert_eq!(a, b);
@@ -60,9 +56,9 @@ impl ContextValue {
     }
 }
 
-impl<T: DisplayAndAny> From<T> for ContextValue {
+impl<T: fmt::Display> From<T> for ContextValue {
     fn from(value: T) -> Self {
-        ContextValue::Dyn(Arc::new(value))
+        ContextValue::Dyn(format!("{}", value).into())
     }
 }
 
