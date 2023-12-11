@@ -597,7 +597,7 @@ mod tests {
         };
 
         // On windows we need more time to run powershell
-        let timeout = if cfg!(windows) { 5 } else { 1 };
+        let timeout = if cfg!(windows) { 7 } else { 1 };
         let (_status, stdout, _stderr) = gather_output(
             cmd,
             timeout_into_cancellation(Some(Duration::from_secs(timeout))),
