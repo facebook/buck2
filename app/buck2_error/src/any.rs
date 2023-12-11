@@ -33,15 +33,7 @@ where
     fn from(value: T) -> crate::Error {
         let source_location =
             crate::source_location::from_file(std::panic::Location::caller().file(), None);
-        // `Self` may be an `anyhow::Error` or any `StdError`. We'll check by downcasting
-        let mut e = Some(value);
-        let r: &mut dyn std::any::Any = &mut e;
-        if let Some(e) = r.downcast_mut::<Option<anyhow::Error>>() {
-            return recover_crate_error(e.take().unwrap().as_ref(), source_location);
-        }
-
-        // Otherwise, we'll use the strategy for `StdError`
-        let anyhow: anyhow::Error = e.unwrap().into();
+        let anyhow: anyhow::Error = value.into();
         recover_crate_error(anyhow.as_ref(), source_location)
     }
 }
