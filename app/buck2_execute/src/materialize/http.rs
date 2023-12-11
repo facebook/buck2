@@ -95,6 +95,7 @@ enum HttpDownloadError {
     Client(#[source] HttpError),
 
     #[error("Invalid {0} digest. Expected {1}, got {2}. URL: {3}")]
+    #[buck2(user)]
     InvalidChecksum(&'static str, String, String, String),
 
     #[error(
