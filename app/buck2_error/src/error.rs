@@ -41,12 +41,12 @@ pub struct Error(pub(crate) Arc<ErrorKind>);
 /// Right now, this type can represent an error root, together with a stack of context information.
 #[derive(allocative::Allocative)]
 pub(crate) enum ErrorKind {
-    // This `Arc` should ideally be a `Box`. However, that doesn't work right now because of the
-    // implementation of `into_anyhow_for_format`.
-    Root(ErrorRoot),
+    Root(Box<ErrorRoot>),
     /// For now we use untyped context to maximize compatibility with anyhow.
     WithContext(ContextValue, Error),
     /// Indicates that the error has been emitted, ie shown to the user.
+    // This `Arc` should ideally be a `Box`. However, that doesn't work right now because of the
+    // implementation of `into_anyhow_for_format`.
     #[allocative(skip)] // FIXME(JakobDegen): "Implementation is not general enough"
     Emitted(Arc<DynLateFormat>, Error),
 }

@@ -102,12 +102,12 @@ pub(crate) fn recover_crate_error(
         // a string. That prevents us from having to deal with the type returned by `source` being
         // potentially non-`Send` or non-`Sync`.
         let msg = format!("{}", cur);
-        let e = crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new(
+        let e = crate::Error(Arc::new(ErrorKind::Root(Box::new(ErrorRoot::new(
             Marc::new(anyhow::Error::msg(msg)),
             root_metadata.as_ref().and_then(|m| m.typ),
             source_location,
             root_metadata.and_then(|m| m.action_error),
-        ))));
+        )))));
         break 'base maybe_add_context_from_metadata(e, cur.as_ref());
     };
     // We were able to convert the error into a `buck2_error::Error` in some non-trivial way. We'll
