@@ -105,36 +105,23 @@ pub(crate) fn recover_crate_error(
             break 'base maybe_add_context_from_metadata(e, cur.as_ref());
         }
 
-        context_stack.push((cur.clone(), context_metadata));
-
         // Compute the next element in the source chain
         if let Ok(new_cur) = Marc::try_map(cur.clone(), |e| e.source()) {
+            context_stack.push((cur, context_metadata));
             cur = new_cur;
             continue;
         }
 
-        // The error was not created directly from a `buck2_error::Error` or with a
-        // `ProvidableRootMetadata`. However, if may have only `ProvidableContextMetadata`, so
-        // check for that possibility
-        while let Some((e, context_metadata)) = context_stack.pop() {
-            let Some(context_metadata) = context_metadata else {
-                continue;
-            };
-            // The `unwrap` is ok because we checked this condition when initially constructing the `context_metadata`
-            let e = Marc::map(e, |e| (context_metadata.check_error_type)(e).unwrap());
-            let val = crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new(
-                e.clone(),
-                None,
-                source_location,
-                None,
-            ))));
-            break 'base maybe_add_context_from_metadata(val, e.as_ref());
-        }
-        // This error was not created with any useful metadata on it, so there's nothing smart we can do
-        return crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new_anyhow(
-            value,
+        // `anyhow` only ever uses the standard `Display` formatting of error types, never the
+        // alternate or debug formatting. We can match that behavior by just converting the error to
+        // a string. That prevents us from having to deal with the type returned by `source` being
+        // potentially non-`Send` or non-`Sync`.
+        let msg = format!("{}", cur);
+        let e = crate::Error(Arc::new(ErrorKind::Root(ErrorRoot::new_anyhow(
+            Marc::new(anyhow::Error::msg(msg)),
             source_location,
         ))));
+        break 'base maybe_add_context_from_metadata(e, cur.as_ref());
     };
     // We were able to convert the error into a `buck2_error::Error` in some non-trivial way. We'll
     // now need to add back any context that is not included in the `base` buck2_error yet.
