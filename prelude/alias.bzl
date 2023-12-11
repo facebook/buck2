@@ -19,6 +19,9 @@ def configured_alias_impl(ctx: AnalysisContext) -> list[Provider]:
         return ctx.attrs.fallback_actual.providers
     fail("must set one of `configured_actual` or `fallback_actual`")
 
+def toolchain_alias_impl(ctx: AnalysisContext) -> list[Provider]:
+    return ctx.attrs.actual.providers
+
 def versioned_alias_impl(_ctx: AnalysisContext) -> list[Provider]:
     # Should be intercepted in macro stub and converted to `alias`.
     fail("unsupported")
