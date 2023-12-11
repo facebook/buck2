@@ -60,10 +60,11 @@ pub(crate) fn recover_crate_error(
     // information associated with it that would allow us to recover more structure.
     let mut context_stack = Vec::new();
     let mut cur = value;
-    // We allow this to appear more than once in the context chain, however we always use the
-    // bottom-most value
+    // We allow all of these to appear more than once in the context chain, however we always use
+    // the bottom-most value when actually generating the root
     let mut source_location = source_location;
-    let mut root_metadata = None;
+    let mut typ = None;
+    let mut action_error = None;
     let base = 'base: loop {
         // Handle the `cur` error
         if let Some(base) = cur.downcast_ref::<CrateAsStdError>() {
@@ -78,7 +79,12 @@ pub(crate) fn recover_crate_error(
         }
 
         if let Some(metadata) = request_value::<ProvidableRootMetadata>(cur) {
-            root_metadata = Some(metadata);
+            if metadata.typ.is_some() {
+                typ = metadata.typ;
+            }
+            if metadata.action_error.is_some() {
+                action_error = metadata.action_error;
+            }
         }
 
         // Compute the next element in the source chain
@@ -95,9 +101,9 @@ pub(crate) fn recover_crate_error(
         let description = format!("{}", cur);
         let e = crate::Error(Arc::new(ErrorKind::Root(Box::new(ErrorRoot::new(
             description,
-            root_metadata.as_ref().and_then(|m| m.typ),
+            typ,
             source_location,
-            root_metadata.and_then(|m| m.action_error),
+            action_error,
         )))));
         break 'base maybe_add_context_from_metadata(e, cur);
     };
