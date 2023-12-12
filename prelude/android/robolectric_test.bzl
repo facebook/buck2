@@ -93,11 +93,15 @@ def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
         extra_classpath_entries = extra_classpath_entries,
     )
 
-    return inject_test_run_info(ctx, external_runner_test_info) + [
-        java_providers.java_library_info,
+    providers = inject_test_run_info(ctx, external_runner_test_info) + [
         java_providers.java_library_intellij_info,
         java_providers.java_packaging_info,
         java_providers.template_placeholder_info,
         java_providers.default_info,
         java_providers.class_to_src_map,
     ]
+
+    if ctx.attrs.used_as_dependency_deprecated_do_not_use:
+        providers.append(java_providers.java_library_info)
+
+    return providers
