@@ -13,6 +13,7 @@ use std::time::Duration;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::buck2_env;
+use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project::ProjectRoot;
@@ -52,6 +53,7 @@ use remote_execution::RemoteExecutionMetadata;
 use remote_execution::Stage;
 use remote_execution::TActionResult2;
 use remote_execution::TCode;
+use remote_execution::TDependency;
 use remote_execution::TDigest;
 use remote_execution::TExecutionPolicy;
 use remote_execution::UploadRequest;
@@ -249,6 +251,7 @@ impl RemoteExecutionClient {
         &self,
         action_digest: ActionDigest,
         platform: &RE::Platform,
+        dependencies: &[RemoteExecutorDependency],
         use_case: RemoteExecutorUseCase,
         identity: &ReActionIdentity<'_>,
         manager: &mut CommandExecutionManager,
@@ -265,6 +268,7 @@ impl RemoteExecutionClient {
                 .execute(
                     action_digest,
                     platform,
+                    dependencies,
                     use_case,
                     identity,
                     manager,
@@ -942,6 +946,7 @@ impl RemoteExecutionClientImpl {
         &self,
         action_digest: ActionDigest,
         platform: &RE::Platform,
+        dependencies: &[RemoteExecutorDependency],
         use_case: RemoteExecutorUseCase,
         identity: &ReActionIdentity<'_>,
         manager: &mut CommandExecutionManager,
@@ -967,6 +972,14 @@ impl RemoteExecutionClientImpl {
                 build_id: identity.trace_id.to_string(),
                 ..Default::default()
             }),
+            dependencies: dependencies
+                .iter()
+                .map(|dep| TDependency {
+                    smc_tier: dep.smc_tier.clone(),
+                    id: dep.id.clone(),
+                    ..Default::default()
+                })
+                .collect(),
             ..use_case.metadata()
         };
         let request = ExecuteRequest {

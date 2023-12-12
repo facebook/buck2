@@ -27,6 +27,15 @@ pub struct LocalExecutorOptions {
     pub use_persistent_workers: bool,
 }
 
+/// A Remote Action can specify a list of dependencies that are required before starting the execution `https://fburl.com/wiki/offzl3ox`
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Allocative)]
+pub struct RemoteExecutorDependency {
+    /// The SMC tier that the Remote Executor will query to try to acquire the dependency
+    pub smc_tier: String,
+    /// The id of the dependency to acquire
+    pub id: String,
+}
+
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Dupe, Display, Allocative)]
 pub struct RemoteExecutorUseCase(Intern<String>);
 
@@ -101,6 +110,7 @@ pub enum Executor {
         cache_upload_behavior: CacheUploadBehavior,
         remote_cache_enabled: bool,
         remote_dep_file_cache_enabled: bool,
+        dependencies: Vec<RemoteExecutorDependency>,
     },
 }
 
@@ -122,6 +132,7 @@ impl Display for Executor {
                 cache_upload_behavior,
                 remote_cache_enabled,
                 remote_dep_file_cache_enabled,
+                dependencies: _,
             } => {
                 let cache = match remote_cache_enabled {
                     true => "enabled",

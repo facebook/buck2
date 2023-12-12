@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
+use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
@@ -72,6 +73,7 @@ pub struct ReExecutor {
     pub re_max_queue_time_ms: Option<u64>,
     pub paranoid: Option<ParanoidDownloader>,
     pub materialize_failed_inputs: bool,
+    pub dependencies: Vec<RemoteExecutorDependency>,
 }
 
 impl ReExecutor {
@@ -125,6 +127,7 @@ impl ReExecutor {
         action_digest: &ActionDigest,
         digest_config: DigestConfig,
         platform: &RE::Platform,
+        dependencies: &[RemoteExecutorDependency],
     ) -> ControlFlow<CommandExecutionResult, (CommandExecutionManager, ExecuteResponse)> {
         info!(
             "RE command line:\n```\n$ {}\n```\n for action `{}`",
@@ -140,6 +143,7 @@ impl ReExecutor {
             .execute(
                 action_digest.dupe(),
                 platform,
+                dependencies,
                 self.re_use_case,
                 &identity,
                 &mut manager,
@@ -290,6 +294,7 @@ impl PreparedCommandExecutor for ReExecutor {
                 &action_and_blobs.action,
                 *digest_config,
                 platform,
+                &self.dependencies,
             )
             .await?;
 

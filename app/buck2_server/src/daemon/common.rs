@@ -25,6 +25,7 @@ use buck2_core::execution_types::executor_config::LocalExecutorOptions;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::execution_types::executor_config::RePlatformFields;
 use buck2_core::execution_types::executor_config::RemoteEnabledExecutor;
+use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorOptions;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -181,25 +182,28 @@ impl HasCommandExecutor for CommandExecutorFactory {
             });
         }
 
-        let remote_executor_new = |options: &RemoteExecutorOptions,
-                                   re_use_case: &RemoteExecutorUseCase,
-                                   re_action_key: &Option<String>,
-                                   remote_cache_enabled: bool| {
-            ReExecutor {
-                artifact_fs: artifact_fs.clone(),
-                project_fs: self.project_root.clone(),
-                materializer: self.materializer.dupe(),
-                re_client: self.re_connection.get_client(),
-                re_use_case: *re_use_case,
-                re_action_key: re_action_key.clone(),
-                re_max_queue_time_ms: options.re_max_queue_time_ms,
-                knobs: self.executor_global_knobs.dupe(),
-                skip_cache_read: self.skip_cache_read || !remote_cache_enabled,
-                skip_cache_write: self.skip_cache_write || !remote_cache_enabled,
-                paranoid: self.paranoid.dupe(),
-                materialize_failed_inputs: self.materialize_failed_inputs,
-            }
-        };
+        let remote_executor_new =
+            |options: &RemoteExecutorOptions,
+             re_use_case: &RemoteExecutorUseCase,
+             re_action_key: &Option<String>,
+             remote_cache_enabled: bool,
+             dependencies: &[RemoteExecutorDependency]| {
+                ReExecutor {
+                    artifact_fs: artifact_fs.clone(),
+                    project_fs: self.project_root.clone(),
+                    materializer: self.materializer.dupe(),
+                    re_client: self.re_connection.get_client(),
+                    re_use_case: *re_use_case,
+                    re_action_key: re_action_key.clone(),
+                    re_max_queue_time_ms: options.re_max_queue_time_ms,
+                    knobs: self.executor_global_knobs.dupe(),
+                    skip_cache_read: self.skip_cache_read || !remote_cache_enabled,
+                    skip_cache_write: self.skip_cache_write || !remote_cache_enabled,
+                    paranoid: self.paranoid.dupe(),
+                    materialize_failed_inputs: self.materialize_failed_inputs,
+                    dependencies: dependencies.to_vec(),
+                }
+            };
 
         let response = match &executor_config.executor {
             Executor::Local(local) => {
@@ -222,6 +226,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 cache_upload_behavior,
                 remote_cache_enabled,
                 remote_dep_file_cache_enabled,
+                dependencies,
             } => {
                 // NOTE: While we now have a legit flag for this, we keep the env var. This has been used
                 // in remediating prod incidents in the past, and this is the kind of thing that can easily
@@ -285,6 +290,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                             re_use_case,
                             re_action_key,
                             *remote_cache_enabled,
+                            dependencies,
                         )))
                     }
                     RemoteEnabledExecutor::Hybrid {
@@ -301,6 +307,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                             re_use_case,
                             re_action_key,
                             *remote_cache_enabled,
+                            dependencies,
                         );
                         let executor_preference = self.strategy.hybrid_preference();
                         let low_pass_filter = self.low_pass_filter.dupe();
@@ -444,6 +451,7 @@ pub fn get_default_executor_config(host_platform: HostPlatformOverride) -> Comma
             cache_upload_behavior: CacheUploadBehavior::Disabled,
             remote_cache_enabled: true,
             remote_dep_file_cache_enabled: false,
+            dependencies: vec![],
         }
     };
 

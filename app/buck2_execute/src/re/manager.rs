@@ -20,6 +20,7 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::async_once_cell::AsyncOnceCell;
+use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
@@ -383,6 +384,7 @@ impl ManagedRemoteExecutionClient {
         &self,
         action_digest: ActionDigest,
         platform: &RE::Platform,
+        dependencies: &[RemoteExecutorDependency],
         use_case: RemoteExecutorUseCase,
         identity: &ReActionIdentity<'_>,
         manager: &mut CommandExecutionManager,
@@ -397,6 +399,7 @@ impl ManagedRemoteExecutionClient {
             .execute(
                 action_digest,
                 platform,
+                dependencies,
                 use_case,
                 identity,
                 manager,
