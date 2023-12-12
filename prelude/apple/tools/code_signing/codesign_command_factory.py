@@ -39,8 +39,8 @@ class DefaultCodesignCommandFactory(ICodesignCommandFactory):
         return (
             [self.codesign_tool]
             + DefaultCodesignCommandFactory._command_args
-            + codesign_args
             + [identity_fingerprint]
+            + codesign_args
             + entitlements_args
             + [path]
         )
