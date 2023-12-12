@@ -35,10 +35,12 @@ AndroidBinaryInfo = record(
     dex_files_info = DexFilesInfo,
     native_library_info = "AndroidBinaryNativeLibsInfo",
     resources_info = "AndroidBinaryResourcesInfo",
+    materialized_artifacts = list[Artifact],
 )
 
 def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBinaryInfo:
     sub_targets = {}
+    materialized_artifacts = []
 
     _verify_params(ctx)
 
@@ -123,7 +125,9 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
     else:
         jars_to_owners = {packaging_dep.jar: packaging_dep.jar.owner.raw_target() for packaging_dep in dex_java_packaging_deps}
         if ctx.attrs.preprocess_java_classes_bash:
-            jars_to_owners = get_preprocessed_java_classes(ctx, jars_to_owners)
+            jars_to_owners, materialized_artifacts_dir = get_preprocessed_java_classes(ctx, jars_to_owners)
+            if materialized_artifacts_dir:
+                materialized_artifacts.append(materialized_artifacts_dir)
         if has_proguard_config:
             proguard_output = get_proguard_output(
                 ctx,
@@ -184,6 +188,7 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
         dex_files_info = dex_files_info,
         native_library_info = native_library_info,
         resources_info = resources_info,
+        materialized_artifacts = materialized_artifacts,
     )
 
 def get_build_config_java_libraries(

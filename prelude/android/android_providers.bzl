@@ -110,6 +110,7 @@ AndroidApkInfo = provider(
     fields = {
         "apk": provider_field(typing.Any, default = None),
         "manifest": provider_field(typing.Any, default = None),
+        "materialized_artifacts": provider_field(typing.Any, default = None),
     },
 )
 
@@ -117,6 +118,7 @@ AndroidAabInfo = provider(
     fields = {
         "aab": provider_field(typing.Any, default = None),
         "manifest": provider_field(typing.Any, default = None),
+        "materialized_artifacts": provider_field(typing.Any, default = None),
     },
 )
 

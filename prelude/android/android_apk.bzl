@@ -46,7 +46,7 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     return [
-        AndroidApkInfo(apk = output_apk, manifest = resources_info.manifest),
+        AndroidApkInfo(apk = output_apk, manifest = resources_info.manifest, materialized_artifacts = android_binary_info.materialized_artifacts),
         AndroidApkUnderTestInfo(
             java_packaging_deps = set([dep.label.raw_target() for dep in java_packaging_deps]),
             keystore = keystore,
@@ -58,7 +58,7 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
             r_dot_java_packages = set([info.specified_r_dot_java_package for info in resources_info.unfiltered_resource_infos if info.specified_r_dot_java_package]),
             shared_libraries = set(native_library_info.apk_under_test_shared_libraries),
         ),
-        DefaultInfo(default_output = output_apk, other_outputs = _get_exopackage_outputs(exopackage_info), sub_targets = sub_targets | class_to_srcs_subtargets),
+        DefaultInfo(default_output = output_apk, other_outputs = _get_exopackage_outputs(exopackage_info) + android_binary_info.materialized_artifacts, sub_targets = sub_targets | class_to_srcs_subtargets),
         get_install_info(ctx, output_apk = output_apk, manifest = resources_info.manifest, exopackage_info = exopackage_info),
         TemplatePlaceholderInfo(
             keyed_variables = {
