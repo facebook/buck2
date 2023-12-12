@@ -22,7 +22,7 @@ def make_path_user_writable(path: str):
     #
     # Darwin supports permission setting on symlinks.
     follow_symlinks = platform.system() != "Darwin"
-    st = os.stat(path)
+    st = os.stat(path, follow_symlinks=False)
     os.chmod(path, st.st_mode | stat.S_IWUSR, follow_symlinks=follow_symlinks)
 
 
