@@ -81,5 +81,5 @@ pub trait EventSubscriber: Send {
         None
     }
 
-    fn handle_daemon_connection_failure(&mut self) {}
+    fn handle_daemon_connection_failure(&mut self, _error: &buck2_error::Error) {}
 }

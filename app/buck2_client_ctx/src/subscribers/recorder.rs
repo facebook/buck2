@@ -40,6 +40,7 @@ mod imp {
     use buck2_event_observer::cache_hit_rate::total_cache_hit_rate;
     use buck2_event_observer::last_command_execution_kind;
     use buck2_event_observer::last_command_execution_kind::LastCommandExecutionKind;
+    use buck2_events::errors::create_error_report;
     use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
     use buck2_events::BuckEvent;
     use buck2_util::cleanup_ctx::AsyncCleanupContext;
@@ -1092,8 +1093,10 @@ mod imp {
             Some(self)
         }
 
-        fn handle_daemon_connection_failure(&mut self) {
+        fn handle_daemon_connection_failure(&mut self, error: &buck2_error::Error) {
             self.daemon_connection_failure = true;
+            let error = create_error_report(error);
+            self.errors.push(process_error_report(error));
         }
     }
 
