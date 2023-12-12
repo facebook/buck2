@@ -167,6 +167,7 @@ def get_android_binary_native_library_info(
     flattened_linkable_graphs_by_platform = {}
     native_library_merge_sequence = getattr(ctx.attrs, "native_library_merge_sequence", None)
     has_native_merging = native_library_merge_sequence or getattr(ctx.attrs, "native_library_merge_map", None)
+    enable_relinker = getattr(ctx.attrs, "enable_relinker", False)
 
     if has_native_merging:
         native_merge_debug = ctx.actions.declare_output("native_merge.debug")
@@ -288,7 +289,7 @@ def get_android_binary_native_library_info(
         else:
             final_platform_to_native_linkables = platform_to_original_native_linkables
 
-        if getattr(ctx.attrs, "enable_relinker", False):
+        if enable_relinker:
             final_platform_to_native_linkables = relink_libraries(ctx, final_platform_to_native_linkables)
 
         unstripped_libs = {}
