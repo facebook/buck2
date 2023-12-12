@@ -24,7 +24,11 @@ pub struct ActionError {
 }
 
 impl std::error::Error for ActionError {
-    fn provide(&self, request: &mut std::error::Request<'_>) {
+    fn provide<'a>(&'a self, request: &mut std::error::Request<'a>) {
+        if let ExecuteError::Error { error } = &self.execute_error {
+            error.provide(request);
+        }
+
         let is_command_failure = self.last_command.as_ref().is_some_and(|c| {
             matches!(
                 c.status,
