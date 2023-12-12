@@ -472,26 +472,11 @@ mod imp {
             event: &BuckEvent,
         ) -> anyhow::Result<()> {
             let mut command = command.clone();
-            self.errors
-                .extend(std::mem::take(&mut command.errors).into_iter().map(|r| {
-                    buck2_data::ProcessedErrorReport {
-                        category: r.category,
-                        message: r.message,
-                        telemetry_message: r.telemetry_message,
-                        typ: r
-                            .typ
-                            .and_then(buck2_data::error::ErrorType::from_i32)
-                            .map(|t| t.as_str_name().to_owned()),
-                        source_location: r.source_location,
-                        tags: r
-                            .tags
-                            .iter()
-                            .copied()
-                            .filter_map(buck2_data::error::ErrorTag::from_i32)
-                            .map(|t| t.as_str_name().to_owned())
-                            .collect(),
-                    }
-                }));
+            self.errors.extend(
+                std::mem::take(&mut command.errors)
+                    .into_iter()
+                    .map(process_error_report),
+            );
 
             // Awkwardly unpacks the SpanEnd event so we can read its duration.
             let command_end = match event.data() {
@@ -1027,6 +1012,26 @@ mod imp {
                 }
                 buck2_data::buck_event::Data::Record(_) => Ok(()),
             }
+        }
+    }
+
+    fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::ProcessedErrorReport {
+        buck2_data::ProcessedErrorReport {
+            category: error.category,
+            message: error.message,
+            telemetry_message: error.telemetry_message,
+            typ: error
+                .typ
+                .and_then(buck2_data::error::ErrorType::from_i32)
+                .map(|t| t.as_str_name().to_owned()),
+            source_location: error.source_location,
+            tags: error
+                .tags
+                .iter()
+                .copied()
+                .filter_map(buck2_data::error::ErrorTag::from_i32)
+                .map(|t| t.as_str_name().to_owned())
+                .collect(),
         }
     }
 
