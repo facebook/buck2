@@ -82,6 +82,7 @@ def android_prebuilt_aar_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx = ctx,
         library_output = library_output_classpath_entry,
         exported_deps = ctx.attrs.deps,
+        provided_deps = ctx.attrs.desugar_deps,
         needs_desugar = True,
         is_prebuilt_jar = True,
         annotation_jars_dir = annotation_jars_dir,

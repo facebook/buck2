@@ -914,6 +914,7 @@ android_prebuilt_aar = prelude_rule(
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
+            "desugar_deps": attrs.list(attrs.dep(), default = []),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "maven_coords": attrs.option(attrs.string(), default = None),
@@ -1292,6 +1293,7 @@ prebuilt_jar = prelude_rule(
                  `binary_jar` is already built, there should be nothing to
                  build, so this should be empty.
             """),
+            "desugar_deps": attrs.list(attrs.dep(), default = []),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "generate_abi": attrs.bool(default = False),
