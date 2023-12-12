@@ -137,6 +137,10 @@ pub fn to_json_project(
             include_dirs.insert(parent.to_owned());
         }
 
+        for src in &info.srcs {
+            include_dirs.insert(src.to_owned());
+        }
+
         let crate_info = Crate {
             display_name: Some(info.name.clone()),
             root_module,
