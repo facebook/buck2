@@ -782,6 +782,11 @@ def _has_linkable(node_data: LinkableNode) -> bool:
             return True
     return False
 
+def _platform_output_path(path: str, platform: [str, None] = None):
+    if platform:
+        return platform + "/" + path
+    return path
+
 def _get_merged_linkables(
         ctx: AnalysisContext,
         merged_data_by_platform: dict[str, LinkableMergeData]) -> MergedLinkables:
@@ -906,11 +911,6 @@ def _get_merged_linkables(
         group_shared_libs = {}
         included_default_solibs = {}
 
-        def platform_output_path(path):
-            if len(merged_data_by_platform) > 1:
-                return platform + "/" + path
-            return path
-
         def set_has_transitive_linkable_cache(target: Label, result: bool) -> bool:
             has_transitive_linkable_cache[target] = result
             return result
@@ -967,7 +967,7 @@ def _get_merged_linkables(
                         expect(not transitive_has_linkable(dep), "prebuilt shared library `{}` with exported_deps not supported by somerge".format(target))
                     soname, shlib = node_data.shared_libs.items()[0]
 
-                    output_path = platform_output_path(shlib.output.short_path)
+                    output_path = _platform_output_path(shlib.output.short_path, platform if len(merged_data_by_platform) > 1 else None)
                     shared_lib = SharedLibrary(
                         lib = shlib,
                         stripped_lib = strip_lib(ctx, cxx_toolchain, shlib.output, output_path = output_path),
@@ -1126,7 +1126,7 @@ def _get_merged_linkables(
                 ),
             )
 
-            output_path = platform_output_path(soname)
+            output_path = _platform_output_path(soname, platform if len(merged_data_by_platform) > 1 else None)
             link_args = [LinkArgs(infos = links)]
 
             shared_lib = create_shared_lib(
