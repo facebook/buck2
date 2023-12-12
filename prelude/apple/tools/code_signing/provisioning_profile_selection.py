@@ -245,6 +245,9 @@ def select_best_provisioning_profile(
             log_mismatched_profile(cast(DeveloperCertificateMismatch, mismatch))
             continue
 
+        _LOGGER.info(
+            f"Matching provisioning profile `{profile.file_path.name}` with score {current_match_length}"
+        )
         if current_match_length > best_match_length:
             best_match_length = current_match_length
             result = SelectedProvisioningProfileInfo(profile, certificate)
