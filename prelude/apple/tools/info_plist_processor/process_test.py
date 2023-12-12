@@ -56,7 +56,7 @@ class TestProcess(unittest.TestCase):
         process(input_file, output_file, override_input_file)
         output_file.seek(0)
         root = plistlib.load(output_file)
-        self.assertEquals(root, {"foo": "bar", "baz": "qux"})
+        self.assertEqual(root, {"foo": "bar", "baz": "qux"})
 
     def test_additional_input_given_keys_conflict(self):
         input_file = io.BytesIO(
@@ -106,7 +106,7 @@ class TestProcess(unittest.TestCase):
         process(input_file, output_file, override_input_file)
         output_file.seek(0)
         root = plistlib.load(output_file)
-        self.assertEquals(
+        self.assertEqual(
             root,
             {"foo": "baz", "qux": {"a": "z", "b": "c", "c": "x"}, "foobar": "zanzibar"},
         )
@@ -128,7 +128,7 @@ class TestProcess(unittest.TestCase):
         process(input_file, output_file, additional_keys=additional_keys)
         output_file.seek(0)
         root = plistlib.load(output_file)
-        self.assertEquals(root, {"foo": "bar", "baz": "qux"})
+        self.assertEqual(root, {"foo": "bar", "baz": "qux"})
 
     def test_additional_keys_do_not_override(self):
         input_file = io.BytesIO(
@@ -147,7 +147,7 @@ class TestProcess(unittest.TestCase):
         process(input_file, output_file, additional_keys=additional_keys)
         output_file.seek(0)
         root = plistlib.load(output_file)
-        self.assertEquals(root, {"foo": "bar"})
+        self.assertEqual(root, {"foo": "bar"})
 
     def test_additional_keys_from_file(self):
         input_file = io.BytesIO(
@@ -166,7 +166,7 @@ class TestProcess(unittest.TestCase):
         process(input_file, output_file, additional_keys_file=additional_keys_file)
         output_file.seek(0)
         root = plistlib.load(output_file)
-        self.assertEquals(root, {"foo": "bar", "baz": "qux"})
+        self.assertEqual(root, {"foo": "bar", "baz": "qux"})
 
     def test_override_keys_from_file(self):
         input_file = io.BytesIO(
@@ -185,4 +185,4 @@ class TestProcess(unittest.TestCase):
         process(input_file, output_file, override_keys_file=override_keys_file)
         output_file.seek(0)
         root = plistlib.load(output_file)
-        self.assertEquals(root, {"foo": "baz"})
+        self.assertEqual(root, {"foo": "baz"})
