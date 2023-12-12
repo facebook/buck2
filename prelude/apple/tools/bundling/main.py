@@ -75,6 +75,14 @@ def _args_parser() -> argparse.ArgumentParser:
         help="Path to code signing utility. If not provided standard `codesign` tool will be used.",
     )
     parser.add_argument(
+        "--codesign-args",
+        type=str,
+        default=[],
+        required=False,
+        action="append",
+        help="Add additional args to pass during codesigning. Pass as`--codesign-args=ARG` to ensure correct arg parsing.",
+    )
+    parser.add_argument(
         "--info-plist-source",
         metavar="</prepared/Info.plist>",
         type=Path,
@@ -325,7 +333,7 @@ def _main() -> None:
             entitlements_path=args.entitlements,
             platform=args.platform,
             codesign_on_copy_paths=[i.dst for i in spec if i.codesign_on_copy],
-            codesign_args=[],
+            codesign_args=args.codesign_args,
             codesign_tool=args.codesign_tool,
             codesign_configuration=args.codesign_configuration,
         )

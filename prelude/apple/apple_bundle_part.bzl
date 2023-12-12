@@ -122,6 +122,7 @@ def assemble_bundle(
                 codesign_args.extend(["--ad-hoc-codesign-identity", ctx.attrs.codesign_identity])
 
         codesign_args += get_entitlements_codesign_args(ctx, codesign_type)
+        codesign_args += _get_extra_codesign_args(ctx)
 
         info_plist_args = [
             "--info-plist-source",
@@ -256,3 +257,7 @@ def _detect_codesign_type(ctx: AnalysisContext, skip_adhoc_signing: bool) -> Cod
         codesign_type = CodeSignType("skip")
 
     return codesign_type
+
+def _get_extra_codesign_args(ctx: AnalysisContext) -> list[str]:
+    codesign_args = ctx.attrs.codesign_flags if hasattr(ctx.attrs, "codesign_flags") else []
+    return ["--codesign-args={}".format(flag) for flag in codesign_args]
