@@ -42,6 +42,7 @@ def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig
     re_props_copy = dict(re_props)
     capabilities = re_props_copy.pop("capabilities")
     use_case = re_props_copy.pop("use_case")
+    listing_capabilities = re_props_copy.pop("listing_capabilities", None)
     remote_cache_enabled = re_props_copy.pop("remote_cache_enabled", None)
     if re_props_copy:
         unexpected_props = ", ".join(re_props_copy.keys())
@@ -60,4 +61,14 @@ def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig
         remote_cache_enabled = remote_cache_enabled,
         remote_execution_action_key = remote_execution_action_key,
     )
-    return default_executor, {}
+    listing_executor = default_executor
+    if listing_capabilities:
+        listing_executor = CommandExecutorConfig(
+            local_enabled = False,
+            remote_enabled = True,
+            remote_execution_properties = listing_capabilities,
+            remote_execution_use_case = use_case or "tpx-default",
+            remote_cache_enabled = remote_cache_enabled,
+            remote_execution_action_key = remote_execution_action_key,
+        )
+    return default_executor, {"listing": listing_executor}

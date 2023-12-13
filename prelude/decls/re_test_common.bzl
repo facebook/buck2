@@ -14,6 +14,7 @@ def _opts_for_tests_arg() -> Attr:
     # The expected shape of re_opts is:
     # {
     #     "capabilities": Dict<str, str> | None
+    #     "listing_capabilities": Dict<str, str> | None
     #     "use_case": str | None
     #     "remote_cache_enabled": bool | None
     # }
