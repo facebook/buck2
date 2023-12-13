@@ -1089,7 +1089,7 @@ impl<P: AstPayload> CompilerExprUtil<P> for ExprP<P> {
 
 #[cold]
 #[inline(never)]
-fn get_attr_no_attr_error<'v>(x: Value<'v>, attribute: &Symbol) -> anyhow::Error {
+fn get_attr_no_attr_error<'v>(x: Value<'v>, attribute: &Symbol) -> crate::Error {
     match did_you_mean(attribute.as_str(), x.dir_attr().iter().map(|s| s.as_str())) {
         None => ValueError::NoAttr(x.get_type().to_owned(), attribute.as_str().to_owned()).into(),
         Some(better) => ValueError::NoAttrDidYouMean(
@@ -1120,7 +1120,7 @@ pub(crate) fn get_attr_hashed_raw<'v>(
     x: Value<'v>,
     attribute: &Symbol,
     heap: &'v Heap,
-) -> anyhow::Result<MemberOrValue<'v>> {
+) -> crate::Result<MemberOrValue<'v>> {
     let aref = x.get_ref();
     if let Some(methods) = aref.vtable().methods() {
         if let Some(v) = methods.get_frozen_symbol(attribute) {
@@ -1145,7 +1145,7 @@ pub(crate) fn get_attr_hashed_bind<'v>(
         }
     }
     match aref.get_attr_hashed(attribute.as_str_hashed(), heap) {
-        None => Err(get_attr_no_attr_error(x, attribute).into()),
+        None => Err(get_attr_no_attr_error(x, attribute)),
         Some(x) => {
             // Only `get_methods` is allowed to return unbound methods or attributes.
             // Both types are crate private, so we assume `get_attr` never returns them.
