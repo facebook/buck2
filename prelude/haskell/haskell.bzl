@@ -15,7 +15,6 @@ load(
 )
 load(
     "@prelude//cxx:cxx_toolchain_types.bzl",
-    "CxxPlatformInfo",
     "CxxToolchainInfo",
     "PicBehavior",
 )
@@ -37,6 +36,33 @@ load(
     "CPreprocessorArgs",
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
+)
+load(
+    "@prelude//haskell:compile.bzl",
+    "CompileResultInfo",
+    "HaskellLibraryInfo",
+    "HaskellLibraryProvider",
+    "compile",
+)
+load(
+    "@prelude//haskell:link_info.bzl",
+    "HaskellLinkInfo",
+    "attr_link_style",
+    "cxx_toolchain_link_style",
+    "merge_haskell_link_infos",
+)
+load(
+    "@prelude//haskell:toolchain.bzl",
+    "HaskellToolchainInfo",
+)
+load(
+    "@prelude//haskell:util.bzl",
+    "attr_deps",
+    "get_artifact_suffix",
+    "is_haskell_src",
+    "output_extensions",
+    "src_to_module_name",
+    "srcs_to_pairs",
 )
 load(
     "@prelude//linking:link_groups.bzl",
@@ -88,62 +114,8 @@ load(
     "@prelude//python:python.bzl",
     "PythonLibraryInfo",
 )
-load("@prelude//utils:platform_flavors_util.bzl", "by_platform")
 load("@prelude//utils:set.bzl", "set")
 load("@prelude//utils:utils.bzl", "filter_and_map_idx", "flatten")
-
-_HASKELL_EXTENSIONS = [
-    ".hs",
-    ".lhs",
-    ".hsc",
-    ".chs",
-    ".x",
-    ".y",
-]
-
-HaskellPlatformInfo = provider(fields = {
-    "name": provider_field(typing.Any, default = None),
-})
-
-HaskellToolchainInfo = provider(
-    # @unsorted-dict-items
-    fields = {
-        "compiler": provider_field(typing.Any, default = None),
-        "compiler_flags": provider_field(typing.Any, default = None),
-        "linker": provider_field(typing.Any, default = None),
-        "linker_flags": provider_field(typing.Any, default = None),
-        "haddock": provider_field(typing.Any, default = None),
-        "compiler_major_version": provider_field(typing.Any, default = None),
-        "package_name_prefix": provider_field(typing.Any, default = None),
-        "packager": provider_field(typing.Any, default = None),
-        "use_argsfile": provider_field(typing.Any, default = None),
-        "support_expose_package": provider_field(bool, default = False),
-        "archive_contents": provider_field(typing.Any, default = None),
-        "ghci_script_template": provider_field(typing.Any, default = None),
-        "ghci_iserv_template": provider_field(typing.Any, default = None),
-        "ide_script_template": provider_field(typing.Any, default = None),
-        "ghci_binutils_path": provider_field(typing.Any, default = None),
-        "ghci_lib_path": provider_field(typing.Any, default = None),
-        "ghci_ghc_path": provider_field(typing.Any, default = None),
-        "ghci_iserv_path": provider_field(typing.Any, default = None),
-        "ghci_iserv_prof_path": provider_field(typing.Any, default = None),
-        "ghci_cxx_path": provider_field(typing.Any, default = None),
-        "ghci_cc_path": provider_field(typing.Any, default = None),
-        "ghci_cpp_path": provider_field(typing.Any, default = None),
-        "ghci_packager": provider_field(typing.Any, default = None),
-        "cache_links": provider_field(typing.Any, default = None),
-        "script_template_processor": provider_field(typing.Any, default = None),
-    },
-)
-
-# A list of `HaskellLibraryInfo`s.
-HaskellLinkInfo = provider(
-    # Contains a list of HaskellLibraryInfo records.
-    fields = {
-        "info": provider_field(typing.Any, default = None),  # dict[LinkStyle, list[HaskellLibraryInfo]] # TODO use a tset
-        "prof_info": provider_field(typing.Any, default = None),  # dict[LinkStyle, list[HaskellLibraryInfo]] # TODO use a tset
-    },
-)
 
 HaskellIndexingTSet = transitive_set()
 
@@ -151,18 +123,6 @@ HaskellIndexingTSet = transitive_set()
 HaskellIndexInfo = provider(
     fields = {
         "info": provider_field(typing.Any, default = None),  # dict[LinkStyle, HaskellIndexingTset]
-    },
-)
-
-# If the target is a haskell library, the HaskellLibraryProvider
-# contains its HaskellLibraryInfo. (in contrast to a HaskellLinkInfo,
-# which contains the HaskellLibraryInfo for all the transitive
-# dependencies). Direct dependencies are treated differently from
-# indirect dependencies for the purposes of module visibility.
-HaskellLibraryProvider = provider(
-    fields = {
-        "lib": provider_field(typing.Any, default = None),  # dict[LinkStyle, HaskellLibraryInfo]
-        "prof_lib": provider_field(typing.Any, default = None),  # dict[LinkStyle, HaskellLibraryInfo]
     },
 )
 
@@ -175,39 +135,7 @@ HaskellProfLinkInfo = provider(
     },
 )
 
-# A record of a Haskell library.
-HaskellLibraryInfo = record(
-    # The library target name: e.g. "rts"
-    name = str,
-    # package config database: e.g. platform009/build/ghc/lib/package.conf.d
-    db = Artifact,
-    # e.g. "base-4.13.0.0"
-    id = str,
-    # Import dirs indexed by profiling enabled/disabled
-    import_dirs = dict[bool, Artifact],
-    stub_dirs = list[Artifact],
-
-    # This field is only used as hidden inputs to compilation, to
-    # support Template Haskell which may need access to the libraries
-    # at compile time.  The real library flags are propagated up the
-    # dependency graph via MergedLinkInfo.
-    libs = field(list[Artifact], []),
-    # Package version, used to specify the full package when exposing it,
-    # e.g. filepath-1.4.2.1, deepseq-1.4.4.0.
-    # Internal packages default to 1.0.0, e.g. `fbcode-dsi-logger-hs-types-1.0.0`.
-    version = str,
-    is_prebuilt = bool,
-    profiling_enabled = bool,
-)
-
 # --
-
-def _by_platform(ctx: AnalysisContext, xs: list[(str, list[typing.Any])]) -> list[typing.Any]:
-    platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo].name
-    return flatten(by_platform([platform], xs))
-
-def attr_deps(ctx: AnalysisContext) -> list[Dependency]:
-    return ctx.attrs.deps + _by_platform(ctx, ctx.attrs.platform_deps)
 
 # Disable until we have a need to call this.
 # def _attr_deps_merged_link_infos(ctx: AnalysisContext) -> [MergedLinkInfo]:
@@ -216,38 +144,6 @@ def attr_deps(ctx: AnalysisContext) -> list[Dependency]:
 # This conversion is non-standard, see TODO about link style below
 def _to_lib_output_style(link_style: LinkStyle) -> LibOutputStyle:
     return default_output_style_for_link_strategy(to_link_strategy(link_style))
-
-def _attr_deps_haskell_link_infos(ctx: AnalysisContext) -> list[HaskellLinkInfo]:
-    return filter(
-        None,
-        [
-            d.get(HaskellLinkInfo)
-            for d in attr_deps(ctx) + ctx.attrs.template_deps
-        ],
-    )
-
-def _attr_deps_haskell_lib_infos(
-        ctx: AnalysisContext,
-        link_style: LinkStyle,
-        enable_profiling: bool) -> list[HaskellLibraryInfo]:
-    if enable_profiling and link_style == LinkStyle("shared"):
-        fail("Profiling isn't supported when using dynamic linking")
-    return [
-        x.prof_lib[link_style] if enable_profiling else x.lib[link_style]
-        for x in filter(None, [
-            d.get(HaskellLibraryProvider)
-            for d in attr_deps(ctx) + ctx.attrs.template_deps
-        ])
-    ]
-
-def _cxx_toolchain_link_style(ctx: AnalysisContext) -> LinkStyle:
-    return ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info.link_style
-
-def _attr_link_style(ctx: AnalysisContext) -> LinkStyle:
-    if ctx.attrs.link_style != None:
-        return LinkStyle(ctx.attrs.link_style)
-    else:
-        return _cxx_toolchain_link_style(ctx)
 
 def _attr_preferred_linkage(ctx: AnalysisContext) -> Linkage:
     preferred_linkage = ctx.attrs.preferred_linkage
@@ -259,14 +155,6 @@ def _attr_preferred_linkage(ctx: AnalysisContext) -> Linkage:
     return Linkage(preferred_linkage)
 
 # --
-
-def _is_haskell_src(x: str) -> bool:
-    _, ext = paths.split_extension(x)
-    return ext in _HASKELL_EXTENSIONS
-
-def _src_to_module_name(x: str) -> str:
-    base, _ext = paths.split_extension(x)
-    return base.replace("/", ".")
 
 def _get_haskell_prebuilt_libs(
         ctx,
@@ -461,253 +349,16 @@ def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
         linkable_graph,
     ]
 
-def merge_haskell_link_infos(deps: list[HaskellLinkInfo]) -> HaskellLinkInfo:
-    merged = {}
-    prof_merged = {}
-    for link_style in LinkStyle:
-        children = []
-        prof_children = []
-        for dep in deps:
-            if link_style in dep.info:
-                children.extend(dep.info[link_style])
-
-            if link_style in dep.prof_info:
-                prof_children.extend(dep.prof_info[link_style])
-
-        merged[link_style] = dedupe(children)
-        prof_merged[link_style] = dedupe(prof_children)
-
-    return HaskellLinkInfo(info = merged, prof_info = prof_merged)
-
-PackagesInfo = record(
-    exposed_package_args = cmd_args,
-    packagedb_args = cmd_args,
-    transitive_deps = field(list[HaskellLibraryInfo]),
-)
-
-def _package_flag(toolchain: HaskellToolchainInfo) -> str:
-    if toolchain.support_expose_package:
-        return "-expose-package"
-    else:
-        return "-package"
-
-def get_packages_info(
-        ctx: AnalysisContext,
-        link_style: LinkStyle,
-        specify_pkg_version: bool,
-        enable_profiling: bool) -> PackagesInfo:
-    haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
-
-    # Collect library dependencies. Note that these don't need to be in a
-    # particular order and we really want to remove duplicates (there
-    # are a *lot* of duplicates).
-    libs = {}
-    direct_deps_link_info = _attr_deps_haskell_link_infos(ctx)
-    merged_hs_link_info = merge_haskell_link_infos(direct_deps_link_info)
-
-    hs_link_info = merged_hs_link_info.prof_info if enable_profiling else merged_hs_link_info.info
-
-    for lib in hs_link_info[link_style]:
-        libs[lib.db] = lib  # lib.db is a good enough unique key
-
-    # base is special and gets exposed by default
-    package_flag = _package_flag(haskell_toolchain)
-    exposed_package_args = cmd_args([package_flag, "base"])
-
-    packagedb_args = cmd_args()
-
-    for lib in libs.values():
-        exposed_package_args.hidden(lib.import_dirs.values())
-        exposed_package_args.hidden(lib.stub_dirs)
-
-        # libs of dependencies might be needed at compile time if
-        # we're using Template Haskell:
-        exposed_package_args.hidden(lib.libs)
-
-        packagedb_args.hidden(lib.import_dirs.values())
-        packagedb_args.hidden(lib.stub_dirs)
-        packagedb_args.hidden(lib.libs)
-
-    for lib in libs.values():
-        # These we need to add for all the packages/dependencies, i.e.
-        # direct and transitive (e.g. `fbcode-common-hs-util-hs-array`)
-        packagedb_args.add("-package-db", lib.db)
-
-    haskell_direct_deps_lib_infos = _attr_deps_haskell_lib_infos(
-        ctx,
-        link_style,
-        enable_profiling,
-    )
-
-    # Expose only the packages we depend on directly
-    for lib in haskell_direct_deps_lib_infos:
-        pkg_name = lib.name
-        if (specify_pkg_version):
-            pkg_name += "-{}".format(lib.version)
-
-        exposed_package_args.add(package_flag, pkg_name)
-
-    return PackagesInfo(
-        exposed_package_args = exposed_package_args,
-        packagedb_args = packagedb_args,
-        transitive_deps = libs.values(),
-    )
-
-# The type of the return value of the `_compile()` function.
-CompileResultInfo = record(
-    objects = field(Artifact),
-    hi = field(Artifact),
-    stubs = field(Artifact),
-    producing_indices = field(bool),
-)
-
-def _link_style_extensions(link_style: LinkStyle) -> (str, str):
-    if link_style == LinkStyle("shared"):
-        return ("dyn_o", "dyn_hi")
-    elif link_style == LinkStyle("static_pic"):
-        return ("o", "hi")  # is this right?
-    elif link_style == LinkStyle("static"):
-        return ("o", "hi")
-    fail("unknown LinkStyle")
-
-def _output_extensions(
-        link_style: LinkStyle,
-        profiled: bool) -> (str, str):
-    osuf, hisuf = _link_style_extensions(link_style)
-    if profiled:
-        return ("p_" + osuf, "p_" + hisuf)
-    else:
-        return (osuf, hisuf)
-
 def _srcs_to_objfiles(
         ctx: AnalysisContext,
         odir: Artifact,
         osuf: str) -> cmd_args:
     objfiles = cmd_args()
-    for src, _ in _srcs_to_pairs(ctx.attrs.srcs):
+    for src, _ in srcs_to_pairs(ctx.attrs.srcs):
         # Don't link boot sources, as they're only meant to be used for compiling.
-        if _is_haskell_src(src):
+        if is_haskell_src(src):
             objfiles.add(cmd_args([odir, "/", paths.replace_extension(src, "." + osuf)], delimiter = ""))
     return objfiles
-
-# We take a named_set for srcs, which is sometimes a list, sometimes a dict.
-# In future we should only accept a list, but for now, cope with both.
-def _srcs_to_pairs(srcs) -> list[(str, Artifact)]:
-    if type(srcs) == type({}):
-        return srcs.items()
-    else:
-        return [(src.short_path, src) for src in srcs]
-
-# Single place to build the suffix used in artifacts (e.g. package directories,
-# lib names) considering attributes like link style and profiling.
-def get_artifact_suffix(link_style: LinkStyle, enable_profiling: bool) -> str:
-    artifact_suffix = link_style.value
-    if enable_profiling:
-        artifact_suffix += "-prof"
-    return artifact_suffix
-
-# Compile all the context's sources.
-def _compile(
-        ctx: AnalysisContext,
-        link_style: LinkStyle,
-        enable_profiling: bool,
-        extra_args = []) -> CompileResultInfo:
-    haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
-    compile_cmd = cmd_args(haskell_toolchain.compiler)
-    compile_cmd.add(haskell_toolchain.compiler_flags)
-
-    # Some rules pass in RTS (e.g. `+RTS ... -RTS`) options for GHC, which can't
-    # be parsed when inside an argsfile.
-    compile_cmd.add(ctx.attrs.compiler_flags)
-
-    compile_args = cmd_args()
-    compile_args.add("-no-link", "-i")
-
-    if enable_profiling:
-        compile_args.add("-prof")
-
-    if link_style == LinkStyle("shared"):
-        compile_args.add("-dynamic", "-fPIC")
-    elif link_style == LinkStyle("static_pic"):
-        compile_args.add("-fPIC", "-fexternal-dynamic-refs")
-
-    osuf, hisuf = _output_extensions(link_style, enable_profiling)
-    compile_args.add("-osuf", osuf, "-hisuf", hisuf)
-
-    if getattr(ctx.attrs, "main", None) != None:
-        compile_args.add(["-main-is", ctx.attrs.main])
-
-    artifact_suffix = get_artifact_suffix(link_style, enable_profiling)
-
-    objects = ctx.actions.declare_output(
-        "objects-" + artifact_suffix,
-        dir = True,
-    )
-    hi = ctx.actions.declare_output("hi-" + artifact_suffix, dir = True)
-    stubs = ctx.actions.declare_output("stubs-" + artifact_suffix, dir = True)
-
-    compile_args.add(
-        "-odir",
-        objects.as_output(),
-        "-hidir",
-        hi.as_output(),
-        "-hiedir",
-        hi.as_output(),
-        "-stubdir",
-        stubs.as_output(),
-    )
-
-    # Add -package-db and -package/-expose-package flags for each Haskell
-    # library dependency.
-    packages_info = get_packages_info(
-        ctx,
-        link_style,
-        specify_pkg_version = False,
-        enable_profiling = enable_profiling,
-    )
-
-    compile_args.add(packages_info.exposed_package_args)
-    compile_args.add(packages_info.packagedb_args)
-
-    # Add args from preprocess-able inputs.
-    inherited_pre = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
-    pre = cxx_merge_cpreprocessors(ctx, [], inherited_pre)
-    pre_args = pre.set.project_as_args("args")
-    compile_args.add(cmd_args(pre_args, format = "-optP={}"))
-
-    compile_args.add(extra_args)
-
-    for (path, src) in _srcs_to_pairs(ctx.attrs.srcs):
-        # hs-boot files aren't expected to be an argument to compiler but does need
-        # to be included in the directory of the associated src file
-        if _is_haskell_src(path):
-            compile_args.add(src)
-        else:
-            compile_args.hidden(src)
-
-    if haskell_toolchain.use_argsfile:
-        argsfile = ctx.actions.declare_output(
-            "haskell_compile_" + artifact_suffix + ".argsfile",
-        )
-        ctx.actions.write(argsfile.as_output(), compile_args, allow_args = True)
-        compile_cmd.add(cmd_args(argsfile, format = "@{}").hidden(compile_args))
-    else:
-        compile_cmd.add(compile_args)
-
-    ctx.actions.run(
-        compile_cmd,
-        category = "haskell_compile_" + artifact_suffix.replace("-", "_"),
-        no_outputs_cleanup = True,
-    )
-
-    producing_indices = "-fwrite-ide-info" in ctx.attrs.compiler_flags
-
-    return CompileResultInfo(
-        objects = objects,
-        hi = hi,
-        stubs = stubs,
-        producing_indices = producing_indices,
-    )
 
 _REGISTER_PACKAGE = """\
 set -eu
@@ -748,7 +399,7 @@ def _make_package(
     artifact_suffix = get_artifact_suffix(link_style, enable_profiling)
 
     # Don't expose boot sources, as they're only meant to be used for compiling.
-    modules = [_src_to_module_name(x) for x, _ in _srcs_to_pairs(ctx.attrs.srcs) if _is_haskell_src(x)]
+    modules = [src_to_module_name(x) for x, _ in srcs_to_pairs(ctx.attrs.srcs) if is_haskell_src(x)]
 
     uniq_hlis = {}
     for x in hlis:
@@ -840,14 +491,14 @@ def _build_haskell_lib(
     # Link the objects into a library
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
 
-    osuf, _hisuf = _output_extensions(link_style, enable_profiling)
+    osuf, _hisuf = output_extensions(link_style, enable_profiling)
 
     # Compile the sources
-    compiled = _compile(
+    compiled = compile(
         ctx,
         link_style,
         enable_profiling = enable_profiling,
-        extra_args = ["-this-unit-id", pkgname],
+        pkgname = pkgname,
     )
     solibs = {}
     artifact_suffix = get_artifact_suffix(link_style, enable_profiling)
@@ -1065,7 +716,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 )]
 
     pic_behavior = ctx.attrs._cxx_toolchain[CxxToolchainInfo].pic_behavior
-    link_style = _cxx_toolchain_link_style(ctx)
+    link_style = cxx_toolchain_link_style(ctx)
     output_style = get_lib_output_style(
         to_link_strategy(link_style),
         preferred_linkage,
@@ -1222,7 +873,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Decide what kind of linking we're doing
 
-    link_style = _attr_link_style(ctx)
+    link_style = attr_link_style(ctx)
 
     # Link Groups
     link_group_info = get_link_group_info(ctx, filter_and_map_idx(LinkableGraph, attr_deps(ctx)))
@@ -1231,7 +882,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     if enable_profiling and link_style == LinkStyle("shared"):
         link_style = LinkStyle("static")
 
-    compiled = _compile(
+    compiled = compile(
         ctx,
         link_style,
         enable_profiling = enable_profiling,
@@ -1247,7 +898,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     link.hidden(compiled.stubs)
 
-    osuf, _hisuf = _output_extensions(link_style, enable_profiling)
+    osuf, _hisuf = output_extensions(link_style, enable_profiling)
 
     objfiles = _srcs_to_objfiles(ctx, compiled.objects, osuf)
     link.add(objfiles)

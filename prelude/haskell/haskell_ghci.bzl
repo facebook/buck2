@@ -17,15 +17,17 @@ load(
     "link_options",
 )
 load(
-    "@prelude//haskell:haskell.bzl",
+    "@prelude//haskell:compile.bzl",
     "HaskellLibraryInfo",
     "HaskellLibraryProvider",
-    "HaskellToolchainInfo",
     "PackagesInfo",
-    "attr_deps",
-    "get_artifact_suffix",
     "get_packages_info",
 )
+load(
+    "@prelude//haskell:toolchain.bzl",
+    "HaskellToolchainInfo",
+)
+load("@prelude//haskell:util.bzl", "attr_deps", "get_artifact_suffix")
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
     "@prelude//linking:link_info.bzl",

@@ -9,7 +9,7 @@ load("@prelude//android:android_toolchain.bzl", "AndroidPlatformInfo", "AndroidT
 load("@prelude//csharp:toolchain.bzl", "CSharpToolchainInfo")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
 load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
-load("@prelude//haskell:haskell.bzl", "HaskellPlatformInfo", "HaskellToolchainInfo")
+load("@prelude//haskell:toolchain.bzl", "HaskellPlatformInfo", "HaskellToolchainInfo")
 load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
 load(
     "@prelude//java:java_toolchain.bzl",

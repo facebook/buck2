@@ -25,7 +25,8 @@ load("@prelude//go:go_binary.bzl", "go_binary_impl")
 load("@prelude//go:go_exported_library.bzl", "go_exported_library_impl")
 load("@prelude//go:go_library.bzl", "go_library_impl")
 load("@prelude//go:go_test.bzl", "go_test_impl")
-load("@prelude//haskell:haskell.bzl", "HaskellLibraryProvider", "haskell_binary_impl", "haskell_library_impl", "haskell_prebuilt_library_impl")
+load("@prelude//haskell:compile.bzl", "HaskellLibraryProvider")
+load("@prelude//haskell:haskell.bzl", "haskell_binary_impl", "haskell_library_impl", "haskell_prebuilt_library_impl")
 load("@prelude//haskell:haskell_ghci.bzl", "haskell_ghci_impl")
 load("@prelude//haskell:haskell_haddock.bzl", "haskell_haddock_impl")
 load("@prelude//haskell:haskell_ide.bzl", "haskell_ide_impl")
@@ -451,6 +452,10 @@ inlined_extra_attributes = {
     },
     "haskell_ghci": {
         "template_deps": attrs.list(attrs.exec_dep(providers = [HaskellLibraryProvider]), default = []),
+        "_cxx_toolchain": toolchains_common.cxx(),
+        "_haskell_toolchain": toolchains_common.haskell(),
+    },
+    "haskell_haddock": {
         "_cxx_toolchain": toolchains_common.cxx(),
         "_haskell_toolchain": toolchains_common.haskell(),
     },
