@@ -1,7 +1,9 @@
 [package]
 description = "Tests for buck2_build_api crate"
 edition = "2021"
+license = { workspace = true }
 name = "buck2_build_api_tests"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dev-dependencies]

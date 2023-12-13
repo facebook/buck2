@@ -1,8 +1,10 @@
 [package]
 description = "A Rust-centric companion tool to Buck for usage in IDEs."
 edition = "2021"
+license = { workspace = true }
 name = "rust-project"
 readme = "README.md"
+repository = { workspace = true }
 version = "0.0.0"
 
 [dependencies]

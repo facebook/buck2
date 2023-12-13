@@ -2,8 +2,9 @@
 authors = ["Meta"]
 description = "Critical path calculations for Buck2"
 edition = "2021"
-license = "MIT OR Apache-2.0"
+license = { workspace = true }
 name = "buck2_critical_path"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]

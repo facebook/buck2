@@ -1,7 +1,9 @@
 [package]
 description = "Buck2 query language parser"
 edition = "2021"
+license = { workspace = true }
 name = "buck2_query_parser"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]

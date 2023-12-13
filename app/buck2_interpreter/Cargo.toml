@@ -1,7 +1,9 @@
 [package]
 description = "Interprets build files and handles loading and interpreting extension files, and communicating this information to DICE"
 edition = "2021"
+license = { workspace = true }
 name = "buck2_interpreter"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]

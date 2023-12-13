@@ -1,8 +1,9 @@
 [package]
 description = "Similar to `internment` crate, but with interface and performance tweaks"
 edition = "2021"
-license = "MIT OR Apache-2.0"
+license = { workspace = true }
 name = "static_interner"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]

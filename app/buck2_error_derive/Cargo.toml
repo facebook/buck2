@@ -3,7 +3,9 @@ description = """
 Fork of thiserror used by buck2_error
 """
 edition = "2021"
+license = { workspace = true }
 name = "buck2_error_derive"
+repository = { workspace = true }
 version = "0.1.0"
 
 [lib]

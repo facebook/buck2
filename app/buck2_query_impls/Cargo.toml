@@ -2,8 +2,9 @@
 authors = ["Facebook"]
 description = "uquery, cquery, aquery and analysis query implementations for Buck2"
 edition = "2021"
-license = "MIT OR Apache-2.0"
+license = { workspace = true }
 name = "buck2_query_impls"
+repository = { workspace = true }
 version = "0.0.0"
 
 [dependencies]

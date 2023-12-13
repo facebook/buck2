@@ -4,7 +4,7 @@ categories = ["rust-patterns"]
 description = "Derive macros for the Gazebo library"
 documentation = "https://docs.rs/gazebo_derive"
 edition = "2021"
-license = "MIT OR Apache-2.0"
+license = { workspace = true }
 name = "gazebo_derive"
 repository = "https://github.com/facebookincubator/gazebo"
 version = "0.8.0"

@@ -6,7 +6,9 @@ Careful! The wrapper is not released as part of the regular buck version bumps,
 meaning code changes here are not "atomically" updated.
 """
 edition = "2021"
+license = { workspace = true }
 name = "buck2_wrapper_common"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]

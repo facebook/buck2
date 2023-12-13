@@ -3,7 +3,9 @@ description = """
 Library providing an `anyhow` inspired error type for buck2
 """
 edition = "2021"
+license = { workspace = true }
 name = "buck2_error"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]

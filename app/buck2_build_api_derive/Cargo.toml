@@ -2,8 +2,9 @@
 authors = ["Facebook"]
 description = "Derive macros for the Buck's buck2_build_api"
 edition = "2021"
-license = "MIT OR Apache-2.0"
+license = { workspace = true }
 name = "buck2_build_api_derive"
+repository = { workspace = true }
 version = "0.4.1"
 
 [lib]

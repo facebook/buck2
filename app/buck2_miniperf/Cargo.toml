@@ -2,8 +2,9 @@
 authors = ["Meta"]
 description = "A minimal implementation of perf. This has lower overhead when only CPU instruction counts are needed."
 edition = "2021"
-license = "MIT OR Apache-2.0"
+license = { workspace = true }
 name = "buck2_miniperf"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]

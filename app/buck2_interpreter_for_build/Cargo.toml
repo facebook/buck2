@@ -1,7 +1,9 @@
 [package]
 description = "Interpreter setup to BUCK files"
 edition = "2021"
+license = { workspace = true }
 name = "buck2_interpreter_for_build"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]

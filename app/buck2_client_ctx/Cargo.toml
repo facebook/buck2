@@ -1,7 +1,9 @@
 [package]
 description = "Code supporting buck2 client commands"
 edition = "2021"
+license = { workspace = true }
 name = "buck2_client_ctx"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]

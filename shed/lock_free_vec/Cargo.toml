@@ -1,8 +1,9 @@
 [package]
 description = "Data structure"
 edition = "2021"
-license = "MIT OR Apache-2.0"
+license = { workspace = true }
 name = "lock_free_vec"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]

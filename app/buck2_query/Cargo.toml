@@ -1,7 +1,9 @@
 [package]
 description = "Buck query generic implementation"
 edition = "2021"
+license = { workspace = true }
 name = "buck2_query"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]

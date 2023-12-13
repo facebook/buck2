@@ -1,6 +1,8 @@
 [package]
 edition = "2021"
+license = { workspace = true }
 name = "dice_examples"
+repository = { workspace = true }
 version = "0.0.0"
 
 [dependencies]

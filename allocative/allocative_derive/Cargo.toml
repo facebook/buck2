@@ -3,7 +3,7 @@ authors = ["Meta"]
 description = "Implementation of derive(Allocative) for allocative crate"
 documentation = "https://docs.rs/allocative"
 edition = "2021"
-license = "MIT OR Apache-2.0"
+license = { workspace = true }
 name = "allocative_derive"
 repository = "https://github.com/facebookexperimental/allocative"
 version = "0.3.1"

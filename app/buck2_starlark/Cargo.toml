@@ -1,7 +1,9 @@
 [package]
 description = "`buck2 starlark` command implementation, both client and server"
 edition = "2021"
+license = { workspace = true }
 name = "buck2_starlark"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]

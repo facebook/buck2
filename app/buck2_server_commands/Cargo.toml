@@ -1,7 +1,9 @@
 [package]
 description = "Implementation of several Buck commands"
 edition = "2021"
+license = { workspace = true }
 name = "buck2_server_commands"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]

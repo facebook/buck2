@@ -1,7 +1,9 @@
 [package]
 description = "utilities to interpret the buck2 event stream"
 edition = "2021"
+license = { workspace = true }
 name = "buck2_event_observer"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]

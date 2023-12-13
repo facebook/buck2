@@ -1,7 +1,9 @@
 [package]
 description = "Tests for buck2_action_impl"
 edition = "2021"
+license = { workspace = true }
 name = "buck2_action_impl_tests"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dev-dependencies]

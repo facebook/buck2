@@ -1,7 +1,9 @@
 [package]
 description = "Build related interpreter defs, coercion logic, some build rule impelementations, and handing actions off to DICE for caching and execution. A large chunk of the 'build' part of BuckV2"
 edition = "2021"
+license = { workspace = true }
 name = "buck2_build_api"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]

@@ -1,7 +1,9 @@
 [package]
 description = "Anonymous targets"
 edition = "2021"
+license = { workspace = true }
 name = "buck2_anon_target"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]

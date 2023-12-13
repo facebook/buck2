@@ -4,7 +4,7 @@ categories = ["rust-patterns"]
 description = "A collection of well-tested utilities"
 documentation = "https://docs.rs/gazebo"
 edition = "2021"
-license = "MIT OR Apache-2.0"
+license = { workspace = true }
 name = "gazebo"
 repository = "https://github.com/facebookincubator/gazebo"
 version = "0.8.1"

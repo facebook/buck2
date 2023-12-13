@@ -1,7 +1,9 @@
 [package]
 description = "Implementation of configuration transition"
 edition = "2021"
+license = { workspace = true }
 name = "buck2_transition"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]

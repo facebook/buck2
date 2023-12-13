@@ -1,7 +1,9 @@
 [package]
 description = "A library providing remote execution using gRPC"
 edition = "2021"
+license = { workspace = true }
 name = "remote_execution"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]

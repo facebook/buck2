@@ -1,7 +1,9 @@
 [package]
 description = "common utitilies of buck2 profile"
 edition = "2021"
+license = { workspace = true }
 name = "buck2_profile"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]

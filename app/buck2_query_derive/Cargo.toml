@@ -2,8 +2,9 @@
 authors = ["Facebook"]
 description = "Proc macros for Buck's buck_query crate"
 edition = "2021"
-license = "MIT OR Apache-2.0"
+license = { workspace = true }
 name = "buck2_query_derive"
+repository = { workspace = true }
 version = "0.4.1"
 
 [lib]

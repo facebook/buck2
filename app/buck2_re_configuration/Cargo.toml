@@ -1,7 +1,9 @@
 [package]
 description = "utilities to configure RE in Buck2"
 edition = "2021"
+license = { workspace = true }
 name = "buck2_re_configuration"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]

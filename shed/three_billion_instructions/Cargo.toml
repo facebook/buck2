@@ -2,6 +2,7 @@
 authors = ["Meta"]
 description = "Run 3B instructions"
 edition = "2021"
-license = "MIT OR Apache-2.0"
+license = { workspace = true }
 name = "three_billion_instructions"
+repository = { workspace = true }
 version = "0.1.0"

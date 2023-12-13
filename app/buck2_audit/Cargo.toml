@@ -1,7 +1,9 @@
 [package]
 description = "Client side of `buck2 audit`"
 edition = "2021"
+license = { workspace = true }
 name = "buck2_audit"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]

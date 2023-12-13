@@ -1,7 +1,9 @@
 [package]
 authors = ["Logan Wendholt <lwendholt@fb.com>"]
 edition = "2021"
+license = { workspace = true }
 name = "host_sharing"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]

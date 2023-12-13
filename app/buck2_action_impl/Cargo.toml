@@ -1,7 +1,9 @@
 [package]
 description = "Action implementations and context functions"
 edition = "2021"
+license = { workspace = true }
 name = "buck2_action_impl"
+repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
