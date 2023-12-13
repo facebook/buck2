@@ -7,8 +7,8 @@
 
 """Provides macros for working with .buckconfig."""
 
-load("@fbsource//tools/build_defs:expect.bzl", "expect")
-load("@fbsource//tools/build_defs:lazy.bzl", "lazy")
+load(":expect.bzl", "expect")
+load(":lazy.bzl", "lazy")
 
 def _decode_raw_word(val, start, delimiter = None):
     """
