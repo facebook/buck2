@@ -191,7 +191,7 @@ jobs:
       Build and test all with cargo for Linux
     docker:
       - image: cimg/rust:1.65.0
-    resource_class: xlarge
+    resource_class: 2xlarge
     steps:
       - checkout
       - setup_linux_env
