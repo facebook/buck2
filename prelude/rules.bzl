@@ -21,7 +21,7 @@ def _unimplemented_impl(name):
     # some features disabled.
     return partial(_unimplemented, name)
 
-def _mk_rule(rule_spec: typing.Any):
+def _mk_rule(rule_spec: typing.Any, extra_attrs: dict[str, typing.Any] = dict(), **kwargs):
     name = rule_spec.name
     attributes = rule_spec.attrs
 
@@ -42,6 +42,7 @@ def _mk_rule(rule_spec: typing.Any):
         fat_platform_compatible = True
 
     attributes = dict(attributes)
+    attributes.update(extra_attrs)
     if not fat_platform_compatible:
         # copy so we don't try change the passed in object
         attributes["_cxx_toolchain_target_configuration"] = attrs.dep(default = "prelude//platforms:fat_platform_incompatible")
@@ -51,7 +52,7 @@ def _mk_rule(rule_spec: typing.Any):
     # Map of string identifer to platform.
     attributes["_apple_platforms"] = attrs.dict(key = attrs.string(), value = attrs.dep(), sorted = False, default = {})
 
-    extra_args = {}
+    extra_args = dict(kwargs)
     cfg = transitions.get(name)
     if cfg != None:
         extra_args["cfg"] = cfg
@@ -82,11 +83,11 @@ def _mk_rule(rule_spec: typing.Any):
     if rule_spec.uses_plugins != None:
         extra_args["uses_plugins"] = rule_spec.uses_plugins
 
+    extra_args.setdefault("is_configuration_rule", name in _config_implemented_rules)
+    extra_args.setdefault("is_toolchain_rule", name in toolchain_rule_names)
     return rule(
         impl = impl,
         attrs = attributes,
-        is_configuration_rule = name in _config_implemented_rules,
-        is_toolchain_rule = name in toolchain_rule_names,
         **extra_args
     )
 
@@ -130,3 +131,9 @@ rules = {rule.name: _mk_rule(rule) for rule in _declared_rules.values()}
 
 # The rules are accessed by doing module.name, so we have to put them on the correct module.
 load_symbols(rules)
+
+# TODO(akrieger): Remove this and instead refactor to allow impl bzl files to export attrs.
+def clone_rule(rule: str, extra_attrs: dict[str, typing.Any] = dict(), **kwargs):
+    if not rule in _declared_rules:
+        fail("Tried clone rule {} which does not exist".format(rule))
+    return _mk_rule(_declared_rules[rule], extra_attrs, **kwargs)
