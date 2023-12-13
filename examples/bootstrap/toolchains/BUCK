@@ -2,7 +2,6 @@ load("@prelude//toolchains:cxx.bzl", "system_cxx_toolchain")
 load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain", "system_python_toolchain")
 load("@prelude//toolchains:rust.bzl", "system_rust_toolchain")
 load(":rust_toolchain.bzl", "rust_toolchain")
-load(":toolchain.bzl", "toolchain_alias")
 
 ### Toolchains for Cxx/Python/etc. ###
 system_cxx_toolchain(

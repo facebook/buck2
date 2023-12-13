@@ -1098,6 +1098,19 @@ test_suite = prelude_rule(
     ),
 )
 
+toolchain_alias = prelude_rule(
+    name = "toolchain_alias",
+    docs = """
+toolchain_alias acts like alias but for toolchain rules.
+
+The toolchain_alias itself is a toolchain rule and the `actual` argument is
+expected to be a toolchain_rule as well.
+    """,
+    examples = None,
+    further = None,
+    attrs = {"actual": attrs.toolchain_dep(doc = "The actual toolchain that is being aliased. This should be a toolchain rule.")},
+)
+
 versioned_alias = prelude_rule(
     name = "versioned_alias",
     docs = "",
@@ -1485,6 +1498,7 @@ core_rules = struct(
     platform = platform,
     remote_file = remote_file,
     test_suite = test_suite,
+    toolchain_alias = toolchain_alias,
     versioned_alias = versioned_alias,
     worker_tool = worker_tool,
     zip_file = zip_file,
