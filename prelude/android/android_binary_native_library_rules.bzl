@@ -787,6 +787,66 @@ def _platform_output_path(path: str, platform: [str, None] = None):
         return platform + "/" + path
     return path
 
+def _transitive_has_linkable(
+        target: Label,
+        linkable_nodes: dict[Label, LinkableNode],
+        transitive_linkable_cache: dict[Label, bool]) -> bool:
+    if target in transitive_linkable_cache:
+        return transitive_linkable_cache[target]
+
+    target_node = linkable_nodes.get(target)
+    for dep in target_node.deps:
+        if _has_linkable(linkable_nodes.get(dep)) or _transitive_has_linkable(dep, linkable_nodes, transitive_linkable_cache):
+            transitive_linkable_cache[target] = True
+            return True
+    for dep in target_node.exported_deps:
+        if _has_linkable(linkable_nodes.get(dep)) or _transitive_has_linkable(dep, linkable_nodes, transitive_linkable_cache):
+            transitive_linkable_cache[target] = True
+            return True
+
+    transitive_linkable_cache[target] = False
+    return False
+
+def _shared_lib_for_prebuilt_shared(
+        ctx: AnalysisContext,
+        cxx_toolchain: CxxToolchainInfo,
+        target: Label,
+        node_data: LinkableNode,
+        linkable_nodes: dict[Label, LinkableNode],
+        transitive_linkable_cache: dict[Label, bool],
+        platform: [str, None] = None) -> SharedLibrary:
+    expect(
+        len(node_data.shared_libs) == 1,
+        "unexpected shared_libs length for somerge of {} ({})".format(target, node_data.shared_libs),
+    )
+
+    # TODO(cjhopman): We don't currently support prebuilt shared libs with deps on other libs because
+    # we don't compute the shared lib deps of prebuilt shared libs here. That
+    # shouldn't be too hard, but we haven't needed it.
+    for dep in node_data.deps:
+        expect(
+            not _transitive_has_linkable(dep, linkable_nodes, transitive_linkable_cache),
+            "prebuilt shared library `{}` with deps not supported by somerge".format(target),
+        )
+    for dep in node_data.exported_deps:
+        expect(
+            not _transitive_has_linkable(dep, linkable_nodes, transitive_linkable_cache),
+            "prebuilt shared library `{}` with exported_deps not supported by somerge".format(target),
+        )
+
+    soname, shlib = node_data.shared_libs.items()[0]
+    output_path = _platform_output_path(soname, platform)
+    return SharedLibrary(
+        lib = shlib,
+        stripped_lib = strip_lib(ctx, cxx_toolchain, shlib.output, output_path),
+        link_args = None,
+        shlib_deps = None,
+        can_be_asset = node_data.can_be_asset,
+        for_primary_apk = False,
+        soname = soname,
+        label = target,
+    )
+
 def _get_merged_linkables(
         ctx: AnalysisContext,
         merged_data_by_platform: dict[str, LinkableMergeData]) -> MergedLinkables:
@@ -850,8 +910,8 @@ def _get_merged_linkables(
         link_groups = {}
         target_to_link_group = {}
 
-        # Additional caching for later. Needs to be per-platform
-        has_transitive_linkable_cache = dict[Label, bool]
+        # Because we cannot attach this to the LinkableNode after the fact, declare a cache for each platform
+        transitive_linkable_cache = {}
 
         for target in topo_sorted_targets:
             expect(target not in target_to_link_group, "prelude internal error, target seen twice?")
@@ -911,24 +971,6 @@ def _get_merged_linkables(
         group_shared_libs = {}
         included_default_solibs = {}
 
-        def set_has_transitive_linkable_cache(target: Label, result: bool) -> bool:
-            has_transitive_linkable_cache[target] = result
-            return result
-
-        def transitive_has_linkable(target: Label) -> bool:
-            if target in has_transitive_linkable_cache:
-                return has_transitive_linkable_cache[target]
-
-            target_node = linkable_nodes.get(target)
-            for dep in target_node.deps:
-                if _has_linkable(linkable_nodes.get(dep)) or transitive_has_linkable(dep):
-                    return set_has_transitive_linkable_cache(target, True)
-            for dep in target_node.exported_deps:
-                if _has_linkable(linkable_nodes.get(dep)) or transitive_has_linkable(dep):
-                    return set_has_transitive_linkable_cache(target, True)
-
-            return set_has_transitive_linkable_cache(target, False)
-
         # Now we will traverse from the leaves up the graph (the link groups graph). As we traverse, we will produce
         # a link group linkablenode for each group.
         for group in post_order_traversal(link_groups_graph):
@@ -953,32 +995,15 @@ def _get_merged_linkables(
                     continue
 
                 if _is_prebuilt_shared(node_data):
-                    expect(
-                        len(node_data.shared_libs) == 1,
-                        "unexpected shared_libs length for somerge of {} ({})".format(target, node_data.shared_libs),
+                    shared_lib = _shared_lib_for_prebuilt_shared(
+                        ctx,
+                        cxx_toolchain,
+                        target,
+                        node_data,
+                        linkable_nodes,
+                        transitive_linkable_cache,
+                        platform if len(merged_data_by_platform) > 1 else None,
                     )
-
-                    # TODO(cjhopman): We don't currently support prebuilt shared libs with deps on other libs because
-                    # we don't compute the shared lib deps of prebuilt shared libs here. That
-                    # shouldn't be too hard, but we haven't needed it.
-                    for dep in node_data.deps:
-                        expect(not transitive_has_linkable(dep), "prebuilt shared library `{}` with deps not supported by somerge".format(target))
-                    for dep in node_data.exported_deps:
-                        expect(not transitive_has_linkable(dep), "prebuilt shared library `{}` with exported_deps not supported by somerge".format(target))
-                    soname, shlib = node_data.shared_libs.items()[0]
-
-                    output_path = _platform_output_path(shlib.output.short_path, platform if len(merged_data_by_platform) > 1 else None)
-                    shared_lib = SharedLibrary(
-                        lib = shlib,
-                        stripped_lib = strip_lib(ctx, cxx_toolchain, shlib.output, output_path = output_path),
-                        link_args = None,
-                        shlib_deps = None,
-                        can_be_asset = can_be_asset,
-                        for_primary_apk = False,
-                        soname = soname,
-                        label = target,
-                    )
-
                     link_group_linkable_nodes[group] = LinkGroupLinkableNode(
                         link = node_data.link_infos[shlib_output_style].default,
                         deps = [],
@@ -987,8 +1012,8 @@ def _get_merged_linkables(
                         # exported linker flags for shared libs are in their linkinfo itself and are not exported from dependents
                         exported_linker_flags = None,
                     )
-                    group_shared_libs[soname] = MergedSharedLibrary(
-                        soname = soname,
+                    group_shared_libs[shared_lib.soname] = MergedSharedLibrary(
+                        soname = shared_lib.soname,
                         lib = shared_lib,
                         apk_module = group_data.apk_module,
                         solib_constituents = [],
