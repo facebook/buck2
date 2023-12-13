@@ -26,11 +26,9 @@ IncrementalCompilationOutput = record(
     output_map_artifact = field(Artifact),
 )
 
-SwiftCompilationMode = enum(
-    "wmo",
-    "incremental",
-    "auto",
-)
+SwiftCompilationModes = ["wmo", "incremental", "auto"]
+
+SwiftCompilationMode = enum(*SwiftCompilationModes)
 
 SwiftIncrementalBuildFilesTreshold = 20
 
