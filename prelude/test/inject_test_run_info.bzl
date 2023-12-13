@@ -22,6 +22,7 @@ def inject_test_run_info(ctx: AnalysisContext, test_info: ExternalRunnerTestInfo
             for (k, v) in test_info.env.items()
         },
         with_inputs = True,
+        absolute = True,
     )
 
     return [test_info, RunInfo(args = [inject_test_env, env_file, "--", test_info.command])]
