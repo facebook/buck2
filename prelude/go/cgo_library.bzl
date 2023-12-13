@@ -101,14 +101,12 @@ def _cgo(
     args.add(cmd_args(go_toolchain.cgo, format = "--cgo={}"))
 
     c_compiler = cxx_toolchain.c_compiler_info
-    # linker = cxx_toolchain.linker_info
+    linker = cxx_toolchain.linker_info
 
-    # Passing fbcode-platform ldflags may create S365277, so I would
-    # comment this change until we really need to do it.
-    # ldflags = cmd_args(
-    #     linker.linker_flags,
-    #     go_toolchain.external_linker_flags,
-    # )
+    ldflags = cmd_args(
+        linker.linker_flags,
+        go_toolchain.external_linker_flags,
+    )
 
     # Construct the full C/C++ command needed to preprocess/compile sources.
     cxx_cmd = cmd_args()
@@ -138,6 +136,7 @@ def _cgo(
         is_executable = True,
     )
     args.add(cmd_args(cxx_wrapper, format = "--env-cc={}"))
+    args.add(cmd_args(ldflags, format = "--env-ldflags={}"))
     args.hidden(cxx_cmd)
 
     # TODO(agallagher): cgo outputs a dir with generated sources, but I'm not
