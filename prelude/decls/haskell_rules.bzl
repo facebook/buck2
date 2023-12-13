@@ -110,6 +110,7 @@ haskell_haddock = prelude_rule(
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "platform": attrs.option(attrs.string(), default = None),
+            "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
         }
     ),
 )

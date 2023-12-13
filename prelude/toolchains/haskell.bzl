@@ -14,6 +14,7 @@ def _system_haskell_toolchain(_ctx: AnalysisContext) -> list[Provider]:
             compiler = "ghc",
             packager = "ghc-pkg",
             linker = "ghc",
+            haddock = "haddock",
             compiler_flags = [],
             linker_flags = [],
         ),

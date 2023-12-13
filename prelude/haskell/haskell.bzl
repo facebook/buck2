@@ -45,6 +45,10 @@ load(
     "compile",
 )
 load(
+    "@prelude//haskell:haskell_haddock.bzl",
+    "haskell_haddock_lib",
+)
+load(
     "@prelude//haskell:link_info.bzl",
     "HaskellLinkInfo",
     "attr_link_style",
@@ -477,6 +481,8 @@ HaskellLibBuildOutput = record(
 
 def _build_haskell_lib(
         ctx,
+        libname: str,
+        pkgname: str,
         hlis: list[HaskellLinkInfo],  # haskell link infos from all deps
         nlis: list[MergedLinkInfo],  # native link infos from all deps
         link_style: LinkStyle,
@@ -485,8 +491,6 @@ def _build_haskell_lib(
         # profiling, so it should be passed when `enable_profiling` is True.
         non_profiling_hlib: [HaskellLibBuildOutput, None] = None) -> HaskellLibBuildOutput:
     linker_info = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info
-    libname = repr(ctx.label.path).replace("//", "_").replace("/", "_") + "_" + ctx.label.name
-    pkgname = libname.replace("_", "-")
 
     # Link the objects into a library
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
@@ -663,6 +667,9 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
     indexing_tsets = {}
     sub_targets = {}
 
+    libname = repr(ctx.label.path).replace("//", "_").replace("/", "_") + "_" + ctx.label.name
+    pkgname = libname.replace("_", "-")
+
     # The non-profiling library is also needed to build the package with
     # profiling enabled, so we need to keep track of it for each link style.
     non_profiling_hlib = {}
@@ -675,6 +682,8 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
             hlib_build_out = _build_haskell_lib(
                 ctx,
+                libname,
+                pkgname,
                 hlis = hlis,
                 nlis = nlis,
                 link_style = link_style,
@@ -812,6 +821,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
             create_shared_libraries(ctx, solibs),
             shared_library_infos,
         ),
+        haskell_haddock_lib(ctx, pkgname),
     ]
 
     if indexing_tsets:
