@@ -245,3 +245,18 @@ fn test_error_tags() {
     let b: crate::Error = TaggedError::B.into();
     assert_eq!(&b.get_tags(), &[crate::ErrorTag::WatchmanTimeout]);
 }
+
+#[test]
+fn test_correct_transparent() {
+    #[derive(buck2_error_derive::Error, Debug)]
+    #[error("Unused")]
+    #[buck2(infra)]
+    struct E;
+
+    #[derive(buck2_error_derive::Error, Debug)]
+    #[error(transparent)]
+    struct T(E);
+
+    let t: crate::Error = T(E).into();
+    assert_eq!(t.get_category(), None); // TODO(JakobDegen): Fix
+}
