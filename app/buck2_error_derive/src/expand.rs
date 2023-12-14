@@ -361,9 +361,12 @@ fn gen_provide_contents(
     } else {
         quote! {}
     };
+    // When the same type is provided to the `request` more than once, the first value is used and
+    // later values are ignored. As such, make sure we put the `forward_transparent` first, so that
+    // if the underlying error has metadata, that's the one that gets used
     quote! {
-        #metadata
         #forward_transparent
+        #metadata
     }
 }
 

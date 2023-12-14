@@ -258,5 +258,5 @@ fn test_correct_transparent() {
     struct T(E);
 
     let t: crate::Error = T(E).into();
-    assert_eq!(t.get_category(), None); // TODO(JakobDegen): Fix
+    assert_eq!(t.get_category(), Some(crate::Category::Infra));
 }
