@@ -110,7 +110,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             ConfiguredAttr::Tuple(list) => {
                 let mut values = Vec::with_capacity(list.len());
                 for v in list.iter() {
-                    values.append(&mut v.resolve(pkg.dupe(), ctx)?);
+                    values.push(v.resolve_single(pkg.dupe(), ctx)?);
                 }
                 Ok(ctx.heap().alloc(AllocTuple(values)))
             }
