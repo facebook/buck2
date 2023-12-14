@@ -98,6 +98,17 @@ def __run():
 
     restoreenv({env_vals_to_restore!r})
 
+    # On windows, adjust os.add_dll_directory and PATH (for `ctypes.util.find_library`)
+    # so that native libraries can be found by the dynamic linker or ctypes
+    if sys.platform.startswith("win"):
+        d = {os.path.join(dirpath, native_libs_dir)!r}
+        os.add_dll_directory(d)
+        path = os.environ.get("PATH", "")
+        if path and not path.endswith(os.pathsep):
+            path += os.pathsep
+        path += d
+        setenv("PATH", path)
+
     from <MAIN_RUNNER_MODULE> import <MAIN_RUNNER_FUNCTION> as run_as_main
     run_as_main({main_module!r}, {main_function!r})
 
