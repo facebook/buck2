@@ -9,13 +9,13 @@
 
 use std::any::Any;
 
+use buck2_futures::owning_future::OwningFuture;
+use buck2_futures::spawn::spawn_cancellable;
+use buck2_futures::spawn::FutureAndCancellationHandle;
+use buck2_futures::spawner::Spawner;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::FutureExt;
-use more_futures::owning_future::OwningFuture;
-use more_futures::spawn::spawn_cancellable;
-use more_futures::spawn::FutureAndCancellationHandle;
-use more_futures::spawner::Spawner;
 
 use crate::impls::key::DiceKey;
 use crate::impls::task::dice::Cancellations;

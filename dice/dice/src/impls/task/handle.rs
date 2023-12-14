@@ -9,8 +9,8 @@
 
 //! Handle to the DiceTask as seen by the thread responsible for completing the task
 
+use buck2_futures::cancellation::ExplicitCancellationContext;
 use dupe::Dupe;
-use more_futures::cancellation::ExplicitCancellationContext;
 
 use crate::arc::Arc;
 use crate::impls::task::dice::DiceTaskInternal;

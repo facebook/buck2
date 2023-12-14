@@ -12,9 +12,9 @@ use std::any::Any;
 use allocative::Allocative;
 use buck2_common::events::HasEvents;
 use buck2_events::dispatch::with_dispatcher_async;
+use buck2_futures::spawner::Spawner;
 use dupe::Dupe;
 use futures::future::BoxFuture;
-use more_futures::spawner::Spawner;
 use tokio::runtime::Handle;
 use tokio::task::JoinHandle;
 
@@ -59,11 +59,11 @@ mod tests {
     use buck2_events::dispatch::EventDispatcher;
     use buck2_events::source::ChannelEventSource;
     use buck2_events::BuckEvent;
+    use buck2_futures::spawn::spawn_dropcancel_with_preamble;
     use buck2_wrapper_common::invocation_id::TraceId;
     use dice::DiceData;
     use dice::UserComputationData;
     use futures::future::FutureExt;
-    use more_futures::spawn::spawn_dropcancel_with_preamble;
 
     use super::*;
 

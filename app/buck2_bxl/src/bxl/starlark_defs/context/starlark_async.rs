@@ -14,6 +14,7 @@ use buck2_common::events::HasEvents;
 use buck2_data::BxlDiceInvocationEnd;
 use buck2_data::BxlDiceInvocationStart;
 use buck2_events::dispatch::with_dispatcher_async;
+use buck2_futures::cancellable_future::CancellationObserver;
 use dice::DiceComputations;
 use dice::DiceData;
 use dice::UserComputationData;
@@ -21,7 +22,6 @@ use dupe::Dupe;
 use futures::future::select;
 use futures::future::Either;
 use futures::future::LocalBoxFuture;
-use more_futures::cancellable_future::CancellationObserver;
 
 #[derive(buck2_error::Error, Debug)]
 enum ViaError {

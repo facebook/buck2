@@ -28,6 +28,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_execute::digest_config::DigestConfig;
+use buck2_futures::cancellable_future::CancellationObserver;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use dice::DiceComputations;
 use dupe::Dupe;
@@ -35,7 +36,6 @@ use gazebo::variants::VariantName;
 use indexmap::indexset;
 use indexmap::IndexSet;
 use itertools::Itertools;
-use more_futures::cancellable_future::CancellationObserver;
 use once_cell::sync::Lazy;
 
 /// An asynchronous chunk of work that will be executed when requested.

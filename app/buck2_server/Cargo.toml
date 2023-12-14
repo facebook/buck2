@@ -42,7 +42,6 @@ dice = { workspace = true }
 dupe = { workspace = true }
 fbinit = { workspace = true }
 gazebo = { workspace = true }
-more_futures = { workspace = true }
 starlark = { workspace = true }
 starlark_lsp = { workspace = true }
 
@@ -61,6 +60,7 @@ buck2_execute = { workspace = true }
 buck2_execute_impl = { workspace = true }
 buck2_file_watcher = { workspace = true }
 buck2_forkserver = { workspace = true }
+buck2_futures = { workspace = true }
 buck2_http = { workspace = true }
 buck2_interpreter = { workspace = true }
 buck2_interpreter_for_build = { workspace = true }

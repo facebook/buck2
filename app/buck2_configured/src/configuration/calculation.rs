@@ -42,7 +42,7 @@ use dice::Key;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
-use more_futures::cancellation::CancellationContext;
+use buck2_futures::cancellation::CancellationContext;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::execution_platform_registration_info::FrozenExecutionPlatformRegistrationInfo;

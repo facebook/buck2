@@ -40,7 +40,6 @@ dupe = { workspace = true }
 fbinit = { workspace = true }
 gazebo = { workspace = true }
 host_sharing = { workspace = true }
-more_futures = { workspace = true }
 remote_execution = { workspace = true }
 sorted_vector_map = { workspace = true }
 starlark_map = { workspace = true }
@@ -52,6 +51,7 @@ buck2_core = { workspace = true }
 buck2_data = { workspace = true }
 buck2_error = { workspace = true }
 buck2_events = { workspace = true }
+buck2_futures = { workspace = true }
 buck2_http = { workspace = true }
 buck2_miniperf_proto = { workspace = true }
 buck2_re_configuration = { workspace = true }

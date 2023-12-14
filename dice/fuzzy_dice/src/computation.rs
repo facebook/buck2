@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_futures::cancellation::CancellationContext;
 use crossbeam::queue::SegQueue;
 use derivative::Derivative;
 use derive_more::Display;
@@ -24,7 +25,6 @@ use dupe::Dupe;
 use futures::future;
 use futures::future::BoxFuture;
 use futures::FutureExt;
-use more_futures::cancellation::CancellationContext;
 use serde::Deserialize;
 use serde::Serialize;
 

@@ -11,8 +11,8 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_futures::cancellation::CancellationContext;
 use dupe::Dupe;
-use more_futures::cancellation::CancellationContext;
 use remote_execution as RE;
 
 use crate::digest_config::DigestConfig;

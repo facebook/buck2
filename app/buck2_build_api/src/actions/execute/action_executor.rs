@@ -55,6 +55,7 @@ use buck2_execute::output_size::OutputSize;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_file_watcher::mergebase::GetMergebase;
 use buck2_file_watcher::mergebase::Mergebase;
+use buck2_futures::cancellation::CancellationContext;
 use buck2_http::HttpClient;
 use derivative::Derivative;
 use derive_more::Display;
@@ -63,7 +64,6 @@ use dupe::Dupe;
 use indexmap::indexmap;
 use indexmap::IndexMap;
 use itertools::Itertools;
-use more_futures::cancellation::CancellationContext;
 
 use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::actions::execute::action_execution_target::ActionExecutionTarget;
@@ -719,10 +719,10 @@ mod tests {
     use buck2_execute::execute::testing_dry_run::DryRunExecutor;
     use buck2_execute::materialize::nodisk::NoDiskMaterializer;
     use buck2_execute::re::manager::ManagedRemoteExecutionClient;
+    use buck2_futures::cancellation::CancellationContext;
     use buck2_http::HttpClientBuilder;
     use dupe::Dupe;
     use indexmap::indexset;
-    use more_futures::cancellation::CancellationContext;
     use once_cell::sync::Lazy;
     use sorted_vector_map::SortedVectorMap;
 

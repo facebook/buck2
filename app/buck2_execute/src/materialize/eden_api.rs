@@ -20,6 +20,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_eden::connection::EdenConnectionManager;
+use buck2_futures::cancellation::CancellationContext;
 use buck2_util::process::background_command;
 use edenfs::client::EdenService;
 use edenfs::CheckoutMode;
@@ -28,7 +29,6 @@ use edenfs::ObjectType;
 use edenfs::RemoveRecursivelyParams;
 use edenfs::SetPathObjectIdParams;
 use fbinit::FacebookInit;
-use more_futures::cancellation::CancellationContext;
 use serde::Deserialize;
 use tokio::sync::Semaphore;
 

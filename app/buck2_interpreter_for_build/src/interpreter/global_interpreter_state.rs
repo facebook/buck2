@@ -17,12 +17,12 @@ use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::view::LegacyBuckConfigsView;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::CellResolver;
+use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_types::GetStarlarkTypes;
 use buck2_interpreter::file_type::StarlarkFileType;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
-use more_futures::cancellation::CancellationContext;
 use starlark::environment::Globals;
 
 use crate::interpreter::cell_info::InterpreterCellInfo;

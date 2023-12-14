@@ -27,10 +27,10 @@ use buck2_data::DiceCriticalSectionEnd;
 use buck2_data::DiceCriticalSectionStart;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::materialize::materializer::Materializer;
+use buck2_futures::cancellation::ExplicitCancellationContext;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
-use more_futures::cancellation::ExplicitCancellationContext;
 
 use crate::concurrency::ConcurrencyHandler;
 use crate::concurrency::DiceDataProvider;

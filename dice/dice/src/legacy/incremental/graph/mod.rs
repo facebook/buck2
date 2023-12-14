@@ -1404,9 +1404,9 @@ mod tests {
 
     use allocative::Allocative;
     use async_trait::async_trait;
+    use buck2_futures::cancellation::CancellationContext;
     use derive_more::Display;
     use dupe::Dupe;
-    use more_futures::cancellation::CancellationContext;
     use sorted_vector_map::sorted_vector_set;
 
     use crate::api::computations::DiceComputations;

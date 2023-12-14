@@ -49,6 +49,7 @@ members = [
     "app/buck2_test_runner",
     "app/buck2_forkserver",
     "app/buck2_forkserver_proto",
+    "app/buck2_futures",
     "app/buck2_profile",
     "app/buck2_protoc_dev",
     "app/buck2_query",
@@ -95,7 +96,6 @@ members = [
     "shed/static_interner",
     "shed/lock_free_hashtable",
     "shed/lock_free_vec",
-    "shed/more_futures",
     "shed/provider",
     "shed/three_billion_instructions",
     "superconsole",
@@ -307,7 +307,6 @@ gazebo.version = "0.8.1"
 host_sharing = { path = "host_sharing" }
 lock_free_hashtable = { version = "0.1.0", path = "shed/lock_free_hashtable" }
 lock_free_vec = { path = "shed/lock_free_vec" }
-more_futures = { path = "shed/more_futures" }
 provider = { path = "shed/provider" }
 remote_execution = { path = "remote_execution/oss/re_grpc" }
 starlark = { version = "0.10.0", path = "starlark-rust/starlark" }
@@ -350,6 +349,7 @@ buck2_execute_impl = { path = "app/buck2_execute_impl" }
 buck2_file_watcher = { path = "app/buck2_file_watcher" }
 buck2_forkserver = { path = "app/buck2_forkserver" }
 buck2_forkserver_proto = { path = "app/buck2_forkserver_proto" }
+buck2_futures = { path = "app/buck2_futures" }
 buck2_grpc = { path = "app/buck2_grpc" }
 buck2_http = { path = "app/buck2_http" }
 buck2_install_proto = { path = "app/buck2_install_proto" }

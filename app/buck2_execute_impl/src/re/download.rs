@@ -44,6 +44,7 @@ use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
+use buck2_futures::cancellation::CancellationContext;
 use chrono::DateTime;
 use chrono::Duration;
 use chrono::Utc;
@@ -52,7 +53,6 @@ use futures::future;
 use futures::FutureExt;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
-use more_futures::cancellation::CancellationContext;
 use remote_execution as RE;
 
 use crate::executors::local::materialize_inputs;

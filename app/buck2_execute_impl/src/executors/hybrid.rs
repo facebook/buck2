@@ -28,6 +28,7 @@ use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionStatus;
+use buck2_futures::cancellation::CancellationContext;
 use derivative::Derivative;
 use dupe::Dupe;
 use futures::future::BoxFuture;
@@ -35,7 +36,6 @@ use futures::future::Either;
 use futures::future::Future;
 use futures::FutureExt;
 use host_sharing::HostSharingRequirements;
-use more_futures::cancellation::CancellationContext;
 
 use crate::executors::local::LocalExecutor;
 use crate::low_pass_filter::LowPassFilter;

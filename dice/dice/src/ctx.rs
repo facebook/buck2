@@ -11,11 +11,11 @@ use std::future::Future;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_futures::owning_future::OwningFuture;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use gazebo::variants::UnpackVariants;
-use more_futures::owning_future::OwningFuture;
 
 use crate::api::computations::DiceComputations;
 use crate::api::computations::DiceComputationsParallel;

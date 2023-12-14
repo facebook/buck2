@@ -22,13 +22,13 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
+use buck2_futures::cancellation::CancellationContext;
 use chrono::DateTime;
 use chrono::Utc;
 use derivative::Derivative;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::FutureExt;
-use more_futures::cancellation::CancellationContext;
 use tokio::sync::oneshot::Sender;
 use tracing::error;
 

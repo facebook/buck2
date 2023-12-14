@@ -12,11 +12,11 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_futures::cancellation::CancellationContext;
 use futures::stream;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
 use gazebo::prelude::*;
-use more_futures::cancellation::CancellationContext;
 
 use crate::artifact_value::ArtifactValue;
 use crate::materialize::materializer::ArtifactNotMaterializedReason;

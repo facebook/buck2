@@ -25,6 +25,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceComputationsParallel;
@@ -39,7 +40,6 @@ use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::StreamExt;
 use gazebo::prelude::*;
-use more_futures::cancellation::CancellationContext;
 use ref_cast::RefCast;
 
 #[derive(Display, Debug, Hash, Eq, Clone, PartialEq, Dupe, Allocative)]

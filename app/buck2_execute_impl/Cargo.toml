@@ -20,7 +20,6 @@ gazebo = { workspace = true }
 host_sharing = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
-more_futures = { workspace = true }
 once_cell = { workspace = true }
 parking_lot = { workspace = true }
 pin-project = { workspace = true }
@@ -44,6 +43,7 @@ buck2_error = { workspace = true }
 buck2_events = { workspace = true }
 buck2_execute = { workspace = true }
 buck2_forkserver = { workspace = true }
+buck2_futures = { workspace = true }
 buck2_http = { workspace = true }
 buck2_util = { workspace = true }
 buck2_worker_proto = { workspace = true }

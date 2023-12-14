@@ -32,15 +32,15 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_futures::cancellation::CancellationContext;
+use buck2_futures::spawn::spawn_dropcancel_with_preamble;
+use buck2_futures::spawn::CompletionObserver;
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::StreamExt;
-use more_futures::cancellation::CancellationContext;
-use more_futures::spawn::spawn_dropcancel_with_preamble;
-use more_futures::spawn::CompletionObserver;
 use parking_lot::MappedRwLockReadGuard;
 use parking_lot::RwLock;
 use parking_lot::RwLockReadGuard;
@@ -1258,13 +1258,13 @@ mod tests {
 
     use allocative::Allocative;
     use async_trait::async_trait;
+    use buck2_futures::cancellation::CancellationContext;
     use cmp_any::PartialEqAny;
     use derive_more::Display;
     use dupe::Dupe;
     use futures::FutureExt;
     use gazebo::prelude::*;
     use indexmap::indexset;
-    use more_futures::cancellation::CancellationContext;
     use parking_lot::Mutex;
     use parking_lot::RwLock;
     use sorted_vector_map::sorted_vector_set;

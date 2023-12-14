@@ -14,12 +14,12 @@ use buck2_build_api::bxl::calculation::BxlCalculationDyn;
 use buck2_build_api::bxl::calculation::BxlComputeResult;
 use buck2_build_api::bxl::calculation::BXL_CALCULATION_IMPL;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
+use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use futures::future::FutureExt;
-use more_futures::cancellation::CancellationContext;
 
 use crate::bxl::eval::eval;
 use crate::bxl::key::BxlKey;

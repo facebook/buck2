@@ -13,7 +13,6 @@ async-trait = { workspace = true }
 derive_more = { workspace = true }
 futures = { workspace = true }
 itertools = { workspace = true }
-more_futures = { workspace = true }
 parking_lot = { workspace = true }
 pin-project = { workspace = true }
 tokio = { workspace = true }
@@ -35,6 +34,7 @@ buck2_data = { workspace = true }
 buck2_error = { workspace = true }
 buck2_events = { workspace = true }
 buck2_execute = { workspace = true }
+buck2_futures = { workspace = true }
 buck2_util = { workspace = true }
 buck2_wrapper_common = { workspace = true }
 starlark_map = { workspace = true }

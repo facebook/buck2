@@ -11,9 +11,9 @@
 //! shareable across different computation units.
 //!
 use allocative::Allocative;
-use more_futures::spawn::CompletionObserver;
-use more_futures::spawn::WeakFutureError;
-use more_futures::spawn::WeakJoinHandle;
+use buck2_futures::spawn::CompletionObserver;
+use buck2_futures::spawn::WeakFutureError;
+use buck2_futures::spawn::WeakJoinHandle;
 
 use crate::legacy::dice_futures::dice_future::DiceFuture;
 use crate::legacy::dice_futures::dice_task::DiceTask;

@@ -11,8 +11,8 @@ use std::any::Any;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use more_futures::spawner::Spawner;
-use more_futures::spawner::TokioSpawner;
+use buck2_futures::spawner::Spawner;
+use buck2_futures::spawner::TokioSpawner;
 
 use crate::api::activation_tracker::ActivationTracker;
 use crate::api::data::DiceData;

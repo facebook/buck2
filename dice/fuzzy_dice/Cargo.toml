@@ -27,8 +27,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1.2", features = ["v4"] }
 
 allocative = { workspace = true }
+buck2_futures = { path = "../../app/buck2_futures" }
 dupe = { workspace = true }
-more_futures = { path = "../../shed/more_futures" }
 
 dice = { path = "../dice" }
 

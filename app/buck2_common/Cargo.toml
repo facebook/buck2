@@ -43,12 +43,12 @@ cmp_any = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
-more_futures = { workspace = true }
 starlark_map = { workspace = true }
 
 buck2_core = { workspace = true }
 buck2_error = { workspace = true }
 buck2_events = { workspace = true }
+buck2_futures = { workspace = true }
 buck2_http = { workspace = true }
 buck2_util = { workspace = true }
 

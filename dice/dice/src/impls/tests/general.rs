@@ -16,11 +16,11 @@ use std::sync::Mutex;
 use allocative::Allocative;
 use assert_matches::assert_matches;
 use async_trait::async_trait;
+use buck2_futures::cancellation::CancellationContext;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::FutureExt;
-use more_futures::cancellation::CancellationContext;
 use tokio::sync::oneshot;
 
 use crate::api::computations::DiceComputations;

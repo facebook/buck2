@@ -13,6 +13,8 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::package::PackageLabel;
+use buck2_futures::drop::DropTogether;
+use buck2_futures::spawn::spawn_cancellable;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::channel::mpsc;
@@ -21,8 +23,6 @@ use futures::stream::FuturesUnordered;
 use futures::Stream;
 use futures::StreamExt;
 use gazebo::prelude::*;
-use more_futures::drop::DropTogether;
-use more_futures::spawn::spawn_cancellable;
 use once_cell::sync::Lazy;
 use tokio::sync::Semaphore;
 

@@ -35,6 +35,7 @@ use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::directory::INTERNER;
+use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -43,7 +44,6 @@ use futures::future;
 use futures::stream::FuturesOrdered;
 use futures::Future;
 use futures::FutureExt;
-use more_futures::cancellation::CancellationContext;
 use ref_cast::RefCast;
 use smallvec::SmallVec;
 

@@ -24,7 +24,7 @@
 //!     use dice::{Key, InjectedKey, DiceComputations, DiceDataBuilder, DiceData, DiceTransactionUpdater};
 //!     use std::sync::Arc;
 //!     use allocative::Allocative;
-//! use more_futures::cancellation::CancellationContext;
+//! use buck2_futures::cancellation::CancellationContext;
 //!
 //!     /// A configuration computation that consists of values that are pre-computed outside of DICE
 //!     pub struct InjectConfigs<'compute>(&'compute DiceComputations);
@@ -220,6 +220,11 @@ use std::io::Write;
 use std::sync::Arc;
 
 use allocative::Allocative;
+pub use buck2_futures::cancellation::future::CancellationHandle; // expose cancellation handle as api
+pub use buck2_futures::cancellation::CancellationContext; // expose cancellation context as api
+pub use buck2_futures::spawn::CancellableJoinHandle; // expose cancellation context as api
+pub use buck2_futures::spawn::FutureAndCancellationHandle;
+pub use buck2_futures::spawn::WeakFutureError; // expose future errors as api
 pub(crate) use fnv::FnvHashMap as HashMap;
 pub(crate) use fnv::FnvHashSet as HashSet;
 use futures::future::Future;
@@ -229,11 +234,6 @@ use legacy::incremental::graph::GraphNode;
 use legacy::incremental::transaction_ctx::TransactionCtx;
 use legacy::key::StoragePropertiesForKey;
 use metrics::Metrics;
-pub use more_futures::cancellation::future::CancellationHandle; // expose cancellation handle as api
-pub use more_futures::cancellation::CancellationContext; // expose cancellation context as api
-pub use more_futures::spawn::CancellableJoinHandle; // expose cancellation context as api
-pub use more_futures::spawn::FutureAndCancellationHandle;
-pub use more_futures::spawn::WeakFutureError; // expose future errors as api
 use serde::Serializer;
 
 pub use crate::api::activation_tracker::ActivationData;

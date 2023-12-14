@@ -13,8 +13,8 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_futures::cancellation::CancellationContext;
 use dupe::Dupe;
-use more_futures::cancellation::CancellationContext;
 
 use crate::api::computations::DiceComputations;
 use crate::api::storage_type::StorageType;

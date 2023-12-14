@@ -13,13 +13,13 @@ use buck2_core::cells::name::CellName;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::target_aliases::TargetAliasResolver;
+use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use indexmap::IndexSet;
 use itertools::Itertools;
-use more_futures::cancellation::CancellationContext;
 
 use crate::dice::cells::HasCellResolver;
 use crate::legacy_configs::dice::HasLegacyConfigs;

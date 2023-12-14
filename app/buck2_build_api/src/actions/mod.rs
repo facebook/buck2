@@ -54,6 +54,7 @@ use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_file_watcher::mergebase::Mergebase;
+use buck2_futures::cancellation::CancellationContext;
 use buck2_http::HttpClient;
 use derivative::Derivative;
 use derive_more::Display;
@@ -61,7 +62,6 @@ use dupe::Dupe;
 use indexmap::indexmap;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
-use more_futures::cancellation::CancellationContext;
 use starlark::values::OwnedFrozenValue;
 use static_assertions::_core::ops::Deref;
 

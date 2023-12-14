@@ -80,6 +80,7 @@ use buck2_execute_impl::re::paranoid_download::ParanoidDownloader;
 use buck2_file_watcher::file_watcher::FileWatcher;
 use buck2_file_watcher::mergebase::SetMergebase;
 use buck2_forkserver::client::ForkserverClient;
+use buck2_futures::cancellation::ExplicitCancellationContext;
 use buck2_http::HttpClient;
 use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
@@ -110,7 +111,6 @@ use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingStrategy;
-use more_futures::cancellation::ExplicitCancellationContext;
 use tokio::sync::Mutex;
 use tracing::warn;
 

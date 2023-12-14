@@ -26,6 +26,7 @@ use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::target::label::TargetLabel;
+use buck2_futures::spawn::spawn_cancellable;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
@@ -44,7 +45,6 @@ use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::future::FutureExt;
-use more_futures::spawn::spawn_cancellable;
 
 async fn generate_profile_analysis(
     ctx: DiceTransaction,

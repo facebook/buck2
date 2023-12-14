@@ -11,11 +11,11 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::Poll;
 
+use buck2_futures::instrumented_shared::SharedEventsFuture;
+use buck2_futures::spawn::StrongJoinHandle;
+use buck2_futures::spawn::WeakFutureError;
 use futures::future::BoxFuture;
 use futures::FutureExt;
-use more_futures::instrumented_shared::SharedEventsFuture;
-use more_futures::spawn::StrongJoinHandle;
-use more_futures::spawn::WeakFutureError;
 
 use crate::legacy::incremental::graph::storage_properties::StorageProperties;
 use crate::result::CancellableResult;

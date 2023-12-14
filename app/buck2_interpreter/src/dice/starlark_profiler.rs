@@ -9,12 +9,12 @@
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_futures::cancellation::CancellationContext;
 use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
 use dupe::Dupe;
-use more_futures::cancellation::CancellationContext;
 use starlark::eval::ProfileMode;
 
 use crate::starlark_profiler::StarlarkProfileModeOrInstrumentation;

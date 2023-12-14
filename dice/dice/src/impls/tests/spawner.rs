@@ -14,11 +14,11 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_futures::cancellation::CancellationContext;
+use buck2_futures::spawner::Spawner;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::future::BoxFuture;
-use more_futures::cancellation::CancellationContext;
-use more_futures::spawner::Spawner;
 use tokio::task::JoinHandle;
 
 use crate::api::computations::DiceComputations;

@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_futures::cancellation::CancellationContext;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceComputations;
@@ -23,7 +24,6 @@ use dice::Key;
 use dice::ProjectionKey;
 use dice::UserComputationData;
 use dupe::Dupe;
-use more_futures::cancellation::CancellationContext;
 use parking_lot::Mutex;
 
 /// We have three keys in this test:

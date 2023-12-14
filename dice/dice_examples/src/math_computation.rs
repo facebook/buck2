@@ -18,6 +18,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceComputationsParallel;
@@ -29,7 +30,6 @@ use futures::future;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use gazebo::prelude::*;
-use more_futures::cancellation::CancellationContext;
 
 #[derive(Clone, Dupe, PartialEq, Eq, Hash, Display, Debug, Allocative)]
 #[display(fmt = "Var({})", _0)]

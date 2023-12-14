@@ -14,6 +14,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_futures::owning_future::OwningFuture;
 use derivative::Derivative;
 use dupe::Dupe;
 use futures::future::BoxFuture;
@@ -21,7 +22,6 @@ use futures::future::Either;
 use futures::FutureExt;
 use futures::TryFutureExt;
 use gazebo::variants::UnpackVariants;
-use more_futures::owning_future::OwningFuture;
 use parking_lot::Mutex;
 use parking_lot::MutexGuard;
 

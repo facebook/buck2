@@ -17,10 +17,10 @@ use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::package::PackageLabel;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::span::SpanId;
+use buck2_futures::cancellation::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
-use more_futures::cancellation::CancellationContext;
 use smallvec::SmallVec;
 
 use crate::dice::cells::HasCellResolver;

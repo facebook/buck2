@@ -18,6 +18,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
 use dice::DetectCycles;
 use dice::Dice;
@@ -26,7 +27,6 @@ use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
 use dupe::Dupe;
-use more_futures::cancellation::CancellationContext;
 use tempfile::NamedTempFile;
 
 #[derive(Debug, Clone, Dupe, PartialEq, Allocative)]

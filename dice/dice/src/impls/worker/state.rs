@@ -11,10 +11,10 @@
 
 use std::sync::Arc;
 
+use buck2_futures::cancellable_future::DisableCancellationGuard;
+use buck2_futures::cancellation::ExplicitCancellationContext;
+use buck2_futures::cancellation::IgnoreCancellationGuard;
 use dupe::Dupe;
-use more_futures::cancellable_future::DisableCancellationGuard;
-use more_futures::cancellation::ExplicitCancellationContext;
-use more_futures::cancellation::IgnoreCancellationGuard;
 
 use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::evaluator::KeyEvaluationResult;

@@ -18,8 +18,8 @@ use buck2_core::execution_types::executor_config::CommandGenerationOptions;
 use buck2_core::execution_types::executor_config::OutputPathsBehavior;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_futures::cancellation::CancellationContext;
 use dupe::Dupe;
-use more_futures::cancellation::CancellationContext;
 use remote_execution as RE;
 use sorted_vector_map::SortedVectorMap;
 

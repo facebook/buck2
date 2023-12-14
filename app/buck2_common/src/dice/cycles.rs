@@ -12,6 +12,7 @@ use std::fmt::Debug;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_futures::cancellation::CancellationContext;
 use buck2_util::cycle_detector::CycleDescriptor;
 use buck2_util::cycle_detector::LazyCycleDetector;
 use buck2_util::cycle_detector::LazyCycleDetectorGuard;
@@ -21,7 +22,6 @@ use dice::Key;
 use dice::UserCycleDetector;
 use dice::UserCycleDetectorGuard;
 use futures::Future;
-use more_futures::cancellation::CancellationContext;
 use tracing::debug;
 
 /// Additional requirement for a CycleDescriptor to be used for defining a Dice UserCycleDetector through

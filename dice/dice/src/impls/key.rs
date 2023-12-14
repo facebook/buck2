@@ -16,11 +16,11 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_futures::cancellation::CancellationContext;
 use cmp_any::PartialEqAny;
 use derive_more::Display;
 use dupe::Dupe;
 use fnv::FnvHasher;
-use more_futures::cancellation::CancellationContext;
 
 use crate::api::computations::DiceComputations;
 use crate::api::key::Key;
@@ -530,9 +530,9 @@ mod tests {
     use std::sync::Arc;
 
     use allocative::Allocative;
+    use buck2_futures::cancellation::CancellationContext;
     use derive_more::Display;
     use dupe::Dupe;
-    use more_futures::cancellation::CancellationContext;
 
     use crate::api::computations::DiceComputations;
     use crate::api::key::Key;

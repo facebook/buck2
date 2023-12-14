@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use more_futures::cancellation::CancellationContext;
+use buck2_futures::cancellation::CancellationContext;
 
 use crate::legacy::ctx::ComputationData;
 use crate::legacy::dice_futures::dice_task::DiceTask;
@@ -57,10 +57,10 @@ pub(crate) mod testing {
 
     use allocative::Allocative;
     use async_trait::async_trait;
+    use buck2_futures::cancellation::CancellationContext;
     use dupe::Dupe;
     use futures::future::BoxFuture;
     use gazebo::prelude::*;
-    use more_futures::cancellation::CancellationContext;
 
     use crate::api::error::DiceResult;
     use crate::api::storage_type::StorageType;

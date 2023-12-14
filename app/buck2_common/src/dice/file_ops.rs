@@ -25,6 +25,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::Context;
 use buck2_events::dispatch::console_message;
+use buck2_futures::cancellation::CancellationContext;
 use cmp_any::PartialEqAny;
 use derivative::Derivative;
 use derive_more::Display;
@@ -32,7 +33,6 @@ use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
 use dice::Key;
 use dupe::Dupe;
-use more_futures::cancellation::CancellationContext;
 
 use crate::dice::cells::HasCellResolver;
 use crate::dice::data::HasIoProvider;

@@ -19,10 +19,10 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellAliasResolver;
+use buck2_futures::cancellation::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
-use more_futures::cancellation::CancellationContext;
 
 use crate::package_imports::PackageImplicitImports;
 

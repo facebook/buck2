@@ -4,7 +4,7 @@ load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 oncall("build_infra")
 
 rust_library(
-    name = "more_futures",
+    name = "buck2_futures",
     srcs = glob(
         ["src/**/*.rs"],
     ),

@@ -14,6 +14,7 @@ use std::sync::Weak;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_futures::cancellation::CancellationContext;
 use dice_futures::future_handle::WeakDiceFutureHandle;
 use dupe::Dupe;
 use futures::future::Future;
@@ -27,7 +28,6 @@ use incremental::IncrementalComputeProperties;
 use incremental::IncrementalEngine;
 use key::StoragePropertiesForKey;
 use map::DiceMap;
-use more_futures::cancellation::CancellationContext;
 use parking_lot::RwLock;
 use projection::ProjectionKeyProperties;
 use tokio::sync::watch;

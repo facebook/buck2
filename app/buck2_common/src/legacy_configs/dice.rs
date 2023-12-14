@@ -15,6 +15,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::name::CellName;
+use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceProjectionComputations;
@@ -25,7 +26,6 @@ use dice::OpaqueValue;
 use dice::ProjectionKey;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
-use more_futures::cancellation::CancellationContext;
 use starlark_map::sorted_map::SortedMap;
 
 use crate::dice::cells::HasCellResolver;

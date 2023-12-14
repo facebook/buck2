@@ -30,6 +30,7 @@ use buck2_events::dispatch::Span;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
+use buck2_futures::cancellation::CancellationContext;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_util::late_binding::LateBinding;
 use derive_more::Display;
@@ -42,7 +43,6 @@ use futures::FutureExt;
 use futures::StreamExt;
 use futures::TryFutureExt;
 use futures::TryStreamExt;
-use more_futures::cancellation::CancellationContext;
 use once_cell::sync::Lazy;
 
 use crate::actions::artifact::get_artifact_fs::GetArtifactFs;

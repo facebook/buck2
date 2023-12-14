@@ -14,13 +14,13 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_futures::cancellation::CancellationContext;
 use crossbeam_channel::unbounded;
 use dice::DiceComputations;
 use dice::UserComputationData;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
-use more_futures::cancellation::CancellationContext;
 use tokio::sync::oneshot;
 use tokio::sync::Semaphore;
 

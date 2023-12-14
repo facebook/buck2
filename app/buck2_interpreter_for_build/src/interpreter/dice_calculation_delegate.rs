@@ -28,6 +28,7 @@ use buck2_core::package::PackageLabel;
 use buck2_error::Context;
 use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async;
+use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::file_loader::ModuleDeps;
@@ -44,7 +45,6 @@ use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use futures::future;
-use more_futures::cancellation::CancellationContext;
 use starlark::codemap::FileSpan;
 use starlark::syntax::AstModule;
 

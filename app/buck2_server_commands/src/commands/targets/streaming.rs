@@ -25,6 +25,7 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::name::TargetName;
+use buck2_futures::spawn::spawn_cancellable;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
 use buck2_interpreter::paths::package::PackageFilePath;
@@ -42,7 +43,6 @@ use futures::StreamExt;
 use gazebo::prelude::VecExt;
 use itertools::Either;
 use itertools::Itertools;
-use more_futures::spawn::spawn_cancellable;
 use starlark_map::small_set::SmallSet;
 use tokio::sync::Semaphore;
 

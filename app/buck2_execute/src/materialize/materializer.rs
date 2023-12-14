@@ -18,6 +18,7 @@ use buck2_core::directory::DirectoryEntry;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_futures::cancellation::CancellationContext;
 use chrono::DateTime;
 use chrono::Duration;
 use chrono::Utc;
@@ -26,7 +27,6 @@ use dice::UserComputationData;
 use dupe::Dupe;
 use futures::stream::BoxStream;
 use futures::stream::TryStreamExt;
-use more_futures::cancellation::CancellationContext;
 
 use crate::artifact_value::ArtifactValue;
 use crate::directory::ActionDirectoryEntry;

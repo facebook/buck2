@@ -67,6 +67,8 @@ use buck2_forkserver::run::gather_output;
 use buck2_forkserver::run::maybe_absolutize_exe;
 use buck2_forkserver::run::timeout_into_cancellation;
 use buck2_forkserver::run::GatherOutputStatus;
+use buck2_futures::cancellable_future::CancellationObserver;
+use buck2_futures::cancellation::CancellationContext;
 use buck2_util::process::background_command;
 use derive_more::From;
 use dupe::Dupe;
@@ -79,8 +81,6 @@ use host_sharing::host_sharing::HostSharingGuard;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingRequirements;
 use indexmap::IndexMap;
-use more_futures::cancellable_future::CancellationObserver;
-use more_futures::cancellation::CancellationContext;
 use tracing::info;
 
 use crate::executors::worker::WorkerHandle;

@@ -25,7 +25,6 @@ dice = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
 host_sharing = { workspace = true }
-more_futures = { workspace = true }
 sorted_vector_map = { workspace = true }
 starlark = { workspace = true }
 
@@ -39,6 +38,7 @@ buck2_error = { workspace = true }
 buck2_events = { workspace = true }
 buck2_execute = { workspace = true }
 buck2_execute_impl = { workspace = true }
+buck2_futures = { workspace = true }
 buck2_grpc = { workspace = true }
 buck2_node = { workspace = true }
 buck2_server_ctx = { workspace = true }

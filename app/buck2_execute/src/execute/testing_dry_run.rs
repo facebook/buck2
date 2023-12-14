@@ -12,8 +12,8 @@ use std::sync::Mutex;
 
 use async_trait::async_trait;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_futures::cancellation::CancellationContext;
 use indexmap::IndexMap;
-use more_futures::cancellation::CancellationContext;
 use sorted_vector_map::SortedVectorMap;
 
 use crate::artifact_value::ArtifactValue;

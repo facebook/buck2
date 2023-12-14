@@ -222,8 +222,8 @@ mod tests {
     use allocative::Allocative;
     use assert_matches::assert_matches;
     use async_trait::async_trait;
+    use buck2_futures::cancellation::CancellationContext;
     use derive_more::Display;
-    use more_futures::cancellation::CancellationContext;
 
     use crate::api::computations::DiceComputations;
     use crate::api::data::DiceData;

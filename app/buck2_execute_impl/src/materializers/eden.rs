@@ -38,13 +38,13 @@ use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::re::manager::ReConnectionManager;
+use buck2_futures::cancellation::CancellationContext;
 use buck2_http::HttpClient;
 use dupe::Dupe;
 use futures::stream;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
 use gazebo::prelude::*;
-use more_futures::cancellation::CancellationContext;
 use remote_execution::InlinedBlobWithDigest;
 use remote_execution::NamedDigest;
 

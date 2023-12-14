@@ -17,11 +17,11 @@ use std::task::Poll;
 
 use allocative::Allocative;
 use allocative::Visitor;
+use buck2_futures::cancellation::future::CancellationHandle;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use futures::task::AtomicWaker;
 use futures::FutureExt;
-use more_futures::cancellation::future::CancellationHandle;
 use parking_lot::Mutex;
 use parking_lot::MutexGuard;
 use parking_lot::RwLock;

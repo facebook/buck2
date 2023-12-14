@@ -47,9 +47,9 @@ mod tests {
     use allocative::Allocative;
     use anyhow::Context as _;
     use async_trait::async_trait;
+    use buck2_futures::cancellation::CancellationContext;
     use derive_more::Display;
     use dupe::Dupe;
-    use more_futures::cancellation::CancellationContext;
 
     use crate::api::computations::DiceComputations;
     use crate::api::cycles::DetectCycles;
