@@ -72,7 +72,6 @@ load(
     "SwiftmoduleLinkable",  # @unused Used as a type
     "UnstrippedLinkOutputInfo",
     "create_merged_link_info",
-    "create_merged_link_info_for_propagation",
     "get_lib_output_style",
     "get_link_args_for_strategy",
     "get_output_styles_for_linkage",
@@ -581,15 +580,6 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         inherited_non_exported_link = cxx_inherited_link_info(non_exported_deps)
         inherited_exported_link = cxx_inherited_link_info(exported_deps)
 
-        # TODO(cjhopman): This is strange that we construct this intermediate MergedLinkInfo rather than just
-        # passing the full list of deps below, but I'm keeping it to preserve existing behavior with a refactor.
-        # I intend to change completely how MergedLinkInfo works, so this should go away then. We cannot just
-        # pass these to create_merged_link_info because the for_propagation one is used to filter out deps for
-        # individual link strategies where that dep doesn't provide a linkinfo (which may itself be a bug, but not
-        # sure).
-        inherited_non_exported_link = create_merged_link_info_for_propagation(ctx, inherited_non_exported_link)
-        inherited_exported_link = create_merged_link_info_for_propagation(ctx, inherited_exported_link)
-
         merged_native_link_info = create_merged_link_info(
             ctx,
             pic_behavior,
@@ -597,9 +587,9 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             library_outputs.link_infos,
             preferred_linkage = preferred_linkage,
             # Export link info from non-exported deps (when necessary).
-            deps = [inherited_non_exported_link],
+            deps = inherited_non_exported_link,
             # Export link info from out (exported) deps.
-            exported_deps = [inherited_exported_link],
+            exported_deps = inherited_exported_link,
             frameworks_linkable = frameworks_linkable,
             swiftmodule_linkable = swiftmodule_linkable,
             swift_runtime_linkable = swift_runtime_linkable,

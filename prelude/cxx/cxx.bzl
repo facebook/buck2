@@ -535,11 +535,6 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         sub_targets = sub_targets,
     ))
 
-    # TODO(cjhopman): This is preserving existing behavior, but it doesn't make sense. These lists can be passed
-    # unmerged to create_merged_link_info below. Potentially that could change link order, so needs to be done more carefully.
-    merged_inherited_link = create_merged_link_info_for_propagation(ctx, inherited_link)
-    merged_inherited_exported_link = create_merged_link_info_for_propagation(ctx, inherited_exported_link)
-
     # Propagate link info provider.
     providers.append(create_merged_link_info(
         ctx,
@@ -548,9 +543,9 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         libraries,
         preferred_linkage = preferred_linkage,
         # Export link info from non-exported deps (when necessary).
-        deps = [merged_inherited_link],
+        deps = inherited_link,
         # Export link info from out (exported) deps.
-        exported_deps = [merged_inherited_exported_link],
+        exported_deps = inherited_exported_link,
     ))
 
     # Propagate shared libraries up the tree.

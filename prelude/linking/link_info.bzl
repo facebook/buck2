@@ -524,16 +524,26 @@ def create_merged_link_info(
             swift_runtime_linkables += [dep_info.swift_runtime[link_strategy] for dep_info in exported_deps]
 
             for dep_info in deps:
-                children.append(dep_info._infos[link_strategy])
-                external_debug_info_children.append(dep_info._external_debug_info[link_strategy])
+                # The inherited link infos no longer guarantees that a tset will be available for
+                # all link strategies. Protect against missing infos
+                value = dep_info._infos.get(link_strategy)
+                if value:
+                    children.append(value)
+                value = dep_info._external_debug_info.get(link_strategy)
+                if value:
+                    external_debug_info_children.append(value)
                 framework_linkables.append(dep_info.frameworks[link_strategy])
                 swiftmodule_linkables.append(dep_info.swiftmodules[link_strategy])
                 swift_runtime_linkables.append(dep_info.swift_runtime[link_strategy])
 
         # We always export link info for exported deps.
         for dep_info in exported_deps:
-            children.append(dep_info._infos[link_strategy])
-            external_debug_info_children.append(dep_info._external_debug_info[link_strategy])
+            value = dep_info._infos.get(link_strategy)
+            if value:
+                children.append(value)
+            value = dep_info._external_debug_info.get(link_strategy)
+            if value:
+                external_debug_info_children.append(value)
 
         frameworks[link_strategy] = merge_framework_linkables(framework_linkables)
         swift_runtime[link_strategy] = merge_swift_runtime_linkables(swift_runtime_linkables)

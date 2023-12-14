@@ -670,16 +670,12 @@ def _native_providers(
 
     preferred_linkage = Linkage(ctx.attrs.preferred_linkage)
 
-    # TODO(cjhopman): This is preserving existing behavior, but it doesn't make sense. These lists can be passed
-    # unmerged to create_merged_link_info below. Potentially that could change link order, so needs to be done more carefully.
-    merged_inherited_link = create_merged_link_info_for_propagation(ctx, inherited_link_infos)
-
     # Native link provider.
     providers.append(create_merged_link_info(
         ctx,
         compile_ctx.cxx_toolchain_info.pic_behavior,
         link_infos,
-        exported_deps = [merged_inherited_link],
+        exported_deps = inherited_link_infos,
         preferred_linkage = preferred_linkage,
     ))
 
