@@ -51,7 +51,7 @@ which contains Rust, C++, Python, and OCaml targets.
 First, clone the buck2 repository and cd into the 'hello_world' project:
 
 ```bash
-git clone https://github.com/facebookincubator/buck2.git
+git clone https://github.com/facebook/buck2.git
 cd buck2/examples/hello_world
 ```
 
@@ -64,8 +64,8 @@ buck2 init --git
 ```
 
 To use another version control system, run `buck2 init` and manually download
-[buck2-prelude](https://github.com/facebookincubator/buck2-prelude) into
-`prelude` at root.
+[buck2-prelude](https://github.com/facebook/buck2-prelude) into `prelude` at
+root.
 
 ```sh
 buck2 init
