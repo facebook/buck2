@@ -12,6 +12,7 @@ load(
 )
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
+load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:expect.bzl", "expect")
 
 ProguardOutput = record(
@@ -93,20 +94,34 @@ def run_proguard(
 
     output_jars_file = ctx.actions.write("proguard/output_jars.txt", output_jars)
 
+    is_windows = hasattr(ctx.attrs, "_exec_os_type") and ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+
     # Some proguard configs can propagate the "-dontobfuscate" flag which disables
     # obfuscation and prevents the mapping.txt and usage.txt file from being generated.
     # Scrub all jars emitted from proguard to make them deterministic.
-    sh_cmd = cmd_args([
-        "sh",
-        "-c",
-        "touch $1 && touch $2 && $3 && $4 --paths-to-scrub $5 --create-if-not-present",
-        "--",
-        mapping_file.as_output(),
-        usage_file.as_output(),
-        cmd_args(run_proguard_cmd, delimiter = " "),
-        cmd_args(ctx.attrs._java_toolchain[JavaToolchainInfo].zip_scrubber, delimiter = " "),
-        output_jars_file,
-    ])
+    if not is_windows:
+        sh_cmd = cmd_args([
+            "sh",
+            "-c",
+            "touch $1 && touch $2 && $3 && $4 --paths-to-scrub $5 --create-if-not-present",
+            "--",
+            mapping_file.as_output(),
+            usage_file.as_output(),
+            cmd_args(run_proguard_cmd, delimiter = " "),
+            cmd_args(ctx.attrs._java_toolchain[JavaToolchainInfo].zip_scrubber, delimiter = " "),
+            output_jars_file,
+        ])
+    else:
+        sh_cmd = cmd_args([
+            "cmd.exe",
+            "/c",
+            cmd_args([
+                cmd_args([mapping_file.as_output()], format = "echo. > {}"),
+                cmd_args([usage_file.as_output()], format = "echo. > {}"),
+                cmd_args(run_proguard_cmd, delimiter = " "),
+                cmd_args(ctx.attrs._java_toolchain[JavaToolchainInfo].zip_scrubber, "--paths-to-scrub", output_jars_file, "--create-if-not-present", delimiter = " "),
+            ], delimiter = " && "),
+        ])
 
     ctx.actions.run(sh_cmd, category = "run_proguard")
 
