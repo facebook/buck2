@@ -17,7 +17,7 @@ load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_PRIMARY_PLATFORM", "CPU_FILTER_TO_ABI_DIRECTORY")
 load("@prelude//android:util.bzl", "EnhancementContext")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module", "get_apk_module_graph_info", "is_root_module")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo", "PicBehavior")
 load(
     "@prelude//cxx:link.bzl",
     "cxx_link_shared_library",
@@ -36,9 +36,12 @@ load(
     "LibOutputStyle",
     "LinkArgs",
     "LinkInfo",
+    "LinkOrdering",
     "Linkage",
     "SharedLibLinkable",
+    "get_lib_output_style",
     "set_link_info_link_whole",
+    "unpack_link_args",
     "wrap_link_info",
 )
 load(
@@ -169,7 +172,7 @@ def get_android_binary_native_library_info(
     has_native_merging = native_library_merge_sequence or getattr(ctx.attrs, "native_library_merge_map", None)
     enable_relinker = getattr(ctx.attrs, "enable_relinker", False)
 
-    if has_native_merging:
+    if has_native_merging or enable_relinker:
         native_merge_debug = ctx.actions.declare_output("native_merge.debug")
         dynamic_outputs.append(native_merge_debug)
 
@@ -180,7 +183,6 @@ def get_android_binary_native_library_info(
             graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
             linkables_debug = ctx.actions.write("linkables." + platform, list(graph_node_map.keys()))
             enhance_ctx.debug_output("linkables." + platform, linkables_debug)
-
             flattened_linkable_graphs_by_platform[platform] = graph_node_map
 
     if native_library_merge_sequence:
@@ -286,6 +288,14 @@ def get_android_binary_native_library_info(
                 platform: {soname: d.lib for soname, d in merged_shared_libs.items()}
                 for platform, merged_shared_libs in merged_linkables.shared_libs_by_platform.items()
             }
+        elif enable_relinker:
+            final_platform_to_native_linkables, native_library_merge_debug_outputs = _create_all_relinkable_links(
+                ctx,
+                platform_to_original_native_linkables,
+                flattened_linkable_graphs_by_platform,
+            )
+            ctx.actions.symlinked_dir(outputs[native_merge_debug], native_library_merge_debug_outputs)
+
         else:
             final_platform_to_native_linkables = platform_to_original_native_linkables
 
@@ -1195,6 +1205,215 @@ def _get_merged_linkables(
         shared_libs_by_platform = shared_libs_by_platform,
         debug_info = debug_info_by_platform,
     )
+
+# The current default link strategies don't produce enough information in the
+# SharedLibrary objects to perform relinking. To do that best, linking should be based on
+# the LinkableGraph rather than the current approach with MergedLinkInfo.
+# The overall plan for linking is to move to linkable graph-based linking, but for now
+# we can do it just for the case that we need it.
+def _create_all_relinkable_links(
+        ctx: AnalysisContext,
+        platform_to_original_native_linkables: dict[str, dict[str, SharedLibrary]],
+        graph_node_map_by_platform: dict[str, dict[Label, LinkableNode]]) -> (dict[str, dict[str, SharedLibrary]], dict[str, typing.Any]):
+    final_platform_to_native_linkables = {}
+    link_graphs_by_platform = {}
+    for platform in platform_to_original_native_linkables:
+        linkables, link_graphs = _create_relinkable_links(
+            ctx,
+            cxx_toolchain = ctx.attrs._cxx_toolchain[platform][CxxToolchainInfo],
+            linkable_nodes = graph_node_map_by_platform[platform],
+            platform = platform,
+        )
+        link_graphs_by_platform[platform] = link_graphs
+        final_platform_to_native_linkables[platform] = linkables
+
+    # sanity check that we produce the same list of linkables that are produced by standard linking.
+    original_sonames = sorted(platform_to_original_native_linkables.keys())
+    final_sonames = sorted(final_platform_to_native_linkables.keys())
+    expect(original_sonames == final_sonames, "Unexpected differences in final sonames! {} {}".format(original_sonames, final_sonames))
+
+    debug_outputs = {}
+
+    # The biggest issue we could run into here is that we produce different link args than the original, so let's make that easy to debug.
+    for platform in platform_to_original_native_linkables:
+        for soname, lib in platform_to_original_native_linkables[platform].items():
+            final = final_platform_to_native_linkables[platform][soname]
+            original_args, _ = ctx.actions.write(
+                "{}/{}/original.args".format(platform, soname),
+                [unpack_link_args(args, True, LinkOrdering("topological")) for args in lib.link_args] if lib.link_args else "",
+                allow_args = True,
+            )
+            final_args, _ = ctx.actions.write(
+                "{}/{}/final.args".format(platform, soname),
+                [unpack_link_args(args, True, LinkOrdering("topological")) for args in final.link_args] if final.link_args else "",
+                allow_args = True,
+            )
+            debug_outputs["{}/{}/original.args".format(platform, soname)] = original_args
+            debug_outputs["{}/{}/final.args".format(platform, soname)] = final_args
+
+            if lib.label in link_graphs_by_platform[platform]:
+                link_graph = ctx.actions.write_json(
+                    "{}/{}/link.graph".format(platform, soname),
+                    link_graphs_by_platform[platform][lib.label],
+                    pretty = True,
+                )
+                debug_outputs["{}/{}/link.graph".format(platform, soname)] = link_graph
+
+            # TODO(cjhopman): should we also just produce a diff here? We could also consider creating sort of a merged diff or a list
+            # of the differing argsfiles.
+            # We can't compare them eagerly because the link args have large tsets that we don't want to traverse at analysis time.
+
+    return final_platform_to_native_linkables, debug_outputs
+
+def _create_relinkable_links(
+        ctx: AnalysisContext,
+        *,
+        cxx_toolchain: CxxToolchainInfo,
+        linkable_nodes: dict[Label, LinkableNode],
+        platform: str) -> (dict[str, SharedLibrary], dict[Label, dict[Label, list[Label]]]):
+    linkable_nodes_graph = {target: value.deps + value.exported_deps for target, value in linkable_nodes.items()}
+    shared_libs = {}
+    shared_lib_overrides = {}
+    transitive_linkable_cache = {}
+    debug_link_deps = {}
+    for target in post_order_traversal(linkable_nodes_graph):
+        node = linkable_nodes[target]
+        if node.preferred_linkage == Linkage("static") or not _has_linkable(node):
+            continue
+
+        if _is_prebuilt_shared(node):
+            shared_lib = _shared_lib_for_prebuilt_shared(ctx, cxx_toolchain, target, node, linkable_nodes, transitive_linkable_cache, platform)
+        else:
+            soname = node.default_soname
+            output_path = "relinkable-libs/{}/{}".format(platform, soname)
+            link_args, shlib_deps, link_deps_graph = _create_link_args(
+                cxx_toolchain = cxx_toolchain,
+                root_target = target,
+                node = node,
+                graph = linkable_nodes,
+                shared_lib_overrides = shared_lib_overrides,
+            )
+            debug_link_deps[target] = link_deps_graph
+            shared_lib = create_shared_lib(
+                ctx,
+                output_path = output_path,
+                soname = soname,
+                link_args = [link_args],
+                cxx_toolchain = cxx_toolchain,
+                shared_lib_deps = [shared_lib_overrides[lib].name for lib in shlib_deps if lib in shared_lib_overrides],
+                label = target,
+                can_be_asset = node.can_be_asset,
+            )
+        shared_lib_overrides[target] = LinkInfo(
+            name = shared_lib.soname,
+            pre_flags = node.linker_flags.exported_flags,
+            linkables = [SharedLibLinkable(
+                lib = shared_lib.lib.output,
+            )],
+            post_flags = node.linker_flags.exported_post_flags,
+        )
+        shared_libs[shared_lib.soname] = shared_lib
+
+    return {lib.soname: lib for lib in shared_libs.values()}, debug_link_deps
+
+# To support migration from a tset-based link strategy, we are trying to match buck's internal tset
+# traversal logic here.  Look for implementation of TopologicalTransitiveSetIteratorGen
+def _rust_matching_topological_traversal(
+        roots: list[typing.Any],
+        get_nodes_to_traverse_func: typing.Callable) -> list[typing.Any]:
+    counts = {}
+
+    for label in breadth_first_traversal_by(None, roots, get_nodes_to_traverse_func):
+        for dep in get_nodes_to_traverse_func(label):
+            if dep in counts:
+                counts[dep] += 1
+            else:
+                counts[dep] = 1
+
+    # some of the targets in roots might be transitive deps of others, we only put those that are true roots
+    # in the stack at this point
+    stack = [root_target for root_target in roots if not root_target in counts]
+    true_roots = len(stack)
+
+    result = []
+    for _ in range(2000000000):
+        if not stack:
+            break
+        next = stack.pop()
+        result.append(next)
+        deps = get_nodes_to_traverse_func(next)
+        for child in deps[::-1]:  # reverse order ensures we put things on the stack in the same order as rust's tset traversal
+            counts[child] -= 1
+            if counts[child] == 0:
+                stack.append(child)
+
+    if len(result) != true_roots + len(counts):
+        fail()  # fail_cycle
+
+    return result
+
+def _create_link_args(
+        *,
+        cxx_toolchain: CxxToolchainInfo,
+        root_target: Label,
+        node: LinkableNode,
+        graph: dict[Label, LinkableNode],
+        shared_lib_overrides: dict[Label, LinkInfo] | None = None) -> (LinkArgs, list[Label], dict[Label, list[Label]]):
+    if LinkOrdering(cxx_toolchain.linker_info.link_ordering) != LinkOrdering("topological"):
+        fail("don't yet support link ordering {}".format(cxx_toolchain.linker_info.link_ordering))
+
+    # TODO(cjhopman): verify picbehavior == pic
+    link_strategy = node.default_link_strategy
+    if not shared_lib_overrides:
+        shared_lib_overrides = {}
+
+    link_traversal_cache = {}
+
+    def link_traversal(label: Label) -> list[Label]:
+        def link_traversal_deps(label):
+            node = graph[label]
+            if label == root_target:
+                return node.deps + node.exported_deps
+            actual_linkable_type = get_lib_output_style(link_strategy, node.preferred_linkage, PicBehavior("supported"))
+            if actual_linkable_type == LibOutputStyle("shared_lib"):
+                return node.exported_deps
+            else:
+                return node.deps + node.exported_deps
+
+        res = link_traversal_cache.get(label, None)
+        if res:
+            return res
+        res = link_traversal_deps(label)
+        link_traversal_cache[label] = res
+        return res
+
+    links = []
+    shlib_deps = []
+    for target in _rust_matching_topological_traversal([root_target], link_traversal):
+        is_root = target == root_target
+        node = graph[target]
+        preferred_linkable_type = get_lib_output_style(link_strategy, node.preferred_linkage, PicBehavior("supported"))
+
+        if is_root:
+            link_info = node.link_infos[LibOutputStyle("pic_archive")].default
+            link_info = wrap_link_info(
+                link_info,
+                pre_flags = node.linker_flags.flags,
+                post_flags = node.linker_flags.post_flags,
+            )
+            links.append(set_link_info_link_whole(link_info))
+        elif preferred_linkable_type == LibOutputStyle("shared_lib"):
+            if target in shared_lib_overrides:
+                links.append(shared_lib_overrides[target])
+            else:
+                links.append(node.link_infos[LibOutputStyle("shared_lib")].default)
+            shlib_deps.append(target)
+        else:
+            links.append(node.link_infos[preferred_linkable_type].default)
+    extra_runtime_flags = cxx_toolchain.linker_info.shared_dep_runtime_ld_flags or []
+    if extra_runtime_flags:
+        links.append(LinkInfo(pre_flags = extra_runtime_flags))
+    return LinkArgs(infos = links), shlib_deps, link_traversal_cache
 
 # When linking shared libraries, by default, all symbols are exported from the library. In a
 # particular application, though, many of those symbols may never be used. Ideally, in each apk,
