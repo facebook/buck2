@@ -81,6 +81,8 @@ impl ConfiguredAttrExt for ConfiguredAttr {
         match self {
             // SourceLabel is special since it is the only type that can be expand to many
             ConfiguredAttr::SourceLabel(src) => SourceAttrType::resolve_label(ctx, src),
+            // OneOf could contain a SourceLabel
+            ConfiguredAttr::OneOf(box l, _) => l.resolve(pkg, ctx),
             _ => Ok(vec![self.resolve_single(pkg, ctx)?]),
         }
     }
