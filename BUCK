@@ -15,6 +15,5 @@ alias(
 symlinked_buck2_and_tpx(
     name = "symlinked_buck2_and_tpx",
     buck2 = "//buck2:buck2",
-    labels = [ci.skip_test(ci.windows(ci.opt()))],
     tpx = "//buck2/buck2_tpx_cli:buck2_tpx_cli",
 ) if is_buck2() else None
