@@ -2,6 +2,8 @@
 # This file exports a sub-set of the definitions from TARGETS.v2 for backwards-compatibility with buck1.
 # NOTE: These have no effect in BUCK1 and are only provided so imports can resolve.
 
+oncall("build_infra")
+
 config_setting(
     name = "runs_remote",
     visibility = ["PUBLIC"],

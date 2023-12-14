@@ -1,3 +1,5 @@
+oncall("build_infra")
+
 prelude = native
 
 prelude.python_library(
