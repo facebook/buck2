@@ -359,7 +359,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         args: &Arguments<'v, '_>,
         slots: &[Cell<Option<Value<'v>>>],
         heap: &'v Heap,
-    ) -> anyhow::Result<()> {
+    ) -> crate::Result<()> {
         self.collect_inline(&args.0, slots, heap)
     }
 
@@ -370,7 +370,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         &self,
         args: &Arguments<'v, '_>,
         heap: &'v Heap,
-    ) -> anyhow::Result<[Cell<Option<Value<'v>>>; N]> {
+    ) -> crate::Result<[Cell<Option<Value<'v>>>; N]> {
         let slots = [(); N].map(|_| Cell::new(None));
         self.collect(args, &slots, heap)?;
         Ok(slots)
@@ -384,7 +384,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         args: &A,
         slots: &[Cell<Option<Value<'v>>>],
         heap: &'v Heap,
-    ) -> anyhow::Result<()>
+    ) -> crate::Result<()>
     where
         'v: 'a,
     {
@@ -412,7 +412,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         args: &A,
         slots: &[Cell<Option<Value<'v>>>],
         heap: &'v Heap,
-    ) -> anyhow::Result<()>
+    ) -> crate::Result<()>
     where
         'v: 'a,
     {
@@ -742,9 +742,9 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
         k: F,
-    ) -> anyhow::Result<R>
+    ) -> crate::Result<R>
     where
-        F: FnOnce(ParametersParser<'v, '_>, &mut Evaluator<'v, '_>) -> anyhow::Result<R>,
+        F: FnOnce(ParametersParser<'v, '_>, &mut Evaluator<'v, '_>) -> crate::Result<R>,
     {
         eval.alloca_init(
             self.len(),

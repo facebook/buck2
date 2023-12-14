@@ -67,6 +67,12 @@ pub(crate) enum FunctionError {
     WrongNumberOfArgs { min: usize, max: usize, got: usize },
 }
 
+impl From<FunctionError> for crate::Error {
+    fn from(e: FunctionError) -> Self {
+        crate::Error::new(crate::ErrorKind::Function(anyhow::Error::new(e)))
+    }
+}
+
 /// An object accompanying argument name for faster argument resolution.
 pub(crate) trait ArgSymbol: Debug + Coerce<Self> + 'static {
     fn get_index_from_param_spec<'v, V: ValueLike<'v>>(
@@ -267,7 +273,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
     /// Unwrap all named arguments (both explicit and in `**kwargs`) into a map.
     ///
     /// This operation fails if named argument names are not unique.
-    pub fn names_map(&self) -> anyhow::Result<SmallMap<StringValue<'v>, Value<'v>>> {
+    pub fn names_map(&self) -> crate::Result<SmallMap<StringValue<'v>, Value<'v>>> {
         match self.unpack_kwargs()? {
             None => {
                 let mut result = SmallMap::with_capacity(self.0.names.len());
@@ -337,7 +343,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
     /// Unwrap all named arguments (both explicit and in `**kwargs`) into a dictionary.
     ///
     /// This operation fails if named argument names are not unique.
-    pub fn names(&self) -> anyhow::Result<Dict<'v>> {
+    pub fn names(&self) -> crate::Result<Dict<'v>> {
         Ok(Dict::new(coerce(self.names_map()?)))
     }
 
@@ -358,7 +364,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
     /// will _not_ have been validated to be strings (as they must be).
     /// The arguments may also overlap with named, which would be an error.
     #[inline(always)]
-    pub fn unpack_kwargs(&self) -> anyhow::Result<Option<DictRef<'v>>> {
+    pub fn unpack_kwargs(&self) -> crate::Result<Option<DictRef<'v>>> {
         match self.0.kwargs {
             None => Ok(None),
             Some(kwargs) => match DictRef::from_value(kwargs) {
@@ -370,7 +376,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
 
     /// Confirm that a key in the `kwargs` field is indeed a string, or [`Err`].
     #[inline(always)]
-    pub(crate) fn unpack_kwargs_key_as_value(k: Value<'v>) -> anyhow::Result<StringValue<'v>> {
+    pub(crate) fn unpack_kwargs_key_as_value(k: Value<'v>) -> crate::Result<StringValue<'v>> {
         match StringValue::new(k) {
             None => Err(FunctionError::ArgsValueIsNotString.into()),
             Some(k) => Ok(k),
@@ -379,7 +385,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
 
     /// Confirm that a key in the `kwargs` field is indeed a string, or [`Err`].
     #[inline(always)]
-    pub fn unpack_kwargs_key(k: Value<'v>) -> anyhow::Result<&'v str> {
+    pub fn unpack_kwargs_key(k: Value<'v>) -> crate::Result<&'v str> {
         Arguments::unpack_kwargs_key_as_value(k).map(|k| k.as_str())
     }
 
@@ -408,7 +414,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
                 Ok(())
             } else {
                 // Would be nice to give a better name here, but it's in the call stack, so no big deal
-                Err(crate::Error::new_other(FunctionError::ExtraNamedArg {
+                Err(crate::Error::from(FunctionError::ExtraNamedArg {
                     names: extra,
                     function: "function".to_owned(),
                 }))
@@ -441,7 +447,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
                     .chain(x.0.args.unwrap().iterate(heap)?)
                     .collect::<Vec<_>>();
             xs.as_slice().try_into().map_err(|_| {
-                crate::Error::new_other(FunctionError::WrongNumberOfArgs {
+                crate::Error::from(FunctionError::WrongNumberOfArgs {
                     min: N,
                     max: N,
                     got: x.0.pos.len(),
@@ -451,7 +457,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
 
         if self.0.args.is_none() {
             self.0.pos.try_into().map_err(|_| {
-                crate::Error::new_other(FunctionError::WrongNumberOfArgs {
+                crate::Error::from(FunctionError::WrongNumberOfArgs {
                     min: N,
                     max: N,
                     got: self.0.pos.len(),
@@ -491,7 +497,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
                 }
                 Ok((required, optional))
             } else {
-                Err(crate::Error::new_other(FunctionError::WrongNumberOfArgs {
+                Err(crate::Error::from(FunctionError::WrongNumberOfArgs {
                     min: REQUIRED,
                     max: REQUIRED + OPTIONAL,
                     got: xs.len(),

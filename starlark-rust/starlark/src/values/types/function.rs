@@ -237,19 +237,14 @@ impl NativeFunction {
     /// Create a new [`NativeFunction`] from the Rust function, plus the parameter specification.
     pub fn new<F>(function: F, name: String, parameters: ParametersSpec<FrozenValue>) -> Self
     where
-        F: for<'v> Fn(
-                &mut Evaluator<'v, '_>,
-                ParametersParser<'v, '_>,
-            ) -> anyhow::Result<Value<'v>>
+        F: for<'v> Fn(&mut Evaluator<'v, '_>, ParametersParser<'v, '_>) -> crate::Result<Value<'v>>
             + Send
             + Sync
             + 'static,
     {
         Self::new_direct(
             move |eval, params| {
-                parameters
-                    .parser(params, eval, |parser, eval| function(eval, parser))
-                    .map_err(Into::into)
+                parameters.parser(params, eval, |parser, eval| function(eval, parser))
             },
             name,
         )

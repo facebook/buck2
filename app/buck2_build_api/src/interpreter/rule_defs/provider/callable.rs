@@ -138,9 +138,9 @@ impl UserProviderCallableNamed {
         &self,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         self.signature.parser(args, eval, |parser, eval| {
-            user_provider_creator(self.data, eval, parser)
+            user_provider_creator(self.data, eval, parser).map_err(Into::into)
         })
     }
 }
@@ -359,7 +359,7 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
         eval: &mut Evaluator<'v, '_>,
     ) -> starlark::Result<Value<'v>> {
         match self.callable.get() {
-            Some(callable) => callable.invoke(args, eval).map_err(Into::into),
+            Some(callable) => callable.invoke(args, eval),
             None => Err(starlark::Error::new_other(ProviderCallableError::NotBound)),
         }
     }
@@ -441,7 +441,7 @@ impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
     ) -> starlark::Result<Value<'v>> {
-        self.callable.invoke(args, eval).map_err(Into::into)
+        self.callable.invoke(args, eval)
     }
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {

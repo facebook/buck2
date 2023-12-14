@@ -160,6 +160,8 @@ pub enum ErrorKind {
     ///
     /// Includes unsupported operations, missing attributes, things of that sort.
     Value(anyhow::Error),
+    /// Errors relating to the way a function is called (wrong number of args, etc.)
+    Function(anyhow::Error),
     /// Indicates a logic bug in starlark
     Internal(anyhow::Error),
     /// Fallback option
@@ -177,6 +179,7 @@ impl ErrorKind {
         match self {
             Self::Fail(_) => None,
             Self::Value(_) => None,
+            Self::Function(_) => None,
             Self::Internal(_) => None,
             Self::Other(e) => e.source(),
         }
@@ -188,6 +191,7 @@ impl fmt::Debug for ErrorKind {
         match self {
             Self::Fail(s) => write!(f, "fail:{}", s),
             Self::Value(e) => fmt::Debug::fmt(e, f),
+            Self::Function(e) => fmt::Debug::fmt(e, f),
             Self::Internal(e) => write!(f, "Internal error: {}", e),
             Self::Other(e) => fmt::Debug::fmt(e, f),
         }
@@ -199,6 +203,7 @@ impl fmt::Display for ErrorKind {
         match self {
             Self::Fail(s) => write!(f, "fail:{}", s),
             Self::Value(e) => fmt::Display::fmt(e, f),
+            Self::Function(e) => fmt::Display::fmt(e, f),
             Self::Internal(e) => write!(f, "Internal error: {}", e),
             Self::Other(e) => fmt::Display::fmt(e, f),
         }
