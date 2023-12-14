@@ -116,6 +116,17 @@ def get_android_binary_native_library_info(
         included_shared_lib_targets.extend([lib.label.raw_target() for lib in native_linkables.values()])
         platform_to_original_native_linkables[platform] = native_linkables
 
+    if not all_prebuilt_native_library_dirs and not included_shared_lib_targets:
+        return AndroidBinaryNativeLibsInfo(
+            apk_under_test_prebuilt_native_library_dirs = [],
+            apk_under_test_shared_libraries = [],
+            native_libs_for_primary_apk = [],
+            exopackage_info = None,
+            root_module_native_lib_assets = [],
+            non_root_module_native_lib_assets = [],
+            generated_java_code = [],
+        )
+
     native_libs = ctx.actions.declare_output("native_libs_symlink")
     native_libs_metadata = ctx.actions.declare_output("native_libs_metadata_symlink")
     native_libs_always_in_primary_apk = ctx.actions.declare_output("native_libs_always_in_primary_apk_symlink")
