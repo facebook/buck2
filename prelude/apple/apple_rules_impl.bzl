@@ -77,11 +77,8 @@ ApplePackageExtension = enum(
     "zip",
 )
 
-extra_attributes = {
-    "apple_asset_catalog": {
-        "dirs": attrs.list(attrs.source(allow_directory = True), default = []),
-    },
-    "apple_binary": {
+def _apple_binary_extra_attrs():
+    return {
         "binary_linker_flags": attrs.list(attrs.arg(), default = []),
         "enable_distributed_thinlto": attrs.bool(default = False),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
@@ -101,9 +98,10 @@ extra_attributes = {
         APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_NAME: APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_TYPE,
         APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_NAME: APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_TYPE,
         BUCK2_COMPATIBILITY_ATTRIB_NAME: BUCK2_COMPATIBILITY_ATTRIB_TYPE,
-    },
-    "apple_bundle": apple_bundle_extra_attrs(),
-    "apple_library": {
+    }
+
+def _apple_library_extra_attrs():
+    return {
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
         "link_execution_preference": link_execution_preference_attr(),
@@ -126,7 +124,26 @@ extra_attributes = {
         APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_NAME: APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_TYPE,
         APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_NAME: APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_TYPE,
         BUCK2_COMPATIBILITY_ATTRIB_NAME: BUCK2_COMPATIBILITY_ATTRIB_TYPE,
+    }
+
+def _apple_universal_executable_extra_attrs():
+    return {
+        "executable": attrs.split_transition_dep(cfg = cpu_split_transition),
+        "executable_name": attrs.option(attrs.string(), default = None),
+        "labels": attrs.list(attrs.string()),
+        "split_arch_dsym": attrs.bool(default = False),
+        "universal": attrs.option(attrs.bool(), default = None),
+        "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
+        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
+    }
+
+extra_attributes = {
+    "apple_asset_catalog": {
+        "dirs": attrs.list(attrs.source(allow_directory = True), default = []),
     },
+    "apple_binary": _apple_binary_extra_attrs(),
+    "apple_bundle": apple_bundle_extra_attrs(),
+    "apple_library": _apple_library_extra_attrs(),
     "apple_package": {
         "bundle": attrs.dep(providers = [AppleBundleInfo]),
         "ext": attrs.enum(ApplePackageExtension.values(), default = "ipa"),
@@ -190,15 +207,7 @@ extra_attributes = {
         #                   pass abs paths during development and using the currently selected Xcode.
         "_internal_sdk_path": attrs.option(attrs.string(), default = None),
     },
-    "apple_universal_executable": {
-        "executable": attrs.split_transition_dep(cfg = cpu_split_transition),
-        "executable_name": attrs.option(attrs.string(), default = None),
-        "labels": attrs.list(attrs.string()),
-        "split_arch_dsym": attrs.bool(default = False),
-        "universal": attrs.option(attrs.bool(), default = None),
-        "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
-        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
-    },
+    "apple_universal_executable": _apple_universal_executable_extra_attrs(),
     "core_data_model": {
         "path": attrs.source(allow_directory = True),
     },
