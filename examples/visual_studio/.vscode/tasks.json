@@ -1,0 +1,55 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build Main",
+            "type": "shell",
+            "command": "buck2",
+            "args": [
+                "build",
+                "--console",
+                "simple",
+                "--no-interactive-console",
+                "--fail-fast",
+                "--show-full-output",
+                ":main",
+                "|",
+                "powershell",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "buck2_utils/install.ps1",
+                "install"
+            ]
+        },
+        {
+            "label": "Create compilation database",
+            "type": "shell",
+            "command": "buck2",
+            "args": [
+                "bxl",
+                "buck2_utils/create_compile_commands.bxl:gen_compilation_database",
+                "--",
+                "--directory",
+                "${workspaceFolder}",
+                "|",
+                "powershell",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "buck2_utils/copy.ps1"
+            ]
+        },
+        {
+            "label": "Build and create compilation database",
+            "dependsOn": [
+                "Create compilation database",
+                "Build Main"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+}

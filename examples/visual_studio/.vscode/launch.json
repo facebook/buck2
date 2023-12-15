@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug main.exe",
+            "preLaunchTask": "Build and create compilation database",
+            "program": "${workspaceFolder}/install/main.exe",
+            "cwd": "${workspaceFolder}/install"
+        }
+    ]
+}
