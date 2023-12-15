@@ -675,7 +675,7 @@ def _get_exported_headers_tset(ctx: AnalysisContext, exported_headers: [list[str
         value = {get_module_name(ctx): exported_headers} if exported_headers else None,
         children = [
             dep.exported_headers
-            for dep in [x.get(SwiftDependencyInfo) for x in ctx.attrs.exported_deps]
+            for dep in [x.get(SwiftDependencyInfo) for x in _exported_deps(ctx)]
             if dep and dep.exported_headers
         ],
     )
@@ -692,7 +692,7 @@ def get_swift_pcm_uncompile_info(
             name = get_module_name(ctx),
             is_transient = not ctx.attrs.modular or not exported_pre,
             exported_preprocessor = exported_pre,
-            exported_deps = ctx.attrs.exported_deps,
+            exported_deps = _exported_deps(ctx),
             propagated_preprocessor_args_cmd = propagated_pp_args_cmd,
             uncompiled_sdk_modules = ctx.attrs.sdk_modules,
         )
@@ -703,11 +703,7 @@ def get_swift_dependency_info(
         exported_pre: [CPreprocessor, None],
         output_module: [Artifact, None],
         deps_providers: list) -> SwiftDependencyInfo:
-    all_deps = ctx.attrs.exported_deps + ctx.attrs.deps
-    if ctx.attrs.reexport_all_header_dependencies:
-        exported_deps = all_deps
-    else:
-        exported_deps = ctx.attrs.exported_deps
+    exported_deps = _exported_deps(ctx)
 
     # We only need to pass up the exported_headers for Swift header post-processing.
     # If the toolchain can emit textual imports already then we skip the extra work.
@@ -734,7 +730,7 @@ def get_swift_dependency_info(
     debug_info_tset = make_artifact_tset(
         actions = ctx.actions,
         artifacts = [output_module] if output_module != None else [],
-        children = _get_external_debug_info_tsets(all_deps),
+        children = _get_external_debug_info_tsets(ctx.attrs.deps + ctx.attrs.exported_deps),
         label = ctx.label,
     )
 
@@ -836,3 +832,9 @@ def _create_compilation_database(
     ctx.actions.run(cmd, category = "swift_compilation_database", identifier = identifier)
 
     return SwiftCompilationDatabase(db = cdb_artifact, other_outputs = argfile.cmd_form)
+
+def _exported_deps(ctx) -> list[Dependency]:
+    if ctx.attrs.reexport_all_header_dependencies:
+        return ctx.attrs.exported_deps + ctx.attrs.deps
+    else:
+        return ctx.attrs.exported_deps
