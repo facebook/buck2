@@ -35,6 +35,7 @@ load(
     ":apple_rules_impl_utility.bzl",
     "APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME",
     "apple_bundle_extra_attrs",
+    "apple_dsymutil_attrs",
     "apple_test_extra_attrs",
     "get_apple_bundle_toolchain_attr",
     "get_apple_toolchain_attr",
@@ -78,7 +79,7 @@ ApplePackageExtension = enum(
 )
 
 def _apple_binary_extra_attrs():
-    return {
+    attribs = {
         "binary_linker_flags": attrs.list(attrs.arg(), default = []),
         "enable_distributed_thinlto": attrs.bool(default = False),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
@@ -99,9 +100,11 @@ def _apple_binary_extra_attrs():
         APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_NAME: APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_TYPE,
         BUCK2_COMPATIBILITY_ATTRIB_NAME: BUCK2_COMPATIBILITY_ATTRIB_TYPE,
     }
+    attribs.update(apple_dsymutil_attrs())
+    return attribs
 
 def _apple_library_extra_attrs():
-    return {
+    attribs = {
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
         "link_execution_preference": link_execution_preference_attr(),
@@ -125,9 +128,11 @@ def _apple_library_extra_attrs():
         APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_NAME: APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_TYPE,
         BUCK2_COMPATIBILITY_ATTRIB_NAME: BUCK2_COMPATIBILITY_ATTRIB_TYPE,
     }
+    attribs.update(apple_dsymutil_attrs())
+    return attribs
 
 def _apple_universal_executable_extra_attrs():
-    return {
+    attribs = {
         "executable": attrs.split_transition_dep(cfg = cpu_split_transition),
         "executable_name": attrs.option(attrs.string(), default = None),
         "labels": attrs.list(attrs.string()),
@@ -136,6 +141,8 @@ def _apple_universal_executable_extra_attrs():
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
         "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
     }
+    attribs.update(apple_dsymutil_attrs())
+    return attribs
 
 extra_attributes = {
     "apple_asset_catalog": {

@@ -47,6 +47,11 @@ APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME = "_archive_objects_locally_ove
 APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME = "_use_entitlements_when_adhoc_code_signing"
 APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME = "use_entitlements_when_adhoc_code_signing"
 
+def apple_dsymutil_attrs():
+    return {
+        "_dsymutil_extra_flags": attrs.list(attrs.string()),
+    }
+
 def _apple_bundle_like_common_attrs():
     # `apple_bundle()` and `apple_test()` share a common set of extra attrs
     attribs = {
@@ -72,6 +77,7 @@ def _apple_bundle_like_common_attrs():
         BUCK2_COMPATIBILITY_ATTRIB_NAME: BUCK2_COMPATIBILITY_ATTRIB_TYPE,
     }
     attribs.update(get_apple_info_plist_build_system_identification_attrs())
+    attribs.update(apple_dsymutil_attrs())
     return attribs
 
 def apple_test_extra_attrs():

@@ -17,14 +17,13 @@ def get_apple_dsym(ctx: AnalysisContext, executable: Artifact, debug_info: list[
     return get_apple_dsym_ext(ctx, executable, debug_info, action_identifier, output_path)
 
 # TODO(T110672942): Things which are still unsupported:
-# - pass in dsymutil_extra_flags
 # - oso_prefix
 # - dsym_verification
 def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, Artifact], debug_info: list[ArgLike], action_identifier: str, output_path: str) -> Artifact:
     dsymutil = ctx.attrs._apple_toolchain[AppleToolchainInfo].dsymutil
     output = ctx.actions.declare_output(output_path, dir = True)
 
-    cmd = cmd_args([dsymutil, "-o", output.as_output()])
+    cmd = cmd_args([dsymutil] + ctx.attrs._dsymutil_extra_flags + ["-o", output.as_output()])
     cmd.add(executable)
 
     # Mach-O executables don't contain DWARF data.
