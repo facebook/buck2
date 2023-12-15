@@ -22,9 +22,17 @@ use starlark_map::sorted_map::SortedMap;
 use static_interner::Intern;
 use static_interner::Interner;
 
-#[derive(Debug, Default, Eq, Hash, PartialEq, Clone, Dupe, Allocative)]
+#[derive(Debug, Eq, Hash, PartialEq, Clone, Dupe, Allocative)]
 pub struct LocalExecutorOptions {
     pub use_persistent_workers: bool,
+}
+
+impl Default for LocalExecutorOptions {
+    fn default() -> Self {
+        Self {
+            use_persistent_workers: true,
+        }
+    }
 }
 
 /// A Remote Action can specify a list of dependencies that are required before starting the execution `https://fburl.com/wiki/offzl3ox`
