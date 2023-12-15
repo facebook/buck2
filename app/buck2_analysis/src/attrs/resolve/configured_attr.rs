@@ -81,6 +81,8 @@ impl ConfiguredAttrExt for ConfiguredAttr {
         match self {
             // SourceLabel is special since it is the only type that can be expand to many
             ConfiguredAttr::SourceLabel(src) => SourceAttrType::resolve_label(ctx, src),
+            // OneOf could contain a SourceLabel
+            ConfiguredAttr::OneOf(box l, _) => l.resolve(pkg, ctx),
             _ => Ok(vec![self.resolve_single(pkg, ctx)?]),
         }
     }
@@ -108,7 +110,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             ConfiguredAttr::Tuple(list) => {
                 let mut values = Vec::with_capacity(list.len());
                 for v in list.iter() {
-                    values.append(&mut v.resolve(pkg.dupe(), ctx)?);
+                    values.push(v.resolve_single(pkg.dupe(), ctx)?);
                 }
                 Ok(ctx.heap().alloc(AllocTuple(values)))
             }
