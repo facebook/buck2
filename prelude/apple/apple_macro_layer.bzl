@@ -126,3 +126,8 @@ def apple_package_macro_impl(apple_package_rule = None, **kwargs):
     apple_package_rule(
         **kwargs
     )
+
+def apple_universal_executable_macro_impl(apple_universal_executable_rule = None, **kwargs):
+    apple_universal_executable_rule(
+        **kwargs
+    )
