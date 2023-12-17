@@ -28,6 +28,9 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use dupe::Dupe;
 use gazebo::prelude::*;
 
+use crate::print::PrintOutputs;
+use crate::print::PrintOutputsFormat;
+
 #[derive(thiserror::Error, Debug)]
 enum TargetsError {
     /// Clap should report it, but if we missed something, this is a fallback.
@@ -139,13 +142,29 @@ pub struct TargetsCommand {
     #[clap(long)]
     include_defaults: bool,
 
-    /// Print the path to the output for each of the rules relative to the cell
+    /// Print the path to the output for each of the rules relative to the project root
     #[clap(long)]
     show_output: bool,
 
-    /// Print the absolute path to the output for each of the rules relative to the cell
+    /// Print the absolute path to the output for each of the rules
     #[clap(long)]
     show_full_output: bool,
+
+    /// Print only the path to the output for each of the rules relative to the project root
+    #[clap(long)]
+    show_simple_output: bool,
+
+    /// Print only the absolute path to the output for each of the rules
+    #[clap(long)]
+    show_full_simple_output: bool,
+
+    /// Print the output paths relative to the project root, in JSON format
+    #[clap(long)]
+    show_json_output: bool,
+
+    /// Print the output absolute paths, in JSON format
+    #[clap(long)]
+    show_full_json_output: bool,
 
     /// On loading errors, put buck.error in the output stream and continue
     #[clap(long)]
@@ -326,22 +345,26 @@ impl StreamingCommand for TargetsCommand {
                 .map(|num| buck2_cli_proto::Concurrency { concurrency: num }),
         };
 
-        if self.show_output {
-            targets_show_outputs(
-                ctx.stdin(),
-                buckd,
-                target_request,
-                None,
-                &self.common_opts.console_opts,
-            )
-            .await
-        } else if self.show_full_output {
+        let format = if self.show_json_output || self.show_full_json_output {
+            Some(PrintOutputsFormat::Json)
+        } else if self.show_output || self.show_full_output {
+            Some(PrintOutputsFormat::Plain)
+        } else if self.show_simple_output || self.show_full_simple_output {
+            Some(PrintOutputsFormat::Simple)
+        } else {
+            None
+        };
+
+        if let Some(format) = format {
             let project_root = ctx.paths()?.roots.project_root.clone();
+            let full =
+                self.show_full_output || self.show_full_json_output || self.show_full_simple_output;
             targets_show_outputs(
                 ctx.stdin(),
                 buckd,
                 target_request,
-                Some(project_root.root()),
+                full.then(|| project_root.root()),
+                format,
                 &self.common_opts.console_opts,
             )
             .await
@@ -374,6 +397,7 @@ async fn targets_show_outputs(
     buckd: &mut BuckdClientConnector<'_>,
     target_request: TargetsRequest,
     root_path: Option<&AbsNormPath>,
+    format: PrintOutputsFormat,
     console_opts: &CommonConsoleOptions,
 ) -> ExitResult {
     let response = buckd
@@ -384,25 +408,18 @@ async fn targets_show_outputs(
             &mut NoPartialResultHandler,
         )
         .await??;
-    for target_paths in response.targets_paths {
-        for path in target_paths.paths {
-            let path = if cfg!(windows) {
-                path.replace('/', "\\")
-            } else {
-                path
-            };
-            match root_path {
-                Some(root) => {
-                    buck2_client_ctx::println!(
-                        "{} {}",
-                        target_paths.target,
-                        root.as_path().join(path).display()
-                    )
-                }
-                None => buck2_client_ctx::println!("{} {}", target_paths.target, path),
-            }?;
+
+    buck2_client_ctx::stdio::print_with_writer(|out| {
+        let root_path = root_path.map(|root| root.to_path_buf());
+        let mut print = PrintOutputs::new(out, root_path, format)?;
+        for target_paths in response.targets_paths {
+            for path in target_paths.paths {
+                print.output(&target_paths.target, Some(&path))?;
+            }
         }
-    }
+        print.finish()
+    })?;
+
     ExitResult::success()
 }
 
