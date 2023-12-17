@@ -124,7 +124,7 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     rust_toolchain = ctx.attrs._rust_toolchain[RustToolchainInfo]
     dep_ctx = DepCollectionContext(
-        native_unbundle_deps = rust_toolchain.native_unbundle_deps,
+        advanced_unstable_linking = rust_toolchain.advanced_unstable_linking,
         include_doc_deps = False,
         is_proc_macro = False,
         explicit_sysroot_deps = rust_toolchain.explicit_sysroot_deps,
@@ -598,10 +598,10 @@ def _native_providers(
     (ie C/C++) code, along with relevant dependencies.
     """
 
-    # If native_unbundle_deps is set on the the rust toolchain, then build this artifact
+    # If advanced_unstable_linking is set on the the rust toolchain, then build this artifact
     # using the "native-unbundled" linkage language. See LinkageLang docs for more details
-    native_unbundle_deps = compile_ctx.toolchain_info.native_unbundle_deps
-    lang = LinkageLang("native-unbundled") if native_unbundle_deps else LinkageLang("native")
+    advanced_unstable_linking = compile_ctx.toolchain_info.advanced_unstable_linking
+    lang = LinkageLang("native-unbundled") if advanced_unstable_linking else LinkageLang("native")
 
     inherited_link_deps = inherited_exported_link_deps(ctx, compile_ctx.dep_ctx)
     inherited_link_infos = inherited_merged_link_infos(ctx, compile_ctx.dep_ctx)

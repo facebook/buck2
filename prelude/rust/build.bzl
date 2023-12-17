@@ -122,7 +122,7 @@ def compile_context(ctx: AnalysisContext) -> CompileContext:
     clippy_wrapper = _clippy_wrapper(ctx, toolchain_info)
 
     dep_ctx = DepCollectionContext(
-        native_unbundle_deps = toolchain_info.native_unbundle_deps,
+        advanced_unstable_linking = toolchain_info.advanced_unstable_linking,
         include_doc_deps = False,
         is_proc_macro = getattr(ctx.attrs, "proc_macro", False),
         explicit_sysroot_deps = toolchain_info.explicit_sysroot_deps,
@@ -229,7 +229,7 @@ def generate_rustdoc_test(
 
     toolchain_info = compile_ctx.toolchain_info
     doc_dep_ctx = DepCollectionContext(
-        native_unbundle_deps = compile_ctx.dep_ctx.native_unbundle_deps,
+        advanced_unstable_linking = compile_ctx.dep_ctx.advanced_unstable_linking,
         include_doc_deps = True,
         is_proc_macro = False,
         explicit_sysroot_deps = compile_ctx.dep_ctx.explicit_sysroot_deps,

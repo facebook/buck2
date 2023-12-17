@@ -89,10 +89,14 @@ rust_toolchain_attrs = {
     # Utilities used for building flagfiles containing dynamic crate names
     "concat_tool": provider_field(RunInfo | None, default = None),
     "transitive_dependency_symlinks_tool": provider_field(RunInfo | None, default = None),
-    # Passing true here enables the unstable feature using `rlib` format
-    # instead of `staticlib` when linking rust targets into native (e.g.
-    # C/C++) targets.
-    "native_unbundle_deps": provider_field(bool, default = False),
+    # Setting this enables additional behaviors that improves linking at the
+    # cost of using unstable implementation details of rustc. At the moment,
+    # this is only used for linking rlibs into C++/C builds, instead of using
+    # staticlibs, but that's expected to change.
+    #
+    # FIXME(JakobDegen): This should require `explicit_sysroot_deps` in the
+    # future.
+    "advanced_unstable_linking": provider_field(bool, default = False),
     # See the documentation on the type for details
     "explicit_sysroot_deps": provider_field(RustExplicitSysrootDeps | None, default = None),
 }

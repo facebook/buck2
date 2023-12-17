@@ -38,7 +38,7 @@ def _make_rustc_shim(ctx: AnalysisContext, cwd: Artifact) -> cmd_args:
     explicit_sysroot_deps = toolchain_info.explicit_sysroot_deps
     if explicit_sysroot_deps:
         dep_ctx = DepCollectionContext(
-            native_unbundle_deps = False,
+            advanced_unstable_linking = False,
             include_doc_deps = False,
             is_proc_macro = False,
             explicit_sysroot_deps = explicit_sysroot_deps,

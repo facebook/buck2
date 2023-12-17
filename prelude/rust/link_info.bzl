@@ -318,7 +318,7 @@ def _native_link_dependencies(
     """
     first_order_deps = [dep.dep for dep in resolve_deps(ctx, dep_ctx)]
 
-    if dep_ctx.native_unbundle_deps:
+    if dep_ctx.advanced_unstable_linking:
         return [d for d in first_order_deps if MergedLinkInfo in d]
     else:
         return [
@@ -349,7 +349,7 @@ def _native_shared_lib_infos(
     """
     first_order_deps = [dep.dep for dep in resolve_deps(ctx, dep_ctx)]
 
-    if dep_ctx.native_unbundle_deps:
+    if dep_ctx.advanced_unstable_linking:
         return [d[SharedLibraryInfo] for d in first_order_deps if SharedLibraryInfo in d]
     else:
         return [
@@ -371,7 +371,7 @@ def inherited_exported_link_deps(ctx: AnalysisContext, dep_ctx: DepCollectionCon
     deps = {}
     for dep in _native_link_dependencies(ctx, dep_ctx):
         deps[dep.label] = dep
-    if not dep_ctx.native_unbundle_deps:
+    if not dep_ctx.advanced_unstable_linking:
         for info in _rust_link_infos(ctx, dep_ctx):
             for dep in info.exported_link_deps:
                 deps[dep.label] = dep
@@ -464,7 +464,7 @@ def inherited_merged_link_infos(
         dep_ctx: DepCollectionContext) -> list[MergedLinkInfo]:
     infos = []
     infos.extend(_native_link_infos(ctx, dep_ctx))
-    if not dep_ctx.native_unbundle_deps:
+    if not dep_ctx.advanced_unstable_linking:
         infos.extend([d.merged_link_info for d in _rust_link_infos(ctx, dep_ctx) if d.merged_link_info])
     return infos
 
@@ -473,7 +473,7 @@ def inherited_shared_libs(
         dep_ctx: DepCollectionContext) -> list[SharedLibraryInfo]:
     infos = []
     infos.extend(_native_shared_lib_infos(ctx, dep_ctx))
-    if not dep_ctx.native_unbundle_deps:
+    if not dep_ctx.advanced_unstable_linking:
         infos.extend([d.shared_libs for d in _rust_link_infos(ctx, dep_ctx)])
     return infos
 

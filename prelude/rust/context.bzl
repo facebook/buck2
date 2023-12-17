@@ -37,7 +37,7 @@ CrateMapArg = record(
 
 # Information that determines how dependencies should be collected
 DepCollectionContext = record(
-    native_unbundle_deps = field(bool),
+    advanced_unstable_linking = field(bool),
     include_doc_deps = field(bool),
     # Is the target a proc-macro target? This is ignored if `include_doc_deps`
     # is set, since doc tests in proc macro crates are not built with
