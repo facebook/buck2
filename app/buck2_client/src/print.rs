@@ -89,3 +89,99 @@ impl<W: Write> PrintOutputs<W> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use std::str;
+
+    use super::PrintOutputs;
+    use super::PrintOutputsFormat;
+
+    #[test]
+    fn test() -> anyhow::Result<()> {
+        for (format, root_path, expected) in [
+            (
+                PrintOutputsFormat::Plain,
+                None,
+                #[cfg(not(windows))]
+                "\
+                fb//third-party/rust:syn buck-out/third-party/rust/syn.rlib\n\
+                fb//third-party/rust:serde_derive \n\
+                ",
+                #[cfg(windows)]
+                "\
+                fb//third-party/rust:syn buck-out\\third-party\\rust\\syn.rlib\n\
+                fb//third-party/rust:serde_derive \n\
+                ",
+            ),
+            (
+                PrintOutputsFormat::Plain,
+                Some(
+                    #[cfg(not(windows))]
+                    "/home/metaguest",
+                    #[cfg(windows)]
+                    "C:\\metaguest",
+                ),
+                #[cfg(not(windows))]
+                "\
+                fb//third-party/rust:syn /home/metaguest/buck-out/third-party/rust/syn.rlib\n\
+                fb//third-party/rust:serde_derive \n\
+                ",
+                #[cfg(windows)]
+                "\
+                fb//third-party/rust:syn C:\\metaguest\\buck-out\\third-party\\rust\\syn.rlib\n\
+                fb//third-party/rust:serde_derive \n\
+                ",
+            ),
+            (
+                PrintOutputsFormat::Simple,
+                None,
+                #[cfg(not(windows))]
+                "\
+                buck-out/third-party/rust/syn.rlib\n\
+                \n\
+                ",
+                #[cfg(windows)]
+                "\
+                buck-out\\third-party\\rust\\syn.rlib\n\
+                \n\
+                ",
+            ),
+            (
+                PrintOutputsFormat::Json,
+                None,
+                #[cfg(not(windows))]
+                "\
+                {\"fb//third-party/rust:syn\":\"buck-out/third-party/rust/syn.rlib\",\"fb//third-party/rust:serde_derive\":\"\"}\n\
+                ",
+                #[cfg(windows)]
+                "\
+                {\"fb//third-party/rust:syn\":\"buck-out\\\\third-party\\\\rust\\\\syn.rlib\",\"fb//third-party/rust:serde_derive\":\"\"}\n\
+                ",
+            ),
+        ] {
+            let mut out = Vec::new();
+            let root_path = root_path.map(PathBuf::from);
+            let mut print = PrintOutputs::new(&mut out, root_path, format)?;
+            print.output(
+                "fb//third-party/rust:syn",
+                Some("buck-out/third-party/rust/syn.rlib"),
+            )?;
+            print.output("fb//third-party/rust:serde_derive", None)?;
+            print.finish()?;
+            assert_eq!(str::from_utf8(&out).unwrap(), expected);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_json_empty() -> anyhow::Result<()> {
+        let mut out = Vec::new();
+        let mut print = PrintOutputs::new(&mut out, None, PrintOutputsFormat::Json)?;
+        print.finish()?;
+        assert_eq!(str::from_utf8(&out).unwrap(), "{}\n");
+        Ok(())
+    }
+}
