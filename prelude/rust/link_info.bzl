@@ -228,6 +228,18 @@ def gather_explicit_sysroot_deps(dep_ctx: DepCollectionContext) -> list[RustOrNa
             name = None,
             flags = ["nounused"] + flags,
         ))
+    if explicit_sysroot_deps.panic_unwind:
+        out.append(RustOrNativeDependency(
+            dep = explicit_sysroot_deps.panic_unwind,
+            name = None,
+            flags = ["nounused"],
+        ))
+    if explicit_sysroot_deps.panic_abort:
+        out.append(RustOrNativeDependency(
+            dep = explicit_sysroot_deps.panic_abort,
+            name = None,
+            flags = ["nounused"],
+        ))
     for d in explicit_sysroot_deps.others:
         # FIXME(JakobDegen): Ideally we would not be using `noprelude` here but
         # instead report these as regular transitive dependencies. However,
