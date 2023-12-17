@@ -7,9 +7,8 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
 use std::io::Write;
-use std::path::Path;
+use std::path::PathBuf;
 
 use anyhow::Context;
 use async_trait::async_trait;
@@ -34,10 +33,10 @@ use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 use dupe::Dupe;
 use gazebo::prelude::*;
-use multimap::MultiMap;
-use serde::Serialize;
 
 use crate::commands::build::out::copy_to_out;
+use crate::print::PrintOutputs;
+use crate::print::PrintOutputsFormat;
 
 mod out;
 
@@ -90,7 +89,7 @@ pub struct BuildCommand {
 
     #[clap(
         long = "show-json-output",
-        help = "Print the output paths relative to the cell, in JSON format"
+        help = "Print the output paths relative to the project root, in JSON format"
     )]
     show_json_output: bool,
 
@@ -327,33 +326,25 @@ impl StreamingCommand for BuildCommand {
                 .context("Error requesting specific output path for --out")?;
             }
 
-            if self.show_output
-                || self.show_full_output
-                || self.show_json_output
-                || self.show_full_json_output
-                || self.show_simple_output
-                || self.show_full_simple_output
-            {
+            let format = if self.show_json_output || self.show_full_json_output {
+                Some(PrintOutputsFormat::Json)
+            } else if self.show_output || self.show_full_output {
+                Some(PrintOutputsFormat::Plain)
+            } else if self.show_simple_output || self.show_full_simple_output {
+                Some(PrintOutputsFormat::Simple)
+            } else {
+                None
+            };
+
+            if let Some(format) = format {
+                let full = self.show_full_output
+                    || self.show_full_json_output
+                    || self.show_full_simple_output;
                 print_outputs(
                     &mut stdout,
                     response.build_targets,
-                    if self.show_full_output
-                        || self.show_full_json_output
-                        || self.show_full_simple_output
-                    {
-                        Some(response.project_root)
-                    } else {
-                        None
-                    },
-                    if self.show_json_output || self.show_full_json_output {
-                        PrintOutputsFormat::Json
-                    } else if self.show_output || self.show_full_output {
-                        PrintOutputsFormat::Plain
-                    } else if self.show_simple_output || self.show_full_simple_output {
-                        PrintOutputsFormat::Simple
-                    } else {
-                        panic!("Unhandled output type");
-                    },
+                    full.then_some(response.project_root),
+                    format,
                     show_default_other_outputs,
                 )?;
             }
@@ -393,77 +384,15 @@ pub(crate) fn print_build_failed(console: &FinalConsole) -> anyhow::Result<()> {
     console.print_error("BUILD FAILED")
 }
 
-#[derive(Debug, PartialEq)]
-pub(crate) enum PrintOutputsFormat {
-    Plain,
-    Json,
-    Simple,
-}
-
 pub(crate) fn print_outputs(
-    mut out: impl Write,
+    out: impl Write,
     targets: Vec<BuildTarget>,
     root_path: Option<String>,
     format: PrintOutputsFormat,
     show_all_outputs: bool,
 ) -> anyhow::Result<()> {
-    #[derive(Serialize)]
-    #[serde(untagged)]
-    enum TargetOutputs {
-        AllOutputs(MultiMap<String, String>),
-        DefaultOutput(HashMap<String, String>),
-    }
-
-    impl TargetOutputs {
-        fn all_outputs() -> Self {
-            Self::AllOutputs(MultiMap::new())
-        }
-
-        fn default_output() -> Self {
-            Self::DefaultOutput(HashMap::new())
-        }
-
-        fn insert(&mut self, target: String, output: String) {
-            match self {
-                TargetOutputs::AllOutputs(map) => {
-                    map.insert(target, output);
-                }
-                TargetOutputs::DefaultOutput(map) => {
-                    map.insert(target, output);
-                }
-            }
-        }
-    }
-
-    let mut output_map = if show_all_outputs {
-        TargetOutputs::all_outputs()
-    } else {
-        TargetOutputs::default_output()
-    };
-    let mut process_output = |target: &String, output: Option<String>| -> anyhow::Result<()> {
-        let output = match output {
-            Some(output) => {
-                let output = if cfg!(windows) {
-                    output.replace('/', "\\")
-                } else {
-                    output
-                };
-                match &root_path {
-                    Some(root) => Path::new(&root).join(output).to_string_lossy().into_owned(),
-                    None => output,
-                }
-            }
-            None => "".to_owned(),
-        };
-
-        match format {
-            PrintOutputsFormat::Json => output_map.insert(target.clone(), output),
-            PrintOutputsFormat::Plain => writeln!(&mut out, "{} {}", target, output)?,
-            PrintOutputsFormat::Simple => writeln!(&mut out, "{}", output)?,
-        }
-
-        Ok(())
-    };
+    let root_path = root_path.map(PathBuf::from);
+    let mut print = PrintOutputs::new(out, root_path, format)?;
 
     for build_target in targets {
         // just print the default info for build command
@@ -480,20 +409,15 @@ pub(crate) fn print_outputs(
             // We only print the default outputs when we don't `show_all_outputs`,
             // which shouldn't have more than one output.
             // (although we currently don't yet restrict this, but we should).
-            process_output(&build_target.target, None)?;
+            print.output(&build_target.target, None)?;
             continue;
         }
         for output in outputs {
-            process_output(&build_target.target, Some(output.path))?;
+            print.output(&build_target.target, Some(&output.path))?;
         }
     }
 
-    if format == PrintOutputsFormat::Json {
-        serde_json::to_writer(&mut out, &output_map)?;
-        writeln!(&mut out)?;
-    }
-
-    Ok(())
+    print.finish()
 }
 
 #[cfg(test)]
