@@ -608,3 +608,56 @@ pub struct CommonCommandOptions {
     #[clap(flatten)]
     pub event_log_opts: CommonDaemonCommandOptions,
 }
+
+/// Show-output options shared by `build` and `targets`.
+#[derive(Debug, clap::Parser)]
+pub struct CommonOutputOptions {
+    /// Print the path to the output for each of the rules relative to the project root
+    #[clap(long)]
+    pub show_output: bool,
+
+    /// Print the absolute path to the output for each of the rules
+    #[clap(long)]
+    pub show_full_output: bool,
+
+    /// Print only the path to the output for each of the rules relative to the project root
+    #[clap(long)]
+    pub show_simple_output: bool,
+
+    /// Print only the absolute path to the output for each of the rules
+    #[clap(long)]
+    pub show_full_simple_output: bool,
+
+    /// Print the output paths relative to the project root, in JSON format
+    #[clap(long)]
+    pub show_json_output: bool,
+
+    /// Print the output absolute paths, in JSON format
+    #[clap(long)]
+    pub show_full_json_output: bool,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum PrintOutputsFormat {
+    Plain,
+    Simple,
+    Json,
+}
+
+impl CommonOutputOptions {
+    pub fn format(&self) -> Option<PrintOutputsFormat> {
+        if self.show_output || self.show_full_output {
+            Some(PrintOutputsFormat::Plain)
+        } else if self.show_simple_output || self.show_full_simple_output {
+            Some(PrintOutputsFormat::Simple)
+        } else if self.show_json_output || self.show_full_json_output {
+            Some(PrintOutputsFormat::Json)
+        } else {
+            None
+        }
+    }
+
+    pub fn is_full(&self) -> bool {
+        self.show_full_output || self.show_full_simple_output || self.show_full_json_output
+    }
+}

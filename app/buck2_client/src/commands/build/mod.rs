@@ -24,6 +24,8 @@ use buck2_client_ctx::common::CommonBuildOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
+use buck2_client_ctx::common::CommonOutputOptions;
+use buck2_client_ctx::common::PrintOutputsFormat;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -36,7 +38,6 @@ use gazebo::prelude::*;
 
 use crate::commands::build::out::copy_to_out;
 use crate::print::PrintOutputs;
-use crate::print::PrintOutputsFormat;
 
 mod out;
 
@@ -63,41 +64,8 @@ pub struct BuildCommand {
     #[allow(unused)] // for v1 compat
     deep: bool,
 
-    #[clap(
-        long = "show-output",
-        help = "Print the path to the output for each of the built rules relative to the project root"
-    )]
-    show_output: bool,
-
-    #[clap(
-        long = "show-full-output",
-        help = "Print the absolute path to the output for each of the built rules"
-    )]
-    show_full_output: bool,
-
-    #[clap(
-        long = "show-simple-output",
-        help = "Print only the path to the output for each of the built rules relative to the project root"
-    )]
-    show_simple_output: bool,
-
-    #[clap(
-        long = "show-full-simple-output",
-        help = "Print only the absolute path to the output for each of the built rules"
-    )]
-    show_full_simple_output: bool,
-
-    #[clap(
-        long = "show-json-output",
-        help = "Print the output paths relative to the project root, in JSON format"
-    )]
-    show_json_output: bool,
-
-    #[clap(
-        long = "show-full-json-output",
-        help = "Print the output absolute paths, in JSON format"
-    )]
-    show_full_json_output: bool,
+    #[clap(flatten)]
+    show_output: CommonOutputOptions,
 
     #[clap(
         long = "materializations",
@@ -254,12 +222,7 @@ impl StreamingCommand for BuildCommand {
                         test_info: self.test_info() as i32,
                     }),
                     response_options: Some(ResponseOptions {
-                        return_outputs: self.show_output
-                            || self.show_full_output
-                            || self.show_json_output
-                            || self.show_full_json_output
-                            || self.show_simple_output
-                            || self.show_full_simple_output
+                        return_outputs: self.show_output.format().is_some()
                             || self.output_path.is_some(),
                         return_default_other_outputs: show_default_other_outputs,
                     }),
@@ -326,24 +289,11 @@ impl StreamingCommand for BuildCommand {
                 .context("Error requesting specific output path for --out")?;
             }
 
-            let format = if self.show_json_output || self.show_full_json_output {
-                Some(PrintOutputsFormat::Json)
-            } else if self.show_output || self.show_full_output {
-                Some(PrintOutputsFormat::Plain)
-            } else if self.show_simple_output || self.show_full_simple_output {
-                Some(PrintOutputsFormat::Simple)
-            } else {
-                None
-            };
-
-            if let Some(format) = format {
-                let full = self.show_full_output
-                    || self.show_full_json_output
-                    || self.show_full_simple_output;
+            if let Some(format) = self.show_output.format() {
                 print_outputs(
                     &mut stdout,
                     response.build_targets,
-                    full.then_some(response.project_root),
+                    self.show_output.is_full().then_some(response.project_root),
                     format,
                     show_default_other_outputs,
                 )?;

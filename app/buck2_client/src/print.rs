@@ -10,12 +10,7 @@
 use std::io::Write;
 use std::path::PathBuf;
 
-#[derive(Debug, PartialEq)]
-pub enum PrintOutputsFormat {
-    Plain,
-    Simple,
-    Json,
-}
+use buck2_client_ctx::common::PrintOutputsFormat;
 
 pub struct PrintOutputs<W> {
     out: W,

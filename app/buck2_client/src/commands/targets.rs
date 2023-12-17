@@ -16,6 +16,8 @@ use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
+use buck2_client_ctx::common::CommonOutputOptions;
+use buck2_client_ctx::common::PrintOutputsFormat;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::daemon::client::StdoutPartialResultHandler;
@@ -29,7 +31,6 @@ use dupe::Dupe;
 use gazebo::prelude::*;
 
 use crate::print::PrintOutputs;
-use crate::print::PrintOutputsFormat;
 
 #[derive(thiserror::Error, Debug)]
 enum TargetsError {
@@ -142,29 +143,8 @@ pub struct TargetsCommand {
     #[clap(long)]
     include_defaults: bool,
 
-    /// Print the path to the output for each of the rules relative to the project root
-    #[clap(long)]
-    show_output: bool,
-
-    /// Print the absolute path to the output for each of the rules
-    #[clap(long)]
-    show_full_output: bool,
-
-    /// Print only the path to the output for each of the rules relative to the project root
-    #[clap(long)]
-    show_simple_output: bool,
-
-    /// Print only the absolute path to the output for each of the rules
-    #[clap(long)]
-    show_full_simple_output: bool,
-
-    /// Print the output paths relative to the project root, in JSON format
-    #[clap(long)]
-    show_json_output: bool,
-
-    /// Print the output absolute paths, in JSON format
-    #[clap(long)]
-    show_full_json_output: bool,
+    #[clap(flatten)]
+    show_output: CommonOutputOptions,
 
     /// On loading errors, put buck.error in the output stream and continue
     #[clap(long)]
@@ -345,25 +325,13 @@ impl StreamingCommand for TargetsCommand {
                 .map(|num| buck2_cli_proto::Concurrency { concurrency: num }),
         };
 
-        let format = if self.show_json_output || self.show_full_json_output {
-            Some(PrintOutputsFormat::Json)
-        } else if self.show_output || self.show_full_output {
-            Some(PrintOutputsFormat::Plain)
-        } else if self.show_simple_output || self.show_full_simple_output {
-            Some(PrintOutputsFormat::Simple)
-        } else {
-            None
-        };
-
-        if let Some(format) = format {
+        if let Some(format) = self.show_output.format() {
             let project_root = ctx.paths()?.roots.project_root.clone();
-            let full =
-                self.show_full_output || self.show_full_json_output || self.show_full_simple_output;
             targets_show_outputs(
                 ctx.stdin(),
                 buckd,
                 target_request,
-                full.then(|| project_root.root()),
+                self.show_output.is_full().then(|| project_root.root()),
                 format,
                 &self.common_opts.console_opts,
             )
