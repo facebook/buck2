@@ -15,6 +15,8 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use buck2_common::cas_digest::CasDigestConfig;
 use buck2_common::cas_digest::DigestAlgorithmKind;
+use buck2_common::cas_digest::SHA1_SIZE;
+use buck2_common::cas_digest::SHA256_SIZE;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::fs::fs_util;
@@ -48,11 +50,62 @@ pub enum Checksum {
 enum DownloadFileError {
     #[error("Must pass in at least one checksum (e.g. `sha1 = ...`)")]
     MissingChecksum,
+    #[error("Invalid digest for `{digest_type}` argument, expected length of {expected_len} but got {}, digest `{digest}`", digest.len())]
+    InvalidDigestLength {
+        digest: String,
+        expected_len: usize,
+        digest_type: &'static str,
+    },
+    #[error(
+        "Invalid digest for `{digest_type}` argument, expected 0-9 a-z hex characters, but got `{bad_char}`, digest `{digest}`"
+    )]
+    InvalidDigestCharacter {
+        digest: String,
+        bad_char: char,
+        digest_type: &'static str,
+    },
 }
 
 impl Checksum {
     pub fn new(sha1: Option<&str>, sha256: Option<&str>) -> anyhow::Result<Self> {
-        match (sha1.map(Arc::from), sha256.map(Arc::from)) {
+        fn is_hex_digit(x: char) -> bool {
+            x.is_ascii_digit() || ('a'..='f').contains(&x)
+        }
+
+        fn validate_digest(
+            digest: Option<&str>,
+            digest_len: usize,
+            digest_type: &'static str,
+        ) -> anyhow::Result<Option<Arc<str>>> {
+            match digest {
+                None => Ok(None),
+                Some(digest) => {
+                    let expected_len = digest_len * 2;
+                    if digest.len() != expected_len {
+                        return Err(DownloadFileError::InvalidDigestLength {
+                            digest: digest.to_owned(),
+                            expected_len,
+                            digest_type,
+                        }
+                        .into());
+                    }
+                    if let Some(bad_char) = digest.chars().find(|x| !is_hex_digit(*x)) {
+                        return Err(DownloadFileError::InvalidDigestCharacter {
+                            digest: digest.to_owned(),
+                            bad_char,
+                            digest_type,
+                        }
+                        .into());
+                    }
+                    Ok(Some(Arc::from(digest)))
+                }
+            }
+        }
+
+        match (
+            validate_digest(sha1, SHA1_SIZE, "sha1")?,
+            validate_digest(sha256, SHA256_SIZE, "sha256")?,
+        ) {
             (Some(sha1), None) => Ok(Checksum::Sha1(sha1)),
             (None, Some(sha256)) => Ok(Checksum::Sha256(sha256)),
             (Some(sha1), Some(sha256)) => Ok(Checksum::Both { sha1, sha256 }),
