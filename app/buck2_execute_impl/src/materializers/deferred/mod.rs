@@ -164,7 +164,7 @@ pub struct DeferredMaterializerStats {
 }
 
 fn access_time_update_max_buffer_size() -> anyhow::Result<usize> {
-    buck2_env!("BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE", type=usize, default=256)
+    buck2_env!("BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE", type=usize, default=5000)
 }
 
 pub struct DeferredMaterializerConfigs {
