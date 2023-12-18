@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
+load("@prelude//rust:rust_toolchain.bzl", "PanicRuntime", "RustToolchainInfo")
 load("@prelude//rust/tools:attrs.bzl", "internal_tool_attrs")
 
 _DEFAULT_TRIPLE = select({
@@ -44,6 +44,7 @@ def _system_rust_toolchain_impl(ctx):
             compiler = RunInfo(args = ["rustc"]),
             concat_tool = ctx.attrs.concat_tool[RunInfo],
             default_edition = ctx.attrs.default_edition,
+            panic_runtime = PanicRuntime("unwind"),
             deny_lints = ctx.attrs.deny_lints,
             doctests = ctx.attrs.doctests,
             extern_html_root_url_prefix = ctx.attrs.extern_html_root_url_prefix,

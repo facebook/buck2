@@ -27,6 +27,8 @@ RustExplicitSysrootDeps = record(
     others = list[Dependency],
 )
 
+PanicRuntime = enum("unwind", "abort", "none")
+
 # FIXME(JakobDegen): These all have default values for historical reasons. Some of them certainly
 # should, but some of them probably shouldn't?
 # @unsorted-dict-items
@@ -101,6 +103,24 @@ rust_toolchain_attrs = {
     "advanced_unstable_linking": provider_field(bool, default = False),
     # See the documentation on the type for details
     "explicit_sysroot_deps": provider_field(RustExplicitSysrootDeps | None, default = None),
+    # The panic runtime to use. This is a part of the target definition and is
+    # normally inferred by rustc. This field:
+    #
+    #  - Should be set to `"none"` on nostd targets
+    #  - Must be set correctly if `explicit_sysroot_deps` and
+    #    `advanced_unstable_linking` are used. You can find the correct value
+    #    for a given target triple via `rustc --print target-spec-json`
+    #  - Otherwise can typically be safely defaulted to `"unwind"`. It is,
+    #    however, still the preferred way of configuring `-Cpanic=abort`, since
+    #    it makes sure that the flag is consistent across the crate graph.
+    #
+    # It's worth pointing out that the way that rustc handles this is a bit
+    # weird. It requires the panic runtime to be a nostd crate, despite the fact
+    # that it is only ever useful in combination with std. We don't impose such
+    # a requirement.
+    #
+    # FIXME(JakobDegen): Fix `enum` so that we can set `unwind` as the default
+    "panic_runtime": provider_field(PanicRuntime),
 }
 
 RustToolchainInfo = provider(fields = rust_toolchain_attrs)

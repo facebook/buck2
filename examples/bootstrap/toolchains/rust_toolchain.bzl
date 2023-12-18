@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
+load("@prelude//rust:rust_toolchain.bzl", "PanicRuntime", "RustToolchainInfo")
 
 # almost identical to the system_rust_toolchain implementation, with the only
 # the difference being the ability to specify rustc
@@ -34,6 +34,7 @@ def _rust_toolchain_impl(ctx):
             default_edition = ctx.attrs.default_edition,
             extern_html_root_url_prefix = ctx.attrs.extern_html_root_url_prefix,
             failure_filter_action = ctx.attrs.failure_filter_action[RunInfo],
+            panic_runtime = PanicRuntime("unwind"),
             rustc_action = ctx.attrs.rustc_action[RunInfo],
             rustc_flags = ctx.attrs.rustc_flags,
             rustc_target_triple = ctx.attrs.rustc_target_triple,
