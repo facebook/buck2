@@ -27,6 +27,7 @@ use buck2_cli_proto::common_build_options::ExecutionStrategy;
 use buck2_cli_proto::config_override::ConfigType;
 use buck2_cli_proto::ConfigOverride;
 use buck2_core::fs::fs_util;
+use clap::ArgGroup;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use termwiz::istty::IsTty;
@@ -611,6 +612,18 @@ pub struct CommonCommandOptions {
 
 /// Show-output options shared by `build` and `targets`.
 #[derive(Debug, clap::Parser)]
+#[clap(group(
+    // Make mutually exclusive. A command may have at most one of the flags in
+    // the following group.
+    ArgGroup::default().args(&[
+        "show-output",
+        "show-full-output",
+        "show-simple-output",
+        "show-full-simple-output",
+        "show-json-output",
+        "show-full-json-output",
+    ])
+))]
 pub struct CommonOutputOptions {
     /// Print the path to the output for each of the rules relative to the project root
     #[clap(long)]
