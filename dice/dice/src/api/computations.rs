@@ -41,8 +41,8 @@ fn _test_computations_sync_send() {
 }
 
 impl DiceComputations {
-    /// Gets all the result of of the given computation key.
-    /// recorded as dependencies of the current computation for which this
+    /// Gets the result of the given computation key.
+    /// Record dependencies of the current computation for which this
     /// context is for.
     pub fn compute<'a, K>(
         &'a self,
