@@ -8,6 +8,7 @@
 
 import argparse
 import pathlib
+import platform
 import shutil
 import zipfile
 from tempfile import TemporaryDirectory
@@ -105,10 +106,11 @@ def main():
         with zipfile.ZipFile(aar_path, "r") as aar_zip:
             aar_zip.extractall(unpack_dir)
 
-        # If the zip file was built on e.g. Windows, then it might not have
-        # correct permissions (which means we can't read any of the files), so
-        # make sure we actually read everything here.
-        utils.execute_command(["chmod", "-R", "+rX", unpack_dir])
+        if platform.system() != "Windows":
+            # If the zip file was built on e.g. Windows, then it might not have
+            # correct permissions (which means we can't read any of the files), so
+            # make sure we actually read everything here.
+            utils.execute_command(["chmod", "-R", "+rX", unpack_dir])
 
         unpacked_manifest = unpack_dir / "AndroidManifest.xml"
         assert unpacked_manifest.exists()
