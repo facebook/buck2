@@ -21,7 +21,7 @@ the time of writing this is still experimental. If this is a problem for your
 use-case then you may wish to rely on a system toolchain or define your own.
 
 The toolchain is not fully hermetic as it still relies on system tools like nm.
-Only works on Linux.
+It only works on Linux, and to a limited extent on MacOS.
 
 [zig-cc-announcement]: https://andrewkelley.me/post/zig-cc-powerful-drop-in-replacement-gcc-clang.html
 
