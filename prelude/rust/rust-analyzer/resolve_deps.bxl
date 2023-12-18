@@ -175,6 +175,9 @@ def expand_targets(ctx, targets):
         workspaces = t.attrs_lazy().get("_workspaces")
         if workspaces:
             for workspace in workspaces.value():
+                if not ctx.target_exists(str(workspace.raw_target())):
+                    continue
+
                 possible_workspaces.setdefault(workspace.raw_target(), []).append(label)
 
     active_workspaces = {}
