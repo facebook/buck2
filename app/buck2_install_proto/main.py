@@ -148,7 +148,6 @@ def parse_args(args=None):
 
 
 def main() -> None:
-    global args
     args = parse_args(sys.argv[1:])
     serve(args)
 
