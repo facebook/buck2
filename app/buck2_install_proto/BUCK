@@ -22,7 +22,7 @@ python_binary(
         "main.py",
     ],
     base_module = "",
-    main_module = "main",
+    main_function = "main.main",
     deps = [
         ":install-py",
     ],

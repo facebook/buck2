@@ -147,6 +147,11 @@ def parse_args(args=None):
     return args
 
 
-if __name__ == "__main__":
+def main() -> None:
+    global args
     args = parse_args(sys.argv[1:])
     serve(args)
+
+
+if __name__ == "__main__":
+    main()  # pragma: no cover
