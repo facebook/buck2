@@ -126,6 +126,7 @@ def compile_context(ctx: AnalysisContext) -> CompileContext:
         include_doc_deps = False,
         is_proc_macro = getattr(ctx.attrs, "proc_macro", False),
         explicit_sysroot_deps = toolchain_info.explicit_sysroot_deps,
+        panic_runtime = toolchain_info.panic_runtime,
     )
 
     return CompileContext(
@@ -233,6 +234,7 @@ def generate_rustdoc_test(
         include_doc_deps = True,
         is_proc_macro = False,
         explicit_sysroot_deps = compile_ctx.dep_ctx.explicit_sysroot_deps,
+        panic_runtime = compile_ctx.dep_ctx.panic_runtime,
     )
 
     resources = create_resource_db(

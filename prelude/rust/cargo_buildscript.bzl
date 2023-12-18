@@ -29,6 +29,7 @@ load(":build.bzl", "dependency_args")
 load(":build_params.bzl", "CrateType")
 load(":context.bzl", "DepCollectionContext")
 load(":link_info.bzl", "RustProcMacroPlugin", "gather_explicit_sysroot_deps", "resolve_rust_deps_inner")
+load(":rust_toolchain.bzl", "PanicRuntime")
 
 def _make_rustc_shim(ctx: AnalysisContext, cwd: Artifact) -> cmd_args:
     # Build scripts expect to receive a `rustc` which "just works." However,
@@ -42,6 +43,7 @@ def _make_rustc_shim(ctx: AnalysisContext, cwd: Artifact) -> cmd_args:
             include_doc_deps = False,
             is_proc_macro = False,
             explicit_sysroot_deps = explicit_sysroot_deps,
+            panic_runtime = PanicRuntime("unwind"),  # not actually used
         )
         deps = gather_explicit_sysroot_deps(dep_ctx)
         deps = resolve_rust_deps_inner(ctx, deps)

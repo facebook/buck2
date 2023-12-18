@@ -70,6 +70,7 @@ load(
     "CrateName",  # @unused Used as a type
     "DepCollectionContext",  # @unused Used as a type
 )
+load(":rust_toolchain.bzl", "PanicRuntime")
 
 # Link style for targets which do not set an explicit `link_style` attribute.
 DEFAULT_STATIC_LINK_STYLE = LinkStyle("static_pic")
@@ -228,18 +229,24 @@ def gather_explicit_sysroot_deps(dep_ctx: DepCollectionContext) -> list[RustOrNa
             name = None,
             flags = ["nounused"] + flags,
         ))
+
+    # When advanced_unstable_linking is on, we only add the dep that matches the
+    # panic runtime. Without advanced_unstable_linking, we just let rustc deal
+    # with it
     if explicit_sysroot_deps.panic_unwind:
-        out.append(RustOrNativeDependency(
-            dep = explicit_sysroot_deps.panic_unwind,
-            name = None,
-            flags = ["nounused"],
-        ))
+        if not dep_ctx.advanced_unstable_linking or dep_ctx.panic_runtime == PanicRuntime("unwind"):
+            out.append(RustOrNativeDependency(
+                dep = explicit_sysroot_deps.panic_unwind,
+                name = None,
+                flags = ["nounused"],
+            ))
     if explicit_sysroot_deps.panic_abort:
-        out.append(RustOrNativeDependency(
-            dep = explicit_sysroot_deps.panic_abort,
-            name = None,
-            flags = ["nounused"],
-        ))
+        if not dep_ctx.advanced_unstable_linking or dep_ctx.panic_runtime == PanicRuntime("abort"):
+            out.append(RustOrNativeDependency(
+                dep = explicit_sysroot_deps.panic_abort,
+                name = None,
+                flags = ["nounused"],
+            ))
     for d in explicit_sysroot_deps.others:
         # FIXME(JakobDegen): Ideally we would not be using `noprelude` here but
         # instead report these as regular transitive dependencies. However,

@@ -128,6 +128,7 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         include_doc_deps = False,
         is_proc_macro = False,
         explicit_sysroot_deps = rust_toolchain.explicit_sysroot_deps,
+        panic_runtime = rust_toolchain.panic_runtime,
     )
 
     # Rust link provider.
