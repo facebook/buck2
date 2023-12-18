@@ -80,7 +80,7 @@ load(
     "style_info",
 )
 load(":resources.bzl", "rust_attr_resources")
-load(":rust_toolchain.bzl", "RustToolchainInfo")
+load(":rust_toolchain.bzl", "PanicRuntime", "RustToolchainInfo")
 
 RustcOutput = record(
     output = field(Artifact),
@@ -888,6 +888,7 @@ def _compute_common_args(
         ["--target={}".format(toolchain_info.rustc_target_triple)] if toolchain_info.rustc_target_triple else [],
         split_debuginfo_flags,
         ["--sysroot=" + null_path] if toolchain_info.explicit_sysroot_deps != None else [],
+        ["-Cpanic=abort", "-Zpanic-abort-tests=yes"] if toolchain_info.panic_runtime == PanicRuntime("abort") else [],
         _rustc_flags(toolchain_info.rustc_flags),
         _rustc_flags(toolchain_info.rustc_check_flags) if is_check else [],
         _rustc_flags(toolchain_info.rustc_coverage_flags) if ctx.attrs.coverage else [],
