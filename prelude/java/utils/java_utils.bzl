@@ -122,18 +122,19 @@ def get_class_to_source_map_info(
     class_to_srcs = None
     class_to_srcs_debuginfo = None
     if outputs != None:
+        name = ctx.attrs.name if hasattr(ctx.attrs, "name") else ctx.attrs._name  # TODO: fix this hack somehow
         if not ctx.attrs._is_building_android_binary:
             class_to_srcs = create_class_to_source_map_from_jar(
                 actions = ctx.actions,
                 java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo],
-                name = ctx.attrs.name + ".class_to_srcs.json",
+                name = name + ".class_to_srcs.json",
                 jar = outputs.classpath_entry.full_library,
                 srcs = ctx.attrs.srcs,
             )
         class_to_srcs_debuginfo = maybe_create_class_to_source_map_debuginfo(
             actions = ctx.actions,
             java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo],
-            name = ctx.attrs.name + ".debuginfo.json",
+            name = name + ".debuginfo.json",
             srcs = ctx.attrs.srcs,
         )
         sub_targets["class-to-srcs"] = [DefaultInfo(default_output = class_to_srcs)]

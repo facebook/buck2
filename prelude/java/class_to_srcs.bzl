@@ -51,11 +51,12 @@ def create_class_to_source_map_info(
                 if JavaClassToSourceMapInfo in d and d[JavaClassToSourceMapInfo]._tset_debuginfo != None
             ],
         )
+        name = ctx.attrs.name if hasattr(ctx.attrs, "name") else ctx.attrs._name  # TODO: fix this hack somehow
         debuginfo = _create_merged_debug_info(
             actions = ctx.actions,
             java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo],
             tset_debuginfo = tset_debuginfo,
-            name = ctx.attrs.name + ".debuginfo_merged.json",
+            name = name + ".debuginfo_merged.json",
         )
 
     return JavaClassToSourceMapInfo(
