@@ -37,6 +37,9 @@ run(Args) when is_list(Args) ->
             % Therefore we used io:format to forward information to the
             % process calling it (ct_runner).
             try
+                % We need to load the 'common' application to be able to configure
+                % it via the `common_app_env` arguments
+                application:load(common),
                 % We consult all the .app files to load the atoms.
                 % This solution is less than optimal and should be addressed
                 % T120903856

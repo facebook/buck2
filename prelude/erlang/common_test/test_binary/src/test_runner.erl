@@ -39,6 +39,7 @@ run_tests(Tests, #test_info{} = TestInfo, OutputDir, Listing) ->
                 config_files = TestInfo#test_info.config_files,
                 providers = TestInfo#test_info.providers,
                 ct_opts = TestInfo#test_info.ct_opts,
+                common_app_env = TestInfo#test_info.common_app_env,
                 erl_cmd = TestInfo#test_info.erl_cmd,
                 artifact_annotation_mfa = TestInfo#test_info.artifact_annotation_mfa
             })

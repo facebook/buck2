@@ -45,6 +45,7 @@ def erlang_tests_macro(
         srcs: list[str] = [],
         use_default_configs: bool = True,
         use_default_deps: bool = True,
+        common_app_env: dict[str, str] = {},
         **common_attributes: dict) -> None:
     """
     Generate multiple erlang_test targets based on the `suites` field.
@@ -125,6 +126,7 @@ def erlang_tests_macro(
             resources = suite_resource,
             config_files = config_files,
             property_tests = property_tests,
+            common_app_env = common_app_env,
             _trampoline = trampoline,
             _providers = providers,
             _artifact_annotation_mfa = annotationsMFA,
@@ -293,6 +295,7 @@ def _write_test_info_file(
         erl_cmd: [cmd_args, Artifact]) -> Artifact:
     tests_info = {
         "artifact_annotation_mfa": ctx.attrs._artifact_annotation_mfa,
+        "common_app_env": ctx.attrs.common_app_env,
         "config_files": config_files,
         "ct_opts": ctx.attrs._ct_opts,
         "dependencies": _list_code_paths(dependencies),

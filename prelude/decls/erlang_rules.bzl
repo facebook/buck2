@@ -219,6 +219,9 @@ rules_attributes = {
         "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
     },
     "erlang_test": {
+        "common_app_env": attrs.dict(key = attrs.string(), value = attrs.string(), default = {}, doc = """
+                Application environment variables for the `common` application.
+            """),
         "config_files": attrs.list(attrs.dep(), default = [], doc = """
                 Will specify what config files the erlang beam machine running test with should load, for reference look at
                 [OTP documentation](https://www.erlang.org/doc/man/config.html). These ones should consist of default_output of

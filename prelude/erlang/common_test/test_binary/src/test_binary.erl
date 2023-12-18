@@ -105,7 +105,8 @@ load_test_info(TestInfoFile) ->
             "ct_opts" := CtOpts,
             "extra_ct_hooks" := ExtraCtHooks,
             "erl_cmd" := ErlCmd,
-            "artifact_annotation_mfa" := ArtifactAnnotationMFA
+            "artifact_annotation_mfa" := ArtifactAnnotationMFA,
+            "common_app_env" := CommonAppEnv
         }
     ]} = file:consult(TestInfoFile),
     Providers1 = buck_ct_parser:parse_str(Providers),
@@ -120,7 +121,8 @@ load_test_info(TestInfoFile) ->
         providers = Providers1,
         artifact_annotation_mfa = parse_mfa(ArtifactAnnotationMFA),
         ct_opts = CtOpts1,
-        erl_cmd = ErlCmd
+        erl_cmd = ErlCmd,
+        common_app_env = CommonAppEnv
     }.
 
 -spec parse_mfa(string()) -> {ok, artifact_annotations:annotation_function()} | {error, term()}.

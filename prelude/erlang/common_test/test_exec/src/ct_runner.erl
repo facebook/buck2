@@ -143,7 +143,8 @@ run_test(
         suite_path = SuitePath,
         providers = Providers,
         suite = Suite,
-        erl_cmd = ErlCmd
+        erl_cmd = ErlCmd,
+        common_app_env = CommonAppEnv
     } = _TestEnv,
     PortEpmd
 ) ->
@@ -152,7 +153,7 @@ run_test(
     SuiteFolder = filename:dirname(filename:absname(SuitePath)),
     CodePath = [SuiteFolder | Dependencies],
 
-    Args = build_run_args(OutputDir, Providers, Suite, TestSpecFile),
+    Args = build_run_args(OutputDir, Providers, Suite, TestSpecFile, CommonAppEnv),
 
     {ok, ProjectRoot} = file:get_cwd(),
 
@@ -186,17 +187,25 @@ build_common_args(CodePath, ConfigFiles) ->
     OutputDir :: file:filename_all(),
     Providers :: [{module(), [term()]}],
     Suite :: module(),
-    TestSpecFile :: file:filename_all()
+    TestSpecFile :: file:filename_all(),
+    CommonAppEnv :: #{string() => string()}
 ) -> [string()].
-build_run_args(OutputDir, Providers, Suite, TestSpecFile) ->
-    lists:concat([
-        ["-run", "ct_executor", "run"],
-        generate_arg_tuple(output_dir, OutputDir),
-        generate_arg_tuple(providers, Providers),
-        generate_arg_tuple(suite, Suite),
-        ["ct_args"],
-        generate_arg_tuple(spec, TestSpecFile)
-    ]).
+build_run_args(OutputDir, Providers, Suite, TestSpecFile, CommonAppEnv) ->
+    lists:append(
+        [
+            ["-run", "ct_executor", "run"],
+            generate_arg_tuple(output_dir, OutputDir),
+            generate_arg_tuple(providers, Providers),
+            generate_arg_tuple(suite, Suite),
+            ["ct_args"],
+            generate_arg_tuple(spec, TestSpecFile),
+            common_app_env_args(CommonAppEnv)
+        ]
+    ).
+
+-spec common_app_env_args(Env :: #{string() => string()}) -> [string()].
+common_app_env_args(Env) ->
+    lists:append([["-common", Key, Value] || {Key, Value} <- maps:to_list(Env)]).
 
 -spec start_test_node(
     Erl :: string(),
