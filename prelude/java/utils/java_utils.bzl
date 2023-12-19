@@ -122,7 +122,7 @@ def get_class_to_source_map_info(
     class_to_srcs = None
     class_to_srcs_debuginfo = None
     if outputs != None:
-        name = ctx.attrs.name if hasattr(ctx.attrs, "name") else ctx.attrs._name  # TODO: fix this hack somehow
+        name = ctx.label.name
         if not ctx.attrs._is_building_android_binary:
             class_to_srcs = create_class_to_source_map_from_jar(
                 actions = ctx.actions,
