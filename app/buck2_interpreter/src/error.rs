@@ -58,6 +58,7 @@ impl std::error::Error for BuckStarlarkError {
             | starlark::ErrorKind::Internal(_)
             | starlark::ErrorKind::Value(_) => Some(buck2_error::Category::User),
             starlark::ErrorKind::Function(_) => Some(buck2_error::Category::User),
+            starlark::ErrorKind::Scope(_) => Some(buck2_error::Category::User),
             _ => None,
         };
         let tags = match self.e.kind() {
@@ -69,6 +70,7 @@ impl std::error::Error for BuckStarlarkError {
             starlark::ErrorKind::Internal(_) => "BuckStarlarkError::Internal",
             starlark::ErrorKind::Value(_) => "BuckStarlarkError::Value",
             starlark::ErrorKind::Function(_) => "BuckStarlarkError::Function",
+            starlark::ErrorKind::Scope(_) => "BuckStarlarkError::Scope",
             _ => "BuckStarlarkError",
         };
         buck2_error::provide_metadata(
