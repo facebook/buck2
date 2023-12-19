@@ -50,6 +50,7 @@ format_error(ErrType, Reason, FormatStackTrace) ->
 
 -spec format_reason(term()) -> {ok, unicode:chardata()}.
 format_reason(Reason) ->
+    blame_reason(Reason),
     lists:foldl(
         fun
             (_Formatter, Acc = {ok, _Formatted}) -> Acc;
@@ -62,6 +63,22 @@ format_reason(Reason) ->
             fun maybe_assert_format/1
         ]
     ).
+
+-spec blame_reason(term()) -> ok.
+blame_reason({Reason, StackTrace}) ->
+    try
+        case application:get_env(common, exception_blame) of
+            undefined ->
+                ok;
+            {ok, Blame} when is_atom(Blame) ->
+                Blame:format_blame(Reason, StackTrace)
+        end
+    catch
+        C:E:S ->
+            io:format("Error: ~ts", [erl_error:format_exception(C, E, S)])
+    end;
+blame_reason(_Reason) ->
+    ok.
 
 -spec maybe_custom_format(term()) -> unrecognized_error | {ok, [unicode:chardata()]}.
 maybe_custom_format({{Type, Props}, StackTrace}) when is_atom(Type), is_list(Props) ->
