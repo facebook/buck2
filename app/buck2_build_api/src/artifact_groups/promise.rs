@@ -137,6 +137,10 @@ impl PromiseArtifact {
     pub fn id(&self) -> &PromiseArtifactId {
         self.id.as_ref()
     }
+
+    pub fn owner(&self) -> &BaseDeferredKey {
+        &self.id.owner
+    }
 }
 
 impl Display for PromiseArtifact {
