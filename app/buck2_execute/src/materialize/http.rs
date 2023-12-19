@@ -69,6 +69,7 @@ enum DownloadFileError {
 impl Checksum {
     pub fn new(sha1: Option<&str>, sha256: Option<&str>) -> anyhow::Result<Self> {
         fn is_hex_digit(x: char) -> bool {
+            let x = x.to_ascii_lowercase();
             x.is_ascii_digit() || ('a'..='f').contains(&x)
         }
 
@@ -97,7 +98,7 @@ impl Checksum {
                         }
                         .into());
                     }
-                    Ok(Some(Arc::from(digest)))
+                    Ok(Some(Arc::from(digest.to_ascii_lowercase())))
                 }
             }
         }
