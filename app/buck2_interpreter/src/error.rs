@@ -47,8 +47,9 @@ impl std::error::Error for BuckStarlarkError {
     fn provide<'a>(&'a self, request: &mut std::error::Request<'a>) {
         match self.e.kind() {
             starlark::ErrorKind::Other(e) => {
+                // Try to get the underlying error's metadata. If there's nothing here, then the
+                // rest of this function will provide a fallback value
                 e.provide(request);
-                return;
             }
             _ => (),
         }
