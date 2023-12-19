@@ -14,10 +14,9 @@ def _get_rustc_cfg_impl(ctx: AnalysisContext) -> list[Provider]:
     out = ctx.actions.declare_output("rustc.cfg")
 
     cmd = [
-        ctx.attrs.get_rustc_cfg[RunInfo],
-        cmd_args("--rustc=", toolchain_info.compiler, delimiter = ""),
+        toolchain_info.compiler,
+        cmd_args("--print=cfg=", out.as_output(), delimiter = ""),
         cmd_args("--target=", toolchain_info.rustc_target_triple, delimiter = ""),
-        cmd_args("--out=", out.as_output(), delimiter = ""),
     ]
 
     ctx.actions.run(cmd, category = "rustc_cfg")
@@ -27,7 +26,6 @@ def _get_rustc_cfg_impl(ctx: AnalysisContext) -> list[Provider]:
 get_rustc_cfg = rule(
     impl = _get_rustc_cfg_impl,
     attrs = {
-        "get_rustc_cfg": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//rust/tools:get_rustc_cfg")),
         "_rust_toolchain": toolchains_common.rust(),
     },
 )

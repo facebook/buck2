@@ -38,12 +38,6 @@ prelude.python_bootstrap_binary(
 )
 
 prelude.python_bootstrap_binary(
-    name = "get_rustc_cfg",
-    main = "get_rustc_cfg.py",
-    visibility = [],
-)
-
-prelude.python_bootstrap_binary(
     name = "buildscript_run",
     main = "buildscript_run.py",
     visibility = ["PUBLIC"],
