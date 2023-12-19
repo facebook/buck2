@@ -49,6 +49,7 @@ use starlark::values::typing::StarlarkCallable;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
+use starlark::values::FrozenRef;
 use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValue;
 use starlark::values::Heap;
@@ -331,11 +332,14 @@ pub struct FrozenRuleCallable {
 }
 starlark_simple_value!(FrozenRuleCallable);
 
+fn unpack_frozen_rule(rule: FrozenValue) -> anyhow::Result<FrozenRef<'static, FrozenRuleCallable>> {
+    rule.downcast_frozen_ref::<FrozenRuleCallable>()
+        .context("Expecting FrozenRuleCallable")
+}
+
 pub(crate) fn init_frozen_rule_get_impl() {
     FROZEN_RULE_GET_IMPL.init(|rule| {
-        let rule = rule
-            .downcast_frozen_ref::<FrozenRuleCallable>()
-            .context("Expecting FrozenRuleCallable")?;
+        let rule = unpack_frozen_rule(rule)?;
         Ok(rule.implementation)
     })
 }
