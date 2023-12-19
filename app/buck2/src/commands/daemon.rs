@@ -313,7 +313,7 @@ impl DaemonCommand {
             builder.worker_threads(threads);
         }
 
-        if let Some(threads) = buck2_env!("BUCK2_RUNTIME_THREADS", type=usize)? {
+        if let Some(threads) = buck2_env!("BUCK2_MAX_BLOCKING_THREADS", type=usize)? {
             builder.max_blocking_threads(threads);
         }
 
