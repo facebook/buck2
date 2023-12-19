@@ -21,8 +21,6 @@
 -module(edoc_cli).
 -export([main/1]).
 
--mode(compile).
-
 main([]) ->
     print(usage());
 main(Args) ->

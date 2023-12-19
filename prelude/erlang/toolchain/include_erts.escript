@@ -23,8 +23,6 @@
 
 -export([main/1]).
 
--mode(compile).
-
 -spec main([string()]) -> ok.
 main([TargetPath]) ->
     case filelib:wildcard(filename:join(code:root_dir(), "erts-*")) of

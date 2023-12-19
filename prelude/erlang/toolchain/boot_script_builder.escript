@@ -24,8 +24,6 @@
 
 -export([main/1]).
 
--mode(compile).
-
 -define(EXITSUCCESS, 0).
 -define(EXITERROR, 1).
 

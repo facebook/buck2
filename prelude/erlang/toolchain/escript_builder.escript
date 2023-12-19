@@ -26,8 +26,6 @@
 
 -include_lib("kernel/include/file.hrl").
 
--mode(compile).
-
 -type escript_artifact_spec() :: #{
     ArchivePath :: file:filename() => FileSystemPath :: file:filename()
 }.
