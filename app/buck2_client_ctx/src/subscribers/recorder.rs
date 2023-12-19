@@ -399,7 +399,6 @@ mod imp {
                     .collect(),
                 daemon_connection_failure: Some(self.daemon_connection_failure),
                 client_metadata: std::mem::take(&mut self.client_metadata),
-                error_messages: Vec::new(),
                 errors: std::mem::take(&mut self.errors),
                 target_rule_type_names: std::mem::take(&mut self.target_rule_type_names),
             };

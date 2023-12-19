@@ -1633,7 +1633,7 @@ message TypedMetadata {
 // This is the origin for every sample in buck2_builds scuba table
 // It's sent from the client to Scribe at the end of each invocation
 message InvocationRecord {
-  reserved 1, 22, 27, 28, 36, 61, 62, 66;
+  reserved 1, 22, 27, 28, 36, 61, 62, 66, 77;
 
   // Optional - present if ever sent to client.
   // Will be missing on a cancelled build.
@@ -1754,9 +1754,6 @@ message InvocationRecord {
   // Metadata provided by the client. Unlike TypedMetadata, this won't become
   // its own column in Scuba, all those entries will land in a NormVector.
   repeated ClientMetadata client_metadata = 76;
-  // The error messages that were shown to the user. FIXME(JakobDegen):
-  // Deprecated in favor of `errors`
-  repeated string error_messages = 77;
   // The errors that occured during the command.
   repeated ProcessedErrorReport errors = 79;
   // Cache hit rate as it appears in the console
