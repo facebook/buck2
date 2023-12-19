@@ -16,9 +16,7 @@ run multiple daemons in the same project by specifying an
 While it runs, the Buck daemon process monitors the project's file system for
 changes. The Buck daemon excludes from monitoring any subtrees of the project
 file system that are specified in the `[project].ignore` setting of
-`.buckconfig` (for details, see the still-relevant
-[[project].ignore](../legacy/files-and-directories/dot-buckconfig.md#ignore)
-section of the '.buckconfig' legacy document).
+`.buckconfig`.
 
 ## Killing or disabling the Buck daemon
 

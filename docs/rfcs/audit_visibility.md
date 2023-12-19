@@ -2,7 +2,7 @@
 
 ## Context
 
-Buck has a concept of [Visibility](../legacy/concepts/visibility.md) for every
+Buck has a concept of Visibility for every
 target. It allows users to define, for each target, the targets it can depend on
 and targets that can depend on it. Visibility is specified as an allowlist of
 targets/target patterns, and any target used that falls outside of the allowlist
