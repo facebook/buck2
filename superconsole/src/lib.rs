@@ -8,9 +8,9 @@
  */
 
 //! The superconsole crate provides a handler and building blocks for powerful, yet minimally intrusive TUIs.
-//! Built on-top of [`crossterm`](crossterm), it cross-compiles on Windows 7+, Linux, and MacOS.
+//! Built on-top of [`crossterm`], it cross-compiles on Windows 7+, Linux, and MacOS.
 //!
-//! Rendering is handled by [`SuperConsole`](SuperConsole), which draws to [`stdout`](std::io::stdout).
+//! Rendering is handled by [`SuperConsole`], which draws to [`stdout`](std::io::stdout).
 //! The caller is responsible for re-rendering whenever necessary.
 //! User input will cause aberrations in output; similarly, one should also not produce output from other sources while superconsole is active.
 //!
@@ -19,7 +19,7 @@
 //! * In the *emitted* area, lines scroll away above the scratch with various diagnostic output.
 //! Components live in the scratch area.
 //!
-//! A set of pre-baked composition and testing oriented components are provided in the [`components`](components) module.
+//! A set of pre-baked composition and testing oriented components are provided in the [`components`] module.
 
 pub use components::Component;
 pub use components::DrawMode;

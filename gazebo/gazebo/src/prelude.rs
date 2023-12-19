@@ -11,7 +11,7 @@
 //!
 //! Contains:
 //!
-//! * Extension methods for [`str`](str) and slice/[`Vec`](Vec).
+//! * Extension methods for [`str`] and slice/[`Vec`].
 //! * Defines [`Default_`] macro.
 //!
 //! The derivation macros appended with underscore are like the normal

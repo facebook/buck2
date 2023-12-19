@@ -13,7 +13,7 @@ use crate::components::DrawMode;
 use crate::Component;
 use crate::Lines;
 
-/// The `Padded` [`Component`](Component) wraps its child by padding left, right, above, and below its content.
+/// The `Padded` [`Component`] wraps its child by padding left, right, above, and below its content.
 /// This can be used to shift the content to a different location and ensure that following content comes after a certain distance.
 /// It is worth noting that this component will also *truncate* any content that is too long to fit in the given window at draw time.
 /// However, components are expected to constrain themselves to the given window, anyway.

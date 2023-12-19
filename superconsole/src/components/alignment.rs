@@ -41,9 +41,9 @@ pub enum HorizontalAlignmentKind {
     Right,
 }
 
-/// The [`Aligned`](Aligned) [`Component`](Component) can be used to specify in which part of the view the content should live.
-/// The [`HorizontalAlignmentKind`](HorizontalAlignmentKind) enum specifies the location relative to the x-axis.
-/// The [`VerticalAlignmentKind`](VerticalAlignmentKind) enum specified the location relative to the y-axis.
+/// The [`Aligned`] [`Component`] can be used to specify in which part of the view the content should live.
+/// The [`HorizontalAlignmentKind`] enum specifies the location relative to the x-axis.
+/// The [`VerticalAlignmentKind`] enum specified the location relative to the y-axis.
 #[derive(Debug)]
 pub struct Aligned<C: Component = Box<dyn Component>> {
     pub child: C,

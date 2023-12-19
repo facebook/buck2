@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-//! Additional [`PhantomData`](PhantomData) related types.
+//! Additional [`PhantomData`] related types.
 
 use std::cell::Cell;
 use std::fmt;
@@ -18,7 +18,7 @@ use std::marker::PhantomData;
 
 use dupe::Dupe;
 
-/// A type like [`PhantomData`](PhantomData), but where the contained `T` is invariant
+/// A type like [`PhantomData`], but where the contained `T` is invariant
 /// in both lifetimes and types. See [variance on the Nomicon](https://doc.rust-lang.org/nomicon/subtyping.html#variance) for an
 /// explanation of these terms.
 pub struct PhantomDataInvariant<T: ?Sized>(PhantomData<Cell<T>>);

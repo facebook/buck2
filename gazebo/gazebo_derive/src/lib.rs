@@ -19,7 +19,7 @@ use syn::DeriveInput;
 mod default;
 mod variant;
 
-/// Derive the [`Default` trait](Default), but without requiring all type arguments to implement [`Default`](Default).
+/// Derive the [`Default` trait](Default), but without requiring all type arguments to implement [`Default`].
 #[proc_macro_derive(Default_)]
 pub fn derive_default_(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-//! A cheap version of [`Clone`](Clone).
+//! A cheap version of [`Clone`].
 
 pub(crate) mod iter;
 pub(crate) mod option;
@@ -25,8 +25,8 @@ pub use dupe_derive::Dupe_;
 pub use crate::iter::IterDupedExt;
 pub use crate::option::OptionDupedExt;
 
-/// Like [`Clone`](Clone), but should only be available if [`Clone`](Clone) is
-/// constant time and zero allocation (e.g. a few [`Arc`](Arc) bumps).
+/// Like [`Clone`], but should only be available if [`Clone`] is
+/// constant time and zero allocation (e.g. a few [`Arc`] bumps).
 /// The implementation of `dupe` should _always_ call `clone`.
 pub trait Dupe: Clone {
     #[inline]

@@ -114,7 +114,7 @@ impl<'a> dyn AnyLifetime<'a> {
         self.static_type_of() == T::static_type_id()
     }
 
-    /// Downcast a reference to type `T`, or return [`None`](None) if it is not the
+    /// Downcast a reference to type `T`, or return [`None`] if it is not the
     /// right type.
     pub fn downcast_ref<T: AnyLifetime<'a>>(&self) -> Option<&T> {
         if self.is::<T>() {
@@ -125,7 +125,7 @@ impl<'a> dyn AnyLifetime<'a> {
         }
     }
 
-    /// Downcast a mutable reference to type `T`, or return [`None`](None) if it is not
+    /// Downcast a mutable reference to type `T`, or return [`None`] if it is not
     /// the right type.
     pub fn downcast_mut<T: AnyLifetime<'a>>(&mut self) -> Option<&mut T> {
         if self.is::<T>() {

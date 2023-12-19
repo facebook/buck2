@@ -10,7 +10,7 @@
 #[cfg(feature = "str_pattern_extensions")]
 use std::str::pattern::*;
 
-/// Extension traits on [`str`](str).
+/// Extension traits on [`str`].
 ///
 /// Set the configuration option `str_pattern_extensions` to enable the associated methods.
 /// The setting `str_pattern_extensions` requires the unstable features

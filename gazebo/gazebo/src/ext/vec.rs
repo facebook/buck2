@@ -36,7 +36,7 @@ fn collect_result<T, E>(mut it: impl ExactSizeIterator<Item = Result<T, E>>) -> 
     }
 }
 
-/// Extension traits on slices/[`Vec`](Vec).
+/// Extension traits on slices/[`Vec`].
 pub trait SliceExt {
     type Item;
 
@@ -259,7 +259,7 @@ where
     }
 }
 
-/// Extension traits on [`Vec`](Vec).
+/// Extension traits on [`Vec`].
 pub trait VecExt {
     type Item;
 

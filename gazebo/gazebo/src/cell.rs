@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-//! Additions to the [`Ref`](Ref) mechanism.
+//! Additions to the [`Ref`] mechanism.
 
 // We used to implement `ARef` as an enum of `{Ptr(&'a T), Ref(Ref<'a, T>)}`.
 // That works, but consumes 3 words and requires a branch on every access of the underlying
@@ -50,9 +50,9 @@ enum ARefImpl<'a, T: ?Sized + 'a> {
     Ref(Ref<'a, T>),
 }
 
-/// A [`Ref`](Ref) that might not actually be borrowed.
+/// A [`Ref`] that might not actually be borrowed.
 /// Either a `Ptr` (a normal & style reference), or a `Ref` (like from
-/// [`RefCell`](std::cell::RefCell)), but exposes all the methods available on [`Ref`](Ref).
+/// [`RefCell`]), but exposes all the methods available on [`Ref`].
 #[derive(Debug)]
 pub struct ARef<'a, T: ?Sized + 'a>(ARefImpl<'a, T>);
 
@@ -78,7 +78,7 @@ impl<'a, T: ?Sized + 'a> ARef<'a, T> {
         ARef(ARefImpl::Ref(x))
     }
 
-    /// See [`Ref.clone`](Ref::clone). Not a self method since that interferes with the [`Deref`](Deref).
+    /// See [`Ref.clone`](Ref::clone). Not a self method since that interferes with the [`Deref`].
     #[allow(clippy::should_implement_trait)]
     pub fn clone(orig: &Self) -> Self {
         match &orig.0 {
@@ -87,7 +87,7 @@ impl<'a, T: ?Sized + 'a> ARef<'a, T> {
         }
     }
 
-    /// See [`Ref.map`](Ref::map). Not a self method since that interferes with the [`Deref`](Deref).
+    /// See [`Ref.map`](Ref::map). Not a self method since that interferes with the [`Deref`].
     pub fn map<U: ?Sized, F>(orig: ARef<'a, T>, f: F) -> ARef<'a, U>
     where
         F: FnOnce(&T) -> &U,
@@ -99,7 +99,7 @@ impl<'a, T: ?Sized + 'a> ARef<'a, T> {
     }
 
     /// See [`Ref.map_split`](Ref::map_split). Not a self method since that interferes with the
-    /// [`Deref`](Deref).
+    /// [`Deref`].
     pub fn map_split<U: ?Sized, V: ?Sized, F>(orig: ARef<'a, T>, f: F) -> (ARef<'a, U>, ARef<'a, V>)
     where
         F: FnOnce(&T) -> (&U, &V),
@@ -117,7 +117,7 @@ impl<'a, T: ?Sized + 'a> ARef<'a, T> {
     }
 
     /// See [`Ref.filter_map`](Ref::filter_map). Not a self method since that interferes with the
-    /// [`Deref`](Deref).
+    /// [`Deref`].
     pub fn filter_map<U: ?Sized, F>(orig: ARef<'a, T>, f: F) -> Result<ARef<'a, U>, Self>
     where
         F: FnOnce(&T) -> Option<&U>,
@@ -171,7 +171,7 @@ impl<A: Ord + ?Sized> Ord for ARef<'_, A> {
     }
 }
 
-/// Obtain an [`ARef`] from either a normal pointer or a [`RefCell`](std::cell::RefCell).
+/// Obtain an [`ARef`] from either a normal pointer or a [`RefCell`].
 pub trait AsARef<T: ?Sized> {
     /// Get an [`ARef`] pointing at this type.
     fn as_aref(this: &Self) -> ARef<T>;
