@@ -229,13 +229,42 @@ def _my_anon_impl(ctx: AnalysisContext) -> list[Provider]:
     return [DefaultInfo()]
 ```
 
-## Attribute Resolution
+## Attribute resolution
 
 Attribute resolution is handled differently from normal code:
 
-- The `name` attribute is optional, but, if present, must be a syntactically
-  valid target, but can refer to a cell/package that does not exist.
 - Transitions and more complex forms of attributes are banned.
+- The `name` attribute is a reserved attribute. It is an implicit attribute when
+  defining a rule for an anon target, but can be optionally set when creating an
+  anon target. If present, it must be a syntactically valid target, but could
+  refer to a cell/package that does not exist. If not present, buck2 will
+  generate a name for the target automatically.
+
+### `name` attribute example
+
+```python
+# Rule definition for anon target
+my_rule = rule(
+    impl = _my_impl,
+    attrs = {
+        # `name` is already implicitly defined as an attribute, and will error
+        # out if you try to define it again during rule declaration
+    },
+)
+
+# Anon target instantiation, elsewhere
+ ctx.actions.anon_target(
+    my_rule,
+    {
+        # you can optionally pass `name` into the attributes even though it's
+        # not explicitly defined in the `attrs` field for `my_rule`
+        "name": "foo//bar:baz"
+    },
+)
+```
+
+To access the `name` attribute from an analysis context, you can use
+`ctx.label.name`.
 
 # Examples
 
