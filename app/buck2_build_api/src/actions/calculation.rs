@@ -169,7 +169,7 @@ async fn build_action_no_redirect(
         let mut buck2_build_time = None;
         let mut hostname = None;
 
-        match execute_result {
+        let error_diagnostics = match execute_result {
             Ok((outputs, meta)) => {
                 output_size = outputs.calc_output_count_and_bytes().bytes;
                 action_result = Ok(outputs);
@@ -187,6 +187,8 @@ async fn build_action_no_redirect(
                     dep_file_key = *command.dep_file_key;
                     eligible_for_full_hybrid = Some(command.eligible_for_full_hybrid);
                 }
+
+                None
             }
             Err(e) => {
                 // TODO (torozco): Remove (see protobuf file)?
@@ -211,7 +213,7 @@ async fn build_action_no_redirect(
                     action_name.clone(),
                     action_key.clone(),
                     last_command.clone(),
-                    error_diagnostics,
+                    error_diagnostics.clone(),
                 );
 
                 error = Some(e.as_proto_field());
@@ -229,6 +231,8 @@ async fn build_action_no_redirect(
                         Arc::new(move |f| write!(f, "Failed to build '{}'", owner))
                     })
                     .into());
+
+                error_diagnostics
             }
         };
 
@@ -272,6 +276,7 @@ async fn build_action_no_redirect(
                 buck2_revision,
                 buck2_build_time,
                 hostname,
+                error_diagnostics,
             }),
         )
     };

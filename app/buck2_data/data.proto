@@ -1134,6 +1134,9 @@ message ActionExecutionEnd {
   // Remote dep file key (the digest we use to populate the action cache).
   // This is set if the action contains a dep file
   optional string dep_file_key = 37;
+
+  // Additional diagnostics, if an action error handler was provided
+  optional ActionErrorDiagnostics error_diagnostics = 38;
 }
 
 message ActionError {
