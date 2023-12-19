@@ -8,6 +8,7 @@
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "get_module_name")
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftObjectFormat")
+load("@prelude//apple/swift:swift_types.bzl", "SwiftCompilationModes")
 load(
     "@prelude//cxx:compile.bzl",
     "CxxSrcWithFlags",
@@ -25,8 +26,6 @@ IncrementalCompilationOutput = record(
     artifacts = field(list[Artifact]),
     output_map_artifact = field(Artifact),
 )
-
-SwiftCompilationModes = ["wmo", "incremental", "auto"]
 
 SwiftCompilationMode = enum(*SwiftCompilationModes)
 

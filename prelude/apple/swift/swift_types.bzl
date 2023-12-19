@@ -8,3 +8,5 @@
 SWIFT_EXTENSION = ".swift"
 
 SWIFTMODULE_EXTENSION = ".swiftmodule"
+
+SwiftCompilationModes = ["wmo", "incremental", "auto"]
