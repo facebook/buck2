@@ -52,6 +52,7 @@ impl AuditSubcommand for AuditProvidersCommand {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(user)]
 enum AuditProvidersError {
     #[error("Evaluation of at least one target providers failed")]
     AtLeastOneFailed,
@@ -174,6 +175,7 @@ async fn server_execute_with_dice(
     stdout.flush()?;
     stderr.flush()?;
 
+    // FIXME(JakobDegen): We should try preserving error metadata here
     if at_least_one_error {
         Err(AuditProvidersError::AtLeastOneFailed.into())
     } else {

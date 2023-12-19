@@ -36,6 +36,7 @@ fn indented_within_view(spec: &WithinViewSpecification) -> String {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(user)]
 enum CheckWithinViewError {
     #[error(
         "Dependency `{}` is not within view (as specified by `within_view` attribute):\n{}",
