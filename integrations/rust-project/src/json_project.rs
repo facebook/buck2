@@ -83,6 +83,8 @@ pub struct Crate {
     /// The target triple for a given crate.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_spec: Option<TargetSpec>,
     /// Environment for the crate, often used by `env!`.
     pub env: BTreeMap<String, String>,
     /// Whether the crate is a proc-macro crate/
@@ -103,6 +105,85 @@ pub struct BuckExtensions {
     pub build_file: PathBuf,
     /// A name corresponding to the Buck target of the crate.
     pub label: Target,
+}
+
+/// Build system-specific additions the `rust-project.json`.
+///
+/// rust-analyzer encodes Cargo-specific knowledge in features
+/// such as flycheck or runnable and constructs Cargo-specific commands
+/// on the fly. This is a reasonable decision on its part, as most people
+/// use Cargo. However, to support equivalent functionality with non-Cargo
+/// build systems in rust-analyzer, this struct encodes pre-defined runnables
+/// and other bits of metadata. Below is an example of `TargetSpec` in JSON:
+///
+/// ```json
+/// "target_spec": {
+///     "manifest_file": "/Users/dbarsky/fbsource/fbcode/buck2/integrations/rust-project/TARGETS",
+///     "target_label": "fbcode//buck2/integrations/rust-project:rust-project",
+///     "target_kind": "bin",
+///     "runnables": {
+///         "check": [
+///            "build",
+///            "fbcode//buck2/integrations/rust-project:rust-project"
+///         ],
+///         "run": [
+///             "run",
+///             "fbcode//buck2/integrations/rust-project:rust-project"
+///         ],
+///         "test": [
+///             "test",
+///             "fbcode//buck2/integrations/rust-project:rust-project",
+///             "--",
+///             "{test_id}",
+///             "--print-passing-details"
+///         ]
+///     },
+///     "flycheck_command": [
+///         "build",
+///         "fbcode//buck2/integrations/rust-project:rust-project"
+///     ]
+/// }
+/// ```
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
+pub struct TargetSpec {
+    /// `manifest_file` corresponds to the `BUCK`/`TARGETS` file.
+    pub manifest_file: PathBuf,
+    pub target_label: String,
+    pub target_kind: TargetKind,
+    pub runnables: Runnables,
+    pub flycheck_command: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum TargetKind {
+    #[default]
+    Bin,
+    /// Any kind of Cargo lib crate-type (dylib, rlib, proc-macro, ...).
+    Lib,
+    Example,
+    Test,
+    Bench,
+    BuildScript,
+    Other,
+}
+
+impl From<crate::target::Kind> for TargetKind {
+    fn from(value: crate::target::Kind) -> Self {
+        use crate::target::Kind::*;
+        match value {
+            Binary => TargetKind::Bin,
+            Library => TargetKind::Lib,
+            Test => TargetKind::Test,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
+pub struct Runnables {
+    pub check: Vec<String>,
+    pub run: Vec<String>,
+    pub test: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]

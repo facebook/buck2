@@ -30,8 +30,10 @@ use tracing::Level;
 use crate::json_project::BuckExtensions;
 use crate::json_project::Edition;
 use crate::json_project::JsonProject;
+use crate::json_project::Runnables;
 use crate::json_project::Source;
 use crate::json_project::Sysroot;
+use crate::json_project::TargetSpec;
 use crate::target::AliasedTargetInfo;
 use crate::target::ExpandedAndResolved;
 use crate::target::Kind;
@@ -137,9 +139,28 @@ pub fn to_json_project(
             include_dirs.insert(parent.to_owned());
         }
 
-        for src in &info.srcs {
-            include_dirs.insert(src.to_owned());
-        }
+        let spec = if info.in_workspace {
+            let spec = TargetSpec {
+                manifest_file: build_file.to_owned(),
+                target_label: target.to_string(),
+                target_kind: info.kind.clone().into(),
+                runnables: Runnables {
+                    check: vec!["build".to_owned(), target.to_string()],
+                    run: vec!["run".to_owned(), target.to_string()],
+                    test: vec![
+                        "test".to_owned(),
+                        target.to_string(),
+                        "--".to_owned(),
+                        "{test_id}".to_owned(),
+                        "--print-passing-details".to_owned(),
+                    ],
+                },
+                flycheck_command: vec!["build".to_owned(), target.to_string()],
+            };
+            Some(spec)
+        } else {
+            None
+        };
 
         let crate_info = Crate {
             display_name: Some(info.name.clone()),
@@ -157,6 +178,7 @@ pub fn to_json_project(
             }),
             cfg,
             env,
+            target_spec: spec,
             is_proc_macro: info.proc_macro.unwrap_or(false),
             proc_macro_dylib_path,
             ..Default::default()
