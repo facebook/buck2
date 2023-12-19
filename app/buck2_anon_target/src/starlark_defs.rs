@@ -78,7 +78,7 @@ struct StarlarkAnonTarget<'v> {
 impl<'v> StarlarkAnonTarget<'v> {
     fn new(
         declaration_location: Option<FileSpan>,
-        res: ValueTyped<'v, StarlarkPromise<'v>>,
+        anon_target_promise: ValueTyped<'v, StarlarkPromise<'v>>,
         frozen_artifact_mappings: &Option<FrozenArtifactPromiseMappings>,
         key: AnonTargetKey,
         registry: &mut AnonTargetsRegistry<'v>,
@@ -87,7 +87,7 @@ impl<'v> StarlarkAnonTarget<'v> {
         let mut artifacts_map = SmallMap::new();
         if let Some(artifacts) = frozen_artifact_mappings {
             for (id, (name, func)) in artifacts.mappings.iter().enumerate() {
-                let promise = StarlarkPromise::map(res, func.to_value(), eval)?;
+                let promise = StarlarkPromise::map(anon_target_promise, func.to_value(), eval)?;
                 let artifact = registry.register_artifact(
                     promise,
                     declaration_location.clone(),
@@ -99,7 +99,7 @@ impl<'v> StarlarkAnonTarget<'v> {
         }
 
         let anon_target = StarlarkAnonTarget {
-            promise: res,
+            promise: anon_target_promise,
             artifacts: artifacts_map,
             declaration_location,
         };
@@ -276,15 +276,15 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         attrs: DictOf<'v, &'v str, Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkAnonTarget<'v>> {
-        let res = eval.heap().alloc_typed(StarlarkPromise::new_unresolved());
+        let anon_target_promise = eval.heap().alloc_typed(StarlarkPromise::new_unresolved());
         let mut this = this.state();
         let registry = AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?;
         let key = registry.anon_target_key(rule, attrs)?;
-        registry.register_one(res, key.clone())?;
+        registry.register_one(anon_target_promise, key.clone())?;
 
         StarlarkAnonTarget::new(
             eval.call_stack_top_location(),
-            res,
+            anon_target_promise,
             rule.artifact_promise_mappings(),
             key,
             registry,
@@ -310,14 +310,14 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         let mut promises_to_join = Vec::new();
         rules.items.into_try_map(|(rule, attributes)| {
             let key = registry.anon_target_key(rule, attributes)?;
-            let res = eval.heap().alloc_typed(StarlarkPromise::new_unresolved());
+            let anon_target_promise = eval.heap().alloc_typed(StarlarkPromise::new_unresolved());
 
-            promises_to_join.push(res);
+            promises_to_join.push(anon_target_promise);
 
-            registry.register_one(res, key.clone())?;
+            registry.register_one(anon_target_promise, key.clone())?;
             let anon_target = StarlarkAnonTarget::new(
                 declaration_location.clone(),
-                res,
+                anon_target_promise,
                 rule.artifact_promise_mappings(),
                 key.clone(),
                 registry,
