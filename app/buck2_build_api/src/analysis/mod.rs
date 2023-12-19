@@ -61,6 +61,10 @@ impl AnalysisResult {
         &self.provider_collection
     }
 
+    pub fn promise_artifact_map(&self) -> &Arc<HashMap<PromiseArtifactId, Artifact>> {
+        &self.promise_artifact_map
+    }
+
     /// Used to lookup an inner named provider result.
     pub fn lookup_inner(
         &self,
