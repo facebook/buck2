@@ -21,7 +21,7 @@ the time of writing this is still experimental. If this is a problem for your
 use-case then you may wish to rely on a system toolchain or define your own.
 
 The toolchain is not fully hermetic as it still relies on system tools like nm.
-Only works on Linux.
+It only works on Linux, and to a limited extent on MacOS.
 
 [zig-cc-announcement]: https://andrewkelley.me/post/zig-cc-powerful-drop-in-replacement-gcc-clang.html
 
@@ -300,7 +300,11 @@ def _get_linker_type(os: str) -> str:
     if os == "linux":
         return "gnu"
     elif os == "macos" or os == "freebsd":
-        return "darwin"
+        # TODO[AH] return "darwin".
+        #   The cc rules emit linker flags on MacOS that are not supported by Zig's linker.
+        #   Declaring the linker as GNU style is not entirely correct, however it works better than
+        #   declaring Darwin style at this point. See https://github.com/facebook/buck2/issues/470
+        return "gnu"
     elif os == "windows":
         return "windows"
     else:
