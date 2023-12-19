@@ -350,6 +350,7 @@ async fn run_analysis_with_env_underlying(
         provider_collection,
         deferred,
         profile_data,
+        HashMap::new(),
     ))
 }
 

@@ -7,13 +7,16 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
 
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::deferred::id::DeferredId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
 
+use crate::artifact_groups::promise::PromiseArtifactId;
 use crate::deferred::types::DeferredLookup;
 use crate::deferred::types::DeferredTable;
 
@@ -35,6 +38,7 @@ pub struct AnalysisResult {
     pub provider_collection: FrozenProviderCollectionValue,
     deferred: DeferredTable,
     pub profile_data: Option<Arc<StarlarkProfileDataAndStats>>,
+    promise_artifact_map: Arc<HashMap<PromiseArtifactId, Artifact>>,
 }
 
 impl AnalysisResult {
@@ -43,11 +47,13 @@ impl AnalysisResult {
         provider_collection: FrozenProviderCollectionValue,
         deferred: DeferredTable,
         profile_data: Option<Arc<StarlarkProfileDataAndStats>>,
+        promise_artifact_map: HashMap<PromiseArtifactId, Artifact>,
     ) -> Self {
         Self {
             provider_collection,
             deferred,
             profile_data,
+            promise_artifact_map: Arc::new(promise_artifact_map),
         }
     }
 

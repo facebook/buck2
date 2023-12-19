@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -104,6 +105,7 @@ async fn lookup_deferred_from_analysis() -> anyhow::Result<()> {
                 provider_collection,
                 deferred_result,
                 None,
+                HashMap::new(),
             )))
             .map_err(buck2_error::Error::from),
         )
@@ -198,6 +200,7 @@ async fn lookup_deferred_that_has_deferreds() -> anyhow::Result<()> {
                 provider_collection,
                 deferred_result,
                 None,
+                HashMap::new(),
             )))
             .map_err(buck2_error::Error::from),
         )

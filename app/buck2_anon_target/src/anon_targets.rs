@@ -431,7 +431,12 @@ impl AnonTargetKey {
 
                 // this could look nicer if we had the entire analysis be a deferred
                 let deferred = DeferredTable::new(deferreds.take_result()?);
-                Ok(AnalysisResult::new(provider_collection, deferred, None))
+                Ok(AnalysisResult::new(
+                    provider_collection,
+                    deferred,
+                    None,
+                    HashMap::new(),
+                ))
             }
             .map(|res| {
                 (
