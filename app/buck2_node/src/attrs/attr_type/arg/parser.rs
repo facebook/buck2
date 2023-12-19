@@ -132,6 +132,7 @@ pub fn parse_macros(input: &str) -> anyhow::Result<ParsedArg> {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(user)]
 enum ArgParseError {
     #[error("Unfinished quoted arg, expected a `{0}`")]
     UnfinishedQuotedArg(char),
