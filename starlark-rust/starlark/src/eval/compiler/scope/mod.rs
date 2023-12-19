@@ -83,6 +83,12 @@ enum ScopeError {
     TypeExpressionGlobalOrBuiltin(String),
 }
 
+impl From<ScopeError> for crate::Error {
+    fn from(e: ScopeError) -> Self {
+        crate::Error::new(crate::ErrorKind::Scope(anyhow::Error::new(e)))
+    }
+}
+
 /// All scopes and bindings in a module.
 struct ModuleScopeBuilder<'a> {
     scope_data: ModuleScopeData<'a>,
@@ -657,7 +663,7 @@ impl<'f> ModuleScopeBuilder<'f> {
             ident.node.ident.as_str(),
             variants.iter().map(|s| s.as_str()),
         );
-        EvalException::new_anyhow(
+        EvalException::new(
             match better {
                 Some(better) => ScopeError::VariableNotFoundDidYouMean(
                     ident.node.ident.clone(),
@@ -690,7 +696,7 @@ impl<'f> ModuleScopeBuilder<'f> {
             ResolveIdentScope::Any => {}
             ResolveIdentScope::GlobalForTypeExpression => match resolved {
                 ResolvedIdent::Slot(Slot::Local(_), _) => {
-                    self.errors.push(EvalException::new_anyhow(
+                    self.errors.push(EvalException::new(
                         ScopeError::TypeExpressionGlobalOrBuiltin(ident.node.ident.clone()).into(),
                         ident.span,
                         &self.codemap,
