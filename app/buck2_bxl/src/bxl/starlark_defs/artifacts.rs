@@ -87,7 +87,7 @@ pub(crate) async fn visit_artifact_path_without_associated_deduped(
         if !visited.insert(ag.dupe()) {
             continue;
         }
-        match ag.resolved()? {
+        match ag.resolved_artifact(ctx).await? {
             ResolvedArtifactGroup::Artifact(a) => {
                 visitor(a.get_path(), abs)?;
             }
