@@ -44,6 +44,10 @@ pub enum PromiseArtifactResolveError {
         "assert_short_path() was called with `short_path = {0}`, but it did not match the artifact's actual short path: `{1}`"
     )]
     ShortPathMismatch(ForwardRelativePathBuf, String),
+    #[error("Internal error: analysis result did not contain promise ({0})")]
+    NotFoundInAnalysis(PromiseArtifact),
+    #[error("Internal error: promise artifact ({0}) owner is ({1}), which is not an anon target")]
+    OwnerIsNotAnonTarget(PromiseArtifact, BaseDeferredKey),
 }
 
 fn maybe_declared_at(location: &Option<FileSpan>) -> String {
