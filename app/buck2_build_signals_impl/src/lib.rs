@@ -34,6 +34,7 @@ use buck2_build_api::build_signals::BuildSignalsInstaller;
 use buck2_build_api::build_signals::CREATE_BUILD_SIGNALS;
 use buck2_build_api::deferred::calculation::DeferredCompute;
 use buck2_build_api::deferred::calculation::DeferredResolve;
+use buck2_build_api::keep_going;
 use buck2_build_signals::BuildSignalsContext;
 use buck2_build_signals::CriticalPathBackendName;
 use buck2_build_signals::DeferredBuildSignals;
@@ -57,6 +58,7 @@ use dice::ActivationData;
 use dice::ActivationTracker;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
+use futures::stream::FuturesOrdered;
 use itertools::Itertools;
 use smallvec::SmallVec;
 use static_assertions::assert_eq_size;
@@ -390,7 +392,38 @@ where
             match event {
                 BuildSignal::Evaluation(eval) => self.process_evaluation(eval),
                 BuildSignal::TopLevelTarget(top_level) => {
-                    self.process_top_level_target(top_level)?
+                    let dice = &ctx.dice_transaction;
+                    // We need to resolve the top level target's artifacts to get the action keys,
+                    // but this is an async function, and `process_top_level_target` is not. Thus,
+                    // let's grab the artifact keys first, and then process the top level target.
+                    let artifact_key_futs: FuturesOrdered<_> = top_level
+                        .artifacts
+                        .iter()
+                        .map(|dep| async { dep.resolved_artifact(dice).await })
+                        .collect();
+
+                    let artifact_keys: Vec<_> = tokio::task::unconstrained(
+                        keep_going::try_join_all(dice, artifact_key_futs),
+                    )
+                    .await?;
+
+                    let artifact_keys = artifact_keys
+                        .into_iter()
+                        .filter_map(|r| match r {
+                            ResolvedArtifactGroup::Artifact(artifact) => artifact
+                                .action_key()
+                                .duped()
+                                .map(BuildKey)
+                                .map(NodeKey::BuildKey),
+                            ResolvedArtifactGroup::TransitiveSetProjection(key) => {
+                                Some(NodeKey::EnsureTransitiveSetProjectionKey(
+                                    EnsureTransitiveSetProjectionKey(key.dupe()),
+                                ))
+                            }
+                        })
+                        .collect();
+
+                    self.process_top_level_target(top_level, artifact_keys)?
                 }
                 BuildSignal::FinalMaterialization(final_materialization) => {
                     self.process_final_materialization(final_materialization)?
@@ -565,24 +598,8 @@ where
     fn process_top_level_target(
         &mut self,
         top_level: TopLevelTargetSignal,
+        artifact_keys: Vec<NodeKey>,
     ) -> Result<(), anyhow::Error> {
-        let artifact_keys =
-            top_level
-                .artifacts
-                .into_iter()
-                .filter_map(|dep| match dep.assert_resolved() {
-                    ResolvedArtifactGroup::Artifact(artifact) => artifact
-                        .action_key()
-                        .duped()
-                        .map(BuildKey)
-                        .map(NodeKey::BuildKey),
-                    ResolvedArtifactGroup::TransitiveSetProjection(key) => {
-                        Some(NodeKey::EnsureTransitiveSetProjectionKey(
-                            EnsureTransitiveSetProjectionKey(key.dupe()),
-                        ))
-                    }
-                });
-
         self.backend.process_top_level_target(
             NodeKey::AnalysisKey(AnalysisKey(top_level.label)),
             artifact_keys,

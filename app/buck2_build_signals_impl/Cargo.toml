@@ -25,6 +25,7 @@ buck2_node = { workspace = true }
 derive_more = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
+futures = { workspace = true }
 gazebo = { workspace = true }
 itertools = { workspace = true }
 smallvec = { workspace = true }
