@@ -18,6 +18,7 @@ use buck2_build_api::artifact_groups::promise::PromiseArtifactId;
 use buck2_build_api::artifact_groups::promise::PromiseArtifactResolveError;
 use buck2_build_api::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_error::Context;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use dupe::Dupe;
 use starlark::codemap::FileSpan;
@@ -58,7 +59,17 @@ impl<'v> PromiseArtifactRegistry<'v> {
                     Some(v) => {
                         let short_path = short_paths.get(artifact_entry.artifact.id()).cloned();
 
-                        artifact_entry.artifact.resolve(v.0, &short_path)?;
+                        if let Some(artifact) = v.0.get_associated_artifacts() {
+                            if !artifact.is_empty() {
+                                return Err(
+                                    PromiseArtifactResolveError::HasAssociatedArtifacts.into()
+                                );
+                            }
+                        }
+                        let artifact =
+                            v.0.get_bound_artifact()
+                                .context("expected bound artifact for promise_artifact resolve")?;
+                        artifact_entry.artifact.resolve(artifact, &short_path)?;
                     }
                     None => {
                         return Err(PromiseArtifactResolveError::NotAnArtifact(

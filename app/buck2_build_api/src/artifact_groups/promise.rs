@@ -13,14 +13,11 @@ use std::sync::Arc;
 use std::sync::OnceLock;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use dupe::Dupe;
 use starlark::codemap::FileSpan;
-
-use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 
 #[derive(Debug, buck2_error::Error)]
 pub enum PromiseArtifactResolveError {
@@ -100,17 +97,10 @@ impl PromiseArtifact {
 
     pub fn resolve(
         &self,
-        artifact: &dyn StarlarkArtifactLike,
+        artifact: Artifact,
         expected_short_path: &Option<ForwardRelativePathBuf>,
     ) -> anyhow::Result<()> {
-        if let Some(v) = artifact.get_associated_artifacts() {
-            if !v.is_empty() {
-                return Err(PromiseArtifactResolveError::HasAssociatedArtifacts.into());
-            }
-        }
-        let bound = artifact
-            .get_bound_artifact()
-            .context("expected bound artifact for promise_artifact resolve")?;
+        let bound = artifact;
         if bound.is_source() {
             return Err(PromiseArtifactResolveError::SourceArtifact.into());
         }
