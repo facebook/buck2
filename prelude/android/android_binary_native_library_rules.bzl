@@ -267,7 +267,7 @@ def get_android_binary_native_library_info(
                                 break
                         if merge_result:
                             merge_map[str(target)] = merge_result
-                merge_map = ctx.actions.write_json("merge.map", merge_map_by_platform)
+                merge_map = ctx.actions.write_json("merge.map", merge_map_by_platform, pretty = True)
                 native_library_merge_debug_outputs["merge_map_output"] = merge_map
             else:
                 fail("unreachable")
@@ -285,7 +285,7 @@ def get_android_binary_native_library_info(
                     for platform in platform_to_original_native_linkables
                 },
             )
-            debug_data_json = ctx.actions.write_json("native_merge_debug.json", merged_linkables.debug_info)
+            debug_data_json = ctx.actions.write_json("native_merge_debug.json", merged_linkables.debug_info, pretty = True)
             native_library_merge_debug_outputs["native_merge_debug.json"] = debug_data_json
             if mergemap_gencode_jar:
                 merged_library_map = write_merged_library_map(ctx, merged_linkables)
