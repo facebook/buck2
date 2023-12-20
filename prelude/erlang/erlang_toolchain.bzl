@@ -50,6 +50,7 @@ Toolchain = record(
     parse_transforms_filters = field(dict[str, list[str]]),
     edoc = field(Artifact),
     edoc_options = field(list[str]),
+    edoc_preprocess = field(list[str]),
     utility_modules = field(Artifact),
     env = field(dict[str, str]),
 )
@@ -105,6 +106,7 @@ def _multi_version_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             parse_transforms_filters = toolchain_info.parse_transforms_filters,
             edoc = toolchain_info.edoc,
             edoc_options = toolchain_info.edoc_options,
+            edoc_preprocess = toolchain_info.edoc_preprocess,
             utility_modules = toolchain_info.utility_modules,
             env = toolchain_info.env,
         )
@@ -135,6 +137,7 @@ def _config_erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     erl_opts = ctx.attrs.erl_opts.split()
     emu_flags = ctx.attrs.emu_flags.split()
     edoc_options = ctx.attrs.edoc_options.split()
+    edoc_preprocess = ctx.attrs.edoc_preprocess.split()
 
     # get otp binaries
     binaries_info = ctx.attrs.otp_binaries[ErlangOTPBinariesInfo]
@@ -197,6 +200,7 @@ def _config_erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             parse_transforms_filters = ctx.attrs.parse_transforms_filters,
             edoc = utils.edoc,
             edoc_options = edoc_options,
+            edoc_preprocess = edoc_preprocess,
             utility_modules = utility_modules,
         ),
     ]
@@ -277,6 +281,7 @@ config_erlang_toolchain_rule = rule(
     attrs = {
         "core_parse_transforms": attrs.list(attrs.dep(), default = ["@prelude//erlang/toolchain:transform_project_root"]),
         "edoc_options": attrs.string(default = ""),
+        "edoc_preprocess": attrs.string(default = ""),
         "emu_flags": attrs.string(default = ""),
         "env": attrs.dict(key = attrs.string(), value = attrs.string(), default = {}),
         "erl_opts": attrs.string(default = ""),

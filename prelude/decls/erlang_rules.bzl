@@ -260,10 +260,10 @@ rules_attributes = {
                 The suites attribtue specify which erlang_test targets should be generated. For each suite "path_to_suite/suite_SUITE.erl" an
                 implicit 'erlang_test' target suite_SUITE will be generated.
             """),
-        "_artifact_annotation_mfa": attrs.string(),
+        "_artifact_annotation_mfa": attrs.string(default = "artifact_annotations:default_annotation/1"),
         "_cli_lib": attrs.dep(default = "prelude//erlang/common_test/test_cli_lib:test_cli_lib"),
         "_ct_opts": attrs.string(default = read_root_config("erlang", "erlang_test_ct_opts", "")),
-        "_providers": attrs.string(),
+        "_providers": attrs.string(default = ""),
         "_test_binary": attrs.dep(default = "prelude//erlang/common_test/test_binary:escript"),
         "_test_binary_lib": attrs.dep(default = "prelude//erlang/common_test/test_binary:test_binary"),
         "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
@@ -524,15 +524,11 @@ erlang_test = prelude_rule(
 
         The `erlang_tests` macro forwards all attributes to the `erlang_test`. It defines some attributes
         that control how the targets get generated:
-        - `use_default_configs` (bool): Parameter that controls if the config files specified by the global config variable
-          `erlang.erlang_tests_default_config` should be used, default to True.
-        - `use_default_deps` (bool): Parameter that controls if the dependencies specified by the global config variable
-          `erlang.erlang_tests_default_apps` should be pulled, default to True.
         - `srcs` ([source]): Set of files that the suites might depend on and that are not part of any specific application.
           A "meta" application having those files as sources will automatically be created, and included in the dependencies
           of the tests.
 
-        Ene can call
+        One can call
         - `buck2 build //my_app:test_SUITE` to compile the test files together with its depedencies.
         - `buck2 test //my_app:other_test_SUITE` to run the test.
         - `buck2 run //my_app:other_test_SUITE` to open an interactive test shell, where tests can be run iteratively.
