@@ -49,22 +49,6 @@ pub enum ArtifactGroup {
 }
 
 impl ArtifactGroup {
-    // TODO(@wendyy) - deprecate
-    pub fn assert_resolved(&self) -> ResolvedArtifactGroup {
-        self.resolved().unwrap()
-    }
-
-    // TODO(@wendyy) - deprecate
-    pub fn resolved(&self) -> anyhow::Result<ResolvedArtifactGroup> {
-        Ok(match self {
-            ArtifactGroup::Artifact(a) => ResolvedArtifactGroup::Artifact(a.clone()),
-            ArtifactGroup::TransitiveSetProjection(a) => {
-                ResolvedArtifactGroup::TransitiveSetProjection(a)
-            }
-            ArtifactGroup::Promise(p) => ResolvedArtifactGroup::Artifact(p.get_err()?.clone()),
-        })
-    }
-
     /// Gets the resolved artifact group, which is used further downstream to use DICE to get
     /// or compute the actual artifact values. For the `Artifact` variant, we will get the results
     /// via the base or projected artifact key. For the `TransitiveSetProjection` variant, we will
