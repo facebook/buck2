@@ -20,6 +20,7 @@ use starlark::values::Trace;
 use starlark::values::Value;
 
 use crate::analysis::anon_promises_dyn::AnonPromisesDyn;
+use crate::artifact_groups::promise::PromiseArtifact;
 use crate::artifact_groups::promise::PromiseArtifactId;
 
 pub static ANON_TARGET_REGISTRY_NEW: LateBinding<
@@ -38,5 +39,6 @@ pub trait AnonTargetsRegistryDyn<'v>:
         &self,
         short_paths: &HashMap<PromiseArtifactId, ForwardRelativePathBuf>,
     ) -> anyhow::Result<()>;
+    fn consumer_analysis_artifacts(&self) -> Vec<PromiseArtifact>;
     fn assert_no_promises(&self) -> anyhow::Result<()>;
 }

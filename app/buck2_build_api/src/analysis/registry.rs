@@ -42,6 +42,7 @@ use crate::actions::UnregisteredAction;
 use crate::analysis::anon_promises_dyn::AnonPromisesDyn;
 use crate::analysis::anon_targets_registry::AnonTargetsRegistryDyn;
 use crate::analysis::anon_targets_registry::ANON_TARGET_REGISTRY_NEW;
+use crate::artifact_groups::promise::PromiseArtifact;
 use crate::artifact_groups::promise::PromiseArtifactId;
 use crate::artifact_groups::registry::ArtifactGroupRegistry;
 use crate::artifact_groups::ArtifactGroup;
@@ -268,6 +269,10 @@ impl<'v> AnalysisRegistry<'v> {
         short_paths: &HashMap<PromiseArtifactId, ForwardRelativePathBuf>,
     ) -> anyhow::Result<()> {
         self.anon_targets.resolve_artifacts(short_paths)
+    }
+
+    pub fn consumer_analysis_artifacts(&self) -> Vec<PromiseArtifact> {
+        self.anon_targets.consumer_analysis_artifacts()
     }
 
     pub fn record_short_path_assertion(

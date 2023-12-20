@@ -21,6 +21,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_error::Context;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use dupe::Dupe;
+use gazebo::prelude::SliceExt;
 use starlark::codemap::FileSpan;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
@@ -89,6 +90,16 @@ impl<'v> PromiseArtifactRegistry<'v> {
             }
         }
         Ok(())
+    }
+
+    /// The consumer analysis is the analysis that calls the anon target and uses the resulting
+    /// promised artifacts. It could be a normal rule analysis, an analysis from BXL, or an anon
+    /// target analysis. These promised artifacts are the ones that will have their short paths
+    /// asserted. During promise resolution, we use the promised artifact's owner (the anon target
+    /// key) to look up the owner's analysis results via DICE (which will be blocking) to ensure
+    /// that any dependent anon target analyses are finished first.
+    pub(crate) fn consumer_analysis_artifacts(&self) -> Vec<PromiseArtifact> {
+        self.artifacts.map(|e| e.artifact.clone())
     }
 
     pub(crate) fn register(

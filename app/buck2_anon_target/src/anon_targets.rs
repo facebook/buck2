@@ -638,6 +638,10 @@ impl<'v> AnonTargetsRegistryDyn<'v> for AnonTargetsRegistry<'v> {
         self.promise_artifact_registry.resolve_all(short_paths)
     }
 
+    fn consumer_analysis_artifacts(&self) -> Vec<PromiseArtifact> {
+        self.promise_artifact_registry.consumer_analysis_artifacts()
+    }
+
     fn take_promises(&mut self) -> Option<Box<dyn AnonPromisesDyn<'v>>> {
         // We swap it out, so we can still collect new promises
         Some(mem::take(&mut self.promises))
