@@ -99,10 +99,7 @@ async fn build_action_no_redirect(
         let inputs = action.inputs()?;
         let ensure_futs: FuturesOrdered<_> = inputs
             .iter()
-            .map(|v| async {
-                let resolved = v.resolved_artifact(ctx).await?;
-                anyhow::Ok(ensure_artifact_group_staged(ctx, resolved))
-            })
+            .map(|v| ensure_artifact_group_staged(ctx, v))
             .collect();
 
         let ready_inputs: Vec<_> =
@@ -110,10 +107,7 @@ async fn build_action_no_redirect(
 
         let mut results = IndexMap::with_capacity(inputs.len());
         for (artifact, ready) in zip(inputs.iter(), ready_inputs) {
-            results.insert(
-                artifact.clone(),
-                ready.await?.to_group_values(artifact, ctx).await?,
-            );
+            results.insert(artifact.clone(), ready.to_group_values(artifact)?);
         }
         results
     };
