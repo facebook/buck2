@@ -114,7 +114,7 @@ pub struct AnonTargetsRegistry<'v> {
     // We inherit the execution platform of our parent
     execution_platform: ExecutionPlatformResolution,
     promises: AnonPromises<'v>,
-    promise_artifact_registry: PromiseArtifactRegistry<'v>,
+    promise_artifact_registry: PromiseArtifactRegistry,
 }
 
 #[derive(Debug, buck2_error::Error)]

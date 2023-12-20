@@ -14,12 +14,10 @@ use std::sync::OnceLock;
 use allocative::Allocative;
 use buck2_build_api::artifact_groups::promise::PromiseArtifact;
 use buck2_build_api::artifact_groups::promise::PromiseArtifactId;
-use buck2_interpreter::starlark_promise::StarlarkPromise;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use starlark::codemap::FileSpan;
 use starlark::values::Trace;
-use starlark::values::ValueTyped;
 
 #[derive(Debug, Trace, Allocative)]
 struct PromiseArtifactEntry {
@@ -31,15 +29,13 @@ struct PromiseArtifactEntry {
 /// corresponding internal PromiseArtifact. At the end of analysis (after promises have been resolved),
 /// all PromiseArtifact will be updated to have the resolved artifact from the corresponding starlark promise.
 #[derive(Debug, Trace, Allocative)]
-pub(crate) struct PromiseArtifactRegistry<'v> {
-    promises: Vec<ValueTyped<'v, StarlarkPromise<'v>>>,
+pub(crate) struct PromiseArtifactRegistry {
     artifacts: Vec<PromiseArtifactEntry>,
 }
 
-impl<'v> PromiseArtifactRegistry<'v> {
+impl PromiseArtifactRegistry {
     pub(crate) fn new() -> Self {
         Self {
-            promises: Vec::new(),
             artifacts: Vec::new(),
         }
     }
