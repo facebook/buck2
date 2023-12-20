@@ -27,7 +27,6 @@ use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ResolvedArtifactGroup;
 use buck2_build_api::artifact_groups::TransitiveSetProjectionKey;
 use buck2_build_api::deferred::calculation::DeferredCalculation;
-use buck2_build_api::keep_going;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::pattern::ParsedPattern;
@@ -162,20 +161,12 @@ async fn convert_inputs<'c, 'a, Iter: IntoIterator<Item = &'a ArtifactGroup>>(
     node_cache: DiceAqueryNodesCache,
     inputs: Iter,
 ) -> anyhow::Result<Vec<ActionInput>> {
-    let resolved_artifact_futs: FuturesOrdered<_> = inputs
-        .into_iter()
-        .map(|input| async { input.resolved_artifact(ctx).await })
-        .collect();
-
-    let resolved_artifacts: Vec<_> =
-        tokio::task::unconstrained(keep_going::try_join_all(ctx, resolved_artifact_futs)).await?;
-
     let (artifacts, projections): (Vec<_>, Vec<_>) = Itertools::partition_map(
-        resolved_artifacts
+        inputs
             .into_iter()
-            .filter_map(|resolved_artifact| match resolved_artifact {
+            .filter_map(|input| match input.assert_resolved() {
                 ResolvedArtifactGroup::Artifact(a) => {
-                    a.action_key().map(|a| Either::Left(a.clone()))
+                    a.action_key().map(|k| Either::Left(k.clone()))
                 }
                 ResolvedArtifactGroup::TransitiveSetProjection(key) => Some(Either::Right(key)),
             }),
