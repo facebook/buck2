@@ -176,6 +176,7 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                                                     isolation_prefix: self
                                                         .isolation_prefix()
                                                         .to_owned(),
+                                                    dice_transaction: dice.clone(),
                                                 },
                                                 || exec(self, dice),
                                             )

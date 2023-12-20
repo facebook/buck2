@@ -19,6 +19,7 @@ use async_trait::async_trait;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::soft_error;
 use buck2_events::dispatch::EventDispatcher;
+use dice::DiceTransaction;
 use dice::UserComputationData;
 use dupe::Dupe;
 use futures::future::Future;
@@ -76,6 +77,7 @@ pub struct BuildSignalsContext {
     pub command_name: String,
     pub metadata: HashMap<String, String>,
     pub isolation_prefix: FileNameBuf,
+    pub dice_transaction: DiceTransaction,
 }
 
 /// Created along with the BuildSignalsInstaller (ideally, BuildSignalsInstaller's definition would
