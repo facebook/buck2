@@ -104,7 +104,7 @@ pub(crate) fn ensure_artifact_group_staged<'a>(
 ) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
     match input.assert_resolved() {
         ResolvedArtifactGroup::Artifact(artifact) => {
-            ensure_artifact_staged(ctx, artifact).left_future()
+            ensure_artifact_staged(ctx, artifact.clone()).left_future()
         }
         ResolvedArtifactGroup::TransitiveSetProjection(key) => ctx
             .compute(EnsureTransitiveSetProjectionKey::ref_cast(key))
@@ -116,12 +116,14 @@ pub(crate) fn ensure_artifact_group_staged<'a>(
 /// See [ensure_artifact_group_staged].
 pub(super) fn ensure_base_artifact_staged<'a>(
     dice: &'a DiceComputations,
-    artifact: &'a BaseArtifactKind,
+    artifact: BaseArtifactKind,
 ) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
     match artifact {
-        BaseArtifactKind::Build(built) => ensure_build_artifact_staged(dice, built).left_future(),
+        BaseArtifactKind::Build(built) => {
+            ensure_build_artifact_staged(dice, built.clone()).left_future()
+        }
         BaseArtifactKind::Source(source) => {
-            ensure_source_artifact_staged(dice, source).right_future()
+            ensure_source_artifact_staged(dice, source.clone()).right_future()
         }
     }
 }
@@ -129,10 +131,10 @@ pub(super) fn ensure_base_artifact_staged<'a>(
 /// See [ensure_artifact_group_staged].
 pub(super) fn ensure_artifact_staged<'a>(
     dice: &'a DiceComputations,
-    artifact: &'a Artifact,
+    artifact: Artifact,
 ) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
     match artifact.data() {
-        ArtifactKind::Base(base) => ensure_base_artifact_staged(dice, base).left_future(),
+        ArtifactKind::Base(base) => ensure_base_artifact_staged(dice, base.clone()).left_future(),
         ArtifactKind::Projected(projected) => dice
             .compute(EnsureProjectedArtifactKey::ref_cast(projected))
             .map(|v| Ok(EnsureArtifactGroupReady::Single(v??)))
@@ -142,11 +144,13 @@ pub(super) fn ensure_artifact_staged<'a>(
 
 fn ensure_build_artifact_staged<'a>(
     dice: &'a DiceComputations,
-    built: &'a BuildArtifact,
+    built: BuildArtifact,
 ) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
-    ActionCalculation::build_action(dice, built.key()).map(move |action_outputs| {
+    let key = built.key().clone();
+    let path = built.get_path().clone();
+    ActionCalculation::build_action(dice, key.clone()).map(move |action_outputs| {
         let action_outputs = action_outputs?;
-        if let Some(value) = action_outputs.get(built.get_path()) {
+        if let Some(value) = action_outputs.get(&path) {
             Ok(EnsureArtifactGroupReady::Single(value.dupe()))
         } else {
             Err(
@@ -159,7 +163,7 @@ fn ensure_build_artifact_staged<'a>(
 
 fn ensure_source_artifact_staged<'a>(
     dice: &'a DiceComputations,
-    source: &'a SourceArtifact,
+    source: SourceArtifact,
 ) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
     async move {
         Ok(EnsureArtifactGroupReady::Single(
@@ -328,7 +332,7 @@ impl Key for EnsureProjectedArtifactKey {
         ctx: &mut DiceComputations,
         _cancellation: &CancellationContext,
     ) -> Self::Value {
-        let base_value = ensure_base_artifact_staged(ctx, self.0.base())
+        let base_value = ensure_base_artifact_staged(ctx, self.0.base().clone())
             .await?
             .unpack_single()?;
 

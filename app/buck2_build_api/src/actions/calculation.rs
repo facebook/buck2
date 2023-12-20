@@ -62,7 +62,7 @@ use crate::starlark::values::UnpackValue;
 #[async_trait]
 pub trait ActionCalculation {
     async fn get_action(&self, action_key: &ActionKey) -> anyhow::Result<Arc<RegisteredAction>>;
-    async fn build_action(&self, action_key: &ActionKey) -> anyhow::Result<ActionOutputs>;
+    async fn build_action(&self, action_key: ActionKey) -> anyhow::Result<ActionOutputs>;
     async fn build_artifact(&self, artifact: &BuildArtifact) -> anyhow::Result<ActionOutputs>;
 }
 
@@ -83,7 +83,7 @@ async fn build_action_impl(
         // pointing at the same underlying action. We need to make sure that
         // underlying action only gets called once, so call build_action once
         // again with the new key to get DICE deduplication.
-        let res = ActionCalculation::build_action(ctx, action.key()).await;
+        let res = ActionCalculation::build_action(ctx, action.key().clone()).await;
         return res;
     }
 
@@ -379,17 +379,17 @@ impl ActionCalculation for DiceComputations {
             .with_context(|| format!("for action key `{}`", action_key))
     }
 
-    async fn build_action(&self, action_key: &ActionKey) -> anyhow::Result<ActionOutputs> {
+    async fn build_action(&self, action_key: ActionKey) -> anyhow::Result<ActionOutputs> {
         // build_action is called for every action key. We don't use `async fn` to ensure that it has minimal cost.
         // We don't currently consume this in buck_e2e but it's good to log for debugging purposes.
         debug!("build_action {}", action_key);
-        self.compute(BuildKey::ref_cast(action_key))
+        self.compute(&BuildKey(action_key))
             .map(|v| v?.map_err(anyhow::Error::from))
             .await
     }
 
     async fn build_artifact(&self, artifact: &BuildArtifact) -> anyhow::Result<ActionOutputs> {
-        self.build_action(artifact.key()).await
+        self.build_action(artifact.key().clone()).await
     }
 }
 

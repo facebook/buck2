@@ -359,7 +359,7 @@ pub(crate) async fn get_from_template_placeholder_info<'x>(
 
         match artifact.resolved()? {
             ResolvedArtifactGroup::Artifact(artifact) => {
-                handle_artifact(&mut label_to_artifact, artifact)?;
+                handle_artifact(&mut label_to_artifact, &artifact)?;
             }
             ResolvedArtifactGroup::TransitiveSetProjection(tset_key) => {
                 // We've encountered a "top-level" tset node that we haven't yet seen (as either a top-level or intermediate node, doesn't matter).

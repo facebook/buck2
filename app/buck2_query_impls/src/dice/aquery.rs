@@ -165,7 +165,9 @@ async fn convert_inputs<'c, 'a, Iter: IntoIterator<Item = &'a ArtifactGroup>>(
         inputs
             .into_iter()
             .filter_map(|input| match input.assert_resolved() {
-                ResolvedArtifactGroup::Artifact(a) => a.action_key().map(Either::Left),
+                ResolvedArtifactGroup::Artifact(a) => {
+                    a.action_key().map(|k| Either::Left(k.clone()))
+                }
                 ResolvedArtifactGroup::TransitiveSetProjection(key) => Some(Either::Right(key)),
             }),
         |v| v,

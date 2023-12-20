@@ -281,7 +281,7 @@ async fn test_build_action() -> anyhow::Result<()> {
     .await?;
 
     let result = dice_computations
-        .build_action(registered_action.key())
+        .build_action(registered_action.key().clone())
         .await;
 
     assert!(result.is_ok());

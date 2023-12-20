@@ -51,16 +51,20 @@ impl ArtifactGroup {
 
     pub fn resolved(&self) -> anyhow::Result<ResolvedArtifactGroup> {
         Ok(match self {
-            ArtifactGroup::Artifact(a) => ResolvedArtifactGroup::Artifact(a),
+            ArtifactGroup::Artifact(a) => ResolvedArtifactGroup::Artifact(a.clone()),
             ArtifactGroup::TransitiveSetProjection(a) => {
                 ResolvedArtifactGroup::TransitiveSetProjection(a)
             }
-            ArtifactGroup::Promise(p) => ResolvedArtifactGroup::Artifact(p.get_err()?),
+            ArtifactGroup::Promise(p) => ResolvedArtifactGroup::Artifact(p.get_err()?.clone()),
         })
     }
 }
+
+// TODO(@wendyy) if we move PromiseArtifact into ArtifactKind someday, we should probably
+// split the Artifact variant into two cases (artifact by ref and by value) to prevent memory
+// regressions.
 pub enum ResolvedArtifactGroup<'a> {
-    Artifact(&'a Artifact),
+    Artifact(Artifact),
     TransitiveSetProjection(&'a TransitiveSetProjectionKey),
 }
 
