@@ -63,6 +63,7 @@ use buck2_events::dispatch::span_async;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
+use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
@@ -89,6 +90,7 @@ use starlark::any::AnyLifetime;
 use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
 use starlark::environment::Module;
+use starlark::eval::Evaluator;
 use starlark::values::dict::DictOf;
 use starlark::values::structs::AllocStruct;
 use starlark::values::Trace;
@@ -451,6 +453,17 @@ impl AnonTargetKey {
         )
         .await
     }
+}
+
+// TODO(@wendyy) - should put this somewhere common and reuse.
+#[allow(unused)]
+fn eval_starlark_function<'v>(
+    eval: &mut Evaluator<'v, '_>,
+    func: Value<'v>,
+    res: Value<'v>,
+) -> anyhow::Result<Value<'v>> {
+    eval.eval_function(func, &[res], &[])
+        .map_err(|e| BuckStarlarkError::new(e).into())
 }
 
 /// Several attribute functions need a context, make one that is mostly useless.
