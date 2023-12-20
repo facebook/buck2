@@ -18,6 +18,7 @@ use async_trait::async_trait;
 use buck2_analysis::analysis::calculation::get_rule_impl;
 use buck2_analysis::analysis::env::RuleAnalysisAttrResolutionContext;
 use buck2_analysis::analysis::env::RuleImplFunction;
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::analysis::anon_promises_dyn::AnonPromisesDyn;
 use buck2_build_api::analysis::anon_targets_registry::AnonTargetsRegistryDyn;
 use buck2_build_api::analysis::anon_targets_registry::ANON_TARGET_REGISTRY_NEW;
@@ -26,8 +27,10 @@ use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::artifact_groups::promise::PromiseArtifact;
 use buck2_build_api::artifact_groups::promise::PromiseArtifactId;
+use buck2_build_api::artifact_groups::promise::PromiseArtifactResolveError;
 use buck2_build_api::deferred::calculation::EVAL_ANON_TARGET;
 use buck2_build_api::deferred::types::DeferredTable;
+use buck2_build_api::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
@@ -94,6 +97,7 @@ use starlark::eval::Evaluator;
 use starlark::values::dict::DictOf;
 use starlark::values::structs::AllocStruct;
 use starlark::values::Trace;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
 use starlark_map::ordered_map::OrderedMap;
@@ -452,6 +456,39 @@ impl AnonTargetKey {
             }),
         )
         .await
+    }
+
+    #[allow(unused)]
+    fn get_fulfilled_promise_artifacts<'v>(
+        &self,
+        promise_artifact_mappings: SmallMap<String, Value<'v>>,
+        anon_target_result: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<HashMap<PromiseArtifactId, Artifact>> {
+        let mut fulfilled_artifact_mappings = HashMap::new();
+
+        for (id, func) in promise_artifact_mappings.values().enumerate() {
+            let artifact = eval_starlark_function(eval, *func, anon_target_result)?;
+
+            let promise_id =
+                PromiseArtifactId::new(BaseDeferredKey::AnonTarget(self.0.clone()), id);
+
+            match ValueAsArtifactLike::unpack_value(artifact) {
+                Some(artifact) => {
+                    fulfilled_artifact_mappings
+                        .insert(promise_id.clone(), artifact.0.get_bound_artifact()?);
+                }
+                None => {
+                    return Err(PromiseArtifactResolveError::NotAnArtifact(
+                        None, // TODO(@wendyy) remove declaration location from this error variant
+                        artifact.to_repr(),
+                    )
+                    .into());
+                }
+            }
+        }
+
+        Ok(fulfilled_artifact_mappings)
     }
 }
 
