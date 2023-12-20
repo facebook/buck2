@@ -11,6 +11,9 @@ mod artifact_group_values;
 pub mod calculation;
 pub mod deferred;
 pub mod promise;
+
+use crate::interpreter::rule_defs::context::get_artifact_from_anon_target_analysis;
+
 pub mod registry;
 
 use std::hash::Hash;
@@ -19,6 +22,7 @@ use allocative::Allocative;
 pub use artifact_group_values::ArtifactGroupValues;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use derive_more::Display;
+use dice::DiceComputations;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 
@@ -45,10 +49,12 @@ pub enum ArtifactGroup {
 }
 
 impl ArtifactGroup {
+    // TODO(@wendyy) - deprecate
     pub fn assert_resolved(&self) -> ResolvedArtifactGroup {
         self.resolved().unwrap()
     }
 
+    // TODO(@wendyy) - deprecate
     pub fn resolved(&self) -> anyhow::Result<ResolvedArtifactGroup> {
         Ok(match self {
             ArtifactGroup::Artifact(a) => ResolvedArtifactGroup::Artifact(a.clone()),
@@ -56,6 +62,31 @@ impl ArtifactGroup {
                 ResolvedArtifactGroup::TransitiveSetProjection(a)
             }
             ArtifactGroup::Promise(p) => ResolvedArtifactGroup::Artifact(p.get_err()?.clone()),
+        })
+    }
+
+    /// Gets the resolved artifact group, which is used further downstream to use DICE to get
+    /// or compute the actual artifact values. For the `Artifact` variant, we will get the results
+    /// via the base or projected artifact key. For the `TransitiveSetProjection` variant, we will
+    /// look get the resutls via the `EnsureTransitiveSetProjectionKey`, which expands the underlying
+    /// tset. For the `Promise` variant, we will look up the promised artifact values by getting
+    /// the analysis results of the owning anon target's analysis.
+    pub async fn resolved_artifact(
+        &self,
+        ctx: &DiceComputations,
+    ) -> anyhow::Result<ResolvedArtifactGroup> {
+        Ok(match self {
+            ArtifactGroup::Artifact(a) => ResolvedArtifactGroup::Artifact(a.clone()),
+            ArtifactGroup::TransitiveSetProjection(a) => {
+                ResolvedArtifactGroup::TransitiveSetProjection(a)
+            }
+            ArtifactGroup::Promise(p) => match p.get() {
+                Some(a) => ResolvedArtifactGroup::Artifact(a.clone()),
+                None => {
+                    let artifact = get_artifact_from_anon_target_analysis(p, ctx).await?;
+                    ResolvedArtifactGroup::Artifact(artifact)
+                }
+            },
         })
     }
 }
