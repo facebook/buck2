@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::sync::OnceLock;
@@ -15,16 +14,11 @@ use std::sync::OnceLock;
 use allocative::Allocative;
 use buck2_build_api::artifact_groups::promise::PromiseArtifact;
 use buck2_build_api::artifact_groups::promise::PromiseArtifactId;
-use buck2_build_api::artifact_groups::promise::PromiseArtifactResolveError;
-use buck2_build_api::interpreter::rule_defs::artifact::ValueAsArtifactLike;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_error::Context;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use starlark::codemap::FileSpan;
 use starlark::values::Trace;
-use starlark::values::UnpackValue;
 use starlark::values::ValueTyped;
 
 #[derive(Debug, Trace, Allocative)]
@@ -50,48 +44,6 @@ impl<'v> PromiseArtifactRegistry<'v> {
         }
     }
 
-    pub(crate) fn resolve_all(
-        &self,
-        short_paths: &HashMap<PromiseArtifactId, ForwardRelativePathBuf>,
-    ) -> anyhow::Result<()> {
-        for (promise, artifact_entry) in std::iter::zip(&self.promises, &self.artifacts) {
-            match promise.get() {
-                Some(v) => match ValueAsArtifactLike::unpack_value(v) {
-                    Some(v) => {
-                        let short_path = short_paths.get(artifact_entry.artifact.id()).cloned();
-
-                        if let Some(artifact) = v.0.get_associated_artifacts() {
-                            if !artifact.is_empty() {
-                                return Err(
-                                    PromiseArtifactResolveError::HasAssociatedArtifacts.into()
-                                );
-                            }
-                        }
-                        let artifact =
-                            v.0.get_bound_artifact()
-                                .context("expected bound artifact for promise_artifact resolve")?;
-                        artifact_entry.artifact.resolve(artifact, &short_path)?;
-                    }
-                    None => {
-                        return Err(PromiseArtifactResolveError::NotAnArtifact(
-                            artifact_entry.location.clone(),
-                            v.to_repr(),
-                        )
-                        .into());
-                    }
-                },
-                None => {
-                    return Err(PromiseArtifactResolveError::PromiseNotResolved(
-                        artifact_entry.location.clone(),
-                        promise.to_string(),
-                    )
-                    .into());
-                }
-            }
-        }
-        Ok(())
-    }
-
     /// The consumer analysis is the analysis that calls the anon target and uses the resulting
     /// promised artifacts. It could be a normal rule analysis, an analysis from BXL, or an anon
     /// target analysis. These promised artifacts are the ones that will have their short paths
@@ -104,13 +56,12 @@ impl<'v> PromiseArtifactRegistry<'v> {
 
     pub(crate) fn register(
         &mut self,
-        promise: ValueTyped<'v, StarlarkPromise<'v>>,
         location: Option<FileSpan>,
         id: PromiseArtifactId,
     ) -> anyhow::Result<PromiseArtifact> {
-        let artifact = PromiseArtifact::new(Arc::new(OnceLock::new()), Arc::new(id));
+        let artifact: PromiseArtifact =
+            PromiseArtifact::new(Arc::new(OnceLock::new()), Arc::new(id));
 
-        self.promises.push(promise);
         self.artifacts.push(PromiseArtifactEntry {
             location,
             artifact: artifact.dupe(),

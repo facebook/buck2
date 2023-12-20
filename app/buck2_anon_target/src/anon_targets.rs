@@ -48,7 +48,6 @@ use buck2_core::configuration::pair::ConfigurationWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::lex_target_pattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
@@ -425,6 +424,13 @@ impl AnonTargetKey {
                 let res = env.heap().alloc(res_typed);
                 env.set("", res);
 
+                let fulfilled_artifact_mappings = {
+                    let promise_artifact_mappings =
+                        rule_impl.promise_artifact_mappings(&mut eval)?;
+
+                    self.get_fulfilled_promise_artifacts(promise_artifact_mappings, res, &mut eval)?
+                };
+
                 // Pull the ctx object back out, and steal ctx.action's state back
                 let analysis_registry = ctx.take_state();
                 std::mem::drop(eval);
@@ -441,7 +447,7 @@ impl AnonTargetKey {
                     provider_collection,
                     deferred,
                     None,
-                    HashMap::new(),
+                    fulfilled_artifact_mappings,
                 ))
             }
             .map(|res| {
@@ -458,7 +464,6 @@ impl AnonTargetKey {
         .await
     }
 
-    #[allow(unused)]
     fn get_fulfilled_promise_artifacts<'v>(
         &self,
         promise_artifact_mappings: SmallMap<String, Value<'v>>,
@@ -493,7 +498,6 @@ impl AnonTargetKey {
 }
 
 // TODO(@wendyy) - should put this somewhere common and reuse.
-#[allow(unused)]
 fn eval_starlark_function<'v>(
     eval: &mut Evaluator<'v, '_>,
     func: Value<'v>,
@@ -651,28 +655,19 @@ impl<'v> AnonTargetsRegistry<'v> {
 
     pub(crate) fn register_artifact(
         &mut self,
-        promise: ValueTyped<'v, StarlarkPromise<'v>>,
         location: Option<FileSpan>,
         anon_target_key: AnonTargetKey,
         id: usize,
     ) -> anyhow::Result<PromiseArtifact> {
         let anon_target_key = BaseDeferredKey::AnonTarget(anon_target_key.0.dupe());
         let id = PromiseArtifactId::new(anon_target_key, id);
-        self.promise_artifact_registry
-            .register(promise, location, id)
+        self.promise_artifact_registry.register(location, id)
     }
 }
 
 impl<'v> AnonTargetsRegistryDyn<'v> for AnonTargetsRegistry<'v> {
     fn as_any_mut(&mut self) -> &mut dyn AnyLifetime<'v> {
         self
-    }
-
-    fn resolve_artifacts(
-        &self,
-        short_paths: &HashMap<PromiseArtifactId, ForwardRelativePathBuf>,
-    ) -> anyhow::Result<()> {
-        self.promise_artifact_registry.resolve_all(short_paths)
     }
 
     fn consumer_analysis_artifacts(&self) -> Vec<PromiseArtifact> {

@@ -264,13 +264,6 @@ impl<'v> AnalysisRegistry<'v> {
         self.anon_targets.take_promises()
     }
 
-    pub fn resolve_artifacts(
-        &self,
-        short_paths: &HashMap<PromiseArtifactId, ForwardRelativePathBuf>,
-    ) -> anyhow::Result<()> {
-        self.anon_targets.resolve_artifacts(short_paths)
-    }
-
     pub fn consumer_analysis_artifacts(&self) -> Vec<PromiseArtifact> {
         self.anon_targets.consumer_analysis_artifacts()
     }

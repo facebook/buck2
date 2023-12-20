@@ -82,18 +82,12 @@ impl<'v> StarlarkAnonTarget<'v> {
         frozen_artifact_mappings: &Option<FrozenArtifactPromiseMappings>,
         key: AnonTargetKey,
         registry: &mut AnonTargetsRegistry<'v>,
-        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkAnonTarget<'v>> {
         let mut artifacts_map = SmallMap::new();
         if let Some(artifacts) = frozen_artifact_mappings {
-            for (id, (name, func)) in artifacts.mappings.iter().enumerate() {
-                let promise = StarlarkPromise::map(anon_target_promise, func.to_value(), eval)?;
-                let artifact = registry.register_artifact(
-                    promise,
-                    declaration_location.clone(),
-                    key.clone(),
-                    id,
-                )?;
+            for (id, name) in artifacts.mappings.keys().enumerate() {
+                let artifact =
+                    registry.register_artifact(declaration_location.clone(), key.clone(), id)?;
                 artifacts_map.insert(*name, artifact);
             }
         }
@@ -288,7 +282,6 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
             rule.artifact_promise_mappings(),
             key,
             registry,
-            eval,
         )
     }
 
@@ -321,7 +314,6 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
                 rule.artifact_promise_mappings(),
                 key.clone(),
                 registry,
-                eval,
             )?;
 
             anon_targets.push(anon_target);
