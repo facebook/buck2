@@ -62,6 +62,8 @@ def haskell_haddock_lib(ctx: AnalysisContext, pkgname: str) -> Provider:
         if hi != None:
             cmd.add("--read-interface", hi.interface)
 
+    cmd.add(ctx.attrs.haddock_flags)
+
     source_entity = read_root_config("haskell", "haddock_source_entity", None)
     if source_entity:
         cmd.add("--source-entity", source_entity)
@@ -127,6 +129,8 @@ def haskell_haddock_impl(ctx: AnalysisContext) -> list[Provider]:
             cmd.add("--read-interface", hi.interface)
             dep_htmls.append(hi.html)
 
+    cmd.add(ctx.attrs.haddock_flags)
+
     script = ctx.actions.declare_output("haddock-script")
     script_args = cmd_args([
         "#!/bin/sh",
@@ -136,7 +140,7 @@ def haskell_haddock_impl(ctx: AnalysisContext) -> list[Provider]:
     for dir in dep_htmls:
         script_args.add(
             cmd_args(
-                ["cp", "-Rn", cmd_args(dir, format = "{}/*"), out.as_output()],
+                ["cp", "-Rf", "--reflink=auto", cmd_args(dir, format = "{}/*"), out.as_output()],
                 delimiter = " ",
             ),
         )
