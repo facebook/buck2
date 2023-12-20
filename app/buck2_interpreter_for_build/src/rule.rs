@@ -17,6 +17,7 @@ use anyhow::Context;
 use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::plugins::PluginKind;
+use buck2_interpreter::types::rule::FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL;
 use buck2_interpreter::types::rule::FROZEN_RULE_GET_IMPL;
 use buck2_interpreter::types::transition::transition_id_from_value;
 use buck2_node::attrs::attr::Attribute;
@@ -341,6 +342,16 @@ pub(crate) fn init_frozen_rule_get_impl() {
     FROZEN_RULE_GET_IMPL.init(|rule| {
         let rule = unpack_frozen_rule(rule)?;
         Ok(rule.implementation)
+    })
+}
+
+pub(crate) fn init_frozen_promise_artifact_mappings_get_impl() {
+    FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL.init(|rule| {
+        let rule = unpack_frozen_rule(rule)?;
+        Ok(rule
+            .artifact_promise_mappings
+            .as_ref()
+            .map_or(SmallMap::new(), |m| m.mappings.clone()))
     })
 }
 

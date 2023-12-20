@@ -35,6 +35,7 @@ use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
+use buck2_interpreter::types::rule::FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL;
 use buck2_interpreter::types::rule::FROZEN_RULE_GET_IMPL;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::rule_type::StarlarkRuleType;
@@ -45,6 +46,7 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
+use starlark_map::small_map::SmallMap;
 
 use crate::analysis::plugins::plugins_to_starlark_value;
 use crate::attrs::resolve::ctx::AnalysisQueryResult;
@@ -164,6 +166,11 @@ pub trait RuleImplFunction: Sync {
         eval: &mut Evaluator<'v, '_>,
         ctx: ValueTyped<'v, AnalysisContext<'v>>,
     ) -> anyhow::Result<Value<'v>>;
+
+    fn promise_artifact_mappings<'v>(
+        &self,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<SmallMap<String, Value<'v>>>;
 }
 
 /// Container for the environment that analysis implementation functions should run in
@@ -385,6 +392,33 @@ pub fn get_user_defined_rule_impl(
             };
             eval.eval_function(rule_impl.to_value(), &[ctx.to_value()], &[])
                 .map_err(|e| BuckStarlarkError::new(e).into())
+        }
+
+        fn promise_artifact_mappings<'v>(
+            &self,
+            eval: &mut Evaluator<'v, '_>,
+        ) -> anyhow::Result<SmallMap<String, Value<'v>>> {
+            let rule_callable = self
+                .module
+                .get_any_visibility(&self.name)
+                .with_context(|| format!("Couldn't find rule `{}`", self.name))?
+                .0;
+            let frozen_promise_artifact_mappings = {
+                // Need to free up the starlark_ctx borrow before we return
+                let rule_callable = rule_callable.owned_value(eval.frozen_heap());
+                let rule_callable = rule_callable
+                    .unpack_frozen()
+                    .context("Must be frozen (internal error)")?;
+
+                (FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL.get()?)(rule_callable)?
+            };
+
+            Ok(frozen_promise_artifact_mappings
+                .iter()
+                .map(|(frozen_string, frozen_func)| {
+                    (frozen_string.to_string(), frozen_func.to_value())
+                })
+                .collect::<SmallMap<_, _>>())
         }
     }
 

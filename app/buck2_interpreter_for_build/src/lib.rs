@@ -29,5 +29,6 @@ pub fn init_late_bindings() {
         interpreter::build_context::init_starlark_path_from_build_context();
         plugins::init_plugin_kind_from_value_impl();
         rule::init_frozen_rule_get_impl();
+        rule::init_frozen_promise_artifact_mappings_get_impl();
     });
 }
