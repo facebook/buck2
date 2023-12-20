@@ -357,7 +357,7 @@ pub(crate) async fn get_from_template_placeholder_info<'x>(
                 Ok(())
             };
 
-        match artifact.resolved_artifact(ctx).await? {
+        match artifact.resolved()? {
             ResolvedArtifactGroup::Artifact(artifact) => {
                 handle_artifact(&mut label_to_artifact, &artifact)?;
             }
