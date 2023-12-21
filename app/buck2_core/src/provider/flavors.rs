@@ -116,6 +116,8 @@ pub fn map_flavors(flavors: &str, full_target: &str) -> anyhow::Result<Providers
                     "source-abi" => "source-abi".to_owned(),
                     "source-only-abi" => "source-only-abi".to_owned(),
 
+                    "compilation-database" => "compilation-database".to_owned(),
+
                     _ => {
                         return Ok(ProvidersName::NonDefault(Box::new(
                             NonDefaultProvidersName::UnrecognizedFlavor(flavors.into()),
