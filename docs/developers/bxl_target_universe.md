@@ -102,6 +102,19 @@ def _impl:
     rdeps = ctx.cquery().rdeps(universe_node, from_node)
 ```
 
+### `keep-going`
+
+The configured graph can be broken for various reasons: incompatible targets
+(BXL skips these automatically), visibility issues, nonexistent targets, etc.
+For issues that are not incompatible targets, the `target_universe` can be
+constructed with the `keep_going` flag set to `True` to skip any other errors,
+and your cquery will not error out. Note that `keep_going` is only compatible
+for a single string literal target or target pattern at the moment.
+
+```python
+ctx.target_universe("//foo/...", keep_going = True)
+```
+
 ## BXL build and target universe
 
 Note that BXL builds currently do not support target universe, but we intend to
