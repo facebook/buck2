@@ -10,6 +10,14 @@ in BXL may be challenging without much prior knowledge of Buck2 building blocks
 
 ## Common BXL functionalities
 
+### Build
+
+You can build targets within BXL with
+[`ctx.build()`](../../api/bxl/bxl_ctx/#bxl_ctxbuild). The result is a
+[`bxl_build_result`](../../api/bxl/bxl_build_result), which has `artifacts()`
+and `failures()` functions that provide iterators to the artifacts or failures,
+respectively. You can pass in a single target or target pattern to build.
+
 ### Actions
 
 You can create actions directly within the BXL API. The available action APIs
