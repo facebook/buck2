@@ -210,3 +210,25 @@ mocking.
   (`print()` and `ctx.output.print()`).
 - **Test** - the main method to test a BXL script is to actually invoke it with
   required inputs then verify the outputs.
+
+## Getting the path of an artifact as a string
+
+The starlark `artifact` type encapsulates source artifacts, declared artifacts,
+and build artifacts. It can be dangerous to access paths and use them in further
+BXL computations. For example, if you are trying to use absolute paths for
+something and end up passing it into a remotely executed action, the absolute
+path may not exist on the remote machine. Or, if you are working with paths and
+expecting the artifact to already have been materialized in further BXL
+computations, that would also result in errors.
+
+However, if you are not making any assumptions about the existence of these
+artifacts, you can use use
+[`get_path_without_materialization()`](../../api/bxl/globals#get_path_without_materialization),
+which accepts source, declared, or build aritfacts. It does _not_ accept ensured
+artifacts (also see
+[What do I need to know about ensured artifacts](./bxl_faq.md#what-do-i-need-to-know-about-ensured-artifacts)).
+
+For getting paths of `cmd_args()` inputs, you can use
+[`get_paths_without_materialization()`](../../api/bxl/globals#get_paths_without_materialization),
+but note this is risky because the inputs could contain tsets, which, when
+expanded, could be very large. Use these methods at your own risk.
