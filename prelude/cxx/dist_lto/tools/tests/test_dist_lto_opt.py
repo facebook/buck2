@@ -30,7 +30,6 @@ class TestDistLtoOpt(unittest.TestCase):
             flags,
             [
                 "-O2",
-                "-fexperimental-new-pass-manager",
                 "-ffunction-sections",
                 "-fdata-sections",
                 "-mllvm",
@@ -92,7 +91,6 @@ class TestDistLtoOpt(unittest.TestCase):
             "-Wl,-mllvm,-hot-callsite-threshold=12000",
             "-Wl,--lto-whole-program-visibility",
             "-fwhole-program-vtables",
-            "-fexperimental-new-pass-manager",
             "-Wl,--no-discard-section=.nv_fatbin",
             "-Wl,--no-discard-section=.nvFatBinSegment",
             "fbcode/tools/build/move_gpu_sections_implicit_linker_script.txt",
@@ -143,7 +141,6 @@ class TestDistLtoOpt(unittest.TestCase):
             flags,
             [
                 "-O2",
-                "-fexperimental-new-pass-manager",
                 "-ffunction-sections",
                 "-fdata-sections",
                 "-mllvm",
@@ -190,7 +187,6 @@ class TestDistLtoOpt(unittest.TestCase):
             "-Wl,--discard-section=.rela.debug_types",
             "-Wl,-O1",
             "-Wl,--build-id=sha1",
-            "-fexperimental-new-pass-manager",
             "-Xlinker",
             "-znow",
             "-Xlinker",
@@ -262,7 +258,6 @@ class TestDistLtoOpt(unittest.TestCase):
             flags,
             [
                 "-O2",
-                "-fexperimental-new-pass-manager",
                 "-ffunction-sections",
                 "-fdata-sections",
                 "-fprofile-sample-use=buck-out/v2/gen/fbcode/40fc99293b37c503/fdo/autofdo/default_profile/__autofdo__/out/profile",
