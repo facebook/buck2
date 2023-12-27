@@ -18,6 +18,16 @@ You can build targets within BXL with
 and `failures()` functions that provide iterators to the artifacts or failures,
 respectively. You can pass in a single target or target pattern to build.
 
+### Analysis
+
+You can run analysis on targets within BXL via
+[`ctx.analysis()`](../../api/bxl/bxl_ctx/#bxl_ctxanalysis). Analysis means to
+evaluate the underlying rule implementation for the inputted targets, and
+produce the providers that the rule defined for the target. A common workflow is
+to inspect the resulting providers, and perhaps ensure parts of these providers
+or run actions using information from the providers (see [Actions](#actions)
+below).
+
 ### Actions
 
 You can create actions directly within the BXL API. The available action APIs
