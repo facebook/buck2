@@ -28,6 +28,52 @@ to inspect the resulting providers, and perhaps ensure parts of these providers
 or run actions using information from the providers (see [Actions](#actions)
 below).
 
+### Query
+
+Buck2 supports a couple different query types: querying the unconfigured graph
+(`buck2 uquery`), the configured graph (`buck2 cquery`), or the action graph
+(`buck2 aquery`). These queries are all available in BXL as well:
+
+- `ctx.uquery()` returns a [`uqueryctx`](../../api/bxl/uqueryctx)
+- `ctx.cquery()` returns a [`cqueryctx`](../../api/bxl/cqueryctx)
+- `ctx.aquery()` returns a [`aqueryctx`](../../api/bxl/aqueryctx)
+
+You can read more about the individual queries in the API docs. There are many
+queries that are common between uquery, cquery, and aquery, but cquery and
+aquery will have extra queries unique to the configured graph or the action
+graph. One more thing to call out is the `eval()` query, which is a special
+query that takes in the entire query as a string literal. A common use for
+`eval()` is to migrate a complex query from Buck2 CLI to BXL by dropping the
+entire query string directly into `eval()`.
+
+The query results are target sets (iterable container) of
+[`unconfigured_target_node`s](../../api/bxl/unconfigured_target_node) for
+uquery, [`target_node`s](../../api/bxl/target_node) for cquery, and
+[`action_query_node`s](../../api/bxl/action_query_node) for aquery. Each of
+these node types have accessors on their attributes. A common workflow is to run
+some query in BXL, and iterate through the resulting nodes to inspect their
+attributes, and use those attributes to inform further computations in BXL.
+
+#### Uquery
+
+Querying the unconfigured graph means that no configurations (such as platforms
+and transitions) have been applied to the target graph yet. This means that it's
+very possible that some parts of the target graph is broken due to lack of
+configurations. Generally to avoid this problem, cquery may be preferred
+instead.
+
+#### Cquery
+
+Querying the configured graph means that configurations have been applied to the
+target graph. For cquery, we require that users use a
+[target universe](../developers/bxl_target_universe.md) for their query inputs.
+
+#### Aquery
+
+Aquery is a quite different from uquery and cquery. It is used to query the
+action graph, which is constructed after Buck2 runs analysis on the targets and
+produces the list of providers and actions needed to build the target.
+
 ### Actions
 
 You can create actions directly within the BXL API. The available action APIs
