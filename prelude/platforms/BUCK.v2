@@ -9,6 +9,7 @@ execution_platform(
     cpu_configuration = host_configuration.cpu,
     os_configuration = host_configuration.os,
     use_windows_path_separators = host_info().os.is_windows,
+    visibility = ["PUBLIC"],
 )
 
 prelude.constraint_setting(
