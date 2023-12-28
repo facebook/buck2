@@ -6,7 +6,7 @@ title: Target Pattern
 A _target pattern_ is a string that resolves to a set of
 [targets](./glossary.md#target). A target pattern can be used as arguments to
 commands, such as `buck2 build` and `buck uquery`. You can also use build target
-patterns in the [visibility](./glossary.md#visibility)) argument of your build
+patterns in the [visibility](./glossary.md#visibility) argument of your build
 [rules](./glossary.md#rule).
 
 The simplest build target pattern matches the build target of the same name:

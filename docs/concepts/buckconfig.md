@@ -224,3 +224,52 @@ exists.
 [cxx#other_platform]
   cxxppflags="-D MYMACRO=\"Watchman\""
 ```
+
+## Sections
+
+Below is an incomplete list of supported buckconfigs.
+
+## [alias]
+
+This section contains definitions of [build target](build_target.md) aliases.
+
+```
+[alias]app     = //apps/myapp:app
+  apptest = //apps/myapp:test
+```
+
+These aliases can then be used from the command line:
+
+```
+$ buck2 build app
+$ buck2 test apptest
+```
+
+## [repositories]
+
+Lists the cells that constitute the Buck2 project. Buck2 builds that are part of
+this project—that is, which use this `.buckconfig`—can access the cells
+specified in this section.
+
+```
+[repositories]
+    buck = .
+    bazel_skylib = ./third-party/skylark/bazel-skylib
+```
+
+The string on the left-hand side of the equals sign is the _alias_ for the cell.
+The string on the right-hand side of the equals sign is the path to the cell
+from the directory that contains this `.buckconfig` file. It is not necessary to
+include the current cell in this section, but we consider it a best practice to
+do so:
+
+```
+buck = .
+```
+
+You can view the contents of this section using the `buck2 audit cell` command.
+Although the name of the section is _repositories_, the section actually lists
+_cells_. In practice, Buck cells often correspond to repositories, but this is
+not a requirement. For more information about the relationship between Buck
+projects, cells, and repositories, see the [Key Concepts](key_concepts.md)
+topic.
