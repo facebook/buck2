@@ -36,7 +36,7 @@ already exist?
   waiting.
 - **Hermetic**. When using Remote Execution[^hermetic-re-only], Buck2 becomes
   *hermetic*: it is required for a build rule to correctly declare all of its
-  inputs; if they aren't specified correctly (e.g. a `.c` file neeads a `.h`
+  inputs; if they aren't specified correctly (e.g. a `.c` file needs a `.h`
   file that isn't correctly specified), the build will fail. This enforced
   correctness helps avoids entire classes of errors that most build systems
   allow, and helps ensure builds work everywhere for all users. And Buck2
