@@ -199,7 +199,8 @@ def generate_rustdoc(
             if dep.name:
                 name = normalize_crate(dep.name)
             else:
-                name = dep.info.crate
+                # TODO: resolve this using dynamic (if set), see comment on D52476603
+                name = dep.info.crate.simple
 
             rustdoc_cmd.add(
                 "--extern-html-root-url={}={}/{}:{}"
