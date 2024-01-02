@@ -104,7 +104,15 @@ def android_prebuilt_aar_impl(ctx: AnalysisContext) -> list[Provider]:
         linkable_graph,
         template_placeholder_info,
         java_library_intellij_info,
-        merge_android_packageable_info(ctx.label, ctx.actions, ctx.attrs.deps, manifest = manifest, prebuilt_native_library_dir = native_library, resource_info = resource_info),
+        merge_android_packageable_info(
+            ctx.label,
+            ctx.actions,
+            ctx.attrs.deps,
+            manifest = manifest,
+            prebuilt_native_library_dir = native_library,
+            resource_info = resource_info,
+            for_primary_apk = ctx.attrs.for_primary_apk,
+        ),
         resource_info,
         DefaultInfo(default_output = all_classes_jar, other_outputs = [
             manifest,
