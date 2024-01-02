@@ -124,11 +124,11 @@ def list_starlark_files(git: bool):
     ]
     excludes = [
         "starlark-rust/starlark/testcases/",
-        "tests/meta_only/e2e/test_starlark_data/bad_warning.bzl",
-        "tests/meta_only/e2e/test_lsp_data/bad_syntax.bzl",
-        "tests/meta_only/e2e/test_lsp_data/query.bxl",
-        "tests/meta_only/e2e/test_lsp_data/globals.bzl",
-        "tests/meta_only/e2e/test_lsp_data/cell/sub/defs.bzl",
+        "tests/e2e/test_starlark_data/bad_warning.bzl",
+        "tests/e2e/test_lsp_data/bad_syntax.bzl",
+        "tests/e2e/test_lsp_data/query.bxl",
+        "tests/e2e/test_lsp_data/globals.bzl",
+        "tests/e2e/test_lsp_data/cell/sub/defs.bzl",
         "**.rs",
         "**.fixture",
         "**.buckconfig",
