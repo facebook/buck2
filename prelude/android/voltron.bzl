@@ -16,6 +16,7 @@ load(
     "traverse_shared_library_info",
 )
 load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//utils:set.bzl", "set")
 load("@prelude//utils:utils.bzl", "flatten")
 
 # "Voltron" gives us the ability to split our Android APKs into different "modules". These
@@ -149,11 +150,14 @@ def _get_base_cmd_and_output(
         application_module_dependencies: [dict[str, list[str]], None],
         application_module_blocklist: [list[list[Dependency]], None]) -> (cmd_args, Artifact):
     deps_map = {}
+    primary_apk_deps = set()
     for android_packageable_info in android_packageable_infos:
         if android_packageable_info.deps:
             for deps_info in android_packageable_info.deps.traverse():
                 deps = deps_map.setdefault(deps_info.name, [])
                 deps_map[deps_info.name] = dedupe(deps + deps_info.deps)
+                if deps_info.for_primary_apk:
+                    primary_apk_deps.add(deps_info.name)
 
     target_graph_file = actions.write_json("target_graph.json", deps_map)
     application_module_configs_map = {
@@ -183,8 +187,8 @@ def _get_base_cmd_and_output(
     used_by_wrap_script_libs = [str(shared_lib.label.raw_target()) for shared_lib in shared_libraries if shared_lib.for_primary_apk]
     prebuilt_native_library_dirs = flatten([list(android_packageable_info.prebuilt_native_library_dirs.traverse()) if android_packageable_info.prebuilt_native_library_dirs else [] for android_packageable_info in android_packageable_infos])
     prebuilt_native_library_targets_for_primary_apk = dedupe([str(native_lib_dir.raw_target) for native_lib_dir in prebuilt_native_library_dirs if native_lib_dir.for_primary_apk])
-    if application_module_blocklist or used_by_wrap_script_libs or prebuilt_native_library_targets_for_primary_apk:
-        all_blocklisted_deps = used_by_wrap_script_libs + prebuilt_native_library_targets_for_primary_apk
+    if application_module_blocklist or used_by_wrap_script_libs or prebuilt_native_library_targets_for_primary_apk or primary_apk_deps.size() > 0:
+        all_blocklisted_deps = used_by_wrap_script_libs + prebuilt_native_library_targets_for_primary_apk + primary_apk_deps.list()
         if application_module_blocklist:
             all_blocklisted_deps.extend([str(blocklisted_dep.label.raw_target()) for blocklisted_dep in flatten(application_module_blocklist)])
 

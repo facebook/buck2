@@ -160,6 +160,7 @@ ResourceInfoTSet = transitive_set()
 DepsInfo = record(
     name = TargetLabel,
     deps = list[TargetLabel],
+    for_primary_apk = bool,
 )
 
 AndroidPackageableInfo = provider(
@@ -244,7 +245,8 @@ def merge_android_packageable_info(
         build_config_info: [AndroidBuildConfigInfo, None] = None,
         manifest: [Artifact, None] = None,
         prebuilt_native_library_dir: [PrebuiltNativeLibraryDir, None] = None,
-        resource_info: [AndroidResourceInfo, None] = None) -> AndroidPackageableInfo:
+        resource_info: [AndroidResourceInfo, None] = None,
+        for_primary_apk: bool = False) -> AndroidPackageableInfo:
     android_packageable_deps = filter(None, [x.get(AndroidPackageableInfo) for x in deps])
 
     build_config_infos = _get_transitive_set(
@@ -260,6 +262,7 @@ def merge_android_packageable_info(
         DepsInfo(
             name = label.raw_target(),
             deps = [dep.target_label for dep in android_packageable_deps],
+            for_primary_apk = for_primary_apk,
         ),
         AndroidDepsTSet,
     )
