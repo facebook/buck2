@@ -60,7 +60,7 @@ struct FileStatusResult<'a> {
     /// Number of ones that were bad
     bad: usize,
     /// Whether to write matches
-    verbose: bool,
+    show_matches: bool,
     stdout: StdoutPartialOutput<'a>,
 }
 
@@ -86,7 +86,7 @@ impl FileStatusResult<'_> {
                 kind, path, fs, dice,
             )?;
             self.bad += 1;
-        } else if self.verbose {
+        } else if self.show_matches {
             writeln!(self.stdout, "Match: {} at {}: {}", kind, path, fs)?;
         }
 
@@ -132,7 +132,7 @@ impl ServerCommandTemplate for FileStatusServerCommand {
         let mut result = FileStatusResult {
             checked: 0,
             bad: 0,
-            verbose: self.req.verbose,
+            show_matches: self.req.show_matches,
             stdout,
         };
 

@@ -30,8 +30,8 @@ pub struct FileStatusCommand {
     #[clap(value_name = "PATH", required = true)]
     paths: Vec<PathArg>,
 
-    #[clap(long, short)]
-    verbose: bool,
+    #[clap(long, short, help = "Print all matches")]
+    show_matches: bool,
 }
 
 #[async_trait]
@@ -57,7 +57,7 @@ impl StreamingCommand for FileStatusCommand {
                     paths: self
                         .paths
                         .try_map(|x| x.resolve(&ctx.working_dir).into_string())?,
-                    verbose: self.verbose,
+                    show_matches: self.show_matches,
                 },
                 ctx.stdin()
                     .console_interaction_stream(&self.common_opts.console_opts),
