@@ -297,17 +297,17 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         toolchain_info.rustc_target_triple == targets.exec_triple(ctx)
 
     if ctx.attrs.doc_link_style:
-        doc_link_style = LinkStyle(ctx.attrs.doc_link_style)
+        doc_link_strategy = to_link_strategy(LinkStyle(ctx.attrs.doc_link_style))
     else:
-        doc_link_style = {
-            "any": LinkStyle("shared"),
-            "shared": LinkStyle("shared"),
-            "static": DEFAULT_STATIC_LINK_STYLE,
+        doc_link_strategy = {
+            "any": LinkStrategy("shared"),
+            "shared": LinkStrategy("shared"),
+            "static": to_link_strategy(DEFAULT_STATIC_LINK_STYLE),
         }[ctx.attrs.preferred_linkage]
     rustdoc_test_params = build_params(
         rule = RuleType("binary"),
         proc_macro = ctx.attrs.proc_macro,
-        link_style = doc_link_style,
+        link_strategy = doc_link_strategy,
         preferred_linkage = Linkage(ctx.attrs.preferred_linkage),
         lang = LinkageLang("rust"),
         linker_type = compile_ctx.cxx_toolchain_info.linker_info.type,
@@ -403,7 +403,7 @@ def _build_params_for_styles(
             params = build_params(
                 rule = RuleType("library"),
                 proc_macro = ctx.attrs.proc_macro,
-                link_style = link_style,
+                link_strategy = to_link_strategy(link_style),
                 preferred_linkage = Linkage(ctx.attrs.preferred_linkage),
                 lang = linkage_lang,
                 linker_type = linker_type,

@@ -32,7 +32,6 @@ load(
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStrategy",
-    "LinkStyle",
     "Linkage",
     "to_link_strategy",
 )
@@ -119,8 +118,7 @@ def _rust_binary_common(
         params = build_params(
             rule = RuleType("binary"),
             proc_macro = False,
-            # FIXME(JakobDegen): Yeet link style
-            link_style = LinkStyle(link_strategy.value),
+            link_strategy = link_strategy,
             preferred_linkage = Linkage("any"),
             lang = LinkageLang("rust"),
             linker_type = linker_type,

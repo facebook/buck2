@@ -15,10 +15,8 @@ load(
     "@prelude//linking:link_info.bzl",
     "LibOutputStyle",
     "LinkStrategy",
-    "LinkStyle",
     "Linkage",  # @unused Used as a type
     "get_lib_output_style",
-    "to_link_strategy",
 )
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:expect.bzl", "expect")
@@ -304,7 +302,7 @@ def _get_flags(build_kind_key: int, target_os_type: OsLookup) -> (RustcFlags, Re
 def build_params(
         rule: RuleType,
         proc_macro: bool,
-        link_style: LinkStyle,
+        link_strategy: LinkStrategy,
         preferred_linkage: Linkage,
         lang: LinkageLang,
         linker_type: str,
@@ -321,14 +319,14 @@ def build_params(
 
     if rule == RuleType("binary"):
         # FIXME(JakobDegen): Temporary hack to make the types work
-        if link_style == LinkStyle("shared"):
+        if link_strategy == LinkStrategy("shared"):
             lib_output_style = LibOutputStyle("shared_lib")
-        elif link_style == LinkStyle("static"):
+        elif link_strategy == LinkStrategy("static"):
             lib_output_style = LibOutputStyle("archive")
         else:
             lib_output_style = LibOutputStyle("pic_archive")
     else:
-        lib_output_style = get_lib_output_style(to_link_strategy(link_style), preferred_linkage, pic_behavior)
+        lib_output_style = get_lib_output_style(link_strategy, preferred_linkage, pic_behavior)
 
     input = (rule.value, proc_macro, lib_output_style.value, lang.value)
 
