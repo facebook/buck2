@@ -234,7 +234,6 @@ CLIPPY_ALLOW = [
     "clippy::await_holding_lock",  # FIXME new in Rust 1.74
     "clippy::needless_borrows_for_generic_args",  # FIXME new in Rust 1.74
     "clippy::non_canonical_partial_ord_impl",  # FIXME new in Rust 1.74
-    "clippy::unnecessary_map_on_constructor",  # FIXME new in Rust 1.74
 ]
 
 CLIPPY_DENY = [

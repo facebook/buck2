@@ -593,13 +593,12 @@ impl ConfigurationCalculation for DiceComputations {
                 {
                     Some(configuration_info) => configuration_info,
                     None => {
-                        return Err::<_, anyhow::Error>(
+                        return Err::<_, buck2_error::Error>(
                             ConfigurationError::MissingConfigurationInfoProvider(
                                 self.cfg_target.dupe(),
                             )
                             .into(),
-                        )
-                        .map_err(buck2_error::Error::from);
+                        );
                     }
                 }
                 .to_config_setting_data();
