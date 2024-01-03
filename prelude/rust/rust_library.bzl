@@ -650,7 +650,6 @@ def _native_providers(
         )
         external_debug_infos[output_style] = external_debug_info
 
-        # DO NOT COMMIT: verify this change
         if output_style == LibOutputStyle("shared_lib"):
             link_infos[output_style] = LinkInfos(
                 default = LinkInfo(
