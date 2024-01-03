@@ -20,7 +20,7 @@
 
 load("@prelude//:prelude.bzl", "native")
 load("@prelude//decls:common.bzl", "buck")
-load("@prelude//linking:link_info.bzl", "LinkStyle")
+load("@prelude//linking:link_info.bzl", "LinkStrategy")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
 load("@prelude//rust:targets.bzl", "targets")
@@ -53,7 +53,7 @@ def _make_rustc_shim(ctx: AnalysisContext, cwd: Artifact) -> cmd_args:
             deps,
             "any",  # subdir
             CrateType("rlib"),
-            LinkStyle("static_pic"),
+            LinkStrategy("static_pic"),
             True,  # is_check
             False,  # is_rustdoc_test
         )

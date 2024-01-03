@@ -33,6 +33,7 @@ load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
     "Linkage",
+    "to_link_strategy",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -193,7 +194,7 @@ def _rust_binary_common(
             compile_ctx = compile_ctx,
             emits = [Emit("link"), Emit("metadata")],
             params = params,
-            dep_link_style = link_style,
+            dep_link_strategy = to_link_strategy(link_style),
             default_roots = default_roots,
             extra_link_args = executable_args.extra_link_args,
             predeclared_outputs = {Emit("link"): output},
@@ -291,7 +292,7 @@ def _rust_binary_common(
         compile_ctx = compile_ctx,
         emit = Emit("expand"),
         params = style_param[DEFAULT_STATIC_LINK_STYLE],
-        dep_link_style = DEFAULT_STATIC_LINK_STYLE,
+        dep_link_strategy = to_link_strategy(DEFAULT_STATIC_LINK_STYLE),
         default_roots = default_roots,
         extra_flags = extra_flags,
     )

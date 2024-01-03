@@ -52,6 +52,7 @@ load(
     "create_merged_link_info_for_propagation",
     "get_lib_output_style",
     "legacy_output_style_to_link_style",
+    "to_link_strategy",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
@@ -105,7 +106,7 @@ load(
     "inherited_shared_libs",
     "resolve_deps",
     "resolve_rust_deps",
-    "style_info",
+    "strategy_info",
 )
 load(":proc_macro_alias.bzl", "rust_proc_macro_alias")
 load(":resources.bzl", "rust_attr_resources")
@@ -135,8 +136,8 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     crate = attr_crate(ctx)
     styles = {}
     for style in LinkStyle:
-        dep_link_style = style
-        tdeps, tmetadeps, external_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_ctx, dep_link_style)
+        dep_link_strategy = to_link_strategy(style)
+        tdeps, tmetadeps, external_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_ctx, dep_link_strategy)
         external_debug_info = make_artifact_tset(
             actions = ctx.actions,
             children = external_debug_info,
@@ -315,7 +316,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     rustdoc_test = generate_rustdoc_test(
         ctx = ctx,
         compile_ctx = compile_ctx,
-        link_style = rustdoc_test_params.dep_link_style,
+        link_strategy = rustdoc_test_params.dep_link_strategy,
         library = rust_param_artifact[static_library_params],
         params = rustdoc_test_params,
         default_roots = default_roots,
@@ -326,7 +327,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         compile_ctx = compile_ctx,
         emit = Emit("expand"),
         params = static_library_params,
-        dep_link_style = DEFAULT_STATIC_LINK_STYLE,
+        dep_link_strategy = to_link_strategy(DEFAULT_STATIC_LINK_STYLE),
         default_roots = default_roots,
     )
 
@@ -424,7 +425,7 @@ def _build_library_artifacts(
     param_artifact = {}
 
     for params in params:
-        dep_link_style = params.dep_link_style
+        dep_link_strategy = params.dep_link_strategy
 
         # Separate actions for each emit type
         #
@@ -434,7 +435,7 @@ def _build_library_artifacts(
             compile_ctx = compile_ctx,
             emits = [Emit("link"), Emit("metadata")],
             params = params,
-            dep_link_style = dep_link_style,
+            dep_link_strategy = dep_link_strategy,
             default_roots = ["lib.rs"],
         )
 
@@ -453,12 +454,12 @@ def _handle_rust_artifact(
     is computing the right set of dependencies.
     """
 
-    dep_link_style = params.dep_link_style
+    dep_link_strategy = params.dep_link_strategy
 
     # If we're a crate where our consumers should care about transitive deps,
     # then compute them (specifically, not proc-macro).
     if crate_type_transitive_deps(params.crate_type):
-        tdeps, tmetadeps, external_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_ctx, dep_link_style)
+        tdeps, tmetadeps, external_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_ctx, dep_link_strategy)
     else:
         tdeps, tmetadeps, external_debug_info, tprocmacrodeps = {}, {}, [], {}
 
@@ -634,7 +635,7 @@ def _native_providers(
             ctx = ctx,
             dep_ctx = compile_ctx.dep_ctx,
             dwo_output_directory = lib.dwo_output_directory,
-            dep_link_style = params.dep_link_style,
+            dep_link_strategy = params.dep_link_strategy,
         )
         external_debug_infos[output_style] = external_debug_info
 
@@ -753,7 +754,7 @@ def _native_providers(
 def _compute_transitive_deps(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext,
-        dep_link_style: LinkStyle) -> (
+        dep_link_strategy: LinkStrategy) -> (
     dict[Artifact, CrateName],
     dict[Artifact, CrateName],
     list[ArtifactTSet],
@@ -770,16 +771,16 @@ def _compute_transitive_deps(
 
             # We don't want to propagate proc macros directly, and they have no transitive deps
             continue
-        style = style_info(dep.info, dep_link_style)
-        transitive_deps[style.rlib] = dep.info.crate
-        transitive_deps.update(style.transitive_deps)
+        strategy = strategy_info(dep.info, dep_link_strategy)
+        transitive_deps[strategy.rlib] = dep.info.crate
+        transitive_deps.update(strategy.transitive_deps)
 
-        transitive_rmeta_deps[style.rmeta] = dep.info.crate
-        transitive_rmeta_deps.update(style.transitive_rmeta_deps)
+        transitive_rmeta_deps[strategy.rmeta] = dep.info.crate
+        transitive_rmeta_deps.update(strategy.transitive_rmeta_deps)
 
-        external_debug_info.append(style.external_debug_info)
+        external_debug_info.append(strategy.external_debug_info)
 
-        transitive_proc_macro_deps.update(style.transitive_proc_macro_deps)
+        transitive_proc_macro_deps.update(strategy.transitive_proc_macro_deps)
 
     return transitive_deps, transitive_rmeta_deps, external_debug_info, transitive_proc_macro_deps
 

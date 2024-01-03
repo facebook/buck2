@@ -40,6 +40,7 @@ load(
 load(
     "@prelude//linking:link_info.bzl",
     "LinkInfo",
+    "LinkStrategy",
     "LinkStyle",
     "Linkage",  # @unused Used as a type
     "MergedLinkInfo",
@@ -131,15 +132,17 @@ RustLinkInfo = provider(
     },
 )
 
-def _adjust_link_style_for_rust_dependencies(dep_link_style: LinkStyle) -> LinkStyle:
-    if FORCE_RLIB and dep_link_style == LinkStyle("shared"):
-        return DEFAULT_STATIC_LINK_STYLE
+def _adjust_link_strategy_for_rust_dependencies(dep_link_strategy: LinkStrategy) -> LinkStrategy:
+    if FORCE_RLIB and dep_link_strategy == LinkStrategy("shared"):
+        return to_link_strategy(DEFAULT_STATIC_LINK_STYLE)
     else:
-        return dep_link_style
+        return dep_link_strategy
 
-def style_info(info: RustLinkInfo, dep_link_style: LinkStyle) -> RustLinkStyleInfo:
-    rust_dep_link_style = _adjust_link_style_for_rust_dependencies(dep_link_style)
-    return info.styles[rust_dep_link_style]
+def strategy_info(info: RustLinkInfo, dep_link_strategy: LinkStrategy) -> RustLinkStyleInfo:
+    rust_dep_link_strategy = _adjust_link_strategy_for_rust_dependencies(dep_link_strategy)
+
+    # FIXME(JakobDegen): Yeet `LinkStyle`
+    return info.styles[LinkStyle(rust_dep_link_strategy.value)]
 
 # Any dependency of a Rust crate
 RustOrNativeDependency = record(
@@ -500,18 +503,18 @@ def inherited_external_debug_info(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext,
         dwo_output_directory: [Artifact, None],
-        dep_link_style: LinkStyle) -> ArtifactTSet:
+        dep_link_strategy: LinkStrategy) -> ArtifactTSet:
     inherited_debug_infos = []
     inherited_link_infos = []
 
     for d in resolve_deps(ctx, dep_ctx):
         if RustLinkInfo in d.dep:
-            inherited_debug_infos.append(style_info(d.dep[RustLinkInfo], dep_link_style).external_debug_info)
+            inherited_debug_infos.append(strategy_info(d.dep[RustLinkInfo], dep_link_strategy).external_debug_info)
             inherited_link_infos.append(d.dep[RustLinkInfo].merged_link_info)
         elif MergedLinkInfo in d.dep:
             inherited_link_infos.append(d.dep[MergedLinkInfo])
 
-    link_args = get_link_args_for_strategy(ctx, inherited_link_infos, to_link_strategy(dep_link_style))
+    link_args = get_link_args_for_strategy(ctx, inherited_link_infos, dep_link_strategy)
     inherited_debug_infos.append(unpack_external_debug_info(ctx.actions, link_args))
 
     return make_artifact_tset(

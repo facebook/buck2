@@ -27,9 +27,8 @@ load(
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
-    "LinkStyle",
+    "LinkStrategy",  # @unused Used as a type
     "get_link_args_for_strategy",
-    "to_link_strategy",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -77,7 +76,7 @@ load(
     "inherited_shared_libs",
     "normalize_crate",
     "resolve_rust_deps",
-    "style_info",
+    "strategy_info",
 )
 load(":resources.bzl", "rust_attr_resources")
 load(":rust_toolchain.bzl", "PanicRuntime", "RustToolchainInfo")
@@ -162,7 +161,7 @@ def generate_rustdoc(
         # rather than full .rlibs
         emit = Emit("metadata"),
         params = params,
-        dep_link_style = params.dep_link_style,
+        dep_link_strategy = params.dep_link_strategy,
         default_roots = default_roots,
         is_rustdoc_test = False,
     )
@@ -223,7 +222,7 @@ def generate_rustdoc(
 def generate_rustdoc_test(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
-        link_style: LinkStyle,
+        link_strategy: LinkStrategy,
         library: RustLinkStyleInfo,
         params: BuildParams,
         default_roots: list[str]) -> (cmd_args, dict[str, cmd_args]):
@@ -251,7 +250,7 @@ def generate_rustdoc_test(
 
     # Gather and setup symlink tree of transitive shared library deps.
     shared_libs = {}
-    if link_style == LinkStyle("shared"):
+    if link_strategy == LinkStrategy("shared"):
         shlib_info = merge_shared_libraries(
             ctx.actions,
             deps = inherited_shared_libs(ctx, doc_dep_ctx),
@@ -271,7 +270,7 @@ def generate_rustdoc_test(
         dep_ctx = doc_dep_ctx,
         emit = Emit("link"),
         params = params,
-        dep_link_style = params.dep_link_style,
+        dep_link_strategy = params.dep_link_strategy,
         default_roots = default_roots,
         is_rustdoc_test = True,
     )
@@ -284,8 +283,7 @@ def generate_rustdoc_test(
             get_link_args_for_strategy(
                 ctx,
                 inherited_merged_link_infos(ctx, doc_dep_ctx),
-                # TODO(cjhopman): It's unclear how rust is using link_style. I'm not sure if it's intended to be a LibOutputStyle or a LinkStrategy.
-                to_link_strategy(link_style),
+                link_strategy,
             ),
         ],
         "{}-{}".format(common_args.subdir, common_args.tempfile),
@@ -355,7 +353,7 @@ def rust_compile_multi(
         compile_ctx: CompileContext,
         emits: list[Emit],
         params: BuildParams,
-        dep_link_style: LinkStyle,
+        dep_link_strategy: LinkStrategy,
         default_roots: list[str],
         extra_link_args: list[typing.Any] = [],
         predeclared_outputs: dict[Emit, Artifact] = {},
@@ -371,7 +369,7 @@ def rust_compile_multi(
             compile_ctx = compile_ctx,
             emit = emit,
             params = params,
-            dep_link_style = dep_link_style,
+            dep_link_strategy = dep_link_strategy,
             default_roots = default_roots,
             extra_link_args = extra_link_args,
             predeclared_outputs = predeclared_outputs,
@@ -392,7 +390,7 @@ def rust_compile(
         compile_ctx: CompileContext,
         emit: Emit,
         params: BuildParams,
-        dep_link_style: LinkStyle,
+        dep_link_strategy: LinkStrategy,
         default_roots: list[str],
         extra_link_args: list[typing.Any] = [],
         predeclared_outputs: dict[Emit, Artifact] = {},
@@ -412,7 +410,7 @@ def rust_compile(
         dep_ctx = compile_ctx.dep_ctx,
         emit = emit,
         params = params,
-        dep_link_style = dep_link_style,
+        dep_link_strategy = dep_link_strategy,
         default_roots = default_roots,
         is_rustdoc_test = False,
     )
@@ -476,8 +474,7 @@ def rust_compile(
                     ctx,
                     compile_ctx.dep_ctx,
                 ),
-                # TODO(cjhopman): It's unclear how rust is using link_style. I'm not sure if it's intended to be a LibOutputStyle or a LinkStrategy.
-                to_link_strategy(dep_link_style),
+                dep_link_strategy,
             )
 
         link_args_output = make_link_args(
@@ -583,7 +580,7 @@ def rust_compile(
             ctx = ctx,
             dep_ctx = compile_ctx.dep_ctx,
             dwo_output_directory = dwo_output_directory,
-            dep_link_style = params.dep_link_style,
+            dep_link_strategy = params.dep_link_strategy,
         )
         dwp_inputs.extend(project_artifacts(ctx.actions, [external_debug_info]))
     else:
@@ -626,7 +623,7 @@ def dependency_args(
         deps: list[RustDependency],
         subdir: str,
         crate_type: CrateType,
-        dep_link_style: LinkStyle,
+        dep_link_strategy: LinkStrategy,
         is_check: bool,
         is_rustdoc_test: bool) -> (cmd_args, list[(CrateName, Label)]):
     args = cmd_args()
@@ -642,23 +639,23 @@ def dependency_args(
         else:
             crate = dep.info.crate
 
-        style = style_info(dep.info, dep_link_style)
+        strategy = strategy_info(dep.info, dep_link_strategy)
 
         use_rmeta = is_check or (compile_ctx.toolchain_info.pipelined and not crate_type_codegen(crate_type) and not is_rustdoc_test)
 
         # Use rmeta dependencies whenever possible because they
         # should be cheaper to produce.
         if use_rmeta:
-            artifact = style.rmeta
-            transitive_artifacts = style.transitive_rmeta_deps
+            artifact = strategy.rmeta
+            transitive_artifacts = strategy.transitive_rmeta_deps
         else:
-            artifact = style.rlib
-            transitive_artifacts = style.transitive_deps
+            artifact = strategy.rlib
+            transitive_artifacts = strategy.transitive_deps
 
-        for marker in style.transitive_proc_macro_deps.keys():
+        for marker in strategy.transitive_proc_macro_deps.keys():
             info = available_proc_macros[marker.label][RustLinkInfo]
-            style = style_info(info, dep_link_style)
-            transitive_deps[style.rmeta if use_rmeta else style.rlib] = info.crate
+            strategy = strategy_info(info, dep_link_strategy)
+            transitive_deps[strategy.rmeta if use_rmeta else strategy.rlib] = info.crate
 
         args.add(extern_arg(ctx, compile_ctx, dep.flags, crate, artifact))
         crate_targets.append((crate, dep.label))
@@ -768,7 +765,7 @@ def _compute_common_args(
         dep_ctx: DepCollectionContext,
         emit: Emit,
         params: BuildParams,
-        dep_link_style: LinkStyle,
+        dep_link_strategy: LinkStrategy,
         default_roots: list[str],
         is_rustdoc_test: bool) -> CommonArgsInfo:
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
@@ -776,7 +773,7 @@ def _compute_common_args(
 
     crate_type = params.crate_type
 
-    args_key = (crate_type, emit, dep_link_style, is_rustdoc_test)
+    args_key = (crate_type, emit, dep_link_strategy, is_rustdoc_test)
     if False:
         # TODO(nga): following `if args_key in ...` is no-op, and typechecker does not like it.
         def unknown():
@@ -787,7 +784,7 @@ def _compute_common_args(
         return compile_ctx.common_args[args_key]
 
     # Keep filenames distinct in per-flavour subdirs
-    subdir = "{}-{}-{}-{}".format(crate_type.value, params.reloc_model.value, dep_link_style.value, emit.value)
+    subdir = "{}-{}-{}-{}".format(crate_type.value, params.reloc_model.value, dep_link_strategy.value, emit.value)
     if is_rustdoc_test:
         subdir = "{}-rustdoc-test".format(subdir)
 
@@ -809,7 +806,7 @@ def _compute_common_args(
         deps = resolve_rust_deps(ctx, dep_ctx),
         subdir = subdir,
         crate_type = crate_type,
-        dep_link_style = dep_link_style,
+        dep_link_strategy = dep_link_strategy,
         is_check = is_check,
         is_rustdoc_test = is_rustdoc_test,
     )

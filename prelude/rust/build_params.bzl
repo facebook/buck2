@@ -9,6 +9,7 @@
 
 load(
     "@prelude//linking:link_info.bzl",
+    "LinkStrategy",
     "LinkStyle",
     "Linkage",  # @unused Used as a type
 )
@@ -84,8 +85,7 @@ def emit_needs_codegen(emit: Emit) -> bool:
 BuildParams = record(
     crate_type = field(CrateType),
     reloc_model = field(RelocModel),
-    # TODO(cjhopman): Is this a LibOutputStyle or a LinkStrategy?
-    dep_link_style = field(LinkStyle),  # what link_style to use for dependencies
+    dep_link_strategy = field(LinkStrategy),
     # A prefix and suffix to use for the name of the produced artifact. Note that although we store
     # these in this type, they are in principle computable from the remaining fields and the OS.
     # Keeping them here just turns out to be a little more convenient.
@@ -96,7 +96,7 @@ BuildParams = record(
 RustcFlags = record(
     crate_type = field(CrateType),
     reloc_model = field(RelocModel),
-    dep_link_style = field(LinkStyle),
+    dep_link_strategy = field(LinkStrategy),
     platform_to_affix = field(typing.Callable),
 )
 
@@ -187,61 +187,61 @@ _BUILD_PARAMS = {
     _BINARY_SHARED: RustcFlags(
         crate_type = CrateType("bin"),
         reloc_model = RelocModel("pic"),
-        dep_link_style = LinkStyle("shared"),
+        dep_link_strategy = LinkStrategy("shared"),
         platform_to_affix = _executable_prefix_suffix,
     ),
     _BINARY_PIE: RustcFlags(
         crate_type = CrateType("bin"),
         reloc_model = RelocModel("pic"),
-        dep_link_style = LinkStyle("static_pic"),
+        dep_link_strategy = LinkStrategy("static_pic"),
         platform_to_affix = _executable_prefix_suffix,
     ),
     _BINARY_NON_PIE: RustcFlags(
         crate_type = CrateType("bin"),
         reloc_model = RelocModel("static"),
-        dep_link_style = LinkStyle("static"),
+        dep_link_strategy = LinkStrategy("static"),
         platform_to_affix = _executable_prefix_suffix,
     ),
     _NATIVE_LINKABLE_SHARED_OBJECT: RustcFlags(
         crate_type = CrateType("cdylib"),
         reloc_model = RelocModel("pic"),
-        dep_link_style = LinkStyle("shared"),
+        dep_link_strategy = LinkStrategy("shared"),
         platform_to_affix = _library_prefix_suffix,
     ),
     _RUST_DYLIB_SHARED: RustcFlags(
         crate_type = CrateType("dylib"),
         reloc_model = RelocModel("pic"),
-        dep_link_style = LinkStyle("shared"),
+        dep_link_strategy = LinkStrategy("shared"),
         platform_to_affix = _library_prefix_suffix,
     ),
     _RUST_PROC_MACRO: RustcFlags(
         crate_type = CrateType("proc-macro"),
         reloc_model = RelocModel("pic"),
-        dep_link_style = LinkStyle("static_pic"),
+        dep_link_strategy = LinkStrategy("static_pic"),
         platform_to_affix = _library_prefix_suffix,
     ),
     _RUST_STATIC_PIC_LIBRARY: RustcFlags(
         crate_type = CrateType("rlib"),
         reloc_model = RelocModel("pic"),
-        dep_link_style = LinkStyle("static_pic"),
+        dep_link_strategy = LinkStrategy("static_pic"),
         platform_to_affix = lambda _l, _t: ("lib", ".rlib"),
     ),
     _RUST_STATIC_NON_PIC_LIBRARY: RustcFlags(
         crate_type = CrateType("rlib"),
         reloc_model = RelocModel("static"),
-        dep_link_style = LinkStyle("static"),
+        dep_link_strategy = LinkStrategy("static"),
         platform_to_affix = lambda _l, _t: ("lib", ".rlib"),
     ),
     _NATIVE_LINKABLE_STATIC_PIC: RustcFlags(
         crate_type = CrateType("staticlib"),
         reloc_model = RelocModel("pic"),
-        dep_link_style = LinkStyle("static_pic"),
+        dep_link_strategy = LinkStrategy("static_pic"),
         platform_to_affix = lambda _l, _t: ("lib", "_pic.a"),
     ),
     _NATIVE_LINKABLE_STATIC_NON_PIC: RustcFlags(
         crate_type = CrateType("staticlib"),
         reloc_model = RelocModel("static"),
-        dep_link_style = LinkStyle("static"),
+        dep_link_strategy = LinkStrategy("static"),
         platform_to_affix = lambda _l, _t: ("lib", ".a"),
     ),
 }
@@ -359,7 +359,7 @@ def build_params(
     return BuildParams(
         crate_type = crate_type or flags.crate_type,
         reloc_model = reloc_model,
-        dep_link_style = flags.dep_link_style,
+        dep_link_strategy = flags.dep_link_strategy,
         prefix = prefix,
         suffix = suffix,
     )
