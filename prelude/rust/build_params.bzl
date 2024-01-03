@@ -94,8 +94,6 @@ BuildParams = record(
 
 RustcFlags = record(
     crate_type = field(CrateType),
-    reloc_model = field(RelocModel),
-    dep_link_strategy = field(LinkStrategy),
     platform_to_affix = field(typing.Callable),
 )
 
@@ -185,62 +183,42 @@ def _library_prefix_suffix(linker_type: str, target_os_type: OsLookup) -> (str, 
 _BUILD_PARAMS = {
     _BINARY_SHARED: RustcFlags(
         crate_type = CrateType("bin"),
-        reloc_model = RelocModel("pic"),
-        dep_link_strategy = LinkStrategy("shared"),
         platform_to_affix = _executable_prefix_suffix,
     ),
     _BINARY_PIE: RustcFlags(
         crate_type = CrateType("bin"),
-        reloc_model = RelocModel("pic"),
-        dep_link_strategy = LinkStrategy("static_pic"),
         platform_to_affix = _executable_prefix_suffix,
     ),
     _BINARY_NON_PIE: RustcFlags(
         crate_type = CrateType("bin"),
-        reloc_model = RelocModel("static"),
-        dep_link_strategy = LinkStrategy("static"),
         platform_to_affix = _executable_prefix_suffix,
     ),
     _NATIVE_LINKABLE_SHARED_OBJECT: RustcFlags(
         crate_type = CrateType("cdylib"),
-        reloc_model = RelocModel("pic"),
-        dep_link_strategy = LinkStrategy("shared"),
         platform_to_affix = _library_prefix_suffix,
     ),
     _RUST_DYLIB_SHARED: RustcFlags(
         crate_type = CrateType("dylib"),
-        reloc_model = RelocModel("pic"),
-        dep_link_strategy = LinkStrategy("shared"),
         platform_to_affix = _library_prefix_suffix,
     ),
     _RUST_PROC_MACRO: RustcFlags(
         crate_type = CrateType("proc-macro"),
-        reloc_model = RelocModel("pic"),
-        dep_link_strategy = LinkStrategy("static_pic"),
         platform_to_affix = _library_prefix_suffix,
     ),
     _RUST_STATIC_PIC_LIBRARY: RustcFlags(
         crate_type = CrateType("rlib"),
-        reloc_model = RelocModel("pic"),
-        dep_link_strategy = LinkStrategy("static_pic"),
         platform_to_affix = lambda _l, _t: ("lib", ".rlib"),
     ),
     _RUST_STATIC_NON_PIC_LIBRARY: RustcFlags(
         crate_type = CrateType("rlib"),
-        reloc_model = RelocModel("static"),
-        dep_link_strategy = LinkStrategy("static"),
         platform_to_affix = lambda _l, _t: ("lib", ".rlib"),
     ),
     _NATIVE_LINKABLE_STATIC_PIC: RustcFlags(
         crate_type = CrateType("staticlib"),
-        reloc_model = RelocModel("pic"),
-        dep_link_strategy = LinkStrategy("static_pic"),
         platform_to_affix = lambda _l, _t: ("lib", "_pic.a"),
     ),
     _NATIVE_LINKABLE_STATIC_NON_PIC: RustcFlags(
         crate_type = CrateType("staticlib"),
-        reloc_model = RelocModel("static"),
-        dep_link_strategy = LinkStrategy("static"),
         platform_to_affix = lambda _l, _t: ("lib", ".a"),
     ),
 }
@@ -283,13 +261,12 @@ _INPUTS = {
     for (rule_type, _, lib_output_style, linkage_lang), _ in _INPUTS.items()
 ]
 
-def _get_flags(build_kind_key: int, target_os_type: OsLookup) -> (RustcFlags, RelocModel):
-    flags = _BUILD_PARAMS[build_kind_key]
-
-    # On Windows we should always use pic reloc model.
+def _get_reloc_model(link_strategy: LinkStrategy, target_os_type: OsLookup) -> RelocModel:
     if target_os_type.platform == "windows":
-        return flags, RelocModel("pic")
-    return flags, flags.reloc_model
+        return RelocModel("pic")
+    if link_strategy == LinkStrategy("static"):
+        return RelocModel("static")
+    return RelocModel("pic")
 
 # Compute crate type, relocation model and name mapping given what rule we're building, whether its
 # a proc-macro, linkage information and language.
@@ -335,15 +312,6 @@ def build_params(
         expect(link_strategy == None)
         expect(lib_output_style != None)
 
-    if rule == RuleType("binary") and proc_macro:
-        # It's complicated: this is a rustdoc test for a procedural macro crate.
-        # We need deps built as if this were a binary, while passing crate-type
-        # proc_macro to the rustdoc invocation.
-        crate_type = CrateType("proc-macro")
-        proc_macro = False
-    else:
-        crate_type = None
-
     if rule == RuleType("binary"):
         # FIXME(JakobDegen): Temporary hack to make the types work
         if link_strategy == LinkStrategy("shared"):
@@ -352,6 +320,41 @@ def build_params(
             lib_output_style = LibOutputStyle("archive")
         else:
             lib_output_style = LibOutputStyle("pic_archive")
+
+    # FIXME(JakobDegen): We deal with Rust needing to know the link strategy
+    # even for building archives by using a default link strategy specifically
+    # for those cases. I've gone through the code and checked all the places
+    # where the link strategy is used to determine that this won't do anything
+    # too bad, but it would be nice to enforce that more strictly or not have
+    # this at all.
+    def default_link_strategy_for_output_style(output_style: LibOutputStyle) -> LinkStrategy:
+        if output_style == LibOutputStyle("archive"):
+            return LinkStrategy("static")
+        if output_style == LibOutputStyle("pic_archive"):
+            return LinkStrategy("static_pic")
+
+        # Rust does not have the `link_style` attribute on libraries in the same
+        # way that C++ does - if it did, this is what it would affect.
+        return LinkStrategy("shared")
+
+    if not link_strategy:
+        if proc_macro:
+            # FIXME(JakobDegen): It's not really clear what we should do about
+            # proc macros. The principled thing is probably to treat them sort
+            # of like a normal library, except that they always have preferred
+            # linkage shared? Preserve existing behavior for now
+            link_strategy = LinkStrategy("static_pic")
+        else:
+            link_strategy = default_link_strategy_for_output_style(lib_output_style)
+
+    if rule == RuleType("binary") and proc_macro:
+        # It's complicated: this is a rustdoc test for a procedural macro crate.
+        # We need deps built as if this were a binary, while passing crate-type
+        # proc_macro to the rustdoc invocation.
+        crate_type = CrateType("proc-macro")
+        proc_macro = False
+    else:
+        crate_type = None
 
     input = (rule.value, proc_macro, lib_output_style.value, lang.value)
 
@@ -364,14 +367,14 @@ def build_params(
         lang,
     )
 
-    build_kind_key = _INPUTS[input]
-    flags, reloc_model = _get_flags(build_kind_key, target_os_type)
+    flags = _BUILD_PARAMS[_INPUTS[input]]
+    reloc_model = _get_reloc_model(link_strategy, target_os_type)
     prefix, suffix = flags.platform_to_affix(linker_type, target_os_type)
 
     return BuildParams(
         crate_type = crate_type or flags.crate_type,
         reloc_model = reloc_model,
-        dep_link_strategy = flags.dep_link_strategy,
+        dep_link_strategy = link_strategy,
         prefix = prefix,
         suffix = suffix,
     )
