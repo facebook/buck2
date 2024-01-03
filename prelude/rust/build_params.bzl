@@ -153,9 +153,7 @@ LinkageLang = enum(
     "native-unbundled",
 )
 
-_BINARY_SHARED = 0
-_BINARY_PIE = 1
-_BINARY_NON_PIE = 2
+_BINARY = 0
 _NATIVE_LINKABLE_SHARED_OBJECT = 3
 _RUST_DYLIB_SHARED = 4
 _RUST_PROC_MACRO = 5
@@ -181,15 +179,7 @@ def _library_prefix_suffix(linker_type: str, target_os_type: OsLookup) -> (str, 
     }[linker_type]
 
 _BUILD_PARAMS = {
-    _BINARY_SHARED: RustcFlags(
-        crate_type = CrateType("bin"),
-        platform_to_affix = _executable_prefix_suffix,
-    ),
-    _BINARY_PIE: RustcFlags(
-        crate_type = CrateType("bin"),
-        platform_to_affix = _executable_prefix_suffix,
-    ),
-    _BINARY_NON_PIE: RustcFlags(
+    _BINARY: RustcFlags(
         crate_type = CrateType("bin"),
         platform_to_affix = _executable_prefix_suffix,
     ),
@@ -205,6 +195,8 @@ _BUILD_PARAMS = {
         crate_type = CrateType("proc-macro"),
         platform_to_affix = _library_prefix_suffix,
     ),
+    # FIXME(JakobDegen): Add a comment explaining why `.a`s need reloc-strategy
+    # dependent names while `.rlib`s don't.
     _RUST_STATIC_PIC_LIBRARY: RustcFlags(
         crate_type = CrateType("rlib"),
         platform_to_affix = lambda _l, _t: ("lib", ".rlib"),
@@ -223,14 +215,9 @@ _BUILD_PARAMS = {
     ),
 }
 
-# FIXME(JakobDegen): Clean up the binary and proc macro cases
 _INPUTS = {
-    # Binary, shared
-    ("binary", False, "shared_lib", "rust"): _BINARY_SHARED,
-    # Binary, PIE
-    ("binary", False, "pic_archive", "rust"): _BINARY_PIE,
-    # Binary, non-PIE
-    ("binary", False, "archive", "rust"): _BINARY_NON_PIE,
+    # Binary
+    ("binary", False, None, "rust"): _BINARY,
     # Native linkable shared object
     ("library", False, "shared_lib", "native"): _NATIVE_LINKABLE_SHARED_OBJECT,
     # Native unbundled linkable shared object
@@ -257,7 +244,7 @@ _INPUTS = {
 
 # Check types of _INPUTS, writing these out as types is too verbose, but let's make sure we don't have any typos.
 [
-    (RuleType(rule_type), LibOutputStyle(lib_output_style), LinkageLang(linkage_lang))
+    (RuleType(rule_type), LibOutputStyle(lib_output_style) if lib_output_style else None, LinkageLang(linkage_lang))
     for (rule_type, _, lib_output_style, linkage_lang), _ in _INPUTS.items()
 ]
 
@@ -312,15 +299,6 @@ def build_params(
         expect(link_strategy == None)
         expect(lib_output_style != None)
 
-    if rule == RuleType("binary"):
-        # FIXME(JakobDegen): Temporary hack to make the types work
-        if link_strategy == LinkStrategy("shared"):
-            lib_output_style = LibOutputStyle("shared_lib")
-        elif link_strategy == LinkStrategy("static"):
-            lib_output_style = LibOutputStyle("archive")
-        else:
-            lib_output_style = LibOutputStyle("pic_archive")
-
     # FIXME(JakobDegen): We deal with Rust needing to know the link strategy
     # even for building archives by using a default link strategy specifically
     # for those cases. I've gone through the code and checked all the places
@@ -356,7 +334,7 @@ def build_params(
     else:
         crate_type = None
 
-    input = (rule.value, proc_macro, lib_output_style.value, lang.value)
+    input = (rule.value, proc_macro, lib_output_style.value if lib_output_style else None, lang.value)
 
     expect(
         input in _INPUTS,
