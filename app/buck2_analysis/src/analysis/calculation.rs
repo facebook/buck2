@@ -150,7 +150,6 @@ async fn resolve_queries_impl(
     let deps: TargetSet<_> = configured_node.deps().duped().collect();
     let query_results = futures::future::try_join_all(queries.into_iter().map(
         |(query, resolved_literals_labels)| {
-            let ctx = ctx;
             let deps = &deps;
             async move {
                 let mut resolved_literals =

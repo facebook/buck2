@@ -34,6 +34,7 @@ pub(crate) async fn debug_eval_command(
 ) -> anyhow::Result<DebugEvalResponse> {
     context
         .with_dice_ctx(|server_ctx, ctx| async move {
+            let ctx = &ctx;
             let cell_resolver = ctx.get_cell_resolver().await?;
             let current_cell_path = cell_resolver.get_cell_path(server_ctx.working_dir())?;
             let mut loads = Vec::new();
@@ -52,10 +53,7 @@ pub(crate) async fn debug_eval_command(
                 } else {
                     return Err(DebugEvalError::InvalidImportPath(path).into());
                 };
-                loads.push(async {
-                    let import_path = import_path;
-                    ctx.get_loaded_module(import_path.borrow()).await
-                });
+                loads.push(async move { ctx.get_loaded_module(import_path.borrow()).await });
             }
 
             // Catch errors, ignore results.
