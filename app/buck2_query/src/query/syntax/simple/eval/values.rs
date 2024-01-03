@@ -52,13 +52,11 @@ impl<T: QueryTarget> QueryEvaluationValue<T> {
     pub fn try_into_targets(self) -> anyhow::Result<TargetSet<T>> {
         match self {
             QueryEvaluationValue::TargetSet(targets) => Ok(targets),
-            v => {
-                return Err(QueryError::InvalidType {
-                    expected: "targets",
-                    actual: v.variant_name(),
-                }
-                .into());
+            v => Err(QueryError::InvalidType {
+                expected: "targets",
+                actual: v.variant_name(),
             }
+            .into()),
         }
     }
 }
