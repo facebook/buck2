@@ -267,35 +267,9 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         if LinkageLang("native") in param_lang[params] or LinkageLang("native-unbundled") in param_lang[params]:
             native_param_artifact[params] = link
 
-    # Among {rustdoc, doctests, macro expand}, doctests are the only one which
-    # cares about linkage. So if there is a required link style set for the
-    # doctests, reuse those same dependency artifacts for the other build
-    # outputs where static vs static_pic does not make a difference.
-    if ctx.attrs.doc_link_style:
-        static_link_style = {
-            "shared": DEFAULT_STATIC_LINK_STYLE,
-            "static": LinkStyle("static"),
-            "static_pic": LinkStyle("static_pic"),
-        }[ctx.attrs.doc_link_style]
-    else:
-        static_link_style = DEFAULT_STATIC_LINK_STYLE
-
-    static_library_params = lang_style_param[(LinkageLang("rust"), static_link_style)]
-    default_roots = ["lib.rs"]
-    rustdoc = generate_rustdoc(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        params = static_library_params,
-        default_roots = default_roots,
-        document_private_items = False,
-    )
-
-    # If doctests=True or False is set on the individual target, respect that.
-    # Otherwise look at the global setting on the toolchain.
-    doctests_enabled = \
-        (ctx.attrs.doctests if ctx.attrs.doctests != None else toolchain_info.doctests) and \
-        toolchain_info.rustc_target_triple == targets.exec_triple(ctx)
-
+    # For doctests, we need to know two things to know how to link them. The
+    # first is that we need a link strategy, which affects how deps of this
+    # target are handled
     if ctx.attrs.doc_link_style:
         doc_link_strategy = to_link_strategy(LinkStyle(ctx.attrs.doc_link_style))
     else:
@@ -309,6 +283,47 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             "shared": LinkStrategy("shared"),
             "static": to_link_strategy(DEFAULT_STATIC_LINK_STYLE),
         }[ctx.attrs.preferred_linkage]
+
+    # The second thing we need is a lib output style of the regular, non-doctest
+    # version of this target that we want. Rustdoc does not handle this library
+    # being built in a "shared" way well, so this must be a static output style.
+    if ctx.attrs.doc_link_style:
+        doc_output_style = {
+            "shared": LibOutputStyle("pic_archive"),
+            "static": LibOutputStyle("archive"),
+            "static_pic": LibOutputStyle("pic_archive"),
+        }[ctx.attrs.doc_link_style]
+    else:
+        doc_output_style = LibOutputStyle("pic_archive")
+    static_library_params = lang_style_param[(LinkageLang("rust"), legacy_output_style_to_link_style(doc_output_style))]  # FIXME(JakobDegen): No LinkStyle
+
+    # Among {rustdoc, doctests, macro expand}, doctests are the only one which
+    # cares about linkage. So whatever build params we picked for the doctests,
+    # reuse them for the other two as well
+    default_roots = ["lib.rs"]
+    rustdoc = generate_rustdoc(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        params = static_library_params,
+        default_roots = default_roots,
+        document_private_items = False,
+    )
+
+    expand = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("expand"),
+        params = static_library_params,
+        dep_link_strategy = to_link_strategy(DEFAULT_STATIC_LINK_STYLE),
+        default_roots = default_roots,
+    )
+
+    # If doctests=True or False is set on the individual target, respect that.
+    # Otherwise look at the global setting on the toolchain.
+    doctests_enabled = \
+        (ctx.attrs.doctests if ctx.attrs.doctests != None else toolchain_info.doctests) and \
+        toolchain_info.rustc_target_triple == targets.exec_triple(ctx)
+
     rustdoc_test_params = build_params(
         rule = RuleType("binary"),
         proc_macro = ctx.attrs.proc_macro,
@@ -324,15 +339,6 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         link_strategy = rustdoc_test_params.dep_link_strategy,
         library = rust_param_artifact[static_library_params],
         params = rustdoc_test_params,
-        default_roots = default_roots,
-    )
-
-    expand = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("expand"),
-        params = static_library_params,
-        dep_link_strategy = to_link_strategy(DEFAULT_STATIC_LINK_STYLE),
         default_roots = default_roots,
     )
 
