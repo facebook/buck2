@@ -230,7 +230,6 @@ CLIPPY_ALLOW = [
     "clippy::unwrap-or-default",  # Defaults aren't always more clear as it removes the type information when reading code
     "clippy::enum-variant-names",  # Sometimes you do want the same prefixes
     "clippy::needless_update",  # Our RE structs have slightly different definitions in internal and OSS.
-    "clippy::almost-swapped",  # Triggered by Clap v3, perhaps remove when we move to v4
     "clippy::format_collect",  # FIXME new in Rust 1.73
     "clippy::needless_pass_by_ref_mut",  # FIXME new in Rust 1.73
     "clippy::redundant_closure",  # FIXME new in Rust 1.73
