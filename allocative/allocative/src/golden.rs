@@ -10,6 +10,7 @@
 #![cfg(test)]
 
 use std::env;
+use std::fmt::Write;
 use std::fs;
 
 use crate::Allocative;
@@ -50,8 +51,10 @@ fn make_golden<T: Allocative>(value: &T) -> (String, String) {
         "{header}{flamegraph}",
         header = golden_header()
             .lines()
-            .map(|line| format!("# {}\n", line))
-            .collect::<String>()
+            .fold(String::new(), |mut output, line| {
+                let _ = writeln!(output, "# {}", line);
+                output
+            })
     );
 
     let flamegraph_svg = flamegraph_svg.replace(

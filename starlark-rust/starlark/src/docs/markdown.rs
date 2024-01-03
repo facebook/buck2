@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use std::fmt::Write;
 use std::slice;
 
 use dupe::Dupe;
@@ -143,11 +144,11 @@ fn render_function_parameters(params: &[DocParam]) -> Option<String> {
             DocParam::Args { name, docs, .. } => Some((name, docs)),
             DocParam::Kwargs { name, docs, .. } => Some((name, docs)),
         })
-        .map(|(name, docs)| {
+        .fold(String::new(), |mut output, (name, docs)| {
             let docs = render_doc_string(DSOpts::Combined, docs).unwrap_or_default();
-            format!("* `{name}`: {docs}\n")
-        })
-        .collect();
+            let _ = writeln!(output, "* `{name}`: {docs}");
+            output
+        });
     Some(param_list)
 }
 
