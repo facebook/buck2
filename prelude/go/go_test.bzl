@@ -15,16 +15,16 @@ load(
     "value_or",
 )
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
-load(":compile.bzl", "GoTestInfo", "compile", "get_filtered_srcs")
+load(":compile.bzl", "GoTestInfo", "compile", "get_filtered_srcs", "get_inherited_compile_pkgs")
 load(":coverage.bzl", "GoCoverageMode", "cover_srcs")
 load(":link.bzl", "link")
-load(":packages.bzl", "go_attr_pkg_name")
+load(":packages.bzl", "go_attr_pkg_name", "pkg_artifact", "pkg_coverage_vars")
 
 def _gen_test_main(
         ctx: AnalysisContext,
         pkg_name: str,
         coverage_mode: [GoCoverageMode, None],
-        coverage_vars: [cmd_args, None],
+        coverage_vars: dict[str, cmd_args],
         srcs: cmd_args) -> Artifact:
     """
     Generate a `main.go` which calls tests from the given sources.
@@ -38,11 +38,14 @@ def _gen_test_main(
     cmd.add(cmd_args(pkg_name, format = "--import-path={}"))
     if coverage_mode != None:
         cmd.add("--cover-mode", coverage_mode.value)
-    if coverage_vars != None:
-        cmd.add(coverage_vars)
+    for _, vars in coverage_vars.items():
+        cmd.add(vars)
     cmd.add(srcs)
     ctx.actions.run(cmd, category = "go_test_main_gen")
     return output
+
+def is_subpackage_of(other_pkg_name: str, pkg_name: str) -> bool:
+    return pkg_name == other_pkg_name or other_pkg_name.startswith(pkg_name + "/")
 
 def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     deps = ctx.attrs.deps
@@ -64,12 +67,21 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     # If coverage is enabled for this test, we need to preprocess the sources
     # with the Go cover tool.
     coverage_mode = None
-    coverage_vars = None
+    coverage_vars = {}
+    pkgs = {}
     if ctx.attrs.coverage_mode != None:
         coverage_mode = GoCoverageMode(ctx.attrs.coverage_mode)
-        cov_res = cover_srcs(ctx, pkg_name, coverage_mode, srcs)
+        cov_res = cover_srcs(ctx, pkg_name, coverage_mode, srcs, False)
         srcs = cov_res.srcs
-        coverage_vars = cov_res.variables
+        coverage_vars[pkg_name] = cov_res.variables
+
+        # Get all packages that are linked to the test (i.e. the entire dependency tree)
+        for name, pkg in get_inherited_compile_pkgs(deps).items():
+            if ctx.label != None and is_subpackage_of(name, ctx.label.package):
+                artifact = pkg_artifact(pkg, False, coverage_mode)
+                vars = pkg_coverage_vars("", pkg, False, coverage_mode)
+                coverage_vars[name] = vars
+                pkgs[name] = artifact
 
     # Compile all tests into a package.
     tests = compile(
@@ -77,22 +89,27 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         pkg_name,
         srcs,
         deps = deps,
+        pkgs = pkgs,
         compile_flags = ctx.attrs.compiler_flags,
+        coverage_mode = coverage_mode,
     )
 
     # Generate a main function which runs the tests and build that into another
     # package.
     gen_main = _gen_test_main(ctx, pkg_name, coverage_mode, coverage_vars, srcs)
-    main = compile(ctx, "main", cmd_args(gen_main), pkgs = {pkg_name: tests})
+    pkgs[pkg_name] = tests
+    main = compile(ctx, "main", cmd_args(gen_main), pkgs = pkgs, coverage_mode = coverage_mode)
 
     # Link the above into a Go binary.
     (bin, runtime_files, external_debug_info) = link(
         ctx = ctx,
         main = main,
-        pkgs = {pkg_name: tests},
+        pkgs = pkgs,
         deps = deps,
         link_style = value_or(map_val(LinkStyle, ctx.attrs.link_style), LinkStyle("static")),
         linker_flags = ctx.attrs.linker_flags,
+        shared = False,
+        coverage_mode = coverage_mode,
     )
 
     run_cmd = cmd_args(bin).hidden(runtime_files, external_debug_info)

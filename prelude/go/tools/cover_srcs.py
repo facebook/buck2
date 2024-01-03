@@ -40,7 +40,8 @@ def main(argv):
     args.covered_srcs_dir.mkdir(parents=True)
 
     for src in args.srcs:
-        if src.name.endswith("_test.go"):
+        # don't cover test files or non-go files (e.g. assembly files)
+        if src.name.endswith("_test.go") or not src.name.endswith(".go"):
             out_srcs.append(src)
         else:
             var = _var(args.pkg_name, src)

@@ -23,10 +23,13 @@ GoCoverResult = record(
     variables = field(cmd_args),
 )
 
-def cover_srcs(ctx: AnalysisContext, pkg_name: str, mode: GoCoverageMode, srcs: cmd_args) -> GoCoverResult:
-    out_covered_src_dir = ctx.actions.declare_output("__covered_srcs__", dir = True)
-    out_srcs_argsfile = ctx.actions.declare_output("covered_srcs.txt")
-    out_coverage_vars_argsfile = ctx.actions.declare_output("coverage_vars.txt")
+def cover_srcs(ctx: AnalysisContext, pkg_name: str, mode: GoCoverageMode, srcs: cmd_args, shared: bool) -> GoCoverResult:
+    path = "static_" + mode.value
+    if shared:
+        path = "shared_" + mode.value
+    out_covered_src_dir = ctx.actions.declare_output("__covered_" + path + "_srcs__", dir = True)
+    out_srcs_argsfile = ctx.actions.declare_output("covered_" + path + "_srcs.txt")
+    out_coverage_vars_argsfile = ctx.actions.declare_output("coverage_" + path + "_vars.txt")
 
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     cmd = cmd_args()
@@ -38,7 +41,7 @@ def cover_srcs(ctx: AnalysisContext, pkg_name: str, mode: GoCoverageMode, srcs: 
     cmd.add("--out-srcs-argsfile", out_srcs_argsfile.as_output())
     cmd.add("--pkg-name", pkg_name)
     cmd.add(srcs)
-    ctx.actions.run(cmd, category = "go_cover")
+    ctx.actions.run(cmd, category = "go_cover_" + path)
 
     return GoCoverResult(
         srcs = cmd_args(out_srcs_argsfile, format = "@{}").hidden(out_covered_src_dir).hidden(srcs),
