@@ -123,11 +123,11 @@ RustLinkInfo = provider(
         # styles - information about each LinkStyle as RustLinkStyleInfo
         "styles": dict[LinkStyle, RustLinkStyleInfo],
         # Propagate native linkable dependencies through rust libraries.
-        "exported_link_deps": typing.Any,
+        "exported_link_deps": list[Dependency],
         # Propagate native linkable info through rust libraries.
-        "merged_link_info": typing.Any,
+        "merged_link_info": MergedLinkInfo,
         # Propagate shared libraries through rust libraries.
-        "shared_libs": typing.Any,
+        "shared_libs": SharedLibraryInfo,
     },
 )
 
