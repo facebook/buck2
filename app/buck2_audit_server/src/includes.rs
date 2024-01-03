@@ -160,8 +160,8 @@ async fn load_and_collect_includes(
         return Err(anyhow::anyhow!(AuditIncludesError::WrongBuildfilePath(
             path.clone(),
             buildfile_name.to_owned(),
-        )))
-        .map_err(buck2_error::Error::from);
+        ))
+        .into());
     }
 
     Ok(get_transitive_includes(ctx, &load_result).await?)

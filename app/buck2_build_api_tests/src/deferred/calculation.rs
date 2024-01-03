@@ -101,13 +101,12 @@ async fn lookup_deferred_from_analysis() -> anyhow::Result<()> {
         })
         .mock_and_return(
             analysis_key,
-            anyhow::Ok(MaybeCompatible::Compatible(AnalysisResult::new(
+            buck2_error::Ok(MaybeCompatible::Compatible(AnalysisResult::new(
                 provider_collection,
                 deferred_result,
                 None,
                 HashMap::new(),
-            )))
-            .map_err(buck2_error::Error::from),
+            ))),
         )
         .mock_and_return(
             configured_node_key,
@@ -196,13 +195,12 @@ async fn lookup_deferred_that_has_deferreds() -> anyhow::Result<()> {
         })
         .mock_and_return(
             analysis_key,
-            anyhow::Ok(MaybeCompatible::Compatible(AnalysisResult::new(
+            buck2_error::Ok(MaybeCompatible::Compatible(AnalysisResult::new(
                 provider_collection,
                 deferred_result,
                 None,
                 HashMap::new(),
-            )))
-            .map_err(buck2_error::Error::from),
+            ))),
         )
         .mock_and_return(
             configured_node_key,

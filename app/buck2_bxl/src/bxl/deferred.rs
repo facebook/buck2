@@ -106,7 +106,7 @@ mod tests {
             })
             .mock_and_return(
                 BxlComputeKey(bxl.dupe()),
-                anyhow::Ok(BxlComputeResult {
+                buck2_error::Ok(BxlComputeResult {
                     bxl_result: Arc::new(BxlResult::BuildsArtifacts {
                         output_loc: mk_stream_cache("test", &bxl),
                         error_loc: mk_stream_cache("errortest", &bxl),
@@ -115,8 +115,7 @@ mod tests {
                         deferred: deferred_result,
                     }),
                     materializations: Arc::new(Default::default()),
-                })
-                .map_err(buck2_error::Error::from),
+                }),
             );
 
         let mut dice_data = UserComputationData::new();

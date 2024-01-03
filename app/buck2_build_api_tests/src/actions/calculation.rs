@@ -145,10 +145,7 @@ fn mock_deferred_resolution_calculation(
 ) -> DiceBuilder {
     let arc_any: Arc<dyn AnyValue + 'static> = Arc::new(registered_action_arc);
     let an_any = DeferredValueAnyReady::AnyValue(arc_any);
-    dice_builder.mock_and_return(
-        deferred_resolve,
-        anyhow::Ok(an_any).map_err(buck2_error::Error::from),
-    )
+    dice_builder.mock_and_return(deferred_resolve, buck2_error::Ok(an_any))
 }
 
 async fn make_default_dice_state(

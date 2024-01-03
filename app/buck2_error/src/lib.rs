@@ -39,6 +39,12 @@ pub use root::UniqueRootId;
 
 pub type Result<T> = std::result::Result<T, crate::Error>;
 
+/// Allows simpler construction of the Ok case when the result type can't be inferred.
+#[allow(non_snake_case)]
+pub fn Ok<T>(t: T) -> Result<T> {
+    Result::Ok(t)
+}
+
 /// See the documentation in the `error.proto` file for details.
 pub use buck2_data::error::ErrorTag;
 /// The type of the error that is being produced.

@@ -489,11 +489,11 @@ impl CellConfigLoader {
                                 truncate_container(self.config_overrides.iter().map(|o| o.to_string()), 200),
                             );
                         }
-                        return Ok::<(CellResolver, LegacyBuckConfigs, HashSet<AbsNormPathBuf>), anyhow::Error>((
+                        return buck2_error::Ok((
                             dice_ctx.get_cell_resolver().await?,
                             dice_ctx.get_legacy_configs().await?,
                             HashSet::new(),
-                        )).map_err(buck2_error::Error::from);
+                        ));
                     } else {
                         // If there is no previous command but the flag was set, then the flag is ignored, the command behaves as if there isn't the reuse config flag.
                         warn!(
