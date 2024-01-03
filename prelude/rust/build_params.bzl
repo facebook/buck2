@@ -294,7 +294,8 @@ def _get_flags(build_kind_key: int, target_os_type: OsLookup) -> (RustcFlags, Re
 # Compute crate type, relocation model and name mapping given what rule we're building, whether its
 # a proc-macro, linkage information and language.
 #
-# Lib output style needs to be passed iff the rule type is a library.
+# Binaries should pass the link strategy and not the lib output style, while libraries should do the
+# opposite.
 #
 # The linking information that's passed here is different from what one might expect in the C++
 # rules. There's a good reason for that, so let's go over it. First, let's recap how C++ handles
@@ -322,11 +323,18 @@ def _get_flags(build_kind_key: int, target_os_type: OsLookup) -> (RustcFlags, Re
 def build_params(
         rule: RuleType,
         proc_macro: bool,
-        link_strategy: LinkStrategy,
+        link_strategy: LinkStrategy | None,
         lib_output_style: LibOutputStyle | None,
         lang: LinkageLang,
         linker_type: str,
         target_os_type: OsLookup) -> BuildParams:
+    if rule == RuleType("binary"):
+        expect(link_strategy != None)
+        expect(lib_output_style == None)
+    else:
+        expect(link_strategy == None)
+        expect(lib_output_style != None)
+
     if rule == RuleType("binary") and proc_macro:
         # It's complicated: this is a rustdoc test for a procedural macro crate.
         # We need deps built as if this were a binary, while passing crate-type

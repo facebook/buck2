@@ -295,7 +295,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         }[ctx.attrs.doc_link_style]
     else:
         doc_output_style = LibOutputStyle("pic_archive")
-    static_library_params = lang_style_param[(LinkageLang("rust"), legacy_output_style_to_link_style(doc_output_style))]  # FIXME(JakobDegen): No LinkStyle
+    static_library_params = lang_style_param[(LinkageLang("rust"), doc_output_style)]
 
     # Among {rustdoc, doctests, macro expand}, doctests are the only one which
     # cares about linkage. So whatever build params we picked for the doctests,
@@ -382,7 +382,7 @@ def _build_params_for_styles(
         ctx: AnalysisContext,
         compile_ctx: CompileContext) -> (
     dict[BuildParams, list[LinkageLang]],
-    dict[(LinkageLang, LinkStyle), BuildParams],
+    dict[(LinkageLang, LibOutputStyle), BuildParams],
 ):
     """
     For a given rule, return two things:
@@ -401,8 +401,6 @@ def _build_params_for_styles(
 
     target_os_type = ctx.attrs._target_os_type[OsLookup]
     linker_type = compile_ctx.cxx_toolchain_info.linker_info.type
-    pic_behavior = compile_ctx.cxx_toolchain_info.pic_behavior
-    preferred_linkage = Linkage(ctx.attrs.preferred_linkage)
 
     # Styles+lang linkage to params
     for linkage_lang in LinkageLang:
@@ -410,13 +408,11 @@ def _build_params_for_styles(
         if ctx.attrs.proc_macro and linkage_lang != LinkageLang("rust"):
             continue
 
-        for link_style in LinkStyle:
-            link_strategy = to_link_strategy(link_style)
-            lib_output_style = get_lib_output_style(link_strategy, preferred_linkage, pic_behavior)
+        for lib_output_style in LibOutputStyle:
             params = build_params(
                 rule = RuleType("library"),
                 proc_macro = ctx.attrs.proc_macro,
-                link_strategy = link_strategy,
+                link_strategy = None,
                 lib_output_style = lib_output_style,
                 lang = linkage_lang,
                 linker_type = linker_type,
@@ -425,7 +421,7 @@ def _build_params_for_styles(
             if params not in param_lang:
                 param_lang[params] = []
             param_lang[params] = param_lang[params] + [linkage_lang]
-            style_param[(linkage_lang, link_style)] = params
+            style_param[(linkage_lang, lib_output_style)] = params
 
     return (param_lang, style_param)
 
@@ -507,7 +503,7 @@ def _handle_rust_artifact(
         )
 
 def _default_providers(
-        lang_style_param: dict[(LinkageLang, LinkStyle), BuildParams],
+        lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
         param_artifact: dict[BuildParams, RustLinkStyleInfo],
         rustdoc: Artifact,
         rustdoc_test: (cmd_args, dict[str, cmd_args]),
@@ -525,13 +521,21 @@ def _default_providers(
         for (k, v) in targets.items()
     }
 
-    # Add provider for default output, and for each link-style...
-    for link_style in LinkStyle:
-        link_style_info = param_artifact[lang_style_param[(LinkageLang("rust"), link_style)]]
+    # Add provider for default output, and for each lib output style...
+    # FIXME(JakobDegen): C++ rules only provide some of the output styles,
+    # determined by `get_output_styles_for_linkage` in `linking/link_info.bzl`.
+    # Do we want to do the same?
+    for output_style in LibOutputStyle:
+        link_style_info = param_artifact[lang_style_param[(LinkageLang("rust"), output_style)]]
         nested_sub_targets = {}
         if link_style_info.pdb:
             nested_sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = link_style_info.pdb, binary = link_style_info.rlib)
-        sub_targets[link_style.value] = [DefaultInfo(
+
+        # FIXME(JakobDegen): Ideally we'd use the same
+        # `subtarget_for_output_style` as C++, but that uses `static-pic`
+        # instead of `static_pic`. Would be nice if that were consistent
+        name = legacy_output_style_to_link_style(output_style).value
+        sub_targets[name] = [DefaultInfo(
             default_output = link_style_info.rlib,
             sub_targets = nested_sub_targets,
         )]
@@ -563,15 +567,18 @@ def _default_providers(
 def _rust_providers(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
-        lang_style_param: dict[(LinkageLang, LinkStyle), BuildParams],
+        lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
         param_artifact: dict[BuildParams, RustLinkStyleInfo]) -> list[Provider]:
     """
     Return the set of providers for Rust linkage.
     """
     crate = attr_crate(ctx)
 
+    pic_behavior = compile_ctx.cxx_toolchain_info.pic_behavior
+    preferred_linkage = Linkage(ctx.attrs.preferred_linkage)
+
     style_info = {
-        link_style: param_artifact[lang_style_param[(LinkageLang("rust"), link_style)]]
+        link_style: param_artifact[lang_style_param[(LinkageLang("rust"), get_lib_output_style(to_link_strategy(link_style), preferred_linkage, pic_behavior))]]
         for link_style in LinkStyle
     }
 
@@ -608,7 +615,7 @@ def _rust_providers(
 def _native_providers(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
-        lang_style_param: dict[(LinkageLang, LinkStyle), BuildParams],
+        lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
         param_artifact: dict[BuildParams, RustcOutput]) -> list[Provider]:
     """
     Return the set of providers needed to link Rust as a dependency for native
@@ -632,17 +639,11 @@ def _native_providers(
         # Proc-macros never have a native form
         return providers
 
-    # TODO(cjhopman): This seems to be conflating the link strategy with the lib output style. I tried going through
-    # lang_style_param/BuildParams and make it actually be based on LibOutputStyle, but it goes on to use that for defining
-    # how to consume dependencies and it's used for rust_binary like its own link strategy and it's unclear what's the
-    # correct behavior. For now, this preserves existing behavior without clarifying what concepts its actually
-    # operating on.
     libraries = {}
     link_infos = {}
     external_debug_infos = {}
     for output_style in LibOutputStyle:
-        legacy_link_style = legacy_output_style_to_link_style(output_style)
-        params = lang_style_param[(lang, legacy_link_style)]
+        params = lang_style_param[(lang, output_style)]
         lib = param_artifact[params]
         libraries[output_style] = lib
 
