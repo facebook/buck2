@@ -8,15 +8,9 @@
 # Rules for mapping requirements to options
 
 load(
-    "@prelude//cxx:cxx_toolchain_types.bzl",
-    "PicBehavior",  # @unused Used as a type
-)
-load(
     "@prelude//linking:link_info.bzl",
     "LibOutputStyle",
     "LinkStrategy",
-    "Linkage",  # @unused Used as a type
-    "get_lib_output_style",
 )
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:expect.bzl", "expect")
@@ -297,16 +291,41 @@ def _get_flags(build_kind_key: int, target_os_type: OsLookup) -> (RustcFlags, Re
         return flags, RelocModel("pic")
     return flags, flags.reloc_model
 
-# Compute crate type, relocation model and name mapping given what rule we're building,
-# whether its a proc-macro, linkage information and language.
+# Compute crate type, relocation model and name mapping given what rule we're building, whether its
+# a proc-macro, linkage information and language.
+#
+# Lib output style needs to be passed iff the rule type is a library.
+#
+# The linking information that's passed here is different from what one might expect in the C++
+# rules. There's a good reason for that, so let's go over it. First, let's recap how C++ handles
+# this, as of December 2023 (I say "recap" but I don't think this is actually documented anywhere):
+#
+#  1. C++ libraries can be built in three different ways: Archives, pic archives, and shared
+#     libraries. Which one of these is used for a given link strategy is determined by the preferred
+#     linkage using `linking/link_info.bzl:get_lib_output_style`.
+#  2. When a C++ library is built as a shared library, the link strategy used for its dependencies
+#     is determined by the link style attribute on the C++ library.
+#  3. When a C++ library is built as an archive (either kind), there's no need to know a link
+#     strategy for the dependencies. None of the per-link-strategy providers of the dependencies
+#     need to be accessed.
+#
+# There are two relevant ways in which Rust differs:
+#
+#  1. There are more ways of building Rust libraries than are represented by `LibOutputStyle`. The
+#     Rust analogue is the `BuildParams` type, which implicitly holds a `LibOutputStyle` as well as
+#     a bunch of additional information - this is why `LibOutputStyle` is relatively rarely used
+#     directly in the Rust rules.
+#  2. Rust does not have the property in point three above, ie building a Rust library into an
+#     archive does require knowing per-link-strategy properties of the dependencies. This is
+#     fundamental in cases without native unbundled deps - with native unbundled deps it may be
+#     fixable, but that's not super clear.
 def build_params(
         rule: RuleType,
         proc_macro: bool,
         link_strategy: LinkStrategy,
-        preferred_linkage: Linkage,
+        lib_output_style: LibOutputStyle | None,
         lang: LinkageLang,
         linker_type: str,
-        pic_behavior: PicBehavior,
         target_os_type: OsLookup) -> BuildParams:
     if rule == RuleType("binary") and proc_macro:
         # It's complicated: this is a rustdoc test for a procedural macro crate.
@@ -325,8 +344,6 @@ def build_params(
             lib_output_style = LibOutputStyle("archive")
         else:
             lib_output_style = LibOutputStyle("pic_archive")
-    else:
-        lib_output_style = get_lib_output_style(link_strategy, preferred_linkage, pic_behavior)
 
     input = (rule.value, proc_macro, lib_output_style.value, lang.value)
 

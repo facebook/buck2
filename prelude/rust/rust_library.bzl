@@ -313,10 +313,9 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         rule = RuleType("binary"),
         proc_macro = ctx.attrs.proc_macro,
         link_strategy = doc_link_strategy,
-        preferred_linkage = Linkage(ctx.attrs.preferred_linkage),
+        lib_output_style = None,
         lang = LinkageLang("rust"),
         linker_type = compile_ctx.cxx_toolchain_info.linker_info.type,
-        pic_behavior = compile_ctx.cxx_toolchain_info.pic_behavior,
         target_os_type = ctx.attrs._target_os_type[OsLookup],
     )
     rustdoc_test = generate_rustdoc_test(
@@ -397,6 +396,7 @@ def _build_params_for_styles(
     target_os_type = ctx.attrs._target_os_type[OsLookup]
     linker_type = compile_ctx.cxx_toolchain_info.linker_info.type
     pic_behavior = compile_ctx.cxx_toolchain_info.pic_behavior
+    preferred_linkage = Linkage(ctx.attrs.preferred_linkage)
 
     # Styles+lang linkage to params
     for linkage_lang in LinkageLang:
@@ -405,14 +405,15 @@ def _build_params_for_styles(
             continue
 
         for link_style in LinkStyle:
+            link_strategy = to_link_strategy(link_style)
+            lib_output_style = get_lib_output_style(link_strategy, preferred_linkage, pic_behavior)
             params = build_params(
                 rule = RuleType("library"),
                 proc_macro = ctx.attrs.proc_macro,
-                link_strategy = to_link_strategy(link_style),
-                preferred_linkage = Linkage(ctx.attrs.preferred_linkage),
+                link_strategy = link_strategy,
+                lib_output_style = lib_output_style,
                 lang = linkage_lang,
                 linker_type = linker_type,
-                pic_behavior = pic_behavior,
                 target_os_type = target_os_type,
             )
             if params not in param_lang:
