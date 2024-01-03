@@ -260,7 +260,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 check_artifacts = {"check": meta.output}
                 check_artifacts.update(meta.diag)
 
-            rust_param_artifact[params] = _handle_rust_artifact(ctx, compile_ctx.dep_ctx, params.crate_type, params.dep_link_strategy, link, meta)
+            rust_param_artifact[params] = (link, meta)
         if LinkageLang("native") in param_lang[params] or LinkageLang("native-unbundled") in param_lang[params]:
             native_param_artifact[params] = link
 
@@ -333,7 +333,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx = ctx,
         compile_ctx = compile_ctx,
         link_strategy = rustdoc_test_params.dep_link_strategy,
-        rlib = rust_param_artifact[static_library_params].rlib,
+        rlib = rust_param_artifact[static_library_params][0].output,
         params = rustdoc_test_params,
         default_roots = default_roots,
     )
@@ -496,7 +496,7 @@ def _handle_rust_artifact(
 
 def _default_providers(
         lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
-        param_artifact: dict[BuildParams, RustLinkStrategyInfo],
+        param_artifact: dict[BuildParams, (RustcOutput, RustcOutput)],
         rustdoc: Artifact,
         rustdoc_test: (cmd_args, dict[str, cmd_args]),
         doctests_enabled: bool,
@@ -518,17 +518,17 @@ def _default_providers(
     # determined by `get_output_styles_for_linkage` in `linking/link_info.bzl`.
     # Do we want to do the same?
     for output_style in LibOutputStyle:
-        link_style_info = param_artifact[lang_style_param[(LinkageLang("rust"), output_style)]]
+        link, _ = param_artifact[lang_style_param[(LinkageLang("rust"), output_style)]]
         nested_sub_targets = {}
-        if link_style_info.pdb:
-            nested_sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = link_style_info.pdb, binary = link_style_info.rlib)
+        if link.pdb:
+            nested_sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = link.pdb, binary = link.output)
 
         # FIXME(JakobDegen): Ideally we'd use the same
         # `subtarget_for_output_style` as C++, but that uses `static-pic`
         # instead of `static_pic`. Would be nice if that were consistent
         name = legacy_output_style_to_link_style(output_style).value
         sub_targets[name] = [DefaultInfo(
-            default_output = link_style_info.rlib,
+            default_output = link.output,
             sub_targets = nested_sub_targets,
         )]
 
@@ -560,7 +560,7 @@ def _rust_providers(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
         lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
-        param_artifact: dict[BuildParams, RustLinkStrategyInfo]) -> list[Provider]:
+        param_artifact: dict[BuildParams, (RustcOutput, RustcOutput)]) -> list[Provider]:
     """
     Return the set of providers for Rust linkage.
     """
@@ -569,10 +569,11 @@ def _rust_providers(
     pic_behavior = compile_ctx.cxx_toolchain_info.pic_behavior
     preferred_linkage = Linkage(ctx.attrs.preferred_linkage)
 
-    strategy_info = {
-        link_strategy: param_artifact[lang_style_param[(LinkageLang("rust"), get_lib_output_style(link_strategy, preferred_linkage, pic_behavior))]]
-        for link_strategy in LinkStrategy
-    }
+    strategy_info = {}
+    for link_strategy in LinkStrategy:
+        params = lang_style_param[(LinkageLang("rust"), get_lib_output_style(link_strategy, preferred_linkage, pic_behavior))]
+        link, meta = param_artifact[params]
+        strategy_info[link_strategy] = _handle_rust_artifact(ctx, compile_ctx.dep_ctx, params.crate_type, link_strategy, link, meta)
 
     # Inherited link input and shared libraries.  As in v1, this only includes
     # non-Rust rules, found by walking through -- and ignoring -- Rust libraries
