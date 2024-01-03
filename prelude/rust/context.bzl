@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
-load("@prelude//linking:link_info.bzl", "LinkStyle")
+load("@prelude//linking:link_info.bzl", "LinkStrategy")
 load(":build_params.bzl", "CrateType", "Emit")
 load(":rust_toolchain.bzl", "PanicRuntime", "RustExplicitSysrootDeps", "RustToolchainInfo")
 
@@ -62,7 +62,7 @@ CompileContext = record(
     # Clippy wrapper (wrapping clippy-driver so it has the same CLI as rustc).
     clippy_wrapper = field(cmd_args),
     # Memoized common args for reuse.
-    common_args = field(dict[(CrateType, Emit, LinkStyle), CommonArgsInfo]),
+    common_args = field(dict[(CrateType, Emit, LinkStrategy, bool), CommonArgsInfo]),
     flagfiles_for_extern = field(dict[ExternArg, Artifact]),
     flagfiles_for_crate_map = field(dict[CrateMapArg, Artifact]),
     transitive_dependency_dirs = field(dict[Artifact, None]),

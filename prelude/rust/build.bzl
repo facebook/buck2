@@ -767,12 +767,6 @@ def _compute_common_args(
     crate_type = params.crate_type
 
     args_key = (crate_type, emit, params.dep_link_strategy, is_rustdoc_test)
-    if False:
-        # TODO(nga): following `if args_key in ...` is no-op, and typechecker does not like it.
-        def unknown():
-            pass
-
-        args_key = unknown()
     if args_key in compile_ctx.common_args:
         return compile_ctx.common_args[args_key]
 
