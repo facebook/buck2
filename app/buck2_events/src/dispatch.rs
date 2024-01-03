@@ -505,7 +505,7 @@ where
         }
     }
 
-    let previous_recorder = with_thread_local_recorder(|tl_recorder| std::mem::take(tl_recorder));
+    let previous_recorder = with_thread_local_recorder(std::mem::take);
     let _guard = RestoreRecorder { previous_recorder };
     f()
 }

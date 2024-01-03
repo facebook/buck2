@@ -231,7 +231,6 @@ CLIPPY_ALLOW = [
     "clippy::enum-variant-names",  # Sometimes you do want the same prefixes
     "clippy::needless_update",  # Our RE structs have slightly different definitions in internal and OSS.
     "clippy::needless_pass_by_ref_mut",  # Mostly identifies cases where we are accepting `&mut T` because we logically accept a mut reference but don't technically require it (i.e. we want the api to enforce the caller has a mut ref, but we don't technically need it).
-    "clippy::redundant_closure",  # FIXME new in Rust 1.73
     "clippy::await_holding_lock",  # FIXME new in Rust 1.74
     "clippy::needless_borrows_for_generic_args",  # FIXME new in Rust 1.74
     "clippy::non_canonical_partial_ord_impl",  # FIXME new in Rust 1.74
