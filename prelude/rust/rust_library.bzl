@@ -299,6 +299,11 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs.doc_link_style:
         doc_link_strategy = to_link_strategy(LinkStyle(ctx.attrs.doc_link_style))
     else:
+        # FIXME(JakobDegen): In this position, a binary would just fall back to
+        # the default link style. However, we have a little bit of additional
+        # information in the form of the preferred linkage that we can use to
+        # make a different decision. There's nothing technically wrong with
+        # that, but a comment explaining why we want to do it would be nice
         doc_link_strategy = {
             "any": LinkStrategy("shared"),
             "shared": LinkStrategy("shared"),
