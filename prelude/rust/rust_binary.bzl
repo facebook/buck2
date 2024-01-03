@@ -6,6 +6,10 @@
 # of this source tree.
 
 load(
+    "@prelude//:artifact_tset.bzl",
+    "project_artifacts",
+)
+load(
     "@prelude//:resources.bzl",
     "create_resource_db",
     "gather_resources",
@@ -67,6 +71,7 @@ load(
     "DEFAULT_STATIC_LINK_STRATEGY",
     "attr_simple_crate_for_filenames",
     "enable_link_groups",
+    "inherited_external_debug_info",
     "inherited_rust_cxx_link_group_info",
     "inherited_shared_libs",
 )
@@ -203,6 +208,15 @@ def _rust_binary_common(
 
         args = cmd_args(link.output).hidden(executable_args.runtime_files)
         extra_targets = [("check", meta.output)] + meta.diag.items()
+        external_debug_info = project_artifacts(
+            actions = ctx.actions,
+            tsets = [inherited_external_debug_info(
+                ctx,
+                compile_ctx.dep_ctx,
+                link.dwo_output_directory,
+                link_strategy,
+            )],
+        )
 
         # If we have some resources, write it to the resources JSON file and add
         # it and all resources to "runtime_files" so that we make to materialize
@@ -271,7 +285,7 @@ def _rust_binary_common(
             args = args,
             extra_targets = extra_targets,
             runtime_files = runtime_files,
-            external_debug_info = executable_args.external_debug_info,
+            external_debug_info = executable_args.external_debug_info + external_debug_info,
             sub_targets = sub_targets_for_link_strategy,
             dist_info = DistInfo(
                 shared_libs = shlib_info.set,
