@@ -260,7 +260,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 check_artifacts = {"check": meta.output}
                 check_artifacts.update(meta.diag)
 
-            rust_param_artifact[params] = _handle_rust_artifact(ctx, compile_ctx.dep_ctx, params, link, meta)
+            rust_param_artifact[params] = _handle_rust_artifact(ctx, compile_ctx.dep_ctx, params.crate_type, params.dep_link_strategy, link, meta)
         if LinkageLang("native") in param_lang[params] or LinkageLang("native-unbundled") in param_lang[params]:
             native_param_artifact[params] = link
 
@@ -333,7 +333,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx = ctx,
         compile_ctx = compile_ctx,
         link_strategy = rustdoc_test_params.dep_link_strategy,
-        library = rust_param_artifact[static_library_params],
+        rlib = rust_param_artifact[static_library_params].rlib,
         params = rustdoc_test_params,
         default_roots = default_roots,
     )
@@ -450,7 +450,8 @@ def _build_library_artifacts(
 def _handle_rust_artifact(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext,
-        params: BuildParams,
+        crate_type: CrateType,
+        link_strategy: LinkStrategy,
         link: RustcOutput,
         meta: RustcOutput) -> RustLinkStrategyInfo:
     """
@@ -458,12 +459,10 @@ def _handle_rust_artifact(
     is computing the right set of dependencies.
     """
 
-    dep_link_strategy = params.dep_link_strategy
-
     # If we're a crate where our consumers should care about transitive deps,
     # then compute them (specifically, not proc-macro).
-    if params.crate_type != CrateType("proc-macro"):
-        tdeps, tmetadeps, external_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_ctx, dep_link_strategy)
+    if crate_type != CrateType("proc-macro"):
+        tdeps, tmetadeps, external_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_ctx, link_strategy)
     else:
         tdeps, tmetadeps, external_debug_info, tprocmacrodeps = {}, {}, [], {}
 

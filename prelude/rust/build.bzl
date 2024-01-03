@@ -67,7 +67,6 @@ load(
     "RustCxxLinkGroupInfo",  #@unused Used as a type
     "RustDependency",
     "RustLinkInfo",
-    "RustLinkStrategyInfo",
     "attr_crate",
     "attr_simple_crate_for_filenames",
     "get_available_proc_macros",
@@ -222,7 +221,7 @@ def generate_rustdoc_test(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
         link_strategy: LinkStrategy,
-        library: RustLinkStrategyInfo,
+        rlib: Artifact,
         params: BuildParams,
         default_roots: list[str]) -> (cmd_args, dict[str, cmd_args]):
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
@@ -239,7 +238,7 @@ def generate_rustdoc_test(
     resources = create_resource_db(
         ctx = ctx,
         name = "doctest/resources.json",
-        binary = library.rlib,
+        binary = rlib,
         resources = flatten_dict(gather_resources(
             label = ctx.label,
             resources = rust_attr_resources(ctx),
@@ -307,7 +306,7 @@ def generate_rustdoc_test(
         toolchain_info.rustdoc_flags,
         ctx.attrs.rustdoc_flags,
         common_args.args,
-        extern_arg(ctx, compile_ctx, [], attr_crate(ctx), library.rlib),
+        extern_arg(ctx, compile_ctx, [], attr_crate(ctx), rlib),
         "--extern=proc_macro" if ctx.attrs.proc_macro else [],
         compile_ctx.linker_args,
         cmd_args(linker_argsfile, format = "-Clink-arg=@{}"),
