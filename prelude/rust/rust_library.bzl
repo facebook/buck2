@@ -43,7 +43,6 @@ load(
     "LinkInfo",
     "LinkInfos",
     "LinkStrategy",
-    "LinkStyle",
     "Linkage",
     "LinkedObject",
     "MergedLinkInfo",
@@ -52,7 +51,6 @@ load(
     "create_merged_link_info_for_propagation",
     "get_lib_output_style",
     "legacy_output_style_to_link_style",
-    "to_link_strategy",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
@@ -270,7 +268,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # first is that we need a link strategy, which affects how deps of this
     # target are handled
     if ctx.attrs.doc_link_style:
-        doc_link_strategy = to_link_strategy(LinkStyle(ctx.attrs.doc_link_style))
+        doc_link_strategy = LinkStrategy(ctx.attrs.doc_link_style)
     else:
         # FIXME(JakobDegen): In this position, a binary would just fall back to
         # the default link style. However, we have a little bit of additional
