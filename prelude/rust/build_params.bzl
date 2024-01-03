@@ -8,10 +8,17 @@
 # Rules for mapping requirements to options
 
 load(
+    "@prelude//cxx:cxx_toolchain_types.bzl",
+    "PicBehavior",  # @unused Used as a type
+)
+load(
     "@prelude//linking:link_info.bzl",
+    "LibOutputStyle",
     "LinkStrategy",
     "LinkStyle",
     "Linkage",  # @unused Used as a type
+    "get_lib_output_style",
+    "to_link_strategy",
 )
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:expect.bzl", "expect")
@@ -246,71 +253,42 @@ _BUILD_PARAMS = {
     ),
 }
 
+# FIXME(JakobDegen): Clean up the binary and proc macro cases
 _INPUTS = {
     # Binary, shared
-    ("binary", False, "shared", "any", "rust"): _BINARY_SHARED,
-    ("binary", False, "shared", "shared", "rust"): _BINARY_SHARED,
-    ("binary", False, "shared", "static", "rust"): _BINARY_SHARED,
+    ("binary", False, "shared_lib", "rust"): _BINARY_SHARED,
     # Binary, PIE
-    ("binary", False, "static_pic", "any", "rust"): _BINARY_PIE,
-    ("binary", False, "static_pic", "shared", "rust"): _BINARY_PIE,
-    ("binary", False, "static_pic", "static", "rust"): _BINARY_PIE,
+    ("binary", False, "pic_archive", "rust"): _BINARY_PIE,
     # Binary, non-PIE
-    ("binary", False, "static", "any", "rust"): _BINARY_NON_PIE,
-    ("binary", False, "static", "shared", "rust"): _BINARY_NON_PIE,
-    ("binary", False, "static", "static", "rust"): _BINARY_NON_PIE,
+    ("binary", False, "archive", "rust"): _BINARY_NON_PIE,
     # Native linkable shared object
-    ("library", False, "shared", "any", "native"): _NATIVE_LINKABLE_SHARED_OBJECT,
-    ("library", False, "shared", "shared", "native"): _NATIVE_LINKABLE_SHARED_OBJECT,
-    ("library", False, "static", "shared", "native"): _NATIVE_LINKABLE_SHARED_OBJECT,
-    ("library", False, "static_pic", "shared", "native"): _NATIVE_LINKABLE_SHARED_OBJECT,
+    ("library", False, "shared_lib", "native"): _NATIVE_LINKABLE_SHARED_OBJECT,
     # Native unbundled linkable shared object
-    ("library", False, "shared", "any", "native-unbundled"): _RUST_DYLIB_SHARED,
-    ("library", False, "shared", "shared", "native-unbundled"): _RUST_DYLIB_SHARED,
-    ("library", False, "static", "shared", "native-unbundled"): _RUST_DYLIB_SHARED,
-    ("library", False, "static_pic", "shared", "native-unbundled"): _RUST_DYLIB_SHARED,
+    ("library", False, "shared_lib", "native-unbundled"): _RUST_DYLIB_SHARED,
     # Rust dylib shared object
-    ("library", False, "shared", "any", "rust"): _RUST_DYLIB_SHARED,
-    ("library", False, "shared", "shared", "rust"): _RUST_DYLIB_SHARED,
-    ("library", False, "static", "shared", "rust"): _RUST_DYLIB_SHARED,
-    ("library", False, "static_pic", "shared", "rust"): _RUST_DYLIB_SHARED,
+    ("library", False, "shared_lib", "rust"): _RUST_DYLIB_SHARED,
     # Rust proc-macro
-    ("library", True, "shared", "any", "rust"): _RUST_PROC_MACRO,
-    ("library", True, "shared", "shared", "rust"): _RUST_PROC_MACRO,
-    ("library", True, "shared", "static", "rust"): _RUST_PROC_MACRO,
-    ("library", True, "static", "any", "rust"): _RUST_PROC_MACRO,
-    ("library", True, "static", "shared", "rust"): _RUST_PROC_MACRO,
-    ("library", True, "static", "static", "rust"): _RUST_PROC_MACRO,
-    ("library", True, "static_pic", "any", "rust"): _RUST_PROC_MACRO,
-    ("library", True, "static_pic", "shared", "rust"): _RUST_PROC_MACRO,
-    ("library", True, "static_pic", "static", "rust"): _RUST_PROC_MACRO,
+    ("library", True, "archive", "rust"): _RUST_PROC_MACRO,
+    ("library", True, "pic_archive", "rust"): _RUST_PROC_MACRO,
+    ("library", True, "shared_lib", "rust"): _RUST_PROC_MACRO,
     # Rust static_pic library
-    ("library", False, "shared", "static", "rust"): _RUST_STATIC_PIC_LIBRARY,
-    ("library", False, "static_pic", "any", "rust"): _RUST_STATIC_PIC_LIBRARY,
-    ("library", False, "static_pic", "static", "rust"): _RUST_STATIC_PIC_LIBRARY,
+    ("library", False, "pic_archive", "rust"): _RUST_STATIC_PIC_LIBRARY,
     # Rust static (non-pic) library
-    ("library", False, "static", "any", "rust"): _RUST_STATIC_NON_PIC_LIBRARY,
-    ("library", False, "static", "static", "rust"): _RUST_STATIC_NON_PIC_LIBRARY,
+    ("library", False, "archive", "rust"): _RUST_STATIC_NON_PIC_LIBRARY,
     # Native linkable static_pic
-    ("library", False, "shared", "static", "native"): _NATIVE_LINKABLE_STATIC_PIC,
-    ("library", False, "static_pic", "any", "native"): _NATIVE_LINKABLE_STATIC_PIC,
-    ("library", False, "static_pic", "static", "native"): _NATIVE_LINKABLE_STATIC_PIC,
+    ("library", False, "pic_archive", "native"): _NATIVE_LINKABLE_STATIC_PIC,
     # Native linkable static non-pic
-    ("library", False, "static", "any", "native"): _NATIVE_LINKABLE_STATIC_NON_PIC,
-    ("library", False, "static", "static", "native"): _NATIVE_LINKABLE_STATIC_NON_PIC,
+    ("library", False, "archive", "native"): _NATIVE_LINKABLE_STATIC_NON_PIC,
     # Native Unbundled static_pic library
-    ("library", False, "shared", "static", "native-unbundled"): _RUST_STATIC_PIC_LIBRARY,
-    ("library", False, "static_pic", "any", "native-unbundled"): _RUST_STATIC_PIC_LIBRARY,
-    ("library", False, "static_pic", "static", "native-unbundled"): _RUST_STATIC_PIC_LIBRARY,
+    ("library", False, "pic_archive", "native-unbundled"): _RUST_STATIC_PIC_LIBRARY,
     # Native Unbundled static (non-pic) library
-    ("library", False, "static", "any", "native-unbundled"): _RUST_STATIC_NON_PIC_LIBRARY,
-    ("library", False, "static", "static", "native-unbundled"): _RUST_STATIC_NON_PIC_LIBRARY,
+    ("library", False, "archive", "native-unbundled"): _RUST_STATIC_NON_PIC_LIBRARY,
 }
 
 # Check types of _INPUTS, writing these out as types is too verbose, but let's make sure we don't have any typos.
 [
-    (RuleType(rule_type), LinkStyle(link_style), Linkage(preferred_linkage), LinkageLang(linkage_lang))
-    for (rule_type, _, link_style, preferred_linkage, linkage_lang), _ in _INPUTS.items()
+    (RuleType(rule_type), LibOutputStyle(lib_output_style), LinkageLang(linkage_lang))
+    for (rule_type, _, lib_output_style, linkage_lang), _ in _INPUTS.items()
 ]
 
 def _get_flags(build_kind_key: int, target_os_type: OsLookup) -> (RustcFlags, RelocModel):
@@ -330,6 +308,7 @@ def build_params(
         preferred_linkage: Linkage,
         lang: LinkageLang,
         linker_type: str,
+        pic_behavior: PicBehavior,
         target_os_type: OsLookup) -> BuildParams:
     if rule == RuleType("binary") and proc_macro:
         # It's complicated: this is a rustdoc test for a procedural macro crate.
@@ -340,15 +319,25 @@ def build_params(
     else:
         crate_type = None
 
-    input = (rule.value, proc_macro, link_style.value, preferred_linkage.value, lang.value)
+    if rule == RuleType("binary"):
+        # FIXME(JakobDegen): Temporary hack to make the types work
+        if link_style == LinkStyle("shared"):
+            lib_output_style = LibOutputStyle("shared_lib")
+        elif link_style == LinkStyle("static"):
+            lib_output_style = LibOutputStyle("archive")
+        else:
+            lib_output_style = LibOutputStyle("pic_archive")
+    else:
+        lib_output_style = get_lib_output_style(to_link_strategy(link_style), preferred_linkage, pic_behavior)
+
+    input = (rule.value, proc_macro, lib_output_style.value, lang.value)
 
     expect(
         input in _INPUTS,
-        "missing case for rule_type={} proc_macro={} link_style={} preferred_linkage={} lang={}",
+        "missing case for rule_type={} proc_macro={} lib_output_style={} lang={}",
         rule,
         proc_macro,
-        link_style,
-        preferred_linkage,
+        lib_output_style,
         lang,
     )
 

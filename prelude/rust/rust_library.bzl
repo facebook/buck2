@@ -311,6 +311,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         preferred_linkage = Linkage(ctx.attrs.preferred_linkage),
         lang = LinkageLang("rust"),
         linker_type = compile_ctx.cxx_toolchain_info.linker_info.type,
+        pic_behavior = compile_ctx.cxx_toolchain_info.pic_behavior,
         target_os_type = ctx.attrs._target_os_type[OsLookup],
     )
     rustdoc_test = generate_rustdoc_test(
@@ -390,6 +391,7 @@ def _build_params_for_styles(
 
     target_os_type = ctx.attrs._target_os_type[OsLookup]
     linker_type = compile_ctx.cxx_toolchain_info.linker_info.type
+    pic_behavior = compile_ctx.cxx_toolchain_info.pic_behavior
 
     # Styles+lang linkage to params
     for linkage_lang in LinkageLang:
@@ -405,6 +407,7 @@ def _build_params_for_styles(
                 preferred_linkage = Linkage(ctx.attrs.preferred_linkage),
                 lang = linkage_lang,
                 linker_type = linker_type,
+                pic_behavior = pic_behavior,
                 target_os_type = target_os_type,
             )
             if params not in param_lang:

@@ -105,6 +105,7 @@ def _rust_binary_common(
 
     target_os_type = ctx.attrs._target_os_type[OsLookup]
     linker_type = compile_ctx.cxx_toolchain_info.linker_info.type
+    pic_behavior = compile_ctx.cxx_toolchain_info.pic_behavior
 
     resources = flatten_dict(gather_resources(
         label = ctx.label,
@@ -123,6 +124,7 @@ def _rust_binary_common(
             preferred_linkage = Linkage("any"),
             lang = LinkageLang("rust"),
             linker_type = linker_type,
+            pic_behavior = pic_behavior,
             target_os_type = target_os_type,
         )
         strategy_param[link_strategy] = params
