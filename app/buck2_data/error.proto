@@ -46,4 +46,5 @@ enum ErrorTag {
   UNUSED_DEFAULT_TAG = 0;
   STARLARK_FAIL = 1;
   WATCHMAN_TIMEOUT = 2;
+  HTTP = 3;
 }

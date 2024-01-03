@@ -45,6 +45,7 @@ fn category_from_status(status: StatusCode) -> Option<buck2_error::Category> {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Http)]
 pub enum HttpError {
     #[error("HTTP URI Error: URI {uri} is malformed: {source:?}")]
     InvalidUri {
