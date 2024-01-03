@@ -5,7 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:artifact_tset.bzl", "project_artifacts")
+load(
+    "@prelude//:artifact_tset.bzl",
+    "ArtifactTSet",  # @unused Used as a type
+    "project_artifacts",
+)
 load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:resources.bzl", "create_resource_db", "gather_resources")
@@ -72,6 +76,7 @@ load(
     "get_available_proc_macros",
     "inherited_external_debug_info",
     "inherited_merged_link_infos",
+    "inherited_rust_external_debug_info",
     "inherited_shared_libs",
     "normalize_crate",
     "resolve_rust_deps",
@@ -88,6 +93,7 @@ RustcOutput = record(
     # Zero or more Split DWARF debug info files are emitted into this directory
     # with unpredictable filenames.
     dwo_output_directory = field([Artifact, None]),
+    extra_external_debug_info = field(list[ArtifactTSet]),
 )
 
 def compile_context(ctx: AnalysisContext) -> CompileContext:
@@ -569,15 +575,31 @@ def rust_compile(
     split_debug_mode = compile_ctx.cxx_toolchain_info.split_debug_mode or SplitDebugMode("none")
     if emit == Emit("link") and split_debug_mode != SplitDebugMode("none"):
         dwo_output_directory = extra_out
-        external_debug_info = inherited_external_debug_info(
+
+        # staticlibs and cdylibs are "bundled" in the sense that they are used
+        # without their dependencies by the rest of the rules. This is normally
+        # correct, except that the split debuginfo rustc emits for these crate
+        # types is not bundled. This is arguably inconsistent behavior from
+        # rustc, but in any case, it means we need to do this bundling manually
+        # by collecting all the external debuginfo from dependencies
+        if params.crate_type == CrateType("cdylib") or params.crate_type == CrateType("staticlib"):
+            extra_external_debug_info = inherited_rust_external_debug_info(
+                ctx = ctx,
+                dep_ctx = compile_ctx.dep_ctx,
+                link_strategy = params.dep_link_strategy,
+            )
+        else:
+            extra_external_debug_info = []
+        all_external_debug_info = inherited_external_debug_info(
             ctx = ctx,
             dep_ctx = compile_ctx.dep_ctx,
             dwo_output_directory = dwo_output_directory,
             dep_link_strategy = params.dep_link_strategy,
         )
-        dwp_inputs.extend(project_artifacts(ctx.actions, [external_debug_info]))
+        dwp_inputs.extend(project_artifacts(ctx.actions, [all_external_debug_info]))
     else:
         dwo_output_directory = None
+        extra_external_debug_info = []
 
     if is_binary and dwp_available(compile_ctx.cxx_toolchain_info):
         dwp_output = dwp(
@@ -601,6 +623,7 @@ def rust_compile(
         pdb = pdb_artifact,
         dwp_output = dwp_output,
         dwo_output_directory = dwo_output_directory,
+        extra_external_debug_info = extra_external_debug_info,
     )
 
 # --extern <crate>=<path> for direct dependencies
