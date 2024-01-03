@@ -496,6 +496,12 @@ def inherited_shared_libs(
         infos.extend([d.shared_libs for d in _rust_link_infos(ctx, dep_ctx)])
     return infos
 
+def inherited_rust_external_debug_info(
+        ctx: AnalysisContext,
+        dep_ctx: DepCollectionContext,
+        link_strategy: LinkStrategy) -> list[ArtifactTSet]:
+    return [strategy_info(d.info, link_strategy).external_debug_info for d in resolve_rust_deps(ctx, dep_ctx)]
+
 def inherited_external_debug_info(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext,

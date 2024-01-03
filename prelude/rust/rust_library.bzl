@@ -99,8 +99,8 @@ load(
     "RustProcMacroMarker",  # @unused Used as a type
     "attr_crate",
     "inherited_exported_link_deps",
-    "inherited_external_debug_info",
     "inherited_merged_link_infos",
+    "inherited_rust_external_debug_info",
     "inherited_shared_libs",
     "resolve_deps",
     "resolve_rust_deps",
@@ -640,11 +640,16 @@ def _native_providers(
         lib = param_artifact[params]
         libraries[output_style] = lib
 
-        external_debug_info = inherited_external_debug_info(
+        inherited_debug_infos = inherited_rust_external_debug_info(
             ctx = ctx,
             dep_ctx = compile_ctx.dep_ctx,
-            dwo_output_directory = lib.dwo_output_directory,
-            dep_link_strategy = params.dep_link_strategy,
+            link_strategy = params.dep_link_strategy,
+        )
+        external_debug_info = make_artifact_tset(
+            actions = ctx.actions,
+            label = ctx.label,
+            artifacts = filter(None, [lib.dwo_output_directory]),
+            children = inherited_debug_infos,
         )
         external_debug_infos[output_style] = external_debug_info
 
