@@ -32,8 +32,16 @@ def expect(condition: typing.Any, message: str = "condition not expected", *form
       format_args: optional arguments to format the error message with
     """
     if not condition:
-        formatted_message = message.format(format_args)
+        formatted_message = message.format(*format_args)
         fail(formatted_message)
+
+def expect_non_none(val, msg: str = "unexpected none", *fmt_args, **fmt_kwargs):
+    """
+    Require the given value not be `None`.
+    """
+    if val == None:
+        fail(msg.format(*fmt_args, **fmt_kwargs))
+    return val
 
 def expect_type(name: str, check: typing.Callable, desc: str, val: typing.Any):
     """Fails if check(val) if not truthy. name, desc are used for the error message.

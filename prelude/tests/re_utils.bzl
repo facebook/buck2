@@ -7,7 +7,7 @@
 
 load("@prelude//:build_mode.bzl", "BuildModeInfo")
 load("@prelude//tests:remote_test_execution_toolchain.bzl", "RemoteTestExecutionToolchainInfo")
-load("@prelude//utils:utils.bzl", "expect_non_none")
+load("@prelude//utils:expect.bzl", "expect_non_none")
 
 def _get_re_arg(ctx: AnalysisContext):
     if not hasattr(ctx.attrs, "remote_execution"):

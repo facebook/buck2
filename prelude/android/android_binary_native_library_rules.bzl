@@ -60,9 +60,10 @@ load(
     "traverse_shared_library_info",
 )
 load("@prelude//linking:strip.bzl", "strip_object")
+load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:graph_utils.bzl", "breadth_first_traversal_by", "post_order_traversal", "pre_order_traversal", "pre_order_traversal_by")
 load("@prelude//utils:set.bzl", "set", "set_type")  # @unused Used as a type
-load("@prelude//utils:utils.bzl", "dedupe_by_value", "expect")
+load("@prelude//utils:utils.bzl", "dedupe_by_value")
 
 # Native libraries on Android are built for a particular Application Binary Interface (ABI). We
 # package native libraries for one (or more, for multi-arch builds) ABIs into an Android APK.

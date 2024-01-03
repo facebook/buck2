@@ -7,6 +7,8 @@
 
 # General utilities shared between multiple rules.
 
+load("@prelude//utils:expect.bzl", "expect")
+
 def value_or(x: [None, typing.Any], default: typing.Any) -> typing.Any:
     return default if x == None else x
 
@@ -17,20 +19,6 @@ def flatten(xss: list[list[typing.Any]]) -> list[typing.Any]:
 # Flatten a list of dicts into a dict
 def flatten_dict(xss: list[dict[typing.Any, typing.Any]]) -> dict[typing.Any, typing.Any]:
     return {k: v for xs in xss for k, v in xs.items()}
-
-# Fail if given condition is not met.
-def expect(x: bool, msg: str = "condition not expected", *fmt):
-    if not x:
-        fmt_msg = msg.format(*fmt)
-        fail(fmt_msg)
-
-def expect_non_none(val, msg: str = "unexpected none", *fmt_args, **fmt_kwargs):
-    """
-    Require the given value not be `None`.
-    """
-    if val == None:
-        fail(msg.format(*fmt_args, **fmt_kwargs))
-    return val
 
 def from_named_set(srcs: [dict[str, Artifact | Dependency], list[Artifact | Dependency]]) -> dict[str, Artifact | Dependency]:
     """
