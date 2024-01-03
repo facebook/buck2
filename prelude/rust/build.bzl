@@ -67,7 +67,7 @@ load(
     "RustCxxLinkGroupInfo",  #@unused Used as a type
     "RustDependency",
     "RustLinkInfo",
-    "RustLinkStyleInfo",
+    "RustLinkStrategyInfo",
     "attr_crate",
     "attr_simple_crate_for_filenames",
     "get_available_proc_macros",
@@ -223,7 +223,7 @@ def generate_rustdoc_test(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
         link_strategy: LinkStrategy,
-        library: RustLinkStyleInfo,
+        library: RustLinkStrategyInfo,
         params: BuildParams,
         default_roots: list[str]) -> (cmd_args, dict[str, cmd_args]):
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"

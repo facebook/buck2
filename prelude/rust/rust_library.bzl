@@ -97,7 +97,7 @@ load(
     ":link_info.bzl",
     "DEFAULT_STATIC_LINK_STYLE",
     "RustLinkInfo",
-    "RustLinkStyleInfo",
+    "RustLinkStrategyInfo",
     "RustProcMacroMarker",  # @unused Used as a type
     "attr_crate",
     "inherited_exported_link_deps",
@@ -134,15 +134,14 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Rust link provider.
     crate = attr_crate(ctx)
-    styles = {}
-    for style in LinkStyle:
-        dep_link_strategy = to_link_strategy(style)
-        tdeps, tmetadeps, external_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_ctx, dep_link_strategy)
+    strategies = {}
+    for link_strategy in LinkStrategy:
+        tdeps, tmetadeps, external_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_ctx, link_strategy)
         external_debug_info = make_artifact_tset(
             actions = ctx.actions,
             children = external_debug_info,
         )
-        styles[style] = RustLinkStyleInfo(
+        strategies[link_strategy] = RustLinkStrategyInfo(
             rlib = ctx.attrs.rlib,
             transitive_deps = tdeps,
             rmeta = ctx.attrs.rlib,
@@ -155,7 +154,7 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     providers.append(
         RustLinkInfo(
             crate = crate,
-            styles = styles,
+            strategies = strategies,
             exported_link_deps = inherited_exported_link_deps(ctx, dep_ctx),
             merged_link_info = create_merged_link_info_for_propagation(ctx, inherited_merged_link_infos(ctx, dep_ctx)),
             shared_libs = merge_shared_libraries(
@@ -459,7 +458,7 @@ def _handle_rust_artifact(
         dep_ctx: DepCollectionContext,
         params: BuildParams,
         link: RustcOutput,
-        meta: RustcOutput) -> RustLinkStyleInfo:
+        meta: RustcOutput) -> RustLinkStrategyInfo:
     """
     Return the RustLinkInfo for a given set of artifacts. The main consideration
     is computing the right set of dependencies.
@@ -481,7 +480,7 @@ def _handle_rust_artifact(
             artifacts = filter(None, [link.dwo_output_directory]),
             children = external_debug_info,
         )
-        return RustLinkStyleInfo(
+        return RustLinkStrategyInfo(
             rlib = link.output,
             transitive_deps = tdeps,
             rmeta = meta.output,
@@ -492,7 +491,7 @@ def _handle_rust_artifact(
         )
     else:
         # Proc macro deps are always the real thing
-        return RustLinkStyleInfo(
+        return RustLinkStrategyInfo(
             rlib = link.output,
             transitive_deps = tdeps,
             rmeta = link.output,
@@ -504,7 +503,7 @@ def _handle_rust_artifact(
 
 def _default_providers(
         lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
-        param_artifact: dict[BuildParams, RustLinkStyleInfo],
+        param_artifact: dict[BuildParams, RustLinkStrategyInfo],
         rustdoc: Artifact,
         rustdoc_test: (cmd_args, dict[str, cmd_args]),
         doctests_enabled: bool,
@@ -568,7 +567,7 @@ def _rust_providers(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
         lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
-        param_artifact: dict[BuildParams, RustLinkStyleInfo]) -> list[Provider]:
+        param_artifact: dict[BuildParams, RustLinkStrategyInfo]) -> list[Provider]:
     """
     Return the set of providers for Rust linkage.
     """
@@ -577,9 +576,9 @@ def _rust_providers(
     pic_behavior = compile_ctx.cxx_toolchain_info.pic_behavior
     preferred_linkage = Linkage(ctx.attrs.preferred_linkage)
 
-    style_info = {
-        link_style: param_artifact[lang_style_param[(LinkageLang("rust"), get_lib_output_style(to_link_strategy(link_style), preferred_linkage, pic_behavior))]]
-        for link_style in LinkStyle
+    strategy_info = {
+        link_strategy: param_artifact[lang_style_param[(LinkageLang("rust"), get_lib_output_style(link_strategy, preferred_linkage, pic_behavior))]]
+        for link_strategy in LinkStrategy
     }
 
     # Inherited link input and shared libraries.  As in v1, this only includes
@@ -601,7 +600,7 @@ def _rust_providers(
     # Create rust library provider.
     providers.append(RustLinkInfo(
         crate = crate,
-        styles = style_info,
+        strategies = strategy_info,
         merged_link_info = create_merged_link_info_for_propagation(ctx, inherited_link_infos),
         exported_link_deps = inherited_link_deps,
         shared_libs = merge_shared_libraries(

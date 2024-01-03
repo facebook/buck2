@@ -94,7 +94,7 @@ RustProcMacroMarker = provider(fields = {
 })
 
 # Information which is keyed on link_style
-RustLinkStyleInfo = record(
+RustLinkStrategyInfo = record(
     # Path to library or binary
     rlib = field(Artifact),
     # Transitive dependencies which are relevant to the consumer. For crate types which do not
@@ -121,8 +121,8 @@ RustLinkInfo = provider(
     fields = {
         # crate - crate name
         "crate": CrateName,
-        # styles - information about each LinkStyle as RustLinkStyleInfo
-        "styles": dict[LinkStyle, RustLinkStyleInfo],
+        # strategies - information about each LinkStrategy as RustLinkStrategyInfo
+        "strategies": dict[LinkStrategy, RustLinkStrategyInfo],
         # Propagate native linkable dependencies through rust libraries.
         "exported_link_deps": list[Dependency],
         # Propagate native linkable info through rust libraries.
@@ -138,11 +138,10 @@ def _adjust_link_strategy_for_rust_dependencies(dep_link_strategy: LinkStrategy)
     else:
         return dep_link_strategy
 
-def strategy_info(info: RustLinkInfo, dep_link_strategy: LinkStrategy) -> RustLinkStyleInfo:
+def strategy_info(info: RustLinkInfo, dep_link_strategy: LinkStrategy) -> RustLinkStrategyInfo:
     rust_dep_link_strategy = _adjust_link_strategy_for_rust_dependencies(dep_link_strategy)
 
-    # FIXME(JakobDegen): Yeet `LinkStyle`
-    return info.styles[LinkStyle(rust_dep_link_strategy.value)]
+    return info.strategies[rust_dep_link_strategy]
 
 # Any dependency of a Rust crate
 RustOrNativeDependency = record(
