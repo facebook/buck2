@@ -196,7 +196,7 @@ def create_linkable_graph(
 
     deps_labels = {x.label: True for x in graph_deps}
     if node and node.linkable:
-        for l in [node.linkable.deps, node.linkable.exported_deps]:
+        for l in [node.linkable.deps, node.linkable.exported_deps]:  # buildifier: disable=confusing-name
             for d in l:
                 if not d in deps_labels:
                     fail("LinkableNode had {} in its deps, but that label is missing from the node's linkable graph children (`{}`)".format(d, ", ".join(deps_labels)))
