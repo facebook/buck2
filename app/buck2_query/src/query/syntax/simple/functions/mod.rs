@@ -228,6 +228,15 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
         Ok(self.implementation.somepath(env, &from, &to).await?.into())
     }
 
+    /// The `attrfilter(attribute, value, targets)` operator evaluates the given target expression and filters the resulting build targets to those where the specified attribute contains the specified value.
+    /// In this context, the term attribute refers to an argument in a build rule, such as name, headers, srcs, or deps.
+    ///
+    /// - If the attribute is a single value, say `name`, it is compared to the specified value, and the target is returned if they match.
+    /// - If the attribute is a list, the target is returned if that list contains the specified value.
+    /// - If the attribute is a dictionary, the target is returned if the value exists in either the keys or the values of the dictionary.
+    ///
+    /// For example:
+    /// `buck2 query "attrfilter(deps, '//foo:bar', '//...')"` returns the build targets in the repository that depend on `//foo:bar`, or more precisely: those build targets that include `//foo:bar` in their deps argument list.
     async fn attrfilter(
         &self,
         attr: String,
