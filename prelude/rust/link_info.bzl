@@ -501,20 +501,17 @@ def inherited_external_debug_info(
         dep_ctx: DepCollectionContext,
         dwo_output_directory: [Artifact, None],
         dep_link_style: LinkStyle) -> ArtifactTSet:
-    rust_dep_link_style = _adjust_link_style_for_rust_dependencies(dep_link_style)
-    non_rust_dep_link_style = dep_link_style
-
     inherited_debug_infos = []
     inherited_link_infos = []
 
     for d in resolve_deps(ctx, dep_ctx):
         if RustLinkInfo in d.dep:
-            inherited_debug_infos.append(d.dep[RustLinkInfo].styles[rust_dep_link_style].external_debug_info)
+            inherited_debug_infos.append(style_info(d.dep[RustLinkInfo], dep_link_style).external_debug_info)
             inherited_link_infos.append(d.dep[RustLinkInfo].merged_link_info)
         elif MergedLinkInfo in d.dep:
             inherited_link_infos.append(d.dep[MergedLinkInfo])
 
-    link_args = get_link_args_for_strategy(ctx, inherited_link_infos, to_link_strategy(non_rust_dep_link_style))
+    link_args = get_link_args_for_strategy(ctx, inherited_link_infos, to_link_strategy(dep_link_style))
     inherited_debug_infos.append(unpack_external_debug_info(ctx.actions, link_args))
 
     return make_artifact_tset(
