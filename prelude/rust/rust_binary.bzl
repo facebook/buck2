@@ -31,6 +31,7 @@ load(
 )
 load(
     "@prelude//linking:link_info.bzl",
+    "LinkStrategy",
     "LinkStyle",
     "Linkage",
     "to_link_strategy",
@@ -97,10 +98,10 @@ def _rust_binary_common(
     styles = {}
     dwp_target = None
     pdb = None
-    style_param = {}  # style -> param
+    strategy_param = {}  # strategy -> param
     sub_targets = {}
 
-    specified_link_style = LinkStyle(ctx.attrs.link_style) if ctx.attrs.link_style else DEFAULT_STATIC_LINK_STYLE
+    specified_link_strategy = LinkStrategy(ctx.attrs.link_style) if ctx.attrs.link_style else to_link_strategy(DEFAULT_STATIC_LINK_STYLE)
 
     target_os_type = ctx.attrs._target_os_type[OsLookup]
     linker_type = compile_ctx.cxx_toolchain_info.linker_info.type
@@ -111,20 +112,21 @@ def _rust_binary_common(
         deps = cxx_attr_deps(ctx),
     ).values())
 
-    for link_style in LinkStyle:
+    for link_strategy in LinkStrategy:
         # Unlike for libraries, there's no possibility of different link styles
         # resulting in the same build params, so no need to deduplicate.
         params = build_params(
             rule = RuleType("binary"),
             proc_macro = False,
-            link_style = link_style,
+            # FIXME(JakobDegen): Yeet link style
+            link_style = LinkStyle(link_strategy.value),
             preferred_linkage = Linkage("any"),
             lang = LinkageLang("rust"),
             linker_type = linker_type,
             target_os_type = target_os_type,
         )
-        style_param[link_style] = params
-        name = link_style.value + "/" + output_filename(simple_crate, Emit("link"), params)
+        strategy_param[link_strategy] = params
+        name = link_strategy.value + "/" + output_filename(simple_crate, Emit("link"), params)
         output = ctx.actions.declare_output(name)
 
         # Gather and setup symlink tree of transitive shared library deps.
@@ -137,11 +139,11 @@ def _rust_binary_common(
         labels_to_links_map = {}
         filtered_targets = []
 
-        if enable_link_groups(ctx, link_style, specified_link_style, is_binary = True):
+        if enable_link_groups(ctx, link_strategy, specified_link_strategy, is_binary = True):
             rust_cxx_link_group_info = inherited_rust_cxx_link_group_info(
                 ctx,
                 compile_ctx.dep_ctx,
-                link_style = link_style,
+                link_strategy = link_strategy,
             )
             link_group_mappings = rust_cxx_link_group_info.link_group_info.mappings
             link_group_libs = rust_cxx_link_group_info.link_group_libs
@@ -153,7 +155,7 @@ def _rust_binary_common(
         # link style.
         # XXX need link tree for dylib crates
         shlib_deps = []
-        if link_style == LinkStyle("shared") or rust_cxx_link_group_info != None:
+        if link_strategy == LinkStrategy("shared") or rust_cxx_link_group_info != None:
             shlib_deps = inherited_shared_libs(ctx, compile_ctx.dep_ctx)
 
         shlib_info = merge_shared_libraries(ctx.actions, deps = shlib_deps)
@@ -194,7 +196,7 @@ def _rust_binary_common(
             compile_ctx = compile_ctx,
             emits = [Emit("link"), Emit("metadata")],
             params = params,
-            dep_link_strategy = to_link_strategy(link_style),
+            dep_link_strategy = link_strategy,
             default_roots = default_roots,
             extra_link_args = executable_args.extra_link_args,
             predeclared_outputs = {Emit("link"): output},
@@ -224,9 +226,9 @@ def _rust_binary_common(
             args.hidden(resources_hidden)
             runtime_files.extend(resources_hidden)
 
-        sub_targets_for_link_style = {}
+        sub_targets_for_link_strategy = {}
 
-        sub_targets_for_link_style["shared-libraries"] = [DefaultInfo(
+        sub_targets_for_link_strategy["shared-libraries"] = [DefaultInfo(
             default_output = ctx.actions.write_json(
                 name + ".shared-libraries.json",
                 {
@@ -245,7 +247,7 @@ def _rust_binary_common(
         )]
 
         if isinstance(executable_args.shared_libs_symlink_tree, Artifact):
-            sub_targets_for_link_style["rpath-tree"] = [DefaultInfo(
+            sub_targets_for_link_strategy["rpath-tree"] = [DefaultInfo(
                 default_output = executable_args.shared_libs_symlink_tree,
                 other_outputs = [
                     lib.output
@@ -258,51 +260,51 @@ def _rust_binary_common(
             )]
 
         if rust_cxx_link_group_info:
-            sub_targets_for_link_style[LINK_GROUP_MAP_DATABASE_SUB_TARGET] = [get_link_group_map_json(ctx, filtered_targets)]
+            sub_targets_for_link_strategy[LINK_GROUP_MAP_DATABASE_SUB_TARGET] = [get_link_group_map_json(ctx, filtered_targets)]
             readable_mappings = {}
             for node, group in link_group_mappings.items():
                 readable_mappings[group] = readable_mappings.get(group, []) + ["{}//{}:{}".format(node.cell, node.package, node.name)]
-            sub_targets_for_link_style[LINK_GROUP_MAPPINGS_SUB_TARGET] = [DefaultInfo(
+            sub_targets_for_link_strategy[LINK_GROUP_MAPPINGS_SUB_TARGET] = [DefaultInfo(
                 default_output = ctx.actions.write_json(
                     name + LINK_GROUP_MAPPINGS_FILENAME_SUFFIX,
                     readable_mappings,
                 ),
             )]
 
-        styles[link_style] = _CompileOutputs(
+        styles[link_strategy] = _CompileOutputs(
             link = link.output,
             args = args,
             extra_targets = extra_targets,
             runtime_files = runtime_files,
             external_debug_info = executable_args.external_debug_info,
-            sub_targets = sub_targets_for_link_style,
+            sub_targets = sub_targets_for_link_strategy,
             dist_info = DistInfo(
                 shared_libs = shlib_info.set,
                 nondebug_runtime_files = runtime_files,
             ),
         )
 
-        if link_style == specified_link_style and link.dwp_output:
+        if link_strategy == specified_link_strategy and link.dwp_output:
             dwp_target = link.dwp_output
-        if link_style == specified_link_style and link.pdb:
+        if link_strategy == specified_link_strategy and link.pdb:
             pdb = link.pdb
 
     expand = rust_compile(
         ctx = ctx,
         compile_ctx = compile_ctx,
         emit = Emit("expand"),
-        params = style_param[DEFAULT_STATIC_LINK_STYLE],
+        params = strategy_param[to_link_strategy(DEFAULT_STATIC_LINK_STYLE)],
         dep_link_strategy = to_link_strategy(DEFAULT_STATIC_LINK_STYLE),
         default_roots = default_roots,
         extra_flags = extra_flags,
     )
 
-    compiled_outputs = styles[specified_link_style]
+    compiled_outputs = styles[specified_link_strategy]
     extra_compiled_targets = (compiled_outputs.extra_targets + [
         ("doc", generate_rustdoc(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            params = style_param[DEFAULT_STATIC_LINK_STYLE],
+            params = strategy_param[to_link_strategy(DEFAULT_STATIC_LINK_STYLE)],
             default_roots = default_roots,
             document_private_items = True,
         )),

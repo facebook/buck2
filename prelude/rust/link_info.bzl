@@ -182,14 +182,14 @@ RustCxxLinkGroupInfo = record(
 
 def enable_link_groups(
         ctx: AnalysisContext,
-        link_style: [LinkStyle, None],
-        specified_link_style: LinkStyle,
+        link_strategy: [LinkStrategy, None],
+        specified_link_strategy: LinkStrategy,
         is_binary: bool):
     if not (cxx_is_gnu(ctx) and is_binary):
         # check minium requirements
         return False
-    if link_style == LinkStyle("shared") or link_style != specified_link_style:
-        # check whether we should run link groups analysis for the given link style
+    if link_strategy == LinkStrategy("shared") or link_strategy != specified_link_strategy:
+        # check whether we should run link groups analysis for the given link strategy
         return False
 
     # check whether link groups is enabled
@@ -402,7 +402,7 @@ def inherited_exported_link_deps(ctx: AnalysisContext, dep_ctx: DepCollectionCon
 def inherited_rust_cxx_link_group_info(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext,
-        link_style: [LinkStyle, None] = None) -> RustCxxLinkGroupInfo:
+        link_strategy: [LinkStrategy, None] = None) -> RustCxxLinkGroupInfo:
     link_deps = inherited_exported_link_deps(ctx, dep_ctx)
 
     # Assume a rust executable wants to use link groups if a link group map
@@ -457,12 +457,12 @@ def inherited_rust_cxx_link_group_info(
         link_groups,
         link_group_mappings,
         link_group_preferred_linkage,
-        pic_behavior = PicBehavior("always_enabled") if link_style == LinkStyle("static_pic") else PicBehavior("supported"),
+        pic_behavior = PicBehavior("always_enabled") if link_strategy == LinkStrategy("static_pic") else PicBehavior("supported"),
         link_group_libs = {
             name: (lib.label, lib.shared_link_infos)
             for name, lib in link_group_libs.items()
         },
-        link_strategy = to_link_strategy(link_style),
+        link_strategy = link_strategy,
         roots = executable_deps,
         is_executable_link = True,
         prefer_stripped = False,
