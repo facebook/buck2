@@ -32,7 +32,6 @@ load(
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStrategy",
-    "to_link_strategy",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -65,7 +64,7 @@ load(
 load(":context.bzl", "CompileContext")
 load(
     ":link_info.bzl",
-    "DEFAULT_STATIC_LINK_STYLE",
+    "DEFAULT_STATIC_LINK_STRATEGY",
     "attr_simple_crate_for_filenames",
     "enable_link_groups",
     "inherited_rust_cxx_link_group_info",
@@ -99,7 +98,7 @@ def _rust_binary_common(
     strategy_param = {}  # strategy -> param
     sub_targets = {}
 
-    specified_link_strategy = LinkStrategy(ctx.attrs.link_style) if ctx.attrs.link_style else to_link_strategy(DEFAULT_STATIC_LINK_STYLE)
+    specified_link_strategy = LinkStrategy(ctx.attrs.link_style) if ctx.attrs.link_style else DEFAULT_STATIC_LINK_STRATEGY
 
     target_os_type = ctx.attrs._target_os_type[OsLookup]
     linker_type = compile_ctx.cxx_toolchain_info.linker_info.type
@@ -289,7 +288,7 @@ def _rust_binary_common(
         ctx = ctx,
         compile_ctx = compile_ctx,
         emit = Emit("expand"),
-        params = strategy_param[to_link_strategy(DEFAULT_STATIC_LINK_STYLE)],
+        params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
         default_roots = default_roots,
         extra_flags = extra_flags,
     )
@@ -299,7 +298,7 @@ def _rust_binary_common(
         ("doc", generate_rustdoc(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            params = strategy_param[to_link_strategy(DEFAULT_STATIC_LINK_STYLE)],
+            params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
             default_roots = default_roots,
             document_private_items = True,
         )),

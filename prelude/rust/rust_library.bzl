@@ -95,7 +95,7 @@ load(
 )
 load(
     ":link_info.bzl",
-    "DEFAULT_STATIC_LINK_STYLE",
+    "DEFAULT_STATIC_LINK_STRATEGY",
     "RustLinkInfo",
     "RustLinkStrategyInfo",
     "RustProcMacroMarker",  # @unused Used as a type
@@ -280,7 +280,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         doc_link_strategy = {
             "any": LinkStrategy("shared"),
             "shared": LinkStrategy("shared"),
-            "static": to_link_strategy(DEFAULT_STATIC_LINK_STYLE),
+            "static": DEFAULT_STATIC_LINK_STRATEGY,
         }[ctx.attrs.preferred_linkage]
 
     # The second thing we need is a lib output style of the regular, non-doctest

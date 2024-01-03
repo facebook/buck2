@@ -41,11 +41,9 @@ load(
     "@prelude//linking:link_info.bzl",
     "LinkInfo",
     "LinkStrategy",
-    "LinkStyle",
     "Linkage",  # @unused Used as a type
     "MergedLinkInfo",
     "get_link_args_for_strategy",
-    "to_link_strategy",
     "unpack_external_debug_info",
 )
 load(
@@ -73,8 +71,8 @@ load(
 )
 load(":rust_toolchain.bzl", "PanicRuntime")
 
-# Link style for targets which do not set an explicit `link_style` attribute.
-DEFAULT_STATIC_LINK_STYLE = LinkStyle("static_pic")
+# Link strategy for targets which do not set an explicit `link_style` attribute.
+DEFAULT_STATIC_LINK_STRATEGY = LinkStrategy("static_pic")
 
 # Override dylib crates to static_pic, so that Rust code is always
 # statically linked.
@@ -134,7 +132,7 @@ RustLinkInfo = provider(
 
 def _adjust_link_strategy_for_rust_dependencies(dep_link_strategy: LinkStrategy) -> LinkStrategy:
     if FORCE_RLIB and dep_link_strategy == LinkStrategy("shared"):
-        return to_link_strategy(DEFAULT_STATIC_LINK_STYLE)
+        return DEFAULT_STATIC_LINK_STRATEGY
     else:
         return dep_link_strategy
 
