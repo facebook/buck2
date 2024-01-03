@@ -161,7 +161,6 @@ def generate_rustdoc(
         # rather than full .rlibs
         emit = Emit("metadata"),
         params = params,
-        dep_link_strategy = params.dep_link_strategy,
         default_roots = default_roots,
         is_rustdoc_test = False,
     )
@@ -270,7 +269,6 @@ def generate_rustdoc_test(
         dep_ctx = doc_dep_ctx,
         emit = Emit("link"),
         params = params,
-        dep_link_strategy = params.dep_link_strategy,
         default_roots = default_roots,
         is_rustdoc_test = True,
     )
@@ -353,7 +351,6 @@ def rust_compile_multi(
         compile_ctx: CompileContext,
         emits: list[Emit],
         params: BuildParams,
-        dep_link_strategy: LinkStrategy,
         default_roots: list[str],
         extra_link_args: list[typing.Any] = [],
         predeclared_outputs: dict[Emit, Artifact] = {},
@@ -369,7 +366,6 @@ def rust_compile_multi(
             compile_ctx = compile_ctx,
             emit = emit,
             params = params,
-            dep_link_strategy = dep_link_strategy,
             default_roots = default_roots,
             extra_link_args = extra_link_args,
             predeclared_outputs = predeclared_outputs,
@@ -390,7 +386,6 @@ def rust_compile(
         compile_ctx: CompileContext,
         emit: Emit,
         params: BuildParams,
-        dep_link_strategy: LinkStrategy,
         default_roots: list[str],
         extra_link_args: list[typing.Any] = [],
         predeclared_outputs: dict[Emit, Artifact] = {},
@@ -410,7 +405,6 @@ def rust_compile(
         dep_ctx = compile_ctx.dep_ctx,
         emit = emit,
         params = params,
-        dep_link_strategy = dep_link_strategy,
         default_roots = default_roots,
         is_rustdoc_test = False,
     )
@@ -474,7 +468,7 @@ def rust_compile(
                     ctx,
                     compile_ctx.dep_ctx,
                 ),
-                dep_link_strategy,
+                params.dep_link_strategy,
             )
 
         link_args_output = make_link_args(
@@ -765,7 +759,6 @@ def _compute_common_args(
         dep_ctx: DepCollectionContext,
         emit: Emit,
         params: BuildParams,
-        dep_link_strategy: LinkStrategy,
         default_roots: list[str],
         is_rustdoc_test: bool) -> CommonArgsInfo:
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
@@ -773,7 +766,7 @@ def _compute_common_args(
 
     crate_type = params.crate_type
 
-    args_key = (crate_type, emit, dep_link_strategy, is_rustdoc_test)
+    args_key = (crate_type, emit, params.dep_link_strategy, is_rustdoc_test)
     if False:
         # TODO(nga): following `if args_key in ...` is no-op, and typechecker does not like it.
         def unknown():
@@ -784,7 +777,7 @@ def _compute_common_args(
         return compile_ctx.common_args[args_key]
 
     # Keep filenames distinct in per-flavour subdirs
-    subdir = "{}-{}-{}-{}".format(crate_type.value, params.reloc_model.value, dep_link_strategy.value, emit.value)
+    subdir = "{}-{}-{}-{}".format(crate_type.value, params.reloc_model.value, params.dep_link_strategy.value, emit.value)
     if is_rustdoc_test:
         subdir = "{}-rustdoc-test".format(subdir)
 
@@ -806,7 +799,7 @@ def _compute_common_args(
         deps = resolve_rust_deps(ctx, dep_ctx),
         subdir = subdir,
         crate_type = crate_type,
-        dep_link_strategy = dep_link_strategy,
+        dep_link_strategy = params.dep_link_strategy,
         is_check = is_check,
         is_rustdoc_test = is_rustdoc_test,
     )

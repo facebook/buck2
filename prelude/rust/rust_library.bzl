@@ -313,7 +313,6 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         compile_ctx = compile_ctx,
         emit = Emit("expand"),
         params = static_library_params,
-        dep_link_strategy = to_link_strategy(DEFAULT_STATIC_LINK_STYLE),
         default_roots = default_roots,
     )
 
@@ -435,8 +434,6 @@ def _build_library_artifacts(
     param_artifact = {}
 
     for params in params:
-        dep_link_strategy = params.dep_link_strategy
-
         # Separate actions for each emit type
         #
         # In principle we don't really need metadata for C++-only artifacts, but I don't think it hurts
@@ -445,7 +442,6 @@ def _build_library_artifacts(
             compile_ctx = compile_ctx,
             emits = [Emit("link"), Emit("metadata")],
             params = params,
-            dep_link_strategy = dep_link_strategy,
             default_roots = ["lib.rs"],
         )
 

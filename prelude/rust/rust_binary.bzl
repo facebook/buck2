@@ -193,7 +193,6 @@ def _rust_binary_common(
             compile_ctx = compile_ctx,
             emits = [Emit("link"), Emit("metadata")],
             params = params,
-            dep_link_strategy = link_strategy,
             default_roots = default_roots,
             extra_link_args = executable_args.extra_link_args,
             predeclared_outputs = {Emit("link"): output},
@@ -291,7 +290,6 @@ def _rust_binary_common(
         compile_ctx = compile_ctx,
         emit = Emit("expand"),
         params = strategy_param[to_link_strategy(DEFAULT_STATIC_LINK_STYLE)],
-        dep_link_strategy = to_link_strategy(DEFAULT_STATIC_LINK_STYLE),
         default_roots = default_roots,
         extra_flags = extra_flags,
     )
