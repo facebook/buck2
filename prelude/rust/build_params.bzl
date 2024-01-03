@@ -41,10 +41,6 @@ def crate_type_native_linkage(crate_type: CrateType) -> bool:
 def crate_type_linked(crate_type: CrateType) -> bool:
     return crate_type.value in ("bin", "dylib", "proc-macro", "cdylib")
 
-# Crate type which should include transitive deps
-def crate_type_transitive_deps(crate_type: CrateType) -> bool:
-    return crate_type.value in ("rlib", "dylib", "staticlib")  # not sure about staticlib
-
 # Crate type which should always need codegen
 def crate_type_codegen(crate_type: CrateType) -> bool:
     return crate_type_linked(crate_type) or crate_type_native_linkage(crate_type)

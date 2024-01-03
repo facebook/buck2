@@ -79,11 +79,11 @@ load(
 load(
     ":build_params.bzl",
     "BuildParams",  # @unused Used as a type
+    "CrateType",
     "Emit",
     "LinkageLang",
     "RuleType",
     "build_params",
-    "crate_type_transitive_deps",
 )
 load(
     ":context.bzl",
@@ -462,7 +462,7 @@ def _handle_rust_artifact(
 
     # If we're a crate where our consumers should care about transitive deps,
     # then compute them (specifically, not proc-macro).
-    if crate_type_transitive_deps(params.crate_type):
+    if params.crate_type != CrateType("proc-macro"):
         tdeps, tmetadeps, external_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_ctx, dep_link_strategy)
     else:
         tdeps, tmetadeps, external_debug_info, tprocmacrodeps = {}, {}, [], {}
