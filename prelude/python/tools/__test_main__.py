@@ -33,11 +33,8 @@ import time
 import traceback
 import unittest
 import warnings
+from importlib.machinery import PathFinder
 
-
-with warnings.catch_warnings():
-    warnings.filterwarnings("ignore", category=DeprecationWarning)
-    import imp
 
 try:
     from StringIO import StringIO  # type: ignore
@@ -88,7 +85,7 @@ class PathMatcher:
         return not self.omit(path)
 
 
-class DebugWipeFinder:
+class DebugWipeFinder(PathFinder):
     """
     PEP 302 finder that uses a DebugWipeLoader for all files which do not need
     coverage
@@ -97,27 +94,14 @@ class DebugWipeFinder:
     def __init__(self, matcher):
         self.matcher = matcher
 
-    def find_module(self, fullname, path=None):
-        _, _, basename = fullname.rpartition(".")
-        try:
-            fd, pypath, (_, _, kind) = imp.find_module(basename, path)
-        except Exception:
-            # Finding without hooks using the imp module failed. One reason
-            # could be that there is a zip file on sys.path. The imp module
-            # does not support loading from there. Leave finding this module to
-            # the others finders in sys.meta_path.
+    def find_spec(self, fullname, path=None, target=None):
+        spec = super().find_spec(fullname, path=path, target=target)
+        if spec is None or spec.origin is None:
             return None
-
-        if hasattr(fd, "close"):
-            fd.close()
-        if kind != imp.PY_SOURCE:
+        if not spec.origin.endswith(".py"):
             return None
-        if self.matcher.include(pypath):
+        if self.matcher.include(spec.origin):
             return None
-
-        """
-        This is defined to match CPython's PyVarObject struct
-        """
 
         class PyVarObject(ctypes.Structure):
             _fields_ = [
@@ -132,7 +116,7 @@ class DebugWipeFinder:
             """
 
             def get_code(self, fullname):
-                code = super(DebugWipeLoader, self).get_code(fullname)
+                code = super().get_code(fullname)
                 if code:
                     # Ideally we'd do
                     # code.co_lnotab = b''
@@ -142,7 +126,8 @@ class DebugWipeFinder:
                     code_impl.ob_size = 0
                 return code
 
-        return DebugWipeLoader(fullname, pypath)
+        spec.loader = DebugWipeLoader(fullname, spec.origin)
+        return spec
 
 
 def optimize_for_coverage(cov, include_patterns, omit_patterns):
@@ -200,8 +185,7 @@ class CallbackStream:
         return self._fileno
 
 
-# pyre-fixme[11]: Annotation `unittest._TextTestResult` is not defined as a type.
-class BuckTestResult(unittest._TextTestResult):
+class BuckTestResult(unittest.TextTestResult):
     """
     Our own TestResult class that outputs data in a format that can be easily
     parsed by buck's test runner.
