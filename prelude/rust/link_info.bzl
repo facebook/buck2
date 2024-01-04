@@ -362,18 +362,20 @@ def _native_link_dependencies(
             if RustLinkInfo not in d and MergedLinkInfo in d
         ]
 
-# Returns native link dependencies.
-def _rust_link_infos(
+# Returns the rust link infos for non-proc macro deps.
+#
+# This is intended to be used to access the Rust -> Rust link providers
+def _rust_non_proc_macro_link_infos(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext) -> list[RustLinkInfo]:
-    return [d.info for d in resolve_rust_deps(ctx, dep_ctx)]
+    return [d.info for d in resolve_rust_deps(ctx, dep_ctx) if d.proc_macro_marker == None]
 
 def inherited_exported_link_deps(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[Dependency]:
     deps = {}
     for dep in _native_link_dependencies(ctx, dep_ctx):
         deps[dep.label] = dep
     if not dep_ctx.advanced_unstable_linking:
-        for info in _rust_link_infos(ctx, dep_ctx):
+        for info in _rust_non_proc_macro_link_infos(ctx, dep_ctx):
             for dep in info.exported_link_deps:
                 deps[dep.label] = dep
     return deps.values()
@@ -466,7 +468,7 @@ def inherited_merged_link_infos(
     infos = []
     infos.extend([d[MergedLinkInfo] for d in _native_link_dependencies(ctx, dep_ctx)])
     if not dep_ctx.advanced_unstable_linking:
-        infos.extend([d.merged_link_info for d in _rust_link_infos(ctx, dep_ctx) if d.merged_link_info])
+        infos.extend([d.merged_link_info for d in _rust_non_proc_macro_link_infos(ctx, dep_ctx) if d.merged_link_info])
     return infos
 
 def inherited_shared_libs(
@@ -475,7 +477,7 @@ def inherited_shared_libs(
     infos = []
     infos.extend([d[SharedLibraryInfo] for d in _native_link_dependencies(ctx, dep_ctx)])
     if not dep_ctx.advanced_unstable_linking:
-        infos.extend([d.shared_libs for d in _rust_link_infos(ctx, dep_ctx)])
+        infos.extend([d.shared_libs for d in _rust_non_proc_macro_link_infos(ctx, dep_ctx)])
     return infos
 
 def inherited_linkable_graphs(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[LinkableGraph]:
@@ -484,7 +486,7 @@ def inherited_linkable_graphs(ctx: AnalysisContext, dep_ctx: DepCollectionContex
         g = d[LinkableGraph]
         deps[g.label] = g
     if not dep_ctx.advanced_unstable_linking:
-        for info in _rust_link_infos(ctx, dep_ctx):
+        for info in _rust_non_proc_macro_link_infos(ctx, dep_ctx):
             for g in info.linkable_graphs:
                 deps[g.label] = g
     return deps.values()

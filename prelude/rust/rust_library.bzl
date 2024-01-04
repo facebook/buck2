@@ -560,21 +560,20 @@ def _default_providers(
 def _rust_link_providers(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext) -> (MergedLinkInfo, SharedLibraryInfo, list[LinkableGraph], list[Dependency]):
-    # Inherited link input and shared libraries.  As in v1, this only includes
-    # non-Rust rules, found by walking through -- and ignoring -- Rust libraries
-    # to find non-Rust native linkables and libraries.
-    if not ctx.attrs.proc_macro:
-        inherited_link_deps = inherited_exported_link_deps(ctx, dep_ctx)
-        inherited_link_infos = inherited_merged_link_infos(ctx, dep_ctx)
-        inherited_shlibs = inherited_shared_libs(ctx, dep_ctx)
-        inherited_graphs = inherited_linkable_graphs(ctx, dep_ctx)
-    else:
-        # proc-macros are just used by the compiler and shouldn't propagate
-        # their native deps to the link line of the target.
-        inherited_link_infos = []
-        inherited_shlibs = []
-        inherited_link_deps = []
-        inherited_graphs = []
+    # These are never accessed in the case of proc macros, so just return some dummy
+    # values
+    if ctx.attrs.proc_macro:
+        return (
+            create_merged_link_info_for_propagation(ctx, []),
+            merge_shared_libraries(ctx.actions),
+            [],
+            [],
+        )
+
+    inherited_link_infos = inherited_merged_link_infos(ctx, dep_ctx)
+    inherited_shlibs = inherited_shared_libs(ctx, dep_ctx)
+    inherited_graphs = inherited_linkable_graphs(ctx, dep_ctx)
+    inherited_link_deps = inherited_exported_link_deps(ctx, dep_ctx)
 
     merged_link_info = create_merged_link_info_for_propagation(ctx, inherited_link_infos)
     shared_libs = merge_shared_libraries(
