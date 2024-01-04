@@ -121,12 +121,43 @@ RustLinkInfo = provider(
         "crate": CrateName,
         # strategies - information about each LinkStrategy as RustLinkStrategyInfo
         "strategies": dict[LinkStrategy, RustLinkStrategyInfo],
-        # Propagate native linkable dependencies through rust libraries.
-        "exported_link_deps": list[Dependency],
-        # Propagate native linkable info through rust libraries.
+        # Rust interacts with the native link graph in a non-standard way. Specifically, imagine we
+        # have a Rust library `:A` with its only one dependency `:B`, another Rust library. The Rust
+        # rules give Rust -> Rust dependencies special treatment, and as a result, the
+        # `MergedLinkInfo` provided from `:B` is not a "superset" of the `MergedLinkInfo` provided
+        # from `:A` (concrete differences discussed below).
+        #
+        # This distionction is implemented by effectively having each Rust library provide two sets
+        # of link providers. The first set is the one that is used by C++ and other non-Rust
+        # dependents, and is returned from the rule like normal. The second is the link providers
+        # used across Rust -> Rust dependency edges - this is what the fields below are.
+        #
+        # The way in which the native link providers and Rust link providers differ depends on
+        # whether `advanced_unstable_linking` is set on the toolchain.
+        #
+        #  * Without `advanced_unstable_linking`, the Rust `MergedLinkInfo` provided by `:A` is only
+        #    the result of merging the `MergedLinkInfo`s from `:A`'s deps, and does not contain
+        #    anything about `:A`. Instead, when `:B` produces the native `MergedLinkInfo`, it will
+        #    add a single static library that bundles all transitive Rust deps, including `:A` (and
+        #    similarly for the DSO case).
+        #  * With `advanced_unstable_linking`, the Rust `MergedLinkInfo` provided by a `:A` does
+        #    include a linkable from `:A`, however that linkable is always the rlib (a static
+        #    library), regardless of `:A`'s preferred linkage or the link strategy. This matches the
+        #    `FORCE_RLIB` behavior, in which Rust -> Rust dependency edges are always statically
+        #    linked. The native link provider is identical, except that it does not respect the
+        #    `FORCE_RLIB` behavior.
+        #
+        # FIXME(JakobDegen): The `advanced_unstable_linking` case is currently aspirational and not
+        # how things are actually implemented.
+        #
+        # FIXME(JakobDegen): There are more link providers than `MergedLinkInfo` and
+        # `SharedLibraryInfo`. We may have been able to avoid those before native unbundled deps,
+        # but I don't think that can continue to be the case.
         "merged_link_info": MergedLinkInfo,
-        # Propagate shared libraries through rust libraries.
         "shared_libs": SharedLibraryInfo,
+        # The native dependencies reachable from this Rust library through other
+        # Rust libraries
+        "exported_link_deps": list[Dependency],
     },
 )
 
