@@ -9,6 +9,8 @@
 
 use std::ops::Deref;
 
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use dice::DiceComputations;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
@@ -36,6 +38,11 @@ pub async fn with_starlark_eval_provider<D: Deref<Target = DiceComputations>, R>
     description: String,
     closure: impl FnOnce(&mut dyn StarlarkEvaluatorProvider, D) -> anyhow::Result<R>,
 ) -> anyhow::Result<R> {
+    let root_buckconfig = ctx.get_legacy_root_config_on_dice().await?;
+    let root_buckconfig_view: &dyn LegacyBuckConfigView = &root_buckconfig;
+    let starlark_max_callstack_size =
+        root_buckconfig_view.parse::<usize>("buck2", "starlark_max_callstack_size")?;
+
     let debugger_handle = ctx.get_starlark_debugger_handle();
     let debugger = match debugger_handle {
         Some(v) => Some(v.start_eval(&description).await?),
@@ -45,11 +52,16 @@ pub async fn with_starlark_eval_provider<D: Deref<Target = DiceComputations>, R>
     struct EvalProvider<'a, 'b> {
         profiler: &'a mut StarlarkProfilerOrInstrumentation<'b>,
         debugger: Option<Box<dyn StarlarkDebugController>>,
+        starlark_max_callstack_size: Option<usize>,
     }
 
     impl StarlarkEvaluatorProvider for EvalProvider<'_, '_> {
         fn make<'v, 'a>(&mut self, module: &'v Module) -> anyhow::Result<Evaluator<'v, 'a>> {
             let mut eval = Evaluator::new(module);
+            if let Some(stack_size) = self.starlark_max_callstack_size {
+                eval.set_max_callstack_size(stack_size)?;
+            }
+
             self.profiler.initialize(&mut eval)?;
             if let Some(v) = &mut self.debugger {
                 v.initialize(&mut eval)?;
@@ -70,6 +82,7 @@ pub async fn with_starlark_eval_provider<D: Deref<Target = DiceComputations>, R>
         let mut provider = EvalProvider {
             profiler: profiler_instrumentation,
             debugger,
+            starlark_max_callstack_size,
         };
 
         // If we're debugging, we need to move this to a tokio blocking task.
