@@ -79,7 +79,7 @@ use crate::response::*;
 // in the Capabilities message query.
 const CONCURRENT_UPLOAD_LIMIT: usize = 64;
 
-const DEFAULT_MAX_MSG_SIZE: usize = 4 * 1000 * 1000;
+const DEFAULT_MAX_MSG_SIZE: usize = 1 << 21;
 
 fn tdigest_to(tdigest: TDigest) -> Digest {
     Digest {
@@ -913,6 +913,8 @@ where
                 digests: std::mem::take(&mut curr_digests),
                 acceptable_compressors: vec![compressor::Value::Identity as i32],
             };
+            // curr_digests would only have the current digest at the end of this iteration
+            curr_size = digest.size_bytes;
             requests.push(read_blob_req);
         }
         curr_digests.push(digest.clone());
