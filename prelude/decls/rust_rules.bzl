@@ -100,7 +100,8 @@ _RUST_EXECUTABLE_ATTRIBUTES = {
     "auto_link_groups": attrs.bool(default = True),
     # TODO: enable distributed thinlto
     "enable_distributed_thinlto": attrs.bool(default = False),
-    "link_group": attrs.option(attrs.string(), default = None),
+    # Required by the rules but not supported, since Rust is auto-link groups only
+    "link_group": attrs.default_only(attrs.option(attrs.string(), default = None)),
     "link_group_map": link_group_map_attr(),
     "link_group_min_binary_node_count": attrs.option(attrs.int(), default = None),
     "rpath": attrs.bool(default = False, doc = """

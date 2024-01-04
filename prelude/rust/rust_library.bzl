@@ -753,6 +753,9 @@ def _native_providers(
 
     providers.append(linkable_graph)
 
+    # We never need to add anything to this provider because Rust libraries
+    # cannot act as link group libs, especially given that they only support
+    # auto link groups anyway
     providers.append(merge_link_group_lib_info(deps = inherited_link_deps))
 
     return providers
