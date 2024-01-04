@@ -101,10 +101,17 @@ enum EvaluatorError {
     CoverageNotEnabled,
     #[error("Local variable `{0}` referenced before assignment")]
     LocalVariableReferencedBeforeAssignment(String),
+    #[error("Max callstack size is already set")]
+    CallstackSizeAlreadySet,
+    #[error("Max callstack size cannot be zero")]
+    ZeroCallstackSize,
 }
 
 /// Number of bytes to allocate between GC's.
 pub(crate) const GC_THRESHOLD: usize = 100000;
+
+/// Default value for max starlark stack size
+pub(crate) const DEFAULT_STACK_SIZE: usize = 50;
 
 /// Holds everything about an ongoing evaluation (local variables, globals, module resolution etc).
 pub struct Evaluator<'v, 'a> {
@@ -155,6 +162,8 @@ pub struct Evaluator<'v, 'a> {
         Option<Box<dyn Fn() -> anyhow::Result<Box<dyn BreakpointConsole>>>>,
     /// Use in implementation of `print` function.
     pub(crate) print_handler: &'a (dyn PrintHandler + 'a),
+    /// Max size of starlark stack
+    pub(crate) max_callstack_size: Option<usize>,
     // The Starlark-level call-stack of functions.
     // Must go last because it's quite a big structure
     pub(crate) call_stack: CheapCallStack<'v>,
@@ -226,6 +235,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             print_handler: &StderrPrintHandler,
             verbose_gc: false,
             static_typechecking: false,
+            max_callstack_size: None,
         }
     }
 
@@ -802,6 +812,19 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         } else {
             bc.run(self, &mut EvalCallbacksDisabled)
         }
+    }
+
+    /// Sets max call stack size.
+    /// Stack allocation will happen on entry point of evaluation if not allocated yet.
+    pub fn set_max_callstack_size(&mut self, stack_size: usize) -> anyhow::Result<()> {
+        if stack_size == 0 {
+            return Err(EvaluatorError::ZeroCallstackSize.into());
+        }
+        if self.max_callstack_size.is_some() {
+            return Err(EvaluatorError::CallstackSizeAlreadySet.into());
+        }
+        self.max_callstack_size = Some(stack_size);
+        Ok(())
     }
 }
 

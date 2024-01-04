@@ -52,6 +52,7 @@ use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::Compiler;
 use crate::eval::runtime::arguments::ArgNames;
 use crate::eval::runtime::arguments::ArgumentsFull;
+use crate::eval::runtime::evaluator;
 use crate::syntax::DialectTypes;
 use crate::values::Value;
 
@@ -112,6 +113,11 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             )),
         );
 
+        self.call_stack.alloc_if_needed(
+            self.max_callstack_size
+                .unwrap_or(evaluator::DEFAULT_STACK_SIZE),
+        )?;
+
         // Set up the world to allow evaluation (do NOT use ? from now on)
 
         self.call_stack.push(Value::new_none(), None).unwrap();
@@ -157,6 +163,10 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             args: None,
             kwargs: None,
         });
+        self.call_stack.alloc_if_needed(
+            self.max_callstack_size
+                .unwrap_or(evaluator::DEFAULT_STACK_SIZE),
+        )?;
         // eval_module pushes an "empty" call stack frame. other places expect that first frame to be ignorable, and
         // so we push an empty frame too (otherwise things would ignore this function's own frame).
         self.with_call_stack(Value::new_none(), None, |this| {

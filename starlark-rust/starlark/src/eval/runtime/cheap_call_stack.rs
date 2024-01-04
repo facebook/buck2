@@ -17,6 +17,7 @@
 
 use std::fmt;
 use std::fmt::Debug;
+use std::vec;
 
 use dupe::Dupe;
 use starlark_syntax::codemap::FileSpan;
@@ -76,13 +77,15 @@ enum CallStackError {
     StackIsTooShallowForNthTopFrame(usize, usize),
     #[error("Starlark call stack overflow")]
     Overflow,
+    #[error("Starlark call stack is already allocated")]
+    AlreadyAllocated,
 }
 
 /// Starlark call stack.
 #[derive(Debug)]
 pub(crate) struct CheapCallStack<'v> {
     count: usize,
-    stack: Box<[CheapFrame<'v>; MAX_CALLSTACK_RECURSION]>,
+    stack: Box<[CheapFrame<'v>]>,
 }
 
 impl<'v> Default for CheapCallStack<'v> {
@@ -93,24 +96,11 @@ impl<'v> Default for CheapCallStack<'v> {
                 [CheapFrame {
                     function: Value::new_none(),
                     span: None,
-                }; MAX_CALLSTACK_RECURSION],
+                }; 0],
             ),
         }
     }
 }
-
-// Currently, each frame typically allocates about 1K of native stack size (see `test_frame_size`),
-// but it is a bit more complicated:
-// * each for loop in a frame allocates more native stack
-// * inlined functions do not allocate native stack
-// Practically max call stack depends on native stack size,
-// and depending on environment, it may be configured differently, for example:
-// * macOS default stack size is 512KB
-// * Linux default stack size is 8MB
-// * [tokio default stack size is 2MB][1]
-// [1] https://docs.rs/tokio/0.2.1/tokio/runtime/struct.Builder.html#method.thread_stack_size
-// TODO(nga): make it configurable.
-const MAX_CALLSTACK_RECURSION: usize = 50;
 
 unsafe impl<'v> Trace<'v> for CheapCallStack<'v> {
     fn trace(&mut self, tracer: &Tracer<'v>) {
@@ -128,6 +118,36 @@ unsafe impl<'v> Trace<'v> for CheapCallStack<'v> {
 }
 
 impl<'v> CheapCallStack<'v> {
+    // Currently, each frame typically allocates about 1K of native stack size (see `test_frame_size`),
+    // but it is a bit more complicated:
+    // * each for loop in a frame allocates more native stack
+    // * inlined functions do not allocate native stack
+    // Practically max call stack depends on native stack size,
+    // and depending on environment, it may be configured differently, for example:
+    // * macOS default stack size is 512KB
+    // * Linux default stack size is 8MB
+    // * [tokio default stack size is 2MB][1]
+    // [1] https://docs.rs/tokio/0.2.1/tokio/runtime/struct.Builder.html#method.thread_stack_size
+    pub(crate) fn alloc_if_needed(&mut self, max_size: usize) -> anyhow::Result<()> {
+        if self.stack.len() != 0 {
+            return if self.stack.len() == max_size {
+                Ok(())
+            } else {
+                Err(CallStackError::AlreadyAllocated.into())
+            };
+        }
+
+        self.stack = vec![
+            CheapFrame {
+                function: Value::new_none(),
+                span: None,
+            };
+            max_size
+        ]
+        .into_boxed_slice();
+        Ok(())
+    }
+
     /// Push an element to the stack. It is important the each `push` is paired
     /// with a `pop`.
     pub(crate) fn push(
@@ -135,7 +155,7 @@ impl<'v> CheapCallStack<'v> {
         function: Value<'v>,
         span: Option<FrozenRef<'static, FrameSpan>>,
     ) -> anyhow::Result<()> {
-        if unlikely(self.count >= MAX_CALLSTACK_RECURSION) {
+        if unlikely(self.count >= self.stack.len()) {
             return Err(CallStackError::Overflow.into());
         }
         self.stack[self.count] = CheapFrame { function, span };
