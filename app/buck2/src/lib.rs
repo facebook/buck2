@@ -84,6 +84,9 @@ fn parse_isolation_dir(s: &str) -> anyhow::Result<FileNameBuf> {
 /// Options of `buck2` command, before subcommand.
 #[derive(Clone, Debug, clap::Parser)]
 struct BeforeSubcommandOptions {
+    /// The name of the directory that Buck2 creates within buck-out for writing outputs and daemon
+    /// information. If one is not provided, Buck2 creates a directory with the default name.
+    ///
     /// Instances of Buck2 share a daemon if and only if their isolation directory is identical.
     /// The isolation directory also influences the output paths provided by Buck2,
     /// and as a result using a non-default isolation dir will cause cache misses (and slower builds).
