@@ -483,8 +483,9 @@ def inherited_shared_libs(
 def inherited_linkable_graphs(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[LinkableGraph]:
     deps = {}
     for d in _native_link_dependencies(ctx, dep_ctx):
-        g = d[LinkableGraph]
-        deps[g.label] = g
+        g = d.get(LinkableGraph)
+        if g:
+            deps[g.label] = g
     if not dep_ctx.advanced_unstable_linking:
         for info in _rust_non_proc_macro_link_infos(ctx, dep_ctx):
             for g in info.linkable_graphs:
