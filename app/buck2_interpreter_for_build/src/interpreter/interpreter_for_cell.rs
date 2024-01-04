@@ -631,10 +631,9 @@ impl InterpreterForCell {
 
         let internals = build_ctx.additional.into_build()?;
         let starlark_peak_allocated_bytes = env.heap().peak_allocated_bytes() as u64;
-        // TODO(ezgi): err if we cannot parse as bool
         let starlark_peak_mem_check_enabled = root_buckconfig
-            .get("buck2", "check_starlark_peak_memory")
-            .map_or(false, |value| value.map_or(false, |v| &*v == "true"));
+            .parse("buck2", "check_starlark_peak_memory")?
+            .unwrap_or(false);
         let default_limit = 2 * (1 << 30);
         let starlark_mem_limit = build_ctx
             .starlark_peak_allocated_byte_limit
