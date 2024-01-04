@@ -148,16 +148,14 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             external_debug_info = external_debug_info,
         )
 
+    merged_link_info, shared_libs, inherited_link_deps = _rust_link_providers(ctx, dep_ctx)
     providers.append(
         RustLinkInfo(
             crate = crate,
             strategies = strategies,
-            exported_link_deps = inherited_exported_link_deps(ctx, dep_ctx),
-            merged_link_info = create_merged_link_info_for_propagation(ctx, inherited_merged_link_infos(ctx, dep_ctx)),
-            shared_libs = merge_shared_libraries(
-                ctx.actions,
-                deps = inherited_shared_libs(ctx, dep_ctx),
-            ),
+            exported_link_deps = inherited_link_deps,
+            merged_link_info = merged_link_info,
+            shared_libs = shared_libs,
         ),
     )
 
