@@ -363,44 +363,10 @@ def _native_link_dependencies(
         ]
 
 # Returns native link dependencies.
-def _native_link_infos(
-        ctx: AnalysisContext,
-        dep_ctx: DepCollectionContext) -> list[MergedLinkInfo]:
-    """
-    Return all first-order native link infos of all transitive Rust libraries.
-    """
-    link_deps = _native_link_dependencies(ctx, dep_ctx)
-    return [d[MergedLinkInfo] for d in link_deps]
-
-# Returns native link dependencies.
-def _native_shared_lib_infos(
-        ctx: AnalysisContext,
-        dep_ctx: DepCollectionContext) -> list[SharedLibraryInfo]:
-    """
-    Return all transitive shared libraries for non-Rust native linkabes.
-
-    This emulates v1's graph walk, where it traverses through -- and ignores --
-    Rust libraries to collect all transitive shared libraries.
-    """
-    first_order_deps = [dep.dep for dep in resolve_deps(ctx, dep_ctx)]
-
-    if dep_ctx.advanced_unstable_linking:
-        return [d[SharedLibraryInfo] for d in first_order_deps if SharedLibraryInfo in d]
-    else:
-        return [
-            d[SharedLibraryInfo]
-            for d in first_order_deps
-            if RustLinkInfo not in d and SharedLibraryInfo in d
-        ]
-
-# Returns native link dependencies.
 def _rust_link_infos(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext) -> list[RustLinkInfo]:
     return [d.info for d in resolve_rust_deps(ctx, dep_ctx)]
-
-def normalize_crate(label: str) -> str:
-    return label.replace("-", "_")
 
 def inherited_exported_link_deps(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[Dependency]:
     deps = {}
@@ -498,7 +464,7 @@ def inherited_merged_link_infos(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext) -> list[MergedLinkInfo]:
     infos = []
-    infos.extend(_native_link_infos(ctx, dep_ctx))
+    infos.extend([d[MergedLinkInfo] for d in _native_link_dependencies(ctx, dep_ctx)])
     if not dep_ctx.advanced_unstable_linking:
         infos.extend([d.merged_link_info for d in _rust_link_infos(ctx, dep_ctx) if d.merged_link_info])
     return infos
@@ -507,7 +473,7 @@ def inherited_shared_libs(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext) -> list[SharedLibraryInfo]:
     infos = []
-    infos.extend(_native_shared_lib_infos(ctx, dep_ctx))
+    infos.extend([d[SharedLibraryInfo] for d in _native_link_dependencies(ctx, dep_ctx)])
     if not dep_ctx.advanced_unstable_linking:
         infos.extend([d.shared_libs for d in _rust_link_infos(ctx, dep_ctx)])
     return infos
@@ -562,6 +528,9 @@ def inherited_external_debug_info(
         artifacts = filter(None, [dwo_output_directory]),
         children = inherited_debug_infos,
     )
+
+def normalize_crate(label: str) -> str:
+    return label.replace("-", "_")
 
 def attr_simple_crate_for_filenames(ctx: AnalysisContext) -> str:
     """
