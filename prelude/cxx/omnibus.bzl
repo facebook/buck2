@@ -153,7 +153,7 @@ def get_excluded(deps: list[Dependency] = []) -> dict[Label, None]:
 def create_linkable_root(
         link_infos: LinkInfos,
         name: [str, None] = None,
-        deps: list[Dependency] = []) -> LinkableRootInfo:
+        deps: list[LinkableGraph | Dependency] = []) -> LinkableRootInfo:
     # Only include dependencies that are linkable.
     return LinkableRootInfo(
         name = name,

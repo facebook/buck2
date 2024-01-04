@@ -138,8 +138,8 @@ def create_linkable_node(
         default_soname: str | None,
         preferred_linkage: Linkage = Linkage("any"),
         default_link_strategy: LinkStrategy = LinkStrategy("shared"),
-        deps: list[Dependency] = [],
-        exported_deps: list[Dependency] = [],
+        deps: list[Dependency | LinkableGraph] = [],
+        exported_deps: list[Dependency | LinkableGraph] = [],
         link_infos: dict[LibOutputStyle, LinkInfos] = {},
         shared_libs: dict[str, LinkedObject] = {},
         can_be_asset: bool = True,
@@ -224,13 +224,16 @@ def get_linkable_graph_node_map_func(graph: LinkableGraph):
 
     return get_linkable_graph_node_map
 
-def linkable_deps(deps: list[Dependency]) -> list[Label]:
+def linkable_deps(deps: list[Dependency | LinkableGraph]) -> list[Label]:
     labels = []
 
     for dep in deps:
-        dep_info = linkable_graph(dep)
-        if dep_info != None:
-            labels.append(dep_info.label)
+        if eval_type(LinkableGraph.type).matches(dep):
+            labels.append(dep.label)
+        else:
+            dep_info = linkable_graph(dep)
+            if dep_info != None:
+                labels.append(dep_info.label)
 
     return labels
 

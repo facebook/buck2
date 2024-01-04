@@ -635,6 +635,7 @@ def _native_providers(
     inherited_link_deps = inherited_exported_link_deps(ctx, compile_ctx.dep_ctx)
     inherited_link_infos = inherited_merged_link_infos(ctx, compile_ctx.dep_ctx)
     inherited_shlibs = inherited_shared_libs(ctx, compile_ctx.dep_ctx)
+    inherited_link_graphs = inherited_linkable_graphs(ctx, compile_ctx.dep_ctx)
     linker_info = compile_ctx.cxx_toolchain_info.linker_info
     linker_type = linker_info.type
 
@@ -740,7 +741,7 @@ def _native_providers(
                 external_debug_info = external_debug_infos[LibOutputStyle("pic_archive")],
             ),
         ),
-        deps = inherited_link_deps,
+        deps = inherited_link_graphs,
     )
     providers.append(linkable_root)
 
@@ -755,13 +756,13 @@ def _native_providers(
             linkable_node = create_linkable_node(
                 ctx = ctx,
                 preferred_linkage = preferred_linkage,
-                exported_deps = inherited_link_deps,
+                exported_deps = inherited_link_graphs,
                 link_infos = link_infos,
                 shared_libs = solibs,
                 default_soname = shlib_name,
             ),
         ),
-        deps = inherited_link_deps,
+        deps = inherited_link_graphs,
     )
 
     providers.append(linkable_graph)

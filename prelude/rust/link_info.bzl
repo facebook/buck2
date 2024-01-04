@@ -53,16 +53,8 @@ load(
     "get_linkable_graph_node_map_func",
 )
 load(
-    "@prelude//linking:linkables.bzl",
-    "linkables",
-)
-load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibraryInfo",
-)
-load(
-    "@prelude//utils:utils.bzl",
-    "filter_and_map_idx",
 )
 load(
     ":context.bzl",
@@ -349,17 +341,6 @@ def resolve_rust_deps(
 def get_available_proc_macros(ctx: AnalysisContext) -> dict[TargetLabel, Dependency]:
     return {x.label.raw_target(): x for x in ctx.plugins[RustProcMacroPlugin]}
 
-def _create_linkable_graph(
-        ctx: AnalysisContext,
-        deps: list[Dependency]) -> LinkableGraph:
-    linkable_graph = create_linkable_graph(
-        ctx,
-        deps = filter(None, (
-            [d.linkable_graph for d in linkables(deps)]
-        )),
-    )
-    return linkable_graph
-
 # Returns native link dependencies.
 def _native_link_dependencies(
         ctx: AnalysisContext,
@@ -436,30 +417,30 @@ def inherited_rust_cxx_link_group_info(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext,
         link_strategy: [LinkStrategy, None] = None) -> RustCxxLinkGroupInfo:
-    link_deps = inherited_exported_link_deps(ctx, dep_ctx)
+    link_graphs = inherited_linkable_graphs(ctx, dep_ctx)
 
     # Assume a rust executable wants to use link groups if a link group map
     # is present
     link_group = get_link_group(ctx)
-    link_group_info = get_link_group_info(ctx, filter_and_map_idx(LinkableGraph, link_deps))
+    link_group_info = get_link_group_info(ctx, link_graphs)
     link_groups = link_group_info.groups
     link_group_mappings = link_group_info.mappings
     link_group_preferred_linkage = get_link_group_preferred_linkage(link_groups.values())
 
     auto_link_group_specs = get_auto_link_group_specs(ctx, link_group_info)
-    linkable_graph = _create_linkable_graph(
+    linkable_graph = create_linkable_graph(
         ctx,
-        link_deps,
+        deps = link_graphs,
     )
     linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
 
     executable_deps = []
-    for d in link_deps:
-        if d.label in linkable_graph_node_map:
-            executable_deps.append(d.label)
+    for g in link_graphs:
+        if g.label in linkable_graph_node_map:
+            executable_deps.append(g.label)
         else:
             # handle labels that are mutated by version alias
-            executable_deps.append(d.get(LinkableGraph).nodes.value.label)
+            executable_deps.append(g.nodes.value.label)
 
     linked_link_groups = create_link_groups(
         ctx = ctx,
