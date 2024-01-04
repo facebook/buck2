@@ -36,6 +36,7 @@ load(
 load(
     "@prelude//linking:link_groups.bzl",
     "LinkGroupLib",  # @unused Used as a type
+    "LinkGroupLibInfo",  # @unused Used as a type
 )
 load(
     "@prelude//linking:link_info.bzl",
@@ -141,10 +142,6 @@ RustLinkInfo = provider(
         #
         # FIXME(JakobDegen): The `advanced_unstable_linking` case is currently aspirational and not
         # how things are actually implemented.
-        #
-        # FIXME(JakobDegen): There are more link providers than `MergedLinkInfo` and
-        # `SharedLibraryInfo`. We may have been able to avoid those before native unbundled deps,
-        # but I don't think that can continue to be the case.
         "merged_link_info": MergedLinkInfo,
         "shared_libs": SharedLibraryInfo,
         # Because of the weird representation of `LinkableGraph`, there is no
@@ -152,6 +149,8 @@ RustLinkInfo = provider(
         # node at the same time. So we store a list to be able to depend on more
         # than one
         "linkable_graphs": list[LinkableGraph],
+        # LinkGroupLibInfo intentionally omitted because the Rust -> Rust version
+        # never needs to be different from the Rust -> native version
         # The native dependencies reachable from this Rust library through other
         # Rust libraries
         "exported_link_deps": list[Dependency],
@@ -522,6 +521,15 @@ def inherited_linkable_graphs(ctx: AnalysisContext, dep_ctx: DepCollectionContex
         for info in _rust_link_infos(ctx, dep_ctx):
             for g in info.linkable_graphs:
                 deps[g.label] = g
+    return deps.values()
+
+def inherited_link_group_lib_infos(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[LinkGroupLibInfo]:
+    # There are no special Rust -> Rust versions of this provider
+    deps = {}
+    for d in resolve_deps(ctx, dep_ctx):
+        i = d.dep.get(LinkGroupLibInfo)
+        if i:
+            deps[d.dep.label] = i
     return deps.values()
 
 def inherited_rust_external_debug_info(

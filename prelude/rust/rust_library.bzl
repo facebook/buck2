@@ -100,6 +100,7 @@ load(
     "RustProcMacroMarker",  # @unused Used as a type
     "attr_crate",
     "inherited_exported_link_deps",
+    "inherited_link_group_lib_infos",
     "inherited_linkable_graphs",
     "inherited_merged_link_infos",
     "inherited_shared_libs",
@@ -218,7 +219,7 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     providers.append(linkable_graph)
 
-    providers.append(merge_link_group_lib_info(deps = ctx.attrs.deps))
+    providers.append(merge_link_group_lib_info(children = inherited_link_group_lib_infos(ctx, dep_ctx)))
 
     # FIXME(JakobDegen): I am about 85% confident that this matches what C++
     # does for prebuilt libraries if they don't have a shared variant and have
@@ -632,7 +633,6 @@ def _native_providers(
     advanced_unstable_linking = compile_ctx.toolchain_info.advanced_unstable_linking
     lang = LinkageLang("native-unbundled") if advanced_unstable_linking else LinkageLang("native")
 
-    inherited_link_deps = inherited_exported_link_deps(ctx, compile_ctx.dep_ctx)
     inherited_link_infos = inherited_merged_link_infos(ctx, compile_ctx.dep_ctx)
     inherited_shlibs = inherited_shared_libs(ctx, compile_ctx.dep_ctx)
     inherited_link_graphs = inherited_linkable_graphs(ctx, compile_ctx.dep_ctx)
@@ -770,7 +770,7 @@ def _native_providers(
     # We never need to add anything to this provider because Rust libraries
     # cannot act as link group libs, especially given that they only support
     # auto link groups anyway
-    providers.append(merge_link_group_lib_info(deps = inherited_link_deps))
+    providers.append(merge_link_group_lib_info(children = inherited_link_group_lib_infos(ctx, compile_ctx.dep_ctx)))
 
     return providers
 

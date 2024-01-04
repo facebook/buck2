@@ -50,7 +50,8 @@ def merge_link_group_lib_info(
         name: [str, None] = None,
         shared_libs: [dict[str, LinkedObject], None] = None,
         shared_link_infos: [LinkInfos, None] = None,
-        deps: list[Dependency] = []) -> LinkGroupLibInfo:
+        deps: list[Dependency] = [],
+        children: list[LinkGroupLibInfo] = []) -> LinkGroupLibInfo:
     """
     Merge and return link group info libs from deps and the current rule wrapped
     in a provider.
@@ -66,5 +67,6 @@ def merge_link_group_lib_info(
         libs = gather_link_group_libs(
             libs = [libs],
             deps = deps,
+            children = children,
         ),
     )
