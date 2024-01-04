@@ -38,7 +38,8 @@ def _opts_for_tests_arg() -> Attr:
 
 def _action_key_provider_arg() -> Attr:
     if is_full_meta_repo():
-        return attrs.dep(providers = [BuildModeInfo], default = "fbcode//buck2/platform/build_mode:build_mode")
+        default_build_mode = read_root_config("fb", "remote_execution_test_build_mode", "fbcode//buck2/platform/build_mode:build_mode")
+        return attrs.dep(providers = [BuildModeInfo], default = default_build_mode)
     else:
         return attrs.option(attrs.dep(providers = [BuildModeInfo]), default = None)
 
