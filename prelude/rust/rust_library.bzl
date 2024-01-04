@@ -666,6 +666,16 @@ def _native_providers(
                     linkables = [SharedLibLinkable(lib = lib.output)],
                     external_debug_info = external_debug_info,
                 ),
+            )
+        else:
+            link_infos[output_style] = LinkInfos(
+                default = LinkInfo(
+                    linkables = [ArchiveLinkable(
+                        archive = Archive(artifact = lib.output),
+                        linker_type = linker_type,
+                    )],
+                    external_debug_info = external_debug_info,
+                ),
                 stripped = LinkInfo(
                     linkables = [ArchiveLinkable(
                         archive = Archive(
@@ -677,16 +687,6 @@ def _native_providers(
                         ),
                         linker_type = linker_type,
                     )],
-                ),
-            )
-        else:
-            link_infos[output_style] = LinkInfos(
-                default = LinkInfo(
-                    linkables = [ArchiveLinkable(
-                        archive = Archive(artifact = lib.output),
-                        linker_type = linker_type,
-                    )],
-                    external_debug_info = external_debug_info,
                 ),
             )
 
