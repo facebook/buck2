@@ -155,6 +155,11 @@ RustLinkInfo = provider(
         # but I don't think that can continue to be the case.
         "merged_link_info": MergedLinkInfo,
         "shared_libs": SharedLibraryInfo,
+        # Because of the weird representation of `LinkableGraph`, there is no
+        # correct way to merge multiple linkable graphs without adding a new
+        # node at the same time. So we store a list to be able to depend on more
+        # than one
+        "linkable_graphs": list[LinkableGraph],
         # The native dependencies reachable from this Rust library through other
         # Rust libraries
         "exported_link_deps": list[Dependency],
@@ -526,6 +531,17 @@ def inherited_shared_libs(
     if not dep_ctx.advanced_unstable_linking:
         infos.extend([d.shared_libs for d in _rust_link_infos(ctx, dep_ctx)])
     return infos
+
+def inherited_linkable_graphs(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[LinkableGraph]:
+    deps = {}
+    for d in _native_link_dependencies(ctx, dep_ctx):
+        g = d[LinkableGraph]
+        deps[g.label] = g
+    if not dep_ctx.advanced_unstable_linking:
+        for info in _rust_link_infos(ctx, dep_ctx):
+            for g in info.linkable_graphs:
+                deps[g.label] = g
+    return deps.values()
 
 def inherited_rust_external_debug_info(
         ctx: AnalysisContext,
