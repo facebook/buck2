@@ -30,8 +30,10 @@ use dashmap::DashMap;
 use dice::DiceComputations;
 use dice::UserComputationData;
 use dupe::Dupe;
+use dupe::OptionDupedExt;
 use futures::future;
 use futures::stream::BoxStream;
+use futures::stream::FuturesOrdered;
 use futures::stream::FuturesUnordered;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
@@ -41,16 +43,21 @@ use tokio::sync::Mutex;
 
 use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::actions::artifact::materializer::ArtifactMaterializer;
+use crate::actions::calculation::BuildKey;
 use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::artifact_groups::calculation::ArtifactGroupCalculation;
+use crate::artifact_groups::calculation::EnsureTransitiveSetProjectionKey;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
+use crate::artifact_groups::ResolvedArtifactGroup;
+use crate::artifact_groups::ResolvedArtifactGroupBuildSignalsKey;
 use crate::build_signals::HasBuildSignals;
 use crate::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use crate::interpreter::rule_defs::provider::test_provider::TestProvider;
+use crate::keep_going;
 
 mod graph_size;
 
@@ -377,13 +384,31 @@ async fn build_configured_label_inner<'a>(
     };
 
     if let Some(signals) = ctx.per_transaction_data().get_build_signals() {
-        signals.top_level_target(
-            providers_label.target().dupe(),
-            outputs
-                .iter()
-                .map(|(output, _type)| output.dupe())
-                .collect(),
-        );
+        let resolved_artifact_futs: FuturesOrdered<_> = outputs
+            .iter()
+            .map(|(output, _type)| async move { output.resolved_artifact(ctx).await })
+            .collect();
+
+        let resolved_artifacts: Vec<_> =
+            tokio::task::unconstrained(keep_going::try_join_all(ctx, resolved_artifact_futs))
+                .await?;
+        let node_keys = resolved_artifacts
+            .iter()
+            .filter_map(|resolved| match resolved.dupe() {
+                ResolvedArtifactGroup::Artifact(artifact) => artifact
+                    .action_key()
+                    .duped()
+                    .map(BuildKey)
+                    .map(ResolvedArtifactGroupBuildSignalsKey::BuildKey),
+                ResolvedArtifactGroup::TransitiveSetProjection(key) => Some(
+                    ResolvedArtifactGroupBuildSignalsKey::EnsureTransitiveSetProjectionKey(
+                        EnsureTransitiveSetProjectionKey(key.dupe().dupe()),
+                    ),
+                ),
+            })
+            .collect();
+
+        signals.top_level_target(providers_label.target().dupe(), node_keys);
     }
 
     if !opts.skippable && outputs.is_empty() {

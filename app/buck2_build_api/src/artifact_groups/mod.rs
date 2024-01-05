@@ -12,6 +12,7 @@ pub mod calculation;
 pub mod deferred;
 pub mod promise;
 
+use crate::actions::calculation::BuildKey;
 use crate::interpreter::rule_defs::context::get_artifact_from_anon_target_analysis;
 
 pub mod registry;
@@ -26,6 +27,7 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 
+use self::calculation::EnsureTransitiveSetProjectionKey;
 use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::promise::PromiseArtifact;
 
@@ -98,6 +100,11 @@ impl ArtifactGroup {
 pub enum ResolvedArtifactGroup<'a> {
     Artifact(Artifact),
     TransitiveSetProjection(&'a TransitiveSetProjectionKey),
+}
+
+pub enum ResolvedArtifactGroupBuildSignalsKey {
+    EnsureTransitiveSetProjectionKey(EnsureTransitiveSetProjectionKey),
+    BuildKey(BuildKey),
 }
 
 #[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, Hash, Allocative)]

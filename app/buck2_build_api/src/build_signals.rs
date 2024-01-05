@@ -19,7 +19,7 @@ use dice::ActivationTracker;
 use dice::UserComputationData;
 use dupe::Dupe;
 
-use crate::artifact_groups::ArtifactGroup;
+use crate::artifact_groups::ResolvedArtifactGroupBuildSignalsKey;
 
 pub static CREATE_BUILD_SIGNALS: LateBinding<
     fn() -> (BuildSignalsInstaller, Box<dyn DeferredBuildSignals>),
@@ -38,7 +38,11 @@ pub struct BuildSignalsInstaller {
 
 /// Send notifications to the build signals backend.
 pub trait BuildSignals: Send + Sync + 'static {
-    fn top_level_target(&self, label: ConfiguredTargetLabel, artifacts: Vec<ArtifactGroup>);
+    fn top_level_target(
+        &self,
+        label: ConfiguredTargetLabel,
+        artifacts: Vec<ResolvedArtifactGroupBuildSignalsKey>,
+    );
 
     fn final_materialization(
         &self,

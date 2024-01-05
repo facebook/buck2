@@ -27,8 +27,7 @@ use buck2_build_api::actions::calculation::BuildKeyActivationData;
 use buck2_build_api::actions::RegisteredAction;
 use buck2_build_api::artifact_groups::calculation::EnsureProjectedArtifactKey;
 use buck2_build_api::artifact_groups::calculation::EnsureTransitiveSetProjectionKey;
-use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::artifact_groups::ResolvedArtifactGroup;
+use buck2_build_api::artifact_groups::ResolvedArtifactGroupBuildSignalsKey;
 use buck2_build_api::build_signals::BuildSignals;
 use buck2_build_api::build_signals::BuildSignalsInstaller;
 use buck2_build_api::build_signals::CREATE_BUILD_SIGNALS;
@@ -56,7 +55,7 @@ use derive_more::From;
 use dice::ActivationData;
 use dice::ActivationTracker;
 use dupe::Dupe;
-use dupe::OptionDupedExt;
+use gazebo::prelude::SliceExt;
 use itertools::Itertools;
 use smallvec::SmallVec;
 use static_assertions::assert_eq_size;
@@ -154,7 +153,7 @@ impl fmt::Display for NodeKey {
 
 struct TopLevelTargetSignal {
     pub label: ConfiguredTargetLabel,
-    pub artifacts: Vec<ArtifactGroup>,
+    pub artifacts: Vec<ResolvedArtifactGroupBuildSignalsKey>,
 }
 
 struct FinalMaterializationSignal {
@@ -203,7 +202,11 @@ pub struct BuildSignalSender {
 }
 
 impl BuildSignals for BuildSignalSender {
-    fn top_level_target(&self, label: ConfiguredTargetLabel, artifacts: Vec<ArtifactGroup>) {
+    fn top_level_target(
+        &self,
+        label: ConfiguredTargetLabel,
+        artifacts: Vec<ResolvedArtifactGroupBuildSignalsKey>,
+    ) {
         let _ignored = self
             .sender
             .send(TopLevelTargetSignal { label, artifacts }.into());
@@ -566,26 +569,14 @@ where
         &mut self,
         top_level: TopLevelTargetSignal,
     ) -> Result<(), anyhow::Error> {
-        let artifact_keys =
-            top_level
-                .artifacts
-                .into_iter()
-                .filter_map(|dep| match dep.assert_resolved() {
-                    ResolvedArtifactGroup::Artifact(artifact) => artifact
-                        .action_key()
-                        .duped()
-                        .map(BuildKey)
-                        .map(NodeKey::BuildKey),
-                    ResolvedArtifactGroup::TransitiveSetProjection(key) => {
-                        Some(NodeKey::EnsureTransitiveSetProjectionKey(
-                            EnsureTransitiveSetProjectionKey(key.dupe()),
-                        ))
-                    }
-                });
-
         self.backend.process_top_level_target(
             NodeKey::AnalysisKey(AnalysisKey(top_level.label)),
-            artifact_keys,
+            top_level.artifacts.map(|k| match k {
+                ResolvedArtifactGroupBuildSignalsKey::BuildKey(b) => NodeKey::BuildKey(b.clone()),
+                ResolvedArtifactGroupBuildSignalsKey::EnsureTransitiveSetProjectionKey(e) => {
+                    NodeKey::EnsureTransitiveSetProjectionKey(e.clone())
+                }
+            }),
         );
 
         Ok(())
