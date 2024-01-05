@@ -115,12 +115,12 @@ RustLinkInfo = provider(
         # strategies - information about each LinkStrategy as RustLinkStrategyInfo
         "strategies": dict[LinkStrategy, RustLinkStrategyInfo],
         # Rust interacts with the native link graph in a non-standard way. Specifically, imagine we
-        # have a Rust library `:A` with its only one dependency `:B`, another Rust library. The Rust
+        # have a Rust library `:B` with its only one dependency `:A`, another Rust library. The Rust
         # rules give Rust -> Rust dependencies special treatment, and as a result, the
         # `MergedLinkInfo` provided from `:B` is not a "superset" of the `MergedLinkInfo` provided
         # from `:A` (concrete differences discussed below).
         #
-        # This distionction is implemented by effectively having each Rust library provide two sets
+        # This distinction is implemented by effectively having each Rust library provide two sets
         # of link providers. The first set is the one that is used by C++ and other non-Rust
         # dependents, and is returned from the rule like normal. The second is the link providers
         # used across Rust -> Rust dependency edges - this is what the fields below are.
