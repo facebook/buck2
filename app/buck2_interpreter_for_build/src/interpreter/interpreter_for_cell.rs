@@ -23,8 +23,8 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
+use buck2_core::soft_error;
 use buck2_event_observer::humanized::HumanizedBytes;
-use buck2_events::dispatch::console_warning;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
@@ -74,6 +74,14 @@ enum StarlarkPeakMemoryError {
     )]
     #[buck2(user)]
     ExceedsThreshold(BuildFilePath, HumanizedBytes, HumanizedBytes),
+}
+
+#[derive(Debug, buck2_error::Error)]
+enum StarlarkPeakMemorySoftError {
+    #[error(
+        "Starlark peak memory usage for {0} is `{1}` which is over `50`% of the limit `{2}`! Consider investigating what takes too much memory: https://fburl.com/starlark_peak_mem_warning."
+    )]
+    CloseToThreshold(BuildFilePath, HumanizedBytes, HumanizedBytes),
 }
 
 #[derive(Debug, buck2_error::Error)]
@@ -650,15 +658,14 @@ impl InterpreterForCell {
         } else if starlark_peak_mem_check_enabled
             && starlark_peak_allocated_bytes > starlark_mem_limit / 2
         {
-            console_warning(
-                format!(
-                    "Starlark peak memory usage for {} is `{}` which is over `50`% of the limit `{}`! Consider investigating what takes too much memory: https://fburl.com/starlark_peak_mem_warning.",
-                    build_file,
+            soft_error!(
+                "starlark_memory_usage_over_soft_limit",
+                StarlarkPeakMemorySoftError::CloseToThreshold(
+                    build_file.clone(),
                     HumanizedBytes::fixed_width(starlark_peak_allocated_bytes),
                     HumanizedBytes::fixed_width(starlark_mem_limit)
-                )
-                .to_owned(),
-            );
+                ).into(), quiet: true
+            )?;
 
             Ok(EvaluationResultWithStats {
                 result: EvaluationResult::from(internals),
