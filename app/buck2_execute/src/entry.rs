@@ -110,13 +110,7 @@ fn build_dir_from_disk(
         disk_path.push(&filename);
         match FileType::from(filetype) {
             FileType::File => {
-                let metadata = FileMetadata {
-                    digest: TrackedFileDigest::new(
-                        FileDigest::from_file(disk_path, digest_config)?,
-                        digest_config.as_cas_digest_config(),
-                    ),
-                    is_executable: file.path().executable(),
-                };
+                let metadata = build_file_metadata(disk_path, digest_config)?;
                 builder.insert(
                     filename,
                     DirectoryEntry::Leaf(ActionDirectoryMember::File(metadata)),
@@ -141,4 +135,17 @@ fn build_dir_from_disk(
     }
 
     Ok((builder, hashed_artifacts_count))
+}
+
+fn build_file_metadata(
+    disk_path: &mut AbsNormPathBuf,
+    digest_config: FileDigestConfig,
+) -> anyhow::Result<FileMetadata> {
+    Ok(FileMetadata {
+        digest: TrackedFileDigest::new(
+            FileDigest::from_file(disk_path, digest_config)?,
+            digest_config.as_cas_digest_config(),
+        ),
+        is_executable: disk_path.executable(),
+    })
 }
