@@ -25,6 +25,8 @@ use faccess::PathExt;
 use futures::future::try_join;
 use futures::future::try_join_all;
 use futures::Future;
+use once_cell::sync::Lazy;
+use tokio::sync::Semaphore;
 
 use crate::directory::new_symlink;
 use crate::directory::ActionDirectoryBuilder;
@@ -174,12 +176,14 @@ fn build_file_metadata(
     digest_config: FileDigestConfig,
     blocking_executor: &dyn BlockingExecutor,
 ) -> impl Future<Output = anyhow::Result<FileMetadata>> + '_ {
+    static SEMAPHORE: Lazy<Semaphore> = Lazy::new(|| Semaphore::new(100));
     let exec_path = disk_path.clone();
     let executable = blocking_executor.execute_io_inline(move || Ok(exec_path.executable()));
     let file_digest =
         tokio::task::spawn_blocking(move || FileDigest::from_file(&disk_path, digest_config));
 
     async move {
+        let _permit = SEMAPHORE.acquire().await.unwrap();
         Ok(FileMetadata {
             digest: TrackedFileDigest::new(
                 file_digest.await??,
