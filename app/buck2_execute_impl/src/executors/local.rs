@@ -553,7 +553,9 @@ impl LocalExecutor {
             let (entry, hashing_info) = build_entry_from_disk(
                 abspath,
                 FileDigestConfig::build(digest_config.cas_digest_config()),
+                self.blocking_executor.as_ref(),
             )
+            .await
             .with_context(|| format!("collecting output {:?}", path))?;
             total_hashing_time += hashing_info.hashing_duration;
             total_hashed_outputs += hashing_info.hashed_artifacts_count;

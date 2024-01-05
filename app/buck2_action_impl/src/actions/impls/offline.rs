@@ -47,15 +47,12 @@ pub(crate) async fn declare_copy_from_offline_cache(
         .fs()
         .resolve_offline_output_cache_path(output.get_path());
 
-    let (value, _hashing_time) = ctx
-        .blocking_executor()
-        .execute_io_inline(|| {
-            build_entry_from_disk(
-                ctx.fs().fs().resolve(&offline_cache_path),
-                FileDigestConfig::build(ctx.digest_config().cas_digest_config()),
-            )
-        })
-        .await?;
+    let (value, _hashing_time) = build_entry_from_disk(
+        ctx.fs().fs().resolve(&offline_cache_path),
+        FileDigestConfig::build(ctx.digest_config().cas_digest_config()),
+        ctx.blocking_executor(),
+    )
+    .await?;
 
     let entry = value
         .ok_or_else(|| anyhow::anyhow!("Missing offline cache entry: `{}`", offline_cache_path))?
