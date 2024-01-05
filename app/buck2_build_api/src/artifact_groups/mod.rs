@@ -94,6 +94,7 @@ impl ArtifactGroup {
 // TODO(@wendyy) if we move PromiseArtifact into ArtifactKind someday, we should probably
 // split the Artifact variant into two cases (artifact by ref and by value) to prevent memory
 // regressions.
+#[derive(Clone)]
 pub enum ResolvedArtifactGroup<'a> {
     Artifact(Artifact),
     TransitiveSetProjection(&'a TransitiveSetProjectionKey),

@@ -74,9 +74,10 @@ impl ArtifactGroupCalculation for DiceComputations {
         input: &ArtifactGroup,
     ) -> anyhow::Result<ArtifactGroupValues> {
         // TODO consider if we need to cache this
-        ensure_artifact_group_staged(self, input)
+        let resolved_artifacts = input.resolved_artifact(self).await?;
+        ensure_artifact_group_staged(self, resolved_artifacts.clone())
             .await?
-            .to_group_values(input)
+            .to_group_values(&resolved_artifacts)
     }
 }
 
@@ -100,9 +101,9 @@ impl ArtifactGroupCalculation for DiceComputations {
 ///    inputs are ready.
 pub(crate) fn ensure_artifact_group_staged<'a>(
     ctx: &'a DiceComputations,
-    input: &'a ArtifactGroup,
+    input: ResolvedArtifactGroup<'a>,
 ) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
-    match input.assert_resolved() {
+    match input {
         ResolvedArtifactGroup::Artifact(artifact) => {
             ensure_artifact_staged(ctx, artifact.clone()).left_future()
         }
@@ -198,13 +199,13 @@ pub(crate) enum EnsureArtifactGroupReady {
 impl EnsureArtifactGroupReady {
     /// Converts the ensured artifact to an ArtifactGroupValues. The caller must ensure that the passed in artifact
     /// is the same one that was used to ensure this.
-    pub(crate) fn to_group_values(
+    pub(crate) fn to_group_values<'v>(
         self,
-        artifact: &ArtifactGroup,
+        resolved_artifact_group: &ResolvedArtifactGroup<'v>,
     ) -> anyhow::Result<ArtifactGroupValues> {
         match self {
             EnsureArtifactGroupReady::TransitiveSet(values) => Ok(values),
-            EnsureArtifactGroupReady::Single(value) => match artifact.assert_resolved() {
+            EnsureArtifactGroupReady::Single(value) => match resolved_artifact_group {
                 ResolvedArtifactGroup::Artifact(artifact) => {
                     Ok(ArtifactGroupValues::from_artifact(artifact.clone(), value))
                 }
@@ -231,6 +232,11 @@ static_assertions::assert_eq_size!(EnsureArtifactGroupReady, [usize; 3]);
 // TODO(cjhopman): We should be able to wrap this in a convenient assertion macro.
 #[allow(unused, clippy::diverging_sub_expression)]
 fn _assert_ensure_artifact_group_future_size() {
+    let ctx: DiceComputations = panic!();
+    let v = ctx.ensure_artifact_group(panic!());
+    let e = [0u8; 128 / 8];
+    static_assertions::assert_eq_size_ptr!(&v, &e);
+
     let v = ensure_artifact_group_staged(panic!(), panic!());
     let e = [0u8; 704 / 8];
     static_assertions::assert_eq_size_ptr!(&v, &e);
@@ -394,9 +400,16 @@ impl Key for EnsureTransitiveSetProjectionKey {
 
         let artifact_fs = ctx.get_artifact_fs().await?;
 
-        let sub_inputs = set
+        let projection_sub_inputs = set
             .as_transitive_set()
             .get_projection_sub_inputs(self.0.projection)?;
+        let sub_inputs_futs: FuturesOrdered<_> = projection_sub_inputs
+            .iter()
+            .map(|a| async { a.resolved_artifact(ctx).await })
+            .collect();
+
+        let sub_inputs: Vec<_> =
+            tokio::task::unconstrained(keep_going::try_join_all(ctx, sub_inputs_futs)).await?;
 
         let (values, children) = {
             // Compute the new inputs. Note that ordering here (and below) is important to ensure
@@ -405,7 +418,9 @@ impl Key for EnsureTransitiveSetProjectionKey {
 
             let ensure_futs: FuturesOrdered<_> = sub_inputs
                 .iter()
-                .map(|v| ensure_artifact_group_staged(ctx, v))
+                .map(|v: &ResolvedArtifactGroup| async {
+                    ensure_artifact_group_staged(ctx, v.clone()).await
+                })
                 .collect();
 
             let ready_inputs: Vec<_> =
@@ -414,7 +429,7 @@ impl Key for EnsureTransitiveSetProjectionKey {
             // Partition our inputs in artifacts and projections.
             let mut values_count = 0;
             for input in sub_inputs.iter() {
-                if let ArtifactGroup::Artifact(..) = input {
+                if let ResolvedArtifactGroup::Artifact(..) = input {
                     values_count += 1;
                 }
             }
@@ -423,7 +438,7 @@ impl Key for EnsureTransitiveSetProjectionKey {
             let mut children = Vec::with_capacity(sub_inputs.len() - values_count);
 
             for (group, ready) in zip(sub_inputs.iter(), ready_inputs) {
-                match group.assert_resolved() {
+                match group {
                     ResolvedArtifactGroup::Artifact(artifact) => {
                         values.push((artifact.dupe(), ready.unpack_single()?))
                     }

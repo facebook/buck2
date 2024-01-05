@@ -97,9 +97,17 @@ async fn build_action_no_redirect(
 ) -> anyhow::Result<ActionOutputs> {
     let materialized_inputs = {
         let inputs = action.inputs()?;
+
         let ensure_futs: FuturesOrdered<_> = inputs
             .iter()
-            .map(|v| ensure_artifact_group_staged(ctx, v))
+            .map(|v| async {
+                let resolved = v.resolved_artifact(ctx).await?;
+                anyhow::Ok(
+                    ensure_artifact_group_staged(ctx, resolved.clone())
+                        .await?
+                        .to_group_values(&resolved)?,
+                )
+            })
             .collect();
 
         let ready_inputs: Vec<_> =
@@ -107,7 +115,7 @@ async fn build_action_no_redirect(
 
         let mut results = IndexMap::with_capacity(inputs.len());
         for (artifact, ready) in zip(inputs.iter(), ready_inputs) {
-            results.insert(artifact.clone(), ready.to_group_values(artifact)?);
+            results.insert(artifact.clone(), ready);
         }
         results
     };
