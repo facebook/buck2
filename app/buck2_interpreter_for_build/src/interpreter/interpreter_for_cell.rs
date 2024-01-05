@@ -70,18 +70,18 @@ struct StarlarkTabsError(OwnedStarlarkPath);
 #[derive(Debug, buck2_error::Error)]
 enum StarlarkPeakMemoryError {
     #[error(
-        "Starlark peak memory usage for {0} is `{1}` which exceeds the limit `{2}`! Please reduce memory usage to prevent OOMs. See https://fburl.com/starlark_peak_mem_warning for debugging tips."
+        "Starlark peak memory usage for {0} is `{1}` which exceeds the limit `{2}`! Please reduce memory usage to prevent OOMs. See {3} for debugging tips."
     )]
     #[buck2(user)]
-    ExceedsThreshold(BuildFilePath, HumanizedBytes, HumanizedBytes),
+    ExceedsThreshold(BuildFilePath, HumanizedBytes, HumanizedBytes, String),
 }
 
 #[derive(Debug, buck2_error::Error)]
 enum StarlarkPeakMemorySoftError {
     #[error(
-        "Starlark peak memory usage for {0} is `{1}` which is over `50`% of the limit `{2}`! Consider investigating what takes too much memory: https://fburl.com/starlark_peak_mem_warning."
+        "Starlark peak memory usage for {0} is `{1}` which is over `50`% of the limit `{2}`! Consider investigating what takes too much memory: {3}."
     )]
-    CloseToThreshold(BuildFilePath, HumanizedBytes, HumanizedBytes),
+    CloseToThreshold(BuildFilePath, HumanizedBytes, HumanizedBytes, String),
 }
 
 #[derive(Debug, buck2_error::Error)]
@@ -129,6 +129,13 @@ impl ParseData {
     }
 }
 
+pub fn get_starlark_warning_link() -> &'static str {
+    if buck2_core::is_open_source() {
+        "https://buck2.build/docs/users/faq/starlark_peak_mem"
+    } else {
+        "https://fburl.com/starlark_peak_mem_warning"
+    }
+}
 /// Interpreter for build files.
 ///
 /// The Interpreter is responsible for parsing files to an AST and then
@@ -653,6 +660,7 @@ impl InterpreterForCell {
                 build_file.to_owned(),
                 HumanizedBytes::fixed_width(starlark_peak_allocated_bytes),
                 HumanizedBytes::fixed_width(starlark_mem_limit),
+                get_starlark_warning_link().to_owned(),
             )
             .into())
         } else if starlark_peak_mem_check_enabled
@@ -663,7 +671,8 @@ impl InterpreterForCell {
                 StarlarkPeakMemorySoftError::CloseToThreshold(
                     build_file.clone(),
                     HumanizedBytes::fixed_width(starlark_peak_allocated_bytes),
-                    HumanizedBytes::fixed_width(starlark_mem_limit)
+                    HumanizedBytes::fixed_width(starlark_mem_limit),
+                    get_starlark_warning_link().to_owned()
                 ).into(), quiet: true
             )?;
 
