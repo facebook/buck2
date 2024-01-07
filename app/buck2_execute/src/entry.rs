@@ -65,13 +65,8 @@ pub async fn build_entry_from_disk(
     let value = match FileType::from(m.file_type()) {
         FileType::File => {
             hashed_artifacts_count += 1;
-            DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
-                digest: TrackedFileDigest::new(
-                    FileDigest::from_file(&path, digest_config)?,
-                    digest_config.as_cas_digest_config(),
-                ),
-                is_executable: path.executable(),
-            }))
+            let file_metadata = build_file_metadata(path, digest_config, blocking_executor).await?;
+            DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata))
         }
         FileType::Symlink => DirectoryEntry::Leaf(new_symlink(fs_util::read_link(&path)?)?),
 
