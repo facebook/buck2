@@ -33,6 +33,7 @@ JavaToolchainInfo = provider(
         "fat_jar_main_class_lib": provider_field(typing.Any, default = None),
         "gen_class_to_source_map": provider_field(typing.Any, default = None),
         "gen_class_to_source_map_debuginfo": provider_field(typing.Any, default = None),  # optional
+        "graalvm_java": provider_field(typing.Any, default = None),
         "is_bootstrap_toolchain": provider_field(typing.Any, default = None),
         "jar": provider_field(typing.Any, default = None),
         "jar_builder": provider_field(typing.Any, default = None),
