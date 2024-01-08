@@ -823,7 +823,7 @@ def _compute_common_args(
     if crate_type == CrateType("proc-macro"):
         dep_args.add("--extern=proc_macro")
 
-    if crate_type == CrateType("cdylib") or crate_type == CrateType("dylib") and not is_check:
+    if crate_type in [CrateType("cdylib"), CrateType("dylib")] and not is_check:
         linker_info = compile_ctx.cxx_toolchain_info.linker_info
         shlib_name = get_default_shared_library_name(linker_info, ctx.label)
         dep_args.add(cmd_args(
