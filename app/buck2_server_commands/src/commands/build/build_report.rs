@@ -126,8 +126,6 @@ struct BuildReportEntry {
 /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
 #[derive(Debug, Clone, Serialize, PartialOrd, Ord, PartialEq, Eq)]
 struct BuildReportError {
-    // TODO(@wendyy) - remove `message` field
-    message: String,
     message_content: String,
     action_error: Option<BuildReportActionError>,
     /// An opaque index that can be use to de-duplicate errors. Two errors with the same
@@ -460,7 +458,6 @@ impl<'a> BuildReportCollector<'a> {
             let message_content = self.update_string_cache(info.message.clone());
 
             out.push(BuildReportError {
-                message: info.message,
                 message_content,
                 action_error: info.action_error,
                 cause_index,

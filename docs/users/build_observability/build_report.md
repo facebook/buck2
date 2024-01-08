@@ -92,9 +92,6 @@ ConfiguredBuildReportEntry {
 }
 
 Error {
-    # TO BE DEPRECATED
-    message: str,
-
     # The stringified hash of the same stringified error message that is shown to the user on the
     # console. The hash is stored as the key in the `strings` cache of the `BuildReport`
     message_content: str,
