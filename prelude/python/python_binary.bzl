@@ -714,6 +714,19 @@ def python_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         if main_module.endswith(".py"):
             main_module = main_module[:-3]
 
+    if "python-version=3.8" in ctx.attrs.labels:
+        # buildifier: disable=print
+        print((
+            "\033[1;33m \u26A0  " +
+            "{0} 3.8 is EOL, and is going away by the end of H1 2024. " +
+            "Upgrade //{1}:{2} to {0} 3.10 now to avoid breakages. " +
+            "https://fburl.com/py38-sunsetting \033[0m"
+        ).format(
+            "Cinder" if "python-flavor=cinder" in ctx.attrs.labels else "Python",
+            ctx.label.package,
+            ctx.attrs.name,
+        ))
+
     if main_module != None:
         main = (EntryPointKind("module"), main_module)
     else:
