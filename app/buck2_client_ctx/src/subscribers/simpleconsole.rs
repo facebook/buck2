@@ -43,7 +43,7 @@ use crate::subscribers::superconsole::io::io_in_flight_non_zero_counters;
 
 /// buck2 daemon info is printed to stderr if there are no other updates available
 /// within this duration.
-const KEEPALIVE_TIME_LIMIT: Duration = Duration::from_secs(60);
+const KEEPALIVE_TIME_LIMIT: Duration = Duration::from_secs(7);
 
 fn now_display() -> impl Display {
     chrono::Local::now().to_rfc3339_opts(::chrono::SecondsFormat::Millis, false)
