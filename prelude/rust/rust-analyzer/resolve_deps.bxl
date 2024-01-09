@@ -100,21 +100,28 @@ def cquery_deps(ctx, top_targets, workspaces, actions):
                     cfg["crate_root"] = thrift["artifact"]
             out[target.label.raw_target()] = cfg
         elif "generated_protobuf_library_rust" in labels.value():
-            protobuf = materialize_generated_protobufs(ctx, target, actions)
-            out[target.label.raw_target()] = _process_target_config(ctx, target, in_workspace, out_dir = protobuf.abs_path())
+            protobuf_out_dir = materialize_generated_protobufs(ctx, target, actions, seen)
+            out[target.label.raw_target()] = _process_target_config(ctx, target, in_workspace, protobuf_out_dir)
         else:
             out[target.label.raw_target()] = _process_target_config(ctx, target, in_workspace)
     return out
 
-def materialize_generated_protobufs(ctx, target, actions):
+def materialize_generated_protobufs(ctx, target, actions, seen):
+    """If `target` has a dependency that generates code from protobufs,
+    materialize the generated code and return the path to the output directory.
+    """
     prost_target = target.attrs_lazy().get("named_deps").value().get("generated_prost_target")
     t = prost_target.raw_target()
     analysis = ctx.analysis(t)
     output = analysis.providers()[DefaultInfo].default_outputs[0]
     outfile = "{}/{}/{}".format(t.cell, t.package, t.name)
-    copied = ctx.output.ensure(actions.copy_file(outfile, output))
 
-    return copied
+    if outfile in seen:
+        return None
+    seen[outfile] = ()
+
+    copied = ctx.output.ensure(actions.copy_file(outfile, output))
+    return copied.abs_path()
 
 def materialize_generated_thrift(ctx, target, actions, seen):
     mapped_srcs = target.attrs_lazy().get("mapped_srcs").value()
