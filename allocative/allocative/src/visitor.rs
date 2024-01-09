@@ -154,8 +154,24 @@ impl<'a> Visitor<'a> {
     where
         'a: 'b,
     {
-        let mut visitor = self.enter(name, mem::size_of_val::<T>(field));
-        field.visit(&mut visitor);
+        self.visit_field_with(name, mem::size_of_val::<T>(field), |visitor| {
+            field.visit(visitor);
+        })
+    }
+
+    /// Similar to `visit_field` but instead of calling [`Allocative::visit`] for
+    /// whichever is the field type, you can provide a custom closure to call
+    /// instead.
+    ///
+    /// Useful if the field type does not implement [`Allocative`].
+    pub fn visit_field_with<'b, 'f, F: for<'c, 'd> FnOnce(&'d mut Visitor<'c>)>(
+        &'b mut self,
+        name: Key,
+        field_size: usize,
+        visit: F,
+    ) {
+        let mut visitor = self.enter(name, field_size);
+        visit(&mut visitor);
         visitor.exit();
     }
 
@@ -190,25 +206,25 @@ impl<'a> Visitor<'a> {
         'a: 'b,
         T: Allocative,
     {
-        let mut visitor = self.enter(CAPACITY_NAME, mem::size_of::<T>() * capacity);
-        visitor.visit_slice(data);
-        visitor.visit_simple(
-            UNUSED_CAPACITY_NAME,
-            mem::size_of::<T>() * capacity.wrapping_sub(data.len()),
-        );
-        visitor.exit();
+        self.visit_field_with(CAPACITY_NAME, mem::size_of::<T>() * capacity, |visitor| {
+            visitor.visit_slice(data);
+            visitor.visit_simple(
+                UNUSED_CAPACITY_NAME,
+                mem::size_of::<T>() * capacity.wrapping_sub(data.len()),
+            );
+        })
     }
 
     pub fn visit_generic_map_fields<'b, 'x, K: Allocative + 'x, V: Allocative + 'x>(
         &'b mut self,
         entries: impl IntoIterator<Item = (&'x K, &'x V)>,
     ) {
-        let mut visitor = self.enter_unique(DATA_NAME, mem::size_of::<*const ()>());
-        for (k, v) in entries {
-            visitor.visit_field(KEY_NAME, k);
-            visitor.visit_field(VALUE_NAME, v);
-        }
-        visitor.exit();
+        self.visit_field_with(DATA_NAME, mem::size_of::<*const ()>(), move |visitor| {
+            for (k, v) in entries {
+                visitor.visit_field(KEY_NAME, k);
+                visitor.visit_field(VALUE_NAME, v);
+            }
+        })
     }
 
     pub fn visit_generic_set_fields<'b, 'x, K: Allocative + 'x>(
@@ -217,11 +233,11 @@ impl<'a> Visitor<'a> {
     ) where
         'a: 'b,
     {
-        let mut visitor = self.enter_unique(DATA_NAME, mem::size_of::<*const ()>());
-        for k in entries {
-            visitor.visit_field(KEY_NAME, k);
-        }
-        visitor.exit();
+        self.visit_field_with(DATA_NAME, mem::size_of::<*const ()>(), |visitor| {
+            for k in entries {
+                visitor.visit_field(KEY_NAME, k);
+            }
+        })
     }
 
     fn exit_impl(&mut self) {
