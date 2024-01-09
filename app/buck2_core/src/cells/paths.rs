@@ -112,8 +112,9 @@ impl CellRelativePath {
     /// forward, normalized relative path, otherwise error.
     ///
     /// ```
-    /// use buck2_core::cells::paths::CellRelativePath;
     /// use std::path::Path;
+    ///
+    /// use buck2_core::cells::paths::CellRelativePath;
     ///
     /// assert!(CellRelativePath::from_path("foo/bar").is_ok());
     /// assert!(CellRelativePath::from_path("").is_ok());
@@ -151,12 +152,17 @@ impl CellRelativePath {
     ///
     /// ```
     /// use std::path::Path;
+    ///
+    /// use buck2_core::cells::paths::CellRelativePath;
+    /// use buck2_core::cells::paths::CellRelativePathBuf;
     /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-    /// use buck2_core::cells::paths::{CellRelativePathBuf, CellRelativePath};
     ///
     /// let path = CellRelativePath::from_path("foo/bar")?;
     /// let other = ForwardRelativePath::new("baz")?;
-    /// assert_eq!(CellRelativePathBuf::unchecked_new("foo/bar/baz".to_owned()), path.join(other));
+    /// assert_eq!(
+    ///     CellRelativePathBuf::unchecked_new("foo/bar/baz".to_owned()),
+    ///     path.join(other)
+    /// );
     ///
     /// # anyhow::Ok(())
     /// ```
@@ -190,7 +196,10 @@ impl CellRelativePath {
     /// use buck2_core::cells::paths::CellRelativePath;
     /// use buck2_core::fs::paths::file_name::FileName;
     ///
-    /// assert_eq!(Some(FileName::unchecked_new("bin")), CellRelativePath::from_path("usr/bin")?.file_name());
+    /// assert_eq!(
+    ///     Some(FileName::unchecked_new("bin")),
+    ///     CellRelativePath::from_path("usr/bin")?.file_name()
+    /// );
     ///
     /// # anyhow::Ok(())
     /// ```
@@ -205,8 +214,8 @@ impl CellRelativePath {
     /// path is not a 'ForwardRelativePath'
     ///
     /// ```
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     /// use buck2_core::cells::paths::CellRelativePath;
+    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// let path = CellRelativePath::from_path("test/haha/foo.txt")?;
     ///
@@ -214,7 +223,11 @@ impl CellRelativePath {
     ///     path.strip_prefix(CellRelativePath::from_path("test")?)?,
     ///     ForwardRelativePath::new("haha/foo.txt")?
     /// );
-    /// assert_eq!(path.strip_prefix(CellRelativePath::from_path("asdf")?).is_err(), true);
+    /// assert_eq!(
+    ///     path.strip_prefix(CellRelativePath::from_path("asdf")?)
+    ///         .is_err(),
+    ///     true
+    /// );
     ///
     /// # anyhow::Ok(())
     /// ```
@@ -228,7 +241,6 @@ impl CellRelativePath {
     /// Determines whether `base` is a prefix of `self`.
     ///
     /// ```
-    ///
     /// use buck2_core::cells::paths::CellRelativePath;
     ///
     /// let path = CellRelativePath::from_path("some/foo")?;
@@ -246,6 +258,7 @@ impl CellRelativePath {
     ///
     /// ```
     /// use std::path::Path;
+    ///
     /// use buck2_core::cells::paths::CellRelativePath;
     /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     ///
@@ -285,10 +298,12 @@ impl CellRelativePath {
     /// Extracts the extension of [`self.file_name`], if possible.
     ///
     /// ```
-    ///
     /// use buck2_core::cells::paths::CellRelativePath;
     ///
-    /// assert_eq!(Some("rs"), CellRelativePath::from_path("hi/foo.rs")?.extension());
+    /// assert_eq!(
+    ///     Some("rs"),
+    ///     CellRelativePath::from_path("hi/foo.rs")?.extension()
+    /// );
     ///
     /// # anyhow::Ok(())
     /// ```
@@ -300,9 +315,10 @@ impl CellRelativePath {
     /// normalized.
     ///
     /// ```
-    ///
-    /// use buck2_core::cells::paths::{CellRelativePath, CellRelativePathBuf};
     /// use std::convert::TryFrom;
+    ///
+    /// use buck2_core::cells::paths::CellRelativePath;
+    /// use buck2_core::cells::paths::CellRelativePathBuf;
     ///
     /// assert_eq!(
     ///     CellRelativePath::from_path("foo/bar")?.join_normalized("../baz.txt")?,
@@ -310,7 +326,9 @@ impl CellRelativePath {
     /// );
     ///
     /// assert_eq!(
-    ///     CellRelativePath::from_path("foo")?.join_normalized("../../baz.txt").is_err(),
+    ///     CellRelativePath::from_path("foo")?
+    ///         .join_normalized("../../baz.txt")
+    ///         .is_err(),
     ///     true
     /// );
     ///
@@ -334,22 +352,10 @@ impl CellRelativePath {
     /// let p = CellRelativePath::from_path("foo/bar/baz")?;
     /// let mut it = p.iter();
     ///
-    /// assert_eq!(
-    ///     it.next(),
-    ///     Some(FileName::unchecked_new("foo"))
-    /// );
-    /// assert_eq!(
-    ///     it.next(),
-    ///     Some(FileName::unchecked_new("bar"))
-    /// );
-    /// assert_eq!(
-    ///     it.next(),
-    ///     Some(FileName::unchecked_new("baz"))
-    /// );
-    /// assert_eq!(
-    ///     it.next(),
-    ///     None
-    /// );
+    /// assert_eq!(it.next(), Some(FileName::unchecked_new("foo")));
+    /// assert_eq!(it.next(), Some(FileName::unchecked_new("bar")));
+    /// assert_eq!(it.next(), Some(FileName::unchecked_new("baz")));
+    /// assert_eq!(it.next(), None);
     ///
     /// # anyhow::Ok(())
     /// ```
@@ -369,14 +375,17 @@ impl CellRelativePath {
 impl<'a> From<&'a ForwardRelativePath> for &'a CellRelativePath {
     ///
     /// ```
+    /// use std::convert::From;
     ///
     /// use buck2_core::cells::paths::CellRelativePath;
     /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-    /// use std::convert::From;
     ///
     /// let f = ForwardRelativePath::new("foo")?;
     ///
-    /// assert_eq!(<&CellRelativePath>::from(f), CellRelativePath::from_path("foo")?);
+    /// assert_eq!(
+    ///     <&CellRelativePath>::from(f),
+    ///     CellRelativePath::from_path("foo")?
+    /// );
     ///
     /// # anyhow::Ok(())
     /// ```
@@ -453,9 +462,9 @@ impl<'a> TryFrom<&'a str> for &'a CellRelativePath {
     /// no allocation conversion
     ///
     /// ```
+    /// use std::convert::TryFrom;
     ///
     /// use buck2_core::cells::paths::CellRelativePath;
-    /// use std::convert::TryFrom;
     /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// assert!(<&CellRelativePath>::try_from("foo/bar").is_ok());
@@ -475,9 +484,9 @@ impl<'a> TryFrom<&'a RelativePath> for &'a CellRelativePath {
     /// no allocation conversion
     ///
     /// ```
+    /// use std::convert::TryFrom;
     ///
     /// use buck2_core::cells::paths::CellRelativePath;
-    /// use std::convert::TryFrom;
     /// use buck2_core::fs::paths::RelativePath;
     ///
     /// assert!(<&CellRelativePath>::try_from(RelativePath::new("foo/bar")).is_ok());
@@ -498,9 +507,9 @@ impl TryFrom<String> for CellRelativePathBuf {
     /// no allocation conversion
     ///
     /// ```
+    /// use std::convert::TryFrom;
     ///
     /// use buck2_core::cells::paths::CellRelativePathBuf;
-    /// use std::convert::TryFrom;
     ///
     /// assert!(CellRelativePathBuf::try_from("foo/bar".to_owned()).is_ok());
     /// assert!(CellRelativePathBuf::try_from("".to_owned()).is_ok());
@@ -522,9 +531,10 @@ impl TryFrom<RelativePathBuf> for CellRelativePathBuf {
     /// conversion)
     ///
     /// ```
+    /// use std::convert::TryFrom;
+    ///
     /// use buck2_core::cells::paths::CellRelativePathBuf;
     /// use buck2_core::fs::paths::RelativePathBuf;
-    /// use std::convert::TryFrom;
     ///
     /// assert!(CellRelativePathBuf::try_from(RelativePathBuf::from("foo/bar")).is_ok());
     /// assert!(CellRelativePathBuf::try_from(RelativePathBuf::from("")).is_ok());
@@ -544,10 +554,10 @@ impl TryFrom<PathBuf> for CellRelativePathBuf {
     /// no allocation conversion
     ///
     /// ```
-    ///
-    /// use buck2_core::cells::paths::CellRelativePathBuf;
     /// use std::convert::TryFrom;
     /// use std::path::PathBuf;
+    ///
+    /// use buck2_core::cells::paths::CellRelativePathBuf;
     ///
     /// assert!(CellRelativePathBuf::try_from(PathBuf::from("foo/bar")).is_ok());
     /// assert!(CellRelativePathBuf::try_from(PathBuf::from("")).is_ok());

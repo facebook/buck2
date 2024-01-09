@@ -12,7 +12,6 @@
 //! This future is intended to be spawned on tokio-runtime directly, and for its results to be
 //! accessed via the joinhandle.
 //! It is not intended to be polled directly.
-//!
 
 use std::future::Future;
 use std::mem;

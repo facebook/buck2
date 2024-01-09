@@ -8,7 +8,6 @@
  */
 
 //! Parse some inputs to a `[`StarlarkUserEvent`].
-//!
 
 use std::collections::HashMap;
 

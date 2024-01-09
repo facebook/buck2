@@ -63,18 +63,21 @@ impl CellPath {
     ///
     /// ```
     /// use buck2_core::cells::cell_path::CellPath;
-    /// use buck2_core::cells::paths::{CellRelativePathBuf};
     /// use buck2_core::cells::name::CellName;
+    /// use buck2_core::cells::paths::CellRelativePathBuf;
     /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// let path = CellPath::new(
     ///     CellName::testing_new("cell"),
-    ///     CellRelativePathBuf::unchecked_new("foo/bar".into())
+    ///     CellRelativePathBuf::unchecked_new("foo/bar".into()),
     /// );
     /// let other = ForwardRelativePath::new("baz")?;
     /// assert_eq!(
-    ///     CellPath::new(CellName::testing_new("cell"),
-    ///     CellRelativePathBuf::unchecked_new("foo/bar/baz".into())), path.join(other)
+    ///     CellPath::new(
+    ///         CellName::testing_new("cell"),
+    ///         CellRelativePathBuf::unchecked_new("foo/bar/baz".into())
+    ///     ),
+    ///     path.join(other)
     /// );
     ///
     /// # anyhow::Ok(())
@@ -88,18 +91,20 @@ impl CellPath {
     ///
     /// ```
     /// use buck2_core::cells::cell_path::CellPath;
-    /// use buck2_core::cells::paths::{CellRelativePathBuf};
     /// use buck2_core::cells::name::CellName;
+    /// use buck2_core::cells::paths::CellRelativePathBuf;
     ///
     /// assert_eq!(
-    ///     Some(
-    ///         CellPath::new(CellName::testing_new("cell"),
-    ///         CellRelativePathBuf::unchecked_new("foo".into()))
-    ///     ),
+    ///     Some(CellPath::new(
+    ///         CellName::testing_new("cell"),
+    ///         CellRelativePathBuf::unchecked_new("foo".into())
+    ///     )),
     ///     CellPath::new(
     ///         CellName::testing_new("cell"),
     ///         CellRelativePathBuf::unchecked_new("foo/bar".into())
-    ///     ).parent().map(|p| p.to_owned()),
+    ///     )
+    ///     .parent()
+    ///     .map(|p| p.to_owned()),
     /// );
     ///
     /// # anyhow::Ok(())
@@ -116,15 +121,24 @@ impl CellPath {
     ///
     /// ```
     /// use buck2_core::cells::cell_path::CellPath;
-    /// use buck2_core::cells::paths::{CellRelativePathBuf};
     /// use buck2_core::cells::name::CellName;
+    /// use buck2_core::cells::paths::CellRelativePathBuf;
     ///
     /// let path = CellPath::testing_new("cell//foo/bar");
     /// let mut ancestors = path.ancestors();
     ///
-    /// assert_eq!(ancestors.next(), Some(CellPath::testing_new("cell//foo/bar").as_ref()));
-    /// assert_eq!(ancestors.next(), Some(CellPath::testing_new("cell//foo").as_ref()));
-    /// assert_eq!(ancestors.next(), Some(CellPath::testing_new("cell//").as_ref()));
+    /// assert_eq!(
+    ///     ancestors.next(),
+    ///     Some(CellPath::testing_new("cell//foo/bar").as_ref())
+    /// );
+    /// assert_eq!(
+    ///     ancestors.next(),
+    ///     Some(CellPath::testing_new("cell//foo").as_ref())
+    /// );
+    /// assert_eq!(
+    ///     ancestors.next(),
+    ///     Some(CellPath::testing_new("cell//").as_ref())
+    /// );
     /// assert_eq!(ancestors.next(), None);
     ///
     /// # anyhow::Ok(())
@@ -142,13 +156,13 @@ impl CellPath {
     ///
     /// ```
     /// use buck2_core::cells::cell_path::CellPath;
-    /// use buck2_core::cells::paths::{CellRelativePathBuf};
     /// use buck2_core::cells::name::CellName;
+    /// use buck2_core::cells::paths::CellRelativePathBuf;
     /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     ///
     /// let path = CellPath::new(
     ///     CellName::testing_new("cell"),
-    ///     CellRelativePathBuf::unchecked_new("test/haha/foo.txt".into())
+    ///     CellRelativePathBuf::unchecked_new("test/haha/foo.txt".into()),
     /// );
     ///
     /// assert_eq!(
@@ -156,7 +170,8 @@ impl CellPath {
     ///         CellPath::new(
     ///             CellName::testing_new("cell"),
     ///             CellRelativePathBuf::unchecked_new("test".into()),
-    ///         ).as_ref()
+    ///         )
+    ///         .as_ref()
     ///     )?,
     ///     ForwardRelativePathBuf::unchecked_new("haha/foo.txt".into())
     /// );
@@ -165,8 +180,10 @@ impl CellPath {
     ///         CellPath::new(
     ///             CellName::testing_new("cell"),
     ///             CellRelativePathBuf::unchecked_new("asdf".into()),
-    ///         ).as_ref()
-    ///     ).is_err(),
+    ///         )
+    ///         .as_ref()
+    ///     )
+    ///     .is_err(),
     ///     true
     /// );
     /// assert_eq!(
@@ -174,8 +191,10 @@ impl CellPath {
     ///         CellPath::new(
     ///             CellName::testing_new("another"),
     ///             CellRelativePathBuf::unchecked_new("test".into()),
-    ///         ).as_ref()
-    ///     ).is_err(),
+    ///         )
+    ///         .as_ref()
+    ///     )
+    ///     .is_err(),
     ///     true
     /// );
     ///
@@ -193,17 +212,18 @@ impl CellPath {
     /// normalized.
     ///
     /// ```
-    ///
-    /// use buck2_core::cells::paths::CellRelativePathBuf;
-    /// use buck2_core::cells::name::CellName;
     /// use std::convert::TryFrom;
+    ///
     /// use buck2_core::cells::cell_path::CellPath;
+    /// use buck2_core::cells::name::CellName;
+    /// use buck2_core::cells::paths::CellRelativePathBuf;
     ///
     /// assert_eq!(
     ///     CellPath::new(
     ///         CellName::testing_new("cell"),
     ///         CellRelativePathBuf::unchecked_new("foo/bar".into())
-    ///     ).join_normalized("../baz.txt")?,
+    ///     )
+    ///     .join_normalized("../baz.txt")?,
     ///     CellPath::new(
     ///         CellName::testing_new("cell"),
     ///         CellRelativePathBuf::unchecked_new("foo/baz.txt".into())
@@ -214,7 +234,9 @@ impl CellPath {
     ///     CellPath::new(
     ///         CellName::testing_new("cell"),
     ///         CellRelativePathBuf::unchecked_new("foo".into())
-    ///     ).join_normalized("../../baz.txt").is_err(),
+    ///     )
+    ///     .join_normalized("../../baz.txt")
+    ///     .is_err(),
     ///     true
     /// );
     ///
@@ -227,20 +249,24 @@ impl CellPath {
     /// Checks that cell matches and `self` path starts with `base` path
     ///
     /// ```
+    /// use std::convert::TryFrom;
     ///
-    /// use buck2_core::cells::paths::CellRelativePathBuf;
     /// use buck2_core::cells::cell_path::CellPath;
     /// use buck2_core::cells::name::CellName;
-    /// use std::convert::TryFrom;
+    /// use buck2_core::cells::paths::CellRelativePathBuf;
     ///
     /// assert!(
     ///     CellPath::new(
     ///         CellName::testing_new("cell"),
     ///         CellRelativePathBuf::unchecked_new("foo/bar".into())
-    ///     ).starts_with(CellPath::new(
-    ///         CellName::testing_new("cell"),
-    ///         CellRelativePathBuf::unchecked_new("foo".into())
-    ///     ).as_ref()),
+    ///     )
+    ///     .starts_with(
+    ///         CellPath::new(
+    ///             CellName::testing_new("cell"),
+    ///             CellRelativePathBuf::unchecked_new("foo".into())
+    ///         )
+    ///         .as_ref()
+    ///     ),
     /// );
     ///
     /// # anyhow::Ok(())

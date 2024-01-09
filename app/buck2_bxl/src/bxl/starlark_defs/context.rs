@@ -8,7 +8,6 @@
  */
 
 //! The context containing the available buck commands and query operations for `bxl` functions.
-//!
 
 use std::cell::RefCell;
 use std::cell::RefMut;

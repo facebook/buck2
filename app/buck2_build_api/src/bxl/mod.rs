@@ -10,7 +10,6 @@
 //!
 //! bxl is the Buck Extension Language, allowing any integrator to write Starlark code that
 //! introspects buck2 internal graphs in a safe, incremental way to perform more complex operations
-//!
 
 pub mod build_result;
 

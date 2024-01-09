@@ -21,7 +21,6 @@
 //! 'AbsPath' are absolute paths, meaning they must start with a directory root
 //! of either `/` or some  windows root directory like `c:`. These behave
 //! roughly like 'Path'.
-//!
 
 pub mod abs_norm_path;
 pub mod abs_path;

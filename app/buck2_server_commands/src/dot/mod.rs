@@ -11,7 +11,6 @@
 //!
 //! Has a lot less features than <https://crates.io/crates/dot> or <https://crates.io/crates/tabbycat>,
 //! but it's easier for us to match buck1's output with this simple implementation.
-//!
 // TODO(cjhopman): while the `dot` crate is probably too opinionated, `tabbycat` looks nice and is
 // lower level so gives a lot of control (including control over ordering of node/edge statements).
 // It looks like we could use that, but it mostly would just handle the actual writing of the

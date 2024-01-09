@@ -73,7 +73,6 @@ enum Outcome {
 ///   * change root directory;
 ///   * change the pid-file ownership to provided user (and/or) group;
 ///   * execute any provided action just before dropping privileges.
-///
 pub(crate) struct Daemonize {
     stdin: Stdio,
     stdout: Stdio,

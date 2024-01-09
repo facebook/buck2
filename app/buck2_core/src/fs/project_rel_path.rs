@@ -22,12 +22,16 @@
 //!
 //! Sample uses
 //! ```
-//! use buck2_core::fs::project::ProjectRoot;
-//! use buck2_core::fs::project_rel_path::{ProjectRelativePathBuf, ProjectRelativePath};
-//! use buck2_core::fs::paths::abs_norm_path::{AbsNormPathBuf, AbsNormPath};
+//! use std::borrow::Cow;
+//! use std::convert::TryFrom;
+//!
+//! use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+//! use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 //! use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+//! use buck2_core::fs::project::ProjectRoot;
+//! use buck2_core::fs::project_rel_path::ProjectRelativePath;
+//! use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 //! use relative_path::RelativePath;
-//! use std::{borrow::Cow, convert::TryFrom};
 //!
 //! let root = if cfg!(not(windows)) {
 //!     AbsNormPathBuf::from("/usr/local/fbsource/".into())?
@@ -43,18 +47,26 @@
 //! let fs = ProjectRoot::new_unchecked(root);
 //! let project_rel = fs.relativize(some_path)?;
 //!
-//! assert_eq!(Cow::Borrowed(ProjectRelativePath::new("buck/BUCK")?), project_rel);
+//! assert_eq!(
+//!     Cow::Borrowed(ProjectRelativePath::new("buck/BUCK")?),
+//!     project_rel
+//! );
 //! assert_eq!(some_path.to_buf(), fs.resolve(project_rel.as_ref()));
 //!
 //! let rel_path = RelativePath::new("../src");
 //! let project_rel_2 = project_rel.join_normalized(rel_path)?;
-//! assert_eq!(ProjectRelativePathBuf::try_from("buck/src".to_owned())?, project_rel_2);
+//! assert_eq!(
+//!     ProjectRelativePathBuf::try_from("buck/src".to_owned())?,
+//!     project_rel_2
+//! );
 //!
-//! assert_eq!(some_path.join_normalized(rel_path)?, fs.resolve(&project_rel_2).to_buf());
+//! assert_eq!(
+//!     some_path.join_normalized(rel_path)?,
+//!     fs.resolve(&project_rel_2).to_buf()
+//! );
 //!
 //! # anyhow::Ok(())
 //! ```
-//!
 
 use std::borrow::Borrow;
 use std::ops::Deref;
@@ -156,6 +168,7 @@ impl ProjectRelativePath {
     ///
     /// ```
     /// use std::path::Path;
+    ///
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
     ///
     /// assert!(ProjectRelativePath::new("foo/bar").is_ok());
@@ -191,12 +204,17 @@ impl ProjectRelativePath {
     ///
     /// ```
     /// use std::path::Path;
+    ///
     /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-    /// use buck2_core::fs::project_rel_path::{ProjectRelativePathBuf, ProjectRelativePath};
+    /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    /// use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     ///
     /// let path = ProjectRelativePath::new("foo/bar")?;
     /// let other = ForwardRelativePath::new("baz")?;
-    /// assert_eq!(ProjectRelativePathBuf::unchecked_new("foo/bar/baz".to_owned()), path.join(other));
+    /// assert_eq!(
+    ///     ProjectRelativePathBuf::unchecked_new("foo/bar/baz".to_owned()),
+    ///     path.join(other)
+    /// );
     ///
     /// # anyhow::Ok(())
     /// ```
@@ -230,7 +248,10 @@ impl ProjectRelativePath {
     /// use buck2_core::fs::paths::file_name::FileName;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
     ///
-    /// assert_eq!(Some(FileName::unchecked_new("bin")), ProjectRelativePath::new("usr/bin")?.file_name());
+    /// assert_eq!(
+    ///     Some(FileName::unchecked_new("bin")),
+    ///     ProjectRelativePath::new("usr/bin")?.file_name()
+    /// );
     ///
     /// # anyhow::Ok(())
     /// ```
@@ -246,7 +267,6 @@ impl ProjectRelativePath {
     ///
     /// ```
     /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-    ///
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
     ///
     /// let path = ProjectRelativePath::new("test/haha/foo.txt")?;
@@ -255,7 +275,11 @@ impl ProjectRelativePath {
     ///     path.strip_prefix(ProjectRelativePath::new("test")?)?,
     ///     ForwardRelativePath::new("haha/foo.txt")?
     /// );
-    /// assert_eq!(path.strip_prefix(ProjectRelativePath::new("asdf")?).is_err(), true);
+    /// assert_eq!(
+    ///     path.strip_prefix(ProjectRelativePath::new("asdf")?)
+    ///         .is_err(),
+    ///     true
+    /// );
     ///
     /// # anyhow::Ok(())
     /// ```
@@ -296,8 +320,8 @@ impl ProjectRelativePath {
     ///
     /// ```
     /// use std::path::Path;
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     ///
+    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
     ///
     /// let path = ProjectRelativePath::new("some/foo")?;
@@ -338,7 +362,10 @@ impl ProjectRelativePath {
     /// ```
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
     ///
-    /// assert_eq!(Some("rs"), ProjectRelativePath::new("hi/foo.rs")?.extension());
+    /// assert_eq!(
+    ///     Some("rs"),
+    ///     ProjectRelativePath::new("hi/foo.rs")?.extension()
+    /// );
     ///
     /// # anyhow::Ok(())
     /// ```
@@ -351,7 +378,9 @@ impl ProjectRelativePath {
     ///
     /// ```
     /// use std::convert::TryFrom;
-    /// use buck2_core::fs::project_rel_path::{ProjectRelativePath, ProjectRelativePathBuf};
+    ///
+    /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    /// use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     ///
     /// assert_eq!(
     ///     ProjectRelativePath::new("foo/bar")?.join_normalized("../baz.txt")?,
@@ -359,7 +388,9 @@ impl ProjectRelativePath {
     /// );
     ///
     /// assert_eq!(
-    ///     ProjectRelativePath::new("foo")?.join_normalized("../../baz.txt").is_err(),
+    ///     ProjectRelativePath::new("foo")?
+    ///         .join_normalized("../../baz.txt")
+    ///         .is_err(),
     ///     true
     /// );
     ///
@@ -383,22 +414,10 @@ impl ProjectRelativePath {
     /// let p = ProjectRelativePath::new("foo/bar/baz")?;
     /// let mut it = p.iter();
     ///
-    /// assert_eq!(
-    ///     it.next(),
-    ///     Some(FileName::unchecked_new("foo"))
-    /// );
-    /// assert_eq!(
-    ///     it.next(),
-    ///     Some(FileName::unchecked_new("bar"))
-    /// );
-    /// assert_eq!(
-    ///     it.next(),
-    ///     Some(FileName::unchecked_new("baz"))
-    /// );
-    /// assert_eq!(
-    ///     it.next(),
-    ///     None
-    /// );
+    /// assert_eq!(it.next(), Some(FileName::unchecked_new("foo")));
+    /// assert_eq!(it.next(), Some(FileName::unchecked_new("bar")));
+    /// assert_eq!(it.next(), Some(FileName::unchecked_new("baz")));
+    /// assert_eq!(it.next(), None);
     ///
     /// # anyhow::Ok(())
     /// ```
@@ -414,13 +433,17 @@ impl ProjectRelativePath {
 impl<'a> From<&'a ForwardRelativePath> for &'a ProjectRelativePath {
     ///
     /// ```
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     /// use std::convert::From;
+    ///
+    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
     ///
     /// let f = ForwardRelativePath::new("foo")?;
     ///
-    /// assert_eq!(<&ProjectRelativePath>::from(f), ProjectRelativePath::new("foo")?);
+    /// assert_eq!(
+    ///     <&ProjectRelativePath>::from(f),
+    ///     ProjectRelativePath::new("foo")?
+    /// );
     ///
     /// # anyhow::Ok(())
     /// ```
@@ -504,6 +527,7 @@ impl<'a> TryFrom<&'a str> for &'a ProjectRelativePath {
     ///
     /// ```
     /// use std::convert::TryFrom;
+    ///
     /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
     ///
@@ -525,6 +549,7 @@ impl<'a> TryFrom<&'a RelativePath> for &'a ProjectRelativePath {
     ///
     /// ```
     /// use std::convert::TryFrom;
+    ///
     /// use buck2_core::fs::paths::RelativePath;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
     ///
@@ -546,8 +571,9 @@ impl TryFrom<String> for ProjectRelativePathBuf {
     /// no allocation conversion
     ///
     /// ```
-    /// use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     /// use std::convert::TryFrom;
+    ///
+    /// use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     ///
     /// assert!(ProjectRelativePathBuf::try_from("foo/bar".to_owned()).is_ok());
     /// assert!(ProjectRelativePathBuf::try_from("".to_owned()).is_ok());
@@ -569,8 +595,9 @@ impl TryFrom<RelativePathBuf> for ProjectRelativePathBuf {
     /// conversion)
     ///
     /// ```
-    /// use buck2_core::fs::paths::RelativePathBuf;
     /// use std::convert::TryFrom;
+    ///
+    /// use buck2_core::fs::paths::RelativePathBuf;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     ///
     /// assert!(ProjectRelativePathBuf::try_from(RelativePathBuf::from("foo/bar")).is_ok());
@@ -591,9 +618,9 @@ impl TryFrom<PathBuf> for ProjectRelativePathBuf {
     /// no allocation conversion
     ///
     /// ```
-    ///
     /// use std::convert::TryFrom;
     /// use std::path::PathBuf;
+    ///
     /// use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     ///
     /// assert!(ProjectRelativePathBuf::try_from(PathBuf::from("foo/bar")).is_ok());

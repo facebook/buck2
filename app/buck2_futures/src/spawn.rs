@@ -9,7 +9,6 @@
 
 //! The future that is spawned, but has various more strict cancellation behaviour than
 //! tokio's JoinHandle
-//!
 
 use std::any::Any;
 use std::pin::Pin;
