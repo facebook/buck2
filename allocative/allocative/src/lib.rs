@@ -73,3 +73,37 @@ pub use crate::visitor::Visitor;
 pub mod __macro_refs {
     pub use ctor;
 }
+
+/// Create a `const` of type `Key` with the provided `ident` as the value and
+/// return that value. This allows the keys to be placed conveniently inline
+/// without any performance hit because unlike calling `Key::new` this is
+/// guaranteed to be evaluated at compile time.
+///
+/// The main use case is manual implementations of [`Allocative`], like so:
+///
+/// ```
+/// use allocative::ident_key;
+/// use allocative::Allocative;
+/// use allocative::Visitor;
+///
+/// struct MyStruct {
+///     foo: usize,
+///     bar: Vec<()>,
+/// }
+///
+/// impl Allocative for MyStruct {
+///     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+///         let mut visitor = visitor.enter_self(self);
+///         visitor.visit_field(ident_key!(foo), &self.foo);
+///         visitor.visit_field(ident_key!(bar), &self.bar);
+///         visitor.exit();
+///     }
+/// }
+/// ```
+#[macro_export]
+macro_rules! ident_key {
+    ($name:ident) => {{
+        const KEY: $crate::Key = $crate::Key::new(stringify!(name));
+        KEY
+    }};
+}
