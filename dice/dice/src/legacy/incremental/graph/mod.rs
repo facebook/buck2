@@ -16,7 +16,6 @@
 //! The 'VersionedCache' will track dependency edges and use computed version
 //! number for each cache entry and a global version counter to determine
 //! up-to-date-ness of cache entries.
-//!
 
 pub(crate) mod dependencies;
 pub(crate) mod storage_properties;
