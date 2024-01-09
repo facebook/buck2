@@ -25,13 +25,14 @@ use crate::Visitor;
 /// }
 /// ```
 ///
-/// Proc macro supports two attributes: `#[allocative(skip)]` and `#[allocative(bound = "")]`.
+/// Proc macro supports two attributes: `#[allocative(skip)]` and
+/// `#[allocative(bound = "...")]`.
 ///
 /// ## `#[allocative(skip)]`
 ///
-/// `#[allocative(skip)]` can be used to skip field from traversal
-/// (for example, to skip fields which are not `Allocative`,
-/// and can be skipped because they are cheap).
+/// `#[allocative(skip)]` can be used to skip field from traversal (for example,
+/// to skip fields which are not `Allocative`, and can be skipped because they
+/// are cheap).
 ///
 /// ```
 /// use allocative::Allocative;
@@ -46,13 +47,19 @@ use crate::Visitor;
 /// }
 /// ```
 ///
-/// ## `#[allocative(bound = "")]`
+/// ## `#[allocative(bound = "...")]`
 ///
-/// `#[allocative(bound = "")]` can be used to not add `T: Allocative` bound
-/// to `Allocative` trait implementation, like this:
+/// `#[allocative(bound = "...")]` can be used to overwrite the bounds that are
+/// added to the generics of the implementation.
+///
+/// An empty string (`#[allocative(bound = "")]`) simply erases all bounds. It
+/// adds all type variables found in the type to the list of generics but with
+/// an empty bound. As an example
+///
 ///
 /// ```
 /// use std::marker::PhantomData;
+///
 /// use allocative::Allocative;
 ///
 /// struct Unsupported;
@@ -62,9 +69,34 @@ use crate::Visitor;
 /// struct Baz<T> {
 ///     _marker: PhantomData<T>,
 /// }
+/// ```
 ///
-/// // So `Baz<Unsupported>` is `Allocative` even though `Unsupported` is not.
-/// let allocative: &dyn Allocative = &Baz::<Unsupported> { _marker: PhantomData };
+/// Would generate an instance
+///
+/// ```ignore
+/// impl<T> Allocative for Baz<T> { ... }
+/// ```
+///
+/// Alternatively you can use the string to provide custom bounds. The string in
+/// this case is used *verbatim* as the bounds, which affords great flexibility,
+/// but also necessitates that all type variables must be mentioned or will be
+/// unbound (compile error). As an example we may derive a size of a `HashMap`
+/// by ignoring the hasher type.
+///
+///
+/// ```ignore
+/// #[allocative(bound = "K: Allocative, V:Allocative, S")]
+/// struct HashMap<K, V, S = RandomState> {
+///    ...
+/// }
+/// ```
+///
+/// Which generates
+///
+/// ```ignore
+/// impl<K: Allocative, V:Allocative, S> Allocative for HashMap<K, V, S> {
+///    ...
+/// }
 /// ```
 pub trait Allocative {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>);
