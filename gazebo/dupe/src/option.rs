@@ -17,6 +17,7 @@ pub trait OptionDupedExt {
     ///
     /// ```
     /// use std::rc::Rc;
+    ///
     /// use dupe::OptionDupedExt;
     /// let rc = Rc::new("test");
     /// assert_eq!(Some(&rc).duped(), Some(rc));

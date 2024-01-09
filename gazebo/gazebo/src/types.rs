@@ -18,8 +18,8 @@
 ///
 /// ```
 /// use gazebo::types::TEq;
-/// fn foo<A : TEq<String>>(x: A) -> String {
-///    x.teq()
+/// fn foo<A: TEq<String>>(x: A) -> String {
+///     x.teq()
 /// }
 /// ```
 ///
