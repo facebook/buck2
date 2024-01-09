@@ -23,6 +23,8 @@ use crate::visitor::VisitorImpl;
 use crate::Allocative;
 
 /// Node in flamegraph tree.
+///
+/// Can be written to flamegraph format with [`write`](FlameGraph::write).
 #[derive(Debug, Default, Clone)]
 pub struct FlameGraph {
     children: HashMap<Key, FlameGraph>,
@@ -82,7 +84,10 @@ impl FlameGraph {
         }
     }
 
-    /// Write flamegraph in format suitable for `flamegraph.pl` or `inferno`.
+    /// Write flamegraph in format suitable for [`flamegraph.pl`] or [inferno].
+    ///
+    /// [flamegraph.pl]: https://github.com/brendangregg/FlameGraph
+    /// [inferno]: https://github.com/jonhoo/inferno
     pub fn write(&self) -> String {
         let mut r = String::new();
         self.write_flame_graph_impl(&[], &mut r);
