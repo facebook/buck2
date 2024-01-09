@@ -76,20 +76,40 @@ use crate::values::ValueError;
 /// generate `One` and `FrozenOne` aliases.
 ///
 /// ```
-/// use starlark::values::{ProvidesStaticType, ComplexValue, Coerce, Freezer, FrozenValue, StarlarkValue, Value, ValueLike, Trace, Tracer, Freeze, NoSerialize};
-/// use starlark::{starlark_complex_value};
-/// use derive_more::Display;
 /// use allocative::Allocative;
+/// use derive_more::Display;
+/// use starlark::starlark_complex_value;
+/// use starlark::values::Coerce;
+/// use starlark::values::ComplexValue;
+/// use starlark::values::Freeze;
+/// use starlark::values::Freezer;
+/// use starlark::values::FrozenValue;
+/// use starlark::values::NoSerialize;
+/// use starlark::values::ProvidesStaticType;
+/// use starlark::values::StarlarkValue;
+/// use starlark::values::Trace;
+/// use starlark::values::Tracer;
+/// use starlark::values::Value;
+/// use starlark::values::ValueLike;
 /// use starlark_derive::starlark_value;
 ///
-/// #[derive(Debug, Trace, Coerce, Display, ProvidesStaticType, NoSerialize, Allocative)]
+/// #[derive(
+///     Debug,
+///     Trace,
+///     Coerce,
+///     Display,
+///     ProvidesStaticType,
+///     NoSerialize,
+///     Allocative
+/// )]
 /// #[repr(C)]
 /// struct OneGen<V>(V);
 /// starlark_complex_value!(One);
 ///
 /// #[starlark_value(type = "one")]
 /// impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for OneGen<V>
-///     where Self: ProvidesStaticType<'v>,
+/// where
+///     Self: ProvidesStaticType<'v>,
 /// {
 ///     // To implement methods which work for both `One` and `FrozenOne`,
 ///     // use the `ValueLike` trait.
@@ -187,12 +207,12 @@ where
 /// proc macro:
 ///
 /// ```
-/// use starlark::values::StarlarkValue;
-/// use starlark::values::ProvidesStaticType;
-/// use starlark::values::NoSerialize;
+/// use allocative::Allocative;
 /// # use starlark::starlark_simple_value;
 /// use derive_more::Display;
-/// use allocative::Allocative;
+/// use starlark::values::NoSerialize;
+/// use starlark::values::ProvidesStaticType;
+/// use starlark::values::StarlarkValue;
 /// use starlark_derive::starlark_value;
 ///
 /// #[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative)]
@@ -200,8 +220,7 @@ where
 /// struct Foo;
 /// # starlark_simple_value!(Foo);
 /// #[starlark_value(type = "foo")]
-/// impl<'v> StarlarkValue<'v> for Foo {
-/// }
+/// impl<'v> StarlarkValue<'v> for Foo {}
 /// ```
 ///
 /// Every additional field enables further features in Starlark. In most cases the default

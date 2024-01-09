@@ -520,10 +520,12 @@ impl<'a> Assert<'a> {
     ///
     /// ```
     /// # use starlark::assert::Assert;
-    /// Assert::new().is_true(r#"
+    /// Assert::new().is_true(
+    ///     r#"
     /// x = 1 + 1
     /// x == 2
-    /// "#);
+    /// "#,
+    /// );
     /// ```
     pub fn is_true(&self, program: &str) {
         self.with_gc(|gc| {
@@ -544,11 +546,13 @@ impl<'a> Assert<'a> {
     ///
     /// ```
     /// # use starlark::assert::Assert;
-    /// Assert::new().all_true(r#"
+    /// Assert::new().all_true(
+    ///     r#"
     /// 1 == 1
     ///
     /// 2 == 1 + 1
-    /// "#);
+    /// "#,
+    /// );
     /// ```
     pub fn all_true(&self, program: &str) {
         self.with_gc(|gc| {

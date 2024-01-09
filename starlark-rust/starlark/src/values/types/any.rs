@@ -28,13 +28,14 @@
 //! #[macro_use]
 //! extern crate starlark;
 //! # fn main() {
-//! use starlark::assert::Assert;
-//! use starlark::environment::GlobalsBuilder;
-//! use starlark::values::Value;
-//! use starlark::values::any::StarlarkAny;
 //! use std::fmt;
 //! use std::fmt::Display;
 //! use std::time::Instant;
+//!
+//! use starlark::assert::Assert;
+//! use starlark::environment::GlobalsBuilder;
+//! use starlark::values::any::StarlarkAny;
+//! use starlark::values::Value;
 //!
 //! #[derive(Debug)]
 //! struct MyInstant(Instant);
@@ -52,19 +53,26 @@
 //!     }
 //!
 //!     fn elapsed(x: Value) -> anyhow::Result<String> {
-//!         Ok(StarlarkAny::<MyInstant>::get(x).unwrap().0.elapsed().as_secs_f64().to_string())
+//!         Ok(StarlarkAny::<MyInstant>::get(x)
+//!             .unwrap()
+//!             .0
+//!             .elapsed()
+//!             .as_secs_f64()
+//!             .to_string())
 //!     }
 //! }
 //!
 //! let mut a = Assert::new();
 //! a.globals_add(globals);
-//! a.pass(r#"
+//! a.pass(
+//!     r#"
 //! duration = start()
 //! y = 100
 //! for x in range(100):
 //!     y += x
 //! print(elapsed(duration))
-//! "#);
+//! "#,
+//! );
 //! # }
 //! ```
 

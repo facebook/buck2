@@ -63,24 +63,37 @@ impl<'a> Eq for BorrowedExportedName<'a> {}
 /// ```
 /// use allocative::Allocative;
 /// use starlark::eval::Evaluator;
-/// use starlark::values::exported_name::{ExportedName, FrozenExportedName};
+/// use starlark::values::exported_name::ExportedName;
+/// use starlark::values::exported_name::FrozenExportedName;
 /// use starlark::values::StarlarkValue;
-/// use starlark_derive::{NoSerialize, ProvidesStaticType, starlark_value};
+/// use starlark_derive::starlark_value;
+/// use starlark_derive::NoSerialize;
+/// use starlark_derive::ProvidesStaticType;
 ///
-/// #[derive(Debug, NoSerialize, ProvidesStaticType, Allocative, derive_more::Display)]
+/// #[derive(
+///     Debug,
+///     NoSerialize,
+///     ProvidesStaticType,
+///     Allocative,
+///     derive_more::Display
+/// )]
 /// #[display(fmt = "{:?}", "self")]
 /// struct MyStruct<T: ExportedName + 'static> {
-///    name: T,
+///     name: T,
 /// }
 ///
 /// #[starlark_value(type = "MyStruct")]
 /// impl<'v, T: ExportedName> StarlarkValue<'v> for MyStruct<T> {
-///   type Canonical = MyStruct<FrozenExportedName>;
+///     type Canonical = MyStruct<FrozenExportedName>;
 ///
-///   fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) -> starlark::Result<()> {
-///        self.name.try_export_as(variable_name);
-///        Ok(())
-///    }
+///     fn export_as(
+///         &self,
+///         variable_name: &str,
+///         _eval: &mut Evaluator<'v, '_>,
+///     ) -> starlark::Result<()> {
+///         self.name.try_export_as(variable_name);
+///         Ok(())
+///     }
 /// }
 /// ```
 ///

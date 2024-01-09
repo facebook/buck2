@@ -42,16 +42,14 @@ use starlark_map::small_map::SmallMap;
 /// One use of `Coerce` is around newtype wrappers:
 ///
 /// ```
-/// use starlark::coerce::{Coerce, coerce};
+/// use starlark::coerce::coerce;
+/// use starlark::coerce::Coerce;
 /// #[repr(transparent)]
 /// #[derive(Debug, Coerce)]
 /// struct Wrapper(String);
 ///
 /// let value = vec![Wrapper("hello".to_owned()), Wrapper("world".to_owned())];
-/// assert_eq!(
-///     coerce::<_, &Vec<String>>(&value).join(" "),
-///     "hello world"
-/// );
+/// assert_eq!(coerce::<_, &Vec<String>>(&value).join(" "), "hello world");
 /// let mut value = coerce::<_, Vec<String>>(value);
 /// assert_eq!(value.pop(), Some("world".to_owned()));
 /// ```
@@ -59,7 +57,8 @@ use starlark_map::small_map::SmallMap;
 /// Another involves containers:
 ///
 /// ```
-/// use starlark::coerce::{Coerce, coerce};
+/// use starlark::coerce::coerce;
+/// use starlark::coerce::Coerce;
 /// # #[derive(Coerce)]
 /// # #[repr(transparent)]
 /// # struct Wrapper(String);
@@ -68,10 +67,7 @@ use starlark_map::small_map::SmallMap;
 /// struct Container<T>(i32, T);
 ///
 /// let value = Container(20, Wrapper("twenty".to_owned()));
-/// assert_eq!(
-///     coerce::<_, &Container<String>>(&value).1,
-///     "twenty"
-/// );
+/// assert_eq!(coerce::<_, &Container<String>>(&value).1, "twenty");
 /// ```
 ///
 /// If you only need [`coerce`] on newtype references,

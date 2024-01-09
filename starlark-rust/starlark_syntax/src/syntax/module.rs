@@ -179,10 +179,12 @@ impl AstModule {
     /// The returned error may contain diagnostic information. For example:
     ///
     /// ```
-    /// use starlark_syntax::syntax::{AstModule, Dialect};
     /// use starlark_syntax::codemap::FileSpan;
+    /// use starlark_syntax::syntax::AstModule;
+    /// use starlark_syntax::syntax::Dialect;
     ///
-    /// let err: starlark_syntax::Error = AstModule::parse("filename", "\n(unmatched".to_owned(), &Dialect::Standard).unwrap_err();
+    /// let err: starlark_syntax::Error =
+    ///     AstModule::parse("filename", "\n(unmatched".to_owned(), &Dialect::Standard).unwrap_err();
     /// let span: &FileSpan = err.span().unwrap();
     /// assert_eq!(span.to_string(), "filename:2:11");
     /// ```
