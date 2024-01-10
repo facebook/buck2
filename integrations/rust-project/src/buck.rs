@@ -253,11 +253,12 @@ fn resolve_renamed_dependencies(
     // is resolved, switch to `$deps`.
     for (renamed_crate, dependency_target) in &info.named_deps {
         if let Some(entry) = target_index.get(dependency_target) {
-            trace!(old_name = ?entry.info.crate_name(), new_name = ?renamed_crate, "renamed crate");
+            let new_name = renamed_crate.replace('-', "_");
+            trace!(old_name = ?entry.info.crate_name(), new_name = new_name, "renamed crate");
             // if the renamed dependency was encountered before, rename the existing `Dep` rather
             // than create a new one with a new name but the same index. While this duplication doesn't
             // seem to have any noticeable impact in limited testing, the behavior will be closer to
-            // that of Rusty and Cargo.
+            // that of Cargo.
             //
             // However, if the renamed dependency wasn't encountered before, we create a new `Dep` with
             // the new name.
@@ -265,11 +266,11 @@ fn resolve_renamed_dependencies(
             // The primary invariant that is being upheld is that each index should
             // have one associated name.
             match deps.iter_mut().find(|dep| dep.crate_index == entry.index) {
-                Some(dep) => dep.name = renamed_crate.to_string(),
+                Some(dep) => dep.name = new_name,
                 None => {
                     let dep = Dep {
                         crate_index: entry.index,
-                        name: renamed_crate.to_string(),
+                        name: new_name,
                     };
                     deps.push(dep);
                 }
@@ -766,5 +767,72 @@ fn merge_target_multiple_tests_no_cycles() {
         *merged_foo_rust_target.info.deps,
         vec![Target::new("//test-framework")],
         "Test dependencies should only come from the foo@rust-unittest crate"
+    );
+}
+
+#[test]
+fn named_deps_underscores() {
+    let mut target_index = BTreeMap::new();
+    target_index.insert(
+        Target::new("//bar"),
+        TargetInfoEntry {
+            index: 0,
+            info: TargetInfo {
+                name: "bar".to_owned(),
+                label: "bar".to_owned(),
+                kind: Kind::Library,
+                edition: None,
+                srcs: vec![],
+                mapped_srcs: BTreeMap::new(),
+                crate_name: None,
+                crate_root: None,
+                deps: vec![],
+                tests: vec![],
+                named_deps: BTreeMap::new(),
+                proc_macro: None,
+                features: vec![],
+                env: BTreeMap::new(),
+                source_folder: PathBuf::from("/tmp"),
+                project_relative_buildfile: PathBuf::from("bar/BUCK"),
+                in_workspace: false,
+                out_dir: None,
+            },
+        },
+    );
+
+    let mut named_deps = BTreeMap::new();
+    named_deps.insert("bar-baz".to_owned(), Target::new("//bar"));
+
+    let info = TargetInfo {
+        name: "foo".to_owned(),
+        label: "foo".to_owned(),
+        kind: Kind::Library,
+        edition: None,
+        srcs: vec![],
+        mapped_srcs: BTreeMap::new(),
+        crate_name: None,
+        crate_root: None,
+        deps: vec![],
+        tests: vec![],
+        named_deps,
+        proc_macro: None,
+        features: vec![],
+        env: BTreeMap::new(),
+        source_folder: PathBuf::from("/tmp"),
+        project_relative_buildfile: PathBuf::from("foo/BUCK"),
+        in_workspace: false,
+        out_dir: None,
+    };
+
+    let mut deps =
+        resolve_dependencies_aliases(&info, &target_index, &BTreeMap::new(), &BTreeMap::new());
+    resolve_renamed_dependencies(&info, &target_index, &mut deps);
+
+    assert_eq!(
+        deps,
+        vec![Dep {
+            crate_index: 0,
+            name: "bar_baz".to_owned()
+        }]
     );
 }
