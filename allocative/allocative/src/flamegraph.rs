@@ -281,18 +281,22 @@ unsafe impl Send for VisitedSharedPointer {}
 /// # Example
 ///
 /// ```
-/// use allocative::FlameGraphBuilder;
 /// use allocative::Allocative;
+/// use allocative::FlameGraphBuilder;
 ///
 /// #[derive(Allocative)]
 /// struct Foo {
 ///     data: String,
 /// };
 ///
-/// let foo1 = Foo { data: "Hello, world!".to_owned() };
-/// let foo2 = Foo { data: "Another message!".to_owned() };
+/// let foo1 = Foo {
+///     data: "Hello, world!".to_owned(),
+/// };
+/// let foo2 = Foo {
+///     data: "Another message!".to_owned(),
+/// };
 ///
-/// let mut  flamegraph = FlameGraphBuilder::default();
+/// let mut flamegraph = FlameGraphBuilder::default();
 /// flamegraph.visit_root(&foo1);
 /// flamegraph.visit_root(&foo2);
 /// let flamegraph_src = flamegraph.finish().flamegraph();

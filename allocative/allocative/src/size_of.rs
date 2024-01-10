@@ -29,7 +29,12 @@ use crate::Visitor;
 ///     data: Vec<u8>,
 /// }
 ///
-/// assert_eq!(3, allocative::size_of_unique_allocated_data(&Foo { data: vec![10, 20, 30] }));
+/// assert_eq!(
+///     3,
+///     allocative::size_of_unique_allocated_data(&Foo {
+///         data: vec![10, 20, 30]
+///     })
+/// );
 /// ```
 pub fn size_of_unique_allocated_data(root: &dyn Allocative) -> usize {
     struct SizeOfUniqueAllocatedDataVisitor {
@@ -91,7 +96,12 @@ pub fn size_of_unique_allocated_data(root: &dyn Allocative) -> usize {
 ///     data: Vec<u8>,
 /// }
 ///
-/// assert_eq!(3 + std::mem::size_of::<Vec<u8>>(), allocative::size_of_unique(&Foo { data: vec![10, 20, 30] }));
+/// assert_eq!(
+///     3 + std::mem::size_of::<Vec<u8>>(),
+///     allocative::size_of_unique(&Foo {
+///         data: vec![10, 20, 30]
+///     })
+/// );
 /// ```
 pub fn size_of_unique<T>(root: &T) -> usize
 where
