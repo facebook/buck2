@@ -30,7 +30,7 @@ enum SelectError {
     ValueNotDict(String),
     #[error("addition not supported for this attribute type `{0}`, got `{1}`.")]
     ConcatNotSupported(String, String),
-    #[error("select() cannot be used in non-configuable attribute")]
+    #[error("select() cannot be used in non-configurable attribute")]
     SelectCannotBeUsedForNonConfigurableAttr,
     #[error("duplicate `\"DEFAULT\"` key in `select()` (internal error)")]
     DuplicateDefaultKey,
@@ -39,7 +39,7 @@ enum SelectError {
 pub trait CoercedAttrExr: Sized {
     fn coerce(
         attr: &AttrType,
-        configuable: AttrIsConfigurable,
+        configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
         default_attr: Option<&Self>,
@@ -49,7 +49,7 @@ pub trait CoercedAttrExr: Sized {
 impl CoercedAttrExr for CoercedAttr {
     fn coerce(
         attr: &AttrType,
-        configuable: AttrIsConfigurable,
+        configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
         default_attr: Option<&Self>,
@@ -66,7 +66,7 @@ impl CoercedAttrExr for CoercedAttr {
         // are actually compatible (i.e. selectable can ensure that both sides are
         // lists, we can ensure that  both sides are List<T>)
         if let Some(selector) = StarlarkSelector::from_value(value) {
-            if let AttrIsConfigurable::No = configuable {
+            if let AttrIsConfigurable::No = configurable {
                 return Err(SelectError::SelectCannotBeUsedForNonConfigurableAttr.into());
             }
 
@@ -84,7 +84,7 @@ impl CoercedAttrExr for CoercedAttr {
                             })?;
                             let v = match default_attr {
                                 Some(default_attr) if v.is_none() => default_attr.clone(),
-                                _ => CoercedAttr::coerce(attr, configuable, ctx, v, None)?,
+                                _ => CoercedAttr::coerce(attr, configurable, ctx, v, None)?,
                             };
                             if k == "DEFAULT" {
                                 if default.is_some() {
@@ -114,12 +114,12 @@ impl CoercedAttrExr for CoercedAttr {
                             format!("{} + {}", l, r)
                         )));
                     }
-                    let l = CoercedAttr::coerce(attr, configuable, ctx, l, None)?;
+                    let l = CoercedAttr::coerce(attr, configurable, ctx, l, None)?;
                     let mut l = match l {
                         CoercedAttr::Concat(l) => l.into_vec(),
                         l => vec![l],
                     };
-                    let r = CoercedAttr::coerce(attr, configuable, ctx, r, None)?;
+                    let r = CoercedAttr::coerce(attr, configurable, ctx, r, None)?;
                     let r = match r {
                         CoercedAttr::Concat(r) => r.into_vec(),
                         r => vec![r],
@@ -131,7 +131,7 @@ impl CoercedAttrExr for CoercedAttr {
             }
         } else {
             Ok(attr
-                .coerce_item(configuable, ctx, value)
+                .coerce_item(configurable, ctx, value)
                 .with_context(|| format!("Error coercing {}", value))?)
         }
     }
