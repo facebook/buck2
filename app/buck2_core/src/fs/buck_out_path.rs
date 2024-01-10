@@ -75,6 +75,10 @@ impl BuckOutPath {
     pub fn path(&self) -> &ForwardRelativePath {
         &self.0.path
     }
+
+    pub fn len(&self) -> usize {
+        self.0.path.as_str().len()
+    }
 }
 
 #[derive(Clone, Debug, Display, Eq, PartialEq)]
