@@ -98,6 +98,43 @@ use crate::Visitor;
 ///    ...
 /// }
 /// ```
+///
+/// ## `#[allocative(visit = ...)]`
+///
+/// This annotation is used to provide a custom visit method for a given field. This
+/// is especially useful if the type of the field does not implement `Allocative`.
+///
+/// The annotation takes the path to a method with a signature `for<'a, 'b>(&T, &'a
+/// mut allocative::Visitor<'b>)` where `T` is the type of the field. The function
+/// you provide is basically the same as if you implemented [`Allocative::visit`].
+///
+/// As an example
+///
+/// ```
+/// use allocative::Allocative;
+/// use allocative::Key;
+/// use allocative::Visitor;
+/// // use third_party_lib::Unsupported;
+/// # struct Unsupported<T>(T);
+/// # impl<T> Unsupported<T> {
+/// #   fn iter_elems(&self) -> &[T] { &[] }
+/// # }
+///
+/// #[derive(Allocative)]
+/// struct Bar {
+///     #[allocative(visit = visit_unsupported)]
+///     unsupported: Unsupported<usize>,
+/// }
+///
+/// fn visit_unsupported<'a, 'b>(u: &Unsupported<usize>, visitor: &'a mut Visitor<'b>) {
+///     const ELEM_KEY: Key = Key::new("elements");
+///     let mut visitor = visitor.enter_self(u);
+///     for element in u.iter_elems() {
+///         visitor.visit_field(ELEM_KEY, element);
+///     }
+///     visitor.exit()
+/// }
+/// ```
 pub trait Allocative {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>);
 }
