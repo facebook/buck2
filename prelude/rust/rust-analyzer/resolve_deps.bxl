@@ -139,14 +139,16 @@ def materialize_generated_thrift(ctx, target, actions, seen):
         else:
             label = label.raw_target()
 
-        copied = actions.copy_file(outfile, artifacts.artifacts()[0])
-        copied = ctx.output.ensure(copied)
-        artifact = {
-            "artifact": copied.abs_path(),
-            "label": label,
-            "mapped_src": mapped_src,
-        }
-        out.append(artifact)
+        if len(artifacts.artifacts()) > 0:
+            copied = actions.copy_file(outfile, artifacts.artifacts()[0])
+            copied = ctx.output.ensure(copied)
+            artifact = {
+                "artifact": copied.abs_path(),
+                "label": label,
+                "mapped_src": mapped_src,
+            }
+            out.append(artifact)
+
         seen[outfile] = ()
     return out
 
