@@ -120,6 +120,26 @@ def apple_test_extra_attrs():
     })
     return attribs
 
+def apple_xcuitest_extra_attrs():
+    attribs = {
+        # This is ignored, but required for info plist processing.
+        "binary": attrs.option(attrs.source(), default = None),
+        "codesign_identity": attrs.option(attrs.string(), default = None),
+        "entitlements_file": attrs.option(attrs.source(), default = None),
+        "extension": attrs.default_only(attrs.string(default = "app")),
+        "incremental_bundling_enabled": attrs.bool(default = False),
+        "info_plist": attrs.source(),
+        "info_plist_substitutions": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
+        "target_sdk_version": attrs.option(attrs.string(), default = None),
+        # The test bundle to package in the UI test runner app.
+        "test_bundle": attrs.dep(),
+        "_apple_toolchain": get_apple_toolchain_attr(),
+    }
+    attribs.update(_apple_bundle_like_common_attrs())
+    attribs.pop("_dsymutil_extra_flags", None)
+
+    return attribs
+
 def apple_bundle_extra_attrs():
     attribs = {
         "binary": attrs.option(attrs.split_transition_dep(cfg = cpu_split_transition), default = None),
