@@ -73,6 +73,7 @@ start(
     % see T129435667
     Port = ct_runner:start_test_node(
         os:find_executable("erl"),
+        [],
         CodePaths,
         ConfigFiles,
         OutputDir,

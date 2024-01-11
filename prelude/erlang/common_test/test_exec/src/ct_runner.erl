@@ -28,8 +28,8 @@
 ]).
 
 -export([
-    start_test_node/5,
     start_test_node/6,
+    start_test_node/7,
     cookie/0,
     generate_arg_tuple/2,
     project_root/0
@@ -144,6 +144,7 @@ run_test(
         providers = Providers,
         suite = Suite,
         erl_cmd = ErlCmd,
+        extra_flags = ExtraFlags,
         common_app_env = CommonAppEnv
     } = _TestEnv,
     PortEpmd
@@ -159,6 +160,7 @@ run_test(
 
     start_test_node(
         ErlCmd,
+        ExtraFlags,
         CodePath,
         ConfigFiles,
         OutputDir,
@@ -209,25 +211,50 @@ common_app_env_args(Env) ->
 
 -spec start_test_node(
     Erl :: string(),
+    ExtraFlags :: [string()],
     CodePath :: [file:filename_all()],
     ConfigFiles :: [file:filename_all()],
     OutputDir :: file:filename_all(),
     PortSettings :: port_settings()
 ) -> port().
-start_test_node(ErlCmd, CodePath, ConfigFiles, OutputDir, PortSettings0) ->
-    start_test_node(ErlCmd, CodePath, ConfigFiles, OutputDir, PortSettings0, false).
+start_test_node(
+    ErlCmd,
+    ExtraFlags,
+    CodePath,
+    ConfigFiles,
+    OutputDir,
+    PortSettings0
+) ->
+    start_test_node(
+        ErlCmd,
+        ExtraFlags,
+        CodePath,
+        ConfigFiles,
+        OutputDir,
+        PortSettings0,
+        false
+    ).
 
 -spec start_test_node(
     Erl :: string(),
+    ExtraFlags :: [string()],
     CodePath :: [file:filename_all()],
     ConfigFiles :: [file:filename_all()],
     OutputDir :: file:filename_all(),
     PortSettings :: port_settings(),
     ReplayIo :: boolean()
 ) -> port().
-start_test_node(ErlCmd, CodePath, ConfigFiles, OutputDir, PortSettings0, ReplayIo) ->
+start_test_node(
+    ErlCmd,
+    ExtraFlags,
+    CodePath,
+    ConfigFiles,
+    OutputDir,
+    PortSettings0,
+    ReplayIo
+) ->
     % split of args from Erl which can contain emulator flags
-    [_Executable | ExtraFlags] = string:split(ErlCmd, " ", all),
+    [_Executable | Flags] = string:split(ErlCmd, " ", all),
     % we ignore the executable we got, and use the erl command from the
     % toolchain that executes this code
     ErlExecutable = os:find_executable("erl"),
@@ -237,7 +264,7 @@ start_test_node(ErlCmd, CodePath, ConfigFiles, OutputDir, PortSettings0, ReplayI
 
     %% merge args, enc, cd settings
     LaunchArgs =
-        ExtraFlags ++
+        Flags ++ ExtraFlags ++
             build_common_args(CodePath, ConfigFiles) ++
             proplists:get_value(args, PortSettings0, []),
 

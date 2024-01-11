@@ -242,6 +242,10 @@ rules_attributes = {
         "extra_ct_hooks": attrs.list(attrs.string(), default = [], doc = """
                 List of additional Common Test hooks. The strings are interpreted as Erlang terms.
             """),
+        "extra_erl_flags": attrs.list(attrs.string(), default = [], doc = """
+                List of additional command line arguments given to the erl command invocation. These 
+                arguments are added to the front of the argument list.
+            """),
         "preamble": attrs.string(default = read_root_config("erlang", "erlang_test_preamble", "test:info(),test:ensure_initialized(),test:start_shell()."), doc = """
             """),
         "property_tests": attrs.list(attrs.dep(), default = [], doc = """

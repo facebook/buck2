@@ -105,6 +105,7 @@ load_test_info(TestInfoFile) ->
             "ct_opts" := CtOpts,
             "extra_ct_hooks" := ExtraCtHooks,
             "erl_cmd" := ErlCmd,
+            "extra_flags" := ExtraFlags,
             "artifact_annotation_mfa" := ArtifactAnnotationMFA,
             "common_app_env" := CommonAppEnv
         }
@@ -122,6 +123,7 @@ load_test_info(TestInfoFile) ->
         artifact_annotation_mfa = parse_mfa(ArtifactAnnotationMFA),
         ct_opts = CtOpts1,
         erl_cmd = ErlCmd,
+        extra_flags = ExtraFlags,
         common_app_env = CommonAppEnv
     }.
 
