@@ -21,10 +21,18 @@ use tracing::debug;
 
 use crate::aquery::evaluator::get_dice_aquery_delegate;
 
+// Given the buckout path, how do we search actions?
+enum ActionKeyMatch<'v> {
+    // This action key exactly produces the output path.
+    Exact(&'v ActionKey),
+    // Builds an output that is in the path.
+    OutputsOf(&'v BuildArtifact),
+}
+
 fn check_output_path<'v>(
     build_artifact: &'v BuildArtifact,
     path_to_check: &'v ForwardRelativePathBuf,
-) -> anyhow::Result<Option<&'v ActionKey>> {
+) -> anyhow::Result<Option<ActionKeyMatch<'v>>> {
     let path = build_artifact.get_path().path();
 
     debug!(
@@ -32,8 +40,12 @@ fn check_output_path<'v>(
         path, path_to_check
     );
 
-    if path_to_check.starts_with(path_to_check) {
-        Ok(Some(build_artifact.key()))
+    let key = build_artifact.key();
+
+    if path_to_check == path {
+        Ok(Some(ActionKeyMatch::Exact(key)))
+    } else if path_to_check.starts_with(path) {
+        Ok(Some(ActionKeyMatch::OutputsOf(build_artifact)))
     } else {
         Ok(None)
     }
@@ -53,15 +65,43 @@ async fn find_matching_action(
         match provider::request_value::<ProvideOutputs>(entry.as_complex()) {
             Some(outputs) => {
                 let outputs = outputs.0?;
+                // Try to find exact path match first. If there are no exact matches, try to find an action
+                // that starts with the relevant part of the output path (this case is for targets that declare
+                // directories as outputs).
+                //
+                // FIXME(@wendyy): If we've iterated over all build artifacts and still haven't found an exact
+                // action key match, then return a possible action key with the shortest path. This can happen
+                // if a target declared an output directory instead of an artifact. As a best effort, we keep
+                // track of the possible build artifact with the shortest path to try find the action that produced
+                // the top-most directory. To fix this properly, we would need to let the action key or build
+                // artifact itself know if the output was a directory, which is nontrivial.
+                let mut maybe_match: Option<&BuildArtifact> = None;
                 for build_artifact in &outputs {
                     match check_output_path(build_artifact, &path_after_target_name)? {
-                        Some(action_key) => {
-                            return Ok(Some(
-                                dice_aquery_delegate.get_action_node(action_key).await?,
-                            ));
-                        }
+                        Some(action_key_match) => match action_key_match {
+                            ActionKeyMatch::Exact(key) => {
+                                return Ok(Some(dice_aquery_delegate.get_action_node(key).await?));
+                            }
+                            ActionKeyMatch::OutputsOf(artifact) => match maybe_match {
+                                Some(maybe) => {
+                                    if artifact.get_path().len() < maybe.get_path().len() {
+                                        maybe_match = Some(artifact);
+                                    }
+                                }
+                                None => maybe_match = Some(artifact),
+                            },
+                        },
                         None => (),
                     }
+                }
+
+                match maybe_match {
+                    Some(maybe) => {
+                        return Ok(Some(
+                            dice_aquery_delegate.get_action_node(maybe.key()).await?,
+                        ));
+                    }
+                    None => (),
                 }
             }
             None => debug!("Could not extract outputs from deferred table entry"),
