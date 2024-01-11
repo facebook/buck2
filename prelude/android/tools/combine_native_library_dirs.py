@@ -52,7 +52,11 @@ def main() -> None:
             )
 
             output_path.parent.mkdir(exist_ok=True)
-            output_path.symlink_to(os.readlink(lib))
+            relative_path_to_lib = os.path.relpath(
+                os.path.realpath(lib),
+                start=os.path.realpath(os.path.dirname(output_path)),
+            )
+            output_path.symlink_to(relative_path_to_lib)
 
             if args.metadata_file:
                 with open(lib, "rb") as f:
