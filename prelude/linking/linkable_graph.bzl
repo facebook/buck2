@@ -171,9 +171,12 @@ def create_linkable_graph_node(
         ctx: AnalysisContext,
         linkable_node: [LinkableNode, None] = None,
         roots: dict[Label, LinkableRootInfo] = {},
-        excluded: dict[Label, None] = {}) -> LinkableGraphNode:
+        excluded: dict[Label, None] = {},
+        label: Label | None = None) -> LinkableGraphNode:
+    if not label:
+        label = ctx.label
     return LinkableGraphNode(
-        label = ctx.label,
+        label = label,
         linkable = linkable_node,
         roots = roots,
         excluded = excluded,
@@ -208,8 +211,11 @@ def create_linkable_graph(
     }
     if node:
         kwargs["value"] = node
+        label = node.label
+    else:
+        label = ctx.label
     return LinkableGraph(
-        label = ctx.label,
+        label = label,
         nodes = ctx.actions.tset(LinkableGraphTSet, **kwargs),
     )
 
