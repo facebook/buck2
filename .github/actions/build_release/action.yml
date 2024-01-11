@@ -1,0 +1,10 @@
+name: build_release
+description: Build buck2 binary (release)
+runs:
+  using: composite
+  steps:
+  - name: Build buck2 binary (release)
+    run: |-
+      mkdir $RUNNER_TEMP/artifacts
+      cargo build --bin=buck2 --release -Z unstable-options --out-dir=$RUNNER_TEMP/artifacts
+    shell: bash

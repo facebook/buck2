@@ -1,0 +1,9 @@
+name: setup_reindeer
+runs:
+  using: composite
+  steps:
+  - name: Install Reindeer
+    run: |-
+      cargo install --locked --git https://github.com/facebookincubator/reindeer reindeer
+      reindeer --third-party-dir shim/third-party/rust buckify
+    shell: bash

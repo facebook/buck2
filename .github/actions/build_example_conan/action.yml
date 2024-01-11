@@ -1,0 +1,14 @@
+name: build_example_conan
+runs:
+  using: composite
+  steps:
+  - name: Build examples/toolchains/conan_toolchain
+    run: |-
+      cd examples/toolchains/conan_toolchain
+      $RUNNER_TEMP/artifacts/buck2 init
+      cp -r ../../../prelude prelude
+      # Generate Conan imports. TODO[AH] Make that unnecessary.
+      PATH="$RUNNER_TEMP/artifacts:$PATH" $RUNNER_TEMP/artifacts/buck2 run //cpp/conan:update -v 2
+      $RUNNER_TEMP/artifacts/buck2 build //... -v 2
+      $RUNNER_TEMP/artifacts/buck2 test //... -v 2
+    shell: bash

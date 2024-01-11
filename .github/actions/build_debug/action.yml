@@ -1,0 +1,10 @@
+name: build_debug
+description: Build buck2 binary (debug)
+runs:
+  using: composite
+  steps:
+  - name: Build buck2 binary (debug)
+    run: |-
+      mkdir $RUNNER_TEMP/artifacts
+      cargo build --bin=buck2 -Z unstable-options --out-dir=$RUNNER_TEMP/artifacts
+    shell: bash
