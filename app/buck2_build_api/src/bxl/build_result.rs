@@ -7,15 +7,16 @@
  * of this source tree.
  */
 
+use std::fmt::Display;
+
 use allocative::Allocative;
 use gazebo::variants::UnpackVariants;
 
 use crate::build::ConfiguredBuildTargetResult;
 
-#[derive(Clone, Debug, derive_more::Display, UnpackVariants, Allocative)]
+#[derive(Clone, Debug, UnpackVariants, Allocative)]
 pub enum BxlBuildResult {
     None,
-    #[display(fmt = "build result")]
     Built(ConfiguredBuildTargetResult),
 }
 
@@ -24,6 +25,20 @@ impl BxlBuildResult {
         match result {
             Some(result) => Self::Built(result),
             None => Self::None,
+        }
+    }
+}
+
+impl Display for BxlBuildResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BxlBuildResult::None => write!(f, "BxlBuildResult::None"),
+            BxlBuildResult::Built(build_target_result) => write!(
+                f,
+                "BxlBuildResult::Built({} outputs, {} errors)",
+                build_target_result.outputs.len(),
+                build_target_result.errors.len()
+            ),
         }
     }
 }
