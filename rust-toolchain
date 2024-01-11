@@ -5,6 +5,7 @@
 # * Update `HACKING.md` (two instances).
 # * Update `docs/getting_started.md` (two instances).
 # * Update `../common/ocaml/interop/oss/README-BUCK.md` (two instances), `../common/ocaml/interop/.circleci/config.yml` (one instance) and `../common/ocaml/interop/facebook/ci_oss.sh` (one instance).
+# * Update `../common/rust/tools/reindeer/rust-toolchain` (one instance)
 
 # @rustc_version: rustc 1.74.0-nightly (ca62d2c44 2023-09-30)
 channel = "nightly-2023-10-01"
