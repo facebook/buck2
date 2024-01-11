@@ -139,9 +139,6 @@ RustLinkInfo = provider(
         #    `FORCE_RLIB` behavior, in which Rust -> Rust dependency edges are always statically
         #    linked. The native link provider is identical, except that it does not respect the
         #    `FORCE_RLIB` behavior.
-        #
-        # FIXME(JakobDegen): The `advanced_unstable_linking` case is currently aspirational and not
-        # how things are actually implemented.
         "merged_link_info": MergedLinkInfo,
         "shared_libs": SharedLibraryInfo,
         # Because of the weird representation of `LinkableGraph`, there is no
@@ -353,14 +350,11 @@ def _native_link_dependencies(
     """
     first_order_deps = [dep.dep for dep in resolve_deps(ctx, dep_ctx)]
 
-    if dep_ctx.advanced_unstable_linking:
-        return [d for d in first_order_deps if MergedLinkInfo in d]
-    else:
-        return [
-            d
-            for d in first_order_deps
-            if RustLinkInfo not in d and MergedLinkInfo in d
-        ]
+    return [
+        d
+        for d in first_order_deps
+        if RustLinkInfo not in d and MergedLinkInfo in d
+    ]
 
 # Returns the rust link infos for non-proc macro deps.
 #
@@ -374,10 +368,9 @@ def inherited_exported_link_deps(ctx: AnalysisContext, dep_ctx: DepCollectionCon
     deps = {}
     for dep in _native_link_dependencies(ctx, dep_ctx):
         deps[dep.label] = dep
-    if not dep_ctx.advanced_unstable_linking:
-        for info in _rust_non_proc_macro_link_infos(ctx, dep_ctx):
-            for dep in info.exported_link_deps:
-                deps[dep.label] = dep
+    for info in _rust_non_proc_macro_link_infos(ctx, dep_ctx):
+        for dep in info.exported_link_deps:
+            deps[dep.label] = dep
     return deps.values()
 
 def inherited_rust_cxx_link_group_info(
@@ -467,8 +460,7 @@ def inherited_merged_link_infos(
         dep_ctx: DepCollectionContext) -> list[MergedLinkInfo]:
     infos = []
     infos.extend([d[MergedLinkInfo] for d in _native_link_dependencies(ctx, dep_ctx)])
-    if not dep_ctx.advanced_unstable_linking:
-        infos.extend([d.merged_link_info for d in _rust_non_proc_macro_link_infos(ctx, dep_ctx) if d.merged_link_info])
+    infos.extend([d.merged_link_info for d in _rust_non_proc_macro_link_infos(ctx, dep_ctx) if d.merged_link_info])
     return infos
 
 def inherited_shared_libs(
@@ -476,8 +468,7 @@ def inherited_shared_libs(
         dep_ctx: DepCollectionContext) -> list[SharedLibraryInfo]:
     infos = []
     infos.extend([d[SharedLibraryInfo] for d in _native_link_dependencies(ctx, dep_ctx)])
-    if not dep_ctx.advanced_unstable_linking:
-        infos.extend([d.shared_libs for d in _rust_non_proc_macro_link_infos(ctx, dep_ctx)])
+    infos.extend([d.shared_libs for d in _rust_non_proc_macro_link_infos(ctx, dep_ctx)])
     return infos
 
 def inherited_linkable_graphs(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[LinkableGraph]:
@@ -486,10 +477,9 @@ def inherited_linkable_graphs(ctx: AnalysisContext, dep_ctx: DepCollectionContex
         g = d.get(LinkableGraph)
         if g:
             deps[g.label] = g
-    if not dep_ctx.advanced_unstable_linking:
-        for info in _rust_non_proc_macro_link_infos(ctx, dep_ctx):
-            for g in info.linkable_graphs:
-                deps[g.label] = g
+    for info in _rust_non_proc_macro_link_infos(ctx, dep_ctx):
+        for g in info.linkable_graphs:
+            deps[g.label] = g
     return deps.values()
 
 def inherited_link_group_lib_infos(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[LinkGroupLibInfo]:
