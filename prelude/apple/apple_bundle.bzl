@@ -64,6 +64,7 @@ load(":apple_dsym.bzl", "DSYM_INFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym
 load(":apple_genrule_deps.bzl", "get_apple_build_genrule_deps_attr_value", "get_apple_genrule_deps_outputs")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(":apple_universal_binaries.bzl", "create_universal_binary")
+load(":apple_validation_deps.bzl", "get_apple_validation_deps_outputs")
 load(
     ":debug.bzl",
     "AggregatedAppleDebugInfo",
@@ -320,9 +321,9 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
 
     primary_binary_rel_path = get_apple_bundle_part_relative_destination_path(ctx, primary_binary_part)
 
-    genrule_deps_outputs = []
+    validation_deps_outputs = get_apple_validation_deps_outputs(ctx)
     if get_apple_build_genrule_deps_attr_value(ctx):
-        genrule_deps_outputs = get_apple_genrule_deps_outputs(ctx.attrs.deps)
+        validation_deps_outputs += get_apple_genrule_deps_outputs(ctx.attrs.deps)
 
     sub_targets = assemble_bundle(
         ctx,
@@ -330,7 +331,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         apple_bundle_part_list_output.parts,
         apple_bundle_part_list_output.info_plist_part,
         SwiftStdlibArguments(primary_binary_rel_path = primary_binary_rel_path),
-        genrule_deps_outputs,
+        validation_deps_outputs,
     )
     sub_targets.update(aggregated_debug_info.sub_targets)
 

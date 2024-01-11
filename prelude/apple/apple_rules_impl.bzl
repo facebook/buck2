@@ -34,6 +34,8 @@ load(":apple_resource.bzl", "apple_resource_impl")
 load(
     ":apple_rules_impl_utility.bzl",
     "APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME",
+    "APPLE_VALIDATION_DEPS_ATTR_NAME",
+    "APPLE_VALIDATION_DEPS_ATTR_TYPE",
     "apple_bundle_extra_attrs",
     "apple_dsymutil_attrs",
     "apple_test_extra_attrs",
@@ -99,6 +101,7 @@ def _apple_binary_extra_attrs():
         APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_NAME: APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_TYPE,
         APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_NAME: APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_TYPE,
         BUCK2_COMPATIBILITY_ATTRIB_NAME: BUCK2_COMPATIBILITY_ATTRIB_TYPE,
+        APPLE_VALIDATION_DEPS_ATTR_NAME: APPLE_VALIDATION_DEPS_ATTR_TYPE,
     }
     attribs.update(apple_dsymutil_attrs())
     return attribs
@@ -127,6 +130,7 @@ def _apple_library_extra_attrs():
         APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_NAME: APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_TYPE,
         APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_NAME: APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_TYPE,
         BUCK2_COMPATIBILITY_ATTRIB_NAME: BUCK2_COMPATIBILITY_ATTRIB_TYPE,
+        APPLE_VALIDATION_DEPS_ATTR_NAME: APPLE_VALIDATION_DEPS_ATTR_TYPE,
     }
     attribs.update(apple_dsymutil_attrs())
     return attribs
