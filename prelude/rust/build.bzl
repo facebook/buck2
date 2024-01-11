@@ -39,6 +39,7 @@ load(
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
+load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
 load("@prelude//utils:set.bzl", "set")
@@ -87,6 +88,7 @@ load(":rust_toolchain.bzl", "PanicRuntime", "RustToolchainInfo")
 
 RustcOutput = record(
     output = field(Artifact),
+    stripped_output = field(Artifact),
     diag = field(dict[str, Artifact]),
     pdb = field([Artifact, None]),
     dwp_output = field([Artifact, None]),
@@ -617,8 +619,19 @@ def rust_compile(
     else:
         dwp_output = None
 
+    stripped_output = strip_debug_info(
+        ctx,
+        paths.join(common_args.subdir, "stripped", output_filename(
+            attr_simple_crate_for_filenames(ctx),
+            Emit("link"),
+            params,
+        )),
+        filtered_output,
+    )
+
     return RustcOutput(
         output = filtered_output,
+        stripped_output = stripped_output,
         diag = diag,
         pdb = pdb_artifact,
         dwp_output = dwp_output,
