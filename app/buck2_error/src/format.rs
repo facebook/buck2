@@ -135,6 +135,7 @@ Caused by:
     0: context 1
     1: test error"#,
         );
+        assert_eq_no_backtrace(format!("{:#}", e), r#"context 2: context 1: test error"#);
     }
 
     #[test]
@@ -158,9 +159,31 @@ Caused by:
         let e2 = anyhow::Error::from(e.clone());
         assert_eq_no_backtrace(format!("{}", e), format!("{}", e2));
         assert_eq_no_backtrace(format!("{:?}", e), format!("{:?}", e2));
+        assert_eq_no_backtrace(format!("{:#}", e), format!("{:#}", e2));
 
         let e3 = buck2_error::Error::from(e2);
         assert_eq_no_backtrace(format!("{}", e), format!("{}", e3));
         assert_eq_no_backtrace(format!("{:?}", e), format!("{:?}", e3));
+        assert_eq_no_backtrace(format!("{:#}", e), format!("{:#}", e3));
+    }
+
+    #[test]
+    fn test_with_context_from_source() {
+        #[derive(buck2_error::Error, Debug)]
+        #[error("with source")]
+        struct E(#[source] TestError);
+
+        let e = buck2_error::Error::from(E(TestError)).context("context");
+
+        assert_eq_no_backtrace(
+            format!("{:?}", e),
+            r#"context
+
+Caused by:
+    0: with source
+    1: test error"#,
+        );
+        assert_eq_no_backtrace(format!("{:#}", e), r#"context: with source: test error"#);
+        assert_eq_no_backtrace(format!("{}", e), r#"context"#);
     }
 }
