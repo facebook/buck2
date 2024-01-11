@@ -221,6 +221,23 @@ config_setting = prelude_rule(
     ),
 )
 
+configuration_alias = prelude_rule(
+    name = "configuration_alias",
+    docs = "",
+    examples = None,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            # configuration_alias acts like alias but for configuration rules.
+
+            # The configuration_alias itself is a configuration rule and the `actual` argument is
+            # expected to be a configuration rule as well.
+            "actual": attrs.dep(pulls_and_pushes_plugins = plugins.All),
+        }
+    ),
+)
+
 configured_alias = prelude_rule(
     name = "configured_alias",
     docs = "",
@@ -1486,6 +1503,7 @@ core_rules = struct(
     alias = alias,
     command_alias = command_alias,
     config_setting = config_setting,
+    configuration_alias = configuration_alias,
     configured_alias = configured_alias,
     constraint_setting = constraint_setting,
     constraint_value = constraint_value,

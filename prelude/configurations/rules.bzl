@@ -67,6 +67,9 @@ def platform_impl(ctx):
         ),
     ]
 
+def configuration_alias_impl(ctx: AnalysisContext) -> list[Provider]:
+    return ctx.attrs.actual.providers
+
 # TODO(cjhopman): Update the attributes for these ruletypes to declare the types of providers that they expect in their references.
 extra_attributes = {
     "platform": {
@@ -76,6 +79,7 @@ extra_attributes = {
 
 implemented_rules = {
     "config_setting": config_setting_impl,
+    "configuration_alias": configuration_alias_impl,
     "constraint_setting": constraint_setting_impl,
     "constraint_value": constraint_value_impl,
     "platform": platform_impl,
