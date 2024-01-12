@@ -419,9 +419,7 @@ def get_filtered_labels_to_links_map(
             target_link_group = link_group_mappings.get(target)
 
             # Always add force-static libs to the link.
-            if (force_static_follows_dependents and
-                node.preferred_linkage == Linkage("static") and
-                not node.ignore_force_static_follows_dependents):
+            if force_static_follows_dependents and node.preferred_linkage == Linkage("static"):
                 add_link(target, output_style)
             elif not target_link_group and not link_group:
                 # Ungrouped linkable targets belong to the unlabeled executable
@@ -537,7 +535,7 @@ def find_relevant_roots(
     # link group.
     def collect_and_traverse_roots(roots, node_target):
         node = linkable_graph_node_map.get(node_target)
-        if node.preferred_linkage == Linkage("static") and not node.ignore_force_static_follows_dependents:
+        if node.preferred_linkage == Linkage("static"):
             return node.deps + node.exported_deps
         node_link_group = link_group_mappings.get(node_target)
         if node_link_group == MATCH_ALL_LABEL:
