@@ -545,7 +545,7 @@ def _rust_link_providers(
     inherited_link_infos = inherited_merged_link_infos(ctx, dep_ctx)
     inherited_shlibs = inherited_shared_libs(ctx, dep_ctx)
     inherited_graphs = inherited_linkable_graphs(ctx, dep_ctx)
-    inherited_exported_deps = inherited_exported_link_deps(ctx, dep_ctx)
+    inherited_link_deps = inherited_exported_link_deps(ctx, dep_ctx)
 
     if dep_ctx.advanced_unstable_linking:
         # We have to produce a version of the providers that are defined in such
@@ -555,15 +555,11 @@ def _rust_link_providers(
         #
         # Note that all of this code is FORCE_RLIB specific. Disabling that
         # setting requires replacing this with the "real" native providers
-        #
-        # As an optimization, we never bother reporting exported deps here.
-        # Whichever dependent uses the providers created here will take care of
-        # that for us.
         merged_link_info = create_merged_link_info(
             ctx,
             cxx_toolchain.pic_behavior,
             link_infos,
-            deps = inherited_link_infos,
+            exported_deps = inherited_link_infos,
             preferred_linkage = Linkage("static"),
         )
         shared_libs = merge_shared_libraries(
@@ -586,7 +582,7 @@ def _rust_link_providers(
                 linkable_node = create_linkable_node(
                     ctx = ctx,
                     preferred_linkage = Linkage("static"),
-                    deps = inherited_graphs,
+                    exported_deps = inherited_graphs,
                     link_infos = link_infos,
                     # FIXME(JakobDegen): It should be ok to set this to `None`,
                     # but that breaks arc focus
@@ -603,7 +599,7 @@ def _rust_link_providers(
             ctx.actions,
             deps = inherited_shlibs,
         )
-    return (merged_link_info, shared_libs, inherited_graphs, inherited_exported_deps)
+    return (merged_link_info, shared_libs, inherited_graphs, inherited_link_deps)
 
 def _rust_providers(
         ctx: AnalysisContext,
@@ -711,7 +707,6 @@ def _native_providers(
     inherited_link_infos = inherited_merged_link_infos(ctx, compile_ctx.dep_ctx)
     inherited_shlibs = inherited_shared_libs(ctx, compile_ctx.dep_ctx)
     inherited_link_graphs = inherited_linkable_graphs(ctx, compile_ctx.dep_ctx)
-    inherited_exported_deps = inherited_exported_link_deps(ctx, compile_ctx.dep_ctx)
 
     linker_info = compile_ctx.cxx_toolchain_info.linker_info
     linker_type = linker_info.type
@@ -732,8 +727,7 @@ def _native_providers(
         ctx,
         compile_ctx.cxx_toolchain_info.pic_behavior,
         link_infos,
-        deps = inherited_link_infos,
-        exported_deps = filter(None, [d.get(MergedLinkInfo) for d in inherited_exported_deps]),
+        exported_deps = inherited_link_infos,
         preferred_linkage = preferred_linkage,
     ))
 
@@ -790,14 +784,13 @@ def _native_providers(
             linkable_node = create_linkable_node(
                 ctx = ctx,
                 preferred_linkage = preferred_linkage,
-                deps = inherited_link_graphs,
-                exported_deps = inherited_exported_deps,
+                exported_deps = inherited_link_graphs,
                 link_infos = link_infos,
                 shared_libs = solibs,
                 default_soname = shlib_name,
             ),
         ),
-        deps = inherited_link_graphs + inherited_exported_deps,
+        deps = inherited_link_graphs,
     )
 
     providers.append(linkable_graph)
