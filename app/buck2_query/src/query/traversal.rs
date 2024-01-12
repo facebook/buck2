@@ -125,12 +125,11 @@ pub async fn async_fast_depth_first_postorder_traversal<
 
     let mut state = State::<T> {
         visited: HashSet::new(),
-        work: Vec::new(),
+        work: root
+            .into_iter()
+            .map(|t| WorkItem::Visit(t.clone()))
+            .collect(),
     };
-
-    for target in root {
-        state.push(target.clone());
-    }
 
     while let Some(curr) = state.work.pop() {
         match curr {
