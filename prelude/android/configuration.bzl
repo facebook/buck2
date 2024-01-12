@@ -23,13 +23,14 @@ load("@prelude//utils:expect.bzl", "expect")
 # platforms). We only use the "arm64" native libraries if it is one of the specified platforms. We
 # "throw away" the non-native libraries for all other configured sub-graphs.
 
+_DEFAULT_PLATFORM = "config//platform/android:x86_32-fbsource"
+
 _REFS = {
     "arm64": "config//cpu/constraints:arm64",
     "armv7": "config//cpu/constraints:arm32",
     "build_only_native_code": "prelude//android/constraints:build_only_native_code",
     "building_android_binary": "prelude//os:building_android_binary",
     "cpu": "config//cpu/constraints:cpu",
-    "default_platform": "config//platform/android:x86_32-fbsource",
     "maybe_build_only_native_code": "prelude//android/constraints:maybe_build_only_native_code",
     "maybe_building_android_binary": "prelude//os:maybe_building_android_binary",
     "min_sdk_version": "prelude//android/constraints:min_sdk_version",
@@ -39,6 +40,8 @@ _REFS = {
 for min_sdk in get_min_sdk_version_range():
     constraint_value_name = get_min_sdk_version_constraint_value_name(min_sdk)
     _REFS[constraint_value_name] = "prelude//android/constraints:{}".format(constraint_value_name)
+
+_REFS["default_platform"] = read_root_config("build", "default_platform", _DEFAULT_PLATFORM)
 
 def _cpu_split_transition_impl(
         platform: PlatformInfo,
