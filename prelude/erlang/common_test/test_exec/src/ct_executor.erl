@@ -88,21 +88,7 @@ run(Args) when is_list(Args) ->
                 io:format("~ts\n", [erl_error:format_exception(Class1, Reason1, Stack1)]),
                 1
         end,
-    case ExitCode of
-        0 ->
-            init:stop(0),
-            receive
-            after ?INIT_STOP_TIMEOUT ->
-                ?LOG_ERROR(
-                    io_lib:format("~p failed to terminate within ~c millisecond", [
-                        ?MODULE, ?INIT_STOP_TIMEOUT
-                    ])
-                ),
-                erlang:halt(0)
-            end;
-        _ ->
-            erlang:halt(ExitCode)
-    end.
+    erlang:halt(ExitCode).
 
 -spec parse_arguments([string()]) -> {proplists:proplist(), [term()]}.
 parse_arguments(Args) ->
