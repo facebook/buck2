@@ -103,7 +103,6 @@ pub async fn async_fast_depth_first_postorder_traversal<
         Visit(T::NodeRef),
     }
 
-    #[derive(Default)]
     struct State<T: LabeledNode> {
         visited: HashSet<T::NodeRef>,
         work: Vec<WorkItem<T>>,
@@ -115,13 +114,6 @@ pub async fn async_fast_depth_first_postorder_traversal<
     // mean changing the delegate's for_each_children to return an iterator,
     // but idk.
     impl<T: LabeledNode> State<T> {
-        fn new() -> Self {
-            Self {
-                visited: HashSet::new(),
-                work: Vec::new(),
-            }
-        }
-
         fn push(&mut self, target: T::NodeRef) {
             if self.visited.contains(&target) {
                 return;
@@ -129,19 +121,18 @@ pub async fn async_fast_depth_first_postorder_traversal<
 
             self.work.push(WorkItem::Visit(target));
         }
-
-        fn pop(&mut self) -> Option<WorkItem<T>> {
-            self.work.pop()
-        }
     }
 
-    let mut state = State::new();
+    let mut state = State::<T> {
+        visited: HashSet::new(),
+        work: Vec::new(),
+    };
 
     for target in root {
         state.push(target.clone());
     }
 
-    while let Some(curr) = state.pop() {
+    while let Some(curr) = state.work.pop() {
         match curr {
             WorkItem::Visit(target) => {
                 if state.visited.contains(&target) {
