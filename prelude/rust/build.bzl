@@ -739,18 +739,33 @@ def dynamic_symlinked_dirs(
         artifacts: dict[Artifact, CrateName]) -> cmd_args:
     name = "{}-dyn".format(prefix)
     transitive_dependency_dir = ctx.actions.declare_output(name, dir = True)
-    do_symlinks = cmd_args(
-        compile_ctx.toolchain_info.transitive_dependency_symlinks_tool,
-        cmd_args(transitive_dependency_dir.as_output(), format = "--out-dir={}"),
+
+    # Pass the list of rlibs to transitive_dependency_symlinks.py through a file
+    # because there can be a lot of them. This avoids running out of command
+    # line length, particularly on Windows.
+    relative_path = lambda artifact: (cmd_args(artifact, delimiter = "")
+        .relative_to(transitive_dependency_dir.project("i"))
+        .ignore_artifacts())
+    artifacts_json = ctx.actions.write_json(
+        ctx.actions.declare_output("{}-dyn.json".format(prefix)),
+        [
+            (relative_path(artifact), crate.dynamic)
+            for artifact, crate in artifacts.items()
+        ],
+        with_inputs = True,
+        pretty = True,
     )
-    for artifact, crate in artifacts.items():
-        relative_path = cmd_args(artifact).relative_to(transitive_dependency_dir.project("i"))
-        do_symlinks.add("--artifact", crate.dynamic, relative_path.ignore_artifacts())
+
     ctx.actions.run(
-        do_symlinks,
+        [
+            compile_ctx.toolchain_info.transitive_dependency_symlinks_tool,
+            cmd_args(transitive_dependency_dir.as_output(), format = "--out-dir={}"),
+            cmd_args(artifacts_json, format = "--artifacts={}"),
+        ],
         category = "tdep_symlinks",
         identifier = str(len(compile_ctx.transitive_dependency_dirs)),
     )
+
     compile_ctx.transitive_dependency_dirs[transitive_dependency_dir] = None
     return cmd_args(transitive_dependency_dir, format = "@{}/dirs").hidden(artifacts.keys())
 
