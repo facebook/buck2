@@ -81,9 +81,8 @@ pub async fn async_unordered_traversal<
 // TODO(cjhopman): Figure out how to implement this traversal in a way that has good performance
 // in both cases.
 pub async fn async_fast_depth_first_postorder_traversal<
-    'a,
     T: LabeledNode,
-    RootIter: IntoIterator<Item = &'a T::NodeRef>,
+    RootIter: IntoIterator<Item = T::NodeRef>,
 >(
     nodes: &(dyn NodeLookup<T> + Send + Sync),
     root: RootIter,
@@ -125,10 +124,7 @@ pub async fn async_fast_depth_first_postorder_traversal<
 
     let mut state = State::<T> {
         visited: HashSet::new(),
-        work: root
-            .into_iter()
-            .map(|t| WorkItem::Visit(t.clone()))
-            .collect(),
+        work: root.into_iter().map(|t| WorkItem::Visit(t)).collect(),
     };
 
     while let Some(curr) = state.work.pop() {
@@ -308,7 +304,7 @@ pub async fn async_depth_first_postorder_traversal<
         nodes: unordered_delegate.nodes,
     };
 
-    async_fast_depth_first_postorder_traversal(&nodes, root, delegate).await?;
+    async_fast_depth_first_postorder_traversal(&nodes, root.into_iter().cloned(), delegate).await?;
 
     Ok(())
 }
