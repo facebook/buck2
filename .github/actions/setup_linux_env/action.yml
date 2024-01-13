@@ -1,6 +1,5 @@
 name: Setup Linux environment
-description: |
-  Setup Linux environment for building and testing buck2.
+description: Setup Linux environment
 runs:
   using: composite
   steps:
@@ -12,9 +11,14 @@ runs:
   - uses: dtolnay/rust-toolchain@v1
     with:
       toolchain: ${{ steps.read_rust_toolchain.outputs.value }}
-      targets: ${{ matrix.target.triple }}
       components: clippy
   - uses: Swatinem/rust-cache@v2
     with:
       prefix-key: buck2-upload
-      key: ${{ matrix.target.triple }}
+  - run: sudo apt-get update
+    shell: bash
+  - run: sudo apt-get install opam libzstd-dev python3-pip ghc
+    shell: bash
+  - name: Install conan
+    run: sudo pip3 install conan==1.*
+    shell: bash

@@ -1,35 +1,15 @@
 name: setup_macos_env
-description: |
-  Setup macOS environment for building and testing.
+description: Setup macOS environment
 runs:
   using: composite
   steps:
   - name: Install Rustup
-    run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-    shell: bash
-  - name: Increase open file descriptor limit
-    run: |-
-      # Avoid "too many open files" error.
-      #echo 'sudo launchctl limit maxfiles 9000000 9999999' >> "$GITHUB_ENV"
-      #echo 'ulimit -Sn 9000000' >> "$GITHUB_ENV"
-      echo "TODO Increase open file descriptor limit"
+    run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain=none
     shell: bash
   - name: Brew install
-    run: |-
-      # Avoid: "Error: The `brew link` step did not complete
-      # successfully" (for llvm dependency 'six').
-      rm -f '/usr/local/lib/python3.9/site-packages/six.py'
-      brew install cmake python3 coreutils opam llvm protobuf zstd ghc
-      # TODO: Remove once non intel macos platform is supported on https://github.com/stepancheg/rust-protoc-bin-vendored/
-      echo 'export BUCK2_BUILD_PROTOC=/opt/homebrew/opt/protobuf/bin/protoc' >> "$GITHUB_ENV"
-      echo 'export BUCK2_BUILD_PROTOC_INCLUDE=/opt/homebrew/opt/protobuf/include' >> "$GITHUB_ENV"
+    run: brew install cmake python3 coreutils opam llvm protobuf zstd ghc
     shell: bash
-  - run: sudo pip3 install conan==1.*
-    shell: bash
-  - name: Set CARGO_BUILD_JOBS=6 to limit the number of CPUs used
-    run: echo 'export CARGO_BUILD_JOBS="6"' >> "$GITHUB_ENV"
-    shell: bash
-  - name: Add LLVM to PATH
-    run: echo 'export PATH=/usr/local/opt/llvm/bin:"$PATH"' >> "$GITHUB_ENV"
+  - name: Install conan
+    run: sudo pip3 install conan==1.*
     shell: bash
   - uses: "./.github/actions/print_versions"

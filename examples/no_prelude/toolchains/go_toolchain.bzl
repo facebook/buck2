@@ -89,8 +89,8 @@ def _toolchain_config():
         )
     if os.is_macos:
         return struct(
-            sha256 = "eea1e7e4c2f75c72629050e6a6c7c46c446d64056732a7787fb3ba16ace1982e",
-            platform = "darwin-arm64",
+            sha256 = "785170eab380a8985d53896808b0a71336d0ea60e0a26099b4ccec77798b1cf4",
+            platform = "darwin-amd64",
             archive_extension = "tar.gz",
             version = version,
         )

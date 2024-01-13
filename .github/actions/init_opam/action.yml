@@ -1,16 +1,13 @@
 name: init_opam
-description: |
-  Setup OCaml environment for building and testing buck2.
+description: Setup OPAM
 runs:
   using: composite
   steps:
-  - name: Init opam
-    run: |-
-      opam init --compiler=5.1.1 --disable-sandboxing -y
-      opam install menhir ppxlib -y
-    shell: bash
-  - name: OCaml Configuration Info
+  - name: Initialize OPAM
     run: |
-      eval $(opam env) >> $GITHUB_ENV
-      ocamlopt.opt -config
+      opam init --compiler=5.1.1 --disable-sandboxing -y
+      echo 'eval $(opam env)' >> ~/.bashrc
+    shell: bash
+  - name: Install OPAM packages
+    run: opam install menhir ppxlib -y
     shell: bash

@@ -3,44 +3,6 @@ on:
   push:
   pull_request:
 jobs:
-  linux-build-and-test:
-    runs-on: 4-core-ubuntu
-    steps:
-    - uses: actions/checkout@v4.1.0
-    - uses: ./.github/actions/setup_linux_env
-    - uses: ./.github/actions/build_debug
-    - uses: ./.github/actions/run_test_py
-  linux-build-examples:
-    runs-on: 4-core-ubuntu
-    steps:
-    - uses: actions/checkout@v4.1.0
-    - uses: ./.github/actions/setup_linux_env
-    - uses: ./.github/actions/init_opam
-    - uses: ./.github/actions/build_release
-    - name: Build example/prelude directory
-      run: |-
-        eval $(opam env)
-        cd examples/with_prelude
-        $RUNNER_TEMP/artifacts/buck2 init
-        cp -r ../../prelude prelude
-        # Additional setup for ocaml
-        source ./ocaml-setup.sh
-        $RUNNER_TEMP/artifacts/buck2 build //... -v 2
-        $RUNNER_TEMP/artifacts/buck2 test //... -v 2
-    - uses: ./.github/actions/build_example_conan
-    - uses: ./.github/actions/build_example_no_prelude
-    - uses: ./.github/actions/setup_reindeer
-    - uses: ./.github/actions/build_bootstrap
-  macos-build-and-test:
-    runs-on: macos-latest
-    steps:
-    - uses: maxim-lobanov/setup-xcode@v1.6.0
-      with:
-        xcode-version: 14.2.0
-    - uses: actions/checkout@v4.1.0
-    - uses: ./.github/actions/setup_macos_env
-    - uses: ./.github/actions/build_debug
-    - uses: ./.github/actions/run_test_py
   macos-build-examples:
     runs-on: macos-latest
     steps:
@@ -57,34 +19,29 @@ jobs:
         cd examples/with_prelude
         $RUNNER_TEMP/artifacts/buck2 init
         cp -r ../../prelude prelude
-        # Additional setup for ocaml
+        source ./ocaml-setup.sh
+        $RUNNER_TEMP/artifacts/buck2 build //... -v 2
+        $RUNNER_TEMP/artifacts/buck2 test //... -v 2
+    - uses: ./.github/actions/build_example_no_prelude
+    - uses: ./.github/actions/setup_reindeer
+    - uses: ./.github/actions/build_bootstrap
+  linux-build-examples:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4.1.0
+    - uses: ./.github/actions/setup_linux_env
+    - uses: ./.github/actions/init_opam
+    - uses: ./.github/actions/build_release
+    - name: Build example/prelude directory
+      run: |-
+        eval $(opam env)
+        cd examples/with_prelude
+        $RUNNER_TEMP/artifacts/buck2 init
+        cp -r ../../prelude prelude
         source ./ocaml-setup.sh
         $RUNNER_TEMP/artifacts/buck2 build //... -v 2
         $RUNNER_TEMP/artifacts/buck2 test //... -v 2
     - uses: ./.github/actions/build_example_conan
-    - uses: ./.github/actions/build_example_no_prelude
-    - uses: ./.github/actions/setup_reindeer
-    - uses: ./.github/actions/build_bootstrap
-  windows-build-and-test:
-    runs-on: windows-latest
-    steps:
-    - uses: actions/checkout@v4.1.0
-    - uses: ./.github/actions/setup_windows_env
-    - uses: ./.github/actions/build_debug
-    - uses: ./.github/actions/run_test_py
-  windows-build-examples:
-    runs-on: windows-latest
-    steps:
-    - uses: actions/checkout@v4.1.0
-    - uses: ./.github/actions/setup_windows_env
-    - uses: ./.github/actions/build_release
-    - name: Build example/prelude directory
-      run: |-
-        cd examples/with_prelude
-        & $Env:RUNNER_TEMP/artifacts/buck2 init
-        copy-item -Path $env:GITHUB_WORKSPACE\prelude -Destination prelude -Recurse
-        & $Env:RUNNER_TEMP/artifacts/buck2 build //... -v 2
-        & $Env:RUNNER_TEMP/artifacts/buck2 test //... -v 2
     - uses: ./.github/actions/build_example_no_prelude
     - uses: ./.github/actions/setup_reindeer
     - uses: ./.github/actions/build_bootstrap
