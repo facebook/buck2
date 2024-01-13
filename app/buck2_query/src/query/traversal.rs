@@ -102,24 +102,14 @@ pub async fn async_fast_depth_first_postorder_traversal<
         Visit(T::NodeRef),
     }
 
-    struct State<T: LabeledNode> {
-        visited: HashSet<T::NodeRef>,
-        work: Vec<WorkItem<T>>,
-    }
-
     // TODO(cjhopman): There's a couple of things that could be improved about this.
     // 1. it would be better to hold a stack of iterators through children, but I
     // couldn't figure out quite a good way to do that in rust. I think it would
     // mean changing the delegate's for_each_children to return an iterator,
     // but idk.
-    impl<T: LabeledNode> State<T> {
-        fn push(&mut self, target: T::NodeRef) {
-            if self.visited.contains(&target) {
-                return;
-            }
-
-            self.work.push(WorkItem::Visit(target));
-        }
+    struct State<T: LabeledNode> {
+        visited: HashSet<T::NodeRef>,
+        work: Vec<WorkItem<T>>,
     }
 
     let mut state = State::<T> {
@@ -140,7 +130,9 @@ pub async fn async_fast_depth_first_postorder_traversal<
 
                 delegate
                     .for_each_child(&node, &mut |child| {
-                        state.push(child);
+                        if !state.visited.contains(&child) {
+                            state.work.push(WorkItem::Visit(child));
+                        }
                         Ok(())
                     })
                     .await?;
