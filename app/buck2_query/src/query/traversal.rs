@@ -96,7 +96,6 @@ pub async fn async_fast_depth_first_postorder_traversal<
     // it will still be added. When popping the visit, if the node had been
     // visited, it's ignored. This ensures that a node's children are all
     // visited before we do PostVisit for that node.
-    #[derive(Hash, Eq, PartialEq)]
     enum WorkItem<T: LabeledNode> {
         PostVisit(T),
         Visit(T::NodeRef),
