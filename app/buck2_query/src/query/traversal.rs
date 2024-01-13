@@ -458,7 +458,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_postorder() -> anyhow::Result<()> {
+    async fn test_async_depth_first_postorder_traversal() -> anyhow::Result<()> {
         let graph = make_graph(&[
             (0, &[1, 2]),
             (1, &[2, 3, 4]),
