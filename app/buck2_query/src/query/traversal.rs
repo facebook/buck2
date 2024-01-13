@@ -107,31 +107,25 @@ pub async fn async_fast_depth_first_postorder_traversal<
     // couldn't figure out quite a good way to do that in rust. I think it would
     // mean changing the delegate's for_each_children to return an iterator,
     // but idk.
-    struct State<T: LabeledNode> {
-        visited: HashSet<T::NodeRef>,
-        work: Vec<WorkItem<T>>,
-    }
 
-    let mut state = State::<T> {
-        visited: HashSet::new(),
-        work: root.into_iter().map(|t| WorkItem::Visit(t)).collect(),
-    };
+    let mut visited: HashSet<T::NodeRef> = HashSet::new();
+    let mut work: Vec<WorkItem<T>> = root.into_iter().map(|t| WorkItem::Visit(t)).collect();
 
-    while let Some(curr) = state.work.pop() {
+    while let Some(curr) = work.pop() {
         match curr {
             WorkItem::Visit(target) => {
-                if state.visited.contains(&target) {
+                if visited.contains(&target) {
                     continue;
                 }
 
                 let node = nodes.get(&target)?;
-                state.visited.insert(target);
-                state.work.push(WorkItem::PostVisit(node.dupe()));
+                visited.insert(target);
+                work.push(WorkItem::PostVisit(node.dupe()));
 
                 delegate
                     .for_each_child(&node, &mut |child| {
-                        if !state.visited.contains(&child) {
-                            state.work.push(WorkItem::Visit(child));
+                        if !visited.contains(&child) {
+                            work.push(WorkItem::Visit(child));
                         }
                         Ok(())
                     })
