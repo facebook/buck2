@@ -602,6 +602,7 @@ fn merge_tests_no_cycles() {
             srcs: vec![],
             mapped_srcs: BTreeMap::new(),
             crate_name: None,
+            crate_dynamic: None,
             crate_root: None,
             deps: vec![],
             tests: vec![Target::new("//foo-unittest")],
@@ -626,6 +627,7 @@ fn merge_tests_no_cycles() {
             srcs: vec![],
             mapped_srcs: BTreeMap::new(),
             crate_name: None,
+            crate_dynamic: None,
             crate_root: None,
             deps: vec![Target::new("//foo")],
             tests: vec![],
@@ -659,6 +661,7 @@ fn merge_target_multiple_tests_no_cycles() {
             srcs: vec![],
             mapped_srcs: BTreeMap::new(),
             crate_name: None,
+            crate_dynamic: None,
             crate_root: None,
             deps: vec![Target::new("//foo@rust")],
             tests: vec![
@@ -686,6 +689,7 @@ fn merge_target_multiple_tests_no_cycles() {
             srcs: vec![],
             mapped_srcs: BTreeMap::new(),
             crate_name: None,
+            crate_dynamic: None,
             crate_root: None,
             deps: vec![],
             tests: vec![
@@ -713,6 +717,7 @@ fn merge_target_multiple_tests_no_cycles() {
             srcs: vec![],
             mapped_srcs: BTreeMap::new(),
             crate_name: None,
+            crate_dynamic: None,
             crate_root: None,
             // foo_test depends on foo, which is reasonable, but
             // we need to be careful when merging test
@@ -740,6 +745,7 @@ fn merge_target_multiple_tests_no_cycles() {
             srcs: vec![],
             mapped_srcs: BTreeMap::new(),
             crate_name: None,
+            crate_dynamic: None,
             crate_root: None,
             deps: vec![Target::new("//test-framework")],
             tests: vec![],
@@ -785,6 +791,7 @@ fn named_deps_underscores() {
                 srcs: vec![],
                 mapped_srcs: BTreeMap::new(),
                 crate_name: None,
+                crate_dynamic: None,
                 crate_root: None,
                 deps: vec![],
                 tests: vec![],
@@ -811,6 +818,7 @@ fn named_deps_underscores() {
         srcs: vec![],
         mapped_srcs: BTreeMap::new(),
         crate_name: None,
+        crate_dynamic: None,
         crate_root: None,
         deps: vec![],
         tests: vec![],

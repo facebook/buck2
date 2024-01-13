@@ -47,6 +47,12 @@ def _process_target_config(ctx, target, in_workspace, out_dir = None):
     for test in resolved_attrs.tests:
         tests.append(test.raw_target())
 
+    # materialize a file containing the dynamic crate name
+    crate_dynamic = getattr(resolved_attrs, "crate_dynamic", None)
+    if crate_dynamic:
+        cratename_artifact = crate_dynamic.get(DefaultInfo).default_outputs[0]
+        crate_dynamic = ctx.output.ensure(cratename_artifact).abs_path()
+
     # copy over the absolute paths and raw targets into the output
     copy = {}
     attrs = target.attrs_eager()
@@ -61,6 +67,8 @@ def _process_target_config(ctx, target, in_workspace, out_dir = None):
             copy["named_deps"] = named_deps
         elif k == "tests":
             copy["tests"] = tests
+        elif k == "crate_dynamic":
+            copy["crate_dynamic"] = crate_dynamic
         else:
             copy[k] = getattr(attrs, k)
 
