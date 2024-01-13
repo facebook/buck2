@@ -4,13 +4,9 @@ description: |
 runs:
   using: composite
   steps:
-  - name: Set-up OCaml
-    uses: ocaml/setup-ocaml@v2
-    with:
-      ocaml-compiler: 5.1
   - name: Init opam
     run: |-
-      opam init --compiler=5.1.0 --disable-sandboxing -y
+      opam init --compiler=5.1.1 --disable-sandboxing -y
       opam install menhir ppxlib -y
     shell: bash
   - name: OCaml Configuration Info

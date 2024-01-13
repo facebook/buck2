@@ -1,8 +1,7 @@
 name: Build and test
 on:
   push:
-    branches:
-    - main
+  pull_request:
 jobs:
   linux-build-and-test:
     runs-on: 4-core-ubuntu
