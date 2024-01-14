@@ -340,13 +340,8 @@ def generate_rustdoc_test(
 
     plain_env, path_env = _process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
     rustdoc_env = plain_env | path_env
-
-    # Pass everything in env + doc_env, except ones with value None in doc_env.
     for k, v in ctx.attrs.doc_env.items():
-        if v == None:
-            rustdoc_env.pop(k, None)
-        else:
-            rustdoc_env[k] = cmd_args(v)
+        rustdoc_env[k] = cmd_args(v)
     rustdoc_env["RUSTC_BOOTSTRAP"] = cmd_args("1")  # for `-Zunstable-options`
 
     return (rustdoc_cmd, rustdoc_env)
