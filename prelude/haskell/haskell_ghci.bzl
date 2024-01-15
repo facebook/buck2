@@ -18,10 +18,13 @@ load(
 )
 load(
     "@prelude//haskell:compile.bzl",
-    "HaskellLibraryInfo",
-    "HaskellLibraryProvider",
     "PackagesInfo",
     "get_packages_info",
+)
+load(
+    "@prelude//haskell:library_info.bzl",
+    "HaskellLibraryInfo",
+    "HaskellLibraryProvider",
 )
 load(
     "@prelude//haskell:toolchain.bzl",

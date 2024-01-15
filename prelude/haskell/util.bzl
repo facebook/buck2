@@ -11,6 +11,15 @@ load(
     "CxxPlatformInfo",
 )
 load(
+    "@prelude//haskell:library_info.bzl",
+    "HaskellLibraryInfo",
+    "HaskellLibraryProvider",
+)
+load(
+    "@prelude//haskell:link_info.bzl",
+    "HaskellLinkInfo",
+)
+load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
 )
@@ -48,6 +57,29 @@ def _by_platform(ctx: AnalysisContext, xs: list[(str, list[typing.Any])]) -> lis
 
 def attr_deps(ctx: AnalysisContext) -> list[Dependency]:
     return ctx.attrs.deps + _by_platform(ctx, ctx.attrs.platform_deps)
+
+def attr_deps_haskell_link_infos(ctx: AnalysisContext) -> list[HaskellLinkInfo]:
+    return filter(
+        None,
+        [
+            d.get(HaskellLinkInfo)
+            for d in attr_deps(ctx) + ctx.attrs.template_deps
+        ],
+    )
+
+def attr_deps_haskell_lib_infos(
+        ctx: AnalysisContext,
+        link_style: LinkStyle,
+        enable_profiling: bool) -> list[HaskellLibraryInfo]:
+    if enable_profiling and link_style == LinkStyle("shared"):
+        fail("Profiling isn't supported when using dynamic linking")
+    return [
+        x.prof_lib[link_style] if enable_profiling else x.lib[link_style]
+        for x in filter(None, [
+            d.get(HaskellLibraryProvider)
+            for d in attr_deps(ctx) + ctx.attrs.template_deps
+        ])
+    ]
 
 def _link_style_extensions(link_style: LinkStyle) -> (str, str):
     if link_style == LinkStyle("shared"):
