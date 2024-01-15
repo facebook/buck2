@@ -67,7 +67,7 @@ pub async fn async_unordered_traversal<
     T: LabeledNode,
     RootIter: IntoIterator<Item = &'a T::NodeRef>,
 >(
-    nodes: &dyn AsyncNodeLookup<T>,
+    nodes: &impl AsyncNodeLookup<T>,
     root: RootIter,
     delegate: &mut impl AsyncTraversalDelegate<T>,
 ) -> anyhow::Result<()> {
@@ -85,7 +85,7 @@ pub async fn async_fast_depth_first_postorder_traversal<
     T: LabeledNode,
     RootIter: IntoIterator<Item = T::NodeRef>,
 >(
-    nodes: &(dyn NodeLookup<T> + Send + Sync),
+    nodes: &impl NodeLookup<T>,
     root: RootIter,
     delegate: &mut impl AsyncTraversalDelegate<T>,
 ) -> anyhow::Result<()> {
@@ -145,7 +145,7 @@ async fn async_traversal_common<
     T: LabeledNode,
     RootIter: IntoIterator<Item = &'a T::NodeRef>,
 >(
-    nodes: &dyn AsyncNodeLookup<T>,
+    nodes: &impl AsyncNodeLookup<T>,
     root: RootIter,
     delegate: &mut impl AsyncTraversalDelegate<T>,
     // `None` means no max depth.
@@ -214,7 +214,7 @@ pub async fn async_depth_limited_traversal<
     T: LabeledNode,
     RootIter: IntoIterator<Item = &'a T::NodeRef>,
 >(
-    nodes: &dyn AsyncNodeLookup<T>,
+    nodes: &impl AsyncNodeLookup<T>,
     root: RootIter,
     delegate: &mut impl AsyncTraversalDelegate<T>,
     max_depth: u32,
@@ -230,7 +230,7 @@ pub async fn async_depth_first_postorder_traversal<
     T: LabeledNode,
     Iter: IntoIterator<Item = &'a T::NodeRef> + Clone,
 >(
-    nodes: &dyn AsyncNodeLookup<T>,
+    nodes: &impl AsyncNodeLookup<T>,
     root: Iter,
     delegate: &mut impl AsyncTraversalDelegate<T>,
 ) -> anyhow::Result<()> {
