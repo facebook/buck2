@@ -54,6 +54,7 @@ load(
 load(
     "@prelude//haskell:link_info.bzl",
     "HaskellLinkInfo",
+    "HaskellProfLinkInfo",
     "attr_link_style",
     "cxx_toolchain_link_style",
     "merge_haskell_link_infos",
@@ -65,6 +66,10 @@ load(
 load(
     "@prelude//haskell:util.bzl",
     "attr_deps",
+    "attr_deps_haskell_link_infos_sans_template_deps",
+    "attr_deps_merged_link_infos",
+    "attr_deps_profiling_link_infos",
+    "attr_deps_shared_library_infos",
     "get_artifact_suffix",
     "is_haskell_src",
     "output_extensions",
@@ -132,21 +137,6 @@ HaskellIndexInfo = provider(
         "info": provider_field(typing.Any, default = None),  # dict[LinkStyle, HaskellIndexingTset]
     },
 )
-
-# HaskellProfLinkInfo exposes the MergedLinkInfo of a target and all of its
-# dependencies built for profiling. This allows top-level targets (e.g.
-# `haskell_binary`) to be defined with profiling enabled by default.
-HaskellProfLinkInfo = provider(
-    fields = {
-        "prof_infos": provider_field(typing.Any, default = None),  # MergedLinkInfo
-    },
-)
-
-# --
-
-# Disable until we have a need to call this.
-# def _attr_deps_merged_link_infos(ctx: AnalysisContext) -> [MergedLinkInfo]:
-#     return filter(None, [d[MergedLinkInfo] for d in attr_deps(ctx)])
 
 # This conversion is non-standard, see TODO about link style below
 def _to_lib_output_style(link_style: LinkStyle) -> LibOutputStyle:
@@ -638,27 +628,10 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
         preferred_linkage = Linkage("static")
 
     # Get haskell and native link infos from all deps
-    hlis = []
-    nlis = []
-    prof_nlis = []
-    shared_library_infos = []
-    for lib in attr_deps(ctx):
-        li = lib.get(HaskellLinkInfo)
-        if li != None:
-            hlis.append(li)
-        li = lib.get(MergedLinkInfo)
-        if li != None:
-            nlis.append(li)
-            if HaskellLinkInfo not in lib:
-                # MergedLinkInfo from non-haskell deps should be part of the
-                # profiling MergedLinkInfo
-                prof_nlis.append(li)
-        li = lib.get(HaskellProfLinkInfo)
-        if li != None:
-            prof_nlis.append(li.prof_infos)
-        li = lib.get(SharedLibraryInfo)
-        if li != None:
-            shared_library_infos.append(li)
+    hlis = attr_deps_haskell_link_infos_sans_template_deps(ctx)
+    nlis = attr_deps_merged_link_infos(ctx)
+    prof_nlis = attr_deps_profiling_link_infos(ctx)
+    shared_library_infos = attr_deps_shared_library_infos(ctx)
 
     solibs = {}
     link_infos = {}

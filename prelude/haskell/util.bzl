@@ -18,10 +18,16 @@ load(
 load(
     "@prelude//haskell:link_info.bzl",
     "HaskellLinkInfo",
+    "HaskellProfLinkInfo",
 )
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
+    "MergedLinkInfo",
+)
+load(
+    "@prelude//linking:shared_libraries.bzl",
+    "SharedLibraryInfo",
 )
 load("@prelude//utils:platform_flavors_util.bzl", "by_platform")
 load("@prelude//utils:utils.bzl", "flatten")
@@ -67,6 +73,16 @@ def attr_deps_haskell_link_infos(ctx: AnalysisContext) -> list[HaskellLinkInfo]:
         ],
     )
 
+# DONT CALL THIS FUNCTION, you want attr_deps_haskell_link_infos instead
+def attr_deps_haskell_link_infos_sans_template_deps(ctx: AnalysisContext) -> list[HaskellLinkInfo]:
+    return filter(
+        None,
+        [
+            d.get(HaskellLinkInfo)
+            for d in attr_deps(ctx)
+        ],
+    )
+
 def attr_deps_haskell_lib_infos(
         ctx: AnalysisContext,
         link_style: LinkStyle,
@@ -80,6 +96,33 @@ def attr_deps_haskell_lib_infos(
             for d in attr_deps(ctx) + ctx.attrs.template_deps
         ])
     ]
+
+def attr_deps_merged_link_infos(ctx: AnalysisContext) -> list[MergedLinkInfo]:
+    return filter(
+        None,
+        [
+            d.get(MergedLinkInfo)
+            for d in attr_deps(ctx)
+        ],
+    )
+
+def attr_deps_profiling_link_infos(ctx: AnalysisContext) -> list[MergedLinkInfo]:
+    return filter(
+        None,
+        [
+            d.get(HaskellProfLinkInfo).prof_infos if d.get(HaskellProfLinkInfo) else d.get(MergedLinkInfo)
+            for d in attr_deps(ctx)
+        ],
+    )
+
+def attr_deps_shared_library_infos(ctx: AnalysisContext) -> list[SharedLibraryInfo]:
+    return filter(
+        None,
+        [
+            d.get(SharedLibraryInfo)
+            for d in attr_deps(ctx)
+        ],
+    )
 
 def _link_style_extensions(link_style: LinkStyle) -> (str, str):
     if link_style == LinkStyle("shared"):
