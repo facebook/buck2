@@ -19,7 +19,7 @@ def _system_haskell_toolchain(_ctx: AnalysisContext) -> list[Provider]:
             linker_flags = [],
         ),
         HaskellPlatformInfo(
-            name = "x86_64",
+            name = host_info().arch,
         ),
     ]
 
