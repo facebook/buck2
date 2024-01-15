@@ -25,6 +25,7 @@ use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::stream::TryStreamExt;
 use starlark_map::ordered_set::OrderedSet;
+use starlark_map::Hashed;
 
 use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::file_set::FileSet;
@@ -69,6 +70,10 @@ pub trait LabeledNode: Dupe + Send + Sync + 'static {
     type NodeRef: NodeLabel;
 
     fn node_ref(&self) -> &Self::NodeRef;
+
+    fn hashed_node_ref(&self) -> Hashed<&Self::NodeRef> {
+        Hashed::new(self.node_ref())
+    }
 }
 
 pub struct QueryTargets {}

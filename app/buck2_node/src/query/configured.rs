@@ -16,6 +16,7 @@ use buck2_query::query::environment::LabeledNode;
 use buck2_query::query::environment::QueryTarget;
 use dupe::Dupe;
 use serde::Serializer;
+use starlark_map::Hashed;
 
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::configured_attr::ConfiguredAttr;
@@ -30,6 +31,10 @@ impl LabeledNode for ConfiguredTargetNode {
 
     fn node_ref(&self) -> &Self::NodeRef {
         ConfiguredTargetNode::label(self)
+    }
+
+    fn hashed_node_ref(&self) -> Hashed<&Self::NodeRef> {
+        ConfiguredTargetNode::hashed_label(self)
     }
 }
 
