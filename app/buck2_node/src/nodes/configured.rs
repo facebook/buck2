@@ -170,7 +170,7 @@ impl TargetNodeOrForward {
 //  3. deps could probably be approximated a diff against the targetnode's deps
 #[derive(Eq, PartialEq, Hash, Allocative)]
 struct ConfiguredTargetNodeData {
-    label: ConfiguredTargetLabel,
+    label: Hashed<ConfiguredTargetLabel>,
     target_node: TargetNodeOrForward,
     resolved_configuration: ResolvedConfiguration,
     resolved_transition_configurations: OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
@@ -233,7 +233,7 @@ impl ConfiguredTargetNode {
         plugin_lists: PluginLists,
     ) -> Self {
         Self(Arc::new(Hashed::new(ConfiguredTargetNodeData {
-            label: name,
+            label: Hashed::new(name),
             target_node: TargetNodeOrForward::TargetNode(target_node),
             resolved_configuration,
             resolved_transition_configurations: resolved_tr_configurations,
@@ -271,7 +271,7 @@ impl ConfiguredTargetNode {
             providers_label.configure(transitioned_node.label().cfg().dupe());
         Ok(ConfiguredTargetNode(Arc::new(Hashed::new(
             ConfiguredTargetNodeData {
-                label: name.dupe(),
+                label: Hashed::new(name.dupe()),
                 target_node: TargetNodeOrForward::Forward(
                     CoercedAttr::ConfiguredDep(Box::new(DepAttr {
                         attr_type: DepAttrType::new(
@@ -448,6 +448,11 @@ impl ConfiguredTargetNode {
 
     pub fn label(&self) -> &ConfiguredTargetLabel {
         &self.0.label
+    }
+
+    #[inline]
+    pub fn hashed_label(&self) -> Hashed<&ConfiguredTargetLabel> {
+        self.0.label.as_ref()
     }
 
     pub fn rule_type(&self) -> &RuleType {

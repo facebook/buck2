@@ -76,7 +76,7 @@ impl Eq for ConfiguredGraphNodeRef {}
 
 impl std::hash::Hash for ConfiguredGraphNodeRef {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.label().hash(state)
+        self.0.hashed_label().hash().hash(state);
     }
 }
 
