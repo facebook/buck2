@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
+use std::iter;
 
 use anyhow::Context;
 use async_trait::async_trait;
@@ -97,17 +98,14 @@ pub trait QueryTarget: LabeledNode + Dupe + Send + Sync + 'static {
     /// Return the path to the buildfile that defines this target, e.g. `fbcode//foo/bar/TARGETS`
     fn buildfile_path(&self) -> &BuildFilePath;
 
-    // TODO(cjhopman): Use existential traits to remove the Box<> once they are stabilized.
-    fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a>;
+    fn deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a;
 
-    // TODO(cjhopman): Use existential traits to remove the Box<> once they are stabilized.
-    fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a>;
+    fn exec_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a;
 
-    // TODO(cjhopman): Use existential traits to remove the Box<> once they are stabilized.
-    fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a>;
+    fn target_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a;
 
-    fn tests<'a>(&'a self) -> Option<Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a>> {
-        None
+    fn tests<'a>(&'a self) -> Option<impl Iterator<Item = Self::NodeRef> + Send + 'a> {
+        None::<iter::Empty<Self::NodeRef>>
     }
 
     fn attr_to_string_alternate(&self, attr: &Self::Attr<'_>) -> String;

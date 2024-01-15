@@ -9,6 +9,7 @@
 
 #![feature(error_generic_member_access)]
 #![feature(box_patterns)]
+#![feature(return_position_impl_trait_in_trait)]
 
 pub mod attrs;
 pub mod call_stack;

@@ -43,21 +43,20 @@ impl QueryTarget for TargetNode {
         TargetNode::buildfile_path(self)
     }
 
-    // TODO(cjhopman): Use existential traits to remove the Box<> once they are stabilized.
-    fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        Box::new(TargetNode::deps(self))
+    fn deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+        TargetNode::deps(self)
     }
 
-    fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        Box::new(TargetNode::exec_deps(self))
+    fn exec_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+        TargetNode::exec_deps(self)
     }
 
-    fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        Box::new(TargetNode::target_deps(self))
+    fn target_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+        TargetNode::target_deps(self)
     }
 
-    fn tests<'a>(&'a self) -> Option<Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a>> {
-        Some(Box::new(self.tests().map(|t| t.target().dupe())))
+    fn tests<'a>(&'a self) -> Option<impl Iterator<Item = Self::NodeRef> + Send + 'a> {
+        Some(self.tests().map(|t| t.target().dupe()))
     }
 
     fn attr_any_matches(

@@ -347,8 +347,8 @@ mod tests {
             unimplemented!()
         }
 
-        fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-            Box::new(self.1.iter())
+        fn deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+            self.1.iter()
         }
 
         fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
