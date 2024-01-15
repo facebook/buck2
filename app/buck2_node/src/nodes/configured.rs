@@ -608,6 +608,10 @@ impl ConfiguredTargetNode {
         }
         ConfiguredAttr::Dict(kinds.into_iter().collect())
     }
+
+    pub fn ptr_eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
 }
 
 /// The representation of the deps for a ConfiguredTargetNode. Provides the operations we require

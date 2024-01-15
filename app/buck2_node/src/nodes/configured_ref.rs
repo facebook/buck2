@@ -68,7 +68,8 @@ impl Ord for ConfiguredGraphNodeRef {
 
 impl PartialEq for ConfiguredGraphNodeRef {
     fn eq(&self, other: &Self) -> bool {
-        self.label().eq(other.label())
+        // `ptr_eq` is optimization.
+        self.0.ptr_eq(&other.0) || self.label().eq(other.label())
     }
 }
 
