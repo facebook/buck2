@@ -28,7 +28,6 @@ use starlark_map::ordered_set::OrderedSet;
 use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::file_set::FileSet;
 use crate::query::syntax::simple::eval::set::TargetSet;
-use crate::query::syntax::simple::eval::set::TargetSetExt;
 use crate::query::traversal::AsyncTraversalDelegate;
 use crate::query::traversal::ChildVisitor;
 mod tests;

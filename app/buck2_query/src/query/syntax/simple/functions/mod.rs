@@ -25,7 +25,6 @@ use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::evaluator::QueryEvaluator;
 use crate::query::syntax::simple::eval::file_set::FileSet;
 use crate::query::syntax::simple::eval::set::TargetSet;
-use crate::query::syntax::simple::eval::set::TargetSetExt;
 use crate::query::syntax::simple::eval::values::QueryResult;
 use crate::query::syntax::simple::eval::values::QueryValue;
 use crate::query::syntax::simple::eval::values::QueryValueSet;

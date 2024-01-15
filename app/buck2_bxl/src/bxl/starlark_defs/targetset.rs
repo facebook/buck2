@@ -12,7 +12,6 @@ use std::ops::Deref;
 use allocative::Allocative;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
-use buck2_query::query::syntax::simple::eval::set::TargetSetExt;
 use derive_more::Display;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;

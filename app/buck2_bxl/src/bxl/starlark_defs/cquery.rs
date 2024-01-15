@@ -14,7 +14,6 @@ use buck2_build_api::query::oneshot::CqueryOwnerBehavior;
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_core::target::label::TargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
-use buck2_query::query::syntax::simple::eval::set::TargetSetExt;
 use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
 use derivative::Derivative;
 use derive_more::Display;
