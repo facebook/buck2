@@ -12,6 +12,7 @@ use std::collections::HashSet;
 
 use async_trait::async_trait;
 use futures::StreamExt;
+use starlark_map::StarlarkHasherBuilder;
 
 use crate::query::environment::LabeledNode;
 use crate::query::futures_queue_generic::FuturesQueue;
@@ -107,7 +108,7 @@ pub async fn async_fast_depth_first_postorder_traversal<
     // mean changing the delegate's for_each_children to return an iterator,
     // but idk.
 
-    let mut visited: HashSet<T::NodeRef> = HashSet::new();
+    let mut visited: HashSet<T::NodeRef, StarlarkHasherBuilder> = HashSet::default();
     let mut work: Vec<WorkItem<T>> = root.into_iter().map(|t| WorkItem::Visit(t)).collect();
 
     while let Some(curr) = work.pop() {
@@ -151,7 +152,7 @@ async fn async_traversal_common<
     max_depth: Option<u32>,
     ordered: bool,
 ) -> anyhow::Result<()> {
-    let mut visited = HashMap::new();
+    let mut visited: HashMap<_, _, StarlarkHasherBuilder> = HashMap::default();
     let mut push = |queue: &mut FuturesQueue<_>,
                     target: T::NodeRef,
                     parent: Option<T::NodeRef>,
