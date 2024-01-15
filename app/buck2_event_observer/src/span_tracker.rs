@@ -542,7 +542,8 @@ pub fn is_span_shown(event: &BuckEvent) -> bool {
             | Data::LocalResources(..)
             | Data::ReleaseLocalResources(..)
             | Data::CreateOutputHashesFile(..)
-            | Data::ActionErrorHandlerExecution(..),
+            | Data::ActionErrorHandlerExecution(..)
+            | Data::CqueryUniverseBuild(..),
         ) => true,
         None => false,
     }

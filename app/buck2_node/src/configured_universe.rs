@@ -20,6 +20,7 @@ use buck2_core::pattern::PackageSpec;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetName;
+use buck2_events::dispatch::span_async;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexed;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use derivative::Derivative;
@@ -56,6 +57,16 @@ impl CqueryUniverse {
     }
 
     pub async fn build(
+        universe: &TargetSet<ConfiguredTargetNode>,
+    ) -> anyhow::Result<CqueryUniverse> {
+        span_async(buck2_data::CqueryUniverseBuildStart {}, async move {
+            let r = Self::build_inner(universe).await;
+            (r, buck2_data::CqueryUniverseBuildEnd {})
+        })
+        .await
+    }
+
+    async fn build_inner(
         universe: &TargetSet<ConfiguredTargetNode>,
     ) -> anyhow::Result<CqueryUniverse> {
         let mut targets: BTreeMap<

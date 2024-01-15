@@ -343,6 +343,7 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
             Data::ActionErrorHandlerExecution(..) => {
                 Ok("Running error handler on action failure".to_owned())
             }
+            Data::CqueryUniverseBuild(..) => Ok("Building cquery universe".to_owned()),
         };
 
         // This shouldn't really be necessary, but that's how try blocks work :(
