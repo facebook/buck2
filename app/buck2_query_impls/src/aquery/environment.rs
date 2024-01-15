@@ -119,7 +119,7 @@ impl<'c> QueryEnvironment for AqueryEnvironment<'c> {
     async fn dfs_postorder(
         &self,
         root: &TargetSet<Self::Target>,
-        traversal_delegate: &mut dyn AsyncTraversalDelegate<Self::Target>,
+        traversal_delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
     ) -> anyhow::Result<()> {
         // TODO(cjhopman): The query nodes deps are going to flatten the tset structure for its deps. In a typical
         // build graph, a traversal over just the graph of ActionQueryNode ends up being an `O(n)` operation at each
@@ -141,7 +141,7 @@ impl<'c> QueryEnvironment for AqueryEnvironment<'c> {
     async fn depth_limited_traversal(
         &self,
         root: &TargetSet<Self::Target>,
-        delegate: &mut dyn AsyncTraversalDelegate<Self::Target>,
+        delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
         depth: u32,
     ) -> anyhow::Result<()> {
         // TODO(cjhopman): See above.

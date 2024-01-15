@@ -214,7 +214,7 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
     async fn dfs_postorder(
         &self,
         root: &TargetSet<Self::Target>,
-        delegate: &mut dyn AsyncTraversalDelegate<Self::Target>,
+        delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
     ) -> anyhow::Result<()> {
         async_fast_depth_first_postorder_traversal(
             &ConfiguredGraphNodeRefLookup,
@@ -227,7 +227,7 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
     async fn depth_limited_traversal(
         &self,
         root: &TargetSet<Self::Target>,
-        delegate: &mut dyn AsyncTraversalDelegate<Self::Target>,
+        delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
         depth: u32,
     ) -> anyhow::Result<()> {
         async_depth_limited_traversal(&ConfiguredGraphNodeRefLookup, root.iter(), delegate, depth)

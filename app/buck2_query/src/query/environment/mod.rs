@@ -172,13 +172,13 @@ pub trait QueryEnvironment: Send + Sync {
     async fn dfs_postorder(
         &self,
         root: &TargetSet<Self::Target>,
-        delegate: &mut dyn AsyncTraversalDelegate<Self::Target>,
+        delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
     ) -> anyhow::Result<()>;
 
     async fn depth_limited_traversal(
         &self,
         root: &TargetSet<Self::Target>,
-        delegate: &mut dyn AsyncTraversalDelegate<Self::Target>,
+        delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
         depth: u32,
     ) -> anyhow::Result<()>;
 
@@ -228,7 +228,7 @@ pub trait QueryEnvironment: Send + Sync {
             async fn for_each_child(
                 &mut self,
                 target: &Q,
-                func: &mut dyn ChildVisitor<Q>,
+                func: &mut impl ChildVisitor<Q>,
             ) -> anyhow::Result<()> {
                 // Stop adding more children if we are putting a path back together.
                 if !self.path.is_empty() || self.to.contains(target.node_ref()) {
@@ -288,7 +288,7 @@ pub trait QueryEnvironment: Send + Sync {
             async fn for_each_child(
                 &mut self,
                 target: &Q,
-                func: &mut dyn ChildVisitor<Q>,
+                func: &mut impl ChildVisitor<Q>,
             ) -> anyhow::Result<()> {
                 for dep in target.deps() {
                     func.visit(dep.clone()).with_context(|| {
@@ -327,7 +327,7 @@ pub trait QueryEnvironment: Send + Sync {
             async fn for_each_child(
                 &mut self,
                 target: &Q,
-                func: &mut dyn ChildVisitor<Q>,
+                func: &mut impl ChildVisitor<Q>,
             ) -> anyhow::Result<()> {
                 if let Some(parents) = self.parents.get(target.node_ref()) {
                     for parent in parents {
@@ -478,7 +478,7 @@ pub async fn deps<Env: QueryEnvironment + ?Sized>(
         async fn for_each_child(
             &mut self,
             target: &Q,
-            func: &mut dyn ChildVisitor<Q>,
+            func: &mut impl ChildVisitor<Q>,
         ) -> anyhow::Result<()> {
             let res: anyhow::Result<_> = try {
                 match self.filter {

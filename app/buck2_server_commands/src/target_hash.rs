@@ -331,7 +331,7 @@ impl TargetHashes {
             async fn for_each_child(
                 &mut self,
                 target: &T,
-                func: &mut dyn ChildVisitor<T>,
+                func: &mut impl ChildVisitor<T>,
             ) -> anyhow::Result<()> {
                 for dep in target.deps() {
                     func.visit(dep.clone())?;

@@ -222,7 +222,7 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
     async fn dfs_postorder(
         &self,
         root: &TargetSet<ConfiguredTargetNode>,
-        traversal_delegate: &mut dyn AsyncTraversalDelegate<Self::Target>,
+        traversal_delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
     ) -> anyhow::Result<()> {
         async_depth_first_postorder_traversal(self, root.iter_names(), traversal_delegate).await
     }
@@ -230,7 +230,7 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
     async fn depth_limited_traversal(
         &self,
         root: &TargetSet<Self::Target>,
-        delegate: &mut dyn AsyncTraversalDelegate<Self::Target>,
+        delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
         depth: u32,
     ) -> anyhow::Result<()> {
         async_depth_limited_traversal(self, root.iter_names(), delegate, depth).await

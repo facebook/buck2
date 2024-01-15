@@ -41,7 +41,7 @@ pub async fn configured_node_visit_all_deps(
         async fn for_each_child(
             &mut self,
             target: &ConfiguredGraphNodeRef,
-            func: &mut dyn ChildVisitor<ConfiguredGraphNodeRef>,
+            func: &mut impl ChildVisitor<ConfiguredGraphNodeRef>,
         ) -> anyhow::Result<()> {
             for dep in target.0.deps() {
                 func.visit(ConfiguredGraphNodeRef(dep.dupe()))?;
