@@ -21,7 +21,6 @@ load(
 load(
     "@prelude//cxx:linker.bzl",
     "LINKERS",
-    "get_shared_library_name_linker_flags",
     "get_shared_library_flags",
 )
 load(
