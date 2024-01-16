@@ -231,7 +231,7 @@ def generate_rustdoc_test(
         link_strategy: LinkStrategy,
         rlib: Artifact,
         params: BuildParams,
-        default_roots: list[str]) -> (cmd_args, dict[str, cmd_args]):
+        default_roots: list[str]) -> cmd_args:
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
     toolchain_info = compile_ctx.toolchain_info
@@ -307,7 +307,20 @@ def generate_rustdoc_test(
     else:
         runtool = ["--runtool=/usr/bin/env"]
 
+    plain_env, path_env = _process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
+    doc_plain_env, doc_path_env = _process_env(compile_ctx, ctx.attrs.doc_env, exec_is_windows)
+    for k, v in doc_plain_env.items():
+        path_env.pop(k, None)
+        plain_env[k] = v
+    for k, v in doc_path_env.items():
+        plain_env.pop(k, None)
+        path_env[k] = v
+    plain_env["RUSTC_BOOTSTRAP"] = cmd_args("1")  # for `-Zunstable-options`
+
     rustdoc_cmd = cmd_args(
+        [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],
+        [cmd_args("--path-env=", k, "=", v, delimiter = "") for k, v in path_env.items()],
+        toolchain_info.rustdoc,
         "--test",
         "-Zunstable-options",
         cmd_args("--test-builder=", toolchain_info.compiler, delimiter = ""),
@@ -331,20 +344,12 @@ def generate_rustdoc_test(
         executable_args.runtime_files,
     )
 
-    rustdoc_cmd = _long_command(
+    return _long_command(
         ctx = ctx,
-        exe = toolchain_info.rustdoc,
+        exe = toolchain_info.rustc_action,
         args = rustdoc_cmd,
         argfile_name = "{}.args".format(common_args.subdir),
     )
-
-    plain_env, path_env = _process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
-    rustdoc_env = plain_env | path_env
-    for k, v in ctx.attrs.doc_env.items():
-        rustdoc_env[k] = cmd_args(v)
-    rustdoc_env["RUSTC_BOOTSTRAP"] = cmd_args("1")  # for `-Zunstable-options`
-
-    return (rustdoc_cmd, rustdoc_env)
 
 # Generate multiple compile artifacts so that distinct sets of artifacts can be
 # generated concurrently.

@@ -472,7 +472,7 @@ def _default_providers(
         lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
         param_artifact: dict[BuildParams, (RustcOutput, RustcOutput)],
         rustdoc: Artifact,
-        rustdoc_test: (cmd_args, dict[str, cmd_args]),
+        rustdoc_test: cmd_args,
         doctests_enabled: bool,
         check_artifacts: dict[str, Artifact],
         expand: Artifact,
@@ -508,12 +508,10 @@ def _default_providers(
 
     providers = []
 
-    (rustdoc_cmd, rustdoc_env) = rustdoc_test
     rustdoc_test_info = ExternalRunnerTestInfo(
         type = "rustdoc",
-        command = [rustdoc_cmd],
+        command = [rustdoc_test],
         run_from_project_root = True,
-        env = rustdoc_env,
     )
 
     # Always let the user run doctests via `buck2 test :crate[doc]`
