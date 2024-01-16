@@ -86,9 +86,9 @@ unsafe impl<'a, T: ProvidesStaticType<'a> + 'a + ?Sized> AnyLifetime<'a> for T {
 /// struct Baz<T: Display>(T);
 /// # // TODO: `#[derive(ProvidesStaticType)]` should learn to handle this case too.
 /// unsafe impl<'a, T> ProvidesStaticType<'a> for Baz<T>
-///     where
-///         T: ProvidesStaticType<'a> + Display,
-///         T::StaticType: Display + Sized,
+/// where
+///     T: ProvidesStaticType<'a> + Display,
+///     T::StaticType: Display + Sized,
 /// {
 ///     type StaticType = Baz<T::StaticType>;
 /// }

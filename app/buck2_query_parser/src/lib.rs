@@ -18,7 +18,6 @@
 //! The grammar is something like:
 //!
 //! ```text
-//!
 //! # note that set's args are space-separated, not comma-separated and so cannot be treated as a function
 //! EXPR ::=
 //!          WORD
@@ -43,7 +42,6 @@
 //! INTEGER ::= "0" | ("1-9" "0-9"*)
 //!
 //! FUNCTION_NAME ::= "a-zA-Z_" "a-zA-Z0-9_" *
-//!
 //! ```
 
 pub mod placeholder;

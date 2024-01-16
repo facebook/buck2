@@ -54,7 +54,7 @@ pub trait AsHttpError {
 pub async fn http_retry<Exec, F, T, E>(exec: Exec, mut intervals: Vec<Duration>) -> Result<T, E>
 where
     Exec: Fn() -> F,
-    E: AsHttpError + std::fmt::Display,
+    E: std::error::Error + AsHttpError + std::fmt::Display + Send + Sync + 'static,
     F: Future<Output = Result<T, E>>,
 {
     intervals.insert(0, Duration::from_secs(0));
@@ -63,24 +63,26 @@ where
     while let Some(duration) = backoff.next() {
         tokio::time::sleep(duration).await;
 
-        let res = exec().await;
+        let err = match exec().await {
+            Ok(val) => return Ok(val),
+            Err(err) => err,
+        };
 
-        let http_error = res.as_ref().err().and_then(|err| err.as_http_error());
-
-        if let Some(http_error) = http_error {
+        if let Some(http_error) = err.as_http_error() {
             if http_error.is_retryable() {
                 if let Some(b) = backoff.peek() {
                     tracing::warn!(
                         "Retrying a HTTP error after {} seconds: {:#}",
                         b.as_secs(),
-                        http_error
+                        // Print as a buck2_error to make sure we get the source
+                        buck2_error::Error::from(err)
                     );
                     continue;
                 }
             }
         }
 
-        return res;
+        return Err(err);
     }
 
     unreachable!("The loop above will exit before we get to the end")

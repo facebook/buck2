@@ -87,6 +87,8 @@ LinkableNode = record(
     # Whether the node should appear in the android mergemap (which provides information about the original
     # soname->final merged lib mapping)
     include_in_android_mergemap = field(bool),
+    # Don't follow dependents on this node even if has preferred linkage static
+    ignore_force_static_follows_dependents = field(bool),
 
     # Only allow constructing within this file.
     _private = _DisallowConstruction,
@@ -144,7 +146,8 @@ def create_linkable_node(
         shared_libs: dict[str, LinkedObject] = {},
         can_be_asset: bool = True,
         include_in_android_mergemap: bool = True,
-        linker_flags: [LinkerFlags, None] = None) -> LinkableNode:
+        linker_flags: [LinkerFlags, None] = None,
+        ignore_force_static_follows_dependents: bool = False) -> LinkableNode:
     for output_style in _get_required_outputs_for_linkage(preferred_linkage):
         expect(
             output_style in link_infos,
@@ -164,6 +167,7 @@ def create_linkable_node(
         include_in_android_mergemap = include_in_android_mergemap,
         default_soname = default_soname,
         linker_flags = linker_flags,
+        ignore_force_static_follows_dependents = ignore_force_static_follows_dependents,
         _private = _DisallowConstruction(),
     )
 
@@ -171,9 +175,12 @@ def create_linkable_graph_node(
         ctx: AnalysisContext,
         linkable_node: [LinkableNode, None] = None,
         roots: dict[Label, LinkableRootInfo] = {},
-        excluded: dict[Label, None] = {}) -> LinkableGraphNode:
+        excluded: dict[Label, None] = {},
+        label: Label | None = None) -> LinkableGraphNode:
+    if not label:
+        label = ctx.label
     return LinkableGraphNode(
-        label = ctx.label,
+        label = label,
         linkable = linkable_node,
         roots = roots,
         excluded = excluded,
@@ -208,8 +215,11 @@ def create_linkable_graph(
     }
     if node:
         kwargs["value"] = node
+        label = node.label
+    else:
+        label = ctx.label
     return LinkableGraph(
-        label = ctx.label,
+        label = label,
         nodes = ctx.actions.tset(LinkableGraphTSet, **kwargs),
     )
 

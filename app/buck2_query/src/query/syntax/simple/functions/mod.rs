@@ -25,7 +25,6 @@ use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::evaluator::QueryEvaluator;
 use crate::query::syntax::simple::eval::file_set::FileSet;
 use crate::query::syntax::simple::eval::set::TargetSet;
-use crate::query::syntax::simple::eval::set::TargetSetExt;
 use crate::query::syntax::simple::eval::values::QueryResult;
 use crate::query::syntax::simple::eval::values::QueryValue;
 use crate::query::syntax::simple::eval::values::QueryValueSet;
@@ -393,7 +392,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     // of a deps functions 3rd parameter expr. When used in that context, the QueryFunctions will be augmented to
     // have non-erroring implementations.
     async fn first_order_deps(&self) -> QueryFuncResult<Env> {
-        self.implementation.first_order_deps()
+        Err(QueryError::NotAvailableInContext("first_order_deps"))
     }
     async fn target_deps(&self) -> QueryFuncResult<Env> {
         Err(QueryError::NotAvailableInContext("target_deps"))
@@ -401,6 +400,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     async fn exec_deps(&self) -> QueryFuncResult<Env> {
         Err(QueryError::NotAvailableInContext("exec_deps"))
     }
+
     /// Computes the set intersection over the given arguments.
     /// Can be used with the `^` symbol. This operator is commutative.
     ///
@@ -618,19 +618,6 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         targets: &TargetSet<Env::Target>,
     ) -> anyhow::Result<Vec<MaybeCompatible<Env::Target>>> {
         env.testsof_with_default_target_platform(targets).await
-    }
-
-    // These three functions are intentionally implemented as errors. They are only available within the context
-    // of a deps functions 3rd parameter expr. When used in that context, the QueryFunctions will be augmented to
-    // have non-erroring implementations.
-    pub fn first_order_deps(&self) -> QueryFuncResult<Env> {
-        Err(QueryError::NotAvailableInContext("first_order_deps"))
-    }
-    pub fn target_deps(&self) -> QueryFuncResult<Env> {
-        Err(QueryError::NotAvailableInContext("target_deps"))
-    }
-    pub fn exec_deps(&self) -> QueryFuncResult<Env> {
-        Err(QueryError::NotAvailableInContext("exec_deps"))
     }
 
     pub async fn intersect(

@@ -9,7 +9,6 @@
 
 //!
 //! General macros useful for path declaration
-//!
 
 use std::cmp;
 

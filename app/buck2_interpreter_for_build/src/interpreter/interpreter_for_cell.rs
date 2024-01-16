@@ -70,7 +70,7 @@ struct StarlarkTabsError(OwnedStarlarkPath);
 #[derive(Debug, buck2_error::Error)]
 enum StarlarkPeakMemoryError {
     #[error(
-        "Starlark peak memory usage for {0} is `{1}` which exceeds the limit `{2}`! Please reduce memory usage to prevent OOMs. See {3} for debugging tips."
+        "Starlark peak memory usage for {0} is {1} which exceeds the limit {2}! Please reduce memory usage to prevent OOMs. See {3} for debugging tips."
     )]
     #[buck2(user)]
     ExceedsThreshold(BuildFilePath, HumanizedBytes, HumanizedBytes, String),
@@ -79,7 +79,7 @@ enum StarlarkPeakMemoryError {
 #[derive(Debug, buck2_error::Error)]
 enum StarlarkPeakMemorySoftError {
     #[error(
-        "Starlark peak memory usage for {0} is `{1}` which is over `50`% of the limit `{2}`! Consider investigating what takes too much memory: {3}."
+        "Starlark peak memory usage for {0} is {1} which is over 50% of the limit {2}! Consider investigating what takes too much memory: {3}."
     )]
     CloseToThreshold(BuildFilePath, HumanizedBytes, HumanizedBytes, String),
 }

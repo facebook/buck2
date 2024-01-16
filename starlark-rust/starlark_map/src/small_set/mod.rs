@@ -492,7 +492,7 @@ where
 /// ```
 /// use starlark_map::smallset;
 ///
-/// let set = smallset!{"a", "b"};
+/// let set = smallset! {"a", "b"};
 /// assert_eq!(set.contains("a"), true);
 /// assert_eq!(set.len(), 2);
 /// assert_eq!(set.contains("c"), false);

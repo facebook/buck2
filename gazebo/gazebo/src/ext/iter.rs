@@ -20,11 +20,7 @@ pub trait IterExt {
     /// use gazebo::prelude::*;
     ///
     /// fn true_if_even_throw_on_zero(x: &usize) -> Result<bool, ()> {
-    ///     if *x == 0 {
-    ///         Err(())
-    ///     } else {
-    ///         Ok(x % 2 == 0)
-    ///     }
+    ///     if *x == 0 { Err(()) } else { Ok(x % 2 == 0) }
     /// }
     ///
     /// let x = [1, 3, 2];
@@ -35,7 +31,6 @@ pub trait IterExt {
     ///
     /// let x = [1, 0, 2];
     /// assert_eq!(x.iter().try_any(true_if_even_throw_on_zero), Err(()));
-    ///
     /// ```
     fn try_any<F, E>(self, any: F) -> Result<bool, E>
     where
@@ -49,11 +44,7 @@ pub trait IterExt {
     /// use gazebo::prelude::*;
     ///
     /// fn true_if_even_throw_on_zero(x: &usize) -> Result<bool, ()> {
-    ///     if *x == 0 {
-    ///         Err(())
-    ///     } else {
-    ///         Ok(x % 2 == 0)
-    ///     }
+    ///     if *x == 0 { Err(()) } else { Ok(x % 2 == 0) }
     /// }
     ///
     /// let x = [2, 4, 2];
@@ -64,7 +55,6 @@ pub trait IterExt {
     ///
     /// let x = [2, 0, 2];
     /// assert_eq!(x.iter().try_all(true_if_even_throw_on_zero), Err(()));
-    ///
     /// ```
     fn try_all<F, E>(self, any: F) -> Result<bool, E>
     where
@@ -105,8 +95,9 @@ pub trait IterExt {
     /// on the first encounter of `Err`.
     ///
     /// ```
-    /// use gazebo::prelude::*;
     /// use std::cmp::Ordering;
+    ///
+    /// use gazebo::prelude::*;
     ///
     /// fn double_cmp_throw_on_zero(x: &usize, y: &usize) -> Result<Ordering, ()> {
     ///     if *x == 0 || *y == 0 {
@@ -119,27 +110,42 @@ pub trait IterExt {
     /// let x = [1, 4, 2];
     /// let y = [2, 8, 4];
     ///
-    /// assert_eq!(x.iter().try_cmp_by(&y, double_cmp_throw_on_zero), Ok(Ordering::Equal));
+    /// assert_eq!(
+    ///     x.iter().try_cmp_by(&y, double_cmp_throw_on_zero),
+    ///     Ok(Ordering::Equal)
+    /// );
     ///
     /// let x = [1, 2, 2];
     /// let y = [2, 8, 4];
     ///
-    /// assert_eq!(x.iter().try_cmp_by(&y, double_cmp_throw_on_zero), Ok(Ordering::Less));
+    /// assert_eq!(
+    ///     x.iter().try_cmp_by(&y, double_cmp_throw_on_zero),
+    ///     Ok(Ordering::Less)
+    /// );
     ///
     /// let x = [1, 4];
     /// let y = [2, 8, 4];
     ///
-    /// assert_eq!(x.iter().try_cmp_by(&y, double_cmp_throw_on_zero), Ok(Ordering::Less));
+    /// assert_eq!(
+    ///     x.iter().try_cmp_by(&y, double_cmp_throw_on_zero),
+    ///     Ok(Ordering::Less)
+    /// );
     ///
     /// let x = [1, 4, 4];
     /// let y = [2, 8, 4];
     ///
-    /// assert_eq!(x.iter().try_cmp_by(&y, double_cmp_throw_on_zero), Ok(Ordering::Greater));
+    /// assert_eq!(
+    ///     x.iter().try_cmp_by(&y, double_cmp_throw_on_zero),
+    ///     Ok(Ordering::Greater)
+    /// );
     ///
     /// let x = [1, 4, 2, 3];
     /// let y = [2, 8, 4];
     ///
-    /// assert_eq!(x.iter().try_cmp_by(&y, double_cmp_throw_on_zero), Ok(Ordering::Greater));
+    /// assert_eq!(
+    ///     x.iter().try_cmp_by(&y, double_cmp_throw_on_zero),
+    ///     Ok(Ordering::Greater)
+    /// );
     ///
     /// let x = [1, 4, 2];
     /// let y = [2, 0, 4];
@@ -164,7 +170,10 @@ pub trait IterExt {
     ///
     /// let i = vec![Ok((1, "a")), Err(()), Ok((2, "b"))];
     ///
-    /// assert_eq!(i.into_iter().try_unzip::<_, _, Vec<_>, Vec<_>, _>(), Err(()));
+    /// assert_eq!(
+    ///     i.into_iter().try_unzip::<_, _, Vec<_>, Vec<_>, _>(),
+    ///     Err(())
+    /// );
     /// ```
     fn try_unzip<A, B, FromA, FromB, E>(self) -> Result<(FromA, FromB), E>
     where
@@ -199,7 +208,10 @@ pub trait IterOwned: Sized {
     ///
     /// let inputs = vec!["a", "b", "c"];
     /// let outputs = inputs.into_iter().owned().collect::<Vec<_>>();
-    /// assert_eq!(outputs, vec!["a".to_owned(), "b".to_owned(), "c".to_owned()])
+    /// assert_eq!(
+    ///     outputs,
+    ///     vec!["a".to_owned(), "b".to_owned(), "c".to_owned()]
+    /// )
     /// ```
     fn owned(self) -> Owned<Self>;
 }

@@ -65,17 +65,23 @@ impl Display for StarlarkValueAsTypeStarlarkValue {
 ///
 /// ```
 /// use allocative::Allocative;
-/// use starlark::environment::GlobalsBuilder;
-/// use starlark::values::starlark_value_as_type::StarlarkValueAsType;
-/// use starlark::values::StarlarkValue;
 /// use starlark::any::ProvidesStaticType;
-/// use starlark::values::{NoSerialize, starlark_value};
-/// #[derive(Debug, derive_more::Display, Allocative, ProvidesStaticType, NoSerialize)]
+/// use starlark::environment::GlobalsBuilder;
+/// use starlark::values::starlark_value;
+/// use starlark::values::starlark_value_as_type::StarlarkValueAsType;
+/// use starlark::values::NoSerialize;
+/// use starlark::values::StarlarkValue;
+/// #[derive(
+///     Debug,
+///     derive_more::Display,
+///     Allocative,
+///     ProvidesStaticType,
+///     NoSerialize
+/// )]
 /// struct Temperature;
 ///
 /// #[starlark_value(type = "temperature")]
-/// impl<'v> StarlarkValue<'v> for Temperature {
-/// }
+/// impl<'v> StarlarkValue<'v> for Temperature {}
 ///
 /// fn my_type_globals(globals: &mut GlobalsBuilder) {
 ///     // This can now be used like:

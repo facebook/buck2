@@ -9,7 +9,6 @@
 
 //! The future that is spawned and managed by DICE. This is a single computation unit that is
 //! shareable across different computation units.
-//!
 use allocative::Allocative;
 use buck2_futures::spawn::CompletionObserver;
 use buck2_futures::spawn::WeakFutureError;

@@ -13,17 +13,21 @@
 //!
 //! ```
 //! use std::fmt;
+//!
 //! use display_container::*;
 //!
 //! struct MyItems(Vec<(String, i32)>);
 //!
 //! impl fmt::Display for MyItems {
 //!     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//!         fmt_container(f, "{", "}",
+//!         fmt_container(
+//!             f,
+//!             "{",
+//!             "}",
 //!             iter_display_chain(
 //!                 &["magic"],
-//!                 self.0.iter().map(|(k, v)| display_pair(k, "=", v))
-//!             )
+//!                 self.0.iter().map(|(k, v)| display_pair(k, "=", v)),
+//!             ),
 //!         )
 //!     }
 //! }

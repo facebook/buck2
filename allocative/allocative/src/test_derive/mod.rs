@@ -10,6 +10,7 @@
 #![cfg(test)]
 #![allow(dead_code)]
 
+mod bounds;
 mod dst;
 mod skip;
 mod visit;

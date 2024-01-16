@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
+use std::iter;
 
 use anyhow::Context;
 use async_trait::async_trait;
@@ -24,11 +25,11 @@ use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::stream::TryStreamExt;
 use starlark_map::ordered_set::OrderedSet;
+use starlark_map::Hashed;
 
 use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::file_set::FileSet;
 use crate::query::syntax::simple::eval::set::TargetSet;
-use crate::query::syntax::simple::eval::set::TargetSetExt;
 use crate::query::traversal::AsyncTraversalDelegate;
 use crate::query::traversal::ChildVisitor;
 mod tests;
@@ -69,6 +70,10 @@ pub trait LabeledNode: Dupe + Send + Sync + 'static {
     type NodeRef: NodeLabel;
 
     fn node_ref(&self) -> &Self::NodeRef;
+
+    fn hashed_node_ref(&self) -> Hashed<&Self::NodeRef> {
+        Hashed::new(self.node_ref())
+    }
 }
 
 pub struct QueryTargets {}
@@ -98,17 +103,14 @@ pub trait QueryTarget: LabeledNode + Dupe + Send + Sync + 'static {
     /// Return the path to the buildfile that defines this target, e.g. `fbcode//foo/bar/TARGETS`
     fn buildfile_path(&self) -> &BuildFilePath;
 
-    // TODO(cjhopman): Use existential traits to remove the Box<> once they are stabilized.
-    fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a>;
+    fn deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a;
 
-    // TODO(cjhopman): Use existential traits to remove the Box<> once they are stabilized.
-    fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a>;
+    fn exec_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a;
 
-    // TODO(cjhopman): Use existential traits to remove the Box<> once they are stabilized.
-    fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a>;
+    fn target_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a;
 
-    fn tests<'a>(&'a self) -> Option<Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a>> {
-        None
+    fn tests<'a>(&'a self) -> Option<impl Iterator<Item = Self::NodeRef> + Send + 'a> {
+        None::<iter::Empty<Self::NodeRef>>
     }
 
     fn attr_to_string_alternate(&self, attr: &Self::Attr<'_>) -> String;
@@ -172,13 +174,13 @@ pub trait QueryEnvironment: Send + Sync {
     async fn dfs_postorder(
         &self,
         root: &TargetSet<Self::Target>,
-        delegate: &mut dyn AsyncTraversalDelegate<Self::Target>,
+        delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
     ) -> anyhow::Result<()>;
 
     async fn depth_limited_traversal(
         &self,
         root: &TargetSet<Self::Target>,
-        delegate: &mut dyn AsyncTraversalDelegate<Self::Target>,
+        delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
         depth: u32,
     ) -> anyhow::Result<()>;
 
@@ -228,7 +230,7 @@ pub trait QueryEnvironment: Send + Sync {
             async fn for_each_child(
                 &mut self,
                 target: &Q,
-                func: &mut dyn ChildVisitor<Q>,
+                func: &mut impl ChildVisitor<Q>,
             ) -> anyhow::Result<()> {
                 // Stop adding more children if we are putting a path back together.
                 if !self.path.is_empty() || self.to.contains(target.node_ref()) {
@@ -288,7 +290,7 @@ pub trait QueryEnvironment: Send + Sync {
             async fn for_each_child(
                 &mut self,
                 target: &Q,
-                func: &mut dyn ChildVisitor<Q>,
+                func: &mut impl ChildVisitor<Q>,
             ) -> anyhow::Result<()> {
                 for dep in target.deps() {
                     func.visit(dep.clone()).with_context(|| {
@@ -327,7 +329,7 @@ pub trait QueryEnvironment: Send + Sync {
             async fn for_each_child(
                 &mut self,
                 target: &Q,
-                func: &mut dyn ChildVisitor<Q>,
+                func: &mut impl ChildVisitor<Q>,
             ) -> anyhow::Result<()> {
                 if let Some(parents) = self.parents.get(target.node_ref()) {
                     for parent in parents {
@@ -478,7 +480,7 @@ pub async fn deps<Env: QueryEnvironment + ?Sized>(
         async fn for_each_child(
             &mut self,
             target: &Q,
-            func: &mut dyn ChildVisitor<Q>,
+            func: &mut impl ChildVisitor<Q>,
         ) -> anyhow::Result<()> {
             let res: anyhow::Result<_> = try {
                 match self.filter {

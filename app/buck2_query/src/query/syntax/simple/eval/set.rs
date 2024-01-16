@@ -11,7 +11,6 @@ use std::fmt;
 use std::fmt::Display;
 
 use allocative::Allocative;
-use buck2_query::query::environment::LabeledNode;
 use display_container::fmt_container;
 use dupe::IterDupedExt;
 use fancy_regex::Regex;
@@ -172,73 +171,58 @@ impl<T: QueryTarget> FromIterator<T> for TargetSet<T> {
 
 /// This contains additional TargetSet functions implemented via the core
 /// functions on TargetSet itself.
-pub trait TargetSetExt {
-    type T: QueryTarget;
-
-    fn filter<F: Fn(&Self::T) -> anyhow::Result<bool>>(
-        &self,
-        filter: F,
-    ) -> anyhow::Result<TargetSet<Self::T>>;
-
-    fn attrfilter(
+impl<T: QueryTarget> TargetSet<T> {
+    pub fn attrfilter(
         &self,
         attribute: &str,
         filter: &dyn Fn(&str) -> anyhow::Result<bool>,
-    ) -> anyhow::Result<TargetSet<Self::T>> {
+    ) -> anyhow::Result<TargetSet<T>> {
         self.filter(move |node| {
             node.map_attr(attribute, |val| match val {
                 None => Ok(false),
-                Some(v) => Self::T::attr_any_matches(v, &filter),
+                Some(v) => T::attr_any_matches(v, &filter),
             })
         })
     }
 
-    fn nattrfilter(
+    pub(crate) fn nattrfilter(
         &self,
         attribute: &str,
         filter: &dyn Fn(&str) -> anyhow::Result<bool>,
-    ) -> anyhow::Result<TargetSet<Self::T>> {
+    ) -> anyhow::Result<TargetSet<T>> {
         self.filter(move |node| {
             node.map_attr(attribute, |val| match val {
                 None => Ok(false),
-                Some(v) => Ok(!Self::T::attr_any_matches(v, &filter)?),
+                Some(v) => Ok(!T::attr_any_matches(v, &filter)?),
             })
         })
     }
 
-    fn attrregexfilter(&self, attribute: &str, value: &str) -> anyhow::Result<TargetSet<Self::T>> {
+    pub fn attrregexfilter(&self, attribute: &str, value: &str) -> anyhow::Result<TargetSet<T>> {
         let regex = Regex::new(value)?;
         let filter = move |s: &'_ str| -> anyhow::Result<bool> { Ok(regex.is_match(s)?) };
         self.attrfilter(attribute, &filter)
     }
 
     /// Filter targets by fully qualified name using regex partial match.
-    fn filter_name(&self, regex: &str) -> anyhow::Result<TargetSet<Self::T>> {
+    pub fn filter_name(&self, regex: &str) -> anyhow::Result<TargetSet<T>> {
         let mut re = RegexBuilder::new(regex);
         re.delegate_dfa_size_limit(100 << 20);
         let re = re.build()?;
         self.filter(|node| Ok(re.is_match(&node.node_ref().label_for_filter())?))
     }
 
-    fn kind(&self, regex: &str) -> anyhow::Result<TargetSet<Self::T>> {
+    pub fn kind(&self, regex: &str) -> anyhow::Result<TargetSet<T>> {
         let re = Regex::new(regex)?;
         self.filter(|node| Ok(re.is_match(&node.rule_type())?))
     }
 
-    fn intersect(&self, right: &TargetSet<Self::T>) -> anyhow::Result<TargetSet<Self::T>> {
+    pub fn intersect(&self, right: &TargetSet<T>) -> anyhow::Result<TargetSet<T>> {
         self.filter(|node| Ok(right.contains(node.node_ref())))
     }
 
-    fn difference(&self, right: &TargetSet<Self::T>) -> anyhow::Result<TargetSet<Self::T>> {
+    pub fn difference(&self, right: &TargetSet<T>) -> anyhow::Result<TargetSet<T>> {
         self.filter(|node| Ok(!right.contains(node.node_ref())))
-    }
-}
-
-impl<T: QueryTarget> TargetSetExt for TargetSet<T> {
-    type T = T;
-
-    fn filter<F: Fn(&T) -> anyhow::Result<bool>>(&self, filter: F) -> anyhow::Result<TargetSet<T>> {
-        TargetSet::filter(self, filter)
     }
 }
 

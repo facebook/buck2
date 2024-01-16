@@ -128,10 +128,14 @@ macro_rules! starlark_complex_values {
 /// Let's define a simple object, where `+x` makes the string uppercase:
 ///
 /// ```
-/// use starlark::values::{Heap, StarlarkValue, Value, ProvidesStaticType, NoSerialize};
-/// use starlark::{starlark_simple_value};
-/// use derive_more::Display;
 /// use allocative::Allocative;
+/// use derive_more::Display;
+/// use starlark::starlark_simple_value;
+/// use starlark::values::Heap;
+/// use starlark::values::NoSerialize;
+/// use starlark::values::ProvidesStaticType;
+/// use starlark::values::StarlarkValue;
+/// use starlark::values::Value;
 /// use starlark_derive::starlark_value;
 ///
 /// #[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative)]

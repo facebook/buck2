@@ -16,6 +16,7 @@ use buck2_query::query::environment::LabeledNode;
 use buck2_query::query::environment::QueryTarget;
 use dupe::Dupe;
 use serde::Serializer;
+use starlark_map::Hashed;
 
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::configured_attr::ConfiguredAttr;
@@ -31,6 +32,10 @@ impl LabeledNode for ConfiguredTargetNode {
     fn node_ref(&self) -> &Self::NodeRef {
         ConfiguredTargetNode::label(self)
     }
+
+    fn hashed_node_ref(&self) -> Hashed<&Self::NodeRef> {
+        ConfiguredTargetNode::hashed_label(self)
+    }
 }
 
 impl QueryTarget for ConfiguredTargetNode {
@@ -44,21 +49,20 @@ impl QueryTarget for ConfiguredTargetNode {
         ConfiguredTargetNode::buildfile_path(self)
     }
 
-    // TODO(cjhopman): Use existential traits to remove the Box<> once they are stabilized.
-    fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        Box::new(ConfiguredTargetNode::deps(self).map(|v| v.label()))
+    fn deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+        ConfiguredTargetNode::deps(self).map(|v| v.label())
     }
 
-    fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        Box::new(ConfiguredTargetNode::exec_deps(self).map(|v| v.label()))
+    fn exec_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+        ConfiguredTargetNode::exec_deps(self).map(|v| v.label())
     }
 
-    fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        Box::new(ConfiguredTargetNode::target_deps(self).map(|v| v.label()))
+    fn target_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+        ConfiguredTargetNode::target_deps(self).map(|v| v.label())
     }
 
-    fn tests<'a>(&'a self) -> Option<Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a>> {
-        Some(Box::new(self.tests().map(|t| t.target().dupe())))
+    fn tests<'a>(&'a self) -> Option<impl Iterator<Item = Self::NodeRef> + Send + 'a> {
+        Some(self.tests().map(|t| t.target().dupe()))
     }
 
     fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(

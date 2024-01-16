@@ -18,6 +18,7 @@
 ///
 /// ```
 /// use std::cmp::Ordering;
+///
 /// use gazebo::cmp_chain;
 ///
 /// assert_eq!(

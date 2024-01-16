@@ -108,9 +108,9 @@ impl AbsNormPath {
     ///
     /// assert!(AbsNormPath::new("foo/bar").is_err());
     /// if cfg!(windows) {
-    ///    assert!(AbsNormPath::new("C:\\foo\\bar").is_ok());
+    ///     assert!(AbsNormPath::new("C:\\foo\\bar").is_ok());
     /// } else {
-    ///    assert!(AbsNormPath::new("/foo/bar").is_ok());
+    ///     assert!(AbsNormPath::new("/foo/bar").is_ok());
     /// }
     /// ```
     pub fn new<P: ?Sized + AsRef<Path>>(p: &P) -> anyhow::Result<&AbsNormPath> {
@@ -123,15 +123,25 @@ impl AbsNormPath {
     ///
     /// ```
     /// use std::path::Path;
-    /// use buck2_core::fs::paths::abs_norm_path::{AbsNormPath, AbsNormPathBuf};
+    ///
+    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// if cfg!(not(windows)) {
     ///     let abs_path = AbsNormPath::new("/my")?;
-    ///     assert_eq!(AbsNormPathBuf::from("/my/foo/bar".into())?, abs_path.join(ForwardRelativePath::new("foo/bar")?));
+    ///     assert_eq!(
+    ///         AbsNormPathBuf::from("/my/foo/bar".into())?,
+    ///         abs_path.join(ForwardRelativePath::new("foo/bar")?)
+    ///     );
     /// } else {
     ///     let abs_path = AbsNormPath::new("C:\\my")?;
-    ///     assert_eq!("C:\\my\\foo\\bar", abs_path.join(ForwardRelativePath::new("foo/bar")?).to_string());
+    ///     assert_eq!(
+    ///         "C:\\my\\foo\\bar",
+    ///         abs_path
+    ///             .join(ForwardRelativePath::new("foo/bar")?)
+    ///             .to_string()
+    ///     );
     /// }
     /// # anyhow::Ok(())
     /// ```
@@ -153,6 +163,7 @@ impl AbsNormPath {
     ///
     /// ```
     /// use std::path::Path;
+    ///
     /// use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
     ///
     /// if cfg!(not(windows)) {
@@ -160,19 +171,13 @@ impl AbsNormPath {
     ///         Some(AbsNormPath::new("/")?),
     ///         AbsNormPath::new("/my")?.parent()
     ///     );
-    ///     assert_eq!(
-    ///         None,
-    ///         AbsNormPath::new("/")?.parent()
-    ///     );
+    ///     assert_eq!(None, AbsNormPath::new("/")?.parent());
     /// } else {
     ///     assert_eq!(
     ///         Some(AbsNormPath::new("c:/")?),
     ///         AbsNormPath::new("c:/my")?.parent()
     ///     );
-    ///     assert_eq!(
-    ///         None,
-    ///         AbsNormPath::new("c:/")?.parent()
-    ///     );
+    ///     assert_eq!(None, AbsNormPath::new("c:/")?.parent());
     /// }
     ///
     /// # anyhow::Ok(())
@@ -188,7 +193,9 @@ impl AbsNormPath {
     /// path is not a 'ForwardRelativePath'
     ///
     /// ```
-    /// use std::{borrow::Cow, path::Path};
+    /// use std::borrow::Cow;
+    /// use std::path::Path;
+    ///
     /// use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
     /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     ///
@@ -232,8 +239,16 @@ impl AbsNormPath {
     ///         shared_path.strip_prefix(AbsNormPath::new(r"\\?\UNC\server\share\foo")?)?,
     ///         Cow::Borrowed(ForwardRelativePath::new("bar.txt")?)
     ///     );
-    ///     assert!(shared_path.strip_prefix(AbsNormPath::new(r"\\server\share2\foo")?).is_err());
-    ///     assert!(shared_path.strip_prefix(AbsNormPath::new(r"\\server\share\fo")?).is_err());
+    ///     assert!(
+    ///         shared_path
+    ///             .strip_prefix(AbsNormPath::new(r"\\server\share2\foo")?)
+    ///             .is_err()
+    ///     );
+    ///     assert!(
+    ///         shared_path
+    ///             .strip_prefix(AbsNormPath::new(r"\\server\share\fo")?)
+    ///             .is_err()
+    ///     );
     /// }
     ///
     /// # anyhow::Ok(())
@@ -266,6 +281,7 @@ impl AbsNormPath {
     ///
     /// ```
     /// use std::path::Path;
+    ///
     /// use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
     ///
     /// if cfg!(not(windows)) {
@@ -318,6 +334,7 @@ impl AbsNormPath {
     ///
     /// ```
     /// use std::path::Path;
+    ///
     /// use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
     ///
     /// if cfg!(not(windows)) {
@@ -337,7 +354,8 @@ impl AbsNormPath {
     /// Build an owned `AbsPathBuf`, joined with the given path and normalized.
     ///
     /// ```
-    /// use buck2_core::fs::paths::abs_norm_path::{AbsNormPath, AbsNormPathBuf};
+    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     ///
     /// if cfg!(not(windows)) {
     ///     assert_eq!(
@@ -346,7 +364,9 @@ impl AbsNormPath {
     ///     );
     ///
     ///     assert_eq!(
-    ///         AbsNormPath::new("/foo")?.join_normalized("../../baz.txt").is_err(),
+    ///         AbsNormPath::new("/foo")?
+    ///             .join_normalized("../../baz.txt")
+    ///             .is_err(),
     ///         true
     ///     );
     /// } else {
@@ -356,7 +376,9 @@ impl AbsNormPath {
     ///     );
     ///
     ///     assert_eq!(
-    ///         AbsNormPath::new("c:/foo")?.join_normalized("../../baz.txt").is_err(),
+    ///         AbsNormPath::new("c:/foo")?
+    ///             .join_normalized("../../baz.txt")
+    ///             .is_err(),
     ///         true
     ///     );
     /// }
@@ -411,11 +433,23 @@ impl AbsNormPath {
     /// assert_eq!("D", AbsNormPath::new("d:/foo/bar")?.windows_prefix()?);
     /// assert_eq!("D", AbsNormPath::new(r"D:\foo\bar")?.windows_prefix()?);
     /// assert_eq!("E", AbsNormPath::new(r"\\?\E:\foo\bar")?.windows_prefix()?);
-    /// assert_eq!("server\\share", AbsNormPath::new(r"\\server\share")?.windows_prefix()?);
-    /// assert_eq!("server\\share", AbsNormPath::new(r"\\server\share\foo\bar")?.windows_prefix()?);
-    /// assert_eq!("server\\share", AbsNormPath::new(r"\\?\UNC\server\share")?.windows_prefix()?);
+    /// assert_eq!(
+    ///     "server\\share",
+    ///     AbsNormPath::new(r"\\server\share")?.windows_prefix()?
+    /// );
+    /// assert_eq!(
+    ///     "server\\share",
+    ///     AbsNormPath::new(r"\\server\share\foo\bar")?.windows_prefix()?
+    /// );
+    /// assert_eq!(
+    ///     "server\\share",
+    ///     AbsNormPath::new(r"\\?\UNC\server\share")?.windows_prefix()?
+    /// );
     /// assert_eq!("COM42", AbsNormPath::new(r"\\.\COM42")?.windows_prefix()?);
-    /// assert_eq!("COM42", AbsNormPath::new(r"\\.\COM42\foo\bar")?.windows_prefix()?);
+    /// assert_eq!(
+    ///     "COM42",
+    ///     AbsNormPath::new(r"\\.\COM42\foo\bar")?.windows_prefix()?
+    /// );
     ///
     /// # anyhow::Ok(())
     /// ```
@@ -451,16 +485,41 @@ impl AbsNormPath {
     ///
     /// ```
     /// use std::path::Path;
+    ///
     /// use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
     ///
-    /// assert_eq!(Path::new(""), AbsNormPath::new("C:/")?.strip_windows_prefix()?);
-    /// assert_eq!(Path::new(""), AbsNormPath::new("C:\\")?.strip_windows_prefix()?);
-    /// assert_eq!(Path::new("foo/bar"), AbsNormPath::new("d:/foo/bar")?.strip_windows_prefix()?);
-    /// assert_eq!(Path::new("foo\\bar"), AbsNormPath::new(r"D:\foo\bar")?.strip_windows_prefix()?);
-    /// assert_eq!(Path::new("foo\\bar"), AbsNormPath::new(r"\\?\D:\foo\bar")?.strip_windows_prefix()?);
-    /// assert_eq!(Path::new("path"), AbsNormPath::new(r"\\server\share\path")?.strip_windows_prefix()?);
-    /// assert_eq!(Path::new("path"), AbsNormPath::new(r"\\?\UNC\server\share\path")?.strip_windows_prefix()?);
-    /// assert_eq!(Path::new("abc"), AbsNormPath::new(r"\\.\COM42\abc")?.strip_windows_prefix()?);
+    /// assert_eq!(
+    ///     Path::new(""),
+    ///     AbsNormPath::new("C:/")?.strip_windows_prefix()?
+    /// );
+    /// assert_eq!(
+    ///     Path::new(""),
+    ///     AbsNormPath::new("C:\\")?.strip_windows_prefix()?
+    /// );
+    /// assert_eq!(
+    ///     Path::new("foo/bar"),
+    ///     AbsNormPath::new("d:/foo/bar")?.strip_windows_prefix()?
+    /// );
+    /// assert_eq!(
+    ///     Path::new("foo\\bar"),
+    ///     AbsNormPath::new(r"D:\foo\bar")?.strip_windows_prefix()?
+    /// );
+    /// assert_eq!(
+    ///     Path::new("foo\\bar"),
+    ///     AbsNormPath::new(r"\\?\D:\foo\bar")?.strip_windows_prefix()?
+    /// );
+    /// assert_eq!(
+    ///     Path::new("path"),
+    ///     AbsNormPath::new(r"\\server\share\path")?.strip_windows_prefix()?
+    /// );
+    /// assert_eq!(
+    ///     Path::new("path"),
+    ///     AbsNormPath::new(r"\\?\UNC\server\share\path")?.strip_windows_prefix()?
+    /// );
+    /// assert_eq!(
+    ///     Path::new("abc"),
+    ///     AbsNormPath::new(r"\\.\COM42\abc")?.strip_windows_prefix()?
+    /// );
     ///
     /// # anyhow::Ok(())
     /// ```
@@ -539,24 +598,26 @@ impl AbsNormPathBuf {
 
     /// Pushes a `ForwardRelativePath` to the existing buffer
     /// ```
-    ///
     /// use std::path::PathBuf;
+    ///
     /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     ///
-    /// let prefix = if cfg!(windows) {
-    ///    "C:"
-    /// } else {
-    ///   ""
-    /// };
+    /// let prefix = if cfg!(windows) { "C:" } else { "" };
     ///
     /// let mut path = AbsNormPathBuf::try_from(format!("{prefix}/foo")).unwrap();
     /// path.push(ForwardRelativePath::unchecked_new("bar"));
     ///
-    /// assert_eq!(AbsNormPathBuf::try_from(format!("{prefix}/foo/bar")).unwrap(), path);
+    /// assert_eq!(
+    ///     AbsNormPathBuf::try_from(format!("{prefix}/foo/bar")).unwrap(),
+    ///     path
+    /// );
     ///
     /// path.push(ForwardRelativePath::unchecked_new("more/file.rs"));
-    /// assert_eq!(AbsNormPathBuf::try_from(format!("{prefix}/foo/bar/more/file.rs")).unwrap(), path);
+    /// assert_eq!(
+    ///     AbsNormPathBuf::try_from(format!("{prefix}/foo/bar/more/file.rs")).unwrap(),
+    ///     path
+    /// );
     /// ```
     pub fn push<P: AsRef<ForwardRelativePath>>(&mut self, path: P) {
         if cfg!(windows) {
@@ -570,35 +631,48 @@ impl AbsNormPathBuf {
     /// Note that this does not visit the filesystem to resolve `..`s. Instead, it cancels out the
     /// components directly, similar to `join_normalized`.
     /// ```
-    ///
     /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     /// use buck2_core::fs::paths::RelativePath;
     ///
-    /// let prefix = if cfg!(windows) {
-    ///   "C:"
-    /// } else {
-    ///  ""
-    /// };
+    /// let prefix = if cfg!(windows) { "C:" } else { "" };
     ///
     /// let mut path = AbsNormPathBuf::try_from(format!("{prefix}/foo")).unwrap();
     /// path.push_normalized(RelativePath::new("bar"))?;
     ///
-    /// assert_eq!(AbsNormPathBuf::try_from(format!("{prefix}/foo/bar")).unwrap(), path);
+    /// assert_eq!(
+    ///     AbsNormPathBuf::try_from(format!("{prefix}/foo/bar")).unwrap(),
+    ///     path
+    /// );
     ///
     /// path.push_normalized(RelativePath::new("more/file.rs"))?;
-    /// assert_eq!(AbsNormPathBuf::try_from(format!("{prefix}/foo/bar/more/file.rs")).unwrap(), path);
+    /// assert_eq!(
+    ///     AbsNormPathBuf::try_from(format!("{prefix}/foo/bar/more/file.rs")).unwrap(),
+    ///     path
+    /// );
     ///
     /// path.push_normalized(RelativePath::new("../other.rs"))?;
-    /// assert_eq!(AbsNormPathBuf::try_from(format!("{prefix}/foo/bar/more/other.rs")).unwrap(), path);
+    /// assert_eq!(
+    ///     AbsNormPathBuf::try_from(format!("{prefix}/foo/bar/more/other.rs")).unwrap(),
+    ///     path
+    /// );
     ///
     /// path.push_normalized(RelativePath::new(".."))?;
-    /// assert_eq!(AbsNormPathBuf::try_from(format!("{prefix}/foo/bar/more")).unwrap(), path);
+    /// assert_eq!(
+    ///     AbsNormPathBuf::try_from(format!("{prefix}/foo/bar/more")).unwrap(),
+    ///     path
+    /// );
     ///
     /// path.push_normalized(RelativePath::new("../.."))?;
-    /// assert_eq!(AbsNormPathBuf::try_from(format!("{prefix}/foo")).unwrap(), path);
+    /// assert_eq!(
+    ///     AbsNormPathBuf::try_from(format!("{prefix}/foo")).unwrap(),
+    ///     path
+    /// );
     ///
     /// path.push_normalized(RelativePath::new(".."))?;
-    /// assert_eq!(AbsNormPathBuf::try_from(format!("{prefix}/")).unwrap(), path);
+    /// assert_eq!(
+    ///     AbsNormPathBuf::try_from(format!("{prefix}/")).unwrap(),
+    ///     path
+    /// );
     ///
     /// assert!(path.push_normalized(RelativePath::new("..")).is_err());
     ///
@@ -636,9 +710,9 @@ impl TryFrom<String> for AbsNormPathBuf {
     /// no allocation conversion
     ///
     /// ```
+    /// use std::convert::TryFrom;
     ///
     /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-    /// use std::convert::TryFrom;
     ///
     /// assert!(AbsNormPathBuf::try_from("relative/bar".to_owned()).is_err());
     ///
@@ -674,10 +748,10 @@ impl TryFrom<PathBuf> for AbsNormPathBuf {
     /// no allocation conversion
     ///
     /// ```
-    ///
-    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     /// use std::convert::TryFrom;
     /// use std::path::PathBuf;
+    ///
+    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     ///
     /// assert!(AbsNormPathBuf::try_from(PathBuf::from("relative/bar")).is_err());
     ///

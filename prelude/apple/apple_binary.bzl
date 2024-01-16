@@ -66,6 +66,7 @@ load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_genrule_deps.bzl", "get_apple_build_genrule_deps_attr_value", "get_apple_genrule_deps_outputs")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node", "get_min_deployment_version_target_linker_flags", "get_min_deployment_version_target_preprocessor_flags")
 load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_apple_stripped_attr_value_with_default_fallback")
+load(":apple_validation_deps.bzl", "get_apple_validation_deps_outputs")
 load(":debug.bzl", "AppleDebuggableInfo")
 load(":resource_groups.bzl", "create_resource_graph")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
@@ -111,16 +112,16 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             swift_compile,
         )
 
-        genrule_deps_outputs = []
+        validation_deps_outputs = get_apple_validation_deps_outputs(ctx)
         if get_apple_build_genrule_deps_attr_value(ctx):
-            genrule_deps_outputs = get_apple_genrule_deps_outputs(cxx_attr_deps(ctx))
+            validation_deps_outputs += get_apple_genrule_deps_outputs(cxx_attr_deps(ctx))
 
         stripped = get_apple_stripped_attr_value_with_default_fallback(ctx)
         constructor_params = CxxRuleConstructorParams(
             rule_type = "apple_binary",
             headers_layout = get_apple_cxx_headers_layout(ctx),
             extra_link_flags = extra_link_flags,
-            extra_hidden = genrule_deps_outputs,
+            extra_hidden = validation_deps_outputs,
             srcs = cxx_srcs,
             additional = CxxRuleAdditionalParams(
                 srcs = swift_srcs,

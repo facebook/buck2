@@ -25,11 +25,12 @@ load("@prelude//go:go_binary.bzl", "go_binary_impl")
 load("@prelude//go:go_exported_library.bzl", "go_exported_library_impl")
 load("@prelude//go:go_library.bzl", "go_library_impl")
 load("@prelude//go:go_test.bzl", "go_test_impl")
-load("@prelude//haskell:compile.bzl", "HaskellLibraryProvider")
+load("@prelude//go/transitions:cgo_enabled.bzl", "cgo_enabled_transition")
 load("@prelude//haskell:haskell.bzl", "haskell_binary_impl", "haskell_library_impl", "haskell_prebuilt_library_impl")
 load("@prelude//haskell:haskell_ghci.bzl", "haskell_ghci_impl")
 load("@prelude//haskell:haskell_haddock.bzl", "haskell_haddock_impl")
 load("@prelude//haskell:haskell_ide.bzl", "haskell_ide_impl")
+load("@prelude//haskell:library_info.bzl", "HaskellLibraryProvider")
 load("@prelude//http_archive:http_archive.bzl", "http_archive_impl")
 load("@prelude//java:java.bzl", _java_extra_attributes = "extra_attributes", _java_implemented_rules = "implemented_rules")
 load("@prelude//js:js.bzl", _js_extra_attributes = "extra_attributes", _js_implemented_rules = "implemented_rules")
@@ -587,6 +588,9 @@ extra_attributes = struct(**all_extra_attributes)
 transitions = {
     "android_binary": constraint_overrides_transition,
     "apple_resource": apple_resource_transition,
+    "go_binary": cgo_enabled_transition,
+    "go_exported_library": cgo_enabled_transition,
+    "go_test": cgo_enabled_transition,
     "python_binary": constraint_overrides_transition,
     "python_test": constraint_overrides_transition,
 }

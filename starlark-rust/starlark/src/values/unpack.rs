@@ -40,7 +40,13 @@ use crate::values::ValueError;
 /// # use starlark::any::ProvidesStaticType;
 /// # use starlark::values::{NoSerialize, StarlarkValue, starlark_value};
 ///
-/// #[derive(Debug, derive_more::Display, Allocative, NoSerialize, ProvidesStaticType)]
+/// #[derive(
+///     Debug,
+///     derive_more::Display,
+///     Allocative,
+///     NoSerialize,
+///     ProvidesStaticType
+/// )]
 /// struct MySimpleValue;
 ///
 /// #[starlark_value(type = "MySimpleValue", UnpackValue, StarlarkTypeRepr)]

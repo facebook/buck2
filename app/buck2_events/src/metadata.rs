@@ -66,6 +66,16 @@ pub fn collect() -> HashMap<String, String> {
     add_env_var(&mut map, "fbpackage_name", "FBPACKAGE_PACKAGE_NAME");
     add_env_var(&mut map, "fbpackage_version", "FBPACKAGE_PACKAGE_VERSION");
     add_env_var(&mut map, "fbpackage_release", "FBPACKAGE_PACKAGE_RELEASE");
+    add_env_var(
+        &mut map,
+        "skycastle_workflow_run_id",
+        "SKYCASTLE_WORKFLOW_RUN_ID",
+    );
+    add_env_var(
+        &mut map,
+        "skycastle_workflow_alias",
+        "SKYCASTLE_WORKFLOW_ALIAS",
+    );
     map
 }
 

@@ -10,6 +10,7 @@
 #![feature(error_generic_member_access)]
 #![feature(async_closure)]
 #![feature(box_patterns)]
+#![feature(return_position_impl_trait_in_trait)]
 #![feature(try_blocks)]
 
 pub mod query;

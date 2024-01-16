@@ -272,6 +272,7 @@ def _write_test_info_file(
         "dependencies": _list_code_paths(dependencies),
         "erl_cmd": cmd_args(['"', cmd_args(erl_cmd, delimiter = " "), '"'], delimiter = ""),
         "extra_ct_hooks": ctx.attrs.extra_ct_hooks,
+        "extra_flags": ctx.attrs.extra_erl_flags,
         "providers": ctx.attrs._providers,
         "test_dir": test_dir,
         "test_suite": test_suite,

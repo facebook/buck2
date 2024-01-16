@@ -126,7 +126,6 @@
 //!
 //! # anyhow::Ok(())
 //! ```
-//!
 
 pub mod alias;
 pub mod build_file_cell;
@@ -409,13 +408,15 @@ impl CellResolver {
     /// the 'Package'
     ///
     /// ```
-    /// use buck2_core::cells::CellResolver;
-    /// use buck2_core::fs::project_rel_path::{ProjectRelativePath, ProjectRelativePathBuf};
     /// use std::convert::TryFrom;
+    ///
     /// use buck2_core::cells::cell_path::CellPath;
     /// use buck2_core::cells::cell_root_path::CellRootPathBuf;
     /// use buck2_core::cells::name::CellName;
     /// use buck2_core::cells::paths::CellRelativePathBuf;
+    /// use buck2_core::cells::CellResolver;
+    /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    /// use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     ///
     /// let cell_path = ProjectRelativePath::new("my/cell")?;
     /// let cells = CellResolver::testing_with_name_and_path(
@@ -425,7 +426,8 @@ impl CellResolver {
     ///
     /// let cell_path = CellPath::new(
     ///     CellName::testing_new("mycell"),
-    ///     CellRelativePathBuf::unchecked_new("some/path".to_owned()));
+    ///     CellRelativePathBuf::unchecked_new("some/path".to_owned()),
+    /// );
     ///
     /// assert_eq!(
     ///     cells.resolve_path(cell_path.as_ref())?,
@@ -442,14 +444,17 @@ impl CellResolver {
     /// the 'Package'
     ///
     /// ```
-    /// use buck2_core::cells::CellResolver;
-    /// use buck2_core::fs::project_rel_path::{ProjectRelativePath, ProjectRelativePathBuf};
-    /// use buck2_core::fs::paths::forward_rel_path::{ForwardRelativePathBuf, ForwardRelativePath};
-    /// use buck2_core::package::PackageLabel;
     /// use std::convert::TryFrom;
+    ///
     /// use buck2_core::cells::cell_root_path::CellRootPathBuf;
     /// use buck2_core::cells::name::CellName;
     /// use buck2_core::cells::paths::CellRelativePath;
+    /// use buck2_core::cells::CellResolver;
+    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+    /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    /// use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+    /// use buck2_core::package::PackageLabel;
     ///
     /// let cell_path = ProjectRelativePath::new("my/cell")?;
     ///

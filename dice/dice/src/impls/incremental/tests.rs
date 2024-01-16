@@ -12,7 +12,6 @@
 //!
 //! This is responsible for performing incremental caching and invalidations
 //! with multiple versions in-flight at the same time.
-//!
 
 use std::fmt::Debug;
 use std::hash::Hash;

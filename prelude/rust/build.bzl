@@ -39,6 +39,7 @@ load(
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
+load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
 load("@prelude//utils:set.bzl", "set")
@@ -87,6 +88,7 @@ load(":rust_toolchain.bzl", "PanicRuntime", "RustToolchainInfo")
 
 RustcOutput = record(
     output = field(Artifact),
+    stripped_output = field(Artifact),
     diag = field(dict[str, Artifact]),
     pdb = field([Artifact, None]),
     dwp_output = field([Artifact, None]),
@@ -229,7 +231,7 @@ def generate_rustdoc_test(
         link_strategy: LinkStrategy,
         rlib: Artifact,
         params: BuildParams,
-        default_roots: list[str]) -> (cmd_args, dict[str, cmd_args]):
+        default_roots: list[str]) -> cmd_args:
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
     toolchain_info = compile_ctx.toolchain_info
@@ -305,7 +307,20 @@ def generate_rustdoc_test(
     else:
         runtool = ["--runtool=/usr/bin/env"]
 
+    plain_env, path_env = _process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
+    doc_plain_env, doc_path_env = _process_env(compile_ctx, ctx.attrs.doc_env, exec_is_windows)
+    for k, v in doc_plain_env.items():
+        path_env.pop(k, None)
+        plain_env[k] = v
+    for k, v in doc_path_env.items():
+        plain_env.pop(k, None)
+        path_env[k] = v
+    plain_env["RUSTC_BOOTSTRAP"] = cmd_args("1")  # for `-Zunstable-options`
+
     rustdoc_cmd = cmd_args(
+        [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],
+        [cmd_args("--path-env=", k, "=", v, delimiter = "") for k, v in path_env.items()],
+        toolchain_info.rustdoc,
         "--test",
         "-Zunstable-options",
         cmd_args("--test-builder=", toolchain_info.compiler, delimiter = ""),
@@ -329,25 +344,12 @@ def generate_rustdoc_test(
         executable_args.runtime_files,
     )
 
-    rustdoc_cmd = _long_command(
+    return _long_command(
         ctx = ctx,
-        exe = toolchain_info.rustdoc,
+        exe = toolchain_info.rustc_action,
         args = rustdoc_cmd,
         argfile_name = "{}.args".format(common_args.subdir),
     )
-
-    plain_env, path_env = _process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
-    rustdoc_env = plain_env | path_env
-
-    # Pass everything in env + doc_env, except ones with value None in doc_env.
-    for k, v in ctx.attrs.doc_env.items():
-        if v == None:
-            rustdoc_env.pop(k, None)
-        else:
-            rustdoc_env[k] = cmd_args(v)
-    rustdoc_env["RUSTC_BOOTSTRAP"] = cmd_args("1")  # for `-Zunstable-options`
-
-    return (rustdoc_cmd, rustdoc_env)
 
 # Generate multiple compile artifacts so that distinct sets of artifacts can be
 # generated concurrently.
@@ -617,8 +619,19 @@ def rust_compile(
     else:
         dwp_output = None
 
+    stripped_output = strip_debug_info(
+        ctx,
+        paths.join(common_args.subdir, "stripped", output_filename(
+            attr_simple_crate_for_filenames(ctx),
+            Emit("link"),
+            params,
+        )),
+        filtered_output,
+    )
+
     return RustcOutput(
         output = filtered_output,
+        stripped_output = stripped_output,
         diag = diag,
         pdb = pdb_artifact,
         dwp_output = dwp_output,
@@ -726,18 +739,33 @@ def dynamic_symlinked_dirs(
         artifacts: dict[Artifact, CrateName]) -> cmd_args:
     name = "{}-dyn".format(prefix)
     transitive_dependency_dir = ctx.actions.declare_output(name, dir = True)
-    do_symlinks = cmd_args(
-        compile_ctx.toolchain_info.transitive_dependency_symlinks_tool,
-        cmd_args(transitive_dependency_dir.as_output(), format = "--out-dir={}"),
+
+    # Pass the list of rlibs to transitive_dependency_symlinks.py through a file
+    # because there can be a lot of them. This avoids running out of command
+    # line length, particularly on Windows.
+    relative_path = lambda artifact: (cmd_args(artifact, delimiter = "")
+        .relative_to(transitive_dependency_dir.project("i"))
+        .ignore_artifacts())
+    artifacts_json = ctx.actions.write_json(
+        ctx.actions.declare_output("{}-dyn.json".format(prefix)),
+        [
+            (relative_path(artifact), crate.dynamic)
+            for artifact, crate in artifacts.items()
+        ],
+        with_inputs = True,
+        pretty = True,
     )
-    for artifact, crate in artifacts.items():
-        relative_path = cmd_args(artifact).relative_to(transitive_dependency_dir.project("i"))
-        do_symlinks.add("--artifact", crate.dynamic, relative_path.ignore_artifacts())
+
     ctx.actions.run(
-        do_symlinks,
+        [
+            compile_ctx.toolchain_info.transitive_dependency_symlinks_tool,
+            cmd_args(transitive_dependency_dir.as_output(), format = "--out-dir={}"),
+            cmd_args(artifacts_json, format = "--artifacts={}"),
+        ],
         category = "tdep_symlinks",
         identifier = str(len(compile_ctx.transitive_dependency_dirs)),
     )
+
     compile_ctx.transitive_dependency_dirs[transitive_dependency_dir] = None
     return cmd_args(transitive_dependency_dir, format = "@{}/dirs").hidden(artifacts.keys())
 
@@ -823,7 +851,7 @@ def _compute_common_args(
     if crate_type == CrateType("proc-macro"):
         dep_args.add("--extern=proc_macro")
 
-    if crate_type == CrateType("cdylib") or crate_type == CrateType("dylib") and not is_check:
+    if crate_type in [CrateType("cdylib"), CrateType("dylib")] and not is_check:
         linker_info = compile_ctx.cxx_toolchain_info.linker_info
         shlib_name = get_default_shared_library_name(linker_info, ctx.label)
         dep_args.add(cmd_args(

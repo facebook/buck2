@@ -19,11 +19,11 @@
 //! use crate::dice::DiceData;
 //!
 //! pub trait HasData {
-//!    fn my_data(&self) -> usize;
+//!     fn my_data(&self) -> usize;
 //!
-//!    fn other_data(&self) -> &String;
+//!     fn other_data(&self) -> &String;
 //!
-//!    fn set_multi(&mut self, i: usize, s: String);
+//!     fn set_multi(&mut self, i: usize, s: String);
 //! }
 //!
 //! struct HasDataContainer(usize, String);
@@ -47,9 +47,7 @@
 //!
 //! assert_eq!(data.other_data(), &"foo".to_string());
 //! assert_eq!(data.my_data(), 1);
-//!
 //! ```
-//!
 
 use std::collections::BTreeSet;
 

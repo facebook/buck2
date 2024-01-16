@@ -18,10 +18,13 @@ load(
 )
 load(
     "@prelude//haskell:compile.bzl",
-    "HaskellLibraryInfo",
-    "HaskellLibraryProvider",
     "PackagesInfo",
     "get_packages_info",
+)
+load(
+    "@prelude//haskell:library_info.bzl",
+    "HaskellLibraryInfo",
+    "HaskellLibraryProvider",
 )
 load(
     "@prelude//haskell:toolchain.bzl",
@@ -630,11 +633,11 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
     package_symlinks_root = ctx.label.name + ".packages"
 
     packagedb_args = cmd_args(delimiter = " ")
-    prebuilt_packagedb_args = cmd_args(delimiter = " ")
+    prebuilt_packagedb_args_set = {}
 
     for lib in packages_info.transitive_deps:
         if lib.is_prebuilt:
-            prebuilt_packagedb_args.add(lib.db)
+            prebuilt_packagedb_args_set[lib.db] = lib.db
         else:
             lib_symlinks_root = paths.join(
                 package_symlinks_root,
@@ -664,6 +667,7 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
                     "packagedb",
                 ),
             )
+    prebuilt_packagedb_args = cmd_args(prebuilt_packagedb_args_set.values(), delimiter = " ")
 
     script_templates = []
     for script_template in ctx.attrs.extra_script_templates:

@@ -102,9 +102,9 @@ impl ProjectRoot {
     /// `project root`, yielding a 'AbsPathBuf'
     ///
     /// ```
+    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     /// use buck2_core::fs::project::ProjectRoot;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
-    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     ///
     /// if cfg!(not(windows)) {
     ///     let root = AbsNormPathBuf::from("/usr/local/fbsource/".into())?;
@@ -134,9 +134,10 @@ impl ProjectRoot {
     /// Takes a 'ProjectRelativePath' and converts it to a 'Path' that is relative to the project root.
     ///
     /// ```
-    /// use buck2_core::fs::project::{ProjectRoot};
-    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     /// use std::path::PathBuf;
+    ///
+    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+    /// use buck2_core::fs::project::ProjectRoot;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
     ///
     /// let root = if cfg!(not(windows)) {
@@ -166,9 +167,11 @@ impl ProjectRoot {
     ///
     /// ```
     /// use std::borrow::Cow;
-    /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
-    /// use buck2_core::fs::paths::abs_norm_path::{AbsNormPathBuf, AbsNormPath};
+    ///
+    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     /// use buck2_core::fs::project::ProjectRoot;
+    /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
     ///
     /// if cfg!(not(windows)) {
     ///     let root = AbsNormPathBuf::from("/usr/local/fbsource/".into())?;

@@ -919,7 +919,7 @@ where
 /// ```
 /// use starlark_map::smallmap;
 ///
-/// let map = smallmap!{
+/// let map = smallmap! {
 ///     "a" => 1,
 ///     "b" => 2,
 /// };

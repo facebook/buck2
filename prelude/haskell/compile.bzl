@@ -11,8 +11,11 @@ load(
     "cxx_merge_cpreprocessors",
 )
 load(
+    "@prelude//haskell:library_info.bzl",
+    "HaskellLibraryInfo",
+)
+load(
     "@prelude//haskell:link_info.bzl",
-    "HaskellLinkInfo",
     "merge_haskell_link_infos",
 )
 load(
@@ -21,7 +24,8 @@ load(
 )
 load(
     "@prelude//haskell:util.bzl",
-    "attr_deps",
+    "attr_deps_haskell_lib_infos",
+    "attr_deps_haskell_link_infos",
     "get_artifact_suffix",
     "is_haskell_src",
     "output_extensions",
@@ -47,71 +51,11 @@ CompileArgsInfo = record(
     args_for_file = field(cmd_args),
 )
 
-# If the target is a haskell library, the HaskellLibraryProvider
-# contains its HaskellLibraryInfo. (in contrast to a HaskellLinkInfo,
-# which contains the HaskellLibraryInfo for all the transitive
-# dependencies). Direct dependencies are treated differently from
-# indirect dependencies for the purposes of module visibility.
-HaskellLibraryProvider = provider(
-    fields = {
-        "lib": provider_field(typing.Any, default = None),  # dict[LinkStyle, HaskellLibraryInfo]
-        "prof_lib": provider_field(typing.Any, default = None),  # dict[LinkStyle, HaskellLibraryInfo]
-    },
-)
-
-# A record of a Haskell library.
-HaskellLibraryInfo = record(
-    # The library target name: e.g. "rts"
-    name = str,
-    # package config database: e.g. platform009/build/ghc/lib/package.conf.d
-    db = Artifact,
-    # e.g. "base-4.13.0.0"
-    id = str,
-    # Import dirs indexed by profiling enabled/disabled
-    import_dirs = dict[bool, Artifact],
-    stub_dirs = list[Artifact],
-
-    # This field is only used as hidden inputs to compilation, to
-    # support Template Haskell which may need access to the libraries
-    # at compile time.  The real library flags are propagated up the
-    # dependency graph via MergedLinkInfo.
-    libs = field(list[Artifact], []),
-    # Package version, used to specify the full package when exposing it,
-    # e.g. filepath-1.4.2.1, deepseq-1.4.4.0.
-    # Internal packages default to 1.0.0, e.g. `fbcode-dsi-logger-hs-types-1.0.0`.
-    version = str,
-    is_prebuilt = bool,
-    profiling_enabled = bool,
-)
-
 PackagesInfo = record(
     exposed_package_args = cmd_args,
     packagedb_args = cmd_args,
     transitive_deps = field(list[HaskellLibraryInfo]),
 )
-
-def _attr_deps_haskell_link_infos(ctx: AnalysisContext) -> list[HaskellLinkInfo]:
-    return filter(
-        None,
-        [
-            d.get(HaskellLinkInfo)
-            for d in attr_deps(ctx) + ctx.attrs.template_deps
-        ],
-    )
-
-def _attr_deps_haskell_lib_infos(
-        ctx: AnalysisContext,
-        link_style: LinkStyle,
-        enable_profiling: bool) -> list[HaskellLibraryInfo]:
-    if enable_profiling and link_style == LinkStyle("shared"):
-        fail("Profiling isn't supported when using dynamic linking")
-    return [
-        x.prof_lib[link_style] if enable_profiling else x.lib[link_style]
-        for x in filter(None, [
-            d.get(HaskellLibraryProvider)
-            for d in attr_deps(ctx) + ctx.attrs.template_deps
-        ])
-    ]
 
 def _package_flag(toolchain: HaskellToolchainInfo) -> str:
     if toolchain.support_expose_package:
@@ -130,7 +74,7 @@ def get_packages_info(
     # particular order and we really want to remove duplicates (there
     # are a *lot* of duplicates).
     libs = {}
-    direct_deps_link_info = _attr_deps_haskell_link_infos(ctx)
+    direct_deps_link_info = attr_deps_haskell_link_infos(ctx)
     merged_hs_link_info = merge_haskell_link_infos(direct_deps_link_info)
 
     hs_link_info = merged_hs_link_info.prof_info if enable_profiling else merged_hs_link_info.info
@@ -161,7 +105,7 @@ def get_packages_info(
         # direct and transitive (e.g. `fbcode-common-hs-util-hs-array`)
         packagedb_args.add("-package-db", lib.db)
 
-    haskell_direct_deps_lib_infos = _attr_deps_haskell_lib_infos(
+    haskell_direct_deps_lib_infos = attr_deps_haskell_lib_infos(
         ctx,
         link_style,
         enable_profiling,

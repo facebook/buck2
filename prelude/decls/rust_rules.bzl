@@ -9,7 +9,7 @@ load("@prelude//cxx/user:link_group_map.bzl", "link_group_map_attr")
 load("@prelude//rust:link_info.bzl", "RustProcMacroPlugin")
 load("@prelude//rust:rust_binary.bzl", "rust_binary_impl", "rust_test_impl")
 load("@prelude//rust:rust_library.bzl", "prebuilt_rust_library_impl", "rust_library_impl")
-load(":common.bzl", "LinkableDepType", "Linkage", "buck", "prelude_rule")
+load(":common.bzl", "Linkage", "buck", "prelude_rule")
 load(":native_common.bzl", "native_common")
 load(":re_test_common.bzl", "re_test_common")
 load(":rust_common.bzl", "rust_common", "rust_target_dep")
@@ -51,6 +51,7 @@ prebuilt_rust_library = prelude_rule(
                 'libfoo-abc123def456.rlib' if it has symbol versioning metadata.
             """),
         } |
+        native_common.preferred_linkage(preferred_linkage_type = attrs.enum(Linkage, default = "any")) |
         rust_common.crate(crate_type = attrs.string(default = "")) |
         rust_common.deps_arg(is_binary = False) |
         {
@@ -58,7 +59,6 @@ prebuilt_rust_library = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
-            "link_style": attrs.option(attrs.enum(LinkableDepType), default = None),
             "proc_macro": attrs.bool(default = False),
         } |
         rust_common.cxx_toolchain_arg() |

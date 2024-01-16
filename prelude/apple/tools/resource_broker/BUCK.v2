@@ -1,0 +1,31 @@
+python_binary(
+    name = "resource_broker",
+    main = "main.py",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":main",
+    ],
+)
+
+python_library(
+    name = "main",
+    srcs = ["main.py"],
+    deps = [
+        ":lib",
+    ],
+)
+
+python_library(
+    name = "lib",
+    srcs = glob(
+        [
+            "*.py",
+        ],
+        exclude = [
+            "main.py",
+        ],
+    ),
+    deps = [
+        "fbsource//third-party/pypi/dataclasses-json:dataclasses-json",
+    ],
+)

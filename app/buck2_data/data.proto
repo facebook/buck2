@@ -85,6 +85,7 @@ message SpanStartEvent {
     BxlEnsureArtifactsStart bxl_ensure_artifacts = 82;
     CreateOutputHashesFileStart create_output_hashes_file = 84;
     ActionErrorHandlerExecutionStart action_error_handler_execution = 85;
+    CqueryUniverseBuildStart cquery_universe_build = 87;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -134,6 +135,7 @@ message SpanEndEvent {
     BxlEnsureArtifactsEnd bxl_ensure_artifacts = 83;
     CreateOutputHashesFileEnd create_output_hashes_file = 85;
     ActionErrorHandlerExecutionEnd action_error_handler_execution = 86;
+    CqueryUniverseBuildEnd cquery_universe_build = 87;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -1213,6 +1215,10 @@ message ActionErrorLocation {
 message ActionErrorHandlerExecutionStart {}
 
 message ActionErrorHandlerExecutionEnd {}
+
+message CqueryUniverseBuildStart {}
+
+message CqueryUniverseBuildEnd {}
 
 // The beginning of materialization for the output of a target requested,
 // inclusive of all dependent artifacts it might recursively request to

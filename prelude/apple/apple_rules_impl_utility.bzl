@@ -47,6 +47,9 @@ APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME = "_archive_objects_locally_ove
 APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME = "_use_entitlements_when_adhoc_code_signing"
 APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME = "use_entitlements_when_adhoc_code_signing"
 
+APPLE_VALIDATION_DEPS_ATTR_NAME = "validation_deps"
+APPLE_VALIDATION_DEPS_ATTR_TYPE = attrs.set(attrs.dep(), sorted = True, default = [])
+
 def apple_dsymutil_attrs():
     return {
         "_dsymutil_extra_flags": attrs.list(attrs.string()),
@@ -75,6 +78,7 @@ def _apple_bundle_like_common_attrs():
         APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
         APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME: attrs.bool(default = False),
         BUCK2_COMPATIBILITY_ATTRIB_NAME: BUCK2_COMPATIBILITY_ATTRIB_TYPE,
+        APPLE_VALIDATION_DEPS_ATTR_NAME: APPLE_VALIDATION_DEPS_ATTR_TYPE,
     }
     attribs.update(get_apple_info_plist_build_system_identification_attrs())
     attribs.update(apple_dsymutil_attrs())
@@ -104,6 +108,7 @@ def apple_test_extra_attrs():
         "resource_group_map": attrs.option(attrs.string(), default = None),
         "stripped": attrs.bool(default = False),
         "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
+        "use_m1_simulator": attrs.bool(default = False),
         "_apple_toolchain": get_apple_toolchain_attr(),
         "_ios_booted_simulator": attrs.transition_dep(cfg = apple_simulators_transition, default = "fbsource//xplat/buck2/platform/apple:ios_booted_simulator", providers = [LocalResourceInfo]),
         "_ios_unbooted_simulator": attrs.transition_dep(cfg = apple_simulators_transition, default = "fbsource//xplat/buck2/platform/apple:ios_unbooted_simulator", providers = [LocalResourceInfo]),
@@ -114,6 +119,26 @@ def apple_test_extra_attrs():
         APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_NAME: APPLE_BUILD_GENRULE_DEPS_DEFAULT_ATTRIB_TYPE,
         APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_NAME: APPLE_BUILD_GENRULE_DEPS_TARGET_ATTRIB_TYPE,
     })
+    return attribs
+
+def apple_xcuitest_extra_attrs():
+    attribs = {
+        # This is ignored, but required for info plist processing.
+        "binary": attrs.option(attrs.source(), default = None),
+        "codesign_identity": attrs.option(attrs.string(), default = None),
+        "entitlements_file": attrs.option(attrs.source(), default = None),
+        "extension": attrs.default_only(attrs.string(default = "app")),
+        "incremental_bundling_enabled": attrs.bool(default = False),
+        "info_plist": attrs.source(),
+        "info_plist_substitutions": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
+        "target_sdk_version": attrs.option(attrs.string(), default = None),
+        # The test bundle to package in the UI test runner app.
+        "test_bundle": attrs.dep(),
+        "_apple_toolchain": get_apple_toolchain_attr(),
+    }
+    attribs.update(_apple_bundle_like_common_attrs())
+    attribs.pop("_dsymutil_extra_flags", None)
+
     return attribs
 
 def apple_bundle_extra_attrs():

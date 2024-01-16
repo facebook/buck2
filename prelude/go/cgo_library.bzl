@@ -102,12 +102,14 @@ def _cgo(
     args.add(cmd_args(go_toolchain.cgo, format = "--cgo={}"))
 
     c_compiler = cxx_toolchain.c_compiler_info
-    linker = cxx_toolchain.linker_info
+    # linker = cxx_toolchain.linker_info
 
-    ldflags = cmd_args(
-        linker.linker_flags,
-        go_toolchain.external_linker_flags,
-    )
+    # Passing fbcode-platform ldflags may create S365277, so I would
+    # comment this change until we really need to do it.
+    # ldflags = cmd_args(
+    #     linker.linker_flags,
+    #     go_toolchain.external_linker_flags,
+    # )
 
     # Construct the full C/C++ command needed to preprocess/compile sources.
     cxx_cmd = cmd_args()
@@ -137,7 +139,6 @@ def _cgo(
         is_executable = True,
     )
     args.add(cmd_args(cxx_wrapper, format = "--env-cc={}"))
-    args.add(cmd_args(ldflags, format = "--env-ldflags={}"))
     args.hidden(cxx_cmd)
 
     # TODO(agallagher): cgo outputs a dir with generated sources, but I'm not
@@ -167,6 +168,7 @@ def _compile_with_coverage(ctx: AnalysisContext, pkg_name: str, srcs: cmd_args, 
         ctx,
         pkg_name,
         srcs = srcs,
+        cgo_enabled = True,
         deps = ctx.attrs.deps + ctx.attrs.exported_deps,
         coverage_mode = coverage_mode,
         shared = shared,
@@ -244,6 +246,7 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx,
         pkg_name,
         all_srcs,
+        cgo_enabled = True,
         deps = ctx.attrs.deps + ctx.attrs.exported_deps,
         shared = False,
     )
@@ -251,6 +254,7 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx,
         pkg_name,
         all_srcs,
+        cgo_enabled = True,
         deps = ctx.attrs.deps + ctx.attrs.exported_deps,
         shared = True,
     )

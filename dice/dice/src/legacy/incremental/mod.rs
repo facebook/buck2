@@ -12,7 +12,6 @@
 //!
 //! This is responsible for performing incremental caching and invalidations
 //! with multiple versions in-flight at the same time.
-//!
 
 pub(crate) mod dep_trackers;
 pub(crate) mod evaluator;

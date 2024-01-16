@@ -16,7 +16,6 @@
 //! under a "transition". Multiple distinct configurations may be applied to the
 //! transitive graph, effectively duplicating the graph to create two distinct
 //! graphs with different build behaviours (split-transitions).
-//!
 
 pub mod bound_id;
 pub mod bound_label;

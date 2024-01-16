@@ -88,7 +88,6 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
     /// transitions. This means that you cannot create an exec dep or toolchain from an analysis result.
 
     /// We may support other dependency transition types in the future.
-    ///
 
     /// This is useful for passing in the results of `ctx.analysis()` into anon targets.
     ///

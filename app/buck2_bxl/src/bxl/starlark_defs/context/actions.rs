@@ -8,7 +8,6 @@
  */
 
 //! Starlark Actions API for bxl functions
-//!
 use allocative::Allocative;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::analysis::registry::AnalysisRegistry;

@@ -19,6 +19,7 @@ load(":compile.bzl", "GoTestInfo", "compile", "get_filtered_srcs", "get_inherite
 load(":coverage.bzl", "GoCoverageMode", "cover_srcs")
 load(":link.bzl", "link")
 load(":packages.bzl", "go_attr_pkg_name", "pkg_artifact", "pkg_coverage_vars")
+load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled")
 
 def _gen_test_main(
         ctx: AnalysisContext,
@@ -83,11 +84,15 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
                 coverage_vars[name] = vars
                 pkgs[name] = artifact
 
+    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
+    cgo_enabled = evaluate_cgo_enabled(go_toolchain, ctx.attrs.cgo_enabled)
+
     # Compile all tests into a package.
     tests = compile(
         ctx,
         pkg_name,
         srcs,
+        cgo_enabled = cgo_enabled,
         deps = deps,
         pkgs = pkgs,
         compile_flags = ctx.attrs.compiler_flags,
@@ -98,13 +103,14 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     # package.
     gen_main = _gen_test_main(ctx, pkg_name, coverage_mode, coverage_vars, srcs)
     pkgs[pkg_name] = tests
-    main = compile(ctx, "main", cmd_args(gen_main), pkgs = pkgs, coverage_mode = coverage_mode)
+    main = compile(ctx, "main", cmd_args(gen_main), cgo_enabled = cgo_enabled, pkgs = pkgs, coverage_mode = coverage_mode)
 
     # Link the above into a Go binary.
     (bin, runtime_files, external_debug_info) = link(
         ctx = ctx,
         main = main,
         pkgs = pkgs,
+        cgo_enabled = cgo_enabled,
         deps = deps,
         link_style = value_or(map_val(LinkStyle, ctx.attrs.link_style), LinkStyle("static")),
         linker_flags = ctx.attrs.linker_flags,

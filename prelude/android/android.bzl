@@ -187,6 +187,7 @@ extra_attributes = {
     "apk_genrule": genrule_attributes() | {
         "type": attrs.string(default = "apk"),
         "_android_toolchain": toolchains_common.android(),
+        "_exec_os_type": buck.exec_os_type_arg(),
     },
     "gen_aidl": {
         "import_paths": attrs.list(attrs.arg(), default = []),

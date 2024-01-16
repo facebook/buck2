@@ -47,6 +47,12 @@ def _process_target_config(ctx, target, in_workspace, out_dir = None):
     for test in resolved_attrs.tests:
         tests.append(test.raw_target())
 
+    # materialize a file containing the dynamic crate name
+    crate_dynamic = getattr(resolved_attrs, "crate_dynamic", None)
+    if crate_dynamic:
+        cratename_artifact = crate_dynamic.get(DefaultInfo).default_outputs[0]
+        crate_dynamic = ctx.output.ensure(cratename_artifact).abs_path()
+
     # copy over the absolute paths and raw targets into the output
     copy = {}
     attrs = target.attrs_eager()
@@ -61,6 +67,8 @@ def _process_target_config(ctx, target, in_workspace, out_dir = None):
             copy["named_deps"] = named_deps
         elif k == "tests":
             copy["tests"] = tests
+        elif k == "crate_dynamic":
+            copy["crate_dynamic"] = crate_dynamic
         else:
             copy[k] = getattr(attrs, k)
 
@@ -100,21 +108,28 @@ def cquery_deps(ctx, top_targets, workspaces, actions):
                     cfg["crate_root"] = thrift["artifact"]
             out[target.label.raw_target()] = cfg
         elif "generated_protobuf_library_rust" in labels.value():
-            protobuf = materialize_generated_protobufs(ctx, target, actions)
-            out[target.label.raw_target()] = _process_target_config(ctx, target, in_workspace, out_dir = protobuf.abs_path())
+            protobuf_out_dir = materialize_generated_protobufs(ctx, target, actions, seen)
+            out[target.label.raw_target()] = _process_target_config(ctx, target, in_workspace, protobuf_out_dir)
         else:
             out[target.label.raw_target()] = _process_target_config(ctx, target, in_workspace)
     return out
 
-def materialize_generated_protobufs(ctx, target, actions):
+def materialize_generated_protobufs(ctx, target, actions, seen):
+    """If `target` has a dependency that generates code from protobufs,
+    materialize the generated code and return the path to the output directory.
+    """
     prost_target = target.attrs_lazy().get("named_deps").value().get("generated_prost_target")
     t = prost_target.raw_target()
     analysis = ctx.analysis(t)
     output = analysis.providers()[DefaultInfo].default_outputs[0]
     outfile = "{}/{}/{}".format(t.cell, t.package, t.name)
-    copied = ctx.output.ensure(actions.copy_file(outfile, output))
 
-    return copied
+    if outfile in seen:
+        return None
+    seen[outfile] = ()
+
+    copied = ctx.output.ensure(actions.copy_file(outfile, output))
+    return copied.abs_path()
 
 def materialize_generated_thrift(ctx, target, actions, seen):
     mapped_srcs = target.attrs_lazy().get("mapped_srcs").value()
@@ -132,14 +147,16 @@ def materialize_generated_thrift(ctx, target, actions, seen):
         else:
             label = label.raw_target()
 
-        copied = actions.copy_file(outfile, artifacts.artifacts()[0])
-        copied = ctx.output.ensure(copied)
-        artifact = {
-            "artifact": copied.abs_path(),
-            "label": label,
-            "mapped_src": mapped_src,
-        }
-        out.append(artifact)
+        if len(artifacts.artifacts()) > 0:
+            copied = actions.copy_file(outfile, artifacts.artifacts()[0])
+            copied = ctx.output.ensure(copied)
+            artifact = {
+                "artifact": copied.abs_path(),
+                "label": label,
+                "mapped_src": mapped_src,
+            }
+            out.append(artifact)
+
         seen[outfile] = ()
     return out
 

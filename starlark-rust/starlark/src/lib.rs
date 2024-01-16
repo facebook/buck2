@@ -23,10 +23,12 @@
 //!
 //! ```
 //! # fn run() -> starlark::Result<()> {
+//! use starlark::environment::Globals;
+//! use starlark::environment::Module;
 //! use starlark::eval::Evaluator;
-//! use starlark::environment::{Module, Globals};
+//! use starlark::syntax::AstModule;
+//! use starlark::syntax::Dialect;
 //! use starlark::values::Value;
-//! use starlark::syntax::{AstModule, Dialect};
 //!
 //! let content = r#"
 //! def hello():
@@ -36,7 +38,8 @@
 //!
 //! // We first parse the content, giving a filename and the Starlark
 //! // `Dialect` we'd like to use (we pick standard).
-//! let ast: AstModule = AstModule::parse("hello_world.star", content.to_owned(), &Dialect::Standard)?;
+//! let ast: AstModule =
+//!     AstModule::parse("hello_world.star", content.to_owned(), &Dialect::Standard)?;
 //!
 //! // We create a `Globals`, defining the standard library functions available.
 //! // The `standard` function uses those defined in the Starlark specification.
@@ -108,12 +111,17 @@
 //! #[macro_use]
 //! extern crate starlark;
 //! # fn run() -> starlark::Result<()> {
-//! use starlark::environment::{GlobalsBuilder, Module};
-//! use starlark::eval::Evaluator;
-//! use starlark::syntax::{AstModule, Dialect};
-//! use starlark::values::{none::NoneType, Value, ValueLike};
-//! use starlark::any::ProvidesStaticType;
 //! use std::cell::RefCell;
+//!
+//! use starlark::any::ProvidesStaticType;
+//! use starlark::environment::GlobalsBuilder;
+//! use starlark::environment::Module;
+//! use starlark::eval::Evaluator;
+//! use starlark::syntax::AstModule;
+//! use starlark::syntax::Dialect;
+//! use starlark::values::none::NoneType;
+//! use starlark::values::Value;
+//! use starlark::values::ValueLike;
 //!
 //! let content = r#"
 //! emit(1)
@@ -127,7 +135,7 @@
 //!
 //! impl Store {
 //!     fn add(&self, x: String) {
-//!          self.0.borrow_mut().push(x)
+//!         self.0.borrow_mut().push(x)
 //!     }
 //! }
 //!
@@ -169,9 +177,12 @@
 //!
 //! ```
 //! # fn run() -> starlark::Result<()> {
-//! use starlark::environment::{Globals, Module};
+//! use starlark::environment::Globals;
+//! use starlark::environment::Module;
 //! use starlark::eval::Evaluator;
-//! use starlark::syntax::{AstModule, Dialect, DialectTypes};
+//! use starlark::syntax::AstModule;
+//! use starlark::syntax::Dialect;
+//! use starlark::syntax::DialectTypes;
 //!
 //! let content = r#"
 //! def takes_int(x: int):
@@ -180,7 +191,10 @@
 //! "#;
 //!
 //! // Make the dialect enable types
-//! let dialect = Dialect {enable_types: DialectTypes::Enable, ..Dialect::Standard};
+//! let dialect = Dialect {
+//!     enable_types: DialectTypes::Enable,
+//!     ..Dialect::Standard
+//! };
 //! // We could equally have done `dialect = Dialect::Extended`.
 //! let ast = AstModule::parse("json.star", content.to_owned(), &dialect)?;
 //! let globals = Globals::standard();
@@ -188,7 +202,11 @@
 //! let mut eval = Evaluator::new(&module);
 //! let res = eval.eval_module(ast, &globals);
 //! // We expect this to fail, since it is a type violation
-//! assert!(res.unwrap_err().to_string().contains("Value `test` of type `string` does not match the type annotation `int`"));
+//! assert!(
+//!     res.unwrap_err()
+//!         .to_string()
+//!         .contains("Value `test` of type `string` does not match the type annotation `int`")
+//! );
 //! # Ok(())
 //! # }
 //! # fn main(){ run().unwrap(); }
@@ -202,16 +220,21 @@
 //!
 //! ```
 //! # fn run() -> starlark::Result<()> {
-//! use starlark::environment::{FrozenModule, Globals, Module};
-//! use starlark::eval::{Evaluator, ReturnFileLoader};
-//! use starlark::syntax::{AstModule, Dialect};
+//! use starlark::environment::FrozenModule;
+//! use starlark::environment::Globals;
+//! use starlark::environment::Module;
+//! use starlark::eval::Evaluator;
+//! use starlark::eval::ReturnFileLoader;
+//! use starlark::syntax::AstModule;
+//! use starlark::syntax::Dialect;
 //!
 //! // Get the file contents (for the demo), in reality use `AstModule::parse_file`.
 //! fn get_source(file: &str) -> &str {
 //!     match file {
 //!         "a.star" => "a = 7",
 //!         "b.star" => "b = 6",
-//!         _ => { r#"
+//!         _ => {
+//!             r#"
 //! load('a.star', 'a')
 //! load('b.star', 'b')
 //! ab = a * b
@@ -221,27 +244,27 @@
 //! }
 //!
 //! fn get_module(file: &str) -> starlark::Result<FrozenModule> {
-//!    let ast = AstModule::parse(file, get_source(file).to_owned(), &Dialect::Standard)?;
+//!     let ast = AstModule::parse(file, get_source(file).to_owned(), &Dialect::Standard)?;
 //!
-//!    // We can get the loaded modules from `ast.loads`.
-//!    // And ultimately produce a `loader` capable of giving those modules to Starlark.
-//!    let mut loads = Vec::new();
-//!    for load in ast.loads() {
-//!        loads.push((load.module_id.to_owned(), get_module(load.module_id)?));
-//!    }
-//!    let modules = loads.iter().map(|(a, b)| (a.as_str(), b)).collect();
-//!    let mut loader = ReturnFileLoader { modules: &modules };
+//!     // We can get the loaded modules from `ast.loads`.
+//!     // And ultimately produce a `loader` capable of giving those modules to Starlark.
+//!     let mut loads = Vec::new();
+//!     for load in ast.loads() {
+//!         loads.push((load.module_id.to_owned(), get_module(load.module_id)?));
+//!     }
+//!     let modules = loads.iter().map(|(a, b)| (a.as_str(), b)).collect();
+//!     let mut loader = ReturnFileLoader { modules: &modules };
 //!
-//!    let globals = Globals::standard();
-//!    let module = Module::new();
-//!    {
-//!        let mut eval = Evaluator::new(&module);
-//!        eval.set_loader(&mut loader);
-//!        eval.eval_module(ast, &globals)?;
-//!    }
-//!    // After creating a module we freeze it, preventing further mutation.
-//!    // It can now be used as the input for other Starlark modules.
-//!    Ok(module.freeze()?)
+//!     let globals = Globals::standard();
+//!     let module = Module::new();
+//!     {
+//!         let mut eval = Evaluator::new(&module);
+//!         eval.set_loader(&mut loader);
+//!         eval.eval_module(ast, &globals)?;
+//!     }
+//!     // After creating a module we freeze it, preventing further mutation.
+//!     // It can now be used as the input for other Starlark modules.
+//!     Ok(module.freeze()?)
 //! }
 //!
 //! let ab = get_module("ab.star")?;
@@ -257,9 +280,11 @@
 //!
 //! ```
 //! # fn run() -> starlark::Result<()> {
-//! use starlark::environment::{Globals, Module};
+//! use starlark::environment::Globals;
+//! use starlark::environment::Module;
 //! use starlark::eval::Evaluator;
-//! use starlark::syntax::{AstModule, Dialect};
+//! use starlark::syntax::AstModule;
+//! use starlark::syntax::Dialect;
 //! use starlark::values::Value;
 //!
 //! let content = r#"
@@ -292,13 +317,24 @@
 //!
 //! ```
 //! # fn run() -> starlark::Result<()> {
-//! use starlark::environment::{Globals, Module};
-//! use starlark::eval::Evaluator;
-//! use starlark::syntax::{AstModule, Dialect};
-//! use starlark::values::{Heap, StarlarkValue, Value, ValueError, ValueLike, ProvidesStaticType, NoSerialize};
-//! use starlark::starlark_simple_value;
-//! use std::fmt::{self, Display, Write};
+//! use std::fmt::Display;
+//! use std::fmt::Write;
+//! use std::fmt::{self};
+//!
 //! use allocative::Allocative;
+//! use starlark::environment::Globals;
+//! use starlark::environment::Module;
+//! use starlark::eval::Evaluator;
+//! use starlark::starlark_simple_value;
+//! use starlark::syntax::AstModule;
+//! use starlark::syntax::Dialect;
+//! use starlark::values::Heap;
+//! use starlark::values::NoSerialize;
+//! use starlark::values::ProvidesStaticType;
+//! use starlark::values::StarlarkValue;
+//! use starlark::values::Value;
+//! use starlark::values::ValueError;
+//! use starlark::values::ValueLike;
 //! use starlark_derive::starlark_value;
 //!
 //! // Define complex numbers
@@ -318,8 +354,7 @@
 //! #[starlark_value(type = "complex")]
 //! impl<'v> StarlarkValue<'v> for Complex {
 //!     // How we add them
-//!     fn add(&self, rhs: Value<'v>, heap: &'v Heap)
-//!             -> Option<starlark::Result<Value<'v>>> {
+//!     fn add(&self, rhs: Value<'v>, heap: &'v Heap) -> Option<starlark::Result<Value<'v>>> {
 //!         if let Some(rhs) = rhs.downcast_ref::<Self>() {
 //!             Some(Ok(heap.alloc(Complex {
 //!                 real: self.real + rhs.real,
@@ -337,9 +372,15 @@
 //! let globals = Globals::standard();
 //! let module = Module::new();
 //! // We inject some complex numbers into the module before we start.
-//! let a = module.heap().alloc(Complex {real: 1, imaginary: 8});
+//! let a = module.heap().alloc(Complex {
+//!     real: 1,
+//!     imaginary: 8,
+//! });
 //! module.set("a", a);
-//! let b = module.heap().alloc(Complex {real: 4, imaginary: 2});
+//! let b = module.heap().alloc(Complex {
+//!     real: 4,
+//!     imaginary: 2,
+//! });
 //! module.set("b", b);
 //! let mut eval = Evaluator::new(&module);
 //! let res = eval.eval_module(ast, &globals)?;

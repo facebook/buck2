@@ -49,7 +49,8 @@ use crate::values::ValueTyped;
 ///
 /// ```
 /// use starlark::const_frozen_string;
-/// use starlark::values::{FrozenStringValue, FrozenValue};
+/// use starlark::values::FrozenStringValue;
+/// use starlark::values::FrozenValue;
 ///
 /// let fv: FrozenStringValue = const_frozen_string!("magic");
 /// assert_eq!("magic", fv.as_str());

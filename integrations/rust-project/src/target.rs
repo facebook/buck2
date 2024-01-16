@@ -10,6 +10,7 @@
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::fmt;
+use std::fs;
 use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
@@ -108,6 +109,7 @@ pub struct TargetInfo {
     pub mapped_srcs: BTreeMap<PathBuf, PathBuf>,
     #[serde(rename = "crate")]
     pub crate_name: Option<String>,
+    pub crate_dynamic: Option<PathBuf>,
     pub crate_root: Option<PathBuf>,
     #[serde(rename = "buck.deps", alias = "buck.direct_dependencies", default)]
     pub deps: Vec<Target>,
@@ -139,6 +141,11 @@ pub struct TargetInfoEntry {
 
 impl TargetInfo {
     pub fn crate_name(&self) -> String {
+        if let Some(crate_dynamic) = &self.crate_dynamic {
+            if let Ok(contents) = fs::read_to_string(crate_dynamic) {
+                return contents.trim().to_owned();
+            }
+        }
         self.crate_name.as_deref().map_or_else(
             || self.name.as_str().replace('-', "_"),
             |crate_name| crate_name.to_owned(),

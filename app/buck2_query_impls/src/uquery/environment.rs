@@ -229,7 +229,7 @@ impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
     async fn dfs_postorder(
         &self,
         root: &TargetSet<TargetNode>,
-        traversal_delegate: &mut dyn AsyncTraversalDelegate<TargetNode>,
+        traversal_delegate: &mut impl AsyncTraversalDelegate<TargetNode>,
     ) -> anyhow::Result<()> {
         async_depth_first_postorder_traversal(self, root.iter_names(), traversal_delegate).await
     }
@@ -237,7 +237,7 @@ impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
     async fn depth_limited_traversal(
         &self,
         root: &TargetSet<Self::Target>,
-        delegate: &mut dyn AsyncTraversalDelegate<Self::Target>,
+        delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
         depth: u32,
     ) -> anyhow::Result<()> {
         async_depth_limited_traversal(self, root.iter_names(), delegate, depth).await
@@ -425,7 +425,7 @@ pub(crate) async fn rbuildfiles<'c>(
         async fn for_each_child(
             &mut self,
             node: &Node,
-            func: &mut dyn ChildVisitor<Node>,
+            func: &mut impl ChildVisitor<Node>,
         ) -> anyhow::Result<()> {
             for import in self
                 .first_order_import_map
@@ -626,7 +626,7 @@ pub(crate) async fn get_transitive_loads<'c>(
         async fn for_each_child(
             &mut self,
             target: &Node,
-            func: &mut dyn ChildVisitor<Node>,
+            func: &mut impl ChildVisitor<Node>,
         ) -> anyhow::Result<()> {
             for import in self
                 .delegate

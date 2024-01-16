@@ -29,22 +29,31 @@
 #
 #     transitive_dependency_symlinks.py \
 #         --out-dir path/to/out \
-#         --artifact path/to/cratename ../../libprovisional.rlib \
-#         --artifact ...
+#         --artifacts path/to/artifacts.json
 #
-# The tool reads the crate name from the file at "path/to/out". Suppose it's
+# The input file artifact.json is an array of pairs, each an rlib and a file
+# containing a crate name for it.
+#
+#     [
+#         ["../../libprovisional.rlib", "path/to/cratename"],
+#         ...
+#     ]
+#
+# The tool reads the crate name from the file at "path/to/cratename". Suppose it's
 # "thriftgenerated". It symlinks the given artifact as "0/libthriftgenerated.rlib"
 # within the specified output directory. In the event of collisions, there might
 # be multiple dirs created, just as we do for analysis-time named crates.
 
 import argparse
+import json
+import os
 from pathlib import Path
-from typing import List, NamedTuple, Tuple
+from typing import IO, NamedTuple
 
 
 class Args(NamedTuple):
     out_dir: Path
-    artifact: List[Tuple[Path, Path]]
+    artifacts: IO[str]
 
 
 def main():
@@ -55,11 +64,8 @@ def main():
         required=True,
     )
     parser.add_argument(
-        "--artifact",
-        action="append",
-        nargs=2,
-        type=Path,
-        metavar=("CRATENAME", "ARTIFACT"),
+        "--artifacts",
+        type=argparse.FileType(),
         required=True,
     )
     args = Args(**vars(parser.parse_args()))
@@ -69,9 +75,9 @@ def main():
     # Add as many -Ldependency dirs as we need to avoid name conflicts
     deps_dirs = [{}]
 
-    for crate_name, artifact in args.artifact:
-        crate_name = crate_name.read_text().strip()
-        original_filename = artifact.name
+    for artifact, crate_name in json.load(args.artifacts):
+        crate_name = Path(crate_name).read_text().strip()
+        original_filename = os.path.basename(artifact)
         new_filename = "lib{}-{}".format(
             crate_name,
             original_filename.rsplit("-", 1)[1],

@@ -24,15 +24,13 @@ namespace {
 static PyObject* _create_module(PyObject* self, PyObject* spec) {
   PyObject* name;
   PyObject* mod;
-  const char* oldcontext;
 
   name = PyObject_GetAttrString(spec, "name");
   if (name == nullptr) {
     return nullptr;
   }
 
-  // TODO private api usage
-  mod = _PyImport_FindExtensionObject(name, name);
+  mod = PyImport_GetModule(name);
   if (mod || PyErr_Occurred()) {
     Py_DECREF(name);
     Py_XINCREF(mod);
@@ -58,7 +56,15 @@ static PyObject* _create_module(PyObject* self, PyObject* spec) {
 
   PyObject* modules = nullptr;
   PyModuleDef* def;
-  oldcontext = _Py_PackageContext;
+
+#if PY_VERSION_HEX >= 0x030C0000
+  // Use our custom Python 3.12 C-API to call the statically linked module init
+  // function
+  mod = _Ci_PyImport_CallInitFuncWithContext(namestr.c_str(), initfunc);
+#else
+  // In Python 3.10 (and earlier) we need to handle package context swapping
+  // ourselves
+  const char* oldcontext = _Py_PackageContext;
   _Py_PackageContext = namestr.c_str();
   if (_Py_PackageContext == nullptr) {
     _Py_PackageContext = oldcontext;
@@ -67,6 +73,7 @@ static PyObject* _create_module(PyObject* self, PyObject* spec) {
   }
   mod = initfunc();
   _Py_PackageContext = oldcontext;
+#endif
   if (mod == nullptr) {
     Py_DECREF(name);
     return nullptr;

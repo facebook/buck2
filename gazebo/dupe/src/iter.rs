@@ -19,6 +19,7 @@ pub trait IterDupedExt: Sized {
     ///
     /// ```
     /// use std::rc::Rc;
+    ///
     /// use dupe::IterDupedExt;
     /// let inputs = vec![Rc::new("Hello"), Rc::new("World")];
     /// let outputs = inputs.iter().duped().collect::<Vec<_>>();

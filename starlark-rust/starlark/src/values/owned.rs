@@ -89,7 +89,8 @@ impl OwnedFrozenValue {
     /// `owner`, typically because the value was created on the heap.
     ///
     /// ```
-    /// use starlark::values::{FrozenHeap, OwnedFrozenValue};
+    /// use starlark::values::FrozenHeap;
+    /// use starlark::values::OwnedFrozenValue;
     /// let heap = FrozenHeap::new();
     /// let value = heap.alloc("test");
     /// unsafe { OwnedFrozenValue::new(heap.into_ref(), value) };

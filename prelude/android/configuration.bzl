@@ -23,17 +23,16 @@ load("@prelude//utils:expect.bzl", "expect")
 # platforms). We only use the "arm64" native libraries if it is one of the specified platforms. We
 # "throw away" the non-native libraries for all other configured sub-graphs.
 
+_DEFAULT_PLATFORM = "config//platform/android:x86_32-fbsource"
+
 _REFS = {
     "arm64": "config//cpu/constraints:arm64",
     "armv7": "config//cpu/constraints:arm32",
     "build_only_native_code": "prelude//android/constraints:build_only_native_code",
     "building_android_binary": "prelude//os:building_android_binary",
     "cpu": "config//cpu/constraints:cpu",
-    "default_platform": "config//platform/android:x86_32-fbsource",
     "maybe_build_only_native_code": "prelude//android/constraints:maybe_build_only_native_code",
     "maybe_building_android_binary": "prelude//os:maybe_building_android_binary",
-    "maybe_merge_native_libraries": "config//features/android/constraints:maybe_merge_native_libraries",
-    "merge_native_libraries": "config//features/android/constraints:merge_native_libraries",
     "min_sdk_version": "prelude//android/constraints:min_sdk_version",
     "x86": "config//cpu/constraints:x86_32",
     "x86_64": "config//cpu/constraints:x86_64",
@@ -41,6 +40,8 @@ _REFS = {
 for min_sdk in get_min_sdk_version_range():
     constraint_value_name = get_min_sdk_version_constraint_value_name(min_sdk)
     _REFS[constraint_value_name] = "prelude//android/constraints:{}".format(constraint_value_name)
+
+_REFS["default_platform"] = read_root_config("build", "default_platform", _DEFAULT_PLATFORM)
 
 def _cpu_split_transition_impl(
         platform: PlatformInfo,
@@ -57,17 +58,13 @@ def _cpu_split_transition_impl(
         refs,
         cpu_filters,
         attrs.min_sdk_version,
-        attrs.native_library_merge_map,
-        attrs.native_library_merge_sequence,
     )
 
 def _cpu_split_transition(
         platform: PlatformInfo,
         refs: struct,
         cpu_filters: list[str],
-        min_sdk_version: [int, None],
-        native_library_merge_map: [dict[str, list[str]], None],
-        native_library_merge_sequence: [list[list[tuple] | tuple], None]) -> dict[str, PlatformInfo]:
+        min_sdk_version: [int, None]) -> dict[str, PlatformInfo]:
     cpu = refs.cpu
     x86 = refs.x86[ConstraintValueInfo]
     x86_64 = refs.x86_64[ConstraintValueInfo]
@@ -101,9 +98,6 @@ def _cpu_split_transition(
 
     base_constraints[refs.maybe_building_android_binary[ConstraintSettingInfo].label] = refs.building_android_binary[ConstraintValueInfo]
 
-    if native_library_merge_map or native_library_merge_sequence:
-        base_constraints[refs.maybe_merge_native_libraries[ConstraintSettingInfo].label] = refs.merge_native_libraries[ConstraintValueInfo]
-
     if min_sdk_version:
         base_constraints[refs.min_sdk_version[ConstraintSettingInfo].label] = _get_min_sdk_constraint_value(min_sdk_version, refs)
 
@@ -136,8 +130,6 @@ cpu_split_transition = transition(
     attrs = [
         "cpu_filters",
         "min_sdk_version",
-        "native_library_merge_map",
-        "native_library_merge_sequence",
         "_is_force_single_cpu",
         "_is_force_single_default_cpu",
     ],
@@ -157,8 +149,6 @@ cpu_transition = transition(
     attrs = [
         "cpu_filters",
         "min_sdk_version",
-        "native_library_merge_map",
-        "native_library_merge_sequence",
         "_is_force_single_cpu",
         "_is_force_single_default_cpu",
     ],

@@ -9,7 +9,6 @@
 
 //!
 //! Defines utilities to obtain the basic paths for buck2 client and the daemon.
-//!
 
 use std::borrow::Cow;
 

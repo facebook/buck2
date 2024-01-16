@@ -178,7 +178,7 @@ impl QueryEnvironment for TestEnv {
     async fn dfs_postorder(
         &self,
         root: &TargetSet<Self::Target>,
-        delegate: &mut dyn AsyncTraversalDelegate<Self::Target>,
+        delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
     ) -> anyhow::Result<()> {
         // TODO: Should this be part of QueryEnvironment's default impl?
         async_depth_first_postorder_traversal(self, root.iter_names(), delegate).await
@@ -187,7 +187,7 @@ impl QueryEnvironment for TestEnv {
     async fn depth_limited_traversal(
         &self,
         root: &TargetSet<Self::Target>,
-        delegate: &mut dyn AsyncTraversalDelegate<Self::Target>,
+        delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
         depth: u32,
     ) -> anyhow::Result<()> {
         async_depth_limited_traversal(self, root.iter_names(), delegate, depth).await

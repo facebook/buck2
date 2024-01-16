@@ -8,7 +8,6 @@
  */
 
 //! Implements target pattern resolution.
-//!
 #![doc = include_str!("target_pattern.md")]
 
 mod ascii_pattern;

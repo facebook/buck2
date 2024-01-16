@@ -15,6 +15,7 @@ use dupe::Dupe;
 use starlark_map::ordered_set::OrderedSet;
 use starlark_map::small_set;
 use starlark_map::Equivalent;
+use starlark_map::Hashed;
 
 use crate::query::environment::LabeledNode;
 
@@ -29,7 +30,7 @@ impl<T: LabeledNode> PartialEq for LabelIndexed<T> {
 impl<T: LabeledNode> Eq for LabelIndexed<T> {}
 impl<T: LabeledNode> Hash for LabelIndexed<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.node_ref().hash(state)
+        self.0.hashed_node_ref().hash().hash(state)
     }
 }
 
@@ -51,16 +52,16 @@ where
     }
 }
 
-struct LabelIndexer<'a, T: LabeledNode>(&'a T::NodeRef);
+struct LabelIndexer<'a, T: LabeledNode>(Hashed<&'a T::NodeRef>);
 
 impl<'a, T: LabeledNode> Equivalent<LabelIndexed<T>> for LabelIndexer<'a, T> {
     fn equivalent(&self, key: &LabelIndexed<T>) -> bool {
-        self.0.eq(key.0.node_ref())
+        *self.0.key() == key.0.node_ref()
     }
 }
 impl<'a, T: LabeledNode> Hash for LabelIndexer<'a, T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state)
+        self.0.hash().hash(state)
     }
 }
 
@@ -89,11 +90,15 @@ impl<T: LabeledNode> LabelIndexedSet<T> {
     }
 
     pub fn get(&self, value: &T::NodeRef) -> Option<&T> {
-        self.nodes.get(&LabelIndexer(value)).map(|e| &e.0)
+        self.nodes
+            .get(&LabelIndexer(Hashed::new(value)))
+            .map(|e| &e.0)
     }
 
     pub fn take(&mut self, value: &T::NodeRef) -> Option<T> {
-        self.nodes.take(&LabelIndexer(value)).map(|e| e.0)
+        self.nodes
+            .take(&LabelIndexer(Hashed::new(value)))
+            .map(|e| e.0)
     }
 
     pub fn iter(&self) -> Iter<T> {
@@ -112,7 +117,7 @@ impl<T: LabeledNode> LabelIndexedSet<T> {
     }
 
     pub fn contains(&self, value: &T::NodeRef) -> bool {
-        self.nodes.contains(&LabelIndexer(value))
+        self.nodes.contains(&LabelIndexer(Hashed::new(value)))
     }
 
     pub fn get_index(&self, index: usize) -> Option<&T> {
@@ -120,7 +125,7 @@ impl<T: LabeledNode> LabelIndexedSet<T> {
     }
 
     pub fn get_index_of(&self, value: &T::NodeRef) -> Option<usize> {
-        self.nodes.get_index_of(&LabelIndexer(value))
+        self.nodes.get_index_of(&LabelIndexer(Hashed::new(value)))
     }
 
     pub fn last(&self) -> Option<&T> {

@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use proc_macro::TokenStream;
 use proc_macro2::Ident;
+use proc_macro2::Span;
 use quote::quote_spanned;
 use quote::ToTokens;
 use syn::parse::ParseStream;
@@ -41,7 +41,7 @@ const fn hash(s: &str) -> u64 {
     hash
 }
 
-pub(crate) fn derive_allocative(input: TokenStream) -> TokenStream {
+pub(crate) fn derive_allocative(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     match derive_allocative_impl(input.into()) {
         Ok(tokens) => tokens.into(),
         Err(err) => err.to_compile_error().into(),
@@ -54,10 +54,9 @@ fn impl_generics(
 ) -> syn::Result<proc_macro2::TokenStream> {
     if let Some(bound) = &attrs.bound {
         if !bound.is_empty() {
-            return Err(syn::Error::new(
-                attrs.bound.span(),
-                "non-empty bound is not implemented",
-            ));
+            let span = attrs.span.unwrap_or_else(Span::call_site);
+            let bound = bound.parse::<proc_macro2::TokenStream>()?;
+            return Ok(quote_spanned! { span => < #bound > });
         }
     }
 
@@ -301,6 +300,7 @@ fn gen_visit_field(
 
 #[derive(Default)]
 struct AllocativeAttrs {
+    span: Option<Span>,
     skip: bool,
     bound: Option<String>,
     visit: Option<Path>,
@@ -318,6 +318,8 @@ fn extract_attrs(attrs: &[Attribute]) -> syn::Result<AllocativeAttrs> {
         if !attr.path().is_ident("allocative") {
             continue;
         }
+
+        opts.span = Some(attr.span());
 
         attr.parse_args_with(|input: ParseStream| {
             loop {

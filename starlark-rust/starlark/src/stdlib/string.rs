@@ -143,8 +143,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     ///
     /// ```
     /// # starlark::assert::is_true(r#"
-    /// list("Hello, 世界".elems()) == [
-    ///     "H", "e", "l", "l", "o", ",", " ", "世", "界"]
+    /// list("Hello, 世界".elems()) == ["H", "e", "l", "l", "o", ",", " ", "世", "界"]
     /// # "#);
     /// ```
     fn elems<'v>(

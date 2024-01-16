@@ -182,6 +182,7 @@ go_binary = prelude_rule(
         go_common.linker_flags_arg() |
         go_common.external_linker_flags_arg() |
         go_common.embedcfg_arg() |
+        go_common.cgo_enabled_arg() |
         {
             "resources": attrs.list(attrs.source(), default = [], doc = """
                 Static files to be symlinked into the working directory of the test. You can access these in your
@@ -266,6 +267,7 @@ go_exported_library = prelude_rule(
         go_common.assembler_flags_arg() |
         go_common.linker_flags_arg() |
         go_common.external_linker_flags_arg() |
+        go_common.cgo_enabled_arg() |
         {
             "resources": attrs.list(attrs.source(), default = [], doc = """
                 Static files to be symlinked into the working directory of the test. You can access these in your
@@ -321,6 +323,12 @@ go_library = prelude_rule(
             "exported_deps": attrs.list(attrs.dep(), default = []),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
+            "_cgo_enabled": attrs.default_only(attrs.option(attrs.bool(), default = select({
+                "DEFAULT": None,
+                "prelude//go/constraints:cgo_enabled_auto": None,
+                "prelude//go/constraints:cgo_enabled_false": False,
+                "prelude//go/constraints:cgo_enabled_true": True,
+            }))),
         }
     ),
 )
@@ -415,6 +423,7 @@ go_test = prelude_rule(
         go_common.linker_flags_arg() |
         go_common.external_linker_flags_arg() |
         go_common.embedcfg_arg() |
+        go_common.cgo_enabled_arg() |
         {
             "resources": attrs.list(attrs.source(), default = [], doc = """
                 Static files that are symlinked into the working directory of the

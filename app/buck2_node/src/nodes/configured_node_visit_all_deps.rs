@@ -41,7 +41,7 @@ pub async fn configured_node_visit_all_deps(
         async fn for_each_child(
             &mut self,
             target: &ConfiguredGraphNodeRef,
-            func: &mut dyn ChildVisitor<ConfiguredGraphNodeRef>,
+            func: &mut impl ChildVisitor<ConfiguredGraphNodeRef>,
         ) -> anyhow::Result<()> {
             for dep in target.0.deps() {
                 func.visit(ConfiguredGraphNodeRef(dep.dupe()))?;
@@ -53,8 +53,7 @@ pub async fn configured_node_visit_all_deps(
 
     let roots = roots
         .into_iter()
-        .map(|node| ConfiguredGraphNodeRef(node.dupe()))
-        .collect::<Vec<_>>();
-    async_fast_depth_first_postorder_traversal(&ConfiguredGraphNodeRefLookup, &roots, &mut delegate)
+        .map(|node| ConfiguredGraphNodeRef(node.dupe()));
+    async_fast_depth_first_postorder_traversal(&ConfiguredGraphNodeRefLookup, roots, &mut delegate)
         .await
 }

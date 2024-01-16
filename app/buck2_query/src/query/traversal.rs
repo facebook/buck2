@@ -12,6 +12,7 @@ use std::collections::HashSet;
 
 use async_trait::async_trait;
 use futures::StreamExt;
+use starlark_map::StarlarkHasherBuilder;
 
 use crate::query::environment::LabeledNode;
 use crate::query::futures_queue_generic::FuturesQueue;
@@ -44,7 +45,7 @@ pub trait AsyncTraversalDelegate<T: LabeledNode>: Send + Sync {
     async fn for_each_child(
         &mut self,
         target: &T,
-        func: &mut dyn ChildVisitor<T>,
+        func: &mut impl ChildVisitor<T>,
     ) -> anyhow::Result<()>;
 }
 
@@ -66,9 +67,9 @@ pub async fn async_unordered_traversal<
     T: LabeledNode,
     RootIter: IntoIterator<Item = &'a T::NodeRef>,
 >(
-    nodes: &dyn AsyncNodeLookup<T>,
+    nodes: &impl AsyncNodeLookup<T>,
     root: RootIter,
-    delegate: &mut dyn AsyncTraversalDelegate<T>,
+    delegate: &mut impl AsyncTraversalDelegate<T>,
 ) -> anyhow::Result<()> {
     async_traversal_common(nodes, root, delegate, None, false).await
 }
@@ -81,13 +82,12 @@ pub async fn async_unordered_traversal<
 // TODO(cjhopman): Figure out how to implement this traversal in a way that has good performance
 // in both cases.
 pub async fn async_fast_depth_first_postorder_traversal<
-    'a,
     T: LabeledNode,
-    RootIter: IntoIterator<Item = &'a T::NodeRef>,
+    RootIter: IntoIterator<Item = T::NodeRef>,
 >(
-    nodes: &(dyn NodeLookup<T> + Send + Sync),
+    nodes: &impl NodeLookup<T>,
     root: RootIter,
-    delegate: &mut dyn AsyncTraversalDelegate<T>,
+    delegate: &mut impl AsyncTraversalDelegate<T>,
 ) -> anyhow::Result<()> {
     // This implementation simply performs a dfs. We maintain a work stack here.
     // When visiting a node, we first add an item to the work stack to call
@@ -97,16 +97,9 @@ pub async fn async_fast_depth_first_postorder_traversal<
     // it will still be added. When popping the visit, if the node had been
     // visited, it's ignored. This ensures that a node's children are all
     // visited before we do PostVisit for that node.
-    #[derive(Hash, Eq, PartialEq)]
     enum WorkItem<T: LabeledNode> {
         PostVisit(T),
         Visit(T::NodeRef),
-    }
-
-    #[derive(Default)]
-    struct State<T: LabeledNode> {
-        visited: HashSet<T::NodeRef>,
-        work: Vec<WorkItem<T>>,
     }
 
     // TODO(cjhopman): There's a couple of things that could be improved about this.
@@ -114,47 +107,26 @@ pub async fn async_fast_depth_first_postorder_traversal<
     // couldn't figure out quite a good way to do that in rust. I think it would
     // mean changing the delegate's for_each_children to return an iterator,
     // but idk.
-    impl<T: LabeledNode> State<T> {
-        fn new() -> Self {
-            Self {
-                visited: HashSet::new(),
-                work: Vec::new(),
-            }
-        }
 
-        fn push(&mut self, target: T::NodeRef) {
-            if self.visited.contains(&target) {
-                return;
-            }
+    let mut visited: HashSet<T::NodeRef, StarlarkHasherBuilder> = HashSet::default();
+    let mut work: Vec<WorkItem<T>> = root.into_iter().map(|t| WorkItem::Visit(t)).collect();
 
-            self.work.push(WorkItem::Visit(target));
-        }
-
-        fn pop(&mut self) -> Option<WorkItem<T>> {
-            self.work.pop()
-        }
-    }
-
-    let mut state = State::new();
-
-    for target in root {
-        state.push(target.clone());
-    }
-
-    while let Some(curr) = state.pop() {
+    while let Some(curr) = work.pop() {
         match curr {
             WorkItem::Visit(target) => {
-                if state.visited.contains(&target) {
+                if visited.contains(&target) {
                     continue;
                 }
 
                 let node = nodes.get(&target)?;
-                state.visited.insert(target);
-                state.work.push(WorkItem::PostVisit(node.dupe()));
+                visited.insert(target);
+                work.push(WorkItem::PostVisit(node.dupe()));
 
                 delegate
                     .for_each_child(&node, &mut |child| {
-                        state.push(child);
+                        if !visited.contains(&child) {
+                            work.push(WorkItem::Visit(child));
+                        }
                         Ok(())
                     })
                     .await?;
@@ -173,14 +145,14 @@ async fn async_traversal_common<
     T: LabeledNode,
     RootIter: IntoIterator<Item = &'a T::NodeRef>,
 >(
-    nodes: &dyn AsyncNodeLookup<T>,
+    nodes: &impl AsyncNodeLookup<T>,
     root: RootIter,
-    delegate: &mut dyn AsyncTraversalDelegate<T>,
+    delegate: &mut impl AsyncTraversalDelegate<T>,
     // `None` means no max depth.
     max_depth: Option<u32>,
     ordered: bool,
 ) -> anyhow::Result<()> {
-    let mut visited = HashMap::new();
+    let mut visited: HashMap<_, _, StarlarkHasherBuilder> = HashMap::default();
     let mut push = |queue: &mut FuturesQueue<_>,
                     target: T::NodeRef,
                     parent: Option<T::NodeRef>,
@@ -242,9 +214,9 @@ pub async fn async_depth_limited_traversal<
     T: LabeledNode,
     RootIter: IntoIterator<Item = &'a T::NodeRef>,
 >(
-    nodes: &dyn AsyncNodeLookup<T>,
+    nodes: &impl AsyncNodeLookup<T>,
     root: RootIter,
-    delegate: &mut dyn AsyncTraversalDelegate<T>,
+    delegate: &mut impl AsyncTraversalDelegate<T>,
     max_depth: u32,
 ) -> anyhow::Result<()> {
     async_traversal_common(nodes, root, delegate, Some(max_depth), true).await
@@ -258,20 +230,22 @@ pub async fn async_depth_first_postorder_traversal<
     T: LabeledNode,
     Iter: IntoIterator<Item = &'a T::NodeRef> + Clone,
 >(
-    nodes: &dyn AsyncNodeLookup<T>,
+    nodes: &impl AsyncNodeLookup<T>,
     root: Iter,
-    delegate: &mut dyn AsyncTraversalDelegate<T>,
+    delegate: &mut impl AsyncTraversalDelegate<T>,
 ) -> anyhow::Result<()> {
     // We first do an unordered graph traversal to collect all nodes. The unordered traversal efficiently
     // uses resources when we need to process build files.
     // We don't cache the results of the for_each_child iterators, so that is called multiple times. Potentially it would be more performant to avoid that if an expensive filter/operation is involved.
-    struct UnorderedDelegate<'a, T: LabeledNode> {
-        delegate: &'a mut dyn AsyncTraversalDelegate<T>,
+    struct UnorderedDelegate<'a, T: LabeledNode, D: AsyncTraversalDelegate<T>> {
+        delegate: &'a mut D,
         nodes: LabelIndexedSet<T>,
     }
 
     #[async_trait]
-    impl<T: LabeledNode> AsyncTraversalDelegate<T> for UnorderedDelegate<'_, T> {
+    impl<T: LabeledNode, D: AsyncTraversalDelegate<T>> AsyncTraversalDelegate<T>
+        for UnorderedDelegate<'_, T, D>
+    {
         /// visit is called once for each node. When it is called is traversal-dependent.
         fn visit(&mut self, target: T) -> anyhow::Result<()> {
             self.nodes.insert(target);
@@ -282,7 +256,7 @@ pub async fn async_depth_first_postorder_traversal<
         async fn for_each_child(
             &mut self,
             target: &T,
-            func: &mut dyn ChildVisitor<T>,
+            func: &mut impl ChildVisitor<T>,
         ) -> anyhow::Result<()> {
             self.delegate.for_each_child(target, func).await
         }
@@ -318,7 +292,7 @@ pub async fn async_depth_first_postorder_traversal<
         nodes: unordered_delegate.nodes,
     };
 
-    async_fast_depth_first_postorder_traversal(&nodes, root, delegate).await?;
+    async_fast_depth_first_postorder_traversal(&nodes, root.into_iter().cloned(), delegate).await?;
 
     Ok(())
 }
@@ -373,8 +347,8 @@ mod tests {
             unimplemented!()
         }
 
-        fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-            Box::new(self.1.iter())
+        fn deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+            self.1.iter()
         }
 
         fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
@@ -455,7 +429,7 @@ mod tests {
                 async fn for_each_child(
                     &mut self,
                     target: &Node,
-                    func: &mut dyn ChildVisitor<Node>,
+                    func: &mut impl ChildVisitor<Node>,
                 ) -> anyhow::Result<()> {
                     for child in &target.1 {
                         func.visit(child.dupe())?;
@@ -487,7 +461,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_postorder() -> anyhow::Result<()> {
+    async fn test_async_depth_first_postorder_traversal() -> anyhow::Result<()> {
         let graph = make_graph(&[
             (0, &[1, 2]),
             (1, &[2, 3, 4]),

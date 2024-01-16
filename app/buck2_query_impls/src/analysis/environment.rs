@@ -41,7 +41,6 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRefLookup;
 use buck2_node::query::query_functions::CONFIGURED_GRAPH_QUERY_FUNCTIONS;
-use buck2_query::query::environment::LabeledNode;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
@@ -58,6 +57,7 @@ use buck2_query::query_module;
 use buck2_query_parser::BinaryOp;
 use dice::DiceComputations;
 use dupe::Dupe;
+use dupe::IterDupedExt;
 use indexmap::IndexMap;
 use starlark::values::UnpackValue;
 
@@ -214,11 +214,11 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
     async fn dfs_postorder(
         &self,
         root: &TargetSet<Self::Target>,
-        delegate: &mut dyn AsyncTraversalDelegate<Self::Target>,
+        delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
     ) -> anyhow::Result<()> {
         async_fast_depth_first_postorder_traversal(
             &ConfiguredGraphNodeRefLookup,
-            root.iter().map(LabeledNode::node_ref),
+            root.iter().duped(),
             delegate,
         )
         .await
@@ -227,7 +227,7 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
     async fn depth_limited_traversal(
         &self,
         root: &TargetSet<Self::Target>,
-        delegate: &mut dyn AsyncTraversalDelegate<Self::Target>,
+        delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
         depth: u32,
     ) -> anyhow::Result<()> {
         async_depth_limited_traversal(&ConfiguredGraphNodeRefLookup, root.iter(), delegate, depth)

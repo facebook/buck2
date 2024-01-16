@@ -12,7 +12,6 @@
 //!
 //! This is responsible for performing incremental caching and invalidations
 //! with multiple versions in-flight at the same time.
-//!
 
 use std::borrow::Cow;
 use std::fmt::Debug;

@@ -44,8 +44,8 @@ pub trait SliceExt {
     ///
     /// ```
     /// use gazebo::prelude::*;
-    /// assert_eq!([1,2,3][..].map(|x| x*x), vec![1,4,9]);
-    /// assert_eq!(vec![1,2,3].map(|x| x*x), vec![1,4,9]);
+    /// assert_eq!([1, 2, 3][..].map(|x| x * x), vec![1, 4, 9]);
+    /// assert_eq!(vec![1, 2, 3].map(|x| x * x), vec![1, 4, 9]);
     /// ```
     ///
     /// Note that from Rust 1.55.0 there is a `map` method on
@@ -59,8 +59,14 @@ pub trait SliceExt {
     ///
     /// ```
     /// use gazebo::prelude::*;
-    /// assert_eq!([1,2,3].try_map(|x| Ok(x*x)), Ok::<_, bool>(vec![1,4,9]));
-    /// assert_eq!([1,2,-3].try_map(|x| if *x > 0 { Ok(x*x) } else { Err(false) }), Err(false));
+    /// assert_eq!(
+    ///     [1, 2, 3].try_map(|x| Ok(x * x)),
+    ///     Ok::<_, bool>(vec![1, 4, 9])
+    /// );
+    /// assert_eq!(
+    ///     [1, 2, -3].try_map(|x| if *x > 0 { Ok(x * x) } else { Err(false) }),
+    ///     Err(false)
+    /// );
     /// ```
     ///
     /// This function will be generalised to [`Try`](std::ops::Try) once it has been
@@ -162,12 +168,12 @@ impl<T> SliceExt for [T] {
 /// struct X;
 ///
 /// let x = [&X];
-/// let y : Vec<X> = x.cloned();
+/// let y: Vec<X> = x.cloned();
 ///
 /// assert_eq!(y, vec![X]);
 ///
 /// let x = vec![&X];
-/// let y : Vec<X> = x.cloned();
+/// let y: Vec<X> = x.cloned();
 ///
 /// assert_eq!(y, vec![X]);
 /// ```
@@ -198,12 +204,12 @@ where
 /// struct X;
 ///
 /// let x = [&X];
-/// let y : Vec<X> = x.duped();
+/// let y: Vec<X> = x.duped();
 ///
 /// assert_eq!(y, vec![X]);
 ///
 /// let x = vec![&X];
-/// let y : Vec<X> = x.duped();
+/// let y: Vec<X> = x.duped();
 ///
 /// assert_eq!(y, vec![X]);
 /// ```
@@ -233,12 +239,12 @@ where
 /// struct X;
 ///
 /// let x = [&X];
-/// let y : Vec<X> = x.copied();
+/// let y: Vec<X> = x.copied();
 ///
 /// assert_eq!(y, vec![X]);
 ///
 /// let x = vec![&X];
-/// let y : Vec<X> = x.copied();
+/// let y: Vec<X> = x.copied();
 ///
 /// assert_eq!(y, vec![X]);
 /// ```
@@ -267,7 +273,7 @@ pub trait VecExt {
     ///
     /// ```
     /// use gazebo::prelude::*;
-    /// assert_eq!(vec![1,2,3].into_map(|x| x*x), vec![1,4,9]);
+    /// assert_eq!(vec![1, 2, 3].into_map(|x| x * x), vec![1, 4, 9]);
     /// ```
     fn into_map<B, F>(self, f: F) -> Vec<B>
     where
@@ -277,8 +283,14 @@ pub trait VecExt {
     ///
     /// ```
     /// use gazebo::prelude::*;
-    /// assert_eq!(vec![1,2,3].into_try_map(|x| Ok(x*x)), Ok::<_, bool>(vec![1,4,9]));
-    /// assert_eq!(vec![1,2,-3].into_try_map(|x| if x > 0 { Ok(x*x) } else { Err(false) }), Err(false));
+    /// assert_eq!(
+    ///     vec![1, 2, 3].into_try_map(|x| Ok(x * x)),
+    ///     Ok::<_, bool>(vec![1, 4, 9])
+    /// );
+    /// assert_eq!(
+    ///     vec![1, 2, -3].into_try_map(|x| if x > 0 { Ok(x * x) } else { Err(false) }),
+    ///     Err(false)
+    /// );
     /// ```
     ///
     /// This function will be generalised to [`Try`](std::ops::Try) once it has been

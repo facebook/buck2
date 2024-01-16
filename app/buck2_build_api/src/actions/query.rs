@@ -34,6 +34,7 @@ use buck2_util::late_binding::LateBinding;
 use derivative::Derivative;
 use dice::DiceComputations;
 use dupe::Dupe;
+use either::Either;
 use gazebo::variants::VariantName;
 use indexmap::IndexMap;
 use internment::ArcIntern;
@@ -276,23 +277,22 @@ impl QueryTarget for ActionQueryNode {
         unimplemented!("buildfile not yet implemented in aquery")
     }
 
-    // TODO(cjhopman): Use existential traits to remove the Box<> once they are stabilized.
-    fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
+    fn deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
         // When traversing deps in aquery, we do *not* traverse deps for the target nodes, since
         // those are just for literals
         let action = match &self.data {
             ActionQueryNodeData::Action(action) => action,
-            ActionQueryNodeData::Analysis(..) => return Box::new(std::iter::empty()),
+            ActionQueryNodeData::Analysis(..) => return Either::Left(std::iter::empty()),
         };
 
-        Box::new(iter_action_inputs(&action.deps))
+        Either::Right(iter_action_inputs(&action.deps))
     }
 
-    fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        Box::new(std::iter::empty())
+    fn exec_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+        std::iter::empty()
     }
 
-    fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
+    fn target_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
         self.deps()
     }
 

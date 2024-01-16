@@ -68,7 +68,8 @@ impl Ord for ConfiguredGraphNodeRef {
 
 impl PartialEq for ConfiguredGraphNodeRef {
     fn eq(&self, other: &Self) -> bool {
-        self.label().eq(other.label())
+        // `ptr_eq` is optimization.
+        self.0.ptr_eq(&other.0) || self.label().eq(other.label())
     }
 }
 
@@ -76,7 +77,7 @@ impl Eq for ConfiguredGraphNodeRef {}
 
 impl std::hash::Hash for ConfiguredGraphNodeRef {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.label().hash(state)
+        self.0.hashed_label().hash().hash(state);
     }
 }
 
@@ -99,17 +100,16 @@ impl QueryTarget for ConfiguredGraphNodeRef {
         self.0.buildfile_path()
     }
 
-    // TODO(cjhopman): Use existential traits to remove the Box<> once they are stabilized.
-    fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        Box::new(self.0.deps().map(ConfiguredGraphNodeRef::ref_cast))
+    fn deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+        self.0.deps().map(ConfiguredGraphNodeRef::ref_cast)
     }
 
-    fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        Box::new(self.0.exec_deps().map(ConfiguredGraphNodeRef::ref_cast))
+    fn exec_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+        self.0.exec_deps().map(ConfiguredGraphNodeRef::ref_cast)
     }
 
-    fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        Box::new(self.0.target_deps().map(ConfiguredGraphNodeRef::ref_cast))
+    fn target_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+        self.0.target_deps().map(ConfiguredGraphNodeRef::ref_cast)
     }
 
     fn attr_any_matches(

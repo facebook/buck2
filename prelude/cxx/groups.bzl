@@ -44,6 +44,8 @@ FilterType = enum(
     "label",
     # Filters for targets for the build target pattern defined after "pattern:".
     "pattern",
+    # Filters for targets matching the regex pattern defined after "target_regex:".
+    "target_regex",
 )
 
 BuildTargetFilter = record(
@@ -54,6 +56,11 @@ BuildTargetFilter = record(
 LabelFilter = record(
     regex = regex,
     _type = field(FilterType, FilterType("label")),
+)
+
+TargetRegexFilter = record(
+    regex = regex,
+    _type = field(FilterType, FilterType("target_regex")),
 )
 
 # Label for special group mapping which makes every target associated with it to be included in all groups
@@ -70,7 +77,7 @@ GroupMapping = record(
     # The type of traversal to use.
     traversal = field(Traversal, Traversal("tree")),
     # Optional filter type to apply to the traversal.
-    filters = field(list[[BuildTargetFilter, LabelFilter]], []),
+    filters = field(list[[BuildTargetFilter, LabelFilter, TargetRegexFilter]], []),
     # Preferred linkage for this target when added to a link group.
     preferred_linkage = field([Linkage, None], None),
 )
@@ -191,7 +198,7 @@ def _parse_traversal_from_mapping(entry: str) -> Traversal:
     else:
         fail("Unrecognized group traversal type: " + entry)
 
-def _parse_filter(entry: str) -> [BuildTargetFilter, LabelFilter]:
+def _parse_filter(entry: str) -> [BuildTargetFilter, LabelFilter, TargetRegexFilter]:
     for prefix in ("label:", "tag:"):
         label_regex = strip_prefix(prefix, entry)
         if label_regex != None:
@@ -203,15 +210,19 @@ def _parse_filter(entry: str) -> [BuildTargetFilter, LabelFilter]:
                 regex = regex("^{}$".format(label_regex), fancy = True),
             )
 
+        target_regex = strip_prefix("target_regex:", entry)
+        if target_regex != None:
+            return TargetRegexFilter(regex = regex("^{}$".format(target_regex), fancy = True))
+
     pattern = strip_prefix("pattern:", entry)
     if pattern != None:
         return BuildTargetFilter(
             pattern = parse_build_target_pattern(pattern),
         )
 
-    fail("Invalid group mapping filter: {}\nFilter must begin with `label:`, `tag:`, or `pattern:`.".format(entry))
+    fail("Invalid group mapping filter: {}\nFilter must begin with `label:`, `tag:`, `target_regex` or `pattern:`.".format(entry))
 
-def _parse_filter_from_mapping(entry: [list[str], str, None]) -> list[[BuildTargetFilter, LabelFilter]]:
+def _parse_filter_from_mapping(entry: [list[str], str, None]) -> list[[BuildTargetFilter, LabelFilter, TargetRegexFilter]]:
     if type(entry) == type([]):
         return [_parse_filter(e) for e in entry]
     if type(entry) == type(""):
@@ -266,6 +277,9 @@ def _find_targets_in_mapping(
             if filter._type == FilterType("label"):
                 if not any_labels_match(filter.regex, labels):
                     return False
+            elif filter._type == FilterType("target_regex"):
+                target_str = str(target.raw_target())
+                return filter.regex.match(target_str)
             elif not filter.pattern.matches(target):
                 return False
         return True

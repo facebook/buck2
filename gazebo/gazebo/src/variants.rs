@@ -88,7 +88,6 @@ pub use gazebo_derive::UnpackVariants;
 /// assert_eq!(Foo::Baz(1).variant_name(), "Baz");
 /// assert_eq!(Foo::Qux { i: 1 }.variant_name(), "Qux");
 /// ```
-///
 pub use gazebo_derive::VariantName;
 
 pub trait VariantName {

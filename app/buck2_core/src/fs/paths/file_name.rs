@@ -177,7 +177,6 @@ impl FileName {
     /// Extracts the extension of [`self.file_name`], if possible.
     ///
     /// ```
-    ///
     /// use buck2_core::fs::paths::file_name::FileName;
     ///
     /// assert_eq!(Some("rs"), FileName::new("foo.rs")?.extension());

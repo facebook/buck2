@@ -54,7 +54,7 @@ use crate::values::Value;
 ///
 /// #[derive(Trace)]
 /// struct MySet<'v> {
-///    keys: Vec<Value<'v>>
+///     keys: Vec<Value<'v>>,
 /// }
 /// ```
 pub unsafe trait Trace<'v> {

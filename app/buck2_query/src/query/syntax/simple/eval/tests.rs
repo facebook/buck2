@@ -149,7 +149,7 @@ impl QueryEnvironment for Env {
     async fn dfs_postorder(
         &self,
         _root: &TargetSet<Self::Target>,
-        _delegate: &mut dyn AsyncTraversalDelegate<Self::Target>,
+        _delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
     ) -> anyhow::Result<()> {
         unimplemented!()
     }
@@ -157,7 +157,7 @@ impl QueryEnvironment for Env {
     async fn depth_limited_traversal(
         &self,
         _root: &TargetSet<Self::Target>,
-        _delegate: &mut dyn AsyncTraversalDelegate<Self::Target>,
+        _delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
         _depth: u32,
     ) -> anyhow::Result<()> {
         unimplemented!()

@@ -76,7 +76,7 @@ impl FileSet {
 
     pub fn owner<T: QueryTarget>(
         &self,
-        _env: &dyn QueryEnvironment<Target = T>,
+        _env: &impl QueryEnvironment<Target = T>,
     ) -> anyhow::Result<TargetSet<T>> {
         Err(anyhow::anyhow!(QueryError::FunctionUnimplemented(
             "owner()"

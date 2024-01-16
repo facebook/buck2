@@ -23,6 +23,15 @@ HaskellLinkInfo = provider(
     },
 )
 
+# HaskellProfLinkInfo exposes the MergedLinkInfo of a target and all of its
+# dependencies built for profiling. This allows top-level targets (e.g.
+# `haskell_binary`) to be defined with profiling enabled by default.
+HaskellProfLinkInfo = provider(
+    fields = {
+        "prof_infos": provider_field(typing.Any, default = None),  # MergedLinkInfo
+    },
+)
+
 def merge_haskell_link_infos(deps: list[HaskellLinkInfo]) -> HaskellLinkInfo:
     merged = {}
     prof_merged = {}
