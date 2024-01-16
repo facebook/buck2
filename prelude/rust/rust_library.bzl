@@ -179,7 +179,13 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             external_debug_info = external_debug_info,
         )
 
-    merged_link_info, shared_libs, inherited_graphs, inherited_link_deps = _rust_link_providers(ctx, dep_ctx, cxx_toolchain, link_infos)
+    merged_link_info, shared_libs, inherited_graphs, inherited_link_deps = _rust_link_providers(
+        ctx,
+        dep_ctx,
+        cxx_toolchain,
+        link_infos,
+        Linkage(ctx.attrs.preferred_linkage),
+    )
     providers.append(
         RustLinkInfo(
             crate = crate,
@@ -528,7 +534,8 @@ def _rust_link_providers(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext,
         cxx_toolchain: CxxToolchainInfo,
-        link_infos: dict[LibOutputStyle, LinkInfos]) -> (
+        link_infos: dict[LibOutputStyle, LinkInfos],
+        preferred_linkage: Linkage) -> (
     MergedLinkInfo,
     SharedLibraryInfo,
     list[LinkableGraph],
@@ -594,6 +601,13 @@ def _rust_link_providers(
                     # but that breaks arc focus, and setting it to "" breaks
                     # somerge
                     default_soname = get_default_shared_library_name(cxx_toolchain.linker_info, ctx.label),
+                    # Link groups have a heuristic in which they assume that a
+                    # preferred_linkage = "static" library needs to be linked
+                    # into every single link group, instead of just one.
+                    # Applying that same heuristic to Rust seems right, but only
+                    # if this target actually requested that. Opt ourselves out
+                    # if it didn't.
+                    ignore_force_static_follows_dependents = preferred_linkage != Linkage("static"),
                 ),
                 label = new_label,
             ),
@@ -628,7 +642,7 @@ def _rust_providers(
         link, meta = param_artifact[params]
         strategy_info[link_strategy] = _handle_rust_artifact(ctx, compile_ctx.dep_ctx, params.crate_type, link_strategy, link, meta)
 
-    merged_link_info, shared_libs, inherited_graphs, inherited_link_deps = _rust_link_providers(ctx, compile_ctx.dep_ctx, compile_ctx.cxx_toolchain_info, link_infos)
+    merged_link_info, shared_libs, inherited_graphs, inherited_link_deps = _rust_link_providers(ctx, compile_ctx.dep_ctx, compile_ctx.cxx_toolchain_info, link_infos, Linkage(ctx.attrs.preferred_linkage))
 
     # Create rust library provider.
     rust_link_info = RustLinkInfo(
