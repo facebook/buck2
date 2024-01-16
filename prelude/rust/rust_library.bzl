@@ -19,7 +19,7 @@ load(
     "@prelude//cxx:cxx_context.bzl",
     "get_cxx_toolchain_info",
 )
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo", "PicBehavior")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@prelude//cxx:linker.bzl",
     "PDB_SUB_TARGET",
@@ -44,7 +44,7 @@ load(
     "LinkStrategy",
     "Linkage",
     "LinkedObject",
-    "MergedLinkInfo",
+    "MergedLinkInfo",  # @unused Used as a type
     "SharedLibLinkable",
     "create_merged_link_info",
     "create_merged_link_info_for_propagation",
@@ -61,7 +61,7 @@ load(
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
-    "SharedLibraryInfo",
+    "SharedLibraryInfo",  # @unused Used as a type
     "create_shared_libraries",
     "merge_shared_libraries",
 )
@@ -190,52 +190,6 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             linkable_graphs = inherited_graphs,
         ),
     )
-
-    # Native link provier.
-    providers.append(
-        create_merged_link_info(
-            ctx,
-            PicBehavior("supported"),
-            link_infos,
-            exported_deps = [d[MergedLinkInfo] for d in ctx.attrs.deps],
-            # TODO(agallagher): This matches v1 behavior, but some of these libs
-            # have prebuilt DSOs which might be usable.
-            preferred_linkage = Linkage("static"),
-        ),
-    )
-
-    # Native link graph setup.
-    linkable_graph = create_linkable_graph(
-        ctx,
-        node = create_linkable_graph_node(
-            ctx,
-            linkable_node = create_linkable_node(
-                ctx = ctx,
-                preferred_linkage = Linkage("static"),
-                exported_deps = ctx.attrs.deps,
-                link_infos = link_infos,
-                default_soname = get_default_shared_library_name(linker_info, ctx.label),
-            ),
-        ),
-        deps = ctx.attrs.deps,
-    )
-    providers.append(linkable_graph)
-
-    providers.append(merge_link_group_lib_info(children = inherited_link_group_lib_infos(ctx, dep_ctx)))
-
-    # FIXME(JakobDegen): I am about 85% confident that this matches what C++
-    # does for prebuilt libraries if they don't have a shared variant and have
-    # preferred linkage static. C++ doesn't require static preferred linkage on
-    # their prebuilt libraries, and so they incur extra complexity here that we
-    # don't have to deal with.
-    #
-    # However, Rust linking is not the same as C++ linking. If Rust were
-    # disciplined about its use of `LibOutputStyle`, `Linkage` and
-    # `LinkStrategy`, then this would at least be no more wrong than what C++
-    # does. In the meantime however...
-    providers.append(SharedLibraryInfo(set = None))
-
-    providers.append(merge_android_packageable_info(ctx.label, ctx.actions, ctx.attrs.deps))
 
     return providers
 
