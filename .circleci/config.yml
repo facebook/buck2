@@ -27,6 +27,7 @@ commands:
       - run:
           name: Set OCaml envs
           command: |
+            echo 'export PATH=/opt/homebrew/bin:"$PATH"' >> "$BASH_ENV"
             echo 'eval $(opam env)' >> "$BASH_ENV"
 
   setup_linux_env:
@@ -211,11 +212,12 @@ jobs:
       - run:
           name: Build example/prelude directory
           command: |
+            set -x
             cd examples/with_prelude
             /tmp/artifacts/buck2 init
             cp -r ../../prelude prelude
             # Additional setup for ocaml
-            source ./ocaml-setup.sh
+            ./ocaml-setup.sh
             /tmp/artifacts/buck2 build //... -v 2
             /tmp/artifacts/buck2 test //... -v 2
       - build_example_conan
@@ -252,7 +254,7 @@ jobs:
             /tmp/artifacts/buck2 init
             cp -r ../../prelude prelude
             # Additional setup for ocaml
-            source ./ocaml-setup.sh
+            ./ocaml-setup.sh
             /tmp/artifacts/buck2 build //... -v 2
             /tmp/artifacts/buck2 test //... -v 2
       - build_example_conan

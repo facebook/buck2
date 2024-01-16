@@ -15,6 +15,8 @@ ocaml_binary(
     srcs = ["ppx_driver.ml"],
     compiler_flags = [
         "-linkall",
+        "-cclib",
+        "-lzstd",
     ],
     deps = [
         ":ppx-record-selectors",
