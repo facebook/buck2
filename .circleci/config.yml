@@ -17,7 +17,7 @@ commands:
       - run:
           name: Init opam
           command: |
-            opam init --compiler=5.1.0 --disable-sandboxing -y
+            opam init --compiler=5.1.1 --disable-sandboxing -y
             opam install menhir ppxlib -y
       - run:
           name: OCaml Configuration Info
