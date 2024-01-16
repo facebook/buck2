@@ -8,6 +8,7 @@
  */
 
 use std::borrow::Cow;
+use std::ops::Deref;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -34,7 +35,7 @@ use crate::nodes::configured::ConfiguredTargetNode;
 /// `ConfiguredTargetNode` as both `LabeledNode` and `NodeLabel` and also `QueryTarget`.
 #[derive(Debug, Dupe, Clone, RefCast, Allocative)]
 #[repr(C)]
-pub struct ConfiguredGraphNodeRef(pub ConfiguredTargetNode);
+pub struct ConfiguredGraphNodeRef(ConfiguredTargetNode);
 
 impl NodeLabel for ConfiguredGraphNodeRef {
     fn label_for_filter(&self) -> String {
@@ -42,9 +43,28 @@ impl NodeLabel for ConfiguredGraphNodeRef {
     }
 }
 
+impl Deref for ConfiguredGraphNodeRef {
+    type Target = ConfiguredTargetNode;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl ConfiguredGraphNodeRef {
+    #[inline]
+    pub fn new(node: ConfiguredTargetNode) -> Self {
+        ConfiguredGraphNodeRef(node)
+    }
+
     pub fn label(&self) -> &ConfiguredTargetLabel {
         self.0.label()
+    }
+
+    #[inline]
+    pub fn into_inner(self) -> ConfiguredTargetNode {
+        self.0
     }
 }
 

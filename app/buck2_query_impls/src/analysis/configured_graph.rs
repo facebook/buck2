@@ -93,8 +93,10 @@ impl<'a> ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQuer
                 )
                 .await?;
 
-                let targets: TargetSet<_> =
-                    targets.into_iter().map(ConfiguredGraphNodeRef).collect();
+                let targets: TargetSet<_> = targets
+                    .into_iter()
+                    .map(ConfiguredGraphNodeRef::new)
+                    .collect();
                 let targets = find_target_nodes(targets, label_to_artifact)?;
                 Ok(Arc::new(targets))
             }
@@ -146,8 +148,8 @@ fn find_target_nodes(
         if result.len() == label_to_artifact.len() {
             return Ok(result);
         }
-        for dep in target.0.target_deps() {
-            let dep = ConfiguredGraphNodeRef(dep.dupe());
+        for dep in target.target_deps() {
+            let dep = ConfiguredGraphNodeRef::new(dep.dupe());
             if seen.insert(dep.dupe()) {
                 queue.push_back(dep);
             }

@@ -202,7 +202,9 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
     async fn eval_literals(&self, literal: &[&str]) -> anyhow::Result<TargetSet<Self::Target>> {
         let mut result = TargetSet::new();
         for lit in literal {
-            result.insert(ConfiguredGraphNodeRef(self.delegate.eval_literal(lit)?));
+            result.insert(ConfiguredGraphNodeRef::new(
+                self.delegate.eval_literal(lit)?,
+            ));
         }
         Ok(result)
     }

@@ -35,7 +35,7 @@ pub async fn configured_node_visit_all_deps(
         AsyncTraversalDelegate<ConfiguredGraphNodeRef> for Delegate<F>
     {
         fn visit(&mut self, target: ConfiguredGraphNodeRef) -> anyhow::Result<()> {
-            (self.visitor)(target.0)
+            (self.visitor)(target.into_inner())
         }
 
         async fn for_each_child(
@@ -43,8 +43,8 @@ pub async fn configured_node_visit_all_deps(
             target: &ConfiguredGraphNodeRef,
             func: &mut impl ChildVisitor<ConfiguredGraphNodeRef>,
         ) -> anyhow::Result<()> {
-            for dep in target.0.deps() {
-                func.visit(ConfiguredGraphNodeRef(dep.dupe()))?;
+            for dep in target.deps() {
+                func.visit(ConfiguredGraphNodeRef::new(dep.dupe()))?;
             }
             Ok(())
         }
@@ -53,7 +53,7 @@ pub async fn configured_node_visit_all_deps(
 
     let roots = roots
         .into_iter()
-        .map(|node| ConfiguredGraphNodeRef(node.dupe()));
+        .map(|node| ConfiguredGraphNodeRef::new(node.dupe()));
     async_fast_depth_first_postorder_traversal(&ConfiguredGraphNodeRefLookup, roots, &mut delegate)
         .await
 }
