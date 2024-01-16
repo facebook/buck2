@@ -19,7 +19,7 @@ use std::hash::BuildHasher;
 use std::hash::Hasher;
 
 use dupe::Dupe;
-use fnv::FnvHasher;
+use fxhash::FxHasher64;
 
 use crate::hash_value::StarlarkHashValue;
 
@@ -27,7 +27,10 @@ use crate::hash_value::StarlarkHashValue;
 ///
 /// Starlark relies on stable hashing, and this is the hasher.
 #[derive(Default)]
-pub struct StarlarkHasher(FnvHasher);
+pub struct StarlarkHasher(
+    // TODO(nga): `FxHasher64` is endian-dependent, this is not right.
+    FxHasher64,
+);
 
 impl StarlarkHasher {
     /// Creates a new hasher.

@@ -15,7 +15,7 @@ allocative = { workspace = true, features = ["hashbrown"] }
 dupe = { workspace = true }
 
 equivalent = { workspace = true }
-fnv = "1.0.7"
+fxhash = "0.2.1"
 hashbrown = { version = "0.12.3", features = ["raw"] }
 serde = { version = "1.0", features = ["derive"] }
 
