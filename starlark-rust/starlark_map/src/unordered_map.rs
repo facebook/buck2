@@ -28,14 +28,8 @@ use hashbrown::raw::Bucket;
 use hashbrown::raw::RawTable;
 
 use crate::Equivalent;
+use crate::StarlarkHashValue;
 use crate::StarlarkHasher;
-
-#[inline]
-fn compute_hash<Q: Hash + ?Sized>(k: &Q) -> u64 {
-    let mut hasher = StarlarkHasher::new();
-    k.hash(&mut hasher);
-    hasher.finish()
-}
 
 /// Hash map which does not expose any insertion order-specific behavior
 /// (except `Debug`).
@@ -80,7 +74,7 @@ impl<K, V> UnorderedMap<K, V> {
     where
         Q: Hash + Equivalent<K> + ?Sized,
     {
-        let hash = compute_hash(k);
+        let hash = StarlarkHashValue::new(k).promote();
         self.0
             .get(hash, |(next_k, _v)| k.equivalent(next_k))
             .map(|(_, v)| v)
@@ -92,7 +86,7 @@ impl<K, V> UnorderedMap<K, V> {
     where
         Q: Hash + Equivalent<K> + ?Sized,
     {
-        let hash = compute_hash(k);
+        let hash = StarlarkHashValue::new(k).promote();
         self.0
             .get_mut(hash, |(next_k, _v)| k.equivalent(next_k))
             .map(|(_, v)| v)
@@ -113,13 +107,14 @@ impl<K, V> UnorderedMap<K, V> {
     where
         K: Hash + Eq,
     {
-        let hash = compute_hash(&k);
+        let hash = StarlarkHashValue::new(&k).promote();
         if let Some((_k, existing_value)) =
             self.0.get_mut(hash, |(next_k, _v)| k.equivalent(next_k))
         {
             Some(mem::replace(existing_value, v))
         } else {
-            self.0.insert(hash, (k, v), |(k, _v)| compute_hash(k));
+            self.0
+                .insert(hash, (k, v), |(k, _v)| StarlarkHashValue::new(k).promote());
             None
         }
     }
@@ -130,7 +125,7 @@ impl<K, V> UnorderedMap<K, V> {
     where
         Q: Hash + Equivalent<K> + ?Sized,
     {
-        let hash = compute_hash(k);
+        let hash = StarlarkHashValue::new(k).promote();
         self.0
             .remove_entry(hash, |(next_k, _v)| k.equivalent(next_k))
             .map(|(_, v)| v)
@@ -142,7 +137,7 @@ impl<K, V> UnorderedMap<K, V> {
     where
         K: Hash + Eq,
     {
-        let hash = compute_hash(&k);
+        let hash = StarlarkHashValue::new(&k).promote();
         if let Some(bucket) = self.0.find(hash, |(next_k, _v)| k.equivalent(next_k)) {
             Entry::Occupied(OccupiedEntry { _map: self, bucket })
         } else {
@@ -274,9 +269,9 @@ pub enum Entry<'a, K, V> {
 impl<'a, K: Eq + Hash, V> VacantEntry<'a, K, V> {
     /// Insert a value into the map.
     pub fn insert(self, value: V) {
-        self.map
-            .0
-            .insert(self.hash, (self.key, value), |(k, _v)| compute_hash(k));
+        self.map.0.insert(self.hash, (self.key, value), |(k, _v)| {
+            StarlarkHashValue::new(k).promote()
+        });
     }
 }
 
