@@ -61,6 +61,7 @@ pub struct HttpClientBuilder {
     proxies: Vec<Proxy>,
     max_redirects: Option<usize>,
     supports_vpnless: bool,
+    http2: bool,
     timeout_config: Option<TimeoutConfig>,
 }
 
@@ -98,6 +99,7 @@ impl HttpClientBuilder {
             proxies: Vec::new(),
             max_redirects: None,
             supports_vpnless: false,
+            http2: true,
             timeout_config: None,
         })
     }
@@ -197,6 +199,11 @@ impl HttpClientBuilder {
         self
     }
 
+    pub fn with_http2(&mut self, http2: bool) -> &mut Self {
+        self.http2 = http2;
+        self
+    }
+
     pub fn supports_vpnless(&self) -> bool {
         self.supports_vpnless
     }
@@ -244,7 +251,7 @@ impl HttpClientBuilder {
 
             // Proxied http client with TLS.
             (proxies @ [_, ..], Some(timeout_config)) => {
-                let https_connector = build_https_connector(self.tls_config.clone());
+                let https_connector = build_https_connector(self.tls_config.clone(), self.http2);
                 let timeout_connector = timeout_config.to_connector(https_connector);
                 // Re-use TLS config from https connection for communication with proxies.
                 let proxy_connector = build_proxy_connector(
@@ -255,7 +262,7 @@ impl HttpClientBuilder {
                 Arc::new(hyper::Client::builder().build::<_, Body>(proxy_connector))
             }
             (proxies @ [_, ..], None) => {
-                let https_connector = build_https_connector(self.tls_config.clone());
+                let https_connector = build_https_connector(self.tls_config.clone(), self.http2);
                 let proxy_connector =
                     build_proxy_connector(proxies, https_connector, Some(self.tls_config.clone()));
                 Arc::new(hyper::Client::builder().build::<_, Body>(proxy_connector))
@@ -263,12 +270,12 @@ impl HttpClientBuilder {
 
             // Client with TLS only.
             ([], Some(timeout_config)) => {
-                let https_connector = build_https_connector(self.tls_config.clone());
+                let https_connector = build_https_connector(self.tls_config.clone(), self.http2);
                 let timeout_connector = timeout_config.to_connector(https_connector);
                 Arc::new(hyper::Client::builder().build::<_, Body>(timeout_connector))
             }
             ([], None) => {
-                let https_connector = build_https_connector(self.tls_config.clone());
+                let https_connector = build_https_connector(self.tls_config.clone(), self.http2);
                 Arc::new(hyper::Client::builder().build::<_, Body>(https_connector))
             }
         }
@@ -279,18 +286,23 @@ impl HttpClientBuilder {
             inner: self.build_inner(),
             max_redirects: self.max_redirects,
             supports_vpnless: self.supports_vpnless,
+            http2: self.http2,
             stats: HttpNetworkStats::new(),
         }
     }
 }
 
-fn build_https_connector(tls_config: ClientConfig) -> HttpsConnector<HttpConnector> {
-    HttpsConnectorBuilder::new()
+fn build_https_connector(tls_config: ClientConfig, http2: bool) -> HttpsConnector<HttpConnector> {
+    let builder = HttpsConnectorBuilder::new()
         .with_tls_config(tls_config)
         .https_or_http()
-        .enable_http1()
-        .enable_http2()
-        .build()
+        .enable_http1();
+
+    if http2 {
+        builder.enable_http2().build()
+    } else {
+        builder.build()
+    }
 }
 
 /// Build a proxy connector using `proxies`, wrapping underlying `connector`,
@@ -354,6 +366,16 @@ mod tests {
         builder.with_supports_vpnless();
 
         assert!(builder.supports_vpnless);
+        Ok(())
+    }
+
+    #[test]
+    fn test_http2_option() -> anyhow::Result<()> {
+        let mut builder = HttpClientBuilder::https_with_system_roots()?;
+        assert!(builder.http2);
+        builder.with_http2(false);
+
+        assert!(!builder.http2);
         Ok(())
     }
 

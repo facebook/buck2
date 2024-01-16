@@ -47,6 +47,7 @@ pub struct HttpClient {
     inner: Arc<dyn RequestClient>,
     max_redirects: Option<usize>,
     supports_vpnless: bool,
+    http2: bool,
     stats: HttpNetworkStats,
 }
 
@@ -191,6 +192,10 @@ impl HttpClient {
     /// normal `url` attribute.
     pub fn supports_vpnless(&self) -> bool {
         self.supports_vpnless
+    }
+
+    pub fn http2(&self) -> bool {
+        self.http2
     }
 }
 

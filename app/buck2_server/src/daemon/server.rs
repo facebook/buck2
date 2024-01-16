@@ -825,6 +825,11 @@ impl DaemonApi for BuckdServer {
                     .as_ref()
                     .ok()
                     .map(|state| state.http_client.supports_vpnless()),
+                http2: daemon_state
+                    .data()
+                    .as_ref()
+                    .ok()
+                    .map(|state| state.http_client.http2()),
                 ..Default::default()
             };
             Ok(base)

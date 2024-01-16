@@ -51,6 +51,7 @@ pub struct HttpConfig {
     connect_timeout_ms: Option<u64>,
     read_timeout_ms: Option<u64>,
     write_timeout_ms: Option<u64>,
+    pub http2: bool,
     pub max_redirects: Option<usize>,
 }
 
@@ -60,12 +61,14 @@ impl HttpConfig {
         let read_timeout_ms = config.parse("http", "read_timeout_ms")?;
         let write_timeout_ms = config.parse("http", "write_timeout_ms")?;
         let max_redirects = config.parse("http", "max_redirects")?;
+        let http2 = config.parse("http", "http2")?.unwrap_or(true);
 
         Ok(Self {
             connect_timeout_ms,
             read_timeout_ms,
             write_timeout_ms,
             max_redirects,
+            http2,
         })
     }
 
