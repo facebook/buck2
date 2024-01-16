@@ -632,6 +632,9 @@ def _rust_link_providers(
                     preferred_linkage = Linkage("static"),
                     exported_deps = inherited_graphs,
                     link_infos = link_infos,
+                    # FIXME(JakobDegen): It should be ok to set this to `None`,
+                    # but that breaks arc focus, and setting it to "" breaks
+                    # somerge
                     default_soname = get_default_shared_library_name(cxx_toolchain.linker_info, ctx.label),
                 ),
                 label = new_label,
