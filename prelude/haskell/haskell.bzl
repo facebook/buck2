@@ -66,7 +66,7 @@ load(
 load(
     "@prelude//haskell:util.bzl",
     "attr_deps",
-    "attr_deps_haskell_link_infos",
+    "attr_deps_haskell_link_infos_sans_template_deps",
     "attr_deps_merged_link_infos",
     "attr_deps_profiling_link_infos",
     "attr_deps_shared_library_infos",
@@ -628,7 +628,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
         preferred_linkage = Linkage("static")
 
     # Get haskell and native link infos from all deps
-    hlis = attr_deps_haskell_link_infos(ctx)
+    hlis = attr_deps_haskell_link_infos_sans_template_deps(ctx)
     nlis = attr_deps_merged_link_infos(ctx)
     prof_nlis = attr_deps_profiling_link_infos(ctx)
     shared_library_infos = attr_deps_shared_library_infos(ctx)

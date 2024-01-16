@@ -73,6 +73,16 @@ def attr_deps_haskell_link_infos(ctx: AnalysisContext) -> list[HaskellLinkInfo]:
         ],
     )
 
+# DONT CALL THIS FUNCTION, you want attr_deps_haskell_link_infos instead
+def attr_deps_haskell_link_infos_sans_template_deps(ctx: AnalysisContext) -> list[HaskellLinkInfo]:
+    return filter(
+        None,
+        [
+            d.get(HaskellLinkInfo)
+            for d in attr_deps(ctx)
+        ],
+    )
+
 def attr_deps_haskell_lib_infos(
         ctx: AnalysisContext,
         link_style: LinkStyle,
