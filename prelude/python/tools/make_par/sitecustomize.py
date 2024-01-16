@@ -74,20 +74,27 @@ def __clear_env(patch_spawn=True):
 
 # pyre-fixme[3]: Return type must be annotated.
 def __startup__():
-    for name, var in os.environ.items():
-        if name.startswith("STARTUP_"):
-            name, sep, func = var.partition(":")
-            if sep:
-                try:
-                    module = importlib.import_module(name)
-                    getattr(module, func)()
-                except Exception as e:
-                    # TODO: Ignoring errors for now. The way to properly fix this should be to make
-                    # sure we are still at the same binary that configured `STARTUP_` before importing.
-                    print(
-                        "Error running startup function %s:%s: %s" % (name, func, e),
-                        file=sys.stderr,
-                    )
+    # ALL STARTUP_* methods will be called here in lexicographic order.
+    startup_functions = sorted(
+        [
+            (name, var)
+            for name, var in os.environ.items()
+            if name.startswith("STARTUP_")
+        ],
+    )
+    for name, var in startup_functions:
+        name, sep, func = var.partition(":")
+        if sep:
+            try:
+                module = importlib.import_module(name)
+                getattr(module, func)()
+            except Exception as e:
+                # TODO: Ignoring errors for now. The way to properly fix this should be to make
+                # sure we are still at the same binary that configured `STARTUP_` before importing.
+                print(
+                    "Error running startup function %s:%s: %s" % (name, func, e),
+                    file=sys.stderr,
+                )
 
 
 # pyre-fixme[3]: Return type must be annotated.
