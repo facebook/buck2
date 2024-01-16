@@ -16,6 +16,8 @@ ocaml_binary(
     compiler_flags = [
         "-linkall",
         "-cclib",
+        "-L/opt/homebrew/lib",
+        "-cclib",
         "-lzstd",
     ],
     deps = [
