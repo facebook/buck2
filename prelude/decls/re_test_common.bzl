@@ -17,6 +17,7 @@ def _opts_for_tests_arg() -> Attr:
     #     "listing_capabilities": Dict<str, str> | None
     #     "use_case": str | None
     #     "remote_cache_enabled": bool | None
+    #     "dependencies": list<Dict<str, str>> | []
     # }
     return attrs.dict(
         key = attrs.string(),
@@ -29,6 +30,7 @@ def _opts_for_tests_arg() -> Attr:
                 ),
                 attrs.string(),
                 attrs.bool(),
+                attrs.list(attrs.dict(key = attrs.string(), value = attrs.string()), default = []),
             ),
             # TODO(cjhopman): I think this default does nothing, it should be deleted
             default = None,
