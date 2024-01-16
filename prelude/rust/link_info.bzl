@@ -150,8 +150,15 @@ RustLinkInfo = provider(
         "linkable_graphs": list[LinkableGraph],
         # LinkGroupLibInfo intentionally omitted because the Rust -> Rust version
         # never needs to be different from the Rust -> native version
-        # The native dependencies reachable from this Rust library through other
-        # Rust libraries
+        #
+        # Rust currently treats all native dependencies as being exported, in
+        # the sense of C++ `exported_deps`. However, they are not only exported
+        # from the Rust library that directly depends on them, they are also
+        # exported through any further chains of Rust libraries. This list
+        # tracks those dependencies
+        #
+        # FIXME(JakobDegen): We should not default to treating all native deps
+        # as exported.
         "exported_link_deps": list[Dependency],
     },
 )
