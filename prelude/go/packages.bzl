@@ -65,12 +65,21 @@ def pkg_artifacts(pkgs: dict[str, GoPkg], shared: bool, coverage_mode: [GoCovera
         for name, pkg in pkgs.items()
     }
 
-def stdlib_pkg_artifacts(toolchain: GoToolchainInfo, shared: bool = False) -> dict[str, Artifact]:
+def stdlib_pkg_artifacts(toolchain: GoToolchainInfo, shared: bool = False, non_cgo: bool = False) -> dict[str, Artifact]:
     """
     Return a map package name to a `shared` or `static` package artifact of stdlib.
     """
 
-    prebuilt_stdlib = toolchain.prebuilt_stdlib_shared if shared else toolchain.prebuilt_stdlib
+    # shared == True && non_cgo == True is not supported yet,
+    # we'll temporarily use non_cgo if both flags are true, this will be wixed with on-demand building of stdlib.
+
+    if non_cgo:
+        prebuilt_stdlib = toolchain.prebuilt_stdlib_noncgo
+    elif shared:
+        prebuilt_stdlib = toolchain.prebuilt_stdlib_shared
+    else:
+        prebuilt_stdlib = toolchain.prebuilt_stdlib
+
     stdlib_pkgs = prebuilt_stdlib[ArtifactGroupInfo].artifacts
 
     if len(stdlib_pkgs) == 0:
