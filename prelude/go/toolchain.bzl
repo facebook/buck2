@@ -61,3 +61,16 @@ def get_toolchain_cmd_args(toolchain: GoToolchainInfo, go_root = True, force_dis
             cmd.add("CGO_ENABLED=1")
 
     return cmd
+
+# Sets default value of cgo_enabled attribute based on the presence of C++ toolchain.
+def evaluate_cgo_enabled(toolchain: GoToolchainInfo, cgo_enabled: [bool, None]) -> bool:
+    cxx_toolchain_available = toolchain.cxx_toolchain_for_linking != None
+
+    if cgo_enabled and not cxx_toolchain_available:
+        fail("Cgo requires a C++ toolchain. Set cgo_enabled=None|False.")
+
+    if cgo_enabled != None:
+        return cgo_enabled
+
+    # Return True if cxx_toolchain availabe for current configuration, otherwiese to False.
+    return cxx_toolchain_available

@@ -27,8 +27,9 @@ load(":compile.bzl", "GoPkgCompileInfo", "GoTestInfo", "compile", "get_filtered_
 load(":coverage.bzl", "GoCoverageMode", "cover_srcs")
 load(":link.bzl", "GoPkgLinkInfo", "get_inherited_link_pkgs")
 load(":packages.bzl", "GoPkg", "go_attr_pkg_name", "merge_pkgs")
+load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled")
 
-def _compile_with_coverage(ctx: AnalysisContext, pkg_name: str, srcs: cmd_args, coverage_mode: GoCoverageMode, shared: bool = False) -> (Artifact, cmd_args):
+def _compile_with_coverage(ctx: AnalysisContext, pkg_name: str, srcs: cmd_args, coverage_mode: GoCoverageMode, cgo_enabled: bool, shared: bool = False) -> (Artifact, cmd_args):
     cov_res = cover_srcs(ctx, pkg_name, coverage_mode, srcs, shared)
     srcs = cov_res.srcs
     coverage_vars = cov_res.variables
@@ -36,6 +37,7 @@ def _compile_with_coverage(ctx: AnalysisContext, pkg_name: str, srcs: cmd_args, 
         ctx,
         pkg_name,
         srcs = srcs,
+        cgo_enabled = cgo_enabled,
         deps = ctx.attrs.deps + ctx.attrs.exported_deps,
         compile_flags = ctx.attrs.compiler_flags,
         coverage_mode = coverage_mode,
@@ -44,6 +46,8 @@ def _compile_with_coverage(ctx: AnalysisContext, pkg_name: str, srcs: cmd_args, 
     return (coverage_pkg, coverage_vars)
 
 def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
+    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
+
     pkgs = {}
     default_output = None
     pkg_name = None
@@ -52,11 +56,13 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
         # We need to set CGO_DESABLED for "pure" Go libraries, otherwise CGo files may be selected for compilation.
         srcs = get_filtered_srcs(ctx, ctx.attrs.srcs, force_disable_cgo = True)
+        cgo_enabled = evaluate_cgo_enabled(go_toolchain, ctx.attrs._cgo_enabled)
 
         static_pkg = compile(
             ctx,
             pkg_name,
             srcs = srcs,
+            cgo_enabled = cgo_enabled,
             deps = ctx.attrs.deps + ctx.attrs.exported_deps,
             compile_flags = ctx.attrs.compiler_flags,
             assemble_flags = ctx.attrs.assembler_flags,
@@ -67,14 +73,15 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
             ctx,
             pkg_name,
             srcs = srcs,
+            cgo_enabled = cgo_enabled,
             deps = ctx.attrs.deps + ctx.attrs.exported_deps,
             compile_flags = ctx.attrs.compiler_flags,
             assemble_flags = ctx.attrs.assembler_flags,
             shared = True,
         )
 
-        coverage_shared = {mode: _compile_with_coverage(ctx, pkg_name, srcs, mode, True) for mode in GoCoverageMode}
-        coverage_static = {mode: _compile_with_coverage(ctx, pkg_name, srcs, mode, False) for mode in GoCoverageMode}
+        coverage_shared = {mode: _compile_with_coverage(ctx, pkg_name, srcs, mode, cgo_enabled, True) for mode in GoCoverageMode}
+        coverage_static = {mode: _compile_with_coverage(ctx, pkg_name, srcs, mode, cgo_enabled, False) for mode in GoCoverageMode}
 
         default_output = static_pkg
         pkgs[pkg_name] = GoPkg(

@@ -168,6 +168,7 @@ def _compile_with_coverage(ctx: AnalysisContext, pkg_name: str, srcs: cmd_args, 
         ctx,
         pkg_name,
         srcs = srcs,
+        cgo_enabled = True,
         deps = ctx.attrs.deps + ctx.attrs.exported_deps,
         coverage_mode = coverage_mode,
         shared = shared,
@@ -245,6 +246,7 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx,
         pkg_name,
         all_srcs,
+        cgo_enabled = True,
         deps = ctx.attrs.deps + ctx.attrs.exported_deps,
         shared = False,
     )
@@ -252,6 +254,7 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx,
         pkg_name,
         all_srcs,
+        cgo_enabled = True,
         deps = ctx.attrs.deps + ctx.attrs.exported_deps,
         shared = True,
     )

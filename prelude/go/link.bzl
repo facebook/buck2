@@ -106,6 +106,7 @@ def _process_shared_dependencies(
 def link(
         ctx: AnalysisContext,
         main: Artifact,
+        cgo_enabled: bool,
         pkgs: dict[str, Artifact] = {},
         deps: list[Dependency] = [],
         build_mode: GoBuildMode = GoBuildMode("executable"),
@@ -141,7 +142,7 @@ def link(
     all_pkgs = merge_pkgs([
         pkgs,
         pkg_artifacts(get_inherited_link_pkgs(deps), shared = shared, coverage_mode = coverage_mode),
-        stdlib_pkg_artifacts(go_toolchain, shared = shared),
+        stdlib_pkg_artifacts(go_toolchain, shared = shared, non_cgo = not cgo_enabled),
     ])
 
     importcfg_content = []

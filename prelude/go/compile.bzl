@@ -92,6 +92,7 @@ def _assemble_cmd(
 def _compile_cmd(
         ctx: AnalysisContext,
         pkg_name: str,
+        cgo_enabled: bool,
         pkgs: dict[str, Artifact] = {},
         deps: list[Dependency] = [],
         flags: list[str] = [],
@@ -118,7 +119,7 @@ def _compile_cmd(
     all_pkgs = merge_pkgs([
         pkgs,
         pkg_artifacts(get_inherited_compile_pkgs(deps), shared = shared, coverage_mode = coverage_mode),
-        stdlib_pkg_artifacts(go_toolchain, shared = shared),
+        stdlib_pkg_artifacts(go_toolchain, shared = shared, non_cgo = not cgo_enabled),
     ])
 
     importcfg_content = []
@@ -144,6 +145,7 @@ def compile(
         ctx: AnalysisContext,
         pkg_name: str,
         srcs: cmd_args,
+        cgo_enabled: bool,
         pkgs: dict[str, Artifact] = {},
         deps: list[Dependency] = [],
         compile_flags: list[str] = [],
@@ -157,7 +159,7 @@ def compile(
     cmd = get_toolchain_cmd_args(go_toolchain)
     cmd.add(go_toolchain.compile_wrapper[RunInfo])
     cmd.add(cmd_args(output.as_output(), format = "--output={}"))
-    cmd.add(cmd_args(_compile_cmd(ctx, pkg_name, pkgs, deps, compile_flags, shared = shared, coverage_mode = coverage_mode), format = "--compiler={}"))
+    cmd.add(cmd_args(_compile_cmd(ctx, pkg_name, cgo_enabled, pkgs, deps, compile_flags, shared = shared, coverage_mode = coverage_mode), format = "--compiler={}"))
     cmd.add(cmd_args(_assemble_cmd(ctx, pkg_name, assemble_flags, shared = shared), format = "--assembler={}"))
     cmd.add(cmd_args(go_toolchain.packer, format = "--packer={}"))
     if ctx.attrs.embedcfg:

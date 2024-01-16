@@ -124,6 +124,14 @@ def _embedcfg_arg():
 """),
     }
 
+def _cgo_enabled_arg():
+    return {
+        "cgo_enabled": attrs.option(attrs.bool(), default = None, doc = """
+    Experimental: Analog of CGO_ENABLED environment-variable.
+    None will be coverted to True if cxx_toolchain availabe for current configuration, otherwiese False.
+"""),
+    }
+
 go_common = struct(
     deps_arg = _deps_arg,
     srcs_arg = _srcs_arg,
@@ -136,4 +144,5 @@ go_common = struct(
     linker_flags_arg = _linker_flags_arg,
     external_linker_flags_arg = _external_linker_flags_arg,
     embedcfg_arg = _embedcfg_arg,
+    cgo_enabled_arg = _cgo_enabled_arg,
 )
