@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+pub(crate) mod bfs;
 pub(crate) mod dfs;
 #[allow(clippy::module_inception)]
 pub(crate) mod graph;

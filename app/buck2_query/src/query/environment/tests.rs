@@ -276,9 +276,8 @@ async fn test_many_paths() -> anyhow::Result<()> {
     let expected = env.set("1,10,11,2,3")?;
     assert_eq!(path, expected);
 
-    // We iterate with a stack so this is why we find this path
     let path = env.somepath(&env.set("1")?, &env.set("3")?).await?;
-    let expected = env.set("3,11,10,1")?;
+    let expected = env.set("3,2,1")?;
     assert_eq!(path, expected);
 
     Ok(())
@@ -299,7 +298,7 @@ async fn test_distinct_paths() -> anyhow::Result<()> {
 
     // Same as above
     let path = env.somepath(&env.set("1,2")?, &env.set("100,200")?).await?;
-    let expected = env.set("200,20,2")?;
+    let expected = env.set("100,10,1")?;
     assert_eq!(path, expected);
 
     Ok(())

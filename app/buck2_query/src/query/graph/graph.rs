@@ -10,12 +10,15 @@
 #![allow(dead_code)] // Used later in the stack.
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
+use gazebo::prelude::SliceExt;
 use starlark_map::StarlarkHasherBuilder;
 
 use crate::query::environment::LabeledNode;
+use crate::query::graph::bfs::bfs_find_path;
 use crate::query::graph::dfs::dfs_postorder_impl;
 use crate::query::graph::successors::AsyncChildVisitor;
 use crate::query::graph::successors::GraphSuccessors;
@@ -197,6 +200,34 @@ impl<T: LabeledNode> Graph<T> {
             GraphSuccessorsImpl { graph: self },
             |index| visitor(&self.nodes[index as usize].node),
         )
+    }
+
+    fn bfs_impl(
+        &self,
+        roots: impl IntoIterator<Item = T::NodeRef>,
+        target: impl Fn(u32) -> bool,
+    ) -> Option<Vec<&T>> {
+        let path = bfs_find_path(
+            roots.into_iter().map(|n| self.node_to_index[&n]),
+            GraphSuccessorsImpl { graph: self },
+            target,
+        )?;
+        Some(path.map(|n| &self.nodes[*n as usize].node))
+    }
+
+    pub(crate) fn bfs(
+        &self,
+        roots: impl IntoIterator<Item = T::NodeRef>,
+        targets: impl IntoIterator<Item = T::NodeRef>,
+    ) -> Option<Vec<&T>> {
+        let target_indices: HashSet<u32, StarlarkHasherBuilder> = targets
+            .into_iter()
+            .filter_map(|n| {
+                // Skip nodes that are not in the graph.
+                self.node_to_index.get(&n).copied()
+            })
+            .collect();
+        self.bfs_impl(roots, |n| target_indices.contains(&n))
     }
 }
 

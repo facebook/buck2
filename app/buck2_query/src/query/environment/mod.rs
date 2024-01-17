@@ -22,14 +22,18 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::TargetLabel;
 use dupe::Dupe;
+use dupe::IterDupedExt;
 use futures::stream::FuturesUnordered;
 use futures::stream::TryStreamExt;
 use starlark_map::ordered_set::OrderedSet;
 use starlark_map::Hashed;
 
+use crate::query::graph::graph::Graph;
+use crate::query::graph::successors::AsyncChildVisitor;
 use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::file_set::FileSet;
 use crate::query::syntax::simple::eval::set::TargetSet;
+use crate::query::traversal::AsyncNodeLookup;
 use crate::query::traversal::AsyncTraversalDelegate;
 use crate::query::traversal::ChildVisitor;
 mod tests;
@@ -192,65 +196,26 @@ pub trait QueryEnvironment: Send + Sync {
         self.rdeps(from, to, None).await
     }
 
+    #[allow(clippy::from_iter_instead_of_collect)]
     async fn somepath(
         &self,
         from: &TargetSet<Self::Target>,
         to: &TargetSet<Self::Target>,
     ) -> anyhow::Result<TargetSet<Self::Target>> {
-        struct Delegate<'a, Q: QueryTarget> {
-            to: &'a TargetSet<Q>,
-            /// Contains targets that were reached starting from `from` that have a path to `to`.
-            path: TargetSet<Q>,
-        }
+        let graph = Graph::build(
+            &QueryEnvironmentAsNodeLookup { env: self },
+            from.iter().map(|e| e.node_ref().clone()),
+            QueryTargetDepsSuccessors,
+        )
+        .await?;
 
-        #[async_trait]
-        impl<'a, Q: QueryTarget> AsyncTraversalDelegate<Q> for Delegate<'a, Q> {
-            fn visit(&mut self, target: Q) -> anyhow::Result<()> {
-                // NOTE: It would be better to just only post-order visit our parents, but that is
-                // not possible because we push *all* children when visiting a node, so we will not
-                // just post-visit all parents when we interrupt the search.
-                // NOTE: We assert! around the insertions below because we know each node should
-                // only be post-visited once but since we rely on `last()`, it matters so we check
-                // it.
-
-                if let Some(head) = self.path.last() {
-                    if target.deps().any(|t| t == head.node_ref()) {
-                        assert!(self.path.insert(target));
-                    }
-                    return Ok(());
-                }
-
-                if self.to.contains(target.node_ref()) {
-                    assert!(self.path.insert(target));
-                }
-
-                Ok(())
-            }
-
-            async fn for_each_child(
-                &mut self,
-                target: &Q,
-                func: &mut impl ChildVisitor<Q>,
-            ) -> anyhow::Result<()> {
-                // Stop adding more children if we are putting a path back together.
-                if !self.path.is_empty() || self.to.contains(target.node_ref()) {
-                    return Ok(());
-                }
-                let res: anyhow::Result<_> = try {
-                    for dep in target.deps() {
-                        func.visit(dep)?;
-                    }
-                };
-                res.with_context(|| format!("Error traversing children of `{}`", target.node_ref()))
-            }
-        }
-
-        let mut delegate = Delegate {
-            path: TargetSet::new(),
-            to,
-        };
-        self.dfs_postorder(from, &mut delegate).await?;
-        Ok(delegate.path)
+        let path = graph
+            .bfs(
+                from.iter().map(|t| t.node_ref().clone()),
+                to.iter().map(|t| t.node_ref().clone()),
+            )
+            .unwrap_or_default();
+        Ok(TargetSet::from_iter(path.into_iter().rev().duped()))
     }
 
     async fn allbuildfiles(&self, _universe: &TargetSet<Self::Target>) -> anyhow::Result<FileSet> {
@@ -528,4 +493,33 @@ pub async fn deps<Env: QueryEnvironment + ?Sized>(
     }
 
     Ok(deps)
+}
+
+struct QueryTargetDepsSuccessors;
+
+#[async_trait]
+impl<T: QueryTarget> AsyncChildVisitor<T> for QueryTargetDepsSuccessors {
+    async fn for_each_child(
+        &mut self,
+        node: &T,
+        children: &mut impl ChildVisitor<T>,
+    ) -> anyhow::Result<()> {
+        for dep in node.deps() {
+            children.visit(dep)?;
+        }
+        Ok(())
+    }
+}
+
+struct QueryEnvironmentAsNodeLookup<'q, Q: QueryEnvironment + ?Sized> {
+    env: &'q Q,
+}
+
+#[async_trait]
+impl<'q, Q: QueryEnvironment + ?Sized> AsyncNodeLookup<Q::Target>
+    for QueryEnvironmentAsNodeLookup<'q, Q>
+{
+    async fn get(&self, label: &<Q::Target as LabeledNode>::NodeRef) -> anyhow::Result<Q::Target> {
+        self.env.get_node(label).await
+    }
 }
