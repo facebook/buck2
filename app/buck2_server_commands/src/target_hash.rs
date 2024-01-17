@@ -334,7 +334,7 @@ impl TargetHashes {
                 func: &mut impl ChildVisitor<T>,
             ) -> anyhow::Result<()> {
                 for dep in target.deps() {
-                    func.visit(dep.clone())?;
+                    func.visit(dep)?;
                 }
 
                 Ok(())

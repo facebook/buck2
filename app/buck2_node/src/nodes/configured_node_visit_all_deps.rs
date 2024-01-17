@@ -12,6 +12,7 @@ use buck2_query::query::traversal::async_fast_depth_first_postorder_traversal;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query::traversal::ChildVisitor;
 use dupe::Dupe;
+use ref_cast::RefCast;
 
 use crate::nodes::configured::ConfiguredTargetNode;
 use crate::nodes::configured_ref::ConfiguredGraphNodeRef;
@@ -44,7 +45,7 @@ pub async fn configured_node_visit_all_deps(
             func: &mut impl ChildVisitor<ConfiguredGraphNodeRef>,
         ) -> anyhow::Result<()> {
             for dep in target.deps() {
-                func.visit(ConfiguredGraphNodeRef::new(dep.dupe()))?;
+                func.visit(ConfiguredGraphNodeRef::ref_cast(dep))?;
             }
             Ok(())
         }

@@ -238,7 +238,7 @@ pub trait QueryEnvironment: Send + Sync {
                 }
                 let res: anyhow::Result<_> = try {
                     for dep in target.deps() {
-                        func.visit(dep.clone())?;
+                        func.visit(dep)?;
                     }
                 };
                 res.with_context(|| format!("Error traversing children of `{}`", target.node_ref()))
@@ -293,7 +293,7 @@ pub trait QueryEnvironment: Send + Sync {
                 func: &mut impl ChildVisitor<Q>,
             ) -> anyhow::Result<()> {
                 for dep in target.deps() {
-                    func.visit(dep.clone()).with_context(|| {
+                    func.visit(dep).with_context(|| {
                         format!("Error traversing children of `{}`", target.node_ref())
                     })?;
                     self.parents
@@ -333,7 +333,7 @@ pub trait QueryEnvironment: Send + Sync {
             ) -> anyhow::Result<()> {
                 if let Some(parents) = self.parents.get(target.node_ref()) {
                     for parent in parents {
-                        func.visit(parent.clone()).with_context(|| {
+                        func.visit(parent).with_context(|| {
                             format!("Error traversing parents of `{}`", target.node_ref())
                         })?;
                     }
@@ -486,12 +486,12 @@ pub async fn deps<Env: QueryEnvironment + ?Sized>(
                 match self.filter {
                     Some(filter) => {
                         for dep in filter.get_children(target).await?.iter() {
-                            func.visit(dep.node_ref().clone())?;
+                            func.visit(dep.node_ref())?;
                         }
                     }
                     None => {
                         for dep in target.deps() {
-                            func.visit(dep.clone())?;
+                            func.visit(dep)?;
                         }
                     }
                 }

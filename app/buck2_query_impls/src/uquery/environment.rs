@@ -432,7 +432,7 @@ pub(crate) async fn rbuildfiles<'c>(
                 .get(node.import_path())
                 .expect("import path should exist")
             {
-                func.visit(NodeRef(import.clone()))?;
+                func.visit(&NodeRef(import.clone()))?;
             }
             Ok(())
         }
@@ -633,7 +633,7 @@ pub(crate) async fn get_transitive_loads<'c>(
                 .eval_module_imports(target.import_path())
                 .await?
             {
-                func.visit(NodeRef(import.clone()))?;
+                func.visit(&NodeRef(import))?;
             }
             Ok(())
         }

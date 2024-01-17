@@ -58,7 +58,7 @@ async fn verify_visibility(
             func: &mut impl ChildVisitor<TargetNode>,
         ) -> anyhow::Result<()> {
             for dep in target.deps() {
-                func.visit(dep.dupe())?;
+                func.visit(dep)?;
             }
             Ok(())
         }

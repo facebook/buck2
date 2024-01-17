@@ -122,7 +122,7 @@ async fn get_transitive_includes(
             func: &mut impl ChildVisitor<Node>,
         ) -> anyhow::Result<()> {
             for import in target.0.imports() {
-                func.visit(NodeRef(import.clone()))?;
+                func.visit(&NodeRef(import.clone()))?;
             }
             Ok(())
         }

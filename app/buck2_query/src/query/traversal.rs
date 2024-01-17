@@ -19,15 +19,15 @@ use crate::query::futures_queue_generic::FuturesQueue;
 use crate::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 
 pub trait ChildVisitor<T: LabeledNode>: Send {
-    fn visit(&mut self, node: T::NodeRef) -> anyhow::Result<()>;
+    fn visit(&mut self, node: &T::NodeRef) -> anyhow::Result<()>;
 }
 
 impl<F, T: LabeledNode> ChildVisitor<T> for F
 where
-    F: FnMut(T::NodeRef) -> anyhow::Result<()>,
+    F: FnMut(&T::NodeRef) -> anyhow::Result<()>,
     F: Send,
 {
-    fn visit(&mut self, node: T::NodeRef) -> anyhow::Result<()> {
+    fn visit(&mut self, node: &T::NodeRef) -> anyhow::Result<()> {
         self(node)
     }
 }
@@ -123,9 +123,9 @@ pub async fn async_fast_depth_first_postorder_traversal<
                 work.push(WorkItem::PostVisit(node.dupe()));
 
                 delegate
-                    .for_each_child(&node, &mut |child| {
+                    .for_each_child(&node, &mut |child: &T::NodeRef| {
                         if !visited.contains(&child) {
-                            work.push(WorkItem::Visit(child));
+                            work.push(WorkItem::Visit(child.clone()));
                         }
                         Ok(())
                     })
@@ -154,13 +154,14 @@ async fn async_traversal_common<
 ) -> anyhow::Result<()> {
     let mut visited: HashMap<_, _, StarlarkHasherBuilder> = HashMap::default();
     let mut push = |queue: &mut FuturesQueue<_>,
-                    target: T::NodeRef,
+                    target: &T::NodeRef,
                     parent: Option<T::NodeRef>,
                     depth: u32| {
-        if visited.contains_key(&target) {
+        if visited.contains_key(target) {
             return;
         }
         visited.insert(target.clone(), parent);
+        let target = target.clone();
         queue.push(async move {
             let result = nodes.get(&target).await;
             (target, depth, result)
@@ -174,7 +175,7 @@ async fn async_traversal_common<
     };
 
     for target in root {
-        push(&mut queue, target.clone(), None, 0);
+        push(&mut queue, target, None, 0);
     }
 
     // TODO(cjhopman): FuturesOrdered/Unordered interacts poorly with tokio cooperative scheduling
@@ -186,7 +187,7 @@ async fn async_traversal_common<
             if Some(depth) != max_depth {
                 let depth = depth + 1;
                 delegate
-                    .for_each_child(&node, &mut |child| {
+                    .for_each_child(&node, &mut |child: &T::NodeRef| {
                         push(&mut queue, child, Some(target.clone()), depth);
                         Ok(())
                     })
@@ -432,7 +433,7 @@ mod tests {
                     func: &mut impl ChildVisitor<Node>,
                 ) -> anyhow::Result<()> {
                     for child in &target.1 {
-                        func.visit(child.dupe())?;
+                        func.visit(child)?;
                     }
                     Ok(())
                 }

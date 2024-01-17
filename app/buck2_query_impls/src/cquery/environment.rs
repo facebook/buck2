@@ -37,6 +37,7 @@ use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query::traversal::ChildVisitor;
 use dice::DiceComputations;
 use dupe::Dupe;
+use ref_cast::RefCast;
 use tracing::warn;
 
 use crate::uquery::environment::allbuildfiles;
@@ -296,7 +297,7 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
                     func: &mut impl ChildVisitor<ConfiguredGraphNodeRef>,
                 ) -> anyhow::Result<()> {
                     for dep in target.deps() {
-                        func.visit(ConfiguredGraphNodeRef::new(dep.dupe()))?;
+                        func.visit(ConfiguredGraphNodeRef::ref_cast(dep))?;
                     }
                     Ok(())
                 }
