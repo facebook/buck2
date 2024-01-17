@@ -9,6 +9,7 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::marker::PhantomData;
 
 use async_trait::async_trait;
 use futures::StreamExt;
@@ -16,7 +17,8 @@ use starlark_map::StarlarkHasherBuilder;
 
 use crate::query::environment::LabeledNode;
 use crate::query::futures_queue_generic::FuturesQueue;
-use crate::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
+use crate::query::graph::graph::Graph;
+use crate::query::graph::successors::AsyncChildVisitor;
 
 pub trait ChildVisitor<T: LabeledNode>: Send {
     fn visit(&mut self, node: &T::NodeRef) -> anyhow::Result<()>;
@@ -57,21 +59,6 @@ pub trait NodeLookup<T: LabeledNode> {
 #[async_trait]
 pub trait AsyncNodeLookup<T: LabeledNode>: Send + Sync {
     async fn get(&self, label: &T::NodeRef) -> anyhow::Result<T>;
-}
-
-/// Implements a completely unordered graph traversal that visits nodes in a random order. When
-/// traversing the graph (potentially) requires work to produce each node (like processing build files)
-/// this unordered traversal will parallelize the work efficiently.
-pub async fn async_unordered_traversal<
-    'a,
-    T: LabeledNode,
-    RootIter: IntoIterator<Item = &'a T::NodeRef>,
->(
-    nodes: &impl AsyncNodeLookup<T>,
-    root: RootIter,
-    delegate: &mut impl AsyncTraversalDelegate<T>,
-) -> anyhow::Result<()> {
-    async_traversal_common(nodes, root, delegate, None, false).await
 }
 
 /// Implements a depth-first postorder traversal. A node will be visited only after all of its
@@ -235,67 +222,37 @@ pub async fn async_depth_first_postorder_traversal<
     root: Iter,
     delegate: &mut impl AsyncTraversalDelegate<T>,
 ) -> anyhow::Result<()> {
-    // We first do an unordered graph traversal to collect all nodes. The unordered traversal efficiently
-    // uses resources when we need to process build files.
-    // We don't cache the results of the for_each_child iterators, so that is called multiple times. Potentially it would be more performant to avoid that if an expensive filter/operation is involved.
-    struct UnorderedDelegate<'a, T: LabeledNode, D: AsyncTraversalDelegate<T>> {
+    struct SuccessorsImpl<'a, T: LabeledNode, D: AsyncTraversalDelegate<T>> {
         delegate: &'a mut D,
-        nodes: LabelIndexedSet<T>,
+        _marker: PhantomData<T>,
     }
 
     #[async_trait]
-    impl<T: LabeledNode, D: AsyncTraversalDelegate<T>> AsyncTraversalDelegate<T>
-        for UnorderedDelegate<'_, T, D>
+    impl<T: LabeledNode, D: AsyncTraversalDelegate<T>> AsyncChildVisitor<T>
+        for SuccessorsImpl<'_, T, D>
     {
-        /// visit is called once for each node. When it is called is traversal-dependent.
-        fn visit(&mut self, target: T) -> anyhow::Result<()> {
-            self.nodes.insert(target);
-            Ok(())
-        }
-
-        /// for_each_child should apply the provided function to each child of the node. This may be called multiple times in some traversals.
         async fn for_each_child(
             &mut self,
-            target: &T,
-            func: &mut impl ChildVisitor<T>,
+            node: &T,
+            children: &mut impl ChildVisitor<T>,
         ) -> anyhow::Result<()> {
-            self.delegate.for_each_child(target, func).await
+            self.delegate.for_each_child(node, children).await
         }
     }
 
-    let mut unordered_delegate = UnorderedDelegate {
-        delegate,
-        nodes: LabelIndexedSet::new(),
-    };
+    let graph = Graph::build(
+        nodes,
+        root.clone().into_iter().cloned(),
+        SuccessorsImpl {
+            delegate,
+            _marker: PhantomData::<T>,
+        },
+    )
+    .await?;
 
-    async_unordered_traversal(nodes, root.clone(), &mut unordered_delegate).await?;
-
-    struct Nodes<T: LabeledNode> {
-        nodes: LabelIndexedSet<T>,
-    }
-
-    impl<T: LabeledNode> NodeLookup<T> for Nodes<T> {
-        fn get(&self, label: &T::NodeRef) -> anyhow::Result<T> {
-            Ok(self
-                .nodes
-                .get(label)
-                .unwrap_or_else(|| {
-                    panic!(
-                    "Should've failed in first traversal if there's a missing node (missing `{}`).",
-                    label
-                )
-                })
-                .dupe())
-        }
-    }
-
-    let nodes = Nodes {
-        nodes: unordered_delegate.nodes,
-    };
-
-    async_fast_depth_first_postorder_traversal(&nodes, root.into_iter().cloned(), delegate).await?;
-
-    Ok(())
+    graph.depth_first_postorder_traversal(root.into_iter().cloned(), |node| {
+        delegate.visit(node.dupe())
+    })
 }
 
 #[cfg(test)]
