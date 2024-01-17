@@ -94,6 +94,9 @@ const manualSidebar = [
           isInternal() ? 'users/faq/meta_installation' : [],
           isInternal() ? 'users/faq/remote_execution' : [],
           'users/faq/starlark_peak_mem',
+          'users/faq/buck_hanging',
+          isInternal() ? 'users/faq/how_to_bisect' : [],
+          isInternal() ? 'users/faq/how_to_expedite_fix' : [],
         ],
       },
       {
