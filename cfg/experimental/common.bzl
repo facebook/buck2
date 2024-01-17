@@ -13,8 +13,8 @@ load(
     "ModifierInfo",
     "ModifierLocation",
     "ModifierPackageLocation",
-    "ModifierSelectInfo",
     "ModifierTargetLocation",
+    "ModifiersMatchInfo",
     "TaggedModifiers",
 )
 
@@ -41,17 +41,17 @@ def verify_normalized_target(target: str):
             ),
         )
 
-def is_modifier_select(modifier: Modifier) -> bool:
+def is_modifiers_match(modifier: Modifier) -> bool:
     if isinstance(modifier, str):
         return False
     if isinstance(modifier, dict):
-        if modifier["_type"] != "ModifierSelect":
+        if modifier["_type"] != "ModifiersMatch":
             fail("Found unknown dictionary `{}` for modifier".format(modifier))
         return True
     fail("Modifier should either be a string or dict. Found `{}`".format(modifier))
 
 def verify_normalized_modifier(modifier: Modifier):
-    if is_modifier_select(modifier):
+    if is_modifiers_match(modifier):
         # TODO(scottcao): Add a test case for this once `bxl_test` supports testing failures
         for key, sub_modifier in modifier.items():
             if key != "_type":
@@ -74,7 +74,7 @@ def get_tagged_modifiers(
 
 def get_constraint_setting(constraint_settings: dict[TargetLabel, None], modifier: Modifier, location: ModifierLocation) -> TargetLabel:
     if len(constraint_settings) == 0:
-        fail("`modifier_select` cannot be empty. Found empty `modifier_select` at `{}`".format(location_to_string(location)))
+        fail("`modifiers.match` cannot be empty. Found empty `modifiers.match` at `{}`".format(location_to_string(location)))
     if len(constraint_settings) > 1:
         fail(
             "A single modifier can only modify a single constraint setting.\n" +
@@ -91,9 +91,9 @@ def get_modifier_info(
         location: ModifierLocation,
         constraint_setting_order: list[TargetLabel]) -> (TargetLabel, ModifierInfo):
     # Gets a modifier info from a modifier based on providers from `refs`.
-    if is_modifier_select(modifier):
+    if is_modifiers_match(modifier):
         default = None
-        modifier_selector_info = []
+        modifiers_match_info = []
         constraint_settings = {}  # Used like a set
         for key, sub_modifier in modifier.items():
             if key == "DEFAULT":
@@ -105,19 +105,19 @@ def get_modifier_info(
                     asserts.true(
                         cfg_constraint_setting in constraint_setting_order,
                         (
-                            "modifier_select `{}` from `{}` selects on `{}` of constraint_setting `{}`, which is now allowed. " +
+                            "modifiers.match `{}` from `{}` selects on `{}` of constraint_setting `{}`, which is now allowed. " +
                             "To select on this constraint, this constraint setting needs to be added to `buck2/cfg/experimental/cfg_constructor.bzl`"
                         ).format(modifier, location_to_string(location), cfg_constraint_value_info.label, cfg_constraint_setting),
                     )
                 sub_constraint_setting, sub_modifier_info = get_modifier_info(refs, sub_modifier, location, constraint_setting_order)
                 constraint_settings[sub_constraint_setting] = None
-                modifier_selector_info.append((cfg_info, sub_modifier_info))
+                modifiers_match_info.append((cfg_info, sub_modifier_info))
 
         constraint_setting = get_constraint_setting(constraint_settings, modifier, location)
 
-        return constraint_setting, ModifierSelectInfo(
+        return constraint_setting, ModifiersMatchInfo(
             default = default,
-            selector = modifier_selector_info,
+            selector = modifiers_match_info,
         )
     if isinstance(modifier, str):
         modifier_info = refs[modifier]
@@ -141,7 +141,7 @@ def _is_subset(a: ConfigurationInfo, b: ConfigurationInfo) -> bool:
 
 def resolve_modifier(cfg: ConfigurationInfo, modifier: ModifierInfo) -> ConstraintValueInfo | None:
     # Resolve the modifier and return the constraint value to add to the configuration, if there is one
-    if isinstance(modifier, ModifierSelectInfo):
+    if isinstance(modifier, ModifiersMatchInfo):
         for key, sub_modifier in modifier.selector:
             if _is_subset(key, cfg):
                 # If constraints in key of the select are a subset of the constraints in the
@@ -157,7 +157,7 @@ def resolve_modifier(cfg: ConfigurationInfo, modifier: ModifierInfo) -> Constrai
 def modifier_to_refs(modifier: Modifier, location: ModifierLocation) -> list[str]:
     # Obtain a list of targets to analyze from a modifier.
     refs = []
-    if is_modifier_select(modifier):
+    if is_modifiers_match(modifier):
         for key, sub_modifier in modifier.items():
             if key != "_type":
                 if key != "DEFAULT":

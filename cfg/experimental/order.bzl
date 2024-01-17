@@ -5,9 +5,9 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# List of constraint settings that can be selected on via `modifier_select`.
+# List of constraint settings that can be selected on via `modifiers_match`.
 # Modifiers for these constraints are resolved first before other modifiers,
-# if they exist. `modifier_select` keying on other constraint settings will
+# if they exist. `modifiers_match` keying on other constraint settings will
 # fail
 # TODO(scottcao): Find a better place to set this so that OSS users can add
 # their own constraints.

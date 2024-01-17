@@ -10,24 +10,24 @@ load(":common.bzl?v2_only", "verify_normalized_modifier", "verify_normalized_tar
 load(
     ":types.bzl?v2_only",
     "Modifier",  # @unused Used in type annotation
-    "ModifierSelect",
+    "ModifiersMatch",
 )
 
-def modifier_select(
-        selector: dict[str, Modifier | None]) -> ModifierSelect:
+def _modifiers_match(
+        selector: dict[str, Modifier | None]) -> ModifiersMatch:
     """
-    A select operator for modifiers. A `modifier_select` specifies a way for a
+    A select operator for modifiers. A `modifiers.match` specifies a way for a
     modifier to be added based on an existing constraint in the configuration.
     The `selector` is a dictionary that maps from a set of constraints to a
     modifier.
 
     For example, suppose `cfg//os:linux` and `cfg//os:windows` are constraint values
     for OS and `cfg//compiler:clang` and `cfg//compiler:msvc` are constraint values
-    for compiler. The following `modifier_select` conditionally adds the msvc constraint
+    for compiler. The following `modifiers.match` conditionally adds the msvc constraint
     if the the windows constraint is matched or adds the clang constraint if the
     the linux constraint is matched.
     ```
-    modifier_select({
+    modifiers.match({
         "cfg//os:windows": "cfg//compiler:msvc",
         "cfg//os:linux": "cfg//compiler:clang",
         "DEFAULT": None,
@@ -37,17 +37,17 @@ def modifier_select(
     then the modifier specified by DEFAULT will be used.
     If None is specified, then a modifier will not be added.
 
-    `modifier_select`s can be stacked. For example,
+    `modifiers.match`s can be stacked. For example,
     suppose this modifier is specified in fbcode/PACKAGE
     ```
-    modifier = modifier_select({
+    modifier = modifiers.match({
         "cfg//os:windows": "cfg//compiler:msvc",
         "DEFAULT": None,
     })
     ```
     Suppose this modifier is specified in fbcode/project/PACKAGE
     ```
-    modifier = modifier_select({
+    modifier = modifiers.match({
         "cfg//os:linux": "cfg//compiler:clang",
         "DEFAULT": None,
     })
@@ -55,9 +55,9 @@ def modifier_select(
     For any target covered by fbcode/project/PACKAGE, this is
     equivalent to one modifier in that specifies
     ```
-    modifier_select({
+    modifiers.match({
         "cfg//os:windows": "cfg//compiler:msvc",
-        "DEFAULT": modifier_select({
+        "DEFAULT": modifiers.match({
             "DEFAULT": None,
             "cfg//os:linux": "cfg//compiler:clang",
         })
@@ -73,5 +73,9 @@ def modifier_select(
             verify_normalized_target(key)
         verify_normalized_modifier(sub_modifier)
 
-    selector["_type"] = "ModifierSelect"
+    selector["_type"] = "ModifiersMatch"
     return selector
+
+modifiers = struct(
+    match = _modifiers_match,
+)

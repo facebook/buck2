@@ -132,26 +132,26 @@ constraint value for that setting. For example, specifying `cfg//os:linux` as a
 modifier will insert `cfg//os:linux` into the configuration, overriding any
 existing constraint value for the `cfg//os:_` constraint setting.
 
-Another type of modifier is a `modifier_select()` of a constraint value. This
-can change the constraint value inserted based on the existing configuration.
-For example, a modifier like
+Another type of modifier is the `modifiers.match()` operator. This operator can
+change the constraint value inserted based on the existing configuration. For
+example, a modifier like
 
 ```python
-modifier_select({
+modifiers.match({
   "cfg//os:windows": "cfg//compiler:msvc",
   "DEFAULT": "cfg//compiler:clang",
 })
 ```
 
 will insert msvc constraint into the configuration if OS is windows or clang
-constraint otherwise. A `modifier_select()` behaves similarly to Buck's
-`select()` but can only be used in a modifier. A `modifier_select()` can only be
-used to modify a single constraint setting, so the following example is not
-valid.
+constraint otherwise. A `modifiers.match()` behaves similarly to Buck's
+`select()` but can only be used in a modifier context. A `modifiers.match()` can
+only be used to modify a single constraint setting, so the following example is
+not valid.
 
 ```python
 # This fails because a modifier cannot modify both compiler and OS.
-modifier_select({
+modifiers.match({
   "cfg//os:windows": "cfg//compiler:msvc",
   "DEFAULT": "cfg//os:linux",
 })
@@ -179,7 +179,7 @@ targets in repo.
 
 set_cfg_modifiers(modifiers = [
   "cfg//:linux",
-  modifier_select({
+  modifiers.match({
     "DEFAULT": "cfg//compiler:clang",
     "cfg//os:windows": "cfg//compiler:msvc",
   }),
@@ -209,7 +209,7 @@ Then the same PACKAGE modifiers can be specified as follows.
 
 set_cfg_modifiers(modifiers = [
   "linux",
-  modifier_select({
+  modifiers.match({
     "DEFAULT": "clang",
     "windows": "msvc",
   }),
@@ -292,7 +292,7 @@ Suppose modifiers for `repo//foo:bar` are specified as follows.
 
 set_cfg_modifiers(modifiers = [
   "cfg//:linux",
-  modifier_select({
+  modifiers.match({
     "DEFAULT": "cfg//compiler:clang",
     "cfg//os:windows": "cfg//compiler:msvc",
   }),
@@ -319,7 +319,7 @@ For OS, the linux modifier from `repo/PACKAGE` will apply first, followed by
 macos modifier from `repo/foo/PACKAGE` and windows modifier from
 `repo//foo:bar`'s target modifiers, so `repo//foo:bar` will end up with
 `cfg//os:windows` for `cfg//os:_` in its configuration. Next, to resolve
-compiler modifier, the `modifier_select` from `repo/PACKAGE` will resolve to
+compiler modifier, the `modifiers.match` from `repo/PACKAGE` will resolve to
 `cfg//compiler:msvc` since existing configuration is windows and apply that as
 the modifier. The target configuration for `repo//foo:bar` ends up with windows
 and msvc.
@@ -327,7 +327,7 @@ and msvc.
 However, suppose user invokes `repo//foo:bar?linux` on the command line. When
 resolving OS modifier, the linux modifier from cli will override any existing OS
 constraint and insert linux into the configuraiton. Then, when resolving the
-compiler modifier, the `modifier_select` will resolve to `cfg//compiler:clang`,
+compiler modifier, the `modifiers.match` will resolve to `cfg//compiler:clang`,
 giving clang and linux as the final configuration.
 
 Because command line modifiers will apply at the end, they are also known as
@@ -335,35 +335,36 @@ required modifiers. Any modifier specified on the command line will always
 override any modifier for the same constraint setting specified in the repo.
 
 The ordering of constraint setting to resolve modifiers is determined based on
-dependency order of constraints specified in the keys of the `modifier_select`
-specified. Because some modifiers select on other constraints, modifiers for
+dependency order of constraints specified in the keys of the `modifiers.match`
+specified. Because some modifiers match on other constraints, modifiers for
 those constraints must be resolved first. In the previous example, because
-compiler modifier selects on OS constraints, Buck will resolve all OS modifiers
-before resolving compiler modifiers. `modifier_select` that ends up with a cycle
-of selected constraints (ex. compiler modifier selects on sanitizer but
-sanitizer modifier also selects on compiler) will be an error.
+compiler modifier matches on OS constraints, Buck will resolve all OS modifiers
+before resolving compiler modifiers. `modifiers.match` that ends up with a cycle
+of matched constraints (ex. compiler modifier matches on sanitizer but sanitizer
+modifier also matches on compiler) will be an error.
 
-### Modifier-Specific Selects
+### Modifier Matches
 
-Modifiers have 3 types of select operators that allow for powerful compositions.
-Each operation is a function that accepts a dictionary where the keys are
-conditionals and values are modifiers.
+Modifiers have 3 types of `match` operators that allow for powerful
+compositions. Each operation is a function that accepts a dictionary where the
+keys are conditionals and values are modifiers.
 
-1. `modifier_select`. Introduced in the previous sections, this is capable of
+1. `modifiers.match`. Introduced in the previous sections, this is capable of
    inserting constraints based on constraints in the existing configuration.
 
-2. `rule_select`. This is capable of selecting based on the rule name (also
-   known as rule type). The keys are regex patterns to match against the rule
-   name or "DEFAULT". Partial matches are allowed.
+2. `modifiers.match_rule`. This is capable of selecting based on the rule name
+   (also known as rule type). The keys are regex patterns to match against the
+   rule name or "DEFAULT". Partial matches are allowed.
 
-3. `host_select`. This selects based on the host configuration, whereas
-   `modifier_select` selects based on the target configuration. This host
-   configuration is constructed when resolving modifiers. `host_select` is
-   important to making `buck build` work anywhere on any platform. For example,
-   when the OS to configure is not specified, it's best to assume that the user
-   wants to target the same OS as the host machine.
+3. `modifiers.match_host`. This selects based on the host configuration, whereas
+   `modifiers.match` selects based on the target configuration. This host
+   configuration is constructed when resolving modifiers. `modifiers.match_host`
+   is important to making `buck build` work anywhere on any platform. For
+   example, when the OS to configure is not specified, it's best to assume that
+   the user wants to target the same OS as the host machine.
 
-An example using `rule_select` and `host_select` is as follows.
+An example using `modifiers.match_rule` and `modifiers.match_host` is as
+follows.
 
 ```python
 # root/PACKAGE
@@ -376,7 +377,7 @@ An example using `rule_select` and `host_select` is as follows.
 # configuration.
 
 set_cfg_modifiers(modifiers = [
-  rule_select({
+  modifiers.match_rule({
     "apple_.*": "cfg//os:iphone",
     "android_.*": "cfg//os:android",
     "DEFAULT": host_select({
