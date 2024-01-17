@@ -98,6 +98,7 @@ impl SummaryCommand {
                 "Showing summary from: {}",
                 invocation.display_command_line()
             )?;
+            buck2_client_ctx::eprintln!("build ID: {}", invocation.trace_id)?;
 
             let mut stats = Stats::default();
 
