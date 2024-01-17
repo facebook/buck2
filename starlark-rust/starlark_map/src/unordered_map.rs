@@ -28,6 +28,7 @@ use hashbrown::raw::Bucket;
 use hashbrown::raw::RawTable;
 
 use crate::Equivalent;
+use crate::Hashed;
 use crate::StarlarkHashValue;
 use crate::StarlarkHasher;
 
@@ -74,9 +75,19 @@ impl<K, V> UnorderedMap<K, V> {
     where
         Q: Hash + Equivalent<K> + ?Sized,
     {
-        let hash = StarlarkHashValue::new(k).promote();
+        let k = Hashed::new(k);
+        self.get_hashed(k)
+    }
+
+    /// Get a reference to the value associated with the given key.
+    #[inline]
+    pub fn get_hashed<Q>(&self, key: Hashed<&Q>) -> Option<&V>
+    where
+        Q: Equivalent<K> + ?Sized,
+    {
+        let hash = key.hash().promote();
         self.0
-            .get(hash, |(next_k, _v)| k.equivalent(next_k))
+            .get(hash, |(next_k, _v)| key.key().equivalent(next_k))
             .map(|(_, v)| v)
     }
 
@@ -99,6 +110,15 @@ impl<K, V> UnorderedMap<K, V> {
         Q: Hash + Equivalent<K> + ?Sized,
     {
         self.get(k).is_some()
+    }
+
+    /// Does the map contain the specified key?
+    #[inline]
+    pub fn contains_key_hashed<Q>(&self, key: Hashed<&Q>) -> bool
+    where
+        Q: Equivalent<K> + ?Sized,
+    {
+        self.get_hashed(key).is_some()
     }
 
     /// Insert an entry into the map.

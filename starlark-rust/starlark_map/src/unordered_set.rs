@@ -23,6 +23,7 @@ use allocative::Allocative;
 
 use crate::unordered_map::UnorderedMap;
 use crate::Equivalent;
+use crate::Hashed;
 
 /// `HashSet` that does not expose insertion order.
 #[derive(Clone, Allocative, Debug)]
@@ -88,6 +89,15 @@ impl<T> UnorderedSet<T> {
         Q: Hash + Equivalent<T> + ?Sized,
     {
         self.map.contains_key(value)
+    }
+
+    /// Does the set contain the specified value?
+    #[inline]
+    pub fn contains_hashed<Q>(&self, value: Hashed<&Q>) -> bool
+    where
+        Q: Equivalent<T> + ?Sized,
+    {
+        self.map.contains_key_hashed(value)
     }
 
     /// This function is private.
