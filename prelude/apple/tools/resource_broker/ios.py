@@ -6,9 +6,9 @@
 # of this source tree.
 
 import os
-
-from distutils.version import StrictVersion
 from typing import List, Optional
+
+from packaging.version import Version
 
 from .idb_companion import IdbCompanion
 
@@ -75,7 +75,7 @@ def _compatible_device_type_from_runtime(runtime: XCSimRuntime) -> Optional[str]
 
 
 def _select_latest_simulator_spec(runtimes: List[XCSimRuntime]) -> str:
-    runtimes.sort(key=lambda x: StrictVersion(x.version), reverse=True)
+    runtimes.sort(key=lambda x: Version(x.version), reverse=True)
     for runtime in runtimes:
         device_type = _compatible_device_type_from_runtime(runtime)
         if device_type:

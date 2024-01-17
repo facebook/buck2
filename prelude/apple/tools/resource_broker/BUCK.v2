@@ -27,5 +27,6 @@ python_library(
     ),
     deps = [
         "fbsource//third-party/pypi/dataclasses-json:dataclasses-json",
+        "fbsource//third-party/pypi/packaging:packaging",
     ],
 )
