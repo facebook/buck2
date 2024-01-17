@@ -65,7 +65,8 @@ pub(crate) struct BuildReport {
     trace_id: TraceId,
     success: bool,
     results: HashMap<EntryLabel, BuildReportEntry>,
-    failures: HashMap<EntryLabel, ProjectRelativePathBuf>,
+    /// filled only when fill-out-failures is passed for Buck1 backcompat only
+    failures: HashMap<EntryLabel, String>,
     project_root: AbsNormPathBuf,
     truncated: bool,
     strings: BTreeMap<String, String>,
@@ -152,6 +153,8 @@ pub(crate) struct BuildReportCollector<'a> {
     error_cause_cache: HashMap<buck2_error::UniqueRootId, usize>,
     next_cause_index: usize,
     strings: BTreeMap<String, String>,
+    failures: HashMap<EntryLabel, String>,
+    include_failures: bool,
 }
 
 impl<'a> BuildReportCollector<'a> {
@@ -161,6 +164,7 @@ impl<'a> BuildReportCollector<'a> {
         project_root: &ProjectRoot,
         include_unconfigured_section: bool,
         include_other_outputs: bool,
+        include_failures: bool,
         build_result: &BuildTargetResult,
     ) -> BuildReport {
         let mut this: BuildReportCollector<'_> = Self {
@@ -171,6 +175,8 @@ impl<'a> BuildReportCollector<'a> {
             error_cause_cache: HashMap::default(),
             next_cause_index: 0,
             strings: BTreeMap::default(),
+            failures: HashMap::default(),
+            include_failures,
         };
         let mut entries = HashMap::new();
 
@@ -210,7 +216,7 @@ impl<'a> BuildReportCollector<'a> {
                     (label, Either::Right(std::iter::empty()), &**errors)
                 }
             };
-            let entry = this.collect_results_for_unconfigured(results, errors);
+            let entry = this.collect_results_for_unconfigured(label.dupe(), results, errors);
             entries.insert(EntryLabel::Target(label), entry);
         }
 
@@ -218,7 +224,7 @@ impl<'a> BuildReportCollector<'a> {
             trace_id: trace_id.dupe(),
             success: this.overall_success,
             results: entries,
-            failures: HashMap::new(),
+            failures: this.failures,
             project_root: project_root.root().to_owned(),
             // In buck1 we may truncate build report for a large number of targets.
             // Setting this to false since we don't currently truncate buck2's build report.
@@ -238,6 +244,7 @@ impl<'a> BuildReportCollector<'a> {
     /// Always called for one unconfigured target at a time
     fn collect_results_for_unconfigured<'b>(
         &mut self,
+        target: TargetLabel,
         results: impl IntoIterator<
             Item = (
                 &'b ConfiguredProvidersLabel,
@@ -259,7 +266,7 @@ impl<'a> BuildReportCollector<'a> {
             .filter_map(|(label, result)| Some((label, result.as_ref()?)))
             .group_by(|x| x.0.target().dupe())
         {
-            let configured_report = self.collect_results_for_configured(results);
+            let configured_report = self.collect_results_for_configured(target.dupe(), results);
             if let Some(report) = unconfigured_report.as_mut() {
                 if !configured_report.errors.is_empty() {
                     report.success = BuildOutcome::FAIL;
@@ -289,7 +296,7 @@ impl<'a> BuildReportCollector<'a> {
             configured_reports.insert(label.cfg().dupe(), configured_report);
         }
 
-        let errors = self.convert_error_list(errors);
+        let errors = self.convert_error_list(errors, target);
         if !errors.is_empty() {
             if let Some(report) = unconfigured_report.as_mut() {
                 report.success = BuildOutcome::FAIL;
@@ -305,6 +312,7 @@ impl<'a> BuildReportCollector<'a> {
 
     fn collect_results_for_configured<'b>(
         &mut self,
+        target: TargetLabel,
         results: impl IntoIterator<
             Item = (
                 &'b ConfiguredProvidersLabel,
@@ -373,7 +381,7 @@ impl<'a> BuildReportCollector<'a> {
                 configured_report.inner.configured_graph_size = Some(configured_graph_size);
             }
         }
-        configured_report.errors = self.convert_error_list(&errors);
+        configured_report.errors = self.convert_error_list(&errors, target);
         if !configured_report.errors.is_empty() {
             configured_report.inner.success = BuildOutcome::FAIL;
         }
@@ -383,7 +391,11 @@ impl<'a> BuildReportCollector<'a> {
     /// Note: In order for production of the build report to be deterministic, the order in
     /// which this function is called, and which errors it is called with, must be
     /// deterministic. The particular order of the errors need not be.
-    fn convert_error_list(&mut self, errors: &[buck2_error::Error]) -> Vec<BuildReportError> {
+    fn convert_error_list(
+        &mut self,
+        errors: &[buck2_error::Error],
+        target: TargetLabel,
+    ) -> Vec<BuildReportError> {
         if errors.is_empty() {
             return Vec::new();
         }
@@ -462,6 +474,21 @@ impl<'a> BuildReportCollector<'a> {
                 action_error: info.action_error,
                 cause_index,
             });
+        }
+
+        if self.include_failures {
+            // Order is deterministic now, so picking the last one is fine. Also, we checked that
+            // there was at least one error above.
+            //
+            // This both omits errors and overwrites previous ones. That's the price you pay for
+            // using buck1
+            self.failures.insert(
+                EntryLabel::Target(target),
+                self.strings
+                    .get(&out.last().unwrap().message_content)
+                    .unwrap()
+                    .to_string(),
+            );
         }
 
         out

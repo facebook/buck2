@@ -316,6 +316,7 @@ async fn process_build_result(
             )
             .await?
             .unwrap_or(false),
+            build_opts.unstable_include_failures_build_report,
             &build_result,
         ))
     } else {

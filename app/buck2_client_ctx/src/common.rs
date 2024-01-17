@@ -22,6 +22,7 @@
 //! }
 //! ```
 use std::path::Path;
+use std::str::FromStr;
 
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
 use buck2_cli_proto::config_override::ConfigType;
@@ -31,6 +32,7 @@ use clap::ArgGroup;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use termwiz::istty::IsTty;
+use tracing::warn;
 
 use crate::final_console::FinalConsole;
 use crate::path_arg::PathArg;
@@ -334,6 +336,28 @@ impl CommonBuildConfigurationOptions {
     }
 }
 
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct BuildReportOption {
+    /// Fill out the failures in build report as it was done by default in buck1.
+    fill_out_failures: bool,
+}
+
+impl FromStr for BuildReportOption {
+    type Err = anyhow::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut fill_out_failures = false;
+        if s.to_lowercase() == "fill-out-failures" {
+            fill_out_failures = true;
+        } else {
+            warn!(
+                "Incorrect syntax for build report option. Got: `{}` but expected `fill-out-failures`",
+                s.to_owned()
+            )
+        }
+        Ok(BuildReportOption { fill_out_failures })
+    }
+}
+
 /// Defines common options for build-like commands (build, test, install).
 #[allow(rustdoc::invalid_html_tags)]
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
@@ -344,6 +368,14 @@ pub struct CommonBuildOptions {
     /// --build-report=<filepath> will write the build report to the file
     #[clap(long = "build-report", value_name = "PATH")]
     build_report: Option<String>,
+
+    #[clap(
+        long = "build-report-options",
+        requires = "build-report",
+        value_delimiter = ',',
+        help = "Comma separated list of build report options (currently only supports a single option: fill-out-failures)."
+    )]
+    build_report_options: Vec<BuildReportOption>,
 
     /// Deprecated. Use --build-report=-
     // TODO(cjhopman): this is probably only used by the e2e framework. remove it from there
@@ -452,6 +484,10 @@ impl CommonBuildOptions {
 
     pub fn to_proto(&self) -> buck2_cli_proto::CommonBuildOptions {
         let (unstable_print_build_report, unstable_build_report_filename) = self.build_report();
+        let unstable_include_failures_build_report = self
+            .build_report_options
+            .iter()
+            .any(|option| option.fill_out_failures);
         let concurrency = self
             .num_threads
             .map(|num| buck2_cli_proto::Concurrency { concurrency: num });
@@ -482,6 +518,7 @@ impl CommonBuildOptions {
             skip_missing_targets: self.skip_missing_targets,
             skip_incompatible_targets: self.skip_incompatible_targets,
             materialize_failed_inputs: self.materialize_failed_inputs,
+            unstable_include_failures_build_report,
         }
     }
 }

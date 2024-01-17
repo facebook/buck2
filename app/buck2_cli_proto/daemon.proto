@@ -344,6 +344,7 @@ message CommonBuildOptions {
   // that should be handled in the server or the client, though.
   bool unstable_print_build_report = 4242000;
   string unstable_build_report_filename = 4242003;
+  bool unstable_include_failures_build_report = 4242004;
 }
 
 message BuildRequest {
