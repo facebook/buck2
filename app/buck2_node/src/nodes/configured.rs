@@ -178,8 +178,7 @@ struct ConfiguredTargetNodeData {
     // Deps includes regular deps and transitioned deps,
     // but excludes exec deps or configuration deps.
     // TODO(cjhopman): Should this be a diff against the node's deps?
-    deps: ConfiguredTargetNodeDeps,
-    exec_deps: ConfiguredTargetNodeDeps,
+    all_deps: ConfiguredTargetNodeDeps,
     platform_cfgs: OrderedMap<TargetLabel, ConfigurationData>,
     // TODO(JakobDegen): Consider saving some memory by using a more tset like representation of
     // the plugin lists
@@ -238,8 +237,7 @@ impl ConfiguredTargetNode {
             resolved_configuration,
             resolved_transition_configurations: resolved_tr_configurations,
             execution_platform_resolution,
-            deps: ConfiguredTargetNodeDeps(deps.into_boxed_slice()),
-            exec_deps: ConfiguredTargetNodeDeps(exec_deps.into_boxed_slice()),
+            all_deps: ConfiguredTargetNodeDeps::new(deps, exec_deps),
             platform_cfgs,
             plugin_lists,
         })))
@@ -295,8 +293,7 @@ impl ConfiguredTargetNode {
                     .execution_platform_resolution()
                     .dupe(),
                 plugin_lists: transitioned_node.plugin_lists().clone(),
-                deps: ConfiguredTargetNodeDeps(Box::new([transitioned_node])),
-                exec_deps: ConfiguredTargetNodeDeps(Box::new([])),
+                all_deps: ConfiguredTargetNodeDeps::new(vec![transitioned_node], vec![]),
                 platform_cfgs: OrderedMap::new(),
             },
         ))))
@@ -340,14 +337,15 @@ impl ConfiguredTargetNode {
     /// later in the build process).
     // TODO(cjhopman): Should this include configuration deps? Should it include the configuration deps that were inspected resolving selects?
     pub fn deps(&self) -> impl Iterator<Item = &ConfiguredTargetNode> {
-        self.0.deps.iter().chain(self.0.exec_deps.iter())
+        self.0.all_deps.all_deps.iter()
     }
 
     pub fn toolchain_deps(&self) -> impl Iterator<Item = &ConfiguredTargetNode> {
         // Since we validate that all toolchain dependencies are of kind Toolchain,
         // we can use that to filter the deps.
         self.0
-            .deps
+            .all_deps
+            .deps()
             .iter()
             .filter(|x| x.rule_kind() == RuleKind::Toolchain)
     }
@@ -413,11 +411,11 @@ impl ConfiguredTargetNode {
     }
 
     pub fn target_deps(&self) -> impl Iterator<Item = &ConfiguredTargetNode> {
-        self.0.deps.iter()
+        self.0.all_deps.deps().iter()
     }
 
     pub fn exec_deps(&self) -> impl Iterator<Item = &ConfiguredTargetNode> {
-        self.0.exec_deps.iter()
+        self.0.all_deps.exec_deps().iter()
     }
 
     /// Return the `tests` declared for this target configured in same target platform as this target.
@@ -617,11 +615,42 @@ impl ConfiguredTargetNode {
 /// The representation of the deps for a ConfiguredTargetNode. Provides the operations we require
 /// (iteration, eq, and hash), but guarantees those aren't recursive of the dep nodes' data.
 #[derive(Allocative)]
-struct ConfiguredTargetNodeDeps(Box<[ConfiguredTargetNode]>);
+struct ConfiguredTargetNodeDeps {
+    deps_count: usize,
+    /// (target deps and toolchain deps) followed by `exec_deps`.
+    all_deps: Box<[ConfiguredTargetNode]>,
+}
 
 impl ConfiguredTargetNodeDeps {
-    fn iter(&self) -> impl ExactSizeIterator<Item = &ConfiguredTargetNode> {
-        self.0.iter()
+    fn new(deps: Vec<ConfiguredTargetNode>, exec_deps: Vec<ConfiguredTargetNode>) -> Self {
+        if deps.is_empty() {
+            ConfiguredTargetNodeDeps {
+                deps_count: 0,
+                all_deps: exec_deps.into_boxed_slice(),
+            }
+        } else if exec_deps.is_empty() {
+            ConfiguredTargetNodeDeps {
+                deps_count: deps.len(),
+                all_deps: deps.into_boxed_slice(),
+            }
+        } else {
+            ConfiguredTargetNodeDeps {
+                deps_count: deps.len(),
+                all_deps: deps
+                    .into_iter()
+                    .chain(exec_deps)
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice(),
+            }
+        }
+    }
+
+    fn deps(&self) -> &[ConfiguredTargetNode] {
+        &self.all_deps[..self.deps_count]
+    }
+
+    fn exec_deps(&self) -> &[ConfiguredTargetNode] {
+        &self.all_deps[self.deps_count..]
     }
 }
 
@@ -630,9 +659,15 @@ impl ConfiguredTargetNodeDeps {
 /// deep comparison.
 impl PartialEq for ConfiguredTargetNodeDeps {
     fn eq(&self, other: &Self) -> bool {
-        let it1 = self.iter();
-        let it2 = other.iter();
-        it1.len() == it2.len() && it1.zip(it2).all(|(x, y)| Arc::ptr_eq(&x.0, &y.0))
+        let ConfiguredTargetNodeDeps {
+            deps_count,
+            all_deps,
+        } = self;
+        *deps_count == other.deps_count && all_deps.len() == other.all_deps.len() && {
+            let it1 = all_deps.iter();
+            let it2 = other.all_deps.iter();
+            it1.zip(it2).all(|(x, y)| Arc::ptr_eq(&x.0, &y.0))
+        }
     }
 }
 
@@ -643,9 +678,12 @@ impl Eq for ConfiguredTargetNodeDeps {}
 /// the dependency has definitely changed (e.g. because its own deps changed).
 impl Hash for ConfiguredTargetNodeDeps {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        let it = self.0.iter();
-        state.write_usize(it.len());
-        for node in it {
+        let ConfiguredTargetNodeDeps {
+            deps_count,
+            all_deps,
+        } = self;
+        state.write_usize(*deps_count);
+        for node in &**all_deps {
             node.label().hash(state);
         }
     }
