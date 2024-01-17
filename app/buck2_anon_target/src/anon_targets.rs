@@ -15,9 +15,9 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_analysis::analysis::calculation::get_rule_impl;
+use buck2_analysis::analysis::calculation::get_rule_spec;
 use buck2_analysis::analysis::env::RuleAnalysisAttrResolutionContext;
-use buck2_analysis::analysis::env::RuleImplFunction;
+use buck2_analysis::analysis::env::RuleSpec;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::analysis::anon_promises_dyn::AnonPromisesDyn;
 use buck2_build_api::analysis::anon_targets_registry::AnonTargetsRegistryDyn;
@@ -350,7 +350,7 @@ impl AnonTargetKey {
             Vec::new(),
         );
 
-        let rule_impl = get_rule_impl(dice, self.0.rule_type()).await?;
+        let rule_impl = get_rule_spec(dice, self.0.rule_type()).await?;
         let env = Module::new();
         let print = EventDispatcherPrintHandler(get_dispatcher());
 

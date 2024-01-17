@@ -50,9 +50,9 @@ use futures::StreamExt;
 use smallvec::SmallVec;
 use starlark::eval::ProfileMode;
 
-use crate::analysis::env::get_user_defined_rule_impl;
+use crate::analysis::env::get_user_defined_rule_spec;
 use crate::analysis::env::run_analysis;
-use crate::analysis::env::RuleImplFunction;
+use crate::analysis::env::RuleSpec;
 use crate::attrs::resolve::ctx::AnalysisQueryResult;
 
 #[derive(Debug, buck2_error::Error)]
@@ -212,14 +212,14 @@ pub async fn get_dep_analysis<'v>(
     .await
 }
 
-pub async fn get_rule_impl(
+pub async fn get_rule_spec(
     ctx: &DiceComputations,
     func: &StarlarkRuleType,
-) -> anyhow::Result<impl RuleImplFunction> {
+) -> anyhow::Result<impl RuleSpec> {
     let module = ctx
         .get_loaded_module_from_import_path(&func.import_path)
         .await?;
-    Ok(get_user_defined_rule_impl(module.env().dupe(), func))
+    Ok(get_user_defined_rule_spec(module.env().dupe(), func))
 }
 
 async fn get_analysis_result(
@@ -245,7 +245,7 @@ async fn get_analysis_result(
         let func = configured_node.rule_type();
         match func {
             RuleType::Starlark(func) => {
-                let rule_impl = get_rule_impl(ctx, func).await?;
+                let rule_spec = get_rule_spec(ctx, func).await?;
                 let start_event = buck2_data::AnalysisStart {
                     target: Some(target.as_proto().into()),
                     rule: func.to_string(),
@@ -271,7 +271,7 @@ async fn get_analysis_result(
                                         dep_analysis,
                                         query_results,
                                         configured_node.execution_platform_resolution(),
-                                        &rule_impl,
+                                        &rule_spec,
                                         configured_node,
                                         profile_mode,
                                     )

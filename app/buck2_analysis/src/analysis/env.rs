@@ -160,7 +160,7 @@ pub fn resolve_query<'v>(
     }
 }
 
-pub trait RuleImplFunction: Sync {
+pub trait RuleSpec: Sync {
     fn invoke<'v>(
         &self,
         eval: &mut Evaluator<'v, '_>,
@@ -175,7 +175,7 @@ pub trait RuleImplFunction: Sync {
 
 /// Container for the environment that analysis implementation functions should run in
 struct AnalysisEnv<'a> {
-    impl_function: &'a dyn RuleImplFunction,
+    rule_spec: &'a dyn RuleSpec,
     deps: HashMap<&'a ConfiguredTargetLabel, FrozenProviderCollectionValue>,
     query_results: HashMap<String, Arc<AnalysisQueryResult>>,
     execution_platform: &'a ExecutionPlatformResolution,
@@ -188,17 +188,12 @@ pub(crate) async fn run_analysis<'a>(
     results: Vec<(&'a ConfiguredTargetLabel, AnalysisResult)>,
     query_results: HashMap<String, Arc<AnalysisQueryResult>>,
     execution_platform: &'a ExecutionPlatformResolution,
-    impl_function: &'a dyn RuleImplFunction,
+    rule_spec: &'a dyn RuleSpec,
     node: &ConfiguredTargetNode,
     profile_mode: &StarlarkProfileModeOrInstrumentation,
 ) -> anyhow::Result<AnalysisResult> {
-    let analysis_env = AnalysisEnv::new(
-        label,
-        results,
-        query_results,
-        execution_platform,
-        impl_function,
-    )?;
+    let analysis_env =
+        AnalysisEnv::new(label, results, query_results, execution_platform, rule_spec)?;
     run_analysis_with_env(dice, analysis_env, node, profile_mode).await
 }
 
@@ -209,10 +204,10 @@ impl<'a> AnalysisEnv<'a> {
         results: Vec<(&'a ConfiguredTargetLabel, AnalysisResult)>,
         query_results: HashMap<String, Arc<AnalysisQueryResult>>,
         execution_platform: &'a ExecutionPlatformResolution,
-        impl_function: &'a dyn RuleImplFunction,
+        rule_spec: &'a dyn RuleSpec,
     ) -> anyhow::Result<Self> {
         Ok(AnalysisEnv {
-            impl_function,
+            rule_spec,
             deps: get_deps_from_analysis_results(results)?,
             query_results,
             execution_platform,
@@ -304,7 +299,7 @@ async fn run_analysis_with_env_underlying(
                 dice.global_data().get_digest_config(),
             ));
 
-            let list_res = analysis_env.impl_function.invoke(&mut eval, ctx)?;
+            let list_res = analysis_env.rule_spec.invoke(&mut eval, ctx)?;
 
             // TODO(cjhopman): This seems quite wrong. This should be happening after run_promises.
             provider
@@ -361,16 +356,16 @@ async fn run_analysis_with_env_underlying(
     ))
 }
 
-pub fn get_user_defined_rule_impl(
+pub fn get_user_defined_rule_spec(
     module: FrozenModule,
     rule_type: &StarlarkRuleType,
-) -> impl RuleImplFunction {
+) -> impl RuleSpec {
     struct Impl {
         module: FrozenModule,
         name: String,
     }
 
-    impl RuleImplFunction for Impl {
+    impl RuleSpec for Impl {
         fn invoke<'v>(
             &self,
             eval: &mut Evaluator<'v, '_>,
