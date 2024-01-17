@@ -28,6 +28,11 @@ def do_unzip(archive, output_dir):
         # That way we don't need to pass `target_is_directory` argument to `os.symlink` function.
         for info in (i for i in z.infolist() if not _is_symlink(i)):
             z.extract(info, path=output_dir)
+            if _is_executable(info):
+                os.chmod(
+                    os.path.join(output_dir, info.filename),
+                    _file_attributes(info) | stat.S_IXUSR,
+                )
         for info in (i for i in z.infolist() if _is_symlink(i)):
             symlink_path = os.path.join(output_dir, info.filename)
             symlink_dst = z.read(info).decode("utf-8")
@@ -52,6 +57,10 @@ def _file_attributes(zip_info):
 
 def _is_symlink(zip_info):
     return stat.S_ISLNK(_file_attributes(zip_info))
+
+
+def _is_executable(zip_info):
+    return stat.S_IMODE(_file_attributes(zip_info)) & stat.S_IXUSR
 
 
 def main():
