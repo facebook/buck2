@@ -7,9 +7,10 @@
  * of this source tree.
  */
 
-pub mod buck_types;
-pub mod environment;
-pub(crate) mod futures_queue_generic;
-pub mod graph;
-pub mod syntax;
-pub mod traversal;
+pub(crate) mod dfs;
+#[allow(clippy::module_inception)]
+pub(crate) mod graph;
+pub mod successors;
+pub(crate) mod vec_as_map;
+pub(crate) mod vec_as_set;
+pub(crate) mod visited;
