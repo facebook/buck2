@@ -175,14 +175,39 @@ impl<K, V> UnorderedMap<K, V> {
         self.0.clear();
     }
 
-    /// This function is private.
+    /// Entries in the map, in arbitrary order.
     #[inline]
-    pub(crate) fn iter(&self) -> impl ExactSizeIterator<Item = (&K, &V)> {
+    pub fn entries_unordered(&self) -> impl ExactSizeIterator<Item = (&K, &V)> {
         unsafe { self.0.iter().map(|e| (&e.as_ref().0, &e.as_ref().1)) }
     }
 
-    /// This function is private.
-    pub(crate) fn into_iter(self) -> impl ExactSizeIterator<Item = (K, V)> {
+    /// Entries in the map, in arbitrary order.
+    #[inline]
+    pub fn entries_unordered_mut(&mut self) -> impl ExactSizeIterator<Item = (&K, &mut V)> {
+        unsafe { self.0.iter().map(|e| (&e.as_ref().0, &mut e.as_mut().1)) }
+    }
+
+    /// Keys in the map, in arbitrary order.
+    #[inline]
+    pub fn keys_unordered(&self) -> impl ExactSizeIterator<Item = &K> {
+        self.entries_unordered().map(|(k, _v)| k)
+    }
+
+    /// Values in the map, in arbitrary order.
+    #[inline]
+    pub fn values_unordered(&self) -> impl ExactSizeIterator<Item = &V> {
+        self.entries_unordered().map(|(_k, v)| v)
+    }
+
+    /// Values in the map, in arbitrary order.
+    #[inline]
+    pub fn values_unordered_mut(&mut self) -> impl ExactSizeIterator<Item = &mut V> {
+        self.entries_unordered_mut().map(|(_k, v)| v)
+    }
+
+    /// Into entries, in arbitrary order.
+    #[inline]
+    pub(crate) fn into_entries_unordered(self) -> impl ExactSizeIterator<Item = (K, V)> {
         self.0.into_iter()
     }
 
@@ -191,7 +216,7 @@ impl<K, V> UnorderedMap<K, V> {
     where
         K: Ord,
     {
-        let mut entries = Vec::from_iter(self.iter());
+        let mut entries = Vec::from_iter(self.entries_unordered());
         entries.sort_by(|(k1, _), (k2, _)| k1.cmp(k2));
         entries
     }
@@ -201,7 +226,7 @@ impl<K, V> UnorderedMap<K, V> {
     where
         K: Hash + Eq,
     {
-        self.into_iter().collect()
+        self.into_entries_unordered().collect()
     }
 
     /// Apply the function to value.
@@ -210,7 +235,7 @@ impl<K, V> UnorderedMap<K, V> {
         K: Hash + Eq,
     {
         let mut map = UnorderedMap::with_capacity(self.len());
-        for (k, v) in self.into_iter() {
+        for (k, v) in self.into_entries_unordered() {
             map.insert(k, f(v));
         }
         map
@@ -228,14 +253,17 @@ impl<K, V, Q: Equivalent<K> + Hash> Index<&Q> for UnorderedMap<K, V> {
 
 impl<K: Debug, V: Debug> Debug for UnorderedMap<K, V> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_map().entries(self.iter()).finish()
+        f.debug_map().entries(self.entries_unordered()).finish()
     }
 }
 
 impl<K: Eq + Hash, V: Eq> PartialEq for UnorderedMap<K, V> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.len() == other.len() && self.iter().all(|(k, v)| other.get(k) == Some(v))
+        self.len() == other.len()
+            && self
+                .entries_unordered()
+                .all(|(k, v)| other.get(k) == Some(v))
     }
 }
 
@@ -245,7 +273,7 @@ impl<K: Hash, V: Hash> Hash for UnorderedMap<K, V> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.len().hash(state);
         let mut sum: u64 = 0;
-        for (k, v) in self.iter() {
+        for (k, v) in self.entries_unordered() {
             let mut hasher = StarlarkHasher::new();
             (k, v).hash(&mut hasher);
             sum = sum.wrapping_add(hasher.finish());

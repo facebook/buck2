@@ -102,7 +102,7 @@ impl<T> UnorderedSet<T> {
 
     /// This function is private.
     fn iter(&self) -> impl Iterator<Item = &T> {
-        self.map.iter().map(|(k, _)| k)
+        self.map.entries_unordered().map(|(k, _)| k)
     }
 
     /// Get the entries in the set, sorted.
