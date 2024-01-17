@@ -10,5 +10,3 @@ load("@prelude//:native.bzl", _native = "native")
 # Public symbols in this file become globals everywhere except `bzl` files in prelude.
 # Additionally, members of `native` struct also become globals in `BUCK` files.
 native = _native
-
-# This is a test to get CI to notice me
