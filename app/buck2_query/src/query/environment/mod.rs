@@ -30,6 +30,7 @@ use starlark_map::Hashed;
 
 use crate::query::graph::graph::Graph;
 use crate::query::graph::successors::AsyncChildVisitor;
+use crate::query::graph::successors::GraphSuccessors;
 use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::file_set::FileSet;
 use crate::query::syntax::simple::eval::set::TargetSet;
@@ -495,7 +496,7 @@ pub async fn deps<Env: QueryEnvironment + ?Sized>(
     Ok(deps)
 }
 
-struct QueryTargetDepsSuccessors;
+pub struct QueryTargetDepsSuccessors;
 
 #[async_trait]
 impl<T: QueryTarget> AsyncChildVisitor<T> for QueryTargetDepsSuccessors {
@@ -508,6 +509,17 @@ impl<T: QueryTarget> AsyncChildVisitor<T> for QueryTargetDepsSuccessors {
             children.visit(dep)?;
         }
         Ok(())
+    }
+}
+
+impl<T> GraphSuccessors<T> for QueryTargetDepsSuccessors
+where
+    T: QueryTarget<NodeRef = T>,
+{
+    fn for_each_successor(&self, node: &T, mut cb: impl FnMut(&T)) {
+        for dep in node.deps() {
+            cb(dep);
+        }
     }
 }
 

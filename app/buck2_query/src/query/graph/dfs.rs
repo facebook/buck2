@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-#![allow(dead_code)] // Used later in the stack.
-
 //! Generic DFS implementation.
 
 use std::hash::Hash;
@@ -19,7 +17,7 @@ use starlark_map::unordered_set::UnorderedSet;
 use crate::query::graph::successors::GraphSuccessors;
 use crate::query::graph::visited::VisitedNodes;
 
-pub(crate) fn _dfs_postorder<N: Eq + Hash + Dupe>(
+pub fn dfs_postorder<N: Eq + Hash + Dupe>(
     roots: impl IntoIterator<Item = N>,
     successors: impl GraphSuccessors<N>,
     visit: impl FnMut(N) -> anyhow::Result<()>,

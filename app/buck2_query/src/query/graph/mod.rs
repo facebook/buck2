@@ -8,7 +8,7 @@
  */
 
 pub(crate) mod bfs;
-pub(crate) mod dfs;
+pub mod dfs;
 #[allow(clippy::module_inception)]
 pub(crate) mod graph;
 pub mod successors;
