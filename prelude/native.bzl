@@ -203,9 +203,17 @@ def _android_binary_macro_stub(
 
 def _android_instrumentation_apk_macro_stub(
         cpu_filters = None,
+        primary_dex_patterns = [],
         **kwargs):
+    primary_dex_patterns = primary_dex_patterns + [
+        "/R^",
+        "/R$",
+        # Pin this to the primary for apps with no primary dex classes.
+        "^com/facebook/buck_generated/AppWithoutResourcesStub^",
+    ]
     __rules__["android_instrumentation_apk"](
         cpu_filters = _get_valid_cpu_filters(cpu_filters),
+        primary_dex_patterns = primary_dex_patterns,
         **kwargs
     )
 
