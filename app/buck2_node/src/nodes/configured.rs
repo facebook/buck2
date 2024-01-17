@@ -77,8 +77,10 @@ use crate::rule_type::StarlarkRuleType;
 /// in the node, instead the node just stores the base TargetNode and a configuration for
 /// resolving the attributes. This saves memory, but users should try avoid repeatedly
 /// requesting the same information.
-#[derive(Debug, Clone, Dupe, Eq, PartialEq, Hash, Allocative)]
-pub struct ConfiguredTargetNode(Arc<Hashed<ConfiguredTargetNodeData>>);
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Allocative)]
+pub struct ConfiguredTargetNode(triomphe::Arc<Hashed<ConfiguredTargetNodeData>>);
+
+impl Dupe for ConfiguredTargetNode {}
 
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
 enum TargetNodeOrForward {
@@ -231,7 +233,7 @@ impl ConfiguredTargetNode {
         platform_cfgs: OrderedMap<TargetLabel, ConfigurationData>,
         plugin_lists: PluginLists,
     ) -> Self {
-        Self(Arc::new(Hashed::new(ConfiguredTargetNodeData {
+        Self(triomphe::Arc::new(Hashed::new(ConfiguredTargetNodeData {
             label: Hashed::new(name),
             target_node: TargetNodeOrForward::TargetNode(target_node),
             resolved_configuration,
@@ -267,7 +269,7 @@ impl ConfiguredTargetNode {
 
         let configured_providers_label =
             providers_label.configure(transitioned_node.label().cfg().dupe());
-        Ok(ConfiguredTargetNode(Arc::new(Hashed::new(
+        Ok(ConfiguredTargetNode(triomphe::Arc::new(Hashed::new(
             ConfiguredTargetNodeData {
                 label: Hashed::new(name.dupe()),
                 target_node: TargetNodeOrForward::Forward(
@@ -608,7 +610,7 @@ impl ConfiguredTargetNode {
     }
 
     pub fn ptr_eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.0, &other.0)
+        triomphe::Arc::ptr_eq(&self.0, &other.0)
     }
 }
 
@@ -666,7 +668,7 @@ impl PartialEq for ConfiguredTargetNodeDeps {
         *deps_count == other.deps_count && all_deps.len() == other.all_deps.len() && {
             let it1 = all_deps.iter();
             let it2 = other.all_deps.iter();
-            it1.zip(it2).all(|(x, y)| Arc::ptr_eq(&x.0, &y.0))
+            it1.zip(it2).all(|(x, y)| triomphe::Arc::ptr_eq(&x.0, &y.0))
         }
     }
 }
