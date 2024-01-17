@@ -473,7 +473,9 @@ impl AnonTargetKey {
         let mut fulfilled_artifact_mappings = HashMap::new();
 
         for (id, func) in promise_artifact_mappings.values().enumerate() {
-            let artifact = eval_starlark_function(eval, *func, anon_target_result)?;
+            let artifact = eval
+                .eval_function(*func, &[anon_target_result], &[])
+                .map_err(BuckStarlarkError::new)?;
 
             let promise_id =
                 PromiseArtifactId::new(BaseDeferredKey::AnonTarget(self.0.clone()), id);
@@ -495,16 +497,6 @@ impl AnonTargetKey {
 
         Ok(fulfilled_artifact_mappings)
     }
-}
-
-// TODO(@wendyy) - should put this somewhere common and reuse.
-fn eval_starlark_function<'v>(
-    eval: &mut Evaluator<'v, '_>,
-    func: Value<'v>,
-    res: Value<'v>,
-) -> anyhow::Result<Value<'v>> {
-    eval.eval_function(func, &[res], &[])
-        .map_err(|e| BuckStarlarkError::new(e).into())
 }
 
 /// Several attribute functions need a context, make one that is mostly useless.
