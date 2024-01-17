@@ -175,6 +175,19 @@ pub struct CommonBuildConfigurationOptions {
     )]
     pub target_platforms: Option<String>,
 
+    #[clap(
+        value_name = "VALUE",
+        long = "modifier",
+        use_value_delimiter = true,
+        value_delimiter=',',
+        short = 'm',
+        help = "A configuration modifier to configure all targets on the command line. This may be a constraint value target.",
+        // Needs to be explicitly set, otherwise will treat `-c a b c` -> [a, b, c]
+        // rather than [a] and other positional arguments `b c`.
+        number_of_values = 1
+    )]
+    pub cli_modifiers: Vec<String>,
+
     #[clap(long, ignore_case = true, value_name = "HOST", arg_enum)]
     fake_host: Option<HostPlatformOverride>,
 
@@ -321,6 +334,7 @@ impl CommonBuildConfigurationOptions {
         static DEFAULT: CommonBuildConfigurationOptions = CommonBuildConfigurationOptions {
             config_values: vec![],
             config_files: vec![],
+            cli_modifiers: vec![],
             target_platforms: None,
             fake_host: None,
             fake_arch: None,
@@ -709,5 +723,71 @@ impl CommonOutputOptions {
 
     pub fn is_full(&self) -> bool {
         self.show_full_output || self.show_full_simple_output || self.show_full_json_output
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use assert_matches::assert_matches;
+    use clap::Parser;
+
+    use super::*;
+
+    fn parse(args: &[&str]) -> anyhow::Result<CommonBuildConfigurationOptions> {
+        Ok(CommonBuildConfigurationOptions::from_iter_safe(
+            std::iter::once("program").chain(args.iter().copied()),
+        )?)
+    }
+
+    #[test]
+    fn short_opt_multiple() -> anyhow::Result<()> {
+        let opts = parse(&["-m", "value1", "-m", "value2"])?;
+
+        assert_eq!(opts.cli_modifiers, vec!["value1", "value2"]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn short_opt_comma_separated() -> anyhow::Result<()> {
+        let opts = parse(&["-m", "value1,value2"])?;
+
+        assert_eq!(opts.cli_modifiers, vec!["value1", "value2"]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn long_opt_multiple() -> anyhow::Result<()> {
+        let opts = parse(&["--modifier", "value1", "--modifier", "value2"])?;
+
+        assert_eq!(opts.cli_modifiers, vec!["value1", "value2"]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn long_opt_comma_separated() -> anyhow::Result<()> {
+        let opts = parse(&["--modifier", "value1,value2"])?;
+
+        assert_eq!(opts.cli_modifiers, vec!["value1", "value2"]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn comma_separated_and_multiple() -> anyhow::Result<()> {
+        let opts = parse(&["--modifier", "value1,value2", "--modifier", "value3"])?;
+
+        assert_eq!(opts.cli_modifiers, vec!["value1", "value2", "value3"]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn space_separated_fails() -> anyhow::Result<()> {
+        assert_matches!(parse(&["-m", "value1", "value2"]), Err(..));
+
+        Ok(())
     }
 }

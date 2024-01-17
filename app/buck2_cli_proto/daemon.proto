@@ -127,6 +127,7 @@ message ClientContext {
 
   /// Contents of `BUCK2_HARD_ERROR` environment variable.
   string buck2_hard_error = 20;
+  repeated string cli_modifiers = 21;
 }
 
 message TargetsRequest {

@@ -155,7 +155,7 @@ pub struct ProfileCommonOptions {
     /// This is probably what you want when profiling analysis.
     ///
     /// `-allocated` means allocated memory, including memory which is later garbage collected.
-    #[clap(long, short = 'm', value_enum)]
+    #[clap(long, value_enum)]
     mode: BuckProfileMode,
 }
 
