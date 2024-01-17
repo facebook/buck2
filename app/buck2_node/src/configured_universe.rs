@@ -87,7 +87,8 @@ impl CqueryUniverse {
                     .or_insert_with(BTreeSet::new),
             };
 
-            nodes.insert(LabelIndexed(target));
+            let inserted = nodes.insert(LabelIndexed(target));
+            assert!(inserted, "Visited targets must be unique");
 
             Ok(())
         })
