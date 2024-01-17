@@ -19,7 +19,11 @@ use buck2_core::target::label::TargetLabel;
 use buck2_events::dispatch::console_message;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
+use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRefLookup;
+use buck2_query::query::environment::deps;
 use buck2_query::query::environment::QueryEnvironment;
+use buck2_query::query::environment::TraversalFilter;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::functions::docs::QueryEnvironmentDescription;
@@ -27,8 +31,10 @@ use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use buck2_query::query::syntax::simple::functions::HasModuleDescription;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::async_depth_limited_traversal;
+use buck2_query::query::traversal::async_fast_depth_first_postorder_traversal;
 use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
+use buck2_query::query::traversal::ChildVisitor;
 use dice::DiceComputations;
 use dupe::Dupe;
 use tracing::warn;
@@ -258,6 +264,56 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
             result.extend(owners);
         }
         Ok(result)
+    }
+
+    async fn deps(
+        &self,
+        targets: &TargetSet<Self::Target>,
+        depth: Option<i32>,
+        filter: Option<&dyn TraversalFilter<Self::Target>>,
+    ) -> anyhow::Result<TargetSet<Self::Target>> {
+        if depth.is_none() && filter.is_none() {
+            // TODO(nga): fast lookup with depth too.
+
+            struct Delegate {
+                deps: TargetSet<ConfiguredTargetNode>,
+            }
+
+            let mut delegate = Delegate {
+                deps: TargetSet::new(),
+            };
+
+            #[async_trait]
+            impl AsyncTraversalDelegate<ConfiguredGraphNodeRef> for Delegate {
+                fn visit(&mut self, target: ConfiguredGraphNodeRef) -> anyhow::Result<()> {
+                    self.deps.insert(target.into_inner());
+                    Ok(())
+                }
+
+                async fn for_each_child(
+                    &mut self,
+                    target: &ConfiguredGraphNodeRef,
+                    func: &mut impl ChildVisitor<ConfiguredGraphNodeRef>,
+                ) -> anyhow::Result<()> {
+                    for dep in target.deps() {
+                        func.visit(ConfiguredGraphNodeRef::new(dep.dupe()))?;
+                    }
+                    Ok(())
+                }
+            }
+
+            async_fast_depth_first_postorder_traversal(
+                &ConfiguredGraphNodeRefLookup,
+                targets
+                    .iter()
+                    .map(|t: &ConfiguredTargetNode| ConfiguredGraphNodeRef::new(t.dupe())),
+                &mut delegate,
+            )
+            .await?;
+            Ok(delegate.deps)
+        } else {
+            deps(self, targets, depth, filter).await
+        }
     }
 }
 
