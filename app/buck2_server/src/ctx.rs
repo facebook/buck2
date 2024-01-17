@@ -842,6 +842,15 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
                 .to_string(),
         );
 
+        metadata.insert(
+            "http_versions".to_owned(),
+            match self.base_context.daemon.http_client.http2() {
+                true => "1,2",
+                false => "1",
+            }
+            .to_owned(),
+        );
+
         Ok(metadata)
     }
 
