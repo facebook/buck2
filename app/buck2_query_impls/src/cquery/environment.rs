@@ -19,10 +19,10 @@ use buck2_core::target::label::TargetLabel;
 use buck2_events::dispatch::console_message;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
-use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
+use buck2_node::nodes::configured_node_ref::ConfiguredTargetNodeRefNode;
+use buck2_node::nodes::configured_node_ref::ConfiguredTargetNodeRefNodeDeps;
 use buck2_query::query::environment::deps;
 use buck2_query::query::environment::QueryEnvironment;
-use buck2_query::query::environment::QueryTargetDepsSuccessors;
 use buck2_query::query::environment::TraversalFilter;
 use buck2_query::query::graph::dfs::dfs_postorder;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
@@ -275,13 +275,11 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
             // TODO(nga): fast lookup with depth too.
 
             let mut deps = TargetSet::new();
-            dfs_postorder::<ConfiguredGraphNodeRef>(
-                targets
-                    .iter()
-                    .map(|t: &ConfiguredTargetNode| ConfiguredGraphNodeRef::new(t.dupe())),
-                QueryTargetDepsSuccessors,
-                |node| {
-                    deps.insert(node.into_inner());
+            dfs_postorder::<ConfiguredTargetNodeRefNode>(
+                targets.iter().map(ConfiguredTargetNodeRefNode::new),
+                ConfiguredTargetNodeRefNodeDeps,
+                |target| {
+                    deps.insert(target.to_node());
                     Ok(())
                 },
             )?;

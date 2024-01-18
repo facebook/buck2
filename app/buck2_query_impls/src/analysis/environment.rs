@@ -38,12 +38,13 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::configured_node_ref::ConfiguredTargetNodeRefNode;
+use buck2_node::nodes::configured_node_ref::ConfiguredTargetNodeRefNodeDeps;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRefLookup;
 use buck2_node::query::query_functions::CONFIGURED_GRAPH_QUERY_FUNCTIONS;
 use buck2_query::query::environment::deps;
 use buck2_query::query::environment::QueryEnvironment;
-use buck2_query::query::environment::QueryTargetDepsSuccessors;
 use buck2_query::query::environment::TraversalFilter;
 use buck2_query::query::graph::dfs::dfs_postorder;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
@@ -252,12 +253,12 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
     ) -> anyhow::Result<TargetSet<Self::Target>> {
         if depth.is_none() && filter.is_none() {
             // TODO(nga): fast lookup with depth too.
-            let mut deps = TargetSet::new();
-            dfs_postorder::<ConfiguredGraphNodeRef>(
-                targets.iter().duped(),
-                QueryTargetDepsSuccessors,
+            let mut deps: TargetSet<Self::Target> = TargetSet::new();
+            dfs_postorder::<ConfiguredTargetNodeRefNode>(
+                targets.iter().map(|n| ConfiguredTargetNodeRefNode::new(n)),
+                ConfiguredTargetNodeRefNodeDeps,
                 |target| {
-                    deps.insert(target);
+                    deps.insert(ConfiguredGraphNodeRef::new(target.to_node()));
                     Ok(())
                 },
             )?;

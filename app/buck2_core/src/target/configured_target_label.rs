@@ -9,6 +9,7 @@
 
 use std::fmt;
 use std::fmt::Display;
+use std::hash::Hash;
 use std::str;
 
 use allocative::Allocative;
