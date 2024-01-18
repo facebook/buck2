@@ -306,6 +306,7 @@ def cxx_toolchain_infos(
         "ldflags-shared": _shell_quote(linker_info.linker_flags),
         "ldflags-static": _shell_quote(linker_info.linker_flags),
         "ldflags-static-pic": _shell_quote(linker_info.linker_flags),
+        "objcopy": binary_utilities_info.objcopy,
         # TODO(T110378148): $(platform-name) is almost unusued. Should we remove it?
         "platform-name": platform_name,
     }
