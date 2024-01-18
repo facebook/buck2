@@ -9,29 +9,28 @@
 
 use std::hash::Hash;
 use std::hash::Hasher;
-use std::ptr;
 
-use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_query::query::graph::successors::GraphSuccessors;
 use dupe::Dupe;
-use starlark_map::Hashed;
+use starlark_map::StarlarkHashValue;
 
 use crate::nodes::configured::ConfiguredTargetNode;
+use crate::nodes::configured::ConfiguredTargetNodeRef;
 
 #[derive(Debug, Dupe, Copy, Clone)]
 pub struct ConfiguredTargetNodeRefNode<'a> {
     // TODO(nga): we store hash here, but we also store hash in `dfs_postorder`. This is redundant.
-    label: Hashed<&'a ConfiguredTargetLabel>,
-    node: &'a ConfiguredTargetNode,
+    label_hash: StarlarkHashValue,
+    node: ConfiguredTargetNodeRef<'a>,
 }
 
 impl PartialEq for ConfiguredTargetNodeRefNode<'_> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        // If nodes are the same, their labels must point to the same memory.
-        ptr::eq::<ConfiguredTargetLabel>(*self.label.key(), *other.label.key())
+        // If nodes are the same, their labels must be equal.
+        self.node.ptr_eq(other.node)
             // If nodes are not the same, their hashes are likely different, so we store the hash too.
-            || self.label == other.label
+            || (self.label_hash == other.label_hash && self.node.label() == other.node.label())
     }
 }
 
@@ -40,7 +39,7 @@ impl Eq for ConfiguredTargetNodeRefNode<'_> {}
 impl Hash for ConfiguredTargetNodeRefNode<'_> {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.label.hash().hash(state)
+        self.label_hash.hash(state)
     }
 }
 
@@ -48,14 +47,14 @@ impl<'a> ConfiguredTargetNodeRefNode<'a> {
     #[inline]
     pub fn new(node: &'a ConfiguredTargetNode) -> Self {
         ConfiguredTargetNodeRefNode {
-            node,
-            label: node.hashed_label(),
+            node: node.as_ref(),
+            label_hash: node.hashed_label().hash(),
         }
     }
 
     #[inline]
     pub fn to_node(&self) -> ConfiguredTargetNode {
-        self.node.dupe()
+        self.node.to_owned()
     }
 }
 
