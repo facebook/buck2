@@ -18,7 +18,6 @@ use fancy_regex::RegexBuilder;
 use indexmap::IndexSet;
 
 use crate::query::environment::QueryTarget;
-use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::file_set::FileNode;
 use crate::query::syntax::simple::eval::file_set::FileSet;
 use crate::query::syntax::simple::eval::label_indexed;
@@ -81,14 +80,6 @@ impl<T: QueryTarget> TargetSet<T> {
             })?;
         }
         Ok(FileSet::new(files))
-    }
-
-    // TODO(cjhopman): Does this even make sense?
-    // TODO(cjhopman): I think this needs a heap to allocate values
-    pub fn labels(&self, _attr: &str) -> anyhow::Result<()> {
-        Err(anyhow::anyhow!(QueryError::FunctionUnimplemented(
-            "labels()"
-        )))
     }
 
     pub fn union(&self, right: &TargetSet<T>) -> TargetSet<T> {
