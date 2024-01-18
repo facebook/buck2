@@ -131,7 +131,7 @@ mod imp {
         map
     }
 
-    /// Writes a representation of the given `PanicInfo` to Scribe, via the `Panic` event.
+    /// Writes a representation of the given `PanicInfo` to Scribe, via the `StructuredError` event.
     pub(crate) fn write_panic_to_scribe(fb: FacebookInit, info: &PanicInfo) {
         let message = get_message_for_panic(info);
         let location = info.location().map(|loc| Location {
