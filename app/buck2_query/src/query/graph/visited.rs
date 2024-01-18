@@ -11,40 +11,62 @@
 
 use std::hash::Hash;
 
+use starlark_map::unordered_set;
 use starlark_map::unordered_set::UnorderedSet;
+use starlark_map::Hashed;
+use starlark_map::StarlarkHashValue;
 
 use crate::query::graph::vec_as_set::VecAsSet;
 
 /// A set to store visited nodes.
 pub(crate) trait VisitedNodes<T>: Default {
-    fn contains(&self, node: &T) -> bool;
-    fn insert_clone(&mut self, node: &T) -> bool
+    type Hash: Copy;
+
+    fn hash(node: &T) -> Self::Hash;
+
+    fn contains(&self, hash: Self::Hash, node: &T) -> bool;
+    fn insert_clone(&mut self, hash: Self::Hash, node: &T) -> bool
     where
         T: Clone;
 }
 
 impl VisitedNodes<u32> for VecAsSet {
-    fn contains(&self, node: &u32) -> bool {
+    type Hash = ();
+
+    fn hash(_node: &u32) -> Self::Hash {}
+
+    fn contains(&self, _hash: (), node: &u32) -> bool {
         self.contains(*node)
     }
-    fn insert_clone(&mut self, node: &u32) -> bool {
+    fn insert_clone(&mut self, _hash: (), node: &u32) -> bool {
         self.insert(*node)
     }
 }
 
 impl<T: Eq + Hash> VisitedNodes<T> for UnorderedSet<T> {
-    fn contains(&self, node: &T) -> bool {
-        self.contains(node)
+    type Hash = StarlarkHashValue;
+
+    fn hash(node: &T) -> Self::Hash {
+        StarlarkHashValue::new(node)
     }
-    fn insert_clone(&mut self, node: &T) -> bool
+
+    fn contains(&self, hash: Self::Hash, node: &T) -> bool {
+        self.contains_hashed(Hashed::new_unchecked(hash, node))
+    }
+
+    fn insert_clone(&mut self, hash: Self::Hash, node: &T) -> bool
     where
         T: Clone,
     {
-        if self.contains(node) {
-            return false;
+        match self
+            .raw_entry_mut()
+            .from_entry_hashed(Hashed::new_unchecked(hash, node))
+        {
+            unordered_set::RawEntryMut::Occupied(_) => false,
+            unordered_set::RawEntryMut::Vacant(e) => {
+                e.insert_hashed(Hashed::new_unchecked(hash, node.clone()));
+                true
+            }
         }
-        let inserted = self.insert(node.clone());
-        assert!(inserted);
-        inserted
     }
 }

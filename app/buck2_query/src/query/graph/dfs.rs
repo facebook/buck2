@@ -38,26 +38,30 @@ pub(crate) fn dfs_postorder_impl<N: Dupe, V: VisitedNodes<N>>(
     // it will still be added. When popping the visit, if the node had been
     // visited, it's ignored. This ensures that a node's children are all
     // visited before we do PostVisit for that node.
-    enum WorkItem<N> {
+    enum WorkItem<N, H> {
         PostVisit(N),
-        Visit(N),
+        Visit(H, N),
     }
 
     let mut visited: V = V::default();
-    let mut work: Vec<WorkItem<N>> = roots.into_iter().map(|t| WorkItem::Visit(t)).collect();
+    let mut work: Vec<WorkItem<N, V::Hash>> = roots
+        .into_iter()
+        .map(|t| WorkItem::Visit(V::hash(&t), t))
+        .collect();
 
     while let Some(curr) = work.pop() {
         match curr {
-            WorkItem::Visit(target) => {
-                if !visited.insert_clone(&target) {
+            WorkItem::Visit(hash, target) => {
+                if !visited.insert_clone(hash, &target) {
                     continue;
                 }
 
                 work.push(WorkItem::PostVisit(target.dupe()));
 
                 successors.for_each_successor(&target, |succ| {
-                    if !visited.contains(succ) {
-                        work.push(WorkItem::Visit(succ.dupe()));
+                    let hash = V::hash(succ);
+                    if !visited.contains(hash, succ) {
+                        work.push(WorkItem::Visit(hash, succ.dupe()));
                     }
                 });
             }
