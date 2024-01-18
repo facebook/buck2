@@ -7,14 +7,14 @@
  * of this source tree.
  */
 
-#![allow(dead_code)] // Used later in the stack.
-
-use std::collections::HashMap;
 use std::collections::HashSet;
 
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use gazebo::prelude::SliceExt;
+use starlark_map::unordered_map;
+use starlark_map::unordered_map::UnorderedMap;
+use starlark_map::Hashed;
 use starlark_map::StarlarkHasherBuilder;
 
 use crate::query::environment::LabeledNode;
@@ -38,7 +38,7 @@ struct GraphNode<N: LabeledNode> {
 #[derive(Clone)]
 pub(crate) struct Graph<N: LabeledNode> {
     nodes: Vec<GraphNode<N>>,
-    node_to_index: HashMap<N::NodeRef, u32, StarlarkHasherBuilder>,
+    node_to_index: UnorderedMap<N::NodeRef, u32>,
 }
 
 impl<N: LabeledNode> Graph<N> {
@@ -50,7 +50,7 @@ impl<N: LabeledNode> Graph<N> {
 }
 
 struct GraphBuilder<N: LabeledNode> {
-    node_to_index: HashMap<N::NodeRef, u32, StarlarkHasherBuilder>,
+    node_to_index: UnorderedMap<N::NodeRef, u32>,
     nodes: VecAsMap<GraphNode<N>>,
 }
 
@@ -69,9 +69,17 @@ impl<N: LabeledNode> GraphBuilder<N> {
         }
     }
 
-    fn get_or_create_node(&mut self, node: N::NodeRef) -> u32 {
-        let new_index = self.node_to_index.len() as u32;
-        *self.node_to_index.entry(node).or_insert(new_index)
+    fn get_or_create_node(&mut self, node: &N::NodeRef) -> u32 {
+        let node = Hashed::new(node);
+        let new_index = self.node_to_index.len();
+        match self.node_to_index.raw_entry_mut().from_key_hashed(node) {
+            unordered_map::RawEntryMut::Occupied(e) => *e.get(),
+            unordered_map::RawEntryMut::Vacant(e) => {
+                let new_index = new_index.try_into().unwrap();
+                e.insert((*node.key()).clone(), new_index);
+                new_index
+            }
+        }
     }
 
     fn insert(&mut self, index: u32, node: N) {
@@ -105,7 +113,7 @@ impl<T: LabeledNode> Graph<T> {
     ) -> anyhow::Result<Graph<T>> {
         let mut graph = GraphBuilder::<T> {
             nodes: VecAsMap::default(),
-            node_to_index: HashMap::default(),
+            node_to_index: UnorderedMap::default(),
         };
 
         // Map from node to parent node.
@@ -131,7 +139,7 @@ impl<T: LabeledNode> Graph<T> {
         let mut queue = FuturesUnordered::new();
 
         for target in root {
-            let index = graph.get_or_create_node(target.clone());
+            let index = graph.get_or_create_node(&target);
             push(&mut queue, &target, index, None);
         }
 
@@ -146,7 +154,7 @@ impl<T: LabeledNode> Graph<T> {
 
                 successors
                     .for_each_child(&node, &mut |child: &T::NodeRef| {
-                        let child_index = graph.get_or_create_node(child.clone());
+                        let child_index = graph.get_or_create_node(child);
                         graph
                             .nodes
                             .get_mut(target_index)
