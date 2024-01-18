@@ -152,6 +152,26 @@ impl<K, V> UnorderedMap<K, V> {
         }
     }
 
+    /// Preserve only the elements specified by the predicate.
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&K, &mut V) -> bool,
+    {
+        // TODO(nga): update hashbrown and use safe `HashTable` instead of this heavily unsafe code:
+        //   https://docs.rs/hashbrown/latest/hashbrown/struct.HashTable.html
+
+        // Unsafe code is copy-paste from `hashbrown` crate:
+        // https://github.com/rust-lang/hashbrown/blob/f2e62124cd947b5e2309dd6a24c7e422932aae97/src/map.rs#L923
+        unsafe {
+            for item in self.0.iter() {
+                let (k, v) = item.as_mut();
+                if !f(k, v) {
+                    self.0.erase(item);
+                }
+            }
+        }
+    }
+
     /// Get an entry in the map for in-place manipulation.
     #[inline]
     pub fn entry(&mut self, k: K) -> Entry<K, V>
@@ -532,5 +552,27 @@ mod tests {
         map.insert(5, 6);
         map.insert(3, 4);
         assert_eq!(map.entries_sorted(), vec![(&1, &2), (&3, &4), (&5, &6)]);
+    }
+
+    #[test]
+    fn test_retain() {
+        let mut map = UnorderedMap::new();
+        for i in 0..1000 {
+            map.insert(format!("key{}", i), format!("value{}", i));
+        }
+
+        map.retain(|k, v| {
+            v.push('x');
+            k.ends_with('0')
+        });
+
+        assert_eq!(100, map.len());
+        for i in 0..1000 {
+            if i % 10 == 0 {
+                assert_eq!(format!("value{}x", i), map[&format!("key{}", i)]);
+            } else {
+                assert!(!map.contains_key(&format!("key{}", i)));
+            }
+        }
     }
 }
