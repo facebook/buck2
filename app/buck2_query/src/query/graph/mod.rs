@@ -11,6 +11,7 @@ pub mod bfs;
 pub mod dfs;
 #[allow(clippy::module_inception)]
 pub(crate) mod graph;
+pub mod node;
 pub mod successors;
 pub(crate) mod vec_as_map;
 pub(crate) mod vec_as_set;

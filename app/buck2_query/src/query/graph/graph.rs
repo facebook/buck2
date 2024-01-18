@@ -17,9 +17,9 @@ use starlark_map::unordered_map::UnorderedMap;
 use starlark_map::Hashed;
 use starlark_map::StarlarkHasherBuilder;
 
-use crate::query::environment::LabeledNode;
 use crate::query::graph::bfs::bfs_find_path;
 use crate::query::graph::dfs::dfs_postorder_impl;
+use crate::query::graph::node::LabeledNode;
 use crate::query::graph::successors::AsyncChildVisitor;
 use crate::query::graph::successors::GraphSuccessors;
 use crate::query::graph::vec_as_map::VecAsMap;
@@ -257,9 +257,9 @@ mod tests {
     use buck2_query::query::traversal::ChildVisitor;
     use dupe::Dupe;
 
-    use crate::query::environment::LabeledNode;
-    use crate::query::environment::NodeLabel;
     use crate::query::graph::graph::Graph;
+    use crate::query::graph::node::LabeledNode;
+    use crate::query::graph::node::NodeLabel;
     use crate::query::graph::successors::AsyncChildVisitor;
     use crate::query::traversal::AsyncNodeLookup;
 

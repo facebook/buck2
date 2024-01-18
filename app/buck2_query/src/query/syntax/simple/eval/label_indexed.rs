@@ -17,7 +17,7 @@ use starlark_map::small_set;
 use starlark_map::Equivalent;
 use starlark_map::Hashed;
 
-use crate::query::environment::LabeledNode;
+use crate::query::graph::node::LabeledNode;
 
 #[derive(Debug, Clone, Dupe, Allocative)]
 pub struct LabelIndexed<T: LabeledNode>(pub T);

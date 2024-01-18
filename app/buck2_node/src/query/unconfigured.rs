@@ -12,8 +12,8 @@ use std::borrow::Cow;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::target::label::TargetLabel;
-use buck2_query::query::environment::LabeledNode;
 use buck2_query::query::environment::QueryTarget;
+use buck2_query::query::graph::node::LabeledNode;
 use dupe::Dupe;
 use serde::Serializer;
 

@@ -15,9 +15,9 @@ use async_trait::async_trait;
 use futures::StreamExt;
 use starlark_map::StarlarkHasherBuilder;
 
-use crate::query::environment::LabeledNode;
 use crate::query::futures_queue_generic::FuturesQueue;
 use crate::query::graph::graph::Graph;
+use crate::query::graph::node::LabeledNode;
 use crate::query::graph::successors::AsyncChildVisitor;
 
 pub trait ChildVisitor<T: LabeledNode>: Send {
@@ -269,8 +269,8 @@ mod tests {
     use serde::Serializer;
 
     use super::*;
-    use crate::query::environment::NodeLabel;
     use crate::query::environment::QueryTarget;
+    use crate::query::graph::node::NodeLabel;
     use crate::query::syntax::simple::eval::set::TargetSet;
 
     #[derive(Debug, Clone)]

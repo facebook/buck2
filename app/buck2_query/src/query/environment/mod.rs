@@ -10,8 +10,6 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::fmt::Display;
-use std::hash::Hash;
 use std::iter;
 
 use anyhow::Context;
@@ -25,9 +23,10 @@ use dupe::IterDupedExt;
 use futures::stream::FuturesUnordered;
 use futures::stream::TryStreamExt;
 use starlark_map::ordered_set::OrderedSet;
-use starlark_map::Hashed;
 
 use crate::query::graph::graph::Graph;
+use crate::query::graph::node::LabeledNode;
+use crate::query::graph::node::NodeLabel;
 use crate::query::graph::successors::AsyncChildVisitor;
 use crate::query::graph::successors::GraphSuccessors;
 use crate::query::syntax::simple::eval::error::QueryError;
@@ -56,21 +55,6 @@ impl QueryEnvironmentError {
             .map(|e| format!("`{}`", e.as_ref()))
             .collect();
         Self::MissingTargetError(target.to_string(), existing)
-    }
-}
-
-pub trait NodeLabel:
-    Clone + Hash + PartialEq + Eq + Debug + Display + Send + Sync + 'static
-{
-}
-
-pub trait LabeledNode: Dupe + Send + Sync {
-    type NodeRef: NodeLabel;
-
-    fn node_ref(&self) -> &Self::NodeRef;
-
-    fn hashed_node_ref(&self) -> Hashed<&Self::NodeRef> {
-        Hashed::new(self.node_ref())
     }
 }
 

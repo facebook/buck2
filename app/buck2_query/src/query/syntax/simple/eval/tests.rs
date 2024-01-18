@@ -17,16 +17,16 @@ use async_trait::async_trait;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::configuration::compatibility::MaybeCompatible;
-use buck2_query::query::environment::LabeledNode;
 use buck2_query_parser::parse_expr;
 use derive_more::Display;
 use dupe::Dupe;
 use serde::Serialize;
 use serde::Serializer;
 
-use crate::query::environment::NodeLabel;
 use crate::query::environment::QueryEnvironment;
 use crate::query::environment::QueryTarget;
+use crate::query::graph::node::LabeledNode;
+use crate::query::graph::node::NodeLabel;
 use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::evaluator::QueryEvaluator;
 use crate::query::syntax::simple::eval::file_set::FileSet;

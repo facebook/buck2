@@ -10,7 +10,7 @@
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 
-use crate::query::environment::NodeLabel;
+use crate::query::graph::node::NodeLabel;
 
 impl NodeLabel for TargetLabel {}
 

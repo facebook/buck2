@@ -8,8 +8,9 @@
  */
 
 use async_trait::async_trait;
-use buck2_query::query::environment::LabeledNode;
 use buck2_query::query::traversal::ChildVisitor;
+
+use crate::query::graph::node::LabeledNode;
 
 /// Function to return the successors of a node.
 pub trait GraphSuccessors<N> {
