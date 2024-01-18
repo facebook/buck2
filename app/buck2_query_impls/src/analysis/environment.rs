@@ -41,7 +41,11 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRefLookup;
 use buck2_node::query::query_functions::CONFIGURED_GRAPH_QUERY_FUNCTIONS;
+use buck2_query::query::environment::deps;
 use buck2_query::query::environment::QueryEnvironment;
+use buck2_query::query::environment::QueryTargetDepsSuccessors;
+use buck2_query::query::environment::TraversalFilter;
+use buck2_query::query::graph::dfs::dfs_postorder;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
@@ -238,6 +242,29 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
 
     async fn owner(&self, _paths: &FileSet) -> anyhow::Result<TargetSet<Self::Target>> {
         Err(QueryError::FunctionUnimplemented("owner").into())
+    }
+
+    async fn deps(
+        &self,
+        targets: &TargetSet<Self::Target>,
+        depth: Option<i32>,
+        filter: Option<&dyn TraversalFilter<Self::Target>>,
+    ) -> anyhow::Result<TargetSet<Self::Target>> {
+        if depth.is_none() && filter.is_none() {
+            // TODO(nga): fast lookup with depth too.
+            let mut deps = TargetSet::new();
+            dfs_postorder::<ConfiguredGraphNodeRef>(
+                targets.iter().duped(),
+                QueryTargetDepsSuccessors,
+                |target| {
+                    deps.insert(target);
+                    Ok(())
+                },
+            )?;
+            Ok(deps)
+        } else {
+            deps(self, targets, depth, filter).await
+        }
     }
 }
 
