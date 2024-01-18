@@ -365,3 +365,36 @@ async fn test_paths_with_cycles_present() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn test_rdeps() -> anyhow::Result<()> {
+    let mut env = TestEnvBuilder::default();
+    env.edge(1, 2);
+    env.edge(2, 3);
+    env.edge(3, 4); // Dead end.
+    env.edge(4, 5);
+    env.edge(1, 3); // Shortcut.
+    env.edge(3, 6);
+    let env = env.build();
+
+    let path = env.rdeps(&env.set("1")?, &env.set("6")?, Some(0)).await?;
+    assert_eq!(path, env.set("6")?);
+
+    let path = env.rdeps(&env.set("1")?, &env.set("6")?, Some(1)).await?;
+    assert_eq!(path, env.set("6,3")?);
+
+    let path = env.rdeps(&env.set("1")?, &env.set("6")?, Some(2)).await?;
+    assert_eq!(path, env.set("6,3,1,2")?);
+
+    let path = env.rdeps(&env.set("1")?, &env.set("6")?, Some(3)).await?;
+    assert_eq!(path, env.set("6,3,1,2")?);
+
+    let path = env.rdeps(&env.set("1")?, &env.set("6")?, Some(4)).await?;
+    assert_eq!(path, env.set("6,3,1,2")?);
+
+    let path = env.rdeps(&env.set("1")?, &env.set("6")?, None).await?;
+    // Note different order than above. Does not look intentional.
+    assert_eq!(path, env.set("1,2,3,6")?);
+
+    Ok(())
+}
