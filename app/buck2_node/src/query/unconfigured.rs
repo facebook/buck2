@@ -23,6 +23,7 @@ use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::serialize::AttrSerializeWithContext;
 use crate::nodes::unconfigured::TargetNode;
+use crate::nodes::unconfigured::TargetNodeData;
 
 impl LabeledNode for TargetNode {
     type NodeRef = TargetLabel;
@@ -36,7 +37,7 @@ impl QueryTarget for TargetNode {
     type Attr<'a> = CoercedAttr;
 
     fn rule_type(&self) -> Cow<str> {
-        Cow::Borrowed(TargetNode::rule_type(self).name())
+        Cow::Borrowed(TargetNodeData::rule_type(self).name())
     }
 
     fn buildfile_path(&self) -> &BuildFilePath {
@@ -105,7 +106,7 @@ impl QueryTarget for TargetNode {
     }
 
     fn call_stack(&self) -> Option<String> {
-        self.call_stack()
+        TargetNodeData::call_stack(self)
     }
 
     fn attr_to_string_alternate(&self, attr: &Self::Attr<'_>) -> String {

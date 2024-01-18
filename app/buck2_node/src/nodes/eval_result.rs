@@ -28,6 +28,7 @@ use itertools::Itertools;
 
 use crate::nodes::targets_map::TargetsMap;
 use crate::nodes::unconfigured::TargetNode;
+use crate::nodes::unconfigured::TargetNodeRef;
 use crate::super_package::SuperPackage;
 
 #[derive(Debug, buck2_error::Error)]
@@ -161,11 +162,11 @@ impl EvaluationResult {
         &self.super_package
     }
 
-    pub fn get_target<'a>(&'a self, name: &TargetNameRef) -> Option<&'a TargetNode> {
+    pub fn get_target<'a>(&'a self, name: &TargetNameRef) -> Option<TargetNodeRef<'a>> {
         self.targets.get(name)
     }
 
-    pub fn resolve_target<'a>(&'a self, path: &TargetNameRef) -> anyhow::Result<&'a TargetNode> {
+    pub fn resolve_target<'a>(&'a self, path: &TargetNameRef) -> anyhow::Result<TargetNodeRef<'a>> {
         self.get_target(path).ok_or_else(|| {
             MissingTargetError {
                 target: path.to_owned(),
@@ -195,7 +196,7 @@ impl EvaluationResult {
                 for target_info in self.targets().values() {
                     label_to_node.insert(
                         (target_info.label().name().to_owned(), T::default()),
-                        target_info.dupe(),
+                        target_info.to_owned(),
                     );
                 }
                 (label_to_node, None)
@@ -207,7 +208,7 @@ impl EvaluationResult {
                     let node = self.get_target(target_name.as_ref());
                     match node {
                         Some(node) => {
-                            label_to_node.insert((target_name, extra), node.dupe());
+                            label_to_node.insert((target_name, extra), node.to_owned());
                         }
                         None => missing_targets
                             .push(TargetLabel::new(self.package(), target_name.as_ref())),

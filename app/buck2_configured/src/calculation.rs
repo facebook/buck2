@@ -59,7 +59,7 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
 
             Ok(CFG_CONSTRUCTOR_CALCULATION_IMPL
                 .get()?
-                .eval_cfg_constructor(ctx, &node, &super_package, current_cfg)
+                .eval_cfg_constructor(ctx, node.as_ref(), &super_package, current_cfg)
                 .await?)
         };
 
@@ -68,11 +68,14 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
             RuleKind::Normal => Ok(target.configure(get_platform_configuration().await?)),
             RuleKind::Toolchain => {
                 let cfg = get_platform_configuration().await?;
-                let exec_cfg =
-                    get_execution_platform_toolchain_dep(ctx, &target.configure(cfg.dupe()), &node)
-                        .await?
-                        .require_compatible()?
-                        .cfg();
+                let exec_cfg = get_execution_platform_toolchain_dep(
+                    ctx,
+                    &target.configure(cfg.dupe()),
+                    node.as_ref(),
+                )
+                .await?
+                .require_compatible()?
+                .cfg();
                 Ok(target.configure_with_exec(cfg, exec_cfg.cfg().dupe()))
             }
         }

@@ -73,6 +73,7 @@ impl Dupe for TargetNode {}
 impl Deref for TargetNode {
     type Target = TargetNodeData;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -111,6 +112,24 @@ pub struct TargetNodeData {
     call_stack: Option<StarlarkCallStack>,
 }
 
+impl TargetNodeData {
+    pub fn is_toolchain_rule(&self) -> bool {
+        self.rule.rule_kind == RuleKind::Toolchain
+    }
+
+    pub fn rule_type(&self) -> &RuleType {
+        &self.rule.rule_type
+    }
+
+    pub fn oncall(&self) -> Option<&str> {
+        self.package.oncall.as_ref().map(|x| x.as_str())
+    }
+
+    pub fn call_stack(&self) -> Option<String> {
+        self.call_stack.as_ref().map(|s| s.to_string())
+    }
+}
+
 impl TargetNode {
     pub fn new(
         rule: Arc<Rule>,
@@ -138,12 +157,8 @@ impl TargetNode {
         self.0.rule.rule_kind == RuleKind::Configuration
     }
 
-    pub fn is_toolchain_rule(&self) -> bool {
-        self.0.rule.rule_kind == RuleKind::Toolchain
-    }
-
     pub fn uses_plugins(&self) -> &[PluginKind] {
-        &self.0.rule.uses_plugins
+        self.as_ref().uses_plugins()
     }
 
     pub fn get_default_target_platform(&self) -> Option<&TargetLabel> {
@@ -163,36 +178,20 @@ impl TargetNode {
         }
     }
 
-    pub fn rule_type(&self) -> &RuleType {
-        &self.0.rule.rule_type
-    }
-
     pub fn buildfile_path(&self) -> &BuildFilePath {
         &self.0.package.buildfile_path
     }
 
-    fn deps_cache(&self) -> &CoercedDeps {
-        &self.0.deps_cache
-    }
-
     /// Returns all deps for this node that we know about after processing the build file
+    #[inline]
     pub fn deps(&self) -> impl Iterator<Item = &TargetLabel> {
-        let deps_cache = self.deps_cache();
-        deps_cache
-            .deps
-            .iter()
-            .chain(deps_cache.transition_deps.iter().map(|(dep, _tr)| dep))
-            .chain(deps_cache.exec_deps.iter())
-            .chain(deps_cache.toolchain_deps.iter())
-            .chain(deps_cache.plugin_deps.iter())
+        self.as_ref().deps()
     }
 
     /// Deps which are to be transitioned to other configuration using transition function.
+    #[inline]
     pub fn transition_deps(&self) -> impl Iterator<Item = (&TargetLabel, &Arc<TransitionId>)> {
-        self.deps_cache()
-            .transition_deps
-            .iter()
-            .map(|x| (&x.0, &x.1))
+        self.as_ref().transition_deps()
     }
 
     pub fn label(&self) -> &TargetLabel {
@@ -232,10 +231,6 @@ impl TargetNode {
         .into_iter()
     }
 
-    pub fn oncall(&self) -> Option<&str> {
-        self.0.package.oncall.as_ref().map(|x| x.as_str())
-    }
-
     pub fn visibility(&self) -> anyhow::Result<&VisibilitySpecification> {
         match self.0.attributes.get(AttributeSpec::visibility_attr_id()) {
             Some(CoercedAttr::Visibility(v)) => Ok(v),
@@ -262,48 +257,52 @@ impl TargetNode {
         Ok(self.visibility()?.0.matches_target(target))
     }
 
+    #[inline]
     pub fn attrs(&self, opts: AttrInspectOptions) -> impl Iterator<Item = CoercedAttrFull> {
-        self.0.rule.attributes.attrs(&self.0.attributes, opts)
+        self.as_ref().attrs(opts)
     }
 
+    #[inline]
     pub fn platform_deps(&self) -> impl Iterator<Item = &TargetLabel> {
-        self.deps_cache().platform_deps.iter()
+        self.as_ref().platform_deps()
     }
 
     /// Return `None` if attribute is not present or unknown.
+    #[inline]
     pub fn attr_or_none<'a>(
         &'a self,
         key: &str,
         opts: AttrInspectOptions,
     ) -> Option<CoercedAttrFull<'a>> {
-        self.0
-            .rule
-            .attributes
-            .attr_or_none(&self.0.attributes, key, opts)
+        self.as_ref().attr_or_none(key, opts)
     }
 
     /// Get attribute.
     ///
     /// * `None` if attribute is known but not set and no default.
     /// * error if attribute is unknown.
+    #[inline]
     pub fn attr(
         &self,
         key: &str,
         opts: AttrInspectOptions,
     ) -> anyhow::Result<Option<&CoercedAttr>> {
-        self.0.rule.attributes.attr(&self.0.attributes, key, opts)
+        self.as_ref().attr(key, opts)
     }
 
+    #[inline]
     pub fn target_deps(&self) -> impl Iterator<Item = &TargetLabel> {
-        self.deps_cache().deps.iter()
+        self.as_ref().target_deps()
     }
 
+    #[inline]
     pub fn exec_deps(&self) -> impl Iterator<Item = &TargetLabel> {
-        self.deps_cache().exec_deps.iter()
+        self.as_ref().exec_deps()
     }
 
+    #[inline]
     pub fn get_configuration_deps(&self) -> impl Iterator<Item = &TargetLabel> {
-        self.deps_cache().configuration_deps.iter()
+        self.as_ref().get_configuration_deps()
     }
 
     pub fn tests(&self) -> impl Iterator<Item = &ProvidersLabel> {
@@ -377,6 +376,143 @@ impl TargetNode {
     }
 
     pub fn inputs(&self) -> impl Iterator<Item = CellPath> + '_ {
+        self.as_ref().inputs()
+    }
+
+    /// Hash the fields that impact how this target is built.
+    /// Don't do any recursive hashing of the dependencies.
+    pub fn target_hash<H: Hasher>(&self, state: &mut H) {
+        self.label().hash(state);
+        self.rule_type().hash(state);
+        self.attrs(AttrInspectOptions::All).for_each(|x| {
+            // We deliberately don't hash the attribute, as if the value being passed to analysis
+            // stays the same, we don't care if the attribute that generated it changed.
+            x.name.hash(state);
+            x.value.hash(state);
+        });
+    }
+
+    #[inline]
+    pub fn metadata(&self) -> anyhow::Result<Option<&MetadataMap>> {
+        self.as_ref().metadata()
+    }
+
+    #[inline]
+    pub fn as_ref(&self) -> TargetNodeRef<'_> {
+        TargetNodeRef(triomphe::Arc::borrow_arc(&self.0))
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct TargetNodeRef<'a>(triomphe::ArcBorrow<'a, TargetNodeData>);
+
+impl<'a> Dupe for TargetNodeRef<'a> {}
+
+impl<'a> Deref for TargetNodeRef<'a> {
+    type Target = TargetNodeData;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'a> TargetNodeRef<'a> {
+    #[inline]
+    pub fn label(self) -> &'a TargetLabel {
+        &self.0.get().label
+    }
+
+    #[inline]
+    pub fn to_owned(self) -> TargetNode {
+        TargetNode(triomphe::ArcBorrow::clone_arc(&self.0))
+    }
+
+    /// Get attribute.
+    ///
+    /// * `None` if attribute is known but not set and no default.
+    /// * error if attribute is unknown.
+    pub fn attr(
+        self,
+        key: &str,
+        opts: AttrInspectOptions,
+    ) -> anyhow::Result<Option<&'a CoercedAttr>> {
+        self.0
+            .get()
+            .rule
+            .attributes
+            .attr(&self.0.get().attributes, key, opts)
+    }
+
+    /// Return `None` if attribute is not present or unknown.
+    pub fn attr_or_none(&self, key: &str, opts: AttrInspectOptions) -> Option<CoercedAttrFull<'a>> {
+        self.0
+            .get()
+            .rule
+            .attributes
+            .attr_or_none(&self.0.get().attributes, key, opts)
+    }
+
+    pub fn attrs(self, opts: AttrInspectOptions) -> impl Iterator<Item = CoercedAttrFull<'a>> {
+        self.0
+            .get()
+            .rule
+            .attributes
+            .attrs(&self.0.get().attributes, opts)
+    }
+
+    pub fn metadata(self) -> anyhow::Result<Option<&'a MetadataMap>> {
+        self.attr_or_none(METADATA_ATTRIBUTE_FIELD, AttrInspectOptions::All)
+            .map(|attr| match attr.value {
+                CoercedAttr::Metadata(m) => Ok(m),
+                x => Err(TargetNodeError::IncorrectMetadataAttribute(format!("{:?}", x)).into()),
+            })
+            .transpose()
+    }
+
+    pub fn target_deps(self) -> impl Iterator<Item = &'a TargetLabel> {
+        self.0.get().deps_cache.deps.iter()
+    }
+
+    pub fn exec_deps(self) -> impl Iterator<Item = &'a TargetLabel> {
+        self.0.get().deps_cache.exec_deps.iter()
+    }
+
+    pub fn get_configuration_deps(self) -> impl Iterator<Item = &'a TargetLabel> {
+        self.0.get().deps_cache.configuration_deps.iter()
+    }
+
+    pub fn platform_deps(self) -> impl Iterator<Item = &'a TargetLabel> {
+        self.0.get().deps_cache.platform_deps.iter()
+    }
+
+    /// Returns all deps for this node that we know about after processing the build file
+    pub fn deps(self) -> impl Iterator<Item = &'a TargetLabel> {
+        let deps_cache = &self.0.get().deps_cache;
+        deps_cache
+            .deps
+            .iter()
+            .chain(deps_cache.transition_deps.iter().map(|(dep, _tr)| dep))
+            .chain(deps_cache.exec_deps.iter())
+            .chain(deps_cache.toolchain_deps.iter())
+            .chain(deps_cache.plugin_deps.iter())
+    }
+
+    /// Deps which are to be transitioned to other configuration using transition function.
+    pub fn transition_deps(self) -> impl Iterator<Item = (&'a TargetLabel, &'a Arc<TransitionId>)> {
+        self.0
+            .get()
+            .deps_cache
+            .transition_deps
+            .iter()
+            .map(|x| (&x.0, &x.1))
+    }
+
+    pub fn uses_plugins(self) -> &'a [PluginKind] {
+        &self.0.get().rule.uses_plugins
+    }
+
+    pub fn inputs(self) -> impl Iterator<Item = CellPath> + 'a {
         struct InputsCollector {
             inputs: Vec<CellPath>,
         }
@@ -438,32 +574,6 @@ impl TargetNode {
         }
 
         traversal.inputs.into_iter()
-    }
-
-    pub fn call_stack(&self) -> Option<String> {
-        self.0.call_stack.as_ref().map(|s| s.to_string())
-    }
-
-    /// Hash the fields that impact how this target is built.
-    /// Don't do any recursive hashing of the dependencies.
-    pub fn target_hash<H: Hasher>(&self, state: &mut H) {
-        self.label().hash(state);
-        self.rule_type().hash(state);
-        self.attrs(AttrInspectOptions::All).for_each(|x| {
-            // We deliberately don't hash the attribute, as if the value being passed to analysis
-            // stays the same, we don't care if the attribute that generated it changed.
-            x.name.hash(state);
-            x.value.hash(state);
-        });
-    }
-
-    pub fn metadata(&self) -> anyhow::Result<Option<&MetadataMap>> {
-        self.attr_or_none(METADATA_ATTRIBUTE_FIELD, AttrInspectOptions::All)
-            .map(|attr| match attr.value {
-                CoercedAttr::Metadata(m) => Ok(m),
-                x => Err(TargetNodeError::IncorrectMetadataAttribute(format!("{:?}", x)).into()),
-            })
-            .transpose()
     }
 }
 

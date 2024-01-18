@@ -194,7 +194,7 @@ impl<'c> UqueryEnvironment<'c> {
             .await
             .with_context(|| format!("Error looking up `{}``", target))?;
         let node = package.resolve_target(target.name())?;
-        Ok(node.dupe())
+        Ok(node.to_owned())
     }
 }
 
@@ -269,7 +269,7 @@ impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
                             .filter_map(|node| {
                                 for input in node.inputs() {
                                     if &input == path {
-                                        return Some(node.dupe());
+                                        return Some(node.to_owned());
                                         // this intentionally breaks out of the loop. We don't need to look at the
                                         // other inputs of this target, but it's possible for a single file to be owned by
                                         // multiple targets.

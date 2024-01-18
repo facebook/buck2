@@ -36,7 +36,6 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
-use dupe::IterDupedExt;
 use futures::future::FutureExt;
 use futures::Stream;
 use futures::StreamExt;
@@ -137,7 +136,7 @@ pub(crate) async fn targets_streaming(
                                         }
                                         formatter.target(
                                             TargetInfo {
-                                                node,
+                                                node: node.as_ref(),
                                                 target_hash: fast_hash.map(|fast| {
                                                     TargetHashes::compute_immediate_one(node, fast)
                                                 }),
@@ -303,7 +302,7 @@ async fn load_targets(
                         .partition_map(|(target, TargetPatternExtra)| {
                             match result.targets().get(target.as_ref()) {
                                 None => Either::Left(target),
-                                Some(x) => Either::Right(x.dupe()),
+                                Some(x) => Either::Right(x.to_owned()),
                             }
                         });
                 let err = if miss.is_empty() {
@@ -314,13 +313,13 @@ async fn load_targets(
                 Ok((result, targets, err))
             } else {
                 let targets = targets.into_try_map(|(target, TargetPatternExtra)| {
-                    anyhow::Ok(result.resolve_target(target.as_ref())?.dupe())
+                    anyhow::Ok(result.resolve_target(target.as_ref())?.to_owned())
                 })?;
                 Ok((result, targets, None))
             }
         }
         PackageSpec::All => {
-            let targets = result.targets().values().duped().collect();
+            let targets = result.targets().values().map(|t| t.to_owned()).collect();
             Ok((result, targets, None))
         }
     }

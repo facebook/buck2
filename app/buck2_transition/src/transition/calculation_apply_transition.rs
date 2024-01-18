@@ -31,7 +31,7 @@ use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
-use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::nodes::unconfigured::TargetNodeRef;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -235,7 +235,7 @@ impl TransitionCalculation for TransitionCalculationImpl {
     async fn apply_transition(
         &self,
         ctx: &DiceComputations,
-        target_node: &TargetNode,
+        target_node: TargetNodeRef<'_>,
         cfg: &ConfigurationData,
         transition_id: &TransitionId,
     ) -> anyhow::Result<Arc<TransitionApplied>> {

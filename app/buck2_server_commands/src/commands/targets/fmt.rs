@@ -29,7 +29,7 @@ use buck2_node::nodes::attributes::PACKAGE_VALUES;
 use buck2_node::nodes::attributes::TARGET_CALL_STACK;
 use buck2_node::nodes::attributes::TARGET_HASH;
 use buck2_node::nodes::attributes::TYPE;
-use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::nodes::unconfigured::TargetNodeRef;
 use buck2_node::super_package::SuperPackage;
 use buck2_util::indent::indent;
 use gazebo::prelude::SliceExt;
@@ -47,7 +47,7 @@ enum FormatterError {
 }
 
 pub(crate) struct TargetInfo<'a> {
-    pub(crate) node: &'a TargetNode,
+    pub(crate) node: TargetNodeRef<'a>,
     pub(crate) target_hash: Option<BuckTargetHash>,
     pub(crate) super_package: &'a SuperPackage,
 }

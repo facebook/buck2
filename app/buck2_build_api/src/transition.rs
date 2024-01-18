@@ -13,7 +13,7 @@ use async_trait::async_trait;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
-use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::nodes::unconfigured::TargetNodeRef;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 
@@ -23,7 +23,7 @@ pub trait TransitionCalculation: Send + Sync + 'static {
     async fn apply_transition(
         &self,
         ctx: &DiceComputations,
-        target_node: &TargetNode,
+        target_node: TargetNodeRef<'_>,
         conf: &ConfigurationData,
         transition_id: &TransitionId,
     ) -> anyhow::Result<Arc<TransitionApplied>>;

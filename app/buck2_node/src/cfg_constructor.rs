@@ -20,7 +20,7 @@ use dice::DiceComputations;
 
 use crate::metadata::key::MetadataKeyRef;
 use crate::metadata::value::MetadataValue;
-use crate::nodes::unconfigured::TargetNode;
+use crate::nodes::unconfigured::TargetNodeRef;
 use crate::super_package::SuperPackage;
 
 /// Trait for configuration constructor functions.
@@ -57,7 +57,7 @@ pub trait CfgConstructorCalculationImpl: Send + Sync + 'static {
     async fn eval_cfg_constructor(
         &self,
         ctx: &DiceComputations,
-        target: &TargetNode,
+        target: TargetNodeRef<'_>,
         super_package: &SuperPackage,
         cfg: ConfigurationData,
     ) -> anyhow::Result<ConfigurationData>;

@@ -122,7 +122,7 @@ impl TargetGraphCalculation for DiceComputations {
                     )
                 })?;
                 anyhow::Ok((
-                    res.resolve_target(target.name())?.dupe(),
+                    res.resolve_target(target.name())?.to_owned(),
                     res.super_package().dupe(),
                 ))
             })

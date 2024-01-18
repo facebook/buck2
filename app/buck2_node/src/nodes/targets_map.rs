@@ -20,6 +20,7 @@ use starlark_map::ordered_set;
 use starlark_map::ordered_set::OrderedSet;
 
 use crate::nodes::unconfigured::TargetNode;
+use crate::nodes::unconfigured::TargetNodeRef;
 
 #[derive(Debug, buck2_error::Error)]
 pub enum TargetsMapRecordError {
@@ -82,8 +83,8 @@ impl TargetsMap {
     }
 
     #[inline]
-    pub fn get(&self, name: &TargetNameRef) -> Option<&TargetNode> {
-        self.map.get(name).map(|NameIndexed(n)| n)
+    pub fn get<'a>(&'a self, name: &TargetNameRef) -> Option<TargetNodeRef<'a>> {
+        self.map.get(name).map(|NameIndexed(n)| n.as_ref())
     }
 
     #[inline]
@@ -97,8 +98,10 @@ impl TargetsMap {
     }
 
     #[inline]
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = (&TargetNameRef, &TargetNode)> {
-        self.map.iter().map(|NameIndexed(n)| (n.label().name(), n))
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = (&TargetNameRef, TargetNodeRef<'_>)> {
+        self.map
+            .iter()
+            .map(|NameIndexed(n)| (n.label().name(), n.as_ref()))
     }
 
     #[inline]
@@ -112,7 +115,7 @@ impl TargetsMap {
     }
 
     #[inline]
-    pub fn values(&self) -> impl ExactSizeIterator<Item = &TargetNode> {
+    pub fn values(&self) -> impl ExactSizeIterator<Item = TargetNodeRef<'_>> {
         self.iter().map(|(_, v)| v)
     }
 

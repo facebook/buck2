@@ -23,7 +23,7 @@ use buck2_node::cfg_constructor::CfgConstructorCalculationImpl;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
 use buck2_node::metadata::value::MetadataValue;
-use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::nodes::unconfigured::TargetNodeRef;
 use buck2_node::super_package::SuperPackage;
 use derive_more::Display;
 use dice::CancellationContext;
@@ -81,7 +81,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
     async fn eval_cfg_constructor(
         &self,
         ctx: &DiceComputations,
-        target: &TargetNode,
+        target: TargetNodeRef<'_>,
         super_package: &SuperPackage,
         cfg: ConfigurationData,
     ) -> anyhow::Result<ConfigurationData> {

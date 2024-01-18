@@ -134,7 +134,7 @@ impl AuditSubcommand for AuditVisibilityCommand {
                 let mut nodes = TargetSet::<TargetNode>::new();
                 for (_package, result) in parsed_target_patterns.iter() {
                     let res = result.as_ref().map_err(Dupe::dupe)?;
-                    nodes.extend(res.values());
+                    nodes.extend(res.values().map(|n| n.to_owned()));
                 }
 
                 verify_visibility(ctx, nodes).await?;

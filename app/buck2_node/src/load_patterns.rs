@@ -33,6 +33,7 @@ use itertools::Itertools;
 use crate::nodes::eval_result::EvaluationResult;
 use crate::nodes::frontend::TargetGraphCalculation;
 use crate::nodes::unconfigured::TargetNode;
+use crate::nodes::unconfigured::TargetNodeRef;
 use crate::super_package::SuperPackage;
 
 #[derive(Debug, buck2_error::Error)]
@@ -120,16 +121,16 @@ pub struct PackageLoadedPatterns<T: PatternType> {
 }
 
 impl<T: PatternType> PackageLoadedPatterns<T> {
-    pub fn iter(&self) -> impl Iterator<Item = (&(TargetName, T), &TargetNode)> {
-        self.targets.iter()
+    pub fn iter(&self) -> impl Iterator<Item = (&(TargetName, T), TargetNodeRef<'_>)> {
+        self.targets.iter().map(|(k, v)| (k, v.as_ref()))
     }
 
     pub fn keys(&self) -> impl Iterator<Item = &(TargetName, T)> {
         self.targets.keys()
     }
 
-    pub fn values(&self) -> impl Iterator<Item = &TargetNode> {
-        self.targets.values()
+    pub fn values(&self) -> impl Iterator<Item = TargetNodeRef<'_>> {
+        self.targets.values().map(|v| v.as_ref())
     }
 
     pub fn into_values(self) -> impl Iterator<Item = TargetNode> {
@@ -165,11 +166,13 @@ impl<T: PatternType> LoadedPatterns<T> {
         self.results.into_iter()
     }
 
-    pub fn iter_loaded_targets(&self) -> impl Iterator<Item = buck2_error::Result<&TargetNode>> {
+    pub fn iter_loaded_targets(
+        &self,
+    ) -> impl Iterator<Item = buck2_error::Result<TargetNodeRef<'_>>> {
         self.results
             .values()
             .map(|result| match result {
-                Ok(pkg) => Ok(pkg.targets.values()),
+                Ok(pkg) => Ok(pkg.targets.values().map(|t| t.as_ref())),
                 Err(e) => Err(e.dupe()),
             })
             .flatten_ok()

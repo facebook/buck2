@@ -56,6 +56,7 @@ use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculationImpl;
 use buck2_node::nodes::configured_frontend::CONFIGURED_TARGET_NODE_CALCULATION;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::nodes::unconfigured::TargetNodeRef;
 use buck2_node::visibility::VisibilityError;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -89,7 +90,7 @@ enum CompatibilityConstraints {
 
 async fn compute_platform_cfgs(
     ctx: &DiceComputations,
-    node: &TargetNode,
+    node: TargetNodeRef<'_>,
 ) -> anyhow::Result<OrderedMap<TargetLabel, ConfigurationData>> {
     let mut platform_map = OrderedMap::new();
     for platform_target in node.platform_deps() {
@@ -169,7 +170,7 @@ impl ExecutionPlatformConstraints {
     }
 
     fn new(
-        node: &TargetNode,
+        node: TargetNodeRef,
         gathered_deps: &GatheredDeps,
         cfg_ctx: &(dyn AttrConfigurationContext + Sync),
     ) -> buck2_error::Result<Self> {
@@ -224,7 +225,7 @@ impl ExecutionPlatformConstraints {
     async fn one(
         &self,
         ctx: &DiceComputations,
-        node: &TargetNode,
+        node: TargetNodeRef<'_>,
     ) -> buck2_error::Result<ExecutionPlatformResolution> {
         ctx.resolve_execution_platform_from_constraints(
             node.label().pkg().cell_name(),
@@ -295,7 +296,7 @@ async fn execution_platforms_for_toolchain(
                     node.get_configuration_deps(),
                 )
                 .await?;
-            let platform_cfgs = compute_platform_cfgs(ctx, &node).await?;
+            let platform_cfgs = compute_platform_cfgs(ctx, node.as_ref()).await?;
             // We don't really need `resolved_transitions` here:
             // `Traversal` declared above ignores transitioned dependencies.
             // But we pass `resolved_transitions` here to prevent breakages in the future
@@ -308,13 +309,14 @@ async fn execution_platforms_for_toolchain(
                 &platform_cfgs,
             );
             let (gathered_deps, errors_and_incompats) =
-                gather_deps(&self.0, &node, &cfg_ctx, ctx).await?;
+                gather_deps(&self.0, node.as_ref(), &cfg_ctx, ctx).await?;
             if let Some(ret) = errors_and_incompats.finalize() {
                 // Statically assert that we hit one of the `?`s
                 enum Void {}
                 let _: Void = ret?.require_compatible()?;
             }
-            let constraints = ExecutionPlatformConstraints::new(&node, &gathered_deps, &cfg_ctx)?;
+            let constraints =
+                ExecutionPlatformConstraints::new(node.as_ref(), &gathered_deps, &cfg_ctx)?;
             constraints.many(ctx, &self.0).await
         }
 
@@ -333,7 +335,7 @@ async fn execution_platforms_for_toolchain(
 pub async fn get_execution_platform_toolchain_dep(
     ctx: &DiceComputations,
     target_label: &ConfiguredTargetLabel,
-    target_node: &TargetNode,
+    target_node: TargetNodeRef<'_>,
 ) -> buck2_error::Result<MaybeCompatible<ExecutionPlatformResolution>> {
     assert!(target_node.is_toolchain_rule());
     let target_cfg = target_label.cfg();
@@ -378,7 +380,7 @@ pub async fn get_execution_platform_toolchain_dep(
 
 async fn resolve_execution_platform(
     ctx: &DiceComputations,
-    node: &TargetNode,
+    node: TargetNodeRef<'_>,
     resolved_configuration: &ResolvedConfiguration,
     gathered_deps: &GatheredDeps,
     cfg_ctx: &(dyn AttrConfigurationContext + Sync),
@@ -401,7 +403,7 @@ async fn resolve_execution_platform(
 }
 
 fn unpack_target_compatible_with_attr(
-    target_node: &TargetNode,
+    target_node: TargetNodeRef,
     resolved_cfg: &ResolvedConfiguration,
     attr_name: &str,
 ) -> anyhow::Result<Option<ConfiguredAttr>> {
@@ -476,7 +478,7 @@ fn unpack_target_compatible_with_attr(
 
 fn check_compatible(
     target_label: &ConfiguredTargetLabel,
-    target_node: &TargetNode,
+    target_node: TargetNodeRef,
     resolved_cfg: &ResolvedConfiguration,
 ) -> anyhow::Result<MaybeCompatible<()>> {
     let target_compatible_with = unpack_target_compatible_with_attr(
@@ -674,7 +676,7 @@ struct GatheredDeps {
 
 async fn gather_deps(
     target_label: &ConfiguredTargetLabel,
-    target_node: &TargetNode,
+    target_node: TargetNodeRef<'_>,
     attr_cfg_ctx: &(dyn AttrConfigurationContext + Sync),
     ctx: &DiceComputations,
 ) -> anyhow::Result<(GatheredDeps, ErrorsAndIncompatibilities)> {
@@ -808,7 +810,7 @@ async fn compute_configured_target_node_no_transition(
 
     // Must check for compatibility before evaluating non-compatibility attributes.
     if let MaybeCompatible::Incompatible(reason) =
-        check_compatible(target_label, &target_node, &resolved_configuration)?
+        check_compatible(target_label, target_node.as_ref(), &resolved_configuration)?
     {
         return Ok(MaybeCompatible::Incompatible(reason));
     }
@@ -817,12 +819,12 @@ async fn compute_configured_target_node_no_transition(
     for (_dep, tr) in target_node.transition_deps() {
         let resolved_cfg = TRANSITION_CALCULATION
             .get()?
-            .apply_transition(ctx, &target_node, target_cfg, tr)
+            .apply_transition(ctx, target_node.as_ref(), target_cfg, tr)
             .await?;
         resolved_transitions.insert(tr.dupe(), resolved_cfg);
     }
 
-    let platform_cfgs = compute_platform_cfgs(ctx, &target_node).await?;
+    let platform_cfgs = compute_platform_cfgs(ctx, target_node.as_ref()).await?;
 
     // We need to collect deps and to ensure that all attrs can be successfully
     // configured so that we don't need to support propagate configuration errors on attr access.
@@ -836,7 +838,7 @@ async fn compute_configured_target_node_no_transition(
         &platform_cfgs,
     );
     let (gathered_deps, mut errors_and_incompats) =
-        gather_deps(target_label, &target_node, &attr_cfg_ctx, ctx).await?;
+        gather_deps(target_label, target_node.as_ref(), &attr_cfg_ctx, ctx).await?;
 
     check_plugin_deps(ctx, target_label, &gathered_deps.plugin_lists).await?;
 
@@ -864,7 +866,7 @@ async fn compute_configured_target_node_no_transition(
     } else {
         resolve_execution_platform(
             ctx,
-            &target_node,
+            target_node.as_ref(),
             &resolved_configuration,
             &gathered_deps,
             &attr_cfg_ctx,
@@ -1013,7 +1015,7 @@ async fn compute_configured_target_node(
 
         let cfg = TRANSITION_CALCULATION
             .get()?
-            .apply_transition(ctx, &target_node, key.0.cfg(), transition_id)
+            .apply_transition(ctx, target_node.as_ref(), key.0.cfg(), transition_id)
             .await?;
         let configured_target_label = key.0.unconfigured().configure(cfg.single()?.dupe());
 
