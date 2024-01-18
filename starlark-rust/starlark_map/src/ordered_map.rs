@@ -89,7 +89,7 @@ impl<K, V> OrderedMap<K, V> {
 
     /// Get a reference to the value associated with the given key.
     #[inline]
-    pub fn get<Q>(&self, k: &Q) -> Option<&V>
+    pub fn get<'a, Q>(&'a self, k: &Q) -> Option<&'a V>
     where
         Q: Hash + Equivalent<K> + ?Sized,
     {
@@ -98,7 +98,7 @@ impl<K, V> OrderedMap<K, V> {
 
     /// Get a mutable reference to the value associated with the given key.
     #[inline]
-    pub fn get_mut<Q>(&mut self, k: &Q) -> Option<&mut V>
+    pub fn get_mut<'a, Q>(&'a mut self, k: &Q) -> Option<&'a mut V>
     where
         Q: Hash + Equivalent<K> + ?Sized,
     {
