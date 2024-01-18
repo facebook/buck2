@@ -9,6 +9,7 @@
 
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::cells::cell_path::CellPath;
@@ -102,4 +103,29 @@ async fn target_platform_from_client_context_impl(
     } else {
         Ok(None)
     }
+}
+
+/// Extract target configuration components from [`ClientContext`].
+pub async fn target_cfg_flags_from_client_context(
+    client_context: &ClientContext,
+    server_ctx: &dyn ServerCommandContextTrait,
+    dice_ctx: &mut DiceComputations,
+) -> anyhow::Result<GlobalCfgOptions> {
+    let cell_resolver: &CellResolver = &dice_ctx.get_cell_resolver().await?;
+    let working_dir: &ProjectRelativePath = server_ctx.working_dir();
+    let cwd = cell_resolver.get_cell_path(working_dir)?;
+    let target_platform = &client_context.target_platform;
+    let target_platform_label = if !target_platform.is_empty() {
+        Some(
+            ParsedPattern::parse_precise(target_platform, cwd.cell(), cell_resolver)?
+                .as_target_label(target_platform)?,
+        )
+    } else {
+        None
+    };
+
+    Ok(GlobalCfgOptions {
+        target_platform: target_platform_label,
+        cli_modifiers: client_context.cli_modifiers.clone(),
+    })
 }

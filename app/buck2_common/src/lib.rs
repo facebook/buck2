@@ -32,6 +32,7 @@ pub mod events;
 pub mod external_symlink;
 pub mod file_ops;
 pub mod find_buildfile;
+pub mod global_cfg_options;
 pub mod home_buck_tmp;
 pub mod http;
 pub mod ignores;
