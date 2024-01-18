@@ -353,25 +353,7 @@ impl ConfiguredTargetNode {
     }
 
     pub fn inputs(&self) -> impl Iterator<Item = CellPath> + '_ {
-        struct InputsCollector {
-            inputs: Vec<CellPath>,
-        }
-        impl ConfiguredAttrTraversal for InputsCollector {
-            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
-                Ok(())
-            }
-
-            fn input(&mut self, path: BuckPathRef) -> anyhow::Result<()> {
-                self.inputs.push(path.to_cell_path());
-                Ok(())
-            }
-        }
-        let mut traversal = InputsCollector { inputs: Vec::new() };
-        for a in self.attrs(AttrInspectOptions::All) {
-            a.traverse(self.label().pkg(), &mut traversal)
-                .expect("inputs collector shouldn't return errors");
-        }
-        traversal.inputs.into_iter()
+        self.as_ref().inputs()
     }
 
     // TODO(cjhopman): switch to for_each_query?
@@ -519,23 +501,11 @@ impl ConfiguredTargetNode {
         self.0.target_node.oncall()
     }
 
-    fn attr_configuration_context(&self) -> AttrConfigurationContextImpl {
-        AttrConfigurationContextImpl::new(
-            &self.0.resolved_configuration,
-            self.0.execution_platform_resolution.cfg(),
-            &self.0.resolved_transition_configurations,
-            &self.0.platform_cfgs,
-        )
-    }
-
     pub fn attrs<'a>(
         &'a self,
         opts: AttrInspectOptions,
     ) -> impl Iterator<Item = ConfiguredAttrFull<'a>> + 'a {
-        self.0.target_node.attrs(opts).map(move |a| {
-            a.configure(&self.attr_configuration_context())
-                .expect("checked attr configuration in constructor")
-        })
+        self.as_ref().attrs(opts)
     }
 
     pub fn get<'a>(
@@ -544,7 +514,7 @@ impl ConfiguredTargetNode {
         opts: AttrInspectOptions,
     ) -> Option<ConfiguredAttrFull<'a>> {
         self.0.target_node.attr_or_none(attr, opts).map(|v| {
-            v.configure(&self.attr_configuration_context())
+            v.configure(&self.as_ref().attr_configuration_context())
                 .expect("checked attr configuration in constructor")
         })
     }
@@ -607,6 +577,11 @@ impl ConfiguredTargetNode {
             ));
         }
         ConfiguredAttr::Dict(kinds.into_iter().collect())
+    }
+
+    #[inline]
+    pub fn as_ref(&self) -> ConfiguredTargetNodeRef<'_> {
+        ConfiguredTargetNodeRef(triomphe::Arc::borrow_arc(&self.0))
     }
 
     pub fn ptr_eq(&self, other: &Self) -> bool {
@@ -688,5 +663,79 @@ impl Hash for ConfiguredTargetNodeDeps {
         for node in &**all_deps {
             node.label().hash(state);
         }
+    }
+}
+
+/// Like `&ConfiguredTargetNode`, but cheaper (one fewer indirection).
+#[derive(Debug, Copy, Clone)]
+pub struct ConfiguredTargetNodeRef<'a>(triomphe::ArcBorrow<'a, Hashed<ConfiguredTargetNodeData>>);
+
+impl<'a> Dupe for ConfiguredTargetNodeRef<'a> {}
+
+impl<'a> ConfiguredTargetNodeRef<'a> {
+    #[inline]
+    pub fn to_owned(self) -> ConfiguredTargetNode {
+        ConfiguredTargetNode(triomphe::ArcBorrow::clone_arc(&self.0))
+    }
+
+    #[inline]
+    pub fn deps(self) -> impl Iterator<Item = &'a ConfiguredTargetNode> {
+        self.0.get().all_deps.all_deps.iter()
+    }
+
+    #[inline]
+    pub fn ptr_eq(self, other: Self) -> bool {
+        triomphe::ArcBorrow::ptr_eq(&self.0, &other.0)
+    }
+
+    #[inline]
+    pub fn label(self) -> &'a ConfiguredTargetLabel {
+        self.0.get().label.key()
+    }
+
+    #[inline]
+    pub fn hashed_label(self) -> Hashed<&'a ConfiguredTargetLabel> {
+        self.0.get().label.as_ref()
+    }
+
+    fn attr_configuration_context(self) -> AttrConfigurationContextImpl<'a> {
+        AttrConfigurationContextImpl::new(
+            &self.0.get().resolved_configuration,
+            self.0.get().execution_platform_resolution.cfg(),
+            &self.0.get().resolved_transition_configurations,
+            &self.0.get().platform_cfgs,
+        )
+    }
+
+    pub fn attrs(
+        self,
+        opts: AttrInspectOptions,
+    ) -> impl Iterator<Item = ConfiguredAttrFull<'a>> + 'a {
+        self.0.get().target_node.attrs(opts).map(move |a| {
+            a.configure(&self.attr_configuration_context())
+                .expect("checked attr configuration in constructor")
+        })
+    }
+
+    pub fn inputs(self) -> impl Iterator<Item = CellPath> + 'a {
+        struct InputsCollector {
+            inputs: Vec<CellPath>,
+        }
+        impl ConfiguredAttrTraversal for InputsCollector {
+            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+                Ok(())
+            }
+
+            fn input(&mut self, path: BuckPathRef) -> anyhow::Result<()> {
+                self.inputs.push(path.to_cell_path());
+                Ok(())
+            }
+        }
+        let mut traversal = InputsCollector { inputs: Vec::new() };
+        for a in self.attrs(AttrInspectOptions::All) {
+            a.traverse(self.label().pkg(), &mut traversal)
+                .expect("inputs collector shouldn't return errors");
+        }
+        traversal.inputs.into_iter()
     }
 }
