@@ -96,7 +96,7 @@ load("@prelude//utils:graph_utils.bzl", "breadth_first_traversal", "post_order_t
 load("@prelude//utils:platform_flavors_util.bzl", "by_platform")
 load("@prelude//utils:utils.bzl", "filter_and_map_idx", "flatten")
 load(":makefile.bzl", "parse_makefile")
-load(":ocaml_toolchain_types.bzl", "OCamlLibraryInfo", "OCamlLinkInfo", "OCamlToolchainInfo", "OtherOutputsInfo", "merge_ocaml_link_infos", "merge_other_outputs_info")
+load(":ocaml_toolchain_types.bzl", "OCamlLibraryInfo", "OCamlLinkInfo", "OCamlToolchainInfo", "OcamlIdeInfo", "OtherOutputsInfo", "merge_ocaml_link_infos", "merge_other_outputs_info")
 
 BuildMode = enum("native", "bytecode", "expand")
 
@@ -688,9 +688,8 @@ def ocaml_library_impl(ctx: AnalysisContext) -> list[Provider]:
     other_outputs_info = merge_other_outputs_info(ctx, other_outputs, _attr_deps_other_outputs_infos(ctx))
 
     info_ide = [
-        DefaultInfo(
-            default_output = cmxa,
-            other_outputs = [cmd_args(other_outputs_info.info.project_as_args("ide"))],
+        OcamlIdeInfo(
+            outputs = [cmd_args(other_outputs_info.info.project_as_args("ide"))],
         ),
     ]
     info_byt = [
@@ -784,7 +783,6 @@ def ocaml_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     info_ide = [
         DefaultInfo(
-            default_output = binary_nat,
             other_outputs = [cmd_args(other_outputs_info.info.project_as_args("ide"))],
         ),
     ]
