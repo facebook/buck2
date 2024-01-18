@@ -253,7 +253,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         ctx: &'v BxlContext<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let configured_node = &this.0;
+        let configured_node = this.0.as_ref();
 
         let dep_analysis: anyhow::Result<Vec<(&ConfiguredTargetLabel, AnalysisResult)>, _> = ctx
             .async_ctx

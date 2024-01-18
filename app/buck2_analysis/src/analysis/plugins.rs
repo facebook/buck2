@@ -12,7 +12,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_node::attrs::attr_type::dep::DepAttr;
 use buck2_node::attrs::attr_type::dep::DepAttrTransition;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
-use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::configured::ConfiguredTargetNodeRef;
 use buck2_node::provider_id_set::ProviderIdSet;
 use dupe::IterDupedExt;
 use starlark::values::Value;
@@ -23,7 +23,7 @@ use crate::attrs::resolve::attr_type::dep::DepAttrTypeExt;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 
 pub fn plugins_to_starlark_value<'v>(
-    node: &ConfiguredTargetNode,
+    node: ConfiguredTargetNodeRef,
     ctx: &dyn AttrResolutionContext<'v>,
 ) -> anyhow::Result<ValueTyped<'v, AnalysisPlugins<'v>>> {
     let mut plugins = SmallMap::new();

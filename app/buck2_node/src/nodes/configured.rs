@@ -356,42 +356,11 @@ impl ConfiguredTargetNode {
         self.as_ref().inputs()
     }
 
-    // TODO(cjhopman): switch to for_each_query?
+    #[inline]
     pub fn queries(
         &self,
-    ) -> impl Iterator<Item = (String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)> {
-        struct Traversal {
-            queries: Vec<(String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)>,
-        }
-        let mut traversal = Traversal {
-            queries: Vec::new(),
-        };
-        impl ConfiguredAttrTraversal for Traversal {
-            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
-                // ignored.
-                Ok(())
-            }
-
-            fn query(
-                &mut self,
-                query: &str,
-                resolved_literals: &ResolvedQueryLiterals<ConfiguredProvidersLabel>,
-            ) -> anyhow::Result<()> {
-                self.queries
-                    .push((query.to_owned(), resolved_literals.clone()));
-                Ok(())
-            }
-        }
-
-        for a in self.attrs(AttrInspectOptions::All) {
-            // Optimization.
-            if !a.attr.coercer().0.may_have_queries {
-                continue;
-            }
-
-            a.traverse(self.label().pkg(), &mut traversal).unwrap();
-        }
-        traversal.queries.into_iter()
+    ) -> impl Iterator<Item = (String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)> + '_ {
+        self.as_ref().queries()
     }
 
     pub fn target_deps(&self) -> impl Iterator<Item = &ConfiguredTargetNode> {
@@ -549,11 +518,9 @@ impl ConfiguredTargetNode {
         }
     }
 
+    #[inline]
     pub fn uses_plugins(&self) -> &[PluginKind] {
-        match &self.0.target_node {
-            TargetNodeOrForward::TargetNode(target_node) => target_node.uses_plugins(),
-            TargetNodeOrForward::Forward(_, _) => &[],
-        }
+        self.as_ref().uses_plugins()
     }
 
     pub fn plugin_lists(&self) -> &PluginLists {
@@ -737,5 +704,62 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
                 .expect("inputs collector shouldn't return errors");
         }
         traversal.inputs.into_iter()
+    }
+
+    // TODO(cjhopman): switch to for_each_query?
+    pub fn queries(
+        self,
+    ) -> impl Iterator<Item = (String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)> + 'a {
+        struct Traversal {
+            queries: Vec<(String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)>,
+        }
+        let mut traversal = Traversal {
+            queries: Vec::new(),
+        };
+        impl ConfiguredAttrTraversal for Traversal {
+            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+                // ignored.
+                Ok(())
+            }
+
+            fn query(
+                &mut self,
+                query: &str,
+                resolved_literals: &ResolvedQueryLiterals<ConfiguredProvidersLabel>,
+            ) -> anyhow::Result<()> {
+                self.queries
+                    .push((query.to_owned(), resolved_literals.clone()));
+                Ok(())
+            }
+        }
+
+        for a in self.attrs(AttrInspectOptions::All) {
+            // Optimization.
+            if !a.attr.coercer().0.may_have_queries {
+                continue;
+            }
+
+            a.traverse(self.label().pkg(), &mut traversal).unwrap();
+        }
+        traversal.queries.into_iter()
+    }
+
+    pub fn rule_type(self) -> &'a RuleType {
+        self.0.get().target_node.rule_type()
+    }
+
+    pub fn execution_platform_resolution(self) -> &'a ExecutionPlatformResolution {
+        &self.0.get().execution_platform_resolution
+    }
+
+    pub fn uses_plugins(self) -> &'a [PluginKind] {
+        match &self.0.get().target_node {
+            TargetNodeOrForward::TargetNode(target_node) => target_node.uses_plugins(),
+            TargetNodeOrForward::Forward(_, _) => &[],
+        }
+    }
+
+    pub fn plugin_lists(self) -> &'a PluginLists {
+        &self.0.get().plugin_lists
     }
 }

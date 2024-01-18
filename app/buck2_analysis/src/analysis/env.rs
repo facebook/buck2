@@ -37,7 +37,7 @@ use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::rule::FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL;
 use buck2_interpreter::types::rule::FROZEN_RULE_GET_IMPL;
-use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::configured::ConfiguredTargetNodeRef;
 use buck2_node::rule_type::StarlarkRuleType;
 use dice::DiceComputations;
 use dupe::Dupe;
@@ -189,7 +189,7 @@ pub(crate) async fn run_analysis<'a>(
     query_results: HashMap<String, Arc<AnalysisQueryResult>>,
     execution_platform: &'a ExecutionPlatformResolution,
     rule_spec: &'a dyn RuleSpec,
-    node: &ConfiguredTargetNode,
+    node: ConfiguredTargetNodeRef<'_>,
     profile_mode: &StarlarkProfileModeOrInstrumentation,
 ) -> anyhow::Result<AnalysisResult> {
     let analysis_env =
@@ -228,7 +228,7 @@ pub fn get_deps_from_analysis_results<'v>(
 fn run_analysis_with_env<'a>(
     dice: &'a DiceComputations,
     analysis_env: AnalysisEnv<'a>,
-    node: &'a ConfiguredTargetNode,
+    node: ConfiguredTargetNodeRef<'a>,
     profile_mode: &'a StarlarkProfileModeOrInstrumentation,
 ) -> impl Future<Output = anyhow::Result<AnalysisResult>> + Send + 'a {
     let fut = async move {
@@ -240,7 +240,7 @@ fn run_analysis_with_env<'a>(
 async fn run_analysis_with_env_underlying(
     dice: &DiceComputations,
     analysis_env: AnalysisEnv<'_>,
-    node: &ConfiguredTargetNode,
+    node: ConfiguredTargetNodeRef<'_>,
     profile_mode: &StarlarkProfileModeOrInstrumentation,
 ) -> anyhow::Result<AnalysisResult> {
     let env = Module::new();

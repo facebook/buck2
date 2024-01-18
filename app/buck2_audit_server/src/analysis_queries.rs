@@ -69,7 +69,7 @@ impl AuditSubcommand for AuditAnalysisQueriesCommand {
                                 let node =
                                     ctx.get_configured_target_node(&configured_target).await?;
                                 let node = node.require_compatible()?;
-                                let query_results = resolve_queries(&ctx, &node).await?;
+                                let query_results = resolve_queries(&ctx, node.as_ref()).await?;
                                 writeln!(stdout, "{}:", label)?;
                                 for (query, result) in &query_results {
                                     writeln!(stdout, "  {}", query)?;

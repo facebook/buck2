@@ -34,6 +34,7 @@ use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::configured::ConfiguredTargetNodeRef;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::rule_type::RuleType;
 use buck2_node::rule_type::StarlarkRuleType;
@@ -120,7 +121,7 @@ impl RuleAnalsysisCalculationImpl for RuleAnalysisCalculationInstance {
 
 pub async fn resolve_queries(
     ctx: &DiceComputations,
-    configured_node: &ConfiguredTargetNode,
+    configured_node: ConfiguredTargetNodeRef<'_>,
 ) -> anyhow::Result<HashMap<String, Arc<AnalysisQueryResult>>> {
     let mut queries = configured_node.queries().peekable();
 
@@ -144,7 +145,7 @@ pub async fn resolve_queries(
 
 async fn resolve_queries_impl(
     ctx: &DiceComputations,
-    configured_node: &ConfiguredTargetNode,
+    configured_node: ConfiguredTargetNodeRef<'_>,
     queries: impl IntoIterator<Item = (String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)>,
 ) -> anyhow::Result<HashMap<String, Arc<AnalysisQueryResult>>> {
     let deps: TargetSet<_> = configured_node.deps().duped().collect();
@@ -193,7 +194,7 @@ async fn resolve_queries_impl(
 }
 
 pub async fn get_dep_analysis<'v>(
-    configured_node: &'v ConfiguredTargetNode,
+    configured_node: ConfiguredTargetNodeRef<'v>,
     ctx: &DiceComputations,
 ) -> anyhow::Result<Vec<(&'v ConfiguredTargetLabel, AnalysisResult)>> {
     keep_going::try_join_all(
@@ -236,7 +237,7 @@ async fn get_analysis_result(
         MaybeCompatible::Compatible(configured_node) => configured_node,
     };
 
-    let configured_node = &configured_node;
+    let configured_node = configured_node.as_ref();
     let mut dep_analysis = get_dep_analysis(configured_node, ctx).await?;
 
     let now = Instant::now();

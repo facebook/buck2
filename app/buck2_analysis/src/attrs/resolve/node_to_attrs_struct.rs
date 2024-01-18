@@ -8,7 +8,7 @@
  */
 
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
-use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::configured::ConfiguredTargetNodeRef;
 use starlark::values::structs::AllocStruct;
 use starlark::values::Value;
 
@@ -17,7 +17,7 @@ use crate::attrs::resolve::ctx::AttrResolutionContext;
 
 /// Prepare `ctx.attrs` for rule impl.
 pub(crate) fn node_to_attrs_struct<'v>(
-    node: &ConfiguredTargetNode,
+    node: ConfiguredTargetNodeRef,
     ctx: &dyn AttrResolutionContext<'v>,
 ) -> anyhow::Result<Value<'v>> {
     let attrs_iter = node.attrs(AttrInspectOptions::All);
