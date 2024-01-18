@@ -25,6 +25,7 @@ use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::serialize::AttrSerializeWithContext;
 use crate::nodes::configured::ConfiguredTargetNode;
+use crate::nodes::configured::ConfiguredTargetNodeRef;
 
 impl LabeledNode for ConfiguredTargetNode {
     type NodeRef = ConfiguredTargetLabel;
@@ -138,5 +139,17 @@ impl QueryTarget for ConfiguredTargetNode {
             },
             serializer,
         )
+    }
+}
+
+impl<'a> LabeledNode for ConfiguredTargetNodeRef<'a> {
+    type NodeRef = ConfiguredTargetLabel;
+
+    fn node_ref(&self) -> &Self::NodeRef {
+        ConfiguredTargetNodeRef::label(*self)
+    }
+
+    fn hashed_node_ref(&self) -> Hashed<&Self::NodeRef> {
+        ConfiguredTargetNodeRef::hashed_label(*self)
     }
 }

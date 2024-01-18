@@ -89,7 +89,7 @@ pub(crate) async fn preresolve_literals_and_build_universe(
     let resolved_literals =
         PreresolvedQueryLiterals::pre_resolve(dice_query_data, literals, dice_query_delegate.ctx())
             .await;
-    let universe = CqueryUniverse::build(&resolved_literals.literals()?).await?;
+    let universe = CqueryUniverse::build(&resolved_literals.literals()?)?;
     Ok((universe, resolved_literals))
 }
 
@@ -129,7 +129,7 @@ async fn resolve_literals_in_universe<L: AsRef<str>, U: AsRef<str>>(
         .eval_literals(&refs, dice_query_delegate.ctx())
         .await?;
 
-    let universe = CqueryUniverse::build(&universe_resolved).await?;
+    let universe = CqueryUniverse::build(&universe_resolved)?;
 
     // capture a reference so the ref can be moved into the future below.
     let universe_ref = &universe;

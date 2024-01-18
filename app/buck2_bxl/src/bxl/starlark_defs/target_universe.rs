@@ -81,7 +81,7 @@ impl<'v> StarlarkTargetUniverse<'v> {
         ctx: &'v BxlContext<'v>,
         target_set: TargetSet<ConfiguredTargetNode>,
     ) -> anyhow::Result<StarlarkTargetUniverse<'v>> {
-        let target_universe = CqueryUniverse::build(&target_set).await?;
+        let target_universe = CqueryUniverse::build(&target_set)?;
         let target_set = target_universe
             .get_from_targets(target_set.iter().map(|i| i.label().unconfigured().dupe()));
         Ok(StarlarkTargetUniverse {

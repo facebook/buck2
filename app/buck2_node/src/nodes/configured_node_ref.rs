@@ -46,10 +46,20 @@ impl Hash for ConfiguredTargetNodeRefNode<'_> {
 impl<'a> ConfiguredTargetNodeRefNode<'a> {
     #[inline]
     pub fn new(node: &'a ConfiguredTargetNode) -> Self {
+        Self::from_ref(node.as_ref())
+    }
+
+    #[inline]
+    pub fn from_ref(node: ConfiguredTargetNodeRef<'a>) -> Self {
         ConfiguredTargetNodeRefNode {
-            node: node.as_ref(),
+            node,
             label_hash: node.hashed_label().hash(),
         }
+    }
+
+    #[inline]
+    pub fn as_ref(&self) -> ConfiguredTargetNodeRef<'a> {
+        self.node
     }
 
     #[inline]

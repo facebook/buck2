@@ -9,20 +9,18 @@
 
 use buck2_query::query::graph::bfs::bfs_preorder;
 
-use crate::nodes::configured::ConfiguredTargetNode;
+use crate::nodes::configured::ConfiguredTargetNodeRef;
 use crate::nodes::configured_node_ref::ConfiguredTargetNodeRefNode;
 use crate::nodes::configured_node_ref::ConfiguredTargetNodeRefNodeDeps;
 
 /// Visit nodes and all dependencies recursively.
-pub fn configured_node_visit_all_deps(
-    roots: impl IntoIterator<Item = ConfiguredTargetNode>,
-    mut visitor: impl FnMut(ConfiguredTargetNode),
+pub fn configured_node_visit_all_deps<'a>(
+    roots: impl IntoIterator<Item = ConfiguredTargetNodeRef<'a>>,
+    mut visitor: impl FnMut(ConfiguredTargetNodeRef<'a>),
 ) {
-    let roots = Vec::from_iter(roots);
-
     bfs_preorder(
-        roots.iter().map(ConfiguredTargetNodeRefNode::new),
+        roots.into_iter().map(ConfiguredTargetNodeRefNode::from_ref),
         ConfiguredTargetNodeRefNodeDeps,
-        |node| visitor(node.to_node()),
+        |node| visitor(node.as_ref()),
     )
 }

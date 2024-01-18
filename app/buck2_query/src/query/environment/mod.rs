@@ -59,9 +59,12 @@ impl QueryEnvironmentError {
     }
 }
 
-pub trait NodeLabel: Clone + Hash + PartialEq + Eq + Debug + Display + Send + Sync {}
+pub trait NodeLabel:
+    Clone + Hash + PartialEq + Eq + Debug + Display + Send + Sync + 'static
+{
+}
 
-pub trait LabeledNode: Dupe + Send + Sync + 'static {
+pub trait LabeledNode: Dupe + Send + Sync {
     type NodeRef: NodeLabel;
 
     fn node_ref(&self) -> &Self::NodeRef;

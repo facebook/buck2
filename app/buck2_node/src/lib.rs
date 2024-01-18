@@ -25,6 +25,7 @@ pub mod provider_id_set;
 pub mod query;
 pub mod rule;
 pub mod rule_type;
+pub(crate) mod self_ref;
 pub mod super_package;
 pub mod target_calculation;
 pub mod visibility;

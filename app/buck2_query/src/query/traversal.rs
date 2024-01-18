@@ -129,7 +129,7 @@ pub async fn async_fast_depth_first_postorder_traversal<
 
 async fn async_traversal_common<
     'a,
-    T: LabeledNode,
+    T: LabeledNode + 'static,
     RootIter: IntoIterator<Item = &'a T::NodeRef>,
 >(
     nodes: &impl AsyncNodeLookup<T>,
@@ -199,7 +199,7 @@ async fn async_traversal_common<
 
 pub async fn async_depth_limited_traversal<
     'a,
-    T: LabeledNode,
+    T: LabeledNode + 'static,
     RootIter: IntoIterator<Item = &'a T::NodeRef>,
 >(
     nodes: &impl AsyncNodeLookup<T>,
