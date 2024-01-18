@@ -89,10 +89,7 @@ impl CqueryUniverse {
 
             let inserted = nodes.insert(LabelIndexed(target));
             assert!(inserted, "Visited targets must be unique");
-
-            Ok(())
-        })
-        .await?;
+        });
 
         Ok(CqueryUniverse::new(targets))
     }

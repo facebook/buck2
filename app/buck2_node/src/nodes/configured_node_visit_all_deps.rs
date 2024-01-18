@@ -7,54 +7,22 @@
  * of this source tree.
  */
 
-use async_trait::async_trait;
-use buck2_query::query::traversal::async_fast_depth_first_postorder_traversal;
-use buck2_query::query::traversal::AsyncTraversalDelegate;
-use buck2_query::query::traversal::ChildVisitor;
-use dupe::Dupe;
-use ref_cast::RefCast;
+use buck2_query::query::graph::bfs::bfs_preorder;
 
 use crate::nodes::configured::ConfiguredTargetNode;
-use crate::nodes::configured_ref::ConfiguredGraphNodeRef;
-use crate::nodes::configured_ref::ConfiguredGraphNodeRefLookup;
+use crate::nodes::configured_node_ref::ConfiguredTargetNodeRefNode;
+use crate::nodes::configured_node_ref::ConfiguredTargetNodeRefNodeDeps;
 
 /// Visit nodes and all dependencies recursively.
-pub async fn configured_node_visit_all_deps(
+pub fn configured_node_visit_all_deps(
     roots: impl IntoIterator<Item = ConfiguredTargetNode>,
-    // TODO(nga): visitor does not need be either `Sync` or `Send`,
-    //   this is artificial limitation of `async_depth_first_postorder_traversal`.
-    visitor: impl FnMut(ConfiguredTargetNode) -> anyhow::Result<()> + Send + Sync,
-) -> anyhow::Result<()> {
-    // To support package/recursive patterns, we hold the map by package. To support a
-    // single target name having multiple instances in the universe, we map them to a list of nodes.
-    struct Delegate<F> {
-        visitor: F,
-    }
+    mut visitor: impl FnMut(ConfiguredTargetNode),
+) {
+    let roots = Vec::from_iter(roots);
 
-    #[async_trait]
-    impl<F: FnMut(ConfiguredTargetNode) -> anyhow::Result<()> + Sync + Send>
-        AsyncTraversalDelegate<ConfiguredGraphNodeRef> for Delegate<F>
-    {
-        fn visit(&mut self, target: ConfiguredGraphNodeRef) -> anyhow::Result<()> {
-            (self.visitor)(target.into_inner())
-        }
-
-        async fn for_each_child(
-            &mut self,
-            target: &ConfiguredGraphNodeRef,
-            func: &mut impl ChildVisitor<ConfiguredGraphNodeRef>,
-        ) -> anyhow::Result<()> {
-            for dep in target.deps() {
-                func.visit(ConfiguredGraphNodeRef::ref_cast(dep))?;
-            }
-            Ok(())
-        }
-    }
-    let mut delegate = Delegate { visitor };
-
-    let roots = roots
-        .into_iter()
-        .map(|node| ConfiguredGraphNodeRef::new(node.dupe()));
-    async_fast_depth_first_postorder_traversal(&ConfiguredGraphNodeRefLookup, roots, &mut delegate)
-        .await
+    bfs_preorder(
+        roots.iter().map(ConfiguredTargetNodeRefNode::new),
+        ConfiguredTargetNodeRefNodeDeps,
+        |node| visitor(node.to_node()),
+    )
 }
