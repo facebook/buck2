@@ -20,7 +20,6 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::package::PackageLabel;
-use buck2_core::target::label::TargetLabel;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use futures::stream::FuturesUnordered;
@@ -61,10 +60,6 @@ impl QueryEnvironmentError {
 }
 
 pub trait NodeLabel: Clone + Hash + PartialEq + Eq + Debug + Display + Send + Sync {}
-
-pub trait ConfiguredOrUnconfiguredTargetLabel: NodeLabel {
-    fn unconfigured_label(&self) -> &TargetLabel;
-}
 
 pub trait LabeledNode: Dupe + Send + Sync + 'static {
     type NodeRef: NodeLabel;

@@ -34,6 +34,7 @@
 //! `my/package/path` is the package, and `my_target` is the target name
 //! belonging to the package.
 
+pub mod configured_or_unconfigured;
 pub mod configured_target_label;
 pub mod label;
 pub mod name;
