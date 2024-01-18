@@ -987,7 +987,7 @@ async fn compute_configured_target_node(
         _ => {}
     }
 
-    if let Some(transition_id) = &target_node.0.rule.cfg {
+    if let Some(transition_id) = &target_node.rule.cfg {
         #[async_trait]
         impl Key for ConfiguredTransitionedNodeKey {
             type Value = buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>;

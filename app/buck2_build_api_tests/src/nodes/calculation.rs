@@ -138,10 +138,10 @@ async fn test_get_node() -> anyhow::Result<()> {
     let computations = computations.commit().await;
 
     let node = computations.get_target_node(&label1).await?;
-    assert_eq!(node.0, node1.0);
+    assert_eq!(node, node1);
 
     let node = computations.get_target_node(&label2).await?;
-    assert_eq!(node.0, node2.0);
+    assert_eq!(node, node2);
 
     let conf_attrs1 = smallmap![
         "bool_field" => ConfiguredAttr::Bool(BoolLiteral(false)),
@@ -167,10 +167,10 @@ async fn test_get_node() -> anyhow::Result<()> {
     ];
 
     let node = computations.get_target_node(&label1).await?;
-    assert_eq!(node.0, node1.0);
+    assert_eq!(node, node1);
 
     let node = computations.get_target_node(&label2).await?;
-    assert_eq!(node.0, node2.0);
+    assert_eq!(node, node2);
 
     let node = computations
         .get_configured_target_node(&label1.configure(cfg.dupe()))

@@ -9,6 +9,7 @@
 
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::ops::Deref;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -64,8 +65,18 @@ enum TargetNodeError {
 /// the attribute names and it doesn't store an entry for something that has a default value. All
 /// that information is contained in the AttributeSpec. This means that to access an attribute we
 /// need to look at both the attrs held by the TargetNode and the information in the AttributeSpec.
-#[derive(Debug, Clone, Dupe, Eq, PartialEq, Hash, Allocative)]
-pub struct TargetNode(pub Arc<TargetNodeData>);
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Allocative)]
+pub struct TargetNode(triomphe::Arc<TargetNodeData>);
+
+impl Dupe for TargetNode {}
+
+impl Deref for TargetNode {
+    type Target = TargetNodeData;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 /// The kind of the rule, denoting where it can be used and how.
 #[derive(Debug, Copy, Clone, Dupe, Eq, PartialEq, Hash, Allocative)]
@@ -109,7 +120,7 @@ impl TargetNode {
         deps_cache: CoercedDeps,
         call_stack: Option<StarlarkCallStack>,
     ) -> TargetNode {
-        TargetNode(Arc::new(TargetNodeData {
+        TargetNode(triomphe::Arc::new(TargetNodeData {
             rule,
             package,
             label,
