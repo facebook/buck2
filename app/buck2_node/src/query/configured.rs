@@ -41,6 +41,10 @@ impl LabeledNode for ConfiguredTargetNode {
 impl QueryTarget for ConfiguredTargetNode {
     type Attr<'a> = ConfiguredAttr;
 
+    fn label_for_filter(&self) -> String {
+        return self.label().unconfigured().to_string();
+    }
+
     fn rule_type(&self) -> Cow<str> {
         Cow::Borrowed(ConfiguredTargetNode::rule_type(self).name())
     }

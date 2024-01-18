@@ -60,12 +60,7 @@ impl QueryEnvironmentError {
     }
 }
 
-pub trait NodeLabel: Clone + Hash + PartialEq + Eq + Debug + Display + Send + Sync {
-    /// `filter()` function will use this.
-    fn label_for_filter(&self) -> String {
-        self.to_string()
-    }
-}
+pub trait NodeLabel: Clone + Hash + PartialEq + Eq + Debug + Display + Send + Sync {}
 
 pub trait ConfiguredOrUnconfiguredTargetLabel: NodeLabel {
     fn unconfigured_label(&self) -> &TargetLabel;
@@ -99,6 +94,11 @@ impl QueryTargets {
 
 pub trait QueryTarget: LabeledNode + Dupe + Send + Sync + 'static {
     type Attr<'a>: ?Sized + Debug + 'a;
+
+    /// `filter()` function uses this.
+    fn label_for_filter(&self) -> String {
+        self.node_ref().to_string()
+    }
 
     /// Returns the input files for this node.
     fn inputs_for_each<E, F: FnMut(CellPath) -> Result<(), E>>(&self, func: F) -> Result<(), E>;

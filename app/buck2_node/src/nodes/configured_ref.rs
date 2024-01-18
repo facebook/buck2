@@ -37,11 +37,7 @@ use crate::nodes::configured::ConfiguredTargetNode;
 #[repr(C)]
 pub struct ConfiguredGraphNodeRef(ConfiguredTargetNode);
 
-impl NodeLabel for ConfiguredGraphNodeRef {
-    fn label_for_filter(&self) -> String {
-        self.0.label().unconfigured().to_string()
-    }
-}
+impl NodeLabel for ConfiguredGraphNodeRef {}
 
 impl Deref for ConfiguredGraphNodeRef {
     type Target = ConfiguredTargetNode;
@@ -111,6 +107,10 @@ impl LabeledNode for ConfiguredGraphNodeRef {
 
 impl QueryTarget for ConfiguredGraphNodeRef {
     type Attr<'a> = ConfiguredAttr;
+
+    fn label_for_filter(&self) -> String {
+        self.0.label().unconfigured().to_string()
+    }
 
     fn rule_type(&self) -> Cow<str> {
         Cow::Borrowed(self.0.rule_type().name())

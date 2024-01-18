@@ -17,7 +17,6 @@ use fancy_regex::Regex;
 use fancy_regex::RegexBuilder;
 use indexmap::IndexSet;
 
-use crate::query::environment::NodeLabel;
 use crate::query::environment::QueryTarget;
 use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::file_set::FileNode;
@@ -209,7 +208,7 @@ impl<T: QueryTarget> TargetSet<T> {
         let mut re = RegexBuilder::new(regex);
         re.delegate_dfa_size_limit(100 << 20);
         let re = re.build()?;
-        self.filter(|node| Ok(re.is_match(&node.node_ref().label_for_filter())?))
+        self.filter(|node| Ok(re.is_match(&node.label_for_filter())?))
     }
 
     pub fn kind(&self, regex: &str) -> anyhow::Result<TargetSet<T>> {
