@@ -582,16 +582,17 @@ pub(crate) fn init_eval_anon_target() {
 
 pub(crate) fn init_get_promised_artifact() {
     GET_PROMISED_ARTIFACT.init(|promise_artifact, ctx| {
-        Box::pin(async move { get_artifact_from_anon_target_analysis(promise_artifact, ctx).await })
+        Box::pin(
+            async move { get_artifact_from_anon_target_analysis(promise_artifact.id(), ctx).await },
+        )
     });
 }
 
 async fn get_artifact_from_anon_target_analysis<'v>(
-    promise_artifact: &'v PromiseArtifact,
+    promise_id: &'v PromiseArtifactId,
     ctx: &'v DiceComputations,
 ) -> anyhow::Result<Artifact> {
-    let promise_id = promise_artifact.id();
-    let owner = promise_artifact.owner();
+    let owner = promise_id.owner();
     let analysis_result = match owner {
         BaseDeferredKey::AnonTarget(anon_target) => {
             AnonTargetKey::downcast(anon_target.dupe())?
@@ -600,7 +601,7 @@ async fn get_artifact_from_anon_target_analysis<'v>(
         }
         _ => {
             return Err(PromiseArtifactResolveError::OwnerIsNotAnonTarget(
-                promise_artifact.clone(),
+                promise_id.clone(),
                 owner.clone(),
             )
             .into());
@@ -611,7 +612,7 @@ async fn get_artifact_from_anon_target_analysis<'v>(
         .promise_artifact_map()
         .get(promise_id)
         .context(PromiseArtifactResolveError::NotFoundInAnalysis(
-            promise_artifact.clone(),
+            promise_id.clone(),
         ))
         .cloned()
 }

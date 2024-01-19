@@ -41,10 +41,12 @@ pub enum PromiseArtifactResolveError {
         "assert_short_path() was called with `short_path = {0}`, but it did not match the artifact's actual short path: `{1}`"
     )]
     ShortPathMismatch(ForwardRelativePathBuf, String),
-    #[error("Internal error: analysis result did not contain promise ({0})")]
-    NotFoundInAnalysis(PromiseArtifact),
-    #[error("Internal error: promise artifact ({0}) owner is ({1}), which is not an anon target")]
-    OwnerIsNotAnonTarget(PromiseArtifact, BaseDeferredKey),
+    #[error("Internal error: analysis result did not contain promise with ID ({0})")]
+    NotFoundInAnalysis(PromiseArtifactId),
+    #[error(
+        "Internal error: promise artifact (id: {0}) owner is ({1}), which is not an anon target"
+    )]
+    OwnerIsNotAnonTarget(PromiseArtifactId, BaseDeferredKey),
 }
 
 fn maybe_declared_at(location: &Option<FileSpan>) -> String {
@@ -73,6 +75,10 @@ pub struct PromiseArtifactId {
 impl PromiseArtifactId {
     pub fn new(owner: BaseDeferredKey, id: usize) -> PromiseArtifactId {
         Self { owner, id }
+    }
+
+    pub fn owner(&self) -> &BaseDeferredKey {
+        &self.owner
     }
 }
 
