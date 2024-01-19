@@ -45,13 +45,16 @@ This project also has three non-goals:
 
 ## Components
 
-There are three components:
+There are six components:
 
 * `starlark_derive`, a proc-macro crate that defines the necessary macros for Starlark. This library is a dependency of `starlark` the library, which reexports all the relevant pieces, and should not be used directly.
-* `starlark` the library, a library that defines the parser, evaluator and standard library. Projects wishing to embed Starlark in their environment (with additional types, library functions and features) will make use of this library.
-* `starlark` the binary, which provides interactive evaluation, IDE features and linter, exposed through a command line. Useful if you want to use vanilla Starlark (but if you do, consider Python3 instead) or as a test-bed for experimenting. Most projects will end up implementing some of this functionality themselves over the `starlark` library, incorporating their specific extra types etc.
+* `starlark_map`, a library with memory-efficient ordered/unordered maps/sets and various other data structures useful in Starlark.
+* `starlark_syntax`, a library with the AST of Starlark and parsing functions. Only use if you want to manipulate the AST directly.
+* `starlark` the main library, with evaluator, standard library, debugger support and lots of other pieces. Projects wishing to embed Starlark in their environment (with additional types, library functions and features) will make use of this library. This library reexports the relevant pieces of `starlark_derive`, `starlark_map` and most of `starlark_syntax`.
+* `starlark_lsp`, a library providing an [LSP](https://microsoft.github.io/language-server-protocol/).
+* `starlark_bin` the binary, which provides interactive evaluation, IDE features and linter, exposed through a command line. Useful if you want to use vanilla Starlark (but if you do, consider Python3 instead) or as a test-bed for experimenting. Most projects will end up implementing some of this functionality themselves over the `starlark` and `starlark_lsp` libraries, incorporating their specific extra types etc.
 
-In particular the `starlark` binary _can_ be effectively used as a linter. But for the REPL, evaluator and IDE features the `starlark` binary is only aware of standard Starlark. Most Starlark embeddings supply extra functions and data types to work with domain-specific concerns, and the lack of these bindings will cause the REPL/evaluator to fail if they are used, and will give a subpar IDE experience. In most cases you should write your own binary depending on the `starlark` library, integrating your domain-specific pieces, and then using the bundled LSP functions to produce your own IDE/REPL/evaluator on top of those. You should still be able to use the [VS Code extension](vscode/README.md).
+In particular the `starlark_bin` binary _can_ be effectively used as a linter. But for the REPL, evaluator and IDE features the `starlark_bin` binary is only aware of standard Starlark. Most Starlark embeddings supply extra functions and data types to work with domain-specific concerns, and the lack of these bindings will cause the REPL/evaluator to fail if they are used, and will give a subpar IDE experience. In most cases you should write your own binary depending on the `starlark` library, integrating your domain-specific pieces, and then using the bundled LSP functions to produce your own IDE/REPL/evaluator on top of those. You should still be able to use the [VS Code extension](vscode/README.md).
 
 ## Compatibility
 
@@ -66,8 +69,8 @@ In this section we outline where we don't comply with the [Starlark spec](https:
 1. Check the [GitHub Actions](https://github.com/facebookexperimental/starlark-rust/actions) are green.
 2. Update `CHANGELOG.md` with the changes since the last release. [This link](https://github.com/facebookexperimental/starlark-rust/compare/v0.4.0...main) can help (update to compare against the last release).
 3. Update the version numbers of the two `Cargo.toml` files. Bump them by 0.0.1 if there are no incompatible changes, or 0.1.0 if there are. Bump the dependency in `starlark` to point at the latest `starlark_derive` version.
-4. Copy the files `CHANGELOG.md`, `LICENSE` and `README.md` into each `starlark` and `starlark_derive` subdirectory.
-5. Run `cargo publish --allow-dirty --dry-run`, then without the `--dry-run`, first in `starlark_derive` and then `starlark` directories.
+4. Copy the files `CHANGELOG.md`, `LICENSE` and `README.md` into each subdirectory.
+5. Run `cargo publish --allow-dirty --dry-run`, then without the `--dry-run`, in each of the component directories in the [order above](#components).
 6. Create a [GitHub release](https://github.com/facebookexperimental/starlark-rust/releases/new) with `v0.X.Y`, using the `starlark` version as the name.
 
 ## License
