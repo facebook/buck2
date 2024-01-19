@@ -23,6 +23,8 @@
 //! interface develops. After the API of the `LspContext` trait stabilizes, this
 //! module will be removed, and extracted to its own project.
 
+mod label;
+
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -56,6 +58,7 @@ use starlark_lsp::server::LspEvalResult;
 use starlark_lsp::server::LspUrl;
 use starlark_lsp::server::StringLiteralResult;
 
+use self::label::Label;
 use crate::eval::dialect;
 use crate::eval::globals;
 use crate::eval::ContextMode;
@@ -76,21 +79,18 @@ enum ContextError {
 enum ResolveLoadError {
     /// Attempted to resolve a relative path, but no current_file_path was provided,
     /// so it is not known what to resolve the path against.
-    #[error("Relative path `{}` provided, but current_file_path could not be determined", .0)]
-    MissingCurrentFilePath(String),
+    #[error("Relative label `{}` provided, but current_file_path could not be determined", .0)]
+    MissingCurrentFilePath(Label),
     /// The scheme provided was not correct or supported.
     #[error("Url `{}` was expected to be of type `{}`", .1, .0)]
     WrongScheme(String, LspUrl),
     /// Received a load for an absolute path from the root of the workspace, but the
     /// path to the workspace root was not provided.
-    #[error("Path `//{}` is absolute from the root of the workspace, but no workspace root was provided", .0)]
-    MissingWorkspaceRoot(String),
-    /// Unable to parse the given path.
-    #[error("Unable to parse the load path `{}`", .0)]
-    CannotParsePath(String),
+    #[error("Label `{}` is absolute from the root of the workspace, but no workspace root was provided", .0)]
+    MissingWorkspaceRoot(Label),
     /// The path contained a repository name that is not known to Bazel.
-    #[error("Cannot resolve path `{}` because the repository `{}` is unknown", .0, .1)]
-    UnknownRepository(String, String),
+    #[error("Cannot resolve label `{}` because the repository `{}` is unknown", .0, .1)]
+    UnknownRepository(Label, String),
     /// The path contained a target name that does not resolve to an existing file.
     #[error("Cannot resolve path `{}` because the file does not exist", .0)]
     TargetNotFound(String),
@@ -393,92 +393,74 @@ impl BazelContext {
             .map(|external_output_base| external_output_base.join(repository_name))
     }
 
-    fn resolve_folder<'a>(
+    /// Finds the directory that is the root of a package, given a label
+    fn resolve_folder(
         &self,
-        path: &'a str,
+        label: &Label,
         current_file: &LspUrl,
         workspace_root: Option<&Path>,
-        resolved_filename: &mut Option<&'a str>,
     ) -> anyhow::Result<PathBuf> {
-        let original_path = path;
-        if let Some((repository, path)) = path.split_once("//") {
-            // The repository may be prefixed with an '@', but it's optional in Buck2.
-            let repository = if let Some(without_at) = repository.strip_prefix('@') {
-                without_at
-            } else {
-                repository
-            };
-
-            // Find the root we're resolving from. There's quite a few cases to consider here:
-            // - `repository` is empty, and we're resolving from the workspace root.
-            // - `repository` is empty, and we're resolving from a known remote repository.
-            // - `repository` is not empty, and refers to the current repository (the workspace).
-            // - `repository` is not empty, and refers to a known remote repository.
-            //
-            // Also with all of these cases, we need to consider if we have build system
-            // information or not. If not, we can't resolve any remote repositories, and we can't
-            // know whether a repository name refers to the workspace or not.
-            let resolve_root = match (repository, current_file) {
-                // Repository is empty, and we know what file we're resolving from. Use the build
-                // system information to check if we're in a known remote repository, and what the
-                // root is. Fall back to the `workspace_root` otherwise.
-                ("", LspUrl::File(current_file)) => {
-                    if let Some((repository_name, _)) = self.get_repository_for_path(current_file) {
-                        self.get_repository_path(&repository_name).map(Cow::Owned)
-                    } else {
-                        workspace_root.map(Cow::Borrowed)
-                    }
-                }
-                // No repository in the load path, and we don't have build system information, or
-                // an `LspUrl` we can't use to check the root. Use the workspace root.
-                ("", _) => workspace_root.map(Cow::Borrowed),
-                // We have a repository name and build system information. Check if the repository
-                // name refers to the workspace, and if so, use the workspace root. If not, check
-                // if it refers to a known remote repository, and if so, use that root.
-                // Otherwise, fail with an error.
-                (repository, _) => {
-                    if matches!(self.workspace_name.as_ref(), Some(name) if name == repository) {
-                        workspace_root.map(Cow::Borrowed)
-                    } else if let Some(remote_repository_root) =
-                        self.get_repository_path(repository).map(Cow::Owned)
-                    {
-                        Some(remote_repository_root)
-                    } else {
-                        return Err(ResolveLoadError::UnknownRepository(
-                            original_path.to_owned(),
-                            repository.to_owned(),
-                        )
-                        .into());
-                    }
-                }
-            };
-
-            // Resolve from the root of the repository.
-            match (path.split_once(':'), resolve_root) {
-                (Some((subfolder, filename)), Some(resolve_root)) => {
-                    resolved_filename.replace(filename);
-                    Ok(resolve_root.join(subfolder))
-                }
-                (None, Some(resolve_root)) => Ok(resolve_root.join(path)),
-                (Some(_), None) => {
-                    Err(ResolveLoadError::MissingWorkspaceRoot(original_path.to_owned()).into())
-                }
-                (None, _) => {
-                    Err(ResolveLoadError::CannotParsePath(original_path.to_owned()).into())
+        // Find the root we're resolving from. There's quite a few cases to consider here:
+        // - `repository` is empty, and we're resolving from the workspace root.
+        // - `repository` is empty, and we're resolving from a known remote repository.
+        // - `repository` is not empty, and refers to the current repository (the workspace).
+        // - `repository` is not empty, and refers to a known remote repository.
+        //
+        // Also with all of these cases, we need to consider if we have build system
+        // information or not. If not, we can't resolve any remote repositories, and we can't
+        // know whether a repository name refers to the workspace or not.
+        let resolve_root = match (&label.repo, current_file) {
+            // Repository is empty, and we know what file we're resolving from. Use the build
+            // system information to check if we're in a known remote repository, and what the
+            // root is. Fall back to the `workspace_root` otherwise.
+            (None, LspUrl::File(current_file)) => {
+                if let Some((_, remote_repository_root)) =
+                    self.get_repository_for_path(current_file)
+                {
+                    Some(Cow::Borrowed(remote_repository_root))
+                } else {
+                    workspace_root.map(Cow::Borrowed)
                 }
             }
-        } else if let Some((folder, filename)) = path.split_once(':') {
-            resolved_filename.replace(filename);
+            // No repository in the load path, and we don't have build system information, or
+            // an `LspUrl` we can't use to check the root. Use the workspace root.
+            (None, _) => workspace_root.map(Cow::Borrowed),
+            // We have a repository name and build system information. Check if the repository
+            // name refers to the workspace, and if so, use the workspace root. If not, check
+            // if it refers to a known remote repository, and if so, use that root.
+            // Otherwise, fail with an error.
+            (Some(repository), _) => {
+                if matches!(self.workspace_name.as_ref(), Some(name) if name == &repository.name) {
+                    workspace_root.map(Cow::Borrowed)
+                } else if let Some(remote_repository_root) =
+                    self.get_repository_path(&repository.name).map(Cow::Owned)
+                {
+                    Some(remote_repository_root)
+                } else {
+                    return Err(ResolveLoadError::UnknownRepository(
+                        label.clone(),
+                        repository.name.clone(),
+                    )
+                    .into());
+                }
+            }
+        };
 
-            // Resolve relative paths from the current file.
+        if let Some(package) = &label.package {
+            // Resolve from the root of the repository.
+            match resolve_root {
+                Some(resolve_root) => Ok(resolve_root.join(package)),
+                None => Err(ResolveLoadError::MissingWorkspaceRoot(label.clone()).into()),
+            }
+        } else {
+            // If we don't have a package, this is relative to the current file,
+            // so resolve relative paths from the current file.
             match current_file {
                 LspUrl::File(current_file_path) => {
                     let current_file_dir = current_file_path.parent();
                     match current_file_dir {
-                        Some(current_file_dir) => Ok(current_file_dir.join(folder)),
-                        None => {
-                            Err(ResolveLoadError::MissingCurrentFilePath(path.to_owned()).into())
-                        }
+                        Some(current_file_dir) => Ok(current_file_dir.to_owned()),
+                        None => Err(ResolveLoadError::MissingCurrentFilePath(label.clone()).into()),
                     }
                 }
                 _ => Err(
@@ -486,8 +468,6 @@ impl BazelContext {
                         .into(),
                 ),
             }
-        } else {
-            Err(ResolveLoadError::CannotParsePath(path.to_owned()).into())
         }
     }
 
@@ -526,10 +506,13 @@ impl BazelContext {
         // Find the actual folder on disk we're looking at.
         let (from_path, render_base) = match from {
             FilesystemCompletionRoot::Path(path) => (path.to_owned(), path.to_string_lossy()),
-            FilesystemCompletionRoot::String(str) => (
-                self.resolve_folder(str, current_file, workspace_root, &mut None)?,
-                Cow::Borrowed(str),
-            ),
+            FilesystemCompletionRoot::String(str) => {
+                let label = Label::parse(str)?;
+                (
+                    self.resolve_folder(&label, current_file, workspace_root)?,
+                    Cow::Borrowed(str),
+                )
+            }
         };
 
         for entry in fs::read_dir(from_path)? {
@@ -663,18 +646,14 @@ impl LspContext for BazelContext {
         current_file: &LspUrl,
         workspace_root: Option<&std::path::Path>,
     ) -> anyhow::Result<LspUrl> {
-        let mut presumed_filename = None;
-        let folder =
-            self.resolve_folder(path, current_file, workspace_root, &mut presumed_filename)?;
+        let label = Label::parse(path)?;
+
+        let folder = self.resolve_folder(&label, current_file, workspace_root)?;
 
         // Try the presumed filename first, and check if it exists.
-        if let Some(presumed_filename) = presumed_filename {
-            let path = folder.join(presumed_filename);
-            if path.exists() {
-                return Ok(Url::from_file_path(path).unwrap().try_into()?);
-            }
-        } else {
-            return Err(ResolveLoadError::CannotParsePath(path.to_owned()).into());
+        let presumed_path = folder.join(label.name);
+        if presumed_path.exists() {
+            return Ok(Url::from_file_path(presumed_path).unwrap().try_into()?);
         }
 
         // If the presumed filename doesn't exist, try to find a build file from the build system

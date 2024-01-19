@@ -17,6 +17,7 @@
 
 // Disagree these are good hints
 #![allow(clippy::type_complexity)]
+#![allow(clippy::manual_map)]
 
 use std::ffi::OsStr;
 use std::fmt;
