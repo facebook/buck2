@@ -103,9 +103,6 @@ impl BcSlotRange {
     }
 }
 
-#[derive(Copy, Clone, Dupe, Debug)]
-pub(crate) struct BcSlotRangeFrom(pub(crate) BcSlot);
-
 /// Slot containing a value.
 ///
 /// The slot may be a local variable, so this slot cannot be used to store a temporary value.
