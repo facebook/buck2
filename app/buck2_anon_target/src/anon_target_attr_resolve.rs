@@ -8,6 +8,8 @@
  */
 
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::sync::OnceLock;
 
 use buck2_analysis::analysis::env::RuleAnalysisAttrResolutionContext;
 use buck2_analysis::attrs::resolve::attr_type::arg::ConfiguredStringWithMacrosExt;
@@ -15,7 +17,10 @@ use buck2_analysis::attrs::resolve::attr_type::dep::DepAttrTypeExt;
 use buck2_analysis::attrs::resolve::ctx::AttrResolutionContext;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
+use buck2_build_api::artifact_groups::promise::PromiseArtifact;
+use buck2_build_api::artifact_groups::promise::PromiseArtifactResolveError;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
+use buck2_build_api::interpreter::rule_defs::artifact::StarlarkPromiseArtifact;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::keep_going;
 use buck2_core::package::PackageLabel;
@@ -43,7 +48,6 @@ use crate::promise_artifacts::PromiseArtifactAttr;
 // No macros in anon targets, so query results are empty. Execution platform resolution should
 // always be inherited from the anon target.
 pub(crate) struct AnonTargetAttrResolutionContext<'v> {
-    #[allow(unused)] // TODO(@wendyy)
     pub(crate) promised_artifacts_map: HashMap<&'v PromiseArtifactAttr, Artifact>,
     pub(crate) rule_analysis_attr_resolution_ctx: RuleAnalysisAttrResolutionContext<'v>,
 }
@@ -122,9 +126,45 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
             AnonTargetAttr::Dep(d) => DepAttrType::resolve_single(ctx, d),
             AnonTargetAttr::Artifact(d) => Ok(ctx.heap().alloc(StarlarkArtifact::new(d.clone()))),
             AnonTargetAttr::Arg(a) => a.resolve(ctx, &pkg),
-            AnonTargetAttr::PromiseArtifact(artifact) => {
-                // TODO(@wendyy) - use promised artifact map here to construct fulfilled `StarlarkPromiseArtifact`
-                Ok(ctx.heap().alloc(artifact.clone()))
+            AnonTargetAttr::PromiseArtifact(promise_artifact_attr) => {
+                let promise_id = promise_artifact_attr.id.clone();
+                // We validated that the analysis contains the promise artifact id earlier
+                let artifact = anon_resolution_ctx
+                    .promised_artifacts_map
+                    .get(&promise_artifact_attr)
+                    .unwrap();
+
+                // Assert the short path, since we have the real artifact now
+                if let Some(expected_short_path) = &promise_artifact_attr.short_path {
+                    artifact.get_path().with_short_path(|artifact_short_path| {
+                        if artifact_short_path != expected_short_path {
+                            Err(anyhow::Error::from(
+                                PromiseArtifactResolveError::ShortPathMismatch(
+                                    expected_short_path.clone(),
+                                    artifact_short_path.to_string(),
+                                ),
+                            ))
+                        } else {
+                            Ok(())
+                        }
+                    })?;
+                }
+
+                let fulfilled = OnceLock::new();
+                fulfilled.set(artifact.clone()).unwrap();
+
+                let fulfilled_promise_inner =
+                    PromiseArtifact::new(Arc::new(fulfilled), Arc::new(promise_id));
+
+                let fulfilled_promise_artifact = StarlarkPromiseArtifact::new(
+                    None,
+                    fulfilled_promise_inner,
+                    promise_artifact_attr.short_path.clone(),
+                );
+
+                // To resolve the promise artifact attr, we end up creating a new `StarlarkPromiseArtifact` with the `OnceLock` set
+                // with the artifact that was found from the upstream analysis.
+                Ok(ctx.heap().alloc(fulfilled_promise_artifact))
             }
             AnonTargetAttr::Label(label) => {
                 Ok(ctx.heap().alloc(StarlarkProvidersLabel::new(label.clone())))
@@ -155,6 +195,7 @@ impl AnonTargetDependents {
         anon_target: &AnonTargetKey,
     ) -> anyhow::Result<AnonTargetDependents> {
         struct DepTraversal(Vec<ConfiguredTargetLabel>);
+        struct PromiseArtifactTraversal(Vec<PromiseArtifactAttr>);
 
         impl ConfiguredAttrTraversal for DepTraversal {
             fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
@@ -171,15 +212,25 @@ impl AnonTargetDependents {
             }
         }
 
+        impl AnonTargetAttrTraversal for PromiseArtifactTraversal {
+            fn promise_artifact(
+                &mut self,
+                promise_artifact: &PromiseArtifactAttr,
+            ) -> anyhow::Result<()> {
+                self.0.push(promise_artifact.clone());
+                Ok(())
+            }
+        }
+
         let mut dep_traversal = DepTraversal(Vec::new());
-        // @TODO(@wendyy) - populate after switching over to PromiseArtifactAttrs
-        let promise_artifacts = Vec::new();
+        let mut promise_artifact_traversal = PromiseArtifactTraversal(Vec::new());
         for x in anon_target.0.attrs().values() {
             x.traverse(anon_target.0.name().pkg(), &mut dep_traversal)?;
+            x.traverse_anon_attr(&mut promise_artifact_traversal)?;
         }
         Ok(AnonTargetDependents {
             deps: dep_traversal.0,
-            promise_artifacts,
+            promise_artifacts: promise_artifact_traversal.0,
         })
     }
 

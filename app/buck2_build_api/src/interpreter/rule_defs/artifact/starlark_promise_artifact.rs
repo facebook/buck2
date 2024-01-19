@@ -91,7 +91,7 @@ enum PromiseArtifactError {
 pub struct StarlarkPromiseArtifact {
     pub declaration_location: Option<FileSpan>,
     pub artifact: PromiseArtifact,
-    short_path: Option<ForwardRelativePathBuf>,
+    pub short_path: Option<ForwardRelativePathBuf>,
 }
 
 starlark_simple_value!(StarlarkPromiseArtifact);

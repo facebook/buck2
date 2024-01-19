@@ -75,7 +75,7 @@ impl PromiseArtifactRegistry {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative)]
 pub(crate) struct PromiseArtifactAttr {
     pub(crate) id: PromiseArtifactId,
-    short_path: Option<ForwardRelativePathBuf>,
+    pub(crate) short_path: Option<ForwardRelativePathBuf>,
 }
 
 impl fmt::Display for PromiseArtifactAttr {

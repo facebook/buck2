@@ -46,6 +46,7 @@ use starlark::values::Value;
 
 use crate::anon_target_attr::AnonTargetAttr;
 use crate::anon_targets::AnonAttrCtx;
+use crate::promise_artifacts::PromiseArtifactAttr;
 
 pub trait AnonTargetAttrTypeCoerce {
     fn coerce_item(&self, ctx: &AnonAttrCtx, value: Value) -> anyhow::Result<AnonTargetAttr>;
@@ -134,7 +135,10 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                 // Check if this is a StarlarkPromiseArtifact first before checking other artifact types to
                 // allow anon targets to accept unresolved promise artifacts.
                 if let Some(promise_artifact) = StarlarkPromiseArtifact::from_value(value) {
-                    Ok(AnonTargetAttr::PromiseArtifact(promise_artifact.clone()))
+                    Ok(AnonTargetAttr::PromiseArtifact(PromiseArtifactAttr {
+                        id: promise_artifact.artifact.id.as_ref().clone(),
+                        short_path: promise_artifact.short_path.clone(),
+                    }))
                 } else if let Some(artifact_like) = ValueAsArtifactLike::unpack_value(value) {
                     let artifact = artifact_like.0.get_bound_artifact()?;
                     Ok(AnonTargetAttr::Artifact(artifact))
