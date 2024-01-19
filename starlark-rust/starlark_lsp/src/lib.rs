@@ -18,6 +18,9 @@
 //! The server that allows IDEs to evaluate and interpret starlark code according
 //! to the [Language Server Protocol](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/).
 
+// Lints that don't necessarily make sense
+#[allow(clippy::needless_lifetimes)]
+#[allow(clippy::type_complexity)]
 mod bind;
 pub mod completion;
 mod definition;

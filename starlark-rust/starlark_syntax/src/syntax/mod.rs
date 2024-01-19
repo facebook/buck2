@@ -45,6 +45,9 @@ pub mod validate;
 #[allow(clippy::trivially_copy_pass_by_ref)]
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::cloned_instead_of_copied)]
+#[allow(clippy::type_complexity)]
+#[allow(clippy::needless_lifetimes)]
+#[allow(clippy::single_match)]
 #[allow(unused_extern_crates)]
 #[allow(unused_braces)]
 
