@@ -11,7 +11,7 @@ keywords = ["starlark", "skylark", "bazel", "language", "interpreter"]
 license = "Apache-2.0"
 name = "starlark_syntax"
 repository = "https://github.com/facebookexperimental/starlark-rust"
-version = "0.10.0"
+version = "0.11.0"
 
 [build-dependencies]
 lalrpop = "0.19.7"
@@ -32,7 +32,7 @@ thiserror = "1.0.36"
 
 allocative = { workspace = true }
 dupe = { workspace = true }
-starlark_map = { version = "0.10.0", path = "../starlark_map" }
+starlark_map = { version = "0.11.0", path = "../starlark_map" }
 
 [dev-dependencies]
 serde_json = "1.0"

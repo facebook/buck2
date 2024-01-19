@@ -8,7 +8,7 @@ edition = "2021"
 license = "Apache-2.0"
 name = "starlark_map"
 repository = "https://github.com/facebookexperimental/starlark-rust"
-version = "0.10.0"
+version = "0.11.0"
 
 [dependencies]
 allocative = { workspace = true, features = ["hashbrown"] }
