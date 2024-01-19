@@ -80,6 +80,7 @@ def _download_toolchain(ctx: AnalysisContext):
 def _toolchain_config():
     version = "1.20.7"
     os = host_info().os
+    arch = host_info().arch
     if os.is_windows:
         return struct(
             sha256 = "736dc6c7fcab1c96b682c8c93e38d7e371e62a17d34cb2c37d451a1147f66af9",
@@ -88,13 +89,22 @@ def _toolchain_config():
             version = version,
         )
     if os.is_macos:
-        return struct(
-            sha256 = "eea1e7e4c2f75c72629050e6a6c7c46c446d64056732a7787fb3ba16ace1982e",
-            platform = "darwin-arm64",
-            archive_extension = "tar.gz",
-            version = version,
-        )
-
+        if arch.is_aarch64:
+            return struct(
+                sha256 = "eea1e7e4c2f75c72629050e6a6c7c46c446d64056732a7787fb3ba16ace1982e",
+                platform = "darwin-arm64",
+                archive_extension = "tar.gz",
+                version = version,
+            )
+        elif arch.is_x86_64:
+            return struct(
+                sha256 = "785170eab380a8985d53896808b0a71336d0ea60e0a26099b4ccec77798b1cf4",
+                platform = "darwin-amd64",
+                archive_extension = "tar.gz",
+                version = version,
+            )
+        else:
+            fail("unrecognized architecture: couldn't select macOS go toolchain")
     # Default linux
     return struct(
         sha256 = "f0a87f1bcae91c4b69f8dc2bc6d7e6bfcd7524fceec130af525058c0c17b1b44",
