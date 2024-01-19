@@ -24,7 +24,7 @@ use futures::stream::TryStreamExt;
 
 use crate::query::graph::graph::Graph;
 use crate::query::graph::node::LabeledNode;
-use crate::query::graph::node::NodeLabel;
+use crate::query::graph::node::NodeKey;
 use crate::query::graph::successors::AsyncChildVisitor;
 use crate::query::graph::successors::GraphSuccessors;
 use crate::query::syntax::simple::eval::error::QueryError;
@@ -43,7 +43,7 @@ pub enum QueryEnvironmentError {
 }
 
 impl QueryEnvironmentError {
-    pub fn missing_target<T: NodeLabel, S: AsRef<str>, Iter: IntoIterator<Item = S>>(
+    pub fn missing_target<T: NodeKey, S: AsRef<str>, Iter: IntoIterator<Item = S>>(
         target: &T,
         package_targets: Iter,
     ) -> Self {
@@ -76,7 +76,7 @@ pub trait QueryTarget: LabeledNode + Dupe + Send + Sync + 'static {
 
     /// `filter()` function uses this.
     fn label_for_filter(&self) -> String {
-        self.node_ref().to_string()
+        self.node_key().to_string()
     }
 
     /// Returns the input files for this node.
@@ -87,14 +87,14 @@ pub trait QueryTarget: LabeledNode + Dupe + Send + Sync + 'static {
     /// Return the path to the buildfile that defines this target, e.g. `fbcode//foo/bar/TARGETS`
     fn buildfile_path(&self) -> &BuildFilePath;
 
-    fn deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a;
+    fn deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a;
 
-    fn exec_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a;
+    fn exec_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a;
 
-    fn target_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a;
+    fn target_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a;
 
-    fn tests<'a>(&'a self) -> Option<impl Iterator<Item = Self::NodeRef> + Send + 'a> {
-        None::<iter::Empty<Self::NodeRef>>
+    fn tests<'a>(&'a self) -> Option<impl Iterator<Item = Self::Key> + Send + 'a> {
+        None::<iter::Empty<Self::Key>>
     }
 
     fn attr_to_string_alternate(&self, attr: &Self::Attr<'_>) -> String;
@@ -139,12 +139,12 @@ pub trait QueryEnvironment: Send + Sync {
 
     async fn get_node(
         &self,
-        node_ref: &<Self::Target as LabeledNode>::NodeRef,
+        node_ref: &<Self::Target as LabeledNode>::Key,
     ) -> anyhow::Result<Self::Target>;
 
     async fn get_node_for_default_configured_target(
         &self,
-        node_ref: &<Self::Target as LabeledNode>::NodeRef,
+        node_ref: &<Self::Target as LabeledNode>::Key,
     ) -> anyhow::Result<MaybeCompatible<Self::Target>>;
 
     /// Evaluates a literal target pattern. See buck2_common::pattern
@@ -186,15 +186,15 @@ pub trait QueryEnvironment: Send + Sync {
     ) -> anyhow::Result<TargetSet<Self::Target>> {
         let graph = Graph::build(
             &QueryEnvironmentAsNodeLookup { env: self },
-            from.iter().map(|e| e.node_ref().clone()),
+            from.iter().map(|e| e.node_key().clone()),
             QueryTargetDepsSuccessors,
         )
         .await?;
 
         let path = graph
             .bfs(
-                from.iter().map(|t| t.node_ref().clone()),
-                to.iter().map(|t| t.node_ref().clone()),
+                from.iter().map(|t| t.node_key().clone()),
+                to.iter().map(|t| t.node_key().clone()),
             )
             .unwrap_or_default();
         Ok(TargetSet::from_iter(path.into_iter().rev().duped()))
@@ -220,7 +220,7 @@ pub trait QueryEnvironment: Send + Sync {
     ) -> anyhow::Result<TargetSet<Self::Target>> {
         let graph = Graph::build_stable_dfs(
             &QueryEnvironmentAsNodeLookup { env: self },
-            universe.iter().map(|n| n.node_ref().clone()),
+            universe.iter().map(|n| n.node_key().clone()),
             QueryTargetDepsSuccessors,
         )
         .await?;
@@ -246,16 +246,16 @@ pub trait QueryEnvironment: Send + Sync {
                 target: &Q,
                 func: &mut impl ChildVisitor<Q>,
             ) -> anyhow::Result<()> {
-                for parent in self.graph.children(target.node_ref()) {
-                    func.visit(parent.node_ref()).with_context(|| {
-                        format!("Error traversing children of `{}`", target.node_ref())
+                for parent in self.graph.children(target.node_key()) {
+                    func.visit(parent.node_key()).with_context(|| {
+                        format!("Error traversing children of `{}`", target.node_key())
                     })?;
                 }
                 Ok(())
             }
         }
 
-        let roots_in_universe = from.filter(|t| Ok(graph.get(t.node_ref()).is_some()))?;
+        let roots_in_universe = from.filter(|t| Ok(graph.get(t.node_key()).is_some()))?;
 
         match depth {
             // For unbounded traversals, buck1 recommends specifying a large value. We'll accept either a negative (like -1) or
@@ -271,7 +271,7 @@ pub trait QueryEnvironment: Send + Sync {
             }
             _ => {
                 graph.depth_first_postorder_traversal(
-                    roots_in_universe.iter().map(|t| t.node_ref().clone()),
+                    roots_in_universe.iter().map(|t| t.node_key().clone()),
                     |t| visit(t.clone()),
                 )?;
             }
@@ -302,7 +302,7 @@ pub trait QueryEnvironment: Send + Sync {
                     let test = self.get_node(&test).await.with_context(|| {
                         format!(
                             "Error getting test of target {}",
-                            LabeledNode::node_ref(target),
+                            LabeledNode::node_key(target),
                         )
                     })?;
                     anyhow::Ok(test)
@@ -343,7 +343,7 @@ pub trait QueryEnvironment: Send + Sync {
                         .with_context(|| {
                             format!(
                                 "Error getting test of target {}",
-                                LabeledNode::node_ref(target),
+                                LabeledNode::node_key(target),
                             )
                         })?;
                     anyhow::Ok(test)
@@ -399,7 +399,7 @@ pub async fn deps<Env: QueryEnvironment + ?Sized>(
                 match self.filter {
                     Some(filter) => {
                         for dep in filter.get_children(target).await?.iter() {
-                            func.visit(dep.node_ref())?;
+                            func.visit(dep.node_key())?;
                         }
                     }
                     None => {
@@ -409,7 +409,7 @@ pub async fn deps<Env: QueryEnvironment + ?Sized>(
                     }
                 }
             };
-            res.with_context(|| format!("Error traversing children of `{}`", target.node_ref()))
+            res.with_context(|| format!("Error traversing children of `{}`", target.node_key()))
         }
     }
 
@@ -448,7 +448,7 @@ impl<T: QueryTarget> AsyncChildVisitor<T> for QueryTargetDepsSuccessors {
 
 impl<T> GraphSuccessors<T> for QueryTargetDepsSuccessors
 where
-    T: QueryTarget<NodeRef = T>,
+    T: QueryTarget<Key = T>,
 {
     fn for_each_successor(&self, node: &T, mut cb: impl FnMut(&T)) {
         for dep in node.deps() {
@@ -465,7 +465,7 @@ struct QueryEnvironmentAsNodeLookup<'q, Q: QueryEnvironment + ?Sized> {
 impl<'q, Q: QueryEnvironment + ?Sized> AsyncNodeLookup<Q::Target>
     for QueryEnvironmentAsNodeLookup<'q, Q>
 {
-    async fn get(&self, label: &<Q::Target as LabeledNode>::NodeRef) -> anyhow::Result<Q::Target> {
+    async fn get(&self, label: &<Q::Target as LabeledNode>::Key) -> anyhow::Result<Q::Target> {
         self.env.get_node(label).await
     }
 }

@@ -27,7 +27,7 @@ use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::graph::node::LabeledNode;
-use buck2_query::query::graph::node::NodeLabel;
+use buck2_query::query::graph::node::NodeKey;
 use buck2_query::query::graph::successors::AsyncChildVisitor;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::eval::file_set::FileNode;
@@ -378,12 +378,12 @@ pub(crate) async fn rbuildfiles<'c>(
     #[repr(transparent)]
     struct NodeRef(ImportPath);
 
-    impl NodeLabel for NodeRef {}
+    impl NodeKey for NodeRef {}
 
     impl LabeledNode for Node {
-        type NodeRef = NodeRef;
+        type Key = NodeRef;
 
-        fn node_ref(&self) -> &NodeRef {
+        fn node_key(&self) -> &NodeRef {
             NodeRef::ref_cast(self.import_path())
         }
     }
@@ -594,12 +594,12 @@ pub(crate) async fn get_transitive_loads<'c>(
     #[repr(transparent)]
     struct NodeRef(ImportPath);
 
-    impl NodeLabel for NodeRef {}
+    impl NodeKey for NodeRef {}
 
     impl LabeledNode for Node {
-        type NodeRef = NodeRef;
+        type Key = NodeRef;
 
-        fn node_ref(&self) -> &NodeRef {
+        fn node_key(&self) -> &NodeRef {
             NodeRef::ref_cast(self.import_path())
         }
     }

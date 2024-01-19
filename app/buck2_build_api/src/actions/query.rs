@@ -29,7 +29,7 @@ use buck2_core::target::label::TargetLabel;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::graph::node::LabeledNode;
-use buck2_query::query::graph::node::NodeLabel;
+use buck2_query::query::graph::node::NodeKey;
 use buck2_util::late_binding::LateBinding;
 use derivative::Derivative;
 use dice::DiceComputations;
@@ -181,9 +181,9 @@ impl ActionQueryNode {
 }
 
 impl LabeledNode for ActionQueryNode {
-    type NodeRef = ActionQueryNodeRef;
+    type Key = ActionQueryNodeRef;
 
-    fn node_ref(&self) -> &Self::NodeRef {
+    fn node_key(&self) -> &Self::Key {
         &self.key
     }
 }
@@ -248,7 +248,7 @@ pub enum ActionQueryNodeRef {
     Action(ActionKey),
 }
 
-impl NodeLabel for ActionQueryNodeRef {}
+impl NodeKey for ActionQueryNodeRef {}
 
 impl ActionQueryNodeRef {
     pub fn require_action(&self) -> anyhow::Result<&ActionKey> {
@@ -277,7 +277,7 @@ impl QueryTarget for ActionQueryNode {
         unimplemented!("buildfile not yet implemented in aquery")
     }
 
-    fn deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+    fn deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
         // When traversing deps in aquery, we do *not* traverse deps for the target nodes, since
         // those are just for literals
         let action = match &self.data {
@@ -288,11 +288,11 @@ impl QueryTarget for ActionQueryNode {
         Either::Right(iter_action_inputs(&action.deps))
     }
 
-    fn exec_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+    fn exec_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
         std::iter::empty()
     }
 
-    fn target_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+    fn target_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
         self.deps()
     }
 

@@ -20,27 +20,27 @@ use crate::query::graph::node::LabeledNode;
 use crate::query::graph::successors::AsyncChildVisitor;
 
 pub trait ChildVisitor<T: LabeledNode>: Send {
-    fn visit(&mut self, node: &T::NodeRef) -> anyhow::Result<()>;
+    fn visit(&mut self, node: &T::Key) -> anyhow::Result<()>;
 }
 
 impl<F, T: LabeledNode> ChildVisitor<T> for F
 where
-    F: FnMut(&T::NodeRef) -> anyhow::Result<()>,
+    F: FnMut(&T::Key) -> anyhow::Result<()>,
     F: Send,
 {
-    fn visit(&mut self, node: &T::NodeRef) -> anyhow::Result<()> {
+    fn visit(&mut self, node: &T::Key) -> anyhow::Result<()> {
         self(node)
     }
 }
 
 pub trait NodeLookup<T: LabeledNode> {
     // TODO(cjhopman): Maybe this should be `&mut self` since we only need the one reference to it.
-    fn get(&self, label: &T::NodeRef) -> anyhow::Result<T>;
+    fn get(&self, label: &T::Key) -> anyhow::Result<T>;
 }
 
 #[async_trait]
 pub trait AsyncNodeLookup<T: LabeledNode>: Send + Sync {
-    async fn get(&self, label: &T::NodeRef) -> anyhow::Result<T>;
+    async fn get(&self, label: &T::Key) -> anyhow::Result<T>;
 }
 
 /// Implements a depth-first postorder traversal. A node will be visited only after all of its
@@ -52,7 +52,7 @@ pub trait AsyncNodeLookup<T: LabeledNode>: Send + Sync {
 // in both cases.
 pub async fn async_fast_depth_first_postorder_traversal<
     T: LabeledNode,
-    RootIter: IntoIterator<Item = T::NodeRef>,
+    RootIter: IntoIterator<Item = T::Key>,
 >(
     nodes: &impl NodeLookup<T>,
     root: RootIter,
@@ -69,7 +69,7 @@ pub async fn async_fast_depth_first_postorder_traversal<
     // visited before we do PostVisit for that node.
     enum WorkItem<T: LabeledNode> {
         PostVisit(T),
-        Visit(T::NodeRef),
+        Visit(T::Key),
     }
 
     // TODO(cjhopman): There's a couple of things that could be improved about this.
@@ -78,7 +78,7 @@ pub async fn async_fast_depth_first_postorder_traversal<
     // mean changing the delegate's for_each_children to return an iterator,
     // but idk.
 
-    let mut visited: HashSet<T::NodeRef, StarlarkHasherBuilder> = HashSet::default();
+    let mut visited: HashSet<T::Key, StarlarkHasherBuilder> = HashSet::default();
     let mut work: Vec<WorkItem<T>> = root.into_iter().map(|t| WorkItem::Visit(t)).collect();
 
     while let Some(curr) = work.pop() {
@@ -93,7 +93,7 @@ pub async fn async_fast_depth_first_postorder_traversal<
                 work.push(WorkItem::PostVisit(node.dupe()));
 
                 successors
-                    .for_each_child(&node, &mut |child: &T::NodeRef| {
+                    .for_each_child(&node, &mut |child: &T::Key| {
                         if !visited.contains(child) {
                             work.push(WorkItem::Visit(child.clone()));
                         }
@@ -113,7 +113,7 @@ pub async fn async_fast_depth_first_postorder_traversal<
 pub async fn async_depth_limited_traversal<
     'a,
     T: LabeledNode + 'static,
-    RootIter: IntoIterator<Item = &'a T::NodeRef>,
+    RootIter: IntoIterator<Item = &'a T::Key>,
 >(
     nodes: &impl AsyncNodeLookup<T>,
     root: RootIter,
@@ -122,20 +122,18 @@ pub async fn async_depth_limited_traversal<
     max_depth: u32,
 ) -> anyhow::Result<()> {
     let mut visited: HashMap<_, _, StarlarkHasherBuilder> = HashMap::default();
-    let mut push = |queue: &mut FuturesOrdered<_>,
-                    target: &T::NodeRef,
-                    parent: Option<T::NodeRef>,
-                    depth: u32| {
-        if visited.contains_key(target) {
-            return;
-        }
-        visited.insert(target.clone(), parent);
-        let target = target.clone();
-        queue.push_back(async move {
-            let result = nodes.get(&target).await;
-            (target, depth, result)
-        })
-    };
+    let mut push =
+        |queue: &mut FuturesOrdered<_>, target: &T::Key, parent: Option<T::Key>, depth: u32| {
+            if visited.contains_key(target) {
+                return;
+            }
+            visited.insert(target.clone(), parent);
+            let target = target.clone();
+            queue.push_back(async move {
+                let result = nodes.get(&target).await;
+                (target, depth, result)
+            })
+        };
 
     let mut queue = FuturesOrdered::new();
 
@@ -152,7 +150,7 @@ pub async fn async_depth_limited_traversal<
             if depth != max_depth {
                 let depth = depth + 1;
                 successors
-                    .for_each_child(&node, &mut |child: &T::NodeRef| {
+                    .for_each_child(&node, &mut |child: &T::Key| {
                         push(&mut queue, child, Some(target.clone()), depth);
                         Ok(())
                     })
@@ -181,7 +179,7 @@ pub async fn async_depth_limited_traversal<
 pub async fn async_depth_first_postorder_traversal<
     'a,
     T: LabeledNode,
-    Iter: IntoIterator<Item = &'a T::NodeRef> + Clone,
+    Iter: IntoIterator<Item = &'a T::Key> + Clone,
 >(
     nodes: &impl AsyncNodeLookup<T>,
     root: Iter,
@@ -208,7 +206,7 @@ mod tests {
 
     use super::*;
     use crate::query::environment::QueryTarget;
-    use crate::query::graph::node::NodeLabel;
+    use crate::query::graph::node::NodeKey;
     use crate::query::syntax::simple::eval::set::TargetSet;
 
     #[derive(Debug, Clone)]
@@ -220,15 +218,15 @@ mod tests {
     #[derive(Debug, Clone, Dupe, Hash, Display, PartialEq, Eq, PartialOrd, Ord)]
     struct Ref(i64);
 
-    impl NodeLabel for Ref {}
+    impl NodeKey for Ref {}
 
     #[derive(Debug, Display, Serialize)]
     struct Attr(String);
 
     impl LabeledNode for Node {
-        type NodeRef = Ref;
+        type Key = Ref;
 
-        fn node_ref(&self) -> &Self::NodeRef {
+        fn node_key(&self) -> &Self::Key {
             &self.0
         }
     }
@@ -243,7 +241,7 @@ mod tests {
             unimplemented!()
         }
 
-        fn deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+        fn deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
             self.1.iter()
         }
 
@@ -279,11 +277,11 @@ mod tests {
             unimplemented!()
         }
 
-        fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
+        fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::Key> + Send + 'a> {
             unimplemented!()
         }
 
-        fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
+        fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::Key> + Send + 'a> {
             unimplemented!()
         }
 

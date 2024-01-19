@@ -93,13 +93,13 @@ struct PrintableQueryTarget<'a, T: QueryTarget> {
 
 impl<'a, T: QueryTarget> PrintableQueryTarget<'a, T> {
     fn label(&self) -> String {
-        self.value.node_ref().to_string()
+        self.value.node_key().to_string()
     }
 }
 
 impl<'a, T: QueryTarget> Display for PrintableQueryTarget<'a, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.value.node_ref())?;
+        write!(f, "{}", self.value.node_key())?;
 
         if self.target_call_stacks || self.providers.is_some() {
             writeln!(f)?;

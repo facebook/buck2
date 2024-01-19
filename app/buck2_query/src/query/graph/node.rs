@@ -14,17 +14,14 @@ use std::hash::Hash;
 use dupe::Dupe;
 use starlark_map::Hashed;
 
-pub trait NodeLabel:
-    Clone + Hash + PartialEq + Eq + Debug + Display + Send + Sync + 'static
-{
-}
+pub trait NodeKey: Clone + Hash + PartialEq + Eq + Debug + Display + Send + Sync + 'static {}
 
 pub trait LabeledNode: Dupe + Send + Sync {
-    type NodeRef: NodeLabel;
+    type Key: NodeKey;
 
-    fn node_ref(&self) -> &Self::NodeRef;
+    fn node_key(&self) -> &Self::Key;
 
-    fn hashed_node_ref(&self) -> Hashed<&Self::NodeRef> {
-        Hashed::new(self.node_ref())
+    fn hashed_node_key(&self) -> Hashed<&Self::Key> {
+        Hashed::new(self.node_key())
     }
 }

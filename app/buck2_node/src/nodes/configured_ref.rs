@@ -17,7 +17,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::graph::node::LabeledNode;
-use buck2_query::query::graph::node::NodeLabel;
+use buck2_query::query::graph::node::NodeKey;
 use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::NodeLookup;
 use dupe::Dupe;
@@ -37,7 +37,7 @@ use crate::nodes::configured::ConfiguredTargetNode;
 #[repr(C)]
 pub struct ConfiguredGraphNodeRef(ConfiguredTargetNode);
 
-impl NodeLabel for ConfiguredGraphNodeRef {}
+impl NodeKey for ConfiguredGraphNodeRef {}
 
 impl Deref for ConfiguredGraphNodeRef {
     type Target = ConfiguredTargetNode;
@@ -98,9 +98,9 @@ impl std::hash::Hash for ConfiguredGraphNodeRef {
 }
 
 impl LabeledNode for ConfiguredGraphNodeRef {
-    type NodeRef = ConfiguredGraphNodeRef;
+    type Key = ConfiguredGraphNodeRef;
 
-    fn node_ref(&self) -> &Self::NodeRef {
+    fn node_key(&self) -> &Self::Key {
         self
     }
 }
@@ -120,15 +120,15 @@ impl QueryTarget for ConfiguredGraphNodeRef {
         self.0.buildfile_path()
     }
 
-    fn deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+    fn deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
         self.0.deps().map(ConfiguredGraphNodeRef::ref_cast)
     }
 
-    fn exec_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+    fn exec_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
         self.0.exec_deps().map(ConfiguredGraphNodeRef::ref_cast)
     }
 
-    fn target_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+    fn target_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
         self.0.target_deps().map(ConfiguredGraphNodeRef::ref_cast)
     }
 

@@ -52,7 +52,7 @@ impl<'a, T: QueryTarget> DotDigraph<'a> for DotTargetGraph<T> {
             // Only include edges to other nodes within the subgraph.
             if self.targets.contains(dep) {
                 f(&DotEdge {
-                    from: &node.0.node_ref().to_string(),
+                    from: &node.0.node_key().to_string(),
                     to: &dep.to_string(),
                 })?;
             }
@@ -91,6 +91,6 @@ impl<'a, T: QueryTarget> DotNode for DotTargetGraphNode<'a, T> {
     }
 
     fn id(&self) -> String {
-        self.0.node_ref().to_string()
+        self.0.node_key().to_string()
     }
 }

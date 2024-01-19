@@ -26,7 +26,7 @@ use serde::Serializer;
 use crate::query::environment::QueryEnvironment;
 use crate::query::environment::QueryTarget;
 use crate::query::graph::node::LabeledNode;
-use crate::query::graph::node::NodeLabel;
+use crate::query::graph::node::NodeKey;
 use crate::query::graph::successors::AsyncChildVisitor;
 use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::evaluator::QueryEvaluator;
@@ -37,7 +37,7 @@ use crate::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 #[derive(Clone, Hash, PartialEq, Eq, Debug, Display)]
 struct TargetRef(String);
 
-impl NodeLabel for TargetRef {}
+impl NodeKey for TargetRef {}
 
 #[derive(Debug, Display, Serialize)]
 struct TargetAttr(String);
@@ -46,9 +46,9 @@ struct TargetAttr(String);
 struct Target {}
 
 impl LabeledNode for Target {
-    type NodeRef = TargetRef;
+    type Key = TargetRef;
 
-    fn node_ref(&self) -> &Self::NodeRef {
+    fn node_key(&self) -> &Self::Key {
         unimplemented!()
     }
 }
@@ -68,15 +68,15 @@ impl QueryTarget for Target {
         unimplemented!()
     }
 
-    fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
+    fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::Key> + Send + 'a> {
         unimplemented!()
     }
 
-    fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
+    fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::Key> + Send + 'a> {
         unimplemented!()
     }
 
-    fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
+    fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::Key> + Send + 'a> {
         unimplemented!()
     }
 

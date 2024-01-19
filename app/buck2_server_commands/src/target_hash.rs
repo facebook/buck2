@@ -255,10 +255,10 @@ impl TargetHashes {
         use_fast_hash: bool,
     ) -> anyhow::Result<Self>
     where
-        T::NodeRef: ConfiguredOrUnconfiguredTargetLabel,
+        T::Key: ConfiguredOrUnconfiguredTargetLabel,
     {
         let mut hashes: HashMap<
-            T::NodeRef,
+            T::Key,
             Shared<DropCancelFuture<buck2_error::Result<BuckTargetHash>>>,
         > = HashMap::new();
 
@@ -270,7 +270,7 @@ impl TargetHashes {
                     hashes.get(dep).cloned().ok_or_else(|| {
                         TargetHashError::DependencyCycle(
                             dep.clone().to_string(),
-                            target.node_ref().to_string(),
+                            target.node_key().to_string(),
                         )
                     })
                 })
@@ -282,7 +282,7 @@ impl TargetHashes {
             // we spawn off the hash computation since it can't be done in visit directly. Even if it could,
             // this allows us to start the computations for dependents before finishing the computation for a node.
             hashes.insert(
-                target.node_ref().clone(),
+                target.node_key().clone(),
                 spawn_cancellable(
                     |_| {
                         async move {
@@ -361,7 +361,7 @@ impl TargetHashes {
         use_fast_hash: bool,
     ) -> anyhow::Result<Self>
     where
-        T::NodeRef: ConfiguredOrUnconfiguredTargetLabel,
+        T::Key: ConfiguredOrUnconfiguredTargetLabel,
     {
         let hashing_futures: Vec<_> = targets
             .into_iter()
@@ -390,7 +390,7 @@ impl TargetHashes {
                         hasher.finish_u128()
                     };
                     (
-                        target.node_ref().unconfigured_label().dupe(),
+                        target.node_key().unconfigured_label().dupe(),
                         hash_result.map_err(buck2_error::Error::from),
                     )
                 }
@@ -420,7 +420,7 @@ impl TargetHashes {
         target_hash_recursive: bool,
     ) -> anyhow::Result<Self>
     where
-        T::NodeRef: ConfiguredOrUnconfiguredTargetLabel,
+        T::Key: ConfiguredOrUnconfiguredTargetLabel,
     {
         let targets = T::get_target_nodes(&dice, targets, global_target_platform).await?;
         let file_hasher = Self::new_file_hasher(dice.dupe(), file_hash_mode);

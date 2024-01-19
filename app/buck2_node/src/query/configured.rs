@@ -28,13 +28,13 @@ use crate::nodes::configured::ConfiguredTargetNode;
 use crate::nodes::configured::ConfiguredTargetNodeRef;
 
 impl LabeledNode for ConfiguredTargetNode {
-    type NodeRef = ConfiguredTargetLabel;
+    type Key = ConfiguredTargetLabel;
 
-    fn node_ref(&self) -> &Self::NodeRef {
+    fn node_key(&self) -> &Self::Key {
         ConfiguredTargetNode::label(self)
     }
 
-    fn hashed_node_ref(&self) -> Hashed<&Self::NodeRef> {
+    fn hashed_node_key(&self) -> Hashed<&Self::Key> {
         ConfiguredTargetNode::hashed_label(self)
     }
 }
@@ -54,19 +54,19 @@ impl QueryTarget for ConfiguredTargetNode {
         ConfiguredTargetNode::buildfile_path(self)
     }
 
-    fn deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+    fn deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
         ConfiguredTargetNode::deps(self).map(|v| v.label())
     }
 
-    fn exec_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+    fn exec_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
         ConfiguredTargetNode::exec_deps(self).map(|v| v.label())
     }
 
-    fn target_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+    fn target_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
         ConfiguredTargetNode::target_deps(self).map(|v| v.label())
     }
 
-    fn tests<'a>(&'a self) -> Option<impl Iterator<Item = Self::NodeRef> + Send + 'a> {
+    fn tests<'a>(&'a self) -> Option<impl Iterator<Item = Self::Key> + Send + 'a> {
         Some(self.tests().map(|t| t.target().dupe()))
     }
 
@@ -143,13 +143,13 @@ impl QueryTarget for ConfiguredTargetNode {
 }
 
 impl<'a> LabeledNode for ConfiguredTargetNodeRef<'a> {
-    type NodeRef = ConfiguredTargetLabel;
+    type Key = ConfiguredTargetLabel;
 
-    fn node_ref(&self) -> &Self::NodeRef {
+    fn node_key(&self) -> &Self::Key {
         ConfiguredTargetNodeRef::label(*self)
     }
 
-    fn hashed_node_ref(&self) -> Hashed<&Self::NodeRef> {
+    fn hashed_node_key(&self) -> Hashed<&Self::Key> {
         ConfiguredTargetNodeRef::hashed_label(*self)
     }
 }

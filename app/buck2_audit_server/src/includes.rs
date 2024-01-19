@@ -28,7 +28,7 @@ use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_query::query::graph::node::LabeledNode;
-use buck2_query::query::graph::node::NodeLabel;
+use buck2_query::query::graph::node::NodeKey;
 use buck2_query::query::graph::successors::AsyncChildVisitor;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::AsyncNodeLookup;
@@ -80,12 +80,12 @@ async fn get_transitive_includes(
     #[repr(transparent)]
     struct NodeRef(ImportPath);
 
-    impl NodeLabel for NodeRef {}
+    impl NodeKey for NodeRef {}
 
     impl LabeledNode for Node {
-        type NodeRef = NodeRef;
+        type Key = NodeRef;
 
-        fn node_ref(&self) -> &NodeRef {
+        fn node_key(&self) -> &NodeRef {
             NodeRef::ref_cast(self.import_path())
         }
     }

@@ -96,8 +96,8 @@ impl<T: QueryTarget> TargetSet<T> {
         Self { targets }
     }
 
-    pub fn iter_names(&self) -> impl Iterator<Item = &T::NodeRef> + Clone {
-        self.targets.iter().map(|e| e.node_ref())
+    pub fn iter_names(&self) -> impl Iterator<Item = &T::Key> + Clone {
+        self.targets.iter().map(|e| e.node_key())
     }
 
     pub fn iter(&self) -> Iter<T> {
@@ -109,11 +109,11 @@ impl<T: QueryTarget> TargetSet<T> {
         self.targets.into_iter()
     }
 
-    pub fn contains(&self, item: &T::NodeRef) -> bool {
+    pub fn contains(&self, item: &T::Key) -> bool {
         self.targets.contains(item)
     }
 
-    pub fn get(&self, item: &T::NodeRef) -> Option<&T> {
+    pub fn get(&self, item: &T::Key) -> Option<&T> {
         self.targets.get(item)
     }
 
@@ -121,7 +121,7 @@ impl<T: QueryTarget> TargetSet<T> {
         self.targets.get_index(index)
     }
 
-    pub fn get_index_of(&self, item: &T::NodeRef) -> Option<usize> {
+    pub fn get_index_of(&self, item: &T::Key) -> Option<usize> {
         self.targets.get_index_of(item)
     }
 
@@ -211,16 +211,16 @@ impl<T: QueryTarget> TargetSet<T> {
     }
 
     pub fn intersect(&self, right: &TargetSet<T>) -> anyhow::Result<TargetSet<T>> {
-        self.filter(|node| Ok(right.contains(node.node_ref())))
+        self.filter(|node| Ok(right.contains(node.node_key())))
     }
 
     pub fn difference(&self, right: &TargetSet<T>) -> anyhow::Result<TargetSet<T>> {
-        self.filter(|node| Ok(!right.contains(node.node_ref())))
+        self.filter(|node| Ok(!right.contains(node.node_key())))
     }
 }
 
 impl<T: QueryTarget> Display for TargetSet<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt_container(f, "[", "]", self.targets.iter().map(|t| t.node_ref()))
+        fmt_container(f, "[", "]", self.targets.iter().map(|t| t.node_key()))
     }
 }

@@ -24,39 +24,39 @@ pub struct LabelIndexed<T: LabeledNode>(pub T);
 
 impl<T: LabeledNode> PartialEq for LabelIndexed<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.0.node_ref() == other.0.node_ref()
+        self.0.node_key() == other.0.node_key()
     }
 }
 impl<T: LabeledNode> Eq for LabelIndexed<T> {}
 impl<T: LabeledNode> Hash for LabelIndexed<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hashed_node_ref().hash().hash(state)
+        self.0.hashed_node_key().hash().hash(state)
     }
 }
 
 impl<T: LabeledNode> Ord for LabelIndexed<T>
 where
-    T::NodeRef: Ord,
+    T::Key: Ord,
 {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.node_ref().cmp(other.0.node_ref())
+        self.0.node_key().cmp(other.0.node_key())
     }
 }
 
 impl<T: LabeledNode> PartialOrd for LabelIndexed<T>
 where
-    T::NodeRef: PartialOrd,
+    T::Key: PartialOrd,
 {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.0.node_ref().partial_cmp(other.0.node_ref())
+        self.0.node_key().partial_cmp(other.0.node_key())
     }
 }
 
-struct LabelIndexer<'a, T: LabeledNode>(Hashed<&'a T::NodeRef>);
+struct LabelIndexer<'a, T: LabeledNode>(Hashed<&'a T::Key>);
 
 impl<'a, T: LabeledNode> Equivalent<LabelIndexed<T>> for LabelIndexer<'a, T> {
     fn equivalent(&self, key: &LabelIndexed<T>) -> bool {
-        *self.0.key() == key.0.node_ref()
+        *self.0.key() == key.0.node_key()
     }
 }
 impl<'a, T: LabeledNode> Hash for LabelIndexer<'a, T> {
@@ -89,13 +89,13 @@ impl<T: LabeledNode> LabelIndexedSet<T> {
         self.nodes.len()
     }
 
-    pub fn get(&self, value: &T::NodeRef) -> Option<&T> {
+    pub fn get(&self, value: &T::Key) -> Option<&T> {
         self.nodes
             .get(&LabelIndexer(Hashed::new(value)))
             .map(|e| &e.0)
     }
 
-    pub fn take(&mut self, value: &T::NodeRef) -> Option<T> {
+    pub fn take(&mut self, value: &T::Key) -> Option<T> {
         self.nodes
             .take(&LabelIndexer(Hashed::new(value)))
             .map(|e| e.0)
@@ -116,7 +116,7 @@ impl<T: LabeledNode> LabelIndexedSet<T> {
         self.nodes.insert(LabelIndexed(value))
     }
 
-    pub fn contains(&self, value: &T::NodeRef) -> bool {
+    pub fn contains(&self, value: &T::Key) -> bool {
         self.nodes.contains(&LabelIndexer(Hashed::new(value)))
     }
 
@@ -124,7 +124,7 @@ impl<T: LabeledNode> LabelIndexedSet<T> {
         self.nodes.get_index(index).map(|e| &e.0)
     }
 
-    pub fn get_index_of(&self, value: &T::NodeRef) -> Option<usize> {
+    pub fn get_index_of(&self, value: &T::Key) -> Option<usize> {
         self.nodes.get_index_of(&LabelIndexer(Hashed::new(value)))
     }
 

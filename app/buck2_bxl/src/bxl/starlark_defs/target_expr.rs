@@ -18,13 +18,13 @@ use dupe::Dupe;
 #[derive(Clone)]
 pub(crate) enum TargetExpr<'v, Node: QueryTarget> {
     Node(Node),
-    Label(Cow<'v, Node::NodeRef>),
+    Label(Cow<'v, Node::Key>),
 }
 
 impl<'v, Node: QueryTarget> TargetExpr<'v, Node> {
-    pub(crate) fn node_ref(&self) -> &Node::NodeRef {
+    pub(crate) fn node_ref(&self) -> &Node::Key {
         match self {
-            TargetExpr::Node(node) => node.node_ref(),
+            TargetExpr::Node(node) => node.node_key(),
             TargetExpr::Label(label) => label,
         }
     }

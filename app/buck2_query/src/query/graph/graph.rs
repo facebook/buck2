@@ -39,11 +39,11 @@ struct GraphNode<N: LabeledNode> {
 #[derive(Clone)]
 pub(crate) struct Graph<N: LabeledNode> {
     nodes: Vec<GraphNode<N>>,
-    node_to_index: UnorderedMap<N::NodeRef, u32>,
+    node_to_index: UnorderedMap<N::Key, u32>,
 }
 
 impl<N: LabeledNode> Graph<N> {
-    pub(crate) fn get(&self, node: &N::NodeRef) -> Option<&N> {
+    pub(crate) fn get(&self, node: &N::Key) -> Option<&N> {
         self.node_to_index
             .get(node)
             .map(|index| &self.nodes[*index as usize].node)
@@ -51,7 +51,7 @@ impl<N: LabeledNode> Graph<N> {
 }
 
 struct GraphBuilder<N: LabeledNode> {
-    node_to_index: UnorderedMap<N::NodeRef, u32>,
+    node_to_index: UnorderedMap<N::Key, u32>,
     nodes: VecAsMap<GraphNode<N>>,
 }
 
@@ -70,7 +70,7 @@ impl<N: LabeledNode> GraphBuilder<N> {
         }
     }
 
-    fn get_or_create_node(&mut self, node: &N::NodeRef) -> u32 {
+    fn get_or_create_node(&mut self, node: &N::Key) -> u32 {
         let node = Hashed::new(node);
         let new_index = self.node_to_index.len();
         match self.node_to_index.raw_entry_mut().from_key_hashed(node) {
@@ -96,7 +96,7 @@ impl<N: LabeledNode> GraphBuilder<N> {
 }
 
 impl<T: LabeledNode> Graph<T> {
-    pub(crate) fn children(&self, node: &T::NodeRef) -> impl Iterator<Item = &T> {
+    pub(crate) fn children(&self, node: &T::Key) -> impl Iterator<Item = &T> {
         let index = self.node_to_index[node];
         self.nodes[index as usize]
             .children
@@ -109,7 +109,7 @@ impl<T: LabeledNode> Graph<T> {
     /// Resulting graph have node indices assigned non-deterministically.
     pub(crate) async fn build(
         nodes: &impl AsyncNodeLookup<T>,
-        root: impl IntoIterator<Item = T::NodeRef>,
+        root: impl IntoIterator<Item = T::Key>,
         successors: impl AsyncChildVisitor<T>,
     ) -> anyhow::Result<Graph<T>> {
         let mut graph = GraphBuilder::<T> {
@@ -120,7 +120,7 @@ impl<T: LabeledNode> Graph<T> {
         // Map from node to parent node.
         let mut visited: VecAsMap<Option<u32>> = VecAsMap::default();
         let mut push = |queue: &mut FuturesUnordered<_>,
-                        target_ref: &T::NodeRef,
+                        target_ref: &T::Key,
                         target_index: u32,
                         parent: Option<u32>| {
             if visited.contains_key(target_index) {
@@ -154,7 +154,7 @@ impl<T: LabeledNode> Graph<T> {
                 graph.insert(target_index, node.clone());
 
                 successors
-                    .for_each_child(&node, &mut |child: &T::NodeRef| {
+                    .for_each_child(&node, &mut |child: &T::Key| {
                         let child_index = graph.get_or_create_node(child);
                         graph
                             .nodes
@@ -186,7 +186,7 @@ impl<T: LabeledNode> Graph<T> {
                         Some(parent) => {
                             e = e.context(format!(
                                 "Error traversing children of {}",
-                                parent.node.node_ref()
+                                parent.node.node_key()
                             ));
                             target = *parent_index;
                         }
@@ -202,7 +202,7 @@ impl<T: LabeledNode> Graph<T> {
     /// Build graph with nodes laid out in stable DFS order.
     pub(crate) async fn build_stable_dfs(
         nodes: &impl AsyncNodeLookup<T>,
-        root: impl IntoIterator<Item = T::NodeRef>,
+        root: impl IntoIterator<Item = T::Key>,
         successors: impl AsyncChildVisitor<T>,
     ) -> anyhow::Result<Graph<T>> {
         let root = root.into_iter().collect::<Vec<_>>();
@@ -275,7 +275,7 @@ impl<T: LabeledNode> Graph<T> {
         }
     }
 
-    pub(crate) fn depth_first_postorder_traversal<RootIter: IntoIterator<Item = T::NodeRef>>(
+    pub(crate) fn depth_first_postorder_traversal<RootIter: IntoIterator<Item = T::Key>>(
         &self,
         root: RootIter,
         mut visitor: impl FnMut(&T) -> anyhow::Result<()>,
@@ -289,7 +289,7 @@ impl<T: LabeledNode> Graph<T> {
 
     fn bfs_impl(
         &self,
-        roots: impl IntoIterator<Item = T::NodeRef>,
+        roots: impl IntoIterator<Item = T::Key>,
         target: impl Fn(u32) -> bool,
     ) -> Option<Vec<&T>> {
         let path = bfs_find_path(
@@ -302,8 +302,8 @@ impl<T: LabeledNode> Graph<T> {
 
     pub(crate) fn bfs(
         &self,
-        roots: impl IntoIterator<Item = T::NodeRef>,
-        targets: impl IntoIterator<Item = T::NodeRef>,
+        roots: impl IntoIterator<Item = T::Key>,
+        targets: impl IntoIterator<Item = T::Key>,
     ) -> Option<Vec<&T>> {
         let target_indices: HashSet<u32, StarlarkHasherBuilder> = targets
             .into_iter()
@@ -336,7 +336,7 @@ mod tests {
 
     use crate::query::graph::graph::Graph;
     use crate::query::graph::node::LabeledNode;
-    use crate::query::graph::node::NodeLabel;
+    use crate::query::graph::node::NodeKey;
     use crate::query::graph::successors::AsyncChildVisitor;
     use crate::query::traversal::AsyncNodeLookup;
 
@@ -349,12 +349,12 @@ mod tests {
         #[derive(Clone, Dupe)]
         struct Node(Ref);
 
-        impl NodeLabel for Ref {}
+        impl NodeKey for Ref {}
 
         impl LabeledNode for Node {
-            type NodeRef = Ref;
+            type Key = Ref;
 
-            fn node_ref(&self) -> &Self::NodeRef {
+            fn node_key(&self) -> &Self::Key {
                 &self.0
             }
         }

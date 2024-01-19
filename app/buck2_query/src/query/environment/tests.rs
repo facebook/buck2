@@ -28,7 +28,7 @@ use crate::query::traversal::AsyncNodeLookup;
 #[derive(Debug, Copy, Clone, Dupe, Eq, PartialEq, Hash, Display, From)]
 struct TestTargetId(u64);
 
-impl NodeLabel for TestTargetId {}
+impl NodeKey for TestTargetId {}
 
 #[derive(Debug, Copy, Clone, Dupe, Eq, PartialEq, Hash, Display)]
 struct TestTargetAttr;
@@ -47,9 +47,9 @@ impl fmt::Debug for TestTarget {
 }
 
 impl LabeledNode for TestTarget {
-    type NodeRef = TestTargetId;
+    type Key = TestTargetId;
 
-    fn node_ref(&self) -> &Self::NodeRef {
+    fn node_key(&self) -> &Self::Key {
         &self.id
     }
 }
@@ -69,15 +69,15 @@ impl QueryTarget for TestTarget {
         unimplemented!()
     }
 
-    fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
+    fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::Key> + Send + 'a> {
         Box::new(self.deps.iter())
     }
 
-    fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
+    fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::Key> + Send + 'a> {
         Box::new(std::iter::empty())
     }
 
-    fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
+    fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::Key> + Send + 'a> {
         Box::new(std::iter::empty())
     }
 
@@ -128,7 +128,7 @@ struct TestEnv {
 }
 
 impl NodeLookup<TestTarget> for TestEnv {
-    fn get(&self, label: &<TestTarget as LabeledNode>::NodeRef) -> anyhow::Result<TestTarget> {
+    fn get(&self, label: &<TestTarget as LabeledNode>::Key) -> anyhow::Result<TestTarget> {
         self.graph
             .get(label)
             .duped()
@@ -138,10 +138,7 @@ impl NodeLookup<TestTarget> for TestEnv {
 
 #[async_trait]
 impl AsyncNodeLookup<TestTarget> for TestEnv {
-    async fn get(
-        &self,
-        label: &<TestTarget as LabeledNode>::NodeRef,
-    ) -> anyhow::Result<TestTarget> {
+    async fn get(&self, label: &<TestTarget as LabeledNode>::Key) -> anyhow::Result<TestTarget> {
         self.graph
             .get(label)
             .duped()
@@ -155,14 +152,14 @@ impl QueryEnvironment for TestEnv {
 
     async fn get_node(
         &self,
-        node_ref: &<Self::Target as LabeledNode>::NodeRef,
+        node_ref: &<Self::Target as LabeledNode>::Key,
     ) -> anyhow::Result<Self::Target> {
         <Self as NodeLookup<TestTarget>>::get(self, node_ref)
     }
 
     async fn get_node_for_default_configured_target(
         &self,
-        _node_ref: &<Self::Target as LabeledNode>::NodeRef,
+        _node_ref: &<Self::Target as LabeledNode>::Key,
     ) -> anyhow::Result<MaybeCompatible<Self::Target>> {
         unimplemented!()
     }

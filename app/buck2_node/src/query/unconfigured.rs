@@ -26,9 +26,9 @@ use crate::nodes::unconfigured::TargetNode;
 use crate::nodes::unconfigured::TargetNodeData;
 
 impl LabeledNode for TargetNode {
-    type NodeRef = TargetLabel;
+    type Key = TargetLabel;
 
-    fn node_ref(&self) -> &Self::NodeRef {
+    fn node_key(&self) -> &Self::Key {
         TargetNode::label(self)
     }
 }
@@ -44,19 +44,19 @@ impl QueryTarget for TargetNode {
         TargetNode::buildfile_path(self)
     }
 
-    fn deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+    fn deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
         TargetNode::deps(self)
     }
 
-    fn exec_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+    fn exec_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
         TargetNode::exec_deps(self)
     }
 
-    fn target_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::NodeRef> + Send + 'a {
+    fn target_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
         TargetNode::target_deps(self)
     }
 
-    fn tests<'a>(&'a self) -> Option<impl Iterator<Item = Self::NodeRef> + Send + 'a> {
+    fn tests<'a>(&'a self) -> Option<impl Iterator<Item = Self::Key> + Send + 'a> {
         Some(self.tests().map(|t| t.target().dupe()))
     }
 
