@@ -45,4 +45,3 @@ mod assert;
 mod conformance;
 
 pub use assert::*;
-pub use conformance::*;
