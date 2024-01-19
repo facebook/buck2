@@ -3,6 +3,30 @@ on:
   push:
   pull_request:
 jobs:
+  linux-build-and-test:
+    runs-on: 4-core-ubuntu
+    steps:
+    - uses: actions/checkout@v4.1.0
+    - uses: ./.github/actions/setup_linux_env
+    - uses: ./.github/actions/build_debug
+    - uses: ./.github/actions/run_test_py
+  macos-build-and-test:
+    runs-on: macos-latest
+    steps:
+    - uses: maxim-lobanov/setup-xcode@v1.6.0
+      with:
+        xcode-version: 14.2.0
+    - uses: actions/checkout@v4.1.0
+    - uses: ./.github/actions/setup_macos_env
+    - uses: ./.github/actions/build_debug
+    - uses: ./.github/actions/run_test_py
+  windows-build-and-test:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4.1.0
+    - uses: ./.github/actions/setup_windows_env
+    - uses: ./.github/actions/build_debug
+    - uses: ./.github/actions/run_test_py
   macos-build-examples:
     runs-on: macos-latest
     steps:
