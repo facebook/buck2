@@ -12,6 +12,7 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Context;
 use async_trait::async_trait;
@@ -31,6 +32,8 @@ use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessObserver;
+use buck2_common::liveliness_observer::LivelinessObserverExt;
+use buck2_common::liveliness_observer::TimeoutLivelinessObserver;
 use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::buck2_env;
@@ -205,6 +208,11 @@ impl TestStatuses {
     }
 }
 
+#[derive(Debug, buck2_error_derive::Error)]
+#[buck2(user, typ = UserDeadlineExpired)]
+#[error("This test run exceeded the deadline that was provided")]
+struct DeadlineExpired;
+
 async fn test_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
@@ -322,6 +330,14 @@ async fn test(
         .build_opts
         .as_ref()
         .expect("should have build options");
+
+    let timeout = request
+        .timeout
+        .as_ref()
+        .map(|t| t.clone().try_into())
+        .transpose()
+        .context("Invalid `duration`")?;
+
     let test_outcome = test_targets(
         ctx,
         resolved_pattern,
@@ -339,6 +355,7 @@ async fn test(
         working_dir_cell,
         build_opts.skip_incompatible_targets,
         MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
+        timeout,
     )
     .await?;
 
@@ -412,9 +429,17 @@ async fn test_targets(
     working_dir_cell: CellName,
     skip_incompatible_targets: bool,
     missing_target_behavior: MissingTargetBehavior,
+    timeout: Option<Duration>,
 ) -> anyhow::Result<TestOutcome> {
     let session = Arc::new(session);
-    let (liveliness_observer, _guard) = LivelinessGuard::create();
+
+    let (mut liveliness_observer, _guard) = LivelinessGuard::create();
+    let timeout_observer = timeout.map(|timeout| {
+        Arc::new(TimeoutLivelinessObserver::new(timeout)) as Arc<dyn LivelinessObserver>
+    });
+    if let Some(timeout_observer) = &timeout_observer {
+        liveliness_observer = Arc::new(liveliness_observer.and(timeout_observer.dupe())) as _;
+    }
 
     let tpx_args = {
         let mut args = vec![
@@ -452,6 +477,7 @@ async fn test_targets(
 
     let test_server = tokio::spawn({
         let test_status_sender = test_status_sender.clone();
+        let liveliness_observer = liveliness_observer.dupe();
         with_dispatcher_async(
             ctx.per_transaction_data().get_dispatcher().dupe(),
             // NOTE: This is will cancel if the liveliness guard indicates we should.
@@ -562,11 +588,17 @@ async fn test_targets(
         .await
         .context("Failed to collect executor report")??;
 
-    let errors = build_errors
+    let mut errors = build_errors
         .iter()
         .map(create_error_report)
         .unique_by(|e| e.message.clone())
-        .collect();
+        .collect::<Vec<_>>();
+
+    if let Some(timeout_observer) = timeout_observer {
+        if !timeout_observer.is_alive().await {
+            errors.push(create_error_report(&DeadlineExpired.into()));
+        }
+    }
 
     Ok(TestOutcome {
         errors,

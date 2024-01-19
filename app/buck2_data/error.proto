@@ -24,6 +24,7 @@ enum ErrorType {
   DAEMON_IS_BUSY = 1;
   ACTION_COMMAND_FAILURE = 2;
   WATCHMAN = 3;
+  USER_DEADLINE_EXPIRED = 4;
   // Add causes here as needed
 }
 

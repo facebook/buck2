@@ -123,6 +123,23 @@ If include patterns are present, regardless of whether exclude patterns are pres
     #[clap(long, group = "re_options", alias = "unstable-force-tests-on-re")]
     unstable_allow_all_tests_on_re: bool,
 
+    // NOTE: the field below is given a different name from the test runner's `timeout` to avoid
+    // confusion between the two parameters.
+    /// How long to execute tests for. If the timeout is exceeded, Buck2 will exit
+    /// as quickly as possible and not run further tests. In-flight tests will be
+    /// cancelled. The test orchestrator will be allowed to shut down gracefully.
+    /// The exit code will be a user failure.
+    ///
+    /// The format is a concatenation of time spans (separated by spaces). Each time span is an
+    /// integer number and a suffix.
+    ///
+    /// Relevant supported suffixes: seconds, second, sec, s, minutes, minute, min, m, hours, hour,
+    /// hr, h
+    ///
+    /// For example: `5m 10s`, `500s`.
+    #[clap(long = "overall-timeout")]
+    timeout: Option<humantime::Duration>,
+
     #[clap(name = "TARGET_PATTERNS", help = "Patterns to test")]
     patterns: Vec<String>,
 
@@ -191,6 +208,14 @@ impl StreamingCommand for TestCommand {
                         force_use_project_relative_paths: self.unstable_allow_all_tests_on_re,
                         force_run_from_project_root: self.unstable_allow_all_tests_on_re,
                     }),
+                    timeout: self
+                        .timeout
+                        .map(|t| {
+                            let t: std::time::Duration = t.into();
+                            t.try_into()
+                        })
+                        .transpose()
+                        .context("Invalid `timeout`")?,
                 },
                 ctx.stdin()
                     .console_interaction_stream(&self.common_opts.console_opts),
@@ -214,8 +239,19 @@ impl StreamingCommand for TestCommand {
 
         let console = self.common_opts.console_opts.final_console();
         print_build_result(&console, &response.errors)?;
-        if !response.errors.is_empty() {
-            console.print_error(&format!("{} BUILDS FAILED", response.errors.len()))?;
+
+        // Filtering out individual types might not be best here. While we just have 1 non-build
+        // error that seems OK, but if we add more we should reconsider (we could add a type on all
+        // the build errors, but that seems potentially confusing if we only do that in the test
+        // command).
+        let build_errors = response
+            .errors
+            .iter()
+            .filter(|e| e.typ != Some(buck2_data::error::ErrorType::UserDeadlineExpired as _))
+            .count();
+
+        if build_errors > 0 {
+            console.print_error(&format!("{} BUILDS FAILED", build_errors))?;
         }
 
         // TODO(nmj): Might make sense for us to expose the event ctx, and use its
@@ -238,7 +274,7 @@ impl StreamingCommand for TestCommand {
             line.push(column.to_span_from_test_statuses(statuses)?);
             line.push(Span::new_unstyled_lossy(". "));
         }
-        line.push(span_from_build_failure_count(response.errors.len())?);
+        line.push(span_from_build_failure_count(build_errors)?);
         eprint_line(&line)?;
 
         print_error_counter(&console, listing_failed, "LISTINGS FAILED", "⚠")?;

@@ -429,6 +429,12 @@ message TestRequest {
   CommonBuildOptions build_opts = 9;
 
   TestSessionOptions session_options = 11;
+
+  // How long to execute tests for? If the timeout is exceeded, Buck2 will exit
+  // as quickly as possible and not run further tests. In-flight tests will be
+  // cancelled. The test orchestrator will be allowed to shut down gracefully.
+  // The exit code will be a user failure.
+  optional google.protobuf.Duration timeout = 12;
 }
 
 message BxlRequest {
