@@ -575,7 +575,8 @@ def _create_link_group(
         link_group_libs: dict[str, ([Label, None], LinkInfos)] = {},
         prefer_stripped_objects: bool = False,
         category_suffix: [str, None] = None,
-        anonymous: bool = False) -> [LinkedObject, None]:
+        anonymous: bool = False,
+        allow_cache_upload = False) -> [LinkedObject, None]:
     """
     Link a link group library, described by a `LinkGroupLibSpec`.  This is
     intended to handle regular shared libs and e.g. Python extensions.
@@ -664,6 +665,7 @@ def _create_link_group(
             # TODO: anonymous targets cannot be used with dynamic output yet
             enable_distributed_thinlto = False if anonymous else spec.group.attrs.enable_distributed_thinlto,
             link_execution_preference = LinkExecutionPreference("any"),
+            allow_cache_upload = allow_cache_upload,
         ),
         anonymous = anonymous,
     )
@@ -784,7 +786,8 @@ def create_link_groups(
         linkable_graph_node_map: dict[Label, LinkableNode] = {},
         link_group_preferred_linkage: dict[Label, Linkage] = {},
         link_group_mappings: [dict[Label, str], None] = None,
-        anonymous: bool = False) -> _LinkedLinkGroups:
+        anonymous: bool = False,
+        allow_cache_upload = False) -> _LinkedLinkGroups:
     # Generate stubs first, so that subsequent links can link against them.
     link_group_shared_links = {}
     specs = []
@@ -842,6 +845,7 @@ def create_link_groups(
             prefer_stripped_objects = prefer_stripped_objects,
             category_suffix = "link_group",
             anonymous = anonymous,
+            allow_cache_upload = allow_cache_upload,
         )
 
         if link_group_lib == None:
