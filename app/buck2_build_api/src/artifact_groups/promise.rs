@@ -76,6 +76,12 @@ impl PromiseArtifactId {
     }
 }
 
+impl Display for PromiseArtifactId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}#{}", &self.owner, self.id)
+    }
+}
+
 impl PromiseArtifact {
     pub fn new(artifact: Arc<OnceLock<Artifact>>, id: Arc<PromiseArtifactId>) -> Self {
         Self { artifact, id }
