@@ -63,7 +63,6 @@ load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo")
 load(":apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
 load(":apple_entitlements.bzl", "entitlements_link_flags")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
-load(":apple_genrule_deps.bzl", "get_apple_build_genrule_deps_attr_value", "get_apple_genrule_deps_outputs")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node", "get_min_deployment_version_target_linker_flags", "get_min_deployment_version_target_preprocessor_flags")
 load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_apple_stripped_attr_value_with_default_fallback")
 load(":apple_validation_deps.bzl", "get_apple_validation_deps_outputs")
@@ -113,9 +112,6 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         )
 
         validation_deps_outputs = get_apple_validation_deps_outputs(ctx)
-        if get_apple_build_genrule_deps_attr_value(ctx):
-            validation_deps_outputs += get_apple_genrule_deps_outputs(cxx_attr_deps(ctx))
-
         stripped = get_apple_stripped_attr_value_with_default_fallback(ctx)
         constructor_params = CxxRuleConstructorParams(
             rule_type = "apple_binary",

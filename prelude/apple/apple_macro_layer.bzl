@@ -7,7 +7,6 @@
 
 load(":apple_bundle_config.bzl", "apple_bundle_config")
 load(":apple_dsym_config.bzl", "apple_dsym_config")
-load(":apple_genrule_deps.bzl", "get_apple_build_genrule_deps_default_kwargs")
 load(":apple_info_plist_substitutions_parsing.bzl", "parse_codesign_entitlements")
 load(":apple_package_config.bzl", "apple_package_config")
 load(":apple_resource_bundle.bzl", "make_resource_bundle_rule")
@@ -76,7 +75,6 @@ def apple_test_macro_impl(apple_test_rule, apple_resource_bundle_rule, **kwargs)
     kwargs.update(apple_bundle_config())
     kwargs.update(apple_dsym_config())
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config(_APPLE_TEST_LOCAL_EXECUTION_OVERRIDES))
-    kwargs.update(get_apple_build_genrule_deps_default_kwargs())
 
     # `extension` is used both by `apple_test` and `apple_resource_bundle`, so provide default here
     kwargs["extension"] = kwargs.pop("extension", "xctest")
@@ -89,7 +87,6 @@ def apple_bundle_macro_impl(apple_bundle_rule, apple_resource_bundle_rule, **kwa
     info_plist_substitutions = kwargs.get("info_plist_substitutions")
     kwargs.update(apple_bundle_config())
     kwargs.update(apple_dsym_config())
-    kwargs.update(get_apple_build_genrule_deps_default_kwargs())
     apple_bundle_rule(
         _codesign_entitlements = parse_codesign_entitlements(info_plist_substitutions),
         _resource_bundle = make_resource_bundle_rule(apple_resource_bundle_rule, **kwargs),
@@ -100,7 +97,6 @@ def apple_library_macro_impl(apple_library_rule = None, **kwargs):
     kwargs.update(apple_dsym_config())
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config(_APPLE_LIBRARY_LOCAL_EXECUTION_OVERRIDES))
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config([APPLE_STRIPPED_DEFAULT]))
-    kwargs.update(get_apple_build_genrule_deps_default_kwargs())
     apple_library_rule(**kwargs)
 
 def apple_binary_macro_impl(apple_binary_rule = None, apple_universal_executable = None, **kwargs):
@@ -108,7 +104,6 @@ def apple_binary_macro_impl(apple_binary_rule = None, apple_universal_executable
     kwargs.update(dsym_args)
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config(_APPLE_BINARY_LOCAL_EXECUTION_OVERRIDES))
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config([APPLE_STRIPPED_DEFAULT]))
-    kwargs.update(get_apple_build_genrule_deps_default_kwargs())
 
     original_binary_name = kwargs.pop("name")
 

@@ -61,7 +61,6 @@ load(
 )
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_default_binary_dep", "get_flattened_binary_deps", "get_product_name")
 load(":apple_dsym.bzl", "DSYM_INFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym", "get_apple_dsym_ext", "get_apple_dsym_info")
-load(":apple_genrule_deps.bzl", "get_apple_build_genrule_deps_attr_value", "get_apple_genrule_deps_outputs")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(":apple_universal_binaries.bzl", "create_universal_binary")
 load(":apple_validation_deps.bzl", "get_apple_validation_deps_outputs")
@@ -322,9 +321,6 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     primary_binary_rel_path = get_apple_bundle_part_relative_destination_path(ctx, primary_binary_part)
 
     validation_deps_outputs = get_apple_validation_deps_outputs(ctx)
-    if get_apple_build_genrule_deps_attr_value(ctx):
-        validation_deps_outputs += get_apple_genrule_deps_outputs(ctx.attrs.deps)
-
     sub_targets = assemble_bundle(
         ctx,
         bundle,

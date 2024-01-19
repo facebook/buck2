@@ -10,11 +10,9 @@
 load("@prelude//:cache_mode.bzl", "CacheModeInfo")
 load("@prelude//:genrule_local_labels.bzl", "genrule_labels_require_local")
 load("@prelude//:genrule_toolchain.bzl", "GenruleToolchainInfo")
-load("@prelude//:genrule_types.bzl", "GENRULE_MARKER_SUBTARGET_NAME", "GenruleMarkerInfo")
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
-load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
 
 GENRULE_OUT_DIR = "out"
@@ -347,14 +345,7 @@ def process_genrule(
         **metadata_args
     )
 
-    # Use a subtarget to insert a marker, as callsites make assumptions about
-    # the providers of `process_genrule()`. We want to have the marker in
-    # `DefaultInfo` rather than in `genrule_impl()` because we want to identify
-    # all classes of genrule-like rules.
     sub_targets = {k: [DefaultInfo(default_outputs = v)] for (k, v) in named_outputs.items()}
-    expect(GENRULE_MARKER_SUBTARGET_NAME not in sub_targets, "Conflicting private `{}` subtarget and named output".format(GENRULE_MARKER_SUBTARGET_NAME))
-    sub_targets[GENRULE_MARKER_SUBTARGET_NAME] = [GenruleMarkerInfo()]
-
     providers = [DefaultInfo(
         default_outputs = default_outputs,
         sub_targets = sub_targets,
