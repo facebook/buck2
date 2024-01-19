@@ -146,6 +146,10 @@ pub(crate) struct AnonTargetDependentAnalysisResults<'v> {
     pub(crate) promised_artifacts: HashMap<&'v PromiseArtifactAttr, Artifact>,
 }
 
+pub(crate) trait AnonTargetAttrTraversal {
+    fn promise_artifact(&mut self, promise_artifact: &PromiseArtifactAttr) -> anyhow::Result<()>;
+}
+
 impl AnonTargetDependents {
     pub(crate) fn get_dependents(
         anon_target: &AnonTargetKey,

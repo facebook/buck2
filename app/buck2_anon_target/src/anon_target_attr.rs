@@ -37,6 +37,8 @@ use serde::Serialize;
 use serde::Serializer;
 use serde_json::to_value;
 
+use crate::anon_target_attr_resolve::AnonTargetAttrTraversal;
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative)]
 pub enum AnonTargetAttr {
     Bool(BoolLiteral),
@@ -174,6 +176,48 @@ impl AnonTargetAttr {
             AnonTargetAttr::Artifact(_) => Ok(()),
             AnonTargetAttr::Arg(e) => e.string_with_macros.traverse(traversal, &pkg),
             AnonTargetAttr::PromiseArtifact(..) => Ok(()),
+            AnonTargetAttr::Label(_) => Ok(()),
+        }
+    }
+
+    #[allow(unused)]
+    pub fn traverse_anon_attr<'a>(
+        &'a self,
+        _traversal: &mut dyn AnonTargetAttrTraversal,
+    ) -> anyhow::Result<()> {
+        match self {
+            AnonTargetAttr::Bool(_) => Ok(()),
+            AnonTargetAttr::Int(_) => Ok(()),
+            AnonTargetAttr::String(_) => Ok(()),
+            AnonTargetAttr::EnumVariant(_) => Ok(()),
+            AnonTargetAttr::List(list) => {
+                for v in list.iter() {
+                    v.traverse_anon_attr(_traversal)?;
+                }
+                Ok(())
+            }
+            AnonTargetAttr::Tuple(list) => {
+                for v in list.iter() {
+                    v.traverse_anon_attr(_traversal)?;
+                }
+                Ok(())
+            }
+            AnonTargetAttr::Dict(dict) => {
+                for (k, v) in dict.iter() {
+                    k.traverse_anon_attr(_traversal)?;
+                    v.traverse_anon_attr(_traversal)?;
+                }
+                Ok(())
+            }
+            AnonTargetAttr::None => Ok(()),
+            AnonTargetAttr::OneOf(l, _) => l.traverse_anon_attr(_traversal),
+            AnonTargetAttr::Dep(_) => Ok(()),
+            AnonTargetAttr::Artifact(_) => Ok(()),
+            AnonTargetAttr::Arg(_) => Ok(()),
+            AnonTargetAttr::PromiseArtifact(_) => {
+                // TODO(@wendyy) - use traversal here after updating the attr type
+                Ok(())
+            }
             AnonTargetAttr::Label(_) => Ok(()),
         }
     }
