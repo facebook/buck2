@@ -8,6 +8,7 @@
  */
 
 use async_trait::async_trait;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::target::label::TargetLabel;
 use buck2_node::configured_universe::CqueryUniverse;
@@ -63,7 +64,7 @@ pub trait QueryFrontend: Send + Sync + 'static {
         ctx: &DiceComputations,
         cwd: &ProjectRelativePath,
         literals: &[String],
-        global_target_platform: Option<TargetLabel>,
+        global_cfg_options: GlobalCfgOptions,
     ) -> anyhow::Result<CqueryUniverse>;
 }
 

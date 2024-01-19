@@ -25,8 +25,9 @@ use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::pattern::target_platform_from_client_context;
+use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use dice::DiceComputations;
+use dupe::Dupe;
 
 use crate::output::buck_out_path_parser::BuckOutPathParser;
 use crate::output::buck_out_path_parser::BuckOutPathType;
@@ -128,14 +129,14 @@ impl AuditSubcommand for AuditOutputCommand {
                 let working_dir = server_ctx.working_dir();
                 let cell_resolver = dice_ctx.get_cell_resolver().await?;
 
-                let global_target_platform = target_platform_from_client_context(
+                let global_cfg_options = global_cfg_options_from_client_context(
                     &client_ctx,
                     server_ctx,
                     &mut dice_ctx,
                 )
                 .await?;
 
-                let result = audit_output(&self.output_path, working_dir, &cell_resolver, &dice_ctx, global_target_platform).await?;
+                let result = audit_output(&self.output_path, working_dir, &cell_resolver, &dice_ctx, global_cfg_options.target_platform.dupe()).await?;
 
                 let mut stdout = stdout.as_writer();
 

@@ -19,6 +19,7 @@ use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsShowOutputsResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::cells::CellResolver;
@@ -36,8 +37,8 @@ use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
-use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceComputations;
@@ -102,8 +103,8 @@ async fn targets_show_outputs(
     let cell_resolver = ctx.get_cell_resolver().await?;
 
     let client_ctx = request.client_context()?;
-    let target_platform =
-        target_platform_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
+    let global_cfg_options =
+        global_cfg_options_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
 
     let parsed_patterns = parse_patterns_from_cli_args::<ProvidersPatternExtra>(
         &mut ctx,
@@ -118,7 +119,7 @@ async fn targets_show_outputs(
 
     for targets_artifacts in retrieve_targets_artifacts_from_patterns(
         &ctx,
-        &target_platform,
+        &global_cfg_options,
         &parsed_patterns,
         &cell_resolver,
     )
@@ -140,37 +141,30 @@ async fn targets_show_outputs(
 
 async fn retrieve_targets_artifacts_from_patterns(
     ctx: &DiceComputations,
-    global_target_platform: &Option<TargetLabel>,
+    global_cfg_options: &GlobalCfgOptions,
     parsed_patterns: &[ParsedPattern<ProvidersPatternExtra>],
     cell_resolver: &CellResolver,
 ) -> anyhow::Result<Vec<TargetsArtifacts>> {
     let resolved_pattern =
         resolve_target_patterns(cell_resolver, parsed_patterns, &ctx.file_ops()).await?;
 
-    retrieve_artifacts_for_targets(ctx, resolved_pattern, global_target_platform.to_owned()).await
+    retrieve_artifacts_for_targets(ctx, resolved_pattern, global_cfg_options).await
 }
 
 async fn retrieve_artifacts_for_targets(
     ctx: &DiceComputations,
     spec: ResolvedPattern<ProvidersPatternExtra>,
-    global_target_platform: Option<TargetLabel>,
+    global_cfg_options: &GlobalCfgOptions,
 ) -> anyhow::Result<Vec<TargetsArtifacts>> {
     let futs: FuturesUnordered<_> = spec
         .specs
         .into_iter()
         .map(|(package, spec)| {
-            let global_target_platform = global_target_platform.dupe();
             async move {
                 {
                     let res = ctx.get_interpreter_results(package.dupe()).await?;
-                    retrieve_artifacts_for_spec(
-                        ctx,
-                        package.dupe(),
-                        spec,
-                        global_target_platform,
-                        res,
-                    )
-                    .await
+                    retrieve_artifacts_for_spec(ctx, package.dupe(), spec, global_cfg_options, res)
+                        .await
                 }
             }
             .boxed()
@@ -191,18 +185,18 @@ async fn retrieve_artifacts_for_spec(
     ctx: &DiceComputations,
     package: PackageLabel,
     spec: PackageSpec<ProvidersPatternExtra>,
-    global_target_platform: Option<TargetLabel>,
+    global_cfg_options: &GlobalCfgOptions,
     res: Arc<EvaluationResult>,
 ) -> anyhow::Result<Vec<TargetsArtifacts>> {
     let available_targets = res.targets();
 
-    let todo_targets: Vec<(ProvidersLabel, Option<TargetLabel>)> = match spec {
+    let todo_targets: Vec<(ProvidersLabel, &GlobalCfgOptions)> = match spec {
         PackageSpec::All => available_targets
             .keys()
             .map(|t| {
                 (
                     ProvidersLabel::default_for(TargetLabel::new(package.dupe(), t)),
-                    global_target_platform.dupe(),
+                    global_cfg_options,
                 )
             })
             .collect(),
@@ -213,7 +207,7 @@ async fn retrieve_artifacts_for_spec(
             targets.into_map(|(target_name, providers)| {
                 (
                     providers.into_providers_label(package.dupe(), target_name.as_ref()),
-                    global_target_platform.dupe(),
+                    global_cfg_options,
                 )
             })
         }
@@ -221,8 +215,8 @@ async fn retrieve_artifacts_for_spec(
 
     let mut futs: FuturesUnordered<_> = todo_targets
         .into_iter()
-        .map(|(providers_label, target_platform)| {
-            retrieve_artifacts_for_provider_label(ctx, providers_label, target_platform)
+        .map(|(providers_label, cfg_flags)| {
+            retrieve_artifacts_for_provider_label(ctx, providers_label, cfg_flags)
         })
         .collect();
 
@@ -237,10 +231,13 @@ async fn retrieve_artifacts_for_spec(
 async fn retrieve_artifacts_for_provider_label(
     ctx: &DiceComputations,
     providers_label: ProvidersLabel,
-    target_platform: Option<TargetLabel>,
+    global_cfg_options: &GlobalCfgOptions,
 ) -> anyhow::Result<TargetsArtifacts> {
     let providers_label = ctx
-        .get_configured_provider_label(&providers_label, target_platform.as_ref())
+        .get_configured_provider_label(
+            &providers_label,
+            global_cfg_options.target_platform.as_ref(),
+        )
         .await?;
 
     let providers = ctx

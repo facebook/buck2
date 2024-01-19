@@ -25,7 +25,7 @@ use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::pattern::target_platform_from_client_context;
+use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use buck2_server_ctx::pattern::PatternParser;
 use indent_write::io::IndentWriter;
 
@@ -78,7 +78,7 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
                 }
 
                 let loaded_patterns = load_patterns(&ctx, target_patterns, MissingTargetBehavior::Fail).await?;
-                let target_platform = target_platform_from_client_context(
+                let global_cfg_options = global_cfg_options_from_client_context(
                     &client_ctx,
                     server_ctx,
                     &mut ctx,
@@ -88,7 +88,7 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
                 for (_, targets) in loaded_patterns.into_iter() {
                     for (_, node) in targets? {
                         configured_patterns.push(
-                            ctx.get_configured_target(node.label(), target_platform.as_ref())
+                            ctx.get_configured_target(node.label(), global_cfg_options.target_platform.as_ref())
                                 .await?,
                         );
                     }

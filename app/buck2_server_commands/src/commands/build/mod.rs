@@ -37,6 +37,7 @@ use buck2_cli_proto::CommonBuildOptions;
 use buck2_cli_proto::HasClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
@@ -66,8 +67,8 @@ use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
-use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceComputations;
@@ -141,7 +142,7 @@ impl ServerCommandTemplate for BuildServerCommand {
 
 enum TargetResolutionConfig {
     /// Resolve using target platform.
-    Default(Option<TargetLabel>),
+    Default(GlobalCfgOptions),
     /// Resolve in the universe.
     Universe(CqueryUniverse),
 }
@@ -218,8 +219,8 @@ async fn build(
     let cell_resolver = ctx.get_cell_resolver().await?;
 
     let client_ctx = request.client_context()?;
-    let global_target_platform =
-        target_platform_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
+    let global_cfg_options =
+        global_cfg_options_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
 
     let parsed_patterns: Vec<ParsedPattern<ConfiguredProvidersPatternExtra>> =
         parse_patterns_from_cli_args(&mut ctx, &request.target_patterns, cwd).await?;
@@ -229,12 +230,12 @@ async fn build(
         resolve_target_patterns(&cell_resolver, &parsed_patterns, &ctx.file_ops()).await?;
 
     let target_resolution_config: TargetResolutionConfig = if request.target_universe.is_empty() {
-        TargetResolutionConfig::Default(global_target_platform)
+        TargetResolutionConfig::Default(global_cfg_options)
     } else {
         TargetResolutionConfig::Universe(
             QUERY_FRONTEND
                 .get()?
-                .universe_from_literals(&ctx, cwd, &request.target_universe, global_target_platform)
+                .universe_from_literals(&ctx, cwd, &request.target_universe, global_cfg_options)
                 .await?,
         )
     };
@@ -414,14 +415,14 @@ async fn build_targets(
     want_configured_graph_size: bool,
 ) -> anyhow::Result<BuildTargetResult> {
     let stream = match target_resolution_config {
-        TargetResolutionConfig::Default(global_target_platform) => {
+        TargetResolutionConfig::Default(global_cfg_options) => {
             let spec = spec.convert_pattern().context(
                 "Cannot build with explicit configurations when universe is not specified",
             )?;
             build_targets_with_global_target_platform(
                 ctx,
                 spec,
-                global_target_platform,
+                global_cfg_options,
                 build_providers,
                 materialization_context,
                 missing_target_behavior,
@@ -480,7 +481,7 @@ fn build_targets_in_universe<'a>(
 fn build_targets_with_global_target_platform<'a>(
     ctx: &'a DiceComputations,
     spec: ResolvedPattern<ProvidersPatternExtra>,
-    global_target_platform: Option<TargetLabel>,
+    global_cfg_options: GlobalCfgOptions,
     build_providers: Arc<BuildProviders>,
     materialization_context: &'a MaterializationContext,
     missing_target_behavior: MissingTargetBehavior,
@@ -492,7 +493,7 @@ fn build_targets_with_global_target_platform<'a>(
             ctx,
             spec,
             package,
-            global_target_platform.dupe(),
+            global_cfg_options.clone(),
             build_providers.dupe(),
             materialization_context,
             missing_target_behavior,
@@ -508,7 +509,7 @@ fn build_targets_with_global_target_platform<'a>(
 struct TargetBuildSpec {
     target: TargetNode,
     providers: ProvidersName,
-    global_target_platform: Option<TargetLabel>,
+    global_cfg_options: GlobalCfgOptions,
     // Indicates whether this target was explicitly requested or not. If it's the result
     // of something like `//foo/...` we can skip it (for example if it's incompatible with
     // the target platform).
@@ -539,7 +540,7 @@ async fn build_targets_for_spec<'a>(
     ctx: &'a DiceComputations,
     spec: PackageSpec<ProvidersPatternExtra>,
     package: PackageLabel,
-    global_target_platform: Option<TargetLabel>,
+    global_cfg_options: GlobalCfgOptions,
     build_providers: Arc<BuildProviders>,
     materialization_context: &'a MaterializationContext,
     missing_target_behavior: MissingTargetBehavior,
@@ -607,7 +608,7 @@ async fn build_targets_for_spec<'a>(
         .map(|((_target_name, extra), target)| TargetBuildSpec {
             target,
             providers: extra.providers,
-            global_target_platform: global_target_platform.dupe(),
+            global_cfg_options: global_cfg_options.clone(),
             skippable,
             want_configured_graph_size,
         })
@@ -643,7 +644,10 @@ async fn build_target<'a>(
 ) -> impl Stream<Item = BuildEvent> + 'a {
     let providers_label = ProvidersLabel::new(spec.target.label().dupe(), spec.providers);
     let providers_label = match ctx
-        .get_configured_provider_label(&providers_label, spec.global_target_platform.as_ref())
+        .get_configured_provider_label(
+            &providers_label,
+            spec.global_cfg_options.target_platform.as_ref(),
+        )
         .await
     {
         Ok(l) => l,

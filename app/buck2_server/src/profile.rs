@@ -19,6 +19,7 @@ use buck2_cli_proto::target_profile::Action;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::fs::paths::abs_path::AbsPath;
@@ -38,8 +39,8 @@ use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
-use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
@@ -50,7 +51,7 @@ async fn generate_profile_analysis(
     ctx: DiceTransaction,
     package: PackageLabel,
     spec: PackageSpec<TargetPatternExtra>,
-    global_target_platform: Option<TargetLabel>,
+    global_cfg_options: GlobalCfgOptions,
     profile_mode: &StarlarkProfilerConfiguration,
 ) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
     let (target, TargetPatternExtra) = match spec {
@@ -62,7 +63,7 @@ async fn generate_profile_analysis(
     let label = TargetLabel::new(package.dupe(), target.as_ref());
 
     let configured_target = ctx
-        .get_configured_target(&label, global_target_platform.as_ref())
+        .get_configured_target(&label, global_cfg_options.target_platform.as_ref())
         .await?;
 
     match profile_mode {
@@ -191,8 +192,8 @@ async fn generate_profile(
 ) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
     let cells = ctx.get_cell_resolver().await?;
 
-    let global_target_platform =
-        target_platform_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
+    let global_cfg_options =
+        global_cfg_options_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
 
     let parsed_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
         &mut ctx,
@@ -207,8 +208,7 @@ async fn generate_profile(
         Action::Analysis => {
             let (package, spec) = one(resolved.specs)
                 .context("Error: profiling analysis requires exactly one target pattern")?;
-            generate_profile_analysis(ctx, package, spec, global_target_platform, profile_mode)
-                .await
+            generate_profile_analysis(ctx, package, spec, global_cfg_options, profile_mode).await
         }
         Action::Loading => {
             let ctx = &ctx;

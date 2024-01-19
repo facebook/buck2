@@ -20,11 +20,12 @@ use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
-use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
+use dupe::Dupe;
 
 use crate::commands::targets::fmt::print_target_call_stack_after_target;
 
@@ -78,15 +79,15 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
 
         let target_call_stacks = client_ctx.target_call_stacks;
 
-        let global_target_platform =
-            target_platform_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
+        let global_cfg_options =
+            global_cfg_options_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
 
         let skip_missing_targets = MissingTargetBehavior::from_skip(self.req.skip_missing_targets);
 
         let compatible_targets = load_compatible_patterns(
             &ctx,
             parsed_patterns,
-            global_target_platform,
+            global_cfg_options.target_platform.dupe(),
             skip_missing_targets,
         )
         .await?;

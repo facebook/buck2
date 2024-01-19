@@ -12,6 +12,7 @@ use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::query::oneshot::CqueryOwnerBehavior;
 use buck2_build_api::query::oneshot::QueryFrontend;
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::target::label::TargetLabel;
 use buck2_node::configured_universe::CqueryUniverse;
@@ -19,6 +20,7 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use dice::DiceComputations;
+use dupe::Dupe;
 
 use crate::aquery::evaluator::get_aquery_evaluator;
 use crate::cquery::evaluator::get_cquery_evaluator;
@@ -89,9 +91,10 @@ impl QueryFrontend for QueryFrontendImpl {
         ctx: &DiceComputations,
         cwd: &ProjectRelativePath,
         literals: &[String],
-        global_target_platform: Option<TargetLabel>,
+        global_cfg_options: GlobalCfgOptions,
     ) -> anyhow::Result<CqueryUniverse> {
-        let query_delegate = get_dice_query_delegate(ctx, cwd, global_target_platform).await?;
+        let query_delegate =
+            get_dice_query_delegate(ctx, cwd, global_cfg_options.target_platform.dupe()).await?;
         Ok(preresolve_literals_and_build_universe(
             &query_delegate,
             query_delegate.query_data(),

@@ -11,7 +11,6 @@ mod default;
 pub(crate) mod fmt;
 mod resolve_alias;
 mod streaming;
-
 use std::fs::File;
 use std::io::BufWriter;
 use std::io::Write;
@@ -27,11 +26,12 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
-use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
+use dupe::Dupe;
 
 use crate::commands::targets::default::targets_batch;
 use crate::commands::targets::default::TargetHashOptions;
@@ -210,15 +210,16 @@ async fn targets(
             } else {
                 let formatter = create_formatter(request, other)?;
                 let client_ctx = request.client_context()?;
-                let target_platform =
-                    target_platform_from_client_context(client_ctx, server_ctx, &mut dice).await?;
+                let global_cfg_options =
+                    global_cfg_options_from_client_context(client_ctx, server_ctx, &mut dice)
+                        .await?;
                 let fs = server_ctx.project_root();
                 targets_batch(
                     server_ctx,
                     dice,
                     &*formatter,
                     parsed_target_patterns,
-                    target_platform,
+                    global_cfg_options.target_platform.dupe(),
                     TargetHashOptions::new(other, &cell_resolver, fs)?,
                     other.keep_going,
                 )

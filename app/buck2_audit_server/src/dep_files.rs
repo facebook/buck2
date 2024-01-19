@@ -18,8 +18,8 @@ use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
-use buck2_server_ctx::pattern::target_platform_from_client_context;
 
 use crate::AuditSubcommand;
 
@@ -33,8 +33,9 @@ impl AuditSubcommand for AuditDepFilesCommand {
     ) -> anyhow::Result<()> {
         server_ctx
             .with_dice_ctx(async move |server_ctx, mut ctx| {
-                let target_platform =
-                    target_platform_from_client_context(&client_ctx, server_ctx, &mut ctx).await?;
+                let global_cfg_options =
+                    global_cfg_options_from_client_context(&client_ctx, server_ctx, &mut ctx)
+                        .await?;
 
                 let label = parse_patterns_from_cli_args::<TargetPatternExtra>(
                     &mut ctx,
@@ -50,7 +51,7 @@ impl AuditSubcommand for AuditDepFilesCommand {
                 .as_target_label(&self.pattern)?;
 
                 let label = ctx
-                    .get_configured_target(&label, target_platform.as_ref())
+                    .get_configured_target(&label, global_cfg_options.target_platform.as_ref())
                     .await?;
 
                 let category = Category::try_from(self.category.as_str())?;

@@ -16,10 +16,11 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::pattern::target_platform_from_client_context;
+use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
+use dupe::Dupe;
 
 use crate::commands::query::printer::QueryResultPrinter;
 use crate::commands::query::printer::ShouldPrintProviders;
@@ -87,8 +88,8 @@ async fn aquery(
     let client_ctx = context
         .as_ref()
         .context("No client context (internal error)")?;
-    let global_target_platform =
-        target_platform_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
+    let global_cfg_options =
+        global_cfg_options_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
 
     let query_result = QUERY_FRONTEND
         .get()?
@@ -97,7 +98,7 @@ async fn aquery(
             server_ctx.working_dir(),
             query,
             query_args,
-            global_target_platform,
+            global_cfg_options.target_platform.dupe(),
         )
         .await?;
 

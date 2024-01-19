@@ -27,6 +27,7 @@ use buck2_cli_proto::TestResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::events::HasEvents;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessObserver;
@@ -60,8 +61,8 @@ use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
-use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use buck2_server_ctx::test_command::TEST_COMMAND;
@@ -268,8 +269,8 @@ async fn test(
     let working_dir_cell = cell_resolver.find(cwd)?;
 
     let client_ctx = request.client_context()?;
-    let global_target_platform =
-        target_platform_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
+    let global_cfg_options =
+        global_cfg_options_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
 
     // Get the test runner from the config. Note that we use a different key from v1 since the API
     // is completely different, so there is not expectation that the same binary works for both.
@@ -324,7 +325,7 @@ async fn test(
     let test_outcome = test_targets(
         ctx,
         resolved_pattern,
-        global_target_platform,
+        global_cfg_options,
         request.test_executor_args.clone(),
         Arc::new(TestLabelFiltering::new(
             request.included_labels.clone(),
@@ -402,7 +403,7 @@ async fn test(
 async fn test_targets(
     ctx: DiceTransaction,
     pattern: ResolvedPattern<ConfiguredProvidersPatternExtra>,
-    global_target_platform: Option<TargetLabel>,
+    global_cfg_options: GlobalCfgOptions,
     external_runner_args: Vec<String>,
     label_filtering: Arc<TestLabelFiltering>,
     launcher: &dyn ExecutorLauncher,
@@ -475,7 +476,7 @@ async fn test_targets(
                 let mut driver = TestDriver::new(TestDriverState {
                     ctx: &ctx,
                     label_filtering: &label_filtering,
-                    global_target_platform: &global_target_platform,
+                    global_cfg_options: &global_cfg_options,
                     session: &session,
                     test_executor: &test_executor,
                     cell_resolver: &cell_resolver,
@@ -594,7 +595,7 @@ enum TestDriverTask {
 pub(crate) struct TestDriverState<'a, 'e> {
     ctx: &'a DiceComputations,
     label_filtering: &'a Arc<TestLabelFiltering>,
-    global_target_platform: &'a Option<TargetLabel>,
+    global_cfg_options: &'a GlobalCfgOptions,
     session: &'a TestSession,
     test_executor: &'a Arc<dyn TestExecutor + 'e>,
     cell_resolver: &'a CellResolver,
@@ -713,7 +714,10 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         let fut = async move {
             let label = state
                 .ctx
-                .get_configured_provider_label(&label, state.global_target_platform.as_ref())
+                .get_configured_provider_label(
+                    &label,
+                    state.global_cfg_options.target_platform.as_ref(),
+                )
                 .await?;
 
             let node = state.ctx.get_configured_target_node(label.target()).await?;

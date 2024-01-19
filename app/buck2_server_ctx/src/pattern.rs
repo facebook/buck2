@@ -17,7 +17,6 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::target::label::TargetLabel;
 use dice::DiceComputations;
 use gazebo::prelude::*;
 
@@ -73,40 +72,8 @@ pub async fn parse_patterns_from_cli_args<T: PatternType>(
     target_patterns.try_map(|value| parser.parse_pattern(&value.value))
 }
 
-/// Extract target configuration (platform) label from [`ClientContext`].
-pub async fn target_platform_from_client_context(
-    client_ctx: &ClientContext,
-    server_ctx: &dyn ServerCommandContextTrait,
-    dice_ctx: &mut DiceComputations,
-) -> anyhow::Result<Option<TargetLabel>> {
-    target_platform_from_client_context_impl(
-        client_ctx,
-        &dice_ctx.get_cell_resolver().await?,
-        server_ctx.working_dir(),
-    )
-    .await
-}
-
-async fn target_platform_from_client_context_impl(
-    client_context: &ClientContext,
-    cell_resolver: &CellResolver,
-    working_dir: &ProjectRelativePath,
-) -> anyhow::Result<Option<TargetLabel>> {
-    let cwd = cell_resolver.get_cell_path(working_dir)?;
-
-    let target_platform = &client_context.target_platform;
-    if !target_platform.is_empty() {
-        Ok(Some(
-            ParsedPattern::parse_precise(target_platform, cwd.cell(), cell_resolver)?
-                .as_target_label(target_platform)?,
-        ))
-    } else {
-        Ok(None)
-    }
-}
-
 /// Extract target configuration components from [`ClientContext`].
-pub async fn target_cfg_flags_from_client_context(
+pub async fn global_cfg_options_from_client_context(
     client_context: &ClientContext,
     server_ctx: &dyn ServerCommandContextTrait,
     dice_ctx: &mut DiceComputations,

@@ -24,8 +24,8 @@ use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
-use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_util::indent::indent;
 use dice::DiceTransaction;
 use dupe::Dupe;
@@ -66,8 +66,8 @@ async fn server_execute_with_dice(
     mut ctx: DiceTransaction,
 ) -> anyhow::Result<()> {
     let cells = ctx.get_cell_resolver().await?;
-    let target_platform =
-        target_platform_from_client_context(&client_ctx, server_ctx, &mut ctx).await?;
+    let global_cfg_options =
+        global_cfg_options_from_client_context(&client_ctx, server_ctx, &mut ctx).await?;
 
     let parsed_patterns = parse_patterns_from_cli_args::<ProvidersPatternExtra>(
         &mut ctx,
@@ -105,7 +105,7 @@ async fn server_execute_with_dice(
         for (target_name, providers) in targets {
             let label = providers.into_providers_label(package.dupe(), target_name.as_ref());
             let providers_label = ctx
-                .get_configured_provider_label(&label, target_platform.as_ref())
+                .get_configured_provider_label(&label, global_cfg_options.target_platform.as_ref())
                 .await?;
 
             // `.push` is deprecated in newer `futures`,

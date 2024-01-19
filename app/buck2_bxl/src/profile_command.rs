@@ -24,10 +24,11 @@ use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::pattern::target_platform_from_client_context;
+use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
+use dupe::Dupe;
 use futures::FutureExt;
 
 use crate::bxl::eval::eval;
@@ -103,14 +104,15 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                         };
 
                         let client_ctx = self.req.client_context()?;
-                        let global_target_platform =
-                            target_platform_from_client_context(client_ctx, server_ctx, &mut ctx)
-                                .await?;
+                        let global_cfg_options = global_cfg_options_from_client_context(
+                            client_ctx, server_ctx, &mut ctx,
+                        )
+                        .await?;
 
                         let bxl_key = BxlKey::new(
                             bxl_label.clone(),
                             bxl_args,
-                            global_target_platform,
+                            global_cfg_options.target_platform.dupe(),
                             /* force print stacktrace */ false,
                         );
 

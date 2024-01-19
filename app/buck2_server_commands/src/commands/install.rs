@@ -66,8 +66,8 @@ use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
-use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use buck2_util::process::background_command;
@@ -181,8 +181,8 @@ async fn install(
     let cell_resolver = ctx.get_cell_resolver().await?;
 
     let client_ctx = request.client_context()?;
-    let global_target_platform =
-        target_platform_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
+    let global_cfg_options =
+        global_cfg_options_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
 
     let materializations = MaterializationContext::force_materializations();
     let materializations = &materializations; // Don't move this below.
@@ -227,7 +227,7 @@ async fn install(
         for (target_name, providers) in targets {
             let label = providers.into_providers_label(package.dupe(), target_name.as_ref());
             let providers_label = ctx
-                .get_configured_provider_label(&label, global_target_platform.dupe().as_ref())
+                .get_configured_provider_label(&label, global_cfg_options.target_platform.as_ref())
                 .await?;
             let frozen_providers = ctx
                 .get_providers(&providers_label)
