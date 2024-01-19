@@ -820,6 +820,7 @@ where
     where
         V: Default,
     {
+        #[allow(clippy::unwrap_or_default)] // defining or_default
         self.or_insert_with(V::default)
     }
 

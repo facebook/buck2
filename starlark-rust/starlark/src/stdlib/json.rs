@@ -68,6 +68,8 @@ impl<'v, 'a> AllocValue<'v> for &'a serde_json::Number {
 
 impl<'v> AllocValue<'v> for serde_json::Number {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        // If you follow this hint, it becomes infinite recursion
+        #[allow(clippy::needless_borrows_for_generic_args)]
         heap.alloc(&self)
     }
 }
@@ -90,6 +92,8 @@ impl<'a> AllocFrozenValue for &'a serde_json::Number {
 
 impl AllocFrozenValue for serde_json::Number {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        // If you follow this hint, it becomes infinite recursion
+        #[allow(clippy::needless_borrows_for_generic_args)]
         heap.alloc(&self)
     }
 }
@@ -116,6 +120,8 @@ impl<'a, 'v> AllocValue<'v> for &'a serde_json::Map<String, serde_json::Value> {
 
 impl<'v> AllocValue<'v> for serde_json::Map<String, serde_json::Value> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        // If you follow this hint, it becomes infinite recursion
+        #[allow(clippy::needless_borrows_for_generic_args)]
         heap.alloc(&self)
     }
 }
@@ -128,6 +134,8 @@ impl<'a> AllocFrozenValue for &'a serde_json::Map<String, serde_json::Value> {
 
 impl AllocFrozenValue for serde_json::Map<String, serde_json::Value> {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        // If you follow this hint, it becomes infinite recursion
+        #[allow(clippy::needless_borrows_for_generic_args)]
         heap.alloc(&self)
     }
 }
@@ -161,6 +169,8 @@ impl<'v, 'a> AllocValue<'v> for &'a serde_json::Value {
 
 impl<'v> AllocValue<'v> for serde_json::Value {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        // If you follow this hint, it becomes infinite recursion
+        #[allow(clippy::needless_borrows_for_generic_args)]
         heap.alloc(&self)
     }
 }
@@ -180,6 +190,8 @@ impl<'a> AllocFrozenValue for &'a serde_json::Value {
 
 impl AllocFrozenValue for serde_json::Value {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        // If you follow this hint, it becomes infinite recursion
+        #[allow(clippy::needless_borrows_for_generic_args)]
         heap.alloc(&self)
     }
 }
