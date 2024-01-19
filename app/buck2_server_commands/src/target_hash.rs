@@ -30,6 +30,7 @@ use buck2_futures::spawn::DropCancelFuture;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::QueryTarget;
+use buck2_query::query::graph::successors::AsyncChildVisitor;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::AsyncNodeLookup;
@@ -327,7 +328,10 @@ impl TargetHashes {
 
                 Ok(())
             }
+        }
 
+        #[async_trait]
+        impl<T: TargetHashingTargetNode> AsyncChildVisitor<T> for Delegate<T> {
             async fn for_each_child(
                 &self,
                 target: &T,

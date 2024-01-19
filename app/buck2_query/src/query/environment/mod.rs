@@ -238,7 +238,10 @@ pub trait QueryEnvironment: Send + Sync {
                 self.rdeps.insert(target);
                 Ok(())
             }
+        }
 
+        #[async_trait]
+        impl<Q: QueryTarget> AsyncChildVisitor<Q> for ReverseDelegate<Q> {
             async fn for_each_child(
                 &self,
                 target: &Q,
@@ -389,7 +392,10 @@ pub async fn deps<Env: QueryEnvironment + ?Sized>(
             self.deps.insert(target);
             Ok(())
         }
+    }
 
+    #[async_trait]
+    impl<'a, Q: QueryTarget> AsyncChildVisitor<Q> for Delegate<'a, Q> {
         async fn for_each_child(
             &self,
             target: &Q,

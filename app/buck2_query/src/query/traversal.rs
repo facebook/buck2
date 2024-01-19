@@ -39,16 +39,9 @@ where
 /// visit). Different traversals may call `visit()` at different times (ex. dfs_postorder
 /// calls it after all children have been visited)
 #[async_trait]
-pub trait AsyncTraversalDelegate<T: LabeledNode>: Send + Sync {
+pub trait AsyncTraversalDelegate<T: LabeledNode>: AsyncChildVisitor<T> {
     /// visit is called once for each node. When it is called is traversal-dependent.
     fn visit(&mut self, target: T) -> anyhow::Result<()>;
-
-    /// for_each_child should apply the provided function to each child of the node. This may be called multiple times in some traversals.
-    async fn for_each_child(
-        &self,
-        target: &T,
-        func: &mut impl ChildVisitor<T>,
-    ) -> anyhow::Result<()>;
 }
 
 pub trait NodeLookup<T: LabeledNode> {
@@ -383,7 +376,10 @@ mod tests {
                     self.results.push(target.0.dupe());
                     Ok(())
                 }
+            }
 
+            #[async_trait]
+            impl<'a> AsyncChildVisitor<Node> for Delegate<'a> {
                 async fn for_each_child(
                     &self,
                     target: &Node,

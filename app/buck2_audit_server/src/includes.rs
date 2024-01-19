@@ -29,6 +29,7 @@ use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_query::query::graph::node::LabeledNode;
 use buck2_query::query::graph::node::NodeLabel;
+use buck2_query::query::graph::successors::AsyncChildVisitor;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
@@ -115,7 +116,10 @@ async fn get_transitive_includes(
             self.imports.push(target.import_path().clone());
             Ok(())
         }
+    }
 
+    #[async_trait]
+    impl AsyncChildVisitor<Node> for Delegate {
         async fn for_each_child(
             &self,
             target: &Node,

@@ -28,6 +28,7 @@ use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::graph::node::LabeledNode;
 use buck2_query::query::graph::node::NodeLabel;
+use buck2_query::query::graph::successors::AsyncChildVisitor;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::eval::file_set::FileNode;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
@@ -422,6 +423,10 @@ pub(crate) async fn rbuildfiles<'c>(
             }
             Ok(())
         }
+    }
+
+    #[async_trait]
+    impl AsyncChildVisitor<Node> for Delegate<'_> {
         async fn for_each_child(
             &self,
             node: &Node,
@@ -622,7 +627,10 @@ pub(crate) async fn get_transitive_loads<'c>(
             self.imports.push(target.import_path().clone());
             Ok(())
         }
+    }
 
+    #[async_trait]
+    impl AsyncChildVisitor<Node> for Delegate<'_> {
         async fn for_each_child(
             &self,
             target: &Node,
