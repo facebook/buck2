@@ -57,10 +57,17 @@ def _download_toolchain(ctx: AnalysisContext):
         script_content.append(cmd_args(output, format = "mkdir {}"))
     else:
         script_content.append(cmd_args(output, format = "mkdir -p {}"))
-    script_content.extend([
-        cmd_args(output, format = "cd {}"),
-        cmd_args(["tar", compress_flag, "-x", "-f", archive], delimiter = " ").relative_to(output),
-    ])
+    if host_info().os.is_windows:
+        script_content.extend([
+            cmd_args(output, format = "cd {}"),
+            cmd_args(["unzip", archive], delimiter = " ").relative_to(output),
+        ])
+    else:
+        script_content.extend([
+            cmd_args(output, format = "cd {}"),
+            cmd_args(["tar", compress_flag, "-x", "-f", archive], delimiter = " ").relative_to(output),
+        ])
+
     script, _ = ctx.actions.write(
         script_name,
         script_content,
@@ -105,6 +112,7 @@ def _toolchain_config():
             )
         else:
             fail("unrecognized architecture: couldn't select macOS go toolchain")
+
     # Default linux
     return struct(
         sha256 = "f0a87f1bcae91c4b69f8dc2bc6d7e6bfcd7524fceec130af525058c0c17b1b44",
