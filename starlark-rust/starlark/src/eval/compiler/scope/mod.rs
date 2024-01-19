@@ -658,7 +658,7 @@ impl<'f> ModuleScopeBuilder<'f> {
     fn variable_not_found_err(&self, ident: &CstIdent) -> EvalException {
         let variants = self
             .current_scope_all_visible_names_for_did_you_mean()
-            .unwrap_or(Vec::new());
+            .unwrap_or_default();
         let better = did_you_mean(
             ident.node.ident.as_str(),
             variants.iter().map(|s| s.as_str()),

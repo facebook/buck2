@@ -199,10 +199,9 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
             if matches!(
                 param.node,
                 ParameterP::Args(..) | ParameterP::KwArgs(..) | ParameterP::NoArgs
-            ) {
-                if num_positional.is_none() {
-                    num_positional = Some(i);
-                }
+            ) && num_positional.is_none()
+            {
+                num_positional = Some(i);
             }
         }
         Ok(DefParams {

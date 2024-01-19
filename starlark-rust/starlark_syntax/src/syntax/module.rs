@@ -199,10 +199,7 @@ impl AstModule {
                 dialect,
                 errors: &mut errors,
             },
-            lexer.filter(|t| match t {
-                Ok((_, Token::Comment(_), _)) => false,
-                _ => true,
-            }),
+            lexer.filter(|t| !matches!(t, Ok((_, Token::Comment(_), _)))),
         ) {
             Ok(v) => {
                 if let Some(err) = errors.into_iter().next() {

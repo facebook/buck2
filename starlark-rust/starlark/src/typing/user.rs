@@ -156,20 +156,14 @@ impl TyUser {
             iter_item,
             _non_exhaustive: (),
         } = params;
-        if callable.is_some() {
-            if !base.is_callable() {
-                return Err(TyUserError::CallableNotCallable(name).into());
-            }
+        if callable.is_some() && !base.is_callable() {
+            return Err(TyUserError::CallableNotCallable(name).into());
         }
-        if index.is_some() {
-            if !base.is_indexable() {
-                return Err(TyUserError::IndexableNotIndexable(name).into());
-            }
+        if index.is_some() && !base.is_indexable() {
+            return Err(TyUserError::IndexableNotIndexable(name).into());
         }
-        if iter_item.is_some() {
-            if base.iter_item().is_err() {
-                return Err(TyUserError::IterableNotIterable(name).into());
-            }
+        if iter_item.is_some() && base.iter_item().is_err() {
+            return Err(TyUserError::IterableNotIterable(name).into());
         }
         Ok(TyUser {
             name,

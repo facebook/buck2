@@ -252,10 +252,7 @@ fn is_anyhow_or_starlark_result(t: &Type) -> bool {
         None => return false,
         Some(t) => t,
     };
-    match t {
-        GenericArgument::Type(_) => true,
-        _ => false,
-    }
+    matches!(t, GenericArgument::Type(_))
 }
 
 // Add a function to the `GlobalsModule` named `globals_builder`.

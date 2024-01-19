@@ -63,7 +63,7 @@ impl TyCustomFunctionImpl for ListType {
 
         oracle.validate_fn_call(span, &LIST, args)?;
 
-        if let Some(arg) = args.get(0) {
+        if let Some(arg) = args.first() {
             // This is infallible after the check above.
             if let Arg::Pos(arg_ty) = &arg.node {
                 // This is also infallible.
