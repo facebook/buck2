@@ -8,11 +8,15 @@
  */
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use dupe::Dupe;
+use futures::future::FutureExt;
+use futures::future::Shared;
 use tokio::sync::OwnedRwLockWriteGuard;
 use tokio::sync::RwLock;
+use tokio::time::Sleep;
 
 #[derive(Debug, buck2_error::Error, Copy, Clone, Dupe)]
 #[error("LivelinessObserver reports this session is shutting down")]
@@ -196,6 +200,25 @@ impl LivelinessObserver for buck2_futures::cancellable_future::CancellationObser
     }
 }
 
+pub struct TimeoutLivelinessObserver {
+    inner: Shared<Sleep>,
+}
+
+impl TimeoutLivelinessObserver {
+    pub fn new(duration: Duration) -> Self {
+        Self {
+            inner: tokio::time::sleep(duration).shared(),
+        }
+    }
+}
+
+#[async_trait]
+impl LivelinessObserver for TimeoutLivelinessObserver {
+    async fn while_alive(&self) {
+        self.inner.clone().await
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -234,5 +257,20 @@ mod tests {
 
         restored.forget();
         assert!(manager.is_alive().await);
+    }
+
+    #[tokio::test]
+    async fn test_timeout() {
+        let obs = TimeoutLivelinessObserver::new(Duration::from_secs(1));
+
+        // It is alive for a little while.
+        tokio::time::timeout(Duration::from_millis(100), obs.while_alive())
+            .await
+            .unwrap_err();
+
+        // It eventually becomes not-alive.
+        tokio::time::timeout(Duration::from_secs(10), obs.while_alive())
+            .await
+            .unwrap();
     }
 }
