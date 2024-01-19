@@ -35,6 +35,7 @@ This project features:
 * Optional runtime-checked [types](docs/types.md).
 * A linter, to detect code issues in Starlark.
 * IDE integration in the form of [LSP](https://microsoft.github.io/language-server-protocol/).
+* Extensive testing, including [fuzz testing](https://github.com/google/oss-fuzz/tree/master/projects/starlark-rust).
 <!--
 * Broken [DAP](https://microsoft.github.io/debug-adapter-protocol/) support.
 -->
