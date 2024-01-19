@@ -52,7 +52,8 @@ impl<T: Allocative + ?Sized> Allocative for Arc<T> {
                 Arc::as_ptr(self) as *const (),
             );
             if let Some(mut visitor) = visitor {
-                struct ArcInner(AtomicUsize, AtomicUsize, ());
+                #[allow(dead_code)] // Only used for its size
+                struct ArcInner(AtomicUsize, AtomicUsize);
                 {
                     let val: &T = self;
                     let mut visitor = visitor.enter(
