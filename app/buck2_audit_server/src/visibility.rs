@@ -16,10 +16,9 @@ use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::lookup::TargetNodeLookup;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::visibility::VisibilityError;
-use buck2_query::query::graph::successors::AsyncChildVisitor;
+use buck2_query::query::environment::QueryTargetDepsSuccessors;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
-use buck2_query::query::traversal::ChildVisitor;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -43,30 +42,21 @@ async fn verify_visibility(
     targets: TargetSet<TargetNode>,
 ) -> anyhow::Result<()> {
     let mut new_targets: TargetSet<TargetNode> = TargetSet::new();
-    struct Delegate;
 
     let visit = |target| {
         new_targets.insert(target);
         Ok(())
     };
 
-    #[async_trait]
-    impl AsyncChildVisitor<TargetNode> for Delegate {
-        async fn for_each_child(
-            &self,
-            target: &TargetNode,
-            func: &mut impl ChildVisitor<TargetNode>,
-        ) -> anyhow::Result<()> {
-            for dep in target.deps() {
-                func.visit(dep)?;
-            }
-            Ok(())
-        }
-    }
-
     let lookup = TargetNodeLookup(&ctx);
 
-    async_depth_first_postorder_traversal(&lookup, targets.iter_names(), Delegate, visit).await?;
+    async_depth_first_postorder_traversal(
+        &lookup,
+        targets.iter_names(),
+        QueryTargetDepsSuccessors,
+        visit,
+    )
+    .await?;
 
     let mut visibility_errors = Vec::new();
 

@@ -30,11 +30,10 @@ use buck2_futures::spawn::DropCancelFuture;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::QueryTarget;
-use buck2_query::query::graph::successors::AsyncChildVisitor;
+use buck2_query::query::environment::QueryTargetDepsSuccessors;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::AsyncNodeLookup;
-use buck2_query::query::traversal::ChildVisitor;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
@@ -322,25 +321,13 @@ impl TargetHashes {
             Ok(())
         };
 
-        struct Delegate;
-
-        #[async_trait]
-        impl<T: TargetHashingTargetNode> AsyncChildVisitor<T> for Delegate {
-            async fn for_each_child(
-                &self,
-                target: &T,
-                func: &mut impl ChildVisitor<T>,
-            ) -> anyhow::Result<()> {
-                for dep in target.deps() {
-                    func.visit(dep)?;
-                }
-
-                Ok(())
-            }
-        }
-
-        async_depth_first_postorder_traversal(&lookup, targets.iter_names(), Delegate, visit)
-            .await?;
+        async_depth_first_postorder_traversal(
+            &lookup,
+            targets.iter_names(),
+            QueryTargetDepsSuccessors,
+            visit,
+        )
+        .await?;
 
         let mut futures: FuturesUnordered<_> = hashes
             .into_iter()
