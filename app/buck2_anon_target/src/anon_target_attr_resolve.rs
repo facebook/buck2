@@ -23,7 +23,7 @@ use starlark_map::small_map::SmallMap;
 
 use crate::anon_target_attr::AnonTargetAttr;
 
-pub trait AnonTargetAttrExt {
+pub trait AnonTargetAttrResolution {
     fn resolve<'v>(
         &self,
         pkg: PackageLabel,
@@ -37,7 +37,7 @@ pub trait AnonTargetAttrExt {
     ) -> anyhow::Result<Value<'v>>;
 }
 
-impl AnonTargetAttrExt for AnonTargetAttr {
+impl AnonTargetAttrResolution for AnonTargetAttr {
     /// "Resolves" the anon target attr value to the resolved value provided to the rule implementation.
     ///
     /// `resolve` may return multiple values. It is up to the caller to fail if

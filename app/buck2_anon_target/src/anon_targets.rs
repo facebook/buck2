@@ -106,7 +106,7 @@ use starlark_map::small_map::SmallMap;
 use crate::anon_promises::AnonPromises;
 use crate::anon_target_attr::AnonTargetAttr;
 use crate::anon_target_attr_coerce::AnonTargetAttrTypeCoerce;
-use crate::anon_target_attr_resolve::AnonTargetAttrExt;
+use crate::anon_target_attr_resolve::AnonTargetAttrResolution;
 use crate::anon_target_node::AnonTarget;
 use crate::promise_artifacts::PromiseArtifactRegistry;
 
