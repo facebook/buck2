@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
 use allocative::Allocative;
 use buck2_core::target::label::TargetLabel;
 
@@ -15,5 +17,5 @@ use buck2_core::target::label::TargetLabel;
 )]
 pub struct GlobalCfgOptions {
     pub target_platform: Option<TargetLabel>,
-    pub cli_modifiers: Vec<String>,
+    pub cli_modifiers: Arc<Vec<String>>,
 }

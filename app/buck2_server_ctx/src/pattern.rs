@@ -126,6 +126,6 @@ pub async fn target_cfg_flags_from_client_context(
 
     Ok(GlobalCfgOptions {
         target_platform: target_platform_label,
-        cli_modifiers: client_context.cli_modifiers.clone(),
+        cli_modifiers: client_context.cli_modifiers.clone().into(),
     })
 }
