@@ -14,15 +14,11 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
-use buck2_artifact::artifact::artifact_type::Artifact;
-use buck2_core::base_deferred_key::BaseDeferredKey;
-use buck2_error::Context;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_util::late_binding::LateBinding;
 use derive_more::Display;
 use dice::DiceComputations;
-use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
@@ -47,9 +43,7 @@ use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
 
 use crate::analysis::registry::AnalysisRegistry;
-use crate::artifact_groups::promise::PromiseArtifact;
-use crate::artifact_groups::promise::PromiseArtifactResolveError;
-use crate::deferred::calculation::EVAL_ANON_TARGET;
+use crate::deferred::calculation::GET_PROMISED_ARTIFACT;
 use crate::interpreter::rule_defs::plugins::AnalysisPlugins;
 
 /// Functions to allow users to interact with the Actions registry.
@@ -121,40 +115,12 @@ impl<'v> AnalysisActions<'v> {
         };
 
         for consumer_artifact in consumer_analysis_artifacts {
-            let artifact = get_artifact_from_anon_target_analysis(&consumer_artifact, dice).await?;
+            let artifact = (GET_PROMISED_ARTIFACT.get()?)(&consumer_artifact, dice).await?;
             let short_path = short_path_assertions.get(consumer_artifact.id()).cloned();
             consumer_artifact.resolve(artifact.clone(), &short_path)?;
         }
         Ok(())
     }
-}
-
-pub async fn get_artifact_from_anon_target_analysis(
-    promise_artifact: &PromiseArtifact,
-    dice: &DiceComputations,
-) -> anyhow::Result<Artifact> {
-    let promise_id = promise_artifact.id();
-    let owner = promise_artifact.owner();
-    let analysis_result = match owner {
-        BaseDeferredKey::AnonTarget(anon_target) => {
-            (EVAL_ANON_TARGET.get()?)(dice, anon_target.dupe()).await?
-        }
-        _ => {
-            return Err(PromiseArtifactResolveError::OwnerIsNotAnonTarget(
-                promise_artifact.clone(),
-                owner.clone(),
-            )
-            .into());
-        }
-    };
-
-    analysis_result
-        .promise_artifact_map()
-        .get(promise_id)
-        .context(PromiseArtifactResolveError::NotFoundInAnalysis(
-            promise_artifact.clone(),
-        ))
-        .cloned()
 }
 
 #[starlark_value(type = "actions", StarlarkTypeRepr, UnpackValue)]

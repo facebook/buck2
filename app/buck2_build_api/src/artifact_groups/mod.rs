@@ -13,7 +13,7 @@ pub mod deferred;
 pub mod promise;
 
 use crate::actions::calculation::BuildKey;
-use crate::interpreter::rule_defs::context::get_artifact_from_anon_target_analysis;
+use crate::deferred::calculation::GET_PROMISED_ARTIFACT;
 
 pub mod registry;
 
@@ -69,7 +69,7 @@ impl ArtifactGroup {
             ArtifactGroup::Promise(p) => match p.get() {
                 Some(a) => ResolvedArtifactGroup::Artifact(a.clone()),
                 None => {
-                    let artifact = get_artifact_from_anon_target_analysis(p, ctx).await?;
+                    let artifact = (GET_PROMISED_ARTIFACT.get()?)(p, ctx).await?;
                     ResolvedArtifactGroup::Artifact(artifact)
                 }
             },

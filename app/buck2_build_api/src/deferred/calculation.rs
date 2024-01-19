@@ -49,6 +49,7 @@ use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::analysis::AnalysisResult;
 use crate::artifact_groups::calculation::ArtifactGroupCalculation;
+use crate::artifact_groups::promise::PromiseArtifact;
 use crate::artifact_groups::ArtifactGroup;
 use crate::bxl::calculation::BXL_CALCULATION_IMPL;
 use crate::bxl::result::BxlResult;
@@ -106,6 +107,13 @@ pub static EVAL_ANON_TARGET: LateBinding<
         Arc<dyn BaseDeferredKeyDyn>,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<AnalysisResult>> + Send + 'c>>,
 > = LateBinding::new("EVAL_ANON_TARGET");
+
+pub static GET_PROMISED_ARTIFACT: LateBinding<
+    for<'c> fn(
+        &'c PromiseArtifact,
+        &'c DiceComputations,
+    ) -> Pin<Box<dyn Future<Output = anyhow::Result<Artifact>> + Send + 'c>>,
+> = LateBinding::new("GET_PROMISED_ARTIFACT");
 
 async fn lookup_deferred_inner(
     key: &BaseDeferredKey,

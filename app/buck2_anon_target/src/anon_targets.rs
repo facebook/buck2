@@ -29,6 +29,7 @@ use buck2_build_api::artifact_groups::promise::PromiseArtifact;
 use buck2_build_api::artifact_groups::promise::PromiseArtifactId;
 use buck2_build_api::artifact_groups::promise::PromiseArtifactResolveError;
 use buck2_build_api::deferred::calculation::EVAL_ANON_TARGET;
+use buck2_build_api::deferred::calculation::GET_PROMISED_ARTIFACT;
 use buck2_build_api::deferred::types::DeferredTable;
 use buck2_build_api::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
@@ -595,6 +596,42 @@ impl AttrConfigurationContext for AnonAttrCtx {
 pub(crate) fn init_eval_anon_target() {
     EVAL_ANON_TARGET
         .init(|ctx, key| Box::pin(async move { AnonTargetKey::downcast(key)?.resolve(ctx).await }));
+}
+
+pub(crate) fn init_get_promised_artifact() {
+    GET_PROMISED_ARTIFACT.init(|promise_artifact, ctx| {
+        Box::pin(async move { get_artifact_from_anon_target_analysis(promise_artifact, ctx).await })
+    });
+}
+
+async fn get_artifact_from_anon_target_analysis<'v>(
+    promise_artifact: &'v PromiseArtifact,
+    ctx: &'v DiceComputations,
+) -> anyhow::Result<Artifact> {
+    let promise_id = promise_artifact.id();
+    let owner = promise_artifact.owner();
+    let analysis_result = match owner {
+        BaseDeferredKey::AnonTarget(anon_target) => {
+            AnonTargetKey::downcast(anon_target.dupe())?
+                .resolve(ctx)
+                .await?
+        }
+        _ => {
+            return Err(PromiseArtifactResolveError::OwnerIsNotAnonTarget(
+                promise_artifact.clone(),
+                owner.clone(),
+            )
+            .into());
+        }
+    };
+
+    analysis_result
+        .promise_artifact_map()
+        .get(promise_id)
+        .context(PromiseArtifactResolveError::NotFoundInAnalysis(
+            promise_artifact.clone(),
+        ))
+        .cloned()
 }
 
 pub(crate) fn init_anon_target_registry_new() {
