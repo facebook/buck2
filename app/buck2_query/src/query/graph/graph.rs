@@ -19,6 +19,7 @@ use starlark_map::StarlarkHasherBuilder;
 
 use crate::query::graph::bfs::bfs_find_path;
 use crate::query::graph::dfs::dfs_postorder_impl;
+use crate::query::graph::dfs::dfs_preorder;
 use crate::query::graph::node::LabeledNode;
 use crate::query::graph::successors::AsyncChildVisitor;
 use crate::query::graph::successors::GraphSuccessors;
@@ -42,7 +43,7 @@ pub(crate) struct Graph<N: LabeledNode> {
 }
 
 impl<N: LabeledNode> Graph<N> {
-    pub(crate) fn _get(&self, node: &N::NodeRef) -> Option<&N> {
+    pub(crate) fn get(&self, node: &N::NodeRef) -> Option<&N> {
         self.node_to_index
             .get(node)
             .map(|index| &self.nodes[*index as usize].node)
@@ -95,7 +96,7 @@ impl<N: LabeledNode> GraphBuilder<N> {
 }
 
 impl<T: LabeledNode> Graph<T> {
-    pub(crate) fn _children(&self, node: &T::NodeRef) -> impl Iterator<Item = &T> {
+    pub(crate) fn children(&self, node: &T::NodeRef) -> impl Iterator<Item = &T> {
         let index = self.node_to_index[node];
         self.nodes[index as usize]
             .children
@@ -196,6 +197,82 @@ impl<T: LabeledNode> Graph<T> {
         }
 
         Ok(graph.build())
+    }
+
+    /// Build graph with nodes laid out in stable DFS order.
+    pub(crate) async fn build_stable_dfs(
+        nodes: &impl AsyncNodeLookup<T>,
+        root: impl IntoIterator<Item = T::NodeRef>,
+        successors: impl AsyncChildVisitor<T>,
+    ) -> anyhow::Result<Graph<T>> {
+        let root = root.into_iter().collect::<Vec<_>>();
+        let graph = Self::build(nodes, root.iter().cloned(), successors).await?;
+        let root = root.into_iter().map(|n| graph.node_to_index[&n]);
+        let mut old_to_new: VecAsMap<u32> = VecAsMap::default();
+
+        let mut new_index = 0;
+        graph.dfs_preorder_indices(root, |old_index| {
+            let prev = old_to_new.insert(old_index, new_index);
+            assert!(prev.is_none());
+            new_index += 1;
+        });
+
+        assert_eq!(graph.nodes.len(), new_index as usize);
+
+        Ok(graph.index_remap(|old_index| *old_to_new.get(old_index).unwrap()))
+    }
+
+    fn dfs_preorder_indices(&self, roots: impl IntoIterator<Item = u32>, visitor: impl FnMut(u32)) {
+        dfs_preorder(roots, GraphSuccessorsImpl { graph: self }, visitor)
+    }
+
+    /// Remap the indices of the graph.
+    fn index_remap(self, remap: impl Fn(u32) -> u32) -> Self {
+        let Graph {
+            nodes,
+            mut node_to_index,
+        } = self;
+
+        let mut new_nodes: VecAsMap<GraphNode<T>> = VecAsMap::default();
+
+        for (i, mut node) in nodes.into_iter().enumerate() {
+            for child in &mut node.children {
+                *child = remap(*child);
+            }
+            let prev = new_nodes.insert(remap(i as u32), node);
+            assert!(prev.is_none());
+        }
+
+        for index in node_to_index.values_unordered_mut() {
+            *index = remap(*index);
+        }
+
+        let new_nodes = new_nodes.vec.into_iter().map(|n| n.unwrap()).collect();
+        Graph {
+            nodes: new_nodes,
+            node_to_index,
+        }
+    }
+
+    /// Reverse the edges.
+    pub(crate) fn reverse(self) -> Graph<T> {
+        let Graph {
+            mut nodes,
+            node_to_index,
+        } = self;
+        let mut new_edges: Vec<Vec<u32>> = (0..nodes.len()).map(|_| Vec::new()).collect();
+        for node in nodes.iter().enumerate() {
+            for child in &node.1.children {
+                new_edges[*child as usize].push(node.0 as u32);
+            }
+        }
+        for (node, new_edges) in nodes.iter_mut().zip(new_edges) {
+            node.children = new_edges;
+        }
+        Graph {
+            nodes,
+            node_to_index,
+        }
     }
 
     pub(crate) fn depth_first_postorder_traversal<RootIter: IntoIterator<Item = T::NodeRef>>(

@@ -15,6 +15,7 @@ use dupe::Dupe;
 use starlark_map::unordered_set::UnorderedSet;
 
 use crate::query::graph::successors::GraphSuccessors;
+use crate::query::graph::vec_as_set::VecAsSet;
 use crate::query::graph::visited::VisitedNodes;
 
 pub fn dfs_postorder<N: Eq + Hash + Dupe>(
@@ -72,4 +73,55 @@ pub(crate) fn dfs_postorder_impl<N: Dupe, V: VisitedNodes<N>>(
     }
 
     Ok(())
+}
+
+pub(crate) fn dfs_preorder(
+    roots: impl IntoIterator<Item = u32>,
+    successors: impl GraphSuccessors<u32>,
+    mut visit: impl FnMut(u32),
+) {
+    let mut visited = VecAsSet::default();
+    let mut work = Vec::new();
+
+    for root in roots {
+        work.push(root);
+
+        while let Some(node) = work.pop() {
+            if !visited.insert(node) {
+                continue;
+            }
+            visit(node);
+
+            let work_len = work.len();
+            successors.for_each_successor(&node, |succ| {
+                work.push(*succ);
+            });
+            work[work_len..].reverse();
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::query::graph::dfs::dfs_preorder;
+    use crate::query::graph::successors::GraphSuccessors;
+
+    #[test]
+    fn test() {
+        struct SuccessorImpl;
+
+        impl GraphSuccessors<u32> for SuccessorImpl {
+            fn for_each_successor(&self, node: &u32, mut cb: impl FnMut(&u32)) {
+                for succ in [node + 2, node + 3] {
+                    if succ <= 10 {
+                        cb(&succ);
+                    }
+                }
+            }
+        }
+
+        let mut visited = Vec::new();
+        dfs_preorder([0, 1], SuccessorImpl, |n| visited.push(n));
+        assert_eq!(vec![0, 2, 4, 6, 8, 10, 9, 7, 5, 3, 1], visited);
+    }
 }

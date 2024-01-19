@@ -8,7 +8,6 @@
  */
 
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::iter;
 
@@ -22,7 +21,6 @@ use dupe::Dupe;
 use dupe::IterDupedExt;
 use futures::stream::FuturesUnordered;
 use futures::stream::TryStreamExt;
-use starlark_map::ordered_set::OrderedSet;
 
 use crate::query::graph::graph::Graph;
 use crate::query::graph::node::LabeledNode;
@@ -219,52 +217,19 @@ pub trait QueryEnvironment: Send + Sync {
         from: &TargetSet<Self::Target>,
         depth: Option<i32>,
     ) -> anyhow::Result<TargetSet<Self::Target>> {
-        // First, we map all deps to their rdeps (parents).
-        // This effectively allows traversing the graph later, in reverse (following dependency back-edges).
-        struct ParentsCollectorDelegate<Q: QueryTarget> {
-            parents: HashMap<Q::NodeRef, OrderedSet<Q::NodeRef>>,
-            // Keep track of nodes in-universe so that, if any rdeps are collected out-of-universe,
-            // we don't return them.
-            nodes_in_universe: TargetSet<Q>,
-        }
+        let graph = Graph::build_stable_dfs(
+            &QueryEnvironmentAsNodeLookup { env: self },
+            universe.iter().map(|n| n.node_ref().clone()),
+            QueryTargetDepsSuccessors,
+        )
+        .await?;
 
-        #[async_trait]
-        impl<Q: QueryTarget> AsyncTraversalDelegate<Q> for ParentsCollectorDelegate<Q> {
-            fn visit(&mut self, target: Q) -> anyhow::Result<()> {
-                self.nodes_in_universe.insert(target);
-                Ok(())
-            }
-
-            async fn for_each_child(
-                &mut self,
-                target: &Q,
-                func: &mut impl ChildVisitor<Q>,
-            ) -> anyhow::Result<()> {
-                for dep in target.deps() {
-                    func.visit(dep).with_context(|| {
-                        format!("Error traversing children of `{}`", target.node_ref())
-                    })?;
-                    self.parents
-                        .entry(dep.clone())
-                        .or_default()
-                        .insert(target.node_ref().clone());
-                }
-                Ok(())
-            }
-        }
-
-        let mut parents_collector_delegate = ParentsCollectorDelegate {
-            parents: HashMap::new(),
-            nodes_in_universe: TargetSet::new(),
-        };
-
-        self.dfs_postorder(universe, &mut parents_collector_delegate)
-            .await?;
+        let graph = graph.reverse();
 
         // Now that we have a mapping of back-edges, traverse deps graph in reverse.
         struct ReverseDelegate<Q: QueryTarget> {
             rdeps: TargetSet<Q>,
-            parents: HashMap<Q::NodeRef, OrderedSet<Q::NodeRef>>,
+            graph: Graph<Q>,
         }
 
         #[async_trait]
@@ -279,23 +244,23 @@ pub trait QueryEnvironment: Send + Sync {
                 target: &Q,
                 func: &mut impl ChildVisitor<Q>,
             ) -> anyhow::Result<()> {
-                if let Some(parents) = self.parents.get(target.node_ref()) {
-                    for parent in parents {
-                        func.visit(parent).with_context(|| {
-                            format!("Error traversing parents of `{}`", target.node_ref())
-                        })?;
-                    }
+                for parent in self.graph.children(target.node_ref()) {
+                    func.visit(parent.node_ref()).with_context(|| {
+                        format!("Error traversing children of `{}`", target.node_ref())
+                    })?;
                 }
                 Ok(())
             }
         }
 
+        let roots_in_universe = from.filter(|t| Ok(graph.get(t.node_ref()).is_some()))?;
+
+        // TODO(nga): we have constructed graph already, we don't need to call slow `dfs_postorder` here.
+
         let mut delegate = ReverseDelegate {
             rdeps: TargetSet::new(),
-            parents: parents_collector_delegate.parents,
+            graph,
         };
-
-        let roots_in_universe = from.intersect(&parents_collector_delegate.nodes_in_universe)?;
 
         match depth {
             // For unbounded traversals, buck1 recommends specifying a large value. We'll accept either a negative (like -1) or

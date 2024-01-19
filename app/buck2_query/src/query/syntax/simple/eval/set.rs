@@ -53,7 +53,10 @@ impl<T: QueryTarget> TargetSet<T> {
         self.targets.len()
     }
 
-    fn filter<F: Fn(&T) -> anyhow::Result<bool>>(&self, filter: F) -> anyhow::Result<TargetSet<T>> {
+    pub(crate) fn filter<F: Fn(&T) -> anyhow::Result<bool>>(
+        &self,
+        filter: F,
+    ) -> anyhow::Result<TargetSet<T>> {
         let mut targets = LabelIndexedSet::new();
         for target in self.targets.iter() {
             if filter(target)? {
