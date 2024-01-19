@@ -20,6 +20,7 @@ use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::file_ops::FileOps;
 use buck2_common::file_ops::PathMetadata;
 use buck2_common::file_ops::PathMetadataOrRedirection;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::package::PackageLabel;
@@ -192,7 +193,7 @@ pub trait TargetHashingTargetNode: QueryTarget {
     async fn get_target_nodes(
         dice: &DiceComputations,
         loaded_targets: Vec<(PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
-        global_target_platform: Option<TargetLabel>,
+        global_cfg_options: &GlobalCfgOptions,
     ) -> anyhow::Result<TargetSet<Self>>;
 }
 
@@ -205,9 +206,9 @@ impl TargetHashingTargetNode for ConfiguredTargetNode {
     async fn get_target_nodes(
         dice: &DiceComputations,
         loaded_targets: Vec<(PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
-        global_target_platform: Option<TargetLabel>,
+        global_cfg_options: &GlobalCfgOptions,
     ) -> anyhow::Result<TargetSet<Self>> {
-        get_compatible_targets(dice, loaded_targets.into_iter(), global_target_platform).await
+        get_compatible_targets(dice, loaded_targets.into_iter(), global_cfg_options).await
     }
 }
 
@@ -220,7 +221,7 @@ impl TargetHashingTargetNode for TargetNode {
     async fn get_target_nodes(
         _dice: &DiceComputations,
         loaded_targets: Vec<(PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
-        _global_target_platform: Option<TargetLabel>,
+        _global_cfg_options: &GlobalCfgOptions,
     ) -> anyhow::Result<TargetSet<Self>> {
         let mut target_set = TargetSet::new();
         for (_package, result) in loaded_targets {
@@ -414,7 +415,7 @@ impl TargetHashes {
         dice: DiceTransaction,
         lookup: L,
         targets: Vec<(PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
-        global_target_platform: Option<TargetLabel>,
+        global_cfg_options: &GlobalCfgOptions,
         file_hash_mode: TargetHashesFileMode,
         use_fast_hash: bool,
         target_hash_recursive: bool,
@@ -422,7 +423,7 @@ impl TargetHashes {
     where
         T::Key: ConfiguredOrUnconfiguredTargetLabel,
     {
-        let targets = T::get_target_nodes(&dice, targets, global_target_platform).await?;
+        let targets = T::get_target_nodes(&dice, targets, global_cfg_options).await?;
         let file_hasher = Self::new_file_hasher(dice.dupe(), file_hash_mode);
         if target_hash_recursive {
             Self::compute_recursive_target_hashes(dice, lookup, targets, file_hasher, use_fast_hash)

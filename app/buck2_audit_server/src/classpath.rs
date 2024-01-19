@@ -54,7 +54,7 @@ impl AuditSubcommand for AuditClasspathCommand {
                 let targets = load_compatible_patterns(
                     &ctx,
                     parsed_patterns,
-                    global_cfg_options.target_platform.dupe(),
+                    &global_cfg_options,
                     MissingTargetBehavior::Fail,
                 )
                 .await?;

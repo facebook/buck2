@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::package::PackageLabel;
@@ -99,11 +100,15 @@ pub async fn get_maybe_compatible_targets<'a>(
 pub async fn get_compatible_targets(
     ctx: &DiceComputations,
     loaded_targets: impl IntoIterator<Item = (PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
-    global_target_platform: Option<TargetLabel>,
+    global_cfg_options: &GlobalCfgOptions,
 ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
-    let maybe_compatible_targets =
-        get_maybe_compatible_targets(ctx, loaded_targets, global_target_platform.as_ref(), false)
-            .await?;
+    let maybe_compatible_targets = get_maybe_compatible_targets(
+        ctx,
+        loaded_targets,
+        global_cfg_options.target_platform.as_ref(),
+        false,
+    )
+    .await?;
 
     let (compatible_targets, incompatible_targets) =
         split_compatible_incompatible(maybe_compatible_targets)?;
@@ -120,14 +125,14 @@ pub async fn get_compatible_targets(
 pub async fn load_compatible_patterns(
     ctx: &DiceComputations,
     parsed_patterns: Vec<ParsedPattern<TargetPatternExtra>>,
-    global_target_platform: Option<TargetLabel>,
+    global_cfg_options: &GlobalCfgOptions,
     skip_missing_targets: MissingTargetBehavior,
 ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
     let loaded_patterns = load_patterns(ctx, parsed_patterns, skip_missing_targets).await?;
     get_compatible_targets(
         ctx,
         loaded_patterns.iter_loaded_targets_by_package(),
-        global_target_platform,
+        global_cfg_options,
     )
     .await
 }

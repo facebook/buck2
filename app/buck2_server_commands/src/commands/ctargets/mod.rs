@@ -25,7 +25,6 @@ use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
-use dupe::Dupe;
 
 use crate::commands::targets::fmt::print_target_call_stack_after_target;
 
@@ -87,7 +86,7 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
         let compatible_targets = load_compatible_patterns(
             &ctx,
             parsed_patterns,
-            global_cfg_options.target_platform.dupe(),
+            &global_cfg_options,
             skip_missing_targets,
         )
         .await?;

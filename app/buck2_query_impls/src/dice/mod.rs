@@ -15,6 +15,7 @@ use buck2_build_api::configure_targets::load_compatible_patterns;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::package_boundary::PackageBoundaryExceptions;
 use buck2_common::package_listing::dice::HasPackageListingResolver;
@@ -339,7 +340,10 @@ impl QueryLiterals<ConfiguredTargetNode> for DiceQueryData {
         load_compatible_patterns(
             ctx,
             parsed_patterns,
-            self.global_target_platform.dupe(),
+            &GlobalCfgOptions {
+                target_platform: self.global_target_platform.dupe(),
+                cli_modifiers: vec![].into(),
+            },
             MissingTargetBehavior::Fail,
         )
         .await

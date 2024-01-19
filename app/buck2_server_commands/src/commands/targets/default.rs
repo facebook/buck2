@@ -17,12 +17,12 @@ use buck2_cli_proto::targets_request;
 use buck2_cli_proto::targets_request::TargetHashFileMode;
 use buck2_cli_proto::targets_request::TargetHashGraphType;
 use buck2_cli_proto::TargetsResponse;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::target::label::TargetLabel;
 use buck2_node::load_patterns::load_patterns;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -87,7 +87,7 @@ pub(crate) async fn targets_batch(
     dice: DiceTransaction,
     formatter: &dyn TargetFormatter,
     parsed_patterns: Vec<ParsedPattern<TargetPatternExtra>>,
-    target_platform: Option<TargetLabel>,
+    global_cfg_options: &GlobalCfgOptions,
     hash_options: TargetHashOptions,
     keep_going: bool,
 ) -> anyhow::Result<TargetsResponse> {
@@ -99,7 +99,7 @@ pub(crate) async fn targets_batch(
                 dice.dupe(),
                 ConfiguredTargetNodeLookup(&dice),
                 results.iter_loaded_targets_by_package().collect(),
-                target_platform,
+                global_cfg_options,
                 hash_options.file_mode,
                 hash_options.fast_hash,
                 hash_options.recursive,
@@ -111,7 +111,7 @@ pub(crate) async fn targets_batch(
                 dice.dupe(),
                 TargetNodeLookup(&dice),
                 results.iter_loaded_targets_by_package().collect(),
-                target_platform,
+                global_cfg_options,
                 hash_options.file_mode,
                 hash_options.fast_hash,
                 hash_options.recursive,

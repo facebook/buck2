@@ -31,7 +31,6 @@ use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
-use dupe::Dupe;
 
 use crate::commands::targets::default::targets_batch;
 use crate::commands::targets::default::TargetHashOptions;
@@ -219,7 +218,7 @@ async fn targets(
                     dice,
                     &*formatter,
                     parsed_target_patterns,
-                    global_cfg_options.target_platform.dupe(),
+                    &global_cfg_options,
                     TargetHashOptions::new(other, &cell_resolver, fs)?,
                     other.keep_going,
                 )
