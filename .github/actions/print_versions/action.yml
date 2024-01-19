@@ -1,0 +1,12 @@
+name: print_versions
+runs:
+  using: composite
+  steps:
+  - name: Version Info
+    run: |-
+      rustup show
+      rustc --version
+      cargo --version
+      rustup --version
+      python3 --version
+    shell: bash

@@ -1,0 +1,15 @@
+name: setup_macos_env
+description: Setup macOS environment
+runs:
+  using: composite
+  steps:
+  - name: Install Rustup
+    run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain=none
+    shell: bash
+  - name: Brew install
+    run: brew install cmake python3 coreutils opam llvm protobuf zstd ghc
+    shell: bash
+  - name: Install conan
+    run: sudo pip3 install conan==1.*
+    shell: bash
+  - uses: "./.github/actions/print_versions"

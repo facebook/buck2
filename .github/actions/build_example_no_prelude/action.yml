@@ -1,0 +1,9 @@
+name: build_example_no_prelude
+runs:
+  using: composite
+  steps:
+  - name: Build example/no_prelude directory
+    run: |-
+      cd examples/no_prelude
+      $RUNNER_TEMP/artifacts/buck2 build //... -v 2
+    shell: bash
