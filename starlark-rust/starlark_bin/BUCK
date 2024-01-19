@@ -8,6 +8,7 @@ buck_rust_binary(
         ["bin/**/*.rs"],
     ),
     crate_root = "bin/main.rs",
+    env = {"CARGO_PKG_VERSION": "0.0"},  # So our OSS builds can support --version
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:argfile",

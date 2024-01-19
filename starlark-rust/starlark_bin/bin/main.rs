@@ -52,7 +52,7 @@ mod dap;
 mod eval;
 
 #[derive(Debug, Parser)]
-#[command(name = "starlark", about = "Evaluate Starlark code")]
+#[command(name = "starlark", about = "Evaluate Starlark code", version)]
 struct Args {
     #[arg(
         long = "lsp",
