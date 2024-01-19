@@ -83,7 +83,7 @@ impl fmt::Display for PromiseArtifactAttr {
         // TODO(@wendyy) - we should figure out what to do about the declaration location.
         // It's possible that 2 targets produce the same promise artifact and try to pass
         // it into a downstream target, so then there would be 2 declaration locations.
-        write!(f, "<promise artifact attr")?;
+        write!(f, "<promise artifact attr (id = {})", self.id)?;
         if let Some(short_path) = &self.short_path {
             write!(f, " with short_path `{}`", short_path)?;
         }
