@@ -1,0 +1,13 @@
+name: init_opam
+description: Setup OPAM
+runs:
+  using: composite
+  steps:
+  - name: Initialize OPAM
+    run: |
+      opam init --compiler=5.1.1 --disable-sandboxing -y
+      echo 'eval $(opam env)' >> ~/.bashrc
+    shell: bash
+  - name: Install OPAM packages
+    run: opam install menhir ppxlib -y
+    shell: bash
