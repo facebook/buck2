@@ -14,7 +14,10 @@ use buck2_analysis::attrs::resolve::attr_type::arg::ConfiguredStringWithMacrosEx
 use buck2_analysis::attrs::resolve::attr_type::dep::DepAttrTypeExt;
 use buck2_analysis::attrs::resolve::ctx::AttrResolutionContext;
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use buck2_build_api::keep_going;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -23,13 +26,16 @@ use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel
 use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
+use dice::DiceComputations;
 use dupe::Dupe;
+use futures::stream::FuturesUnordered;
 use starlark::values::dict::Dict;
 use starlark::values::tuple::AllocTuple;
 use starlark::values::Value;
 use starlark_map::small_map::SmallMap;
 
 use crate::anon_target_attr::AnonTargetAttr;
+use crate::anon_targets::get_artifact_from_anon_target_analysis;
 use crate::anon_targets::AnonTargetKey;
 use crate::anon_targets::AnonTargetsError;
 use crate::promise_artifacts::PromiseArtifactAttr;
@@ -38,7 +44,7 @@ use crate::promise_artifacts::PromiseArtifactAttr;
 // always be inherited from the anon target.
 pub(crate) struct AnonTargetAttrResolutionContext<'v> {
     #[allow(unused)] // TODO(@wendyy)
-    pub(crate) promised_artifacts_map: HashMap<PromiseArtifactAttr, Artifact>,
+    pub(crate) promised_artifacts_map: HashMap<&'v PromiseArtifactAttr, Artifact>,
     pub(crate) rule_analysis_attr_resolution_ctx: RuleAnalysisAttrResolutionContext<'v>,
 }
 
@@ -130,8 +136,14 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
 // Container for things that require looking up analysis results in order to resolve the attribute.
 pub(crate) struct AnonTargetDependents {
     pub(crate) deps: Vec<ConfiguredTargetLabel>,
-    #[allow(unused)] // TODO(@wendyy)
     pub(crate) promise_artifacts: Vec<PromiseArtifactAttr>,
+}
+
+// Container for analysis results of the anon target dependents.
+pub(crate) struct AnonTargetDependentAnalysisResults<'v> {
+    pub(crate) dep_analysis_results:
+        HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>,
+    pub(crate) promised_artifacts: HashMap<&'v PromiseArtifactAttr, Artifact>,
 }
 
 impl AnonTargetDependents {
@@ -164,6 +176,44 @@ impl AnonTargetDependents {
         Ok(AnonTargetDependents {
             deps: dep_traversal.0,
             promise_artifacts,
+        })
+    }
+
+    pub(crate) async fn get_analysis_results<'v>(
+        &'v self,
+        dice: &'v DiceComputations,
+    ) -> anyhow::Result<AnonTargetDependentAnalysisResults<'v>> {
+        let dep_analysis_results: HashMap<_, _> = keep_going::try_join_all(
+            dice,
+            self.deps
+                .iter()
+                .map(async move |dep| {
+                    let res = dice
+                        .get_analysis_result(dep)
+                        .await
+                        .and_then(|v| v.require_compatible());
+                    res.map(|x| (dep, x.providers().dupe()))
+                })
+                .collect::<FuturesUnordered<_>>(),
+        )
+        .await?;
+
+        let promised_artifacts: HashMap<_, _> = keep_going::try_join_all(
+            dice,
+            self.promise_artifacts
+                .iter()
+                .map(async move |promise_artifact_attr| {
+                    get_artifact_from_anon_target_analysis(&promise_artifact_attr.id, dice)
+                        .await
+                        .map(|artifact| (promise_artifact_attr, artifact))
+                })
+                .collect::<FuturesUnordered<_>>(),
+        )
+        .await?;
+
+        Ok(AnonTargetDependentAnalysisResults {
+            dep_analysis_results,
+            promised_artifacts,
         })
     }
 }

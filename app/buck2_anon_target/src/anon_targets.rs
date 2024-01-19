@@ -22,7 +22,6 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::analysis::anon_promises_dyn::AnonPromisesDyn;
 use buck2_build_api::analysis::anon_targets_registry::AnonTargetsRegistryDyn;
 use buck2_build_api::analysis::anon_targets_registry::ANON_TARGET_REGISTRY_NEW;
-use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::artifact_groups::promise::PromiseArtifact;
@@ -36,7 +35,6 @@ use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
-use buck2_build_api::keep_going;
 use buck2_configured::nodes::calculation::find_execution_platform_by_configuration;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
@@ -83,7 +81,6 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
-use futures::stream::FuturesUnordered;
 use futures::Future;
 use futures::FutureExt;
 use starlark::any::AnyLifetime;
@@ -300,20 +297,7 @@ impl AnonTargetKey {
 
     async fn run_analysis_impl(&self, dice: &DiceComputations) -> anyhow::Result<AnalysisResult> {
         let dependents = AnonTargetDependents::get_dependents(self)?;
-        let deps = dependents.deps;
-        let dep_analysis_results: HashMap<_, _> = keep_going::try_join_all(
-            dice,
-            deps.iter()
-                .map(async move |dep| {
-                    let res = dice
-                        .get_analysis_result(dep)
-                        .await
-                        .and_then(|v| v.require_compatible());
-                    res.map(|x| (dep, x.providers().dupe()))
-                })
-                .collect::<FuturesUnordered<_>>(),
-        )
-        .await?;
+        let dependents_analyses = dependents.get_analysis_results(dice).await?;
 
         let exec_resolution = ExecutionPlatformResolution::new(
             Some(
@@ -348,14 +332,13 @@ impl AnonTargetKey {
                         // No attributes are allowed to contain macros or other stuff, so an empty resolution context works
                         let rule_analysis_attr_resolution_ctx = RuleAnalysisAttrResolutionContext {
                             module: &env,
-                            dep_analysis_results,
+                            dep_analysis_results: dependents_analyses.dep_analysis_results,
                             query_results: HashMap::new(),
                             execution_platform_resolution: exec_resolution.clone(),
                         };
 
                         let resolution_ctx = AnonTargetAttrResolutionContext {
-                            // TODO(@wendyy) - populate
-                            promised_artifacts_map: HashMap::new(),
+                            promised_artifacts_map: dependents_analyses.promised_artifacts,
                             rule_analysis_attr_resolution_ctx,
                         };
 
@@ -588,7 +571,7 @@ pub(crate) fn init_get_promised_artifact() {
     });
 }
 
-async fn get_artifact_from_anon_target_analysis<'v>(
+pub(crate) async fn get_artifact_from_anon_target_analysis<'v>(
     promise_id: &'v PromiseArtifactId,
     ctx: &'v DiceComputations,
 ) -> anyhow::Result<Artifact> {
