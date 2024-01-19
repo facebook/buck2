@@ -423,10 +423,8 @@ impl BazelContext {
                 // system information to check if we're in a known remote repository, and what the
                 // root is. Fall back to the `workspace_root` otherwise.
                 ("", LspUrl::File(current_file)) => {
-                    if let Some((_, remote_repository_root)) =
-                        self.get_repository_for_path(current_file)
-                    {
-                        Some(Cow::Borrowed(remote_repository_root))
+                    if let Some((repository_name, _)) = self.get_repository_for_path(current_file) {
+                        self.get_repository_path(&repository_name).map(Cow::Owned)
                     } else {
                         workspace_root.map(Cow::Borrowed)
                     }
