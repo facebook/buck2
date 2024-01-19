@@ -486,11 +486,9 @@ impl AnonTargetKey {
                         .insert(promise_id.clone(), artifact.0.get_bound_artifact()?);
                 }
                 None => {
-                    return Err(PromiseArtifactResolveError::NotAnArtifact(
-                        None, // TODO(@wendyy) remove declaration location from this error variant
-                        artifact.to_repr(),
-                    )
-                    .into());
+                    return Err(
+                        PromiseArtifactResolveError::NotAnArtifact(artifact.to_repr()).into(),
+                    );
                 }
             }
         }

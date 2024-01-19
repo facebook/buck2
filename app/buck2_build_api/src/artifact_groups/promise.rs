@@ -21,11 +21,8 @@ use starlark::codemap::FileSpan;
 
 #[derive(Debug, buck2_error::Error)]
 pub enum PromiseArtifactResolveError {
-    #[error(
-        "Resolved promise of the artifact promise {} was not an artifact (was `{1}`)",
-        maybe_declared_at(_0)
-    )]
-    NotAnArtifact(Option<FileSpan>, String),
+    #[error("Resolved promise of the artifact promise was not an artifact (was `{0}`)")]
+    NotAnArtifact(String),
     #[error("Artifact promise {1} {} wasn't resolved", maybe_declared_at(_0))]
     PromiseNotResolved(Option<FileSpan>, String),
     #[error("Artifact promise was resolved multiple times")]
