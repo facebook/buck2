@@ -7,9 +7,13 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
+
+use buck2_analysis::analysis::env::RuleAnalysisAttrResolutionContext;
 use buck2_analysis::attrs::resolve::attr_type::arg::ConfiguredStringWithMacrosExt;
 use buck2_analysis::attrs::resolve::attr_type::dep::DepAttrTypeExt;
 use buck2_analysis::attrs::resolve::ctx::AttrResolutionContext;
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::error::BuckStarlarkError;
@@ -22,18 +26,27 @@ use starlark::values::Value;
 use starlark_map::small_map::SmallMap;
 
 use crate::anon_target_attr::AnonTargetAttr;
+use crate::promise_artifacts::PromiseArtifactAttr;
+
+// No macros in anon targets, so query results are empty. Execution platform resolution should
+// always be inherited from the anon target.
+pub(crate) struct AnonTargetAttrResolutionContext<'v> {
+    #[allow(unused)] // TODO(@wendyy)
+    pub(crate) promised_artifacts_map: HashMap<PromiseArtifactAttr, Artifact>,
+    pub(crate) rule_analysis_attr_resolution_ctx: RuleAnalysisAttrResolutionContext<'v>,
+}
 
 pub trait AnonTargetAttrResolution {
     fn resolve<'v>(
         &self,
         pkg: PackageLabel,
-        ctx: &dyn AttrResolutionContext<'v>,
+        ctx: &AnonTargetAttrResolutionContext<'v>,
     ) -> anyhow::Result<Vec<Value<'v>>>;
 
     fn resolve_single<'v>(
         &self,
         pkg: PackageLabel,
-        ctx: &dyn AttrResolutionContext<'v>,
+        ctx: &AnonTargetAttrResolutionContext<'v>,
     ) -> anyhow::Result<Value<'v>>;
 }
 
@@ -47,7 +60,7 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
     fn resolve<'v>(
         &self,
         pkg: PackageLabel,
-        ctx: &dyn AttrResolutionContext<'v>,
+        ctx: &AnonTargetAttrResolutionContext<'v>,
     ) -> anyhow::Result<Vec<Value<'v>>> {
         Ok(vec![self.resolve_single(pkg, ctx)?])
     }
@@ -57,8 +70,9 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
     fn resolve_single<'v>(
         &self,
         pkg: PackageLabel,
-        ctx: &dyn AttrResolutionContext<'v>,
+        anon_resolution_ctx: &AnonTargetAttrResolutionContext<'v>,
     ) -> anyhow::Result<Value<'v>> {
+        let ctx = &anon_resolution_ctx.rule_analysis_attr_resolution_ctx;
         match self {
             AnonTargetAttr::Bool(v) => Ok(Value::new_bool(v.0)),
             AnonTargetAttr::Int(v) => Ok(ctx.heap().alloc(*v)),
@@ -68,14 +82,14 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
             AnonTargetAttr::List(list) => {
                 let mut values = Vec::with_capacity(list.len());
                 for v in list.iter() {
-                    values.append(&mut v.resolve(pkg.dupe(), ctx)?);
+                    values.append(&mut v.resolve(pkg.dupe(), anon_resolution_ctx)?);
                 }
                 Ok(ctx.heap().alloc(values))
             }
             AnonTargetAttr::Tuple(list) => {
                 let mut values = Vec::with_capacity(list.len());
                 for v in list.iter() {
-                    values.append(&mut v.resolve(pkg.dupe(), ctx)?);
+                    values.append(&mut v.resolve(pkg.dupe(), anon_resolution_ctx)?);
                 }
                 Ok(ctx.heap().alloc(AllocTuple(values)))
             }
@@ -83,20 +97,23 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
                 let mut res = SmallMap::with_capacity(dict.len());
                 for (k, v) in dict.iter() {
                     res.insert_hashed(
-                        k.resolve_single(pkg.dupe(), ctx)?
+                        k.resolve_single(pkg.dupe(), anon_resolution_ctx)?
                             .get_hashed()
                             .map_err(BuckStarlarkError::new)?,
-                        v.resolve_single(pkg.dupe(), ctx)?,
+                        v.resolve_single(pkg.dupe(), anon_resolution_ctx)?,
                     );
                 }
                 Ok(ctx.heap().alloc(Dict::new(res)))
             }
             AnonTargetAttr::None => Ok(Value::new_none()),
-            AnonTargetAttr::OneOf(box l, _) => l.resolve_single(pkg, ctx),
+            AnonTargetAttr::OneOf(box l, _) => l.resolve_single(pkg, anon_resolution_ctx),
             AnonTargetAttr::Dep(d) => DepAttrType::resolve_single(ctx, d),
             AnonTargetAttr::Artifact(d) => Ok(ctx.heap().alloc(StarlarkArtifact::new(d.clone()))),
             AnonTargetAttr::Arg(a) => a.resolve(ctx, &pkg),
-            AnonTargetAttr::PromiseArtifact(artifact) => Ok(ctx.heap().alloc(artifact.clone())),
+            AnonTargetAttr::PromiseArtifact(artifact) => {
+                // TODO(@wendyy) - use promised artifact map here to construct fulfilled `StarlarkPromiseArtifact`
+                Ok(ctx.heap().alloc(artifact.clone()))
+            }
             AnonTargetAttr::Label(label) => {
                 Ok(ctx.heap().alloc(StarlarkProvidersLabel::new(label.clone())))
             }

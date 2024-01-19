@@ -107,6 +107,7 @@ use crate::anon_promises::AnonPromises;
 use crate::anon_target_attr::AnonTargetAttr;
 use crate::anon_target_attr_coerce::AnonTargetAttrTypeCoerce;
 use crate::anon_target_attr_resolve::AnonTargetAttrResolution;
+use crate::anon_target_attr_resolve::AnonTargetAttrResolutionContext;
 use crate::anon_target_node::AnonTarget;
 use crate::promise_artifacts::PromiseArtifactRegistry;
 
@@ -323,6 +324,7 @@ impl AnonTargetKey {
         }
         Ok(traversal.0)
     }
+
     async fn run_analysis_impl(&self, dice: &DiceComputations) -> anyhow::Result<AnalysisResult> {
         let deps = self.deps()?;
         let dep_analysis_results: HashMap<_, _> = keep_going::try_join_all(
@@ -370,11 +372,17 @@ impl AnonTargetKey {
                         eval.set_print_handler(&print);
 
                         // No attributes are allowed to contain macros or other stuff, so an empty resolution context works
-                        let resolution_ctx = RuleAnalysisAttrResolutionContext {
+                        let rule_analysis_attr_resolution_ctx = RuleAnalysisAttrResolutionContext {
                             module: &env,
                             dep_analysis_results,
                             query_results: HashMap::new(),
                             execution_platform_resolution: exec_resolution.clone(),
+                        };
+
+                        let resolution_ctx = AnonTargetAttrResolutionContext {
+                            // TODO(@wendyy) - populate
+                            promised_artifacts_map: HashMap::new(),
+                            rule_analysis_attr_resolution_ctx,
                         };
 
                         let mut resolved_attrs = Vec::with_capacity(self.0.attrs().len());
