@@ -55,10 +55,19 @@ pub mod unsafe_send_future;
 /// en-mass at some point in the future.
 pub fn facebook_only() {}
 
+/// Emit one expression or another depending on whether this is an open source or internal build.
+#[macro_export]
+macro_rules! if_else_opensource {
+    ($opensource:expr, $internal:expr $(,)?
+    ) => {
+        // @oss-disable: $internal
+        $opensource // @oss-enable
+    };
+}
+
 #[inline]
 pub fn is_open_source() -> bool {
-    // @oss-disable: false
-    true // @oss-enable
+    if_else_opensource!(true, false)
 }
 
 /// Internal build with `buck2`.

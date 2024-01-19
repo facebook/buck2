@@ -19,32 +19,53 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::StdoutPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
+use buck2_core::if_else_opensource;
 
 use crate::commands::query::common::CommonQueryOptions;
 
-/// Perform queries on the action graph (experimental).
-///
-/// The action graph consists of all the declared actions for a build, with dependencies
-/// when one action consumes the outputs of another action.
-///
-/// Run `buck2 docs aquery` for more documentation about the functions available in aquery
-///
-/// Examples:
-///
-/// Print the action producing a target's default output
-///
-/// `buck2 aquery //java/com/example/app:amazing`
-///
-/// List all the commands for run actions for building a target
-///
-/// `buck2 aquery 'kind(run, deps("//java/com/example/app:amazing+more"))' --output-attribute=cmd`
-///
-/// Dynamic outputs (`ctx.actions.dynamic_output`):
-///
-/// Currently, aquery interacts poorly with dynamic outputs. It may return incorrect results or otherwise
-/// behave unexpectedly.
+fn help() -> &'static str {
+    concat!(
+        r#"Perform queries on the action graph (experimental)
+
+The action graph consists of all the declared actions for a build,
+with dependencies when one action consumes the outputs of another
+action.
+
+Run `buck2 docs aquery` or
+"#,
+        if_else_opensource!(
+            "https://buck2.build/docs/users/query/aquery/",
+            "https://www.internalfb.com/intern/staticdocs/buck2/docs/users/query/aquery/",
+        ),
+        r#"
+for more documentation about the functions available in aquery
+expressions.
+
+Examples:
+
+Print the action producing a target's default output
+
+`buck2 aquery //java/com/example/app:amazing`
+
+List all the commands for run actions for building a target
+
+`buck2 aquery 'kind(run, deps("//java/com/example/app:amazing+more"))' --output-attribute=cmd`
+
+Dynamic outputs (`ctx.actions.dynamic_output`):
+
+Currently, aquery interacts poorly with dynamic outputs. It may
+return incorrect results or otherwise behave unexpectedly.
+"#
+    )
+}
+
 #[derive(Debug, clap::Parser)]
-#[clap(name = "aquery")]
+#[clap(
+    name = "aquery",
+    about = "Perform queries on the action graph (experimental)",
+    long_about = help(),
+    verbatim_doc_comment,
+)]
 pub struct AqueryCommand {
     #[clap(flatten)]
     common_opts: CommonCommandOptions,
