@@ -34,7 +34,6 @@ use buck2_query::query::graph::successors::AsyncChildVisitor;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::AsyncNodeLookup;
-use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query::traversal::ChildVisitor;
 use dice::DiceComputations;
 use dice::DiceTransaction;
@@ -259,79 +258,74 @@ impl TargetHashes {
     where
         T::NodeRef: ConfiguredOrUnconfiguredTargetLabel,
     {
-        struct Delegate<T: QueryTarget> {
-            hashes:
-                HashMap<T::NodeRef, Shared<DropCancelFuture<buck2_error::Result<BuckTargetHash>>>>,
-            file_hasher: Option<Arc<dyn FileHasher>>,
-            use_fast_hash: bool,
-            dice: DiceTransaction,
-        }
+        let mut hashes: HashMap<
+            T::NodeRef,
+            Shared<DropCancelFuture<buck2_error::Result<BuckTargetHash>>>,
+        > = HashMap::new();
 
-        #[async_trait]
-        impl<T: TargetHashingTargetNode> AsyncTraversalDelegate<T> for Delegate<T> {
-            fn visit(&mut self, target: T) -> anyhow::Result<()> {
-                // this is postorder, so guaranteed that all deps have futures already.
-                let dep_futures: Vec<_> = target
-                    .deps()
-                    .map(|dep| {
-                        self.hashes.get(dep).cloned().ok_or_else(|| {
-                            TargetHashError::DependencyCycle(
-                                dep.clone().to_string(),
-                                target.node_ref().to_string(),
-                            )
-                        })
+        let visit = |target: T| {
+            // this is postorder, so guaranteed that all deps have futures already.
+            let dep_futures: Vec<_> = target
+                .deps()
+                .map(|dep| {
+                    hashes.get(dep).cloned().ok_or_else(|| {
+                        TargetHashError::DependencyCycle(
+                            dep.clone().to_string(),
+                            target.node_ref().to_string(),
+                        )
                     })
-                    .collect::<Result<Vec<_>, TargetHashError>>()?;
+                })
+                .collect::<Result<Vec<_>, TargetHashError>>()?;
 
-                let file_hasher = self.file_hasher.dupe();
-                let dice = self.dice.dupe();
+            let file_hasher = file_hasher.dupe();
+            let dice = dice.dupe();
 
-                let use_fast_hash = self.use_fast_hash;
-                // we spawn off the hash computation since it can't be done in visit directly. Even if it could,
-                // this allows us to start the computations for dependents before finishing the computation for a node.
-                self.hashes.insert(
-                    target.node_ref().clone(),
-                    spawn_cancellable(
-                        |_| {
-                            async move {
-                                let mut hasher = TargetHashes::new_hasher(use_fast_hash);
-                                TargetHashes::hash_node(&target, &mut *hasher);
+            // we spawn off the hash computation since it can't be done in visit directly. Even if it could,
+            // this allows us to start the computations for dependents before finishing the computation for a node.
+            hashes.insert(
+                target.node_ref().clone(),
+                spawn_cancellable(
+                    |_| {
+                        async move {
+                            let mut hasher = TargetHashes::new_hasher(use_fast_hash);
+                            TargetHashes::hash_node(&target, &mut *hasher);
 
-                                let mut input_futs = Vec::new();
-                                if let Some(file_hasher) = file_hasher {
-                                    target.inputs_for_each(|cell_path| {
-                                        let file_hasher = file_hasher.dupe();
-                                        input_futs.push(async move {
-                                            let file_hash = file_hasher.hash_path(&cell_path).await;
-                                            (cell_path, file_hash)
-                                        });
-                                        anyhow::Ok(())
-                                    })?;
-                                }
-
-                                let (dep_hashes, input_hashes) =
-                                    join!(join_all(dep_futures), join_all(input_futs));
-
-                                TargetHashes::hash_deps(dep_hashes, &mut *hasher)?;
-                                TargetHashes::hash_files(input_hashes, &mut *hasher)?;
-
-                                Ok(hasher.finish_u128())
+                            let mut input_futs = Vec::new();
+                            if let Some(file_hasher) = file_hasher {
+                                target.inputs_for_each(|cell_path| {
+                                    let file_hasher = file_hasher.dupe();
+                                    input_futs.push(async move {
+                                        let file_hash = file_hasher.hash_path(&cell_path).await;
+                                        (cell_path, file_hash)
+                                    });
+                                    anyhow::Ok(())
+                                })?;
                             }
-                            .boxed()
-                        },
-                        &*dice.per_transaction_data().spawner,
-                        dice.per_transaction_data(),
-                    )
-                    .into_drop_cancel()
-                    .shared(),
-                );
 
-                Ok(())
-            }
-        }
+                            let (dep_hashes, input_hashes) =
+                                join!(join_all(dep_futures), join_all(input_futs));
+
+                            TargetHashes::hash_deps(dep_hashes, &mut *hasher)?;
+                            TargetHashes::hash_files(input_hashes, &mut *hasher)?;
+
+                            Ok(hasher.finish_u128())
+                        }
+                        .boxed()
+                    },
+                    &*dice.per_transaction_data().spawner,
+                    dice.per_transaction_data(),
+                )
+                .into_drop_cancel()
+                .shared(),
+            );
+
+            Ok(())
+        };
+
+        struct Delegate;
 
         #[async_trait]
-        impl<T: TargetHashingTargetNode> AsyncChildVisitor<T> for Delegate<T> {
+        impl<T: TargetHashingTargetNode> AsyncChildVisitor<T> for Delegate {
             async fn for_each_child(
                 &self,
                 target: &T,
@@ -345,17 +339,10 @@ impl TargetHashes {
             }
         }
 
-        let mut delegate = Delegate::<T> {
-            hashes: HashMap::new(),
-            file_hasher,
-            use_fast_hash,
-            dice,
-        };
+        async_depth_first_postorder_traversal(&lookup, targets.iter_names(), Delegate, visit)
+            .await?;
 
-        async_depth_first_postorder_traversal(&lookup, targets.iter_names(), &mut delegate).await?;
-
-        let mut futures: FuturesUnordered<_> = delegate
-            .hashes
+        let mut futures: FuturesUnordered<_> = hashes
             .into_iter()
             .map(|(target, fut)| async move { (target, fut.await) })
             .collect();

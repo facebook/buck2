@@ -31,7 +31,6 @@ use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::file_set::FileSet;
 use crate::query::syntax::simple::eval::set::TargetSet;
 use crate::query::traversal::AsyncNodeLookup;
-use crate::query::traversal::AsyncTraversalDelegate;
 use crate::query::traversal::ChildVisitor;
 mod tests;
 
@@ -159,13 +158,15 @@ pub trait QueryEnvironment: Send + Sync {
     async fn dfs_postorder(
         &self,
         root: &TargetSet<Self::Target>,
-        delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
+        successors: impl AsyncChildVisitor<Self::Target>,
+        visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
     ) -> anyhow::Result<()>;
 
     async fn depth_limited_traversal(
         &self,
         root: &TargetSet<Self::Target>,
-        delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
+        successors: impl AsyncChildVisitor<Self::Target>,
+        visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
         depth: u32,
     ) -> anyhow::Result<()>;
 
@@ -228,17 +229,15 @@ pub trait QueryEnvironment: Send + Sync {
 
         // Now that we have a mapping of back-edges, traverse deps graph in reverse.
         struct ReverseDelegate<Q: QueryTarget> {
-            rdeps: TargetSet<Q>,
             graph: Graph<Q>,
         }
 
-        #[async_trait]
-        impl<Q: QueryTarget> AsyncTraversalDelegate<Q> for ReverseDelegate<Q> {
-            fn visit(&mut self, target: Q) -> anyhow::Result<()> {
-                self.rdeps.insert(target);
-                Ok(())
-            }
-        }
+        let mut rdeps = TargetSet::new();
+
+        let visit = |target| {
+            rdeps.insert(target);
+            Ok(())
+        };
 
         #[async_trait]
         impl<Q: QueryTarget> AsyncChildVisitor<Q> for ReverseDelegate<Q> {
@@ -260,26 +259,23 @@ pub trait QueryEnvironment: Send + Sync {
 
         // TODO(nga): we have constructed graph already, we don't need to call slow `dfs_postorder` here.
 
-        let mut delegate = ReverseDelegate {
-            rdeps: TargetSet::new(),
-            graph,
-        };
+        let delegate = ReverseDelegate { graph };
 
         match depth {
             // For unbounded traversals, buck1 recommends specifying a large value. We'll accept either a negative (like -1) or
             // a large value as unbounded. We can't just call it optional because args are positional only in the query syntax
             // and so to specify a filter you need to specify a depth.
             Some(v) if (0..1_000_000_000).contains(&v) => {
-                self.depth_limited_traversal(&roots_in_universe, &mut delegate, v as u32)
+                self.depth_limited_traversal(&roots_in_universe, delegate, visit, v as u32)
                     .await?;
             }
             _ => {
-                self.dfs_postorder(&roots_in_universe, &mut delegate)
+                self.dfs_postorder(&roots_in_universe, delegate, visit)
                     .await?;
             }
         }
 
-        Ok(delegate.rdeps)
+        Ok(rdeps)
     }
 
     async fn testsof(
@@ -382,17 +378,13 @@ pub async fn deps<Env: QueryEnvironment + ?Sized>(
     let mut deps = TargetSet::new();
 
     struct Delegate<'a, Q: QueryTarget> {
-        deps: &'a mut TargetSet<Q>,
         filter: Option<&'a dyn TraversalFilter<Q>>,
     }
 
-    #[async_trait]
-    impl<'a, Q: QueryTarget> AsyncTraversalDelegate<Q> for Delegate<'a, Q> {
-        fn visit(&mut self, target: Q) -> anyhow::Result<()> {
-            self.deps.insert(target);
-            Ok(())
-        }
-    }
+    let visit = |target| {
+        deps.insert(target);
+        Ok(())
+    };
 
     #[async_trait]
     impl<'a, Q: QueryTarget> AsyncChildVisitor<Q> for Delegate<'a, Q> {
@@ -424,25 +416,12 @@ pub async fn deps<Env: QueryEnvironment + ?Sized>(
         // a large value as unbounded. We can't just call it optional because args are positional only in the query syntax
         // and so to specify a filter you need to specify a depth.
         Some(v) if (0..1_000_000_000).contains(&v) => {
-            env.depth_limited_traversal(
-                targets,
-                &mut Delegate {
-                    deps: &mut deps,
-                    filter,
-                },
-                v as u32,
-            )
-            .await?;
+            env.depth_limited_traversal(targets, Delegate { filter }, visit, v as u32)
+                .await?;
         }
         _ => {
-            env.dfs_postorder(
-                targets,
-                &mut Delegate {
-                    deps: &mut deps,
-                    filter,
-                },
-            )
-            .await?;
+            env.dfs_postorder(targets, Delegate { filter }, visit)
+                .await?;
         }
     }
 

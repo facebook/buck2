@@ -39,7 +39,6 @@ use buck2_query::query::syntax::simple::functions::HasModuleDescription;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::async_depth_limited_traversal;
 use buck2_query::query::traversal::AsyncNodeLookup;
-use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query::traversal::ChildVisitor;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -230,18 +229,21 @@ impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
     async fn dfs_postorder(
         &self,
         root: &TargetSet<TargetNode>,
-        traversal_delegate: &mut impl AsyncTraversalDelegate<TargetNode>,
+        traversal_delegate: impl AsyncChildVisitor<TargetNode>,
+        visit: impl FnMut(TargetNode) -> anyhow::Result<()> + Send,
     ) -> anyhow::Result<()> {
-        async_depth_first_postorder_traversal(self, root.iter_names(), traversal_delegate).await
+        async_depth_first_postorder_traversal(self, root.iter_names(), traversal_delegate, visit)
+            .await
     }
 
     async fn depth_limited_traversal(
         &self,
         root: &TargetSet<Self::Target>,
-        delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
+        delegate: impl AsyncChildVisitor<Self::Target>,
+        visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
         depth: u32,
     ) -> anyhow::Result<()> {
-        async_depth_limited_traversal(self, root.iter_names(), delegate, depth).await
+        async_depth_limited_traversal(self, root.iter_names(), delegate, visit, depth).await
     }
 
     async fn allbuildfiles(&self, universe: &TargetSet<Self::Target>) -> anyhow::Result<FileSet> {
@@ -395,35 +397,31 @@ pub(crate) async fn rbuildfiles<'c>(
         }
     }
 
-    struct Delegate<'c> {
-        output_paths: Vec<ImportPath>,
-        argset: &'c FileSet,
-        first_order_import_map: HashMap<ImportPath, Vec<ImportPath>>,
+    let mut output_paths: Vec<ImportPath> = Vec::new();
+
+    struct Delegate<'a> {
+        first_order_import_map: &'a HashMap<ImportPath, Vec<ImportPath>>,
     }
 
-    #[async_trait]
-    impl AsyncTraversalDelegate<Node> for Delegate<'_> {
-        fn visit(&mut self, node: Node) -> anyhow::Result<()> {
-            let node_import = node.import_path();
-            if self.argset.iter().contains(node_import.path()) {
-                self.output_paths.push(node_import.clone());
-            } else {
-                let loads = self
-                    .first_order_import_map
-                    .get(node_import)
-                    .expect("import path should exist");
-                for load in loads.iter() {
-                    for arg in self.argset.iter() {
-                        if load.path() == arg {
-                            self.output_paths.push(node_import.clone());
-                            return Ok(());
-                        }
+    let visit = |node: Node| {
+        let node_import = node.import_path();
+        if argset.iter().contains(node_import.path()) {
+            output_paths.push(node_import.clone());
+        } else {
+            let loads = first_order_import_map
+                .get(node_import)
+                .expect("import path should exist");
+            for load in loads.iter() {
+                for arg in argset.iter() {
+                    if load.path() == arg {
+                        output_paths.push(node_import.clone());
+                        return Ok(());
                     }
                 }
             }
-            Ok(())
         }
-    }
+        Ok(())
+    };
 
     #[async_trait]
     impl AsyncChildVisitor<Node> for Delegate<'_> {
@@ -444,22 +442,21 @@ pub(crate) async fn rbuildfiles<'c>(
     }
 
     let lookup = Lookup {};
-    let mut delegate = Delegate {
-        output_paths: vec![],
-        argset,
-        first_order_import_map,
+    let delegate = Delegate {
+        first_order_import_map: &first_order_import_map,
     };
 
     // step 5: do traversal, get all modified imports
     async_depth_first_postorder_traversal(
         &lookup,
         all_top_level_imports.iter().map(NodeRef::ref_cast),
-        &mut delegate,
+        delegate,
+        visit,
     )
     .await?;
 
     let mut output_files = IndexSet::<FileNode>::new();
-    for file in &delegate.output_paths {
+    for file in &output_paths {
         output_files.insert(FileNode(file.path().clone()));
     }
 
@@ -616,18 +613,16 @@ pub(crate) async fn get_transitive_loads<'c>(
         }
     }
 
+    let mut imports: Vec<ImportPath> = Vec::new();
+
     struct Delegate<'c> {
-        imports: Vec<ImportPath>,
         delegate: &'c dyn UqueryDelegate,
     }
 
-    #[async_trait]
-    impl AsyncTraversalDelegate<Node> for Delegate<'_> {
-        fn visit(&mut self, target: Node) -> anyhow::Result<()> {
-            self.imports.push(target.import_path().clone());
-            Ok(())
-        }
-    }
+    let visit = |target: Node| {
+        imports.push(target.import_path().clone());
+        Ok(())
+    };
 
     #[async_trait]
     impl AsyncChildVisitor<Node> for Delegate<'_> {
@@ -647,15 +642,14 @@ pub(crate) async fn get_transitive_loads<'c>(
         }
     }
 
-    let mut traversal_delegate = Delegate {
-        imports: vec![],
+    let traversal_delegate = Delegate {
         delegate: delegate.dupe(),
     };
     let lookup = Lookup {};
 
     let import_nodes = top_level_imports.iter().map(NodeRef::ref_cast);
 
-    async_depth_first_postorder_traversal(&lookup, import_nodes, &mut traversal_delegate).await?;
+    async_depth_first_postorder_traversal(&lookup, import_nodes, traversal_delegate, visit).await?;
 
-    Ok(traversal_delegate.imports)
+    Ok(imports)
 }

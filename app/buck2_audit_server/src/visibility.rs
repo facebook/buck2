@@ -19,7 +19,6 @@ use buck2_node::visibility::VisibilityError;
 use buck2_query::query::graph::successors::AsyncChildVisitor;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
-use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query::traversal::ChildVisitor;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
@@ -43,17 +42,13 @@ async fn verify_visibility(
     ctx: DiceTransaction,
     targets: TargetSet<TargetNode>,
 ) -> anyhow::Result<()> {
-    struct Delegate {
-        targets: TargetSet<TargetNode>,
-    }
+    let mut new_targets: TargetSet<TargetNode> = TargetSet::new();
+    struct Delegate;
 
-    #[async_trait]
-    impl AsyncTraversalDelegate<TargetNode> for Delegate {
-        fn visit(&mut self, target: TargetNode) -> anyhow::Result<()> {
-            self.targets.insert(target);
-            Ok(())
-        }
-    }
+    let visit = |target| {
+        new_targets.insert(target);
+        Ok(())
+    };
 
     #[async_trait]
     impl AsyncChildVisitor<TargetNode> for Delegate {
@@ -71,17 +66,13 @@ async fn verify_visibility(
 
     let lookup = TargetNodeLookup(&ctx);
 
-    let mut delegate = Delegate {
-        targets: TargetSet::<TargetNode>::new(),
-    };
-
-    async_depth_first_postorder_traversal(&lookup, targets.iter_names(), &mut delegate).await?;
+    async_depth_first_postorder_traversal(&lookup, targets.iter_names(), Delegate, visit).await?;
 
     let mut visibility_errors = Vec::new();
 
-    for target in delegate.targets.iter() {
+    for target in new_targets.iter() {
         for dep in target.deps() {
-            match delegate.targets.get(dep) {
+            match new_targets.get(dep) {
                 Some(val) => {
                     if !val.is_visible_to(target.label())? {
                         visibility_errors.push(VisibilityError::NotVisibleTo(

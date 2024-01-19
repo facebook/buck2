@@ -178,19 +178,21 @@ impl QueryEnvironment for TestEnv {
     async fn dfs_postorder(
         &self,
         root: &TargetSet<Self::Target>,
-        delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
+        delegate: impl AsyncChildVisitor<Self::Target>,
+        visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
     ) -> anyhow::Result<()> {
         // TODO: Should this be part of QueryEnvironment's default impl?
-        async_depth_first_postorder_traversal(self, root.iter_names(), delegate).await
+        async_depth_first_postorder_traversal(self, root.iter_names(), delegate, visit).await
     }
 
     async fn depth_limited_traversal(
         &self,
         root: &TargetSet<Self::Target>,
-        delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
+        delegate: impl AsyncChildVisitor<Self::Target>,
+        visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
         depth: u32,
     ) -> anyhow::Result<()> {
-        async_depth_limited_traversal(self, root.iter_names(), delegate, depth).await
+        async_depth_limited_traversal(self, root.iter_names(), delegate, visit, depth).await
     }
 
     async fn owner(&self, _paths: &FileSet) -> anyhow::Result<TargetSet<Self::Target>> {

@@ -27,12 +27,12 @@ use crate::query::environment::QueryEnvironment;
 use crate::query::environment::QueryTarget;
 use crate::query::graph::node::LabeledNode;
 use crate::query::graph::node::NodeLabel;
+use crate::query::graph::successors::AsyncChildVisitor;
 use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::evaluator::QueryEvaluator;
 use crate::query::syntax::simple::eval::file_set::FileSet;
 use crate::query::syntax::simple::eval::set::TargetSet;
 use crate::query::syntax::simple::functions::DefaultQueryFunctionsModule;
-use crate::query::traversal::AsyncTraversalDelegate;
 
 #[derive(Clone, Hash, PartialEq, Eq, Debug, Display)]
 struct TargetRef(String);
@@ -149,7 +149,8 @@ impl QueryEnvironment for Env {
     async fn dfs_postorder(
         &self,
         _root: &TargetSet<Self::Target>,
-        _delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
+        _delegate: impl AsyncChildVisitor<Self::Target>,
+        _visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
     ) -> anyhow::Result<()> {
         unimplemented!()
     }
@@ -157,7 +158,8 @@ impl QueryEnvironment for Env {
     async fn depth_limited_traversal(
         &self,
         _root: &TargetSet<Self::Target>,
-        _delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
+        _delegate: impl AsyncChildVisitor<Self::Target>,
+        _visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
         _depth: u32,
     ) -> anyhow::Result<()> {
         unimplemented!()

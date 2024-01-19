@@ -9,7 +9,6 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::marker::PhantomData;
 
 use async_trait::async_trait;
 use futures::StreamExt;
@@ -32,16 +31,6 @@ where
     fn visit(&mut self, node: &T::NodeRef) -> anyhow::Result<()> {
         self(node)
     }
-}
-
-/// The TraversalDelegate determines how to traverse the graph (via
-/// for_each_child) and then handles doing the actual processing (via
-/// visit). Different traversals may call `visit()` at different times (ex. dfs_postorder
-/// calls it after all children have been visited)
-#[async_trait]
-pub trait AsyncTraversalDelegate<T: LabeledNode>: AsyncChildVisitor<T> {
-    /// visit is called once for each node. When it is called is traversal-dependent.
-    fn visit(&mut self, target: T) -> anyhow::Result<()>;
 }
 
 pub trait NodeLookup<T: LabeledNode> {
@@ -67,7 +56,8 @@ pub async fn async_fast_depth_first_postorder_traversal<
 >(
     nodes: &impl NodeLookup<T>,
     root: RootIter,
-    delegate: &mut impl AsyncTraversalDelegate<T>,
+    successors: impl AsyncChildVisitor<T>,
+    mut visit: impl FnMut(T) -> anyhow::Result<()>,
 ) -> anyhow::Result<()> {
     // This implementation simply performs a dfs. We maintain a work stack here.
     // When visiting a node, we first add an item to the work stack to call
@@ -102,9 +92,9 @@ pub async fn async_fast_depth_first_postorder_traversal<
                 visited.insert(target);
                 work.push(WorkItem::PostVisit(node.dupe()));
 
-                delegate
+                successors
                     .for_each_child(&node, &mut |child: &T::NodeRef| {
-                        if !visited.contains(&child) {
+                        if !visited.contains(child) {
                             work.push(WorkItem::Visit(child.clone()));
                         }
                         Ok(())
@@ -112,7 +102,7 @@ pub async fn async_fast_depth_first_postorder_traversal<
                     .await?;
             }
             WorkItem::PostVisit(target) => {
-                delegate.visit(target)?;
+                visit(target)?;
             }
         }
     }
@@ -127,7 +117,8 @@ async fn async_traversal_common<
 >(
     nodes: &impl AsyncNodeLookup<T>,
     root: RootIter,
-    delegate: &mut impl AsyncTraversalDelegate<T>,
+    successors: impl AsyncChildVisitor<T>,
+    mut visit: impl FnMut(T) -> anyhow::Result<()>,
     // `None` means no max depth.
     max_depth: Option<u32>,
     ordered: bool,
@@ -166,7 +157,7 @@ async fn async_traversal_common<
             let node = node?;
             if Some(depth) != max_depth {
                 let depth = depth + 1;
-                delegate
+                successors
                     .for_each_child(&node, &mut |child: &T::NodeRef| {
                         push(&mut queue, child, Some(target.clone()), depth);
                         Ok(())
@@ -174,7 +165,7 @@ async fn async_traversal_common<
                     .await?;
             }
 
-            delegate.visit(node)?;
+            visit(node)?;
         };
 
         if let Err(mut e) = result {
@@ -197,10 +188,11 @@ pub async fn async_depth_limited_traversal<
 >(
     nodes: &impl AsyncNodeLookup<T>,
     root: RootIter,
-    delegate: &mut impl AsyncTraversalDelegate<T>,
+    delegate: impl AsyncChildVisitor<T>,
+    visit: impl FnMut(T) -> anyhow::Result<()>,
     max_depth: u32,
 ) -> anyhow::Result<()> {
-    async_traversal_common(nodes, root, delegate, Some(max_depth), true).await
+    async_traversal_common(nodes, root, delegate, visit, Some(max_depth), true).await
 }
 
 /// Implements a depth-first postorder traversal. A node will be visited only after all of its
@@ -213,39 +205,12 @@ pub async fn async_depth_first_postorder_traversal<
 >(
     nodes: &impl AsyncNodeLookup<T>,
     root: Iter,
-    delegate: &mut impl AsyncTraversalDelegate<T>,
+    successors: impl AsyncChildVisitor<T>,
+    mut visit: impl FnMut(T) -> anyhow::Result<()>,
 ) -> anyhow::Result<()> {
-    struct SuccessorsImpl<'a, T: LabeledNode, D: AsyncTraversalDelegate<T>> {
-        delegate: &'a mut D,
-        _marker: PhantomData<T>,
-    }
+    let graph = Graph::build(nodes, root.clone().into_iter().cloned(), successors).await?;
 
-    #[async_trait]
-    impl<T: LabeledNode, D: AsyncTraversalDelegate<T>> AsyncChildVisitor<T>
-        for SuccessorsImpl<'_, T, D>
-    {
-        async fn for_each_child(
-            &self,
-            node: &T,
-            children: &mut impl ChildVisitor<T>,
-        ) -> anyhow::Result<()> {
-            self.delegate.for_each_child(node, children).await
-        }
-    }
-
-    let graph = Graph::build(
-        nodes,
-        root.clone().into_iter().cloned(),
-        SuccessorsImpl {
-            delegate,
-            _marker: PhantomData::<T>,
-        },
-    )
-    .await?;
-
-    graph.depth_first_postorder_traversal(root.into_iter().cloned(), |node| {
-        delegate.visit(node.dupe())
-    })
+    graph.depth_first_postorder_traversal(root.into_iter().cloned(), |node| visit(node.dupe()))
 }
 
 #[cfg(test)]
@@ -362,24 +327,11 @@ mod tests {
     struct Graph(HashMap<Ref, Node>);
 
     impl Graph {
-        fn collecting_delegate<'a>(
-            &self,
-            results: &'a mut Vec<Ref>,
-        ) -> impl AsyncTraversalDelegate<Node> + 'a {
-            struct Delegate<'a> {
-                results: &'a mut Vec<Ref>,
-            }
+        fn child_visitor<'a>(&self) -> impl AsyncChildVisitor<Node> + 'a {
+            struct ChildVisitorImpl;
 
             #[async_trait]
-            impl<'a> AsyncTraversalDelegate<Node> for Delegate<'a> {
-                fn visit(&mut self, target: Node) -> anyhow::Result<()> {
-                    self.results.push(target.0.dupe());
-                    Ok(())
-                }
-            }
-
-            #[async_trait]
-            impl<'a> AsyncChildVisitor<Node> for Delegate<'a> {
+            impl AsyncChildVisitor<Node> for ChildVisitorImpl {
                 async fn for_each_child(
                     &self,
                     target: &Node,
@@ -392,7 +344,7 @@ mod tests {
                 }
             }
 
-            Delegate { results }
+            ChildVisitorImpl
         }
     }
 
@@ -428,9 +380,17 @@ mod tests {
 
         let mut results = Vec::new();
         {
-            let mut delegate = graph.collecting_delegate(&mut results);
-            async_depth_first_postorder_traversal(&graph, targets.iter_names(), &mut delegate)
-                .await?;
+            let child_visitor = graph.child_visitor();
+            async_depth_first_postorder_traversal(
+                &graph,
+                targets.iter_names(),
+                child_visitor,
+                |n| {
+                    results.push(n.0);
+                    Ok(())
+                },
+            )
+            .await?;
         }
 
         assert_eq!(results, vec![Ref(4), Ref(3), Ref(2), Ref(1), Ref(0)]);
@@ -452,15 +412,35 @@ mod tests {
 
         let mut results0 = Vec::new();
         {
-            let mut delegate = graph.collecting_delegate(&mut results0);
-            async_depth_limited_traversal(&graph, targets.iter_names(), &mut delegate, 0).await?;
+            let delegate = graph.child_visitor();
+            async_depth_limited_traversal(
+                &graph,
+                targets.iter_names(),
+                delegate,
+                |n| {
+                    results0.push(n.0);
+                    Ok(())
+                },
+                0,
+            )
+            .await?;
         }
         assert_eq!(results0, vec![Ref(0)]);
 
         let mut results1 = Vec::new();
         {
-            let mut delegate = graph.collecting_delegate(&mut results1);
-            async_depth_limited_traversal(&graph, targets.iter_names(), &mut delegate, 1).await?;
+            let delegate = graph.child_visitor();
+            async_depth_limited_traversal(
+                &graph,
+                targets.iter_names(),
+                delegate,
+                |n| {
+                    results1.push(n.0);
+                    Ok(())
+                },
+                1,
+            )
+            .await?;
         }
         assert_eq!(results1, vec![Ref(0), Ref(1), Ref(2)]);
 

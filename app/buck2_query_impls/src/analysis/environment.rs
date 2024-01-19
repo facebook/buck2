@@ -47,6 +47,7 @@ use buck2_query::query::environment::deps;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::TraversalFilter;
 use buck2_query::query::graph::dfs::dfs_postorder;
+use buck2_query::query::graph::successors::AsyncChildVisitor;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
@@ -57,7 +58,6 @@ use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use buck2_query::query::syntax::simple::functions::QueryFunctions;
 use buck2_query::query::traversal::async_depth_limited_traversal;
 use buck2_query::query::traversal::async_fast_depth_first_postorder_traversal;
-use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query_module;
 use buck2_query_parser::BinaryOp;
 use dice::DiceComputations;
@@ -221,12 +221,14 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
     async fn dfs_postorder(
         &self,
         root: &TargetSet<Self::Target>,
-        delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
+        delegate: impl AsyncChildVisitor<Self::Target>,
+        visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
     ) -> anyhow::Result<()> {
         async_fast_depth_first_postorder_traversal(
             &ConfiguredGraphNodeRefLookup,
             root.iter().duped(),
             delegate,
+            visit,
         )
         .await
     }
@@ -234,11 +236,18 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
     async fn depth_limited_traversal(
         &self,
         root: &TargetSet<Self::Target>,
-        delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
+        delegate: impl AsyncChildVisitor<Self::Target>,
+        visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
         depth: u32,
     ) -> anyhow::Result<()> {
-        async_depth_limited_traversal(&ConfiguredGraphNodeRefLookup, root.iter(), delegate, depth)
-            .await
+        async_depth_limited_traversal(
+            &ConfiguredGraphNodeRefLookup,
+            root.iter(),
+            delegate,
+            visit,
+            depth,
+        )
+        .await
     }
 
     async fn owner(&self, _paths: &FileSet) -> anyhow::Result<TargetSet<Self::Target>> {

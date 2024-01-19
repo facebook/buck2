@@ -18,6 +18,7 @@ use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_query::query::environment::QueryEnvironment;
+use buck2_query::query::graph::successors::AsyncChildVisitor;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
@@ -27,7 +28,6 @@ use buck2_query::query::syntax::simple::functions::HasModuleDescription;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::async_depth_limited_traversal;
 use buck2_query::query::traversal::AsyncNodeLookup;
-use buck2_query::query::traversal::AsyncTraversalDelegate;
 use dice::DiceComputations;
 
 use crate::aquery::functions::AqueryFunctions;
@@ -119,7 +119,8 @@ impl<'c> QueryEnvironment for AqueryEnvironment<'c> {
     async fn dfs_postorder(
         &self,
         root: &TargetSet<Self::Target>,
-        traversal_delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
+        traversal_delegate: impl AsyncChildVisitor<Self::Target>,
+        visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
     ) -> anyhow::Result<()> {
         // TODO(cjhopman): The query nodes deps are going to flatten the tset structure for its deps. In a typical
         // build graph, a traversal over just the graph of ActionQueryNode ends up being an `O(n)` operation at each
@@ -134,6 +135,7 @@ impl<'c> QueryEnvironment for AqueryEnvironment<'c> {
             },
             root.iter_names(),
             traversal_delegate,
+            visit,
         )
         .await
     }
@@ -141,7 +143,8 @@ impl<'c> QueryEnvironment for AqueryEnvironment<'c> {
     async fn depth_limited_traversal(
         &self,
         root: &TargetSet<Self::Target>,
-        delegate: &mut impl AsyncTraversalDelegate<Self::Target>,
+        delegate: impl AsyncChildVisitor<Self::Target>,
+        visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
         depth: u32,
     ) -> anyhow::Result<()> {
         // TODO(cjhopman): See above.
@@ -152,6 +155,7 @@ impl<'c> QueryEnvironment for AqueryEnvironment<'c> {
             },
             root.iter_names(),
             delegate,
+            visit,
             depth,
         )
         .await

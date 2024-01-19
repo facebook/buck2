@@ -32,7 +32,6 @@ use buck2_query::query::graph::node::NodeLabel;
 use buck2_query::query::graph::successors::AsyncChildVisitor;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::AsyncNodeLookup;
-use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query::traversal::ChildVisitor;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
@@ -106,17 +105,13 @@ async fn get_transitive_includes(
         }
     }
 
-    struct Delegate {
-        imports: Vec<ImportPath>,
-    }
+    let mut imports: Vec<ImportPath> = Vec::new();
+    struct Delegate;
 
-    #[async_trait]
-    impl AsyncTraversalDelegate<Node> for Delegate {
-        fn visit(&mut self, target: Node) -> anyhow::Result<()> {
-            self.imports.push(target.import_path().clone());
-            Ok(())
-        }
-    }
+    let visit = |target: Node| {
+        imports.push(target.import_path().clone());
+        Ok(())
+    };
 
     #[async_trait]
     impl AsyncChildVisitor<Node> for Delegate {
@@ -132,16 +127,16 @@ async fn get_transitive_includes(
         }
     }
 
-    let mut delegate = Delegate { imports: vec![] };
     let lookup = Lookup { ctx };
 
     async_depth_first_postorder_traversal(
         &lookup,
         load_result.imports().map(NodeRef::ref_cast),
-        &mut delegate,
+        Delegate,
+        visit,
     )
     .await?;
-    Ok(delegate.imports)
+    Ok(imports)
 }
 
 async fn load_and_collect_includes(
