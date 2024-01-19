@@ -234,7 +234,7 @@ pub trait QueryEnvironment: Send + Sync {
 
         let mut rdeps = TargetSet::new();
 
-        let visit = |target| {
+        let mut visit = |target| {
             rdeps.insert(target);
             Ok(())
         };
@@ -257,21 +257,23 @@ pub trait QueryEnvironment: Send + Sync {
 
         let roots_in_universe = from.filter(|t| Ok(graph.get(t.node_ref()).is_some()))?;
 
-        // TODO(nga): we have constructed graph already, we don't need to call slow `dfs_postorder` here.
-
-        let delegate = ReverseDelegate { graph };
-
         match depth {
             // For unbounded traversals, buck1 recommends specifying a large value. We'll accept either a negative (like -1) or
             // a large value as unbounded. We can't just call it optional because args are positional only in the query syntax
             // and so to specify a filter you need to specify a depth.
             Some(v) if (0..1_000_000_000).contains(&v) => {
+                // TODO(nga): we have constructed graph already, we don't need to call slow `dfs_postorder` here.
+
+                let delegate = ReverseDelegate { graph };
+
                 self.depth_limited_traversal(&roots_in_universe, delegate, visit, v as u32)
                     .await?;
             }
             _ => {
-                self.dfs_postorder(&roots_in_universe, delegate, visit)
-                    .await?;
+                graph.depth_first_postorder_traversal(
+                    roots_in_universe.iter().map(|t| t.node_ref().clone()),
+                    |t| visit(t.clone()),
+                )?;
             }
         }
 
