@@ -240,7 +240,7 @@ pub trait QueryEnvironment: Send + Sync {
             }
 
             async fn for_each_child(
-                &mut self,
+                &self,
                 target: &Q,
                 func: &mut impl ChildVisitor<Q>,
             ) -> anyhow::Result<()> {
@@ -391,7 +391,7 @@ pub async fn deps<Env: QueryEnvironment + ?Sized>(
         }
 
         async fn for_each_child(
-            &mut self,
+            &self,
             target: &Q,
             func: &mut impl ChildVisitor<Q>,
         ) -> anyhow::Result<()> {
@@ -448,7 +448,7 @@ pub struct QueryTargetDepsSuccessors;
 #[async_trait]
 impl<T: QueryTarget> AsyncChildVisitor<T> for QueryTargetDepsSuccessors {
     async fn for_each_child(
-        &mut self,
+        &self,
         node: &T,
         children: &mut impl ChildVisitor<T>,
     ) -> anyhow::Result<()> {

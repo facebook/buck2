@@ -329,7 +329,7 @@ impl TargetHashes {
             }
 
             async fn for_each_child(
-                &mut self,
+                &self,
                 target: &T,
                 func: &mut impl ChildVisitor<T>,
             ) -> anyhow::Result<()> {

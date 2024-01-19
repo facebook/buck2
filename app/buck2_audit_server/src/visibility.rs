@@ -53,7 +53,7 @@ async fn verify_visibility(
             Ok(())
         }
         async fn for_each_child(
-            &mut self,
+            &self,
             target: &TargetNode,
             func: &mut impl ChildVisitor<TargetNode>,
         ) -> anyhow::Result<()> {

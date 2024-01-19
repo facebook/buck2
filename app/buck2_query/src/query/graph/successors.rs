@@ -20,7 +20,7 @@ pub trait GraphSuccessors<N> {
 #[async_trait]
 pub trait AsyncChildVisitor<N: LabeledNode>: Send + Sync {
     async fn for_each_child(
-        &mut self,
+        &self,
         node: &N,
         children: &mut impl ChildVisitor<N>,
     ) -> anyhow::Result<()>;

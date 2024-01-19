@@ -423,7 +423,7 @@ pub(crate) async fn rbuildfiles<'c>(
             Ok(())
         }
         async fn for_each_child(
-            &mut self,
+            &self,
             node: &Node,
             func: &mut impl ChildVisitor<Node>,
         ) -> anyhow::Result<()> {
@@ -624,7 +624,7 @@ pub(crate) async fn get_transitive_loads<'c>(
         }
 
         async fn for_each_child(
-            &mut self,
+            &self,
             target: &Node,
             func: &mut impl ChildVisitor<Node>,
         ) -> anyhow::Result<()> {

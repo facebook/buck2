@@ -110,7 +110,7 @@ impl<T: LabeledNode> Graph<T> {
     pub(crate) async fn build(
         nodes: &impl AsyncNodeLookup<T>,
         root: impl IntoIterator<Item = T::NodeRef>,
-        mut successors: impl AsyncChildVisitor<T>,
+        successors: impl AsyncChildVisitor<T>,
     ) -> anyhow::Result<Graph<T>> {
         let mut graph = GraphBuilder::<T> {
             nodes: VecAsMap::default(),
@@ -373,7 +373,7 @@ mod tests {
         #[async_trait]
         impl AsyncChildVisitor<Node> for Successors {
             async fn for_each_child(
-                &mut self,
+                &self,
                 node: &Node,
                 children: &mut impl ChildVisitor<Node>,
             ) -> anyhow::Result<()> {

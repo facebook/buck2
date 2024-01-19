@@ -45,7 +45,7 @@ pub trait AsyncTraversalDelegate<T: LabeledNode>: Send + Sync {
 
     /// for_each_child should apply the provided function to each child of the node. This may be called multiple times in some traversals.
     async fn for_each_child(
-        &mut self,
+        &self,
         target: &T,
         func: &mut impl ChildVisitor<T>,
     ) -> anyhow::Result<()>;
@@ -232,7 +232,7 @@ pub async fn async_depth_first_postorder_traversal<
         for SuccessorsImpl<'_, T, D>
     {
         async fn for_each_child(
-            &mut self,
+            &self,
             node: &T,
             children: &mut impl ChildVisitor<T>,
         ) -> anyhow::Result<()> {
@@ -385,7 +385,7 @@ mod tests {
                 }
 
                 async fn for_each_child(
-                    &mut self,
+                    &self,
                     target: &Node,
                     func: &mut impl ChildVisitor<Node>,
                 ) -> anyhow::Result<()> {
