@@ -51,32 +51,6 @@ std::optional<int> MaybeGetExitCode(PyStatus* status, PyConfig* config) {
 extern struct _inittab _static_extension_info[];
 PyMODINIT_FUNC PyInit__static_extension_utils();
 
-void call_site_main() {
-  PyObject* siteModule = PyImport_ImportModule("site");
-  if (siteModule == nullptr) {
-    PyErr_Print();
-    fprintf(stderr, "Error: could not import module 'site'\n");
-  } else {
-    PyObject* siteMain = PyObject_GetAttrString(siteModule, "main");
-    Py_DECREF(siteModule);
-    if (siteMain == nullptr || !PyCallable_Check(siteMain)) {
-      PyErr_Print();
-      fprintf(
-          stderr, "Error: could not find function 'main' in module 'site'\n");
-      Py_DECREF(siteMain);
-    } else {
-      PyObject* siteMainResult = PyObject_CallObject(siteMain, nullptr);
-      Py_DECREF(siteMain);
-      if (siteMainResult == nullptr) {
-        PyErr_Print();
-        fprintf(
-            stderr, "Error: could not call function 'main' in module 'site'\n");
-      }
-      Py_DECREF(siteMainResult);
-    }
-  }
-}
-
 int main(int argc, char* argv[]) {
   PyStatus status;
   PyConfig config;
@@ -113,10 +87,6 @@ int main(int argc, char* argv[]) {
       return *exit_code;
     }
   }
-
-  // Defer importing `site` until after static extension finder is initialized.
-  auto siteImport = config.site_import;
-  config.site_import = 0;
 
   // Check if we're using par_style="native", if so, modify sys.path to include
   // the executable-zipfile to it, and set a main module to run when invoked.
@@ -218,8 +188,5 @@ int main(int argc, char* argv[]) {
   }
 
   PyConfig_Clear(&config);
-  if (siteImport) {
-    call_site_main();
-  }
   return Py_RunMain();
 }
