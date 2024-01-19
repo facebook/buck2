@@ -16,9 +16,13 @@ use buck2_analysis::attrs::resolve::ctx::AttrResolutionContext;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_core::package::PackageLabel;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
+use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
+use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use dupe::Dupe;
 use starlark::values::dict::Dict;
 use starlark::values::tuple::AllocTuple;
@@ -26,6 +30,8 @@ use starlark::values::Value;
 use starlark_map::small_map::SmallMap;
 
 use crate::anon_target_attr::AnonTargetAttr;
+use crate::anon_targets::AnonTargetKey;
+use crate::anon_targets::AnonTargetsError;
 use crate::promise_artifacts::PromiseArtifactAttr;
 
 // No macros in anon targets, so query results are empty. Execution platform resolution should
@@ -118,5 +124,46 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
                 Ok(ctx.heap().alloc(StarlarkProvidersLabel::new(label.clone())))
             }
         }
+    }
+}
+
+// Container for things that require looking up analysis results in order to resolve the attribute.
+pub(crate) struct AnonTargetDependents {
+    pub(crate) deps: Vec<ConfiguredTargetLabel>,
+    #[allow(unused)] // TODO(@wendyy)
+    pub(crate) promise_artifacts: Vec<PromiseArtifactAttr>,
+}
+
+impl AnonTargetDependents {
+    pub(crate) fn get_dependents(
+        anon_target: &AnonTargetKey,
+    ) -> anyhow::Result<AnonTargetDependents> {
+        struct DepTraversal(Vec<ConfiguredTargetLabel>);
+
+        impl ConfiguredAttrTraversal for DepTraversal {
+            fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+                self.0.push(dep.target().dupe());
+                Ok(())
+            }
+
+            fn query(
+                &mut self,
+                _query: &str,
+                _resolved_literals: &ResolvedQueryLiterals<ConfiguredProvidersLabel>,
+            ) -> anyhow::Result<()> {
+                Err(AnonTargetsError::QueryMacroNotSupported.into())
+            }
+        }
+
+        let mut dep_traversal = DepTraversal(Vec::new());
+        // @TODO(@wendyy) - populate after switching over to PromiseArtifactAttrs
+        let promise_artifacts = Vec::new();
+        for x in anon_target.0.attrs().values() {
+            x.traverse(anon_target.0.name().pkg(), &mut dep_traversal)?;
+        }
+        Ok(AnonTargetDependents {
+            deps: dep_traversal.0,
+            promise_artifacts,
+        })
     }
 }

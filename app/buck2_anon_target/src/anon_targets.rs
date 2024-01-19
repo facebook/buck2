@@ -57,7 +57,6 @@ use buck2_core::pattern::PatternData;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
-use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
@@ -72,13 +71,11 @@ use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter_for_build::rule::FrozenRuleCallable;
-use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
-use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::internal::internal_attrs;
 use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
@@ -108,6 +105,7 @@ use crate::anon_target_attr::AnonTargetAttr;
 use crate::anon_target_attr_coerce::AnonTargetAttrTypeCoerce;
 use crate::anon_target_attr_resolve::AnonTargetAttrResolution;
 use crate::anon_target_attr_resolve::AnonTargetAttrResolutionContext;
+use crate::anon_target_attr_resolve::AnonTargetDependents;
 use crate::anon_target_node::AnonTarget;
 use crate::promise_artifacts::PromiseArtifactRegistry;
 
@@ -300,33 +298,9 @@ impl AnonTargetKey {
         unsafe { UnsafeSendFuture::new_encapsulates_starlark(fut) }
     }
 
-    fn deps(&self) -> anyhow::Result<Vec<ConfiguredTargetLabel>> {
-        struct Traversal(Vec<ConfiguredTargetLabel>);
-
-        impl ConfiguredAttrTraversal for Traversal {
-            fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
-                self.0.push(dep.target().dupe());
-                Ok(())
-            }
-
-            fn query(
-                &mut self,
-                _query: &str,
-                _resolved_literals: &ResolvedQueryLiterals<ConfiguredProvidersLabel>,
-            ) -> anyhow::Result<()> {
-                Err(AnonTargetsError::QueryMacroNotSupported.into())
-            }
-        }
-
-        let mut traversal = Traversal(Vec::new());
-        for x in self.0.attrs().values() {
-            x.traverse(self.0.name().pkg(), &mut traversal)?;
-        }
-        Ok(traversal.0)
-    }
-
     async fn run_analysis_impl(&self, dice: &DiceComputations) -> anyhow::Result<AnalysisResult> {
-        let deps = self.deps()?;
+        let dependents = AnonTargetDependents::get_dependents(self)?;
+        let deps = dependents.deps;
         let dep_analysis_results: HashMap<_, _> = keep_going::try_join_all(
             dice,
             deps.iter()
