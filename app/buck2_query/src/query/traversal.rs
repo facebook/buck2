@@ -11,10 +11,10 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 use async_trait::async_trait;
+use futures::stream::FuturesOrdered;
 use futures::StreamExt;
 use starlark_map::StarlarkHasherBuilder;
 
-use crate::query::futures_queue_generic::FuturesQueue;
 use crate::query::graph::graph::Graph;
 use crate::query::graph::node::LabeledNode;
 use crate::query::graph::successors::AsyncChildVisitor;
@@ -110,7 +110,7 @@ pub async fn async_fast_depth_first_postorder_traversal<
     Ok(())
 }
 
-async fn async_traversal_common<
+pub async fn async_depth_limited_traversal<
     'a,
     T: LabeledNode + 'static,
     RootIter: IntoIterator<Item = &'a T::NodeRef>,
@@ -119,12 +119,10 @@ async fn async_traversal_common<
     root: RootIter,
     successors: impl AsyncChildVisitor<T>,
     mut visit: impl FnMut(T) -> anyhow::Result<()>,
-    // `None` means no max depth.
-    max_depth: Option<u32>,
-    ordered: bool,
+    max_depth: u32,
 ) -> anyhow::Result<()> {
     let mut visited: HashMap<_, _, StarlarkHasherBuilder> = HashMap::default();
-    let mut push = |queue: &mut FuturesQueue<_>,
+    let mut push = |queue: &mut FuturesOrdered<_>,
                     target: &T::NodeRef,
                     parent: Option<T::NodeRef>,
                     depth: u32| {
@@ -133,17 +131,13 @@ async fn async_traversal_common<
         }
         visited.insert(target.clone(), parent);
         let target = target.clone();
-        queue.push(async move {
+        queue.push_back(async move {
             let result = nodes.get(&target).await;
             (target, depth, result)
         })
     };
 
-    let mut queue = if ordered {
-        FuturesQueue::new_ordered()
-    } else {
-        FuturesQueue::new_unordered()
-    };
+    let mut queue = FuturesOrdered::new();
 
     for target in root {
         push(&mut queue, target, None, 0);
@@ -155,7 +149,7 @@ async fn async_traversal_common<
     while let Some((target, depth, node)) = tokio::task::unconstrained(queue.next()).await {
         let result: anyhow::Result<_> = try {
             let node = node?;
-            if Some(depth) != max_depth {
+            if depth != max_depth {
                 let depth = depth + 1;
                 successors
                     .for_each_child(&node, &mut |child: &T::NodeRef| {
@@ -179,20 +173,6 @@ async fn async_traversal_common<
     }
 
     Ok(())
-}
-
-pub async fn async_depth_limited_traversal<
-    'a,
-    T: LabeledNode + 'static,
-    RootIter: IntoIterator<Item = &'a T::NodeRef>,
->(
-    nodes: &impl AsyncNodeLookup<T>,
-    root: RootIter,
-    delegate: impl AsyncChildVisitor<T>,
-    visit: impl FnMut(T) -> anyhow::Result<()>,
-    max_depth: u32,
-) -> anyhow::Result<()> {
-    async_traversal_common(nodes, root, delegate, visit, Some(max_depth), true).await
 }
 
 /// Implements a depth-first postorder traversal. A node will be visited only after all of its
