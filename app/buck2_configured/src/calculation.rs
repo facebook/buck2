@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_common::dice::cycles::CycleAdapterDescriptor;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
@@ -41,12 +42,12 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
         &self,
         ctx: &DiceComputations,
         target: &TargetLabel,
-        global_target_platform: Option<&TargetLabel>,
+        global_cfg_options: &GlobalCfgOptions,
     ) -> anyhow::Result<ConfiguredTargetLabel> {
         let (node, super_package) = ctx.get_target_node_with_super_package(target).await?;
 
         let get_platform_configuration = async || -> buck2_error::Result<ConfigurationData> {
-            let current_cfg = match global_target_platform {
+            let current_cfg = match global_cfg_options.target_platform.as_ref() {
                 Some(global_target_platform) => {
                     ctx.get_platform_configuration(global_target_platform)
                         .await?
@@ -59,7 +60,13 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
 
             Ok(CFG_CONSTRUCTOR_CALCULATION_IMPL
                 .get()?
-                .eval_cfg_constructor(ctx, node.as_ref(), &super_package, current_cfg)
+                .eval_cfg_constructor(
+                    ctx,
+                    node.as_ref(),
+                    &super_package,
+                    current_cfg,
+                    &global_cfg_options.cli_modifiers,
+                )
                 .await?)
         };
 

@@ -60,5 +60,6 @@ pub trait CfgConstructorCalculationImpl: Send + Sync + 'static {
         target: TargetNodeRef<'_>,
         super_package: &SuperPackage,
         cfg: ConfigurationData,
+        cli_modifiers: &Arc<Vec<String>>,
     ) -> anyhow::Result<ConfigurationData>;
 }

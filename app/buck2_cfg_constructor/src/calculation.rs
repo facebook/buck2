@@ -84,6 +84,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
         target: TargetNodeRef<'_>,
         super_package: &SuperPackage,
         cfg: ConfigurationData,
+        cli_modifiers: &Arc<Vec<String>>,
     ) -> anyhow::Result<ConfigurationData> {
         #[derive(Clone, Display, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
         #[display(fmt = "CfgConstructorInvocationKey")]
@@ -91,6 +92,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
             package_cfg_modifiers: Option<MetadataValue>,
             target_cfg_modifiers: Option<MetadataValue>,
             cfg: ConfigurationData,
+            cli_modifiers: Arc<Vec<String>>,
         }
 
         #[async_trait]
@@ -114,7 +116,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
                         &self.cfg,
                         self.package_cfg_modifiers.as_ref(),
                         self.target_cfg_modifiers.as_ref(),
-                        &[],
+                        &self.cli_modifiers,
                     )
                     .await
                     .map_err(buck2_error::Error::from)
@@ -149,6 +151,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
             package_cfg_modifiers,
             target_cfg_modifiers,
             cfg,
+            cli_modifiers: cli_modifiers.dupe(),
         };
         Ok(ctx.compute(&key).await??)
     }

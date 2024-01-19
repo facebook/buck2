@@ -8,6 +8,7 @@
  */
 
 use async_trait::async_trait;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -21,7 +22,7 @@ pub trait ConfiguredTargetCalculationImpl: Send + Sync + 'static {
         &self,
         ctx: &DiceComputations,
         target: &TargetLabel,
-        global_target_platform: Option<&TargetLabel>,
+        global_cfg_options: &GlobalCfgOptions,
     ) -> anyhow::Result<ConfiguredTargetLabel>;
 }
 
@@ -69,7 +70,14 @@ impl ConfiguredTargetCalculation for DiceComputations {
     ) -> anyhow::Result<ConfiguredTargetLabel> {
         CONFIGURED_TARGET_CALCULATION
             .get()?
-            .get_configured_target(self, target, global_target_platform)
+            .get_configured_target(
+                self,
+                target,
+                &GlobalCfgOptions {
+                    target_platform: global_target_platform.cloned(),
+                    cli_modifiers: vec![].into(),
+                },
+            )
             .await
     }
 
@@ -80,7 +88,14 @@ impl ConfiguredTargetCalculation for DiceComputations {
     ) -> anyhow::Result<ConfiguredProvidersLabel> {
         let configured_target_label = CONFIGURED_TARGET_CALCULATION
             .get()?
-            .get_configured_target(self, target.target(), global_target_platform)
+            .get_configured_target(
+                self,
+                target.target(),
+                &GlobalCfgOptions {
+                    target_platform: global_target_platform.cloned(),
+                    cli_modifiers: vec![].into(),
+                },
+            )
             .await?;
         Ok(ConfiguredProvidersLabel::new(
             configured_target_label,
@@ -94,7 +109,7 @@ impl ConfiguredTargetCalculation for DiceComputations {
     ) -> anyhow::Result<ConfiguredTargetLabel> {
         CONFIGURED_TARGET_CALCULATION
             .get()?
-            .get_configured_target(self, target, None)
+            .get_configured_target(self, target, &GlobalCfgOptions::default())
             .await
     }
 }
