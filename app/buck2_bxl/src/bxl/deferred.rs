@@ -29,6 +29,7 @@ mod tests {
     use buck2_build_api::deferred::types::DeferredTable;
     use buck2_build_api::deferred::types::DeferredValue;
     use buck2_common::dice::data::testing::SetTestingIoProvider;
+    use buck2_common::global_cfg_options::GlobalCfgOptions;
     use buck2_core::base_deferred_key::BaseDeferredKey;
     use buck2_core::execution_types::execution::ExecutionPlatformResolution;
     use buck2_core::execution_types::executor_config::CommandExecutorConfig;
@@ -80,8 +81,8 @@ mod tests {
                 name: "foo".to_owned(),
             },
             Arc::new(OrderedMap::new()),
-            None,
             false,
+            GlobalCfgOptions::default(),
         );
 
         let mut deferred = DeferredRegistry::new(BaseKey::Base(BaseDeferredKey::BxlLabel(

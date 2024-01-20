@@ -16,6 +16,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -23,7 +24,6 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_core::target::label::TargetLabel;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_data::ToProtoMessage;
 use cmp_any::PartialEqAny;
@@ -50,14 +50,14 @@ impl BxlKey {
     pub(crate) fn new(
         spec: BxlFunctionLabel,
         bxl_args: Arc<OrderedMap<String, CliArgValue>>,
-        global_target_platform: Option<TargetLabel>,
         force_print_stacktrace: bool,
+        global_cfg_options: GlobalCfgOptions,
     ) -> Self {
         Self(Arc::new(BxlKeyData {
             spec,
             bxl_args,
-            global_target_platform,
             force_print_stacktrace,
+            global_cfg_options,
         }))
     }
 
@@ -91,8 +91,8 @@ impl BxlKey {
             .context("Not BxlKey (internal error)")
     }
 
-    pub(crate) fn global_target_platform(&self) -> &Option<TargetLabel> {
-        &self.0.global_target_platform
+    pub(crate) fn global_cfg_options(&self) -> &GlobalCfgOptions {
+        &self.0.global_cfg_options
     }
 
     pub(crate) fn force_print_stacktrace(&self) -> bool {
@@ -115,11 +115,11 @@ impl BxlKey {
 struct BxlKeyData {
     spec: BxlFunctionLabel,
     bxl_args: Arc<OrderedMap<String, CliArgValue>>,
-    global_target_platform: Option<TargetLabel>,
     /// Overrides `fail_no_stacktrace` to print a stacktrace anyway. FIXME(JakobDegen): Might be
     /// better to put this on the `UserComputationData` instead, to keep this from invalidating the
     /// dice node. A bit hard to wire up though, so just leave it here for now.
     force_print_stacktrace: bool,
+    global_cfg_options: GlobalCfgOptions,
 }
 
 impl BxlKeyData {
@@ -186,7 +186,7 @@ impl BaseDeferredKeyDyn for BxlDynamicKeyData {
         let output_hash = {
             let mut hasher = DefaultHasher::new();
             self.key.bxl_args.hash(&mut hasher);
-            self.key.global_target_platform.hash(&mut hasher);
+            self.key.global_cfg_options.hash(&mut hasher);
             let output_hash = hasher.finish();
             format!("{:x}", output_hash)
         };

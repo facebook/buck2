@@ -34,6 +34,7 @@ use buck2_cli_proto::build_request::Materializations;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::events::HasEvents;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
@@ -445,6 +446,10 @@ impl<'v> BxlContextNoDice<'v> {
         &self.project_fs
     }
 
+    pub(crate) fn global_cfg_options(&self) -> &GlobalCfgOptions {
+        self.current_bxl.global_cfg_options()
+    }
+
     /// Working dir for resolving literals.
     /// Note, unlike buck2 command line UI, we resolve targets and literals
     /// against the cell root instead of user working dir.
@@ -718,7 +723,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
             &this.data.target_alias_resolver,
             &this.data.cell_resolver,
             this.data.cell_name,
-            this.data.current_bxl.global_target_platform(),
+            &this.data.global_cfg_options().target_platform,
         )?;
 
         this.via_dice(|mut dice, this| {
@@ -842,7 +847,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
             &this.data.target_alias_resolver,
             &this.data.cell_resolver,
             this.data.cell_name,
-            this.data.current_bxl.global_target_platform(),
+            &this.data.global_cfg_options().target_platform,
         )?;
 
         this.via_dice(|mut ctx, this_no_dice: &BxlContextNoDice<'_>| {
@@ -897,7 +902,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         StarlarkCQueryCtx::new(
             this,
             target_platform,
-            this.data.current_bxl.global_target_platform(),
+            &this.data.global_cfg_options().target_platform,
         )
     }
 
@@ -914,7 +919,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         StarlarkAQueryCtx::new(
             this,
             target_platform,
-            this.data.current_bxl.global_target_platform(),
+            &this.data.global_cfg_options().target_platform,
         )
     }
 
@@ -994,7 +999,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
                                 &this.target_alias_resolver,
                                 &this.cell_resolver,
                                 this.cell_name,
-                                this.current_bxl.global_target_platform(),
+                                &this.global_cfg_options().target_platform,
                             )?;
                             let exec_deps = match exec_deps {
                                 NoneOr::None => Vec::new(),
@@ -1117,7 +1122,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
             &this.data.target_alias_resolver,
             &this.data.cell_resolver,
             this.data.cell_name,
-            this.data.current_bxl.global_target_platform(),
+            &this.data.global_cfg_options().target_platform,
         )?;
 
         let res: anyhow::Result<_> = this.via_dice(|mut dice, ctx| {
@@ -1283,7 +1288,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
             this,
             working_dir,
             cell_resolver,
-            this.data.current_bxl.global_target_platform().clone(),
+            this.data.global_cfg_options().target_platform.clone(),
         )
     }
 

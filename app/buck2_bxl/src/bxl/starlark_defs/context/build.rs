@@ -196,7 +196,7 @@ pub(crate) fn build<'v>(
         &ctx.data.target_alias_resolver,
         &ctx.data.cell_resolver,
         ctx.data.cell_name,
-        ctx.data.current_bxl.global_target_platform(),
+        &ctx.data.global_cfg_options().target_platform,
     )?;
 
     let build_result = ctx.via_dice(

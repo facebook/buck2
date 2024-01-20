@@ -193,8 +193,6 @@ async fn eval_bxl_inner(
         Some(profiler) => StarlarkProfilerOrInstrumentation::for_profiler(profiler),
     };
 
-    let _global_target_platform = key.global_target_platform().clone();
-
     let (bxl_result, materializations) = with_starlark_eval_provider(
         ctx,
         &mut profiler,

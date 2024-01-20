@@ -156,8 +156,8 @@ async fn bxl(
     let bxl_key = BxlKey::new(
         bxl_label.clone(),
         bxl_args,
-        global_cfg_options.target_platform.dupe(),
         request.print_stacktrace,
+        global_cfg_options,
     );
 
     let ctx = &ctx;

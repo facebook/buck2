@@ -28,7 +28,6 @@ use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
-use dupe::Dupe;
 use futures::FutureExt;
 
 use crate::bxl::eval::eval;
@@ -112,8 +111,8 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                         let bxl_key = BxlKey::new(
                             bxl_label.clone(),
                             bxl_args,
-                            global_cfg_options.target_platform.dupe(),
                             /* force print stacktrace */ false,
+                            global_cfg_options,
                         );
 
                         server_ctx
