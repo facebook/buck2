@@ -1017,6 +1017,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::map_identity)]
     fn few_entries() {
         let entries1 = [(0, 'a'), (1, 'b')];
         let m1 = entries1.iter().copied().collect::<SmallMap<_, _>>();

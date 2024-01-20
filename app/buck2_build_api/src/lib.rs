@@ -12,7 +12,6 @@
 #![feature(iter_order_by)]
 #![feature(try_blocks)]
 #![feature(once_cell_try)]
-#![feature(return_position_impl_trait_in_trait)]
 
 #[macro_use]
 extern crate starlark;

@@ -765,6 +765,31 @@ pub(crate) fn register_cli_args_module(registry: &mut GlobalsBuilder) {
     cli_args_module(registry)
 }
 
+pub(crate) enum ArgAccessor<'a> {
+    Clap {
+        clap: &'a clap::ArgMatches,
+        arg: &'a str,
+    },
+    Literal(&'a str),
+}
+
+#[allow(deprecated)] // TODO(nga): fix.
+impl<'a> ArgAccessor<'a> {
+    fn value_of(&self) -> Option<&str> {
+        match self {
+            ArgAccessor::Clap { clap, arg } => clap.value_of(arg),
+            ArgAccessor::Literal(s) => Some(s),
+        }
+    }
+
+    fn values_of(&self) -> Option<impl Iterator<Item = &str>> {
+        match self {
+            ArgAccessor::Clap { clap, arg } => clap.values_of(arg).map(itertools::Either::Left),
+            ArgAccessor::Literal(s) => Some(itertools::Either::Right(std::iter::once(*s))),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
@@ -907,30 +932,5 @@ mod tests {
         );
 
         Ok(())
-    }
-}
-
-pub(crate) enum ArgAccessor<'a> {
-    Clap {
-        clap: &'a clap::ArgMatches,
-        arg: &'a str,
-    },
-    Literal(&'a str),
-}
-
-#[allow(deprecated)] // TODO(nga): fix.
-impl<'a> ArgAccessor<'a> {
-    fn value_of(&self) -> Option<&str> {
-        match self {
-            ArgAccessor::Clap { clap, arg } => clap.value_of(arg),
-            ArgAccessor::Literal(s) => Some(s),
-        }
-    }
-
-    fn values_of(&self) -> Option<impl Iterator<Item = &str>> {
-        match self {
-            ArgAccessor::Clap { clap, arg } => clap.values_of(arg).map(itertools::Either::Left),
-            ArgAccessor::Literal(s) => Some(itertools::Either::Right(std::iter::once(*s))),
-        }
     }
 }

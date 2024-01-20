@@ -7,6 +7,6 @@
 # * Update `../common/ocaml/interop/rust-toolchain` (one instance)
 # * Update `../common/rust/tools/reindeer/rust-toolchain` (one instance)
 
-# @rustc_version: rustc 1.74.0-nightly (ca62d2c44 2023-09-30)
-channel = "nightly-2023-10-01"
+# @rustc_version: rustc 1.75.0-nightly (0f44eb32f 2023-11-09)
+channel = "nightly-2023-11-10"
 components = ["llvm-tools-preview","rustc-dev","rust-src"]

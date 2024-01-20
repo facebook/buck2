@@ -65,7 +65,7 @@ fn test_soft_error() {
             file!(),
             before_error_line + 1,
         )),
-        RESULT.lock().unwrap().get(0)
+        RESULT.lock().unwrap().first()
     );
 }
 

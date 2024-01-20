@@ -64,6 +64,6 @@ pub(crate) fn command_line_stringifier(builder: &mut GlobalsBuilder) {
             .0
             .add_to_command_line(&mut cli, &mut ctx)?;
         assert_eq!(1, cli.len());
-        Ok(cli.get(0).unwrap().clone())
+        Ok(cli.first().unwrap().clone())
     }
 }

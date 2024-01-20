@@ -9,7 +9,6 @@
 
 #![feature(error_generic_member_access)]
 #![feature(async_closure)]
-#![feature(async_fn_in_trait)]
 
 pub(crate) mod calculation;
 pub(crate) mod registration;

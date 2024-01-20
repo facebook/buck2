@@ -608,7 +608,7 @@ impl TryInto<buck2_test_proto::ExecutionResult2> for ExecutionResult2 {
                 .into_iter()
                 .map(|(k, v)| {
                     Ok(buck2_test_proto::OutputEntry {
-                        declared_output: Some(k.try_into().context("Invalid `declared_output`")?),
+                        declared_output: Some(k.into()),
                         output: Some(v.try_into().context("Invalid `output`")?),
                     })
                 })
@@ -769,10 +769,7 @@ impl TryInto<buck2_test_proto::TestExecutable> for TestExecutable {
             })
             .collect::<anyhow::Result<_>>()?;
 
-        let pre_create_dirs = self
-            .pre_create_dirs
-            .into_try_map(|i| i.try_into())
-            .context("Invalid `pre_create_dirs`")?;
+        let pre_create_dirs = self.pre_create_dirs.into_map(|i| i.into());
 
         Ok(buck2_test_proto::TestExecutable {
             ui_prints,

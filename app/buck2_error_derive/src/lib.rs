@@ -10,7 +10,7 @@
 // This code is adapted from https://github.com/dtolnay/thiserror licensed under Apache-2.0 or MIT.
 
 #![allow(
-    clippy::blocks_in_if_conditions,
+    clippy::blocks_in_conditions,
     clippy::cast_lossless,
     clippy::cast_possible_truncation,
     clippy::manual_find,

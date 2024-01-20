@@ -350,19 +350,19 @@ mod test {
 
         assert_eq!(3, module.methods.len());
 
-        let method = module.methods.get(0).unwrap();
+        let method = module.methods.first().unwrap();
         assert_eq!("buildfile", method.name.to_string());
         let args = &method.args;
         assert_eq!(1, args.len());
         let expected: Type = parse_quote!(TargetSet<Env::Target>);
-        assert_eq!(&expected, &args.get(0).unwrap().ty);
+        assert_eq!(&expected, &args.first().unwrap().ty);
 
         let method = module.methods.get(1).unwrap();
         assert_eq!("deps", method.name.to_string());
         let args = &method.args;
         assert_eq!(4, args.len());
         let expected: Type = parse_quote!(&QueryEvaluator<'_, Env>);
-        assert_eq!(&expected, &args.get(0).unwrap().ty);
+        assert_eq!(&expected, &args.first().unwrap().ty);
         let expected: Type = parse_quote!(TargetSet<Env::Target>);
         assert_eq!(&expected, &args.get(1).unwrap().ty);
         let expected: Type = parse_quote!(Option<u64>);
@@ -375,7 +375,7 @@ mod test {
         let args = &method.args;
         assert_eq!(2, args.len());
         let expected: Type = parse_quote!(String);
-        assert_eq!(&expected, &args.get(0).unwrap().ty);
+        assert_eq!(&expected, &args.first().unwrap().ty);
         let expected: Type = parse_quote!(TargetSet<Env::Target>);
         assert_eq!(&expected, &args.get(1).unwrap().ty);
     }

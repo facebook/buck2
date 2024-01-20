@@ -182,7 +182,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
             .add_to_command_line(&mut cli, &mut ctx)
             .unwrap();
         assert_eq!(1, cli.len());
-        Ok(cli.get(0).unwrap().to_owned())
+        Ok(cli.first().unwrap().to_owned())
     }
 
     // Mainly tests get_or_declare_output function that can transfer associated artifacts
