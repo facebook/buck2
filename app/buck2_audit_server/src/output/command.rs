@@ -18,16 +18,15 @@ use buck2_build_api::audit_output::AuditOutputResult;
 use buck2_build_api::audit_output::AUDIT_OUTPUT;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::target::label::TargetLabel;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use dice::DiceComputations;
-use dupe::Dupe;
 
 use crate::output::buck_out_path_parser::BuckOutPathParser;
 use crate::output::buck_out_path_parser::BuckOutPathType;
@@ -46,7 +45,7 @@ async fn audit_output<'v>(
     working_dir: &'v ProjectRelativePath,
     cell_resolver: &'v CellResolver,
     dice_ctx: &'v DiceComputations,
-    global_target_platform: Option<TargetLabel>,
+    global_cfg_options: &'v GlobalCfgOptions,
 ) -> anyhow::Result<Option<AuditOutputResult>> {
     let buck_out_parser = BuckOutPathParser::new(cell_resolver);
     let parsed = buck_out_parser.parse(output_path)?;
@@ -70,7 +69,7 @@ async fn audit_output<'v>(
     };
 
     let configured_target_label = dice_ctx
-        .get_configured_target(&target_label, global_target_platform.as_ref())
+        .get_configured_target(&target_label, global_cfg_options.target_platform.as_ref())
         .await?;
 
     let command_config = configured_target_label.cfg();
@@ -87,7 +86,7 @@ async fn audit_output<'v>(
     Ok(FIND_MATCHING_ACTION.get()?(
         dice_ctx,
         working_dir,
-        global_target_platform,
+        global_cfg_options,
         &analysis,
         path_after_target_name,
     )
@@ -97,13 +96,13 @@ async fn audit_output<'v>(
 
 pub(crate) fn init_audit_output() {
     AUDIT_OUTPUT.init(
-        |output_path, working_dir, cell_resolver, dice_ctx, global_target_platform| {
+        |output_path, working_dir, cell_resolver, dice_ctx, global_cfg_options| {
             Box::pin(audit_output(
                 output_path,
                 working_dir,
                 cell_resolver,
                 dice_ctx,
-                global_target_platform,
+                global_cfg_options,
             ))
         },
     );
@@ -136,7 +135,7 @@ impl AuditSubcommand for AuditOutputCommand {
                 )
                 .await?;
 
-                let result = audit_output(&self.output_path, working_dir, &cell_resolver, &dice_ctx, global_cfg_options.target_platform.dupe()).await?;
+                let result = audit_output(&self.output_path, working_dir, &cell_resolver, &dice_ctx, &global_cfg_options).await?;
 
                 let mut stdout = stdout.as_writer();
 

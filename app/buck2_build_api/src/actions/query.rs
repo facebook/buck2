@@ -18,6 +18,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_artifact::actions::key::ActionKey;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellResolver;
@@ -25,7 +26,6 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::target::label::TargetLabel;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::graph::node::LabeledNode;
@@ -436,8 +436,8 @@ pub static FIND_MATCHING_ACTION: LateBinding<
         &'c DiceComputations,
         // Working dir.
         &'c ProjectRelativePath,
-        // global_target_platform
-        Option<TargetLabel>,
+        // target cfg info (target platform, cli modifiers)
+        &'c GlobalCfgOptions,
         &'c AnalysisResult,
         // path_after_target_name
         ForwardRelativePathBuf,

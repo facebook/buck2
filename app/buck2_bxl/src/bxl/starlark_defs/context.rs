@@ -1284,12 +1284,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
             })
         })?;
 
-        StarlarkAuditCtx::new(
-            this,
-            working_dir,
-            cell_resolver,
-            this.data.global_cfg_options().target_platform.clone(),
-        )
+        StarlarkAuditCtx::new(this, working_dir, cell_resolver)
     }
 
     /// Awaits a promise and returns an optional value of the promise.

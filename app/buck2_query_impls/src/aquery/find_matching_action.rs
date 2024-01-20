@@ -13,10 +13,11 @@ use buck2_artifact::artifact::provide_outputs::ProvideOutputs;
 use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::actions::query::FIND_MATCHING_ACTION;
 use buck2_build_api::analysis::AnalysisResult;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::target::label::TargetLabel;
 use dice::DiceComputations;
+use dupe::Dupe;
 use tracing::debug;
 
 use crate::aquery::evaluator::get_dice_aquery_delegate;
@@ -54,12 +55,13 @@ fn check_output_path<'v>(
 async fn find_matching_action(
     ctx: &DiceComputations,
     working_dir: &ProjectRelativePath,
-    global_target_platform: Option<TargetLabel>,
+    global_cfg_options: &GlobalCfgOptions,
     analysis: &AnalysisResult,
     path_after_target_name: ForwardRelativePathBuf,
 ) -> anyhow::Result<Option<ActionQueryNode>> {
     let dice_aquery_delegate =
-        get_dice_aquery_delegate(ctx, working_dir, global_target_platform.clone()).await?;
+        get_dice_aquery_delegate(ctx, working_dir, global_cfg_options.target_platform.dupe())
+            .await?;
 
     for entry in analysis.iter_deferreds() {
         match provider::request_value::<ProvideOutputs>(entry.as_complex()) {
@@ -112,11 +114,11 @@ async fn find_matching_action(
 
 pub(crate) fn init_find_matching_action() {
     FIND_MATCHING_ACTION.init(
-        |ctx, working_dir, global_target_platform, analysis, path_after_target_name| {
+        |ctx, working_dir, global_cfg_options, analysis, path_after_target_name| {
             Box::pin(find_matching_action(
                 ctx,
                 working_dir,
-                global_target_platform,
+                global_cfg_options,
                 analysis,
                 path_after_target_name,
             ))
