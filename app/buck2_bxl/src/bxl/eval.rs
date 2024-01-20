@@ -193,7 +193,7 @@ async fn eval_bxl_inner(
         Some(profiler) => StarlarkProfilerOrInstrumentation::for_profiler(profiler),
     };
 
-    let global_target_platform = key.global_target_platform().clone();
+    let _global_target_platform = key.global_target_platform().clone();
 
     let (bxl_result, materializations) = with_starlark_eval_provider(
         ctx,
@@ -231,7 +231,6 @@ async fn eval_bxl_inner(
                 file,
                 error_file,
                 digest_config,
-                global_target_platform,
             )?;
 
             let bxl_ctx = ValueTyped::<BxlContext>::new(env.heap().alloc(bxl_ctx)).unwrap();

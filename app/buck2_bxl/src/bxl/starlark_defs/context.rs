@@ -229,7 +229,6 @@ pub(crate) struct BxlContextNoDice<'v> {
     #[derivative(Debug = "ignore")]
     pub(crate) cell_resolver: CellResolver,
     pub(crate) state: ValueTyped<'v, AnalysisActions<'v>>,
-    pub(crate) global_target_platform: Option<TargetLabel>,
     pub(crate) context_type: BxlContextType<'v>,
     pub(crate) project_fs: ProjectRoot,
     #[derivative(Debug = "ignore")]
@@ -250,7 +249,6 @@ impl<'v> BxlContext<'v> {
         output_sink: RefCell<Box<dyn Write>>,
         error_sink: RefCell<Box<dyn Write>>,
         digest_config: DigestConfig,
-        global_target_platform: Option<TargetLabel>,
     ) -> anyhow::Result<Self> {
         let cell_root_abs = project_fs.root().join(
             cell_resolver
@@ -298,7 +296,6 @@ impl<'v> BxlContext<'v> {
                         .into(),
                     digest_config,
                 }),
-                global_target_platform,
                 context_type,
                 project_fs,
                 artifact_fs,
@@ -316,7 +313,6 @@ impl<'v> BxlContext<'v> {
         cell_name: CellName,
         async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v>>>,
         digest_config: DigestConfig,
-        global_target_platform: Option<TargetLabel>,
         analysis_registry: AnalysisRegistry<'v>,
         dynamic_data: DynamicBxlContextData,
     ) -> anyhow::Result<Self> {
@@ -345,7 +341,6 @@ impl<'v> BxlContext<'v> {
                         .into(),
                     digest_config,
                 }),
-                global_target_platform,
                 context_type: BxlContextType::Dynamic(dynamic_data),
                 project_fs,
                 artifact_fs,
@@ -491,7 +486,6 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         exec_deps: dynamic_key.0.exec_deps.clone(),
         toolchains: dynamic_key.0.toolchains.clone(),
     };
-    let global_target_platform = key.global_target_platform().dupe();
     let label = key.label();
     let cell_resolver = dice_ctx.get_cell_resolver().await?;
     let cell = label.bxl_path.cell();
@@ -558,7 +552,6 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
                                         cell_name,
                                         async_ctx,
                                         digest_config,
-                                        global_target_platform,
                                         dynamic_lambda_ctx_data.registry,
                                         dynamic_data,
                                     )?;
@@ -725,7 +718,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
             &this.data.target_alias_resolver,
             &this.data.cell_resolver,
             this.data.cell_name,
-            &this.data.global_target_platform,
+            this.data.current_bxl.global_target_platform(),
         )?;
 
         this.via_dice(|mut dice, this| {
@@ -849,7 +842,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
             &this.data.target_alias_resolver,
             &this.data.cell_resolver,
             this.data.cell_name,
-            &this.data.global_target_platform,
+            this.data.current_bxl.global_target_platform(),
         )?;
 
         this.via_dice(|mut ctx, this_no_dice: &BxlContextNoDice<'_>| {
@@ -901,7 +894,11 @@ fn context_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
     ) -> anyhow::Result<StarlarkCQueryCtx<'v>> {
-        StarlarkCQueryCtx::new(this, target_platform, &this.data.global_target_platform)
+        StarlarkCQueryCtx::new(
+            this,
+            target_platform,
+            this.data.current_bxl.global_target_platform(),
+        )
     }
 
     /// Returns the `aqueryctx` that holds all the aquery functions.
@@ -914,7 +911,11 @@ fn context_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
     ) -> anyhow::Result<StarlarkAQueryCtx<'v>> {
-        StarlarkAQueryCtx::new(this, target_platform, &this.data.global_target_platform)
+        StarlarkAQueryCtx::new(
+            this,
+            target_platform,
+            this.data.current_bxl.global_target_platform(),
+        )
     }
 
     /// Returns the bxl actions to create and register actions for this
@@ -993,7 +994,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
                                 &this.target_alias_resolver,
                                 &this.cell_resolver,
                                 this.cell_name,
-                                &this.global_target_platform,
+                                this.current_bxl.global_target_platform(),
                             )?;
                             let exec_deps = match exec_deps {
                                 NoneOr::None => Vec::new(),
@@ -1116,7 +1117,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
             &this.data.target_alias_resolver,
             &this.data.cell_resolver,
             this.data.cell_name,
-            &this.data.global_target_platform,
+            this.data.current_bxl.global_target_platform(),
         )?;
 
         let res: anyhow::Result<_> = this.via_dice(|mut dice, ctx| {
@@ -1282,7 +1283,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
             this,
             working_dir,
             cell_resolver,
-            this.data.global_target_platform.clone(),
+            this.data.current_bxl.global_target_platform().clone(),
         )
     }
 
