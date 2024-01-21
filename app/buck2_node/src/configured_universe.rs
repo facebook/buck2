@@ -33,6 +33,7 @@ use crate::nodes::configured::ConfiguredTargetNode;
 use crate::nodes::configured::ConfiguredTargetNodeRef;
 use crate::nodes::configured_node_visit_all_deps::configured_node_visit_all_deps;
 
+#[derive(Debug)]
 struct CqueryUniverseInner<'a> {
     targets: BTreeMap<
         PackageLabel,

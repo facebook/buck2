@@ -31,10 +31,14 @@ pub struct SelfRef<O, D: RefData> {
     owner: Arc<O>,
 }
 
-impl<O: Debug, D: RefData> Debug for SelfRef<O, D> {
+impl<O, D> Debug for SelfRef<O, D>
+where
+    D: RefData,
+    for<'a> D::Data<'a>: Debug,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SelfRef")
-            .field("owner", &self.owner)
+            .field("data", self.data())
             .finish_non_exhaustive()
     }
 }
