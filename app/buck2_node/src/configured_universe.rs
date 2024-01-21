@@ -19,7 +19,7 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::TargetLabel;
-use buck2_core::target::name::TargetName;
+use buck2_core::target::name::TargetNameRef;
 use buck2_events::dispatch::span;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexed;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
@@ -37,7 +37,7 @@ use crate::nodes::configured_node_visit_all_deps::configured_node_visit_all_deps
 struct CqueryUniverseInner<'a> {
     targets: BTreeMap<
         PackageLabel,
-        BTreeMap<TargetName, BTreeSet<LabelIndexed<ConfiguredTargetNodeRef<'a>>>>,
+        BTreeMap<&'a TargetNameRef, BTreeSet<LabelIndexed<ConfiguredTargetNodeRef<'a>>>>,
     >,
 }
 
@@ -59,7 +59,7 @@ impl<'a> CqueryUniverseInner<'a> {
     pub fn new(
         targets: BTreeMap<
             PackageLabel,
-            BTreeMap<TargetName, BTreeSet<LabelIndexed<ConfiguredTargetNodeRef<'a>>>>,
+            BTreeMap<&'a TargetNameRef, BTreeSet<LabelIndexed<ConfiguredTargetNodeRef<'a>>>>,
         >,
     ) -> Self {
         CqueryUniverseInner { targets }
@@ -70,7 +70,7 @@ impl<'a> CqueryUniverseInner<'a> {
     ) -> anyhow::Result<CqueryUniverseInner<'a>> {
         let mut targets: BTreeMap<
             PackageLabel,
-            BTreeMap<TargetName, BTreeSet<LabelIndexed<ConfiguredTargetNodeRef>>>,
+            BTreeMap<&TargetNameRef, BTreeSet<LabelIndexed<ConfiguredTargetNodeRef>>>,
         > = BTreeMap::new();
 
         configured_node_visit_all_deps(universe.iter().map(|t| t.as_ref()), |target| {
@@ -82,7 +82,7 @@ impl<'a> CqueryUniverseInner<'a> {
             let nodes: &mut _ = match package_targets.get_mut(label.name()) {
                 Some(v) => v,
                 None => package_targets
-                    .entry(label.name().to_owned())
+                    .entry(label.name())
                     .or_insert_with(BTreeSet::new),
             };
 
@@ -181,15 +181,18 @@ impl CqueryUniverse {
             .flat_map(move |package_universe| match spec {
                 PackageSpec::Targets(names) => {
                     Either::Left(names.iter().flat_map(|(name, extra)| {
-                        package_universe.get(name).into_iter().flat_map(|nodes| {
-                            nodes.iter().filter_map(|node| {
-                                if extra.matches_cfg(node.0.label().cfg()) {
-                                    Some((node.0, extra.clone()))
-                                } else {
-                                    None
-                                }
+                        package_universe
+                            .get(name.as_ref())
+                            .into_iter()
+                            .flat_map(|nodes| {
+                                nodes.iter().filter_map(|node| {
+                                    if extra.matches_cfg(node.0.label().cfg()) {
+                                        Some((node.0, extra.clone()))
+                                    } else {
+                                        None
+                                    }
+                                })
                             })
-                        })
                     }))
                 }
                 PackageSpec::All => Either::Right(
