@@ -20,6 +20,7 @@ pub mod late_binding;
 pub mod process;
 pub mod process_stats;
 pub mod rtabort;
+pub mod self_ref;
 pub mod system_stats;
 pub mod thin_box;
 pub mod truncate;

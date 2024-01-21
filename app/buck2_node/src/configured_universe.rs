@@ -23,6 +23,8 @@ use buck2_core::target::name::TargetName;
 use buck2_events::dispatch::span;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexed;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use buck2_util::self_ref::RefData;
+use buck2_util::self_ref::SelfRef;
 use dupe::Dupe;
 use either::Either;
 use itertools::Itertools;
@@ -30,8 +32,6 @@ use itertools::Itertools;
 use crate::nodes::configured::ConfiguredTargetNode;
 use crate::nodes::configured::ConfiguredTargetNodeRef;
 use crate::nodes::configured_node_visit_all_deps::configured_node_visit_all_deps;
-use crate::self_ref::RefData;
-use crate::self_ref::SelfRef;
 
 struct CqueryUniverseInner<'a> {
     targets: BTreeMap<

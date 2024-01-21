@@ -14,14 +14,14 @@ use std::sync::Arc;
 use allocative::Allocative;
 
 /// Describing data that can be stored in `SelfRef`.
-pub(crate) trait RefData: 'static {
+pub trait RefData: 'static {
     type Data<'a>: 'a;
 }
 
 /// Self-referential struct.
 #[derive(Allocative)]
 #[allocative(bound = "O: Allocative, D: RefData")]
-pub(crate) struct SelfRef<O, D: RefData> {
+pub struct SelfRef<O, D: RefData> {
     #[allocative(skip)] // TODO(nga): do not skip.
     data: D::Data<'static>,
     // Owner must be placed after `data` to ensure that `data` is dropped before `owner`.
@@ -40,7 +40,7 @@ impl<O: Debug, D: RefData> Debug for SelfRef<O, D> {
 }
 
 impl<O, D: RefData> SelfRef<O, D> {
-    pub(crate) fn try_new(
+    pub fn try_new(
         owner: O,
         data: impl for<'a> FnOnce(&'a O) -> anyhow::Result<D::Data<'a>>,
     ) -> anyhow::Result<Self> {
@@ -51,7 +51,7 @@ impl<O, D: RefData> SelfRef<O, D> {
     }
 
     #[inline]
-    pub(crate) fn data(&self) -> &D::Data<'_> {
+    pub fn data(&self) -> &D::Data<'_> {
         unsafe { std::mem::transmute::<&D::Data<'static>, &D::Data<'_>>(&self.data) }
     }
 }
