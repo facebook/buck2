@@ -20,18 +20,18 @@ pub trait RefData: 'static {
 
 /// Self-referential struct.
 #[derive(Allocative)]
-#[allocative(bound = "O: Allocative, D: RefData")]
-pub struct SelfRef<O, D: RefData> {
+#[allocative(bound = "D: RefData")]
+pub struct SelfRef<D: RefData> {
     #[allocative(skip)] // TODO(nga): do not skip.
     data: D::Data<'static>,
     // Owner must be placed after `data` to ensure that `data` is dropped before `owner`.
     // Owner must be in `Arc` (or `Rc`) because
     // - pointers stay valid when `SelfRef` is moved.
     // - it cannot be `Box` because it would violate aliasing rules
-    owner: Arc<O>,
+    owner: Arc<dyn Allocative + Send + Sync + 'static>,
 }
 
-impl<O, D> Debug for SelfRef<O, D>
+impl<D> Debug for SelfRef<D>
 where
     D: RefData,
     for<'a> D::Data<'a>: Debug,
@@ -43,12 +43,12 @@ where
     }
 }
 
-impl<O, D: RefData> SelfRef<O, D> {
-    pub fn try_new(
+impl<D: RefData> SelfRef<D> {
+    pub fn try_new<O: Allocative + Send + Sync + 'static>(
         owner: O,
         data: impl for<'a> FnOnce(&'a O) -> anyhow::Result<D::Data<'a>>,
     ) -> anyhow::Result<Self> {
-        let owner = Arc::new(owner);
+        let owner: Arc<O> = Arc::new(owner);
         let data = data(&owner)?;
         let data = unsafe { std::mem::transmute::<D::Data<'_>, D::Data<'static>>(data) };
         Ok(SelfRef { owner, data })

@@ -52,7 +52,7 @@ impl RefData for CqueryUniverseInnerType {
 /// Targets are resolved in the universe, and file owners are also resolved in the universe.
 #[derive(Allocative, Debug)]
 pub struct CqueryUniverse {
-    data: SelfRef<TargetSet<ConfiguredTargetNode>, CqueryUniverseInnerType>,
+    data: SelfRef<CqueryUniverseInnerType>,
 }
 
 impl<'a> CqueryUniverseInner<'a> {
