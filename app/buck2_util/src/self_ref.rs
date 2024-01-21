@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::convert::Infallible;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::sync::Arc;
@@ -44,14 +45,24 @@ where
 }
 
 impl<D: RefData> SelfRef<D> {
-    pub fn try_new<O: Allocative + Send + Sync + 'static>(
+    pub fn try_new<O: Allocative + Send + Sync + 'static, E>(
         owner: O,
-        data: impl for<'a> FnOnce(&'a O) -> anyhow::Result<D::Data<'a>>,
-    ) -> anyhow::Result<Self> {
+        data: impl for<'a> FnOnce(&'a O) -> Result<D::Data<'a>, E>,
+    ) -> Result<Self, E> {
         let owner: Arc<O> = Arc::new(owner);
         let data = data(&owner)?;
         let data = unsafe { std::mem::transmute::<D::Data<'_>, D::Data<'static>>(data) };
         Ok(SelfRef { owner, data })
+    }
+
+    pub fn new<O: Allocative + Send + Sync + 'static>(
+        owner: O,
+        data: impl for<'a> FnOnce(&'a O) -> D::Data<'a>,
+    ) -> Self {
+        match Self::try_new(owner, |f| Ok::<_, Infallible>(data(f))) {
+            Ok(x) => x,
+            Err(e) => match e {},
+        }
     }
 
     #[inline]
