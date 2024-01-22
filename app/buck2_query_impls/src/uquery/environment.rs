@@ -434,7 +434,7 @@ pub(crate) async fn rbuildfiles<'c>(
         async fn for_each_child(
             &self,
             node: &Node,
-            func: &mut impl ChildVisitor<Node>,
+            mut func: impl ChildVisitor<Node>,
         ) -> anyhow::Result<()> {
             for import in self
                 .first_order_import_map
@@ -635,7 +635,7 @@ pub(crate) async fn get_transitive_loads<'c>(
         async fn for_each_child(
             &self,
             target: &Node,
-            func: &mut impl ChildVisitor<Node>,
+            mut func: impl ChildVisitor<Node>,
         ) -> anyhow::Result<()> {
             for import in self
                 .delegate

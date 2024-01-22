@@ -375,7 +375,7 @@ mod tests {
             async fn for_each_child(
                 &self,
                 node: &Node,
-                children: &mut impl ChildVisitor<Node>,
+                mut children: impl ChildVisitor<Node>,
             ) -> anyhow::Result<()> {
                 if node.0.0 == 10 {
                     children.visit(&Ref(20))?;

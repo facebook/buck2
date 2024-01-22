@@ -118,7 +118,7 @@ async fn get_transitive_includes(
         async fn for_each_child(
             &self,
             target: &Node,
-            func: &mut impl ChildVisitor<Node>,
+            mut func: impl ChildVisitor<Node>,
         ) -> anyhow::Result<()> {
             for import in target.0.imports() {
                 func.visit(&NodeRef(import.clone()))?;

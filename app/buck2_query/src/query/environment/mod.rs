@@ -244,7 +244,7 @@ pub trait QueryEnvironment: Send + Sync {
             async fn for_each_child(
                 &self,
                 target: &Q,
-                func: &mut impl ChildVisitor<Q>,
+                mut func: impl ChildVisitor<Q>,
             ) -> anyhow::Result<()> {
                 for parent in self.graph.children(target.node_key()) {
                     func.visit(parent.node_key()).with_context(|| {
@@ -393,7 +393,7 @@ pub async fn deps<Env: QueryEnvironment + ?Sized>(
         async fn for_each_child(
             &self,
             target: &Q,
-            func: &mut impl ChildVisitor<Q>,
+            mut func: impl ChildVisitor<Q>,
         ) -> anyhow::Result<()> {
             let res: anyhow::Result<_> = try {
                 match self.filter {
@@ -437,7 +437,7 @@ impl<T: QueryTarget> AsyncChildVisitor<T> for QueryTargetDepsSuccessors {
     async fn for_each_child(
         &self,
         node: &T,
-        children: &mut impl ChildVisitor<T>,
+        mut children: impl ChildVisitor<T>,
     ) -> anyhow::Result<()> {
         for dep in node.deps() {
             children.visit(dep)?;

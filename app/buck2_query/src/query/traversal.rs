@@ -329,7 +329,7 @@ mod tests {
                 async fn for_each_child(
                     &self,
                     target: &Node,
-                    func: &mut impl ChildVisitor<Node>,
+                    mut func: impl ChildVisitor<Node>,
                 ) -> anyhow::Result<()> {
                     for child in &target.1 {
                         func.visit(child)?;
