@@ -422,52 +422,14 @@ impl ConfiguredTargetNode {
         self.0.target_node.is_visible_to(target)
     }
 
+    #[inline]
     pub fn special_attrs(&self) -> impl Iterator<Item = (&str, ConfiguredAttr)> {
-        let typ_attr = ConfiguredAttr::String(StringLiteral(self.rule_type().name().into()));
-        let deps_attr = ConfiguredAttr::List(
-            self.deps()
-                .map(|t| {
-                    ConfiguredAttr::Label(Box::new(ConfiguredProvidersLabel::new(
-                        t.label().dupe(),
-                        ProvidersName::Default,
-                    )))
-                })
-                .collect(),
-        );
-        let package_attr = ConfiguredAttr::String(StringLiteral(ArcStr::from(
-            self.buildfile_path().to_string(),
-        )));
-        vec![
-            (TYPE, typ_attr),
-            (DEPS, deps_attr),
-            (PACKAGE, package_attr),
-            (
-                ONCALL,
-                match self.oncall() {
-                    None => ConfiguredAttr::None,
-                    Some(x) => ConfiguredAttr::String(StringLiteral(ArcStr::from(x))),
-                },
-            ),
-            (
-                TARGET_CONFIGURATION,
-                ConfiguredAttr::String(StringLiteral(ArcStr::from(self.0.label.cfg().to_string()))),
-            ),
-            (
-                EXECUTION_PLATFORM,
-                ConfiguredAttr::String(StringLiteral(
-                    self.0
-                        .execution_platform_resolution
-                        .platform()
-                        .map_or_else(|_| ArcStr::from("<NONE>"), |v| ArcStr::from(v.id())),
-                )),
-            ),
-            (PLUGINS, self.plugins_as_attr()),
-        ]
-        .into_iter()
+        self.as_ref().special_attrs()
     }
 
+    #[inline]
     pub fn oncall(&self) -> Option<&str> {
-        self.0.target_node.oncall()
+        self.as_ref().oncall()
     }
 
     pub fn attrs<'a>(
@@ -482,10 +444,7 @@ impl ConfiguredTargetNode {
         attr: &str,
         opts: AttrInspectOptions,
     ) -> Option<ConfiguredAttrFull<'a>> {
-        self.0.target_node.attr_or_none(attr, opts).map(|v| {
-            v.configure(&self.as_ref().attr_configuration_context())
-                .expect("checked attr configuration in constructor")
-        })
+        self.as_ref().get(attr, opts)
     }
 
     pub fn call_stack(&self) -> Option<String> {
@@ -525,25 +484,6 @@ impl ConfiguredTargetNode {
 
     pub fn plugin_lists(&self) -> &PluginLists {
         &self.0.plugin_lists
-    }
-
-    fn plugins_as_attr(&self) -> ConfiguredAttr {
-        let mut kinds = Vec::new();
-        for (kind, plugins) in self.plugin_lists().iter_by_kind() {
-            // Using plugin dep here is a bit of an abuse. However, there's no
-            // `ConfiguredAttr::TargetLabel` type, and it also seems excessive to add one for this
-            // reason alone
-            let plugins = plugins
-                .map(|(target, _)| {
-                    ConfiguredAttr::PluginDep(Box::new((target.dupe(), kind.dupe())))
-                })
-                .collect();
-            kinds.push((
-                ConfiguredAttr::String(StringLiteral(ArcStr::from(kind.as_str()))),
-                ConfiguredAttr::List(plugins),
-            ));
-        }
-        ConfiguredAttr::Dict(kinds.into_iter().collect())
     }
 
     #[inline]
@@ -674,12 +614,67 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
         )
     }
 
+    pub fn oncall(self) -> Option<&'a str> {
+        self.0.get().target_node.oncall()
+    }
+
+    pub fn special_attrs(self) -> impl Iterator<Item = (&'a str, ConfiguredAttr)> {
+        let typ_attr = ConfiguredAttr::String(StringLiteral(self.rule_type().name().into()));
+        let deps_attr = ConfiguredAttr::List(
+            self.deps()
+                .map(|t| {
+                    ConfiguredAttr::Label(Box::new(ConfiguredProvidersLabel::new(
+                        t.label().dupe(),
+                        ProvidersName::Default,
+                    )))
+                })
+                .collect(),
+        );
+        let package_attr = ConfiguredAttr::String(StringLiteral(ArcStr::from(
+            self.buildfile_path().to_string(),
+        )));
+        vec![
+            (TYPE, typ_attr),
+            (DEPS, deps_attr),
+            (PACKAGE, package_attr),
+            (
+                ONCALL,
+                match self.oncall() {
+                    None => ConfiguredAttr::None,
+                    Some(x) => ConfiguredAttr::String(StringLiteral(ArcStr::from(x))),
+                },
+            ),
+            (
+                TARGET_CONFIGURATION,
+                ConfiguredAttr::String(StringLiteral(ArcStr::from(self.0.label.cfg().to_string()))),
+            ),
+            (
+                EXECUTION_PLATFORM,
+                ConfiguredAttr::String(StringLiteral(
+                    self.0
+                        .execution_platform_resolution
+                        .platform()
+                        .map_or_else(|_| ArcStr::from("<NONE>"), |v| ArcStr::from(v.id())),
+                )),
+            ),
+            (PLUGINS, self.plugins_as_attr()),
+        ]
+        .into_iter()
+    }
+
     pub fn attrs(
         self,
         opts: AttrInspectOptions,
     ) -> impl Iterator<Item = ConfiguredAttrFull<'a>> + 'a {
         self.0.get().target_node.attrs(opts).map(move |a| {
             a.configure(&self.attr_configuration_context())
+                .expect("checked attr configuration in constructor")
+        })
+    }
+
+    pub fn get(self, attr: &str, opts: AttrInspectOptions) -> Option<ConfiguredAttrFull<'a>> {
+        self.0.get().target_node.attr_or_none(attr, opts).map(|v| {
+            v.configure(&self.attr_configuration_context())
                 .expect("checked attr configuration in constructor")
         })
     }
@@ -759,7 +754,30 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
         }
     }
 
+    fn plugins_as_attr(self) -> ConfiguredAttr {
+        let mut kinds = Vec::new();
+        for (kind, plugins) in self.plugin_lists().iter_by_kind() {
+            // Using plugin dep here is a bit of an abuse. However, there's no
+            // `ConfiguredAttr::TargetLabel` type, and it also seems excessive to add one for this
+            // reason alone
+            let plugins = plugins
+                .map(|(target, _)| {
+                    ConfiguredAttr::PluginDep(Box::new((target.dupe(), kind.dupe())))
+                })
+                .collect();
+            kinds.push((
+                ConfiguredAttr::String(StringLiteral(ArcStr::from(kind.as_str()))),
+                ConfiguredAttr::List(plugins),
+            ));
+        }
+        ConfiguredAttr::Dict(kinds.into_iter().collect())
+    }
+
     pub fn plugin_lists(self) -> &'a PluginLists {
         &self.0.get().plugin_lists
+    }
+
+    pub fn buildfile_path(self) -> &'a BuildFilePath {
+        self.0.get().target_node.buildfile_path()
     }
 }
