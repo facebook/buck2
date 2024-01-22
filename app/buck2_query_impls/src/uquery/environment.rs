@@ -25,6 +25,7 @@ use buck2_core::target::label::TargetLabel;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::QueryEnvironment;
+use buck2_query::query::environment::QueryEnvironmentAsNodeLookup;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::graph::node::LabeledNode;
 use buck2_query::query::graph::node::NodeKey;
@@ -232,8 +233,13 @@ impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
         traversal_delegate: impl AsyncChildVisitor<TargetNode>,
         visit: impl FnMut(TargetNode) -> anyhow::Result<()> + Send,
     ) -> anyhow::Result<()> {
-        async_depth_first_postorder_traversal(self, root.iter_names(), traversal_delegate, visit)
-            .await
+        async_depth_first_postorder_traversal(
+            &QueryEnvironmentAsNodeLookup { env: self },
+            root.iter_names(),
+            traversal_delegate,
+            visit,
+        )
+        .await
     }
 
     async fn depth_limited_traversal(
@@ -243,7 +249,14 @@ impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
         visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
         depth: u32,
     ) -> anyhow::Result<()> {
-        async_depth_limited_traversal(self, root.iter_names(), delegate, visit, depth).await
+        async_depth_limited_traversal(
+            &QueryEnvironmentAsNodeLookup { env: self },
+            root.iter_names(),
+            delegate,
+            visit,
+            depth,
+        )
+        .await
     }
 
     async fn allbuildfiles(&self, universe: &TargetSet<Self::Target>) -> anyhow::Result<FileSet> {
@@ -301,13 +314,6 @@ impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
             }
         }
         Ok(result)
-    }
-}
-
-#[async_trait]
-impl<'a> AsyncNodeLookup<TargetNode> for UqueryEnvironment<'a> {
-    async fn get(&self, label: &TargetLabel) -> anyhow::Result<TargetNode> {
-        self.get_node(label).await
     }
 }
 

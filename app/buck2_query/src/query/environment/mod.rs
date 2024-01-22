@@ -457,8 +457,8 @@ where
     }
 }
 
-struct QueryEnvironmentAsNodeLookup<'q, Q: QueryEnvironment + ?Sized> {
-    env: &'q Q,
+pub struct QueryEnvironmentAsNodeLookup<'q, Q: QueryEnvironment + ?Sized> {
+    pub env: &'q Q,
 }
 
 #[async_trait]

@@ -23,6 +23,7 @@ use buck2_node::nodes::configured_node_ref::ConfiguredTargetNodeRefNode;
 use buck2_node::nodes::configured_node_ref::ConfiguredTargetNodeRefNodeDeps;
 use buck2_query::query::environment::deps;
 use buck2_query::query::environment::QueryEnvironment;
+use buck2_query::query::environment::QueryEnvironmentAsNodeLookup;
 use buck2_query::query::environment::TraversalFilter;
 use buck2_query::query::graph::dfs::dfs_postorder;
 use buck2_query::query::graph::successors::AsyncChildVisitor;
@@ -33,7 +34,6 @@ use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use buck2_query::query::syntax::simple::functions::HasModuleDescription;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::async_depth_limited_traversal;
-use buck2_query::query::traversal::AsyncNodeLookup;
 use dice::DiceComputations;
 use dupe::Dupe;
 use tracing::warn;
@@ -230,8 +230,13 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
         traversal_delegate: impl AsyncChildVisitor<Self::Target>,
         visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
     ) -> anyhow::Result<()> {
-        async_depth_first_postorder_traversal(self, root.iter_names(), traversal_delegate, visit)
-            .await
+        async_depth_first_postorder_traversal(
+            &QueryEnvironmentAsNodeLookup { env: self },
+            root.iter_names(),
+            traversal_delegate,
+            visit,
+        )
+        .await
     }
 
     async fn depth_limited_traversal(
@@ -241,7 +246,14 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
         visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
         depth: u32,
     ) -> anyhow::Result<()> {
-        async_depth_limited_traversal(self, root.iter_names(), delegate, visit, depth).await
+        async_depth_limited_traversal(
+            &QueryEnvironmentAsNodeLookup { env: self },
+            root.iter_names(),
+            delegate,
+            visit,
+            depth,
+        )
+        .await
     }
 
     async fn allbuildfiles(&self, universe: &TargetSet<Self::Target>) -> anyhow::Result<FileSet> {
@@ -290,12 +302,5 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
         } else {
             deps(self, targets, depth, filter).await
         }
-    }
-}
-
-#[async_trait]
-impl<'a> AsyncNodeLookup<ConfiguredTargetNode> for CqueryEnvironment<'a> {
-    async fn get(&self, label: &ConfiguredTargetLabel) -> anyhow::Result<ConfiguredTargetNode> {
-        self.get_node(label).await
     }
 }
