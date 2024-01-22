@@ -393,12 +393,17 @@ impl<'a, K, V> RawEntryBuilderMut<'a, K, V> {
     where
         Q: Equivalent<K> + ?Sized,
     {
-        let hash = k.hash().promote();
-        if let Some(bucket) = self
-            .map
-            .0
-            .find(hash, |(next_k, _v)| k.key().equivalent(next_k))
-        {
+        self.from_hash(k.hash(), |next_k| k.key().equivalent(next_k))
+    }
+
+    /// Find an entry by hash and equality function.
+    #[inline]
+    pub fn from_hash<F>(self, hash: StarlarkHashValue, mut is_match: F) -> RawEntryMut<'a, K, V>
+    where
+        F: for<'b> FnMut(&'b K) -> bool,
+    {
+        let hash = hash.promote();
+        if let Some(bucket) = self.map.0.find(hash, |(next_k, _v)| is_match(next_k)) {
             RawEntryMut::Occupied(RawOccupiedEntryMut {
                 map: self.map,
                 bucket,

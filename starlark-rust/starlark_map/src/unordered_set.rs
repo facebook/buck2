@@ -25,6 +25,7 @@ use crate::unordered_map;
 use crate::unordered_map::UnorderedMap;
 use crate::Equivalent;
 use crate::Hashed;
+use crate::StarlarkHashValue;
 
 /// `HashSet` that does not expose insertion order.
 #[derive(Clone, Allocative, Debug)]
@@ -165,7 +166,16 @@ impl<'a, T> RawEntryBuilderMut<'a, T> {
     where
         Q: ?Sized + Equivalent<T>,
     {
-        match self.entry.from_key_hashed(entry) {
+        self.from_hash(entry.hash(), |k| entry.key().equivalent(k))
+    }
+
+    /// Find the entry by hash and equality function.
+    #[inline]
+    pub fn from_hash<F>(self, hash: StarlarkHashValue, is_match: F) -> RawEntryMut<'a, T>
+    where
+        F: for<'b> FnMut(&'b T) -> bool,
+    {
+        match self.entry.from_hash(hash, is_match) {
             unordered_map::RawEntryMut::Occupied(e) => {
                 RawEntryMut::Occupied(RawOccupiedEntryMut { entry: e })
             }
