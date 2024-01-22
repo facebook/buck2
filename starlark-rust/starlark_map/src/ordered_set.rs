@@ -113,7 +113,7 @@ impl<T> OrderedSet<T> {
 
     /// Iterate over the elements.
     #[inline]
-    pub fn iter(&self) -> small_set::Iter<T> {
+    pub fn iter(&self) -> Iter<T> {
         self.0.iter()
     }
 
@@ -235,9 +235,14 @@ impl<T: Hash> Hash for OrderedSet<T> {
     }
 }
 
+/// Iterator returned by `iter`.
+pub type Iter<'a, T> = small_set::Iter<'a, T>;
+/// Iterator returned by `into_iter`.
+pub type IntoIter<T> = small_set::IntoIter<T>;
+
 impl<T> IntoIterator for OrderedSet<T> {
     type Item = T;
-    type IntoIter = small_set::IntoIter<T>;
+    type IntoIter = IntoIter<T>;
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
@@ -247,7 +252,7 @@ impl<T> IntoIterator for OrderedSet<T> {
 
 impl<'a, T> IntoIterator for &'a OrderedSet<T> {
     type Item = &'a T;
-    type IntoIter = small_set::Iter<'a, T>;
+    type IntoIter = Iter<'a, T>;
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
