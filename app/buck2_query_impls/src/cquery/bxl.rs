@@ -14,12 +14,12 @@ use buck2_build_api::query::bxl::BxlCqueryFunctions;
 use buck2_build_api::query::bxl::NEW_BXL_CQUERY_FUNCTIONS;
 use buck2_build_api::query::oneshot::CqueryOwnerBehavior;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::target::label::TargetLabel;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
@@ -39,7 +39,7 @@ fn cquery_functions<'v>() -> DefaultQueryFunctions<CqueryEnvironment<'v>> {
 }
 
 struct BxlCqueryFunctionsImpl {
-    target_platform: Option<TargetLabel>,
+    global_cfg_options: GlobalCfgOptions,
     project_root: ProjectRoot,
     working_dir: ProjectRelativePathBuf,
 }
@@ -57,7 +57,7 @@ impl BxlCqueryFunctionsImpl {
             .await?;
 
         let query_data = Arc::new(DiceQueryData::new(
-            self.target_platform.dupe(),
+            self.global_cfg_options.target_platform.dupe(),
             cell_resolver.dupe(),
             &self.working_dir,
             self.project_root.dupe(),
@@ -209,18 +209,20 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
 }
 
 pub(crate) fn init_new_bxl_cquery_functions() {
-    NEW_BXL_CQUERY_FUNCTIONS.init(|target_platform, project_root, cell_name, cell_resolver| {
-        Box::pin(async move {
-            let cell = cell_resolver.get(cell_name)?;
-            // TODO(nga): working as as cell root is not right.
-            //   Should be either the project root or user's current working directory.
-            let working_dir = cell.path().as_project_relative_path().to_buf();
+    NEW_BXL_CQUERY_FUNCTIONS.init(
+        |global_cfg_options: GlobalCfgOptions, project_root, cell_name, cell_resolver| {
+            Box::pin(async move {
+                let cell = cell_resolver.get(cell_name)?;
+                // TODO(nga): working as as cell root is not right.
+                //   Should be either the project root or user's current working directory.
+                let working_dir = cell.path().as_project_relative_path().to_buf();
 
-            Result::<Box<dyn BxlCqueryFunctions>, _>::Ok(Box::new(BxlCqueryFunctionsImpl {
-                target_platform,
-                project_root,
-                working_dir,
-            }))
-        })
-    })
+                Result::<Box<dyn BxlCqueryFunctions>, _>::Ok(Box::new(BxlCqueryFunctionsImpl {
+                    global_cfg_options,
+                    project_root,
+                    working_dir,
+                }))
+            })
+        },
+    )
 }

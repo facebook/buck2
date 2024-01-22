@@ -12,6 +12,7 @@ use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::query::bxl::BxlAqueryFunctions;
 use buck2_build_api::query::bxl::NEW_BXL_AQUERY_FUNCTIONS;
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::TargetLabel;
@@ -71,7 +72,8 @@ pub(crate) struct StarlarkAQueryCtx<'v> {
     #[derivative(Debug = "ignore")]
     ctx: &'v BxlContext<'v>,
     #[derivative(Debug = "ignore")]
-    target_platform: Option<TargetLabel>,
+    // Overrides the GlobalCfgOptions in the BxlContext
+    global_cfg_options_override: GlobalCfgOptions,
 }
 
 #[starlark_value(type = "aqueryctx", StarlarkTypeRepr, UnpackValue)]
@@ -103,17 +105,20 @@ impl<'v> StarlarkAQueryCtx<'v> {
 
         Ok(Self {
             ctx,
-            target_platform,
+            global_cfg_options_override: GlobalCfgOptions {
+                target_platform,
+                cli_modifiers: vec![].into(),
+            },
         })
     }
 }
 
 pub(crate) async fn get_aquery_env(
     ctx: &BxlContextNoDice<'_>,
-    target_platform: Option<TargetLabel>,
+    global_cfg_options_override: &GlobalCfgOptions,
 ) -> anyhow::Result<Box<dyn BxlAqueryFunctions>> {
     (NEW_BXL_AQUERY_FUNCTIONS.get()?)(
-        target_platform,
+        global_cfg_options_override.clone(),
         ctx.project_root().dupe(),
         ctx.cell_name,
         ctx.cell_resolver.dupe(),
@@ -135,7 +140,7 @@ enum UnpackActionNodes<'v> {
 // run analysis on them to construct the `ActionQueryNode`s.
 async fn unpack_action_nodes<'v>(
     expr: UnpackActionNodes<'v>,
-    target_platform: &Option<TargetLabel>,
+    global_cfg_options: &GlobalCfgOptions,
     ctx: &BxlContextNoDice<'v>,
     dice: &mut DiceComputations,
     aquery_env: &dyn BxlAqueryFunctions,
@@ -145,7 +150,7 @@ async fn unpack_action_nodes<'v>(
         UnpackActionNodes::ConfiguredProviders(arg) => {
             ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
                 arg,
-                target_platform.clone(),
+                global_cfg_options.target_platform.dupe(),
                 ctx,
                 dice,
             )
@@ -157,7 +162,7 @@ async fn unpack_action_nodes<'v>(
         UnpackActionNodes::ConfiguredTargets(arg) => {
             TargetListExpr::<ConfiguredTargetNode>::unpack_opt(
                 arg,
-                target_platform,
+                &global_cfg_options.target_platform,
                 ctx,
                 dice,
                 true,
@@ -197,7 +202,8 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
             .via_dice(|mut dice, ctx| {
                 dice.via(|dice| {
                     async {
-                        let aquery_env = get_aquery_env(ctx, this.target_platform.dupe()).await?;
+                        let aquery_env =
+                            get_aquery_env(ctx, &this.global_cfg_options_override).await?;
 
                         let filter = filter
                             .into_option()
@@ -205,7 +211,7 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
 
                         let universe = unpack_action_nodes(
                             universe,
-                            &this.target_platform,
+                            &this.global_cfg_options_override,
                             ctx,
                             dice,
                             aquery_env.as_ref(),
@@ -243,18 +249,19 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
             .via_dice(|mut dice, ctx| {
                 dice.via(|dice| {
                     async {
-                        let aquery_env = get_aquery_env(ctx, this.target_platform.dupe()).await?;
+                        let aquery_env =
+                            get_aquery_env(ctx, &this.global_cfg_options_override).await?;
 
                         let targets = unpack_action_nodes(
                             targets,
-                            &this.target_platform,
+                            &this.global_cfg_options_override,
                             ctx,
                             dice,
                             aquery_env.as_ref(),
                         )
                         .await?;
 
-                        get_aquery_env(ctx, this.target_platform.dupe())
+                        get_aquery_env(ctx, &this.global_cfg_options_override)
                             .await?
                             .all_actions(dice, &targets)
                             .await
@@ -279,18 +286,19 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
             .via_dice(|mut dice, ctx| {
                 dice.via(|dice| {
                     async {
-                        let aquery_env = get_aquery_env(ctx, this.target_platform.dupe()).await?;
+                        let aquery_env =
+                            get_aquery_env(ctx, &this.global_cfg_options_override).await?;
 
                         let targets = unpack_action_nodes(
                             targets,
-                            &this.target_platform,
+                            &this.global_cfg_options_override,
                             ctx,
                             dice,
                             aquery_env.as_ref(),
                         )
                         .await?;
 
-                        get_aquery_env(ctx, this.target_platform.dupe())
+                        get_aquery_env(ctx, &this.global_cfg_options_override)
                             .await?
                             .all_outputs(dice, &targets)
                             .await
@@ -312,11 +320,11 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
         this.ctx.via_dice(|mut dice, ctx| {
             dice.via(|dice| {
                 async {
-                    let aquery_env = get_aquery_env(ctx, this.target_platform.dupe()).await?;
+                    let aquery_env = get_aquery_env(ctx, &this.global_cfg_options_override).await?;
 
                     let targets = unpack_action_nodes(
                         targets,
-                        &this.target_platform,
+                        &this.global_cfg_options_override,
                         ctx,
                         dice,
                         aquery_env.as_ref(),
@@ -364,7 +372,7 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
                                 &ctx.working_dir()?,
                                 query,
                                 &query_args,
-                                this.target_platform.dupe(),
+                                this.global_cfg_options_override.target_platform.dupe(),
                             )
                             .await?,
                         eval,

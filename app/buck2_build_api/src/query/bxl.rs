@@ -11,13 +11,13 @@ use std::future::Future;
 use std::pin::Pin;
 
 use async_trait::async_trait;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_core::target::label::TargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
@@ -171,8 +171,8 @@ pub trait BxlAqueryFunctions: Send {
 
 pub static NEW_BXL_CQUERY_FUNCTIONS: LateBinding<
     fn(
-        // Target platform
-        Option<TargetLabel>,
+        // Target configuration info (target platform + cli modifiers)
+        GlobalCfgOptions,
         ProjectRoot,
         CellName,
         CellResolver,
@@ -189,8 +189,8 @@ pub static NEW_BXL_UQUERY_FUNCTIONS: LateBinding<
 
 pub static NEW_BXL_AQUERY_FUNCTIONS: LateBinding<
     fn(
-        // Target platform
-        Option<TargetLabel>,
+        // Target configuration info (target platform + cli modifiers)
+        GlobalCfgOptions,
         ProjectRoot,
         CellName,
         CellResolver,

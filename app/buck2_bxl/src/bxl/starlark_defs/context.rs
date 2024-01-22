@@ -899,11 +899,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
     ) -> anyhow::Result<StarlarkCQueryCtx<'v>> {
-        StarlarkCQueryCtx::new(
-            this,
-            target_platform,
-            &this.data.global_cfg_options().target_platform,
-        )
+        StarlarkCQueryCtx::new(this, target_platform, this.data.global_cfg_options())
     }
 
     /// Returns the `aqueryctx` that holds all the aquery functions.

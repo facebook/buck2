@@ -16,6 +16,7 @@ use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::query::bxl::BxlAqueryFunctions;
 use buck2_build_api::query::bxl::NEW_BXL_AQUERY_FUNCTIONS;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
@@ -23,7 +24,6 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_core::target::label::TargetLabel;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::eval::values::QueryValue;
@@ -50,7 +50,7 @@ fn special_aquery_functions<'v>() -> AqueryFunctions<'v> {
 }
 
 struct BxlAqueryFunctionsImpl {
-    target_platform: Option<TargetLabel>,
+    global_cfg_options: GlobalCfgOptions,
     project_root: ProjectRoot,
     working_dir: ProjectRelativePathBuf,
 }
@@ -68,7 +68,7 @@ impl BxlAqueryFunctionsImpl {
             .await?;
 
         let query_data = Arc::new(DiceQueryData::new(
-            self.target_platform.clone(),
+            self.global_cfg_options.target_platform.dupe(),
             cell_resolver.dupe(),
             &self.working_dir,
             self.project_root.dupe(),
@@ -259,16 +259,18 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
 }
 
 pub(crate) fn init_new_bxl_aquery_functions() {
-    NEW_BXL_AQUERY_FUNCTIONS.init(|target_platform, project_root, cell_name, cell_resolver| {
-        Box::pin(async move {
-            let cell = cell_resolver.get(cell_name)?;
-            let working_dir = cell.path().as_project_relative_path().to_buf();
+    NEW_BXL_AQUERY_FUNCTIONS.init(
+        |global_cfg_options, project_root, cell_name, cell_resolver| {
+            Box::pin(async move {
+                let cell = cell_resolver.get(cell_name)?;
+                let working_dir = cell.path().as_project_relative_path().to_buf();
 
-            Result::<Box<dyn BxlAqueryFunctions>, _>::Ok(Box::new(BxlAqueryFunctionsImpl {
-                target_platform,
-                project_root,
-                working_dir,
-            }))
-        })
-    })
+                Result::<Box<dyn BxlAqueryFunctions>, _>::Ok(Box::new(BxlAqueryFunctionsImpl {
+                    global_cfg_options: global_cfg_options.clone(),
+                    project_root,
+                    working_dir,
+                }))
+            })
+        },
+    )
 }
