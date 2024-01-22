@@ -14,6 +14,7 @@ load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 
 DEFAULT_ANDROID_SUBPLATFORM = "android-30"
+DEFAULT_ANDROID_PLATFORM = "android-emulator"
 
 def android_instrumentation_test_impl(ctx: AnalysisContext):
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
@@ -91,8 +92,8 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
                 local_enabled = android_toolchain.instrumentation_test_can_run_locally,
                 remote_enabled = True,
                 remote_execution_properties = {
-                    "platform": "android-emulator",
-                    "subplatform": _compute_emulator_target(ctx.attrs.labels or []),
+                    "platform": _compute_emulator_platform(ctx.attrs.labels or []),
+                    "subplatform": _compute_emulator_subplatform(ctx.attrs.labels or []),
                 },
                 remote_execution_use_case = "instrumentation-tests",
             ),
@@ -117,10 +118,18 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
     ] + classmap_source_info
 
 # replicating the logic in https://fburl.com/code/1fqowxu4 to match buck1's behavior
-def _compute_emulator_target(labels: list[str]) -> str:
-    emulator_target_labels = [label for label in labels if label.startswith("re_emulator_")]
-    expect(len(emulator_target_labels) <= 1, "multiple 're_emulator_' labels were found:[{}], there must be only one!".format(", ".join(emulator_target_labels)))
-    if len(emulator_target_labels) == 0:
+def _compute_emulator_subplatform(labels: list[str]) -> str:
+    emulator_subplatform_labels = [label for label in labels if label.startswith("re_emulator_")]
+    expect(len(emulator_subplatform_labels) <= 1, "multiple 're_emulator_' labels were found:[{}], there must be only one!".format(", ".join(emulator_subplatform_labels)))
+    if len(emulator_subplatform_labels) == 0:
         return DEFAULT_ANDROID_SUBPLATFORM
-    else:  # len(emulator_target_labels) == 1:
-        return emulator_target_labels[0].replace("re_emulator_", "")
+    else:  # len(emulator_subplatform_labels) == 1:
+        return emulator_subplatform_labels[0].replace("re_emulator_", "")
+
+def _compute_emulator_platform(labels: list[str]) -> str:
+    emulator_platform_labels = [label for label in labels if label.startswith("re_platform")]
+    expect(len(emulator_platform_labels) <= 1, "multiple 're_platform' labels were found:[{}], there must be only one!".format(", ".join(emulator_platform_labels)))
+    if len(emulator_platform_labels) == 0:
+        return DEFAULT_ANDROID_PLATFORM
+    else:  # len(emulator_platform_labels) == 1:
+        return emulator_platform_labels[0].replace("re_platform", "")
