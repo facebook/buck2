@@ -31,16 +31,7 @@ main([TestInfoFile, "list", OutputDir]) ->
         after
             test_logger:flush()
         end,
-    init:stop(ExitCode),
-    receive
-    after ?INIT_STOP_TIMEOUT ->
-        ?LOG_ERROR(
-            io_lib:format("~p failed to terminate within ~c millisecond", [
-                ?MODULE, ?INIT_STOP_TIMEOUT
-            ])
-        ),
-        erlang:halt(ExitCode)
-    end;
+    erlang:halt(ExitCode);
 main([TestInfoFile, "run", OutputDir | Tests]) ->
     test_logger:set_up_logger(OutputDir, test_runner),
     ExitCode =
@@ -55,16 +46,7 @@ main([TestInfoFile, "run", OutputDir | Tests]) ->
         after
             test_logger:flush()
         end,
-    init:stop(ExitCode),
-    receive
-    after ?INIT_STOP_TIMEOUT ->
-        ?LOG_ERROR(
-            io_lib:format("~p failed to terminate within ~c millisecond", [
-                ?MODULE, ?INIT_STOP_TIMEOUT
-            ])
-        ),
-        erlang:halt(ExitCode)
-    end;
+    erlang:halt(ExitCode);
 main([TestInfoFile]) ->
     %% without test runner support we run all tests and need to create our own test dir
     OutputDir = string:trim(os:cmd("mktemp -d")),
