@@ -147,7 +147,7 @@ impl<T> SmallSet<T> {
     #[inline]
     pub fn insert_unique_unchecked(&mut self, key: T)
     where
-        T: Hash + Eq,
+        T: Hash,
     {
         self.0.insert_unique_unchecked(key, ());
     }

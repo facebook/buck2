@@ -138,6 +138,15 @@ impl<T> OrderedSet<T> {
         self.0.insert(value)
     }
 
+    /// Insert an element into the set assuming it is not already present.
+    #[inline]
+    pub fn insert_unique_unchecked(&mut self, value: T)
+    where
+        T: Hash,
+    {
+        self.0.insert_unique_unchecked(value)
+    }
+
     /// Insert an element if element is not present in the set,
     /// otherwise return the element.
     #[inline]
