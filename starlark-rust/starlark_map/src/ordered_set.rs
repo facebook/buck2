@@ -191,6 +191,11 @@ impl<T> OrderedSet<T> {
     {
         self.0.union(&other.0)
     }
+
+    /// Reverse the iteration order of the set.
+    pub fn reverse(&mut self) {
+        self.0.reverse();
+    }
 }
 
 impl<T> Default for OrderedSet<T> {

@@ -400,6 +400,11 @@ impl<T> SmallSet<T> {
     {
         self.0.hash_ordered(state)
     }
+
+    /// Reverse the iteration order of the set.
+    pub fn reverse(&mut self) {
+        self.0.reverse();
+    }
 }
 
 impl<'a, T> IntoIterator for &'a SmallSet<T> {

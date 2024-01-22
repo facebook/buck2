@@ -204,7 +204,7 @@ impl<A, B> Vec2<A, B> {
     }
 
     #[inline]
-    fn bbb_mut(&mut self) -> &mut [B] {
+    pub(crate) fn bbb_mut(&mut self) -> &mut [B] {
         unsafe { slice::from_raw_parts_mut(self.bbb_ptr().as_ptr(), self.len) }
     }
 

@@ -287,4 +287,9 @@ impl<K, V> VecMap<K, V> {
             e.hash(state);
         }
     }
+
+    pub(crate) fn reverse(&mut self) {
+        self.buckets.aaa_mut().reverse();
+        self.buckets.bbb_mut().reverse();
+    }
 }
