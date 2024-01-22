@@ -178,8 +178,9 @@ impl TargetNode {
         }
     }
 
+    #[inline]
     pub fn buildfile_path(&self) -> &BuildFilePath {
-        &self.0.package.buildfile_path
+        self.as_ref().buildfile_path()
     }
 
     /// Returns all deps for this node that we know about after processing the build file
@@ -199,36 +200,7 @@ impl TargetNode {
     }
 
     pub fn special_attrs(&self) -> impl Iterator<Item = (&str, CoercedAttr)> {
-        let typ_attr = CoercedAttr::String(StringLiteral(self.rule_type().name().into()));
-        let deps_attr = CoercedAttr::List(
-            self.deps()
-                .map(|t| CoercedAttr::Label(ProvidersLabel::default_for(t.dupe())))
-                .collect(),
-        );
-        let package_attr = CoercedAttr::String(StringLiteral(ArcStr::from(
-            self.buildfile_path().to_string(),
-        )));
-        vec![
-            (TYPE, typ_attr),
-            (
-                CONFIGURATION_DEPS,
-                CoercedAttr::List(
-                    self.get_configuration_deps()
-                        .map(|t| CoercedAttr::ConfigurationDep(t.dupe()))
-                        .collect(),
-                ),
-            ),
-            (DEPS, deps_attr),
-            (PACKAGE, package_attr),
-            (
-                ONCALL,
-                match self.oncall() {
-                    None => CoercedAttr::None,
-                    Some(x) => CoercedAttr::String(StringLiteral(ArcStr::from(x))),
-                },
-            ),
-        ]
-        .into_iter()
+        self.as_ref().special_attrs()
     }
 
     pub fn visibility(&self) -> anyhow::Result<&VisibilitySpecification> {
@@ -428,6 +400,10 @@ impl<'a> TargetNodeRef<'a> {
         TargetNode(triomphe::ArcBorrow::clone_arc(&self.0))
     }
 
+    pub fn buildfile_path(self) -> &'a BuildFilePath {
+        &self.0.get().package.buildfile_path
+    }
+
     /// Get attribute.
     ///
     /// * `None` if attribute is known but not set and no default.
@@ -459,6 +435,39 @@ impl<'a> TargetNodeRef<'a> {
             .rule
             .attributes
             .attrs(&self.0.get().attributes, opts)
+    }
+
+    pub fn special_attrs(self) -> impl Iterator<Item = (&'a str, CoercedAttr)> + 'a {
+        let typ_attr = CoercedAttr::String(StringLiteral(self.rule_type().name().into()));
+        let deps_attr = CoercedAttr::List(
+            self.deps()
+                .map(|t| CoercedAttr::Label(ProvidersLabel::default_for(t.dupe())))
+                .collect(),
+        );
+        let package_attr = CoercedAttr::String(StringLiteral(ArcStr::from(
+            self.buildfile_path().to_string().as_str(),
+        )));
+        vec![
+            (TYPE, typ_attr),
+            (
+                CONFIGURATION_DEPS,
+                CoercedAttr::List(
+                    self.get_configuration_deps()
+                        .map(|t| CoercedAttr::ConfigurationDep(t.dupe()))
+                        .collect(),
+                ),
+            ),
+            (DEPS, deps_attr),
+            (PACKAGE, package_attr),
+            (
+                ONCALL,
+                match self.oncall() {
+                    None => CoercedAttr::None,
+                    Some(x) => CoercedAttr::String(StringLiteral(ArcStr::from(x))),
+                },
+            ),
+        ]
+        .into_iter()
     }
 
     pub fn metadata(self) -> anyhow::Result<Option<&'a MetadataMap>> {
