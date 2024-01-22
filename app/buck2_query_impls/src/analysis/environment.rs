@@ -41,7 +41,6 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_node_ref::ConfiguredTargetNodeRefNode;
 use buck2_node::nodes::configured_node_ref::ConfiguredTargetNodeRefNodeDeps;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
-use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRefLookup;
 use buck2_node::query::query_functions::CONFIGURED_GRAPH_QUERY_FUNCTIONS;
 use buck2_query::query::environment::deps;
 use buck2_query::query::environment::QueryEnvironment;
@@ -58,6 +57,7 @@ use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use buck2_query::query::syntax::simple::functions::QueryFunctions;
 use buck2_query::query::traversal::async_depth_limited_traversal;
 use buck2_query::query::traversal::async_fast_depth_first_postorder_traversal;
+use buck2_query::query::traversal::NodeLookupId;
 use buck2_query::query_module;
 use buck2_query_parser::BinaryOp;
 use dice::DiceComputations;
@@ -225,7 +225,7 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
         visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
     ) -> anyhow::Result<()> {
         async_fast_depth_first_postorder_traversal(
-            &ConfiguredGraphNodeRefLookup,
+            &NodeLookupId,
             root.iter().duped(),
             delegate,
             visit,
@@ -240,14 +240,7 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
         visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
         depth: u32,
     ) -> anyhow::Result<()> {
-        async_depth_limited_traversal(
-            &ConfiguredGraphNodeRefLookup,
-            root.iter(),
-            delegate,
-            visit,
-            depth,
-        )
-        .await
+        async_depth_limited_traversal(&NodeLookupId, root.iter(), delegate, visit, depth).await
     }
 
     async fn owner(&self, _paths: &FileSet) -> anyhow::Result<TargetSet<Self::Target>> {

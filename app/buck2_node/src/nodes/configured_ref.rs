@@ -11,15 +11,12 @@ use std::borrow::Cow;
 use std::ops::Deref;
 
 use allocative::Allocative;
-use async_trait::async_trait;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::graph::node::LabeledNode;
 use buck2_query::query::graph::node::NodeKey;
-use buck2_query::query::traversal::AsyncNodeLookup;
-use buck2_query::query::traversal::NodeLookup;
 use dupe::Dupe;
 use ref_cast::RefCast;
 use serde::Serializer;
@@ -202,22 +199,5 @@ impl QueryTarget for ConfiguredGraphNodeRef {
             },
             serializer,
         )
-    }
-}
-
-/// Graph lookup implementation for `ConfiguredGraphNodeRef`.
-/// The implementation is trivial because `ConfiguredGraphNodeRef` is both node ref and node.
-pub struct ConfiguredGraphNodeRefLookup;
-
-#[async_trait]
-impl AsyncNodeLookup<ConfiguredGraphNodeRef> for ConfiguredGraphNodeRefLookup {
-    async fn get(&self, label: &ConfiguredGraphNodeRef) -> anyhow::Result<ConfiguredGraphNodeRef> {
-        Ok(label.dupe())
-    }
-}
-
-impl NodeLookup<ConfiguredGraphNodeRef> for ConfiguredGraphNodeRefLookup {
-    fn get(&self, label: &ConfiguredGraphNodeRef) -> anyhow::Result<ConfiguredGraphNodeRef> {
-        Ok(label.dupe())
     }
 }

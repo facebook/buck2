@@ -43,6 +43,22 @@ pub trait AsyncNodeLookup<T: LabeledNode>: Send + Sync {
     async fn get(&self, label: &T::Key) -> anyhow::Result<T>;
 }
 
+/// Note lookup when node key is the same as the node.
+pub struct NodeLookupId;
+
+impl<T: LabeledNode<Key = T>> NodeLookup<T> for NodeLookupId {
+    fn get(&self, key: &T::Key) -> anyhow::Result<T> {
+        Ok(key.dupe())
+    }
+}
+
+#[async_trait]
+impl<T: LabeledNode<Key = T>> AsyncNodeLookup<T> for NodeLookupId {
+    async fn get(&self, key: &T::Key) -> anyhow::Result<T> {
+        Ok(key.dupe())
+    }
+}
+
 /// Implements a depth-first postorder traversal. A node will be visited only after all of its
 /// dependencies have been visited. Unlike `async_depth_first_postorder_traversal`, this will
 /// only perform a single traversal, however that means that it will wait on each node lookup.
