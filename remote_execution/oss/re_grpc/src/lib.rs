@@ -15,8 +15,6 @@ mod metadata;
 mod request;
 mod response;
 pub use client::*;
-#[allow(unused_imports)]
-pub use digest::*;
 pub use error::*;
 pub use grpc::*;
 pub use metadata::*;
