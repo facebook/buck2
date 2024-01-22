@@ -113,7 +113,6 @@ async fn get_transitive_includes(
         Ok(())
     };
 
-    #[async_trait]
     impl AsyncChildVisitor<Node> for Delegate {
         async fn for_each_child(
             &self,

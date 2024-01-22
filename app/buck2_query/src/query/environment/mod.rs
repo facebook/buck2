@@ -239,7 +239,6 @@ pub trait QueryEnvironment: Send + Sync {
             Ok(())
         };
 
-        #[async_trait]
         impl<Q: QueryTarget> AsyncChildVisitor<Q> for ReverseDelegate<Q> {
             async fn for_each_child(
                 &self,
@@ -388,7 +387,6 @@ pub async fn deps<Env: QueryEnvironment + ?Sized>(
         Ok(())
     };
 
-    #[async_trait]
     impl<'a, Q: QueryTarget> AsyncChildVisitor<Q> for Delegate<'a, Q> {
         async fn for_each_child(
             &self,
@@ -432,7 +430,6 @@ pub async fn deps<Env: QueryEnvironment + ?Sized>(
 
 pub struct QueryTargetDepsSuccessors;
 
-#[async_trait]
 impl<T: QueryTarget> AsyncChildVisitor<T> for QueryTargetDepsSuccessors {
     async fn for_each_child(
         &self,

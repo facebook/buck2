@@ -7,7 +7,8 @@
  * of this source tree.
  */
 
-use async_trait::async_trait;
+use std::future::Future;
+
 use buck2_query::query::traversal::ChildVisitor;
 
 use crate::query::graph::node::LabeledNode;
@@ -17,7 +18,18 @@ pub trait GraphSuccessors<N> {
     fn for_each_successor(&self, node: &N, cb: impl FnMut(&N));
 }
 
-#[async_trait]
 pub trait AsyncChildVisitor<N: LabeledNode>: Send + Sync {
-    async fn for_each_child(&self, node: &N, children: impl ChildVisitor<N>) -> anyhow::Result<()>;
+    fn for_each_child(
+        &self,
+        node: &N,
+        children: impl ChildVisitor<N>,
+    ) -> impl Future<Output = anyhow::Result<()>> + Send;
+}
+
+impl<'a, N: LabeledNode, A: AsyncChildVisitor<N> + ?Sized + Send + Sync> AsyncChildVisitor<N>
+    for &'a A
+{
+    async fn for_each_child(&self, node: &N, children: impl ChildVisitor<N>) -> anyhow::Result<()> {
+        (**self).for_each_child(node, children).await
+    }
 }

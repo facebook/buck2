@@ -324,7 +324,6 @@ mod tests {
         fn child_visitor<'a>(&self) -> impl AsyncChildVisitor<Node> + 'a {
             struct ChildVisitorImpl;
 
-            #[async_trait]
             impl AsyncChildVisitor<Node> for ChildVisitorImpl {
                 async fn for_each_child(
                     &self,

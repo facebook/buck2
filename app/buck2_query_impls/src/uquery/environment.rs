@@ -429,7 +429,6 @@ pub(crate) async fn rbuildfiles<'c>(
         Ok(())
     };
 
-    #[async_trait]
     impl AsyncChildVisitor<Node> for Delegate<'_> {
         async fn for_each_child(
             &self,
@@ -630,7 +629,6 @@ pub(crate) async fn get_transitive_loads<'c>(
         Ok(())
     };
 
-    #[async_trait]
     impl AsyncChildVisitor<Node> for Delegate<'_> {
         async fn for_each_child(
             &self,

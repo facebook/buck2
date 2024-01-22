@@ -370,7 +370,6 @@ mod tests {
 
         struct Successors;
 
-        #[async_trait]
         impl AsyncChildVisitor<Node> for Successors {
             async fn for_each_child(
                 &self,

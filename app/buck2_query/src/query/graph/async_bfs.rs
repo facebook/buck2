@@ -238,7 +238,6 @@ mod tests {
         }
     }
 
-    #[async_trait]
     impl AsyncChildVisitor<TestNode> for TestGraph {
         async fn for_each_child(
             &self,
@@ -264,7 +263,6 @@ mod tests {
 
     struct SuccessorsPlus1;
 
-    #[async_trait]
     impl AsyncChildVisitor<TestNode> for SuccessorsPlus1 {
         async fn for_each_child(
             &self,
