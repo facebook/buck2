@@ -745,10 +745,12 @@ impl LspContext for BazelContext {
                     location_finder: if same_filename {
                         None
                     } else {
-                        let literal = literal.to_owned();
-                        Some(Box::new(move |ast| {
-                            Ok(ast.find_function_call_with_name(&literal))
-                        }))
+                        match Label::parse(literal) {
+                            Err(_) => None,
+                            Ok(label) => Some(Box::new(move |ast| {
+                                Ok(ast.find_function_call_with_name(&label.name))
+                            })),
+                        }
                     },
                 })
             })
