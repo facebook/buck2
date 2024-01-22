@@ -206,11 +206,13 @@ fn gen_for_method(parsed: &Parsed, method: &Method) -> syn::Result<MethodCodegen
                 #op => Some(#func_ty::ref_cast(self) as &dyn QueryBinaryOp<#env_ident>)
             ));
 
-            let method_def = quote_spanned!(method.name.span() =>
+            let struct_def: syn::ItemStruct = syn::parse_quote_spanned! { method.name.span() =>
                 #[derive(RefCast)]
                 #[repr(transparent)]
                 struct #func_ty #impl_generics #where_clause(#self_ty);
+            };
 
+            let impl_def: syn::ItemImpl = syn::parse_quote_spanned! { method.name.span() =>
                 #[async_trait]
                 impl #impl_generics QueryBinaryOp<#env_ident> for #func_ty #ty_generics #where_clause {
                     fn name(&self) -> &'static str { #func_ident_str }
@@ -228,6 +230,11 @@ fn gen_for_method(parsed: &Parsed, method: &Method) -> syn::Result<MethodCodegen
                         ).await
                     }
                 }
+            };
+
+            let method_def = quote_spanned!(method.name.span() =>
+                #struct_def
+                #impl_def
             );
 
             Ok(MethodCodegen {
@@ -244,11 +251,13 @@ fn gen_for_method(parsed: &Parsed, method: &Method) -> syn::Result<MethodCodegen
                 stringify!(#func_ident) => Some(#func_ty::ref_cast(self) as &dyn QueryFunction<#env_ident>)
             ));
 
-            let method_def = quote_spanned!(method.name.span() =>
+            let struct_def: syn::ItemStruct = syn::parse_quote_spanned! { method.name.span() =>
                 #[derive(RefCast)]
                 #[repr(transparent)]
                 struct #func_ty #impl_generics #where_clause(#self_ty);
+            };
 
+            let impl_ref: syn::ItemImpl = syn::parse_quote_spanned! { method.name.span() =>
                 #[async_trait]
                 impl #impl_generics QueryFunction<#env_ident> for #func_ty #ty_generics #where_clause {
                     fn name(&self) -> &'static str { stringify!(#func_ident) }
@@ -275,6 +284,11 @@ fn gen_for_method(parsed: &Parsed, method: &Method) -> syn::Result<MethodCodegen
                         }
                     }
                 }
+            };
+
+            let method_def = quote_spanned!(method.name.span() =>
+                #struct_def
+                #impl_ref
             );
 
             Ok(MethodCodegen {
