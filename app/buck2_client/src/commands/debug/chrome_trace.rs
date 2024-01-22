@@ -366,7 +366,7 @@ where
         for (key, counter) in self.counters.iter_mut() {
             // TODO: With float counters this equality comparison seems sketchy.
             if counter.value == self.zero_value {
-                // If the counter is currently at its zero value, then emit the zero once, and thne
+                // If the counter is currently at its zero value, then emit the zero once, and then
                 // stop emitting this counter altogether.
                 if !counter.implicitly_zero {
                     counters_to_output[key] = json!(counter.value);
@@ -651,7 +651,7 @@ impl ChromeTraceWriter {
                 });
 
                 enum Categorization<'a> {
-                    /// Show this node on a speciifc tack
+                    /// Show this node on a specific track
                     Show {
                         category: SpanCategorization,
                         name: Cow<'a, str>,
