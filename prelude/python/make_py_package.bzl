@@ -190,6 +190,8 @@ def make_py_package(
             allow_cache_upload = allow_cache_upload,
         )
         default.sub_targets[style] = make_py_package_providers(pex_providers)
+
+    default.sub_targets["debuginfo"] = _debuginfo_subtarget(ctx, debug_artifacts)
     return default
 
 def _make_py_package_impl(
@@ -324,6 +326,10 @@ def _make_py_package_impl(
         sub_targets = {},
         run_cmd = cmd_args(run_args).hidden([a for a, _ in runtime_files] + hidden_resources),
     )
+
+def _debuginfo_subtarget(ctx: AnalysisContext, debug_artifacts: list[(ArgLike, str)]) -> list[Provider]:
+    out = ctx.actions.write_json("debuginfo.manifest.json", debug_artifacts)
+    return [DefaultInfo(default_output = out, other_outputs = [a for a, _ in debug_artifacts])]
 
 def _preload_libraries_args(ctx: AnalysisContext, shared_libraries: dict[str, (LinkedObject, bool)]) -> cmd_args:
     preload_libraries_path = ctx.actions.write(
