@@ -181,6 +181,7 @@ impl StreamingCommand for RunCommand {
 
         if self.emit_shell {
             if cfg!(unix) {
+                #[allow(deprecated)] // TODO(yurysamkevich): to fix
                 buck2_client_ctx::println!("{}", shlex::join(run_args.iter().map(|a| a.as_str())))?;
                 return ExitResult::success();
             } else {

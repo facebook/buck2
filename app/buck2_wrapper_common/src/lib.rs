@@ -94,13 +94,9 @@ pub fn killall(who_is_asking: WhoIsAsking, write: impl Fn(String)) -> bool {
 
     impl<F: Fn(String)> Printer<F> {
         fn fmt_status(&mut self, process: &ProcessInfo, status: &str) -> String {
-            format!(
-                "{} {} ({}). {}",
-                status,
-                process.name,
-                process.pid,
-                shlex::join(process.cmd.iter().map(|s| s.as_str())),
-            )
+            #[allow(deprecated)] // TODO(yurysamkevich): to fix
+            let cmd = shlex::join(process.cmd.iter().map(|s| s.as_str()));
+            format!("{} {} ({}). {}", status, process.name, process.pid, cmd,)
         }
 
         fn failed_to_kill(&mut self, process: &ProcessInfo, error: anyhow::Error) {

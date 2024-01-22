@@ -144,10 +144,12 @@ pub struct Invocation {
 
 impl Invocation {
     pub fn display_command_line(&self) -> String {
+        #[allow(deprecated)] // TODO(yurysamkevich): to fix
         shlex::join(self.command_line_args.iter().map(|e| e.as_str()))
     }
 
     pub fn display_expanded_command_line(&self) -> String {
+        #[allow(deprecated)] // TODO(yurysamkevich): to fix
         shlex::join(self.expanded_command_line_args.iter().map(|e| e.as_str()))
     }
 

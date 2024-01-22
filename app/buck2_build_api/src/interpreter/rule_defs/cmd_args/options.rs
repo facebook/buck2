@@ -645,7 +645,9 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
                 }
                 match &self.opts.quote {
                     Some(QuoteStyle::Shell) => {
-                        arg = shlex::quote(&arg).into_owned();
+                        #[allow(deprecated)] // TODO(yurysamkevich): to fix
+                        let quoted = shlex::quote(&arg);
+                        arg = quoted.into_owned();
                     }
                     _ => {}
                 }
