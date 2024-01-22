@@ -286,6 +286,16 @@ where
     }
 }
 
+impl<T> Extend<T> for OrderedSet<T>
+where
+    T: Eq + Hash,
+{
+    #[inline]
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
+        self.0.extend(iter)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::cell::Cell;
