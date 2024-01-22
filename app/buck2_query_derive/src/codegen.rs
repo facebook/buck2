@@ -209,7 +209,7 @@ fn gen_for_method(parsed: &Parsed, method: &Method) -> syn::Result<MethodCodegen
             let struct_def: syn::ItemStruct = syn::parse_quote_spanned! { method.name.span() =>
                 #[derive(RefCast)]
                 #[repr(transparent)]
-                struct #func_ty #impl_generics #where_clause(#self_ty);
+                struct #func_ty #impl_generics (#self_ty) #where_clause;
             };
 
             let impl_def: syn::ItemImpl = syn::parse_quote_spanned! { method.name.span() =>
@@ -254,7 +254,7 @@ fn gen_for_method(parsed: &Parsed, method: &Method) -> syn::Result<MethodCodegen
             let struct_def: syn::ItemStruct = syn::parse_quote_spanned! { method.name.span() =>
                 #[derive(RefCast)]
                 #[repr(transparent)]
-                struct #func_ty #impl_generics #where_clause(#self_ty);
+                struct #func_ty #impl_generics (#self_ty) #where_clause;
             };
 
             let impl_ref: syn::ItemImpl = syn::parse_quote_spanned! { method.name.span() =>
