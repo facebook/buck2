@@ -294,7 +294,7 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
                 targets.iter().map(ConfiguredTargetNodeRefNode::new),
                 ConfiguredTargetNodeRefNodeDeps,
                 |target| {
-                    deps.insert(target.to_node());
+                    deps.insert_unique_unchecked(target.to_node());
                     Ok(())
                 },
             )?;

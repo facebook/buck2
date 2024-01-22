@@ -116,6 +116,10 @@ impl<T: LabeledNode> LabelIndexedSet<T> {
         self.nodes.insert(LabelIndexed(value))
     }
 
+    pub fn insert_unique_unchecked(&mut self, value: T) {
+        self.nodes.insert_unique_unchecked(LabelIndexed(value));
+    }
+
     pub fn contains(&self, value: &T::Key) -> bool {
         self.nodes.contains(&LabelIndexer(Hashed::new(value)))
     }

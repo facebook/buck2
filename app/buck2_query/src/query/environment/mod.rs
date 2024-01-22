@@ -225,7 +225,7 @@ pub trait QueryEnvironment: Send + Sync {
         let mut rdeps = TargetSet::new();
 
         let mut visit = |target| {
-            rdeps.insert(target);
+            rdeps.insert_unique_unchecked(target);
             Ok(())
         };
 
@@ -373,7 +373,7 @@ pub async fn deps<Env: QueryEnvironment + ?Sized>(
     }
 
     let visit = |target| {
-        deps.insert(target);
+        deps.insert_unique_unchecked(target);
         Ok(())
     };
 

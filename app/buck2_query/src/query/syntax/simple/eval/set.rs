@@ -45,6 +45,10 @@ impl<T: QueryTarget> TargetSet<T> {
         self.targets.insert(value)
     }
 
+    pub fn insert_unique_unchecked(&mut self, value: T) {
+        self.targets.insert_unique_unchecked(value)
+    }
+
     pub fn is_empty(&self) -> bool {
         self.targets.len() == 0
     }
@@ -60,7 +64,7 @@ impl<T: QueryTarget> TargetSet<T> {
         let mut targets = LabelIndexedSet::new();
         for target in self.targets.iter() {
             if filter(target)? {
-                targets.insert(target.dupe());
+                targets.insert_unique_unchecked(target.dupe());
             }
         }
         Ok(Self { targets })
