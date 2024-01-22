@@ -97,14 +97,6 @@ pub trait QueryTarget: LabeledNode + Dupe + Send + Sync + 'static {
         None::<iter::Empty<Self::Key>>
     }
 
-    fn attr_to_string_alternate(&self, attr: &Self::Attr<'_>) -> String;
-
-    fn attr_serialize<S: serde::Serializer>(
-        &self,
-        attr: &Self::Attr<'_>,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>;
-
     fn attr_any_matches(
         attr: &Self::Attr<'_>,
         filter: &dyn Fn(&str) -> anyhow::Result<bool>,
@@ -121,8 +113,6 @@ pub trait QueryTarget: LabeledNode + Dupe + Send + Sync + 'static {
     ) -> Result<(), E>;
 
     fn map_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, func: F) -> R;
-
-    fn call_stack(&self) -> Option<String>;
 }
 
 #[async_trait]

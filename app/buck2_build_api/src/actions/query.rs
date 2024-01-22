@@ -40,7 +40,6 @@ use indexmap::IndexMap;
 use internment::ArcIntern;
 use ref_cast::RefCast;
 use serde::Serialize;
-use serde::Serializer;
 
 use crate::actions::RegisteredAction;
 use crate::analysis::AnalysisResult;
@@ -360,22 +359,6 @@ impl QueryTarget for ActionQueryNode {
     ) -> Result<(), E> {
         // TODO(cjhopman): In addition to implementing this, we should be able to return an anyhow::Error here rather than panicking.
         unimplemented!("inputs not yet implemented in aquery")
-    }
-
-    fn call_stack(&self) -> Option<String> {
-        None
-    }
-
-    fn attr_to_string_alternate(&self, attr: &Self::Attr<'_>) -> String {
-        format!("{:#}", attr)
-    }
-
-    fn attr_serialize<S: Serializer>(
-        &self,
-        attr: &Self::Attr<'_>,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error> {
-        attr.serialize(serializer)
     }
 }
 

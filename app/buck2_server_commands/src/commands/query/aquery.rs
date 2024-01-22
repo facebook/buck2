@@ -11,6 +11,7 @@ use std::io::Write;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
@@ -24,6 +25,25 @@ use dupe::Dupe;
 
 use crate::commands::query::printer::QueryResultPrinter;
 use crate::commands::query::printer::ShouldPrintProviders;
+use crate::commands::query::query_target_ext::QueryCommandTarget;
+
+impl QueryCommandTarget for ActionQueryNode {
+    fn call_stack(&self) -> Option<String> {
+        None
+    }
+
+    fn attr_to_string_alternate(&self, attr: &Self::Attr<'_>) -> String {
+        format!("{:#}", attr)
+    }
+
+    fn attr_serialize<S: serde::Serializer>(
+        &self,
+        attr: &Self::Attr<'_>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        serde::Serialize::serialize(attr, serializer)
+    }
+}
 
 pub(crate) async fn aquery_command(
     ctx: &dyn ServerCommandContextTrait,

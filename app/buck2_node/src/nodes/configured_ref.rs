@@ -19,14 +19,10 @@ use buck2_query::query::graph::node::LabeledNode;
 use buck2_query::query::graph::node::NodeKey;
 use dupe::Dupe;
 use ref_cast::RefCast;
-use serde::Serializer;
 
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::configured_attr::ConfiguredAttr;
-use crate::attrs::display::AttrDisplayWithContextExt;
-use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::inspect_options::AttrInspectOptions;
-use crate::attrs::serialize::AttrSerializeWithContext;
 use crate::nodes::configured::ConfiguredTargetNode;
 
 /// `ConfiguredTargetNode` as both `LabeledNode` and `NodeLabel` and also `QueryTarget`.
@@ -173,31 +169,5 @@ impl QueryTarget for ConfiguredGraphNodeRef {
             func(input)?;
         }
         Ok(())
-    }
-
-    fn call_stack(&self) -> Option<String> {
-        self.0.call_stack()
-    }
-
-    fn attr_to_string_alternate(&self, attr: &Self::Attr<'_>) -> String {
-        format!(
-            "{:#}",
-            attr.as_display(&AttrFmtContext {
-                package: Some(self.0.label().pkg().dupe()),
-            })
-        )
-    }
-
-    fn attr_serialize<S: Serializer>(
-        &self,
-        attr: &Self::Attr<'_>,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error> {
-        attr.serialize_with_ctx(
-            &AttrFmtContext {
-                package: Some(self.0.label().pkg().dupe()),
-            },
-            serializer,
-        )
     }
 }

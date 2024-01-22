@@ -15,13 +15,9 @@ use buck2_core::target::label::TargetLabel;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::graph::node::LabeledNode;
 use dupe::Dupe;
-use serde::Serializer;
 
 use crate::attrs::coerced_attr::CoercedAttr;
-use crate::attrs::display::AttrDisplayWithContextExt;
-use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::inspect_options::AttrInspectOptions;
-use crate::attrs::serialize::AttrSerializeWithContext;
 use crate::nodes::unconfigured::TargetNode;
 use crate::nodes::unconfigured::TargetNodeData;
 
@@ -103,31 +99,5 @@ impl QueryTarget for TargetNode {
             func(input)?;
         }
         Ok(())
-    }
-
-    fn call_stack(&self) -> Option<String> {
-        TargetNodeData::call_stack(self)
-    }
-
-    fn attr_to_string_alternate(&self, attr: &Self::Attr<'_>) -> String {
-        format!(
-            "{:#}",
-            attr.as_display(&AttrFmtContext {
-                package: Some(self.label().pkg().dupe()),
-            })
-        )
-    }
-
-    fn attr_serialize<S: Serializer>(
-        &self,
-        attr: &Self::Attr<'_>,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error> {
-        attr.serialize_with_ctx(
-            &AttrFmtContext {
-                package: Some(self.label().pkg().dupe()),
-            },
-            serializer,
-        )
     }
 }

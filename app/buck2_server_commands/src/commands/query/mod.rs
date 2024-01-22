@@ -10,6 +10,7 @@
 pub mod aquery;
 pub mod cquery;
 pub mod printer;
+pub(crate) mod query_target_ext;
 pub mod uquery;
 
 #[derive(Debug, buck2_error::Error)]

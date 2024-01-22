@@ -20,7 +20,6 @@ use derive_more::Display;
 use derive_more::From;
 use dupe::OptionDupedExt;
 use indexmap::IndexSet;
-use serde::Serializer;
 
 use super::*;
 use crate::query::traversal::AsyncNodeLookup;
@@ -81,18 +80,6 @@ impl QueryTarget for TestTarget {
         Box::new(std::iter::empty())
     }
 
-    fn attr_to_string_alternate(&self, _attr: &Self::Attr<'_>) -> String {
-        unimplemented!("not needed for tests")
-    }
-
-    fn attr_serialize<S: Serializer>(
-        &self,
-        _attr: &Self::Attr<'_>,
-        _serializer: S,
-    ) -> Result<S::Ok, S::Error> {
-        unimplemented!("not needed for tests")
-    }
-
     fn attr_any_matches(
         _attr: &Self::Attr<'_>,
         _filter: &dyn Fn(&str) -> anyhow::Result<bool>,
@@ -116,10 +103,6 @@ impl QueryTarget for TestTarget {
 
     fn map_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, _key: &str, _func: F) -> R {
         unimplemented!()
-    }
-
-    fn call_stack(&self) -> Option<String> {
-        None
     }
 }
 

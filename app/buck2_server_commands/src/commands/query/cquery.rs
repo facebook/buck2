@@ -21,6 +21,9 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
+use buck2_node::attrs::display::AttrDisplayWithContextExt;
+use buck2_node::attrs::fmt_context::AttrFmtContext;
+use buck2_node::attrs::serialize::AttrSerializeWithContext;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -36,6 +39,35 @@ use dupe::Dupe;
 use crate::commands::query::printer::ProviderLookUp;
 use crate::commands::query::printer::QueryResultPrinter;
 use crate::commands::query::printer::ShouldPrintProviders;
+use crate::commands::query::query_target_ext::QueryCommandTarget;
+
+impl QueryCommandTarget for ConfiguredTargetNode {
+    fn call_stack(&self) -> Option<String> {
+        ConfiguredTargetNode::call_stack(self)
+    }
+
+    fn attr_to_string_alternate(&self, attr: &Self::Attr<'_>) -> String {
+        format!(
+            "{:#}",
+            attr.as_display(&AttrFmtContext {
+                package: Some(self.label().pkg().dupe()),
+            })
+        )
+    }
+
+    fn attr_serialize<S: serde::Serializer>(
+        &self,
+        attr: &Self::Attr<'_>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        attr.serialize_with_ctx(
+            &AttrFmtContext {
+                package: Some(self.label().pkg().dupe()),
+            },
+            serializer,
+        )
+    }
+}
 
 pub(crate) async fn cquery_command(
     ctx: &dyn ServerCommandContextTrait,

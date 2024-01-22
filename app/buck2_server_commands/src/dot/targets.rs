@@ -13,6 +13,7 @@ use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use regex::RegexSet;
 use starlark_map::small_map::SmallMap;
 
+use crate::commands::query::query_target_ext::QueryCommandTarget;
 use crate::dot::DotDigraph;
 use crate::dot::DotEdge;
 use crate::dot::DotNode;
@@ -26,7 +27,7 @@ pub struct DotTargetGraph<T: QueryTarget> {
     pub attributes: Option<RegexSet>,
 }
 
-impl<'a, T: QueryTarget> DotDigraph<'a> for DotTargetGraph<T> {
+impl<'a, T: QueryCommandTarget> DotDigraph<'a> for DotTargetGraph<T> {
     type Node = DotTargetGraphNode<'a, T>;
 
     fn name(&self) -> &str {
@@ -61,7 +62,7 @@ impl<'a, T: QueryTarget> DotDigraph<'a> for DotTargetGraph<T> {
     }
 }
 
-impl<'a, T: QueryTarget> DotNode for DotTargetGraphNode<'a, T> {
+impl<'a, T: QueryCommandTarget> DotNode for DotTargetGraphNode<'a, T> {
     fn attrs(&self) -> anyhow::Result<DotNodeAttrs> {
         let extra = match &self.1.attributes {
             Some(attr_regex) => {

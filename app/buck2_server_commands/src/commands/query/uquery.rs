@@ -15,6 +15,11 @@ use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_cli_proto::UqueryRequest;
 use buck2_cli_proto::UqueryResponse;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_node::attrs::display::AttrDisplayWithContextExt;
+use buck2_node::attrs::fmt_context::AttrFmtContext;
+use buck2_node::attrs::serialize::AttrSerializeWithContext;
+use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::nodes::unconfigured::TargetNodeData;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -26,6 +31,35 @@ use dupe::Dupe;
 
 use crate::commands::query::printer::QueryResultPrinter;
 use crate::commands::query::printer::ShouldPrintProviders;
+use crate::commands::query::query_target_ext::QueryCommandTarget;
+
+impl QueryCommandTarget for TargetNode {
+    fn call_stack(&self) -> Option<String> {
+        TargetNodeData::call_stack(self)
+    }
+
+    fn attr_to_string_alternate(&self, attr: &Self::Attr<'_>) -> String {
+        format!(
+            "{:#}",
+            attr.as_display(&AttrFmtContext {
+                package: Some(self.label().pkg().dupe()),
+            })
+        )
+    }
+
+    fn attr_serialize<S: serde::Serializer>(
+        &self,
+        attr: &Self::Attr<'_>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        attr.serialize_with_ctx(
+            &AttrFmtContext {
+                package: Some(self.label().pkg().dupe()),
+            },
+            serializer,
+        )
+    }
+}
 
 pub(crate) async fn uquery_command(
     ctx: &dyn ServerCommandContextTrait,

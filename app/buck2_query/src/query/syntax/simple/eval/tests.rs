@@ -20,8 +20,6 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_query_parser::parse_expr;
 use derive_more::Display;
 use dupe::Dupe;
-use serde::Serialize;
-use serde::Serializer;
 
 use crate::query::environment::QueryEnvironment;
 use crate::query::environment::QueryTarget;
@@ -39,7 +37,7 @@ struct TargetRef(String);
 
 impl NodeKey for TargetRef {}
 
-#[derive(Debug, Display, Serialize)]
+#[derive(Debug, Display)]
 struct TargetAttr(String);
 
 #[derive(Debug, Clone, Dupe, Eq, PartialEq)]
@@ -103,22 +101,6 @@ impl QueryTarget for Target {
 
     fn map_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, _key: &str, _func: F) -> R {
         unimplemented!()
-    }
-
-    fn call_stack(&self) -> Option<String> {
-        None
-    }
-
-    fn attr_to_string_alternate(&self, _attr: &Self::Attr<'_>) -> String {
-        unimplemented!("not needed for tests")
-    }
-
-    fn attr_serialize<S: Serializer>(
-        &self,
-        _attr: &Self::Attr<'_>,
-        _serializer: S,
-    ) -> Result<S::Ok, S::Error> {
-        unimplemented!("not needed for tests")
     }
 }
 

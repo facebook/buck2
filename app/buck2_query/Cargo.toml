@@ -17,7 +17,6 @@ indexmap = { workspace = true }
 indoc = { workspace = true }
 itertools = { workspace = true }
 ref-cast = { workspace = true }
-serde = { workspace = true }
 tokio = { workspace = true }
 
 allocative = { workspace = true }

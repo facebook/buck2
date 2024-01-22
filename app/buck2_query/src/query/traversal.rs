@@ -217,8 +217,6 @@ mod tests {
     use derive_more::Display;
     use dupe::Dupe;
     use gazebo::prelude::*;
-    use serde::Serialize;
-    use serde::Serializer;
 
     use super::*;
     use crate::query::environment::QueryTarget;
@@ -236,7 +234,7 @@ mod tests {
 
     impl NodeKey for Ref {}
 
-    #[derive(Debug, Display, Serialize)]
+    #[derive(Debug, Display)]
     struct Attr(String);
 
     impl LabeledNode for Node {
@@ -299,22 +297,6 @@ mod tests {
 
         fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::Key> + Send + 'a> {
             unimplemented!()
-        }
-
-        fn call_stack(&self) -> Option<String> {
-            None
-        }
-
-        fn attr_to_string_alternate(&self, _attr: &Self::Attr<'_>) -> String {
-            unimplemented!("not needed for tests")
-        }
-
-        fn attr_serialize<S: Serializer>(
-            &self,
-            _attr: &Self::Attr<'_>,
-            _serializer: S,
-        ) -> Result<S::Ok, S::Error> {
-            unimplemented!("not needed for tests")
         }
     }
 

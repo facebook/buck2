@@ -15,15 +15,11 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::graph::node::LabeledNode;
 use dupe::Dupe;
-use serde::Serializer;
 use starlark_map::Hashed;
 
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::configured_attr::ConfiguredAttr;
-use crate::attrs::display::AttrDisplayWithContextExt;
-use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::inspect_options::AttrInspectOptions;
-use crate::attrs::serialize::AttrSerializeWithContext;
 use crate::nodes::configured::ConfiguredTargetNode;
 use crate::nodes::configured::ConfiguredTargetNodeRef;
 
@@ -113,32 +109,6 @@ impl QueryTarget for ConfiguredTargetNode {
             func(input)?;
         }
         Ok(())
-    }
-
-    fn call_stack(&self) -> Option<String> {
-        self.call_stack()
-    }
-
-    fn attr_to_string_alternate(&self, attr: &Self::Attr<'_>) -> String {
-        format!(
-            "{:#}",
-            attr.as_display(&AttrFmtContext {
-                package: Some(self.label().pkg().dupe()),
-            })
-        )
-    }
-
-    fn attr_serialize<S: Serializer>(
-        &self,
-        attr: &Self::Attr<'_>,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error> {
-        attr.serialize_with_ctx(
-            &AttrFmtContext {
-                package: Some(self.label().pkg().dupe()),
-            },
-            serializer,
-        )
     }
 }
 

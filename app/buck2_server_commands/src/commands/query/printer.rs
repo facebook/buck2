@@ -38,6 +38,7 @@ use serde::ser::SerializeSeq;
 use serde::Serialize;
 use serde::Serializer;
 
+use crate::commands::query::query_target_ext::QueryCommandTarget;
 use crate::commands::query::QueryCommandError;
 use crate::dot::targets::DotTargetGraph;
 use crate::dot::Dot;
@@ -56,7 +57,7 @@ pub trait ProviderLookUp<T: QueryTarget>: Send + Sync {
 }
 
 #[derive(Debug)]
-pub struct QueryResultPrinter<'a> {
+pub(crate) struct QueryResultPrinter<'a> {
     resolver: &'a CellResolver,
     attributes: Option<RegexSet>,
     output_format: QueryOutputFormat,
@@ -97,7 +98,7 @@ impl<'a, T: QueryTarget> PrintableQueryTarget<'a, T> {
     }
 }
 
-impl<'a, T: QueryTarget> Display for PrintableQueryTarget<'a, T> {
+impl<'a, T: QueryCommandTarget> Display for PrintableQueryTarget<'a, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.value.node_key())?;
 
@@ -129,7 +130,7 @@ impl<'a, T: QueryTarget> Display for PrintableQueryTarget<'a, T> {
     }
 }
 
-impl<'a, T: QueryTarget> Serialize for PrintableQueryTarget<'a, T> {
+impl<'a, T: QueryCommandTarget> Serialize for PrintableQueryTarget<'a, T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -139,12 +140,12 @@ impl<'a, T: QueryTarget> Serialize for PrintableQueryTarget<'a, T> {
         QueryTargets::for_all_attrs(self.value, |attr_name, attr_value| {
             if let Some(attr_regex) = self.attributes {
                 if attr_regex.is_match(attr_name) {
-                    struct AttrValueSerialize<'a, 'b, T: QueryTarget> {
+                    struct AttrValueSerialize<'a, 'b, T: QueryCommandTarget> {
                         target: &'a T,
                         attr: &'a T::Attr<'b>,
                     }
 
-                    impl<'a, 'b, T: QueryTarget> Serialize for AttrValueSerialize<'a, 'b, T> {
+                    impl<'a, 'b, T: QueryCommandTarget> Serialize for AttrValueSerialize<'a, 'b, T> {
                         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
                         where
                             S: Serializer,
@@ -177,7 +178,7 @@ impl<'a, T: QueryTarget> Serialize for PrintableQueryTarget<'a, T> {
     }
 }
 
-impl<'a, T: QueryTarget> Serialize for TargetSetJsonPrinter<'a, T> {
+impl<'a, T: QueryCommandTarget> Serialize for TargetSetJsonPrinter<'a, T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -253,7 +254,7 @@ impl<'a> QueryResultPrinter<'a> {
         })
     }
 
-    pub async fn print_multi_output<'b, T: QueryTarget, W: std::io::Write>(
+    pub async fn print_multi_output<'b, T: QueryCommandTarget, W: std::io::Write>(
         &self,
         mut output: W,
         multi_result: MultiQueryResult<T>,
@@ -319,7 +320,7 @@ impl<'a> QueryResultPrinter<'a> {
         }
     }
 
-    pub async fn print_single_output<'b, T: QueryTarget, W: std::io::Write>(
+    pub async fn print_single_output<'b, T: QueryCommandTarget, W: std::io::Write>(
         &self,
         mut output: W,
         result: QueryEvaluationValue<T>,
