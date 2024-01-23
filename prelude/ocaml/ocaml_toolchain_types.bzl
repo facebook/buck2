@@ -58,12 +58,6 @@ OCamlLinkInfo = provider(
     fields = {"info": provider_field(typing.Any, default = None)},
 )
 
-OcamlIdeInfo = provider(
-    fields = {
-        "outputs": provider_field(typing.Any, default = []),
-    },
-)
-
 # A record of an OCaml library.
 OCamlLibraryInfo = record(
     # The library target name: e.g. "`foo`"
