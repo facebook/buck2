@@ -65,10 +65,7 @@ impl AuditSubcommand for AuditAnalysisQueriesCommand {
                             for (target, TargetPatternExtra) in targets {
                                 let label = TargetLabel::new(package.dupe(), target.as_ref());
                                 let configured_target = ctx
-                                    .get_configured_target(
-                                        &label,
-                                        global_cfg_options.target_platform.as_ref(),
-                                    )
+                                    .get_configured_target(&label, &global_cfg_options)
                                     .await?;
                                 let node =
                                     ctx.get_configured_target_node(&configured_target).await?;

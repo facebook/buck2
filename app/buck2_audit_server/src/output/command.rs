@@ -69,7 +69,7 @@ async fn audit_output<'v>(
     };
 
     let configured_target_label = dice_ctx
-        .get_configured_target(&target_label, global_cfg_options.target_platform.as_ref())
+        .get_configured_target(&target_label, global_cfg_options)
         .await?;
 
     let command_config = configured_target_label.cfg();

@@ -644,10 +644,7 @@ async fn build_target<'a>(
 ) -> impl Stream<Item = BuildEvent> + 'a {
     let providers_label = ProvidersLabel::new(spec.target.label().dupe(), spec.providers);
     let providers_label = match ctx
-        .get_configured_provider_label(
-            &providers_label,
-            spec.global_cfg_options.target_platform.as_ref(),
-        )
+        .get_configured_provider_label(&providers_label, &spec.global_cfg_options)
         .await
     {
         Ok(l) => l,

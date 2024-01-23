@@ -46,13 +46,13 @@ pub trait ConfiguredTargetCalculation {
     async fn get_configured_target(
         &self,
         target: &TargetLabel,
-        global_target_platform: Option<&TargetLabel>,
+        global_cfg_options: &GlobalCfgOptions,
     ) -> anyhow::Result<ConfiguredTargetLabel>;
 
     async fn get_configured_provider_label(
         &self,
         target: &ProvidersLabel,
-        global_target_platform: Option<&TargetLabel>,
+        global_cfg_options: &GlobalCfgOptions,
     ) -> anyhow::Result<ConfiguredProvidersLabel>;
 
     async fn get_default_configured_target(
@@ -66,36 +66,22 @@ impl ConfiguredTargetCalculation for DiceComputations {
     async fn get_configured_target(
         &self,
         target: &TargetLabel,
-        global_target_platform: Option<&TargetLabel>,
+        global_cfg_options: &GlobalCfgOptions,
     ) -> anyhow::Result<ConfiguredTargetLabel> {
         CONFIGURED_TARGET_CALCULATION
             .get()?
-            .get_configured_target(
-                self,
-                target,
-                &GlobalCfgOptions {
-                    target_platform: global_target_platform.cloned(),
-                    cli_modifiers: vec![].into(),
-                },
-            )
+            .get_configured_target(self, target, global_cfg_options)
             .await
     }
 
     async fn get_configured_provider_label(
         &self,
         target: &ProvidersLabel,
-        global_target_platform: Option<&TargetLabel>,
+        global_cfg_options: &GlobalCfgOptions,
     ) -> anyhow::Result<ConfiguredProvidersLabel> {
         let configured_target_label = CONFIGURED_TARGET_CALCULATION
             .get()?
-            .get_configured_target(
-                self,
-                target.target(),
-                &GlobalCfgOptions {
-                    target_platform: global_target_platform.cloned(),
-                    cli_modifiers: vec![].into(),
-                },
-            )
+            .get_configured_target(self, target.target(), global_cfg_options)
             .await?;
         Ok(ConfiguredProvidersLabel::new(
             configured_target_label,

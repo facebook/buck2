@@ -234,10 +234,7 @@ async fn retrieve_artifacts_for_provider_label(
     global_cfg_options: &GlobalCfgOptions,
 ) -> anyhow::Result<TargetsArtifacts> {
     let providers_label = ctx
-        .get_configured_provider_label(
-            &providers_label,
-            global_cfg_options.target_platform.as_ref(),
-        )
+        .get_configured_provider_label(&providers_label, global_cfg_options)
         .await?;
 
     let providers = ctx

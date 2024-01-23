@@ -88,7 +88,7 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
                 for (_, targets) in loaded_patterns.into_iter() {
                     for (_, node) in targets? {
                         configured_patterns.push(
-                            ctx.get_configured_target(node.label(), global_cfg_options.target_platform.as_ref())
+                            ctx.get_configured_target(node.label(), &global_cfg_options)
                                 .await?,
                         );
                     }

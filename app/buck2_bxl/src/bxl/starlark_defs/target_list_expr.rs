@@ -333,11 +333,8 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                     global_cfg_options,
                 )?;
                 Ok(TargetListExpr::One(TargetExpr::Label(Cow::Owned(
-                    dice.get_configured_target(
-                        label.label(),
-                        global_cfg_options.target_platform.as_ref(),
-                    )
-                    .await?,
+                    dice.get_configured_target(label.label(), global_cfg_options)
+                        .await?,
                 ))))
             }
         }
@@ -378,7 +375,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                 let result = match dice
                     .get_configured_target(
                         &TargetLabel::new(pkg, name.as_ref()),
-                        global_cfg_options.target_platform.as_ref(),
+                        global_cfg_options,
                     )
                     .await
                 {
@@ -446,11 +443,8 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                             global_cfg_options,
                         )?;
                         anyhow::Ok(TargetExpr::Label(Cow::Owned(
-                            dice.get_configured_target(
-                                node.label(),
-                                global_cfg_options.target_platform.as_ref(),
-                            )
-                            .await?,
+                            dice.get_configured_target(node.label(), global_cfg_options)
+                                .await?,
                         )))
                     }))
                     .await?,

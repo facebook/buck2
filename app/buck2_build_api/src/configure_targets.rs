@@ -71,7 +71,7 @@ pub async fn get_maybe_compatible_targets<'a>(
                             for<'x> |ctx: &'x mut DiceComputationsParallel<'a>| -> BoxFuture<'x, anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>> {
                                 async move {
                                     let target = ctx
-                                        .get_configured_target(target.label(), global_cfg_options.target_platform.as_ref())
+                                        .get_configured_target(target.label(), global_cfg_options)
                                         .await?;
                                     anyhow::Ok(ctx.get_configured_target_node(&target).await?)
                                 }.boxed()

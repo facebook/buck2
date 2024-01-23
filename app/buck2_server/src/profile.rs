@@ -63,7 +63,7 @@ async fn generate_profile_analysis(
     let label = TargetLabel::new(package.dupe(), target.as_ref());
 
     let configured_target = ctx
-        .get_configured_target(&label, global_cfg_options.target_platform.as_ref())
+        .get_configured_target(&label, &global_cfg_options)
         .await?;
 
     match profile_mode {

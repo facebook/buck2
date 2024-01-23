@@ -746,10 +746,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         let fut = async move {
             let label = state
                 .ctx
-                .get_configured_provider_label(
-                    &label,
-                    state.global_cfg_options.target_platform.as_ref(),
-                )
+                .get_configured_provider_label(&label, state.global_cfg_options)
                 .await?;
 
             let node = state.ctx.get_configured_target_node(label.target()).await?;

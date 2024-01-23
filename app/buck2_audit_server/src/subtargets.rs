@@ -104,7 +104,7 @@ async fn server_execute_with_dice(
         for (target_name, providers) in targets {
             let label = providers.into_providers_label(package.dupe(), target_name.as_ref());
             let providers_label = ctx
-                .get_configured_provider_label(&label, global_cfg_options.target_platform.as_ref())
+                .get_configured_provider_label(&label, &global_cfg_options)
                 .await?;
 
             // `.push` is deprecated in newer `futures`,

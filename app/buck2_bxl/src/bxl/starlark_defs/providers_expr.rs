@@ -126,11 +126,8 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
             }
             ConfiguredProvidersLabelArg::Unconfigured(arg) => {
                 let label = Self::unpack_providers_label(arg, ctx)?;
-                dice.get_configured_provider_label(
-                    &label,
-                    global_cfg_options_override.target_platform.as_ref(),
-                )
-                .await
+                dice.get_configured_provider_label(&label, global_cfg_options_override)
+                    .await
             }
         }
     }
@@ -147,7 +144,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
                     let providers_label = ProvidersLabel::default_for(node.label().dupe());
                     dice.get_configured_provider_label(
                         &providers_label,
-                        global_cfg_options_override.target_platform.as_ref(),
+                        global_cfg_options_override,
                     )
                     .await
                 }))

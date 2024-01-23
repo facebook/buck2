@@ -51,7 +51,7 @@ impl AuditSubcommand for AuditDepFilesCommand {
                 .as_target_label(&self.pattern)?;
 
                 let label = ctx
-                    .get_configured_target(&label, global_cfg_options.target_platform.as_ref())
+                    .get_configured_target(&label, &global_cfg_options)
                     .await?;
 
                 let category = Category::try_from(self.category.as_str())?;
