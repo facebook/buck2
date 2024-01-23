@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::ops::Add;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -21,6 +22,7 @@ use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
+use derive_more::Add;
 use faccess::PathExt;
 use futures::future::try_join;
 use futures::future::try_join_all;
@@ -33,9 +35,20 @@ use crate::directory::ActionDirectoryBuilder;
 use crate::directory::ActionDirectoryEntry;
 use crate::directory::ActionDirectoryMember;
 use crate::execute::blocking::BlockingExecutor;
+
+#[derive(Add, Default)]
 pub struct HashingInfo {
     pub hashing_duration: Duration,
     pub hashed_artifacts_count: u64,
+}
+
+impl HashingInfo {
+    fn new(hashing_duration: Duration, hashed_artifacts_count: u64) -> HashingInfo {
+        HashingInfo {
+            hashing_duration,
+            hashed_artifacts_count,
+        }
+    }
 }
 
 pub async fn build_entry_from_disk(
@@ -50,29 +63,24 @@ pub async fn build_entry_from_disk(
     let m = match std::fs::symlink_metadata(&path) {
         Ok(m) => m,
         Err(ref err) if err.kind() == std::io::ErrorKind::NotFound => {
-            return Ok((
-                None,
-                HashingInfo {
-                    hashing_duration: Duration::ZERO,
-                    hashed_artifacts_count: 0,
-                },
-            ));
+            return Ok((None, HashingInfo::default()));
         }
         Err(err) => return Err(err.into()),
     };
-    let hashing_start = Instant::now();
-    let mut hashed_artifacts_count = 0;
+    let mut hashing_info = HashingInfo::default();
     let value = match FileType::from(m.file_type()) {
         FileType::File => {
-            hashed_artifacts_count += 1;
-            let file_metadata = build_file_metadata(path, digest_config, blocking_executor).await?;
+            let (file_metadata, file_hashing_info): (FileMetadata, HashingInfo) =
+                build_file_metadata(path, digest_config, blocking_executor).await?;
+            hashing_info = hashing_info.add(file_hashing_info);
             DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata))
         }
         FileType::Symlink => DirectoryEntry::Leaf(new_symlink(fs_util::read_link(&path)?)?),
 
         FileType::Directory => {
-            let (dir, count) = build_dir_from_disk(path, digest_config, blocking_executor).await?;
-            hashed_artifacts_count += count;
+            let (dir, dir_hashing_info) =
+                build_dir_from_disk(path, digest_config, blocking_executor).await?;
+            hashing_info = hashing_info.add(dir_hashing_info);
             DirectoryEntry::Dir(dir)
         }
         FileType::Unknown => {
@@ -82,14 +90,8 @@ pub async fn build_entry_from_disk(
             ));
         }
     };
-    let hashing_duration = hashing_start.elapsed();
-    Ok((
-        Some(value),
-        HashingInfo {
-            hashing_duration,
-            hashed_artifacts_count,
-        },
-    ))
+
+    Ok((Some(value), hashing_info))
 }
 
 #[async_recursion]
@@ -97,9 +99,9 @@ async fn build_dir_from_disk(
     disk_path: AbsNormPathBuf,
     digest_config: FileDigestConfig,
     blocking_executor: &dyn BlockingExecutor,
-) -> anyhow::Result<(ActionDirectoryBuilder, u64)> {
+) -> anyhow::Result<(ActionDirectoryBuilder, HashingInfo)> {
     let mut builder = ActionDirectoryBuilder::empty();
-    let mut hashed_artifacts_count = 0;
+    let mut hashing_info = HashingInfo::default();
 
     let mut directory_names: Vec<FileNameBuf> = Vec::new();
     let mut directory_futures: Vec<_> = Vec::new();
@@ -127,7 +129,6 @@ async fn build_dir_from_disk(
             FileType::File => {
                 let file_future =
                     build_file_metadata(child_disk_path, digest_config, blocking_executor);
-                hashed_artifacts_count += 1;
                 file_names.push(filename);
                 file_futures.push(file_future)
             }
@@ -151,26 +152,28 @@ async fn build_dir_from_disk(
         try_join(try_join_all(file_futures), try_join_all(directory_futures)).await?;
 
     for (filename, file_res) in file_names.into_iter().zip(file_results.into_iter()) {
+        let (file_metadata, file_hashing_info) = file_res;
+        hashing_info = hashing_info.add(file_hashing_info);
         builder.insert(
             filename,
-            DirectoryEntry::Leaf(ActionDirectoryMember::File(file_res)),
+            DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata)),
         )?;
     }
 
     for (filename, dir_res) in directory_names.into_iter().zip(dir_results.into_iter()) {
-        let (dir_builder, hashed_files) = dir_res;
+        let (dir_builder, dir_hashing_info) = dir_res;
+        hashing_info = hashing_info.add(dir_hashing_info);
         builder.insert(filename, DirectoryEntry::Dir(dir_builder))?;
-        hashed_artifacts_count += hashed_files;
     }
 
-    Ok((builder, hashed_artifacts_count))
+    Ok((builder, hashing_info))
 }
 
 fn build_file_metadata(
     disk_path: AbsNormPathBuf,
     digest_config: FileDigestConfig,
     blocking_executor: &dyn BlockingExecutor,
-) -> impl Future<Output = anyhow::Result<FileMetadata>> + '_ {
+) -> impl Future<Output = anyhow::Result<(FileMetadata, HashingInfo)>> + '_ {
     static SEMAPHORE: Lazy<Semaphore> = Lazy::new(|| Semaphore::new(100));
     let exec_path = disk_path.clone();
     let executable = blocking_executor.execute_io_inline(move || Ok(exec_path.executable()));
@@ -179,12 +182,14 @@ fn build_file_metadata(
 
     async move {
         let _permit = SEMAPHORE.acquire().await.unwrap();
-        Ok(FileMetadata {
-            digest: TrackedFileDigest::new(
-                file_digest.await??,
-                digest_config.as_cas_digest_config(),
-            ),
+        let hashing_start = Instant::now();
+        let file_digest = file_digest.await??;
+        let hashing_duration = HashingInfo::new(hashing_start.elapsed(), 1);
+        let file_metadata = FileMetadata {
+            digest: TrackedFileDigest::new(file_digest, digest_config.as_cas_digest_config()),
             is_executable: executable.await?,
-        })
+        };
+
+        Ok((file_metadata, hashing_duration))
     }
 }

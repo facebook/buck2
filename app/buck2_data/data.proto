@@ -997,7 +997,9 @@ message CommandExecutionMetadata {
 
   CommandExecutionStats execution_stats = 5;
 
-  /// How long it took to hash the action's artifacts
+  /// Sum of all hashing times of individual files. Can be larger than user time
+  /// because hashing is done in parallel.
+
   google.protobuf.Duration hashing_duration = 6;
 
   uint64 hashed_artifacts_count = 7;
