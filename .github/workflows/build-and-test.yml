@@ -45,3 +45,25 @@ jobs:
     - uses: ./.github/actions/build_example_no_prelude
     - uses: ./.github/actions/setup_reindeer
     - uses: ./.github/actions/build_bootstrap
+  windows-build-examples:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4.1.0
+      - uses: ./.github/actions/setup_windows_env
+      - uses: ./.github/actions/build_release
+      - name: Build example/prelude directory
+        run: |-
+          cd examples/with_prelude
+          & $Env:RUNNER_TEMP/artifacts/buck2 init
+          copy-item -Path $env:GITHUB_WORKSPACE\prelude -Destination prelude -Recurse
+          & $Env:RUNNER_TEMP/artifacts/buck2 build //... -v 2
+          & $Env:RUNNER_TEMP/artifacts/buck2 test //... -v 2
+      - uses: ./.github/actions/build_example_no_prelude
+      - name: Configure CARGO_HOME
+        run: |-
+          echo CARGO_HOME=$GITHUB_WORKSPACE/.cargo >> $GITHUB_ENV
+          echo $GITHUB_WORKSPACE/.cargo/bin >> $GITHUB_PATH
+        shell:
+          bash
+      - uses: ./.github/actions/setup_reindeer
+      - uses: ./.github/actions/build_bootstrap
