@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-import sys
-from importlib.machinery import ModuleSpec
 
 # Add a try except to force eager importing
 try:
@@ -17,6 +15,9 @@ except BaseException:
 
 
 class StaticExtensionFinder:
+    # pyre-fixme
+    ModuleSpec = None
+
     @classmethod
     # pyre-fixme[3]: Return type must be annotated.
     # pyre-fixme[2]: Parameter must be annotated.
@@ -25,16 +26,22 @@ class StaticExtensionFinder:
         Use fullname to look up the PyInit function in the main binary. Returns None if not present.
         This allows importing CExtensions that have been statically linked in.
         """
+
         if not fullname:
             return None
         if not _check_module(fullname):
             return None
-        spec = ModuleSpec(
+        spec = cls.ModuleSpec(
             fullname, StaticExtensionLoader, origin="static-extension", is_package=False
         )
         return spec
 
 
-# pyre-fixme[3]: Return type must be annotated.
-def _initialize():
+def _initialize() -> None:
+    # This imports are here to avoid tricking circular dependencies. see S389486
+    import sys
+    from importlib.machinery import ModuleSpec
+
+    StaticExtensionFinder.ModuleSpec = ModuleSpec
+
     sys.meta_path.insert(0, StaticExtensionFinder)
