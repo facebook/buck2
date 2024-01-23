@@ -14,7 +14,6 @@ use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_core::target::label::TargetLabel;
 use buck2_events::dispatch::console_message;
 use buck2_node::load_patterns::load_patterns;
 use buck2_node::load_patterns::MissingTargetBehavior;
@@ -57,7 +56,7 @@ fn split_compatible_incompatible(
 pub async fn get_maybe_compatible_targets<'a>(
     ctx: &'a DiceComputations,
     loaded_targets: impl IntoIterator<Item = (PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
-    global_target_platform: Option<&TargetLabel>,
+    global_cfg_options: &GlobalCfgOptions,
     keep_going: bool,
 ) -> anyhow::Result<impl Iterator<Item = anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>>> {
     let mut by_package_fns: Vec<_> = Vec::new();
@@ -72,7 +71,7 @@ pub async fn get_maybe_compatible_targets<'a>(
                             for<'x> |ctx: &'x mut DiceComputationsParallel<'a>| -> BoxFuture<'x, anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>> {
                                 async move {
                                     let target = ctx
-                                        .get_configured_target(target.label(), global_target_platform)
+                                        .get_configured_target(target.label(), global_cfg_options.target_platform.as_ref())
                                         .await?;
                                     anyhow::Ok(ctx.get_configured_target_node(&target).await?)
                                 }.boxed()
@@ -102,13 +101,8 @@ pub async fn get_compatible_targets(
     loaded_targets: impl IntoIterator<Item = (PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
     global_cfg_options: &GlobalCfgOptions,
 ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
-    let maybe_compatible_targets = get_maybe_compatible_targets(
-        ctx,
-        loaded_targets,
-        global_cfg_options.target_platform.as_ref(),
-        false,
-    )
-    .await?;
+    let maybe_compatible_targets =
+        get_maybe_compatible_targets(ctx, loaded_targets, global_cfg_options, false).await?;
 
     let (compatible_targets, incompatible_targets) =
         split_compatible_incompatible(maybe_compatible_targets)?;

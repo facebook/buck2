@@ -140,7 +140,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                     let from = filter_incompatible(
                         TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                             from,
-                            &this.global_cfg_options_override.target_platform,
+                            &this.global_cfg_options_override,
                             ctx,
                             dice,
                         )
@@ -153,7 +153,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                     let to = filter_incompatible(
                         TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                             to,
-                            &this.global_cfg_options_override.target_platform,
+                            &this.global_cfg_options_override,
                             ctx,
                             dice,
                         )
@@ -186,7 +186,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                     let from = filter_incompatible(
                         TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                             from,
-                            &this.global_cfg_options_override.target_platform,
+                            &this.global_cfg_options_override,
                             ctx,
                             dice,
                         )
@@ -199,7 +199,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                     let to = filter_incompatible(
                         TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                             to,
-                            &this.global_cfg_options_override.target_platform,
+                            &this.global_cfg_options_override,
                             ctx,
                             dice,
                         )
@@ -233,7 +233,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                     filter_incompatible(
                         TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                             targets,
-                            &this.global_cfg_options_override.target_platform,
+                            &this.global_cfg_options_override,
                             ctx,
                             dice,
                         )
@@ -270,7 +270,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                     filter_incompatible(
                         TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                             targets,
-                            &this.global_cfg_options_override.target_platform,
+                            &this.global_cfg_options_override,
                             ctx,
                             dice,
                         )
@@ -308,7 +308,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                     filter_incompatible(
                         TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                             targets,
-                            &this.global_cfg_options_override.target_platform,
+                            &this.global_cfg_options_override,
                             ctx,
                             dice,
                         )
@@ -350,7 +350,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             Some(universe) => Some(filter_incompatible(
                                 TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                                     universe,
-                                    &this.global_cfg_options_override.target_platform,
+                                    &this.global_cfg_options_override,
                                     ctx,
                                     dice,
                                 )
@@ -399,7 +399,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                         let targets = filter_incompatible(
                             TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                                 universe,
-                                &this.global_cfg_options_override.target_platform,
+                                &this.global_cfg_options_override,
                                 ctx,
                                 dice,
                             )
@@ -449,7 +449,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                         filter_incompatible(
                             TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                                 targets,
-                                &this.global_cfg_options_override.target_platform,
+                                &this.global_cfg_options_override,
                                 ctx,
                                 dice,
                             )
@@ -486,7 +486,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                         filter_incompatible(
                             TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                                 targets,
-                                &this.global_cfg_options_override.target_platform,
+                                &this.global_cfg_options_override,
                                 ctx,
                                 dice,
                             )
@@ -516,7 +516,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                         let targets = filter_incompatible(
                             TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                                 targets,
-                                &this.global_cfg_options_override.target_platform,
+                                &this.global_cfg_options_override,
                                 ctx,
                                 dice,
                             )
@@ -550,7 +550,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                         let targets = filter_incompatible(
                             TargetListExpr::<'v, ConfiguredTargetNode>::unpack_allow_unconfigured(
                                 targets,
-                                &this.global_cfg_options_override.target_platform,
+                                &this.global_cfg_options_override,
                                 ctx,
                                 dice,
                             )
@@ -595,7 +595,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                         let universe = filter_incompatible(
                             TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                                 universe,
-                                &this.global_cfg_options_override.target_platform,
+                                &this.global_cfg_options_override,
                                 ctx,
                                 dice,
                             )
@@ -608,7 +608,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                         let targets = filter_incompatible(
                             TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                                 from,
-                                &this.global_cfg_options_override.target_platform,
+                                &this.global_cfg_options_override,
                                 ctx,
                                 dice,
                             )
@@ -698,7 +698,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                         let targets = &filter_incompatible(
                             TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
                                 targets,
-                                &this.global_cfg_options_override.target_platform,
+                                &this.global_cfg_options_override,
                                 ctx,
                                 dice,
                             )

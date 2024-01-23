@@ -148,21 +148,16 @@ async fn unpack_action_nodes<'v>(
     let providers = match expr {
         UnpackActionNodes::ActionQueryNodes(action_nodes) => return Ok(action_nodes.0.clone()),
         UnpackActionNodes::ConfiguredProviders(arg) => {
-            ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
-                arg,
-                global_cfg_options.target_platform.dupe(),
-                ctx,
-                dice,
-            )
-            .await?
-            .labels()
-            .cloned()
-            .collect()
+            ProvidersExpr::<ConfiguredProvidersLabel>::unpack(arg, global_cfg_options, ctx, dice)
+                .await?
+                .labels()
+                .cloned()
+                .collect()
         }
         UnpackActionNodes::ConfiguredTargets(arg) => {
             TargetListExpr::<ConfiguredTargetNode>::unpack_opt(
                 arg,
-                &global_cfg_options.target_platform,
+                global_cfg_options,
                 ctx,
                 dice,
                 true,

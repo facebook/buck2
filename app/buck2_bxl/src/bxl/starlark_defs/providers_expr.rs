@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
@@ -15,7 +16,6 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
 use buck2_core::provider::label::ProvidersName;
-use buck2_core::target::label::TargetLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
@@ -88,23 +88,23 @@ pub(crate) enum ConfiguredProvidersExprArg<'v> {
 impl ProvidersExpr<ConfiguredProvidersLabel> {
     pub(crate) async fn unpack<'v, 'c>(
         arg: ConfiguredProvidersExprArg<'v>,
-        target_platform: Option<TargetLabel>,
+        global_cfg_options_override: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'_>,
         dice: &'c DiceComputations,
     ) -> anyhow::Result<Self> {
         match arg {
             ConfiguredProvidersExprArg::One(arg) => Ok(ProvidersExpr::Literal(
-                Self::unpack_literal(arg, &target_platform, ctx, dice).await?,
+                Self::unpack_literal(arg, global_cfg_options_override, ctx, dice).await?,
             )),
             ConfiguredProvidersExprArg::List(arg) => {
-                Ok(Self::unpack_iterable(arg, &target_platform, ctx, dice).await?)
+                Ok(Self::unpack_iterable(arg, global_cfg_options_override, ctx, dice).await?)
             }
         }
     }
 
     async fn unpack_literal<'v, 'c>(
         arg: ConfiguredProvidersLabelArg<'v>,
-        target_platform: &'c Option<TargetLabel>,
+        global_cfg_options_override: &'c GlobalCfgOptions,
         ctx: &BxlContextNoDice<'_>,
         dice: &'c DiceComputations,
     ) -> anyhow::Result<ConfiguredProvidersLabel> {
@@ -126,15 +126,18 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
             }
             ConfiguredProvidersLabelArg::Unconfigured(arg) => {
                 let label = Self::unpack_providers_label(arg, ctx)?;
-                dice.get_configured_provider_label(&label, target_platform.as_ref())
-                    .await
+                dice.get_configured_provider_label(
+                    &label,
+                    global_cfg_options_override.target_platform.as_ref(),
+                )
+                .await
             }
         }
     }
 
     async fn unpack_iterable<'c, 'v: 'c>(
         arg: ConfiguredProvidersLabelListArg<'v>,
-        target_platform: &'c Option<TargetLabel>,
+        global_cfg_options_override: &'c GlobalCfgOptions,
         ctx: &'c BxlContextNoDice<'_>,
         dice: &'c DiceComputations,
     ) -> anyhow::Result<ProvidersExpr<ConfiguredProvidersLabel>> {
@@ -142,8 +145,11 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
             ConfiguredProvidersLabelListArg::StarlarkTargetSet(s) => Ok(ProvidersExpr::Iterable(
                 future::try_join_all(s.0.iter().map(|node| async {
                     let providers_label = ProvidersLabel::default_for(node.label().dupe());
-                    dice.get_configured_provider_label(&providers_label, target_platform.as_ref())
-                        .await
+                    dice.get_configured_provider_label(
+                        &providers_label,
+                        global_cfg_options_override.target_platform.as_ref(),
+                    )
+                    .await
                 }))
                 .await?,
             )),
@@ -157,7 +163,9 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
             ConfiguredProvidersLabelListArg::List(iterable) => {
                 let mut res = Vec::new();
                 for arg in iterable.items {
-                    res.push(Self::unpack_literal(arg, target_platform, ctx, dice).await?);
+                    res.push(
+                        Self::unpack_literal(arg, global_cfg_options_override, ctx, dice).await?,
+                    );
                 }
 
                 Ok(Self::Iterable(res))

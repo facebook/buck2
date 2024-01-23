@@ -12,6 +12,7 @@ use std::iter;
 
 use anyhow::Context;
 use buck2_build_api::configure_targets::get_maybe_compatible_targets;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
@@ -249,7 +250,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
 
     pub(crate) async fn unpack_opt<'c>(
         arg: ConfiguredTargetListExprArg<'v>,
-        target_platform: &Option<TargetLabel>,
+        global_cfg_options: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'v>,
         dice: &mut DiceComputations,
         allow_unconfigured: bool,
@@ -257,13 +258,13 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         match arg {
             ConfiguredTargetListExprArg::Target(arg) => {
                 Ok(
-                    Self::unpack_literal(arg, target_platform, ctx, dice, allow_unconfigured)
+                    Self::unpack_literal(arg, global_cfg_options, ctx, dice, allow_unconfigured)
                         .await?,
                 )
             }
             ConfiguredTargetListExprArg::List(arg) => {
                 Ok(
-                    Self::unpack_iterable(arg, target_platform, ctx, dice, allow_unconfigured)
+                    Self::unpack_iterable(arg, global_cfg_options, ctx, dice, allow_unconfigured)
                         .await?,
                 )
             }
@@ -273,29 +274,29 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     pub(crate) async fn unpack<'c>(
         // TODO(nga): this does not accept unconfigured targets, so should be narrower type here.
         arg: ConfiguredTargetListExprArg<'v>,
-        target_platform: &Option<TargetLabel>,
+        global_cfg_options: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'v>,
         dice: &mut DiceComputations,
     ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
-        Self::unpack_opt(arg, target_platform, ctx, dice, false).await
+        Self::unpack_opt(arg, global_cfg_options, ctx, dice, false).await
     }
 
     pub(crate) async fn unpack_allow_unconfigured<'c>(
         arg: ConfiguredTargetListExprArg<'v>,
-        target_platform: &Option<TargetLabel>,
+        global_cfg_options: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'v>,
         dice: &mut DiceComputations,
     ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
-        Self::unpack_opt(arg, target_platform, ctx, dice, true).await
+        Self::unpack_opt(arg, global_cfg_options, ctx, dice, true).await
     }
 
     fn check_allow_unconfigured(
         allow_unconfigured: bool,
         unconfigured_label: &str,
-        target_platform: &Option<TargetLabel>,
+        global_cfg_options: &GlobalCfgOptions,
     ) -> anyhow::Result<()> {
         if !allow_unconfigured {
-            if target_platform.is_none() {
+            if global_cfg_options.target_platform.is_none() {
                 soft_error!(
                     "bxl_unconfigured_target_in_cquery",
                     TargetExprError::UnconfiguredTargetInCquery(unconfigured_label.to_owned())
@@ -308,7 +309,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
 
     async fn unpack_literal(
         arg: ConfiguredTargetNodeArg<'v>,
-        target_platform: &Option<TargetLabel>,
+        global_cfg_options: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'_>,
         dice: &mut DiceComputations,
         allow_unconfigured: bool,
@@ -321,19 +322,22 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                 TargetListExpr::One(TargetExpr::Label(Cow::Borrowed(configured_target.label()))),
             ),
             ConfiguredTargetNodeArg::Str(s) => {
-                Self::check_allow_unconfigured(allow_unconfigured, s, target_platform)?;
+                Self::check_allow_unconfigured(allow_unconfigured, s, global_cfg_options)?;
 
-                Self::unpack_string_literal(s, target_platform, ctx, dice, false).await
+                Self::unpack_string_literal(s, global_cfg_options, ctx, dice, false).await
             }
             ConfiguredTargetNodeArg::Unconfigured(label) => {
                 Self::check_allow_unconfigured(
                     allow_unconfigured,
                     &label.label().to_string(),
-                    target_platform,
+                    global_cfg_options,
                 )?;
                 Ok(TargetListExpr::One(TargetExpr::Label(Cow::Owned(
-                    dice.get_configured_target(label.label(), target_platform.as_ref())
-                        .await?,
+                    dice.get_configured_target(
+                        label.label(),
+                        global_cfg_options.target_platform.as_ref(),
+                    )
+                    .await?,
                 ))))
             }
         }
@@ -343,13 +347,13 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     // but let's support keep_going for string literals for now.
     pub(crate) async fn unpack_keep_going<'c>(
         arg: ConfiguredTargetListExprArg<'v>,
-        target_platform: &Option<TargetLabel>,
+        global_cfg_options: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'v>,
         dice: &mut DiceComputations,
     ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         match arg {
             ConfiguredTargetListExprArg::Target(ConfiguredTargetNodeArg::Str(val)) => {
-                Self::unpack_string_literal(val, target_platform, ctx, dice, true).await
+                Self::unpack_string_literal(val, global_cfg_options, ctx, dice, true).await
             }
             _ => Err(TargetExprError::KeepGoingOnlyForStringLiteral.into()),
         }
@@ -358,7 +362,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     // Unpack functionality for a string literal, with keep_going support
     async fn unpack_string_literal(
         val: &str,
-        target_platform: &Option<TargetLabel>,
+        global_cfg_options: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'_>,
         dice: &mut DiceComputations,
         keep_going: bool,
@@ -374,7 +378,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                 let result = match dice
                     .get_configured_target(
                         &TargetLabel::new(pkg, name.as_ref()),
-                        target_platform.as_ref(),
+                        global_cfg_options.target_platform.as_ref(),
                     )
                     .await
                 {
@@ -405,7 +409,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                 let maybe_compatible = get_maybe_compatible_targets(
                     dice,
                     loaded_patterns.iter_loaded_targets_by_package(),
-                    target_platform.as_ref(),
+                    global_cfg_options,
                     keep_going,
                 )
                 .await?;
@@ -424,7 +428,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
 
     async fn unpack_iterable<'c>(
         value: ValueOf<'v, ConfiguredTargetListArg<'v>>,
-        target_platform: &Option<TargetLabel>,
+        global_cfg_options: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'_>,
         dice: &mut DiceComputations,
         allow_unconfigured: bool,
@@ -439,11 +443,14 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                         Self::check_allow_unconfigured(
                             allow_unconfigured,
                             &node.label().to_string(),
-                            target_platform,
+                            global_cfg_options,
                         )?;
                         anyhow::Ok(TargetExpr::Label(Cow::Owned(
-                            dice.get_configured_target(node.label(), target_platform.as_ref())
-                                .await?,
+                            dice.get_configured_target(
+                                node.label(),
+                                global_cfg_options.target_platform.as_ref(),
+                            )
+                            .await?,
                         )))
                     }))
                     .await?,
@@ -453,9 +460,14 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                 let mut resolved = vec![];
 
                 for item in unpack.items {
-                    let unpacked =
-                        Self::unpack_literal(item, target_platform, ctx, dice, allow_unconfigured)
-                            .await?;
+                    let unpacked = Self::unpack_literal(
+                        item,
+                        global_cfg_options,
+                        ctx,
+                        dice,
+                        allow_unconfigured,
+                    )
+                    .await?;
 
                     match unpacked {
                         TargetListExpr::One(node) => resolved.push(node),

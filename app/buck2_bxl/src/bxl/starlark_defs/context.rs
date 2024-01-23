@@ -732,7 +732,10 @@ fn context_methods(builder: &mut MethodsBuilder) {
                     let target_expr =
                         TargetListExpr::<'v, ConfiguredTargetNode>::unpack_allow_unconfigured(
                             labels,
-                            &target_platform,
+                            &GlobalCfgOptions {
+                                target_platform,
+                                cli_modifiers: vec![].into(),
+                            },
                             this,
                             ctx,
                         )
@@ -856,7 +859,10 @@ fn context_methods(builder: &mut MethodsBuilder) {
                     let target_expr = if keep_going {
                         TargetListExpr::<'v, ConfiguredTargetNode>::unpack_keep_going(
                             labels,
-                            &target_platform,
+                            &GlobalCfgOptions {
+                                target_platform,
+                                cli_modifiers: vec![].into(),
+                            },
                             this_no_dice,
                             ctx,
                         )
@@ -864,7 +870,10 @@ fn context_methods(builder: &mut MethodsBuilder) {
                     } else {
                         TargetListExpr::<'v, ConfiguredTargetNode>::unpack_allow_unconfigured(
                             labels,
-                            &target_platform,
+                            &GlobalCfgOptions {
+                                target_platform,
+                                cli_modifiers: vec![].into(),
+                            },
                             this_no_dice,
                             ctx,
                         )
@@ -1126,7 +1135,10 @@ fn context_methods(builder: &mut MethodsBuilder) {
                 async {
                     let providers = ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
                         labels,
-                        target_platform,
+                        &GlobalCfgOptions {
+                            target_platform,
+                            cli_modifiers: vec![].into(),
+                        },
                         ctx,
                         dice,
                     )

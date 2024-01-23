@@ -24,6 +24,7 @@ use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_cli_proto::build_request::Materializations;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use dashmap::DashMap;
@@ -205,7 +206,10 @@ pub(crate) fn build<'v>(
         async {
             let build_spec = ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
                 spec,
-                target_platform,
+                &GlobalCfgOptions {
+                    target_platform,
+                    cli_modifiers: vec![].into()
+                },
                 ctx,
                 dice,
             )
