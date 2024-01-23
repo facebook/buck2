@@ -191,7 +191,9 @@ def make_py_package(
         )
         default.sub_targets[style] = make_py_package_providers(pex_providers)
 
-    default.sub_targets["debuginfo"] = _debuginfo_subtarget(ctx, debug_artifacts)
+    # cpp binaries already emit a `debuginfo` subtarget with a different format,
+    # so we opt to use a more specific subtarget
+    default.sub_targets["par-debuginfo"] = _debuginfo_subtarget(ctx, debug_artifacts)
     return default
 
 def _make_py_package_impl(
