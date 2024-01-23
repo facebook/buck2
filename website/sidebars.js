@@ -40,7 +40,8 @@ const manualSidebar = [
     label: 'About Buck2',
     items: [
       'why',
-      'getting_started',
+      // The getting_started page is for OSS only.
+      isInternal() ? [] : 'getting_started',
       {
         type: 'category',
         label: 'Benefits',
