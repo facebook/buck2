@@ -359,7 +359,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     }
 
     fn artifact_values(&self, artifact: &ArtifactGroup) -> &ArtifactGroupValues {
-        self.inputs.get(artifact).unwrap_or_else(|| panic!("Internal error: action {:?} tried to grab the artifact {:?} even though it was not an input.", self.action.owner(), artifact))
+        self.inputs.get(artifact).unwrap_or_else(|| panic!("Internal error: action {} tried to grab the artifact {} even though it was not an input.", self.action.owner(), artifact))
     }
 
     fn blocking_executor(&self) -> &dyn BlockingExecutor {
