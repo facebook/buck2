@@ -13,6 +13,7 @@ use async_trait::async_trait;
 use buck2_build_api::query::bxl::BxlUqueryFunctions;
 use buck2_build_api::query::bxl::NEW_BXL_UQUERY_FUNCTIONS;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::fs::project::ProjectRoot;
@@ -52,7 +53,7 @@ impl BxlUqueryFunctionsImpl {
             .await?;
 
         let query_data = Arc::new(DiceQueryData::new(
-            None,
+            GlobalCfgOptions::default(),
             cell_resolver.dupe(),
             &self.working_dir,
             self.project_root.dupe(),

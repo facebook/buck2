@@ -12,8 +12,8 @@
 use std::sync::Arc;
 
 use buck2_build_api::query::oneshot::CqueryOwnerBehavior;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::target::label::TargetLabel;
 use buck2_events::dispatch::console_message;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -98,11 +98,10 @@ pub(crate) async fn preresolve_literals_and_build_universe(
 pub async fn get_cquery_evaluator<'a, 'c: 'a>(
     ctx: &'c DiceComputations,
     working_dir: &'a ProjectRelativePath,
-    global_target_platform: Option<TargetLabel>,
+    global_cfg_options: GlobalCfgOptions,
     owner_behavior: CqueryOwnerBehavior,
 ) -> anyhow::Result<CqueryEvaluator<'c>> {
-    let dice_query_delegate =
-        get_dice_query_delegate(ctx, working_dir, global_target_platform).await?;
+    let dice_query_delegate = get_dice_query_delegate(ctx, working_dir, global_cfg_options).await?;
     let functions = DefaultQueryFunctionsModule::new();
     Ok(CqueryEvaluator {
         dice_query_delegate,

@@ -21,7 +21,6 @@ use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
-use dupe::Dupe;
 
 use crate::commands::query::printer::QueryResultPrinter;
 use crate::commands::query::printer::ShouldPrintProviders;
@@ -118,7 +117,7 @@ async fn aquery(
             server_ctx.working_dir(),
             query,
             query_args,
-            global_cfg_options.target_platform.dupe(),
+            global_cfg_options,
         )
         .await?;
 

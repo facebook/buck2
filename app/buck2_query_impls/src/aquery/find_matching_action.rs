@@ -60,8 +60,7 @@ async fn find_matching_action(
     path_after_target_name: ForwardRelativePathBuf,
 ) -> anyhow::Result<Option<ActionQueryNode>> {
     let dice_aquery_delegate =
-        get_dice_aquery_delegate(ctx, working_dir, global_cfg_options.target_platform.dupe())
-            .await?;
+        get_dice_aquery_delegate(ctx, working_dir, global_cfg_options.dupe()).await?;
 
     for entry in analysis.iter_deferreds() {
         match provider::request_value::<ProvideOutputs>(entry.as_complex()) {

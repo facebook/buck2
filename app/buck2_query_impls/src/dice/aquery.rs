@@ -405,7 +405,10 @@ impl QueryLiterals<ActionQueryNode> for AqueryData {
                     let configured_label = dice
                         .get_configured_provider_label(
                             &label,
-                            self.delegate_query_data.global_target_platform(),
+                            self.delegate_query_data
+                                .global_cfg_options()
+                                .target_platform
+                                .as_ref(),
                         )
                         .await?;
 

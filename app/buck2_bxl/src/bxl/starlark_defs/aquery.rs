@@ -372,7 +372,7 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
                                 &ctx.working_dir()?,
                                 query,
                                 &query_args,
-                                this.global_cfg_options_override.target_platform.dupe(),
+                                this.global_cfg_options_override.clone(),
                             )
                             .await?,
                         eval,

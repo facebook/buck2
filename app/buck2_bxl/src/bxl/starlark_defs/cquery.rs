@@ -666,7 +666,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                                 CqueryOwnerBehavior::Correct,
                                 query,
                                 &query_args,
-                                this.global_cfg_options_override.target_platform.dupe(),
+                                this.global_cfg_options_override.clone(),
                                 target_universe.into_option().as_ref().map(|v| &v.items[..]),
                             )
                             .await?,

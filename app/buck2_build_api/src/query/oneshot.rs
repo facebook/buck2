@@ -10,7 +10,6 @@
 use async_trait::async_trait;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::target::label::TargetLabel;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
@@ -36,7 +35,7 @@ pub trait QueryFrontend: Send + Sync + 'static {
         working_dir: &ProjectRelativePath,
         query: &str,
         query_args: &[String],
-        global_target_platform: Option<TargetLabel>,
+        global_cfg_options: GlobalCfgOptions,
     ) -> anyhow::Result<QueryEvaluationResult<TargetNode>>;
 
     async fn eval_cquery(
@@ -46,7 +45,7 @@ pub trait QueryFrontend: Send + Sync + 'static {
         owner_behavior: CqueryOwnerBehavior,
         query: &str,
         query_args: &[String],
-        global_target_platform: Option<TargetLabel>,
+        global_cfg_options: GlobalCfgOptions,
         target_universe: Option<&[String]>,
     ) -> anyhow::Result<QueryEvaluationResult<ConfiguredTargetNode>>;
 
@@ -56,7 +55,7 @@ pub trait QueryFrontend: Send + Sync + 'static {
         working_dir: &ProjectRelativePath,
         query: &str,
         query_args: &[String],
-        global_target_platform: Option<TargetLabel>,
+        global_cfg_options: GlobalCfgOptions,
     ) -> anyhow::Result<QueryEvaluationResult<ActionQueryNode>>;
 
     async fn universe_from_literals(

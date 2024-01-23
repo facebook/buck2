@@ -166,7 +166,7 @@ async fn cquery(
             owner_behavior,
             query,
             query_args,
-            global_cfg_options.target_platform.dupe(),
+            global_cfg_options,
             target_universe,
         )
         .await?;

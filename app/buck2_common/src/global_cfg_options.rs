@@ -11,9 +11,10 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::target::label::TargetLabel;
+use dupe::Dupe;
 
 #[derive(
-    Default, Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Allocative
+    Default, Debug, Dupe, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Allocative
 )]
 pub struct GlobalCfgOptions {
     pub target_platform: Option<TargetLabel>,

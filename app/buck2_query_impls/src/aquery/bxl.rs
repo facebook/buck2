@@ -68,7 +68,7 @@ impl BxlAqueryFunctionsImpl {
             .await?;
 
         let query_data = Arc::new(DiceQueryData::new(
-            self.global_cfg_options.target_platform.dupe(),
+            self.global_cfg_options.dupe(),
             cell_resolver.dupe(),
             &self.working_dir,
             self.project_root.dupe(),
@@ -266,7 +266,7 @@ pub(crate) fn init_new_bxl_aquery_functions() {
                 let working_dir = cell.path().as_project_relative_path().to_buf();
 
                 Result::<Box<dyn BxlAqueryFunctions>, _>::Ok(Box::new(BxlAqueryFunctionsImpl {
-                    global_cfg_options: global_cfg_options.clone(),
+                    global_cfg_options: global_cfg_options.dupe(),
                     project_root,
                     working_dir,
                 }))

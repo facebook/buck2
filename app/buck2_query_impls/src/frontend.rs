@@ -14,13 +14,11 @@ use buck2_build_api::query::oneshot::QueryFrontend;
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::target::label::TargetLabel;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use dice::DiceComputations;
-use dupe::Dupe;
 
 use crate::aquery::evaluator::get_aquery_evaluator;
 use crate::cquery::evaluator::get_cquery_evaluator;
@@ -42,9 +40,9 @@ impl QueryFrontend for QueryFrontendImpl {
         working_dir: &ProjectRelativePath,
         query: &str,
         query_args: &[String],
-        global_target_platform: Option<TargetLabel>,
+        global_cfg_options: GlobalCfgOptions,
     ) -> anyhow::Result<QueryEvaluationResult<TargetNode>> {
-        let evaluator = get_uquery_evaluator(ctx, working_dir, global_target_platform).await?;
+        let evaluator = get_uquery_evaluator(ctx, working_dir, global_cfg_options).await?;
 
         evaluator.eval_query(query, query_args).await
     }
@@ -56,11 +54,11 @@ impl QueryFrontend for QueryFrontendImpl {
         owner_behavior: CqueryOwnerBehavior,
         query: &str,
         query_args: &[String],
-        global_target_platform: Option<TargetLabel>,
+        global_cfg_options: GlobalCfgOptions,
         target_universe: Option<&[String]>,
     ) -> anyhow::Result<QueryEvaluationResult<ConfiguredTargetNode>> {
         let evaluator =
-            get_cquery_evaluator(ctx, working_dir, global_target_platform, owner_behavior).await?;
+            get_cquery_evaluator(ctx, working_dir, global_cfg_options, owner_behavior).await?;
 
         // TODO(nga): this should support configured target patterns
         //   similarly to what we do for `build` command.
@@ -79,9 +77,9 @@ impl QueryFrontend for QueryFrontendImpl {
         working_dir: &ProjectRelativePath,
         query: &str,
         query_args: &[String],
-        global_target_platform: Option<TargetLabel>,
+        global_cfg_options: GlobalCfgOptions,
     ) -> anyhow::Result<QueryEvaluationResult<ActionQueryNode>> {
-        let evaluator = get_aquery_evaluator(ctx, working_dir, global_target_platform).await?;
+        let evaluator = get_aquery_evaluator(ctx, working_dir, global_cfg_options).await?;
 
         evaluator.eval_query(query, query_args).await
     }
@@ -93,8 +91,7 @@ impl QueryFrontend for QueryFrontendImpl {
         literals: &[String],
         global_cfg_options: GlobalCfgOptions,
     ) -> anyhow::Result<CqueryUniverse> {
-        let query_delegate =
-            get_dice_query_delegate(ctx, cwd, global_cfg_options.target_platform.dupe()).await?;
+        let query_delegate = get_dice_query_delegate(ctx, cwd, global_cfg_options).await?;
         Ok(preresolve_literals_and_build_universe(
             &query_delegate,
             query_delegate.query_data(),

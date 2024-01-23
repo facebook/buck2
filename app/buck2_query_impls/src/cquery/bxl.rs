@@ -57,7 +57,7 @@ impl BxlCqueryFunctionsImpl {
             .await?;
 
         let query_data = Arc::new(DiceQueryData::new(
-            self.global_cfg_options.target_platform.dupe(),
+            self.global_cfg_options.dupe(),
             cell_resolver.dupe(),
             &self.working_dir,
             self.project_root.dupe(),

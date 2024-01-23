@@ -136,7 +136,7 @@ async fn uquery(
             server_ctx.working_dir(),
             query,
             query_args,
-            global_cfg_options.target_platform.dupe(),
+            global_cfg_options,
         )
         .await?;
 

@@ -493,7 +493,7 @@ fn build_targets_with_global_target_platform<'a>(
             ctx,
             spec,
             package,
-            global_cfg_options.clone(),
+            global_cfg_options.dupe(),
             build_providers.dupe(),
             materialization_context,
             missing_target_behavior,
@@ -608,7 +608,7 @@ async fn build_targets_for_spec<'a>(
         .map(|((_target_name, extra), target)| TargetBuildSpec {
             target,
             providers: extra.providers,
-            global_cfg_options: global_cfg_options.clone(),
+            global_cfg_options: global_cfg_options.dupe(),
             skippable,
             want_configured_graph_size,
         })

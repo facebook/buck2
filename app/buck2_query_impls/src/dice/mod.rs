@@ -145,12 +145,12 @@ pub struct DiceQueryDelegate<'c> {
 
 pub struct DiceQueryData {
     literal_parser: LiteralParser,
-    global_target_platform: Option<TargetLabel>,
+    global_cfg_options: GlobalCfgOptions,
 }
 
 impl DiceQueryData {
     pub fn new(
-        global_target_platform: Option<TargetLabel>,
+        global_cfg_options: GlobalCfgOptions,
         cell_resolver: CellResolver,
         working_dir: &ProjectRelativePath,
         project_root: ProjectRoot,
@@ -173,7 +173,7 @@ impl DiceQueryData {
                 cell_alias_resolver,
                 target_alias_resolver,
             },
-            global_target_platform,
+            global_cfg_options,
         })
     }
 
@@ -181,8 +181,8 @@ impl DiceQueryData {
         &self.literal_parser
     }
 
-    pub(crate) fn global_target_platform(&self) -> Option<&TargetLabel> {
-        self.global_target_platform.as_ref()
+    pub(crate) fn global_cfg_options(&self) -> &GlobalCfgOptions {
+        &self.global_cfg_options
     }
 }
 
@@ -291,7 +291,13 @@ impl<'c> CqueryDelegate for DiceQueryDelegate<'c> {
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
         let target = self
             .ctx
-            .get_configured_target(target, self.query_data.global_target_platform.as_ref())
+            .get_configured_target(
+                target,
+                self.query_data
+                    .global_cfg_options()
+                    .target_platform
+                    .as_ref(),
+            )
             .await?;
         Ok(self.ctx.get_configured_target_node(&target).await?)
     }
@@ -320,7 +326,13 @@ impl<'c> CqueryDelegate for DiceQueryDelegate<'c> {
         target: &TargetLabel,
     ) -> anyhow::Result<ConfiguredTargetLabel> {
         self.ctx
-            .get_configured_target(target, self.query_data.global_target_platform.as_ref())
+            .get_configured_target(
+                target,
+                self.query_data
+                    .global_cfg_options()
+                    .target_platform
+                    .as_ref(),
+            )
             .await
     }
 
@@ -340,10 +352,7 @@ impl QueryLiterals<ConfiguredTargetNode> for DiceQueryData {
         load_compatible_patterns(
             ctx,
             parsed_patterns,
-            &GlobalCfgOptions {
-                target_platform: self.global_target_platform.dupe(),
-                cli_modifiers: vec![].into(),
-            },
+            &self.global_cfg_options,
             MissingTargetBehavior::Fail,
         )
         .await
@@ -371,7 +380,7 @@ impl QueryLiterals<TargetNode> for DiceQueryData {
 pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a>(
     ctx: &'c DiceComputations,
     working_dir: &'a ProjectRelativePath,
-    global_target_platform: Option<TargetLabel>,
+    global_cfg_options: GlobalCfgOptions,
 ) -> anyhow::Result<DiceQueryDelegate<'c>> {
     let cell_resolver = ctx.get_cell_resolver().await?;
     let package_boundary_exceptions = ctx.get_package_boundary_exceptions().await?;
@@ -388,7 +397,7 @@ pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a>(
         cell_resolver.dupe(),
         package_boundary_exceptions,
         Arc::new(DiceQueryData::new(
-            global_target_platform,
+            global_cfg_options,
             cell_resolver,
             working_dir,
             project_root,
