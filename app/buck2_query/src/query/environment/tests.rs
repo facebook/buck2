@@ -343,7 +343,7 @@ async fn test_paths_with_cycles_present() -> anyhow::Result<()> {
     assert_eq!(path, env.set("1,2,3,4,5")?);
 
     let path = env.rdeps(&env.set("1")?, &env.set("3")?, Some(2)).await?;
-    assert_eq!(path, env.set("3,2,4,1")?);
+    assert_eq!(path, env.set("4,1,2,3")?);
 
     Ok(())
 }
@@ -363,19 +363,18 @@ async fn test_rdeps() -> anyhow::Result<()> {
     assert_eq!(path, env.set("6")?);
 
     let path = env.rdeps(&env.set("1")?, &env.set("6")?, Some(1)).await?;
-    assert_eq!(path, env.set("6,3")?);
+    assert_eq!(path, env.set("3,6")?);
 
     let path = env.rdeps(&env.set("1")?, &env.set("6")?, Some(2)).await?;
-    assert_eq!(path, env.set("6,3,1,2")?);
+    assert_eq!(path, env.set("1,2,3,6")?);
 
     let path = env.rdeps(&env.set("1")?, &env.set("6")?, Some(3)).await?;
-    assert_eq!(path, env.set("6,3,1,2")?);
+    assert_eq!(path, env.set("1,2,3,6")?);
 
     let path = env.rdeps(&env.set("1")?, &env.set("6")?, Some(4)).await?;
-    assert_eq!(path, env.set("6,3,1,2")?);
+    assert_eq!(path, env.set("1,2,3,6")?);
 
     let path = env.rdeps(&env.set("1")?, &env.set("6")?, None).await?;
-    // Note different order than above. Does not look intentional.
     assert_eq!(path, env.set("1,2,3,6")?);
 
     Ok(())

@@ -217,32 +217,12 @@ pub trait QueryEnvironment: Send + Sync {
 
         let graph = graph.reverse();
 
-        // Now that we have a mapping of back-edges, traverse deps graph in reverse.
-        struct ReverseDelegate<Q: QueryTarget> {
-            graph: Graph<Q>,
-        }
-
         let mut rdeps = TargetSet::new();
 
         let mut visit = |target| {
             rdeps.insert_unique_unchecked(target);
             Ok(())
         };
-
-        impl<Q: QueryTarget> AsyncChildVisitor<Q> for ReverseDelegate<Q> {
-            async fn for_each_child(
-                &self,
-                target: &Q,
-                mut func: impl ChildVisitor<Q>,
-            ) -> anyhow::Result<()> {
-                for parent in self.graph.children(target.node_key()) {
-                    func.visit(parent.node_key()).with_context(|| {
-                        format!("Error traversing children of `{}`", target.node_key())
-                    })?;
-                }
-                Ok(())
-            }
-        }
 
         let roots_in_universe = from.filter(|t| Ok(graph.get(t.node_key()).is_some()))?;
 
@@ -251,12 +231,14 @@ pub trait QueryEnvironment: Send + Sync {
             // a large value as unbounded. We can't just call it optional because args are positional only in the query syntax
             // and so to specify a filter you need to specify a depth.
             Some(v) if (0..1_000_000_000).contains(&v) => {
-                // TODO(nga): we have constructed graph already, we don't need to call slow `dfs_postorder` here.
-
-                let delegate = ReverseDelegate { graph };
-
-                self.depth_limited_traversal(&roots_in_universe, delegate, visit, v as u32)
-                    .await?;
+                let graph = graph.take_max_depth(
+                    roots_in_universe.iter().map(|t| t.node_key().clone()),
+                    v as u32,
+                );
+                graph.depth_first_postorder_traversal(
+                    roots_in_universe.iter().map(|t| t.node_key().clone()),
+                    |t| visit(t.clone()),
+                )?;
             }
             _ => {
                 graph.depth_first_postorder_traversal(

@@ -8,6 +8,7 @@
  */
 
 use std::collections::HashSet;
+use std::collections::VecDeque;
 
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
@@ -96,7 +97,7 @@ impl<N: LabeledNode> GraphBuilder<N> {
 }
 
 impl<T: LabeledNode> Graph<T> {
-    pub(crate) fn children(&self, node: &T::Key) -> impl Iterator<Item = &T> {
+    pub(crate) fn _children(&self, node: &T::Key) -> impl Iterator<Item = &T> {
         let index = self.node_to_index[node];
         self.nodes[index as usize]
             .children
@@ -228,6 +229,14 @@ impl<T: LabeledNode> Graph<T> {
 
     /// Remap the indices of the graph.
     fn index_remap(self, remap: impl Fn(u32) -> u32) -> Self {
+        let node_count = self.nodes.len().try_into().unwrap();
+        self.index_remap_opt(|i| Some(remap(i)), node_count)
+    }
+
+    /// Remap the indices of the graph.
+    ///
+    /// `remap` function must map populate the range `0..count`, otherwise this function will panic.
+    fn index_remap_opt(self, remap: impl Fn(u32) -> Option<u32>, count: u32) -> Self {
         let Graph {
             nodes,
             mut node_to_index,
@@ -236,16 +245,32 @@ impl<T: LabeledNode> Graph<T> {
         let mut new_nodes: VecAsMap<GraphNode<T>> = VecAsMap::default();
 
         for (i, mut node) in nodes.into_iter().enumerate() {
-            for child in &mut node.children {
-                *child = remap(*child);
-            }
-            let prev = new_nodes.insert(remap(i as u32), node);
+            let old_id: u32 = i.try_into().unwrap();
+            let Some(new_id) = remap(old_id) else {
+                continue;
+            };
+            assert!(new_id < count);
+
+            node.children.retain_mut(|node| {
+                if let Some(new_node) = remap(*node) {
+                    *node = new_node;
+                    true
+                } else {
+                    false
+                }
+            });
+            let prev = new_nodes.insert(new_id, node);
             assert!(prev.is_none());
         }
 
-        for index in node_to_index.values_unordered_mut() {
-            *index = remap(*index);
-        }
+        node_to_index.retain(|_, index| {
+            if let Some(new_index) = remap(*index) {
+                *index = new_index;
+                true
+            } else {
+                false
+            }
+        });
 
         let new_nodes = new_nodes.vec.into_iter().map(|n| n.unwrap()).collect();
         Graph {
@@ -314,6 +339,56 @@ impl<T: LabeledNode> Graph<T> {
             .collect();
         self.bfs_impl(roots, |n| target_indices.contains(&n))
     }
+
+    /// Create a graph from the given roots up to the given max depth.
+    ///
+    /// Zero depth means only the roots.
+    pub(crate) fn take_max_depth(
+        self,
+        roots: impl IntoIterator<Item = T::Key>,
+        max_depth: u32,
+    ) -> Graph<T> {
+        // Map from old index to new index.
+        let mut visited: VecAsMap<u32> = VecAsMap::default();
+        let mut ids_to_keep = Vec::new();
+        let mut edge: VecDeque<u32> = VecDeque::new();
+
+        for root in roots {
+            let root = self.node_to_index[&root];
+            if !visited.contains_key(root) {
+                let new_index = ids_to_keep.len().try_into().unwrap();
+                let prev = visited.insert(root, new_index);
+                assert!(prev.is_none());
+                ids_to_keep.push(root);
+                edge.push_back(root);
+            }
+        }
+
+        for _ in 0..max_depth {
+            for _ in 0..edge.len() {
+                let node = edge.pop_front().unwrap();
+                for &succ in &self.nodes[node as usize].children {
+                    if !visited.contains_key(succ) {
+                        let new_index = ids_to_keep.len().try_into().unwrap();
+                        let prev = visited.insert(succ, new_index);
+                        assert!(prev.is_none());
+                        ids_to_keep.push(succ);
+                        edge.push_back(succ);
+                    }
+                }
+            }
+        }
+
+        if self.nodes.len() == ids_to_keep.len() {
+            // We visited everything. Skip expensive remap.
+            return self;
+        }
+
+        self.index_remap_opt(
+            |i| visited.get(i).copied(),
+            ids_to_keep.len().try_into().unwrap(),
+        )
+    }
 }
 
 struct GraphSuccessorsImpl<'a, N: LabeledNode> {
@@ -334,31 +409,32 @@ mod tests {
     use buck2_query::query::traversal::ChildVisitor;
     use dupe::Dupe;
 
+    use crate::query::graph::bfs::bfs_preorder;
     use crate::query::graph::graph::Graph;
+    use crate::query::graph::graph::GraphSuccessorsImpl;
     use crate::query::graph::node::LabeledNode;
     use crate::query::graph::node::NodeKey;
     use crate::query::graph::successors::AsyncChildVisitor;
     use crate::query::traversal::AsyncNodeLookup;
 
-    #[tokio::test]
-    async fn test_build_then_dfs_postorder() {
-        #[derive(Clone, Copy, Dupe, Eq, PartialEq, Hash, derive_more::Display, Debug)]
-        #[display(fmt = "{}", _0)]
-        struct Ref(u32);
+    #[derive(Clone, Copy, Dupe, Eq, PartialEq, Hash, derive_more::Display, Debug)]
+    #[display(fmt = "{}", _0)]
+    struct Ref(u32);
 
-        #[derive(Clone, Dupe)]
-        struct Node(Ref);
+    #[derive(Clone, Dupe)]
+    struct Node(Ref);
 
-        impl NodeKey for Ref {}
+    impl NodeKey for Ref {}
 
-        impl LabeledNode for Node {
-            type Key = Ref;
+    impl LabeledNode for Node {
+        type Key = Ref;
 
-            fn node_key(&self) -> &Self::Key {
-                &self.0
-            }
+        fn node_key(&self) -> &Self::Key {
+            &self.0
         }
+    }
 
+    async fn build_graph(start: &[u32], edges: &[(u32, u32)]) -> Graph<Node> {
         struct Lookup;
 
         #[async_trait]
@@ -368,7 +444,9 @@ mod tests {
             }
         }
 
-        struct Successors;
+        struct Successors {
+            edges: Vec<(u32, u32)>,
+        }
 
         impl AsyncChildVisitor<Node> for Successors {
             async fn for_each_child(
@@ -376,15 +454,29 @@ mod tests {
                 node: &Node,
                 mut children: impl ChildVisitor<Node>,
             ) -> anyhow::Result<()> {
-                if node.0.0 == 10 {
-                    children.visit(&Ref(20))?;
-                    children.visit(&Ref(30))?;
+                for (from, to) in &self.edges {
+                    if node.0.0 == *from {
+                        children.visit(&Ref(*to))?;
+                    }
                 }
                 Ok(())
             }
         }
 
-        let graph = Graph::build(&Lookup, [Ref(10)], Successors).await.unwrap();
+        Graph::build(
+            &Lookup,
+            start.iter().copied().map(Ref),
+            Successors {
+                edges: edges.to_vec(),
+            },
+        )
+        .await
+        .unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_build_then_dfs_postorder() {
+        let graph = build_graph(&[10], &[(10, 20), (10, 30)]).await;
 
         let mut visited = Vec::new();
         graph
@@ -396,5 +488,45 @@ mod tests {
 
         // TODO(nga): should be `[30, 10, 20]`.
         assert_eq!(vec![30, 20, 10], visited);
+    }
+
+    fn bfs(graph: &Graph<Node>, start: &[u32]) -> Vec<u32> {
+        let mut visited = Vec::new();
+        bfs_preorder(
+            start.iter().map(|i| graph.node_to_index[&Ref(*i)]),
+            GraphSuccessorsImpl { graph },
+            |node| {
+                visited.push(graph.nodes[node as usize].node.0.0);
+            },
+        );
+        visited
+    }
+
+    #[tokio::test]
+    async fn test_take_max_depth() {
+        let graph = build_graph(&[10, 30], &[(10, 20), (10, 30), (20, 30), (30, 40)]).await;
+
+        let graph0 = graph.clone().take_max_depth([Ref(10)], 0);
+        assert_eq!(vec![10], bfs(&graph0, &[10]));
+
+        let graph1 = graph.clone().take_max_depth([Ref(10)], 1);
+        assert_eq!(vec![10, 20, 30], bfs(&graph1, &[10]));
+
+        let graph2 = graph.clone().take_max_depth([Ref(10)], 2);
+        assert_eq!(vec![10, 20, 30, 40], bfs(&graph2, &[10]));
+
+        let graph3 = graph.clone().take_max_depth([Ref(10)], 3);
+        assert_eq!(vec![10, 20, 30, 40], bfs(&graph3, &[10]));
+
+        let graph4 = graph.clone().take_max_depth([Ref(10)], 4);
+        assert_eq!(vec![10, 20, 30, 40], bfs(&graph4, &[10]));
+
+        let graph_2_0 = graph.clone().take_max_depth([Ref(10), Ref(30)], 0);
+        assert_eq!(vec![10, 30], bfs(&graph_2_0, &[10, 30]));
+
+        let graph_2_1 = graph.clone().take_max_depth([Ref(10), Ref(30)], 1);
+        assert_eq!(vec![10, 30, 20, 40], bfs(&graph_2_1, &[10, 30]));
+
+        graph.take_max_depth([], 100);
     }
 }
