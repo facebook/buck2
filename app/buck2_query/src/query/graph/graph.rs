@@ -7,18 +7,14 @@
  * of this source tree.
  */
 
-use std::collections::HashSet;
 use std::collections::VecDeque;
 
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
-use gazebo::prelude::SliceExt;
 use starlark_map::unordered_map;
 use starlark_map::unordered_map::UnorderedMap;
 use starlark_map::Hashed;
-use starlark_map::StarlarkHasherBuilder;
 
-use crate::query::graph::bfs::_bfs_find_path;
 use crate::query::graph::dfs::dfs_postorder_impl;
 use crate::query::graph::dfs::dfs_preorder;
 use crate::query::graph::node::LabeledNode;
@@ -97,14 +93,6 @@ impl<N: LabeledNode> GraphBuilder<N> {
 }
 
 impl<T: LabeledNode> Graph<T> {
-    pub(crate) fn _children(&self, node: &T::Key) -> impl Iterator<Item = &T> {
-        let index = self.node_to_index[node];
-        self.nodes[index as usize]
-            .children
-            .iter()
-            .map(|c| &self.nodes[*c as usize].node)
-    }
-
     /// Build the graph by traversing the nodes in `root` and their children.
     ///
     /// Resulting graph have node indices assigned non-deterministically.
@@ -310,34 +298,6 @@ impl<T: LabeledNode> Graph<T> {
             GraphSuccessorsImpl { graph: self },
             |index| visitor(&self.nodes[index as usize].node),
         )
-    }
-
-    fn _bfs_impl(
-        &self,
-        roots: impl IntoIterator<Item = T::Key>,
-        target: impl Fn(u32) -> bool,
-    ) -> Option<Vec<&T>> {
-        let path = _bfs_find_path(
-            roots.into_iter().map(|n| self.node_to_index[&n]),
-            GraphSuccessorsImpl { graph: self },
-            target,
-        )?;
-        Some(path.map(|n| &self.nodes[*n as usize].node))
-    }
-
-    pub(crate) fn _bfs(
-        &self,
-        roots: impl IntoIterator<Item = T::Key>,
-        targets: impl IntoIterator<Item = T::Key>,
-    ) -> Option<Vec<&T>> {
-        let target_indices: HashSet<u32, StarlarkHasherBuilder> = targets
-            .into_iter()
-            .filter_map(|n| {
-                // Skip nodes that are not in the graph.
-                self.node_to_index.get(&n).copied()
-            })
-            .collect();
-        self._bfs_impl(roots, |n| target_indices.contains(&n))
     }
 
     /// Create a graph from the given roots up to the given max depth.
