@@ -1371,21 +1371,20 @@ mod tests {
             .val());
         assert_eq!(t, 3);
 
+        let node2 = engine
+            .get_cached(2, VersionNumber::new(1), MinorVersion::testing_new(0))
+            .into_dyn();
+        let node3 = engine
+            .get_cached(3, VersionNumber::new(1), MinorVersion::testing_new(0))
+            .into_dyn();
         let mut expected = HashSet::from_iter([
-            Arc::as_ptr(
-                &engine
-                    .get_cached(2, VersionNumber::new(1), MinorVersion::testing_new(0))
-                    .into_dyn(),
-            ),
-            Arc::as_ptr(
-                &engine
-                    .get_cached(3, VersionNumber::new(1), MinorVersion::testing_new(0))
-                    .into_dyn(),
-            ),
+            (node2.key(), node2.is_valid()),
+            (node3.key(), node3.is_valid()),
         ]);
         for rdep in node.read_meta().rdeps.rdeps().rdeps.iter() {
+            let node = rdep.0.0.upgrade().unwrap();
             assert!(
-                expected.remove(&Arc::as_ptr(&rdep.0.0.upgrade().unwrap())),
+                expected.remove(&(node.key(), node.is_valid())),
                 "Extra rdeps"
             );
         }

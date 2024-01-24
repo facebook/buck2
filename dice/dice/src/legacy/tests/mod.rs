@@ -287,18 +287,18 @@ fn ctx_tracks_rdeps_properly() -> anyhow::Result<()> {
             let mut expected_deps = ((k + 1)..6)
                 .map(K)
                 .map(|k| {
-                    Arc::as_ptr(
-                        &dice
-                            .find_cache::<K>()
-                            .get_cached(k, VersionNumber::new(0), *vg.minor_version_guard)
-                            .into_dyn(),
-                    )
+                    let node = dice
+                        .find_cache::<K>()
+                        .get_cached(k, VersionNumber::new(0), *vg.minor_version_guard)
+                        .into_dyn();
+                    (node.key(), node.is_valid())
                 })
                 .collect::<HashSet<_>>();
 
             for rdep in cached.read_meta().rdeps.rdeps().rdeps.iter() {
+                let node = rdep.0.0.upgrade().unwrap();
                 assert!(
-                    expected_deps.remove(&Arc::as_ptr(&rdep.0.0.upgrade().unwrap())),
+                    expected_deps.remove(&(node.key(), node.is_valid())),
                     "Extra rdeps"
                 )
             }
