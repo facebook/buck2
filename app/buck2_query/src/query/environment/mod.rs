@@ -18,10 +18,11 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::package::PackageLabel;
 use dupe::Dupe;
-use dupe::IterDupedExt;
+use dupe::OptionDupedExt;
 use futures::stream::FuturesUnordered;
 use futures::stream::TryStreamExt;
 
+use crate::query::graph::async_bfs::async_bfs_find_path;
 use crate::query::graph::graph::Graph;
 use crate::query::graph::node::LabeledNode;
 use crate::query::graph::node::NodeKey;
@@ -174,20 +175,19 @@ pub trait QueryEnvironment: Send + Sync {
         from: &TargetSet<Self::Target>,
         to: &TargetSet<Self::Target>,
     ) -> anyhow::Result<TargetSet<Self::Target>> {
-        let graph = Graph::build(
-            &QueryEnvironmentAsNodeLookup { env: self },
-            from.iter().map(|e| e.node_key().clone()),
+        let mut path = async_bfs_find_path(
+            from.iter(),
+            QueryEnvironmentAsNodeLookup { env: self },
             QueryTargetDepsSuccessors,
+            |t| to.get(t).duped(),
         )
-        .await?;
+        .await?
+        .unwrap_or_default();
 
-        let path = graph
-            .bfs(
-                from.iter().map(|t| t.node_key().clone()),
-                to.iter().map(|t| t.node_key().clone()),
-            )
-            .unwrap_or_default();
-        Ok(TargetSet::from_iter(path.into_iter().rev().duped()))
+        path.reverse();
+
+        let target_set = TargetSet::from_iter(path);
+        Ok(target_set)
     }
 
     async fn allbuildfiles(&self, _universe: &TargetSet<Self::Target>) -> anyhow::Result<FileSet> {

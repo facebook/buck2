@@ -22,7 +22,7 @@ use crate::query::graph::successors::GraphSuccessors;
 use crate::query::graph::vec_as_map::VecAsMap;
 
 /// Find the path from the root to the target.
-pub(crate) fn bfs_find_path(
+pub(crate) fn _bfs_find_path(
     roots: impl IntoIterator<Item = u32>,
     successors: impl GraphSuccessors<u32>,
     target: impl Fn(u32) -> bool,
@@ -94,7 +94,7 @@ pub fn bfs_preorder<N: Eq + Hash + Clone>(
 
 #[cfg(test)]
 mod tests {
-    use crate::query::graph::bfs::bfs_find_path;
+    use crate::query::graph::bfs::_bfs_find_path;
     use crate::query::graph::bfs::bfs_preorder;
     use crate::query::graph::successors::GraphSuccessors;
 
@@ -109,11 +109,11 @@ mod tests {
             }
         }
 
-        let path = bfs_find_path([0], SuccessorsImpl, |n| n == 5).unwrap();
+        let path = _bfs_find_path([0], SuccessorsImpl, |n| n == 5).unwrap();
         assert_eq!(path, [0, 1, 2, 3, 4, 5]);
 
         // Test we find the shortest path.
-        let path = bfs_find_path([0], SuccessorsImpl, |n| n == 100).unwrap();
+        let path = _bfs_find_path([0], SuccessorsImpl, |n| n == 100).unwrap();
         assert_eq!(path, [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]);
     }
 

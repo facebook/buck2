@@ -18,7 +18,7 @@ use starlark_map::unordered_map::UnorderedMap;
 use starlark_map::Hashed;
 use starlark_map::StarlarkHasherBuilder;
 
-use crate::query::graph::bfs::bfs_find_path;
+use crate::query::graph::bfs::_bfs_find_path;
 use crate::query::graph::dfs::dfs_postorder_impl;
 use crate::query::graph::dfs::dfs_preorder;
 use crate::query::graph::node::LabeledNode;
@@ -312,12 +312,12 @@ impl<T: LabeledNode> Graph<T> {
         )
     }
 
-    fn bfs_impl(
+    fn _bfs_impl(
         &self,
         roots: impl IntoIterator<Item = T::Key>,
         target: impl Fn(u32) -> bool,
     ) -> Option<Vec<&T>> {
-        let path = bfs_find_path(
+        let path = _bfs_find_path(
             roots.into_iter().map(|n| self.node_to_index[&n]),
             GraphSuccessorsImpl { graph: self },
             target,
@@ -325,7 +325,7 @@ impl<T: LabeledNode> Graph<T> {
         Some(path.map(|n| &self.nodes[*n as usize].node))
     }
 
-    pub(crate) fn bfs(
+    pub(crate) fn _bfs(
         &self,
         roots: impl IntoIterator<Item = T::Key>,
         targets: impl IntoIterator<Item = T::Key>,
@@ -337,7 +337,7 @@ impl<T: LabeledNode> Graph<T> {
                 self.node_to_index.get(&n).copied()
             })
             .collect();
-        self.bfs_impl(roots, |n| target_indices.contains(&n))
+        self._bfs_impl(roots, |n| target_indices.contains(&n))
     }
 
     /// Create a graph from the given roots up to the given max depth.

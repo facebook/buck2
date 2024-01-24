@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+pub(crate) mod async_bfs;
 pub mod bfs;
 pub mod dfs;
 #[allow(clippy::module_inception)]

@@ -59,6 +59,13 @@ impl<T: LabeledNode<Key = T>> AsyncNodeLookup<T> for NodeLookupId {
     }
 }
 
+#[async_trait]
+impl<'a, T: LabeledNode, A: AsyncNodeLookup<T>> AsyncNodeLookup<T> for &'a A {
+    async fn get(&self, label: &T::Key) -> anyhow::Result<T> {
+        (*self).get(label).await
+    }
+}
+
 /// Implements a depth-first postorder traversal. A node will be visited only after all of its
 /// dependencies have been visited. Unlike `async_depth_first_postorder_traversal`, this will
 /// only perform a single traversal, however that means that it will wait on each node lookup.
