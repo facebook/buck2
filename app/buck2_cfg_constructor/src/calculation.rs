@@ -141,9 +141,12 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
             .get_package_value_json(modifier_key)?
             .map(MetadataValue::new);
         let target_cfg_modifiers = target.metadata()?.and_then(|m| m.get(modifier_key)).duped();
-        // If there are no PACKAGE or target modifiers, return the original configuration without computing DICE call
+        // If there are no PACKAGE/target/cli modifiers, return the original configuration without computing DICE call
         // TODO(scottcao): This is just for rollout purpose. Remove once modifier is rolled out
-        if package_cfg_modifiers.is_none() && target_cfg_modifiers.is_none() {
+        if package_cfg_modifiers.is_none()
+            && target_cfg_modifiers.is_none()
+            && cli_modifiers.is_empty()
+        {
             return Ok(cfg);
         }
 
