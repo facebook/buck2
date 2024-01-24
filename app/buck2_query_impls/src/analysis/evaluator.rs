@@ -57,6 +57,9 @@ pub async fn eval_query<
                 &mut literals,
             )?;
         }
+        // TODO(nga): we create one environment shared by all queries.
+        //   This is fine for `uquery`, but for `cquery` if universe is inferred from arguments,
+        //   it should be inferred only from current query, not from all the queries.
         let env = environment(literals.into_iter().collect()).await?;
         let results = process_multi_query(query, query_args, |input, query| {
             let evaluator = QueryEvaluator::new(&env, functions);
