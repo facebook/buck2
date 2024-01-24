@@ -10,6 +10,10 @@ load(
     "LinkStyle",
 )
 load(
+    "@prelude//tests:re_utils.bzl",
+    "get_re_executors_from_props",
+)
+load(
     "@prelude//utils:utils.bzl",
     "map_val",
     "value_or",
@@ -124,6 +128,9 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     for resource in ctx.attrs.resources:
         run_cmd.hidden(ctx.actions.copy_file(resource.short_path, resource))
 
+    # Setup RE executors based on the `remote_execution` param.
+    re_executor, executor_overrides = get_re_executors_from_props(ctx)
+
     return inject_test_run_info(
         ctx,
         ExternalRunnerTestInfo(
@@ -132,8 +139,11 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
             env = ctx.attrs.env,
             labels = ctx.attrs.labels,
             contacts = ctx.attrs.contacts,
+            default_executor = re_executor,
+            executor_overrides = executor_overrides,
             # FIXME: Consider setting to true
-            run_from_project_root = False,
+            run_from_project_root = re_executor != None,
+            use_project_relative_paths = re_executor != None,
         ),
     ) + [
         DefaultInfo(

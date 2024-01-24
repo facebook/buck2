@@ -14,6 +14,7 @@ load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode"
 load(":cxx_common.bzl", "cxx_common")
 load(":go_common.bzl", "go_common")
 load(":native_common.bzl", "native_common")
+load(":re_test_common.bzl", "re_test_common")
 
 BuildMode = ["executable", "c_shared", "c_archive"]
 
@@ -447,7 +448,8 @@ go_test = prelude_rule(
             "platform": attrs.option(attrs.string(), default = None),
             "runner": attrs.option(attrs.dep(), default = None),
             "specs": attrs.option(attrs.arg(json = True), default = None),
-        }
+        } |
+        re_test_common.test_args()
     ),
 )
 
