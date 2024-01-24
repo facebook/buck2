@@ -8,8 +8,8 @@
 
 [Version]:  https://img.shields.io/badge/release-unstable,%20"Developer%20Edition"-orange.svg
 [License]:  https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blueviolet.svg
-[Build Status]: https://img.shields.io/circleci/build/github/facebook/buck2
-[CI]: https://app.circleci.com/pipelines/github/facebook/buck2
+[Build Status]: https://github.com/facebook/buck2/actions/workflows/build-and-test.yml/badge.svg
+[CI]: https://github.com/facebook/buck2/actions/workflows/build-and-test.yml
 
 <strong>
   <a href="https://buck2.build">Homepage</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;<a href="https://buck2.build/docs/getting_started/">Getting Started</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;<a href="./CONTRIBUTING.md">Contributing</a>
