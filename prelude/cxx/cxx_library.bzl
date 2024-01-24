@@ -906,12 +906,12 @@ def cxx_compile_srcs(
     )
 
     # Define object files.
-    pic_cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = True)
+    pic_cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = True, allow_cache_upload = ctx.attrs.allow_cache_upload)
     pic = _get_library_compile_output(ctx, pic_cxx_outs, impl_params.extra_link_input)
 
     non_pic = None
     if preferred_linkage != Linkage("shared"):
-        non_pic_cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = False)
+        non_pic_cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = False, allow_cache_upload = ctx.attrs.allow_cache_upload)
         non_pic = _get_library_compile_output(ctx, non_pic_cxx_outs, impl_params.extra_link_input)
 
     return _CxxCompiledSourcesOutput(

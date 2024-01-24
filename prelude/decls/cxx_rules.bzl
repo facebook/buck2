@@ -588,7 +588,8 @@ cxx_library = prelude_rule(
             "weak_framework_names": attrs.list(attrs.string(), default = []),
             "xcode_private_headers_symlinks": attrs.option(attrs.bool(), default = None),
             "xcode_public_headers_symlinks": attrs.option(attrs.bool(), default = None),
-        }
+        } |
+        buck.allow_cache_upload_arg()
     ),
 )
 

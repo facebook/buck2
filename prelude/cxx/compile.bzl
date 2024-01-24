@@ -360,7 +360,8 @@ def create_compile_cmds(
 def compile_cxx(
         ctx: AnalysisContext,
         src_compile_cmds: list[CxxSrcCompileCommand],
-        pic: bool = False) -> list[CxxCompileOutput]:
+        pic: bool = False,
+        allow_cache_upload: bool = False) -> list[CxxCompileOutput]:
     """
     For a given list of src_compile_cmds, generate output artifacts.
     """
@@ -461,6 +462,7 @@ def compile_cxx(
             category = src_compile_cmd.cxx_compile_cmd.category,
             identifier = identifier,
             dep_files = action_dep_files,
+            allow_cache_upload = allow_cache_upload,
         )
 
         # If we're building with split debugging, where the debug info is in the
