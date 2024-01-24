@@ -119,6 +119,9 @@ pub struct CommandExecutionMetadata {
 
     /// How many artifacts we hashed
     pub hashed_artifacts_count: u64,
+
+    /// How long this command spent waiting to run
+    pub queue_duration: Option<Duration>,
 }
 
 impl CommandExecutionMetadata {
@@ -136,6 +139,7 @@ impl CommandExecutionMetadata {
             execution_stats: metadata.execution_stats,
             hashing_duration: metadata.hashing_duration.try_into().ok(),
             hashed_artifacts_count: metadata.hashed_artifacts_count.try_into().ok().unwrap_or(0),
+            queue_duration: metadata.queue_duration.and_then(|d| d.try_into().ok()),
         }
     }
 }
@@ -150,6 +154,7 @@ impl Default for CommandExecutionMetadata {
             input_materialization_duration: Duration::default(),
             hashing_duration: Duration::default(),
             hashed_artifacts_count: 0,
+            queue_duration: None,
         }
     }
 }
@@ -366,6 +371,7 @@ mod tests {
             input_materialization_duration: Duration::from_secs(6),
             hashing_duration: Duration::from_secs(7),
             hashed_artifacts_count: 8,
+            queue_duration: Some(Duration::from_secs(9)),
         };
         let std_streams = CommandStdStreams::Local {
             stdout: [65, 66, 67].to_vec(), // ABC
@@ -435,6 +441,10 @@ mod tests {
                 nanos: 0,
             }),
             hashed_artifacts_count: 8,
+            queue_duration: Some(Duration {
+                seconds: 9,
+                nanos: 0,
+            }),
         };
         let command_execution_details = buck2_data::CommandExecutionDetails {
             signed_exit_code: Some(456),

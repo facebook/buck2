@@ -80,6 +80,7 @@ impl ArtifactMaterializer for DiceComputations {
                     NodeDuration {
                         user: duration,
                         total: duration,
+                        queue: None,
                     },
                     current_span(),
                 );

@@ -425,6 +425,10 @@ message CriticalPathEntry2 {
   // `duration` (since it can't exceed it).
   optional google.protobuf.Duration potential_improvement_duration = 5;
 
+  // The subset of the duration that can be attributed to waiting
+  // for actions to run
+  optional google.protobuf.Duration queue_duration = 6;
+
   oneof entry {
     Analysis analysis = 100;
     ActionExecution action_execution = 101;
@@ -1003,6 +1007,9 @@ message CommandExecutionMetadata {
   google.protobuf.Duration hashing_duration = 6;
 
   uint64 hashed_artifacts_count = 7;
+
+  /// How long this command spent waiting to run
+  optional google.protobuf.Duration queue_duration = 8;
 }
 
 message CommandOutputsMissing {

@@ -151,6 +151,8 @@ async fn build_action_no_redirect(
         )
         .await;
 
+        let queue_duration = command_reports.last().and_then(|r| r.timing.queue_duration);
+
         let action_key = action.key().as_proto();
 
         let action_name = buck2_data::ActionName {
@@ -259,7 +261,7 @@ async fn build_action_no_redirect(
             .unwrap_or_default();
 
         (
-            (action_result, wall_time),
+            (action_result, wall_time, queue_duration),
             Box::new(buck2_data::ActionExecutionEnd {
                 key: Some(action_key),
                 kind: action.kind().into(),
@@ -290,7 +292,7 @@ async fn build_action_no_redirect(
     };
 
     // boxed() the future so that we don't need to allocate space for it while waiting on input dependencies.
-    let ((res, wall_time), spans) =
+    let ((res, wall_time, queue_duration), spans) =
         async_record_root_spans(span_async(start_event, fut.boxed())).await;
 
     // TODO: This wall time is rather wrong. We should report a wall time on failures too.
@@ -299,6 +301,7 @@ async fn build_action_no_redirect(
         duration: NodeDuration {
             user: wall_time.unwrap_or_default(),
             total: now.elapsed(),
+            queue: queue_duration,
         },
         spans,
     })?;

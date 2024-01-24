@@ -30,6 +30,8 @@ pub struct NodeDuration {
     pub user: Duration,
     /// The total duration for this node.
     pub total: Duration,
+    /// The waiting duration for this node.
+    pub queue: Option<Duration>,
 }
 
 impl NodeDuration {
@@ -44,6 +46,7 @@ impl NodeDuration {
         Self {
             user: Duration::from_secs(0),
             total: Duration::from_secs(0),
+            queue: None,
         }
     }
 }

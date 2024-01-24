@@ -281,6 +281,7 @@ impl ActivationTracker for BuildSignalSender {
                 signal.duration = NodeDuration {
                     user: duration,
                     total: duration,
+                    queue: None,
                 };
                 signal.spans = spans;
             } else if let Some(IntepreterResultsKeyActivationData {
@@ -292,6 +293,7 @@ impl ActivationTracker for BuildSignalSender {
                 signal.duration = NodeDuration {
                     user: duration,
                     total: duration,
+                    queue: None,
                 };
 
                 signal.load_result = result.ok();
@@ -302,6 +304,7 @@ impl ActivationTracker for BuildSignalSender {
                 signal.duration = NodeDuration {
                     user: duration,
                     total: duration,
+                    queue: None,
                 };
                 signal.spans = spans;
             }
@@ -417,6 +420,7 @@ where
             duration: NodeDuration {
                 user: Duration::ZERO,
                 total: compute_elapsed,
+                queue: None,
             },
             span_ids: Default::default(),
         };
@@ -488,6 +492,7 @@ where
                         .collect(),
                     duration: Some(data.duration.critical_path_duration().try_into()?),
                     user_duration: Some(data.duration.user.try_into()?),
+                    queue_duration: data.duration.queue.map(|d| d.try_into()).transpose()?,
                     total_duration: Some(data.duration.total.try_into()?),
                     potential_improvement_duration: potential_improvement
                         .map(|p| p.try_into())
@@ -614,7 +619,7 @@ struct NodeData {
     span_ids: SmallVec<[SpanId; 1]>,
 }
 
-assert_eq_size!(NodeData, [usize; 8]);
+assert_eq_size!(NodeData, [usize; 10]);
 
 fn create_build_signals() -> (BuildSignalsInstaller, Box<dyn DeferredBuildSignals>) {
     let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();

@@ -186,6 +186,10 @@ fn main() -> io::Result<()> {
             "CriticalPathEntry2.potential_improvement_duration",
             "#[serde(rename = \"potential_improvement_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
         )
+        .field_attribute(
+            "CriticalPathEntry2.queue_duration",
+            "#[serde(rename = \"queue_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+        )
         .type_attribute(
             "buck.data.CriticalPathEntry2.entry",
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
@@ -241,6 +245,10 @@ fn main() -> io::Result<()> {
         .field_attribute(
             "buck.data.CommandExecutionMetadata.hashing_duration",
             "#[serde(rename = \"hashing_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+        )
+        .field_attribute(
+            "buck.data.CommandExecutionMetadata.queue_duration",
+            "#[serde(rename = \"queue_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
         )
         .boxed("RecordEvent.data.invocation_record")
         .boxed("SpanEndEvent.data.action_execution")

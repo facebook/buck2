@@ -172,8 +172,10 @@ impl RemoteActionResult for ActionResultResponse {
 
     fn timing(&self) -> CommandExecutionMetadata {
         let mut timing = timing_from_re_metadata(&self.action_result.execution_metadata);
-        timing.wall_time = Duration::ZERO; // This was a cache hit so we didn't wait.
-        timing.input_materialization_duration = Duration::ZERO; // This was a cache hit so we didn't wait.
+        // This was a cache hit so we didn't wait at all
+        timing.wall_time = Duration::ZERO;
+        timing.input_materialization_duration = Duration::ZERO;
+        timing.queue_duration = None;
         timing
     }
 
@@ -252,6 +254,10 @@ fn timing_from_re_metadata(meta: &TExecutedActionMetadata) -> CommandExecutionMe
         .input_fetch_completed_timestamp
         .saturating_duration_since(&meta.input_fetch_start_timestamp);
 
+    let queue_duration = meta
+        .worker_start_timestamp
+        .saturating_duration_since(&meta.queued_timestamp);
+
     CommandExecutionMetadata {
         wall_time: execution_time,
         execution_time,
@@ -260,6 +266,7 @@ fn timing_from_re_metadata(meta: &TExecutedActionMetadata) -> CommandExecutionMe
         input_materialization_duration: fetch_input_time,
         hashing_duration: Duration::ZERO,
         hashed_artifacts_count: 0,
+        queue_duration: Some(queue_duration),
     }
 }
 
