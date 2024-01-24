@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-/// Replace `%s` with remaining command line arguments which contain query literals.
+/// Perform multiple queries with `%s` substituted with each of the arguments.
 pub const QUERY_PERCENT_S_PLACEHOLDER: &str = "%s";
-/// Replace `%Ss` with query literals read from files from remaining command line arguments.
+/// Perform single query with `%Ss` substituted with `set(...)` of the arguments.
 pub const QUERY_PERCENT_SS_PLACEHOLDER: &str = "%Ss";
