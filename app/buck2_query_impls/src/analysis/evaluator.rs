@@ -62,7 +62,7 @@ pub async fn eval_query<
             let evaluator = QueryEvaluator::new(&env, functions);
             async move { (input, evaluator.eval_query(&query).await) }
         })
-        .await;
+        .await?;
         Ok(QueryEvaluationResult::Multiple(results))
     } else if !query_args.is_empty() {
         Err(
