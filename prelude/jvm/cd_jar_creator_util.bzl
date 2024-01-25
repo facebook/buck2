@@ -250,21 +250,26 @@ def encode_ap_params(annotation_processor_properties: AnnotationProcessorPropert
     return encoded_ap_params
 
 def encode_plugin_params(plugin_params: [PluginParams, None]) -> [struct, None]:
-    # TODO(cjhopman): We should change plugins to not be merged together just like APs.
     encoded_plugin_params = None
     if plugin_params:
         encoded_plugin_params = struct(
             parameters = [],
-            pluginProperties = [struct(
-                canReuseClassLoader = False,
-                doesNotAffectAbi = False,
-                supportsAbiGenerationFromSource = False,
-                processorNames = plugin_params.processors,
-                classpath = plugin_params.deps.project_as_json("javacd_json") if plugin_params.deps else [],
-                pathParams = {},
-            )],
+            pluginProperties = [
+                encode_plugin_properties(processor, plugin_params)
+                for processor in plugin_params.processors
+            ],
         )
     return encoded_plugin_params
+
+def encode_plugin_properties(processor: str, plugin_params: PluginParams) -> struct:
+    return struct(
+        canReuseClassLoader = False,
+        doesNotAffectAbi = False,
+        supportsAbiGenerationFromSource = False,
+        processorNames = [processor],
+        classpath = plugin_params.deps.project_as_json("javacd_json") if plugin_params.deps else [],
+        pathParams = {},
+    )
 
 def encode_base_jar_command(
         javac_tool: [str, RunInfo, Artifact, None],
