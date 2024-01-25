@@ -31,7 +31,7 @@ enum EvalQueryError {
     PlaceholderInPattern(String),
 }
 
-pub async fn eval_query<
+pub(crate) async fn eval_query<
     F: QueryFunctions<Env = Env>,
     Env: QueryEnvironment,
     Fut: Future<Output = anyhow::Result<Env>>,

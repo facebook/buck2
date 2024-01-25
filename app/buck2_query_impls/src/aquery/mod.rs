@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-pub mod bxl;
-pub mod environment;
-pub mod evaluator;
+pub(crate) mod bxl;
+pub(crate) mod environment;
+pub(crate) mod evaluator;
 pub(crate) mod find_matching_action;
-pub mod functions;
+pub(crate) mod functions;

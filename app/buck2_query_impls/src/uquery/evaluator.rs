@@ -23,13 +23,13 @@ use crate::dice::DiceQueryDelegate;
 use crate::uquery::environment::PreresolvedQueryLiterals;
 use crate::uquery::environment::UqueryEnvironment;
 
-pub struct UqueryEvaluator<'c> {
+pub(crate) struct UqueryEvaluator<'c> {
     dice_query_delegate: DiceQueryDelegate<'c>,
     functions: DefaultQueryFunctionsModule<UqueryEnvironment<'c>>,
 }
 
 impl UqueryEvaluator<'_> {
-    pub async fn eval_query(
+    pub(crate) async fn eval_query(
         &self,
         query: &str,
         query_args: &[String],
@@ -52,7 +52,7 @@ impl UqueryEvaluator<'_> {
 
 /// Evaluates some query expression. TargetNodes are resolved via the interpreter from
 /// the provided DiceCtx.
-pub async fn get_uquery_evaluator<'a, 'c: 'a>(
+pub(crate) async fn get_uquery_evaluator<'a, 'c: 'a>(
     ctx: &'c DiceComputations,
     working_dir: &'a ProjectRelativePath,
     global_cfg_options: GlobalCfgOptions,

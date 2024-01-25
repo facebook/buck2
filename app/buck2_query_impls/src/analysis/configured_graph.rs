@@ -32,8 +32,8 @@ use indexmap::IndexMap;
 use crate::analysis::environment::get_from_template_placeholder_info;
 use crate::analysis::environment::ConfiguredGraphQueryEnvironmentDelegate;
 
-pub struct AnalysisDiceQueryDelegate<'c> {
-    pub ctx: &'c DiceComputations,
+pub(crate) struct AnalysisDiceQueryDelegate<'c> {
+    pub(crate) ctx: &'c DiceComputations,
 }
 
 impl<'c> AnalysisDiceQueryDelegate<'c> {
@@ -42,9 +42,9 @@ impl<'c> AnalysisDiceQueryDelegate<'c> {
     }
 }
 
-pub struct AnalysisConfiguredGraphQueryDelegate<'a> {
-    pub dice_query_delegate: Arc<AnalysisDiceQueryDelegate<'a>>,
-    pub resolved_literals: HashMap<String, ConfiguredTargetNode>,
+pub(crate) struct AnalysisConfiguredGraphQueryDelegate<'a> {
+    pub(crate) dice_query_delegate: Arc<AnalysisDiceQueryDelegate<'a>>,
+    pub(crate) resolved_literals: HashMap<String, ConfiguredTargetNode>,
 }
 
 #[async_trait]

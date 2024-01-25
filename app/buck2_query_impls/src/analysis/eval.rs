@@ -21,7 +21,7 @@ use crate::analysis::configured_graph::AnalysisConfiguredGraphQueryDelegate;
 use crate::analysis::configured_graph::AnalysisDiceQueryDelegate;
 use crate::analysis::environment::ConfiguredGraphQueryEnvironment;
 
-pub fn init_eval_analysis_query() {
+pub(crate) fn init_eval_analysis_query() {
     EVAL_ANALYSIS_QUERY.init(|ctx, query, resolved_literals| {
         Box::pin(eval_analysis_query(ctx, query, resolved_literals))
     });

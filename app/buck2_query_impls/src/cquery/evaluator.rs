@@ -34,14 +34,14 @@ use crate::uquery::environment::PreresolvedQueryLiterals;
 use crate::uquery::environment::QueryLiterals;
 use crate::uquery::environment::UqueryDelegate;
 
-pub struct CqueryEvaluator<'c> {
+pub(crate) struct CqueryEvaluator<'c> {
     dice_query_delegate: DiceQueryDelegate<'c>,
     functions: DefaultQueryFunctionsModule<CqueryEnvironment<'c>>,
     owner_behavior: CqueryOwnerBehavior,
 }
 
 impl CqueryEvaluator<'_> {
-    pub async fn eval_query<A: AsRef<str>, U: AsRef<str>>(
+    pub(crate) async fn eval_query<A: AsRef<str>, U: AsRef<str>>(
         &self,
         query: &str,
         query_args: &[A],
@@ -95,7 +95,7 @@ pub(crate) async fn preresolve_literals_and_build_universe(
 
 /// Evaluates some query expression. TargetNodes are resolved via the interpreter from
 /// the provided DiceCtx.
-pub async fn get_cquery_evaluator<'a, 'c: 'a>(
+pub(crate) async fn get_cquery_evaluator<'a, 'c: 'a>(
     ctx: &'c DiceComputations,
     working_dir: &'a ProjectRelativePath,
     global_cfg_options: GlobalCfgOptions,

@@ -26,7 +26,7 @@ use buck2_query_parser::BinaryOp;
 
 use crate::aquery::environment::AqueryEnvironment;
 
-pub fn aquery_functions<'a>() -> impl QueryFunctions<Env = AqueryEnvironment<'a>> {
+pub(crate) fn aquery_functions<'a>() -> impl QueryFunctions<Env = AqueryEnvironment<'a>> {
     struct Functions<'a> {
         defaults: DefaultQueryFunctionsModule<AqueryEnvironment<'a>>,
         extra_functions: AqueryFunctions<'a>,

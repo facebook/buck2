@@ -68,13 +68,9 @@ enum RBuildFilesError {
     CellMissingBuildFileNames(CellName),
 }
 
-pub enum SpecialAttr {
-    String(String),
-}
-
 /// UqueryDelegate resolves information needed by the QueryEnvironment.
 #[async_trait]
-pub trait UqueryDelegate: Send + Sync {
+pub(crate) trait UqueryDelegate: Send + Sync {
     /// Returns the EvaluationResult for evaluation of the buildfile.
     async fn eval_build_file(
         &self,
@@ -103,7 +99,7 @@ pub trait UqueryDelegate: Send + Sync {
 }
 
 #[async_trait]
-pub trait QueryLiterals<T: QueryTarget>: Send + Sync {
+pub(crate) trait QueryLiterals<T: QueryTarget>: Send + Sync {
     async fn eval_literals(
         &self,
         literals: &[&str],
@@ -111,21 +107,23 @@ pub trait QueryLiterals<T: QueryTarget>: Send + Sync {
     ) -> anyhow::Result<TargetSet<T>>;
 }
 
-pub struct UqueryEnvironment<'c> {
+pub(crate) struct UqueryEnvironment<'c> {
     delegate: &'c dyn UqueryDelegate,
     literals: Arc<dyn QueryLiterals<TargetNode> + 'c>,
 }
 
-pub struct PreresolvedQueryLiterals<T: QueryTarget> {
+pub(crate) struct PreresolvedQueryLiterals<T: QueryTarget> {
     resolved_literals: HashMap<String, buck2_error::Result<TargetSet<T>>>,
 }
 
 impl<T: QueryTarget> PreresolvedQueryLiterals<T> {
-    pub fn new(resolved_literals: HashMap<String, buck2_error::Result<TargetSet<T>>>) -> Self {
+    pub(crate) fn new(
+        resolved_literals: HashMap<String, buck2_error::Result<TargetSet<T>>>,
+    ) -> Self {
         Self { resolved_literals }
     }
 
-    pub async fn pre_resolve(
+    pub(crate) async fn pre_resolve(
         base: &dyn QueryLiterals<T>,
         literals: &[String],
         dice: &DiceComputations,
@@ -141,7 +139,7 @@ impl<T: QueryTarget> PreresolvedQueryLiterals<T> {
     }
 
     /// All the literals, or error if resolution of any failed.
-    pub fn literals(&self) -> anyhow::Result<TargetSet<T>> {
+    pub(crate) fn literals(&self) -> anyhow::Result<TargetSet<T>> {
         let mut literals = TargetSet::new();
         for result in self.resolved_literals.values() {
             literals.extend(result.as_ref().map_err(|e| e.dupe())?);
@@ -174,7 +172,7 @@ impl<T: QueryTarget> QueryLiterals<T> for PreresolvedQueryLiterals<T> {
 }
 
 impl<'c> UqueryEnvironment<'c> {
-    pub fn new(
+    pub(crate) fn new(
         delegate: &'c dyn UqueryDelegate,
         literals: Arc<dyn QueryLiterals<TargetNode> + 'c>,
     ) -> Self {

@@ -284,11 +284,11 @@ impl<'c> DiceAqueryDelegate<'c> {
         })
     }
 
-    pub fn query_data(&self) -> &Arc<AqueryData> {
+    pub(crate) fn query_data(&self) -> &Arc<AqueryData> {
         &self.query_data
     }
 
-    pub async fn get_action_node(&self, key: &ActionKey) -> anyhow::Result<ActionQueryNode> {
+    pub(crate) async fn get_action_node(&self, key: &ActionKey) -> anyhow::Result<ActionQueryNode> {
         get_action_node(
             self.query_data.nodes_cache.dupe(),
             self.base_delegate.ctx(),

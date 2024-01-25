@@ -77,7 +77,7 @@ enum AnalysisQueryError {
 }
 
 #[async_trait]
-pub trait ConfiguredGraphQueryEnvironmentDelegate: Send + Sync {
+pub(crate) trait ConfiguredGraphQueryEnvironmentDelegate: Send + Sync {
     fn eval_literal(&self, literal: &str) -> anyhow::Result<ConfiguredTargetNode>;
 
     async fn get_targets_from_template_placeholder_info(
@@ -87,7 +87,7 @@ pub trait ConfiguredGraphQueryEnvironmentDelegate: Send + Sync {
     ) -> anyhow::Result<TargetSet<ConfiguredGraphNodeRef>>;
 }
 
-pub struct ConfiguredGraphQueryEnvironment<'a> {
+pub(crate) struct ConfiguredGraphQueryEnvironment<'a> {
     delegate: &'a dyn ConfiguredGraphQueryEnvironmentDelegate,
 }
 
@@ -124,11 +124,11 @@ impl<'a> ConfiguredGraphFunctions<'a> {
 }
 
 impl<'a> ConfiguredGraphQueryEnvironment<'a> {
-    pub fn new(delegate: &'a dyn ConfiguredGraphQueryEnvironmentDelegate) -> Self {
+    pub(crate) fn new(delegate: &'a dyn ConfiguredGraphQueryEnvironmentDelegate) -> Self {
         Self { delegate }
     }
 
-    pub fn functions() -> impl QueryFunctions<Env = ConfiguredGraphQueryEnvironment<'a>> {
+    pub(crate) fn functions() -> impl QueryFunctions<Env = ConfiguredGraphQueryEnvironment<'a>> {
         struct Functions<'a> {
             defaults: DefaultQueryFunctionsModule<ConfiguredGraphQueryEnvironment<'a>>,
             extra_functions: ConfiguredGraphFunctions<'a>,

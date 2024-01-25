@@ -51,7 +51,7 @@ enum CqueryError {
 
 /// CqueryDelegate resolves information needed by the QueryEnvironment.
 #[async_trait]
-pub trait CqueryDelegate: Send + Sync {
+pub(crate) trait CqueryDelegate: Send + Sync {
     fn uquery_delegate(&self) -> &dyn UqueryDelegate;
 
     async fn get_node_for_target(
@@ -77,7 +77,7 @@ pub trait CqueryDelegate: Send + Sync {
     fn ctx(&self) -> &DiceComputations;
 }
 
-pub struct CqueryEnvironment<'c> {
+pub(crate) struct CqueryEnvironment<'c> {
     delegate: &'c dyn CqueryDelegate,
     literals: Arc<dyn QueryLiterals<ConfiguredTargetNode> + 'c>,
     // TODO(nga): BXL `cquery` function does not provides us the universe.
@@ -91,7 +91,7 @@ pub struct CqueryEnvironment<'c> {
 }
 
 impl<'c> CqueryEnvironment<'c> {
-    pub fn new(
+    pub(crate) fn new(
         delegate: &'c dyn CqueryDelegate,
         literals: Arc<dyn QueryLiterals<ConfiguredTargetNode> + 'c>,
         universe: Option<CqueryUniverse>,

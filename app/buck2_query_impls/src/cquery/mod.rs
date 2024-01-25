@@ -8,5 +8,5 @@
  */
 
 pub(crate) mod bxl;
-pub mod environment;
-pub mod evaluator;
+pub(crate) mod environment;
+pub(crate) mod evaluator;

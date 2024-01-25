@@ -36,7 +36,7 @@ use crate::uquery::environment::QueryLiterals;
 
 /// CqueryDelegate resolves information needed by the QueryEnvironment.
 #[async_trait]
-pub trait AqueryDelegate: Send + Sync {
+pub(crate) trait AqueryDelegate: Send + Sync {
     fn cquery_delegate(&self) -> &dyn CqueryDelegate;
 
     fn ctx(&self) -> &DiceComputations;
@@ -55,13 +55,13 @@ pub trait AqueryDelegate: Send + Sync {
     ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
 }
 
-pub struct AqueryEnvironment<'c> {
+pub(crate) struct AqueryEnvironment<'c> {
     pub(super) delegate: Arc<dyn AqueryDelegate + 'c>,
     literals: Arc<dyn QueryLiterals<ActionQueryNode> + 'c>,
 }
 
 impl<'c> AqueryEnvironment<'c> {
-    pub fn new(
+    pub(crate) fn new(
         delegate: Arc<dyn AqueryDelegate + 'c>,
         literals: Arc<dyn QueryLiterals<ActionQueryNode> + 'c>,
     ) -> Self {

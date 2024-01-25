@@ -13,13 +13,13 @@
 
 use std::sync::Once;
 
-pub mod analysis;
-pub mod aquery;
-pub mod cquery;
+pub(crate) mod analysis;
+pub(crate) mod aquery;
+pub(crate) mod cquery;
 mod description;
-pub mod dice;
-pub mod frontend;
-pub mod uquery;
+pub(crate) mod dice;
+pub(crate) mod frontend;
+pub(crate) mod uquery;
 
 pub fn init_late_bindings() {
     static ONCE: Once = Once::new();

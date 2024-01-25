@@ -8,6 +8,6 @@
  */
 
 pub(crate) mod configured_graph;
-pub mod environment;
+pub(crate) mod environment;
 pub(crate) mod eval;
 pub(crate) mod evaluator;

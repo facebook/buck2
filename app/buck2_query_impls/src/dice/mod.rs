@@ -64,7 +64,7 @@ use crate::cquery::environment::CqueryDelegate;
 use crate::uquery::environment::QueryLiterals;
 use crate::uquery::environment::UqueryDelegate;
 
-pub mod aquery;
+pub(crate) mod aquery;
 
 #[derive(Debug, buck2_error::Error)]
 enum LiteralParserError {
@@ -136,20 +136,20 @@ impl LiteralParser {
 
 /// A Uquery delegate that resolves TargetNodes with the provided
 /// InterpreterCalculation.
-pub struct DiceQueryDelegate<'c> {
+pub(crate) struct DiceQueryDelegate<'c> {
     ctx: &'c DiceComputations,
     cell_resolver: CellResolver,
     query_data: Arc<DiceQueryData>,
     package_boundary_exceptions: Arc<PackageBoundaryExceptions>,
 }
 
-pub struct DiceQueryData {
+pub(crate) struct DiceQueryData {
     literal_parser: LiteralParser,
     global_cfg_options: GlobalCfgOptions,
 }
 
 impl DiceQueryData {
-    pub fn new(
+    pub(crate) fn new(
         global_cfg_options: GlobalCfgOptions,
         cell_resolver: CellResolver,
         working_dir: &ProjectRelativePath,
@@ -187,7 +187,7 @@ impl DiceQueryData {
 }
 
 impl<'c> DiceQueryDelegate<'c> {
-    pub fn new(
+    pub(crate) fn new(
         ctx: &'c DiceComputations,
         cell_resolver: CellResolver,
         package_boundary_exceptions: Arc<PackageBoundaryExceptions>,
