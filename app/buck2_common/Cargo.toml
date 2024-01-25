@@ -7,6 +7,7 @@ version = "0.1.0"
 
 [dependencies]
 anyhow = { workspace = true }
+async-scoped = { workspace = true }
 async-trait = { workspace = true }
 blake3 = { workspace = true }
 chrono = { workspace = true }

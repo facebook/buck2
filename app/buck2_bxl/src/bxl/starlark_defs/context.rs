@@ -35,6 +35,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::events::HasEvents;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
+use buck2_common::scope::scope_and_collect_with_dice;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
@@ -54,7 +55,6 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_events::dispatch::console_message;
-use buck2_events::dispatch::with_dispatcher_async;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
@@ -524,9 +524,9 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         // on the scope will be dropped at the earliest await point. If we are within the blocking
         // section of bxl, the cancellation observer will be notified and cause the blocking calls
         // to terminate.
-        async_scoped::TokioScope::scope_and_collect(|s| {
+        scope_and_collect_with_dice(dice_ctx, |dice_ctx, s| {
             s.spawn_cancellable(
-                with_dispatcher_async(dispatcher.dupe(), async move {
+                async move {
                     with_starlark_eval_provider(
                         dice_ctx,
                         &mut StarlarkProfilerOrInstrumentation::disabled(),
@@ -598,7 +598,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
                         },
                     )
                     .await
-                }),
+                },
                 || Err(anyhow::anyhow!("cancelled")),
             )
         })

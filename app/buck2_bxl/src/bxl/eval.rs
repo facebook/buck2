@@ -19,6 +19,7 @@ use buck2_build_api::deferred::types::DeferredTable;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::events::HasEvents;
+use buck2_common::scope::scope_and_collect_with_dice;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::base_deferred_key::BaseDeferredKey;
@@ -33,7 +34,6 @@ use buck2_data::StarlarkFailNoStacktrace;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::with_dispatcher;
-use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_futures::cancellable_future::CancellationObserver;
@@ -98,17 +98,14 @@ pub(crate) async fn eval(
         // on the scope will be dropped at the earliest await point. If we are within the blocking
         // section of bxl, the cancellation observer will be notified and cause the blocking calls
         // to terminate.
-        async_scoped::TokioScope::scope_and_collect(|s| {
+        scope_and_collect_with_dice(ctx, |ctx, s| {
             s.spawn_cancellable(
-                with_dispatcher_async(
-                    dispatcher.dupe(),
-                    eval_bxl_inner(
-                        ctx,
-                        dispatcher,
-                        key,
-                        profile_mode_or_instrumentation,
-                        liveness,
-                    ),
+                eval_bxl_inner(
+                    ctx,
+                    dispatcher,
+                    key,
+                    profile_mode_or_instrumentation,
+                    liveness,
                 ),
                 || Err(anyhow::anyhow!("cancelled")),
             )
