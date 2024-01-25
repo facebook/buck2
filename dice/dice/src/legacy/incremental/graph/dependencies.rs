@@ -159,7 +159,9 @@ impl Eq for Rdep {}
 
 impl Hash for Rdep {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.upgrade().map(|p| Arc::as_ptr(&p)).hash(state)
+        // Cast to *const () to ignore the metadata associated with self.0
+        // and conform to the PartialEq implementation above.
+        (Weak::as_ptr(&self.0) as *const ()).hash(state)
     }
 }
 
