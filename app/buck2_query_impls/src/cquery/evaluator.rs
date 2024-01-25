@@ -12,6 +12,7 @@
 use std::sync::Arc;
 
 use buck2_build_api::query::oneshot::CqueryOwnerBehavior;
+use buck2_common::events::HasEvents;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_events::dispatch::console_message;
@@ -47,7 +48,7 @@ impl CqueryEvaluator<'_> {
         query_args: &[A],
         target_universe: Option<&[U]>,
     ) -> anyhow::Result<QueryEvaluationResult<ConfiguredTargetNode>> {
-        eval_query(&self.functions, query, query_args, async move |literals| {
+        eval_query(self.dice_query_delegate.ctx().per_transaction_data().get_dispatcher().dupe(), &self.functions, query, query_args, async move |literals| {
             let (universe, resolved_literals) = match target_universe {
                 None => {
                     if literals.is_empty() {

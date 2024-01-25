@@ -10,6 +10,8 @@
 //! Implementation of common cquery/uquery pieces.
 
 use anyhow::Context;
+use buck2_common::scope::scope_and_collect_with_dispatcher;
+use buck2_events::dispatch::EventDispatcher;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::syntax::simple::eval::evaluator::QueryEvaluator;
@@ -37,6 +39,7 @@ pub(crate) async fn eval_query<
     Fut: Future<Output = anyhow::Result<Env>>,
     A: AsRef<str>,
 >(
+    dispatcher: EventDispatcher,
     functions: &F,
     query: &str,
     query_args: &[A],
@@ -64,7 +67,7 @@ pub(crate) async fn eval_query<
         //   This is fine for `uquery`, but for `cquery` if universe is inferred from arguments,
         //   it should be inferred only from current query, not from all the queries.
         let env = environment(literals.into_iter().collect()).await?;
-        let results = process_multi_query(query, query_args, |input, query| {
+        let results = process_multi_query(dispatcher, query, query_args, |input, query| {
             let evaluator = QueryEvaluator::new(&env, functions);
             async move { (input, evaluator.eval_query(&query).await) }
         })
@@ -87,6 +90,7 @@ pub(crate) async fn eval_query<
 }
 
 async fn process_multi_query<T, Fut, F, A: AsRef<str>>(
+    dispatcher: EventDispatcher,
     query: &str,
     query_args: &[A],
     func: F,
@@ -98,7 +102,7 @@ where
 {
     // SAFETY: it is safe as long as we don't forget the future. We don't do that.
     let ((), future_results) = unsafe {
-        async_scoped::TokioScope::scope_and_collect(|scope| {
+        scope_and_collect_with_dispatcher(dispatcher, |scope| {
             for (i, arg) in query_args.iter().enumerate() {
                 let input = arg.as_ref().to_owned();
                 let query: String = query.replace(QUERY_PERCENT_S_PLACEHOLDER, &input);

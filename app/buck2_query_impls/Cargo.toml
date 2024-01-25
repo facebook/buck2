@@ -9,7 +9,6 @@ version = "0.0.0"
 
 [dependencies]
 anyhow = { workspace = true }
-async-scoped = { workspace = true }
 async-trait = { workspace = true }
 dashmap = { workspace = true }
 derive_more = { workspace = true }

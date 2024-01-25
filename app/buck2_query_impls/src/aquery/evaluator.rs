@@ -11,6 +11,7 @@
 use std::sync::Arc;
 
 use buck2_build_api::actions::query::ActionQueryNode;
+use buck2_common::events::HasEvents;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
@@ -37,18 +38,28 @@ impl AqueryEvaluator<'_> {
     ) -> anyhow::Result<QueryEvaluationResult<ActionQueryNode>> {
         let functions = aquery_functions();
 
-        eval_query(&functions, query, query_args, async move |literals| {
-            let resolved_literals = PreresolvedQueryLiterals::pre_resolve(
-                &**self.dice_query_delegate.query_data(),
-                &literals,
-                self.dice_query_delegate.ctx(),
-            )
-            .await;
-            Ok(AqueryEnvironment::new(
-                self.dice_query_delegate.dupe(),
-                Arc::new(resolved_literals),
-            ))
-        })
+        eval_query(
+            self.dice_query_delegate
+                .ctx()
+                .per_transaction_data()
+                .get_dispatcher()
+                .dupe(),
+            &functions,
+            query,
+            query_args,
+            async move |literals| {
+                let resolved_literals = PreresolvedQueryLiterals::pre_resolve(
+                    &**self.dice_query_delegate.query_data(),
+                    &literals,
+                    self.dice_query_delegate.ctx(),
+                )
+                .await;
+                Ok(AqueryEnvironment::new(
+                    self.dice_query_delegate.dupe(),
+                    Arc::new(resolved_literals),
+                ))
+            },
+        )
         .await
     }
 }

@@ -10,12 +10,14 @@
 //! Implementation of the cli and query_* attr query language.
 use std::sync::Arc;
 
+use buck2_common::events::HasEvents;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use dice::DiceComputations;
+use dupe::Dupe;
 
 use crate::analysis::evaluator::eval_query;
 use crate::dice::get_dice_query_delegate;
@@ -34,18 +36,28 @@ impl UqueryEvaluator<'_> {
         query: &str,
         query_args: &[String],
     ) -> anyhow::Result<QueryEvaluationResult<TargetNode>> {
-        eval_query(&self.functions, query, query_args, async move |literals| {
-            let resolved_literals = PreresolvedQueryLiterals::pre_resolve(
-                &**self.dice_query_delegate.query_data(),
-                &literals,
-                self.dice_query_delegate.ctx(),
-            )
-            .await;
-            Ok(UqueryEnvironment::new(
-                &self.dice_query_delegate,
-                Arc::new(resolved_literals),
-            ))
-        })
+        eval_query(
+            self.dice_query_delegate
+                .ctx()
+                .per_transaction_data()
+                .get_dispatcher()
+                .dupe(),
+            &self.functions,
+            query,
+            query_args,
+            async move |literals| {
+                let resolved_literals = PreresolvedQueryLiterals::pre_resolve(
+                    &**self.dice_query_delegate.query_data(),
+                    &literals,
+                    self.dice_query_delegate.ctx(),
+                )
+                .await;
+                Ok(UqueryEnvironment::new(
+                    &self.dice_query_delegate,
+                    Arc::new(resolved_literals),
+                ))
+            },
+        )
         .await
     }
 }
