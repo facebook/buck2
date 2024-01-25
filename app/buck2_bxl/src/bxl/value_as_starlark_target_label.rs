@@ -29,7 +29,7 @@ pub(crate) enum ValueAsStarlarkTargetLabel<'v> {
 }
 
 impl<'v> ValueAsStarlarkTargetLabel<'v> {
-    pub const NONE: Self = Self::None(NoneType);
+    pub(crate) const NONE: Self = Self::None(NoneType);
 
     pub(crate) fn parse_target_platforms(
         self,

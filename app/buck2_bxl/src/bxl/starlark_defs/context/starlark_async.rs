@@ -35,7 +35,10 @@ enum ViaError {
 /// This is not exposed to starlark but rather, used by operations exposed to starlark to run
 /// code.
 /// This also provides a handle for dice.
-pub struct BxlSafeDiceComputations<'a>(pub(super) &'a mut DiceComputations, CancellationObserver);
+pub(crate) struct BxlSafeDiceComputations<'a>(
+    pub(super) &'a mut DiceComputations,
+    CancellationObserver,
+);
 
 /// For a `via_dice`, the DiceComputations provided to each lambda is a reference that's only
 /// available for some specific lifetime `'x`. This is express as a higher rank lifetime bound
@@ -44,7 +47,7 @@ pub struct BxlSafeDiceComputations<'a>(pub(super) &'a mut DiceComputations, Canc
 /// here which forces rust compiler to infer additional bounds on the `for <'x>` as a
 /// `&'x DiceComputationRef<'a>` cannot live more than `'a`, so using this type as the argument
 /// to the closure forces the correct lifetime bounds to be inferred by rust.
-pub struct DiceComputationsRef<'s>(&'s mut DiceComputations);
+pub(crate) struct DiceComputationsRef<'s>(&'s mut DiceComputations);
 
 impl<'s> Deref for DiceComputationsRef<'s> {
     type Target = DiceComputations;
@@ -61,12 +64,12 @@ impl<'s> DerefMut for DiceComputationsRef<'s> {
 }
 
 impl<'a> BxlSafeDiceComputations<'a> {
-    pub fn new(dice: &'a mut DiceComputations, cancellation: CancellationObserver) -> Self {
+    pub(crate) fn new(dice: &'a mut DiceComputations, cancellation: CancellationObserver) -> Self {
         Self(dice, cancellation)
     }
 
     /// runs any async computation
-    pub fn via<'s, T>(
+    pub(crate) fn via<'s, T>(
         &'s mut self,
         f: impl for<'x> FnOnce(&'x mut DiceComputationsRef<'s>) -> LocalBoxFuture<'x, anyhow::Result<T>>,
     ) -> anyhow::Result<T>
@@ -97,11 +100,11 @@ impl<'a> BxlSafeDiceComputations<'a> {
         })
     }
 
-    pub fn global_data(&self) -> &DiceData {
+    pub(crate) fn global_data(&self) -> &DiceData {
         self.0.global_data()
     }
 
-    pub fn per_transaction_data(&self) -> &UserComputationData {
+    pub(crate) fn per_transaction_data(&self) -> &UserComputationData {
         self.0.per_transaction_data()
     }
 }

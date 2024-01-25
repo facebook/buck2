@@ -353,7 +353,7 @@ impl<'v> BxlContext<'v> {
     /// This should generally only be called at the top level functions in bxl.
     /// Within the lambdas, use the existing reference to Dice provided instead of calling nested
     /// via_dice, as that breaks borrow invariants of the dice computations.
-    pub fn via_dice<'a, 's, T>(
+    pub(crate) fn via_dice<'a, 's, T>(
         &'a self,
         f: impl for<'x> FnOnce(
             RefMut<'x, BxlSafeDiceComputations<'v>>,

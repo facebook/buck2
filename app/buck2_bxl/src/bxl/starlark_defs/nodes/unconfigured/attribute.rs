@@ -123,7 +123,7 @@ fn coerced_attr_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-pub trait CoercedAttrExt {
+pub(crate) trait CoercedAttrExt {
     fn starlark_type(&self) -> anyhow::Result<&'static str>;
 
     fn to_value<'v>(&self, pkg: PackageLabel, heap: &'v Heap) -> anyhow::Result<Value<'v>>;
