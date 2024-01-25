@@ -9,11 +9,14 @@
 
 //! Implementation of common cquery/uquery pieces.
 
+use anyhow::Context;
 use buck2_query::query::environment::QueryEnvironment;
+use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::syntax::simple::eval::evaluator::QueryEvaluator;
 use buck2_query::query::syntax::simple::eval::literals::extract_target_literals;
-use buck2_query::query::syntax::simple::eval::multi_query::process_multi_query;
+use buck2_query::query::syntax::simple::eval::multi_query::MultiQueryResult;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
+use buck2_query::query::syntax::simple::eval::values::QueryEvaluationValue;
 use buck2_query::query::syntax::simple::functions::QueryFunctions;
 use buck2_query_parser::placeholder::QUERY_PERCENT_S_PLACEHOLDER;
 use futures::Future;
@@ -81,4 +84,48 @@ pub async fn eval_query<
                 .await?,
         ))
     }
+}
+
+async fn process_multi_query<T, Fut, F, A: AsRef<str>>(
+    query: &str,
+    query_args: &[A],
+    func: F,
+) -> anyhow::Result<MultiQueryResult<T>>
+where
+    T: QueryTarget,
+    Fut: Future<Output = (String, anyhow::Result<QueryEvaluationValue<T>>)> + Send,
+    F: Fn(String, String) -> Fut,
+{
+    // SAFETY: it is safe as long as we don't forget the future. We don't do that.
+    let ((), future_results) = unsafe {
+        async_scoped::TokioScope::scope_and_collect(|scope| {
+            for (i, arg) in query_args.iter().enumerate() {
+                let input = arg.as_ref().to_owned();
+                let query: String = query.replace(QUERY_PERCENT_S_PLACEHOLDER, &input);
+                let input_1 = input.clone();
+                let fut = func(input_1, query);
+                scope.spawn_cancellable(
+                    async move {
+                        let (query, result) = fut.await;
+                        (i, query, result)
+                    },
+                    move || (i, input, Err(anyhow::anyhow!("future was cancelled"))),
+                )
+            }
+        })
+        .await
+    };
+
+    let mut results = Vec::with_capacity(future_results.len());
+    for query_result in future_results {
+        let (i, query, result) = query_result.context("scope_and_collect failed")?;
+        results.push((i, query, result));
+    }
+    results.sort_by_key(|(i, _, _)| *i);
+
+    let map = results
+        .into_iter()
+        .map(|(_, query, result)| (query, result))
+        .collect();
+    Ok(MultiQueryResult(map))
 }
