@@ -211,7 +211,7 @@ def _get_source_only_abi_compiling_deps(compiling_deps_tset: [JavaCompilingDepsT
         for d in source_only_abi_deps:
             info = d.get(JavaLibraryInfo)
             if not info:
-                fail("source_only_abi_deps must produce a JavaLibraryInfo but {} does not, please remove it".format(d))
+                fail("source_only_abi_deps must produce a JavaLibraryInfo but '{}' does not, please remove it".format(d.label))
             if info.library_output:
                 source_only_abi_deps_filter[info.library_output.abi] = True
 
