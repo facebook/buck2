@@ -127,9 +127,9 @@ def _compute_emulator_subplatform(labels: list[str]) -> str:
         return emulator_subplatform_labels[0].replace("re_emulator_", "")
 
 def _compute_emulator_platform(labels: list[str]) -> str:
-    emulator_platform_labels = [label for label in labels if label.startswith("re_platform")]
-    expect(len(emulator_platform_labels) <= 1, "multiple 're_platform' labels were found:[{}], there must be only one!".format(", ".join(emulator_platform_labels)))
+    emulator_platform_labels = [label for label in labels if label.startswith("re_platform_")]
+    expect(len(emulator_platform_labels) <= 1, "multiple 're_platform_' labels were found:[{}], there must be only one!".format(", ".join(emulator_platform_labels)))
     if len(emulator_platform_labels) == 0:
         return DEFAULT_ANDROID_PLATFORM
     else:  # len(emulator_platform_labels) == 1:
-        return emulator_platform_labels[0].replace("re_platform", "")
+        return emulator_platform_labels[0].replace("re_platform_", "")
