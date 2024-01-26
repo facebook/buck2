@@ -51,7 +51,7 @@ def main() -> None:
                 lib,
             )
 
-            output_path.parent.mkdir(exist_ok=True)
+            output_path.parent.mkdir(exist_ok=True, parents=True)
             relative_path_to_lib = os.path.relpath(
                 os.path.realpath(lib),
                 start=os.path.realpath(os.path.dirname(output_path)),
