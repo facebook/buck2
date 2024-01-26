@@ -198,7 +198,7 @@ tower-layer = "0.3.1"
 tower-service = "0.3.2"
 tracing = "0.1.22"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-triomphe = "0.1.8"
+triomphe = "0.1.11"
 trybuild = "1.0.56"
 twox-hash = "1.6.1"
 unicode-segmentation = "1.7"
