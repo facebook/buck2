@@ -27,36 +27,23 @@ def assemble_bundle(
     incremental_context: Optional[IncrementalContext],
     check_conflicts: bool,
 ) -> Optional[List[IncrementalStateItem]]:
-    # It's possible to have the same spec multiple times as different
-    # apple_resource() targets can refer to the _same_ resource file.
-    #
-    # On RE, we're not allowed to overwrite files, so prevent doing
-    # identical file copies.
-    #
-    # Do not reorder spec items to achieve determinism.
-    # Rely on the fact that `dict` preserves key order.
-    deduplicated_spec = list(dict.fromkeys(spec))
-    # Force same sorting as in Buck1 for `SourcePathWithAppleBundleDestination`
-    # WARNING: This logic is tightly coupled with how spec filtering is done in `_filter_conflicting_paths` method during incremental bundling. Don't change unless you fully understand what is going on here.
-    deduplicated_spec.sort()
-
     incremental_result = None
     if incremental_context:
-        if should_assemble_incrementally(deduplicated_spec, incremental_context):
+        if should_assemble_incrementally(spec, incremental_context):
             incremental_result = _assemble_incrementally(
                 bundle_path,
-                deduplicated_spec,
+                spec,
                 incremental_context.metadata,
                 cast(IncrementalState, incremental_context.state),
                 check_conflicts,
             )
         else:
-            _assemble_non_incrementally(bundle_path, deduplicated_spec, check_conflicts)
+            _assemble_non_incrementally(bundle_path, spec, check_conflicts)
             incremental_result = calculate_incremental_state(
-                deduplicated_spec, incremental_context.metadata
+                spec, incremental_context.metadata
             )
     else:
-        _assemble_non_incrementally(bundle_path, deduplicated_spec, check_conflicts)
+        _assemble_non_incrementally(bundle_path, spec, check_conflicts)
 
     # External tooling (e.g., Xcode) might depend on the timestamp of the bundle
     bundle_path.touch()

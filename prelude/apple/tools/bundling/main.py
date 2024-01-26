@@ -289,6 +289,7 @@ def _main() -> None:
 
     with args.spec.open(mode="rb") as spec_file:
         spec = json.load(spec_file, object_hook=lambda d: BundleSpecItem(**d))
+        spec = _deduplicate_spec(spec)
 
     incremental_context = _incremental_context(
         incremenatal_state_path=args.incremental_state,
@@ -468,6 +469,22 @@ def _write_incremental_state(
     except Exception:
         path.unlink()
         raise
+
+
+def _deduplicate_spec(spec: List[BundleSpecItem]) -> List[BundleSpecItem]:
+    # It's possible to have the same spec multiple times as different
+    # apple_resource() targets can refer to the _same_ resource file.
+    #
+    # On RE, we're not allowed to overwrite files, so prevent doing
+    # identical file copies.
+    #
+    # Do not reorder spec items to achieve determinism.
+    # Rely on the fact that `dict` preserves key order.
+    deduplicated_spec = list(dict.fromkeys(spec))
+    # Force same sorting as in Buck1 for `SourcePathWithAppleBundleDestination`
+    # WARNING: This logic is tightly coupled with how spec filtering is done in `_filter_conflicting_paths` method during incremental bundling. Don't change unless you fully understand what is going on here.
+    deduplicated_spec.sort()
+    return deduplicated_spec
 
 
 def _setup_logging(
