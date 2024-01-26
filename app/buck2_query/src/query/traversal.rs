@@ -43,7 +43,7 @@ pub trait AsyncNodeLookup<T: LabeledNode>: Send + Sync {
     async fn get(&self, label: &T::Key) -> anyhow::Result<T>;
 }
 
-/// Note lookup when node key is the same as the node.
+/// Node lookup when node key is the same as the node.
 pub struct NodeLookupId;
 
 impl<T: LabeledNode<Key = T>> NodeLookup<T> for NodeLookupId {
