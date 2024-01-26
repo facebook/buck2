@@ -7,13 +7,11 @@
  * of this source tree.
  */
 
-mod any;
-mod cell;
-mod collections;
-mod function;
-mod mem;
-mod primitive;
-mod sync;
-mod time;
-mod tuple;
-mod unsorted;
+use crate::allocative_trait::Allocative;
+use crate::visitor::Visitor;
+
+impl Allocative for std::any::TypeId {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+        visitor.visit_simple_sized::<Self>();
+    }
+}
