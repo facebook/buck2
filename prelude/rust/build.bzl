@@ -176,11 +176,9 @@ def generate_rustdoc(
     output = ctx.actions.declare_output(subdir)
 
     plain_env, path_env = _process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
+    plain_env["RUSTDOC_BUCK_TARGET"] = cmd_args(str(ctx.label.raw_target()))
 
     rustdoc_cmd = cmd_args(
-        [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],
-        [cmd_args("--path-env=", k, "=", v, delimiter = "") for k, v in path_env.items()],
-        cmd_args(str(ctx.label.raw_target()), format = "--env=RUSTDOC_BUCK_TARGET={}"),
         toolchain_info.rustdoc,
         toolchain_info.rustdoc_flags,
         ctx.attrs.rustdoc_flags,
@@ -194,6 +192,7 @@ def generate_rustdoc(
     url_prefix = toolchain_info.extern_html_root_url_prefix
     if url_prefix != None:
         # Flag --extern-html-root-url used below is only supported on nightly.
+        plain_env["RUSTC_BOOTSTRAP"] = cmd_args("1")
         rustdoc_cmd.add("-Zunstable-options")
 
         for dep in resolve_rust_deps(ctx, compile_ctx.dep_ctx):
@@ -214,10 +213,16 @@ def generate_rustdoc(
 
     rustdoc_cmd.hidden(toolchain_info.rustdoc, compile_ctx.symlinked_srcs)
 
+    rustdoc_cmd_action = cmd_args(
+        [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],
+        [cmd_args("--path-env=", k, "=", v, delimiter = "") for k, v in path_env.items()],
+        rustdoc_cmd,
+    )
+
     rustdoc_cmd = _long_command(
         ctx = ctx,
         exe = toolchain_info.rustc_action,
-        args = rustdoc_cmd,
+        args = rustdoc_cmd_action,
         argfile_name = "{}.args".format(subdir),
     )
 
@@ -315,14 +320,17 @@ def generate_rustdoc_test(
     for k, v in doc_path_env.items():
         plain_env.pop(k, None)
         path_env[k] = v
-    plain_env["RUSTC_BOOTSTRAP"] = cmd_args("1")  # for `-Zunstable-options`
+
+    # `--runtool` is unstable.
+    plain_env["RUSTC_BOOTSTRAP"] = cmd_args("1")
+    unstable_options = ["-Zunstable-options"]
 
     rustdoc_cmd = cmd_args(
         [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],
         [cmd_args("--path-env=", k, "=", v, delimiter = "") for k, v in path_env.items()],
         toolchain_info.rustdoc,
         "--test",
-        "-Zunstable-options",
+        unstable_options,
         cmd_args("--test-builder=", toolchain_info.compiler, delimiter = ""),
         toolchain_info.rustdoc_flags,
         ctx.attrs.rustdoc_flags,
@@ -509,6 +517,7 @@ def rust_compile(
         is_binary = is_binary,
         allow_cache_upload = allow_cache_upload,
         crate_map = common_args.crate_map,
+        env = emit_op.env,
     )
 
     # Add clippy diagnostic targets for check builds
@@ -522,7 +531,7 @@ def rust_compile(
             subdir = common_args.subdir + "-clippy",
             params = params,
         )
-        clippy_env = dict()
+        clippy_env = clippy_emit_op.env
         if toolchain_info.clippy_toml:
             # Clippy wants to be given a path to a directory containing a
             # clippy.toml (or .clippy.toml). Our buckconfig accepts an arbitrary
@@ -1050,6 +1059,7 @@ def _crate_root(
 EmitOperation = record(
     output = field(Artifact),
     args = field(cmd_args),
+    env = field(dict[str, str]),
     extra_out = field(Artifact | None),
 )
 
@@ -1077,6 +1087,8 @@ def _rustc_emit(
                     not crate_type_codegen(crate_type)
 
     emit_args = cmd_args()
+    emit_env = {}
+
     if emit in predeclared_outputs:
         emit_output = predeclared_outputs[emit]
     else:
@@ -1096,16 +1108,24 @@ def _rustc_emit(
         # code. It should contain full information needed by any dependent
         # crate which is generating code (MIR, etc).
         # Requires https://github.com/rust-lang/rust/pull/86045
+        emit_env["RUSTC_BOOTSTRAP"] = "1"
         emit_args.add(
             cmd_args(emit_output.as_output(), format = "--emit=link={}"),
             "-Zno-codegen",
         )
     elif emit == Emit("expand"):
+        emit_env["RUSTC_BOOTSTRAP"] = "1"
         emit_args.add(
             "-Zunpretty=expanded",
             cmd_args(emit_output.as_output(), format = "-o{}"),
         )
     else:
+        if toolchain_info.pipelined:
+            # Even though no unstable flag is set on this branch, we need an identical
+            # environment between the `-Zno-codegen` and non-`-Zno-codegen` command or
+            # else there are "found possibly newer version of crate" errors.
+            emit_env["RUSTC_BOOTSTRAP"] = "1"
+
         # Assume https://github.com/rust-lang/rust/issues/85356 is fixed (ie
         # https://github.com/rust-lang/rust/pull/85362 is applied)
         emit_args.add(cmd_args("--emit=", emit.value, "=", emit_output.as_output(), delimiter = ""))
@@ -1127,6 +1147,7 @@ def _rustc_emit(
     return EmitOperation(
         output = emit_output,
         args = emit_args,
+        env = emit_env,
         extra_out = extra_out,
     )
 
@@ -1142,7 +1163,7 @@ def _rustc_invoke(
         is_binary: bool,
         allow_cache_upload: bool,
         crate_map: list[(CrateName, Label)],
-        env: dict[str, [ResolvedStringWithMacros, Artifact]] = {}) -> (dict[str, Artifact], [Artifact, None]):
+        env: dict[str, str | ResolvedStringWithMacros | Artifact]) -> (dict[str, Artifact], [Artifact, None]):
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
     toolchain_info = compile_ctx.toolchain_info
@@ -1234,7 +1255,7 @@ _ESCAPED_NEWLINE_RE = regex("\\n")
 # path and non-path content, but we'll burn that bridge when we get to it.)
 def _process_env(
         compile_ctx: CompileContext,
-        env: dict[str, [ResolvedStringWithMacros, Artifact]],
+        env: dict[str, str | ResolvedStringWithMacros | Artifact],
         exec_is_windows: bool) -> (dict[str, cmd_args], dict[str, cmd_args]):
     # Values with inputs (ie artifact references).
     path_env = {}
