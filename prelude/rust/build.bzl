@@ -422,7 +422,6 @@ def rust_compile(
         lints,
         # Report unused --extern crates in the notification stream.
         ["--json=unused-externs-silent", "-Wunused-crate-dependencies"] if toolchain_info.report_unused_deps else [],
-        "--json=artifacts",  # only needed for pipeline but no harm in always leaving it enabled
         common_args.args,
         cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, path_sep, "=", ctx.label.path, path_sep, delimiter = ""),
         compile_ctx.linker_args,
@@ -510,7 +509,6 @@ def rust_compile(
         is_binary = is_binary,
         allow_cache_upload = allow_cache_upload,
         crate_map = common_args.crate_map,
-        only_artifact = "metadata" if toolchain_info.pipelined and emit == Emit("metadata") else None,
     )
 
     # Add clippy diagnostic targets for check builds
@@ -1061,16 +1059,16 @@ def _rustc_emit(
     simple_crate = attr_simple_crate_for_filenames(ctx)
     crate_type = params.crate_type
 
-    # Metadata for pipelining needs has enough info to be used as an input for
-    # dependents. To do this reliably, follow Cargo's pattern of always doing
-    # --emit metadata,link, but only using the output we actually need.
+    # Metadata for pipelining needs has enough info to be used as an input
+    # for dependents. To do this reliably, we actually emit "link" but
+    # suppress actual codegen with -Zno-codegen.
     #
     # We don't bother to do this with "codegen" crates - ie, ones which are
-    # linked into an artifact like binaries and dylib, since they're not used as
-    # a pipelined dependency input.
-    pipeline_artifact = toolchain_info.pipelined and \
-                        emit in (Emit("metadata"), Emit("link")) and \
-                        not crate_type_codegen(crate_type)
+    # linked into an artifact like binaries and dylib, since they're not
+    # used as a pipelined dependency input.
+    pipeline_meta = emit == Emit("metadata") and \
+                    toolchain_info.pipelined and \
+                    not crate_type_codegen(crate_type)
 
     emit_args = cmd_args()
     if emit in predeclared_outputs:
@@ -1078,19 +1076,23 @@ def _rustc_emit(
     else:
         extra_hash = "-" + _metadata(ctx.label, False)[1]
         emit_args.add("-Cextra-filename={}".format(extra_hash))
-        filename = subdir + "/" + output_filename(simple_crate, emit, params, extra_hash)
+        if pipeline_meta:
+            # Make sure hollow rlibs are distinct from real ones
+            filename = subdir + "/hollow/" + output_filename(simple_crate, Emit("link"), params, extra_hash)
+        else:
+            filename = subdir + "/" + output_filename(simple_crate, emit, params, extra_hash)
 
         emit_output = ctx.actions.declare_output(filename)
 
-    # For pipelined builds if we're emitting either metadata or link then make
-    # sure we generate both and take the one we want.
-    if pipeline_artifact:
-        metaext = "" if emit == Emit("metadata") else "_unwanted"
-        linkext = "" if emit == Emit("link") else "_unwanted"
-
+    if pipeline_meta:
+        # If we're doing a pipelined build, instead of emitting an actual rmeta
+        # we emit a "hollow" .rlib - ie, it only contains lib.rmeta and no object
+        # code. It should contain full information needed by any dependent
+        # crate which is generating code (MIR, etc).
+        # Requires https://github.com/rust-lang/rust/pull/86045
         emit_args.add(
-            cmd_args("--emit=metadata=", emit_output.as_output(), metaext, delimiter = ""),
-            cmd_args("--emit=link=", emit_output.as_output(), linkext, delimiter = ""),
+            cmd_args(emit_output.as_output(), format = "--emit=link={}"),
+            "-Zno-codegen",
         )
     elif emit == Emit("expand"):
         emit_args.add(
@@ -1130,8 +1132,7 @@ def _rustc_invoke(
         is_binary: bool,
         allow_cache_upload: bool,
         crate_map: list[(CrateName, Label)],
-        env: dict[str, [ResolvedStringWithMacros, Artifact]] = {},
-        only_artifact: [None, str] = None) -> (dict[str, Artifact], [Artifact, None]):
+        env: dict[str, [ResolvedStringWithMacros, Artifact]] = {}) -> (dict[str, Artifact], [Artifact, None]):
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
     toolchain_info = compile_ctx.toolchain_info
@@ -1152,9 +1153,6 @@ def _rustc_invoke(
         "--remap-cwd-prefix=.",
         "--buck-target={}".format(ctx.label.raw_target()),
     )
-
-    if only_artifact:
-        compile_cmd.add("--only-artifact=" + only_artifact)
 
     for k, v in crate_map:
         compile_cmd.add(crate_map_arg(ctx, compile_ctx, k, v))
