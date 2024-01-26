@@ -94,8 +94,8 @@ pub fn killall(who_is_asking: WhoIsAsking, write: impl Fn(String)) -> bool {
 
     impl<F: Fn(String)> Printer<F> {
         fn fmt_status(&mut self, process: &ProcessInfo, status: &str) -> String {
-            #[allow(deprecated)] // TODO(yurysamkevich): to fix
-            let cmd = shlex::join(process.cmd.iter().map(|s| s.as_str()));
+            let cmd = shlex::try_join(process.cmd.iter().map(|s| s.as_str()))
+                .expect("Null byte unexpected");
             format!("{} {} ({}). {}", status, process.name, process.pid, cmd,)
         }
 
