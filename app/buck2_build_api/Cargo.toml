@@ -27,7 +27,6 @@ ref-cast = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-shlex = { workspace = true }
 smallvec = { workspace = true }
 static_assertions = { workspace = true }
 tokio = { workspace = true }

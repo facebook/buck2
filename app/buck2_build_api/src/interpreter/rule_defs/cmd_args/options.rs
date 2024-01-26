@@ -50,6 +50,7 @@ use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::cmd_args::regex::CmdArgsRegex;
 use crate::interpreter::rule_defs::cmd_args::regex::FrozenCmdArgsRegex;
+use crate::interpreter::rule_defs::cmd_args::shlex_quote::shlex_quote;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
@@ -645,8 +646,7 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
                 }
                 match &self.opts.quote {
                     Some(QuoteStyle::Shell) => {
-                        #[allow(deprecated)] // TODO(yurysamkevich): to fix
-                        let quoted = shlex::quote(&arg);
+                        let quoted = shlex_quote(&arg);
                         arg = quoted.into_owned();
                     }
                     _ => {}

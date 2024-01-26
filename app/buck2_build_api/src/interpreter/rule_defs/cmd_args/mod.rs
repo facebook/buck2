@@ -11,6 +11,7 @@ pub mod arg_builder;
 mod builder;
 mod options;
 pub(crate) mod regex;
+pub(crate) mod shlex_quote;
 pub mod space_separated;
 mod traits;
 mod typ;
