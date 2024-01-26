@@ -116,6 +116,7 @@ android_aar = prelude_rule(
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "enable_relinker": attrs.bool(default = False),
+            "excluded_java_deps": attrs.list(attrs.dep(), default = []),
             "extra_arguments": attrs.list(attrs.string(), default = []),
             "extra_kotlinc_arguments": attrs.list(attrs.string(), default = []),
             "extra_non_source_only_abi_kotlinc_arguments": attrs.list(attrs.string(), default = []),

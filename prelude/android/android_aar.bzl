@@ -16,13 +16,16 @@ load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_DEFAULT_PLATFORM", "CP
 load("@prelude//android:util.bzl", "create_enhancement_context")
 load("@prelude//java:java_providers.bzl", "get_all_java_packaging_deps", "get_all_java_packaging_deps_from_packaging_infos")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
+load("@prelude//utils:set.bzl", "set")
 
 def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
     deps_by_platform = get_deps_by_platform(ctx)
     primary_platform = CPU_FILTER_FOR_PRIMARY_PLATFORM if CPU_FILTER_FOR_PRIMARY_PLATFORM in deps_by_platform else CPU_FILTER_FOR_DEFAULT_PLATFORM
     deps = deps_by_platform[primary_platform]
 
-    java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, deps)]
+    excluded_java_packaging_deps = get_all_java_packaging_deps(ctx, ctx.attrs.excluded_java_deps)
+    excluded_java_packaging_deps_targets = set([excluded_dep.label.raw_target() for excluded_dep in excluded_java_packaging_deps])
+    java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, deps) if not excluded_java_packaging_deps_targets.contains(packaging_dep.label.raw_target())]
     android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, deps)
 
     android_manifest = get_manifest(ctx, android_packageable_info, manifest_entries = {})
