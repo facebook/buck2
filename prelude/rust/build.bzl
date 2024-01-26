@@ -435,7 +435,7 @@ def rust_compile(
     # use the predeclared one as the output after the failure filter action
     # below. Otherwise we'll use the predeclared outputs directly.
     if toolchain_info.failure_filter:
-        emit_output, emit_args, extra_out = _rustc_emit(
+        emit_op = _rustc_emit(
             ctx = ctx,
             compile_ctx = compile_ctx,
             emit = emit,
@@ -444,7 +444,7 @@ def rust_compile(
             params = params,
         )
     else:
-        emit_output, emit_args, extra_out = _rustc_emit(
+        emit_op = _rustc_emit(
             ctx = ctx,
             compile_ctx = compile_ctx,
             emit = emit,
@@ -485,7 +485,7 @@ def rust_compile(
                 inherited_link_args,
             ],
             "{}-{}".format(subdir, tempfile),
-            output_short_path = emit_output.short_path,
+            output_short_path = emit_op.output.short_path,
         )
         linker_argsfile, _ = ctx.actions.write(
             "{}/__{}_linker_args.txt".format(subdir, tempfile),
@@ -502,9 +502,9 @@ def rust_compile(
         ctx = ctx,
         compile_ctx = compile_ctx,
         prefix = "{}/{}".format(common_args.subdir, common_args.tempfile),
-        rustc_cmd = cmd_args(toolchain_info.compiler, rustc_cmd, emit_args),
+        rustc_cmd = cmd_args(toolchain_info.compiler, rustc_cmd, emit_op.args),
         diag = "diag",
-        required_outputs = [emit_output],
+        required_outputs = [emit_op.output],
         short_cmd = common_args.short_cmd,
         is_binary = is_binary,
         allow_cache_upload = allow_cache_upload,
@@ -514,7 +514,7 @@ def rust_compile(
     # Add clippy diagnostic targets for check builds
     if common_args.is_check:
         # We don't really need the outputs from this build, just to keep the artifact accounting straight
-        clippy_out, clippy_emit_args, _extra_out = _rustc_emit(
+        clippy_emit_op = _rustc_emit(
             ctx = ctx,
             compile_ctx = compile_ctx,
             emit = emit,
@@ -539,10 +539,10 @@ def rust_compile(
             compile_ctx = compile_ctx,
             prefix = "{}/{}".format(common_args.subdir, common_args.tempfile),
             # Lints go first to allow other args to override them.
-            rustc_cmd = cmd_args(compile_ctx.clippy_wrapper, clippy_lints, rustc_cmd, clippy_emit_args),
+            rustc_cmd = cmd_args(compile_ctx.clippy_wrapper, clippy_lints, rustc_cmd, clippy_emit_op.args),
             env = clippy_env,
             diag = "clippy",
-            required_outputs = [clippy_out],
+            required_outputs = [clippy_emit_op.output],
             short_cmd = common_args.short_cmd,
             is_binary = False,
             allow_cache_upload = False,
@@ -557,7 +557,7 @@ def rust_compile(
         stderr = diag["diag.txt"]
         filter_prov = RustFailureFilter(
             buildstatus = build_status,
-            required = emit_output,
+            required = emit_op.output,
             stderr = stderr,
         )
 
@@ -570,11 +570,11 @@ def rust_compile(
             short_cmd = common_args.short_cmd,
         )
     else:
-        filtered_output = emit_output
+        filtered_output = emit_op.output
 
     split_debug_mode = compile_ctx.cxx_toolchain_info.split_debug_mode or SplitDebugMode("none")
     if emit == Emit("link") and split_debug_mode != SplitDebugMode("none"):
-        dwo_output_directory = extra_out
+        dwo_output_directory = emit_op.extra_out
 
         # staticlibs and cdylibs are "bundled" in the sense that they are used
         # without their dependencies by the rest of the rules. This is normally
@@ -605,7 +605,7 @@ def rust_compile(
         dwp_output = dwp(
             ctx,
             compile_ctx.cxx_toolchain_info,
-            emit_output,
+            emit_op.output,
             identifier = "{}/__{}_{}_dwp".format(common_args.subdir, common_args.tempfile, str(emit)),
             category_suffix = "rust",
             # TODO(T110378142): Ideally, referenced objects are a list of
@@ -1047,6 +1047,12 @@ def _crate_root(
 
     fail("Could not infer crate_root. candidates=%s\nAdd 'crate_root = \"src/example.rs\"' to your attributes to disambiguate." % candidates.list())
 
+EmitOperation = record(
+    output = field(Artifact),
+    args = field(cmd_args),
+    extra_out = field(Artifact | None),
+)
+
 # Take a desired output and work out how to convince rustc to generate it
 def _rustc_emit(
         ctx: AnalysisContext,
@@ -1054,7 +1060,7 @@ def _rustc_emit(
         emit: Emit,
         predeclared_outputs: dict[Emit, Artifact],
         subdir: str,
-        params: BuildParams) -> (Artifact, cmd_args, [Artifact, None]):
+        params: BuildParams) -> EmitOperation:
     toolchain_info = compile_ctx.toolchain_info
     simple_crate = attr_simple_crate_for_filenames(ctx)
     crate_type = params.crate_type
@@ -1118,7 +1124,11 @@ def _rustc_emit(
             incremental_cmd = cmd_args(incremental_out.as_output(), format = "-Cincremental={}")
             emit_args.add(incremental_cmd)
 
-    return (emit_output, emit_args, extra_out)
+    return EmitOperation(
+        output = emit_output,
+        args = emit_args,
+        extra_out = extra_out,
+    )
 
 # Invoke rustc and capture outputs
 def _rustc_invoke(
