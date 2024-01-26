@@ -1088,6 +1088,7 @@ def _rustc_emit(
 
     emit_args = cmd_args()
     emit_env = {}
+    extra_out = None
 
     if emit in predeclared_outputs:
         emit_output = predeclared_outputs[emit]
@@ -1102,18 +1103,7 @@ def _rustc_emit(
 
         emit_output = ctx.actions.declare_output(filename)
 
-    if pipeline_meta:
-        # If we're doing a pipelined build, instead of emitting an actual rmeta
-        # we emit a "hollow" .rlib - ie, it only contains lib.rmeta and no object
-        # code. It should contain full information needed by any dependent
-        # crate which is generating code (MIR, etc).
-        # Requires https://github.com/rust-lang/rust/pull/86045
-        emit_env["RUSTC_BOOTSTRAP"] = "1"
-        emit_args.add(
-            cmd_args(emit_output.as_output(), format = "--emit=link={}"),
-            "-Zno-codegen",
-        )
-    elif emit == Emit("expand"):
+    if emit == Emit("expand"):
         emit_env["RUSTC_BOOTSTRAP"] = "1"
         emit_args.add(
             "-Zunpretty=expanded",
@@ -1121,17 +1111,27 @@ def _rustc_emit(
         )
     else:
         if toolchain_info.pipelined:
-            # Even though no unstable flag is set on this branch, we need an identical
-            # environment between the `-Zno-codegen` and non-`-Zno-codegen` command or
-            # else there are "found possibly newer version of crate" errors.
+            # Even though the unstable flag only appears on one of the branches, we need
+            # an identical environment between the `-Zno-codegen` and non-`-Zno-codegen`
+            # command or else there are "found possibly newer version of crate" errors.
             emit_env["RUSTC_BOOTSTRAP"] = "1"
 
-        # Assume https://github.com/rust-lang/rust/issues/85356 is fixed (ie
-        # https://github.com/rust-lang/rust/pull/85362 is applied)
-        emit_args.add(cmd_args("--emit=", emit.value, "=", emit_output.as_output(), delimiter = ""))
+        if pipeline_meta:
+            # If we're doing a pipelined build, instead of emitting an actual rmeta
+            # we emit a "hollow" .rlib - ie, it only contains lib.rmeta and no object
+            # code. It should contain full information needed by any dependent
+            # crate which is generating code (MIR, etc).
+            #
+            # IMPORTANT: this flag is the only way that the Emit("metadata") and
+            # Emit("link") operations are allowed to diverge without causing them to
+            # get different crate hashes.
+            emit_args.add("-Zno-codegen")
+            effective_emit = Emit("link")
+        else:
+            effective_emit = emit
 
-    extra_out = None
-    if emit != Emit("expand"):
+        emit_args.add(cmd_args("--emit=", effective_emit.value, "=", emit_output.as_output(), delimiter = ""))
+
         # Strip file extension from directory name.
         base, _ext = paths.split_extension(output_filename(simple_crate, emit, params))
         extra_dir = subdir + "/extras/" + base
