@@ -11,6 +11,7 @@ import multiprocessing.util as mp_util
 import os
 import sys
 import threading
+import warnings
 from importlib.machinery import PathFinder
 from importlib.util import module_from_spec
 
@@ -83,17 +84,18 @@ def __startup__():
         ],
     )
     for name, var in startup_functions:
-        name, sep, func = var.partition(":")
+        mod, sep, func = var.partition(":")
         if sep:
             try:
-                module = importlib.import_module(name)
+                module = importlib.import_module(mod)
                 getattr(module, func)()
             except Exception as e:
                 # TODO: Ignoring errors for now. The way to properly fix this should be to make
                 # sure we are still at the same binary that configured `STARTUP_` before importing.
-                print(
-                    "Error running startup function %s:%s: %s" % (name, func, e),
-                    file=sys.stderr,
+                warnings.warn(
+                    "Startup function %s (%s:%s) not executed: %s"
+                    % (mod, name, func, e),
+                    stacklevel=1,
                 )
 
 
