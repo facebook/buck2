@@ -33,7 +33,7 @@ pub(crate) async fn eval_query<
     functions: &F,
     query: &str,
     query_args: &[A],
-    environment: impl FnOnce(Vec<String>) -> Fut,
+    environment: impl Fn(Vec<String>) -> Fut,
 ) -> anyhow::Result<QueryEvaluationResult<Env::Target>> {
     let query = MaybeMultiQuery::parse(query, query_args)?;
     match query {
@@ -57,7 +57,7 @@ pub(crate) async fn eval_query<
 async fn process_multi_query<Env, EnvFut, Qf>(
     dispatcher: EventDispatcher,
     functions: &Qf,
-    env: impl FnOnce(Vec<String>) -> EnvFut,
+    env: impl Fn(Vec<String>) -> EnvFut,
     queries: &[MultiQueryItem],
 ) -> anyhow::Result<MultiQueryResult<Env::Target>>
 where
