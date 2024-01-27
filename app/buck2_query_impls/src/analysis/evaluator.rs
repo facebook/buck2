@@ -13,12 +13,10 @@ use anyhow::Context;
 use buck2_common::scope::scope_and_collect_with_dispatcher;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_query::query::environment::QueryEnvironment;
-use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::syntax::simple::eval::evaluator::QueryEvaluator;
 use buck2_query::query::syntax::simple::eval::literals::extract_target_literals;
 use buck2_query::query::syntax::simple::eval::multi_query::MultiQueryResult;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
-use buck2_query::query::syntax::simple::eval::values::QueryEvaluationValue;
 use buck2_query::query::syntax::simple::functions::QueryFunctions;
 use buck2_query_parser::multi_query::MaybeMultiQuery;
 use buck2_query_parser::multi_query::MultiQueryItem;
@@ -37,25 +35,14 @@ pub(crate) async fn eval_query<
     query_args: &[A],
     environment: impl FnOnce(Vec<String>) -> Fut,
 ) -> anyhow::Result<QueryEvaluationResult<Env::Target>> {
-    let mut literals = SmallSet::new();
     let query = MaybeMultiQuery::parse(query, query_args)?;
     match query {
         MaybeMultiQuery::MultiQuery(queries) => {
-            for q in &queries {
-                extract_target_literals(functions, &q.query, &mut literals)?;
-            }
-            // TODO(nga): we create one environment shared by all queries.
-            //   This is fine for `uquery`, but for `cquery` if universe is inferred from arguments,
-            //   it should be inferred only from current query, not from all the queries.
-            let env = environment(literals.into_iter().collect()).await?;
-            let results = process_multi_query(dispatcher, &queries, |query| {
-                let evaluator = QueryEvaluator::new(&env, functions);
-                async move { evaluator.eval_query(&query).await }
-            })
-            .await?;
+            let results = process_multi_query(dispatcher, functions, environment, &queries).await?;
             Ok(QueryEvaluationResult::Multiple(results))
         }
         MaybeMultiQuery::SingleQuery(query) => {
+            let mut literals = SmallSet::new();
             extract_target_literals(functions, &query, &mut literals)?;
             let env = environment(literals.into_iter().collect()).await?;
             Ok(QueryEvaluationResult::Single(
@@ -67,26 +54,36 @@ pub(crate) async fn eval_query<
     }
 }
 
-async fn process_multi_query<T, Fut, F>(
+async fn process_multi_query<Env, EnvFut, Qf>(
     dispatcher: EventDispatcher,
+    functions: &Qf,
+    env: impl FnOnce(Vec<String>) -> EnvFut,
     queries: &[MultiQueryItem],
-    func: F,
-) -> anyhow::Result<MultiQueryResult<T>>
+) -> anyhow::Result<MultiQueryResult<Env::Target>>
 where
-    T: QueryTarget,
-    Fut: Future<Output = anyhow::Result<QueryEvaluationValue<T>>> + Send,
-    F: Fn(String) -> Fut,
+    Qf: QueryFunctions<Env = Env>,
+    Env: QueryEnvironment,
+    EnvFut: Future<Output = anyhow::Result<Env>>,
 {
+    let mut literals = SmallSet::new();
+    for q in queries {
+        extract_target_literals(functions, &q.query, &mut literals)?;
+    }
+    // TODO(nga): we create one environment shared by all queries.
+    //   This is fine for `uquery`, but for `cquery` if universe is inferred from arguments,
+    //   it should be inferred only from current query, not from all the queries.
+    let env = env(literals.into_iter().collect()).await?;
+
     // SAFETY: it is safe as long as we don't forget the future. We don't do that.
     let ((), future_results) = unsafe {
         scope_and_collect_with_dispatcher(dispatcher, |scope| {
             for (i, query) in queries.iter().enumerate() {
                 let arg: String = query.arg.clone();
                 let arg_1: String = arg.clone();
-                let fut = func(query.query.clone());
+                let evaluator = QueryEvaluator::new(&env, functions);
                 scope.spawn_cancellable(
                     async move {
-                        let result = fut.await;
+                        let result = evaluator.eval_query(&query.query).await;
                         (i, arg, result)
                     },
                     move || (i, arg_1, Err(anyhow::anyhow!("future was cancelled"))),
