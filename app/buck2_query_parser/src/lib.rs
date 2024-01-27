@@ -44,6 +44,7 @@
 //! FUNCTION_NAME ::= "a-zA-Z_" "a-zA-Z0-9_" *
 //! ```
 
+pub mod multi_query;
 pub mod placeholder;
 pub mod span;
 pub mod spanned;

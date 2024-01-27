@@ -20,18 +20,10 @@ use buck2_query::query::syntax::simple::eval::multi_query::MultiQueryResult;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationValue;
 use buck2_query::query::syntax::simple::functions::QueryFunctions;
-use buck2_query_parser::placeholder::QUERY_PERCENT_S_PLACEHOLDER;
+use buck2_query_parser::multi_query::MaybeMultiQuery;
+use buck2_query_parser::multi_query::MultiQueryItem;
 use futures::Future;
-use gazebo::prelude::*;
 use starlark::collections::SmallSet;
-
-#[derive(Debug, buck2_error::Error)]
-enum EvalQueryError {
-    #[error("Query args supplied without any `%s` placeholder in the query, got args {}", .0.map(|x| format!("`{}`", x)).join(", "))]
-    ArgsWithoutPlaceholder(Vec<String>),
-    #[error("Placeholder `%s` in query argument `{0}`")]
-    PlaceholderInPattern(String),
-}
 
 pub(crate) async fn eval_query<
     F: QueryFunctions<Env = Env>,
@@ -46,74 +38,58 @@ pub(crate) async fn eval_query<
     environment: impl FnOnce(Vec<String>) -> Fut,
 ) -> anyhow::Result<QueryEvaluationResult<Env::Target>> {
     let mut literals = SmallSet::new();
-    if query.contains(QUERY_PERCENT_S_PLACEHOLDER) {
-        // We'd really like the query args to only be literals (file or target).
-        // If that didn't work, we'd really like query args to be well-formed expressions.
-        // Unfortunately Buck1 just substitutes in arbitrarily strings, where the query
-        // or query_args may not form anything remotely valid.
-        // We have to be backwards compatible :(
-        for q in query_args {
-            let q = q.as_ref();
-            if q.contains(QUERY_PERCENT_S_PLACEHOLDER) {
-                return Err(EvalQueryError::PlaceholderInPattern(q.to_owned()).into());
+    let query = MaybeMultiQuery::parse(query, query_args)?;
+    match query {
+        MaybeMultiQuery::MultiQuery(queries) => {
+            for q in &queries {
+                extract_target_literals(functions, &q.query, &mut literals)?;
             }
-            extract_target_literals(
-                functions,
-                &query.replace(QUERY_PERCENT_S_PLACEHOLDER, q),
-                &mut literals,
-            )?;
+            // TODO(nga): we create one environment shared by all queries.
+            //   This is fine for `uquery`, but for `cquery` if universe is inferred from arguments,
+            //   it should be inferred only from current query, not from all the queries.
+            let env = environment(literals.into_iter().collect()).await?;
+            let results = process_multi_query(dispatcher, &queries, |query| {
+                let evaluator = QueryEvaluator::new(&env, functions);
+                async move { evaluator.eval_query(&query).await }
+            })
+            .await?;
+            Ok(QueryEvaluationResult::Multiple(results))
         }
-        // TODO(nga): we create one environment shared by all queries.
-        //   This is fine for `uquery`, but for `cquery` if universe is inferred from arguments,
-        //   it should be inferred only from current query, not from all the queries.
-        let env = environment(literals.into_iter().collect()).await?;
-        let results = process_multi_query(dispatcher, query, query_args, |input, query| {
-            let evaluator = QueryEvaluator::new(&env, functions);
-            async move { (input, evaluator.eval_query(&query).await) }
-        })
-        .await?;
-        Ok(QueryEvaluationResult::Multiple(results))
-    } else if !query_args.is_empty() {
-        Err(
-            EvalQueryError::ArgsWithoutPlaceholder(query_args.map(|s| s.as_ref().to_owned()))
-                .into(),
-        )
-    } else {
-        extract_target_literals(functions, query, &mut literals)?;
-        let env = environment(literals.into_iter().collect()).await?;
-        Ok(QueryEvaluationResult::Single(
-            QueryEvaluator::new(&env, functions)
-                .eval_query(query)
-                .await?,
-        ))
+        MaybeMultiQuery::SingleQuery(query) => {
+            extract_target_literals(functions, &query, &mut literals)?;
+            let env = environment(literals.into_iter().collect()).await?;
+            Ok(QueryEvaluationResult::Single(
+                QueryEvaluator::new(&env, functions)
+                    .eval_query(&query)
+                    .await?,
+            ))
+        }
     }
 }
 
-async fn process_multi_query<T, Fut, F, A: AsRef<str>>(
+async fn process_multi_query<T, Fut, F>(
     dispatcher: EventDispatcher,
-    query: &str,
-    query_args: &[A],
+    queries: &[MultiQueryItem],
     func: F,
 ) -> anyhow::Result<MultiQueryResult<T>>
 where
     T: QueryTarget,
-    Fut: Future<Output = (String, anyhow::Result<QueryEvaluationValue<T>>)> + Send,
-    F: Fn(String, String) -> Fut,
+    Fut: Future<Output = anyhow::Result<QueryEvaluationValue<T>>> + Send,
+    F: Fn(String) -> Fut,
 {
     // SAFETY: it is safe as long as we don't forget the future. We don't do that.
     let ((), future_results) = unsafe {
         scope_and_collect_with_dispatcher(dispatcher, |scope| {
-            for (i, arg) in query_args.iter().enumerate() {
-                let input = arg.as_ref().to_owned();
-                let query: String = query.replace(QUERY_PERCENT_S_PLACEHOLDER, &input);
-                let input_1 = input.clone();
-                let fut = func(input_1, query);
+            for (i, query) in queries.iter().enumerate() {
+                let arg: String = query.arg.clone();
+                let arg_1: String = arg.clone();
+                let fut = func(query.query.clone());
                 scope.spawn_cancellable(
                     async move {
-                        let (query, result) = fut.await;
-                        (i, query, result)
+                        let result = fut.await;
+                        (i, arg, result)
                     },
-                    move || (i, input, Err(anyhow::anyhow!("future was cancelled"))),
+                    move || (i, arg_1, Err(anyhow::anyhow!("future was cancelled"))),
                 )
             }
         })
