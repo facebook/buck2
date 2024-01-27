@@ -51,6 +51,7 @@ _RESOURCE_BUNDLE_FIELDS = [
     "info_plist",
     "info_plist_substitutions",
     "product_name",
+    "privacy_manifest",
     "resource_group",
     "resource_group_map",
     "within_view",

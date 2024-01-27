@@ -342,6 +342,7 @@ apple_bundle = prelude_rule(
         } |
         apple_common.info_plist_arg() |
         apple_common.info_plist_substitutions_arg() |
+        apple_common.privacy_manifest_arg() |
         {
             "asset_catalogs_compilation_options": attrs.dict(key = attrs.string(), value = attrs.any(), default = {}, doc = """
                 A dict holding parameters for asset catalogs compiler (actool). Its options include:

@@ -128,6 +128,13 @@ def _extra_xcode_files():
 """),
     }
 
+def _privacy_manifest_arg():
+    return {
+        "privacy_manifest": attrs.option(attrs.source(), default = None, doc = """
+    A path to an `.xcprivacy` file that will be placed in the bundle.
+"""),
+    }
+
 apple_common = struct(
     headers_arg = _headers_arg,
     exported_headers_arg = _exported_headers_arg,
@@ -138,4 +145,5 @@ apple_common = struct(
     info_plist_substitutions_arg = _info_plist_substitutions_arg,
     extra_xcode_sources = _extra_xcode_sources,
     extra_xcode_files = _extra_xcode_files,
+    privacy_manifest_arg = _privacy_manifest_arg,
 )
