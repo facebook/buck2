@@ -37,6 +37,7 @@ use std::sync::Mutex;
 use either::Either;
 use hashbrown::raw::RawTable;
 use starlark_map::small_set::SmallSet;
+use starlark_map::Hashed;
 
 use crate::collections::SmallMap;
 use crate::values::FrozenValue;
@@ -101,6 +102,12 @@ unsafe impl<'v, T: Trace<'v>> Trace<'v> for SmallSet<T> {
         for v in self.iter_mut_unchecked() {
             v.trace(tracer);
         }
+    }
+}
+
+unsafe impl<'v, T: Trace<'v>> Trace<'v> for Hashed<T> {
+    fn trace(&mut self, tracer: &Tracer<'v>) {
+        self.key_mut().trace(tracer);
     }
 }
 
