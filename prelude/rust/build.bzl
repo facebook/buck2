@@ -677,7 +677,20 @@ def dependency_args(
 
         strategy = strategy_info(dep.info, dep_link_strategy)
 
-        use_rmeta = is_check or (compile_ctx.toolchain_info.pipelined and not crate_type_codegen(crate_type) and not is_rustdoc_test)
+        # With `advanced_unstable_linking`, we unconditionally pass the metadata
+        # artifacts. There are two things that work together to make this possible
+        # in the case of binaries:
+        #
+        #  1. The actual rlibs appear in the link providers, so they'll still be
+        #     available for the linker to link in
+        #  2. The metadata artifacts aren't rmetas, but rather rlibs that just
+        #     don't contain any generated code. Rustc can't distinguish these
+        #     from real rlibs, and so doesn't throw an error
+        #
+        # The benefit of doing this is that there's no requirment that the
+        # dependency's generated code be provided to the linker via an rlib. It
+        # could be provided by other means, say, a link group
+        use_rmeta = is_check or compile_ctx.dep_ctx.advanced_unstable_linking or (compile_ctx.toolchain_info.pipelined and not crate_type_codegen(crate_type) and not is_rustdoc_test)
 
         # Use rmeta dependencies whenever possible because they
         # should be cheaper to produce.
