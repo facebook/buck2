@@ -611,14 +611,22 @@ def _rust_link_providers(
             ),
             deps = inherited_graphs,
         )
-        inherited_graphs = [linkable_graph]
+
+        # We've already reported transitive deps on the inherited graphs, so for
+        # most purposes it would be fine to just have `linkable_graph` here.
+        # However, link groups do an analysis that relies on each symbol
+        # reference having a matching edge in the link graph, and so reexports
+        # and generics mean that we have to report a dependency on all
+        # transitive Rust deps and their immediate non-Rust deps
+        link_graphs = inherited_graphs + [linkable_graph]
     else:
         merged_link_info = create_merged_link_info_for_propagation(ctx, inherited_link_infos)
         shared_libs = merge_shared_libraries(
             ctx.actions,
             deps = inherited_shlibs,
         )
-    return (merged_link_info, shared_libs, inherited_graphs, inherited_exported_deps)
+        link_graphs = inherited_graphs
+    return (merged_link_info, shared_libs, link_graphs, inherited_exported_deps)
 
 def _rust_providers(
         ctx: AnalysisContext,
