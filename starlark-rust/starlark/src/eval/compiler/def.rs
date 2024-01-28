@@ -33,6 +33,7 @@ use once_cell::sync::Lazy;
 use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
 use starlark_derive::VisitSpanMut;
+use starlark_map::StarlarkHasher;
 use starlark_syntax::eval_exception::EvalException;
 use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::syntax::def::DefParam;
@@ -658,6 +659,11 @@ where
 
     fn typechecker_ty(&self) -> Option<Ty> {
         Some(self.def_info.ty.clone())
+    }
+
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
+        // It's hard to come up with a good hash here, but let's at least make an effort.
+        self.def_info.name.write_hash(hasher)
     }
 }
 
