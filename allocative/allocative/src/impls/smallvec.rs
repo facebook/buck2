@@ -19,7 +19,7 @@ use crate::visitor::Visitor;
 
 impl<A> Allocative for SmallVec<A>
 where
-    A: Array + 'static,
+    A: Array,
     A::Item: Allocative,
 {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
