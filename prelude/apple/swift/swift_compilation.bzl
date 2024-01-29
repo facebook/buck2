@@ -198,36 +198,6 @@ def compile_swift(
     if not srcs:
         return None
 
-    # If this target imports XCTest we need to pass the search path to its swiftmodule.
-    framework_search_paths = cmd_args()
-    framework_search_paths.add(_get_xctest_swiftmodule_search_path(ctx))
-
-    # Pass the framework search paths to the driver and clang importer. This is required
-    # for pcm compilation, which does not pass through driver search paths.
-    framework_search_paths.add(framework_search_paths_flags)
-    framework_search_paths.add(cmd_args(framework_search_paths_flags, prepend = "-Xcc"))
-
-    # If a target exports ObjC headers and Swift explicit modules are enabled,
-    # we need to precompile a PCM of the underlying module and supply it to the Swift compilation.
-    if objc_modulemap_pp_info and ctx.attrs.uses_explicit_modules:
-        underlying_swift_pcm_uncompiled_info = get_swift_pcm_uncompile_info(
-            ctx,
-            None,
-            objc_modulemap_pp_info,
-        )
-        if underlying_swift_pcm_uncompiled_info:
-            compiled_underlying_pcm = compile_underlying_pcm(
-                ctx,
-                underlying_swift_pcm_uncompiled_info,
-                deps_providers,
-                get_swift_cxx_flags(ctx),
-                framework_search_paths,
-            )
-        else:
-            compiled_underlying_pcm = None
-    else:
-        compiled_underlying_pcm = None
-
     toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
 
     module_name = get_module_name(ctx)
@@ -235,17 +205,16 @@ def compile_swift(
 
     output_swiftmodule = ctx.actions.declare_output(module_name + SWIFTMODULE_EXTENSION)
 
-    shared_flags = _get_shared_flags(
+    shared_flags = _get_swiftc_flags(
         ctx,
         deps_providers,
         parse_as_library,
-        compiled_underlying_pcm,
         module_name,
         exported_headers,
         objc_modulemap_pp_info,
+        framework_search_paths_flags,
         extra_search_paths_flags,
     )
-    shared_flags.add(framework_search_paths)
 
     if toolchain.can_toolchain_emit_obj_c_header_textually:
         _compile_swiftmodule(ctx, toolchain, shared_flags, srcs, output_swiftmodule, output_header)
@@ -442,7 +411,60 @@ def _compile_with_argsfile(
     # Swift correctly handles relative paths and we can utilize the relative argsfile for absolute paths.
     return CompileArgsfiles(relative = {extension: relative_argsfile}, absolute = {extension: relative_argsfile})
 
-def _get_shared_flags(
+def _get_swiftc_flags(
+        ctx: AnalysisContext,
+        deps_providers: list,
+        parse_as_library: bool,
+        module_name: str,
+        exported_headers: list[CHeader],
+        objc_modulemap_pp_info: [CPreprocessor, None],
+        framework_search_paths_flags: cmd_args,
+        extra_search_paths_flags: list[ArgLike] = []) -> cmd_args:
+    # If this target imports XCTest we need to pass the search path to its swiftmodule.
+    framework_search_paths = cmd_args()
+    framework_search_paths.add(_get_xctest_swiftmodule_search_path(ctx))
+
+    # Pass the framework search paths to the driver and clang importer. This is required
+    # for pcm compilation, which does not pass through driver search paths.
+    framework_search_paths.add(framework_search_paths_flags)
+    framework_search_paths.add(cmd_args(framework_search_paths_flags, prepend = "-Xcc"))
+
+    # If a target exports ObjC headers and Swift explicit modules are enabled,
+    # we need to precompile a PCM of the underlying module and supply it to the Swift compilation.
+    if objc_modulemap_pp_info and ctx.attrs.uses_explicit_modules:
+        underlying_swift_pcm_uncompiled_info = get_swift_pcm_uncompile_info(
+            ctx,
+            None,
+            objc_modulemap_pp_info,
+        )
+        if underlying_swift_pcm_uncompiled_info:
+            compiled_underlying_pcm = compile_underlying_pcm(
+                ctx,
+                underlying_swift_pcm_uncompiled_info,
+                deps_providers,
+                get_swift_cxx_flags(ctx),
+                framework_search_paths,
+            )
+        else:
+            compiled_underlying_pcm = None
+    else:
+        compiled_underlying_pcm = None
+
+    shared_flags = _get_base_flags(
+        ctx,
+        deps_providers,
+        parse_as_library,
+        compiled_underlying_pcm,
+        module_name,
+        exported_headers,
+        objc_modulemap_pp_info,
+        extra_search_paths_flags,
+    )
+    shared_flags.add(framework_search_paths)
+
+    return shared_flags
+
+def _get_base_flags(
         ctx: AnalysisContext,
         deps_providers: list,
         parse_as_library: bool,
