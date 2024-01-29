@@ -82,6 +82,10 @@ impl TracingIoProvider {
         }
     }
 
+    pub fn from_io(io: &dyn IoProvider) -> Option<&Self> {
+        io.as_any().downcast_ref::<Self>()
+    }
+
     pub fn add_project_path(&self, path: ProjectRelativePathBuf) {
         self.trace.project_entries.insert(path);
     }

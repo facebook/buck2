@@ -267,12 +267,7 @@ impl<'a> ServerCommandContext<'a> {
         }));
 
         // Add argfiles read by client into IO tracing state.
-        if let Some(tracing_provider) = base_context
-            .daemon
-            .io
-            .as_any()
-            .downcast_ref::<TracingIoProvider>()
-        {
+        if let Some(tracing_provider) = TracingIoProvider::from_io(&*base_context.daemon.io) {
             let argfiles: anyhow::Result<Vec<_>> = client_context
                 .argfiles
                 .iter()
@@ -891,13 +886,7 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
             self.cell_configs_loader.cells_and_configs(ctx).await?;
 
         // Add legacy config paths to I/O tracing (if enabled).
-        if let Some(tracing_provider) = self
-            .base_context
-            .daemon
-            .io
-            .as_any()
-            .downcast_ref::<TracingIoProvider>()
-        {
+        if let Some(tracing_provider) = TracingIoProvider::from_io(&*self.base_context.daemon.io) {
             tracing_provider.add_config_paths(&self.base_context.project_root, paths);
         }
 
