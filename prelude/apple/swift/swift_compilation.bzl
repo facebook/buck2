@@ -201,6 +201,19 @@ def compile_swift(
     toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
 
     module_name = get_module_name(ctx)
+
+    # See _get_base_flags for where this flag is actually set. We move the
+    # warnings in here because _get_swiftc_flags is called even if srcs is None
+    # (for the [swift-interface] subtarget), and we only want to warn if we're
+    # actually compiling swift files.
+    if ctx.attrs.serialize_debugging_options:
+        if exported_headers:
+            # TODO(T99100029): We cannot use VFS overlays with Buck2, so we have to disable
+            # serializing debugging options for mixed libraries to debug successfully
+            warning("Mixed libraries cannot serialize debugging options, disabling for module `{}` in rule `{}`".format(module_name, ctx.label))
+        elif not toolchain.prefix_serialized_debugging_options:
+            warning("The current toolchain does not support prefixing serialized debugging options, disabling for module `{}` in rule `{}`".format(module_name, ctx.label))
+
     output_header = ctx.actions.declare_output(module_name + "-Swift.h")
 
     output_swiftmodule = ctx.actions.declare_output(module_name + SWIFTMODULE_EXTENSION)
@@ -527,19 +540,8 @@ def _get_base_flags(
         else:
             cmd.add(["-enable-experimental-cxx-interop"])
 
-    serialize_debugging_options = False
-    if ctx.attrs.serialize_debugging_options:
-        if objc_headers:
-            # TODO(T99100029): We cannot use VFS overlays with Buck2, so we have to disable
-            # serializing debugging options for mixed libraries to debug successfully
-            warning("Mixed libraries cannot serialize debugging options, disabling for module `{}` in rule `{}`".format(module_name, ctx.label))
-        elif not toolchain.prefix_serialized_debugging_options:
-            warning("The current toolchain does not support prefixing serialized debugging options, disabling for module `{}` in rule `{}`".format(module_name, ctx.label))
-        else:
-            # Apply the debug prefix map to Swift serialized debugging info.
-            # This will allow for debugging remotely built swiftmodule files.
-            serialize_debugging_options = True
-
+    serialize_debugging_options = ctx.attrs.serialize_debugging_options and \
+                                  not objc_headers and toolchain.prefix_serialized_debugging_options
     if serialize_debugging_options:
         cmd.add([
             "-Xfrontend",
