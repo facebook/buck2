@@ -969,6 +969,9 @@ impl RemoteExecutionClientImpl {
             platform: Some(re_platform(platform)),
             do_not_cache: skip_cache_write,
             buck_info: Some(BuckInfo {
+                version: buck2_build_info::revision()
+                    .map(|s| s.to_owned())
+                    .unwrap_or_default(),
                 build_id: identity.trace_id.to_string(),
                 ..Default::default()
             }),

@@ -27,6 +27,7 @@ pub struct HostResourceRequirements {
 #[derive(Clone, Default)]
 pub struct BuckInfo {
     pub build_id: String,
+    pub version: String,
     pub _dot_dot: (),
 }
 
