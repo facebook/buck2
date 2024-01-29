@@ -88,7 +88,7 @@ is flexible when parsing build targets on the command-line. Specifically, the
 leading `//` is optional on the command line, so the above could be:
 
 ```
-buck build java/com/facebook/share:share
+buck2 build java/com/facebook/share:share
 ```
 
 Also, if there is a forward slash before the colon, it is ignored, so this could
