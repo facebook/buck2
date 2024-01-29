@@ -61,7 +61,7 @@ load(
 )
 load("@prelude//linking:strip.bzl", "strip_object")
 load("@prelude//utils:expect.bzl", "expect")
-load("@prelude//utils:graph_utils.bzl", "breadth_first_traversal_by", "post_order_traversal", "pre_order_traversal", "pre_order_traversal_by")
+load("@prelude//utils:graph_utils.bzl", "breadth_first_traversal_by", "post_order_traversal", "pre_order_traversal")
 load("@prelude//utils:set.bzl", "set", "set_type")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "dedupe_by_value")
 
@@ -187,7 +187,7 @@ def get_android_binary_native_library_info(
     enable_relinker = getattr(ctx.attrs, "enable_relinker", False)
 
     if has_native_merging or enable_relinker:
-        native_merge_debug = ctx.actions.declare_output("native_merge.debug")
+        native_merge_debug = ctx.actions.declare_output("native_merge_debug", dir = True)
         dynamic_outputs.append(native_merge_debug)
 
         # We serialize info about the linkable graph and the apk module mapping and pass that to an
@@ -757,16 +757,25 @@ LinkGroupData = record(
     apk_module = str,
 )
 
+# Lookup key for somerge groups, either the soname for shared libraries or the target name for unmerged statics
+GroupLabel = str
+
+# Represents the primary constituents and deps of primary constituents used to create a LinkGroupLinkableNode for a non-prebuilt shared library.
+LinkGroupMergeInfo = record(
+    label = GroupLabel,
+    deps = list[GroupLabel],
+    exported_deps = list[GroupLabel],
+    constituent_link_infos = list[LinkInfo],
+)
+
 # Represents a node in the final merged linkable map. Most of these will be shared libraries, either prebuilt shared libs or
-# libraries that are created below for a node in the link_groups_graph. The exception is for non-merged static-only nodes, in
-# that case this
+# libraries that are created below for a node in the link_groups_graph. The exception is for non-merged static-only nodes.
 LinkGroupLinkableNode = record(
     # The LinkInfo to add to the link line for a node that links against this.
     link = LinkInfo,
-    deps = list[str],
-    exported_deps = list[str],
+    deps = list[GroupLabel],
+    exported_deps = list[GroupLabel],
     shared_lib = [SharedLibrary, None],
-
     # linker flags to be exported by any node that links against this. This can only be non-None for non-merged static only nodes (as we don't
     # propagate exported linker flags through transitive shared lib deps).
     exported_linker_flags = [(list[typing.Any], list[typing.Any]), None],
@@ -1067,147 +1076,75 @@ def _get_merged_linkables(
                     )
                     continue
 
-            # Keys in the current group stay as a Label, deps get converted to the group key.
-            def convert_to_merged_graph_deps(deps: list[Label], curr_group: str) -> list[[Label, str]]:
-                converted = []
-                for dep in deps:
-                    dep_group = target_to_link_group[dep]
-                    if dep_group == curr_group:
-                        converted.append(dep)
-                    elif dep_group:
-                        converted.append(dep_group)
-                return dedupe_by_value(converted)
-
-            # For the current group, this will traverse the original linkable graph to find the LinkableNodes for
-            # the constituents of the group and traverses the link_group graph for non-constituent deps.
-            def get_merged_graph_traversal(curr_group: str, exported_only: bool) -> typing.Callable:
-                def traversal(key: [Label, str]) -> list[[Label, str]]:
-                    if eval_type(Label).matches(key):
-                        expect(target_to_link_group[key] == curr_group)
-                        node = linkable_nodes[key]
-                        if exported_only:
-                            return convert_to_merged_graph_deps(node.exported_deps, curr_group)
-                        return convert_to_merged_graph_deps(node.deps + node.exported_deps, curr_group)
-                    else:
-                        link_group_node = link_group_linkable_nodes[key]
-                        if exported_only:
-                            return link_group_node.exported_deps
-                        return dedupe_by_value(link_group_node.deps + link_group_node.exported_deps)
-
-                # It's easy for us to accidentally get this merged traversal wrong, so this provides one guardrail
-                def checked_traversal(key: [Label, str]) -> list[[Label, str]]:
-                    return expect_dedupe(traversal(key))
-
-                return checked_traversal
-
-            # note that this will possibly contain shared lib dependencies which aren't really public. that's handled below.
-            public_node_roots = group_data.constituents
-
-            # this is a hybrid of buck1 somerge behavior and what we do for link groups.
-            # like link groups, we expose link group by setting link_whole on its link infos (this matches buck1 for
-            # primary constituents, but not for other constituents).
-            # like buck1, we treat all primary constituents as public node roots (as opposed to link groups that only treats
-            # preferred_linkage=shared and edges with an outbound dep as public roots), and then traverse exported deps from
-            # those roots to find all public nodes.
-            # the main thing to note from this is that for non-primary constituents that are identified as public, we will
-            # use link_whole whereas buck1 will make dependents link against them directly
-            exported_public_nodes = {
-                d: True
-                for d in breadth_first_traversal_by(
-                    None,
-                    public_node_roots,
-                    get_merged_graph_traversal(group, True),
-                )
-            }
-
             exported_linker_flags = []
             exported_linker_post_flags = []
             links = []
-            shared_lib_deps = []
-            real_constituents = []
 
             if is_actually_merged and merge_data.glue_linkable:
-                real_constituents.append(merge_data.glue_linkable[0])
                 links.append(set_link_info_link_whole(merge_data.glue_linkable[1]))
 
             solib_constituents = []
-            link_group_deps = []
-            ordered_group_constituents = pre_order_traversal_by(group_data.constituents, get_merged_graph_traversal(group, False))
-            representative_label = ordered_group_constituents[0]
-            for key in ordered_group_constituents:
-                real_constituents.append(key)
-                if eval_type(Label).matches(key):
-                    # This is handling targets within this link group
-                    expect(target_to_link_group[key] == group)
-                    node = linkable_nodes[key]
+            group_deps = []
+            group_exported_deps = []
+            for key in group_data.constituents:
+                expect(target_to_link_group[key] == group)
+                node = linkable_nodes[key]
 
-                    default_solibs = list(node.shared_libs.keys())
-                    if not default_solibs and node.preferred_linkage == Linkage("static"):
-                        default_solibs = [node.default_soname]
+                default_solibs = list(node.shared_libs.keys())
+                if not default_solibs and node.preferred_linkage == Linkage("static"):
+                    default_solibs = [node.default_soname]
 
-                    for soname in default_solibs:
-                        included_default_solibs[soname] = True
-                        if node.include_in_android_mergemap:
-                            solib_constituents.append(soname)
+                for soname in default_solibs:
+                    included_default_solibs[soname] = True
+                    if node.include_in_android_mergemap:
+                        solib_constituents.append(soname)
 
-                    node = linkable_nodes[key]
-                    link_info = node.link_infos[archive_output_style].default
+                node = linkable_nodes[key]
+                link_info = node.link_infos[archive_output_style].default
 
-                    # the propagated link info should already be wrapped with exported flags.
-                    link_info = wrap_link_info(
-                        link_info,
-                        pre_flags = node.linker_flags.flags,
-                        post_flags = node.linker_flags.post_flags,
-                    )
-                    exported_linker_flags.extend(node.linker_flags.exported_flags)
-                    exported_linker_post_flags.extend(node.linker_flags.exported_post_flags)
-                    if key in exported_public_nodes:
-                        link_info = set_link_info_link_whole(link_info)
-                else:
-                    # This is cross-link-group deps. We add information to the link line from the LinkGroupLinkableNode of the dep.
-                    link_group_node = link_group_linkable_nodes[key]
-                    link_info = link_group_node.link
-                    if link_group_node.shared_lib:
-                        shared_lib_deps.append(link_group_node.shared_lib.soname)
-                        link_group_deps.append(key)
-                    elif key in exported_public_nodes:
-                        link_info = set_link_info_link_whole(link_info)
+                # the propagated link info should already be wrapped with exported flags.
+                link_info = wrap_link_info(
+                    link_info,
+                    pre_flags = node.linker_flags.flags,
+                    post_flags = node.linker_flags.post_flags,
+                )
+                exported_linker_flags.extend(node.linker_flags.exported_flags)
+                exported_linker_post_flags.extend(node.linker_flags.exported_post_flags)
+                links.append(set_link_info_link_whole(link_info))
 
-                        if link_group_node.exported_linker_flags:
-                            exported_linker_flags.extend(link_group_node.exported_linker_flags[0])
-                            exported_linker_post_flags.extend(link_group_node.exported_linker_flags[1])
+                dep_groups = [target_to_link_group[dep] for dep in node.deps]
+                group_deps.extend([dep_group for dep_group in dep_groups if dep_group != group])
 
-                links.append(link_info)
+                exported_dep_groups = [target_to_link_group[dep] for dep in node.exported_deps]
+                group_exported_deps.extend([dep_group for dep_group in exported_dep_groups if dep_group != group])
 
             soname = group
             if not is_actually_merged:
                 soname = linkable_nodes[group_data.constituents[0]].default_soname
                 debug_info.with_default_soname.append((soname, group_data.constituents[0]))
 
-            debug_info.group_debug.setdefault(
-                group,
-                struct(
-                    soname = soname,
-                    merged = is_actually_merged,
-                    constituents = real_constituents,
-                    shlib_deps = shared_lib_deps,
-                    exported_public_nodes = exported_public_nodes,
-                    exported_linker_flags = exported_linker_flags,
-                    exported_linker_post_flags = exported_linker_post_flags,
-                ),
-            )
-
             output_path = _platform_output_path(soname, platform if len(merged_data_by_platform) > 1 else None)
-            link_args = [LinkArgs(infos = links)]
+
+            link_merge_info = LinkGroupMergeInfo(
+                label = group,
+                deps = dedupe_by_value(group_deps),
+                exported_deps = dedupe_by_value(group_exported_deps),
+                constituent_link_infos = links,
+            )
+            link_args, shlib_deps, link_deps_graph = _create_merged_link_args(
+                root_target = link_merge_info,
+                linkable_nodes = link_group_linkable_nodes,
+                cxx_toolchain = cxx_toolchain,
+            )
 
             shared_lib = create_shared_lib(
                 ctx,
                 output_path = output_path,
                 soname = soname,
-                link_args = link_args,
+                link_args = [link_args],
                 cxx_toolchain = cxx_toolchain,
-                shared_lib_deps = shared_lib_deps,
-                label = representative_label,
+                shared_lib_deps = [link_group_linkable_nodes[label].shared_lib.soname for label in shlib_deps],
+                label = group_data.constituents[0],
                 can_be_asset = can_be_asset,
             )
 
@@ -1220,8 +1157,8 @@ def _get_merged_linkables(
                     )],
                     post_flags = exported_linker_post_flags,
                 ),
-                deps = link_group_deps,
-                exported_deps = [],
+                deps = link_merge_info.deps,
+                exported_deps = link_merge_info.exported_deps,
                 shared_lib = shared_lib,
                 # exported linker flags for shared libs are in their linkinfo itself and are not exported from dependents
                 exported_linker_flags = None,
@@ -1232,6 +1169,19 @@ def _get_merged_linkables(
                 apk_module = group_data.apk_module,
                 solib_constituents = solib_constituents,
                 is_actually_merged = is_actually_merged,
+            )
+
+            debug_info.group_debug.setdefault(
+                group,
+                struct(
+                    soname = soname,
+                    merged = is_actually_merged,
+                    primary_constituents = group_data.constituents,
+                    real_constituents = link_deps_graph.keys(),
+                    shlib_deps = shlib_deps,
+                    exported_linker_flags = exported_linker_flags,
+                    exported_linker_post_flags = exported_linker_post_flags,
+                ),
             )
 
         shared_libs_by_platform[platform] = group_shared_libs
@@ -1446,6 +1396,52 @@ def _create_link_args(
             shlib_deps.append(target)
         else:
             links.append(node.link_infos[preferred_linkable_type].default)
+
+    extra_runtime_flags = cxx_toolchain.linker_info.shared_dep_runtime_ld_flags or []
+    if extra_runtime_flags:
+        links.append(LinkInfo(pre_flags = extra_runtime_flags))
+    return LinkArgs(infos = links), shlib_deps, link_traversal_cache
+
+# Equivalent to _create_link_args but for somerge
+def _create_merged_link_args(
+        *,
+        cxx_toolchain: CxxToolchainInfo,
+        root_target: LinkGroupMergeInfo,
+        linkable_nodes: dict[GroupLabel, LinkGroupLinkableNode]) -> (LinkArgs, list[GroupLabel], dict[GroupLabel, list[GroupLabel]]):
+    if LinkOrdering(cxx_toolchain.linker_info.link_ordering) != LinkOrdering("topological"):
+        fail("don't yet support link ordering {}".format(cxx_toolchain.linker_info.link_ordering))
+
+    link_traversal_cache = {}
+
+    def link_traversal(label: GroupLabel) -> list[GroupLabel]:
+        def link_traversal_deps(label: GroupLabel):
+            if label == root_target.label:
+                return root_target.deps + root_target.exported_deps
+
+            linkable_node = linkable_nodes[label]
+            if linkable_node.shared_lib:
+                return linkable_node.exported_deps
+            else:
+                return linkable_node.deps + linkable_node.exported_deps
+
+        res = link_traversal_cache.get(label, None)
+        if res:
+            return res
+        res = link_traversal_deps(label)
+        link_traversal_cache[label] = res
+        return res
+
+    links = []
+    shlib_deps = []
+    for label in _rust_matching_topological_traversal([root_target.label], link_traversal):
+        if label == root_target.label:
+            links.extend(root_target.constituent_link_infos)
+        else:
+            linkable_node = linkable_nodes[label]
+            links.append(linkable_node.link)
+            if linkable_node.shared_lib:
+                shlib_deps.append(label)
+
     extra_runtime_flags = cxx_toolchain.linker_info.shared_dep_runtime_ld_flags or []
     if extra_runtime_flags:
         links.append(LinkInfo(pre_flags = extra_runtime_flags))
