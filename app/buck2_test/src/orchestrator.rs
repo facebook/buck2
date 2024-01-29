@@ -287,7 +287,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             .await?;
 
         let (stdout, stderr, status, timing, execution_kind, outputs) = self
-            .execute_shared(&test_target, metadata, &test_executor, execution_request)
+            .execute_request(&test_target, metadata, &test_executor, execution_request)
             .await?;
 
         self.require_alive().await?;
@@ -525,7 +525,8 @@ impl<'b> BuckTestOrchestrator<'b> {
         Ok(executor_preference)
     }
 
-    async fn execute_shared(
+    /// Core request execution logic.
+    async fn execute_request(
         &self,
         test_target: &ConfiguredProvidersLabel,
         metadata: DisplayMetadata,
