@@ -11,6 +11,8 @@ from typing import List, Optional, Type, TypeVar
 
 from .apple_platform import ApplePlatform
 
+from .identity import CodeSigningIdentity
+
 from .provisioning_profile_metadata import ProvisioningProfileMetadata
 
 META_IOS_DEVELOPER_CERTIFICATE_LINK: str = "https://www.internalfb.com/intern/qa/5198/how-do-i-get-the-fb-ios-developer-certificate"
@@ -147,6 +149,7 @@ def interpret_provisioning_profile_diagnostics(
     diagnostics: List[IProvisioningProfileDiagnostics],
     bundle_id: str,
     provisioning_profiles_dir: Path,
+    identities: List[CodeSigningIdentity],
     log_file_path: Optional[Path] = None,
 ) -> str:
     if not diagnostics:
@@ -182,10 +185,16 @@ def interpret_provisioning_profile_diagnostics(
         )
 
     if mismatch := find_mismatch(DeveloperCertificateMismatch):
+        identities_description = (
+            "WARNING: NO SIGNING IDENTITIES FOUND!"
+            if len(identities) == 0
+            else f"List of signing identities: `{identities}`."
+        )
         return "".join(
             [
                 header,
                 f"The provisioning profile `{mismatch.profile.file_path.name}` satisfies all constraints, but no matching certificates were found in your keychain. ",
+                identities_description,
                 f"Please download and install the latest certificate from {META_IOS_DEVELOPER_CERTIFICATE_LINK}.",
                 footer,
             ]
