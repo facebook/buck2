@@ -35,7 +35,10 @@ use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::ValueError;
 use starlark::StarlarkDocs;
+
+use crate::starlark::values::ValueLike;
 
 pub(crate) type ActionSubErrorResult<'a> = UnpackList<&'a StarlarkActionSubError<'a>>;
 
@@ -156,7 +159,11 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
     Display,
     NoSerialize,
     Clone,
-    Default
+    Default,
+    Ord,
+    PartialOrd,
+    Eq,
+    PartialEq
 )]
 #[display(
     fmt = "ActionErrorLocation(file={}, line={})",
@@ -173,6 +180,22 @@ impl<'v> StarlarkValue<'v> for StarlarkActionErrorLocation {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(action_error_location_methods)
+    }
+
+    fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
+        if let Some(other) = other.downcast_ref::<Self>() {
+            Ok(self.eq(other))
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn compare(&self, other: Value<'v>) -> starlark::Result<std::cmp::Ordering> {
+        if let Some(other) = other.downcast_ref::<Self>() {
+            Ok(self.cmp(other))
+        } else {
+            ValueError::unsupported_with(self, "compare", other)
+        }
     }
 }
 
@@ -208,7 +231,11 @@ fn action_error_location_methods(builder: &mut MethodsBuilder) {
     StarlarkDocs,
     Debug,
     NoSerialize,
-    Clone
+    Clone,
+    Ord,
+    PartialOrd,
+    Eq,
+    PartialEq
 )]
 pub(crate) struct StarlarkActionSubError<'v> {
     category: String,
@@ -247,6 +274,22 @@ impl<'v> StarlarkValue<'v> for StarlarkActionSubError<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(action_sub_error_methods)
+    }
+
+    fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
+        if let Some(other) = other.downcast_ref::<Self>() {
+            Ok(self.eq(other))
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn compare(&self, other: Value<'v>) -> starlark::Result<std::cmp::Ordering> {
+        if let Some(other) = other.downcast_ref::<Self>() {
+            Ok(self.cmp(other))
+        } else {
+            ValueError::unsupported_with(self, "compare", other)
+        }
     }
 }
 
