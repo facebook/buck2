@@ -177,8 +177,15 @@ run(RegExOrId) ->
                 ok ->
                     io:format("Reloading all changed modules... "),
                     Loaded = ct_daemon:load_changed(),
-                    io:format("reloaded ~p modules ~P~n", [erlang:length(Loaded), Loaded, 10]),
-                    rerun(ToRun);
+                    case erlang:length(Loaded) of
+                        0 ->
+                            do_plain_test_run(ToRun);
+                        ChangedCount ->
+                            io:format("reloaded ~p modules ~P~n", [ChangedCount, Loaded, 10]),
+                            % There were some changes, so list the tests again, then run but without recompiling changes
+                            % Note that if called with the RegEx insted of ToRun test list like above, do_plain_test_run/1 will list the tests again
+                            do_plain_test_run(RegExOrId)
+                    end;
                 Error ->
                     Error
             end
