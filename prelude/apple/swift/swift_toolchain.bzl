@@ -69,6 +69,7 @@ def swift_toolchain_impl(ctx):
             sdk_path = ctx.attrs._internal_sdk_path or ctx.attrs.sdk_path,
             swift_stdlib_tool = ctx.attrs.swift_stdlib_tool[RunInfo],
             swift_stdlib_tool_flags = ctx.attrs.swift_stdlib_tool_flags,
+            swift_ide_test_tool = ctx.attrs.swift_ide_test_tool[RunInfo] if ctx.attrs.swift_ide_test_tool else None,
             supports_relative_resource_dir = ctx.attrs.supports_relative_resource_dir,
             supports_swift_cxx_interoperability_mode = ctx.attrs.supports_swift_cxx_interoperability_mode,
             supports_swift_importing_objc_forward_declarations = ctx.attrs.supports_swift_importing_obj_c_forward_declarations,

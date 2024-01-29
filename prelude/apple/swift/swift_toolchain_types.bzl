@@ -31,6 +31,7 @@ SwiftToolchainInfo = provider(
         "sdk_path": provider_field(typing.Any, default = None),
         "swift_stdlib_tool_flags": provider_field(typing.Any, default = None),
         "swift_stdlib_tool": provider_field(typing.Any, default = None),
+        "swift_ide_test_tool": provider_field(typing.Any, default = None),
         "runtime_run_paths": provider_field(typing.Any, default = None),  # [str]
         "supports_relative_resource_dir": provider_field(typing.Any, default = None),  # bool
         "supports_swift_cxx_interoperability_mode": provider_field(typing.Any, default = None),  # bool
