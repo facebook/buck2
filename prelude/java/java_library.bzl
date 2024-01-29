@@ -88,8 +88,7 @@ def _process_plugins(
 
     # Process Javac Plugins
     if plugin_params:
-        plugin = plugin_params.processors[0]
-        args = plugin_params.args.get(plugin, cmd_args())
+        plugin, args = plugin_params.processors[0]
 
         # Produces "-Xplugin:PluginName arg1 arg2 arg3", as a single argument
         plugin_and_args = cmd_args(plugin)

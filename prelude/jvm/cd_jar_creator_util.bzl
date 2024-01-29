@@ -255,13 +255,13 @@ def encode_plugin_params(plugin_params: [PluginParams, None]) -> [struct, None]:
         encoded_plugin_params = struct(
             parameters = [],
             pluginProperties = [
-                encode_plugin_properties(processor, plugin_params)
-                for processor in plugin_params.processors
+                encode_plugin_properties(processor, arguments, plugin_params)
+                for processor, arguments in plugin_params.processors
             ],
         )
     return encoded_plugin_params
 
-def encode_plugin_properties(processor: str, plugin_params: PluginParams) -> struct:
+def encode_plugin_properties(processor: str, arguments: cmd_args, plugin_params: PluginParams) -> struct:
     return struct(
         canReuseClassLoader = False,
         doesNotAffectAbi = False,
@@ -269,6 +269,7 @@ def encode_plugin_properties(processor: str, plugin_params: PluginParams) -> str
         processorNames = [processor],
         classpath = plugin_params.deps.project_as_json("javacd_json") if plugin_params.deps else [],
         pathParams = {},
+        arguments = arguments,
     )
 
 def encode_base_jar_command(

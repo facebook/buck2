@@ -14,8 +14,7 @@ load(
 )
 
 PluginParams = record(
-    processors = field(list[str]),
-    args = field(dict[str, cmd_args]),
+    processors = field(list[(str, cmd_args)]),
     deps = field([JavaPackagingDepTSet, None]),
 )
 
@@ -23,22 +22,32 @@ def create_plugin_params(ctx: AnalysisContext, plugins: list[Dependency]) -> [Pl
     processors = []
     plugin_deps = []
 
+    # _wip_java_plugin_arguments keys are providers_label, map to
+    # target_label to allow lookup with plugin.label.raw_target()
+    plugin_arguments = {
+        label.raw_target(): arguments
+        for label, arguments in ctx.attrs._wip_java_plugin_arguments.items()
+    }
+
     # Compiler plugin derived from `plugins` attribute
-    for plugin in filter(None, [x.get(JavaProcessorsInfo) for x in plugins]):
-        if plugin.type == JavaProcessorsType("plugin"):
-            if len(plugin.processors) > 1:
-                fail("Only 1 java compiler plugin is expected. But received: {}".format(plugin.processors))
-            processors.append(plugin.processors[0])
-            if plugin.deps:
-                plugin_deps.append(plugin.deps)
+    for plugin in plugins:
+        processors_info = plugin.get(JavaProcessorsInfo)
+        if processors_info != None and processors_info.type == JavaProcessorsType("plugin"):
+            if len(processors_info.processors) > 1:
+                fail("Only 1 java compiler plugin is expected. But received: {}".format(processors_info.processors))
+            processor = processors_info.processors[0]
+            if processors_info.deps:
+                plugin_deps.append(processors_info.deps)
+
+            arguments = plugin_arguments.get(plugin.label.raw_target())
+            processors.append((processor, cmd_args(arguments) if arguments != None else cmd_args()))
 
     if not processors:
         return None
 
     return PluginParams(
-        processors = dedupe(processors),
+        processors = processors,
         deps = ctx.actions.tset(JavaPackagingDepTSet, children = plugin_deps) if plugin_deps else None,
-        args = {},
     )
 
 def java_plugin_impl(ctx: AnalysisContext) -> list[Provider]:
