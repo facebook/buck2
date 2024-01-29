@@ -6,6 +6,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+from __future__ import annotations
+
 import importlib
 import multiprocessing.util as mp_util
 import os
@@ -18,17 +20,14 @@ from importlib.util import module_from_spec
 lock = threading.Lock()
 
 
-# pyre-fixme[3]: Return type must be annotated.
-# pyre-fixme[2]: Parameter must be annotated.
-def __patch_spawn(var_names, saved_env):
+def __patch_spawn(var_names: tuple[str, ...], saved_env: dict[str, str]) -> None:
     std_spawn = mp_util.spawnv_passfds
 
     # pyre-fixme[53]: Captured variable `std_spawn` is not annotated.
     # pyre-fixme[53]: Captured variable `saved_env` is not annotated.
     # pyre-fixme[53]: Captured variable `var_names` is not annotated.
-    # pyre-fixme[3]: Return type must be annotated.
     # pyre-fixme[2]: Parameter must be annotated.
-    def spawnv_passfds(path, args, passfds):
+    def spawnv_passfds(path, args, passfds) -> None | int:
         with lock:
             try:
                 for var in var_names:
@@ -45,9 +44,7 @@ def __patch_spawn(var_names, saved_env):
     mp_util.spawnv_passfds = spawnv_passfds
 
 
-# pyre-fixme[3]: Return type must be annotated.
-# pyre-fixme[2]: Parameter must be annotated.
-def __clear_env(patch_spawn=True):
+def __clear_env(patch_spawn: bool = True) -> None:
     saved_env = {}
     darwin_vars = ("DYLD_LIBRARY_PATH", "DYLD_INSERT_LIBRARIES")
     linux_vars = ("LD_LIBRARY_PATH", "LD_PRELOAD")
@@ -73,8 +70,7 @@ def __clear_env(patch_spawn=True):
         __patch_spawn(var_names, saved_env)
 
 
-# pyre-fixme[3]: Return type must be annotated.
-def __startup__():
+def __startup__() -> None:
     # ALL STARTUP_* methods will be called here in lexicographic order.
     startup_functions = sorted(
         [
@@ -99,8 +95,7 @@ def __startup__():
                 )
 
 
-# pyre-fixme[3]: Return type must be annotated.
-def __passthrough_exec_module():
+def __passthrough_exec_module() -> None:
     # Delegate this module execution to the next module in the path, if any,
     # effectively making this sitecustomize.py a passthrough module.
     spec = PathFinder.find_spec(
