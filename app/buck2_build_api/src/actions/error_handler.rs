@@ -16,6 +16,7 @@ use buck2_data::ActionSubError;
 use buck2_data::CommandExecution;
 use derive_more::Display;
 use display_container::fmt_container;
+use gazebo::prelude::SliceClonedExt;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -168,11 +169,35 @@ pub struct StarlarkActionErrorLocation {
 }
 
 #[starlark_value(type = "ActionErrorLocation", StarlarkTypeRepr, UnpackValue)]
-impl<'v> StarlarkValue<'v> for StarlarkActionErrorLocation {}
+impl<'v> StarlarkValue<'v> for StarlarkActionErrorLocation {
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(action_error_location_methods)
+    }
+}
 
 impl<'v> AllocValue<'v> for StarlarkActionErrorLocation {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
+    }
+}
+
+/// Methods available on `StarlarkActionErrorLocation` to help with testing the error
+/// handler implementation
+#[starlark_module]
+fn action_error_location_methods(builder: &mut MethodsBuilder) {
+    /// The file of the error location. This is only needed for action error handler
+    /// unit testing.
+    #[starlark(attribute)]
+    fn file<'v>(this: &'v StarlarkActionErrorLocation) -> anyhow::Result<&'v str> {
+        Ok(&this.file)
+    }
+
+    /// The line of the error location. This is only needed for action error handler
+    /// unit testing.
+    #[starlark(attribute)]
+    fn line<'v>(this: &'v StarlarkActionErrorLocation) -> anyhow::Result<Option<u64>> {
+        Ok(this.line)
     }
 }
 
@@ -218,7 +243,43 @@ impl<'v> AllocValue<'v> for StarlarkActionSubError<'v> {
 }
 
 #[starlark_value(type = "ActionSubError", StarlarkTypeRepr, UnpackValue)]
-impl<'v> StarlarkValue<'v> for StarlarkActionSubError<'v> {}
+impl<'v> StarlarkValue<'v> for StarlarkActionSubError<'v> {
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(action_sub_error_methods)
+    }
+}
+
+/// Methods available on `StarlarkActionSubError` to help with testing the error
+/// handler implementation
+#[starlark_module]
+fn action_sub_error_methods(builder: &mut MethodsBuilder) {
+    /// The category name of this sub error. This function is only needed for action
+    /// error handler unit testing.
+    #[starlark(attribute)]
+    fn category<'v>(this: &'v StarlarkActionSubError) -> anyhow::Result<&'v str> {
+        Ok(&this.category)
+    }
+
+    /// The optional message associated with this sub error.  This function is only
+    /// needed for action error handler unit testing.
+    #[starlark(attribute)]
+    fn message<'v>(this: &'v StarlarkActionSubError) -> anyhow::Result<Option<&'v str>> {
+        Ok(this.message.as_deref())
+    }
+
+    /// Any locations associated with this sub error.  This function is only needed
+    /// for action error handler unit testing.
+    #[starlark(attribute)]
+    fn locations<'v>(
+        this: &'v StarlarkActionSubError,
+    ) -> anyhow::Result<Option<Vec<StarlarkActionErrorLocation>>> {
+        Ok(this
+            .locations
+            .as_ref()
+            .map(|locations| locations.items.cloned()))
+    }
+}
 
 impl<'v> StarlarkActionSubError<'v> {
     pub(crate) fn to_proto(&self) -> ActionSubError {
