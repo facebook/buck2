@@ -17,7 +17,6 @@ load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(
     "@prelude//apple/swift:swift_compilation.bzl",
     "compile_swift",
-    "create_swift_interface",
     "get_swift_anonymous_targets",
     "get_swift_debug_infos",
     "get_swift_dependency_info",
@@ -191,13 +190,12 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         # to the CWD, so need to add . to be located correctly.
         resource_dir_args = ["-I."]
 
-    module_name = get_module_name(ctx)
     modular_pre = CPreprocessor(
         uses_modules = ctx.attrs.uses_modules,
         modular_args = [
             "-fcxx-modules",
             "-fmodules",
-            "-fmodule-name=" + module_name,
+            "-fmodule-name=" + get_module_name(ctx),
             "-fmodules-cache-path=" + MODULE_CACHE_PATH,
         ] + resource_dir_args,
     )
@@ -256,16 +254,6 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
                         default_outputs = swift_compile.object_files if swift_compile else None,
                     ),
                 ],
-                "swift-interface": [create_swift_interface(
-                    ctx,
-                    deps_providers,
-                    True,  # parse_as_library
-                    module_name,
-                    exported_hdrs,
-                    modulemap_pre,
-                    framework_search_paths_flags,
-                    params.extra_swift_compiler_flags,
-                )],
                 "swift-output-file-map": [
                     DefaultInfo(
                         default_output = swift_compile.output_map_artifact if swift_compile else None,

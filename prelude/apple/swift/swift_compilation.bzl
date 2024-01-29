@@ -858,67 +858,6 @@ def _create_compilation_database(
 
     return SwiftCompilationDatabase(db = cdb_artifact, other_outputs = argfile.cmd_form)
 
-def create_swift_interface(
-        ctx: AnalysisContext,
-        deps_providers: list,
-        parse_as_library: bool,
-        module_name: str,
-        exported_headers: list[CHeader],
-        objc_modulemap_pp_info: [CPreprocessor, None],
-        framework_search_paths_flags: cmd_args,
-        extra_search_paths_flags: list[ArgLike] = []) -> DefaultInfo:
-    swiftc_flags = _get_swiftc_flags(
-        ctx,
-        deps_providers,
-        parse_as_library,
-        module_name,
-        exported_headers,
-        objc_modulemap_pp_info,
-        framework_search_paths_flags,
-        extra_search_paths_flags,
-    )
-
-    swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
-    swift_ide_test_tool = swift_toolchain.swift_ide_test_tool
-    if not swift_ide_test_tool:
-        return DefaultInfo()
-    mk_swift_interface = swift_toolchain.mk_swift_interface
-
-    module_name = get_module_name(ctx)
-    identifier = module_name + ".interface.swift"
-
-    argsfile, _ = ctx.actions.write(
-        identifier + ".argsfile",
-        swiftc_flags,
-        allow_args = True,
-    )
-    interface_artifact = ctx.actions.declare_output(identifier)
-
-    mk_swift_args = cmd_args(
-        mk_swift_interface,
-        "--swift-ide-test-tool",
-        swift_ide_test_tool,
-        "--module",
-        module_name,
-        "--out",
-        interface_artifact.as_output(),
-        "--",
-        cmd_args(cmd_args(argsfile, format = "@{}", delimiter = "")).hidden([swiftc_flags]),
-    )
-
-    ctx.actions.run(
-        mk_swift_args,
-        category = "mk_swift_interface",
-        identifier = identifier,
-    )
-
-    return DefaultInfo(
-        default_output = interface_artifact,
-        other_outputs = [
-            argsfile,
-        ],
-    )
-
 def _exported_deps(ctx) -> list[Dependency]:
     if ctx.attrs.reexport_all_header_dependencies:
         return ctx.attrs.exported_deps + ctx.attrs.deps
