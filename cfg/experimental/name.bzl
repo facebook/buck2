@@ -13,6 +13,7 @@ NAMED_CONSTRAINT_SETTINGS = [
     "ovr_config//runtime/constraints:runtime_version",
     "ovr_config//os/sdk/apple/constraints:_",
     "ovr_config//os/sdk/android/ndk/constraints:version",
+    "ovr_config//third-party/CUDA-projects/constraints:version",
     "ovr_config//build_mode/constraints:san",
 ]
 
