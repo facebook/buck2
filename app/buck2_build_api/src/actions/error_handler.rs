@@ -250,3 +250,19 @@ pub(crate) fn register_action_error_types(globals: &mut GlobalsBuilder) {
     const ActionErrorLocation: StarlarkValueAsType<StarlarkActionErrorLocation> =
         StarlarkValueAsType::new();
 }
+
+/// Global methods for testing starlark action error handler.
+#[starlark_module]
+pub(crate) fn register_action_error_handler_for_testing(builder: &mut GlobalsBuilder) {
+    /// Global function to create a new `ActionErrorContext` for testing a starlark action error
+    /// handler via `bxl_test`.
+    fn new_test_action_error_ctx(
+        #[starlark(require=named)] stderr: &str,
+        #[starlark(require=named)] stdout: &str,
+    ) -> anyhow::Result<StarlarkActionErrorContext> {
+        Ok(StarlarkActionErrorContext {
+            stderr: stderr.to_owned(),
+            stdout: stdout.to_owned(),
+        })
+    }
+}
