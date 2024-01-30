@@ -14,11 +14,11 @@ load(
 )
 
 def _modifiers_match(
-        selector: dict[str, Modifier]) -> ModifiersMatch:
+        matcher: dict[str, Modifier]) -> ModifiersMatch:
     """
     A select operator for modifiers. A `modifiers.match` specifies a way for a
     modifier to be added based on an existing constraint in the configuration.
-    The `selector` is a dictionary that maps from a set of constraints to a
+    The `matcher` is a dictionary that maps from a set of constraints to a
     modifier.
 
     For example, suppose `cfg//os:linux` and `cfg//os:windows` are constraint values
@@ -68,13 +68,13 @@ def _modifiers_match(
     if not is_buck2():
         return {}
 
-    for key, sub_modifier in selector.items():
+    for key, sub_modifier in matcher.items():
         if key != "DEFAULT":
             verify_normalized_target(key)
         verify_normalized_modifier(sub_modifier)
 
-    selector["_type"] = "ModifiersMatch"
-    return selector
+    matcher["_type"] = "ModifiersMatch"
+    return matcher
 
 modifiers = struct(
     match = _modifiers_match,
