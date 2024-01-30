@@ -172,6 +172,7 @@ use crate::package::PackageLabel;
 
 /// Errors from cell creation
 #[derive(buck2_error::Error, Debug)]
+#[buck2(user)]
 enum CellError {
     #[error("Cell paths `{1}` and `{2}` had the same alias `{0}`.")]
     DuplicateAliases(NonEmptyCellAlias, CellRootPathBuf, CellRootPathBuf),

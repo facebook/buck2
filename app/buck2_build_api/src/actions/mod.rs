@@ -274,6 +274,7 @@ pub trait ActionExecutionCtx: Send + Sync {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(user)]
 pub enum ActionErrors {
     #[error("Output path for artifact or metadata file cannot be empty.")]
     EmptyOutputPath,
