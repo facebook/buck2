@@ -42,16 +42,18 @@ def verify_normalized_target(target: str):
         )
 
 def is_modifiers_match(modifier: Modifier) -> bool:
-    if isinstance(modifier, str):
+    if modifier == None or isinstance(modifier, str):
         return False
     if isinstance(modifier, dict):
         if modifier["_type"] != "ModifiersMatch":
             fail("Found unknown dictionary `{}` for modifier".format(modifier))
         return True
-    fail("Modifier should either be a string or dict. Found `{}`".format(modifier))
+    fail("Modifier should either be None, a string, or dict. Found `{}`".format(modifier))
 
 def verify_normalized_modifier(modifier: Modifier):
-    if is_modifiers_match(modifier):
+    if modifier == None:
+        pass
+    elif is_modifiers_match(modifier):
         # TODO(scottcao): Add a test case for this once `bxl_test` supports testing failures
         for key, sub_modifier in modifier.items():
             if key != "_type":
@@ -89,16 +91,21 @@ def get_modifier_info(
         refs: dict[str, ProviderCollection],
         modifier: Modifier,
         location: ModifierLocation,
-        constraint_setting_order: list[TargetLabel]) -> (TargetLabel, ModifierInfo):
+        constraint_setting_order: list[TargetLabel]) -> (TargetLabel, ModifierInfo) | None:
     # Gets a modifier info from a modifier based on providers from `refs`.
+    if modifier == None:
+        return None
     if is_modifiers_match(modifier):
         default = None
         modifiers_match_info = []
         constraint_settings = {}  # Used like a set
         for key, sub_modifier in modifier.items():
             if key == "DEFAULT":
-                default_constraint_setting, default = get_modifier_info(refs, sub_modifier, location, constraint_setting_order)
-                constraint_settings[default_constraint_setting] = None
+                if sub_modifier:
+                    default_constraint_setting, default = get_modifier_info(refs, sub_modifier, location, constraint_setting_order)
+                    constraint_settings[default_constraint_setting] = None
+                else:
+                    default = None
             elif key != "_type":
                 cfg_info = refs[key][ConfigurationInfo]
                 for cfg_constraint_setting, cfg_constraint_value_info in cfg_info.constraints.items():
@@ -109,8 +116,11 @@ def get_modifier_info(
                             "To select on this constraint, this constraint setting needs to be added to `buck2/cfg/experimental/cfg_constructor.bzl`"
                         ).format(modifier, location_to_string(location), cfg_constraint_value_info.label, cfg_constraint_setting),
                     )
-                sub_constraint_setting, sub_modifier_info = get_modifier_info(refs, sub_modifier, location, constraint_setting_order)
-                constraint_settings[sub_constraint_setting] = None
+                if sub_modifier:
+                    sub_constraint_setting, sub_modifier_info = get_modifier_info(refs, sub_modifier, location, constraint_setting_order)
+                    constraint_settings[sub_constraint_setting] = None
+                else:
+                    sub_modifier_info = None
                 modifiers_match_info.append((cfg_info, sub_modifier_info))
 
         constraint_setting = get_constraint_setting(constraint_settings, modifier, location)
@@ -141,6 +151,8 @@ def _is_subset(a: ConfigurationInfo, b: ConfigurationInfo) -> bool:
 
 def resolve_modifier(cfg: ConfigurationInfo, modifier: ModifierInfo) -> ConstraintValueInfo | None:
     # Resolve the modifier and return the constraint value to add to the configuration, if there is one
+    if modifier == None:
+        return None
     if isinstance(modifier, ModifiersMatchInfo):
         for key, sub_modifier in modifier.selector:
             if _is_subset(key, cfg):
@@ -157,7 +169,9 @@ def resolve_modifier(cfg: ConfigurationInfo, modifier: ModifierInfo) -> Constrai
 def modifier_to_refs(modifier: Modifier, location: ModifierLocation) -> list[str]:
     # Obtain a list of targets to analyze from a modifier.
     refs = []
-    if is_modifiers_match(modifier):
+    if modifier == None:
+        pass
+    elif is_modifiers_match(modifier):
         for key, sub_modifier in modifier.items():
             if key != "_type":
                 if key != "DEFAULT":

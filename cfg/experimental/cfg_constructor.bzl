@@ -113,15 +113,16 @@ def cfg_constructor_post_constraint_analysis(
 
     for tagged_modifiers in params.merged_modifiers:
         for modifier in tagged_modifiers.modifiers:
-            constraint_setting_label, modifier_info = get_modifier_info(
-                refs = refs,
-                modifier = modifier,
-                location = tagged_modifiers.location,
-                constraint_setting_order = constraint_setting_order,
-            )
-            modifier_infos = constraint_setting_to_modifier_infos.get(constraint_setting_label) or []
-            modifier_infos.append(modifier_info)
-            constraint_setting_to_modifier_infos[constraint_setting_label] = modifier_infos
+            if modifier:
+                constraint_setting_label, modifier_info = get_modifier_info(
+                    refs = refs,
+                    modifier = modifier,
+                    location = tagged_modifiers.location,
+                    constraint_setting_order = constraint_setting_order,
+                )
+                modifier_infos = constraint_setting_to_modifier_infos.get(constraint_setting_label) or []
+                modifier_infos.append(modifier_info)
+                constraint_setting_to_modifier_infos[constraint_setting_label] = modifier_infos
 
     cfg = ConfigurationInfo(
         constraints = {},

@@ -26,7 +26,7 @@ ModifierLocation = ModifierPackageLocation | ModifierTargetLocation | ModifierCl
 
 ModifiersMatch = dict[str, typing.Any]
 
-Modifier = str | ModifiersMatch
+Modifier = str | ModifiersMatch | None
 
 TaggedModifiers = record(
     modifiers = list[Modifier],
@@ -44,4 +44,4 @@ ModifiersMatchInfo = record(
     default = typing.Any,  # should be "ModifierInfo" | None with recursive types
 )
 
-ModifierInfo = ConstraintValueInfo | ModifiersMatchInfo
+ModifierInfo = ConstraintValueInfo | ModifiersMatchInfo | None
