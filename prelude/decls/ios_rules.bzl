@@ -225,7 +225,8 @@ apple_binary = prelude_rule(
             "uses_modules": attrs.bool(default = False),
             "xcode_private_headers_symlinks": attrs.option(attrs.bool(), default = None),
             "xcode_public_headers_symlinks": attrs.option(attrs.bool(), default = None),
-        }
+        } |
+        buck.allow_cache_upload_arg()
     ),
 )
 

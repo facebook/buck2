@@ -358,5 +358,5 @@ def _mk_hmap(ctx: AnalysisContext, name: str, headers: dict[str, (Artifact, str)
     cmd.add(["--mappings-file", hmap_args_file]).hidden(header_args)
     if project_root_file:
         cmd.add(["--project-root-file", project_root_file])
-    ctx.actions.run(cmd, category = "generate_hmap", identifier = name)
+    ctx.actions.run(cmd, category = "generate_hmap", identifier = name, allow_cache_upload = ctx.attrs.allow_cache_upload)
     return output

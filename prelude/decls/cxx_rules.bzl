@@ -850,7 +850,8 @@ cxx_test = prelude_rule(
             "use_default_test_main": attrs.option(attrs.bool(), default = None),
             "version_universe": attrs.option(attrs.string(), default = None),
             "weak_framework_names": attrs.list(attrs.string(), default = []),
-        }
+        } |
+        buck.allow_cache_upload_arg()
     ),
 )
 
@@ -1094,7 +1095,8 @@ prebuilt_cxx_library = prelude_rule(
             "versioned_soname": attrs.option(attrs.versioned(attrs.string()), default = None),
             "versioned_static_lib": attrs.option(attrs.versioned(attrs.source()), default = None),
             "versioned_static_pic_lib": attrs.option(attrs.versioned(attrs.source()), default = None),
-        }
+        } |
+        buck.allow_cache_upload_arg()
     ),
 )
 
