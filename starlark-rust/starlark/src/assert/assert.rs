@@ -447,7 +447,7 @@ impl<'a> Assert<'a> {
                 if !err_msg.contains(msg) {
                     original.eprint();
                     panic!(
-                    "starlark::assert::{}, failed with the wrong message!\nCode:\n{}\nError:\n{}\nMissing:\n{}\nExpected:\n{:?}",
+                    "starlark::assert::{}, failed with the wrong message!\nCode:\n{}\nError:\n{:#}\nMissing:\n{}\nExpected:\n{:?}",
                     func, program, inner, msg, msgs
                 )
                 }
