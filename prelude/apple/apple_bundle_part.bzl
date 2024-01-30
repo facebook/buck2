@@ -177,9 +177,7 @@ def assemble_bundle(
             command.add("--log-level-file", ctx.attrs._bundling_log_file_level)
         subtargets["bundling-log"] = [DefaultInfo(default_output = bundling_log_output)]
 
-    if ctx.attrs._bundling_path_conflicts_check_enabled:
-        command.add("--check-conflicts")
-
+    command.add("--check-conflicts")
     command.add(codesign_configuration_args)
 
     # Ensures any genrule deps get built, such targets are used for validation
