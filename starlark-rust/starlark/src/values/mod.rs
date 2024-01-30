@@ -47,6 +47,7 @@ pub use crate::values::demand::Demand;
 pub use crate::values::error::ValueError;
 pub use crate::values::freeze::Freeze;
 pub use crate::values::frozen_ref::FrozenRef;
+pub use crate::values::frozen_ref::OwnedFrozenRef;
 pub use crate::values::iter::StarlarkIterator;
 pub use crate::values::layout::complex::ValueTypedComplex;
 pub use crate::values::layout::heap::heap_type::Freezer;

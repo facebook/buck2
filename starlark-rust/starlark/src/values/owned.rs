@@ -32,6 +32,7 @@ use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
+use crate::values::OwnedFrozenRef;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 
@@ -242,6 +243,12 @@ impl<T: StarlarkValue<'static>> OwnedFrozenValueTyped<T> {
             owner: self.owner.dupe(),
             value: self.value.to_frozen_value(),
         }
+    }
+
+    /// Convert to an owned ref.
+    pub fn into_owned_frozen_ref(self) -> OwnedFrozenRef<T> {
+        // SAFETY: Heap matches the value
+        unsafe { OwnedFrozenRef::new_unchecked(self.value.as_ref(), self.owner) }
     }
 
     /// Obtain a reference to the FrozenHeap that owns this value.
