@@ -17,11 +17,85 @@
 
 //! Implementation of `call_stack` function.
 
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
+
+use allocative::Allocative;
 use starlark_derive::starlark_module;
+use starlark_syntax::codemap::FileSpan;
 
 use crate as starlark;
 use crate::environment::GlobalsBuilder;
+use crate::environment::Methods;
+use crate::environment::MethodsBuilder;
+use crate::environment::MethodsStatic;
 use crate::eval::Evaluator;
+use crate::values::none::NoneOr;
+use crate::values::starlark_value;
+use crate::values::AllocValue;
+use crate::values::Heap;
+use crate::values::NoSerialize;
+use crate::values::ProvidesStaticType;
+use crate::values::StarlarkValue;
+use crate::values::Trace;
+use crate::values::Value;
+use crate::StarlarkDocs;
+
+#[derive(
+    ProvidesStaticType,
+    Trace,
+    Allocative,
+    StarlarkDocs,
+    Debug,
+    NoSerialize,
+    Clone
+)]
+/// A frame of the call-stack.
+struct StackFrame {
+    /// The name of the entry on the call-stack.
+    name: String,
+    /// The location of the definition, or [`None`] for native Rust functions.
+    location: Option<FileSpan>,
+}
+
+#[starlark_value(type = "StackFrame", StarlarkTypeRepr, UnpackValue)]
+impl<'v> StarlarkValue<'v> for StackFrame {
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(stack_frame_methods)
+    }
+}
+
+impl<'v> AllocValue<'v> for StackFrame {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        heap.alloc_complex_no_freeze(self)
+    }
+}
+
+impl Display for StackFrame {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "<StackFrame ...>")
+    }
+}
+
+#[starlark_module]
+fn stack_frame_methods(builder: &mut MethodsBuilder) {
+    /// Returns the name of the entry on the call-stack.
+    #[starlark(attribute)]
+    fn func_name(this: &StackFrame) -> anyhow::Result<String> {
+        Ok(this.name.clone())
+    }
+
+    /// Returns the file name from which the entry was called, or [`None`] for native Rust functions.
+    #[starlark(attribute)]
+    fn file_name(this: &StackFrame) -> anyhow::Result<Option<String>> {
+        match this.location {
+            Some(ref location) => Ok(Some(location.file.filename().to_owned())),
+            None => Ok(None),
+        }
+    }
+}
 
 #[starlark_module]
 pub(crate) fn global(builder: &mut GlobalsBuilder) {
@@ -42,6 +116,29 @@ pub(crate) fn global(builder: &mut GlobalsBuilder) {
             .frames
             .truncate(stack.frames.len().saturating_sub(strip_frames as usize));
         Ok(stack.to_string())
+    }
+
+    /// Get a structural representation of the n-th call stack frame.
+    ///
+    /// With `n=0` returns `call_stack_frame` itself.
+    /// Returns `None` if `n` is greater than or equal to the stack size.
+    fn call_stack_frame(
+        #[starlark(require = pos)] n: u32,
+        eval: &mut Evaluator,
+    ) -> anyhow::Result<NoneOr<StackFrame>> {
+        let stack = eval.call_stack();
+        let n = n as usize;
+        if n >= stack.frames.len() {
+            return Ok(NoneOr::None);
+        }
+        match stack.frames.get(stack.frames.len() - n - 1) {
+            Some(frame) => Ok(NoneOr::Other(StackFrame {
+                name: frame.name.clone(),
+                location: frame.location.clone(),
+            })),
+
+            None => Ok(NoneOr::None),
+        }
     }
 }
 
@@ -106,6 +203,32 @@ def foo():
 def bar():
     s = call_stack(strip_frames=10)
     return not bool(s)
+
+foo()
+            "#,
+        );
+    }
+
+    #[test]
+    fn test_call_stack_frame() {
+        let mut a = Assert::new();
+        a.globals_add(global);
+        a.is_true(
+            r#"
+def foo():
+    return bar()
+
+def bar():
+    return all([
+            "call_stack_frame" == call_stack_frame(0).func_name,
+            "assert.bzl" == call_stack_frame(0).file_name,
+            "bar" == call_stack_frame(1).func_name,
+            "assert.bzl" == call_stack_frame(1).file_name,
+            "foo" == call_stack_frame(2).func_name,
+            "assert.bzl" == call_stack_frame(2).file_name,
+            None == call_stack_frame(3),
+            None == call_stack_frame(4),
+        ])
 
 foo()
             "#,
