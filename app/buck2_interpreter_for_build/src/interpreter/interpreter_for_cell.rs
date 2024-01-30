@@ -52,12 +52,13 @@ use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::syntax::AstModule;
-use starlark::values::OwnedFrozenValueTyped;
+use starlark::values::OwnedFrozenRef;
 
 use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::build_context::PerFileTypeContext;
 use crate::interpreter::bzl_eval_ctx::BzlEvalCtx;
 use crate::interpreter::cell_info::InterpreterCellInfo;
+use crate::interpreter::extra_value::ExtraValue;
 use crate::interpreter::global_interpreter_state::GlobalInterpreterState;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::package_file_extra::FrozenPackageFileExtra;
@@ -309,6 +310,8 @@ impl InterpreterForCell {
                 }
             }
         }
+
+        env.set_extra_value(env.heap().alloc_complex(ExtraValue::default()));
 
         Ok(env)
     }
@@ -595,10 +598,10 @@ impl InterpreterForCell {
             )?
             .additional;
 
-        let extra: Option<OwnedFrozenValueTyped<FrozenPackageFileExtra>> =
-            if env.extra_value().is_some() {
-                // Only freeze if there's extra, otherwise we will needlessly freeze globals.
-                // TODO(nga): add API to only freeze extra.
+        let extra: Option<OwnedFrozenRef<FrozenPackageFileExtra>> =
+            if ExtraValue::get(&env)?.package_extra.get().is_some() {
+                // Only freeze if there's something to freeze, otherwise we will needlessly freeze
+                // globals. TODO(nga): add API to only freeze extra.
                 let env = env.freeze()?;
                 FrozenPackageFileExtra::get(&env)?
             } else {

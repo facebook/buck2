@@ -17,6 +17,7 @@ pub mod configuror;
 pub mod context;
 pub mod cycles;
 pub mod dice_calculation_delegate;
+mod extra_value;
 pub mod functions;
 pub mod global_interpreter_state;
 pub mod globals;

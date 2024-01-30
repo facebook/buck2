@@ -16,8 +16,8 @@ use buck2_node::super_package::SuperPackage;
 use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::WithinViewSpecification;
 use dupe::Dupe;
+use starlark::values::OwnedFrozenRef;
 use starlark::values::OwnedFrozenValue;
-use starlark::values::OwnedFrozenValueTyped;
 use starlark_map::small_map::SmallMap;
 
 use crate::interpreter::package_file_extra::FrozenPackageFileExtra;
@@ -43,7 +43,7 @@ pub struct PackageFileEvalCtx {
 
 impl PackageFileEvalCtx {
     fn cfg_constructor(
-        extra: Option<&OwnedFrozenValueTyped<FrozenPackageFileExtra>>,
+        extra: Option<&OwnedFrozenRef<FrozenPackageFileExtra>>,
     ) -> anyhow::Result<Option<Arc<dyn CfgConstructorImpl>>> {
         let Some(extra) = extra else {
             return Ok(None);
@@ -61,7 +61,7 @@ impl PackageFileEvalCtx {
 
     pub(crate) fn build_super_package(
         self,
-        extra: Option<OwnedFrozenValueTyped<FrozenPackageFileExtra>>,
+        extra: Option<OwnedFrozenRef<FrozenPackageFileExtra>>,
     ) -> anyhow::Result<SuperPackage> {
         let cfg_constructor = Self::cfg_constructor(extra.as_ref())?;
 

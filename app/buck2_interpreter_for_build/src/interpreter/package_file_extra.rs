@@ -24,23 +24,18 @@ use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::NoSerialize;
+use starlark::values::OwnedFrozenRef;
 use starlark::values::OwnedFrozenValue;
-use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark::values::Value;
-use starlark::values::ValueLike;
 use starlark_map::small_map::SmallMap;
 
+use crate::interpreter::extra_value::ExtraValue;
+use crate::interpreter::extra_value::FrozenExtraValue;
 use crate::super_package::package_value::FrozenStarlarkPackageValue;
 use crate::super_package::package_value::StarlarkPackageValue;
-
-#[derive(Debug, buck2_error::Error)]
-enum PackageFileExtraError {
-    #[error("Wrong type of frozen package extra (internal error)")]
-    WrongTypeOfFrozenExtra,
-}
 
 /// `Module.extra_value` when evaluating `PACKAGE` file.
 #[derive(
@@ -128,36 +123,18 @@ impl<'v> Freeze for PackageFileExtra<'v> {
 
 impl<'v> PackageFileExtra<'v> {
     pub fn get_or_init(eval: &mut Evaluator<'v, '_>) -> anyhow::Result<&'v PackageFileExtra<'v>> {
-        match eval.module().extra_value() {
-            None => {
-                let extra = eval.heap().alloc_complex(PackageFileExtra::default());
-                eval.module().set_extra_value(extra);
-                let extra = extra
-                    .downcast_ref_err::<PackageFileExtra>()
-                    .context("(internal error)")?;
-                Ok(extra)
-            }
-            Some(extra) => {
-                let extra = extra
-                    .downcast_ref_err::<PackageFileExtra>()
-                    .context("(internal error)")?;
-                Ok(extra)
-            }
-        }
+        Ok(ExtraValue::get(eval.module())?
+            .package_extra
+            .get_or_init(Default::default))
     }
 }
 
 impl FrozenPackageFileExtra {
     pub(crate) fn get(
         module: &FrozenModule,
-    ) -> anyhow::Result<Option<OwnedFrozenValueTyped<FrozenPackageFileExtra>>> {
-        match module.owned_extra_value() {
-            None => Ok(None),
-            Some(extra) => {
-                Ok(Some(extra.downcast().map_err(|_| {
-                    PackageFileExtraError::WrongTypeOfFrozenExtra
-                })?))
-            }
-        }
+    ) -> anyhow::Result<Option<OwnedFrozenRef<FrozenPackageFileExtra>>> {
+        Ok(FrozenExtraValue::get(module)?
+            .into_owned_frozen_ref()
+            .try_map_option(|x| x.package_extra.as_ref()))
     }
 }
