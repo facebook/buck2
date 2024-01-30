@@ -186,8 +186,8 @@ fn get_callers_for_kill() -> Vec<String> {
     ) -> Option<(Pid, Duration)> {
         // Specifics about this process need to be refreshed by this time.
         let proc = system.process(pid)?;
-        #[allow(deprecated)] // TODO(yurysamkevich): to fix
-        let title = shlex::join(proc.cmd().iter().map(|s| s.as_str()));
+        let title =
+            shlex::try_join(proc.cmd().iter().map(|s| s.as_str())).expect("Null byte unexpected");
         process_tree.push(title);
         let parent_pid = proc.parent()?;
         system.refresh_process_specifics(parent_pid, ProcessRefreshKind::new());

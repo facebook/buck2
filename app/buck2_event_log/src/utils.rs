@@ -144,13 +144,13 @@ pub struct Invocation {
 
 impl Invocation {
     pub fn display_command_line(&self) -> String {
-        #[allow(deprecated)] // TODO(yurysamkevich): to fix
-        shlex::join(self.command_line_args.iter().map(|e| e.as_str()))
+        shlex::try_join(self.command_line_args.iter().map(|e| e.as_str()))
+            .expect("Null byte unexpected")
     }
 
     pub fn display_expanded_command_line(&self) -> String {
-        #[allow(deprecated)] // TODO(yurysamkevich): to fix
-        shlex::join(self.expanded_command_line_args.iter().map(|e| e.as_str()))
+        shlex::try_join(self.expanded_command_line_args.iter().map(|e| e.as_str()))
+            .expect("Null byte unexpected")
     }
 
     pub(crate) fn parse_json_line(json: &str) -> anyhow::Result<Invocation> {

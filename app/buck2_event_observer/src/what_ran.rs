@@ -453,8 +453,7 @@ pub fn command_to_string<'a>(command: impl Into<Command<'a>>) -> String {
     for arg in command.argv.iter() {
         cmd.push(Cow::Borrowed(arg));
     }
-    #[allow(deprecated)] // TODO(yurysamkevich): to fix
-    shlex::join(cmd.iter().map(|e| e.as_ref()))
+    shlex::try_join(cmd.iter().map(|e| e.as_ref())).expect("Null byte unexpected")
 }
 
 impl WhatRanOutputWriter for SuperConsole {
