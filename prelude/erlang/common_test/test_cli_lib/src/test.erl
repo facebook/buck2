@@ -34,7 +34,9 @@
     start_shell/0
 ]).
 
--type run_spec() :: string() | non_neg_integer() | [#{name := string(), suite := string()}].
+-type test_id() :: string() | non_neg_integer().
+-type test_info() :: #{name := string(), suite := atom()}.
+-type run_spec() :: test_id() | [test_info()].
 -type run_result() :: {non_neg_integer(), non_neg_integer()}.
 
 -spec start() -> ok.
@@ -75,7 +77,7 @@ help() ->
     io:format("For more information, use the built in help, e.g. h(test, help)~n"),
     ok.
 
--spec print_help(function(), arity()) -> ok.
+-spec print_help(Fun :: atom(), arity()) -> ok.
 print_help(Fun, Arity) ->
     #{args := Args, desc := [DescFirst | DescRest]} = command_description(Fun, Arity),
     FunSig = string:pad(
@@ -83,9 +85,10 @@ print_help(Fun, Arity) ->
     ),
     io:format("~s -- ~s~n", [FunSig, DescFirst]),
     Padding = string:pad("", 34),
-    [io:format("~s~s~n", [Padding, DescLine]) || DescLine <- DescRest].
+    [io:format("~s~s~n", [Padding, DescLine]) || DescLine <- DescRest],
+    ok.
 
--spec command_description(module(), arity()) -> #{args := [string()], desc := string()}.
+-spec command_description(Fun :: atom(), arity()) -> #{args := [string()], desc := [string()]}.
 command_description(help, 0) ->
     #{args => [], desc => ["print help"]};
 command_description(info, 0) ->
@@ -130,7 +133,7 @@ command_description(F, A) ->
 
 %% @doc List all available tests
 %% @equiv test:list("")
--spec list() -> non_neg_integer().
+-spec list() -> ok | {error, term()}.
 list() ->
     list("").
 
@@ -138,26 +141,27 @@ list() ->
 %% [https://www.erlang.org/doc/man/re.html#regexp_syntax] for the supported
 %% regular expression syntax. If a module is given as argument, list all
 %% tests from that module instead
--spec list(RegExOrModule :: module() | string()) -> non_neg_integer().
+-spec list(RegExOrModule :: module() | string()) -> ok | {error, term()}.
 list(RegEx) when is_list(RegEx) ->
     ensure_initialized(),
-    Tests = ct_daemon:list(RegEx),
-    print_tests(Tests).
+    case ct_daemon:list(RegEx) of
+        {invalid_regex, _} = Err -> {error, Err};
+        Tests -> print_tests(Tests)
+    end.
 
 %% @doc Run a test given by either the test id from the last list() command, or
 %% a regex that matches exactly one test. Tests are run with the shortest possible
 %% setup. This call does not recompile the test suite and its dependencies, but
 %% runs them as is. You can manually recompile code with c(Module).
 %% To reset the test state use reset().
--spec rerun(string() | non_neg_integer() | [#{name := string(), suite := string()}]) ->
-    run_result().
+-spec rerun(run_spec()) -> run_result().
 rerun(Spec) ->
     ensure_initialized(),
     do_plain_test_run(Spec).
 
 %% @doc update code and run all tests
 %% @equiv run("")
--spec run() -> ok | error.
+-spec run() -> run_result() | error.
 run() ->
     run("").
 
@@ -223,6 +227,7 @@ ensure_initialized() ->
             ok
     end.
 
+-spec init_utility_apps() -> boolean().
 init_utility_apps() ->
     RunningApps = proplists:get_value(running, application:info()),
     case proplists:is_defined(test_cli_lib, RunningApps) of
@@ -240,6 +245,7 @@ init_utility_apps() ->
             end
     end.
 
+-spec init_node() -> boolean().
 init_node() ->
     case ct_daemon:alive() of
         true ->
@@ -266,6 +272,7 @@ init_node() ->
             true
     end.
 
+-spec watchdog() -> no_return().
 watchdog() ->
     Node = ct_daemon_node:get_node(),
     true = erlang:monitor_node(Node, true),
@@ -279,6 +286,7 @@ watchdog() ->
             erlang:halt()
     end.
 
+-spec init_group_leader() -> boolean().
 init_group_leader() ->
     %% set the group leader unconditionally, we need to do this since
     %% during init, the group leader is different then the one from the
@@ -286,11 +294,13 @@ init_group_leader() ->
     ct_daemon:set_gl(),
     false.
 
+-spec print_tests([{module(), [{non_neg_integer(), string()}]}]) -> ok.
 print_tests([]) ->
     io:format("no tests found~n");
 print_tests(Tests) ->
     print_tests_impl(lists:reverse(Tests)).
 
+-spec print_tests_impl([{module(), [{non_neg_integer(), string()}]}]) -> ok.
 print_tests_impl([]) ->
     ok;
 print_tests_impl([{Suite, SuiteTests} | Rest]) ->
@@ -300,9 +310,12 @@ print_tests_impl([{Suite, SuiteTests} | Rest]) ->
 
 -spec is_debug_session() -> boolean().
 is_debug_session() ->
-    application:get_env(test_cli_lib, debugger_mode, false).
+    case application:get_env(test_cli_lib, debugger_mode, false) of
+        Value when is_boolean(Value) ->
+            Value
+    end.
 
--spec collect_results(#{module => [string()]}) -> #{string => ct_daemon_core:run_result()}.
+-spec collect_results(#{module => [string()]}) -> #{string() => ct_daemon_core:run_result()}.
 collect_results(PerSuite) ->
     maps:fold(
         fun(Suite, Tests, Acc) ->
@@ -337,7 +350,7 @@ ensure_per_suite_encapsulation(Suite) ->
             end
     end.
 
--spec discover(string() | non_neg_integer()) -> [#{name := string(), suite := string()}].
+-spec discover(string() | non_neg_integer()) -> [test_info()].
 discover(RegExOrId) ->
     case ct_daemon:discover(RegExOrId) of
         {error, not_listed_yet} ->
@@ -382,11 +395,12 @@ do_plain_test_run(RegExOrId) ->
         ToRun -> do_plain_test_run(ToRun)
     end.
 
--spec start_shell() -> no_return().
+-spec start_shell() -> ok | {error, term()}.
 start_shell() ->
     case string:to_integer(erlang:system_info(otp_release)) of
         {Version, _} when Version >= 26 ->
             shell:start_interactive();
         _ ->
-            user_drv:start()
+            user_drv:start(),
+            ok
     end.

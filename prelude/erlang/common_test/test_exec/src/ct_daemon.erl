@@ -89,7 +89,7 @@ list(RegEx) ->
     end.
 
 -spec discover(pos_integer() | string()) ->
-    #{suite := module(), name := string()}
+    [#{suite := module(), name := string()}]
     | ct_daemon_runner:discover_error().
 discover(RegExOrId) ->
     do_call({discover, RegExOrId}).
