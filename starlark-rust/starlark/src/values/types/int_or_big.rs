@@ -87,7 +87,7 @@ impl FromStr for StarlarkInt {
 }
 
 impl StarlarkInt {
-    pub(crate) fn from_str_radix(s: &str, base: u32) -> anyhow::Result<StarlarkInt> {
+    pub(crate) fn from_str_radix(s: &str, base: u32) -> crate::Result<StarlarkInt> {
         Ok(StarlarkInt::from(TokenInt::from_str_radix(s, base)?))
     }
 

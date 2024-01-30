@@ -59,6 +59,12 @@ pub enum LexemeError {
     CannotParse(String, u32),
 }
 
+impl From<LexemeError> for crate::Error {
+    fn from(e: LexemeError) -> Self {
+        crate::Error::new(crate::ErrorKind::Lexer(anyhow::Error::new(e)))
+    }
+}
+
 type LexemeT<T> = Result<(usize, T, usize), EvalException>;
 type Lexeme = LexemeT<Token>;
 
@@ -101,7 +107,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn err_span<T>(&self, msg: LexemeError, start: usize, end: usize) -> Result<T, EvalException> {
-        Err(EvalException::new_anyhow(
+        Err(EvalException::new(
             msg.into(),
             Span::new(Pos::new(start as u32), Pos::new(end as u32)),
             &self.codemap,
@@ -591,7 +597,7 @@ pub enum TokenInt {
 }
 
 impl TokenInt {
-    pub fn from_str_radix(s: &str, base: u32) -> anyhow::Result<TokenInt> {
+    pub fn from_str_radix(s: &str, base: u32) -> crate::Result<TokenInt> {
         if let Ok(i) = i32::from_str_radix(s, base) {
             Ok(TokenInt::I32(i))
         } else {

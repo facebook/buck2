@@ -476,7 +476,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
         >,
         base: Option<i32>,
         heap: &'v Heap,
-    ) -> anyhow::Result<ValueOfUnchecked<'v, StarlarkInt>> {
+    ) -> starlark::Result<ValueOfUnchecked<'v, StarlarkInt>> {
         let Some(a) = a else {
             return Ok(ValueOfUnchecked::new(heap.alloc(0)));
         };
@@ -488,7 +488,8 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
                     return Err(anyhow::anyhow!(
                         "{} is not a valid base, int() base must be >= 2 and <= 36",
                         base
-                    ));
+                    )
+                    .into());
                 }
                 let (negate, s) = {
                     match s.chars().next() {
@@ -533,7 +534,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
                 };
                 // We already handled the sign above, so we are not trying to parse another sign.
                 if s.starts_with('-') || s.starts_with('+') {
-                    return Err(anyhow::anyhow!("Cannot parse `{}` as an integer", s,));
+                    return Err(anyhow::anyhow!("Cannot parse `{}` as an integer", s,).into());
                 }
 
                 let x = StarlarkInt::from_str_radix(s, base)?;
@@ -546,7 +547,8 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
             return Err(anyhow::anyhow!(
                 "int() cannot convert non-string with explicit base '{}'",
                 base
-            ));
+            )
+            .into());
         }
 
         match num_or_bool {
