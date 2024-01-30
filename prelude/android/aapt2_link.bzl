@@ -33,9 +33,9 @@ def get_aapt2_link(
     link_infos = []
     for use_proto_format in [False, True]:
         if use_proto_format:
-            identifier = "use_proto_format"
+            identifier = "use_proto"
         else:
-            identifier = "not_proto_format"
+            identifier = "not_proto"
 
         aapt2_command = cmd_args(android_toolchain.aapt2)
         aapt2_command.add("link")
@@ -48,7 +48,7 @@ def get_aapt2_link(
         aapt2_command.add(["--proguard", proguard_config.as_output()])
 
         # We don't need the R.java output, but aapt2 won't output R.txt unless we also request R.java.
-        r_dot_java = ctx.actions.declare_output("{}/initial-rdotjava".format(identifier), dir = True)
+        r_dot_java = ctx.actions.declare_output("{}/init-rjava".format(identifier), dir = True)
         aapt2_command.add(["--java", r_dot_java.as_output()])
         r_dot_txt = ctx.actions.declare_output("{}/R.txt".format(identifier))
         aapt2_command.add(["--output-text-symbols", r_dot_txt.as_output()])
