@@ -675,7 +675,11 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
             use_project_relative_paths = re_executor != None,
         ),
     ) + [
-        DefaultInfo(default_output = output.binary, other_outputs = output.runtime_files, sub_targets = output.sub_targets),
+        DefaultInfo(
+            default_output = output.binary,
+            other_outputs = output.runtime_files + output.external_debug_info_artifacts,
+            sub_targets = output.sub_targets,
+        ),
         output.compilation_db,
         output.xcode_data,
     ]
