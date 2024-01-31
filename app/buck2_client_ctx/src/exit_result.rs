@@ -142,7 +142,7 @@ impl ExitResult {
         }
     }
 
-    pub fn from_errors(errors: &[buck2_data::ErrorReport]) -> Self {
+    pub fn from_errors<'a>(errors: impl IntoIterator<Item = &'a buck2_data::ErrorReport>) -> Self {
         let mut has_infra = false;
         let mut has_user = false;
         for e in errors {

@@ -114,11 +114,6 @@ struct TestOutcome {
 
 impl TestOutcome {
     pub(crate) fn exit_code(&self) -> anyhow::Result<Option<i32>> {
-        if !self.errors.is_empty() {
-            // Some tests failed to build. Send `None` back to
-            // the client to delegate the exit code generation.
-            return Ok(None);
-        }
         self.executor_report
             .exit_code
             .context("Test executor did not provide an exit code")

@@ -128,7 +128,9 @@ If include patterns are present, regardless of whether exclude patterns are pres
     /// How long to execute tests for. If the timeout is exceeded, Buck2 will exit
     /// as quickly as possible and not run further tests. In-flight tests will be
     /// cancelled. The test orchestrator will be allowed to shut down gracefully.
-    /// The exit code will be a user failure.
+    ///
+    /// The exit code is controlled by the test orchestrator (which normally should report zero for
+    /// this).
     ///
     /// The format is a concatenation of time spans (separated by spaces). Each time span is an
     /// integer number and a suffix.
@@ -248,10 +250,10 @@ impl StreamingCommand for TestCommand {
             .errors
             .iter()
             .filter(|e| e.typ != Some(buck2_data::error::ErrorType::UserDeadlineExpired as _))
-            .count();
+            .collect::<Vec<_>>();
 
-        if build_errors > 0 {
-            console.print_error(&format!("{} BUILDS FAILED", build_errors))?;
+        if !build_errors.is_empty() {
+            console.print_error(&format!("{} BUILDS FAILED", build_errors.len()))?;
         }
 
         // TODO(nmj): Might make sense for us to expose the event ctx, and use its
@@ -274,7 +276,7 @@ impl StreamingCommand for TestCommand {
             line.push(column.to_span_from_test_statuses(statuses)?);
             line.push(Span::new_unstyled_lossy(". "));
         }
-        line.push(span_from_build_failure_count(build_errors)?);
+        line.push(span_from_build_failure_count(build_errors.len())?);
         eprint_line(&line)?;
 
         print_error_counter(&console, listing_failed, "LISTINGS FAILED", "⚠")?;
@@ -299,10 +301,16 @@ impl StreamingCommand for TestCommand {
             _ => {}
         }
 
-        let exit_result = if let Some(exit_code) = response.exit_code {
+        let exit_result = if !build_errors.is_empty() {
+            // If we had build errors, those take precedence and we return their exit code.
+            ExitResult::from_errors(build_errors.iter().copied())
+        } else if let Some(exit_code) = response.exit_code {
+            // Otherwise, use the exit code from Tpx.
             ExitResult::status_extended(exit_code)
         } else {
-            ExitResult::from_errors(&response.errors)
+            // But if we had no build errors, and Tpx did not provide an exit code, then that's
+            // going to be an error.
+            ExitResult::bail("Test executor did not provide an exit code")
         };
 
         match self.test_executor_stdout {
