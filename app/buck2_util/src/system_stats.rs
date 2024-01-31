@@ -33,3 +33,24 @@ impl UnixSystemStats {
         None
     }
 }
+
+pub fn system_memory_stats() -> u64 {
+    use sysinfo::RefreshKind;
+    use sysinfo::System;
+    use sysinfo::SystemExt;
+
+    let system = System::new_with_specifics(RefreshKind::new().with_memory());
+    system.total_memory()
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::system_stats::system_memory_stats;
+
+    #[test]
+    fn get_system_memory_stats() {
+        let total_mem = system_memory_stats();
+        // sysinfo returns zero when fails to retrieve data
+        assert!(total_mem > 0);
+    }
+}

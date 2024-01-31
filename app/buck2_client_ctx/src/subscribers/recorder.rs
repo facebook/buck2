@@ -44,6 +44,7 @@ mod imp {
     use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
     use buck2_events::BuckEvent;
     use buck2_util::cleanup_ctx::AsyncCleanupContext;
+    use buck2_util::system_stats::system_memory_stats;
     use buck2_wrapper_common::invocation_id::TraceId;
     use dupe::Dupe;
     use fbinit::FacebookInit;
@@ -54,7 +55,6 @@ mod imp {
 
     use crate::build_count::BuildCountManager;
     use crate::subscribers::observer::ErrorObserver;
-    use crate::subscribers::recorder::system_memory_stats;
     use crate::subscribers::subscriber::EventSubscriber;
 
     pub struct InvocationRecorder<'a> {
@@ -1187,25 +1187,4 @@ pub fn try_get_invocation_recorder<'a>(
             .collect(),
     );
     Ok(Box::new(recorder))
-}
-
-fn system_memory_stats() -> u64 {
-    use sysinfo::RefreshKind;
-    use sysinfo::System;
-    use sysinfo::SystemExt;
-
-    let system = System::new_with_specifics(RefreshKind::new().with_memory());
-    system.total_memory()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn get_system_memory_stats() {
-        let total_mem = system_memory_stats();
-        // sysinfo returns zero when fails to retrieve data
-        assert!(total_mem > 0);
-    }
 }
