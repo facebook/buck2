@@ -18,7 +18,11 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
-pub struct CrashCommand {}
+pub struct CrashCommand {
+    /// Event-log options.
+    #[clap(flatten)]
+    pub event_log_opts: CommonDaemonCommandOptions,
+}
 
 #[async_trait]
 impl StreamingCommand for CrashCommand {
@@ -46,7 +50,7 @@ impl StreamingCommand for CrashCommand {
     }
 
     fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
-        CommonDaemonCommandOptions::default_ref()
+        &self.event_log_opts
     }
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
