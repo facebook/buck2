@@ -313,12 +313,18 @@ impl<'a> EventsCtx<'a> {
         tailers: &mut Option<FileTailers>,
         f: impl FnOnce() -> Fut,
     ) -> anyhow::Result<CommandOutcome<Res>> {
-        let res = self.flushing_tailers(tailers, f).await?;
-        // important - do not early return before flushing the buffers!
-        let inner = res?.into_inner();
-        self.handle_command_result(&inner).await?;
+        let command_result = try {
+            let res = self.flushing_tailers(tailers, f).await?;
+            // important - do not early return before flushing the buffers!
+            let inner = res?.into_inner();
+            self.handle_command_result(&inner).await?;
+            inner
+        };
 
-        convert_result(inner)
+        match command_result {
+            Ok(result) => convert_result(result),
+            Err(err) => Err(self.handle_error_owned(err).await),
+        }
     }
 
     /// Helper method to abstract the process of applying an `EventSubscriber` method to all of the subscribers.
