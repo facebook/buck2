@@ -82,7 +82,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         cxx_srcs, swift_srcs = _filter_swift_srcs(ctx)
 
         framework_search_path_flags = get_framework_search_path_flags(ctx)
-        swift_compile = compile_swift(
+        swift_compile, _ = compile_swift(
             ctx,
             swift_srcs,
             False,  # parse_as_library

@@ -145,7 +145,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         modulemap_pre = None
 
     framework_search_paths_flags = get_framework_search_path_flags(ctx)
-    swift_compile = compile_swift(
+    swift_compile, swift_interface = compile_swift(
         ctx,
         swift_srcs,
         True,  # parse_as_library
@@ -254,6 +254,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
                         default_outputs = swift_compile.object_files if swift_compile else None,
                     ),
                 ],
+                "swift-interface": [swift_interface],
                 "swift-output-file-map": [
                     DefaultInfo(
                         default_output = swift_compile.output_map_artifact if swift_compile else None,
