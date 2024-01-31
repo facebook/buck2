@@ -43,6 +43,8 @@ LinkerInfo = provider(
         "mk_shlib_intf": provider_field(typing.Any, default = None),
         # "o" on Unix, "obj" on Windows
         "object_file_extension": provider_field(typing.Any, default = None),  # str
+        "sanitizer_runtime_enabled": provider_field(bool, default = False),
+        "sanitizer_runtime_dir": provider_field([Artifact, None], default = None),
         "shlib_interfaces": provider_field(ShlibInterfacesMode),
         "shared_dep_runtime_ld_flags": provider_field(typing.Any, default = None),
         # "lib" on Linux/Mac/Android, "" on Windows.
