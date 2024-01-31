@@ -541,7 +541,7 @@ impl<'a, 'b> FlushingBuckdClient<'a, 'b> {
 
     oneshot_method!(flush_dep_files, FlushDepFilesRequest, GenericResponse);
 
-    debug_method!(unstable_crash, UnstableCrashRequest, UnstableCrashResponse);
+    oneshot_method!(unstable_crash, UnstableCrashRequest, GenericResponse);
     debug_method!(segfault, SegfaultRequest, SegfaultResponse);
     debug_method!(
         unstable_heap_dump,

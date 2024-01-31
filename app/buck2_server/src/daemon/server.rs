@@ -1084,9 +1084,14 @@ impl DaemonApi for BuckdServer {
 
     async fn unstable_crash(
         &self,
-        _req: Request<UnstableCrashRequest>,
-    ) -> Result<Response<UnstableCrashResponse>, Status> {
-        panic!("explicitly requested panic (via unstable_crash)");
+        req: Request<UnstableCrashRequest>,
+    ) -> Result<Response<CommandResult>, Status> {
+        self.oneshot(req, DefaultCommandOptions, move |_req| async move {
+            panic!("explicitly requested panic (via unstable_crash)");
+            #[allow(unreachable_code)]
+            Ok(GenericResponse {})
+        })
+        .await
     }
 
     async fn segfault(

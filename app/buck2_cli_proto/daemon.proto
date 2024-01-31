@@ -889,7 +889,7 @@ service DaemonApi {
 
   // Crashes the Buck daemon. Unless you are writing tests or checking Buck2's
   // panic behavior, you probably don't want this.
-  rpc Unstable_Crash(UnstableCrashRequest) returns (UnstableCrashResponse);
+  rpc Unstable_Crash(UnstableCrashRequest) returns (CommandResult);
 
   // Crashes the Buck daemon with a segfault.  Unless you are writing tests or
   // checking Buck2's segfault behavior, you probably don't want this.
