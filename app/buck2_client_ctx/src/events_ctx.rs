@@ -338,13 +338,14 @@ impl<'a> EventsCtx<'a> {
     }
 
     async fn handle_error_owned(&mut self, error: anyhow::Error) -> anyhow::Error {
+        let error: buck2_error::Error = error.into();
         let result = self
             .handle_subscribers(|subscriber| subscriber.handle_error(&error))
             .await;
         match result {
-            Ok(()) => error,
+            Ok(()) => error.into(),
             Err(e) => EventsCtxError::WrappedStreamError {
-                source: error,
+                source: error.into(),
                 other: e,
             }
             .into(),

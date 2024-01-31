@@ -106,7 +106,7 @@ impl UnpackingEventSubscriber for ErrorConsole {
         Ok(())
     }
 
-    async fn handle_error(&mut self, _error: &anyhow::Error) -> anyhow::Result<()> {
+    async fn handle_error(&mut self, _error: &buck2_error::Error) -> anyhow::Result<()> {
         Ok(())
     }
 

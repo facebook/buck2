@@ -104,7 +104,7 @@ impl EventSubscriber for TracingSubscriber {
         Ok(())
     }
 
-    async fn handle_error(&mut self, error: &anyhow::Error) -> anyhow::Result<()> {
+    async fn handle_error(&mut self, error: &buck2_error::Error) -> anyhow::Result<()> {
         tracing::info!("{:#}", error);
         Ok(())
     }

@@ -221,7 +221,7 @@ pub trait UnpackingEventSubscriber: Send {
 
     /// Give the subscriber a chance to react to errors as we start trying to clean up.
     /// They may return another error, which will be incorporated into the end result.
-    async fn handle_error(&mut self, _error: &anyhow::Error) -> anyhow::Result<()>;
+    async fn handle_error(&mut self, _error: &buck2_error::Error) -> anyhow::Result<()>;
 
     /// Allow the subscriber to do some sort of action once every render cycle.
     async fn tick(&mut self, _tick: &Tick) -> anyhow::Result<()>;
@@ -255,7 +255,7 @@ impl<U: UnpackingEventSubscriber> EventSubscriber for UnpackingEventSubscriberAs
         Ok(())
     }
 
-    async fn handle_error(&mut self, error: &anyhow::Error) -> anyhow::Result<()> {
+    async fn handle_error(&mut self, error: &buck2_error::Error) -> anyhow::Result<()> {
         self.0.handle_error(error).await
     }
 

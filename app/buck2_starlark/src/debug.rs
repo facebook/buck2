@@ -201,7 +201,7 @@ impl StreamingCommand for StarlarkDebugAttachCommand {
                 Ok(())
             }
 
-            async fn handle_error(&mut self, error: &anyhow::Error) -> anyhow::Result<()> {
+            async fn handle_error(&mut self, error: &buck2_error::Error) -> anyhow::Result<()> {
                 self.write_console(&format!(
                     "buck2 starlark-attach debugserver error: {}",
                     error

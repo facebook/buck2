@@ -63,7 +63,7 @@ pub trait EventSubscriber: Send {
 
     /// Give the subscriber a chance to react to errors as we start trying to clean up.
     /// They may return another error, which will be incorporated into the end result.
-    async fn handle_error(&mut self, _error: &anyhow::Error) -> anyhow::Result<()> {
+    async fn handle_error(&mut self, _error: &buck2_error::Error) -> anyhow::Result<()> {
         Ok(())
     }
 

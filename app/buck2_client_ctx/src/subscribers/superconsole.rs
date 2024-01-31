@@ -566,7 +566,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
         }
     }
 
-    async fn handle_error(&mut self, _error: &anyhow::Error) -> anyhow::Result<()> {
+    async fn handle_error(&mut self, _error: &buck2_error::Error) -> anyhow::Result<()> {
         match self.super_console.take() {
             Some(super_console) => super_console.finalize(&BuckRootComponent {
                 header: &self.header,

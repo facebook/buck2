@@ -543,7 +543,7 @@ where
         Ok(())
     }
 
-    async fn handle_error(&mut self, _error: &anyhow::Error) -> anyhow::Result<()> {
+    async fn handle_error(&mut self, _error: &buck2_error::Error) -> anyhow::Result<()> {
         // We don't need to do any cleanup to exit.
         Ok(())
     }
