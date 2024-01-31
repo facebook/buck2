@@ -1083,6 +1083,12 @@ mod imp {
             Ok(())
         }
 
+        async fn handle_error(&mut self, error: &buck2_error::Error) -> anyhow::Result<()> {
+            let error = create_error_report(error);
+            self.errors.push(process_error_report(error));
+            Ok(())
+        }
+
         async fn exit(&mut self) -> anyhow::Result<()> {
             self.has_end_of_stream = true;
             Ok(())
