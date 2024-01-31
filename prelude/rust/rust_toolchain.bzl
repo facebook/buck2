@@ -91,7 +91,6 @@ rust_toolchain_attrs = {
     # linking types in signatures to their definition in another crate.
     "extern_html_root_url_prefix": provider_field(str | None, default = None),
     # Utilities used for building flagfiles containing dynamic crate names
-    "concat_tool": provider_field(RunInfo | None, default = None),
     "transitive_dependency_symlinks_tool": provider_field(RunInfo | None, default = None),
     # Setting this enables additional behaviors that improves linking at the
     # cost of using unstable implementation details of rustc. At the moment,

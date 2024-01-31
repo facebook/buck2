@@ -143,8 +143,6 @@ def compile_context(ctx: AnalysisContext) -> CompileContext:
         linker_args = linker,
         clippy_wrapper = clippy_wrapper,
         common_args = {},
-        flagfiles_for_extern = {},
-        flagfiles_for_crate_map = {},
         transitive_dependency_dirs = {},
     )
 
@@ -335,7 +333,7 @@ def generate_rustdoc_test(
         toolchain_info.rustdoc_flags,
         ctx.attrs.rustdoc_flags,
         common_args.args,
-        extern_arg(ctx, compile_ctx, [], attr_crate(ctx), rlib),
+        extern_arg([], attr_crate(ctx), rlib),
         "--extern=proc_macro" if ctx.attrs.proc_macro else [],
         compile_ctx.linker_args,
         cmd_args(linker_argsfile, format = "-Clink-arg=@{}"),
@@ -706,7 +704,7 @@ def dependency_args(
             strategy = strategy_info(info, dep_link_strategy)
             transitive_deps[strategy.rmeta if use_rmeta else strategy.rlib] = info.crate
 
-        args.add(extern_arg(ctx, compile_ctx, dep.flags, crate, artifact))
+        args.add(extern_arg(dep.flags, crate, artifact))
         crate_targets.append((crate, dep.label))
 
         # Because deps of this *target* can also be transitive deps of this compiler
@@ -1199,7 +1197,7 @@ def _rustc_invoke(
     )
 
     for k, v in crate_map:
-        compile_cmd.add(crate_map_arg(ctx, compile_ctx, k, v))
+        compile_cmd.add(crate_map_arg(k, v))
     for k, v in plain_env.items():
         compile_cmd.add(cmd_args("--env=", k, "=", v, delimiter = ""))
     for k, v in path_env.items():

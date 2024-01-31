@@ -128,6 +128,24 @@ def arg_parse() -> Args:
     return Args(**vars(parser.parse_args()))
 
 
+def arg_eval(arg: str) -> str:
+    """
+    Expand an argument such as --extern=$(cat buck-out/v2/gen/foo.txt)=buck-out/dev/gen/libfoo.rlib
+    """
+    expanded = ""
+
+    while True:
+        begin = arg.find("$(cat ")
+        if begin == -1:
+            return expanded + arg
+        expanded += arg[:begin]
+        begin += len("$(cat ")
+        path, rest = arg[begin:].split(")", maxsplit=1)
+        with open(path, encoding="utf-8") as f:
+            expanded += f.read().strip()
+        arg = rest
+
+
 async def handle_output(  # noqa: C901
     proc: asyncio.subprocess.Process,
     args: Args,
@@ -261,7 +279,7 @@ async def main() -> int:
         print(f"args {repr(args)} env {env} crate_map {crate_map}", end="\n")
 
     rustc_cmd = args.rustc[:1]
-    rustc_args = args.rustc[1:]
+    rustc_args = [arg_eval(arg) for arg in args.rustc[1:]]
 
     if args.remap_cwd_prefix is not None:
         rustc_args.append(
@@ -308,7 +326,7 @@ async def main() -> int:
 
     # Check for death by signal - this is always considered a failure
     if res < 0:
-        cmdline = " ".join(shlex.quote(arg) for arg in args.rustc)
+        cmdline = " ".join(shlex.quote(arg) for arg in rustc_cmd + rustc_args)
         eprint(f"Command exited with signal {-res}: command line: {cmdline}")
     elif args.failure_filter:
         # If failure filtering is enabled, then getting an error diagnostic is also

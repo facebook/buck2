@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(":context.bzl", "CompileContext", "CrateMapArg", "CrateName", "ExternArg")
+load(":context.bzl", "CrateName")
 
 # Create `--extern` flag. For crates with a name computed during analysis:
 #
@@ -13,48 +13,22 @@ load(":context.bzl", "CompileContext", "CrateMapArg", "CrateName", "ExternArg")
 #
 # For crates with a name computed during build:
 #
-#     --extern @extern/libPROVISIONAL
+#     --extern=$(cat path/to/REALNAME)=path/to/libPROVISIONAL.rlib
 #
-# where extern/libPROVISIONAL holds a flag containing the real crate name:
-#
-#     REALNAME=path/to/libPROVISIONAL.rlib
-#
-# The `compile_ctx` may be omitted for non-dynamic crate names
-def extern_arg(
-        ctx: AnalysisContext,
-        compile_ctx: CompileContext | None,
-        flags: list[str],
-        crate: CrateName,
-        lib: Artifact) -> cmd_args:
+def extern_arg(flags: list[str], crate: CrateName, lib: Artifact) -> cmd_args:
     if flags == []:
         flags = ""
     else:
         flags = ",".join(flags) + ":"
 
     if crate.dynamic:
-        args = ExternArg(flags = flags, lib = lib)
-        flagfile = compile_ctx.flagfiles_for_extern.get(args, None)
-        if not flagfile:
-            flagfile = ctx.actions.declare_output("extern/{}".format(lib.short_path))
-            concat_cmd = [
-                compile_ctx.toolchain_info.concat_tool,
-                "--output",
-                flagfile.as_output(),
-                "--",
-                flags,
-                cmd_args("@", crate.dynamic, delimiter = ""),
-                "=",
-                cmd_args(lib).ignore_artifacts(),
-            ]
-            ctx.actions.run(
-                concat_cmd,
-                category = "concat",
-                identifier = str(len(compile_ctx.flagfiles_for_extern)),
-            )
-            compile_ctx.flagfiles_for_extern[args] = flagfile
-        return cmd_args("--extern", cmd_args("@", flagfile, delimiter = "")).hidden(lib)
+        # TODO: consider using `cmd_args(crate.dynamic, quote = "json")` so it
+        # doesn't fall apart on paths containing ')'
+        crate_name = cmd_args(crate.dynamic, format = "$(cat {})")
     else:
-        return cmd_args("--extern=", flags, crate.simple, "=", lib, delimiter = "")
+        crate_name = crate.simple
+
+    return cmd_args("--extern=", flags, crate_name, "=", lib, delimiter = "")
 
 # Create `--crate-map` flag. For crates with a name computed during analysis:
 #
@@ -62,37 +36,12 @@ def extern_arg(
 #
 # For crates with a name computed during build:
 #
-#     --crate-map @cratemap/path/to/target
+#     --crate-map=$(cat path/to/REALNAME)=//path/to:target
 #
-# where cratemap/path/to/target holds a flag containing the real crate name:
-#
-#     REALNAME=//path/to:target
-#
-def crate_map_arg(
-        ctx: AnalysisContext,
-        compile_ctx: CompileContext,
-        crate: CrateName,
-        label: Label) -> cmd_args:
+def crate_map_arg(crate: CrateName, label: Label) -> cmd_args:
     if crate.dynamic:
-        args = CrateMapArg(label = label)
-        flagfile = compile_ctx.flagfiles_for_crate_map.get(args, None)
-        if not flagfile:
-            flagfile = ctx.actions.declare_output("cratemap/{}/{}/{}".format(label.cell, label.package, label.name))
-            concat_cmd = [
-                compile_ctx.toolchain_info.concat_tool,
-                "--output",
-                flagfile.as_output(),
-                "--",
-                cmd_args("@", crate.dynamic, delimiter = ""),
-                "=",
-                str(label.raw_target()),
-            ]
-            ctx.actions.run(
-                concat_cmd,
-                category = "cratemap",
-                identifier = str(len(compile_ctx.flagfiles_for_crate_map)),
-            )
-            compile_ctx.flagfiles_for_crate_map[args] = flagfile
-        return cmd_args("--crate-map", cmd_args("@", flagfile, delimiter = ""))
+        crate_name = cmd_args(crate.dynamic, format = "$(cat {})")
     else:
-        return cmd_args("--crate-map=", crate.simple, "=", str(label.raw_target()), delimiter = "")
+        crate_name = crate.simple
+
+    return cmd_args("--crate-map=", crate_name, "=", str(label.raw_target()), delimiter = "")
