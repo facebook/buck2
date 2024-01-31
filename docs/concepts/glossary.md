@@ -206,6 +206,12 @@ article.
 The Buck2 project maintains and uses an open source
 [Starlark interpreter in Rust](https://github.com/facebookexperimental/starlark-rust).
 
+#### Subtarget
+
+Collection of [providers](#provider) that can be accesed by name. The subtargets
+can have their own subtargets as well, which can be accessed by chaining them,
+e.g.: `buck2 build cell//foo:bar[baz][qux]`.
+
 #### Target
 
 An object that is defined in a [BUCK file](#buck-file). Targets represent the
