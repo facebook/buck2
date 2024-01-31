@@ -160,10 +160,7 @@ invocations are executed from the project root.
 
 Data returned from a [rule](#rule) function. It's the only way that information
 from this rule is available to other rules that depend on it (see
-[dependency](#dependency)). Every rule must return at least the `DefaultInfo`
-provider. A common case is to also return either `RunInfo` (because they are
-executable) or custom providers that the dependents rule can use. For more
-information, see
+[dependency](#dependency)). For more information, see
 [Providers](https://buck2.build/docs/rule_authors/writing_rules/#providers).
 
 #### Remote execution (RE)
