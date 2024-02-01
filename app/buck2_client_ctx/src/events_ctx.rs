@@ -8,6 +8,7 @@
  */
 
 use std::ops::ControlFlow;
+use std::pin::pin;
 use std::sync::Arc;
 use std::time::SystemTime;
 
@@ -185,7 +186,7 @@ impl<'a> EventsCtx<'a> {
         mut console_interaction: Option<ConsoleInteractionStream<'_>>,
     ) -> anyhow::Result<CommandResult>
     where
-        S: Stream<Item = anyhow::Result<StreamValue>> + Unpin,
+        S: Stream<Item = anyhow::Result<StreamValue>>,
         Handler: PartialResultHandler,
     {
         let mut noop_console_interaction = NoopConsoleInteraction;
@@ -204,7 +205,8 @@ impl<'a> EventsCtx<'a> {
 
         let mut tailers = tailers.unwrap_or_else(FileTailers::empty);
 
-        let mut stream = stream.ready_chunks(1000);
+        let stream = stream.ready_chunks(1000);
+        let mut stream = pin!(stream);
 
         // NOTE: When unpacking the stream we capture any shutdown event we encounter. If we fail
         // to unpack the stream to completion, we'll use that later.
@@ -279,7 +281,7 @@ impl<'a> EventsCtx<'a> {
         console_interaction: Option<ConsoleInteractionStream<'_>>,
     ) -> anyhow::Result<CommandOutcome<Res>>
     where
-        S: Stream<Item = anyhow::Result<StreamValue>> + Unpin,
+        S: Stream<Item = anyhow::Result<StreamValue>>,
         Res: TryFrom<command_result::Result, Error = command_result::Result>,
         Handler: PartialResultHandler,
     {
