@@ -68,6 +68,7 @@ PythonToolchainInfo = provider(
         "make_py_package_modules": provider_field(typing.Any, default = None),
         "pex_executor": provider_field(typing.Any, default = None),
         "pex_extension": provider_field(typing.Any, default = None),
+        "type_checker": provider_field(typing.Any, default = None),
         "emit_omnibus_metadata": provider_field(typing.Any, default = None),
         "fail_with_message": provider_field(typing.Any, default = None),
         "emit_dependency_metadata": provider_field(typing.Any, default = None),
