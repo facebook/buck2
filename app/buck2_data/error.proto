@@ -50,4 +50,9 @@ enum ErrorTag {
   STARLARK_FAIL = 1;
   WATCHMAN_TIMEOUT = 2;
   HTTP = 3;
+  // gRPC protocol error between client and server from the client side.
+  // - Protocol error (e.g. malformed frame, or too large frame)
+  // - Transport error (e.g. connection closed)
+  // - Not application error (e.g. bzl file not found)
+  CLIENT_GRPC = 4;
 }
