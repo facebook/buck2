@@ -296,9 +296,9 @@ impl<'a> EventsCtx<'a> {
     pub async fn flushing_tailers<R, Fut: Future<Output = R>>(
         &mut self,
         tailers: Option<FileTailers>,
-        f: impl FnOnce() -> Fut,
+        f: Fut,
     ) -> anyhow::Result<R> {
-        let res = f().await;
+        let res = f.await;
         self.flush(tailers).await?;
         Ok(res)
     }
@@ -311,7 +311,7 @@ impl<'a> EventsCtx<'a> {
     >(
         &mut self,
         tailers: Option<FileTailers>,
-        f: impl FnOnce() -> Fut,
+        f: Fut,
     ) -> anyhow::Result<CommandOutcome<Res>> {
         let command_result = try {
             let res = self.flushing_tailers(tailers, f).await?;
