@@ -118,10 +118,7 @@ def _cgo(
     cxx_cmd.add(c_compiler.compiler_flags)
     cxx_cmd.add(pre_args)
     cxx_cmd.add(pre_include_dirs)
-
-    # Passing the same value as go-build, because our -g flags break cgo
-    # in some buck modes
-    cxx_cmd.add("-g")
+    cxx_cmd.add(go_toolchain.c_compiler_flags)
 
     # Wrap the C/C++ command in a wrapper script to avoid arg length limits.
     is_win = ctx.attrs._exec_os_type[OsLookup].platform == "windows"

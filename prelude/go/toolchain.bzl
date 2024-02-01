@@ -10,6 +10,7 @@ GoToolchainInfo = provider(
     fields = {
         "assembler": provider_field(typing.Any, default = None),
         "assembler_flags": provider_field(typing.Any, default = None),
+        "c_compiler_flags": provider_field(typing.Any, default = None),
         "cgo": provider_field(typing.Any, default = None),
         "cgo_wrapper": provider_field(typing.Any, default = None),
         "compile_wrapper": provider_field(typing.Any, default = None),
