@@ -91,7 +91,7 @@ def get_modifier_info(
         refs: dict[str, ProviderCollection],
         modifier: Modifier,
         location: ModifierLocation,
-        constraint_setting_order: list[TargetLabel]) -> (TargetLabel, ModifierInfo) | None:
+        constraint_setting_order: list[TargetLabel]) -> ((TargetLabel, ModifierInfo) | None):
     # Gets a modifier info from a modifier based on providers from `refs`.
     if modifier == None:
         return None
