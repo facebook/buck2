@@ -35,6 +35,7 @@ use crate::command_outcome::CommandOutcome;
 use crate::console_interaction_stream::ConsoleInteraction;
 use crate::console_interaction_stream::ConsoleInteractionStream;
 use crate::console_interaction_stream::NoopConsoleInteraction;
+use crate::daemon::client::tonic_status_to_error;
 use crate::daemon::client::NoPartialResultHandler;
 use crate::exit_result::ExitResult;
 use crate::file_tailer::FileTailer;
@@ -311,7 +312,7 @@ impl<'a> EventsCtx<'a> {
         let stream = stream::once(f.map(|result| {
             result
                 .map(|command_result| StreamValue::Result(Box::new(command_result.into_inner())))
-                .map_err(|e| e.into())
+                .map_err(tonic_status_to_error)
         }));
         self.unpack_stream(&mut NoPartialResultHandler, stream, tailers, None)
             .await

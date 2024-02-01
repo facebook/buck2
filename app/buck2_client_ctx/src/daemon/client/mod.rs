@@ -21,6 +21,7 @@ use buck2_cli_proto::*;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_data::error::ErrorTag;
 use buck2_event_log::stream_value::StreamValue;
 use fs4::FileExt;
 use futures::future::BoxFuture;
@@ -160,6 +161,15 @@ enum GrpcToStreamError {
     EmptyCommandProgress,
 }
 
+/// Convert tonic error to our error.
+///
+/// This function **must** be used explicitly to convert the error, because we want a tag.
+pub(crate) fn tonic_status_to_error(status: tonic::Status) -> anyhow::Error {
+    buck2_error::Error::from(status)
+        .tag([ErrorTag::ClientGrpc])
+        .into()
+}
+
 /// Translates a tonic streaming response into a stream of StreamValues, the set of things that can flow across the gRPC
 /// event stream.
 fn grpc_to_stream(
@@ -171,6 +181,7 @@ fn grpc_to_stream(
     };
 
     let stream = stream
+        .map_err(tonic_status_to_error)
         .map_ok(|e| stream::iter(e.messages.into_iter().map(anyhow::Ok)))
         .try_flatten();
 
@@ -228,6 +239,7 @@ impl<'a> BuckdClient<'a> {
 
         let response = command(client, Request::new(request))
             .await
+            .map_err(tonic_status_to_error)
             .context("Error dispatching request");
         let stream = grpc_to_stream(response);
         pin_mut!(stream);
