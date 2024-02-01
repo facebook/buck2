@@ -202,6 +202,7 @@ extra_attributes = {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),
         "robolectric_runtime_dependencies": attrs.list(attrs.source(), default = []),
+        "test_class_names_file": attrs.option(attrs.source(), default = None),
         "unbundled_resources_root": attrs.option(attrs.source(allow_directory = True), default = None),
         "_android_toolchain": toolchains_common.android(),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),

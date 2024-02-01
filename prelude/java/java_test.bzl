@@ -112,19 +112,21 @@ def build_junit_test(
     if ctx.attrs.test_case_timeout_ms:
         cmd.extend(["--default_test_timeout", str(ctx.attrs.test_case_timeout_ms)])
 
-    expect(tests_java_library_info.library_output != None, "Built test library has no output, likely due to missing srcs")
-
-    class_names = ctx.actions.declare_output("class_names")
-    list_class_names_cmd = cmd_args([
-        java_test_toolchain.list_class_names[RunInfo],
-        "--jar",
-        tests_java_library_info.library_output.full_library,
-        "--sources",
-        ctx.actions.write("sources.txt", ctx.attrs.srcs),
-        "--output",
-        class_names.as_output(),
-    ]).hidden(ctx.attrs.srcs)
-    ctx.actions.run(list_class_names_cmd, category = "list_class_names")
+    if ctx.attrs.test_class_names_file:
+        class_names = ctx.attrs.test_class_names_file
+    else:
+        expect(tests_java_library_info.library_output != None, "Built test library has no output, likely due to missing srcs")
+        class_names = ctx.actions.declare_output("class_names")
+        list_class_names_cmd = cmd_args([
+            java_test_toolchain.list_class_names[RunInfo],
+            "--jar",
+            tests_java_library_info.library_output.full_library,
+            "--sources",
+            ctx.actions.write("sources.txt", ctx.attrs.srcs),
+            "--output",
+            class_names.as_output(),
+        ]).hidden(ctx.attrs.srcs)
+        ctx.actions.run(list_class_names_cmd, category = "list_class_names")
 
     cmd.extend(["--test-class-names-file", class_names])
 
