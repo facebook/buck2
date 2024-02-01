@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use gazebo::prelude::SliceExt;
+
 pub fn create_error_report(err: &buck2_error::Error) -> buck2_data::ErrorReport {
     // Infra error by default if no category tag is set
     let category = err.get_category().map(|c| match c {
@@ -29,6 +31,6 @@ pub fn create_error_report(err: &buck2_error::Error) -> buck2_data::ErrorReport 
         message,
         telemetry_message,
         source_location,
-        tags: Vec::new(),
+        tags: err.get_tags().map(|t| *t as i32),
     }
 }
