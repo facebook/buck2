@@ -87,9 +87,9 @@ fn stack_frame_methods(builder: &mut MethodsBuilder) {
         Ok(this.name.clone())
     }
 
-    /// Returns the file name from which the entry was called, or [`None`] for native Rust functions.
+    /// Returns a path of the module from which the entry was called, or [`None`] for native Rust functions.
     #[starlark(attribute)]
-    fn file_name(this: &StackFrame) -> anyhow::Result<Option<String>> {
+    fn module_path(this: &StackFrame) -> anyhow::Result<Option<String>> {
         match this.location {
             Some(ref location) => Ok(Some(location.file.filename().to_owned())),
             None => Ok(None),
@@ -221,11 +221,11 @@ def foo():
 def bar():
     return all([
             "call_stack_frame" == call_stack_frame(0).func_name,
-            "assert.bzl" == call_stack_frame(0).file_name,
+            "assert.bzl" == call_stack_frame(0).module_path,
             "bar" == call_stack_frame(1).func_name,
-            "assert.bzl" == call_stack_frame(1).file_name,
+            "assert.bzl" == call_stack_frame(1).module_path,
             "foo" == call_stack_frame(2).func_name,
-            "assert.bzl" == call_stack_frame(2).file_name,
+            "assert.bzl" == call_stack_frame(2).module_path,
             None == call_stack_frame(3),
             None == call_stack_frame(4),
         ])
