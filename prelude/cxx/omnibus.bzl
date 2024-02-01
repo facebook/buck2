@@ -587,11 +587,18 @@ def _build_omnibus_spec(
         if label not in excluded
     }
 
-    # Find the deps of the root nodes.  These form the roots of the nodes
-    # included in the omnibus link.
+    # Find the deps of the root nodes that should be linked into
+    # 'libomnibus.so'.
+    #
+    # If a dep indicates preferred linkage static, it is linked directly into
+    # this omnimbus root and therefore not added to `first_order_root_deps` and
+    # thereby will not be linked into 'libomnibus.so'. If the dep does not
+    # indicate preferred linkage static, then it is added to
+    # `first_order_root_deps` and thereby will be linked into 'libomnibus.so'.
     first_order_root_deps = []
     for label in _link_deps(graph.nodes, flatten([r.deps for r in roots.values()]), get_cxx_toolchain_info(ctx).pic_behavior):
-        # We only consider deps which aren't *only* statically linked.
+        # Per the comment above, only consider deps which aren't *only*
+        # statically linked.
         if _is_static_only(graph.nodes[label]):
             continue
 
