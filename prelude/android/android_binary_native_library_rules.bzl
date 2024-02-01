@@ -1031,12 +1031,16 @@ def _get_merged_linkables(
         for group in post_order_traversal(link_groups_graph):
             group_data = link_groups[group]
             is_actually_merged = len(group_data.constituents) > 1
+
             can_be_asset = True
+            for target in group_data.constituents:
+                if not linkable_nodes[target].can_be_asset:
+                    can_be_asset = False
+                    break
 
             if not is_actually_merged:
                 target = group_data.constituents[0]
                 node_data = linkable_nodes[target]
-                can_be_asset = node_data.can_be_asset
 
                 if node_data.preferred_linkage == Linkage("static") or not _has_linkable(node_data):
                     debug_info.unmerged_statics.append(target)
