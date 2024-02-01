@@ -190,8 +190,6 @@ def link(
         cxx_link_cmd = cmd_args(
             [
                 cxx_toolchain.linker_info.linker,
-                cxx_toolchain.linker_info.linker_flags,
-                go_toolchain.external_linker_flags,
                 ext_link_args,
                 "%*" if is_win else "\"$@\"",
             ],
@@ -204,6 +202,11 @@ def link(
             is_executable = True,
         )
         cmd.add("-extld", linker_wrapper).hidden(cxx_link_cmd)
+        cmd.add("-extldflags", cmd_args(
+            cxx_toolchain.linker_info.linker_flags,
+            go_toolchain.external_linker_flags,
+            delimiter = " ",
+        ))
 
     cmd.add(linker_flags)
 
