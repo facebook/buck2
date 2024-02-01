@@ -245,7 +245,7 @@ impl<'a> BuckdClient<'a> {
         let outcome = self
             .events_ctx
             // Safe to unwrap tailers here because they are instantiated prior to a command being called.
-            .unpack_oneshot(&mut self.tailers, || {
+            .unpack_oneshot(mem::take(&mut self.tailers), || {
                 self.client.status(Request::new(StatusRequest { snapshot }))
             })
             .await;
@@ -402,7 +402,7 @@ macro_rules! oneshot_method {
             let res = self
                 .inner
                 .events_ctx
-                .unpack_oneshot(&mut self.inner.tailers, || {
+                .unpack_oneshot(mem::take(&mut self.inner.tailers), || {
                     self.inner.client.$method(Request::new(req))
                 })
                 .await;

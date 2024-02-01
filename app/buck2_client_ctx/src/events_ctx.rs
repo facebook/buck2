@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::mem;
 use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -296,11 +295,11 @@ impl<'a> EventsCtx<'a> {
 
     pub async fn flushing_tailers<R, Fut: Future<Output = R>>(
         &mut self,
-        tailers: &mut Option<FileTailers>,
+        tailers: Option<FileTailers>,
         f: impl FnOnce() -> Fut,
     ) -> anyhow::Result<R> {
         let res = f().await;
-        self.flush(mem::take(tailers)).await?;
+        self.flush(tailers).await?;
         Ok(res)
     }
 
@@ -311,7 +310,7 @@ impl<'a> EventsCtx<'a> {
         Fut: Future<Output = Result<tonic::Response<CommandResult>, tonic::Status>>,
     >(
         &mut self,
-        tailers: &mut Option<FileTailers>,
+        tailers: Option<FileTailers>,
         f: impl FnOnce() -> Fut,
     ) -> anyhow::Result<CommandOutcome<Res>> {
         let command_result = try {
