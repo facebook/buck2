@@ -12,6 +12,16 @@ load(":python_common.bzl", "python_common")
 
 NativeLinkStrategy = ["separate", "merged"]
 
+def _typing_arg():
+    return {
+        "py_version_for_type_checking": attrs.option(attrs.string(), default = None, doc = """
+    This option will force the type checker to perform checking under a specific version of Python interpreter.
+"""),
+        "typing": attrs.bool(default = True, doc = """
+    Determines whether to perform type checking on the given target. Default is True.
+"""),
+    }
+
 cxx_python_extension = prelude_rule(
     name = "cxx_python_extension",
     docs = """
@@ -270,7 +280,8 @@ python_binary = prelude_rule(
             "version_universe": attrs.option(attrs.string(), default = None),
             "zip_safe": attrs.option(attrs.bool(), default = None),
         } |
-        buck.allow_cache_upload_arg()
+        buck.allow_cache_upload_arg() |
+        _typing_arg()
     ),
 )
 
@@ -339,7 +350,8 @@ python_library = prelude_rule(
             "versioned_resources": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
             "versioned_srcs": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
             "zip_safe": attrs.option(attrs.bool(), default = None),
-        }
+        } |
+        _typing_arg()
     ),
 )
 
@@ -449,7 +461,8 @@ python_test = prelude_rule(
             "versioned_resources": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
             "versioned_srcs": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
             "zip_safe": attrs.option(attrs.bool(), default = None),
-        }
+        } |
+        _typing_arg()
     ),
 )
 
