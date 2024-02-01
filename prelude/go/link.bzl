@@ -129,10 +129,6 @@ def link(
     cmd = get_toolchain_cmd_args(go_toolchain)
 
     cmd.add(go_toolchain.linker)
-    if shared:
-        cmd.add(go_toolchain.linker_flags_shared)
-    else:
-        cmd.add(go_toolchain.linker_flags_static)
 
     cmd.add("-o", output.as_output())
     cmd.add("-buildmode=" + _build_mode_param(build_mode))
@@ -141,7 +137,7 @@ def link(
     # Add inherited Go pkgs to library search path.
     all_pkgs = merge_pkgs([
         pkgs,
-        pkg_artifacts(get_inherited_link_pkgs(deps), shared = shared, coverage_mode = coverage_mode),
+        pkg_artifacts(get_inherited_link_pkgs(deps), coverage_mode = coverage_mode),
         stdlib_pkg_artifacts(go_toolchain, shared = shared, non_cgo = not cgo_enabled),
     ])
 

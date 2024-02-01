@@ -242,31 +242,20 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
         all_srcs.add(get_filtered_srcs(ctx, ctx.attrs.go_srcs))
 
     # Build Go library.
-    static_pkg = compile(
+    compiled_pkg = compile(
         ctx,
         pkg_name,
         all_srcs,
         cgo_enabled = True,
         deps = ctx.attrs.deps + ctx.attrs.exported_deps,
-        shared = False,
+        shared = ctx.attrs._compile_shared,
     )
-    shared_pkg = compile(
-        ctx,
-        pkg_name,
-        all_srcs,
-        cgo_enabled = True,
-        deps = ctx.attrs.deps + ctx.attrs.exported_deps,
-        shared = True,
-    )
-    coverage_shared = {mode: _compile_with_coverage(ctx, pkg_name, all_srcs, mode, True) for mode in GoCoverageMode}
-    coverage_static = {mode: _compile_with_coverage(ctx, pkg_name, all_srcs, mode, False) for mode in GoCoverageMode}
+    pkg_with_coverage = {mode: _compile_with_coverage(ctx, pkg_name, all_srcs, mode) for mode in GoCoverageMode}
     pkgs = {
         pkg_name: GoPkg(
-            shared = shared_pkg,
-            static = static_pkg,
             cgo = True,
-            coverage_shared = coverage_shared,
-            coverage_static = coverage_static,
+            pkg = compiled_pkg,
+            pkg_with_coverage = pkg_with_coverage,
         ),
     }
 
@@ -275,7 +264,7 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # to work with cgo. And when nearly every FB service client is cgo,
     # we need to support it well.
     return [
-        DefaultInfo(default_output = static_pkg, other_outputs = go_srcs),
+        DefaultInfo(default_output = compiled_pkg, other_outputs = go_srcs),
         GoPkgCompileInfo(pkgs = merge_pkgs([
             pkgs,
             get_inherited_compile_pkgs(ctx.attrs.exported_deps),

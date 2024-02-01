@@ -31,7 +31,6 @@ def _compile_shared_transition(platform, refs, _):
     compile_shared_value = refs.compile_shared_value[ConstraintValueInfo]
     constraints = platform.configuration.constraints
     constraints[compile_shared_value.setting.label] = compile_shared_value
-
     new_cfg = ConfigurationInfo(
         constraints = constraints,
         values = platform.configuration.values,

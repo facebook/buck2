@@ -111,14 +111,11 @@ def _compile_cmd(
     # Add shared/static flags.
     if shared:
         cmd.add("-shared")
-        cmd.add(go_toolchain.compiler_flags_shared)
-    else:
-        cmd.add(go_toolchain.compiler_flags_static)
 
     # Add Go pkgs inherited from deps to compiler search path.
     all_pkgs = merge_pkgs([
         pkgs,
-        pkg_artifacts(get_inherited_compile_pkgs(deps), shared = shared, coverage_mode = coverage_mode),
+        pkg_artifacts(get_inherited_compile_pkgs(deps), coverage_mode = coverage_mode),
         stdlib_pkg_artifacts(go_toolchain, shared = shared, non_cgo = not cgo_enabled),
     ])
 

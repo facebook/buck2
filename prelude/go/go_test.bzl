@@ -83,8 +83,8 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         # Get all packages that are linked to the test (i.e. the entire dependency tree)
         for name, pkg in get_inherited_compile_pkgs(deps).items():
             if ctx.label != None and is_subpackage_of(name, ctx.label.package):
-                artifact = pkg_artifact(pkg, False, coverage_mode)
-                vars = pkg_coverage_vars("", pkg, False, coverage_mode)
+                artifact = pkg_artifact(pkg, coverage_mode)
+                vars = pkg_coverage_vars("", pkg, coverage_mode)
                 coverage_vars[name] = vars
                 pkgs[name] = artifact
 

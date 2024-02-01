@@ -11,13 +11,9 @@ load("@prelude//utils:utils.bzl", "value_or")
 load(":coverage.bzl", "GoCoverageMode")
 
 GoPkg = record(
-    # Built w/ `-shared`.
-    shared = field(Artifact),
-    # Built w/o `-shared`.
-    static = field(Artifact),
     cgo = field(bool, default = False),
-    coverage_static = field(dict[GoCoverageMode, (Artifact, cmd_args)]),
-    coverage_shared = field(dict[GoCoverageMode, (Artifact, cmd_args)]),
+    pkg = field(Artifact),
+    pkg_with_coverage = field(dict[GoCoverageMode, (Artifact, cmd_args)]),
 )
 
 def go_attr_pkg_name(ctx: AnalysisContext) -> str:
@@ -42,26 +38,26 @@ def merge_pkgs(pkgss: list[dict[str, typing.Any]]) -> dict[str, typing.Any]:
 
     return all_pkgs
 
-def pkg_artifact(pkg: GoPkg, shared: bool, coverage_mode: [GoCoverageMode, None]) -> Artifact:
+def pkg_artifact(pkg: GoPkg, coverage_mode: [GoCoverageMode, None]) -> Artifact:
     if coverage_mode:
-        artifact = pkg.coverage_shared if shared else pkg.coverage_static
+        artifact = pkg.pkg_with_coverage
         return artifact[coverage_mode][0]
-    return pkg.shared if shared else pkg.static
+    return pkg.pkg
 
-def pkg_coverage_vars(name: str, pkg: GoPkg, shared: bool, coverage_mode: [GoCoverageMode, None]) -> [cmd_args, None]:
+def pkg_coverage_vars(name: str, pkg: GoPkg, coverage_mode: [GoCoverageMode, None]) -> [cmd_args, None]:
     if coverage_mode:
-        artifact = pkg.coverage_shared if shared else pkg.coverage_static
+        artifact = pkg.pkg_with_coverage
         if coverage_mode not in artifact:
             fail("coverage variables don't exist for {}".format(name))
         return artifact[coverage_mode][1]
     fail("coverage variables were requested but coverage_mode is None")
 
-def pkg_artifacts(pkgs: dict[str, GoPkg], shared: bool, coverage_mode: [GoCoverageMode, None] = None) -> dict[str, Artifact]:
+def pkg_artifacts(pkgs: dict[str, GoPkg], coverage_mode: [GoCoverageMode, None] = None) -> dict[str, Artifact]:
     """
     Return a map package name to a `shared` or `static` package artifact.
     """
     return {
-        name: pkg_artifact(pkg, shared, coverage_mode)
+        name: pkg_artifact(pkg, coverage_mode)
         for name, pkg in pkgs.items()
     }
 

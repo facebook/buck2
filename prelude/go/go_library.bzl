@@ -57,8 +57,9 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
         # We need to set CGO_DESABLED for "pure" Go libraries, otherwise CGo files may be selected for compilation.
         srcs = get_filtered_srcs(ctx, ctx.attrs.srcs, force_disable_cgo = True)
         cgo_enabled = evaluate_cgo_enabled(go_toolchain, ctx.attrs._cgo_enabled)
+        shared = ctx.attrs._compile_shared
 
-        static_pkg = compile(
+        compiled_pkg = compile(
             ctx,
             pkg_name,
             srcs = srcs,
@@ -66,29 +67,15 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
             deps = ctx.attrs.deps + ctx.attrs.exported_deps,
             compile_flags = ctx.attrs.compiler_flags,
             assemble_flags = ctx.attrs.assembler_flags,
-            shared = False,
+            shared = shared,
         )
 
-        shared_pkg = compile(
-            ctx,
-            pkg_name,
-            srcs = srcs,
-            cgo_enabled = cgo_enabled,
-            deps = ctx.attrs.deps + ctx.attrs.exported_deps,
-            compile_flags = ctx.attrs.compiler_flags,
-            assemble_flags = ctx.attrs.assembler_flags,
-            shared = True,
-        )
+        pkg_with_coverage = {mode: _compile_with_coverage(ctx, pkg_name, srcs, mode, cgo_enabled, shared) for mode in GoCoverageMode}
 
-        coverage_shared = {mode: _compile_with_coverage(ctx, pkg_name, srcs, mode, cgo_enabled, True) for mode in GoCoverageMode}
-        coverage_static = {mode: _compile_with_coverage(ctx, pkg_name, srcs, mode, cgo_enabled, False) for mode in GoCoverageMode}
-
-        default_output = static_pkg
+        default_output = compiled_pkg
         pkgs[pkg_name] = GoPkg(
-            shared = shared_pkg,
-            static = static_pkg,
-            coverage_shared = coverage_shared,
-            coverage_static = coverage_static,
+            pkg = compiled_pkg,
+            pkg_with_coverage = pkg_with_coverage,
         )
 
     return [
