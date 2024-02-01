@@ -325,12 +325,6 @@ go_library = prelude_rule(
             "exported_deps": attrs.list(attrs.dep(), default = []),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
-            "_cgo_enabled": attrs.default_only(attrs.option(attrs.bool(), default = select({
-                "DEFAULT": None,
-                "prelude//go/constraints:cgo_enabled_auto": None,
-                "prelude//go/constraints:cgo_enabled_false": False,
-                "prelude//go/constraints:cgo_enabled_true": True,
-            }))),
         }
     ),
 )

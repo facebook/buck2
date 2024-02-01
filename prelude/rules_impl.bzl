@@ -25,7 +25,7 @@ load("@prelude//go:go_binary.bzl", "go_binary_impl")
 load("@prelude//go:go_exported_library.bzl", "go_exported_library_impl")
 load("@prelude//go:go_library.bzl", "go_library_impl")
 load("@prelude//go:go_test.bzl", "go_test_impl")
-load("@prelude//go/transitions:cgo_enabled.bzl", "cgo_enabled_transition")
+load("@prelude//go/transitions:defs.bzl", "cgo_enabled_attr", "compile_shared_attr", "go_binary_transition", "go_exported_library_transition", "go_test_transition")
 load("@prelude//haskell:haskell.bzl", "haskell_binary_impl", "haskell_library_impl", "haskell_prebuilt_library_impl")
 load("@prelude//haskell:haskell_ghci.bzl", "haskell_ghci_impl")
 load("@prelude//haskell:haskell_haddock.bzl", "haskell_haddock_impl")
@@ -370,6 +370,7 @@ inlined_extra_attributes = {
     # go
     "cgo_library": {
         "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
+        "_compile_shared": compile_shared_attr,
         "_cxx_toolchain": toolchains_common.cxx(),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_go_toolchain": toolchains_common.go(),
@@ -426,6 +427,8 @@ inlined_extra_attributes = {
     },
     "go_library": {
         "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
+        "_cgo_enabled": cgo_enabled_attr,
+        "_compile_shared": compile_shared_attr,
         "_go_toolchain": toolchains_common.go(),
     },
     "go_test": {
@@ -588,9 +591,9 @@ extra_attributes = struct(**all_extra_attributes)
 transitions = {
     "android_binary": constraint_overrides_transition,
     "apple_resource": apple_resource_transition,
-    "go_binary": cgo_enabled_transition,
-    "go_exported_library": cgo_enabled_transition,
-    "go_test": cgo_enabled_transition,
+    "go_binary": go_binary_transition,
+    "go_exported_library": go_exported_library_transition,
+    "go_test": go_test_transition,
     "python_binary": constraint_overrides_transition,
     "python_test": constraint_overrides_transition,
 }

@@ -20,3 +20,20 @@ constraint_value(
     constraint_setting = ":cgo_enabled",
     visibility = ["PUBLIC"],
 )
+
+constraint_setting(
+    name = "compile_shared",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "compile_shared_false",
+    constraint_setting = ":compile_shared",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "compile_shared_true",
+    constraint_setting = ":compile_shared",
+    visibility = ["PUBLIC"],
+)
