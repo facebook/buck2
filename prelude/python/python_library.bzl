@@ -53,6 +53,7 @@ load(":needed_coverage.bzl", "PythonNeededCoverageInfo")
 load(":python.bzl", "PythonLibraryInfo", "PythonLibraryManifests", "PythonLibraryManifestsTSet")
 load(":source_db.bzl", "create_python_source_db_info", "create_source_db", "create_source_db_no_deps")
 load(":toolchain.bzl", "PythonToolchainInfo")
+load(":typing.bzl", "create_per_target_type_check")
 
 def dest_prefix(label: Label, base_module: [None, str]) -> str:
     """
@@ -310,6 +311,21 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # Source DBs.
     sub_targets["source-db"] = [create_source_db(ctx, src_type_manifest, deps)]
     sub_targets["source-db-no-deps"] = [create_source_db_no_deps(ctx, src_types), create_python_source_db_info(library_info.manifests)]
+
+    # Type check
+    type_checker = python_toolchain.type_checker
+    if type_checker != None:
+        sub_targets["typecheck"] = [
+            create_per_target_type_check(
+                ctx.actions,
+                type_checker,
+                src_type_manifest,
+                deps,
+                py_version = ctx.attrs.py_version_for_type_checking,
+                typing_enabled = ctx.attrs.typing,
+            ),
+        ]
+
     providers.append(DefaultInfo(sub_targets = sub_targets))
 
     # Create, augment and provide the linkable graph.

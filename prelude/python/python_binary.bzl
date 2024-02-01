@@ -98,6 +98,7 @@ load(
 )
 load(":source_db.bzl", "create_dbg_source_db", "create_python_source_db_info", "create_source_db", "create_source_db_no_deps")
 load(":toolchain.bzl", "NativeLinkStrategy", "PackageStyle", "PythonPlatformInfo", "PythonToolchainInfo", "get_package_style", "get_platform_attr")
+load(":typing.bzl", "create_per_target_type_check")
 
 OmnibusMetadataInfo = provider(
     # @unsorted-dict-items
@@ -398,6 +399,22 @@ def python_executable(
         "source-db": [source_db],
         "source-db-no-deps": [source_db_no_deps, create_python_source_db_info(library_info.manifests)],
     })
+
+    # Type check
+    type_checker = python_toolchain.type_checker
+    if type_checker != None:
+        exe.sub_targets.update({
+            "typecheck": [
+                create_per_target_type_check(
+                    ctx.actions,
+                    type_checker,
+                    src_manifest,
+                    python_deps,
+                    py_version = ctx.attrs.py_version_for_type_checking,
+                    typing_enabled = ctx.attrs.typing,
+                ),
+            ],
+        })
 
     return exe
 
