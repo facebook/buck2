@@ -9,6 +9,7 @@
 
 use std::fs::create_dir_all;
 use std::fs::File;
+use std::mem;
 use std::time::Duration;
 
 use anyhow::Context;
@@ -277,7 +278,10 @@ impl<'a, 'b> FlushingBuckdClient<'a, 'b> {
     }
 
     async fn exit(&mut self) -> anyhow::Result<()> {
-        self.inner.events_ctx.flush(&mut self.inner.tailers).await?;
+        self.inner
+            .events_ctx
+            .flush(mem::take(&mut self.inner.tailers))
+            .await?;
 
         Ok(())
     }

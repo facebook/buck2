@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::mem;
 use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -240,7 +241,7 @@ impl<'a> EventsCtx<'a> {
             }
         };
 
-        let flush_result = self.flush(&mut Some(tailers)).await;
+        let flush_result = self.flush(Some(tailers)).await;
         let exit_result = self.handle_exit().await;
 
         let command_result = match (command_result, shutdown) {
@@ -299,7 +300,7 @@ impl<'a> EventsCtx<'a> {
         f: impl FnOnce() -> Fut,
     ) -> anyhow::Result<R> {
         let res = f().await;
-        self.flush(tailers).await?;
+        self.flush(mem::take(tailers)).await?;
         Ok(res)
     }
 
@@ -358,10 +359,9 @@ impl<'a> EventsCtx<'a> {
         }
     }
 
-    pub async fn flush(&mut self, tailers: &mut Option<FileTailers>) -> anyhow::Result<()> {
-        let tailers = match tailers.take() {
-            Some(tailers) => tailers,
-            None => return Ok(()),
+    pub async fn flush(&mut self, tailers: Option<FileTailers>) -> anyhow::Result<()> {
+        let Some(tailers) = tailers else {
+            return Ok(());
         };
         let mut streams = tailers.stop_reading();
 
