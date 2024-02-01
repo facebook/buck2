@@ -129,6 +129,7 @@ def link(
     cmd = get_toolchain_cmd_args(go_toolchain)
 
     cmd.add(go_toolchain.linker)
+    cmd.add(go_toolchain.linker_flags)
 
     cmd.add("-o", output.as_output())
     cmd.add("-buildmode=" + _build_mode_param(build_mode))

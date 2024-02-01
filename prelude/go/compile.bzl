@@ -82,6 +82,7 @@ def _assemble_cmd(
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     cmd = cmd_args()
     cmd.add(go_toolchain.assembler)
+    cmd.add(go_toolchain.assembler_flags)
     cmd.add(flags)
     cmd.add("-p", pkg_name)
     if shared:
@@ -102,6 +103,7 @@ def _compile_cmd(
 
     cmd = cmd_args()
     cmd.add(go_toolchain.compiler)
+    cmd.add(go_toolchain.compiler_flags)
     cmd.add("-p", pkg_name)
     cmd.add("-pack")
     cmd.add("-nolocalimports")
