@@ -19,8 +19,10 @@ use buck2_cli_proto::CommandResult;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_events::BuckEvent;
+use futures::stream;
 use futures::stream::FuturesUnordered;
 use futures::Future;
+use futures::FutureExt;
 use futures::Stream;
 use futures::StreamExt;
 use gazebo::prelude::VecExt;
@@ -33,6 +35,7 @@ use crate::command_outcome::CommandOutcome;
 use crate::console_interaction_stream::ConsoleInteraction;
 use crate::console_interaction_stream::ConsoleInteractionStream;
 use crate::console_interaction_stream::NoopConsoleInteraction;
+use crate::daemon::client::NoPartialResultHandler;
 use crate::exit_result::ExitResult;
 use crate::file_tailer::FileTailer;
 use crate::file_tailer::StdoutOrStderr;
@@ -295,16 +298,6 @@ impl<'a> EventsCtx<'a> {
         }
     }
 
-    pub async fn flushing_tailers<R, Fut: Future<Output = R>>(
-        &mut self,
-        tailers: Option<FileTailers>,
-        f: Fut,
-    ) -> anyhow::Result<R> {
-        let res = f.await;
-        self.flush(tailers).await?;
-        Ok(res)
-    }
-
     /// Unpack a single `CommandResult`, log any failures if necessary, and convert it to a
     /// `CommandOutcome`
     pub async fn unpack_oneshot<
@@ -315,18 +308,13 @@ impl<'a> EventsCtx<'a> {
         tailers: Option<FileTailers>,
         f: Fut,
     ) -> anyhow::Result<CommandOutcome<Res>> {
-        let command_result = try {
-            let res = self.flushing_tailers(tailers, f).await?;
-            // important - do not early return before flushing the buffers!
-            let inner = res?.into_inner();
-            self.handle_command_result(&inner).await?;
-            inner
-        };
-
-        match command_result {
-            Ok(result) => convert_result(result),
-            Err(err) => Err(self.handle_error_owned(err).await),
-        }
+        let stream = stream::once(f.map(|result| {
+            result
+                .map(|command_result| StreamValue::Result(Box::new(command_result.into_inner())))
+                .map_err(|e| e.into())
+        }));
+        self.unpack_stream(&mut NoPartialResultHandler, stream, tailers, None)
+            .await
     }
 
     /// Helper method to abstract the process of applying an `EventSubscriber` method to all of the subscribers.
