@@ -14,6 +14,7 @@ use std::sync::Arc;
 use crate::context_value::ContextValue;
 use crate::format::into_anyhow_for_format;
 use crate::root::ErrorRoot;
+use crate::Category;
 use crate::ErrorType;
 use crate::UniqueRootId;
 
@@ -135,6 +136,53 @@ impl Error {
 
     pub fn source_location(&self) -> Option<&str> {
         self.root().source_location()
+    }
+
+    pub fn context<C: Into<ContextValue>>(self, context: C) -> Self {
+        Self(Arc::new(ErrorKind::WithContext(context.into(), self)))
+    }
+
+    #[cold]
+    #[track_caller]
+    pub(crate) fn new_anyhow_with_context<E, C: Into<ContextValue>>(e: E, c: C) -> anyhow::Error
+    where
+        Error: From<E>,
+    {
+        crate::Error::from(e).context(c).into()
+    }
+
+    pub fn tag(self, tags: impl IntoIterator<Item = crate::ErrorTag>) -> Self {
+        self.context(ContextValue::Tags(tags.into_iter().collect()))
+    }
+
+    pub fn get_category(&self) -> Option<Category> {
+        let mut out = None;
+        for cat in self.iter_context().filter_map(|kind| match kind {
+            ContextValue::Category(cat) => Some(*cat),
+            _ => None,
+        }) {
+            // It's an infra error if it was ever marked as an infra error
+            match cat {
+                Category::Infra => return Some(cat),
+                Category::User => out = Some(cat),
+            }
+        }
+        out
+    }
+
+    /// Get all the tags that have been added to this error
+    pub fn get_tags(&self) -> Vec<crate::ErrorTag> {
+        let mut tags: Vec<_> = self
+            .iter_context()
+            .filter_map(|kind| match kind {
+                ContextValue::Tags(tags) => Some(tags.iter().copied()),
+                _ => None,
+            })
+            .flatten()
+            .collect();
+        tags.sort_unstable_by_key(|tag| tag.as_str_name());
+        tags.dedup();
+        tags
     }
 }
 

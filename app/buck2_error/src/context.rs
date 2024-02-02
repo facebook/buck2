@@ -7,32 +7,10 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
-
 use smallvec::smallvec;
 
 use crate as buck2_error;
 use crate::context_value::ContextValue;
-use crate::error::ErrorKind;
-
-impl crate::Error {
-    pub fn context<C: Into<ContextValue>>(self, context: C) -> Self {
-        Self(Arc::new(ErrorKind::WithContext(context.into(), self)))
-    }
-
-    #[cold]
-    #[track_caller]
-    fn new_anyhow_with_context<E, C: Into<ContextValue>>(e: E, c: C) -> anyhow::Error
-    where
-        crate::Error: From<E>,
-    {
-        crate::Error::from(e).context(c).into()
-    }
-
-    pub fn tag(self, tags: impl IntoIterator<Item = crate::ErrorTag>) -> Self {
-        self.context(ContextValue::Tags(tags.into_iter().collect()))
-    }
-}
 
 /// Provides the `context` method for `Result`.
 ///

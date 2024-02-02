@@ -68,38 +68,6 @@ pub enum Category {
     Infra,
 }
 
-impl crate::Error {
-    pub fn get_category(&self) -> Option<Category> {
-        let mut out = None;
-        for cat in self.iter_context().filter_map(|kind| match kind {
-            ContextValue::Category(cat) => Some(*cat),
-            _ => None,
-        }) {
-            // It's an infra error if it was ever marked as an infra error
-            match cat {
-                Category::Infra => return Some(cat),
-                Category::User => out = Some(cat),
-            }
-        }
-        out
-    }
-
-    /// Get all the tags that have been added to this error
-    pub fn get_tags(&self) -> Vec<crate::ErrorTag> {
-        let mut tags: Vec<_> = self
-            .iter_context()
-            .filter_map(|kind| match kind {
-                ContextValue::Tags(tags) => Some(tags.iter().copied()),
-                _ => None,
-            })
-            .flatten()
-            .collect();
-        tags.sort_unstable_by_key(|tag| tag.as_str_name());
-        tags.dedup();
-        tags
-    }
-}
-
 impl From<Category> for ContextValue {
     fn from(value: Category) -> Self {
         ContextValue::Category(value)
