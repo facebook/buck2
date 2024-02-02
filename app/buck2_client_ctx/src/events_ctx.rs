@@ -177,8 +177,12 @@ impl<'a> EventsCtx<'a> {
 
     async fn dispatch_tailer_event(&mut self, event: FileTailerEvent) -> anyhow::Result<()> {
         match event {
-            FileTailerEvent::Stdout(stdout) => self.handle_tailer_stdout(&stdout).await,
-            FileTailerEvent::Stderr(stderr) => self.handle_tailer_stderr(&stderr).await,
+            FileTailerEvent::Stdout(out) | FileTailerEvent::Stderr(out) => {
+                // Sending daemon stdout to stderr.
+                // Daemon is not supposed to write anything to stdout.
+                // But if daemon does, it should not be used as standard output of buck2.
+                self.handle_tailer_stderr(&out).await
+            }
         }
     }
 
@@ -395,11 +399,6 @@ fn convert_result<R: TryFrom<command_result::Result, Error = command_result::Res
 }
 
 impl<'a> EventsCtx<'a> {
-    async fn handle_tailer_stdout(&mut self, raw_output: &[u8]) -> anyhow::Result<()> {
-        self.handle_subscribers(|subscriber| subscriber.handle_output(raw_output))
-            .await
-    }
-
     async fn handle_tailer_stderr(&mut self, stderr: &[u8]) -> anyhow::Result<()> {
         let stderr = String::from_utf8_lossy(stderr);
         let stderr = stderr.trim_end();
