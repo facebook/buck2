@@ -152,6 +152,13 @@ extra_attributes = {
         "ext": attrs.enum(ApplePackageExtension.values(), default = "ipa"),
         "packager": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "packager_args": attrs.list(attrs.arg(), default = []),
+        "prepackaged_validators": attrs.list(
+            attrs.one_of(
+                attrs.exec_dep(providers = [RunInfo]),
+                attrs.tuple(attrs.exec_dep(providers = [RunInfo]), attrs.list(attrs.arg())),
+            ),
+            default = [],
+        ),
         "validator": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "validator_args": attrs.list(attrs.arg(), default = []),
         "_apple_toolchain": get_apple_bundle_toolchain_attr(),

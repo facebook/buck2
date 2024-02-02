@@ -17,24 +17,36 @@ load(":apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 def apple_package_impl(ctx: AnalysisContext) -> list[Provider]:
     package = ctx.actions.declare_output("{}.{}".format(ctx.attrs.bundle.label.name, ctx.attrs.ext))
 
+    contents = (
+        ctx.attrs.bundle[DefaultInfo].default_outputs[0] if ctx.attrs.packager else _get_ipa_contents(ctx)
+    )
     if ctx.attrs.packager:
         process_ipa_cmd = cmd_args([
             ctx.attrs.packager[RunInfo],
             "--app-bundle-path",
-            ctx.attrs.bundle[DefaultInfo].default_outputs[0],
+            contents,
             "--output-path",
             package.as_output(),
             ctx.attrs.packager_args,
         ])
         category = "apple_package_make_custom"
     else:
-        unprocessed_ipa_contents = _get_ipa_contents(ctx)
         process_ipa_cmd = _get_default_package_cmd(
             ctx,
-            unprocessed_ipa_contents,
+            contents,
             package.as_output(),
         )
         category = "apple_package_make"
+
+    sub_targets = {}
+
+    prepackaged_validators_artifacts = _get_prepackaged_validators_outputs(ctx, contents)
+    if prepackaged_validators_artifacts:
+        # Add the artifacts to packaging cmd so that they are run.
+        process_ipa_cmd.hidden(prepackaged_validators_artifacts)
+        sub_targets["prepackaged_validators"] = [
+            DefaultInfo(default_outputs = prepackaged_validators_artifacts),
+        ]
 
     if ctx.attrs.validator != None:
         process_ipa_cmd.add([
@@ -44,7 +56,10 @@ def apple_package_impl(ctx: AnalysisContext) -> list[Provider]:
         ])
     ctx.actions.run(process_ipa_cmd, category = category)
 
-    return [DefaultInfo(default_output = package)]
+    return [DefaultInfo(
+        default_output = package,
+        sub_targets = sub_targets,
+    )]
 
 def _get_default_package_cmd(ctx: AnalysisContext, unprocessed_ipa_contents: Artifact, output: OutputArtifact) -> cmd_args:
     apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
@@ -161,3 +176,33 @@ def _compression_level_arg(compression_level: IpaCompressionLevel) -> str:
         return "9"
     else:
         fail("Unknown .ipa compression level: " + str(compression_level))
+
+def _get_prepackaged_validators_outputs(ctx: AnalysisContext, prepackaged_contents: Artifact) -> list[Artifact]:
+    if not ctx.attrs.prepackaged_validators:
+        return []
+
+    outputs = []
+    for idx, validator in enumerate(ctx.attrs.prepackaged_validators):
+        if type(validator) == "tuple":
+            validator, validator_args = validator
+        else:
+            validator = validator
+            validator_args = []
+
+        output = ctx.actions.declare_output(validator.label.name + "_{}".format(idx))
+        outputs.append(output)
+
+        ctx.actions.run(
+            cmd_args([
+                validator[RunInfo],
+                "--contents-dir",
+                prepackaged_contents,
+                "--output-path",
+                output.as_output(),
+                validator_args,
+            ]),
+            category = "prepackaged_validator",
+            identifier = str(idx),
+        )
+
+    return outputs
