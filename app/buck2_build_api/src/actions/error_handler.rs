@@ -26,6 +26,7 @@ use starlark::starlark_simple_value;
 use starlark::typing::Ty;
 use starlark::values::list::UnpackList;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
+use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::AllocValue;
@@ -117,10 +118,13 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
     fn new_error_location<'v>(
         #[starlark(this)] _this: &'v StarlarkActionErrorContext,
         #[starlark(require = named)] file: String,
-        #[starlark(require = named)] line: Option<u64>,
+        #[starlark(require = named, default = NoneOr::None)] line: NoneOr<u64>,
     ) -> anyhow::Result<StarlarkActionErrorLocation> {
         // @TODO(wendyy) - actually enforce/validate the path types.
-        Ok(StarlarkActionErrorLocation { file, line })
+        Ok(StarlarkActionErrorLocation {
+            file,
+            line: line.into_option(),
+        })
     }
 
     /// Create a new sub error, specifying an error category name, optional message, and
@@ -137,15 +141,15 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
     fn new_sub_error<'v>(
         #[starlark(this)] _this: &'v StarlarkActionErrorContext,
         #[starlark(require = named)] category: String,
-        #[starlark(require = named)] message: Option<String>,
-        #[starlark(require = named)] locations: Option<
+        #[starlark(require = named, default = NoneOr::None)] message: NoneOr<String>,
+        #[starlark(require = named, default = NoneOr::None)] locations: NoneOr<
             UnpackListOrTuple<&'v StarlarkActionErrorLocation>,
         >,
     ) -> anyhow::Result<StarlarkActionSubError<'v>> {
         Ok(StarlarkActionSubError {
             category,
-            message,
-            locations,
+            message: message.into_option(),
+            locations: locations.into_option(),
         })
     }
 }
@@ -361,8 +365,8 @@ pub(crate) fn register_action_error_handler_for_testing(builder: &mut GlobalsBui
     /// Global function to create a new `ActionErrorContext` for testing a starlark action error
     /// handler via `bxl_test`.
     fn new_test_action_error_ctx(
-        #[starlark(require=named)] stderr: &str,
-        #[starlark(require=named)] stdout: &str,
+        #[starlark(require=named, default = "")] stderr: &str,
+        #[starlark(require=named, default = "")] stdout: &str,
     ) -> anyhow::Result<StarlarkActionErrorContext> {
         Ok(StarlarkActionErrorContext {
             stderr: stderr.to_owned(),
