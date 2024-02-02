@@ -40,53 +40,54 @@ pub(crate) fn smart_truncate_event(d: &mut buck2_data::buck_event::Data) {
             }
         }
         Data::Record(ref mut rec) => {
-            if let Some(buck2_data::record_event::Data::InvocationRecord(
-                ref mut invocation_record,
-            )) = rec.data
+            if let Some(buck2_data::record_event::Data::InvocationRecord(invocation_record)) =
+                &mut rec.data
             {
-                // FIXME(JakobDegen): The sum of the per-field limits adds up to more than the 1MB scribe limits
-                if let Some(ref mut file_watcher_stats) = invocation_record.file_watcher_stats {
-                    truncate_file_watcher_stats(file_watcher_stats);
-                }
-                if let Some(ref mut resolved_target_patterns) =
-                    invocation_record.parsed_target_patterns
-                {
-                    truncate_target_patterns(&mut resolved_target_patterns.target_patterns);
-                    // Clear `unresolved_traget_patterns` to save bandwidth. It has less information
-                    // than `resolved` one does, and will never be used if `resolved` one is available.
-                    if let Some(ref mut command_end) = invocation_record.command_end {
-                        truncate_command_end(command_end, true);
-                    }
-                } else if let Some(ref mut command_end) = invocation_record.command_end {
-                    truncate_command_end(command_end, false);
-                }
-
-                const MAX_CLI_ARGS_BYTES: usize = 512 * 1024;
-                let orig_len = invocation_record.cli_args.len();
-                let mut bytes: usize = 0;
-                for (index, arg) in invocation_record.cli_args.iter().enumerate() {
-                    bytes += arg.len();
-                    if bytes > MAX_CLI_ARGS_BYTES {
-                        invocation_record.cli_args.truncate(index);
-                        invocation_record
-                            .cli_args
-                            .push(format!("<<Truncated (reported {} / {})>>", index, orig_len));
-                        break;
-                    }
-                }
-
-                const MAX_ERROR_REPORT_BYTS: usize = 512 * 1024;
-                let max_per_report = MAX_ERROR_REPORT_BYTS / invocation_record.errors.len().max(1);
-                for error in &mut invocation_record.errors {
-                    error.message = truncate(&error.message, max_per_report / 2);
-                    if let Some(telemetry_message) = &mut error.telemetry_message {
-                        *telemetry_message = truncate(telemetry_message, max_per_report / 2);
-                    }
-                }
+                truncate_invocation_record(invocation_record)
             }
         }
         _ => {}
     };
+}
+
+fn truncate_invocation_record(invocation_record: &mut buck2_data::InvocationRecord) {
+    // FIXME(JakobDegen): The sum of the per-field limits adds up to more than the 1MB scribe limits
+    if let Some(ref mut file_watcher_stats) = invocation_record.file_watcher_stats {
+        truncate_file_watcher_stats(file_watcher_stats);
+    }
+    if let Some(ref mut resolved_target_patterns) = invocation_record.parsed_target_patterns {
+        truncate_target_patterns(&mut resolved_target_patterns.target_patterns);
+        // Clear `unresolved_traget_patterns` to save bandwidth. It has less information
+        // than `resolved` one does, and will never be used if `resolved` one is available.
+        if let Some(ref mut command_end) = invocation_record.command_end {
+            truncate_command_end(command_end, true);
+        }
+    } else if let Some(ref mut command_end) = invocation_record.command_end {
+        truncate_command_end(command_end, false);
+    }
+
+    const MAX_CLI_ARGS_BYTES: usize = 512 * 1024;
+    let orig_len = invocation_record.cli_args.len();
+    let mut bytes: usize = 0;
+    for (index, arg) in invocation_record.cli_args.iter().enumerate() {
+        bytes += arg.len();
+        if bytes > MAX_CLI_ARGS_BYTES {
+            invocation_record.cli_args.truncate(index);
+            invocation_record
+                .cli_args
+                .push(format!("<<Truncated (reported {} / {})>>", index, orig_len));
+            break;
+        }
+    }
+
+    const MAX_ERROR_REPORT_BYTS: usize = 512 * 1024;
+    let max_per_report = MAX_ERROR_REPORT_BYTS / invocation_record.errors.len().max(1);
+    for error in &mut invocation_record.errors {
+        error.message = truncate(&error.message, max_per_report / 2);
+        if let Some(telemetry_message) = &mut error.telemetry_message {
+            *telemetry_message = truncate(telemetry_message, max_per_report / 2);
+        }
+    }
 }
 
 fn truncate_action_execution_end(action_execution_end: &mut buck2_data::ActionExecutionEnd) {
