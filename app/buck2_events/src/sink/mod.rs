@@ -12,4 +12,5 @@
 pub(crate) mod channel;
 pub(crate) mod null;
 pub mod scribe;
+pub(crate) mod smart_truncate_event;
 pub mod tee;
