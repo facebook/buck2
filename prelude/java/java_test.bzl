@@ -141,7 +141,7 @@ def build_junit_test(
     if tests_class_to_source_info != None:
         transitive_class_to_src_map = merge_class_to_source_map_from_jar(
             actions = ctx.actions,
-            name = ctx.attrs.name + ".transitive_class_to_src.json",
+            name = ctx.label.name + ".transitive_class_to_src.json",
             java_test_toolchain = java_test_toolchain,
             relative_to = ctx.label.cell_root if run_from_cell_root else None,
             deps = [tests_class_to_source_info],
