@@ -45,3 +45,12 @@ ModifiersMatchInfo = record(
 )
 
 ModifierInfo = ConstraintValueInfo | ModifiersMatchInfo | None
+
+def is_modifiers_match(modifier: Modifier) -> bool:
+    if modifier == None or isinstance(modifier, str):
+        return False
+    if isinstance(modifier, dict):
+        if modifier["_type"] != "ModifiersMatch":
+            fail("Found unknown dictionary `{}` for modifier".format(modifier))
+        return True
+    fail("Modifier should either be None, a string, or dict. Found `{}`".format(modifier))

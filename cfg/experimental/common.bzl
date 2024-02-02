@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:asserts.bzl", "asserts")
+load(":asserts.bzl", "verify_normalized_modifier")
 load(
     ":types.bzl",
     "Modifier",
@@ -16,6 +17,7 @@ load(
     "ModifierTargetLocation",
     "ModifiersMatchInfo",
     "TaggedModifiers",
+    "is_modifiers_match",
 )
 
 _TARGET_LOCATION_STR = "`metadata` attribute of target"
@@ -30,38 +32,6 @@ def location_to_string(location: ModifierLocation) -> str:
     if isinstance(location, ModifierCliLocation):
         return _CLI_LOCATION_STR
     fail("Internal error. Unrecognized location type `{}` for location `{}`".format(type(location), location))
-
-def verify_normalized_target(target: str):
-    # Do some basic checks that target looks reasonably valid and normalized
-    # Targets should always be fully qualified to improve readability.
-    if "//" not in target or target.startswith("//") or ":" not in target:
-        fail(
-            "Must specify fully qualified target (ex. `cell//foo:bar`). Found `{}`".format(
-                target,
-            ),
-        )
-
-def is_modifiers_match(modifier: Modifier) -> bool:
-    if modifier == None or isinstance(modifier, str):
-        return False
-    if isinstance(modifier, dict):
-        if modifier["_type"] != "ModifiersMatch":
-            fail("Found unknown dictionary `{}` for modifier".format(modifier))
-        return True
-    fail("Modifier should either be None, a string, or dict. Found `{}`".format(modifier))
-
-def verify_normalized_modifier(modifier: Modifier):
-    if modifier == None:
-        pass
-    elif is_modifiers_match(modifier):
-        # TODO(scottcao): Add a test case for this once `bxl_test` supports testing failures
-        for key, sub_modifier in modifier.items():
-            if key != "_type":
-                verify_normalized_modifier(sub_modifier)
-    elif isinstance(modifier, str):
-        verify_normalized_target(modifier)
-    else:
-        fail("Found unexpected modifier `{}` type `{}`".format(modifier, type(modifier)))
 
 def get_tagged_modifiers(
         modifiers: list[Modifier],
