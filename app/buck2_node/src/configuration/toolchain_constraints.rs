@@ -16,10 +16,10 @@ use dupe::IterDupedExt;
 
 /// The constraint introduced on execution platform resolution by
 /// a toolchain rule (reached via a toolchain_dep).
-#[derive(Dupe, Clone, PartialEq, Eq, Allocative)]
+#[derive(Debug, Dupe, Clone, PartialEq, Eq, Hash, Allocative)]
 pub struct ToolchainConstraints(Arc<ToolchainConstraintsImpl>);
 
-#[derive(PartialEq, Eq, Allocative)]
+#[derive(Debug, PartialEq, Eq, Hash, Allocative)]
 struct ToolchainConstraintsImpl {
     exec_deps: Vec<TargetLabel>,
     exec_compatible_with: Vec<TargetLabel>,

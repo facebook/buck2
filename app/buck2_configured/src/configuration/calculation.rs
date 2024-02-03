@@ -629,13 +629,41 @@ impl ConfigurationCalculation for DiceComputations {
         exec_deps: Arc<[TargetLabel]>,
         toolchain_allows: Arc<[ToolchainConstraints]>,
     ) -> buck2_error::Result<ExecutionPlatformResolution> {
-        resolve_execution_platform_from_constraints(
-            self,
+        #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+        #[display(fmt = "{:?}", self)]
+        struct ExecutionPlatformResolutionKey(
+            CellName,
+            Arc<[TargetLabel]>,
+            Arc<[TargetLabel]>,
+            Arc<[ToolchainConstraints]>,
+        );
+
+        #[async_trait]
+        impl Key for ExecutionPlatformResolutionKey {
+            type Value = buck2_error::Result<ExecutionPlatformResolution>;
+
+            async fn compute(
+                &self,
+                ctx: &mut DiceComputations,
+                _cancellation: &CancellationContext,
+            ) -> Self::Value {
+                resolve_execution_platform_from_constraints(ctx, self.0, &self.1, &self.2, &self.3)
+                    .await
+            }
+
+            fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+                match (x, y) {
+                    (Ok(x), Ok(y)) => x == y,
+                    _ => false,
+                }
+            }
+        }
+        self.compute(&ExecutionPlatformResolutionKey(
             target_node_cell,
-            &exec_compatible_with,
-            &exec_deps,
-            &toolchain_allows,
-        )
-        .await
+            exec_compatible_with,
+            exec_deps,
+            toolchain_allows,
+        ))
+        .await?
     }
 }
