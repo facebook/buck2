@@ -21,7 +21,6 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
-use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::execution_types::execution::ExecutionPlatform;
 use buck2_core::execution_types::execution::ExecutionPlatformError;
@@ -235,18 +234,6 @@ async fn get_execution_platforms_enabled(
         .context("Execution platforms are not enabled")
 }
 
-pub(crate) async fn resolve_toolchain_constraints_from_constraints(
-    exec_compatible_with: &[TargetLabel],
-    exec_deps: &IndexSet<TargetLabel>,
-    toolchain_allows: &[ToolchainConstraints],
-) -> buck2_error::Result<ToolchainConstraints> {
-    Ok(ToolchainConstraints::new(
-        exec_deps,
-        exec_compatible_with,
-        toolchain_allows,
-    ))
-}
-
 async fn resolve_execution_platform_from_constraints(
     ctx: &DiceComputations,
     target_node_cell: CellName,
@@ -399,14 +386,6 @@ pub trait ConfigurationCalculation {
         exec_deps: &IndexSet<TargetLabel>,
         toolchain_allows: &[ToolchainConstraints],
     ) -> buck2_error::Result<ExecutionPlatformResolution>;
-
-    async fn resolve_toolchain_constraints_from_constraints(
-        &self,
-        target: &ConfiguredTargetLabel,
-        exec_compatible_with: &[TargetLabel],
-        exec_deps: &IndexSet<TargetLabel>,
-        toolchain_allows: &[ToolchainConstraints],
-    ) -> buck2_error::Result<ToolchainConstraints>;
 }
 
 async fn compute_platform_configuration_no_label_check(
@@ -654,21 +633,6 @@ impl ConfigurationCalculation for DiceComputations {
         resolve_execution_platform_from_constraints(
             self,
             target_node_cell,
-            exec_compatible_with,
-            exec_deps,
-            toolchain_allows,
-        )
-        .await
-    }
-
-    async fn resolve_toolchain_constraints_from_constraints(
-        &self,
-        _target: &ConfiguredTargetLabel,
-        exec_compatible_with: &[TargetLabel],
-        exec_deps: &IndexSet<TargetLabel>,
-        toolchain_allows: &[ToolchainConstraints],
-    ) -> buck2_error::Result<ToolchainConstraints> {
-        resolve_toolchain_constraints_from_constraints(
             exec_compatible_with,
             exec_deps,
             toolchain_allows,

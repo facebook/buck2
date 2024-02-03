@@ -68,7 +68,6 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
 use crate::calculation::ConfiguredGraphCycleDescriptor;
-use crate::configuration::calculation::resolve_toolchain_constraints_from_constraints;
 use crate::configuration::calculation::ConfigurationCalculation;
 use crate::target::TargetConfiguredTargetLabel;
 
@@ -249,15 +248,6 @@ impl ExecutionPlatformConstraints {
         )
         .await
     }
-
-    async fn many(self, ctx: &DiceComputations) -> buck2_error::Result<ToolchainConstraints> {
-        resolve_toolchain_constraints_from_constraints(
-            &self.exec_compatible_with,
-            &self.exec_deps,
-            &self.toolchain_allows(ctx).await?,
-        )
-        .await
-    }
 }
 
 async fn execution_platforms_for_toolchain(
@@ -311,7 +301,12 @@ async fn execution_platforms_for_toolchain(
             }
             let constraints =
                 ExecutionPlatformConstraints::new(node.as_ref(), &gathered_deps, &cfg_ctx)?;
-            constraints.many(ctx).await
+            let toolchain_allows = constraints.toolchain_allows(ctx).await?;
+            Ok(ToolchainConstraints::new(
+                &constraints.exec_deps,
+                &constraints.exec_compatible_with,
+                &toolchain_allows,
+            ))
         }
 
         fn equality(x: &Self::Value, y: &Self::Value) -> bool {
