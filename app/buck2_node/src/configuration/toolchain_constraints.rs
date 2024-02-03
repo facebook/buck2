@@ -13,7 +13,6 @@ use allocative::Allocative;
 use buck2_core::target::label::TargetLabel;
 use dupe::Dupe;
 use dupe::IterDupedExt;
-use indexmap::IndexSet;
 
 /// The constraint introduced on execution platform resolution by
 /// a toolchain rule (reached via a toolchain_dep).
@@ -28,7 +27,7 @@ struct ToolchainConstraintsImpl {
 
 impl ToolchainConstraints {
     pub fn new(
-        exec_deps: &IndexSet<TargetLabel>,
+        exec_deps: &[TargetLabel],
         exec_compatible_with: &[TargetLabel],
         inherited_toolchains: &[ToolchainConstraints],
     ) -> Self {

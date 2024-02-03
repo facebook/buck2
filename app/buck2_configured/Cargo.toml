@@ -10,7 +10,6 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 derive_more = { workspace = true }
 futures = { workspace = true }
-indexmap = { workspace = true }
 
 allocative = { workspace = true }
 dice = { workspace = true }

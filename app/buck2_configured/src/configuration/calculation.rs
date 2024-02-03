@@ -40,7 +40,6 @@ use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use gazebo::prelude::*;
-use indexmap::IndexSet;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
@@ -159,7 +158,7 @@ async fn check_execution_platform(
     ctx: &DiceComputations,
     target_node_cell: CellName,
     exec_compatible_with: &[TargetLabel],
-    exec_deps: &IndexSet<TargetLabel>,
+    exec_deps: &[TargetLabel],
     exec_platform: &ExecutionPlatform,
     toolchain_allows: &[ToolchainConstraints],
 ) -> anyhow::Result<Result<(), ExecutionPlatformIncompatibleReason>> {
@@ -238,7 +237,7 @@ async fn resolve_execution_platform_from_constraints(
     ctx: &DiceComputations,
     target_node_cell: CellName,
     exec_compatible_with: &[TargetLabel],
-    exec_deps: &IndexSet<TargetLabel>,
+    exec_deps: &[TargetLabel],
     toolchain_allows: &[ToolchainConstraints],
 ) -> buck2_error::Result<ExecutionPlatformResolution> {
     let mut skipped = Vec::new();
@@ -382,9 +381,9 @@ pub trait ConfigurationCalculation {
     async fn resolve_execution_platform_from_constraints(
         &self,
         target_node_cell: CellName,
-        exec_compatible_with: &[TargetLabel],
-        exec_deps: &IndexSet<TargetLabel>,
-        toolchain_allows: &[ToolchainConstraints],
+        exec_compatible_with: Arc<[TargetLabel]>,
+        exec_deps: Arc<[TargetLabel]>,
+        toolchain_allows: Arc<[ToolchainConstraints]>,
     ) -> buck2_error::Result<ExecutionPlatformResolution>;
 }
 
@@ -626,16 +625,16 @@ impl ConfigurationCalculation for DiceComputations {
     async fn resolve_execution_platform_from_constraints(
         &self,
         target_node_cell: CellName,
-        exec_compatible_with: &[TargetLabel],
-        exec_deps: &IndexSet<TargetLabel>,
-        toolchain_allows: &[ToolchainConstraints],
+        exec_compatible_with: Arc<[TargetLabel]>,
+        exec_deps: Arc<[TargetLabel]>,
+        toolchain_allows: Arc<[ToolchainConstraints]>,
     ) -> buck2_error::Result<ExecutionPlatformResolution> {
         resolve_execution_platform_from_constraints(
             self,
             target_node_cell,
-            exec_compatible_with,
-            exec_deps,
-            toolchain_allows,
+            &exec_compatible_with,
+            &exec_deps,
+            &toolchain_allows,
         )
         .await
     }

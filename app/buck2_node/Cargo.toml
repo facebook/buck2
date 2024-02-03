@@ -13,7 +13,6 @@ derive_more = { workspace = true }
 either = { workspace = true }
 fnv = { workspace = true }
 futures = { workspace = true }
-indexmap = { workspace = true }
 itertools = { workspace = true }
 once_cell = { workspace = true }
 ref-cast = { workspace = true }

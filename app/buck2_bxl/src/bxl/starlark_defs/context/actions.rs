@@ -8,6 +8,8 @@
  */
 
 //! Starlark Actions API for bxl functions
+use std::sync::Arc;
+
 use allocative::Allocative;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
@@ -72,7 +74,7 @@ pub(crate) async fn resolve_bxl_execution_platform(
     exec_deps: Vec<ProvidersLabel>,
     toolchain_deps: Vec<ProvidersLabel>,
     target_platform: Option<TargetLabel>,
-    exec_compatible_with: Vec<TargetLabel>,
+    exec_compatible_with: Arc<[TargetLabel]>,
     module: &Module,
 ) -> anyhow::Result<BxlExecutionResolution> {
     // bxl has on transitions
@@ -86,7 +88,7 @@ pub(crate) async fn resolve_bxl_execution_platform(
         None => ConfigurationData::unspecified(),
     };
     let resolved_configuration = {
-        ctx.get_resolved_configuration(&platform_configuration, cell, &exec_compatible_with)
+        ctx.get_resolved_configuration(&platform_configuration, cell, &*exec_compatible_with)
             .await?
     };
 

@@ -62,7 +62,6 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
-use indexmap::IndexSet;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -150,16 +149,16 @@ pub async fn find_execution_platform_by_configuration(
 }
 
 pub struct ExecutionPlatformConstraints {
-    exec_deps: IndexSet<TargetLabel>,
-    toolchain_deps: IndexSet<TargetConfiguredTargetLabel>,
-    exec_compatible_with: Vec<TargetLabel>,
+    exec_deps: Arc<[TargetLabel]>,
+    toolchain_deps: Arc<[TargetConfiguredTargetLabel]>,
+    exec_compatible_with: Arc<[TargetLabel]>,
 }
 
 impl ExecutionPlatformConstraints {
     pub fn new_constraints(
-        exec_deps: IndexSet<TargetLabel>,
-        toolchain_deps: IndexSet<TargetConfiguredTargetLabel>,
-        exec_compatible_with: Vec<TargetLabel>,
+        exec_deps: Arc<[TargetLabel]>,
+        toolchain_deps: Arc<[TargetConfiguredTargetLabel]>,
+        exec_compatible_with: Arc<[TargetLabel]>,
     ) -> Self {
         Self {
             exec_deps,
@@ -173,8 +172,7 @@ impl ExecutionPlatformConstraints {
         gathered_deps: &GatheredDeps,
         cfg_ctx: &(dyn AttrConfigurationContext + Sync),
     ) -> buck2_error::Result<Self> {
-        let mut exec_compatible_with = Vec::new();
-        if let Some(a) = node.attr_or_none(
+        let exec_compatible_with: Arc<[_]> = if let Some(a) = node.attr_or_none(
             EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
             AttrInspectOptions::All,
         ) {
@@ -184,13 +182,16 @@ impl ExecutionPlatformConstraints {
                     a.name
                 )
             })?;
-            for label in ConfiguredTargetNode::attr_as_target_compatible_with(configured_attr.value)
-            {
-                exec_compatible_with.push(label.with_context(|| {
-                    format!("attribute `{}`", EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD)
-                })?);
-            }
-        }
+            ConfiguredTargetNode::attr_as_target_compatible_with(configured_attr.value)
+                .map(|label| {
+                    label.with_context(|| {
+                        format!("attribute `{}`", EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD)
+                    })
+                })
+                .collect::<Result<_, _>>()?
+        } else {
+            Arc::new([])
+        };
 
         Ok(Self::new_constraints(
             gathered_deps
@@ -210,15 +211,15 @@ impl ExecutionPlatformConstraints {
     async fn toolchain_allows(
         &self,
         ctx: &DiceComputations,
-    ) -> buck2_error::Result<Vec<ToolchainConstraints>> {
+    ) -> buck2_error::Result<Arc<[ToolchainConstraints]>> {
         // We could merge these constraints together, but the time to do that
         // probably outweighs the benefits given there are likely to only be a few
         // execution platforms to test.
         let mut result = Vec::with_capacity(self.toolchain_deps.len());
-        for x in &self.toolchain_deps {
+        for x in self.toolchain_deps.iter() {
             result.push(execution_platforms_for_toolchain(ctx, x.dupe()).await?)
         }
-        Ok(result)
+        Ok(result.into())
     }
 
     async fn one(
@@ -226,11 +227,12 @@ impl ExecutionPlatformConstraints {
         ctx: &DiceComputations,
         node: TargetNodeRef<'_>,
     ) -> buck2_error::Result<ExecutionPlatformResolution> {
+        let toolchain_allows = self.toolchain_allows(ctx).await?;
         ctx.resolve_execution_platform_from_constraints(
             node.label().pkg().cell_name(),
-            &self.exec_compatible_with,
-            &self.exec_deps,
-            &self.toolchain_allows(ctx).await?,
+            self.exec_compatible_with,
+            self.exec_deps,
+            toolchain_allows,
         )
         .await
     }
@@ -240,11 +242,12 @@ impl ExecutionPlatformConstraints {
         ctx: &DiceComputations,
         cell: CellName,
     ) -> buck2_error::Result<ExecutionPlatformResolution> {
+        let toolchain_allows = self.toolchain_allows(ctx).await?;
         ctx.resolve_execution_platform_from_constraints(
             cell,
-            &self.exec_compatible_with,
-            &self.exec_deps,
-            &self.toolchain_allows(ctx).await?,
+            self.exec_compatible_with,
+            self.exec_deps,
+            toolchain_allows,
         )
         .await
     }

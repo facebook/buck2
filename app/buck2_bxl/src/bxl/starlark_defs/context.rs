@@ -1026,8 +1026,8 @@ fn context_methods(builder: &mut MethodsBuilder) {
                                 }
                             };
 
-                            let exec_compatible_with = match exec_compatible_with {
-                                NoneOr::None => Vec::new(),
+                            let exec_compatible_with: Arc<[_]> = match exec_compatible_with {
+                                NoneOr::None => Arc::new([]),
                                 NoneOr::Other(exec_compatible_with) => {
                                     TargetListExpr::<TargetNode>::unpack(
                                         exec_compatible_with,
