@@ -150,7 +150,6 @@ pub async fn find_execution_platform_by_configuration(
     }
 }
 
-#[derive(Default)]
 pub struct ExecutionPlatformConstraints {
     exec_deps: IndexSet<TargetLabel>,
     toolchain_deps: IndexSet<TargetConfiguredTargetLabel>,
@@ -224,7 +223,7 @@ impl ExecutionPlatformConstraints {
     }
 
     async fn one(
-        &self,
+        self,
         ctx: &DiceComputations,
         node: TargetNodeRef<'_>,
     ) -> buck2_error::Result<ExecutionPlatformResolution> {
@@ -238,7 +237,7 @@ impl ExecutionPlatformConstraints {
     }
 
     pub async fn one_for_cell(
-        &self,
+        self,
         ctx: &DiceComputations,
         cell: CellName,
     ) -> buck2_error::Result<ExecutionPlatformResolution> {
@@ -252,7 +251,7 @@ impl ExecutionPlatformConstraints {
     }
 
     async fn many(
-        &self,
+        self,
         ctx: &DiceComputations,
         target: &TargetConfiguredTargetLabel,
     ) -> buck2_error::Result<ToolchainConstraints> {
