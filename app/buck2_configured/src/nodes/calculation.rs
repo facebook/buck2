@@ -70,6 +70,7 @@ use starlark_map::small_set::SmallSet;
 use crate::calculation::ConfiguredGraphCycleDescriptor;
 use crate::configuration::calculation::resolve_toolchain_constraints_from_constraints;
 use crate::configuration::calculation::ConfigurationCalculation;
+use crate::target::TargetConfiguredTargetLabel;
 
 #[derive(Debug, buck2_error::Error)]
 enum NodeCalculationError {
@@ -152,14 +153,14 @@ pub async fn find_execution_platform_by_configuration(
 #[derive(Default)]
 pub struct ExecutionPlatformConstraints {
     exec_deps: IndexSet<TargetLabel>,
-    toolchain_deps: IndexSet<ConfiguredTargetLabel>,
+    toolchain_deps: IndexSet<TargetConfiguredTargetLabel>,
     exec_compatible_with: Vec<TargetLabel>,
 }
 
 impl ExecutionPlatformConstraints {
     pub fn new_constraints(
         exec_deps: IndexSet<TargetLabel>,
-        toolchain_deps: IndexSet<ConfiguredTargetLabel>,
+        toolchain_deps: IndexSet<TargetConfiguredTargetLabel>,
         exec_compatible_with: Vec<TargetLabel>,
     ) -> Self {
         Self {
@@ -253,11 +254,11 @@ impl ExecutionPlatformConstraints {
     async fn many(
         &self,
         ctx: &DiceComputations,
-        target: &ConfiguredTargetLabel,
+        target: &TargetConfiguredTargetLabel,
     ) -> buck2_error::Result<ToolchainConstraints> {
         resolve_toolchain_constraints_from_constraints(
             ctx,
-            target,
+            target.dupe(),
             &self.exec_compatible_with,
             &self.exec_deps,
             &self.toolchain_allows(ctx).await?,
@@ -268,10 +269,10 @@ impl ExecutionPlatformConstraints {
 
 async fn execution_platforms_for_toolchain(
     ctx: &DiceComputations,
-    target: ConfiguredTargetLabel,
+    target: TargetConfiguredTargetLabel,
 ) -> buck2_error::Result<ToolchainConstraints> {
     #[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
-    struct ExecutionPlatformsForToolchainKey(ConfiguredTargetLabel);
+    struct ExecutionPlatformsForToolchainKey(TargetConfiguredTargetLabel);
 
     #[async_trait]
     impl Key for ExecutionPlatformsForToolchainKey {
@@ -334,7 +335,7 @@ async fn execution_platforms_for_toolchain(
 
 pub async fn get_execution_platform_toolchain_dep(
     ctx: &DiceComputations,
-    target_label: &ConfiguredTargetLabel,
+    target_label: &TargetConfiguredTargetLabel,
     target_node: TargetNodeRef<'_>,
 ) -> buck2_error::Result<MaybeCompatible<ExecutionPlatformResolution>> {
     assert!(target_node.is_toolchain_rule());
@@ -605,7 +606,7 @@ struct ErrorsAndIncompatibilities {
 impl ErrorsAndIncompatibilities {
     pub fn unpack_dep_into(
         &mut self,
-        target_label: &ConfiguredTargetLabel,
+        target_label: &TargetConfiguredTargetLabel,
         result: anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>,
         check_visibility: CheckVisibility,
         list: &mut Vec<ConfiguredTargetNode>,
@@ -615,7 +616,7 @@ impl ErrorsAndIncompatibilities {
 
     fn unpack_dep(
         &mut self,
-        target_label: &ConfiguredTargetLabel,
+        target_label: &TargetConfiguredTargetLabel,
         result: anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>,
         check_visibility: CheckVisibility,
     ) -> Option<ConfiguredTargetNode> {
@@ -625,7 +626,7 @@ impl ErrorsAndIncompatibilities {
             }
             Ok(MaybeCompatible::Incompatible(reason)) => {
                 self.incompats.push(Arc::new(IncompatiblePlatformReason {
-                    target: target_label.dupe(),
+                    target: target_label.inner().dupe(),
                     cause: IncompatiblePlatformReasonCause::Dependency(reason.dupe()),
                 }));
             }
@@ -670,12 +671,12 @@ impl ErrorsAndIncompatibilities {
 struct GatheredDeps {
     deps: Vec<ConfiguredTargetNode>,
     exec_deps: SmallMap<ConfiguredProvidersLabel, CheckVisibility>,
-    toolchain_deps: SmallSet<ConfiguredTargetLabel>,
+    toolchain_deps: SmallSet<TargetConfiguredTargetLabel>,
     plugin_lists: PluginLists,
 }
 
 async fn gather_deps(
-    target_label: &ConfiguredTargetLabel,
+    target_label: &TargetConfiguredTargetLabel,
     target_node: TargetNodeRef<'_>,
     attr_cfg_ctx: &(dyn AttrConfigurationContext + Sync),
     ctx: &DiceComputations,
@@ -684,7 +685,7 @@ async fn gather_deps(
     struct Traversal {
         deps: OrderedMap<ConfiguredProvidersLabel, SmallSet<PluginKindSet>>,
         exec_deps: SmallMap<ConfiguredProvidersLabel, CheckVisibility>,
-        toolchain_deps: SmallSet<ConfiguredTargetLabel>,
+        toolchain_deps: SmallSet<TargetConfiguredTargetLabel>,
         plugin_lists: PluginLists,
     }
 
@@ -712,7 +713,10 @@ async fn gather_deps(
         }
 
         fn toolchain_dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
-            self.toolchain_deps.insert(dep.target().dupe());
+            self.toolchain_deps
+                .insert(TargetConfiguredTargetLabel::new_without_exec_cfg(
+                    dep.target().dupe(),
+                ));
             Ok(())
         }
 
@@ -797,6 +801,8 @@ async fn compute_configured_target_node_no_transition(
     target_node: TargetNode,
     ctx: &DiceComputations,
 ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
+    let partial_target_label =
+        &TargetConfiguredTargetLabel::new_without_exec_cfg(target_label.dupe());
     let target_cfg = target_label.cfg();
     let target_cell = target_node.label().pkg().cell_name();
     let resolved_configuration = ctx
@@ -837,8 +843,13 @@ async fn compute_configured_target_node_no_transition(
         &resolved_transitions,
         &platform_cfgs,
     );
-    let (gathered_deps, mut errors_and_incompats) =
-        gather_deps(target_label, target_node.as_ref(), &attr_cfg_ctx, ctx).await?;
+    let (gathered_deps, mut errors_and_incompats) = gather_deps(
+        partial_target_label,
+        target_node.as_ref(),
+        &attr_cfg_ctx,
+        ctx,
+    )
+    .await?;
 
     check_plugin_deps(ctx, target_label, &gathered_deps.plugin_lists).await?;
 
@@ -908,10 +919,20 @@ async fn compute_configured_target_node_no_transition(
     let mut exec_deps = Vec::with_capacity(gathered_deps.exec_deps.len());
 
     for dep in toolchain_dep_results {
-        errors_and_incompats.unpack_dep_into(target_label, dep, CheckVisibility::Yes, &mut deps);
+        errors_and_incompats.unpack_dep_into(
+            partial_target_label,
+            dep,
+            CheckVisibility::Yes,
+            &mut deps,
+        );
     }
     for (dep, check_visibility) in exec_dep_results {
-        errors_and_incompats.unpack_dep_into(target_label, dep, *check_visibility, &mut exec_deps);
+        errors_and_incompats.unpack_dep_into(
+            partial_target_label,
+            dep,
+            *check_visibility,
+            &mut exec_deps,
+        );
     }
 
     if let Some(ret) = errors_and_incompats.finalize() {

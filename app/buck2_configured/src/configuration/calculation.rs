@@ -47,6 +47,8 @@ use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::execution_platform_registration_info::FrozenExecutionPlatformRegistrationInfo;
 
+use crate::target::TargetConfiguredTargetLabel;
+
 #[derive(Debug, buck2_error::Error)]
 pub enum ConfigurationError {
     #[error("Expected a ConfigurationInfo provider from `{0}`.")]
@@ -235,7 +237,7 @@ async fn get_execution_platforms_enabled(
 
 pub(crate) async fn resolve_toolchain_constraints_from_constraints(
     ctx: &DiceComputations,
-    target: &ConfiguredTargetLabel,
+    target: TargetConfiguredTargetLabel,
     exec_compatible_with: &[TargetLabel],
     exec_deps: &IndexSet<TargetLabel>,
     toolchain_allows: &[ToolchainConstraints],
@@ -254,7 +256,7 @@ pub(crate) async fn resolve_toolchain_constraints_from_constraints(
         {
             incompatible.insert(
                 exec_platform.dupe(),
-                Arc::new(e.into_incompatible_platform_reason(target.dupe())),
+                Arc::new(e.into_incompatible_platform_reason(target.inner().dupe())),
             );
         }
     }
@@ -684,7 +686,7 @@ impl ConfigurationCalculation for DiceComputations {
     ) -> buck2_error::Result<ToolchainConstraints> {
         resolve_toolchain_constraints_from_constraints(
             self,
-            target,
+            TargetConfiguredTargetLabel::new_without_exec_cfg(target.dupe()),
             exec_compatible_with,
             exec_deps,
             toolchain_allows,

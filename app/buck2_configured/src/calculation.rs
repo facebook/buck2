@@ -29,6 +29,7 @@ use gazebo::prelude::*;
 use crate::configuration::calculation::ConfigurationCalculation;
 use crate::nodes::calculation::get_execution_platform_toolchain_dep;
 use crate::nodes::calculation::ConfiguredTargetNodeKey;
+use crate::target::TargetConfiguredTargetLabel;
 
 struct ConfiguredTargetCalculationInstance;
 
@@ -77,7 +78,7 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
                 let cfg = get_platform_configuration().await?;
                 let exec_cfg = get_execution_platform_toolchain_dep(
                     ctx,
-                    &target.configure(cfg.dupe()),
+                    &TargetConfiguredTargetLabel::new_configure(target, cfg.dupe()),
                     node.as_ref(),
                 )
                 .await?

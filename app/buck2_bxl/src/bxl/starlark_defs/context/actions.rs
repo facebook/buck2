@@ -15,6 +15,7 @@ use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_configured::configuration::calculation::ConfigurationCalculation;
 use buck2_configured::nodes::calculation::ExecutionPlatformConstraints;
+use buck2_configured::target::TargetConfiguredTargetLabel;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::cells::name::CellName;
 use buck2_core::configuration::data::ConfigurationData;
@@ -115,7 +116,7 @@ pub(crate) async fn resolve_bxl_execution_platform(
             .collect(),
         toolchain_deps_configured
             .iter()
-            .map(|dep| dep.target().clone())
+            .map(|dep| TargetConfiguredTargetLabel::new_without_exec_cfg(dep.target().dupe()))
             .collect(),
         exec_compatible_with,
     );
