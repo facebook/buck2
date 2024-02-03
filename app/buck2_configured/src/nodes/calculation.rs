@@ -250,14 +250,8 @@ impl ExecutionPlatformConstraints {
         .await
     }
 
-    async fn many(
-        self,
-        ctx: &DiceComputations,
-        target: &TargetConfiguredTargetLabel,
-    ) -> buck2_error::Result<ToolchainConstraints> {
+    async fn many(self, ctx: &DiceComputations) -> buck2_error::Result<ToolchainConstraints> {
         resolve_toolchain_constraints_from_constraints(
-            ctx,
-            target.dupe(),
             &self.exec_compatible_with,
             &self.exec_deps,
             &self.toolchain_allows(ctx).await?,
@@ -317,7 +311,7 @@ async fn execution_platforms_for_toolchain(
             }
             let constraints =
                 ExecutionPlatformConstraints::new(node.as_ref(), &gathered_deps, &cfg_ctx)?;
-            constraints.many(ctx, &self.0).await
+            constraints.many(ctx).await
         }
 
         fn equality(x: &Self::Value, y: &Self::Value) -> bool {

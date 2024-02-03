@@ -10,35 +10,49 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
-use buck2_core::execution_types::execution::ExecutionPlatform;
+use buck2_core::target::label::TargetLabel;
 use dupe::Dupe;
-use starlark_map::small_map::SmallMap;
+use dupe::IterDupedExt;
+use indexmap::IndexSet;
 
 /// The constraint introduced on execution platform resolution by
 /// a toolchain rule (reached via a toolchain_dep).
 #[derive(Dupe, Clone, PartialEq, Eq, Allocative)]
-pub struct ToolchainConstraints {
-    // We know the set of execution platforms is fixed throughout the build,
-    // so we can record just the ones we are incompatible with,
-    // and assume all others we _are_ compatible with.
-    incompatible: Arc<SmallMap<ExecutionPlatform, Arc<IncompatiblePlatformReason>>>,
+pub struct ToolchainConstraints(Arc<ToolchainConstraintsImpl>);
+
+#[derive(PartialEq, Eq, Allocative)]
+struct ToolchainConstraintsImpl {
+    exec_deps: Vec<TargetLabel>,
+    exec_compatible_with: Vec<TargetLabel>,
 }
 
 impl ToolchainConstraints {
-    pub fn new(incompatible: SmallMap<ExecutionPlatform, Arc<IncompatiblePlatformReason>>) -> Self {
-        Self {
-            incompatible: Arc::new(incompatible),
-        }
+    pub fn new(
+        exec_deps: &IndexSet<TargetLabel>,
+        exec_compatible_with: &[TargetLabel],
+        inherited_toolchains: &[ToolchainConstraints],
+    ) -> Self {
+        Self(Arc::new(ToolchainConstraintsImpl {
+            exec_deps: inherited_toolchains
+                .iter()
+                .flat_map(|i| &i.0.exec_deps)
+                .chain(exec_deps)
+                .duped()
+                .collect(),
+            exec_compatible_with: inherited_toolchains
+                .iter()
+                .flat_map(|i| &i.0.exec_compatible_with)
+                .chain(exec_compatible_with)
+                .duped()
+                .collect(),
+        }))
     }
 
-    pub fn allows(
-        &self,
-        exec_platform: &ExecutionPlatform,
-    ) -> Result<(), Arc<IncompatiblePlatformReason>> {
-        match self.incompatible.get(exec_platform) {
-            None => Ok(()),
-            Some(e) => Err(e.dupe()),
-        }
+    pub fn exec_deps(&self) -> impl Iterator<Item = &TargetLabel> {
+        self.0.exec_deps.iter()
+    }
+
+    pub fn exec_compatible_with(&self) -> impl Iterator<Item = &TargetLabel> {
+        self.0.exec_compatible_with.iter()
     }
 }

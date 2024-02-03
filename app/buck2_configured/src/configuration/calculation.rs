@@ -9,7 +9,7 @@
 
 use std::sync::Arc;
 
-use allocative::Allocative;use starlark_map::small_map::SmallMap;
+use allocative::Allocative;
 use async_trait::async_trait;use buck2_build_api::interpreter::rule_defs::provider::builtin::platform_info::FrozenPlatformInfo;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -46,8 +46,6 @@ use buck2_futures::cancellation::CancellationContext;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::execution_platform_registration_info::FrozenExecutionPlatformRegistrationInfo;
-
-use crate::target::TargetConfiguredTargetLabel;
 
 #[derive(Debug, buck2_error::Error)]
 pub enum ConfigurationError {
@@ -166,25 +164,23 @@ async fn check_execution_platform(
     exec_platform: &ExecutionPlatform,
     toolchain_allows: &[ToolchainConstraints],
 ) -> anyhow::Result<Result<(), ExecutionPlatformIncompatibleReason>> {
-    // First check if the platform satisfies the toolchain requirements
-    for allowed in toolchain_allows {
-        if let Err(e) = allowed.allows(exec_platform) {
-            return Ok(Err(
-                ExecutionPlatformIncompatibleReason::ExecutionDependencyIncompatible(e),
-            ));
-        }
-    }
-
     let resolved_platform_configuration = ctx
         .get_resolved_configuration(
             exec_platform.cfg(),
             target_node_cell,
-            exec_compatible_with.iter(),
+            toolchain_allows
+                .iter()
+                .flat_map(ToolchainConstraints::exec_compatible_with)
+                .chain(exec_compatible_with),
         )
         .await?;
 
     // Then check if the platform satisfies compatible_with
-    for constraint in exec_compatible_with {
+    for constraint in toolchain_allows
+        .iter()
+        .flat_map(ToolchainConstraints::exec_compatible_with)
+        .chain(exec_compatible_with)
+    {
         if resolved_platform_configuration
             .matches(constraint)
             .is_none()
@@ -198,7 +194,11 @@ async fn check_execution_platform(
     // Then check that all exec_deps are compatible with the platform. We collect errors separately,
     // so that we do not report an error if we would later find an incompatibility
     let mut errs = Vec::new();
-    for dep in exec_deps {
+    for dep in toolchain_allows
+        .iter()
+        .flat_map(ToolchainConstraints::exec_deps)
+        .chain(exec_deps)
+    {
         match ctx
             .get_configured_target_node(
                 &dep.configure_pair_no_exec(exec_platform.cfg_pair_no_exec().dupe()),
@@ -236,31 +236,15 @@ async fn get_execution_platforms_enabled(
 }
 
 pub(crate) async fn resolve_toolchain_constraints_from_constraints(
-    ctx: &DiceComputations,
-    target: TargetConfiguredTargetLabel,
     exec_compatible_with: &[TargetLabel],
     exec_deps: &IndexSet<TargetLabel>,
     toolchain_allows: &[ToolchainConstraints],
 ) -> buck2_error::Result<ToolchainConstraints> {
-    let mut incompatible = SmallMap::new();
-    for exec_platform in get_execution_platforms_enabled(ctx).await?.candidates() {
-        if let Err(e) = check_execution_platform(
-            ctx,
-            target.pkg().cell_name(),
-            exec_compatible_with,
-            exec_deps,
-            exec_platform,
-            toolchain_allows,
-        )
-        .await?
-        {
-            incompatible.insert(
-                exec_platform.dupe(),
-                Arc::new(e.into_incompatible_platform_reason(target.inner().dupe())),
-            );
-        }
-    }
-    Ok(ToolchainConstraints::new(incompatible))
+    Ok(ToolchainConstraints::new(
+        exec_deps,
+        exec_compatible_with,
+        toolchain_allows,
+    ))
 }
 
 async fn resolve_execution_platform_from_constraints(
@@ -679,14 +663,12 @@ impl ConfigurationCalculation for DiceComputations {
 
     async fn resolve_toolchain_constraints_from_constraints(
         &self,
-        target: &ConfiguredTargetLabel,
+        _target: &ConfiguredTargetLabel,
         exec_compatible_with: &[TargetLabel],
         exec_deps: &IndexSet<TargetLabel>,
         toolchain_allows: &[ToolchainConstraints],
     ) -> buck2_error::Result<ToolchainConstraints> {
         resolve_toolchain_constraints_from_constraints(
-            self,
-            TargetConfiguredTargetLabel::new_without_exec_cfg(target.dupe()),
             exec_compatible_with,
             exec_deps,
             toolchain_allows,
