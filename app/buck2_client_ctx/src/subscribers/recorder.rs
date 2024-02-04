@@ -48,6 +48,7 @@ use crate::build_count::BuildCountManager;
 use crate::client_ctx::ClientCommandContext;
 use crate::client_metadata::ClientMetadata;
 use crate::common::CommonDaemonCommandOptions;
+use crate::subscribers::classify_server_stderr::classify_server_stderr;
 use crate::subscribers::observer::ErrorObserver;
 use crate::subscribers::subscriber::EventSubscriber;
 
@@ -288,6 +289,12 @@ impl<'a> InvocationRecorder<'a> {
                 let server_stderr = truncate_stderr(&self.server_stderr);
                 error.processed.message.push_str(server_stderr);
             }
+
+            let stderr_tag = classify_server_stderr(&self.server_stderr);
+            error
+                .processed
+                .tags
+                .push(stderr_tag.as_str_name().to_owned());
         }
     }
 

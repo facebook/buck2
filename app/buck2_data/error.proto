@@ -55,4 +55,12 @@ enum ErrorTag {
   // - Transport error (e.g. connection closed)
   // - Not application error (e.g. bzl file not found)
   CLIENT_GRPC = 4;
+  // Server stderr is empty.
+  SERVER_STDERR_EMPTY = 11;
+  // Server stderr indicates that the server panicked.
+  SERVER_PANICKED = 12;
+  // Server stack overflow.
+  SERVER_STACK_OVERFLOW = 13;
+  // The reason for server failure is unknown.
+  SERVER_STDERR_UNKNOWN = 19;
 }
