@@ -31,6 +31,11 @@ load(
     "is_link_group_shlib",
 )
 load(
+    "@prelude//cxx:linker.bzl",
+    "LINKERS",
+    "get_shared_library_flags",
+)
+load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
     "CPreprocessorArgs",
@@ -472,6 +477,17 @@ HaskellLibBuildOutput = record(
     libs = list[Artifact],
 )
 
+def _get_haskell_shared_library_name_linker_flags(linker_type: str, soname: str) -> list[str]:
+    if linker_type == "gnu":
+        return ["-Wl,-soname,{}".format(soname)]
+    elif linker_type == "darwin":
+        # Passing `-install_name @rpath/...` or
+        # `-Xlinker -install_name -Xlinker @rpath/...` instead causes
+        # ghc-9.6.3: panic! (the 'impossible' happened)
+        return ["-Wl,-install_name,@rpath/{}".format(soname)]
+    else:
+        fail("Unknown linker type '{}'.".format(linker_type))
+
 def _build_haskell_lib(
         ctx,
         libname: str,
@@ -504,8 +520,9 @@ def _build_haskell_lib(
     if link_style == LinkStyle("static_pic"):
         libstem += "_pic"
 
+    dynamic_lib_suffix = "." + LINKERS[linker_info.type].default_shared_library_extension
     static_lib_suffix = "_p.a" if enable_profiling else ".a"
-    libfile = "lib" + libstem + (".so" if link_style == LinkStyle("shared") else static_lib_suffix)
+    libfile = "lib" + libstem + (dynamic_lib_suffix if link_style == LinkStyle("shared") else static_lib_suffix)
 
     lib_short_path = paths.join("lib-{}".format(artifact_suffix), libfile)
 
@@ -521,12 +538,12 @@ def _build_haskell_lib(
         link.add(ctx.attrs.linker_flags)
         link.add("-o", lib.as_output())
         link.add(
-            "-shared",
+            get_shared_library_flags(linker_info.type),
             "-dynamic",
-            "-optl",
-            "-Wl,-soname",
-            "-optl",
-            "-Wl," + libfile,
+            cmd_args(
+                _get_haskell_shared_library_name_linker_flags(linker_info.type, libfile),
+                prepend = "-optl",
+            ),
         )
 
         link.add(objfiles)
