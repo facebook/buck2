@@ -11,6 +11,7 @@ use std::error::Error as StdError;
 use std::fmt;
 use std::sync::Arc;
 
+use crate::classify::best_tag;
 use crate::context_value::ContextValue;
 use crate::format::into_anyhow_for_format;
 use crate::root::ErrorRoot;
@@ -170,19 +171,27 @@ impl Error {
         out
     }
 
-    /// Get all the tags that have been added to this error
-    pub fn get_tags(&self) -> Vec<crate::ErrorTag> {
-        let mut tags: Vec<_> = self
-            .iter_context()
+    /// All tags unsorted and with duplicates.
+    fn tags_unsorted(&self) -> impl Iterator<Item = crate::ErrorTag> + '_ {
+        self.iter_context()
             .filter_map(|kind| match kind {
                 ContextValue::Tags(tags) => Some(tags.iter().copied()),
                 _ => None,
             })
             .flatten()
-            .collect();
+    }
+
+    /// Get all the tags that have been added to this error
+    pub fn get_tags(&self) -> Vec<crate::ErrorTag> {
+        let mut tags: Vec<_> = self.tags_unsorted().collect();
         tags.sort_unstable_by_key(|tag| tag.as_str_name());
         tags.dedup();
         tags
+    }
+
+    /// The most interesting tag among this error tags.
+    pub fn best_tag(&self) -> Option<crate::ErrorTag> {
+        best_tag(self.tags_unsorted())
     }
 }
 

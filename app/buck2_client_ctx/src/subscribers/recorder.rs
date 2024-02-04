@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::future::Future;
 use std::io::Write;
+use std::iter;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -26,6 +27,8 @@ use buck2_common::convert::ProstDurationExt;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_data::error::ErrorTag;
+use buck2_error::classify::best_tag;
+use buck2_error::classify::ERROR_TAG_UNCLASSIFIED;
 use buck2_event_observer::action_stats;
 use buck2_event_observer::cache_hit_rate::total_cache_hit_rate;
 use buck2_event_observer::last_command_execution_kind;
@@ -56,6 +59,7 @@ struct ErrorIntermediate {
     processed: buck2_data::ProcessedErrorReport,
     /// Append stderr to the message before sending the report.
     want_stderr: bool,
+    best_tag: Option<ErrorTag>,
 }
 
 pub(crate) struct InvocationRecorder<'a> {
@@ -291,6 +295,8 @@ impl<'a> InvocationRecorder<'a> {
             }
 
             let stderr_tag = classify_server_stderr(&self.server_stderr);
+            // Note: side effect, `best_error_tag` must be called after this function.
+            error.best_tag = best_tag(error.best_tag.into_iter().chain(iter::once(stderr_tag)));
             error
                 .processed
                 .tags
@@ -298,8 +304,26 @@ impl<'a> InvocationRecorder<'a> {
         }
     }
 
+    fn best_error_tag(&self) -> Option<&'static str> {
+        if self.errors.is_empty() {
+            None
+        } else {
+            Some(
+                best_tag(self.errors.iter().filter_map(|e| e.best_tag)).map_or(
+                    // If we don't have tags on the errors,
+                    // we still want to add a tag to Scuba column.
+                    ERROR_TAG_UNCLASSIFIED,
+                    |t| t.as_str_name(),
+                ),
+            )
+        }
+    }
+
     fn send_it(&mut self) -> Option<impl Future<Output = ()> + 'static + Send> {
         self.maybe_add_server_stderr_to_errors();
+
+        // `None` if no errors, `Some("UNCLASSIFIED")` if no tags.
+        let best_error_tag = self.best_error_tag();
 
         let mut sink_success_count = None;
         let mut sink_failure_count = None;
@@ -429,6 +453,7 @@ impl<'a> InvocationRecorder<'a> {
             daemon_connection_failure: Some(self.daemon_connection_failure),
             client_metadata: std::mem::take(&mut self.client_metadata),
             errors: std::mem::take(&mut self.errors).into_map(|e| e.processed),
+            best_error_tag: best_error_tag.map(|t| t.to_owned()),
             target_rule_type_names: std::mem::take(&mut self.target_rule_type_names),
         };
 
@@ -502,14 +527,18 @@ impl<'a> InvocationRecorder<'a> {
     ) -> anyhow::Result<()> {
         let mut command = command.clone();
         self.errors
-            .extend(
-                std::mem::take(&mut command.errors)
-                    .into_iter()
-                    .map(|e| ErrorIntermediate {
-                        processed: process_error_report(e),
-                        want_stderr: false,
-                    }),
-            );
+            .extend(std::mem::take(&mut command.errors).into_iter().map(|e| {
+                let best_tag = best_tag(e.tags.iter().filter_map(|t| {
+                    // This should never be `None`, but with weak prost types,
+                    // it is safer to just ignore incorrect integers.
+                    ErrorTag::from_i32(*t)
+                }));
+                ErrorIntermediate {
+                    processed: process_error_report(e),
+                    want_stderr: false,
+                    best_tag,
+                }
+            }));
 
         // Awkwardly unpacks the SpanEnd event so we can read its duration.
         let command_end = match event.data() {
@@ -1109,11 +1138,12 @@ impl<'a> EventSubscriber for InvocationRecorder<'a> {
 
     async fn handle_error(&mut self, error: &buck2_error::Error) -> anyhow::Result<()> {
         let want_stderr = error.get_tags().iter().any(|t| *t == ErrorTag::ClientGrpc);
-
+        let best_tag = error.best_tag();
         let error = create_error_report(error);
         self.errors.push(ErrorIntermediate {
             processed: process_error_report(error),
             want_stderr,
+            best_tag,
         });
         Ok(())
     }
@@ -1146,10 +1176,12 @@ impl<'a> EventSubscriber for InvocationRecorder<'a> {
 
     fn handle_daemon_connection_failure(&mut self, error: &buck2_error::Error) {
         self.daemon_connection_failure = true;
+        let best_tag = error.best_tag();
         let error = create_error_report(error);
         self.errors.push(ErrorIntermediate {
             processed: process_error_report(error),
             want_stderr: false,
+            best_tag,
         });
     }
 }

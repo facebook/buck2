@@ -13,6 +13,7 @@
 #![feature(trait_upcasting)]
 
 mod any;
+pub mod classify;
 mod context;
 mod context_value;
 mod derive_tests;
