@@ -1387,7 +1387,7 @@ where
 // TODO(nmj): Some of the windows tests get a bit flaky, especially around
 //            some paths. Revisit later.
 #[cfg(all(test, not(windows)))]
-mod test {
+mod tests {
     use std::path::Path;
     use std::path::PathBuf;
 

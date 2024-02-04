@@ -201,7 +201,7 @@ fn convert_broken_pipe_error(e: io::Error) -> anyhow::Error {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     #[cfg(unix)]
     mod unix {
         use std::path::Path;

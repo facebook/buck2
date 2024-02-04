@@ -807,7 +807,7 @@ pub(crate) mod helpers {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use textwrap::dedent;
 
     use super::helpers::*;

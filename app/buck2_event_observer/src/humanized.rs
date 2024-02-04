@@ -169,7 +169,7 @@ impl fmt::Display for HumanizedCount {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::HumanizedBytes;
     use super::HumanizedBytesPerSecond;
     use super::HumanizedCount;

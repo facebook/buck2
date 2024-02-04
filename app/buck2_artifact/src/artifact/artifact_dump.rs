@@ -70,7 +70,7 @@ pub struct ArtifactMetadataJson<'a> {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use buck2_common::cas_digest::CasDigestConfig;
 
     use super::*;

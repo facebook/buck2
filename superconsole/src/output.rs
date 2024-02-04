@@ -183,7 +183,7 @@ impl SuperConsoleOutput for NonBlockingSuperConsoleOutput {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use crossbeam_channel::Receiver;
 
     use super::*;

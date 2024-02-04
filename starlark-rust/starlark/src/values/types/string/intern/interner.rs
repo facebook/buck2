@@ -51,7 +51,7 @@ impl FrozenStringInterner {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use crate::collections::Hashed;
     use crate::values::string::intern::interner::FrozenStringInterner;
     use crate::values::FrozenHeap;

@@ -354,7 +354,7 @@ async fn copy_and_hash(
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use assert_matches::assert_matches;
     use buck2_common::cas_digest::testing;
     use futures::stream;

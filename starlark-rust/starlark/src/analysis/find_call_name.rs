@@ -79,7 +79,7 @@ impl AstModuleFindCallName for AstModule {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use starlark_syntax::syntax::module::AstModuleFields;
 
     use crate::analysis::find_call_name::AstModuleFindCallName;

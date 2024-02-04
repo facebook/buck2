@@ -281,7 +281,7 @@ pub fn compute_critical_path_potentials(
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use std::time::Instant;
 
     use rand::SeedableRng;

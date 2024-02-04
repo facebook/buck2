@@ -966,7 +966,7 @@ pub fn lex_exactly_one_identifier(s: &str) -> Option<String> {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use crate::lexer::lex_exactly_one_identifier;
 
     #[test]

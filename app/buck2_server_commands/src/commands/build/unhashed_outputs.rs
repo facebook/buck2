@@ -149,7 +149,7 @@ fn iter_reverse_ancestors<'a>(
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
 
     #[test]

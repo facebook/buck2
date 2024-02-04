@@ -105,7 +105,7 @@ pub mod testing {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
 
     #[test]

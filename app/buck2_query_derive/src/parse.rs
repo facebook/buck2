@@ -288,7 +288,7 @@ impl syn::parse::Parse for QueryModuleArgs {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use quote::quote;
     use syn::parse_quote;
     use syn::Generics;

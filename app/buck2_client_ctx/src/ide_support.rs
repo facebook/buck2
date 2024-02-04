@@ -76,7 +76,7 @@ impl<T: for<'a> Deserialize<'a>> Decoder for LspMessageLikeDecoder<T> {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use assert_matches::assert_matches;
     use lsp_server::Message;
     use lsp_server::Request;

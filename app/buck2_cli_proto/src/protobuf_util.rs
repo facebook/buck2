@@ -45,7 +45,7 @@ impl Decoder for ProtobufSplitter {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use anyhow::Context as _;
     use futures::stream::StreamExt;
     use prost::Message;

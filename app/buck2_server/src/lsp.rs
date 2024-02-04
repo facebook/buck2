@@ -925,7 +925,7 @@ fn handle_outgoing_lsp_message(
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use lsp_types::Url;
     use maplit::hashmap;
     use starlark::docs::Doc;

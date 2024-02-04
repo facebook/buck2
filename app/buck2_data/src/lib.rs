@@ -180,7 +180,7 @@ pub mod serialize_duration_as_micros {
     }
 
     #[cfg(test)]
-    mod test {
+    mod tests {
         use super::*;
 
         #[test]

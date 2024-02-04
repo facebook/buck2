@@ -343,7 +343,7 @@ pub(crate) fn scope(module: &AstModule) -> Scope {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use std::iter;
 
     use starlark::codemap::Pos;

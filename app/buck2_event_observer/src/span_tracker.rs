@@ -599,7 +599,7 @@ impl fmt::Display for OptionalSpanId {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use std::sync::atomic::AtomicI64;
     use std::sync::atomic::Ordering;
 

@@ -1344,7 +1344,7 @@ impl CommandLineArtifactVisitor for DepFilesCommandLineVisitor<'_> {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
 
     use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
     use buck2_artifact::deferred::id::DeferredId;

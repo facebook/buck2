@@ -279,7 +279,7 @@ pub struct PathCost {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use crate::builder::GraphBuilder;
     use crate::test_utils::make_dag;

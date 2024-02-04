@@ -651,7 +651,7 @@ pub fn register_attrs(globals: &mut GlobalsBuilder) {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use crate::interpreter::testing::Tester;
 
