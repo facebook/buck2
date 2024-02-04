@@ -25,6 +25,7 @@ use buck2_cli_proto::command_result;
 use buck2_common::convert::ProstDurationExt;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_data::error::ErrorTag;
 use buck2_event_observer::action_stats;
 use buck2_event_observer::cache_hit_rate::total_cache_hit_rate;
 use buck2_event_observer::last_command_execution_kind;
@@ -38,6 +39,7 @@ use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use fbinit::FacebookInit;
 use futures::FutureExt;
+use gazebo::prelude::VecExt;
 use gazebo::variants::VariantName;
 use itertools::Itertools;
 use termwiz::istty::IsTty;
@@ -48,6 +50,12 @@ use crate::client_metadata::ClientMetadata;
 use crate::common::CommonDaemonCommandOptions;
 use crate::subscribers::observer::ErrorObserver;
 use crate::subscribers::subscriber::EventSubscriber;
+
+struct ErrorIntermediate {
+    processed: buck2_data::ProcessedErrorReport,
+    /// Append stderr to the message before sending the report.
+    want_stderr: bool,
+}
 
 pub(crate) struct InvocationRecorder<'a> {
     fb: FacebookInit,
@@ -123,7 +131,9 @@ pub(crate) struct InvocationRecorder<'a> {
     concurrent_command_ids: HashSet<String>,
     daemon_connection_failure: bool,
     client_metadata: Vec<buck2_data::ClientMetadata>,
-    errors: Vec<buck2_data::ProcessedErrorReport>,
+    errors: Vec<ErrorIntermediate>,
+    /// To append to gRPC errors.
+    server_stderr: String,
     target_rule_type_names: Vec<String>,
 }
 
@@ -217,6 +227,7 @@ impl<'a> InvocationRecorder<'a> {
             daemon_connection_failure: false,
             client_metadata,
             errors: Vec::new(),
+            server_stderr: String::new(),
             target_rule_type_names: Vec::new(),
         }
     }
@@ -252,7 +263,37 @@ impl<'a> InvocationRecorder<'a> {
         Ok(0)
     }
 
+    fn maybe_add_server_stderr_to_errors(&mut self) {
+        for error in &mut self.errors {
+            if !error.want_stderr {
+                continue;
+            }
+
+            if error.processed.message.is_empty() {
+                error.processed.message =
+                    "Error is empty? But it is too late to do anything about it\n".to_owned();
+            } else if !error.processed.message.ends_with('\n') {
+                error.processed.message.push('\n');
+            }
+
+            error.processed.message.push('\n');
+
+            if self.server_stderr.is_empty() {
+                error.processed.message.push_str("buckd stderr is empty\n");
+            } else {
+                error.processed.message.push_str("buckd stderr:\n");
+                // Scribe sink truncates messages, but here we can do it better:
+                // - truncate even if total message is not large enough
+                // - truncate stderr, but keep the error message
+                let server_stderr = truncate_stderr(&self.server_stderr);
+                error.processed.message.push_str(server_stderr);
+            }
+        }
+    }
+
     fn send_it(&mut self) -> Option<impl Future<Output = ()> + 'static + Send> {
+        self.maybe_add_server_stderr_to_errors();
+
         let mut sink_success_count = None;
         let mut sink_failure_count = None;
         let mut sink_dropped_count = None;
@@ -380,7 +421,7 @@ impl<'a> InvocationRecorder<'a> {
                 .collect(),
             daemon_connection_failure: Some(self.daemon_connection_failure),
             client_metadata: std::mem::take(&mut self.client_metadata),
-            errors: std::mem::take(&mut self.errors),
+            errors: std::mem::take(&mut self.errors).into_map(|e| e.processed),
             target_rule_type_names: std::mem::take(&mut self.target_rule_type_names),
         };
 
@@ -453,11 +494,15 @@ impl<'a> InvocationRecorder<'a> {
         event: &BuckEvent,
     ) -> anyhow::Result<()> {
         let mut command = command.clone();
-        self.errors.extend(
-            std::mem::take(&mut command.errors)
-                .into_iter()
-                .map(process_error_report),
-        );
+        self.errors
+            .extend(
+                std::mem::take(&mut command.errors)
+                    .into_iter()
+                    .map(|e| ErrorIntermediate {
+                        processed: process_error_report(e),
+                        want_stderr: false,
+                    }),
+            );
 
         // Awkwardly unpacks the SpanEnd event so we can read its duration.
         let command_end = match event.data() {
@@ -1056,8 +1101,30 @@ impl<'a> EventSubscriber for InvocationRecorder<'a> {
     }
 
     async fn handle_error(&mut self, error: &buck2_error::Error) -> anyhow::Result<()> {
+        let want_stderr = error.get_tags().iter().any(|t| *t == ErrorTag::ClientGrpc);
+
         let error = create_error_report(error);
-        self.errors.push(process_error_report(error));
+        self.errors.push(ErrorIntermediate {
+            processed: process_error_report(error),
+            want_stderr,
+        });
+        Ok(())
+    }
+
+    async fn handle_tailer_stderr(&mut self, stderr: &str) -> anyhow::Result<()> {
+        if self.server_stderr.len() > 100_000 {
+            // Proper truncation of the head is tricky, and for practical purposes
+            // discarding the whole thing is fine.
+            self.server_stderr.clear();
+        }
+
+        if !stderr.is_empty() {
+            // We don't know yet whether we will need stderr or not,
+            // so we capture it unconditionally.
+            self.server_stderr.push_str(stderr);
+            self.server_stderr.push('\n');
+        }
+
         Ok(())
     }
 
@@ -1073,7 +1140,10 @@ impl<'a> EventSubscriber for InvocationRecorder<'a> {
     fn handle_daemon_connection_failure(&mut self, error: &buck2_error::Error) {
         self.daemon_connection_failure = true;
         let error = create_error_report(error);
-        self.errors.push(process_error_report(error));
+        self.errors.push(ErrorIntermediate {
+            processed: process_error_report(error),
+            want_stderr: false,
+        });
     }
 }
 
@@ -1164,4 +1234,31 @@ pub(crate) fn try_get_invocation_recorder<'a>(
             .collect(),
     );
     Ok(Box::new(recorder))
+}
+
+fn truncate_stderr(stderr: &str) -> &str {
+    // If server crashed, it means something is very broken,
+    // and we don't really need nicely formatted stderr.
+    // We only need to see it once, fix it, and never see it again.
+    let max_len = 20_000;
+    let truncate_at = stderr.len().saturating_sub(max_len);
+    let truncate_at = stderr.ceil_char_boundary(truncate_at);
+    &stderr[truncate_at..]
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::subscribers::recorder::truncate_stderr;
+
+    #[test]
+    fn test_truncate_stderr() {
+        let mut stderr = String::new();
+        stderr.push_str("prefix");
+        stderr.push('Ъ'); // 2 bytes, so asking to truncate in the middle of the char.
+        for _ in 0..19_999 {
+            stderr.push('a');
+        }
+        let truncated = truncate_stderr(&stderr);
+        assert_eq!(truncated.len(), 19_999);
+    }
 }
