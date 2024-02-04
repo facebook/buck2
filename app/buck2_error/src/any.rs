@@ -249,7 +249,7 @@ mod tests {
                 Some("buck2_error/src/any.rs::FullMetadataError")
             );
             assert_eq!(
-                &e.get_tags(),
+                &e.tags(),
                 &[
                     crate::ErrorTag::StarlarkFail,
                     crate::ErrorTag::WatchmanTimeout

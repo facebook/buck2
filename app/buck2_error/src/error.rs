@@ -182,7 +182,7 @@ impl Error {
     }
 
     /// Get all the tags that have been added to this error
-    pub fn get_tags(&self) -> Vec<crate::ErrorTag> {
+    pub fn tags(&self) -> Vec<crate::ErrorTag> {
         let mut tags: Vec<_> = self.tags_unsorted().collect();
         tags.sort_unstable_by_key(|tag| tag.as_str_name());
         tags.dedup();

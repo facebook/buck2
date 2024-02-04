@@ -31,6 +31,6 @@ pub fn create_error_report(err: &buck2_error::Error) -> buck2_data::ErrorReport 
         message,
         telemetry_message,
         source_location,
-        tags: err.get_tags().map(|t| *t as i32),
+        tags: err.tags().map(|t| *t as i32),
     }
 }

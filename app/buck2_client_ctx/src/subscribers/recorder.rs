@@ -1137,7 +1137,7 @@ impl<'a> EventSubscriber for InvocationRecorder<'a> {
     }
 
     async fn handle_error(&mut self, error: &buck2_error::Error) -> anyhow::Result<()> {
-        let want_stderr = error.get_tags().iter().any(|t| *t == ErrorTag::ClientGrpc);
+        let want_stderr = error.tags().iter().any(|t| *t == ErrorTag::ClientGrpc);
         let best_tag = error.best_tag();
         let error = create_error_report(error);
         self.errors.push(ErrorIntermediate {

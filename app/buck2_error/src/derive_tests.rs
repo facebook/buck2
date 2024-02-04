@@ -236,14 +236,14 @@ fn test_error_tags() {
 
     let a: crate::Error = TaggedError::A.into();
     assert_eq!(
-        &a.get_tags(),
+        &a.tags(),
         &[
             crate::ErrorTag::StarlarkFail,
             crate::ErrorTag::WatchmanTimeout
         ]
     );
     let b: crate::Error = TaggedError::B.into();
-    assert_eq!(&b.get_tags(), &[crate::ErrorTag::WatchmanTimeout]);
+    assert_eq!(&b.tags(), &[crate::ErrorTag::WatchmanTimeout]);
 }
 
 #[test]
