@@ -62,6 +62,20 @@ impl<'a> EventSubscriber for EventLog<'a> {
         self.writer.write_events(events).await
     }
 
+    async fn handle_tailer_stderr(&mut self, _stderr: &str) -> anyhow::Result<()> {
+        // TODO(nga): currently we mostly ignore buckd stderr.
+        //   It is very important to investigate crashes of buckd.
+        //
+        //   We attach truncated log to Scuba since D53337966
+        //   (although we probably shouldn't do that).
+        //
+        //   Regardless of that we should do either or both of the following:
+        //   - write it to event log if it is interesting (e.g. crash)
+        //   - upload it to manifold unconditionally as a separate file
+        //     (but only relevant part, since command start)
+        Ok(())
+    }
+
     async fn handle_command_result(
         &mut self,
         result: &buck2_cli_proto::CommandResult,
