@@ -157,6 +157,47 @@ ExecutableSharedLibArguments = record(
     shared_libs_symlink_tree = field(list[Artifact] | Artifact | None, None),
 )
 
+CxxSanitizerRuntimeArguments = record(
+    extra_link_args = field(list[ArgLike], []),
+    sanitizer_runtime = field(list[Artifact], []),
+)
+
+# @executable_path/Frameworks
+
+def _sanitizer_runtime_arguments(
+        cxx_toolchain: CxxToolchainInfo,
+        output: Artifact) -> CxxSanitizerRuntimeArguments:
+    linker_info = cxx_toolchain.linker_info
+    if not linker_info.sanitizer_runtime_enabled:
+        return CxxSanitizerRuntimeArguments()
+
+    if linker_info.sanitizer_runtime_dir == None:
+        fail("C++ sanitizer runtime enabled but there's no runtime directory")
+
+    if linker_info.type == "darwin":
+        runtime_rpath = cmd_args(linker_info.sanitizer_runtime_dir, format = "-Wl,-rpath,@executable_path/{}").relative_to(output, parent = 1)
+
+        # Ignore_artifacts() as the runtime directory is not required at _link_ time
+        runtime_rpath = runtime_rpath.ignore_artifacts()
+        return CxxSanitizerRuntimeArguments(
+            extra_link_args = [
+                runtime_rpath,
+                # Add rpaths in case the binary gets bundled and the app bundle is expected to be standalone.
+                # Not all transitive callers have `CxxPlatformInfo`, so just add both iOS and macOS rpaths.
+                # There's no downsides to having both, except dyld would check in both locations (and it won't
+                # find anything for the non-current platform).
+                "-Wl,-rpath,@loader_path/Frameworks",  # iOS
+                "-Wl,-rpath,@executable_path/Frameworks",  # iOS
+                "-Wl,-rpath,@loader_path/../Frameworks",  # macOS
+                "-Wl,-rpath,@executable_path/../Frameworks",  # macOS
+            ],
+            sanitizer_runtime = [
+                linker_info.sanitizer_runtime_dir,
+            ],
+        )
+
+    return CxxSanitizerRuntimeArguments()
+
 def executable_shared_lib_arguments(
         actions: AnalysisActions,
         cxx_toolchain: CxxToolchainInfo,
@@ -195,6 +236,10 @@ def executable_shared_lib_arguments(
             # We ignore_artifacts() here since we don't want the symlink tree to actually be there for the link.
             rpath_arg = cmd_args(shared_libs_symlink_tree, format = "-Wl,-rpath,{}/{{}}".format(rpath_reference)).relative_to(output, parent = 1).ignore_artifacts()
             extra_link_args.append(rpath_arg)
+
+    sanitizer_runtime_args = _sanitizer_runtime_arguments(cxx_toolchain, output)
+    extra_link_args += sanitizer_runtime_args.extra_link_args
+    runtime_files += sanitizer_runtime_args.sanitizer_runtime
 
     return ExecutableSharedLibArguments(
         extra_link_args = extra_link_args,
