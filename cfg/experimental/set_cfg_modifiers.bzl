@@ -28,6 +28,14 @@ def set_cfg_modifiers(modifiers: list[Modifier]):
         return
 
     # Make this buck1-proof
+    call_stack_frame = getattr(native, "call_stack_frame", None)
+
+    # To ensure that modifiers set in PACKAGE files are easily codemoddable
+    # We want to enforce that `set_cfg_modifiers` is only invokable from a PACKAGE file and not a bzl file
+    if not call_stack_frame(1).module_path.endswith("/PACKAGE"):
+        fail("set_cfg_modifiers is only allowed to be used from PACKAGE files, not a bzl file")
+
+    # Make this buck1-proof
     write_package_value = getattr(native, "write_package_value", None)
     read_parent_package_value = getattr(native, "read_parent_package_value", None)
 
