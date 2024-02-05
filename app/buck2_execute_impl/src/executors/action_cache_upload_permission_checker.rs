@@ -36,7 +36,7 @@ struct CacheValue {
 /// Check permission to upload to action cache and cache result.
 pub struct ActionCacheUploadPermissionChecker {
     re_client: ManagedRemoteExecutionClient,
-    /// Permission check does not depend on RE use case or platform,
+    /// Permission check does not depend on RE use case,
     /// but since we use these to upload, it is safer to cache the result by them.
     has_permission_to_upload_to_cache: DashMap<CacheKey, Arc<CacheValue>>,
 }
@@ -54,7 +54,7 @@ impl ActionCacheUploadPermissionChecker {
         re_use_case: RemoteExecutorUseCase,
         platform: &RePlatformFields,
     ) -> anyhow::Result<Result<(), String>> {
-        let (action, action_result) = empty_action_result()?;
+        let (action, action_result) = empty_action_result(platform)?;
 
         // This is CAS upload, if it fails, something is very broken.
         self.re_client

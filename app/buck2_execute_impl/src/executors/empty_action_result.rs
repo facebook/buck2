@@ -8,6 +8,7 @@
  */
 
 use buck2_common::cas_digest::DigestAlgorithm;
+use buck2_core::execution_types::executor_config::RePlatformFields;
 use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
@@ -17,15 +18,12 @@ use remote_execution as RE;
 use remote_execution::TActionResult2;
 use remote_execution::TExecutedActionMetadata;
 
-/// Create an empty action result for permission check.
-pub(crate) fn empty_action_result()
--> anyhow::Result<(&'static ActionDigestAndBlobs, &'static TActionResult2)> {
-    static EMPTY_ACTION_RESULT: OnceCell<(ActionDigestAndBlobs, TActionResult2)> = OnceCell::new();
-    let (action, action_result) = EMPTY_ACTION_RESULT.get_or_try_init(new_empty_action_result)?;
-    Ok((action, action_result))
-}
+use crate::executors::to_re_platform::RePlatformFieldsToRePlatform;
 
-fn new_empty_action_result() -> anyhow::Result<(ActionDigestAndBlobs, TActionResult2)> {
+/// Create an empty action result for permission check.
+pub(crate) fn empty_action_result(
+    platform: &RePlatformFields,
+) -> anyhow::Result<(ActionDigestAndBlobs, TActionResult2)> {
     static DIGEST_CONFIG: OnceCell<DigestConfig> = OnceCell::new();
     let digest_config = *DIGEST_CONFIG
         .get_or_try_init(|| DigestConfig::leak_new(vec![DigestAlgorithm::Sha1], None))?;
@@ -41,6 +39,7 @@ fn new_empty_action_result() -> anyhow::Result<(ActionDigestAndBlobs, TActionRes
             // Random string for xbgs.
             "EMPTY_ACTION_RESULT_fztiucvwawdmarhheqoz".to_owned(),
         ],
+        platform: Some(platform.to_re_platform()),
         ..Default::default()
     });
 
