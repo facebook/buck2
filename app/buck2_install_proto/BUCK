@@ -1,6 +1,5 @@
 load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library")
 load("@fbcode//grpc_fb/codegen:buck_macros.bzl", "grpc_library")
-load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("build_infra")
@@ -12,19 +11,6 @@ rust_protobuf_library(
     protos = ["install.proto"],
     deps = [
         "fbsource//third-party/rust:tonic",
-    ],
-)
-
-python_binary(
-    # @autodeps-skip
-    name = "installer",
-    srcs = [
-        "main.py",
-    ],
-    base_module = "",
-    main_function = "main.main",
-    deps = [
-        ":install-py",
     ],
 )
 
