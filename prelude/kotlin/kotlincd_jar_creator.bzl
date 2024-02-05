@@ -331,6 +331,7 @@ def create_jar_artifact_kotlincd(
             local_only = local_only,
             low_pass_filter = False,
             weight = 2,
+            error_handler = kotlin_toolchain.kotlin_error_handler,
         )
 
     library_classpath_jars_tag = actions.artifact_tag()
