@@ -25,6 +25,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::NonDefaultProvidersName;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::TargetLabel;
 use buck2_error::UniqueRootId;
@@ -41,7 +42,6 @@ use starlark_map::small_set::SmallSet;
 
 use crate::build::action_error::BuildReportActionError;
 use crate::build::BuildProviderType;
-use crate::build::BuildTargetResult;
 use crate::build::ConfiguredBuildTargetResult;
 
 #[derive(Debug, Serialize)]
@@ -165,7 +165,8 @@ impl<'a> BuildReportCollector<'a> {
         include_unconfigured_section: bool,
         include_other_outputs: bool,
         include_failures: bool,
-        build_result: &BuildTargetResult,
+        configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
+        other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
     ) -> BuildReport {
         let mut this: BuildReportCollector<'_> = Self {
             artifact_fs,
@@ -180,13 +181,7 @@ impl<'a> BuildReportCollector<'a> {
         };
         let mut entries = HashMap::new();
 
-        if build_result
-            .other_errors
-            .values()
-            .flatten()
-            .next()
-            .is_some()
-        {
+        if other_errors.values().flatten().next().is_some() {
             // Do this check ahead of time. We don't check for errors that aren't associated
             // with a target below, so we'd miss this otherwise.
             this.overall_success = false;
@@ -194,16 +189,14 @@ impl<'a> BuildReportCollector<'a> {
 
         // The `BuildTargetResult` doesn't group errors by their unconfigured target, so we need
         // to do a little iterator munging to achieve that ourselves
-        let results_by_unconfigured = &build_result
-            .configured
+        let results_by_unconfigured = configured
             .iter()
             .group_by(|x| x.0.target().unconfigured().dupe());
-        let errors_by_unconfigured = build_result
-            .other_errors
+        let errors_by_unconfigured = other_errors
             .iter()
             .filter_map(|(l, e)| Some((l.as_ref()?.target().dupe(), e)));
         for i in Itertools::merge_join_by(
-            IntoIterator::into_iter(results_by_unconfigured),
+            IntoIterator::into_iter(&results_by_unconfigured),
             errors_by_unconfigured,
             |(l1, _), (l2, _)| Ord::cmp(l1, l2),
         ) {
