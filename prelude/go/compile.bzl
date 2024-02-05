@@ -14,9 +14,9 @@ load(":coverage.bzl", "GoCoverageMode")
 load(
     ":packages.bzl",
     "GoPkg",  # @Unused used as type
+    "make_importcfg",
     "merge_pkgs",
     "pkg_artifacts",
-    "stdlib_pkg_artifacts",
 )
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_cmd_args")
 
@@ -92,8 +92,8 @@ def _assemble_cmd(
 
 def _compile_cmd(
         ctx: AnalysisContext,
+        root: str,
         pkg_name: str,
-        cgo_enabled: bool,
         pkgs: dict[str, Artifact] = {},
         deps: list[Dependency] = [],
         flags: list[str] = [],
@@ -118,25 +118,11 @@ def _compile_cmd(
     all_pkgs = merge_pkgs([
         pkgs,
         pkg_artifacts(get_inherited_compile_pkgs(deps), coverage_mode = coverage_mode),
-        stdlib_pkg_artifacts(go_toolchain, shared = shared, non_cgo = not cgo_enabled),
     ])
 
-    importcfg_content = []
-    for name_, pkg_ in all_pkgs.items():
-        # Hack: we use cmd_args get "artifact" valid path and write it to a file.
-        importcfg_content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = ""))
-
-        # Future work: support importmap in buck rules insted of hacking here.
-        if name_.startswith("third-party-source/go/"):
-            real_name_ = name_.removeprefix("third-party-source/go/")
-            importcfg_content.append(cmd_args("importmap ", real_name_, "=", name_, delimiter = ""))
-
-    root = _out_root(shared, coverage_mode)
-    importcfg = ctx.actions.declare_output(root, paths.basename(pkg_name) + "-importcfg")
-    ctx.actions.write(importcfg.as_output(), importcfg_content)
+    importcfg = make_importcfg(ctx, root, pkg_name, all_pkgs, with_importmap = True)
 
     cmd.add("-importcfg", importcfg)
-    cmd.hidden(all_pkgs.values())
 
     return cmd
 
@@ -144,7 +130,6 @@ def compile(
         ctx: AnalysisContext,
         pkg_name: str,
         srcs: cmd_args,
-        cgo_enabled: bool,
         pkgs: dict[str, Artifact] = {},
         deps: list[Dependency] = [],
         compile_flags: list[str] = [],
@@ -158,7 +143,7 @@ def compile(
     cmd = get_toolchain_cmd_args(go_toolchain)
     cmd.add(go_toolchain.compile_wrapper[RunInfo])
     cmd.add(cmd_args(output.as_output(), format = "--output={}"))
-    cmd.add(cmd_args(_compile_cmd(ctx, pkg_name, cgo_enabled, pkgs, deps, compile_flags, shared = shared, coverage_mode = coverage_mode), format = "--compiler={}"))
+    cmd.add(cmd_args(_compile_cmd(ctx, root, pkg_name, pkgs, deps, compile_flags, shared = shared, coverage_mode = coverage_mode), format = "--compiler={}"))
     cmd.add(cmd_args(_assemble_cmd(ctx, pkg_name, assemble_flags, shared = shared), format = "--assembler={}"))
     cmd.add(cmd_args(go_toolchain.packer, format = "--packer={}"))
     if ctx.attrs.embedcfg:

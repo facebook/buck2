@@ -37,9 +37,9 @@ load(":coverage.bzl", "GoCoverageMode")
 load(
     ":packages.bzl",
     "GoPkg",  # @Unused used as type
+    "make_importcfg",
     "merge_pkgs",
     "pkg_artifacts",
-    "stdlib_pkg_artifacts",
 )
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_cmd_args")
 
@@ -106,7 +106,6 @@ def _process_shared_dependencies(
 def link(
         ctx: AnalysisContext,
         main: Artifact,
-        cgo_enabled: bool,
         pkgs: dict[str, Artifact] = {},
         deps: list[Dependency] = [],
         build_mode: GoBuildMode = GoBuildMode("executable"),
@@ -139,19 +138,11 @@ def link(
     all_pkgs = merge_pkgs([
         pkgs,
         pkg_artifacts(get_inherited_link_pkgs(deps), coverage_mode = coverage_mode),
-        stdlib_pkg_artifacts(go_toolchain, shared = shared, non_cgo = not cgo_enabled),
     ])
 
-    importcfg_content = []
-    for name_, pkg_ in all_pkgs.items():
-        # Hack: we use cmd_args get "artifact" valid path and write it to a file.
-        importcfg_content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = ""))
-
-    importcfg = ctx.actions.declare_output("importcfg")
-    ctx.actions.write(importcfg.as_output(), importcfg_content)
+    importcfg = make_importcfg(ctx, "", "", all_pkgs, with_importmap = False)
 
     cmd.add("-importcfg", importcfg)
-    cmd.hidden(all_pkgs.values())
 
     executable_args = _process_shared_dependencies(ctx, output, deps, link_style)
 

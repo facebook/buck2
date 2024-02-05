@@ -18,24 +18,18 @@ load(
 )
 load(":compile.bzl", "compile", "get_filtered_srcs")
 load(":link.bzl", "link")
-load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled")
 
 def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
-    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    cgo_enabled = evaluate_cgo_enabled(go_toolchain, ctx.attrs.cgo_enabled)
-
     lib = compile(
         ctx,
         "main",
         get_filtered_srcs(ctx, ctx.attrs.srcs),
-        cgo_enabled = cgo_enabled,
         deps = ctx.attrs.deps,
         compile_flags = ctx.attrs.compiler_flags,
     )
     (bin, runtime_files, external_debug_info) = link(
         ctx,
         lib,
-        cgo_enabled = cgo_enabled,
         deps = ctx.attrs.deps,
         link_style = value_or(map_val(LinkStyle, ctx.attrs.link_style), LinkStyle("static")),
         linker_flags = ctx.attrs.linker_flags,

@@ -24,6 +24,7 @@ load("@prelude//go:coverage.bzl", "GoCoverageMode")
 load("@prelude//go:go_binary.bzl", "go_binary_impl")
 load("@prelude//go:go_exported_library.bzl", "go_exported_library_impl")
 load("@prelude//go:go_library.bzl", "go_library_impl")
+load("@prelude//go:go_stdlib.bzl", "go_stdlib_impl")
 load("@prelude//go:go_test.bzl", "go_test_impl")
 load("@prelude//go/transitions:defs.bzl", "cgo_enabled_attr", "compile_shared_attr", "go_binary_transition", "go_exported_library_transition", "go_test_transition")
 load("@prelude//haskell:haskell.bzl", "haskell_binary_impl", "haskell_library_impl", "haskell_prebuilt_library_impl")
@@ -170,6 +171,7 @@ extra_implemented_rules = struct(
     go_exported_library = go_exported_library_impl,
     go_library = go_library_impl,
     go_test = go_test_impl,
+    go_stdlib = go_stdlib_impl,
 
     #haskell
     haskell_library = haskell_library_impl,
@@ -373,6 +375,7 @@ inlined_extra_attributes = {
         "_compile_shared": compile_shared_attr,
         "_cxx_toolchain": toolchains_common.cxx(),
         "_exec_os_type": buck.exec_os_type_arg(),
+        "_go_stdlib": attrs.default_only(attrs.dep(default = "prelude//go/tools:stdlib")),
         "_go_toolchain": toolchains_common.go(),
     },
     # csharp
@@ -418,17 +421,26 @@ inlined_extra_attributes = {
         "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "resources": attrs.list(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), default = []),
         "_exec_os_type": buck.exec_os_type_arg(),
+        "_go_stdlib": attrs.default_only(attrs.dep(default = "prelude//go/tools:stdlib")),
         "_go_toolchain": toolchains_common.go(),
     },
     "go_exported_library": {
         "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "_exec_os_type": buck.exec_os_type_arg(),
+        "_go_stdlib": attrs.default_only(attrs.dep(default = "prelude//go/tools:stdlib")),
         "_go_toolchain": toolchains_common.go(),
     },
     "go_library": {
         "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "_cgo_enabled": cgo_enabled_attr,
         "_compile_shared": compile_shared_attr,
+        "_go_stdlib": attrs.default_only(attrs.dep(default = "prelude//go/tools:stdlib")),
+        "_go_toolchain": toolchains_common.go(),
+    },
+    "go_stdlib": {
+        "_cgo_enabled": cgo_enabled_attr,
+        "_compile_shared": compile_shared_attr,
+        "_exec_os_type": buck.exec_os_type_arg(),
         "_go_toolchain": toolchains_common.go(),
     },
     "go_test": {
@@ -436,6 +448,7 @@ inlined_extra_attributes = {
         "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "resources": attrs.list(attrs.source(allow_directory = True), default = []),
         "_exec_os_type": buck.exec_os_type_arg(),
+        "_go_stdlib": attrs.default_only(attrs.dep(default = "prelude//go/tools:stdlib")),
         "_go_toolchain": toolchains_common.go(),
         "_testmaingen": attrs.default_only(attrs.exec_dep(default = "prelude//go/tools:testmaingen")),
     },

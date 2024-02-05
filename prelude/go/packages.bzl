@@ -5,7 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:artifacts.bzl", "ArtifactGroupInfo")
 load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":coverage.bzl", "GoCoverageMode")
@@ -14,6 +13,13 @@ GoPkg = record(
     cgo = field(bool, default = False),
     pkg = field(Artifact),
     pkg_with_coverage = field(dict[GoCoverageMode, (Artifact, cmd_args)]),
+)
+
+GoStdlib = provider(
+    fields = {
+        "importcfg": provider_field(Artifact),
+        "pkgdir": provider_field(Artifact),
+    },
 )
 
 def go_attr_pkg_name(ctx: AnalysisContext) -> str:
@@ -61,35 +67,39 @@ def pkg_artifacts(pkgs: dict[str, GoPkg], coverage_mode: [GoCoverageMode, None] 
         for name, pkg in pkgs.items()
     }
 
-def stdlib_pkg_artifacts(toolchain: GoToolchainInfo, shared: bool = False, non_cgo: bool = False) -> dict[str, Artifact]:
-    """
-    Return a map package name to a `shared` or `static` package artifact of stdlib.
-    """
+def make_importcfg(
+        ctx: AnalysisContext,
+        root: str,
+        pkg_name: str,
+        own_pkgs: dict[str, typing.Any],
+        with_importmap: bool) -> cmd_args:
+    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
+    stdlib = ctx.attrs._go_stdlib[GoStdlib]
 
-    # shared == True && non_cgo == True is not supported yet,
-    # we'll temporarily use non_cgo if both flags are true, this will be wixed with on-demand building of stdlib.
+    content = []
+    for name_, pkg_ in own_pkgs.items():
+        # Hack: we use cmd_args get "artifact" valid path and write it to a file.
+        content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = ""))
 
-    if non_cgo:
-        prebuilt_stdlib = toolchain.prebuilt_stdlib_noncgo
-    elif shared:
-        prebuilt_stdlib = toolchain.prebuilt_stdlib_shared
-    else:
-        prebuilt_stdlib = toolchain.prebuilt_stdlib
+        # Future work: support importmap in buck rules insted of hacking here.
+        if with_importmap and name_.startswith("third-party-source/go/"):
+            real_name_ = name_.removeprefix("third-party-source/go/")
+            content.append(cmd_args("importmap ", real_name_, "=", name_, delimiter = ""))
 
-    stdlib_pkgs = prebuilt_stdlib[ArtifactGroupInfo].artifacts
+    own_importcfg = ctx.actions.declare_output(root, "{}.importcfg".format(pkg_name))
+    ctx.actions.write(own_importcfg, content)
 
-    if len(stdlib_pkgs) == 0:
-        fail("Stdlib for current platfrom is missing from toolchain.")
+    final_importcfg = ctx.actions.declare_output(root, "{}.final.importcfg".format(pkg_name))
+    ctx.actions.run(
+        [
+            go_toolchain.concat_files,
+            "--output",
+            final_importcfg.as_output(),
+            stdlib.importcfg,
+            own_importcfg,
+        ],
+        category = "concat_importcfgs",
+        identifier = "{}/{}".format(root, pkg_name),
+    )
 
-    pkgs = {}
-    for pkg in stdlib_pkgs:
-        # remove first directory like `pgk`
-        _, _, temp_path = pkg.short_path.partition("/")
-
-        # remove second directory like `darwin_amd64`
-        # now we have name like `net/http.a`
-        _, _, pkg_relpath = temp_path.partition("/")
-        name = pkg_relpath.removesuffix(".a")  # like `net/http`
-        pkgs[name] = pkg
-
-    return pkgs
+    return cmd_args(final_importcfg).hidden(stdlib.pkgdir).hidden(own_pkgs.values())
