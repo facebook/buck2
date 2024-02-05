@@ -194,6 +194,7 @@ extra_attributes = {
         "lipo": attrs.exec_dep(providers = [RunInfo]),
         "min_version": attrs.option(attrs.string(), default = None),
         "momc": attrs.exec_dep(providers = [RunInfo]),
+        "objdump": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "odrcov": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         # A placeholder tool that can be used to set up toolchain constraints.
         # Useful when fat and thin toolchahins share the same underlying tools via `command_alias()`,

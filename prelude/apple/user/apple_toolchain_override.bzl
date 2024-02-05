@@ -31,6 +31,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             lipo = base.lipo,
             min_version = base.min_version,
             momc = base.momc,
+            objdump = base.objdump,
             odrcov = base.odrcov,
             platform_path = base.platform_path,
             sdk_build_version = base.sdk_build_version,
