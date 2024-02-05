@@ -77,5 +77,7 @@ def _modifiers_match(
     return matcher
 
 modifiers = struct(
+    # modifiers.match is deprecated for modifiers.conditional
     match = _modifiers_match,
+    conditional = _modifiers_match,
 )
