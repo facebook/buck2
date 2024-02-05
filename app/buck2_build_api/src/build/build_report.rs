@@ -17,9 +17,6 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
 
-use buck2_build_api::build::BuildProviderType;
-use buck2_build_api::build::BuildTargetResult;
-use buck2_build_api::build::ConfiguredBuildTargetResult;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -42,7 +39,10 @@ use itertools::Itertools;
 use serde::Serialize;
 use starlark_map::small_set::SmallSet;
 
-use crate::commands::build::action_error::BuildReportActionError;
+use crate::build::action_error::BuildReportActionError;
+use crate::build::BuildProviderType;
+use crate::build::BuildTargetResult;
+use crate::build::ConfiguredBuildTargetResult;
 
 #[derive(Debug, Serialize)]
 #[allow(clippy::upper_case_acronyms)] // We care about how they serialise
@@ -61,7 +61,7 @@ impl Default for BuildOutcome {
 
 /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
 #[derive(Debug, Serialize)]
-pub(crate) struct BuildReport {
+pub struct BuildReport {
     trace_id: TraceId,
     success: bool,
     results: HashMap<EntryLabel, BuildReportEntry>,
@@ -145,7 +145,7 @@ enum EntryLabel {
     Target(TargetLabel),
 }
 
-pub(crate) struct BuildReportCollector<'a> {
+pub struct BuildReportCollector<'a> {
     artifact_fs: &'a ArtifactFs,
     overall_success: bool,
     include_unconfigured_section: bool,
@@ -158,7 +158,7 @@ pub(crate) struct BuildReportCollector<'a> {
 }
 
 impl<'a> BuildReportCollector<'a> {
-    pub(crate) fn convert(
+    pub fn convert(
         trace_id: &TraceId,
         artifact_fs: &'a ArtifactFs,
         project_root: &ProjectRoot,

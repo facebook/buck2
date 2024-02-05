@@ -63,6 +63,7 @@ buck2_node = { workspace = true }
 buck2_query = { workspace = true }
 buck2_test_api = { workspace = true }
 buck2_util = { workspace = true }
+buck2_wrapper_common = { workspace = true }
 
 [dev-dependencies]
 buck2_wrapper_common = { workspace = true }

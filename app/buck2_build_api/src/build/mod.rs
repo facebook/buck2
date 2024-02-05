@@ -59,8 +59,9 @@ use crate::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use crate::interpreter::rule_defs::provider::test_provider::TestProvider;
 use crate::keep_going;
 
+mod action_error;
+pub mod build_report;
 mod graph_size;
-
 /// The types of provider to build on the configured providers label
 #[derive(Debug, Clone, Dupe, Allocative)]
 pub enum BuildProviderType {

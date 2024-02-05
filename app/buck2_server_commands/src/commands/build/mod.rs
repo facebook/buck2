@@ -21,6 +21,7 @@ use buck2_artifact::artifact::artifact_dump::FileInfo;
 use buck2_artifact::artifact::artifact_dump::SymlinkInfo;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::build;
+use buck2_build_api::build::build_report::BuildReportCollector;
 use buck2_build_api::build::BuildEvent;
 use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConfiguredBuildEvent;
@@ -83,14 +84,11 @@ use itertools::Itertools;
 use serde::ser::SerializeSeq;
 use serde::ser::Serializer;
 
-use crate::commands::build::build_report::BuildReportCollector;
 use crate::commands::build::result_report::ResultReporter;
 use crate::commands::build::result_report::ResultReporterOptions;
 use crate::commands::build::unhashed_outputs::create_unhashed_outputs;
 
 #[allow(unused)]
-mod action_error;
-mod build_report;
 mod result_report;
 mod unhashed_outputs;
 

@@ -17,7 +17,7 @@ use buck2_event_observer::display::get_action_error_reason;
 use buck2_event_observer::display::TargetDisplayOptions;
 use serde::Serialize;
 
-use crate::commands::build::BuildReportCollector;
+use crate::build::build_report::BuildReportCollector;
 
 #[derive(Debug, Clone, Serialize, PartialOrd, Ord, PartialEq, Eq)]
 struct BuildReportActionName {
