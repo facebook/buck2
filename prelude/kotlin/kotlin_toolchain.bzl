@@ -22,6 +22,7 @@ KotlinToolchainInfo = provider(
         "kosabi_jvm_abi_gen_plugin": provider_field(typing.Any, default = None),
         "kosabi_stubs_gen_plugin": provider_field(typing.Any, default = None),
         "kosabi_supported_ksp_providers": provider_field(typing.Any, default = None),
+        "kotlin_error_handler": provider_field(typing.Any, default = None),
         "kotlin_home_libraries": provider_field(typing.Any, default = None),
         "kotlin_stdlib": provider_field(typing.Any, default = None),
         "kotlinc": provider_field(typing.Any, default = None),
