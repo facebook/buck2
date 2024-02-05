@@ -59,9 +59,9 @@ pub enum LexemeError {
     CannotParse(String, u32),
 }
 
-impl From<LexemeError> for crate::Error {
+impl From<LexemeError> for crate::error::Error {
     fn from(e: LexemeError) -> Self {
-        crate::Error::new(crate::ErrorKind::Lexer(anyhow::Error::new(e)))
+        crate::error::Error::new(crate::error::ErrorKind::Lexer(anyhow::Error::new(e)))
     }
 }
 
