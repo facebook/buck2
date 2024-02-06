@@ -386,3 +386,19 @@ pub(crate) fn parse_bxl_label_from_cli(
         name: bxl_fn.to_owned(),
     })
 }
+
+//TODO(lmvasquezg) Use this to generate build report
+fn _filter_bxl_build_results(
+    build_results: Option<&Vec<BxlBuildResult>>,
+) -> Vec<&ConfiguredBuildTargetResult> {
+    if let Some(build_results) = build_results {
+        return build_results
+            .iter()
+            .filter_map(|res| match res {
+                BxlBuildResult::Built(x) => Some(x),
+                BxlBuildResult::None => None,
+            })
+            .collect();
+    }
+    vec![]
+}
