@@ -347,7 +347,8 @@ apple_bundle = prelude_rule(
         {
             "asset_catalogs_compilation_options": attrs.dict(key = attrs.string(), value = attrs.any(), default = {}, doc = """
                 A dict holding parameters for asset catalogs compiler (actool). Its options include:
-                 * `notices` (defaults to `True`)
+
+                * `notices` (defaults to `True`)
                 * `warnings` (defaults to `True`)
                 * `errors` (defaults to `True`)
                 * `compress_pngs` (defaults to `True`)
