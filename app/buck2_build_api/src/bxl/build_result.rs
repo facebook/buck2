@@ -10,20 +10,26 @@
 use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use gazebo::variants::UnpackVariants;
 
 use crate::build::ConfiguredBuildTargetResult;
-
 #[derive(Clone, Debug, UnpackVariants, Allocative)]
 pub enum BxlBuildResult {
     None,
-    Built(ConfiguredBuildTargetResult),
+    Built {
+        label: ConfiguredProvidersLabel,
+        result: ConfiguredBuildTargetResult,
+    },
 }
 
 impl BxlBuildResult {
-    pub fn new(result: Option<ConfiguredBuildTargetResult>) -> Self {
+    pub fn new(
+        label: ConfiguredProvidersLabel,
+        result: Option<ConfiguredBuildTargetResult>,
+    ) -> Self {
         match result {
-            Some(result) => Self::Built(result),
+            Some(result) => Self::Built { label, result },
             None => Self::None,
         }
     }
@@ -33,11 +39,11 @@ impl Display for BxlBuildResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             BxlBuildResult::None => write!(f, "BxlBuildResult::None"),
-            BxlBuildResult::Built(build_target_result) => write!(
+            BxlBuildResult::Built { result, .. } => write!(
                 f,
                 "BxlBuildResult::Built({} outputs, {} errors)",
-                build_target_result.outputs.len(),
-                build_target_result.errors.len()
+                result.outputs.len(),
+                result.errors.len()
             ),
         }
     }

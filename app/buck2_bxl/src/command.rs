@@ -399,7 +399,7 @@ fn filter_bxl_build_results(
         return build_results
             .iter()
             .filter_map(|res| match res {
-                BxlBuildResult::Built(x) => Some(x),
+                BxlBuildResult::Built { result, .. } => Some(result),
                 BxlBuildResult::None => None,
             })
             .collect();

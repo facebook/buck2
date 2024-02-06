@@ -494,7 +494,7 @@ fn get_artifacts_from_bxl_build_result(
 ) -> anyhow::Result<Vec<EnsuredArtifact>> {
     match &bxl_build_result.0 {
         BxlBuildResult::None => Ok(Vec::new()),
-        BxlBuildResult::Built(result) => result
+        BxlBuildResult::Built { result, .. } => result
             .outputs
             .iter()
             .filter_map(|built| {

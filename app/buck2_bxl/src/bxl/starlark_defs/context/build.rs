@@ -86,6 +86,7 @@ where
             .0
             .unpack_built()
             .unwrap()
+            .1
             .outputs
             .iter()
             .filter_map(|built| built.as_ref().ok())
@@ -147,6 +148,7 @@ where
             .0
             .unpack_built()
             .unwrap()
+            .1
             .outputs
             .iter()
             .filter_map(|built| built.as_ref().err())
@@ -265,11 +267,14 @@ pub(crate) fn build<'v>(
         .map(|(target, result)| {
             (
                 eval.heap()
-                    .alloc_typed(StarlarkConfiguredProvidersLabel::new(target))
+                    .alloc_typed(StarlarkConfiguredProvidersLabel::new(target.clone()))
                     .hashed()
                     .unwrap(),
                 eval.heap()
-                    .alloc_typed(StarlarkBxlBuildResult(BxlBuildResult::new(result))),
+                    .alloc_typed(StarlarkBxlBuildResult(BxlBuildResult::new(
+                        target.clone(),
+                        result,
+                    ))),
             )
         })
         .collect())
