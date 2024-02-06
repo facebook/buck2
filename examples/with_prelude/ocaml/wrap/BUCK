@@ -1,5 +1,7 @@
 load("//test_utils.bzl", "assert_output")
 
+_SUPPORTED = not host_info().os.is_windows
+
 export_file(
     name = "mylib.mli",
     src = "mylib.mli",
@@ -22,7 +24,7 @@ ocaml_library(
         "-49",
     ],
     visibility = [":mylib"],
-) if not host_info().os.is_windows else None
+) if _SUPPORTED else None
 
 # buildifier: disable=no-effect
 ocaml_library(
@@ -46,7 +48,7 @@ ocaml_library(
     ],
     visibility = ["PUBLIC"],
     deps = [":mylib__"],
-) if not host_info().os.is_windows else None
+) if _SUPPORTED else None
 
 # buildifier: disable=no-effect
 ocaml_binary(
@@ -54,11 +56,11 @@ ocaml_binary(
     srcs = ["test_Mylib.ml"],
     visibility = ["PUBLIC"],
     deps = [":mylib"],
-) if not host_info().os.is_windows else None
+) if _SUPPORTED else None
 
 # buildifier: disable=no-effect
 assert_output(
     name = "test-Mylib-check",
     command = "$(exe_target :test-Mylib)",
     output = "Hello world!",
-) if not host_info().os.is_windows else None
+) if _SUPPORTED else None

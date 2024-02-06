@@ -1,5 +1,7 @@
 load("//test_utils.bzl", "assert_output")
 
+_SUPPORTED = not host_info().os.is_windows
+
 # buildifier: disable=no-effect
 ocaml_binary(
     name = "hello-c",
@@ -7,7 +9,7 @@ ocaml_binary(
         "hello.ml",
     ],
     deps = [":hello-stubs-c"],
-) if not host_info().os.is_windows else None
+) if _SUPPORTED else None
 
 # buildifier: disable=no-effect
 cxx_library(
@@ -16,7 +18,7 @@ cxx_library(
         "hello_stubs.c",
     ],
     deps = ["//third-party/ocaml:ocaml-dev"],
-) if not host_info().os.is_windows else None
+) if _SUPPORTED else None
 
 # buildifier: disable=no-effect
 ocaml_binary(
@@ -25,7 +27,7 @@ ocaml_binary(
         "hello.ml",
     ],
     deps = [":hello-stubs-rs"],
-) if not host_info().os.is_windows else None
+) if _SUPPORTED else None
 
 # buildifier: disable=no-effect
 rust_library(
@@ -34,18 +36,18 @@ rust_library(
         "hello_stubs.rs",
     ],
     crate_root = "hello_stubs.rs",
-) if not host_info().os.is_windows else None
+) if _SUPPORTED else None
 
 # buildifier: disable=no-effect
 assert_output(
     name = "check-hello-c",
     command = "$(exe_target :hello-c)",
     output = "Hello C",
-) if not host_info().os.is_windows else None
+) if _SUPPORTED else None
 
 # buildifier: disable=no-effect
 assert_output(
     name = "check-hello-rs",
     command = "$(exe_target :hello-rs)",
     output = "Hello Rust",
-) if not host_info().os.is_windows else None
+) if _SUPPORTED else None

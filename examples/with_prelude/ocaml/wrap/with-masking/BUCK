@@ -1,5 +1,7 @@
 load("//test_utils.bzl", "assert_output")
 
+_SUPPORTED = not host_info().os.is_windows
+
 # buildifier: disable=no-effect
 export_file(
     name = "al__.mli",
@@ -7,7 +9,7 @@ export_file(
         ":al__",
         ":al__imp",
     ],
-) if not host_info().os.is_windows else None
+) if _SUPPORTED else None
 
 # buildifier: disable=no-effect
 ocaml_library(
@@ -18,7 +20,7 @@ ocaml_library(
     ],
     compiler_flags = ["-no-alias-deps"],
     visibility = [":al__imp"],
-) if not host_info().os.is_windows else None
+) if _SUPPORTED else None
 
 # buildifier: disable=no-effect
 ocaml_library(
@@ -39,7 +41,7 @@ ocaml_library(
     ],
     visibility = [":al"],
     deps = [":al__"],
-) if not host_info().os.is_windows else None
+) if _SUPPORTED else None
 
 # buildifier: disable=no-effect
 ocaml_library(
@@ -51,7 +53,7 @@ ocaml_library(
     ],
     visibility = ["PUBLIC"],
     deps = [":al__imp"],
-) if not host_info().os.is_windows else None
+) if _SUPPORTED else None
 
 # buildifier: disable=no-effect
 ocaml_binary(
@@ -59,11 +61,11 @@ ocaml_binary(
     srcs = ["test_Al.ml"],
     visibility = ["PUBLIC"],
     deps = [":al"],
-) if not host_info().os.is_windows else None
+) if _SUPPORTED else None
 
 # buildifier: disable=no-effect
 assert_output(
     name = "test-Al-check",
     command = "$(exe_target :test-Al)",
     output = "Hello world!",
-) if not host_info().os.is_windows else None
+) if _SUPPORTED else None
