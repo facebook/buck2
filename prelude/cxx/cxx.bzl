@@ -682,6 +682,7 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
         output.compilation_db,
         output.xcode_data,
+        output.dist_info,
     ]
 
 def _get_params_for_android_binary_cxx_library() -> (CxxRuleSubTargetParams, CxxRuleProviderParams):
