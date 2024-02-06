@@ -80,16 +80,14 @@ impl BxlResult {
         }
     }
 
-    //TODO(lmvasquezg) Use this to generate build report
-    pub fn _get_artifacts_opt(&self) -> Option<&Vec<ArtifactGroup>> {
+    pub fn get_artifacts_opt(&self) -> Option<&Vec<ArtifactGroup>> {
         match self {
             BxlResult::None { .. } => None,
             BxlResult::BuildsArtifacts { artifacts, .. } => Some(artifacts),
         }
     }
 
-    //TODO(lmvasquezg) Use this to generate build report
-    pub fn _get_build_result_opt(&self) -> Option<&Vec<BxlBuildResult>> {
+    pub fn get_build_result_opt(&self) -> Option<&Vec<BxlBuildResult>> {
         match self {
             BxlResult::None { .. } => None,
             BxlResult::BuildsArtifacts { built, .. } => Some(built),

@@ -183,8 +183,15 @@ async fn bxl(
         // in a separate instance of the map.
         &Arc::new((*materializations).clone()),
     );
-
-    let build_result = ensure_artifacts(ctx, &materialization_context, &bxl_result).await;
+    let build_results = bxl_result.get_build_result_opt();
+    let configured_build_results = filter_bxl_build_results(build_results);
+    let build_result = ensure_artifacts(
+        ctx,
+        &materialization_context,
+        &configured_build_results,
+        bxl_result.get_artifacts_opt(),
+    )
+    .await;
     copy_output(stdout, ctx, bxl_result.get_output_loc()).await?;
     copy_output(server_ctx.stderr()?, ctx, bxl_result.get_error_loc()).await?;
 
@@ -258,36 +265,36 @@ async fn copy_output<W: Write>(
 async fn ensure_artifacts(
     ctx: &DiceComputations,
     materialization_ctx: &MaterializationContext,
-    bxl_result: &buck2_build_api::bxl::result::BxlResult,
+    target_results: &[&ConfiguredBuildTargetResult],
+    artifacts: Option<&Vec<ArtifactGroup>>,
 ) -> Result<(), Vec<buck2_error::Error>> {
-    match bxl_result {
-        buck2_build_api::bxl::result::BxlResult::None { .. } => Ok(()),
-        buck2_build_api::bxl::result::BxlResult::BuildsArtifacts {
-            built, artifacts, ..
-        } => {
+    if let Some(artifacts) = artifacts {
+        return {
             get_dispatcher()
                 .span_async(BxlEnsureArtifactsStart {}, async move {
                     (
-                        ensure_artifacts_inner(ctx, materialization_ctx, built, artifacts).await,
+                        ensure_artifacts_inner(ctx, materialization_ctx, target_results, artifacts)
+                            .await,
                         BxlEnsureArtifactsEnd {},
                     )
                 })
                 .await
-        }
+        };
     }
+    Ok(())
 }
 
 async fn ensure_artifacts_inner(
     ctx: &DiceComputations,
     materialization_ctx: &MaterializationContext,
-    built: &[BxlBuildResult],
+    target_results: &[&ConfiguredBuildTargetResult],
     artifacts: &[ArtifactGroup],
 ) -> Result<(), Vec<buck2_error::Error>> {
     let mut futs = vec![];
 
-    built.iter().for_each(|res| match res {
-        BxlBuildResult::Built(ConfiguredBuildTargetResult { outputs, .. }) => {
-            outputs.iter().for_each(|res| match res {
+    target_results.iter().for_each(|res| {
+        for res in &res.outputs {
+            match res {
                 Ok(artifacts) => {
                     for (artifact, _value) in artifacts.values.iter() {
                         futs.push(
@@ -305,10 +312,8 @@ async fn ensure_artifacts_inner(
                     }
                 }
                 Err(e) => futs.push(futures::future::ready(Err(e.dupe())).boxed()),
-            });
+            }
         }
-
-        BxlBuildResult::None => {}
     });
 
     artifacts.iter().for_each(|a| {
@@ -387,8 +392,7 @@ pub(crate) fn parse_bxl_label_from_cli(
     })
 }
 
-//TODO(lmvasquezg) Use this to generate build report
-fn _filter_bxl_build_results(
+fn filter_bxl_build_results(
     build_results: Option<&Vec<BxlBuildResult>>,
 ) -> Vec<&ConfiguredBuildTargetResult> {
     if let Some(build_results) = build_results {
