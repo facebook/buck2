@@ -34,6 +34,7 @@ rust_library(
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:num_cpus",
         "fbsource//third-party/rust:once_cell",
+        "fbsource//third-party/rust:pathdiff",
         "fbsource//third-party/rust:prost",
         "fbsource//third-party/rust:ref-cast",
         "fbsource//third-party/rust:serde",

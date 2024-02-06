@@ -22,12 +22,14 @@ use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_core::fs::paths::RelativePath;
 use derive_more::Add;
 use faccess::PathExt;
 use futures::future::try_join;
 use futures::future::try_join_all;
 use futures::Future;
 use once_cell::sync::Lazy;
+use pathdiff::diff_paths;
 use tokio::sync::Semaphore;
 
 use crate::directory::new_symlink;
@@ -75,8 +77,7 @@ pub async fn build_entry_from_disk(
             hashing_info = hashing_info.add(file_hashing_info);
             DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata))
         }
-        FileType::Symlink => DirectoryEntry::Leaf(new_symlink(fs_util::read_link(&path)?)?),
-
+        FileType::Symlink => DirectoryEntry::Leaf(create_symlink(&path)?),
         FileType::Directory => {
             let (dir, dir_hashing_info) =
                 build_dir_from_disk(path, digest_config, blocking_executor).await?;
@@ -135,7 +136,7 @@ async fn build_dir_from_disk(
             FileType::Symlink => {
                 builder.insert(
                     filename,
-                    DirectoryEntry::Leaf(new_symlink(fs_util::read_link(&child_disk_path)?)?),
+                    DirectoryEntry::Leaf(create_symlink(&child_disk_path)?),
                 )?;
             }
             FileType::Directory => {
@@ -192,4 +193,26 @@ fn build_file_metadata(
 
         Ok((file_metadata, hashing_duration))
     }
+}
+
+fn create_symlink(path: &AbsNormPathBuf) -> anyhow::Result<ActionDirectoryMember> {
+    let mut symlink_target = fs_util::read_link(path)?;
+    if cfg!(windows) && symlink_target.is_relative() {
+        let directory_path = path
+            .parent()
+            .context(format!("failed to get parent of {}", path.display()))?;
+        let canonical_path = fs_util::canonicalize(directory_path).context(format!(
+            "failed to get canonical path of {}",
+            directory_path.display()
+        ))?;
+        let normalized_target = symlink_target
+            .to_str()
+            .context("can't convert path to str")?
+            .replace('\\', "/");
+        let target_abspath =
+            canonical_path.join_normalized(RelativePath::from_path(&normalized_target)?)?;
+        symlink_target =
+            diff_paths(target_abspath, directory_path).context("can't calculate relative path")?;
+    }
+    new_symlink(symlink_target)
 }

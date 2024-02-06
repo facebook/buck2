@@ -133,6 +133,7 @@ once_cell = "1.8"
 os_str_bytes = { version = "6.6.0", features = ["conversions"] }
 parking_lot = { version = "0.11.2", features = ["send_guard"] }
 paste = "1.0"
+pathdiff = "0.2"
 perf-event = "0.4"
 perf-event-open-sys = "4.0"
 pin-project = "0.4.29"
