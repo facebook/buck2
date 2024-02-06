@@ -21,6 +21,9 @@ pub(crate) fn classify_server_stderr(stderr: &str) -> ErrorTag {
         // thread 'buck2-dm' has overflowed its stack
         // ```
         ErrorTag::ServerStackOverflow
+    } else if stderr.contains("Signal 11 (SIGSEGV)") {
+        // P1180289404
+        ErrorTag::ServerSegv
     } else {
         ErrorTag::ServerStderrUnknown
     }

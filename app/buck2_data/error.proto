@@ -61,6 +61,8 @@ enum ErrorTag {
   SERVER_PANICKED = 12;
   // Server stack overflow.
   SERVER_STACK_OVERFLOW = 13;
+  // SEGV.
+  SERVER_SEGV = 14;
   // The reason for server failure is unknown.
   SERVER_STDERR_UNKNOWN = 19;
 }

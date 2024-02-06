@@ -22,6 +22,7 @@ fn tag_rank(tag: ErrorTag) -> u32 {
     match tag {
         ErrorTag::ServerStackOverflow => line!(),
         ErrorTag::ServerPanicked => line!(),
+        ErrorTag::ServerSegv => line!(),
         ErrorTag::ClientGrpc => line!(),
         ErrorTag::StarlarkFail => line!(),
         ErrorTag::WatchmanTimeout => line!(),
