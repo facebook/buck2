@@ -306,38 +306,42 @@ fn gen_provide_contents(
     fields: &[Field],
     type_name: &Ident,
     variant_name: Option<&Ident>,
-) -> TokenStream {
+) -> syn::Stmt {
     let type_and_variant = match variant_name {
         Some(variant_name) => format!("{}::{}", type_name, variant_name),
         None => type_name.to_string(),
     };
     let source_location_extra = syn::LitStr::new(&type_and_variant, Span::call_site());
-    let category = match &attrs.category {
-        Some(OptionStyle::Explicit(cat)) => quote::quote! {
+    let category: syn::Expr = match &attrs.category {
+        Some(OptionStyle::Explicit(cat)) => syn::parse_quote! {
             core::option::Option::Some(buck2_error::Category::#cat)
         },
-        Some(OptionStyle::ByExpr(e)) => e.to_token_stream(),
-        None => quote::quote! {
+        Some(OptionStyle::ByExpr(e)) => e.clone(),
+        None => syn::parse_quote! {
             core::option::Option::None
         },
     };
-    let typ = match &attrs.typ {
-        Some(OptionStyle::Explicit(typ)) => quote::quote! {
+    let typ: syn::Expr = match &attrs.typ {
+        Some(OptionStyle::Explicit(typ)) => syn::parse_quote! {
             core::option::Option::Some(buck2_error::ErrorType::#typ)
         },
-        Some(OptionStyle::ByExpr(e)) => e.to_token_stream(),
-        None => quote::quote! {
+        Some(OptionStyle::ByExpr(e)) => e.clone(),
+        None => syn::parse_quote! {
             core::option::Option::None
         },
     };
-    let tags = attrs.tags.iter().map(|tag| match tag {
-        OptionStyle::Explicit(tag) => quote::quote! {
-            core::option::Option::Some(buck2_error::ErrorTag::#tag)
-        },
-        OptionStyle::ByExpr(e) => e.to_token_stream(),
-    });
+    let tags: Vec<syn::Expr> = attrs
+        .tags
+        .iter()
+        .map(|tag| match tag {
+            OptionStyle::Explicit(tag) => syn::parse_quote! {
+                core::option::Option::Some(buck2_error::ErrorTag::#tag)
+            },
+            OptionStyle::ByExpr(e) => e.clone(),
+        })
+        .collect();
 
-    let metadata = quote! {
+    let metadata: syn::Stmt = syn::parse_quote! {
         buck2_error::provide_metadata(
             __request,
             #category,
@@ -364,9 +368,11 @@ fn gen_provide_contents(
     // When the same type is provided to the `request` more than once, the first value is used and
     // later values are ignored. As such, make sure we put the `forward_transparent` first, so that
     // if the underlying error has metadata, that's the one that gets used
-    quote! {
-        #forward_transparent
-        #metadata
+    syn::parse_quote! {
+        {
+            #forward_transparent
+            #metadata
+        }
     }
 }
 
