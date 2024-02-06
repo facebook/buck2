@@ -566,7 +566,20 @@ impl ArtifactMetadata {
                 DirectoryEntry::Dir(DirectoryMetadata { fingerprint, .. }),
                 DirectoryEntry::Dir(dir),
             ) => fingerprint == dir.fingerprint(),
-            (DirectoryEntry::Leaf(l1), DirectoryEntry::Leaf(l2)) => l1 == l2,
+            (DirectoryEntry::Leaf(l1), DirectoryEntry::Leaf(l2)) => {
+                // In Windows, the 'executable bit' absence can cause Buck2 to re-download identical artifacts.
+                // To avoid this, we exclude the executable bit from the comparison.
+                if cfg!(windows) {
+                    match (l1, l2) {
+                        (
+                            ActionDirectoryMember::File(meta1),
+                            ActionDirectoryMember::File(meta2),
+                        ) => return meta1.digest == meta2.digest,
+                        _ => (),
+                    }
+                }
+                l1 == l2
+            }
             _ => false,
         }
     }
