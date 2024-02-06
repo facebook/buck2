@@ -1,0 +1,64 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+BUCK_PYTHON_RULE_KINDS = [
+    "python_binary",
+    "python_library",
+    "python_test",
+]
+BUCK_PYTHON_RULE_KIND_QUERY = "|".join(BUCK_PYTHON_RULE_KINDS)
+
+def filter_root_targets(
+        query: bxl.CqueryContext,
+        target_patterns: typing.Any) -> bxl.ConfiguredTargetSet:
+    # Find all Pure-Python targets
+    candidate_targets = ctarget_set()
+    for pattern in target_patterns:
+        candidate_targets += query.kind(
+            BUCK_PYTHON_RULE_KIND_QUERY,
+            pattern,
+        )
+
+    # Don't check generated rules
+    filtered_targets = candidate_targets - query.attrfilter(
+        "labels",
+        "generated",
+        candidate_targets,
+    )
+
+    # Provide an opt-out label
+    filtered_targets = filtered_targets - query.attrfilter(
+        "labels",
+        "no_pyre",
+        candidate_targets,
+    )
+    return filtered_targets
+
+def do_filter(
+        query: bxl.CqueryContext,
+        target_patterns: typing.Any) -> list[ConfiguredTargetLabel]:
+    root_targets = filter_root_targets(query, target_patterns)
+    return [root_target.label for root_target in root_targets]
+
+def _do_filter_entry_point(ctx: bxl.Context) -> None:
+    query = ctx.cquery()
+    targets = do_filter(
+        query,
+        [query.eval(target) for target in ctx.cli_args.target],
+    )
+    ctx.output.print_json([target.raw_target() for target in targets])
+
+filter = bxl_main(
+    doc = (
+        "Expand target patterns and look for all targets in immediate sources " +
+        "that will be built by Pyre."
+    ),
+    impl = _do_filter_entry_point,
+    cli_args = {
+        "target": cli_args.list(cli_args.string()),
+    },
+)

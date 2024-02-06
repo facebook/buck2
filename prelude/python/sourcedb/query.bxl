@@ -7,39 +7,7 @@
 
 load("@prelude//python:python.bzl", "PythonLibraryManifestsTSet")
 load("@prelude//python:source_db.bzl", "PythonSourceDBInfo")
-
-BUCK_PYTHON_RULE_KINDS = [
-    "python_binary",
-    "python_library",
-    "python_test",
-]
-BUCK_PYTHON_RULE_KIND_QUERY = "|".join(BUCK_PYTHON_RULE_KINDS)
-
-def _filter_root_targets(
-        query: bxl.CqueryContext,
-        target_patterns: typing.Any) -> bxl.ConfiguredTargetSet:
-    # Find all Pure-Python targets
-    candidate_targets = ctarget_set()
-    for pattern in target_patterns:
-        candidate_targets += query.kind(
-            BUCK_PYTHON_RULE_KIND_QUERY,
-            pattern,
-        )
-
-    # Don't check generated rules
-    filtered_targets = candidate_targets - query.attrfilter(
-        "labels",
-        "generated",
-        candidate_targets,
-    )
-
-    # Provide an opt-out label
-    filtered_targets = filtered_targets - query.attrfilter(
-        "labels",
-        "no_pyre",
-        candidate_targets,
-    )
-    return filtered_targets
+load("@prelude//python/sourcedb/filter.bxl", "filter_root_targets")
 
 def _get_python_library_manifests_from_analysis_result(
         analysis_result: bxl.AnalysisResult) -> [PythonLibraryManifestsTSet, None]:
@@ -73,7 +41,7 @@ def get_python_library_manifests_tset_from_target_patterns(
         query: bxl.CqueryContext,
         actions: AnalysisActions,
         target_patterns: typing.Any) -> PythonLibraryManifestsTSet:
-    root_targets = _filter_root_targets(query, target_patterns)
+    root_targets = filter_root_targets(query, target_patterns)
     return get_python_library_manifests_tset_from_targets(ctx, actions, root_targets)
 
 def do_query(
@@ -81,11 +49,13 @@ def do_query(
         query: bxl.CqueryContext,
         actions: AnalysisActions,
         target_patterns: typing.Any) -> list[ConfiguredTargetLabel]:
-    manifests_of_transitive_dependencies = get_python_library_manifests_tset_from_target_patterns(
-        ctx,
-        query,
-        actions,
-        target_patterns,
+    manifests_of_transitive_dependencies = (
+        get_python_library_manifests_tset_from_target_patterns(
+            ctx,
+            query,
+            actions,
+            target_patterns,
+        )
     )
     return [
         manifest.label.configured_target()
@@ -96,7 +66,12 @@ def do_query(
 def _do_query_entry_point(ctx: bxl.Context) -> None:
     query = ctx.cquery()
     actions = ctx.bxl_actions().actions
-    targets = do_query(ctx, query, actions, [query.eval(target) for target in ctx.cli_args.target])
+    targets = do_query(
+        ctx,
+        query,
+        actions,
+        [query.eval(target) for target in ctx.cli_args.target],
+    )
     ctx.output.print_json([target.raw_target() for target in targets])
 
 query = bxl_main(
