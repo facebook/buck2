@@ -29,7 +29,6 @@ use buck2_util::process::async_background_command;
 use buck2_util::truncate::truncate;
 use dupe::Dupe;
 use futures::future::try_join3;
-use thiserror::Error;
 use tokio::io::AsyncReadExt;
 use tokio::time::timeout;
 use tonic::codegen::InterceptedService;
@@ -49,6 +48,7 @@ use crate::daemon_constraints;
 use crate::events_ctx::EventsCtx;
 use crate::immediate_config::ImmediateConfigContext;
 use crate::startup_deadline::StartupDeadline;
+use crate::subscribers::classify_server_stderr::classify_server_stderr;
 use crate::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
 use crate::subscribers::subscriber::EventSubscriber;
 
@@ -790,7 +790,7 @@ async fn get_constraints(
     Ok(status.daemon_constraints.unwrap_or_default())
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 #[allow(clippy::large_enum_variant)]
 enum BuckdConnectError {
     #[error(
@@ -809,6 +809,7 @@ enum BuckdConnectError {
         actual: buck2_cli_proto::DaemonConstraints,
     },
     #[error("Error connecting to the daemon, daemon stderr follows:\n{stderr}")]
+    #[buck2(tag = Some(classify_server_stderr(stderr)))]
     ConnectError { stderr: String },
 }
 
