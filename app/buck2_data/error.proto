@@ -55,6 +55,8 @@ enum ErrorTag {
   // - Transport error (e.g. connection closed)
   // - Not application error (e.g. bzl file not found)
   CLIENT_GRPC = 4;
+  // Connect to buckd failed.
+  DAEMON_CONNECT = 5;
   // Server stderr is empty.
   SERVER_STDERR_EMPTY = 11;
   // Server stderr indicates that the server panicked.

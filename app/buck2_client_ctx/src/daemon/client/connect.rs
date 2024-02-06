@@ -792,6 +792,7 @@ async fn get_constraints(
 
 #[derive(Debug, buck2_error::Error)]
 #[allow(clippy::large_enum_variant)]
+#[buck2(tag = DaemonConnect)]
 enum BuckdConnectError {
     #[error(
         "buck daemon startup failed with exit code {code}\nstdout:\n{stdout}\nstderr:\n{stderr}"
