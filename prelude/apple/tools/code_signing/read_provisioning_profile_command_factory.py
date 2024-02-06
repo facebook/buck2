@@ -27,6 +27,7 @@ class DefaultReadProvisioningProfileCommandFactory(
         "der",
         "-verify",
         "-noverify",
+        "-nosigs",
         "-in",
     ]
 
